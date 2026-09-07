@@ -548,15 +548,23 @@ kilkadziesiąt długich, meandrujących linii i rzadko rozsiane groty. Referency
 gęsto usiane groty **oraz** kilka bardzo długich linii — czyli rozkład o ciężkim ogonie,
 a nie przesunięty ku średnim długościom.
 
-| wagi | elem. (25×25) | śr. dł. | wygląd |
-|---|---|---|---|
-| 0.70 / 0.285 / 0.015 | 134 | 4.7 | gęste groty, prawie same krótkie haczyki |
-| **0.62 / 0.23 / 0.15** | **97** | **6.4** | **gęste groty plus długie meandry — jak w oryginale** |
-| 0.10 / 0.70 / 0.20 | 62 | 10.1 | rozwleczone, groty rzadkie |
+| wagi (kr./śr./dł.) | elem. (25×50) | śr. dł. | skrętów | zwinięcie | wygląd |
+|---|---|---|---|---|---|
+| 0.85 / 0.14 / 0.01 | 307 | 4.1 | 1.39 | 11% | gęste groty, same krótkie haczyki |
+| 0.62 / 0.23 / 0.15 | 187 | 6.7 | 2.47 | 36% | dobrze, ale długich wciąż mało |
+| **0.50 / 0.20 / 0.30** | **144** | **8.7** | **3.51** | **42%** | **gęste groty plus wyraźne długie węże** |
+| 0.40 / 0.15 / 0.45 | 134 | 9.3 | 4.07 | 46% | elementy zaczynają się kłębić |
+| 0.10 / 0.70 / 0.20 | 62 | 10.1 | 4.19 | 36% | rozwleczone, groty rzadkie |
 
-Przyjęte wagi domyślne: **0.62 / 0.23 / 0.15**. Cena jest zmierzona i akceptowalna:
-na Nightmare p99 czasu rośnie z 442 do 658 ms, a restarty z 6 do 15 na 30 przebiegów,
-przy zerowej liczbie porażek.
+Podniesienie udziału długich jeszcze wyżej okazało się korzystne na obu osiach naraz.
+Przy `0.30` udział elementów dłuższych niż 50 komórek rośnie z 0,8% do ~2,3%, a **czas
+generacji się poprawia**: p99 spada z 658 do 467 ms, a restarty z 15 do 3 na 30
+przebiegów. To ta sama zależność co w rundzie 3 — mniej elementów to mniej decyzji,
+a każda decyzja jest okazją do pofragmentowania planszy.
+
+Przyjęte wagi domyślne: **0.50 / 0.20 / 0.30**. Powyżej ~0.45 zwinięcie przekracza
+46% i elementy zaczynają się kłębić zamiast meandrować, więc to jest górna granica
+sensownego zakresu.
 
 Jest to świadoma decyzja: **optymalizowaliśmy nie tę wielkość, co trzeba**. Runda 3
 dobrała wagi pod ogon czasu generacji, bo tylko to dawało się wtedy zmierzyć. Dopiero
@@ -682,18 +690,24 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
 koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-Wartości zmierzone przy przyjętych wagach `0.62 / 0.23 / 0.15` i sile Warnsdorffa 4 (§7).
+**Plansze są pionowe, w proporcji 1:2** — takiej samej jak referencyjny zrzut i jak ekran
+telefonu. Wartości zmierzone przy wagach `0.50 / 0.20 / 0.30` i sile Warnsdorffa 4 (§7).
 
 | Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem | zwinięcie |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 625 | ~119 | 5.3 | 30 | 0.209 | 17% | 9 | 2.04 | 20% |
-| Medium | 50×50 | 2 500 | ~402 | 6.2 | 70 | 0.115 | 13% | 18 | 2.53 | 29% |
-| Hard | 75×75 | 5 625 | ~878 | 6.4 | 88 | 0.072 | 10% | 29 | 2.65 | 30% |
-| Nightmare | 100×100 | 10 000 | ~1 586 | 6.3 | 195 | 0.056 | 6% | 34 | 2.59 | 29% |
+| Easy | 25×50 | 1 250 | ~173 | 7.2 | 73 | 0.139 | 17% | 14 | 3.20 | 36% |
+| Medium | 50×100 | 5 000 | ~605 | 8.3 | 136 | 0.080 | 10% | 22 | 3.63 | 42% |
+| Hard | 75×150 | 11 250 | ~1 311 | 8.6 | 246 | 0.050 | 7% | 40 | 3.71 | 42% |
+| Nightmare | 100×200 | 20 000 | ~2 312 | 8.7 | 180 | 0.038 | 6% | 52 | 3.85 | 40% |
+| Extreme | 200×200 | 40 000 | ~4 671 | 8.6 | 199 | 0.034 | 4% | 73 | 3.80 | 41% |
 
-Rozkład długości trafia w kształt referencyjny: ~78% elementów ma 2–6 komórek, ~18% ma
-7–15, a ~1% przekracza 50 — przy najdłuższym elemencie sięgającym 195 komórek na
-Nightmare.
+Rozkład długości trafia w kształt referencyjny: ~71% elementów ma 2–6 komórek, ~18% ma
+7–15, a **~2% przekracza 50 komórek** — przy najdłuższym sięgającym 246 komórek na
+poziomie Hard.
+
+`Extreme 200×200` to preset kwadratowy, dodany jako sprawdzian górnej granicy: 40 000
+komórek i ~4 700 elementów. Domyka się bez porażek, więc rozmiar planszy nie jest
+w praktyce ograniczony niczym poza czytelnością i czasem generacji.
 
 Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w opadający
 ciąg bez dodatkowego sterowania — sam rozmiar planszy wystarcza za regulator trudności,
@@ -711,10 +725,11 @@ Czas ma rozkład skrajnie ciężkoogonowy — mediana jest nieinformatywna, znac
 
 | Poziom | p50 | p90 | p99 | max | porażki |
 |---|---|---|---|---|---|
-| Easy | 1 ms | 2 ms | 281 ms | 281 ms | 0/100 |
-| Medium | 5 ms | 15 ms | 324 ms | 324 ms | 0/100 |
-| Hard | 12 ms | 353 ms | 863 ms | 863 ms | 0/60 |
-| Nightmare | 21 ms | 481 ms | 658 ms | 658 ms | 0/30 |
+| Easy 25×50 | 1 ms | 3 ms | ~50 ms | — | 0/100 |
+| Medium 50×100 | 6 ms | 40 ms | ~200 ms | — | 0/100 |
+| Hard 75×150 | 18 ms | 180 ms | ~300 ms | — | 0/60 |
+| Nightmare 100×200 | 38 ms | 327 ms | 339 ms | 339 ms | 0/25 |
+| Extreme 200×200 | 646 ms | 1 484 ms | 2 074 ms | 2 074 ms | 0/15 |
 
 Nigdy nie odnotowano porażki generacji przy dopuszczonych pięciu restartach. Ogon rzędu
 pół sekundy oznacza, że **wskaźnik ładowania jest potrzebny** (pokazywany po ~200 ms),
@@ -895,9 +910,21 @@ progiem odległości, żeby przesuwanie planszy nie kosztowało życia.
 
 ### Konfigurator (tryb zaawansowany)
 
-Wejście z głównego ekranu, za przyciskiem. Cztery parametry odpowiadają wprost polom
-`GeneratorParams`: rozmiar planszy, liczba linii, stopień połamania (`1 − p_s`)
-i długość maksymalna (`Lmax`). Presety Easy–Nightmare to **zapisane instancje tej samej
+Wejście z głównego ekranu, za przyciskiem. Parametry odpowiadają wprost polom
+`GeneratorParams` — wszystkie wartości porównane w podglądzie (§ „Podgląd" niżej) są
+dostępne graczowi:
+
+| Parametr | Zakres | Co robi |
+|---|---|---|
+| szerokość × wysokość | 10×10 … 200×200 | rozmiar zadania; proporcja dowolna, domyślnie 1:2 |
+| udział długich linii | 0 … 0.45 | główne pokrętło wyglądu: gęste haczyki ↔ długie węże |
+| długość maksymalna `Lmax` | 16 … 5·max(W,H) | jak długi może być najdłuższy element |
+| siła splątania | 0 … 8 | skręty kontra zwijanie w kłębki; poniżej 2 generacja bywa zawodna |
+| grubość linii | 0.35 … 0.65 podziałki | czytelność: szerokość przerw między równoległymi liniami |
+
+**Liczba linii nie jest parametrem** — przy pełnym pokryciu wynika z rozkładu długości
+(`liczba linii = W · H / średnia długość`) i konfigurator pokazuje ją jako wielkość
+pochodną, razem z resztą raportu z generacji. Presety Easy–Nightmare to **zapisane instancje tej samej
 struktury**, nie osobna ścieżka kodu — jedno źródło prawdy dla generatora.
 
 Konfigurator liczy na żywo udział powierzchni zajęty przez długie elementy (§7)

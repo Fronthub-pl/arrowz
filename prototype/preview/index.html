@@ -4,70 +4,81 @@
 <title>Arrowz — podgląd generatora</title>
 <style>
   :root { color-scheme: light; }
-  body { margin: 0; padding: 2rem 2.5rem 4rem; background: #fbfbfd; color: #232447;
+  body { margin: 0; padding: 2rem 2.5rem 5rem; background: #fbfbfd; color: #232447;
          font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-  h1 { font-size: 1.5rem; margin: 0 0 .3rem; }
-  h2 { font-size: 1.05rem; margin: 2.5rem 0 .3rem; padding-top: 1.2rem; border-top: 1px solid #e3e3ec; }
-  p.lead { margin: 0 0 .6rem; color: #5a5b78; max-width: 62ch; }
-  .row { display: flex; flex-wrap: wrap; gap: 1.5rem; margin-top: 1rem; }
+  h1 { font-size: 1.55rem; margin: 0 0 .3rem; }
+  h2 { font-size: 1.05rem; margin: 2.8rem 0 .3rem; padding-top: 1.3rem; border-top: 1px solid #e3e3ec; }
+  p.lead { margin: 0 0 .4rem; color: #5a5b78; max-width: 66ch; }
+  .row { display: flex; flex-wrap: wrap; gap: 1.6rem; margin-top: 1.1rem; align-items: flex-start; }
   figure { margin: 0; }
-  figure img { display: block; width: 420px; max-width: 100%; border: 1px solid #e3e3ec; border-radius: 10px; background: #fff; }
-  figure.wide img { width: 720px; }
-  figcaption { margin-top: .5rem; font-size: 13px; color: #5a5b78; max-width: 420px; }
+  figure img { display: block; width: 300px; border: 1px solid #e3e3ec; border-radius: 10px; background: #fff; }
+  figure.big img { width: 400px; }
+  figcaption { margin-top: .5rem; font-size: 13px; color: #5a5b78; max-width: 300px; }
+  figure.big figcaption { max-width: 400px; }
   figcaption b { color: #232447; }
-  .pick { outline: 3px solid #e8467c; outline-offset: 3px; border-radius: 12px; }
+  .pick img { outline: 3px solid #e8467c; outline-offset: 3px; }
+  .pick figcaption b { color: #e8467c; }
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: .9em; }
+  .note { background: #fff; border: 1px solid #e3e3ec; border-radius: 10px; padding: .9rem 1.1rem;
+          max-width: 66ch; margin-top: 1rem; font-size: 14px; }
 </style>
 
 <h1>Arrowz — podgląd generatora plansz</h1>
 <p class="lead">Wszystkie plansze są wypełnione w 100%, rozwiązywalne i wygenerowane
-prototypem <code>prototype/carve.mjs</code>. Różowa ramka oznacza wariant przyjęty
+prototypem <code>prototype/carve.mjs</code>. Format bazowy to <b>1:2</b> — proporcja
+ekranu telefonu i referencyjnego zrzutu. Różowa ramka oznacza wariant przyjęty
 w specyfikacji.</p>
+<p class="lead">Obrazy są wektorowe — przybliż w przeglądarce, żeby obejrzeć szczegóły
+dużych plansz.</p>
 
-<h2>A. Rozkład długości elementów</h2>
-<p class="lead">Główny parametr wyglądu. Decyduje, czy plansza jest gęsto usiana grotami,
-czy rozwleczona w kilkadziesiąt długich meandrów.</p>
+<h2>A. Udział długich linii</h2>
+<p class="lead">Główne pokrętło wyglądu. Im większy udział koszyka długiego, tym mniej
+elementów, ale dłuższe i bardziej powyginane.</p>
 <div class="row">
-  <figure><img src="a1-krotkie.svg" alt=""><figcaption><b>Same krótkie</b> — 154 elementy, śr. 4,1 komórki, 1,40 skrętu. Gęsto, ale to same haczyki.</figcaption></figure>
-  <figure class="pick"><img src="a2-przyjete.svg" alt=""><figcaption><b>Przyjęty: ciężki ogon</b> — 97 elementów, śr. 6,4, 2,78 skrętu. Gęste groty plus długie meandry.</figcaption></figure>
-  <figure><img src="a3-srednie.svg" alt=""><figcaption><b>Przesunięty ku średnim</b> — 102 elementy, śr. 6,1, 2,54 skrętu.</figcaption></figure>
-  <figure><img src="a4-dlugie.svg" alt=""><figcaption><b>Długie</b> — 62 elementy, śr. 10,1, 4,19 skrętu. Rozwleczone, groty rzadkie.</figcaption></figure>
+  <figure><img src="a1-dl00.svg" alt=""><figcaption><b>0% długich</b> — 307 elementów, śr. 4,1 komórki, 1,39 skrętu. Gęsto, ale same krótkie haczyki.</figcaption></figure>
+  <figure><img src="a2-dl15.svg" alt=""><figcaption><b>15%</b> — 187 elementów, śr. 6,7, 2,47 skrętu.</figcaption></figure>
+  <figure class="pick"><img src="a3-dl30.svg" alt=""><figcaption><b>30% — przyjęty</b> — 144 elementy, śr. 8,7, 3,51 skrętu. Gęste groty plus wyraźne długie węże.</figcaption></figure>
+  <figure><img src="a4-dl45.svg" alt=""><figcaption><b>45%</b> — 134 elementy, śr. 9,3, 4,07 skrętu. Zwinięcie 46%, elementy zaczynają się kłębić.</figcaption></figure>
 </div>
 
 <h2>B. Grubość linii</h2>
 <p class="lead">Jako ułamek podziałki siatki. Decyduje o szerokości przerw między
-równoległymi liniami — czyli o czytelności przy dużym zagęszczeniu.</p>
+równoległymi liniami, czyli o czytelności przy zagęszczeniu. Wszystkie cztery
+wygenerowane <b>na tym samym ziarnie</b>, żeby różnica pochodziła wyłącznie z grubości.</p>
 <div class="row">
-  <figure><img src="b-stroke-0.35.svg" alt=""><figcaption><b>0,35</b> — cienko, dużo światła, mniej „solidnie".</figcaption></figure>
+  <figure><img src="b-stroke-0.35.svg" alt=""><figcaption><b>0,35</b> — cienko, dużo światła.</figcaption></figure>
   <figure><img src="b-stroke-0.45.svg" alt=""><figcaption><b>0,45</b></figcaption></figure>
-  <figure class="pick"><img src="b-stroke-0.55.svg" alt=""><figcaption><b>0,55</b> — wartość ze specyfikacji (0,50–0,55).</figcaption></figure>
+  <figure class="pick"><img src="b-stroke-0.55.svg" alt=""><figcaption><b>0,55 — przyjęty</b></figcaption></figure>
   <figure><img src="b-stroke-0.65.svg" alt=""><figcaption><b>0,65</b> — grubo, przerwy zaczynają się domykać.</figcaption></figure>
 </div>
 
-<h2>C. Siła reguły Warnsdorffa</h2>
+<h2>C. Siła splątania (reguła Warnsdorffa)</h2>
 <p class="lead">Steruje jednocześnie liczbą skrętów i „zwijaniem" ścieżek w kłębki.
 Przy zerze jedna plansza na trzydzieści nie generuje się wcale, więc zero nie jest opcją
 na dużych planszach.</p>
 <div class="row">
-  <figure><img src="c-warns-0.svg" alt=""><figcaption><b>0</b> — 1,79 skrętu, zwinięcie 21%. Prościej, ale zawodne.</figcaption></figure>
-  <figure><img src="c-warns-2.svg" alt=""><figcaption><b>2</b> — 2,32 skrętu, zwinięcie 24%.</figcaption></figure>
-  <figure class="pick"><img src="c-warns-4.svg" alt=""><figcaption><b>4</b> — 2,78 skrętu, zwinięcie 30%. Wartość przyjęta.</figcaption></figure>
-  <figure><img src="c-warns-8.svg" alt=""><figcaption><b>8</b> — 2,19 skrętu, zwinięcie 20%.</figcaption></figure>
+  <figure><img src="c-warns-0.svg" alt=""><figcaption><b>0</b> — 2,07 skrętu, zwinięcie 24%. Prościej, ale zawodne.</figcaption></figure>
+  <figure><img src="c-warns-2.svg" alt=""><figcaption><b>2</b> — 3,06 skrętu, zwinięcie 36%.</figcaption></figure>
+  <figure class="pick"><img src="c-warns-4.svg" alt=""><figcaption><b>4 — przyjęty</b> — 3,51 skrętu, zwinięcie 42%.</figcaption></figure>
+  <figure><img src="c-warns-8.svg" alt=""><figcaption><b>8</b> — 4,10 skrętu, zwinięcie 44%.</figcaption></figure>
 </div>
 
-<h2>D. Poziomy trudności w przyjętej konfiguracji</h2>
+<h2>D. Formaty i poziomy trudności</h2>
 <div class="row">
-  <figure class="wide"><img src="d1-50.svg" alt=""><figcaption><b>Medium 50×50</b> — 414 elementów, <code>f0</code> 0,115.</figcaption></figure>
-  <figure class="wide"><img src="d2-75.svg" alt=""><figcaption><b>Hard 75×75</b> — 948 elementów, <code>f0</code> 0,072.</figcaption></figure>
+  <figure class="big"><img src="d1-25x50.svg" alt=""><figcaption><b>Easy 25×50</b> — 144 elementy.</figcaption></figure>
+  <figure class="big"><img src="d2-50x100.svg" alt=""><figcaption><b>Medium 50×100</b> — 634 elementy.</figcaption></figure>
+  <figure class="big"><img src="d3-100x200.svg" alt=""><figcaption><b>Nightmare 100×200</b> — 2 336 elementów, najdłuższy sięga 212 komórek. Generacja: p50 38 ms, p99 339 ms.</figcaption></figure>
+  <figure class="big"><img src="d4-200x200.svg" alt=""><figcaption><b>Extreme 200×200</b> — 40 000 komórek, 4 559 elementów. Generacja: p50 646 ms, p99 2,1 s, zero porażek na 15 przebiegów.</figcaption></figure>
 </div>
-<div class="row">
-  <figure class="wide"><img src="d3-100.svg" alt=""><figcaption><b>Nightmare 100×100</b> — 1598 elementów, najdłuższy sięga 195 komórek, <code>f0</code> 0,056.</figcaption></figure>
-</div>
+<div class="note">Przy 100×200 i większych plansza nie mieści się czytelnie na żadnym
+ekranie — dlatego specyfikacja przewiduje zoom z przesuwaniem, a kliknięcie odróżniane
+jest od przeciągnięcia progiem odległości, żeby przewijanie planszy nie kosztowało życia.</div>
 
 <h2>E. Tryb diagnostyczny</h2>
-<p class="lead">Kolor per element — wyłącznie do debugowania. W grze plansza jest
-monochromatyczna, bo odróżnianie elementów bez pomocy koloru <em>jest</em> zadaniem gracza.</p>
+<p class="lead">Kolor per element, wyłącznie do debugowania. W grze plansza jest
+monochromatyczna, bo odróżnianie elementów bez pomocy koloru <em>jest</em> zadaniem
+gracza — to źródło trudności percepcyjnej.</p>
 <div class="row">
-  <figure><img src="e-kolor.svg" alt=""><figcaption>Ta sama plansza co wariant przyjęty w sekcji A.</figcaption></figure>
+  <figure class="big"><img src="e-kolor.svg" alt=""><figcaption>Ta sama plansza co wariant przyjęty w sekcji A.</figcaption></figure>
 </div>
 </html>

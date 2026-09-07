@@ -519,11 +519,13 @@ const arg = (k, dflt) => {
 }
 const show = process.argv.includes('--show')
 
+// Presety pionowe 1:2 — proporcja ekranu telefonu i referencyjnego zrzutu.
 const presets = [
-  { name: 'Easy', W: 25, H: 25, Lmax: 50, wShort: 0.80, wMid: 0.195 },
-  { name: 'Medium', W: 50, H: 50, Lmax: 125, wShort: 0.75, wMid: 0.24 },
-  { name: 'Hard', W: 75, H: 75, Lmax: 188, wShort: 0.72, wMid: 0.267 },
-  { name: 'Nightmare', W: 100, H: 100, Lmax: 300, wShort: 0.70, wMid: 0.285 },
+  { name: 'Easy', W: 25, H: 50, Lmax: 125, wShort: 0.50, wMid: 0.20 },
+  { name: 'Medium', W: 50, H: 100, Lmax: 250, wShort: 0.50, wMid: 0.20 },
+  { name: 'Hard', W: 75, H: 150, Lmax: 375, wShort: 0.50, wMid: 0.20 },
+  { name: 'Nightmare', W: 100, H: 200, Lmax: 500, wShort: 0.50, wMid: 0.20 },
+  { name: 'Extreme', W: 200, H: 200, Lmax: 500, wShort: 0.50, wMid: 0.20 },
 ]
 
 const runs = arg('runs', 3)
@@ -532,8 +534,8 @@ const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]
 const svgOut = process.argv.find((a) => a.startsWith('--svg='))?.split('=')[1]
 if (svgOut) {
   const { writeFileSync } = await import('node:fs')
-  const W = arg('size', 25), H = arg('size', 25)
-  const params = { W, H, Lmax: Math.round(2.5 * Math.max(W, H)),
+  const W = arg('w', arg('size', 25)), H = arg('h', arg('size', 50))
+  const params = { W, H, Lmax: arg('lmax', Math.round(2.5 * Math.max(W, H))),
     wShort: arg('wshort', 0.10), wMid: arg('wmid', 0.70),
     pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: 0,
     probe: 0, probeLen: 12, mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4) }
