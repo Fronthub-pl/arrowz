@@ -1,5 +1,23 @@
 # Prototyp — kod wyrzucalny
 
+## Laboratorium (interaktywnie)
+
+```sh
+sh prototype/lab.sh          # http://localhost:8777/lab.html
+```
+
+Wszystkie pokrętła generatora w panelu bocznym, plansza rysowana od razu.
+Do tego przełączniki podglądu: **kolorowanie strzałek** (każdy element innym
+kolorem — tryb diagnostyczny) oraz **wyróżnianie N najdłuższych elementów**
+(różowo, z tabelą ich długości, zasięgu, gęstości i zwinięcia).
+
+Konfiguracja zapisuje się w adresie, więc da się wrócić do ustawienia albo
+podesłać je komuś linkiem. Pod planszą pojawia się gotowe polecenie CLI
+odtwarzające dokładnie ten sam przebieg.
+
+Silnik siedzi w `engine.mjs` i jest wspólny dla laboratorium i dla `carve.mjs` —
+nie ma dwóch kopii algorytmu, które mogłyby się rozjechać.
+
 Sonda do specyfikacji, **nie kod produkcyjny**. Powstała, żeby rozstrzygnąć trzy
 otwarte pytania, zanim powstał plan implementacji. Nie ma testów, typów ani warstwy
 widoku i nie należy jej rozwijać — implementacja startuje od zera, w TypeScript.

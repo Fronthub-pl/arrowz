@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="pl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrowz — laboratorium generatora</title>
+<style>
+  :root { color-scheme: light; --ink: #232447; --paper: #f6f6fa; --accent: #e8467c; --line: #e3e3ec; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fbfbfd; color: var(--ink);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+
+  aside { overflow-y: auto; padding: 1rem 1.1rem 4rem; border-right: 1px solid var(--line); background: #fff; }
+  main { overflow: auto; padding: 1rem 1.25rem 3rem; }
+
+  h1 { font-size: 1.1rem; margin: 0 0 .2rem; }
+  .sub { color: #6a6b86; font-size: 12px; margin: 0 0 1rem; }
+  h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: #6a6b86;
+       margin: 1.4rem 0 .5rem; padding-top: .7rem; border-top: 1px solid var(--line); }
+
+  .row { display: grid; grid-template-columns: 1fr 68px; gap: .5rem; align-items: center; margin-bottom: .35rem; }
+  .row label { font-size: 12.5px; }
+  .row input[type=number] { width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 4px;
+                            font: inherit; font-size: 12.5px; text-align: right; }
+  .row input[type=range] { grid-column: 1 / -1; margin: 0 0 .3rem; }
+  .check { display: flex; gap: .45rem; align-items: center; margin-bottom: .4rem; font-size: 12.5px; }
+
+  button { font: inherit; padding: .35rem .7rem; border: 1px solid var(--line); background: #fff;
+           border-radius: 5px; cursor: pointer; }
+  button:hover { border-color: var(--ink); }
+  button.primary { background: var(--ink); color: #fff; border-color: var(--ink); font-weight: 600; }
+  .buttons { display: flex; gap: .4rem; flex-wrap: wrap; margin: .7rem 0; }
+  .presets { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .5rem; }
+  .presets button { padding: .2rem .45rem; font-size: 12px; }
+
+  #board { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+  #board svg { display: block; max-width: 100%; height: auto; }
+  .status { min-height: 1.4rem; margin-bottom: .6rem; font-size: 13px; }
+  .status .bad { color: #8a2b2b; font-weight: 600; }
+  .status .good { color: #2b6b3f; }
+
+  table.stats { border-collapse: collapse; font-size: 12.5px; margin-bottom: 1rem; }
+  table.stats td { padding: .15rem .9rem .15rem 0; }
+  table.stats td:first-child { color: #6a6b86; }
+  table.stats td.num { font-variant-numeric: tabular-nums; }
+  table.top { border-collapse: collapse; font-size: 12px; margin-top: .3rem; }
+  table.top th { text-align: left; color: #6a6b86; font-weight: 500; padding-right: .9rem; }
+  table.top td { padding: .1rem .9rem .1rem 0; font-variant-numeric: tabular-nums; }
+  .cols { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
+  code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
+  .cli { margin-top: 1rem; font-size: 11.5px; color: #6a6b86; word-break: break-all; }
+</style>
+
+<aside>
+  <h1>Laboratorium generatora</h1>
+  <p class="sub">Ten sam silnik co <code>carve.mjs</code> — <code>engine.mjs</code>.</p>
+
+  <div class="presets" id="presets"></div>
+
+  <div class="buttons">
+    <button class="primary" id="run">Generuj</button>
+    <button id="reseed">Nowe ziarno</button>
+    <button id="reset">Domyślne</button>
+    <button id="download">Pobierz SVG</button>
+  </div>
+
+  <h2>Podgląd</h2>
+  <div class="row">
+    <label for="cell">rozmiar komórki (px)</label>
+    <input type="number" id="cell" value="12" min="1" max="40" step="1">
+  </div>
+  <div class="row">
+    <label for="stroke">grubość linii (podziałki)</label>
+    <input type="number" id="stroke" value="0.5" min="0.2" max="0.9" step="0.05">
+  </div>
+  <label class="check"><input type="checkbox" id="colored"> koloruj strzałki (każdy element inny kolor)</label>
+  <label class="check"><input type="checkbox" id="hilite" checked> wyróżnij najdłuższe elementy</label>
+  <div class="row">
+    <label for="top">ile najdłuższych</label>
+    <input type="number" id="top" value="5" min="1" max="50" step="1">
+  </div>
+  <label class="check"><input type="checkbox" id="auto"> generuj od razu po zmianie</label>
+
+  <div id="params"></div>
+</aside>
+
+<main>
+  <div class="status" id="status">Naciśnij <b>Generuj</b>.</div>
+  <div class="cols">
+    <div id="board"></div>
+    <div>
+      <table class="stats" id="stats"></table>
+      <div id="topTable"></div>
+    </div>
+  </div>
+  <div class="cli" id="cli"></div>
+</main>
+
+<script type="module">
+import { PARAM_SPEC, defaultParams, generate, toSvg } from './engine.mjs'
+
+const $ = (id) => document.getElementById(id)
+const state = { ...defaultParams() }
+
+// --- panel parametrów budowany z PARAM_SPEC, żeby nie rozjechał się z silnikiem
+const groups = new Map()
+for (const spec of PARAM_SPEC) {
+  if (!groups.has(spec.group)) groups.set(spec.group, [])
+  groups.get(spec.group).push(spec)
+}
+const panel = $('params')
+for (const [group, specs] of groups) {
+  const h = document.createElement('h2')
+  h.textContent = group
+  panel.append(h)
+  for (const spec of specs) {
+    const row = document.createElement('div')
+    row.className = 'row'
+    const label = document.createElement('label')
+    label.textContent = spec.label
+    label.htmlFor = 'p_' + spec.key
+    const num = document.createElement('input')
+    num.type = 'number'
+    num.id = 'p_' + spec.key
+    Object.assign(num, { min: spec.min, max: spec.max, step: spec.step, value: state[spec.key] })
+    const range = document.createElement('input')
+    range.type = 'range'
+    Object.assign(range, { min: spec.min, max: spec.max, step: spec.step, value: state[spec.key] })
+    const sync = (v) => {
+      state[spec.key] = Number(v)
+      num.value = v
+      range.value = v
+      if ($('auto').checked) schedule()
+    }
+    num.addEventListener('input', () => sync(num.value))
+    range.addEventListener('input', () => sync(range.value))
+    row.append(label, num, range)
+    panel.append(row)
+  }
+}
+
+// --- presety rozmiarów
+const PRESETS = [
+  ['Easy 25×50', 25, 50], ['Easy 25×25', 25, 25],
+  ['Medium 50×100', 50, 100], ['Hard 75×150', 75, 150],
+  ['Nightmare 100×200', 100, 200], ['Nightmare 100×100', 100, 100],
+  ['Extreme 200×200', 200, 200], ['1000×1000', 1000, 1000],
+]
+for (const [label, w, h] of PRESETS) {
+  const b = document.createElement('button')
+  b.textContent = label
+  b.addEventListener('click', () => {
+    setParam('W', w); setParam('H', h)
+    setParam('Lmax', Math.round(2.5 * Math.max(w, h)))
+    // rozmiar komórki dobrany tak, żeby plansza mieściła się na ekranie
+    $('cell').value = Math.max(1, Math.min(18, Math.round(900 / Math.max(w, h))))
+    run()
+  })
+  $('presets').append(b)
+}
+
+function setParam(key, value) {
+  state[key] = value
+  const el = $('p_' + key)
+  if (el) { el.value = value; el.nextElementSibling.value = value }
+}
+
+$('reseed').addEventListener('click', () => {
+  setParam('seed', Math.floor(Math.random() * 999999))
+  run()
+})
+$('reset').addEventListener('click', () => {
+  Object.assign(state, defaultParams())
+  for (const spec of PARAM_SPEC) setParam(spec.key, state[spec.key])
+  run()
+})
+$('run').addEventListener('click', run)
+for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top']) {
+  $(id).addEventListener('input', () => { if (lastResult) draw(lastResult) })
+}
+
+let timer = null
+function schedule() {
+  clearTimeout(timer)
+  timer = setTimeout(run, 350)
+}
+
+let lastResult = null
+
+// --- stan w adresie: pozwala wrócić do konfiguracji i podesłać ją komuś
+function saveToUrl() {
+  applyingHash = true
+  setTimeout(() => { applyingHash = false }, 0)
+  const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
+                 colored: $('colored').checked, hilite: $('hilite').checked }
+  location.hash = encodeURIComponent(JSON.stringify({ ...state, __view: view }))
+}
+function loadFromUrl() {
+  if (!location.hash.length) return false
+  try {
+    const saved = JSON.parse(decodeURIComponent(location.hash.slice(1)))
+    const view = saved.__view ?? {}
+    delete saved.__view
+    for (const spec of PARAM_SPEC) if (saved[spec.key] !== undefined) setParam(spec.key, saved[spec.key])
+    if (view.cell) $('cell').value = view.cell
+    if (view.stroke) $('stroke').value = view.stroke
+    if (view.top) $('top').value = view.top
+    $('colored').checked = !!view.colored
+    $('hilite').checked = view.hilite !== false
+    return true
+  } catch {
+    return false
+  }
+}
+
+$('download').addEventListener('click', () => {
+  if (!lastResult) return
+  const svg = $('board').innerHTML
+  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `arrowz-${state.W}x${state.H}-seed${state.seed}.svg`
+  a.click()
+  URL.revokeObjectURL(url)
+})
+
+async function run() {
+  const cells = state.W * state.H
+  $('status').innerHTML = cells > 200000
+    ? `Generuję ${state.W}×${state.H} (${cells.toLocaleString('pl')} komórek) — to może potrwać…`
+    : 'Generuję…'
+  // dwie klatki, żeby przeglądarka zdążyła narysować komunikat przed
+  // zablokowaniem wątku przez generację
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+  let result
+  try {
+    result = generate(state)
+  } catch (err) {
+    $('status').innerHTML = `<span class="bad">Błąd generacji:</span> ${err.message}`
+    return
+  }
+  lastResult = result
+  draw(result)
+  report(result)
+  saveToUrl()
+}
+
+function draw(result) {
+  const top = $('hilite').checked ? Number($('top').value) : 0
+  $('board').innerHTML = toSvg(result.board, {
+    cell: Number($('cell').value),
+    colored: $('colored').checked,
+    strokeRatio: Number($('stroke').value),
+    top,
+  })
+}
+
+function pct(v) { return (100 * v).toFixed(0) + '%' }
+
+function report(result) {
+  const { board, metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck } = result
+  const cells = state.W * state.H
+
+  $('status').innerHTML = ok
+    ? `<span class="good">Plansza domknięta w 100%.</span> ${metrics.solvable ? 'Rozwiązywalna.' : '<span class="bad">NIEROZWIĄZYWALNA — to błąd generatora.</span>'}`
+    : `<span class="bad">Nie domknięto planszy.</span> W najlepszym momencie zostało ${stuck.remaining} komórek w ${stuck.sizes.length} fragmentach (największy ${stuck.sizes[0] ?? 0}).`
+
+  if (!metrics) { $('stats').innerHTML = ''; $('topTable').innerHTML = ''; return }
+
+  const rows = [
+    ['plansza', `${state.W} × ${state.H} = ${cells.toLocaleString('pl')} komórek`],
+    ['elementów', metrics.N.toLocaleString('pl')],
+    ['średnia długość', (cells / metrics.N).toFixed(1)],
+    ['najdłuższy', `${metrics.maxLen} komórek (${pct(metrics.maxLen / cells)} planszy)`],
+    ['rozkład długości', `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`],
+    ['—', ''],
+    ['f0 (wolne na starcie)', metrics.f0.toFixed(3)],
+    ['almost1 (jeden bloker)', `${metrics.almost} (${pct(metrics.almost / metrics.N)})`],
+    ['D (głębokość blokowania)', metrics.D],
+    ['średni korytarz', metrics.meanCorridorLen.toFixed(1)],
+    ['—', ''],
+    ['zasięg średni', pct(metrics.span)],
+    ['zasięg górnych 10%', pct(metrics.spanTop10)],
+    ['zasięg rekordzisty', pct(metrics.spanMax)],
+    ['odblokowania średnio', metrics.outDeg.toFixed(1) + ' elem.'],
+    ['odblokowania rekord', metrics.maxOut + ' elem.'],
+    ['dystans odblokowań', pct(metrics.blockDist) + ' obwodu'],
+    ['—', ''],
+    ['skrętów na element', metrics.bends.toFixed(2)],
+    ['zwinięcie', pct(metrics.coil)],
+    ['wspólna granica', pct(metrics.sharedBorder)],
+    ['wieloliniowych', pct(metrics.multiLine)],
+    ['—', ''],
+    ['nawroty / restarty', `${backtracks} / ${restartsUsed}`],
+    ['czas', `generacja ${genMs.toFixed(0)} ms, metryki ${metricsMs.toFixed(0)} ms`],
+  ]
+  $('stats').innerHTML = rows
+    .map(([k, v]) => (k === '—' ? '<tr><td colspan="2" style="height:.5rem"></td></tr>'
+      : `<tr><td>${k}</td><td class="num">${v}</td></tr>`))
+    .join('')
+
+  // tabela najdłuższych — te same liczby, które CLI wypisuje przy --top
+  const n = $('hilite').checked ? Number($('top').value) : 0
+  if (n > 0) {
+    const longest = [...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
+    const body = longest.map((pc) => {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      const own = new Set(pc.cells.map((c) => c.y * state.W + c.x))
+      let coil = 0
+      for (const c of pc.cells) {
+        minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x)
+        minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y)
+        let touch = 0
+        for (const [dx, dy] of [[0,-1],[1,0],[0,1],[-1,0]]) {
+          if (own.has((c.y + dy) * state.W + (c.x + dx))) touch++
+        }
+        if (touch >= 3) coil++
+      }
+      const sx = maxX - minX + 1, sy = maxY - minY + 1
+      return `<tr><td>${pc.cells.length}</td><td>${sx}×${sy}</td>` +
+        `<td>${pct(Math.max(sx / state.W, sy / state.H))}</td>` +
+        `<td>${pct(pc.cells.length / (sx * sy))}</td><td>${pct(coil / pc.cells.length)}</td></tr>`
+    }).join('')
+    $('topTable').innerHTML =
+      `<h2 style="border:0;padding:0">${n} najdłuższych</h2>` +
+      `<table class="top"><tr><th>długość</th><th>prostokąt</th><th>zasięg</th>` +
+      `<th>gęstość</th><th>zwinięcie</th></tr>${body}</table>`
+  } else {
+    $('topTable').innerHTML = ''
+  }
+
+  // polecenie CLI odtwarzające dokładnie ten sam przebieg
+  const flags = PARAM_SPEC
+    .filter((s) => !['W', 'H'].includes(s.key) && state[s.key] !== s.def)
+    .map((s) => `--${s.key.toLowerCase()}=${state[s.key]}`)
+  $('cli').textContent = `node prototype/carve.mjs --svg=plansza.svg --w=${state.W} --h=${state.H} ` +
+    `--cell=${$('cell').value} ${flags.join(' ')}` +
+    ($('colored').checked ? ' --colored' : '') +
+    ($('hilite').checked ? ` --top=${$('top').value}` : '')
+}
+
+// Zmiana samego fragmentu adresu nie przeładowuje strony, więc trzeba na nią
+// zareagować — inaczej wklejony link z konfiguracją nic nie robi.
+let applyingHash = false
+window.addEventListener('hashchange', () => {
+  if (applyingHash) return
+  if (loadFromUrl()) run()
+})
+
+loadFromUrl()
+run()
+</script>
+</html>
