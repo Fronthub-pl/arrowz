@@ -924,9 +924,33 @@ oraz przelicza współrzędne ekranu na komórki.
 
 W SVG zoom i przesuwanie to zmiana atrybutu `viewBox` — jedna operacja, bez
 przerysowywania ścieżek, składana przez GPU. To główny powód, dla którego SVG broni się
-mimo skali. Sterowanie: kółko myszy i szczypanie do skali, przeciąganie do przesuwania,
-podwójne kliknięcie do dopasowania całości. Kliknięcie odróżniamy od przeciągnięcia
-progiem odległości, żeby przesuwanie planszy nie kosztowało życia.
+mimo skali.
+
+#### Sterowanie
+
+Kluczowe jest odróżnienie ruchu w grze od przesuwania planszy — pomyłka kosztuje życie,
+więc rozstrzygnięcie musi być jednoznaczne, a nie progowe. Na desktopie służy do tego
+**modyfikator klawiatury**, na dotyku **rodzaj gestu**.
+
+| Wejście | Ruch w grze | Przesuwanie planszy | Zoom |
+|---|---|---|---|
+| mysz / gładzik | kliknięcie bez modyfikatora | przeciąganie z **⌘ (macOS)** lub **Ctrl (Windows, Linux)** | kółko do pozycji kursora |
+| dotyk | krótkie dotknięcie bez przesunięcia | przeciągnięcie jednym palcem | szczypanie |
+
+Podwójne kliknięcie lub dwukrotne dotknięcie dopasowuje całą planszę do ekranu.
+
+Zasady uzupełniające:
+
+- Przeciąganie **bez** modyfikatora nie robi nic. Ruch wykonuje się dopiero przy
+  zwolnieniu przycisku i tylko wtedy, gdy wskaźnik jest nadal nad tym samym elementem,
+  na którym został wciśnięty — standardowa semantyka przycisku, chroniąca przed
+  przypadkowym ruchem przy drgnięciu ręki.
+- Warunek modyfikatora sprawdza `event.metaKey || event.ctrlKey`, bez wykrywania systemu.
+  Wykrywanie platformy służy wyłącznie do **napisu** w podpowiedzi („przytrzymaj ⌘",
+  „przytrzymaj Ctrl") — gdyby wykrycie zawiodło, sterowanie nadal działa.
+- Na dotyku obowiązuje próg odległości odróżniający dotknięcie od przeciągnięcia,
+  bo tam modyfikator nie istnieje. Jest to jedyne miejsce, gdzie rozstrzygnięcie
+  pozostaje progowe.
 
 ### Konfigurator (tryb zaawansowany)
 
@@ -1147,5 +1171,5 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Kilkanaście długich elementów zajmuje większość powierzchni i plansza wygląda jak zbiór spiral zamiast pola strzałek | Udział powierzchni koszyka długiego liczony jawnie (§7), pokazywany w konfiguratorze, ostrzeżenie powyżej 25%, test 23 |
 | ~~Generacja 100×100 zamraża interfejs~~ | **Zamknięte pomiarem:** 27 ms na Nightmare (§11) |
 | SVG nie wyrabia przy ~1 000 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
-| Gracz traci życie, próbując przesunąć planszę | Kliknięcie odróżniane od przeciągnięcia progiem odległości (§11); pokryte testem interakcji |
+| Gracz traci życie, próbując przesunąć planszę | Na desktopie przesuwanie wymaga modyfikatora ⌘/Ctrl, więc rozstrzygnięcie jest jednoznaczne, nie progowe; na dotyku próg odległości plus wymóg zwolnienia nad tym samym elementem (§11). Pokryte testem interakcji |
 | Konfigurator obiecuje parametry, których geometria nie dopuszcza | Generator raportuje osiągnięte wartości obok zamówionych (§11); test 21 na parametrach niewykonalnych |
