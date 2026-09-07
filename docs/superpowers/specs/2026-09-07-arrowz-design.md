@@ -937,7 +937,33 @@ więc rozstrzygnięcie musi być jednoznaczne, a nie progowe. Na desktopie słu�
 | mysz / gładzik | kliknięcie bez modyfikatora | przeciąganie z **⌘ (macOS)** lub **Ctrl (Windows, Linux)** | kółko do pozycji kursora |
 | dotyk | krótkie dotknięcie bez przesunięcia | przeciągnięcie jednym palcem | szczypanie |
 
-Podwójne kliknięcie lub dwukrotne dotknięcie dopasowuje całą planszę do ekranu.
+#### Zoom
+
+Zoom jest kontrolką pełnoprawną i **widoczną**, nie tylko gestem — przy planszy
+100×200 gracz musi móc przybliżyć bez zgadywania, jak.
+
+| Sposób | Działanie |
+|---|---|
+| kółko myszy / gest dwoma palcami | skalowanie do pozycji kursora |
+| ⌘ / Ctrl + kółko | to samo; przechwytujemy `preventDefault`, żeby nie zadziałał zoom przeglądarki |
+| szczypanie (dotyk) | skalowanie do środka gestu |
+| przyciski `+` i `−` w rogu planszy | krok o stały współczynnik, dostępne bez myszy i bez gestów |
+| klawisze `+` / `−` | jak wyżej |
+| podwójne kliknięcie, dwukrotne dotknięcie, klawisz `0`, przycisk „dopasuj" | dopasowanie całej planszy do ekranu |
+
+Zakres skali jest ograniczony z obu stron:
+
+- **dolna granica** to dopasowanie całości do ekranu — nie da się oddalić poniżej, bo
+  poza planszą nie ma czego oglądać,
+- **górna granica** to komórka o boku ~48 px; wyżej widać kilka elementów i orientacja
+  na planszy się rozpada.
+
+Skalowanie zawsze zachowuje punkt pod kursorem lub pod środkiem gestu — bez tego
+przybliżanie na dużej planszy sprowadza się do zgadywania, gdzie się wyląduje.
+
+Przyciski `+`, `−` i „dopasuj" są ważne także dlatego, że są **jedyną drogą dostępną
+z klawiatury i przy myszy bez kółka** — gest nie może być jedynym sposobem na wykonanie
+czynności koniecznej do gry.
 
 Zasady uzupełniające:
 
