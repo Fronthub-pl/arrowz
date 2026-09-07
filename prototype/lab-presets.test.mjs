@@ -53,3 +53,17 @@ test('the huge level offers a winding skeleton: short runs, small step', () => {
   assert.equal(o.params.giantJitter, 1, 'every run is cut short, none goes wall to wall')
   assert.ok(o.params.giantStep <= 4, 'a small step keeps the line long')
 })
+
+test('the insane level is the 1000×1000 ceiling: square only, with tunnels and a skeleton', () => {
+  const insane = PRESETS.find((l) => l.id === 'insane')
+  assert.ok(insane, 'insane level')
+  for (const o of insane.options) {
+    assert.equal(o.params.W, 1000, `${o.id} width`)
+    assert.equal(o.params.H, 1000, `${o.id} height`)
+  }
+  assert.ok(!insane.options.some((o) => o.mode === 'portrait'), 'no portrait variant at a million cells')
+  assert.ok(insane.options.some((o) => o.mode === 'tunnels'))
+  assert.ok(insane.options.some((o) => o.mode === 'skeleton'))
+  const huge = PRESETS.find((l) => l.id === 'huge')
+  assert.ok(!huge.options.some((o) => o.params.W === 1000), 'the 1000 board moved from huge to insane')
+})

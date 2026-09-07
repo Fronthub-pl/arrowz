@@ -458,7 +458,7 @@ describe('evaluateSubmission', () => {
 
   it('rejects an absurdly long move list without replaying it', () => {
     const { submission } = perfectRun(25);
-    const huge = { ...submission, moves: new Array(200_000).fill(0), timestamps: new Array(200_000).fill(1) };
+    const huge = { ...submission, moves: new Array(500_000).fill(0), timestamps: new Array(500_000).fill(1) };
     const started = Date.now();
     expect(evaluateSubmission(huge).accepted).toBe(false);
     // Rejection by size must be immediate — otherwise the endpoint can be
@@ -492,8 +492,18 @@ import { replayRun, RunRecord, RunSubmission } from '../../src/game/replay';
 
 if (getApps().length === 0) initializeApp();
 
-/** Upper bound on a sensible move count: Extreme 200x200 has ~4700 pieces. */
-const MAX_MOVES = 20_000;
+/**
+ * Upper bound on a sensible move count: Insane 1000x1000 has ~86 000 pieces
+ * (Extreme 200x200 ~4 700). Every piece is removed exactly once in a perfect
+ * run; the margin above 86 000 covers wrong clicks.
+ *
+ * OPEN: a Firestore document is capped at 1 MiB. Two arrays of ~90 000
+ * numbers land near that cap, so the storage format of an Insane run record
+ * (typed-array blob, delta encoding, or moves in a subcollection) must be
+ * measured before Insane appears on the leaderboard. Levels up to Extreme
+ * fit comfortably.
+ */
+const MAX_MOVES = 200_000;
 
 export type { RunSubmission };
 

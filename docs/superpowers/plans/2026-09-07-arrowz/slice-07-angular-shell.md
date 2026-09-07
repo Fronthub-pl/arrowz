@@ -1158,7 +1158,7 @@ export class Home {
   protected readonly modes: readonly GameMode[] = ['classic', 'timed'];
   protected readonly labels: Record<LevelId, string> = {
     easy: 'Easy 25', medium: 'Medium 50', hard: 'Hard 75',
-    nightmare: 'Nightmare 100', extreme: 'Extreme 200',
+    nightmare: 'Nightmare 100', extreme: 'Extreme 200', insane: 'Insane 1000',
   };
 
   protected readonly selectedLevel = signal<LevelId>('easy');
@@ -1171,8 +1171,8 @@ export class Home {
 
   protected selectLevel(level: LevelId): void {
     this.selectedLevel.set(level);
-    // Extreme exists only as a square — we make sure the format selection
-    // doesn't end up in a state that can't be generated.
+    // Extreme and Insane exist only as squares — we make sure the format
+    // selection doesn't end up in a state that can't be generated.
     if (!formatsFor(level).includes(this.selectedFormat())) this.selectedFormat.set('square');
   }
 

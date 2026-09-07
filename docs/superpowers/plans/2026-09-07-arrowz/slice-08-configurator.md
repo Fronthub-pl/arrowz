@@ -304,9 +304,12 @@ export class Configurator {
 
   readonly paramsForm = form(this.model, (path) => {
     min(path.width, 10, { message: 'The smallest board is 10 cells.' });
-    max(path.width, 200, { message: 'The largest board is 200 cells.' });
+    // 1000 is the project ceiling (Insane). Above 200 on a side the form also
+    // shows a warning: generation takes seconds, and minutes with layers or a
+    // skeleton (spec §9).
+    max(path.width, 1000, { message: 'The largest board is 1000 cells.' });
     min(path.height, 10, { message: 'The smallest board is 10 cells.' });
-    max(path.height, 200, { message: 'The largest board is 200 cells.' });
+    max(path.height, 1000, { message: 'The largest board is 1000 cells.' });
     min(path.maxLength, 16, { message: 'Maximum length starts at 16.' });
     max(path.maxLength, 1_000, { message: 'Above 1000 cells a piece stops fitting.' });
     // Below 2, generation tends to be unreliable: without Warnsdorff, one board

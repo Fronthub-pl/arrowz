@@ -86,16 +86,16 @@ if (svgFlag) {
 // --- levels for the report and benchmark modes -----------------------------
 // Two independent knobs: level (base size) and format (1:1 or 1:2).
 // The portrait format matches a phone screen and the reference screenshot.
-const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200]]
-// The "I wanna die" level: a million cells. Available only behind an explicit
-// flag, because a single run takes tens of seconds and makes no sense in the
-// default report.
-if (has('insane')) BASE.push(['Insane', 1000])
+// Insane is the project ceiling: a million cells, ~10 s per run. It exists
+// only as a square (the third field), like the game's Insane level — a
+// 1000×2000 portrait would double the time for no new information.
+const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200], ['Insane', 1000, 'square']]
 // Intermediate scale — for finding the limit of closability.
 const midArg = arg('mid', 0)
 if (midArg) BASE.push(['Mid', midArg])
 const FORMATS = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
-const presets = BASE.flatMap(([name, n]) => FORMATS.map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r })))
+const presets = BASE.flatMap(([name, n, only]) =>
+  FORMATS.filter(([, r]) => !only || r === 1).map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r })))
 
 const runs = arg('runs', 3)
 const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]

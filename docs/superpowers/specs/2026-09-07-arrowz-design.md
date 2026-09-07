@@ -16,7 +16,8 @@ In scope:
 
 - a procedurally generated board with a solvability guarantee,
 - clicking pieces, move validation, three lives,
-- four difficulty levels (Easy 25×25, Medium 50×50, Hard 75×75, Nightmare 100×100),
+- six difficulty levels (Easy 25×25, Medium 50×50, Hard 75×75, Nightmare 100×100,
+  Extreme 200×200 and Insane 1000×1000; the last two exist only as squares),
 - **a board configurator as an advanced mode**: the player sets the board size, the
   number of lines, the degree of bending and the maximum length themselves,
 - **zooming and panning the board** — 100×100 is 10 000 cells, which does not fit
@@ -751,9 +752,13 @@ corridors horizontally and longer ones vertically, so statistically fewer pieces
 clear route to the edge. It is therefore not merely a framing decision — the difficulty
 thresholds must be calibrated per format.
 
-`Extreme 200×200` exists only in the square variant, as a test of the upper bound:
-40 000 cells and ~4 700 pieces. It closes without failures, so in practice the board
-size is limited by nothing but legibility and generation time.
+`Extreme 200×200` and `Insane 1000×1000` exist only in the square variant. Extreme
+(40 000 cells, ~4 700 pieces) was the original upper bound; after the closing hardening
+(prototype round 8) the ceiling moved to **Insane: a million cells and ~86 000 pieces**,
+which closes with zero backtracks and passes the solver. In practice the board size is
+limited by nothing but legibility and generation time — and at Insane the time is no
+longer negligible: ~10 s in Node and ~27 s in a Chrome worker with the default knobs,
+minutes with piece start = layers or with a skeleton (see "Generation time distribution").
 
 All four close 100% and pass the solver. `f0` arranges itself into a descending sequence
 without additional control — the board size alone suffices as a difficulty regulator, so
@@ -777,10 +782,18 @@ is what matters (30–100 seeds per row, weights as above):
 | Nightmare 100×200 | 38 ms | 327 ms | 339 ms | 339 ms | 0/25 |
 | Extreme 200×200 | 646 ms | 1 484 ms | 2 074 ms | 2 074 ms | 0/15 |
 
+| Insane 1000×1000 | ~10 s | — | — | — | 0/1 (Node, defaults) |
+
 No generation failure has ever been recorded with the five allowed restarts. A tail on
 the order of half a second means that **a loading indicator is needed** (shown after
-~200 ms), although moving generation to a Web Worker is still not necessary. The DOM-free
-core remains portable should the measurement on the target hardware turn out worse.
+~200 ms). Up to Extreme, moving generation to a Web Worker is a convenience; **at Insane
+it is mandatory**: a single run takes ~10 s in Node and ~27 s in a Chrome worker, so the
+generator must run off the main thread, report progress and be abortable (the prototype
+lab already does all three). Two knob settings make Insane take minutes rather than
+seconds: piece start = layers (`headBias` -1; at 400×400 already 149 s instead of 1.4 s,
+86% of it in the leftover-absorption path search) and a skeleton on top of layers. The
+configurator must warn about these combinations above Extreme. The DOM-free core remains
+portable should the measurement on the target hardware turn out worse.
 
 **Discrepancy to close:** the design assumed ~1 000 pieces with a mean length of 10 on
 Nightmare; the generator at the current weights gives ~1 900 with a mean of 5.2. The
@@ -952,8 +965,10 @@ much and not something else.
 ### Viewport: zoom and panning
 
 Nightmare has 10 000 cells; at 8 px per cell the board takes 800×800 px, which no phone
-will show legibly. `render/viewport.ts` maintains the scale and offset and converts
-screen coordinates to cells.
+will show legibly. Insane has a million cells and ~86 000 pieces: at the same 8 px it is
+8 000×8 000 px, and the SVG holds ~86 000 paths, so the renderer's performance budget
+(§11) must be measured at Insane, not only at Nightmare. `render/viewport.ts` maintains
+the scale and offset and converts screen coordinates to cells.
 
 In SVG, zooming and panning are a change of the `viewBox` attribute — a single
 operation, with no redrawing of paths, composited by the GPU. This is the main reason
@@ -1019,7 +1034,7 @@ below) are available to the player:
 
 | Parameter | Range | What it does |
 |---|---|---|
-| width × height | 10×10 … 200×200 | size of the task; any aspect ratio, presets offer 1:1 and 1:2 |
+| width × height | 10×10 … 1000×1000 | size of the task; any aspect ratio, presets offer 1:1 and 1:2; above 200 on a side the configurator warns that generation takes seconds to minutes |
 | share of long lines | 0 … 0.45 | the main looks knob: dense hooks ↔ long snakes |
 | maximum length `Lmax` | 16 … 5·max(W,H) | how long the longest piece may be |
 | entanglement strength | 0 … 8 | turns versus coiling into balls; below 2 generation can be unreliable |
@@ -1205,7 +1220,10 @@ here corridor bitboards and an inverse coverage index as structures to be implem
 should plain loops fail to keep up at ~1 900 pieces. The prototype measured the full
 cycle on Nightmare: **27 ms of generation and 14 ms of metrics** (§11). The margin is so
 large that these structures are struck from the design, not deferred. If they ever
-return, they will return on the basis of a profile, not a hunch.
+return, they will return on the basis of a profile, not a hunch. The first such profile
+exists: raising the ceiling to Insane 1000×1000 showed that the default knobs scale
+linearly (~10 s), while layers mode spends 86% of its time in the leftover-absorption
+path search (§9) — that function, not the carving loop, is where any optimisation starts.
 
 **A rule change that changes the game's character.** The current rules give no planning
 depth. If it were ever desired, the rules would have to change — for example "the piece
@@ -1235,6 +1253,8 @@ through implementation.
 | One long line exhausts its direction's capacity and blocks further insertions | Balancing the four directions; an upper bound on the number of long pieces per direction, calibrated by benchmark |
 | A dozen or so long pieces occupy most of the area and the board looks like a set of spirals instead of a field of arrows | The long bucket's area share computed explicitly (§7), shown in the configurator, a warning above 25%, test 23 |
 | ~~Generating 100×100 freezes the interface~~ | **Closed by measurement:** 27 ms on Nightmare (§11) |
+| Generating Insane 1000×1000 takes tens of seconds, minutes in layers mode | Generation in a Web Worker with progress and abort (§9); the configurator warns above Extreme; layers and skeleton at Insane are flagged as slow until the absorption path search is optimised |
+| An Insane run record (~86 000 moves) does not fit a Firestore document | Slice 10: the move list is bounded by `MAX_MOVES` and its storage format must be measured against the 1 MiB document limit before Insane is exposed on the leaderboard |
 | SVG does not keep up at ~1 000 paths or zoom stutters | The §11 performance budget measured early; the renderer behind an interface, swapping for Canvas does not touch the core |
 | The player loses a life while trying to pan the board | On desktop panning requires the ⌘/Ctrl modifier, so the decision is unambiguous, not threshold-based; on touch a distance threshold plus the requirement to release over the same piece (§11). Covered by an interaction test |
 | The configurator promises parameters that the geometry does not allow | The generator reports achieved values alongside ordered ones (§11); test 21 on infeasible parameters |

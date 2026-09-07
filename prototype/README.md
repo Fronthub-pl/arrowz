@@ -10,7 +10,9 @@ All generator knobs live in the side panel; the board is drawn immediately.
 A preset drop-down at the top is a tree: a difficulty level per group
 (`lab-presets.mjs`), a few options each — square, portrait, tunnels, skeleton;
 the huge level also has a winding skeleton (serpentine step 3, every run cut
-short, so no skeleton line goes wall to wall).
+short, so no skeleton line goes wall to wall). The tree ends with Insane,
+1000×1000 — the project ceiling, square only (~10 s in Node, ~27 s in the
+browser worker; layers and skeleton modes take minutes there, see round 9).
 A preset is a full configuration (defaults plus its overrides), and the
 drop-down follows the knobs: change the width by hand and it goes blank.
 Every description is one or two plain sentences on what a knob does and which
@@ -50,12 +52,16 @@ node prototype/carve.mjs --headbias=1            # tunnelling (deepest line)
 node prototype/carve.mjs --headbias=-1           # layers (shallowest line)
 node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
 node prototype/carve.mjs --bench=20 --only=Extreme·sq
+node prototype/carve.mjs --only=Insane           # 1000×1000, the ceiling; ~10 s per run
 ```
 
 Engine parameters are `--<PARAM_SPEC key in lower case>=value`; the defaults
 are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
 `--giantspacepen` work as aliases. Format flags: `--square`, `--portrait`
 (report and benchmark modes; level names get the suffix `·sq` or `·pt`).
+Levels run from Easy 25 to Insane 1000; Insane exists only as a square, so the
+default report (3 runs per level and format) takes about half a minute longer
+than it did when it stopped at Extreme.
 
 ## What it settled
 
@@ -305,3 +311,33 @@ one skeleton per 6000 cells like lines on a sheet of paper.
 
 No effect on closing across the whole range: start attempts, backtrack budget, exact
 leftover test, edge as a piece, adjacency bonus, probes, seed.
+
+## Round 9 — the ceiling moves to 1000×1000 (Insane)
+
+Decision: the project limit is 1000×1000, the Insane level, square only (a
+1000×2000 portrait would double a generation that already takes ~10 s). The lab
+tree, the CLI level list, the spec and the implementation plans follow.
+
+```
+node prototype/carve.mjs --only=Insane                       # defaults: ~10 s, 0 backtracks
+node prototype/carve.mjs --svg --w=1000 --h=1000 --headbias=-1   # layers: minutes
+```
+
+Measured (seed 7, one run each, Node 24):
+
+| configuration | 400×400 | 1000×1000 |
+|---|---|---|
+| defaults | 1.4 s | ~10 s, 85 764 pieces, f0 0.006 |
+| layers (`headBias` -1) | **149 s** | **> 10 min** (53% carved after 610 s, aborted) |
+
+A CPU profile of layers at 400×400 puts **86% of the time in the recursive
+`dfs` inside `absorbLeftover`** and 6% in its neighbour helper: layers leave
+many leftover fragments, and every candidate anchor burns a 20 000-node
+search that allocates a `Set`, arrays and a sort per node, after a full-board
+scan per call. The default knobs do not hit this path (95 absorptions on a
+million cells), which is why they scale linearly. Not fixed in this round —
+it is the first target if layers or skeletons at Insane are ever needed fast.
+The Rust question was measured on the way: the default hot path
+(`hasLocalDefect`, `wouldStrand`) is already typed-array loops, so a rewrite
+would buy 2–5×, not the 100× the absorption search needs from an algorithmic
+fix.

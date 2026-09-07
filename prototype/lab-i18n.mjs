@@ -89,7 +89,7 @@ export const PL = {
   },
   presets: {
     placeholder: 'Preset…',
-    levels: { easy: 'Łatwy', medium: 'Średni', hard: 'Trudny', nightmare: 'Koszmar', extreme: 'Ekstremalny', huge: 'Ogromny' },
+    levels: { easy: 'Łatwy', medium: 'Średni', hard: 'Trudny', nightmare: 'Koszmar', extreme: 'Ekstremalny', huge: 'Ogromny', insane: 'Obłęd' },
     modes: { square: 'kwadrat', portrait: 'pion', tunnels: 'tunele', skeleton: 'szkielet', serpentine: 'szkielet z serpentynami' },
   },
   ui: {
@@ -165,7 +165,7 @@ export const EN = {
   },
   presets: {
     placeholder: 'Preset…',
-    levels: { easy: 'Easy', medium: 'Medium', hard: 'Hard', nightmare: 'Nightmare', extreme: 'Extreme', huge: 'Huge' },
+    levels: { easy: 'Easy', medium: 'Medium', hard: 'Hard', nightmare: 'Nightmare', extreme: 'Extreme', huge: 'Huge', insane: 'Insane' },
     modes: { square: 'square', portrait: 'portrait', tunnels: 'tunnels', skeleton: 'skeleton', serpentine: 'winding skeleton' },
   },
   ui: {
