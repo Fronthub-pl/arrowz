@@ -5,11 +5,13 @@
 // defaultParams(). The lab builds its command with the same parser, so the
 // command from the lab reproduces the board bit for bit. Modes:
 //   --svg[=path]    one board → prototype/boards/ (+ a copy at path)
+//   --dry-run       one board, nothing written: one JSON line on stdout with
+//                   the id, metrics and fingerprint (alone or next to --svg)
 //   --bench=N       benchmark, N runs per level
 //   (no mode)       metrics report per level, --runs=N, --only=Name, --show
 import { writeFileSync } from 'node:fs'
-import { generate, toSvg, DIRS, Carver, analyse, mulberry32, render } from './engine.mjs'
-import { parseArgs, buildCommand } from './command.mjs'
+import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render } from './engine.mjs'
+import { parseArgs, buildCommand, boardId } from './command.mjs'
 import { saveBoard } from './store.mjs'
 
 // Trace and debug enter the engine as functions — the engine knows no `process`.
@@ -26,17 +28,33 @@ const arg = (k, dflt) => {
 }
 const has = (flag) => rest.includes(`--${flag}`)
 
-// --- one board into the store --------------------------------------------
+// --- one board into the store (or, with --dry-run, nowhere) ----------------
+// A dry run generates, measures and renders exactly as a real run would, and
+// then writes nothing: stdout carries one JSON line so that scripts can
+// compare boards across runtimes without a file — the fingerprint is the
+// same one the engine tests freeze recorded boards with.
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-if (svgFlag) {
-  const svgOut = svgFlag.includes('=') ? svgFlag.slice('--svg='.length) : null
+const dryRun = has('dry-run')
+if (svgFlag || dryRun) {
+  const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...cli, trace, debug })
   if (!result.ok) {
+    if (dryRun) console.log(JSON.stringify({ dryRun: true, W: cli.W, H: cli.H, seed: cli.seed, id: boardId(cli), ok: false, stuck: result.stuck, restarts: result.restartsUsed, genMs: result.genMs }))
     console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left`)
     process.exit(1)
   }
   const c = result.board, m = result.metrics, W = cli.W, H = cli.H
   const svg = toSvg(c, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top })
+  if (dryRun) {
+    console.log(JSON.stringify({
+      dryRun: true, W, H, seed: cli.seed, id: boardId(cli), params: cli, view, command: buildCommand(cli, view),
+      ok: true, pieces: m.N, avgLen: +(W * H / m.N).toFixed(2), maxLen: m.maxLen, bends: +m.bends.toFixed(3),
+      coiling: +m.coil.toFixed(3), f0: +m.f0.toFixed(4), solvable: m.solvable,
+      backtracks: result.backtracks, restarts: result.restartsUsed, genMs: Math.round(result.genMs),
+      metricsMs: Math.round(result.metricsMs), svgBytes: Buffer.byteLength(svg), fingerprint: fingerprint(c),
+    }))
+    process.exit(0)
+  }
   const meta = saveBoard({
     svg, params: cli, view, command: buildCommand(cli, view), source: 'cli',
     metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },

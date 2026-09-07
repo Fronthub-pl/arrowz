@@ -1,14 +1,16 @@
 // The lab must mirror the CLI 1:1: the command from the lab has to give the
 // same board as the worker. We generate through generate() and through
 // carve.mjs in a child process and compare the SVG byte for byte.
+// --dry-run is tested the same way: the board store points at a temporary
+// directory, which must stay empty.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, readdirSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generate, toSvg, defaultParams } from './engine.mjs'
+import { generate, toSvg, defaultParams, fingerprint } from './engine.mjs'
 import { buildCommand, boardId } from './command.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -40,4 +42,46 @@ test('carve.mjs --svg=path also writes a copy at the path', () => {
   })
   const id = boardId({ ...defaultParams(), W: 10, H: 10, seed: 3 })
   assert.equal(readFileSync(copy, 'utf8'), readFileSync(join(dir, '10x10', `${id}.svg`), 'utf8'))
+})
+
+// --- --dry-run ---------------------------------------------------------------
+
+function dryRun(args, dir) {
+  const r = spawnSync('node', [join(here, 'carve.mjs'), ...args], {
+    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: join(dir, 'boards') }, encoding: 'utf8',
+  })
+  const line = r.stdout.split('\n').find((l) => l.startsWith('{'))
+  return { status: r.status, stdout: r.stdout, stderr: r.stderr, json: line ? JSON.parse(line) : null }
+}
+
+test('carve.mjs --dry-run computes the board, writes nothing and prints one JSON line', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
+  const out = join(dir, 'out.svg')
+  const r = dryRun(['--dry-run', '--svg=' + out, '--w=10', '--h=10', '--seed=1'], dir)
+  assert.equal(r.status, 0, r.stderr)
+  assert.equal(existsSync(join(dir, 'boards')), false, 'the store must not be created')
+  assert.equal(existsSync(out), false, 'the --svg=path copy must not be written')
+  assert.equal(readdirSync(dir).length, 0, 'nothing at all is written')
+  assert.ok(r.json, `no JSON line in:\n${r.stdout}`)
+  assert.equal(r.json.dryRun, true)
+  assert.equal(r.json.ok, true)
+  assert.deepEqual([r.json.W, r.json.H, r.json.seed], [10, 10, 1])
+  assert.equal(r.json.id, boardId({ ...defaultParams(), W: 10, H: 10, seed: 1 }))
+  assert.equal(typeof r.json.pieces, 'number')
+  assert.equal(typeof r.json.maxLen, 'number')
+  assert.equal(typeof r.json.genMs, 'number')
+  assert.match(r.json.command, /^node prototype\/carve\.mjs --svg --w=10 --h=10 --seed=1/)
+})
+
+test('carve.mjs --dry-run alone selects the one-board mode and its fingerprint matches the engine', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
+  const r = dryRun(['--dry-run', '--w=25', '--h=50', '--seed=7', '--headbias=1'], dir)
+  assert.equal(r.status, 0, r.stderr)
+  assert.ok(r.json, `no JSON line in:\n${r.stdout}`)
+  // the same parameters through the CLI parser and through generate() directly
+  const expected = generate({ W: 25, H: 50, seed: 7, headBias: 1 })
+  assert.equal(r.json.fingerprint, fingerprint(expected.board))
+  assert.equal(r.json.pieces, expected.board.pieces.length)
+  assert.equal(r.json.params.headBias, 1)
+  assert.equal(readdirSync(dir).length, 0, 'nothing is written')
 })

@@ -1419,4 +1419,19 @@ export function generate(params) {
   }
 }
 
-export { mulberry32, Carver, analyse, render, toSvg, DIRS }
+/**
+ * FNV-1a over the owner grid and the piece cell sequences: any change in which
+ * cell belongs to which piece, or in the order of cells within a piece, changes
+ * the hash. It is the "same board for the same seed" guarantee in one number —
+ * the tests freeze recorded boards with it, and `carve.mjs --dry-run` prints
+ * it so that two runtimes can be compared without writing a file.
+ */
+function fingerprint(board) {
+  const fnv = (h, v) => Math.imul(h ^ v, 16777619) >>> 0
+  let h = 2166136261
+  for (let i = 0; i < board.owner.length; i++) h = fnv(h, board.owner[i] + 3)
+  for (const pc of board.pieces) { h = fnv(h, pc.dir); for (const c of pc.cells) h = fnv(h, c.y * board.W + c.x) }
+  return h.toString(16)
+}
+
+export { mulberry32, Carver, analyse, render, toSvg, fingerprint, DIRS }

@@ -4,7 +4,7 @@
 // without failures — these tests guard that, not eyeballing in the laboratory.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Carver, defaultParams, mulberry32, generate, analyse } from './engine.mjs'
+import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint } from './engine.mjs'
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
 // A set of cells in the GIVEN order — the order decides which cell the test
@@ -97,17 +97,6 @@ test('generate: closes the board 100% and solvably on several sizes and seeds', 
     }
   }
 })
-
-// FNV-1a over the owner grid and the piece cell sequences: any change in which
-// cell belongs to which piece, or in the order of cells within a piece, changes
-// the hash. It is the "same board for the same seed" guarantee in one number.
-function fingerprint(board) {
-  const fnv = (h, v) => Math.imul(h ^ v, 16777619) >>> 0
-  let h = 2166136261
-  for (let i = 0; i < board.owner.length; i++) h = fnv(h, board.owner[i] + 3)
-  for (const pc of board.pieces) { h = fnv(h, pc.dir); for (const c of pc.cells) h = fnv(h, c.y * board.W + c.x) }
-  return h.toString(16)
-}
 
 // Layers mode (headBias -1) is the setting that leans on absorbLeftover: it
 // leaves many leftover fragments and the generator tries to glue each one to a

@@ -61,7 +61,17 @@ node prototype/carve.mjs --headbias=-1           # layers (shallowest line)
 node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
 node prototype/carve.mjs --bench=20 --only=Extreme·sq
 node prototype/carve.mjs --only=Insane           # 1000×1000, the ceiling; ~10 s per run
+node prototype/carve.mjs --dry-run --w=25 --h=50 --seed=7        # compute only, nothing written
 ```
+
+`--dry-run` generates, measures and renders exactly like `--svg` (with or
+without it on the command line) but writes neither the store entry nor the
+`--svg=path` copy. It prints one JSON line: the board id the store would use,
+the engine parameters, the metrics (pieces, mean and maximum length, bends,
+coiling, f0, solvability), times, and a fingerprint of the board — the FNV
+hash the engine tests freeze recorded boards with — so two runtimes or two
+engine versions can be compared without a file. A board that fails to close
+prints a JSON line with `ok: false` and exits with code 1.
 
 Engine parameters are `--<PARAM_SPEC key in lower case>=value`; the defaults
 are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
