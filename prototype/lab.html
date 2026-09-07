@@ -8,10 +8,18 @@
   * { box-sizing: border-box; }
   body { margin: 0; background: #fbfbfd; color: var(--ink);
          font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-         display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+         display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
 
   aside { overflow-y: auto; padding: 1rem 1.1rem 4rem; border-right: 1px solid var(--line); background: #fff; }
-  main { overflow: auto; padding: 1rem 1.25rem 3rem; }
+  /* Plansza bierze całą wolną przestrzeń, statystyki mają własną kolumnę.
+     Na wąskim ekranie kolumny składają się w jedną. */
+  /* min-height: 0 na każdym poziomie — bez tego grid item rośnie z zawartości
+     i plansza wpasowuje się w szerokość zamiast w wysokość okna. */
+  main { overflow: hidden; padding: .8rem 1.1rem; display: grid;
+         grid-template-rows: auto 1fr; gap: .4rem; min-height: 0; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 26rem; gap: 1.5rem;
+          min-height: 0; overflow: hidden; }
+  @media (max-width: 1500px) { .cols { grid-template-columns: 1fr; overflow: auto; } }
 
   h1 { font-size: 1.1rem; margin: 0 0 .2rem; }
   .sub { color: #6a6b86; font-size: 12px; margin: 0 0 1rem; }
@@ -39,8 +47,20 @@
 
   #progress { height: 4px; background: var(--line); border-radius: 2px; margin: -.2rem 0 .8rem; overflow: hidden; }
   #bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
-  #board { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
-  #board svg { display: block; max-width: 100%; height: auto; }
+  /* Kontener przewija się, gdy powiększenie przekracza okno. SVG ma viewBox
+     w jednostkach komórek, więc skaluje się bez utraty ostrości — rozmiar
+     komórki w pikselach dotyczy wyłącznie pliku do pobrania i polecenia CLI. */
+  #boardWrap { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
+               overflow: auto; min-height: 0; display: grid; place-items: center; padding: .4rem; }
+  body.fitboard #boardWrap { overflow: hidden; }
+  #board { line-height: 0; }
+  #board svg { display: block; }
+  /* Przy dopasowaniu SVG dostaje CAŁY prostokąt kontenera, a rysunek wpasowuje
+     się w niego sam dzięki viewBox i preserveAspectRatio. Samo max-height nie
+     wystarcza — ogranicza, ale nie powiększa. */
+  body.fitboard #boardWrap > #board { width: 100%; height: 100%; min-height: 0; }
+  body.fitboard #board svg { width: 100%; height: 100%; }
+  body:not(.fitboard) #board svg { width: calc(var(--zoom) * 1px); height: auto; }
   .status { min-height: 1.4rem; margin-bottom: .6rem; font-size: 13px; }
   .status .bad { color: #8a2b2b; font-weight: 600; }
   .status .good { color: #2b6b3f; }
@@ -52,10 +72,7 @@
   table.top { border-collapse: collapse; font-size: 12px; margin-top: .3rem; }
   table.top th { text-align: left; color: #6a6b86; font-weight: 500; padding-right: .9rem; }
   table.top td { padding: .1rem .9rem .1rem 0; font-variant-numeric: tabular-nums; }
-  .cols { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
-  .cols > div { max-width: 62ch; }
-  #board { flex: 0 0 auto; max-width: 60vw; }
-  #board svg { max-height: 82vh; }
+  #side { overflow-y: auto; min-height: 0; padding-right: .5rem; }
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
   .cli { margin-top: 1rem; font-size: 11.5px; color: #6a6b86; word-break: break-all; }
 </style>
@@ -75,9 +92,20 @@
   </div>
 
   <h2>Podgląd</h2>
+  <label class="check"><input type="checkbox" id="fit" checked> dopasuj planszę do okna</label>
+  <div class="row" id="zoomRow">
+    <label for="zoom">powiększenie (px szerokości)</label>
+    <input type="number" id="zoom" value="1600" min="200" max="12000" step="100">
+    <input type="range" id="zoomRange" min="200" max="12000" step="100" value="1600">
+    <p class="help">Podgląd jest wektorowy, więc powiększenie nie psuje ostrości —
+      przy planszy 1000×1000 warto zejść w szczegóły na kilka tysięcy pikseli
+      i przewijać. Nie wpływa na plik do pobrania.</p>
+  </div>
   <div class="row">
-    <label for="cell">rozmiar komórki (px)</label>
+    <label for="cell">rozmiar komórki w eksporcie (px)</label>
     <input type="number" id="cell" value="12" min="1" max="40" step="1">
+    <p class="help">Dotyczy tylko pobieranego SVG i polecenia CLI pod planszą.
+      Na podgląd nie ma wpływu.</p>
   </div>
   <div class="row">
     <label for="stroke">grubość linii (podziałki)</label>
@@ -99,13 +127,13 @@
   <div class="status" id="status">Naciśnij <b>Generuj</b>.</div>
   <div id="progress" hidden><div id="bar"></div></div>
   <div class="cols">
-    <div id="board"></div>
-    <div>
+    <div id="boardWrap"><div id="board"></div></div>
+    <div id="side">
       <table class="stats" id="stats"></table>
       <div id="topTable"></div>
+      <div class="cli" id="cli"></div>
     </div>
   </div>
-  <div class="cli" id="cli"></div>
 </main>
 
 <script type="module">
@@ -185,7 +213,8 @@ for (const [label, w, h] of PRESETS) {
   b.addEventListener('click', () => {
     setParam('W', w); setParam('H', h)
     setParam('Lmax', Math.round(2.5 * Math.max(w, h)))
-    $('cell').value = Math.max(1, Math.min(18, Math.round(900 / Math.max(w, h))))
+    // Rozmiar komórki dotyczy tylko eksportu; podgląd skaluje się sam.
+    $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(w, h))))
     run()
   })
   $('presets').append(b)
@@ -196,6 +225,30 @@ function setParam(key, value) {
   const el = $('p_' + key)
   if (el) { el.value = value; el.nextElementSibling.value = value }
 }
+
+// --- powiększenie podglądu ------------------------------------------------
+function applyZoom() {
+  const fit = $('fit').checked
+  document.body.classList.toggle('fitboard', fit)
+  $('zoomRow').style.opacity = fit ? '.45' : '1'
+  document.documentElement.style.setProperty('--zoom', $('zoom').value)
+}
+$('fit').addEventListener('change', () => { applyZoom(); saveToUrl() })
+$('zoom').addEventListener('input', () => {
+  $('zoomRange').value = $('zoom').value
+  $('fit').checked = false
+  applyZoom(); saveToUrl()
+})
+$('zoomRange').addEventListener('input', () => {
+  $('zoom').value = $('zoomRange').value
+  $('fit').checked = false
+  applyZoom(); saveToUrl()
+})
+// podwójne kliknięcie w planszę przełącza dopasowanie i powiększenie
+$('boardWrap').addEventListener('dblclick', () => {
+  $('fit').checked = !$('fit').checked
+  applyZoom(); saveToUrl()
+})
 
 function viewOptions() {
   return {
@@ -338,7 +391,8 @@ function saveToUrl() {
   applyingHash = true
   setTimeout(() => { applyingHash = false }, 0)
   const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
-                 colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked }
+                 colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked,
+                 fit: $('fit').checked, zoom: $('zoom').value }
   location.hash = encodeURIComponent(JSON.stringify({ ...state, __view: view }))
 }
 function loadFromUrl() {
@@ -354,6 +408,9 @@ function loadFromUrl() {
     $('hilite').checked = view.hilite !== false
     $('help').checked = view.help !== false
     document.body.classList.toggle('nohelp', view.help === false)
+    if (view.zoom) { $('zoom').value = view.zoom; $('zoomRange').value = view.zoom }
+    $('fit').checked = view.fit !== false
+    applyZoom()
     return true
   } catch {
     return false
@@ -434,6 +491,7 @@ function renderLongest(longest) {
     `<th>gęstość</th><th>zwinięcie</th></tr>${body}</table>`
 }
 
+applyZoom()
 loadFromUrl()
 run()
 </script>
