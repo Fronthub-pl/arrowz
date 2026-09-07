@@ -88,8 +88,16 @@ na jazdę po torze zawęziła korytarz, ale nie naruszyła niczego poniżej.
 
 ## 3. Wybór technologii
 
-**TypeScript + Vite**, render w SVG, testy w Vitest, deploy jako statyczne pliki
-(Cloudflare Pages lub GitHub Pages), warstwa PWA przez `vite-plugin-pwa`.
+> **Zmiana po zamknięciu sondy (2026-09-07).** Warstwa widoku powstanie w **Angular 22**
+> (signals, resources, standalone, zoneless, signalForms), a profile graczy, wyniki
+> i ustawienia trafią na **Firebase**. Poniższy wywód pozostaje w mocy w części
+> dotyczącej **rdzenia** — `core/` i `game/` mają być czystym TypeScriptem bez
+> zależności od frameworka, i to jest jedyna rzecz, na której temu projektowi naprawdę
+> zależy. Rozstrzygnięcie, czy sensowny jest SSR, oraz szczegóły integracji z Firebase
+> należą do planu implementacji, nie do tej specyfikacji.
+
+**TypeScript**, render w SVG, testy w Vitest, warstwa PWA. Pierwotnie zakładany był
+build na czystym Vite i deploy w postaci statycznych plików bez backendu.
 
 Uzasadnienie: gra nie ma fizyki, sceny ani animacji szkieletowych — jej rdzeń to
 kombinatoryka na siatce liczb całkowitych. Największe ryzyko projektu (poprawność
