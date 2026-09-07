@@ -621,12 +621,21 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
 koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `Lmax` | `f0` | `D` |
-|---|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 625 | ~152 | 4.1 | 15 | 50 | 0.16 | 17 |
-| Medium | 50×50 | 2 500 | ~533 | 4.7 | 25 | 125 | 0.09 | 29 |
-| Hard | 75×75 | 5 625 | ~1 220 | 4.6 | 54 | 188 | 0.05 | 56 |
-| Nightmare | 100×100 | 10 000 | ~1 918 | 5.2 | 103 | 300 | 0.05 | 60 |
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem | czas |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~159 | 3.9 | 15 | 0.245 | 20% | 8 | 1.32 | 5 ms |
+| Medium | 50×50 | 2 500 | ~555 | 4.5 | 25 | 0.129 | 11% | 19 | 1.64 | 30 ms |
+| Hard | 75×75 | 5 625 | ~1 204 | 4.7 | 46 | 0.092 | 9% | 28 | 1.74 | 134 ms |
+| Nightmare | 100×100 | 10 000 | ~2 067 | 4.8 | 54 | 0.065 | 7% | 41 | 1.84 | 296 ms |
+
+Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w ładny
+opadający ciąg bez żadnego dodatkowego sterowania — sam rozmiar planszy wystarcza za
+regulator trudności, więc bias frontiera z §7 staje się dostrojeniem, a nie koniecznością.
+
+Zastrzeżenie: **czas generacji ma dużą wariancję** (5–300 ms), bo zależy od liczby
+nawrotów, a ta potrafi skoczyć z 0 do 258 między ziarnami. Wartość średnia jest nieistotna;
+znaczenie ma ogon. Do zmierzenia przed wydaniem: 99. percentyl czasu generacji, i dopiero
+on decyduje, czy potrzebny jest wskaźnik ładowania.
 
 **Rozbieżność do zamknięcia:** projekt zakładał ~1 000 elementów o średniej długości 10
 na Nightmare; generator przy obecnych wagach daje ~1 900 o średniej 5,2. Przyczyna jest
