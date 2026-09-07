@@ -481,6 +481,27 @@ się rozjechać. Kolumna „~elem." jest orientacyjna, wyliczona jako
 | Hard | 75×75 | 62% | 188 | 0.720 / 0.267 / 0.013 | 6.7 | ~519 | ~7 | 13% | 0.08–0.20 | 6–15 |
 | Nightmare | 100×100 | 68% | 300 | 0.700 / 0.285 / 0.015 | 7.4 | ~920 | ~14 | 20% | ≤ 0.03 | ≥ 15 |
 
+**Wypełnienie** to udział komórek siatki zajętych przez komórki elementów. Nightmare
+przy 68% to 6 800 komórek zajętych i **3 200 pustych** z 10 000. Elementy nigdy się nie
+nakładają, więc suma ich długości równa się liczbie zajętych komórek, a stąd
+`liczba elementów = W · H · wypełnienie / średnia długość`.
+
+Pusta przestrzeń nie jest marginesem, tylko **mechanizmem gry**: każdy element potrzebuje
+wolnego korytarza do krawędzi, żeby dało się go zdjąć. Przy wypełnieniu bliskim 100%
+plansza byłaby jednym wielkim cyklem w grafie blokowania, czyli nierozwiązywalna
+z definicji (§8). Pustka dzieli się na dwa rodzaje: korytarze aktualnie wolnych
+elementów, które muszą pozostać puste, oraz martwe dziury odcięte od krawędzi ze
+wszystkich czterech stron, których generator nie ma czym zapełnić.
+
+Wizualnie plansza wygląda na pełniejszą niż wskazuje liczba, bo elementy rysujemy grubą
+linią pokrywającą niemal całą komórkę, a puste komórki leżą zwykle pojedynczo między
+liniami.
+
+Zastrzeżenie: 68% leży blisko szacowanego sufitu nasycenia dla losowych kształtów
+o mieszanych kierunkach (§7). Jeśli benchmark pokaże, że generator nasyca się wcześniej,
+obniżamy cel dla Nightmare zamiast zwiększać budżet prób — plansza gęstsza od tego, co
+geometria dopuszcza, i tak nie powstanie.
+
 Kolumna „pow. w dł." to udział wypełnienia zajęty przez koszyk długi — wielkość, którą
 konfigurator pokazuje na żywo (§7). Powyżej ~25% plansza przestaje wyglądać jak pole
 strzałek i zamienia się w kilka spiral.
