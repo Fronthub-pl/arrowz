@@ -3,4 +3,4 @@ dist/
 .DS_Store
 *.local
 .basic-memory/
-prototype/preview/*.svg
+prototype/boards/

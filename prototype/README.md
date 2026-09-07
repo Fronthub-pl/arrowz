@@ -11,9 +11,19 @@ On top of that there are preview toggles: **arrow colouring** (each piece in a
 different colour — diagnostic mode) and **highlighting the N longest pieces**
 (in pink, with a table of their length, span, density and coiling).
 
-The configuration is stored in the URL, so you can return to a setting or send
-it to someone as a link. Below the board a ready-made CLI command appears that
-reproduces exactly the same run.
+The configuration is stored in the URL, so a setting can be revisited or
+shared as a link. The panel shows, **before** generating, the CLI command
+matching the current knobs — the lab is a layer over `carve.mjs` and mirrors
+it 1:1: the same command in a terminal gives the same board byte for byte
+(`carve.test.mjs` guards this). The UI is bilingual (PL/EN switch in the
+panel header; the choice is kept in `localStorage` and in the URL).
+
+Every generated board — from the lab and from `carve.mjs --svg` — lands in
+`prototype/boards/<W>x<H>/<id>.svg` with metadata and the command in
+`<id>.json` (gitignored; the id is the seed plus a hash of the parameters, so
+the same configuration overwrites its own entry). The **Saved boards** tab
+browses the store by size, shows the command next to the board and loads its
+settings into the knobs.
 
 The engine lives in `engine.mjs` and is shared by the lab and by `carve.mjs` —
 there are no two copies of the algorithm that could drift apart.
@@ -23,12 +33,20 @@ open questions before the implementation plan was written. It has no tests, no t
 no view layer, and it must not be developed further — the implementation starts from scratch, in TypeScript.
 
 ```
-node prototype/carve.mjs                      # all four levels
-node prototype/carve.mjs --only=Easy --show   # with ASCII preview
-node prototype/carve.mjs --headbias=1         # tunnelling (deepest line)
-node prototype/carve.mjs --headbias=-1        # layers (shallowest line)
-node prototype/carve.mjs --lateral=6 --straight=0.6 --runs=3
+node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12    # one board -> prototype/boards/
+node prototype/carve.mjs --svg=board.svg --w=100 --h=200 --giants=4 --cell=8 --top=5
+node prototype/carve.mjs                         # report on all levels
+node prototype/carve.mjs --only=Easy·sq --show   # with ASCII preview
+node prototype/carve.mjs --headbias=1            # tunnelling (deepest line)
+node prototype/carve.mjs --headbias=-1           # layers (shallowest line)
+node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
+node prototype/carve.mjs --bench=20 --only=Extreme·sq
 ```
+
+Engine parameters are `--<PARAM_SPEC key in lower case>=value`; the defaults
+are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
+`--giantspacepen` work as aliases. Format flags: `--square`, `--portrait`
+(report and benchmark modes; level names get the suffix `·sq` or `·pt`).
 
 ## What it settled
 
@@ -185,8 +203,10 @@ in 64 ms, at most 0.5 restarts per run.
 
 ```
 node prototype/carve.mjs --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
-sh prototype/preview.sh && open prototype/preview/index.html   # section F
 ```
+
+The section-F variants are reproduced with commands in the lab (Saved boards
+tab) — the `preview.sh` gallery was replaced by the board store.
 
 ## Round 8 — hardening of board closing (boards up to 200×200)
 
