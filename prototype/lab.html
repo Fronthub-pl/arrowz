@@ -78,9 +78,17 @@
   .tabs button { border-radius: 5px 5px 0 0; border-bottom: none; padding: .3rem .8rem; }
   .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
   body.tab-library #stats, body.tab-library #topTable { display: none; }
+  /* The saved-boards tab only browses the store: no presets, no knobs, no
+     command. What stays acts on the stored SVG — fit and zoom. */
+  body.tab-library .labonly, body.tab-library #presets { display: none; }   /* #presets: the id rule above outranks the class */
   .libhead { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
   .libhead button { padding: .2rem .45rem; font-size: 12px; }
   #libList { margin: .4rem 0 .8rem; }
+  .libview { display: grid; grid-template-columns: 1fr 68px; gap: .3rem .5rem; align-items: center;
+             font-size: 12.5px; margin: .2rem 0 .6rem; }
+  .libview input[type=number] { width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 4px;
+                                font: inherit; font-size: 12.5px; text-align: right; }
+  .libview .check { grid-column: 1 / -1; margin: 0; }
   .boardrow { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; padding: .35rem .5rem;
               border: 1px solid var(--line); border-radius: 5px; margin-bottom: .3rem; cursor: pointer; font-size: 12px; }
   .boardrow:hover { border-color: var(--ink); }
@@ -142,9 +150,9 @@
   <h1 data-i18n="title">Generator lab</h1>
   <p class="sub" data-i18n="subtitle">Same engine as carve.mjs: engine.mjs.</p>
 
-  <select id="presets" class="presets"></select>
+  <select id="presets" class="presets labonly"></select>
 
-  <div class="buttons">
+  <div class="buttons labonly">
     <button class="primary" id="run" data-i18n="generate">Generate</button>
     <button id="reseed" data-i18n="reseed">New seed</button>
     <button id="reset" data-i18n="reset">Defaults</button>
@@ -152,7 +160,7 @@
     <button id="abort" hidden data-i18n="abort">Abort</button>
   </div>
 
-  <div class="command">
+  <div class="command labonly">
     <div class="cmdhead"><span data-i18n="commandHead">CLI command (matches the current settings)</span>
       <button id="copyCommand" data-i18n="copy">Copy</button></div>
     <pre id="command"></pre>
@@ -166,26 +174,26 @@
     <input type="range" id="zoomRange" min="200" max="12000" step="100" value="1600">
     <p class="help" data-i18n="zoomHelp"></p>
   </div>
-  <div class="row">
+  <div class="row labonly">
     <label for="cell" data-i18n="cellLabel">cell size in export (px)</label>
     <input type="number" id="cell" value="12" min="1" max="40" step="1">
     <p class="help" data-i18n="cellHelp"></p>
   </div>
-  <div class="row">
+  <div class="row labonly">
     <label for="stroke" data-i18n="strokeLabel">stroke width (grid units)</label>
     <input type="number" id="stroke" value="0.5" min="0.2" max="0.9" step="0.05">
   </div>
-  <label class="check"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
-  <label class="check"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
-  <label class="check"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
-  <div class="row">
+  <label class="check labonly"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
+  <label class="check labonly"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
+  <label class="check labonly"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
+  <div class="row labonly">
     <label for="top" data-i18n="topLabel">how many longest</label>
     <input type="number" id="top" value="5" min="1" max="50" step="1">
   </div>
-  <label class="check"><input type="checkbox" id="auto"> <span data-i18n="autoRun">generate right after a change</span></label>
-  <label class="check"><input type="checkbox" id="help" checked> <span data-i18n="showHelp">show parameter descriptions</span></label>
+  <label class="check labonly"><input type="checkbox" id="auto"> <span data-i18n="autoRun">generate right after a change</span></label>
+  <label class="check labonly"><input type="checkbox" id="help" checked> <span data-i18n="showHelp">show parameter descriptions</span></label>
 
-  <div id="params"></div>
+  <div id="params" class="labonly"></div>
 </aside>
 
 <main>
@@ -208,6 +216,11 @@
         </div>
         <div id="libList"></div>
         <div id="libDetail" hidden>
+          <div class="libview">
+            <label for="libStroke" data-i18n="strokeLabel">stroke width (grid units)</label>
+            <input type="number" id="libStroke" value="0.5" min="0.2" max="0.9" step="0.05">
+            <label class="check"><input type="checkbox" id="libColored"> <span data-i18n="colored">colour the arrows</span></label>
+          </div>
           <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
             <button id="libCopy" data-i18n="copy">Copy</button></div>
           <pre id="libCommand"></pre>
@@ -386,9 +399,6 @@ $('presets').addEventListener('change', () => {
   // The cell size concerns only the export; the preview scales itself.
   $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
   updateCommand()
-  // A preset chosen from the saved-boards tab would otherwise generate out of
-  // sight — the board area there still shows the stored SVG.
-  if (activeTab === 'library') showTab('lab')
   run()
 })
 
@@ -490,21 +500,23 @@ function onWorkerMessage(msg) {
     lastDone = msg
     report(msg)
     finish()
+    // The stored file has no highlight: the pink marks the longest pieces
+    // for the preview only. A separate render goes to the store.
+    worker.postMessage({ type: 'render', view: storeView(), tag: 'store' })
     // a view changed during the run applies now
     if (pendingRedraw || sentView !== JSON.stringify(viewOptions())) { pendingRedraw = false; redraw() }
     return
   }
   if (msg.type === 'render') {
+    if (msg.tag === 'store') { if (lastDone) saveBoardToStore(msg.svg); return }
     if (activeTab === 'lab') $('board').innerHTML = msg.svg
     lastLongest = msg.longest
     renderLongest(msg.longest)
-    if (saveNext && lastDone) { saveNext = false; saveBoardToStore(msg.svg) }
   }
 }
 
 let lastDone = null
 let lastLongest = null
-let saveNext = false           // save the next rendered SVG to the store
 let boardsCache = null         // last list from /api/boards, null = fetch again
 let runParams = { ...state }   // parameters the last board was generated from
 let sentView = ''              // the view last requested from the worker
@@ -552,7 +564,6 @@ function run() {
   // The report describes the board that WAS PRODUCED, not the current form
   // fields — the user may have changed them after generating.
   runParams = { ...state }
-  saveNext = true
   sentView = JSON.stringify(viewOptions())
   ensureWorker().postMessage({ type: 'generate', params: runParams, view: viewOptions() })
   saveToUrl()
@@ -613,10 +624,11 @@ $('download').addEventListener('click', () => {
 // The board goes to disk through the lab server — once per generation, with
 // the view as rendered. A missing store server (e.g. other static hosting)
 // does not break the report; it only appends a warning to the status.
+function storeView() { return { ...viewOptions(), top: 0 } }
 async function saveBoardToStore(svg) {
-  const view = viewOptions()
+  const view = storeView()
   const body = {
-    svg, params: runParams, view: { cell: view.cell, stroke: view.stroke, colored: view.colored, top: view.top },
+    svg, params: runParams, view: { cell: view.cell, stroke: view.stroke, colored: view.colored, top: 0 },
     command: buildCommand(runParams, view), source: 'lab',
     metrics: { ok: lastDone.ok, pieces: lastDone.pieces, maxLen: lastDone.metrics?.maxLen ?? null, genMs: lastDone.genMs },
   }
@@ -704,6 +716,9 @@ async function openBoard(meta) {
   renderLibrary()
   $('libDetail').hidden = false
   $('libCommand').textContent = meta.command
+  $('libStroke').value = meta.view?.stroke ?? 0.5
+  $('libColored').checked = !!meta.view?.colored
+  if (libWorkerId !== meta.id) dropLibWorker()
   setStatus(t('loadingBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
   const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.svg`)
   if (activeTab !== 'library') return
@@ -729,6 +744,67 @@ $('libLoad').addEventListener('click', () => {
   showTab('lab')
 })
 
+// --- editing the view of a stored board ------------------------------------
+// The store holds only the SVG, so a stored board is regenerated in its own
+// worker from its parameters (the engine is deterministic: the same board
+// comes back) and redrawn with the new stroke or colours. Saving goes through
+// the same POST as the lab, so the file stays byte for byte what the CLI
+// command in the meta would produce. The lab worker keeps its own board.
+let libWorker = null
+let libWorkerId = null         // id of the board the library worker holds
+let libTimer = null
+function dropLibWorker() {
+  if (libWorker) libWorker.terminate()
+  libWorker = null
+  libWorkerId = null
+}
+function libView(meta) {
+  return { cell: meta.view?.cell ?? 12, stroke: Number($('libStroke').value), colored: $('libColored').checked,
+           top: 0, voids: false }   // stored boards carry no highlight
+}
+function scheduleLibRender() { clearTimeout(libTimer); libTimer = setTimeout(libRender, 350) }
+function libRender() {
+  const meta = libBoard
+  if (!meta) return
+  const view = libView(meta)
+  if (libWorker && libWorkerId === meta.id) { libWorker.postMessage({ type: 'render', view }); return }
+  dropLibWorker()
+  libWorkerId = meta.id
+  libWorker = new Worker('./lab-worker.mjs', { type: 'module' })
+  libWorker.onerror = (e) => { setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`); dropLibWorker() }
+  libWorker.onmessage = (e) => onLibWorkerMessage(meta, e.data)
+  setStatus(t('rebuilding', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
+  libWorker.postMessage({ type: 'generate', params: meta.params, view })
+}
+async function onLibWorkerMessage(meta, msg) {
+  if (activeTab !== 'library' || libBoard?.id !== meta.id) return
+  if (msg.type === 'progress') {
+    const { pieces, remaining, backtracks, ms, total } = msg.info
+    const done = 100 * (1 - remaining / total)
+    setStatus(t('progress', done.toFixed(1), fmt(pieces), fmt(remaining), backtracks, (ms / 1000).toFixed(1)))
+    return
+  }
+  if (msg.type === 'error') { setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`); dropLibWorker(); return }
+  if (msg.type !== 'render') return
+  $('board').innerHTML = msg.svg
+  const { voids, ...view } = libView(meta)
+  const body = { svg: msg.svg, params: meta.params, view, command: buildCommand(meta.params, view), source: meta.source,
+    metrics: { ok: meta.ok, pieces: meta.pieces, maxLen: meta.maxLen, genMs: meta.genMs } }
+  try {
+    const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const saved = await r.json()
+    libBoard = saved
+    $('libCommand').textContent = saved.command
+    setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
+    await loadLibrary(true)   // the row shows the new save time
+  } catch {
+    setStatus(`<span class="bad">${t('notSaved')}</span>`)
+  }
+}
+$('libStroke').addEventListener('input', scheduleLibRender)
+$('libColored').addEventListener('change', scheduleLibRender)
+
 // Deleting takes two clicks on the same button: the first arms it, the second
 // removes the files. Selecting another board or switching language disarms.
 function disarmDelete() {
@@ -753,6 +829,7 @@ $('libDelete').addEventListener('click', async () => {
     return
   }
   libBoard = null
+  dropLibWorker()
   $('libDetail').hidden = true
   $('board').innerHTML = ''
   setStatus(t('deletedBoard', `<code>${name}</code>`))

@@ -38,19 +38,21 @@ function longestSummary(board, n) {
   })
 }
 
-function render(view) {
+// `tag` comes back with the SVG so the page can tell a preview apart from a
+// render made for the store (no highlight).
+function render(view, tag) {
   if (!last) return
   const svg = toSvg(last.board, {
     cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top,
     voids: view.voids,
   })
-  self.postMessage({ type: 'render', svg, longest: longestSummary(last.board, view.top) })
+  self.postMessage({ type: 'render', svg, longest: longestSummary(last.board, view.top), tag })
 }
 
 self.onmessage = (event) => {
-  const { type, params, view } = event.data
+  const { type, params, view, tag } = event.data
 
-  if (type === 'render') { render(view); return }
+  if (type === 'render') { render(view, tag); return }
 
   if (type === 'generate') {
     const started = performance.now()

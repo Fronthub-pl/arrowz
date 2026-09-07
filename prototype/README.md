@@ -29,10 +29,18 @@ panel header; the choice is kept in `localStorage` and in the URL).
 Every generated board — from the lab and from `carve.mjs --svg` — lands in
 `prototype/boards/<W>x<H>/<id>.svg` with metadata and the command in
 `<id>.json` (gitignored; the id is the seed plus a hash of the parameters, so
-the same configuration overwrites its own entry). The **Saved boards** tab
+the same configuration overwrites its own entry). The stored file has no
+highlight of the longest pieces — that pink is a preview aid in the lab tab;
+the store gets a separate render with `top` 0 and a command without `--top`. The **Saved boards** tab
 browses the store by size, shows the command next to the board, loads its
 settings into the knobs and deletes a board from disk (two clicks on the same
-button, no dialog; `DELETE /api/boards/<WxH>/<id>`).
+button, no dialog; `DELETE /api/boards/<WxH>/<id>`). The stroke width and
+arrow colouring of a stored board can be changed there: the board is rebuilt
+from its parameters in a separate worker (the engine is deterministic),
+redrawn and saved back through the same POST, so the file stays what its CLI
+command would produce. That tab has no
+generation controls at all — the panel keeps only fit and zoom, which act on
+the stored SVG; generating happens in the lab tab.
 
 The engine lives in `engine.mjs` and is shared by the lab and by `carve.mjs` —
 there are no two copies of the algorithm that could drift apart.
