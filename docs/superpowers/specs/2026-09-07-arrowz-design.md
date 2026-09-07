@@ -128,17 +128,13 @@ src/
   ui/
     app.ts           powłoka: wybór poziomu, serca, ekrany końcowe
     configurator.ts  tryb zaawansowany: edycja parametrów generatora
-  workers/
-    generate.worker.ts  generacja poza głównym wątkiem
   main.ts            spięcie
 ```
 
 Zasada nadrzędna: `core/` i `game/` nie importują niczego z `render/` ani `ui/` i nie
-dotykają DOM. Dzięki temu cała logika i generator uruchamiają się w Node — a także,
-bez żadnej zmiany, w Web Workerze. Przy planszy 100×100 generacja z pętlą odrzucania
-po metrykach potrwa zauważalnie długo, więc musi iść poza główny wątek, żeby interfejs
-nie zamarzał. Czysty rdzeń daje to za darmo; gdyby rdzeń dotykał DOM, byłoby to
-przepisywanie modułu.
+dotykają DOM. Dzięki temu cała logika i generator uruchamiają się w Node — co pozwoliło
+zmierzyć je prototypem, zanim powstała jakakolwiek warstwa widoku, i uchronić projekt
+przed dwiema decyzjami podjętymi na oślep (§11, §13).
 
 ## 5. Model danych
 
@@ -457,9 +453,49 @@ dołożyć. Zastępujemy go dwoma innymi:
    prób jest ograniczony; po jego wyczerpaniu oddajemy najlepszy wynik, żeby gra nigdy
    nie zawiesiła się przy starcie poziomu.
 
-Skuteczność biasu z punktu 1 jest **hipotezą do potwierdzenia benchmarkiem**. Gdyby
-okazała się słaba, pozostaje samo generuj–zmierz–odrzuć, które działa zawsze, tylko
-drożej.
+**Skuteczność biasu z punktu 1 została potwierdzona prototypem.** Na planszy 25×25
+preferowanie najgłębszej linii przy wyborze głowy (tunelowanie) wobec preferowania
+najpłytszej (warstwy) daje:
+
+| Wariant | `f0` | `D` | średni korytarz |
+|---|---|---|---|
+| warstwy (najpłytsza linia) | 0.43 | 9 | 6.2 |
+| bez preferencji | 0.33 | 8 | 6.9 |
+| **tunele (najgłębsza linia)** | **0.16** | **17** | **11.7** |
+
+Tunelowanie **połowi `f0` i podwaja głębokość grafu blokowania**. Jest to więc realny
+regulator trudności, a nie hipoteza. Siłę dobieramy per poziom: Easy potrzebuje
+tunelowania słabszego (przy pełnym `f0` spadło do 0.16 zamiast zamierzonych ≥0.35),
+wyższe poziomy pełnego.
+
+### Skręt jest legalny tylko na wysokości frontiera — i to boli
+
+Prototyp ujawnił ograniczenie, którego projekt nie przewidywał. Żeby element idący
+w górę kolumną `x` skręcił do kolumny `x+1` na wysokości `y`, kolumna `x+1` musi być
+przypisana **dokładnie** na wierszach `0..y−1` i nieprzypisana na `y`. Ani płycej, ani
+głębiej. Warunek jest punktowy.
+
+Konsekwencja: **element, który raz zanurzy się w głąb, traci możliwość skrętu na
+zawsze**, bo znalazł się poniżej frontiera sąsiadów. Bez przeciwdziałania wszystkie
+elementy wychodzą proste, a plansza układa się w pasy — pionowe u góry, poziome
+z boków, każdy kierunek we własnym pasmie.
+
+Tłumaczy to też, dlaczego suwak „stopień połamania" nie robił w pomiarach różnicy: bias
+wybiera spomiędzy **dostępnych** kandydatów, a kandydatów bocznych prawie nie ma. Był to
+suwak regulujący preferencję dla opcji, której nie było w menu.
+
+Przeciwdziałanie zaimplementowane w prototypie to premia za ruch boczny — utrzymanie
+ścieżki przy frontierze zamiast nurkowania do środka. Poprawia, ale nie rozwiązuje:
+odsetek ścieżek utykających przed docelową długością spada z ~50% do ~30%.
+**Doprowadzenie wyglądu planszy do splątania z oryginału pozostaje największym otwartym
+pytaniem projektu** i pierwszą rzeczą do rozstrzygnięcia w implementacji.
+
+### Kalibracja długości pod osiąganą, nie zamawianą średnią
+
+Prototyp mierzy, że 28–47% ścieżek utyka przed docelową długością, więc średnia osiągana
+jest o ~30% niższa od zamawianej. Wagi koszyków muszą to uwzględniać: żądanie średniej
+10 daje w praktyce ~5. Generator raportuje faktyczny rozkład (§11), a testy pilnują, by
+długie elementy w ogóle powstawały (§12).
 ## 8. Solver i weryfikacja
 
 ### Graf blokowania
@@ -516,15 +552,26 @@ potrafi szybko odczytać z ekranu — i stąd bierze się cała trudność gry.
 | Metryka | Definicja |
 |---|---|
 | `f0` | udział elementów wolnych na starcie (ujścia grafu blokowania) |
-| `T_k` | elementy zablokowane, których korytarz jest „czysty" przez pierwsze `k` komórek — bloker leży daleko, poza polem widzenia gracza |
+| `almost1` | elementy zablokowane przez **dokładnie jeden** obcy element — wyglądają niemal na gotowe do wyjazdu i są główną pokusą do błędu |
 | `T_conc` | elementy zablokowane we własnej wklęsłości (kształty U, S) |
 | `D` | głębokość grafu blokowania (najdłuższa ścieżka) |
 | `meanCorridorLen` | średnia długość korytarza — jak daleko trzeba wodzić wzrokiem, by ocenić jeden ruch |
 | `minFree` | minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych |
 
-`T_k` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia, czyli to, co
+`almost1` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia, czyli to, co
 faktycznie odbiera życia. `minFree` jest w MVP metryką **diagnostyczną** — raportowaną
 w benchmarku, ale niewchodzącą do progów akceptacji, bo jej kalibracja wymaga playtestu.
+
+**Dlaczego nie `T_k`.** Wcześniejsze wersje projektu używały metryki `T_k`: elementy
+zablokowane, których korytarz jest czysty przez pierwsze `k` komórek. Prototyp pokazał,
+że przy planszy zapełnionej w 100% ta metryka **zawsze wynosi zero**. Powód jest
+oczywisty z perspektywy czasu: skoro każda komórka do kogoś należy, tuż przed elementem
+zawsze ktoś stoi, więc „czysty korytarz przez `k` komórek" wymagałby, żeby element
+zasłaniał sam siebie na `k` komórek. To rzadkie. `T_k` była metryką zaprojektowaną pod
+planszę z pustkami i nie przeżyła przejścia na pełne pokrycie.
+
+Zastępuje ją `almost1`, która mierzy tę samą intuicję — „wygląda na wolny, a nie jest" —
+w sposób sensowny przy pełnym zapełnieniu. Prototyp mierzy dla niej 4–10% elementów.
 
 Wszystkie metryki są tanie; jedyna stochastyczna to `minFree`.
 
@@ -542,16 +589,26 @@ dokładnie jednego elementu; suma długości elementów równa się `W · H`. W 
 liczba linii i średnia długość to jedna wielkość, związana zależnością
 `średnia długość = W · H / liczba linii`.
 
-| Poziom | plansza | komórek | linii | śr. dł. | `Lmax` | `f0` | `T_2` |
-|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 625 | ~80 | ~7.8 | 50 | ≥ 0.35 | ≤ 2 |
-| Medium | 50×50 | 2 500 | ~250 | ~10 | 125 | 0.20–0.35 | 3–8 |
-| Hard | 75×75 | 5 625 | ~560 | ~10 | 188 | 0.08–0.20 | 8–20 |
-| Nightmare | 100×100 | 10 000 | ~1 000 | ~10 | 300 | ≤ 0.03 | ≥ 20 |
+Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
+koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-Wszystkie wartości są **punktem wyjścia do kalibracji benchmarkiem**, a nie ustaleniem.
-Progi `T_2` i `D` skalują się z liczbą elementów, więc bezwzględne liczby z małej
-planszy nie przenoszą się na dużą. Pierwszym krokiem implementacji generatora jest
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `Lmax` | `f0` | `D` |
+|---|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~152 | 4.1 | 15 | 50 | 0.16 | 17 |
+| Medium | 50×50 | 2 500 | ~533 | 4.7 | 25 | 125 | 0.09 | 29 |
+| Hard | 75×75 | 5 625 | ~1 220 | 4.6 | 54 | 188 | 0.05 | 56 |
+| Nightmare | 100×100 | 10 000 | ~1 918 | 5.2 | 103 | 300 | 0.05 | 60 |
+
+**Rozbieżność do zamknięcia:** projekt zakładał ~1 000 elementów o średniej długości 10
+na Nightmare; generator przy obecnych wagach daje ~1 900 o średniej 5,2. Przyczyna jest
+zmierzona (§7): 28–47% ścieżek utyka przed docelową długością, więc faktyczna średnia
+jest wyraźnie niższa od zamawianej. Wagi koszyków trzeba skalibrować pod **osiąganą**,
+a nie zamawianą długość. `f0` dla Easy wyszło 0,16 zamiast zamierzonych ≥0,35, więc
+Easy wymaga słabszego tunelowania niż wyższe poziomy.
+
+Pozostałe wartości są **punktem wyjścia do kalibracji**, a nie ustaleniem.
+Progi `almost1` i `D` skalują się z liczbą elementów, więc bezwzględne liczby z małej
+planszy nie przenoszą się na dużą — używamy udziałów, nie liczb. Pierwszym krokiem implementacji generatora jest
 raport z faktycznie osiąganego rozkładu długości, wartości metryk, częstości nawrotów
 i restartów generatora oraz czasu generacji.
 
@@ -638,7 +695,7 @@ z nich przy liczeniu wyniku.
 complexity =
     (W · H) / 100                                  // rozmiar zadania
   × (1 + w_f · (1 − f0))                           // ciasnota startu
-  × (1 + w_t · T₂ / N)                             // gęstość pułapek
+  × (1 + w_t · almost1 / N)                        // gęstość pokus do błędu
   × (1 + w_c · meanCorridorLen / max(W, H))        // jak daleko trzeba wodzić wzrokiem
   × (1 + w_d · D / sqrt(W · H))                    // głębokość zaplątania
 
@@ -716,20 +773,26 @@ Wypełnienia nie raportuje, bo jest zawsze pełne. Jest to konieczne, bo
 geometria potrafi odmówić — proste i bardzo długie elementy często nie mieszczą się,
 a generator nie może obiecać liczby, której nie da się zrealizować.
 
-### Budżet wydajności
+### Wydajność — zmierzona, nie szacowana
 
-Punkt odniesienia to Nightmare: 10 000 komórek, ~1 000 elementów, ~1 000 ścieżek SVG.
+Prototyp (`prototype/carve.mjs`) zmierzył pełny cykl na planszy Nightmare 100×100
+(10 000 komórek, ~1 900 elementów):
 
-| Operacja | Budżet |
+| Operacja | Czas |
 |---|---|
-| generacja planszy (z pętlą odrzucania po metrykach) | poza głównym wątkiem, w Web Workerze; wskaźnik postępu po 300 ms |
-| pierwsze narysowanie planszy | < 300 ms |
-| zoom i przesuwanie | 60 fps (sama zmiana `viewBox`) |
-| reakcja na kliknięcie (test wolności jednego elementu) | < 16 ms |
+| generacja całej planszy | **27 ms** |
+| policzenie wszystkich metryk + solver | **14 ms** |
 
-Przekroczenie budżetu uruchamia ścieżkę optymalizacji z §13. Gdyby SVG nie wyrobiło się
-w pierwszym narysowaniu, wymieniamy implementację renderera na Canvas — interfejs
-`Renderer` istnieje właśnie po to.
+To o dwa rzędy wielkości mniej, niż zakładał wcześniejszy budżet. W konsekwencji
+**usunięte zostały jako niepotrzebne**: generacja w Web Workerze, wskaźnik postępu,
+bitboardy korytarzy i odwrotny indeks pokrycia. Nawet pętla generuj–zmierz–odrzuć
+z dwudziestoma próbami mieści się poniżej sekundy na głównym wątku.
+
+Zostaje jedno realne pytanie wydajnościowe, którego prototyp nie dotyka, bo nie ma
+warstwy widoku: **czy SVG wyrobi przy ~1 900 ścieżkach z zoomem i przesuwaniem**.
+Renderer stoi za interfejsem właśnie na tę okoliczność; jeśli nie wyrobi, wymieniamy
+implementację na Canvas bez dotykania rdzenia. Mierzymy to przy pierwszym działającym
+widoku, nie wcześniej.
 
 PWA: manifest, ikony i service worker cache-first (`vite-plugin-pwa`). Gra jest w pełni
 klientowa, więc offline działa bez dodatkowej logiki.
@@ -861,19 +924,12 @@ jest czysty od początku, i taki jest), podpowiedzi, progresja poziomów, zapis 
 i tabele wyników, dźwięk, dopracowana warstwa wizualna. Stoper, seria i punktacja
 **wchodzą** do MVP (§10); poza zakresem zostaje trwałe przechowywanie wyników.
 
-**Ścieżka optymalizacji.** Wcześniejsza wersja tego projektu zakładała plansze rzędu
-20×25 i ~50 elementów, przy których zwykłe pętle wykonują się w mikrosekundach,
-a optymalizacja byłaby przedwczesna. Po powiększeniu Nightmare do 100×100 i ~920
-elementów **przestało to być oczywiste**: pełny skan wolności to rząd 10⁶–10⁷ operacji,
-a budowa grafu blokowania podobnie. Dlatego benchmark z §12 jest **krokiem
-obowiązkowym i wczesnym**, a nie opcjonalnym; poniższe struktury wdrażamy, gdy
-przekroczy budżet z §11, i tylko wtedy:
-
-- maski korytarza jako bitboardy wierszowe (`uint64` na wiersz, przy `W ≤ 64`); test
-  wolności staje się `∀r: occ[r] & corr[r] == 0`,
-- odwrotny indeks `coverIndex[c] → lista id, których korytarz zawiera c` oraz licznik
-  `blockedCells[E]`; usunięcie elementu aktualizuje zbiór wolnych elementów
-  inkrementalnie, bez skanowania. Ta struktura obsłuży też przyszłe podpowiedzi.
+**Ścieżka optymalizacji — zamknięta pomiarem.** Wcześniejsze wersje tego projektu
+opisywały tu bitboardy korytarzy i odwrotny indeks pokrycia jako struktury do wdrożenia,
+gdyby zwykłe pętle nie wyrobiły przy ~1 900 elementach. Prototyp zmierzył pełny cykl na
+Nightmare: **27 ms generacji i 14 ms metryk** (§11). Margines jest tak duży, że te
+struktury zostają wykreślone z projektu, a nie odłożone. Gdyby kiedykolwiek wróciły,
+wrócą na podstawie profilu, nie przeczucia.
 
 **Zmiana reguł zmieniająca charakter gry.** Obecne reguły nie dają głębi planistycznej.
 Gdyby kiedyś była pożądana, trzeba zmienić reguły — na przykład „element zatrzymuje się
@@ -890,7 +946,9 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Błąd „przednia zamiast tylnej komórki" w optymalizacji per linia — niewykrywalny bez kształtów wklęsłych | Testy 1 i 3 z §12 są obowiązkowe przed jakąkolwiek optymalizacją |
 | Wygenerowane plansze są nudne mimo poprawności (frontier wycinania zbyt równy, dużo wolnych elementów na starcie) | Bias preferujący wycinanie tunelami zamiast warstwami (§7), metryki `f0` i `T_k` przy generacji, pętla generuj-zmierz-odrzuć |
 | Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
-| Generator zakleszcza się przy minimalnej długości 2 i często restartuje, wydłużając ładowanie | Głowy parowalne, test kształtu resztki i ograniczony nawrót (§7); częstość nawrotów mierzona benchmarkiem; plan awaryjny to wariant dwufazowy z gwarantowanym podziałem |
+| ~~Generator zakleszcza się przy minimalnej długości 2~~ | **Zamknięte pomiarem:** średnio 0–0,5 nawrotu na planszę, zero restartów na wszystkich czterech rozmiarach (§7). Wariant dwufazowy przestaje być potrzebny jako plan awaryjny |
+| Rozkład długości nie realizuje zamówienia: 28–47% ścieżek utyka przed docelową długością, więc plansze wychodzą drobniejsze niż zaplanowano | Zjawisko zmierzone i opisane (§7); wagi koszyków wymagają kalibracji pod faktycznie osiąganą, a nie zamawianą średnią |
+| Plansze wychodzą w pasy zamiast splątane, bo skręt jest legalny tylko na wysokości frontiera sąsiedniej linii | Premia za ruch boczny i preferencja najgłębszej linii przy wyborze głowy (§7); wygląd wymaga dalszej pracy i jest największym otwartym pytaniem projektu |
 | Test kształtu resztki przepuszcza fragment nierozkładalny inny niż plus | Solver z §8 weryfikuje każdą planszę niezależnie od generatora; nawrót uruchamia się na podstawie faktycznego zaklinowania, a nie tylko przewidywania |
 | Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
 | Gracz farmi punkty planszą zdegenerowaną z konfiguratora (ogromna, ale banalna) | Podstawa punktacji skaluje się z powierzchnią, nie z liczbą kliknięć; mnożniki mierzą trudność na klik; test antyeksploatacyjny 26e |
@@ -899,7 +957,7 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
 | Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
 | Kilkanaście długich elementów zajmuje większość powierzchni i plansza wygląda jak zbiór spiral zamiast pola strzałek | Udział powierzchni koszyka długiego liczony jawnie (§7), pokazywany w konfiguratorze, ostrzeżenie powyżej 25%, test 23 |
-| Generacja 100×100 zamraża interfejs na sekundy | Rdzeń bez DOM jest z założenia przenośny do Web Workera (§4); budżet i wskaźnik postępu w §11 |
+| ~~Generacja 100×100 zamraża interfejs~~ | **Zamknięte pomiarem:** 27 ms na Nightmare (§11) |
 | SVG nie wyrabia przy ~1 000 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
 | Gracz traci życie, próbując przesunąć planszę | Kliknięcie odróżniane od przeciągnięcia progiem odległości (§11); pokryte testem interakcji |
 | Konfigurator obiecuje parametry, których geometria nie dopuszcza | Generator raportuje osiągnięte wartości obok zamówionych (§11); test 21 na parametrach niewykonalnych |
