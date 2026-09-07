@@ -39,9 +39,10 @@ Plansza to prostokątna siatka `W × H` komórek. Leży na niej `N` **elementów
 
 Element to **samounikająca się polilinia**: spójna ścieżka po komórkach siatki,
 poruszająca się wyłącznie ortogonalnie, nieodwiedzająca żadnej komórki dwukrotnie.
-Długość waha się od 1 komórki do kilkuset — najdłuższe elementy przecinają planszę na
-wskroś wielokrotnie, w tę i z powrotem. Elementy jednokomórkowe są rzadkie, ale
-nieuniknione (§7); mają grot i kierunek jak każde inne.
+Długość waha się od 2 komórek do kilkuset — najdłuższe elementy przecinają planszę na
+wskroś wielokrotnie, w tę i z powrotem. **Minimum to 2 komórki**: element jednokomórkowy
+nie miałby ostatniego segmentu, więc nie miałby skąd wziąć kierunku grotu — byłby
+punktem, nie wektorem.
 
 **Elementy pokrywają planszę w całości.** Każda komórka siatki należy do dokładnie
 jednego elementu — nie ma pustych pól. Wbrew intuicji nie odbiera to możliwości ruchu:
@@ -180,7 +181,8 @@ type GeneratorParams = {
 type GenerationReport = {          // co faktycznie osiągnięto
   params: GeneratorParams
   actualPieceCount: number
-  singleCellPieces: number   // ile elementów jednokomórkowych musiało powstać
+  backtracks: number         // ile razy generator musiał się cofnąć
+  restarts: number           // ile razy zaczynał od nowa z innym ziarnem
   lengthHistogram: number[]
   longAreaShare: number
   attemptsUsed: number
@@ -279,22 +281,66 @@ położonych" mamy „komórek jeszcze nieprzypisanych". A skoro `R` kurczy się
 pokrycie planszy jest pełne. Poprzednia wersja tego projektu zatrzymywała się na progu
 wypełnienia i pozostawiała dziury; ta kończy dopiero, gdy nie zostanie żadna komórka.
 
-### Gwarancja, że algorytm nigdy nie utknie
+### Minimalna długość 2 i problem osierocenia
 
-Niech `R ≠ ∅`. Weź dowolną kolumnę `x` zawierającą komórkę z `R` i najwyższą taką
-komórkę `(x, y*)`. Z minimalności `y*` wszystkie komórki `(x, 0..y*-1)` są już
-przypisane. Jednokomórkowy element `{(x, y*)}` skierowany w górę ma więc region
-zamiatania zawarty w komórkach przypisanych — jest legalny.
+**Element ma co najmniej 2 komórki.** Element jednokomórkowy nie jest wektorem, tylko
+punktem — nie ma ostatniego segmentu, więc nie ma z czego odczytać kierunku grotu.
+Długość 1 jest zatem zakazana, nie tylko niepożądana.
 
-Zawsze istnieje zatem co najmniej jeden legalny ruch generatora, a `|R|` maleje o co
-najmniej 1 w każdym kroku. **Pełne pokrycie jest gwarantowane z konstrukcji**, a nie
-osiągane szczęściem. W najgorszym razie powstaje element jednokomórkowy.
+#### Para jest darmowa przy właściwym wyborze głowy
 
-**Elementy jednokomórkowe są dopuszczalne.** Nie da się ich wykluczyć: pojedyncza
-nieprzypisana komórka otoczona przypisanymi nie ma jak urosnąć. Kierunek takiego
-elementu wybieramy dowolnie spośród legalnych. Generator stosuje heurystykę
-„nie osieracaj": unika ruchów zostawiających izolowane komórki, i raportuje, ile
-elementów jednokomórkowych ostatecznie powstało.
+Jeśli komórka `h` jest dopuszczalna dla kierunku `d`, a komórka `h − d` (tuż za nią,
+licząc od krawędzi wyjścia) jest jeszcze nieprzypisana, to element `[h, h − d]` jest
+legalny **automatycznie**: droga `h − d` do krawędzi prowadzi przez `h`, czyli przez
+komórkę własną, a dalej przez komórki, które i tak były już przypisane, bo `h` jest
+dopuszczalna. Nie wymaga to żadnego dodatkowego sprawdzenia.
+
+Generator wybiera więc głowę wyłącznie spośród **głów parowalnych** — dopuszczalnych
+komórek, których komórka „za" jest nieprzypisana. Długość ≥ 2 jest wtedy zapewniona
+z konstrukcji dla wycinanego właśnie elementu.
+
+#### Czego to nie załatwia
+
+Powyższe gwarantuje długość elementu, który właśnie wycinamy, ale nie gwarantuje, że
+w `R` nie powstanie fragment, którego już nie da się rozłożyć na ścieżki o długości ≥ 2.
+
+Nie wystarczy przy tym pilnować, żeby żadna komórka nie została bez sąsiadów.
+Kontrprzykład: **pentomino w kształcie plusa** — pięć nieprzypisanych komórek (środek
+i cztery ramiona), wszystkie spójne, żadna nieizolowana. Rozkłady na ścieżki ≥ 2
+musiałyby mieć długości `2+3` albo `5`. Ścieżka przez środek ma najwyżej 3 komórki
+(po wyjściu na ramię nie ma dokąd iść), a dwa pozostałe ramiona nie sąsiadują ze sobą,
+więc nie tworzą pary. Rozkład nie istnieje, choć naiwny test izolacji niczego nie
+zgłosi.
+
+#### Rozwiązanie: konstrukcja + weryfikacja + ograniczony nawrót
+
+Pełnego pokrycia przy minimalnej długości 2 **nie gwarantujemy dowodem** — wymuszamy je
+trzema warstwami:
+
+1. **Głowy parowalne** (wyżej) — każdy wycięty element ma długość ≥ 2.
+2. **Test kształtu resztki.** Po wybraniu kandydata na element sprawdzamy lokalnie, czy
+   `R` bez niego nie zawiera fragmentu nierozkładalnego. Tanie przybliżenie: żadna
+   komórka bez nieprzypisanego sąsiada oraz żaden spójny fragment o rozmiarze ≤ 5
+   pasujący do wzorca plusa. Sprawdzenie ogranicza się do otoczenia kandydata, więc
+   koszt jest rzędu obwodu elementu.
+3. **Ograniczony nawrót.** Jeśli mimo to generator dojdzie do stanu, w którym `R ≠ ∅`
+   i nie istnieje legalny element o długości ≥ 2, cofa `k` ostatnich wycięć i próbuje
+   innych wyborów. Dopiero wyczerpanie budżetu nawrotów powoduje restart z nowym
+   ziarnem.
+
+Nad wszystkim stoi **niezależny solver z §8**: jest liniowy i całkowicie odseparowany od
+generatora, więc każda wygenerowana plansza jest weryfikowana, a nie zakładana. To jest
+właściwy podział ról — konstrukcja ma trafiać często, weryfikator ma być pewny.
+
+Że przestrzeń poprawnych plansz jest niepusta, widać z konstrukcji trywialnej: kolumny
+wypełnione pionowymi dominami skierowanymi w górę, zdejmowanymi od góry. Jest nudna
+i nigdy jej nie użyjemy, ale dowodzi, że generator ma czego szukać.
+
+**Do zmierzenia benchmarkiem:** częstość nawrotów i restartów. Jeżeli okaże się wysoka,
+przechodzimy na wariant dwufazowy — najpierw podział prostokąta na ścieżki (na pełnym
+prostokącie zawsze wykonalny: domina plus jedno tromino przy nieparzystej powierzchni),
+potem dobór kierunków i kolejności. Wariant ten jest droższy i mniej elastyczny, więc
+zostaje jako plan awaryjny, nie domyślny.
 
 ### Obszar dopuszczalny: skyline
 
@@ -322,20 +368,20 @@ przyrostowo po każdym wycięciu kosztem `O(4·ℓ)`.
 ```
 carve(rng, params):
   dla kierunków d w losowej kolejności, ważonej rozmiarem obszaru dopuszczalnego:
-    Heads = komórki dopuszczalne dla d, leżące najbliżej krawędzi wyjścia
+    Heads = komórki dopuszczalne dla d, których komórka „za" (h - d) jest nieprzypisana
     jeśli Heads puste: następny kierunek
     h = losuj z Heads
-    path = [h]
+    path = [h, h - d]                       # długość 2 legalna z konstrukcji
     docelowa długość ℓ* ~ rozkład mieszany (patrz niżej)
     dopóki |path| < ℓ*:
       cand = { sąsiedzi ogona, nieprzypisani, dopuszczalni dla d przy tym path }
-      odfiltruj kandydatów osieracających pojedyncze komórki
+      odfiltruj kandydatów zostawiających w R fragment nierozkładalny
       jeśli cand puste: przerwij            # akceptujemy krótszy element
       wybierz t z cand (bias: prosto z prawdopodobieństwem p_s ≈ 0.75, skręt resztą)
       path.push(t)
     zatwierdź(path, d); zaktualizuj depth_*
     return OK
-  # nieosiągalne przy R ≠ ∅ — patrz gwarancja wyżej
+  cofnij k ostatnich wycięć i spróbuj ponownie; po wyczerpaniu budżetu — restart
 ```
 
 Wzrost to samounikająca się ścieżka: nie odwiedza komórki dwukrotnie, ale **może**
@@ -359,7 +405,7 @@ koszykach, których wagi dobieramy tak, by średnia wyszła na zamówioną:
 
 | Koszyk | Długość | Rozkład | Rola |
 |---|---|---|---|
-| krótkie | 1–6 | jednostajny | wypełniacz, domyka szczeliny |
+| krótkie | 2–6 | jednostajny | wypełniacz, domyka szczeliny |
 | średnie | 7–15 | jednostajny | typowe zawijasy, główna masa planszy |
 | długie | 16–`Lmax` | **log-jednostajny** | szkielet planszy, przecinają ją na wskroś |
 
@@ -664,8 +710,8 @@ struktury**, nie osobna ścieżka kodu — jedno źródło prawdy dla generatora
 
 Konfigurator liczy na żywo udział powierzchni zajęty przez długie elementy (§7)
 i ostrzega po przekroczeniu ~25%. Po generacji pokazuje **co faktycznie osiągnięto**:
-liczbę elementów, rozkład długości i liczbę elementów jednokomórkowych. Wypełnienia
-nie raportuje, bo jest zawsze pełne. Jest to konieczne, bo
+liczbę elementów, rozkład długości oraz liczbę nawrotów i restartów generatora.
+Wypełnienia nie raportuje, bo jest zawsze pełne. Jest to konieczne, bo
 geometria potrafi odmówić — proste i bardzo długie elementy często nie mieszczą się,
 a generator nie może obiecać liczby, której nie da się zrealizować.
 
@@ -728,11 +774,18 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
     dokładnie jednego elementu — żadna nie zostaje nieprzypisana i żadne dwa elementy
     się nie nakładają. Suma długości elementów równa się `W · H`. To najważniejszy
     niezmiennik generatora; sprawdzany na wielu ziarnach i wszystkich rozmiarach.
-12b. Generator nie utyka: dla sztucznie skonstruowanego, wrogiego stanu `R` (pojedyncze
-    izolowane komórki, komórki w wąskich szczelinach) zawsze znajduje legalne wycięcie
-    — w najgorszym razie jednokomórkowe.
-12c. Liczba elementów jednokomórkowych mieści się w rozsądnym progu; heurystyka
-    „nie osieracaj" faktycznie ją obniża względem wariantu bez heurystyki.
+12b. **Każdy element ma co najmniej 2 komórki.** Niezmiennik sprawdzany na wszystkich
+    wygenerowanych planszach; naruszenie oznacza, że reguła głów parowalnych została
+    obejta.
+12c. Test kształtu resztki wykrywa **pentomino w kształcie plusa** jako fragment
+    nierozkładalny. To jest przypadek, którego naiwny test izolacji nie łapie, więc musi
+    mieć własny test — z jawnie skonstruowanym stanem `R`.
+12d. Generator wychodzi z zaklinowania: dla wrogiego stanu `R`, w którym nie ma legalnego
+    elementu długości ≥ 2, cofa wycięcia i kończy pracę z pełnym pokryciem albo
+    restartuje — nigdy nie zwraca planszy z nieprzypisanymi komórkami i nigdy się nie
+    zapętla.
+12e. Nieparzysta powierzchnia planszy (np. 25×25 = 625) jest obsłużona: co najmniej jeden
+    element ma nieparzystą długość, a pokrycie pozostaje pełne.
 13. Determinizm: to samo ziarno daje tę samą planszę.
 
 **Testy własnościowe (setki–tysiące ziaren):**
@@ -836,7 +889,8 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Błąd „przednia zamiast tylnej komórki" w optymalizacji per linia — niewykrywalny bez kształtów wklęsłych | Testy 1 i 3 z §12 są obowiązkowe przed jakąkolwiek optymalizacją |
 | Wygenerowane plansze są nudne mimo poprawności (frontier wycinania zbyt równy, dużo wolnych elementów na starcie) | Bias preferujący wycinanie tunelami zamiast warstwami (§7), metryki `f0` i `T_k` przy generacji, pętla generuj-zmierz-odrzuć |
 | Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
-| Elementów jednokomórkowych powstaje tak dużo, że plansza wygląda jak zbiór kropek | Heurystyka „nie osieracaj" przy wzroście ścieżki; liczba raportowana przez generator i pilnowana testem |
+| Generator zakleszcza się przy minimalnej długości 2 i często restartuje, wydłużając ładowanie | Głowy parowalne, test kształtu resztki i ograniczony nawrót (§7); częstość nawrotów mierzona benchmarkiem; plan awaryjny to wariant dwufazowy z gwarantowanym podziałem |
+| Test kształtu resztki przepuszcza fragment nierozkładalny inny niż plus | Solver z §8 weryfikuje każdą planszę niezależnie od generatora; nawrót uruchamia się na podstawie faktycznego zaklinowania, a nie tylko przewidywania |
 | Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
 | Gracz farmi punkty planszą zdegenerowaną z konfiguratora (ogromna, ale banalna) | Podstawa punktacji skaluje się z powierzchnią, nie z liczbą kliknięć; mnożniki mierzą trudność na klik; test antyeksploatacyjny 26e |
 | Wagi punktacji dobrane tak, że presety nie układają się w rosnący ciąg | Kalibracja benchmarkiem na wszystkich czterech presetach; formuła w jednym module |
