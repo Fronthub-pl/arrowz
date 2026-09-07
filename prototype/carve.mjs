@@ -248,17 +248,30 @@ class Carver {
           const straight = dd.dx === lastDir.dx && dd.dy === lastDir.dy
           let w = inward ? 1 : p.wLateral
           if (straight) w *= p.pStraight / (1 - p.pStraight)
+          // Jednym przebiegiem po sąsiadach liczymy trzy rzeczy naraz:
+          //  deg     - wolne wyjścia (Warnsdorff),
+          //  foreign - sąsiedzi należący do JUŻ WYCIĘTYCH elementów (i krawędź),
+          //  own     - sąsiedzi należący do budowanej właśnie ścieżki.
+          let deg = 0, foreign = 0, own = 0
+          for (const e of DIRS) {
+            const ax = nx + e.dx, ay = ny + e.dy
+            if (!this.inside(ax, ay)) { foreign += p.edgeHug; continue }
+            const j = this.idx(ax, ay)
+            if (pathSet.has(j)) own++
+            else if (this.owner[j] === -1) deg++
+            else foreign++
+          }
           if (p.warns > 0) {
             // Warnsdorff: preferuj komórkę o najmniejszej liczbie wolnych sąsiadów.
             // Zjada ślepe uliczki, zanim się zamkną, zamiast je osierocać.
-            let deg = 0
-            for (const e of DIRS) {
-              const ax = nx + e.dx, ay = ny + e.dy
-              if (this.inside(ax, ay) && this.owner[this.idx(ax, ay)] === -1 &&
-                  !pathSet.has(this.idx(ax, ay))) deg++
-            }
             w *= Math.pow(p.warns, 3 - deg)
           }
+          // HUG: premia za przyleganie do cudzych elementów. Hipoteza — to ona
+          // ma dawać wrażenie „opakowywania" zamiast zwijania się przy sobie.
+          if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
+          // ANTICOIL: kara za dotykanie własnej ścieżki. Komórka ogona, z której
+          // przychodzimy, nie liczy się — stąd own - 1.
+          if (p.anticoil > 1 && own > 1) w *= Math.pow(p.anticoil, -(own - 1))
           cand.push({ x: nx, y: ny, dd, w })
         }
         if (!cand.length) break
@@ -401,6 +414,13 @@ function analyse(board) {
   }
 
   let bends = 0, multiLine = 0, coil = 0, cellsTotal = 0
+  // Miary „opakowywania":
+  //  selfAdj      - średnia liczba WŁASNYCH sąsiadów na komórkę (zwijanie),
+  //  neighbours   - z iloma różnymi obcymi elementami styka się element,
+  //  sharedBorder - najdłuższa wspólna granica z pojedynczym obcym elementem,
+  //                 znormalizowana przez długość elementu. To ona rośnie, gdy
+  //                 element faktycznie owija się wokół innego.
+  let selfAdjTotal = 0, neighboursTotal = 0, sharedBorderTotal = 0, longPieces = 0
   for (const pc of pieces) {
     let prev = null, b = 0
     const lines = new Set()
@@ -410,14 +430,28 @@ function analyse(board) {
       prev = { dx, dy }
     }
     const own = new Set(pc.cells.map((c) => idx(c.x, c.y)))
+    const borderWith = new Map()   // id obcego elementu -> liczba wspólnych krawędzi
     for (const c of pc.cells) {
       let n = 0
       for (const { dx, dy } of DIRS) {
         const ax = c.x + dx, ay = c.y + dy
-        if (inside(ax, ay) && own.has(idx(ax, ay))) n++
+        if (!inside(ax, ay)) continue
+        const j = idx(ax, ay)
+        if (own.has(j)) { n++; continue }
+        const o = owner[j]
+        if (o >= 0) borderWith.set(o, (borderWith.get(o) ?? 0) + 1)
       }
       if (n >= 3) coil++     // ścieżka dotyka samej siebie -> kłębek, nie linia
+      selfAdjTotal += n
       cellsTotal++
+    }
+    // Miary liczymy tylko na elementach dostatecznie długich, żeby miały szansę
+    // cokolwiek owinąć — domino nie opakuje niczego z definicji.
+    if (pc.cells.length >= 8) {
+      longPieces++
+      neighboursTotal += borderWith.size
+      const maxShared = borderWith.size ? Math.max(...borderWith.values()) : 0
+      sharedBorderTotal += maxShared / pc.cells.length
     }
     for (const c of pc.cells) lines.add(DIRS[pc.dir].dx === 0 ? c.x : c.y)
     if (lines.size > 1) multiLine++
@@ -437,6 +471,11 @@ function analyse(board) {
   return {
     N, solvable: done === N, unsolved: N - done,
     f0: freeIds.length / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N, coil: coil / cellsTotal,
+    selfAdj: selfAdjTotal / cellsTotal,
+    bendsPerCell: bends / cellsTotal,
+    neighbours: longPieces ? neighboursTotal / longPieces : 0,
+    sharedBorder: longPieces ? sharedBorderTotal / longPieces : 0,
+    longPieces,
     meanCorridorLen: corridorTotal / Math.max(1, corridorLines),
     minLen: Math.min(...pieces.map((p) => p.cells.length)), maxLen, hist,
     coverage: pieces.reduce((s, p) => s + p.cells.length, 0) / (W * H),
@@ -541,13 +580,14 @@ if (svgOut) {
   const params = { W, H, Lmax: arg('lmax', Math.round(2.5 * Math.max(W, H))),
     wShort: arg('wshort', 0.10), wMid: arg('wmid', 0.70),
     pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: 0,
-    probe: 0, probeLen: 12, mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4) }
+    probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4),
+    hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0) }
   let c, ok = false, seed = arg('seed', 7)
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
   if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
   const m = analyse(c)
   writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5) }))
-  console.log(`${svgOut}  ${W}x${H} warns=${params.warns}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}%`)
+  console.log(`${svgOut}  ${W}x${H} warns=${params.warns} hug=${params.hug} anticoil=${params.anticoil}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}% selfAdj=${m.selfAdj.toFixed(2)} granica=${(100*m.sharedBorder).toFixed(0)}%`)
   process.exit(0)
 }
 const bench = arg('bench', 0)
@@ -561,7 +601,8 @@ if (bench > 0) {
       const params = { ...pre, wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid),
         pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: arg('headbias', 0),
         probe: 0, probeLen: 12, mix: -1, voidFrac: 0,
-        ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 4) }
+        ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 4),
+        hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0) }
       const t0 = performance.now()
       const seed = 50000 + r
       let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
@@ -591,7 +632,8 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...pre, wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0) }
+    const params = { ...pre, wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0),
+      hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0) }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()
@@ -619,6 +661,7 @@ for (const pre of presets) {
   console.log(`  rozkład dł.   2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${(avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)}%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${(avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)}%`)
   console.log(`  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-bloker: ${avg((a) => a.almost).toFixed(0)} (${(100*avg((a)=>a.almost/a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   korytarz: ${avg((a) => a.meanCorridorLen).toFixed(1)}`)
   console.log(`  KSZTAŁT       skrętów/elem ${avg((a) => a.bends).toFixed(2)}   wieloliniowych ${(100 * avg((a) => a.multiLine)).toFixed(0)}%   zwinięcie ${(100 * avg((a) => a.coil)).toFixed(0)}%`)
+  console.log(`  OPAKOWYWANIE  skrętów/kom ${avg((a) => a.bendsPerCell).toFixed(3)}   własnych sąsiadów/kom ${avg((a) => a.selfAdj).toFixed(2)}   sąsiadów obcych/elem ${avg((a) => a.neighbours).toFixed(1)}   najdłuższa wspólna granica ${(100 * avg((a) => a.sharedBorder)).toFixed(0)}% długości`)
   console.log(`  nawroty       ${avg((a) => a.backtracks).toFixed(1)}   restarty: ${avg((a) => a.restarts).toFixed(1)}`)
   const st = good[0].st
   console.log(`  diagnostyka   śr. want ${(st.want/st.n).toFixed(1)} -> got ${(st.got/st.n).toFixed(1)}   stall ${(100*st.stall/st.n).toFixed(0)}%   strand-trunc ${(100*st.strandTrunc/st.n).toFixed(0)}% (śr. -${(st.strandLoss/Math.max(1,st.strandTrunc)).toFixed(1)})`)

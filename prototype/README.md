@@ -122,3 +122,50 @@ na 30 przebiegów, porażek nadal zero.
 Parametry rysowania dające wygląd referencyjny: grubość linii 50% podziałki siatki,
 `stroke-linecap` i `stroke-linejoin` ustawione na `round`, grot jako wypełniony trójkąt
 o boku ~0.6 podziałki, kolory `#232447` na `#f6f6fa`.
+
+## Runda 5 — zwijanie kontra opakowywanie
+
+Pytanie z przeglądu: dlaczego długie linie łamią się głównie **same przy sobie**, leżąc
+zwinięte w kłębek, zamiast owijać się wokół innych elementów.
+
+**Przyczyna: reguła Warnsdorffa nagradza zwijanie.** Heurystyka idzie tam, gdzie zostaje
+najmniej wolnych wyjść, a własna świeżo położona komórka obniża stopień swobody sąsiadów —
+więc sama ciąga linię z powrotem do siebie. Nic nie premiowało przylegania do cudzych
+elementów.
+
+Dodane pokrętła i metryki:
+
+```
+--anticoil=N   kara za dotykanie własnej ścieżki (poza komórką, z której przychodzimy)
+--hug=N        premia za sąsiedztwo z elementami już wyciętymi
+--edgehug=N    czy krawędź planszy liczy się jak element obcy
+```
+
+Nowe metryki w raporcie: `zwinięcie` (było), `wspólna granica` (jaką część swojej długości
+element dzieli z pojedynczym obcym elementem), `sąsiadów obcych/elem`, `skrętów/kom`.
+
+Pomiar na czterech planszach, 10 ziaren na wariant, z **wyrównaną średnią długością**
+elementu (kara skraca elementy, więc każdemu wariantowi dobrano wagi koszyków):
+
+| wariant | zwinięcie | wspólna granica | skrętów/elem |
+|---|---|---|---|
+| bazowy | 44% | 41% | 4,21 |
+| anticoil 3 | 34% | 46% | 3,59 |
+| anticoil 4 | 31% | 50% | 3,69 |
+| **anticoil 6** | **27%** | **50%** | 3,32 |
+| anticoil 4 + sondy 15% | 30% | 48% | 3,51 |
+
+**Odrzucone:** `hug` dokłada 1–2 punkty ponad samą karę, sondy w głąb (`--probe`, długie
+proste wbicia mające tworzyć półwyspy do owijania) nie dokładają nic. Cała poprawa pochodzi
+z **odjęcia zachęty do zwijania**, nie z dodania zachęty do owijania.
+
+**Cena:** skrętów na element jest mniej (4,21 → 3,32), bo część dawnych skrętów brała się
+właśnie ze zwijania. Obie wielkości są sprzężone.
+
+**Odporność bez zmian:** pokrycie 100%, plansze rozwiązywalne, Nightmare pionowy 100×200
+w 64 ms, restartów najwyżej 0,5 na przebieg.
+
+```
+node prototype/carve.mjs --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
+sh prototype/preview.sh && open prototype/preview/index.html   # sekcja F
+```

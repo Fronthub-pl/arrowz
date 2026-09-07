@@ -34,5 +34,18 @@ $N --svg=$G/d5-200x200.svg --w=200 --h=200 --cell=6  $D
 # E. tryb diagnostyczny
 $N --svg=$G/e-kolor.svg --w=25 --h=50 --cell=18 $D --colored
 
+# F. zwijanie kontra opakowywanie (sonda 2026-09-07)
+# Każdy wariant ma dobrany udział koszyków tak, żeby średnia długość elementu
+# została ta sama (~8,9) — kara za zwijanie skraca elementy, więc bez tego
+# porównanie pokazywałoby krótsze linie, a nie mniej zwinięte.
+$N --svg=$G/f1-baseline.svg  --w=25 --h=50 --cell=18 --warns=4 --wshort=0.40 --wmid=0.16 --seed=7
+$N --svg=$G/f2-anticoil3.svg --w=25 --h=50 --cell=18 --warns=4 --wshort=0.30 --wmid=0.12 --seed=7 --anticoil=3
+$N --svg=$G/f3-anticoil4.svg --w=25 --h=50 --cell=18 --warns=4 --wshort=0.25 --wmid=0.10 --seed=7 --anticoil=4
+$N --svg=$G/f4-anticoil6.svg --w=25 --h=50 --cell=18 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6
+$N --svg=$G/f5-sondy.svg     --w=25 --h=50 --cell=18 --warns=4 --wshort=0.25 --wmid=0.10 --seed=7 --anticoil=4 --probe=0.15 --probelen=24
+$N --svg=$G/f1-kolor.svg     --w=25 --h=50 --cell=18 --warns=4 --wshort=0.40 --wmid=0.16 --seed=7 --colored
+$N --svg=$G/f4-kolor.svg     --w=25 --h=50 --cell=18 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6 --colored
+$N --svg=$G/f7-nightmare.svg --w=100 --h=200 --cell=8 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6
+
 echo
 echo "Gotowe.  open $(pwd)/$G/index.html"
