@@ -257,3 +257,22 @@ celem" i liczbę wchłoniętych resztek.
 400×400 domyka się 0/5 porażek bez restartów w ~1,4 s (stare domyślne 0/5, ~1,9 s;
 szkielet 0/3, ~1,3 s), 1000×1000 w 10,6 s, zero nawrotów, 95 wchłonięć,
 rozwiązywalna, najdłuższy element 453. Laboratorium ma preset 400×400.
+
+### Które pokrętła mogą coś popsuć (200×200, 3–6 ziaren, bez restartów)
+
+Domykanie łamią tylko dwa ustawienia, oba z grupy „trudność": **start elementów
+= warstwy** (`headBias` -1) i **mieszanie = 0** (same warstwy). Na 200×200
+1 przebieg na 3 potrzebuje restartu, czas do 6 s (warstwy) i 10 s (mieszanie 0);
+do 100×200 oba działają bez zarzutu. Wyłączenie **wchłaniania resztek**
+(`absorbLimit` 0) samo w sobie niczego nie psuje przy domyślnych, ale w trybie
+warstw plansza nie domyka się wtedy w 5 na 6 przebiegów — to jedyna siatka
+bezpieczeństwa dla trudnych ustawień.
+
+Czas psuje **skłonność do prostej = 0**: ~9 s zamiast 0,3 s, do 18 s, bo 160
+wchłonięć na przebieg. Wygląd psują skrajności: **premia w bok = 0** i
+**prostość = 1** dają ~1000 elementów zamiast 3600 w wielkich zwojach
+(zwinięcie 47–53%), **zakamarki = 16** zwija do 41%, **skok serpentyny = 2** daje
+jeden szkielet na 6000 komórek jak linie na kartce.
+
+Bez wpływu na domykanie w całym zakresie: prób startu, budżet nawrotów, dokładny
+test resztki, krawędź jak element, premia za przyleganie, sondy, ziarno.
