@@ -457,7 +457,7 @@ class Carver {
       // Kolejność wycinania jest kolejnością rozwiązania, więc giganty są też
       // pierwsze do zdjęcia w grze i ich usunięcie odblokowuje resztę planszy.
       const isGiant = p.giantSpan > 0 &&
-        (this.pieces.length < p.giants || rng() < p.wGiant)
+        (this.pieces.length < p.giants || (p.wGiant > 0 && rng() < p.wGiant))
       const want = isGiant
         ? this.giantLength()
         : isProbe
@@ -1182,6 +1182,11 @@ function toSvg(board, opts = {}) {
  * i dla laboratorium — dopisanie pokrętła tutaj wystarcza, żeby pojawiło się
  * w obu.
  */
+// Pokrętło nieaktywne = nie ma wpływu na wynik przy bieżących ustawieniach.
+// Laboratorium wygasza takie pola i pokazuje powód, żeby nikt nie mierzył
+// nieistniejącej zmiany.
+const skeletonOff = (p) => (p.giants <= 0 && p.wGiant <= 0 ? 'wymaga elementów szkieletowych > 0' : null)
+
 export const PARAM_SPEC = [
   { key: 'W', label: 'szerokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 25,
     help: 'Liczba kolumn. Do 400×400 plansza domyka się zawsze (200×200 w ~0,2 s, 400×400 w ~1,4 s); 1000×1000 liczy się ~10 s.' },
@@ -1208,36 +1213,43 @@ export const PARAM_SPEC = [
   { key: 'hug', label: 'premia za przyleganie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
     help: 'Zachęta do biegu wzdłuż już wyciętych elementów. Zmierzona jako prawie bez efektu; zostawiona do eksperymentów.' },
   { key: 'edgeHug', label: 'krawędź jak element', group: 'kształt', min: 0, max: 4, step: 1, def: 0,
+    inactive: (p) => (p.hug <= 1 ? 'działa tylko przy premii za przyleganie > 1' : null),
     help: 'Czy przy premii za przyleganie krawędź planszy liczy się jak sąsiedni element. Bez efektu przy premii 1.' },
 
   { key: 'headBias', label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)', group: 'trudność', min: -1, max: 1, step: 1, def: 0,
+    inactive: (p) => (p.mix >= 0 ? 'zastąpione przez mieszanie warstw i tuneli' : null),
     help: 'Skąd wychodzi kolejny element: z linii najpłycej wyciętej (warstwy), losowo, czy najgłębiej (tunele). Tunele to główny regulator trudności: dwa razy mniej elementów wolnych na starcie, dwa razy głębsze blokowanie. UWAGA: warstwy (-1) to najbardziej ryzykowne ustawienie na dużej planszy — 200×200 potrzebuje restartu w 1 na 3 przebiegów i do 6 s; do 100×200 bez problemu.' },
   { key: 'mix', label: 'mieszanie warstw i tuneli (-1 = wyłączone)', group: 'trudność', min: -1, max: 1, step: 0.05, def: -1,
     help: 'Jaka część elementów startuje tunelami, reszta warstwami. 0,5 działa dobrze. UWAGA: 0 (same warstwy) na 200×200 to restart w połowie przebiegów i do 10 s.' },
   { key: 'probe', label: 'udział sond w głąb', group: 'trudność', min: 0, max: 1, step: 0.01, def: 0,
     help: 'Jak często wbijać długi prosty element w głąb planszy. Zmierzone: nie poprawia wyglądu; zostawione do eksperymentów.' },
   { key: 'probeLen', label: 'długość sondy', group: 'trudność', min: 2, max: 200, step: 1, def: 12,
+    inactive: (p) => (p.probe <= 0 ? 'działa tylko przy udziale sond > 0' : null),
     help: 'Ile komórek ma mieć takie wbicie. Działa tylko przy udziale sond > 0.' },
 
-  { key: 'giants', label: 'ile elementów szkieletowych', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
-    help: 'Ile pierwszych elementów ma być długimi liniami przecinającymi planszę. Powstają na starcie, gdy plansza jest pusta, i są pierwsze do zdjęcia w grze. Działa tylko z „długość szkieletu” > 0.' },
-  { key: 'giantSpan', label: 'długość szkieletu (w bokach planszy)', group: 'szkielet', min: 0, max: 200, step: 1, def: 0,
-    help: 'Ile boków planszy ma mierzyć jeden szkielet (30 na 200×200 = 6000 komórek). 0 wyłącza szkielet.' },
-  { key: 'giantStep', label: 'skok serpentyny (0 = wzrost losowy)', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
+  { key: 'giants', label: 'ile elementów szkieletowych (0 = bez szkieletu)', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
+    help: 'Główny włącznik szkieletu: ile pierwszych elementów ma być długimi liniami przecinającymi planszę. Powstają na starcie, gdy plansza jest pusta, i są pierwsze do zdjęcia w grze. Przy 0 pozostałe pokrętła tej grupy nie mają wpływu. Punkt wyjścia: 4.' },
+  { key: 'giantSpan', label: 'długość szkieletu (w bokach planszy)', group: 'szkielet', min: 0, max: 200, step: 1, def: 30, inactive: skeletonOff,
+    help: 'Ile boków planszy ma mierzyć jeden szkielet (30 na 200×200 = 6000 komórek). Cel, nie gwarancja: serpentyna kończy się, gdy zabraknie miejsca.' },
+  { key: 'giantStep', label: 'skok serpentyny (0 = wzrost losowy)', group: 'szkielet', min: 0, max: 40, step: 1, def: 14, inactive: skeletonOff,
     help: 'Odstęp między kolejnymi biegami szkieletu; główne pokrętło jego wyglądu. 2–3 = regularne pasy jak linie na kartce, 14 = kilka „autostrad” z labiryntem między nimi. 0 = szkielet rośnie losowo i utyka po kilkuset komórkach.' },
-  { key: 'giantJitter', label: 'urywanie biegów serpentyny', group: 'szkielet', min: 0, max: 1, step: 0.05, def: 0.15,
+  { key: 'giantJitter', label: 'urywanie biegów serpentyny', group: 'szkielet', min: 0, max: 1, step: 0.05, def: 0.6,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'działa tylko przy skoku serpentyny > 0' : null),
     help: 'Jak często bieg szkieletu urywa się przed przeszkodą. 0 = idealnie proste brzegi, widać regularność. 0,6 to dobry punkt wyjścia.' },
   { key: 'wGiant', label: 'udział szkieletów poza startem', group: 'szkielet', min: 0, max: 0.5, step: 0.01, def: 0,
+    inactive: (p) => (p.giantSpan <= 0 ? 'wymaga długości szkieletu > 0' : null),
     help: 'Szansa, że element wycinany w trakcie też będzie szkieletem. Mało skuteczne: w trakcie nie ma już miejsca na długą linię.' },
   { key: 'giantStraight', label: 'prostość szkieletu (wzrost losowy)', group: 'szkielet', min: 0, max: 1, step: 0.01, def: 0.94,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'działa tylko przy skoku serpentyny 0' : null),
     help: 'Tylko przy skoku serpentyny 0. Jak chętnie losowo rosnący szkielet idzie prosto.' },
   { key: 'giantWarns', label: 'domykanie zakamarków dla szkieletu', group: 'szkielet', min: 0, max: 16, step: 1, def: 0,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'działa tylko przy skoku serpentyny 0' : null),
     help: 'Osobna siła reguły zakamarków dla szkieletu. 0, bo ta reguła zwija linię, a szkielet ma iść daleko.' },
-  { key: 'giantAnticoil', label: 'kara za zwijanie szkieletu', group: 'szkielet', min: 1, max: 20, step: 1, def: 6,
+  { key: 'giantAnticoil', label: 'kara za zwijanie szkieletu', group: 'szkielet', min: 1, max: 20, step: 1, def: 6, inactive: skeletonOff,
     help: 'Osobna kara za dotykanie siebie dla szkieletu; obowiązuje wyższa z tej i ogólnej.' },
-  { key: 'giantSpacing', label: 'promień odstępu szkieletu', group: 'szkielet', min: 1, max: 6, step: 1, def: 2,
+  { key: 'giantSpacing', label: 'promień odstępu szkieletu', group: 'szkielet', min: 1, max: 6, step: 1, def: 2, inactive: skeletonOff,
     help: 'W jakim promieniu szkielet unika własnych wcześniejszych przebiegów. Kanały, które zostają, wypełniają zwykłe elementy.' },
-  { key: 'giantSpacePenalty', label: 'siła odstępu szkieletu', group: 'szkielet', min: 1, max: 40, step: 1, def: 8,
+  { key: 'giantSpacePenalty', label: 'siła odstępu szkieletu', group: 'szkielet', min: 1, max: 40, step: 1, def: 8, inactive: skeletonOff,
     help: 'Jak mocno karać zbliżenie szkieletu do siebie. Kara, nie zakaz: przy zakazie szkielet nie mógłby zawracać.' },
 
   { key: 'headTries', label: 'prób startu na kierunek', group: 'domykanie', min: 1, max: 32, step: 1, def: 4,

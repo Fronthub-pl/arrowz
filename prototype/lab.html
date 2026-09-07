@@ -104,6 +104,8 @@
   #side { overflow-y: auto; min-height: 0; padding-right: .5rem; }
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
   .cli { margin-top: 1rem; font-size: 11.5px; color: #6a6b86; word-break: break-all; }
+  .row.inactive { opacity: .4; }
+  .row.inactive .help::before { content: 'Bez wpływu: ' attr(data-why) '. '; color: #b3462f; }
 </style>
 
 <aside>
@@ -184,14 +186,15 @@ const GROUP_HELP = {
   'długości': 'Rozkład mieszany o trzech koszykach: krótkie 2–6, średnie 7–15, długie 16–Lmax (log-jednostajnie). Koszyk długi dostaje resztę wagi.',
   'kształt': 'Wagi wyboru kolejnej komórki ścieżki. Mnożą się przez siebie, więc drobna zmiana jednej potrafi przesłonić pozostałe.',
   'trudność': 'Sterowanie tym, jak trudno znaleźć element z wolną drogą — struktura blokowania, nie wygląd.',
-  'szkielet': 'Elementy prowadzone serpentyną przez całą planszę. Losowy wzrost nie potrafi dać linii jednocześnie długiej i rozciągniętej: bez Warnsdorffa zamyka się we własnej pułapce po stu komórkach, z nim wypełnia obszar gęsto, czyli się zwija.',
-  'domykanie': 'Co robić, gdy generator nie znajduje legalnego wycięcia. Tu leży granica skali: powyżej 300×300 domyślne ustawienia przestają domykać planszę.',
+  'szkielet': 'Kilka pierwszych elementów prowadzonych serpentyną przez całą planszę. To jedyny sposób na naprawdę długie linie: losowy wzrost utyka po kilkudziesięciu komórkach. Włącznikiem jest liczba elementów szkieletowych.',
+  'domykanie': 'Co robić, gdy generator nie znajduje legalnego wycięcia. Po hardeningu plansze do 400×400 domykają się przy domyślnych bez nawrotów; te pokrętła służą do eksperymentów.',
 }
 
 // Grupy domyślnie otwarte — reszta zwinięta, żeby dojść do parametrów szkieletu
 // bez przewijania przez trzydzieści pól.
 const OPEN_BY_DEFAULT = new Set(['plansza', 'szkielet'])
 
+const paramRows = new Map()
 const panel = $('params')
 for (const [group, specs] of groups) {
   const box = document.createElement('details')
@@ -224,6 +227,7 @@ for (const [group, specs] of groups) {
       state[spec.key] = Number(v)
       num.value = v
       range.value = v
+      refreshActive()
       if ($('auto').checked) schedule()
     }
     num.addEventListener('input', () => sync(num.value))
@@ -237,6 +241,20 @@ for (const [group, specs] of groups) {
       label.title = spec.help          // tooltip działa też przy schowanych opisach
     }
     box.append(row)
+    paramRows.set(spec.key, { row, spec, label })
+  }
+}
+
+// Pokrętła bez wpływu przy bieżących ustawieniach są wygaszone z powodem —
+// inaczej zmiana skoku serpentyny przy wyłączonym szkielecie wygląda jak
+// „generowanie nie zmienia planszy".
+function refreshActive() {
+  for (const { row, spec, label } of paramRows.values()) {
+    const why = spec.inactive ? spec.inactive(state) : null
+    row.classList.toggle('inactive', !!why)
+    const help = row.querySelector('.help')
+    if (help) help.dataset.why = why ?? ''
+    label.title = why ? `Bez wpływu: ${why}. ${spec.help ?? ''}` : (spec.help ?? '')
   }
 }
 
@@ -263,6 +281,7 @@ function setParam(key, value) {
   state[key] = value
   const el = $('p_' + key)
   if (el) { el.value = value; el.nextElementSibling.value = value }
+  refreshActive()
 }
 
 // --- powiększenie podglądu ------------------------------------------------
@@ -340,6 +359,8 @@ function onWorkerMessage(msg) {
     lastDone = msg
     report(msg)
     finish()
+    // widok zmieniony w trakcie liczenia wchodzi teraz
+    if (pendingRedraw || sentView !== JSON.stringify(viewOptions())) { pendingRedraw = false; redraw() }
     return
   }
   if (msg.type === 'render') {
@@ -349,6 +370,8 @@ function onWorkerMessage(msg) {
 }
 
 let lastDone = null
+let runParams = { ...state }   // parametry, z których powstała ostatnia plansza
+let sentView = ''              // widok, o który ostatnio poproszono workera
 // metryki poprzedniego przebiegu — kolumna różnicy pokazuje, co zmieniło
 // przestawienie pokrętła, bez notowania liczb na boku
 let prevStats = new Map()
@@ -392,15 +415,25 @@ function run() {
   setStatus(cells > 200000
     ? `Generuję ${state.W}×${state.H} (${cells.toLocaleString('pl')} komórek) — to potrwa…`
     : 'Generuję…')
-  ensureWorker().postMessage({ type: 'generate', params: { ...state }, view: viewOptions() })
+  // Raport i polecenie CLI opisują planszę, która POWSTAŁA, a nie bieżące
+  // pola formularza — użytkownik mógł je zmienić po wygenerowaniu.
+  runParams = { ...state }
+  sentView = JSON.stringify(viewOptions())
+  ensureWorker().postMessage({ type: 'generate', params: runParams, view: viewOptions() })
   saveToUrl()
 }
 
-// przełączniki podglądu przerysowują planszę bez ponownej generacji
+// Przełączniki podglądu przerysowują planszę bez ponownej generacji.
+// W trakcie generacji zmiana jest odkładana i wchodzi zaraz po niej —
+// wcześniej przepadała po cichu i „ile najdłuższych" wyglądało na zepsute.
+let pendingRedraw = false
 function redraw() {
-  if (!lastDone || busy) return
-  ensureWorker().postMessage({ type: 'render', view: viewOptions() })
   saveToUrl()
+  if (busy) { pendingRedraw = true; return }
+  if (!lastDone) return
+  if (!worker) { run(); return }   // po przerwaniu worker nie ma planszy
+  sentView = JSON.stringify(viewOptions())
+  worker.postMessage({ type: 'render', view: viewOptions() })
 }
 
 let timer = null
@@ -436,20 +469,24 @@ $('download').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
   a.href = url
-  a.download = `arrowz-${state.W}x${state.H}-seed${state.seed}.svg`
+  a.download = `arrowz-${runParams.W}x${runParams.H}-seed${runParams.seed}.svg`
   a.click()
   URL.revokeObjectURL(url)
 })
 
 // --- stan w adresie -----------------------------------------------------
-let applyingHash = false
+// Zapis adresu wywołuje hashchange ASYNCHRONICZNIE, a Chrome odpala
+// setTimeout(0) wcześniej niż to zdarzenie — flaga zerowana timerem nie
+// osłania niczego i każdy zapis uruchamiał pełną regenerację (każde kliknięcie
+// „Generuj" liczyło planszę dwa razy, każda zmiana podglądu też). Osłoną jest
+// porównanie z ostatnio zapisanym adresem.
+let writtenHash = ''
 function saveToUrl() {
-  applyingHash = true
-  setTimeout(() => { applyingHash = false }, 0)
   const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
                  colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked,
                  fit: $('fit').checked, zoom: $('zoom').value }
-  location.hash = encodeURIComponent(JSON.stringify({ ...state, __view: view }))
+  writtenHash = '#' + encodeURIComponent(JSON.stringify({ ...state, __view: view }))
+  if (location.hash !== writtenHash) location.hash = writtenHash
 }
 function loadFromUrl() {
   if (!location.hash.length) return false
@@ -473,7 +510,7 @@ function loadFromUrl() {
   }
 }
 window.addEventListener('hashchange', () => {
-  if (applyingHash) return
+  if (location.hash === writtenHash) return
   if (loadFromUrl()) run()
 })
 
@@ -482,7 +519,8 @@ function pct(v) { return (100 * v).toFixed(0) + '%' }
 
 function report(msg) {
   const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, stats } = msg
-  const cells = state.W * state.H
+  const rp = runParams
+  const cells = rp.W * rp.H
 
   setStatus(ok
     ? `<span class="good">Plansza domknięta w 100%.</span> ${metrics.solvable ? 'Rozwiązywalna.' : '<span class="bad">NIEROZWIĄZYWALNA — to błąd generatora.</span>'}`
@@ -495,7 +533,7 @@ function report(msg) {
   // Trzecia pozycja to wartość liczbowa do porównania z poprzednim przebiegiem,
   // czwarta mówi, czy wzrost jest zmianą na lepsze (do koloru różnicy).
   const rows = [
-    ['plansza', `${state.W} × ${state.H} = ${cells.toLocaleString('pl')} komórek`],
+    ['plansza', `${rp.W} × ${rp.H} = ${cells.toLocaleString('pl')} komórek, ziarno ${rp.seed}`],
     ['elementów', metrics.N.toLocaleString('pl'), metrics.N, 0],
     ['średnia długość', (cells / metrics.N).toFixed(1), cells / metrics.N, 0],
     ['najdłuższy', `${metrics.maxLen} komórek (${pct(metrics.maxLen / cells)} planszy)`, metrics.maxLen, 1],
@@ -550,9 +588,9 @@ function report(msg) {
   prevStatsNext.clear()
 
   const flags = PARAM_SPEC
-    .filter((s) => !['W', 'H'].includes(s.key) && state[s.key] !== s.def)
-    .map((s) => `--${s.key.toLowerCase()}=${state[s.key]}`)
-  $('cli').textContent = `node prototype/carve.mjs --svg=plansza.svg --w=${state.W} --h=${state.H} ` +
+    .filter((s) => !['W', 'H'].includes(s.key) && rp[s.key] !== s.def)
+    .map((s) => `--${s.key.toLowerCase()}=${rp[s.key]}`)
+  $('cli').textContent = `node prototype/carve.mjs --svg=plansza.svg --w=${rp.W} --h=${rp.H} ` +
     `--cell=${$('cell').value} ${flags.join(' ')}` +
     ($('colored').checked ? ' --colored' : '') +
     ($('hilite').checked ? ` --top=${$('top').value}` : '')
@@ -574,6 +612,7 @@ function renderLongest(longest) {
 
 applyZoom()
 loadFromUrl()
+refreshActive()
 run()
 </script>
 </html>
