@@ -46,22 +46,25 @@ punktem, nie wektorem.
 
 **Elementy pokrywają planszę w całości.** Każda komórka siatki należy do dokładnie
 jednego elementu — nie ma pustych pól. Wbrew intuicji nie odbiera to możliwości ruchu:
-region zamiatania wyklucza komórki własne, więc element, który sam pokrywa całą swoją
-drogę do krawędzi, jest wolny nawet na planszy zapełnionej po brzegi. Rozkład długości jest **ciężkoogonowy**: dominują
+korytarz to tylko promień z głowy i wyklucza komórki własne, więc element, którego
+głowa ma przed sobą wyłącznie własny tor albo krawędź, jest wolny nawet na planszy
+zapełnionej po brzegi. Rozkład długości jest **ciężkoogonowy**: dominują
 krótkie kształty, ale mniejszość bardzo długich, wijących się linii nadaje planszy jej
 charakter. Model rozkładu opisuje §7. Na jednym końcu ścieżki znajduje się grot.
 
 **Kierunek wyjścia** elementu to kierunek ostatniego segmentu ścieżki po stronie grotu.
 Strzałka jedzie tam, gdzie pokazuje.
 
-Ruch gracza to kliknięcie elementu. Element próbuje przesunąć się **sztywno**
-(translacja, bez rotacji) w kierunku wyjścia, aż całkowicie opuści planszę.
+Ruch gracza to kliknięcie elementu. Element **jedzie po własnym torze**: głowa rusza
+przed siebie w kierunku grotu, a każda kolejna komórka ciała wsuwa się na miejsce
+poprzedniej — jak pociąg po szynach. Ciało porusza się więc wyłącznie po komórkach,
+które samo przed chwilą opuściło, i wyjeżdża poza planszę śladem głowy.
 
-- **Region zamiatania** (`swept`) elementu = suma wszystkich komórek, przez które
-  przejdzie dowolna komórka elementu w trakcie tej translacji, aż poza krawędź,
-  pomniejszona o komórki własne elementu.
-- Jeśli region zamiatania nie zawiera komórki zajętej przez inny element, element
-  opuszcza planszę. Nazywamy taki element **wolnym**.
+- **Korytarz** elementu = pojedynczy promień z komórki głowy do krawędzi, w kierunku
+  grotu, pomniejszony o komórki własne. Kształt ciała nie ma na niego wpływu, bo ciało
+  nigdy nie wchodzi na cudze pole.
+- Jeśli korytarz nie zawiera komórki zajętej przez inny element, element opuszcza
+  planszę. Nazywamy taki element **wolnym**.
 - W przeciwnym razie ruch jest nielegalny: element **odbija się** — wyjeżdża aż do
   kontaktu z blokerem i wraca na pozycję wyjściową — a gracz traci życie. Stan końcowy
   jest identyczny jak przed kliknięciem, więc logika gry pozostaje niezmieniona; różnica
@@ -78,8 +81,10 @@ Gra kończy się wygraną, gdy plansza jest pusta, i przegraną, gdy życia spad
 ### Konsekwencja kluczowa
 
 Ruch nigdy nie zatrzymuje się na przeszkodzie — element albo wyjeżdża w całości, albo
-nie rusza się wcale. Dlatego `swept(E)` **nie zależy od stanu planszy**; jest stałą
-własnością pary (kształt, kierunek). Cały §6–§9 wynika z tej jednej obserwacji.
+wraca na miejsce. Dlatego korytarz **nie zależy od stanu planszy**; jest stałą własnością
+pary (pozycja głowy, kierunek). Cały §6–§9 wynika z tej jednej obserwacji, a nie ze
+sposobu, w jaki element się porusza — dlatego zmiana reguły ruchu ze sztywnej translacji
+na jazdę po torze zawęziła korytarz, ale nie naruszyła niczego poniżej.
 
 ## 3. Wybór technologii
 
@@ -114,7 +119,7 @@ src/
   core/            czysta logika: zero DOM, zero globalnej losowości
     types.ts         Coord, Dir, Piece, Board, Difficulty
     rng.ts           deterministyczny PRNG z ziarnem
-    board.ts         siatka zajętości, sweptRegion(), probeMove(), removePiece()
+    board.ts         siatka zajętości, headRay(), probeMove(), removePiece()
     shapes.ts        losowanie kształtu przez wzrost wstecz w obszarze dopuszczalnym
     generator.ts     wycinanie z pełnej planszy, parametry trudności
     solver.ts        graf blokowania + sortowanie topologiczne (Kahn)
@@ -192,46 +197,47 @@ a wykonaniem musi być widoczna, a nie ukryta (§11).
 Ciało elementu leży **za** grotem: dla grotu w `(5,3)` i `dir = prawo` kolejna komórka
 ścieżki to `(4,3)`, nie `(6,3)`. To najczęstszy błąd znaku w tym module.
 
-## 6. Silnik: region zamiatania i legalność ruchu
+## 6. Silnik: korytarz i legalność ruchu
 
-`sweptRegion(piece)` to suma promieni `ray_dir(c)` po wszystkich komórkach `c` elementu,
-gdzie `ray_dir(c)` to komórki ściśle przed `c` w kierunku `dir`, aż do krawędzi.
+Element **jedzie po własnym torze** (§2): głowa rusza przed siebie w kierunku grotu,
+a każda kolejna komórka ciała wsuwa się na miejsce poprzedniej. Ciało porusza się więc
+wyłącznie po komórkach, które samo przed chwilą opuściło.
 
-**Optymalizacja per linia.** Dla ustalonego kierunku (powiedzmy: w górę) i kolumny `x`,
-suma promieni ze wszystkich komórek elementu w tej kolumnie równa się promieniowi
-z komórki o **maksymalnym `y`**, czyli **najdalszej od krawędzi wyjścia** (tylnej).
+W konsekwencji zbiór komórek zajętych w dowolnej chwili ruchu zawiera się w sumie
+`komórki własne ∪ promień z głowy`. Po odjęciu komórek własnych zostaje:
 
-To musi być tylna, nie przednia komórka. Dla kształtu **U** promień z tylnego ramienia
-przechodzi przez wnętrze łuku, więc obcy element uwięziony we wklęsłości **blokuje**
-ruch. Optymalizacja liczona od przedniej komórki tego nie wykryje i jest błędna.
+> **korytarz elementu = pojedynczy promień z komórki głowy do krawędzi, w kierunku
+> grotu.** Kształt ciała nie ma na niego żadnego wpływu.
 
-Komórki własne elementu w promieniu są ignorowane — element nie blokuje sam siebie.
-Dotyczy to w szczególności elementu prostego ułożonego wzdłuż własnego kierunku, gdzie
-promień z ogona przechodzi przez cały element.
-
-Animacja odbicia (§2) potrzebuje wiedzieć nie tylko *czy* ruch jest nielegalny, ale
-**po ilu komórkach nastąpił kontakt i z czym**. Ten sam przebieg po liniach daje obie
-informacje, więc zamiast `isFree` zwracającego `boolean` silnik wystawia jedną funkcję:
+To jest cała definicja. `probeMove` przechodzi ten jeden promień:
 
 ```
 probeMove(board, piece) -> { free: true } | { free: false, distance, blockerId }
 
-  best = ∞
-  dla każdej linii L dotkniętej przez piece:
-    idź wzdłuż L od komórki piece najdalszej od krawędzi wyjścia w stronę krawędzi,
-    pamiętając pozycję ostatnio minionej komórki własnej (lastOwn):
-      jeśli occupancy(k) == piece.id  → lastOwn = pozycja k
-      jeśli occupancy(k) ∉ {-1, piece.id} → best = min(best, lastOwn - pozycja k)
-  free  ⟺  best = ∞
-  distance = best        # o tyle komórek element przesunie się przed zderzeniem
+  idź od komórki głowy w kierunku piece.dir aż do krawędzi, licząc kroki,
+  pamiętając pozycję ostatnio minionej komórki własnej (lastOwn, początkowo 0):
+    jeśli occupancy(k) == piece.id  → lastOwn = numer kroku      # tor sam siebie nie blokuje
+    jeśli occupancy(k) to inny element → zwróć { free: false,
+                                                 distance: krok - lastOwn,
+                                                 blockerId: właściciel }
+  zwróć { free: true }
 ```
 
-Śledzenie `lastOwn` jest konieczne, bo obcy element może leżeć **między** komórkami
-własnymi na tej samej linii — dokładnie przypadek elementu wklęsłego (kształt U), gdzie
-bloker siedzi w łuku. Odległość liczymy wtedy od tej komórki własnej, która faktycznie
-w niego uderzy, a nie od najdalszej.
+`distance` to liczba komórek, o które element przejedzie po torze, zanim uderzy —
+dokładnie ta wielkość, której potrzebuje animacja odbicia (§2).
 
-Koszt: `O(liczba linii × długość planszy)`, jeden przebieg dla obu wyników.
+Koszt: `O(max(W, H))` — jeden przebieg po jednej linii, kilkadziesiąt kroków.
+
+**Co ta reguła usuwa z projektu.** Wcześniejsza wersja (sztywna translacja całego
+kształtu) wymagała sumowania promieni ze wszystkich komórek elementu, z osobnym
+przypadkiem „komórka najdalsza od krawędzi na każdej linii" i pułapką kształtów
+wklęsłych, gdzie obcy element uwięziony w łuku litery U blokował ruch. Cała ta
+złożoność, razem z odpowiadającymi jej testami, **znika**. Element pokonuje własny łuk
+bez przeszkód, bo jedzie po nim, a nie przez niego.
+
+Śledzenie `lastOwn` zostaje, bo tor może przecinać własny promień: element wijący się
+tak, że jego ciało leży przed głową, mija najpierw własne komórki, a dopiero potem
+ewentualnego blokera.
 
 ## 7. Generator: wycinanie z pełnej planszy
 
@@ -246,7 +252,7 @@ kolejno elementy `q_1, q_2, …, q_N`, gdzie `q_1` to element, który gracz zdej
 pierwszy. Warunek wycięcia elementu `q_j` z kierunkiem `d`:
 
 ```
-swept_d(q_j) ∩ (R \ cells(q_j)) = ∅
+corridor(q_j) ∩ (R \ cells(q_j)) = ∅
 ```
 
 czyli: cała droga elementu do krawędzi wyjścia prowadzi przez komórki **już przypisane**
@@ -258,8 +264,8 @@ Kolejność wycinania `q_1, …, q_N` jest poprawną kolejnością rozwiązania.
 
 Dowód: w chwili, gdy gracz zdejmuje `q_j`, na planszy leżą dokładnie `q_j, …, q_N` —
 bo `q_1..q_{j-1}` już zeszły. Zbiór `R` w momencie wycinania `q_j` to właśnie
-`{q_j, …, q_N}`. Warunek wycięcia mówi, że `swept(q_j)` nie zawiera komórek
-`q_{j+1}, …, q_N`, a `swept` jest stały (§2). Ruch jest więc legalny. ∎
+`{q_j, …, q_N}`. Warunek wycięcia mówi, że `corridor(q_j)` nie zawiera komórek
+`q_{j+1}, …, q_N`, a korytarz jest stały (§2). Ruch jest więc legalny. ∎
 
 Zauważ, że kolejność wycinania jest **wprost** kolejnością rozwiązania — nie trzeba jej
 odwracać.
@@ -268,7 +274,7 @@ odwracać.
 
 Ten warunek jest **matematycznie identyczny** z wcześniejszym sformułowaniem
 „wstawiaj elementy, wjeżdżając nimi z zewnątrz, i odwróć kolejność". Trasa wjazdu
-elementu z zewnątrz to dokładnie ten sam zbiór komórek co jego region zamiatania przy
+elementu z zewnątrz to dokładnie ten sam zbiór komórek co jego korytarz przy
 ucieczce — ta sama translacja przebiegnięta wstecz. Generator i silnik gry dzielą więc
 jedną definicję korytarza; dwie osobne implementacje mogłyby się rozjechać.
 
@@ -283,17 +289,12 @@ wypełnienia i pozostawiała dziury; ta kończy dopiero, gdy nie zostanie żadna
 punktem — nie ma ostatniego segmentu, więc nie ma z czego odczytać kierunku grotu.
 Długość 1 jest zatem zakazana, nie tylko niepożądana.
 
-#### Para jest darmowa przy właściwym wyborze głowy
+#### Para jest darmowa
 
-Jeśli komórka `h` jest dopuszczalna dla kierunku `d`, a komórka `h − d` (tuż za nią,
-licząc od krawędzi wyjścia) jest jeszcze nieprzypisana, to element `[h, h − d]` jest
-legalny **automatycznie**: droga `h − d` do krawędzi prowadzi przez `h`, czyli przez
-komórkę własną, a dalej przez komórki, które i tak były już przypisane, bo `h` jest
-dopuszczalna. Nie wymaga to żadnego dodatkowego sprawdzenia.
-
-Generator wybiera więc głowę wyłącznie spośród **głów parowalnych** — dopuszczalnych
-komórek, których komórka „za" jest nieprzypisana. Długość ≥ 2 jest wtedy zapewniona
-z konstrukcji dla wycinanego właśnie elementu.
+Legalność zależy wyłącznie od głowy (§6), a ciało może iść w dowolną stronę po
+komórkach nieprzypisanych. Wystarczy więc wybierać głowę spośród komórek mających
+**co najmniej jednego nieprzypisanego sąsiada**; długość ≥ 2 jest wtedy zapewniona
+z konstrukcji, bez żadnego dodatkowego warunku.
 
 #### Czego to nie załatwia
 
@@ -345,14 +346,18 @@ krawędzi w kierunku `d` do wewnątrz. Niech `dist_d(c)` = liczba komórek ści�
 `c` a krawędzią w kierunku `d`. Wtedy:
 
 ```
-c może należeć do wycinanego elementu o kierunku d  ⟺  dist_d(c) ≤ depth_d[line_d(c)]
+komórka c może być GŁOWĄ wycinanego elementu o kierunku d
+  ⟺  c nieprzypisana ∧ dist_d(c) ≤ depth_d[line_d(c)]
 ```
 
-Test jest **`O(1)` na komórkę**. Element jest legalny wtedy i tylko wtedy, gdy
-**wszystkie** jego komórki spełniają ten warunek — jest to równoważne pełnemu testowi
-korytarza, bo suma promieni jest wolna od nieprzypisanych komórek dokładnie wtedy, gdy
-każdy promień z osobna jest wolny. Ścieżka rosnąca „w głąb" wzdłuż linii korzysta z
-tego, że jej własne komórki też liczą się jako przypisane.
+Test jest **`O(1)` na komórkę**, a warunek dotyczy **wyłącznie głowy** — korytarz to
+przecież jeden promień z głowy (§6). **Ciało rośnie bez żadnych ograniczeń
+geometrycznych**, byle po komórkach nieprzypisanych. To właśnie ta swoboda daje
+splątane kształty i jest głównym zyskiem z reguły jazdy po torze.
+
+Ponieważ na każdej linii pierwsza nieprzypisana komórka od krawędzi jest jedyną
+kandydatką na głowę, kandydatów jest co najwyżej `W` (dla góry i dołu) lub `H` (dla
+boków) — enumeracja kosztuje `O(W+H)`.
 
 Utrzymujemy cztery tablice `depth_d[·]`, po jednej na kierunek, aktualizowane
 przyrostowo po każdym wycięciu kosztem `O(4·ℓ)`.
@@ -364,14 +369,15 @@ przyrostowo po każdym wycięciu kosztem `O(4·ℓ)`.
 ```
 carve(rng, params):
   dla kierunków d w losowej kolejności, ważonej rozmiarem obszaru dopuszczalnego:
-    Heads = komórki dopuszczalne dla d, których komórka „za" (h - d) jest nieprzypisana
+    Heads = pierwsza nieprzypisana komórka każdej linii, mająca nieprzypisanego sąsiada
     jeśli Heads puste: następny kierunek
     h = losuj z Heads
-    path = [h, h - d]                       # długość 2 legalna z konstrukcji
+    path = [h]                              # ciało dorośnie w dowolną stronę
     docelowa długość ℓ* ~ rozkład mieszany (patrz niżej)
     dopóki |path| < ℓ*:
-      cand = { sąsiedzi ogona, nieprzypisani, dopuszczalni dla d przy tym path }
+      cand = { sąsiedzi ogona, nieprzypisani }      # ciało bez ograniczeń geometrycznych
       odfiltruj kandydatów zostawiających w R fragment nierozkładalny
+      waga kandydata ~ 1 / (liczba jego nieprzypisanych sąsiadów)   # Warnsdorff
       jeśli cand puste: przerwij            # akceptujemy krótszy element
       wybierz t z cand (bias: prosto z prawdopodobieństwem p_s ≈ 0.75, skręt resztą)
       path.push(t)
@@ -468,27 +474,50 @@ regulator trudności, a nie hipoteza. Siłę dobieramy per poziom: Easy potrzebu
 tunelowania słabszego (przy pełnym `f0` spadło do 0.16 zamiast zamierzonych ≥0.35),
 wyższe poziomy pełnego.
 
-### Skręt jest legalny tylko na wysokości frontiera — i to boli
+### Reguła Warnsdorffa jest wymagana, nie opcjonalna
 
-Prototyp ujawnił ograniczenie, którego projekt nie przewidywał. Żeby element idący
-w górę kolumną `x` skręcił do kolumny `x+1` na wysokości `y`, kolumna `x+1` musi być
-przypisana **dokładnie** na wierszach `0..y−1` i nieprzypisana na `y`. Ani płycej, ani
-głębiej. Warunek jest punktowy.
+Swoboda kształtu ma cenę: ciało wijące się bez ograniczeń **fragmentuje resztę planszy**
+na kawałki nie do rozłożenia na ścieżki długości ≥ 2. W prototypie plansza 100×100
+przestawała się z tego powodu domykać w ogóle.
 
-Konsekwencja: **element, który raz zanurzy się w głąb, traci możliwość skrętu na
-zawsze**, bo znalazł się poniżej frontiera sąsiadów. Bez przeciwdziałania wszystkie
-elementy wychodzą proste, a plansza układa się w pasy — pionowe u góry, poziome
-z boków, każdy kierunek we własnym pasmie.
+Kuracją jest klasyczna heurystyka z pokrywania ścieżkami, znana z problemu skoczka
+szachowego: **idź tam, gdzie zostaje najmniej wolnych wyjść**. Kandydatów na kolejną
+komórkę ważymy odwrotnie do liczby ich nieprzypisanych sąsiadów, dzięki czemu ślepe
+uliczki są zjadane, zanim zdążą się zamknąć.
 
-Tłumaczy to też, dlaczego suwak „stopień połamania" nie robił w pomiarach różnicy: bias
-wybiera spomiędzy **dostępnych** kandydatów, a kandydatów bocznych prawie nie ma. Był to
-suwak regulujący preferencję dla opcji, której nie było w menu.
+Efekt zmierzony na planszy 75×75:
 
-Przeciwdziałanie zaimplementowane w prototypie to premia za ruch boczny — utrzymanie
-ścieżki przy frontierze zamiast nurkowania do środka. Poprawia, ale nie rozwiązuje:
-odsetek ścieżek utykających przed docelową długością spada z ~50% do ~30%.
-**Doprowadzenie wyglądu planszy do splątania z oryginału pozostaje największym otwartym
-pytaniem projektu** i pierwszą rzeczą do rozstrzygnięcia w implementacji.
+| | nawroty | skrętów/elem | wieloliniowych |
+|---|---|---|---|
+| bez Warnsdorffa | 26 | 1.28 | 57% |
+| z Warnsdorffem | 1 | 1.67 | 65% |
+
+Heurystyka poprawia **jednocześnie** domykalność i wygląd, bo zjadanie ślepych uliczek
+w naturalny sposób produkuje zawijasy. Jest więc częścią algorytmu, a nie strojeniem.
+
+### Historia: dlaczego porzuciliśmy sztywną translację
+
+Warto zachować powód, bo pokusa powrotu do „sprawdź, czy przed całym kształtem jest
+wolne" jest silna i wygląda niewinnie.
+
+Przy sztywnej translacji element musiał na **każdej** dotkniętej linii zajmować ciągły
+odcinek zaczynający się dokładnie na frontierze. Skręt wymagał więc, by głębokość
+elementu zrównała się co do komórki z frontierem sąsiedniej linii — warunek punktowy.
+Element, który raz zanurzył się w głąb, tracił możliwość skrętu na zawsze.
+
+Ograniczenie to obowiązywało w **każdej poprawnej planszy**, nie tylko w danym
+generatorze, bo element usuwany w danej chwili zawsze musiał je spełniać. Skutkiem były
+plansze złożone z prostych kresek, ułożone w pasy. Do tego kształt i trudność ciągnęły
+w przeciwne strony. Zmierzone porównanie:
+
+| reguła ruchu | skrętów/elem | wieloliniowych | `f0` |
+|---|---|---|---|
+| sztywna translacja, wariant „na kształt" | 0.72 | 29% | 0.42 |
+| sztywna translacja, wariant „na trudność" | 0.15 | 6% | 0.20 |
+| **jazda po torze** | **1.87** | **69%** | **0.061** |
+
+Jazda po torze wygrywa na obu osiach naraz, bo znosi przyczynę konfliktu zamiast szukać
+kompromisu.
 
 ### Kalibracja długości pod osiąganą, nie zamawianą średnią
 
@@ -500,9 +529,10 @@ długie elementy w ogóle powstawały (§12).
 
 ### Graf blokowania
 
-Ponieważ `swept(E)` jest stały (§2), relacja „`F` blokuje `E`", zdefiniowana jako
-`cells(F) ∩ swept(E) ≠ ∅`, jest **statycznym grafem skierowanym** na elementach,
-policzalnym raz.
+Ponieważ korytarz jest stały (§2), relacja „`F` blokuje `E`", zdefiniowana jako
+`cells(F) ∩ corridor(E) ≠ ∅`, jest **statycznym grafem skierowanym** na elementach,
+policzalnym raz. Przy jeździe po torze korytarz to jeden promień, więc graf jest
+znacznie rzadszy niż przy sztywnej translacji — tym tańszy do zbudowania.
 
 `E` jest wolny wtedy i tylko wtedy, gdy żaden pozostały na planszy `F` go nie blokuje.
 Zatem poprawna kolejność usuwania to porządek topologiczny tego grafu, a stąd:
@@ -529,7 +559,7 @@ zablokować się legalnym ruchem; przegrywa wyłącznie przez błędne kliknięc
 ### Implementacja solvera
 
 ```
-zbuduj graf: dla każdego E, dla każdej obcej komórki w swept(E) → krawędź E → owner(c)
+zbuduj graf: dla każdego E, dla każdej obcej komórki w corridor(E) → krawędź E → owner(c)
 Kahn: kolejka = elementy bez pozostałych blokerów; zdejmuj, dekrementuj liczniki
 rozwiązywalna ⟺ zdjęto wszystkie N elementów
 pozostałość = elementy leżące w cyklach (diagnostyka)
@@ -553,7 +583,6 @@ potrafi szybko odczytać z ekranu — i stąd bierze się cała trudność gry.
 |---|---|
 | `f0` | udział elementów wolnych na starcie (ujścia grafu blokowania) |
 | `almost1` | elementy zablokowane przez **dokładnie jeden** obcy element — wyglądają niemal na gotowe do wyjazdu i są główną pokusą do błędu |
-| `T_conc` | elementy zablokowane we własnej wklęsłości (kształty U, S) |
 | `D` | głębokość grafu blokowania (najdłuższa ścieżka) |
 | `meanCorridorLen` | średnia długość korytarza — jak daleko trzeba wodzić wzrokiem, by ocenić jeden ruch |
 | `minFree` | minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych |
@@ -803,12 +832,14 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 
 **Testy jednostkowe regionu zamiatania i legalności ruchu:**
 
-1. Kształt U lub S: obcy element we wklęsłości blokuje. Korytarz liczony od komórki
-   najdalszej od krawędzi wyjścia, nie od najbliższej i nie tylko od grotu.
+1. Kształt U lub S z obcym elementem uwięzionym we wklęsłości: **nie blokuje**. Element
+   pokonuje własny łuk, bo jedzie po nim, a nie przez niego. Test istnieje dokładnie po
+   to, żeby wychwycić powrót do starej reguły sztywnej translacji.
 2. Element prosty ułożony wzdłuż własnego kierunku: promień z ogona przechodzi przez
    komórki własne i nie może zablokować elementu.
-3. Grot przy krawędzi (korytarz na linii grotu pusty), ale drugie ramię L ma bloker →
-   element zablokowany.
+3. Kształt L, którego drugie ramię ma przed sobą obcy element: **nie blokuje**, bo
+   liczy się wyłącznie promień z głowy. Drugi test chroniący przed nawrotem do reguły
+   sztywnej translacji.
 4. Element leżący wzdłuż krawędzi, prostopadle do swojego kierunku → zawsze wolny.
 5. Bloker w ostatniej komórce przy krawędzi (pętla inkluzywna) i bloker tuż przed
    elementem.
@@ -823,9 +854,10 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 
 9. Długości skrajne `ℓ = 2` i `ℓ = Lmax`; wzrost, który utknął, akceptuje krótszy
    element, nigdy o długości 1.
-9a. Element bardzo długi, wijący się przez większość planszy: region zamiatania liczony
-   poprawnie po wszystkich dotkniętych liniach; element dotykający tej samej linii
-   w kilku miejscach używa na niej komórki najdalszej od krawędzi wyjścia.
+9a. Element bardzo długi, wijący się przez większość planszy, którego **ciało leży przed
+   własną głową**: promień z głowy mija najpierw komórki własne, a dopiero potem
+   ewentualnego blokera. Odległość odbicia liczy się od ostatniej minionej komórki
+   własnej, nie od głowy.
 9b. Rozkład długości: przy zadanych wagach koszyków generator faktycznie produkuje
    elementy długie (raport z benchmarku), a nie po cichu obcina wszystko do krótkich.
 10. Samounikanie: ścieżka nie odwiedza komórki dwukrotnie, ale wolno jej dotykać siebie
@@ -839,8 +871,8 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
     się nie nakładają. Suma długości elementów równa się `W · H`. To najważniejszy
     niezmiennik generatora; sprawdzany na wielu ziarnach i wszystkich rozmiarach.
 12b. **Każdy element ma co najmniej 2 komórki.** Niezmiennik sprawdzany na wszystkich
-    wygenerowanych planszach; naruszenie oznacza, że reguła głów parowalnych została
-    obejta.
+    wygenerowanych planszach; naruszenie oznacza, że wybór głowy przestał wymagać
+    nieprzypisanego sąsiada.
 12c. Test kształtu resztki wykrywa **pentomino w kształcie plusa** jako fragment
     nierozkładalny. To jest przypadek, którego naiwny test izolacji nie łapie, więc musi
     mieć własny test — z jawnie skonstruowanym stanem `R`.
@@ -867,10 +899,10 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 
 **Testy odległości odbicia, serii i punktacji:**
 
-24. `probeMove` zwraca poprawną `distance` i `blockerId`: bloker tuż przed elementem
-    (`distance = 1`), bloker daleko, oraz bloker **we wklęsłości kształtu U** — tu
-    odległość liczy się od tej komórki własnej, która w niego uderzy, a nie od
-    najdalszej. Ten przypadek najpewniej wyłapie błąd w śledzeniu `lastOwn`.
+24. `probeMove` zwraca poprawną `distance` i `blockerId`: bloker tuż przed głową
+    (`distance = 1`), bloker daleko, oraz element, którego **ciało leży przed własną
+    głową** — promień mija wtedy własne komórki, a odległość liczy się od ostatniej
+    minionej komórki własnej. Ten przypadek najpewniej wyłapie błąd w `lastOwn`.
 25. Gdy blokerów jest kilka, `distance` odpowiada **najbliższemu**, a `blockerId`
     wskazuje właśnie ten element.
 26. Seria: rośnie przy kolejnych trafnych ruchach, zeruje się przy błędzie, `bestStreak`
@@ -943,7 +975,7 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Ryzyko | Przeciwdziałanie |
 |---|---|
 | Rozjazd między definicją korytarza w silniku i w generatorze produkuje nierozwiązywalne plansze | Wspólna definicja korytarza plus test różnicowy (§12.18) i solver na tysiącach ziaren (§12.14) |
-| Błąd „przednia zamiast tylnej komórki" w optymalizacji per linia — niewykrywalny bez kształtów wklęsłych | Testy 1 i 3 z §12 są obowiązkowe przed jakąkolwiek optymalizacją |
+| Powrót do reguły sztywnej translacji przez nieuwagę (naturalny odruch: „sprawdź, czy przed całym kształtem jest wolne") | Testy 1 i 3 z §12 sprawdzają wprost, że wklęsłość i drugie ramię L **nie** blokują |
 | Wygenerowane plansze są nudne mimo poprawności (frontier wycinania zbyt równy, dużo wolnych elementów na starcie) | Bias preferujący wycinanie tunelami zamiast warstwami (§7), metryki `f0` i `T_k` przy generacji, pętla generuj-zmierz-odrzuć |
 | Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
 | ~~Generator zakleszcza się przy minimalnej długości 2~~ | **Zamknięte pomiarem:** średnio 0–0,5 nawrotu na planszę, zero restartów na wszystkich czterech rozmiarach (§7). Wariant dwufazowy przestaje być potrzebny jako plan awaryjny |
