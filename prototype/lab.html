@@ -386,6 +386,9 @@ $('presets').addEventListener('change', () => {
   // The cell size concerns only the export; the preview scales itself.
   $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
   updateCommand()
+  // A preset chosen from the saved-boards tab would otherwise generate out of
+  // sight — the board area there still shows the stored SVG.
+  if (activeTab === 'library') showTab('lab')
   run()
 })
 
