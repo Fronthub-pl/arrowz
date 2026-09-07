@@ -60,6 +60,15 @@
   #boardWrap { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
                overflow: auto; min-height: 0; display: grid; place-items: center; padding: .4rem; }
   body.fitboard #boardWrap { overflow: hidden; }
+  /* Pełny podgląd: panel i statystyki znikają, plansza dostaje całe okno.
+     Przy kwadratowej planszy to różnica 1003 → 1828 px na ekranie 4K. */
+  /* Jedna kolumna, nie „0 1fr”: przy ukrytym panelu main trafiał do kolumny
+     zerowej szerokości i plansza znikała. */
+  body.solo { grid-template-columns: 1fr; }
+  body.solo aside, body.solo #side { display: none; }
+  body.solo .cols { grid-template-columns: 1fr; }
+  #solo { position: fixed; right: 1rem; top: .7rem; z-index: 5; opacity: .55; }
+  #solo:hover { opacity: 1; }
   #board { line-height: 0; }
   #board svg { display: block; }
   /* Przy dopasowaniu SVG dostaje CAŁY prostokąt kontenera, a rysunek wpasowuje
@@ -134,6 +143,7 @@
 </aside>
 
 <main>
+  <button id="solo" title="Pełny podgląd (klawisz F)">⤢</button>
   <div class="status" id="status">Naciśnij <b>Generuj</b>.</div>
   <div id="progress"><div id="bar"></div></div>
   <div class="cols">
@@ -381,6 +391,16 @@ $('reset').addEventListener('click', () => {
 for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top']) {
   $(id).addEventListener('input', redraw)
 }
+// pełny podgląd — panel i statystyki na bok, plansza na całe okno
+function toggleSolo() { document.body.classList.toggle('solo') }
+$('solo').addEventListener('click', toggleSolo)
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'f' || e.key === 'F') {
+    if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return
+    toggleSolo()
+  }
+})
+
 $('help').addEventListener('change', () => {
   document.body.classList.toggle('nohelp', !$('help').checked)
   saveToUrl()
