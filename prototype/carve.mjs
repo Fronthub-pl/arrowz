@@ -31,6 +31,15 @@ class Carver {
     this.owner = new Int32Array(W * H).fill(-1) // -1 = nieprzypisana (zbiór R)
     this.pieces = []
     this.remaining = W * H
+    if (params.voidFrac > 0) {
+      let v = 0
+      const target = Math.round(W * H * params.voidFrac)
+      while (v < target) {
+        const i = Math.floor(rng() * W * H)
+        if (this.owner[i] === -1) { this.owner[i] = -2; v++ }
+      }
+      this.remaining -= target
+    }
     this.backtracks = 0
     this.stats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0 }
     // depth[d][linia] = ile kolejnych przypisanych komórek od krawędzi w głąb
@@ -194,14 +203,18 @@ class Carver {
       if (!heads.length) continue
 
       let h
-      if (p.headBias === 0) h = heads[Math.floor(rng() * heads.length)]
+      // MIESZANIE: część wycięć preferuje linię najgłębszą (tuneluje -> niskie f0,
+      // ale proste kształty), reszta najpłytszą (warstwy -> skręty, ale wysokie f0).
+      // Te dwa cele ciągną w przeciwne strony, więc szukamy proporcji.
+      const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
+      if (bias === 0) h = heads[Math.floor(rng() * heads.length)]
       else {
         // depth linii danej głowy = jak głęboko frontier zaszedł w tej linii
         const scored = heads.map((c) => {
           const line = d === 0 || d === 2 ? c.x : c.y
           return { c, dep: this.depth[d][line] }
         })
-        scored.sort((a, b) => p.headBias > 0 ? b.dep - a.dep : a.dep - b.dep)
+        scored.sort((a, b) => bias > 0 ? b.dep - a.dep : a.dep - b.dep)
         // wybierz z górnej ćwiartki, żeby zachować losowość
         const k = Math.max(1, Math.ceil(scored.length / 4))
         h = scored[Math.floor(rng() * k)].c
@@ -209,7 +222,13 @@ class Carver {
       const bx = h.x + back.dx, by = h.y + back.dy
       const path = [h, { x: bx, y: by }]
       const pathSet = new Set([this.idx(h.x, h.y), this.idx(bx, by)])
-      const want = this.targetLength(progress)
+      // SONDA: co jakiś czas wbij długi prosty element w głąb, żeby zrobić schodek
+      // w profilu frontiera. Bez schodków wszystkie kolejne elementy są prostymi
+      // kreskami, bo skręt wymaga zrównania głębokości z frontierem sąsiada.
+      const isProbe = rng() < p.probe
+      const want = isProbe
+        ? Math.max(4, Math.round(p.probeLen * (0.5 + rng())))
+        : this.targetLength(progress)
       let lastDir = { dx: back.dx, dy: back.dy }
 
       while (path.length < want) {
@@ -220,7 +239,7 @@ class Carver {
           if (!this.inside(nx, ny)) continue
           const i = this.idx(nx, ny)
           if (this.owner[i] !== -1 || pathSet.has(i)) continue
-          if (!this.rayClear(nx, ny, d, pathSet)) continue
+          if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
           // Ruch W GŁĄB (wzdłuż -d) jest zawsze legalny, ale odcina ścieżkę od
           // frontiera i tym samym od wszelkich przyszłych skrętów. Ruch W BOK jest
           // legalny wyłącznie na wysokości frontiera sąsiedniej linii — i to on
@@ -229,6 +248,17 @@ class Carver {
           const straight = dd.dx === lastDir.dx && dd.dy === lastDir.dy
           let w = inward ? 1 : p.wLateral
           if (straight) w *= p.pStraight / (1 - p.pStraight)
+          if (p.warns > 0) {
+            // Warnsdorff: preferuj komórkę o najmniejszej liczbie wolnych sąsiadów.
+            // Zjada ślepe uliczki, zanim się zamkną, zamiast je osierocać.
+            let deg = 0
+            for (const e of DIRS) {
+              const ax = nx + e.dx, ay = ny + e.dy
+              if (this.inside(ax, ay) && this.owner[this.idx(ax, ay)] === -1 &&
+                  !pathSet.has(this.idx(ax, ay))) deg++
+            }
+            w *= Math.pow(p.warns, 3 - deg)
+          }
           cand.push({ x: nx, y: ny, dd, w })
         }
         if (!cand.length) break
@@ -275,7 +305,7 @@ class Carver {
     }
   }
 
-  run(maxBacktracks = 400) {
+  run(maxBacktracks = 3000) {
     while (this.remaining > 0) {
       if (this.carveOne()) continue
       if (this.backtracks >= maxBacktracks || !this.pieces.length) return false
@@ -296,8 +326,25 @@ function analyse(board) {
   let corridorTotal = 0, corridorLines = 0
   const minDist = new Array(pieces.length).fill(Infinity)
 
+  const RULE_B = process.argv.includes('--ruleb')
   for (const pc of pieces) {
     const { dx, dy } = DIRS[pc.dir]
+    if (RULE_B) {
+      const h = pc.cells[0]
+      let x = h.x, y = h.y, lastOwn = 0, step = 0
+      corridorLines++
+      while (true) {
+        x += dx; y += dy; step++
+        if (!inside(x, y)) break
+        corridorTotal++
+        const o = owner[idx(x, y)]
+        if (o === -2) continue
+        if (o === pc.id) { lastOwn = step; continue }
+        blockers[pc.id].add(o)
+        minDist[pc.id] = Math.min(minDist[pc.id], step - lastOwn)
+      }
+      continue
+    }
     const lines = new Map() // linia -> komórka najdalsza od krawędzi wyjścia
     for (const c of pc.cells) {
       const key = dx === 0 ? c.x : c.y
@@ -312,6 +359,7 @@ function analyse(board) {
         x += dx; y += dy; step++
         if (!inside(x, y)) break
         const o = owner[idx(x, y)]
+        if (o === -2) continue            // pustka nie blokuje
         if (o === pc.id) { lastOwn = step; continue }
         blockers[pc.id].add(o)
         minDist[pc.id] = Math.min(minDist[pc.id], step - lastOwn)
@@ -352,6 +400,19 @@ function analyse(board) {
     if (blockers[i].size === 1) almost++
   }
 
+  let bends = 0, multiLine = 0
+  for (const pc of pieces) {
+    let prev = null, b = 0
+    const lines = new Set()
+    for (let i = 1; i < pc.cells.length; i++) {
+      const dx = pc.cells[i].x - pc.cells[i - 1].x, dy = pc.cells[i].y - pc.cells[i - 1].y
+      if (prev && (dx !== prev.dx || dy !== prev.dy)) b++
+      prev = { dx, dy }
+    }
+    for (const c of pc.cells) lines.add(DIRS[pc.dir].dx === 0 ? c.x : c.y)
+    if (lines.size > 1) multiLine++
+    bends += b
+  }
   const hist = { '2-6': 0, '7-15': 0, '16-49': 0, '50+': 0 }
   let maxLen = 0
   for (const pc of pieces) {
@@ -365,7 +426,7 @@ function analyse(board) {
 
   return {
     N, solvable: done === N, unsolved: N - done,
-    f0: freeIds.length / N, T2, almost, D: maxDepth,
+    f0: freeIds.length / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N,
     meanCorridorLen: corridorTotal / Math.max(1, corridorLines),
     minLen: Math.min(...pieces.map((p) => p.cells.length)), maxLen, hist,
     coverage: pieces.reduce((s, p) => s + p.cells.length, 0) / (W * H),
@@ -430,7 +491,7 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...pre, pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0) }
+    const params = { ...pre, pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0) }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()
@@ -457,6 +518,7 @@ for (const pre of presets) {
   const h = good[0].hist
   console.log(`  rozkład dł.   2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${(avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)}%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${(avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)}%`)
   console.log(`  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-bloker: ${avg((a) => a.almost).toFixed(0)} (${(100*avg((a)=>a.almost/a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   korytarz: ${avg((a) => a.meanCorridorLen).toFixed(1)}`)
+  console.log(`  KSZTAŁT       skrętów/elem ${avg((a) => a.bends).toFixed(2)}   wieloliniowych ${(100 * avg((a) => a.multiLine)).toFixed(0)}%`)
   console.log(`  nawroty       ${avg((a) => a.backtracks).toFixed(1)}   restarty: ${avg((a) => a.restarts).toFixed(1)}`)
   const st = good[0].st
   console.log(`  diagnostyka   śr. want ${(st.want/st.n).toFixed(1)} -> got ${(st.got/st.n).toFixed(1)}   stall ${(100*st.stall/st.n).toFixed(0)}%   strand-trunc ${(100*st.strandTrunc/st.n).toFixed(0)}% (śr. -${(st.strandLoss/Math.max(1,st.strandTrunc)).toFixed(1)})`)

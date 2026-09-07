@@ -34,3 +34,35 @@ node prototype/carve.mjs --lateral=6 --straight=0.6 --runs=3
 
 Szczegóły i wnioski naniesione w `docs/superpowers/specs/2026-09-07-arrowz-design.md`
 (§7, §9, §11, §13, §14).
+
+## Runda 2 — wygląd planszy
+
+Pytanie: dlaczego plansze wychodzą w pasy z prostych linii i czy da się to naprawić.
+
+**Odpowiedź: przy obecnych regułach nie da się.** Element musi na każdej dotkniętej
+linii zajmować ciągły odcinek zaczynający się dokładnie na frontierze, więc skręt jest
+możliwy tylko wtedy, gdy głębokość elementu zrówna się co do komórki z frontierem
+sąsiedniej linii. Warunek dotyczy **każdej poprawnej planszy**, nie tylko tego
+generatora. Do tego kształt i trudność ciągną w przeciwne strony:
+
+| wariant | skrętów/elem | wieloliniowych | f0 |
+|---|---|---|---|
+| tunelowanie (najgłębsza linia) | 0.15 | 6% | 0.20 |
+| warstwy (najpłytsza linia) | 0.72 | 29% | 0.42 |
+
+**Reguła B — element jedzie po własnym torze.** Korytarz to pojedynczy promień z głowy
+do krawędzi, a nie cień całego kształtu; ciało sunie po śladzie głowy. Kształt przestaje
+być ograniczony. Cała matematyka przeżywa: promień z głowy jest tak samo statyczny, więc
+graf blokowania pozostaje statyczny, a rozwiązywalność nadal równa się acykliczności.
+
+Do domknięcia planszy przy regule B konieczna okazała się **reguła Warnsdorffa** przy
+wzroście ścieżki (idź tam, gdzie zostaje najmniej wolnych wyjść) — bez niej swobodnie
+wijące się ciało fragmentuje resztę i plansza 100x100 się nie domyka.
+
+Nightmare 100x100, reguła B + Warnsdorff: 100% pokrycia, rozwiązywalna, 2041 elementów,
+najdłuższy 74, f0 = 0.061, **1.87 skrętu na element, 69% wieloliniowych**, 0 nawrotów,
+34 ms generacji.
+
+```
+node prototype/carve.mjs --only=Easy --ruleb --warns=4 --lateral=3 --show
+```
