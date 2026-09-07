@@ -24,6 +24,10 @@
                             font: inherit; font-size: 12.5px; text-align: right; }
   .row input[type=range] { grid-column: 1 / -1; margin: 0 0 .3rem; }
   .check { display: flex; gap: .45rem; align-items: center; margin-bottom: .4rem; font-size: 12.5px; }
+  .help { grid-column: 1 / -1; margin: -.15rem 0 .7rem; font-size: 11.5px; line-height: 1.45; color: #7a7b95; }
+  .help b { color: #5a5b78; }
+  .grouphelp { font-size: 11.5px; line-height: 1.45; color: #7a7b95; margin: -.2rem 0 .7rem; }
+  body.nohelp .help, body.nohelp .grouphelp { display: none; }
 
   button { font: inherit; padding: .35rem .7rem; border: 1px solid var(--line); background: #fff;
            border-radius: 5px; cursor: pointer; }
@@ -33,6 +37,8 @@
   .presets { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .5rem; }
   .presets button { padding: .2rem .45rem; font-size: 12px; }
 
+  #progress { height: 4px; background: var(--line); border-radius: 2px; margin: -.2rem 0 .8rem; overflow: hidden; }
+  #bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
   #board { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
   #board svg { display: block; max-width: 100%; height: auto; }
   .status { min-height: 1.4rem; margin-bottom: .6rem; font-size: 13px; }
@@ -47,6 +53,9 @@
   table.top th { text-align: left; color: #6a6b86; font-weight: 500; padding-right: .9rem; }
   table.top td { padding: .1rem .9rem .1rem 0; font-variant-numeric: tabular-nums; }
   .cols { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
+  .cols > div { max-width: 62ch; }
+  #board { flex: 0 0 auto; max-width: 60vw; }
+  #board svg { max-height: 82vh; }
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
   .cli { margin-top: 1rem; font-size: 11.5px; color: #6a6b86; word-break: break-all; }
 </style>
@@ -62,6 +71,7 @@
     <button id="reseed">Nowe ziarno</button>
     <button id="reset">Domyślne</button>
     <button id="download">Pobierz SVG</button>
+    <button id="abort" hidden>Przerwij</button>
   </div>
 
   <h2>Podgląd</h2>
@@ -80,12 +90,14 @@
     <input type="number" id="top" value="5" min="1" max="50" step="1">
   </div>
   <label class="check"><input type="checkbox" id="auto"> generuj od razu po zmianie</label>
+  <label class="check"><input type="checkbox" id="help" checked> pokazuj opisy parametrów</label>
 
   <div id="params"></div>
 </aside>
 
 <main>
   <div class="status" id="status">Naciśnij <b>Generuj</b>.</div>
+  <div id="progress" hidden><div id="bar"></div></div>
   <div class="cols">
     <div id="board"></div>
     <div>
@@ -97,7 +109,7 @@
 </main>
 
 <script type="module">
-import { PARAM_SPEC, defaultParams, generate, toSvg } from './engine.mjs'
+import { PARAM_SPEC, defaultParams } from './engine.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -108,11 +120,26 @@ for (const spec of PARAM_SPEC) {
   if (!groups.has(spec.group)) groups.set(spec.group, [])
   groups.get(spec.group).push(spec)
 }
+
+const GROUP_HELP = {
+  'długości': 'Rozkład mieszany o trzech koszykach: krótkie 2–6, średnie 7–15, długie 16–Lmax (log-jednostajnie). Koszyk długi dostaje resztę wagi.',
+  'kształt': 'Wagi wyboru kolejnej komórki ścieżki. Mnożą się przez siebie, więc drobna zmiana jednej potrafi przesłonić pozostałe.',
+  'trudność': 'Sterowanie tym, jak trudno znaleźć element z wolną drogą — struktura blokowania, nie wygląd.',
+  'szkielet': 'Elementy prowadzone serpentyną przez całą planszę. Losowy wzrost nie potrafi dać linii jednocześnie długiej i rozciągniętej: bez Warnsdorffa zamyka się we własnej pułapce po stu komórkach, z nim wypełnia obszar gęsto, czyli się zwija.',
+  'domykanie': 'Co robić, gdy generator nie znajduje legalnego wycięcia. Tu leży granica skali: powyżej 300×300 domyślne ustawienia przestają domykać planszę.',
+}
+
 const panel = $('params')
 for (const [group, specs] of groups) {
   const h = document.createElement('h2')
   h.textContent = group
   panel.append(h)
+  if (GROUP_HELP[group]) {
+    const gh = document.createElement('p')
+    gh.className = 'grouphelp'
+    gh.textContent = GROUP_HELP[group]
+    panel.append(gh)
+  }
   for (const spec of specs) {
     const row = document.createElement('div')
     row.className = 'row'
@@ -135,11 +162,17 @@ for (const [group, specs] of groups) {
     num.addEventListener('input', () => sync(num.value))
     range.addEventListener('input', () => sync(range.value))
     row.append(label, num, range)
+    if (spec.help) {
+      const help = document.createElement('p')
+      help.className = 'help'
+      help.textContent = spec.help
+      row.append(help)
+      label.title = spec.help          // tooltip działa też przy schowanych opisach
+    }
     panel.append(row)
   }
 }
 
-// --- presety rozmiarów
 const PRESETS = [
   ['Easy 25×50', 25, 50], ['Easy 25×25', 25, 25],
   ['Medium 50×100', 50, 100], ['Hard 75×150', 75, 150],
@@ -152,7 +185,6 @@ for (const [label, w, h] of PRESETS) {
   b.addEventListener('click', () => {
     setParam('W', w); setParam('H', h)
     setParam('Lmax', Math.round(2.5 * Math.max(w, h)))
-    // rozmiar komórki dobrany tak, żeby plansza mieściła się na ekranie
     $('cell').value = Math.max(1, Math.min(18, Math.round(900 / Math.max(w, h))))
     run()
   })
@@ -165,57 +197,127 @@ function setParam(key, value) {
   if (el) { el.value = value; el.nextElementSibling.value = value }
 }
 
-$('reseed').addEventListener('click', () => {
-  setParam('seed', Math.floor(Math.random() * 999999))
-  run()
+function viewOptions() {
+  return {
+    cell: Number($('cell').value),
+    stroke: Number($('stroke').value),
+    colored: $('colored').checked,
+    top: $('hilite').checked ? Number($('top').value) : 0,
+  }
+}
+
+// --- worker: generacja poza wątkiem interfejsu ---------------------------
+// Plansza 1000×1000 liczy się dziesiątki sekund. Na wątku głównym zawiesiłaby
+// kartę, więc silnik biegnie w workerze, a strona dostaje postęp i gotowe SVG.
+let worker = null
+let busy = false
+
+function newWorker() {
+  const w = new Worker('./lab-worker.mjs', { type: 'module' })
+  w.onmessage = (e) => onWorkerMessage(e.data)
+  w.onerror = (e) => {
+    setStatus(`<span class="bad">Błąd workera:</span> ${e.message}`)
+    finish()
+  }
+  return w
+}
+
+function ensureWorker() {
+  if (!worker) worker = newWorker()
+  return worker
+}
+
+function onWorkerMessage(msg) {
+  if (msg.type === 'progress') {
+    const { pieces, remaining, backtracks, ms, total } = msg.info
+    const done = 100 * (1 - remaining / total)
+    setStatus(`Generuję… <b>${done.toFixed(1)}%</b> — ${pieces.toLocaleString('pl')} elementów, ` +
+      `zostało ${remaining.toLocaleString('pl')} komórek, nawrotów ${backtracks}, ${(ms / 1000).toFixed(1)} s`)
+    $('bar').style.width = done.toFixed(1) + '%'
+    return
+  }
+  if (msg.type === 'error') {
+    setStatus(`<span class="bad">Błąd generacji:</span> ${msg.message}`)
+    finish()
+    return
+  }
+  if (msg.type === 'done') {
+    lastDone = msg
+    report(msg)
+    finish()
+    return
+  }
+  if (msg.type === 'render') {
+    $('board').innerHTML = msg.svg
+    renderLongest(msg.longest)
+  }
+}
+
+let lastDone = null
+
+function setStatus(html) { $('status').innerHTML = html }
+
+function start() {
+  busy = true
+  $('run').disabled = true
+  $('abort').hidden = false
+  $('progress').hidden = false
+  $('bar').style.width = '0%'
+}
+
+function finish() {
+  busy = false
+  $('run').disabled = false
+  $('abort').hidden = true
+  $('progress').hidden = true
+}
+
+$('abort').addEventListener('click', () => {
+  if (!busy) return
+  worker.terminate()          // jedyny sposób na przerwanie pętli generatora
+  worker = null
+  setStatus('<span class="bad">Przerwano.</span>')
+  finish()
 })
+
+function run() {
+  if (busy) return
+  const cells = state.W * state.H
+  start()
+  setStatus(cells > 200000
+    ? `Generuję ${state.W}×${state.H} (${cells.toLocaleString('pl')} komórek) — to potrwa…`
+    : 'Generuję…')
+  ensureWorker().postMessage({ type: 'generate', params: { ...state }, view: viewOptions() })
+  saveToUrl()
+}
+
+// przełączniki podglądu przerysowują planszę bez ponownej generacji
+function redraw() {
+  if (!lastDone || busy) return
+  ensureWorker().postMessage({ type: 'render', view: viewOptions() })
+  saveToUrl()
+}
+
+let timer = null
+function schedule() { clearTimeout(timer); timer = setTimeout(run, 350) }
+
+$('run').addEventListener('click', run)
+$('reseed').addEventListener('click', () => { setParam('seed', Math.floor(Math.random() * 999999)); run() })
 $('reset').addEventListener('click', () => {
   Object.assign(state, defaultParams())
   for (const spec of PARAM_SPEC) setParam(spec.key, state[spec.key])
   run()
 })
-$('run').addEventListener('click', run)
 for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top']) {
-  $(id).addEventListener('input', () => { if (lastResult) draw(lastResult) })
+  $(id).addEventListener('input', redraw)
 }
-
-let timer = null
-function schedule() {
-  clearTimeout(timer)
-  timer = setTimeout(run, 350)
-}
-
-let lastResult = null
-
-// --- stan w adresie: pozwala wrócić do konfiguracji i podesłać ją komuś
-function saveToUrl() {
-  applyingHash = true
-  setTimeout(() => { applyingHash = false }, 0)
-  const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
-                 colored: $('colored').checked, hilite: $('hilite').checked }
-  location.hash = encodeURIComponent(JSON.stringify({ ...state, __view: view }))
-}
-function loadFromUrl() {
-  if (!location.hash.length) return false
-  try {
-    const saved = JSON.parse(decodeURIComponent(location.hash.slice(1)))
-    const view = saved.__view ?? {}
-    delete saved.__view
-    for (const spec of PARAM_SPEC) if (saved[spec.key] !== undefined) setParam(spec.key, saved[spec.key])
-    if (view.cell) $('cell').value = view.cell
-    if (view.stroke) $('stroke').value = view.stroke
-    if (view.top) $('top').value = view.top
-    $('colored').checked = !!view.colored
-    $('hilite').checked = view.hilite !== false
-    return true
-  } catch {
-    return false
-  }
-}
-
+$('help').addEventListener('change', () => {
+  document.body.classList.toggle('nohelp', !$('help').checked)
+  saveToUrl()
+})
 $('download').addEventListener('click', () => {
-  if (!lastResult) return
   const svg = $('board').innerHTML
+  if (!svg) return
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
   a.href = url
@@ -224,47 +326,50 @@ $('download').addEventListener('click', () => {
   URL.revokeObjectURL(url)
 })
 
-async function run() {
-  const cells = state.W * state.H
-  $('status').innerHTML = cells > 200000
-    ? `Generuję ${state.W}×${state.H} (${cells.toLocaleString('pl')} komórek) — to może potrwać…`
-    : 'Generuję…'
-  // dwie klatki, żeby przeglądarka zdążyła narysować komunikat przed
-  // zablokowaniem wątku przez generację
-  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-
-  let result
+// --- stan w adresie -----------------------------------------------------
+let applyingHash = false
+function saveToUrl() {
+  applyingHash = true
+  setTimeout(() => { applyingHash = false }, 0)
+  const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
+                 colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked }
+  location.hash = encodeURIComponent(JSON.stringify({ ...state, __view: view }))
+}
+function loadFromUrl() {
+  if (!location.hash.length) return false
   try {
-    result = generate(state)
-  } catch (err) {
-    $('status').innerHTML = `<span class="bad">Błąd generacji:</span> ${err.message}`
-    return
+    const saved = JSON.parse(decodeURIComponent(location.hash.slice(1)))
+    const view = saved.__view ?? {}
+    for (const spec of PARAM_SPEC) if (saved[spec.key] !== undefined) setParam(spec.key, saved[spec.key])
+    if (view.cell) $('cell').value = view.cell
+    if (view.stroke) $('stroke').value = view.stroke
+    if (view.top) $('top').value = view.top
+    $('colored').checked = !!view.colored
+    $('hilite').checked = view.hilite !== false
+    $('help').checked = view.help !== false
+    document.body.classList.toggle('nohelp', view.help === false)
+    return true
+  } catch {
+    return false
   }
-  lastResult = result
-  draw(result)
-  report(result)
-  saveToUrl()
 }
+window.addEventListener('hashchange', () => {
+  if (applyingHash) return
+  if (loadFromUrl()) run()
+})
 
-function draw(result) {
-  const top = $('hilite').checked ? Number($('top').value) : 0
-  $('board').innerHTML = toSvg(result.board, {
-    cell: Number($('cell').value),
-    colored: $('colored').checked,
-    strokeRatio: Number($('stroke').value),
-    top,
-  })
-}
-
+// --- raport -------------------------------------------------------------
 function pct(v) { return (100 * v).toFixed(0) + '%' }
 
-function report(result) {
-  const { board, metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck } = result
+function report(msg) {
+  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck } = msg
   const cells = state.W * state.H
 
-  $('status').innerHTML = ok
+  setStatus(ok
     ? `<span class="good">Plansza domknięta w 100%.</span> ${metrics.solvable ? 'Rozwiązywalna.' : '<span class="bad">NIEROZWIĄZYWALNA — to błąd generatora.</span>'}`
-    : `<span class="bad">Nie domknięto planszy.</span> W najlepszym momencie zostało ${stuck.remaining} komórek w ${stuck.sizes.length} fragmentach (największy ${stuck.sizes[0] ?? 0}).`
+    : `<span class="bad">Nie domknięto planszy.</span> W najlepszym momencie zostało ` +
+      `${(stuck?.remaining ?? 0).toLocaleString('pl')} komórek w ${stuck?.sizes.length ?? 0} fragmentach ` +
+      `(największy ${stuck?.sizes[0] ?? 0}).`)
 
   if (!metrics) { $('stats').innerHTML = ''; $('topTable').innerHTML = ''; return }
 
@@ -293,44 +398,13 @@ function report(result) {
     ['wieloliniowych', pct(metrics.multiLine)],
     ['—', ''],
     ['nawroty / restarty', `${backtracks} / ${restartsUsed}`],
-    ['czas', `generacja ${genMs.toFixed(0)} ms, metryki ${metricsMs.toFixed(0)} ms`],
+    ['czas', `generacja ${(genMs / 1000).toFixed(2)} s, metryki ${(metricsMs / 1000).toFixed(2)} s`],
   ]
   $('stats').innerHTML = rows
     .map(([k, v]) => (k === '—' ? '<tr><td colspan="2" style="height:.5rem"></td></tr>'
       : `<tr><td>${k}</td><td class="num">${v}</td></tr>`))
     .join('')
 
-  // tabela najdłuższych — te same liczby, które CLI wypisuje przy --top
-  const n = $('hilite').checked ? Number($('top').value) : 0
-  if (n > 0) {
-    const longest = [...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
-    const body = longest.map((pc) => {
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-      const own = new Set(pc.cells.map((c) => c.y * state.W + c.x))
-      let coil = 0
-      for (const c of pc.cells) {
-        minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x)
-        minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y)
-        let touch = 0
-        for (const [dx, dy] of [[0,-1],[1,0],[0,1],[-1,0]]) {
-          if (own.has((c.y + dy) * state.W + (c.x + dx))) touch++
-        }
-        if (touch >= 3) coil++
-      }
-      const sx = maxX - minX + 1, sy = maxY - minY + 1
-      return `<tr><td>${pc.cells.length}</td><td>${sx}×${sy}</td>` +
-        `<td>${pct(Math.max(sx / state.W, sy / state.H))}</td>` +
-        `<td>${pct(pc.cells.length / (sx * sy))}</td><td>${pct(coil / pc.cells.length)}</td></tr>`
-    }).join('')
-    $('topTable').innerHTML =
-      `<h2 style="border:0;padding:0">${n} najdłuższych</h2>` +
-      `<table class="top"><tr><th>długość</th><th>prostokąt</th><th>zasięg</th>` +
-      `<th>gęstość</th><th>zwinięcie</th></tr>${body}</table>`
-  } else {
-    $('topTable').innerHTML = ''
-  }
-
-  // polecenie CLI odtwarzające dokładnie ten sam przebieg
   const flags = PARAM_SPEC
     .filter((s) => !['W', 'H'].includes(s.key) && state[s.key] !== s.def)
     .map((s) => `--${s.key.toLowerCase()}=${state[s.key]}`)
@@ -340,13 +414,19 @@ function report(result) {
     ($('hilite').checked ? ` --top=${$('top').value}` : '')
 }
 
-// Zmiana samego fragmentu adresu nie przeładowuje strony, więc trzeba na nią
-// zareagować — inaczej wklejony link z konfiguracją nic nie robi.
-let applyingHash = false
-window.addEventListener('hashchange', () => {
-  if (applyingHash) return
-  if (loadFromUrl()) run()
-})
+function renderLongest(longest) {
+  if (!longest || !longest.length) { $('topTable').innerHTML = ''; return }
+  const body = longest.map((p) =>
+    `<tr><td>${p.len}</td><td>${p.sx}×${p.sy}</td><td>${pct(p.span)}</td>` +
+    `<td>${pct(p.density)}</td><td>${pct(p.coil)}</td></tr>`).join('')
+  $('topTable').innerHTML =
+    `<h2 style="border:0;padding:0">${longest.length} najdłuższych</h2>` +
+    `<p class="grouphelp">Zasięg = jaką część boku planszy element obejmuje. Gęstość = jak ciasno wypełnia ` +
+    `swój prostokąt. Zwinięcie = udział komórek dotykających własnej ścieżki z trzech stron. ` +
+    `Wąż przecinający planszę ma wysoki zasięg i niskie dwa pozostałe; zwój — odwrotnie.</p>` +
+    `<table class="top"><tr><th>długość</th><th>prostokąt</th><th>zasięg</th>` +
+    `<th>gęstość</th><th>zwinięcie</th></tr>${body}</table>`
+}
 
 loadFromUrl()
 run()

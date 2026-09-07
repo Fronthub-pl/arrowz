@@ -542,9 +542,15 @@ class Carver {
     // komórek, ale przy milionie to ułamek jednego procentu wycięć.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     while (this.remaining > 0) {
-      if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 500) {
+      if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
         lastLog = performance.now()
-        this.p.trace(`    [trace] elementów ${this.pieces.length}, zostało ${this.remaining}, nawrotów ${this.backtracks}, ${(lastLog - t0).toFixed(0)} ms`)
+        this.p.trace({
+          pieces: this.pieces.length,
+          remaining: this.remaining,
+          backtracks: this.backtracks,
+          ms: lastLog - t0,
+          total: this.W * this.H,
+        })
       }
       if (this.carveOne()) continue
       // Zapamiętaj NAJLEPSZY moment zaklinowania (najmniej pozostałych komórek):
@@ -852,42 +858,73 @@ function toSvg(board, opts = {}) {
  * w obu.
  */
 export const PARAM_SPEC = [
-  { key: 'W', label: 'szerokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 25 },
-  { key: 'H', label: 'wysokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 50 },
-  { key: 'seed', label: 'ziarno', group: 'plansza', min: 0, max: 999999, step: 1, def: 7 },
+  { key: 'W', label: 'szerokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 25,
+    help: 'Liczba kolumn siatki. Powyżej 300×300 generator przestaje domykać planszę przy domyślnych ustawieniach — pomaga podniesienie prób głowy na kierunek.' },
+  { key: 'H', label: 'wysokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 50,
+    help: 'Liczba wierszy. Format pionowy (n×2n) sam podnosi trudność: wąska plansza ma krótsze korytarze poziome, więc mniej elementów ma czystą drogę do krawędzi.' },
+  { key: 'seed', label: 'ziarno', group: 'plansza', min: 0, max: 999999, step: 1, def: 7,
+    help: 'To samo ziarno daje bitowo tę samą planszę. Na tym opiera się weryfikacja wyniku po stronie serwera: odtwarza rozgrywkę z ziarna i sekwencji ruchów.' },
 
-  { key: 'wShort', label: 'waga krótkich (2–6)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.5 },
-  { key: 'wMid', label: 'waga średnich (7–15)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.2 },
-  { key: 'Lmax', label: 'długość maksymalna', group: 'długości', min: 16, max: 5000, step: 1, def: 125 },
+  { key: 'wShort', label: 'waga krótkich (2–6)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.5,
+    help: 'Udział elementów najkrótszych. Wysoko = gęsto rozsiane groty, ale sama sieczka z haczyków. Przy 0,85 plansza traci długie linie zupełnie.' },
+  { key: 'wMid', label: 'waga średnich (7–15)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.2,
+    help: 'Typowe zawijasy, główna masa planszy. Reszta wagi (1 minus krótkie minus średnie) przypada na koszyk długi, losowany log-jednostajnie.' },
+  { key: 'Lmax', label: 'długość maksymalna', group: 'długości', min: 16, max: 5000, step: 1, def: 125,
+    help: 'Górna granica losowanej długości. Rzadko bywa wiążąca: ponad połowa ścieżek utyka przed celem, więc podnoszenie tej wartości zwykle nic nie daje.' },
 
-  { key: 'pStraight', label: 'skłonność do prostej', group: 'kształt', min: 0, max: 1, step: 0.01, def: 0.6 },
-  { key: 'wLateral', label: 'premia za ruch w bok', group: 'kształt', min: 0, max: 20, step: 0.5, def: 3 },
-  { key: 'warns', label: 'siła Warnsdorffa', group: 'kształt', min: 0, max: 16, step: 1, def: 4 },
-  { key: 'anticoil', label: 'kara za zwijanie', group: 'kształt', min: 1, max: 20, step: 1, def: 1 },
-  { key: 'hug', label: 'premia za przyleganie', group: 'kształt', min: 1, max: 20, step: 1, def: 1 },
-  { key: 'edgeHug', label: 'krawędź liczy się jak element', group: 'kształt', min: 0, max: 4, step: 1, def: 0 },
+  { key: 'pStraight', label: 'skłonność do prostej', group: 'kształt', min: 0, max: 1, step: 0.01, def: 0.6,
+    help: 'Jak chętnie ścieżka kontynuuje w tym samym kierunku. Wyżej = dłuższe proste odcinki i większy zasięg, ale ścieżka szybciej wchodzi w ślepy zaułek.' },
+  { key: 'wLateral', label: 'premia za ruch w bok', group: 'kształt', min: 0, max: 20, step: 0.5, def: 3,
+    help: 'Ruch w bok buduje kształt, ruch w głąb odcina ścieżkę od frontiera i od przyszłych skrętów. Dlatego bok jest premiowany, a nie „prosto”.' },
+  { key: 'warns', label: 'siła Warnsdorffa', group: 'kształt', min: 0, max: 16, step: 1, def: 4,
+    help: 'Idź tam, gdzie zostaje najmniej wolnych wyjść. WYMAGANE: przy 0 jedna plansza na trzydzieści nie domyka się wcale. Ceną jest zwijanie — to ta reguła ciągnie linię z powrotem do siebie.' },
+  { key: 'anticoil', label: 'kara za zwijanie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
+    help: 'Kara za dotykanie własnej ścieżki, 1 = wyłączona. Przy 6 zwinięcie spada z 44% do 27%, ale elementy się skracają — trzeba wtedy podnieść udział długich, żeby porównanie było uczciwe.' },
+  { key: 'hug', label: 'premia za przyleganie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
+    help: 'Premia za sąsiedztwo z elementami już wyciętymi. Zmierzone jako niemal bezużyteczne: dokłada 1–2 punkty ponad samą karę za zwijanie.' },
+  { key: 'edgeHug', label: 'krawędź liczy się jak element', group: 'kształt', min: 0, max: 4, step: 1, def: 0,
+    help: 'Czy krawędź planszy ma być traktowana jak sąsiedni element przy premii za przyleganie. Podnosi skłonność linii do biegu wzdłuż brzegu.' },
 
-  { key: 'headBias', label: 'wybór głowy (-1 warstwy, 1 tunele)', group: 'trudność', min: -1, max: 1, step: 1, def: 0 },
-  { key: 'mix', label: 'mieszanie warstw i tuneli (-1 = wyłączone)', group: 'trudność', min: -1, max: 1, step: 0.05, def: -1 },
-  { key: 'probe', label: 'udział sond w głąb', group: 'trudność', min: 0, max: 1, step: 0.01, def: 0 },
-  { key: 'probeLen', label: 'długość sondy', group: 'trudność', min: 2, max: 200, step: 1, def: 12 },
+  { key: 'headBias', label: 'wybór głowy (-1 warstwy, 1 tunele)', group: 'trudność', min: -1, max: 1, step: 1, def: 0,
+    help: 'Skąd brać głowę: z linii najpłytszej (warstwy) czy najgłębszej (tunele). Tunelowanie POŁOWI f0 i PODWAJA głębokość blokowania — to główny regulator trudności.' },
+  { key: 'mix', label: 'mieszanie warstw i tuneli (-1 = wyłączone)', group: 'trudność', min: -1, max: 1, step: 0.05, def: -1,
+    help: 'Ułamek wycięć prowadzonych tunelami, reszta warstwami. Pozwala trafić między dwa skrajne zachowania zamiast wybierać jedno.' },
+  { key: 'probe', label: 'udział sond w głąb', group: 'trudność', min: 0, max: 1, step: 0.01, def: 0,
+    help: 'Co jaki ułamek wycięć wbijać długi prosty element w głąb, żeby zrobić schodek w profilu frontiera. Zmierzone: nie daje nic ponad karę za zwijanie.' },
+  { key: 'probeLen', label: 'długość sondy', group: 'trudność', min: 2, max: 200, step: 1, def: 12,
+    help: 'Docelowa długość takiego wbicia. Działa tylko przy niezerowym udziale sond.' },
 
-  { key: 'giants', label: 'ile elementów szkieletowych', group: 'szkielet', min: 0, max: 40, step: 1, def: 0 },
-  { key: 'giantSpan', label: 'długość szkieletu (w bokach planszy)', group: 'szkielet', min: 0, max: 200, step: 1, def: 0 },
-  { key: 'giantStep', label: 'skok serpentyny (0 = wzrost losowy)', group: 'szkielet', min: 0, max: 40, step: 1, def: 0 },
-  { key: 'giantJitter', label: 'urywanie biegów serpentyny', group: 'szkielet', min: 0, max: 1, step: 0.05, def: 0.15 },
-  { key: 'wGiant', label: 'udział szkieletów poza startem', group: 'szkielet', min: 0, max: 0.5, step: 0.01, def: 0 },
-  { key: 'giantStraight', label: 'prostość szkieletu (wzrost losowy)', group: 'szkielet', min: 0, max: 1, step: 0.01, def: 0.94 },
-  { key: 'giantWarns', label: 'Warnsdorff szkieletu', group: 'szkielet', min: 0, max: 16, step: 1, def: 0 },
-  { key: 'giantAnticoil', label: 'kara za zwijanie szkieletu', group: 'szkielet', min: 1, max: 20, step: 1, def: 6 },
-  { key: 'giantSpacing', label: 'promień odstępu szkieletu', group: 'szkielet', min: 1, max: 6, step: 1, def: 2 },
-  { key: 'giantSpacePenalty', label: 'siła odstępu szkieletu', group: 'szkielet', min: 1, max: 40, step: 1, def: 8 },
+  { key: 'giants', label: 'ile elementów szkieletowych', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
+    help: 'Ile pierwszych wycięć prowadzić jako szkielet. Muszą powstawać na starcie: po tysiącu wycięć obszar wolny jest już poszarpany i nie ma gdzie biec. Są też pierwsze do zdjęcia w grze, więc ich usunięcie odblokowuje resztę planszy.' },
+  { key: 'giantSpan', label: 'długość szkieletu (w bokach planszy)', group: 'szkielet', min: 0, max: 200, step: 1, def: 0,
+    help: 'Docelowa długość szkieletu liczona w bokach planszy, nie w komórkach — dzięki temu skaluje się z rozmiarem. 0 wyłącza mechanizm.' },
+  { key: 'giantStep', label: 'skok serpentyny (0 = wzrost losowy)', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
+    help: 'Odstęp między kolejnymi biegami serpentyny i główne pokrętło jej wyglądu. Skok 3 daje regularne pasy („linie na kartce”), skok 14 — autostrady przecinające planszę, między którymi zostaje labirynt. Przy 0 szkielet rośnie losowo i utyka po ~400 komórkach.' },
+  { key: 'giantJitter', label: 'urywanie biegów serpentyny', group: 'szkielet', min: 0, max: 1, step: 0.05, def: 0.15,
+    help: 'Jak często bieg serpentyny urywa się przed przeszkodą. Bez tego brzegi wychodzą idealnie proste i widać regularność.' },
+  { key: 'wGiant', label: 'udział szkieletów poza startem', group: 'szkielet', min: 0, max: 0.5, step: 0.01, def: 0,
+    help: 'Prawdopodobieństwo, że element wycinany w trakcie też będzie szkieletem. Zmierzone jako mało skuteczne — na poszarpanym obszarze szkielet nie ma dokąd rosnąć.' },
+  { key: 'giantStraight', label: 'prostość szkieletu (wzrost losowy)', group: 'szkielet', min: 0, max: 1, step: 0.01, def: 0.94,
+    help: 'Skłonność szkieletu do prostej, gdy rośnie losowo (skok serpentyny = 0). Przy serpentynie nie ma znaczenia.' },
+  { key: 'giantWarns', label: 'Warnsdorff szkieletu', group: 'szkielet', min: 0, max: 16, step: 1, def: 0,
+    help: 'Siła Warnsdorffa dla szkieletu, osobno od reszty. Domyślnie 0, bo to ta reguła zwija linię, a szkielet ma iść daleko.' },
+  { key: 'giantAnticoil', label: 'kara za zwijanie szkieletu', group: 'szkielet', min: 1, max: 20, step: 1, def: 6,
+    help: 'Kara za samostyczność, osobna dla szkieletu. Stosowana jest wyższa z tej i ogólnej.' },
+  { key: 'giantSpacing', label: 'promień odstępu szkieletu', group: 'szkielet', min: 1, max: 6, step: 1, def: 2,
+    help: 'W jakim promieniu szkielet ma unikać własnych wcześniejszych przebiegów. Kanały, które przez to zostają, wypełniają potem zwykłe elementy.' },
+  { key: 'giantSpacePenalty', label: 'siła odstępu szkieletu', group: 'szkielet', min: 1, max: 40, step: 1, def: 8,
+    help: 'Jak mocno karać zbliżenie do siebie. Musi być KARĄ, nie zakazem: zakaz uniemożliwia zawracanie, bo przejście z pasa do pasa wymaga przecięcia strefy odstępu.' },
 
-  { key: 'headTries', label: 'prób głowy na kierunek', group: 'domykanie', min: 1, max: 32, step: 1, def: 4 },
-  { key: 'strandLimit', label: 'limit testu resztki', group: 'domykanie', min: 2, max: 24, step: 1, def: 8 },
-  { key: 'frontierUndo', label: 'nawrót ukierunkowany (0 = zwykły)', group: 'domykanie', min: 0, max: 2000, step: 10, def: 0 },
-  { key: 'maxBack', label: 'budżet nawrotów (0 = 3000)', group: 'domykanie', min: 0, max: 200000, step: 500, def: 0 },
-  { key: 'restarts', label: 'dopuszczalne restarty', group: 'domykanie', min: 0, max: 10, step: 1, def: 3 },
+  { key: 'headTries', label: 'prób głowy na kierunek', group: 'domykanie', min: 1, max: 32, step: 1, def: 4,
+    help: 'Ile głów wypróbować, zanim generator porzuci kierunek. Przy 1 (pierwotne zachowanie) plansza 400×400 zaklinowuje się z 27 tys. wolnych komórek; przy 4 — ze 171.' },
+  { key: 'strandLimit', label: 'limit testu resztki', group: 'domykanie', min: 2, max: 24, step: 1, def: 8,
+    help: 'Do jakiego rozmiaru fragmentu sprawdzać, czy da się go rozłożyć na ścieżki ≥2. Podnoszenie powyżej 8 POGARSZA: test odrzuca za dużo ścieżek i generator ma mniej ruchów.' },
+  { key: 'frontierUndo', label: 'nawrót ukierunkowany (0 = zwykły)', group: 'domykanie', min: 0, max: 2000, step: 10, def: 0,
+    help: 'Przy zaklinowaniu cofaj do najstarszego elementu stykającego się z wolnym obszarem, zamiast zdejmować ostatnie kilka wycięć. Przy tysiącach elementów ślepe cofanie trafia w losowy rejon planszy.' },
+  { key: 'maxBack', label: 'budżet nawrotów (0 = 3000)', group: 'domykanie', min: 0, max: 200000, step: 500, def: 0,
+    help: 'Ile razy generator może się cofnąć, zanim uzna próbę za straconą. Duże wartości potrafią kosztować minuty i rzadko ratują sytuację.' },
+  { key: 'restarts', label: 'dopuszczalne restarty', group: 'domykanie', min: 0, max: 10, step: 1, def: 3,
+    help: 'Ile razy zacząć od nowa z pochodnym ziarnem po nieudanej próbie. Restart jest zwykle skuteczniejszy niż kolejne tysiące nawrotów.' },
 ]
 
 export function defaultParams() {

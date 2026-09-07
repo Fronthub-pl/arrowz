@@ -5,6 +5,12 @@ import { Carver, analyse, mulberry32, render, toSvg, DIRS } from './engine.mjs'
 
 // ------------------------------------------------------------------ main
 
+// Ślad i debug wchodzą do silnika jako funkcje — silnik nie zna `process`.
+const trace = process.env.CARVE_TRACE
+  ? (i) => console.error(`    [trace] elementów ${i.pieces}, zostało ${i.remaining}, nawrotów ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
+  : null
+const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
+
 const arg = (k, dflt) => {
   const hit = process.argv.find((a) => a.startsWith(`--${k}=`))
   return hit ? Number(hit.split('=')[1]) : dflt
@@ -43,7 +49,7 @@ if (svgOut) {
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8) }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
   let c, ok = false, seed = arg('seed', 7)
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
   if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
@@ -100,7 +106,7 @@ if (bench > 0) {
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8) }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
       const t0 = performance.now()
       const seed = 50000 + r
       let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
@@ -135,7 +141,7 @@ for (const pre of presets) {
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8) }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()
