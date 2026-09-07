@@ -366,10 +366,55 @@ and piece cell sequences before the change, plus a time bound.
 | 400×400 | 149 s (172 s in the equivalence run) | 6.7 s, same fingerprint |
 | 1000×1000 | > 20 min for the first attempt (aborted at 54%) | ~3 min per attempt |
 
-**Open — layers do not close at Insane.** With the fast search the 1000×1000
-run finally reaches the end: four attempts (the default restart budget) in
-692 s, 11 179 absorptions, and the board does **not** close. At 400×400 the
-same knob needs one restart; at a million cells the restart budget is not
-enough. This is a closability limit of layers mode, not a speed limit, and it
-was not investigated here. Until it is, layers above 400×400 stay flagged as
-unsupported in the lab and the configurator.
+**Layers do not close at Insane — cause found, not fixed.** With the fast
+search the 1000×1000 run finally reaches the end: four attempts (the default
+restart budget) in 692 s, 11 179 absorptions, and the board does **not**
+close. The investigation (seed 7, one attempt each, no restarts):
+
+| size | at the jam: free cells | fragments | largest | legal heads |
+|---|---|---|---|---|
+| 400×400 | 107 | 28 | 10 | 46 |
+| 600×600 | 297 | 76 | 23 | 96 |
+| 800×800 | 11 736 | 968 | 483 | 356 |
+| 1000×1000 | 61 496 | 2 258 | 8 829 | 504 |
+
+From 800 up the jam is not "leftovers": 6% of the board is still free, in
+regions of thousands of cells, with hundreds of legal heads. The geometry is
+fine — **the head selection is the blocker.** With piece start = layers,
+`carveOne` ranks the legal heads of a direction by the depth of their line
+and draws its 4 tries only from the **shallowest quarter**. In the endgame
+the shallowest lines are exactly the tiny pockets next to the frontier: at
+the 1000×1000 jam the pool holds heads of fragments ≤ 20 cells almost
+exclusively, while the 100+-cell regions' heads sit in the deeper three
+quarters and are never drawn (e.g. direction 0: pool 19 heads in 2–5-cell
+fragments and 3 in 6–20; outside the pool 12 in 21–100 and 18 in 100+).
+Every backtrack then undoes the newest neighbour of *some* free cell, which
+is in the region being carved, not at the dead pockets, so 200 backtracks
+change nothing. Proof by continuation: from the jammed state, switching
+`headBias` to 0 (all heads in the pool) closes the rest at 400×400 in 2 ms
+and at 1000×1000 in 960 ms, both with **zero backtracks**.
+
+Layers are not reliable at 400×400 either: seed 5 fails after 3 restarts.
+
+Candidate fix, measured on a copy of the engine outside the repo: when the
+4 tries in the shallowest quarter fail, try the second, third and fourth
+quarter in turn before giving up — the piece still starts as shallow as it
+can, and reaches deeper only when the shallow pockets are dead.
+
+| layers, seed | repo engine | with the quarter fallback |
+|---|---|---|
+| 400×400 seed 7 | 1 restart, 40 backtracks, 8.2 s, f0 0.0246 | 0 / 0, 3.2 s, f0 0.0204 |
+| 400×400 seed 5 | **fails** after 3 restarts, 18.8 s | 0 / 0, 2.1 s, f0 0.0190 |
+| 400×400 seed 3 | 0 / 0, 2.2 s, f0 0.0179 | 0 / 0, 2.0 s, f0 0.0177 |
+| 1000×1000 seed 7 | fails after 4 attempts, 692 s | 0 / 0, 35 s, f0 0.0069 |
+
+f0 stays within noise of the current layers boards, so the look is not
+paid for. Not applied: the fallback changes the boards of every layers seed,
+so it needs the fingerprint tests re-recorded and a decision.
+
+**Before the refactor of round 9** the same seeds gave the same boards: the
+default 1000×1000 (seed 7) has fingerprint `32c62121` in both engines, and
+the 400×400 layers run with a restart `5d446ea4` in both. The old engine's
+first layers attempt at 1000×1000 takes over half an hour, so its jam
+report was not waited for; by construction (same search order, same budget,
+memo skips only attempts that would fail identically) it is the same jam.
