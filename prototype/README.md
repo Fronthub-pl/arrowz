@@ -96,3 +96,29 @@ node prototype/carve.mjs --bench=30 --ruleb --only=Nightmare --wshort=0.10 --wmi
 **Otwarte:** ostatecznej kalibracji wyglądu nie da się zrobić na podglądzie ASCII —
 znaki ramek nie przedstawiają ścieżki dotykającej samej siebie, a to co trzecia komórka.
 Strojenie `warns` i wag długości musi się odbyć na docelowym rendererze SVG.
+
+## Runda 4 — renderer SVG i kalibracja wzrokowa
+
+```
+node prototype/carve.mjs --svg=plansza.svg --size=50 --cell=14 --warns=4 --wshort=0.62 --wmid=0.23
+node prototype/carve.mjs --svg=debug.svg --colored     # kolor per element, tryb diagnostyczny
+rsvg-convert -w 900 plansza.svg -o plansza.png
+```
+
+Render obalił kalibrację z rundy 3. Wagi dobrane pod ogon czasu generacji
+(`0.10/0.70/0.20`) dają planszę **rozwleczoną** — kilkadziesiąt długich meandrów
+i rzadko rozsiane groty. Referencja ma rozkład o ciężkim ogonie: gęste groty **plus**
+kilka bardzo długich linii.
+
+| wagi | elem. (25×25) | śr. dł. | wygląd |
+|---|---|---|---|
+| 0.70 / 0.285 / 0.015 | 134 | 4.7 | gęste groty, same krótkie haczyki |
+| **0.62 / 0.23 / 0.15** | **97** | **6.4** | **jak w oryginale** |
+| 0.10 / 0.70 / 0.20 | 62 | 10.1 | rozwleczone, groty rzadkie |
+
+Cena przyjętych wag: p99 czasu na Nightmare rośnie z 442 do 658 ms, restarty z 6 do 15
+na 30 przebiegów, porażek nadal zero.
+
+Parametry rysowania dające wygląd referencyjny: grubość linii 50% podziałki siatki,
+`stroke-linecap` i `stroke-linejoin` ustawione na `round`, grot jako wypełniony trójkąt
+o boku ~0.6 podziałki, kolory `#232447` na `#f6f6fa`.
