@@ -53,6 +53,25 @@ class Carver {
     this.degStamp = new Int32Array(W * H)
     this.degVal = new Int8Array(W * H)
     this.gen = 0
+    // Change stamps for the absorption memo: `touched[i]` is the version at
+    // which cell i last changed owner. A leftover fragment whose cells and
+    // neighbours have not changed since its last failed absorption attempt,
+    // and whose candidate pieces' tails have not been rewritten, would fail
+    // again in exactly the same way — so it is skipped (see absorbLeftover).
+    this.version = 0
+    this.touched = new Int32Array(W * H)
+    this.absorbMemo = new Map()  // first cell of the fragment -> { version, pieces }
+    // Scratch for the absorption path search: region and used-cell membership
+    // by stamp, so a candidate costs no allocation beyond its own path.
+    this.absRegion = new Int32Array(W * H)
+    this.absUsed = new Int32Array(W * H)
+    this.absGen = 0
+  }
+
+  // Marks the cells of `cells` ({x, y} objects) as changed at a new version.
+  touch(cells) {
+    const v = ++this.version
+    for (const c of cells) this.touched[this.idx(c.x, c.y)] = v
   }
 
   idx(x, y) { return y * this.W + x }
@@ -439,9 +458,21 @@ class Carver {
       // hundred legal heads, and the chance that the one drawn happens to give
       // a path passing the leftover test drops — and the generator undoes
       // hundreds of cuts instead of drawing again.
-      const pool = bias === 0 ? [...ranked] : ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 4)))
-      const tries = Math.min(Math.max(1, p.headTries), pool.length)
+      //
+      // QUARTERS. A biased cut draws from the first quarter of the ranked list
+      // (the shallowest lines for layers, the deepest for tunnels). If every
+      // try there fails, the next quarters are tried in turn before the
+      // direction is given up: in the endgame of a large board the shallowest
+      // lines are exactly the dead pockets at the frontier, while the heads of
+      // the regions of thousands of free cells sit in the deeper quarters —
+      // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
+      const quarter = Math.max(1, Math.ceil(ranked.length / 4))
+      const pools = bias === 0
+        ? [[...ranked]]
+        : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
+      for (const pool of pools) {
+      const tries = Math.min(Math.max(1, p.headTries), pool.length)
       for (let attempt = 0; attempt < tries && !carved; attempt++) {
       const pick = Math.floor(rng() * pool.length)
       const h = pool[pick]
@@ -622,7 +653,10 @@ class Carver {
       this.pieces.push({ id, cells: path, dir: d })
       this.remaining -= path.length
       this.recomputeLines(path)
+      this.touch(path)
       carved = true
+      }
+      if (carved) break
       }
       if (carved) return true
     }
@@ -685,6 +719,7 @@ class Carver {
       if (!m) { m = new Map(); pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k)); cellIndexIn.set(key, m) }
       return m.get(i)
     }
+    const { touched, absorbMemo } = this
     const seen = new Uint8Array(W * H)
     for (let s = 0; s < W * H; s++) {
       if (owner[s] !== -1 || seen[s]) continue
@@ -693,20 +728,29 @@ class Carver {
       const stack = [s]
       seen[s] = 1
       let tooBig = false
+      // the newest change among the fragment's cells and their neighbours
+      let changed = 0
       while (stack.length) {
         const i = stack.pop()
         if (!tooBig) comp.push(i)
         if (comp.length > limit) tooBig = true
+        if (touched[i] > changed) changed = touched[i]
         const x = i % W, y = (i / W) | 0
         for (const { dx, dy } of DIRS) {
           const nx = x + dx, ny = y + dy
           if (!this.inside(nx, ny)) continue
           const j = this.idx(nx, ny)
+          if (touched[j] > changed) changed = touched[j]
           if (owner[j] === -1 && !seen[j]) { seen[j] = 1; stack.push(j) }
         }
       }
       if (tooBig) continue
-      const compSet = new Set(comp)
+      // MEMO: s is the smallest index of its fragment (every free cell before
+      // it already belongs to an earlier fragment), so it identifies the
+      // fragment. If nothing around it changed since the last failed attempt
+      // and no candidate tail was rewritten, the attempt would fail again.
+      const memo = absorbMemo.get(s)
+      if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) continue
       // candidates: (piece, position of the contact cell); tail end = the cells after it
       const cands = new Map()
       for (const i of comp) {
@@ -723,61 +767,110 @@ class Carver {
           if (!cands.has(key)) cands.set(key, { pc, k, suffix: pc.cells.length - 1 - k })
         }
       }
-      if (!cands.size) continue
       const list = [...cands.values()].filter((c) => c.suffix <= limit).sort((a, b) => a.suffix - b.suffix)
       for (const { pc, k } of list) {
-        // the region to lay out: fragment + the piece's tail end after the contact cell
-        const region = new Set(compSet)
-        for (let j = k + 1; j < pc.cells.length; j++) region.add(this.idx(pc.cells[j].x, pc.cells[j].y))
-        const anchor = pc.cells[k]
-        const nbrs = (i) => {
-          const x = i % W, y = (i / W) | 0
-          const out = []
-          for (const { dx, dy } of DIRS) {
-            const nx = x + dx, ny = y + dy
-            if (this.inside(nx, ny) && region.has(this.idx(nx, ny))) out.push(this.idx(nx, ny))
-          }
-          return out
-        }
-        const starts = []
-        for (const { dx, dy } of DIRS) {
-          const nx = anchor.x + dx, ny = anchor.y + dy
-          if (this.inside(nx, ny) && region.has(this.idx(nx, ny))) starts.push(this.idx(nx, ny))
-        }
-        let found = null
-        let budget = 20000
-        for (const s0 of starts) {
-          const used = new Set([s0])
-          const path = [s0]
-          const dfs = (tail) => {
-            if (path.length === region.size) { found = [...path]; return true }
-            if (--budget < 0) return false
-            // Warnsdorff: neighbours with the fewest free exits first
-            const next = nbrs(tail).filter((n) => !used.has(n))
-              .map((n) => ({ n, deg: nbrs(n).filter((m) => !used.has(m)).length }))
-              .sort((a, b) => a.deg - b.deg)
-            for (const { n } of next) {
-              used.add(n); path.push(n)
-              if (dfs(n)) return true
-              used.delete(n); path.pop()
-            }
-            return false
-          }
-          if (dfs(s0) || budget < 0) break
-        }
+        const found = this.absorbPath(comp, pc, k)
         if (!found) continue
-        const newTail = found.map((i) => ({ x: i % W, y: (i / W) | 0 }))
+        const newTail = []
+        for (let j = 0; j < found.length; j++) newTail.push({ x: found[j] % W, y: (found[j] / W) | 0 })
         pc.cells.length = k + 1
         pc.cells.push(...newTail)
+        pc.tailVersion = this.version + 1
         for (const i of comp) owner[i] = pc.id
         this.remaining -= comp.length
-        this.recomputeLines(comp.map((i) => ({ x: i % W, y: (i / W) | 0 })))
+        const absorbed = comp.map((i) => ({ x: i % W, y: (i / W) | 0 }))
+        this.recomputeLines(absorbed)
+        this.touch(absorbed)
         this.stats.absorbed = (this.stats.absorbed ?? 0) + comp.length
         this.stats.absorbs = (this.stats.absorbs ?? 0) + 1
         return true
       }
+      absorbMemo.set(s, { version: this.version, pieces: list.map((c) => c.pc) })
     }
     return false
+  }
+
+  /**
+   * Hamiltonian path over the fragment `comp` plus the tail end of `pc` after
+   * position `k`, starting next to the anchor `pc.cells[k]`. Returns the path
+   * as cell indices, or null.
+   *
+   * Depth-first search with the Warnsdorff order (fewest free exits first,
+   * ties in DIRS order) and a budget of 20 000 nodes shared by the starts —
+   * the same order and the same budget as the original Set-based search, so
+   * the same board comes out of the same seed; only the allocations are gone:
+   * membership is a stamp in a typed array and the per-depth candidate lists
+   * live in one preallocated buffer.
+   */
+  absorbPath(comp, pc, k) {
+    const { W, H, absRegion, absUsed } = this
+    const regionGen = ++this.absGen
+    for (const i of comp) absRegion[i] = regionGen
+    for (let j = k + 1; j < pc.cells.length; j++) absRegion[this.idx(pc.cells[j].x, pc.cells[j].y)] = regionGen
+    const size = comp.length + (pc.cells.length - 1 - k)
+    const anchor = pc.cells[k]
+
+    // neighbours inside the region, in DIRS order (up, right, down, left)
+    const nbr = (i, out) => {
+      const x = i % W, y = (i / W) | 0
+      let n = 0
+      if (y > 0 && absRegion[i - W] === regionGen) out[n++] = i - W
+      if (x < W - 1 && absRegion[i + 1] === regionGen) out[n++] = i + 1
+      if (y < H - 1 && absRegion[i + W] === regionGen) out[n++] = i + W
+      if (x > 0 && absRegion[i - 1] === regionGen) out[n++] = i - 1
+      return n
+    }
+    const starts = new Int32Array(4)
+    const nStarts = nbr(this.idx(anchor.x, anchor.y), starts)
+
+    const path = new Int32Array(size)
+    const next = new Int32Array(4 * (size + 1))   // per depth: up to 4 candidates
+    const deg = new Int32Array(4 * (size + 1))
+    const tmp = new Int32Array(4)
+    let usedGen = 0
+    let budget = 20000
+    let len = 0
+
+    const search = (tail, depth) => {
+      if (len === size) return true
+      if (--budget < 0) return false
+      // Warnsdorff: neighbours with the fewest free exits first; insertion
+      // sort keeps equal degrees in DIRS order, like the stable Array sort.
+      const base = 4 * depth
+      const n = nbr(tail, tmp)
+      let cnt = 0
+      for (let a = 0; a < n; a++) {
+        const c = tmp[a]
+        if (absUsed[c] === usedGen) continue
+        // free exits of c: region neighbours not yet used
+        const cx = c % W, cy = (c / W) | 0
+        let d = 0
+        if (cy > 0 && absRegion[c - W] === regionGen && absUsed[c - W] !== usedGen) d++
+        if (cx < W - 1 && absRegion[c + 1] === regionGen && absUsed[c + 1] !== usedGen) d++
+        if (cy < H - 1 && absRegion[c + W] === regionGen && absUsed[c + W] !== usedGen) d++
+        if (cx > 0 && absRegion[c - 1] === regionGen && absUsed[c - 1] !== usedGen) d++
+        // stable insertion: after every entry with degree <= d
+        let pos = cnt
+        while (pos > 0 && deg[base + pos - 1] > d) { next[base + pos] = next[base + pos - 1]; deg[base + pos] = deg[base + pos - 1]; pos-- }
+        next[base + pos] = c; deg[base + pos] = d; cnt++
+      }
+      for (let a = 0; a < cnt; a++) {
+        const c = next[base + a]
+        absUsed[c] = usedGen; path[len++] = c
+        if (search(c, depth + 1)) return true
+        absUsed[c] = 0; len--
+      }
+      return false
+    }
+
+    for (let si = 0; si < nStarts; si++) {
+      const s0 = starts[si]
+      usedGen = ++this.absGen
+      absUsed[s0] = usedGen; path[0] = s0; len = 1
+      if (search(s0, 1)) return path.subarray(0, len)
+      if (budget < 0) break
+    }
+    return null
   }
 
   // Jam diagnostics: what the part the generator could not close looks like.
@@ -842,6 +935,7 @@ class Carver {
       for (const c of pc.cells) this.owner[this.idx(c.x, c.y)] = -1
       this.remaining += pc.cells.length
       this.recomputeLines(pc.cells)
+      this.touch(pc.cells)
     }
   }
 

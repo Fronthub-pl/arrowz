@@ -10,7 +10,9 @@ All generator knobs live in the side panel; the board is drawn immediately.
 A preset drop-down at the top is a tree: a difficulty level per group
 (`lab-presets.mjs`), a few options each — square, portrait, tunnels, skeleton;
 the huge level also has a winding skeleton (serpentine step 3, every run cut
-short, so no skeleton line goes wall to wall).
+short, so no skeleton line goes wall to wall). The tree ends with Insane,
+1000×1000 — the project ceiling, square only (~10 s in Node, ~27 s in the
+browser worker; layers and skeleton modes take minutes there, see round 9).
 A preset is a full configuration (defaults plus its overrides), and the
 drop-down follows the knobs: change the width by hand and it goes blank.
 Every description is one or two plain sentences on what a knob does and which
@@ -58,12 +60,16 @@ node prototype/carve.mjs --headbias=1            # tunnelling (deepest line)
 node prototype/carve.mjs --headbias=-1           # layers (shallowest line)
 node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
 node prototype/carve.mjs --bench=20 --only=Extreme·sq
+node prototype/carve.mjs --only=Insane           # 1000×1000, the ceiling; ~10 s per run
 ```
 
 Engine parameters are `--<PARAM_SPEC key in lower case>=value`; the defaults
 are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
 `--giantspacepen` work as aliases. Format flags: `--square`, `--portrait`
 (report and benchmark modes; level names get the suffix `·sq` or `·pt`).
+Levels run from Easy 25 to Insane 1000; Insane exists only as a square, so the
+default report (3 runs per level and format) takes about half a minute longer
+than it did when it stopped at Extreme.
 
 ## What it settled
 
@@ -313,3 +319,116 @@ one skeleton per 6000 cells like lines on a sheet of paper.
 
 No effect on closing across the whole range: start attempts, backtrack budget, exact
 leftover test, edge as a piece, adjacency bonus, probes, seed.
+
+## Round 9 — the ceiling moves to 1000×1000 (Insane)
+
+Decision: the project limit is 1000×1000, the Insane level, square only (a
+1000×2000 portrait would double a generation that already takes ~10 s). The lab
+tree, the CLI level list, the spec and the implementation plans follow.
+
+```
+node prototype/carve.mjs --only=Insane                       # defaults: ~10 s, 0 backtracks
+node prototype/carve.mjs --svg --w=1000 --h=1000 --headbias=-1   # layers: minutes
+```
+
+Measured (seed 7, one run each, Node 24):
+
+| configuration | 400×400 | 1000×1000 |
+|---|---|---|
+| defaults | 1.4 s | ~10 s, 85 764 pieces, f0 0.006 |
+| layers (`headBias` -1) | **149 s** | **> 10 min** (53% carved after 610 s, aborted) |
+
+A CPU profile of layers at 400×400 put **86% of the time in the recursive
+`dfs` inside `absorbLeftover`** and 6% in its neighbour helper: layers leave
+many leftover fragments, and every candidate anchor burns a 20 000-node
+search that allocates a `Set`, arrays and a sort per node, after a full-board
+scan per call. The default knobs do not hit this path (95 absorptions on a
+million cells), which is why they scale linearly. The Rust question was
+measured on the way: the default hot path (`hasLocalDefect`, `wouldStrand`)
+is already typed-array loops, so a rewrite would buy 2–5×, not the 100× the
+absorption search needs from an algorithmic fix.
+
+**The fix — same board, a fraction of the time.** The real multiplier was not
+the search itself but its repetition: `absorbLeftover` runs before every
+backtrack (up to 200 per attempt), each time re-scanning every fragment and
+re-failing the same searches. Two changes, both preserving the exact search
+order and budget so that the same seed yields the same board:
+
+1. **Memo of failed fragments.** Every change of a cell's owner (carve, undo,
+   absorb) stamps the cell with a version; a piece whose tail was rewritten
+   by an absorption gets a tail version. A fragment is identified by its
+   smallest cell index; if neither its cells, nor their neighbours, nor any
+   candidate tail changed since its last failed attempt, it is skipped.
+2. **Allocation-free search** (`absorbPath`): region and used-cell membership
+   are stamps in typed arrays, the per-depth Warnsdorff candidates live in one
+   preallocated buffer with a stable insertion sort (ties in `DIRS` order,
+   like the stable `Array.sort` before it).
+
+Guarded by `engine.test.mjs`: two layers-mode boards (150×150 seed 7,
+200×200 seed 5 with a restart) recorded as FNV fingerprints of the owner grid
+and piece cell sequences before the change, plus a time bound.
+
+| layers (`headBias` -1), seed 7 unless noted | before | after |
+|---|---|---|
+| 200×200 seed 5 (restart, 200 backtracks) | 8.5 s | 2.1 s (absorption ~12%) |
+| 400×400 | 149 s (172 s in the equivalence run) | 6.7 s, same fingerprint |
+| 1000×1000 | > 20 min for the first attempt (aborted at 54%) | ~3 min per attempt |
+
+**Layers do not close at Insane — cause found, not fixed.** With the fast
+search the 1000×1000 run finally reaches the end: four attempts (the default
+restart budget) in 692 s, 11 179 absorptions, and the board does **not**
+close. The investigation (seed 7, one attempt each, no restarts):
+
+| size | at the jam: free cells | fragments | largest | legal heads |
+|---|---|---|---|---|
+| 400×400 | 107 | 28 | 10 | 46 |
+| 600×600 | 297 | 76 | 23 | 96 |
+| 800×800 | 11 736 | 968 | 483 | 356 |
+| 1000×1000 | 61 496 | 2 258 | 8 829 | 504 |
+
+From 800 up the jam is not "leftovers": 6% of the board is still free, in
+regions of thousands of cells, with hundreds of legal heads. The geometry is
+fine — **the head selection is the blocker.** With piece start = layers,
+`carveOne` ranks the legal heads of a direction by the depth of their line
+and draws its 4 tries only from the **shallowest quarter**. In the endgame
+the shallowest lines are exactly the tiny pockets next to the frontier: at
+the 1000×1000 jam the pool holds heads of fragments ≤ 20 cells almost
+exclusively, while the 100+-cell regions' heads sit in the deeper three
+quarters and are never drawn (e.g. direction 0: pool 19 heads in 2–5-cell
+fragments and 3 in 6–20; outside the pool 12 in 21–100 and 18 in 100+).
+Every backtrack then undoes the newest neighbour of *some* free cell, which
+is in the region being carved, not at the dead pockets, so 200 backtracks
+change nothing. Proof by continuation: from the jammed state, switching
+`headBias` to 0 (all heads in the pool) closes the rest at 400×400 in 2 ms
+and at 1000×1000 in 960 ms, both with **zero backtracks**.
+
+Layers are not reliable at 400×400 either: seed 5 fails after 3 restarts.
+
+Candidate fix, measured on a copy of the engine outside the repo: when the
+4 tries in the shallowest quarter fail, try the second, third and fourth
+quarter in turn before giving up — the piece still starts as shallow as it
+can, and reaches deeper only when the shallow pockets are dead.
+
+| layers, seed | repo engine | with the quarter fallback |
+|---|---|---|
+| 400×400 seed 7 | 1 restart, 40 backtracks, 8.2 s, f0 0.0246 | 0 / 0, 3.2 s, f0 0.0204 |
+| 400×400 seed 5 | **fails** after 3 restarts, 18.8 s | 0 / 0, 2.1 s, f0 0.0190 |
+| 400×400 seed 3 | 0 / 0, 2.2 s, f0 0.0179 | 0 / 0, 2.0 s, f0 0.0177 |
+| 1000×1000 seed 7 | fails after 4 attempts, 692 s | 0 / 0, 35 s, f0 0.0069 |
+
+f0 stays within noise of the current layers boards, so the look is not
+paid for. **Applied** in `carveOne`: the fallback is symmetric, so tunnels
+(`headBias` 1) now move from the deepest quarter to the shallower ones too;
+their f0 on Nightmare 100×200 (seeds 1–5) stays within noise (0.0079 →
+0.0085, 0.0161 → 0.0159, 0.0174 → 0.0169, 0.0084 → 0.0084, 0.0110 → 0.0109)
+and their boards change (8 absorptions → 0 on seed 7 at 200×200). Boards with
+`headBias` 0 are untouched (200×200 seed 7: fingerprint `3a0a686` before and
+after). The fingerprint tests were re-recorded; `engine.test.mjs` also guards
+that layers close 400×400 on seeds 5 and 7 without a restart or a backtrack.
+
+**Before the refactor of round 9** the same seeds gave the same boards: the
+default 1000×1000 (seed 7) has fingerprint `32c62121` in both engines, and
+the 400×400 layers run with a restart `5d446ea4` in both. The old engine's
+first layers attempt at 1000×1000 takes over half an hour, so its jam
+report was not waited for; by construction (same search order, same budget,
+memo skips only attempts that would fail identically) it is the same jam.

@@ -54,7 +54,7 @@ The constraints from the implementation map apply. Critical for this slice:
 
 **Interfaces:**
 - Produces:
-  - `type LevelId = 'easy' | 'medium' | 'hard' | 'nightmare' | 'extreme'`
+  - `type LevelId = 'easy' | 'medium' | 'hard' | 'nightmare' | 'extreme' | 'insane'`
   - `type BoardFormat = 'square' | 'tall'`
   - `presetParams(level: LevelId, format: BoardFormat, seed: number): GeneratorParams`
   - `interface DifficultyBand { f0Min: number; f0Max: number }`
@@ -102,12 +102,14 @@ describe('presetParams', () => {
   });
 
   it('knows all base sizes', () => {
-    expect(LEVEL_SIZES).toEqual({ easy: 25, medium: 50, hard: 75, nightmare: 100, extreme: 200 });
+    expect(LEVEL_SIZES).toEqual({ easy: 25, medium: 50, hard: 75, nightmare: 100, extreme: 200, insane: 1000 });
   });
 
-  // Extreme exists only as a square — checks the upper bound.
-  it('does not expose the tall format for Extreme', () => {
+  // Extreme and Insane exist only as squares — Insane is the project ceiling
+  // (a million cells), a 1000×2000 board would double a ~10 s generation.
+  it('does not expose the tall format for Extreme and Insane', () => {
     expect(() => presetParams('extreme', 'tall', 1)).toThrow(/only in the square variant/i);
+    expect(() => presetParams('insane', 'tall', 1)).toThrow(/only in the square variant/i);
   });
 });
 
@@ -150,16 +152,21 @@ Expected: FAIL — module `./presets` not found.
 // src/core/presets.ts
 import { GeneratorParams } from './types';
 
-export type LevelId = 'easy' | 'medium' | 'hard' | 'nightmare' | 'extreme';
+export type LevelId = 'easy' | 'medium' | 'hard' | 'nightmare' | 'extreme' | 'insane';
 export type BoardFormat = 'square' | 'tall';
 
-/** Base size `n`. Format decides whether the board is n×n or n×2n. */
+/**
+ * Base size `n`. Format decides whether the board is n×n or n×2n.
+ * Insane is the project ceiling: a million cells, ~86 000 pieces, ~10 s of
+ * generation in Node — square only (see presetParams).
+ */
 export const LEVEL_SIZES: Record<LevelId, number> = {
   easy: 25,
   medium: 50,
   hard: 75,
   nightmare: 100,
   extreme: 200,
+  insane: 1000,
 };
 
 export interface DifficultyBand {
@@ -182,6 +189,8 @@ const F0_TARGETS: Record<LevelId, Record<BoardFormat, number>> = {
   hard: { square: 0.073, tall: 0.050 },
   nightmare: { square: 0.059, tall: 0.038 },
   extreme: { square: 0.034, tall: 0.034 },
+  // Prototype, seeds 1000–1002: f0 = 0.006 at 1000×1000. No tall variant.
+  insane: { square: 0.006, tall: 0.006 },
 };
 
 export function difficultyBand(level: LevelId, format: BoardFormat): DifficultyBand {
@@ -194,8 +203,8 @@ export function presetParams(
   format: BoardFormat,
   seed: number,
 ): GeneratorParams {
-  if (level === 'extreme' && format === 'tall') {
-    throw new Error('Level Extreme exists only in the square variant.');
+  if ((level === 'extreme' || level === 'insane') && format === 'tall') {
+    throw new Error(`Level ${level} exists only in the square variant.`);
   }
   const n = LEVEL_SIZES[level];
   const width = n;
@@ -219,11 +228,11 @@ export function presetParams(
   };
 }
 
-export const ALL_LEVELS: readonly LevelId[] = ['easy', 'medium', 'hard', 'nightmare', 'extreme'];
+export const ALL_LEVELS: readonly LevelId[] = ['easy', 'medium', 'hard', 'nightmare', 'extreme', 'insane'];
 
-/** Formats available for the level. Extreme is square only. */
+/** Formats available for the level. Extreme and Insane are square only. */
 export function formatsFor(level: LevelId): readonly BoardFormat[] {
-  return level === 'extreme' ? ['square'] : ['square', 'tall'];
+  return level === 'extreme' || level === 'insane' ? ['square'] : ['square', 'tall'];
 }
 ```
 

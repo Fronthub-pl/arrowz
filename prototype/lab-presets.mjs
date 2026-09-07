@@ -25,7 +25,14 @@ export const PRESETS = [
     // seed 7: longest skeleton 2481 cells with 365 bends and a longest straight
     // run of 42 (defaults: 4065 cells, 72 bends, a run of 399).
     { id: 'huge-400-serpentine', mode: 'serpentine', params: { W: 400, H: 400, giants: 4, giantStep: 3, giantJitter: 1 } },
-    { id: 'huge-1000', mode: 'square', params: { W: 1000, H: 1000 } },
+  ] },
+  // The project ceiling: a million cells, ~90 000 pieces. Square only, like
+  // Extreme in the game — a 1000×2000 portrait would double a generation that
+  // already takes ~10 s in Node and ~27 s in a Chrome worker.
+  { id: 'insane', options: [
+    { id: 'insane-square', mode: 'square', params: { W: 1000, H: 1000 } },
+    { id: 'insane-tunnels', mode: 'tunnels', params: { W: 1000, H: 1000, headBias: 1 } },
+    { id: 'insane-skeleton', mode: 'skeleton', params: { W: 1000, H: 1000, giants: 4 } },
   ] },
 ]
 
