@@ -32,7 +32,10 @@ Plansza to prostokątna siatka `W × H` komórek. Leży na niej `N` **elementów
 
 Element to **samounikająca się polilinia**: spójna ścieżka po komórkach siatki,
 poruszająca się wyłącznie ortogonalnie, nieodwiedzająca żadnej komórki dwukrotnie.
-Długość od 2 do 8 komórek. Na jednym końcu ścieżki znajduje się grot.
+Długość waha się od 2 komórek do kilkudziesięciu — najdłuższe elementy przecinają
+niemal całą planszę na wskroś. Rozkład długości jest **ciężkoogonowy**: dominują
+krótkie kształty, ale mniejszość bardzo długich, wijących się linii nadaje planszy jej
+charakter. Model rozkładu opisuje §7. Na jednym końcu ścieżki znajduje się grot.
 
 **Kierunek wyjścia** elementu to kierunek ostatniego segmentu ścieżki po stronie grotu.
 Strzałka jedzie tam, gdzie pokazuje.
@@ -220,11 +223,11 @@ insert(rng, params):
     jeśli Heads puste: następny kierunek
     h = losuj z Heads z wagą w(c) = depth^β · (1 + α·cover[c])
     path = [h, h - d]
-    docelowa długość ℓ* ~ rozkład na [2..8]
+    docelowa długość ℓ* ~ rozkład mieszany (patrz niżej), malejący z postępem
     dopóki |path| < ℓ*:
       cand = { sąsiedzi ogona ∈ S_d, spoza path }
       jeśli cand puste: przerwij            # akceptujemy krótszy element, min. 2
-      wybierz t z cand (bias: prosto z prawdopodobieństwem p_s, skręt resztą)
+      wybierz t z cand (bias: prosto z prawdopodobieństwem p_s ≈ 0.75, skręt resztą)
       path.push(t)
     zatwierdź(path, d); zaktualizuj depth_*; zaktualizuj cover
     return OK
@@ -234,6 +237,46 @@ insert(rng, params):
 Wzrost to samounikająca się ścieżka: nie odwiedza komórki dwukrotnie, ale **może**
 dotykać samej siebie bokiem (spirala). Korytarz liczymy po zbiorze komórek, nie po
 kolejności ścieżki.
+
+### Rozkład długości i kolejność wstawiania
+
+Długość jest głównym parametrem charakteru planszy, więc opisujemy ją wprost.
+`Lmax = round(κ · max(W, H))`, gdzie `κ` rośnie z trudnością (1.0–1.5); element może
+być dłuższy niż bok planszy, bo się wije. Długość losujemy z **rozkładu mieszanego**
+o trzech koszykach, których wagi są parametrem trudności:
+
+| Koszyk | Długość | Rola |
+|---|---|---|
+| krótkie | 2–6 | wypełniacz, domyka gęstość |
+| średnie | 7–15 | typowe zawijasy, główna masa planszy |
+| długie | 16–`Lmax` | szkielet planszy, przecinają ją na wskroś |
+
+Bias prostoliniowy `p_s ≈ 0.75` daje charakterystyczny wygląd: długie proste odcinki
+przerywane skrętami o 90°, a nie gęsty zygzak.
+
+**Długie elementy muszą wchodzić wcześnie.** Element wchodzi tylko wtedy, gdy
+wszystkie jego komórki leżą w `S_d`, a `S_d` kurczy się monotonicznie z każdym
+wstawieniem. Zdolność planszy do przyjęcia długiego kształtu maleje więc z czasem.
+Implementujemy to, **obniżając górną granicę losowanej długości wraz z postępem
+wypełnienia** — początkowe wstawienia losują z pełnego rozkładu, końcowe wyłącznie
+z koszyka krótkiego.
+
+Procedura wzrostu obsługuje to zresztą łagodnie sama z siebie: gdy zabraknie kandydatów,
+akceptujemy element krótszy od zamierzonego. Sterowanie górną granicą tylko zwiększa
+szansę, że długie kształty w ogóle powstaną, zamiast być po cichu obcinane.
+
+Konsekwencja, o której trzeba pamiętać przy strojeniu: element rozpięty na wielu liniach
+wymaga, by **wszystkie** te linie były nad nim puste, a po wstawieniu obcina im
+`depth_d`. Jedna długa linia zjada dużą część pojemności swojego kierunku, więc liczba
+bardzo długich elementów jest ograniczona geometrią, nie tylko wagą w rozkładzie.
+Generator nie może obiecać `n` długich elementów — może o nie próbować i zaraportować,
+ile się udało.
+
+Efekt uboczny jest pożądany: skoro wstawiamy od tyłu, elementy wstawione najwcześniej
+są usuwane najpóźniej. Długie linie stają się naturalnym szkieletem łamigłówki —
+zablokowanym przez resztę i zdejmowanym na końcu. Ich długie korytarze podnoszą też
+metrykę `T_k` (§9), więc są **głównym źródłem trudności percepcyjnej**, a nie detalem
+wizualnym.
 
 ### Przeciwdziałanie degeneracji
 
@@ -339,12 +382,16 @@ elementów wynika z niego i ze średniej długości kształtu, więc obie warto�
 się rozjechać. Kolumna „~elem." jest orientacyjna, wyliczona jako
 `wypełnienie · W · H / średnia długość`.
 
-| Poziom | rozmiar | wypełnienie | śr. długość | ~elem. | `f0` | `T_2` | `D` |
-|---|---|---|---|---|---|---|---|
-| Easy | 10×12 | 45% | 4.0 | ~14 | ≥ 0.35 | ≤ 1 | ≤ 3 |
-| Medium | 14×18 | 55% | 4.5 | ~31 | 0.20–0.35 | 2–4 | 3–5 |
-| Hard | 18×24 | 62% | 5.0 | ~54 | 0.08–0.20 | 4–8 | 5–8 |
-| Nightmare | 24×32 | 68% | 5.5 | ~95 | `F0 ≤ 3` | ≥ 8, w tym `T_conc ≥ 2` | ≥ 8 |
+| Poziom | rozmiar | wypeł. | `Lmax` | wagi kr./śr./dł. | śr. dł. | ~elem. | ~długich | `f0` | `T_2` | `D` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Easy | 10×12 | 45% | 12 | 0.85 / 0.15 / 0 | 5.0 | ~11 | 0 | ≥ 0.35 | ≤ 1 | ≤ 3 |
+| Medium | 14×18 | 55% | 20 | 0.78 / 0.19 / 0.03 | 5.8 | ~24 | ~1 | 0.20–0.35 | 2–4 | 3–5 |
+| Hard | 18×24 | 62% | 31 | 0.74 / 0.21 / 0.05 | 6.4 | ~42 | ~2 | 0.08–0.20 | 4–8 | 5–8 |
+| Nightmare | 26×36 | 68% | 54 | 0.70 / 0.22 / 0.08 | 8.0 | ~79 | ~6 | `F0 ≤ 3` | ≥ 8, w tym `T_conc ≥ 2` | ≥ 8 |
+
+Rozkład jest **ciężkoogonowy, a nie przesunięty**: nawet na Nightmare 70% elementów
+jest krótkich, bo plansza ma być gęsto usiana grotami. Długie linie to wyrazista
+mniejszość — kilka sztuk na planszę — i to one dają wrażenie splątania.
 
 Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, dołóż korki (obniża
 `f0`) albo usuń elementy (podnosi `f0`) → ponów. Budżet prób jest ograniczony; po jego
@@ -410,8 +457,13 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 
 **Testy kształtów i generatora:**
 
-9. Długości skrajne `ℓ = 2` i `ℓ = 8`; wzrost, który utknął, akceptuje krótszy element,
-   nigdy o długości 1.
+9. Długości skrajne `ℓ = 2` i `ℓ = Lmax`; wzrost, który utknął, akceptuje krótszy
+   element, nigdy o długości 1.
+9a. Element bardzo długi, wijący się przez większość planszy: region zamiatania liczony
+   poprawnie po wszystkich dotkniętych liniach; element dotykający tej samej linii
+   w kilku miejscach używa na niej komórki najdalszej od krawędzi wyjścia.
+9b. Rozkład długości: przy zadanych wagach koszyków generator faktycznie produkuje
+   elementy długie (raport z benchmarku), a nie po cichu obcina wszystko do krótkich.
 10. Samounikanie: ścieżka nie odwiedza komórki dwukrotnie, ale wolno jej dotykać siebie
     bokiem.
 11. Element dłuższy niż wymiar planszy; plansze zdegenerowane `1×N` i `2×2`; generator
@@ -471,3 +523,5 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Wygenerowane plansze są nudne mimo poprawności (cebula) | Metryki `f0` i `T_k` liczone przy generacji, korki jako mechanizm korekcyjny, pętla generuj-zmierz-odrzuć |
 | Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
 | Generacja zawiesza się przy trudnych parametrach | Twardy limit prób; po jego wyczerpaniu oddajemy najlepszy wynik |
+| Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
+| Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
