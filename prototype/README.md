@@ -194,7 +194,7 @@ Question: why does a 200×200 board often fail to close (1 failure per 10 seeds,
 half of the runs with a restart), and why are the lines short and pressed against each other.
 
 ```
-node --test prototype/                     # robustness tests (decomposable, local defect, absorption, closing)
+node --test 'prototype/*.test.mjs'                  # robustness tests (decomposable, local defect, absorption, closing)
 node prototype/carve.mjs --only=Extreme    # 200×200
 ```
 

@@ -15,7 +15,7 @@
 
 ## Prototype
 
-- `node --test prototype/` must pass after every change.
+- `node --test 'prototype/*.test.mjs'` must pass after every change.
 - The engine (`prototype/engine.mjs`) knows neither `process` nor DOM; never
   spread arrays proportional to the number of cells or pieces
   (`Math.min(...arr)`) — it overflows the worker stack in Chrome.

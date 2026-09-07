@@ -1,4 +1,4 @@
-// Generator robustness tests. Run: node --test prototype/
+// Generator robustness tests. Run: node --test 'prototype/*.test.mjs'
 //
 // The prototype is disposable code, but the generator must close boards up to 200×200
 // without failures — these tests guard that, not eyeballing in the laboratory.
