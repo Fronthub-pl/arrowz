@@ -42,6 +42,7 @@ function render(view) {
   if (!last) return
   const svg = toSvg(last.board, {
     cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top,
+    voids: view.voids,
   })
   self.postMessage({ type: 'render', svg, longest: longestSummary(last.board, view.top) })
 }

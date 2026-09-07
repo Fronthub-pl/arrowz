@@ -28,6 +28,16 @@
   .sub { color: #6a6b86; font-size: 12px; margin: 0 0 1rem; }
   h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: #6a6b86;
        margin: 1.4rem 0 .5rem; padding-top: .7rem; border-top: 1px solid var(--line); }
+  details.group { border-top: 1px solid var(--line); padding-top: .35rem; margin-top: .55rem; }
+  details.group > summary { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em;
+                            color: #6a6b86; cursor: pointer; padding: .25rem 0; list-style: none; }
+  details.group > summary::-webkit-details-marker { display: none; }
+  details.group > summary::before { content: '▸ '; display: inline-block; width: 1em; }
+  details.group[open] > summary::before { content: '▾ '; }
+  details.group > summary:hover { color: var(--ink); }
+  td.delta { color: #7a7b95; font-size: 11.5px; padding-left: .6rem; }
+  td.delta.up { color: #2b6b3f; }
+  td.delta.down { color: #8a2b2b; }
 
   .row { display: grid; grid-template-columns: 1fr 68px; gap: .5rem; align-items: center; margin-bottom: .35rem; }
   .row label { font-size: 12.5px; }
@@ -132,6 +142,7 @@
   </div>
   <label class="check"><input type="checkbox" id="colored"> koloruj strzałki (każdy element inny kolor)</label>
   <label class="check"><input type="checkbox" id="hilite" checked> wyróżnij najdłuższe elementy</label>
+  <label class="check"><input type="checkbox" id="voids" checked> pokaż komórki zaklinowania</label>
   <div class="row">
     <label for="top">ile najdłuższych</label>
     <input type="number" id="top" value="5" min="1" max="50" step="1">
@@ -177,16 +188,24 @@ const GROUP_HELP = {
   'domykanie': 'Co robić, gdy generator nie znajduje legalnego wycięcia. Tu leży granica skali: powyżej 300×300 domyślne ustawienia przestają domykać planszę.',
 }
 
+// Grupy domyślnie otwarte — reszta zwinięta, żeby dojść do parametrów szkieletu
+// bez przewijania przez trzydzieści pól.
+const OPEN_BY_DEFAULT = new Set(['plansza', 'szkielet'])
+
 const panel = $('params')
 for (const [group, specs] of groups) {
-  const h = document.createElement('h2')
-  h.textContent = group
-  panel.append(h)
+  const box = document.createElement('details')
+  box.className = 'group'
+  box.open = OPEN_BY_DEFAULT.has(group)
+  const sum = document.createElement('summary')
+  sum.textContent = group
+  box.append(sum)
+  panel.append(box)
   if (GROUP_HELP[group]) {
     const gh = document.createElement('p')
     gh.className = 'grouphelp'
     gh.textContent = GROUP_HELP[group]
-    panel.append(gh)
+    box.append(gh)
   }
   for (const spec of specs) {
     const row = document.createElement('div')
@@ -217,7 +236,7 @@ for (const [group, specs] of groups) {
       row.append(help)
       label.title = spec.help          // tooltip działa też przy schowanych opisach
     }
-    panel.append(row)
+    box.append(row)
   }
 }
 
@@ -276,6 +295,7 @@ function viewOptions() {
     stroke: Number($('stroke').value),
     colored: $('colored').checked,
     top: $('hilite').checked ? Number($('top').value) : 0,
+    voids: $('voids').checked,
   }
 }
 
@@ -328,6 +348,10 @@ function onWorkerMessage(msg) {
 }
 
 let lastDone = null
+// metryki poprzedniego przebiegu — kolumna różnicy pokazuje, co zmieniło
+// przestawienie pokrętła, bez notowania liczb na boku
+let prevStats = new Map()
+const prevStatsNext = new Map()
 
 function setStatus(html) { $('status').innerHTML = html }
 
@@ -388,7 +412,7 @@ $('reset').addEventListener('click', () => {
   for (const spec of PARAM_SPEC) setParam(spec.key, state[spec.key])
   run()
 })
-for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top']) {
+for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top', 'voids']) {
   $(id).addEventListener('input', redraw)
 }
 // pełny podgląd — panel i statystyki na bok, plansza na całe okno
@@ -467,37 +491,58 @@ function report(msg) {
 
   if (!metrics) { $('stats').innerHTML = ''; $('topTable').innerHTML = ''; return }
 
+  // Trzecia pozycja to wartość liczbowa do porównania z poprzednim przebiegiem,
+  // czwarta mówi, czy wzrost jest zmianą na lepsze (do koloru różnicy).
   const rows = [
     ['plansza', `${state.W} × ${state.H} = ${cells.toLocaleString('pl')} komórek`],
-    ['elementów', metrics.N.toLocaleString('pl')],
-    ['średnia długość', (cells / metrics.N).toFixed(1)],
-    ['najdłuższy', `${metrics.maxLen} komórek (${pct(metrics.maxLen / cells)} planszy)`],
+    ['elementów', metrics.N.toLocaleString('pl'), metrics.N, 0],
+    ['średnia długość', (cells / metrics.N).toFixed(1), cells / metrics.N, 0],
+    ['najdłuższy', `${metrics.maxLen} komórek (${pct(metrics.maxLen / cells)} planszy)`, metrics.maxLen, 1],
     ['rozkład długości', `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`],
     ['—', ''],
-    ['f0 (wolne na starcie)', metrics.f0.toFixed(3)],
-    ['almost1 (jeden bloker)', `${metrics.almost} (${pct(metrics.almost / metrics.N)})`],
-    ['D (głębokość blokowania)', metrics.D],
-    ['średni korytarz', metrics.meanCorridorLen.toFixed(1)],
+    ['f0 (wolne na starcie)', metrics.f0.toFixed(3), metrics.f0, 0],
+    ['almost1 (jeden bloker)', `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0],
+    ['D (głębokość blokowania)', metrics.D, metrics.D, 0],
+    ['średni korytarz', metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0],
     ['—', ''],
-    ['zasięg średni', pct(metrics.span)],
-    ['zasięg górnych 10%', pct(metrics.spanTop10)],
-    ['zasięg rekordzisty', pct(metrics.spanMax)],
-    ['odblokowania średnio', metrics.outDeg.toFixed(1) + ' elem.'],
-    ['odblokowania rekord', metrics.maxOut + ' elem.'],
-    ['dystans odblokowań', pct(metrics.blockDist) + ' obwodu'],
+    ['zasięg średni', pct(metrics.span), 100 * metrics.span, 1],
+    ['zasięg górnych 10%', pct(metrics.spanTop10), 100 * metrics.spanTop10, 1],
+    ['zasięg rekordzisty', pct(metrics.spanMax), 100 * metrics.spanMax, 1],
+    ['odblokowania średnio', metrics.outDeg.toFixed(1) + ' elem.', metrics.outDeg, 1],
+    ['odblokowania rekord', metrics.maxOut + ' elem.', metrics.maxOut, 1],
+    ['dystans odblokowań', pct(metrics.blockDist) + ' obwodu', 100 * metrics.blockDist, 1],
     ['—', ''],
-    ['skrętów na element', metrics.bends.toFixed(2)],
-    ['zwinięcie', pct(metrics.coil)],
-    ['wspólna granica', pct(metrics.sharedBorder)],
-    ['wieloliniowych', pct(metrics.multiLine)],
+    ['skrętów na element', metrics.bends.toFixed(2), metrics.bends, 1],
+    ['zwinięcie', pct(metrics.coil), 100 * metrics.coil, -1],
+    ['wspólna granica', pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1],
+    ['wieloliniowych', pct(metrics.multiLine), 100 * metrics.multiLine, 1],
     ['—', ''],
-    ['nawroty / restarty', `${backtracks} / ${restartsUsed}`],
-    ['czas', `generacja ${(genMs / 1000).toFixed(2)} s, metryki ${(metricsMs / 1000).toFixed(2)} s`],
+    ['nawroty / restarty', `${backtracks} / ${restartsUsed}`, backtracks, -1],
+    ['czas', `generacja ${(genMs / 1000).toFixed(2)} s, metryki ${(metricsMs / 1000).toFixed(2)} s`, genMs, -1],
   ]
+
   $('stats').innerHTML = rows
-    .map(([k, v]) => (k === '—' ? '<tr><td colspan="2" style="height:.5rem"></td></tr>'
-      : `<tr><td>${k}</td><td class="num">${v}</td></tr>`))
+    .map(([k, v, num, better]) => {
+      if (k === '—') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
+      let delta = ''
+      const prev = prevStats.get(k)
+      if (num !== undefined && prev !== undefined && Math.abs(num - prev) > 1e-9) {
+        const diff = num - prev
+        const abs = Math.abs(diff)
+        const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
+        // Kierunek „na lepsze” zależy od metryki: zwinięcie ma spadać,
+        // zasięg rosnąć, a liczba elementów jest neutralna.
+        const cls = better === 0 ? '' : (diff > 0) === (better > 0) ? ' up' : ' down'
+        delta = `<td class="delta${cls}">${diff > 0 ? '+' : '−'}${shown}</td>`
+      }
+      if (num !== undefined) prevStatsNext.set(k, num)
+      return `<tr><td>${k}</td><td class="num">${v}</td>${delta || '<td></td>'}</tr>`
+    })
     .join('')
+
+  // podmiana dopiero po zbudowaniu tabeli — inaczej porównywalibyśmy z sobą samym
+  prevStats = new Map(prevStatsNext)
+  prevStatsNext.clear()
 
   const flags = PARAM_SPEC
     .filter((s) => !['W', 'H'].includes(s.key) && state[s.key] !== s.def)

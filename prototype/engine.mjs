@@ -805,7 +805,7 @@ function render(board) {
 // oryginałowi i jest właściwym testem CZYTELNOŚCI: gracz też musi odróżnić
 // elementy od siebie bez pomocy koloru.
 function toSvg(board, opts = {}) {
-  const { cell = 16, colored = false, top = 0 } = opts
+  const { cell = 16, colored = false, top = 0, voids = false } = opts
   const { W, H, pieces } = board
   // Zbiór identyfikatorów N najdłuższych elementów — rysujemy je na czerwono
   // i NA WIERZCHU, żeby dało się prześledzić przebieg pojedynczej linii.
@@ -813,15 +813,35 @@ function toSvg(board, opts = {}) {
     [...pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top).map((p) => p.id),
   )
   const pad = cell
-  const sw = Math.round(cell * (opts.strokeRatio ?? 0.5))
+  const sw = cell * (opts.strokeRatio ?? 0.5)
   const w = W * cell + pad * 2, h = H * cell + pad * 2
   const cx = (x) => pad + x * cell + cell / 2
   const cy = (y) => pad + y * cell + cell / 2
   const out = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
     `<rect width="${w}" height="${h}" fill="#f6f6fa"/>`,
-    `<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`,
   ]
+
+  // Podgląd zaklinowania: komórki, których generator nie zdołał wyciąć.
+  // Sklejamy je w poziome pasy — przy 55 tysiącach dziur osobne prostokąty
+  // dałyby dokument nie do wyświetlenia.
+  if (voids && board.owner) {
+    const rects = []
+    for (let y = 0; y < H; y++) {
+      let start = -1
+      for (let x = 0; x <= W; x++) {
+        const empty = x < W && board.owner[y * W + x] === -1
+        if (empty && start < 0) start = x
+        if (!empty && start >= 0) {
+          rects.push(`<rect x="${pad + start * cell}" y="${pad + y * cell}" width="${(x - start) * cell}" height="${cell}"/>`)
+          start = -1
+        }
+      }
+    }
+    if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
+  }
+
+  out.push(`<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`)
   const heads = []
   const highlight = []      // ścieżki najdłuższych elementów, rysowane na końcu
   const highlightHeads = []
