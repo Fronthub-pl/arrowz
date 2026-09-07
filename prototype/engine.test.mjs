@@ -104,3 +104,22 @@ test('generate: domyka planszę bez Warnsdorffa i przy samych krótkich', () => 
     assert.equal(r.ok && r.metrics.solvable && r.metrics.coverage === 1, true, JSON.stringify(over))
   }
 })
+
+test('analyse: nie przepełnia stosu przy setkach tysięcy elementów (worker w Chrome ma mały stos)', () => {
+  // Plansza 2×300 000 pokryta poziomymi dominami z głową przy prawej krawędzi:
+  // 300 000 elementów, wszystkie promienie puste, więc graf blokowania jest
+  // pusty i test kosztuje tylko pamięć na elementy. Rozwinięcie
+  // Math.min(...tablica) tej wielkości rzuca RangeError także w Node.
+  const W = 2, H = 300000
+  const c = new Carver(W, H, defaultParams(), mulberry32(1))
+  for (let y = 0; y < H; y++) {
+    c.pieces.push({ id: y, dir: 1, cells: [{ x: 1, y }, { x: 0, y }] })
+    c.owner[y * W] = y; c.owner[y * W + 1] = y
+  }
+  c.remaining = 0
+  const m = analyse(c)
+  assert.equal(m.N, H)
+  assert.equal(m.minLen, 2)
+  assert.equal(m.maxLen, 2)
+  assert.equal(m.coverage, 1)
+})

@@ -1040,10 +1040,14 @@ function analyse(board, ruleB = true) {
     bends += b
   }
   const hist = { '2-6': 0, '7-15': 0, '16-49': 0, '50+': 0 }
-  let maxLen = 0
+  // Pętla, nie Math.min(...pieces.map(...)): rozwinięcie 86 tys. argumentów
+  // przepełnia stos workera w Chrome (1000×1000), choć w Node przechodzi.
+  let maxLen = 0, minLen = Infinity, covered = 0
   for (const pc of pieces) {
     const L = pc.cells.length
-    maxLen = Math.max(maxLen, L)
+    if (L > maxLen) maxLen = L
+    if (L < minLen) minLen = L
+    covered += L
     if (L <= 6) hist['2-6']++
     else if (L <= 15) hist['7-15']++
     else if (L < 50) hist['16-49']++
@@ -1065,8 +1069,8 @@ function analyse(board, ruleB = true) {
     sharedBorder: longPieces ? sharedBorderTotal / longPieces : 0,
     longPieces,
     meanCorridorLen: corridorTotal / Math.max(1, corridorLines),
-    minLen: Math.min(...pieces.map((p) => p.cells.length)), maxLen, hist,
-    coverage: pieces.reduce((s, p) => s + p.cells.length, 0) / (W * H),
+    minLen, maxLen, hist,
+    coverage: covered / (W * H),
   }
 }
 
