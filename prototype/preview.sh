@@ -47,5 +47,15 @@ $N --svg=$G/f1-kolor.svg     --w=25 --h=50 --cell=18 --warns=4 --wshort=0.40 --w
 $N --svg=$G/f4-kolor.svg     --w=25 --h=50 --cell=18 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6 --colored
 $N --svg=$G/f7-nightmare.svg --w=100 --h=200 --cell=8 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6
 
+# G. najdłuższe linie na dużych planszach (sonda 2026-09-07)
+# --top=5 rysuje pięć najdłuższych elementów na różowo i wypisuje ich zasięg.
+$N --svg=$G/g1-base-100x100.svg --w=100 --h=100 --cell=6 --warns=4 --wshort=0.40 --wmid=0.16 --seed=7 --top=5
+$N --svg=$G/g1-ac6-100x100.svg  --w=100 --h=100 --cell=6 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6 --top=5
+$N --svg=$G/g2-base-100x200.svg --w=100 --h=200 --cell=5 --warns=4 --wshort=0.40 --wmid=0.16 --seed=7 --top=5
+$N --svg=$G/g2-ac3-100x200.svg  --w=100 --h=200 --cell=5 --warns=4 --wshort=0.30 --wmid=0.12 --seed=7 --anticoil=3 --top=5
+$N --svg=$G/g2-ac6-100x200.svg  --w=100 --h=200 --cell=5 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6 --top=5
+$N --svg=$G/g3-base-200x200.svg --w=200 --h=200 --cell=4 --warns=4 --wshort=0.40 --wmid=0.16 --seed=7 --top=5
+$N --svg=$G/g3-ac6-200x200.svg  --w=200 --h=200 --cell=4 --warns=4 --wshort=0.20 --wmid=0.08 --seed=7 --anticoil=6 --top=5
+
 echo
 echo "Gotowe.  open $(pwd)/$G/index.html"

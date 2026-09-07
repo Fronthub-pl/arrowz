@@ -163,4 +163,52 @@ skrętów są tu sprzężone i nie da się mieć obu naraz.</div>
 <div class="row">
   <figure class="big"><img src="f7-nightmare.svg" alt=""><figcaption><b>Nightmare pionowy z <code>anticoil 6</code></b> — 100×200, 2 141 elementów, zwinięcie 25%, granica 54%, zero restartów.</figcaption></figure>
 </div>
+
+<h2>G. Najdłuższe linie na dużych planszach <span style="color:#e8467c">(sonda, 2026-09-07)</span></h2>
+<p class="lead">Na <b style="color:#e8467c">różowo</b> pięć najdłuższych elementów każdej
+planszy. Pytanie: czy rekordziści przecinają planszę, czy leżą złożeni w akordeon.</p>
+
+<table style="border-collapse:collapse;font-size:13px;margin:1rem 0">
+<tr style="text-align:left;border-bottom:1px solid #e3e3ec">
+  <th style="padding:.35rem 1.2rem .35rem 0">plansza</th><th style="padding-right:1.2rem">wariant</th>
+  <th style="padding-right:1.2rem">najdłuższy</th><th style="padding-right:1.2rem">zwinięcie tej piątki</th>
+  <th style="padding-right:1.2rem">gęstość w bboksie</th><th>zwinięcie planszy</th></tr>
+<tr><td style="padding:.3rem 1.2rem .3rem 0">100×100</td><td>bazowy</td><td>187</td><td>59–85%</td><td>31–55%</td><td>43%</td></tr>
+<tr style="color:#e8467c"><td style="padding:.3rem 1.2rem .3rem 0">100×100</td><td><b>anticoil 6</b></td><td>94</td><td><b>25–51%</b></td><td><b>10–45%</b></td><td><b>26%</b></td></tr>
+<tr><td style="padding:.3rem 1.2rem .3rem 0">100×200</td><td>bazowy</td><td><b>232</b></td><td>77–93%</td><td>22–69%</td><td>48%</td></tr>
+<tr><td style="padding:.3rem 1.2rem .3rem 0">100×200</td><td>anticoil 3</td><td>152</td><td>53–86%</td><td>30–47%</td><td>35%</td></tr>
+<tr style="color:#e8467c"><td style="padding:.3rem 1.2rem .3rem 0">100×200</td><td><b>anticoil 6</b></td><td>155</td><td><b>8–51%</b></td><td><b>14–40%</b></td><td><b>24%</b></td></tr>
+<tr><td style="padding:.3rem 1.2rem .3rem 0">200×200</td><td>bazowy</td><td>192</td><td>69–89%</td><td>19–47%</td><td>47%</td></tr>
+<tr style="color:#e8467c"><td style="padding:.3rem 1.2rem .3rem 0">200×200</td><td><b>anticoil 6</b></td><td>151</td><td><b>15–49%</b></td><td><b>10–24%</b></td><td><b>24%</b></td></tr>
+</table>
+
+<div class="note"><b>Rekordzista bez kary to akordeon.</b> Najdłuższy element planszy
+100×200 ma 232 komórki, ale <b>90% z nich dotyka jego własnej ścieżki z trzech stron</b>,
+a całość mieści się w prostokącie 36×17 zajętym w 38%. To nie jest wąż przecinający
+planszę — to zwój upchnięty w rogu.</div>
+<div class="note"><b>Kara prostuje kosztem rekordu.</b> Przy <code>anticoil 6</code> ta sama
+plansza ma najdłuższy element 155 komórek, ale rozciągnięty na prostokąt 23×40 wypełniony
+w 17% i zwinięty tylko w 38%. Podniesienie <code>Lmax</code> do czterokrotności boku
+<b>niczego nie zmienia</b> — granicą nie jest limit długości, tylko geometria: ścieżka,
+której nie wolno się zwijać, potrzebuje wolnej przestrzeni na wprost, a tej ubywa
+z każdym wyciętym elementem.</div>
+<div class="note"><b>Rekordziści siedzą przy krawędziach</b> — w obu wariantach. To skutek
+kolejności wycinania: pierwsze elementy powstają, gdy plansza jest jeszcze pusta i mają
+gdzie rosnąć, a wycinanie zaczyna się od krawędzi wyjścia.</div>
+
+<div class="row">
+  <figure class="big"><img src="g1-base-100x100.svg" alt=""><figcaption><b>100×100 bazowy</b> — 1 009 elementów, najdłuższy 187 komórek zwinięty w 59%. Widać akordeon przy lewej krawędzi.</figcaption></figure>
+  <figure class="big"><img src="g1-ac6-100x100.svg" alt=""><figcaption><b>100×100, anticoil 6</b> — 1 141 elementów, najdłuższy 94. Rekordziści wędrują ukośnie przez planszę zamiast składać się przy krawędzi.</figcaption></figure>
+</div>
+<div class="row">
+  <figure class="big"><img src="g2-base-100x200.svg" alt=""><figcaption><b>100×200 bazowy</b> — najdłuższy 232 komórki, zwinięcie 90%.</figcaption></figure>
+  <figure class="big"><img src="g2-ac6-100x200.svg" alt=""><figcaption><b>100×200, anticoil 6</b> — najdłuższy 155 komórek, zwinięcie 38%.</figcaption></figure>
+</div>
+<div class="row">
+  <figure class="big"><img src="g3-base-200x200.svg" alt=""><figcaption><b>200×200 bazowy</b> — 3 799 elementów, najdłuższy 192.</figcaption></figure>
+  <figure class="big"><img src="g3-ac6-200x200.svg" alt=""><figcaption><b>200×200, anticoil 6</b> — 4 523 elementy, najdłuższy 151, zwinięcie planszy 24%.</figcaption></figure>
+</div>
+<div class="note"><b>Otwarte pytanie.</b> Czy chcemy rekordzistów 200-komórkowych za cenę
+tego, że są zwojami, czy krótszych, ale faktycznie przecinających planszę. To jest wybór
+estetyczny, nie techniczny — obie wersje generują się równie pewnie.</div>
 </html>

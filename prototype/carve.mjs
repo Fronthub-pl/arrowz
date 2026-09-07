@@ -522,8 +522,13 @@ function render(board) {
 // oryginałowi i jest właściwym testem CZYTELNOŚCI: gracz też musi odróżnić
 // elementy od siebie bez pomocy koloru.
 function toSvg(board, opts = {}) {
-  const { cell = 16, colored = false } = opts
+  const { cell = 16, colored = false, top = 0 } = opts
   const { W, H, pieces } = board
+  // Zbiór identyfikatorów N najdłuższych elementów — rysujemy je na czerwono
+  // i NA WIERZCHU, żeby dało się prześledzić przebieg pojedynczej linii.
+  const longest = new Set(
+    [...pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top).map((p) => p.id),
+  )
   const pad = cell
   const sw = Math.round(cell * (opts.strokeRatio ?? 0.5))
   const w = W * cell + pad * 2, h = H * cell + pad * 2
@@ -535,18 +540,28 @@ function toSvg(board, opts = {}) {
     `<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`,
   ]
   const heads = []
+  const highlight = []      // ścieżki najdłuższych elementów, rysowane na końcu
+  const highlightHeads = []
   pieces.forEach((pc, i) => {
-    const col = colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
+    const isLong = longest.has(pc.id)
+    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
     const pts = pc.cells.map((c) => `${cx(c.x)},${cy(c.y)}`).join(' ')
-    out.push(`<polyline points="${pts}" stroke="${col}"/>`)
+    const line = `<polyline points="${pts}" stroke="${col}"/>`
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
     const tip = cell * 0.62, len = cell * 0.62, half = cell * 0.42
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * len, by = ty - dy * len
-    heads.push(`<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`)
+    const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
+    if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
   })
-  out.push('</g>', `<g>${heads.join('')}</g>`, '</svg>')
+  out.push('</g>')
+  if (highlight.length) {
+    out.push(`<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`)
+    out.push(...highlight)
+    out.push('</g>')
+  }
+  out.push(`<g>${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
   return out.join('\n')
 }
 
@@ -586,7 +601,39 @@ if (svgOut) {
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
   if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
   const m = analyse(c)
-  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5) }))
+  const top = arg('top', 0)
+  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5), top }))
+  if (top > 0) {
+    // Statystyki najdłuższych: zasięg (ile kolumn i wierszy przecina) mówi,
+    // czy element przecina planszę, czy kłębi się w jednym rejonie.
+    const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top)
+    console.log(`  ${top} najdłuższych elementów:`)
+    for (const pc of longest) {
+      const xs = pc.cells.map((q) => q.x), ys = pc.cells.map((q) => q.y)
+      const spanX = Math.max(...xs) - Math.min(...xs) + 1
+      const spanY = Math.max(...ys) - Math.min(...ys) + 1
+      const cols = new Set(xs).size, rows = new Set(ys).size
+      const own = new Set(pc.cells.map((q) => q.y * W + q.x))
+      let coiled = 0, bends = 0, prev = null
+      for (let i = 0; i < pc.cells.length; i++) {
+        const q = pc.cells[i]
+        let n = 0
+        for (const { dx, dy } of DIRS) {
+          const ax = q.x + dx, ay = q.y + dy
+          if (ax >= 0 && ay >= 0 && ax < W && ay < H && own.has(ay * W + ax)) n++
+        }
+        if (n >= 3) coiled++
+        if (i > 0) {
+          const dx = q.x - pc.cells[i - 1].x, dy = q.y - pc.cells[i - 1].y
+          if (prev && (dx !== prev.dx || dy !== prev.dy)) bends++
+          prev = { dx, dy }
+        }
+      }
+      // Rozciągnięcie: jaką część planszy obejmuje prostokąt otaczający element.
+      const fill = pc.cells.length / (spanX * spanY)
+      console.log(`    dł. ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${String(spanY).padStart(3)} (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% planszy)  kolumn ${String(cols).padStart(3)}  wierszy ${String(rows).padStart(3)}  gęstość w bbox ${(100 * fill).toFixed(0)}%  skrętów ${bends}  zwinięcie ${(100 * coiled / pc.cells.length).toFixed(0)}%`)
+    }
+  }
   console.log(`${svgOut}  ${W}x${H} warns=${params.warns} hug=${params.hug} anticoil=${params.anticoil}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}% selfAdj=${m.selfAdj.toFixed(2)} granica=${(100*m.sharedBorder).toFixed(0)}%`)
   process.exit(0)
 }
