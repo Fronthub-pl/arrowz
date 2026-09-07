@@ -482,10 +482,11 @@ function render(board) {
 // Podgląd do oceny wyglądu wzrokiem. Wariant monochromatyczny jest wierny
 // oryginałowi i jest właściwym testem CZYTELNOŚCI: gracz też musi odróżnić
 // elementy od siebie bez pomocy koloru.
-function toSvg(board, { cell = 16, colored = false } = {}) {
+function toSvg(board, opts = {}) {
+  const { cell = 16, colored = false } = opts
   const { W, H, pieces } = board
   const pad = cell
-  const sw = Math.round(cell * 0.5)
+  const sw = Math.round(cell * (opts.strokeRatio ?? 0.5))
   const w = W * cell + pad * 2, h = H * cell + pad * 2
   const cx = (x) => pad + x * cell + cell / 2
   const cy = (y) => pad + y * cell + cell / 2
@@ -540,7 +541,7 @@ if (svgOut) {
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
   if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
   const m = analyse(c)
-  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored') }))
+  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5) }))
   console.log(`${svgOut}  ${W}x${H} warns=${params.warns}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}%`)
   process.exit(0)
 }
