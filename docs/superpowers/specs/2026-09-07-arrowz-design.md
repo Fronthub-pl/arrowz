@@ -20,6 +20,7 @@ W zakresie:
   liczbę linii, stopień połamania i długość maksymalną,
 - **zoom i przesuwanie planszy** — 100×100 to 10 000 komórek, nie mieści się czytelnie
   na żadnym ekranie,
+- stoper, licznik serii bezbłędnych ruchów i punktacja z mnożnikiem,
 - ekrany wygranej i przegranej, przycisk nowej gry,
 - grafika placeholder (czytelna, ale bez dopracowanego stylu),
 - PWA: manifest i service worker, gra działa offline.
@@ -52,8 +53,16 @@ Ruch gracza to kliknięcie elementu. Element próbuje przesunąć się **sztywno
   pomniejszona o komórki własne elementu.
 - Jeśli region zamiatania nie zawiera komórki zajętej przez inny element, element
   opuszcza planszę. Nazywamy taki element **wolnym**.
-- W przeciwnym razie ruch jest nielegalny: element **zostaje na miejscu**, a gracz
-  traci życie.
+- W przeciwnym razie ruch jest nielegalny: element **odbija się** — wyjeżdża aż do
+  kontaktu z blokerem i wraca na pozycję wyjściową — a gracz traci życie. Stan końcowy
+  jest identyczny jak przed kliknięciem, więc logika gry pozostaje niezmieniona; różnica
+  jest wyłącznie w animacji.
+
+  Odbicie **pokazuje graczowi, gdzie leży bloker**. Błąd przestaje być czystą karą,
+  a staje się informacją — przy planszy o 920 elementach to konieczne, inaczej gracz
+  traci życie, nie wiedząc dlaczego. Ceną jest lekkie obniżenie trudności percepcyjnej,
+  bo animacja ujawnia to, czego gracz nie doczytał z ekranu. Kompromis świadomy,
+  na rzecz czytelności.
 
 Gra kończy się wygraną, gdy plansza jest pusta, i przegraną, gdy życia spadną do zera.
 
@@ -96,7 +105,7 @@ src/
   core/            czysta logika: zero DOM, zero globalnej losowości
     types.ts         Coord, Dir, Piece, Board, Difficulty
     rng.ts           deterministyczny PRNG z ziarnem
-    board.ts         siatka zajętości, sweptRegion(), isFree(), removePiece()
+    board.ts         siatka zajętości, sweptRegion(), probeMove(), removePiece()
     shapes.ts        losowanie kształtu przez wzrost wstecz w obszarze dopuszczalnym
     generator.ts     generacja wsteczna, korki, parametry trudności
     solver.ts        graf blokowania + sortowanie topologiczne (Kahn)
@@ -193,16 +202,29 @@ Komórki własne elementu w promieniu są ignorowane — element nie blokuje sam
 Dotyczy to w szczególności elementu prostego ułożonego wzdłuż własnego kierunku, gdzie
 promień z ogona przechodzi przez cały element.
 
+Animacja odbicia (§2) potrzebuje wiedzieć nie tylko *czy* ruch jest nielegalny, ale
+**po ilu komórkach nastąpił kontakt i z czym**. Ten sam przebieg po liniach daje obie
+informacje, więc zamiast `isFree` zwracającego `boolean` silnik wystawia jedną funkcję:
+
 ```
-isFree(board, piece):
+probeMove(board, piece) -> { free: true } | { free: false, distance, blockerId }
+
+  best = ∞
   dla każdej linii L dotkniętej przez piece:
-    c = komórka piece na L najdalsza od krawędzi wyjścia
-    przejdź od c do krawędzi w kierunku piece.dir:
-      jeśli occupancy(komórka) ∉ {-1, piece.id} → false
-  return true
+    idź wzdłuż L od komórki piece najdalszej od krawędzi wyjścia w stronę krawędzi,
+    pamiętając pozycję ostatnio minionej komórki własnej (lastOwn):
+      jeśli occupancy(k) == piece.id  → lastOwn = pozycja k
+      jeśli occupancy(k) ∉ {-1, piece.id} → best = min(best, lastOwn - pozycja k)
+  free  ⟺  best = ∞
+  distance = best        # o tyle komórek element przesunie się przed zderzeniem
 ```
 
-Koszt: `O(liczba linii × długość planszy)`, czyli kilkadziesiąt kroków. Wystarczająco.
+Śledzenie `lastOwn` jest konieczne, bo obcy element może leżeć **między** komórkami
+własnymi na tej samej linii — dokładnie przypadek elementu wklęsłego (kształt U), gdzie
+bloker siedzi w łuku. Odległość liczymy wtedy od tej komórki własnej, która faktycznie
+w niego uderzy, a nie od najdalszej.
+
+Koszt: `O(liczba linii × długość planszy)`, jeden przebieg dla obu wyników.
 
 ## 7. Generator: generacja wsteczna
 
@@ -483,20 +505,59 @@ starcie poziomu.
 
 ```ts
 type Status = 'playing' | 'won' | 'lost'
-type Session = { board: Board; lives: number; status: Status; removed: number }
-type Action = { type: 'click'; pieceId: number } | { type: 'restart'; seed: number }
+
+type Session = {
+  board: Board
+  lives: number
+  status: Status
+  removed: number
+  startedAt: number      // znacznik czasu przekazany z zewnątrz
+  elapsedMs: number
+  streak: number         // seria kolejnych bezbłędnych ruchów
+  bestStreak: number
+  score: number
+}
+
+type Action =
+  | { type: 'click'; pieceId: number; at: number }
+  | { type: 'tick'; at: number }
+  | { type: 'restart'; seed: number; at: number }
+
+type Effect =
+  | { kind: 'exit'; pieceId: number; dir: Dir }
+  | { kind: 'bounce'; pieceId: number; distance: number; blockerId: number }
+  | { kind: 'none' }
 
 reduce(session: Session, action: Action): { next: Session; effect: Effect }
 ```
 
-Kliknięcie elementu wolnego usuwa go z planszy; gdy plansza jest pusta, `status` staje
-się `won`. Kliknięcie elementu zablokowanego zostawia go na miejscu i zmniejsza `lives`;
-przy zerze `status` staje się `lost`. Reduktor zwraca też `effect` — sygnał dla
-renderera („wyjedź w kierunku d" albo „potrząśnij"), żeby warstwa wizualna nie musiała
-sama wnioskować, co się stało.
+Kliknięcie elementu wolnego usuwa go z planszy, zwiększa `streak` i dolicza punkty; gdy
+plansza jest pusta, `status` staje się `won`. Kliknięcie elementu zablokowanego zostawia
+go na miejscu, zeruje `streak` i zmniejsza `lives`; przy zerze `status` staje się
+`lost`. Reduktor zwraca `effect` — gotowe polecenie dla renderera, z odległością
+odbicia włącznie, żeby warstwa wizualna nie musiała niczego wnioskować sama.
 
 Wielokrotne kliknięcie tego samego zablokowanego elementu odejmuje życie za każdym
 razem. Decyzja świadoma i pokryta testem.
+
+### Czas i punktacja
+
+**Czas nie jest odczytywany wewnątrz reduktora.** Znacznik `at` wchodzi jako pole akcji,
+a `elapsedMs` jest z niego wyliczane. Gdyby reduktor sięgał po zegar sam, przestałby być
+czysty, a testy przestałyby być deterministyczne — dlatego istnieje osobna akcja `tick`,
+którą warstwa UI wysyła w rytmie odświeżania stopera.
+
+Punktacja premiuje serie bezbłędnych ruchów:
+
+```
+mnożnik = min(1 + floor(streak / 10), 5)
+punkty za usunięcie elementu = 10 × mnożnik
+błędne kliknięcie: streak = 0, mnożnik wraca do 1
+```
+
+Mnożnik rośnie co dziesięć czystych ruchów i jest ograniczony piątką, żeby przy ~920
+elementach wynik nie eksplodował. Stałe `10`, `10` i `5` są parametrami do strojenia —
+formuła jest w jednym miejscu i pokryta testem.
 
 ## 11. Renderowanie i UI
 
@@ -507,8 +568,9 @@ Trafienie: współrzędne wskaźnika → komórka → `occupancy` → id element
 myszy i dotyku jest wspólna.
 
 Grafika MVP jest **placeholderem**: czytelna, monochromatyczna, bez dopracowanej palety
-i typografii. Główny ekran to wybór jednego z czterech poziomów, pasek z sercami
-i przycisk nowej gry.
+i typografii. Główny ekran to wybór jednego z czterech poziomów. Nad planszą pasek
+stanu: trzy serca, stoper, aktualna seria z mnożnikiem i wynik; obok przycisk nowej gry.
+Mnożnik jest wyróżniony przy zmianie, bo to jedyny sygnał, że seria coś daje.
 
 ### Widok: zoom i przesuwanie
 
@@ -599,11 +661,28 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 16. Konfluencja: losowe playouty zachłanne nigdy nie osiągają stanu bez wolnego elementu
     przy niepustej planszy.
 17. Usunięcie dowolnego elementu z rozwiązywalnej planszy pozostawia ją rozwiązywalną.
-18. **Test różnicowy:** funkcja `isFree` z silnika gry i test przynależności do `S_d`
+18. **Test różnicowy:** pole `free` z `probeMove` w silniku gry i test przynależności do `S_d`
     z generatora muszą zgadzać się co do bitu na losowych stanach. Rozjazd między nimi
     to dokładnie ten błąd, który produkuje nierozwiązywalne plansze.
 19. Solver wykrywa ręcznie skonstruowane cykle (dwuelementowy `A → ← B` oraz trzy- i
     więcej-elementowy) i wskazuje elementy cyklu.
+
+**Testy odległości odbicia, serii i punktacji:**
+
+24. `probeMove` zwraca poprawną `distance` i `blockerId`: bloker tuż przed elementem
+    (`distance = 1`), bloker daleko, oraz bloker **we wklęsłości kształtu U** — tu
+    odległość liczy się od tej komórki własnej, która w niego uderzy, a nie od
+    najdalszej. Ten przypadek najpewniej wyłapie błąd w śledzeniu `lastOwn`.
+25. Gdy blokerów jest kilka, `distance` odpowiada **najbliższemu**, a `blockerId`
+    wskazuje właśnie ten element.
+26. Seria: rośnie przy kolejnych trafnych ruchach, zeruje się przy błędzie, `bestStreak`
+    zapamiętuje maksimum. Mnożnik przeskakuje dokładnie na 10., 20., 30. i 40. ruchu
+    serii i zatrzymuje się na 5.
+27. Reduktor jest deterministyczny względem czasu: ta sama sekwencja akcji z tymi samymi
+    znacznikami `at` daje identyczny `elapsedMs` i wynik, niezależnie od zegara
+    systemowego. Test nie może potrzebować atrap zegara — jeśli potrzebuje, reduktor
+    przestał być czysty.
+28. Akcja `tick` aktualizuje `elapsedMs`, ale nie zmienia planszy, żyć ani serii.
 
 **Testy skali i parametrów (Nightmare 100×100):**
 
@@ -628,8 +707,9 @@ przejścia do `won` i `lost`.
 ## 13. Poza zakresem MVP
 
 **Świadomie odłożone funkcje:** undo (wymaga historii ruchów — tanie, jeśli reduktor
-jest czysty od początku, i taki jest), podpowiedzi, progresja poziomów, zapis postępu,
-dźwięk, dopracowana warstwa wizualna i animacje.
+jest czysty od początku, i taki jest), podpowiedzi, progresja poziomów, zapis postępu
+i tabele wyników, dźwięk, dopracowana warstwa wizualna. Stoper, seria i punktacja
+**wchodzą** do MVP (§10); poza zakresem zostaje trwałe przechowywanie wyników.
 
 **Ścieżka optymalizacji.** Wcześniejsza wersja tego projektu zakładała plansze rzędu
 20×25 i ~50 elementów, przy których zwykłe pętle wykonują się w mikrosekundach,
