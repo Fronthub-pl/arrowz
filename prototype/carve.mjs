@@ -1,71 +1,63 @@
-// DISPOSABLE PROTOTYPE — CLI layer over the engine from engine.mjs.
+// THROWAWAY PROTOTYPE — CLI layer over the engine in engine.mjs.
 // Run: node prototype/carve.mjs [options]
+//
+// Engine parameters: --<PARAM_SPEC key in lower case>=value, defaults from
+// defaultParams(). The lab builds its command with the same parser, so the
+// command from the lab reproduces the board bit for bit. Modes:
+//   --svg[=path]    one board → prototype/boards/ (+ a copy at path)
+//   --bench=N       benchmark, N runs per level
+//   (no mode)       metrics report per level, --runs=N, --only=Name, --show
 import { writeFileSync } from 'node:fs'
-import { Carver, analyse, mulberry32, render, toSvg, DIRS, defaultParams } from './engine.mjs'
+import { generate, toSvg, DIRS, Carver, analyse, mulberry32, render } from './engine.mjs'
+import { parseArgs, buildCommand } from './command.mjs'
+import { saveBoard } from './store.mjs'
 
-// ------------------------------------------------------------------ main
-
-// Trace and debug enter the engine as functions — the engine knows nothing about `process`.
+// Trace and debug enter the engine as functions — the engine knows no `process`.
 const trace = process.env.CARVE_TRACE
   ? (i) => console.error(`    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
   : null
 const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
 
+const { params: cli, view, rest } = parseArgs(process.argv.slice(2))
+// Mode flags (not engine parameters) — read from what is left after the parser.
 const arg = (k, dflt) => {
-  const hit = process.argv.find((a) => a.startsWith(`--${k}=`))
+  const hit = rest.find((a) => a.startsWith(`--${k}=`))
   return hit ? Number(hit.split('=')[1]) : dflt
 }
-const show = process.argv.includes('--show')
+const has = (flag) => rest.includes(`--${flag}`)
 
-// Two independent knobs: level (base size) and format (1:1 or 1:2).
-// The portrait format matches a phone screen and the reference screenshot.
-const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200]]
-// The "I wanna die" level: a million cells. Available only behind an explicit flag, because a
-// single run takes tens of seconds and makes no sense in the default report.
-if (process.argv.includes('--insane')) BASE.push(['Insane', 1000])
-// Intermediate scale — for finding the limit of closability.
-const midArg = process.argv.find((a) => a.startsWith('--mid='))
-if (midArg) BASE.push(['Mid', Number(midArg.split('=')[1])])
-const FORMATS = process.argv.includes('--kwadrat') ? [['', 1]]
-  : process.argv.includes('--pionowy') ? [['', 2]]
-  : [['·kw', 1], ['·pion', 2]]
-const presets = BASE.flatMap(([name, n]) =>
-  FORMATS.map(([sfx, r]) => ({
-    name: name + sfx, W: n, H: n * r,
-    Lmax: Math.round(2.5 * n * r), wShort: 0.50, wMid: 0.20,
-  })))
-
-const runs = arg('runs', 3)
-const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]
-
-const svgOut = process.argv.find((a) => a.startsWith('--svg='))?.split('=')[1]
-if (svgOut) {
-  const W = arg('w', arg('size', 25)), H = arg('h', arg('size', 50))
-  const params = { ...defaultParams(), W, H, Lmax: arg('lmax', Math.round(2.5 * Math.max(W, H))),
-    wShort: arg('wshort', 0.10), wMid: arg('wmid', 0.70),
-    pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: 0,
-    probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4),
-    hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0),
-        wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
-        giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
-        giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
-  let c, ok = false, seed = arg('seed', 7)
-  for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
-  if (!ok) { console.error('failed to generate'); process.exit(1) }
-  const m = analyse(c, params.ruleB)
-  const top = arg('top', 0)
-  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5), top }))
-  if (top > 0) {
-    // Statistics of the longest pieces: reach (how many columns and rows it crosses) tells
-    // whether the piece crosses the board or coils up in a single region.
-    const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top)
-    console.log(`  ${top} longest pieces:`)
+// --- one board into the store --------------------------------------------
+const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
+if (svgFlag) {
+  const svgOut = svgFlag.includes('=') ? svgFlag.slice('--svg='.length) : null
+  const result = generate({ ...cli, trace, debug })
+  if (!result.ok) {
+    console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left`)
+    process.exit(1)
+  }
+  const c = result.board, m = result.metrics, W = cli.W, H = cli.H
+  const svg = toSvg(c, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top })
+  const meta = saveBoard({
+    svg, params: cli, view, command: buildCommand(cli, view), source: 'cli',
+    metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
+  })
+  if (svgOut) writeFileSync(svgOut, svg)
+  if (view.top > 0) {
+    // Longest-piece stats: the span (how many columns and rows it crosses)
+    // tells whether a piece crosses the board or coils in one region.
+    const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, view.top)
+    console.log(`  ${view.top} longest pieces:`)
     for (const pc of longest) {
-      const xs = pc.cells.map((q) => q.x), ys = pc.cells.map((q) => q.y)
-      const spanX = Math.max(...xs) - Math.min(...xs) + 1
-      const spanY = Math.max(...ys) - Math.min(...ys) + 1
-      const cols = new Set(xs).size, rows = new Set(ys).size
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+      const cols = new Set(), rows = new Set()
+      for (const q of pc.cells) {
+        if (q.x < minX) minX = q.x
+        if (q.x > maxX) maxX = q.x
+        if (q.y < minY) minY = q.y
+        if (q.y > maxY) maxY = q.y
+        cols.add(q.x); rows.add(q.y)
+      }
+      const spanX = maxX - minX + 1, spanY = maxY - minY + 1
       const own = new Set(pc.cells.map((q) => q.y * W + q.x))
       let coiled = 0, bends = 0, prev = null
       for (let i = 0; i < pc.cells.length; i++) {
@@ -82,14 +74,32 @@ if (svgOut) {
           prev = { dx, dy }
         }
       }
-      // Stretch: what fraction of the board the piece's bounding rectangle covers.
+      // Stretch: what fraction of its bounding rectangle the piece fills.
       const fill = pc.cells.length / (spanX * spanY)
-      console.log(`    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${String(spanY).padStart(3)} (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  columns ${String(cols).padStart(3)}  rows ${String(rows).padStart(3)}  density in bbox ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${(100 * coiled / pc.cells.length).toFixed(0)}%`)
+      console.log(`    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${String(spanY).padStart(3)} (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  cols ${String(cols.size).padStart(3)}  rows ${String(rows.size).padStart(3)}  bbox density ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${(100 * coiled / pc.cells.length).toFixed(0)}%`)
     }
   }
-  console.log(`${svgOut}  ${W}x${H} warns=${params.warns} hug=${params.hug} anticoil=${params.anticoil}  elem=${m.N} avg.len=${(W*H/m.N).toFixed(1)} bends=${(m.bends).toFixed(2)} coiling=${(100*m.coil).toFixed(0)}% selfAdj=${m.selfAdj.toFixed(2)} border=${(100*m.sharedBorder).toFixed(0)}%`)
+  console.log(`${meta.W}x${meta.H}/${meta.id}.svg${svgOut ? '  + ' + svgOut : ''}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${m.bends.toFixed(2)} coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`)
   process.exit(0)
 }
+
+// --- levels for the report and benchmark modes -----------------------------
+// Two independent knobs: level (base size) and format (1:1 or 1:2).
+// The portrait format matches a phone screen and the reference screenshot.
+const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200]]
+// The "I wanna die" level: a million cells. Available only behind an explicit
+// flag, because a single run takes tens of seconds and makes no sense in the
+// default report.
+if (has('insane')) BASE.push(['Insane', 1000])
+// Intermediate scale — for finding the limit of closability.
+const midArg = arg('mid', 0)
+if (midArg) BASE.push(['Mid', midArg])
+const FORMATS = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
+const presets = BASE.flatMap(([name, n]) => FORMATS.map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r })))
+
+const runs = arg('runs', 3)
+const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]
+const show = has('show')
 const bench = arg('bench', 0)
 if (bench > 0) {
   console.log(`BENCHMARK — ${bench} runs per level\n`)
@@ -98,15 +108,7 @@ if (bench > 0) {
     const times = [], backs = [], lens = [], maxLens = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
-      const params = { ...defaultParams(), ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid),
-        pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: arg('headbias', 0),
-        probe: 0, probeLen: 12, mix: -1, voidFrac: 0,
-        ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 4),
-        hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0),
-        wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
-        giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
-        giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
+      const params = { ...cli, W: pre.W, H: pre.H, trace, debug }
       const t0 = performance.now()
       const seed = 50000 + r
       let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
@@ -136,12 +138,7 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...defaultParams(), ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0),
-      hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0),
-        wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
-        giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
-        giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
+    const params = { ...cli, W: pre.W, H: pre.H, trace, debug }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()
