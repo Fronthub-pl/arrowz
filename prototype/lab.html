@@ -15,8 +15,11 @@
      Na wąskim ekranie kolumny składają się w jedną. */
   /* min-height: 0 na każdym poziomie — bez tego grid item rośnie z zawartości
      i plansza wpasowuje się w szerokość zamiast w wysokość okna. */
+  /* TRZY wiersze, bo main ma troje dzieci: stan, pasek postępu i kolumny.
+     Przy dwóch zdefiniowanych `1fr` dostawał pasek postępu o wysokości 4 px,
+     a plansza zostawała z wierszem `auto` — marnowała się połowa ekranu. */
   main { overflow: hidden; padding: .8rem 1.1rem; display: grid;
-         grid-template-rows: 2.4rem 1fr; gap: .4rem; min-height: 0; }
+         grid-template-rows: auto auto minmax(0, 1fr); gap: .3rem; min-height: 0; }
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) 26rem; gap: 1.5rem;
           min-height: 0; overflow: hidden; }
   @media (max-width: 1500px) { .cols { grid-template-columns: 1fr; overflow: auto; } }
