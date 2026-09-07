@@ -552,8 +552,8 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Wszystkie wartości są **punktem wyjścia do kalibracji benchmarkiem**, a nie ustaleniem.
 Progi `T_2` i `D` skalują się z liczbą elementów, więc bezwzględne liczby z małej
 planszy nie przenoszą się na dużą. Pierwszym krokiem implementacji generatora jest
-raport z faktycznie osiąganego rozkładu długości, wartości metryk, liczby elementów
-jednokomórkowych i czasu generacji.
+raport z faktycznie osiąganego rozkładu długości, wartości metryk, częstości nawrotów
+i restartów generatora oraz czasu generacji.
 
 Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, powtórz z innym
 ziarnem lub skorygowanymi parametrami (§7) → po wyczerpaniu budżetu oddaj najlepszy
@@ -650,8 +650,9 @@ score = round(complexity × livesBonus × timeBonus)
 ```
 
 Podstawa skaluje się z **powierzchnią planszy**, a nie z liczbą elementów. To celowe:
-gdyby punkty rosły z liczbą kliknięć, plansza 100×100 złożona z samych elementów
-jednokomórkowych — nużąca, ale banalna — punktowałaby najwyżej ze wszystkich.
+gdyby punkty rosły z liczbą kliknięć, plansza 100×100 złożona z samych domin —
+5 000 elementów, nużących i banalnych, zdejmowanych warstwa po warstwie — punktowałaby
+najwyżej ze wszystkich.
 Powierzchnia jest tym, czego gracz nie zawyży bez podjęcia realnie większego zadania,
 a mnożniki mierzą **trudność na klik**.
 
@@ -819,9 +820,9 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 26d. Premia czasowa jest ograniczona z obu stron: bardzo szybkie i bardzo wolne
     ukończenie dają wartości na krańcach przedziału, nie poza nim. W wariancie
     klasycznym czas nie wpływa na wynik w ogóle.
-26e. **Test antyeksploatacyjny:** plansza 100×100 złożona z samych elementów
-    jednokomórkowych punktuje wyraźnie niżej niż plansza Nightmare o tym samym
-    rozmiarze. To jest test, który pilnuje, żeby punktacja mierzyła trudność, a nie
+26e. **Test antyeksploatacyjny:** plansza 100×100 złożona z samych domin (5 000
+    elementów o długości 2) punktuje wyraźnie niżej niż plansza Nightmare o tym samym
+    rozmiarze, mimo pięciokrotnie większej liczby kliknięć. To jest test, który pilnuje, żeby punktacja mierzyła trudność, a nie
     liczbę kliknięć — i który wypadnie oblać przy każdej nieostrożnej zmianie wag.
 26f. Wynik jest funkcją czystą: te same metryki planszy, te same życia i ten sam czas
     dają ten sam wynik, niezależnie od przebiegu rozgrywki.
@@ -846,8 +847,8 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
     konfigurator z parametrów — inaczej ostrzeżenie o 25% wprowadza w błąd.
 
 **Benchmark (nie test, ale krok implementacji):** raport z faktycznie osiąganego
-rozkładu długości, wartości metryk trudności, liczby elementów jednokomórkowych oraz
-czasu generacji dla zestawu parametrów — podstawa do kalibracji progów z §9 i do
+rozkładu długości, wartości metryk trudności, częstości nawrotów i restartów generatora
+oraz czasu generacji dla zestawu parametrów — podstawa do kalibracji progów z §9 i do
 decyzji o ścieżce optymalizacji z §13.
 
 Reduktor sesji jest testowany osobno: legalne i nielegalne kliknięcie, utrata żyć,
