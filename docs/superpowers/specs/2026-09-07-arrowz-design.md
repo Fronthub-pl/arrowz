@@ -519,12 +519,51 @@ w przeciwne strony. Zmierzone porównanie:
 Jazda po torze wygrywa na obu osiach naraz, bo znosi przyczynę konfliktu zamiast szukać
 kompromisu.
 
-### Kalibracja długości pod osiąganą, nie zamawianą średnią
+### Kalibracja długości — dłuższe elementy poprawiają wszystko naraz
 
-Prototyp mierzy, że 28–47% ścieżek utyka przed docelową długością, więc średnia osiągana
-jest o ~30% niższa od zamawianej. Wagi koszyków muszą to uwzględniać: żądanie średniej
-10 daje w praktyce ~5. Generator raportuje faktyczny rozkład (§11), a testy pilnują, by
-długie elementy w ogóle powstawały (§12).
+Wbrew intuicji **im dłuższe elementy, tym generacja stabilniejsza**. Mniej elementów to
+mniej decyzji, a każda decyzja jest okazją do pofragmentowania reszty planszy. Pomiar na
+planszy 50×50, 25 ziaren na wiersz:
+
+| wagi kr./śr./dł. | śr. długość | max | p99 czasu | p99 nawrotów |
+|---|---|---|---|---|
+| 0.75 / 0.24 / 0.01 | 4.5 | 33 | 257 ms | **2617** |
+| 0.30 / 0.60 / 0.10 | 7.1 | 74 | 493 ms | 4 |
+| **0.10 / 0.70 / 0.20** | **8.8** | **81** | 211 ms | 3 |
+| 0.00 / 0.00 / 1.00 | 17.8 | 105 | 12 ms | 1 |
+
+Na Nightmare przejście z wag „krótkich" na `0.10 / 0.70 / 0.20` **halfuje p99 czasu
+generacji (979 → 442 ms)**, czterokrotnie zmniejsza liczbę restartów i podnosi liczbę
+skrętów z 1.84 do 4.48. Wcześniejsza obserwacja, że osiągana średnia jest o ~30% niższa
+od zamawianej, była artefaktem reguły sztywnej translacji — przy jeździe po torze ciało
+nie ma ograniczeń geometrycznych, więc niemal nie utyka.
+
+Przyjęte wagi domyślne: **0.10 / 0.70 / 0.20**.
+
+### Siła Warnsdorffa: skręty kontra zwijanie
+
+Heurystyka Warnsdorffa steruje **jednocześnie** liczbą skrętów i „zwijaniem" — udziałem
+komórek, które dotykają własnej ścieżki z trzech lub czterech stron. Zwinięty element
+wygląda jak zwarty kłębek, nie jak meandrująca linia, więc jest to metryka wyglądu,
+którą trzeba pilnować obok liczby skrętów.
+
+| siła | skrętów/elem | zwinięcie | p99 czasu (Nightmare) | porażki |
+|---|---|---|---|---|
+| 0 (wyłączona) | 2.37 | 20% | 815 ms | **1 na 30** |
+| 2 | 3.36 | 32% | 625 ms | 0 |
+| **4** | **4.05** | **35%** | **442 ms** | 0 |
+| 8 | 4.43 | 39% | 625 ms | 0 |
+
+Bez Warnsdorffa jedna plansza na trzydzieści nie generuje się w ogóle — heurystyka
+pozostaje **wymagana**. Siła 4 jest wartością domyślną; 2 daje mniej zwinięcia kosztem
+dłuższego ogona czasu. To jedyny parametr, który realnie zmienia charakter kształtów,
+więc jest pierwszym kandydatem do strojenia po zobaczeniu prawdziwego rendera.
+
+**Zastrzeżenie:** ostatecznej oceny wyglądu nie da się zrobić na podglądzie ASCII.
+Znaki ramek nie potrafią przedstawić ścieżki dotykającej samej siebie, a przy zwinięciu
+35% jest to co trzecia komórka. Kalibracja `warns` i wag długości musi się odbyć
+**na docelowym rendererze SVG**, nie wcześniej.
+
 ## 8. Solver i weryfikacja
 
 ### Graf blokowania
@@ -621,21 +660,40 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
 koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem | czas |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 625 | ~159 | 3.9 | 15 | 0.245 | 20% | 8 | 1.32 | 5 ms |
-| Medium | 50×50 | 2 500 | ~555 | 4.5 | 25 | 0.129 | 11% | 19 | 1.64 | 30 ms |
-| Hard | 75×75 | 5 625 | ~1 204 | 4.7 | 46 | 0.092 | 9% | 28 | 1.74 | 134 ms |
-| Nightmare | 100×100 | 10 000 | ~2 067 | 4.8 | 54 | 0.065 | 7% | 41 | 1.84 | 296 ms |
+Wartości zmierzone przy wagach `0.10 / 0.70 / 0.20` i sile Warnsdorffa 4 (§7).
 
-Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w ładny
-opadający ciąg bez żadnego dodatkowego sterowania — sam rozmiar planszy wystarcza za
-regulator trudności, więc bias frontiera z §7 staje się dostrojeniem, a nie koniecznością.
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
+|---|---|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~78 | 8.0 | 39 | 0.210 | 18% | 8 | 3.76 |
+| Medium | 50×50 | 2 500 | ~279 | 9.0 | 73 | 0.110 | 11% | 16 | 4.05 |
+| Hard | 75×75 | 5 625 | ~627 | 9.0 | 102 | 0.058 | 8% | 25 | 4.11 |
+| Nightmare | 100×100 | 10 000 | ~1 043 | 9.6 | 164 | 0.047 | 6% | 34 | 4.48 |
 
-Zastrzeżenie: **czas generacji ma dużą wariancję** (5–300 ms), bo zależy od liczby
-nawrotów, a ta potrafi skoczyć z 0 do 258 między ziarnami. Wartość średnia jest nieistotna;
-znaczenie ma ogon. Do zmierzenia przed wydaniem: 99. percentyl czasu generacji, i dopiero
-on decyduje, czy potrzebny jest wskaźnik ładowania.
+Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w opadający
+ciąg bez dodatkowego sterowania — sam rozmiar planszy wystarcza za regulator trudności,
+więc bias frontiera z §7 jest dostrojeniem, a nie koniecznością.
+
+Liczba elementów na Nightmare (~1 043 o średniej długości 9,6) trafia dokładnie w to,
+co projekt zakładał przed jakimikolwiek pomiarami — ale trafia tam **przez kalibrację
+opartą na danych**, a nie przez to, że pierwotne oszacowanie było trafne. Po drodze
+generator dawał 1 918 i 2 067 elementów.
+
+### Rozkład czasu generacji
+
+Czas ma rozkład skrajnie ciężkoogonowy — mediana jest nieinformatywna, znaczenie ma ogon
+(30–100 ziaren na wiersz, wagi jak wyżej):
+
+| Poziom | p50 | p90 | p99 | max | porażki |
+|---|---|---|---|---|---|
+| Easy | 1 ms | 2 ms | 281 ms | 281 ms | 0/100 |
+| Medium | 5 ms | 15 ms | 324 ms | 324 ms | 0/100 |
+| Hard | 12 ms | 353 ms | 863 ms | 863 ms | 0/60 |
+| Nightmare | 17 ms | 316 ms | 442 ms | 442 ms | 0/30 |
+
+Nigdy nie odnotowano porażki generacji przy dopuszczonych pięciu restartach. Ogon rzędu
+pół sekundy oznacza, że **wskaźnik ładowania jest potrzebny** (pokazywany po ~200 ms),
+choć przenoszenie generacji do Web Workera nadal nie jest konieczne. Rdzeń bez DOM
+pozostaje przenośny, gdyby pomiar na docelowym sprzęcie wypadł gorzej.
 
 **Rozbieżność do zamknięcia:** projekt zakładał ~1 000 elementów o średniej długości 10
 na Nightmare; generator przy obecnych wagach daje ~1 900 o średniej 5,2. Przyczyna jest
@@ -822,9 +880,13 @@ Prototyp (`prototype/carve.mjs`) zmierzył pełny cykl na planszy Nightmare 100�
 | policzenie wszystkich metryk + solver | **14 ms** |
 
 To o dwa rzędy wielkości mniej, niż zakładał wcześniejszy budżet. W konsekwencji
-**usunięte zostały jako niepotrzebne**: generacja w Web Workerze, wskaźnik postępu,
-bitboardy korytarzy i odwrotny indeks pokrycia. Nawet pętla generuj–zmierz–odrzuć
-z dwudziestoma próbami mieści się poniżej sekundy na głównym wątku.
+**usunięte zostały jako niepotrzebne**: bitboardy korytarzy i odwrotny indeks pokrycia.
+
+Jedna rzecz wróciła po dokładniejszym pomiarze: **wskaźnik ładowania jest potrzebny**.
+Średnia myliła — rozkład czasu generacji jest skrajnie ciężkoogonowy i p99 sięga
+442 ms na Nightmare (§9), a to widoczne zamrożenie interfejsu. Wskaźnik pokazujemy po
+200 ms. Web Worker nadal nie jest konieczny, ale rdzeń bez DOM pozostaje do niego
+przenośny bez zmian, gdyby pomiar na docelowym sprzęcie wypadł gorzej.
 
 Zostaje jedno realne pytanie wydajnościowe, którego prototyp nie dotyka, bo nie ma
 warstwy widoku: **czy SVG wyrobi przy ~1 900 ścieżkach z zoomem i przesuwaniem**.

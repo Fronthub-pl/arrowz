@@ -400,7 +400,7 @@ function analyse(board) {
     if (blockers[i].size === 1) almost++
   }
 
-  let bends = 0, multiLine = 0
+  let bends = 0, multiLine = 0, coil = 0, cellsTotal = 0
   for (const pc of pieces) {
     let prev = null, b = 0
     const lines = new Set()
@@ -408,6 +408,16 @@ function analyse(board) {
       const dx = pc.cells[i].x - pc.cells[i - 1].x, dy = pc.cells[i].y - pc.cells[i - 1].y
       if (prev && (dx !== prev.dx || dy !== prev.dy)) b++
       prev = { dx, dy }
+    }
+    const own = new Set(pc.cells.map((c) => idx(c.x, c.y)))
+    for (const c of pc.cells) {
+      let n = 0
+      for (const { dx, dy } of DIRS) {
+        const ax = c.x + dx, ay = c.y + dy
+        if (inside(ax, ay) && own.has(idx(ax, ay))) n++
+      }
+      if (n >= 3) coil++     // ścieżka dotyka samej siebie -> kłębek, nie linia
+      cellsTotal++
     }
     for (const c of pc.cells) lines.add(DIRS[pc.dir].dx === 0 ? c.x : c.y)
     if (lines.size > 1) multiLine++
@@ -426,7 +436,7 @@ function analyse(board) {
 
   return {
     N, solvable: done === N, unsolved: N - done,
-    f0: freeIds.length / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N,
+    f0: freeIds.length / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N, coil: coil / cellsTotal,
     meanCorridorLen: corridorTotal / Math.max(1, corridorLines),
     minLen: Math.min(...pieces.map((p) => p.cells.length)), maxLen, hist,
     coverage: pieces.reduce((s, p) => s + p.cells.length, 0) / (W * H),
@@ -484,6 +494,40 @@ const presets = [
 const runs = arg('runs', 3)
 const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]
 
+const bench = arg('bench', 0)
+if (bench > 0) {
+  console.log(`BENCHMARK — ${bench} przebiegów na poziom\n`)
+  for (const pre of presets) {
+    if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
+    const times = [], backs = [], lens = [], maxLens = []
+    let fails = 0, restartsTotal = 0
+    for (let r = 0; r < bench; r++) {
+      const params = { ...pre, wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid),
+        pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: arg('headbias', 0),
+        probe: 0, probeLen: 12, mix: -1, voidFrac: 0,
+        ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 4) }
+      const t0 = performance.now()
+      const seed = 50000 + r
+      let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
+      let ok = c.run(), rs = 0
+      while (!ok && rs < 5) { rs++; c = new Carver(pre.W, pre.H, params, mulberry32(seed + 999983 * rs)); ok = c.run() }
+      const dt = performance.now() - t0
+      if (!ok) { fails++; continue }
+      times.push(dt); backs.push(c.backtracks); restartsTotal += rs
+      lens.push(c.pieces.reduce((a, x) => a + x.cells.length, 0) / c.pieces.length)
+      maxLens.push(Math.max(...c.pieces.map((x) => x.cells.length)))
+    }
+    times.sort((a, b) => a - b); backs.sort((a, b) => a - b)
+    const q = (arr, pp) => arr[Math.min(arr.length - 1, Math.floor(arr.length * pp))]
+    const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length
+    console.log(`--- ${pre.name} ${pre.W}x${pre.H} ---`)
+    console.log(`  czas [ms]   p50 ${q(times,0.5).toFixed(0)}   p90 ${q(times,0.9).toFixed(0)}   p99 ${q(times,0.99).toFixed(0)}   max ${times[times.length-1].toFixed(0)}`)
+    console.log(`  nawroty     p50 ${q(backs,0.5)}   p90 ${q(backs,0.9)}   p99 ${q(backs,0.99)}   max ${backs[backs.length-1]}`)
+    console.log(`  długość     średnia ${mean(lens).toFixed(2)}   maksymalna (śr.) ${mean(maxLens).toFixed(0)}`)
+    console.log(`  odporność   restarty ${restartsTotal}   porażki ${fails}/${bench}\n`)
+  }
+  process.exit(0)
+}
 console.log('PROTOTYP — wycinanie z pełnej planszy, minimalna długość 2\n')
 for (const pre of presets) {
   if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
@@ -491,7 +535,7 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...pre, pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0) }
+    const params = { ...pre, wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0) }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()
@@ -518,7 +562,7 @@ for (const pre of presets) {
   const h = good[0].hist
   console.log(`  rozkład dł.   2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${(avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)}%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${(avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)}%`)
   console.log(`  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-bloker: ${avg((a) => a.almost).toFixed(0)} (${(100*avg((a)=>a.almost/a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   korytarz: ${avg((a) => a.meanCorridorLen).toFixed(1)}`)
-  console.log(`  KSZTAŁT       skrętów/elem ${avg((a) => a.bends).toFixed(2)}   wieloliniowych ${(100 * avg((a) => a.multiLine)).toFixed(0)}%`)
+  console.log(`  KSZTAŁT       skrętów/elem ${avg((a) => a.bends).toFixed(2)}   wieloliniowych ${(100 * avg((a) => a.multiLine)).toFixed(0)}%   zwinięcie ${(100 * avg((a) => a.coil)).toFixed(0)}%`)
   console.log(`  nawroty       ${avg((a) => a.backtracks).toFixed(1)}   restarty: ${avg((a) => a.restarts).toFixed(1)}`)
   const st = good[0].st
   console.log(`  diagnostyka   śr. want ${(st.want/st.n).toFixed(1)} -> got ${(st.got/st.n).toFixed(1)}   stall ${(100*st.stall/st.n).toFixed(0)}%   strand-trunc ${(100*st.strandTrunc/st.n).toFixed(0)}% (śr. -${(st.strandLoss/Math.max(1,st.strandTrunc)).toFixed(1)})`)
