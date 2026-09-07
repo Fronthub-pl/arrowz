@@ -66,3 +66,33 @@ najdłuższy 74, f0 = 0.061, **1.87 skrętu na element, 69% wieloliniowych**, 0 
 ```
 node prototype/carve.mjs --only=Easy --ruleb --warns=4 --lateral=3 --show
 ```
+
+## Runda 3 — kalibracja
+
+Pytania: jaki jest ogon czasu generacji i czy rozkład długości da się skalibrować.
+
+**Dłuższe elementy poprawiają wszystko naraz.** Wbrew intuicji mniej elementów to mniej
+decyzji, a każda decyzja jest okazją do pofragmentowania reszty planszy. Nightmare przy
+wagach `0.10/0.70/0.20` wobec `0.70/0.285/0.015`: p99 czasu 442 ms zamiast 979,
+6 restartów na 30 zamiast 23, 4.48 skrętu na element zamiast 1.84, średnia długość 9.6
+zamiast 4.8. Wcześniejsza obserwacja o utykaniu ścieżek była artefaktem sztywnej
+translacji.
+
+**Reguła Warnsdorffa pozostaje wymagana** — bez niej 1 plansza na 30 nie generuje się
+wcale. Steruje jednak jednocześnie skrętami i zwijaniem ścieżek w kłębki (20% zwinięcia
+przy sile 0, 39% przy 8).
+
+**Rozkład czasu jest skrajnie ciężkoogonowy.** Mediana jest nieinformatywna:
+Nightmare p50 = 17 ms, p99 = 442 ms. Zero porażek na 30–100 ziaren przy pięciu
+dopuszczonych restartach.
+
+Konfiguracja przyjęta jako domyślna:
+
+```
+node prototype/carve.mjs --ruleb --warns=4 --wshort=0.10 --wmid=0.70 --lateral=3
+node prototype/carve.mjs --bench=30 --ruleb --only=Nightmare --wshort=0.10 --wmid=0.70
+```
+
+**Otwarte:** ostatecznej kalibracji wyglądu nie da się zrobić na podglądzie ASCII —
+znaki ramek nie przedstawiają ścieżki dotykającej samej siebie, a to co trzecia komórka.
+Strojenie `warns` i wag długości musi się odbyć na docelowym rendererze SVG.
