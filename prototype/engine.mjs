@@ -458,9 +458,21 @@ class Carver {
       // hundred legal heads, and the chance that the one drawn happens to give
       // a path passing the leftover test drops — and the generator undoes
       // hundreds of cuts instead of drawing again.
-      const pool = bias === 0 ? [...ranked] : ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 4)))
-      const tries = Math.min(Math.max(1, p.headTries), pool.length)
+      //
+      // QUARTERS. A biased cut draws from the first quarter of the ranked list
+      // (the shallowest lines for layers, the deepest for tunnels). If every
+      // try there fails, the next quarters are tried in turn before the
+      // direction is given up: in the endgame of a large board the shallowest
+      // lines are exactly the dead pockets at the frontier, while the heads of
+      // the regions of thousands of free cells sit in the deeper quarters —
+      // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
+      const quarter = Math.max(1, Math.ceil(ranked.length / 4))
+      const pools = bias === 0
+        ? [[...ranked]]
+        : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
+      for (const pool of pools) {
+      const tries = Math.min(Math.max(1, p.headTries), pool.length)
       for (let attempt = 0; attempt < tries && !carved; attempt++) {
       const pick = Math.floor(rng() * pool.length)
       const h = pool[pick]
@@ -643,6 +655,8 @@ class Carver {
       this.recomputeLines(path)
       this.touch(path)
       carved = true
+      }
+      if (carved) break
       }
       if (carved) return true
     }

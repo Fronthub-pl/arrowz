@@ -111,12 +111,13 @@ function fingerprint(board) {
 
 // Layers mode (headBias -1) is the setting that leans on absorbLeftover: it
 // leaves many leftover fragments and the generator tries to glue each one to a
-// neighbour's tail before every backtrack. These two boards were recorded
-// before the absorption search was optimised — the optimisation must not
-// change a single cell, only the time.
+// neighbour's tail before every backtrack. The boards are recorded so that an
+// optimisation of the search cannot change a single cell, only the time.
+// Recorded after the head-quarter fallback of round 9 (before it, seed 5 on
+// 200×200 needed a restart: 3514 pieces, fingerprint 6d2b542d).
 const LAYERS_GOLDEN = [
-  { W: 150, H: 150, seed: 7, restarts: 0, backtracks: 0, pieces: 2015, fp: '26d04035' },
-  { W: 200, H: 200, seed: 5, restarts: 1, backtracks: 0, pieces: 3514, fp: '6d2b542d' },
+  { W: 150, H: 150, seed: 7, restarts: 0, backtracks: 0, pieces: 2003, fp: '58c1b0ca' },
+  { W: 200, H: 200, seed: 5, restarts: 0, backtracks: 0, pieces: 3419, fp: 'ca001333' },
 ]
 
 test('generate: layers mode reproduces the recorded boards cell for cell', () => {
@@ -131,13 +132,26 @@ test('generate: layers mode reproduces the recorded boards cell for cell', () =>
   }
 })
 
-test('generate: layers mode on 200×200 with a restart finishes in under four seconds', () => {
-  // Before the optimisation: 8.5 s, of which three quarters in the absorption
-  // path search re-run from scratch for the same fragments before each of
-  // the 200 backtracks of the failed first attempt. After: ~2 s, of which
-  // absorption is ~12%; the rest is carving twice with 200 backtracks, which
-  // this test does not judge. The bound leaves a 2× margin for a slow machine
-  // and still fails on the old search.
+test('generate: layers mode closes 400×400 without restarts or backtracks', () => {
+  // Seed 5 used to fail after three restarts and seed 7 needed one: with
+  // piece start = layers the head pool was only the shallowest quarter of the
+  // legal heads, which in the endgame are the dead pockets at the frontier,
+  // so the regions of thousands of free cells were never tried (round 9).
+  for (const seed of [5, 7]) {
+    const r = generate({ W: 400, H: 400, seed, headBias: -1, restarts: 0 })
+    assert.equal(r.ok, true, `seed ${seed} did not close`)
+    assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
+    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+  }
+})
+
+test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', () => {
+  // Before the absorption search was optimised this seed took 8.5 s (a
+  // failed first attempt with 200 backtracks, three quarters of the time in
+  // the path search re-run for the same fragments); after it ~2 s; with the
+  // head-quarter fallback it closes in one attempt in well under a second.
+  // The bound leaves a wide margin for a slow machine and still fails on
+  // the old search.
   const t0 = performance.now()
   const r = generate({ W: 200, H: 200, seed: 5, headBias: -1 })
   const ms = performance.now() - t0

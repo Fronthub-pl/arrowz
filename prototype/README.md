@@ -409,8 +409,14 @@ can, and reaches deeper only when the shallow pockets are dead.
 | 1000×1000 seed 7 | fails after 4 attempts, 692 s | 0 / 0, 35 s, f0 0.0069 |
 
 f0 stays within noise of the current layers boards, so the look is not
-paid for. Not applied: the fallback changes the boards of every layers seed,
-so it needs the fingerprint tests re-recorded and a decision.
+paid for. **Applied** in `carveOne`: the fallback is symmetric, so tunnels
+(`headBias` 1) now move from the deepest quarter to the shallower ones too;
+their f0 on Nightmare 100×200 (seeds 1–5) stays within noise (0.0079 →
+0.0085, 0.0161 → 0.0159, 0.0174 → 0.0169, 0.0084 → 0.0084, 0.0110 → 0.0109)
+and their boards change (8 absorptions → 0 on seed 7 at 200×200). Boards with
+`headBias` 0 are untouched (200×200 seed 7: fingerprint `3a0a686` before and
+after). The fingerprint tests were re-recorded; `engine.test.mjs` also guards
+that layers close 400×400 on seeds 5 and 7 without a restart or a backtrack.
 
 **Before the refactor of round 9** the same seeds gave the same boards: the
 default 1000×1000 (seed 7) has fingerprint `32c62121` in both engines, and

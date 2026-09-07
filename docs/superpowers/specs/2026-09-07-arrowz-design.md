@@ -794,11 +794,13 @@ at 400×400 it took 149 s instead of 1.4 s, 86% of it in the leftover-absorption
 search, re-run from scratch for the same fragments before every backtrack. Memoising
 failed fragments (invalidated by per-cell change stamps) and an allocation-free search
 with the same order and budget brought it to ~7 s at 400×400 with the same board cell for
-cell (prototype round 9). At Insane, layers take ~3 minutes per attempt and **do not
-close within the default four attempts** (seed 7) — a closability limit, still open — so
-the configurator must refuse or warn about layers above 400×400, and the lab's Insane
-presets offer defaults, tunnels and a skeleton, not layers. The DOM-free core remains
-portable should the measurement on the target hardware turn out worse.
+cell (prototype round 9). That exposed a second problem: at Insane, layers did not close
+within four attempts, because a biased cut drew its head tries only from the first
+quarter of the ranked heads, which in the endgame are the dead pockets at the frontier.
+`carveOne` now falls through to the next quarters before giving up a direction; layers
+close 1000×1000 in ~35 s with zero backtracks, and 400×400 on every tested seed without a
+restart, at unchanged f0 (round 9). The DOM-free core remains portable should the
+measurement on the target hardware turn out worse.
 
 **Discrepancy to close:** the design assumed ~1 000 pieces with a mean length of 10 on
 Nightmare; the generator at the current weights gives ~1 900 with a mean of 5.2. The
@@ -1261,7 +1263,7 @@ through implementation.
 | One long line exhausts its direction's capacity and blocks further insertions | Balancing the four directions; an upper bound on the number of long pieces per direction, calibrated by benchmark |
 | A dozen or so long pieces occupy most of the area and the board looks like a set of spirals instead of a field of arrows | The long bucket's area share computed explicitly (§7), shown in the configurator, a warning above 25%, test 23 |
 | ~~Generating 100×100 freezes the interface~~ | **Closed by measurement:** 27 ms on Nightmare (§11) |
-| Generating Insane 1000×1000 takes tens of seconds, longer in layers mode | Generation in a Web Worker with progress and abort (§9); the configurator warns above Extreme; the absorption path search is memoised and allocation-free (prototype round 9), so layers are slower than the defaults but no longer pathological |
+| Generating Insane 1000×1000 takes tens of seconds, longer in layers mode | Generation in a Web Worker with progress and abort (§9); the configurator warns above Extreme; the absorption path search is memoised and allocation-free and biased cuts fall through the head quarters (prototype round 9), so layers close Insane in ~35 s with no backtracks |
 | An Insane run record (~86 000 moves) does not fit a Firestore document | Slice 10: the move list is bounded by `MAX_MOVES` and its storage format must be measured against the 1 MiB document limit before Insane is exposed on the leaderboard |
 | SVG does not keep up at ~1 000 paths or zoom stutters | The §11 performance budget measured early; the renderer behind an interface, swapping for Canvas does not touch the core |
 | The player loses a life while trying to pan the board | On desktop panning requires the ⌘/Ctrl modifier, so the decision is unambiguous, not threshold-based; on touch a distance threshold plus the requirement to release over the same piece (§11). Covered by an interaction test |
