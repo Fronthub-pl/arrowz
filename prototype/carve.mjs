@@ -476,6 +476,40 @@ function render(board) {
   return grid.map((r) => r.join('')).join('\n')
 }
 
+
+// ---------------------------------------------------------------- SVG
+
+// Podgląd do oceny wyglądu wzrokiem. Wariant monochromatyczny jest wierny
+// oryginałowi i jest właściwym testem CZYTELNOŚCI: gracz też musi odróżnić
+// elementy od siebie bez pomocy koloru.
+function toSvg(board, { cell = 16, colored = false } = {}) {
+  const { W, H, pieces } = board
+  const pad = cell
+  const sw = Math.round(cell * 0.5)
+  const w = W * cell + pad * 2, h = H * cell + pad * 2
+  const cx = (x) => pad + x * cell + cell / 2
+  const cy = (y) => pad + y * cell + cell / 2
+  const out = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
+    `<rect width="${w}" height="${h}" fill="#f6f6fa"/>`,
+    `<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`,
+  ]
+  const heads = []
+  pieces.forEach((pc, i) => {
+    const col = colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
+    const pts = pc.cells.map((c) => `${cx(c.x)},${cy(c.y)}`).join(' ')
+    out.push(`<polyline points="${pts}" stroke="${col}"/>`)
+    const { dx, dy } = DIRS[pc.dir]
+    const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
+    const tip = cell * 0.62, len = cell * 0.62, half = cell * 0.42
+    const tx = hx + dx * tip, ty = hy + dy * tip
+    const bx = tx - dx * len, by = ty - dy * len
+    heads.push(`<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`)
+  })
+  out.push('</g>', `<g>${heads.join('')}</g>`, '</svg>')
+  return out.join('\n')
+}
+
 // ------------------------------------------------------------------ main
 
 const arg = (k, dflt) => {
@@ -494,6 +528,22 @@ const presets = [
 const runs = arg('runs', 3)
 const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]
 
+const svgOut = process.argv.find((a) => a.startsWith('--svg='))?.split('=')[1]
+if (svgOut) {
+  const { writeFileSync } = await import('node:fs')
+  const W = arg('size', 25), H = arg('size', 25)
+  const params = { W, H, Lmax: Math.round(2.5 * Math.max(W, H)),
+    wShort: arg('wshort', 0.10), wMid: arg('wmid', 0.70),
+    pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: 0,
+    probe: 0, probeLen: 12, mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4) }
+  let c, ok = false, seed = arg('seed', 7)
+  for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
+  if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
+  const m = analyse(c)
+  writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored') }))
+  console.log(`${svgOut}  ${W}x${H} warns=${params.warns}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}%`)
+  process.exit(0)
+}
 const bench = arg('bench', 0)
 if (bench > 0) {
   console.log(`BENCHMARK — ${bench} przebiegów na poziom\n`)

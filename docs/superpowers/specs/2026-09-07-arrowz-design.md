@@ -538,7 +538,29 @@ skrętów z 1.84 do 4.48. Wcześniejsza obserwacja, że osiągana średnia jest 
 od zamawianej, była artefaktem reguły sztywnej translacji — przy jeździe po torze ciało
 nie ma ograniczeń geometrycznych, więc niemal nie utyka.
 
-Przyjęte wagi domyślne: **0.10 / 0.70 / 0.20**.
+Wagi **optymalne pod odporność** to `0.10 / 0.70 / 0.20`. Nie są jednak wagami
+przyjętymi — patrz niżej.
+
+### Wagi przyjęte: kalibracja wzrokowa wygrywa z optymalizacją
+
+Podgląd SVG (§11) pokazał, że wagi optymalne pod odporność dają planszę **rozwleczoną**:
+kilkadziesiąt długich, meandrujących linii i rzadko rozsiane groty. Referencyjny zrzut ma
+gęsto usiane groty **oraz** kilka bardzo długich linii — czyli rozkład o ciężkim ogonie,
+a nie przesunięty ku średnim długościom.
+
+| wagi | elem. (25×25) | śr. dł. | wygląd |
+|---|---|---|---|
+| 0.70 / 0.285 / 0.015 | 134 | 4.7 | gęste groty, prawie same krótkie haczyki |
+| **0.62 / 0.23 / 0.15** | **97** | **6.4** | **gęste groty plus długie meandry — jak w oryginale** |
+| 0.10 / 0.70 / 0.20 | 62 | 10.1 | rozwleczone, groty rzadkie |
+
+Przyjęte wagi domyślne: **0.62 / 0.23 / 0.15**. Cena jest zmierzona i akceptowalna:
+na Nightmare p99 czasu rośnie z 442 do 658 ms, a restarty z 6 do 15 na 30 przebiegów,
+przy zerowej liczbie porażek.
+
+Jest to świadoma decyzja: **optymalizowaliśmy nie tę wielkość, co trzeba**. Runda 3
+dobrała wagi pod ogon czasu generacji, bo tylko to dawało się wtedy zmierzyć. Dopiero
+render pokazał, że kosztem był wygląd — czyli to, po co ta gra istnieje.
 
 ### Siła Warnsdorffa: skręty kontra zwijanie
 
@@ -660,14 +682,18 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
 koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-Wartości zmierzone przy wagach `0.10 / 0.70 / 0.20` i sile Warnsdorffa 4 (§7).
+Wartości zmierzone przy przyjętych wagach `0.62 / 0.23 / 0.15` i sile Warnsdorffa 4 (§7).
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
-|---|---|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 625 | ~78 | 8.0 | 39 | 0.210 | 18% | 8 | 3.76 |
-| Medium | 50×50 | 2 500 | ~279 | 9.0 | 73 | 0.110 | 11% | 16 | 4.05 |
-| Hard | 75×75 | 5 625 | ~627 | 9.0 | 102 | 0.058 | 8% | 25 | 4.11 |
-| Nightmare | 100×100 | 10 000 | ~1 043 | 9.6 | 164 | 0.047 | 6% | 34 | 4.48 |
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem | zwinięcie |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~119 | 5.3 | 30 | 0.209 | 17% | 9 | 2.04 | 20% |
+| Medium | 50×50 | 2 500 | ~402 | 6.2 | 70 | 0.115 | 13% | 18 | 2.53 | 29% |
+| Hard | 75×75 | 5 625 | ~878 | 6.4 | 88 | 0.072 | 10% | 29 | 2.65 | 30% |
+| Nightmare | 100×100 | 10 000 | ~1 586 | 6.3 | 195 | 0.056 | 6% | 34 | 2.59 | 29% |
+
+Rozkład długości trafia w kształt referencyjny: ~78% elementów ma 2–6 komórek, ~18% ma
+7–15, a ~1% przekracza 50 — przy najdłuższym elemencie sięgającym 195 komórek na
+Nightmare.
 
 Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w opadający
 ciąg bez dodatkowego sterowania — sam rozmiar planszy wystarcza za regulator trudności,
@@ -688,7 +714,7 @@ Czas ma rozkład skrajnie ciężkoogonowy — mediana jest nieinformatywna, znac
 | Easy | 1 ms | 2 ms | 281 ms | 281 ms | 0/100 |
 | Medium | 5 ms | 15 ms | 324 ms | 324 ms | 0/100 |
 | Hard | 12 ms | 353 ms | 863 ms | 863 ms | 0/60 |
-| Nightmare | 17 ms | 316 ms | 442 ms | 442 ms | 0/30 |
+| Nightmare | 21 ms | 481 ms | 658 ms | 658 ms | 0/30 |
 
 Nigdy nie odnotowano porażki generacji przy dopuszczonych pięciu restartach. Ogon rzędu
 pół sekundy oznacza, że **wskaźnik ładowania jest potrzebny** (pokazywany po ~200 ms),
@@ -833,8 +859,20 @@ jest jako `<path>` z grubą linią, zaokrąglonymi łączeniami i grotem na koń
 Trafienie: współrzędne wskaźnika → komórka → `occupancy` → id elementu, więc obsługa
 myszy i dotyku jest wspólna.
 
-Grafika MVP jest **placeholderem**: czytelna, monochromatyczna, bez dopracowanej palety
-i typografii. Główny ekran to wybór jednego z czterech poziomów oraz wariantu
+Grafika MVP jest **placeholderem**, ale parametry rysowania są już zweryfikowane
+podglądem (`prototype/carve.mjs --svg=...`) i dają wygląd zgodny z referencją:
+
+| Parametr | Wartość |
+|---|---|
+| element | jedna `<polyline>` przez środki komórek |
+| grubość linii | 50% podziałki siatki |
+| zakończenia i łączenia | `round` — to one dają charakterystyczne zaokrąglone narożniki |
+| grot | wypełniony trójkąt na komórce głowy, długość i szerokość ~0.6 podziałki |
+| kolory | linie `#232447` na tle `#f6f6fa` |
+
+**Monochromatyczność jest częścią zadania, nie oszczędnością.** Gracz musi odróżnić
+elementy od siebie bez pomocy koloru — dokładnie to jest źródłem trudności percepcyjnej
+z §9. Kolorowanie per element istnieje w podglądzie wyłącznie jako tryb diagnostyczny. Główny ekran to wybór jednego z czterech poziomów oraz wariantu
 (klasyczny albo na czas). Nad planszą pasek stanu: trzy serca, stoper i aktualna seria
 bezbłędnych ruchów; obok przycisk nowej gry.
 
