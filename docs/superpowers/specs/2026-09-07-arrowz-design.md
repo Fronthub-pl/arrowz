@@ -20,7 +20,9 @@ W zakresie:
   liczbę linii, stopień połamania i długość maksymalną,
 - **zoom i przesuwanie planszy** — 100×100 to 10 000 komórek, nie mieści się czytelnie
   na żadnym ekranie,
-- stoper, licznik serii bezbłędnych ruchów i punktacja z mnożnikiem,
+- stoper, licznik serii bezbłędnych ruchów oraz punktacja przyznawana za ukończoną
+  planszę, liczona ze złożoności planszy, zachowanych żyć i czasu,
+- dwa warianty rozgrywki: klasyczny i na czas (czas premiuje, nigdy nie ogranicza),
 - ekrany wygranej i przegranej, przycisk nowej gry,
 - grafika placeholder (czytelna, ale bez dopracowanego stylu),
 - PWA: manifest i service worker, gra działa offline.
@@ -154,6 +156,7 @@ type Board = {
   height: number
   occupancy: Int32Array   // długość width*height, -1 = puste, inaczej id elementu
   pieces: Map<number, Piece>
+  metrics: BoardMetrics   // f0, T2, Tconc, D, meanCorridorLen, N — patrz §9
 }
 ```
 
@@ -470,6 +473,7 @@ potrafi szybko odczytać z ekranu — i stąd bierze się cała trudność gry.
 | `T_k` | elementy zablokowane, których korytarz jest „czysty" przez pierwsze `k` komórek — bloker leży daleko, poza polem widzenia gracza |
 | `T_conc` | elementy zablokowane we własnej wklęsłości (kształty U, S) |
 | `D` | głębokość grafu blokowania (najdłuższa ścieżka) |
+| `meanCorridorLen` | średnia długość korytarza — jak daleko trzeba wodzić wzrokiem, by ocenić jeden ruch |
 | `minFree` | minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych |
 
 `T_k` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia, czyli to, co
@@ -477,6 +481,13 @@ faktycznie odbiera życia. `minFree` jest w MVP metryką **diagnostyczną** — 
 w benchmarku, ale niewchodzącą do progów akceptacji, bo jej kalibracja wymaga playtestu.
 
 Wszystkie metryki są tanie; jedyna stochastyczna to `minFree`.
+
+`meanCorridorLen` **nie jest progiem trudności** — do tego jest słaba, bo mierzy długość,
+a nie zwodniczość. Wchodzi natomiast do formuły punktacji (§10) jako miara wysiłku.
+
+**Metryki podróżują razem z planszą.** Nie są danymi wyłącznie benchmarkowymi: `Board`
+niesie swój `BoardMetrics`, bo punktacja (§10) liczy się ze złożoności konkretnej
+wygenerowanej planszy, a nie z etykiety poziomu.
 
 ### Parametry poziomów
 
@@ -515,9 +526,10 @@ type Session = {
   removed: number
   startedAt: number      // znacznik czasu przekazany z zewnątrz
   elapsedMs: number
-  streak: number         // seria kolejnych bezbłędnych ruchów
+  mode: 'classic' | 'timed'
+  streak: number         // seria kolejnych bezbłędnych ruchów; informacja, nie punkty
   bestStreak: number
-  score: number
+  score: number          // 0 przez całą rozgrywkę; wyliczany raz, przy przejściu na 'won'
 }
 
 type Action =
@@ -533,8 +545,9 @@ type Effect =
 reduce(session: Session, action: Action): { next: Session; effect: Effect }
 ```
 
-Kliknięcie elementu wolnego usuwa go z planszy, zwiększa `streak` i dolicza punkty; gdy
-plansza jest pusta, `status` staje się `won`. Kliknięcie elementu zablokowanego zostawia
+Kliknięcie elementu wolnego usuwa go z planszy i zwiększa `streak`; **punktów nie
+dolicza**. Gdy plansza jest pusta, `status` staje się `won` i dopiero wtedy reduktor
+wylicza `score` z formuły poniżej. Kliknięcie elementu zablokowanego zostawia
 go na miejscu, zeruje `streak` i zmniejsza `lives`; przy zerze `status` staje się
 `lost`. Reduktor zwraca `effect` — gotowe polecenie dla renderera, z odległością
 odbicia włącznie, żeby warstwa wizualna nie musiała niczego wnioskować sama.
@@ -542,24 +555,75 @@ odbicia włącznie, żeby warstwa wizualna nie musiała niczego wnioskować sama
 Wielokrotne kliknięcie tego samego zablokowanego elementu odejmuje życie za każdym
 razem. Decyzja świadoma i pokryta testem.
 
-### Czas i punktacja
+### Czas
 
 **Czas nie jest odczytywany wewnątrz reduktora.** Znacznik `at` wchodzi jako pole akcji,
 a `elapsedMs` jest z niego wyliczane. Gdyby reduktor sięgał po zegar sam, przestałby być
 czysty, a testy przestałyby być deterministyczne — dlatego istnieje osobna akcja `tick`,
 którą warstwa UI wysyła w rytmie odświeżania stopera.
 
-Punktacja premiuje serie bezbłędnych ruchów:
+Wariant na czas **nie narzuca graczowi limitu**. Stoper wyłącznie mierzy; wpływa na
+premię w wyniku końcowym, nigdy na przegraną.
+
+### Punktacja
+
+**Punkty przyznawane są wyłącznie za ukończoną planszę.** Usunięcie pojedynczego
+elementu nie daje nic; wynik pojawia się na koncie gracza dopiero po wyczyszczeniu
+planszy. Przegrana to zero punktów, niezależnie od tego, ile elementów zdjęto.
+
+Wynik zależy od czterech rzeczy: złożoności planszy, zachowanych żyć, a w wariancie na
+czas także czasu ukończenia. Poziom trudności nie jest osobnym czynnikiem — jest
+**pochodną złożoności**, bo trudniejszy poziom generuje planszę o wyższych metrykach.
+
+#### Dlaczego złożoność, a nie etykieta poziomu
+
+Konfigurator (§11) pozwala graczowi ustawić własne parametry, więc etykieta „Nightmare"
+przestaje cokolwiek gwarantować. Punktacja oparta na nazwie poziomu byłaby trywialna do
+obejścia: wystarczyłoby ustawić planszę 5×5 i zbierać punkty za „Nightmare". Dlatego
+podstawą jest **złożoność zmierzona na konkretnej wygenerowanej planszy**.
+
+Wymaga to, by metryki z §9 przestały być danymi wyłącznie benchmarkowymi i podróżowały
+razem z planszą do rozgrywki — `Board` niesie swój `BoardMetrics`, a sesja korzysta
+z nich przy liczeniu wyniku.
+
+#### Formuła
 
 ```
-mnożnik = min(1 + floor(streak / 10), 5)
-punkty za usunięcie elementu = 10 × mnożnik
-błędne kliknięcie: streak = 0, mnożnik wraca do 1
+complexity =
+    (W · H) / 100                                  // rozmiar zadania
+  × (1 + w_f · (1 − f0))                           // ciasnota startu
+  × (1 + w_t · T₂ / N)                             // gęstość pułapek
+  × (1 + w_c · meanCorridorLen / max(W, H))        // jak daleko trzeba wodzić wzrokiem
+  × (1 + w_d · D / sqrt(W · H))                    // głębokość zaplątania
+
+livesBonus = 1 + 0.25 · livesLeft                  // 1.00 … 1.75
+timeBonus  = clamp(refTime / elapsed, 0.6, 1.6)    // tylko w wariancie na czas
+refTime    = N · t_piece
+
+score = round(complexity × livesBonus × timeBonus)
 ```
 
-Mnożnik rośnie co dziesięć czystych ruchów i jest ograniczony piątką, żeby przy ~1 000
-elementach wynik nie eksplodował. Stałe `10`, `10` i `5` są parametrami do strojenia —
-formuła jest w jednym miejscu i pokryta testem.
+Podstawa skaluje się z **powierzchnią planszy**, a nie z liczbą elementów. To celowe:
+gdyby punkty rosły z liczbą kliknięć, plansza 100×100 złożona z samych elementów
+jednokomórkowych — nużąca, ale banalna — punktowałaby najwyżej ze wszystkich.
+Powierzchnia jest tym, czego gracz nie zawyży bez podjęcia realnie większego zadania,
+a mnożniki mierzą **trudność na klik**.
+
+Każdy mnożnik jest ograniczony z góry, więc żaden pojedynczy parametr nie rozsadza
+wyniku. Wagi `w_f`, `w_t`, `w_c`, `w_d` oraz `t_piece` są **kalibrowane benchmarkiem**
+tak, by cztery presety układały się w rosnący ciąg, a plansze zdegenerowane wypadały
+wyraźnie niżej. Formuła mieszka w jednym module i jest pokryta testami (§12).
+
+`meanCorridorLen` wraca tu jako metryka po tym, jak §9 odrzuciło ją jako **próg
+trudności**. Do progów była słaba, bo mierzyła długość, a nie zwodniczość. Jako miara
+**wysiłku** jest jednak trafna: mówi, jak daleko gracz musi prowadzić wzrok, żeby ocenić
+jeden ruch.
+
+#### Seria bezbłędnych ruchów
+
+`streak` i `bestStreak` pozostają w sesji i na pasku stanu jako **informacja zwrotna na
+żywo**, ale nie wchodzą do wyniku — liczba błędów jest już reprezentowana przez
+`livesLeft`, a dokładanie drugiego czynnika za to samo podwójnie karałoby pomyłki.
 
 ## 11. Renderowanie i UI
 
@@ -570,9 +634,14 @@ Trafienie: współrzędne wskaźnika → komórka → `occupancy` → id element
 myszy i dotyku jest wspólna.
 
 Grafika MVP jest **placeholderem**: czytelna, monochromatyczna, bez dopracowanej palety
-i typografii. Główny ekran to wybór jednego z czterech poziomów. Nad planszą pasek
-stanu: trzy serca, stoper, aktualna seria z mnożnikiem i wynik; obok przycisk nowej gry.
-Mnożnik jest wyróżniony przy zmianie, bo to jedyny sygnał, że seria coś daje.
+i typografii. Główny ekran to wybór jednego z czterech poziomów oraz wariantu
+(klasyczny albo na czas). Nad planszą pasek stanu: trzy serca, stoper i aktualna seria
+bezbłędnych ruchów; obok przycisk nowej gry.
+
+**Wyniku nie ma na pasku podczas gry** — punkty przyznaje się dopiero za ukończoną
+planszę (§10). Ekran wygranej pokazuje rozbicie: złożoność planszy, premię za zachowane
+życia i, w wariancie na czas, premię czasową. Rozbicie jest ważniejsze niż sama liczba:
+bez niego gracz nie ma jak zrozumieć, dlaczego dostał tyle, a nie inaczej.
 
 ### Widok: zoom i przesuwanie
 
@@ -688,8 +757,21 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 25. Gdy blokerów jest kilka, `distance` odpowiada **najbliższemu**, a `blockerId`
     wskazuje właśnie ten element.
 26. Seria: rośnie przy kolejnych trafnych ruchach, zeruje się przy błędzie, `bestStreak`
-    zapamiętuje maksimum. Mnożnik przeskakuje dokładnie na 10., 20., 30. i 40. ruchu
-    serii i zatrzymuje się na 5.
+    zapamiętuje maksimum. Nie wpływa na `score`.
+26a. **`score` pozostaje zerem przez całą rozgrywkę** i zmienia się dokładnie raz, przy
+    przejściu na `won`. Usunięcie elementu nie zmienia wyniku.
+26b. **Przegrana daje zero punktów**, choćby gracz zdjął wszystkie elementy poza jednym.
+26c. Monotoniczność: ta sama plansza ukończona z większą liczbą żyć daje wynik nie
+    mniejszy; w wariancie na czas ukończona szybciej — nie mniejszy.
+26d. Premia czasowa jest ograniczona z obu stron: bardzo szybkie i bardzo wolne
+    ukończenie dają wartości na krańcach przedziału, nie poza nim. W wariancie
+    klasycznym czas nie wpływa na wynik w ogóle.
+26e. **Test antyeksploatacyjny:** plansza 100×100 złożona z samych elementów
+    jednokomórkowych punktuje wyraźnie niżej niż plansza Nightmare o tym samym
+    rozmiarze. To jest test, który pilnuje, żeby punktacja mierzyła trudność, a nie
+    liczbę kliknięć — i który wypadnie oblać przy każdej nieostrożnej zmianie wag.
+26f. Wynik jest funkcją czystą: te same metryki planszy, te same życia i ten sam czas
+    dają ten sam wynik, niezależnie od przebiegu rozgrywki.
 27. Reduktor jest deterministyczny względem czasu: ta sama sekwencja akcji z tymi samymi
     znacznikami `at` daje identyczny `elapsedMs` i wynik, niezależnie od zegara
     systemowego. Test nie może potrzebować atrap zegara — jeśli potrzebuje, reduktor
@@ -756,6 +838,8 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
 | Elementów jednokomórkowych powstaje tak dużo, że plansza wygląda jak zbiór kropek | Heurystyka „nie osieracaj" przy wzroście ścieżki; liczba raportowana przez generator i pilnowana testem |
 | Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
+| Gracz farmi punkty planszą zdegenerowaną z konfiguratora (ogromna, ale banalna) | Podstawa punktacji skaluje się z powierzchnią, nie z liczbą kliknięć; mnożniki mierzą trudność na klik; test antyeksploatacyjny 26e |
+| Wagi punktacji dobrane tak, że presety nie układają się w rosnący ciąg | Kalibracja benchmarkiem na wszystkich czterech presetach; formuła w jednym module |
 | Generacja zawiesza się przy trudnych parametrach | Twardy limit prób; po jego wyczerpaniu oddajemy najlepszy wynik |
 | Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
 | Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
