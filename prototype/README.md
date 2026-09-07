@@ -330,14 +330,46 @@ Measured (seed 7, one run each, Node 24):
 | defaults | 1.4 s | ~10 s, 85 764 pieces, f0 0.006 |
 | layers (`headBias` -1) | **149 s** | **> 10 min** (53% carved after 610 s, aborted) |
 
-A CPU profile of layers at 400×400 puts **86% of the time in the recursive
+A CPU profile of layers at 400×400 put **86% of the time in the recursive
 `dfs` inside `absorbLeftover`** and 6% in its neighbour helper: layers leave
 many leftover fragments, and every candidate anchor burns a 20 000-node
 search that allocates a `Set`, arrays and a sort per node, after a full-board
 scan per call. The default knobs do not hit this path (95 absorptions on a
-million cells), which is why they scale linearly. Not fixed in this round —
-it is the first target if layers or skeletons at Insane are ever needed fast.
-The Rust question was measured on the way: the default hot path
-(`hasLocalDefect`, `wouldStrand`) is already typed-array loops, so a rewrite
-would buy 2–5×, not the 100× the absorption search needs from an algorithmic
-fix.
+million cells), which is why they scale linearly. The Rust question was
+measured on the way: the default hot path (`hasLocalDefect`, `wouldStrand`)
+is already typed-array loops, so a rewrite would buy 2–5×, not the 100× the
+absorption search needs from an algorithmic fix.
+
+**The fix — same board, a fraction of the time.** The real multiplier was not
+the search itself but its repetition: `absorbLeftover` runs before every
+backtrack (up to 200 per attempt), each time re-scanning every fragment and
+re-failing the same searches. Two changes, both preserving the exact search
+order and budget so that the same seed yields the same board:
+
+1. **Memo of failed fragments.** Every change of a cell's owner (carve, undo,
+   absorb) stamps the cell with a version; a piece whose tail was rewritten
+   by an absorption gets a tail version. A fragment is identified by its
+   smallest cell index; if neither its cells, nor their neighbours, nor any
+   candidate tail changed since its last failed attempt, it is skipped.
+2. **Allocation-free search** (`absorbPath`): region and used-cell membership
+   are stamps in typed arrays, the per-depth Warnsdorff candidates live in one
+   preallocated buffer with a stable insertion sort (ties in `DIRS` order,
+   like the stable `Array.sort` before it).
+
+Guarded by `engine.test.mjs`: two layers-mode boards (150×150 seed 7,
+200×200 seed 5 with a restart) recorded as FNV fingerprints of the owner grid
+and piece cell sequences before the change, plus a time bound.
+
+| layers (`headBias` -1), seed 7 unless noted | before | after |
+|---|---|---|
+| 200×200 seed 5 (restart, 200 backtracks) | 8.5 s | 2.1 s (absorption ~12%) |
+| 400×400 | 149 s (172 s in the equivalence run) | 6.7 s, same fingerprint |
+| 1000×1000 | > 20 min for the first attempt (aborted at 54%) | ~3 min per attempt |
+
+**Open — layers do not close at Insane.** With the fast search the 1000×1000
+run finally reaches the end: four attempts (the default restart budget) in
+692 s, 11 179 absorptions, and the board does **not** close. At 400×400 the
+same knob needs one restart; at a million cells the restart budget is not
+enough. This is a closability limit of layers mode, not a speed limit, and it
+was not investigated here. Until it is, layers above 400×400 stay flagged as
+unsupported in the lab and the configurator.

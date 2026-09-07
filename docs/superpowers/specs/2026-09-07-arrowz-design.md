@@ -789,10 +789,15 @@ the order of half a second means that **a loading indicator is needed** (shown a
 ~200 ms). Up to Extreme, moving generation to a Web Worker is a convenience; **at Insane
 it is mandatory**: a single run takes ~10 s in Node and ~27 s in a Chrome worker, so the
 generator must run off the main thread, report progress and be abortable (the prototype
-lab already does all three). Two knob settings make Insane take minutes rather than
-seconds: piece start = layers (`headBias` -1; at 400×400 already 149 s instead of 1.4 s,
-86% of it in the leftover-absorption path search) and a skeleton on top of layers. The
-configurator must warn about these combinations above Extreme. The DOM-free core remains
+lab already does all three). Piece start = layers (`headBias` -1) is the slow setting:
+at 400×400 it took 149 s instead of 1.4 s, 86% of it in the leftover-absorption path
+search, re-run from scratch for the same fragments before every backtrack. Memoising
+failed fragments (invalidated by per-cell change stamps) and an allocation-free search
+with the same order and budget brought it to ~7 s at 400×400 with the same board cell for
+cell (prototype round 9). At Insane, layers take ~3 minutes per attempt and **do not
+close within the default four attempts** (seed 7) — a closability limit, still open — so
+the configurator must refuse or warn about layers above 400×400, and the lab's Insane
+presets offer defaults, tunnels and a skeleton, not layers. The DOM-free core remains
 portable should the measurement on the target hardware turn out worse.
 
 **Discrepancy to close:** the design assumed ~1 000 pieces with a mean length of 10 on
@@ -1222,8 +1227,11 @@ cycle on Nightmare: **27 ms of generation and 14 ms of metrics** (§11). The mar
 large that these structures are struck from the design, not deferred. If they ever
 return, they will return on the basis of a profile, not a hunch. The first such profile
 exists: raising the ceiling to Insane 1000×1000 showed that the default knobs scale
-linearly (~10 s), while layers mode spends 86% of its time in the leftover-absorption
-path search (§9) — that function, not the carving loop, is where any optimisation starts.
+linearly (~10 s), while layers mode spent 86% of its time in the leftover-absorption
+path search (§9). That function was optimised on the strength of the profile — a memo
+of failed fragments plus an allocation-free search — with a fixed-seed fingerprint test
+guaranteeing the same board before and after. After it, absorption is ~20% of layers
+mode and the carving loop itself is the largest item again.
 
 **A rule change that changes the game's character.** The current rules give no planning
 depth. If it were ever desired, the rules would have to change — for example "the piece
@@ -1253,7 +1261,7 @@ through implementation.
 | One long line exhausts its direction's capacity and blocks further insertions | Balancing the four directions; an upper bound on the number of long pieces per direction, calibrated by benchmark |
 | A dozen or so long pieces occupy most of the area and the board looks like a set of spirals instead of a field of arrows | The long bucket's area share computed explicitly (§7), shown in the configurator, a warning above 25%, test 23 |
 | ~~Generating 100×100 freezes the interface~~ | **Closed by measurement:** 27 ms on Nightmare (§11) |
-| Generating Insane 1000×1000 takes tens of seconds, minutes in layers mode | Generation in a Web Worker with progress and abort (§9); the configurator warns above Extreme; layers and skeleton at Insane are flagged as slow until the absorption path search is optimised |
+| Generating Insane 1000×1000 takes tens of seconds, longer in layers mode | Generation in a Web Worker with progress and abort (§9); the configurator warns above Extreme; the absorption path search is memoised and allocation-free (prototype round 9), so layers are slower than the defaults but no longer pathological |
 | An Insane run record (~86 000 moves) does not fit a Firestore document | Slice 10: the move list is bounded by `MAX_MOVES` and its storage format must be measured against the 1 MiB document limit before Insane is exposed on the leaderboard |
 | SVG does not keep up at ~1 000 paths or zoom stutters | The §11 performance budget measured early; the renderer behind an interface, swapping for Canvas does not touch the core |
 | The player loses a life while trying to pan the board | On desktop panning requires the ⌘/Ctrl modifier, so the decision is unambiguous, not threshold-based; on touch a distance threshold plus the requirement to release over the same piece (§11). Covered by an interaction test |
