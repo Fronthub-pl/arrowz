@@ -15,7 +15,11 @@ W zakresie:
 
 - generowana proceduralnie plansza z gwarancją rozwiązywalności,
 - klikanie elementów, walidacja ruchu, trzy życia,
-- cztery poziomy trudności (Easy / Medium / Hard / Nightmare),
+- cztery poziomy trudności (Easy 25×25, Medium 50×50, Hard 75×75, Nightmare 100×100),
+- **konfigurator plansz jako tryb zaawansowany**: gracz sam ustawia rozmiar planszy,
+  liczbę linii, stopień połamania i długość maksymalną,
+- **zoom i przesuwanie planszy** — 100×100 to 10 000 komórek, nie mieści się czytelnie
+  na żadnym ekranie,
 - ekrany wygranej i przegranej, przycisk nowej gry,
 - grafika placeholder (czytelna, ale bez dopracowanego stylu),
 - PWA: manifest i service worker, gra działa offline.
@@ -32,8 +36,8 @@ Plansza to prostokątna siatka `W × H` komórek. Leży na niej `N` **elementów
 
 Element to **samounikająca się polilinia**: spójna ścieżka po komórkach siatki,
 poruszająca się wyłącznie ortogonalnie, nieodwiedzająca żadnej komórki dwukrotnie.
-Długość waha się od 2 komórek do kilkudziesięciu — najdłuższe elementy przecinają
-niemal całą planszę na wskroś. Rozkład długości jest **ciężkoogonowy**: dominują
+Długość waha się od 2 komórek do kilkuset — najdłuższe elementy przecinają planszę na
+wskroś wielokrotnie, w tę i z powrotem. Rozkład długości jest **ciężkoogonowy**: dominują
 krótkie kształty, ale mniejszość bardzo długich, wijących się linii nadaje planszy jej
 charakter. Model rozkładu opisuje §7. Na jednym końcu ścieżki znajduje się grot.
 
@@ -79,9 +83,11 @@ Odrzucone warianty:
   testów subtelne błędy generatora byłyby łapane ręcznie w przeglądarce.
 
 SVG zamiast Canvas: przy siatce trafienie w element to `piksel → komórka → id`, więc
-żadna technologia nie ma przewagi w hit-testingu, a SVG daje darmowe animacje CSS
-przy wyjeżdżaniu elementu. Renderer jest jednak za interfejsem, więc wymiana na Canvas
-nie dotyka rdzenia.
+żadna technologia nie ma przewagi w hit-testingu, a SVG daje darmowe animacje CSS przy
+wyjeżdżaniu elementu oraz zoom i przesuwanie przez samą zmianę `viewBox`, bez
+przerysowywania. Przy ~920 ścieżkach Nightmare to wciąż rozsądny wybór, ale margines
+jest już cienki, więc §11 definiuje budżet wydajności, a renderer stoi za interfejsem —
+wymiana na Canvas nie dotyka rdzenia.
 
 ## 4. Architektura
 
@@ -100,13 +106,21 @@ src/
   render/
     renderer.ts      interfejs renderera
     svgRenderer.ts   implementacja SVG + mapowanie kliknięcia na id elementu
+    viewport.ts      zoom i przesuwanie: transformacja ekran ↔ komórka
   ui/
-    app.ts           powłoka: wybór trudności, serca, ekrany końcowe
+    app.ts           powłoka: wybór poziomu, serca, ekrany końcowe
+    configurator.ts  tryb zaawansowany: edycja parametrów generatora
+  workers/
+    generate.worker.ts  generacja poza głównym wątkiem
   main.ts            spięcie
 ```
 
 Zasada nadrzędna: `core/` i `game/` nie importują niczego z `render/` ani `ui/` i nie
-dotykają DOM. Dzięki temu cała logika i generator uruchamiają się w Node.
+dotykają DOM. Dzięki temu cała logika i generator uruchamiają się w Node — a także,
+bez żadnej zmiany, w Web Workerze. Przy planszy 100×100 generacja z pętlą odrzucania
+po metrykach potrwa zauważalnie długo, więc musi iść poza główny wątek, żeby interfejs
+nie zamarzał. Czysty rdzeń daje to za darmo; gdyby rdzeń dotykał DOM, byłoby to
+przepisywanie modułu.
 
 ## 5. Model danych
 
@@ -129,7 +143,35 @@ type Board = {
 ```
 
 Uwaga implementacyjna: `occupancy` jest `Int32Array`, nie `Int8Array` — plansza
-Nightmare może mieć więcej niż 127 elementów.
+Nightmare ma ~920 elementów, więc `Int8Array` przepełniłby się siedmiokrotnie.
+Przy 10 000 komórek zajmuje 40 kB, co jest bez znaczenia.
+
+Parametry generatora są **jedną strukturą**, wspólną dla presetów i konfiguratora:
+
+```ts
+type GeneratorParams = {
+  width: number
+  height: number
+  pieceCount: number      // ile linii; wypełnienie wynika z niego i z długości
+  maxLength: number       // Lmax
+  straightBias: number    // p_s ∈ [0,1]; „stopień połamania" w UI to 1 - p_s
+  bucketWeights: [short: number, medium: number, long: number]
+  seed: number
+}
+
+type GenerationReport = {          // co faktycznie osiągnięto
+  params: GeneratorParams
+  actualPieceCount: number
+  actualFill: number
+  lengthHistogram: number[]
+  longAreaShare: number
+  attemptsUsed: number
+}
+```
+
+Presety Easy–Nightmare to nazwane instancje `GeneratorParams`, nie osobna gałąź kodu.
+`GenerationReport` istnieje, bo geometria potrafi odmówić i różnica między zamówieniem
+a wykonaniem musi być widoczna, a nie ukryta (§11).
 
 Ciało elementu leży **za** grotem: dla grotu w `(5,3)` i `dir = prawo` kolejna komórka
 ścieżki to `(4,3)`, nie `(6,3)`. To najczęstszy błąd znaku w tym module.
@@ -241,18 +283,39 @@ kolejności ścieżki.
 ### Rozkład długości i kolejność wstawiania
 
 Długość jest głównym parametrem charakteru planszy, więc opisujemy ją wprost.
-`Lmax = round(κ · max(W, H))`, gdzie `κ` rośnie z trudnością (1.0–1.5); element może
-być dłuższy niż bok planszy, bo się wije. Długość losujemy z **rozkładu mieszanego**
-o trzech koszykach, których wagi są parametrem trudności:
+`Lmax = round(κ · max(W, H))`, gdzie `κ ≈ 2–3`; element może być wielokrotnie dłuższy
+niż bok planszy, bo się wije. Długość losujemy z **rozkładu mieszanego** o trzech
+koszykach, których wagi są parametrem trudności:
 
-| Koszyk | Długość | Rola |
-|---|---|---|
-| krótkie | 2–6 | wypełniacz, domyka gęstość |
-| średnie | 7–15 | typowe zawijasy, główna masa planszy |
-| długie | 16–`Lmax` | szkielet planszy, przecinają ją na wskroś |
+| Koszyk | Długość | Rozkład | Rola |
+|---|---|---|---|
+| krótkie | 2–6 | jednostajny | wypełniacz, domyka gęstość |
+| średnie | 7–15 | jednostajny | typowe zawijasy, główna masa planszy |
+| długie | 16–`Lmax` | **log-jednostajny** | szkielet planszy, przecinają ją na wskroś |
 
-Bias prostoliniowy `p_s ≈ 0.75` daje charakterystyczny wygląd: długie proste odcinki
-przerywane skrętami o 90°, a nie gęsty zygzak.
+W koszyku długim rozkład jest log-jednostajny, a nie jednostajny: przy `Lmax = 300`
+jednostajny dawałby średnią 158 komórek, czyli same potwory. Log-jednostajny daje
+średnią ~97 i rozkłada masę równomiernie po rzędach wielkości, więc powstają zarówno
+elementy 20-komórkowe, jak i 250-komórkowe.
+
+**Ograniczenie, o którym łatwo zapomnieć: `Lmax` i waga koszyka długiego nie są
+niezależne.** Iloczyn `waga · średnia długość / średnia długość ogółem` to udział
+powierzchni planszy zajęty przez długie elementy. Przy `Lmax = 300` i wadze 8% czternaście
+węży zajęłoby **60% wypełnienia** — plansza byłaby kilkoma spiralami, a nie polem
+strzałek. Dlatego przy dużym `Lmax` waga musi spaść do 0.5–1.5%. Konfigurator (§11)
+liczy ten udział na żywo i ostrzega, gdy przekroczy ~25%.
+
+Bias prostoliniowy `p_s ≈ 0.75` (w konfiguratorze: „stopień połamania" = `1 − p_s`)
+daje charakterystyczny wygląd: długie proste odcinki przerywane skrętami o 90°, a nie
+gęsty zygzak.
+
+**Połamanie steruje rozmiarem korytarza, nie tylko wyglądem.** Korytarz zależy od liczby
+linii, które element przecina w poprzek, a nie od jego długości. Wąż o 300 komórkach
+zwinięty w ciasną spiralę przecina może 20 kolumn i wchodzi łatwo; ten sam wąż
+poprowadzony prosto przecina 100 kolumn i wymaga, by cała plansza nad nim była pusta.
+W konfiguratorze te dwa suwaki oddziałują więc na siebie: mocno połamane i długie jest
+łatwe do wygenerowania, proste i długie bywa niewykonalne. Interfejs musi pokazywać, co
+generator faktycznie osiągnął, a nie tylko, o co go poproszono.
 
 **Długie elementy muszą wchodzić wcześnie.** Element wchodzi tylko wtedy, gdy
 wszystkie jego komórki leżą w `S_d`, a `S_d` kurczy się monotonicznie z każdym
@@ -286,13 +349,20 @@ elementów przy krawędziach, wszystkie wolne, zdejmowaną warstwa po warstwie. 
 
 Trzy mechanizmy, wszystkie mieszczące się w powyższej procedurze:
 
-1. **Korki.** Utrzymuj `cover[c]` = liczba **aktualnie wolnych** elementów, których
-   korytarz zawiera `c`. Waga `1 + α·cover[c]` kieruje nowe elementy w korytarze
-   wolnych elementów. Nowy element jest wolny (`+1`), ale unieruchamia `m` przeciętych
-   (`−m`). Bilans `1 − m`: przy `m ≥ 2` liczba wolnych ruchów spada, przy `m = 1`
-   powstaje łańcuch wymuszony. Jest to zwykłe ostatnie wstawienie, więc gwarancja
-   rozwiązywalności pozostaje nienaruszona. Daje to pętlę post-processingu:
-   `dopóki f0 > cel: wstaw korek maksymalizujący m`.
+1. **Korki — jako osobna faza po generacji, nie jako waga w pętli.** Niech `cover[c]` =
+   liczba **aktualnie wolnych** elementów, których korytarz zawiera `c`. Korek to
+   element wstawiony celowo w korytarze wolnych elementów: sam jest wolny (`+1`), ale
+   unieruchamia `m` przeciętych (`−m`). Bilans `1 − m`: przy `m ≥ 2` liczba wolnych
+   ruchów spada, przy `m = 1` powstaje łańcuch wymuszony. Korek to zwykłe ostatnie
+   wstawienie, więc gwarancja rozwiązywalności pozostaje nienaruszona.
+
+   Pierwotnie projektowaliśmy to jako wagę `1 + α·cover[c]` przy każdym wstawieniu.
+   Przy planszy 100×100 i ~920 elementach o korytarzach po ~150 komórek utrzymywanie
+   `cover` na bieżąco to rząd 10⁸ operacji — nie do przyjęcia. Dlatego `cover` liczymy
+   **raz, po zakończeniu głównej generacji**, i uruchamiamy pętlę
+   `dopóki f0 > cel: wstaw korek maksymalizujący m`, aktualizując `cover` tylko lokalnie
+   wokół wstawionego korka. Efekt na trudność jest ten sam, koszt nieporównywalnie
+   niższy.
 2. **Głębokie groty wcześnie** (`w ∝ depth^β`, β ≈ 1–2 w pierwszej połowie wstawień):
    długie korytarze dają więcej okazji, by ktoś je później przeciął.
 3. **Krzyżowanie kierunków.** Równoległe korytarze na sąsiednich liniach się nie
@@ -382,16 +452,25 @@ elementów wynika z niego i ze średniej długości kształtu, więc obie warto�
 się rozjechać. Kolumna „~elem." jest orientacyjna, wyliczona jako
 `wypełnienie · W · H / średnia długość`.
 
-| Poziom | rozmiar | wypeł. | `Lmax` | wagi kr./śr./dł. | śr. dł. | ~elem. | ~długich | `f0` | `T_2` | `D` |
+| Poziom | rozmiar | wypeł. | `Lmax` | wagi kr./śr./dł. | śr. dł. | ~elem. | ~długich | pow. w dł. | `f0` | `T_2` |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Easy | 10×12 | 45% | 12 | 0.85 / 0.15 / 0 | 5.0 | ~11 | 0 | ≥ 0.35 | ≤ 1 | ≤ 3 |
-| Medium | 14×18 | 55% | 20 | 0.78 / 0.19 / 0.03 | 5.8 | ~24 | ~1 | 0.20–0.35 | 2–4 | 3–5 |
-| Hard | 18×24 | 62% | 31 | 0.74 / 0.21 / 0.05 | 6.4 | ~42 | ~2 | 0.08–0.20 | 4–8 | 5–8 |
-| Nightmare | 26×36 | 68% | 54 | 0.70 / 0.22 / 0.08 | 8.0 | ~79 | ~6 | `F0 ≤ 3` | ≥ 8, w tym `T_conc ≥ 2` | ≥ 8 |
+| Easy | 25×25 | 45% | 50 | 0.800 / 0.195 / 0.005 | 5.5 | ~51 | ~0 | 3% | ≥ 0.35 | ≤ 1 |
+| Medium | 50×50 | 55% | 125 | 0.750 / 0.240 / 0.010 | 6.2 | ~223 | ~2 | 9% | 0.20–0.35 | 2–6 |
+| Hard | 75×75 | 62% | 188 | 0.720 / 0.267 / 0.013 | 6.7 | ~519 | ~7 | 13% | 0.08–0.20 | 6–15 |
+| Nightmare | 100×100 | 68% | 300 | 0.700 / 0.285 / 0.015 | 7.4 | ~920 | ~14 | 20% | ≤ 0.03 | ≥ 15 |
+
+Kolumna „pow. w dł." to udział wypełnienia zajęty przez koszyk długi — wielkość, którą
+konfigurator pokazuje na żywo (§7). Powyżej ~25% plansza przestaje wyglądać jak pole
+strzałek i zamienia się w kilka spiral.
 
 Rozkład jest **ciężkoogonowy, a nie przesunięty**: nawet na Nightmare 70% elementów
 jest krótkich, bo plansza ma być gęsto usiana grotami. Długie linie to wyrazista
-mniejszość — kilka sztuk na planszę — i to one dają wrażenie splątania.
+mniejszość — kilkanaście sztuk na planszę — i to one dają wrażenie splątania oraz
+podnoszą `T_k`, bo tylko ich korytarza nie da się ogarnąć wzrokiem.
+
+Progi `T_2` i `D` skalują się z liczbą elementów, więc podane wartości są orientacyjne
+i wymagają kalibracji benchmarkiem — przy ~920 elementach bezwzględne liczby z małej
+planszy nie mają sensu.
 
 Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, dołóż korki (obniża
 `f0`) albo usuń elementy (podnosi `f0`) → ponów. Budżet prób jest ograniczony; po jego
@@ -428,7 +507,48 @@ Trafienie: współrzędne wskaźnika → komórka → `occupancy` → id element
 myszy i dotyku jest wspólna.
 
 Grafika MVP jest **placeholderem**: czytelna, monochromatyczna, bez dopracowanej palety
-i typografii. UI to pasek z sercami, wybór trudności i przycisk nowej gry.
+i typografii. Główny ekran to wybór jednego z czterech poziomów, pasek z sercami
+i przycisk nowej gry.
+
+### Widok: zoom i przesuwanie
+
+Nightmare ma 10 000 komórek; przy 8 px na komórkę plansza zajmuje 800×800 px, czego
+żaden telefon nie pokaże czytelnie. `render/viewport.ts` utrzymuje skalę i przesunięcie
+oraz przelicza współrzędne ekranu na komórki.
+
+W SVG zoom i przesuwanie to zmiana atrybutu `viewBox` — jedna operacja, bez
+przerysowywania ścieżek, składana przez GPU. To główny powód, dla którego SVG broni się
+mimo skali. Sterowanie: kółko myszy i szczypanie do skali, przeciąganie do przesuwania,
+podwójne kliknięcie do dopasowania całości. Kliknięcie odróżniamy od przeciągnięcia
+progiem odległości, żeby przesuwanie planszy nie kosztowało życia.
+
+### Konfigurator (tryb zaawansowany)
+
+Wejście z głównego ekranu, za przyciskiem. Cztery parametry odpowiadają wprost polom
+`GeneratorParams`: rozmiar planszy, liczba linii, stopień połamania (`1 − p_s`)
+i długość maksymalna (`Lmax`). Presety Easy–Nightmare to **zapisane instancje tej samej
+struktury**, nie osobna ścieżka kodu — jedno źródło prawdy dla generatora.
+
+Konfigurator liczy na żywo udział powierzchni zajęty przez długie elementy (§7)
+i ostrzega po przekroczeniu ~25%. Po generacji pokazuje **co faktycznie osiągnięto**:
+uzyskane wypełnienie, liczbę elementów i rozkład długości. Jest to konieczne, bo
+geometria potrafi odmówić — proste i bardzo długie elementy często nie mieszczą się,
+a generator nie może obiecać liczby, której nie da się zrealizować.
+
+### Budżet wydajności
+
+Punkt odniesienia to Nightmare: 10 000 komórek, ~920 elementów, ~920 ścieżek SVG.
+
+| Operacja | Budżet |
+|---|---|
+| generacja planszy (z pętlą odrzucania po metrykach) | poza głównym wątkiem, w Web Workerze; wskaźnik postępu po 300 ms |
+| pierwsze narysowanie planszy | < 300 ms |
+| zoom i przesuwanie | 60 fps (sama zmiana `viewBox`) |
+| reakcja na kliknięcie (test wolności jednego elementu) | < 16 ms |
+
+Przekroczenie budżetu uruchamia ścieżkę optymalizacji z §13. Gdyby SVG nie wyrobiło się
+w pierwszym narysowaniu, wymieniamy implementację renderera na Canvas — interfejs
+`Renderer` istnieje właśnie po to.
 
 PWA: manifest, ikony i service worker cache-first (`vite-plugin-pwa`). Gra jest w pełni
 klientowa, więc offline działa bez dodatkowej logiki.
@@ -485,6 +605,20 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 19. Solver wykrywa ręcznie skonstruowane cykle (dwuelementowy `A → ← B` oraz trzy- i
     więcej-elementowy) i wskazuje elementy cyklu.
 
+**Testy skali i parametrów (Nightmare 100×100):**
+
+20. Generacja planszy 100×100 kończy się i przechodzi solver — na wielu ziarnach.
+    To jest test, który najpewniej wyłapie błędy wydajnościowe i przepełnienia.
+21. Rozmiary skrajne konfiguratora: plansza minimalna (np. 5×5), maksymalna, oraz
+    parametry **niewykonalne** (1000 linii o długości 300 na planszy 25×25). Generator
+    kończy pracę w skończonym czasie, oddaje najlepszy wynik i raportuje rozbieżność
+    między zamówieniem a wykonaniem — nigdy się nie zapętla i nie rzuca wyjątkiem.
+22. Stopień połamania na krańcach: `p_s = 1` (elementy idealnie proste, muszą skręcić
+    tylko na krawędzi) i `p_s = 0` (maksymalnie kręte). W obu przypadkach generator
+    produkuje poprawne, rozwiązywalne plansze.
+23. Udział powierzchni koszyka długiego zgadza się z wartością wyliczaną przez
+    konfigurator z parametrów — inaczej ostrzeżenie o 25% wprowadza w błąd.
+
 **Benchmark (nie test, ale krok implementacji):** raport osiąganego zajęcia planszy
 i wartości metryk trudności dla zestawu parametrów — podstawa do kalibracji progów z §9.
 
@@ -497,9 +631,13 @@ przejścia do `won` i `lost`.
 jest czysty od początku, i taki jest), podpowiedzi, progresja poziomów, zapis postępu,
 dźwięk, dopracowana warstwa wizualna i animacje.
 
-**Udokumentowana ścieżka optymalizacji**, do włączenia dopiero gdy benchmark pokaże
-problem — przy planszy Hard (18×24, ~54 elementy) zwykłe pętle wykonują się
-w mikrosekundach, więc na starcie byłaby to przedwczesna optymalizacja:
+**Ścieżka optymalizacji.** Wcześniejsza wersja tego projektu zakładała plansze rzędu
+20×25 i ~50 elementów, przy których zwykłe pętle wykonują się w mikrosekundach,
+a optymalizacja byłaby przedwczesna. Po powiększeniu Nightmare do 100×100 i ~920
+elementów **przestało to być oczywiste**: pełny skan wolności to rząd 10⁶–10⁷ operacji,
+a budowa grafu blokowania podobnie. Dlatego benchmark z §12 jest **krokiem
+obowiązkowym i wczesnym**, a nie opcjonalnym; poniższe struktury wdrażamy, gdy
+przekroczy budżet z §11, i tylko wtedy:
 
 - maski korytarza jako bitboardy wierszowe (`uint64` na wiersz, przy `W ≤ 64`); test
   wolności staje się `∀r: occ[r] & corr[r] == 0`,
@@ -525,3 +663,8 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 | Generacja zawiesza się przy trudnych parametrach | Twardy limit prób; po jego wyczerpaniu oddajemy najlepszy wynik |
 | Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
 | Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
+| Kilkanaście długich elementów zajmuje większość powierzchni i plansza wygląda jak zbiór spiral zamiast pola strzałek | Udział powierzchni koszyka długiego liczony jawnie (§7), pokazywany w konfiguratorze, ostrzeżenie powyżej 25%, test 23 |
+| Generacja 100×100 zamraża interfejs na sekundy | Rdzeń bez DOM jest z założenia przenośny do Web Workera (§4); budżet i wskaźnik postępu w §11 |
+| SVG nie wyrabia przy ~920 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
+| Gracz traci życie, próbując przesunąć planszę | Kliknięcie odróżniane od przeciągnięcia progiem odległości (§11); pokryte testem interakcji |
+| Konfigurator obiecuje parametry, których geometria nie dopuszcza | Generator raportuje osiągnięte wartości obok zamówionych (§11); test 21 na parametrach niewykonalnych |
