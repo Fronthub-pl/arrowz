@@ -1,8 +1,8 @@
 <!doctype html>
-<html lang="pl">
+<html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Arrowz — laboratorium generatora</title>
+<title>Arrowz — generator lab</title>
 <style>
   :root { color-scheme: light; --ink: #232447; --paper: #f6f6fa; --accent: #e8467c; --line: #e3e3ec; }
   * { box-sizing: border-box; }
@@ -11,15 +11,15 @@
          display: grid; grid-template-columns: 350px 1fr; height: 100vh; }
 
   aside { overflow-y: auto; padding: 1rem 1.1rem 4rem; border-right: 1px solid var(--line); background: #fff; }
-  /* Plansza bierze całą wolną przestrzeń, statystyki mają własną kolumnę.
-     Na wąskim ekranie kolumny składają się w jedną. */
-  /* min-height: 0 na każdym poziomie — bez tego grid item rośnie z zawartości
-     i plansza wpasowuje się w szerokość zamiast w wysokość okna. */
-  /* TRZY wiersze, bo main ma troje dzieci: stan, pasek postępu i kolumny.
-     Przy dwóch zdefiniowanych `1fr` dostawał pasek postępu o wysokości 4 px,
-     a plansza zostawała z wierszem `auto` — marnowała się połowa ekranu. */
+  /* The board takes all free space, the stats have their own column.
+     On a narrow screen the columns collapse into one. */
+  /* min-height: 0 at every level — without it a grid item grows with its
+     content and the board fits the width instead of the window height. */
+  /* FOUR rows, because main has four children: tabs, status, progress bar
+     and the columns. With fewer defined rows the board got a row the height
+     of the progress bar and half the screen was wasted. */
   main { overflow: hidden; padding: .8rem 1.1rem; display: grid;
-         grid-template-rows: auto auto minmax(0, 1fr); gap: .3rem; min-height: 0; }
+         grid-template-rows: auto auto auto minmax(0, 1fr); gap: .3rem; min-height: 0; }
   .cols { display: grid; grid-template-columns: minmax(0, 1fr) 26rem; gap: 1.5rem;
           min-height: 0; overflow: hidden; }
   @media (max-width: 1500px) { .cols { grid-template-columns: 1fr; overflow: auto; } }
@@ -38,6 +38,10 @@
   td.delta { color: #7a7b95; font-size: 11.5px; padding-left: .6rem; }
   td.delta.up { color: #2b6b3f; }
   td.delta.down { color: #8a2b2b; }
+
+  .langs { float: right; display: flex; gap: .2rem; }
+  .langs button { padding: .1rem .4rem; font-size: 11px; }
+  .langs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 
   .row { display: grid; grid-template-columns: 1fr 68px; gap: .5rem; align-items: center; margin-bottom: .35rem; }
   .row label { font-size: 12.5px; }
@@ -58,22 +62,44 @@
   .presets { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .5rem; }
   .presets button { padding: .2rem .45rem; font-size: 12px; }
 
-  /* Pasek jest zawsze w układzie, tylko niewidoczny — chowanie go zmieniałoby
-     wysokość wiersza i plansza podskakiwałaby na starcie i na końcu. */
+  .command { margin: 0 0 .6rem; }
+  .cmdhead { display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+             font-size: 11.5px; color: #6a6b86; margin-bottom: .25rem; }
+  .cmdhead button { padding: .1rem .45rem; font-size: 11.5px; }
+  #command, #libCommand { margin: 0; padding: .45rem .55rem; background: #eeeef5; border-radius: 5px;
+             font: 11.5px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+             white-space: pre-wrap; word-break: break-all; user-select: all; }
+
+  .tabs { display: flex; gap: .3rem; margin-bottom: .2rem; }
+  .tabs button { border-radius: 5px 5px 0 0; border-bottom: none; padding: .3rem .8rem; }
+  .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  body.tab-library #stats, body.tab-library #topTable { display: none; }
+  .libhead { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
+  .libhead button { padding: .2rem .45rem; font-size: 12px; }
+  #libList { margin: .4rem 0 .8rem; }
+  .boardrow { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; padding: .35rem .5rem;
+              border: 1px solid var(--line); border-radius: 5px; margin-bottom: .3rem; cursor: pointer; font-size: 12px; }
+  .boardrow:hover { border-color: var(--ink); }
+  .boardrow.on { border-color: var(--accent); background: #fff5f8; }
+  .boardrow .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .boardrow .meta { color: #6a6b86; grid-column: 1 / -1; }
+
+  /* The bar stays in the layout and only toggles visibility — hiding it
+     would change the row height and the board would jump at start and end. */
   #progress { height: 4px; background: var(--line); border-radius: 2px; margin: .25rem 0 0;
               overflow: hidden; visibility: hidden; }
   #progress.on { visibility: visible; }
   #bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
-  /* Kontener przewija się, gdy powiększenie przekracza okno. SVG ma viewBox
-     w jednostkach komórek, więc skaluje się bez utraty ostrości — rozmiar
-     komórki w pikselach dotyczy wyłącznie pliku do pobrania i polecenia CLI. */
+  /* The container scrolls when the zoom exceeds the window. The SVG has a
+     viewBox in cell units, so it scales without losing sharpness — the pixel
+     cell size concerns only the downloaded file and the CLI command. */
   #boardWrap { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
                overflow: auto; min-height: 0; display: grid; place-items: center; padding: .4rem; }
   body.fitboard #boardWrap { overflow: hidden; }
-  /* Pełny podgląd: panel i statystyki znikają, plansza dostaje całe okno.
-     Przy kwadratowej planszy to różnica 1003 → 1828 px na ekranie 4K. */
-  /* Jedna kolumna, nie „0 1fr”: przy ukrytym panelu main trafiał do kolumny
-     zerowej szerokości i plansza znikała. */
+  /* Full view: the panel and stats disappear, the board gets the whole window.
+     On a square board that is 1003 → 1828 px on a 4K screen. */
+  /* One column, not "0 1fr": with the panel hidden, main landed in a
+     zero-width column and the board vanished. */
   body.solo { grid-template-columns: 1fr; }
   body.solo aside, body.solo #side { display: none; }
   body.solo .cols { grid-template-columns: 1fr; }
@@ -81,14 +107,14 @@
   #solo:hover { opacity: 1; }
   #board { line-height: 0; }
   #board svg { display: block; }
-  /* Przy dopasowaniu SVG dostaje CAŁY prostokąt kontenera, a rysunek wpasowuje
-     się w niego sam dzięki viewBox i preserveAspectRatio. Samo max-height nie
-     wystarcza — ogranicza, ale nie powiększa. */
+  /* When fitting, the SVG gets the WHOLE container rectangle and the drawing
+     fits itself thanks to viewBox and preserveAspectRatio. max-height alone
+     is not enough — it limits but does not enlarge. */
   body.fitboard #boardWrap > #board { width: 100%; height: 100%; min-height: 0; }
   body.fitboard #board svg { width: 100%; height: 100%; }
   body:not(.fitboard) #board svg { width: calc(var(--zoom) * 1px); height: auto; }
-  /* Stała wysokość i brak zawijania: rosnący komunikat postępu przesuwałby
-     planszę przy każdej aktualizacji. */
+  /* Fixed height and no wrapping: a growing progress message would shift the
+     board on every update. */
   .status { height: 1.3rem; line-height: 1.3rem; font-size: 13px;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .status .bad { color: #8a2b2b; font-weight: 600; }
@@ -103,98 +129,128 @@
   table.top td { padding: .1rem .9rem .1rem 0; font-variant-numeric: tabular-nums; }
   #side { overflow-y: auto; min-height: 0; padding-right: .5rem; }
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
-  .cli { margin-top: 1rem; font-size: 11.5px; color: #6a6b86; word-break: break-all; }
   .row.inactive { opacity: .4; }
-  .row.inactive .help::before { content: 'Bez wpływu: ' attr(data-why) '. '; color: #b3462f; }
+  .row.inactive .help::before { content: attr(data-why); color: #b3462f; }
 </style>
 
 <aside>
-  <h1>Laboratorium generatora</h1>
-  <p class="sub">Ten sam silnik co <code>carve.mjs</code> — <code>engine.mjs</code>.</p>
+  <div class="langs"><button id="langPl">PL</button><button id="langEn">EN</button></div>
+  <h1 data-i18n="title">Generator lab</h1>
+  <p class="sub" data-i18n="subtitle">Same engine as carve.mjs: engine.mjs.</p>
 
   <div class="presets" id="presets"></div>
 
   <div class="buttons">
-    <button class="primary" id="run">Generuj</button>
-    <button id="reseed">Nowe ziarno</button>
-    <button id="reset">Domyślne</button>
-    <button id="download">Pobierz SVG</button>
-    <button id="abort" hidden>Przerwij</button>
+    <button class="primary" id="run" data-i18n="generate">Generate</button>
+    <button id="reseed" data-i18n="reseed">New seed</button>
+    <button id="reset" data-i18n="reset">Defaults</button>
+    <button id="download" data-i18n="downloadSvg">Download SVG</button>
+    <button id="abort" hidden data-i18n="abort">Abort</button>
   </div>
 
-  <h2>Podgląd</h2>
-  <label class="check"><input type="checkbox" id="fit" checked> dopasuj planszę do okna</label>
+  <div class="command">
+    <div class="cmdhead"><span data-i18n="commandHead">CLI command (matches the current settings)</span>
+      <button id="copyCommand" data-i18n="copy">Copy</button></div>
+    <pre id="command"></pre>
+  </div>
+
+  <h2 data-i18n="preview">Preview</h2>
+  <label class="check"><input type="checkbox" id="fit" checked> <span data-i18n="fitBoard">fit the board to the window</span></label>
   <div class="row" id="zoomRow">
-    <label for="zoom">powiększenie (px szerokości)</label>
+    <label for="zoom" data-i18n="zoomLabel">zoom (px width)</label>
     <input type="number" id="zoom" value="1600" min="200" max="12000" step="100">
     <input type="range" id="zoomRange" min="200" max="12000" step="100" value="1600">
-    <p class="help">Podgląd jest wektorowy, więc powiększenie nie psuje ostrości —
-      przy planszy 1000×1000 warto zejść w szczegóły na kilka tysięcy pikseli
-      i przewijać. Nie wpływa na plik do pobrania.</p>
+    <p class="help" data-i18n="zoomHelp"></p>
   </div>
   <div class="row">
-    <label for="cell">rozmiar komórki w eksporcie (px)</label>
+    <label for="cell" data-i18n="cellLabel">cell size in export (px)</label>
     <input type="number" id="cell" value="12" min="1" max="40" step="1">
-    <p class="help">Dotyczy tylko pobieranego SVG i polecenia CLI pod planszą.
-      Na podgląd nie ma wpływu.</p>
+    <p class="help" data-i18n="cellHelp"></p>
   </div>
   <div class="row">
-    <label for="stroke">grubość linii (podziałki)</label>
+    <label for="stroke" data-i18n="strokeLabel">stroke width (grid units)</label>
     <input type="number" id="stroke" value="0.5" min="0.2" max="0.9" step="0.05">
   </div>
-  <label class="check"><input type="checkbox" id="colored"> koloruj strzałki (każdy element inny kolor)</label>
-  <label class="check"><input type="checkbox" id="hilite" checked> wyróżnij najdłuższe elementy</label>
-  <label class="check"><input type="checkbox" id="voids" checked> pokaż komórki zaklinowania</label>
+  <label class="check"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
+  <label class="check"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
+  <label class="check"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
   <div class="row">
-    <label for="top">ile najdłuższych</label>
+    <label for="top" data-i18n="topLabel">how many longest</label>
     <input type="number" id="top" value="5" min="1" max="50" step="1">
   </div>
-  <label class="check"><input type="checkbox" id="auto"> generuj od razu po zmianie</label>
-  <label class="check"><input type="checkbox" id="help" checked> pokazuj opisy parametrów</label>
+  <label class="check"><input type="checkbox" id="auto"> <span data-i18n="autoRun">generate right after a change</span></label>
+  <label class="check"><input type="checkbox" id="help" checked> <span data-i18n="showHelp">show parameter descriptions</span></label>
 
   <div id="params"></div>
 </aside>
 
 <main>
-  <button id="solo" title="Pełny podgląd (klawisz F)">⤢</button>
-  <div class="status" id="status">Naciśnij <b>Generuj</b>.</div>
+  <button id="solo">⤢</button>
+  <div class="tabs" id="tabs">
+    <button data-tab="lab" class="on" data-i18n="tabLab">Lab</button>
+    <button data-tab="library" data-i18n="tabLibrary">Saved boards</button>
+  </div>
+  <div class="status" id="status"></div>
   <div id="progress"><div id="bar"></div></div>
   <div class="cols">
     <div id="boardWrap"><div id="board"></div></div>
     <div id="side">
       <table class="stats" id="stats"></table>
       <div id="topTable"></div>
-      <div class="cli" id="cli"></div>
+      <div id="library" hidden>
+        <div class="libhead">
+          <div class="presets" id="libSizes"></div>
+          <button id="libRefresh" data-i18n="refresh">Refresh</button>
+        </div>
+        <div id="libList"></div>
+        <div id="libDetail" hidden>
+          <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
+            <button id="libCopy" data-i18n="copy">Copy</button></div>
+          <pre id="libCommand"></pre>
+          <div class="buttons"><button id="libLoad" data-i18n="loadIntoLab">Load into lab</button></div>
+        </div>
+      </div>
     </div>
   </div>
 </main>
 
 <script type="module">
-import { PARAM_SPEC, defaultParams } from './engine.mjs'
+import { PARAM_SPEC, INACTIVE_REASONS, defaultParams } from './engine.mjs'
+import { buildCommand } from './command.mjs'
+import { EN, PL } from './lab-i18n.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
 
-// --- panel parametrów budowany z PARAM_SPEC, żeby nie rozjechał się z silnikiem
+// --- language ---------------------------------------------------------------
+// English is the source language (PARAM_SPEC, INACTIVE_REASONS, EN.ui);
+// Polish is a translation looked up by key, falling back to English.
+const DICT = { en: EN, pl: PL }
+let lang = localStorage.getItem('labLang') || (navigator.language?.toLowerCase().startsWith('pl') ? 'pl' : 'en')
+function t(key, ...args) {
+  const v = DICT[lang].ui[key] ?? EN.ui[key] ?? key
+  return typeof v === 'function' ? v(...args) : v
+}
+function paramText(spec) {
+  const pl = lang === 'pl' ? PL.params[spec.key] : null
+  return { label: pl?.label ?? spec.label, help: pl?.help ?? spec.help }
+}
+function reasonText(key) { return (lang === 'pl' ? PL.reasons[key] : null) ?? INACTIVE_REASONS[key] ?? key }
+const fmt = (n) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
+
+// --- parameter panel built from PARAM_SPEC so it cannot drift from the engine
 const groups = new Map()
 for (const spec of PARAM_SPEC) {
   if (!groups.has(spec.group)) groups.set(spec.group, [])
   groups.get(spec.group).push(spec)
 }
 
-const GROUP_HELP = {
-  'długości': 'Rozkład mieszany o trzech koszykach: krótkie 2–6, średnie 7–15, długie 16–Lmax (log-jednostajnie). Koszyk długi dostaje resztę wagi.',
-  'kształt': 'Wagi wyboru kolejnej komórki ścieżki. Mnożą się przez siebie, więc drobna zmiana jednej potrafi przesłonić pozostałe.',
-  'trudność': 'Sterowanie tym, jak trudno znaleźć element z wolną drogą — struktura blokowania, nie wygląd.',
-  'szkielet': 'Kilka pierwszych elementów prowadzonych serpentyną przez całą planszę. To jedyny sposób na naprawdę długie linie: losowy wzrost utyka po kilkudziesięciu komórkach. Włącznikiem jest liczba elementów szkieletowych.',
-  'domykanie': 'Co robić, gdy generator nie znajduje legalnego wycięcia. Po hardeningu plansze do 400×400 domykają się przy domyślnych bez nawrotów; te pokrętła służą do eksperymentów.',
-}
-
-// Grupy domyślnie otwarte — reszta zwinięta, żeby dojść do parametrów szkieletu
-// bez przewijania przez trzydzieści pól.
-const OPEN_BY_DEFAULT = new Set(['plansza', 'szkielet'])
+// Groups open by default — the rest collapsed, so the skeleton knobs are
+// reachable without scrolling through thirty fields.
+const OPEN_BY_DEFAULT = new Set(['board', 'skeleton'])
 
 const paramRows = new Map()
+const groupBoxes = new Map()
 const panel = $('params')
 for (const [group, specs] of groups) {
   const box = document.createElement('details')
@@ -204,12 +260,12 @@ for (const [group, specs] of groups) {
   sum.textContent = group
   box.append(sum)
   panel.append(box)
-  if (GROUP_HELP[group]) {
+  if (EN.groupHelp[group]) {
     const gh = document.createElement('p')
     gh.className = 'grouphelp'
-    gh.textContent = GROUP_HELP[group]
     box.append(gh)
   }
+  groupBoxes.set(group, box)
   for (const spec of specs) {
     const row = document.createElement('div')
     row.className = 'row'
@@ -228,35 +284,64 @@ for (const [group, specs] of groups) {
       num.value = v
       range.value = v
       refreshActive()
+      updateCommand()
       if ($('auto').checked) schedule()
     }
     num.addEventListener('input', () => sync(num.value))
     range.addEventListener('input', () => sync(range.value))
     row.append(label, num, range)
+    let help = null
     if (spec.help) {
-      const help = document.createElement('p')
+      help = document.createElement('p')
       help.className = 'help'
       help.textContent = spec.help
       row.append(help)
-      label.title = spec.help          // tooltip działa też przy schowanych opisach
     }
     box.append(row)
-    paramRows.set(spec.key, { row, spec, label })
+    paramRows.set(spec.key, { row, spec, label, help })
   }
 }
 
-// Pokrętła bez wpływu przy bieżących ustawieniach są wygaszone z powodem —
-// inaczej zmiana skoku serpentyny przy wyłączonym szkielecie wygląda jak
-// „generowanie nie zmienia planszy".
+// Knobs with no effect at the current settings are dimmed with a reason —
+// otherwise changing the serpentine step with the skeleton off looks like
+// "generating does not change the board".
 function refreshActive() {
-  for (const { row, spec, label } of paramRows.values()) {
-    const why = spec.inactive ? spec.inactive(state) : null
+  for (const { row, spec, label, help } of paramRows.values()) {
+    const key = spec.inactive ? spec.inactive(state) : null
+    const why = key ? reasonText(key) : null
     row.classList.toggle('inactive', !!why)
-    const help = row.querySelector('.help')
-    if (help) help.dataset.why = why ?? ''
-    label.title = why ? `Bez wpływu: ${why}. ${spec.help ?? ''}` : (spec.help ?? '')
+    if (help) help.dataset.why = why ? `${t('inactivePrefix')}${why}. ` : ''
+    const tx = paramText(spec)
+    label.title = why ? `${t('inactivePrefix')}${why}. ${tx.help ?? ''}` : (tx.help ?? '')   // tooltip works with hidden help too
   }
 }
+
+function applyLanguage() {
+  document.documentElement.lang = lang
+  localStorage.setItem('labLang', lang)
+  $('langPl').classList.toggle('on', lang === 'pl')
+  $('langEn').classList.toggle('on', lang === 'en')
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n)
+  $('solo').title = t('fullView')
+  for (const [group, box] of groupBoxes) {
+    box.querySelector('summary').textContent = DICT[lang].groups[group] ?? EN.groups[group] ?? group
+    const gh = box.querySelector('.grouphelp')
+    if (gh) gh.textContent = DICT[lang].groupHelp[group] ?? EN.groupHelp[group] ?? ''
+  }
+  for (const { label, spec, help } of paramRows.values()) {
+    const tx = paramText(spec)
+    label.textContent = tx.label
+    if (help) help.textContent = tx.help
+  }
+  refreshActive()
+  if (lastDone) report(lastDone, { keepPrev: true })
+  if (lastLongest) renderLongest(lastLongest)
+  if (activeTab === 'library') { renderLibrary(); if (libBoard) showBoardStatus(libBoard) }
+  else if (!lastDone && !busy) setStatus(t('pressGenerate'))
+  saveToUrl()
+}
+$('langPl').addEventListener('click', () => { lang = 'pl'; applyLanguage() })
+$('langEn').addEventListener('click', () => { lang = 'en'; applyLanguage() })
 
 const PRESETS = [
   ['Easy 25×50', 25, 50], ['Easy 25×25', 25, 25],
@@ -269,9 +354,10 @@ for (const [label, w, h] of PRESETS) {
   b.textContent = label
   b.addEventListener('click', () => {
     setParam('W', w); setParam('H', h)
-    setParam('Lmax', 0) // automat: 2,5 × dłuższy bok
-    // Rozmiar komórki dotyczy tylko eksportu; podgląd skaluje się sam.
+    setParam('Lmax', 0) // automatic: 2.5 × longer side
+    // The cell size concerns only the export; the preview scales itself.
     $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(w, h))))
+    updateCommand()
     run()
   })
   $('presets').append(b)
@@ -282,9 +368,10 @@ function setParam(key, value) {
   const el = $('p_' + key)
   if (el) { el.value = value; el.nextElementSibling.value = value }
   refreshActive()
+  updateCommand()
 }
 
-// --- powiększenie podglądu ------------------------------------------------
+// --- preview zoom -----------------------------------------------------------
 function applyZoom() {
   const fit = $('fit').checked
   document.body.classList.toggle('fitboard', fit)
@@ -302,7 +389,7 @@ $('zoomRange').addEventListener('input', () => {
   $('fit').checked = false
   applyZoom(); saveToUrl()
 })
-// podwójne kliknięcie w planszę przełącza dopasowanie i powiększenie
+// double-click on the board toggles fit and zoom
 $('boardWrap').addEventListener('dblclick', () => {
   $('fit').checked = !$('fit').checked
   applyZoom(); saveToUrl()
@@ -318,10 +405,26 @@ function viewOptions() {
   }
 }
 
-// --- worker: generacja poza wątkiem interfejsu ---------------------------
-// Plansza 1000×1000 liczy się ~10 s (400×400 ~1,4 s). Na wątku głównym
-// zawiesiłaby kartę, więc silnik biegnie w workerze, a strona dostaje postęp
-// i gotowe SVG.
+// --- live command -----------------------------------------------------------
+// The command matches the CURRENT knobs, not the last board: the lab is a
+// layer over the CLI and must show exactly what would be run.
+function updateCommand() {
+  $('command').textContent = buildCommand(state, viewOptions())
+}
+$('copyCommand').addEventListener('click', async () => {
+  await navigator.clipboard.writeText($('command').textContent)
+  flashCopied($('copyCommand'))
+})
+// Brief confirmation on a copy button; the label comes back through the dictionary.
+function flashCopied(btn) {
+  btn.textContent = t('copied')
+  setTimeout(() => { btn.textContent = t('copy') }, 1200)
+}
+
+// --- worker: generation off the UI thread -----------------------------------
+// A 1000×1000 board takes ~10 s (400×400 ~1.4 s). On the main thread it would
+// freeze the tab, so the engine runs in a worker and the page receives
+// progress and the finished SVG.
 let worker = null
 let busy = false
 
@@ -329,7 +432,7 @@ function newWorker() {
   const w = new Worker('./lab-worker.mjs', { type: 'module' })
   w.onmessage = (e) => onWorkerMessage(e.data)
   w.onerror = (e) => {
-    setStatus(`<span class="bad">Błąd workera:</span> ${e.message}`)
+    setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
     finish()
   }
   return w
@@ -344,14 +447,13 @@ function onWorkerMessage(msg) {
   if (msg.type === 'progress') {
     const { pieces, remaining, backtracks, ms, total } = msg.info
     const done = 100 * (1 - remaining / total)
-    const short = (n) => (n >= 10000 ? (n / 1000).toFixed(0) + ' tys.' : n.toLocaleString('pl'))
-    setStatus(`<b>${done.toFixed(1)}%</b> · ${short(pieces)} elem. · zostało ${short(remaining)} ` +
-      `· nawroty ${backtracks} · ${(ms / 1000).toFixed(1)} s`)
+    const short = (n) => (n >= 10000 ? (n / 1000).toFixed(0) + 'k' : fmt(n))
+    setStatus(t('progress', done.toFixed(1), short(pieces), short(remaining), backtracks, (ms / 1000).toFixed(1)))
     $('bar').style.width = done.toFixed(1) + '%'
     return
   }
   if (msg.type === 'error') {
-    setStatus(`<span class="bad">Błąd generacji:</span> ${msg.message}`)
+    setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`)
     finish()
     return
   }
@@ -359,21 +461,26 @@ function onWorkerMessage(msg) {
     lastDone = msg
     report(msg)
     finish()
-    // widok zmieniony w trakcie liczenia wchodzi teraz
+    // a view changed during the run applies now
     if (pendingRedraw || sentView !== JSON.stringify(viewOptions())) { pendingRedraw = false; redraw() }
     return
   }
   if (msg.type === 'render') {
-    $('board').innerHTML = msg.svg
+    if (activeTab === 'lab') $('board').innerHTML = msg.svg
+    lastLongest = msg.longest
     renderLongest(msg.longest)
+    if (saveNext && lastDone) { saveNext = false; saveBoardToStore(msg.svg) }
   }
 }
 
 let lastDone = null
-let runParams = { ...state }   // parametry, z których powstała ostatnia plansza
-let sentView = ''              // widok, o który ostatnio poproszono workera
-// metryki poprzedniego przebiegu — kolumna różnicy pokazuje, co zmieniło
-// przestawienie pokrętła, bez notowania liczb na boku
+let lastLongest = null
+let saveNext = false           // save the next rendered SVG to the store
+let boardsCache = null         // last list from /api/boards, null = fetch again
+let runParams = { ...state }   // parameters the last board was generated from
+let sentView = ''              // the view last requested from the worker
+// metrics of the previous run — the delta column shows what turning a knob
+// changed, without noting numbers on the side
 let prevStats = new Map()
 const prevStatsNext = new Map()
 
@@ -396,42 +503,41 @@ function finish() {
 
 $('abort').addEventListener('click', () => {
   if (!busy) return
-  worker.terminate()          // jedyny sposób na przerwanie pętli generatora
+  worker.terminate()          // the only way to interrupt the generator loop
   worker = null
-  setStatus('<span class="bad">Przerwano.</span>')
+  setStatus(`<span class="bad">${t('aborted')}</span>`)
   finish()
 })
 
 function run() {
-  // Nowe żądanie przerywa poprzednie. Bez tego zmiana parametru w trakcie
-  // liczenia dużej planszy wyglądałaby jak zawieszenie: żądanie przepadało,
-  // a pasek dalej pokazywał stary przebieg.
+  // A new request interrupts the previous one. Without this, changing a
+  // parameter during a big board looked like a hang: the request was lost
+  // and the bar kept showing the old run.
   if (busy) {
     worker.terminate()
     worker = null
   }
   const cells = state.W * state.H
   start()
-  setStatus(cells > 200000
-    ? `Generuję ${state.W}×${state.H} (${cells.toLocaleString('pl')} komórek) — to potrwa…`
-    : 'Generuję…')
-  // Raport i polecenie CLI opisują planszę, która POWSTAŁA, a nie bieżące
-  // pola formularza — użytkownik mógł je zmienić po wygenerowaniu.
+  setStatus(cells > 200000 ? t('generatingBig', state.W, state.H, fmt(cells)) : t('generating'))
+  // The report describes the board that WAS PRODUCED, not the current form
+  // fields — the user may have changed them after generating.
   runParams = { ...state }
+  saveNext = true
   sentView = JSON.stringify(viewOptions())
   ensureWorker().postMessage({ type: 'generate', params: runParams, view: viewOptions() })
   saveToUrl()
 }
 
-// Przełączniki podglądu przerysowują planszę bez ponownej generacji.
-// W trakcie generacji zmiana jest odkładana i wchodzi zaraz po niej —
-// wcześniej przepadała po cichu i „ile najdłuższych" wyglądało na zepsute.
+// Preview toggles redraw the board without regenerating. During a run the
+// change is deferred and applied right after — before, it was silently lost
+// and "how many longest" looked broken.
 let pendingRedraw = false
 function redraw() {
   saveToUrl()
   if (busy) { pendingRedraw = true; return }
   if (!lastDone) return
-  if (!worker) { run(); return }   // po przerwaniu worker nie ma planszy
+  if (!worker) { run(); return }   // after an abort the worker has no board
   sentView = JSON.stringify(viewOptions())
   worker.postMessage({ type: 'render', view: viewOptions() })
 }
@@ -447,9 +553,9 @@ $('reset').addEventListener('click', () => {
   run()
 })
 for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top', 'voids']) {
-  $(id).addEventListener('input', redraw)
+  $(id).addEventListener('input', () => { updateCommand(); redraw() })
 }
-// pełny podgląd — panel i statystyki na bok, plansza na całe okno
+// full view — panel and stats aside, the board gets the whole window
 function toggleSolo() { document.body.classList.toggle('solo') }
 $('solo').addEventListener('click', toggleSolo)
 window.addEventListener('keydown', (e) => {
@@ -474,17 +580,133 @@ $('download').addEventListener('click', () => {
   URL.revokeObjectURL(url)
 })
 
-// --- stan w adresie -----------------------------------------------------
-// Zapis adresu wywołuje hashchange ASYNCHRONICZNIE, a Chrome odpala
-// setTimeout(0) wcześniej niż to zdarzenie — flaga zerowana timerem nie
-// osłania niczego i każdy zapis uruchamiał pełną regenerację (każde kliknięcie
-// „Generuj" liczyło planszę dwa razy, każda zmiana podglądu też). Osłoną jest
-// porównanie z ostatnio zapisanym adresem.
+// --- board store ------------------------------------------------------------
+// The board goes to disk through the lab server — once per generation, with
+// the view as rendered. A missing store server (e.g. other static hosting)
+// does not break the report; it only appends a warning to the status.
+async function saveBoardToStore(svg) {
+  const view = viewOptions()
+  const body = {
+    svg, params: runParams, view: { cell: view.cell, stroke: view.stroke, colored: view.colored, top: view.top },
+    command: buildCommand(runParams, view), source: 'lab',
+    metrics: { ok: lastDone.ok, pieces: lastDone.pieces, maxLen: lastDone.metrics?.maxLen ?? null, genMs: lastDone.genMs },
+  }
+  try {
+    const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const meta = await r.json()
+    $('status').insertAdjacentHTML('beforeend', ` · ${t('saved')} <code>${meta.W}x${meta.H}/${meta.id}</code>`)
+    boardsCache = null   // the store tab list is stale
+  } catch {
+    $('status').insertAdjacentHTML('beforeend', ` · <span class="bad">${t('notSaved')}</span>`)
+  }
+}
+
+// --- tabs and the saved-boards tab ------------------------------------------
+// The store tab uses THE SAME board area as the lab: fit, zoom and full view
+// work without a separate path. Back in the lab, the worker board returns
+// through `render`.
+let activeTab = 'lab'
+let libSize = null         // chosen size ('25x50')
+let libBoard = null        // chosen board (meta)
+
+function showTab(name) {
+  activeTab = name
+  document.body.classList.toggle('tab-library', name === 'library')
+  for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab === name)
+  $('library').hidden = name !== 'library'
+  if (name === 'library') { loadLibrary(); if (libBoard) openBoard(libBoard) }
+  else if (lastDone && worker && !busy) { redraw(); report(lastDone, { keepPrev: true }) }
+  saveToUrl()
+}
+for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab))
+
+async function loadLibrary(force = false) {
+  if (boardsCache && !force) { renderLibrary(); return }
+  try {
+    const r = await fetch('/api/boards')
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    boardsCache = await r.json()
+  } catch {
+    boardsCache = []
+    $('libList').innerHTML = `<p class="grouphelp">${t('noStoreServer')}</p>`
+    return
+  }
+  if (!boardsCache.some((s) => s.size === libSize)) libSize = boardsCache[0]?.size ?? null
+  renderLibrary()
+}
+$('libRefresh').addEventListener('click', () => loadLibrary(true))
+
+function renderLibrary() {
+  if (!boardsCache) return
+  $('libSizes').innerHTML = ''
+  for (const s of boardsCache) {
+    const b = document.createElement('button')
+    b.textContent = `${s.size} (${s.boards.length})`
+    b.classList.toggle('primary', s.size === libSize)
+    b.addEventListener('click', () => { libSize = s.size; renderLibrary() })
+    $('libSizes').append(b)
+  }
+  const size = boardsCache.find((s) => s.size === libSize)
+  if (!size) { $('libList').innerHTML = `<p class="grouphelp">${t('storeEmpty')}</p>`; return }
+  $('libList').innerHTML = ''
+  for (const meta of size.boards) {
+    const row = document.createElement('div')
+    row.className = 'boardrow' + (libBoard?.id === meta.id ? ' on' : '')
+    const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
+    row.innerHTML = `<span class="id">${meta.id}</span><span>${when}</span>` +
+      `<span class="meta">${t('piecesShort', meta.pieces ?? '?')} · ${t('longestShort', meta.maxLen ?? '?')} · ${meta.source}` +
+      `${meta.ok === false ? ` · <b class="bad">${t('notClosed')}</b>` : ''}</span>`
+    row.addEventListener('click', () => openBoard(meta))
+    $('libList').append(row)
+  }
+}
+
+function showBoardStatus(meta) {
+  setStatus(t('savedBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`, meta.seed, meta.source))
+}
+
+async function openBoard(meta) {
+  libBoard = meta
+  renderLibrary()
+  $('libDetail').hidden = false
+  $('libCommand').textContent = meta.command
+  setStatus(t('loadingBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
+  const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.svg`)
+  if (activeTab !== 'library') return
+  $('board').innerHTML = await r.text()
+  showBoardStatus(meta)
+}
+$('libCopy').addEventListener('click', async () => {
+  await navigator.clipboard.writeText($('libCommand').textContent)
+  flashCopied($('libCopy'))
+})
+// Loading sets the knobs and the view but does NOT generate — the user sees
+// the command first and decides.
+$('libLoad').addEventListener('click', () => {
+  if (!libBoard) return
+  for (const spec of PARAM_SPEC) if (libBoard.params[spec.key] !== undefined) setParam(spec.key, libBoard.params[spec.key])
+  const v = libBoard.view ?? {}
+  if (v.cell) $('cell').value = v.cell
+  if (v.stroke) $('stroke').value = v.stroke
+  $('colored').checked = !!v.colored
+  $('hilite').checked = (v.top ?? 0) > 0
+  if (v.top > 0) $('top').value = v.top
+  updateCommand()
+  showTab('lab')
+})
+
+// --- state in the URL -------------------------------------------------------
+// Writing the hash fires hashchange ASYNCHRONOUSLY, and Chrome runs
+// setTimeout(0) before that event — a flag cleared by a timer guarded nothing
+// and every write triggered a full regeneration (every "Generate" computed the
+// board twice, every preview change too). The guard is a comparison with the
+// last written hash.
 let writtenHash = ''
 function saveToUrl() {
   const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
                  colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked,
-                 fit: $('fit').checked, zoom: $('zoom').value }
+                 fit: $('fit').checked, zoom: $('zoom').value, lang, tab: activeTab }
   writtenHash = '#' + encodeURIComponent(JSON.stringify({ ...state, __view: view }))
   if (location.hash !== writtenHash) location.hash = writtenHash
 }
@@ -503,7 +725,9 @@ function loadFromUrl() {
     document.body.classList.toggle('nohelp', view.help === false)
     if (view.zoom) { $('zoom').value = view.zoom; $('zoomRange').value = view.zoom }
     $('fit').checked = view.fit !== false
+    if (view.lang && DICT[view.lang]) lang = view.lang
     applyZoom()
+    if (view.tab === 'library') showTab('library')
     return true
   } catch {
     return false
@@ -511,89 +735,80 @@ function loadFromUrl() {
 }
 window.addEventListener('hashchange', () => {
   if (location.hash === writtenHash) return
-  if (loadFromUrl()) run()
+  if (loadFromUrl()) { applyLanguage(); run() }
 })
 
-// --- raport -------------------------------------------------------------
+// --- report -----------------------------------------------------------------
 function pct(v) { return (100 * v).toFixed(0) + '%' }
 
-function report(msg) {
+function report(msg, { keepPrev = false } = {}) {
   const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, stats } = msg
   const rp = runParams
   const cells = rp.W * rp.H
 
   setStatus(ok
-    ? `<span class="good">Plansza domknięta w 100%.</span> ${metrics.solvable ? 'Rozwiązywalna.' : '<span class="bad">NIEROZWIĄZYWALNA — to błąd generatora.</span>'}`
-    : `<span class="bad">Nie domknięto planszy.</span> W najlepszym momencie zostało ` +
-      `${(stuck?.remaining ?? 0).toLocaleString('pl')} komórek w ${stuck?.sizes.length ?? 0} fragmentach ` +
-      `(największy ${stuck?.sizes[0] ?? 0}).`)
+    ? `<span class="good">${t('closed')}</span> ${metrics.solvable ? t('solvable') : `<span class="bad">${t('unsolvable')}</span>`}`
+    : `<span class="bad">${t('notClosedStatus', fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)}</span>`)
 
   if (!metrics) { $('stats').innerHTML = ''; $('topTable').innerHTML = ''; return }
 
-  // Trzecia pozycja to wartość liczbowa do porównania z poprzednim przebiegiem,
-  // czwarta mówi, czy wzrost jest zmianą na lepsze (do koloru różnicy).
+  // Third item: the numeric value compared with the previous run; fourth says
+  // whether an increase is an improvement (delta colour).
   const rows = [
-    ['plansza', `${rp.W} × ${rp.H} = ${cells.toLocaleString('pl')} komórek, ziarno ${rp.seed}`],
-    ['elementów', metrics.N.toLocaleString('pl'), metrics.N, 0],
-    ['średnia długość', (cells / metrics.N).toFixed(1), cells / metrics.N, 0],
-    ['najdłuższy', `${metrics.maxLen} komórek (${pct(metrics.maxLen / cells)} planszy)`, metrics.maxLen, 1],
-    ['rozkład długości', `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`],
+    [t('stat_board'), t('stat_boardVal', rp.W, rp.H, fmt(cells), rp.seed)],
+    [t('stat_pieces'), fmt(metrics.N), metrics.N, 0],
+    [t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N, 0],
+    [t('stat_longest'), t('stat_longestVal', metrics.maxLen, pct(metrics.maxLen / cells)), metrics.maxLen, 1],
+    [t('stat_lengths'), `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`],
     ['—', ''],
-    ['f0 (wolne na starcie)', metrics.f0.toFixed(3), metrics.f0, 0],
-    ['almost1 (jeden bloker)', `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0],
-    ['D (głębokość blokowania)', metrics.D, metrics.D, 0],
-    ['średni korytarz', metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0],
+    [t('stat_f0'), metrics.f0.toFixed(3), metrics.f0, 0],
+    [t('stat_almost'), `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0],
+    [t('stat_D'), metrics.D, metrics.D, 0],
+    [t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0],
     ['—', ''],
-    ['zasięg średni', pct(metrics.span), 100 * metrics.span, 1],
-    ['zasięg górnych 10%', pct(metrics.spanTop10), 100 * metrics.spanTop10, 1],
-    ['zasięg rekordzisty', pct(metrics.spanMax), 100 * metrics.spanMax, 1],
-    ['odblokowania średnio', metrics.outDeg.toFixed(1) + ' elem.', metrics.outDeg, 1],
-    ['odblokowania rekord', metrics.maxOut + ' elem.', metrics.maxOut, 1],
-    ['dystans odblokowań', pct(metrics.blockDist) + ' obwodu', 100 * metrics.blockDist, 1],
+    [t('stat_span'), pct(metrics.span), 100 * metrics.span, 1],
+    [t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10, 1],
+    [t('stat_spanMax'), pct(metrics.spanMax), 100 * metrics.spanMax, 1],
+    [t('stat_outDeg'), `${metrics.outDeg.toFixed(1)} ${t('piecesUnit')}`, metrics.outDeg, 1],
+    [t('stat_maxOut'), `${metrics.maxOut} ${t('piecesUnit')}`, metrics.maxOut, 1],
+    [t('stat_blockDist'), `${pct(metrics.blockDist)} ${t('perimeterUnit')}`, 100 * metrics.blockDist, 1],
     ['—', ''],
-    ['skrętów na element', metrics.bends.toFixed(2), metrics.bends, 1],
-    ['zwinięcie', pct(metrics.coil), 100 * metrics.coil, -1],
-    ['wspólna granica', pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1],
-    ['wieloliniowych', pct(metrics.multiLine), 100 * metrics.multiLine, 1],
+    [t('stat_bends'), metrics.bends.toFixed(2), metrics.bends, 1],
+    [t('stat_coil'), pct(metrics.coil), 100 * metrics.coil, -1],
+    [t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1],
+    [t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine, 1],
     ['—', ''],
-    // Utykanie tłumaczy krótkie linie lepiej niż rozkład długości: ścieżka
-    // ginie w zakamarku frontiera daleko przed zamówioną długością.
-    ['utyka przed celem', stats?.n ? `${pct(stats.stall / stats.n)} ścieżek, osiągane ${pct(stats.got / stats.want)} zamówionej długości` : '—', stats?.n ? 100 * stats.stall / stats.n : undefined, -1],
-    ['wchłonięte resztki', `${stats?.absorbs ?? 0} fragm. (${stats?.absorbed ?? 0} komórek)`, stats?.absorbs ?? 0, -1],
-    ['nawroty / restarty', `${backtracks} / ${restartsUsed}`, backtracks, -1],
-    ['czas', `generacja ${(genMs / 1000).toFixed(2)} s, metryki ${(metricsMs / 1000).toFixed(2)} s`, genMs, -1],
+    // Stalling explains short lines better than the length distribution: a
+    // path dies in a frontier pocket long before the ordered length.
+    [t('stat_stall'), stats?.n ? t('stat_stallVal', pct(stats.stall / stats.n), pct(stats.got / stats.want)) : '—', stats?.n ? 100 * stats.stall / stats.n : undefined, -1],
+    [t('stat_absorbed'), t('stat_absorbedVal', stats?.absorbs ?? 0, stats?.absorbed ?? 0), stats?.absorbs ?? 0, -1],
+    [t('stat_backtracks'), `${backtracks} / ${restartsUsed}`, backtracks, -1],
+    [t('stat_time'), t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)), genMs, -1],
   ]
 
+  // Deltas are keyed by row index, not label, so a language switch keeps them.
   $('stats').innerHTML = rows
-    .map(([k, v, num, better]) => {
+    .map(([k, v, num, better], i) => {
       if (k === '—') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
       let delta = ''
-      const prev = prevStats.get(k)
+      const prev = prevStats.get(i)
       if (num !== undefined && prev !== undefined && Math.abs(num - prev) > 1e-9) {
         const diff = num - prev
         const abs = Math.abs(diff)
         const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
-        // Kierunek „na lepsze” zależy od metryki: zwinięcie ma spadać,
-        // zasięg rosnąć, a liczba elementów jest neutralna.
+        // "Better" depends on the metric: coiling should fall, span should
+        // rise, the piece count is neutral.
         const cls = better === 0 ? '' : (diff > 0) === (better > 0) ? ' up' : ' down'
         delta = `<td class="delta${cls}">${diff > 0 ? '+' : '−'}${shown}</td>`
       }
-      if (num !== undefined) prevStatsNext.set(k, num)
+      if (num !== undefined) prevStatsNext.set(i, num)
       return `<tr><td>${k}</td><td class="num">${v}</td>${delta || '<td></td>'}</tr>`
     })
     .join('')
 
-  // podmiana dopiero po zbudowaniu tabeli — inaczej porównywalibyśmy z sobą samym
-  prevStats = new Map(prevStatsNext)
+  // swap only after building the table — otherwise we would compare with ourselves
+  if (!keepPrev) prevStats = new Map(prevStatsNext)
   prevStatsNext.clear()
-
-  const flags = PARAM_SPEC
-    .filter((s) => !['W', 'H'].includes(s.key) && rp[s.key] !== s.def)
-    .map((s) => `--${s.key.toLowerCase()}=${rp[s.key]}`)
-  $('cli').textContent = `node prototype/carve.mjs --svg=plansza.svg --w=${rp.W} --h=${rp.H} ` +
-    `--cell=${$('cell').value} ${flags.join(' ')}` +
-    ($('colored').checked ? ' --colored' : '') +
-    ($('hilite').checked ? ` --top=${$('top').value}` : '')
 }
 
 function renderLongest(longest) {
@@ -602,17 +817,17 @@ function renderLongest(longest) {
     `<tr><td>${p.len}</td><td>${p.sx}×${p.sy}</td><td>${pct(p.span)}</td>` +
     `<td>${pct(p.density)}</td><td>${pct(p.coil)}</td></tr>`).join('')
   $('topTable').innerHTML =
-    `<h2 style="border:0;padding:0">${longest.length} najdłuższych</h2>` +
-    `<p class="grouphelp">Zasięg = jaką część boku planszy element obejmuje. Gęstość = jak ciasno wypełnia ` +
-    `swój prostokąt. Zwinięcie = udział komórek dotykających własnej ścieżki z trzech stron. ` +
-    `Wąż przecinający planszę ma wysoki zasięg i niskie dwa pozostałe; zwój — odwrotnie.</p>` +
-    `<table class="top"><tr><th>długość</th><th>prostokąt</th><th>zasięg</th>` +
-    `<th>gęstość</th><th>zwinięcie</th></tr>${body}</table>`
+    `<h2 style="border:0;padding:0">${t('longestHead', longest.length)}</h2>` +
+    `<p class="grouphelp">${t('longestHelp')}</p>` +
+    `<table class="top"><tr><th>${t('th_len')}</th><th>${t('th_box')}</th><th>${t('th_span')}</th>` +
+    `<th>${t('th_density')}</th><th>${t('th_coil')}</th></tr>${body}</table>`
 }
 
 applyZoom()
 loadFromUrl()
+applyLanguage()
 refreshActive()
+updateCommand()
 run()
 </script>
 </html>
