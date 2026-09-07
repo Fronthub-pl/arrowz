@@ -79,6 +79,7 @@ self.onmessage = (event) => {
       totalMs: performance.now() - started,
       stuck: result.stuck,
       pieces: result.board.pieces.length,
+      stats: result.board.stats,
     })
     render(view)
   }

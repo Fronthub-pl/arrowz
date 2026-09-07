@@ -1,7 +1,7 @@
 // PROTOTYP WYRZUCALNY — warstwa CLI nad silnikiem z engine.mjs.
 // Uruchomienie: node prototype/carve.mjs [opcje]
 import { writeFileSync } from 'node:fs'
-import { Carver, analyse, mulberry32, render, toSvg, DIRS } from './engine.mjs'
+import { Carver, analyse, mulberry32, render, toSvg, DIRS, defaultParams } from './engine.mjs'
 
 // ------------------------------------------------------------------ main
 
@@ -41,7 +41,7 @@ const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]
 const svgOut = process.argv.find((a) => a.startsWith('--svg='))?.split('=')[1]
 if (svgOut) {
   const W = arg('w', arg('size', 25)), H = arg('h', arg('size', 50))
-  const params = { W, H, Lmax: arg('lmax', Math.round(2.5 * Math.max(W, H))),
+  const params = { ...defaultParams(), W, H, Lmax: arg('lmax', Math.round(2.5 * Math.max(W, H))),
     wShort: arg('wshort', 0.10), wMid: arg('wmid', 0.70),
     pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: 0,
     probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: -1, voidFrac: 0, ruleB: true, warns: arg('warns', 4),
@@ -49,7 +49,7 @@ if (svgOut) {
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
   let c, ok = false, seed = arg('seed', 7)
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
   if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
@@ -98,7 +98,7 @@ if (bench > 0) {
     const times = [], backs = [], lens = [], maxLens = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
-      const params = { ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid),
+      const params = { ...defaultParams(), ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid),
         pStraight: arg('straight', 0.6), wLateral: arg('lateral', 3), headBias: arg('headbias', 0),
         probe: 0, probeLen: 12, mix: -1, voidFrac: 0,
         ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 4),
@@ -106,7 +106,7 @@ if (bench > 0) {
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
       const t0 = performance.now()
       const seed = 50000 + r
       let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
@@ -136,12 +136,12 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0),
+    const params = { ...defaultParams(), ...pre, Lmax: arg('lmax', pre.Lmax), wShort: arg('wshort', pre.wShort), wMid: arg('wmid', pre.wMid), pStraight: arg('straight', 0.6), wLateral: arg('lateral', 6), headBias: arg('headbias', 0), probe: arg('probe', 0), probeLen: arg('probelen', 12), mix: arg('mix', -1), voidFrac: arg('void', 0), ruleB: process.argv.includes('--ruleb'), warns: arg('warns', 0),
       hug: arg('hug', 1), anticoil: arg('anticoil', 1), edgeHug: arg('edgehug', 0),
         wGiant: arg('wgiant', 0), giantSpan: arg('giantspan', 0),
         giantStraight: arg('giantstraight', 0.94), giantWarns: arg('giantwarns', 0),
         giantAnticoil: arg('giantanticoil', 6), giantSpacing: arg('giantspacing', 2), giants: arg('giants', 0), giantSpacePenalty: arg('giantspacepen', 8),
-        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 1), frontierUndo: arg('frontierundo', 0), strandLimit: arg('strandlimit', 8), trace, debug }
+        giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, params, rng)
     let ok = c.run()

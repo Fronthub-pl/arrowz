@@ -45,6 +45,14 @@ class Carver {
     this.stats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0 }
     // depth[d][linia] = ile kolejnych przypisanych komórek od krawędzi w głąb
     this.depth = [new Int32Array(W), new Int32Array(H), new Int32Array(W), new Int32Array(H)]
+    // Tablice robocze ze stemplem generacji: „zbiór" to komórki, których stempel
+    // równa się bieżącej generacji. Zerowanie kosztuje O(1) (nowy stempel),
+    // a sprawdzenie to odczyt tablicy zamiast Set.has w gorącej pętli testu resztki.
+    this.takenStamp = new Int32Array(W * H)
+    this.seenStamp = new Int32Array(W * H)
+    this.degStamp = new Int32Array(W * H)
+    this.degVal = new Int8Array(W * H)
+    this.gen = 0
   }
 
   idx(x, y) { return y * this.W + x }
@@ -95,70 +103,209 @@ class Carver {
   // ------------------------------------------------ test kształtu resztki
 
   // Czy zbiór komórek da się rozłożyć na ścieżki o długości >= 2?
-  // Brute force dla małych fragmentów; K(1,3) — np. tetromino T — jest
-  // najmniejszym spójnym kontrprzykładem, plus-pentomino kolejnym.
+  //
+  // Każda ścieżka o k >= 2 komórkach rozpada się na odcinki po 2 i 3 komórki,
+  // więc pytanie sprowadza się do pokrycia dominami i trominami-ścieżkami
+  // (Akiyama–Avis–Era). Programowanie dynamiczne po maskach bitowych: komórka
+  // o najniższym bicie musi należeć do jakiegoś odcinka, próbujemy wszystkich
+  // odcinków przez nią i zapamiętujemy przegrane maski.
+  //
+  // POPRZEDNIA WERSJA BYŁA BŁĘDNA: rozwijała ścieżkę wyłącznie od komórki
+  // startowej, więc start musiał być jej końcem. L-tromino z iteracją zaczętą
+  // w narożniku i prosta trójka zaczęta od środka wychodziły „nierozkładalne",
+  // a wynik zależał od kolejności komórek w zbiorze. Generator w końcówce
+  // odrzucał poprawne ścieżki i ogłaszał zaklinowanie, którego nie było.
+  // K(1,3) — np. tetromino T — jest najmniejszym prawdziwym kontrprzykładem,
+  // plus-pentomino kolejnym.
   decomposable(cellSet) {
+    const n = cellSet.size
+    if (n === 0) return true
+    if (n === 1) return false
+    if (n > 30) return true // poza zasięgiem masek 32-bitowych — zakładamy, że tak
     const cells = [...cellSet]
-    if (cells.length === 0) return true
-    if (cells.length === 1) return false
-    const rest = new Set(cellSet)
-    const start = cells[0]
-    rest.delete(start)
-    const nbrs = (i) => {
-      const x = i % this.W, y = (i / this.W) | 0
+    const bitOf = new Map()
+    cells.forEach((c, i) => bitOf.set(c, i))
+    // sąsiedzi wewnątrz zbioru, jako numery bitów
+    const nb = cells.map((c) => {
+      const x = c % this.W, y = (c / this.W) | 0
       const out = []
       for (const { dx, dy } of DIRS) {
         const nx = x + dx, ny = y + dy
-        if (this.inside(nx, ny)) out.push(this.idx(nx, ny))
+        if (!this.inside(nx, ny)) continue
+        const b = bitOf.get(this.idx(nx, ny))
+        if (b !== undefined) out.push(b)
       }
       return out
-    }
-    // rozwijaj ścieżkę od `start`, po długości >= 2 próbuj domknąć resztę
-    const walk = (tail, used) => {
-      if (used.size >= 2) {
-        const remain = new Set([...cellSet].filter((c) => !used.has(c)))
-        if (this.decomposable(remain)) return true
+    })
+    // odcinki (maski) zawierające komórkę v: domina v–a, tromina a–v–b
+    // (v w środku) i v–a–c (v na końcu)
+    const segs = cells.map((_, v) => {
+      const out = []
+      for (const a of nb[v]) {
+        out.push((1 << v) | (1 << a))
+        for (const b of nb[v]) if (b > a) out.push((1 << v) | (1 << a) | (1 << b))
+        for (const c of nb[a]) if (c !== v) out.push((1 << v) | (1 << a) | (1 << c))
       }
-      for (const n of nbrs(tail)) {
-        if (!cellSet.has(n) || used.has(n)) continue
-        used.add(n)
-        if (walk(n, used)) return true
-        used.delete(n)
+      return out
+    })
+    const lost = new Set()
+    const solve = (mask) => {
+      if (mask === 0) return true
+      if (lost.has(mask)) return false
+      const v = 31 - Math.clz32(mask & -mask)
+      for (const s of segs[v]) {
+        if ((s & mask) === s && solve(mask & ~s)) return true
       }
+      lost.add(mask)
       return false
     }
-    return walk(start, new Set([start]))
+    return solve(n === 30 ? 0x3fffffff : (1 << n) - 1)
   }
 
-  // fragmenty nieprzypisane sąsiadujące z `cells` — czy któryś jest za mały i nierozkładalny
-  wouldStrand(cells) {
-    const taken = new Set(cells.map((c) => this.idx(c.x, c.y)))
-    const seen = new Set()
+  /**
+   * WADA LOKALNA: wolna komórka z co najmniej trzema sąsiadami-liśćmi (wolnymi
+   * komórkami, których jedynym wolnym sąsiadem jest ona), albo para komórek
+   * w odległości <= 2, po której usunięciu zostaje >= 5 izolowanych. To warunek
+   * Tutte'a dla pokrycia ścieżkami przy |S| = 1 i |S| = 2: takiego zbioru nie da
+   * się pokryć ścieżkami i żadne dokładanie komórek gdzie indziej tego nie naprawi.
+   *
+   * Po wycięciu ścieżki stopnie zmieniają się tylko u jej sąsiadów, więc nowa
+   * wada może powstać wyłącznie w promieniu 2 od niej. Sprawdzenie jest
+   * dokładne globalnie przy koszcie liniowym w długości ścieżki — i nie zależy
+   * od limitu rozmiaru fragmentu, w przeciwieństwie do testu rozkładalności.
+   *
+   * Zakłada, że komórki ścieżki są oznaczone stemplem `takenStamp === gen`.
+   */
+  hasLocalDefect(cells) {
+    const { W, H, owner, takenStamp, seenStamp, degStamp, degVal, gen } = this
+    const isFree = (i) => owner[i] === -1 && takenStamp[i] !== gen
+    const freeDeg = (i) => {
+      if (degStamp[i] === gen) return degVal[i]
+      const x = i % W, y = (i / W) | 0
+      let n = 0
+      if (y > 0 && isFree(i - W)) n++
+      if (y < H - 1 && isFree(i + W)) n++
+      if (x > 0 && isFree(i - 1)) n++
+      if (x < W - 1 && isFree(i + 1)) n++
+      degStamp[i] = gen; degVal[i] = n
+      return n
+    }
+    const nbrs = (i, out) => {
+      const x = i % W, y = (i / W) | 0
+      let n = 0
+      if (y > 0 && isFree(i - W)) out[n++] = i - W
+      if (y < H - 1 && isFree(i + W)) out[n++] = i + W
+      if (x > 0 && isFree(i - 1)) out[n++] = i - 1
+      if (x < W - 1 && isFree(i + 1)) out[n++] = i + 1
+      return n
+    }
+    const nv = new Int32Array(4), nw = new Int32Array(4), ne = new Int32Array(4)
+    for (const c of cells) {
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          if (Math.abs(ox) + Math.abs(oy) > 2) continue
+          const vx = c.x + ox, vy = c.y + oy
+          if (!this.inside(vx, vy)) continue
+          const vi = vy * W + vx
+          if (!isFree(vi) || seenStamp[vi] === gen) continue
+          seenStamp[vi] = gen
+          const kv = nbrs(vi, nv)
+          let leaves = 0, weak = 0
+          for (let a = 0; a < kv; a++) {
+            const d = freeDeg(nv[a])
+            if (d === 1) leaves++
+            if (d <= 2) weak++
+          }
+          if (leaves >= 3) return true
+          // |S| = 2: kandydatami na izolowane są wyłącznie sąsiedzi v i w
+          // o stopniu <= 2, więc bez takich sąsiadów para odpada od razu.
+          if (weak === 0) continue
+          for (let px = -2; px <= 2; px++) {
+            for (let py = -2; py <= 2; py++) {
+              if ((px === 0 && py === 0) || Math.abs(px) + Math.abs(py) > 2) continue
+              const wx = vx + px, wy = vy + py
+              if (!this.inside(wx, wy)) continue
+              const wi = wy * W + wx
+              if (!isFree(wi)) continue
+              const kw = nbrs(wi, nw)
+              let weakW = 0
+              for (let a = 0; a < kw; a++) if (freeDeg(nw[a]) <= 2) weakW++
+              if (weak + weakW < 5) continue
+              let isolated = 0
+              for (let side = 0; side < 2; side++) {
+                const arr = side === 0 ? nv : nw, k = side === 0 ? kv : kw
+                for (let a = 0; a < k; a++) {
+                  const ui = arr[a]
+                  if (ui === vi || ui === wi) continue
+                  if (side === 1) { // nie licz dwa razy wspólnego sąsiada
+                    let dup = false
+                    for (let b = 0; b < kv; b++) if (nv[b] === ui) { dup = true; break }
+                    if (dup) continue
+                  }
+                  const ke = nbrs(ui, ne)
+                  let ok = true
+                  for (let b = 0; b < ke; b++) if (ne[b] !== vi && ne[b] !== wi) { ok = false; break }
+                  if (ok) isolated++
+                }
+              }
+              if (isolated >= 5) return true
+            }
+          }
+        }
+      }
+    }
+    return false
+  }
+
+  // Czy wycięcie `cells` osieroca resztę: fragment do `strandLimit` komórek
+  // nierozkładalny na ścieżki, albo wada lokalna w dowolnie dużym fragmencie.
+  // `failed` (opcjonalnie) zbiera komórki fragmentów, które oblały dokładny test.
+  wouldStrand(cells, failed = null) {
+    const { W, H, owner, takenStamp, seenStamp } = this
+    const gen = ++this.gen
+    for (const c of cells) takenStamp[this.idx(c.x, c.y)] = gen
+    if (this.hasLocalDefect(cells)) return true
+    // osobny stempel dla odwiedzonych przez flood fill
+    const seenGen = ++this.gen
+    for (const c of cells) takenStamp[this.idx(c.x, c.y)] = seenGen
+    const limit = this.p.strandLimit
+    const stack = []
     for (const c of cells) {
       for (const { dx, dy } of DIRS) {
         const nx = c.x + dx, ny = c.y + dy
         if (!this.inside(nx, ny)) continue
-        const start = this.idx(nx, ny)
-        if (taken.has(start) || seen.has(start) || this.owner[start] !== -1) continue
-        // flood fill do 9 komórek
-        const comp = new Set(), stack = [start]
+        const start = ny * W + nx
+        if (owner[start] !== -1 || takenStamp[start] === seenGen || seenStamp[start] === seenGen) continue
+        const comp = []
+        stack.length = 0
+        stack.push(start); seenStamp[start] = seenGen
         let overflow = false
         while (stack.length) {
           const i = stack.pop()
-          if (comp.has(i)) continue
-          comp.add(i)
-          if (comp.size > this.p.strandLimit) { overflow = true; break }
-          const x = i % this.W, y = (i / this.W) | 0
-          for (const { dx: ax, dy: ay } of DIRS) {
-            const px = x + ax, py = y + ay
-            if (!this.inside(px, py)) continue
-            const j = this.idx(px, py)
-            if (this.owner[j] === -1 && !taken.has(j) && !comp.has(j)) stack.push(j)
+          comp.push(i)
+          if (comp.length > limit) { overflow = true; break }
+          const x = i % W, y = (i / W) | 0
+          const tryPush = (j) => {
+            if (owner[j] === -1 && takenStamp[j] !== seenGen && seenStamp[j] !== seenGen) { seenStamp[j] = seenGen; stack.push(j) }
           }
+          if (y > 0) tryPush(i - W)
+          if (y < H - 1) tryPush(i + W)
+          if (x > 0) tryPush(i - 1)
+          if (x < W - 1) tryPush(i + 1)
         }
-        for (const i of comp) seen.add(i)
-        if (overflow) continue // duży fragment — zakładamy, że da się rozłożyć
-        if (!this.decomposable(comp)) return true
+        if (overflow) {
+          // Duży fragment: rozkładalności nie sprawdzamy (wadę lokalną już
+          // wykluczyliśmy). Wyjątek: fragment, który WCZEŚNIEJ oblał dokładny
+          // test i urósł tylko dlatego, że pętla skracania oddała mu komórki
+          // ścieżki. Wada nielokalna od tego nie znika, a przepuszczenie go
+          // oznaczałoby kieszeń nie do wycięcia aż do końca generacji.
+          if (failed) for (const i of comp) if (failed.has(i)) return true
+          continue
+        }
+        if (!this.decomposable(new Set(comp))) {
+          if (failed) for (const i of comp) failed.add(i)
+          return true
+        }
       }
     }
     return false
@@ -172,19 +319,25 @@ class Carver {
     return Math.round(this.p.giantSpan * Math.max(this.W, this.H))
   }
 
+  // Lmax = 0 oznacza automat: 2,5 × dłuższy bok, jak w §7 specyfikacji.
+  // Stała wartość (dawne 125) obcinała koszyk długi na dużych planszach.
+  lmax() {
+    return this.p.Lmax > 0 ? this.p.Lmax : Math.round(2.5 * Math.max(this.W, this.H))
+  }
+
   targetLength(progress) {
     const { rng, p } = this
     // BŁĄD PIERWOTNEJ HIPOTEZY: zakładałem, że długie kształty udają się dopiero
     // późno, bo obszar dopuszczalny rośnie. Nieprawda — element może od pierwszego
     // kroku biec PROSTO W GŁĄB od krawędzi (jego promień przechodzi przez komórki
     // własne). Ograniczony jest ruch W BOK, nie długość. Cap zostaje wyłączony.
-    const cap = p.Lmax
+    const cap = this.lmax()
     const r = rng()
     let lo, hi
     if (r < p.wShort) { lo = 2; hi = 6 }
     else if (r < p.wShort + p.wMid) { lo = 7; hi = 15 }
     else { // log-jednostajny w koszyku długim
-      const a = 16, b = Math.max(17, p.Lmax)
+      const a = 16, b = Math.max(17, cap)
       return Math.min(cap, Math.round(a * Math.exp(rng() * Math.log(b / a))))
     }
     return Math.min(cap, lo + Math.floor(rng() * (hi - lo + 1)))
@@ -395,7 +548,25 @@ class Carver {
           }
           cand.push({ x: nx, y: ny, dd, w })
         }
-        if (!cand.length) break
+        if (!cand.length) {
+          // Diagnostyka utknięcia: co otacza ogon (własna ścieżka, cudzy
+          // element, krawędź) i po ilu komórkach. To rozstrzyga, czy ścieżkę
+          // zamyka jej własne ciało, czy zakamarki frontiera.
+          let own = 0, foreign = 0, edge = 0
+          for (const dd of DIRS) {
+            const nx = tail.x + dd.dx, ny = tail.y + dd.dy
+            if (!this.inside(nx, ny)) edge++
+            else if (pathSet.has(this.idx(nx, ny))) own++
+            else foreign++
+          }
+          const st = this.stats
+          st.stallOwn = (st.stallOwn ?? 0) + own
+          st.stallForeign = (st.stallForeign ?? 0) + foreign
+          st.stallEdge = (st.stallEdge ?? 0) + edge
+          st.stallLen = (st.stallLen ?? 0) + path.length
+          st.stallSelfTrap = (st.stallSelfTrap ?? 0) + (own >= 2 ? 1 : 0)
+          break
+        }
         let total = cand.reduce((s, c) => s + c.w, 0), r = rng() * total, pick = cand[0]
         for (const c of cand) { r -= c.w; if (r <= 0) { pick = c; break } }
         path.push({ x: pick.x, y: pick.y })
@@ -412,18 +583,21 @@ class Carver {
       this.stats.want += want; this.stats.n++
       if (path.length < want) this.stats.stall++
       const beforeStrand = path.length
-      if (this.wouldStrand(path)) {
+      // Komórki fragmentów, które oblały dokładny test — skracanie ścieżki
+      // nie może ich „przepchnąć" ponad limit testu (patrz wouldStrand).
+      const failed = new Set()
+      if (this.wouldStrand(path, failed)) {
         // Skracamy skokowo, nie po jednej komórce: przy ścieżce o tysiącach
         // komórek liniowe szukanie kosztowałoby O(L) testów resztki.
         let ok = false
         const step = Math.max(1, Math.floor(path.length / 32))
         for (let L = path.length - step; L >= 2; L -= step) {
           const shorter = path.slice(0, L)
-          if (!this.wouldStrand(shorter)) {
+          if (!this.wouldStrand(shorter, failed)) {
             // dociągnij w górę po jednej, żeby nie tracić długości bez potrzeby
             let best = L
             for (let k = L + 1; k < Math.min(path.length, L + step); k++) {
-              if (this.wouldStrand(path.slice(0, k))) break
+              if (this.wouldStrand(path.slice(0, k), failed)) break
               best = k
             }
             path.length = best; ok = true; break
@@ -469,6 +643,137 @@ class Carver {
     return n
   }
 
+  /**
+   * WCHŁANIANIE RESZTEK — siatka bezpieczeństwa końcówki.
+   *
+   * Gdy żadna głowa nie daje legalnej ścieżki, zostają małe fragmenty: czasem
+   * nierozkładalne (krzyż z trzema liśćmi), czasem rozkładalne, ale bez
+   * legalnej kolejności głów. Zamiast cofać wycięcia na oślep, PRZEPISUJEMY
+   * KOŃCÓWKĘ sąsiedniego elementu: jego komórki od miejsca styku z fragmentem
+   * do ogona plus cały fragment układamy w nową ścieżkę Hamiltona.
+   *
+   * To jest zawsze legalne i nie zmienia grafu blokowania:
+   *  - głowa, szyja i promień zostają te same, więc element wyjeżdża tak jak
+   *    dotąd; ciało jedzie po torze głowy, jego kształt nie ma znaczenia;
+   *  - komórki końcówki zostają przy tym samym elemencie (ten sam indeks
+   *    w kolejności rozwiązania), więc promienie późniejszych elementów, które
+   *    przez nie przechodzą, nadal trafiają na element wcześniejszy;
+   *  - żaden promień nie przechodzi przez wolną komórkę (głowa była pierwszą
+   *    nieprzypisaną na linii w chwili wycięcia, nawrót zdejmuje tylko elementy
+   *    późniejsze), więc przypisanie fragmentu nie blokuje nikogo nowego.
+   *
+   * Przedłużenie ogona jest szczególnym przypadkiem (końcówka pusta) i jest
+   * próbowane pierwsze, bo najtańsze. Wchłaniamy tylko fragmenty do
+   * `absorbLimit` komórek: duży wolny obszar wymaga zwykłego wycinania, nie
+   * sklejania w jeden kłębek. Jedno wywołanie wchłania jeden fragment i zwraca
+   * true, żeby generator znów spróbował wycinać normalnie.
+   */
+  absorbLeftover() {
+    const limit = this.p.absorbLimit ?? 0
+    if (limit <= 0) return false
+    const { W, H, owner } = this
+    const cellIndexIn = new Map() // "id:idx" -> pozycja komórki w elemencie
+    const posOf = (pc, i) => {
+      const key = pc.id
+      let m = cellIndexIn.get(key)
+      if (!m) { m = new Map(); pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k)); cellIndexIn.set(key, m) }
+      return m.get(i)
+    }
+    const seen = new Uint8Array(W * H)
+    for (let s = 0; s < W * H; s++) {
+      if (owner[s] !== -1 || seen[s]) continue
+      // fragment wolnych komórek wokół s, z limitem rozmiaru
+      const comp = []
+      const stack = [s]
+      seen[s] = 1
+      let tooBig = false
+      while (stack.length) {
+        const i = stack.pop()
+        if (!tooBig) comp.push(i)
+        if (comp.length > limit) tooBig = true
+        const x = i % W, y = (i / W) | 0
+        for (const { dx, dy } of DIRS) {
+          const nx = x + dx, ny = y + dy
+          if (!this.inside(nx, ny)) continue
+          const j = this.idx(nx, ny)
+          if (owner[j] === -1 && !seen[j]) { seen[j] = 1; stack.push(j) }
+        }
+      }
+      if (tooBig) continue
+      const compSet = new Set(comp)
+      // kandydaci: (element, pozycja komórki styku); końcówka = komórki za nią
+      const cands = new Map()
+      for (const i of comp) {
+        const x = i % W, y = (i / W) | 0
+        for (const { dx, dy } of DIRS) {
+          const nx = x + dx, ny = y + dy
+          if (!this.inside(nx, ny)) continue
+          const o = owner[this.idx(nx, ny)]
+          if (o < 0) continue
+          const pc = this.pieces[o]
+          const k = posOf(pc, this.idx(nx, ny))
+          if (k === undefined || k < 1) continue // głowa i szyja są nienaruszalne
+          const key = `${o}:${k}`
+          if (!cands.has(key)) cands.set(key, { pc, k, suffix: pc.cells.length - 1 - k })
+        }
+      }
+      if (!cands.size) continue
+      const list = [...cands.values()].filter((c) => c.suffix <= limit).sort((a, b) => a.suffix - b.suffix)
+      for (const { pc, k } of list) {
+        // obszar do ułożenia: fragment + końcówka elementu za komórką styku
+        const region = new Set(compSet)
+        for (let j = k + 1; j < pc.cells.length; j++) region.add(this.idx(pc.cells[j].x, pc.cells[j].y))
+        const anchor = pc.cells[k]
+        const nbrs = (i) => {
+          const x = i % W, y = (i / W) | 0
+          const out = []
+          for (const { dx, dy } of DIRS) {
+            const nx = x + dx, ny = y + dy
+            if (this.inside(nx, ny) && region.has(this.idx(nx, ny))) out.push(this.idx(nx, ny))
+          }
+          return out
+        }
+        const starts = []
+        for (const { dx, dy } of DIRS) {
+          const nx = anchor.x + dx, ny = anchor.y + dy
+          if (this.inside(nx, ny) && region.has(this.idx(nx, ny))) starts.push(this.idx(nx, ny))
+        }
+        let found = null
+        let budget = 20000
+        for (const s0 of starts) {
+          const used = new Set([s0])
+          const path = [s0]
+          const dfs = (tail) => {
+            if (path.length === region.size) { found = [...path]; return true }
+            if (--budget < 0) return false
+            // Warnsdorff: najpierw sąsiedzi z najmniejszą liczbą wolnych wyjść
+            const next = nbrs(tail).filter((n) => !used.has(n))
+              .map((n) => ({ n, deg: nbrs(n).filter((m) => !used.has(m)).length }))
+              .sort((a, b) => a.deg - b.deg)
+            for (const { n } of next) {
+              used.add(n); path.push(n)
+              if (dfs(n)) return true
+              used.delete(n); path.pop()
+            }
+            return false
+          }
+          if (dfs(s0) || budget < 0) break
+        }
+        if (!found) continue
+        const newTail = found.map((i) => ({ x: i % W, y: (i / W) | 0 }))
+        pc.cells.length = k + 1
+        pc.cells.push(...newTail)
+        for (const i of comp) owner[i] = pc.id
+        this.remaining -= comp.length
+        this.recomputeLines(comp.map((i) => ({ x: i % W, y: (i / W) | 0 })))
+        this.stats.absorbed = (this.stats.absorbed ?? 0) + comp.length
+        this.stats.absorbs = (this.stats.absorbs ?? 0) + 1
+        return true
+      }
+    }
+    return false
+  }
+
   // Diagnostyka zaklinowania: jak wygląda to, czego generator nie umiał domknąć.
   leftoverReport() {
     const seen = new Uint8Array(this.W * this.H)
@@ -497,16 +802,18 @@ class Carver {
   }
 
   /**
-   * Nawrót UKIERUNKOWANY: cofa do najstarszego elementu stykającego się
-   * z pozostałym obszarem, zamiast ślepo zdejmować ostatnie k wycięć.
+   * Nawrót UKIERUNKOWANY: cofa do NAJNOWSZEGO elementu stykającego się
+   * z pozostałym obszarem, nie mniej niż `atLeast` elementów.
    *
    * Kolejność wycinania jest kolejnością rozwiązania, więc cofać można tylko
-   * chronologicznie — ale nie trzeba cofać na oślep. Elementy blokujące
-   * końcówkę zwykle powstały niedawno, więc taki nawrót jest tani, a trafia
-   * w rejon problemu. Ślepe cofanie przy 17 000 elementów to loteria.
+   * chronologicznie — ale nie trzeba cofać na oślep. Przy 5000 elementów
+   * ostatnie k wycięć leży w losowym rejonie planszy i ich zdjęcie niczego
+   * nie zmienia wokół resztki; zdjęcie sąsiada resztki scala ją z większym
+   * wolnym obszarem, który wycina się już normalnie. Najnowszy sąsiad jest
+   * najtańszy; przy kolejnych nawrotach `atLeast` rośnie, więc cofamy głębiej.
    */
-  undoToFrontier(maxUndo) {
-    const touching = new Set()
+  undoToFrontier(atLeast) {
+    let newest = -1
     for (let i = 0; i < this.W * this.H; i++) {
       if (this.owner[i] !== -1) continue
       const x = i % this.W, y = (i / this.W) | 0
@@ -514,15 +821,12 @@ class Carver {
         const nx = x + dx, ny = y + dy
         if (!this.inside(nx, ny)) continue
         const o = this.owner[this.idx(nx, ny)]
-        if (o >= 0) touching.add(o)
+        if (o > newest) newest = o
       }
     }
-    if (!touching.size) return 0
-    let minId = Infinity
-    for (const id of touching) if (id < minId) minId = id
-    const target = Math.max(minId, this.pieces.length - maxUndo)
-    const k = this.pieces.length - target
-    if (k > 0) this.undoLast(k)
+    if (newest < 0) return 0
+    const k = Math.max(atLeast, this.pieces.length - newest)
+    this.undoLast(k)
     return k
   }
 
@@ -535,11 +839,12 @@ class Carver {
     }
   }
 
-  run(maxBacktracks = 3000) {
+  run(maxBacktracks = 200) {
     const t0 = performance.now()
     let lastLog = t0
-    // Budżet nawrotów musi skalować się z planszą: 3000 wystarcza na 40 000
-    // komórek, ale przy milionie to ułamek jednego procentu wycięć.
+    // Budżet jest mały celowo: nawrót ukierunkowany bywa głęboki (cofa do
+    // najnowszego sąsiada resztki, czyli czasem tysiące elementów), więc po
+    // 200 nawrotach restart z pochodnym ziarnem jest tańszy i skuteczniejszy.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     while (this.remaining > 0) {
       if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
@@ -553,6 +858,10 @@ class Carver {
         })
       }
       if (this.carveOne()) continue
+      // Zanim cofniemy cokolwiek, spróbuj wchłonąć resztki ogonem sąsiada —
+      // to nie zmienia grafu blokowania, a nawrót przy tysiącach elementów
+      // trafia w losowy rejon planszy.
+      if (this.absorbLeftover()) continue
       // Zapamiętaj NAJLEPSZY moment zaklinowania (najmniej pozostałych komórek):
       // stan po serii cofnięć niczego nie mówi o przyczynie.
       if (this.remaining < (this.stuckRemaining ?? Infinity)) {
@@ -562,11 +871,7 @@ class Carver {
       }
       if (this.backtracks >= maxBacktracks || !this.pieces.length) return false
       this.backtracks++
-      if (this.p.frontierUndo > 0) {
-        if (this.undoToFrontier(this.p.frontierUndo) === 0) return false
-      } else {
-        this.undoLast(1 + Math.floor(Math.log2(1 + this.backtracks)))
-      }
+      if (this.undoToFrontier(1 + Math.floor(Math.log2(1 + this.backtracks))) === 0) return false
     }
     return true
   }
@@ -885,20 +1190,20 @@ export const PARAM_SPEC = [
   { key: 'seed', label: 'ziarno', group: 'plansza', min: 0, max: 999999, step: 1, def: 7,
     help: 'To samo ziarno daje bitowo tę samą planszę. Na tym opiera się weryfikacja wyniku po stronie serwera: odtwarza rozgrywkę z ziarna i sekwencji ruchów.' },
 
-  { key: 'wShort', label: 'waga krótkich (2–6)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.5,
+  { key: 'wShort', label: 'waga krótkich (2–6)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.2,
     help: 'Udział elementów najkrótszych. Wysoko = gęsto rozsiane groty, ale sama sieczka z haczyków. Przy 0,85 plansza traci długie linie zupełnie.' },
-  { key: 'wMid', label: 'waga średnich (7–15)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.2,
+  { key: 'wMid', label: 'waga średnich (7–15)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.08,
     help: 'Typowe zawijasy, główna masa planszy. Reszta wagi (1 minus krótkie minus średnie) przypada na koszyk długi, losowany log-jednostajnie.' },
-  { key: 'Lmax', label: 'długość maksymalna', group: 'długości', min: 16, max: 5000, step: 1, def: 125,
-    help: 'Górna granica losowanej długości. Rzadko bywa wiążąca: ponad połowa ścieżek utyka przed celem, więc podnoszenie tej wartości zwykle nic nie daje.' },
+  { key: 'Lmax', label: 'długość maksymalna (0 = 2,5 × bok)', group: 'długości', min: 0, max: 5000, step: 1, def: 0,
+    help: 'Górna granica losowanej długości. 0 = automat 2,5 × dłuższy bok planszy (§7 specyfikacji). Koszyk długi losuje log-jednostajnie od 16 do tej wartości; przy stałym 125 na planszy 200×200 rekordziści nie mieli szansy przekroczyć 125.' },
 
-  { key: 'pStraight', label: 'skłonność do prostej', group: 'kształt', min: 0, max: 1, step: 0.01, def: 0.6,
-    help: 'Jak chętnie ścieżka kontynuuje w tym samym kierunku. Wyżej = dłuższe proste odcinki i większy zasięg, ale ścieżka szybciej wchodzi w ślepy zaułek.' },
+  { key: 'pStraight', label: 'skłonność do prostej', group: 'kształt', min: 0, max: 1, step: 0.01, def: 0.85,
+    help: 'Jak chętnie ścieżka kontynuuje w tym samym kierunku. Wyżej = dłuższe proste odcinki i większy zasięg. Zmierzone na 200×200: 0,6 → 0,85 podnosi średnią długość z 8,9 do 11,0 przy tym samym udziale utykających ścieżek.' },
   { key: 'wLateral', label: 'premia za ruch w bok', group: 'kształt', min: 0, max: 20, step: 0.5, def: 3,
     help: 'Ruch w bok buduje kształt, ruch w głąb odcina ścieżkę od frontiera i od przyszłych skrętów. Dlatego bok jest premiowany, a nie „prosto”.' },
   { key: 'warns', label: 'siła Warnsdorffa', group: 'kształt', min: 0, max: 16, step: 1, def: 4,
-    help: 'Idź tam, gdzie zostaje najmniej wolnych wyjść. WYMAGANE: przy 0 jedna plansza na trzydzieści nie domyka się wcale. Ceną jest zwijanie — to ta reguła ciągnie linię z powrotem do siebie.' },
-  { key: 'anticoil', label: 'kara za zwijanie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
+    help: 'Idź tam, gdzie zostaje najmniej wolnych wyjść. Od hardeningu (poprawny test resztki, wchłanianie, nawrót ukierunkowany) plansza domyka się także przy 0, ale wolniej (6 s zamiast 0,4 s na 200×200) i z krótszymi liniami. Ceną Warnsdorffa jest zwijanie i utykanie w zakamarkach frontiera: ogon ginie średnio po 10 komórkach, otoczony ~2,3 cudzymi elementami.' },
+  { key: 'anticoil', label: 'kara za zwijanie', group: 'kształt', min: 1, max: 20, step: 1, def: 6,
     help: 'Kara za dotykanie własnej ścieżki, 1 = wyłączona. Przy 6 zwinięcie spada z 44% do 27%, ale elementy się skracają — trzeba wtedy podnieść udział długich, żeby porównanie było uczciwe.' },
   { key: 'hug', label: 'premia za przyleganie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
     help: 'Premia za sąsiedztwo z elementami już wyciętymi. Zmierzone jako niemal bezużyteczne: dokłada 1–2 punkty ponad samą karę za zwijanie.' },
@@ -936,13 +1241,13 @@ export const PARAM_SPEC = [
     help: 'Jak mocno karać zbliżenie do siebie. Musi być KARĄ, nie zakazem: zakaz uniemożliwia zawracanie, bo przejście z pasa do pasa wymaga przecięcia strefy odstępu.' },
 
   { key: 'headTries', label: 'prób głowy na kierunek', group: 'domykanie', min: 1, max: 32, step: 1, def: 4,
-    help: 'Ile głów wypróbować, zanim generator porzuci kierunek. Przy 1 (pierwotne zachowanie) plansza 400×400 zaklinowuje się z 27 tys. wolnych komórek; przy 4 — ze 171.' },
-  { key: 'strandLimit', label: 'limit testu resztki', group: 'domykanie', min: 2, max: 24, step: 1, def: 8,
-    help: 'Do jakiego rozmiaru fragmentu sprawdzać, czy da się go rozłożyć na ścieżki ≥2. Podnoszenie powyżej 8 POGARSZA: test odrzuca za dużo ścieżek i generator ma mniej ruchów.' },
-  { key: 'frontierUndo', label: 'nawrót ukierunkowany (0 = zwykły)', group: 'domykanie', min: 0, max: 2000, step: 10, def: 0,
-    help: 'Przy zaklinowaniu cofaj do najstarszego elementu stykającego się z wolnym obszarem, zamiast zdejmować ostatnie kilka wycięć. Przy tysiącach elementów ślepe cofanie trafia w losowy rejon planszy.' },
-  { key: 'maxBack', label: 'budżet nawrotów (0 = 3000)', group: 'domykanie', min: 0, max: 200000, step: 500, def: 0,
-    help: 'Ile razy generator może się cofnąć, zanim uzna próbę za straconą. Duże wartości potrafią kosztować minuty i rzadko ratują sytuację.' },
+    help: 'Ile głów wypróbować, zanim generator porzuci kierunek. Przy 1 (pierwotne zachowanie) plansza 400×400 zaklinowuje się z 27 tys. wolnych komórek; przy 4 — ze 171. Na 200×200 po hardeningu nawet 1 domyka bez porażek.' },
+  { key: 'strandLimit', label: 'limit dokładnego testu resztki', group: 'domykanie', min: 2, max: 30, step: 1, def: 30,
+    help: 'Do jakiego rozmiaru fragmentu sprawdzać dokładnie (pokrycie dominami i trominami po maskach bitowych), czy da się go rozłożyć na ścieżki ≥2. Większe fragmenty przechodzą tylko test wady lokalnej. Dawna rada „powyżej 8 pogarsza” brała się z błędu w teście, który odrzucał poprawne fragmenty.' },
+  { key: 'absorbLimit', label: 'wchłanianie resztek do N komórek (0 = wyłączone)', group: 'domykanie', min: 0, max: 64, step: 1, def: 24,
+    help: 'Gdy żadna głowa nie daje legalnej ścieżki, fragment do N komórek wchłania ogon sąsiedniego elementu. Zawsze legalne (głowa i promień bez zmian, graf blokowania bez zmian), więc zastępuje nawrót w końcówce. To jedyny mechanizm, który ratuje nierozkładalne fragmenty, np. krzyż z trzema liśćmi.' },
+  { key: 'maxBack', label: 'budżet nawrotów (0 = 200)', group: 'domykanie', min: 0, max: 200000, step: 50, def: 0,
+    help: 'Ile razy generator może się cofnąć, zanim uzna próbę za straconą. Nawrót jest ukierunkowany (do najnowszego sąsiada resztki), więc bywa głęboki i drogi — po 200 nawrotach restart z pochodnym ziarnem jest tańszy i skuteczniejszy.' },
   { key: 'restarts', label: 'dopuszczalne restarty', group: 'domykanie', min: 0, max: 10, step: 1, def: 3,
     help: 'Ile razy zacząć od nowa z pochodnym ziarnem po nieudanej próbie. Restart jest zwykle skuteczniejszy niż kolejne tysiące nawrotów.' },
 ]
@@ -967,7 +1272,7 @@ export function generate(params) {
   for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
     used = attempt
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
-    ok = carver.run(p.maxBack > 0 ? p.maxBack : 3000)
+    ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
   }
   const genMs = performance.now() - t0
   const t1 = performance.now()

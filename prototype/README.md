@@ -187,3 +187,68 @@ w 64 ms, restartów najwyżej 0,5 na przebieg.
 node prototype/carve.mjs --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
 sh prototype/preview.sh && open prototype/preview/index.html   # sekcja F
 ```
+
+## Runda 8 — hardening domykania (plansze do 200×200)
+
+Pytanie: dlaczego plansza 200×200 często się nie domyka (1 porażka na 10 ziaren,
+połowa przebiegów z restartem) i czemu linie są krótkie i przylegają do siebie.
+
+```
+node --test prototype/                     # testy odporności (decomposable, wada lokalna, wchłanianie, domykanie)
+node prototype/carve.mjs --only=Extreme    # 200×200
+```
+
+**Przyczyna 1 — błędny test rozkładalności resztki.** `decomposable` rozwijał
+ścieżkę wyłącznie od pierwszej komórki zbioru, więc ta komórka musiała być
+końcem ścieżki. L-tromino z iteracją od narożnika i prosta trójka od środka
+wychodziły „nierozkładalne", a wynik zależał od kolejności komórek w zbiorze.
+Generator w końcówce odrzucał poprawne ścieżki i ogłaszał zaklinowanie, którego
+nie było; ślepy nawrót niczego nie zmieniał, bo po ponownym wycięciu ten sam
+test odrzucał to samo. Stąd też dawna rada „limit testu powyżej 8 pogarsza".
+Nowa wersja: pokrycie dominami i trominami-ścieżkami po maskach bitowych
+(każda ścieżka ≥ 2 rozpada się na odcinki po 2 i 3 — Akiyama–Avis–Era), dokładne
+do 30 komórek. Sama ta poprawka: 200×200 z 1/10 porażek do 0/20, czas 1,4 s → 0,2 s.
+
+**Przyczyna 2 — pętla skracania „uciekała" przed testem.** Fragment powyżej limitu
+przechodził bez sprawdzenia. Skracanie ścieżki oddaje komórki sąsiedniemu
+fragmentowi po jednej, a wada typu „krzyż z trzema liśćmi" jest lokalna i nie
+znika od dokładania komórek gdzie indziej — więc pętla produkowała nierozkładalny
+fragment o rozmiarze dokładnie limit+1 (9–10 przy limicie 8, 25 przy 24).
+Podnoszenie limitu z definicji nic nie daje. Naprawa: (a) test wady lokalnej
+niezależny od limitu — warunek Tutte'a dla |S| ≤ 2 sprawdzany w promieniu 2 od
+ścieżki, bo tylko tam po wycięciu zmieniają się stopnie; (b) fragment, który
+oblał dokładny test, jest pamiętany i po urośnięciu ponad limit odrzucany.
+
+**Przyczyna 3 — ślepy nawrót.** Przy 5000 elementów ostatnie k wycięć leży
+w losowym rejonie planszy. Nawrót cofa teraz do najnowszego elementu stykającego
+się z resztką (co najmniej 1 + log₂ nawrotów), a budżet spadł z 3000 do 200, bo
+restart jest tańszy niż głębokie cofanie.
+
+**Siatka bezpieczeństwa — wchłanianie resztek.** Gdy żadna głowa nie daje
+legalnej ścieżki, końcówka sąsiedniego elementu (od komórki styku do ogona) plus
+fragment układane są w nową ścieżkę Hamiltona. Zawsze legalne: głowa, szyja
+i promień bez zmian, komórki zostają przy tym samym indeksie, a żaden promień
+nie przechodzi przez wolną komórkę — graf blokowania jest identyczny. Test
+`absorbLeftover` sprawdza to przez `analyse().solvable`.
+
+| konfiguracja (200×200, bez restartów) | przed | po |
+|---|---|---|
+| domyślna, 100 ziaren | 1/10 porażek, 1,4 s | **0/100**, 0,2 s, 0 nawrotów |
+| kara 6 + wagi 0,2/0,08, 30 ziaren | 4/20 z restartem | **0/30**, 0,4 s |
+| szkielet 4 × 30 boków, 15 ziaren | 1/10 z restartem | **0/15**, 0,4 s |
+| bez Warnsdorffa / same krótkie / tunele | 1/15 każda | **0/15** każda |
+| dziewięć rozmiarów od 10×10 do 200×200 | — | **0/30** każdy |
+
+**Linie za krótkie — przyczyna zmierzona, nie usunięta.** 48–84% ścieżek utyka
+przed zamówioną długością; ogon ginie średnio po 10 komórkach, otoczony ~2,3
+cudzymi elementami, czyli w zakamarku frontiera, do którego ciągnie go
+Warnsdorff (zakamarek o jednym wyjściu ma wagę 16 wobec 1 dla otwartej
+przestrzeni). Sprawdzone i odrzucone: nawrót wewnątrz ścieżki (utyka nadal
+77–84%), odwrócony Warnsdorff (linie krótsze), premia w bok 0,5–1 (bez zmian).
+Potwierdza to rundę 7: losowy wzrost ma sufit, długie linie daje tylko szkielet.
+
+Co się zmieniło w domyślnych: `Lmax` = 0 oznacza 2,5 × bok (stałe 125 obcinało
+koszyk długi na 200×200), kara za zwijanie 6, wagi 0,20/0,08, prostość 0,85.
+Na 200×200: średnia długość 8,7 → 11,0, zwinięcie 41% → 28%; na 25×50 zasięg
+górnych 10% elementów 37% → 48%. Laboratorium pokazuje nowy wiersz „utyka przed
+celem" i liczbę wchłoniętych resztek.

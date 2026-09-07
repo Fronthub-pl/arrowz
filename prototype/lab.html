@@ -480,7 +480,7 @@ window.addEventListener('hashchange', () => {
 function pct(v) { return (100 * v).toFixed(0) + '%' }
 
 function report(msg) {
-  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck } = msg
+  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, stats } = msg
   const cells = state.W * state.H
 
   setStatus(ok
@@ -517,6 +517,10 @@ function report(msg) {
     ['wspólna granica', pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1],
     ['wieloliniowych', pct(metrics.multiLine), 100 * metrics.multiLine, 1],
     ['—', ''],
+    // Utykanie tłumaczy krótkie linie lepiej niż rozkład długości: ścieżka
+    // ginie w zakamarku frontiera daleko przed zamówioną długością.
+    ['utyka przed celem', stats?.n ? `${pct(stats.stall / stats.n)} ścieżek, osiągane ${pct(stats.got / stats.want)} zamówionej długości` : '—', stats?.n ? 100 * stats.stall / stats.n : undefined, -1],
+    ['wchłonięte resztki', `${stats?.absorbs ?? 0} fragm. (${stats?.absorbed ?? 0} komórek)`, stats?.absorbs ?? 0, -1],
     ['nawroty / restarty', `${backtracks} / ${restartsUsed}`, backtracks, -1],
     ['czas', `generacja ${(genMs / 1000).toFixed(2)} s, metryki ${(metricsMs / 1000).toFixed(2)} s`, genMs, -1],
   ]
