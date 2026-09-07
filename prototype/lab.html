@@ -281,7 +281,13 @@ $('abort').addEventListener('click', () => {
 })
 
 function run() {
-  if (busy) return
+  // Nowe żądanie przerywa poprzednie. Bez tego zmiana parametru w trakcie
+  // liczenia dużej planszy wyglądałaby jak zawieszenie: żądanie przepadało,
+  // a pasek dalej pokazywał stary przebieg.
+  if (busy) {
+    worker.terminate()
+    worker = null
+  }
   const cells = state.W * state.H
   start()
   setStatus(cells > 200000
