@@ -37,8 +37,14 @@ Plansza to prostokątna siatka `W × H` komórek. Leży na niej `N` **elementów
 
 Element to **samounikająca się polilinia**: spójna ścieżka po komórkach siatki,
 poruszająca się wyłącznie ortogonalnie, nieodwiedzająca żadnej komórki dwukrotnie.
-Długość waha się od 2 komórek do kilkuset — najdłuższe elementy przecinają planszę na
-wskroś wielokrotnie, w tę i z powrotem. Rozkład długości jest **ciężkoogonowy**: dominują
+Długość waha się od 1 komórki do kilkuset — najdłuższe elementy przecinają planszę na
+wskroś wielokrotnie, w tę i z powrotem. Elementy jednokomórkowe są rzadkie, ale
+nieuniknione (§7); mają grot i kierunek jak każde inne.
+
+**Elementy pokrywają planszę w całości.** Każda komórka siatki należy do dokładnie
+jednego elementu — nie ma pustych pól. Wbrew intuicji nie odbiera to możliwości ruchu:
+region zamiatania wyklucza komórki własne, więc element, który sam pokrywa całą swoją
+drogę do krawędzi, jest wolny nawet na planszy zapełnionej po brzegi. Rozkład długości jest **ciężkoogonowy**: dominują
 krótkie kształty, ale mniejszość bardzo długich, wijących się linii nadaje planszy jej
 charakter. Model rozkładu opisuje §7. Na jednym końcu ścieżki znajduje się grot.
 
@@ -94,7 +100,7 @@ Odrzucone warianty:
 SVG zamiast Canvas: przy siatce trafienie w element to `piksel → komórka → id`, więc
 żadna technologia nie ma przewagi w hit-testingu, a SVG daje darmowe animacje CSS przy
 wyjeżdżaniu elementu oraz zoom i przesuwanie przez samą zmianę `viewBox`, bez
-przerysowywania. Przy ~920 ścieżkach Nightmare to wciąż rozsądny wybór, ale margines
+przerysowywania. Przy ~1 000 ścieżkach Nightmare to wciąż rozsądny wybór, ale margines
 jest już cienki, więc §11 definiuje budżet wydajności, a renderer stoi za interfejsem —
 wymiana na Canvas nie dotyka rdzenia.
 
@@ -107,7 +113,7 @@ src/
     rng.ts           deterministyczny PRNG z ziarnem
     board.ts         siatka zajętości, sweptRegion(), probeMove(), removePiece()
     shapes.ts        losowanie kształtu przez wzrost wstecz w obszarze dopuszczalnym
-    generator.ts     generacja wsteczna, korki, parametry trudności
+    generator.ts     wycinanie z pełnej planszy, parametry trudności
     solver.ts        graf blokowania + sortowanie topologiczne (Kahn)
     metrics.ts       metryki trudności liczone na wygenerowanej planszy
   game/
@@ -152,7 +158,7 @@ type Board = {
 ```
 
 Uwaga implementacyjna: `occupancy` jest `Int32Array`, nie `Int8Array` — plansza
-Nightmare ma ~920 elementów, więc `Int8Array` przepełniłby się siedmiokrotnie.
+Nightmare ma ~1 000 elementów, więc `Int8Array` przepełniłby się ośmiokrotnie.
 Przy 10 000 komórek zajmuje 40 kB, co jest bez znaczenia.
 
 Parametry generatora są **jedną strukturą**, wspólną dla presetów i konfiguratora:
@@ -161,7 +167,7 @@ Parametry generatora są **jedną strukturą**, wspólną dla presetów i konfig
 type GeneratorParams = {
   width: number
   height: number
-  pieceCount: number      // ile linii; wypełnienie wynika z niego i z długości
+  pieceCount: number      // ile linii; średnia długość = width*height/pieceCount
   maxLength: number       // Lmax
   straightBias: number    // p_s ∈ [0,1]; „stopień połamania" w UI to 1 - p_s
   bucketWeights: [short: number, medium: number, long: number]
@@ -171,7 +177,7 @@ type GeneratorParams = {
 type GenerationReport = {          // co faktycznie osiągnięto
   params: GeneratorParams
   actualPieceCount: number
-  actualFill: number
+  singleCellPieces: number   // ile elementów jednokomórkowych musiało powstać
   lengthHistogram: number[]
   longAreaShare: number
   attemptsUsed: number
@@ -226,92 +232,131 @@ w niego uderzy, a nie od najdalszej.
 
 Koszt: `O(liczba linii × długość planszy)`, jeden przebieg dla obu wyników.
 
-## 7. Generator: generacja wsteczna
+## 7. Generator: wycinanie z pełnej planszy
 
 ### Zasada
 
-Budujemy planszę, wstawiając elementy jeden po drugim: element „wjeżdża" z zewnątrz
-planszy w kierunku przeciwnym do swojego grotu i zatrzymuje się na pozycji docelowej.
-Trasa wjazdu to **dokładnie ten sam zbiór komórek** co region zamiatania przy ucieczce
-— ta sama translacja, przebiegnięta wstecz. Generator i silnik gry dzielą więc jedną
-definicję korytarza; dwie osobne implementacje mogłyby się rozjechać.
+Plansza jest **wypełniona w 100%**: każda komórka należy do dokładnie jednego elementu.
+Generujemy więc nie przez wstawianie elementów na pustą planszę, lecz przez
+**wycinanie ich z planszy pełnej, w kolejności usuwania**.
+
+Na starcie wszystkie komórki są *nieprzypisane*; oznaczmy ten zbiór `R`. Wycinamy
+kolejno elementy `q_1, q_2, …, q_N`, gdzie `q_1` to element, który gracz zdejmie jako
+pierwszy. Warunek wycięcia elementu `q_j` z kierunkiem `d`:
+
+```
+swept_d(q_j) ∩ (R \ cells(q_j)) = ∅
+```
+
+czyli: cała droga elementu do krawędzi wyjścia prowadzi przez komórki **już przypisane**
+(wcześniej wyciętym elementom) albo przez komórki **własne**. Kończymy, gdy `R = ∅`.
 
 ### Twierdzenie o poprawności
 
-Jeżeli przy wstawianiu `E_k` (k = 1..N) zachodzi
-`swept(E_k) ∩ cells({E_1..E_{k-1}}) = ∅` oraz komórki `E_k` są puste,
-to kolejność `E_N, E_{N-1}, …, E_1` jest poprawnym rozwiązaniem.
+Kolejność wycinania `q_1, …, q_N` jest poprawną kolejnością rozwiązania.
 
-Dowód: w chwili usuwania `E_k` na planszy są dokładnie `E_1..E_k`. `swept(E_k)` jest
-stały; przy wstawianiu nie zawierał komórek `E_1..E_{k-1}`, a `E_{k+1}..E_N` już nie ma.
-Ruch jest legalny. Indukcja po malejącym `k`.
+Dowód: w chwili, gdy gracz zdejmuje `q_j`, na planszy leżą dokładnie `q_j, …, q_N` —
+bo `q_1..q_{j-1}` już zeszły. Zbiór `R` w momencie wycinania `q_j` to właśnie
+`{q_j, …, q_N}`. Warunek wycięcia mówi, że `swept(q_j)` nie zawiera komórek
+`q_{j+1}, …, q_N`, a `swept` jest stały (§2). Ruch jest więc legalny. ∎
 
-Warunek musi obejmować **cały korytarz**, nie tylko komórki docelowe, i musi być
-sprawdzany **wyłącznie względem elementów już wstawionych**. Elementy wstawione
-później mogą leżeć w korytarzu `E_k` — to nie usterka, tylko cel: one blokują `E_k`
-na starcie i tworzą zaplątanie, a znikną przed nim.
+Zauważ, że kolejność wycinania jest **wprost** kolejnością rozwiązania — nie trzeba jej
+odwracać.
 
-Generator jest **zupełny**: każda rozwiązywalna plansza jest osiągalna tą procedurą
-(weź dowolne rozwiązanie i odwróć je).
+### Równoważność z generacją wsteczną
+
+Ten warunek jest **matematycznie identyczny** z wcześniejszym sformułowaniem
+„wstawiaj elementy, wjeżdżając nimi z zewnątrz, i odwróć kolejność". Trasa wjazdu
+elementu z zewnątrz to dokładnie ten sam zbiór komórek co jego region zamiatania przy
+ucieczce — ta sama translacja przebiegnięta wstecz. Generator i silnik gry dzielą więc
+jedną definicję korytarza; dwie osobne implementacje mogłyby się rozjechać.
+
+Zmienia się wyłącznie to, **względem czego** liczymy test: zamiast „elementów już
+położonych" mamy „komórek jeszcze nieprzypisanych". A skoro `R` kurczy się do zera,
+pokrycie planszy jest pełne. Poprzednia wersja tego projektu zatrzymywała się na progu
+wypełnienia i pozostawiała dziury; ta kończy dopiero, gdy nie zostanie żadna komórka.
+
+### Gwarancja, że algorytm nigdy nie utknie
+
+Niech `R ≠ ∅`. Weź dowolną kolumnę `x` zawierającą komórkę z `R` i najwyższą taką
+komórkę `(x, y*)`. Z minimalności `y*` wszystkie komórki `(x, 0..y*-1)` są już
+przypisane. Jednokomórkowy element `{(x, y*)}` skierowany w górę ma więc region
+zamiatania zawarty w komórkach przypisanych — jest legalny.
+
+Zawsze istnieje zatem co najmniej jeden legalny ruch generatora, a `|R|` maleje o co
+najmniej 1 w każdym kroku. **Pełne pokrycie jest gwarantowane z konstrukcji**, a nie
+osiągane szczęściem. W najgorszym razie powstaje element jednokomórkowy.
+
+**Elementy jednokomórkowe są dopuszczalne.** Nie da się ich wykluczyć: pojedyncza
+nieprzypisana komórka otoczona przypisanymi nie ma jak urosnąć. Kierunek takiego
+elementu wybieramy dowolnie spośród legalnych. Generator stosuje heurystykę
+„nie osieracaj": unika ruchów zostawiających izolowane komórki, i raportuje, ile
+elementów jednokomórkowych ostatecznie powstało.
 
 ### Obszar dopuszczalny: skyline
 
-Niech `depth_d[L]` = liczba kolejnych pustych komórek na linii `L`, licząc od krawędzi
-w kierunku `d` do wewnątrz, względem elementów już wstawionych. Niech `dist_d(c)` =
-liczba komórek ściśle między `c` a krawędzią w kierunku `d`. Wtedy:
+Niech `depth_d[L]` = liczba kolejnych **przypisanych** komórek na linii `L`, licząc od
+krawędzi w kierunku `d` do wewnątrz. Niech `dist_d(c)` = liczba komórek ściśle między
+`c` a krawędzią w kierunku `d`. Wtedy:
 
 ```
-c może należeć do elementu wychodzącego w kierunku d  ⟺  dist_d(c) < depth_d[line_d(c)]
+c może należeć do wycinanego elementu o kierunku d  ⟺  dist_d(c) ≤ depth_d[line_d(c)]
 ```
 
-Zbiór takich komórek oznaczamy `S_d`. Test jest **`O(1)` na komórkę**.
+Test jest **`O(1)` na komórkę**. Element jest legalny wtedy i tylko wtedy, gdy
+**wszystkie** jego komórki spełniają ten warunek — jest to równoważne pełnemu testowi
+korytarza, bo suma promieni jest wolna od nieprzypisanych komórek dokładnie wtedy, gdy
+każdy promień z osobna jest wolny. Ścieżka rosnąca „w głąb" wzdłuż linii korzysta z
+tego, że jej własne komórki też liczą się jako przypisane.
 
-Element jest legalny wtedy i tylko wtedy, gdy **wszystkie** jego komórki należą do `S_d`.
-Jest to równoważne pełnemu testowi korytarza: suma promieni jest wolna od obcych komórek
-dokładnie wtedy, gdy każdy promień z osobna jest wolny.
+Utrzymujemy cztery tablice `depth_d[·]`, po jednej na kierunek, aktualizowane
+przyrostowo po każdym wycięciu kosztem `O(4·ℓ)`.
 
-Utrzymujemy cztery tablice `depth_d[·]`, po jednej na kierunek. Po wstawieniu elementu
-aktualizacja to `depth_d[line_d(c)] = min(depth_d[·], dist_d(c))` dla każdej komórki `c`
-elementu i każdego z czterech kierunków — koszt `O(4·ℓ)`, bez przeliczania planszy.
+### Procedura wycinania
 
-### Procedura wstawiania
-
-Zamiast losować kształt i pozycję, a potem odrzucać, **hodujemy ścieżkę wyłącznie
-wewnątrz `S_d`**. Każdy tak zbudowany element ma z definicji wolny korytarz, więc
-akceptowalność pozostaje bliska 100% także przy dużym zagęszczeniu.
+Ścieżkę **hodujemy wyłącznie wewnątrz obszaru dopuszczalnego**, więc odrzuceń nie ma.
 
 ```
-insert(rng, params):
-  dla kierunków d w losowej kolejności, ważonej |S_d|:
-    Heads = { c ∈ S_d : c - d ∈ S_d }          # zapewnia długość ≥ 2
+carve(rng, params):
+  dla kierunków d w losowej kolejności, ważonej rozmiarem obszaru dopuszczalnego:
+    Heads = komórki dopuszczalne dla d, leżące najbliżej krawędzi wyjścia
     jeśli Heads puste: następny kierunek
-    h = losuj z Heads z wagą w(c) = depth^β · (1 + α·cover[c])
-    path = [h, h - d]
-    docelowa długość ℓ* ~ rozkład mieszany (patrz niżej), malejący z postępem
+    h = losuj z Heads
+    path = [h]
+    docelowa długość ℓ* ~ rozkład mieszany (patrz niżej)
     dopóki |path| < ℓ*:
-      cand = { sąsiedzi ogona ∈ S_d, spoza path }
-      jeśli cand puste: przerwij            # akceptujemy krótszy element, min. 2
+      cand = { sąsiedzi ogona, nieprzypisani, dopuszczalni dla d przy tym path }
+      odfiltruj kandydatów osieracających pojedyncze komórki
+      jeśli cand puste: przerwij            # akceptujemy krótszy element
       wybierz t z cand (bias: prosto z prawdopodobieństwem p_s ≈ 0.75, skręt resztą)
       path.push(t)
-    zatwierdź(path, d); zaktualizuj depth_*; zaktualizuj cover
+    zatwierdź(path, d); zaktualizuj depth_*
     return OK
-  return SATURATED
+  # nieosiągalne przy R ≠ ∅ — patrz gwarancja wyżej
 ```
 
 Wzrost to samounikająca się ścieżka: nie odwiedza komórki dwukrotnie, ale **może**
 dotykać samej siebie bokiem (spirala). Korytarz liczymy po zbiorze komórek, nie po
 kolejności ścieżki.
 
-### Rozkład długości i kolejność wstawiania
+### Rozkład długości
 
-Długość jest głównym parametrem charakteru planszy, więc opisujemy ją wprost.
+Przy pełnym wypełnieniu **liczba linii i średnia długość to jedna i ta sama wielkość**:
+
+```
+średnia długość = W · H / liczba linii
+```
+
+Nie są to więc dwa niezależne pokrętła. Konfigurator wystawia liczbę linii, a średnią
+długość pokazuje jako wielkość pochodną.
+
 `Lmax = round(κ · max(W, H))`, gdzie `κ ≈ 2–3`; element może być wielokrotnie dłuższy
 niż bok planszy, bo się wije. Długość losujemy z **rozkładu mieszanego** o trzech
-koszykach, których wagi są parametrem trudności:
+koszykach, których wagi dobieramy tak, by średnia wyszła na zamówioną:
 
 | Koszyk | Długość | Rozkład | Rola |
 |---|---|---|---|
-| krótkie | 2–6 | jednostajny | wypełniacz, domyka gęstość |
+| krótkie | 1–6 | jednostajny | wypełniacz, domyka szczeliny |
 | średnie | 7–15 | jednostajny | typowe zawijasy, główna masa planszy |
 | długie | 16–`Lmax` | **log-jednostajny** | szkielet planszy, przecinają ją na wskroś |
 
@@ -320,90 +365,52 @@ jednostajny dawałby średnią 158 komórek, czyli same potwory. Log-jednostajny
 średnią ~97 i rozkłada masę równomiernie po rzędach wielkości, więc powstają zarówno
 elementy 20-komórkowe, jak i 250-komórkowe.
 
-**Ograniczenie, o którym łatwo zapomnieć: `Lmax` i waga koszyka długiego nie są
-niezależne.** Iloczyn `waga · średnia długość / średnia długość ogółem` to udział
-powierzchni planszy zajęty przez długie elementy. Przy `Lmax = 300` i wadze 8% czternaście
-węży zajęłoby **60% wypełnienia** — plansza byłaby kilkoma spiralami, a nie polem
-strzałek. Dlatego przy dużym `Lmax` waga musi spaść do 0.5–1.5%. Konfigurator (§11)
-liczy ten udział na żywo i ostrzega, gdy przekroczy ~25%.
+**Ograniczenie: `Lmax` i waga koszyka długiego nie są niezależne.** Iloczyn wagi
+i średniej długości koszyka, podzielony przez średnią ogólną, to udział powierzchni
+planszy zajęty przez długie elementy. Przy `Lmax = 300` i wadze 8% kilkanaście węży
+zajęłoby większość planszy. Przy dużym `Lmax` waga musi spaść poniżej ~1.5%.
+Konfigurator liczy ten udział na żywo i ostrzega po przekroczeniu ~25%.
 
-Bias prostoliniowy `p_s ≈ 0.75` (w konfiguratorze: „stopień połamania" = `1 − p_s`)
-daje charakterystyczny wygląd: długie proste odcinki przerywane skrętami o 90°, a nie
-gęsty zygzak.
+**Długie elementy udają się późno, nie wcześnie.** Na starcie `R` to cała plansza,
+więc dopuszczalne są wyłącznie komórki przyklejone do krawędzi — pierwsze wycięcia są
+z konieczności krótkie. Obszar dopuszczalny **rośnie** w miarę wycinania, bo za
+frontierem zostaje coraz więcej komórek przypisanych. Górna granica losowanej długości
+musi więc **rosnąć** z postępem generacji.
+
+Warto zauważyć, że to odwrotność sytuacji z poprzedniej wersji projektu, gdzie elementy
+wstawiano na pustą planszę i pojemność malała. Kierunek zależności się odwrócił razem
+ze zmianą warunku stopu — i to jest miejsce, w którym najłatwiej przenieść stary
+odruch do nowego kodu.
 
 **Połamanie steruje rozmiarem korytarza, nie tylko wyglądem.** Korytarz zależy od liczby
 linii, które element przecina w poprzek, a nie od jego długości. Wąż o 300 komórkach
-zwinięty w ciasną spiralę przecina może 20 kolumn i wchodzi łatwo; ten sam wąż
-poprowadzony prosto przecina 100 kolumn i wymaga, by cała plansza nad nim była pusta.
-W konfiguratorze te dwa suwaki oddziałują więc na siebie: mocno połamane i długie jest
-łatwe do wygenerowania, proste i długie bywa niewykonalne. Interfejs musi pokazywać, co
+zwinięty w ciasną spiralę przecina może 20 kolumn i wycina się łatwo; ten sam wąż
+poprowadzony prosto przecina 100 kolumn i wymaga, by cała plansza nad nim była już
+przypisana. W konfiguratorze te dwa suwaki oddziałują więc na siebie: mocno połamane
+i długie jest łatwe, proste i długie bywa niewykonalne. Interfejs musi pokazywać, co
 generator faktycznie osiągnął, a nie tylko, o co go poproszono.
 
-**Długie elementy muszą wchodzić wcześnie.** Element wchodzi tylko wtedy, gdy
-wszystkie jego komórki leżą w `S_d`, a `S_d` kurczy się monotonicznie z każdym
-wstawieniem. Zdolność planszy do przyjęcia długiego kształtu maleje więc z czasem.
-Implementujemy to, **obniżając górną granicę losowanej długości wraz z postępem
-wypełnienia** — początkowe wstawienia losują z pełnego rozkładu, końcowe wyłącznie
-z koszyka krótkiego.
+### Sterowanie trudnością zamiast korków
 
-Procedura wzrostu obsługuje to zresztą łagodnie sama z siebie: gdy zabraknie kandydatów,
-akceptujemy element krótszy od zamierzonego. Sterowanie górną granicą tylko zwiększa
-szansę, że długie kształty w ogóle powstaną, zamiast być po cichu obcinane.
+Wcześniejsza wersja projektu sterowała trudnością przez **korki**: elementy dokładane
+w korytarze wolnych elementów, żeby je unieruchomić. Przy pełnym wypełnieniu ten
+mechanizm **przestaje istnieć** — nie ma wolnych komórek, w które można cokolwiek
+dołożyć. Zastępujemy go dwoma innymi:
 
-Konsekwencja, o której trzeba pamiętać przy strojeniu: element rozpięty na wielu liniach
-wymaga, by **wszystkie** te linie były nad nim puste, a po wstawieniu obcina im
-`depth_d`. Jedna długa linia zjada dużą część pojemności swojego kierunku, więc liczba
-bardzo długich elementów jest ograniczona geometrią, nie tylko wagą w rozkładzie.
-Generator nie może obiecać `n` długich elementów — może o nie próbować i zaraportować,
-ile się udało.
+1. **Bias kształtu frontiera.** Liczba elementów wolnych na starcie (`f0`) to liczba
+   elementów, które mogłyby zostać wycięte jako pierwsze — czyli szerokość „powierzchni"
+   wycinania w chwili startu. Wycinanie warstwami równomiernie po całym obwodzie daje
+   szeroki frontier i wysokie `f0`; wycinanie wąskimi tunelami w głąb daje frontier
+   poszarpany i `f0` niskie. Sterujemy tym, preferując kontynuację w tym samym rejonie
+   i kierunku zamiast losowego skakania po planszy.
+2. **Generuj–zmierz–odrzuć.** Po wygenerowaniu liczymy metryki z §9; jeśli wypadają poza
+   pasmem trudności, powtarzamy z innym ziarnem lub skorygowanymi parametrami. Budżet
+   prób jest ograniczony; po jego wyczerpaniu oddajemy najlepszy wynik, żeby gra nigdy
+   nie zawiesiła się przy starcie poziomu.
 
-Efekt uboczny jest pożądany: skoro wstawiamy od tyłu, elementy wstawione najwcześniej
-są usuwane najpóźniej. Długie linie stają się naturalnym szkieletem łamigłówki —
-zablokowanym przez resztę i zdejmowanym na końcu. Ich długie korytarze podnoszą też
-metrykę `T_k` (§9), więc są **głównym źródłem trudności percepcyjnej**, a nie detalem
-wizualnym.
-
-### Przeciwdziałanie degeneracji
-
-Wstawianie wymaga wolnego korytarza od krawędzi, więc późne elementy lądują blisko
-obwodu. Naiwna generacja do nasycenia daje **cebulę**: wierzchnią warstwę drobnych
-elementów przy krawędziach, wszystkie wolne, zdejmowaną warstwa po warstwie. Nudne.
-
-Trzy mechanizmy, wszystkie mieszczące się w powyższej procedurze:
-
-1. **Korki — jako osobna faza po generacji, nie jako waga w pętli.** Niech `cover[c]` =
-   liczba **aktualnie wolnych** elementów, których korytarz zawiera `c`. Korek to
-   element wstawiony celowo w korytarze wolnych elementów: sam jest wolny (`+1`), ale
-   unieruchamia `m` przeciętych (`−m`). Bilans `1 − m`: przy `m ≥ 2` liczba wolnych
-   ruchów spada, przy `m = 1` powstaje łańcuch wymuszony. Korek to zwykłe ostatnie
-   wstawienie, więc gwarancja rozwiązywalności pozostaje nienaruszona.
-
-   Pierwotnie projektowaliśmy to jako wagę `1 + α·cover[c]` przy każdym wstawieniu.
-   Przy planszy 100×100 i ~920 elementach o korytarzach po ~150 komórek utrzymywanie
-   `cover` na bieżąco to rząd 10⁸ operacji — nie do przyjęcia. Dlatego `cover` liczymy
-   **raz, po zakończeniu głównej generacji**, i uruchamiamy pętlę
-   `dopóki f0 > cel: wstaw korek maksymalizujący m`, aktualizując `cover` tylko lokalnie
-   wokół wstawionego korka. Efekt na trudność jest ten sam, koszt nieporównywalnie
-   niższy.
-2. **Głębokie groty wcześnie** (`w ∝ depth^β`, β ≈ 1–2 w pierwszej połowie wstawień):
-   długie korytarze dają więcej okazji, by ktoś je później przeciął.
-3. **Krzyżowanie kierunków.** Równoległe korytarze na sąsiednich liniach się nie
-   blokują, prostopadłe — tak. Wymuszamy balans czterech kierunków zamiast czystego
-   losowania.
-4. **Nie generuj do nasycenia.** Zatrzymujemy się na docelowym wypełnieniu z §9, nigdy
-   na `SATURATED`. Warstwa dokładana tuż przed nasyceniem jest najbardziej
-   zdegenerowana — to z niej powstaje cebula.
-
-Dodatkowo: **usunięcie dowolnego elementu zachowuje rozwiązywalność** (mniej komórek =
-mniej blokad, ta sama kolejność nadal działa), więc gęstość wolno stroić po fakcie
-w obie strony.
-
-**Sufit zagęszczenia.** Proces nasyca się, gdy dla każdego kierunku żadna linia nie ma
-`depth ≥ 2`; wnętrze zostaje z martwymi dziurami odciętymi ze wszystkich czterech stron.
-Roboczy zakres docelowy to **45–70% zajętych komórek**, ale konkretne wartości ustalamy
-**benchmarkiem** (§12), a nie założeniem: pierwszym krokiem implementacji generatora
-jest test wypisujący osiągane zajęcie dla zestawu parametrów.
-
+Skuteczność biasu z punktu 1 jest **hipotezą do potwierdzenia benchmarkiem**. Gdyby
+okazała się słaba, pozostaje samo generuj–zmierz–odrzuć, które działa zawsze, tylko
+drożej.
 ## 8. Solver i weryfikacja
 
 ### Graf blokowania
@@ -449,77 +456,51 @@ od generatora i służy do weryfikacji w testach — nie do rozgrywki.
 ## 9. Trudność
 
 Gra nie ma ślepych zaułków (§8), więc nie wymaga planowania. Trudność jest
-**percepcyjna**: jak trudno znaleźć wolny element i jak wiele elementów *wygląda* na
-wolne, choć nie są. Metryki mierzą właśnie to.
+**percepcyjna**: jak trudno znaleźć element, który ma wolną drogę, i jak wiele elementów
+*wygląda* na wolne, choć nie są.
+
+Przy pełnym wypełnieniu warunek „wolny" brzmi: **w każdej linii, którą element przecina,
+pokrywa on cały odcinek od siebie do krawędzi wyjścia**. Nie „ma przed sobą pustkę",
+lecz „przed nim jest już tylko on sam". To jest dokładnie ta rzecz, której gracz nie
+potrafi szybko odczytać z ekranu — i stąd bierze się cała trudność gry.
 
 | Metryka | Definicja |
 |---|---|
 | `f0` | udział elementów wolnych na starcie (ujścia grafu blokowania) |
-| `T_k` | elementy zablokowane, których korytarz jest pusty przez pierwsze `k` komórek — blokada leży daleko, poza polem widzenia gracza |
+| `T_k` | elementy zablokowane, których korytarz jest „czysty" przez pierwsze `k` komórek — bloker leży daleko, poza polem widzenia gracza |
 | `T_conc` | elementy zablokowane we własnej wklęsłości (kształty U, S) |
 | `D` | głębokość grafu blokowania (najdłuższa ścieżka) |
 | `minFree` | minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych |
 
 `T_k` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia, czyli to, co
-faktycznie odbiera życia.
+faktycznie odbiera życia. `minFree` jest w MVP metryką **diagnostyczną** — raportowaną
+w benchmarku, ale niewchodzącą do progów akceptacji, bo jej kalibracja wymaga playtestu.
 
-Wszystkie metryki są tanie; jedyna stochastyczna to `minFree`. W MVP `minFree` jest
-metryką **diagnostyczną** — raportowaną w benchmarku, ale niewchodzącą do progów
-akceptacji, bo jej kalibracja wymaga playtestu.
+Wszystkie metryki są tanie; jedyna stochastyczna to `minFree`.
 
-Wstępne progi, **do kalibracji playtestem** (`k = 2`):
+### Parametry poziomów
 
-Parametrem generatora jest **docelowe wypełnienie**, nie liczba elementów — liczba
-elementów wynika z niego i ze średniej długości kształtu, więc obie wartości nie mogą
-się rozjechać. Kolumna „~elem." jest orientacyjna, wyliczona jako
-`wypełnienie · W · H / średnia długość`.
+Wypełnienie **nie jest parametrem** — jest zawsze 100%. Każda komórka siatki należy do
+dokładnie jednego elementu; suma długości elementów równa się `W · H`. W konsekwencji
+liczba linii i średnia długość to jedna wielkość, związana zależnością
+`średnia długość = W · H / liczba linii`.
 
-| Poziom | rozmiar | wypeł. | `Lmax` | wagi kr./śr./dł. | śr. dł. | ~elem. | ~długich | pow. w dł. | `f0` | `T_2` |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Easy | 25×25 | 45% | 50 | 0.800 / 0.195 / 0.005 | 5.5 | ~51 | ~0 | 3% | ≥ 0.35 | ≤ 1 |
-| Medium | 50×50 | 55% | 125 | 0.750 / 0.240 / 0.010 | 6.2 | ~223 | ~2 | 9% | 0.20–0.35 | 2–6 |
-| Hard | 75×75 | 62% | 188 | 0.720 / 0.267 / 0.013 | 6.7 | ~519 | ~7 | 13% | 0.08–0.20 | 6–15 |
-| Nightmare | 100×100 | 68% | 300 | 0.700 / 0.285 / 0.015 | 7.4 | ~920 | ~14 | 20% | ≤ 0.03 | ≥ 15 |
+| Poziom | plansza | komórek | linii | śr. dł. | `Lmax` | `f0` | `T_2` |
+|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~80 | ~7.8 | 50 | ≥ 0.35 | ≤ 2 |
+| Medium | 50×50 | 2 500 | ~250 | ~10 | 125 | 0.20–0.35 | 3–8 |
+| Hard | 75×75 | 5 625 | ~560 | ~10 | 188 | 0.08–0.20 | 8–20 |
+| Nightmare | 100×100 | 10 000 | ~1 000 | ~10 | 300 | ≤ 0.03 | ≥ 20 |
 
-**Wypełnienie** to udział komórek siatki zajętych przez komórki elementów. Nightmare
-przy 68% to 6 800 komórek zajętych i **3 200 pustych** z 10 000. Elementy nigdy się nie
-nakładają, więc suma ich długości równa się liczbie zajętych komórek, a stąd
-`liczba elementów = W · H · wypełnienie / średnia długość`.
+Wszystkie wartości są **punktem wyjścia do kalibracji benchmarkiem**, a nie ustaleniem.
+Progi `T_2` i `D` skalują się z liczbą elementów, więc bezwzględne liczby z małej
+planszy nie przenoszą się na dużą. Pierwszym krokiem implementacji generatora jest
+raport z faktycznie osiąganego rozkładu długości, wartości metryk, liczby elementów
+jednokomórkowych i czasu generacji.
 
-Pusta przestrzeń nie jest marginesem, tylko **mechanizmem gry**: każdy element potrzebuje
-wolnego korytarza do krawędzi, żeby dało się go zdjąć. Przy wypełnieniu bliskim 100%
-plansza byłaby jednym wielkim cyklem w grafie blokowania, czyli nierozwiązywalna
-z definicji (§8). Pustka dzieli się na dwa rodzaje: korytarze aktualnie wolnych
-elementów, które muszą pozostać puste, oraz martwe dziury odcięte od krawędzi ze
-wszystkich czterech stron, których generator nie ma czym zapełnić.
-
-Wizualnie plansza wygląda na pełniejszą niż wskazuje liczba, bo elementy rysujemy grubą
-linią pokrywającą niemal całą komórkę, a puste komórki leżą zwykle pojedynczo między
-liniami.
-
-Zastrzeżenie: 68% leży blisko szacowanego sufitu nasycenia dla losowych kształtów
-o mieszanych kierunkach (§7). Jeśli benchmark pokaże, że generator nasyca się wcześniej,
-obniżamy cel dla Nightmare zamiast zwiększać budżet prób — plansza gęstsza od tego, co
-geometria dopuszcza, i tak nie powstanie.
-
-Kolumna „pow. w dł." to udział wypełnienia zajęty przez koszyk długi — wielkość, którą
-konfigurator pokazuje na żywo (§7). Powyżej ~25% plansza przestaje wyglądać jak pole
-strzałek i zamienia się w kilka spiral.
-
-Rozkład jest **ciężkoogonowy, a nie przesunięty**: nawet na Nightmare 70% elementów
-jest krótkich, bo plansza ma być gęsto usiana grotami. Długie linie to wyrazista
-mniejszość — kilkanaście sztuk na planszę — i to one dają wrażenie splątania oraz
-podnoszą `T_k`, bo tylko ich korytarza nie da się ogarnąć wzrokiem.
-
-Progi `T_2` i `D` skalują się z liczbą elementów, więc podane wartości są orientacyjne
-i wymagają kalibracji benchmarkiem — przy ~920 elementach bezwzględne liczby z małej
-planszy nie mają sensu.
-
-Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, dołóż korki (obniża
-`f0`) albo usuń elementy (podnosi `f0`) → ponów. Budżet prób jest ograniczony; po jego
-wyczerpaniu oddajemy najlepszy uzyskany wynik, żeby gra nigdy nie zawiesiła się przy
-starcie poziomu.
-
+Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, powtórz z innym
+ziarnem lub skorygowanymi parametrami (§7) → po wyczerpaniu budżetu oddaj najlepszy
+wynik.
 ## 10. Pętla gry
 
 `game/session.ts` to **czysty reduktor**, bez DOM i bez efektów ubocznych:
@@ -576,7 +557,7 @@ punkty za usunięcie elementu = 10 × mnożnik
 błędne kliknięcie: streak = 0, mnożnik wraca do 1
 ```
 
-Mnożnik rośnie co dziesięć czystych ruchów i jest ograniczony piątką, żeby przy ~920
+Mnożnik rośnie co dziesięć czystych ruchów i jest ograniczony piątką, żeby przy ~1 000
 elementach wynik nie eksplodował. Stałe `10`, `10` i `5` są parametrami do strojenia —
 formuła jest w jednym miejscu i pokryta testem.
 
@@ -614,13 +595,14 @@ struktury**, nie osobna ścieżka kodu — jedno źródło prawdy dla generatora
 
 Konfigurator liczy na żywo udział powierzchni zajęty przez długie elementy (§7)
 i ostrzega po przekroczeniu ~25%. Po generacji pokazuje **co faktycznie osiągnięto**:
-uzyskane wypełnienie, liczbę elementów i rozkład długości. Jest to konieczne, bo
+liczbę elementów, rozkład długości i liczbę elementów jednokomórkowych. Wypełnienia
+nie raportuje, bo jest zawsze pełne. Jest to konieczne, bo
 geometria potrafi odmówić — proste i bardzo długie elementy często nie mieszczą się,
 a generator nie może obiecać liczby, której nie da się zrealizować.
 
 ### Budżet wydajności
 
-Punkt odniesienia to Nightmare: 10 000 komórek, ~920 elementów, ~920 ścieżek SVG.
+Punkt odniesienia to Nightmare: 10 000 komórek, ~1 000 elementów, ~1 000 ścieżek SVG.
 
 | Operacja | Budżet |
 |---|---|
@@ -670,9 +652,18 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 10. Samounikanie: ścieżka nie odwiedza komórki dwukrotnie, ale wolno jej dotykać siebie
     bokiem.
 11. Element dłuższy niż wymiar planszy; plansze zdegenerowane `1×N` i `2×2`; generator
-    kończy się przy nasyceniu i limicie prób, nigdy się nie zapętla.
-12. Aktualizacja `depth_d` po wstawieniu: komórka przy krawędzi zeruje `depth` linii,
-    komórka w głębi tylko ją obcina.
+    zawsze kończy pracę z pełnym pokryciem, nigdy się nie zapętla.
+12. Aktualizacja `depth_d` po wycięciu elementu: komórka przy krawędzi zwiększa `depth`
+    linii, komórka w głębi nie (dopóki nie domknie się ciągłość od krawędzi).
+12a. **Pełne pokrycie:** po zakończeniu generacji każda komórka siatki należy do
+    dokładnie jednego elementu — żadna nie zostaje nieprzypisana i żadne dwa elementy
+    się nie nakładają. Suma długości elementów równa się `W · H`. To najważniejszy
+    niezmiennik generatora; sprawdzany na wielu ziarnach i wszystkich rozmiarach.
+12b. Generator nie utyka: dla sztucznie skonstruowanego, wrogiego stanu `R` (pojedyncze
+    izolowane komórki, komórki w wąskich szczelinach) zawsze znajduje legalne wycięcie
+    — w najgorszym razie jednokomórkowe.
+12c. Liczba elementów jednokomórkowych mieści się w rozsądnym progu; heurystyka
+    „nie osieracaj" faktycznie ją obniża względem wariantu bez heurystyki.
 13. Determinizm: to samo ziarno daje tę samą planszę.
 
 **Testy własnościowe (setki–tysiące ziaren):**
@@ -719,8 +710,10 @@ Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
 23. Udział powierzchni koszyka długiego zgadza się z wartością wyliczaną przez
     konfigurator z parametrów — inaczej ostrzeżenie o 25% wprowadza w błąd.
 
-**Benchmark (nie test, ale krok implementacji):** raport osiąganego zajęcia planszy
-i wartości metryk trudności dla zestawu parametrów — podstawa do kalibracji progów z §9.
+**Benchmark (nie test, ale krok implementacji):** raport z faktycznie osiąganego
+rozkładu długości, wartości metryk trudności, liczby elementów jednokomórkowych oraz
+czasu generacji dla zestawu parametrów — podstawa do kalibracji progów z §9 i do
+decyzji o ścieżce optymalizacji z §13.
 
 Reduktor sesji jest testowany osobno: legalne i nielegalne kliknięcie, utrata żyć,
 przejścia do `won` i `lost`.
@@ -759,13 +752,15 @@ z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
 |---|---|
 | Rozjazd między definicją korytarza w silniku i w generatorze produkuje nierozwiązywalne plansze | Wspólna definicja korytarza plus test różnicowy (§12.18) i solver na tysiącach ziaren (§12.14) |
 | Błąd „przednia zamiast tylnej komórki" w optymalizacji per linia — niewykrywalny bez kształtów wklęsłych | Testy 1 i 3 z §12 są obowiązkowe przed jakąkolwiek optymalizacją |
-| Wygenerowane plansze są nudne mimo poprawności (cebula) | Metryki `f0` i `T_k` liczone przy generacji, korki jako mechanizm korekcyjny, pętla generuj-zmierz-odrzuć |
+| Wygenerowane plansze są nudne mimo poprawności (frontier wycinania zbyt równy, dużo wolnych elementów na starcie) | Bias preferujący wycinanie tunelami zamiast warstwami (§7), metryki `f0` i `T_k` przy generacji, pętla generuj-zmierz-odrzuć |
+| Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
+| Elementów jednokomórkowych powstaje tak dużo, że plansza wygląda jak zbiór kropek | Heurystyka „nie osieracaj" przy wzroście ścieżki; liczba raportowana przez generator i pilnowana testem |
 | Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
 | Generacja zawiesza się przy trudnych parametrach | Twardy limit prób; po jego wyczerpaniu oddajemy najlepszy wynik |
 | Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
 | Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
 | Kilkanaście długich elementów zajmuje większość powierzchni i plansza wygląda jak zbiór spiral zamiast pola strzałek | Udział powierzchni koszyka długiego liczony jawnie (§7), pokazywany w konfiguratorze, ostrzeżenie powyżej 25%, test 23 |
 | Generacja 100×100 zamraża interfejs na sekundy | Rdzeń bez DOM jest z założenia przenośny do Web Workera (§4); budżet i wskaźnik postępu w §11 |
-| SVG nie wyrabia przy ~920 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
+| SVG nie wyrabia przy ~1 000 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
 | Gracz traci życie, próbując przesunąć planszę | Kliknięcie odróżniane od przeciągnięcia progiem odległości (§11); pokryte testem interakcji |
 | Konfigurator obiecuje parametry, których geometria nie dopuszcza | Generator raportuje osiągnięte wartości obok zamówionych (§11); test 21 na parametrach niewykonalnych |
