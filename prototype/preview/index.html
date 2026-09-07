@@ -25,8 +25,9 @@
 
 <h1>Arrowz — podgląd generatora plansz</h1>
 <p class="lead">Wszystkie plansze są wypełnione w 100%, rozwiązywalne i wygenerowane
-prototypem <code>prototype/carve.mjs</code>. Format bazowy to <b>1:2</b> — proporcja
-ekranu telefonu i referencyjnego zrzutu. Różowa ramka oznacza wariant przyjęty
+prototypem <code>prototype/carve.mjs</code>. Dostępne są <b>oba formaty</b>: kwadratowy
+<code>n×n</code> i pionowy <code>n×2n</code>. Sekcje A–C porównują pojedyncze pokrętła
+na formacie pionowym. Różowa ramka oznacza wariant przyjęty
 w specyfikacji.</p>
 <p class="lead">Obrazy są wektorowe — przybliż w przeglądarce, żeby obejrzeć szczegóły
 dużych plansz.</p>
@@ -64,11 +65,19 @@ na dużych planszach.</p>
 </div>
 
 <h2>D. Formaty i poziomy trudności</h2>
+<p class="lead">Dwa niezależne pokrętła: <b>poziom</b> (rozmiar bazowy) i <b>format</b>
+(kwadrat <code>n×n</code> albo pionowy <code>n×2n</code>). Oba formaty zostają — pionowy
+pasuje do telefonu i referencyjnego zrzutu, kwadratowy do desktopu.</p>
 <div class="row">
-  <figure class="big"><img src="d1-25x50.svg" alt=""><figcaption><b>Easy 25×50</b> — 144 elementy.</figcaption></figure>
-  <figure class="big"><img src="d2-50x100.svg" alt=""><figcaption><b>Medium 50×100</b> — 634 elementy.</figcaption></figure>
-  <figure class="big"><img src="d3-100x200.svg" alt=""><figcaption><b>Nightmare 100×200</b> — 2 336 elementów, najdłuższy sięga 212 komórek. Generacja: p50 38 ms, p99 339 ms.</figcaption></figure>
-  <figure class="big"><img src="d4-200x200.svg" alt=""><figcaption><b>Extreme 200×200</b> — 40 000 komórek, 4 559 elementów. Generacja: p50 646 ms, p99 2,1 s, zero porażek na 15 przebiegów.</figcaption></figure>
+  <figure class="big"><img src="d1-25x25.svg" alt=""><figcaption><b>Easy kwadrat 25×25</b> — 76 elementów, <code>f0</code> 0,197.</figcaption></figure>
+  <figure class="big"><img src="d2-25x50.svg" alt=""><figcaption><b>Easy pionowy 25×50</b> — 144 elementy, <code>f0</code> 0,139. Ten sam poziom, inny format.</figcaption></figure>
+</div>
+<div class="row">
+  <figure class="big"><img src="d3-100x100.svg" alt=""><figcaption><b>Nightmare kwadrat 100×100</b> — 1 253 elementy, <code>f0</code> 0,059.</figcaption></figure>
+  <figure class="big"><img src="d4-100x200.svg" alt=""><figcaption><b>Nightmare pionowy 100×200</b> — 2 336 elementów, <code>f0</code> <b>0,038</b>. Format sam podnosi trudność. Generacja: p50 38 ms, p99 339 ms.</figcaption></figure>
+</div>
+<div class="row">
+  <figure class="big"><img src="d5-200x200.svg" alt=""><figcaption><b>Extreme 200×200</b> — 40 000 komórek, 4 559 elementów. Generacja: p50 646 ms, p99 2,1 s, zero porażek na 15 przebiegów.</figcaption></figure>
 </div>
 <div class="note">Przy 100×200 i większych plansza nie mieści się czytelnie na żadnym
 ekranie — dlatego specyfikacja przewiduje zoom z przesuwaniem, a kliknięcie odróżniane

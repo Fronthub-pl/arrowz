@@ -24,11 +24,12 @@ for w in 0 2 4 8; do
   $N --svg=$G/c-warns-$w.svg --w=25 --h=50 --cell=18 --warns=$w --wshort=0.50 --wmid=0.20
 done
 
-# D. formaty i poziomy trudności
-$N --svg=$G/d1-25x50.svg   --w=25  --h=50  --cell=18 $D
-$N --svg=$G/d2-50x100.svg  --w=50  --h=100 --cell=13 $D
-$N --svg=$G/d3-100x200.svg --w=100 --h=200 --cell=8  $D
-$N --svg=$G/d4-200x200.svg --w=200 --h=200 --cell=6  $D
+# D. formaty i poziomy trudności — kwadratowe i pionowe obok siebie
+$N --svg=$G/d1-25x25.svg   --w=25  --h=25  --cell=18 $D
+$N --svg=$G/d2-25x50.svg   --w=25  --h=50  --cell=18 $D
+$N --svg=$G/d3-100x100.svg --w=100 --h=100 --cell=9  $D
+$N --svg=$G/d4-100x200.svg --w=100 --h=200 --cell=8  $D
+$N --svg=$G/d5-200x200.svg --w=200 --h=200 --cell=6  $D
 
 # E. tryb diagnostyczny
 $N --svg=$G/e-kolor.svg --w=25 --h=50 --cell=18 $D --colored

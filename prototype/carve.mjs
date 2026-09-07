@@ -519,14 +519,17 @@ const arg = (k, dflt) => {
 }
 const show = process.argv.includes('--show')
 
-// Presety pionowe 1:2 — proporcja ekranu telefonu i referencyjnego zrzutu.
-const presets = [
-  { name: 'Easy', W: 25, H: 50, Lmax: 125, wShort: 0.50, wMid: 0.20 },
-  { name: 'Medium', W: 50, H: 100, Lmax: 250, wShort: 0.50, wMid: 0.20 },
-  { name: 'Hard', W: 75, H: 150, Lmax: 375, wShort: 0.50, wMid: 0.20 },
-  { name: 'Nightmare', W: 100, H: 200, Lmax: 500, wShort: 0.50, wMid: 0.20 },
-  { name: 'Extreme', W: 200, H: 200, Lmax: 500, wShort: 0.50, wMid: 0.20 },
-]
+// Dwa niezależne pokrętła: poziom (rozmiar bazowy) i format (1:1 albo 1:2).
+// Format pionowy odpowiada ekranowi telefonu i referencyjnemu zrzutowi.
+const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200]]
+const FORMATS = process.argv.includes('--kwadrat') ? [['', 1]]
+  : process.argv.includes('--pionowy') ? [['', 2]]
+  : [['·kw', 1], ['·pion', 2]]
+const presets = BASE.flatMap(([name, n]) =>
+  FORMATS.map(([sfx, r]) => ({
+    name: name + sfx, W: n, H: n * r,
+    Lmax: Math.round(2.5 * n * r), wShort: 0.50, wMid: 0.20,
+  })))
 
 const runs = arg('runs', 3)
 const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1]

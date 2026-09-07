@@ -690,23 +690,43 @@ liczba linii i średnia długość to jedna wielkość, związana zależnością
 Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
 koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
 
-**Plansze są pionowe, w proporcji 1:2** — takiej samej jak referencyjny zrzut i jak ekran
-telefonu. Wartości zmierzone przy wagach `0.50 / 0.20 / 0.30` i sile Warnsdorffa 4 (§7).
+Wybór planszy to **dwa niezależne pokrętła**: poziom trudności (rozmiar bazowy `n`)
+i format (kwadrat `n×n` albo pionowy `n×2n`). Oba są równoprawne — pionowy odpowiada
+ekranowi telefonu i referencyjnemu zrzutowi, kwadratowy jest wygodniejszy na desktopie.
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem | zwinięcie |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Easy | 25×50 | 1 250 | ~173 | 7.2 | 73 | 0.139 | 17% | 14 | 3.20 | 36% |
-| Medium | 50×100 | 5 000 | ~605 | 8.3 | 136 | 0.080 | 10% | 22 | 3.63 | 42% |
-| Hard | 75×150 | 11 250 | ~1 311 | 8.6 | 246 | 0.050 | 7% | 40 | 3.71 | 42% |
-| Nightmare | 100×200 | 20 000 | ~2 312 | 8.7 | 180 | 0.038 | 6% | 52 | 3.85 | 40% |
-| Extreme | 200×200 | 40 000 | ~4 671 | 8.6 | 199 | 0.034 | 4% | 73 | 3.80 | 41% |
+Wartości zmierzone przy wagach `0.50 / 0.20 / 0.30` i sile Warnsdorffa 4 (§7).
 
-Rozkład długości trafia w kształt referencyjny: ~71% elementów ma 2–6 komórek, ~18% ma
-7–15, a **~2% przekracza 50 komórek** — przy najdłuższym sięgającym 246 komórek na
-poziomie Hard.
+**Format kwadratowy `n×n`:**
 
-`Extreme 200×200` to preset kwadratowy, dodany jako sprawdzian górnej granicy: 40 000
-komórek i ~4 700 elementów. Domyka się bez porażek, więc rozmiar planszy nie jest
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
+|---|---|---|---|---|---|---|---|---|---|
+| Easy | 25×25 | 625 | ~98 | 6.4 | 44 | 0.197 | 22% | 9 | 2.81 |
+| Medium | 50×50 | 2 500 | ~354 | 7.1 | 79 | 0.102 | 13% | 15 | 2.96 |
+| Hard | 75×75 | 5 625 | ~669 | 8.4 | 119 | 0.073 | 10% | 25 | 3.72 |
+| Nightmare | 100×100 | 10 000 | ~1 247 | 8.0 | 164 | 0.059 | 7% | 32 | 3.47 |
+| Extreme | 200×200 | 40 000 | ~4 671 | 8.6 | 199 | 0.034 | 4% | 73 | 3.80 |
+
+**Format pionowy `n×2n`:**
+
+| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
+|---|---|---|---|---|---|---|---|---|---|
+| Easy | 25×50 | 1 250 | ~173 | 7.2 | 73 | 0.139 | 17% | 14 | 3.20 |
+| Medium | 50×100 | 5 000 | ~605 | 8.3 | 136 | 0.080 | 10% | 22 | 3.63 |
+| Hard | 75×150 | 11 250 | ~1 311 | 8.6 | 246 | 0.050 | 7% | 40 | 3.71 |
+| Nightmare | 100×200 | 20 000 | ~2 312 | 8.7 | 180 | 0.038 | 6% | 52 | 3.85 |
+
+Rozkład długości trafia w kształt referencyjny w obu formatach: ~72% elementów ma
+2–6 komórek, ~18% ma 7–15, a **~2% przekracza 50 komórek** — przy najdłuższym sięgającym
+246 komórek na poziomie Hard w formacie pionowym.
+
+**Format sam w sobie podnosi trudność.** Przy tym samym rozmiarze bazowym plansza
+pionowa ma niższe `f0` niż kwadratowa (Nightmare: 0.038 wobec 0.059). Wąska plansza ma
+krótsze korytarze w poziomie i dłuższe w pionie, więc statystycznie mniej elementów ma
+czystą drogę do krawędzi. Nie jest to zatem wyłącznie decyzja o kadrze — progi trudności
+muszą być kalibrowane per format.
+
+`Extreme 200×200` istnieje tylko w wariancie kwadratowym, jako sprawdzian górnej granicy:
+40 000 komórek i ~4 700 elementów. Domyka się bez porażek, więc rozmiar planszy nie jest
 w praktyce ograniczony niczym poza czytelnością i czasem generacji.
 
 Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w opadający
@@ -916,7 +936,7 @@ dostępne graczowi:
 
 | Parametr | Zakres | Co robi |
 |---|---|---|
-| szerokość × wysokość | 10×10 … 200×200 | rozmiar zadania; proporcja dowolna, domyślnie 1:2 |
+| szerokość × wysokość | 10×10 … 200×200 | rozmiar zadania; proporcja dowolna, presety oferują 1:1 i 1:2 |
 | udział długich linii | 0 … 0.45 | główne pokrętło wyglądu: gęste haczyki ↔ długie węże |
 | długość maksymalna `Lmax` | 16 … 5·max(W,H) | jak długi może być najdłuższy element |
 | siła splątania | 0 … 8 | skręty kontra zwijanie w kłębki; poniżej 2 generacja bywa zawodna |
