@@ -21,3 +21,17 @@ test('EN and PL ui dictionaries have the same keys and the same value kinds', ()
   for (const k of en) assert.equal(typeof PL.ui[k], typeof EN.ui[k], k)
   assert.deepEqual(Object.keys(PL.groupHelp).sort(), Object.keys(EN.groupHelp).sort())
 })
+
+// Descriptions are for turning a knob, not for reading a report: one or two
+// plain sentences. Measurements belong in README.md.
+const MAX_HELP = 170
+test('parameter and group descriptions stay short in both languages', () => {
+  for (const s of PARAM_SPEC) {
+    assert.ok(s.help.length <= MAX_HELP, `EN help ${s.key}: ${s.help.length} chars`)
+    assert.ok(PL.params[s.key].help.length <= MAX_HELP, `PL help ${s.key}: ${PL.params[s.key].help.length} chars`)
+  }
+  for (const g of Object.keys(EN.groupHelp)) {
+    assert.ok(EN.groupHelp[g].length <= MAX_HELP, `EN group ${g}`)
+    assert.ok(PL.groupHelp[g].length <= MAX_HELP, `PL group ${g}`)
+  }
+})

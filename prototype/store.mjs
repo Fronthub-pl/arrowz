@@ -2,7 +2,7 @@
 // Shared by the CLI (carve.mjs --svg) and the lab server. The directory is
 // gitignored — a 1000×1000 board is tens of MB, and the command in the meta
 // reproduces any board.
-import { mkdirSync, writeFileSync, readdirSync, readFileSync, statSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync, readdirSync, readFileSync, statSync, existsSync, unlinkSync, rmdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { boardId } from './command.mjs'
@@ -25,6 +25,23 @@ export function saveBoard({ svg, params, view, command, metrics = {}, source }) 
   writeFileSync(join(dir, `${id}.svg`), svg)
   writeFileSync(join(dir, `${id}.json`), JSON.stringify(meta, null, 2))
   return meta
+}
+
+/**
+ * Removes one board (svg + json). Returns false when there was nothing to
+ * remove. A size directory left empty is removed too, so the list does not
+ * keep an empty size. Names are validated: they come straight from a URL.
+ */
+export function deleteBoard(size, id) {
+  if (!/^\d+x\d+$/.test(size) || !/^[\w-]+$/.test(id)) throw new Error(`invalid board name ${size}/${id}`)
+  const dir = join(boardsDir(), size)
+  let removed = false
+  for (const ext of ['.svg', '.json']) {
+    const file = join(dir, id + ext)
+    if (existsSync(file)) { unlinkSync(file); removed = true }
+  }
+  if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir)
+  return removed
 }
 
 /** Sizes ascending by cell count, boards newest first within a size. */

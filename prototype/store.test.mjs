@@ -65,3 +65,25 @@ test('listBoards without a directory returns an empty list', async () => {
   assert.ok(!existsSync(process.env.ARROWZ_BOARDS_DIR))
   assert.deepEqual(listBoards(), [])
 })
+
+test('deleteBoard removes svg and json and an emptied size directory', async () => {
+  const { saveBoard, deleteBoard, listBoards } = await import('./store.mjs')
+  const kept = saveBoard(entry({ params: { seed: 1 } }))
+  const gone = saveBoard(entry({ params: { seed: 2 } }))
+  assert.equal(deleteBoard('25x50', gone.id), true)
+  assert.ok(!existsSync(join(dir, '25x50', gone.id + '.svg')))
+  assert.ok(!existsSync(join(dir, '25x50', gone.id + '.json')))
+  assert.deepEqual(listBoards()[0].boards.map((b) => b.id), [kept.id])
+  assert.equal(deleteBoard('25x50', kept.id), true)
+  assert.ok(!existsSync(join(dir, '25x50')), 'empty size directory is removed')
+  assert.deepEqual(listBoards(), [])
+})
+
+test('deleteBoard returns false for a missing board and rejects bad names', async () => {
+  const { saveBoard, deleteBoard } = await import('./store.mjs')
+  saveBoard(entry())
+  assert.equal(deleteBoard('25x50', 'seed9-00000000'), false)
+  assert.throws(() => deleteBoard('../25x50', 'seed7-x'), /invalid/)
+  assert.throws(() => deleteBoard('25x50', '../engine'), /invalid/)
+  assert.ok(existsSync(join(dir, '25x50')))
+})

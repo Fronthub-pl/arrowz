@@ -44,3 +44,17 @@ test('static lab files without cache; paths escaping the directory are rejected'
   assert.equal((await fetch(base + '/missing.txt')).status, 404)
   assert.equal((await fetch(base + '/boards/..%2F..%2Fengine.mjs')).status, 403)
 })
+
+test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives 404', async () => {
+  const body = { svg: '<svg>del</svg>', params: { ...defaultParams(), W: 10, H: 10, seed: 3 },
+    view: { cell: 12, stroke: 0.5, colored: false, top: 0 }, command: 'x', source: 'lab' }
+  const meta = await (await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })).json()
+  const del = await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })
+  assert.equal(del.status, 200)
+  assert.deepEqual(await del.json(), { deleted: true })
+  assert.equal((await fetch(`${base}/boards/10x10/${meta.id}.svg`)).status, 404)
+  const list = await (await fetch(base + '/api/boards')).json()
+  assert.ok(!list.some((s) => s.size === '10x10'))
+  assert.equal((await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })).status, 404)
+  assert.equal((await fetch(`${base}/api/boards/..%2F25x50/seed7-x`, { method: 'DELETE' })).status, 400)
+})

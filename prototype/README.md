@@ -7,6 +7,14 @@ sh prototype/lab.sh          # http://localhost:8777/lab.html
 ```
 
 All generator knobs live in the side panel; the board is drawn immediately.
+A preset drop-down at the top is a tree: a difficulty level per group
+(`lab-presets.mjs`), a few options each — square, portrait, tunnels, skeleton;
+the huge level also has a winding skeleton (serpentine step 3, every run cut
+short, so no skeleton line goes wall to wall).
+A preset is a full configuration (defaults plus its overrides), and the
+drop-down follows the knobs: change the width by hand and it goes blank.
+Every description is one or two plain sentences on what a knob does and which
+way to turn it; the measurements behind them are in the rounds below.
 On top of that there are preview toggles: **arrow colouring** (each piece in a
 different colour — diagnostic mode) and **highlighting the N longest pieces**
 (in pink, with a table of their length, span, density and coiling).
@@ -22,8 +30,9 @@ Every generated board — from the lab and from `carve.mjs --svg` — lands in
 `prototype/boards/<W>x<H>/<id>.svg` with metadata and the command in
 `<id>.json` (gitignored; the id is the seed plus a hash of the parameters, so
 the same configuration overwrites its own entry). The **Saved boards** tab
-browses the store by size, shows the command next to the board and loads its
-settings into the knobs.
+browses the store by size, shows the command next to the board, loads its
+settings into the knobs and deletes a board from disk (two clicks on the same
+button, no dialog; `DELETE /api/boards/<WxH>/<id>`).
 
 The engine lives in `engine.mjs` and is shared by the lab and by `carve.mjs` —
 there are no two copies of the algorithm that could drift apart.

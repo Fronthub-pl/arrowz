@@ -61,6 +61,10 @@
   .buttons { display: flex; gap: .4rem; flex-wrap: wrap; margin: .7rem 0; }
   .presets { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .5rem; }
   .presets button { padding: .2rem .45rem; font-size: 12px; }
+  select#presets { display: block; width: 100%; font: inherit; font-size: 13px; padding: .3rem .4rem;
+                   border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  button.danger { color: #8a2b2b; border-color: #e6c3c3; }
+  button.danger.armed { background: #8a2b2b; color: #fff; border-color: #8a2b2b; }
 
   .command { margin: 0 0 .6rem; }
   .cmdhead { display: flex; justify-content: space-between; align-items: center; gap: .5rem;
@@ -138,7 +142,7 @@
   <h1 data-i18n="title">Generator lab</h1>
   <p class="sub" data-i18n="subtitle">Same engine as carve.mjs: engine.mjs.</p>
 
-  <div class="presets" id="presets"></div>
+  <select id="presets" class="presets"></select>
 
   <div class="buttons">
     <button class="primary" id="run" data-i18n="generate">Generate</button>
@@ -207,7 +211,8 @@
           <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
             <button id="libCopy" data-i18n="copy">Copy</button></div>
           <pre id="libCommand"></pre>
-          <div class="buttons"><button id="libLoad" data-i18n="loadIntoLab">Load into lab</button></div>
+          <div class="buttons"><button id="libLoad" data-i18n="loadIntoLab">Load into lab</button>
+            <button id="libDelete" class="danger" data-i18n="deleteBoard">Delete from disk</button></div>
         </div>
       </div>
     </div>
@@ -218,6 +223,7 @@
 import { PARAM_SPEC, INACTIVE_REASONS, defaultParams } from './engine.mjs'
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
+import { PRESETS, findPreset } from './lab-presets.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -314,6 +320,7 @@ function refreshActive() {
     const tx = paramText(spec)
     label.title = why ? `${t('inactivePrefix')}${why}. ${tx.help ?? ''}` : (tx.help ?? '')   // tooltip works with hidden help too
   }
+  syncPresetSelect()
 }
 
 function applyLanguage() {
@@ -323,6 +330,8 @@ function applyLanguage() {
   $('langEn').classList.toggle('on', lang === 'en')
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n)
   $('solo').title = t('fullView')
+  presetLabels()
+  disarmDelete()
   for (const [group, box] of groupBoxes) {
     box.querySelector('summary').textContent = DICT[lang].groups[group] ?? EN.groups[group] ?? group
     const gh = box.querySelector('.grouphelp')
@@ -343,25 +352,42 @@ function applyLanguage() {
 $('langPl').addEventListener('click', () => { lang = 'pl'; applyLanguage() })
 $('langEn').addEventListener('click', () => { lang = 'en'; applyLanguage() })
 
-const PRESETS = [
-  ['Easy 25×50', 25, 50], ['Easy 25×25', 25, 25],
-  ['Medium 50×100', 50, 100], ['Hard 75×150', 75, 150],
-  ['Nightmare 100×200', 100, 200], ['Nightmare 100×100', 100, 100],
-  ['Extreme 200×200', 200, 200], ['400×400', 400, 400], ['1000×1000', 1000, 1000],
-]
-for (const [label, w, h] of PRESETS) {
-  const b = document.createElement('button')
-  b.textContent = label
-  b.addEventListener('click', () => {
-    setParam('W', w); setParam('H', h)
-    setParam('Lmax', 0) // automatic: 2.5 × longer side
-    // The cell size concerns only the export; the preview scales itself.
-    $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(w, h))))
-    updateCommand()
-    run()
-  })
-  $('presets').append(b)
+// Presets: a tree of difficulty levels (optgroup) with a few options each.
+// An option is a full configuration — defaults plus its overrides — so it
+// never inherits knobs from the previous experiment. Labels are rebuilt on a
+// language change; the selection follows the knobs (see refreshActive).
+const presetOptions = new Map()
+for (const level of PRESETS) {
+  const group = document.createElement('optgroup')
+  group.dataset.level = level.id
+  for (const o of level.options) {
+    const opt = document.createElement('option')
+    opt.value = o.id
+    group.append(opt)
+    presetOptions.set(o.id, { opt, preset: o })
+  }
+  $('presets').append(group)
 }
+$('presets').prepend(new Option('', '', true, true))
+function presetLabels() {
+  const d = DICT[lang].presets, en = EN.presets
+  $('presets').options[0].textContent = d.placeholder ?? en.placeholder
+  for (const g of $('presets').querySelectorAll('optgroup')) g.label = d.levels[g.dataset.level] ?? en.levels[g.dataset.level]
+  for (const { opt, preset } of presetOptions.values()) {
+    opt.textContent = `${preset.params.W}×${preset.params.H} · ${d.modes[preset.mode] ?? en.modes[preset.mode]}`
+  }
+}
+function syncPresetSelect() { $('presets').value = findPreset(state)?.id ?? '' }
+$('presets').addEventListener('change', () => {
+  const entry = presetOptions.get($('presets').value)
+  if (!entry) return
+  const { W, H } = entry.preset.params
+  for (const spec of PARAM_SPEC) setParam(spec.key, entry.preset.params[spec.key] ?? spec.def)
+  // The cell size concerns only the export; the preview scales itself.
+  $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
+  updateCommand()
+  run()
+})
 
 function setParam(key, value) {
   state[key] = value
@@ -655,19 +681,23 @@ function renderLibrary() {
     row.className = 'boardrow' + (libBoard?.id === meta.id ? ' on' : '')
     const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
     row.innerHTML = `<span class="id">${meta.id}</span><span>${when}</span>` +
-      `<span class="meta">${t('piecesShort', meta.pieces ?? '?')} · ${t('longestShort', meta.maxLen ?? '?')} · ${meta.source}` +
+      `<span class="meta">${t('piecesShort', meta.pieces ?? '?')} · ${t('longestShort', meta.maxLen ?? '?')} · ${t('genShort', genSeconds(meta))} · ${meta.source}` +
       `${meta.ok === false ? ` · <b class="bad">${t('notClosed')}</b>` : ''}</span>`
     row.addEventListener('click', () => openBoard(meta))
     $('libList').append(row)
   }
 }
 
+// Generation time from the meta, as seconds; boards saved before the field
+// existed show a dash.
+function genSeconds(meta) { return meta.genMs == null ? '—' : (meta.genMs / 1000).toFixed(meta.genMs < 10000 ? 2 : 1) }
 function showBoardStatus(meta) {
-  setStatus(t('savedBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`, meta.seed, meta.source))
+  setStatus(t('savedBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`, meta.seed, meta.source, `${genSeconds(meta)} s`))
 }
 
 async function openBoard(meta) {
   libBoard = meta
+  disarmDelete()
   renderLibrary()
   $('libDetail').hidden = false
   $('libCommand').textContent = meta.command
@@ -694,6 +724,36 @@ $('libLoad').addEventListener('click', () => {
   if (v.top > 0) $('top').value = v.top
   updateCommand()
   showTab('lab')
+})
+
+// Deleting takes two clicks on the same button: the first arms it, the second
+// removes the files. Selecting another board or switching language disarms.
+function disarmDelete() {
+  $('libDelete').classList.remove('armed')
+  $('libDelete').textContent = t('deleteBoard')
+}
+$('libDelete').addEventListener('click', async () => {
+  if (!libBoard) return
+  if (!$('libDelete').classList.contains('armed')) {
+    $('libDelete').classList.add('armed')
+    $('libDelete').textContent = t('confirmDelete')
+    return
+  }
+  const meta = libBoard
+  const name = `${meta.W}x${meta.H}/${meta.id}`
+  disarmDelete()
+  try {
+    const r = await fetch(`/api/boards/${meta.W}x${meta.H}/${meta.id}`, { method: 'DELETE' })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  } catch {
+    setStatus(`<span class="bad">${t('deleteFailed')}</span>`)
+    return
+  }
+  libBoard = null
+  $('libDetail').hidden = true
+  $('board').innerHTML = ''
+  setStatus(t('deletedBoard', `<code>${name}</code>`))
+  await loadLibrary(true)
 })
 
 // --- state in the URL -------------------------------------------------------
