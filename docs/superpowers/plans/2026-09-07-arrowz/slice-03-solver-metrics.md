@@ -1,64 +1,66 @@
-# Slice 3 — Solver i metryki trudności
+# Slice 3 — Solver and difficulty metrics
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Niezależnie zweryfikować **każdą** wygenerowaną planszę i policzyć
-metryki, które podróżują z planszą do rozgrywki i punktacji.
+**Goal:** Independently verify **every** generated board and compute the
+metrics that travel with the board into gameplay and scoring.
 
-**Architektura:** Korytarz nie zależy od stanu planszy (Slice 1), więc relacja
-„F blokuje E" jest **statycznym grafem skierowanym**, policzalnym raz. Stąd:
-**plansza jest rozwiązywalna ⟺ graf blokowania jest acykliczny**, a solver to
-algorytm Kahna w `O(N+E)`. Solver jest **całkowicie odseparowany od
-generatora** — to jest właściwy podział ról: konstrukcja ma trafiać często,
-weryfikator ma być pewny.
+**Architecture:** The corridor does not depend on the board's state (Slice 1),
+so the relation "F blocks E" is a **static directed graph**, computable once.
+Hence: **a board is solvable ⟺ the blocking graph is acyclic**, and the solver
+is Kahn's algorithm in `O(N+E)`. The solver is **completely decoupled from the
+generator** — that is the right division of responsibilities: construction
+should succeed often, the verifier should be certain.
 
-**Stack:** TypeScript strict, Vitest w Node.
+**Stack:** TypeScript strict, Vitest on Node.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§8, §9,
 §12.14–19)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- Solver używa **tej samej** funkcji `headRay`/`probeMove` co silnik gry.
-  Druga implementacja korytarza to ryzyko nr 1 z §14 specyfikacji.
-- `almost1` w `BoardMetrics` to **liczba** elementów, nie udział. Udział liczy
-  się jako `almost1 / n`.
-- Metryka `T_k` **nie wraca** — przy pełnym zapełnieniu zawsze wynosi zero,
-  bo tuż przed elementem zawsze ktoś stoi (§9). Zastępuje ją `almost1`.
+- The solver uses the **same** `headRay`/`probeMove` function as the game
+  engine. A second implementation of the corridor is risk #1 from §14 of the
+  spec.
+- `almost1` in `BoardMetrics` is a **count** of pieces, not a share. The share
+  is computed as `almost1 / n`.
+- The `T_k` metric **does not come back** — at full occupancy it is always
+  zero, because something always stands right in front of a piece (§9).
+  `almost1` replaces it.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/core/solver.ts` | graf blokowania, Kahn, wykrywanie cykli |
-| `src/core/metrics.ts` | `f0`, `almost1`, `D`, `meanCorridorLen`, entropie; `withMetrics` |
-| `src/core/solver.spec.ts` | testy solvera i cykli (§12.19) |
-| `src/core/metrics.spec.ts` | testy metryk |
-| `src/core/properties.spec.ts` | testy własnościowe na setkach ziaren (§12.14–18) |
+| `src/core/solver.ts` | blocking graph, Kahn, cycle detection |
+| `src/core/metrics.ts` | `f0`, `almost1`, `D`, `meanCorridorLen`, entropies; `withMetrics` |
+| `src/core/solver.spec.ts` | solver and cycle tests (§12.19) |
+| `src/core/metrics.spec.ts` | metrics tests |
+| `src/core/properties.spec.ts` | property-based tests over hundreds of seeds (§12.14–18) |
 
 ---
 
-### Task 1: Graf blokowania i solver
+### Task 1: Blocking graph and solver
 
 **Files:**
 - Create: `src/core/solver.ts`
 - Test: `src/core/solver.spec.ts`
 
 **Interfaces:**
-- Consumes: `Board`, `headRay`, `pieceAt`, `probeMove`, `removePiece` ze Slice'a 1.
+- Consumes: `Board`, `headRay`, `pieceAt`, `probeMove`, `removePiece` from Slice 1.
 - Produces:
   - `interface BlockingGraph { blockedBy: Map<number, Set<number>>; blocks: Map<number, Set<number>> }`
   - `buildBlockingGraph(board: Board): BlockingGraph`
   - `interface SolveResult { solvable: boolean; order: number[]; depth: number; cycleMembers: number[] }`
   - `solve(board: Board, prebuilt?: BlockingGraph): SolveResult`
 
-- [ ] **Krok 1: Napisz failujące testy (§12.19)**
+- [ ] **Step 1: Write failing tests (§12.19)**
 
 ```typescript
 // src/core/solver.spec.ts
@@ -66,7 +68,7 @@ import { boardOf, piece } from './testing/fixtures';
 import { buildBlockingGraph, solve } from './solver';
 
 describe('buildBlockingGraph', () => {
-  it('łączy element z tym, co stoi w jego korytarzu', () => {
+  it('links a piece with whatever stands in its corridor', () => {
     const front = piece(0, 0, [[0, 0], [0, 1]]);
     const back = piece(1, 0, [[0, 2], [0, 3]]);
     const b = boardOf(1, 4, [front, back]);
@@ -76,9 +78,9 @@ describe('buildBlockingGraph', () => {
     expect([...g.blocks.get(0)!]).toEqual([1]);
   });
 
-  it('nie tworzy krawędzi do samego siebie', () => {
-    // Wąż pokrywający całą planszę 2×3: grot w (0,1) patrzy w górę, a komórka
-    // (0,0) na jego promieniu należy do niego samego.
+  it('does not create a self-edge', () => {
+    // A snake covering an entire 2×3 board: the arrowhead at (0,1) faces up,
+    // and cell (0,0) on its ray belongs to itself.
     const snake = piece(0, 0, [[0, 1], [0, 2], [1, 2], [1, 1], [1, 0], [0, 0]]);
     const b = boardOf(2, 3, [snake]);
     const g = buildBlockingGraph(b);
@@ -86,7 +88,7 @@ describe('buildBlockingGraph', () => {
     expect(g.blockedBy.get(0)!.size).toBe(0);
   });
 
-  it('liczy blokera raz, choćby zajmował kilka komórek korytarza', () => {
+  it('counts a blocker once, even if it occupies several corridor cells', () => {
     const runner = piece(0, 0, [[0, 3], [0, 4]]);
     const blocker = piece(1, 3, [[0, 0], [1, 0], [1, 1], [0, 1], [0, 2]]);
     const filler = piece(2, 2, [[1, 4], [1, 3], [1, 2]]);
@@ -97,7 +99,7 @@ describe('buildBlockingGraph', () => {
 });
 
 describe('solve', () => {
-  it('oddaje poprawną kolejność dla planszy rozwiązywalnej', () => {
+  it('produces a correct order for a solvable board', () => {
     const b = boardOf(1, 4, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -108,8 +110,8 @@ describe('solve', () => {
     expect(r.cycleMembers).toEqual([]);
   });
 
-  it('liczy głębokość grafu blokowania', () => {
-    // Trzy elementy jeden za drugim w kolumnie: łańcuch 0 ← 1 ← 2.
+  it('computes the depth of the blocking graph', () => {
+    // Three pieces one behind the other in a column: chain 0 ← 1 ← 2.
     const b = boardOf(1, 6, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -120,24 +122,24 @@ describe('solve', () => {
     expect(r.depth).toBe(2);
   });
 
-  // §12.19 — cykl dwuelementowy: dwa elementy skierowane na siebie.
-  it('wykrywa cykl dwuelementowy i wskazuje jego uczestników', () => {
-    const up = piece(0, 0, [[0, 2], [0, 3]]);   // patrzy w górę, nad nim element 1
-    const down = piece(1, 2, [[0, 1], [0, 0]]); // patrzy w dół, pod nim element 0
+  // §12.19 — a two-piece cycle: two pieces pointing at each other.
+  it('detects a two-piece cycle and identifies its members', () => {
+    const up = piece(0, 0, [[0, 2], [0, 3]]);   // faces up, piece 1 is above it
+    const down = piece(1, 2, [[0, 1], [0, 0]]); // faces down, piece 0 is below it
     const b = boardOf(1, 4, [up, down]);
     const r = solve(b);
     expect(r.solvable).toBe(false);
     expect(r.cycleMembers.sort()).toEqual([0, 1]);
   });
 
-  // §12.19 — cykl dłuższy niż dwuelementowy.
-  it('wykrywa cykl obejmujący cztery elementy', () => {
-    // Cztery domina na obwodzie planszy 3×3, każde skierowane na następne:
-    // 0 → 1 → 2 → 3 → 0. Środek (1,1) zostaje pusty i niczego nie blokuje.
-    const a = piece(0, 1, [[1, 0], [0, 0]]); // grot w prawo, celuje w (2,0)
-    const b2 = piece(1, 2, [[2, 1], [2, 0]]); // grot w dół, celuje w (2,2)
-    const c = piece(2, 3, [[1, 2], [2, 2]]); // grot w lewo, celuje w (0,2)
-    const d = piece(3, 0, [[0, 1], [0, 2]]); // grot w górę, celuje w (0,0)
+  // §12.19 — a cycle longer than two pieces.
+  it('detects a cycle spanning four pieces', () => {
+    // Four dominoes around the perimeter of a 3×3 board, each pointing at the
+    // next: 0 → 1 → 2 → 3 → 0. The center (1,1) stays empty and blocks nothing.
+    const a = piece(0, 1, [[1, 0], [0, 0]]); // arrowhead pointing right, aims at (2,0)
+    const b2 = piece(1, 2, [[2, 1], [2, 0]]); // arrowhead pointing down, aims at (2,2)
+    const c = piece(2, 3, [[1, 2], [2, 2]]); // arrowhead pointing left, aims at (0,2)
+    const d = piece(3, 0, [[0, 1], [0, 2]]); // arrowhead pointing up, aims at (0,0)
     const board = boardOf(3, 3, [a, b2, c, d]);
 
     const r = solve(board);
@@ -146,7 +148,7 @@ describe('solve', () => {
     expect(r.cycleMembers).toEqual([0, 1, 2, 3]);
   });
 
-  it('zdejmuje wszystkie elementy planszy acyklicznej', () => {
+  it('removes every piece from an acyclic board', () => {
     const b = boardOf(2, 2, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[1, 0], [1, 1]]),
@@ -157,15 +159,15 @@ describe('solve', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npm run test:core -- solver
 ```
 
-Oczekiwane: FAIL — brak modułu `./solver`.
+Expected: FAIL — module `./solver` is missing.
 
-- [ ] **Krok 3: Zaimplementuj solver**
+- [ ] **Step 3: Implement the solver**
 
 ```typescript
 // src/core/solver.ts
@@ -173,30 +175,30 @@ import { headRay, pieceAt } from './board';
 import { Board, EMPTY } from './types';
 
 export interface BlockingGraph {
-  /** id → zbiór elementów, które go blokują. */
+  /** id → set of pieces that block it. */
   blockedBy: Map<number, Set<number>>;
-  /** id → zbiór elementów, które on blokuje. */
+  /** id → set of pieces that it blocks. */
   blocks: Map<number, Set<number>>;
 }
 
 export interface SolveResult {
   solvable: boolean;
-  /** Kolejność zdejmowania; przy planszy nierozwiązywalnej — prefiks. */
+  /** Removal order; for an unsolvable board — a prefix. */
   order: number[];
-  /** Głębokość grafu: najdłuższa ścieżka. Metryka `D` z §9. */
+  /** Depth of the graph: the longest path. Metric `D` from §9. */
   depth: number;
-  /** Elementy leżące w cyklach — diagnostyka. */
+  /** Pieces lying in cycles — diagnostics. */
   cycleMembers: number[];
 }
 
 /**
- * Buduje statyczny graf blokowania.
+ * Builds the static blocking graph.
  *
- * Korytarz nie zależy od stanu planszy (§2), więc relacja „F blokuje E" jest
- * stała i policzalna raz. Przy jeździe po torze korytarz to jeden promień,
- * więc graf jest rzadki.
+ * The corridor does not depend on the board's state (§2), so the relation
+ * "F blocks E" is fixed and computable once. When moving along its own
+ * track, the corridor is a single ray, so the graph is sparse.
  *
- * Koszt: O(N · max(W,H)).
+ * Cost: O(N · max(W,H)).
  */
 export function buildBlockingGraph(board: Board): BlockingGraph {
   const blockedBy = new Map<number, Set<number>>();
@@ -218,15 +220,14 @@ export function buildBlockingGraph(board: Board): BlockingGraph {
 }
 
 /**
- * Sortowanie topologiczne (Kahn).
+ * Topological sort (Kahn).
  *
- * Plansza jest rozwiązywalna dokładnie wtedy, gdy uda się zdjąć wszystkie N
- * elementów — czyli gdy graf jest acykliczny (§8). To, czego nie zdjęto, leży
- * w cyklach.
+ * A board is solvable exactly when all N pieces can be removed — that is,
+ * when the graph is acyclic (§8). Whatever was not removed lies in cycles.
  */
 export function solve(board: Board, prebuilt?: BlockingGraph): SolveResult {
-  // Metryki (Slice 3, Zadanie 2) budują graf i tak, więc pozwalamy go podać —
-  // inaczej liczylibyśmy go dwa razy przy każdej generowanej planszy.
+  // The metrics (Slice 3, Task 2) build the graph anyway, so we allow it to
+  // be passed in — otherwise we'd compute it twice for every generated board.
   const graph = prebuilt ?? buildBlockingGraph(board);
   const remaining = new Map<number, number>();
   const queue: number[] = [];
@@ -240,8 +241,8 @@ export function solve(board: Board, prebuilt?: BlockingGraph): SolveResult {
 
   const order: number[] = [];
   let depth = 0;
-  // Wskaźnik zamiast shift(): shift() na tablicy jest O(n), a przy 4700
-  // elementach Extreme robi się z tego kwadrat.
+  // A pointer instead of shift(): shift() on an array is O(n), and with 4700
+  // pieces at Extreme that turns quadratic.
   for (let head = 0; head < queue.length; head++) {
     const id = queue[head]!;
     order.push(id);
@@ -266,24 +267,24 @@ export function solve(board: Board, prebuilt?: BlockingGraph): SolveResult {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- solver
 ```
 
-Oczekiwane: PASS (8 testów).
+Expected: PASS (8 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj solver oparty na grafie blokowania"
+git commit -m "Add a solver based on a blocking graph"
 ```
 
 ---
 
-### Task 2: Metryki trudności
+### Task 2: Difficulty metrics
 
 **Files:**
 - Create: `src/core/metrics.ts`
@@ -293,15 +294,15 @@ git commit -m "Dodaj solver oparty na grafie blokowania"
 - Consumes: `buildBlockingGraph`, `solve`, `headRay`.
 - Produces:
   - `computeMetrics(board: Board): BoardMetrics`
-  - `withMetrics(board: Board): Board` — zwraca kopię z policzonymi metrykami
+  - `withMetrics(board: Board): Board` — returns a copy with metrics computed
   - `estimateMinFree(board: Board, rng: Rng, playouts: number): number` —
-    metryka **diagnostyczna**, poza progami akceptacji (§9)
+    a **diagnostic** metric, outside the acceptance thresholds (§9)
 
-`dirEntropy` i `lenEntropy` to **uzupełnienie specyfikacji** wprowadzone w tym
-planie: bez nich punktacja z §10 przegrywa własny test antyeksploatacyjny
-26e (szczegóły w mapie wdrożenia i w Slice 5).
+`dirEntropy` and `lenEntropy` are a **spec addition** introduced in this plan:
+without them, the scoring from §10 fails its own anti-exploitation test 26e
+(details in the implementation map and in Slice 5).
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/core/metrics.spec.ts
@@ -310,7 +311,7 @@ import { boardOf, piece } from './testing/fixtures';
 import { computeMetrics, estimateMinFree, withMetrics } from './metrics';
 
 describe('computeMetrics', () => {
-  it('liczy udział elementów wolnych na starcie', () => {
+  it('computes the share of pieces free at the start', () => {
     const b = boardOf(1, 4, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -320,18 +321,18 @@ describe('computeMetrics', () => {
     expect(m.f0).toBeCloseTo(0.5, 6);
   });
 
-  it('liczy elementy zablokowane przez dokładnie jeden obcy element', () => {
+  it('counts pieces blocked by exactly one other piece', () => {
     const b = boardOf(1, 6, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
       piece(2, 0, [[0, 4], [0, 5]]),
     ]);
     const m = computeMetrics(b);
-    // Element 1 blokowany przez 0; element 2 blokowany przez 0 i 1.
+    // Piece 1 is blocked by 0; piece 2 is blocked by 0 and 1.
     expect(m.almost1).toBe(1);
   });
 
-  it('liczy głębokość grafu blokowania', () => {
+  it('computes the depth of the blocking graph', () => {
     const b = boardOf(1, 6, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -340,18 +341,18 @@ describe('computeMetrics', () => {
     expect(computeMetrics(b).d).toBe(2);
   });
 
-  it('liczy średnią długość korytarza', () => {
+  it('computes the mean corridor length', () => {
     const b = boardOf(1, 4, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
     ]);
-    // Korytarz elementu 0: pusty (głowa przy krawędzi) → 0 komórek.
-    // Korytarz elementu 1: (0,1) i (0,0) → 2 komórki.
+    // Piece 0's corridor: empty (the head is at the edge) → 0 cells.
+    // Piece 1's corridor: (0,1) and (0,0) → 2 cells.
     expect(computeMetrics(b).meanCorridorLen).toBeCloseTo(1, 6);
   });
 
-  describe('entropia kierunków', () => {
-    it('wynosi zero, gdy wszystkie elementy patrzą w tę samą stronę', () => {
+  describe('direction entropy', () => {
+    it('is zero when all pieces face the same way', () => {
       const b = boardOf(2, 2, [
         piece(0, 0, [[0, 0], [0, 1]]),
         piece(1, 0, [[1, 0], [1, 1]]),
@@ -359,9 +360,9 @@ describe('computeMetrics', () => {
       expect(computeMetrics(b).dirEntropy).toBeCloseTo(0, 6);
     });
 
-    it('wynosi jeden przy równym rozkładzie czterech kierunków', () => {
-      // Dwa domina pionowe (grot w górę i w dół) oraz dwa poziome
-      // (grot w prawo i w lewo) — plansza 4×2 pokryta w całości.
+    it('is one for an equal distribution across four directions', () => {
+      // Two vertical dominoes (arrowhead up and down) and two horizontal ones
+      // (arrowhead right and left) — a 4×2 board covered in full.
       const b = boardOf(4, 2, [
         piece(0, 0, [[0, 0], [0, 1]]),
         piece(1, 2, [[1, 1], [1, 0]]),
@@ -372,8 +373,8 @@ describe('computeMetrics', () => {
     });
   });
 
-  describe('entropia długości', () => {
-    it('wynosi zero, gdy wszystkie elementy są tej samej klasy długości', () => {
+  describe('length entropy', () => {
+    it('is zero when all pieces are the same length class', () => {
       const b = boardOf(2, 2, [
         piece(0, 0, [[0, 0], [0, 1]]),
         piece(1, 0, [[1, 0], [1, 1]]),
@@ -381,22 +382,22 @@ describe('computeMetrics', () => {
       expect(computeMetrics(b).lenEntropy).toBeCloseTo(0, 6);
     });
 
-    it('rośnie, gdy pojawiają się różne klasy długości', () => {
+    it('grows when different length classes appear', () => {
       const short = piece(0, 0, [[0, 0], [0, 1]]);
       const long = piece(1, 0, [
         [1, 0], [1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [1, 6], [1, 7],
       ]);
       const filler = piece(2, 0, [[0, 2], [0, 3], [0, 4], [0, 5], [0, 6], [0, 7]]);
       const b = boardOf(2, 8, [short, long, filler]);
-      // Dwa koszyki obsadzone z trzech możliwych: entropia znormalizowana
-      // przez log(4) daje ~0.46, więc próg musi być poniżej tej wartości.
+      // Two buckets occupied out of three possible: the entropy normalized by
+      // log(4) gives ~0.46, so the threshold must be below that value.
       expect(computeMetrics(b).lenEntropy).toBeGreaterThan(0.4);
     });
   });
 });
 
 describe('withMetrics', () => {
-  it('dokleja metryki bez zmiany planszy', () => {
+  it('attaches metrics without changing the board', () => {
     const b = boardOf(1, 4, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -404,12 +405,12 @@ describe('withMetrics', () => {
     const withM = withMetrics(b);
     expect(withM.metrics.n).toBe(2);
     expect(withM.pieces).toBe(b.pieces);
-    expect(b.metrics.n).toBe(0); // oryginał nietknięty
+    expect(b.metrics.n).toBe(0); // original untouched
   });
 });
 
 describe('estimateMinFree', () => {
-  it('nigdy nie schodzi do zera na planszy rozwiązywalnej', () => {
+  it('never drops to zero on a solvable board', () => {
     const b = boardOf(1, 6, [
       piece(0, 0, [[0, 0], [0, 1]]),
       piece(1, 0, [[0, 2], [0, 3]]),
@@ -420,15 +421,15 @@ describe('estimateMinFree', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npm run test:core -- metrics
 ```
 
-Oczekiwane: FAIL — brak modułu `./metrics`.
+Expected: FAIL — module `./metrics` is missing.
 
-- [ ] **Krok 3: Zaimplementuj metryki**
+- [ ] **Step 3: Implement the metrics**
 
 ```typescript
 // src/core/metrics.ts
@@ -437,7 +438,7 @@ import { Rng } from './rng';
 import { buildBlockingGraph, solve } from './solver';
 import { Board, BoardMetrics } from './types';
 
-/** Entropia Shannona rozkładu, znormalizowana do [0,1] przez log liczby klas. */
+/** Shannon entropy of a distribution, normalized to [0,1] by log of the class count. */
 function normalizedEntropy(counts: readonly number[]): number {
   const total = counts.reduce((a, b) => a + b, 0);
   if (total === 0) return 0;
@@ -453,14 +454,15 @@ function normalizedEntropy(counts: readonly number[]): number {
 }
 
 /**
- * Metryki trudności liczone na gotowej planszy (§9).
+ * Difficulty metrics computed on a finished board (§9).
  *
- * `almost1` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia,
- * czyli to, co faktycznie odbiera życia.
+ * `almost1` is the most important one: it measures the number of
+ * opportunities for a wrong click, i.e. what actually costs lives.
  *
- * `dirEntropy` i `lenEntropy` to uzupełnienie planu wdrożenia — ważą pozorną
- * trudność w punktacji. Plansza jednorodna (same domina w jednym kierunku) ma
- * świetne `f0` i `almost1`, choć jest banalna; entropia to wychwytuje.
+ * `dirEntropy` and `lenEntropy` are an addition to the implementation plan —
+ * they weigh apparent difficulty in scoring. A homogeneous board (all
+ * dominoes facing one direction) has great `f0` and `almost1` yet is
+ * trivial; entropy catches that.
  */
 export function computeMetrics(board: Board): BoardMetrics {
   const n = board.pieces.size;
@@ -500,16 +502,17 @@ export function computeMetrics(board: Board): BoardMetrics {
   };
 }
 
-/** Kopia planszy z policzonymi metrykami. Oryginał zostaje nietknięty. */
+/** A copy of the board with metrics computed. The original stays untouched. */
 export function withMetrics(board: Board): Board {
   return { ...board, metrics: computeMetrics(board) };
 }
 
 /**
- * Minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych.
+ * Minimum number of free pieces observed during random greedy playouts.
  *
- * Metryka DIAGNOSTYCZNA (§9): raportowana w benchmarku, ale niewchodząca do
- * progów akceptacji ani do punktacji, bo jej kalibracja wymaga playtestu.
+ * DIAGNOSTIC metric (§9): reported in the benchmark, but not part of the
+ * acceptance thresholds or scoring, because calibrating it requires
+ * playtesting.
  */
 export function estimateMinFree(board: Board, rng: Rng, playouts: number): number {
   let worst = Number.POSITIVE_INFINITY;
@@ -517,7 +520,7 @@ export function estimateMinFree(board: Board, rng: Rng, playouts: number): numbe
     let current = board;
     while (current.pieces.size > 0) {
       const free = [...current.pieces.values()].filter((p) => probeMove(current, p).free);
-      if (free.length === 0) return 0; // złamana konfluencja — sygnał błędu
+      if (free.length === 0) return 0; // broken confluence — an error signal
       worst = Math.min(worst, free.length);
       current = removePiece(current, free[Math.floor(rng() * free.length)]!.id);
     }
@@ -526,39 +529,40 @@ export function estimateMinFree(board: Board, rng: Rng, playouts: number): numbe
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- metrics
 ```
 
-Oczekiwane: PASS (10 testów).
+Expected: PASS (10 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj metryki trudności planszy"
+git commit -m "Add board difficulty metrics"
 ```
 
 ---
 
-### Task 3: Testy własnościowe i test różnicowy
+### Task 3: Property-based tests and differential test
 
 **Files:**
 - Test: `src/core/properties.spec.ts`
 
 **Interfaces:**
-- Consumes: wszystko z Slice'ów 1–3.
-- Produces: nic nowego w kodzie produkcyjnym — to jest siatka bezpieczeństwa
-  całego projektu.
+- Consumes: everything from Slices 1–3.
+- Produces: nothing new in production code — this is the safety net for the
+  entire project.
 
-Test różnicowy (§12.18) jest tu najważniejszy: sprawdza, że **warunek
-generatora** (skyline: pierwsza nieprzypisana komórka linii) i **warunek
-silnika gry** (`probeMove`) zgadzają się **co do bitu**. Rozjazd między nimi
-to dokładnie ten błąd, który produkuje nierozwiązywalne plansze.
+The differential test (§12.18) is the most important one here: it checks
+that the **generator's condition** (skyline: the first unassigned cell of a
+line) and the **game engine's condition** (`probeMove`) agree **bit for
+bit**. A mismatch between them is exactly the bug that produces unsolvable
+boards.
 
-- [ ] **Krok 1: Napisz testy własnościowe**
+- [ ] **Step 1: Write property-based tests**
 
 ```typescript
 // src/core/properties.spec.ts
@@ -572,9 +576,9 @@ import { ALL_DIRS, Dir, EMPTY, Piece } from './types';
 
 const SIZES = [[10, 10], [15, 30], [25, 25], [25, 50]] as const;
 
-// §12.14 — każda wygenerowana plansza przechodzi solver.
-describe('każda plansza jest rozwiązywalna', () => {
-  it('na 200 ziarnach i czterech rozmiarach', () => {
+// §12.14 — every generated board passes the solver.
+describe('every board is solvable', () => {
+  it('over 200 seeds and four sizes', () => {
     for (const [w, h] of SIZES) {
       for (let seed = 1; seed <= 50; seed++) {
         const { board, complete } = generate(defaultParams(w, h, seed));
@@ -582,7 +586,7 @@ describe('każda plansza jest rozwiązywalna', () => {
         const r = solve(board);
         if (!r.solvable) {
           throw new Error(
-            `Plansza ${w}x${h} ziarno ${seed} nierozwiązywalna; cykl: ${r.cycleMembers.join(',')}`,
+            `Board ${w}x${h} seed ${seed} unsolvable; cycle: ${r.cycleMembers.join(',')}`,
           );
         }
       }
@@ -590,9 +594,9 @@ describe('każda plansza jest rozwiązywalna', () => {
   }, 120_000);
 });
 
-// §12.15 — kolejność wycinania JEST rozwiązaniem, bez odwracania.
-describe('kolejność wycinania jest poprawnym rozwiązaniem', () => {
-  it('każdy ruch w kolejności identyfikatorów jest legalny', () => {
+// §12.15 — the carving order IS a solution, without reversal.
+describe('the carving order is a valid solution', () => {
+  it('every move in id order is legal', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const { board } = generate(defaultParams(20, 20, seed));
       let current = board;
@@ -601,7 +605,7 @@ describe('kolejność wycinania jest poprawnym rozwiązaniem', () => {
         expect(p).toBeDefined();
         const probe = probeMove(current, p as Piece);
         if (!probe.free) {
-          throw new Error(`Ziarno ${seed}: element ${id} zablokowany przez ${probe.blockerId}`);
+          throw new Error(`Seed ${seed}: piece ${id} blocked by ${probe.blockerId}`);
         }
         current = removePiece(current, id);
       }
@@ -610,9 +614,9 @@ describe('kolejność wycinania jest poprawnym rozwiązaniem', () => {
   }, 60_000);
 });
 
-// §12.16 — konfluencja: zachłanne playouty nigdy nie utykają.
-describe('konfluencja', () => {
-  it('losowe usuwanie wolnych elementów zawsze kończy planszę', () => {
+// §12.16 — confluence: greedy playouts never get stuck.
+describe('confluence', () => {
+  it('randomly removing free pieces always finishes the board', () => {
     const rng = mulberry32(4242);
     for (let seed = 1; seed <= 20; seed++) {
       const { board } = generate(defaultParams(20, 20, seed));
@@ -626,9 +630,9 @@ describe('konfluencja', () => {
   }, 60_000);
 });
 
-// §12.17 — usunięcie dowolnego elementu zostawia planszę rozwiązywalną.
-describe('monotoniczność rozwiązywalności', () => {
-  it('zdjęcie dowolnego elementu nie psuje planszy', () => {
+// §12.17 — removing any piece leaves the board solvable.
+describe('solvability monotonicity', () => {
+  it('removing any piece does not break the board', () => {
     for (let seed = 1; seed <= 10; seed++) {
       const { board } = generate(defaultParams(15, 15, seed));
       for (const id of board.pieces.keys()) {
@@ -639,23 +643,23 @@ describe('monotoniczność rozwiązywalności', () => {
 });
 
 /**
- * §12.18 — TEST RÓŻNICOWY.
+ * §12.18 — DIFFERENTIAL TEST.
  *
- * Generator pyta: „czy ta komórka jest pierwszą nieprzypisaną na swojej linii?"
- * (skyline, O(1)). Silnik gry pyta: „czy promień z głowy jest wolny?"
- * (probeMove, przebieg po promieniu). To muszą być te same pytania.
+ * The generator asks: "is this cell the first unassigned one on its line?"
+ * (skyline, O(1)). The game engine asks: "is the ray from the head clear?"
+ * (probeMove, a walk along the ray). These must be the same question.
  *
- * Zamieniamy role: komórki NIEPRZYPISANE w generatorze odpowiadają komórkom
- * ZAJĘTYM na planszy gry, bo to one blokują wycięcie.
+ * We swap roles: cells UNASSIGNED in the generator correspond to cells
+ * OCCUPIED on the game board, because those are the ones blocking the cut.
  */
-describe('test różnicowy generatora i silnika', () => {
-  it('warunek skyline zgadza się z probeMove co do bitu', () => {
+describe('generator/engine differential test', () => {
+  it('the skyline condition matches probeMove bit for bit', () => {
     const rng = mulberry32(31337);
     const w = 12;
     const h = 12;
 
     for (let trial = 0; trial < 300; trial++) {
-      // Losowy stan wycinania: część komórek przypisana, część nie.
+      // Random carving state: some cells assigned, some not.
       const owner = new Int32Array(w * h).fill(EMPTY);
       const fill = 0.2 + rng() * 0.6;
       for (let i = 0; i < w * h; i++) if (rng() < fill) owner[i] = 1;
@@ -663,7 +667,7 @@ describe('test różnicowy generatora i silnika', () => {
       const skyline = new Skyline(w, h);
       skyline.rebuild(owner);
 
-      // Plansza gry: każda NIEPRZYPISANA komórka to osobny bloker.
+      // Game board: every UNASSIGNED cell is a separate blocker.
       const blockers: Piece[] = [];
       for (let i = 0; i < w * h; i++) {
         if (owner[i] === EMPTY) {
@@ -679,23 +683,23 @@ describe('test różnicowy generatora i silnika', () => {
           const head = skyline.headCandidate(dir, line);
           if (!head) continue;
 
-          // Ta sama komórka jako głowa elementu na planszy gry; z blokerów
-          // usuwamy tę jedną, bo to ona jest kandydatem, nie przeszkodą.
+          // The same cell as a piece's head on the game board; we remove the
+          // one blocker at that spot, since it is the candidate, not an obstacle.
           const probe = createBoard(w, h, [
             { id: 0, dir, cells: [head] },
             ...blockers.filter((b) => !(b.cells[0]!.x === head.x && b.cells[0]!.y === head.y)),
           ]);
           const free = probeMove(probe, probe.pieces.get(0)!).free;
 
-          // Kandydat ze skyline'u to zawsze pierwsza nieprzypisana komórka
-          // linii, więc jej promień MUSI być wolny od nieprzypisanych.
+          // A skyline candidate is always the first unassigned cell of a
+          // line, so its ray MUST be clear of unassigned cells.
           expect(free).toBe(true);
         }
       }
     }
   }, 120_000);
 
-  it('komórka spoza skyline nigdy nie ma czystego promienia', () => {
+  it('a cell outside the skyline never has a clear ray', () => {
     const rng = mulberry32(999);
     const w = 10;
     const h = 10;
@@ -716,8 +720,8 @@ describe('test różnicowy generatora i silnika', () => {
         const lines = dir === 0 || dir === 2 ? w : h;
         for (let line = 0; line < lines; line++) {
           const candidate = skyline.headCandidate(dir, line);
-          // Bierzemy komórkę o jeden krok GŁĘBIEJ niż kandydat — jeśli jest
-          // nieprzypisana, jej promień musi natrafić na kandydata.
+          // We take the cell one step DEEPER than the candidate — if it is
+          // unassigned, its ray must run into the candidate.
           if (!candidate) continue;
           const v = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }][dir]!;
           const deeper = { x: candidate.x - v.x, y: candidate.y - v.y };
@@ -737,8 +741,8 @@ describe('test różnicowy generatora i silnika', () => {
   }, 120_000);
 });
 
-describe('metryki na wygenerowanych planszach', () => {
-  it('mieszczą się w sensownych zakresach', () => {
+describe('metrics on generated boards', () => {
+  it('fall within sensible ranges', () => {
     for (let seed = 1; seed <= 10; seed++) {
       const { board } = generate(defaultParams(25, 25, seed));
       const m = computeMetrics(board);
@@ -748,48 +752,50 @@ describe('metryki na wygenerowanych planszach', () => {
       expect(m.f0).toBeLessThan(1);
       expect(m.almost1).toBeLessThanOrEqual(m.n);
       expect(m.d).toBeGreaterThan(0);
-      expect(m.dirEntropy).toBeGreaterThan(0.8); // cztery kierunki są używane
+      expect(m.dirEntropy).toBeGreaterThan(0.8); // all four directions are used
       expect(m.meanCorridorLen).toBeGreaterThan(0);
     }
   }, 60_000);
 });
 ```
 
-- [ ] **Krok 2: Uruchom testy**
+- [ ] **Step 2: Run the tests**
 
 ```bash
 npm run test:core -- properties
 ```
 
-Oczekiwane: PASS. Jeśli test różnicowy zawodzi, **nie zmieniaj testu** —
-rozjechały się dwie definicje korytarza i to jest dokładnie ta awaria,
-przed którą ten test stoi (ryzyko nr 1 z §14).
+Expected: PASS. If the differential test fails, **do not change the test** —
+the two definitions of the corridor have diverged, and that is exactly the
+failure this test guards against (risk #1 from §14).
 
-- [ ] **Krok 3: Zmierz łączny czas**
+- [ ] **Step 3: Measure total time**
 
 ```bash
 time npm run test:core
 ```
 
-Oczekiwane: całość poniżej ~3 minut. Jeśli dłużej, zmniejsz liczbę ziaren
-w najdroższym teście (`monotoniczność`), a nie w teście różnicowym.
+Expected: the whole run under ~3 minutes. If it takes longer, reduce the
+number of seeds in the most expensive test (`monotonicity`), not in the
+differential test.
 
-- [ ] **Krok 4: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj testy własnościowe i test różnicowy generatora"
+git commit -m "Add property-based tests and a differential test for the generator"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice acceptance criteria
 
-- `npm run test:core` przechodzi w całości.
-- Solver wykrywa ręcznie skonstruowane cykle dwu- i trójelementowe oraz
-  wskazuje ich uczestników.
-- 200 wygenerowanych plansz (4 rozmiary × 50 ziaren) przechodzi solver.
-- Kolejność wycinania jest poprawnym rozwiązaniem bez odwracania.
-- Test różnicowy jest zielony — generator i silnik dzielą jedną definicję
-  korytarza.
-- `BoardMetrics` niesie `dirEntropy` i `lenEntropy`; Slice 5 na nich polega.
+- `npm run test:core` passes in full.
+- The solver detects manually constructed two- and three-piece cycles and
+  identifies their members.
+- 200 generated boards (4 sizes × 50 seeds) pass the solver.
+- The carving order is a valid solution without reversal.
+- The differential test is green — the generator and the engine share one
+  definition of the corridor.
+- `BoardMetrics` carries `dirEntropy` and `lenEntropy`; Slice 5 depends on
+  them.

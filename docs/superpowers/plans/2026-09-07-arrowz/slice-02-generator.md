@@ -1,89 +1,89 @@
-# Slice 2 — Generator: wycinanie z pełnej planszy
+# Slice 2 — Generator: carving from the full board
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** `generate(params)` produkuje planszę pokrytą w **100%**, w której każdy
-element ma co najmniej 2 komórki, a kolejność wycinania jest gotowym
-rozwiązaniem.
+**Goal:** `generate(params)` produces a **100%** covered board in which every
+piece has at least 2 cells, and the carving order is a ready-made solution.
 
-**Architektura:** Nie wstawiamy elementów na pustą planszę — **wycinamy je
-z planszy pełnej, w kolejności usuwania**. Element `q_j` można wyciąć, gdy cały
-jego korytarz prowadzi przez komórki już przypisane albo własne. Warunek
-dotyczy **wyłącznie głowy** (korytarz to jeden promień), więc ciało rośnie bez
-ograniczeń geometrycznych — i stąd biorą się splątane kształty. Obszar
-dopuszczalny opisują cztery tablice `depth_d[linia]`, aktualizowane
-przyrostowo. Pełne pokrycie nie jest dowodzone, tylko wymuszane trzema
-warstwami: głowy z nieprzypisanym sąsiadem, test kształtu resztki, ograniczony
-nawrót.
+**Architecture:** We do not insert pieces onto an empty board — **we carve them
+out of a full board, in removal order**. A piece `q_j` can be carved out when
+its entire corridor runs through cells that are already assigned or its own.
+The condition applies **only to the head** (the corridor is a single ray), so
+the body grows without geometric constraints — and that's where the tangled
+shapes come from. The admissible area is described by four `depth_d[line]`
+arrays, updated incrementally. Full coverage is not proven, only enforced by
+three layers: heads with an unassigned neighbor, a leftover-fragment shape
+test, and a bounded backtrack.
 
-**Stack:** TypeScript strict, Vitest w Node.
+**Stack:** TypeScript strict, Vitest on Node.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§7, §12.9–13,
 §12.20–23)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
-**Odniesienie pomiarowe:** `prototype/carve.mjs` — kod wyrzucalny, ale
-**zmierzony**. Nie portujemy go; piszemy od zera w TS. Gdy wynik biegnie inaczej
-niż w tabelach §7 i §9 specyfikacji, to implementacja się rozjechała, nie
-pomiar.
+**Measurement reference:** `prototype/carve.mjs` — throwaway code, but
+**measured**. We do not port it; we write it from scratch in TS. When the
+result diverges from the tables in §7 and §9 of the spec, the implementation
+has drifted, not the measurement.
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Heurystyka Warnsdorffa jest wymagana, nie opcjonalna.** Bez niej ciało
-  fragmentuje resztę planszy i 1 plansza na 30 nie generuje się wcale.
-- **Minimalna długość 2** wynika z konstrukcji: głowę wybieramy wyłącznie
-  spośród komórek mających nieprzypisanego sąsiada.
-- Generator **nigdy się nie zapętla** i **nigdy nie rzuca wyjątkiem** — po
-  wyczerpaniu budżetu oddaje najlepszy wynik i raportuje rozbieżność.
-- Wartości domyślne: wagi `0.50 / 0.20 / 0.30`, `warnsdorff = 4`,
+- **The Warnsdorff heuristic is required, not optional.** Without it the body
+  fragments the rest of the board and 1 board in 30 doesn't generate at all.
+- **Minimum length 2** follows from the construction: we pick the head only
+  from cells that have an unassigned neighbor.
+- The generator **never loops forever** and **never throws** — once the
+  budget is exhausted it hands back the best result and reports the
+  discrepancy.
+- Default values: weights `0.50 / 0.20 / 0.30`, `warnsdorff = 4`,
   `straightBias = 0.6`, `lateralWeight = 3`, `maxLength = round(2.5·max(W,H))`.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/core/skyline.ts` | obszar dopuszczalny: tablice `depth_d`, kandydaci na głowę |
-| `src/core/lengths.ts` | rozkład mieszany długości (trzy koszyki) |
-| `src/core/decompose.ts` | test kształtu resztki: czy fragment da się rozłożyć na ścieżki ≥ 2 |
-| `src/core/shapes.ts` | wzrost ścieżki: kandydaci, wagi, Warnsdorff |
-| `src/core/generator.ts` | `generate()`: pętla wycinania, nawroty, restarty, raport |
-| `src/core/*.spec.ts` | testy §12.9–13 i §12.20–23 |
+| `src/core/skyline.ts` | admissible area: `depth_d` arrays, head candidates |
+| `src/core/lengths.ts` | mixed length distribution (three buckets) |
+| `src/core/decompose.ts` | leftover-fragment shape test: can a fragment be decomposed into paths ≥ 2 |
+| `src/core/shapes.ts` | path growth: candidates, weights, Warnsdorff |
+| `src/core/generator.ts` | `generate()`: carving loop, backtracks, restarts, report |
+| `src/core/*.spec.ts` | tests for §12.9–13 and §12.20–23 |
 
 ---
 
-### Task 1: Obszar dopuszczalny (skyline)
+### Task 1: Admissible area (skyline)
 
 **Files:**
 - Create: `src/core/skyline.ts`
 - Test: `src/core/skyline.spec.ts`
 
 **Interfaces:**
-- Consumes: `Dir`, `Coord`, `EMPTY`, `cellIndex`, `isInside` ze Slice'a 1.
+- Consumes: `Dir`, `Coord`, `EMPTY`, `cellIndex`, `isInside` from Slice 1.
 - Produces:
-  - `class Skyline` z metodami:
+  - `class Skyline` with methods:
     `depth(dir: Dir, line: number): number`,
     `headCandidate(dir: Dir, line: number): Coord | null`,
     `recompute(owner: Int32Array, cells: readonly Coord[]): void`
   - `lineOf(dir: Dir, c: Coord): number`
 
-Sedno: `depth_d[L]` to liczba kolejnych **przypisanych** komórek na linii `L`,
-licząc od krawędzi w kierunku `d` do wewnątrz. Pierwsza nieprzypisana komórka
-na linii jest **jedyną kandydatką na głowę** dla tego kierunku, więc kandydatów
-jest co najwyżej `W` albo `H`, a test kosztuje `O(1)`.
+The gist: `depth_d[L]` is the number of consecutive **assigned** cells on line
+`L`, counted from the edge inward in direction `d`. The first unassigned cell
+on a line is the **only head candidate** for that direction, so there are at
+most `W` or `H` candidates, and the test costs `O(1)`.
 
-- [ ] **Krok 1: Napisz failujący test (§12.12)**
+- [ ] **Step 1: Write a failing test (§12.12)**
 
 ```typescript
 // src/core/skyline.spec.ts
 import { EMPTY } from './types';
 import { Skyline, lineOf } from './skyline';
 
-/** Buduje tablicę właścicieli z rysunku: '.' = nieprzypisana, cyfra = id. */
+/** Builds an owner array from a drawing: '.' = unassigned, digit = id. */
 function ownerFrom(rows: readonly string[]): { owner: Int32Array; w: number; h: number } {
   const h = rows.length;
   const w = rows[0]!.length;
@@ -97,7 +97,7 @@ function ownerFrom(rows: readonly string[]): { owner: Int32Array; w: number; h: 
 }
 
 describe('Skyline', () => {
-  it('liczy głębokość od krawędzi każdego kierunku', () => {
+  it('counts depth from the edge for each direction', () => {
     const { owner, w, h } = ownerFrom([
       '11.',
       '1..',
@@ -105,19 +105,19 @@ describe('Skyline', () => {
     ]);
     const s = new Skyline(w, h);
     s.rebuild(owner);
-    // Kierunek 0 (góra): kolumna 0 ma przypisane (0,0) i (0,1) → 2.
+    // Direction 0 (up): column 0 has (0,0) and (0,1) assigned → 2.
     expect(s.depth(0, 0)).toBe(2);
-    // Kolumna 1 ma przypisane tylko (1,0) → 1.
+    // Column 1 has only (1,0) assigned → 1.
     expect(s.depth(0, 1)).toBe(1);
     expect(s.depth(0, 2)).toBe(0);
-    // Kierunek 3 (lewo): wiersz 0 ma przypisane (0,0) i (1,0) → 2.
+    // Direction 3 (left): row 0 has (0,0) and (1,0) assigned → 2.
     expect(s.depth(3, 0)).toBe(2);
     expect(s.depth(3, 1)).toBe(1);
-    // Kierunek 2 (dół): kolumna 0 od dołu — (0,2) nieprzypisana → 0.
+    // Direction 2 (down): column 0 from the bottom — (0,2) is unassigned → 0.
     expect(s.depth(2, 0)).toBe(0);
   });
 
-  it('wskazuje pierwszą nieprzypisaną komórkę linii jako kandydatkę na głowę', () => {
+  it('points at the first unassigned cell of a line as the head candidate', () => {
     const { owner, w, h } = ownerFrom([
       '11.',
       '1..',
@@ -131,7 +131,7 @@ describe('Skyline', () => {
     expect(s.headCandidate(3, 0)).toEqual({ x: 2, y: 0 });
   });
 
-  it('zwraca null dla linii przypisanej w całości', () => {
+  it('returns null for a line that is fully assigned', () => {
     const { owner, w, h } = ownerFrom(['11', '11']);
     const s = new Skyline(w, h);
     s.rebuild(owner);
@@ -139,26 +139,26 @@ describe('Skyline', () => {
     expect(s.headCandidate(1, 1)).toBeNull();
   });
 
-  // §12.12 — komórka przy krawędzi zwiększa depth, komórka w głębi NIE
-  // (dopóki nie domknie się ciągłość od krawędzi).
-  it('aktualizuje głębokość przyrostowo po wycięciu', () => {
+  // §12.12 — a cell at the edge increases depth, a cell deeper in does NOT
+  // (until continuity from the edge closes up).
+  it('updates depth incrementally after a carve', () => {
     const { owner, w, h } = ownerFrom(['...', '...', '...']);
     const s = new Skyline(w, h);
     s.rebuild(owner);
     expect(s.depth(0, 1)).toBe(0);
 
-    // Komórka w GŁĘBI kolumny 1 — ciągłość od górnej krawędzi się nie domyka.
+    // A cell DEEP in column 1 — continuity from the top edge doesn't close up.
     owner[1 * 3 + 1] = 5;
     s.recompute(owner, [{ x: 1, y: 1 }]);
     expect(s.depth(0, 1)).toBe(0);
 
-    // Domknięcie: teraz (1,0) też jest przypisana → depth rośnie od razu o 2.
+    // Closing up: now (1,0) is also assigned → depth jumps by 2 at once.
     owner[0 * 3 + 1] = 5;
     s.recompute(owner, [{ x: 1, y: 0 }]);
     expect(s.depth(0, 1)).toBe(2);
   });
 
-  it('przelicza tylko linie dotknięte przez wycięcie', () => {
+  it('recomputes only the lines touched by the carve', () => {
     const { owner, w, h } = ownerFrom(['...', '...', '...']);
     const s = new Skyline(w, h);
     s.rebuild(owner);
@@ -171,46 +171,46 @@ describe('Skyline', () => {
 });
 
 describe('lineOf', () => {
-  it('mapuje komórkę na numer linii właściwy dla kierunku', () => {
-    expect(lineOf(0, { x: 3, y: 7 })).toBe(3); // góra/dół → kolumna
+  it('maps a cell to the line number appropriate for the direction', () => {
+    expect(lineOf(0, { x: 3, y: 7 })).toBe(3); // up/down → column
     expect(lineOf(2, { x: 3, y: 7 })).toBe(3);
-    expect(lineOf(1, { x: 3, y: 7 })).toBe(7); // prawo/lewo → wiersz
+    expect(lineOf(1, { x: 3, y: 7 })).toBe(7); // right/left → row
     expect(lineOf(3, { x: 3, y: 7 })).toBe(7);
   });
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run it and confirm the failure**
 
 ```bash
 npm run test:core -- skyline
 ```
 
-Oczekiwane: FAIL — brak modułu `./skyline`.
+Expected: FAIL — module `./skyline` is missing.
 
-- [ ] **Krok 3: Zaimplementuj skyline**
+- [ ] **Step 3: Implement skyline**
 
 ```typescript
 // src/core/skyline.ts
 import { cellIndex } from './geometry';
 import { Coord, Dir, EMPTY } from './types';
 
-/** Numer linii, po której biegnie promień danego kierunku. */
+/** Line number the ray of a given direction runs along. */
 export function lineOf(dir: Dir, c: Coord): number {
   return dir === 0 || dir === 2 ? c.x : c.y;
 }
 
 /**
- * Obszar dopuszczalny wycinania.
+ * Admissible area for carving.
  *
- * `depth_d[L]` = ile kolejnych PRZYPISANYCH komórek leży na linii `L`, licząc
- * od krawędzi w kierunku `d` do wewnątrz. Komórka może być głową wycinanego
- * elementu o kierunku `d` dokładnie wtedy, gdy jest pierwszą nieprzypisaną
- * komórką swojej linii — bo wtedy cały jej korytarz prowadzi przez komórki
- * już przypisane (§7).
+ * `depth_d[L]` = how many consecutive ASSIGNED cells lie on line `L`, counted
+ * from the edge inward in direction `d`. A cell can be the head of a piece
+ * being carved with direction `d` exactly when it is the first unassigned
+ * cell of its line — because then its entire corridor runs through cells
+ * that are already assigned (§7).
  */
 export class Skyline {
-  /** Indeksy: [kierunek][linia]. Dla góry i dołu linia to kolumna, dla boków wiersz. */
+  /** Indices: [direction][line]. For up/down the line is a column, for left/right a row. */
   private readonly depths: [Int32Array, Int32Array, Int32Array, Int32Array];
 
   constructor(private readonly width: number, private readonly height: number) {
@@ -226,13 +226,13 @@ export class Skyline {
     return this.depths[dir][line]!;
   }
 
-  /** Przelicza wszystkie linie od zera. Używane przy starcie i przy nawrocie. */
+  /** Recomputes all lines from scratch. Used at start and on backtrack. */
   rebuild(owner: Int32Array): void {
     for (let x = 0; x < this.width; x++) this.recomputeColumn(owner, x);
     for (let y = 0; y < this.height; y++) this.recomputeRow(owner, y);
   }
 
-  /** Przelicza wyłącznie linie dotknięte przez podane komórki: O(4·ℓ). */
+  /** Recomputes only the lines touched by the given cells: O(4·ℓ). */
   recompute(owner: Int32Array, cells: readonly Coord[]): void {
     const cols = new Set<number>();
     const rows = new Set<number>();
@@ -244,7 +244,7 @@ export class Skyline {
     for (const y of rows) this.recomputeRow(owner, y);
   }
 
-  /** Pierwsza nieprzypisana komórka linii, licząc od krawędzi wyjścia kierunku. */
+  /** First unassigned cell of the line, counted from the direction's exit edge. */
   headCandidate(dir: Dir, line: number): Coord | null {
     const k = this.depth(dir, line);
     switch (dir) {
@@ -279,39 +279,39 @@ export class Skyline {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- skyline
 ```
 
-Oczekiwane: PASS (6 testów).
+Expected: PASS (6 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj obszar dopuszczalny wycinania"
+git commit -m "Add carving admissible area"
 ```
 
 ---
 
-### Task 2: Rozkład długości
+### Task 2: Length distribution
 
 **Files:**
 - Create: `src/core/lengths.ts`
 - Test: `src/core/lengths.spec.ts`
 
 **Interfaces:**
-- Consumes: `Rng`, `randInt` ze Slice'a 0; `GeneratorParams` ze Slice'a 1.
+- Consumes: `Rng`, `randInt` from Slice 0; `GeneratorParams` from Slice 1.
 - Produces:
   - `drawTargetLength(rng: Rng, params: GeneratorParams): number`
-  - `longAreaShare(params: GeneratorParams): number` — udział powierzchni
-    planszy zajęty przez koszyk długi. Konfigurator (Slice 8) pokazuje tę
-    wartość na żywo i ostrzega powyżej 0.25.
-  - `LENGTH_BUCKETS` — granice koszyków.
+  - `longAreaShare(params: GeneratorParams): number` — the share of the board
+    area occupied by the long bucket. The configurator (Slice 8) shows this
+    value live and warns above 0.25.
+  - `LENGTH_BUCKETS` — bucket boundaries.
 
-- [ ] **Krok 1: Napisz failujące testy (§12.9, §12.9b, §12.23)**
+- [ ] **Step 1: Write failing tests (§12.9, §12.9b, §12.23)**
 
 ```typescript
 // src/core/lengths.spec.ts
@@ -326,7 +326,7 @@ const base: GeneratorParams = {
 };
 
 describe('drawTargetLength', () => {
-  it('nigdy nie schodzi poniżej 2 ani powyżej maxLength', () => {
+  it('never goes below 2 or above maxLength', () => {
     const rng = mulberry32(42);
     for (let i = 0; i < 20_000; i++) {
       const L = drawTargetLength(rng, base);
@@ -335,9 +335,9 @@ describe('drawTargetLength', () => {
     }
   });
 
-  // §12.9b — generator faktycznie produkuje długie elementy, nie obcina
-  // po cichu wszystkiego do krótkich.
-  it('trafia w zamówione udziały koszyków', () => {
+  // §12.9b — the generator actually produces long pieces, it doesn't
+  // silently clip everything down to short ones.
+  it('hits the requested bucket shares', () => {
     const rng = mulberry32(7);
     let short = 0, medium = 0, long = 0;
     const n = 50_000;
@@ -352,26 +352,26 @@ describe('drawTargetLength', () => {
     expect(long / n).toBeCloseTo(0.3, 1);
   });
 
-  // Koszyk długi jest LOG-jednostajny: przy maxLength = 300 jednostajny dałby
-  // średnią 158 (same potwory), log-jednostajny daje ~97 i rozkłada masę
-  // po rzędach wielkości.
-  it('losuje koszyk długi log-jednostajnie', () => {
+  // The long bucket is LOG-uniform: at maxLength = 300 a uniform draw would
+  // give a mean of 158 (all monsters), log-uniform gives ~97 and spreads the
+  // mass across orders of magnitude.
+  it('draws the long bucket log-uniformly', () => {
     const rng = mulberry32(3);
     const params = { ...base, maxLength: 300, bucketWeights: [0, 0, 1] as const };
     const draws: number[] = [];
     for (let i = 0; i < 20_000; i++) draws.push(drawTargetLength(rng, params));
     const mean = draws.reduce((a, b) => a + b, 0) / draws.length;
-    // Jednostajny dałby ~158. Log-jednostajny na [16,300] daje ~97.
+    // Uniform would give ~158. Log-uniform on [16,300] gives ~97.
     expect(mean).toBeGreaterThan(70);
     expect(mean).toBeLessThan(125);
-    // Ogon istnieje: przynajmniej kilka procent przekracza 200.
+    // A tail exists: at least a few percent exceed 200.
     expect(draws.filter((L) => L > 200).length / draws.length).toBeGreaterThan(0.02);
-    // Dolny kraniec koszyka też jest obsadzony.
+    // The lower end of the bucket is also populated.
     expect(draws.filter((L) => L < 30).length / draws.length).toBeGreaterThan(0.05);
   });
 
-  // §12.22 — krańce stopnia połamania nie wywracają losowania.
-  it('działa dla skrajnych parametrów', () => {
+  // §12.22 — extreme break-degree values don't upend the draw.
+  it('works for extreme parameters', () => {
     const rng = mulberry32(5);
     for (const straightBias of [0, 1]) {
       for (const w of [[1, 0, 0], [0, 0, 1]] as const) {
@@ -385,7 +385,7 @@ describe('drawTargetLength', () => {
     }
   });
 
-  it('obsługuje maxLength mniejszy niż dolna granica koszyka długiego', () => {
+  it('handles maxLength smaller than the long bucket lower bound', () => {
     const rng = mulberry32(9);
     const p = { ...base, maxLength: 10, bucketWeights: [0, 0, 1] as GeneratorParams['bucketWeights'] };
     for (let i = 0; i < 200; i++) {
@@ -396,10 +396,10 @@ describe('drawTargetLength', () => {
   });
 });
 
-// §12.23 — udział powierzchni koszyka długiego musi zgadzać się z tym,
-// co pokazuje konfigurator; inaczej ostrzeżenie o 25% wprowadza w błąd.
+// §12.23 — the long bucket's area share must match what the configurator
+// shows; otherwise the 25% warning is misleading.
 describe('longAreaShare', () => {
-  it('zgadza się z udziałem zmierzonym na losowaniu', () => {
+  it('matches the share measured from the draw', () => {
     const rng = mulberry32(21);
     const p = { ...base, maxLength: 125, bucketWeights: [0.5, 0.2, 0.3] as const };
     let longCells = 0, allCells = 0;
@@ -411,7 +411,7 @@ describe('longAreaShare', () => {
     expect(longAreaShare(p)).toBeCloseTo(longCells / allCells, 1);
   });
 
-  it('rośnie z wagą koszyka długiego', () => {
+  it('grows with the long bucket weight', () => {
     const low = longAreaShare({ ...base, bucketWeights: [0.85, 0.14, 0.01] });
     const high = longAreaShare({ ...base, bucketWeights: [0.4, 0.15, 0.45] });
     expect(high).toBeGreaterThan(low);
@@ -420,22 +420,22 @@ describe('longAreaShare', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run it and confirm the failure**
 
 ```bash
 npm run test:core -- lengths
 ```
 
-Oczekiwane: FAIL — brak modułu `./lengths`.
+Expected: FAIL — module `./lengths` is missing.
 
-- [ ] **Krok 3: Zaimplementuj rozkład**
+- [ ] **Step 3: Implement the distribution**
 
 ```typescript
 // src/core/lengths.ts
 import { randInt, Rng } from './rng';
 import { GeneratorParams } from './types';
 
-/** Granice koszyków: krótkie 2–6, średnie 7–15, długie 16–maxLength. */
+/** Bucket boundaries: short 2–6, medium 7–15, long 16–maxLength. */
 export const LENGTH_BUCKETS = {
   shortMin: 2,
   shortMax: 6,
@@ -445,12 +445,12 @@ export const LENGTH_BUCKETS = {
 } as const;
 
 /**
- * Losuje docelową długość elementu z rozkładu mieszanego o trzech koszykach.
+ * Draws a piece's target length from a mixed distribution with three buckets.
  *
- * Koszyk długi jest LOG-jednostajny, nie jednostajny: przy maxLength = 300
- * jednostajny dawałby średnią 158 komórek, czyli same potwory. Log-jednostajny
- * rozkłada masę po rzędach wielkości, więc powstają i elementy 20-komórkowe,
- * i 250-komórkowe (§7).
+ * The long bucket is LOG-uniform, not uniform: at maxLength = 300 a uniform
+ * draw would give a mean of 158 cells, i.e. all monsters. Log-uniform spreads
+ * the mass across orders of magnitude, so both 20-cell and 250-cell pieces
+ * appear (§7).
  */
 export function drawTargetLength(rng: Rng, params: GeneratorParams): number {
   const cap = Math.max(2, Math.floor(params.maxLength));
@@ -469,21 +469,22 @@ export function drawTargetLength(rng: Rng, params: GeneratorParams): number {
   return Math.max(2, Math.min(cap, drawn));
 }
 
-/** Średnia długość koszyka — potrzebna do policzenia udziału powierzchni. */
+/** Bucket mean length — needed to compute the area share. */
 function bucketMeans(maxLength: number): [number, number, number] {
   const a = LENGTH_BUCKETS.longMin;
   const b = Math.max(a + 1, Math.floor(maxLength));
-  // Wartość oczekiwana rozkładu log-jednostajnego na [a, b]: (b - a) / ln(b/a).
+  // Expected value of a log-uniform distribution on [a, b]: (b - a) / ln(b/a).
   const longMean = (b - a) / Math.log(b / a);
   return [4, 11, Math.min(b, longMean)];
 }
 
 /**
- * Udział powierzchni planszy zajęty przez elementy z koszyka długiego.
+ * Share of the board area occupied by pieces from the long bucket.
  *
- * Waga koszyka i maxLength NIE są niezależne: przy maxLength = 300 i wadze 8%
- * kilkanaście węży zajęłoby większość planszy. Konfigurator liczy tę wartość
- * na żywo i ostrzega po przekroczeniu 0.25 (§7, §11).
+ * The bucket weight and maxLength are NOT independent: at maxLength = 300 and
+ * an 8% weight, a dozen or so snakes would take up most of the board. The
+ * configurator computes this value live and warns once it exceeds 0.25
+ * (§7, §11).
  */
 export function longAreaShare(params: GeneratorParams): number {
   const [wShort, wMedium, wLong] = params.bucketWeights;
@@ -493,7 +494,7 @@ export function longAreaShare(params: GeneratorParams): number {
   return (wLong * mLong) / overallMean;
 }
 
-/** Oczekiwana liczba elementów przy pełnym pokryciu: W·H / średnia długość. */
+/** Expected piece count at full coverage: W·H / mean length. */
 export function expectedPieceCount(params: GeneratorParams): number {
   const [wShort, wMedium, wLong] = params.bucketWeights;
   const [mShort, mMedium, mLong] = bucketMeans(params.maxLength);
@@ -503,24 +504,24 @@ export function expectedPieceCount(params: GeneratorParams): number {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- lengths
 ```
 
-Oczekiwane: PASS (7 testów).
+Expected: PASS (7 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj rozkład długości elementów"
+git commit -m "Add piece length distribution"
 ```
 
 ---
 
-### Task 3: Test kształtu resztki
+### Task 3: Leftover-fragment shape test
 
 **Files:**
 - Create: `src/core/decompose.ts`
@@ -531,12 +532,12 @@ git commit -m "Dodaj rozkład długości elementów"
   - `isDecomposable(cells: ReadonlySet<number>, width: number, height: number): boolean`
   - `wouldStrand(owner: Int32Array, width: number, height: number, path: readonly Coord[]): boolean`
 
-Naiwny test „czy jakaś komórka została bez sąsiadów" **nie wystarcza**.
-Kontrprzykład z §7: pentomino w kształcie plusa — pięć komórek, wszystkie
-spójne, żadna nieizolowana, a rozkład na ścieżki ≥ 2 nie istnieje. Ścieżka
-przez środek ma najwyżej 3 komórki, a dwa pozostałe ramiona nie sąsiadują.
+A naive "did some cell end up without neighbors" test **is not enough**.
+Counterexample from §7: a plus-shaped pentomino — five cells, all connected,
+none isolated, yet no decomposition into paths ≥ 2 exists. A path through the
+center covers at most 3 cells, and the two remaining arms are not adjacent.
 
-- [ ] **Krok 1: Napisz failujące testy (§12.12c)**
+- [ ] **Step 1: Write failing tests (§12.12c)**
 
 ```typescript
 // src/core/decompose.spec.ts
@@ -550,60 +551,60 @@ const setOf = (...cells: readonly (readonly [number, number])[]) =>
   new Set(cells.map(([x, y]) => at(x, y)));
 
 describe('isDecomposable', () => {
-  it('uznaje zbiór pusty za rozkładalny', () => {
+  it('treats an empty set as decomposable', () => {
     expect(isDecomposable(new Set(), W, H)).toBe(true);
   });
 
-  it('odrzuca pojedynczą komórkę', () => {
+  it('rejects a single cell', () => {
     expect(isDecomposable(setOf([3, 3]), W, H)).toBe(false);
   });
 
-  it('przyjmuje domino', () => {
+  it('accepts a domino', () => {
     expect(isDecomposable(setOf([3, 3], [3, 4]), W, H)).toBe(true);
   });
 
-  it('przyjmuje kwadrat 2x2', () => {
+  it('accepts a 2x2 square', () => {
     expect(isDecomposable(setOf([1, 1], [2, 1], [1, 2], [2, 2]), W, H)).toBe(true);
   });
 
-  // §12.12c — plus-pentomino: spójne, żadna komórka nieizolowana,
-  // a rozkładu na ścieżki >= 2 nie ma. Naiwny test izolacji tego NIE łapie.
-  it('odrzuca pentomino w kształcie plusa', () => {
+  // §12.12c — plus-pentomino: connected, no cell isolated, yet no
+  // decomposition into paths >= 2 exists. A naive isolation test does NOT catch this.
+  it('rejects a plus-shaped pentomino', () => {
     const plus = setOf([3, 2], [2, 3], [3, 3], [4, 3], [3, 4]);
     expect(isDecomposable(plus, W, H)).toBe(false);
   });
 
-  // T-tetromino: środek + trzy ramiona. Ścieżka 2 zjada dwa ramiona przez środek,
-  // trzecie ramię zostaje samo → nierozkładalne.
-  it('odrzuca tetromino T', () => {
+  // T-tetromino: center + three arms. A path of length 2 eats two arms through
+  // the center, the third arm is left alone → not decomposable.
+  it('rejects a T-tetromino', () => {
     const t = setOf([2, 3], [3, 3], [4, 3], [3, 4]);
     expect(isDecomposable(t, W, H)).toBe(false);
   });
 
-  it('przyjmuje trzy komórki w linii', () => {
+  it('accepts three cells in a line', () => {
     expect(isDecomposable(setOf([1, 1], [2, 1], [3, 1]), W, H)).toBe(true);
   });
 
-  it('odrzuca dwa rozłączne fragmenty, gdy jeden jest pojedynczy', () => {
+  it('rejects two disjoint fragments when one is a singleton', () => {
     expect(isDecomposable(setOf([0, 0], [1, 0], [5, 5]), W, H)).toBe(false);
   });
 
-  it('przyjmuje dwa rozłączne domina', () => {
+  it('accepts two disjoint dominoes', () => {
     expect(isDecomposable(setOf([0, 0], [1, 0], [5, 5], [5, 6]), W, H)).toBe(true);
   });
 });
 
 describe('wouldStrand', () => {
-  it('nie zgłasza problemu, gdy resztka jest duża', () => {
+  it('reports no problem when the leftover is large', () => {
     const owner = new Int32Array(W * H).fill(EMPTY);
     const path = [{ x: 0, y: 0 }, { x: 1, y: 0 }];
     expect(wouldStrand(owner, W, H, path)).toBe(false);
   });
 
-  it('wykrywa osierocenie pojedynczej komórki w rogu', () => {
-    const owner = new Int32Array(W * H).fill(0); // wszystko przypisane
-    // Wolne zostają: (0,0), (1,0), (0,1) — ścieżka zabiera (1,0) i (0,1),
-    // zostawiając (0,0) samą.
+  it('detects stranding a single cell in a corner', () => {
+    const owner = new Int32Array(W * H).fill(0); // everything assigned
+    // Left free: (0,0), (1,0), (0,1) — the path takes (1,0) and (0,1),
+    // leaving (0,0) alone.
     owner[at(0, 0)] = EMPTY;
     owner[at(1, 0)] = EMPTY;
     owner[at(0, 1)] = EMPTY;
@@ -611,34 +612,34 @@ describe('wouldStrand', () => {
     expect(wouldStrand(owner, W, H, path)).toBe(true);
   });
 
-  it('wykrywa osierocenie plusa', () => {
+  it('detects stranding a plus shape', () => {
     const owner = new Int32Array(W * H).fill(0);
     for (const [x, y] of [[3, 2], [2, 3], [3, 3], [4, 3], [3, 4], [3, 1], [3, 0]] as const) {
       owner[at(x, y)] = EMPTY;
     }
-    // Ścieżka zabiera szyjkę (3,1)-(3,0), zostawiając czysty plus.
+    // The path takes the neck (3,1)-(3,0), leaving a clean plus.
     const path = [{ x: 3, y: 0 }, { x: 3, y: 1 }];
     expect(wouldStrand(owner, W, H, path)).toBe(true);
   });
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run it and confirm the failure**
 
 ```bash
 npm run test:core -- decompose
 ```
 
-Oczekiwane: FAIL — brak modułu `./decompose`.
+Expected: FAIL — module `./decompose` is missing.
 
-- [ ] **Krok 3: Zaimplementuj test resztki**
+- [ ] **Step 3: Implement the leftover-fragment test**
 
 ```typescript
 // src/core/decompose.ts
 import { isInside } from './geometry';
 import { Coord, DIR_VECTORS, EMPTY } from './types';
 
-/** Rozmiar fragmentu, powyżej którego zakładamy rozkładalność bez sprawdzania. */
+/** Fragment size above which we assume decomposability without checking. */
 const SMALL_FRAGMENT_LIMIT = 8;
 
 function neighbours(index: number, width: number, height: number): number[] {
@@ -654,13 +655,13 @@ function neighbours(index: number, width: number, height: number): number[] {
 }
 
 /**
- * Czy zbiór komórek da się rozłożyć na ścieżki o długości ≥ 2?
+ * Can a set of cells be decomposed into paths of length ≥ 2?
  *
- * Przeszukiwanie wyczerpujące — stosowane wyłącznie do małych fragmentów
- * (do ośmiu komórek), bo tylko takie potrafią być nierozkładalne w sposób,
- * którego nie widać z sąsiedztwa. Najmniejsze kontrprzykłady to tetromino T
- * i pentomino w kształcie plusa: spójne, bez komórek izolowanych, a rozkładu
- * brak (§7).
+ * Exhaustive search — used only for small fragments (up to eight cells),
+ * because only those can be non-decomposable in a way that isn't visible from
+ * adjacency alone. The smallest counterexamples are the T-tetromino and the
+ * plus-shaped pentomino: connected, no isolated cells, yet no decomposition
+ * exists (§7).
  */
 export function isDecomposable(
   cells: ReadonlySet<number>,
@@ -691,12 +692,13 @@ export function isDecomposable(
 }
 
 /**
- * Czy wycięcie tej ścieżki zostawi w nieprzypisanej reszcie fragment,
- * którego nie da się rozłożyć na ścieżki ≥ 2?
+ * Would carving this path leave a fragment in the unassigned leftover that
+ * cannot be decomposed into paths ≥ 2?
  *
- * Sprawdzamy wyłącznie otoczenie ścieżki — koszt rzędu jej obwodu. Fragmenty
- * większe niż SMALL_FRAGMENT_LIMIT przepuszczamy: zakładamy, że się rozłożą,
- * a gdyby nie, wyłapie to ograniczony nawrót w generatorze i solver w Slice 3.
+ * We check only the path's surroundings — a cost on the order of its
+ * perimeter. Fragments larger than SMALL_FRAGMENT_LIMIT are let through: we
+ * assume they'll decompose, and if not, the bounded backtrack in the
+ * generator and the solver in Slice 3 will catch it.
  */
 export function wouldStrand(
   owner: Int32Array,
@@ -715,7 +717,7 @@ export function wouldStrand(
       const start = ny * width + nx;
       if (taken.has(start) || seen.has(start) || owner[start] !== EMPTY) continue;
 
-      // Flood fill ograniczony rozmiarem: interesują nas tylko małe fragmenty.
+      // Size-bounded flood fill: we only care about small fragments.
       const component = new Set<number>();
       const stack = [start];
       let overflow = false;
@@ -740,24 +742,24 @@ export function wouldStrand(
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- decompose
 ```
 
-Oczekiwane: PASS (12 testów).
+Expected: PASS (12 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj test rozkładalności resztki planszy"
+git commit -m "Add leftover-fragment decomposability test"
 ```
 
 ---
 
-### Task 4: Wzrost ścieżki
+### Task 4: Path growth
 
 **Files:**
 - Create: `src/core/shapes.ts`
@@ -766,18 +768,18 @@ git commit -m "Dodaj test rozkładalności resztki planszy"
 **Interfaces:**
 - Consumes: `Rng`, `weightedPick`, `wouldStrand`, `DIR_VECTORS`.
 - Produces:
-  - `growPath(ctx: GrowthContext): Coord[]` gdzie
+  - `growPath(ctx: GrowthContext): Coord[]` where
     `interface GrowthContext { owner: Int32Array; width: number; height: number; head: Coord; neck: Coord; targetLength: number; params: GeneratorParams; rng: Rng }`
 
-Wagi kandydatów, dokładnie jak zmierzono w prototypie:
+Candidate weights, exactly as measured in the prototype:
 
-- ruch **w głąb** (wzdłuż przeciwnego kierunku wyjazdu): waga `1`,
-- ruch **w bok**: waga `lateralWeight` (domyślnie 3) — bok buduje kształt,
-  a ruch w głąb odcina ścieżkę od frontiera,
-- kontynuacja **prosto**: mnożnik `straightBias / (1 - straightBias)`,
-- **Warnsdorff**: mnożnik `warnsdorff^(3 - liczba wolnych sąsiadów)`.
+- moving **inward** (along the direction opposite the exit): weight `1`,
+- moving **sideways**: weight `lateralWeight` (default 3) — sideways builds
+  the shape, while moving inward cuts the path off from the frontier,
+- continuing **straight**: multiplier `straightBias / (1 - straightBias)`,
+- **Warnsdorff**: multiplier `warnsdorff^(3 - number of free neighbors)`.
 
-- [ ] **Krok 1: Napisz failujące testy (§12.9, §12.10)**
+- [ ] **Step 1: Write failing tests (§12.9, §12.10)**
 
 ```typescript
 // src/core/shapes.spec.ts
@@ -796,7 +798,7 @@ function emptyOwner(w: number, h: number): Int32Array {
 }
 
 describe('growPath', () => {
-  it('zaczyna od głowy i szyi, w tej kolejności', () => {
+  it('starts with the head and neck, in that order', () => {
     const path = growPath({
       owner: emptyOwner(12, 12), width: 12, height: 12,
       head: { x: 5, y: 0 }, neck: { x: 5, y: 1 },
@@ -806,7 +808,7 @@ describe('growPath', () => {
     expect(path[1]).toEqual({ x: 5, y: 1 });
   });
 
-  it('nigdy nie odwiedza komórki dwukrotnie (§12.10)', () => {
+  it('never visits a cell twice (§12.10)', () => {
     for (let seed = 0; seed < 200; seed++) {
       const path = growPath({
         owner: emptyOwner(12, 12), width: 12, height: 12,
@@ -818,7 +820,7 @@ describe('growPath', () => {
     }
   });
 
-  it('buduje ścieżkę ciągłą ortogonalnie', () => {
+  it('builds an orthogonally continuous path', () => {
     for (let seed = 0; seed < 100; seed++) {
       const path = growPath({
         owner: emptyOwner(12, 12), width: 12, height: 12,
@@ -832,7 +834,7 @@ describe('growPath', () => {
     }
   });
 
-  it('nie wchodzi na komórki przypisane', () => {
+  it('does not step onto assigned cells', () => {
     const owner = emptyOwner(12, 12);
     for (let y = 0; y < 12; y++) for (let x = 6; x < 12; x++) owner[y * 12 + x] = 99;
     for (let seed = 0; seed < 50; seed++) {
@@ -845,8 +847,8 @@ describe('growPath', () => {
     }
   });
 
-  // §12.9 — długość skrajna 2 i akceptacja krótszego elementu, gdy wzrost utknie.
-  it('oddaje dokładnie dwie komórki przy targetLength = 2', () => {
+  // §12.9 — extreme length of 2 and acceptance of a shorter piece when growth gets stuck.
+  it('yields exactly two cells at targetLength = 2', () => {
     const path = growPath({
       owner: emptyOwner(12, 12), width: 12, height: 12,
       head: { x: 0, y: 0 }, neck: { x: 0, y: 1 },
@@ -855,8 +857,8 @@ describe('growPath', () => {
     expect(path.length).toBe(2);
   });
 
-  it('akceptuje krótszą ścieżkę, gdy nie ma dokąd rosnąć', () => {
-    // Plansza 2x2, wolne tylko (0,0) i (0,1) — dłużej się nie da.
+  it('accepts a shorter path when there is nowhere to grow', () => {
+    // A 2x2 board, only (0,0) and (0,1) are free — it can't get any longer.
     const owner = new Int32Array(4).fill(0);
     owner[0] = EMPTY;
     owner[2] = EMPTY;
@@ -868,7 +870,7 @@ describe('growPath', () => {
     expect(path.length).toBe(2);
   });
 
-  it('respektuje targetLength jako górną granicę', () => {
+  it('respects targetLength as an upper bound', () => {
     for (let seed = 0; seed < 50; seed++) {
       const path = growPath({
         owner: emptyOwner(12, 12), width: 12, height: 12,
@@ -879,9 +881,9 @@ describe('growPath', () => {
     }
   });
 
-  // Warnsdorff steruje kształtem: przy sile 0 ścieżki są prostsze i częściej
-  // fragmentują resztę. Test pilnuje, że parametr w ogóle działa.
-  it('zmienia kształt wraz z siłą Warnsdorffa', () => {
+  // Warnsdorff steers the shape: at strength 0, paths are simpler and more
+  // often fragment the leftover. This test guards that the parameter has any effect at all.
+  it('changes shape with Warnsdorff strength', () => {
     const bends = (warnsdorff: number) => {
       let total = 0;
       for (let seed = 0; seed < 60; seed++) {
@@ -901,8 +903,8 @@ describe('growPath', () => {
     expect(bends(4)).toBeGreaterThan(bends(0));
   });
 
-  // §12.22 — straightBias = 1 nie może dać wagi nieskończonej ani NaN.
-  it('przeżywa skrajny stopień połamania', () => {
+  // §12.22 — straightBias = 1 must not produce an infinite weight or NaN.
+  it('survives an extreme break degree', () => {
     for (const straightBias of [0, 1]) {
       const path = growPath({
         owner: emptyOwner(12, 12), width: 12, height: 12,
@@ -919,15 +921,15 @@ describe('growPath', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run it and confirm the failure**
 
 ```bash
 npm run test:core -- shapes
 ```
 
-Oczekiwane: FAIL — brak modułu `./shapes`.
+Expected: FAIL — module `./shapes` is missing.
 
-- [ ] **Krok 3: Zaimplementuj wzrost**
+- [ ] **Step 3: Implement growth**
 
 ```typescript
 // src/core/shapes.ts
@@ -940,9 +942,9 @@ export interface GrowthContext {
   owner: Int32Array;
   width: number;
   height: number;
-  /** Komórka z grotem. */
+  /** The cell holding the arrowhead. */
   head: Coord;
-  /** Pierwsza komórka ciała — leży ZA grotem. */
+  /** The first body cell — lies BEHIND the head. */
   neck: Coord;
   targetLength: number;
   params: GeneratorParams;
@@ -956,10 +958,10 @@ interface Candidate {
 }
 
 /**
- * Mnożnik za kontynuację prosto.
+ * Multiplier for continuing straight.
  *
- * PUŁAPKA: naiwne `straightBias / (1 - straightBias)` przy straightBias = 1
- * daje dzielenie przez zero, a test §12.22 wymaga, żeby krańce działały.
+ * GOTCHA: the naive `straightBias / (1 - straightBias)` at straightBias = 1
+ * divides by zero, and the §12.22 test requires the extremes to work.
  */
 function straightMultiplier(straightBias: number): number {
   const b = Math.min(0.999, Math.max(0, straightBias));
@@ -967,19 +969,19 @@ function straightMultiplier(straightBias: number): number {
 }
 
 /**
- * Hoduje ciało elementu od szyi w głąb obszaru nieprzypisanego.
+ * Grows a piece's body from the neck into the unassigned area.
  *
- * Ciało NIE ma ograniczeń geometrycznych — legalność zależy wyłącznie od głowy
- * (§6), więc ścieżka może iść dokąd chce, byle po komórkach nieprzypisanych.
- * To właśnie ta swoboda daje splątane kształty.
+ * The body has NO geometric constraints — legality depends only on the head
+ * (§6), so the path can go wherever it wants, as long as it stays on
+ * unassigned cells. That freedom is exactly what produces the tangled shapes.
  *
- * Wagi kandydatów:
- *  - ruch w bok ma wagę `lateralWeight`, ruch w głąb wagę 1 — bok buduje
- *    kształt, głąb odcina ścieżkę od frontiera,
- *  - kontynuacja prosto dostaje mnożnik ze `straightBias`,
- *  - Warnsdorff: `warnsdorff^(3 - liczba wolnych sąsiadów)` — zjada ślepe
- *    uliczki, zanim zdążą się zamknąć. Bez niego 1 plansza na 30 nie domyka
- *    się wcale (§7), więc to nie jest strojenie, tylko część algorytmu.
+ * Candidate weights:
+ *  - moving sideways has weight `lateralWeight`, moving inward has weight 1 —
+ *    sideways builds the shape, inward cuts the path off from the frontier,
+ *  - continuing straight gets a multiplier from `straightBias`,
+ *  - Warnsdorff: `warnsdorff^(3 - number of free neighbors)` — eats dead ends
+ *    before they can close off. Without it, 1 board in 30 never closes at all
+ *    (§7), so this isn't tuning, it's part of the algorithm.
  */
 export function growPath(ctx: GrowthContext): Coord[] {
   const { owner, width, height, params, rng } = ctx;
@@ -1022,7 +1024,7 @@ export function growPath(ctx: GrowthContext): Coord[] {
       if (weight > 0) candidates.push({ cell: { x: nx, y: ny }, step: v, weight });
     }
 
-    if (candidates.length === 0) break; // krótszy element jest akceptowalny
+    if (candidates.length === 0) break; // a shorter piece is acceptable
 
     const picked = weightedPick(rng, candidates, (c) => c.weight);
     path.push(picked.cell);
@@ -1034,8 +1036,8 @@ export function growPath(ctx: GrowthContext): Coord[] {
 }
 
 /**
- * Skraca ścieżkę tak długo, aż przestanie osierocać nierozkładalny fragment.
- * Zwraca null, gdy nawet dwuelementowy początek osierocą resztę.
+ * Shortens a path until it stops stranding a non-decomposable fragment.
+ * Returns null when even a two-cell start strands the leftover.
  */
 export function trimToSafe(
   owner: Int32Array,
@@ -1052,24 +1054,24 @@ export function trimToSafe(
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- shapes
 ```
 
-Oczekiwane: PASS (9 testów).
+Expected: PASS (9 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj wzrost ścieżki z regułą Warnsdorffa"
+git commit -m "Add path growth with Warnsdorff rule"
 ```
 
 ---
 
-### Task 5: Pętla wycinania, nawroty i restarty
+### Task 5: Carving loop, backtracks, and restarts
 
 **Files:**
 - Create: `src/core/generator.ts`
@@ -1081,20 +1083,20 @@ git commit -m "Dodaj wzrost ścieżki z regułą Warnsdorffa"
 - Produces:
   - `generate(params: GeneratorParams, budget?: GenerationBudget): GenerationResult`
   - `interface GenerationBudget { maxBacktracks: number; maxRestarts: number }`
-    (domyślnie `{ maxBacktracks: 3000, maxRestarts: 5 }`)
+    (default `{ maxBacktracks: 3000, maxRestarts: 5 }`)
   - `interface GenerationResult { board: Board; report: GenerationReport; complete: boolean }`
   - `defaultParams(width: number, height: number, seed: number): GeneratorParams`
 
-- [ ] **Krok 1: Napisz failujące testy (§12.11, 12a, 12b, 12d, 12e, 13, 20, 21)**
+- [ ] **Step 1: Write failing tests (§12.11, 12a, 12b, 12d, 12e, 13, 20, 21)**
 
 ```typescript
 // src/core/generator.spec.ts
 import { coveredCells, validateBoard } from './board';
 import { defaultParams, generate } from './generator';
 
-describe('generate — niezmienniki', () => {
-  // §12.12a — najważniejszy niezmiennik generatora.
-  it('pokrywa planszę w 100% na wielu ziarnach i rozmiarach', () => {
+describe('generate — invariants', () => {
+  // §12.12a — the generator's most important invariant.
+  it('covers the board 100% across many seeds and sizes', () => {
     for (const [w, h] of [[10, 10], [25, 25], [25, 50], [40, 20]] as const) {
       for (let seed = 1; seed <= 15; seed++) {
         const { board, complete } = generate(defaultParams(w, h, seed));
@@ -1105,16 +1107,16 @@ describe('generate — niezmienniki', () => {
     }
   });
 
-  // §12.12b — każdy element ma co najmniej 2 komórki.
-  it('nigdy nie produkuje elementu jednokomórkowego', () => {
+  // §12.12b — every piece has at least 2 cells.
+  it('never produces a single-cell piece', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const { board } = generate(defaultParams(20, 20, seed));
       for (const p of board.pieces.values()) expect(p.cells.length).toBeGreaterThanOrEqual(2);
     }
   });
 
-  // §12.13 — determinizm.
-  it('daje identyczną planszę dla tego samego ziarna', () => {
+  // §12.13 — determinism.
+  it('produces an identical board for the same seed', () => {
     const a = generate(defaultParams(25, 25, 1234));
     const b = generate(defaultParams(25, 25, 1234));
     expect([...a.board.occupancy]).toEqual([...b.board.occupancy]);
@@ -1125,14 +1127,14 @@ describe('generate — niezmienniki', () => {
     }
   });
 
-  it('daje różne plansze dla różnych ziaren', () => {
+  it('produces different boards for different seeds', () => {
     const a = generate(defaultParams(25, 25, 1));
     const b = generate(defaultParams(25, 25, 2));
     expect([...a.board.occupancy]).not.toEqual([...b.board.occupancy]);
   });
 
-  // §12.12e — nieparzysta powierzchnia planszy jest obsłużona.
-  it('domyka planszę o nieparzystej powierzchni', () => {
+  // §12.12e — an odd board area is handled.
+  it('closes a board with an odd area', () => {
     for (const [w, h] of [[5, 5], [25, 25], [7, 9]] as const) {
       for (let seed = 1; seed <= 10; seed++) {
         const { board, complete } = generate(defaultParams(w, h, seed));
@@ -1144,8 +1146,8 @@ describe('generate — niezmienniki', () => {
     }
   });
 
-  // §12.11 — plansze zdegenerowane.
-  it('radzi sobie z planszami skrajnymi', () => {
+  // §12.11 — degenerate boards.
+  it('handles extreme boards', () => {
     for (const [w, h] of [[1, 8], [8, 1], [2, 2], [2, 3], [3, 2]] as const) {
       const { board, complete } = generate(defaultParams(w, h, 5));
       expect(complete).toBe(true);
@@ -1153,13 +1155,13 @@ describe('generate — niezmienniki', () => {
     }
   });
 
-  it('odmawia pracy na planszy jednokomórkowej zamiast się zapętlić', () => {
+  it('refuses to work on a single-cell board instead of looping forever', () => {
     const { complete } = generate(defaultParams(1, 1, 1));
-    expect(complete).toBe(false); // 1 komórka to element długości 1 — niedopuszczalny
+    expect(complete).toBe(false); // 1 cell is a length-1 piece — not admissible
   });
 
-  // §12.20 — skala.
-  it('domyka Nightmare 100x100', () => {
+  // §12.20 — scale.
+  it('closes a 100x100 Nightmare board', () => {
     const { board, complete, report } = generate(defaultParams(100, 100, 77));
     expect(complete).toBe(true);
     expect(coveredCells(board)).toBe(10_000);
@@ -1168,8 +1170,8 @@ describe('generate — niezmienniki', () => {
   }, 30_000);
 });
 
-describe('generate — raport', () => {
-  it('raportuje, co faktycznie osiągnięto', () => {
+describe('generate — report', () => {
+  it('reports what was actually achieved', () => {
     const { board, report } = generate(defaultParams(30, 30, 3));
     expect(report.actualPieceCount).toBe(board.pieces.size);
     const sum = report.lengthHistogram.reduce((a, b) => a + b, 0);
@@ -1180,8 +1182,8 @@ describe('generate — raport', () => {
     );
   });
 
-  // §12.21 — parametry, których geometria nie dopuszcza.
-  it('kończy pracę przy parametrach niewykonalnych i raportuje rozbieżność', () => {
+  // §12.21 — parameters that the geometry doesn't allow.
+  it('finishes with infeasible parameters and reports the discrepancy', () => {
     const params = {
       ...defaultParams(25, 25, 9),
       maxLength: 5_000,
@@ -1193,13 +1195,13 @@ describe('generate — raport', () => {
     expect(Date.now() - start).toBeLessThan(20_000);
     expect(complete).toBe(true);
     expect(coveredCells(board)).toBe(625);
-    // Zamówiono elementy do 5000 komórek; plansza ma 625, więc rozbieżność
-    // musi być widoczna, a nie ukryta.
+    // Pieces of up to 5000 cells were requested; the board has 625, so the
+    // discrepancy must be visible, not hidden.
     expect(report.maxLength).toBeLessThan(params.maxLength);
   }, 30_000);
 
-  // §12.22 — krańce stopnia połamania.
-  it('produkuje poprawne plansze dla straightBias 0 i 1', () => {
+  // §12.22 — extremes of the break degree.
+  it('produces valid boards for straightBias 0 and 1', () => {
     for (const straightBias of [0, 1]) {
       const { board, complete } = generate({ ...defaultParams(20, 20, 4), straightBias });
       expect(complete).toBe(true);
@@ -1207,9 +1209,9 @@ describe('generate — raport', () => {
     }
   });
 
-  // §12.12d — wyjście z zaklinowania.
-  it('liczy nawroty i restarty zamiast się zapętlać', () => {
-    // Ciasny budżet zmusza generator do sięgnięcia po restart.
+  // §12.12d — getting out of a jam.
+  it('counts backtracks and restarts instead of looping forever', () => {
+    // A tight budget forces the generator to reach for a restart.
     const { report, complete, board } = generate(
       defaultParams(30, 30, 11),
       { maxBacktracks: 5, maxRestarts: 20 },
@@ -1220,15 +1222,15 @@ describe('generate — raport', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run it and confirm the failure**
 
 ```bash
 npm run test:core -- generator
 ```
 
-Oczekiwane: FAIL — brak modułu `./generator`.
+Expected: FAIL — module `./generator` is missing.
 
-- [ ] **Krok 3: Zaimplementuj generator**
+- [ ] **Step 3: Implement the generator**
 
 ```typescript
 // src/core/generator.ts
@@ -1250,13 +1252,13 @@ export interface GenerationBudget {
 export interface GenerationResult {
   board: Board;
   report: GenerationReport;
-  /** Czy plansza została domknięta w 100%. */
+  /** Whether the board was closed to 100%. */
   complete: boolean;
 }
 
 export const DEFAULT_BUDGET: GenerationBudget = { maxBacktracks: 3000, maxRestarts: 5 };
 
-/** Parametry domyślne — wartości skalibrowane pomiarem (§7 specyfikacji). */
+/** Default parameters — values calibrated by measurement (spec §7). */
 export function defaultParams(width: number, height: number, seed: number): GeneratorParams {
   return {
     width,
@@ -1290,8 +1292,8 @@ class Carver {
   }
 
   /**
-   * Wycina jeden element. Zwraca false, gdy w żadnym z czterech kierunków
-   * nie ma legalnej głowy — wtedy wołający musi się cofnąć.
+   * Carves out one piece. Returns false when none of the four directions has
+   * a legal head — in that case the caller must back off.
    */
   carveOne(): boolean {
     const { width, height } = this.params;
@@ -1325,9 +1327,9 @@ class Carver {
   }
 
   /**
-   * Wybiera głowę: pierwszą nieprzypisaną komórkę linii, która ma
-   * nieprzypisanego sąsiada za sobą. Wymóg sąsiada gwarantuje długość ≥ 2
-   * z konstrukcji, bez żadnego dodatkowego warunku (§7).
+   * Picks a head: the first unassigned cell of a line that has an unassigned
+   * neighbor behind it. The neighbor requirement guarantees length ≥ 2 by
+   * construction, with no extra condition needed (§7).
    */
   private pickHead(dir: Dir): Coord | null {
     const { width, height, headBias } = this.params;
@@ -1347,9 +1349,10 @@ class Carver {
     if (heads.length === 0) return null;
     if (headBias === 0) return heads[Math.floor(this.rng() * heads.length)]!;
 
-    // Preferencja najgłębszej linii (tunelowanie) POŁOWI f0 i PODWAJA głębokość
-    // grafu blokowania — to zmierzony regulator trudności, nie hipoteza (§7).
-    // Wybieramy z górnej ćwiartki rankingu, żeby zachować losowość.
+    // Preferring the deepest line (tunneling) HALVES f0 and DOUBLES the depth
+    // of the blocking graph — this is a measured difficulty knob, not a
+    // hypothesis (§7). We pick from the top quarter of the ranking to keep
+    // some randomness.
     const scored = heads
       .map((c) => ({ c, depth: this.skyline.depth(dir, lineOf(dir, c)) }))
       .sort((a, b) => (headBias > 0 ? b.depth - a.depth : a.depth - b.depth));
@@ -1374,14 +1377,14 @@ class Carver {
     }
   }
 
-  /** Wycina do skutku albo do wyczerpania budżetu nawrotów. */
+  /** Carves until done or until the backtrack budget is exhausted. */
   run(maxBacktracks: number): boolean {
     while (this.remaining > 0) {
       if (this.carveOne()) continue;
       if (this.backtracks >= maxBacktracks || this.pieces.length === 0) return false;
       this.backtracks++;
-      // Głębokość cofnięcia rośnie logarytmicznie: pierwsze zaklinowania są
-      // zwykle płytkie, uparte wymagają zdjęcia większego kawałka.
+      // Backtrack depth grows logarithmically: the first jams are usually
+      // shallow, stubborn ones require removing a bigger chunk.
       this.undoLast(1 + Math.floor(Math.log2(1 + this.backtracks)));
     }
     return true;
@@ -1432,15 +1435,15 @@ function buildReport(
 }
 
 /**
- * Generuje planszę pokrytą w 100%.
+ * Generates a board covered to 100%.
  *
- * Kolejność wycinania JEST kolejnością rozwiązania — nie trzeba jej odwracać
- * (§7, twierdzenie o poprawności). Metryki zostają puste; wypełnia je
- * `withMetrics` ze Slice'a 3.
+ * The carving order IS the solution order — it never needs to be reversed
+ * (§7, correctness theorem). Metrics are left empty; `withMetrics` from
+ * Slice 3 fills them in.
  *
- * Funkcja nigdy nie rzuca wyjątkiem i nigdy się nie zapętla: po wyczerpaniu
- * budżetu restartów oddaje najlepszy wynik z `complete: false`, żeby gra nie
- * zawiesiła się przy starcie poziomu.
+ * The function never throws and never loops forever: once the restart budget
+ * is exhausted it hands back the best result with `complete: false`, so the
+ * game doesn't hang when a level starts.
  */
 export function generate(
   params: GeneratorParams,
@@ -1478,42 +1481,43 @@ export function generate(
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- generator
 ```
 
-Oczekiwane: PASS. Jeśli test pokrycia zawodzi na większych planszach,
-**nie podnoś budżetu nawrotów** — sprawdź najpierw, czy Warnsdorff działa
-(`warnsdorff = 4` w `defaultParams`) i czy `trimToSafe` jest wołane.
-To dwie rzeczy, których brak wywala domykalność (§7).
+Expected: PASS. If the coverage test fails on larger boards, **do not raise
+the backtrack budget** — first check whether Warnsdorff is active
+(`warnsdorff = 4` in `defaultParams`) and whether `trimToSafe` is being
+called. Those are the two things whose absence breaks closability (§7).
 
-- [ ] **Krok 5: Zmierz czas na planszy Nightmare**
+- [ ] **Step 5: Measure the time on the Nightmare board**
 
 ```bash
 npm run test:core -- generator -t "Nightmare"
 ```
 
-Oczekiwane: test przechodzi. Zanotuj czas — prototyp dawał 27–38 ms mediany
-i ~440 ms w p99. Rząd wielkości większy oznacza błąd, nie różnicę sprzętu.
+Expected: the test passes. Note the time — the prototype gave a 27–38 ms
+median and ~440 ms at p99. An order of magnitude slower means a bug, not a
+hardware difference.
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Zaimplementuj generator plansz z pełnym pokryciem"
+git commit -m "Implement full-coverage board generator"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- `npm run test:core` przechodzi; testy §12.9–13 i §12.20–23 są zielone.
-- Plansza jest pokryta w **100%** na rozmiarach 10×10 … 100×100 i na
-  kilkunastu ziarnach każdy — `validateBoard` nie zgłasza nic.
-- Żaden element nie ma jednej komórki.
-- To samo ziarno daje bitowo tę samą planszę.
-- Generator nie zapętla się przy parametrach niewykonalnych i raportuje
-  rozbieżność między zamówieniem a wykonaniem.
-- Czas generacji Nightmare 100×100 mieści się w sekundach, nie minutach.
+- `npm run test:core` passes; the §12.9–13 and §12.20–23 tests are green.
+- The board is covered **100%** at sizes 10×10 … 100×100 and across a dozen
+  or so seeds each — `validateBoard` reports nothing.
+- No piece has a single cell.
+- The same seed produces the bitwise-identical board.
+- The generator doesn't loop forever with infeasible parameters and reports
+  the discrepancy between what was requested and what was achieved.
+- Nightmare 100×100 generation time is within seconds, not minutes.

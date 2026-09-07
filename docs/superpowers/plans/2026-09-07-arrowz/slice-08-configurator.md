@@ -1,63 +1,63 @@
-# Slice 8 — Konfigurator (tryb zaawansowany)
+# Slice 8 — Configurator (advanced mode)
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Pozwolić graczowi ustawić własne parametry planszy i **pokazać mu, co
-generator faktycznie osiągnął** — a nie tylko to, o co go poproszono.
+**Goal:** Let the player set their own board parameters and **show them what
+the generator actually achieved** — not just what was requested.
 
-**Architektura:** Formularz na `@angular/forms/signals`: model to sygnał
-z `GeneratorParams`, walidacja siedzi w schemacie formularza, a wielkości
-pochodne (liczba linii, średnia długość, udział powierzchni długich elementów)
-są `computed`. Presety to **te same** `GeneratorParams`, więc konfigurator nie
-jest osobną ścieżką kodu — jest innym widokiem tej samej struktury.
+**Architecture:** A form on `@angular/forms/signals`: the model is a signal
+of `GeneratorParams`, validation lives in the form schema, and derived
+quantities (piece count, mean length, share of surface taken by long pieces)
+are `computed`. Presets are the **same** `GeneratorParams`, so the configurator
+is not a separate code path — it's a different view of the same structure.
 
 **Stack:** Angular 22, signal forms (`form`, `min`, `max`, `FormField`).
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§7, §11
-„Konfigurator", §12.21, §12.23)
+"Configurator", §12.21, §12.23)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+Constraints from the implementation map apply. Critical for this slice:
 
-- **Liczba linii nie jest parametrem.** Przy pełnym pokryciu wynika z rozkładu
-  długości: `liczba linii = W · H / średnia długość`. Konfigurator pokazuje ją
-  jako wielkość **pochodną**.
-- **Wypełnienia nie raportujemy** — jest zawsze 100%.
-- Ostrzeżenie, gdy udział powierzchni koszyka długiego przekroczy **25%**.
-- Zakresy: plansza `10×10 … 200×200`, udział długich `0 … 0.45`,
-  `Lmax` `16 … 5·max(W,H)`, siła splątania `0 … 8`, grubość linii
+- **Piece count is not a parameter.** At full coverage it follows from the
+  length distribution: `piece count = W · H / mean length`. The configurator
+  shows it as a **derived** quantity.
+- **Fill is not reported** — it is always 100%.
+- Warning when the share of surface taken by the long bucket exceeds **25%**.
+- Ranges: board `10×10 … 200×200`, long share `0 … 0.45`,
+  `Lmax` `16 … 5·max(W,H)`, coiling strength `0 … 8`, line thickness
   `0.35 … 0.65`.
-- Konfigurator **nie stosuje pasma trudności** — gracz dostaje dokładnie to,
-  o co poprosił, plus raport z wykonania.
+- The configurator **does not apply the difficulty band** — the player gets
+  exactly what they asked for, plus a report of what was executed.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/ui/configurator.ts` | formularz parametrów, wielkości pochodne, ostrzeżenia |
-| `src/ui/generation-report.ts` | prezentacja `GenerationReport` po generacji |
-| `src/ui/configurator.spec.ts` | testy walidacji, wielkości pochodnych i ostrzeżeń |
+| `src/ui/configurator.ts` | parameter form, derived quantities, warnings |
+| `src/ui/generation-report.ts` | presentation of `GenerationReport` after generation |
+| `src/ui/configurator.spec.ts` | tests for validation, derived quantities and warnings |
 
 ---
 
-### Task 1: Formularz parametrów
+### Task 1: Parameter form
 
 **Files:**
 - Create: `src/ui/configurator.ts`
 - Test: `src/ui/configurator.spec.ts`
-- Modify: `src/app/app.routes.ts` (trasa `configure`)
+- Modify: `src/app/app.routes.ts` (`configure` route)
 
 **Interfaces:**
 - Consumes: `GeneratorParams`, `longAreaShare`, `expectedPieceCount`,
   `createCustomLevel`, `GameStore.startCustom`.
-- Produces: komponent `Configurator` pod trasą `/configure`.
+- Produces: `Configurator` component under the `/configure` route.
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/ui/configurator.spec.ts
@@ -73,17 +73,17 @@ async function setup() {
   return fixture;
 }
 
-describe('Configurator — wielkości pochodne', () => {
-  it('pokazuje liczbę linii jako wielkość pochodną, nie parametr', async () => {
+describe('Configurator — derived quantities', () => {
+  it('shows piece count as a derived quantity, not a parameter', async () => {
     const fixture = await setup();
     const el = fixture.nativeElement as HTMLElement;
-    // Liczba linii pojawia się w podsumowaniu…
+    // Piece count appears in the summary…
     expect(el.querySelector('[data-role="derived-pieces"]')).not.toBeNull();
-    // …i NIE ma dla niej pola do wpisania.
+    // …but there is NO input field for it.
     expect(el.querySelector('input[name="pieceCount"]')).toBeNull();
   });
 
-  it('przelicza średnią długość z rozmiaru i liczby elementów', async () => {
+  it('computes mean length from size and piece count', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), width: 40, height: 40 });
@@ -93,15 +93,15 @@ describe('Configurator — wielkości pochodne', () => {
     expect(c.meanLength()).toBeCloseTo(area / c.expectedPieces(), 1);
   });
 
-  it('nie raportuje wypełnienia, bo zawsze wynosi 100%', async () => {
+  it('does not report fill, because it is always 100%', async () => {
     const fixture = await setup();
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toMatch(/wypełnieni/i);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toMatch(/fill/i);
   });
 });
 
-describe('Configurator — ostrzeżenia', () => {
-  // §12.23 — udział powierzchni musi zgadzać się z tym, co liczy rdzeń.
-  it('ostrzega, gdy długie elementy zajmą ponad 25% powierzchni', async () => {
+describe('Configurator — warnings', () => {
+  // §12.23 — the surface share must match what the core computes.
+  it('warns when long pieces take up more than 25% of the surface', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), bucketWeights: [0.2, 0.1, 0.7] });
@@ -110,7 +110,7 @@ describe('Configurator — ostrzeżenia', () => {
     expect(fixture.nativeElement.querySelector('[data-role="long-warning"]')).not.toBeNull();
   });
 
-  it('milczy przy rozsądnym udziale długich', async () => {
+  it('stays silent for a reasonable long share', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), bucketWeights: [0.85, 0.14, 0.01] });
@@ -118,7 +118,7 @@ describe('Configurator — ostrzeżenia', () => {
     expect(fixture.nativeElement.querySelector('[data-role="long-warning"]')).toBeNull();
   });
 
-  it('ostrzega, że proste i bardzo długie elementy bywają niewykonalne', async () => {
+  it('warns that straight and very long pieces can be infeasible', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), straightBias: 0.98, bucketWeights: [0.1, 0.1, 0.8] });
@@ -127,8 +127,8 @@ describe('Configurator — ostrzeżenia', () => {
   });
 });
 
-describe('Configurator — walidacja', () => {
-  it('odrzuca planszę mniejszą niż 10×10', async () => {
+describe('Configurator — validation', () => {
+  it('rejects a board smaller than 10×10', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), width: 4 });
@@ -136,7 +136,7 @@ describe('Configurator — walidacja', () => {
     expect(c.paramsForm().valid()).toBe(false);
   });
 
-  it('odrzuca planszę większą niż 200×200', async () => {
+  it('rejects a board larger than 200×200', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), height: 300 });
@@ -144,7 +144,7 @@ describe('Configurator — walidacja', () => {
     expect(c.paramsForm().valid()).toBe(false);
   });
 
-  it('odrzuca siłę splątania spoza zakresu', async () => {
+  it('rejects a coiling strength out of range', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), warnsdorff: 20 });
@@ -152,7 +152,7 @@ describe('Configurator — walidacja', () => {
     expect(c.paramsForm().valid()).toBe(false);
   });
 
-  it('blokuje przycisk generowania przy niepoprawnych parametrach', async () => {
+  it('disables the generate button when parameters are invalid', async () => {
     const fixture = await setup();
     const c = fixture.componentInstance;
     c.model.set({ ...c.model(), width: 2 });
@@ -161,22 +161,22 @@ describe('Configurator — walidacja', () => {
     expect(button.disabled).toBe(true);
   });
 
-  it('przyjmuje parametry domyślne', async () => {
+  it('accepts the default parameters', async () => {
     const fixture = await setup();
     expect(fixture.componentInstance.paramsForm().valid()).toBe(true);
   });
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./configurator`.
+Expected: FAIL — module `./configurator` is missing.
 
-- [ ] **Krok 3: Zaimplementuj konfigurator**
+- [ ] **Step 3: Implement the configurator**
 
 ```typescript
 // src/ui/configurator.ts
@@ -189,7 +189,7 @@ import { GameMode } from '../game/session';
 import { GameStore } from './game-store';
 import { GenerationReportView } from './generation-report';
 
-/** Próg, powyżej którego długie elementy przestają być akcentem, a stają się planszą. */
+/** Threshold above which long pieces stop being an accent and become the board. */
 const LONG_SHARE_WARNING = 0.25;
 
 @Component({
@@ -199,62 +199,62 @@ const LONG_SHARE_WARNING = 0.25;
   providers: [GameStore],
   template: `
     <main class="configurator">
-      <h1>Tryb zaawansowany</h1>
+      <h1>Advanced mode</h1>
 
       <form novalidate>
         <label>
-          Szerokość
+          Width
           <input type="number" [formField]="paramsForm.width" />
         </label>
 
         <label>
-          Wysokość
+          Height
           <input type="number" [formField]="paramsForm.height" />
         </label>
 
         <label>
-          Udział długich linii: {{ longWeight().toFixed(2) }}
+          Share of long pieces: {{ longWeight().toFixed(2) }}
           <input type="range" min="0" max="0.45" step="0.01"
                  [value]="longWeight()" (input)="setLongWeight($event)" />
         </label>
 
         <label>
-          Długość maksymalna
+          Maximum length
           <input type="number" [formField]="paramsForm.maxLength" />
         </label>
 
         <label>
-          Siła splątania
+          Coiling strength
           <input type="number" step="1" [formField]="paramsForm.warnsdorff" />
         </label>
 
         <label>
-          Grubość linii: {{ strokeRatio().toFixed(2) }}
+          Line thickness: {{ strokeRatio().toFixed(2) }}
           <input type="range" min="0.35" max="0.65" step="0.05"
                  [value]="strokeRatio()" (input)="setStroke($event)" />
         </label>
       </form>
 
       <section class="derived">
-        <h2>Co z tego wyjdzie</h2>
+        <h2>What this will produce</h2>
         <p data-role="derived-pieces">
-          Elementów: około <strong>{{ expectedPieces() }}</strong>,
-          średnia długość <strong>{{ meanLength().toFixed(1) }}</strong> komórek.
+          Pieces: about <strong>{{ expectedPieces() }}</strong>,
+          mean length <strong>{{ meanLength().toFixed(1) }}</strong> cells.
         </p>
-        <p>Długie elementy zajmą około {{ (100 * longShare()).toFixed(0) }}% powierzchni.</p>
+        <p>Long pieces will take up about {{ (100 * longShare()).toFixed(0) }}% of the surface.</p>
 
         @if (longShare() > 0.25) {
           <p class="warning" data-role="long-warning">
-            Przy tym udziale kilkanaście węży zajmie większość planszy —
-            zamiast pola strzałek dostaniesz zbiór spiral.
+            At this share, a dozen or so snakes will take up most of the board —
+            instead of a field of arrows you'll get a collection of spirals.
           </p>
         }
 
         @if (straightAndLong()) {
           <p class="warning" data-role="straight-warning">
-            Proste i bardzo długie elementy często się nie mieszczą: taki element
-            wymaga, żeby cała plansza przed nim była już pusta. Generator odda
-            wtedy elementy krótsze, niż zamówiłeś.
+            Straight and very long pieces often don't fit: such a piece requires
+            the whole board ahead of it to already be empty. In that case the
+            generator will return pieces shorter than you requested.
           </p>
         }
       </section>
@@ -262,11 +262,11 @@ const LONG_SHARE_WARNING = 0.25;
       <button type="button" data-role="generate"
               [disabled]="!paramsForm().valid() || store.loading()"
               (click)="generateAndPlay()">
-        Generuj i graj
+        Generate and play
       </button>
 
       @if (store.loading()) {
-        <p role="status">Generuję planszę…</p>
+        <p role="status">Generating board…</p>
       }
 
       @if (lastReport(); as report) {
@@ -286,7 +286,7 @@ export class Configurator {
   protected readonly store = inject(GameStore);
   private readonly router = inject(Router);
 
-  /** Model formularza to wprost GeneratorParams — jedno źródło prawdy (§11). */
+  /** The form model is directly GeneratorParams — a single source of truth (§11). */
   readonly model = signal<GeneratorParams>({
     width: 25,
     height: 50,
@@ -303,16 +303,16 @@ export class Configurator {
   readonly lastReport = signal<import('../core/types').GenerationReport | null>(null);
 
   readonly paramsForm = form(this.model, (path) => {
-    min(path.width, 10, { message: 'Najmniejsza plansza to 10 komórek.' });
-    max(path.width, 200, { message: 'Największa plansza to 200 komórek.' });
-    min(path.height, 10, { message: 'Najmniejsza plansza to 10 komórek.' });
-    max(path.height, 200, { message: 'Największa plansza to 200 komórek.' });
-    min(path.maxLength, 16, { message: 'Długość maksymalna zaczyna się od 16.' });
-    max(path.maxLength, 1_000, { message: 'Powyżej 1000 komórek element przestaje się mieścić.' });
-    // Poniżej 2 generacja bywa zawodna: bez Warnsdorffa jedna plansza na
-    // trzydzieści nie domyka się wcale (§7).
-    min(path.warnsdorff, 0, { message: 'Siła splątania nie może być ujemna.' });
-    max(path.warnsdorff, 8, { message: 'Powyżej 8 elementy kłębią się zamiast meandrować.' });
+    min(path.width, 10, { message: 'The smallest board is 10 cells.' });
+    max(path.width, 200, { message: 'The largest board is 200 cells.' });
+    min(path.height, 10, { message: 'The smallest board is 10 cells.' });
+    max(path.height, 200, { message: 'The largest board is 200 cells.' });
+    min(path.maxLength, 16, { message: 'Maximum length starts at 16.' });
+    max(path.maxLength, 1_000, { message: 'Above 1000 cells a piece stops fitting.' });
+    // Below 2, generation tends to be unreliable: without Warnsdorff, one board
+    // in thirty fails to close at all (§7).
+    min(path.warnsdorff, 0, { message: 'Coiling strength cannot be negative.' });
+    max(path.warnsdorff, 8, { message: 'Above 8, pieces coil up instead of meandering.' });
   });
 
   readonly longWeight = computed(() => this.model().bucketWeights[2]);
@@ -324,8 +324,8 @@ export class Configurator {
   });
 
   /**
-   * Te dwa suwaki oddziałują na siebie: mocno połamane i długie jest łatwe,
-   * proste i długie bywa niewykonalne (§7).
+   * These two sliders interact with each other: heavily bent and long is easy,
+   * straight and long can be infeasible (§7).
    */
   readonly straightAndLong = computed(
     () => this.model().straightBias > 0.9 && this.model().bucketWeights[2] > 0.4,
@@ -333,8 +333,8 @@ export class Configurator {
 
   protected setLongWeight(event: Event): void {
     const long = Number((event.target as HTMLInputElement).value);
-    // Wagi muszą sumować się do 1; skracamy koszyk krótki, bo to on jest
-    // wypełniaczem, a średni odpowiada za główną masę planszy.
+    // Weights must sum to 1; we shrink the short bucket, since it's the
+    // filler, while the medium one accounts for the board's main mass.
     const medium = this.model().bucketWeights[1];
     const short = Math.max(0, 1 - long - medium);
     this.model.update((p) => ({ ...p, bucketWeights: [short, medium, long] }));
@@ -348,15 +348,15 @@ export class Configurator {
     await this.store.startCustom(this.model(), mode);
     const board = this.store.board();
     if (board) {
-      // Docelowo przechodzimy do ekranu gry; raport zostaje do wglądu, gdyby
-      // gracz wrócił do konfiguratora.
+      // We move on to the game screen; the report stays available in case
+      // the player returns to the configurator.
       void this.router.navigate(['/game'], { queryParams: { custom: '1' } });
     }
   }
 }
 ```
 
-- [ ] **Krok 4: Zaimplementuj widok raportu z generacji**
+- [ ] **Step 4: Implement the generation report view**
 
 ```typescript
 // src/ui/generation-report.ts
@@ -364,31 +364,31 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { GenerationReport } from '../core/types';
 
 /**
- * Pokazuje, CO FAKTYCZNIE WYSZŁO. Istnieje, bo geometria potrafi odmówić:
- * proste i bardzo długie elementy często się nie mieszczą, a generator nie może
- * obiecać liczby, której nie da się zrealizować (§11).
+ * Shows WHAT ACTUALLY CAME OUT. It exists because geometry can refuse:
+ * straight and very long pieces often don't fit, and the generator cannot
+ * promise a number it cannot deliver (§11).
  */
 @Component({
   selector: 'arw-generation-report',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="report">
-      <h2>Co faktycznie wyszło</h2>
+      <h2>What actually came out</h2>
       <dl>
-        <div><dt>elementów</dt><dd>{{ report().actualPieceCount }}</dd></div>
-        <div><dt>średnia długość</dt><dd>{{ report().meanLength.toFixed(1) }}</dd></div>
-        <div><dt>najdłuższy element</dt><dd>{{ report().maxLength }}</dd></div>
-        <div><dt>nawroty generatora</dt><dd>{{ report().backtracks }}</dd></div>
-        <div><dt>restarty</dt><dd>{{ report().restarts }}</dd></div>
-        <div><dt>czas generacji</dt><dd>{{ report().generationMs.toFixed(0) }} ms</dd></div>
+        <div><dt>pieces</dt><dd>{{ report().actualPieceCount }}</dd></div>
+        <div><dt>mean length</dt><dd>{{ report().meanLength.toFixed(1) }}</dd></div>
+        <div><dt>longest piece</dt><dd>{{ report().maxLength }}</dd></div>
+        <div><dt>generator backtracks</dt><dd>{{ report().backtracks }}</dd></div>
+        <div><dt>restarts</dt><dd>{{ report().restarts }}</dd></div>
+        <div><dt>generation time</dt><dd>{{ report().generationMs.toFixed(0) }} ms</dd></div>
       </dl>
 
-      <p>Rozkład długości: {{ histogram() }}</p>
+      <p>Length distribution: {{ histogram() }}</p>
 
       @if (shortfall() > 0.25) {
         <p class="warning" data-role="shortfall">
-          Zamówiono elementy do {{ report().params.maxLength }} komórek,
-          a najdłuższy ma {{ report().maxLength }}. Geometria nie dopuściła reszty.
+          Pieces up to {{ report().params.maxLength }} cells were requested,
+          and the longest is {{ report().maxLength }}. Geometry didn't allow the rest.
         </p>
       }
     </section>
@@ -411,7 +411,7 @@ export class GenerationReportView {
     return h.map((count, i) => `${labels[i]}: ${Math.round((100 * count) / total)}%`).join(', ');
   });
 
-  /** Jak bardzo wykonanie odstaje od zamówienia. */
+  /** How far the execution deviates from the request. */
   readonly shortfall = computed(() => {
     const r = this.report();
     if (r.params.maxLength <= 0) return 0;
@@ -420,72 +420,72 @@ export class GenerationReportView {
 }
 ```
 
-- [ ] **Krok 5: Podepnij trasę i zapamiętaj raport**
+- [ ] **Step 5: Wire up the route and remember the report**
 
-W `src/app/app.routes.ts` dopisz:
+In `src/app/app.routes.ts` add:
 
 ```typescript
   {
     path: 'configure',
-    title: 'Arrowz — tryb zaawansowany',
+    title: 'Arrowz — advanced mode',
     loadComponent: () => import('../ui/configurator').then((m) => m.Configurator),
   },
 ```
 
-W `GameStore` wystaw ostatni raport, żeby konfigurator miał co pokazać:
+In `GameStore`, expose the last report so the configurator has something to show:
 
 ```typescript
   private readonly report = signal<GenerationReport | null>(null);
   readonly lastReport = this.report.asReadonly();
 ```
 
-i ustaw go w `start` oraz `startCustom` (`this.report.set(result.report)`).
-W `Configurator` zastąp lokalny sygnał `lastReport` odczytem ze store'u:
+and set it in `start` and `startCustom` (`this.report.set(result.report)`).
+In `Configurator`, replace the local `lastReport` signal with a read from the store:
 
 ```typescript
   readonly lastReport = this.store.lastReport;
 ```
 
-- [ ] **Krok 6: Uruchom testy — mają przejść**
+- [ ] **Step 6: Run the tests — they must pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS (11 testów).
+Expected: PASS (11 tests).
 
-- [ ] **Krok 7: Sprawdź ręcznie sprzężenie suwaków**
+- [ ] **Step 7: Manually check the slider coupling**
 
 ```bash
 npx ng serve
 ```
 
-Wejdź w tryb zaawansowany i sprawdź trzy rzeczy:
+Enter advanced mode and check three things:
 
-1. przesunięcie udziału długich powyżej 0.45 pokazuje ostrzeżenie o 25%,
-2. ustawienie planszy 200×200 z długimi elementami daje raport, w którym
-   `najdłuższy element` jest wyraźnie mniejszy od zamówionego `Lmax`,
-3. liczba elementów w podsumowaniu jest **zbliżona** do tej z raportu po
-   generacji — jeśli różni się kilkukrotnie, `expectedPieceCount` liczy
-   średnią z innego rozkładu niż `drawTargetLength`.
+1. moving the long share above 0.45 shows the 25% warning,
+2. setting a 200×200 board with long pieces yields a report where
+   `longest piece` is clearly smaller than the requested `Lmax`,
+3. the piece count in the summary is **close** to the one in the report after
+   generation — if it differs by several multiples, `expectedPieceCount` is
+   computing the mean from a different distribution than `drawTargetLength`.
 
-- [ ] **Krok 8: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj konfigurator plansz w trybie zaawansowanym"
+git commit -m "Add board configurator in advanced mode"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- Formularz odrzuca parametry spoza zakresów i blokuje przycisk generowania.
-- Liczba elementów i średnia długość są pokazane jako **pochodne**, bez pola do
-  wpisania liczby linii.
-- Ostrzeżenie o 25% pojawia się dokładnie wtedy, gdy `longAreaShare` przekroczy
-  próg — ta sama funkcja, którą testuje §12.23.
-- Po generacji widać raport z wykonania: liczbę elementów, rozkład długości,
-  nawroty, restarty i czas.
-- Wypełnienie **nie jest** raportowane.
-- Plansza z konfiguratora jest grywalna tak samo jak preset.
+- The form rejects out-of-range parameters and disables the generate button.
+- Piece count and mean length are shown as **derived** values, with no input
+  field for entering the piece count.
+- The 25% warning appears exactly when `longAreaShare` exceeds the
+  threshold — the same function tested by §12.23.
+- After generation, a report of what was executed is shown: piece count,
+  length distribution, backtracks, restarts and time.
+- Fill is **not** reported.
+- A board from the configurator is playable exactly like a preset.

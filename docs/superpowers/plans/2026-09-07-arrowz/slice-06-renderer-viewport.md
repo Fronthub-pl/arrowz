@@ -1,70 +1,72 @@
-# Slice 6 — Renderer SVG i widok
+# Slice 6 — SVG renderer and viewport
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Zobaczyć planszę. Narysować ją w SVG zgodnie z parametrami
-zweryfikowanymi wzrokowo, dodać zoom i przesuwanie, i **zmierzyć**, czy SVG
-wyrabia przy ~2 300 ścieżkach.
+**Goal:** See the board. Draw it in SVG according to visually verified
+parameters, add zoom and panning, and **measure** whether SVG holds up at
+~2,300 paths.
 
-**Architektura:** `render/renderer.ts` definiuje interfejs, `svgRenderer.ts` go
-implementuje. Renderer stoi za interfejsem dokładnie po to, żeby wymiana na
-Canvas nie dotykała rdzenia — to jedyne otwarte ryzyko wydajnościowe projektu.
-`viewport.ts` to **czysta matematyka** bez DOM: przelicza ekran na komórki
-i utrzymuje `viewBox`. W SVG zoom i przesuwanie to zmiana jednego atrybutu,
-bez przerysowywania ścieżek.
+**Architecture:** `render/renderer.ts` defines the interface, `svgRenderer.ts`
+implements it. The renderer sits behind the interface precisely so that
+swapping in Canvas won't touch the core — this is the project's only open
+performance risk. `viewport.ts` is **pure math** with no DOM: it converts
+screen coordinates to cells and maintains the `viewBox`. In SVG, zoom and
+panning are a change to a single attribute, with no path redrawing.
 
-**Układ współrzędnych:** świat SVG jest wyskalowany w **komórkach**, nie
-w pikselach. Środek komórki `(x, y)` leży w punkcie `(x + 0.5, y + 0.5)`.
-Dzięki temu grubość linii `0.5` znaczy dosłownie „połowa podziałki", a zoom
-sprowadza się do `viewBox`.
+**Coordinate system:** the SVG world is scaled in **cells**, not pixels. The
+center of cell `(x, y)` sits at point `(x + 0.5, y + 0.5)`. This means a line
+thickness of `0.5` literally means "half a grid unit," and zoom reduces to the
+`viewBox`.
 
-**Stack:** TypeScript strict, SVG, Vitest (rdzeń w Node, renderer w jsdom).
+**Stack:** TypeScript strict, SVG, Vitest (core in Node, renderer in jsdom).
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§11)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Monochromatyczność jest wymogiem rozgrywki**, nie oszczędnością: gracz musi
-  odróżniać elementy bez pomocy koloru i to jest źródło trudności percepcyjnej
-  (§9). Kolorowanie per element istnieje wyłącznie jako tryb diagnostyczny.
-- Parametry rysowania: `<polyline>` przez środki komórek, grubość `0.5`
-  podziałki, `stroke-linecap`/`stroke-linejoin` = `round`, grot jako wypełniony
-  trójkąt ~`0.6` podziałki, kolory `#232447` na `#f6f6fa`.
-- Zakres skali: od dopasowania całości do ekranu (dolna granica) po komórkę
-  ~48 px (górna).
-- Skalowanie **zawsze zachowuje punkt pod kursorem** lub pod środkiem gestu.
+- **Monochromaticity is a gameplay requirement**, not a cost-saving measure:
+  the player must distinguish pieces without the help of color, and that is
+  the source of the perceptual difficulty (§9). Per-piece coloring exists
+  only as a diagnostic mode.
+- Drawing parameters: `<polyline>` through cell centers, thickness `0.5` of
+  a grid unit, `stroke-linecap`/`stroke-linejoin` = `round`, arrowhead as
+  a filled triangle ~`0.6` of a grid unit, colors `#232447` on `#f6f6fa`.
+- Scale range: from fitting the whole board to the screen (lower bound) up
+  to a cell of ~48 px (upper bound).
+- Scaling **always preserves the point under the cursor** or under the
+  center of the gesture.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/render/viewport.ts` | czysta matematyka widoku: skala, przesunięcie, ekran ↔ komórka |
-| `src/render/renderer.ts` | interfejs renderera i parametry rysowania |
-| `src/render/svgRenderer.ts` | implementacja SVG, trafienie w element, animacje |
-| `src/render/viewport.spec.ts` | testy matematyki widoku (Node) |
-| `src/render/svgRenderer.spec.ts` | testy rysowania i trafień (jsdom) |
-| `tools/render-preview.ts` | podgląd SVG do oceny wzrokowej i pomiaru |
+| `src/render/viewport.ts` | pure viewport math: scale, offset, screen ↔ cell |
+| `src/render/renderer.ts` | renderer interface and drawing parameters |
+| `src/render/svgRenderer.ts` | SVG implementation, piece hit-testing, animations |
+| `src/render/viewport.spec.ts` | viewport math tests (Node) |
+| `src/render/svgRenderer.spec.ts` | drawing and hit-testing tests (jsdom) |
+| `tools/render-preview.ts` | SVG preview for visual review and measurement |
 
 ---
 
-### Task 1: Matematyka widoku
+### Task 1: Viewport math
 
 **Files:**
 - Create: `src/render/viewport.ts`
 - Test: `src/render/viewport.spec.ts`
-- Modify: `vitest.core.config.ts` (dołączenie `src/render/viewport.spec.ts`)
+- Modify: `vitest.core.config.ts` (add `src/render/viewport.spec.ts`)
 
 **Interfaces:**
 - Produces:
   - `interface ViewportConfig { boardWidth: number; boardHeight: number; screenWidth: number; screenHeight: number }`
   - `interface Viewport extends ViewportConfig { cellPx: number; originX: number; originY: number }`
-  - `createViewport(config: ViewportConfig): Viewport` — startuje dopasowany
+  - `createViewport(config: ViewportConfig): Viewport` — starts fitted
   - `fit(vp: Viewport): Viewport`
   - `zoomAt(vp: Viewport, factor: number, screenX: number, screenY: number): Viewport`
   - `panBy(vp: Viewport, dxPx: number, dyPx: number): Viewport`
@@ -72,22 +74,22 @@ Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
   - `viewBox(vp: Viewport): string`
   - `MAX_CELL_PX = 48`
 
-`viewport.ts` nie dotyka DOM, więc testujemy go w Node razem z rdzeniem —
-szybciej i bez jsdom.
+`viewport.ts` doesn't touch the DOM, so we test it in Node alongside the
+core — faster and without jsdom.
 
-- [ ] **Krok 1: Dołącz widok do runnera rdzenia**
+- [ ] **Step 1: Add the viewport to the core test runner**
 
-W `vitest.core.config.ts` rozszerz `include`:
+In `vitest.core.config.ts`, extend `include`:
 
 ```typescript
     include: [
       'src/core/**/*.spec.ts',
       'src/game/**/*.spec.ts',
-      'src/render/viewport.spec.ts', // czysta matematyka, bez DOM
+      'src/render/viewport.spec.ts', // pure math, no DOM
     ],
 ```
 
-- [ ] **Krok 2: Napisz failujące testy**
+- [ ] **Step 2: Write failing tests**
 
 ```typescript
 // src/render/viewport.spec.ts
@@ -98,24 +100,24 @@ import {
 const config = { boardWidth: 100, boardHeight: 200, screenWidth: 400, screenHeight: 800 };
 
 describe('createViewport', () => {
-  it('startuje z planszą dopasowaną do ekranu', () => {
+  it('starts with the board fitted to the screen', () => {
     const vp = createViewport(config);
     expect(vp.cellPx).toBeCloseTo(4, 6); // 400/100 = 4, 800/200 = 4
     expect(vp.originX).toBeCloseTo(0, 6);
     expect(vp.originY).toBeCloseTo(0, 6);
   });
 
-  it('centruje planszę w osi, w której zostaje zapas', () => {
+  it('centers the board on the axis where slack remains', () => {
     const vp = createViewport({ ...config, screenWidth: 800 });
-    // Skala nadal ograniczona wysokością (800/200 = 4), więc plansza zajmuje
-    // 400 z 800 px szerokości i musi być wyśrodkowana.
+    // The scale is still bounded by the height (800/200 = 4), so the board
+    // occupies 400 of 800 px of width and must be centered.
     expect(vp.cellPx).toBeCloseTo(4, 6);
-    expect(vp.originX).toBeCloseTo(-50, 6); // 400 px zapasu = 100 komórek / 2
+    expect(vp.originX).toBeCloseTo(-50, 6); // 400 px slack = 100 cells / 2
   });
 });
 
 describe('zoomAt', () => {
-  it('zachowuje punkt pod kursorem', () => {
+  it('preserves the point under the cursor', () => {
     const vp = createViewport(config);
     const before = screenToCell(vp, 120, 300)!;
     const zoomed = zoomAt(vp, 2, 120, 300);
@@ -123,19 +125,19 @@ describe('zoomAt', () => {
     expect(after).toEqual(before);
   });
 
-  it('nie pozwala oddalić poniżej dopasowania', () => {
+  it('does not allow zooming out below the fit level', () => {
     const vp = createViewport(config);
     const zoomedOut = zoomAt(vp, 0.1, 200, 400);
     expect(zoomedOut.cellPx).toBeCloseTo(vp.cellPx, 6);
   });
 
-  it('nie pozwala przybliżyć powyżej granicy czytelności', () => {
+  it('does not allow zooming in beyond the readability limit', () => {
     let vp = createViewport(config);
     for (let i = 0; i < 20; i++) vp = zoomAt(vp, 2, 200, 400);
     expect(vp.cellPx).toBeCloseTo(MAX_CELL_PX, 6);
   });
 
-  it('nie wypuszcza planszy poza widok', () => {
+  it('does not let the board escape the view', () => {
     let vp = createViewport(config);
     vp = zoomAt(vp, 4, 0, 0);
     expect(vp.originX).toBeGreaterThanOrEqual(0);
@@ -146,13 +148,13 @@ describe('zoomAt', () => {
 });
 
 describe('panBy', () => {
-  it('przesuwa widok o zadaną liczbę pikseli', () => {
+  it('shifts the view by the given number of pixels', () => {
     const vp = zoomAt(createViewport(config), 4, 200, 400);
     const moved = panBy(vp, -40, 0);
     expect(moved.originX).toBeCloseTo(vp.originX + 40 / vp.cellPx, 6);
   });
 
-  it('nie wypuszcza planszy poza widok', () => {
+  it('does not let the board escape the view', () => {
     const vp = zoomAt(createViewport(config), 4, 200, 400);
     const far = panBy(vp, -100_000, -100_000);
     const viewCellsX = far.screenWidth / far.cellPx;
@@ -161,27 +163,27 @@ describe('panBy', () => {
     expect(far.originY + viewCellsY).toBeLessThanOrEqual(config.boardHeight + 1e-6);
   });
 
-  it('nie robi nic, gdy plansza jest w całości widoczna', () => {
+  it('does nothing when the board is fully visible', () => {
     const vp = createViewport(config);
     expect(panBy(vp, 200, 200).originX).toBeCloseTo(vp.originX, 6);
   });
 });
 
 describe('screenToCell', () => {
-  it('mapuje piksel na komórkę', () => {
+  it('maps a pixel to a cell', () => {
     const vp = createViewport(config);
     expect(screenToCell(vp, 0, 0)).toEqual({ x: 0, y: 0 });
     expect(screenToCell(vp, 4.5, 4.5)).toEqual({ x: 1, y: 1 });
     expect(screenToCell(vp, 399, 799)).toEqual({ x: 99, y: 199 });
   });
 
-  it('zwraca null poza planszą', () => {
+  it('returns null outside the board', () => {
     const vp = createViewport({ ...config, screenWidth: 800 });
-    expect(screenToCell(vp, 10, 10)).toBeNull(); // lewy margines po centrowaniu
+    expect(screenToCell(vp, 10, 10)).toBeNull(); // left margin after centering
     expect(screenToCell(vp, 790, 10)).toBeNull();
   });
 
-  it('działa po przybliżeniu', () => {
+  it('works after zooming in', () => {
     const vp = zoomAt(createViewport(config), 4, 200, 400);
     const cell = screenToCell(vp, 200, 400)!;
     expect(cell.x).toBeGreaterThanOrEqual(0);
@@ -190,7 +192,7 @@ describe('screenToCell', () => {
 });
 
 describe('fit', () => {
-  it('wraca do dopasowania po przybliżeniu', () => {
+  it('returns to the fitted state after zooming in', () => {
     const vp = createViewport(config);
     const zoomed = zoomAt(vp, 6, 100, 100);
     const back = fit(zoomed);
@@ -201,12 +203,12 @@ describe('fit', () => {
 });
 
 describe('viewBox', () => {
-  it('opisuje widok w jednostkach komórek', () => {
+  it('describes the view in cell units', () => {
     const vp = createViewport(config);
     expect(viewBox(vp)).toBe('0 0 100 200');
   });
 
-  it('zmienia się przy przybliżeniu', () => {
+  it('changes when zooming in', () => {
     const vp = zoomAt(createViewport(config), 2, 0, 0);
     const [, , w, h] = viewBox(vp).split(' ').map(Number);
     expect(w).toBeCloseTo(50, 6);
@@ -215,21 +217,21 @@ describe('viewBox', () => {
 });
 ```
 
-- [ ] **Krok 3: Uruchom i potwierdź porażkę**
+- [ ] **Step 3: Run and confirm failure**
 
 ```bash
 npm run test:core -- viewport
 ```
 
-Oczekiwane: FAIL — brak modułu `./viewport`.
+Expected: FAIL — module `./viewport` is missing.
 
-- [ ] **Krok 4: Zaimplementuj widok**
+- [ ] **Step 4: Implement the viewport**
 
 ```typescript
 // src/render/viewport.ts
 import { Coord } from '../core/types';
 
-/** Górna granica przybliżenia: powyżej ~48 px na komórkę orientacja się rozpada. */
+/** Upper zoom limit: above ~48 px per cell, orientation breaks down. */
 export const MAX_CELL_PX = 48;
 
 export interface ViewportConfig {
@@ -240,9 +242,9 @@ export interface ViewportConfig {
 }
 
 export interface Viewport extends ViewportConfig {
-  /** Ile pikseli ekranu przypada na jedną komórkę. */
+  /** How many screen pixels correspond to one cell. */
   cellPx: number;
-  /** Lewy górny róg widoku, w jednostkach komórek. */
+  /** Top-left corner of the view, in cell units. */
   originX: number;
   originY: number;
 }
@@ -252,9 +254,9 @@ function fitScale(c: ViewportConfig): number {
 }
 
 /**
- * Ogranicza przesunięcie tak, żeby widok nie wyjechał poza planszę.
- * Gdy plansza mieści się w osi w całości — centrujemy ją, bo poza planszą
- * nie ma czego oglądać.
+ * Clamps the offset so the view doesn't drift off the board.
+ * When the board fits entirely within an axis, we center it, since there's
+ * nothing to see beyond the board.
  */
 function clampOrigin(vp: Viewport): Viewport {
   const viewCellsX = vp.screenWidth / vp.cellPx;
@@ -285,17 +287,17 @@ export function fit(vp: Viewport): Viewport {
 }
 
 /**
- * Skalowanie zachowujące punkt pod kursorem.
+ * Zoom that preserves the point under the cursor.
  *
- * Bez tego przybliżanie na planszy 100×200 sprowadza się do zgadywania,
- * gdzie się wyląduje.
+ * Without this, zooming in on a 100×200 board amounts to guessing where
+ * you'll end up.
  */
 export function zoomAt(vp: Viewport, factor: number, screenX: number, screenY: number): Viewport {
   const minPx = fitScale(vp);
   const cellPx = Math.min(MAX_CELL_PX, Math.max(minPx, vp.cellPx * factor));
   if (cellPx === vp.cellPx) return vp;
 
-  // Komórka pod kursorem przed skalowaniem musi zostać pod kursorem po nim.
+  // The cell under the cursor before scaling must stay under it afterward.
   const worldX = vp.originX + screenX / vp.cellPx;
   const worldY = vp.originY + screenY / vp.cellPx;
   return clampOrigin({
@@ -314,7 +316,7 @@ export function panBy(vp: Viewport, dxPx: number, dyPx: number): Viewport {
   });
 }
 
-/** Komórka pod punktem ekranu albo null, gdy punkt leży poza planszą. */
+/** Cell under a screen point, or null if the point lies outside the board. */
 export function screenToCell(vp: Viewport, screenX: number, screenY: number): Coord | null {
   const x = Math.floor(vp.originX + screenX / vp.cellPx);
   const y = Math.floor(vp.originY + screenY / vp.cellPx);
@@ -322,7 +324,7 @@ export function screenToCell(vp: Viewport, screenX: number, screenY: number): Co
   return { x, y };
 }
 
-/** Atrybut `viewBox` w jednostkach komórek — jedyna rzecz, którą zmienia zoom. */
+/** The `viewBox` attribute in cell units — the only thing zoom changes. */
 export function viewBox(vp: Viewport): string {
   const w = vp.screenWidth / vp.cellPx;
   const h = vp.screenHeight / vp.cellPx;
@@ -330,49 +332,49 @@ export function viewBox(vp: Viewport): string {
   return `${round(vp.originX)} ${round(vp.originY)} ${round(w)} ${round(h)}`;
 }
 
-/** Krok zoomu dla przycisków + / − i klawiszy. */
+/** Zoom step for the + / − buttons and keys. */
 export const ZOOM_STEP = 1.4;
 ```
 
-- [ ] **Krok 5: Uruchom testy — mają przejść**
+- [ ] **Step 5: Run tests — should pass**
 
 ```bash
 npm run test:core -- viewport
 ```
 
-Oczekiwane: PASS (14 testów).
+Expected: PASS (14 tests).
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj matematykę widoku z zoomem i przesuwaniem"
+git commit -m "Add viewport math with zoom and panning"
 ```
 
 ---
 
-### Task 2: Interfejs renderera i implementacja SVG
+### Task 2: Renderer interface and SVG implementation
 
 **Files:**
 - Create: `src/render/renderer.ts`
 - Create: `src/render/svgRenderer.ts`
 - Test: `src/render/svgRenderer.spec.ts`
-- Modify: `angular.json` (zakres testów aplikacyjnych)
+- Modify: `angular.json` (application test scope)
 
 **Interfaces:**
-- Consumes: `Board`, `Piece`, `pieceAt` z rdzenia; `Viewport` z Zadania 1.
+- Consumes: `Board`, `Piece`, `pieceAt` from the core; `Viewport` from Task 1.
 - Produces:
   - `interface Renderer { draw(board: Board): void; setViewport(vp: Viewport): void; animateExit(pieceId: number, dir: Dir): Promise<void>; animateBounce(pieceId: number, dir: Dir, distance: number): Promise<void>; onPieceClick(cb: (pieceId: number) => void): void; destroy(): void }`
   - `interface DrawStyle { strokeRatio: number; ink: string; paper: string; colored: boolean }`
   - `DEFAULT_STYLE: DrawStyle`
   - `createSvgRenderer(host: SVGSVGElement, style?: Partial<DrawStyle>): Renderer`
-  - `pieceGeometry(piece: Piece): { points: string; head: string }` — czysta
-    funkcja, testowalna bez DOM
+  - `pieceGeometry(piece: Piece): { points: string; head: string }` — a pure
+    function, testable without the DOM
 
-- [ ] **Krok 1: Ustaw zakres testów aplikacyjnych**
+- [ ] **Step 1: Set the application test scope**
 
-Bez tego `ng test` uruchomiłby testy rdzenia po raz drugi, w jsdom.
-W `angular.json`, w `architect.test.options`:
+Without this, `ng test` would run the core tests a second time, in jsdom.
+In `angular.json`, under `architect.test.options`:
 
 ```json
 {
@@ -384,7 +386,7 @@ W `angular.json`, w `architect.test.options`:
 }
 ```
 
-- [ ] **Krok 2: Napisz failujące testy**
+- [ ] **Step 2: Write failing tests**
 
 ```typescript
 // src/render/svgRenderer.spec.ts
@@ -413,23 +415,23 @@ const board = withMetrics(
 );
 
 describe('pieceGeometry', () => {
-  it('prowadzi linię przez środki komórek', () => {
+  it('draws a line through cell centers', () => {
     const g = pieceGeometry(piece(0, 1, [[2, 0], [1, 0], [0, 0]]));
     expect(g.points).toBe('2.5,0.5 1.5,0.5 0.5,0.5');
   });
 
-  it('rysuje grot przed komórką głowy, zgodnie z kierunkiem', () => {
+  it('draws the arrowhead ahead of the head cell, following direction', () => {
     const right = pieceGeometry(piece(0, 1, [[2, 0], [1, 0]]));
     const left = pieceGeometry(piece(0, 3, [[0, 0], [1, 0]]));
     expect(right.head).not.toBe(left.head);
-    // Wierzchołek grotu leży dalej w prawo niż środek komórki głowy.
+    // The arrowhead tip lies further right than the head cell's center.
     const firstX = Number(right.head.split(' ')[0]!.split(',')[0]);
     expect(firstX).toBeGreaterThan(2.5);
   });
 });
 
 describe('createSvgRenderer', () => {
-  it('rysuje jedną polilinię na element', () => {
+  it('draws one polyline per piece', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -438,7 +440,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('stosuje parametry rysowania ze specyfikacji', () => {
+  it('applies the drawing parameters from the spec', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -450,7 +452,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('jest monochromatyczny domyślnie', () => {
+  it('is monochromatic by default', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -461,7 +463,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('koloruje elementy tylko w trybie diagnostycznym', () => {
+  it('colors pieces only in diagnostic mode', () => {
     const svg = host();
     const r = createSvgRenderer(svg, { colored: true });
     r.draw(board);
@@ -472,7 +474,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('ustawia viewBox z widoku', () => {
+  it('sets the viewBox from the viewport', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.setViewport(createViewport({ boardWidth: 4, boardHeight: 4, screenWidth: 400, screenHeight: 400 }));
@@ -481,7 +483,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('zamienia kliknięcie na identyfikator elementu', () => {
+  it('translates a click into a piece id', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.setViewport(createViewport({ boardWidth: 4, boardHeight: 4, screenWidth: 400, screenHeight: 400 }));
@@ -489,15 +491,15 @@ describe('createSvgRenderer', () => {
     const seen: number[] = [];
     r.onPieceClick((id) => seen.push(id));
 
-    // Trafienie liczymy przez współrzędne, nie przez cel zdarzenia: dzięki
-    // temu klik w przerwę między liniami też trafia we właściciela komórki.
+    // Hit-testing is done via coordinates, not via the event target: this
+    // way a click in the gap between lines still hits the owning cell.
     svg.dispatchEvent(new MouseEvent('pointerdown', { clientX: 10, clientY: 10, bubbles: true }));
     svg.dispatchEvent(new MouseEvent('pointerup', { clientX: 10, clientY: 10, bubbles: true }));
     expect(seen).toEqual([0]);
     r.destroy();
   });
 
-  it('nie zgłasza kliknięcia, gdy wskaźnik zjechał na inny element', () => {
+  it('does not report a click when the pointer moved to another piece', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.setViewport(createViewport({ boardWidth: 4, boardHeight: 4, screenWidth: 400, screenHeight: 400 }));
@@ -510,7 +512,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('nie zgłasza kliknięcia przy wciśniętym modyfikatorze', () => {
+  it('does not report a click while a modifier key is held', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.setViewport(createViewport({ boardWidth: 4, boardHeight: 4, screenWidth: 400, screenHeight: 400 }));
@@ -523,7 +525,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('usuwa element z DOM po animacji wyjazdu', async () => {
+  it('removes the piece from the DOM after the exit animation', async () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -532,7 +534,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('zostawia element na miejscu po odbiciu', async () => {
+  it('leaves the piece in place after a bounce', async () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -541,7 +543,7 @@ describe('createSvgRenderer', () => {
     r.destroy();
   });
 
-  it('sprząta po sobie', () => {
+  it('cleans up after itself', () => {
     const svg = host();
     const r = createSvgRenderer(svg);
     r.draw(board);
@@ -551,15 +553,15 @@ describe('createSvgRenderer', () => {
 });
 ```
 
-- [ ] **Krok 3: Uruchom i potwierdź porażkę**
+- [ ] **Step 3: Run and confirm failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułów `./renderer` i `./svgRenderer`.
+Expected: FAIL — modules `./renderer` and `./svgRenderer` are missing.
 
-- [ ] **Krok 4: Zdefiniuj interfejs renderera**
+- [ ] **Step 4: Define the renderer interface**
 
 ```typescript
 // src/render/renderer.ts
@@ -567,16 +569,16 @@ import { Board, Dir } from '../core/types';
 import { Viewport } from './viewport';
 
 /**
- * Parametry rysowania zweryfikowane wzrokowo na prototypie (§11).
- * Wartości są w jednostkach podziałki siatki, nie w pikselach — świat SVG
- * jest wyskalowany w komórkach.
+ * Drawing parameters verified visually on the prototype (§11).
+ * Values are in grid-unit terms, not pixels — the SVG world is scaled
+ * in cells.
  */
 export interface DrawStyle {
-  /** Grubość linii jako ułamek podziałki. Konfigurator dopuszcza 0.35–0.65. */
+  /** Line thickness as a fraction of the grid unit. The configurator allows 0.35–0.65. */
   strokeRatio: number;
   ink: string;
   paper: string;
-  /** Kolor per element. TRYB DIAGNOSTYCZNY — nigdy w rozgrywce. */
+  /** Per-piece color. DIAGNOSTIC MODE — never in actual gameplay. */
   colored: boolean;
 }
 
@@ -588,22 +590,23 @@ export const DEFAULT_STYLE: DrawStyle = {
 };
 
 /**
- * Renderer stoi za interfejsem, żeby ewentualna wymiana SVG na Canvas
- * nie dotknęła rdzenia. To jedyne otwarte ryzyko wydajnościowe projektu (§11).
+ * The renderer sits behind the interface so that a future swap from SVG to
+ * Canvas won't touch the core. This is the project's only open performance
+ * risk (§11).
  */
 export interface Renderer {
   draw(board: Board): void;
   setViewport(viewport: Viewport): void;
-  /** Element wyjeżdża poza planszę śladem głowy. */
+  /** The piece exits the board along the head's trail. */
   animateExit(pieceId: number, dir: Dir): Promise<void>;
-  /** Element wyjeżdża do kontaktu z blokerem i wraca — pokazuje, gdzie stoi bloker. */
+  /** The piece moves out until it touches a blocker and returns — shows where the blocker is. */
   animateBounce(pieceId: number, dir: Dir, distance: number): Promise<void>;
   onPieceClick(callback: (pieceId: number) => void): void;
   destroy(): void;
 }
 ```
 
-- [ ] **Krok 5: Zaimplementuj renderer SVG**
+- [ ] **Step 5: Implement the SVG renderer**
 
 ```typescript
 // src/render/svgRenderer.ts
@@ -616,7 +619,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const EXIT_MS = 260;
 const BOUNCE_MS = 320;
 
-/** Geometria elementu w jednostkach komórek. Czysta funkcja — testowalna bez DOM. */
+/** Piece geometry in cell units. A pure function — testable without the DOM. */
 export function pieceGeometry(piece: Piece): { points: string; head: string } {
   const points = piece.cells.map((c) => `${c.x + 0.5},${c.y + 0.5}`).join(' ');
 
@@ -667,10 +670,10 @@ export function createSvgRenderer(
   host.append(group, headsGroup);
 
   /**
-   * Trafienie liczymy przez WSPÓŁRZĘDNE, nie przez `event.target`.
-   * Kliknięcie w przerwę między dwiema liniami tego samego elementu też musi
-   * trafić w jego właściciela — mapowanie piksel → komórka → occupancy → id
-   * jest wspólne dla myszy i dotyku (§11).
+   * Hit-testing is done via COORDINATES, not via `event.target`.
+   * A click in the gap between two lines of the same piece must also hit
+   * its owner — the pixel → cell → occupancy → id mapping is shared by
+   * mouse and touch (§11).
    */
   function pieceUnderPointer(event: MouseEvent | PointerEvent): number | null {
     if (!board || !viewport) return null;
@@ -682,8 +685,8 @@ export function createSvgRenderer(
   }
 
   function onPointerDown(event: PointerEvent | MouseEvent): void {
-    // Przeciąganie planszy wymaga modyfikatora, więc z modyfikatorem
-    // NIE zaczynamy ruchu w grze — pomyłka kosztuje życie (§11).
+    // Dragging the board requires a modifier key, so with a modifier held
+    // we do NOT start a game move — a mistake here costs a life (§11).
     if (event.metaKey || event.ctrlKey) {
       pressedPiece = null;
       return;
@@ -696,8 +699,8 @@ export function createSvgRenderer(
     const pressed = pressedPiece;
     pressedPiece = null;
     if (event.metaKey || event.ctrlKey) return;
-    // Standardowa semantyka przycisku: ruch dopiero przy zwolnieniu i tylko
-    // nad tym samym elementem, na którym wciśnięto.
+    // Standard button semantics: the move only fires on release, and only
+    // over the same piece the press started on.
     if (pressed !== null && pressed === released) clickCallback?.(pressed);
   }
 
@@ -724,8 +727,8 @@ export function createSvgRenderer(
           { transform: `translate(${v.x * cells}px, ${v.y * cells}px)` },
         ];
 
-    // W jsdom `animate` nie istnieje — wtedy pomijamy animację i od razu
-    // wykonujemy jej skutek. Test sprawdza skutek, nie ruch.
+    // In jsdom `animate` doesn't exist — in that case we skip the animation
+    // and apply its effect immediately. The test checks the effect, not the motion.
     const animations = parts
       .filter((el) => typeof el.animate === 'function')
       .map((el) => el.animate(keyframes, { duration: ms, easing: 'ease-in', fill: 'none' }));
@@ -774,8 +777,8 @@ export function createSvgRenderer(
       viewport = next;
       const w = next.screenWidth / next.cellPx;
       const h = next.screenHeight / next.cellPx;
-      // Zoom i przesuwanie to JEDNA zmiana atrybutu — bez przerysowywania
-      // ścieżek. To główny powód, dla którego SVG broni się mimo skali (§11).
+      // Zoom and panning are ONE attribute change — no path redrawing.
+      // This is the main reason SVG holds up despite the scale (§11).
       host.setAttribute('viewBox', `${next.originX} ${next.originY} ${w} ${h}`);
     },
 
@@ -805,40 +808,40 @@ export function createSvgRenderer(
 }
 ```
 
-- [ ] **Krok 6: Uruchom testy — mają przejść**
+- [ ] **Step 6: Run tests — should pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS. Jeśli test kliknięcia zawodzi, sprawdź, czy jsdom zwraca
-sensowne `getBoundingClientRect` — w razie potrzeby ustaw w teście
+Expected: PASS. If the click test fails, check whether jsdom returns
+a sensible `getBoundingClientRect` — if needed, set in the test
 `host.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 400 } as DOMRect)`.
 
-- [ ] **Krok 7: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj renderer SVG planszy"
+git commit -m "Add SVG board renderer"
 ```
 
 ---
 
-### Task 3: Podgląd i budżet wydajności
+### Task 3: Preview and performance budget
 
 **Files:**
 - Create: `tools/render-preview.ts`
-- Create: `docs/benchmarks/2026-09-07-render.md` (wynik pomiaru)
-- Modify: `package.json` (skrypt `preview`)
+- Create: `docs/benchmarks/2026-09-07-render.md` (measurement result)
+- Modify: `package.json` (`preview` script)
 
 **Interfaces:**
-- Produces: pliki SVG do oceny wzrokowej oraz pomiar czasu rysowania.
+- Produces: SVG files for visual review plus a drawing-time measurement.
 
-To jest moment, w którym **kalibracja wyglądu staje się możliwa**. Prototyp
-zamknął się na podglądzie ASCII, który nie potrafi przedstawić ścieżki
-dotykającej samej siebie — a przy zwinięciu 35% to co trzecia komórka.
+This is the point at which **calibrating the look becomes possible**. The
+prototype hit a wall with the ASCII preview, which cannot represent a path
+touching itself — and at 35% coiling that's one cell in three.
 
-- [ ] **Krok 1: Napisz generator podglądu**
+- [ ] **Step 1: Write the preview generator**
 
 ```typescript
 // tools/render-preview.ts
@@ -849,7 +852,7 @@ import { DEFAULT_STYLE } from '../src/render/renderer';
 import { pieceGeometry } from '../src/render/svgRenderer';
 import { Board } from '../src/core/types';
 
-/** Ten sam kod geometrii co renderer — podgląd nie może się od niego rozjechać. */
+/** The same geometry code as the renderer — the preview must not drift from it. */
 function toSvg(board: Board, cellPx: number, colored: boolean, strokeRatio: number): string {
   const w = board.width * cellPx;
   const h = board.height * cellPx;
@@ -895,16 +898,16 @@ writeFileSync(`${outDir}/${level}-${format}-diag.svg`, toSvg(board, cellPx, true
 
 console.log(
   `${level}/${format} ${board.width}×${board.height}\n` +
-    `  elementów ${board.pieces.size}, śr. dł. ${report.meanLength.toFixed(1)}, ` +
+    `  pieces ${board.pieces.size}, mean len ${report.meanLength.toFixed(1)}, ` +
     `max ${report.maxLength}\n` +
     `  f0 ${board.metrics.f0.toFixed(3)}, almost1 ` +
     `${((100 * board.metrics.almost1) / board.metrics.n).toFixed(0)}%, D ${board.metrics.d}\n` +
-    `  generacja ${genMs.toFixed(0)} ms, serializacja SVG ${svgMs.toFixed(0)} ms\n` +
-    `  zapisano do ${outDir}/`,
+    `  generation ${genMs.toFixed(0)} ms, SVG serialization ${svgMs.toFixed(0)} ms\n` +
+    `  saved to ${outDir}/`,
 );
 ```
 
-Dodaj skrypt w `package.json`:
+Add a script in `package.json`:
 
 ```json
 {
@@ -912,71 +915,72 @@ Dodaj skrypt w `package.json`:
 }
 ```
 
-- [ ] **Krok 2: Obejrzyj planszę i skalibruj wygląd**
+- [ ] **Step 2: Look at the board and calibrate the appearance**
 
 ```bash
 npm run preview -- --level=easy --format=tall --cell=14
 open preview/easy-tall.svg
 ```
 
-Porównaj z referencją opisaną w §11: **gęsto usiane groty plus kilka bardzo
-długich linii**. Jeśli plansza wygląda na rozwleczoną, waga koszyka długiego
-jest za wysoka; jeśli to sama sieczka z haczyków — za niska.
+Compare against the reference described in §11: **densely scattered
+arrowheads plus a handful of very long lines**. If the board looks stretched
+out, the long-piece basket's weight is too high; if it's all hook-shaped
+mincemeat, it's too low.
 
-Sprawdź też wariant diagnostyczny (`-diag.svg`), gdzie każdy element ma inny
-kolor — służy do zweryfikowania, że elementy naprawdę są tak splątane, jak
-sugeruje wersja monochromatyczna.
+Also check the diagnostic variant (`-diag.svg`), where each piece has
+a different color — it's used to verify that pieces really are as tangled as
+the monochrome version suggests.
 
-- [ ] **Krok 3: Zmierz budżet wydajności**
+- [ ] **Step 3: Measure the performance budget**
 
 ```bash
 npm run preview -- --level=nightmare --format=tall --cell=6
 ```
 
-Zanotuj liczbę elementów i czas. To jest **jedyne otwarte pytanie
-wydajnościowe projektu** (§11): czy SVG wyrobi przy ~2 300 ścieżkach.
+Note the piece count and the time. This is **the project's only open
+performance question** (§11): whether SVG can hold up at ~2,300 paths.
 
-Następnie sprawdź to w przeglądarce, bo serializacja stringa to nie to samo,
-co układanie DOM:
+Then check this in the browser, since string serialization isn't the same
+as laying out the DOM:
 
 ```bash
 npx ng serve
 ```
 
-Po wykonaniu Slice'a 7 wróć tu i zmierz w DevTools trzy rzeczy, zapisując
-wynik do `docs/benchmarks/2026-09-07-render.md`:
+After completing Slice 7, come back here and measure three things in
+DevTools, recording the result in `docs/benchmarks/2026-09-07-render.md`:
 
-1. czas od `draw()` do pierwszej klatki dla Nightmare 100×200,
-2. płynność przy ciągłym przewijaniu (zoom + pan) — liczba klatek na sekundę,
-3. zużycie pamięci karty.
+1. time from `draw()` to the first frame for Nightmare 100×200,
+2. smoothness during continuous scrolling (zoom + pan) — frames per second,
+3. tab memory usage.
 
-**Próg decyzyjny:** jeśli pierwsza klatka przekracza 1 s albo zoom spada
-poniżej 30 fps, wymieniamy `svgRenderer` na implementację Canvas. Rdzeń tego
-nie zauważy — renderer stoi za interfejsem właśnie na tę okoliczność.
+**Decision threshold:** if the first frame exceeds 1 s or zoom drops below
+30 fps, we swap `svgRenderer` for a Canvas implementation. The core won't
+notice — the renderer sits behind the interface for exactly this situation.
 
-- [ ] **Krok 4: Dopisz `preview/` do `.gitignore`**
+- [ ] **Step 4: Add `preview/` to `.gitignore`**
 
 ```bash
-printf '\n# podglądy renderera\npreview/\n' >> .gitignore
+printf '\n# renderer previews\npreview/\n' >> .gitignore
 ```
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj podgląd renderera i pomiar wydajności"
+git commit -m "Add renderer preview and performance measurement"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- `npm run test:core` i `npx ng test` przechodzą.
-- Zoom zachowuje punkt pod kursorem (test), nie schodzi poniżej dopasowania
-  i nie przekracza 48 px na komórkę.
-- Przesuwanie nie wypuszcza planszy poza widok.
-- Renderer rysuje jedną polilinię i jeden grot na element, monochromatycznie.
-- Kliknięcie mapuje się przez współrzędne na `occupancy`, wymaga zwolnienia nad
-  tym samym elementem i jest blokowane przez modyfikator ⌘/Ctrl.
-- `npm run preview` produkuje SVG, które da się porównać z referencją.
-- Pomiar wydajności Nightmare jest zanotowany w `docs/benchmarks/`.
+- `npm run test:core` and `npx ng test` pass.
+- Zoom preserves the point under the cursor (tested), doesn't go below the
+  fit level, and doesn't exceed 48 px per cell.
+- Panning doesn't let the board escape the view.
+- The renderer draws one polyline and one arrowhead per piece, monochromatically.
+- A click maps via coordinates to `occupancy`, requires release over the
+  same piece, and is blocked by the ⌘/Ctrl modifier.
+- `npm run preview` produces SVG that can be compared against the reference.
+- The Nightmare performance measurement is recorded in `docs/benchmarks/`.

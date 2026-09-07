@@ -175,7 +175,7 @@ requires English in code, comments, tests, docs, branches and commits.
 - Memory: the lab note in basic-memory and `arrowz-artefakty.md` (gallery →
   store, language rule).
 
-## Tests (`node --test prototype/`)
+## Tests (`node --test 'prototype/*.test.mjs'`)
 
 - `command.test.mjs`: round trip `buildCommand` → `parseArgs` for defaults
   and for a set of changed knobs; old flag aliases; `boardId` stable,

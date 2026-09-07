@@ -1,65 +1,66 @@
-# Slice 10 — Firebase: konto, synchronizacja i weryfikacja wyniku
+# Slice 10 — Firebase: player account, sync, and score verification
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agent implementers:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Dołożyć konto gracza i synchronizację wyników **na gotową grę**, tak
-żeby wynik zapisany na serwerze był policzony przez serwer, a nie przyjęty na
-słowo od klienta.
+**Goal:** Add a player account and score synchronization **on top of the
+finished game**, so that a score saved on the server is computed by the
+server, not taken on the client's word.
 
-**Architektura:** Gra pozostaje w pełni grywalna bez logowania i bez sieci —
-Firebase jest warstwą **nakładaną**. Wyniki zapisują się lokalnie zawsze;
-`FirebaseScoreStore` opakowuje `LocalScoreStore` i dosyła zaległości, gdy jest
-sieć i sesja. Klient **nie ma prawa zapisu** do kolekcji wyników: wysyła zapis
-rozgrywki (ziarno + sekwencja ruchów) do funkcji `submitRun`, która odtwarza
-partię tym samym kodem, którym gra ją rozegrała, i sama wylicza wynik.
+**Architecture:** The game remains fully playable without signing in and
+without a network — Firebase is a **bolted-on** layer. Scores always save
+locally; `FirebaseScoreStore` wraps `LocalScoreStore` and flushes the backlog
+once there's a network connection and a session. The client **has no write
+permission** on the scores collection: it sends a run record (seed + move
+sequence) to the `submitRun` function, which replays the match with the same
+code the game used to play it, and computes the score itself.
 
-**Dlaczego to działa:** generator jest deterministyczny (ziarno), gra
-konfluentna, a reduktor czysty — więc odtworzenie jest jednoznaczne, a koszt
-weryfikacji liniowy względem liczby ruchów.
+**Why this works:** the generator is deterministic (seed), the game is
+confluent, and the reducer is pure — so the replay is unambiguous, and the
+verification cost is linear in the number of moves.
 
-**Stack:** Firebase JS SDK 12.x (modularny, bez `@angular/fire`), Firebase
-Auth (anonimowy → trwały), Firestore, Cloud Functions v2 (`onCall`),
-App Check, emulatory Firebase.
+**Stack:** Firebase JS SDK 12.x (modular, no `@angular/fire`), Firebase
+Auth (anonymous → permanent), Firestore, Cloud Functions v2 (`onCall`),
+App Check, Firebase emulators.
 
-**Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§3 — adnotacja
-o zmianie stacku, §10)
+**Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§3 — note
+on the stack change, §10)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Gra działa bez logowania i bez sieci.** Logowanie jest opcjonalne;
-  jego brak nie może blokować żadnej funkcji rozgrywki.
-- **Rdzeń nie zna Firebase** — bariera lintu z Slice'a 0 tego pilnuje.
-  Cały kontakt z backendem siedzi w `src/data/`.
-- Klient **nigdy** nie zapisuje wyniku bezpośrednio — reguły Firestore tego
-  zabraniają, a nie tylko interfejs.
-- Hosting zostaje na Cloudflare Workers (Slice 9). Firebase Hosting **nie jest**
-  używany.
-- Funkcje w chmurze importują **ten sam** `core/` i `game/`, którego używa
-  przeglądarka. Druga implementacja punktacji rozjechałaby się w tygodniu.
+- **The game works without signing in and without a network.** Signing in is
+  optional; its absence must not block any gameplay feature.
+- **The core knows nothing about Firebase** — the lint barrier from Slice 0
+  enforces this. All backend contact lives in `src/data/`.
+- The client **never** writes a score directly — Firestore rules forbid it,
+  not merely the UI.
+- Hosting stays on Cloudflare Workers (Slice 9). Firebase Hosting is **not**
+  used.
+- Cloud functions import the **same** `core/` and `game/` the browser uses.
+  A second scoring implementation would drift within a week.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/data/firebase.ts` | inicjalizacja SDK, App Check, dostęp do usług |
-| `src/data/auth-store.ts` | sygnał sesji, logowanie anonimowe, awans konta |
-| `src/data/firebase-score-store.ts` | `ScoreStore` z synchronizacją, opakowanie lokalnego |
-| `src/data/run-submitter.ts` | wywołanie funkcji `submitRun` |
-| `functions/src/index.ts` | `submitRun`: odtworzenie rozgrywki i zapis wyniku |
-| `functions/tsconfig.json` | współdzielenie `core/` i `game/` z aplikacją |
-| `firestore.rules` | reguły dostępu |
-| `firebase.json` | emulatory, funkcje, reguły |
-| `src/environments/*.ts` | konfiguracja projektu Firebase |
+| `src/data/firebase.ts` | SDK initialization, App Check, service access |
+| `src/data/auth-store.ts` | session signal, anonymous sign-in, account upgrade |
+| `src/data/firebase-score-store.ts` | `ScoreStore` with sync, wraps the local one |
+| `src/data/run-submitter.ts` | calls the `submitRun` function |
+| `functions/src/index.ts` | `submitRun`: replays the run and saves the score |
+| `functions/tsconfig.json` | sharing `core/` and `game/` with the app |
+| `firestore.rules` | access rules |
+| `firebase.json` | emulators, functions, rules |
+| `src/environments/*.ts` | Firebase project configuration |
 
 ---
 
-### Task 1: Inicjalizacja i konto gracza
+### Task 1: Initialization and player account
 
 **Files:**
 - Create: `src/data/firebase.ts`
@@ -70,31 +71,31 @@ Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
 **Interfaces:**
 - Produces:
   - `getFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore; functions: Functions }`
-  - `class AuthStore` z sygnałami `user`, `isAnonymous`, `ready` i metodami
+  - `class AuthStore` with signals `user`, `isAnonymous`, `ready` and methods
     `signInAnonymouslyIfNeeded()`, `linkWithGoogle()`, `signOut()`
 
-Konto anonimowe zakładamy **dopiero przy pierwszej próbie synchronizacji**, nie
-przy starcie aplikacji: gracz, który nigdy nie wygrał partii, nie potrzebuje
-tożsamości, a my nie potrzebujemy jego śladu.
+We create the anonymous account **only on the first sync attempt**, not at
+app startup: a player who has never won a match doesn't need an identity, and
+we don't need their trail.
 
-- [ ] **Krok 1: Załóż projekt i zainstaluj SDK**
+- [ ] **Step 1: Create the project and install the SDK**
 
 ```bash
 npm install firebase
 npm install --save-dev firebase-tools
 npx firebase login
-npx firebase projects:create arrowz-<sufiks>   # albo użyj istniejącego
+npx firebase projects:create arrowz-<suffix>   # or use an existing one
 npx firebase init firestore functions emulators
 ```
 
-Przy `init` wybierz: Firestore, Functions (TypeScript), Emulators
-(Auth, Firestore, Functions). **Nie** wybieraj Hostingu — hosting stoi na
+During `init` pick: Firestore, Functions (TypeScript), Emulators
+(Auth, Firestore, Functions). **Do not** pick Hosting — hosting stays on
 Cloudflare (Slice 9).
 
-- [ ] **Krok 2: Zapisz konfigurację w środowiskach**
+- [ ] **Step 2: Store the configuration in the environments**
 
-Klucze webowe Firebase są publiczne z założenia — bezpieczeństwo daje App Check
-i reguły, nie ukrywanie kluczy.
+Firebase web keys are public by design — security comes from App Check and
+the rules, not from hiding the keys.
 
 ```typescript
 // src/environments/environment.ts
@@ -117,16 +118,16 @@ export const environment = {
 // src/environments/environment.development.ts
 export const environment = {
   production: false,
-  firebase: { /* ta sama konfiguracja */ },
+  firebase: { /* same configuration */ },
   recaptchaSiteKey: '…',
   useEmulators: true,
 };
 ```
 
-W `angular.json` dopisz podmianę plików dla konfiguracji `development`
-(`fileReplacements`), jeśli CLI jej nie utworzył.
+In `angular.json` add the file replacement for the `development` configuration
+(`fileReplacements`), if the CLI didn't create it.
 
-- [ ] **Krok 3: Napisz failujące testy magazynu sesji**
+- [ ] **Step 3: Write failing session store tests**
 
 ```typescript
 // src/data/auth-store.spec.ts
@@ -156,25 +157,25 @@ describe('AuthStore', () => {
     store = TestBed.inject(AuthStore);
   });
 
-  it('startuje bez użytkownika', () => {
+  it('starts with no user', () => {
     expect(store.user()).toBeNull();
     expect(store.isSignedIn()).toBe(false);
   });
 
-  it('zakłada konto anonimowe na żądanie', async () => {
+  it('creates an anonymous account on demand', async () => {
     await store.signInAnonymouslyIfNeeded();
     expect(store.user()?.uid).toBe('anon-1');
     expect(store.isAnonymous()).toBe(true);
   });
 
-  it('nie zakłada drugiego konta, gdy jedno już jest', async () => {
+  it('does not create a second account when one already exists', async () => {
     await store.signInAnonymouslyIfNeeded();
     const first = store.user();
     await store.signInAnonymouslyIfNeeded();
     expect(store.user()).toBe(first);
   });
 
-  it('awansuje konto anonimowe na trwałe, zachowując identyfikator', async () => {
+  it('upgrades the anonymous account to permanent, keeping the identifier', async () => {
     await store.signInAnonymouslyIfNeeded();
     const uid = store.user()!.uid;
     await store.linkWithGoogle();
@@ -182,7 +183,7 @@ describe('AuthStore', () => {
     expect(store.isAnonymous()).toBe(false);
   });
 
-  it('czyści stan po wylogowaniu', async () => {
+  it('clears state after signing out', async () => {
     await store.signInAnonymouslyIfNeeded();
     await store.signOut();
     expect(store.user()).toBeNull();
@@ -190,15 +191,15 @@ describe('AuthStore', () => {
 });
 ```
 
-- [ ] **Krok 4: Uruchom i potwierdź porażkę**
+- [ ] **Step 4: Run and confirm failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./auth-store`.
+Expected: FAIL — module `./auth-store` is missing.
 
-- [ ] **Krok 5: Zaimplementuj dostęp do Firebase i sesję**
+- [ ] **Step 5: Implement Firebase access and the session**
 
 ```typescript
 // src/data/firebase.ts
@@ -219,9 +220,9 @@ interface FirebaseBundle {
 let bundle: FirebaseBundle | null = null;
 
 /**
- * Leniwa inicjalizacja: gra ma działać bez sieci i bez konta, więc SDK
- * ładujemy dopiero wtedy, gdy ktoś naprawdę chce się zalogować albo wysłać
- * wynik.
+ * Lazy initialization: the game must work without a network and without an
+ * account, so we load the SDK only once someone actually wants to sign in or
+ * submit a score.
  */
 export function getFirebase(): FirebaseBundle {
   if (bundle) return bundle;
@@ -236,8 +237,8 @@ export function getFirebase(): FirebaseBundle {
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
     connectFunctionsEmulator(functions, '127.0.0.1', 5001);
   } else {
-    // App Check odsiewa ruch spoza naszej aplikacji. Bez niego endpoint
-    // weryfikujący wynik byłby otwarty na masowe próby.
+    // App Check filters out traffic that isn't from our app. Without it the
+    // score-verification endpoint would be wide open to mass attempts.
     initializeAppCheck(app, {
       provider: new ReCaptchaV3Provider(environment.recaptchaSiteKey),
       isTokenAutoRefreshEnabled: true,
@@ -262,7 +263,7 @@ export interface SessionUser {
   isAnonymous: boolean;
 }
 
-/** Cienka warstwa nad SDK — dzięki niej testy nie potrzebują Firebase. */
+/** A thin layer over the SDK — thanks to it, tests don't need Firebase. */
 export interface AuthClient {
   onChange(cb: (user: SessionUser | null) => void): () => void;
   signInAnonymously(): Promise<void>;
@@ -285,8 +286,8 @@ export const AUTH_CLIENT = new InjectionToken<AuthClient>('AUTH_CLIENT', {
     async linkWithGoogle() {
       const { auth } = getFirebase();
       const current = auth.currentUser;
-      if (!current) throw new Error('Brak sesji do awansowania.');
-      // linkWithPopup zachowuje UID, więc historia wyników zostaje przy graczu.
+      if (!current) throw new Error('No session to upgrade.');
+      // linkWithPopup keeps the UID, so the score history stays with the player.
       await linkWithPopup(current, new GoogleAuthProvider());
     },
     async signOut() {
@@ -309,8 +310,8 @@ export class AuthStore {
   }
 
   /**
-   * Konto anonimowe zakładamy dopiero przy pierwszej synchronizacji.
-   * Gracz, który nigdy nie wygrał partii, nie potrzebuje tożsamości.
+   * The anonymous account is created only at the first sync.
+   * A player who has never won a match doesn't need an identity.
    */
   async signInAnonymouslyIfNeeded(): Promise<void> {
     if (this.state()) return;
@@ -327,24 +328,24 @@ export class AuthStore {
 }
 ```
 
-- [ ] **Krok 6: Uruchom testy — mają przejść**
+- [ ] **Step 6: Run the tests — they should pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS (5 testów).
+Expected: PASS (5 tests).
 
-- [ ] **Krok 7: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj konto gracza oparte na Firebase Auth"
+git commit -m "Add a Firebase Auth-based player account"
 ```
 
 ---
 
-### Task 2: Funkcja weryfikująca wynik
+### Task 2: Score-verification function
 
 **Files:**
 - Create: `functions/src/index.ts`
@@ -352,13 +353,14 @@ git commit -m "Dodaj konto gracza oparte na Firebase Auth"
 - Create: `functions/src/index.spec.ts`
 
 **Interfaces:**
-- Consumes: `verifyRun`, `replayRun` z `src/game/replay.ts` (Slice 5).
+- Consumes: `verifyRun`, `replayRun` from `src/game/replay.ts` (Slice 5).
 - Produces: callable `submitRun(data: RunSubmission): { accepted: boolean; score: number }`
 
-- [ ] **Krok 1: Udostępnij rdzeń funkcjom**
+- [ ] **Step 1: Expose the core to the functions**
 
-Funkcje muszą kompilować **ten sam** kod, który liczy wynik w przeglądarce.
-Druga implementacja punktacji rozjechałaby się przy pierwszej zmianie wag.
+The functions must compile the **same** code that computes the score in the
+browser. A second scoring implementation would drift at the first weight
+change.
 
 ```jsonc
 // functions/tsconfig.json
@@ -368,7 +370,7 @@ Druga implementacja punktacji rozjechałaby się przy pierwszej zmianie wag.
     "target": "es2023",
     "moduleResolution": "node",
     "outDir": "lib",
-    // rootDir sięga poza katalog functions, żeby objąć src/core i src/game.
+    // rootDir reaches beyond the functions directory to cover src/core and src/game.
     "rootDir": "..",
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -381,7 +383,7 @@ Druga implementacja punktacji rozjechałaby się przy pierwszej zmianie wag.
 }
 ```
 
-W `functions/package.json` ustaw wejście na ścieżkę wynikającą z `rootDir`:
+In `functions/package.json` set the entry point to the path that follows from `rootDir`:
 
 ```json
 {
@@ -395,7 +397,7 @@ W `functions/package.json` ustaw wejście na ścieżkę wynikającą z `rootDir`
 }
 ```
 
-- [ ] **Krok 2: Napisz failujące testy funkcji**
+- [ ] **Step 2: Write failing function tests**
 
 ```typescript
 // functions/src/index.spec.ts
@@ -404,7 +406,7 @@ import { createLevel } from '../../src/core/level';
 import { createSession, reduce } from '../../src/game/session';
 import { evaluateSubmission } from './index';
 
-/** Rozgrywa poziom bezbłędnie i zwraca zapis przebiegu wraz z wynikiem. */
+/** Plays a level flawlessly and returns the run record along with the score. */
 function perfectRun(seed: number) {
   const { board } = createLevel('easy', 'square', seed);
   let session = createSession(board, 'classic', 0);
@@ -429,102 +431,104 @@ function perfectRun(seed: number) {
 }
 
 describe('evaluateSubmission', () => {
-  it('przyjmuje uczciwy zapis i zwraca policzony przez siebie wynik', () => {
+  it('accepts an honest run and returns its own computed score', () => {
     const { submission, score } = perfectRun(21);
     const result = evaluateSubmission(submission);
     expect(result.accepted).toBe(true);
     expect(result.score).toBe(score);
   }, 60_000);
 
-  it('odrzuca zawyżony wynik', () => {
+  it('rejects an inflated score', () => {
     const { submission } = perfectRun(22);
     const result = evaluateSubmission({ ...submission, claimedScore: submission.claimedScore * 3 });
     expect(result.accepted).toBe(false);
   }, 60_000);
 
-  it('odrzuca zapis, który nie kończy planszy', () => {
+  it('rejects a run that does not close the board', () => {
     const { submission } = perfectRun(23);
     const result = evaluateSubmission({ ...submission, moves: submission.moves.slice(0, 2) });
     expect(result.accepted).toBe(false);
   }, 60_000);
 
-  it('odrzuca zapis z niezgodną liczbą znaczników czasu', () => {
+  it('rejects a run with a mismatched number of timestamps', () => {
     const { submission } = perfectRun(24);
     const result = evaluateSubmission({ ...submission, timestamps: [1, 2] });
     expect(result.accepted).toBe(false);
   }, 60_000);
 
-  it('odrzuca absurdalnie długą listę ruchów bez odtwarzania', () => {
+  it('rejects an absurdly long move list without replaying it', () => {
     const { submission } = perfectRun(25);
     const huge = { ...submission, moves: new Array(200_000).fill(0), timestamps: new Array(200_000).fill(1) };
     const started = Date.now();
     expect(evaluateSubmission(huge).accepted).toBe(false);
-    // Odrzucenie po rozmiarze musi być natychmiastowe — inaczej endpoint
-    // daje się zająć jednym żądaniem.
+    // Rejection by size must be immediate — otherwise the endpoint can be
+    // tied up by a single request.
     expect(Date.now() - started).toBeLessThan(1_000);
   }, 60_000);
 });
 ```
 
-- [ ] **Krok 3: Uruchom i potwierdź porażkę**
+- [ ] **Step 3: Run and confirm failure**
 
 ```bash
 cd functions && npx vitest run src/index.spec.ts; cd ..
 ```
 
-Jeśli w `functions/` nie ma runnera, zainstaluj: `npm install --save-dev vitest`
-w tym katalogu.
+If `functions/` has no runner, install it: `npm install --save-dev vitest`
+in that directory.
 
-Oczekiwane: FAIL — brak `evaluateSubmission`.
+Expected: FAIL — `evaluateSubmission` is missing.
 
-- [ ] **Krok 4: Zaimplementuj funkcję**
+- [ ] **Step 4: Implement the function**
 
 ```typescript
 // functions/src/index.ts
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-// Funkcja importuje TEN SAM kod, którym gra liczy wynik w przeglądarce.
-// Druga implementacja punktacji rozjechałaby się w tydzień.
+// The function imports the SAME code that computes the score in the browser.
+// A second scoring implementation would drift within a week.
 import { replayRun, RunRecord, RunSubmission } from '../../src/game/replay';
 
 if (getApps().length === 0) initializeApp();
 
-/** Górna granica sensownej liczby ruchów: Extreme 200×200 ma ~4700 elementów. */
+/** Upper bound on a sensible move count: Extreme 200x200 has ~4700 pieces. */
 const MAX_MOVES = 20_000;
 
 export type { RunSubmission };
 
 export interface SubmissionVerdict {
   accepted: boolean;
-  /** Wynik POLICZONY PRZEZ SERWER; to on trafia do bazy, nie deklarowany. */
+  /** Score COMPUTED BY THE SERVER; this is what goes into the database, not the claimed one. */
   score: number;
   reason?: string;
 }
 
 /**
- * Odtwarza rozgrywkę i przelicza wynik.
+ * Replays the run and recomputes the score.
  *
- * Klient nie jest tu pytany o wynik — jest pytany o ziarno i sekwencję ruchów.
- * Reszta wynika z deterministycznego generatora i czystego reduktora, więc
- * fałszerstwo wymagałoby podania sekwencji, która naprawdę kończy planszę.
+ * The client isn't asked for the score here — it's asked for the seed and the
+ * move sequence. Everything else follows from the deterministic generator and
+ * the pure reducer, so forging a result would require supplying a sequence
+ * that genuinely closes the board.
  *
- * Funkcja jest wydzielona z handlera, żeby dała się testować bez emulatora.
+ * The function is pulled out of the handler so it can be tested without an
+ * emulator.
  */
 export function evaluateSubmission(submission: RunSubmission): SubmissionVerdict {
   if (!Number.isFinite(submission.claimedScore) || submission.claimedScore < 0) {
-    return { accepted: false, score: 0, reason: 'Nieprawidłowy zgłoszony wynik.' };
+    return { accepted: false, score: 0, reason: 'Invalid claimed score.' };
   }
   if (submission.moves.length !== submission.timestamps.length) {
-    return { accepted: false, score: 0, reason: 'Niezgodna liczba znaczników czasu.' };
+    return { accepted: false, score: 0, reason: 'Mismatched number of timestamps.' };
   }
-  // Odsiew po rozmiarze PRZED odtwarzaniem: inaczej jedno żądanie potrafi
-  // zająć funkcję na minuty.
+  // Filter by size BEFORE replaying: otherwise a single request can tie up
+  // the function for minutes.
   if (submission.moves.length > MAX_MOVES) {
-    return { accepted: false, score: 0, reason: 'Zapis przekracza dopuszczalną długość.' };
+    return { accepted: false, score: 0, reason: 'The run exceeds the allowed length.' };
   }
   if (submission.level === 'custom' && !submission.params) {
-    return { accepted: false, score: 0, reason: 'Brak parametrów planszy z konfiguratora.' };
+    return { accepted: false, score: 0, reason: 'Missing board parameters from the configurator.' };
   }
 
   const record: RunRecord = {
@@ -540,10 +544,10 @@ export function evaluateSubmission(submission: RunSubmission): SubmissionVerdict
 
   const session = replayRun(record);
   if (session.status !== 'won') {
-    return { accepted: false, score: 0, reason: 'Zapis nie kończy planszy.' };
+    return { accepted: false, score: 0, reason: 'The run does not close the board.' };
   }
   if (session.score !== submission.claimedScore) {
-    return { accepted: false, score: session.score, reason: 'Wynik nie zgadza się z odtworzeniem.' };
+    return { accepted: false, score: session.score, reason: 'The score does not match the replay.' };
   }
   return { accepted: true, score: session.score };
 }
@@ -551,15 +555,15 @@ export function evaluateSubmission(submission: RunSubmission): SubmissionVerdict
 export const submitRun = onCall<RunSubmission, Promise<SubmissionVerdict>>(
   {
     region: 'europe-central2',
-    // Bez App Check endpoint weryfikujący byłby otwarty na masowe próby.
+    // Without App Check the verification endpoint would be wide open to mass attempts.
     enforceAppCheck: true,
-    // Odtworzenie Extreme bywa kosztowne; limit chroni przed zawieszeniem.
+    // Replaying Extreme can be expensive; the limit guards against hanging.
     timeoutSeconds: 60,
     memory: '512MiB',
   },
   async (request) => {
     if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Wynik można zapisać tylko na koncie.');
+      throw new HttpsError('unauthenticated', 'A score can only be saved on an account.');
     }
 
     const verdict = evaluateSubmission(request.data);
@@ -575,7 +579,7 @@ export const submitRun = onCall<RunSubmission, Promise<SubmissionVerdict>>(
         format: request.data.format,
         mode: request.data.mode,
         seed: request.data.seed,
-        // Zapisujemy wynik POLICZONY PRZEZ SERWER.
+        // We store the score COMPUTED BY THE SERVER.
         score: verdict.score,
         moves: request.data.moves.length,
         elapsedMs: (request.data.timestamps.at(-1) ?? 0) - request.data.startedAt,
@@ -587,25 +591,25 @@ export const submitRun = onCall<RunSubmission, Promise<SubmissionVerdict>>(
 );
 ```
 
-- [ ] **Krok 5: Uruchom testy funkcji — mają przejść**
+- [ ] **Step 5: Run the function tests — they should pass**
 
 ```bash
 cd functions && npm run build && npx vitest run src/index.spec.ts; cd ..
 ```
 
-Oczekiwane: PASS (5 testów). Jeśli kompilacja zgłasza błędy ścieżek, sprawdź
-`rootDir` i `main` — to najczęstsza pułapka współdzielenia kodu z funkcjami.
+Expected: PASS (5 tests). If the build reports path errors, check
+`rootDir` and `main` — this is the most common pitfall of sharing code with functions.
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj serwerową weryfikację wyniku rozgrywki"
+git commit -m "Add server-side verification of the run score"
 ```
 
 ---
 
-### Task 3: Reguły dostępu
+### Task 3: Access rules
 
 **Files:**
 - Create: `firestore.rules`
@@ -613,12 +617,12 @@ git commit -m "Dodaj serwerową weryfikację wyniku rozgrywki"
 - Modify: `firebase.json`, `package.json`
 
 **Interfaces:**
-- Produces: reguły, w których **klient nie ma prawa zapisu do wyników**.
+- Produces: rules in which **the client has no write permission on scores**.
 
-Reguła jest tu ważniejsza od interfejsu: interfejs można obejść konsolą
-przeglądarki, reguły nie.
+The rule matters more here than the UI: the UI can be bypassed from the
+browser console, the rule cannot.
 
-- [ ] **Krok 1: Napisz failujące testy reguł**
+- [ ] **Step 1: Write failing rule tests**
 
 ```bash
 npm install --save-dev @firebase/rules-unit-testing
@@ -644,33 +648,33 @@ beforeAll(async () => {
 afterAll(async () => env.cleanup());
 beforeEach(async () => env.clearFirestore());
 
-describe('reguły Firestore', () => {
-  it('pozwala właścicielowi czytać i pisać własny profil', async () => {
+describe('Firestore rules', () => {
+  it('allows the owner to read and write their own profile', async () => {
     const db = env.authenticatedContext('gracz').firestore();
-    await assertSucceeds(setDoc(doc(db, 'users/gracz'), { nick: 'Ktoś', settings: {} }));
+    await assertSucceeds(setDoc(doc(db, 'users/gracz'), { nick: 'Someone', settings: {} }));
     await assertSucceeds(getDoc(doc(db, 'users/gracz')));
   });
 
-  it('nie pozwala czytać cudzego profilu', async () => {
+  it('does not allow reading someone else\'s profile', async () => {
     const db = env.authenticatedContext('intruz').firestore();
     await assertFails(getDoc(doc(db, 'users/gracz')));
   });
 
-  it('nie pozwala niezalogowanemu na nic', async () => {
+  it('does not allow an unauthenticated user to do anything', async () => {
     const db = env.unauthenticatedContext().firestore();
     await assertFails(getDoc(doc(db, 'users/gracz')));
     await assertFails(setDoc(doc(db, 'users/gracz'), { nick: 'X' }));
   });
 
-  // NAJWAŻNIEJSZY test tego zadania.
-  it('nie pozwala klientowi zapisać wyniku wprost', async () => {
+  // The MOST IMPORTANT test in this task.
+  it('does not allow the client to write a score directly', async () => {
     const db = env.authenticatedContext('gracz').firestore();
     await assertFails(
       setDoc(doc(db, 'users/gracz/scores/podrobiony'), { score: 999_999, level: 'nightmare' }),
     );
   });
 
-  it('pozwala właścicielowi czytać własne wyniki', async () => {
+  it('allows the owner to read their own scores', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'users/gracz/scores/prawdziwy'), { score: 300 });
     });
@@ -678,7 +682,7 @@ describe('reguły Firestore', () => {
     await assertSucceeds(getDoc(doc(db, 'users/gracz/scores/prawdziwy')));
   });
 
-  it('nie pozwala modyfikować cudzych wyników', async () => {
+  it('does not allow modifying someone else\'s scores', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'users/gracz/scores/prawdziwy'), { score: 300 });
     });
@@ -688,15 +692,15 @@ describe('reguły Firestore', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom emulator i testy**
+- [ ] **Step 2: Run the emulator and the tests**
 
 ```bash
 npx firebase emulators:exec --only firestore "npx vitest run test/firestore-rules.spec.ts"
 ```
 
-Oczekiwane: FAIL — reguły domyślne blokują wszystko albo pozwalają na zbyt wiele.
+Expected: FAIL — the default rules either block everything or allow too much.
 
-- [ ] **Krok 3: Napisz reguły**
+- [ ] **Step 3: Write the rules**
 
 ```javascript
 // firestore.rules
@@ -705,21 +709,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Profil i ustawienia należą do gracza i tylko on nimi zarządza.
+    // The profile and settings belong to the player and only they manage them.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Wyniki są TYLKO DO ODCZYTU dla klienta. Zapisuje je wyłącznie funkcja
-      // submitRun, która działa z uprawnieniami administracyjnymi i wcześniej
-      // odtwarza rozgrywkę z ziarna. Gdyby klient mógł pisać tutaj, cała
-      // weryfikacja byłaby dekoracją.
+      // Scores are READ-ONLY for the client. Only the submitRun function
+      // writes them, running with administrative privileges after replaying
+      // the run from the seed. If the client could write here, the entire
+      // verification would be decoration.
       match /scores/{scoreId} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow write: if false;
       }
     }
 
-    // Wszystko poza powyższym jest zamknięte.
+    // Everything beyond the above is closed off.
     match /{document=**} {
       allow read, write: if false;
     }
@@ -727,15 +731,15 @@ service cloud.firestore {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they should pass**
 
 ```bash
 npx firebase emulators:exec --only firestore "npx vitest run test/firestore-rules.spec.ts"
 ```
 
-Oczekiwane: PASS (6 testów).
+Expected: PASS (6 tests).
 
-Dodaj skrypt do `package.json`:
+Add a script to `package.json`:
 
 ```json
 {
@@ -743,31 +747,31 @@ Dodaj skrypt do `package.json`:
 }
 ```
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj reguły dostępu do wyników i profili"
+git commit -m "Add access rules for scores and profiles"
 ```
 
 ---
 
-### Task 4: Synchronizacja offline-first
+### Task 4: Offline-first synchronization
 
 **Files:**
 - Create: `src/data/firebase-score-store.ts`
 - Create: `src/data/run-submitter.ts`
 - Test: `src/data/firebase-score-store.spec.ts`
-- Modify: `src/data/score-store.ts` (podmiana implementacji w tokenie)
+- Modify: `src/data/score-store.ts` (swap the implementation in the token)
 
 **Interfaces:**
 - Produces:
-  - `class FirebaseScoreStore implements ScoreStore` — opakowuje
-    `LocalScoreStore`, dokłada `sync()` i przyjmuje opcjonalny zapis przebiegu
+  - `class FirebaseScoreStore implements ScoreStore` — wraps
+    `LocalScoreStore`, adds `sync()`, and accepts an optional run record
     (`RunPayload`)
   - `interface RunSubmitter { submit(submission: RunSubmission): Promise<SubmissionVerdict> }`
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/data/firebase-score-store.spec.ts
@@ -783,7 +787,7 @@ function fakeSubmitter(behaviour: 'ok' | 'reject' | 'offline') {
       if (behaviour === 'offline') throw new Error('brak sieci');
       return behaviour === 'ok'
         ? { accepted: true, score: 300 }
-        : { accepted: false, score: 0, reason: 'nie zgadza się' };
+        : { accepted: false, score: 0, reason: 'does not match' };
     },
   };
 }
@@ -797,16 +801,16 @@ const run = {
 describe('FirebaseScoreStore', () => {
   beforeEach(() => localStorage.clear());
 
-  it('zapisuje wynik lokalnie, nawet gdy nie ma sieci', async () => {
+  it('saves the score locally even when there is no network', async () => {
     const submitter = fakeSubmitter('offline');
     const store = new FirebaseScoreStore(new LocalScoreStore(), submitter, async () => {});
     store.add(run);
     await store.sync();
     expect(store.list().length).toBe(1);
-    expect(store.pendingSync().length).toBe(1); // zostaje w kolejce
+    expect(store.pendingSync().length).toBe(1); // stays queued
   });
 
-  it('oznacza wynik jako zsynchronizowany po przyjęciu przez serwer', async () => {
+  it('marks the score as synced once accepted by the server', async () => {
     const submitter = fakeSubmitter('ok');
     const store = new FirebaseScoreStore(new LocalScoreStore(), submitter, async () => {});
     store.add(run);
@@ -815,18 +819,18 @@ describe('FirebaseScoreStore', () => {
     expect(submitter.calls.length).toBe(1);
   });
 
-  it('nie ponawia w nieskończoność wyniku odrzuconego przez serwer', async () => {
+  it('does not keep retrying a score rejected by the server', async () => {
     const submitter = fakeSubmitter('reject');
     const store = new FirebaseScoreStore(new LocalScoreStore(), submitter, async () => {});
     store.add(run);
     await store.sync();
     await store.sync();
-    // Odrzucony wynik zostaje lokalnie, ale przestaje być wysyłany.
+    // The rejected score stays local but stops being sent.
     expect(submitter.calls.length).toBe(1);
     expect(store.list().length).toBe(1);
   });
 
-  it('zakłada konto dopiero przy pierwszej synchronizacji', async () => {
+  it('creates the account only at the first sync', async () => {
     let signIns = 0;
     const store = new FirebaseScoreStore(new LocalScoreStore(), fakeSubmitter('ok'), async () => {
       signIns++;
@@ -837,7 +841,7 @@ describe('FirebaseScoreStore', () => {
     expect(signIns).toBe(1);
   });
 
-  it('nie woła serwera, gdy nie ma czego wysłać', async () => {
+  it('does not call the server when there is nothing to send', async () => {
     const submitter = fakeSubmitter('ok');
     let signIns = 0;
     const store = new FirebaseScoreStore(new LocalScoreStore(), submitter, async () => {
@@ -850,21 +854,21 @@ describe('FirebaseScoreStore', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./firebase-score-store`.
+Expected: FAIL — module `./firebase-score-store` is missing.
 
-- [ ] **Krok 3: Zaimplementuj synchronizację**
+- [ ] **Step 3: Implement the synchronization**
 
 ```typescript
 // src/data/run-submitter.ts
 import { httpsCallable } from 'firebase/functions';
-// Typ zapisu przebiegu mieszka w rdzeniu gry (Slice 5) — ta sama definicja
-// obowiązuje klienta i funkcję w chmurze.
+// The run record type lives in the game core (Slice 5) — the same definition
+// applies to both the client and the cloud function.
 import { RunSubmission } from '../game/replay';
 import { getFirebase } from './firebase';
 
@@ -895,7 +899,7 @@ import { BoardFormat, LevelId } from '../core/presets';
 import { RunSubmitter } from './run-submitter';
 import { ScoreEntry, ScoreStore } from './score-store';
 
-/** Zapis przebiegu dołączany do wyniku — bez ruchów serwer nie ma czego odtwarzać. */
+/** Run record attached to the score — without the moves the server has nothing to replay. */
 export interface RunPayload {
   moves: number[];
   timestamps: number[];
@@ -905,14 +909,14 @@ export interface RunPayload {
 export type RunScoreEntry = Omit<ScoreEntry, 'id' | 'synced'> & Partial<RunPayload>;
 
 /**
- * Wyniki zapisywane lokalnie ZAWSZE, wysyłane przy okazji.
+ * Scores are saved locally ALWAYS, sent whenever possible.
  *
- * Kolejność jest tu decyzją projektową, nie optymalizacją: gra ma działać bez
- * sieci i bez konta, więc synchronizacja nie może być warunkiem zapisania
- * rekordu.
+ * The order here is a design decision, not an optimization: the game must
+ * work without a network and without an account, so syncing can't be a
+ * precondition for saving the record.
  */
 export class FirebaseScoreStore implements ScoreStore {
-  /** Wyniki odrzucone przez serwer — nie ponawiamy ich w nieskończoność. */
+  /** Scores rejected by the server — we don't retry them forever. */
   private readonly rejected = new Set<string>();
   private readonly runs = new Map<string, RunPayload>();
 
@@ -927,8 +931,8 @@ export class FirebaseScoreStore implements ScoreStore {
   }
 
   /**
-   * Zapis przebiegu jest opcjonalny: wynik bez ruchów zostaje lokalnie, ale nie
-   * pojedzie na serwer, bo nie byłoby czego odtworzyć.
+   * The run record is optional: a score without moves stays local, but won't
+   * go to the server since there'd be nothing to replay.
    */
   add(entry: RunScoreEntry): ScoreEntry {
     const saved = this.local.add({
@@ -958,7 +962,7 @@ export class FirebaseScoreStore implements ScoreStore {
     return this.local.pendingSync().filter((e) => !this.rejected.has(e.id));
   }
 
-  /** Wysyła zaległości. Wołane po wygranej i przy powrocie sieci. */
+  /** Sends the backlog. Called after a win and whenever the network returns. */
   async sync(): Promise<void> {
     const pending = this.pendingSync().filter((e) => this.runs.has(e.id));
     if (pending.length === 0) return;
@@ -982,7 +986,7 @@ export class FirebaseScoreStore implements ScoreStore {
         if (verdict.accepted) accepted.push(entry.id);
         else this.rejected.add(entry.id);
       } catch {
-        // Brak sieci albo błąd serwera: zostaje w kolejce, spróbujemy później.
+        // No network or a server error: stays queued, we'll try again later.
         break;
       }
     }
@@ -991,9 +995,9 @@ export class FirebaseScoreStore implements ScoreStore {
 }
 ```
 
-- [ ] **Krok 4: Podepnij store i moment synchronizacji**
+- [ ] **Step 4: Wire up the store and the sync trigger**
 
-W `src/data/score-store.ts` podmień fabrykę tokenu:
+In `src/data/score-store.ts` swap the token factory:
 
 ```typescript
 export const SCORE_STORE = new InjectionToken<ScoreStore>('SCORE_STORE', {
@@ -1008,64 +1012,65 @@ export const SCORE_STORE = new InjectionToken<ScoreStore>('SCORE_STORE', {
 });
 ```
 
-W `Game` po wygranej zapisz wynik **razem z ruchami** i uruchom synchronizację
-w tle — nieudana wysyłka nie może zablokować ekranu wyniku:
+In `Game`, after a win, save the score **together with the moves** and kick
+off synchronization in the background — a failed submission must not block
+the score screen:
 
 ```typescript
       const saved = this.scores.add({ …, moves: session.moves, timestamps: this.moveTimestamps, startedAt: session.startedAt });
       void (this.scores as FirebaseScoreStore).sync?.();
 ```
 
-Znaczniki czasu ruchów zbieraj w `Game` przy każdym kliknięciu — reduktor
-zapisuje same identyfikatory, a serwer potrzebuje obu list.
+Collect move timestamps in `Game` on every click — the reducer stores only
+the identifiers, and the server needs both lists.
 
-- [ ] **Krok 5: Uruchom testy — mają przejść**
+- [ ] **Step 5: Run the tests — they should pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS (5 testów).
+Expected: PASS (5 tests).
 
-- [ ] **Krok 6: Sprawdź całą ścieżkę na emulatorach**
+- [ ] **Step 6: Check the whole path against the emulators**
 
 ```bash
 npx firebase emulators:start --only auth,firestore,functions
-# w drugim terminalu
+# in a second terminal
 npx ng serve --configuration development
 ```
 
-Rozegraj partię Easy do końca i sprawdź w emulatorze Firestore, że:
+Play an Easy match to completion and check in the Firestore emulator that:
 
-1. w `users/{uid}/scores` pojawił się dokument,
-2. pole `score` zgadza się z wynikiem z ekranu,
-3. próba ręcznego zapisu do `scores` z konsoli przeglądarki **kończy się
-   odmową** (reguły).
+1. a document appeared in `users/{uid}/scores`,
+2. the `score` field matches the score on screen,
+3. an attempt to write to `scores` manually from the browser console
+   **is denied** (rules).
 
-- [ ] **Krok 7: Wdróż funkcje i reguły**
+- [ ] **Step 7: Deploy the functions and rules**
 
 ```bash
 cd functions && npm run build && cd ..
 npx firebase deploy --only functions,firestore:rules
 ```
 
-- [ ] **Krok 8: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj synchronizację wyników z weryfikacją serwerową"
+git commit -m "Add score synchronization with server-side verification"
 ```
 
 ---
 
-### Task 5: Interfejs konta
+### Task 5: Account UI
 
 **Files:**
 - Create: `src/ui/account.ts`
 - Modify: `src/ui/home.ts`
 - Test: `src/ui/account.spec.ts`
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/ui/account.spec.ts
@@ -1093,19 +1098,19 @@ async function setup() {
 }
 
 describe('Account', () => {
-  it('mówi wprost, że gra działa bez konta', async () => {
+  it('states plainly that the game works without an account', async () => {
     const fixture = await setup();
-    expect((fixture.nativeElement as HTMLElement).textContent).toMatch(/bez konta|nie musisz/i);
+    expect((fixture.nativeElement as HTMLElement).textContent).toMatch(/without an account|don't need/i);
   });
 
-  it('proponuje zachowanie wyników po założeniu konta anonimowego', async () => {
+  it('offers to preserve scores after creating an anonymous account', async () => {
     const fixture = await setup();
     await TestBed.inject(AuthStore).signInAnonymouslyIfNeeded();
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[data-role="link-account"]')).not.toBeNull();
   });
 
-  it('po awansie konta nie proponuje go ponownie', async () => {
+  it('does not offer it again after the account has been upgraded', async () => {
     const fixture = await setup();
     const auth = TestBed.inject(AuthStore);
     await auth.signInAnonymouslyIfNeeded();
@@ -1116,7 +1121,7 @@ describe('Account', () => {
 });
 ```
 
-- [ ] **Krok 2: Zaimplementuj komponent**
+- [ ] **Step 2: Implement the component**
 
 ```typescript
 // src/ui/account.ts
@@ -1129,15 +1134,15 @@ import { AuthStore } from '../data/auth-store';
   template: `
     <section class="account">
       @if (!auth.isSignedIn()) {
-        <p>Grasz bez konta — nie musisz się logować. Wyniki zapisują się na tym urządzeniu.</p>
+        <p>You're playing without an account — you don't need to sign in. Scores are saved on this device.</p>
       } @else if (auth.isAnonymous()) {
-        <p>Twoje wyniki są zapisane na koncie tymczasowym, przypisanym do tej przeglądarki.</p>
+        <p>Your scores are saved on a temporary account tied to this browser.</p>
         <button type="button" data-role="link-account" (click)="link()">
-          Zachowaj wyniki — połącz z kontem Google
+          Keep your scores — link a Google account
         </button>
       } @else {
-        <p>Wyniki są zapisywane na Twoim koncie.</p>
-        <button type="button" data-role="sign-out" (click)="signOut()">Wyloguj</button>
+        <p>Scores are saved to your account.</p>
+        <button type="button" data-role="sign-out" (click)="signOut()">Sign out</button>
       }
     </section>
   `,
@@ -1156,34 +1161,35 @@ export class Account {
 }
 ```
 
-Dodaj `<arw-account />` na ekranie startowym, pod przyciskami.
+Add `<arw-account />` on the start screen, below the buttons.
 
-- [ ] **Krok 3: Uruchom testy i wdróż**
+- [ ] **Step 3: Run the tests and deploy**
 
 ```bash
 npm run check
 npm run deploy
 ```
 
-- [ ] **Krok 4: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj panel konta gracza"
+git commit -m "Add the player account panel"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- **Gra działa bez logowania i bez sieci** — to jest test numer jeden.
-  Wyłącz sieć, rozegraj partię, wygraj: wynik zapisuje się lokalnie.
-- Wynik na serwerze jest **policzony przez serwer**: funkcja odtwarza partię
-  z ziarna i sekwencji ruchów, a zawyżony `claimedScore` zostaje odrzucony.
-- Reguły Firestore **zabraniają klientowi zapisu** do kolekcji wyników —
-  potwierdzone testem na emulatorze, nie tylko interfejsem.
-- Konto anonimowe zakłada się dopiero przy pierwszej synchronizacji i daje się
-  awansować na trwałe **z zachowaniem historii** (ten sam UID).
-- Wyniki odrzucone przez serwer nie są ponawiane w kółko.
-- `npm run test:core`, `npm test`, `npm run test:rules` i testy funkcji
-  przechodzą.
+- **The game works without signing in and without a network** — this is test
+  number one. Turn off the network, play a match, win: the score saves locally.
+- The server-side score is **computed by the server**: the function replays
+  the run from the seed and move sequence, and an inflated `claimedScore` is
+  rejected.
+- Firestore rules **forbid the client from writing** to the scores collection
+  — confirmed by an emulator test, not just the UI.
+- The anonymous account is created only at the first sync and can be upgraded
+  to permanent **while preserving history** (the same UID).
+- Scores rejected by the server are not retried in a loop.
+- `npm run test:core`, `npm test`, `npm run test:rules`, and the function tests
+  pass.

@@ -1,54 +1,54 @@
-# Slice 9 — PWA, wyniki lokalne i deploy na Cloudflare Workers
+# Slice 9 — PWA, local scores, and deploy to Cloudflare Workers
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Domknąć MVP: gra działa offline, wyniki i ustawienia przeżywają
-zamknięcie karty, a całość stoi pod publicznym adresem.
+**Goal:** Close out the MVP: the game works offline, scores and settings
+survive closing the tab, and the whole thing is hosted at a public address.
 
-**Architektura:** Aplikacja jest w pełni klientowa i budowana jako statyczny
-prerender, więc offline nie wymaga żadnej logiki — wystarczy service worker
-Angulara w trybie cache-first. Wyniki trzymamy w `localStorage` za wąskim
-interfejsem `ScoreStore`, którego **Slice 10 zastąpi implementacją
-synchronizującą z Firebase**, nie dotykając reszty aplikacji. Hosting to
-Cloudflare Worker ze Static Assets — bez skryptu Workera, sam katalog
-`dist/arrowz/browser`.
+**Architecture:** The application is fully client-side and built as a static
+prerender, so offline doesn't require any special logic — the Angular
+service worker in cache-first mode is enough. Scores are kept in
+`localStorage` behind a narrow `ScoreStore` interface, which **Slice 10 will
+replace with an implementation syncing to Firebase**, without touching the
+rest of the application. Hosting is a Cloudflare Worker with Static Assets —
+no Worker script, just the `dist/arrowz/browser` directory.
 
-**Stack:** `@angular/pwa` (service worker Angulara), `localStorage`,
+**Stack:** `@angular/pwa` (Angular service worker), `localStorage`,
 Wrangler 4.x, Cloudflare Workers Static Assets.
 
-**Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§1 „PWA", §11)
+**Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§1 "PWA", §11)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Gra musi być grywalna bez sieci i bez logowania.** To wymóg, nie
-  udogodnienie: synchronizacja ze Slice'a 10 jest warstwą nakładaną, nie
-  warunkiem startu.
-- `localStorage` jest niedostępny w `core/` i `game/` (bariera z lintu) —
-  dostęp wyłącznie przez `data/`.
-- Wrangler: konfiguracja w `wrangler.jsonc`, `compatibility_date` ustawiona na
-  datę wdrożenia, po zmianach konfiguracji `wrangler types`.
+- **The game must be playable without network access and without signing
+  in.** This is a requirement, not a nicety: the sync from Slice 10 is a
+  layer added on top, not a condition to start.
+- `localStorage` is not accessible from `core/` and `game/` (lint barrier) —
+  access only through `data/`.
+- Wrangler: configuration in `wrangler.jsonc`, `compatibility_date` set to
+  the deploy date, run `wrangler types` after configuration changes.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/data/score-store.ts` | interfejs `ScoreStore` i `LocalScoreStore` |
-| `src/data/settings-store.ts` | zapamiętane ustawienia: poziom, format, wariant, grubość linii |
-| `src/data/score-store.spec.ts` | testy trwałości i odporności na zepsute dane |
-| `ngsw-config.json` | reguły cache service workera |
-| `public/manifest.webmanifest` | manifest PWA |
-| `wrangler.jsonc` | konfiguracja Workera ze Static Assets |
-| `.github/workflows/deploy.yml` | wdrożenie po merge'u do `main` |
+| `src/data/score-store.ts` | `ScoreStore` interface and `LocalScoreStore` |
+| `src/data/settings-store.ts` | remembered settings: level, format, variant, stroke width |
+| `src/data/score-store.spec.ts` | persistence tests and resilience against corrupted data |
+| `ngsw-config.json` | service worker cache rules |
+| `public/manifest.webmanifest` | PWA manifest |
+| `wrangler.jsonc` | Worker configuration with Static Assets |
+| `.github/workflows/deploy.yml` | deployment after merge to `main` |
 
 ---
 
-### Task 1: Wyniki i ustawienia lokalne
+### Task 1: Local scores and settings
 
 **Files:**
 - Create: `src/data/score-store.ts`
@@ -60,13 +60,13 @@ Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
   - `interface ScoreEntry { id: string; level: LevelId | 'custom'; format: BoardFormat; mode: GameMode; seed: number; score: number; elapsedMs: number; livesLeft: number; playedAt: number; synced: boolean }`
   - `interface ScoreStore { list(): ScoreEntry[]; add(entry: Omit<ScoreEntry, 'id' | 'synced'>): ScoreEntry; best(level: LevelId | 'custom', format: BoardFormat): ScoreEntry | null; markSynced(ids: readonly string[]): void; pendingSync(): ScoreEntry[] }`
   - `class LocalScoreStore implements ScoreStore`
-  - `class SettingsStore` z sygnałami `level`, `format`, `mode`, `strokeRatio`
+  - `class SettingsStore` with signals `level`, `format`, `mode`, `strokeRatio`
 
-Pole `synced` istnieje od początku, choć w tym slice'ie nikt go nie ustawia:
-Slice 10 potrzebuje kolejki do wysłania, a dokładanie pola do już zapisanych
-danych oznaczałoby migrację `localStorage`.
+The `synced` field exists from the start, even though nothing sets it in
+this slice: Slice 10 needs a queue of entries to send, and adding the field
+to already-saved data later would mean migrating `localStorage`.
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/data/score-store.spec.ts
@@ -75,11 +75,11 @@ import { LocalScoreStore, SCORES_KEY } from './score-store';
 describe('LocalScoreStore', () => {
   beforeEach(() => localStorage.clear());
 
-  it('zaczyna od pustej listy', () => {
+  it('starts with an empty list', () => {
     expect(new LocalScoreStore().list()).toEqual([]);
   });
 
-  it('zapisuje wynik i przeżywa przeładowanie', () => {
+  it('saves a score and survives a reload', () => {
     const store = new LocalScoreStore();
     store.add({
       level: 'easy', format: 'tall', mode: 'classic', seed: 7,
@@ -89,7 +89,7 @@ describe('LocalScoreStore', () => {
     expect(new LocalScoreStore().list()[0]!.score).toBe(312);
   });
 
-  it('nadaje wynikom identyfikatory i oznacza je jako niezsynchronizowane', () => {
+  it('assigns ids to scores and marks them as not synced', () => {
     const store = new LocalScoreStore();
     const entry = store.add({
       level: 'easy', format: 'tall', mode: 'classic', seed: 7,
@@ -100,7 +100,7 @@ describe('LocalScoreStore', () => {
     expect(store.pendingSync().map((e) => e.id)).toEqual([entry.id]);
   });
 
-  it('zwraca najlepszy wynik dla poziomu i formatu', () => {
+  it('returns the best score for a level and format', () => {
     const store = new LocalScoreStore();
     const base = { mode: 'classic' as const, seed: 1, elapsedMs: 1_000, livesLeft: 3, playedAt: 1 };
     store.add({ ...base, level: 'easy', format: 'tall', score: 100 });
@@ -110,7 +110,7 @@ describe('LocalScoreStore', () => {
     expect(store.best('medium', 'tall')).toBeNull();
   });
 
-  it('oznacza wyniki jako zsynchronizowane', () => {
+  it('marks scores as synced', () => {
     const store = new LocalScoreStore();
     const entry = store.add({
       level: 'easy', format: 'tall', mode: 'classic', seed: 7,
@@ -121,17 +121,17 @@ describe('LocalScoreStore', () => {
     expect(new LocalScoreStore().list()[0]!.synced).toBe(true);
   });
 
-  it('przeżywa zepsutą zawartość localStorage', () => {
-    localStorage.setItem(SCORES_KEY, '{to nie jest JSON');
+  it('survives corrupted localStorage content', () => {
+    localStorage.setItem(SCORES_KEY, '{this is not JSON');
     expect(new LocalScoreStore().list()).toEqual([]);
   });
 
-  it('przeżywa dane w nieoczekiwanym kształcie', () => {
+  it('survives data in an unexpected shape', () => {
     localStorage.setItem(SCORES_KEY, '{"a":1}');
     expect(new LocalScoreStore().list()).toEqual([]);
   });
 
-  it('ogranicza historię, żeby nie rosła bez końca', () => {
+  it('caps the history so it does not grow unbounded', () => {
     const store = new LocalScoreStore();
     for (let i = 0; i < 250; i++) {
       store.add({
@@ -140,21 +140,21 @@ describe('LocalScoreStore', () => {
       });
     }
     expect(store.list().length).toBeLessThanOrEqual(200);
-    // Najlepszy wynik NIE może wypaść z historii przy przycinaniu.
+    // The best score must NOT fall out of the history when trimming.
     expect(store.best('easy', 'tall')!.score).toBe(249);
   });
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./score-store`.
+Expected: FAIL — module `./score-store` is missing.
 
-- [ ] **Krok 3: Zaimplementuj magazyn wyników**
+- [ ] **Step 3: Implement the score store**
 
 ```typescript
 // src/data/score-store.ts
@@ -174,7 +174,7 @@ export interface ScoreEntry {
   elapsedMs: number;
   livesLeft: number;
   playedAt: number;
-  /** Czy wynik trafił już na serwer. Ustawia to dopiero Slice 10. */
+  /** Whether the score has already reached the server. Only Slice 10 sets this. */
   synced: boolean;
 }
 
@@ -194,10 +194,11 @@ function isScoreEntry(value: unknown): value is ScoreEntry {
 }
 
 /**
- * Wyniki w localStorage.
+ * Scores in localStorage.
  *
- * Interfejs jest wąski celowo: Slice 10 podstawi implementację
- * synchronizującą z Firestore i reszta aplikacji tego nie zauważy.
+ * The interface is deliberately narrow: Slice 10 will substitute an
+ * implementation syncing with Firestore, and the rest of the application
+ * won't notice.
  */
 export class LocalScoreStore implements ScoreStore {
   private entries: ScoreEntry[] = this.read();
@@ -241,8 +242,8 @@ export class LocalScoreStore implements ScoreStore {
       if (!Array.isArray(parsed)) return [];
       return parsed.filter(isScoreEntry);
     } catch {
-      // Zepsuta zawartość nie może wywalić gry — gorsze niż brak historii
-      // jest tylko to, że gra się nie uruchamia.
+      // Corrupted content must not crash the game — the only thing worse
+      // than losing the history would be the game failing to start.
       return [];
     }
   }
@@ -251,13 +252,13 @@ export class LocalScoreStore implements ScoreStore {
     try {
       localStorage.setItem(SCORES_KEY, JSON.stringify(this.entries));
     } catch {
-      // Brak miejsca albo tryb prywatny: gra działa dalej, tylko bez historii.
+      // Out of space or private mode: the game keeps working, just without history.
     }
   }
 
   /**
-   * Przycinanie zachowuje najlepszy wynik każdej pary (poziom, format) —
-   * inaczej rekord życia wypadłby po dwustu rozgrywkach.
+   * Trimming preserves the best score for each (level, format) pair —
+   * otherwise a lifetime record would fall out after two hundred games.
    */
   private trim(): void {
     if (this.entries.length <= MAX_ENTRIES) return;
@@ -317,7 +318,7 @@ export class SettingsStore {
       try {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
       } catch {
-        // Ustawienia są wygodą, nie warunkiem gry.
+        // Settings are a convenience, not a condition for playing.
       }
     });
   }
@@ -334,27 +335,27 @@ export class SettingsStore {
 }
 ```
 
-- [ ] **Krok 4: Podepnij zapis wyniku po wygranej**
+- [ ] **Step 4: Wire up saving the score on a win**
 
-W `Game` (Slice 7) dodaj cztery pola i zapis w momencie przejścia na `won`.
-Pola są potrzebne, bo sesja zna planszę, ale nie wie, z jakiego presetu i ziarna
-powstała — a wynik bez tej informacji jest bezużyteczny dla weryfikacji
-(Slice 10).
+In `Game` (Slice 7) add four fields and a save on the transition to `won`.
+The fields are needed because the session knows the board but not which
+preset and seed it came from — and a score without that information is
+useless for verification (Slice 10).
 
 ```typescript
   private readonly scores = inject(SCORE_STORE);
 
-  /** Skąd wzięła się bieżąca plansza — ustawiane w `newGame`. */
+  /** Where the current board came from — set in `newGame`. */
   private currentLevel: LevelId | 'custom' = 'easy';
   private currentFormat: BoardFormat = 'tall';
   private currentSeed = 0;
-  /** Znaczniki czasu kolejnych kliknięć; reduktor zapisuje same identyfikatory. */
+  /** Timestamps of successive clicks; the reducer only stores the ids. */
   private moveTimestamps: number[] = [];
-  /** Zabezpieczenie przed dwukrotnym zapisem tego samego zwycięstwa. */
+  /** Guard against recording the same win twice. */
   private recorded = false;
 
   constructor() {
-    // …istniejący afterNextRender…
+    // …existing afterNextRender…
     effect(() => {
       const session = this.store.session();
       if (session?.status !== 'won' || this.recorded) return;
@@ -368,7 +369,7 @@ powstała — a wynik bez tej informacji jest bezużyteczny dla weryfikacji
         elapsedMs: session.elapsedMs,
         livesLeft: session.lives,
         playedAt: Date.now(),
-        // Zapis przebiegu; Slice 10 wyśle go do weryfikacji.
+        // Record of the playthrough; Slice 10 will send it for verification.
         moves: session.moves,
         timestamps: this.moveTimestamps,
         startedAt: session.startedAt,
@@ -377,25 +378,25 @@ powstała — a wynik bez tej informacji jest bezużyteczny dla weryfikacji
   }
 ```
 
-W `newGame` zapamiętaj parametry i wyzeruj rejestr, a w `handleClick` dopisz
-znacznik czasu:
+In `newGame`, remember the parameters and reset the log, and in
+`handleClick` append a timestamp:
 
 ```typescript
-  // w newGame, po wygenerowaniu planszy:
+  // in newGame, after generating the board:
   this.currentLevel = level;
   this.currentFormat = format;
-  this.currentSeed = usedSeed;   // ziarno zwrócone przez store, nie losowane ponownie
+  this.currentSeed = usedSeed;   // seed returned by the store, not re-rolled
   this.moveTimestamps = [];
   this.recorded = false;
 
-  // w handleClick, przed wywołaniem store.click:
+  // in handleClick, before calling store.click:
   this.moveTimestamps.push(Date.now());
 ```
 
-Żeby `usedSeed` było znane, `GameStore.start` musi wystawić użyte ziarno —
-dodaj do niego sygnał `seed` ustawiany w `start` i `startCustom`.
+For `usedSeed` to be known, `GameStore.start` must expose the seed used —
+add a `seed` signal to it, set in `start` and `startCustom`.
 
-wraz z tokenem DI, żeby Slice 10 mógł podmienić implementację:
+together with a DI token, so Slice 10 can swap the implementation:
 
 ```typescript
 // src/data/score-store.ts — dopisz
@@ -407,47 +408,47 @@ export const SCORE_STORE = new InjectionToken<ScoreStore>('SCORE_STORE', {
 });
 ```
 
-- [ ] **Krok 5: Uruchom testy — mają przejść**
+- [ ] **Step 5: Run tests — they must pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS (8 testów).
+Expected: PASS (8 tests).
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj lokalny magazyn wyników i ustawień"
+git commit -m "Add local score and settings store"
 ```
 
 ---
 
-### Task 2: PWA i praca offline
+### Task 2: PWA and offline support
 
 **Files:**
-- Modify: `angular.json`, `package.json` (przez `ng add`)
-- Create: `ngsw-config.json`, `public/manifest.webmanifest`, ikony
+- Modify: `angular.json`, `package.json` (via `ng add`)
+- Create: `ngsw-config.json`, `public/manifest.webmanifest`, icons
 - Modify: `src/app/app.config.ts`
 
 **Interfaces:**
-- Produces: aplikacja instalowalna, działająca po odcięciu sieci.
+- Produces: an installable application that works after the network is cut.
 
-- [ ] **Krok 1: Dodaj pakiet PWA**
+- [ ] **Step 1: Add the PWA package**
 
 ```bash
 npx ng add @angular/pwa --skip-confirmation
 ```
 
-Schematyk dopisuje `provideServiceWorker` w `app.config.ts`, tworzy
-`ngsw-config.json`, manifest i komplet ikon.
+The schematic adds `provideServiceWorker` to `app.config.ts`, creates
+`ngsw-config.json`, the manifest, and the full set of icons.
 
-- [ ] **Krok 2: Ustaw strategię cache**
+- [ ] **Step 2: Set the cache strategy**
 
-W `ngsw-config.json` upewnij się, że powłoka aplikacji jest pobierana z góry,
-a nie leniwie — gra ma działać offline **od pierwszego uruchomienia po
-instalacji**:
+In `ngsw-config.json`, make sure the app shell is prefetched up front rather
+than lazily — the game must work offline **from the very first launch after
+installation**:
 
 ```json
 {
@@ -473,18 +474,19 @@ instalacji**:
 }
 ```
 
-`updateMode: prefetch` w drugiej grupie jest celowy: ikony i czcionki są małe,
-a ich brak po aktualizacji byłby widoczny natychmiast.
+`updateMode: prefetch` in the second group is deliberate: icons and fonts
+are small, and their absence right after an update would be noticeable
+immediately.
 
-- [ ] **Krok 3: Uzupełnij manifest**
+- [ ] **Step 3: Fill in the manifest**
 
-W `public/manifest.webmanifest`:
+In `public/manifest.webmanifest`:
 
 ```json
 {
   "name": "Arrowz",
   "short_name": "Arrowz",
-  "description": "Gra logiczna ze strzałkami: wyprowadź wszystkie elementy poza planszę.",
+  "description": "An arrow-piece logic puzzle: guide every piece off the board.",
   "theme_color": "#232447",
   "background_color": "#f6f6fa",
   "display": "standalone",
@@ -499,10 +501,10 @@ W `public/manifest.webmanifest`:
 }
 ```
 
-`orientation: portrait` jest zgodne z formatem pionowym plansz, który
-odpowiada ekranowi telefonu (§9).
+`orientation: portrait` matches the tall board format, which corresponds to
+a phone screen (§9).
 
-- [ ] **Krok 4: Sprawdź działanie offline**
+- [ ] **Step 4: Verify offline behavior**
 
 ```bash
 npx ng build
@@ -510,59 +512,60 @@ npx http-server dist/arrowz/browser -p 4300 --silent &
 open http://localhost:4300
 ```
 
-W DevTools:
+In DevTools:
 
-1. **Application → Service Workers**: worker zarejestrowany i aktywny,
-2. **Network → Offline**, przeładuj stronę: aplikacja wstaje,
-3. zagraj partię offline — generacja jest klientowa, więc musi działać,
-4. **Application → Manifest**: brak ostrzeżeń o ikonach.
+1. **Application → Service Workers**: worker registered and active,
+2. **Network → Offline**, reload the page: the app comes up,
+3. play a round offline — generation is client-side, so it must work,
+4. **Application → Manifest**: no warnings about icons.
 
-Zatrzymaj serwer po sprawdzeniu (`kill %1`).
+Stop the server once done (`kill %1`).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Włącz tryb PWA z pracą offline"
+git commit -m "Enable PWA mode with offline support"
 ```
 
 ---
 
-### Task 3: Deploy na Cloudflare Workers
+### Task 3: Deploy to Cloudflare Workers
 
 **Files:**
 - Create: `wrangler.jsonc`
-- Create: `public/.assetsignore` (jeśli potrzebny)
+- Create: `public/.assetsignore` (if needed)
 - Create: `.github/workflows/deploy.yml`
-- Modify: `package.json` (skrypty `deploy`, `preview:cf`)
+- Modify: `package.json` (`deploy`, `preview:cf` scripts)
 
 **Interfaces:**
-- Produces: publiczny adres aplikacji i wdrożenie z CI.
+- Produces: a public address for the application and CI-driven deployment.
 
-Worker **nie ma skryptu** — serwuje wyłącznie zbudowane pliki. To najprostszy
-możliwy układ i dokładnie ten, który Cloudflare zaleca dla stron statycznych.
+The Worker **has no script** — it only serves the built files. This is the
+simplest possible setup, and exactly the one Cloudflare recommends for
+static sites.
 
-- [ ] **Krok 1: Zainstaluj Wranglera**
+- [ ] **Step 1: Install Wrangler**
 
 ```bash
 npm install --save-dev wrangler@latest
-npx wrangler --version   # wymagane 4.x lub nowsze
+npx wrangler --version   # requires 4.x or newer
 ```
 
-- [ ] **Krok 2: Napisz konfigurację**
+- [ ] **Step 2: Write the configuration**
 
 ```jsonc
 // wrangler.jsonc
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "arrowz",
-  // Ustaw na datę wdrożenia (format RRRR-MM-DD).
+  // Set to the deploy date (format YYYY-MM-DD).
   "compatibility_date": "2026-09-07",
   "assets": {
     "directory": "./dist/arrowz/browser",
-    // Trasa /game jest renderowana wyłącznie na kliencie, więc nie ma dla niej
-    // pliku HTML. SPA-owe obsłużenie 404 oddaje index.html z kodem 200,
-    // a router Angulara dobiera właściwy ekran.
+    // The /game route is rendered entirely on the client, so there's no
+    // HTML file for it. SPA-style 404 handling serves index.html with a
+    // 200 status, and the Angular router picks the right screen.
     "not_found_handling": "single-page-application"
   },
   "observability": {
@@ -571,38 +574,39 @@ npx wrangler --version   # wymagane 4.x lub nowsze
 }
 ```
 
-Uwaga: pole `"binding": "ASSETS"` **nie występuje** — jest poprawne wyłącznie
-wtedy, gdy Worker ma skrypt (`main`), a nasz nie ma.
+Note: the `"binding": "ASSETS"` field **does not appear** — it's only valid
+when the Worker has a script (`main`), and ours doesn't.
 
-- [ ] **Krok 3: Zbuduj i sprawdź lokalnie**
+- [ ] **Step 3: Build and verify locally**
 
 ```bash
 npm run build
 npx wrangler dev
 ```
 
-Otwórz podany adres i sprawdź trzy ścieżki:
+Open the printed address and check three paths:
 
-1. `/` — ekran startowy (prerenderowany plik),
-2. `/game?level=easy&format=tall&mode=classic` — gra wstaje mimo braku pliku
-   `game/index.html`,
-3. odświeżenie strony na `/configure` — nie daje 404.
+1. `/` — the start screen (prerendered file),
+2. `/game?level=easy&format=tall&mode=classic` — the game comes up despite
+   there being no `game/index.html` file,
+3. reloading the page on `/configure` — does not give a 404.
 
-Jeśli którakolwiek zwraca 404, `not_found_handling` nie zadziałało — sprawdź,
-czy `assets.directory` wskazuje na katalog **`browser`**, a nie na `dist/`.
+If any of these returns 404, `not_found_handling` did not work — check
+whether `assets.directory` points at the **`browser`** directory, not
+`dist/`.
 
-- [ ] **Krok 4: Wdróż ręcznie po raz pierwszy**
+- [ ] **Step 4: Deploy manually for the first time**
 
 ```bash
 npx wrangler login
 npx wrangler deploy
 ```
 
-Zanotuj adres `*.workers.dev` w README.
+Note the `*.workers.dev` address in the README.
 
-- [ ] **Krok 5: Dodaj skrypty**
+- [ ] **Step 5: Add scripts**
 
-W `package.json`:
+In `package.json`:
 
 ```json
 {
@@ -611,7 +615,7 @@ W `package.json`:
 }
 ```
 
-- [ ] **Krok 6: Wdrożenie z CI**
+- [ ] **Step 6: Deployment from CI**
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -631,8 +635,8 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      # Wdrażamy tylko to, co przeszło testy — rdzeń jest szybki, więc nie ma
-      # powodu, żeby go pominąć.
+      # We only deploy what has passed the tests — the core suite is fast,
+      # so there's no reason to skip it.
       - run: npm run test:core
       - run: npm test
       - run: npm run build
@@ -642,99 +646,102 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
 
-Token utwórz w panelu Cloudflare z uprawnieniem **Edit Cloudflare Workers**
-i zapisz jako sekret repozytorium. Nie umieszczaj go w pliku konfiguracyjnym.
+Create the token in the Cloudflare dashboard with **Edit Cloudflare
+Workers** permission and store it as a repository secret. Do not put it in
+the configuration file.
 
-- [ ] **Krok 7: Sprawdź wdrożoną wersję**
+- [ ] **Step 7: Verify the deployed version**
 
-Otwórz adres produkcyjny i powtórz test offline z Zadania 2 — tym razem na
-prawdziwym HTTPS, bo service worker rejestruje się tylko w bezpiecznym
-kontekście.
+Open the production address and repeat the offline test from Task 2 — this
+time over real HTTPS, since the service worker only registers in a secure
+context.
 
-- [ ] **Krok 8: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj wdrożenie na Cloudflare Workers"
+git commit -m "Add deployment to Cloudflare Workers"
 ```
 
 ---
 
-### Task 4: Domknięcie MVP
+### Task 4: Closing out the MVP
 
 **Files:**
 - Modify: `README.md`
 - Modify: `docs/superpowers/specs/2026-09-07-arrowz-design.md`
 
-- [ ] **Krok 1: Opisz projekt w README**
+- [ ] **Step 1: Describe the project in the README**
 
-README ma odpowiadać na cztery pytania: co to jest, jak uruchomić, jak
-testować, gdzie to stoi.
+The README should answer four questions: what this is, how to run it, how
+to test it, and where it's hosted.
 
 ```markdown
 # Arrowz
 
-Przeglądarkowa gra logiczna: na siatce leżą poplątane, wielokomórkowe strzałki.
-Kliknięcie strzałki próbuje wyprowadzić ją poza planszę w kierunku grotu.
-Kolizja kosztuje życie. Cel: opróżnić planszę, nie tracąc trzech żyć.
+A browser-based logic puzzle: a grid holds a tangle of multi-cell arrows.
+Clicking an arrow tries to guide it off the board in the direction its head
+points. A collision costs a life. Goal: clear the board without losing
+three lives.
 
-## Uruchomienie
+## Running it
 
 ```bash
 npm install
 npm start          # http://localhost:4200
 ```
 
-## Testy i pomiary
+## Tests and measurements
 
 ```bash
-npm run test:core  # rdzeń w Node: generator, solver, reduktor
-npm test           # komponenty i renderer
-npm run bench      # benchmark generatora
-npm run preview    # podgląd SVG do oceny wyglądu
-npm run check      # wszystko naraz, jak w CI
+npm run test:core  # core in Node: generator, solver, reducer
+npm test           # components and renderer
+npm run bench      # generator benchmark
+npm run preview    # SVG preview for visual review
+npm run check      # everything at once, as in CI
 ```
 
-## Dokumentacja
+## Documentation
 
-- specyfikacja: `docs/superpowers/specs/2026-09-07-arrowz-design.md`
-- plan wdrożenia: `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
-- pomiary: `docs/benchmarks/`
+- spec: `docs/superpowers/specs/2026-09-07-arrowz-design.md`
+- implementation plan: `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+- measurements: `docs/benchmarks/`
 ```
 
-- [ ] **Krok 2: Odhacz zakres MVP w specyfikacji**
+- [ ] **Step 2: Check off the MVP scope in the spec**
 
-W §1 specyfikacji dopisz przy każdej pozycji zakresu MVP, czy została
-zrealizowana, i podaj slice. Pozycje niezrealizowane wypisz jawnie — plan
-nie ma udawać, że wszystko wyszło.
+In §1 of the spec, note next to each MVP scope item whether it was
+delivered, and cite the slice. List unfinished items explicitly — the plan
+should not pretend everything went smoothly.
 
-- [ ] **Krok 3: Przejdź całą grę raz jeszcze**
+- [ ] **Step 3: Play through the whole game once more**
 
-Na produkcji, na telefonie i na desktopie:
+In production, on a phone and on desktop:
 
-1. Easy pionowy, wariant klasyczny — do końca,
-2. Nightmare pionowy — sprawdź czas generacji i płynność zoomu,
-3. tryb zaawansowany z ekstremalnymi parametrami — sprawdź raport,
-4. tryb samolotowy — plansza generuje się offline,
-5. instalacja PWA na telefonie i uruchomienie z ikony.
+1. Easy tall, classic variant — to the end,
+2. Nightmare tall — check generation time and zoom smoothness,
+3. advanced mode with extreme parameters — check the report,
+4. airplane mode — the board generates offline,
+5. PWA installation on a phone and launching from the icon.
 
-- [ ] **Krok 4: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "Domknij zakres MVP"
+git commit -m "Close out the MVP scope"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- Gra działa **bez sieci**: po instalacji PWA można rozegrać pełną partię
-  w trybie samolotowym.
-- Wyniki i ustawienia przeżywają zamknięcie karty; zepsuta zawartość
-  `localStorage` nie wywala aplikacji.
-- Aplikacja stoi pod publicznym adresem na Cloudflare Workers, a wdrożenie
-  idzie z CI po merge'u do `main`.
-- Odświeżenie strony na `/game` i `/configure` nie daje 404.
-- README opisuje uruchomienie, testy i pomiary.
-- §1 specyfikacji ma odhaczony zakres MVP, z jawną listą tego, co zostało.
+- The game works **without network access**: after installing the PWA, a
+  full round can be played in airplane mode.
+- Scores and settings survive closing the tab; corrupted `localStorage`
+  content does not crash the application.
+- The application is hosted at a public address on Cloudflare Workers, and
+  deployment runs from CI after a merge to `main`.
+- Reloading the page on `/game` and `/configure` does not give a 404.
+- The README describes running the app, testing, and measurements.
+- §1 of the spec has the MVP scope checked off, with an explicit list of
+  what remains.

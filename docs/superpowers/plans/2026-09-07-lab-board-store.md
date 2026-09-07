@@ -16,7 +16,7 @@
 - The prototype is throwaway code: no npm dependencies, no bundler, ESM loaded directly by the browser.
 - The engine `engine.mjs` knows neither `process` nor DOM; `command.mjs` and `lab-i18n.mjs` must not use `fs`/DOM either (the browser loads them).
 - Never spread arrays proportional to the number of cells (`Math.min(...arr)`) — stack overflow in the worker.
-- `node --test prototype/` must pass after every task.
+- `node --test 'prototype/*.test.mjs'` must pass after every task.
 - No attribution lines in commit messages.
 
 ---
@@ -766,7 +766,7 @@ const params = { ...cli, W: pre.W, H: pre.H, trace, debug }
 
 - [ ] **Step 5: Run all tests and the modes**
 
-Run: `node --test prototype/`
+Run: `node --test 'prototype/*.test.mjs'`
 Expected: all PASS (engine 10, command 4, store 4, server 3, carve 2)
 
 Run: `node prototype/carve.mjs --only=Easy·sq --runs=1 | head -5 && node prototype/carve.mjs --bench=2 --only=Easy·sq | head -4`
@@ -1209,7 +1209,7 @@ $('langEn').addEventListener('click', () => { lang = 'en'; applyLanguage() })
 
 - [ ] **Step 5: Run tests and check in the browser**
 
-Run: `node --test prototype/`
+Run: `node --test 'prototype/*.test.mjs'`
 Expected: all PASS.
 
 Check in Chrome: PL/EN switch changes headings, buttons, knob labels and help texts, inactive reasons, the stats table and the longest table after a generation, the store tab strings; reload keeps the language; a link with `lang` in the hash opens in that language.
@@ -1280,7 +1280,7 @@ Replace the `preview.sh` line in the round-5 section with: "The section-F varian
 
 - [ ] **Step 3: Tests and commit**
 
-Run: `node --test prototype/`
+Run: `node --test 'prototype/*.test.mjs'`
 Expected: all PASS
 
 ```bash

@@ -1,68 +1,70 @@
-# Slice 5 — Pętla gry i punktacja
+# Slice 5 — Game Loop and Scoring
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic implementers:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Kompletna gra jako **czysty reduktor** — grywalna z poziomu testu,
-zanim powstanie choćby jeden piksel interfejsu.
+**Goal:** A complete game as a **pure reducer** — playable from a test,
+before a single pixel of UI exists.
 
-**Architektura:** `game/session.ts` to reduktor bez DOM i bez efektów
-ubocznych. Czas **nie jest odczytywany wewnątrz reduktora**: znacznik `at`
-wchodzi jako pole akcji, a `elapsedMs` jest z niego wyliczane. Reduktor zwraca
-`effect` — gotowe polecenie dla renderera, z odległością odbicia włącznie, żeby
-warstwa wizualna nie musiała niczego wnioskować sama. Punkty naliczają się
-**raz**, przy przejściu na `won`.
+**Architecture:** `game/session.ts` is a reducer with no DOM and no side
+effects. Time **is never read inside the reducer**: the `at` timestamp comes
+in as an action field, and `elapsedMs` is derived from it. The reducer returns
+an `effect` — a ready-made command for the renderer, bounce distance
+included, so the visual layer never has to infer anything itself. Points are
+awarded **once**, on the transition to `won`.
 
-**Stack:** TypeScript strict, Vitest w Node.
+**Stack:** TypeScript strict, Vitest on Node.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§10,
 §12.26–28)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Zero `Date.now()` w `game/`.** Test §12.27 wymaga, żeby ta sama sekwencja
-  akcji z tymi samymi znacznikami dawała identyczny wynik **bez atrapy zegara**.
-  Jeśli test potrzebuje atrapy, reduktor przestał być czysty.
-- Wielokrotne kliknięcie tego samego zablokowanego elementu odejmuje życie
-  **za każdym razem**. Decyzja świadoma, pokryta testem.
-- Wariant na czas **nie narzuca limitu** — stoper wyłącznie mierzy.
-- `streak` i `bestStreak` **nie wchodzą do wyniku**: liczba błędów jest już
-  reprezentowana przez `livesLeft`.
+- **Zero `Date.now()` in `game/`.** Test §12.27 requires that the same
+  sequence of actions with the same timestamps produce an identical result
+  **without a clock mock**. If a test needs a mock, the reducer has stopped
+  being pure.
+- Clicking the same blocked piece repeatedly costs a life **every time**. A
+  deliberate decision, covered by a test.
+- The timed variant **does not impose a limit** — the stopwatch only measures.
+- `streak` and `bestStreak` **do not feed into the score**: the number of
+  mistakes is already represented by `livesLeft`.
 
-## Uzupełnienia specyfikacji w tym slice'ie
+## Spec additions in this slice
 
-1. **`Session.moves`** — rejestr klikniętych identyfikatorów. Bez niego Cloud
-   Function ze Slice'a 10 nie ma czego odtwarzać.
-2. **Mnożniki punktacji ważone różnorodnością planszy.** Formuła z §10, wzięta
-   wprost, **oblewa własny test 26e** — szczegóły w Zadaniu 3.
-3. **Akcja `restart` nie niesie ziarna, tylko opcjonalną planszę.** Reduktor nie
-   generuje plansz: generacja trwa do pół sekundy i wymaga parametrów, których
-   sesja nie zna. Nową planszę podaje warstwa wyżej.
+1. **`Session.moves`** — a log of clicked piece IDs. Without it, the Cloud
+   Function from Slice 10 has nothing to replay.
+2. **Scoring multipliers weighted by board variety.** The formula from §10,
+   taken literally, **fails its own test 26e** — details in Task 3.
+3. **The `restart` action carries no seed, only an optional board.** The
+   reducer does not generate boards: generation takes up to half a second and
+   needs parameters the session doesn't know. A new board is supplied by the
+   layer above.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/game/session.ts` | typy sesji, `createSession`, `reduce` |
-| `src/game/scoring.ts` | formuła punktacji i rozbicie wyniku |
-| `src/game/replay.ts` | odtworzenie rozgrywki z ziarna i sekwencji ruchów |
-| `src/game/*.spec.ts` | testy §12.26–28 |
+| `src/game/session.ts` | session types, `createSession`, `reduce` |
+| `src/game/scoring.ts` | scoring formula and score breakdown |
+| `src/game/replay.ts` | replaying a run from a seed and a move sequence |
+| `src/game/*.spec.ts` | tests §12.26–28 |
 
 ---
 
-### Task 1: Reduktor sesji
+### Task 1: Session reducer
 
 **Files:**
 - Create: `src/game/session.ts`
 - Test: `src/game/session.spec.ts`
 
 **Interfaces:**
-- Consumes: `Board`, `probeMove`, `removePiece`, `Dir` ze Slice'a 1.
+- Consumes: `Board`, `probeMove`, `removePiece`, `Dir` from Slice 1.
 - Produces:
   - `type GameMode = 'classic' | 'timed'`, `type Status = 'playing' | 'won' | 'lost'`
   - `interface Session { board: Board; initialBoard: Board; lives: number; status: Status; removed: number; startedAt: number; elapsedMs: number; mode: GameMode; streak: number; bestStreak: number; score: number; breakdown: ScoreBreakdown | null; moves: number[] }`
@@ -72,7 +74,7 @@ Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
   - `reduce(session: Session, action: Action): { next: Session; effect: Effect }`
   - `INITIAL_LIVES = 3`
 
-- [ ] **Krok 1: Napisz failujące testy reduktora**
+- [ ] **Step 1: Write the failing reducer tests**
 
 ```typescript
 // src/game/session.spec.ts
@@ -81,8 +83,8 @@ import { boardOf, piece } from '../core/testing/fixtures';
 import { createSession, INITIAL_LIVES, reduce, Session } from './session';
 
 /**
- * Kolumna czterech komórek: element 0 (na górze) jest wolny,
- * element 1 (pod nim) jest przez niego zablokowany.
+ * A column of four cells: piece 0 (at the top) is free,
+ * piece 1 (below it) is blocked by it.
  */
 function twoPieceBoard() {
   return withMetrics(
@@ -98,7 +100,7 @@ function fresh(mode: 'classic' | 'timed' = 'classic'): Session {
 }
 
 describe('createSession', () => {
-  it('startuje z trzema życiami i pustym stanem', () => {
+  it('starts with three lives and empty state', () => {
     const s = fresh();
     expect(s.lives).toBe(INITIAL_LIVES);
     expect(s.status).toBe('playing');
@@ -112,8 +114,8 @@ describe('createSession', () => {
   });
 });
 
-describe('reduce — kliknięcie elementu wolnego', () => {
-  it('usuwa element i zwraca efekt wyjazdu', () => {
+describe('reduce — clicking a free piece', () => {
+  it('removes the piece and returns an exit effect', () => {
     const { next, effect } = reduce(fresh(), { type: 'click', pieceId: 0, at: 2_000 });
     expect(effect).toEqual({ kind: 'exit', pieceId: 0, dir: 0 });
     expect(next.board.pieces.has(0)).toBe(false);
@@ -121,27 +123,27 @@ describe('reduce — kliknięcie elementu wolnego', () => {
     expect(next.lives).toBe(3);
   });
 
-  it('podbija serię, ale nie dolicza punktów', () => {
+  it('bumps the streak, but does not add to the score', () => {
     const { next } = reduce(fresh(), { type: 'click', pieceId: 0, at: 2_000 });
     expect(next.streak).toBe(1);
     expect(next.bestStreak).toBe(1);
     expect(next.score).toBe(0); // §12.26a
   });
 
-  it('aktualizuje stoper ze znacznika akcji', () => {
+  it('updates the stopwatch from the action timestamp', () => {
     const { next } = reduce(fresh(), { type: 'click', pieceId: 0, at: 3_500 });
     expect(next.elapsedMs).toBe(2_500);
   });
 
-  it('nie rusza planszy wejściowej', () => {
+  it('does not mutate the input board', () => {
     const s = fresh();
     reduce(s, { type: 'click', pieceId: 0, at: 2_000 });
     expect(s.board.pieces.has(0)).toBe(true);
   });
 });
 
-describe('reduce — kliknięcie elementu zablokowanego', () => {
-  it('zostawia element, odejmuje życie i zwraca odbicie', () => {
+describe('reduce — clicking a blocked piece', () => {
+  it('leaves the piece, subtracts a life, and returns a bounce', () => {
     const { next, effect } = reduce(fresh(), { type: 'click', pieceId: 1, at: 2_000 });
     expect(effect).toEqual({ kind: 'bounce', pieceId: 1, distance: 1, blockerId: 0 });
     expect(next.board.pieces.has(1)).toBe(true);
@@ -149,8 +151,8 @@ describe('reduce — kliknięcie elementu zablokowanego', () => {
     expect(next.removed).toBe(0);
   });
 
-  it('zeruje serię', () => {
-    // Kolumna sześciu komórek: 0 wolny, 1 blokowany przez 0, 2 blokowany przez 1.
+  it('resets the streak', () => {
+    // A column of six cells: 0 free, 1 blocked by 0, 2 blocked by 1.
     const board = withMetrics(
       boardOf(1, 6, [
         piece(0, 0, [[0, 0], [0, 1]]),
@@ -161,13 +163,13 @@ describe('reduce — kliknięcie elementu zablokowanego', () => {
     let s = createSession(board, 'classic', 0);
     s = reduce(s, { type: 'click', pieceId: 0, at: 100 }).next;
     expect(s.streak).toBe(1);
-    s = reduce(s, { type: 'click', pieceId: 2, at: 200 }).next; // wciąż blokowany przez 1
+    s = reduce(s, { type: 'click', pieceId: 2, at: 200 }).next; // still blocked by 1
     expect(s.streak).toBe(0);
     expect(s.bestStreak).toBe(1);
   });
 
-  // Decyzja świadoma: każde kliknięcie zablokowanego elementu kosztuje życie.
-  it('odejmuje życie przy każdym kolejnym kliknięciu tego samego elementu', () => {
+  // Deliberate decision: every click on a blocked piece costs a life.
+  it('subtracts a life on every subsequent click of the same piece', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 1, at: 2_000 }).next;
     s = reduce(s, { type: 'click', pieceId: 1, at: 3_000 }).next;
@@ -175,7 +177,7 @@ describe('reduce — kliknięcie elementu zablokowanego', () => {
     expect(s.status).toBe('playing');
   });
 
-  it('kończy grę przegraną przy zerze żyć', () => {
+  it('ends the game as a loss at zero lives', () => {
     let s = fresh();
     for (const at of [2_000, 3_000, 4_000]) {
       s = reduce(s, { type: 'click', pieceId: 1, at }).next;
@@ -185,8 +187,8 @@ describe('reduce — kliknięcie elementu zablokowanego', () => {
   });
 });
 
-describe('reduce — koniec gry', () => {
-  it('przechodzi na wygraną po opróżnieniu planszy', () => {
+describe('reduce — game end', () => {
+  it('transitions to a win once the board is emptied', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 0, at: 2_000 }).next;
     s = reduce(s, { type: 'click', pieceId: 1, at: 3_000 }).next;
@@ -196,8 +198,8 @@ describe('reduce — koniec gry', () => {
     expect(s.breakdown).not.toBeNull();
   });
 
-  // §12.26b — przegrana daje zero punktów.
-  it('nie przyznaje punktów za przegraną', () => {
+  // §12.26b — a loss yields zero points.
+  it('awards no points for a loss', () => {
     let s = fresh();
     for (const at of [2_000, 3_000, 4_000]) {
       s = reduce(s, { type: 'click', pieceId: 1, at }).next;
@@ -207,7 +209,7 @@ describe('reduce — koniec gry', () => {
     expect(s.breakdown).toBeNull();
   });
 
-  it('ignoruje kliknięcia po zakończeniu gry', () => {
+  it('ignores clicks after the game has ended', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 0, at: 2_000 }).next;
     s = reduce(s, { type: 'click', pieceId: 1, at: 3_000 }).next;
@@ -216,16 +218,16 @@ describe('reduce — koniec gry', () => {
     expect(after.next).toBe(s);
   });
 
-  it('ignoruje kliknięcie w nieistniejący element', () => {
+  it('ignores a click on a nonexistent piece', () => {
     const { next, effect } = reduce(fresh(), { type: 'click', pieceId: 99, at: 2_000 });
     expect(effect).toEqual({ kind: 'none' });
     expect(next.lives).toBe(3);
   });
 });
 
-// §12.28 — tick aktualizuje wyłącznie stoper.
+// §12.28 — tick updates the stopwatch only.
 describe('reduce — tick', () => {
-  it('aktualizuje elapsedMs i nic więcej', () => {
+  it('updates elapsedMs and nothing else', () => {
     const s = fresh();
     const { next, effect } = reduce(s, { type: 'tick', at: 5_500 });
     expect(effect).toEqual({ kind: 'none' });
@@ -235,7 +237,7 @@ describe('reduce — tick', () => {
     expect(next.streak).toBe(s.streak);
   });
 
-  it('zatrzymuje stoper po zakończeniu gry', () => {
+  it('freezes the stopwatch once the game has ended', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 0, at: 2_000 }).next;
     s = reduce(s, { type: 'click', pieceId: 1, at: 3_000 }).next;
@@ -245,7 +247,7 @@ describe('reduce — tick', () => {
 });
 
 describe('reduce — restart', () => {
-  it('przywraca planszę początkową', () => {
+  it('restores the initial board', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 0, at: 2_000 }).next;
     const r = reduce(s, { type: 'restart', at: 5_000 }).next;
@@ -257,7 +259,7 @@ describe('reduce — restart', () => {
     expect(r.moves).toEqual([]);
   });
 
-  it('przyjmuje nową planszę, gdy ją podano', () => {
+  it('accepts a new board when one is supplied', () => {
     const other = withMetrics(boardOf(1, 2, [piece(0, 0, [[0, 0], [0, 1]])]));
     const r = reduce(fresh(), { type: 'restart', at: 5_000, board: other }).next;
     expect(r.board.pieces.size).toBe(1);
@@ -265,9 +267,9 @@ describe('reduce — restart', () => {
   });
 });
 
-// §12.27 — determinizm względem czasu, BEZ atrapy zegara.
-describe('determinizm reduktora', () => {
-  it('daje ten sam wynik dla tej samej sekwencji znaczników', () => {
+// §12.27 — determinism with respect to time, WITHOUT a clock mock.
+describe('reducer determinism', () => {
+  it('gives the same result for the same sequence of timestamps', () => {
     const play = () => {
       let s = fresh('timed');
       s = reduce(s, { type: 'click', pieceId: 1, at: 1_500 }).next;
@@ -284,7 +286,7 @@ describe('determinizm reduktora', () => {
     expect(a.moves).toEqual(b.moves);
   });
 
-  it('rejestruje wszystkie kliknięcia, także błędne', () => {
+  it('records every click, including failed ones', () => {
     let s = fresh();
     s = reduce(s, { type: 'click', pieceId: 1, at: 1_500 }).next;
     s = reduce(s, { type: 'click', pieceId: 0, at: 2_000 }).next;
@@ -293,15 +295,15 @@ describe('determinizm reduktora', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npm run test:core -- session
 ```
 
-Oczekiwane: FAIL — brak modułu `./session`.
+Expected: FAIL — module `./session` not found.
 
-- [ ] **Krok 3: Zaimplementuj reduktor**
+- [ ] **Step 3: Implement the reducer**
 
 ```typescript
 // src/game/session.ts
@@ -316,21 +318,21 @@ export const INITIAL_LIVES = 3;
 
 export interface Session {
   board: Board;
-  /** Plansza w stanie początkowym — potrzebna do restartu i do replayu. */
+  /** The board in its initial state — needed for restart and for replay. */
   initialBoard: Board;
   lives: number;
   status: Status;
   removed: number;
-  /** Znacznik czasu przekazany z zewnątrz; reduktor nigdy nie czyta zegara. */
+  /** Timestamp passed in from outside; the reducer never reads the clock. */
   startedAt: number;
   elapsedMs: number;
   mode: GameMode;
   streak: number;
   bestStreak: number;
-  /** 0 przez całą rozgrywkę; wyliczany raz, przy przejściu na 'won'. */
+  /** 0 for the entire run; computed once, on the transition to 'won'. */
   score: number;
   breakdown: ScoreBreakdown | null;
-  /** Kolejne kliknięte identyfikatory, także błędne — podstawa weryfikacji. */
+  /** Successive clicked IDs, including failed ones — the basis for verification. */
   moves: number[];
 }
 
@@ -411,7 +413,7 @@ export function reduce(session: Session, action: Action): { next: Session; effec
       const board = removePiece(session.board, action.pieceId);
       const streak = session.streak + 1;
       const won = board.pieces.size === 0;
-      // Punkty naliczają się DOKŁADNIE RAZ, przy przejściu na 'won'.
+      // Points are awarded EXACTLY ONCE, on the transition to 'won'.
       const breakdown = won
         ? computeScore({
             metrics: session.initialBoard.metrics,
@@ -443,77 +445,79 @@ export function reduce(session: Session, action: Action): { next: Session; effec
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — sesja zależy od `scoring`, więc na razie zawiodą**
+- [ ] **Step 4: Run the tests — session depends on `scoring`, so it will fail for now**
 
 ```bash
 npm run test:core -- session
 ```
 
-Oczekiwane: FAIL — brak modułu `./scoring`. To jest sygnał do Zadania 2;
-nie zaślepiaj `computeScore` atrapą.
+Expected: FAIL — module `./scoring` not found. This is the signal for
+Task 2; don't stub `computeScore` with a fake.
 
-- [ ] **Krok 5: Commit (po wykonaniu Zadania 2)**
+- [ ] **Step 5: Commit (after completing Task 2)**
 
-Reduktor i punktacja są jednym cyklem czerwony–zielony, bo reduktor bez
-punktacji się nie kompiluje. Commit wykonasz na końcu Zadania 2.
+The reducer and scoring form a single red-green cycle, because the reducer
+doesn't compile without scoring. You'll make the commit at the end of Task 2.
 
 ---
 
-### Task 2: Punktacja odporna na plansze zdegenerowane
+### Task 2: Scoring resistant to degenerate boards
 
 **Files:**
 - Create: `src/game/scoring.ts`
 - Test: `src/game/scoring.spec.ts`
 
 **Interfaces:**
-- Consumes: `BoardMetrics` ze Slice'a 1, metryki liczone w Slice 3.
+- Consumes: `BoardMetrics` from Slice 1, metrics computed in Slice 3.
 - Produces:
   - `interface ScoreInput { metrics: BoardMetrics; width: number; height: number; livesLeft: number; mode: GameMode; elapsedMs: number }`
   - `interface ScoreBreakdown { complexity: number; livesBonus: number; timeBonus: number; total: number }`
   - `computeScore(input: ScoreInput): ScoreBreakdown`
-  - `SCORE_WEIGHTS` — wagi kalibrowane benchmarkiem
+  - `SCORE_WEIGHTS` — weights calibrated by the benchmark
 
-#### Dlaczego formuła z §10 wymaga poprawki
+#### Why the §10 formula needs a fix
 
-Formuła ze specyfikacji, wzięta wprost, **przegrywa własny test 26e**.
-Policzone na planszy 100×100 z samych pionowych domin:
+The formula from the spec, taken literally, **fails its own test 26e**.
+Computed on a 100×100 board made entirely of vertical dominoes:
 
-| Metryka | Domina 100×100 | Nightmare 100×100 |
+| Metric | Domino 100×100 | Nightmare 100×100 |
 |---|---|---|
 | `f0` | 0.020 | 0.059 |
 | `almost1 / n` | ~0.98 | 0.07 |
 | `D` | 49 | 32 |
-| **wynik wg §10** | **~764** | **~274** |
+| **score per §10** | **~764** | **~274** |
 
-Wszystkie trzy metryki wychodzą na planszy zdegenerowanej **lepiej**.
-Przyczyna jest pojęciowa: `almost1` mierzy pokusę do błędu przy założeniu, że
-gracz nie widzi wzoru. Na planszy domin wzór jest oczywisty („bierz
-najwyższe"), więc pokusa jest pozorna, a nie realna.
+All three metrics come out **better** on the degenerate board. The reason is
+conceptual: `almost1` measures the temptation to make a mistake under the
+assumption that the player doesn't see the pattern. On a domino board the
+pattern is obvious ("take the topmost"), so the temptation is illusory, not
+real.
 
-**Poprawka:** trzy mnożniki mierzące *zwodniczość* (`f0`, `almost1`, `D`) są
-ważone współczynnikiem `variety ∈ [0,1]`, liczonym z entropii rozkładu
-długości i kierunków. Mnożnik `meanCorridorLen` **nie jest ważony** — wysiłek
-wzrokowy jest realny niezależnie od tego, czy plansza ma wzór.
+**Fix:** the three multipliers that measure *deceptiveness* (`f0`, `almost1`,
+`D`) are weighted by a `variety ∈ [0,1]` coefficient, computed from the
+entropy of the length and direction distributions. The `meanCorridorLen`
+multiplier **is not weighted** — the visual effort is real regardless of
+whether the board has a pattern.
 
 ```
 variety   = 0.35 · dirEntropy + 0.65 · lenEntropy
 ```
 
-Wyższa waga entropii długości jest celowa: różnorodność długości jest silniejszym
-sygnałem nietrywialności niż sam rozrzut kierunków (plansza z domin
-skierowanych losowo wciąż jest planszą z domin).
+The higher weight on length entropy is deliberate: length variety is a
+stronger signal of non-triviality than direction spread alone (a board of
+randomly oriented dominoes is still a board of dominoes).
 
-Po poprawce: domina ≈ 125 punktów, Nightmare ≈ 250. Test 26e przechodzi
-z zapasem dwukrotnym.
+After the fix: domino ≈ 125 points, Nightmare ≈ 250. Test 26e passes with a
+twofold margin.
 
-- [ ] **Krok 1: Napisz failujące testy (§12.26a–f)**
+- [ ] **Step 1: Write the failing tests (§12.26a–f)**
 
 ```typescript
 // src/game/scoring.spec.ts
 import { BoardMetrics } from '../core/types';
 import { computeScore, ScoreInput } from './scoring';
 
-/** Metryki zmierzone na Nightmare 100×100 (§9 + entropie z benchmarku). */
+/** Metrics measured on Nightmare 100×100 (§9 + entropies from the benchmark). */
 const nightmare: BoardMetrics = {
   n: 1_247,
   f0: 0.059,
@@ -524,7 +528,7 @@ const nightmare: BoardMetrics = {
   lenEntropy: 0.6,
 };
 
-/** Plansza 100×100 z 5 000 pionowych domin: jeden kierunek, jedna długość. */
+/** A 100×100 board with 5,000 vertical dominoes: one direction, one length. */
 const dominoes: BoardMetrics = {
   n: 5_000,
   f0: 0.02,
@@ -546,69 +550,69 @@ const input = (metrics: BoardMetrics, over: Partial<ScoreInput> = {}): ScoreInpu
 });
 
 describe('computeScore', () => {
-  it('zwraca rozbicie, którego składniki mnożą się na całość', () => {
+  it('returns a breakdown whose parts multiply into the total', () => {
     const b = computeScore(input(nightmare));
     expect(b.total).toBe(Math.round(b.complexity * b.livesBonus * b.timeBonus));
   });
 
-  // §12.26e — TEST ANTYEKSPLOATACYJNY.
-  it('punktuje planszę z samych domin wyraźnie niżej niż Nightmare', () => {
+  // §12.26e — ANTI-EXPLOIT TEST.
+  it('scores a board made only of dominoes clearly lower than Nightmare', () => {
     const real = computeScore(input(nightmare)).total;
     const degenerate = computeScore(input(dominoes)).total;
     expect(degenerate).toBeLessThan(real * 0.7);
   });
 
-  it('nie daje się nabrać na losowe kierunki przy jednej długości', () => {
+  it('is not fooled by random directions with a single length', () => {
     const randomDirs = { ...dominoes, dirEntropy: 1, f0: 0.1, d: 30 };
     expect(computeScore(input(randomDirs)).total).toBeLessThan(
       computeScore(input(nightmare)).total,
     );
   });
 
-  it('rośnie z powierzchnią planszy, nie z liczbą kliknięć', () => {
+  it('grows with board area, not with the number of clicks', () => {
     const small = computeScore(input(nightmare, { width: 25, height: 25 })).total;
     const big = computeScore(input(nightmare, { width: 100, height: 100 })).total;
     expect(big).toBeGreaterThan(small * 8);
   });
 
-  // §12.26c — monotoniczność względem żyć.
-  it('nie maleje wraz z liczbą zachowanych żyć', () => {
+  // §12.26c — monotonicity with respect to lives.
+  it('does not decrease with the number of lives kept', () => {
     const one = computeScore(input(nightmare, { livesLeft: 1 })).total;
     const three = computeScore(input(nightmare, { livesLeft: 3 })).total;
     expect(three).toBeGreaterThan(one);
   });
 
-  // §12.26c — monotoniczność względem czasu w wariancie na czas.
-  it('nie maleje przy szybszym ukończeniu w wariancie na czas', () => {
+  // §12.26c — monotonicity with respect to time in the timed variant.
+  it('does not decrease with faster completion in the timed variant', () => {
     const slow = computeScore(input(nightmare, { mode: 'timed', elapsedMs: 3_600_000 })).total;
     const fast = computeScore(input(nightmare, { mode: 'timed', elapsedMs: 300_000 })).total;
     expect(fast).toBeGreaterThan(slow);
   });
 
-  // §12.26d — premia czasowa ograniczona z obu stron.
-  it('ogranicza premię czasową do przedziału [0.6, 1.6]', () => {
+  // §12.26d — time bonus clamped on both sides.
+  it('clamps the time bonus to the [0.6, 1.6] range', () => {
     const instant = computeScore(input(nightmare, { mode: 'timed', elapsedMs: 1 }));
     const eternal = computeScore(input(nightmare, { mode: 'timed', elapsedMs: 10 ** 9 }));
     expect(instant.timeBonus).toBeCloseTo(1.6, 6);
     expect(eternal.timeBonus).toBeCloseTo(0.6, 6);
   });
 
-  it('ignoruje czas w wariancie klasycznym', () => {
+  it('ignores time in the classic variant', () => {
     const fast = computeScore(input(nightmare, { elapsedMs: 1_000 }));
     const slow = computeScore(input(nightmare, { elapsedMs: 10 ** 8 }));
     expect(fast.timeBonus).toBe(1);
     expect(fast.total).toBe(slow.total);
   });
 
-  // §12.26f — czystość.
-  it('jest funkcją czystą', () => {
+  // §12.26f — purity.
+  it('is a pure function', () => {
     const a = computeScore(input(nightmare));
     const b = computeScore(input(nightmare));
     expect(a).toEqual(b);
   });
 
-  it('układa presety w ciąg rosnący', () => {
-    // Wartości metryk z §9 dla formatu kwadratowego; entropie orientacyjne.
+  it('arranges presets into an increasing sequence', () => {
+    // Metric values from §9 for the square format; entropies are indicative.
     const presets: readonly (readonly [string, number, BoardMetrics])[] = [
       ['easy', 25, { n: 98, f0: 0.197, almost1: 22, d: 9, meanCorridorLen: 11, dirEntropy: 1, lenEntropy: 0.55 }],
       ['medium', 50, { n: 354, f0: 0.102, almost1: 46, d: 15, meanCorridorLen: 22, dirEntropy: 1, lenEntropy: 0.58 }],
@@ -623,7 +627,7 @@ describe('computeScore', () => {
     }
   });
 
-  it('nie wywraca się na planszy pustej', () => {
+  it('does not blow up on an empty board', () => {
     const empty: BoardMetrics = {
       n: 0, f0: 0, almost1: 0, d: 0, meanCorridorLen: 0, dirEntropy: 0, lenEntropy: 0,
     };
@@ -634,21 +638,21 @@ describe('computeScore', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npm run test:core -- scoring
 ```
 
-Oczekiwane: FAIL — brak modułu `./scoring`.
+Expected: FAIL — module `./scoring` not found.
 
-- [ ] **Krok 3: Zaimplementuj punktację**
+- [ ] **Step 3: Implement scoring**
 
 ```typescript
 // src/game/scoring.ts
 import { BoardMetrics } from '../core/types';
-// Import TYLKO typu: session.ts importuje computeScore ze scoring.ts, więc
-// zwykły import zrobiłby cykl modułów w czasie wykonania.
+// Type-only import: session.ts imports computeScore from scoring.ts, so a
+// regular import would create a runtime module cycle.
 import type { GameMode } from './session';
 
 export interface ScoreInput {
@@ -661,33 +665,34 @@ export interface ScoreInput {
 }
 
 export interface ScoreBreakdown {
-  /** Złożoność planszy: podstawa punktowa przed premiami. */
+  /** Board complexity: the point base before bonuses. */
   complexity: number;
-  /** 1.00 … 1.75 — premia za zachowane życia. */
+  /** 1.00 … 1.75 — bonus for lives kept. */
   livesBonus: number;
-  /** 1 w wariancie klasycznym, 0.6 … 1.6 w wariancie na czas. */
+  /** 1 in the classic variant, 0.6 … 1.6 in the timed variant. */
   timeBonus: number;
   total: number;
 }
 
 /**
- * Wagi formuły. Kalibrowane benchmarkiem tak, by presety układały się w ciąg
- * rosnący, a plansze zdegenerowane wypadały wyraźnie niżej (§10, §12.26e).
+ * Formula weights. Calibrated against the benchmark so that presets form an
+ * increasing sequence, and degenerate boards score clearly lower
+ * (§10, §12.26e).
  */
 export const SCORE_WEIGHTS = {
-  /** Waga ciasnoty startu (1 − f0). */
+  /** Weight of starting tightness (1 − f0). */
   tightness: 1.0,
-  /** Waga gęstości pokus do błędu (almost1 / n). */
+  /** Weight of the density of temptations to err (almost1 / n). */
   deception: 1.5,
-  /** Waga wysiłku wzrokowego (meanCorridorLen / dłuższy bok). */
+  /** Weight of visual effort (meanCorridorLen / longer side). */
   effort: 0.5,
-  /** Waga głębokości zaplątania (D / sqrt(W·H)). */
+  /** Weight of entanglement depth (D / sqrt(W·H)). */
   entanglement: 0.5,
-  /** Udział entropii kierunków w współczynniku różnorodności. */
+  /** Share of direction entropy in the variety coefficient. */
   varietyDirShare: 0.35,
-  /** Sekundy na element w czasie odniesienia premii czasowej. */
+  /** Seconds per piece in the reference time for the time bonus. */
   secondsPerPiece: 1.5,
-  /** Górne obcięcia mnożników — żaden pojedynczy parametr nie rozsadza wyniku. */
+  /** Upper clamps on the multipliers — no single parameter blows up the score. */
   maxTightness: 0.95,
   maxDeception: 0.35,
   maxEffort: 1,
@@ -697,12 +702,13 @@ export const SCORE_WEIGHTS = {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /**
- * Współczynnik różnorodności planszy.
+ * Board variety coefficient.
  *
- * Mnożniki mierzące ZWODNICZOŚĆ (f0, almost1, D) są przez niego ważone, bo
- * plansza o oczywistym wzorze nie zwodzi nikogo, choćby jej metryki wyglądały
- * groźnie. Bez tego plansza ze 100×100 domin punktuje wyżej niż Nightmare —
- * dokładnie odwrotnie, niż wymaga test antyeksploatacyjny (§12.26e).
+ * The multipliers that measure DECEPTIVENESS (f0, almost1, D) are weighted by
+ * it, because a board with an obvious pattern deceives no one, however
+ * threatening its metrics look. Without this, a 100×100 domino board scores
+ * higher than Nightmare — exactly the opposite of what the anti-exploit test
+ * requires (§12.26e).
  */
 function variety(metrics: BoardMetrics): number {
   const dirShare = SCORE_WEIGHTS.varietyDirShare;
@@ -722,8 +728,8 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
     SCORE_WEIGHTS.deception *
       v *
       clamp(metrics.n > 0 ? metrics.almost1 / metrics.n : 0, 0, SCORE_WEIGHTS.maxDeception);
-  // Wysiłek wzrokowy NIE jest ważony różnorodnością — wodzenie wzrokiem wzdłuż
-  // długiego korytarza kosztuje tyle samo na planszy z wzorem i bez.
+  // Visual effort is NOT weighted by variety — tracing a long corridor with
+  // your eyes costs the same whether or not the board has a pattern.
   const effort =
     1 + SCORE_WEIGHTS.effort * clamp(metrics.meanCorridorLen / longerSide, 0, SCORE_WEIGHTS.maxEffort);
   const entanglement =
@@ -750,46 +756,47 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy punktacji i sesji**
+- [ ] **Step 4: Run the scoring and session tests**
 
 ```bash
 npm run test:core -- scoring
 npm run test:core -- session
 ```
 
-Oczekiwane: PASS w obu. Jeśli test antyeksploatacyjny zawodzi, **nie
-podnoś progu w teście** — sprawdź, czy mnożniki zwodniczości są przemnożone
-przez `variety`.
+Expected: PASS on both. If the anti-exploit test fails, **do not raise the
+test threshold** — check whether the deceptiveness multipliers are multiplied
+by `variety`.
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj reduktor sesji i punktację za ukończoną planszę"
+git commit -m "Add the session reducer and scoring for a completed board"
 ```
 
 ---
 
-### Task 3: Odtwarzanie rozgrywki
+### Task 3: Replaying a run
 
 **Files:**
 - Create: `src/game/replay.ts`
 - Test: `src/game/replay.spec.ts`
 
 **Interfaces:**
-- Consumes: `createLevel`/`createCustomLevel` ze Slice'a 4, `reduce`.
+- Consumes: `createLevel`/`createCustomLevel` from Slice 4, `reduce`.
 - Produces:
   - `interface RunRecord { level: LevelId | 'custom'; format: BoardFormat; seed: number; params?: GeneratorParams; mode: GameMode; moves: number[]; timestamps: number[]; startedAt: number }`
-  - `interface RunSubmission extends RunRecord { claimedScore: number }` — używany
-    po obu stronach sieci w Slice 10
-  - `replayRun(record: RunRecord): Session` — odtwarza sesję od zera
+  - `interface RunSubmission extends RunRecord { claimedScore: number }` — used
+    on both sides of the network in Slice 10
+  - `replayRun(record: RunRecord): Session` — replays a session from scratch
   - `verifyRun(record: RunRecord, claimedScore: number): boolean`
 
-To jest fundament weryfikacji serwerowej ze Slice'a 10: generator jest
-deterministyczny, a gra konfluentna, więc serwer odtwarza rozgrywkę z ziarna
-i sekwencji ruchów i przelicza wynik samodzielnie. Weryfikacja jest liniowa.
+This is the foundation of server-side verification in Slice 10: the generator
+is deterministic and the game is confluent, so the server replays the run
+from the seed and the move sequence and recomputes the score itself.
+Verification is linear.
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write the failing tests**
 
 ```typescript
 // src/game/replay.spec.ts
@@ -798,7 +805,7 @@ import { createLevel } from '../core/level';
 import { createSession, reduce } from './session';
 import { replayRun, RunRecord, verifyRun } from './replay';
 
-/** Rozgrywa poziom bezbłędnie i zwraca zapis przebiegu. */
+/** Plays a level flawlessly and returns the run record. */
 function perfectRun(seed: number): { record: RunRecord; score: number } {
   const { board } = createLevel('easy', 'square', seed);
   let session = createSession(board, 'classic', 0);
@@ -808,7 +815,7 @@ function perfectRun(seed: number): { record: RunRecord; score: number } {
 
   while (session.status === 'playing') {
     const free = [...session.board.pieces.values()].find((p) => probeMove(session.board, p).free);
-    if (!free) throw new Error('konfluencja złamana — brak wolnego elementu');
+    if (!free) throw new Error('confluence broken — no free piece');
     at += 1_000;
     moves.push(free.id);
     timestamps.push(at);
@@ -825,7 +832,7 @@ function perfectRun(seed: number): { record: RunRecord; score: number } {
 }
 
 describe('replayRun', () => {
-  it('odtwarza wygraną rozgrywkę co do punktu', () => {
+  it('replays a won run down to the point', () => {
     const { record, score } = perfectRun(11);
     const replayed = replayRun(record);
     expect(replayed.status).toBe('won');
@@ -833,9 +840,9 @@ describe('replayRun', () => {
     expect(replayed.lives).toBe(3);
   }, 60_000);
 
-  it('odtwarza utratę żyć', () => {
+  it('replays a life loss', () => {
     const { record } = perfectRun(12);
-    // Wstawiamy błędny ruch: klikamy ostatni element jako pierwszy.
+    // Insert a bad move: click the last piece first.
     const bad = record.moves[record.moves.length - 1]!;
     const tampered: RunRecord = {
       ...record,
@@ -848,39 +855,39 @@ describe('replayRun', () => {
 });
 
 describe('verifyRun', () => {
-  it('potwierdza wynik uczciwy', () => {
+  it('confirms an honest score', () => {
     const { record, score } = perfectRun(13);
     expect(verifyRun(record, score)).toBe(true);
   }, 60_000);
 
-  it('odrzuca wynik zawyżony', () => {
+  it('rejects an inflated score', () => {
     const { record, score } = perfectRun(14);
     expect(verifyRun(record, score + 1)).toBe(false);
     expect(verifyRun(record, score * 10)).toBe(false);
   }, 60_000);
 
-  it('odrzuca zapis z ruchami, które nie kończą planszy', () => {
+  it('rejects a record with moves that do not finish the board', () => {
     const { record, score } = perfectRun(15);
     const truncated = { ...record, moves: record.moves.slice(0, 3) };
     expect(verifyRun(truncated, score)).toBe(false);
   }, 60_000);
 
-  it('odrzuca zapis z podmienionym ziarnem', () => {
+  it('rejects a record with a swapped-out seed', () => {
     const { record, score } = perfectRun(16);
     expect(verifyRun({ ...record, seed: record.seed + 1 }, score)).toBe(false);
   }, 60_000);
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm failure**
 
 ```bash
 npm run test:core -- replay
 ```
 
-Oczekiwane: FAIL — brak modułu `./replay`.
+Expected: FAIL — module `./replay` not found.
 
-- [ ] **Krok 3: Zaimplementuj odtwarzanie**
+- [ ] **Step 3: Implement replay**
 
 ```typescript
 // src/game/replay.ts
@@ -893,21 +900,22 @@ export interface RunRecord {
   level: LevelId | 'custom';
   format: BoardFormat;
   seed: number;
-  /** Wypełnione wyłącznie dla poziomów z konfiguratora. */
+  /** Populated only for configurator levels. */
   params?: GeneratorParams;
   mode: GameMode;
   moves: number[];
-  /** Znaczniki czasu kolejnych ruchów; ta sama długość co `moves`. */
+  /** Timestamps of successive moves; same length as `moves`. */
   timestamps: number[];
   startedAt: number;
 }
 
 /**
- * Zapis przebiegu wysyłany na serwer razem z deklarowanym wynikiem.
+ * The run record sent to the server together with the claimed score.
  *
- * Typ mieszka TUTAJ, a nie w warstwie transportu, bo używają go obie strony:
- * klient (Slice 10, `run-submitter.ts`) i funkcja w chmurze, która odtwarza
- * rozgrywkę. Dwie kopie tego interfejsu rozjechałyby się przy pierwszej zmianie.
+ * The type lives HERE, not in the transport layer, because both sides use it:
+ * the client (Slice 10, `run-submitter.ts`) and the cloud function that
+ * replays the run. Two copies of this interface would drift apart at the
+ * first change.
  */
 export interface RunSubmission extends RunRecord {
   claimedScore: number;
@@ -915,17 +923,17 @@ export interface RunSubmission extends RunRecord {
 
 function boardFor(record: RunRecord): Board {
   if (record.level === 'custom') {
-    if (!record.params) throw new Error('Zapis poziomu z konfiguratora bez parametrów.');
+    if (!record.params) throw new Error('Configurator level record without parameters.');
     return createCustomLevel({ ...record.params, seed: record.seed }).board;
   }
   return createLevel(record.level, record.format, record.seed).board;
 }
 
 /**
- * Odtwarza rozgrywkę z ziarna i sekwencji ruchów.
+ * Replays a run from a seed and a move sequence.
  *
- * Możliwe, bo generator jest deterministyczny, a reduktor czysty: te same
- * wejścia dają ten sam stan końcowy, niezależnie od maszyny i zegara.
+ * Possible because the generator is deterministic and the reducer is pure:
+ * the same inputs give the same final state, regardless of machine or clock.
  */
 export function replayRun(record: RunRecord): Session {
   let session = createSession(boardFor(record), record.mode, record.startedAt);
@@ -938,10 +946,10 @@ export function replayRun(record: RunRecord): Session {
 }
 
 /**
- * Czy zgłoszony wynik zgadza się z odtworzoną rozgrywką.
+ * Whether the reported score matches the replayed run.
  *
- * Weryfikacja jest liniowa względem liczby ruchów, więc serwer (Slice 10)
- * może ją przeprowadzić dla każdego zapisu bez kosztu wartego uwagi.
+ * Verification is linear in the number of moves, so the server (Slice 10)
+ * can run it for every record at negligible cost.
  */
 export function verifyRun(record: RunRecord, claimedScore: number): boolean {
   if (record.moves.length !== record.timestamps.length) return false;
@@ -950,38 +958,39 @@ export function verifyRun(record: RunRecord, claimedScore: number): boolean {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they should pass**
 
 ```bash
 npm run test:core -- replay
 ```
 
-Oczekiwane: PASS (6 testów).
+Expected: PASS (6 tests).
 
-- [ ] **Krok 5: Uruchom całość i sprawdź lint**
+- [ ] **Step 5: Run everything and check lint**
 
 ```bash
 npm run test:core && npm run lint
 ```
 
-Oczekiwane: wszystko zielone. Lint pilnuje, że `game/` nie sięgnęło po
-`Date.now()` — gdyby sięgnęło, test §12.27 przestałby cokolwiek znaczyć.
+Expected: everything green. Lint guards against `game/` reaching for
+`Date.now()` — if it did, test §12.27 would stop meaning anything.
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj odtwarzanie i weryfikację rozgrywki"
+git commit -m "Add run replay and verification"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice acceptance criteria
 
-- Gra jest **grywalna z poziomu testu**: `perfectRun` przechodzi planszę Easy
-  od początku do końca i dostaje punkty.
-- Testy §12.26–28 są zielone, w tym antyeksploatacyjny 26e.
-- `score` wynosi 0 przez całą rozgrywkę i zmienia się dokładnie raz.
-- Przegrana daje zero punktów.
-- Reduktor jest deterministyczny bez atrapy zegara.
-- `verifyRun` odrzuca zawyżony wynik, obcięty zapis i podmienione ziarno.
+- The game is **playable from a test**: `perfectRun` clears the Easy board
+  from start to finish and gets points.
+- Tests §12.26–28 are green, including the anti-exploit 26e.
+- `score` is 0 throughout the run and changes exactly once.
+- A loss yields zero points.
+- The reducer is deterministic without a clock mock.
+- `verifyRun` rejects an inflated score, a truncated record, and a
+  swapped-out seed.

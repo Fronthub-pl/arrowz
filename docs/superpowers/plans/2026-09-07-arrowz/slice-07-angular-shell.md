@@ -1,78 +1,81 @@
-# Slice 7 — Powłoka Angular: pierwsza grywalna wersja
+# Slice 7 — Angular Shell: First Playable Version
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Zagrać. Ekran startowy z wyborem poziomu, formatu i wariantu, plansza
-z paskiem stanu, sterowanie zgodne z §11 i ekrany końcowe z rozbiciem wyniku.
+**Goal:** Play. A start screen with level, format, and variant selection, a
+board with a status bar, controls compliant with §11, and end screens with a
+score breakdown.
 
-**Architektura:** `GameStore` to cienka warstwa sygnałów **nad** czystym
-reduktorem — trzyma `Session` w jednym sygnale i woła `reduce`. Cała logika
-gry została w `game/`; store dokłada wyłącznie to, czego reduktor mieć nie
-może: zegar, generację planszy i sterowanie rendererem. Komponenty są
-standalone, zoneless i `OnPush`; nie mają własnego stanu poza widokowym.
+**Architecture:** `GameStore` is a thin signal layer **over** a pure
+reducer — it holds `Session` in a single signal and calls `reduce`. All
+game logic stays in `game/`; the store adds only what the reducer cannot
+have: the clock, board generation, and renderer control. Components are
+standalone, zoneless, and `OnPush`; they carry no state of their own beyond
+view state.
 
-**Stack:** Angular 22 (standalone, zoneless, signals), SVG, Vitest przez
+**Stack:** Angular 22 (standalone, zoneless, signals), SVG, Vitest via
 `@angular/build:unit-test`.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§11)
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Rozstrzygnięcie „ruch czy przesuwanie" musi być jednoznaczne, nie
-  progowe** — na desktopie decyduje modyfikator ⌘/Ctrl, na dotyku rodzaj
-  gestu. Pomyłka kosztuje życie.
-- Warunek modyfikatora sprawdza `event.metaKey || event.ctrlKey`, **bez
-  wykrywania systemu**. Wykrywanie służy wyłącznie do napisu w podpowiedzi;
-  gdyby zawiodło, sterowanie nadal działa.
-- **Zoom jest kontrolką widoczną**, nie tylko gestem: przyciski `+`, `−`
-  i „dopasuj" są jedyną drogą dostępną z klawiatury i przy myszy bez kółka.
-- **Wyniku nie ma na pasku podczas gry.** Punkty pojawiają się dopiero na
-  ekranie wygranej, z rozbiciem na składniki.
-- Wskaźnik ładowania pokazujemy **po 200 ms** — rozkład czasu generacji jest
-  ciężkoogonowy i p99 sięga setek milisekund.
-- Nazwy plików zgodne z konwencją Angular 2025 (`game.ts`, nie
+- **The "move vs. pan" decision must be unambiguous, not
+  threshold-based** — on desktop the ⌘/Ctrl modifier decides, on touch the
+  gesture type does. A mistake costs a life.
+- The modifier check tests `event.metaKey || event.ctrlKey`, **with no
+  OS detection**. Detection is used only for the label in the hint; if it
+  failed, the controls would still work.
+- **Zoom is a visible control**, not just a gesture: the `+`, `−`, and
+  "fit" buttons are the only way accessible from the keyboard and with a
+  mouse without a wheel.
+- **There is no score on the bar during play.** Points appear only on the
+  win screen, broken down into components.
+- We show the loading indicator **after 200 ms** — the generation time
+  distribution is heavy-tailed and p99 reaches hundreds of milliseconds.
+- File names follow the Angular 2025 convention (`game.ts`, not
   `game.component.ts`).
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/ui/game-store.ts` | sygnały nad `Session`: generacja, zegar, akcje |
-| `src/ui/home.ts` | ekran startowy: poziom, format, wariant, wejście do konfiguratora |
-| `src/ui/game.ts` | ekran gry: host SVG, sterowanie, spięcie z rendererem |
-| `src/ui/hud.ts` | pasek stanu: serca, stoper, seria, nowa gra |
-| `src/ui/zoom-controls.ts` | przyciski `+`, `−`, „dopasuj" |
-| `src/ui/result-dialog.ts` | ekrany wygranej i przegranej z rozbiciem wyniku |
-| `src/ui/format-time.ts` | formatowanie stopera |
-| `src/app/app.routes.ts` | podpięcie komponentów pod trasy |
+| `src/ui/game-store.ts` | signals over `Session`: generation, clock, actions |
+| `src/ui/home.ts` | start screen: level, format, variant, entry to the configurator |
+| `src/ui/game.ts` | game screen: SVG host, controls, wiring to the renderer |
+| `src/ui/hud.ts` | status bar: hearts, stopwatch, streak, new game |
+| `src/ui/zoom-controls.ts` | `+`, `−`, "fit" buttons |
+| `src/ui/result-dialog.ts` | win and loss screens with score breakdown |
+| `src/ui/format-time.ts` | stopwatch formatting |
+| `src/app/app.routes.ts` | wiring components to routes |
 
 ---
 
-### Task 1: Store gry
+### Task 1: Game Store
 
 **Files:**
 - Create: `src/ui/game-store.ts`
 - Test: `src/ui/game-store.spec.ts`
 
 **Interfaces:**
-- Consumes: `createLevel`, `createSession`, `reduce`, `Effect` z rdzenia i `game/`.
+- Consumes: `createLevel`, `createSession`, `reduce`, `Effect` from the core and `game/`.
 - Produces:
-  - `class GameStore` z sygnałami:
+  - `class GameStore` with signals:
     `session: Signal<Session | null>`, `loading: Signal<boolean>`,
     `lives`, `elapsedMs`, `streak`, `status`, `board`, `breakdown`
-  - `seed: Signal<number>` — ziarno użytej planszy
-  - metody: `start(level, format, mode, seed?): Promise<void>`,
+  - `seed: Signal<number>` — the seed of the board in use
+  - methods: `start(level, format, mode, seed?): Promise<void>`,
     `click(pieceId: number): Effect`, `restart(): void`, `tick(): void`,
     `dispose(): void`
-  - `provideGameStore()` — rejestracja w DI
+  - `provideGameStore()` — registration in DI
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/ui/game-store.spec.ts
@@ -92,12 +95,12 @@ describe('GameStore', () => {
     store = TestBed.inject(GameStore);
   });
 
-  it('startuje bez sesji', () => {
+  it('starts without a session', () => {
     expect(store.session()).toBeNull();
     expect(store.loading()).toBe(false);
   });
 
-  it('generuje planszę i zaczyna rozgrywkę', async () => {
+  it('generates a board and starts play', async () => {
     await store.start('easy', 'square', 'classic', 1);
     expect(store.loading()).toBe(false);
     expect(store.session()).not.toBeNull();
@@ -106,14 +109,14 @@ describe('GameStore', () => {
     expect(store.board()!.pieces.size).toBeGreaterThan(0);
   }, 30_000);
 
-  it('jest deterministyczny względem ziarna', async () => {
+  it('is deterministic with respect to the seed', async () => {
     await store.start('easy', 'square', 'classic', 42);
     const first = store.board()!.pieces.size;
     await store.start('easy', 'square', 'classic', 42);
     expect(store.board()!.pieces.size).toBe(first);
   }, 30_000);
 
-  it('usuwa wolny element i zwraca efekt wyjazdu', async () => {
+  it('removes a free piece and returns an exit effect', async () => {
     await store.start('easy', 'square', 'classic', 2);
     const board = store.board()!;
     const free = [...board.pieces.values()].find((p) => probeMove(board, p).free)!;
@@ -122,7 +125,7 @@ describe('GameStore', () => {
     expect(store.board()!.pieces.has(free.id)).toBe(false);
   }, 30_000);
 
-  it('odejmuje życie za element zablokowany', async () => {
+  it('subtracts a life for a blocked piece', async () => {
     await store.start('easy', 'square', 'classic', 3);
     const board = store.board()!;
     const blocked = [...board.pieces.values()].find((p) => !probeMove(board, p).free)!;
@@ -131,14 +134,14 @@ describe('GameStore', () => {
     expect(store.lives()).toBe(2);
   }, 30_000);
 
-  it('bierze czas z wstrzykniętego zegara, nie z Date.now', async () => {
+  it('takes time from the injected clock, not from Date.now', async () => {
     await store.start('easy', 'square', 'classic', 4);
     now = 15_000;
     store.tick();
     expect(store.elapsedMs()).toBe(5_000);
   }, 30_000);
 
-  it('restartuje na tej samej planszy', async () => {
+  it('restarts on the same board', async () => {
     await store.start('easy', 'square', 'classic', 5);
     const before = store.board()!.pieces.size;
     const board = store.board()!;
@@ -149,21 +152,21 @@ describe('GameStore', () => {
     expect(store.lives()).toBe(3);
   }, 30_000);
 
-  it('ignoruje kliknięcia bez sesji', () => {
+  it('ignores clicks without a session', () => {
     expect(store.click(0).kind).toBe('none');
   });
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./game-store`.
+Expected: FAIL — missing module `./game-store`.
 
-- [ ] **Krok 3: Zaimplementuj store**
+- [ ] **Step 3: Implement the store**
 
 ```typescript
 // src/ui/game-store.ts
@@ -175,9 +178,9 @@ import { createCustomLevel } from '../core/level';
 import { createSession, Effect, GameMode, reduce, Session } from '../game/session';
 
 /**
- * Zegar jako zależność, nie jako `Date.now()` w kodzie.
- * Reduktor jest czysty (§10), więc czas musi wejść z zewnątrz — a skoro i tak
- * musi, to niech będzie podmienialny w testach.
+ * Clock as a dependency, not as `Date.now()` in the code.
+ * The reducer is pure (§10), so time has to come in from outside — and
+ * since it must anyway, let it be swappable in tests.
  */
 export const CLOCK = new InjectionToken<() => number>('CLOCK', {
   providedIn: 'root',
@@ -196,7 +199,7 @@ export class GameStore {
 
   readonly session = this.state.asReadonly();
   readonly loading = this.generating.asReadonly();
-  /** Ziarno użytej planszy — bez niego nie da się odtworzyć rozgrywki (Slice 10). */
+  /** The seed of the board used — without it, the playthrough can't be replayed (Slice 10). */
   readonly seed = this.usedSeed.asReadonly();
   readonly board = computed<Board | null>(() => this.state()?.board ?? null);
   readonly lives = computed(() => this.state()?.lives ?? 0);
@@ -215,9 +218,9 @@ export class GameStore {
     seed = Math.floor(Math.random() * 2 ** 31),
   ): Promise<void> {
     this.generating.set(true);
-    // Oddajemy wątek na dwie klatki, żeby przeglądarka zdążyła narysować
-    // wskaźnik ładowania PRZED generacją — ta potrafi zająć setki milisekund
-    // i zablokować wątek główny (§11).
+    // We yield the thread for two frames so the browser has time to paint
+    // the loading indicator BEFORE generation — which can take hundreds of
+    // milliseconds and block the main thread (§11).
     await nextFrame();
     await nextFrame();
 
@@ -228,7 +231,7 @@ export class GameStore {
     this.startTimer();
   }
 
-  /** Wariant dla konfiguratora (Slice 8) — parametry zamiast presetu. */
+  /** Variant for the configurator (Slice 8) — parameters instead of a preset. */
   async startCustom(params: GeneratorParams, mode: GameMode): Promise<void> {
     this.generating.set(true);
     await nextFrame();
@@ -268,8 +271,8 @@ export class GameStore {
 
   private startTimer(): void {
     this.stopTimer();
-    // 250 ms wystarcza dla stopera z dokładnością do dziesiątych sekundy,
-    // a nie budzi wątku niepotrzebnie często.
+    // 250 ms is enough for a stopwatch accurate to tenths of a second,
+    // without waking the thread up unnecessarily often.
     this.timer = setInterval(() => this.tick(), 250);
   }
 
@@ -289,10 +292,10 @@ function nextFrame(): Promise<void> {
 }
 ```
 
-- [ ] **Krok 4: Popraw test tokenu zegara**
+- [ ] **Step 4: Fix the clock token test**
 
-Test z Kroku 1 podaje `{ provide: 'CLOCK', … }` jako string. Podmień na
-prawdziwy token:
+The test from Step 1 supplies `{ provide: 'CLOCK', … }` as a string. Replace
+it with the real token:
 
 ```typescript
 import { CLOCK, GameStore } from './game-store';
@@ -300,24 +303,24 @@ import { CLOCK, GameStore } from './game-store';
       providers: [GameStore, { provide: CLOCK, useValue: () => now }],
 ```
 
-- [ ] **Krok 5: Uruchom testy — mają przejść**
+- [ ] **Step 5: Run the tests — they must pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS (8 testów).
+Expected: PASS (8 tests).
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj store gry oparty na sygnałach"
+git commit -m "Add a signal-based game store"
 ```
 
 ---
 
-### Task 2: Pasek stanu i kontrolki zoomu
+### Task 2: Status Bar and Zoom Controls
 
 **Files:**
 - Create: `src/ui/format-time.ts`
@@ -328,11 +331,11 @@ git commit -m "Dodaj store gry oparty na sygnałach"
 **Interfaces:**
 - Produces:
   - `formatTime(ms: number): string`
-  - `Hud` — wejścia `lives`, `elapsedMs`, `streak`, `removed`, `total`;
-    wyjście `newGame`
-  - `ZoomControls` — wyjścia `zoomIn`, `zoomOut`, `fitToScreen`
+  - `Hud` — inputs `lives`, `elapsedMs`, `streak`, `removed`, `total`;
+    output `newGame`
+  - `ZoomControls` — outputs `zoomIn`, `zoomOut`, `fitToScreen`
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write failing tests**
 
 ```typescript
 // src/ui/hud.spec.ts
@@ -342,7 +345,7 @@ import { formatTime } from './format-time';
 import { ZoomControls } from './zoom-controls';
 
 describe('formatTime', () => {
-  it('formatuje minuty i sekundy', () => {
+  it('formats minutes and seconds', () => {
     expect(formatTime(0)).toBe('0:00');
     expect(formatTime(9_400)).toBe('0:09');
     expect(formatTime(65_000)).toBe('1:05');
@@ -351,7 +354,7 @@ describe('formatTime', () => {
 });
 
 describe('Hud', () => {
-  it('pokazuje trzy serca, z których gasną utracone', async () => {
+  it('shows three hearts, with lost ones dimmed', async () => {
     const fixture = TestBed.createComponent(Hud);
     fixture.componentRef.setInput('lives', 2);
     fixture.componentRef.setInput('elapsedMs', 0);
@@ -365,7 +368,7 @@ describe('Hud', () => {
     expect([...hearts].filter((h: Element) => h.classList.contains('lost')).length).toBe(1);
   });
 
-  it('pokazuje stoper i serię', async () => {
+  it('shows the stopwatch and streak', async () => {
     const fixture = TestBed.createComponent(Hud);
     fixture.componentRef.setInput('lives', 3);
     fixture.componentRef.setInput('elapsedMs', 65_000);
@@ -379,8 +382,8 @@ describe('Hud', () => {
     expect(text).toContain('7');
   });
 
-  // §11 — wyniku NIE MA na pasku podczas gry.
-  it('nie pokazuje punktów', async () => {
+  // §11 — the score is NOT on the bar during play.
+  it('does not show the score', async () => {
     const fixture = TestBed.createComponent(Hud);
     fixture.componentRef.setInput('lives', 3);
     fixture.componentRef.setInput('elapsedMs', 1_000);
@@ -388,10 +391,10 @@ describe('Hud', () => {
     fixture.componentRef.setInput('removed', 1);
     fixture.componentRef.setInput('total', 10);
     await fixture.whenStable();
-    expect(fixture.nativeElement.textContent).not.toMatch(/punkt|wynik/i);
+    expect(fixture.nativeElement.textContent).not.toMatch(/point|score/i);
   });
 
-  it('zgłasza żądanie nowej gry', async () => {
+  it('reports a new-game request', async () => {
     const fixture = TestBed.createComponent(Hud);
     fixture.componentRef.setInput('lives', 3);
     fixture.componentRef.setInput('elapsedMs', 0);
@@ -407,8 +410,8 @@ describe('Hud', () => {
 });
 
 describe('ZoomControls', () => {
-  // §11 — gest nie może być jedyną drogą do czynności koniecznej do gry.
-  it('wystawia przyciski dostępne bez myszy i bez gestów', async () => {
+  // §11 — a gesture must not be the only way to do something required to play.
+  it('exposes buttons reachable without a mouse and without gestures', async () => {
     const fixture = TestBed.createComponent(ZoomControls);
     await fixture.whenStable();
     const buttons = fixture.nativeElement.querySelectorAll('button');
@@ -416,7 +419,7 @@ describe('ZoomControls', () => {
     for (const b of buttons) expect(b.getAttribute('aria-label')).toBeTruthy();
   });
 
-  it('zgłasza trzy rodzaje żądań', async () => {
+  it('reports three kinds of requests', async () => {
     const fixture = TestBed.createComponent(ZoomControls);
     const seen: string[] = [];
     fixture.componentInstance.zoomIn.subscribe(() => seen.push('in'));
@@ -432,15 +435,15 @@ describe('ZoomControls', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułów.
+Expected: FAIL — missing modules.
 
-- [ ] **Krok 3: Zaimplementuj komponenty**
+- [ ] **Step 3: Implement the components**
 
 ```typescript
 // src/ui/format-time.ts
@@ -462,21 +465,21 @@ import { formatTime } from './format-time';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hud">
-      <div class="hearts" [attr.aria-label]="'Pozostałe życia: ' + lives()">
+      <div class="hearts" [attr.aria-label]="'Lives remaining: ' + lives()">
         @for (slot of heartSlots(); track $index) {
           <span data-role="heart" class="heart" [class.lost]="!slot">&#9829;</span>
         }
       </div>
 
-      <div class="stat" aria-label="Czas gry">{{ time() }}</div>
+      <div class="stat" aria-label="Game time">{{ time() }}</div>
 
-      <div class="stat" aria-label="Seria bezbłędnych ruchów">
-        <span class="label">seria</span> {{ streak() }}
+      <div class="stat" aria-label="Mistake-free move streak">
+        <span class="label">streak</span> {{ streak() }}
       </div>
 
-      <div class="stat" aria-label="Postęp">{{ removed() }} / {{ total() }}</div>
+      <div class="stat" aria-label="Progress">{{ removed() }} / {{ total() }}</div>
 
-      <button type="button" data-role="new-game" (click)="newGame.emit()">Nowa gra</button>
+      <button type="button" data-role="new-game" (click)="newGame.emit()">New game</button>
     </div>
   `,
   styles: `
@@ -498,7 +501,7 @@ export class Hud {
 
   readonly newGame = output<void>();
 
-  /** Trzy pozycje; `true` = serce zachowane. */
+  /** Three slots; `true` = heart kept. */
   readonly heartSlots = computed(() => [0, 1, 2].map((i) => i < this.lives()));
   readonly time = computed(() => formatTime(this.elapsedMs()));
 }
@@ -509,17 +512,18 @@ export class Hud {
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
 
 /**
- * Zoom musi być kontrolką WIDOCZNĄ, nie tylko gestem: te trzy przyciski są
- * jedyną drogą dostępną z klawiatury i przy myszy bez kółka (§11).
+ * Zoom must be a VISIBLE control, not just a gesture: these three buttons
+ * are the only way accessible from the keyboard and with a mouse without a
+ * wheel (§11).
  */
 @Component({
   selector: 'arw-zoom-controls',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="zoom">
-      <button type="button" data-role="zoom-in" aria-label="Przybliż" (click)="zoomIn.emit()">+</button>
-      <button type="button" data-role="zoom-out" aria-label="Oddal" (click)="zoomOut.emit()">−</button>
-      <button type="button" data-role="zoom-fit" aria-label="Dopasuj planszę do ekranu"
+      <button type="button" data-role="zoom-in" aria-label="Zoom in" (click)="zoomIn.emit()">+</button>
+      <button type="button" data-role="zoom-out" aria-label="Zoom out" (click)="zoomOut.emit()">−</button>
+      <button type="button" data-role="zoom-fit" aria-label="Fit the board to the screen"
               (click)="fitToScreen.emit()">⤢</button>
     </div>
   `,
@@ -535,24 +539,24 @@ export class ZoomControls {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS.
+Expected: PASS.
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj pasek stanu i kontrolki zoomu"
+git commit -m "Add the status bar and zoom controls"
 ```
 
 ---
 
-### Task 3: Ekran gry i sterowanie
+### Task 3: Game Screen and Controls
 
 **Files:**
 - Create: `src/ui/game.ts`
@@ -560,9 +564,9 @@ git commit -m "Dodaj pasek stanu i kontrolki zoomu"
 
 **Interfaces:**
 - Consumes: `GameStore`, `createSvgRenderer`, `viewport`, `Hud`, `ZoomControls`.
-- Produces: komponent `Game` podpięty pod trasę `game`.
+- Produces: the `Game` component wired to the `game` route.
 
-- [ ] **Krok 1: Napisz failujące testy sterowania**
+- [ ] **Step 1: Write failing control tests**
 
 ```typescript
 // src/ui/game.spec.ts
@@ -583,15 +587,15 @@ async function setup() {
   return { fixture, setNow: (v: number) => (now = v) };
 }
 
-describe('Game — sterowanie', () => {
-  it('rysuje planszę w SVG', async () => {
+describe('Game — controls', () => {
+  it('draws the board in SVG', async () => {
     const { fixture } = await setup();
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
     expect(svg.querySelectorAll('polyline').length).toBeGreaterThan(0);
   }, 30_000);
 
-  // §11 — przeciąganie BEZ modyfikatora nie robi nic.
-  it('nie przesuwa planszy bez modyfikatora', async () => {
+  // §11 — dragging WITHOUT the modifier does nothing.
+  it('does not pan the board without the modifier', async () => {
     const { fixture } = await setup();
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
     const before = svg.getAttribute('viewBox');
@@ -602,7 +606,7 @@ describe('Game — sterowanie', () => {
     expect(svg.getAttribute('viewBox')).toBe(before);
   }, 30_000);
 
-  it('przesuwa planszę z modyfikatorem', async () => {
+  it('pans the board with the modifier', async () => {
     const { fixture } = await setup();
     const c = fixture.componentInstance;
     c.zoomIn();
@@ -617,7 +621,7 @@ describe('Game — sterowanie', () => {
     expect(svg.getAttribute('viewBox')).not.toBe(before);
   }, 30_000);
 
-  it('nie traci życia przy próbie przesunięcia', async () => {
+  it('does not lose a life when attempting to pan', async () => {
     const { fixture } = await setup();
     const store = TestBed.inject(GameStore);
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
@@ -627,7 +631,7 @@ describe('Game — sterowanie', () => {
     expect(store.lives()).toBe(3);
   }, 30_000);
 
-  it('przybliża kółkiem do pozycji kursora', async () => {
+  it('zooms in with the wheel toward the cursor position', async () => {
     const { fixture } = await setup();
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
     const before = svg.getAttribute('viewBox');
@@ -636,7 +640,7 @@ describe('Game — sterowanie', () => {
     expect(svg.getAttribute('viewBox')).not.toBe(before);
   }, 30_000);
 
-  it('blokuje domyślny zoom przeglądarki przy ⌘/Ctrl + kółko', async () => {
+  it('blocks the browser default zoom on ⌘/Ctrl + wheel', async () => {
     const { fixture } = await setup();
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
     const event = new WheelEvent('wheel', { deltaY: -120, ctrlKey: true, clientX: 50, clientY: 50, bubbles: true, cancelable: true });
@@ -644,7 +648,7 @@ describe('Game — sterowanie', () => {
     expect(event.defaultPrevented).toBe(true);
   }, 30_000);
 
-  it('obsługuje klawisze zoomu', async () => {
+  it('handles zoom keys', async () => {
     const { fixture } = await setup();
     const svg = fixture.nativeElement.querySelector('svg[data-role="board"]');
     const zoomed = fixture.componentInstance;
@@ -656,7 +660,7 @@ describe('Game — sterowanie', () => {
     expect(svg.getAttribute('viewBox')).not.toBe(afterZoom);
   }, 30_000);
 
-  it('podpowiada właściwy modyfikator dla platformy', async () => {
+  it('hints the correct modifier for the platform', async () => {
     const { fixture } = await setup();
     const hint = fixture.nativeElement.querySelector('[data-role="pan-hint"]').textContent as string;
     expect(hint).toMatch(/⌘|Ctrl/);
@@ -664,15 +668,15 @@ describe('Game — sterowanie', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./game`.
+Expected: FAIL — missing module `./game`.
 
-- [ ] **Krok 3: Zaimplementuj ekran gry**
+- [ ] **Step 3: Implement the game screen**
 
 ```typescript
 // src/ui/game.ts
@@ -691,7 +695,7 @@ import { Hud } from './hud';
 import { ResultDialog } from './result-dialog';
 import { ZoomControls } from './zoom-controls';
 
-/** Próg odległości odróżniający dotknięcie od przeciągnięcia — tylko dotyk. */
+/** Distance threshold distinguishing a tap from a drag — touch only. */
 const TOUCH_DRAG_PX = 12;
 
 @Component({
@@ -719,11 +723,11 @@ const TOUCH_DRAG_PX = 12;
       <arw-zoom-controls (zoomIn)="zoomIn()" (zoomOut)="zoomOut()" (fitToScreen)="fitToScreen()" />
 
       @if (store.loading()) {
-        <div class="loading" role="status">Generuję planszę…</div>
+        <div class="loading" role="status">Generating the board…</div>
       }
 
       <p class="hint" data-role="pan-hint">
-        Przeciągaj z {{ panModifierLabel }}, żeby przesunąć planszę.
+        Drag with {{ panModifierLabel }} to pan the board.
       </p>
     </div>
 
@@ -740,9 +744,9 @@ const TOUCH_DRAG_PX = 12;
     .stage { position: relative; width: 100%; height: calc(100dvh - 3rem); }
     .board { width: 100%; height: 100%; background: #f6f6fa; touch-action: none; display: block; }
     .hint { position: absolute; left: .75rem; bottom: .75rem; margin: 0; opacity: .55; font-size: .85rem; }
-    /* Wskaźnik pojawia się dopiero po 200 ms i animuje przezroczystość, więc
-       jest składany przez kompozytor i widać go nawet wtedy, gdy generacja
-       zablokowała wątek główny (§11). */
+    /* The indicator appears only after 200 ms and animates opacity, so it
+       is composited and stays visible even when generation has blocked
+       the main thread (§11). */
     .loading {
       position: absolute; inset: 0; display: grid; place-items: center;
       background: #f6f6faee; opacity: 0; animation: appear .15s ease 200ms forwards;
@@ -762,8 +766,8 @@ export class Game implements OnDestroy {
   protected readonly totalPieces = signal(0);
 
   /**
-   * Warunek modyfikatora sprawdza metaKey || ctrlKey BEZ wykrywania systemu.
-   * Wykrywanie służy wyłącznie do napisu — gdyby zawiodło, sterowanie działa.
+   * The modifier check tests metaKey || ctrlKey WITHOUT OS detection.
+   * Detection is used only for the label — if it failed, controls still work.
    */
   protected readonly panModifierLabel =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '')
@@ -802,7 +806,7 @@ export class Game implements OnDestroy {
   }
 
   protected onWheel(event: WheelEvent): void {
-    // Przechwytujemy także ⌘/Ctrl + kółko, żeby nie zadziałał zoom przeglądarki.
+    // We also intercept ⌘/Ctrl + wheel so the browser's own zoom doesn't fire.
     event.preventDefault();
     const host = this.boardRef().nativeElement;
     const rect = host.getBoundingClientRect();
@@ -818,8 +822,8 @@ export class Game implements OnDestroy {
       this.boardRef().nativeElement.setPointerCapture(event.pointerId);
       return;
     }
-    // Na dotyku modyfikatora nie ma, więc rozstrzyga próg odległości —
-    // to jedyne miejsce, gdzie decyzja pozostaje progowa (§11).
+    // On touch there is no modifier, so the distance threshold decides —
+    // this is the one place where the decision stays threshold-based (§11).
     if (event.pointerType === 'touch') this.touchFrom = { x: event.clientX, y: event.clientY };
   }
 
@@ -896,8 +900,8 @@ export class Game implements OnDestroy {
     if (!this.viewport || !this.renderer) return;
     this.viewport = update(this.viewport);
     this.renderer.setViewport(this.viewport);
-    // viewBox() jest tu tylko po to, żeby test miał co porównywać —
-    // renderer ustawia atrybut sam.
+    // viewBox() is here only so the test has something to compare —
+    // the renderer sets the attribute itself.
     void viewBox(this.viewport);
   }
 
@@ -913,25 +917,25 @@ export class Game implements OnDestroy {
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: PASS. Test „nie traci życia przy próbie przesunięcia" jest
-najważniejszy w tym zadaniu — pilnuje ryzyka z §14.
+Expected: PASS. The "does not lose a life when attempting to pan" test is
+the most important one in this task — it guards against the risk from §14.
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj ekran gry ze sterowaniem planszą"
+git commit -m "Add the game screen with board controls"
 ```
 
 ---
 
-### Task 4: Ekran startowy i ekrany końcowe
+### Task 4: Start Screen and End Screens
 
 **Files:**
 - Create: `src/ui/home.ts`
@@ -940,9 +944,9 @@ git commit -m "Dodaj ekran gry ze sterowaniem planszą"
 - Test: `src/ui/result-dialog.spec.ts`
 
 **Interfaces:**
-- Produces: `Home` (trasa `''`), `ResultDialog` (używany przez `Game`).
+- Produces: `Home` (route `''`), `ResultDialog` (used by `Game`).
 
-- [ ] **Krok 1: Napisz failujące testy ekranu końcowego**
+- [ ] **Step 1: Write failing end-screen tests**
 
 ```typescript
 // src/ui/result-dialog.spec.ts
@@ -962,29 +966,29 @@ async function render(status: 'won' | 'lost', b = breakdown) {
 }
 
 describe('ResultDialog', () => {
-  // §11 — rozbicie jest ważniejsze niż sama liczba.
-  it('pokazuje rozbicie wyniku po wygranej', async () => {
+  // §11 — the breakdown matters more than the number itself.
+  it('shows the score breakdown after a win', async () => {
     const fixture = await render('won');
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('383');
-    expect(text).toMatch(/złożoność/i);
-    expect(text).toMatch(/życia|życiach/i);
-    expect(text).toMatch(/czas/i);
+    expect(text).toMatch(/complexity/i);
+    expect(text).toMatch(/lives/i);
+    expect(text).toMatch(/time/i);
   });
 
-  it('nie pokazuje premii czasowej, gdy jest neutralna', async () => {
+  it('does not show the time bonus when it is neutral', async () => {
     const fixture = await render('won', { ...breakdown, timeBonus: 1 });
     expect(fixture.nativeElement.querySelector('[data-role="time-bonus"]')).toBeNull();
   });
 
-  it('po przegranej mówi wprost o zerze punktów', async () => {
+  it('states zero points outright after a loss', async () => {
     const fixture = await render('lost');
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toMatch(/0 punktów|zero punktów/i);
+    expect(text).toMatch(/0 points|zero points/i);
     expect(fixture.nativeElement.querySelector('[data-role="complexity"]')).toBeNull();
   });
 
-  it('proponuje kolejną grę', async () => {
+  it('offers another game', async () => {
     const fixture = await render('lost');
     let asked = 0;
     fixture.componentInstance.playAgain.subscribe(() => asked++);
@@ -994,15 +998,15 @@ describe('ResultDialog', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npx ng test --watch=false
 ```
 
-Oczekiwane: FAIL — brak modułu `./result-dialog`.
+Expected: FAIL — missing module `./result-dialog`.
 
-- [ ] **Krok 3: Zaimplementuj ekrany**
+- [ ] **Step 3: Implement the screens**
 
 ```typescript
 // src/ui/result-dialog.ts
@@ -1018,35 +1022,35 @@ import { formatTime } from './format-time';
     <div class="overlay" role="dialog" aria-modal="true">
       <div class="panel">
         @if (status() === 'won') {
-          <h2>Plansza pusta</h2>
+          <h2>Board cleared</h2>
           <p class="total">{{ breakdown()!.total }}</p>
 
           <dl>
             <div data-role="complexity">
-              <dt>złożoność planszy</dt>
+              <dt>board complexity</dt>
               <dd>{{ breakdown()!.complexity | number: '1.0-0' }}</dd>
             </div>
             <div data-role="lives-bonus">
-              <dt>premia za zachowane życia</dt>
+              <dt>bonus for lives kept</dt>
               <dd>×{{ breakdown()!.livesBonus | number: '1.2-2' }}</dd>
             </div>
             @if (showTimeBonus()) {
               <div data-role="time-bonus">
-                <dt>premia czasowa ({{ time() }})</dt>
+                <dt>time bonus ({{ time() }})</dt>
                 <dd>×{{ breakdown()!.timeBonus | number: '1.2-2' }}</dd>
               </div>
             }
           </dl>
         } @else {
-          <h2>Koniec żyć</h2>
-          <p class="total">0 punktów</p>
+          <h2>Out of lives</h2>
+          <p class="total">0 points</p>
           <p class="note">
-            Punkty przyznajemy wyłącznie za ukończoną planszę.
-            Najdłuższa seria: {{ bestStreak() }}.
+            Points are awarded only for a completed board.
+            Longest streak: {{ bestStreak() }}.
           </p>
         }
 
-        <button type="button" data-role="play-again" (click)="playAgain.emit()">Jeszcze raz</button>
+        <button type="button" data-role="play-again" (click)="playAgain.emit()">Play again</button>
       </div>
     </div>
   `,
@@ -1069,13 +1073,13 @@ export class ResultDialog {
   readonly playAgain = output<void>();
 
   readonly time = computed(() => formatTime(this.elapsedMs()));
-  /** W wariancie klasycznym premia wynosi dokładnie 1 i nie ma czego pokazywać. */
+  /** In the classic variant the bonus is exactly 1 and there is nothing to show. */
   readonly showTimeBonus = computed(() => (this.breakdown()?.timeBonus ?? 1) !== 1);
 }
 ```
 
-Uwaga: `| number` wymaga importu `DecimalPipe`. Dopisz go do `imports`
-komponentu:
+Note: `| number` requires importing `DecimalPipe`. Add it to the component's
+`imports`:
 
 ```typescript
 import { DecimalPipe } from '@angular/common';
@@ -1097,10 +1101,10 @@ import { GameMode } from '../game/session';
   template: `
     <main class="home">
       <h1>Arrowz</h1>
-      <p class="lead">Wyprowadź wszystkie strzałki poza planszę. Masz trzy życia.</p>
+      <p class="lead">Move every arrow off the board. You have three lives.</p>
 
       <fieldset>
-        <legend>Poziom</legend>
+        <legend>Level</legend>
         @for (level of levels; track level) {
           <label>
             <input type="radio" name="level" [value]="level"
@@ -1118,26 +1122,26 @@ import { GameMode } from '../game/session';
             <input type="radio" name="format" [value]="format"
                    [checked]="format === selectedFormat()"
                    (change)="selectedFormat.set(format)" />
-            {{ format === 'square' ? 'kwadrat' : 'pionowy' }}
+            {{ format === 'square' ? 'square' : 'tall' }}
           </label>
         }
       </fieldset>
 
       <fieldset>
-        <legend>Wariant</legend>
+        <legend>Variant</legend>
         @for (mode of modes; track mode) {
           <label>
             <input type="radio" name="mode" [value]="mode"
                    [checked]="mode === selectedMode()"
                    (change)="selectedMode.set(mode)" />
-            {{ mode === 'classic' ? 'klasyczny' : 'na czas' }}
+            {{ mode === 'classic' ? 'classic' : 'timed' }}
           </label>
         }
       </fieldset>
 
-      <button type="button" data-role="play" (click)="play()">Graj</button>
+      <button type="button" data-role="play" (click)="play()">Play</button>
       <button type="button" data-role="advanced" (click)="openConfigurator()">
-        Tryb zaawansowany
+        Advanced mode
       </button>
     </main>
   `,
@@ -1153,8 +1157,8 @@ export class Home {
   protected readonly levels = ALL_LEVELS;
   protected readonly modes: readonly GameMode[] = ['classic', 'timed'];
   protected readonly labels: Record<LevelId, string> = {
-    easy: 'Łatwy 25', medium: 'Średni 50', hard: 'Trudny 75',
-    nightmare: 'Koszmar 100', extreme: 'Skrajny 200',
+    easy: 'Easy 25', medium: 'Medium 50', hard: 'Hard 75',
+    nightmare: 'Nightmare 100', extreme: 'Extreme 200',
   };
 
   protected readonly selectedLevel = signal<LevelId>('easy');
@@ -1167,8 +1171,8 @@ export class Home {
 
   protected selectLevel(level: LevelId): void {
     this.selectedLevel.set(level);
-    // Extreme istnieje tylko jako kwadrat — pilnujemy, żeby wybór formatu
-    // nie został w stanie niemożliwym do wygenerowania.
+    // Extreme exists only as a square — we make sure the format selection
+    // doesn't end up in a state that can't be generated.
     if (!formatsFor(level).includes(this.selectedFormat())) this.selectedFormat.set('square');
   }
 
@@ -1188,30 +1192,30 @@ export class Home {
 }
 ```
 
-- [ ] **Krok 4: Podepnij komponenty pod trasy i odczytaj parametry**
+- [ ] **Step 4: Wire the components to routes and read the parameters**
 
-W `src/app/app.routes.ts`:
+In `src/app/app.routes.ts`:
 
 ```typescript
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   { path: '', title: 'Arrowz', loadComponent: () => import('../ui/home').then((m) => m.Home) },
-  { path: 'game', title: 'Arrowz — gra', loadComponent: () => import('../ui/game').then((m) => m.Game) },
+  { path: 'game', title: 'Arrowz — game', loadComponent: () => import('../ui/game').then((m) => m.Game) },
   { path: '**', redirectTo: '' },
 ];
 ```
 
-W `Game` dodaj start z parametrów trasy — komponent nie może czekać, aż ktoś
-zawoła `newGame` ręcznie:
+In `Game`, add starting from route parameters — the component cannot wait
+for someone to call `newGame` manually:
 
 ```typescript
-// dopisz w klasie Game
+// add to the Game class
   private readonly route = inject(ActivatedRoute);
 
   constructor() {
-    // Parametry trasy są jedynym wejściem: ekran startowy przekazuje wybór
-    // przez URL, więc odświeżenie strony odtwarza ten sam poziom.
+    // Route parameters are the only input: the start screen passes the
+    // selection via the URL, so refreshing the page reproduces the same level.
     afterNextRender(() => {
       const q = this.route.snapshot.queryParamMap;
       void this.newGame(
@@ -1223,49 +1227,49 @@ zawoła `newGame` ręcznie:
   }
 ```
 
-z importami `ActivatedRoute` z `@angular/router` i `afterNextRender`
-z `@angular/core`. `afterNextRender` jest tu istotny: kod dotyka DOM
-(`getBoundingClientRect`), a trasa `game` jest wprawdzie klientowa, ale
-komponent bywa tworzony także w testach bez layoutu.
+with imports of `ActivatedRoute` from `@angular/router` and `afterNextRender`
+from `@angular/core`. `afterNextRender` matters here: the code touches the
+DOM (`getBoundingClientRect`), and while the `game` route is client-side,
+the component can also be created in tests without a layout.
 
-W `Game` dodaj też provider store'u:
+In `Game`, also add the store provider:
 
 ```typescript
   providers: [GameStore],
 ```
 
-- [ ] **Krok 5: Uruchom testy i aplikację**
+- [ ] **Step 5: Run the tests and the app**
 
 ```bash
 npx ng test --watch=false
 npx ng serve
 ```
 
-Zagraj w Easy w formacie pionowym. Sprawdź ręcznie pięć rzeczy:
+Play Easy in the tall format. Check five things manually:
 
-1. kliknięcie wolnego elementu wyprowadza go poza planszę,
-2. kliknięcie zablokowanego pokazuje odbicie **do miejsca blokady** i zabiera
-   serce,
-3. przeciąganie bez modyfikatora nic nie robi, z ⌘/Ctrl przesuwa planszę,
-4. kółko, przyciski `+`/`−`, klawisze i podwójne kliknięcie sterują zoomem,
-5. po opróżnieniu planszy pojawia się ekran z rozbiciem wyniku.
+1. clicking a free piece moves it off the board,
+2. clicking a blocked one shows a bounce **to the point of the jam** and
+   takes a life,
+3. dragging without the modifier does nothing, with ⌘/Ctrl it pans the board,
+4. the wheel, `+`/`−` buttons, keys, and double-click control zoom,
+5. once the board is emptied, a screen with the score breakdown appears.
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj ekran startowy i ekrany końcowe"
+git commit -m "Add the start screen and end screens"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- **Gra jest grywalna**: od ekranu startowego, przez planszę, po ekran wyniku.
-- `npx ng test` i `npm run test:core` przechodzą.
-- Przeciąganie bez modyfikatora nie rusza planszy i **nie kosztuje życia**.
-- Zoom działa z kółka, przycisków, klawiszy i podwójnego kliknięcia; przyciski
-  mają etykiety dostępnościowe.
-- Wyniku nie ma na pasku podczas gry; ekran wygranej pokazuje rozbicie.
-- Wskaźnik ładowania pojawia się przy dłuższych generacjach, a nie migocze
-  przy krótkich.
+- **The game is playable**: from the start screen, through the board, to the result screen.
+- `npx ng test` and `npm run test:core` pass.
+- Dragging without the modifier does not move the board and **does not cost a life**.
+- Zoom works from the wheel, buttons, keys, and double-click; buttons have
+  accessibility labels.
+- There is no score on the bar during play; the win screen shows the breakdown.
+- The loading indicator appears for longer generations and does not flicker
+  for short ones.

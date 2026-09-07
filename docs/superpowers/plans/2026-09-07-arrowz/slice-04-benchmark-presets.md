@@ -1,50 +1,52 @@
-# Slice 4 — Benchmark, presety i kalibracja
+# Slice 4 — Benchmark, presets, and calibration
 
-> **Dla wykonawców agentowych:** WYMAGANA PODUMIEJĘTNOŚĆ: użyj
-> `superpowers:subagent-driven-development` (zalecane) albo
-> `superpowers:executing-plans`. Kroki mają checkboxy (`- [ ]`).
+> **For agentic executors:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).
 
-**Cel:** Zamienić liczby z §9 specyfikacji — jawnie oznaczone jako **wstępne** —
-na wartości zmierzone na docelowej implementacji, i wystawić `createLevel()`,
-które zawsze oddaje planszę rozwiązywalną i mieszczącą się w paśmie trudności.
+**Goal:** Replace the numbers from §9 of the spec — explicitly marked as
+**provisional** — with values measured on the target implementation, and
+expose `createLevel()`, which always returns a board that is solvable and
+falls within the difficulty band.
 
-**Architektura:** Presety Easy–Extreme to **nazwane instancje
-`GeneratorParams`**, nie osobna gałąź kodu — jedno źródło prawdy dla generatora
-i konfiguratora. Nad generatorem stoi pętla **generuj–zmierz–odrzuć**: plansza
-poza pasmem trudności jest odrzucana i losowana ponownie z innym ziarnem.
-Budżet prób jest ograniczony; po jego wyczerpaniu oddajemy najlepszy wynik,
-żeby gra nigdy nie zawiesiła się przy starcie poziomu.
+**Architecture:** The Easy–Extreme presets are **named instances of
+`GeneratorParams`**, not a separate code path — a single source of truth for
+both the generator and the configurator. On top of the generator sits a
+**generate–measure–reject** loop: a board outside the difficulty band is
+rejected and regenerated with a different seed. The attempt budget is
+bounded; once exhausted, we return the best result so far, so the game never
+hangs when starting a level.
 
-**Stack:** TypeScript strict, Vitest, `tsx` do uruchamiania benchmarku.
+**Stack:** TypeScript strict, Vitest, `tsx` to run the benchmark.
 
 **Spec:** `docs/superpowers/specs/2026-09-07-arrowz-design.md` (§7, §9, §12
-„Benchmark")
+"Benchmark")
 
-**Mapa:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
+**Map:** `docs/superpowers/plans/2026-09-07-arrowz-implementation.md`
 
 ## Global Constraints
 
-Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
+The constraints from the implementation map apply. Critical for this slice:
 
-- **Wypełnienie nie jest parametrem** — jest zawsze 100%. Liczba linii
-  i średnia długość to **jedna wielkość**: `średnia = W·H / liczba linii`.
-- Progi trudności skalują się z liczbą elementów, więc używamy **udziałów**,
-  nie liczb bezwzględnych.
-- Rozkład czasu generacji jest skrajnie ciężkoogonowy — raportujemy **p50, p90,
-  p99 i maksimum**, nigdy samą średnią.
+- **Fill is not a parameter** — it is always 100%. Line count and mean
+  length are **a single quantity**: `mean = W·H / line count`.
+- Difficulty thresholds scale with piece count, so we use **shares/ratios**,
+  not absolute counts.
+- The generation-time distribution is extremely heavy-tailed — we report
+  **p50, p90, p99, and maximum**, never the mean alone.
 
 ## File Structure
 
-| Plik | Odpowiedzialność |
+| File | Responsibility |
 |---|---|
-| `src/core/presets.ts` | poziomy, formaty, `presetParams()`, pasma akceptacji |
-| `src/core/level.ts` | `createLevel()`: pętla generuj–zmierz–odrzuć |
-| `tools/bench.ts` | benchmark CLI: rozkład czasu, metryki, nawroty, restarty |
-| `docs/benchmarks/` | raporty z pomiarów (wynik uruchomienia benchmarku) |
+| `src/core/presets.ts` | levels, formats, `presetParams()`, acceptance bands |
+| `src/core/level.ts` | `createLevel()`: the generate–measure–reject loop |
+| `tools/bench.ts` | benchmark CLI: time distribution, metrics, backtracks, restarts |
+| `docs/benchmarks/` | measurement reports (benchmark run output) |
 
 ---
 
-### Task 1: Presety i pasma trudności
+### Task 1: Presets and difficulty bands
 
 **Files:**
 - Create: `src/core/presets.ts`
@@ -59,71 +61,71 @@ Obowiązują ograniczenia z mapy wdrożenia. Krytyczne dla tego slice'a:
   - `difficultyBand(level: LevelId, format: BoardFormat): DifficultyBand`
   - `LEVEL_SIZES: Record<LevelId, number>`
 
-Dwa **niezależne pokrętła**: poziom (rozmiar bazowy `n`) i format (`n×n` albo
-`n×2n`). Format sam podnosi trudność — plansza pionowa ma krótsze korytarze
-poziome, więc `f0` spada (Nightmare: 0.038 wobec 0.059). Dlatego pasma są
-kalibrowane **per format**.
+Two **independent knobs**: level (base size `n`) and format (`n×n` or
+`n×2n`). Format alone raises the difficulty — a tall board has shorter
+horizontal corridors, so `f0` drops (Nightmare: 0.038 vs. 0.059). That's why
+the bands are calibrated **per format**.
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write the failing tests**
 
 ```typescript
 // src/core/presets.spec.ts
 import { LEVEL_SIZES, difficultyBand, presetParams } from './presets';
 
 describe('presetParams', () => {
-  it('daje rozmiary zgodne ze specyfikacją', () => {
+  it('gives sizes matching the spec', () => {
     expect(presetParams('easy', 'square', 1)).toMatchObject({ width: 25, height: 25 });
     expect(presetParams('easy', 'tall', 1)).toMatchObject({ width: 25, height: 50 });
     expect(presetParams('nightmare', 'square', 1)).toMatchObject({ width: 100, height: 100 });
     expect(presetParams('nightmare', 'tall', 1)).toMatchObject({ width: 100, height: 200 });
   });
 
-  it('skaluje maxLength z dłuższym bokiem', () => {
+  it('scales maxLength with the longer side', () => {
     expect(presetParams('easy', 'tall', 1).maxLength).toBe(Math.round(2.5 * 50));
     expect(presetParams('medium', 'square', 1).maxLength).toBe(Math.round(2.5 * 50));
   });
 
-  it('używa wag skalibrowanych wzrokowo', () => {
+  it('uses visually calibrated weights', () => {
     expect(presetParams('hard', 'square', 1).bucketWeights).toEqual([0.5, 0.2, 0.3]);
     expect(presetParams('hard', 'square', 1).warnsdorff).toBe(4);
   });
 
-  it('przenosi ziarno', () => {
+  it('carries the seed through', () => {
     expect(presetParams('easy', 'square', 4242).seed).toBe(4242);
   });
 
-  // Easy potrzebuje SŁABSZEGO tunelowania: przy pełnym tunelowaniu f0 spadło
-  // do 0.16 zamiast zamierzonych >= 0.35 (§7).
-  it('osłabia tunelowanie na najniższym poziomie', () => {
+  // Easy needs WEAKER tunneling: with full tunneling, f0 dropped to 0.16
+  // instead of the intended >= 0.35 (§7).
+  it('weakens tunneling at the lowest level', () => {
     expect(presetParams('easy', 'square', 1).headBias).toBe(0);
     expect(presetParams('nightmare', 'square', 1).headBias).toBe(1);
   });
 
-  it('zna wszystkie rozmiary bazowe', () => {
+  it('knows all base sizes', () => {
     expect(LEVEL_SIZES).toEqual({ easy: 25, medium: 50, hard: 75, nightmare: 100, extreme: 200 });
   });
 
-  // Extreme istnieje tylko jako kwadrat — sprawdzian górnej granicy.
-  it('nie wystawia formatu pionowego dla Extreme', () => {
-    expect(() => presetParams('extreme', 'tall', 1)).toThrow(/tylko w wariancie kwadratowym/i);
+  // Extreme exists only as a square — checks the upper bound.
+  it('does not expose the tall format for Extreme', () => {
+    expect(() => presetParams('extreme', 'tall', 1)).toThrow(/only in the square variant/i);
   });
 });
 
 describe('difficultyBand', () => {
-  it('opada wraz z poziomem', () => {
+  it('decreases with level', () => {
     const easy = difficultyBand('easy', 'square');
     const nightmare = difficultyBand('nightmare', 'square');
     expect(easy.f0Min).toBeGreaterThan(nightmare.f0Min);
     expect(easy.f0Max).toBeGreaterThan(nightmare.f0Max);
   });
 
-  it('jest ciaśniejsze dla formatu pionowego', () => {
+  it('is tighter for the tall format', () => {
     expect(difficultyBand('medium', 'tall').f0Max).toBeLessThan(
       difficultyBand('medium', 'square').f0Max,
     );
   });
 
-  it('zawsze zostawia niepuste pasmo', () => {
+  it('always leaves a non-empty band', () => {
     for (const level of ['easy', 'medium', 'hard', 'nightmare'] as const) {
       for (const format of ['square', 'tall'] as const) {
         const band = difficultyBand(level, format);
@@ -134,15 +136,15 @@ describe('difficultyBand', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npm run test:core -- presets
 ```
 
-Oczekiwane: FAIL — brak modułu `./presets`.
+Expected: FAIL — module `./presets` not found.
 
-- [ ] **Krok 3: Zaimplementuj presety**
+- [ ] **Step 3: Implement the presets**
 
 ```typescript
 // src/core/presets.ts
@@ -151,7 +153,7 @@ import { GeneratorParams } from './types';
 export type LevelId = 'easy' | 'medium' | 'hard' | 'nightmare' | 'extreme';
 export type BoardFormat = 'square' | 'tall';
 
-/** Rozmiar bazowy `n`. Format decyduje, czy plansza to n×n czy n×2n. */
+/** Base size `n`. Format decides whether the board is n×n or n×2n. */
 export const LEVEL_SIZES: Record<LevelId, number> = {
   easy: 25,
   medium: 50,
@@ -166,12 +168,13 @@ export interface DifficultyBand {
 }
 
 /**
- * Pasma `f0` przyjęte jako punkt wyjścia. Wartości środkowe pochodzą z tabel
- * §9 specyfikacji (zmierzonych prototypem); pasmo to ±60% wokół nich, bo
- * implementacja jest inna i dokładne trafienie byłoby przypadkiem.
+ * `f0` bands adopted as a starting point. The center values come from the
+ * tables in spec §9 (measured on the prototype); the band is ±60% around
+ * them, because the implementation differs and hitting them exactly would
+ * be a coincidence.
  *
- * Zadanie 4 tego slice'a ZASTĘPUJE te liczby wartościami zmierzonymi na
- * docelowej implementacji. Do tego czasu są tym, czym są: hipotezą.
+ * Task 4 of this slice REPLACES these numbers with values measured on the
+ * target implementation. Until then, they are what they are: a hypothesis.
  */
 const F0_TARGETS: Record<LevelId, Record<BoardFormat, number>> = {
   easy: { square: 0.197, tall: 0.139 },
@@ -192,7 +195,7 @@ export function presetParams(
   seed: number,
 ): GeneratorParams {
   if (level === 'extreme' && format === 'tall') {
-    throw new Error('Poziom Extreme istnieje tylko w wariancie kwadratowym.');
+    throw new Error('Level Extreme exists only in the square variant.');
   }
   const n = LEVEL_SIZES[level];
   const width = n;
@@ -202,14 +205,15 @@ export function presetParams(
     width,
     height,
     maxLength: Math.round(2.5 * Math.max(width, height)),
-    // Wagi skalibrowane WZROKOWO na rendererze SVG, nie pod ogon czasu
-    // generacji: dają gęste groty plus wyraźne długie węże (§7).
+    // Weights calibrated VISUALLY on the SVG renderer, not for the tail of
+    // generation time: they give dense arrowheads plus visible long snakes
+    // (§7).
     bucketWeights: [0.5, 0.2, 0.3],
     straightBias: 0.6,
     lateralWeight: 3,
     warnsdorff: 4,
-    // Easy dostaje słabsze tunelowanie, bo przy pełnym f0 spada do 0.16
-    // zamiast zamierzonych >= 0.35 (§7).
+    // Easy gets weaker tunneling, because at full strength f0 drops to 0.16
+    // instead of the intended >= 0.35 (§7).
     headBias: level === 'easy' ? 0 : 1,
     seed,
   };
@@ -217,30 +221,30 @@ export function presetParams(
 
 export const ALL_LEVELS: readonly LevelId[] = ['easy', 'medium', 'hard', 'nightmare', 'extreme'];
 
-/** Formaty dostępne dla poziomu. Extreme tylko kwadrat. */
+/** Formats available for the level. Extreme is square only. */
 export function formatsFor(level: LevelId): readonly BoardFormat[] {
   return level === 'extreme' ? ['square'] : ['square', 'tall'];
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- presets
 ```
 
-Oczekiwane: PASS (9 testów).
+Expected: PASS (9 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj presety poziomów i pasma trudności"
+git commit -m "Add level presets and difficulty bands"
 ```
 
 ---
 
-### Task 2: Pętla generuj–zmierz–odrzuć
+### Task 2: The generate–measure–reject loop
 
 **Files:**
 - Create: `src/core/level.ts`
@@ -252,9 +256,9 @@ git commit -m "Dodaj presety poziomów i pasma trudności"
   - `interface LevelResult { board: Board; report: GenerationReport; attempts: number; inBand: boolean }`
   - `createLevel(level: LevelId, format: BoardFormat, seed: number, budget?: number): LevelResult`
   - `createCustomLevel(params: GeneratorParams, budget?: number): LevelResult` —
-    używane przez konfigurator (Slice 8), bez pasma trudności
+    used by the configurator (Slice 8), without a difficulty band
 
-- [ ] **Krok 1: Napisz failujące testy**
+- [ ] **Step 1: Write the failing tests**
 
 ```typescript
 // src/core/level.spec.ts
@@ -265,7 +269,7 @@ import { difficultyBand } from './presets';
 import { solve } from './solver';
 
 describe('createLevel', () => {
-  it('oddaje planszę rozwiązywalną z policzonymi metrykami', () => {
+  it('returns a solvable board with computed metrics', () => {
     const { board } = createLevel('easy', 'square', 1);
     expect(validateBoard(board)).toEqual([]);
     expect(solve(board).solvable).toBe(true);
@@ -273,31 +277,31 @@ describe('createLevel', () => {
     expect(board.metrics.f0).toBeGreaterThan(0);
   }, 30_000);
 
-  it('jest deterministyczne', () => {
+  it('is deterministic', () => {
     const a = createLevel('easy', 'square', 99);
     const b = createLevel('easy', 'square', 99);
     expect([...a.board.occupancy]).toEqual([...b.board.occupancy]);
     expect(a.attempts).toBe(b.attempts);
   }, 30_000);
 
-  it('trafia w pasmo trudności albo raportuje, że nie trafiło', () => {
+  it('hits the difficulty band or reports that it missed', () => {
     const band = difficultyBand('easy', 'square');
     const { board, inBand } = createLevel('easy', 'square', 7);
     if (inBand) {
       expect(board.metrics.f0).toBeGreaterThanOrEqual(band.f0Min);
       expect(board.metrics.f0).toBeLessThanOrEqual(band.f0Max);
     }
-    // Nawet gdy nie trafiło, plansza MUSI być grywalna — gra nie może
-    // zawiesić się przy starcie poziomu.
+    // Even when it misses, the board MUST be playable — the game must not
+    // hang when starting a level.
     expect(solve(board).solvable).toBe(true);
   }, 30_000);
 
-  it('nigdy nie przekracza budżetu prób', () => {
+  it('never exceeds the attempt budget', () => {
     const { attempts } = createLevel('easy', 'square', 5, 3);
     expect(attempts).toBeLessThanOrEqual(3);
   }, 30_000);
 
-  it('obsługuje format pionowy', () => {
+  it('supports the tall format', () => {
     const { board } = createLevel('easy', 'tall', 2);
     expect(board.width).toBe(25);
     expect(board.height).toBe(50);
@@ -306,14 +310,14 @@ describe('createLevel', () => {
 });
 
 describe('createCustomLevel', () => {
-  it('nie stosuje pasma trudności', () => {
-    // Plansza 12x12 nie odpowiada żadnemu presetowi — musi mimo to powstać.
+  it('does not apply a difficulty band', () => {
+    // A 12x12 board doesn't match any preset — it must still be produced.
     const { board, inBand } = createCustomLevel(defaultParams(12, 12, 3));
     expect(validateBoard(board)).toEqual([]);
-    expect(inBand).toBe(true); // brak pasma = zawsze w paśmie
+    expect(inBand).toBe(true); // no band = always in band
   }, 30_000);
 
-  it('oddaje najlepszy wynik nawet przy parametrach niewykonalnych', () => {
+  it('returns the best result even with infeasible parameters', () => {
     const params = {
       ...defaultParams(20, 20, 3),
       maxLength: 10_000,
@@ -325,15 +329,15 @@ describe('createCustomLevel', () => {
 });
 ```
 
-- [ ] **Krok 2: Uruchom i potwierdź porażkę**
+- [ ] **Step 2: Run and confirm the failure**
 
 ```bash
 npm run test:core -- level
 ```
 
-Oczekiwane: FAIL — brak modułu `./level`.
+Expected: FAIL — module `./level` not found.
 
-- [ ] **Krok 3: Zaimplementuj pętlę akceptacji**
+- [ ] **Step 3: Implement the acceptance loop**
 
 ```typescript
 // src/core/level.ts
@@ -346,14 +350,14 @@ import { Board, GenerationReport, GeneratorParams } from './types';
 export interface LevelResult {
   board: Board;
   report: GenerationReport;
-  /** Ile plansz trzeba było wygenerować, zanim któraś trafiła w pasmo. */
+  /** How many boards had to be generated before one hit the band. */
   attempts: number;
   inBand: boolean;
 }
 
 const DEFAULT_ATTEMPTS = 6;
 
-/** Odległość od pasma; 0 oznacza trafienie. Służy do wyboru najlepszej próby. */
+/** Distance from the band; 0 means a hit. Used to pick the best attempt. */
 function bandDistance(f0: number, band: DifficultyBand | null): number {
   if (!band) return 0;
   if (f0 < band.f0Min) return band.f0Min - f0;
@@ -370,34 +374,34 @@ function generateInBand(
   let best: LevelResult | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    // Kolejne próby dostają pochodne ziarno, żeby całość pozostała
-    // deterministyczna względem ziarna wejściowego.
+    // Successive attempts get a derived seed, so the whole thing stays
+    // deterministic with respect to the input seed.
     const seeded = { ...params, seed: params.seed + (attempt - 1) * 7_919 };
     const { board: raw, report, complete } = generate(seeded, budget);
     const board = withMetrics(raw);
 
-    // Weryfikacja jest niezależna od generatora — to nie jest asercja
-    // o zaufaniu, tylko warunek wpuszczenia planszy do gry (§8).
+    // Verification is independent of the generator — this is not a trust
+    // assertion, it's the condition for letting a board into the game (§8).
     const solvable = complete && solve(board).solvable;
     const distance = solvable ? bandDistance(board.metrics.f0, band) : Number.POSITIVE_INFINITY;
     const candidate: LevelResult = { board, report, attempts: attempt, inBand: distance === 0 };
 
     if (solvable && distance === 0) return candidate;
 
-    // Plansze nierozwiązywalne mają odległość nieskończoną, więc nigdy nie
-    // wygrają wyboru — nie trzeba ich odsiewać osobnym warunkiem.
+    // Unsolvable boards have infinite distance, so they never win the
+    // selection — no need to filter them out with a separate condition.
     const bestDistance = best
       ? bandDistance(best.board.metrics.f0, band)
       : Number.POSITIVE_INFINITY;
     if (distance < bestDistance) best = candidate;
   }
 
-  // Budżet wyczerpany — oddajemy najlepszy wynik. Gra nigdy nie zawiesza się
-  // przy starcie poziomu, choćby kosztem planszy poza pasmem (§7).
+  // Budget exhausted — return the best result. The game never hangs when
+  // starting a level, even at the cost of a board outside the band (§7).
   return { ...best!, attempts: maxAttempts, inBand: false };
 }
 
-/** Plansza dla presetu, z pętlą generuj–zmierz–odrzuć. */
+/** Board for a preset, using the generate–measure–reject loop. */
 export function createLevel(
   level: LevelId,
   format: BoardFormat,
@@ -409,10 +413,11 @@ export function createLevel(
 }
 
 /**
- * Plansza dla parametrów z konfiguratora.
+ * Board for parameters coming from the configurator.
  *
- * Bez pasma trudności: gracz sam ustawił parametry i ma dostać dokładnie to,
- * o co poprosił — razem z raportem, co faktycznie wyszło (§11).
+ * No difficulty band: the player set the parameters themselves and should
+ * get exactly what they asked for — together with a report of what actually
+ * came out (§11).
  */
 export function createCustomLevel(
   params: GeneratorParams,
@@ -422,19 +427,19 @@ export function createCustomLevel(
 }
 ```
 
-- [ ] **Krok 4: Uruchom testy — mają przejść**
+- [ ] **Step 4: Run the tests — they must pass**
 
 ```bash
 npm run test:core -- level
 ```
 
-Oczekiwane: PASS (7 testów).
+Expected: PASS (7 tests).
 
-- [ ] **Krok 5: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj pętlę generuj-zmierz-odrzuć dla poziomów"
+git commit -m "Add generate-measure-reject loop for levels"
 ```
 
 ---
@@ -443,24 +448,24 @@ git commit -m "Dodaj pętlę generuj-zmierz-odrzuć dla poziomów"
 
 **Files:**
 - Create: `tools/bench.ts`
-- Modify: `package.json` (skrypt `bench`, devDependency `tsx`)
+- Modify: `package.json` (`bench` script, `tsx` devDependency)
 
 **Interfaces:**
 - Consumes: `presetParams`, `generate`, `computeMetrics`, `estimateMinFree`.
-- Produces: raport tekstowy na stdout, opcjonalnie zapis do
-  `docs/benchmarks/<data>-<opis>.md`.
+- Produces: a text report on stdout, optionally saved to
+  `docs/benchmarks/<date>-<description>.md`.
 
-Benchmark **nie jest testem** — jest krokiem implementacji (§12). Jego wynik
-zastępuje liczby w `F0_TARGETS` i jest podstawą do kalibracji punktacji
-w Slice 5.
+The benchmark **is not a test** — it is an implementation step (§12). Its
+output replaces the numbers in `F0_TARGETS` and is the basis for calibrating
+scoring in Slice 5.
 
-- [ ] **Krok 1: Dodaj `tsx` i skrypt**
+- [ ] **Step 1: Add `tsx` and the script**
 
 ```bash
 npm install --save-dev tsx
 ```
 
-W `package.json`, w `scripts`:
+In `package.json`, under `scripts`:
 
 ```json
 {
@@ -468,7 +473,7 @@ W `package.json`, w `scripts`:
 }
 ```
 
-- [ ] **Krok 2: Napisz benchmark**
+- [ ] **Step 2: Write the benchmark**
 
 ```typescript
 // tools/bench.ts
@@ -533,14 +538,14 @@ function measure(level: LevelId, format: BoardFormat, runs: number): Row {
 
     const metrics = computeMetrics(result.board);
     if (!solve(result.board).solvable) {
-      throw new Error(`Plansza ${level}/${format} ziarno ${50_000 + run} NIEROZWIĄZYWALNA`);
+      throw new Error(`Board ${level}/${format} seed ${50_000 + run} UNSOLVABLE`);
     }
     last = metrics;
     lastPieces = result.board.pieces.size;
     lastMean = result.report.meanLength;
     lastMax = result.report.maxLength;
     lastHistogram = result.report.lengthHistogram;
-    // minFree jest stochastyczna i kosztowna — liczymy ją raz na wiersz.
+    // minFree is stochastic and expensive — compute it once per row.
     if (run === 0 && params.width * params.height <= 5_000) {
       minFree = estimateMinFree(result.board, mulberry32(1), 3);
     }
@@ -573,13 +578,13 @@ function measure(level: LevelId, format: BoardFormat, runs: number): Row {
 
 function formatReport(rows: readonly Row[], runs: number): string {
   const lines: string[] = [];
-  lines.push(`# Benchmark generatora — ${new Date().toISOString().slice(0, 10)}`);
+  lines.push(`# Generator benchmark — ${new Date().toISOString().slice(0, 10)}`);
   lines.push('');
-  lines.push(`Przebiegów na wiersz: ${runs}. Node ${process.version}.`);
+  lines.push(`Runs per row: ${runs}. Node ${process.version}.`);
   lines.push('');
-  lines.push('## Metryki trudności');
+  lines.push('## Difficulty metrics');
   lines.push('');
-  lines.push('| Poziom | plansza | elem. | śr. dł. | max dł. | f0 | almost1 | D | korytarz | H(dir) | H(len) |');
+  lines.push('| Level | board | pieces | mean len. | max len. | f0 | almost1 | D | corridor | H(dir) | H(len) |');
   lines.push('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const r of rows) {
     lines.push(
@@ -589,9 +594,9 @@ function formatReport(rows: readonly Row[], runs: number): string {
     );
   }
   lines.push('');
-  lines.push('## Czas generacji i odporność');
+  lines.push('## Generation time and resilience');
   lines.push('');
-  lines.push('| Poziom | p50 | p90 | p99 | max | nawroty p99 | restarty | porażki |');
+  lines.push('| Level | p50 | p90 | p99 | max | backtracks p99 | restarts | failures |');
   lines.push('|---|---|---|---|---|---|---|---|');
   for (const r of rows) {
     lines.push(
@@ -602,7 +607,7 @@ function formatReport(rows: readonly Row[], runs: number): string {
     );
   }
   lines.push('');
-  lines.push('## Rozkład długości (2–6 / 7–15 / 16–49 / 50+)');
+  lines.push('## Length distribution (2–6 / 7–15 / 16–49 / 50+)');
   lines.push('');
   for (const r of rows) {
     const total = r.histogram.reduce((a, b) => a + b, 0) || 1;
@@ -620,7 +625,7 @@ const rows: Row[] = [];
 for (const level of ALL_LEVELS) {
   if (only && level !== only) continue;
   for (const format of formatsFor(level)) {
-    process.stderr.write(`mierzę ${level}/${format}…\n`);
+    process.stderr.write(`measuring ${level}/${format}…\n`);
     rows.push(measure(level, format, runs));
   }
 }
@@ -629,86 +634,88 @@ const report = formatReport(rows, runs);
 console.log(report);
 if (out) {
   writeFileSync(out, report + '\n');
-  process.stderr.write(`\nzapisano do ${out}\n`);
+  process.stderr.write(`\nsaved to ${out}\n`);
 }
 ```
 
-- [ ] **Krok 3: Uruchom benchmark na małych poziomach**
+- [ ] **Step 3: Run the benchmark on small levels**
 
 ```bash
 npm run bench -- --only=easy --runs=10
 ```
 
-Oczekiwane: dwie tabele i rozkład długości, zero porażek.
+Expected: two tables and a length distribution, zero failures.
 
-- [ ] **Krok 4: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add -A
-git commit -m "Dodaj benchmark generatora"
+git commit -m "Add generator benchmark"
 ```
 
 ---
 
-### Task 4: Kalibracja pasm trudności
+### Task 4: Calibrating the difficulty bands
 
 **Files:**
-- Create: `docs/benchmarks/2026-09-07-generator.md` (wynik uruchomienia)
+- Create: `docs/benchmarks/2026-09-07-generator.md` (run output)
 - Modify: `src/core/presets.ts` (`F0_TARGETS`)
 
 **Interfaces:**
-- Produces: `F0_TARGETS` oparte na **pomiarze docelowej implementacji**, a nie
-  na tabelach z prototypu.
+- Produces: `F0_TARGETS` based on a **measurement of the target
+  implementation**, not on the prototype's tables.
 
-- [ ] **Krok 1: Zbierz pełny pomiar**
+- [ ] **Step 1: Collect a full measurement**
 
 ```bash
 mkdir -p docs/benchmarks
 npm run bench -- --runs=30 --out=docs/benchmarks/2026-09-07-generator.md
 ```
 
-Poziom Extreme 200×200 potrafi zająć kilka minut przy 30 przebiegach —
-to normalne (prototyp: p99 ≈ 2.1 s na planszę).
+The Extreme 200×200 level can take a few minutes at 30 runs — that's
+normal (prototype: p99 ≈ 2.1 s per board).
 
-- [ ] **Krok 2: Porównaj z tabelami §9 specyfikacji**
+- [ ] **Step 2: Compare against the spec §9 tables**
 
-Sprawdź trzy rzeczy i zanotuj rozbieżności w nagłówku raportu:
+Check three things and note discrepancies in the report header:
 
-1. **`f0` opada wraz z poziomem** i jest niższe w formacie pionowym.
-   Jeśli nie opada, tunelowanie (`headBias`) nie działa.
-2. **~72% elementów ma 2–6 komórek, ~2% przekracza 50.**
-   Jeśli długich brak, rozkład długości został po cichu obcięty (§12.9b).
-3. **Zero porażek generacji** na wszystkich poziomach.
-   Jedna porażka na 30 oznacza, że Warnsdorff jest wyłączony albo zbyt słaby.
+1. **`f0` decreases with the level** and is lower in the tall format.
+   If it doesn't decrease, tunneling (`headBias`) isn't working.
+2. **~72% of pieces have 2–6 cells, ~2% exceed 50.**
+   If long ones are missing, the length distribution has been silently
+   truncated (§12.9b).
+3. **Zero generation failures** at all levels.
+   A single failure out of 30 means Warnsdorff is disabled or too weak.
 
-- [ ] **Krok 3: Wstaw zmierzone wartości do `F0_TARGETS`**
+- [ ] **Step 3: Insert the measured values into `F0_TARGETS`**
 
-Zastąp wartości w `src/core/presets.ts` medianami z kolumny `f0` raportu.
-Zostaw komentarz z datą pomiaru i liczbą przebiegów:
+Replace the values in `src/core/presets.ts` with the medians from the
+report's `f0` column. Leave a comment with the measurement date and the
+number of runs:
 
 ```typescript
 /**
- * Zmierzone na docelowej implementacji: docs/benchmarks/2026-09-07-generator.md
- * (30 przebiegów na wiersz). Zastępuje wstępne wartości z §9 specyfikacji.
+ * Measured on the target implementation: docs/benchmarks/2026-09-07-generator.md
+ * (30 runs per row). Replaces the provisional values from spec §9.
  */
 const F0_TARGETS: Record<LevelId, Record<BoardFormat, number>> = {
-  // ... wartości z raportu
+  // ... values from the report
 };
 ```
 
-- [ ] **Krok 4: Sprawdź, że pasma są trafialne**
+- [ ] **Step 4: Check that the bands are hittable**
 
 ```bash
 npm run test:core -- level
 ```
 
-Dopisz test pilnujący, że dla każdego presetu pierwsza próba trafia w pasmo
-przynajmniej w połowie przypadków — inaczej pętla akceptacji marnuje czas:
+Add a test guarding that, for each preset, the first attempt hits the band
+at least half the time — otherwise the acceptance loop wastes time:
 
 ```typescript
-// dopisz do src/core/level.spec.ts
-describe('trafialność pasm', () => {
-  it('trafia w pasmo bez wielokrotnych prób', () => {
+// append to src/core/level.spec.ts
+describe('band hit rate', () => {
+  it('hits the band without multiple attempts', () => {
     for (const level of ['easy', 'medium'] as const) {
       let hits = 0;
       for (let seed = 1; seed <= 6; seed++) {
@@ -720,34 +727,36 @@ describe('trafialność pasm', () => {
 });
 ```
 
-- [ ] **Krok 5: Zaktualizuj specyfikację**
+- [ ] **Step 5: Update the spec**
 
-Dopisz w §9 specyfikacji zdanie odsyłające do raportu, żeby tabele nie
-udawały aktualnych:
+Add a sentence in spec §9 pointing to the report, so the tables don't
+pretend to be current:
 
 ```markdown
-> **Pomiar na implementacji docelowej (2026-09-07):**
-> `docs/benchmarks/2026-09-07-generator.md`. Tabele poniżej pochodzą
-> z prototypu i pozostają jako punkt odniesienia.
+> **Measurement on the target implementation (2026-09-07):**
+> `docs/benchmarks/2026-09-07-generator.md`. The tables below come from
+> the prototype and remain as a reference point.
 ```
 
-- [ ] **Krok 6: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "Skalibruj pasma trudności pomiarem implementacji"
+git commit -m "Calibrate difficulty bands using implementation measurement"
 ```
 
 ---
 
-## Kryteria odbioru slice'a
+## Slice Acceptance Criteria
 
-- `npm run bench -- --runs=30` kończy się bez porażek generacji na wszystkich
-  poziomach i formatach.
-- Raport leży w `docs/benchmarks/` i jest zacommitowany.
-- `F0_TARGETS` pochodzi z pomiaru, nie z prototypu; komentarz podaje datę
-  i liczbę przebiegów.
-- `createLevel` zawsze oddaje planszę rozwiązywalną — także gdy nie trafi
-  w pasmo.
-- `createLevel` jest deterministyczne względem ziarna, razem z liczbą prób.
-- Rozkład długości ma ciężki ogon: ~72% krótkich i ~2% powyżej 50 komórek.
+- `npm run bench -- --runs=30` finishes with no generation failures at any
+  level or format.
+- The report lives in `docs/benchmarks/` and is committed.
+- `F0_TARGETS` comes from measurement, not from the prototype; the comment
+  states the measurement date and the number of runs.
+- `createLevel` always returns a solvable board — even when it misses the
+  band.
+- `createLevel` is deterministic with respect to the seed, including the
+  attempt count.
+- The length distribution has a heavy tail: ~72% short and ~2% above 50
+  cells.
