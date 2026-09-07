@@ -244,14 +244,14 @@ const PRESETS = [
   ['Easy 25×50', 25, 50], ['Easy 25×25', 25, 25],
   ['Medium 50×100', 50, 100], ['Hard 75×150', 75, 150],
   ['Nightmare 100×200', 100, 200], ['Nightmare 100×100', 100, 100],
-  ['Extreme 200×200', 200, 200], ['1000×1000', 1000, 1000],
+  ['Extreme 200×200', 200, 200], ['400×400', 400, 400], ['1000×1000', 1000, 1000],
 ]
 for (const [label, w, h] of PRESETS) {
   const b = document.createElement('button')
   b.textContent = label
   b.addEventListener('click', () => {
     setParam('W', w); setParam('H', h)
-    setParam('Lmax', Math.round(2.5 * Math.max(w, h)))
+    setParam('Lmax', 0) // automat: 2,5 × dłuższy bok
     // Rozmiar komórki dotyczy tylko eksportu; podgląd skaluje się sam.
     $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(w, h))))
     run()
@@ -300,8 +300,9 @@ function viewOptions() {
 }
 
 // --- worker: generacja poza wątkiem interfejsu ---------------------------
-// Plansza 1000×1000 liczy się dziesiątki sekund. Na wątku głównym zawiesiłaby
-// kartę, więc silnik biegnie w workerze, a strona dostaje postęp i gotowe SVG.
+// Plansza 1000×1000 liczy się ~10 s (400×400 ~1,4 s). Na wątku głównym
+// zawiesiłaby kartę, więc silnik biegnie w workerze, a strona dostaje postęp
+// i gotowe SVG.
 let worker = null
 let busy = false
 

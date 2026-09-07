@@ -252,3 +252,8 @@ koszyk długi na 200×200), kara za zwijanie 6, wagi 0,20/0,08, prostość 0,85.
 Na 200×200: średnia długość 8,7 → 11,0, zwinięcie 41% → 28%; na 25×50 zasięg
 górnych 10% elementów 37% → 48%. Laboratorium pokazuje nowy wiersz „utyka przed
 celem" i liczbę wchłoniętych resztek.
+
+**Skala po hardeningu.** Granica z rundy 7 (300×300–400×400) przestała istnieć:
+400×400 domyka się 0/5 porażek bez restartów w ~1,4 s (stare domyślne 0/5, ~1,9 s;
+szkielet 0/3, ~1,3 s), 1000×1000 w 10,6 s, zero nawrotów, 95 wchłonięć,
+rozwiązywalna, najdłuższy element 453. Laboratorium ma preset 400×400.
