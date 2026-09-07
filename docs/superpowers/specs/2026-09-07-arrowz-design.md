@@ -1,712 +1,730 @@
-# Arrowz — projekt gry logicznej ze strzałkami
+# Arrowz — design of an arrow-based puzzle game
 
-Data: 2026-09-07
-Status: zatwierdzony do planowania implementacji
+Date: 2026-09-07
+Status: approved for implementation planning
 
-## 1. Cel i zakres
+## 1. Goal and scope
 
-Przeglądarkowy klon gry logicznej, w której na siatce leżą poplątane, wielokomórkowe
-strzałki. Kliknięcie strzałki próbuje wyprowadzić ją poza planszę w kierunku grotu.
-Kolizja z inną strzałką kosztuje życie. Cel: opróżnić planszę, nie tracąc trzech żyć.
+A browser clone of a puzzle game in which tangled, multi-cell arrows lie on a grid.
+Clicking an arrow attempts to drive it off the board in the direction of its arrowhead.
+A collision with another arrow costs a life. The goal: empty the board without losing
+three lives.
 
-### Zakres MVP
+### MVP scope
 
-W zakresie:
+In scope:
 
-- generowana proceduralnie plansza z gwarancją rozwiązywalności,
-- klikanie elementów, walidacja ruchu, trzy życia,
-- cztery poziomy trudności (Easy 25×25, Medium 50×50, Hard 75×75, Nightmare 100×100),
-- **konfigurator plansz jako tryb zaawansowany**: gracz sam ustawia rozmiar planszy,
-  liczbę linii, stopień połamania i długość maksymalną,
-- **zoom i przesuwanie planszy** — 100×100 to 10 000 komórek, nie mieści się czytelnie
-  na żadnym ekranie,
-- stoper, licznik serii bezbłędnych ruchów oraz punktacja przyznawana za ukończoną
-  planszę, liczona ze złożoności planszy, zachowanych żyć i czasu,
-- dwa warianty rozgrywki: klasyczny i na czas (czas premiuje, nigdy nie ogranicza),
-- ekrany wygranej i przegranej, przycisk nowej gry,
-- grafika placeholder (czytelna, ale bez dopracowanego stylu),
-- PWA: manifest i service worker, gra działa offline.
+- a procedurally generated board with a solvability guarantee,
+- clicking pieces, move validation, three lives,
+- four difficulty levels (Easy 25×25, Medium 50×50, Hard 75×75, Nightmare 100×100),
+- **a board configurator as an advanced mode**: the player sets the board size, the
+  number of lines, the degree of bending and the maximum length themselves,
+- **zooming and panning the board** — 100×100 is 10 000 cells, which does not fit
+  legibly on any screen,
+- a stopwatch, a counter of consecutive error-free moves, and scoring awarded for a
+  completed board, computed from the board's complexity, lives kept and time,
+- two play variants: classic and timed (time rewards, never restricts),
+- win and loss screens, a new-game button,
+- placeholder graphics (legible, but without a polished style),
+- PWA: manifest and service worker, the game works offline.
 
-Poza zakresem MVP (patrz §13):
+Out of MVP scope (see §13):
 
-- cofanie ruchu (undo), podpowiedzi (hint),
-- dopracowana warstwa wizualna i animacje,
-- progresja poziomów, zapis postępu, tabele wyników, dźwięk.
+- undoing a move (undo), hints,
+- a polished visual layer and animations,
+- level progression, saving progress, leaderboards, sound.
 
-## 2. Reguły gry
+## 2. Game rules
 
-Plansza to prostokątna siatka `W × H` komórek. Leży na niej `N` **elementów**.
+The board is a rectangular grid of `W × H` cells. `N` **pieces** lie on it.
 
-Element to **samounikająca się polilinia**: spójna ścieżka po komórkach siatki,
-poruszająca się wyłącznie ortogonalnie, nieodwiedzająca żadnej komórki dwukrotnie.
-Długość waha się od 2 komórek do kilkuset — najdłuższe elementy przecinają planszę na
-wskroś wielokrotnie, w tę i z powrotem. **Minimum to 2 komórki**: element jednokomórkowy
-nie miałby ostatniego segmentu, więc nie miałby skąd wziąć kierunku grotu — byłby
-punktem, nie wektorem.
+A piece is a **self-avoiding polyline**: a connected path over grid cells, moving only
+orthogonally, never visiting any cell twice. Its length ranges from 2 cells to several
+hundred — the longest pieces cross the board end to end many times, back and forth.
+**The minimum is 2 cells**: a single-cell piece would have no last segment, so it would
+have nowhere to take its arrowhead direction from — it would be a point, not a vector.
 
-**Elementy pokrywają planszę w całości.** Każda komórka siatki należy do dokładnie
-jednego elementu — nie ma pustych pól. Wbrew intuicji nie odbiera to możliwości ruchu:
-korytarz to tylko promień z głowy i wyklucza komórki własne, więc element, którego
-głowa ma przed sobą wyłącznie własny tor albo krawędź, jest wolny nawet na planszy
-zapełnionej po brzegi. Rozkład długości jest **ciężkoogonowy**: dominują
-krótkie kształty, ale mniejszość bardzo długich, wijących się linii nadaje planszy jej
-charakter. Model rozkładu opisuje §7. Na jednym końcu ścieżki znajduje się grot.
+**Pieces cover the board entirely.** Every grid cell belongs to exactly one piece —
+there are no empty cells. Counter-intuitively, this does not take away the ability to
+move: the corridor is just a ray from the head and excludes the piece's own cells, so a
+piece whose head has nothing but its own track or the edge in front of it is free even
+on a board filled to the brim. The length distribution is **heavy-tailed**: short shapes
+dominate, but a minority of very long, winding lines gives the board its character. The
+distribution model is described in §7. At one end of the path sits the arrowhead.
 
-**Kierunek wyjścia** elementu to kierunek ostatniego segmentu ścieżki po stronie grotu.
-Strzałka jedzie tam, gdzie pokazuje.
+The **exit direction** of a piece is the direction of the last segment of the path on
+the arrowhead side. The arrow travels where it points.
 
-Ruch gracza to kliknięcie elementu. Element **jedzie po własnym torze**: głowa rusza
-przed siebie w kierunku grotu, a każda kolejna komórka ciała wsuwa się na miejsce
-poprzedniej — jak pociąg po szynach. Ciało porusza się więc wyłącznie po komórkach,
-które samo przed chwilą opuściło, i wyjeżdża poza planszę śladem głowy.
+A player's move is a click on a piece. The piece **travels along its own track**: the
+head moves forward in the arrowhead direction, and each subsequent body cell slides into
+the place of the previous one — like a train on rails. The body therefore moves only
+over cells it has itself just vacated, and leaves the board in the head's wake.
 
-- **Korytarz** elementu = pojedynczy promień z komórki głowy do krawędzi, w kierunku
-  grotu, pomniejszony o komórki własne. Kształt ciała nie ma na niego wpływu, bo ciało
-  nigdy nie wchodzi na cudze pole.
-- Jeśli korytarz nie zawiera komórki zajętej przez inny element, element opuszcza
-  planszę. Nazywamy taki element **wolnym**.
-- W przeciwnym razie ruch jest nielegalny: element **odbija się** — wyjeżdża aż do
-  kontaktu z blokerem i wraca na pozycję wyjściową — a gracz traci życie. Stan końcowy
-  jest identyczny jak przed kliknięciem, więc logika gry pozostaje niezmieniona; różnica
-  jest wyłącznie w animacji.
+- A piece's **corridor** = a single ray from the head cell to the edge, in the arrowhead
+  direction, minus the piece's own cells. The body's shape has no influence on it,
+  because the body never enters another piece's cell.
+- If the corridor contains no cell occupied by another piece, the piece leaves the
+  board. We call such a piece **free**.
+- Otherwise the move is illegal: the piece **bounces** — it drives out until it touches
+  the blocker and returns to its starting position — and the player loses a life. The
+  final state is identical to the one before the click, so the game logic is unchanged;
+  the difference is purely in the animation.
 
-  Odbicie **pokazuje graczowi, gdzie leży bloker**. Błąd przestaje być czystą karą,
-  a staje się informacją — przy planszy o 920 elementach to konieczne, inaczej gracz
-  traci życie, nie wiedząc dlaczego. Ceną jest lekkie obniżenie trudności percepcyjnej,
-  bo animacja ujawnia to, czego gracz nie doczytał z ekranu. Kompromis świadomy,
-  na rzecz czytelności.
+  The bounce **shows the player where the blocker lies**. A mistake stops being a pure
+  penalty and becomes information — with a board of 920 pieces this is necessary,
+  otherwise the player loses a life without knowing why. The price is a slight reduction
+  of perceptual difficulty, because the animation reveals what the player failed to read
+  from the screen. A deliberate compromise, in favour of legibility.
 
-Gra kończy się wygraną, gdy plansza jest pusta, i przegraną, gdy życia spadną do zera.
+The game ends in a win when the board is empty, and in a loss when lives drop to zero.
 
-### Konsekwencja kluczowa
+### Key consequence
 
-Ruch nigdy nie zatrzymuje się na przeszkodzie — element albo wyjeżdża w całości, albo
-wraca na miejsce. Dlatego korytarz **nie zależy od stanu planszy**; jest stałą własnością
-pary (pozycja głowy, kierunek). Cały §6–§9 wynika z tej jednej obserwacji, a nie ze
-sposobu, w jaki element się porusza — dlatego zmiana reguły ruchu ze sztywnej translacji
-na jazdę po torze zawęziła korytarz, ale nie naruszyła niczego poniżej.
+A move never stops at an obstacle — the piece either leaves entirely or returns to its
+place. Therefore the corridor **does not depend on the board state**; it is a fixed
+property of the pair (head position, direction). All of §6–§9 follows from this single
+observation, not from the way the piece moves — which is why changing the movement rule
+from rigid translation to travelling along the track narrowed the corridor but broke
+nothing below.
 
-## 3. Wybór technologii
+## 3. Technology choice
 
-> **Zmiana po zamknięciu sondy (2026-09-07).** Warstwa widoku powstanie w **Angular 22**
-> (signals, resources, standalone, zoneless, signalForms), a profile graczy, wyniki
-> i ustawienia trafią na **Firebase**. Poniższy wywód pozostaje w mocy w części
-> dotyczącej **rdzenia** — `core/` i `game/` mają być czystym TypeScriptem bez
-> zależności od frameworka, i to jest jedyna rzecz, na której temu projektowi naprawdę
-> zależy. Rozstrzygnięcie, czy sensowny jest SSR, oraz szczegóły integracji z Firebase
-> należą do planu implementacji, nie do tej specyfikacji.
+> **Change after closing the probe (2026-09-07).** The view layer will be built in
+> **Angular 22** (signals, resources, standalone, zoneless, signalForms), and player
+> profiles, scores and settings will go to **Firebase**. The argument below remains in
+> force as far as the **core** is concerned — `core/` and `game/` are to be pure
+> TypeScript with no framework dependency, and that is the only thing this project
+> truly cares about. Whether SSR makes sense, and the details of the Firebase
+> integration, belong to the implementation plan, not to this specification.
 
-**TypeScript**, render w SVG, testy w Vitest, warstwa PWA. Pierwotnie zakładany był
-build na czystym Vite i deploy w postaci statycznych plików bez backendu.
+**TypeScript**, rendering in SVG, tests in Vitest, a PWA layer. Originally a build on
+plain Vite and a deployment as static files without a backend were assumed.
 
-Uzasadnienie: gra nie ma fizyki, sceny ani animacji szkieletowych — jej rdzeń to
-kombinatoryka na siatce liczb całkowitych. Największe ryzyko projektu (poprawność
-generatora) jest w 100% logiczne, więc decydującym kryterium jest **testowalność
-rdzenia bez przeglądarki** — możliwość wygenerowania dziesiątek tysięcy plansz w pętli
-w Node i sprawdzenia niezmienników.
+Rationale: the game has no physics, no scene and no skeletal animation — its core is
+combinatorics on an integer grid. The project's biggest risk (generator correctness) is
+100% logical, so the decisive criterion is **testability of the core without a
+browser** — the ability to generate tens of thousands of boards in a loop in Node and
+check invariants.
 
-Odrzucone warianty:
+Rejected options:
 
-- **Godot 4 → WebAssembly**: eksport ~25–40 MB, wolny pierwszy load, uciążliwe testy
-  jednostkowe logiki, a żadna z możliwości silnika 2D nie jest tu potrzebna. Sensowny
-  dopiero, gdyby celem był eksport natywny do sklepów.
-- **Vanilla JS w jednym pliku HTML**: najszybszy prototyp, ale bez typów i runnera
-  testów subtelne błędy generatora byłyby łapane ręcznie w przeglądarce.
+- **Godot 4 → WebAssembly**: an export of ~25–40 MB, slow first load, cumbersome unit
+  testing of the logic, and none of the 2D engine's capabilities are needed here. It
+  only makes sense if the goal were a native export to app stores.
+- **Vanilla JS in a single HTML file**: the fastest prototype, but without types and a
+  test runner, subtle generator bugs would be caught by hand in the browser.
 
-SVG zamiast Canvas: przy siatce trafienie w element to `piksel → komórka → id`, więc
-żadna technologia nie ma przewagi w hit-testingu, a SVG daje darmowe animacje CSS przy
-wyjeżdżaniu elementu oraz zoom i przesuwanie przez samą zmianę `viewBox`, bez
-przerysowywania. Przy ~1 000 ścieżkach Nightmare to wciąż rozsądny wybór, ale margines
-jest już cienki, więc §11 definiuje budżet wydajności, a renderer stoi za interfejsem —
-wymiana na Canvas nie dotyka rdzenia.
+SVG rather than Canvas: on a grid, hitting a piece is `pixel → cell → id`, so no
+technology has an advantage in hit-testing, while SVG gives free CSS animations when a
+piece drives out, plus zoom and panning by changing the `viewBox` alone, with no
+redrawing. At ~1 000 paths on Nightmare it is still a reasonable choice, but the margin
+is already thin, so §11 defines a performance budget and the renderer sits behind an
+interface — swapping it for Canvas does not touch the core.
 
-## 4. Architektura
+## 4. Architecture
 
 ```
 src/
-  core/            czysta logika: zero DOM, zero globalnej losowości
+  core/            pure logic: zero DOM, zero global randomness
     types.ts         Coord, Dir, Piece, Board, Difficulty
-    rng.ts           deterministyczny PRNG z ziarnem
-    board.ts         siatka zajętości, headRay(), probeMove(), removePiece()
-    shapes.ts        losowanie kształtu przez wzrost wstecz w obszarze dopuszczalnym
-    generator.ts     wycinanie z pełnej planszy, parametry trudności
-    solver.ts        graf blokowania + sortowanie topologiczne (Kahn)
-    metrics.ts       metryki trudności liczone na wygenerowanej planszy
+    rng.ts           deterministic seeded PRNG
+    board.ts         occupancy grid, headRay(), probeMove(), removePiece()
+    shapes.ts        shape sampling by backward growth within the admissible area
+    generator.ts     carving from a full board, difficulty parameters
+    solver.ts        blocking graph + topological sort (Kahn)
+    metrics.ts       difficulty metrics computed on the generated board
   game/
-    session.ts       czysty reduktor stanu gry: życia, status, obsługa kliknięcia
+    session.ts       pure game-state reducer: lives, status, click handling
   render/
-    renderer.ts      interfejs renderera
-    svgRenderer.ts   implementacja SVG + mapowanie kliknięcia na id elementu
-    viewport.ts      zoom i przesuwanie: transformacja ekran ↔ komórka
+    renderer.ts      renderer interface
+    svgRenderer.ts   SVG implementation + mapping a click to a piece id
+    viewport.ts      zoom and panning: screen ↔ cell transformation
   ui/
-    app.ts           powłoka: wybór poziomu, serca, ekrany końcowe
-    configurator.ts  tryb zaawansowany: edycja parametrów generatora
-  main.ts            spięcie
+    app.ts           shell: level selection, hearts, end screens
+    configurator.ts  advanced mode: editing generator parameters
+  main.ts          wiring
 ```
 
-Zasada nadrzędna: `core/` i `game/` nie importują niczego z `render/` ani `ui/` i nie
-dotykają DOM. Dzięki temu cała logika i generator uruchamiają się w Node — co pozwoliło
-zmierzyć je prototypem, zanim powstała jakakolwiek warstwa widoku, i uchronić projekt
-przed dwiema decyzjami podjętymi na oślep (§11, §13).
+Overriding principle: `core/` and `game/` import nothing from `render/` or `ui/` and do
+not touch the DOM. Thanks to this the whole logic and generator run in Node — which
+made it possible to measure them with a prototype before any view layer existed, and
+to protect the project from two decisions that would otherwise have been made blind
+(§11, §13).
 
-## 5. Model danych
+## 5. Data model
 
 ```ts
-type Dir = 0 | 1 | 2 | 3            // 0=góra, 1=prawo, 2=dół, 3=lewo
+type Dir = 0 | 1 | 2 | 3            // 0=up, 1=right, 2=down, 3=left
 type Coord = { x: number; y: number }
 
 type Piece = {
   id: number
-  cells: Coord[]    // cells[0] to komórka z grotem; ścieżka w kolejności od grotu
-  dir: Dir          // kierunek z cells[1] do cells[0]
+  cells: Coord[]    // cells[0] is the cell with the arrowhead; path in order from the arrowhead
+  dir: Dir          // direction from cells[1] to cells[0]
 }
 
 type Board = {
   width: number
   height: number
-  occupancy: Int32Array   // długość width*height, -1 = puste, inaczej id elementu
+  occupancy: Int32Array   // length width*height, -1 = empty, otherwise piece id
   pieces: Map<number, Piece>
-  metrics: BoardMetrics   // f0, T2, Tconc, D, meanCorridorLen, N — patrz §9
+  metrics: BoardMetrics   // f0, T2, Tconc, D, meanCorridorLen, N — see §9
 }
 ```
 
-Uwaga implementacyjna: `occupancy` jest `Int32Array`, nie `Int8Array` — plansza
-Nightmare ma ~1 000 elementów, więc `Int8Array` przepełniłby się ośmiokrotnie.
-Przy 10 000 komórek zajmuje 40 kB, co jest bez znaczenia.
+Implementation note: `occupancy` is an `Int32Array`, not an `Int8Array` — a Nightmare
+board has ~1 000 pieces, so an `Int8Array` would overflow eightfold. At 10 000 cells it
+takes 40 kB, which is irrelevant.
 
-Parametry generatora są **jedną strukturą**, wspólną dla presetów i konfiguratora:
+The generator parameters are **a single structure**, shared by the presets and the
+configurator:
 
 ```ts
 type GeneratorParams = {
   width: number
   height: number
-  pieceCount: number      // ile linii; średnia długość = width*height/pieceCount
+  pieceCount: number      // how many lines; mean length = width*height/pieceCount
   maxLength: number       // Lmax
-  straightBias: number    // p_s ∈ [0,1]; „stopień połamania" w UI to 1 - p_s
+  straightBias: number    // p_s ∈ [0,1]; the "degree of bending" in the UI is 1 - p_s
   bucketWeights: [short: number, medium: number, long: number]
   seed: number
 }
 
-type GenerationReport = {          // co faktycznie osiągnięto
+type GenerationReport = {          // what was actually achieved
   params: GeneratorParams
   actualPieceCount: number
-  backtracks: number         // ile razy generator musiał się cofnąć
-  restarts: number           // ile razy zaczynał od nowa z innym ziarnem
+  backtracks: number         // how many times the generator had to back up
+  restarts: number           // how many times it started over with a different seed
   lengthHistogram: number[]
   longAreaShare: number
   attemptsUsed: number
 }
 ```
 
-Presety Easy–Nightmare to nazwane instancje `GeneratorParams`, nie osobna gałąź kodu.
-`GenerationReport` istnieje, bo geometria potrafi odmówić i różnica między zamówieniem
-a wykonaniem musi być widoczna, a nie ukryta (§11).
+The Easy–Nightmare presets are named instances of `GeneratorParams`, not a separate
+code branch. `GenerationReport` exists because geometry can refuse, and the difference
+between what was ordered and what was delivered must be visible, not hidden (§11).
 
-Ciało elementu leży **za** grotem: dla grotu w `(5,3)` i `dir = prawo` kolejna komórka
-ścieżki to `(4,3)`, nie `(6,3)`. To najczęstszy błąd znaku w tym module.
+The piece's body lies **behind** the arrowhead: for an arrowhead at `(5,3)` and
+`dir = right`, the next path cell is `(4,3)`, not `(6,3)`. This is the most common sign
+error in this module.
 
-## 6. Silnik: korytarz i legalność ruchu
+## 6. Engine: corridor and move legality
 
-Element **jedzie po własnym torze** (§2): głowa rusza przed siebie w kierunku grotu,
-a każda kolejna komórka ciała wsuwa się na miejsce poprzedniej. Ciało porusza się więc
-wyłącznie po komórkach, które samo przed chwilą opuściło.
+A piece **travels along its own track** (§2): the head moves forward in the arrowhead
+direction, and each subsequent body cell slides into the place of the previous one. The
+body therefore moves only over cells it has itself just vacated.
 
-W konsekwencji zbiór komórek zajętych w dowolnej chwili ruchu zawiera się w sumie
-`komórki własne ∪ promień z głowy`. Po odjęciu komórek własnych zostaje:
+Consequently, the set of cells occupied at any moment of the move is contained in the
+union `own cells ∪ ray from the head`. After subtracting the own cells, what remains is:
 
-> **korytarz elementu = pojedynczy promień z komórki głowy do krawędzi, w kierunku
-> grotu.** Kształt ciała nie ma na niego żadnego wpływu.
+> **a piece's corridor = a single ray from the head cell to the edge, in the arrowhead
+> direction.** The body's shape has no influence on it whatsoever.
 
-To jest cała definicja. `probeMove` przechodzi ten jeden promień:
+That is the whole definition. `probeMove` walks this one ray:
 
 ```
 probeMove(board, piece) -> { free: true } | { free: false, distance, blockerId }
 
-  idź od komórki głowy w kierunku piece.dir aż do krawędzi, licząc kroki,
-  pamiętając pozycję ostatnio minionej komórki własnej (lastOwn, początkowo 0):
-    jeśli occupancy(k) == piece.id  → lastOwn = numer kroku      # tor sam siebie nie blokuje
-    jeśli occupancy(k) to inny element → zwróć { free: false,
-                                                 distance: krok - lastOwn,
-                                                 blockerId: właściciel }
-  zwróć { free: true }
+  walk from the head cell in direction piece.dir until the edge, counting steps,
+  remembering the position of the most recently passed own cell (lastOwn, initially 0):
+    if occupancy(k) == piece.id  → lastOwn = step number      # the track does not block itself
+    if occupancy(k) is another piece → return { free: false,
+                                                distance: step - lastOwn,
+                                                blockerId: owner }
+  return { free: true }
 ```
 
-`distance` to liczba komórek, o które element przejedzie po torze, zanim uderzy —
-dokładnie ta wielkość, której potrzebuje animacja odbicia (§2).
+`distance` is the number of cells the piece travels along its track before it hits —
+exactly the quantity the bounce animation needs (§2).
 
-Koszt: `O(max(W, H))` — jeden przebieg po jednej linii, kilkadziesiąt kroków.
+Cost: `O(max(W, H))` — one pass along one line, a few dozen steps.
 
-**Co ta reguła usuwa z projektu.** Wcześniejsza wersja (sztywna translacja całego
-kształtu) wymagała sumowania promieni ze wszystkich komórek elementu, z osobnym
-przypadkiem „komórka najdalsza od krawędzi na każdej linii" i pułapką kształtów
-wklęsłych, gdzie obcy element uwięziony w łuku litery U blokował ruch. Cała ta
-złożoność, razem z odpowiadającymi jej testami, **znika**. Element pokonuje własny łuk
-bez przeszkód, bo jedzie po nim, a nie przez niego.
+**What this rule removes from the design.** The earlier version (rigid translation of
+the whole shape) required summing rays from all of the piece's cells, with a separate
+case of "the cell farthest from the edge on each line" and a trap of concave shapes,
+where a foreign piece trapped in the arc of a letter U blocked the move. All of that
+complexity, together with its corresponding tests, **disappears**. A piece clears its own
+arc without obstruction, because it travels along it, not through it.
 
-Śledzenie `lastOwn` zostaje, bo tor może przecinać własny promień: element wijący się
-tak, że jego ciało leży przed głową, mija najpierw własne komórki, a dopiero potem
-ewentualnego blokera.
+Tracking `lastOwn` stays, because the track can cross its own ray: a piece winding so
+that its body lies in front of its head passes its own cells first, and only then a
+possible blocker.
 
-## 7. Generator: wycinanie z pełnej planszy
+## 7. Generator: carving from a full board
 
-### Zasada
+### Principle
 
-Plansza jest **wypełniona w 100%**: każda komórka należy do dokładnie jednego elementu.
-Generujemy więc nie przez wstawianie elementów na pustą planszę, lecz przez
-**wycinanie ich z planszy pełnej, w kolejności usuwania**.
+The board is **100% filled**: every cell belongs to exactly one piece. So we generate
+not by inserting pieces onto an empty board, but by **carving them out of a full board,
+in removal order**.
 
-Na starcie wszystkie komórki są *nieprzypisane*; oznaczmy ten zbiór `R`. Wycinamy
-kolejno elementy `q_1, q_2, …, q_N`, gdzie `q_1` to element, który gracz zdejmie jako
-pierwszy. Warunek wycięcia elementu `q_j` z kierunkiem `d`:
+At the start all cells are *unassigned*; call this set `R`. We carve pieces
+`q_1, q_2, …, q_N` one after another, where `q_1` is the piece the player will remove
+first. The condition for carving piece `q_j` with direction `d`:
 
 ```
 corridor(q_j) ∩ (R \ cells(q_j)) = ∅
 ```
 
-czyli: cała droga elementu do krawędzi wyjścia prowadzi przez komórki **już przypisane**
-(wcześniej wyciętym elementom) albo przez komórki **własne**. Kończymy, gdy `R = ∅`.
+that is: the piece's entire route to the exit edge leads through cells **already
+assigned** (to previously carved pieces) or through its **own** cells. We finish when
+`R = ∅`.
 
-### Twierdzenie o poprawności
+### Correctness theorem
 
-Kolejność wycinania `q_1, …, q_N` jest poprawną kolejnością rozwiązania.
+The carving order `q_1, …, q_N` is a valid solution order.
 
-Dowód: w chwili, gdy gracz zdejmuje `q_j`, na planszy leżą dokładnie `q_j, …, q_N` —
-bo `q_1..q_{j-1}` już zeszły. Zbiór `R` w momencie wycinania `q_j` to właśnie
-`{q_j, …, q_N}`. Warunek wycięcia mówi, że `corridor(q_j)` nie zawiera komórek
-`q_{j+1}, …, q_N`, a korytarz jest stały (§2). Ruch jest więc legalny. ∎
+Proof: at the moment the player removes `q_j`, exactly `q_j, …, q_N` lie on the board —
+because `q_1..q_{j-1}` have already left. The set `R` at the moment of carving `q_j` is
+precisely `{q_j, …, q_N}`. The carving condition says that `corridor(q_j)` contains no
+cells of `q_{j+1}, …, q_N`, and the corridor is fixed (§2). The move is therefore
+legal. ∎
 
-Zauważ, że kolejność wycinania jest **wprost** kolejnością rozwiązania — nie trzeba jej
-odwracać.
+Note that the carving order is **directly** the solution order — it does not need to be
+reversed.
 
-### Równoważność z generacją wsteczną
+### Equivalence with backward generation
 
-Ten warunek jest **matematycznie identyczny** z wcześniejszym sformułowaniem
-„wstawiaj elementy, wjeżdżając nimi z zewnątrz, i odwróć kolejność". Trasa wjazdu
-elementu z zewnątrz to dokładnie ten sam zbiór komórek co jego korytarz przy
-ucieczce — ta sama translacja przebiegnięta wstecz. Generator i silnik gry dzielą więc
-jedną definicję korytarza; dwie osobne implementacje mogłyby się rozjechać.
+This condition is **mathematically identical** to the earlier formulation "insert pieces
+by driving them in from outside, and reverse the order". A piece's entry route from
+outside is exactly the same set of cells as its corridor when escaping — the same
+translation run backwards. The generator and the game engine therefore share a single
+corridor definition; two separate implementations could drift apart.
 
-Zmienia się wyłącznie to, **względem czego** liczymy test: zamiast „elementów już
-położonych" mamy „komórek jeszcze nieprzypisanych". A skoro `R` kurczy się do zera,
-pokrycie planszy jest pełne. Poprzednia wersja tego projektu zatrzymywała się na progu
-wypełnienia i pozostawiała dziury; ta kończy dopiero, gdy nie zostanie żadna komórka.
+The only thing that changes is **what we compute the test against**: instead of "pieces
+already placed" we have "cells not yet assigned". And since `R` shrinks to zero, the
+board coverage is complete. The previous version of this design stopped at a fill
+threshold and left holes; this one finishes only when no cell remains.
 
-### Minimalna długość 2 i problem osierocenia
+### Minimum length 2 and the orphaning problem
 
-**Element ma co najmniej 2 komórki.** Element jednokomórkowy nie jest wektorem, tylko
-punktem — nie ma ostatniego segmentu, więc nie ma z czego odczytać kierunku grotu.
-Długość 1 jest zatem zakazana, nie tylko niepożądana.
+**A piece has at least 2 cells.** A single-cell piece is not a vector but a point — it
+has no last segment, so there is nothing to read the arrowhead direction from. Length 1
+is therefore forbidden, not merely undesirable.
 
-#### Para jest darmowa
+#### The pair is free of charge
 
-Legalność zależy wyłącznie od głowy (§6), a ciało może iść w dowolną stronę po
-komórkach nieprzypisanych. Wystarczy więc wybierać głowę spośród komórek mających
-**co najmniej jednego nieprzypisanego sąsiada**; długość ≥ 2 jest wtedy zapewniona
-z konstrukcji, bez żadnego dodatkowego warunku.
+Legality depends solely on the head (§6), and the body may go in any direction over
+unassigned cells. It is therefore enough to choose the head among cells that have **at
+least one unassigned neighbour**; length ≥ 2 is then guaranteed by construction, with no
+additional condition.
 
-#### Czego to nie załatwia
+#### What this does not solve
 
-Powyższe gwarantuje długość elementu, który właśnie wycinamy, ale nie gwarantuje, że
-w `R` nie powstanie fragment, którego już nie da się rozłożyć na ścieżki o długości ≥ 2.
+The above guarantees the length of the piece we are currently carving, but does not
+guarantee that no fragment will arise in `R` that can no longer be decomposed into paths
+of length ≥ 2.
 
-Nie wystarczy przy tym pilnować, żeby żadna komórka nie została bez sąsiadów.
-Kontrprzykład: **pentomino w kształcie plusa** — pięć nieprzypisanych komórek (środek
-i cztery ramiona), wszystkie spójne, żadna nieizolowana. Rozkłady na ścieżki ≥ 2
-musiałyby mieć długości `2+3` albo `5`. Ścieżka przez środek ma najwyżej 3 komórki
-(po wyjściu na ramię nie ma dokąd iść), a dwa pozostałe ramiona nie sąsiadują ze sobą,
-więc nie tworzą pary. Rozkład nie istnieje, choć naiwny test izolacji niczego nie
-zgłosi.
+Nor is it enough to make sure that no cell is left without neighbours. Counterexample:
+**the plus-shaped pentomino** — five unassigned cells (the centre and four arms), all
+connected, none isolated. Decompositions into paths ≥ 2 would have to have lengths
+`2+3` or `5`. A path through the centre has at most 3 cells (after stepping onto an arm
+there is nowhere to go), and the two remaining arms are not adjacent to each other, so
+they do not form a pair. No decomposition exists, even though a naive isolation test
+reports nothing.
 
-#### Rozwiązanie: konstrukcja + weryfikacja + ograniczony nawrót
+#### Solution: construction + verification + bounded backtracking
 
-Pełnego pokrycia przy minimalnej długości 2 **nie gwarantujemy dowodem** — wymuszamy je
-trzema warstwami:
+We **do not guarantee by proof** full coverage with minimum length 2 — we enforce it
+with three layers:
 
-1. **Głowy parowalne** (wyżej) — każdy wycięty element ma długość ≥ 2.
-2. **Test kształtu resztki.** Po wybraniu kandydata na element sprawdzamy lokalnie, czy
-   `R` bez niego nie zawiera fragmentu nierozkładalnego. Tanie przybliżenie: żadna
-   komórka bez nieprzypisanego sąsiada oraz żaden spójny fragment o rozmiarze ≤ 5
-   pasujący do wzorca plusa. Sprawdzenie ogranicza się do otoczenia kandydata, więc
-   koszt jest rzędu obwodu elementu.
-3. **Ograniczony nawrót.** Jeśli mimo to generator dojdzie do stanu, w którym `R ≠ ∅`
-   i nie istnieje legalny element o długości ≥ 2, cofa `k` ostatnich wycięć i próbuje
-   innych wyborów. Dopiero wyczerpanie budżetu nawrotów powoduje restart z nowym
-   ziarnem.
+1. **Pairable heads** (above) — every carved piece has length ≥ 2.
+2. **Leftover-fragment shape test.** After choosing a candidate piece we check locally
+   whether `R` without it contains a non-decomposable fragment. A cheap approximation:
+   no cell without an unassigned neighbour, and no connected fragment of size ≤ 5
+   matching the plus pattern. The check is limited to the candidate's surroundings, so
+   the cost is on the order of the piece's perimeter.
+3. **Bounded backtracking.** If despite this the generator reaches a state in which
+   `R ≠ ∅` and no legal piece of length ≥ 2 exists, it undoes the last `k` carvings and
+   tries other choices. Only exhausting the backtrack budget causes a restart with a new
+   seed.
 
-Nad wszystkim stoi **niezależny solver z §8**: jest liniowy i całkowicie odseparowany od
-generatora, więc każda wygenerowana plansza jest weryfikowana, a nie zakładana. To jest
-właściwy podział ról — konstrukcja ma trafiać często, weryfikator ma być pewny.
+Above all of this stands the **independent solver from §8**: it is linear and completely
+separated from the generator, so every generated board is verified, not assumed. This is
+the right division of roles — the construction should hit often, the verifier should be
+certain.
 
-Że przestrzeń poprawnych plansz jest niepusta, widać z konstrukcji trywialnej: kolumny
-wypełnione pionowymi dominami skierowanymi w górę, zdejmowanymi od góry. Jest nudna
-i nigdy jej nie użyjemy, ale dowodzi, że generator ma czego szukać.
+That the space of valid boards is non-empty is visible from a trivial construction:
+columns filled with vertical dominoes pointing up, removed from the top. It is boring
+and we will never use it, but it proves the generator has something to search for.
 
-**Do zmierzenia benchmarkiem:** częstość nawrotów i restartów. Jeżeli okaże się wysoka,
-przechodzimy na wariant dwufazowy — najpierw podział prostokąta na ścieżki (na pełnym
-prostokącie zawsze wykonalny: domina plus jedno tromino przy nieparzystej powierzchni),
-potem dobór kierunków i kolejności. Wariant ten jest droższy i mniej elastyczny, więc
-zostaje jako plan awaryjny, nie domyślny.
+**To be measured by benchmark:** the frequency of backtracks and restarts. If it turns
+out high, we switch to a two-phase variant — first partition the rectangle into paths
+(always feasible on a full rectangle: dominoes plus one tromino for an odd area), then
+choose directions and order. This variant is more expensive and less flexible, so it
+remains a fallback plan, not the default.
 
-### Obszar dopuszczalny: skyline
+### Admissible area: skyline
 
-Niech `depth_d[L]` = liczba kolejnych **przypisanych** komórek na linii `L`, licząc od
-krawędzi w kierunku `d` do wewnątrz. Niech `dist_d(c)` = liczba komórek ściśle między
-`c` a krawędzią w kierunku `d`. Wtedy:
+Let `depth_d[L]` = the number of consecutive **assigned** cells on line `L`, counting
+from the edge inward in direction `d`. Let `dist_d(c)` = the number of cells strictly
+between `c` and the edge in direction `d`. Then:
 
 ```
-komórka c może być GŁOWĄ wycinanego elementu o kierunku d
-  ⟺  c nieprzypisana ∧ dist_d(c) ≤ depth_d[line_d(c)]
+cell c can be the HEAD of a carved piece with direction d
+  ⟺  c unassigned ∧ dist_d(c) ≤ depth_d[line_d(c)]
 ```
 
-Test jest **`O(1)` na komórkę**, a warunek dotyczy **wyłącznie głowy** — korytarz to
-przecież jeden promień z głowy (§6). **Ciało rośnie bez żadnych ograniczeń
-geometrycznych**, byle po komórkach nieprzypisanych. To właśnie ta swoboda daje
-splątane kształty i jest głównym zyskiem z reguły jazdy po torze.
+The test is **`O(1)` per cell**, and the condition concerns **the head only** — after
+all, the corridor is a single ray from the head (§6). **The body grows with no geometric
+constraints whatsoever**, as long as it stays on unassigned cells. It is precisely this
+freedom that yields tangled shapes and is the main gain from the travelling-along-the-
+track rule.
 
-Ponieważ na każdej linii pierwsza nieprzypisana komórka od krawędzi jest jedyną
-kandydatką na głowę, kandydatów jest co najwyżej `W` (dla góry i dołu) lub `H` (dla
-boków) — enumeracja kosztuje `O(W+H)`.
+Since on each line the first unassigned cell from the edge is the only head candidate,
+there are at most `W` candidates (for top and bottom) or `H` (for the sides) —
+enumeration costs `O(W+H)`.
 
-Utrzymujemy cztery tablice `depth_d[·]`, po jednej na kierunek, aktualizowane
-przyrostowo po każdym wycięciu kosztem `O(4·ℓ)`.
+We maintain four arrays `depth_d[·]`, one per direction, updated incrementally after
+each carving at a cost of `O(4·ℓ)`.
 
-### Procedura wycinania
+### Carving procedure
 
-Ścieżkę **hodujemy wyłącznie wewnątrz obszaru dopuszczalnego**, więc odrzuceń nie ma.
+We **grow the path exclusively inside the admissible area**, so there are no rejections.
 
 ```
 carve(rng, params):
-  dla kierunków d w losowej kolejności, ważonej rozmiarem obszaru dopuszczalnego:
-    Heads = pierwsza nieprzypisana komórka każdej linii, mająca nieprzypisanego sąsiada
-    jeśli Heads puste: następny kierunek
-    h = losuj z Heads
-    path = [h]                              # ciało dorośnie w dowolną stronę
-    docelowa długość ℓ* ~ rozkład mieszany (patrz niżej)
-    dopóki |path| < ℓ*:
-      cand = { sąsiedzi ogona, nieprzypisani }      # ciało bez ograniczeń geometrycznych
-      odfiltruj kandydatów zostawiających w R fragment nierozkładalny
-      waga kandydata ~ 1 / (liczba jego nieprzypisanych sąsiadów)   # Warnsdorff
-      jeśli cand puste: przerwij            # akceptujemy krótszy element
-      wybierz t z cand (bias: prosto z prawdopodobieństwem p_s ≈ 0.75, skręt resztą)
+  for directions d in random order, weighted by the size of the admissible area:
+    Heads = first unassigned cell of each line that has an unassigned neighbour
+    if Heads empty: next direction
+    h = sample from Heads
+    path = [h]                              # the body will grow in any direction
+    target length ℓ* ~ mixture distribution (see below)
+    while |path| < ℓ*:
+      cand = { neighbours of the tail, unassigned }      # body without geometric constraints
+      filter out candidates that leave a non-decomposable fragment in R
+      candidate weight ~ 1 / (number of its unassigned neighbours)   # Warnsdorff
+      if cand empty: break                  # we accept a shorter piece
+      pick t from cand (bias: straight with probability p_s ≈ 0.75, turn with the rest)
       path.push(t)
-    zatwierdź(path, d); zaktualizuj depth_*
+    commit(path, d); update depth_*
     return OK
-  cofnij k ostatnich wycięć i spróbuj ponownie; po wyczerpaniu budżetu — restart
+  undo the last k carvings and try again; once the budget is exhausted — restart
 ```
 
-Wzrost to samounikająca się ścieżka: nie odwiedza komórki dwukrotnie, ale **może**
-dotykać samej siebie bokiem (spirala). Korytarz liczymy po zbiorze komórek, nie po
-kolejności ścieżki.
+Growth is a self-avoiding path: it does not visit a cell twice, but it **may** touch
+itself side-on (a spiral). We compute the corridor over the set of cells, not over the
+path order.
 
-### Rozkład długości
+### Length distribution
 
-Przy pełnym wypełnieniu **liczba linii i średnia długość to jedna i ta sama wielkość**:
+With full coverage, **the number of lines and the mean length are one and the same
+quantity**:
 
 ```
-średnia długość = W · H / liczba linii
+mean length = W · H / number of lines
 ```
 
-Nie są to więc dwa niezależne pokrętła. Konfigurator wystawia liczbę linii, a średnią
-długość pokazuje jako wielkość pochodną.
+They are therefore not two independent knobs. The configurator exposes the number of
+lines and shows the mean length as a derived quantity.
 
-`Lmax = round(κ · max(W, H))`, gdzie `κ ≈ 2–3`; element może być wielokrotnie dłuższy
-niż bok planszy, bo się wije. Długość losujemy z **rozkładu mieszanego** o trzech
-koszykach, których wagi dobieramy tak, by średnia wyszła na zamówioną:
+`Lmax = round(κ · max(W, H))`, where `κ ≈ 2–3`; a piece can be many times longer than
+the board's side, because it winds. We sample the length from a **mixture
+distribution** with three buckets, whose weights are chosen so that the mean comes out
+as ordered:
 
-| Koszyk | Długość | Rozkład | Rola |
+| Bucket | Length | Distribution | Role |
 |---|---|---|---|
-| krótkie | 2–6 | jednostajny | wypełniacz, domyka szczeliny |
-| średnie | 7–15 | jednostajny | typowe zawijasy, główna masa planszy |
-| długie | 16–`Lmax` | **log-jednostajny** | szkielet planszy, przecinają ją na wskroś |
+| short | 2–6 | uniform | filler, closes gaps |
+| medium | 7–15 | uniform | typical squiggles, the main mass of the board |
+| long | 16–`Lmax` | **log-uniform** | the board's skeleton, they cross it end to end |
 
-W koszyku długim rozkład jest log-jednostajny, a nie jednostajny: przy `Lmax = 300`
-jednostajny dawałby średnią 158 komórek, czyli same potwory. Log-jednostajny daje
-średnią ~97 i rozkłada masę równomiernie po rzędach wielkości, więc powstają zarówno
-elementy 20-komórkowe, jak i 250-komórkowe.
+In the long bucket the distribution is log-uniform, not uniform: at `Lmax = 300` a
+uniform distribution would give a mean of 158 cells, i.e. nothing but monsters.
+Log-uniform gives a mean of ~97 and spreads the mass evenly across orders of magnitude,
+so both 20-cell and 250-cell pieces arise.
 
-**Ograniczenie: `Lmax` i waga koszyka długiego nie są niezależne.** Iloczyn wagi
-i średniej długości koszyka, podzielony przez średnią ogólną, to udział powierzchni
-planszy zajęty przez długie elementy. Przy `Lmax = 300` i wadze 8% kilkanaście węży
-zajęłoby większość planszy. Przy dużym `Lmax` waga musi spaść poniżej ~1.5%.
-Konfigurator liczy ten udział na żywo i ostrzega po przekroczeniu ~25%.
+**Constraint: `Lmax` and the long bucket's weight are not independent.** The product of
+the weight and the bucket's mean length, divided by the overall mean, is the share of
+the board's area occupied by long pieces. At `Lmax = 300` and a weight of 8%, a dozen or
+so snakes would occupy most of the board. With a large `Lmax` the weight must drop below
+~1.5%. The configurator computes this share live and warns once it exceeds ~25%.
 
-**Długie elementy udają się późno, nie wcześnie.** Na starcie `R` to cała plansza,
-więc dopuszczalne są wyłącznie komórki przyklejone do krawędzi — pierwsze wycięcia są
-z konieczności krótkie. Obszar dopuszczalny **rośnie** w miarę wycinania, bo za
-frontierem zostaje coraz więcej komórek przypisanych. Górna granica losowanej długości
-musi więc **rosnąć** z postępem generacji.
+**Long pieces succeed late, not early.** At the start `R` is the whole board, so only
+cells glued to the edge are admissible — the first carvings are necessarily short. The
+admissible area **grows** as carving proceeds, because more and more assigned cells
+remain behind the frontier. The upper bound of the sampled length must therefore
+**grow** with the progress of generation.
 
-Warto zauważyć, że to odwrotność sytuacji z poprzedniej wersji projektu, gdzie elementy
-wstawiano na pustą planszę i pojemność malała. Kierunek zależności się odwrócił razem
-ze zmianą warunku stopu — i to jest miejsce, w którym najłatwiej przenieść stary
-odruch do nowego kodu.
+It is worth noting that this is the reverse of the situation in the previous version of
+the design, where pieces were inserted onto an empty board and the capacity shrank. The
+direction of the dependency flipped together with the change of the stop condition —
+and this is the place where it is easiest to carry an old reflex into the new code.
 
-**Połamanie steruje rozmiarem korytarza, nie tylko wyglądem.** Korytarz zależy od liczby
-linii, które element przecina w poprzek, a nie od jego długości. Wąż o 300 komórkach
-zwinięty w ciasną spiralę przecina może 20 kolumn i wycina się łatwo; ten sam wąż
-poprowadzony prosto przecina 100 kolumn i wymaga, by cała plansza nad nim była już
-przypisana. W konfiguratorze te dwa suwaki oddziałują więc na siebie: mocno połamane
-i długie jest łatwe, proste i długie bywa niewykonalne. Interfejs musi pokazywać, co
-generator faktycznie osiągnął, a nie tylko, o co go poproszono.
+**Bending controls corridor size, not just looks.** The corridor depends on the number
+of lines the piece crosses transversely, not on its length. A 300-cell snake coiled into
+a tight spiral crosses maybe 20 columns and carves easily; the same snake led straight
+crosses 100 columns and requires the entire board above it to be already assigned. In
+the configurator these two sliders therefore interact: heavily bent and long is easy,
+straight and long can be infeasible. The interface must show what the generator actually
+achieved, not just what it was asked for.
 
-### Sterowanie trudnością zamiast korków
+### Controlling difficulty instead of plugs
 
-Wcześniejsza wersja projektu sterowała trudnością przez **korki**: elementy dokładane
-w korytarze wolnych elementów, żeby je unieruchomić. Przy pełnym wypełnieniu ten
-mechanizm **przestaje istnieć** — nie ma wolnych komórek, w które można cokolwiek
-dołożyć. Zastępujemy go dwoma innymi:
+The earlier version of the design controlled difficulty with **plugs**: pieces added
+into the corridors of free pieces to immobilise them. With full coverage this mechanism
+**ceases to exist** — there are no free cells into which anything could be added. We
+replace it with two others:
 
-1. **Bias kształtu frontiera.** Liczba elementów wolnych na starcie (`f0`) to liczba
-   elementów, które mogłyby zostać wycięte jako pierwsze — czyli szerokość „powierzchni"
-   wycinania w chwili startu. Wycinanie warstwami równomiernie po całym obwodzie daje
-   szeroki frontier i wysokie `f0`; wycinanie wąskimi tunelami w głąb daje frontier
-   poszarpany i `f0` niskie. Sterujemy tym, preferując kontynuację w tym samym rejonie
-   i kierunku zamiast losowego skakania po planszy.
-2. **Generuj–zmierz–odrzuć.** Po wygenerowaniu liczymy metryki z §9; jeśli wypadają poza
-   pasmem trudności, powtarzamy z innym ziarnem lub skorygowanymi parametrami. Budżet
-   prób jest ograniczony; po jego wyczerpaniu oddajemy najlepszy wynik, żeby gra nigdy
-   nie zawiesiła się przy starcie poziomu.
+1. **Frontier shape bias.** The number of pieces free at the start (`f0`) is the number
+   of pieces that could have been carved first — i.e. the width of the carving "surface"
+   at the moment of the start. Carving in layers evenly around the whole perimeter gives
+   a wide frontier and a high `f0`; carving in narrow tunnels inward gives a jagged
+   frontier and a low `f0`. We control this by preferring to continue in the same region
+   and direction instead of hopping randomly around the board.
+2. **Generate–measure–reject.** After generation we compute the metrics from §9; if they
+   fall outside the difficulty band, we repeat with a different seed or corrected
+   parameters. The attempt budget is bounded; once it is exhausted we return the best
+   result, so the game never hangs at level start.
 
-**Skuteczność biasu z punktu 1 została potwierdzona prototypem.** Na planszy 25×25
-preferowanie najgłębszej linii przy wyborze głowy (tunelowanie) wobec preferowania
-najpłytszej (warstwy) daje:
+**The effectiveness of the bias from point 1 has been confirmed by the prototype.** On a
+25×25 board, preferring the deepest line when choosing the head (tunnelling) versus
+preferring the shallowest (layers) gives:
 
-| Wariant | `f0` | `D` | średni korytarz |
+| Variant | `f0` | `D` | mean corridor |
 |---|---|---|---|
-| warstwy (najpłytsza linia) | 0.43 | 9 | 6.2 |
-| bez preferencji | 0.33 | 8 | 6.9 |
-| **tunele (najgłębsza linia)** | **0.16** | **17** | **11.7** |
+| layers (shallowest line) | 0.43 | 9 | 6.2 |
+| no preference | 0.33 | 8 | 6.9 |
+| **tunnels (deepest line)** | **0.16** | **17** | **11.7** |
 
-Tunelowanie **połowi `f0` i podwaja głębokość grafu blokowania**. Jest to więc realny
-regulator trudności, a nie hipoteza. Siłę dobieramy per poziom: Easy potrzebuje
-tunelowania słabszego (przy pełnym `f0` spadło do 0.16 zamiast zamierzonych ≥0.35),
-wyższe poziomy pełnego.
+Tunnelling **halves `f0` and doubles the depth of the blocking graph**. It is therefore a
+real difficulty regulator, not a hypothesis. We pick the strength per level: Easy needs
+weaker tunnelling (at full strength `f0` dropped to 0.16 instead of the intended ≥0.35),
+the higher levels the full one.
 
-### Reguła Warnsdorffa jest wymagana, nie opcjonalna
+### Warnsdorff's rule is required, not optional
 
-Swoboda kształtu ma cenę: ciało wijące się bez ograniczeń **fragmentuje resztę planszy**
-na kawałki nie do rozłożenia na ścieżki długości ≥ 2. W prototypie plansza 100×100
-przestawała się z tego powodu domykać w ogóle.
+The freedom of shape has a price: a body winding without constraints **fragments the
+rest of the board** into pieces that cannot be decomposed into paths of length ≥ 2. In
+the prototype a 100×100 board stopped closing at all for this reason.
 
-Kuracją jest klasyczna heurystyka z pokrywania ścieżkami, znana z problemu skoczka
-szachowego: **idź tam, gdzie zostaje najmniej wolnych wyjść**. Kandydatów na kolejną
-komórkę ważymy odwrotnie do liczby ich nieprzypisanych sąsiadów, dzięki czemu ślepe
-uliczki są zjadane, zanim zdążą się zamknąć.
+The cure is the classic heuristic from path covering, known from the knight's tour
+problem: **go where the fewest free exits remain**. We weight candidates for the next
+cell inversely to the number of their unassigned neighbours, so that dead ends are eaten
+before they manage to close.
 
-Efekt zmierzony na planszy 75×75:
+The effect measured on a 75×75 board:
 
-| | nawroty | skrętów/elem | wieloliniowych |
+| | backtracks | turns/piece | multi-line |
 |---|---|---|---|
-| bez Warnsdorffa | 26 | 1.28 | 57% |
-| z Warnsdorffem | 1 | 1.67 | 65% |
+| without Warnsdorff | 26 | 1.28 | 57% |
+| with Warnsdorff | 1 | 1.67 | 65% |
 
-Heurystyka poprawia **jednocześnie** domykalność i wygląd, bo zjadanie ślepych uliczek
-w naturalny sposób produkuje zawijasy. Jest więc częścią algorytmu, a nie strojeniem.
+The heuristic improves closability and looks **at the same time**, because eating dead
+ends naturally produces squiggles. It is therefore part of the algorithm, not tuning.
 
-### Historia: dlaczego porzuciliśmy sztywną translację
+### History: why we abandoned rigid translation
 
-Warto zachować powód, bo pokusa powrotu do „sprawdź, czy przed całym kształtem jest
-wolne" jest silna i wygląda niewinnie.
+The reason is worth preserving, because the temptation to return to "check whether the
+space in front of the whole shape is free" is strong and looks innocent.
 
-Przy sztywnej translacji element musiał na **każdej** dotkniętej linii zajmować ciągły
-odcinek zaczynający się dokładnie na frontierze. Skręt wymagał więc, by głębokość
-elementu zrównała się co do komórki z frontierem sąsiedniej linii — warunek punktowy.
-Element, który raz zanurzył się w głąb, tracił możliwość skrętu na zawsze.
+With rigid translation a piece had to occupy, on **every** touched line, a contiguous
+segment starting exactly at the frontier. A turn therefore required the piece's depth to
+match the neighbouring line's frontier to the exact cell — a point condition. A piece
+that had once dived inward lost the ability to turn forever.
 
-Ograniczenie to obowiązywało w **każdej poprawnej planszy**, nie tylko w danym
-generatorze, bo element usuwany w danej chwili zawsze musiał je spełniać. Skutkiem były
-plansze złożone z prostych kresek, ułożone w pasy. Do tego kształt i trudność ciągnęły
-w przeciwne strony. Zmierzone porównanie:
+This constraint held in **every valid board**, not just in a given generator, because
+the piece being removed at any moment always had to satisfy it. The result was boards
+made of straight strokes arranged in stripes. On top of that, shape and difficulty
+pulled in opposite directions. The measured comparison:
 
-| reguła ruchu | skrętów/elem | wieloliniowych | `f0` |
+| movement rule | turns/piece | multi-line | `f0` |
 |---|---|---|---|
-| sztywna translacja, wariant „na kształt" | 0.72 | 29% | 0.42 |
-| sztywna translacja, wariant „na trudność" | 0.15 | 6% | 0.20 |
-| **jazda po torze** | **1.87** | **69%** | **0.061** |
+| rigid translation, "for shape" variant | 0.72 | 29% | 0.42 |
+| rigid translation, "for difficulty" variant | 0.15 | 6% | 0.20 |
+| **travelling along the track** | **1.87** | **69%** | **0.061** |
 
-Jazda po torze wygrywa na obu osiach naraz, bo znosi przyczynę konfliktu zamiast szukać
-kompromisu.
+Travelling along the track wins on both axes at once, because it removes the cause of
+the conflict instead of looking for a compromise.
 
-### Kalibracja długości — dłuższe elementy poprawiają wszystko naraz
+### Length calibration — longer pieces improve everything at once
 
-Wbrew intuicji **im dłuższe elementy, tym generacja stabilniejsza**. Mniej elementów to
-mniej decyzji, a każda decyzja jest okazją do pofragmentowania reszty planszy. Pomiar na
-planszy 50×50, 25 ziaren na wiersz:
+Counter-intuitively, **the longer the pieces, the more stable the generation**. Fewer
+pieces means fewer decisions, and every decision is an opportunity to fragment the rest
+of the board. Measured on a 50×50 board, 25 seeds per row:
 
-| wagi kr./śr./dł. | śr. długość | max | p99 czasu | p99 nawrotów |
+| weights short/med./long | mean length | max | p99 time | p99 backtracks |
 |---|---|---|---|---|
 | 0.75 / 0.24 / 0.01 | 4.5 | 33 | 257 ms | **2617** |
 | 0.30 / 0.60 / 0.10 | 7.1 | 74 | 493 ms | 4 |
 | **0.10 / 0.70 / 0.20** | **8.8** | **81** | 211 ms | 3 |
 | 0.00 / 0.00 / 1.00 | 17.8 | 105 | 12 ms | 1 |
 
-Na Nightmare przejście z wag „krótkich" na `0.10 / 0.70 / 0.20` **halfuje p99 czasu
-generacji (979 → 442 ms)**, czterokrotnie zmniejsza liczbę restartów i podnosi liczbę
-skrętów z 1.84 do 4.48. Wcześniejsza obserwacja, że osiągana średnia jest o ~30% niższa
-od zamawianej, była artefaktem reguły sztywnej translacji — przy jeździe po torze ciało
-nie ma ograniczeń geometrycznych, więc niemal nie utyka.
+On Nightmare, moving from the "short" weights to `0.10 / 0.70 / 0.20` **halves the p99
+generation time (979 → 442 ms)**, cuts the number of restarts fourfold and raises the
+number of turns from 1.84 to 4.48. The earlier observation that the achieved mean was
+~30% below the ordered one was an artefact of the rigid-translation rule — when
+travelling along the track the body has no geometric constraints, so it almost never
+gets stuck.
 
-Wagi **optymalne pod odporność** to `0.10 / 0.70 / 0.20`. Nie są jednak wagami
-przyjętymi — patrz niżej.
+The weights **optimal for robustness** are `0.10 / 0.70 / 0.20`. They are not, however,
+the adopted weights — see below.
 
-### Wagi przyjęte: kalibracja wzrokowa wygrywa z optymalizacją
+### Adopted weights: visual calibration beats optimisation
 
-Podgląd SVG (§11) pokazał, że wagi optymalne pod odporność dają planszę **rozwleczoną**:
-kilkadziesiąt długich, meandrujących linii i rzadko rozsiane groty. Referencyjny zrzut ma
-gęsto usiane groty **oraz** kilka bardzo długich linii — czyli rozkład o ciężkim ogonie,
-a nie przesunięty ku średnim długościom.
+The SVG preview (§11) showed that the weights optimal for robustness give a
+**stretched-out** board: a few dozen long, meandering lines and sparsely scattered
+arrowheads. The reference screenshot has densely sown arrowheads **and** a few very long
+lines — that is, a heavy-tailed distribution, not one shifted towards medium lengths.
 
-| wagi (kr./śr./dł.) | elem. (25×50) | śr. dł. | skrętów | zwinięcie | wygląd |
+| weights (short/med./long) | pieces (25×50) | mean len. | turns | coiling | looks |
 |---|---|---|---|---|---|
-| 0.85 / 0.14 / 0.01 | 307 | 4.1 | 1.39 | 11% | gęste groty, same krótkie haczyki |
-| 0.62 / 0.23 / 0.15 | 187 | 6.7 | 2.47 | 36% | dobrze, ale długich wciąż mało |
-| **0.50 / 0.20 / 0.30** | **144** | **8.7** | **3.51** | **42%** | **gęste groty plus wyraźne długie węże** |
-| 0.40 / 0.15 / 0.45 | 134 | 9.3 | 4.07 | 46% | elementy zaczynają się kłębić |
-| 0.10 / 0.70 / 0.20 | 62 | 10.1 | 4.19 | 36% | rozwleczone, groty rzadkie |
+| 0.85 / 0.14 / 0.01 | 307 | 4.1 | 1.39 | 11% | dense arrowheads, nothing but short hooks |
+| 0.62 / 0.23 / 0.15 | 187 | 6.7 | 2.47 | 36% | good, but still few long ones |
+| **0.50 / 0.20 / 0.30** | **144** | **8.7** | **3.51** | **42%** | **dense arrowheads plus distinct long snakes** |
+| 0.40 / 0.15 / 0.45 | 134 | 9.3 | 4.07 | 46% | pieces start to ball up |
+| 0.10 / 0.70 / 0.20 | 62 | 10.1 | 4.19 | 36% | stretched out, sparse arrowheads |
 
-Podniesienie udziału długich jeszcze wyżej okazało się korzystne na obu osiach naraz.
-Przy `0.30` udział elementów dłuższych niż 50 komórek rośnie z 0,8% do ~2,3%, a **czas
-generacji się poprawia**: p99 spada z 658 do 467 ms, a restarty z 15 do 3 na 30
-przebiegów. To ta sama zależność co w rundzie 3 — mniej elementów to mniej decyzji,
-a każda decyzja jest okazją do pofragmentowania planszy.
+Raising the share of long pieces even higher turned out to be beneficial on both axes
+at once. At `0.30` the share of pieces longer than 50 cells rises from 0.8% to ~2.3%,
+and **generation time improves**: p99 drops from 658 to 467 ms, and restarts from 15 to
+3 per 30 runs. This is the same dependency as in round 3 — fewer pieces means fewer
+decisions, and every decision is an opportunity to fragment the board.
 
-Przyjęte wagi domyślne: **0.50 / 0.20 / 0.30**. Powyżej ~0.45 zwinięcie przekracza
-46% i elementy zaczynają się kłębić zamiast meandrować, więc to jest górna granica
-sensownego zakresu.
+Adopted default weights: **0.50 / 0.20 / 0.30**. Above ~0.45 coiling exceeds 46% and
+pieces start to ball up instead of meandering, so that is the upper bound of the
+sensible range.
 
-Jest to świadoma decyzja: **optymalizowaliśmy nie tę wielkość, co trzeba**. Runda 3
-dobrała wagi pod ogon czasu generacji, bo tylko to dawało się wtedy zmierzyć. Dopiero
-render pokazał, że kosztem był wygląd — czyli to, po co ta gra istnieje.
+This is a deliberate decision: **we were optimising the wrong quantity**. Round 3 chose
+the weights for the tail of generation time, because that was the only thing that could
+be measured at the time. Only the render showed that the cost was the looks — which is
+what this game exists for.
 
-### Siła Warnsdorffa: skręty kontra zwijanie
+### Warnsdorff strength: turns versus coiling
 
-Heurystyka Warnsdorffa steruje **jednocześnie** liczbą skrętów i „zwijaniem" — udziałem
-komórek, które dotykają własnej ścieżki z trzech lub czterech stron. Zwinięty element
-wygląda jak zwarty kłębek, nie jak meandrująca linia, więc jest to metryka wyglądu,
-którą trzeba pilnować obok liczby skrętów.
+The Warnsdorff heuristic controls **at the same time** the number of turns and
+"coiling" — the share of cells that touch their own path on three or four sides. A
+coiled piece looks like a compact ball, not a meandering line, so it is a looks metric
+that must be watched alongside the number of turns.
 
-| siła | skrętów/elem | zwinięcie | p99 czasu (Nightmare) | porażki |
+| strength | turns/piece | coiling | p99 time (Nightmare) | failures |
 |---|---|---|---|---|
-| 0 (wyłączona) | 2.37 | 20% | 815 ms | **1 na 30** |
+| 0 (off) | 2.37 | 20% | 815 ms | **1 in 30** |
 | 2 | 3.36 | 32% | 625 ms | 0 |
 | **4** | **4.05** | **35%** | **442 ms** | 0 |
 | 8 | 4.43 | 39% | 625 ms | 0 |
 
-Bez Warnsdorffa jedna plansza na trzydzieści nie generuje się w ogóle — heurystyka
-pozostaje **wymagana**. Siła 4 jest wartością domyślną; 2 daje mniej zwinięcia kosztem
-dłuższego ogona czasu. To jedyny parametr, który realnie zmienia charakter kształtów,
-więc jest pierwszym kandydatem do strojenia po zobaczeniu prawdziwego rendera.
+Without Warnsdorff one board in thirty does not generate at all — the heuristic remains
+**required**. Strength 4 is the default value; 2 gives less coiling at the cost of a
+longer time tail. It is the only parameter that genuinely changes the character of the
+shapes, so it is the first candidate for tuning after seeing the real render.
 
-**Zastrzeżenie:** ostatecznej oceny wyglądu nie da się zrobić na podglądzie ASCII.
-Znaki ramek nie potrafią przedstawić ścieżki dotykającej samej siebie, a przy zwinięciu
-35% jest to co trzecia komórka. Kalibracja `warns` i wag długości musi się odbyć
-**na docelowym rendererze SVG**, nie wcześniej.
+**Caveat:** the final assessment of looks cannot be made on the ASCII preview. Box
+characters cannot depict a path touching itself, and at 35% coiling that is every third
+cell. The calibration of `warns` and the length weights must take place **on the target
+SVG renderer**, not earlier.
 
-## 8. Solver i weryfikacja
+## 8. Solver and verification
 
-### Graf blokowania
+### Blocking graph
 
-Ponieważ korytarz jest stały (§2), relacja „`F` blokuje `E`", zdefiniowana jako
-`cells(F) ∩ corridor(E) ≠ ∅`, jest **statycznym grafem skierowanym** na elementach,
-policzalnym raz. Przy jeździe po torze korytarz to jeden promień, więc graf jest
-znacznie rzadszy niż przy sztywnej translacji — tym tańszy do zbudowania.
+Since the corridor is fixed (§2), the relation "`F` blocks `E`", defined as
+`cells(F) ∩ corridor(E) ≠ ∅`, is a **static directed graph** on the pieces, computable
+once. When travelling along the track the corridor is a single ray, so the graph is much
+sparser than with rigid translation — and correspondingly cheaper to build.
 
-`E` jest wolny wtedy i tylko wtedy, gdy żaden pozostały na planszy `F` go nie blokuje.
-Zatem poprawna kolejność usuwania to porządek topologiczny tego grafu, a stąd:
+`E` is free if and only if no `F` remaining on the board blocks it. Hence a valid removal
+order is a topological order of this graph, and from this:
 
-> **plansza jest rozwiązywalna ⟺ graf blokowania jest acykliczny**
+> **the board is solvable ⟺ the blocking graph is acyclic**
 
-Jedyny sposób, w jaki plansza może być nierozwiązywalna, to cykl — na przykład dwa
-elementy na jednej linii skierowane na siebie.
+The only way a board can be unsolvable is a cycle — for example two pieces on one line
+pointing at each other.
 
-### Konfluencja
+### Confluence
 
-Bycie wolnym jest **monotoniczne względem usuwania**: jeśli `E` jest wolny w stanie `S`
-i `S' ⊆ S`, to `E` jest wolny w `S'`. Usuwanie tylko zmniejsza zajętość, a wolny
-korytarz pozostaje wolny.
+Being free is **monotone with respect to removal**: if `E` is free in state `S` and
+`S' ⊆ S`, then `E` is free in `S'`. Removal only reduces occupancy, and a free corridor
+stays free.
 
-Stąd: gdyby zachłanne usuwanie utknęło w niepustym `S` bez wolnych elementów, a plansza
-miała rozwiązanie `σ`, to biorąc `E` = pierwszy element `σ` należący do `S`, w chwili
-gdy `σ` usuwało `E`, stan `T` zawierał `S`. `E` wolny w `T` implikuje wolny w `S` —
-sprzeczność.
+Hence: if greedy removal got stuck in a non-empty `S` with no free pieces, while the
+board had a solution `σ`, then taking `E` = the first piece of `σ` belonging to `S`, at
+the moment `σ` removed `E` the state `T` contained `S`. `E` free in `T` implies free in
+`S` — a contradiction.
 
-**Każda kolejność usuwania wolnych elementów prowadzi do rozwiązania.** Gracz nie może
-zablokować się legalnym ruchem; przegrywa wyłącznie przez błędne kliknięcia.
+**Every order of removing free pieces leads to a solution.** The player cannot get stuck
+with a legal move; they lose only through wrong clicks.
 
-### Implementacja solvera
+### Solver implementation
 
 ```
-zbuduj graf: dla każdego E, dla każdej obcej komórki w corridor(E) → krawędź E → owner(c)
-Kahn: kolejka = elementy bez pozostałych blokerów; zdejmuj, dekrementuj liczniki
-rozwiązywalna ⟺ zdjęto wszystkie N elementów
-pozostałość = elementy leżące w cyklach (diagnostyka)
+build the graph: for every E, for every foreign cell in corridor(E) → edge E → owner(c)
+Kahn: queue = pieces with no remaining blockers; pop, decrement counters
+solvable ⟺ all N pieces were popped
+remainder = pieces lying in cycles (diagnostics)
 ```
 
-Koszt budowy grafu `O(N · ℓ · max(W,H))`, sortowania `O(N + E)`. Solver jest niezależny
-od generatora i służy do weryfikacji w testach — nie do rozgrywki.
+Graph construction costs `O(N · ℓ · max(W,H))`, sorting `O(N + E)`. The solver is
+independent of the generator and serves verification in tests — not gameplay.
 
-## 9. Trudność
+## 9. Difficulty
 
-Gra nie ma ślepych zaułków (§8), więc nie wymaga planowania. Trudność jest
-**percepcyjna**: jak trudno znaleźć element, który ma wolną drogę, i jak wiele elementów
-*wygląda* na wolne, choć nie są.
+The game has no dead ends (§8), so it requires no planning. Difficulty is
+**perceptual**: how hard it is to find a piece with a free route, and how many pieces
+*look* free although they are not.
 
-Przy pełnym wypełnieniu warunek „wolny" brzmi: **w każdej linii, którą element przecina,
-pokrywa on cały odcinek od siebie do krawędzi wyjścia**. Nie „ma przed sobą pustkę",
-lecz „przed nim jest już tylko on sam". To jest dokładnie ta rzecz, której gracz nie
-potrafi szybko odczytać z ekranu — i stąd bierze się cała trudność gry.
+With full coverage the "free" condition reads: **on every line the piece crosses, it
+covers the entire segment from itself to the exit edge**. Not "it has emptiness ahead",
+but "ahead of it there is nothing but itself". This is precisely the thing the player
+cannot quickly read from the screen — and that is where all of the game's difficulty
+comes from.
 
-| Metryka | Definicja |
+| Metric | Definition |
 |---|---|
-| `f0` | udział elementów wolnych na starcie (ujścia grafu blokowania) |
-| `almost1` | elementy zablokowane przez **dokładnie jeden** obcy element — wyglądają niemal na gotowe do wyjazdu i są główną pokusą do błędu |
-| `D` | głębokość grafu blokowania (najdłuższa ścieżka) |
-| `meanCorridorLen` | średnia długość korytarza — jak daleko trzeba wodzić wzrokiem, by ocenić jeden ruch |
-| `minFree` | minimalna liczba wolnych elementów w trakcie losowych playoutów zachłannych |
+| `f0` | share of pieces free at the start (sinks of the blocking graph) |
+| `almost1` | pieces blocked by **exactly one** foreign piece — they look almost ready to drive out and are the main temptation to err |
+| `D` | depth of the blocking graph (longest path) |
+| `meanCorridorLen` | mean corridor length — how far the eye has to travel to judge one move |
+| `minFree` | minimum number of free pieces during random greedy playouts |
 
-`almost1` jest najważniejsza: mierzy liczbę okazji do błędnego kliknięcia, czyli to, co
-faktycznie odbiera życia. `minFree` jest w MVP metryką **diagnostyczną** — raportowaną
-w benchmarku, ale niewchodzącą do progów akceptacji, bo jej kalibracja wymaga playtestu.
+`almost1` is the most important: it measures the number of opportunities for a wrong
+click, i.e. what actually takes lives. `minFree` is a **diagnostic** metric in the MVP —
+reported in the benchmark, but not part of the acceptance thresholds, because its
+calibration requires a playtest.
 
-**Dlaczego nie `T_k`.** Wcześniejsze wersje projektu używały metryki `T_k`: elementy
-zablokowane, których korytarz jest czysty przez pierwsze `k` komórek. Prototyp pokazał,
-że przy planszy zapełnionej w 100% ta metryka **zawsze wynosi zero**. Powód jest
-oczywisty z perspektywy czasu: skoro każda komórka do kogoś należy, tuż przed elementem
-zawsze ktoś stoi, więc „czysty korytarz przez `k` komórek" wymagałby, żeby element
-zasłaniał sam siebie na `k` komórek. To rzadkie. `T_k` była metryką zaprojektowaną pod
-planszę z pustkami i nie przeżyła przejścia na pełne pokrycie.
+**Why not `T_k`.** Earlier versions of the design used the metric `T_k`: blocked pieces
+whose corridor is clear for the first `k` cells. The prototype showed that on a board
+filled 100% this metric **is always zero**. The reason is obvious in hindsight: since
+every cell belongs to someone, there is always someone standing right in front of the
+piece, so "a clear corridor for `k` cells" would require the piece to shield itself for
+`k` cells. That is rare. `T_k` was a metric designed for a board with gaps and did not
+survive the transition to full coverage.
 
-Zastępuje ją `almost1`, która mierzy tę samą intuicję — „wygląda na wolny, a nie jest" —
-w sposób sensowny przy pełnym zapełnieniu. Prototyp mierzy dla niej 4–10% elementów.
+It is replaced by `almost1`, which measures the same intuition — "looks free, but is
+not" — in a way that makes sense at full fill. The prototype measures 4–10% of pieces
+for it.
 
-Wszystkie metryki są tanie; jedyna stochastyczna to `minFree`.
+All metrics are cheap; the only stochastic one is `minFree`.
 
-`meanCorridorLen` **nie jest progiem trudności** — do tego jest słaba, bo mierzy długość,
-a nie zwodniczość. Wchodzi natomiast do formuły punktacji (§10) jako miara wysiłku.
+`meanCorridorLen` **is not a difficulty threshold** — it is weak for that, because it
+measures length, not deceptiveness. It does, however, enter the scoring formula (§10) as
+a measure of effort.
 
-**Metryki podróżują razem z planszą.** Nie są danymi wyłącznie benchmarkowymi: `Board`
-niesie swój `BoardMetrics`, bo punktacja (§10) liczy się ze złożoności konkretnej
-wygenerowanej planszy, a nie z etykiety poziomu.
+**Metrics travel with the board.** They are not benchmark-only data: `Board` carries its
+`BoardMetrics`, because scoring (§10) is computed from the complexity of the specific
+generated board, not from the level label.
 
-### Parametry poziomów
+### Level parameters
 
-Wypełnienie **nie jest parametrem** — jest zawsze 100%. Każda komórka siatki należy do
-dokładnie jednego elementu; suma długości elementów równa się `W · H`. W konsekwencji
-liczba linii i średnia długość to jedna wielkość, związana zależnością
-`średnia długość = W · H / liczba linii`.
+Fill **is not a parameter** — it is always 100%. Every grid cell belongs to exactly one
+piece; the sum of piece lengths equals `W · H`. Consequently the number of lines and the
+mean length are one quantity, bound by the relation
+`mean length = W · H / number of lines`.
 
-Kolumny „linii" i „śr. dł." to wartości **zmierzone prototypem** przy obecnych wagach
-koszyków, nie zamówione. `f0` podano dla wariantu z preferencją najgłębszej linii.
+The "lines" and "mean len." columns are values **measured by the prototype** at the
+current bucket weights, not ordered ones. `f0` is given for the variant with the
+deepest-line preference.
 
-Wybór planszy to **dwa niezależne pokrętła**: poziom trudności (rozmiar bazowy `n`)
-i format (kwadrat `n×n` albo pionowy `n×2n`). Oba są równoprawne — pionowy odpowiada
-ekranowi telefonu i referencyjnemu zrzutowi, kwadratowy jest wygodniejszy na desktopie.
+Choosing a board is **two independent knobs**: the difficulty level (base size `n`) and
+the format (square `n×n` or portrait `n×2n`). Both are equally valid — portrait matches
+a phone screen and the reference screenshot, square is more convenient on desktop.
 
-Wartości zmierzone przy wagach `0.50 / 0.20 / 0.30` i sile Warnsdorffa 4 (§7).
+Values measured at weights `0.50 / 0.20 / 0.30` and Warnsdorff strength 4 (§7).
 
-**Format kwadratowy `n×n`:**
+**Square format `n×n`:**
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
+| Level | board | cells | lines | mean len. | max len. | `f0` | `almost1` | `D` | turns/piece |
 |---|---|---|---|---|---|---|---|---|---|
 | Easy | 25×25 | 625 | ~98 | 6.4 | 44 | 0.197 | 22% | 9 | 2.81 |
 | Medium | 50×50 | 2 500 | ~354 | 7.1 | 79 | 0.102 | 13% | 15 | 2.96 |
@@ -714,44 +732,44 @@ Wartości zmierzone przy wagach `0.50 / 0.20 / 0.30` i sile Warnsdorffa 4 (§7).
 | Nightmare | 100×100 | 10 000 | ~1 247 | 8.0 | 164 | 0.059 | 7% | 32 | 3.47 |
 | Extreme | 200×200 | 40 000 | ~4 671 | 8.6 | 199 | 0.034 | 4% | 73 | 3.80 |
 
-**Format pionowy `n×2n`:**
+**Portrait format `n×2n`:**
 
-| Poziom | plansza | komórek | linii | śr. dł. | max dł. | `f0` | `almost1` | `D` | skrętów/elem |
+| Level | board | cells | lines | mean len. | max len. | `f0` | `almost1` | `D` | turns/piece |
 |---|---|---|---|---|---|---|---|---|---|
 | Easy | 25×50 | 1 250 | ~173 | 7.2 | 73 | 0.139 | 17% | 14 | 3.20 |
 | Medium | 50×100 | 5 000 | ~605 | 8.3 | 136 | 0.080 | 10% | 22 | 3.63 |
 | Hard | 75×150 | 11 250 | ~1 311 | 8.6 | 246 | 0.050 | 7% | 40 | 3.71 |
 | Nightmare | 100×200 | 20 000 | ~2 312 | 8.7 | 180 | 0.038 | 6% | 52 | 3.85 |
 
-Rozkład długości trafia w kształt referencyjny w obu formatach: ~72% elementów ma
-2–6 komórek, ~18% ma 7–15, a **~2% przekracza 50 komórek** — przy najdłuższym sięgającym
-246 komórek na poziomie Hard w formacie pionowym.
+The length distribution hits the reference shape in both formats: ~72% of pieces have
+2–6 cells, ~18% have 7–15, and **~2% exceed 50 cells** — with the longest reaching 246
+cells at the Hard level in portrait format.
 
-**Format sam w sobie podnosi trudność.** Przy tym samym rozmiarze bazowym plansza
-pionowa ma niższe `f0` niż kwadratowa (Nightmare: 0.038 wobec 0.059). Wąska plansza ma
-krótsze korytarze w poziomie i dłuższe w pionie, więc statystycznie mniej elementów ma
-czystą drogę do krawędzi. Nie jest to zatem wyłącznie decyzja o kadrze — progi trudności
-muszą być kalibrowane per format.
+**The format alone raises difficulty.** At the same base size a portrait board has a
+lower `f0` than a square one (Nightmare: 0.038 versus 0.059). A narrow board has shorter
+corridors horizontally and longer ones vertically, so statistically fewer pieces have a
+clear route to the edge. It is therefore not merely a framing decision — the difficulty
+thresholds must be calibrated per format.
 
-`Extreme 200×200` istnieje tylko w wariancie kwadratowym, jako sprawdzian górnej granicy:
-40 000 komórek i ~4 700 elementów. Domyka się bez porażek, więc rozmiar planszy nie jest
-w praktyce ograniczony niczym poza czytelnością i czasem generacji.
+`Extreme 200×200` exists only in the square variant, as a test of the upper bound:
+40 000 cells and ~4 700 pieces. It closes without failures, so in practice the board
+size is limited by nothing but legibility and generation time.
 
-Wszystkie cztery domykają się w 100% i przechodzą solver. `f0` układa się w opadający
-ciąg bez dodatkowego sterowania — sam rozmiar planszy wystarcza za regulator trudności,
-więc bias frontiera z §7 jest dostrojeniem, a nie koniecznością.
+All four close 100% and pass the solver. `f0` arranges itself into a descending sequence
+without additional control — the board size alone suffices as a difficulty regulator, so
+the frontier bias from §7 is a fine-tuning, not a necessity.
 
-Liczba elementów na Nightmare (~1 043 o średniej długości 9,6) trafia dokładnie w to,
-co projekt zakładał przed jakimikolwiek pomiarami — ale trafia tam **przez kalibrację
-opartą na danych**, a nie przez to, że pierwotne oszacowanie było trafne. Po drodze
-generator dawał 1 918 i 2 067 elementów.
+The number of pieces on Nightmare (~1 043 with a mean length of 9.6) lands exactly where
+the design assumed before any measurements — but it lands there **through data-driven
+calibration**, not because the original estimate was accurate. Along the way the
+generator produced 1 918 and 2 067 pieces.
 
-### Rozkład czasu generacji
+### Generation time distribution
 
-Czas ma rozkład skrajnie ciężkoogonowy — mediana jest nieinformatywna, znaczenie ma ogon
-(30–100 ziaren na wiersz, wagi jak wyżej):
+Time has an extremely heavy-tailed distribution — the median is uninformative, the tail
+is what matters (30–100 seeds per row, weights as above):
 
-| Poziom | p50 | p90 | p99 | max | porażki |
+| Level | p50 | p90 | p99 | max | failures |
 |---|---|---|---|---|---|
 | Easy 25×50 | 1 ms | 3 ms | ~50 ms | — | 0/100 |
 | Medium 50×100 | 6 ms | 40 ms | ~200 ms | — | 0/100 |
@@ -759,30 +777,32 @@ Czas ma rozkład skrajnie ciężkoogonowy — mediana jest nieinformatywna, znac
 | Nightmare 100×200 | 38 ms | 327 ms | 339 ms | 339 ms | 0/25 |
 | Extreme 200×200 | 646 ms | 1 484 ms | 2 074 ms | 2 074 ms | 0/15 |
 
-Nigdy nie odnotowano porażki generacji przy dopuszczonych pięciu restartach. Ogon rzędu
-pół sekundy oznacza, że **wskaźnik ładowania jest potrzebny** (pokazywany po ~200 ms),
-choć przenoszenie generacji do Web Workera nadal nie jest konieczne. Rdzeń bez DOM
-pozostaje przenośny, gdyby pomiar na docelowym sprzęcie wypadł gorzej.
+No generation failure has ever been recorded with the five allowed restarts. A tail on
+the order of half a second means that **a loading indicator is needed** (shown after
+~200 ms), although moving generation to a Web Worker is still not necessary. The DOM-free
+core remains portable should the measurement on the target hardware turn out worse.
 
-**Rozbieżność do zamknięcia:** projekt zakładał ~1 000 elementów o średniej długości 10
-na Nightmare; generator przy obecnych wagach daje ~1 900 o średniej 5,2. Przyczyna jest
-zmierzona (§7): 28–47% ścieżek utyka przed docelową długością, więc faktyczna średnia
-jest wyraźnie niższa od zamawianej. Wagi koszyków trzeba skalibrować pod **osiąganą**,
-a nie zamawianą długość. `f0` dla Easy wyszło 0,16 zamiast zamierzonych ≥0,35, więc
-Easy wymaga słabszego tunelowania niż wyższe poziomy.
+**Discrepancy to close:** the design assumed ~1 000 pieces with a mean length of 10 on
+Nightmare; the generator at the current weights gives ~1 900 with a mean of 5.2. The
+cause has been measured (§7): 28–47% of paths get stuck before the target length, so the
+actual mean is markedly lower than the ordered one. The bucket weights must be
+calibrated for the **achieved** length, not the ordered one. `f0` for Easy came out at
+0.16 instead of the intended ≥0.35, so Easy requires weaker tunnelling than the higher
+levels.
 
-Pozostałe wartości są **punktem wyjścia do kalibracji**, a nie ustaleniem.
-Progi `almost1` i `D` skalują się z liczbą elementów, więc bezwzględne liczby z małej
-planszy nie przenoszą się na dużą — używamy udziałów, nie liczb. Pierwszym krokiem implementacji generatora jest
-raport z faktycznie osiąganego rozkładu długości, wartości metryk, częstości nawrotów
-i restartów generatora oraz czasu generacji.
+The remaining values are **a starting point for calibration**, not a settled result.
+The `almost1` and `D` thresholds scale with the number of pieces, so absolute numbers
+from a small board do not transfer to a large one — we use shares, not counts. The first
+step of implementing the generator is a report on the actually achieved length
+distribution, metric values, frequency of generator backtracks and restarts, and
+generation time.
 
-Pętla generacji: wygeneruj → policz metryki → jeśli poza pasmem, powtórz z innym
-ziarnem lub skorygowanymi parametrami (§7) → po wyczerpaniu budżetu oddaj najlepszy
-wynik.
-## 10. Pętla gry
+Generation loop: generate → compute metrics → if outside the band, repeat with a
+different seed or corrected parameters (§7) → once the budget is exhausted, return the
+best result.
+## 10. Game loop
 
-`game/session.ts` to **czysty reduktor**, bez DOM i bez efektów ubocznych:
+`game/session.ts` is a **pure reducer**, with no DOM and no side effects:
 
 ```ts
 type Status = 'playing' | 'won' | 'lost'
@@ -792,12 +812,12 @@ type Session = {
   lives: number
   status: Status
   removed: number
-  startedAt: number      // znacznik czasu przekazany z zewnątrz
+  startedAt: number      // timestamp passed in from outside
   elapsedMs: number
   mode: 'classic' | 'timed'
-  streak: number         // seria kolejnych bezbłędnych ruchów; informacja, nie punkty
+  streak: number         // run of consecutive error-free moves; information, not points
   bestStreak: number
-  score: number          // 0 przez całą rozgrywkę; wyliczany raz, przy przejściu na 'won'
+  score: number          // 0 throughout play; computed once, on the transition to 'won'
 }
 
 type Action =
@@ -813,397 +833,408 @@ type Effect =
 reduce(session: Session, action: Action): { next: Session; effect: Effect }
 ```
 
-Kliknięcie elementu wolnego usuwa go z planszy i zwiększa `streak`; **punktów nie
-dolicza**. Gdy plansza jest pusta, `status` staje się `won` i dopiero wtedy reduktor
-wylicza `score` z formuły poniżej. Kliknięcie elementu zablokowanego zostawia
-go na miejscu, zeruje `streak` i zmniejsza `lives`; przy zerze `status` staje się
-`lost`. Reduktor zwraca `effect` — gotowe polecenie dla renderera, z odległością
-odbicia włącznie, żeby warstwa wizualna nie musiała niczego wnioskować sama.
+Clicking a free piece removes it from the board and increments `streak`; **it adds no
+points**. When the board is empty, `status` becomes `won` and only then does the reducer
+compute `score` from the formula below. Clicking a blocked piece leaves it in place,
+resets `streak` and decrements `lives`; at zero, `status` becomes `lost`. The reducer
+returns an `effect` — a ready command for the renderer, bounce distance included, so
+that the visual layer does not have to infer anything on its own.
 
-Wielokrotne kliknięcie tego samego zablokowanego elementu odejmuje życie za każdym
-razem. Decyzja świadoma i pokryta testem.
+Clicking the same blocked piece repeatedly deducts a life every time. A deliberate
+decision, covered by a test.
 
-### Czas
+### Time
 
-**Czas nie jest odczytywany wewnątrz reduktora.** Znacznik `at` wchodzi jako pole akcji,
-a `elapsedMs` jest z niego wyliczane. Gdyby reduktor sięgał po zegar sam, przestałby być
-czysty, a testy przestałyby być deterministyczne — dlatego istnieje osobna akcja `tick`,
-którą warstwa UI wysyła w rytmie odświeżania stopera.
+**Time is not read inside the reducer.** The `at` timestamp comes in as an action field,
+and `elapsedMs` is computed from it. If the reducer reached for the clock itself, it
+would stop being pure and the tests would stop being deterministic — hence the separate
+`tick` action, which the UI layer sends at the stopwatch's refresh rate.
 
-Wariant na czas **nie narzuca graczowi limitu**. Stoper wyłącznie mierzy; wpływa na
-premię w wyniku końcowym, nigdy na przegraną.
+The timed variant **imposes no limit on the player**. The stopwatch only measures; it
+affects the bonus in the final score, never a loss.
 
-### Punktacja
+### Scoring
 
-**Punkty przyznawane są wyłącznie za ukończoną planszę.** Usunięcie pojedynczego
-elementu nie daje nic; wynik pojawia się na koncie gracza dopiero po wyczyszczeniu
-planszy. Przegrana to zero punktów, niezależnie od tego, ile elementów zdjęto.
+**Points are awarded solely for a completed board.** Removing a single piece yields
+nothing; the score appears on the player's account only after the board is cleared. A
+loss is zero points, regardless of how many pieces were removed.
 
-Wynik zależy od czterech rzeczy: złożoności planszy, zachowanych żyć, a w wariancie na
-czas także czasu ukończenia. Poziom trudności nie jest osobnym czynnikiem — jest
-**pochodną złożoności**, bo trudniejszy poziom generuje planszę o wyższych metrykach.
+The score depends on four things: the board's complexity, lives kept, and in the timed
+variant also the completion time. The difficulty level is not a separate factor — it is
+**derived from complexity**, because a harder level generates a board with higher
+metrics.
 
-#### Dlaczego złożoność, a nie etykieta poziomu
+#### Why complexity rather than the level label
 
-Konfigurator (§11) pozwala graczowi ustawić własne parametry, więc etykieta „Nightmare"
-przestaje cokolwiek gwarantować. Punktacja oparta na nazwie poziomu byłaby trywialna do
-obejścia: wystarczyłoby ustawić planszę 5×5 i zbierać punkty za „Nightmare". Dlatego
-podstawą jest **złożoność zmierzona na konkretnej wygenerowanej planszy**.
+The configurator (§11) lets the player set their own parameters, so the "Nightmare"
+label stops guaranteeing anything. Scoring based on the level name would be trivial to
+game: it would suffice to set a 5×5 board and collect points for "Nightmare". That is
+why the basis is **complexity measured on the specific generated board**.
 
-Wymaga to, by metryki z §9 przestały być danymi wyłącznie benchmarkowymi i podróżowały
-razem z planszą do rozgrywki — `Board` niesie swój `BoardMetrics`, a sesja korzysta
-z nich przy liczeniu wyniku.
+This requires that the metrics from §9 stop being benchmark-only data and travel with
+the board into gameplay — `Board` carries its `BoardMetrics`, and the session uses them
+when computing the score.
 
-#### Formuła
+#### Formula
 
 ```
 complexity =
-    (W · H) / 100                                  // rozmiar zadania
-  × (1 + w_f · (1 − f0))                           // ciasnota startu
-  × (1 + w_t · almost1 / N)                        // gęstość pokus do błędu
-  × (1 + w_c · meanCorridorLen / max(W, H))        // jak daleko trzeba wodzić wzrokiem
-  × (1 + w_d · D / sqrt(W · H))                    // głębokość zaplątania
+    (W · H) / 100                                  // size of the task
+  × (1 + w_f · (1 − f0))                           // tightness of the start
+  × (1 + w_t · almost1 / N)                        // density of temptations to err
+  × (1 + w_c · meanCorridorLen / max(W, H))        // how far the eye has to travel
+  × (1 + w_d · D / sqrt(W · H))                    // depth of entanglement
 
 livesBonus = 1 + 0.25 · livesLeft                  // 1.00 … 1.75
-timeBonus  = clamp(refTime / elapsed, 0.6, 1.6)    // tylko w wariancie na czas
+timeBonus  = clamp(refTime / elapsed, 0.6, 1.6)    // timed variant only
 refTime    = N · t_piece
 
 score = round(complexity × livesBonus × timeBonus)
 ```
 
-Podstawa skaluje się z **powierzchnią planszy**, a nie z liczbą elementów. To celowe:
-gdyby punkty rosły z liczbą kliknięć, plansza 100×100 złożona z samych domin —
-5 000 elementów, nużących i banalnych, zdejmowanych warstwa po warstwie — punktowałaby
-najwyżej ze wszystkich.
-Powierzchnia jest tym, czego gracz nie zawyży bez podjęcia realnie większego zadania,
-a mnożniki mierzą **trudność na klik**.
+The base scales with the **board's area**, not with the number of pieces. This is
+deliberate: if points grew with the number of clicks, a 100×100 board made of nothing
+but dominoes — 5 000 pieces, tedious and trivial, removed layer by layer — would score
+the highest of all.
+Area is what the player cannot inflate without taking on a genuinely bigger task, and
+the multipliers measure **difficulty per click**.
 
-Każdy mnożnik jest ograniczony z góry, więc żaden pojedynczy parametr nie rozsadza
-wyniku. Wagi `w_f`, `w_t`, `w_c`, `w_d` oraz `t_piece` są **kalibrowane benchmarkiem**
-tak, by cztery presety układały się w rosnący ciąg, a plansze zdegenerowane wypadały
-wyraźnie niżej. Formuła mieszka w jednym module i jest pokryta testami (§12).
+Every multiplier is bounded from above, so no single parameter blows up the score. The
+weights `w_f`, `w_t`, `w_c`, `w_d` and `t_piece` are **calibrated by benchmark** so that
+the four presets form an ascending sequence and degenerate boards land clearly lower.
+The formula lives in one module and is covered by tests (§12).
 
-`meanCorridorLen` wraca tu jako metryka po tym, jak §9 odrzuciło ją jako **próg
-trudności**. Do progów była słaba, bo mierzyła długość, a nie zwodniczość. Jako miara
-**wysiłku** jest jednak trafna: mówi, jak daleko gracz musi prowadzić wzrok, żeby ocenić
-jeden ruch.
+`meanCorridorLen` returns here as a metric after §9 rejected it as a **difficulty
+threshold**. For thresholds it was weak, because it measured length, not deceptiveness.
+As a measure of **effort**, however, it is apt: it says how far the player has to lead
+their eye to judge one move.
 
-#### Seria bezbłędnych ruchów
+#### Run of error-free moves
 
-`streak` i `bestStreak` pozostają w sesji i na pasku stanu jako **informacja zwrotna na
-żywo**, ale nie wchodzą do wyniku — liczba błędów jest już reprezentowana przez
-`livesLeft`, a dokładanie drugiego czynnika za to samo podwójnie karałoby pomyłki.
+`streak` and `bestStreak` remain in the session and on the status bar as **live
+feedback**, but do not enter the score — the number of mistakes is already represented
+by `livesLeft`, and adding a second factor for the same thing would punish mistakes
+twice.
 
-## 11. Renderowanie i UI
+## 11. Rendering and UI
 
-`render/renderer.ts` definiuje interfejs (`draw(board)`, `animateExit(piece)`,
-`shake(piece)`, `onPieceClick(cb)`); `svgRenderer.ts` go implementuje. Element rysowany
-jest jako `<path>` z grubą linią, zaokrąglonymi łączeniami i grotem na końcu.
-Trafienie: współrzędne wskaźnika → komórka → `occupancy` → id elementu, więc obsługa
-myszy i dotyku jest wspólna.
+`render/renderer.ts` defines the interface (`draw(board)`, `animateExit(piece)`,
+`shake(piece)`, `onPieceClick(cb)`); `svgRenderer.ts` implements it. A piece is drawn
+as a `<path>` with a thick stroke, rounded joins and an arrowhead at the end. Hit
+detection: pointer coordinates → cell → `occupancy` → piece id, so mouse and touch
+handling are shared.
 
-Grafika MVP jest **placeholderem**, ale parametry rysowania są już zweryfikowane
-podglądem (`prototype/carve.mjs --svg=...`) i dają wygląd zgodny z referencją:
+The MVP graphics are a **placeholder**, but the drawing parameters have already been
+verified with the preview (`prototype/carve.mjs --svg=...`) and give a look consistent
+with the reference:
 
-| Parametr | Wartość |
+| Parameter | Value |
 |---|---|
-| element | jedna `<polyline>` przez środki komórek |
-| grubość linii | 50% podziałki siatki |
-| zakończenia i łączenia | `round` — to one dają charakterystyczne zaokrąglone narożniki |
-| grot | wypełniony trójkąt na komórce głowy, długość i szerokość ~0.6 podziałki |
-| kolory | linie `#232447` na tle `#f6f6fa` |
+| piece | a single `<polyline>` through the cell centres |
+| stroke width | 50% of the grid pitch |
+| caps and joins | `round` — these are what give the characteristic rounded corners |
+| arrowhead | a filled triangle on the head cell, length and width ~0.6 of the pitch |
+| colours | strokes `#232447` on a `#f6f6fa` background |
 
-**Monochromatyczność jest częścią zadania, nie oszczędnością.** Gracz musi odróżnić
-elementy od siebie bez pomocy koloru — dokładnie to jest źródłem trudności percepcyjnej
-z §9. Kolorowanie per element istnieje w podglądzie wyłącznie jako tryb diagnostyczny. Główny ekran to wybór jednego z czterech poziomów oraz wariantu
-(klasyczny albo na czas). Nad planszą pasek stanu: trzy serca, stoper i aktualna seria
-bezbłędnych ruchów; obok przycisk nowej gry.
+**Monochrome is part of the task, not an economy.** The player must tell pieces apart
+without the help of colour — that is exactly the source of the perceptual difficulty
+from §9. Per-piece colouring exists in the preview only as a diagnostic mode. The main
+screen is the choice of one of the four levels and the variant (classic or timed).
+Above the board a status bar: three hearts, the stopwatch and the current run of
+error-free moves; next to it a new-game button.
 
-**Wyniku nie ma na pasku podczas gry** — punkty przyznaje się dopiero za ukończoną
-planszę (§10). Ekran wygranej pokazuje rozbicie: złożoność planszy, premię za zachowane
-życia i, w wariancie na czas, premię czasową. Rozbicie jest ważniejsze niż sama liczba:
-bez niego gracz nie ma jak zrozumieć, dlaczego dostał tyle, a nie inaczej.
+**The score is not on the bar during play** — points are awarded only for a completed
+board (§10). The win screen shows a breakdown: the board's complexity, the bonus for
+lives kept and, in the timed variant, the time bonus. The breakdown matters more than
+the number itself: without it the player has no way to understand why they got this
+much and not something else.
 
-### Widok: zoom i przesuwanie
+### Viewport: zoom and panning
 
-Nightmare ma 10 000 komórek; przy 8 px na komórkę plansza zajmuje 800×800 px, czego
-żaden telefon nie pokaże czytelnie. `render/viewport.ts` utrzymuje skalę i przesunięcie
-oraz przelicza współrzędne ekranu na komórki.
+Nightmare has 10 000 cells; at 8 px per cell the board takes 800×800 px, which no phone
+will show legibly. `render/viewport.ts` maintains the scale and offset and converts
+screen coordinates to cells.
 
-W SVG zoom i przesuwanie to zmiana atrybutu `viewBox` — jedna operacja, bez
-przerysowywania ścieżek, składana przez GPU. To główny powód, dla którego SVG broni się
-mimo skali.
+In SVG, zooming and panning are a change of the `viewBox` attribute — a single
+operation, with no redrawing of paths, composited by the GPU. This is the main reason
+SVG holds up despite the scale.
 
-#### Sterowanie
+#### Controls
 
-Kluczowe jest odróżnienie ruchu w grze od przesuwania planszy — pomyłka kosztuje życie,
-więc rozstrzygnięcie musi być jednoznaczne, a nie progowe. Na desktopie służy do tego
-**modyfikator klawiatury**, na dotyku **rodzaj gestu**.
+The crucial thing is to distinguish a game move from panning the board — a mix-up costs
+a life, so the decision must be unambiguous, not threshold-based. On desktop this is done
+by a **keyboard modifier**, on touch by the **kind of gesture**.
 
-| Wejście | Ruch w grze | Przesuwanie planszy | Zoom |
+| Input | Game move | Panning the board | Zoom |
 |---|---|---|---|
-| mysz / gładzik | kliknięcie bez modyfikatora | przeciąganie z **⌘ (macOS)** lub **Ctrl (Windows, Linux)** | kółko do pozycji kursora |
-| dotyk | krótkie dotknięcie bez przesunięcia | przeciągnięcie jednym palcem | szczypanie |
+| mouse / trackpad | click without a modifier | drag with **⌘ (macOS)** or **Ctrl (Windows, Linux)** | wheel towards the cursor position |
+| touch | short tap without movement | one-finger drag | pinch |
 
 #### Zoom
 
-Zoom jest kontrolką pełnoprawną i **widoczną**, nie tylko gestem — przy planszy
-100×200 gracz musi móc przybliżyć bez zgadywania, jak.
+Zoom is a fully fledged and **visible** control, not just a gesture — with a 100×200
+board the player must be able to zoom in without guessing how.
 
-| Sposób | Działanie |
+| Method | Action |
 |---|---|
-| kółko myszy / gest dwoma palcami | skalowanie do pozycji kursora |
-| ⌘ / Ctrl + kółko | to samo; przechwytujemy `preventDefault`, żeby nie zadziałał zoom przeglądarki |
-| szczypanie (dotyk) | skalowanie do środka gestu |
-| przyciski `+` i `−` w rogu planszy | krok o stały współczynnik, dostępne bez myszy i bez gestów |
-| klawisze `+` / `−` | jak wyżej |
-| podwójne kliknięcie, dwukrotne dotknięcie, klawisz `0`, przycisk „dopasuj" | dopasowanie całej planszy do ekranu |
+| mouse wheel / two-finger gesture | scaling towards the cursor position |
+| ⌘ / Ctrl + wheel | the same; we intercept with `preventDefault` so the browser zoom does not fire |
+| pinch (touch) | scaling towards the centre of the gesture |
+| `+` and `−` buttons in the corner of the board | a step by a fixed factor, available without a mouse and without gestures |
+| `+` / `−` keys | as above |
+| double click, double tap, the `0` key, the "fit" button | fitting the whole board to the screen |
 
-Zakres skali jest ograniczony z obu stron:
+The scale range is bounded on both sides:
 
-- **dolna granica** to dopasowanie całości do ekranu — nie da się oddalić poniżej, bo
-  poza planszą nie ma czego oglądać,
-- **górna granica** to komórka o boku ~48 px; wyżej widać kilka elementów i orientacja
-  na planszy się rozpada.
+- **the lower bound** is fitting the whole board to the screen — you cannot zoom out
+  further, because there is nothing to look at beyond the board,
+- **the upper bound** is a cell with a side of ~48 px; above that only a few pieces are
+  visible and orientation on the board falls apart.
 
-Skalowanie zawsze zachowuje punkt pod kursorem lub pod środkiem gestu — bez tego
-przybliżanie na dużej planszy sprowadza się do zgadywania, gdzie się wyląduje.
+Scaling always preserves the point under the cursor or under the centre of the gesture
+— without that, zooming in on a large board comes down to guessing where you will land.
 
-Przyciski `+`, `−` i „dopasuj" są ważne także dlatego, że są **jedyną drogą dostępną
-z klawiatury i przy myszy bez kółka** — gest nie może być jedynym sposobem na wykonanie
-czynności koniecznej do gry.
+The `+`, `−` and "fit" buttons matter also because they are **the only route available
+from the keyboard and with a mouse without a wheel** — a gesture cannot be the only way
+to perform an action necessary for play.
 
-Zasady uzupełniające:
+Supplementary rules:
 
-- Przeciąganie **bez** modyfikatora nie robi nic. Ruch wykonuje się dopiero przy
-  zwolnieniu przycisku i tylko wtedy, gdy wskaźnik jest nadal nad tym samym elementem,
-  na którym został wciśnięty — standardowa semantyka przycisku, chroniąca przed
-  przypadkowym ruchem przy drgnięciu ręki.
-- Warunek modyfikatora sprawdza `event.metaKey || event.ctrlKey`, bez wykrywania systemu.
-  Wykrywanie platformy służy wyłącznie do **napisu** w podpowiedzi („przytrzymaj ⌘",
-  „przytrzymaj Ctrl") — gdyby wykrycie zawiodło, sterowanie nadal działa.
-- Na dotyku obowiązuje próg odległości odróżniający dotknięcie od przeciągnięcia,
-  bo tam modyfikator nie istnieje. Jest to jedyne miejsce, gdzie rozstrzygnięcie
-  pozostaje progowe.
+- Dragging **without** a modifier does nothing. The move is performed only on button
+  release and only if the pointer is still over the same piece on which it was pressed
+  — standard button semantics, protecting against an accidental move when the hand
+  twitches.
+- The modifier condition checks `event.metaKey || event.ctrlKey`, with no OS detection.
+  Platform detection serves solely the **text** of the hint ("hold ⌘", "hold Ctrl") —
+  if detection failed, the controls would still work.
+- On touch a distance threshold distinguishing a tap from a drag applies, because no
+  modifier exists there. It is the only place where the decision remains
+  threshold-based.
 
-### Konfigurator (tryb zaawansowany)
+### Configurator (advanced mode)
 
-Wejście z głównego ekranu, za przyciskiem. Parametry odpowiadają wprost polom
-`GeneratorParams` — wszystkie wartości porównane w podglądzie (§ „Podgląd" niżej) są
-dostępne graczowi:
+Entered from the main screen, behind a button. The parameters correspond directly to
+the fields of `GeneratorParams` — all the values compared in the preview (§ "Preview"
+below) are available to the player:
 
-| Parametr | Zakres | Co robi |
+| Parameter | Range | What it does |
 |---|---|---|
-| szerokość × wysokość | 10×10 … 200×200 | rozmiar zadania; proporcja dowolna, presety oferują 1:1 i 1:2 |
-| udział długich linii | 0 … 0.45 | główne pokrętło wyglądu: gęste haczyki ↔ długie węże |
-| długość maksymalna `Lmax` | 16 … 5·max(W,H) | jak długi może być najdłuższy element |
-| siła splątania | 0 … 8 | skręty kontra zwijanie w kłębki; poniżej 2 generacja bywa zawodna |
-| grubość linii | 0.35 … 0.65 podziałki | czytelność: szerokość przerw między równoległymi liniami |
+| width × height | 10×10 … 200×200 | size of the task; any aspect ratio, presets offer 1:1 and 1:2 |
+| share of long lines | 0 … 0.45 | the main looks knob: dense hooks ↔ long snakes |
+| maximum length `Lmax` | 16 … 5·max(W,H) | how long the longest piece may be |
+| entanglement strength | 0 … 8 | turns versus coiling into balls; below 2 generation can be unreliable |
+| stroke width | 0.35 … 0.65 of the pitch | legibility: width of the gaps between parallel lines |
 
-**Liczba linii nie jest parametrem** — przy pełnym pokryciu wynika z rozkładu długości
-(`liczba linii = W · H / średnia długość`) i konfigurator pokazuje ją jako wielkość
-pochodną, razem z resztą raportu z generacji. Presety Easy–Nightmare to **zapisane instancje tej samej
-struktury**, nie osobna ścieżka kodu — jedno źródło prawdy dla generatora.
+**The number of lines is not a parameter** — with full coverage it follows from the
+length distribution (`number of lines = W · H / mean length`) and the configurator shows
+it as a derived quantity, together with the rest of the generation report. The
+Easy–Nightmare presets are **saved instances of the same structure**, not a separate
+code path — a single source of truth for the generator.
 
-Konfigurator liczy na żywo udział powierzchni zajęty przez długie elementy (§7)
-i ostrzega po przekroczeniu ~25%. Po generacji pokazuje **co faktycznie osiągnięto**:
-liczbę elementów, rozkład długości oraz liczbę nawrotów i restartów generatora.
-Wypełnienia nie raportuje, bo jest zawsze pełne. Jest to konieczne, bo
-geometria potrafi odmówić — proste i bardzo długie elementy często nie mieszczą się,
-a generator nie może obiecać liczby, której nie da się zrealizować.
+The configurator computes live the share of area occupied by long pieces (§7) and warns
+once it exceeds ~25%. After generation it shows **what was actually achieved**: the
+number of pieces, the length distribution, and the number of generator backtracks and
+restarts. It does not report fill, because it is always full. This is necessary because
+geometry can refuse — straight and very long pieces often do not fit, and the generator
+cannot promise a number that cannot be realised.
 
-### Wydajność — zmierzona, nie szacowana
+### Performance — measured, not estimated
 
-Prototyp (`prototype/carve.mjs`) zmierzył pełny cykl na planszy Nightmare 100×100
-(10 000 komórek, ~1 900 elementów):
+The prototype (`prototype/carve.mjs`) measured the full cycle on a Nightmare 100×100
+board (10 000 cells, ~1 900 pieces):
 
-| Operacja | Czas |
+| Operation | Time |
 |---|---|
-| generacja całej planszy | **27 ms** |
-| policzenie wszystkich metryk + solver | **14 ms** |
+| generating the whole board | **27 ms** |
+| computing all metrics + solver | **14 ms** |
 
-To o dwa rzędy wielkości mniej, niż zakładał wcześniejszy budżet. W konsekwencji
-**usunięte zostały jako niepotrzebne**: bitboardy korytarzy i odwrotny indeks pokrycia.
+That is two orders of magnitude less than the earlier budget assumed. Consequently,
+**removed as unnecessary**: corridor bitboards and the inverse coverage index.
 
-Jedna rzecz wróciła po dokładniejszym pomiarze: **wskaźnik ładowania jest potrzebny**.
-Średnia myliła — rozkład czasu generacji jest skrajnie ciężkoogonowy i p99 sięga
-442 ms na Nightmare (§9), a to widoczne zamrożenie interfejsu. Wskaźnik pokazujemy po
-200 ms. Web Worker nadal nie jest konieczny, ale rdzeń bez DOM pozostaje do niego
-przenośny bez zmian, gdyby pomiar na docelowym sprzęcie wypadł gorzej.
+One thing came back after a more precise measurement: **a loading indicator is
+needed**. The mean was misleading — the generation time distribution is extremely
+heavy-tailed and p99 reaches 442 ms on Nightmare (§9), which is a visible interface
+freeze. We show the indicator after 200 ms. A Web Worker is still not necessary, but
+the DOM-free core remains portable to one without changes, should the measurement on
+the target hardware turn out worse.
 
-Zostaje jedno realne pytanie wydajnościowe, którego prototyp nie dotyka, bo nie ma
-warstwy widoku: **czy SVG wyrobi przy ~1 900 ścieżkach z zoomem i przesuwaniem**.
-Renderer stoi za interfejsem właśnie na tę okoliczność; jeśli nie wyrobi, wymieniamy
-implementację na Canvas bez dotykania rdzenia. Mierzymy to przy pierwszym działającym
-widoku, nie wcześniej.
+One real performance question remains, which the prototype does not touch because it
+has no view layer: **whether SVG keeps up with ~1 900 paths with zoom and panning**.
+The renderer sits behind an interface precisely for this eventuality; if it does not
+keep up, we swap the implementation for Canvas without touching the core. We measure
+this at the first working viewport, not earlier.
 
-PWA: manifest, ikony i service worker cache-first (`vite-plugin-pwa`). Gra jest w pełni
-klientowa, więc offline działa bez dodatkowej logiki.
+PWA: manifest, icons and a cache-first service worker (`vite-plugin-pwa`). The game is
+fully client-side, so offline works without additional logic.
 
-## 12. Testy
+## 12. Tests
 
-Rdzeń jest testowany jednostkowo w Vitest, bez przeglądarki. Trzy warstwy:
+The core is unit-tested in Vitest, without a browser. Three layers:
 
-**Testy jednostkowe regionu zamiatania i legalności ruchu:**
+**Unit tests of the sweep region and move legality:**
 
-1. Kształt U lub S z obcym elementem uwięzionym we wklęsłości: **nie blokuje**. Element
-   pokonuje własny łuk, bo jedzie po nim, a nie przez niego. Test istnieje dokładnie po
-   to, żeby wychwycić powrót do starej reguły sztywnej translacji.
-2. Element prosty ułożony wzdłuż własnego kierunku: promień z ogona przechodzi przez
-   komórki własne i nie może zablokować elementu.
-3. Kształt L, którego drugie ramię ma przed sobą obcy element: **nie blokuje**, bo
-   liczy się wyłącznie promień z głowy. Drugi test chroniący przed nawrotem do reguły
-   sztywnej translacji.
-4. Element leżący wzdłuż krawędzi, prostopadle do swojego kierunku → zawsze wolny.
-5. Bloker w ostatniej komórce przy krawędzi (pętla inkluzywna) i bloker tuż przed
-   elementem.
-6. Dwa równoległe elementy o tym samym kierunku obok siebie → oba wolne; jeden za
-   drugim na tej samej linii → tylny zablokowany, przedni wolny.
-7. Ten sam bloker w trzech komórkach korytarza: po jego usunięciu element staje się
-   wolny dokładnie raz (spójność liczników).
-8. Znak kierunku: grot w `(5,3)` z `dir = prawo` → ciało w `(4,3)`. Grot skierowany
-   w głąb planszy (korytarz przez całą planszę) jest legalny.
+1. A U or S shape with a foreign piece trapped in the concavity: **does not block**. The
+   piece clears its own arc, because it travels along it, not through it. The test
+   exists precisely to catch a return to the old rigid-translation rule.
+2. A straight piece lying along its own direction: the ray from the tail passes through
+   own cells and cannot block the piece.
+3. An L shape whose second arm has a foreign piece in front of it: **does not block**,
+   because only the ray from the head counts. The second test guarding against a
+   relapse into the rigid-translation rule.
+4. A piece lying along the edge, perpendicular to its direction → always free.
+5. A blocker in the last cell at the edge (inclusive loop) and a blocker right in front
+   of the piece.
+6. Two parallel pieces with the same direction side by side → both free; one behind the
+   other on the same line → the rear one blocked, the front one free.
+7. The same blocker in three corridor cells: after its removal the piece becomes free
+   exactly once (counter consistency).
+8. Direction sign: arrowhead at `(5,3)` with `dir = right` → body at `(4,3)`. An
+   arrowhead pointing into the board's interior (corridor across the whole board) is
+   legal.
 
-**Testy kształtów i generatora:**
+**Shape and generator tests:**
 
-9. Długości skrajne `ℓ = 2` i `ℓ = Lmax`; wzrost, który utknął, akceptuje krótszy
-   element, nigdy o długości 1.
-9a. Element bardzo długi, wijący się przez większość planszy, którego **ciało leży przed
-   własną głową**: promień z głowy mija najpierw komórki własne, a dopiero potem
-   ewentualnego blokera. Odległość odbicia liczy się od ostatniej minionej komórki
-   własnej, nie od głowy.
-9b. Rozkład długości: przy zadanych wagach koszyków generator faktycznie produkuje
-   elementy długie (raport z benchmarku), a nie po cichu obcina wszystko do krótkich.
-10. Samounikanie: ścieżka nie odwiedza komórki dwukrotnie, ale wolno jej dotykać siebie
-    bokiem.
-11. Element dłuższy niż wymiar planszy; plansze zdegenerowane `1×N` i `2×2`; generator
-    zawsze kończy pracę z pełnym pokryciem, nigdy się nie zapętla.
-12. Aktualizacja `depth_d` po wycięciu elementu: komórka przy krawędzi zwiększa `depth`
-    linii, komórka w głębi nie (dopóki nie domknie się ciągłość od krawędzi).
-12a. **Pełne pokrycie:** po zakończeniu generacji każda komórka siatki należy do
-    dokładnie jednego elementu — żadna nie zostaje nieprzypisana i żadne dwa elementy
-    się nie nakładają. Suma długości elementów równa się `W · H`. To najważniejszy
-    niezmiennik generatora; sprawdzany na wielu ziarnach i wszystkich rozmiarach.
-12b. **Każdy element ma co najmniej 2 komórki.** Niezmiennik sprawdzany na wszystkich
-    wygenerowanych planszach; naruszenie oznacza, że wybór głowy przestał wymagać
-    nieprzypisanego sąsiada.
-12c. Test kształtu resztki wykrywa **pentomino w kształcie plusa** jako fragment
-    nierozkładalny. To jest przypadek, którego naiwny test izolacji nie łapie, więc musi
-    mieć własny test — z jawnie skonstruowanym stanem `R`.
-12d. Generator wychodzi z zaklinowania: dla wrogiego stanu `R`, w którym nie ma legalnego
-    elementu długości ≥ 2, cofa wycięcia i kończy pracę z pełnym pokryciem albo
-    restartuje — nigdy nie zwraca planszy z nieprzypisanymi komórkami i nigdy się nie
-    zapętla.
-12e. Nieparzysta powierzchnia planszy (np. 25×25 = 625) jest obsłużona: co najmniej jeden
-    element ma nieparzystą długość, a pokrycie pozostaje pełne.
-13. Determinizm: to samo ziarno daje tę samą planszę.
+9. Extreme lengths `ℓ = 2` and `ℓ = Lmax`; growth that got stuck accepts a shorter
+   piece, never one of length 1.
+9a. A very long piece, winding through most of the board, whose **body lies in front of
+   its own head**: the ray from the head passes own cells first, and only then a
+   possible blocker. The bounce distance is counted from the last passed own cell, not
+   from the head.
+9b. Length distribution: at the given bucket weights the generator actually produces
+   long pieces (benchmark report), rather than quietly trimming everything to short.
+10. Self-avoidance: the path does not visit a cell twice, but is allowed to touch itself
+    side-on.
+11. A piece longer than the board dimension; degenerate boards `1×N` and `2×2`; the
+    generator always finishes with full coverage, never loops forever.
+12. Updating `depth_d` after carving a piece: a cell at the edge increases the line's
+    `depth`, a cell in the interior does not (until contiguity from the edge closes).
+12a. **Full coverage:** after generation finishes, every grid cell belongs to exactly
+    one piece — none is left unassigned and no two pieces overlap. The sum of piece
+    lengths equals `W · H`. This is the generator's most important invariant; checked on
+    many seeds and all sizes.
+12b. **Every piece has at least 2 cells.** An invariant checked on all generated boards;
+    a violation means head selection stopped requiring an unassigned neighbour.
+12c. The leftover-fragment shape test detects the **plus-shaped pentomino** as a
+    non-decomposable fragment. This is the case the naive isolation test does not catch,
+    so it must have its own test — with an explicitly constructed state `R`.
+12d. The generator gets out of a jam: for a hostile state `R` in which no legal piece of
+    length ≥ 2 exists, it undoes carvings and finishes with full coverage or restarts —
+    it never returns a board with unassigned cells and never loops forever.
+12e. An odd board area (e.g. 25×25 = 625) is handled: at least one piece has an odd
+    length, and coverage remains full.
+13. Determinism: the same seed gives the same board.
 
-**Testy własnościowe (setki–tysiące ziaren):**
+**Property tests (hundreds to thousands of seeds):**
 
-14. Każda wygenerowana plansza przechodzi solver: rozwiązywalna.
-15. Odwrócona kolejność wstawiania jest poprawnym rozwiązaniem — każdy ruch legalny.
-16. Konfluencja: losowe playouty zachłanne nigdy nie osiągają stanu bez wolnego elementu
-    przy niepustej planszy.
-17. Usunięcie dowolnego elementu z rozwiązywalnej planszy pozostawia ją rozwiązywalną.
-18. **Test różnicowy:** pole `free` z `probeMove` w silniku gry i test przynależności do `S_d`
-    z generatora muszą zgadzać się co do bitu na losowych stanach. Rozjazd między nimi
-    to dokładnie ten błąd, który produkuje nierozwiązywalne plansze.
-19. Solver wykrywa ręcznie skonstruowane cykle (dwuelementowy `A → ← B` oraz trzy- i
-    więcej-elementowy) i wskazuje elementy cyklu.
+14. Every generated board passes the solver: solvable.
+15. The reversed insertion order is a valid solution — every move legal.
+16. Confluence: random greedy playouts never reach a state with no free piece on a
+    non-empty board.
+17. Removing any piece from a solvable board leaves it solvable.
+18. **Differential test:** the `free` field from `probeMove` in the game engine and the
+    membership test in `S_d` from the generator must agree bit for bit on random states.
+    A divergence between them is exactly the bug that produces unsolvable boards.
+19. The solver detects hand-constructed cycles (two-piece `A → ← B` and three- or
+    more-piece) and points out the cycle's pieces.
 
-**Testy odległości odbicia, serii i punktacji:**
+**Tests of bounce distance, streak and scoring:**
 
-24. `probeMove` zwraca poprawną `distance` i `blockerId`: bloker tuż przed głową
-    (`distance = 1`), bloker daleko, oraz element, którego **ciało leży przed własną
-    głową** — promień mija wtedy własne komórki, a odległość liczy się od ostatniej
-    minionej komórki własnej. Ten przypadek najpewniej wyłapie błąd w `lastOwn`.
-25. Gdy blokerów jest kilka, `distance` odpowiada **najbliższemu**, a `blockerId`
-    wskazuje właśnie ten element.
-26. Seria: rośnie przy kolejnych trafnych ruchach, zeruje się przy błędzie, `bestStreak`
-    zapamiętuje maksimum. Nie wpływa na `score`.
-26a. **`score` pozostaje zerem przez całą rozgrywkę** i zmienia się dokładnie raz, przy
-    przejściu na `won`. Usunięcie elementu nie zmienia wyniku.
-26b. **Przegrana daje zero punktów**, choćby gracz zdjął wszystkie elementy poza jednym.
-26c. Monotoniczność: ta sama plansza ukończona z większą liczbą żyć daje wynik nie
-    mniejszy; w wariancie na czas ukończona szybciej — nie mniejszy.
-26d. Premia czasowa jest ograniczona z obu stron: bardzo szybkie i bardzo wolne
-    ukończenie dają wartości na krańcach przedziału, nie poza nim. W wariancie
-    klasycznym czas nie wpływa na wynik w ogóle.
-26e. **Test antyeksploatacyjny:** plansza 100×100 złożona z samych domin (5 000
-    elementów o długości 2) punktuje wyraźnie niżej niż plansza Nightmare o tym samym
-    rozmiarze, mimo pięciokrotnie większej liczby kliknięć. To jest test, który pilnuje, żeby punktacja mierzyła trudność, a nie
-    liczbę kliknięć — i który wypadnie oblać przy każdej nieostrożnej zmianie wag.
-26f. Wynik jest funkcją czystą: te same metryki planszy, te same życia i ten sam czas
-    dają ten sam wynik, niezależnie od przebiegu rozgrywki.
-27. Reduktor jest deterministyczny względem czasu: ta sama sekwencja akcji z tymi samymi
-    znacznikami `at` daje identyczny `elapsedMs` i wynik, niezależnie od zegara
-    systemowego. Test nie może potrzebować atrap zegara — jeśli potrzebuje, reduktor
-    przestał być czysty.
-28. Akcja `tick` aktualizuje `elapsedMs`, ale nie zmienia planszy, żyć ani serii.
+24. `probeMove` returns the correct `distance` and `blockerId`: a blocker right in front
+    of the head (`distance = 1`), a distant blocker, and a piece whose **body lies in
+    front of its own head** — the ray then passes own cells, and the distance is counted
+    from the last passed own cell. This case is the most likely to catch a bug in
+    `lastOwn`.
+25. When there are several blockers, `distance` corresponds to the **nearest** one, and
+    `blockerId` points to exactly that piece.
+26. Streak: grows with consecutive correct moves, resets on a mistake, `bestStreak`
+    remembers the maximum. Does not affect `score`.
+26a. **`score` stays zero throughout play** and changes exactly once, on the transition
+    to `won`. Removing a piece does not change the score.
+26b. **A loss gives zero points**, even if the player removed all pieces but one.
+26c. Monotonicity: the same board completed with more lives gives a score no lower; in
+    the timed variant, completed faster — no lower.
+26d. The time bonus is bounded on both sides: very fast and very slow completion give
+    values at the ends of the interval, not beyond it. In the classic variant time does
+    not affect the score at all.
+26e. **Anti-exploit test:** a 100×100 board made of nothing but dominoes (5 000 pieces
+    of length 2) scores clearly lower than a Nightmare board of the same size, despite
+    five times as many clicks. This is the test that makes sure scoring measures
+    difficulty, not the number of clicks — and which will fail on any careless change
+    of the weights.
+26f. The score is a pure function: the same board metrics, the same lives and the same
+    time give the same score, regardless of how play unfolded.
+27. The reducer is deterministic with respect to time: the same sequence of actions with
+    the same `at` timestamps gives an identical `elapsedMs` and score, regardless of the
+    system clock. The test must not need clock mocks — if it does, the reducer has
+    stopped being pure.
+28. The `tick` action updates `elapsedMs`, but does not change the board, lives or
+    streak.
 
-**Testy skali i parametrów (Nightmare 100×100):**
+**Scale and parameter tests (Nightmare 100×100):**
 
-20. Generacja planszy 100×100 kończy się i przechodzi solver — na wielu ziarnach.
-    To jest test, który najpewniej wyłapie błędy wydajnościowe i przepełnienia.
-21. Rozmiary skrajne konfiguratora: plansza minimalna (np. 5×5), maksymalna, oraz
-    parametry **niewykonalne** (1000 linii o długości 300 na planszy 25×25). Generator
-    kończy pracę w skończonym czasie, oddaje najlepszy wynik i raportuje rozbieżność
-    między zamówieniem a wykonaniem — nigdy się nie zapętla i nie rzuca wyjątkiem.
-22. Stopień połamania na krańcach: `p_s = 1` (elementy idealnie proste, muszą skręcić
-    tylko na krawędzi) i `p_s = 0` (maksymalnie kręte). W obu przypadkach generator
-    produkuje poprawne, rozwiązywalne plansze.
-23. Udział powierzchni koszyka długiego zgadza się z wartością wyliczaną przez
-    konfigurator z parametrów — inaczej ostrzeżenie o 25% wprowadza w błąd.
+20. Generating a 100×100 board finishes and passes the solver — on many seeds. This is
+    the test most likely to catch performance bugs and overflows.
+21. Extreme configurator sizes: the minimum board (e.g. 5×5), the maximum, and
+    **infeasible** parameters (1000 lines of length 300 on a 25×25 board). The generator
+    finishes in finite time, returns the best result and reports the discrepancy between
+    what was ordered and what was delivered — it never loops forever and never throws.
+22. Degree of bending at the extremes: `p_s = 1` (perfectly straight pieces, they must
+    turn only at the edge) and `p_s = 0` (maximally twisty). In both cases the generator
+    produces valid, solvable boards.
+23. The area share of the long bucket agrees with the value the configurator computes
+    from the parameters — otherwise the 25% warning is misleading.
 
-**Benchmark (nie test, ale krok implementacji):** raport z faktycznie osiąganego
-rozkładu długości, wartości metryk trudności, częstości nawrotów i restartów generatora
-oraz czasu generacji dla zestawu parametrów — podstawa do kalibracji progów z §9 i do
-decyzji o ścieżce optymalizacji z §13.
+**Benchmark (not a test, but an implementation step):** a report on the actually
+achieved length distribution, difficulty metric values, frequency of generator
+backtracks and restarts, and generation time for a set of parameters — the basis for
+calibrating the thresholds from §9 and for the decision about the optimisation path from
+§13.
 
-Reduktor sesji jest testowany osobno: legalne i nielegalne kliknięcie, utrata żyć,
-przejścia do `won` i `lost`.
+The session reducer is tested separately: legal and illegal click, loss of lives,
+transitions to `won` and `lost`.
 
-## 13. Poza zakresem MVP
+## 13. Out of MVP scope
 
-**Świadomie odłożone funkcje:** undo (wymaga historii ruchów — tanie, jeśli reduktor
-jest czysty od początku, i taki jest), podpowiedzi, progresja poziomów, zapis postępu
-i tabele wyników, dźwięk, dopracowana warstwa wizualna. Stoper, seria i punktacja
-**wchodzą** do MVP (§10); poza zakresem zostaje trwałe przechowywanie wyników.
+**Deliberately deferred features:** undo (requires a move history — cheap if the
+reducer is pure from the start, and it is), hints, level progression, saving progress
+and leaderboards, sound, a polished visual layer. The stopwatch, streak and scoring
+**are in** the MVP (§10); persistent storage of scores stays out of scope.
 
-**Ścieżka optymalizacji — zamknięta pomiarem.** Wcześniejsze wersje tego projektu
-opisywały tu bitboardy korytarzy i odwrotny indeks pokrycia jako struktury do wdrożenia,
-gdyby zwykłe pętle nie wyrobiły przy ~1 900 elementach. Prototyp zmierzył pełny cykl na
-Nightmare: **27 ms generacji i 14 ms metryk** (§11). Margines jest tak duży, że te
-struktury zostają wykreślone z projektu, a nie odłożone. Gdyby kiedykolwiek wróciły,
-wrócą na podstawie profilu, nie przeczucia.
+**Optimisation path — closed by measurement.** Earlier versions of this design described
+here corridor bitboards and an inverse coverage index as structures to be implemented
+should plain loops fail to keep up at ~1 900 pieces. The prototype measured the full
+cycle on Nightmare: **27 ms of generation and 14 ms of metrics** (§11). The margin is so
+large that these structures are struck from the design, not deferred. If they ever
+return, they will return on the basis of a profile, not a hunch.
 
-**Zmiana reguł zmieniająca charakter gry.** Obecne reguły nie dają głębi planistycznej.
-Gdyby kiedyś była pożądana, trzeba zmienić reguły — na przykład „element zatrzymuje się
-na przeszkodzie zamiast pozostać w miejscu" albo limit ruchów. Wtedy jednak korytarz
-przestaje być stały, graf blokowania przestaje być statyczny, rozwiązywalność przestaje
-być problemem acykliczności, a solver wymaga przeszukiwania z nawrotami. Cała elegancja
-z §6–§8 znika. Decyzja świadoma, nie do odkrycia w połowie implementacji.
+**A rule change that changes the game's character.** The current rules give no planning
+depth. If it were ever desired, the rules would have to change — for example "the piece
+stops at the obstacle instead of staying in place" or a move limit. Then, however, the
+corridor stops being fixed, the blocking graph stops being static, solvability stops
+being an acyclicity problem, and the solver requires backtracking search. All the
+elegance of §6–§8 disappears. A deliberate decision, not one to be discovered halfway
+through implementation.
 
-## 14. Ryzyka
+## 14. Risks
 
-| Ryzyko | Przeciwdziałanie |
+| Risk | Mitigation |
 |---|---|
-| Rozjazd między definicją korytarza w silniku i w generatorze produkuje nierozwiązywalne plansze | Wspólna definicja korytarza plus test różnicowy (§12.18) i solver na tysiącach ziaren (§12.14) |
-| Powrót do reguły sztywnej translacji przez nieuwagę (naturalny odruch: „sprawdź, czy przed całym kształtem jest wolne") | Testy 1 i 3 z §12 sprawdzają wprost, że wklęsłość i drugie ramię L **nie** blokują |
-| Wygenerowane plansze są nudne mimo poprawności (frontier wycinania zbyt równy, dużo wolnych elementów na starcie) | Bias preferujący wycinanie tunelami zamiast warstwami (§7), metryki `f0` i `T_k` przy generacji, pętla generuj-zmierz-odrzuć |
-| Bias frontiera okazuje się nieskuteczny i `f0` pozostaje wysokie | Pętla generuj-zmierz-odrzuć działa niezależnie od biasu, tylko drożej; benchmark rozstrzyga, czy bias w ogóle zostaje w kodzie |
-| ~~Generator zakleszcza się przy minimalnej długości 2~~ | **Zamknięte pomiarem:** średnio 0–0,5 nawrotu na planszę, zero restartów na wszystkich czterech rozmiarach (§7). Wariant dwufazowy przestaje być potrzebny jako plan awaryjny |
-| Rozkład długości nie realizuje zamówienia: 28–47% ścieżek utyka przed docelową długością, więc plansze wychodzą drobniejsze niż zaplanowano | Zjawisko zmierzone i opisane (§7); wagi koszyków wymagają kalibracji pod faktycznie osiąganą, a nie zamawianą średnią |
-| Plansze wychodzą w pasy zamiast splątane, bo skręt jest legalny tylko na wysokości frontiera sąsiedniej linii | Premia za ruch boczny i preferencja najgłębszej linii przy wyborze głowy (§7); wygląd wymaga dalszej pracy i jest największym otwartym pytaniem projektu |
-| Test kształtu resztki przepuszcza fragment nierozkładalny inny niż plus | Solver z §8 weryfikuje każdą planszę niezależnie od generatora; nawrót uruchamia się na podstawie faktycznego zaklinowania, a nie tylko przewidywania |
-| Progi trudności trafione na oślep | Benchmark przed kalibracją; progi z §9 są jawnie wstępne |
-| Gracz farmi punkty planszą zdegenerowaną z konfiguratora (ogromna, ale banalna) | Podstawa punktacji skaluje się z powierzchnią, nie z liczbą kliknięć; mnożniki mierzą trudność na klik; test antyeksploatacyjny 26e |
-| Wagi punktacji dobrane tak, że presety nie układają się w rosnący ciąg | Kalibracja benchmarkiem na wszystkich czterech presetach; formuła w jednym module |
-| Generacja zawiesza się przy trudnych parametrach | Twardy limit prób; po jego wyczerpaniu oddajemy najlepszy wynik |
-| Długie elementy po cichu nie powstają (wzrost zawsze utyka, plansza wygląda jak sieczka z drobiazgu) | Malejąca górna granica długości wraz z postępem, plus test 9b raportujący faktyczny rozkład długości |
-| Jedna długa linia wyczerpuje pojemność swojego kierunku i blokuje dalsze wstawienia | Balans czterech kierunków; górna granica liczby długich elementów na kierunek, kalibrowana benchmarkiem |
-| Kilkanaście długich elementów zajmuje większość powierzchni i plansza wygląda jak zbiór spiral zamiast pola strzałek | Udział powierzchni koszyka długiego liczony jawnie (§7), pokazywany w konfiguratorze, ostrzeżenie powyżej 25%, test 23 |
-| ~~Generacja 100×100 zamraża interfejs~~ | **Zamknięte pomiarem:** 27 ms na Nightmare (§11) |
-| SVG nie wyrabia przy ~1 000 ścieżkach lub zoom klatkuje | Budżet wydajności §11 mierzony wcześnie; renderer za interfejsem, wymiana na Canvas nie dotyka rdzenia |
-| Gracz traci życie, próbując przesunąć planszę | Na desktopie przesuwanie wymaga modyfikatora ⌘/Ctrl, więc rozstrzygnięcie jest jednoznaczne, nie progowe; na dotyku próg odległości plus wymóg zwolnienia nad tym samym elementem (§11). Pokryte testem interakcji |
-| Konfigurator obiecuje parametry, których geometria nie dopuszcza | Generator raportuje osiągnięte wartości obok zamówionych (§11); test 21 na parametrach niewykonalnych |
+| A divergence between the corridor definition in the engine and in the generator produces unsolvable boards | A shared corridor definition plus the differential test (§12.18) and the solver on thousands of seeds (§12.14) |
+| A relapse into the rigid-translation rule through inattention (the natural reflex: "check whether the space in front of the whole shape is free") | Tests 1 and 3 from §12 check directly that the concavity and the second arm of the L do **not** block |
+| Generated boards are boring despite being correct (carving frontier too even, many free pieces at the start) | A bias preferring carving in tunnels rather than layers (§7), the `f0` and `T_k` metrics at generation, the generate-measure-reject loop |
+| The frontier bias turns out ineffective and `f0` stays high | The generate-measure-reject loop works independently of the bias, only at a higher cost; the benchmark decides whether the bias stays in the code at all |
+| ~~The generator deadlocks at minimum length 2~~ | **Closed by measurement:** on average 0–0.5 backtracks per board, zero restarts at all four sizes (§7). The two-phase variant is no longer needed as a fallback plan |
+| The length distribution does not deliver the order: 28–47% of paths get stuck before the target length, so boards come out finer-grained than planned | The phenomenon has been measured and described (§7); the bucket weights require calibration for the actually achieved mean, not the ordered one |
+| Boards come out in stripes instead of tangled, because a turn is legal only at the height of the neighbouring line's frontier | A bonus for lateral movement and the deepest-line preference when choosing the head (§7); the looks need further work and are the project's biggest open question |
+| The leftover-fragment shape test lets through a non-decomposable fragment other than the plus | The solver from §8 verifies every board independently of the generator; backtracking fires on an actual jam, not merely a prediction |
+| Difficulty thresholds picked blind | Benchmark before calibration; the thresholds from §9 are explicitly preliminary |
+| The player farms points with a degenerate board from the configurator (huge but trivial) | The scoring base scales with area, not with the number of clicks; the multipliers measure difficulty per click; anti-exploit test 26e |
+| Scoring weights chosen such that the presets do not form an ascending sequence | Benchmark calibration on all four presets; the formula in one module |
+| Generation hangs on hard parameters | A hard attempt limit; once exhausted we return the best result |
+| Long pieces quietly fail to arise (growth always gets stuck, the board looks like a mince of small bits) | A length upper bound decreasing with progress, plus test 9b reporting the actual length distribution |
+| One long line exhausts its direction's capacity and blocks further insertions | Balancing the four directions; an upper bound on the number of long pieces per direction, calibrated by benchmark |
+| A dozen or so long pieces occupy most of the area and the board looks like a set of spirals instead of a field of arrows | The long bucket's area share computed explicitly (§7), shown in the configurator, a warning above 25%, test 23 |
+| ~~Generating 100×100 freezes the interface~~ | **Closed by measurement:** 27 ms on Nightmare (§11) |
+| SVG does not keep up at ~1 000 paths or zoom stutters | The §11 performance budget measured early; the renderer behind an interface, swapping for Canvas does not touch the core |
+| The player loses a life while trying to pan the board | On desktop panning requires the ⌘/Ctrl modifier, so the decision is unambiguous, not threshold-based; on touch a distance threshold plus the requirement to release over the same piece (§11). Covered by an interaction test |
+| The configurator promises parameters that the geometry does not allow | The generator reports achieved values alongside ordered ones (§11); test 21 on infeasible parameters |

@@ -1,14 +1,14 @@
-// PROTOTYP WYRZUCALNY — silnik sondy, nie kod produkcyjny.
+// THROWAWAY PROTOTYPE — probe engine, not production code.
 //
-// Ten plik jest wspólny dla CLI (carve.mjs) i laboratorium w przeglądarce
-// (lab.html), żeby nie powstały dwie kopie algorytmu, które się rozjadą.
-// Nie wolno mu dotykać `process` ani DOM — wszystko wchodzi parametrami.
+// This file is shared by the CLI (carve.mjs) and the browser lab (lab.html)
+// so that two copies of the algorithm never come into existence and drift apart.
+// It must not touch `process` or the DOM — everything comes in as parameters.
 
 const DIRS = [
-  { dx: 0, dy: -1, ch: '↑' }, // 0 góra
-  { dx: 1, dy: 0, ch: '→' },  // 1 prawo
-  { dx: 0, dy: 1, ch: '↓' },  // 2 dół
-  { dx: -1, dy: 0, ch: '←' }, // 3 lewo
+  { dx: 0, dy: -1, ch: '↑' }, // 0 up
+  { dx: 1, dy: 0, ch: '→' },  // 1 right
+  { dx: 0, dy: 1, ch: '↓' },  // 2 down
+  { dx: -1, dy: 0, ch: '←' }, // 3 left
 ]
 
 function mulberry32(seed) {
@@ -21,7 +21,7 @@ function mulberry32(seed) {
   }
 }
 
-// ---------------------------------------------------------------- plansza
+// ---------------------------------------------------------------- board
 
 class Carver {
   constructor(W, H, params, rng) {
@@ -29,7 +29,7 @@ class Carver {
     this.H = H
     this.p = params
     this.rng = rng
-    this.owner = new Int32Array(W * H).fill(-1) // -1 = nieprzypisana (zbiór R)
+    this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
     if (params.voidFrac > 0) {
@@ -43,11 +43,11 @@ class Carver {
     }
     this.backtracks = 0
     this.stats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0 }
-    // depth[d][linia] = ile kolejnych przypisanych komórek od krawędzi w głąb
+    // depth[d][line] = number of consecutive assigned cells from the edge inward
     this.depth = [new Int32Array(W), new Int32Array(H), new Int32Array(W), new Int32Array(H)]
-    // Tablice robocze ze stemplem generacji: „zbiór" to komórki, których stempel
-    // równa się bieżącej generacji. Zerowanie kosztuje O(1) (nowy stempel),
-    // a sprawdzenie to odczyt tablicy zamiast Set.has w gorącej pętli testu resztki.
+    // Scratch arrays with a generation stamp: the "set" is the cells whose stamp
+    // equals the current generation. Clearing costs O(1) (a new stamp), and
+    // membership is an array read instead of Set.has in the leftover test's hot loop.
     this.takenStamp = new Int32Array(W * H)
     this.seenStamp = new Int32Array(W * H)
     this.degStamp = new Int32Array(W * H)
@@ -59,7 +59,7 @@ class Carver {
   inside(x, y) { return x >= 0 && y >= 0 && x < this.W && y < this.H }
   free(x, y) { return this.owner[this.idx(x, y)] === -1 }
 
-  // pierwsza nieprzypisana komórka na linii, licząc od krawędzi wyjścia kierunku d
+  // first unassigned cell on the line, counting from the exit edge of direction d
   headCandidate(d, line) {
     const { W, H } = this
     const k = this.depth[d][line]
@@ -87,8 +87,8 @@ class Carver {
     }
   }
 
-  // czy promień z (x,y) w kierunku d prowadzi wyłącznie przez komórki
-  // przypisane albo należące do budowanej ścieżki
+  // does the ray from (x,y) in direction d pass exclusively through cells
+  // that are assigned or belong to the path being built
   rayClear(x, y, d, pathSet) {
     const { dx, dy } = DIRS[d]
     let cx = x + dx, cy = y + dy
@@ -100,32 +100,32 @@ class Carver {
     return true
   }
 
-  // ------------------------------------------------ test kształtu resztki
+  // ------------------------------------------------ leftover shape test
 
-  // Czy zbiór komórek da się rozłożyć na ścieżki o długości >= 2?
+  // Can a set of cells be decomposed into paths of length >= 2?
   //
-  // Każda ścieżka o k >= 2 komórkach rozpada się na odcinki po 2 i 3 komórki,
-  // więc pytanie sprowadza się do pokrycia dominami i trominami-ścieżkami
-  // (Akiyama–Avis–Era). Programowanie dynamiczne po maskach bitowych: komórka
-  // o najniższym bicie musi należeć do jakiegoś odcinka, próbujemy wszystkich
-  // odcinków przez nią i zapamiętujemy przegrane maski.
+  // Every path of k >= 2 cells splits into segments of 2 and 3 cells, so the
+  // question reduces to a cover by dominoes and path-trominoes
+  // (Akiyama–Avis–Era). Dynamic programming over bitmasks: the cell with the
+  // lowest bit must belong to some segment, we try every segment through it
+  // and memoise the losing masks.
   //
-  // POPRZEDNIA WERSJA BYŁA BŁĘDNA: rozwijała ścieżkę wyłącznie od komórki
-  // startowej, więc start musiał być jej końcem. L-tromino z iteracją zaczętą
-  // w narożniku i prosta trójka zaczęta od środka wychodziły „nierozkładalne",
-  // a wynik zależał od kolejności komórek w zbiorze. Generator w końcówce
-  // odrzucał poprawne ścieżki i ogłaszał zaklinowanie, którego nie było.
-  // K(1,3) — np. tetromino T — jest najmniejszym prawdziwym kontrprzykładem,
-  // plus-pentomino kolejnym.
+  // THE PREVIOUS VERSION WAS WRONG: it grew the path only from the starting
+  // cell, so the start had to be an endpoint. An L-tromino iterated from the
+  // corner and a straight triple started from the middle came out as
+  // "non-decomposable", and the result depended on the order of cells in the
+  // set. In the endgame the generator rejected valid paths and declared a
+  // jam that did not exist. K(1,3) — e.g. the T tetromino — is the smallest
+  // genuine counterexample, the plus-pentomino the next one.
   decomposable(cellSet) {
     const n = cellSet.size
     if (n === 0) return true
     if (n === 1) return false
-    if (n > 30) return true // poza zasięgiem masek 32-bitowych — zakładamy, że tak
+    if (n > 30) return true // beyond the reach of 32-bit masks — assume yes
     const cells = [...cellSet]
     const bitOf = new Map()
     cells.forEach((c, i) => bitOf.set(c, i))
-    // sąsiedzi wewnątrz zbioru, jako numery bitów
+    // neighbours inside the set, as bit numbers
     const nb = cells.map((c) => {
       const x = c % this.W, y = (c / this.W) | 0
       const out = []
@@ -137,8 +137,8 @@ class Carver {
       }
       return out
     })
-    // odcinki (maski) zawierające komórkę v: domina v–a, tromina a–v–b
-    // (v w środku) i v–a–c (v na końcu)
+    // segments (masks) containing cell v: dominoes v–a, trominoes a–v–b
+    // (v in the middle) and v–a–c (v at the end)
     const segs = cells.map((_, v) => {
       const out = []
       for (const a of nb[v]) {
@@ -163,18 +163,18 @@ class Carver {
   }
 
   /**
-   * WADA LOKALNA: wolna komórka z co najmniej trzema sąsiadami-liśćmi (wolnymi
-   * komórkami, których jedynym wolnym sąsiadem jest ona), albo para komórek
-   * w odległości <= 2, po której usunięciu zostaje >= 5 izolowanych. To warunek
-   * Tutte'a dla pokrycia ścieżkami przy |S| = 1 i |S| = 2: takiego zbioru nie da
-   * się pokryć ścieżkami i żadne dokładanie komórek gdzie indziej tego nie naprawi.
+   * LOCAL DEFECT: a free cell with at least three leaf neighbours (free cells
+   * whose only free neighbour is that cell), or a pair of cells at distance
+   * <= 2 whose removal leaves >= 5 isolated cells. This is Tutte's condition
+   * for a path cover with |S| = 1 and |S| = 2: such a set cannot be covered by
+   * paths, and adding cells anywhere else will never fix it.
    *
-   * Po wycięciu ścieżki stopnie zmieniają się tylko u jej sąsiadów, więc nowa
-   * wada może powstać wyłącznie w promieniu 2 od niej. Sprawdzenie jest
-   * dokładne globalnie przy koszcie liniowym w długości ścieżki — i nie zależy
-   * od limitu rozmiaru fragmentu, w przeciwieństwie do testu rozkładalności.
+   * After carving a path, degrees change only at its neighbours, so a new
+   * defect can appear only within radius 2 of it. The check is globally exact
+   * at a cost linear in the path length — and it does not depend on the
+   * fragment size limit, unlike the decomposability test.
    *
-   * Zakłada, że komórki ścieżki są oznaczone stemplem `takenStamp === gen`.
+   * Assumes the path cells are marked with the stamp `takenStamp === gen`.
    */
   hasLocalDefect(cells) {
     const { W, H, owner, takenStamp, seenStamp, degStamp, degVal, gen } = this
@@ -217,8 +217,8 @@ class Carver {
             if (d <= 2) weak++
           }
           if (leaves >= 3) return true
-          // |S| = 2: kandydatami na izolowane są wyłącznie sąsiedzi v i w
-          // o stopniu <= 2, więc bez takich sąsiadów para odpada od razu.
+          // |S| = 2: the only candidates for isolated cells are neighbours of v
+          // and w with degree <= 2, so without such neighbours the pair is out at once.
           if (weak === 0) continue
           for (let px = -2; px <= 2; px++) {
             for (let py = -2; py <= 2; py++) {
@@ -237,7 +237,7 @@ class Carver {
                 for (let a = 0; a < k; a++) {
                   const ui = arr[a]
                   if (ui === vi || ui === wi) continue
-                  if (side === 1) { // nie licz dwa razy wspólnego sąsiada
+                  if (side === 1) { // do not count a shared neighbour twice
                     let dup = false
                     for (let b = 0; b < kv; b++) if (nv[b] === ui) { dup = true; break }
                     if (dup) continue
@@ -257,15 +257,16 @@ class Carver {
     return false
   }
 
-  // Czy wycięcie `cells` osieroca resztę: fragment do `strandLimit` komórek
-  // nierozkładalny na ścieżki, albo wada lokalna w dowolnie dużym fragmencie.
-  // `failed` (opcjonalnie) zbiera komórki fragmentów, które oblały dokładny test.
+  // Does carving `cells` strand the rest: a fragment of up to `strandLimit`
+  // cells that cannot be decomposed into paths, or a local defect in a fragment
+  // of any size. `failed` (optional) collects the cells of fragments that
+  // failed the exact test.
   wouldStrand(cells, failed = null) {
     const { W, H, owner, takenStamp, seenStamp } = this
     const gen = ++this.gen
     for (const c of cells) takenStamp[this.idx(c.x, c.y)] = gen
     if (this.hasLocalDefect(cells)) return true
-    // osobny stempel dla odwiedzonych przez flood fill
+    // a separate stamp for cells visited by the flood fill
     const seenGen = ++this.gen
     for (const c of cells) takenStamp[this.idx(c.x, c.y)] = seenGen
     const limit = this.p.strandLimit
@@ -294,11 +295,12 @@ class Carver {
           if (x < W - 1) tryPush(i + 1)
         }
         if (overflow) {
-          // Duży fragment: rozkładalności nie sprawdzamy (wadę lokalną już
-          // wykluczyliśmy). Wyjątek: fragment, który WCZEŚNIEJ oblał dokładny
-          // test i urósł tylko dlatego, że pętla skracania oddała mu komórki
-          // ścieżki. Wada nielokalna od tego nie znika, a przepuszczenie go
-          // oznaczałoby kieszeń nie do wycięcia aż do końca generacji.
+          // Large fragment: decomposability is not checked (a local defect has
+          // already been ruled out). Exception: a fragment that EARLIER failed
+          // the exact test and grew only because the shortening loop gave path
+          // cells back to it. A non-local defect does not go away because of
+          // that, and letting it through would mean a pocket that cannot be
+          // carved until the end of the generation.
           if (failed) for (const i of comp) if (failed.has(i)) return true
           continue
         }
@@ -311,32 +313,33 @@ class Carver {
     return false
   }
 
-  // ------------------------------------------------------------ wycinanie
+  // ------------------------------------------------------------ carving
 
-  // Cel długości giganta liczymy w BOKACH PLANSZY, nie w komórkach: element,
-  // który ma przecinać planszę tam i z powrotem, musi skalować się z rozmiarem.
+  // The giant's target length is measured in BOARD SIDES, not cells: a piece
+  // that is meant to cross the board back and forth must scale with its size.
   giantLength() {
     return Math.round(this.p.giantSpan * Math.max(this.W, this.H))
   }
 
-  // Lmax = 0 oznacza automat: 2,5 × dłuższy bok, jak w §7 specyfikacji.
-  // Stała wartość (dawne 125) obcinała koszyk długi na dużych planszach.
+  // Lmax = 0 means automatic: 2.5 × the longer side, as in §7 of the spec.
+  // A fixed value (formerly 125) truncated the long bucket on large boards.
   lmax() {
     return this.p.Lmax > 0 ? this.p.Lmax : Math.round(2.5 * Math.max(this.W, this.H))
   }
 
   targetLength(progress) {
     const { rng, p } = this
-    // BŁĄD PIERWOTNEJ HIPOTEZY: zakładałem, że długie kształty udają się dopiero
-    // późno, bo obszar dopuszczalny rośnie. Nieprawda — element może od pierwszego
-    // kroku biec PROSTO W GŁĄB od krawędzi (jego promień przechodzi przez komórki
-    // własne). Ograniczony jest ruch W BOK, nie długość. Cap zostaje wyłączony.
+    // FLAW IN THE ORIGINAL HYPOTHESIS: I assumed long shapes only succeed late,
+    // because the admissible area grows. Not true — from the very first step a
+    // piece can run STRAIGHT INWARD from the edge (its ray passes through its
+    // own cells). What is constrained is SIDEWAYS movement, not length. The cap
+    // stays disabled.
     const cap = this.lmax()
     const r = rng()
     let lo, hi
     if (r < p.wShort) { lo = 2; hi = 6 }
     else if (r < p.wShort + p.wMid) { lo = 7; hi = 15 }
-    else { // log-jednostajny w koszyku długim
+    else { // log-uniform within the long bucket
       const a = 16, b = Math.max(17, cap)
       return Math.min(cap, Math.round(a * Math.exp(rng() * Math.log(b / a))))
     }
@@ -344,22 +347,22 @@ class Carver {
   }
 
   /**
-   * Trasa serpentynowa dla elementu szkieletowego.
+   * Serpentine route for a skeleton piece.
    *
-   * Losowy wzrost nie potrafi dać linii jednocześnie długiej i rozciągniętej:
-   * bez Warnsdorffa zamyka się we własnej pułapce po stu komórkach, z nim
-   * wypełnia obszar gęsto, czyli się zwija. Serpentynę prowadzimy więc
-   * systematycznie: biegi równoległe do krawędzi wyjścia, skok `step` między
-   * nimi. Kanały o szerokości `step - 1`, które zostają między przebiegami,
-   * wypełnią później zwykłe elementy — i to one będą zablokowane przez tę
-   * linię, więc jej zdjęcie odblokuje pół planszy naraz.
+   * Random growth cannot produce a line that is both long and stretched out:
+   * without Warnsdorff it traps itself after a hundred cells, with it it fills
+   * the area densely, i.e. it coils. So the serpentine is laid out
+   * systematically: runs parallel to the exit edge, a jump of `step` between
+   * them. The channels of width `step - 1` left between the runs will later be
+   * filled by ordinary pieces — and those are the ones blocked by this line,
+   * so removing it unblocks half the board at once.
    */
   growSerpentine(head, neck, d, maxLen) {
     const { rng, p } = this
     const step = Math.max(2, p.giantStep)
-    const advance = DIRS[(d + 2) % 4]                 // w głąb planszy
+    const advance = DIRS[(d + 2) % 4]                 // into the board
     const along = d === 0 || d === 2 ? { dx: 1, dy: 0 } : { dx: 0, dy: 1 }
-    let dir = rng() < 0.5 ? 1 : -1                    // kierunek pierwszego biegu
+    let dir = rng() < 0.5 ? 1 : -1                    // direction of the first run
 
     const path = [head, neck]
     const used = new Set([this.idx(head.x, head.y), this.idx(neck.x, neck.y)])
@@ -369,8 +372,8 @@ class Carver {
 
     let cur = { x: neck.x, y: neck.y }
     while (path.length < maxLen) {
-      // bieg wzdłuż osi, aż do przeszkody; czasem urwany wcześniej, żeby brzegi
-      // serpentyny nie wychodziły idealnie proste
+      // a run along the axis up to an obstacle; sometimes cut short so that the
+      // serpentine's edges do not come out perfectly straight
       const runCap = rng() < p.giantJitter ? 3 + Math.floor(rng() * 12) : Infinity
       let ran = 0
       while (ran < runCap && path.length < maxLen) {
@@ -378,14 +381,14 @@ class Carver {
         if (!free(nx, ny)) break
         push(nx, ny); cur = { x: nx, y: ny }; ran++
       }
-      // przeskok o `step` w głąb i zawrót
+      // jump `step` cells inward and turn around
       let moved = 0
       while (moved < step && path.length < maxLen) {
         const nx = cur.x + advance.dx, ny = cur.y + advance.dy
         if (!free(nx, ny)) break
         push(nx, ny); cur = { x: nx, y: ny }; moved++
       }
-      if (moved === 0) break          // nie ma dokąd zejść — koniec serpentyny
+      if (moved === 0) break          // nowhere to descend — end of the serpentine
       dir = -dir
     }
     return path
@@ -394,10 +397,11 @@ class Carver {
   carveOne() {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
-    // NIE `sort(() => rng() - 0.5)`: liczba wywołań komparatora zależy od
-    // implementacji Array.prototype.sort, więc różne silniki JS zużywają różną
-    // liczbę losowań i to samo ziarno daje inną planszę w Node i w przeglądarce.
-    // Tasowanie Fishera-Yatesa robi dokładnie n-1 losowań, zawsze te same.
+    // NOT `sort(() => rng() - 0.5)`: the number of comparator calls depends on
+    // the Array.prototype.sort implementation, so different JS engines consume a
+    // different number of random draws and the same seed yields a different
+    // board in Node and in the browser. A Fisher-Yates shuffle makes exactly
+    // n-1 draws, always the same ones.
     const order = [0, 1, 2, 3]
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1))
@@ -407,7 +411,7 @@ class Carver {
     for (const d of order) {
       const nLines = d === 0 || d === 2 ? this.W : this.H
       const back = DIRS[(d + 2) % 4]
-      // głowy parowalne: pierwsza nieprzypisana na linii, z nieprzypisaną komórką za nią
+      // pairable heads: the first unassigned cell on the line, with an unassigned cell behind it
       const heads = []
       for (let line = 0; line < nLines; line++) {
         const h = this.headCandidate(d, line)
@@ -418,22 +422,23 @@ class Carver {
       }
       if (!heads.length) continue
 
-      // MIESZANIE: część wycięć preferuje linię najgłębszą (tuneluje -> niskie f0,
-      // ale proste kształty), reszta najpłytszą (warstwy -> skręty, ale wysokie f0).
-      // Te dwa cele ciągną w przeciwne strony, więc szukamy proporcji.
+      // MIXING: some cuts prefer the deepest line (tunnelling -> low f0, but
+      // straight shapes), the rest the shallowest (layers -> bends, but high f0).
+      // These two goals pull in opposite directions, so we look for a ratio.
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
       let ranked = heads
       if (bias !== 0) {
-        // depth linii danej głowy = jak głęboko frontier zaszedł w tej linii
+        // depth of a head's line = how deep the frontier has advanced in that line
         ranked = heads
           .map((c) => ({ c, dep: this.depth[d][d === 0 || d === 2 ? c.x : c.y] }))
           .sort((a, b) => (bias > 0 ? b.dep - a.dep : a.dep - b.dep))
           .map((z) => z.c)
       }
-      // KILKA PRÓB NA KIERUNEK. Jedna próba wystarcza na małej planszy, gdzie
-      // kandydatów jest kilkanaście. Przy 400x400 legalnych głów bywa kilkaset,
-      // a szansa, że akurat ta jedna wylosowana da ścieżkę przechodzącą test
-      // resztki, spada — i generator cofa setki wycięć zamiast losować ponownie.
+      // SEVERAL TRIES PER DIRECTION. One try is enough on a small board, where
+      // there are a dozen or so candidates. At 400x400 there can be several
+      // hundred legal heads, and the chance that the one drawn happens to give
+      // a path passing the leftover test drops — and the generator undoes
+      // hundreds of cuts instead of drawing again.
       const pool = bias === 0 ? [...ranked] : ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 4)))
       const tries = Math.min(Math.max(1, p.headTries), pool.length)
       let carved = false
@@ -444,18 +449,18 @@ class Carver {
       const bx = h.x + back.dx, by = h.y + back.dy
       const path = [h, { x: bx, y: by }]
       const pathSet = new Set([this.idx(h.x, h.y), this.idx(bx, by)])
-      // pozycja komórki w ścieżce — reguła odstępu musi odróżnić „własny ogon,
-      // z którego właśnie przyszedłem" od „własny przebieg sprzed stu komórek"
+      // position of a cell in the path — the spacing rule must tell "my own tail,
+      // which I just came from" apart from "my own run from a hundred cells ago"
       const pathPos = new Map([[this.idx(h.x, h.y), 0], [this.idx(bx, by), 1]])
-      // SONDA: co jakiś czas wbij długi prosty element w głąb, żeby zrobić schodek
-      // w profilu frontiera. Bez schodków wszystkie kolejne elementy są prostymi
-      // kreskami, bo skręt wymaga zrównania głębokości z frontierem sąsiada.
+      // PROBE: every so often drive a long straight piece inward to make a step
+      // in the frontier profile. Without steps all subsequent pieces are straight
+      // strokes, because a bend requires matching the depth of the neighbour's frontier.
       const isProbe = rng() < p.probe
-      // Giganty wycinamy NA STARCIE, póki plansza jest pusta: tylko wtedy ścieżka
-      // ma dokąd biec przez całą siatkę. Losowanie ich w trakcie nie działa —
-      // po tysiącu wycięć obszar nieprzypisany jest już poszarpany.
-      // Kolejność wycinania jest kolejnością rozwiązania, więc giganty są też
-      // pierwsze do zdjęcia w grze i ich usunięcie odblokowuje resztę planszy.
+      // Giants are carved AT THE START, while the board is empty: only then does
+      // the path have room to run across the whole grid. Drawing them mid-way
+      // does not work — after a thousand cuts the unassigned area is already ragged.
+      // The carving order is the solution order, so giants are also the first
+      // to be removed in the game and their removal unblocks the rest of the board.
       const isGiant = p.giantSpan > 0 &&
         (this.pieces.length < p.giants || (p.wGiant > 0 && rng() < p.wGiant))
       const want = isGiant
@@ -463,9 +468,9 @@ class Carver {
         : isProbe
           ? Math.max(4, Math.round(p.probeLen * (0.5 + rng())))
           : this.targetLength(progress)
-      // Element, który ma mieć ZASIĘG, musi biec prosto — zwijanie zjada
-      // długość bez zdobywania terenu. Dla gigantów podmieniamy więc wagi:
-      // mocno prosto, bez Warnsdorffa (to on zwija), z karą za samostyczność.
+      // A piece that is meant to have REACH must run straight — coiling eats
+      // length without gaining ground. So for giants we swap the weights:
+      // strongly straight, no Warnsdorff (it is what coils), with a self-contact penalty.
       const pStraight = isGiant ? p.giantStraight : p.pStraight
       const warns = isGiant ? p.giantWarns : p.warns
       const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
@@ -489,18 +494,18 @@ class Carver {
           const i = this.idx(nx, ny)
           if (this.owner[i] !== -1 || pathSet.has(i)) continue
           if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
-          // Ruch W GŁĄB (wzdłuż -d) jest zawsze legalny, ale odcina ścieżkę od
-          // frontiera i tym samym od wszelkich przyszłych skrętów. Ruch W BOK jest
-          // legalny wyłącznie na wysokości frontiera sąsiedniej linii — i to on
-          // buduje kształt. Dlatego premiujemy bok, a nie „prosto".
+          // Moving INWARD (along -d) is always legal, but it cuts the path off
+          // from the frontier and thus from any future bends. Moving SIDEWAYS is
+          // legal only at the level of the neighbouring line's frontier — and it
+          // is what builds the shape. That is why we reward sideways, not "straight".
           const inward = dd.dx === back.dx && dd.dy === back.dy
           const straight = dd.dx === lastDir.dx && dd.dy === lastDir.dy
           let w = inward ? 1 : p.wLateral
           if (straight) w *= pStraight / (1 - Math.min(0.999, pStraight))
-          // Jednym przebiegiem po sąsiadach liczymy trzy rzeczy naraz:
-          //  deg     - wolne wyjścia (Warnsdorff),
-          //  foreign - sąsiedzi należący do JUŻ WYCIĘTYCH elementów (i krawędź),
-          //  own     - sąsiedzi należący do budowanej właśnie ścieżki.
+          // One pass over the neighbours counts three things at once:
+          //  deg     - free exits (Warnsdorff),
+          //  foreign - neighbours belonging to ALREADY CARVED pieces (and the edge),
+          //  own     - neighbours belonging to the path being built right now.
           let deg = 0, foreign = 0, own = 0
           for (const e of DIRS) {
             const ax = nx + e.dx, ay = ny + e.dy
@@ -511,22 +516,22 @@ class Carver {
             else foreign++
           }
           if (warns > 0) {
-            // Warnsdorff: preferuj komórkę o najmniejszej liczbie wolnych sąsiadów.
-            // Zjada ślepe uliczki, zanim się zamkną, zamiast je osierocać.
+            // Warnsdorff: prefer the cell with the fewest free neighbours.
+            // It eats dead ends before they close instead of stranding them.
             w *= Math.pow(warns, 3 - deg)
           }
-          // HUG: premia za przyleganie do cudzych elementów. Hipoteza — to ona
-          // ma dawać wrażenie „opakowywania" zamiast zwijania się przy sobie.
+          // HUG: a bonus for hugging other pieces. Hypothesis — this is what
+          // should give the impression of "wrapping" instead of coiling on itself.
           if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
-          // ANTICOIL: kara za dotykanie własnej ścieżki. Komórka ogona, z której
-          // przychodzimy, nie liczy się — stąd own - 1.
+          // ANTICOIL: a penalty for touching one's own path. The tail cell we
+          // come from does not count — hence own - 1.
           if (anticoil > 1 && own > 1) w *= Math.pow(anticoil, -(own - 1))
 
-          // REGUŁA ODSTĘPU (tylko giganty). Wąż, który ma przecinać planszę tam
-          // i z powrotem, nie może zawracać tuż obok siebie — inaczej zjada
-          // własną przestrzeń i utyka. Wymuszamy minimalny dystans do własnych
-          // przebiegów sprzed co najmniej kilku kroków; kanały, które zostają
-          // między przebiegami, wypełnią później inne elementy.
+          // SPACING RULE (giants only). A snake that is meant to cross the board
+          // back and forth must not turn around right next to itself — otherwise
+          // it eats its own space and gets stuck. We enforce a minimum distance
+          // to its own runs from at least a few steps ago; the channels left
+          // between the runs will later be filled by other pieces.
           if (isGiant && p.giantSpacing > 1 && p.giantSpacePenalty > 1) {
             const k = p.giantSpacing
             const here = path.length
@@ -537,21 +542,21 @@ class Carver {
                 const px = nx + ox, py = ny + oy
                 if (!this.inside(px, py)) continue
                 const pos = pathPos.get(this.idx(px, py))
-                // Ostatnie 2k komórek to naturalne sąsiedztwo ogona — pomijamy.
+                // The last 2k cells are the tail's natural neighbourhood — skipped.
                 if (pos !== undefined && here - pos > 2 * k) near++
               }
             }
-            // KARA, nie zakaz. Zakaz uniemożliwiałby zawracanie: przejście
-            // z pasa do pasa wymaga przecięcia strefy odstępu, więc wąż utykał
-            // po dwustu komórkach niezależnie od zamówionej długości.
+            // A PENALTY, not a ban. A ban would make turning around impossible:
+            // moving from lane to lane requires crossing the spacing zone, so the
+            // snake got stuck after two hundred cells regardless of the ordered length.
             if (near > 0) w *= Math.pow(p.giantSpacePenalty, -near)
           }
           cand.push({ x: nx, y: ny, dd, w })
         }
         if (!cand.length) {
-          // Diagnostyka utknięcia: co otacza ogon (własna ścieżka, cudzy
-          // element, krawędź) i po ilu komórkach. To rozstrzyga, czy ścieżkę
-          // zamyka jej własne ciało, czy zakamarki frontiera.
+          // Stall diagnostics: what surrounds the tail (own path, another
+          // piece, the edge) and after how many cells. This settles whether the
+          // path is closed off by its own body or by nooks of the frontier.
           let own = 0, foreign = 0, edge = 0
           for (const dd of DIRS) {
             const nx = tail.x + dd.dx, ny = tail.y + dd.dy
@@ -578,23 +583,23 @@ class Carver {
       if (path.length < 2) continue
       if (isGiant && this.p.debug) {
         const grew = path.length
-        this.p.debug(`  [gigant] zamówiono ${want}, wzrost dał ${grew} (${grew < want ? 'UTKNĄŁ' : 'pełna długość'})`)
+        this.p.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
       }
       this.stats.want += want; this.stats.n++
       if (path.length < want) this.stats.stall++
       const beforeStrand = path.length
-      // Komórki fragmentów, które oblały dokładny test — skracanie ścieżki
-      // nie może ich „przepchnąć" ponad limit testu (patrz wouldStrand).
+      // Cells of fragments that failed the exact test — shortening the path
+      // must not "push" them above the test limit (see wouldStrand).
       const failed = new Set()
       if (this.wouldStrand(path, failed)) {
-        // Skracamy skokowo, nie po jednej komórce: przy ścieżce o tysiącach
-        // komórek liniowe szukanie kosztowałoby O(L) testów resztki.
+        // Shorten in jumps, not one cell at a time: with a path of thousands
+        // of cells a linear search would cost O(L) leftover tests.
         let ok = false
         const step = Math.max(1, Math.floor(path.length / 32))
         for (let L = path.length - step; L >= 2; L -= step) {
           const shorter = path.slice(0, L)
           if (!this.wouldStrand(shorter, failed)) {
-            // dociągnij w górę po jednej, żeby nie tracić długości bez potrzeby
+            // creep back up one at a time so as not to lose length needlessly
             let best = L
             for (let k = L + 1; k < Math.min(path.length, L + step); k++) {
               if (this.wouldStrand(path.slice(0, k), failed)) break
@@ -607,7 +612,7 @@ class Carver {
         this.stats.strandTrunc++
         this.stats.strandLoss += beforeStrand - path.length
         if (isGiant && this.p.debug) {
-          this.p.debug(`  [gigant] test resztki obciął ${beforeStrand} -> ${path.length}`)
+          this.p.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
         }
       }
       this.stats.got += path.length
@@ -624,9 +629,9 @@ class Carver {
     return false
   }
 
-  // Czy w tym stanie istnieje JAKAKOLWIEK legalna głowa? Jeśli nie, generator
-  // stoi nie dlatego, że brakuje miejsca, tylko dlatego, że do wolnych komórek
-  // nie da się dojechać: każda z nich ma przed sobą inne wolne komórki.
+  // Does ANY legal head exist in this state? If not, the generator is stalled
+  // not because it is out of room, but because the free cells cannot be reached:
+  // each of them has other free cells in front of it.
   legalHeadCount() {
     let n = 0
     for (let d = 0; d < 4; d++) {
@@ -644,35 +649,36 @@ class Carver {
   }
 
   /**
-   * WCHŁANIANIE RESZTEK — siatka bezpieczeństwa końcówki.
+   * LEFTOVER ABSORPTION — the endgame safety net.
    *
-   * Gdy żadna głowa nie daje legalnej ścieżki, zostają małe fragmenty: czasem
-   * nierozkładalne (krzyż z trzema liśćmi), czasem rozkładalne, ale bez
-   * legalnej kolejności głów. Zamiast cofać wycięcia na oślep, PRZEPISUJEMY
-   * KOŃCÓWKĘ sąsiedniego elementu: jego komórki od miejsca styku z fragmentem
-   * do ogona plus cały fragment układamy w nową ścieżkę Hamiltona.
+   * When no head yields a legal path, small fragments remain: sometimes
+   * non-decomposable (a cross with three leaves), sometimes decomposable but
+   * with no legal head order. Instead of undoing cuts blindly, we REWRITE THE
+   * TAIL END of a neighbouring piece: its cells from the contact point with the
+   * fragment to the tail, plus the whole fragment, are laid out as a new
+   * Hamiltonian path.
    *
-   * To jest zawsze legalne i nie zmienia grafu blokowania:
-   *  - głowa, szyja i promień zostają te same, więc element wyjeżdża tak jak
-   *    dotąd; ciało jedzie po torze głowy, jego kształt nie ma znaczenia;
-   *  - komórki końcówki zostają przy tym samym elemencie (ten sam indeks
-   *    w kolejności rozwiązania), więc promienie późniejszych elementów, które
-   *    przez nie przechodzą, nadal trafiają na element wcześniejszy;
-   *  - żaden promień nie przechodzi przez wolną komórkę (głowa była pierwszą
-   *    nieprzypisaną na linii w chwili wycięcia, nawrót zdejmuje tylko elementy
-   *    późniejsze), więc przypisanie fragmentu nie blokuje nikogo nowego.
+   * This is always legal and does not change the blocking graph:
+   *  - the head, neck and ray stay the same, so the piece exits just as
+   *    before; the body follows the head's track, its shape does not matter;
+   *  - the tail-end cells stay with the same piece (the same index in the
+   *    solution order), so the rays of later pieces that pass through them
+   *    still hit an earlier piece;
+   *  - no ray passes through a free cell (the head was the first unassigned
+   *    cell on its line at the moment of carving, and backtracking removes only
+   *    later pieces), so assigning the fragment blocks nobody new.
    *
-   * Przedłużenie ogona jest szczególnym przypadkiem (końcówka pusta) i jest
-   * próbowane pierwsze, bo najtańsze. Wchłaniamy tylko fragmenty do
-   * `absorbLimit` komórek: duży wolny obszar wymaga zwykłego wycinania, nie
-   * sklejania w jeden kłębek. Jedno wywołanie wchłania jeden fragment i zwraca
-   * true, żeby generator znów spróbował wycinać normalnie.
+   * Extending the tail is a special case (empty tail end) and is tried first,
+   * because it is the cheapest. We only absorb fragments of up to
+   * `absorbLimit` cells: a large free area needs ordinary carving, not gluing
+   * into a single clump. One call absorbs one fragment and returns true so the
+   * generator tries carving normally again.
    */
   absorbLeftover() {
     const limit = this.p.absorbLimit ?? 0
     if (limit <= 0) return false
     const { W, H, owner } = this
-    const cellIndexIn = new Map() // "id:idx" -> pozycja komórki w elemencie
+    const cellIndexIn = new Map() // "id:idx" -> position of the cell within the piece
     const posOf = (pc, i) => {
       const key = pc.id
       let m = cellIndexIn.get(key)
@@ -682,7 +688,7 @@ class Carver {
     const seen = new Uint8Array(W * H)
     for (let s = 0; s < W * H; s++) {
       if (owner[s] !== -1 || seen[s]) continue
-      // fragment wolnych komórek wokół s, z limitem rozmiaru
+      // the fragment of free cells around s, with a size limit
       const comp = []
       const stack = [s]
       seen[s] = 1
@@ -701,7 +707,7 @@ class Carver {
       }
       if (tooBig) continue
       const compSet = new Set(comp)
-      // kandydaci: (element, pozycja komórki styku); końcówka = komórki za nią
+      // candidates: (piece, position of the contact cell); tail end = the cells after it
       const cands = new Map()
       for (const i of comp) {
         const x = i % W, y = (i / W) | 0
@@ -712,7 +718,7 @@ class Carver {
           if (o < 0) continue
           const pc = this.pieces[o]
           const k = posOf(pc, this.idx(nx, ny))
-          if (k === undefined || k < 1) continue // głowa i szyja są nienaruszalne
+          if (k === undefined || k < 1) continue // the head and neck are untouchable
           const key = `${o}:${k}`
           if (!cands.has(key)) cands.set(key, { pc, k, suffix: pc.cells.length - 1 - k })
         }
@@ -720,7 +726,7 @@ class Carver {
       if (!cands.size) continue
       const list = [...cands.values()].filter((c) => c.suffix <= limit).sort((a, b) => a.suffix - b.suffix)
       for (const { pc, k } of list) {
-        // obszar do ułożenia: fragment + końcówka elementu za komórką styku
+        // the region to lay out: fragment + the piece's tail end after the contact cell
         const region = new Set(compSet)
         for (let j = k + 1; j < pc.cells.length; j++) region.add(this.idx(pc.cells[j].x, pc.cells[j].y))
         const anchor = pc.cells[k]
@@ -746,7 +752,7 @@ class Carver {
           const dfs = (tail) => {
             if (path.length === region.size) { found = [...path]; return true }
             if (--budget < 0) return false
-            // Warnsdorff: najpierw sąsiedzi z najmniejszą liczbą wolnych wyjść
+            // Warnsdorff: neighbours with the fewest free exits first
             const next = nbrs(tail).filter((n) => !used.has(n))
               .map((n) => ({ n, deg: nbrs(n).filter((m) => !used.has(m)).length }))
               .sort((a, b) => a.deg - b.deg)
@@ -774,7 +780,7 @@ class Carver {
     return false
   }
 
-  // Diagnostyka zaklinowania: jak wygląda to, czego generator nie umiał domknąć.
+  // Jam diagnostics: what the part the generator could not close looks like.
   leftoverReport() {
     const seen = new Uint8Array(this.W * this.H)
     const sizes = []
@@ -802,15 +808,15 @@ class Carver {
   }
 
   /**
-   * Nawrót UKIERUNKOWANY: cofa do NAJNOWSZEGO elementu stykającego się
-   * z pozostałym obszarem, nie mniej niż `atLeast` elementów.
+   * TARGETED backtrack: undoes back to the NEWEST piece touching the remaining
+   * area, but no fewer than `atLeast` pieces.
    *
-   * Kolejność wycinania jest kolejnością rozwiązania, więc cofać można tylko
-   * chronologicznie — ale nie trzeba cofać na oślep. Przy 5000 elementów
-   * ostatnie k wycięć leży w losowym rejonie planszy i ich zdjęcie niczego
-   * nie zmienia wokół resztki; zdjęcie sąsiada resztki scala ją z większym
-   * wolnym obszarem, który wycina się już normalnie. Najnowszy sąsiad jest
-   * najtańszy; przy kolejnych nawrotach `atLeast` rośnie, więc cofamy głębiej.
+   * The carving order is the solution order, so undoing is only possible
+   * chronologically — but it need not be blind. With 5000 pieces the last k
+   * cuts lie in a random region of the board and removing them changes nothing
+   * around the leftover; removing a neighbour of the leftover merges it with a
+   * larger free area, which then carves normally. The newest neighbour is the
+   * cheapest; on subsequent backtracks `atLeast` grows, so we undo deeper.
    */
   undoToFrontier(atLeast) {
     let newest = -1
@@ -842,9 +848,10 @@ class Carver {
   run(maxBacktracks = 200) {
     const t0 = performance.now()
     let lastLog = t0
-    // Budżet jest mały celowo: nawrót ukierunkowany bywa głęboki (cofa do
-    // najnowszego sąsiada resztki, czyli czasem tysiące elementów), więc po
-    // 200 nawrotach restart z pochodnym ziarnem jest tańszy i skuteczniejszy.
+    // The budget is deliberately small: a targeted backtrack can be deep (it
+    // undoes back to the newest neighbour of the leftover, i.e. sometimes
+    // thousands of pieces), so after 200 backtracks a restart with a derived
+    // seed is cheaper and more effective.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     while (this.remaining > 0) {
       if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
@@ -858,12 +865,12 @@ class Carver {
         })
       }
       if (this.carveOne()) continue
-      // Zanim cofniemy cokolwiek, spróbuj wchłonąć resztki ogonem sąsiada —
-      // to nie zmienia grafu blokowania, a nawrót przy tysiącach elementów
-      // trafia w losowy rejon planszy.
+      // Before undoing anything, try absorbing the leftovers with a neighbour's
+      // tail — this does not change the blocking graph, whereas a backtrack with
+      // thousands of pieces hits a random region of the board.
       if (this.absorbLeftover()) continue
-      // Zapamiętaj NAJLEPSZY moment zaklinowania (najmniej pozostałych komórek):
-      // stan po serii cofnięć niczego nie mówi o przyczynie.
+      // Remember the BEST jam moment (fewest remaining cells): the state after
+      // a series of undos says nothing about the cause.
       if (this.remaining < (this.stuckRemaining ?? Infinity)) {
         this.stuckRemaining = this.remaining
         this.stuckSizes = this.leftoverReport()
@@ -877,7 +884,7 @@ class Carver {
   }
 }
 
-// ---------------------------------------------------------------- metryki
+// ---------------------------------------------------------------- metrics
 
 function analyse(board, ruleB = true) {
   const { W, H, owner, pieces } = board
@@ -906,7 +913,7 @@ function analyse(board, ruleB = true) {
       }
       continue
     }
-    const lines = new Map() // linia -> komórka najdalsza od krawędzi wyjścia
+    const lines = new Map() // line -> the cell farthest from the exit edge
     for (const c of pc.cells) {
       const key = dx === 0 ? c.x : c.y
       const depth = dx === 0 ? (dy < 0 ? c.y : H - 1 - c.y) : (dx < 0 ? c.x : W - 1 - c.x)
@@ -920,7 +927,7 @@ function analyse(board, ruleB = true) {
         x += dx; y += dy; step++
         if (!inside(x, y)) break
         const o = owner[idx(x, y)]
-        if (o === -2) continue            // pustka nie blokuje
+        if (o === -2) continue            // a void does not block
         if (o === pc.id) { lastOwn = step; continue }
         blockers[pc.id].add(o)
         minDist[pc.id] = Math.min(minDist[pc.id], step - lastOwn)
@@ -932,7 +939,7 @@ function analyse(board, ruleB = true) {
   const freeIds = []
   for (let i = 0; i < N; i++) if (blockers[i].size === 0) freeIds.push(i)
 
-  // Kahn: rozwiązywalna <=> graf blokowania acykliczny
+  // Kahn: solvable <=> the blocking graph is acyclic
   const remainingBlockers = pieces.map((_, i) => new Set(blockers[i]))
   const blocks = pieces.map(() => [])
   for (let i = 0; i < N; i++) for (const b of blockers[i]) blocks[b].push(i)
@@ -951,12 +958,12 @@ function analyse(board, ruleB = true) {
     }
   }
 
-  // ---- ZASIĘG I SIŁA ODBLOKOWYWANIA ----
-  // Gra ma sens, gdy zdjęcie jednej linii odblokowuje elementy po drugiej stronie
-  // planszy. Mierzymy więc nie długość taśmy, tylko:
-  //  span       - jaką część boku planszy element obejmuje (zasięg),
-  //  outDeg     - ile elementów odblokowuje jego zdjęcie,
-  //  blockDist  - jak daleko przestrzennie leżą te odblokowane elementy.
+  // ---- REACH AND UNBLOCKING POWER ----
+  // The game makes sense when removing one line unblocks pieces on the other
+  // side of the board. So we measure not the ribbon length, but:
+  //  span       - what fraction of a board side the piece covers (reach),
+  //  outDeg     - how many pieces its removal unblocks,
+  //  blockDist  - how far away spatially those unblocked pieces lie.
   let spanSum = 0, outSum = 0, maxOut = 0, distSum = 0, distCount = 0
   const spans = []
   for (let i = 0; i < N; i++) {
@@ -988,20 +995,20 @@ function analyse(board, ruleB = true) {
   let T2 = 0, almost = 0
   for (let i = 0; i < N; i++) {
     if (blockers[i].size > 0 && minDist[i] > 2) T2++
-    // Przy planszy zapełnionej w 100% "korytarz czysty przez k komórek" prawie nigdy
-    // nie zachodzi, bo tuż przed elementem zawsze ktoś stoi. Realną pokusą do błędu
-    // jest element zablokowany przez DOKŁADNIE JEDEN obcy element — wygląda niemal
-    // na gotowy do wyjazdu.
+    // On a 100% filled board "corridor clear for k cells" almost never holds,
+    // because there is always someone right in front of the piece. The real
+    // temptation to err is a piece blocked by EXACTLY ONE other piece — it looks
+    // almost ready to leave.
     if (blockers[i].size === 1) almost++
   }
 
   let bends = 0, multiLine = 0, coil = 0, cellsTotal = 0
-  // Miary „opakowywania":
-  //  selfAdj      - średnia liczba WŁASNYCH sąsiadów na komórkę (zwijanie),
-  //  neighbours   - z iloma różnymi obcymi elementami styka się element,
-  //  sharedBorder - najdłuższa wspólna granica z pojedynczym obcym elementem,
-  //                 znormalizowana przez długość elementu. To ona rośnie, gdy
-  //                 element faktycznie owija się wokół innego.
+  // "Wrapping" measures:
+  //  selfAdj      - mean number of OWN neighbours per cell (coiling),
+  //  neighbours   - how many distinct other pieces a piece touches,
+  //  sharedBorder - the longest shared border with a single other piece,
+  //                 normalised by the piece length. This is what grows when a
+  //                 piece actually wraps around another.
   let selfAdjTotal = 0, neighboursTotal = 0, sharedBorderTotal = 0, longPieces = 0
   for (const pc of pieces) {
     let prev = null, b = 0
@@ -1012,7 +1019,7 @@ function analyse(board, ruleB = true) {
       prev = { dx, dy }
     }
     const own = new Set(pc.cells.map((c) => idx(c.x, c.y)))
-    const borderWith = new Map()   // id obcego elementu -> liczba wspólnych krawędzi
+    const borderWith = new Map()   // id of another piece -> number of shared edges
     for (const c of pc.cells) {
       let n = 0
       for (const { dx, dy } of DIRS) {
@@ -1023,12 +1030,12 @@ function analyse(board, ruleB = true) {
         const o = owner[j]
         if (o >= 0) borderWith.set(o, (borderWith.get(o) ?? 0) + 1)
       }
-      if (n >= 3) coil++     // ścieżka dotyka samej siebie -> kłębek, nie linia
+      if (n >= 3) coil++     // the path touches itself -> a clump, not a line
       selfAdjTotal += n
       cellsTotal++
     }
-    // Miary liczymy tylko na elementach dostatecznie długich, żeby miały szansę
-    // cokolwiek owinąć — domino nie opakuje niczego z definicji.
+    // The measures are computed only on pieces long enough to have a chance of
+    // wrapping anything — a domino wraps nothing by definition.
     if (pc.cells.length >= 8) {
       longPieces++
       neighboursTotal += borderWith.size
@@ -1040,8 +1047,8 @@ function analyse(board, ruleB = true) {
     bends += b
   }
   const hist = { '2-6': 0, '7-15': 0, '16-49': 0, '50+': 0 }
-  // Pętla, nie Math.min(...pieces.map(...)): rozwinięcie 86 tys. argumentów
-  // przepełnia stos workera w Chrome (1000×1000), choć w Node przechodzi.
+  // A loop, not Math.min(...pieces.map(...)): spreading 86 thousand arguments
+  // overflows the worker stack in Chrome (1000×1000), even though it passes in Node.
   let maxLen = 0, minLen = Infinity, covered = 0
   for (const pc of pieces) {
     const L = pc.cells.length
@@ -1110,14 +1117,14 @@ function render(board) {
 
 // ---------------------------------------------------------------- SVG
 
-// Podgląd do oceny wyglądu wzrokiem. Wariant monochromatyczny jest wierny
-// oryginałowi i jest właściwym testem CZYTELNOŚCI: gracz też musi odróżnić
-// elementy od siebie bez pomocy koloru.
+// A preview for judging the look by eye. The monochrome variant is faithful
+// to the original and is the proper LEGIBILITY test: the player, too, has to
+// tell the pieces apart without the help of colour.
 function toSvg(board, opts = {}) {
   const { cell = 16, colored = false, top = 0, voids = false } = opts
   const { W, H, pieces } = board
-  // Zbiór identyfikatorów N najdłuższych elementów — rysujemy je na czerwono
-  // i NA WIERZCHU, żeby dało się prześledzić przebieg pojedynczej linii.
+  // The set of ids of the N longest pieces — we draw them in red and ON TOP,
+  // so that the course of a single line can be traced.
   const longest = new Set(
     [...pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top).map((p) => p.id),
   )
@@ -1131,9 +1138,9 @@ function toSvg(board, opts = {}) {
     `<rect width="${w}" height="${h}" fill="#f6f6fa"/>`,
   ]
 
-  // Podgląd zaklinowania: komórki, których generator nie zdołał wyciąć.
-  // Sklejamy je w poziome pasy — przy 55 tysiącach dziur osobne prostokąty
-  // dałyby dokument nie do wyświetlenia.
+  // Jam preview: cells the generator failed to carve. We merge them into
+  // horizontal strips — with 55 thousand holes, separate rectangles would
+  // produce a document that cannot be displayed.
   if (voids && board.owner) {
     const rects = []
     for (let y = 0; y < H; y++) {
@@ -1152,10 +1159,10 @@ function toSvg(board, opts = {}) {
 
   out.push(`<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`)
   const heads = []
-  const highlight = []      // ścieżki najdłuższych elementów, rysowane na końcu
+  const highlight = []      // paths of the longest pieces, drawn last
   const highlightHeads = []
-  // W trybie kolorowym różowy zlewałby się z paletą, więc wyróżnione rysujemy
-  // grubiej — czytelne niezależnie od koloru sąsiadów.
+  // In colour mode the pink would blend into the palette, so highlighted
+  // pieces are drawn thicker — legible regardless of the neighbours' colours.
   const hiWidth = (sw * (colored ? 1.5 : 1.15)).toFixed(2)
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
@@ -1182,91 +1189,104 @@ function toSvg(board, opts = {}) {
 
 
 /**
- * Komplet parametrów z wartościami domyślnymi. Jedno miejsce prawdy dla CLI
- * i dla laboratorium — dopisanie pokrętła tutaj wystarcza, żeby pojawiło się
- * w obu.
+ * The full set of parameters with default values. A single source of truth for
+ * the CLI and for the lab — adding a knob here is enough for it to appear in
+ * both.
  */
-// Pokrętło nieaktywne = nie ma wpływu na wynik przy bieżących ustawieniach.
-// Laboratorium wygasza takie pola i pokazuje powód, żeby nikt nie mierzył
-// nieistniejącej zmiany.
-const skeletonOff = (p) => (p.giants <= 0 && p.wGiant <= 0 ? 'wymaga elementów szkieletowych > 0' : null)
+// An inactive knob = it has no effect on the result under the current settings.
+// The lab dims such fields and shows the reason, so that nobody measures a
+// change that does not exist. `inactive(p)` returns a reason KEY from
+// INACTIVE_REASONS (or null); the lab translates the key into text.
+const skeletonOff = (p) => (p.giants <= 0 && p.wGiant <= 0 ? 'skeletonOff' : null)
 
 export const PARAM_SPEC = [
-  { key: 'W', label: 'szerokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 25,
-    help: 'Liczba kolumn. Do 400×400 plansza domyka się zawsze (200×200 w ~0,2 s, 400×400 w ~1,4 s); 1000×1000 liczy się ~10 s.' },
-  { key: 'H', label: 'wysokość', group: 'plansza', min: 4, max: 1000, step: 1, def: 50,
-    help: 'Liczba wierszy. Plansza pionowa (np. 100×200) jest trudniejsza od kwadratowej o tej samej liczbie komórek, bo poziome korytarze są krótsze.' },
-  { key: 'seed', label: 'ziarno', group: 'plansza', min: 0, max: 999999, step: 1, def: 7,
-    help: 'To samo ziarno przy tych samych ustawieniach daje zawsze identyczną planszę.' },
+  { key: 'W', label: 'width', group: 'board', min: 4, max: 1000, step: 1, def: 25,
+    help: 'Number of columns. Up to 400×400 the board always closes (200×200 in ~0.2 s, 400×400 in ~1.4 s); 1000×1000 takes ~10 s.' },
+  { key: 'H', label: 'height', group: 'board', min: 4, max: 1000, step: 1, def: 50,
+    help: 'Number of rows. A portrait board (e.g. 100×200) is harder than a square one with the same number of cells, because the horizontal corridors are shorter.' },
+  { key: 'seed', label: 'seed', group: 'board', min: 0, max: 999999, step: 1, def: 7,
+    help: 'The same seed with the same settings always produces an identical board.' },
 
-  { key: 'wShort', label: 'udział krótkich (2–6 komórek)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.2,
-    help: 'Jaka część elementów ma być krótka. Wyżej = gęściej groty, ale sieczka z haczyków. Przy 1 wszystkie elementy mają ≤ 11 komórek.' },
-  { key: 'wMid', label: 'udział średnich (7–15 komórek)', group: 'długości', min: 0, max: 1, step: 0.01, def: 0.08,
-    help: 'Jaka część elementów ma być średnia. Co zostanie po odjęciu krótkich i średnich, idzie na długie (od 16 do „długość maksymalna”).' },
-  { key: 'Lmax', label: 'długość maksymalna (0 = 2,5 × bok)', group: 'długości', min: 0, max: 5000, step: 1, def: 0,
-    help: 'Najdłuższy element, jaki generator próbuje ułożyć. 0 = automat 2,5 × dłuższy bok planszy. Rzadko osiągana: większość ścieżek utyka wcześniej (patrz „utyka przed celem” w statystykach).' },
+  { key: 'wShort', label: 'share of short pieces (2–6 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.2,
+    help: 'What fraction of pieces should be short. Higher = denser arrowheads, but a mess of little hooks. At 1 all pieces have ≤ 11 cells.' },
+  { key: 'wMid', label: 'share of medium pieces (7–15 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.08,
+    help: 'What fraction of pieces should be medium. Whatever remains after subtracting short and medium goes to long (from 16 up to "maximum length").' },
+  { key: 'Lmax', label: 'maximum length (0 = 2.5 × side)', group: 'lengths', min: 0, max: 5000, step: 1, def: 0,
+    help: 'The longest piece the generator tries to lay out. 0 = automatic 2.5 × the longer board side. Rarely reached: most paths get stuck earlier (see "stuck before target" in the statistics).' },
 
-  { key: 'pStraight', label: 'skłonność do prostej', group: 'kształt', min: 0, max: 1, step: 0.01, def: 0.85,
-    help: 'Jak chętnie linia idzie dalej prosto zamiast skręcać. Wyżej = dłuższe proste odcinki i dłuższe elementy. UWAGA: 0 (zawsze skręcaj) spowalnia generację 30× (200×200: ~9 s zamiast 0,3 s). 1 daje mało elementów w wielkich zwojach.' },
-  { key: 'wLateral', label: 'premia za ruch w bok', group: 'kształt', min: 0, max: 20, step: 0.5, def: 3,
-    help: 'O ile chętniej linia skręca w bok niż wchodzi w głąb planszy. 0 = same proste wbicia w głąb: trzykrotnie mniej elementów, zwinięcie 53%.' },
-  { key: 'warns', label: 'domykanie zakamarków', group: 'kształt', min: 0, max: 16, step: 1, def: 4,
-    help: 'Jak mocno linia wybiera komórki, z których zostaje najmniej wyjść (reguła Warnsdorffa). Wyżej = mniej elementów, dłuższe, ale bardziej zwinięte (16: zwinięcie 41%). 0 = linie krótsze i mniej zwinięte (21%), generacja nieco wolniejsza. Plansza domyka się przy każdej wartości.' },
-  { key: 'anticoil', label: 'kara za zwijanie', group: 'kształt', min: 1, max: 20, step: 1, def: 6,
-    help: 'Jak mocno linia unika dotykania samej siebie. 1 = wyłączona. Wyżej = mniej zwojów (6: zwinięcie 44% → 27%), ale trochę krótsze elementy.' },
-  { key: 'hug', label: 'premia za przyleganie', group: 'kształt', min: 1, max: 20, step: 1, def: 1,
-    help: 'Zachęta do biegu wzdłuż już wyciętych elementów. Zmierzona jako prawie bez efektu; zostawiona do eksperymentów.' },
-  { key: 'edgeHug', label: 'krawędź jak element', group: 'kształt', min: 0, max: 4, step: 1, def: 0,
-    inactive: (p) => (p.hug <= 1 ? 'działa tylko przy premii za przyleganie > 1' : null),
-    help: 'Czy przy premii za przyleganie krawędź planszy liczy się jak sąsiedni element. Bez efektu przy premii 1.' },
+  { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0, max: 1, step: 0.01, def: 0.85,
+    help: 'How readily a line keeps going straight instead of turning. Higher = longer straight segments and longer pieces. WARNING: 0 (always turn) slows generation down 30× (200×200: ~9 s instead of 0.3 s). 1 gives few pieces in huge coils.' },
+  { key: 'wLateral', label: 'sideways move bonus', group: 'shape', min: 0, max: 20, step: 0.5, def: 3,
+    help: 'How much more readily a line turns sideways than goes deeper into the board. 0 = nothing but straight inward thrusts: three times fewer pieces, coiling 53%.' },
+  { key: 'warns', label: 'closing off nooks', group: 'shape', min: 0, max: 16, step: 1, def: 4,
+    help: 'How strongly a line picks the cells that leave the fewest exits (Warnsdorff rule). Higher = fewer pieces, longer, but more coiled (16: coiling 41%). 0 = shorter and less coiled lines (21%), generation slightly slower. The board closes at every value.' },
+  { key: 'anticoil', label: 'coiling penalty', group: 'shape', min: 1, max: 20, step: 1, def: 6,
+    help: 'How strongly a line avoids touching itself. 1 = disabled. Higher = fewer coils (6: coiling 44% → 27%), but slightly shorter pieces.' },
+  { key: 'hug', label: 'hug bonus', group: 'shape', min: 1, max: 20, step: 1, def: 1,
+    help: 'An incentive to run along already carved pieces. Measured as having almost no effect; left in for experiments.' },
+  { key: 'edgeHug', label: 'edge counts as a piece', group: 'shape', min: 0, max: 4, step: 1, def: 0,
+    inactive: (p) => (p.hug <= 1 ? 'hugOff' : null),
+    help: 'Whether, with the hug bonus, the board edge counts as a neighbouring piece. No effect at bonus 1.' },
 
-  { key: 'headBias', label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)', group: 'trudność', min: -1, max: 1, step: 1, def: 0,
-    inactive: (p) => (p.mix >= 0 ? 'zastąpione przez mieszanie warstw i tuneli' : null),
-    help: 'Skąd wychodzi kolejny element: z linii najpłycej wyciętej (warstwy), losowo, czy najgłębiej (tunele). Tunele to główny regulator trudności: dwa razy mniej elementów wolnych na starcie, dwa razy głębsze blokowanie. UWAGA: warstwy (-1) to najbardziej ryzykowne ustawienie na dużej planszy — 200×200 potrzebuje restartu w 1 na 3 przebiegów i do 6 s; do 100×200 bez problemu.' },
-  { key: 'mix', label: 'mieszanie warstw i tuneli (-1 = wyłączone)', group: 'trudność', min: -1, max: 1, step: 0.05, def: -1,
-    help: 'Jaka część elementów startuje tunelami, reszta warstwami. 0,5 działa dobrze. UWAGA: 0 (same warstwy) na 200×200 to restart w połowie przebiegów i do 10 s.' },
-  { key: 'probe', label: 'udział sond w głąb', group: 'trudność', min: 0, max: 1, step: 0.01, def: 0,
-    help: 'Jak często wbijać długi prosty element w głąb planszy. Zmierzone: nie poprawia wyglądu; zostawione do eksperymentów.' },
-  { key: 'probeLen', label: 'długość sondy', group: 'trudność', min: 2, max: 200, step: 1, def: 12,
-    inactive: (p) => (p.probe <= 0 ? 'działa tylko przy udziale sond > 0' : null),
-    help: 'Ile komórek ma mieć takie wbicie. Działa tylko przy udziale sond > 0.' },
+  { key: 'headBias', label: 'piece start (-1 layers, 0 random, 1 tunnels)', group: 'difficulty', min: -1, max: 1, step: 1, def: 0,
+    inactive: (p) => (p.mix >= 0 ? 'mixOn' : null),
+    help: 'Where the next piece starts from: the most shallowly carved line (layers), at random, or the deepest (tunnels). Tunnels are the main difficulty regulator: half as many free pieces at the start, twice as deep blocking. WARNING: layers (-1) is the riskiest setting on a large board — 200×200 needs a restart in 1 of 3 runs and up to 6 s; up to 100×200 no problem.' },
+  { key: 'mix', label: 'layer/tunnel mixing (-1 = off)', group: 'difficulty', min: -1, max: 1, step: 0.05, def: -1,
+    help: 'What fraction of pieces start as tunnels, the rest as layers. 0.5 works well. WARNING: 0 (layers only) on 200×200 means a restart in half of the runs and up to 10 s.' },
+  { key: 'probe', label: 'share of inward probes', group: 'difficulty', min: 0, max: 1, step: 0.01, def: 0,
+    help: 'How often to drive a long straight piece deep into the board. Measured: does not improve the look; left in for experiments.' },
+  { key: 'probeLen', label: 'probe length', group: 'difficulty', min: 2, max: 200, step: 1, def: 12,
+    inactive: (p) => (p.probe <= 0 ? 'probeOff' : null),
+    help: 'How many cells such a thrust should have. Only works with probe share > 0.' },
 
-  { key: 'giants', label: 'ile elementów szkieletowych (0 = bez szkieletu)', group: 'szkielet', min: 0, max: 40, step: 1, def: 0,
-    help: 'Główny włącznik szkieletu: ile pierwszych elementów ma być długimi liniami przecinającymi planszę. Powstają na starcie, gdy plansza jest pusta, i są pierwsze do zdjęcia w grze. Przy 0 pozostałe pokrętła tej grupy nie mają wpływu. Punkt wyjścia: 4.' },
-  { key: 'giantSpan', label: 'długość szkieletu (w bokach planszy)', group: 'szkielet', min: 0, max: 200, step: 1, def: 30, inactive: skeletonOff,
-    help: 'Ile boków planszy ma mierzyć jeden szkielet (30 na 200×200 = 6000 komórek). Cel, nie gwarancja: serpentyna kończy się, gdy zabraknie miejsca.' },
-  { key: 'giantStep', label: 'skok serpentyny (0 = wzrost losowy)', group: 'szkielet', min: 0, max: 40, step: 1, def: 14, inactive: skeletonOff,
-    help: 'Odstęp między kolejnymi biegami szkieletu; główne pokrętło jego wyglądu. 2–3 = regularne pasy jak linie na kartce, 14 = kilka „autostrad” z labiryntem między nimi. 0 = szkielet rośnie losowo i utyka po kilkuset komórkach.' },
-  { key: 'giantJitter', label: 'urywanie biegów serpentyny', group: 'szkielet', min: 0, max: 1, step: 0.05, def: 0.6,
-    inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'działa tylko przy skoku serpentyny > 0' : null),
-    help: 'Jak często bieg szkieletu urywa się przed przeszkodą. 0 = idealnie proste brzegi, widać regularność. 0,6 to dobry punkt wyjścia.' },
-  { key: 'wGiant', label: 'udział szkieletów poza startem', group: 'szkielet', min: 0, max: 0.5, step: 0.01, def: 0,
-    inactive: (p) => (p.giantSpan <= 0 ? 'wymaga długości szkieletu > 0' : null),
-    help: 'Szansa, że element wycinany w trakcie też będzie szkieletem. Mało skuteczne: w trakcie nie ma już miejsca na długą linię.' },
-  { key: 'giantStraight', label: 'prostość szkieletu (wzrost losowy)', group: 'szkielet', min: 0, max: 1, step: 0.01, def: 0.94,
-    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'działa tylko przy skoku serpentyny 0' : null),
-    help: 'Tylko przy skoku serpentyny 0. Jak chętnie losowo rosnący szkielet idzie prosto.' },
-  { key: 'giantWarns', label: 'domykanie zakamarków dla szkieletu', group: 'szkielet', min: 0, max: 16, step: 1, def: 0,
-    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'działa tylko przy skoku serpentyny 0' : null),
-    help: 'Osobna siła reguły zakamarków dla szkieletu. 0, bo ta reguła zwija linię, a szkielet ma iść daleko.' },
-  { key: 'giantAnticoil', label: 'kara za zwijanie szkieletu', group: 'szkielet', min: 1, max: 20, step: 1, def: 6, inactive: skeletonOff,
-    help: 'Osobna kara za dotykanie siebie dla szkieletu; obowiązuje wyższa z tej i ogólnej.' },
-  { key: 'giantSpacing', label: 'promień odstępu szkieletu', group: 'szkielet', min: 1, max: 6, step: 1, def: 2, inactive: skeletonOff,
-    help: 'W jakim promieniu szkielet unika własnych wcześniejszych przebiegów. Kanały, które zostają, wypełniają zwykłe elementy.' },
-  { key: 'giantSpacePenalty', label: 'siła odstępu szkieletu', group: 'szkielet', min: 1, max: 40, step: 1, def: 8, inactive: skeletonOff,
-    help: 'Jak mocno karać zbliżenie szkieletu do siebie. Kara, nie zakaz: przy zakazie szkielet nie mógłby zawracać.' },
+  { key: 'giants', label: 'number of skeleton pieces (0 = no skeleton)', group: 'skeleton', min: 0, max: 40, step: 1, def: 0,
+    help: 'The main skeleton switch: how many of the first pieces should be long lines crossing the board. They are created at the start, when the board is empty, and are the first to be removed in the game. At 0 the remaining knobs in this group have no effect. Starting point: 4.' },
+  { key: 'giantSpan', label: 'skeleton length (in board sides)', group: 'skeleton', min: 0, max: 200, step: 1, def: 30, inactive: skeletonOff,
+    help: 'How many board sides a single skeleton should measure (30 on 200×200 = 6000 cells). A target, not a guarantee: the serpentine ends when it runs out of room.' },
+  { key: 'giantStep', label: 'serpentine step (0 = random growth)', group: 'skeleton', min: 0, max: 40, step: 1, def: 14, inactive: skeletonOff,
+    help: 'The gap between consecutive runs of the skeleton; the main knob for its look. 2–3 = regular stripes like lines on a sheet of paper, 14 = a few "highways" with a maze between them. 0 = the skeleton grows randomly and gets stuck after a few hundred cells.' },
+  { key: 'giantJitter', label: 'cutting serpentine runs short', group: 'skeleton', min: 0, max: 1, step: 0.05, def: 0.6,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'stepZero' : null),
+    help: 'How often a skeleton run breaks off before an obstacle. 0 = perfectly straight edges, the regularity shows. 0.6 is a good starting point.' },
+  { key: 'wGiant', label: 'share of skeletons after the start', group: 'skeleton', min: 0, max: 0.5, step: 0.01, def: 0,
+    inactive: (p) => (p.giantSpan <= 0 ? 'spanZero' : null),
+    help: 'The chance that a piece carved mid-way will also be a skeleton. Not very effective: mid-way there is no longer room for a long line.' },
+  { key: 'giantStraight', label: 'skeleton straightness (random growth)', group: 'skeleton', min: 0, max: 1, step: 0.01, def: 0.94,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'stepNonZero' : null),
+    help: 'Only with serpentine step 0. How readily a randomly growing skeleton goes straight.' },
+  { key: 'giantWarns', label: 'closing off nooks for the skeleton', group: 'skeleton', min: 0, max: 16, step: 1, def: 0,
+    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'stepNonZero' : null),
+    help: 'A separate strength of the nook rule for the skeleton. 0, because this rule coils the line and the skeleton is meant to go far.' },
+  { key: 'giantAnticoil', label: 'skeleton coiling penalty', group: 'skeleton', min: 1, max: 20, step: 1, def: 6, inactive: skeletonOff,
+    help: 'A separate self-touching penalty for the skeleton; the higher of this and the general one applies.' },
+  { key: 'giantSpacing', label: 'skeleton spacing radius', group: 'skeleton', min: 1, max: 6, step: 1, def: 2, inactive: skeletonOff,
+    help: 'Within what radius the skeleton avoids its own earlier runs. The channels left over are filled by ordinary pieces.' },
+  { key: 'giantSpacePenalty', label: 'skeleton spacing strength', group: 'skeleton', min: 1, max: 40, step: 1, def: 8, inactive: skeletonOff,
+    help: 'How strongly to penalise the skeleton for approaching itself. A penalty, not a ban: with a ban the skeleton could not turn around.' },
 
-  { key: 'headTries', label: 'prób startu na kierunek', group: 'domykanie', min: 1, max: 32, step: 1, def: 4,
-    help: 'Ile miejsc startu wypróbować, zanim generator zmieni kierunek. Po hardeningu bez znaczenia dla domykania (1 i 32 dają ten sam wynik); zostawione dla porównań.' },
-  { key: 'strandLimit', label: 'dokładny test resztki do N komórek', group: 'domykanie', min: 2, max: 30, step: 1, def: 30,
-    help: 'Do jakiego rozmiaru sprawdzać dokładnie, czy wolny fragment da się jeszcze pociąć na elementy. Bezpieczne w całym zakresie: niżej = więcej pracy dla wchłaniania resztek, trochę wolniej i krótsze elementy.' },
-  { key: 'absorbLimit', label: 'wchłanianie resztek do N komórek (0 = wyłączone)', group: 'domykanie', min: 0, max: 64, step: 1, def: 24,
-    help: 'Siatka bezpieczeństwa końcówki: mały fragment, którego nie da się wyciąć, dokleja się do sąsiedniego elementu. Nie zmienia rozwiązywalności. UWAGA: 0 wyłącza jedyny mechanizm ratujący trudne ustawienia — w trybie warstw na 200×200 plansza nie domyka się wtedy w 5 na 6 przebiegów.' },
-  { key: 'maxBack', label: 'budżet nawrotów (0 = 200)', group: 'domykanie', min: 0, max: 200000, step: 50, def: 0,
-    help: 'Ile razy generator może cofnąć wycięcia w jednej próbie, zanim zacznie od nowa. Przy domyślnych ustawieniach nawroty nie występują; 200 wystarcza, wyżej tylko wydłuża nieudane próby.' },
-  { key: 'restarts', label: 'dopuszczalne restarty', group: 'domykanie', min: 0, max: 10, step: 1, def: 3,
-    help: 'Ile razy zacząć od nowa z pochodnym ziarnem, gdy próba się nie uda. 0 pokazuje surową skuteczność ustawień; 3 wystarcza we wszystkich zmierzonych konfiguracjach.' },
+  { key: 'headTries', label: 'start attempts per direction', group: 'closing', min: 1, max: 32, step: 1, def: 4,
+    help: 'How many starting spots to try before the generator changes direction. After hardening it makes no difference to closing (1 and 32 give the same result); left in for comparisons.' },
+  { key: 'strandLimit', label: 'exact leftover test up to N cells', group: 'closing', min: 2, max: 30, step: 1, def: 30,
+    help: 'Up to what size to check exactly whether a free fragment can still be cut into pieces. Safe across the whole range: lower = more work for leftover absorption, slightly slower and shorter pieces.' },
+  { key: 'absorbLimit', label: 'leftover absorption up to N cells (0 = off)', group: 'closing', min: 0, max: 64, step: 1, def: 24,
+    help: 'The endgame safety net: a small fragment that cannot be carved is glued onto a neighbouring piece. Does not change solvability. WARNING: 0 disables the only mechanism that rescues hard settings — in layer mode on 200×200 the board then fails to close in 5 of 6 runs.' },
+  { key: 'maxBack', label: 'backtrack budget (0 = 200)', group: 'closing', min: 0, max: 200000, step: 50, def: 0,
+    help: 'How many times the generator may undo cuts within one attempt before starting over. With default settings no backtracks occur; 200 is enough, higher only prolongs failed attempts.' },
+  { key: 'restarts', label: 'allowed restarts', group: 'closing', min: 0, max: 10, step: 1, def: 3,
+    help: 'How many times to start over with a derived seed when an attempt fails. 0 shows the raw effectiveness of the settings; 3 is enough in all measured configurations.' },
 ]
+
+// Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
+// The lab maps a key to the current language (see lab-i18n.mjs for Polish).
+export const INACTIVE_REASONS = {
+  skeletonOff: 'requires skeleton pieces > 0',
+  hugOff: 'only works with hug bonus > 1',
+  mixOn: 'superseded by layer/tunnel mixing',
+  probeOff: 'only works with probe share > 0',
+  stepZero: 'only works with serpentine step > 0',
+  stepNonZero: 'only works with serpentine step 0',
+  spanZero: 'requires skeleton length > 0',
+}
 
 export function defaultParams() {
   const p = { ruleB: true, voidFrac: 0 }
@@ -1275,9 +1295,9 @@ export function defaultParams() {
 }
 
 /**
- * Generuje planszę: wycina do skutku, w razie porażki restartuje z pochodnym
- * ziarnem. Zwraca planszę, metryki i przebieg — również przy porażce, żeby
- * laboratorium miało co pokazać.
+ * Generates a board: carves until it succeeds, restarting with a derived seed
+ * on failure. Returns the board, metrics and the run — also on failure, so
+ * that the lab has something to show.
  */
 export function generate(params) {
   const p = { ...defaultParams(), ...params }

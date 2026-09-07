@@ -1,10 +1,10 @@
-// Worker laboratorium: cała generacja dzieje się tutaj, żeby interfejs został
-// responsywny. Plansza 1000×1000 liczy się dziesiątki sekund — na wątku
-// głównym zawiesiłaby kartę.
+// Laboratory worker: all generation happens here so that the interface stays
+// responsive. A 1000×1000 board takes tens of seconds to compute — on the main
+// thread it would freeze the tab.
 //
-// Worker trzyma ostatnią wygenerowaną planszę u siebie, więc przełączenie
-// koloru albo liczby wyróżnionych elementów przerysowuje SVG bez ponownej
-// generacji.
+// The worker keeps the last generated board on its side, so switching the
+// colour or the number of highlighted pieces redraws the SVG without
+// regenerating.
 import { generate, toSvg } from './engine.mjs'
 
 let last = null      // { board, metrics, params }
@@ -58,8 +58,8 @@ self.onmessage = (event) => {
     try {
       result = generate({
         ...params,
-        // Postęp wysyłamy na bieżąco: przy dużych planszach użytkownik musi
-        // widzieć, że coś się dzieje, i móc przerwać.
+        // Progress is sent as it happens: on large boards the user has to
+        // see that something is going on, and be able to abort.
         trace: (info) => self.postMessage({ type: 'progress', info }),
       })
     } catch (err) {

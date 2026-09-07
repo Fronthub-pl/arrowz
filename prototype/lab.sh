@@ -1,13 +1,13 @@
 #!/bin/sh
-# Uruchamia laboratorium generatora pod http://localhost:8777/lab.html
+# Runs the generator laboratory at http://localhost:8777/lab.html
 #
-# Serwer jest potrzebny, bo moduły ESM nie ładują się z file:// (blokada CORS).
-# Wyłączamy też pamięć podręczną — inaczej po edycji engine.mjs przeglądarka
-# serwuje starą wersję i mierzy się nieistniejące zmiany.
+# The server is needed because ESM modules do not load from file:// (CORS block).
+# We also disable caching — otherwise, after editing engine.mjs, the browser
+# serves the old version and you end up measuring nonexistent changes.
 set -e
 cd "$(dirname "$0")"
 PORT=${1:-8777}
-echo "Laboratorium: http://localhost:$PORT/lab.html   (Ctrl+C kończy)"
+echo "Laboratory: http://localhost:$PORT/lab.html   (Ctrl+C quits)"
 python3 - "$PORT" <<'PY' &
 import http.server, socketserver, sys
 

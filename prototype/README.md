@@ -1,278 +1,278 @@
-# Prototyp — kod wyrzucalny
+# Prototype — throwaway code
 
-## Laboratorium (interaktywnie)
+## Lab (interactive)
 
 ```sh
 sh prototype/lab.sh          # http://localhost:8777/lab.html
 ```
 
-Wszystkie pokrętła generatora w panelu bocznym, plansza rysowana od razu.
-Do tego przełączniki podglądu: **kolorowanie strzałek** (każdy element innym
-kolorem — tryb diagnostyczny) oraz **wyróżnianie N najdłuższych elementów**
-(różowo, z tabelą ich długości, zasięgu, gęstości i zwinięcia).
+All generator knobs live in the side panel; the board is drawn immediately.
+On top of that there are preview toggles: **arrow colouring** (each piece in a
+different colour — diagnostic mode) and **highlighting the N longest pieces**
+(in pink, with a table of their length, span, density and coiling).
 
-Konfiguracja zapisuje się w adresie, więc da się wrócić do ustawienia albo
-podesłać je komuś linkiem. Pod planszą pojawia się gotowe polecenie CLI
-odtwarzające dokładnie ten sam przebieg.
+The configuration is stored in the URL, so you can return to a setting or send
+it to someone as a link. Below the board a ready-made CLI command appears that
+reproduces exactly the same run.
 
-Silnik siedzi w `engine.mjs` i jest wspólny dla laboratorium i dla `carve.mjs` —
-nie ma dwóch kopii algorytmu, które mogłyby się rozjechać.
+The engine lives in `engine.mjs` and is shared by the lab and by `carve.mjs` —
+there are no two copies of the algorithm that could drift apart.
 
-Sonda do specyfikacji, **nie kod produkcyjny**. Powstała, żeby rozstrzygnąć trzy
-otwarte pytania, zanim powstał plan implementacji. Nie ma testów, typów ani warstwy
-widoku i nie należy jej rozwijać — implementacja startuje od zera, w TypeScript.
+A probe for the specification, **not production code**. It was built to settle three
+open questions before the implementation plan was written. It has no tests, no types and
+no view layer, and it must not be developed further — the implementation starts from scratch, in TypeScript.
 
 ```
-node prototype/carve.mjs                      # wszystkie cztery poziomy
-node prototype/carve.mjs --only=Easy --show   # z podglądem ASCII
-node prototype/carve.mjs --headbias=1         # tunelowanie (najgłębsza linia)
-node prototype/carve.mjs --headbias=-1        # warstwy (najpłytsza linia)
+node prototype/carve.mjs                      # all four levels
+node prototype/carve.mjs --only=Easy --show   # with ASCII preview
+node prototype/carve.mjs --headbias=1         # tunnelling (deepest line)
+node prototype/carve.mjs --headbias=-1        # layers (shallowest line)
 node prototype/carve.mjs --lateral=6 --straight=0.6 --runs=3
 ```
 
-## Co rozstrzygnęła
+## What it settled
 
-1. **Wycinanie z pełnej planszy przy minimalnej długości 2 działa.** 100% pokrycia
-   i rozwiązywalność na wszystkich czterech rozmiarach, średnio 0–0,5 nawrotu na
-   planszę, zero restartów.
-2. **Wydajność nie jest problemem.** Nightmare 100×100: 27 ms generacji, 14 ms metryk.
-   Web Worker, bitboardy i indeks odwrotny wykreślone ze specyfikacji.
-3. **Preferencja najgłębszej linii to działający regulator trudności.** Połowi `f0`
-   i podwaja głębokość grafu blokowania.
+1. **Carving from a full board with a minimum length of 2 works.** 100% coverage
+   and solvability at all four sizes, on average 0–0.5 backtracks per
+   board, zero restarts.
+2. **Performance is not a problem.** Nightmare 100×100: 27 ms of generation, 14 ms of metrics.
+   Web Worker, bitboards and the reverse index struck from the specification.
+3. **Preferring the deepest line is a working difficulty regulator.** It halves `f0`
+   and doubles the depth of the blocking graph.
 
-## Co wykazała jako problem
+## What it exposed as a problem
 
-4. **Metryka `T_k` przy pełnym zapełnieniu zawsze wynosi zero** — zastąpiona metryką
-   `almost1` (elementy zablokowane przez dokładnie jeden obcy element).
-5. **Skręt jest legalny wyłącznie na wysokości frontiera sąsiedniej linii**, więc bez
-   przeciwdziałania plansze wychodzą w pasy, z prostych linii. Największe otwarte
-   pytanie projektu.
-6. **Rozkład długości nie realizuje zamówienia** — 28–47% ścieżek utyka, średnia
-   osiągana jest o ~30% niższa od zamawianej.
+4. **The `T_k` metric is always zero at full fill** — replaced by the
+   `almost1` metric (pieces blocked by exactly one foreign piece).
+5. **A turn is legal only at the height of the neighbouring line's frontier**, so without
+   countermeasures boards come out as stripes of straight lines. The biggest open
+   question of the project.
+6. **The length distribution does not deliver what was ordered** — 28–47% of paths get stuck, the achieved
+   mean is ~30% lower than the ordered one.
 
-Szczegóły i wnioski naniesione w `docs/superpowers/specs/2026-09-07-arrowz-design.md`
+Details and conclusions recorded in `docs/superpowers/specs/2026-09-07-arrowz-design.md`
 (§7, §9, §11, §13, §14).
 
-## Runda 2 — wygląd planszy
+## Round 2 — board appearance
 
-Pytanie: dlaczego plansze wychodzą w pasy z prostych linii i czy da się to naprawić.
+Question: why do boards come out as stripes of straight lines, and can that be fixed.
 
-**Odpowiedź: przy obecnych regułach nie da się.** Element musi na każdej dotkniętej
-linii zajmować ciągły odcinek zaczynający się dokładnie na frontierze, więc skręt jest
-możliwy tylko wtedy, gdy głębokość elementu zrówna się co do komórki z frontierem
-sąsiedniej linii. Warunek dotyczy **każdej poprawnej planszy**, nie tylko tego
-generatora. Do tego kształt i trudność ciągną w przeciwne strony:
+**Answer: under the current rules it cannot.** On every line it touches, a piece must
+occupy a contiguous segment starting exactly at the frontier, so a turn is
+possible only when the piece's depth matches, cell for cell, the frontier of the
+neighbouring line. The condition applies to **every valid board**, not just this
+generator. On top of that, shape and difficulty pull in opposite directions:
 
-| wariant | skrętów/elem | wieloliniowych | f0 |
+| variant | turns/piece | multi-line | f0 |
 |---|---|---|---|
-| tunelowanie (najgłębsza linia) | 0.15 | 6% | 0.20 |
-| warstwy (najpłytsza linia) | 0.72 | 29% | 0.42 |
+| tunnelling (deepest line) | 0.15 | 6% | 0.20 |
+| layers (shallowest line) | 0.72 | 29% | 0.42 |
 
-**Reguła B — element jedzie po własnym torze.** Korytarz to pojedynczy promień z głowy
-do krawędzi, a nie cień całego kształtu; ciało sunie po śladzie głowy. Kształt przestaje
-być ograniczony. Cała matematyka przeżywa: promień z głowy jest tak samo statyczny, więc
-graf blokowania pozostaje statyczny, a rozwiązywalność nadal równa się acykliczności.
+**Rule B — a piece rides its own track.** The corridor is a single ray from the head
+to the edge, not the shadow of the whole shape; the body slides along the head's trail. The shape stops
+being constrained. All the mathematics survives: the ray from the head is just as static, so
+the blocking graph remains static, and solvability still equals acyclicity.
 
-Do domknięcia planszy przy regule B konieczna okazała się **reguła Warnsdorffa** przy
-wzroście ścieżki (idź tam, gdzie zostaje najmniej wolnych wyjść) — bez niej swobodnie
-wijące się ciało fragmentuje resztę i plansza 100x100 się nie domyka.
+To close the board under rule B, **Warnsdorff's rule** during path growth turned out to be
+necessary (go where the fewest free exits remain) — without it the freely
+winding body fragments the rest and a 100x100 board does not close.
 
-Nightmare 100x100, reguła B + Warnsdorff: 100% pokrycia, rozwiązywalna, 2041 elementów,
-najdłuższy 74, f0 = 0.061, **1.87 skrętu na element, 69% wieloliniowych**, 0 nawrotów,
-34 ms generacji.
+Nightmare 100x100, rule B + Warnsdorff: 100% coverage, solvable, 2041 pieces,
+longest 74, f0 = 0.061, **1.87 turns per piece, 69% multi-line**, 0 backtracks,
+34 ms of generation.
 
 ```
 node prototype/carve.mjs --only=Easy --ruleb --warns=4 --lateral=3 --show
 ```
 
-## Runda 3 — kalibracja
+## Round 3 — calibration
 
-Pytania: jaki jest ogon czasu generacji i czy rozkład długości da się skalibrować.
+Questions: what is the tail of the generation time, and can the length distribution be calibrated.
 
-**Dłuższe elementy poprawiają wszystko naraz.** Wbrew intuicji mniej elementów to mniej
-decyzji, a każda decyzja jest okazją do pofragmentowania reszty planszy. Nightmare przy
-wagach `0.10/0.70/0.20` wobec `0.70/0.285/0.015`: p99 czasu 442 ms zamiast 979,
-6 restartów na 30 zamiast 23, 4.48 skrętu na element zamiast 1.84, średnia długość 9.6
-zamiast 4.8. Wcześniejsza obserwacja o utykaniu ścieżek była artefaktem sztywnej
-translacji.
+**Longer pieces improve everything at once.** Counter-intuitively, fewer pieces means fewer
+decisions, and every decision is an opportunity to fragment the rest of the board. Nightmare with
+weights `0.10/0.70/0.20` versus `0.70/0.285/0.015`: p99 time 442 ms instead of 979,
+6 restarts out of 30 instead of 23, 4.48 turns per piece instead of 1.84, mean length 9.6
+instead of 4.8. The earlier observation about paths getting stuck was an artefact of rigid
+translation.
 
-**Reguła Warnsdorffa pozostaje wymagana** — bez niej 1 plansza na 30 nie generuje się
-wcale. Steruje jednak jednocześnie skrętami i zwijaniem ścieżek w kłębki (20% zwinięcia
-przy sile 0, 39% przy 8).
+**Warnsdorff's rule remains required** — without it 1 board in 30 does not generate
+at all. It does, however, control turns and the coiling of paths into balls at the same time (20% coiling
+at strength 0, 39% at 8).
 
-**Rozkład czasu jest skrajnie ciężkoogonowy.** Mediana jest nieinformatywna:
-Nightmare p50 = 17 ms, p99 = 442 ms. Zero porażek na 30–100 ziaren przy pięciu
-dopuszczonych restartach.
+**The time distribution is extremely heavy-tailed.** The median is uninformative:
+Nightmare p50 = 17 ms, p99 = 442 ms. Zero failures on 30–100 seeds with five
+restarts allowed.
 
-Konfiguracja przyjęta jako domyślna:
+Configuration adopted as the default:
 
 ```
 node prototype/carve.mjs --ruleb --warns=4 --wshort=0.10 --wmid=0.70 --lateral=3
 node prototype/carve.mjs --bench=30 --ruleb --only=Nightmare --wshort=0.10 --wmid=0.70
 ```
 
-**Otwarte:** ostatecznej kalibracji wyglądu nie da się zrobić na podglądzie ASCII —
-znaki ramek nie przedstawiają ścieżki dotykającej samej siebie, a to co trzecia komórka.
-Strojenie `warns` i wag długości musi się odbyć na docelowym rendererze SVG.
+**Open:** the final calibration of appearance cannot be done on the ASCII preview —
+box-drawing characters do not depict a path touching itself, and that is every third cell.
+Tuning `warns` and the length weights has to happen on the target SVG renderer.
 
-## Runda 4 — renderer SVG i kalibracja wzrokowa
+## Round 4 — SVG renderer and visual calibration
 
 ```
 node prototype/carve.mjs --svg=plansza.svg --size=50 --cell=14 --warns=4 --wshort=0.62 --wmid=0.23
-node prototype/carve.mjs --svg=debug.svg --colored     # kolor per element, tryb diagnostyczny
+node prototype/carve.mjs --svg=debug.svg --colored     # colour per piece, diagnostic mode
 rsvg-convert -w 900 plansza.svg -o plansza.png
 ```
 
-Render obalił kalibrację z rundy 3. Wagi dobrane pod ogon czasu generacji
-(`0.10/0.70/0.20`) dają planszę **rozwleczoną** — kilkadziesiąt długich meandrów
-i rzadko rozsiane groty. Referencja ma rozkład o ciężkim ogonie: gęste groty **plus**
-kilka bardzo długich linii.
+The render overturned the calibration from round 3. Weights chosen for the generation-time tail
+(`0.10/0.70/0.20`) give a **sprawling** board — a few dozen long meanders
+and sparsely scattered arrowheads. The reference has a heavy-tailed distribution: dense arrowheads **plus**
+a few very long lines.
 
-| wagi | elem. (25×25) | śr. dł. | wygląd |
+| weights | pieces (25×25) | mean len. | appearance |
 |---|---|---|---|
-| 0.70 / 0.285 / 0.015 | 134 | 4.7 | gęste groty, same krótkie haczyki |
-| **0.62 / 0.23 / 0.15** | **97** | **6.4** | **jak w oryginale** |
-| 0.10 / 0.70 / 0.20 | 62 | 10.1 | rozwleczone, groty rzadkie |
+| 0.70 / 0.285 / 0.015 | 134 | 4.7 | dense arrowheads, nothing but short hooks |
+| **0.62 / 0.23 / 0.15** | **97** | **6.4** | **like the original** |
+| 0.10 / 0.70 / 0.20 | 62 | 10.1 | sprawling, sparse arrowheads |
 
-Cena przyjętych wag: p99 czasu na Nightmare rośnie z 442 do 658 ms, restarty z 6 do 15
-na 30 przebiegów, porażek nadal zero.
+The price of the adopted weights: p99 time on Nightmare rises from 442 to 658 ms, restarts from 6 to 15
+per 30 runs, failures still zero.
 
-Parametry rysowania dające wygląd referencyjny: grubość linii 50% podziałki siatki,
-`stroke-linecap` i `stroke-linejoin` ustawione na `round`, grot jako wypełniony trójkąt
-o boku ~0.6 podziałki, kolory `#232447` na `#f6f6fa`.
+Drawing parameters giving the reference appearance: line width 50% of the grid pitch,
+`stroke-linecap` and `stroke-linejoin` set to `round`, arrowhead as a filled triangle
+with a side of ~0.6 of the pitch, colours `#232447` on `#f6f6fa`.
 
-## Runda 5 — zwijanie kontra opakowywanie
+## Round 5 — coiling versus wrapping
 
-Pytanie z przeglądu: dlaczego długie linie łamią się głównie **same przy sobie**, leżąc
-zwinięte w kłębek, zamiast owijać się wokół innych elementów.
+Question from the review: why do long lines fold mainly **against themselves**, lying
+coiled into a ball, instead of wrapping around other pieces.
 
-**Przyczyna: reguła Warnsdorffa nagradza zwijanie.** Heurystyka idzie tam, gdzie zostaje
-najmniej wolnych wyjść, a własna świeżo położona komórka obniża stopień swobody sąsiadów —
-więc sama ciąga linię z powrotem do siebie. Nic nie premiowało przylegania do cudzych
-elementów.
+**Cause: Warnsdorff's rule rewards coiling.** The heuristic goes where the fewest
+free exits remain, and one's own freshly placed cell lowers the neighbours' degree of freedom —
+so it drags the line back onto itself all on its own. Nothing rewarded adjacency to other
+pieces.
 
-Dodane pokrętła i metryki:
+Knobs and metrics added:
 
 ```
---anticoil=N   kara za dotykanie własnej ścieżki (poza komórką, z której przychodzimy)
---hug=N        premia za sąsiedztwo z elementami już wyciętymi
---edgehug=N    czy krawędź planszy liczy się jak element obcy
+--anticoil=N   penalty for touching one's own path (other than the cell we come from)
+--hug=N        bonus for adjacency to pieces already carved
+--edgehug=N    whether the board edge counts as a foreign piece
 ```
 
-Nowe metryki w raporcie: `zwinięcie` (było), `wspólna granica` (jaką część swojej długości
-element dzieli z pojedynczym obcym elementem), `sąsiadów obcych/elem`, `skrętów/kom`.
+New metrics in the report: `coiling` (existed before), `shared border` (what fraction of its length
+a piece shares with a single foreign piece), `foreign neighbours/piece`, `turns/cell`.
 
-Pomiar na czterech planszach, 10 ziaren na wariant, z **wyrównaną średnią długością**
-elementu (kara skraca elementy, więc każdemu wariantowi dobrano wagi koszyków):
+Measured on four boards, 10 seeds per variant, with **equalised mean piece
+length** (the penalty shortens pieces, so bucket weights were chosen for each variant):
 
-| wariant | zwinięcie | wspólna granica | skrętów/elem |
+| variant | coiling | shared border | turns/piece |
 |---|---|---|---|
-| bazowy | 44% | 41% | 4,21 |
-| anticoil 3 | 34% | 46% | 3,59 |
-| anticoil 4 | 31% | 50% | 3,69 |
-| **anticoil 6** | **27%** | **50%** | 3,32 |
-| anticoil 4 + sondy 15% | 30% | 48% | 3,51 |
+| baseline | 44% | 41% | 4.21 |
+| anticoil 3 | 34% | 46% | 3.59 |
+| anticoil 4 | 31% | 50% | 3.69 |
+| **anticoil 6** | **27%** | **50%** | 3.32 |
+| anticoil 4 + probes 15% | 30% | 48% | 3.51 |
 
-**Odrzucone:** `hug` dokłada 1–2 punkty ponad samą karę, sondy w głąb (`--probe`, długie
-proste wbicia mające tworzyć półwyspy do owijania) nie dokładają nic. Cała poprawa pochodzi
-z **odjęcia zachęty do zwijania**, nie z dodania zachęty do owijania.
+**Rejected:** `hug` adds 1–2 points on top of the penalty alone; deep probes (`--probe`, long
+straight thrusts meant to create peninsulas to wrap around) add nothing. All of the improvement comes
+from **removing the incentive to coil**, not from adding an incentive to wrap.
 
-**Cena:** skrętów na element jest mniej (4,21 → 3,32), bo część dawnych skrętów brała się
-właśnie ze zwijania. Obie wielkości są sprzężone.
+**Price:** there are fewer turns per piece (4.21 → 3.32), because some of the former turns came
+precisely from coiling. The two quantities are coupled.
 
-**Odporność bez zmian:** pokrycie 100%, plansze rozwiązywalne, Nightmare pionowy 100×200
-w 64 ms, restartów najwyżej 0,5 na przebieg.
+**Robustness unchanged:** 100% coverage, boards solvable, vertical Nightmare 100×200
+in 64 ms, at most 0.5 restarts per run.
 
 ```
 node prototype/carve.mjs --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
-sh prototype/preview.sh && open prototype/preview/index.html   # sekcja F
+sh prototype/preview.sh && open prototype/preview/index.html   # section F
 ```
 
-## Runda 8 — hardening domykania (plansze do 200×200)
+## Round 8 — hardening of board closing (boards up to 200×200)
 
-Pytanie: dlaczego plansza 200×200 często się nie domyka (1 porażka na 10 ziaren,
-połowa przebiegów z restartem) i czemu linie są krótkie i przylegają do siebie.
+Question: why does a 200×200 board often fail to close (1 failure per 10 seeds,
+half of the runs with a restart), and why are the lines short and pressed against each other.
 
 ```
-node --test prototype/                     # testy odporności (decomposable, wada lokalna, wchłanianie, domykanie)
+node --test prototype/                     # robustness tests (decomposable, local defect, absorption, closing)
 node prototype/carve.mjs --only=Extreme    # 200×200
 ```
 
-**Przyczyna 1 — błędny test rozkładalności resztki.** `decomposable` rozwijał
-ścieżkę wyłącznie od pierwszej komórki zbioru, więc ta komórka musiała być
-końcem ścieżki. L-tromino z iteracją od narożnika i prosta trójka od środka
-wychodziły „nierozkładalne", a wynik zależał od kolejności komórek w zbiorze.
-Generator w końcówce odrzucał poprawne ścieżki i ogłaszał zaklinowanie, którego
-nie było; ślepy nawrót niczego nie zmieniał, bo po ponownym wycięciu ten sam
-test odrzucał to samo. Stąd też dawna rada „limit testu powyżej 8 pogarsza".
-Nowa wersja: pokrycie dominami i trominami-ścieżkami po maskach bitowych
-(każda ścieżka ≥ 2 rozpada się na odcinki po 2 i 3 — Akiyama–Avis–Era), dokładne
-do 30 komórek. Sama ta poprawka: 200×200 z 1/10 porażek do 0/20, czas 1,4 s → 0,2 s.
+**Cause 1 — a faulty decomposability test for the leftover fragment.** `decomposable` grew
+the path only from the first cell of the set, so that cell had to be
+an end of the path. An L-tromino iterated from the corner and a straight triple from the middle
+came out "non-decomposable", and the result depended on the order of cells in the set.
+In the endgame the generator rejected valid paths and declared a jam that
+did not exist; the blind backtrack changed nothing, because after re-carving the same
+test rejected the same thing. Hence also the old advice "a test limit above 8 makes things worse".
+New version: covering with dominoes and path-trominoes over bitmasks
+(every path ≥ 2 splits into segments of 2 and 3 — Akiyama–Avis–Era), exact
+up to 30 cells. This fix alone: 200×200 from 1/10 failures to 0/20, time 1.4 s → 0.2 s.
 
-**Przyczyna 2 — pętla skracania „uciekała" przed testem.** Fragment powyżej limitu
-przechodził bez sprawdzenia. Skracanie ścieżki oddaje komórki sąsiedniemu
-fragmentowi po jednej, a wada typu „krzyż z trzema liśćmi" jest lokalna i nie
-znika od dokładania komórek gdzie indziej — więc pętla produkowała nierozkładalny
-fragment o rozmiarze dokładnie limit+1 (9–10 przy limicie 8, 25 przy 24).
-Podnoszenie limitu z definicji nic nie daje. Naprawa: (a) test wady lokalnej
-niezależny od limitu — warunek Tutte'a dla |S| ≤ 2 sprawdzany w promieniu 2 od
-ścieżki, bo tylko tam po wycięciu zmieniają się stopnie; (b) fragment, który
-oblał dokładny test, jest pamiętany i po urośnięciu ponad limit odrzucany.
+**Cause 2 — the shortening loop "escaped" the test.** A fragment above the limit
+passed without being checked. Shortening the path hands cells to the neighbouring
+fragment one at a time, and a defect of the "cross with three leaves" kind is local and does not
+go away by adding cells elsewhere — so the loop produced a non-decomposable
+fragment of size exactly limit+1 (9–10 at limit 8, 25 at 24).
+Raising the limit by definition achieves nothing. Fix: (a) a local-defect test
+independent of the limit — Tutte's condition for |S| ≤ 2 checked within radius 2 of the
+path, because only there do degrees change after carving; (b) a fragment that
+failed the exact test is remembered and rejected once it grows above the limit.
 
-**Przyczyna 3 — ślepy nawrót.** Przy 5000 elementów ostatnie k wycięć leży
-w losowym rejonie planszy. Nawrót cofa teraz do najnowszego elementu stykającego
-się z resztką (co najmniej 1 + log₂ nawrotów), a budżet spadł z 3000 do 200, bo
-restart jest tańszy niż głębokie cofanie.
+**Cause 3 — blind backtrack.** With 5000 pieces the last k carvings lie
+in a random region of the board. The backtrack now rewinds to the newest piece touching
+the leftover fragment (at least 1 + log₂ of the number of backtracks), and the budget dropped from 3000 to 200, because
+a restart is cheaper than deep rewinding.
 
-**Siatka bezpieczeństwa — wchłanianie resztek.** Gdy żadna głowa nie daje
-legalnej ścieżki, końcówka sąsiedniego elementu (od komórki styku do ogona) plus
-fragment układane są w nową ścieżkę Hamiltona. Zawsze legalne: głowa, szyja
-i promień bez zmian, komórki zostają przy tym samym indeksie, a żaden promień
-nie przechodzi przez wolną komórkę — graf blokowania jest identyczny. Test
-`absorbLeftover` sprawdza to przez `analyse().solvable`.
+**Safety net — leftover absorption.** When no head yields
+a legal path, the tail end of a neighbouring piece (from the contact cell to the tail) plus
+the fragment are laid out into a new Hamiltonian path. Always legal: head, neck
+and ray unchanged, the cells keep the same index, and no ray
+passes through a free cell — the blocking graph is identical. The
+`absorbLeftover` test verifies this via `analyse().solvable`.
 
-| konfiguracja (200×200, bez restartów) | przed | po |
+| configuration (200×200, no restarts) | before | after |
 |---|---|---|
-| domyślna, 100 ziaren | 1/10 porażek, 1,4 s | **0/100**, 0,2 s, 0 nawrotów |
-| kara 6 + wagi 0,2/0,08, 30 ziaren | 4/20 z restartem | **0/30**, 0,4 s |
-| szkielet 4 × 30 boków, 15 ziaren | 1/10 z restartem | **0/15**, 0,4 s |
-| bez Warnsdorffa / same krótkie / tunele | 1/15 każda | **0/15** każda |
-| dziewięć rozmiarów od 10×10 do 200×200 | — | **0/30** każdy |
+| default, 100 seeds | 1/10 failures, 1.4 s | **0/100**, 0.2 s, 0 backtracks |
+| penalty 6 + weights 0.2/0.08, 30 seeds | 4/20 with a restart | **0/30**, 0.4 s |
+| skeleton 4 × 30 sides, 15 seeds | 1/10 with a restart | **0/15**, 0.4 s |
+| without Warnsdorff / short only / tunnels | 1/15 each | **0/15** each |
+| nine sizes from 10×10 to 200×200 | — | **0/30** each |
 
-**Linie za krótkie — przyczyna zmierzona, nie usunięta.** 48–84% ścieżek utyka
-przed zamówioną długością; ogon ginie średnio po 10 komórkach, otoczony ~2,3
-cudzymi elementami, czyli w zakamarku frontiera, do którego ciągnie go
-Warnsdorff (zakamarek o jednym wyjściu ma wagę 16 wobec 1 dla otwartej
-przestrzeni). Sprawdzone i odrzucone: nawrót wewnątrz ścieżki (utyka nadal
-77–84%), odwrócony Warnsdorff (linie krótsze), premia w bok 0,5–1 (bez zmian).
-Potwierdza to rundę 7: losowy wzrost ma sufit, długie linie daje tylko szkielet.
+**Lines too short — cause measured, not removed.** 48–84% of paths get stuck
+before the ordered length; the tail dies on average after 10 cells, surrounded by ~2.3
+foreign pieces, i.e. in a nook of the frontier that
+Warnsdorff drags it into (a nook with a single exit has weight 16 versus 1 for open
+space). Checked and rejected: backtracking inside the path (still gets stuck
+77–84%), inverted Warnsdorff (shorter lines), lateral bonus 0.5–1 (no change).
+This confirms round 7: random growth has a ceiling; only the skeleton yields long lines.
 
-Co się zmieniło w domyślnych: `Lmax` = 0 oznacza 2,5 × bok (stałe 125 obcinało
-koszyk długi na 200×200), kara za zwijanie 6, wagi 0,20/0,08, prostość 0,85.
-Na 200×200: średnia długość 8,7 → 11,0, zwinięcie 41% → 28%; na 25×50 zasięg
-górnych 10% elementów 37% → 48%. Laboratorium pokazuje nowy wiersz „utyka przed
-celem" i liczbę wchłoniętych resztek.
+What changed in the defaults: `Lmax` = 0 means 2.5 × side (the constant 125 was truncating
+the long bucket at 200×200), coiling penalty 6, weights 0.20/0.08, straightness 0.85.
+At 200×200: mean length 8.7 → 11.0, coiling 41% → 28%; at 25×50 the span of the
+top 10% of pieces 37% → 48%. The lab shows a new row "stuck before
+target" and the number of absorbed leftovers.
 
-**Skala po hardeningu.** Granica z rundy 7 (300×300–400×400) przestała istnieć:
-400×400 domyka się 0/5 porażek bez restartów w ~1,4 s (stare domyślne 0/5, ~1,9 s;
-szkielet 0/3, ~1,3 s), 1000×1000 w 10,6 s, zero nawrotów, 95 wchłonięć,
-rozwiązywalna, najdłuższy element 453. Laboratorium ma preset 400×400.
+**Scale after hardening.** The limit from round 7 (300×300–400×400) has ceased to exist:
+400×400 closes with 0/5 failures without restarts in ~1.4 s (old defaults 0/5, ~1.9 s;
+skeleton 0/3, ~1.3 s), 1000×1000 in 10.6 s, zero backtracks, 95 absorptions,
+solvable, longest piece 453. The lab has a 400×400 preset.
 
-### Które pokrętła mogą coś popsuć (200×200, 3–6 ziaren, bez restartów)
+### Which knobs can break something (200×200, 3–6 seeds, no restarts)
 
-Domykanie łamią tylko dwa ustawienia, oba z grupy „trudność": **start elementów
-= warstwy** (`headBias` -1) i **mieszanie = 0** (same warstwy). Na 200×200
-1 przebieg na 3 potrzebuje restartu, czas do 6 s (warstwy) i 10 s (mieszanie 0);
-do 100×200 oba działają bez zarzutu. Wyłączenie **wchłaniania resztek**
-(`absorbLimit` 0) samo w sobie niczego nie psuje przy domyślnych, ale w trybie
-warstw plansza nie domyka się wtedy w 5 na 6 przebiegów — to jedyna siatka
-bezpieczeństwa dla trudnych ustawień.
+Only two settings break closing, both from the "difficulty" group: **piece start
+= layers** (`headBias` -1) and **mixing = 0** (layers only). At 200×200
+1 run in 3 needs a restart, time up to 6 s (layers) and 10 s (mixing 0);
+up to 100×200 both work flawlessly. Disabling **leftover absorption**
+(`absorbLimit` 0) breaks nothing by itself at the defaults, but in layers
+mode the board then fails to close in 5 out of 6 runs — it is the only safety
+net for hard settings.
 
-Czas psuje **skłonność do prostej = 0**: ~9 s zamiast 0,3 s, do 18 s, bo 160
-wchłonięć na przebieg. Wygląd psują skrajności: **premia w bok = 0** i
-**prostość = 1** dają ~1000 elementów zamiast 3600 w wielkich zwojach
-(zwinięcie 47–53%), **zakamarki = 16** zwija do 41%, **skok serpentyny = 2** daje
-jeden szkielet na 6000 komórek jak linie na kartce.
+Time is broken by **straight-line tendency = 0**: ~9 s instead of 0.3 s, up to 18 s, because of 160
+absorptions per run. Appearance is broken by the extremes: **lateral bonus = 0** and
+**straightness = 1** give ~1000 pieces instead of 3600 in huge coils
+(coiling 47–53%), **nooks = 16** coils up to 41%, **serpentine step = 2** gives
+one skeleton per 6000 cells like lines on a sheet of paper.
 
-Bez wpływu na domykanie w całym zakresie: prób startu, budżet nawrotów, dokładny
-test resztki, krawędź jak element, premia za przyleganie, sondy, ziarno.
+No effect on closing across the whole range: start attempts, backtrack budget, exact
+leftover test, edge as a piece, adjacency bonus, probes, seed.

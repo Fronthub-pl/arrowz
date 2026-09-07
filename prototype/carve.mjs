@@ -1,13 +1,13 @@
-// PROTOTYP WYRZUCALNY — warstwa CLI nad silnikiem z engine.mjs.
-// Uruchomienie: node prototype/carve.mjs [opcje]
+// DISPOSABLE PROTOTYPE — CLI layer over the engine from engine.mjs.
+// Run: node prototype/carve.mjs [options]
 import { writeFileSync } from 'node:fs'
 import { Carver, analyse, mulberry32, render, toSvg, DIRS, defaultParams } from './engine.mjs'
 
 // ------------------------------------------------------------------ main
 
-// Ślad i debug wchodzą do silnika jako funkcje — silnik nie zna `process`.
+// Trace and debug enter the engine as functions — the engine knows nothing about `process`.
 const trace = process.env.CARVE_TRACE
-  ? (i) => console.error(`    [trace] elementów ${i.pieces}, zostało ${i.remaining}, nawrotów ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
+  ? (i) => console.error(`    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
   : null
 const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
 
@@ -17,13 +17,13 @@ const arg = (k, dflt) => {
 }
 const show = process.argv.includes('--show')
 
-// Dwa niezależne pokrętła: poziom (rozmiar bazowy) i format (1:1 albo 1:2).
-// Format pionowy odpowiada ekranowi telefonu i referencyjnemu zrzutowi.
+// Two independent knobs: level (base size) and format (1:1 or 1:2).
+// The portrait format matches a phone screen and the reference screenshot.
 const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200]]
-// Poziom "I wanna die": milion komórek. Dostępny tylko za jawną flagą, bo jeden
-// przebieg trwa dziesiątki sekund i nie ma sensu w domyślnym raporcie.
+// The "I wanna die" level: a million cells. Available only behind an explicit flag, because a
+// single run takes tens of seconds and makes no sense in the default report.
 if (process.argv.includes('--insane')) BASE.push(['Insane', 1000])
-// Skala pośrednia — do znalezienia granicy domykalności.
+// Intermediate scale — for finding the limit of closability.
 const midArg = process.argv.find((a) => a.startsWith('--mid='))
 if (midArg) BASE.push(['Mid', Number(midArg.split('=')[1])])
 const FORMATS = process.argv.includes('--kwadrat') ? [['', 1]]
@@ -52,15 +52,15 @@ if (svgOut) {
         giantStep: arg('giantstep', 0), giantJitter: arg('giantjitter', 0.15), maxBack: arg('maxback', 0), headTries: arg('headtries', 4), strandLimit: arg('strandlimit', 30), absorbLimit: arg('absorb', 24), trace, debug }
   let c, ok = false, seed = arg('seed', 7)
   for (let t = 0; t < 6 && !ok; t++) { c = new Carver(W, H, params, mulberry32(seed + t * 4242)); ok = c.run() }
-  if (!ok) { console.error('nie udało się wygenerować'); process.exit(1) }
+  if (!ok) { console.error('failed to generate'); process.exit(1) }
   const m = analyse(c, params.ruleB)
   const top = arg('top', 0)
   writeFileSync(svgOut, toSvg(c, { cell: arg('cell', 16), colored: process.argv.includes('--colored'), strokeRatio: arg('stroke', 0.5), top }))
   if (top > 0) {
-    // Statystyki najdłuższych: zasięg (ile kolumn i wierszy przecina) mówi,
-    // czy element przecina planszę, czy kłębi się w jednym rejonie.
+    // Statistics of the longest pieces: reach (how many columns and rows it crosses) tells
+    // whether the piece crosses the board or coils up in a single region.
     const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top)
-    console.log(`  ${top} najdłuższych elementów:`)
+    console.log(`  ${top} longest pieces:`)
     for (const pc of longest) {
       const xs = pc.cells.map((q) => q.x), ys = pc.cells.map((q) => q.y)
       const spanX = Math.max(...xs) - Math.min(...xs) + 1
@@ -82,17 +82,17 @@ if (svgOut) {
           prev = { dx, dy }
         }
       }
-      // Rozciągnięcie: jaką część planszy obejmuje prostokąt otaczający element.
+      // Stretch: what fraction of the board the piece's bounding rectangle covers.
       const fill = pc.cells.length / (spanX * spanY)
-      console.log(`    dł. ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${String(spanY).padStart(3)} (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% planszy)  kolumn ${String(cols).padStart(3)}  wierszy ${String(rows).padStart(3)}  gęstość w bbox ${(100 * fill).toFixed(0)}%  skrętów ${bends}  zwinięcie ${(100 * coiled / pc.cells.length).toFixed(0)}%`)
+      console.log(`    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${String(spanY).padStart(3)} (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  columns ${String(cols).padStart(3)}  rows ${String(rows).padStart(3)}  density in bbox ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${(100 * coiled / pc.cells.length).toFixed(0)}%`)
     }
   }
-  console.log(`${svgOut}  ${W}x${H} warns=${params.warns} hug=${params.hug} anticoil=${params.anticoil}  elem=${m.N} śr.dł=${(W*H/m.N).toFixed(1)} skrętów=${(m.bends).toFixed(2)} zwinięcie=${(100*m.coil).toFixed(0)}% selfAdj=${m.selfAdj.toFixed(2)} granica=${(100*m.sharedBorder).toFixed(0)}%`)
+  console.log(`${svgOut}  ${W}x${H} warns=${params.warns} hug=${params.hug} anticoil=${params.anticoil}  elem=${m.N} avg.len=${(W*H/m.N).toFixed(1)} bends=${(m.bends).toFixed(2)} coiling=${(100*m.coil).toFixed(0)}% selfAdj=${m.selfAdj.toFixed(2)} border=${(100*m.sharedBorder).toFixed(0)}%`)
   process.exit(0)
 }
 const bench = arg('bench', 0)
 if (bench > 0) {
-  console.log(`BENCHMARK — ${bench} przebiegów na poziom\n`)
+  console.log(`BENCHMARK — ${bench} runs per level\n`)
   for (const pre of presets) {
     if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
     const times = [], backs = [], lens = [], maxLens = []
@@ -122,14 +122,14 @@ if (bench > 0) {
     const q = (arr, pp) => arr[Math.min(arr.length - 1, Math.floor(arr.length * pp))]
     const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length
     console.log(`--- ${pre.name} ${pre.W}x${pre.H} ---`)
-    console.log(`  czas [ms]   p50 ${q(times,0.5).toFixed(0)}   p90 ${q(times,0.9).toFixed(0)}   p99 ${q(times,0.99).toFixed(0)}   max ${times[times.length-1].toFixed(0)}`)
-    console.log(`  nawroty     p50 ${q(backs,0.5)}   p90 ${q(backs,0.9)}   p99 ${q(backs,0.99)}   max ${backs[backs.length-1]}`)
-    console.log(`  długość     średnia ${mean(lens).toFixed(2)}   maksymalna (śr.) ${mean(maxLens).toFixed(0)}`)
-    console.log(`  odporność   restarty ${restartsTotal}   porażki ${fails}/${bench}\n`)
+    console.log(`  time [ms]   p50 ${q(times,0.5).toFixed(0)}   p90 ${q(times,0.9).toFixed(0)}   p99 ${q(times,0.99).toFixed(0)}   max ${times[times.length-1].toFixed(0)}`)
+    console.log(`  backtracks  p50 ${q(backs,0.5)}   p90 ${q(backs,0.9)}   p99 ${q(backs,0.99)}   max ${backs[backs.length-1]}`)
+    console.log(`  length      mean ${mean(lens).toFixed(2)}   maximum (mean) ${mean(maxLens).toFixed(0)}`)
+    console.log(`  robustness  restarts ${restartsTotal}   failures ${fails}/${bench}\n`)
   }
   process.exit(0)
 }
-console.log('PROTOTYP — wycinanie z pełnej planszy, minimalna długość 2\n')
+console.log('PROTOTYPE — carving from a full board, minimum length 2\n')
 for (const pre of presets) {
   if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
   const acc = []
@@ -162,9 +162,9 @@ for (const pre of presets) {
         else if (z <= 100) hist['21-100']++
         else hist['100+']++
       }
-      console.log(`  ZAKLINOWANIE  w najlepszym momencie zostało ${c.stuckRemaining ?? c.remaining} komórek w ${sizes.length} fragmentach; największy ${sizes[0]}`)
-      console.log(`                legalnych głów w tym momencie: ${c.stuckHeads ?? '?'} (z ${2 * (c.W + c.H)} możliwych)`)
-      console.log(`                rozmiary: pojedyncze ${hist['1']}, 2-5: ${hist['2-5']}, 6-20: ${hist['6-20']}, 21-100: ${hist['21-100']}, 100+: ${hist['100+']}`)
+      console.log(`  STUCK         at the best moment ${c.stuckRemaining ?? c.remaining} cells remained in ${sizes.length} fragments; largest ${sizes[0]}`)
+      console.log(`                legal heads at that moment: ${c.stuckHeads ?? '?'} (out of ${2 * (c.W + c.H)} possible)`)
+      console.log(`                sizes: singletons ${hist['1']}, 2-5: ${hist['2-5']}, 6-20: ${hist['6-20']}, 21-100: ${hist['21-100']}, 100+: ${hist['100+']}`)
       acc.push({ failed: true, restarts, remaining: c.remaining }); continue
     }
     const t1 = performance.now()
@@ -175,19 +175,19 @@ for (const pre of presets) {
   }
   const good = acc.filter((a) => !a.failed)
   const avg = (f) => good.reduce((s, a) => s + f(a), 0) / good.length
-  console.log(`--- ${pre.name} ${pre.W}x${pre.H} (${runs} przebiegów) ---`)
-  if (!good.length) { console.log('  NIE UDAŁO SIĘ domknąć planszy\n'); continue }
-  console.log(`  pokrycie      ${(avg((a) => a.coverage) * 100).toFixed(2)}%   rozwiązywalne: ${good.every((a) => a.solvable) ? 'TAK' : 'NIE'}`)
-  console.log(`  elementów     ${avg((a) => a.N).toFixed(0)}   długość ${avg((a) => a.minLen).toFixed(0)}..${avg((a) => a.maxLen).toFixed(0)}`)
+  console.log(`--- ${pre.name} ${pre.W}x${pre.H} (${runs} runs) ---`)
+  if (!good.length) { console.log('  FAILED to close the board\n'); continue }
+  console.log(`  coverage      ${(avg((a) => a.coverage) * 100).toFixed(2)}%   solvable: ${good.every((a) => a.solvable) ? 'YES' : 'NO'}`)
+  console.log(`  pieces        ${avg((a) => a.N).toFixed(0)}   length ${avg((a) => a.minLen).toFixed(0)}..${avg((a) => a.maxLen).toFixed(0)}`)
   const h = good[0].hist
-  console.log(`  rozkład dł.   2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${(avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)}%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${(avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)}%`)
-  console.log(`  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-bloker: ${avg((a) => a.almost).toFixed(0)} (${(100*avg((a)=>a.almost/a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   korytarz: ${avg((a) => a.meanCorridorLen).toFixed(1)}`)
-  console.log(`  KSZTAŁT       skrętów/elem ${avg((a) => a.bends).toFixed(2)}   wieloliniowych ${(100 * avg((a) => a.multiLine)).toFixed(0)}%   zwinięcie ${(100 * avg((a) => a.coil)).toFixed(0)}%`)
-  console.log(`  ZASIĘG        średni ${(100 * avg((a) => a.span)).toFixed(0)}% boku   górne 10%: ${(100 * avg((a) => a.spanTop10)).toFixed(0)}%   rekord ${(100 * avg((a) => a.spanMax)).toFixed(0)}%`)
-  console.log(`  ODBLOKOWANIA  średnio ${avg((a) => a.outDeg).toFixed(1)} elem./zdjęcie   rekord ${avg((a) => a.maxOut).toFixed(0)}   średni dystans ${(100 * avg((a) => a.blockDist)).toFixed(0)}% obwodu`)
-  console.log(`  OPAKOWYWANIE  skrętów/kom ${avg((a) => a.bendsPerCell).toFixed(3)}   własnych sąsiadów/kom ${avg((a) => a.selfAdj).toFixed(2)}   sąsiadów obcych/elem ${avg((a) => a.neighbours).toFixed(1)}   najdłuższa wspólna granica ${(100 * avg((a) => a.sharedBorder)).toFixed(0)}% długości`)
-  console.log(`  nawroty       ${avg((a) => a.backtracks).toFixed(1)}   restarty: ${avg((a) => a.restarts).toFixed(1)}`)
+  console.log(`  length dist.  2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${(avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)}%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${(avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)}%`)
+  console.log(`  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-blocker: ${avg((a) => a.almost).toFixed(0)} (${(100*avg((a)=>a.almost/a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   corridor: ${avg((a) => a.meanCorridorLen).toFixed(1)}`)
+  console.log(`  SHAPE         bends/piece ${avg((a) => a.bends).toFixed(2)}   multi-line ${(100 * avg((a) => a.multiLine)).toFixed(0)}%   coiling ${(100 * avg((a) => a.coil)).toFixed(0)}%`)
+  console.log(`  REACH         mean ${(100 * avg((a) => a.span)).toFixed(0)}% of side   top 10%: ${(100 * avg((a) => a.spanTop10)).toFixed(0)}%   record ${(100 * avg((a) => a.spanMax)).toFixed(0)}%`)
+  console.log(`  UNBLOCKING    mean ${avg((a) => a.outDeg).toFixed(1)} pieces/removal   record ${avg((a) => a.maxOut).toFixed(0)}   mean distance ${(100 * avg((a) => a.blockDist)).toFixed(0)}% of perimeter`)
+  console.log(`  WRAPPING      bends/cell ${avg((a) => a.bendsPerCell).toFixed(3)}   own neighbours/cell ${avg((a) => a.selfAdj).toFixed(2)}   foreign neighbours/piece ${avg((a) => a.neighbours).toFixed(1)}   longest shared border ${(100 * avg((a) => a.sharedBorder)).toFixed(0)}% of length`)
+  console.log(`  backtracks    ${avg((a) => a.backtracks).toFixed(1)}   restarts: ${avg((a) => a.restarts).toFixed(1)}`)
   const st = good[0].st
-  console.log(`  diagnostyka   śr. want ${(st.want/st.n).toFixed(1)} -> got ${(st.got/st.n).toFixed(1)}   stall ${(100*st.stall/st.n).toFixed(0)}%   strand-trunc ${(100*st.strandTrunc/st.n).toFixed(0)}% (śr. -${(st.strandLoss/Math.max(1,st.strandTrunc)).toFixed(1)})`)
-  console.log(`  czas          generacja ${avg((a) => a.tGen).toFixed(0)} ms, metryki ${avg((a) => a.tAna).toFixed(0)} ms\n`)
+  console.log(`  diagnostics   mean want ${(st.want/st.n).toFixed(1)} -> got ${(st.got/st.n).toFixed(1)}   stall ${(100*st.stall/st.n).toFixed(0)}%   strand-trunc ${(100*st.strandTrunc/st.n).toFixed(0)}% (mean -${(st.strandLoss/Math.max(1,st.strandTrunc)).toFixed(1)})`)
+  console.log(`  time          generation ${avg((a) => a.tGen).toFixed(0)} ms, metrics ${avg((a) => a.tAna).toFixed(0)} ms\n`)
 }
