@@ -11,6 +11,13 @@ const DIRS = [
   { dx: -1, dy: 0, ch: '←' }, // 3 left
 ]
 
+// Strict leftover test (wouldStrand / solvable): how many cells of a big
+// fragment are walked looking for a head before it is assumed to have one,
+// and how many search nodes a small fragment gets before it is assumed
+// solvable. Both err towards accepting a cut.
+const HEAD_BUDGET = 256
+const SOLVE_BUDGET = 4000
+
 function mulberry32(seed) {
   let a = seed >>> 0
   return () => {
@@ -43,6 +50,9 @@ class Carver {
     }
     this.backtracks = 0
     this.stats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0 }
+    // Strict leftover test (see wouldStrand): off in the first attempt, on in
+    // the restarts after a jam — generate() sets it from `params.strict`.
+    this.strict = false
     // depth[d][line] = number of consecutive assigned cells from the edge inward
     this.depth = [new Int32Array(W), new Int32Array(H), new Int32Array(W), new Int32Array(H)]
     // Scratch arrays with a generation stamp: the "set" is the cells whose stamp
@@ -276,10 +286,66 @@ class Carver {
     return false
   }
 
-  // Does carving `cells` strand the rest: a fragment of up to `strandLimit`
-  // cells that cannot be decomposed into paths, or a local defect in a fragment
-  // of any size. `failed` (optional) collects the cells of fragments that
-  // failed the exact test.
+  // Is (x, y) a legal head once the cells stamped `pathGen` are carved? A
+  // head is the first unassigned cell of its line from the exit edge, with
+  // an unassigned cell directly behind it (the neck). `depth` still counts
+  // the board without the path, so the path cells between (x, y) and the
+  // edge are skipped by hand.
+  headWithPath(x, y, pathGen) {
+    const { W, H, depth, owner, takenStamp } = this
+    const freeCell = (i) => owner[i] === -1 && takenStamp[i] !== pathGen
+    const onPath = (i) => owner[i] === -1 && takenStamp[i] === pathGen
+    if (y + 1 < H && freeCell((y + 1) * W + x)) {            // exit up
+      let t = y - 1
+      while (t >= 0 && onPath(t * W + x)) t--
+      if (depth[0][x] > t) return true
+    }
+    if (y > 0 && freeCell((y - 1) * W + x)) {                // exit down
+      let t = y + 1
+      while (t < H && onPath(t * W + x)) t++
+      if (depth[2][x] > H - 1 - t) return true
+    }
+    if (x + 1 < W && freeCell(y * W + x + 1)) {              // exit left
+      let t = x - 1
+      while (t >= 0 && onPath(y * W + t)) t--
+      if (depth[3][y] > t) return true
+    }
+    if (x > 0 && freeCell(y * W + x - 1)) {                  // exit right
+      let t = x + 1
+      while (t < W && onPath(y * W + t)) t++
+      if (depth[1][y] > W - 1 - t) return true
+    }
+    return false
+  }
+
+  /**
+   * Does carving `cells` strand the rest? Lenient (the first attempt): a
+   * fragment of up to `strandLimit` cells that cannot be decomposed into
+   * paths, or a local defect in a fragment of any size. `failed` (optional)
+   * collects the cells of fragments that failed the exact test.
+   *
+   * STRICT (`this.strict`, the restarts after a jam) adds two tests that the
+   * 1000×1000 jams of the random sweep called for:
+   *
+   *  - HEAD. A fragment none of whose cells is a legal head cannot be carved
+   *    until some other fragment in front of it is — and on a shredded board
+   *    every fragment shades another (board 30: 4 300 of 4 512 islands with
+   *    no head, the largest 5 457 cells). Assigning cells only clears rays,
+   *    so a fragment loses its last head only through a cut into it — which
+   *    is exactly a call of this test. The walk goes towards the exit edge
+   *    of the piece first (the front of a line is a head whenever the cell
+   *    behind it is free) and stops at the first head; a big fragment whose
+   *    head is not found within HEAD_BUDGET cells is assumed fine.
+   *  - SOLVABLE instead of decomposable for the small fragments: not "can
+   *    the cells be covered by paths" but "can the generator lay them under
+   *    the head rule", see solvable().
+   *
+   * The lenient test stays the same code path, so the boards of the first
+   * attempt do not change. The strict test costs 20–35% more pieces
+   * (pockets shaded by a neighbour that has a head are refused although
+   * that neighbour would be carved first) and several times the time, so
+   * it is the rescue, not the default.
+   */
   wouldStrand(cells, failed = null) {
     const { W, H, owner, takenStamp, seenStamp } = this
     const gen = ++this.gen
@@ -289,29 +355,59 @@ class Carver {
     const seenGen = ++this.gen
     for (const c of cells) takenStamp[this.idx(c.x, c.y)] = seenGen
     const limit = this.p.strandLimit
-    const stack = []
+    const strict = this.strict
+    const budget = Math.max(limit + 1, HEAD_BUDGET)
+    const ex = cells.length > 1 ? cells[0].x - cells[1].x : 0
+    const ey = cells.length > 1 ? cells[0].y - cells[1].y : -1
+    const comp = [], stack = []
     for (const c of cells) {
       for (const { dx, dy } of DIRS) {
         const nx = c.x + dx, ny = c.y + dy
         if (!this.inside(nx, ny)) continue
         const start = ny * W + nx
         if (owner[start] !== -1 || takenStamp[start] === seenGen || seenStamp[start] === seenGen) continue
-        const comp = []
+        comp.length = 0
         stack.length = 0
         stack.push(start); seenStamp[start] = seenGen
-        let overflow = false
-        while (stack.length) {
-          const i = stack.pop()
-          comp.push(i)
-          if (comp.length > limit) { overflow = true; break }
-          const x = i % W, y = (i / W) | 0
-          const tryPush = (j) => {
-            if (owner[j] === -1 && takenStamp[j] !== seenGen && seenStamp[j] !== seenGen) { seenStamp[j] = seenGen; stack.push(j) }
+        const tryPush = (j) => {
+          if (owner[j] === -1 && takenStamp[j] !== seenGen && seenStamp[j] !== seenGen) { seenStamp[j] = seenGen; stack.push(j); return 1 }
+          return 0
+        }
+        let overflow = false, headless = false
+        if (!strict) {
+          while (stack.length) {
+            const i = stack.pop()
+            comp.push(i)
+            if (comp.length > limit) { overflow = true; break }
+            const x = i % W, y = (i / W) | 0
+            if (y > 0) tryPush(i - W)
+            if (y < H - 1) tryPush(i + W)
+            if (x > 0) tryPush(i - 1)
+            if (x < W - 1) tryPush(i + 1)
           }
-          if (y > 0) tryPush(i - W)
-          if (y < H - 1) tryPush(i + W)
-          if (x > 0) tryPush(i - 1)
-          if (x < W - 1) tryPush(i + 1)
+        } else {
+          let found = 1, head = false, complete = true
+          while (stack.length) {
+            if (head && found > limit) { complete = false; break }
+            if (comp.length >= budget) { complete = false; this.stats.headBudgetOut = (this.stats.headBudgetOut ?? 0) + 1; break }
+            const i = stack.pop()
+            comp.push(i)
+            const x = i % W, y = (i / W) | 0
+            if (!head && this.headWithPath(x, y, seenGen)) head = true
+            // away from the exit edge first, sideways, towards it last (popped first)
+            if (ey < 0 ? y < H - 1 : y > 0) found += tryPush(ey < 0 ? i + W : i - W)
+            if (ex < 0 ? x < W - 1 : x > 0) found += tryPush(ex < 0 ? i + 1 : i - 1)
+            if (ex === 0) { if (x > 0) found += tryPush(i - 1); if (x < W - 1) found += tryPush(i + 1) }
+            else { if (y > 0) found += tryPush(i - W); if (y < H - 1) found += tryPush(i + W) }
+            if (ey < 0 ? y > 0 : y < H - 1) found += tryPush(ey < 0 ? i - W : i + W)
+            if (ex < 0 ? x > 0 : x < W - 1) found += tryPush(ex < 0 ? i - 1 : i + 1)
+          }
+          overflow = found > limit
+          headless = complete && !head
+        }
+        if (headless) {
+          this.stats.headless = (this.stats.headless ?? 0) + 1
+          return true
         }
         if (overflow) {
           // Large fragment: decomposability is not checked (a local defect has
@@ -323,13 +419,88 @@ class Carver {
           if (failed) for (const i of comp) if (failed.has(i)) return true
           continue
         }
-        if (!this.decomposable(new Set(comp))) {
+        if (strict ? !this.solvable(comp, seenGen) : !this.decomposable(new Set(comp))) {
+          if (strict) this.stats.unsolvable = (this.stats.unsolvable ?? 0) + 1
           if (failed) for (const i of comp) failed.add(i)
           return true
         }
       }
     }
     return false
+  }
+
+  /**
+   * Can a small fragment be carved to the last cell, piece by piece, with the
+   * cells stamped `pathGen` treated as carved? Every piece starts at a legal
+   * head of what is left — first unassigned cell of its line from the exit
+   * edge, unassigned cell behind it — and runs inside the fragment. The
+   * decomposability test says whether the cells CAN be covered by paths; this
+   * says whether the generator can actually lay them, in some order, under
+   * the head rule. An L-tromino whose only head sits in the corner is
+   * decomposable and not solvable: the corner piece leaves one cell behind.
+   * (Board 62 of the sweep jammed with 13 000 cells in 1 700 such islands.)
+   *
+   * Depth-first search over subsets (bitmask), memo of the losing subsets, a
+   * node budget beyond which the fragment is assumed solvable. Absorption by
+   * a neighbour's tail is not counted, so the answer errs on the safe side.
+   */
+  solvable(cells, pathGen) {
+    const n = cells.length
+    if (n === 0) return true
+    if (n === 1) return false
+    if (n > 30) return true
+    if (!this.decomposable(new Set(cells))) return false
+    const { W, H, owner, takenStamp, depth } = this
+    const bitOf = new Map()
+    cells.forEach((c, i) => bitOf.set(c, i))
+    const external = (j) => owner[j] === -1 && takenStamp[j] !== pathGen && !bitOf.has(j)
+    const nb = new Array(n)
+    const neck = new Int32Array(4 * n).fill(-1)  // neck bit per (cell, dir), -1 = none
+    const rayMask = new Int32Array(4 * n)        // fragment cells between the cell and the exit edge
+    const extClear = new Uint8Array(4 * n)       // no free cell outside the fragment on that ray
+    for (let v = 0; v < n; v++) {
+      const i = cells[v], x = i % W, y = (i / W) | 0
+      nb[v] = []
+      for (let d = 0; d < 4; d++) {
+        const { dx, dy } = DIRS[d]
+        const kx = x - dx, ky = y - dy
+        if (this.inside(kx, ky)) { const b = bitOf.get(ky * W + kx); if (b !== undefined) { neck[4 * v + d] = b; nb[v].push(b) } }
+        // walk the line from the exit edge: `depth` skips the assigned cells at
+        // the front, the rest is walked by hand up to the cell itself
+        let clear = 1, mask = 0
+        const visit = (j) => { const b = bitOf.get(j); if (b !== undefined) mask |= 1 << b; else if (external(j)) { clear = 0; return false }; return true }
+        if (d === 0) { for (let t = depth[0][x]; t < y; t++) if (!visit(t * W + x)) break }
+        else if (d === 2) { for (let t = H - 1 - depth[2][x]; t > y; t--) if (!visit(t * W + x)) break }
+        else if (d === 3) { for (let t = depth[3][y]; t < x; t++) if (!visit(y * W + t)) break }
+        else { for (let t = W - 1 - depth[1][y]; t > x; t--) if (!visit(y * W + t)) break }
+        extClear[4 * v + d] = clear; rayMask[4 * v + d] = mask
+      }
+    }
+    const lost = new Set()
+    let budget = SOLVE_BUDGET
+    const solve = (mask) => {
+      if (mask === 0) return true
+      if (lost.has(mask)) return false
+      if (--budget < 0) { this.stats.solveBudgetOut = (this.stats.solveBudgetOut ?? 0) + 1; return true }
+      for (let v = 0; v < n; v++) {
+        if (!(mask & (1 << v))) continue
+        for (let d = 0; d < 4; d++) {
+          const k = neck[4 * v + d]
+          if (k < 0 || !(mask & (1 << k)) || !extClear[4 * v + d] || (rayMask[4 * v + d] & mask)) continue
+          if (grow(mask & ~(1 << v) & ~(1 << k), k)) return true
+        }
+      }
+      lost.add(mask)
+      return false
+    }
+    // the piece may stop at any length >= 2 or go on through a free neighbour
+    const grow = (rest, tail) => {
+      if (solve(rest)) return true
+      if (budget < 0) return true
+      for (const b of nb[tail]) if (rest & (1 << b)) { if (grow(rest & ~(1 << b), b)) return true }
+      return false
+    }
+    return solve(n === 30 ? 0x3fffffff : (1 << n) - 1)
   }
 
   // ------------------------------------------------------------ carving
@@ -1397,6 +1568,8 @@ export const PARAM_SPEC = [
     help: 'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough.' },
   { key: 'restarts', label: 'allowed restarts', group: 'closing', min: 0, max: 10, step: 1, def: 3,
     help: 'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate.' },
+  { key: 'strict', label: 'strict leftover test (0 never, 1 on restarts, 2 always)', group: 'closing', min: 0, max: 2, step: 1, def: 1,
+    help: 'Refuses cuts that leave a pocket with no way in. 1 = only in the restarts after a jam; 2 = from the start, which gives 20–35% more, shorter pieces and a slower run.' },
 ]
 
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
@@ -1431,6 +1604,10 @@ export function generate(params) {
   for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
     used = attempt
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
+    // The strict leftover test is the rescue: the first attempt keeps the
+    // lenient test (same boards as before, longer pieces), a restart after a
+    // jam refuses the cuts that shred the board instead of trying its luck.
+    carver.strict = p.strict >= 2 || (p.strict >= 1 && attempt > 0)
     ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
   }
   const genMs = performance.now() - t0

@@ -43,6 +43,56 @@ test('decomposable: single cell and empty set', () => {
   assert.equal(c.decomposable(cells([[3, 3]])), false)
 })
 
+// A W×H board fully assigned except the given free cells, with the line
+// depths recomputed, so that head tests see the assigned cells as carved.
+const freeBoard = (W, H, free, params = {}) => {
+  const c = new Carver(W, H, { ...defaultParams(), ...params }, mulberry32(1))
+  c.owner.fill(0)
+  for (const [x, y] of free) c.owner[y * W + x] = -1
+  c.remaining = free.length
+  c.recomputeLines(Array.from({ length: W * H }, (_, i) => ({ x: i % W, y: (i / W) | 0 })))
+  return c
+}
+
+test('solvable: an L-tromino whose only heads sit in the corner cannot be carved', () => {
+  // 6×6, free: the L (2,2) corner, (3,2) right arm, (2,3) lower arm — and two
+  // single cells, (5,2) and (2,5), that shade the rays of the arm ends. The
+  // corner is a head (its rays up and left are clear) but a piece from it
+  // covers the corner and one arm and leaves the other arm alone.
+  const L = [2 * 6 + 2, 2 * 6 + 3, 3 * 6 + 2]
+  let c = freeBoard(6, 6, [[2, 2], [3, 2], [2, 3], [5, 2], [2, 5]])
+  assert.equal(c.decomposable(new Set(L)), true, 'decomposable: yes, it is a path')
+  assert.equal(c.solvable(L, ++c.gen), false, 'solvable: no head that a covering piece could start from')
+  // with (5,2) carved the end of the right arm is a head: one piece covers the L
+  c = freeBoard(6, 6, [[2, 2], [3, 2], [2, 3], [2, 5]])
+  assert.equal(c.solvable(L, ++c.gen), true)
+  // a domino with a head, and a straight triple carved from its end
+  c = freeBoard(6, 6, [[2, 2], [3, 2]])
+  assert.equal(c.solvable([2 * 6 + 2, 2 * 6 + 3], ++c.gen), true)
+  c = freeBoard(6, 6, [[1, 2], [2, 2], [3, 2]])
+  assert.equal(c.solvable([2 * 6 + 1, 2 * 6 + 2, 2 * 6 + 3], ++c.gen), true)
+})
+
+test('wouldStrand: in strict mode a fragment without a legal head is stranded', () => {
+  // 7×7: the path (2,3),(2,4) is being carved; the domino (3,3),(3,4) next to
+  // it is decomposable, but single free cells shade every one of its lines —
+  // (3,0) above, (3,6) below, (0,3),(0,4) to the left, (6,3),(6,4) to the
+  // right — so no cell of it is the first free cell of a line, and the
+  // domino can only be carved after all of those are.
+  const shading = [[3, 0], [3, 6], [0, 3], [0, 4], [6, 3], [6, 4]]
+  const free = [[2, 3], [2, 4], [3, 3], [3, 4], ...shading]
+  const path = [{ x: 2, y: 3 }, { x: 2, y: 4 }]
+  let c = freeBoard(7, 7, free)
+  assert.equal(c.wouldStrand(path), false, 'lenient: a domino is decomposable')
+  c.strict = true
+  assert.equal(c.wouldStrand(path), true, 'strict: no head')
+  assert.equal(c.stats.headless, 1)
+  // with (3,0) carved the column above the domino is clear: (3,3) is a head
+  c = freeBoard(7, 7, free.filter(([x, y]) => !(x === 3 && y === 0)))
+  c.strict = true
+  assert.equal(c.wouldStrand(path), false)
+})
+
 test('hasLocalDefect: cross with three leaves and a diagonal pair isolating five cells', () => {
   // A 10×10 board fully assigned except for the given cells; the "path" is empty,
   // so the test treats the surroundings of the given cells as the path's surroundings.
@@ -154,6 +204,38 @@ test('generate: closes the board without Warnsdorff and with only short pieces',
     const r = generate({ W: 100, H: 100, seed: 3, restarts: 0, ...over })
     assert.equal(r.ok && r.metrics.solvable && r.metrics.coverage === 1, true, JSON.stringify(over))
   }
+})
+
+test('generate: the strict leftover test closes the boards starved of head draws without a backtrack', () => {
+  // One draw per direction and very bendy pieces: with the lenient test
+  // these two seeds carve pockets that keep no legal head (their rays cross
+  // other free cells) and L-shaped leftovers whose only head sits in the
+  // corner, and jam with dozens of legal heads that carve nothing. The
+  // strict test rejects such cuts when they are made, so the board closes
+  // in one attempt (the lenient test exhausts the 50 undos on both seeds;
+  // the odd undo that remains is the single draw missing a head, which is
+  // a matter of the draws, not of the leftover test).
+  for (const seed of [1, 3]) {
+    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50, strict: 2 })
+    assert.equal(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
+    assert.ok(r.backtracks < 50, `seed ${seed}: ${r.backtracks} backtracks`)
+    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+    assert.equal(r.board.strict, true)
+  }
+})
+
+test('generate: the first attempt is lenient, the restarts are strict', () => {
+  // The lenient test gives longer pieces and is fast; the strict one costs
+  // 20–35% more pieces and several times the time. So the first attempt
+  // stays as it was (the recorded boards do not change) and the strict test
+  // is the rescue after a jam, instead of a blind restart.
+  const r = generate({ W: 200, H: 200, seed: 1, headTries: 1, pStraight: 0.2, restarts: 1, maxBack: 50 })
+  assert.equal(r.ok, true, JSON.stringify(r.stuck))
+  assert.equal(r.restartsUsed, 1)
+  assert.equal(r.board.strict, true)
+  const lenient = generate({ W: 100, H: 100, seed: 3, restarts: 0 })
+  assert.equal(lenient.board.strict, false)
+  assert.equal(fingerprint(lenient.board), '2987bf37', 'the lenient first attempt is the board recorded before the strict test existed')
 })
 
 test('generate: a jam reports how many legal heads were left at the best moment', () => {

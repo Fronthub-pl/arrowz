@@ -79,6 +79,8 @@ export const PL = {
       help: 'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 0 = 200, to wystarcza.' },
     restarts: { label: 'dopuszczalne restarty',
       help: 'Ile nowych prób z pochodnym ziarnem po nieudanej. 0 pokazuje surową skuteczność ustawień.' },
+    strict: { label: 'ostry test resztek (0 nigdy, 1 przy restartach, 2 zawsze)',
+      help: 'Odrzuca cięcia zostawiające kieszeń bez wejścia. 1 = tylko w restartach po zacięciu; 2 = od początku, co daje 20–35% więcej, krótszych elementów i wolniejszy bieg.' },
   },
   groupHelp: {
     lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
