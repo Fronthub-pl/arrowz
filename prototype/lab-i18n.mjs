@@ -98,7 +98,6 @@ export const PL = {
   // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
   simple: {
     viewSimple: 'Prosty', viewAdvanced: 'Zaawansowany',
-    size: 'rozmiar planszy',
     lengths: 'długość elementów', shape: 'kształt linii', skeleton: 'szkielet',
     options: {
       skeleton: { off: 'bez szkieletu', on: 'ze szkieletem' },
@@ -199,7 +198,6 @@ export const EN = {
   // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
   simple: {
     viewSimple: 'Simple', viewAdvanced: 'Advanced',
-    size: 'board size',
     lengths: 'piece length', shape: 'line shape', skeleton: 'skeleton',
     options: {
       skeleton: { off: 'no skeleton', on: 'with a skeleton' },

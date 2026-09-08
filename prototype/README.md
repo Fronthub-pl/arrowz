@@ -7,8 +7,9 @@ sh prototype/lab.sh          # http://localhost:8777/lab.html
 ```
 
 The panel has two views, switched at the top and remembered in
-`localStorage`. The **simple** view (the default) offers a board size (the
-preset sizes), two sliders — piece length from very short to very long, line
+`localStorage`. The **simple** view (the default) offers the board size
+(width and height, edited like in the advanced view), two sliders — piece
+length from very short to very long, line
 shape from the straightest lines to the most winding — a skeleton switch
 (with, without) and the seed. `lab-simple.mjs` maps a choice to a full
 parameter set: a slider has anchors at 0, ¼, ½, ¾ and 1, each giving every

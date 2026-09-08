@@ -1,6 +1,6 @@
-// The simple view of the lab: a board size, two sliders (piece length, line
-// shape), a skeleton switch and a seed, translated into a full engine
-// parameter set.
+// The simple view of the lab: a board size (any width and height the engine
+// allows), two sliders (piece length, line shape), a skeleton switch and a
+// seed, translated into a full engine parameter set.
 //
 // A slider position is a wish, not a configuration. Each slider has anchors
 // at 0, 0.25, 0.5, 0.75 and 1; an anchor gives every knob it controls a
@@ -22,7 +22,7 @@ import { PRESETS } from './lab-presets.mjs'
 
 const specByKey = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 
-/** Every distinct preset size, smallest first. */
+/** Every distinct preset size, smallest first — the sizes the ranges are exercised at. */
 export const SIMPLE_SIZES = (() => {
   const seen = new Map()
   for (const l of PRESETS) for (const o of l.options) {
@@ -92,7 +92,7 @@ const DIFFICULTY_BIG = { headBias: { pick: [0, 1], def: 0 } }
 /** The choice that reproduces the engine defaults. */
 export function defaultChoice() {
   const d = defaultParams()
-  return { size: `${d.W}x${d.H}`, lengths: 0.75, shape: 0.5, skeleton: 'off', seed: d.seed }
+  return { W: d.W, H: d.H, lengths: 0.75, shape: 0.5, skeleton: 'off', seed: d.seed }
 }
 
 // Recipes saved by the button version of the view carry category names.
@@ -103,12 +103,21 @@ const OLD_NAMES = {
 
 /**
  * A choice with every field valid: old category names become slider
- * positions, numbers are clamped into 0..1, anything else falls back to the
- * default. Extra fields (the randomise flag) ride along.
+ * positions, numbers are clamped into 0..1, the size is clamped into the
+ * engine range (an old `size` id such as "100x200" is read when W or H is
+ * missing), anything else falls back to the default. Extra fields (the
+ * randomise flag) ride along.
  */
 export function normalizeChoice(raw) {
   const d = defaultChoice()
   const out = { ...raw }
+  const old = typeof raw?.size === 'string' ? /^(\d+)x(\d+)$/.exec(raw.size) : null
+  delete out.size
+  for (const [key, i] of [['W', 1], ['H', 2]]) {
+    const spec = specByKey.get(key)
+    const v = typeof raw?.[key] === 'number' ? raw[key] : old ? Number(old[i]) : NaN
+    out[key] = Number.isFinite(v) ? Math.min(spec.max, Math.max(spec.min, Math.round(v))) : d[key]
+  }
   for (const key of Object.keys(SIMPLE_SLIDERS)) {
     const v = raw?.[key]
     const named = typeof v === 'string' ? OLD_NAMES[key][v] : undefined
@@ -116,13 +125,8 @@ export function normalizeChoice(raw) {
     out[key] = Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : d[key]
   }
   for (const [key, values] of Object.entries(SIMPLE_CHOICES)) if (!values.includes(raw?.[key])) out[key] = d[key]
-  if (!SIMPLE_SIZES.some((s) => s.id === raw?.size)) out.size = d.size
   if (typeof raw?.seed !== 'number') out.seed = d.seed
   return out
-}
-
-export function sizeOf(id) {
-  return SIMPLE_SIZES.find((s) => s.id === id) ?? SIMPLE_SIZES[0]
 }
 
 // Interpolates the ranges of two neighbouring anchors, knob by knob.
@@ -156,8 +160,7 @@ function snapRange(key, range) {
 /** The knob ranges a choice controls at its slider positions, keyed by PARAM_SPEC key. */
 export function simpleRanges(choice) {
   const c = normalizeChoice(choice)
-  const size = sizeOf(c.size)
-  const big = Math.max(size.W, size.H) > BIG_SIDE
+  const big = Math.max(c.W, c.H) > BIG_SIDE
   const merged = {
     ...lerpRanges(LENGTH_ANCHORS, c.lengths),
     ...lerpRanges(SHAPE_ANCHORS, c.shape),
@@ -198,8 +201,7 @@ function draw(key, range, rng) {
  */
 export function simpleParams(choice, rng = null) {
   const c = normalizeChoice(choice)
-  const size = sizeOf(c.size)
-  const p = { ...defaultParams(), W: size.W, H: size.H, seed: c.seed }
+  const p = { ...defaultParams(), W: c.W, H: c.H, seed: c.seed }
   const ranges = simpleRanges(c)
   for (const [key, range] of Object.entries(ranges)) p[key] = draw(key, range, rng)
   // The engine caps short + medium at 0.9; the ranges respect it at the

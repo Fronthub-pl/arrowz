@@ -14,6 +14,8 @@ for (const lengths of positions) for (const shape of positions) for (const skele
 }
 const choice = (over) => ({ ...defaultChoice(), ...over })
 
+// SIMPLE_SIZES is the list of sizes the ranges are exercised at (the preset
+// sizes); the view itself takes any width and height the engine allows.
 test('simple sizes are every preset size once, smallest first', () => {
   const fromPresets = new Set()
   for (const l of PRESETS) for (const o of l.options) fromPresets.add(`${o.params.W}x${o.params.H}`)
@@ -25,12 +27,30 @@ test('simple sizes are every preset size once, smallest first', () => {
   for (const s of SIMPLE_SIZES) assert.equal(s.id, `${s.W}x${s.H}`)
 })
 
-test('lengths and shape are sliders from 0 to 1, skeleton stays a choice', () => {
+test('lengths and shape are sliders from 0 to 1, skeleton stays a choice, the size is W and H', () => {
   assert.deepEqual(Object.keys(SIMPLE_SLIDERS).sort(), ['lengths', 'shape'])
   assert.deepEqual(SIMPLE_CHOICES, { skeleton: ['off', 'on'] })
   const d = defaultChoice()
   assert.equal(typeof d.lengths, 'number')
   assert.equal(typeof d.shape, 'number')
+  assert.deepEqual([d.W, d.H], [defaultParams().W, defaultParams().H])
+  assert.equal(d.size, undefined, 'no preset-size id any more')
+})
+
+test('normalizeChoice takes any engine size, clamps it and reads the old size id', () => {
+  const d = defaultChoice()
+  assert.deepEqual([normalizeChoice({ W: 37, H: 91 }).W, normalizeChoice({ W: 37, H: 91 }).H], [37, 91])
+  assert.equal(normalizeChoice({ W: 5000 }).W, 1000, 'clamped to the engine maximum')
+  assert.equal(normalizeChoice({ H: 1 }).H, 4, 'clamped to the engine minimum')
+  assert.equal(normalizeChoice({ W: 12.7 }).W, 13, 'whole cells')
+  assert.deepEqual([normalizeChoice({ size: '100x200' }).W, normalizeChoice({ size: '100x200' }).H], [100, 200], 'old recipe')
+  assert.equal(normalizeChoice({ size: '100x200', W: 40 }).W, 40, 'explicit W wins over the old id')
+  assert.deepEqual([normalizeChoice({ W: 'x', size: 'junk' }).W, normalizeChoice({ W: 'x', size: 'junk' }).H], [d.W, d.H])
+  assert.equal(normalizeChoice({ size: '100x200' }).size, undefined, 'the id is not carried on')
+  const p = simpleParams({ ...d, W: 37, H: 91 })
+  assert.equal(p.W, 37)
+  assert.equal(p.H, 91)
+  assert.deepEqual(validateParams(p), [])
 })
 
 // The plain "long, slightly winding, no skeleton" board IS the engine
@@ -51,16 +71,15 @@ test('normalizeChoice maps the old category names to slider positions and repair
   assert.equal(normalizeChoice({ shape: 'winding' }).shape, 0.75)
   assert.equal(normalizeChoice({ lengths: 0.37 }).lengths, 0.37)
   assert.equal(normalizeChoice({ lengths: 7 }).lengths, 1, 'clamped into 0..1')
-  assert.equal(normalizeChoice({ lengths: 'nonsense', shape: NaN, skeleton: 'maybe', size: '3x3' }).lengths, d.lengths)
+  assert.equal(normalizeChoice({ lengths: 'nonsense', shape: NaN, skeleton: 'maybe' }).lengths, d.lengths)
   assert.equal(normalizeChoice({ shape: NaN }).shape, d.shape)
   assert.equal(normalizeChoice({ skeleton: 'maybe' }).skeleton, d.skeleton)
-  assert.equal(normalizeChoice({ size: '3x3' }).size, d.size)
   assert.equal(normalizeChoice({ skeleton: 'on', random: true }).random, true, 'the randomise flag rides along')
 })
 
 test('every slider position at every size passes the engine validation without randomising', () => {
   for (const size of SIMPLE_SIZES) for (const c of combos) {
-    const p = simpleParams(choice({ ...c, size: size.id, seed: 11 }))
+    const p = simpleParams(choice({ ...c, W: size.W, H: size.H, seed: 11 }))
     assert.equal(p.W, size.W)
     assert.equal(p.H, size.H)
     assert.equal(p.seed, 11)
@@ -71,7 +90,7 @@ test('every slider position at every size passes the engine validation without r
 test('randomised parameters stay inside the position ranges, on the knob step and inside the envelope', () => {
   const rng = mulberry32(2026)
   for (const size of SIMPLE_SIZES) for (const c of combos) {
-    const ch = choice({ ...c, size: size.id })
+    const ch = choice({ ...c, W: size.W, H: size.H })
     const ranges = simpleRanges(ch)
     for (let i = 0; i < 8; i++) {
       const p = simpleParams(ch, rng)
@@ -134,10 +153,10 @@ test('big boards get a higher straightness floor and no layers mode when randomi
   const rng = mulberry32(7)
   let minSmall = 1
   for (let i = 0; i < 200; i++) {
-    const big = simpleParams(choice({ shape: 1, size: '1000x1000' }), rng)
+    const big = simpleParams(choice({ shape: 1, W: 1000, H: 1000 }), rng)
     assert.ok(big.pStraight >= 0.7 - 1e-9, `pStraight ${big.pStraight} at 1000×1000`)
     assert.notEqual(big.headBias, -1, 'no layers mode at 1000×1000')
-    minSmall = Math.min(minSmall, simpleParams(choice({ shape: 1, size: '200x400' }), rng).pStraight)
+    minSmall = Math.min(minSmall, simpleParams(choice({ shape: 1, W: 200, H: 400 }), rng).pStraight)
   }
   assert.ok(minSmall < 0.7, `small boards may go below 0.7 (min ${minSmall})`)
   assert.ok(minSmall >= 0.65 - 1e-9)
@@ -154,7 +173,8 @@ test('both dictionaries label every simple choice, slider end, size and view str
       const ends = d.simple.ends[key]
       assert.ok(Array.isArray(ends) && ends.length === 2 && ends.every((e) => typeof e === 'string' && e.length > 0), `${key} ends`)
     }
-    for (const k of ['viewSimple', 'viewAdvanced', 'size', 'randomize', 'randomizeHelp']) assert.equal(typeof d.simple[k], 'string', k)
+    for (const k of ['viewSimple', 'viewAdvanced', 'randomize', 'randomizeHelp']) assert.equal(typeof d.simple[k], 'string', k)
+    assert.equal(d.simple.size, undefined, 'the size label is gone with the size list')
   }
   assert.deepEqual(Object.keys(PL.simple).sort(), Object.keys(EN.simple).sort())
   assert.deepEqual(Object.keys(PL.simple.options).sort(), Object.keys(SIMPLE_CHOICES).sort(), 'no stale option groups')
