@@ -1579,22 +1579,23 @@ function toSvg(board, opts = {}) {
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
     // The head scales with the width of ITS line (highlighted pieces are
-    // thicker): an isosceles triangle 0.24 of a cell wider than the line, at
-    // most 0.05 short of a line in the next cell, and at least 0.9 times as
-    // tall as wide. Its tip stays 0.48 past the head centre, inside the head
-    // cell (an overshooting tip looked wrong and facing heads overlapped),
-    // so a bigger head grows backwards. The line stops half its width short
-    // of the base: its round cap ends exactly on the base instead of
-    // swallowing the head, which a fixed head suffered from a stroke of 0.5 up.
+    // thicker): an isosceles triangle 1.8 times as wide as the line, at least
+    // half a cell and at most a cell wide, kept 0.05 short of a line in the
+    // next cell, and 1.1 times as tall as wide. Its tip stays 0.48 past the
+    // head centre, inside the head cell (an overshooting tip looked wrong and
+    // facing heads overlapped), so a bigger head grows backwards. The line
+    // runs up to the base itself: its round cap hides inside the head. A head
+    // only slightly wider than the line, with the cap ending short of the
+    // base, looked like a triangle perched on a pill, with notches at the
+    // corners; a fixed head was swallowed by the cap from a stroke of 0.5 up.
     const w = isLong ? hiWidth : sw
-    const half = Math.min(w / 2 + 0.12 * cell, cell - w / 2 - 0.05 * cell)
-    const height = Math.max(0.58 * cell, 0.9 * 2 * half)
+    const half = Math.min(Math.max(0.9 * w, 0.25 * cell), 0.5 * cell, cell - w / 2 - 0.05 * cell)
+    const height = 1.1 * 2 * half
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height
     const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
-    const ex = bx - dx * w / 2, ey = by - dy * w / 2
-    const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
+    const pts = [`${bx},${by}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
     const line = `<polyline points="${pts}" stroke="${col}"/>`
     if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
   })

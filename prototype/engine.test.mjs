@@ -462,23 +462,28 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
-      // Wider than the line by a clear margin, unless a neighbouring line is
-      // in the way (0.05 of a cell left to it at the widest).
-      assert.ok(base >= Math.min(s + 0.2, 2 - s - 0.12) - 1e-6, `${label}: base ${base} too narrow for stroke ${s}`)
+      // Clearly wider than the line (1.8 times, at least half a cell), never
+      // wider than a cell, and 0.05 of a cell short of a line in the next cell.
+      const want = Math.min(Math.max(1.8 * s, 0.5), 1, 2 - s - 0.1)
+      assert.ok(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
       assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
-      assert.ok(height >= 0.85 * base, `${label}: head ${height} tall for a ${base} base is stubby`)
+      assert.ok(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
       // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
       const head = board.pieces[i].cells[0]
       const centre = [30 + head.x * cell, 30 + head.y * cell]
       const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1]) / cell
       assert.ok(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
-      // The line stops short of the base by half its width, so its round cap
-      // ends exactly on the base and the head is never swallowed by the cap.
-      const dir = [(tip[0] - mid[0]) / (height * cell), (tip[1] - mid[1]) / (height * cell)]
+      // The line runs up to the base itself and its round cap hides inside
+      // the head: a cap ending short of the base left a waist and notches
+      // between the line and a head only slightly wider than it.
       const [first] = lines[i]
-      const capFront = [first[0] + dir[0] * s * cell / 2, first[1] + dir[1] * s * cell / 2]
-      assert.ok(Math.hypot(capFront[0] - mid[0], capFront[1] - mid[1]) < 1e-6, `${label}: line cap ends at ${capFront}, base at ${mid}`)
-      assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < cell, `${label}: line end behind the neck cell`)
+      assert.ok(Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6, `${label}: line ends at ${first}, base at ${mid}`)
+      for (let y = 0; y <= s / 2; y += s / 20) {
+        const circle = Math.sqrt(Math.max(0, (s / 2) ** 2 - y ** 2))
+        const triangle = (base / 2) * (1 - y / height)
+        assert.ok(circle <= triangle + 0.02, `${label}: the line cap pokes out of the head at ${y}: ${circle} > ${triangle}`)
+      }
+      assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell, `${label}: line end behind the neck cell`)
     })
   }
 })
