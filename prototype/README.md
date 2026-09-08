@@ -258,11 +258,16 @@ per 30 runs, failures still zero.
 
 Drawing parameters giving the reference appearance: line width 50% of the grid pitch,
 `stroke-linecap` and `stroke-linejoin` set to `round`, arrowhead as a filled
-isosceles triangle 0.58 of the pitch tall and 0.56 wide at the base, its tip
-0.48 past the head cell centre so it stays inside that cell (a tip reaching
-0.62 looked like an overshoot and two heads facing each other in neighbouring
-cells overlapped; a wider 0.84 base made the heads of two pieces meeting at a
-right angle in neighbouring cells touch), colours `#232447` on `#f6f6fa`.
+isosceles triangle that scales with the line: 0.24 of the pitch wider than
+the line (at most 0.05 short of a line in the next cell), at least 0.58 tall
+and at least 0.9 times as tall as wide, its tip 0.48 past the head cell
+centre so it stays inside that cell, growing backwards as it gets bigger. The
+line stops half its width short of the base, so its round cap ends exactly
+under the head. Colours `#232447` on `#f6f6fa`. History: a fixed head with a
+0.62 tip overshot into the next cell and facing heads overlapped; a fixed
+0.84 base touched heads at a right angle; and a fixed head was swallowed by
+the round cap from a stroke of 0.5 up (checked at 0.2..0.9 in 0.05 steps on
+a 25×25 board: legible to 0.45, gone from 0.55).
 
 ## Round 5 — coiling versus wrapping
 
