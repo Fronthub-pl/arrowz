@@ -257,17 +257,25 @@ The price of the adopted weights: p99 time on Nightmare rises from 442 to 658 ms
 per 30 runs, failures still zero.
 
 Drawing parameters giving the reference appearance: line width 50% of the grid pitch,
-`stroke-linecap` and `stroke-linejoin` set to `round`, arrowhead as a filled
-isosceles triangle that scales with the line: 0.24 of the pitch wider than
-the line (at most 0.05 short of a line in the next cell), at least 0.58 tall
-and at least 0.9 times as tall as wide, its tip 0.48 past the head cell
-centre so it stays inside that cell, growing backwards as it gets bigger. The
-line stops half its width short of the base, so its round cap ends exactly
-under the head. Colours `#232447` on `#f6f6fa`. History: a fixed head with a
-0.62 tip overshot into the next cell and facing heads overlapped; a fixed
-0.84 base touched heads at a right angle; and a fixed head was swallowed by
-the round cap from a stroke of 0.5 up (checked at 0.2..0.9 in 0.05 steps on
-a 25×25 board: legible to 0.45, gone from 0.55).
+`stroke-linejoin` set to `round`, flat line ends (`stroke-linecap="butt"`)
+with the tail rounded by a circle of the line's radius, and a head that
+follows the line width: under a stroke of 0.5 an arrow — a filled isosceles
+triangle 1.8 times as wide as the line (half a pitch at least, a pitch at
+most), always 0.9 of a pitch tall; from 0.5 up a sharpened stick —
+exactly as wide as the line and 1.4 times as tall, because a wider head no
+longer fits between neighbours. Both sizes can be set by hand: the lab has
+two knobs next to the stroke (also on a stored board), the CLI takes
+`--headwidth=R` and `--headheight=R` in cells; 0 keeps the automatic rule,
+and a head narrower than the line is widened to it. The tip sits 0.48 past the head cell centre
+so it stays inside that cell, a bigger head grows backwards, and the line
+runs up to the base itself. Colours `#232447` on `#f6f6fa`. History: a
+fixed head with a 0.62 tip overshot into the next cell and facing heads
+overlapped; a fixed 0.84 base touched heads at a right angle; a fixed head
+was swallowed by the round cap from a stroke of 0.5 up (checked at 0.2..0.9
+in 0.05 steps on a 25×25 board: legible to 0.45, gone from 0.55); a head
+only slightly wider than the line, with the round cap ending short of the
+base, looked like a triangle perched on a pill; and a round cap under a
+stick head bulged at the base.
 
 ## Round 5 — coiling versus wrapping
 

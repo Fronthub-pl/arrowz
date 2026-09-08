@@ -72,7 +72,7 @@ if (svgFlag || dryRun) {
     process.exit(1)
   }
   const c = result.board, m = result.metrics, W = cli.W, H = cli.H
-  const svg = toSvg(c, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top })
+  const svg = toSvg(c, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, headWidth: view.headWidth, headHeight: view.headHeight, top: view.top })
   if (dryRun) {
     console.log(JSON.stringify({
       dryRun: true, W, H, seed: cli.seed, id: boardId(cli), params: cli, view, command: buildCommand(cli, view),

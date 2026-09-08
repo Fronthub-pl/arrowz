@@ -14,7 +14,8 @@ export const ALIASES = {
 const KEY_BY_FLAG = new Map(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
 for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
 
-export const DEFAULT_VIEW = { cell: 12, stroke: 0.5, colored: false, top: 0 }
+// headWidth / headHeight: arrowhead size in cells, 0 = automatic (from the stroke).
+export const DEFAULT_VIEW = { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 }
 
 // Mode and view flags read by carve.mjs (not engine parameters). Kept next to
 // the parser so that --help and the parser cannot drift apart.
@@ -34,6 +35,8 @@ const MODE_FLAGS = [
 const VIEW_FLAGS = [
   ['--cell=N', `cell size in px (default ${DEFAULT_VIEW.cell})`],
   ['--stroke=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
+  ['--headwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
+  ['--headheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
   ['--colored', 'a different colour for every piece'],
   ['--top=N', 'highlight the N longest pieces and print their stats'],
 ]
@@ -89,6 +92,8 @@ export function buildCommand(params, view = {}) {
   }
   parts.push(`--cell=${v.cell}`)
   if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--stroke=${v.stroke}`)
+  if (v.headWidth > 0) parts.push(`--headwidth=${v.headWidth}`)
+  if (v.headHeight > 0) parts.push(`--headheight=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
   return parts.join(' ')
@@ -110,6 +115,8 @@ export function parseArgs(argv) {
     const key = KEY_BY_FLAG.get(name)
     if (key) { params[key] = Number(raw); continue }
     if (name === 'cell' || name === 'stroke' || name === 'top') { view[name] = Number(raw); continue }
+    if (name === 'headwidth') { view.headWidth = Number(raw); continue }
+    if (name === 'headheight') { view.headHeight = Number(raw); continue }
     if (name === 'colored') { view.colored = true; continue }
     rest.push(a)
   }

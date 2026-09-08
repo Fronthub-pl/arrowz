@@ -1566,7 +1566,13 @@ function toSvg(board, opts = {}) {
     if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
   }
 
-  out.push(`<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`)
+  // Lines end flat: the head end hides under the head (a round cap as wide as
+  // a stick head bulged at the base), and the tail gets its rounding from a
+  // circle of the line's radius, drawn with the heads. Corners stay round.
+  // The default ink is set once per group; only coloured and highlighted
+  // pieces carry their own colour (a 1000×1000 board has ~90 000 pieces).
+  const INK = '#232447'
+  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
   const heads = []
   const highlight = []      // paths of the longest pieces, drawn last
   const highlightHeads = []
@@ -1575,36 +1581,56 @@ function toSvg(board, opts = {}) {
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
-    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
+    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : INK
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
-    // The head scales with the width of ITS line (highlighted pieces are
-    // thicker): an isosceles triangle 0.24 of a cell wider than the line, at
-    // most 0.05 short of a line in the next cell, and at least 0.9 times as
-    // tall as wide. Its tip stays 0.48 past the head centre, inside the head
-    // cell (an overshooting tip looked wrong and facing heads overlapped),
-    // so a bigger head grows backwards. The line stops half its width short
-    // of the base: its round cap ends exactly on the base instead of
-    // swallowing the head, which a fixed head suffered from a stroke of 0.5 up.
+    // The head follows the width of ITS line (highlighted pieces are
+    // thicker). A thin line (under half a cell) gets an arrow: an isosceles
+    // triangle 0.4 of a cell plus 0.9 of the line width wide, always 0.9 of a
+    // cell tall. From half a cell up there is no
+    // room for a wider head between neighbours, so the line ends as a
+    // sharpened stick: a triangle exactly as wide as the line and 1.4 times
+    // as tall. Either way the tip stays 0.48 past the head centre, inside the
+    // head cell (an overshooting tip looked wrong and facing heads
+    // overlapped), so a bigger head grows backwards, and the line runs up to
+    // the base itself with its round cap hidden inside the head. A head only
+    // slightly wider than the line, with the cap ending short of the base,
+    // looked like a triangle perched on a pill, with notches at the corners;
+    // a fixed head was swallowed by the cap from a stroke of 0.5 up.
+    // Both sizes can be set by hand (opts.headWidth / headHeight, in cells;
+    // 0 = automatic); a head narrower than its line is widened to the line.
     const w = isLong ? hiWidth : sw
-    const half = Math.min(w / 2 + 0.12 * cell, cell - w / 2 - 0.05 * cell)
-    const height = Math.max(0.58 * cell, 0.9 * 2 * half)
+    const stick = w >= 0.5 * cell - 1e-9
+    const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
+    const autoHeight = stick ? 1.4 * w : 0.9 * cell
+    const half = Math.max(w, opts.headWidth > 0 ? opts.headWidth * cell : autoWidth) / 2
+    const height = opts.headHeight > 0 ? opts.headHeight * cell : autoHeight
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height
-    const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
-    const ex = bx - dx * w / 2, ey = by - dy * w / 2
+    // Line and head overlap by 0.2 of the line width, so no anti-aliasing
+    // seam shows at the base: a head the line fits into that deep takes the
+    // line that far past the base; a head as wide as the line (a stick) gets
+    // a collar of that length behind the base instead (a five-point outline).
+    const lap = 0.2 * w
+    const fits = w / 2 <= half * (1 - lap / height) + 1e-9
+    const collar = fits ? '' : ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${by - dy * lap + dx * half}`
+    const fill = col === INK ? '' : ` fill="${col}"`
+    const tailCell = pc.cells[pc.cells.length - 1]
+    const head = `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${by + dx * half}"${fill}/>` +
+      `<circle cx="${cx(tailCell.x)}" cy="${cy(tailCell.y)}" r="${w / 2}"${fill}/>`
+    const ex = fits ? bx + dx * lap : bx, ey = fits ? by + dy * lap : by
     const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
-    const line = `<polyline points="${pts}" stroke="${col}"/>`
+    const line = `<polyline points="${pts}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
   })
   out.push('</g>')
   if (highlight.length) {
-    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="round" stroke-linejoin="round">`)
+    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="round">`)
     out.push(...highlight)
     out.push('</g>')
   }
-  out.push(`<g>${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
+  out.push(`<g fill="${INK}">${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
   return out.join('\n')
 }
 

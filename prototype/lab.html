@@ -228,6 +228,15 @@
     <label for="stroke" data-i18n="strokeLabel">stroke width (grid units)</label>
     <input type="number" id="stroke" value="0.5" min="0.2" max="0.9" step="0.05">
   </div>
+  <div class="row labonly">
+    <label for="headWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
+    <input type="number" id="headWidth" value="0" min="0" max="1.2" step="0.05">
+  </div>
+  <div class="row labonly">
+    <label for="headHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
+    <input type="number" id="headHeight" value="0" min="0" max="1.3" step="0.05">
+    <p class="help" data-i18n="headHelp"></p>
+  </div>
   <label class="check labonly"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
   <label class="check labonly"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
   <label class="check labonly advonly"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
@@ -264,6 +273,10 @@
           <div class="libview">
             <label for="libStroke" data-i18n="strokeLabel">stroke width (grid units)</label>
             <input type="number" id="libStroke" value="0.5" min="0.2" max="0.9" step="0.05">
+            <label for="libHeadWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
+            <input type="number" id="libHeadWidth" value="0" min="0" max="1.2" step="0.05">
+            <label for="libHeadHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
+            <input type="number" id="libHeadHeight" value="0" min="0" max="1.3" step="0.05">
             <label class="check"><input type="checkbox" id="libColored"> <span data-i18n="colored">colour the arrows</span></label>
           </div>
           <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
@@ -635,6 +648,8 @@ function viewOptions() {
   return {
     cell: Number($('cell').value),
     stroke: Number($('stroke').value),
+    headWidth: Number($('headWidth').value),
+    headHeight: Number($('headHeight').value),
     colored: $('colored').checked,
     top: $('hilite').checked ? Number($('top').value) : 0,
     voids: $('voids').checked,
@@ -802,7 +817,7 @@ $('reset').addEventListener('click', () => {
   if (simpleActive()) { simpleChoice = { ...defaultChoice(), random: simpleChoice.random }; applySimple() }
   run()
 })
-for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top', 'voids']) {
+for (const id of ['cell', 'stroke', 'headWidth', 'headHeight', 'colored', 'hilite', 'top', 'voids']) {
   $(id).addEventListener('input', () => { updateCommand(); redraw() })
 }
 // full view — panel and stats aside, the board gets the whole window
@@ -838,7 +853,7 @@ function storeView() { return { ...viewOptions(), top: 0 } }
 async function saveBoardToStore(svg) {
   const view = storeView()
   const body = {
-    svg, params: runParams, view: { cell: view.cell, stroke: view.stroke, colored: view.colored, top: 0 },
+    svg, params: runParams, view: { cell: view.cell, stroke: view.stroke, headWidth: view.headWidth, headHeight: view.headHeight, colored: view.colored, top: 0 },
     command: buildCommand(runParams, view), source: 'lab',
     metrics: { ok: lastDone.ok, pieces: lastDone.pieces, maxLen: lastDone.metrics?.maxLen ?? null, genMs: lastDone.genMs },
   }
@@ -941,6 +956,8 @@ async function openBoard(meta) {
   $('libDetail').hidden = false
   $('libCommand').textContent = meta.command
   $('libStroke').value = meta.view?.stroke ?? 0.5
+  $('libHeadWidth').value = meta.view?.headWidth ?? 0
+  $('libHeadHeight').value = meta.view?.headHeight ?? 0
   $('libColored').checked = !!meta.view?.colored
   if (libWorkerId !== meta.id) dropLibWorker()
   setStatus(t('loadingBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
@@ -963,6 +980,8 @@ $('libLoad').addEventListener('click', () => {
   const v = libBoard.view ?? {}
   if (v.cell) $('cell').value = v.cell
   if (v.stroke) $('stroke').value = v.stroke
+  $('headWidth').value = v.headWidth ?? 0
+  $('headHeight').value = v.headHeight ?? 0
   $('colored').checked = !!v.colored
   $('hilite').checked = (v.top ?? 0) > 0
   if (v.top > 0) $('top').value = v.top
@@ -985,8 +1004,9 @@ function dropLibWorker() {
   libWorkerId = null
 }
 function libView(meta) {
-  return { cell: meta.view?.cell ?? 12, stroke: Number($('libStroke').value), colored: $('libColored').checked,
-           top: 0, voids: false }   // stored boards carry no highlight
+  return { cell: meta.view?.cell ?? 12, stroke: Number($('libStroke').value),
+           headWidth: Number($('libHeadWidth').value), headHeight: Number($('libHeadHeight').value),
+           colored: $('libColored').checked, top: 0, voids: false }   // stored boards carry no highlight
 }
 function scheduleLibRender() { clearTimeout(libTimer); libTimer = setTimeout(libRender, 350) }
 function libRender() {
@@ -1037,7 +1057,7 @@ async function onLibWorkerMessage(meta, msg) {
     setStatus(`<span class="bad">${t('notSaved')}</span>`)
   }
 }
-$('libStroke').addEventListener('input', scheduleLibRender)
+for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) $(id).addEventListener('input', scheduleLibRender)
 $('libColored').addEventListener('change', scheduleLibRender)
 
 // Deleting takes two clicks on the same button: the first arms it, the second
@@ -1080,6 +1100,7 @@ $('libDelete').addEventListener('click', async () => {
 let writtenHash = ''
 function saveToUrl() {
   const view = { cell: $('cell').value, stroke: $('stroke').value, top: $('top').value,
+                 headWidth: $('headWidth').value, headHeight: $('headHeight').value,
                  colored: $('colored').checked, hilite: $('hilite').checked, help: $('help').checked,
                  fit: $('fit').checked, zoom: $('zoom').value, lang, tab: activeTab }
   writtenHash = '#' + encodeURIComponent(JSON.stringify({ ...state, __view: view }))
@@ -1095,6 +1116,8 @@ function loadFromUrl() {
     showClamped(clamped)
     if (view.cell) $('cell').value = view.cell
     if (view.stroke) $('stroke').value = view.stroke
+    if (view.headWidth) $('headWidth').value = view.headWidth
+    if (view.headHeight) $('headHeight').value = view.headHeight
     if (view.top) $('top').value = view.top
     $('colored').checked = !!view.colored
     $('hilite').checked = view.hilite !== false
