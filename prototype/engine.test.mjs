@@ -4,6 +4,7 @@
 // without failures — these tests guard that, not eyeballing in the laboratory.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint } from './engine.mjs'
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
@@ -172,4 +173,77 @@ test('analyse: does not overflow the stack with hundreds of thousands of pieces 
   assert.equal(m.minLen, 2)
   assert.equal(m.maxLen, 2)
   assert.equal(m.coverage, 1)
+})
+
+test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150 thousand pieces ran out of memory)', () => {
+  // 400×400 covered with horizontal dominoes whose head is the LEFT cell and
+  // which point left: every ray crosses all dominoes to its left in the row,
+  // 100 on average, so the blocking graph has 8 million edges. Kept as Sets of
+  // ids plus a copy for Kahn, that graph needs over a gigabyte; two boards of
+  // the random 1000×1000 sweep (155 thousand mostly short pieces, 25 million
+  // edges) killed the CLI with "Reached heap limit" after the generator had
+  // closed them at 150 MB. The child process makes the bound a real assertion.
+  const script = `
+    import { Carver, defaultParams, mulberry32, analyse } from ${JSON.stringify(new URL('./engine.mjs', import.meta.url).href)}
+    const W = 400, H = 400
+    const c = new Carver(W, H, defaultParams(), mulberry32(1))
+    let id = 0
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x += 2) {
+      c.pieces.push({ id, dir: 3, cells: [{ x, y }, { x: x + 1, y }] })
+      c.owner[y * W + x] = id; c.owner[y * W + x + 1] = id; id++
+    }
+    c.remaining = 0
+    const m = analyse(c)
+    console.log(JSON.stringify({ N: m.N, solvable: m.solvable, f0: m.f0, outDeg: m.outDeg, maxOut: m.maxOut, D: m.D, almost: m.almost }))
+  `
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', script], { encoding: 'utf8' })
+  assert.equal(r.status, 0, `analyse died under a 256 MB heap:\n${r.stderr.split('\n').filter((l) => /FATAL|heap/.test(l)).join('\n')}`)
+  const m = JSON.parse(r.stdout.trim().split('\n').pop())
+  // The same numbers the Set-based implementation produced without the cap.
+  assert.deepEqual(m, { N: 80000, solvable: true, f0: 0.005, outDeg: 99.5, maxOut: 199, D: 199, almost: 400 })
+})
+
+test('analyse: a piece bordering two hundred thousand others does not overflow the stack', () => {
+  // 3×200 000: one vertical line down the left column, the other two columns
+  // covered with dominoes whose head is at the right edge (all rays empty).
+  // The line shares a border with every domino, so its "longest shared border"
+  // used to be Math.max(...200 000 values) — a spread proportional to the
+  // number of pieces, which the repository rules forbid: it throws RangeError
+  // in Node and overflows the worker stack in Chrome far earlier.
+  const W = 3, H = 200000
+  const c = new Carver(W, H, defaultParams(), mulberry32(1))
+  const line = []
+  for (let y = 0; y < H; y++) { line.push({ x: 0, y }); c.owner[y * W] = 0 }
+  c.pieces.push({ id: 0, dir: 0, cells: line })
+  for (let y = 0; y < H; y++) {
+    const id = y + 1
+    c.pieces.push({ id, dir: 1, cells: [{ x: 2, y }, { x: 1, y }] })
+    c.owner[y * W + 1] = id; c.owner[y * W + 2] = id
+  }
+  c.remaining = 0
+  const m = analyse(c)
+  assert.equal(m.N, H + 1)
+  assert.equal(m.maxLen, H)
+  // The line shares exactly one edge with each domino, so its longest border
+  // with a single other piece is one edge over H cells.
+  assert.equal(m.longPieces, 1)
+  assert.equal(m.sharedBorder, 1 / H)
+})
+
+test('analyse: metrics are identical to the ones recorded with the Set-based blocking graph', () => {
+  // Recorded on 2026-09-08 before the blocking graph moved to typed arrays;
+  // the storage may change, the numbers may not (order of summation included).
+  const recorded = {
+    '25x50-seed7': { N: 126, solvable: true, unsolved: 0, f0: 0.07936507936507936, T2: 0, almost: 29, D: 10, bends: 2.738095238095238, multiLine: 0.7301587301587301, coil: 0.244, selfAdj: 2.1744, bendsPerCell: 0.276, span: 0.15476190476190452, spanTop10: 0.4784615384615386, spanMax: 0.72, outDeg: 3.253968253968254, maxOut: 30, blockDist: 0.16227642276422763, neighbours: 8.121951219512194, sharedBorder: 0.5496450712402696, longPieces: 41, meanCorridorLen: 8.11111111111111, minLen: 2, maxLen: 68, hist: { '2-6': 83, '7-15': 22, '16-49': 17, '50+': 4 }, coverage: 1 },
+    '60x60-seed3': { N: 328, solvable: true, unsolved: 0, f0: 0.08231707317073171, T2: 0, almost: 46, D: 16, bends: 2.908536585365854, multiLine: 0.7103658536585366, coil: 0.30944444444444447, selfAdj: 2.2733333333333334, bendsPerCell: 0.265, span: 0.0861788617886183, spanTop10: 0.2833333333333333, spanMax: 0.5333333333333333, outDeg: 5.524390243902439, maxOut: 59, blockDist: 0.14292218543046356, neighbours: 7.7073170731707314, sharedBorder: 0.5480881033121535, longPieces: 123, meanCorridorLen: 14.628048780487806, minLen: 2, maxLen: 102, hist: { '2-6': 199, '7-15': 70, '16-49': 48, '50+': 11 }, coverage: 1 },
+    '40x40-seed2-giants4': { N: 163, solvable: true, unsolved: 0, f0: 0.09202453987730061, T2: 0, almost: 31, D: 9, bends: 2.4171779141104293, multiLine: 0.7055214723926381, coil: 0.1925, selfAdj: 2.07875, bendsPerCell: 0.24625, span: 0.12760736196319025, spanTop10: 0.45294117647058824, spanMax: 1, outDeg: 3.8098159509202456, maxOut: 56, blockDist: 0.1807769726247987, neighbours: 8.125, sharedBorder: 0.5503663717809313, longPieces: 56, meanCorridorLen: 9.049079754601227, minLen: 2, maxLen: 117, hist: { '2-6': 102, '7-15': 36, '16-49': 20, '50+': 5 }, coverage: 1 },
+    '50x50-seed5-headBias1': { N: 259, solvable: true, unsolved: 0, f0: 0.02702702702702703, T2: 0, almost: 29, D: 18, bends: 2.718146718146718, multiLine: 0.7413127413127413, coil: 0.2552, selfAdj: 2.1808, bendsPerCell: 0.2816, span: 0.10169884169884122, spanTop10: 0.3223076923076923, spanMax: 0.7, outDeg: 6.8687258687258685, maxOut: 62, blockDist: 0.1705902192242833, neighbours: 7.515463917525773, sharedBorder: 0.5778675337884203, longPieces: 97, meanCorridorLen: 17.47876447876448, minLen: 2, maxLen: 71, hist: { '2-6': 159, '7-15': 49, '16-49': 50, '50+': 1 }, coverage: 1 },
+  }
+  const boards = [[25, 50, 7, {}], [60, 60, 3, {}], [40, 40, 2, { giants: 4 }], [50, 50, 5, { headBias: 1 }]]
+  for (const [W, H, seed, extra] of boards) {
+    const r = generate({ ...defaultParams(), W, H, seed, ...extra })
+    assert.equal(r.ok, true)
+    const key = `${W}x${H}-seed${seed}${Object.keys(extra).map((k) => '-' + k + extra[k]).join('')}`
+    assert.deepEqual(r.metrics, recorded[key], key)
+  }
 })

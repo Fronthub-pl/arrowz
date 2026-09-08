@@ -984,12 +984,31 @@ function analyse(board, ruleB = true) {
   const { W, H, owner, pieces } = board
   const idx = (x, y) => y * W + x
   const inside = (x, y) => x >= 0 && y >= 0 && x < W && y < H
-  const blockers = pieces.map(() => new Set())
+  const N = pieces.length
+  // The blocking graph lives in typed arrays: the distinct pieces crossed by
+  // the rays of piece i are `edges[start[i] .. start[i + 1])`, in ray order.
+  // A 1000×1000 board of 150 thousand short pieces has 25 million such pairs;
+  // as a Set of ids per piece (plus the copy Kahn consumed) that graph blew
+  // the Node heap after the generator had closed the board at 150 MB.
+  // `stamp[o]` remembers which piece last recorded o, so a piece crossed by
+  // several rays (or twice by one ray) is counted once, as the Set did.
+  let edges = new Int32Array(Math.max(1024, N * 8))
+  let edgeCount = 0
+  const start = new Int32Array(N + 1)
+  const stamp = new Int32Array(N).fill(-1)
+  const addBlocker = (i, o) => {
+    if (stamp[o] === i) return
+    stamp[o] = i
+    if (edgeCount === edges.length) { const grown = new Int32Array(edges.length * 2); grown.set(edges); edges = grown }
+    edges[edgeCount++] = o
+  }
   let corridorTotal = 0, corridorLines = 0
-  const minDist = new Array(pieces.length).fill(Infinity)
+  const minDist = new Float64Array(N).fill(Infinity)
 
   const RULE_B = ruleB
-  for (const pc of pieces) {
+  for (let i = 0; i < N; i++) {
+    const pc = pieces[i]
+    start[i] = edgeCount
     const { dx, dy } = DIRS[pc.dir]
     if (RULE_B) {
       const h = pc.cells[0]
@@ -1002,8 +1021,8 @@ function analyse(board, ruleB = true) {
         const o = owner[idx(x, y)]
         if (o === -2) continue
         if (o === pc.id) { lastOwn = step; continue }
-        blockers[pc.id].add(o)
-        minDist[pc.id] = Math.min(minDist[pc.id], step - lastOwn)
+        addBlocker(i, o)
+        minDist[i] = Math.min(minDist[i], step - lastOwn)
       }
       continue
     }
@@ -1023,32 +1042,39 @@ function analyse(board, ruleB = true) {
         const o = owner[idx(x, y)]
         if (o === -2) continue            // a void does not block
         if (o === pc.id) { lastOwn = step; continue }
-        blockers[pc.id].add(o)
-        minDist[pc.id] = Math.min(minDist[pc.id], step - lastOwn)
+        addBlocker(i, o)
+        minDist[i] = Math.min(minDist[i], step - lastOwn)
       }
     }
   }
+  start[N] = edgeCount
+  const blockerCount = (i) => start[i + 1] - start[i]
 
-  const N = pieces.length
-  const freeIds = []
-  for (let i = 0; i < N; i++) if (blockers[i].size === 0) freeIds.push(i)
+  // The reverse graph — which pieces i blocks — in the same layout, each list
+  // in ascending order of the blocked piece (the sums below depend on it).
+  const outStart = new Int32Array(N + 1)
+  for (let e = 0; e < edgeCount; e++) outStart[edges[e] + 1]++
+  for (let b = 0; b < N; b++) outStart[b + 1] += outStart[b]
+  const blocks = new Int32Array(edgeCount)
+  const cursor = outStart.slice(0, N)
+  for (let i = 0; i < N; i++) for (let e = start[i]; e < start[i + 1]; e++) blocks[cursor[edges[e]]++] = i
+  const outDegree = (i) => outStart[i + 1] - outStart[i]
 
   // Kahn: solvable <=> the blocking graph is acyclic
-  const remainingBlockers = pieces.map((_, i) => new Set(blockers[i]))
-  const blocks = pieces.map(() => [])
-  for (let i = 0; i < N; i++) for (const b of blockers[i]) blocks[b].push(i)
-  const queue = [...freeIds]
+  const remaining = new Int32Array(N)
+  const queue = new Int32Array(N)
+  let head = 0, tail = 0
+  for (let i = 0; i < N; i++) { remaining[i] = blockerCount(i); if (remaining[i] === 0) queue[tail++] = i }
+  const freeCount = tail
   const depthOf = new Int32Array(N)
   let done = 0, maxDepth = 0
-  const seen = new Uint8Array(N)
-  for (const i of queue) seen[i] = 1
-  while (queue.length) {
-    const i = queue.shift(); done++
-    maxDepth = Math.max(maxDepth, depthOf[i])
-    for (const j of blocks[i]) {
-      remainingBlockers[j].delete(i)
-      depthOf[j] = Math.max(depthOf[j], depthOf[i] + 1)
-      if (remainingBlockers[j].size === 0 && !seen[j]) { seen[j] = 1; queue.push(j) }
+  while (head < tail) {
+    const i = queue[head++]; done++
+    if (depthOf[i] > maxDepth) maxDepth = depthOf[i]
+    for (let e = outStart[i]; e < outStart[i + 1]; e++) {
+      const j = blocks[e]
+      if (depthOf[i] + 1 > depthOf[j]) depthOf[j] = depthOf[i] + 1
+      if (--remaining[j] === 0) queue[tail++] = j
     }
   }
 
@@ -1073,11 +1099,11 @@ function analyse(board, ruleB = true) {
     spans.push(span)
     spanSum += span
 
-    outSum += blocks[i].length
-    if (blocks[i].length > maxOut) maxOut = blocks[i].length
+    outSum += outDegree(i)
+    if (outDegree(i) > maxOut) maxOut = outDegree(i)
     const hi = pc.cells[0]
-    for (const j of blocks[i]) {
-      const hj = pieces[j].cells[0]
+    for (let e = outStart[i]; e < outStart[i + 1]; e++) {
+      const hj = pieces[blocks[e]].cells[0]
       distSum += Math.abs(hi.x - hj.x) + Math.abs(hi.y - hj.y)
       distCount++
     }
@@ -1088,12 +1114,12 @@ function analyse(board, ruleB = true) {
 
   let T2 = 0, almost = 0
   for (let i = 0; i < N; i++) {
-    if (blockers[i].size > 0 && minDist[i] > 2) T2++
+    if (blockerCount(i) > 0 && minDist[i] > 2) T2++
     // On a 100% filled board "corridor clear for k cells" almost never holds,
     // because there is always someone right in front of the piece. The real
     // temptation to err is a piece blocked by EXACTLY ONE other piece — it looks
     // almost ready to leave.
-    if (blockers[i].size === 1) almost++
+    if (blockerCount(i) === 1) almost++
   }
 
   let bends = 0, multiLine = 0, coil = 0, cellsTotal = 0
@@ -1133,7 +1159,10 @@ function analyse(board, ruleB = true) {
     if (pc.cells.length >= 8) {
       longPieces++
       neighboursTotal += borderWith.size
-      const maxShared = borderWith.size ? Math.max(...borderWith.values()) : 0
+      // A loop, not Math.max(...borderWith.values()): a long piece borders as
+      // many pieces as it has cells, and a spread of that size overflows the stack.
+      let maxShared = 0
+      for (const shared of borderWith.values()) if (shared > maxShared) maxShared = shared
       sharedBorderTotal += maxShared / pc.cells.length
     }
     for (const c of pc.cells) lines.add(DIRS[pc.dir].dx === 0 ? c.x : c.y)
@@ -1157,7 +1186,7 @@ function analyse(board, ruleB = true) {
 
   return {
     N, solvable: done === N, unsolved: N - done,
-    f0: freeIds.length / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N, coil: coil / cellsTotal,
+    f0: freeCount / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N, coil: coil / cellsTotal,
     selfAdj: selfAdjTotal / cellsTotal,
     bendsPerCell: bends / cellsTotal,
     span: spanSum / N,
