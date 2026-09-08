@@ -156,6 +156,25 @@ test('generate: closes the board without Warnsdorff and with only short pieces',
   }
 })
 
+test('generate: a board starved of head draws closes by scanning every legal head before backtracking', () => {
+  // One draw per direction and very bendy pieces: 200×200 has dozens of legal
+  // heads in the endgame, the four draws all miss, and the generator undid
+  // fifty cuts and gave up with 39–133 legal heads still on the board (the
+  // same picture as the 1000×1000 jams of the random sweep, where every jam
+  // had 208–688 heads left). A backtrack undoes pieces elsewhere, so it does
+  // not help; scanning every head before undoing anything closes these three
+  // without a single undo. (Seed 1 of the same setting is the other jam
+  // shape: after the scan ten three-cell fragments remain whose heads sit in
+  // the corner of an L, so no path from them covers the fragment — that
+  // needs a fragment solver, not more heads.)
+  for (const seed of [3, 4, 6]) {
+    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 })
+    assert.equal(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
+    assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
+    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+  }
+})
+
 test('generate: a jam reports how many legal heads were left at the best moment', () => {
   // Half the cells are voids, so single free cells stay isolated and nothing
   // can cover them: the run jams at once. The count of legal heads at the

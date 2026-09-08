@@ -413,7 +413,12 @@ class Carver {
     return path
   }
 
-  carveOne() {
+  /**
+   * Carves one piece. Normally each direction draws `headTries` heads per
+   * pool; with `scanAll` every legal head of every pool is tried once, in
+   * random order — the FULL SCAN that `run()` makes before it undoes anything.
+   */
+  carveOne(scanAll = false) {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
     // NOT `sort(() => rng() - 0.5)`: the number of comparator calls depends on
@@ -472,7 +477,7 @@ class Carver {
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
       for (const pool of pools) {
-      const tries = Math.min(Math.max(1, p.headTries), pool.length)
+      const tries = scanAll ? pool.length : Math.min(Math.max(1, p.headTries), pool.length)
       for (let attempt = 0; attempt < tries && !carved; attempt++) {
       const pick = Math.floor(rng() * pool.length)
       const h = pool[pick]
@@ -963,6 +968,18 @@ class Carver {
       // tail — this does not change the blocking graph, whereas a backtrack with
       // thousands of pieces hits a random region of the board.
       if (this.absorbLeftover()) continue
+      // FULL SCAN of the legal heads before the first undo. The draws above
+      // sample a handful of heads per direction; on a large board there are
+      // hundreds, and every jam of the random 1000×1000 sweep still had
+      // 208–688 legal heads when it gave up — the search starved, the
+      // geometry was fine. A backtrack undoes the newest neighbour of the
+      // leftover, i.e. pieces in the region being carved, so it does not put
+      // the missed heads back in play; trying each of them once does.
+      this.stats.headScans = (this.stats.headScans ?? 0) + 1
+      if (this.carveOne(true)) {
+        this.stats.headScanHits = (this.stats.headScanHits ?? 0) + 1
+        continue
+      }
       // Remember the BEST jam moment (fewest remaining cells): the state after
       // a series of undos says nothing about the cause.
       if (this.remaining < (this.stuckRemaining ?? Infinity)) {
