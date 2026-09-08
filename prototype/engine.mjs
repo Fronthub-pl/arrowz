@@ -413,7 +413,12 @@ class Carver {
     return path
   }
 
-  carveOne() {
+  /**
+   * Carves one piece. Normally each direction draws `headTries` heads per
+   * pool; with `scanAll` every legal head of every pool is tried once, in
+   * random order — the FULL SCAN that `run()` makes before it undoes anything.
+   */
+  carveOne(scanAll = false) {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
     // NOT `sort(() => rng() - 0.5)`: the number of comparator calls depends on
@@ -472,7 +477,7 @@ class Carver {
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
       for (const pool of pools) {
-      const tries = Math.min(Math.max(1, p.headTries), pool.length)
+      const tries = scanAll ? pool.length : Math.min(Math.max(1, p.headTries), pool.length)
       for (let attempt = 0; attempt < tries && !carved; attempt++) {
       const pick = Math.floor(rng() * pool.length)
       const h = pool[pick]
@@ -947,6 +952,7 @@ class Carver {
     // thousands of pieces), so after 200 backtracks a restart with a derived
     // seed is cheaper and more effective.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
+    let scanMisses = 0
     while (this.remaining > 0) {
       if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
         lastLog = performance.now()
@@ -963,6 +969,34 @@ class Carver {
       // tail — this does not change the blocking graph, whereas a backtrack with
       // thousands of pieces hits a random region of the board.
       if (this.absorbLeftover()) continue
+      // FULL SCAN of the legal heads before the first undo. The draws above
+      // sample a handful of heads per direction; on a large board there are
+      // hundreds, and every jam of the random 1000×1000 sweep still had
+      // 208–688 legal heads when it gave up — the search starved, the
+      // geometry was fine. A backtrack undoes the newest neighbour of the
+      // leftover, i.e. pieces in the region being carved, so it does not put
+      // the missed heads back in play; trying each of them once does.
+      //
+      // Two bounds keep the scan from paying for jams it cannot fix. Three
+      // misses in a row switch it off until it hits again: a board whose
+      // legal heads all fail the leftover test (the shredded 1000×1000 boards
+      // of the sweep: 253 heads, 0 carvable) is a geometric jam, and scanning
+      // it before each of hundreds of backtracks made the verdict 1.3–3.7×
+      // slower. And one attempt gets as many scans as it gets undos: on a
+      // shredded board with the odd carvable head the scan hits, carves one
+      // piece, the draws fail again and the next scan starts over — board 94
+      // did 1 268 scans (1 067 hits) in one attempt, still jammed, at twice
+      // the time. The scan is the cheaper alternative to an undo, so it
+      // shares the undo budget; after that the jam goes to backtracking.
+      if (scanMisses < 3 && (this.stats.headScans ?? 0) < maxBacktracks) {
+        this.stats.headScans = (this.stats.headScans ?? 0) + 1
+        if (this.carveOne(true)) {
+          this.stats.headScanHits = (this.stats.headScanHits ?? 0) + 1
+          scanMisses = 0
+          continue
+        }
+        scanMisses++
+      }
       // Remember the BEST jam moment (fewest remaining cells): the state after
       // a series of undos says nothing about the cause.
       if (this.remaining < (this.stuckRemaining ?? Infinity)) {

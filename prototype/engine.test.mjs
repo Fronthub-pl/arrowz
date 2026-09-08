@@ -156,6 +156,55 @@ test('generate: closes the board without Warnsdorff and with only short pieces',
   }
 })
 
+test('generate: a board starved of head draws closes by scanning every legal head before backtracking', () => {
+  // One draw per direction and very bendy pieces: 200×200 has dozens of legal
+  // heads in the endgame, the four draws all miss, and the generator undid
+  // fifty cuts and gave up with 39–133 legal heads still on the board (the
+  // same picture as the 1000×1000 jams of the random sweep, where every jam
+  // had 208–688 heads left). A backtrack undoes pieces elsewhere, so it does
+  // not help; scanning every head before undoing anything closes these three
+  // without a single undo. (Seed 1 of the same setting is the other jam
+  // shape: after the scan ten three-cell fragments remain whose heads sit in
+  // the corner of an L, so no path from them covers the fragment — that
+  // needs a fragment solver, not more heads.)
+  for (const seed of [3, 4, 6]) {
+    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 })
+    assert.equal(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
+    assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
+    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+  }
+})
+
+test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
+  // A quarter of the cells are voids: the free area is shredded into islands
+  // whose rays cross other islands, so the legal heads that exist all fail
+  // the leftover test on even a two-cell piece. The 1000×1000 jams of the
+  // random sweep look the same (board 30: 253 legal heads, 0 carvable), and
+  // scanning them before each of hundreds of backtracks only made the verdict
+  // 1.3–3.7× slower. A scan that misses three times running is a geometric
+  // jam, not a starved search: stop scanning until a scan hits again.
+  const r = generate({ ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.25, absorbLimit: 0, restarts: 0, maxBack: 20 })
+  assert.equal(r.ok, false)
+  assert.equal(r.backtracks, 20)
+  assert.equal(r.board.stats.headScanHits ?? 0, 0)
+  assert.ok(r.board.stats.headScans <= 3, `${r.board.stats.headScans} scans for 20 backtracks`)
+})
+
+test('generate: head scans in one attempt are limited to the backtrack budget', () => {
+  // With more voids the shredded islands do have the odd carvable head: the
+  // scan hits, carves one piece, the draws fail again, and the next scan
+  // starts over — one full scan per piece, with ordinary carves in between
+  // that keep the miss counter at zero. Board 94 of the 1000×1000 sweep did
+  // 1 268 scans in one attempt (1 067 hits) and still jammed, at twice the
+  // time. The scan is a cheaper alternative to an undo, so it gets the same
+  // budget per attempt as the undos; after that the jam goes to backtracking.
+  const r = generate({ ...defaultParams(), W: 80, H: 80, seed: 4, voidFrac: 0.3, absorbLimit: 0, restarts: 0, maxBack: 20 })
+  assert.equal(r.ok, false)
+  assert.equal(r.backtracks, 20)
+  assert.ok(r.board.stats.headScanHits > 0, 'the case should have scan hits')
+  assert.ok(r.board.stats.headScans <= 20, `${r.board.stats.headScans} scans for a budget of 20`)
+})
+
 test('generate: a jam reports how many legal heads were left at the best moment', () => {
   // Half the cells are voids, so single free cells stay isolated and nothing
   // can cover them: the run jams at once. The count of legal heads at the
