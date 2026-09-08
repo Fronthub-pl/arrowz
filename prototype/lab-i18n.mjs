@@ -30,7 +30,7 @@ export const PL = {
       help: 'Najdłuższy element, o jaki stara się generator. 0 = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj 0 albo co najmniej 6.' },
 
     pStraight: { label: 'skłonność do prostej',
-      help: 'Jak chętnie linia idzie dalej prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze przestają się domykać, stąd dolna granica.' },
+      help: 'Jak chętnie linia idzie prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze się nie domykają; przy 0,6 plansze ponad 500×500 mogą się zaciąć, 0,65 nie.' },
     wLateral: { label: 'premia za ruch w bok',
       help: 'O ile chętniej linia skręca w bok, niż wchodzi w głąb. 0 = proste wbicia i wielkie zwoje.' },
     warns: { label: 'domykanie zakamarków',
@@ -46,10 +46,10 @@ export const PL = {
       help: 'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.' },
     mix: { label: 'mieszanie warstw i tuneli (-1 = wyłączone)',
       help: 'Jaka część elementów startuje tunelami, reszta warstwami. -1 = wyłączone; inaczej 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.' },
-    probe: { label: 'udział sond w głąb',
-      help: 'Jak często wbijać długi prosty element w głąb planszy. Mało widoczny efekt; zostawione do eksperymentów.' },
+    probe: { label: 'udział elementów-sond',
+      help: 'Jaka część elementów ma długość losowaną wokół długości sondy zamiast ze zwykłej mieszanki. Przy 1 i długości 12 plansza to same krótkie elementy.' },
     probeLen: { label: 'długość sondy',
-      help: 'Długość takiej sondy w komórkach.' },
+      help: 'Docelowa długość sondy, plus minus połowa. Krótkie sondy (2) potrajają liczbę elementów, długie (200) dają mniej dłuższych.' },
 
     giants: { label: 'ile elementów szkieletowych (0 = bez szkieletu)',
       help: 'Ile pierwszych elementów ma być długimi liniami przez całą planszę. 0 = bez szkieletu; 4 to dobry start.' },

@@ -1624,7 +1624,7 @@ export const PARAM_SPEC = [
     help: 'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.' },
 
   { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0.6, max: 1, step: 0.01, def: 0.85,
-    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing, so that is the floor.' },
+    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing. At 0.6 boards over 500x500 may jam; 0.65 is safe.' },
   { key: 'wLateral', label: 'sideways move bonus', group: 'shape', min: 0, max: 20, step: 0.5, def: 3,
     help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.' },
   { key: 'warns', label: 'closing off nooks', group: 'shape', min: 2, max: 16, step: 1, def: 4,
@@ -1642,11 +1642,11 @@ export const PARAM_SPEC = [
     help: 'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.' },
   { key: 'mix', label: 'layer/tunnel mixing (-1 = off)', group: 'difficulty', min: -1, max: 1, step: 0.05, def: -1,
     help: 'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.' },
-  { key: 'probe', label: 'share of inward probes', group: 'difficulty', min: 0, max: 1, step: 0.01, def: 0,
-    help: 'How often to drive a long straight piece deep into the board. Little visible effect; kept for experiments.' },
+  { key: 'probe', label: 'share of probe pieces', group: 'difficulty', min: 0, max: 1, step: 0.01, def: 0,
+    help: 'Fraction of pieces whose target length is drawn around the probe length instead of the usual mix. At 1 with length 12 the board is all short pieces.' },
   { key: 'probeLen', label: 'probe length', group: 'difficulty', min: 2, max: 200, step: 1, def: 12,
     inactive: (p) => (p.probe <= 0 ? 'probeOff' : null),
-    help: 'Length of such a probe in cells.' },
+    help: 'Target length of a probe, give or take half. Short probes (2) triple the piece count; long ones (200) give fewer, longer pieces.' },
 
   { key: 'giants', label: 'number of skeleton pieces (0 = no skeleton)', group: 'skeleton', min: 0, max: 40, step: 1, def: 0,
     help: 'How many of the first pieces are long lines crossing the board. 0 = no skeleton; 4 is a good start.' },
