@@ -616,6 +616,53 @@ characters cannot depict a path touching itself, and at 35% coiling that is ever
 cell. The calibration of `warns` and the length weights must take place **on the target
 SVG renderer**, not earlier.
 
+### Parameter envelope
+
+*Added 2026-09-08 after prototype round 11: about 8100 runs without restarts,
+boards up to 400×400, plus a code-level analysis of the jams.*
+
+The generator parameters have a **measured safe envelope**. `PARAM_SPEC`, the
+single source of truth for the CLI, the lab and the engine, carries the
+minimum and maximum of every knob, and `RULES` carries three cross-knob rules.
+The engine **validates and refuses**: `validateParams(params)` returns the
+list of violations (`{ kind: 'range', key, value, min, max }` or
+`{ kind: 'rule', key, keys }`), `formatViolation(v)` turns one into a
+sentence, and `generate()` throws `RangeError('invalid parameters: ...')`,
+with the array attached as `violations`, before carving a single cell. The
+CLI exits with code 2 and prints the violations; the lab pulls loaded values
+into range and disables Generate while a violation stands. Defaults and every
+preset sit inside the envelope with margin.
+
+Narrowed bounds (defaults unchanged; the other knobs keep their ranges):
+
+| knob | before | envelope | evidence |
+|---|---|---|---|
+| `pStraight` | 0..1 | 0.6..1 | the only knob that jams alone: 400×400 jams 5/5 at 0.3 or less, 3/5 at 0.4, clean from 0.6 |
+| `warns` | 0..16 | 2..16 | 0 and 1 are the rule switched off; 3 of the 8 random jams at 400×400 had it off |
+| `anticoil` | 1..20 | 1..10 | 10 or more with straightness at most 0.45 jams 4/5 |
+| `absorbLimit` | 0..64 | 12..64 | below 13 closes 78-80% against 86-100% in the random sweep |
+| `strandLimit` | 2..30 | 10..30 | 2-3 leaves ten-cell leftovers from 500×500; below 10 costs 1.5-2.2× the time |
+| `headTries` | 1..32 | 2..16 | 1 starves the search at low straightness; above 16 only costs time |
+| `maxBack` | 0..200000 | 0..1000 (0 = 200) | 1000 rescued 1 of 11 jams, 5000 rescued none more |
+| `restarts` | 0..10 | 0..5 | restarts rescue shredded jams 8/8 within 2; no evidence of help beyond 5 |
+| `wGiant` | 0..0.5 | 0..0.2 | 0.43 or more in 3 of the 4 high-straightness timeouts at 1000×1000 |
+| `giantStraight` | 0..1 | 0.3..1 | below 0.15 closes 50%; active at every serpentine step, not only 0 |
+| `giantSpacing` | 1..6 | 1..3 | 6 costs 1.9× the time and has no effect on closing |
+
+Cross-knob rules: `wShort + wMid <= 0.9` (the long bucket keeps at least a
+tenth); `Lmax` is 0 (automatic) or at least 6 (`Lmax` 3 is pathological:
+2/10 jams at 200×200 after 40-60 s); `mix` is -1 (off) or between 0.3 and
+0.7 (the extremes close 80% against 94-96%).
+
+The envelope is a 400×400 result: 1000×1000 was not re-validated, and
+several bounds (`maxBack`, `restarts`, `giantSpacing`, `headTries` above 16,
+`wGiant`) are time bounds, not closing bounds. The mechanism behind the jams
+(free islands with legal heads but nothing carvable, waiting on each other in
+a cycle) and the fix ideas are recorded in `prototype/README.md`, round 11.
+**The implementation must carry the envelope**: the same bounds and rules on
+`GeneratorParams`, the same validation before generation, and the
+configurator (§11) refusing to generate outside it.
+
 ## 8. Solver and verification
 
 ### Blocking graph
@@ -1046,6 +1093,11 @@ below) are available to the player:
 | maximum length `Lmax` | 16 … 5·max(W,H) | how long the longest piece may be |
 | entanglement strength | 0 … 8 | turns versus coiling into balls; below 2 generation can be unreliable |
 | stroke width | 0.35 … 0.65 of the pitch | legibility: width of the gaps between parallel lines |
+
+The engine knobs behind this form, and every advanced knob the prototype lab
+exposes, are bounded by the parameter envelope of §7 (2026-09-08): the form
+validates against the same bounds and cross-knob rules as the engine, marks
+the offending fields and disables Generate while a violation stands.
 
 **The number of lines is not a parameter** — with full coverage it follows from the
 length distribution (`number of lines = W · H / mean length`) and the configurator shows

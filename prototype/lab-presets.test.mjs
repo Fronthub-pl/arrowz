@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { PRESETS, findPreset } from './lab-presets.mjs'
-import { PARAM_SPEC } from './engine.mjs'
+import { PARAM_SPEC, defaultParams, validateParams } from './engine.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 
 const specs = new Map(PARAM_SPEC.map((s) => [s.key, s]))
@@ -21,6 +21,15 @@ test('every preset level has several options with valid parameter overrides', ()
         assert.ok(v >= s.min && v <= s.max, `preset ${o.id}: ${k}=${v} out of range`)
       }
     }
+  }
+})
+
+// A preset is a full configuration (defaults + overrides), so it must sit
+// inside the safe envelope the engine enforces, including the cross-knob rules.
+test('every preset passes the engine validation once merged over the defaults', () => {
+  for (const level of PRESETS) for (const o of level.options) {
+    const violations = validateParams({ ...defaultParams(), ...o.params })
+    assert.deepEqual(violations, [], `preset ${o.id}: ${JSON.stringify(violations)}`)
   }
 })
 

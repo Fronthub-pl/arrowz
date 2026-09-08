@@ -1365,20 +1365,20 @@ export const PARAM_SPEC = [
     help: 'The same seed with the same settings always gives the same board.' },
 
   { key: 'wShort', label: 'share of short pieces (2–6 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.2,
-    help: 'Fraction of short pieces. Higher = more arrowheads, but a mess of little hooks.' },
+    help: 'Fraction of short pieces. Higher = more arrowheads, but a mess of little hooks. Short and medium together may not exceed 0.9.' },
   { key: 'wMid', label: 'share of medium pieces (7–15 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.08,
-    help: 'Fraction of medium pieces. Whatever is left after short and medium goes to long pieces.' },
+    help: 'Fraction of medium pieces. Whatever is left after short and medium goes to long pieces. Short and medium together may not exceed 0.9.' },
   { key: 'Lmax', label: 'maximum length (0 = 2.5 × side)', group: 'lengths', min: 0, max: 5000, step: 1, def: 0,
-    help: 'The longest piece the generator tries for. 0 = 2.5 × the longer side. Most pieces stop earlier anyway.' },
+    help: 'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.' },
 
-  { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0, max: 1, step: 0.01, def: 0.85,
-    help: 'How readily a line keeps going straight. Higher = longer straight runs. 0 makes generation very slow.' },
+  { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0.6, max: 1, step: 0.01, def: 0.85,
+    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing, so that is the floor.' },
   { key: 'wLateral', label: 'sideways move bonus', group: 'shape', min: 0, max: 20, step: 0.5, def: 3,
     help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.' },
-  { key: 'warns', label: 'closing off nooks', group: 'shape', min: 0, max: 16, step: 1, def: 4,
-    help: 'How strongly a line fills nooks with few exits first. Higher = fewer, longer, more coiled pieces.' },
-  { key: 'anticoil', label: 'coiling penalty', group: 'shape', min: 1, max: 20, step: 1, def: 6,
-    help: 'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces.' },
+  { key: 'warns', label: 'closing off nooks', group: 'shape', min: 2, max: 16, step: 1, def: 4,
+    help: 'How strongly a line fills nooks with few exits first. Higher = fewer, longer, more coiled pieces. Below 2 the rule is off and boards jam.' },
+  { key: 'anticoil', label: 'coiling penalty', group: 'shape', min: 1, max: 10, step: 1, def: 6,
+    help: 'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.' },
   { key: 'hug', label: 'hug bonus', group: 'shape', min: 1, max: 20, step: 1, def: 1,
     help: 'Bonus for running along already carved pieces. Little visible effect; kept for experiments.' },
   { key: 'edgeHug', label: 'edge counts as a piece', group: 'shape', min: 0, max: 4, step: 1, def: 0,
@@ -1387,9 +1387,9 @@ export const PARAM_SPEC = [
 
   { key: 'headBias', label: 'piece start (-1 layers, 0 random, 1 tunnels)', group: 'difficulty', min: -1, max: 1, step: 1, def: 0,
     inactive: (p) => (p.mix >= 0 ? 'mixOn' : null),
-    help: 'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder; layers may need restarts on big boards.' },
+    help: 'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.' },
   { key: 'mix', label: 'layer/tunnel mixing (-1 = off)', group: 'difficulty', min: -1, max: 1, step: 0.05, def: -1,
-    help: 'Fraction of pieces that start as tunnels, the rest as layers. -1 = off, 0.5 works well. 0 may need restarts on big boards.' },
+    help: 'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.' },
   { key: 'probe', label: 'share of inward probes', group: 'difficulty', min: 0, max: 1, step: 0.01, def: 0,
     help: 'How often to drive a long straight piece deep into the board. Little visible effect; kept for experiments.' },
   { key: 'probeLen', label: 'probe length', group: 'difficulty', min: 2, max: 200, step: 1, def: 12,
@@ -1405,32 +1405,36 @@ export const PARAM_SPEC = [
   { key: 'giantJitter', label: 'cutting serpentine runs short', group: 'skeleton', min: 0, max: 1, step: 0.05, def: 0.6,
     inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'stepZero' : null),
     help: 'How often a skeleton run stops short of an obstacle. 0 = straight, regular edges.' },
-  { key: 'wGiant', label: 'share of skeletons after the start', group: 'skeleton', min: 0, max: 0.5, step: 0.01, def: 0,
+  { key: 'wGiant', label: 'share of skeletons after the start', group: 'skeleton', min: 0, max: 0.2, step: 0.01, def: 0,
     inactive: (p) => (p.giantSpan <= 0 ? 'spanZero' : null),
-    help: 'Chance that a piece carved later is also a skeleton. It rarely has room to grow long.' },
-  { key: 'giantStraight', label: 'skeleton straightness (random growth)', group: 'skeleton', min: 0, max: 1, step: 0.01, def: 0.94,
-    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'stepNonZero' : null),
-    help: 'How readily a randomly growing skeleton goes straight. Only with serpentine step 0.' },
+    help: 'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.' },
+  // giantStraight and giantWarns act on every skeleton regardless of giantStep:
+  // the serpentine only seeds the path, the tail keeps growing on these weights
+  // (see growPiece), and the giants that wGiant adds later grow entirely on
+  // them. So they are inactive only when there is no skeleton at all.
+  { key: 'giantStraight', label: 'skeleton straightness', group: 'skeleton', min: 0.3, max: 1, step: 0.01, def: 0.94,
+    inactive: skeletonOff,
+    help: 'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.' },
   { key: 'giantWarns', label: 'closing off nooks for the skeleton', group: 'skeleton', min: 0, max: 16, step: 1, def: 0,
-    inactive: (p) => skeletonOff(p) ?? (p.giantStep > 0 ? 'stepNonZero' : null),
-    help: 'Nook rule for the skeleton alone. Keep at 0: it coils the line, and a skeleton should go far.' },
+    inactive: skeletonOff,
+    help: 'Nook rule for the skeleton alone, where it grows freely. Keep at 0: it coils the line, and a skeleton should go far.' },
   { key: 'giantAnticoil', label: 'skeleton coiling penalty', group: 'skeleton', min: 1, max: 20, step: 1, def: 6, inactive: skeletonOff,
     help: 'Self-touching penalty for the skeleton alone. The higher of this and the general one applies.' },
-  { key: 'giantSpacing', label: 'skeleton spacing radius', group: 'skeleton', min: 1, max: 6, step: 1, def: 2, inactive: skeletonOff,
-    help: 'How far the skeleton keeps from its own earlier runs, in cells.' },
+  { key: 'giantSpacing', label: 'skeleton spacing radius', group: 'skeleton', min: 1, max: 3, step: 1, def: 2, inactive: skeletonOff,
+    help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.' },
   { key: 'giantSpacePenalty', label: 'skeleton spacing strength', group: 'skeleton', min: 1, max: 40, step: 1, def: 8, inactive: skeletonOff,
     help: 'How strongly the skeleton is pushed away from itself. A penalty, not a ban, so it can turn around.' },
 
-  { key: 'headTries', label: 'start attempts per direction', group: 'closing', min: 1, max: 32, step: 1, def: 4,
-    help: 'Starting spots to try before changing direction. Makes no difference to closing; kept for comparisons.' },
-  { key: 'strandLimit', label: 'exact leftover test up to N cells', group: 'closing', min: 2, max: 30, step: 1, def: 30,
-    help: 'Up to what size a free fragment is checked exactly for being cuttable. Lower = slower, shorter pieces.' },
-  { key: 'absorbLimit', label: 'leftover absorption up to N cells (0 = off)', group: 'closing', min: 0, max: 64, step: 1, def: 24,
-    help: 'A fragment up to this size that cannot be carved is glued to a neighbour. 0 = off, which can break hard settings.' },
-  { key: 'maxBack', label: 'backtrack budget (0 = 200)', group: 'closing', min: 0, max: 200000, step: 50, def: 0,
-    help: 'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough.' },
-  { key: 'restarts', label: 'allowed restarts', group: 'closing', min: 0, max: 10, step: 1, def: 3,
-    help: 'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate.' },
+  { key: 'headTries', label: 'start attempts per direction', group: 'closing', min: 2, max: 16, step: 1, def: 4,
+    help: 'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.' },
+  { key: 'strandLimit', label: 'exact leftover test up to N cells', group: 'closing', min: 10, max: 30, step: 1, def: 30,
+    help: 'Up to what size a free fragment is checked exactly for being cuttable. Below 10 ten-cell leftovers slip through on big boards.' },
+  { key: 'absorbLimit', label: 'leftover absorption up to N cells', group: 'closing', min: 12, max: 64, step: 1, def: 24,
+    help: 'A fragment up to this size that cannot be carved is glued to a neighbour. Below 12 leftovers pile up and boards jam.' },
+  { key: 'maxBack', label: 'backtrack budget (0 = 200)', group: 'closing', min: 0, max: 1000, step: 50, def: 0,
+    help: 'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough; more only delays the verdict.' },
+  { key: 'restarts', label: 'allowed restarts', group: 'closing', min: 0, max: 5, step: 1, def: 3,
+    help: 'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate; more than 5 almost never helps.' },
 ]
 
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
@@ -1441,7 +1445,6 @@ export const INACTIVE_REASONS = {
   mixOn: 'superseded by layer/tunnel mixing',
   probeOff: 'only works with probe share > 0',
   stepZero: 'only works with serpentine step > 0',
-  stepNonZero: 'only works with serpentine step 0',
   spanZero: 'requires skeleton length > 0',
 }
 
@@ -1451,13 +1454,70 @@ export function defaultParams() {
   return p
 }
 
+// The safe envelope beyond the per-knob ranges: combinations and holes that
+// the measurements showed to jam or leave boards unclosed. Each rule names the
+// knobs it involves so that the lab can mark their rows. Texts are keyed like
+// INACTIVE_REASONS; the lab translates them (lab-i18n PL.reasons).
+export const RULES = [
+  { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
+  { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
+  { key: 'mixHole', keys: ['mix'], check: (p) => p.mix === -1 || (p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9) },
+]
+
+export const RULE_REASONS = {
+  sharesSum: 'short and medium shares together must stay at or below 0.9',
+  lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
+  mixHole: 'mixing must be -1 (off) or between 0.3 and 0.7',
+}
+
+/**
+ * Checks a full parameter set against the safe envelope. Returns [] when it is
+ * valid, otherwise one entry per problem: every PARAM_SPEC key whose value is
+ * not a finite number inside [min, max] gives
+ * { kind: 'range', key, value, min, max }, and every RULES entry that fails
+ * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC (ruleB, voidFrac,
+ * trace, debug) are ignored; step alignment is not checked.
+ */
+export function validateParams(params) {
+  const out = []
+  for (const s of PARAM_SPEC) {
+    const value = params[s.key]
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < s.min || value > s.max) {
+      out.push({ kind: 'range', key: s.key, value, min: s.min, max: s.max })
+    }
+  }
+  for (const r of RULES) {
+    if (!r.check(params)) out.push({ kind: 'rule', key: r.key, keys: r.keys })
+  }
+  return out
+}
+
+const LABEL_BY_KEY = new Map(PARAM_SPEC.map((s) => [s.key, s.label]))
+
+/** One English line for a violation from validateParams(). */
+export function formatViolation(v) {
+  if (v.kind === 'range') return `${LABEL_BY_KEY.get(v.key) ?? v.key}: ${v.value} is outside ${v.min}..${v.max}`
+  return RULE_REASONS[v.key] ?? v.key
+}
+
 /**
  * Generates a board: carves until it succeeds, restarting with a derived seed
  * on failure. Returns the board, metrics and the run — also on failure, so
- * that the lab has something to show.
+ * that the lab has something to show. The merged parameters must sit inside
+ * the safe envelope (validateParams), otherwise a RangeError with
+ * `violations` attached is thrown before any carving starts. `unchecked`
+ * skips that check; it exists for engine-internal tests only.
  */
-export function generate(params) {
+export function generate(params, { unchecked = false } = {}) {
   const p = { ...defaultParams(), ...params }
+  if (!unchecked) {
+    const violations = validateParams(p)
+    if (violations.length) {
+      const err = new RangeError('invalid parameters: ' + violations.map(formatViolation).join('; '))
+      err.violations = violations
+      throw err
+    }
+  }
   const t0 = performance.now()
   let carver = null
   let ok = false

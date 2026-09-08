@@ -65,6 +65,8 @@ self.onmessage = (event) => {
         trace: (info) => self.postMessage({ type: 'progress', info }),
       })
     } catch (err) {
+      // Includes the RangeError generate() throws for parameters outside the
+      // safe envelope: its message lists the violations and the page shows it.
       self.postMessage({ type: 'error', message: err.message })
       return
     }

@@ -4,7 +4,7 @@
 // The command is the canonical way to invoke carve.mjs: flag = PARAM_SPEC key
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
-import { PARAM_SPEC, defaultParams } from './engine.mjs'
+import { PARAM_SPEC, defaultParams, RULES, RULE_REASONS } from './engine.mjs'
 
 // Old flag names from rounds 1–7; README examples must keep working.
 export const ALIASES = {
@@ -15,6 +15,69 @@ const KEY_BY_FLAG = new Map(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
 for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
 
 export const DEFAULT_VIEW = { cell: 12, stroke: 0.5, colored: false, top: 0 }
+
+// Mode and view flags read by carve.mjs (not engine parameters). Kept next to
+// the parser so that --help and the parser cannot drift apart.
+const MODE_FLAGS = [
+  ['--svg[=path]', 'one board into prototype/boards/ (ARROWZ_BOARDS_DIR), plus a copy at path'],
+  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
+  ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
+  ['--bench=N', 'benchmark instead of the report, N runs per level'],
+  ['--runs=N', 'runs per level in the report (default 3)'],
+  ['--only=<level>', 'one level only, case-insensitive: --only=easy·sq, --only=hard·pt, or --only=easy with --square/--portrait'],
+  ['--mid=N', 'an extra level "Mid" with N cells on the shorter side'],
+  ['--square', 'levels as 1:1 boards only'],
+  ['--portrait', 'levels as 1:2 boards only'],
+  ['--show', 'report: print the first board of each level up to 40 cells wide'],
+  ['--help, -h', 'this text'],
+]
+const VIEW_FLAGS = [
+  ['--cell=N', `cell size in px (default ${DEFAULT_VIEW.cell})`],
+  ['--stroke=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
+  ['--colored', 'a different colour for every piece'],
+  ['--top=N', 'highlight the N longest pieces and print their stats'],
+]
+
+/** Usage text for --help: modes, one row per PARAM_SPEC knob, rules, aliases. */
+export function helpText() {
+  const out = []
+  const flagOf = (key) => `--${key.toLowerCase()}`
+  const list = (rows, indent = '  ') => {
+    const w = Math.max(...rows.map(([f]) => f.length))
+    for (const [f, text] of rows) out.push(`${indent}${f.padEnd(w)}  ${text}`)
+  }
+  out.push('Usage: node prototype/carve.mjs [--<knob>=value ...] [mode] [view options]')
+  out.push('')
+  out.push('Every knob below is a flag: --<key in lower case>=value. Values outside the')
+  out.push('allowed range or breaking a rule are refused before any board is generated.')
+  out.push('')
+  out.push('Modes:')
+  list(MODE_FLAGS)
+  out.push('')
+  out.push('View options (--svg and --dry-run):')
+  list(VIEW_FLAGS)
+  out.push('')
+  out.push('Knobs:')
+  const rows = PARAM_SPEC.map((s) => [flagOf(s.key), s.label, `${s.min}..${s.max}`, String(s.step), String(s.def), s.help])
+  const head = ['flag', 'label', 'range', 'step', 'default', 'help']
+  const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)))
+  const line = (r) => '  ' + r.map((c, i) => (i === r.length - 1 ? c : c.padEnd(widths[i]))).join('  ')
+  out.push(line(head))
+  let group = null
+  for (let i = 0; i < rows.length; i++) {
+    if (PARAM_SPEC[i].group !== group) { group = PARAM_SPEC[i].group; out.push(`  [${group}]`) }
+    out.push(line(rows[i]))
+  }
+  out.push('')
+  out.push('Rules (checked together with the ranges):')
+  list(RULES.map((r) => [`${r.key} (${r.keys.map(flagOf).join(', ')})`, RULE_REASONS[r.key]]))
+  out.push('')
+  out.push('Old flag names, still accepted:')
+  list(Object.entries(ALIASES).map(([alias, key]) => [`--${alias}`, `same as ${flagOf(key)}`]))
+  out.push('')
+  out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1.')
+  return out.join('\n')
+}
 
 /** Command text reproducing the board for the given parameters and view. */
 export function buildCommand(params, view = {}) {

@@ -42,6 +42,20 @@ The constraints from the implementation map apply. Critical for this slice:
   discrepancy.
 - Default values: weights `0.50 / 0.20 / 0.30`, `warnsdorff = 4`,
   `straightBias = 0.6`, `lateralWeight = 3`, `maxLength = round(2.5·max(W,H))`.
+- **Parameter envelope** (spec §7 "Parameter envelope", 2026-09-08).
+  `GeneratorParams` carries the measured minimum and maximum of every knob
+  and the three cross-knob rules (short plus medium shares at most 0.9;
+  `maxLength` automatic or at least 6; mixing off or between 0.3 and 0.7).
+  The generator exposes `validateParams(params): Violation[]` (range
+  violations `{ kind: 'range', key, value, min, max }`, rule violations
+  `{ kind: 'rule', key, keys }`) and `formatViolation(v): string`, and
+  `generate()` refuses invalid parameters before carving. That is the one
+  case in which it throws (a `RangeError` carrying `violations`); the
+  "never throws" rule above applies to valid parameters. The narrowed bounds
+  (straightness at least 0.6, Warnsdorff at least 2, coiling penalty at most
+  10, absorption at least 12, exact leftover test at least 10, start attempts
+  2..16, backtrack budget at most 1000, restarts at most 5) are tabulated in
+  the spec and must not be widened without a new measurement.
 
 ## File Structure
 
