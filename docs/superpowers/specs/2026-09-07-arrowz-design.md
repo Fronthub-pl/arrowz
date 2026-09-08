@@ -619,7 +619,8 @@ SVG renderer**, not earlier.
 ### Parameter envelope
 
 *Added 2026-09-08 after prototype round 11: about 8100 runs without restarts,
-boards up to 400×400, plus a code-level analysis of the jams.*
+boards up to 400×400, plus a code-level analysis of the jams. Re-validated the
+same day at 500×500 and 600×600 (round 12, about 1 300 runs without restarts).*
 
 The generator parameters have a **measured safe envelope**. `PARAM_SPEC`, the
 single source of truth for the CLI, the lab and the engine, carries the
@@ -654,11 +655,26 @@ tenth); `Lmax` is 0 (automatic) or at least 6 (`Lmax` 3 is pathological:
 2/10 jams at 200×200 after 40-60 s); `mix` is -1 (off) or between 0.3 and
 0.7 (the extremes close 80% against 94-96%).
 
-The envelope is a 400×400 result: 1000×1000 was not re-validated, and
-several bounds (`maxBack`, `restarts`, `giantSpacing`, `headTries` above 16,
-`wGiant`) are time bounds, not closing bounds. The mechanism behind the jams
-(free islands with legal heads but nothing carvable, waiting on each other in
-a cycle) and the fix ideas are recorded in `prototype/README.md`, round 11.
+The envelope was measured at 400×400 and re-validated at 500×500 and
+600×600 (prototype round 12: 1 319 boards, `restarts` 0, five domains). It
+holds at 500×500 for every single knob and at 600×600 for every knob but the
+`pStraight` floor, with two known leaks. Closing: `pStraight` 0.6 alone
+closes 15/15 at 500×500 but 11/15 at 600×600 (fragment jams with at most 1%
+of the board left); with `warns` 2 it closes 0/5 at both sizes and with
+`anticoil` 10 it closes 5/10 at 500 and 0/5 at 600 (shredding jams);
+`pStraight` 0.65 and 0.7 close 10/10 at 600, and `warns` 16 neutralises the
+corner. The envelope has no rule coupling `pStraight` with `warns` or
+`anticoil`; that is the first candidate for a new rule and it has not been
+measured. Time: `wGiant` at least 0.13 with `giantStep` at most 7 and
+`giantSpan` at least 100 makes a 600×600 board cost 50–350 s (seed
+dependent) instead of 5–25 s; the cost sat in the path-shortening loop of
+the leftover test, which is fixed in round 12 (same boards), not in the
+board state. 1000×1000 is still not re-validated, and several bounds
+(`maxBack`, `restarts`, `giantSpacing`, `headTries` above 16, `wGiant`) are
+time bounds, not closing bounds. The mechanism behind the jams (free islands
+with legal heads but nothing carvable, waiting on each other in a cycle), the
+fix ideas and the 500/600 tables are recorded in `prototype/README.md`,
+rounds 11 and 12.
 **The implementation must carry the envelope**: the same bounds and rules on
 `GeneratorParams`, the same validation before generation, and the
 configurator (§11) refusing to generate outside it.
@@ -846,8 +862,15 @@ within four attempts, because a biased cut drew its head tries only from the fir
 quarter of the ranked heads, which in the endgame are the dead pockets at the frontier.
 `carveOne` now falls through to the next quarters before giving up a direction; layers
 close 1000×1000 in ~35 s with zero backtracks, and 400×400 on every tested seed without a
-restart, at unchanged f0 (round 9). The DOM-free core remains portable should the
-measurement on the target hardware turn out worse.
+restart, at unchanged f0 (round 9). A third profile (round 12, 600×600) found a dense
+late skeleton (`wGiant` at least 0.13 with a serpentine step of at most 7 and a long
+span) spending 96% of a 182 s run in the leftover test, called from the loop that
+shortens a path which failed it: the loop crept back one cell at a time and re-ran the
+whole Θ(L) test for each cell, Θ(L²/32) per trimmed path of L cells. The creep is now
+incremental (only the neighbourhood of the newly taken cell and the fragments adjacent
+to it are re-tested), chooses exactly the same length, and the boards are unchanged;
+see `prototype/README.md`, round 12, for the before-and-after numbers. The DOM-free core
+remains portable should the measurement on the target hardware turn out worse.
 
 **Discrepancy to close:** the design assumed ~1 000 pieces with a mean length of 10 on
 Nightmare; the generator at the current weights gives ~1 900 with a mean of 5.2. The

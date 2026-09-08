@@ -53,6 +53,12 @@ class Carver {
     this.degStamp = new Int32Array(W * H)
     this.degVal = new Int8Array(W * H)
     this.gen = 0
+    // Scratch for the incremental creep of shortenPath (see creepUp): the
+    // position of a prefix cell in its path, and for a cell seen by the
+    // flood-fill replay `(entry << 1) | popped`. Both valid only under the
+    // creep's own stamps in takenStamp / seenStamp.
+    this.creepPos = new Int32Array(W * H)
+    this.creepInfo = new Int32Array(W * H)
     // Change stamps for the absorption memo: `touched[i]` is the version at
     // which cell i last changed owner. A leftover fragment whose cells and
     // neighbours have not changed since its last failed absorption attempt,
@@ -196,17 +202,43 @@ class Carver {
    * Assumes the path cells are marked with the stamp `takenStamp === gen`.
    */
   hasLocalDefect(cells) {
-    const { W, H, owner, takenStamp, seenStamp, degStamp, degVal, gen } = this
-    const isFree = (i) => owner[i] === -1 && takenStamp[i] !== gen
+    const { W, seenStamp, gen } = this
+    const { isFree, check } = this.defectKernel(gen, gen)
+    for (const c of cells) {
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          if (Math.abs(ox) + Math.abs(oy) > 2) continue
+          const vx = c.x + ox, vy = c.y + oy
+          if (!this.inside(vx, vy)) continue
+          const vi = vy * W + vx
+          if (!isFree(vi) || seenStamp[vi] === gen) continue
+          seenStamp[vi] = gen
+          if (check(vi, vx, vy)) return true
+        }
+      }
+    }
+    return false
+  }
+
+  /**
+   * The vertex predicate of hasLocalDefect, bound to one board state: the
+   * path cells are those with `takenStamp === takenGen`, free degrees are
+   * memoised under `degStamp === cacheGen` (so the state must not change
+   * while one kernel is in use). `check(vi, vx, vy)` reads the free state
+   * within Manhattan distance 4 of the vertex and nothing else.
+   */
+  defectKernel(takenGen, cacheGen) {
+    const { W, H, owner, takenStamp, degStamp, degVal } = this
+    const isFree = (i) => owner[i] === -1 && takenStamp[i] !== takenGen
     const freeDeg = (i) => {
-      if (degStamp[i] === gen) return degVal[i]
+      if (degStamp[i] === cacheGen) return degVal[i]
       const x = i % W, y = (i / W) | 0
       let n = 0
       if (y > 0 && isFree(i - W)) n++
       if (y < H - 1 && isFree(i + W)) n++
       if (x > 0 && isFree(i - 1)) n++
       if (x < W - 1 && isFree(i + 1)) n++
-      degStamp[i] = gen; degVal[i] = n
+      degStamp[i] = cacheGen; degVal[i] = n
       return n
     }
     const nbrs = (i, out) => {
@@ -219,61 +251,52 @@ class Carver {
       return n
     }
     const nv = new Int32Array(4), nw = new Int32Array(4), ne = new Int32Array(4)
-    for (const c of cells) {
-      for (let ox = -2; ox <= 2; ox++) {
-        for (let oy = -2; oy <= 2; oy++) {
-          if (Math.abs(ox) + Math.abs(oy) > 2) continue
-          const vx = c.x + ox, vy = c.y + oy
-          if (!this.inside(vx, vy)) continue
-          const vi = vy * W + vx
-          if (!isFree(vi) || seenStamp[vi] === gen) continue
-          seenStamp[vi] = gen
-          const kv = nbrs(vi, nv)
-          let leaves = 0, weak = 0
-          for (let a = 0; a < kv; a++) {
-            const d = freeDeg(nv[a])
-            if (d === 1) leaves++
-            if (d <= 2) weak++
-          }
-          if (leaves >= 3) return true
-          // |S| = 2: the only candidates for isolated cells are neighbours of v
-          // and w with degree <= 2, so without such neighbours the pair is out at once.
-          if (weak === 0) continue
-          for (let px = -2; px <= 2; px++) {
-            for (let py = -2; py <= 2; py++) {
-              if ((px === 0 && py === 0) || Math.abs(px) + Math.abs(py) > 2) continue
-              const wx = vx + px, wy = vy + py
-              if (!this.inside(wx, wy)) continue
-              const wi = wy * W + wx
-              if (!isFree(wi)) continue
-              const kw = nbrs(wi, nw)
-              let weakW = 0
-              for (let a = 0; a < kw; a++) if (freeDeg(nw[a]) <= 2) weakW++
-              if (weak + weakW < 5) continue
-              let isolated = 0
-              for (let side = 0; side < 2; side++) {
-                const arr = side === 0 ? nv : nw, k = side === 0 ? kv : kw
-                for (let a = 0; a < k; a++) {
-                  const ui = arr[a]
-                  if (ui === vi || ui === wi) continue
-                  if (side === 1) { // do not count a shared neighbour twice
-                    let dup = false
-                    for (let b = 0; b < kv; b++) if (nv[b] === ui) { dup = true; break }
-                    if (dup) continue
-                  }
-                  const ke = nbrs(ui, ne)
-                  let ok = true
-                  for (let b = 0; b < ke; b++) if (ne[b] !== vi && ne[b] !== wi) { ok = false; break }
-                  if (ok) isolated++
-                }
+    const check = (vi, vx, vy) => {
+      const kv = nbrs(vi, nv)
+      let leaves = 0, weak = 0
+      for (let a = 0; a < kv; a++) {
+        const d = freeDeg(nv[a])
+        if (d === 1) leaves++
+        if (d <= 2) weak++
+      }
+      if (leaves >= 3) return true
+      // |S| = 2: the only candidates for isolated cells are neighbours of v
+      // and w with degree <= 2, so without such neighbours the pair is out at once.
+      if (weak === 0) return false
+      for (let px = -2; px <= 2; px++) {
+        for (let py = -2; py <= 2; py++) {
+          if ((px === 0 && py === 0) || Math.abs(px) + Math.abs(py) > 2) continue
+          const wx = vx + px, wy = vy + py
+          if (!this.inside(wx, wy)) continue
+          const wi = wy * W + wx
+          if (!isFree(wi)) continue
+          const kw = nbrs(wi, nw)
+          let weakW = 0
+          for (let a = 0; a < kw; a++) if (freeDeg(nw[a]) <= 2) weakW++
+          if (weak + weakW < 5) continue
+          let isolated = 0
+          for (let side = 0; side < 2; side++) {
+            const arr = side === 0 ? nv : nw, k = side === 0 ? kv : kw
+            for (let a = 0; a < k; a++) {
+              const ui = arr[a]
+              if (ui === vi || ui === wi) continue
+              if (side === 1) { // do not count a shared neighbour twice
+                let dup = false
+                for (let b = 0; b < kv; b++) if (nv[b] === ui) { dup = true; break }
+                if (dup) continue
               }
-              if (isolated >= 5) return true
+              const ke = nbrs(ui, ne)
+              let ok = true
+              for (let b = 0; b < ke; b++) if (ne[b] !== vi && ne[b] !== wi) { ok = false; break }
+              if (ok) isolated++
             }
           }
+          if (isolated >= 5) return true
         }
       }
+      return false
     }
-    return false
+    return { isFree, check }
   }
 
   // Does carving `cells` strand the rest: a fragment of up to `strandLimit`
@@ -330,6 +353,251 @@ class Carver {
       }
     }
     return false
+  }
+
+  /**
+   * SHORTENING. `wouldStrand(path, failed)` has just returned true for the
+   * whole path (and filled `failed`). Truncates `path` in place to the
+   * longest length the jump-and-creep search chooses; returns false when no
+   * length >= 2 passes (the caller then drops the path).
+   *
+   * Jumps: from the end, in steps of 1/32 of the length, until a prefix
+   * passes — each jump is a full `wouldStrand` (its `failed` additions feed
+   * the later jumps and the creep). Creep: from that passing prefix, one
+   * cell at a time upward until the first failing prefix. The creep is
+   * evaluated incrementally (creepUp) with exactly the booleans a full
+   * `wouldStrand(path.slice(0, k), failed)` would return; each step costs
+   * the re-run cascade around the new cell (measured: a few probes) instead
+   * of a full O(k) pass.
+   */
+  shortenPath(path, failed) {
+    // Shorten in jumps, not one cell at a time: with a path of thousands
+    // of cells a linear search would cost O(L) leftover tests.
+    const step = Math.max(1, Math.floor(path.length / 32))
+    for (let L = path.length - step; L >= 2; L -= step) {
+      const shorter = path.slice(0, L)
+      if (!this.wouldStrand(shorter, failed)) {
+        // creep back up one at a time so as not to lose length needlessly
+        path.length = this.creepUp(path, L, Math.min(path.length, L + step), failed)
+        return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * The local-defect phase of `wouldStrand(prefix)` after the prefix grew by
+   * one cell (cx, cy), given that the previous prefix had no defect. The
+   * full check visits every free vertex within distance 2 of a prefix cell
+   * and its predicate reads the state within distance 4 of the vertex, so
+   * only vertices within distance 4 of the new cell can have changed, and
+   * among those the full check visits exactly the ones with a prefix cell
+   * within distance 2 (the new cell counts). Visiting any other vertex could
+   * return true where the full check returns false, so nothing else is
+   * looked at. Prefix cells are those with `takenStamp === takenGen`.
+   */
+  defectNear(cx, cy, takenGen) {
+    const { W, takenStamp } = this
+    const { isFree, check } = this.defectKernel(takenGen, ++this.gen)
+    for (let ox = -4; ox <= 4; ox++) {
+      for (let oy = -4; oy <= 4; oy++) {
+        const r = Math.abs(ox) + Math.abs(oy)
+        if (r > 4) continue
+        const vx = cx + ox, vy = cy + oy
+        if (!this.inside(vx, vy)) continue
+        const vi = vy * W + vx
+        if (!isFree(vi)) continue
+        if (r > 2) {
+          let near = false
+          for (let px = -2; px <= 2 && !near; px++) {
+            for (let py = -2; py <= 2; py++) {
+              if (Math.abs(px) + Math.abs(py) > 2) continue
+              const wx = vx + px, wy = vy + py
+              if (this.inside(wx, wy) && takenStamp[wy * W + wx] === takenGen) { near = true; break }
+            }
+          }
+          if (!near) continue
+        }
+        if (check(vi, vx, vy)) return true
+      }
+    }
+    return false
+  }
+
+  // The plain creep: one full `wouldStrand` per prefix. Only the fallback of
+  // creepUp; kept because it is the definition the incremental version must
+  // reproduce.
+  creepUpPlain(path, L, hi, failed) {
+    let best = L
+    for (let k = L + 1; k < hi; k++) {
+      if (this.wouldStrand(path.slice(0, k), failed)) break
+      best = k
+    }
+    return best
+  }
+
+  /**
+   * CREEP: the longest k in [L, hi) such that every prefix of length L+1..k
+   * passes `wouldStrand(path.slice(0, k), failed)`, computed without calling
+   * it. Prefix L is known to pass. Passing calls never touch `failed`, and
+   * the failing call's additions are never read by anyone, so only the
+   * booleans matter and `failed` is treated as constant.
+   *
+   * Growing a passing prefix by one cell c changes the free state at c only:
+   *
+   * - Local defect: see defectNear.
+   * - Fragments: the fragment phase of wouldStrand is a sequence of "entries"
+   *   e = 4*i + d (prefix cell i, direction d), each a no-op or a capped
+   *   flood fill from the neighbour cell, with seen marks shared across
+   *   entries. Its result is order-dependent (an oversize fragment fails only
+   *   if the window actually popped contains a `failed` cell), so the
+   *   sequence is replayed, lazily: the state of the previous prefix is kept
+   *   (which entry marked each cell, and each entry's marks), and an entry is
+   *   re-run only if a cell of its footprint — its start, the cells it popped
+   *   and their neighbours — changed free or seen state, in entry order, with
+   *   the changes it makes cascading to later entries. Entries never re-run
+   *   behave as before, i.e. they passed. Marks of entries later than the one
+   *   being re-run are stale and count as unseen. The full sequence is run
+   *   once for prefix L (linear); afterwards each step costs the cascade.
+   */
+  creepUp(path, L, hi, failed) {
+    if (hi <= L + 1) return L
+    const { W, owner, takenStamp, seenStamp, creepPos, creepInfo, degStamp } = this
+    const limit = this.p.strandLimit
+    const takenGen = ++this.gen
+    for (let i = 0; i < L; i++) {
+      const c = path[i], ci = c.y * W + c.x
+      takenStamp[ci] = takenGen; creepPos[ci] = i
+    }
+    const creepGen = ++this.gen
+    const lists = new Map() // entry -> cells it marked seen (popped or pushed)
+    const stack = [], comp = [], heap = []
+    let cur = -1 // entry being (re)run; only later entries can still be affected
+    let curList = null
+    const push = (e) => {
+      heap.push(e)
+      let i = heap.length - 1
+      while (i > 0) {
+        const p = (i - 1) >> 1
+        if (heap[p] <= heap[i]) break
+        const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p
+      }
+    }
+    const pop = () => {
+      const top = heap[0], last = heap.pop()
+      if (heap.length) {
+        heap[0] = last
+        let i = 0
+        for (;;) {
+          const l = 2 * i + 1, r = l + 1
+          let m = i
+          if (l < heap.length && heap[l] < heap[m]) m = l
+          if (r < heap.length && heap[r] < heap[m]) m = r
+          if (m === i) break
+          const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m
+        }
+      }
+      return top
+    }
+    const addIfLater = (e) => { if (e > cur) push(e) }
+    const seen = (x, e) => seenStamp[x] === creepGen && (creepInfo[x] >> 1) <= e
+    const poppedEntry = (x) => (seenStamp[x] === creepGen && (creepInfo[x] & 1)) ? creepInfo[x] >> 1 : -1
+    // Every later entry whose footprint contains x.
+    const markDirty = (x) => {
+      let g = poppedEntry(x)
+      if (g >= 0) addIfLater(g)
+      const xx = x % W, xy = (x / W) | 0
+      for (let d = 0; d < 4; d++) {
+        const nx = xx + DIRS[d].dx, ny = xy + DIRS[d].dy
+        if (!this.inside(nx, ny)) continue
+        const ni = ny * W + nx
+        g = poppedEntry(ni)
+        if (g >= 0) addIfLater(g)
+        // the entry that starts at x from the prefix cell on the other side
+        if (takenStamp[ni] === takenGen) addIfLater(4 * creepPos[ni] + ((d + 2) & 3))
+      }
+    }
+    const mark = (x, e) => {
+      // a stale mark of a later entry: that entry read x, so it is affected
+      if (seenStamp[x] === creepGen) addIfLater(creepInfo[x] >> 1)
+      seenStamp[x] = creepGen; creepInfo[x] = e << 1
+      curList.push(x)
+    }
+    const tryPush = (j, e) => {
+      if (owner[j] === -1 && takenStamp[j] !== takenGen && !seen(j, e)) { mark(j, e); stack.push(j) }
+    }
+    // Runs entry e in the current state; true = this prefix strands.
+    const evalEntry = (e) => {
+      const c = path[e >> 2], dd = DIRS[e & 3]
+      const x = c.x + dd.dx, y = c.y + dd.dy
+      if (!this.inside(x, y)) return false
+      const start = y * W + x
+      if (owner[start] !== -1 || takenStamp[start] === takenGen || seen(start, e)) return false
+      curList = []
+      lists.set(e, curList)
+      comp.length = 0; stack.length = 0
+      stack.push(start); mark(start, e)
+      let overflow = false
+      while (stack.length) {
+        const i = stack.pop()
+        comp.push(i); creepInfo[i] |= 1
+        if (comp.length > limit) { overflow = true; break }
+        const ix = i % W, iy = (i / W) | 0
+        if (iy > 0) tryPush(i - W, e)
+        if (iy < this.H - 1) tryPush(i + W, e)
+        if (ix > 0) tryPush(i - 1, e)
+        if (ix < W - 1) tryPush(i + 1, e)
+      }
+      if (overflow) {
+        for (const i of comp) if (failed.has(i)) return true
+        return false
+      }
+      return !this.decomposable(new Set(comp))
+    }
+    // The full sequence for prefix L, which is known to pass. Should the
+    // replay ever disagree, `wouldStrand` stays the ground truth: fall back
+    // to the plain creep rather than abort the generation (the lab worker
+    // would die with it). The differential test in shortening.test.mjs is
+    // where a disagreement is meant to surface.
+    for (let e = 0; e < 4 * L; e++) {
+      cur = e
+      if (evalEntry(e)) return this.creepUpPlain(path, L, hi, failed)
+    }
+    let best = L
+    for (let k = L + 1; k < hi; k++) {
+      const c = path[k - 1], ci = c.y * W + c.x
+      takenStamp[ci] = takenGen; creepPos[ci] = k - 1
+      if (this.defectNear(c.x, c.y, takenGen)) break
+      cur = -1
+      markDirty(ci)
+      seenStamp[ci] = 0
+      for (let d = 0; d < 4; d++) push(4 * (k - 1) + d)
+      let strand = false
+      while (heap.length) {
+        const e = pop()
+        if (e <= cur) continue
+        cur = e
+        const old = lists.get(e)
+        if (old) {
+          lists.delete(e)
+          for (const x of old) if (seenStamp[x] === creepGen && (creepInfo[x] >> 1) === e) seenStamp[x] = 0
+        }
+        curList = null
+        if (evalEntry(e)) { strand = true; break }
+        // cells whose seen state, as later entries observe it, changed:
+        // marked now but not before, or marked before and by nobody <= e now.
+        // degStamp is free scratch here (defectNear takes a fresh cache
+        // generation on every step).
+        const tag = ++this.gen
+        if (old) for (const x of old) degStamp[x] = tag
+        if (curList) for (const x of curList) if (degStamp[x] !== tag) markDirty(x)
+        if (old) for (const x of old) if (!seen(x, e)) markDirty(x)
+      }
+      if (strand) break
+      best = k
+    }
+    heap.length = 0
+    return best
   }
 
   // ------------------------------------------------------------ carving
@@ -628,23 +896,7 @@ class Carver {
       // must not "push" them above the test limit (see wouldStrand).
       const failed = new Set()
       if (this.wouldStrand(path, failed)) {
-        // Shorten in jumps, not one cell at a time: with a path of thousands
-        // of cells a linear search would cost O(L) leftover tests.
-        let ok = false
-        const step = Math.max(1, Math.floor(path.length / 32))
-        for (let L = path.length - step; L >= 2; L -= step) {
-          const shorter = path.slice(0, L)
-          if (!this.wouldStrand(shorter, failed)) {
-            // creep back up one at a time so as not to lose length needlessly
-            let best = L
-            for (let k = L + 1; k < Math.min(path.length, L + step); k++) {
-              if (this.wouldStrand(path.slice(0, k), failed)) break
-              best = k
-            }
-            path.length = best; ok = true; break
-          }
-        }
-        if (!ok) continue
+        if (!this.shortenPath(path, failed)) continue
         this.stats.strandTrunc++
         this.stats.strandLoss += beforeStrand - path.length
         if (isGiant && this.p.debug) {

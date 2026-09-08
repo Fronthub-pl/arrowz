@@ -594,3 +594,282 @@ full ranges.
 4. Several `carveOne` draws before a backtrack: a backtrack costs ~18 ms at
    200×200 and rarely lands on the jam, while another head or direction is
    almost free.
+
+## Round 12 — the envelope at 500×500 and 600×600, and the shortening loop
+
+Question: does the envelope of round 11, a 400×400 result, hold at 500×500
+and 600×600 — and where does the time go on the boards that close but take
+minutes.
+
+```
+node prototype/carve.mjs --dry-run --w=600 --h=600 --seed=2 --restarts=0 --pstraight=0.6                          # jams: 87 cells left in 30 crumbs
+node prototype/carve.mjs --dry-run --w=600 --h=600 --seed=3 --restarts=0 --wgiant=0.16 --giantspan=163 --giantstep=2   # closes; the dense-skeleton corner
+node --test 'prototype/shortening.test.mjs'                                    # the loop: original versus incremental, pinned fingerprints
+```
+
+### The envelope at 500×500 and 600×600
+
+**Method.** Five measurements in parallel on `main` at `09966e7`, 1 319
+boards by the reports' own counts, every one through the canonical CLI
+`--dry-run` with `restarts` 0 (so every jam counts and nothing was rerun by
+hand), wall-clock budgets 300 s up to 500×500, 420 s at 600×600, 480 s at
+700 and 800; no board ran out of budget. The five domains: baseline
+(defaults and the six modes, 15 seeds each, a scaling series from 100 to
+800), shape (every shape and length knob at its envelope edge, plus five
+conjunctions with `pStraight` 0.6), skeleton (every skeleton and probe knob
+at its edge, and the two old "slow" sets), closing (the closing, difficulty
+and rescue knobs) and a random joint sweep (80 knob sets drawn uniformly
+inside the envelope, each run at both sizes). Timing caveat: five agents
+shared 8 cores, load 30–69 during most batches, so `genMs` from the batches
+carries up to 2–4× of load noise; closing, backtracks, piece counts and
+fingerprints are unaffected, and the cost figures below come from quiet
+single-process CPU passes wherever they exist. The harness and raw data live
+outside the repository.
+
+| domain | boards | closed | jams | where the jams are |
+|---|---|---|---|---|
+| baseline: defaults and six modes, 100–800 | 338 | 338 | 0 | — |
+| shape and length knobs at the edges | 280 | 254 | 26 | all with `pStraight` 0.6: alone at 600, with `warns` 2, with `anticoil` 10 |
+| skeleton and probe knobs at the edges | 360 | 360 | 0 | — |
+| closing, difficulty and rescue knobs | 161 | 161 | 0 | — |
+| random joint sweep, 80 sets × 2 sizes, follow-ups | 180 | 180 | 0 | — |
+
+Zero backtracks on every board that closed (backtracks appear only in the
+trace of boards that then jam), 0 timeouts, and generation is deterministic:
+128 repeated runs of 70 flag sets gave 0 fingerprint mismatches.
+
+**Verdict.** The envelope holds at 500×500 for every single knob and at
+600×600 for every knob but the `pStraight` floor. It leaks in two places:
+closing at the `pStraight` 0.6 corner, time at the dense-skeleton corner.
+
+**Leak 1 — the `pStraight` 0.6 corner** (every other knob at its default;
+`×` is the cost against the defaults under the same load):
+
+| setting | 500×500 | 600×600 |
+|---|---|---|
+| `pStraight` 0.6 alone | 15/15 closed, 0 backtracks, 7–15 s (×4–6) | **11/15**: jams at seeds 2, 3, 8, 13; 25–31 s (×8–10) |
+| `pStraight` 0.6 + `warns` 2 | **0/5** | **0/5** |
+| `pStraight` 0.6 + `anticoil` 10 | **5/10** | **0/5** |
+| `pStraight` 0.65 | 5/5 (×3.3) | 10/10 (×5–7) |
+| `pStraight` 0.7 | 5/5 (×2.6) | 10/10 (×2–5) |
+| `pStraight` 0.6 + `warns` 16 + `anticoil` 10 | 5/5, control time | 5/5, control time |
+| `pStraight` 0.6 + `Lmax` 6, or + `wShort` 0.9 `wMid` 0 | 5/5, cheaper than 0.6 alone | 5/5, cheaper than 0.6 alone |
+
+The four jams of 0.6 alone at 600 are fragment jams: 87 / 735 / 2 975 /
+3 657 cells left (at most 1% of the board) in 30 / 234 / 699 / 785 crumbs,
+three of the four after spending 132–198 of the 200-undo budget; seed 2 dies
+with 87 cells in 30 crumbs of 2–4 cells and 30 legal heads. The conjunctions
+fail by shredding: with `warns` 2, 12–20% of the board is still free at 500
+and 25–35% at 600, in 1 355–2 548 fragments with 308–438 legal heads, and
+three of five boards at each size gave up with zero backtracks — the head
+scan alone spent the budget. Jams are deterministic (seeds 2 and 3 jammed
+identically in two runs, same `stuck` record). `warns` 16 neutralises the
+whole corner, and short pieces (`Lmax` 6, all-short shares) relieve it
+rather than compound it. The envelope has no rule that couples `pStraight`
+with `warns` or `anticoil`; this round records the leak and does not move
+the floor.
+
+**Leak 2 — the dense-skeleton time tail.** All 160 boards of the random
+sweep closed, but 3/80 at 600 took over 60 s (350.6, 99.3, 62.8 s) and 1/80
+at 500 (59.8 s), all "slow, no jam": 0 backtracks, remaining shrinking,
+closed inside the budget. The predictor is `wGiant` ≥ 0.13 with `giantStep`
+≤ 7 and `giantSpan` ≥ 100: 5 sets, at 600 median 62.8 s and 4/5 above 30 s,
+while the other 75 boards never exceed 29.3 s; the same corner costs 20–60 s
+at 500. Every such board also has `pStraight` 0.60–0.63, but that is a
+co-factor: 0.62 → 0.85 on the worst board brings 350 s down to 40.6 s only,
+and from the defaults the corner is slower with `pStraight` 0.85 (65 s) than
+with 0.6 (20 s). Ablation on the worst set (sweep set 29, seed 29, 600×600):
+`wGiant` 0.16 → 0 gives 17.7 s, `giantStep` 2 → 14 gives 8.7 s, `giantSpan`
+163 → 30 gives 21.0 s, `wGiant` → 0.06 gives 24.0 s; `giantSpacePenalty`,
+`giantStraight` and `giantSpacing` leave it at 182–197 s. It is a seed
+lottery: the same knobs with seeds 1029 / 2029 / 3029 take 48.6 / 16.8 /
+15.0 s, and the second-worst set takes 99.3 s with its seed and 6.6 / 9.1 s
+with two others. On the worst board the first 500 pieces take 209 s of 227,
+which is where the `wGiant` skeletons are laid (about 80 of them, target
+span 163 × 600 cells each); the CPU profile puts 95.8% of 182 s inside
+`wouldStrand` (self time 41.9% `hasLocalDefect`, 34.1% its `nbrs`, 14.5%
+`wouldStrand`, 4.0% `freeDeg`), called from the shortening loop in
+`carveOne`, and skeleton growth itself at 0.1 s. The skeleton domain saw the
+same thing in the small: `giants` 4 with `giantStep` 2 and `giantSpan` 198
+at 600 grows three giants to 39–41 k cells, each fails the leftover test and
+is trimmed to 7 338 / 1 451 / 4 602 cells at 0.5–2.5 s a piece, 3.7 s before
+piece 500 against 0.25 s for `giants` 4 alone. That is a fixed skeleton-phase
+overhead, linear in cells (exponent 0.99) when the seed is kind and minutes
+when it is not — a cost of the loop, not of the board, which is why the
+skeleton-only knobs change nothing.
+
+**The cost of the centre.** Defaults on a quiet machine: 500×500 median
+`genMs` 2.0 s (1.5–2.6), 2.8 s of CPU, peak RSS 190 MB; 600×600 2.9 s
+(2.2–3.9), 4.0 s of CPU, 265 MB. Log-log slope of CPU against cells 1.04 for
+sizes 300–800 (pairwise 0.95–0.97 up to 600, 1.37–1.51 from 600 to 800, so
+mildly superlinear above 600); RSS grows linearly, 0.47–0.55 KB per cell
+above a ≈ 70 MB Node baseline. Presets cost 1–2.3× the default (tunnels
+1.5–1.9×, layers 1.6–2.3×, mix 1.3–2.0×, skeleton and serpentine 1.0–1.5×);
+metrics add 10–13% on top of `genMs`. Same knob set at 500 and 600: `genMs`
+ratio median 1.45 for a cells ratio of 1.44, pieces 1.43, RSS 1.48; the
+ratio tail (16.2, 13.7, 7.6, 4.2) is entirely leak 2, so 500 does not
+predict the 600 outliers (7.2 s at 500, 99.3 s at 600 for one set).
+
+**Smaller findings worth keeping.**
+
+- `strandLimit` and `headTries` change the board even when nothing
+  backtracks (a different fingerprint on every seed at both sizes;
+  `strandLimit` 10 gives 2–3% more, shorter pieces), while `absorbLimit` 12
+  and 64 and `maxBack` 1000 never do (30/30 fingerprints identical to the
+  defaults). `restarts` and `maxBack` had nothing to rescue: 0 jams in 150
+  boards, and the 8 reruns of the slowest boards with `restarts` 3 and 5
+  used 0 restarts, 0 backtracks and gave the same fingerprint.
+- `probe` 1 with `probeLen` 12 gives an all-short board (`maxLen` 19–26,
+  `avgLen` 7.5, 33 095 pieces against 21 852, bends 2.13 against 3.15); the
+  help text's "little visible effect" describes small `probe` values only.
+- `giantStep` 1 and 2 are the same board (10/10 fingerprints; the engine
+  clamps the step to at least 2); `giantSpan` above 30 changes nothing at
+  step 14 (span 200 ≡ span 30, 10/10); `giantJitter` 0 gives one skeleton
+  of `giantSpan` × side cells (15 000 at 500, 18 000 at 600).
+- `giants` 20 and 40 cost nothing beyond 4 (CPU ×0.99 / ×0.92): after the
+  first 2–3 giants the next ones get stuck at a few hundred cells.
+- The old "quadratic" slow sets were misread. `giants` 31 with `wGiant`
+  0.26 and `hug` 17, clamped to `wGiant` 0.2, is now faster than `giants` 4
+  (×1.0 / ×0.8): the slowness was `wGiant` above the cap, not the giant
+  count. `giants` 4 with `giantStep` 2, `giantSpan` 198 and `probe` 0.93
+  costs ×1.2 (500) / ×1.4 (600) / ×1.7 (800) with exponent 1.10.
+- The shortest probe (`probe` 1, `probeLen` 2) is the most expensive
+  skeleton or probe setting: 69 k / 99 k pieces, CPU ×1.7–1.8, RSS ×1.8,
+  still 0 backtracks.
+- Memory is not a limit: peak RSS 140–448 MB over every board at 500 and
+  600 (the maximum is `pStraight` 0.6 with `Lmax` 6 at 600).
+
+**Not covered.** 1000×1000 is still not re-validated. Where between 500 and
+600 `pStraight` 0.6 starts to jam, whether 0.65 jams at 700–800, and the
+coupling rule the shape domain suggests (with `pStraight` below 0.7 keep
+`warns` at least 4 and `anticoil` at most 6) are unmeasured. The pure
+no-skeleton region was drawn only 3 times in the sweep and small `Lmax`
+once; those come from the baseline and shape domains instead.
+
+### The shortening loop
+
+**Mechanism.** When a grown path fails `wouldStrand`, `carveOne` looks for
+the longest prefix that passes: it jumps down in steps of `L/32` (at most 32
+calls), and from the first passing prefix `L` it creeps back up one cell at a
+time until the next failure, up to `step − 1 ≈ L/32` further calls. Every
+call is `wouldStrand` on a fresh slice of the path, and `wouldStrand` costs
+Θ(|prefix|): it stamps every prefix cell as taken, runs `hasLocalDefect`
+over the radius-2 neighbourhood of every prefix cell, and flood-fills every
+free fragment adjacent to the prefix (capped at `strandLimit` cells; a
+fragment within the cap is tested exactly with `decomposable`, and on
+failure its cells go into `failed`; a fragment above the cap that contains a
+`failed` cell fails at once). The jump phase is fine; the creep phase is
+Θ(L²/32) per trimmed path. A `wGiant` skeleton of 40–60 k cells that fails
+the test therefore costs up to about 1 800 passes over about 50 k cells each,
+and a dense late skeleton repeats it for thousands of later giants — the 96%
+in leak 2. Round 8 already noted that the loop hands cells back one at a
+time; what was missed is that the creep re-examines the whole prefix for
+every cell it hands back.
+
+**The fix — incremental exact creep, same boards.** The block moved into
+`Carver.shortenPath(path, failed)`, which truncates `path` in place and
+returns `false` when no prefix of at least 2 cells passes (the caller drops
+the path, as before). The jump phase is unchanged: each jump is a full
+`wouldStrand`, and its `failed` additions feed the later jumps and the
+creep. The creep is `creepUp`, and it only needs the boolean of each step:
+passing calls never mutate `failed`, and the additions of the single
+failing call are thrown away by the caller, so `failed` is constant during
+the creep. Going from a passing prefix of `k` cells to `k + 1` changes
+exactly one thing, cell `k + 1` becomes taken, and the two halves of
+`wouldStrand` are re-evaluated on that basis.
+
+- *Local defects.* The full check visits every free vertex within distance
+  2 of some prefix cell, and its predicate reads the state within distance
+  4 of the vertex. So after one more cell only vertices within distance 4 of
+  the new cell can have changed, and among those the full check would visit
+  exactly the ones with a prefix cell within distance 2 (the new cell
+  counts). `defectNear` evaluates precisely that set, with the vertex
+  predicate moved verbatim into `defectKernel` and a fresh degree-cache
+  generation per step so no stale degree is read; visiting any other vertex
+  could report a defect the original would not have seen.
+- *Fragments.* The sketch said "only the fragments adjacent to the new cell",
+  and that is not exact: `wouldStrand` walks the path cells in order and
+  the four directions in order, flood-filling from each free neighbour not
+  yet seen, and the oversize rule looks at the cells the capped fill
+  actually popped, which depends on that order and on the seen marks left
+  by every earlier start. `creepUp` therefore replays the sequence lazily:
+  once, for the passing prefix found by the jump, it runs the full sequence
+  (Θ(L)) and records which start marked which cell; each step then re-runs,
+  in order, only the starts whose footprint changed — the start that popped
+  the new cell, the starts that popped a neighbour of it, the four new
+  starts of the new cell, and, transitively, any later start whose marks a
+  re-run overwrote or freed. A re-run start that fails ends the creep;
+  every start not re-run passed at `k` and is unchanged. An internal
+  assertion checks that the initial replay agrees with the jump's
+  `wouldStrand`.
+
+Per creep step that is 41 vertex predicates plus the re-run starts (each
+capped at `strandLimit` cells, and the cascade is local in practice), i.e.
+O(L) for the whole creep instead of Θ(L²/32); two scratch `Int32Array`
+per `Carver` hold the replay bookkeeping. The engine agent's own
+differential check wrapped `shortenPath` so that a verbatim copy of the old
+block ran on copies of `path` and `failed` next to the new method: 642
+boards (40–300 cells a side, skeletons with `giantStep` 2, `wGiant` up to
+0.2, layers), 140 111 calls compared, 0 mismatches on the boolean or the
+length, 642/642 fingerprints identical to `main`; on the reference slow
+board (sweep set 29, 600×600) `genMs` 102.0 s → 4.7 s, same fingerprint
+`aba4c8a8`, 15 268 pieces, `maxLen` 59 103, peak RSS 268 → 273 MB.
+
+Guarded by `shortening.test.mjs`: (a) a differential test over 64 random
+boards of 40–120 cells a side (skeletons with `giantStep` 2 and `giantSpan`
+30–200, `wGiant` 0.1–0.2, `giantJitter` 0–1, layers alone and with a
+skeleton, defaults) that runs the verbatim old loop on copies next to the
+new method on every call and pins the totals measured on `main` — 1 716
+trims, 2 605 refusals, rolled-up fingerprint `78b8a0ad` — so it cannot pass
+vacuously; (b) twelve boards pinned from `main` by fingerprint, piece
+count, `strandTrunc` and `strandLoss`, among them a 7 324-cell serpentine
+cut down to 62 cells, a 120×120 board with 98 trims, and one board whose
+only shortening call refuses. The whole suite (81 tests) runs in a few seconds.
+
+**Before and after.** Same 44 boards through the canonical CLI on `main`
+and on the fixed engine, `restarts` 0, sizes 500–800: the four slow-tail
+sets of the sweep with their seeds and cheap siblings, the old slow set A at
+500/600/800, a `wGiant` 0.2 grid at 600, and 19 controls (defaults, `giants`
+4, layers, `pStraight` 0.6). **44/44 fingerprints identical**, same piece
+counts, 0 backtracks and 0 timeouts on both sides; the 10 sweep boards on
+`main` reproduce the sweep's recorded fingerprints 10/10. Times are `genMs`
+from quiet back-to-back reruns (one process at a time, load 3–5) where they
+exist, otherwise from the batch (two processes; a single batch pair is
+reliable only outside about 0.75–1.35×, so the controls' batch ratios are
+noise, and the same board rerun four times quiet gave 0.91–1.03×):
+
+| board (`--restarts=0`) | before | after | ratio |
+|---|---|---|---|
+| sweep set 29, 600×600, seed 29 — the reference slow board (182–350 s in the sweep at load 38) | 106.3 s | 4.8 s | **22×** |
+| sweep set 29, seeds 1029 / 2029 (batch) | 39.3 / 11.4 s | 4.6 / 5.2 s | 8.5× / 2.2× |
+| sweep set 29 at 500×500 (batch) | 6.8 s | 3.9 s | 1.7× |
+| sweep set 10, 600×600 (99 s in the sweep) | 24.5 s | 3.0 s | 8.2× |
+| sweep set 23, 600×600 (batch) | 16.5 s | 3.8 s | 4.4× |
+| sweep set 13, 500×500 / 600×600 (batch) | 19.1 / 13.5 s | 6.9 / 7.3 s | 2.8× / 1.9× |
+| `giants` 0, `wGiant` 0.2, `giantStep` 2, `giantSpan` 150, 600×600 seed 2 | 16.0 s | 6.7 s | 2.4× |
+| same with `giants` 4, seeds 1–3 (batch) | 16.6 / 7.0 / 10.5 s | 12.5 / 6.1 / 7.2 s | 1.1–1.5× |
+| old slow set A (`giants` 4, `giantStep` 2, `giantSpan` 198, `probe` 0.93), 800×800 seed 1 | 12.4 s | 7.9 s | 1.6× |
+| old slow set A at 500 and 600 (batch and quiet) | 2.1–6.5 s | 2.2–5.9 s | 0.9–1.4× |
+| defaults, 600×600, seeds 1–3 | 2.17 / 2.24 / 2.17 s | 2.15 / 2.21 / 2.13 s | 1.01–1.02× |
+| defaults 500, `giants` 4, layers, `pStraight` 0.6 (batch, 16 boards) | 1.7–11.0 s | 1.8–10.3 s | 0.85–1.35× (noise) |
+
+After the fix every slow-tail board of the sweep costs 3–7 s, inside the
+ordinary 5–25 s band of 600×600, and the seed lottery is gone (set 29 with
+its three seeds: 4.8 / 4.6 / 5.2 s instead of 106 / 39 / 11 s). The old slow
+set A barely moves at 500 and 600 because its cost was mostly the jump
+phase, which the fix leaves alone. Peak RSS is unchanged within its run to
+run variation (the same board varies up to 1.6× between runs on the same
+side; maxima 643 MB before and 598 MB after, both set A at 800). CPU profile
+of the reference board, one process alone: before, 106.8 s sampled with
+95.5% inside `wouldStrand` (self time 40.9% `hasLocalDefect`, 34.9% its
+`nbrs`, 15.0% `wouldStrand`, 4.1% `freeDeg`); after, 5.0 s sampled, of
+which `shortenPath` is 72% inclusive, and the incremental creep only 6%
+(0.3 s) — what remains of the leftover test is the 32-jump phase, an order
+of magnitude above the creep on this board; the ordinary carving is back to
+8% self time in `carveOne`.
+
+**Left open.** The jump phase is still up to 32 full Θ(L) tests per trimmed
+path, which is what set A pays at 800 (7.9 s against 12.4 s before); a
+binary search over the jumps would change which prefix is chosen, so it is
+a board-changing decision for another round. The `pStraight` 0.6 leak at
+600×600 stands as documented above.
