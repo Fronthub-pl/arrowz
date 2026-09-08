@@ -4,3 +4,4 @@ dist/
 *.local
 .basic-memory/
 prototype/boards/
+.claude/worktrees/
