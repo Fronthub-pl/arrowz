@@ -156,6 +156,18 @@ test('generate: closes the board without Warnsdorff and with only short pieces',
   }
 })
 
+test('generate: a jam reports how many legal heads were left at the best moment', () => {
+  // Half the cells are voids, so single free cells stay isolated and nothing
+  // can cover them: the run jams at once. The count of legal heads at the
+  // moment of the smallest leftover tells a jam of geometry (no head at all)
+  // from a jam of the search (heads exist, the carver gave up on them).
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 })
+  assert.equal(r.ok, false)
+  assert.equal(Number.isInteger(r.stuck.heads), true, JSON.stringify(r.stuck))
+  assert.equal(r.stuck.heads, r.board.stuckHeads)
+  assert.ok(r.stuck.heads >= 0 && r.stuck.heads <= 2 * (12 + 12))
+})
+
 test('analyse: does not overflow the stack with hundreds of thousands of pieces (the worker in Chrome has a small stack)', () => {
   // A 2×300 000 board covered with horizontal dominoes with the head at the right edge:
   // 300 000 pieces, all rays empty, so the blocking graph is

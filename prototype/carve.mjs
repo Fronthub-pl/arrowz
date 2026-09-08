@@ -40,7 +40,7 @@ if (svgFlag || dryRun) {
   const result = generate({ ...cli, trace, debug })
   if (!result.ok) {
     if (dryRun) console.log(JSON.stringify({ dryRun: true, W: cli.W, H: cli.H, seed: cli.seed, id: boardId(cli), ok: false, stuck: result.stuck, restarts: result.restartsUsed, genMs: result.genMs }))
-    console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left`)
+    console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left, ${result.stuck.heads ?? '?'} legal heads at the best moment`)
     process.exit(1)
   }
   const c = result.board, m = result.metrics, W = cli.W, H = cli.H

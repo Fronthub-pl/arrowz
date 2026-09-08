@@ -1444,7 +1444,9 @@ export function generate(params) {
     backtracks: carver.backtracks,
     genMs,
     metricsMs: performance.now() - t1,
-    stuck: ok ? null : { remaining: carver.stuckRemaining ?? carver.remaining, sizes: carver.stuckSizes ?? [] },
+    // `heads` = legal heads at the moment of the smallest leftover: zero means
+    // the geometry closed the board, more means the search gave up on them.
+    stuck: ok ? null : { remaining: carver.stuckRemaining ?? carver.remaining, sizes: carver.stuckSizes ?? [], heads: carver.stuckHeads ?? null },
   }
 }
 
