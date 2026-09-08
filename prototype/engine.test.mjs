@@ -6,6 +6,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint, PARAM_SPEC, RULES, RULE_REASONS, INACTIVE_REASONS, validateParams, formatViolation } from './engine.mjs'
+import * as engineExports from './engine.mjs'
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
 // A set of cells in the GIVEN order — the order decides which cell the test
@@ -440,5 +441,23 @@ test('analyse: metrics are identical to the ones recorded with the Set-based blo
     assert.equal(r.ok, true)
     const key = `${W}x${H}-seed${seed}${Object.keys(extra).map((k) => '-' + k + extra[k]).join('')}`
     assert.deepEqual(r.metrics, recorded[key], key)
+  }
+})
+
+// Arrowheads are narrow isosceles triangles: with a base as wide as the old
+// 0.84 of a cell, the heads of two pieces meeting at a right angle in
+// neighbouring cells touched each other.
+test('toSvg: every arrowhead is taller than its base is wide', () => {
+  const { toSvg } = engineExports
+  const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
+  const svg = toSvg(board, { cell: 10, colored: false, strokeRatio: 0.5, top: 0 })
+  const heads = [...svg.matchAll(/<polygon points="([^"]+)"/g)].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
+  assert.equal(heads.length, board.pieces.length, 'one head per piece')
+  for (const [tip, a, b] of heads) {
+    const base = Math.hypot(a[0] - b[0], a[1] - b[1])
+    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+    const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1])
+    assert.ok(base < height, `base ${base} should be narrower than height ${height}`)
+    assert.ok(base <= 6, `base ${base} must leave room for a perpendicular neighbour (≤ 0.6 of a cell)`)
   }
 })

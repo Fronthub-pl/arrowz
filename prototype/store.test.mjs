@@ -30,18 +30,24 @@ test('saveBoard writes SVG and meta into the size directory', async () => {
   assert.ok(saved.createdAt)
 })
 
-test('listBoards: sizes ascending by cells, boards newest first, same id overwrites', async () => {
+test('listBoards: sizes ascending by cells, boards newest first, same id overwrites in place', async () => {
   const { saveBoard, listBoards } = await import('./store.mjs')
   saveBoard(entry({ params: { W: 100, H: 100, seed: 1 } }))
   const first = saveBoard(entry({ params: { seed: 1 } }))
   await new Promise((r) => setTimeout(r, 5))
   saveBoard(entry({ params: { seed: 2 } }))
   await new Promise((r) => setTimeout(r, 5))
-  saveBoard(entry({ svg: '<svg>2</svg>', params: { seed: 1 } }))   // same id — overwrite
+  // Same id — overwrite. Recolouring a board in the lab goes this way, and
+  // the board must NOT jump to the top of the list: it keeps its first
+  // createdAt and records the overwrite in updatedAt.
+  const again = saveBoard(entry({ svg: '<svg>2</svg>', params: { seed: 1 } }))
   const sizes = listBoards()
   assert.deepEqual(sizes.map((s) => s.size), ['25x50', '100x100'])
   assert.equal(sizes[0].boards.length, 2)
-  assert.equal(sizes[0].boards[0].seed, 1, 'overwritten entry is the newest')
+  assert.deepEqual(sizes[0].boards.map((b) => b.seed), [2, 1], 'the overwritten board stays where it was')
+  assert.equal(again.createdAt, first.createdAt, 'createdAt survives the overwrite')
+  assert.ok(again.updatedAt > first.createdAt, 'updatedAt records the overwrite')
+  assert.equal(sizes[0].boards[1].updatedAt, again.updatedAt)
   assert.equal(readFileSync(join(dir, '25x50', first.id + '.svg'), 'utf8'), '<svg>2</svg>')
 })
 

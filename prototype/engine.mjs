@@ -1580,7 +1580,10 @@ function toSvg(board, opts = {}) {
     const line = `<polyline points="${pts}" stroke="${col}"/>`
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
-    const tip = cell * 0.62, len = cell * 0.62, half = cell * 0.42
+    // A narrow isosceles head (base 0.54 of a cell, height 0.62): with the
+    // old base of 0.84 two heads meeting at a right angle in neighbouring
+    // cells touched each other.
+    const tip = cell * 0.62, len = cell * 0.62, half = cell * 0.27
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * len, by = ty - dy * len
     const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
