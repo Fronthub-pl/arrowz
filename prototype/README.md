@@ -24,9 +24,16 @@ measurements below: straightness stays at 0.65 or above (0.7 above 600 cells
 a side), the coiling penalty stays low with low straightness, the skeleton
 never gets dense, layers mode is skipped at a million cells, and the closing
 knobs keep their defaults (a random backtrack budget turns a jam into minutes
-of waiting). Whatever was drawn goes through the knobs, so the command, the
-URL and the advanced view show exactly what was generated. Switching views
-never touches the knobs; the form is applied when something in it is clicked.
+of waiting). Measured with the CLI (`--dry-run --restarts=0`, random draws):
+the three middle anchors of each slider close 36/36 at 200×200 and 400×400,
+and the eight extreme combinations (very short or very long, straightest or
+most winding, with or without a skeleton) close 24/24 at 200×200, 400×400
+and 500×500 and 16/16 at 1000×1000, all with 0 backtracks; the one slow
+corner is very short plus most winding at 1000×1000, 24–51 s for 120–136
+thousand pieces, everything else there stays under 14 s. Whatever was drawn
+goes through the knobs, so the command, the URL and the advanced view show
+exactly what was generated. Switching views never touches the knobs; the
+form is applied when something in it is clicked.
 
 The **advanced** view has all generator knobs in the side panel; the board is
 drawn immediately.
