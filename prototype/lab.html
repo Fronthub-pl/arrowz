@@ -43,6 +43,21 @@
   .langs button { padding: .1rem .4rem; font-size: 11px; }
   .langs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 
+  /* Simple / advanced view. The simple view replaces the presets and the
+     knob panel with a few plain choices (lab-simple.mjs); the export-only
+     knobs (advonly) go too. Both views share the same state. */
+  .views { display: flex; gap: .3rem; margin: 0 0 .7rem; }
+  .views button { flex: 1; padding: .25rem .5rem; font-size: 12.5px; }
+  .views button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+  body.simple #presets, body.simple #params, body.simple .advonly { display: none; }
+  body:not(.simple) #simple { display: none; }
+  .slabel { display: block; font-size: 12.5px; margin-bottom: .25rem; }
+  select#sSize { display: block; width: 100%; font: inherit; font-size: 13px; padding: .3rem .4rem; margin-bottom: .6rem;
+                 border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  .seg { display: flex; gap: .25rem; margin-bottom: .6rem; }
+  .seg button { flex: 1; padding: .25rem .3rem; font-size: 12px; }
+  .seg button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+
   .row { display: grid; grid-template-columns: 1fr 68px; gap: .5rem; align-items: center; margin-bottom: .35rem; }
   .row label { font-size: 12.5px; }
   .row input[type=number] { width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 4px;
@@ -165,6 +180,19 @@
   <h1 data-i18n="title">Generator lab</h1>
   <p class="sub" data-i18n="subtitle">Same engine as carve.mjs: engine.mjs.</p>
 
+  <div class="views labonly"><button id="viewSimple" type="button"></button><button id="viewAdvanced" type="button"></button></div>
+  <div id="simple" class="labonly">
+    <label class="slabel" for="sSize" data-simple="size"></label>
+    <select id="sSize"></select>
+    <div id="simpleGroups"></div>
+    <div class="row">
+      <label for="sSeed" id="sSeedLabel"></label>
+      <input type="number" id="sSeed" min="0" max="999999" step="1">
+    </div>
+    <label class="check"><input type="checkbox" id="sRandom"> <span data-simple="randomize"></span></label>
+    <p class="grouphelp" data-simple="randomizeHelp"></p>
+  </div>
+
   <select id="presets" class="presets labonly"></select>
   <div class="notice labonly" id="clampNote" hidden><span data-i18n="clamped"></span><button id="clampDismiss" type="button">×</button></div>
   <div id="violations" class="labonly" hidden><b data-i18n="violationsTitle"></b><ul></ul></div>
@@ -191,7 +219,7 @@
     <input type="range" id="zoomRange" min="200" max="12000" step="100" value="1600">
     <p class="help" data-i18n="zoomHelp"></p>
   </div>
-  <div class="row labonly">
+  <div class="row labonly advonly">
     <label for="cell" data-i18n="cellLabel">cell size in export (px)</label>
     <input type="number" id="cell" value="12" min="1" max="40" step="1">
     <p class="help" data-i18n="cellHelp"></p>
@@ -202,13 +230,13 @@
   </div>
   <label class="check labonly"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
   <label class="check labonly"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
-  <label class="check labonly"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
-  <div class="row labonly">
+  <label class="check labonly advonly"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
+  <div class="row labonly advonly">
     <label for="top" data-i18n="topLabel">how many longest</label>
     <input type="number" id="top" value="5" min="1" max="50" step="1">
   </div>
-  <label class="check labonly"><input type="checkbox" id="auto"> <span data-i18n="autoRun">generate right after a change</span></label>
-  <label class="check labonly"><input type="checkbox" id="help" checked> <span data-i18n="showHelp">show parameter descriptions</span></label>
+  <label class="check labonly advonly"><input type="checkbox" id="auto"> <span data-i18n="autoRun">generate right after a change</span></label>
+  <label class="check labonly advonly"><input type="checkbox" id="help" checked> <span data-i18n="showHelp">show parameter descriptions</span></label>
 
   <div id="params" class="labonly"></div>
 </aside>
@@ -254,6 +282,7 @@ import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS, defaultParams, validatePara
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 import { PRESETS, findPreset } from './lab-presets.mjs'
+import { SIMPLE_SIZES, SIMPLE_CHOICES, defaultChoice, simpleParams } from './lab-simple.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -405,6 +434,7 @@ function applyLanguage() {
   for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n)
   $('solo').title = t('fullView')
   presetLabels()
+  simpleLabels()
   disarmDelete()
   for (const [group, box] of groupBoxes) {
     box.querySelector('summary').textContent = DICT[lang].groups[group] ?? EN.groups[group] ?? group
@@ -460,9 +490,91 @@ $('presets').addEventListener('change', () => {
   for (const spec of PARAM_SPEC) clamped = setParam(spec.key, entry.preset.params[spec.key] ?? spec.def) || clamped
   showClamped(clamped)
   // The cell size concerns only the export; the preview scales itself.
-  $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
+  $('cell').value = exportCell(W, H)
   updateCommand()
   run()
+})
+// The cell size concerns only the export; the preview scales itself.
+function exportCell(W, H) { return Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H)))) }
+
+// --- simple view ---------------------------------------------------------------
+// Plain choices (lab-simple.mjs) instead of the knob panel. The choices and
+// the view mode live in localStorage; the parameters they produce go through
+// setParam like a preset, so the command, the advanced view and the URL show
+// exactly what was generated — the values drawn in random mode included.
+const SIMPLE_KEY = 'labSimple'
+let simpleChoice = defaultChoice()
+try { Object.assign(simpleChoice, JSON.parse(localStorage.getItem(SIMPLE_KEY) || '{}')) } catch { /* stale storage */ }
+delete simpleChoice.seed   // the seed lives in the knobs, not in the recipe
+if (!SIMPLE_SIZES.some((s) => s.id === simpleChoice.size)) simpleChoice.size = defaultChoice().size
+for (const [group, values] of Object.entries(SIMPLE_CHOICES)) if (!values.includes(simpleChoice[group])) simpleChoice[group] = defaultChoice()[group]
+
+for (const s of SIMPLE_SIZES) $('sSize').append(new Option(`${s.W}×${s.H}`, s.id))
+const segButtons = []   // { group, value, button }
+for (const [group, values] of Object.entries(SIMPLE_CHOICES)) {
+  const label = document.createElement('span')
+  label.className = 'slabel'
+  label.dataset.simple = group
+  const seg = document.createElement('div')
+  seg.className = 'seg'
+  for (const value of values) {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.dataset.simple = `${group}.${value}`
+    b.addEventListener('click', () => { simpleChoice[group] = value; applySimple(); run() })
+    seg.append(b)
+    segButtons.push({ group, value, button: b })
+  }
+  $('simpleGroups').append(label, seg)
+}
+function simpleLabels() {
+  const d = DICT[lang].simple, en = EN.simple
+  for (const el of document.querySelectorAll('[data-simple]')) {
+    const [group, value] = el.dataset.simple.split('.')
+    el.textContent = value ? (d.options[group]?.[value] ?? en.options[group][value]) : (d[group] ?? en[group])
+  }
+  $('viewSimple').textContent = d.viewSimple ?? en.viewSimple
+  $('viewAdvanced').textContent = d.viewAdvanced ?? en.viewAdvanced
+  $('sSeedLabel').textContent = paramText(specByKey.get('seed')).label
+}
+function syncSimpleForm() {
+  $('sSize').value = simpleChoice.size
+  for (const { group, value, button } of segButtons) button.classList.toggle('on', simpleChoice[group] === value)
+  $('sSeed').value = state.seed
+  $('sRandom').checked = !!simpleChoice.random
+}
+// Writes the choice into the knobs. With `random` every ranged knob is drawn
+// afresh, so the same seed gives a different board.
+function applySimple(random = false) {
+  localStorage.setItem(SIMPLE_KEY, JSON.stringify(simpleChoice))
+  const params = simpleParams({ ...simpleChoice, seed: state.seed }, random ? Math.random : null)
+  let clamped = false
+  for (const spec of PARAM_SPEC) clamped = setParam(spec.key, params[spec.key]) || clamped
+  showClamped(clamped)
+  $('cell').value = exportCell(params.W, params.H)
+  syncSimpleForm()
+  updateCommand()
+}
+function simpleActive() { return document.body.classList.contains('simple') }
+function randomOnGenerate() { return simpleActive() && $('sRandom').checked }
+// Switching the view never touches the knobs: a peek at the advanced view
+// and back keeps a randomly drawn set. The form is a recipe, applied when
+// something in it is clicked (and once at start, see the bottom).
+function showView(mode) {
+  const simple = mode === 'simple'
+  document.body.classList.toggle('simple', simple)
+  $('viewSimple').classList.toggle('on', simple)
+  $('viewAdvanced').classList.toggle('on', !simple)
+  localStorage.setItem('labView', simple ? 'simple' : 'advanced')
+  syncSimpleForm()
+}
+$('viewSimple').addEventListener('click', () => showView('simple'))
+$('viewAdvanced').addEventListener('click', () => showView('advanced'))
+$('sSize').addEventListener('change', () => { simpleChoice.size = $('sSize').value; applySimple(); run() })
+$('sSeed').addEventListener('input', () => setParam('seed', $('sSeed').value))
+$('sRandom').addEventListener('change', () => {
+  simpleChoice.random = $('sRandom').checked
+  localStorage.setItem(SIMPLE_KEY, JSON.stringify(simpleChoice))
 })
 
 // Pulls a value loaded from outside (URL, preset, stored board) into the
@@ -483,6 +595,8 @@ function setParam(key, value) {
   state[key] = c.value
   const el = $('p_' + key)
   if (el) { el.value = c.value; el.nextElementSibling.value = c.value }
+  // The simple view shows the seed too — unless the user is typing it there.
+  if (key === 'seed' && document.activeElement !== $('sSeed')) $('sSeed').value = c.value
   refreshActive()
   updateCommand()
   return c.clamped
@@ -674,11 +788,18 @@ function redraw() {
 let timer = null
 function schedule() { clearTimeout(timer); timer = setTimeout(run, 350) }
 
-$('run').addEventListener('click', run)
-$('reseed').addEventListener('click', () => { setParam('seed', Math.floor(Math.random() * 999999)); run() })
+// In the simple view with randomising on, Generate and New seed draw the
+// knobs afresh first; every other way of starting a run keeps the knobs.
+$('run').addEventListener('click', () => { if (randomOnGenerate()) applySimple(true); run() })
+$('reseed').addEventListener('click', () => {
+  setParam('seed', Math.floor(Math.random() * 999999))
+  if (randomOnGenerate()) applySimple(true)
+  run()
+})
 $('reset').addEventListener('click', () => {
   Object.assign(state, defaultParams())
   for (const spec of PARAM_SPEC) setParam(spec.key, state[spec.key])
+  if (simpleActive()) { simpleChoice = { ...defaultChoice(), random: simpleChoice.random }; applySimple() }
   run()
 })
 for (const id of ['cell', 'stroke', 'colored', 'hilite', 'top', 'voids']) {
@@ -745,27 +866,41 @@ function showTab(name) {
   document.body.classList.toggle('tab-library', name === 'library')
   for (const b of document.querySelectorAll('#tabs button')) b.classList.toggle('on', b.dataset.tab === name)
   $('library').hidden = name !== 'library'
-  if (name === 'library') { loadLibrary(); if (libBoard) openBoard(libBoard) }
+  if (name === 'library') loadLibrary({ open: true })
   else if (lastDone && worker && !busy) { redraw(); report(lastDone, { keepPrev: true }) }
   saveToUrl()
 }
 for (const b of document.querySelectorAll('#tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab))
 
-async function loadLibrary(force = false) {
-  if (boardsCache && !force) { renderLibrary(); return }
-  try {
-    const r = await fetch('/api/boards')
-    if (!r.ok) throw new Error(`HTTP ${r.status}`)
-    boardsCache = await r.json()
-  } catch {
-    boardsCache = []
-    $('libList').innerHTML = `<p class="grouphelp">${t('noStoreServer')}</p>`
-    return
+// `open` shows a board of the chosen size right away (entering the tab);
+// a plain refresh only redraws the list around the board already shown.
+async function loadLibrary({ force = false, open = false } = {}) {
+  if (!boardsCache || force) {
+    try {
+      const r = await fetch('/api/boards')
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      boardsCache = await r.json()
+    } catch {
+      boardsCache = []
+      $('libList').innerHTML = `<p class="grouphelp">${t('noStoreServer')}</p>`
+      return
+    }
   }
   if (!boardsCache.some((s) => s.size === libSize)) libSize = boardsCache[0]?.size ?? null
-  renderLibrary()
+  if (open) selectSize(libSize)
+  else renderLibrary()
 }
-$('libRefresh').addEventListener('click', () => loadLibrary(true))
+$('libRefresh').addEventListener('click', () => loadLibrary({ force: true }))
+
+// A chosen size always has a board on screen: the first of the size, unless
+// the board already shown belongs to it.
+function selectSize(size) {
+  libSize = size
+  const entry = boardsCache?.find((s) => s.size === size)
+  if (!entry) { renderLibrary(); return }
+  if (!entry.boards.some((b) => b.id === libBoard?.id)) libBoard = entry.boards[0]
+  openBoard(libBoard)
+}
 
 function renderLibrary() {
   if (!boardsCache) return
@@ -774,7 +909,7 @@ function renderLibrary() {
     const b = document.createElement('button')
     b.textContent = `${s.size} (${s.boards.length})`
     b.classList.toggle('primary', s.size === libSize)
-    b.addEventListener('click', () => { libSize = s.size; renderLibrary() })
+    b.addEventListener('click', () => selectSize(s.size))
     $('libSizes').append(b)
   }
   const size = boardsCache.find((s) => s.size === libSize)
@@ -895,7 +1030,9 @@ async function onLibWorkerMessage(meta, msg) {
     libBoard = saved
     $('libCommand').textContent = saved.command
     setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
-    await loadLibrary(true)   // the row shows the new save time
+    // The store keeps createdAt on an overwrite, so the row stays in place;
+    // the list is refreshed for the new meta only.
+    await loadLibrary({ force: true })
   } catch {
     setStatus(`<span class="bad">${t('notSaved')}</span>`)
   }
@@ -931,7 +1068,7 @@ $('libDelete').addEventListener('click', async () => {
   $('libDetail').hidden = true
   $('board').innerHTML = ''
   setStatus(t('deletedBoard', `<code>${name}</code>`))
-  await loadLibrary(true)
+  await loadLibrary({ force: true })
 })
 
 // --- state in the URL -------------------------------------------------------
@@ -1064,8 +1201,12 @@ function renderLongest(longest) {
 }
 
 applyZoom()
-loadFromUrl()
+const fromUrl = loadFromUrl()
 applyLanguage()
+// A shared URL carries its own knobs; otherwise the first board of the simple
+// view is the one its form describes.
+showView(localStorage.getItem('labView') === 'advanced' ? 'advanced' : 'simple')
+if (simpleActive() && !fromUrl) applySimple()
 refreshActive()
 updateCommand()
 run()
