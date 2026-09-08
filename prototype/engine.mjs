@@ -1586,8 +1586,8 @@ function toSvg(board, opts = {}) {
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
     // The head follows the width of ITS line (highlighted pieces are
     // thicker). A thin line (under half a cell) gets an arrow: an isosceles
-    // triangle 1.8 times as wide as the line, at least half a cell and at most
-    // a cell wide, always 0.9 of a cell tall. From half a cell up there is no
+    // triangle 0.4 of a cell plus 0.9 of the line width wide, always 0.9 of a
+    // cell tall. From half a cell up there is no
     // room for a wider head between neighbours, so the line ends as a
     // sharpened stick: a triangle exactly as wide as the line and 1.4 times
     // as tall. Either way the tip stays 0.48 past the head centre, inside the
@@ -1597,24 +1597,29 @@ function toSvg(board, opts = {}) {
     // slightly wider than the line, with the cap ending short of the base,
     // looked like a triangle perched on a pill, with notches at the corners;
     // a fixed head was swallowed by the cap from a stroke of 0.5 up.
+    // Both sizes can be set by hand (opts.headWidth / headHeight, in cells;
+    // 0 = automatic); a head narrower than its line is widened to the line.
     const w = isLong ? hiWidth : sw
     const stick = w >= 0.5 * cell - 1e-9
-    const half = stick ? w / 2 : Math.min(Math.max(0.9 * w, 0.25 * cell), 0.5 * cell)
-    const height = stick ? 1.4 * w : 0.9 * cell
+    const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
+    const autoHeight = stick ? 1.4 * w : 0.9 * cell
+    const half = Math.max(w, opts.headWidth > 0 ? opts.headWidth * cell : autoWidth) / 2
+    const height = opts.headHeight > 0 ? opts.headHeight * cell : autoHeight
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height
     // Line and head overlap by 0.2 of the line width, so no anti-aliasing
-    // seam shows at the base: an arrow, wider than the line, takes the line
-    // that far past the base; a stick, exactly as wide, gets a collar of that
-    // length behind the base instead (a five-point outline).
+    // seam shows at the base: a head the line fits into that deep takes the
+    // line that far past the base; a head as wide as the line (a stick) gets
+    // a collar of that length behind the base instead (a five-point outline).
     const lap = 0.2 * w
-    const collar = stick ? ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${by - dy * lap + dx * half}` : ''
+    const fits = w / 2 <= half * (1 - lap / height) + 1e-9
+    const collar = fits ? '' : ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${by - dy * lap + dx * half}`
     const fill = col === INK ? '' : ` fill="${col}"`
     const tailCell = pc.cells[pc.cells.length - 1]
     const head = `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${by + dx * half}"${fill}/>` +
       `<circle cx="${cx(tailCell.x)}" cy="${cy(tailCell.y)}" r="${w / 2}"${fill}/>`
-    const ex = stick ? bx : bx + dx * lap, ey = stick ? by : by + dy * lap
+    const ex = fits ? bx + dx * lap : bx, ey = fits ? by + dy * lap : by
     const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
     const line = `<polyline points="${pts}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }

@@ -263,7 +263,10 @@ follows the line width: under a stroke of 0.5 an arrow — a filled isosceles
 triangle 1.8 times as wide as the line (half a pitch at least, a pitch at
 most), always 0.9 of a pitch tall; from 0.5 up a sharpened stick —
 exactly as wide as the line and 1.4 times as tall, because a wider head no
-longer fits between neighbours. The tip sits 0.48 past the head cell centre
+longer fits between neighbours. Both sizes can be set by hand: the lab has
+two knobs next to the stroke (also on a stored board), the CLI takes
+`--headwidth=R` and `--headheight=R` in cells; 0 keeps the automatic rule,
+and a head narrower than the line is widened to it. The tip sits 0.48 past the head cell centre
 so it stays inside that cell, a bigger head grows backwards, and the line
 runs up to the base itself. Colours `#232447` on `#f6f6fa`. History: a
 fixed head with a 0.62 tip overshot into the next cell and facing heads

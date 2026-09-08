@@ -468,12 +468,12 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
-      // Thin lines get an arrow: a head 1.8 times as wide as the line, at
-      // least half a cell, never wider than a cell, always 0.9 of a cell
-      // tall. From a stroke of 0.5 up there is no room for that between
+      // Thin lines get an arrow: a head 0.4 of a cell plus 0.9 of the line
+      // width wide (0.58 at a stroke of 0.2, 0.8 at 0.45), always 0.9 of a
+      // cell tall. From a stroke of 0.5 up there is no room for that between
       // neighbours, so the head is a sharpened stick: exactly as wide as the
       // line, 1.4 times as tall.
-      const want = s < 0.5 - 1e-9 ? Math.min(Math.max(1.8 * s, 0.5), 1) : s
+      const want = s < 0.5 - 1e-9 ? 0.4 + 0.9 * s : s
       assert.ok(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
       assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
       assert.ok(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
@@ -514,4 +514,34 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell, `${label}: line end behind the neck cell`)
     })
   }
+})
+
+// The head size can be set by hand (view options, in cells); 0 keeps the
+// automatic rule. A head narrower than the line is pulled up to the line.
+test('toSvg: head width and height knobs override the automatic size', () => {
+  const { toSvg } = engineExports
+  const cell = 20
+  const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
+  const measure = (opts) => {
+    const svg = toSvg(board, { cell, colored: false, top: 0, ...opts })
+    return [...svg.matchAll(/<polygon points="([^"]+)"/g)].map((m) => {
+      const pts = m[1].split(' ').map((p) => p.split(',').map(Number))
+      const [tip, a] = pts, b = pts[pts.length - 1]
+      const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+      return { base: Math.hypot(a[0] - b[0], a[1] - b[1]) / cell, height: Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell }
+    })
+  }
+  for (const h of measure({ strokeRatio: 0.3, headWidth: 0.8, headHeight: 1.2 })) {
+    assert.ok(Math.abs(h.base - 0.8) < 1e-6, `base ${h.base}`)
+    assert.ok(Math.abs(h.height - 1.2) < 1e-6, `height ${h.height}`)
+  }
+  for (const h of measure({ strokeRatio: 0.7, headWidth: 0.4, headHeight: 0 })) {
+    assert.ok(Math.abs(h.base - 0.7) < 1e-6, `a head narrower than the line is widened to it: ${h.base}`)
+    assert.ok(Math.abs(h.height - 1.4 * 0.7) < 1e-6, `height 0 keeps the automatic rule: ${h.height}`)
+  }
+  for (const h of measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0.5 })) {
+    assert.ok(Math.abs(h.base - (0.4 + 0.9 * 0.3)) < 1e-6, `width 0 keeps the automatic rule: ${h.base}`)
+    assert.ok(Math.abs(h.height - 0.5) < 1e-6, `height ${h.height}`)
+  }
+  assert.deepEqual(measure({ strokeRatio: 0.3 }), measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0 }), 'zeros mean automatic')
 })

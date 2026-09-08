@@ -43,7 +43,7 @@ function longestSummary(board, n) {
 function render(view, tag) {
   if (!last) return
   const svg = toSvg(last.board, {
-    cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top,
+    cell: view.cell, colored: view.colored, strokeRatio: view.stroke, headWidth: view.headWidth, headHeight: view.headHeight, top: view.top,
     voids: view.voids,
   })
   self.postMessage({ type: 'render', svg, longest: longestSummary(last.board, view.top), tag })
