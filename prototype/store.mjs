@@ -16,14 +16,24 @@ export function saveBoard({ svg, params, view, command, metrics = {}, source }) 
   const size = `${params.W}x${params.H}`
   const dir = join(boardsDir(), size)
   mkdirSync(dir, { recursive: true })
+  // The same id means the same board (the id hashes the parameters). An
+  // overwrite — recolouring in the lab, regenerating from the CLI — keeps the
+  // original createdAt, so the board stays in its place in the list, and
+  // records the write in updatedAt.
+  const now = new Date().toISOString()
+  const metaFile = join(dir, `${id}.json`)
+  let createdAt = now
+  if (existsSync(metaFile)) {
+    try { createdAt = JSON.parse(readFileSync(metaFile, 'utf8')).createdAt ?? now } catch { /* broken entry: start over */ }
+  }
   const meta = {
     id, W: params.W, H: params.H, seed: params.seed, params, view, command, source,
-    createdAt: new Date().toISOString(),
+    createdAt, updatedAt: now,
     ok: metrics.ok ?? null, pieces: metrics.pieces ?? null, maxLen: metrics.maxLen ?? null,
     genMs: metrics.genMs ?? null, svgBytes: Buffer.byteLength(svg),
   }
   writeFileSync(join(dir, `${id}.svg`), svg)
-  writeFileSync(join(dir, `${id}.json`), JSON.stringify(meta, null, 2))
+  writeFileSync(metaFile, JSON.stringify(meta, null, 2))
   return meta
 }
 
