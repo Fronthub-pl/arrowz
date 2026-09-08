@@ -1578,19 +1578,23 @@ function toSvg(board, opts = {}) {
     const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
-    // The head scales with the width of ITS line (highlighted pieces are
-    // thicker): an isosceles triangle 1.8 times as wide as the line, at least
-    // half a cell and at most a cell wide, kept 0.05 short of a line in the
-    // next cell, and 1.1 times as tall as wide. Its tip stays 0.48 past the
-    // head centre, inside the head cell (an overshooting tip looked wrong and
-    // facing heads overlapped), so a bigger head grows backwards. The line
-    // runs up to the base itself: its round cap hides inside the head. A head
-    // only slightly wider than the line, with the cap ending short of the
-    // base, looked like a triangle perched on a pill, with notches at the
-    // corners; a fixed head was swallowed by the cap from a stroke of 0.5 up.
+    // The head follows the width of ITS line (highlighted pieces are
+    // thicker). A thin line (under half a cell) gets an arrow: an isosceles
+    // triangle 1.8 times as wide as the line, at least half a cell and at most
+    // a cell wide, 1.1 times as tall as wide. From half a cell up there is no
+    // room for a wider head between neighbours, so the line ends as a
+    // sharpened stick: a triangle exactly as wide as the line and 1.4 times
+    // as tall. Either way the tip stays 0.48 past the head centre, inside the
+    // head cell (an overshooting tip looked wrong and facing heads
+    // overlapped), so a bigger head grows backwards, and the line runs up to
+    // the base itself with its round cap hidden inside the head. A head only
+    // slightly wider than the line, with the cap ending short of the base,
+    // looked like a triangle perched on a pill, with notches at the corners;
+    // a fixed head was swallowed by the cap from a stroke of 0.5 up.
     const w = isLong ? hiWidth : sw
-    const half = Math.min(Math.max(0.9 * w, 0.25 * cell), 0.5 * cell, cell - w / 2 - 0.05 * cell)
-    const height = 1.1 * 2 * half
+    const stick = w >= 0.5 * cell - 1e-9
+    const half = stick ? w / 2 : Math.min(Math.max(0.9 * w, 0.25 * cell), 0.5 * cell)
+    const height = stick ? 1.4 * w : 1.1 * 2 * half
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height

@@ -462,12 +462,15 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
-      // Clearly wider than the line (1.8 times, at least half a cell), never
-      // wider than a cell, and 0.05 of a cell short of a line in the next cell.
-      const want = Math.min(Math.max(1.8 * s, 0.5), 1, 2 - s - 0.1)
+      // Thin lines get an arrow: a head 1.8 times as wide as the line, at
+      // least half a cell, never wider than a cell. From a stroke of 0.5 up
+      // there is no room for that between neighbours, so the head is a
+      // sharpened stick: exactly as wide as the line, 1.4 times as tall.
+      const want = s < 0.5 - 1e-9 ? Math.min(Math.max(1.8 * s, 0.5), 1) : s
       assert.ok(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
       assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
       assert.ok(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
+      if (s >= 0.5 - 1e-9) assert.ok(Math.abs(height - 1.4 * s) < 1e-6, `${label}: stick ${height} tall for stroke ${s}`)
       // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
       const head = board.pieces[i].cells[0]
       const centre = [30 + head.x * cell, 30 + head.y * cell]
@@ -481,7 +484,9 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       for (let y = 0; y <= s / 2; y += s / 20) {
         const circle = Math.sqrt(Math.max(0, (s / 2) ** 2 - y ** 2))
         const triangle = (base / 2) * (1 - y / height)
-        assert.ok(circle <= triangle + 0.02, `${label}: the line cap pokes out of the head at ${y}: ${circle} > ${triangle}`)
+        // A cap as wide as the head can never sit fully inside it; the bulge
+        // stays below 0.06 of the stroke (a third of a pixel at 12 px cells).
+        assert.ok(circle <= triangle + 0.06 * s, `${label}: the line cap pokes out of the head at ${y}: ${circle} > ${triangle}`)
       }
       assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell, `${label}: line end behind the neck cell`)
     })
