@@ -143,6 +143,21 @@
   code { background: #eeeef5; padding: .1em .35em; border-radius: 4px; font-size: 12px; }
   .row.inactive { opacity: .4; }
   .row.inactive .help::before { content: attr(data-why); color: #b3462f; }
+  /* A knob outside the safe envelope: red left border and the reason as a
+     red prefix of its help, the same data-why channel as an inactive knob.
+     The violation wins over dimming, because it blocks Generate. */
+  .row.violation { border-left: 3px solid #c0392b; padding-left: .45rem; margin-left: -.6rem; opacity: 1; }
+  .row.violation .help::before { content: attr(data-why); color: #c0392b; font-weight: 600; }
+  #violations { border-left: 3px solid #c0392b; background: #fdf3f2; border-radius: 0 5px 5px 0;
+                padding: .4rem .6rem; margin: .5rem 0; font-size: 12px; line-height: 1.4; }
+  #violations b { display: block; color: #c0392b; margin-bottom: .15rem; }
+  #violations ul { margin: 0; padding-left: 1.1rem; }
+  .notice { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem;
+            border-left: 3px solid #b3462f; background: #fff7f0; color: #b3462f; border-radius: 0 5px 5px 0;
+            padding: .3rem .5rem; margin: .5rem 0; font-size: 12px; line-height: 1.4; }
+  .notice button { padding: 0 .35rem; font-size: 12px; line-height: 1.3; color: inherit; }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  [hidden] { display: none !important; }
 </style>
 
 <aside>
@@ -151,6 +166,8 @@
   <p class="sub" data-i18n="subtitle">Same engine as carve.mjs: engine.mjs.</p>
 
   <select id="presets" class="presets labonly"></select>
+  <div class="notice labonly" id="clampNote" hidden><span data-i18n="clamped"></span><button id="clampDismiss" type="button">×</button></div>
+  <div id="violations" class="labonly" hidden><b data-i18n="violationsTitle"></b><ul></ul></div>
 
   <div class="buttons labonly">
     <button class="primary" id="run" data-i18n="generate">Generate</button>
@@ -233,7 +250,7 @@
 </main>
 
 <script type="module">
-import { PARAM_SPEC, INACTIVE_REASONS, defaultParams } from './engine.mjs'
+import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS, defaultParams, validateParams } from './engine.mjs'
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 import { PRESETS, findPreset } from './lab-presets.mjs'
@@ -254,7 +271,9 @@ function paramText(spec) {
   const pl = lang === 'pl' ? PL.params[spec.key] : null
   return { label: pl?.label ?? spec.label, help: pl?.help ?? spec.help }
 }
-function reasonText(key) { return (lang === 'pl' ? PL.reasons[key] : null) ?? INACTIVE_REASONS[key] ?? key }
+// Reason keys come from two engine tables: INACTIVE_REASONS (a knob with no
+// effect) and RULE_REASONS (a cross-knob rule broken). PL.reasons covers both.
+function reasonText(key) { return (lang === 'pl' ? PL.reasons[key] : null) ?? INACTIVE_REASONS[key] ?? RULE_REASONS[key] ?? key }
 const fmt = (n) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
 
 // --- parameter panel built from PARAM_SPEC so it cannot drift from the engine
@@ -269,6 +288,7 @@ for (const spec of PARAM_SPEC) {
 const OPEN_BY_DEFAULT = new Set(['board', 'skeleton'])
 
 const paramRows = new Map()
+const specByKey = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 const groupBoxes = new Map()
 const panel = $('params')
 for (const [group, specs] of groups) {
@@ -324,16 +344,57 @@ for (const [group, specs] of groups) {
 // Knobs with no effect at the current settings are dimmed with a reason —
 // otherwise changing the serpentine step with the skeleton off looks like
 // "generating does not change the board".
-function refreshActive() {
-  for (const { row, spec, label, help } of paramRows.values()) {
-    const key = spec.inactive ? spec.inactive(state) : null
-    const why = key ? reasonText(key) : null
-    row.classList.toggle('inactive', !!why)
-    if (help) help.dataset.why = why ? `${t('inactivePrefix')}${why}. ` : ''
-    const tx = paramText(spec)
-    label.title = why ? `${t('inactivePrefix')}${why}. ${tx.help ?? ''}` : (tx.help ?? '')   // tooltip works with hidden help too
+//
+// The same pass runs the engine's validateParams: a knob outside the safe
+// envelope (or part of a broken cross-knob rule) is marked in red, the
+// violations are listed under the presets and Generate is blocked, so a
+// configuration the engine would refuse cannot be started from the lab.
+let violations = []
+function violationText(v) {
+  if (v.kind === 'range') {
+    const spec = specByKey.get(v.key)
+    return t('rangeViolation', spec ? paramText(spec).label : v.key, v.value, v.min, v.max)
   }
+  return reasonText(v.key)
+}
+function refreshActive() {
+  violations = validateParams(state)
+  const broken = new Map()   // knob key -> texts of the violations naming it
+  for (const v of violations) {
+    for (const k of v.kind === 'range' ? [v.key] : v.keys) {
+      if (!broken.has(k)) broken.set(k, [])
+      broken.get(k).push(violationText(v))
+    }
+  }
+  for (const { row, spec, label, help } of paramRows.values()) {
+    const bad = broken.get(spec.key)
+    const key = !bad && spec.inactive ? spec.inactive(state) : null
+    const why = bad ? bad.join('; ') : key ? `${t('inactivePrefix')}${reasonText(key)}` : null
+    row.classList.toggle('violation', !!bad)
+    row.classList.toggle('inactive', !!key)
+    if (help) help.dataset.why = why ? `${why}. ` : ''
+    const tx = paramText(spec)
+    label.title = why ? `${why}. ${tx.help ?? ''}` : (tx.help ?? '')   // tooltip works with hidden help too
+  }
+  const box = $('violations')
+  box.hidden = violations.length === 0
+  const list = box.querySelector('ul')
+  list.textContent = ''
+  for (const v of violations) {
+    const li = document.createElement('li')
+    li.textContent = violationText(v)
+    list.append(li)
+  }
+  refreshRunButton()
   syncPresetSelect()
+}
+
+// Generate stays disabled while a run is busy or the settings are invalid;
+// the title says why. finish() and every knob change go through here.
+function refreshRunButton() {
+  const blocked = violations.length > 0
+  $('run').disabled = busy || blocked
+  $('run').title = blocked ? t('generateBlocked') : ''
 }
 
 function applyLanguage() {
@@ -395,20 +456,42 @@ $('presets').addEventListener('change', () => {
   const entry = presetOptions.get($('presets').value)
   if (!entry) return
   const { W, H } = entry.preset.params
-  for (const spec of PARAM_SPEC) setParam(spec.key, entry.preset.params[spec.key] ?? spec.def)
+  let clamped = false
+  for (const spec of PARAM_SPEC) clamped = setParam(spec.key, entry.preset.params[spec.key] ?? spec.def) || clamped
+  showClamped(clamped)
   // The cell size concerns only the export; the preview scales itself.
   $('cell').value = Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
   updateCommand()
   run()
 })
 
+// Pulls a value loaded from outside (URL, preset, stored board) into the
+// knob's range; anything that is not a finite number falls back to the
+// default. Pure, so it can be tested without the page.
+function clampParam(spec, value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return { value: spec.def, clamped: true }
+  const v = Math.min(spec.max, Math.max(spec.min, n))
+  return { value: v, clamped: v !== n }
+}
+
+// Every path that sets a knob from outside goes through here. Returns whether
+// the value had to be clamped, so a load can show the notice once.
 function setParam(key, value) {
-  state[key] = value
+  const spec = specByKey.get(key)
+  const c = spec ? clampParam(spec, value) : { value, clamped: false }
+  state[key] = c.value
   const el = $('p_' + key)
-  if (el) { el.value = value; el.nextElementSibling.value = value }
+  if (el) { el.value = c.value; el.nextElementSibling.value = c.value }
   refreshActive()
   updateCommand()
+  return c.clamped
 }
+
+// The clamped notice: shown after a load that moved a value, dismissable,
+// replaced by the outcome of the next load.
+function showClamped(on) { $('clampNote').hidden = !on }
+$('clampDismiss').addEventListener('click', () => showClamped(false))
 
 // --- preview zoom -----------------------------------------------------------
 function applyZoom() {
@@ -537,7 +620,7 @@ function start() {
 
 function finish() {
   busy = false
-  $('run').disabled = false
+  refreshRunButton()
   $('abort').hidden = true
   $('progress').classList.remove('on')
 }
@@ -551,6 +634,12 @@ $('abort').addEventListener('click', () => {
 })
 
 function run() {
+  // Every way of starting a run (button, auto-generate, preset, URL, reseed)
+  // ends here, so this is the one place the envelope is enforced.
+  if (violations.length) {
+    setStatus(`<span class="bad">${t('generateBlocked')}</span>`)
+    return
+  }
   // A new request interrupts the previous one. Without this, changing a
   // parameter during a big board looked like a hang: the request was lost
   // and the bar kept showing the old run.
@@ -733,7 +822,9 @@ $('libCopy').addEventListener('click', async () => {
 // the command first and decides.
 $('libLoad').addEventListener('click', () => {
   if (!libBoard) return
-  for (const spec of PARAM_SPEC) if (libBoard.params[spec.key] !== undefined) setParam(spec.key, libBoard.params[spec.key])
+  let clamped = false
+  for (const spec of PARAM_SPEC) if (libBoard.params[spec.key] !== undefined) clamped = setParam(spec.key, libBoard.params[spec.key]) || clamped
+  showClamped(clamped)
   const v = libBoard.view ?? {}
   if (v.cell) $('cell').value = v.cell
   if (v.stroke) $('stroke').value = v.stroke
@@ -766,6 +857,13 @@ function scheduleLibRender() { clearTimeout(libTimer); libTimer = setTimeout(lib
 function libRender() {
   const meta = libBoard
   if (!meta) return
+  // A board made before the safe envelope may carry settings the engine now
+  // refuses; say so instead of letting the worker fail on generate().
+  // Merged with the defaults, exactly as generate() validates.
+  if (validateParams({ ...defaultParams(), ...meta.params }).length) {
+    setStatus(`<span class="bad">${t('storedInvalid')}</span>`)
+    return
+  }
   const view = libView(meta)
   if (libWorker && libWorkerId === meta.id) { libWorker.postMessage({ type: 'render', view }); return }
   dropLibWorker()
@@ -855,7 +953,9 @@ function loadFromUrl() {
   try {
     const saved = JSON.parse(decodeURIComponent(location.hash.slice(1)))
     const view = saved.__view ?? {}
-    for (const spec of PARAM_SPEC) if (saved[spec.key] !== undefined) setParam(spec.key, saved[spec.key])
+    let clamped = false
+    for (const spec of PARAM_SPEC) if (saved[spec.key] !== undefined) clamped = setParam(spec.key, saved[spec.key]) || clamped
+    showClamped(clamped)
     if (view.cell) $('cell').value = view.cell
     if (view.stroke) $('stroke').value = view.stroke
     if (view.top) $('top').value = view.top
