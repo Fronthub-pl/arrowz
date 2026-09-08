@@ -469,14 +469,17 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
       // Thin lines get an arrow: a head 1.8 times as wide as the line, at
-      // least half a cell, never wider than a cell. From a stroke of 0.5 up
-      // there is no room for that between neighbours, so the head is a
-      // sharpened stick: exactly as wide as the line, 1.4 times as tall.
+      // least half a cell, never wider than a cell, always 0.9 of a cell
+      // tall. From a stroke of 0.5 up there is no room for that between
+      // neighbours, so the head is a sharpened stick: exactly as wide as the
+      // line, 1.4 times as tall.
       const want = s < 0.5 - 1e-9 ? Math.min(Math.max(1.8 * s, 0.5), 1) : s
       assert.ok(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
       assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
       assert.ok(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
-      if (s >= 0.5 - 1e-9) assert.ok(Math.abs(height - 1.4 * s) < 1e-6, `${label}: stick ${height} tall for stroke ${s}`)
+      // An arrow keeps one height whatever the line width; a stick is 1.4 lines tall.
+      const wantHeight = s < 0.5 - 1e-9 ? 0.9 : 1.4 * s
+      assert.ok(Math.abs(height - wantHeight) < 1e-6, `${label}: head ${height} tall, expected ${wantHeight}`)
       // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
       const head = board.pieces[i].cells[0]
       const centre = [30 + head.x * cell, 30 + head.y * cell]

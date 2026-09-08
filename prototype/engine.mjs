@@ -1587,7 +1587,7 @@ function toSvg(board, opts = {}) {
     // The head follows the width of ITS line (highlighted pieces are
     // thicker). A thin line (under half a cell) gets an arrow: an isosceles
     // triangle 1.8 times as wide as the line, at least half a cell and at most
-    // a cell wide, 1.1 times as tall as wide. From half a cell up there is no
+    // a cell wide, always 0.9 of a cell tall. From half a cell up there is no
     // room for a wider head between neighbours, so the line ends as a
     // sharpened stick: a triangle exactly as wide as the line and 1.4 times
     // as tall. Either way the tip stays 0.48 past the head centre, inside the
@@ -1600,7 +1600,7 @@ function toSvg(board, opts = {}) {
     const w = isLong ? hiWidth : sw
     const stick = w >= 0.5 * cell - 1e-9
     const half = stick ? w / 2 : Math.min(Math.max(0.9 * w, 0.25 * cell), 0.5 * cell)
-    const height = stick ? 1.4 * w : 1.1 * 2 * half
+    const height = stick ? 1.4 * w : 0.9 * cell
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height

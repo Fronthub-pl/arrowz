@@ -261,7 +261,7 @@ Drawing parameters giving the reference appearance: line width 50% of the grid p
 with the tail rounded by a circle of the line's radius, and a head that
 follows the line width: under a stroke of 0.5 an arrow — a filled isosceles
 triangle 1.8 times as wide as the line (half a pitch at least, a pitch at
-most) and 1.1 times as tall as wide; from 0.5 up a sharpened stick —
+most), always 0.9 of a pitch tall; from 0.5 up a sharpened stick —
 exactly as wide as the line and 1.4 times as tall, because a wider head no
 longer fits between neighbours. The tip sits 0.48 past the head cell centre
 so it stays inside that cell, a bigger head grows backwards, and the line
