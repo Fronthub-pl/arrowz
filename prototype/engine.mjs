@@ -952,6 +952,7 @@ class Carver {
     // thousands of pieces), so after 200 backtracks a restart with a derived
     // seed is cheaper and more effective.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
+    let scanMisses = 0
     while (this.remaining > 0) {
       if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
         lastLog = performance.now()
@@ -975,10 +976,20 @@ class Carver {
       // geometry was fine. A backtrack undoes the newest neighbour of the
       // leftover, i.e. pieces in the region being carved, so it does not put
       // the missed heads back in play; trying each of them once does.
-      this.stats.headScans = (this.stats.headScans ?? 0) + 1
-      if (this.carveOne(true)) {
-        this.stats.headScanHits = (this.stats.headScanHits ?? 0) + 1
-        continue
+      //
+      // Three misses in a row and the scan is switched off until it hits
+      // again: a board whose legal heads all fail the leftover test (the
+      // shredded 1000×1000 boards of the sweep: 253 heads, 0 carvable) is a
+      // geometric jam, and scanning it before each of hundreds of backtracks
+      // only made the verdict 1.3–3.7× slower.
+      if (scanMisses < 3) {
+        this.stats.headScans = (this.stats.headScans ?? 0) + 1
+        if (this.carveOne(true)) {
+          this.stats.headScanHits = (this.stats.headScanHits ?? 0) + 1
+          scanMisses = 0
+          continue
+        }
+        scanMisses++
       }
       // Remember the BEST jam moment (fewest remaining cells): the state after
       // a series of undos says nothing about the cause.

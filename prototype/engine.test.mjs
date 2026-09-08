@@ -175,6 +175,21 @@ test('generate: a board starved of head draws closes by scanning every legal hea
   }
 })
 
+test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
+  // A quarter of the cells are voids: the free area is shredded into islands
+  // whose rays cross other islands, so the legal heads that exist all fail
+  // the leftover test on even a two-cell piece. The 1000×1000 jams of the
+  // random sweep look the same (board 30: 253 legal heads, 0 carvable), and
+  // scanning them before each of hundreds of backtracks only made the verdict
+  // 1.3–3.7× slower. A scan that misses three times running is a geometric
+  // jam, not a starved search: stop scanning until a scan hits again.
+  const r = generate({ ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.25, absorbLimit: 0, restarts: 0, maxBack: 20 })
+  assert.equal(r.ok, false)
+  assert.equal(r.backtracks, 20)
+  assert.equal(r.board.stats.headScanHits ?? 0, 0)
+  assert.ok(r.board.stats.headScans <= 3, `${r.board.stats.headScans} scans for 20 backtracks`)
+})
+
 test('generate: a jam reports how many legal heads were left at the best moment', () => {
   // Half the cells are voids, so single free cells stay isolated and nothing
   // can cover them: the run jams at once. The count of legal heads at the
