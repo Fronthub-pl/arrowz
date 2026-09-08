@@ -1,9 +1,17 @@
 // THROWAWAY PROTOTYPE — CLI layer over the engine in engine.mjs.
-// Run: node prototype/carve.mjs [options]
+// Run: node prototype/carve.mjs --width=N --height=N [options]
+//      node prototype/carve.mjs --advanced [--<knob>=value ...] [mode]
 //
-// Engine parameters: --<PARAM_SPEC key in lower case>=value, defaults from
-// defaultParams(). The lab builds its command with the same parser, so the
-// command from the lab reproduces the board bit for bit. Modes:
+// Simple mode (default): the inputs of the simple lab view — a size, the
+// sliders --length and --straight in 0..1, --skeleton, --seed, the view
+// (--colorized, --lineweight, --arrowwidth, --arrowheight) and --randomized.
+// Always one board → prototype/boards/ (+ a copy with --svg=path), or with
+// --dry-run one JSON line and nothing written. Any other flag is refused.
+//
+// Advanced mode (--advanced): engine parameters as --<PARAM_SPEC key in lower
+// case>=value, defaults from defaultParams(). The lab builds its command with
+// the same parser, so the command from the lab reproduces the board bit for
+// bit. Modes:
 //   --svg[=path]    one board → prototype/boards/ (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
 //                   the id, metrics and fingerprint (alone or next to --svg)
@@ -14,7 +22,8 @@
 // any generation, in every mode, with exit code 2.
 import { writeFileSync } from 'node:fs'
 import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render, validateParams, formatViolation } from './engine.mjs'
-import { parseArgs, buildCommand, boardId, helpText } from './command.mjs'
+import { parseArgs, parseSimpleArgs, buildCommand, buildSimpleCommand, boardId, helpText } from './command.mjs'
+import { simpleParams } from './lab-simple.mjs'
 import { saveBoard } from './store.mjs'
 
 // Trace and debug enter the engine as functions — the engine knows no `process`.
@@ -23,7 +32,15 @@ const trace = process.env.CARVE_TRACE
   : null
 const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
 
-const { params: cli, view, rest } = parseArgs(process.argv.slice(2))
+// --advanced selects the full knob set and every mode; the flag itself is not
+// a parameter, so it is taken off argv before the parser sees it. Without it
+// the simple parser runs, and the choice it reads becomes engine parameters
+// through the same function the lab uses (simpleParams).
+const argvIn = process.argv.slice(2)
+const advanced = argvIn.includes('--advanced')
+const simple = advanced ? null : parseSimpleArgs(argvIn)
+const parsed = advanced ? parseArgs(argvIn.filter((a) => a !== '--advanced')) : simple
+const { view, rest } = parsed
 // Mode flags (not engine parameters) — read from what is left after the parser.
 const arg = (k, dflt) => {
   const hit = rest.find((a) => a.startsWith(`--${k}=`))
@@ -32,7 +49,7 @@ const arg = (k, dflt) => {
 const has = (flag) => rest.includes(`--${flag}`)
 
 if (has('help') || rest.includes('-h')) {
-  console.log(helpText())
+  console.log(helpText({ advanced }))
   process.exit(0)
 }
 
@@ -43,39 +60,52 @@ if (has('help') || rest.includes('-h')) {
 // other mode explains on stderr. Exit code 2 = bad input, 1 = a board that
 // did not close.
 const dryRun = has('dry-run')
-function refuseInvalid(params) {
-  const violations = validateParams(params)
-  if (!violations.length) return
+function refuse(error, items, format) {
   if (dryRun) {
-    console.log(JSON.stringify({ ok: false, error: 'invalid parameters', violations }))
+    console.log(JSON.stringify({ ok: false, error, [format ? 'violations' : 'errors']: items }))
   } else {
-    console.error('invalid parameters:')
-    for (const v of violations) console.error(`  - ${formatViolation(v)}`)
-    console.error('see --help for the allowed ranges')
+    console.error(`${error}:`)
+    for (const it of items) console.error(`  - ${format ? format(it) : it}`)
+    console.error(format ? 'see --help for the allowed ranges' : 'see --help')
   }
   process.exit(2)
 }
-refuseInvalid(cli)
+// Simple mode: the flags themselves can be wrong (a missing size, a slider
+// outside 0..1, an advanced flag without --advanced). Checked before any
+// knob exists. --randomized draws like the lab: Math.random, not reproducible;
+// the meta keeps the full command, which is.
+if (simple?.errors.length) refuse('invalid arguments', simple.errors)
+const params = advanced ? parsed.params : simpleParams(simple.choice, simple.choice.random ? Math.random : null)
+const simpleCommand = advanced ? null : buildSimpleCommand(simple.choice, view)
+function refuseInvalid(params) {
+  const violations = validateParams(params)
+  if (violations.length) refuse('invalid parameters', violations, formatViolation)
+}
+refuseInvalid(params)
 
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
-// A dry run generates, measures and renders exactly as a real run would, and
-// then writes nothing: stdout carries one JSON line so that scripts can
-// compare boards across runtimes without a file — the fingerprint is the
-// same one the engine tests freeze recorded boards with.
+// The simple mode always lands here; the advanced mode with --svg or
+// --dry-run. A dry run generates, measures and renders exactly as a real run
+// would, and then writes nothing: stdout carries one JSON line so that
+// scripts can compare boards across runtimes without a file — the
+// fingerprint is the same one the engine tests freeze recorded boards with.
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-if (svgFlag || dryRun) {
+if (!advanced || svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
-  const result = generate({ ...cli, trace, debug })
+  const result = generate({ ...params, trace, debug })
   if (!result.ok) {
-    if (dryRun) console.log(JSON.stringify({ dryRun: true, W: cli.W, H: cli.H, seed: cli.seed, id: boardId(cli), ok: false, stuck: result.stuck, restarts: result.restartsUsed, genMs: result.genMs }))
-    console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left, ${result.stuck.heads ?? '?'} legal heads at the best moment`)
+    if (dryRun) console.log(JSON.stringify({ dryRun: true, W: params.W, H: params.H, seed: params.seed, id: boardId(params), ok: false, stuck: result.stuck, restarts: result.restartsUsed, genMs: result.genMs }))
+    console.error(`failed to close board ${params.W}x${params.H} (seed ${params.seed}): ${result.stuck.remaining} cells left, ${result.stuck.heads ?? '?'} legal heads at the best moment`)
     process.exit(1)
   }
-  const c = result.board, m = result.metrics, W = cli.W, H = cli.H
+  const c = result.board, m = result.metrics, W = params.W, H = params.H
   const svg = toSvg(c, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, headWidth: view.headWidth, headHeight: view.headHeight, top: view.top })
+  // The full command reproduces the board in every case; the simple command
+  // (simple mode only) records what was asked for.
+  const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : null) }
   if (dryRun) {
     console.log(JSON.stringify({
-      dryRun: true, W, H, seed: cli.seed, id: boardId(cli), params: cli, view, command: buildCommand(cli, view),
+      dryRun: true, W, H, seed: params.seed, id: boardId(params), params, view, ...commands,
       ok: true, pieces: m.N, avgLen: +(W * H / m.N).toFixed(2), maxLen: m.maxLen, bends: +m.bends.toFixed(3),
       coiling: +m.coil.toFixed(3), f0: +m.f0.toFixed(4), solvable: m.solvable,
       backtracks: result.backtracks, restarts: result.restartsUsed, genMs: Math.round(result.genMs),
@@ -84,7 +114,7 @@ if (svgFlag || dryRun) {
     process.exit(0)
   }
   const meta = saveBoard({
-    svg, params: cli, view, command: buildCommand(cli, view), source: 'cli',
+    svg, params, view, ...commands, source: 'cli',
     metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
   })
   if (svgOut) writeFileSync(svgOut, svg)
@@ -146,7 +176,7 @@ const presets = BASE.flatMap(([name, n, squareOnly]) =>
   .filter((pre) => !only || pre.name.toLowerCase() === only.toLowerCase())
 // The shared knobs passed the check above; the level sizes still have to
 // (only --mid can put one outside 4..1000). Checked before the first run.
-for (const pre of presets) refuseInvalid({ ...cli, W: pre.W, H: pre.H })
+for (const pre of presets) refuseInvalid({ ...params, W: pre.W, H: pre.H })
 
 const runs = arg('runs', 3)
 const show = has('show')
@@ -157,12 +187,12 @@ if (bench > 0) {
     const times = [], backs = [], lens = [], maxLens = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
-      const params = { ...cli, W: pre.W, H: pre.H, trace, debug }
+      const run = { ...params, W: pre.W, H: pre.H, trace, debug }
       const t0 = performance.now()
       const seed = 50000 + r
-      let c = new Carver(pre.W, pre.H, params, mulberry32(seed))
+      let c = new Carver(pre.W, pre.H, run,mulberry32(seed))
       let ok = c.run(), rs = 0
-      while (!ok && rs < 5) { rs++; c = new Carver(pre.W, pre.H, params, mulberry32(seed + 999983 * rs)); ok = c.run() }
+      while (!ok && rs < 5) { rs++; c = new Carver(pre.W, pre.H, run,mulberry32(seed + 999983 * rs)); ok = c.run() }
       const dt = performance.now() - t0
       if (!ok) { fails++; continue }
       times.push(dt); backs.push(c.backtracks); restartsTotal += rs
@@ -186,14 +216,14 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const params = { ...cli, W: pre.W, H: pre.H, trace, debug }
+    const run = { ...params, W: pre.W, H: pre.H, trace, debug }
     const t0 = performance.now()
-    let c = new Carver(pre.W, pre.H, params, rng)
+    let c = new Carver(pre.W, pre.H, run,rng)
     let ok = c.run()
     let restarts = 0
     while (!ok && restarts < 3) {
       restarts++
-      c = new Carver(pre.W, pre.H, params, mulberry32(seed + 7777 * restarts))
+      c = new Carver(pre.W, pre.H, run,mulberry32(seed + 7777 * restarts))
       ok = c.run()
     }
     const tGen = performance.now() - t0
@@ -213,7 +243,7 @@ for (const pre of presets) {
       acc.push({ failed: true, restarts, remaining: c.remaining }); continue
     }
     const t1 = performance.now()
-    const m = analyse(c, params.ruleB)
+    const m = analyse(c, run.ruleB)
     const tAna = performance.now() - t1
     acc.push({ ...m, tGen, tAna, backtracks: c.backtracks, restarts, st: c.stats })
     if (show && r === 0 && pre.W <= 40) console.log(render(c) + '\n')
