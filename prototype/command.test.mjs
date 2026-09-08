@@ -59,7 +59,7 @@ test('boardId: stable, ignores view and key order, distinguishes seeds', () => {
 // --- --help and the parser/validator split ----------------------------------
 
 test('helpText: one row per knob with flag, range, step, default and help', () => {
-  const text = helpText()
+  const text = helpText({ advanced: true })
   const lines = text.split('\n')
   for (const s of PARAM_SPEC) {
     const flag = `--${s.key.toLowerCase()}`
@@ -74,7 +74,7 @@ test('helpText: one row per knob with flag, range, step, default and help', () =
 })
 
 test('helpText: every rule key and text, every alias, every mode flag', () => {
-  const text = helpText()
+  const text = helpText({ advanced: true })
   for (const r of RULES) assert.ok(text.includes(r.key), `rule key ${r.key} missing`)
   for (const reason of Object.values(RULE_REASONS)) assert.ok(text.includes(reason), `rule text missing: ${reason}`)
   for (const [alias, key] of Object.entries(ALIASES)) {
@@ -83,7 +83,18 @@ test('helpText: every rule key and text, every alias, every mode flag', () => {
   for (const flag of ['--svg[=path]', '--dry-run', '--bench=N', '--runs=N', '--only=<level>', '--mid=N', '--square', '--portrait', '--show', '--help', '-h', '--cell=N', '--stroke=R', '--headwidth=R', '--headheight=R', '--colored', '--top=N']) {
     assert.ok(text.includes(flag), `mode flag ${flag} missing`)
   }
-  assert.match(text, /^Usage: node prototype\/carve\.mjs /)
+  assert.match(text, /^Usage: node prototype\/carve\.mjs --advanced /)
+  assert.ok(!text.includes('\u2014'), 'no em dashes in the help text')
+})
+
+test('helpText: the default text is the simple mode, one row per simple flag, a pointer at --advanced', () => {
+  const text = helpText()
+  assert.match(text, /^Usage: node prototype\/carve\.mjs --width=N --height=N/)
+  for (const f of ['--width=N', '--height=N', '--length=R', '--straight=R', '--skeleton', '--seed=N', '--randomized', '--colorized', '--lineweight=R', '--arrowwidth=R', '--arrowheight=R', '--svg=path', '--dry-run', '--advanced', '--help, -h']) {
+    assert.ok(text.includes(f), `${f} missing`)
+  }
+  assert.ok(text.includes('--advanced --help'), 'points at the advanced help')
+  assert.ok(!text.includes('--pstraight'), 'no knob table in the simple help')
   assert.ok(!text.includes('\u2014'), 'no em dashes in the help text')
 })
 

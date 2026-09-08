@@ -11,7 +11,7 @@ export function boardsDir() {
   return process.env.ARROWZ_BOARDS_DIR || join(dirname(fileURLToPath(import.meta.url)), 'boards')
 }
 
-export function saveBoard({ svg, params, view, command, metrics = {}, source }) {
+export function saveBoard({ svg, params, view, command, simpleCommand, metrics = {}, source }) {
   const id = boardId(params)
   const size = `${params.W}x${params.H}`
   const dir = join(boardsDir(), size)
@@ -27,7 +27,7 @@ export function saveBoard({ svg, params, view, command, metrics = {}, source }) 
     try { createdAt = JSON.parse(readFileSync(metaFile, 'utf8')).createdAt ?? now } catch { /* broken entry: start over */ }
   }
   const meta = {
-    id, W: params.W, H: params.H, seed: params.seed, params, view, command, source,
+    id, W: params.W, H: params.H, seed: params.seed, params, view, command, ...(simpleCommand ? { simpleCommand } : null), source,
     createdAt, updatedAt: now,
     ok: metrics.ok ?? null, pieces: metrics.pieces ?? null, maxLen: metrics.maxLen ?? null,
     genMs: metrics.genMs ?? null, svgBytes: Buffer.byteLength(svg),

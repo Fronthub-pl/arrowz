@@ -28,6 +28,17 @@ test('saveBoard writes SVG and meta into the size directory', async () => {
   assert.equal(saved.source, 'cli')
   assert.equal(saved.svgBytes, 6)
   assert.ok(saved.createdAt)
+  assert.equal('simpleCommand' in saved, false, 'no simple command unless one was given')
+})
+
+// A board from the CLI simple mode carries the command as typed next to the
+// full one; the full one reproduces the board, the simple one records the wish.
+test('saveBoard keeps the simple command when given', async () => {
+  const { saveBoard } = await import('./store.mjs')
+  const meta = saveBoard(entry({ simpleCommand: 'node prototype/carve.mjs --width=25 --height=50 --seed=7' }))
+  const saved = JSON.parse(readFileSync(join(dir, '25x50', meta.id + '.json'), 'utf8'))
+  assert.equal(saved.simpleCommand, 'node prototype/carve.mjs --width=25 --height=50 --seed=7')
+  assert.match(saved.command, /^node prototype\/carve\.mjs --svg /)
 })
 
 test('listBoards: sizes ascending by cells, boards newest first, same id overwrites in place', async () => {

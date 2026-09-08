@@ -42,18 +42,60 @@ const VIEW_FLAGS = [
   ['--top=N', 'highlight the N longest pieces and print their stats'],
 ]
 
-/** Usage text for --help: modes, one row per PARAM_SPEC knob, rules, aliases. */
-export function helpText() {
+// The simple mode: the flags of the simple lab view. Kept next to the parser
+// below for the same reason as MODE_FLAGS.
+const SIMPLE_FLAGS = [
+  ['--width=N', 'board width in cells (required)'],
+  ['--height=N', 'board height in cells (required)'],
+  ['--length=R', 'piece length, 0 = very short, 1 = very long (default 0.75)'],
+  ['--straight=R', 'line shape, 0 = most winding, 1 = straightest (default 0.5)'],
+  ['--skeleton', 'a skeleton of long pieces first'],
+  ['--seed=N', 'seed of the board (default 7)'],
+  ['--randomized', 'draw every knob afresh inside the slider ranges; not reproducible, the board meta keeps the full command'],
+  ['--colorized', 'a different colour for every piece'],
+  ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
+  ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
+  ['--arrowheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
+]
+const SIMPLE_MODE_FLAGS = [
+  ['(no mode)', 'one board into prototype/boards/ (ARROWZ_BOARDS_DIR)'],
+  ['--svg=path', 'the same, plus a copy at path'],
+  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
+  ['--advanced', 'every engine knob, the report and the benchmark: see --advanced --help'],
+  ['--help, -h', 'this text'],
+]
+
+/**
+ * Usage text for --help. The default is the simple mode: its flags and modes.
+ * With { advanced: true }: modes, one row per PARAM_SPEC knob, rules, aliases.
+ */
+export function helpText({ advanced = false } = {}) {
   const out = []
   const flagOf = (key) => `--${key.toLowerCase()}`
   const list = (rows, indent = '  ') => {
     const w = Math.max(...rows.map(([f]) => f.length))
     for (const [f, text] of rows) out.push(`${indent}${f.padEnd(w)}  ${text}`)
   }
-  out.push('Usage: node prototype/carve.mjs [--<knob>=value ...] [mode] [view options]')
+  if (!advanced) {
+    out.push('Usage: node prototype/carve.mjs --width=N --height=N [options] [mode]')
+    out.push('')
+    out.push('One board from the choices of the simple lab view. The sliders take 0..1; the')
+    out.push('engine knobs behind them follow the lab ranges for that position.')
+    out.push('')
+    out.push('Options:')
+    list(SIMPLE_FLAGS)
+    out.push('')
+    out.push('Modes:')
+    list(SIMPLE_MODE_FLAGS)
+    out.push('')
+    out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr).')
+    return out.join('\n')
+  }
+  out.push('Usage: node prototype/carve.mjs --advanced [--<knob>=value ...] [mode] [view options]')
   out.push('')
   out.push('Every knob below is a flag: --<key in lower case>=value. Values outside the')
   out.push('allowed range or breaking a rule are refused before any board is generated.')
+  out.push('Without --advanced the CLI takes the simple flags instead: see --help.')
   out.push('')
   out.push('Modes:')
   list(MODE_FLAGS)
