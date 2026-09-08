@@ -74,8 +74,10 @@ arrow colouring of a stored board can be changed there: the board is rebuilt
 from its parameters in a separate worker (the engine is deterministic),
 redrawn and saved back through the same POST, so the file stays what its CLI
 command would produce and the board stays where it was in the list. That tab has no
-generation controls at all — the panel keeps only fit and zoom, which act on
-the stored SVG; generating happens in the lab tab.
+generation controls at all: the panel shows the board's command and the
+stroke, arrowhead and colour rows in the place of the lab's, plus fit and
+zoom; the list, "Load into lab" and "Delete" stay on the right. Generating
+happens in the lab tab.
 
 The engine lives in `engine.mjs` and is shared by the lab and by `carve.mjs` —
 there are no two copies of the algorithm that could drift apart.
