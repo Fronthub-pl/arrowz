@@ -678,8 +678,10 @@ of the board left); with `warns` 2 it closes 0/5 at both sizes and with
 `anticoil` 10 it closes 5/10 at 500 and 0/5 at 600 (shredding jams);
 `pStraight` 0.65 and 0.7 close 10/10 at 600, and `warns` 16 neutralises the
 corner. The envelope has no rule coupling `pStraight` with `warns` or
-`anticoil`; that is the first candidate for a new rule and it has not been
-measured. Time: `wGiant` at least 0.13 with `giantStep` at most 7 and
+`anticoil`. **Decision (2026-09-08): the envelope stays as it is.** The floor 0.6 is
+promised up to 500×500 only; above that the help text warns that 0.6 may jam and
+that 0.65 is safe, and a coupling rule waits for a lasting fix of the jam
+mechanism in the engine (see round 11's ranked fixes). Time: `wGiant` at least 0.13 with `giantStep` at most 7 and
 `giantSpan` at least 100 makes a 600×600 board cost 50–350 s (seed
 dependent) instead of 5–25 s; the cost sat in the path-shortening loop of
 the leftover test, which is fixed in round 12 (same boards), not in the

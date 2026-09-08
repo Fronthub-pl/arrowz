@@ -1624,7 +1624,7 @@ export const PARAM_SPEC = [
     help: 'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.' },
 
   { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0.6, max: 1, step: 0.01, def: 0.85,
-    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing, so that is the floor.' },
+    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing. At 0.6 boards over 500x500 may jam; 0.65 is safe.' },
   { key: 'wLateral', label: 'sideways move bonus', group: 'shape', min: 0, max: 20, step: 0.5, def: 3,
     help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.' },
   { key: 'warns', label: 'closing off nooks', group: 'shape', min: 2, max: 16, step: 1, def: 4,

@@ -30,7 +30,7 @@ export const PL = {
       help: 'Najdłuższy element, o jaki stara się generator. 0 = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj 0 albo co najmniej 6.' },
 
     pStraight: { label: 'skłonność do prostej',
-      help: 'Jak chętnie linia idzie dalej prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze przestają się domykać, stąd dolna granica.' },
+      help: 'Jak chętnie linia idzie dalej prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze się nie domykają. Przy 0,6 plansze ponad 500×500 mogą się zaciąć; 0,65 jest bezpieczne.' },
     wLateral: { label: 'premia za ruch w bok',
       help: 'O ile chętniej linia skręca w bok, niż wchodzi w głąb. 0 = proste wbicia i wielkie zwoje.' },
     warns: { label: 'domykanie zakamarków',
