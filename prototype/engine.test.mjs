@@ -203,6 +203,33 @@ test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150
   assert.deepEqual(m, { N: 80000, solvable: true, f0: 0.005, outDeg: 99.5, maxOut: 199, D: 199, almost: 400 })
 })
 
+test('analyse: a piece bordering two hundred thousand others does not overflow the stack', () => {
+  // 3×200 000: one vertical line down the left column, the other two columns
+  // covered with dominoes whose head is at the right edge (all rays empty).
+  // The line shares a border with every domino, so its "longest shared border"
+  // used to be Math.max(...200 000 values) — a spread proportional to the
+  // number of pieces, which the repository rules forbid: it throws RangeError
+  // in Node and overflows the worker stack in Chrome far earlier.
+  const W = 3, H = 200000
+  const c = new Carver(W, H, defaultParams(), mulberry32(1))
+  const line = []
+  for (let y = 0; y < H; y++) { line.push({ x: 0, y }); c.owner[y * W] = 0 }
+  c.pieces.push({ id: 0, dir: 0, cells: line })
+  for (let y = 0; y < H; y++) {
+    const id = y + 1
+    c.pieces.push({ id, dir: 1, cells: [{ x: 2, y }, { x: 1, y }] })
+    c.owner[y * W + 1] = id; c.owner[y * W + 2] = id
+  }
+  c.remaining = 0
+  const m = analyse(c)
+  assert.equal(m.N, H + 1)
+  assert.equal(m.maxLen, H)
+  // The line shares exactly one edge with each domino, so its longest border
+  // with a single other piece is one edge over H cells.
+  assert.equal(m.longPieces, 1)
+  assert.equal(m.sharedBorder, 1 / H)
+})
+
 test('analyse: metrics are identical to the ones recorded with the Set-based blocking graph', () => {
   // Recorded on 2026-09-08 before the blocking graph moved to typed arrays;
   // the storage may change, the numbers may not (order of summation included).

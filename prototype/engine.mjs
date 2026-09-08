@@ -1159,7 +1159,10 @@ function analyse(board, ruleB = true) {
     if (pc.cells.length >= 8) {
       longPieces++
       neighboursTotal += borderWith.size
-      const maxShared = borderWith.size ? Math.max(...borderWith.values()) : 0
+      // A loop, not Math.max(...borderWith.values()): a long piece borders as
+      // many pieces as it has cells, and a spread of that size overflows the stack.
+      let maxShared = 0
+      for (const shared of borderWith.values()) if (shared > maxShared) maxShared = shared
       sharedBorderTotal += maxShared / pc.cells.length
     }
     for (const c of pc.cells) lines.add(DIRS[pc.dir].dx === 0 ? c.x : c.y)
