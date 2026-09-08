@@ -356,3 +356,14 @@ test('generate() treats GenerateAbort thrown from trace as an aborted, failed ru
   // trace fires only after 250 ms, so the board must be big enough to get there
   assert.throws(() => generate({ W: 400, H: 400, seed: 7, trace: () => { throw new Error('boom') } }), /boom/, 'other errors propagate')
 })
+
+test('trace keeps firing during a thrash, so a time budget can abort it', async () => {
+  const { GenerateAbort } = await import('./engine.mjs')
+  // 200×200, one head try, a huge backtrack budget: the piece count circles
+  // one value for a long time. A budget of 1.5 s must stop it within a few
+  // seconds — once it took minutes, because trace waited for a multiple of 500.
+  const r = generate({ W: 200, H: 200, seed: 1, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 100000,
+    trace: (i) => { if (i.ms > 1500) throw new GenerateAbort() } })
+  assert.equal(r.aborted, true)
+  assert.ok(r.genMs < 6000, `aborted after ${r.genMs} ms`)
+})

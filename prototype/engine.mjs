@@ -1119,7 +1119,11 @@ class Carver {
     // seed is cheaper and more effective.
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     while (this.remaining > 0) {
-      if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
+      // Progress every 500 pieces, and at least once a second regardless: in
+      // a thrash the piece count circles one value and may miss every
+      // multiple of 500 for minutes, which would silence the lab's progress
+      // and a time budget that aborts from this callback.
+      if (this.p.trace && (this.pieces.length % 500 === 0 ? performance.now() - lastLog > 250 : performance.now() - lastLog > 1000)) {
         lastLog = performance.now()
         this.p.trace({
           pieces: this.pieces.length,
