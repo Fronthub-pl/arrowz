@@ -6,7 +6,26 @@
 sh prototype/lab.sh          # http://localhost:8777/lab.html
 ```
 
-All generator knobs live in the side panel; the board is drawn immediately.
+The panel has two views, switched at the top and remembered in
+`localStorage`. The **simple** view (the default) offers a board size (the
+preset sizes), three plain choices — piece length (long, medium, short), line
+shape (straight, slightly winding, winding), skeleton (with, without) — and
+the seed. `lab-simple.mjs` maps a choice to a full parameter set: the plain
+"long, slightly winding, no skeleton" board is exactly the engine default.
+Every choice is a range per knob with a canonical value; with **randomise the
+settings on every generate** ticked, each Generate (and New seed) draws the
+knobs inside those ranges, so the same seed gives a different board every
+time. The ranges are narrower than the engine envelope and follow the
+measurements below: straightness stays at 0.65 or above (0.7 above 600 cells
+a side), the coiling penalty stays low with low straightness, the skeleton
+never gets dense, layers mode is skipped at a million cells, and the closing
+knobs keep their defaults (a random backtrack budget turns a jam into minutes
+of waiting). Whatever was drawn goes through the knobs, so the command, the
+URL and the advanced view show exactly what was generated. Switching views
+never touches the knobs; the form is applied when something in it is clicked.
+
+The **advanced** view has all generator knobs in the side panel; the board is
+drawn immediately.
 A preset drop-down at the top is a tree: a difficulty level per group
 (`lab-presets.mjs`), a few options each — square, portrait, tunnels, skeleton;
 the huge level also has a winding skeleton (serpentine step 3, every run cut
@@ -42,16 +61,19 @@ panel header; the choice is kept in `localStorage` and in the URL).
 Every generated board — from the lab and from `carve.mjs --svg` — lands in
 `prototype/boards/<W>x<H>/<id>.svg` with metadata and the command in
 `<id>.json` (gitignored; the id is the seed plus a hash of the parameters, so
-the same configuration overwrites its own entry). The stored file has no
+the same configuration overwrites its own entry — keeping its original
+`createdAt`, hence its place in the list, and recording the write in
+`updatedAt`). The stored file has no
 highlight of the longest pieces — that pink is a preview aid in the lab tab;
 the store gets a separate render with `top` 0 and a command without `--top`. The **Saved boards** tab
-browses the store by size, shows the command next to the board, loads its
+browses the store by size — entering the tab or picking a size shows the
+first board of that size right away — shows the command next to the board, loads its
 settings into the knobs and deletes a board from disk (two clicks on the same
 button, no dialog; `DELETE /api/boards/<WxH>/<id>`). The stroke width and
 arrow colouring of a stored board can be changed there: the board is rebuilt
 from its parameters in a separate worker (the engine is deterministic),
 redrawn and saved back through the same POST, so the file stays what its CLI
-command would produce. That tab has no
+command would produce and the board stays where it was in the list. That tab has no
 generation controls at all — the panel keeps only fit and zoom, which act on
 the stored SVG; generating happens in the lab tab.
 
@@ -235,8 +257,10 @@ The price of the adopted weights: p99 time on Nightmare rises from 442 to 658 ms
 per 30 runs, failures still zero.
 
 Drawing parameters giving the reference appearance: line width 50% of the grid pitch,
-`stroke-linecap` and `stroke-linejoin` set to `round`, arrowhead as a filled triangle
-with a side of ~0.6 of the pitch, colours `#232447` on `#f6f6fa`.
+`stroke-linecap` and `stroke-linejoin` set to `round`, arrowhead as a filled
+isosceles triangle 0.62 of the pitch tall and 0.54 wide at the base (a wider
+base made the heads of two pieces meeting at a right angle in neighbouring
+cells touch), colours `#232447` on `#f6f6fa`.
 
 ## Round 5 — coiling versus wrapping
 
