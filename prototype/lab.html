@@ -54,6 +54,8 @@
   .slabel { display: block; font-size: 12.5px; margin-bottom: .25rem; }
   select#sSize { display: block; width: 100%; font: inherit; font-size: 13px; padding: .3rem .4rem; margin-bottom: .6rem;
                  border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  .sslider { width: 100%; margin: 0; display: block; }
+  .sends { display: flex; justify-content: space-between; font-size: 11px; color: #7a7b95; margin: 0 0 .6rem; }
   .seg { display: flex; gap: .25rem; margin-bottom: .6rem; }
   .seg button { flex: 1; padding: .25rem .3rem; font-size: 12px; }
   .seg button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -303,7 +305,7 @@ import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS, defaultParams, validatePara
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 import { PRESETS, findPreset } from './lab-presets.mjs'
-import { SIMPLE_SIZES, SIMPLE_CHOICES, defaultChoice, simpleParams } from './lab-simple.mjs'
+import { SIMPLE_SIZES, SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleParams } from './lab-simple.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -526,11 +528,33 @@ function exportCell(W, H) { return Math.max(1, Math.min(18, Math.round(1600 / Ma
 const SIMPLE_KEY = 'labSimple'
 let simpleChoice = defaultChoice()
 try { Object.assign(simpleChoice, JSON.parse(localStorage.getItem(SIMPLE_KEY) || '{}')) } catch { /* stale storage */ }
+simpleChoice = normalizeChoice(simpleChoice)   // old category names, junk, clamping
 delete simpleChoice.seed   // the seed lives in the knobs, not in the recipe
-if (!SIMPLE_SIZES.some((s) => s.id === simpleChoice.size)) simpleChoice.size = defaultChoice().size
-for (const [group, values] of Object.entries(SIMPLE_CHOICES)) if (!values.includes(simpleChoice[group])) simpleChoice[group] = defaultChoice()[group]
 
 for (const s of SIMPLE_SIZES) $('sSize').append(new Option(`${s.W}×${s.H}`, s.id))
+// Sliders: a position from 0 to 1 is a wish (very short … very long,
+// straightest … most winding); the module interpolates the knob ranges.
+// Dragging generates after a pause, like a knob with auto-generate on.
+const sliders = new Map()   // key -> input
+for (const key of Object.keys(SIMPLE_SLIDERS)) {
+  const label = document.createElement('span')
+  label.className = 'slabel'
+  label.dataset.simple = key
+  const input = document.createElement('input')
+  input.type = 'range'
+  input.className = 'sslider'
+  Object.assign(input, { min: 0, max: 100, step: 1 })
+  input.addEventListener('input', () => { simpleChoice[key] = Number(input.value) / 100; applySimple(); schedule() })
+  const ends = document.createElement('div')
+  ends.className = 'sends'
+  for (const i of [0, 1]) {
+    const e = document.createElement('span')
+    e.dataset.simpleEnd = `${key}.${i}`
+    ends.append(e)
+  }
+  $('simpleGroups').append(label, input, ends)
+  sliders.set(key, input)
+}
 const segButtons = []   // { group, value, button }
 for (const [group, values] of Object.entries(SIMPLE_CHOICES)) {
   const label = document.createElement('span')
@@ -554,12 +578,17 @@ function simpleLabels() {
     const [group, value] = el.dataset.simple.split('.')
     el.textContent = value ? (d.options[group]?.[value] ?? en.options[group][value]) : (d[group] ?? en[group])
   }
+  for (const el of document.querySelectorAll('[data-simple-end]')) {
+    const [key, i] = el.dataset.simpleEnd.split('.')
+    el.textContent = (d.ends?.[key] ?? en.ends[key])[Number(i)]
+  }
   $('viewSimple').textContent = d.viewSimple ?? en.viewSimple
   $('viewAdvanced').textContent = d.viewAdvanced ?? en.viewAdvanced
   $('sSeedLabel').textContent = paramText(specByKey.get('seed')).label
 }
 function syncSimpleForm() {
   $('sSize').value = simpleChoice.size
+  for (const [key, input] of sliders) input.value = Math.round(simpleChoice[key] * 100)
   for (const { group, value, button } of segButtons) button.classList.toggle('on', simpleChoice[group] === value)
   $('sSeed').value = state.seed
   $('sRandom').checked = !!simpleChoice.random

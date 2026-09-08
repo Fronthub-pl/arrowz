@@ -8,14 +8,17 @@ sh prototype/lab.sh          # http://localhost:8777/lab.html
 
 The panel has two views, switched at the top and remembered in
 `localStorage`. The **simple** view (the default) offers a board size (the
-preset sizes), three plain choices — piece length (long, medium, short), line
-shape (straight, slightly winding, winding), skeleton (with, without) — and
-the seed. `lab-simple.mjs` maps a choice to a full parameter set: the plain
-"long, slightly winding, no skeleton" board is exactly the engine default.
-Every choice is a range per knob with a canonical value; with **randomise the
-settings on every generate** ticked, each Generate (and New seed) draws the
-knobs inside those ranges, so the same seed gives a different board every
-time. The ranges are narrower than the engine envelope and follow the
+preset sizes), two sliders — piece length from very short to very long, line
+shape from the straightest lines to the most winding — a skeleton switch
+(with, without) and the seed. `lab-simple.mjs` maps a choice to a full
+parameter set: a slider has anchors at 0, ¼, ½, ¾ and 1, each giving every
+knob it controls a range with a canonical value, and positions in between
+interpolate the ranges; the default position (long, slightly winding, no
+skeleton) is exactly the engine default. A slider position is a wish, not
+one configuration: with **randomise the settings on every generate**
+ticked, each Generate (and New seed) draws the knobs inside the ranges at
+that position, so the same sliders and the same seed give a different board
+every time. The ranges are narrower than the engine envelope and follow the
 measurements below: straightness stays at 0.65 or above (0.7 above 600 cells
 a side), the coiling penalty stays low with low straightness, the skeleton
 never gets dense, layers mode is skipped at a million cells, and the closing

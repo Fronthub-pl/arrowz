@@ -101,9 +101,11 @@ export const PL = {
     size: 'rozmiar planszy',
     lengths: 'długość elementów', shape: 'kształt linii', skeleton: 'szkielet',
     options: {
-      lengths: { long: 'długie', medium: 'średnie', short: 'krótkie' },
-      shape: { straight: 'proste', wavy: 'lekko pokręcone', winding: 'pokręcone' },
       skeleton: { off: 'bez szkieletu', on: 'ze szkieletem' },
+    },
+    ends: {
+      lengths: ['bardzo krótkie', 'bardzo długie'],
+      shape: ['jak najprostsze linie', 'najbardziej pokręcone'],
     },
     randomize: 'losuj ustawienia przy każdym generowaniu',
     randomizeHelp: 'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
@@ -200,9 +202,11 @@ export const EN = {
     size: 'board size',
     lengths: 'piece length', shape: 'line shape', skeleton: 'skeleton',
     options: {
-      lengths: { long: 'long', medium: 'medium', short: 'short' },
-      shape: { straight: 'straight', wavy: 'slightly winding', winding: 'winding' },
       skeleton: { off: 'no skeleton', on: 'with a skeleton' },
+    },
+    ends: {
+      lengths: ['very short', 'very long'],
+      shape: ['straightest lines', 'most winding'],
     },
     randomize: 'randomise the settings on every generate',
     randomizeHelp: 'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
