@@ -1601,14 +1601,22 @@ export function generate(params) {
   let carver = null
   let ok = false
   let used = 0
-  for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
+  let aborted = false
+  for (let attempt = 0; attempt <= p.restarts && !ok && !aborted; attempt++) {
     used = attempt
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
     // The strict leftover test is the rescue: the first attempt keeps the
     // lenient test (same boards as before, longer pieces), a restart after a
     // jam refuses the cuts that shred the board instead of trying its luck.
     carver.strict = p.strict >= 2 || (p.strict >= 1 && attempt > 0)
-    ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
+    try {
+      ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
+    } catch (err) {
+      // The trace callback may give up on a run (a time budget in the CLI):
+      // the board carved so far is returned as a failed run, no restart.
+      if (!(err instanceof GenerateAbort)) throw err
+      aborted = true
+    }
   }
   const genMs = performance.now() - t0
   const t1 = performance.now()
@@ -1617,6 +1625,7 @@ export function generate(params) {
     board: carver,
     metrics,
     ok,
+    aborted,
     restartsUsed: used,
     backtracks: carver.backtracks,
     genMs,
@@ -1640,6 +1649,11 @@ function fingerprint(board) {
   for (let i = 0; i < board.owner.length; i++) h = fnv(h, board.owner[i] + 3)
   for (const pc of board.pieces) { h = fnv(h, pc.dir); for (const c of pc.cells) h = fnv(h, c.y * board.W + c.x) }
   return h.toString(16)
+}
+
+/** Thrown from a `trace` callback to stop `generate()` and keep the partial board. */
+export class GenerateAbort extends Error {
+  constructor(message = 'generation aborted') { super(message); this.name = 'GenerateAbort' }
 }
 
 export { mulberry32, Carver, analyse, render, toSvg, fingerprint, DIRS }

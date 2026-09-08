@@ -10,13 +10,20 @@
 //   --bench=N       benchmark, N runs per level
 //   (no mode)       metrics report per level, --runs=N, --only=Name, --show
 import { writeFileSync } from 'node:fs'
-import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render } from './engine.mjs'
+import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render, GenerateAbort } from './engine.mjs'
 import { parseArgs, buildCommand, boardId } from './command.mjs'
 import { saveBoard } from './store.mjs'
 
 // Trace and debug enter the engine as functions — the engine knows no `process`.
-const trace = process.env.CARVE_TRACE
-  ? (i) => console.error(`    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
+// CARVE_TIMEOUT_S is a wall-clock budget for measurements: past it the trace
+// callback aborts the run, and the board carved so far still goes to the store.
+const timeoutS = Number(process.env.CARVE_TIMEOUT_S)
+const deadline = process.env.CARVE_TIMEOUT_S != null ? performance.now() + timeoutS * 1000 : Infinity
+const trace = process.env.CARVE_TRACE || deadline < Infinity
+  ? (i) => {
+    if (process.env.CARVE_TRACE) console.error(`    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`)
+    if (performance.now() > deadline) throw new GenerateAbort(`time budget of ${timeoutS} s exhausted`)
+  }
   : null
 const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
 
@@ -39,8 +46,23 @@ if (svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...cli, trace, debug })
   if (!result.ok) {
-    if (dryRun) console.log(JSON.stringify({ dryRun: true, W: cli.W, H: cli.H, seed: cli.seed, id: boardId(cli), ok: false, stuck: result.stuck, restarts: result.restartsUsed, genMs: result.genMs }))
-    console.error(`failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${result.stuck.remaining} cells left, ${result.stuck.heads ?? '?'} legal heads at the best moment`)
+    const { stuck, aborted } = result
+    if (dryRun) console.log(JSON.stringify({ dryRun: true, W: cli.W, H: cli.H, seed: cli.seed, id: boardId(cli), ok: false, aborted, stuck, restarts: result.restartsUsed, backtracks: result.backtracks, genMs: result.genMs }))
+    console.error(aborted
+      ? `aborted after ${(result.genMs / 1000).toFixed(1)} s: board ${cli.W}x${cli.H} (seed ${cli.seed}) has ${stuck.remaining} cells left`
+      : `failed to close board ${cli.W}x${cli.H} (seed ${cli.seed}): ${stuck.remaining} cells left, ${stuck.heads ?? '?'} legal heads at the best moment`)
+    if (svgFlag && !dryRun) {
+      // A jammed board is saved too, with its holes drawn, so that the lab
+      // can show what the generator left behind — the badge comes from ok:false.
+      const svg = toSvg(result.board, { cell: view.cell, colored: view.colored, strokeRatio: view.stroke, top: view.top, voids: true })
+      const meta = saveBoard({
+        svg, params: cli, view, command: buildCommand(cli, view), source: 'cli',
+        metrics: { ok: false, aborted, pieces: result.board.pieces.length, maxLen: result.metrics?.maxLen ?? null, genMs: result.genMs,
+                   restarts: result.restartsUsed, backtracks: result.backtracks, stuck },
+      })
+      if (svgOut) writeFileSync(svgOut, svg)
+      console.log(`${meta.W}x${meta.H}/${meta.id}.svg  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${(result.genMs / 1000).toFixed(2)} s`)
+    }
     process.exit(1)
   }
   const c = result.board, m = result.metrics, W = cli.W, H = cli.H
@@ -57,7 +79,7 @@ if (svgFlag || dryRun) {
   }
   const meta = saveBoard({
     svg, params: cli, view, command: buildCommand(cli, view), source: 'cli',
-    metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
+    metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs, restarts: result.restartsUsed, backtracks: result.backtracks },
   })
   if (svgOut) writeFileSync(svgOut, svg)
   if (view.top > 0) {

@@ -85,3 +85,52 @@ test('carve.mjs --dry-run alone selects the one-board mode and its fingerprint m
   assert.equal(r.json.params.headBias, 1)
   assert.equal(readdirSync(dir).length, 0, 'nothing is written')
 })
+
+// --- jammed boards ------------------------------------------------------------
+// A board that does not close still goes to the store: the lab shows it with
+// its holes (the "not closed" badge comes from meta.ok === false) so that a
+// jam can be looked at, not only counted. The exit code stays 1 for scripts.
+
+const JAM = ['--w=200', '--h=200', '--seed=1', '--headtries=1', '--pstraight=0.2', '--restarts=0', '--maxback=50']
+
+function svgRun(args, dir, env = {}) {
+  return spawnSync('node', [join(here, 'carve.mjs'), '--svg', ...args], {
+    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: dir, ...env }, encoding: 'utf8',
+  })
+}
+
+test('carve.mjs --svg saves a jammed board with ok:false, its holes and the jam report', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
+  const r = svgRun(JAM, dir)
+  assert.equal(r.status, 1, r.stderr)
+  const params = { ...defaultParams(), W: 200, H: 200, seed: 1, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }
+  const expected = generate(params)
+  assert.equal(expected.ok, false, 'the fixture must jam')
+  const id = boardId(params)
+  const meta = JSON.parse(readFileSync(join(dir, '200x200', `${id}.json`), 'utf8'))
+  assert.equal(meta.ok, false)
+  assert.equal(meta.aborted, false)
+  assert.equal(meta.pieces, expected.board.pieces.length)
+  assert.deepEqual(meta.stuck, expected.stuck)
+  assert.equal(meta.restarts, 0)
+  assert.equal(typeof meta.genMs, 'number')
+  const svg = readFileSync(join(dir, '200x200', `${id}.svg`), 'utf8')
+  assert.equal(svg, toSvg(expected.board, { cell: 12, strokeRatio: 0.5, colored: false, top: 0, voids: true }))
+  assert.match(r.stdout, new RegExp(`200x200/${id}\\.svg .*not closed`))
+})
+
+test('CARVE_TIMEOUT_S aborts a long generation and saves what was carved so far', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
+  // 400×400 takes over a second; a zero budget stops it at the first trace tick.
+  const r = svgRun(['--w=400', '--h=400', '--seed=7'], dir, { CARVE_TIMEOUT_S: '0' })
+  assert.equal(r.status, 1, r.stderr)
+  assert.match(r.stderr, /aborted after/)
+  const id = boardId({ ...defaultParams(), W: 400, H: 400, seed: 7 })
+  const meta = JSON.parse(readFileSync(join(dir, '400x400', `${id}.json`), 'utf8'))
+  assert.equal(meta.ok, false)
+  assert.equal(meta.aborted, true)
+  assert.ok(meta.pieces > 0, 'the partial board has pieces')
+  assert.ok(meta.stuck.remaining > 0)
+  assert.ok(meta.genMs < 2000, `aborted early, not after the full run: ${meta.genMs} ms`)
+  assert.match(readFileSync(join(dir, '400x400', `${id}.svg`), 'utf8'), /<rect/)
+})

@@ -21,6 +21,10 @@ export function saveBoard({ svg, params, view, command, metrics = {}, source }) 
     createdAt: new Date().toISOString(),
     ok: metrics.ok ?? null, pieces: metrics.pieces ?? null, maxLen: metrics.maxLen ?? null,
     genMs: metrics.genMs ?? null, svgBytes: Buffer.byteLength(svg),
+    // Closing report, when the writer has one: restarts and backtracks used,
+    // whether a time budget cut the run short, and the leftover of a jam.
+    restarts: metrics.restarts ?? null, backtracks: metrics.backtracks ?? null,
+    aborted: metrics.aborted ?? false, stuck: metrics.stuck ?? null,
   }
   writeFileSync(join(dir, `${id}.svg`), svg)
   writeFileSync(join(dir, `${id}.json`), JSON.stringify(meta, null, 2))

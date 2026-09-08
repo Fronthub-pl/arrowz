@@ -341,3 +341,18 @@ test('analyse: metrics are identical to the ones recorded with the Set-based blo
     assert.deepEqual(r.metrics, recorded[key], key)
   }
 })
+
+test('generate() treats GenerateAbort thrown from trace as an aborted, failed run', async () => {
+  const { GenerateAbort } = await import('./engine.mjs')
+  let ticks = 0
+  const r = generate({ W: 400, H: 400, seed: 7, restarts: 3, trace: () => { ticks++; throw new GenerateAbort() } })
+  assert.equal(r.ok, false)
+  assert.equal(r.aborted, true)
+  assert.equal(ticks, 1, 'no restart after an abort')
+  assert.equal(r.restartsUsed, 0)
+  assert.ok(r.board.pieces.length > 0)
+  assert.ok(r.stuck.remaining > 0)
+  assert.equal(r.stuck.heads, null, 'no jam was recorded, so no head count')
+  // trace fires only after 250 ms, so the board must be big enough to get there
+  assert.throws(() => generate({ W: 400, H: 400, seed: 7, trace: () => { throw new Error('boom') } }), /boom/, 'other errors propagate')
+})
