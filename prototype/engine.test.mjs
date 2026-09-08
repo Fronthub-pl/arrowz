@@ -453,11 +453,17 @@ test('toSvg: every arrowhead is taller than its base is wide', () => {
   const svg = toSvg(board, { cell: 10, colored: false, strokeRatio: 0.5, top: 0 })
   const heads = [...svg.matchAll(/<polygon points="([^"]+)"/g)].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
   assert.equal(heads.length, board.pieces.length, 'one head per piece')
-  for (const [tip, a, b] of heads) {
+  heads.forEach(([tip, a, b], i) => {
     const base = Math.hypot(a[0] - b[0], a[1] - b[1])
     const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
     const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1])
     assert.ok(base < height, `base ${base} should be narrower than height ${height}`)
     assert.ok(base <= 6, `base ${base} must leave room for a perpendicular neighbour (≤ 0.6 of a cell)`)
-  }
+    // The tip stays inside the head cell (pad 10, cell 10: centre at 15 + 10n):
+    // a tip reaching into the next cell looked like the arrow overshot its point.
+    const head = board.pieces[i].cells[0]
+    const centre = [15 + head.x * 10, 15 + head.y * 10]
+    const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1])
+    assert.ok(reach <= 5 + 1e-9, `tip reaches ${reach} beyond the head centre (max 0.5 of a cell)`)
+  })
 })
