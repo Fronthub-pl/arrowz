@@ -331,11 +331,25 @@ We **do not guarantee by proof** full coverage with minimum length 2 — we enfo
 with three layers:
 
 1. **Pairable heads** (above) — every carved piece has length ≥ 2.
-2. **Leftover-fragment shape test.** After choosing a candidate piece we check locally
-   whether `R` without it contains a non-decomposable fragment. A cheap approximation:
-   no cell without an unassigned neighbour, and no connected fragment of size ≤ 5
-   matching the plus pattern. The check is limited to the candidate's surroundings, so
-   the cost is on the order of the piece's perimeter.
+2. **Leftover-fragment test** (as implemented in the prototype, `wouldStrand`). After
+   growing a candidate piece we check whether `R` without it strands anything, in two
+   parts. (a) A local-defect test around the piece: a free cell with three free leaf
+   neighbours, or a pair of free cells within distance 2 whose removal isolates five
+   cells (Tutte's condition for `|S| ≤ 2`), searched within radius 2 of the piece.
+   Degrees change only next to the piece, so this is globally exact at a cost linear
+   in the piece's length. (b) An exact decomposability test of the small free
+   fragments next to the piece: from every cell of the piece and every direction a
+   capped flood fill collects the adjacent free fragment; a fragment of at most
+   `strandLimit` cells (30) is tested exactly with a bitmask DP for a cover by paths
+   of length ≥ 2, a larger fragment is let through unless it contains cells of a
+   fragment that already failed the exact test (so shortening the piece cannot hide
+   a known defect). The flood fills share their visited marks, so a later fill can
+   collect a "pocket" walled off by earlier fills and test it as if it were a
+   fragment; on skeleton boards a fifth of the rejections come from such pockets.
+   This quirk is part of the boards' identity (round 12 preserved it bit for bit).
+   A candidate that fails is shortened: jumps of 1/32 of its length until a prefix
+   passes, then an incremental creep back up one cell at a time (`shortenPath`,
+   round 12); a candidate with no passing prefix of length ≥ 2 is dropped.
 3. **Bounded backtracking.** If despite this the generator reaches a state in which
    `R ≠ ∅` and no legal piece of length ≥ 2 exists, it undoes the last `k` carvings and
    tries other choices. Only exhausting the backtrack budget causes a restart with a new

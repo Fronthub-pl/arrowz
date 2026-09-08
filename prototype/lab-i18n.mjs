@@ -46,10 +46,10 @@ export const PL = {
       help: 'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.' },
     mix: { label: 'mieszanie warstw i tuneli (-1 = wyłączone)',
       help: 'Jaka część elementów startuje tunelami, reszta warstwami. -1 = wyłączone; inaczej 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.' },
-    probe: { label: 'udział sond w głąb',
-      help: 'Jak często wbijać długi prosty element w głąb planszy. Mało widoczny efekt; zostawione do eksperymentów.' },
+    probe: { label: 'udział elementów-sond',
+      help: 'Jaka część elementów ma długość losowaną wokół długości sondy zamiast ze zwykłej mieszanki. Przy 1 i długości 12 plansza to same krótkie elementy.' },
     probeLen: { label: 'długość sondy',
-      help: 'Długość takiej sondy w komórkach.' },
+      help: 'Docelowa długość sondy, plus minus połowa. Krótkie sondy (2) potrajają liczbę elementów, długie (200) dają mniej dłuższych.' },
 
     giants: { label: 'ile elementów szkieletowych (0 = bez szkieletu)',
       help: 'Ile pierwszych elementów ma być długimi liniami przez całą planszę. 0 = bez szkieletu; 4 to dobry start.' },
