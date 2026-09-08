@@ -56,6 +56,24 @@ The constraints from the implementation map apply. Critical for this slice:
   10, absorption at least 12, exact leftover test at least 10, start attempts
   2..16, backtrack budget at most 1000, restarts at most 5) are tabulated in
   the spec and must not be widened without a new measurement.
+- **Envelope at 500×500 and 600×600, and the shortening loop** (prototype
+  round 12, 2026-09-08). The envelope was re-validated at 500×500 and
+  600×600 with about 1 300 runs without restarts: it holds for every knob
+  at 500 and for every knob but the straightness floor at 600, where
+  straightness 0.6 alone closes 11/15 and its conjunctions with Warnsdorff
+  2 or coiling penalty 10 do not close at all. The implementation inherits
+  that leak as documented (no rule couples straightness with Warnsdorff or
+  the coiling penalty yet); a preset must not sit on the 0.6 floor at
+  600×600 or above. The second lesson is about `trimToSafe` (Task 4): the
+  prototype's loop shortened a path that failed the leftover test by
+  re-running the whole Θ(L) test for every cell handed back, Θ(L²/32) per
+  trimmed path, which cost 50–350 s on 600×600 boards with a dense late
+  skeleton. The port must not re-test the whole prefix per step: shorten in
+  jumps of L/32 and creep back with an incremental test that re-examines
+  only the neighbourhood of the newly taken cell and the fragments adjacent
+  to it (the prototype's `Carver.shortenPath`, round 12), so that a trim
+  costs O(L) plus the jumps and the chosen length is exactly what the
+  one-at-a-time loop would choose.
 
 ## File Structure
 
