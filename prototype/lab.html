@@ -52,8 +52,8 @@
   body.simple #presets, body.simple #params, body.simple .advonly { display: none; }
   body:not(.simple) #simple { display: none; }
   .slabel { display: block; font-size: 12.5px; margin-bottom: .25rem; }
-  select#sSize { display: block; width: 100%; font: inherit; font-size: 13px; padding: .3rem .4rem; margin-bottom: .6rem;
-                 border: 1px solid var(--line); border-radius: 5px; background: #fff; }
+  .sslider { width: 100%; margin: 0; display: block; }
+  .sends { display: flex; justify-content: space-between; font-size: 11px; color: #7a7b95; margin: 0 0 .6rem; }
   .seg { display: flex; gap: .25rem; margin-bottom: .6rem; }
   .seg button { flex: 1; padding: .25rem .3rem; font-size: 12px; }
   .seg button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -180,8 +180,7 @@
 
   <div class="views labonly"><button id="viewSimple" type="button"></button><button id="viewAdvanced" type="button"></button></div>
   <div id="simple" class="labonly">
-    <label class="slabel" for="sSize" data-simple="size"></label>
-    <select id="sSize"></select>
+    <div id="simpleSize"></div>
     <div id="simpleGroups"></div>
     <div class="row">
       <label for="sSeed" id="sSeedLabel"></label>
@@ -303,7 +302,7 @@ import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS, defaultParams, validatePara
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 import { PRESETS, findPreset } from './lab-presets.mjs'
-import { SIMPLE_SIZES, SIMPLE_CHOICES, defaultChoice, simpleParams } from './lab-simple.mjs'
+import { SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleParams } from './lab-simple.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -524,13 +523,66 @@ function exportCell(W, H) { return Math.max(1, Math.min(18, Math.round(1600 / Ma
 // setParam like a preset, so the command, the advanced view and the URL show
 // exactly what was generated — the values drawn in random mode included.
 const SIMPLE_KEY = 'labSimple'
-let simpleChoice = defaultChoice()
-try { Object.assign(simpleChoice, JSON.parse(localStorage.getItem(SIMPLE_KEY) || '{}')) } catch { /* stale storage */ }
+// The stored recipe goes through normalizeChoice as is (old size ids and
+// category names, junk, clamping); defaults fill only what is missing.
+let simpleChoice = {}
+try { simpleChoice = JSON.parse(localStorage.getItem(SIMPLE_KEY) || '{}') } catch { /* stale storage */ }
+simpleChoice = normalizeChoice(simpleChoice)
 delete simpleChoice.seed   // the seed lives in the knobs, not in the recipe
-if (!SIMPLE_SIZES.some((s) => s.id === simpleChoice.size)) simpleChoice.size = defaultChoice().size
-for (const [group, values] of Object.entries(SIMPLE_CHOICES)) if (!values.includes(simpleChoice[group])) simpleChoice[group] = defaultChoice()[group]
 
-for (const s of SIMPLE_SIZES) $('sSize').append(new Option(`${s.W}×${s.H}`, s.id))
+// The size is edited like in the advanced view: a number and a slider per
+// side, with the engine bounds. Labels come from PARAM_SPEC.
+const sizeInputs = new Map()   // 'W' | 'H' -> { num, range }
+for (const key of ['W', 'H']) {
+  const spec = specByKey.get(key)
+  const row = document.createElement('div')
+  row.className = 'row'
+  const label = document.createElement('label')
+  label.htmlFor = 's_' + key
+  label.dataset.simpleParam = key
+  const num = document.createElement('input')
+  num.type = 'number'
+  num.id = 's_' + key
+  Object.assign(num, { min: spec.min, max: spec.max, step: spec.step })
+  const range = document.createElement('input')
+  range.type = 'range'
+  Object.assign(range, { min: spec.min, max: spec.max, step: spec.step })
+  const set = (v) => {
+    simpleChoice[key] = Number(v)
+    simpleChoice = normalizeChoice(simpleChoice)
+    delete simpleChoice.seed
+    applySimple()
+    schedule()
+  }
+  num.addEventListener('input', () => set(num.value))
+  range.addEventListener('input', () => set(range.value))
+  row.append(label, num, range)
+  $('simpleSize').append(row)
+  sizeInputs.set(key, { num, range })
+}
+// Sliders: a position from 0 to 1 is a wish (very short … very long,
+// straightest … most winding); the module interpolates the knob ranges.
+// Dragging generates after a pause, like a knob with auto-generate on.
+const sliders = new Map()   // key -> input
+for (const key of Object.keys(SIMPLE_SLIDERS)) {
+  const label = document.createElement('span')
+  label.className = 'slabel'
+  label.dataset.simple = key
+  const input = document.createElement('input')
+  input.type = 'range'
+  input.className = 'sslider'
+  Object.assign(input, { min: 0, max: 100, step: 1 })
+  input.addEventListener('input', () => { simpleChoice[key] = Number(input.value) / 100; applySimple(); schedule() })
+  const ends = document.createElement('div')
+  ends.className = 'sends'
+  for (const i of [0, 1]) {
+    const e = document.createElement('span')
+    e.dataset.simpleEnd = `${key}.${i}`
+    ends.append(e)
+  }
+  $('simpleGroups').append(label, input, ends)
+  sliders.set(key, input)
+}
 const segButtons = []   // { group, value, button }
 for (const [group, values] of Object.entries(SIMPLE_CHOICES)) {
   const label = document.createElement('span')
@@ -554,12 +606,18 @@ function simpleLabels() {
     const [group, value] = el.dataset.simple.split('.')
     el.textContent = value ? (d.options[group]?.[value] ?? en.options[group][value]) : (d[group] ?? en[group])
   }
+  for (const el of document.querySelectorAll('[data-simple-param]')) el.textContent = paramText(specByKey.get(el.dataset.simpleParam)).label
+  for (const el of document.querySelectorAll('[data-simple-end]')) {
+    const [key, i] = el.dataset.simpleEnd.split('.')
+    el.textContent = (d.ends?.[key] ?? en.ends[key])[Number(i)]
+  }
   $('viewSimple').textContent = d.viewSimple ?? en.viewSimple
   $('viewAdvanced').textContent = d.viewAdvanced ?? en.viewAdvanced
   $('sSeedLabel').textContent = paramText(specByKey.get('seed')).label
 }
 function syncSimpleForm() {
-  $('sSize').value = simpleChoice.size
+  for (const [key, { num, range }] of sizeInputs) { num.value = simpleChoice[key]; range.value = simpleChoice[key] }
+  for (const [key, input] of sliders) input.value = Math.round(simpleChoice[key] * 100)
   for (const { group, value, button } of segButtons) button.classList.toggle('on', simpleChoice[group] === value)
   $('sSeed').value = state.seed
   $('sRandom').checked = !!simpleChoice.random
@@ -591,7 +649,6 @@ function showView(mode) {
 }
 $('viewSimple').addEventListener('click', () => showView('simple'))
 $('viewAdvanced').addEventListener('click', () => showView('advanced'))
-$('sSize').addEventListener('change', () => { simpleChoice.size = $('sSize').value; applySimple(); run() })
 $('sSeed').addEventListener('input', () => setParam('seed', $('sSeed').value))
 $('sRandom').addEventListener('change', () => {
   simpleChoice.random = $('sRandom').checked
