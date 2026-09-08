@@ -977,12 +977,18 @@ class Carver {
       // leftover, i.e. pieces in the region being carved, so it does not put
       // the missed heads back in play; trying each of them once does.
       //
-      // Three misses in a row and the scan is switched off until it hits
-      // again: a board whose legal heads all fail the leftover test (the
-      // shredded 1000×1000 boards of the sweep: 253 heads, 0 carvable) is a
-      // geometric jam, and scanning it before each of hundreds of backtracks
-      // only made the verdict 1.3–3.7× slower.
-      if (scanMisses < 3) {
+      // Two bounds keep the scan from paying for jams it cannot fix. Three
+      // misses in a row switch it off until it hits again: a board whose
+      // legal heads all fail the leftover test (the shredded 1000×1000 boards
+      // of the sweep: 253 heads, 0 carvable) is a geometric jam, and scanning
+      // it before each of hundreds of backtracks made the verdict 1.3–3.7×
+      // slower. And one attempt gets as many scans as it gets undos: on a
+      // shredded board with the odd carvable head the scan hits, carves one
+      // piece, the draws fail again and the next scan starts over — board 94
+      // did 1 268 scans (1 067 hits) in one attempt, still jammed, at twice
+      // the time. The scan is the cheaper alternative to an undo, so it
+      // shares the undo budget; after that the jam goes to backtracking.
+      if (scanMisses < 3 && (this.stats.headScans ?? 0) < maxBacktracks) {
         this.stats.headScans = (this.stats.headScans ?? 0) + 1
         if (this.carveOne(true)) {
           this.stats.headScanHits = (this.stats.headScanHits ?? 0) + 1

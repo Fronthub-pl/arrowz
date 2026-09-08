@@ -190,6 +190,21 @@ test('generate: after three missed head scans in a row the jam is left to backtr
   assert.ok(r.board.stats.headScans <= 3, `${r.board.stats.headScans} scans for 20 backtracks`)
 })
 
+test('generate: head scans in one attempt are limited to the backtrack budget', () => {
+  // With more voids the shredded islands do have the odd carvable head: the
+  // scan hits, carves one piece, the draws fail again, and the next scan
+  // starts over — one full scan per piece, with ordinary carves in between
+  // that keep the miss counter at zero. Board 94 of the 1000×1000 sweep did
+  // 1 268 scans in one attempt (1 067 hits) and still jammed, at twice the
+  // time. The scan is a cheaper alternative to an undo, so it gets the same
+  // budget per attempt as the undos; after that the jam goes to backtracking.
+  const r = generate({ ...defaultParams(), W: 80, H: 80, seed: 4, voidFrac: 0.3, absorbLimit: 0, restarts: 0, maxBack: 20 })
+  assert.equal(r.ok, false)
+  assert.equal(r.backtracks, 20)
+  assert.ok(r.board.stats.headScanHits > 0, 'the case should have scan hits')
+  assert.ok(r.board.stats.headScans <= 20, `${r.board.stats.headScans} scans for a budget of 20`)
+})
+
 test('generate: a jam reports how many legal heads were left at the best moment', () => {
   // Half the cells are voids, so single free cells stay isolated and nothing
   // can cover them: the run jams at once. The count of legal heads at the
