@@ -93,17 +93,15 @@
   .tabs button { border-radius: 5px 5px 0 0; border-bottom: none; padding: .3rem .8rem; }
   .tabs button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
   body.tab-library #stats, body.tab-library #topTable { display: none; }
-  /* The saved-boards tab only browses the store: no presets, no knobs, no
-     command. What stays acts on the stored SVG — fit and zoom. */
+  /* The saved-boards tab only browses the store: no presets, no generator
+     knobs. The panel keeps what acts on the stored board — the board's
+     command, and stroke, head and colour rows in the place of the lab's — plus
+     fit and zoom. */
   body.tab-library .labonly, body.tab-library #presets { display: none; }   /* #presets: the id rule above outranks the class */
+  body:not(.tab-library) .libonly { display: none; }
   .libhead { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
   .libhead button { padding: .2rem .45rem; font-size: 12px; }
   #libList { margin: .4rem 0 .8rem; }
-  .libview { display: grid; grid-template-columns: 1fr 68px; gap: .3rem .5rem; align-items: center;
-             font-size: 12.5px; margin: .2rem 0 .6rem; }
-  .libview input[type=number] { width: 100%; padding: .2rem .3rem; border: 1px solid var(--line); border-radius: 4px;
-                                font: inherit; font-size: 12.5px; text-align: right; }
-  .libview .check { grid-column: 1 / -1; margin: 0; }
   .boardrow { display: grid; grid-template-columns: 1fr auto; gap: .2rem .8rem; padding: .35rem .5rem;
               border: 1px solid var(--line); border-radius: 5px; margin-bottom: .3rem; cursor: pointer; font-size: 12px; }
   .boardrow:hover { border-color: var(--ink); }
@@ -197,6 +195,12 @@
   <div class="notice labonly" id="clampNote" hidden><span data-i18n="clamped"></span><button id="clampDismiss" type="button">×</button></div>
   <div id="violations" class="labonly" hidden><b data-i18n="violationsTitle"></b><ul></ul></div>
 
+  <div class="command libonly" id="libCommandBox" hidden>
+    <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
+      <button id="libCopy" data-i18n="copy">Copy</button></div>
+    <pre id="libCommand"></pre>
+  </div>
+
   <div class="buttons labonly">
     <button class="primary" id="run" data-i18n="generate">Generate</button>
     <button id="reseed" data-i18n="reseed">New seed</button>
@@ -238,6 +242,22 @@
     <p class="help" data-i18n="headHelp"></p>
   </div>
   <label class="check labonly"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
+  <div id="libView" class="libonly" hidden>
+    <div class="row">
+      <label for="libStroke" data-i18n="strokeLabel">stroke width (grid units)</label>
+      <input type="number" id="libStroke" value="0.5" min="0.2" max="0.9" step="0.05">
+    </div>
+    <div class="row">
+      <label for="libHeadWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
+      <input type="number" id="libHeadWidth" value="0" min="0" max="1.2" step="0.05">
+    </div>
+    <div class="row">
+      <label for="libHeadHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
+      <input type="number" id="libHeadHeight" value="0" min="0" max="1.3" step="0.05">
+      <p class="help" data-i18n="headHelp"></p>
+    </div>
+    <label class="check"><input type="checkbox" id="libColored"> <span data-i18n="colored">colour the arrows</span></label>
+  </div>
   <label class="check labonly"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>
   <label class="check labonly advonly"><input type="checkbox" id="voids" checked> <span data-i18n="voids">show jammed cells</span></label>
   <div class="row labonly advonly">
@@ -270,18 +290,6 @@
         </div>
         <div id="libList"></div>
         <div id="libDetail" hidden>
-          <div class="libview">
-            <label for="libStroke" data-i18n="strokeLabel">stroke width (grid units)</label>
-            <input type="number" id="libStroke" value="0.5" min="0.2" max="0.9" step="0.05">
-            <label for="libHeadWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
-            <input type="number" id="libHeadWidth" value="0" min="0" max="1.2" step="0.05">
-            <label for="libHeadHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
-            <input type="number" id="libHeadHeight" value="0" min="0" max="1.3" step="0.05">
-            <label class="check"><input type="checkbox" id="libColored"> <span data-i18n="colored">colour the arrows</span></label>
-          </div>
-          <div class="cmdhead"><span data-i18n="boardCommand">Command of this board</span>
-            <button id="libCopy" data-i18n="copy">Copy</button></div>
-          <pre id="libCommand"></pre>
           <div class="buttons"><button id="libLoad" data-i18n="loadIntoLab">Load into lab</button>
             <button id="libDelete" class="danger" data-i18n="deleteBoard">Delete from disk</button></div>
         </div>
@@ -949,11 +957,17 @@ function showBoardStatus(meta) {
   setStatus(t('savedBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`, meta.seed, meta.source, `${genSeconds(meta)} s`))
 }
 
+// The board's command and view rows live in the panel, in the place of the
+// lab's; the buttons stay next to the list. All appear with a chosen board.
+function showLibDetail(on) {
+  for (const id of ['libDetail', 'libCommandBox', 'libView']) $(id).hidden = !on
+}
+
 async function openBoard(meta) {
   libBoard = meta
   disarmDelete()
   renderLibrary()
-  $('libDetail').hidden = false
+  showLibDetail(true)
   $('libCommand').textContent = meta.command
   $('libStroke').value = meta.view?.stroke ?? 0.5
   $('libHeadWidth').value = meta.view?.headWidth ?? 0
@@ -1085,7 +1099,7 @@ $('libDelete').addEventListener('click', async () => {
   }
   libBoard = null
   dropLibWorker()
-  $('libDetail').hidden = true
+  showLibDetail(false)
   $('board').innerHTML = ''
   setStatus(t('deletedBoard', `<code>${name}</code>`))
   await loadLibrary({ force: true })
