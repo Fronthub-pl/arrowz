@@ -302,7 +302,7 @@ import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS, defaultParams, validatePara
 import { buildCommand } from './command.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 import { PRESETS, findPreset } from './lab-presets.mjs'
-import { SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleParams } from './lab-simple.mjs'
+import { SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleParams, exportCell } from './lab-simple.mjs'
 
 const $ = (id) => document.getElementById(id)
 const state = { ...defaultParams() }
@@ -515,7 +515,6 @@ $('presets').addEventListener('change', () => {
   run()
 })
 // The cell size concerns only the export; the preview scales itself.
-function exportCell(W, H) { return Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H)))) }
 
 // --- simple view ---------------------------------------------------------------
 // Plain choices (lab-simple.mjs) instead of the knob panel. The choices and

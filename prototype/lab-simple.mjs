@@ -89,6 +89,15 @@ const SKELETON = {
 const DIFFICULTY = { headBias: { pick: [-1, 0, 1], def: 0 }, probe: r(0, 0.3, 0), probeLen: r(6, 40, 12) }
 const DIFFICULTY_BIG = { headBias: { pick: [0, 1], def: 0 } }
 
+/**
+ * Cell size for the exported SVG: 1600 px on the longer side, between 1 and
+ * 18 px. The lab and the CLI simple mode share it, so the same choice gives
+ * the same file in both.
+ */
+export function exportCell(W, H) {
+  return Math.max(1, Math.min(18, Math.round(1600 / Math.max(W, H))))
+}
+
 /** The choice that reproduces the engine defaults. */
 export function defaultChoice() {
   const d = defaultParams()

@@ -5,6 +5,7 @@
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
 import { PARAM_SPEC, defaultParams, RULES, RULE_REASONS } from './engine.mjs'
+import { defaultChoice, exportCell } from './lab-simple.mjs'
 
 // Old flag names from rounds 1–7; README examples must keep working.
 export const ALIASES = {
@@ -121,6 +122,75 @@ export function parseArgs(argv) {
     rest.push(a)
   }
   return { params, view, rest }
+}
+
+// --- the simple mode (no --advanced) ----------------------------------------
+// The default way to call carve.mjs takes what the simple lab view takes: a
+// size, two slider positions in 0..1, a skeleton switch, a seed, the view and
+// a randomise flag. Two-word flags are lower case without a separator, like
+// --headwidth. --straight reads the shape slider from its straight end, so
+// --straight=1 is the straightest board.
+
+const SIMPLE_NUMBER = new Map([
+  ['width', ['choice', 'W']], ['height', ['choice', 'H']], ['seed', ['choice', 'seed']],
+  ['length', ['choice', 'lengths']], ['straight', ['choice', 'shape']],
+  ['lineweight', ['view', 'stroke']], ['arrowwidth', ['view', 'headWidth']], ['arrowheight', ['view', 'headHeight']],
+])
+const SIMPLE_SWITCH = new Map([['skeleton', ['choice', 'skeleton', 'on']], ['randomized', ['choice', 'random', true]], ['colorized', ['view', 'colored', true]]])
+const SIMPLE_SLIDER = new Set(['length', 'straight'])
+// Mode flags carve.mjs reads in the simple mode; anything else is refused.
+const SIMPLE_PASS = /^(--svg(=.*)?|--dry-run|--help|-h)$/
+const ADVANCED_HINT = 'engine knobs, the report and the benchmark need --advanced'
+
+const round6 = (v) => Number(v.toFixed(6))
+
+/**
+ * Splits argv into a simple-view choice (lab-simple.mjs), view options, the
+ * mode flags (rest) and a list of errors: a missing size, a slider value
+ * outside 0..1, a value that is not a number, an unknown flag.
+ */
+export function parseSimpleArgs(argv) {
+  const choice = { ...defaultChoice(), random: false }
+  const view = { ...DEFAULT_VIEW }
+  const rest = [], errors = []
+  const seen = new Set()
+  for (const a of argv) {
+    if (!a.startsWith('--') || SIMPLE_PASS.test(a)) { rest.push(a); continue }
+    const eq = a.indexOf('=')
+    const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
+    const raw = eq < 0 ? null : a.slice(eq + 1)
+    if (SIMPLE_SWITCH.has(name)) {
+      const [target, key, value] = SIMPLE_SWITCH.get(name)
+      ;(target === 'choice' ? choice : view)[key] = value
+      continue
+    }
+    if (!SIMPLE_NUMBER.has(name)) { errors.push(`unknown flag --${name} (${ADVANCED_HINT})`); continue }
+    const [target, key] = SIMPLE_NUMBER.get(name)
+    seen.add(name)   // given, even if the value is bad: that is its own error
+    const n = raw === null || raw === '' ? NaN : Number(raw)
+    if (!Number.isFinite(n)) { errors.push(`${a} is not a number`); continue }
+    if (SIMPLE_SLIDER.has(name) && (n < 0 || n > 1)) { errors.push(`${a} is outside 0..1`); continue }
+    ;(target === 'choice' ? choice : view)[key] = name === 'straight' ? round6(1 - n) : n
+  }
+  const missing = ['width', 'height'].filter((name) => !seen.has(name)).map((name) => `missing --${name}`)
+  if (Number.isFinite(choice.W) && Number.isFinite(choice.H)) view.cell = exportCell(choice.W, choice.H)
+  return { choice, view, rest, errors: [...missing, ...errors] }
+}
+
+/** Simple command text for a choice and view: size and seed always, the rest only when off the default. */
+export function buildSimpleCommand(choice, view = {}) {
+  const d = defaultChoice()
+  const v = { ...DEFAULT_VIEW, ...view }
+  const parts = ['node prototype/carve.mjs', `--width=${choice.W}`, `--height=${choice.H}`, `--seed=${choice.seed}`]
+  if (choice.lengths !== d.lengths) parts.push(`--length=${choice.lengths}`)
+  if (choice.shape !== d.shape) parts.push(`--straight=${round6(1 - choice.shape)}`)
+  if (choice.skeleton === 'on') parts.push('--skeleton')
+  if (choice.random) parts.push('--randomized')
+  if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--lineweight=${v.stroke}`)
+  if (v.headWidth > 0) parts.push(`--arrowwidth=${v.headWidth}`)
+  if (v.headHeight > 0) parts.push(`--arrowheight=${v.headHeight}`)
+  if (v.colored) parts.push('--colorized')
+  return parts.join(' ')
 }
 
 /**

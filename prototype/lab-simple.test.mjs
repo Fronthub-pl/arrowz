@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SIMPLE_SIZES, SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleRanges, simpleParams } from './lab-simple.mjs'
+import { SIMPLE_SIZES, SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleRanges, simpleParams, exportCell } from './lab-simple.mjs'
 import { PRESETS } from './lab-presets.mjs'
 import { PARAM_SPEC, defaultParams, validateParams, mulberry32 } from './engine.mjs'
 import { EN, PL } from './lab-i18n.mjs'
@@ -178,4 +178,15 @@ test('both dictionaries label every simple choice, slider end, size and view str
   }
   assert.deepEqual(Object.keys(PL.simple).sort(), Object.keys(EN.simple).sort())
   assert.deepEqual(Object.keys(PL.simple.options).sort(), Object.keys(SIMPLE_CHOICES).sort(), 'no stale option groups')
+})
+
+// The lab picks the export cell size from the board: 1600 px on the longer
+// side, between 1 and 18 px. The CLI simple mode uses the same function, so
+// both render the same SVG for the same choice.
+test('exportCell: 1600 px on the longer side, clamped to 1..18', () => {
+  assert.equal(exportCell(25, 50), 18)
+  assert.equal(exportCell(100, 200), 8)
+  assert.equal(exportCell(400, 400), 4)
+  assert.equal(exportCell(1000, 1000), 2)
+  assert.equal(exportCell(4000, 1000), 1)
 })
