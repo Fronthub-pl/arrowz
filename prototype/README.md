@@ -442,3 +442,75 @@ the 400×400 layers run with a restart `5d446ea4` in both. The old engine's
 first layers attempt at 1000×1000 takes over half an hour, so its jam
 report was not waited for; by construction (same search order, same budget,
 memo skips only attempts that would fail identically) it is the same jam.
+
+## Round 10 — the strict leftover test as the rescue after a jam
+
+The eight boards of the random 1000×1000 sweep that jam with hundreds of
+legal heads (round 9) were diagnosed island by island at the first jam, no
+undo (`diag-islands.mjs`, job tmp dir). Two shapes, both geometric:
+
+| board | free cells | islands | islands with no legal head | with heads, none carvable | largest island |
+|---|---|---|---|---|---|
+| 30 (early shred: `pStraight` 0.16, probes 0.42, skeletons `wGiant` 0.2) | 363 404 | 4 512 | **4 300** (all 60 above 1 000 cells) | 212 | 5 457, no head |
+| 62 (end game: `pStraight` 0.04, probes 0.86) | 10 417 | 1 545 | 1 042 | 503 (400 of them 1–3 cells) | 168 |
+
+A **headless island** has no cell that is the first free cell of a line from
+an edge with a free cell behind it: every ray crosses another island. Islands
+like that are born at a cut, in every size, and cannot be repaired later:
+assigning cells only clears rays, so an island loses its last head only
+through a cut into it. An island **with heads but nothing carvable** is the
+L-tromino with the head in the corner and its relatives: decomposable into
+paths, but no piece starting at a legal head covers it.
+
+Three leftover tests were measured on copies of the engine (one attempt, no
+restarts, the undo budget of 200; `one-attempt.mjs`, `bench-engine.mjs`):
+
+| test added to `wouldStrand` | 200×200 `headTries` 1 seeds 1/3 | board 62 | board 30 | pieces on boards that close today | time |
+|---|---|---|---|---|---|
+| *(main)* | jam / jam | jam at 126 s | jam at 54 s | — | — |
+| **line front**: some line through the fragment has a head at its front (the front island can be carved now) | closes / closes | jam, worse (29 639 free) | jam (323 081 free) | ±5% | ±10% |
+| **own head**: some cell of the fragment is a legal head, any size (walk towards the exit edge, budget 256 cells) | closes / closes | closes, 297 s | jam (397 547 free) | +19–25% | 1.5–3.5× |
+| **own head + solvable** small fragments | closes / closes | **closes, 92 s, 0 undos** | **closes, 429 s, 0 undos** | +17–35% | 4–7× |
+
+The line-front test is refuted: it is not kept up by cuts elsewhere (at its
+jam on board 30, 471 islands had lost their headed line and the front
+islands had heads that carve nothing). The own-head test alone leaves the
+L-corner islands. Own head plus **solvable** — a search over subsets of a
+fragment of up to 30 cells: pick a legal head of what is left, lay a piece
+inside the fragment, repeat; memo of losing subsets, budget 4 000 nodes —
+closes both shapes without an undo — and every one of the eight jammed
+boards of the sweep, in one strict attempt (`bench-engine.mjs`, no restarts,
+machine shared with two other runs):
+
+| board | main (round 9) | strict, one attempt | pieces | longest piece |
+|---|---|---|---|---|
+| 19 | jam | 230 s, 0 undos | 122 408 | 2 278 |
+| 27 | jam | 183 s, 0 undos | 81 931 | 2 653 |
+| 30 | jam | 429 s, 0 undos | 82 168 | 7 697 |
+| 44 | jam | 813 s, 0 undos | 78 970 | 2 696 |
+| 62 | jam | 92 s, 0 undos | 64 239 | 4 222 |
+| 79 | jam | 235 s, 0 undos | 91 173 | 1 531 |
+| 92 | jam | 72 s, 0 undos | 114 804 | 2 057 |
+| 94 | jam | 653 s, 0 undos | 119 868 | 2 706 |
+
+The head walk hit its 256-cell budget hundreds of thousands of times on
+these boards (0.3–1.1 million per board, each time assuming the fragment
+has a head) and they closed anyway; on the boards that close today it runs
+out a handful of times. End to end through the CLI with the default knobs
+(`--dry-run --maxback=0 --restarts=1`): board 62 closes after the lenient
+attempt jams and the strict restart carves it, 319 s in all, 0 undos in the
+strict attempt; board 92 likewise in 262 s.
+
+**The cost is real and intrinsic**: a pocket shaded by a neighbour that has
+a head is refused although that neighbour would be carved first, so the
+pieces get 17–35% more numerous and shorter, and the run several times
+slower (the solver dominates: 2.3 s of 3.8 s on 200×200 layers). So the
+strict test is **the rescue, not the default**: `strict` knob, default 1 =
+the first attempt keeps the lenient test (every board that closed before is
+bit-identical, the recorded fingerprints stand), a restart after a jam runs
+strict instead of trying its luck with a derived seed; 2 = strict from the
+start; 0 = never. Guarded by `engine.test.mjs`: the L-corner fragment is
+decomposable and not solvable; a shaded domino is stranded only in strict
+mode; the two starved 200×200 seeds close in one strict attempt; the first
+attempt is lenient and a restart is strict (fingerprint of 100×100 seed 3
+unchanged).
