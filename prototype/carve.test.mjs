@@ -71,7 +71,7 @@ test('carve.mjs --dry-run computes the board, writes nothing and prints one JSON
   assert.equal(typeof r.json.pieces, 'number')
   assert.equal(typeof r.json.maxLen, 'number')
   assert.equal(typeof r.json.genMs, 'number')
-  assert.match(r.json.command, /^node prototype\/carve\.mjs --svg --w=10 --h=10 --seed=1/)
+  assert.match(r.json.command, /^node prototype\/carve\.mjs --advanced --svg --w=10 --h=10 --seed=1/)
 })
 
 test('carve.mjs --dry-run alone selects the one-board mode and its fingerprint matches the engine', () => {

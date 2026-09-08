@@ -85,7 +85,7 @@ export function helpText() {
 /** Command text reproducing the board for the given parameters and view. */
 export function buildCommand(params, view = {}) {
   const v = { ...DEFAULT_VIEW, ...view }
-  const parts = ['node prototype/carve.mjs --svg', `--w=${params.W}`, `--h=${params.H}`, `--seed=${params.seed}`]
+  const parts = ['node prototype/carve.mjs --advanced --svg', `--w=${params.W}`, `--h=${params.H}`, `--seed=${params.seed}`]
   for (const s of PARAM_SPEC) {
     if (s.key === 'W' || s.key === 'H' || s.key === 'seed') continue
     if (params[s.key] !== undefined && params[s.key] !== s.def) parts.push(`--${s.key.toLowerCase()}=${params[s.key]}`)

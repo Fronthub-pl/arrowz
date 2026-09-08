@@ -9,7 +9,7 @@ const argvOf = (cmd) => cmd.split(' ').slice(2)   // drop "node prototype/carve.
 
 test('buildCommand: default params give only size, seed, --svg and --cell', () => {
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
-  assert.equal(buildCommand(p), 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12')
+  assert.equal(buildCommand(p), 'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12')
 })
 
 test('buildCommand ↔ parseArgs: round trip for changed knobs and view', () => {
@@ -22,7 +22,7 @@ test('buildCommand ↔ parseArgs: round trip for changed knobs and view', () => 
   const back = parseArgs(argvOf(cmd))
   for (const s of PARAM_SPEC) assert.equal(back.params[s.key], p[s.key], s.key)
   assert.deepEqual(back.view, v)
-  assert.deepEqual(back.rest, ['--svg'])
+  assert.deepEqual(back.rest, ['--advanced', '--svg'])
 })
 
 // The head knobs default to 0 (automatic size) and stay out of the command then.
@@ -30,8 +30,8 @@ test('buildCommand: automatic head size adds no flag; DEFAULT_VIEW carries the z
   assert.equal(DEFAULT_VIEW.headWidth, 0)
   assert.equal(DEFAULT_VIEW.headHeight, 0)
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
-  assert.equal(buildCommand(p, { headWidth: 0, headHeight: 0 }), 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12')
-  assert.equal(buildCommand(p, { headWidth: 0.6 }), 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6')
+  assert.equal(buildCommand(p, { headWidth: 0, headHeight: 0 }), 'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12')
+  assert.equal(buildCommand(p, { headWidth: 0.6 }), 'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6')
 })
 
 test('parseArgs: old flag names are aliases, unknown flags go to rest', () => {

@@ -23,7 +23,11 @@ const trace = process.env.CARVE_TRACE
   : null
 const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
 
-const { params: cli, view, rest } = parseArgs(process.argv.slice(2))
+// --advanced selects the full knob set and every mode; the flag itself is not
+// a parameter, so it is taken off argv before the parser sees it.
+const argvIn = process.argv.slice(2)
+const advanced = argvIn.includes('--advanced')
+const { params: cli, view, rest } = parseArgs(argvIn.filter((a) => a !== '--advanced'))
 // Mode flags (not engine parameters) — read from what is left after the parser.
 const arg = (k, dflt) => {
   const hit = rest.find((a) => a.startsWith(`--${k}=`))
