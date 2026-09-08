@@ -454,10 +454,16 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
   for (let s = 0.2; s <= 0.9 + 1e-9; s += 0.05) {
     const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0 })
     const parse = (tag) => [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
-    const heads = parse('polygon'), lines = parse('polyline')
+    // A head is tip, base corner, [collar corners], base corner: the base
+    // corners are the second and the last point.
+    const heads = parse('polygon').map((pts) => [pts[0], pts[1], pts[pts.length - 1], pts.length]), lines = parse('polyline')
+    const tails = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/g)].map((m) => ({ cx: Number(m[1]), cy: Number(m[2]), r: Number(m[3]) }))
     assert.equal(heads.length, board.pieces.length, 'one head per piece')
     assert.equal(lines.length, board.pieces.length, 'one line per piece')
-    heads.forEach(([tip, a, b], i) => {
+    assert.equal(tails.length, board.pieces.length, 'one tail circle per piece')
+    assert.ok(!/stroke-linecap="round"/.test(svg), 'lines end flat: the tail is a circle, the head end hides under the head')
+    assert.ok(/stroke-linejoin="round"/.test(svg), 'corners stay round')
+    heads.forEach(([tip, a, b, corners], i) => {
       const label = `stroke ${s.toFixed(2)} piece ${i}`
       const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
@@ -476,18 +482,32 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       const centre = [30 + head.x * cell, 30 + head.y * cell]
       const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1]) / cell
       assert.ok(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
-      // The line runs up to the base itself and its round cap hides inside
-      // the head: a cap ending short of the base left a waist and notches
-      // between the line and a head only slightly wider than it.
+      // The line ends flat under the head (a round cap as wide as a stick
+      // head bulged at the base) and OVERLAPS it by 0.2 of its width, so no
+      // anti-aliasing seam shows at the base: an arrow, wider than the line,
+      // takes the line 0.2 w past the base; a stick, exactly as wide, gets a
+      // 0.2 w collar behind the base instead. The tail gets its rounding from
+      // a circle of the line's radius.
       const [first] = lines[i]
-      assert.ok(Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6, `${label}: line ends at ${first}, base at ${mid}`)
-      for (let y = 0; y <= s / 2; y += s / 20) {
-        const circle = Math.sqrt(Math.max(0, (s / 2) ** 2 - y ** 2))
-        const triangle = (base / 2) * (1 - y / height)
-        // A cap as wide as the head can never sit fully inside it; the bulge
-        // stays below 0.06 of the stroke (a third of a pixel at 12 px cells).
-        assert.ok(circle <= triangle + 0.06 * s, `${label}: the line cap pokes out of the head at ${y}: ${circle} > ${triangle}`)
+      const dir = [(tip[0] - mid[0]) / (height * cell), (tip[1] - mid[1]) / (height * cell)]
+      if (s < 0.5 - 1e-9) {
+        assert.equal(corners, 3, `${label}: an arrow is a plain triangle`)
+        const into = [mid[0] + dir[0] * 0.2 * s * cell, mid[1] + dir[1] * 0.2 * s * cell]
+        assert.ok(Math.hypot(first[0] - into[0], first[1] - into[1]) < 1e-6, `${label}: line ends at ${first}, expected ${into}`)
+      } else {
+        assert.equal(corners, 5, `${label}: a stick has a collar`)
+        assert.ok(Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6, `${label}: line ends at ${first}, base at ${mid}`)
+        const collar = parse('polygon')[i].slice(2, 4)
+        for (const c of collar) {
+          const back = Math.hypot(c[0] - mid[0], c[1] - mid[1])
+          assert.ok(Math.abs(back - Math.hypot(0.2 * s * cell, base * cell / 2)) < 1e-6, `${label}: collar corner ${c} off (${back})`)
+        }
       }
+      const tailCell = board.pieces[i].cells[board.pieces[i].cells.length - 1]
+      const tail = tails[i]
+      assert.ok(tail, `${label}: no tail circle`)
+      assert.deepEqual([tail.cx, tail.cy], [30 + tailCell.x * cell, 30 + tailCell.y * cell], `${label}: tail circle off the tail cell`)
+      assert.ok(Math.abs(tail.r - s * cell / 2) < 1e-6, `${label}: tail radius ${tail.r} for stroke ${s}`)
       assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell, `${label}: line end behind the neck cell`)
     })
   }

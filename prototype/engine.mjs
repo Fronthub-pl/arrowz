@@ -1566,7 +1566,13 @@ function toSvg(board, opts = {}) {
     if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
   }
 
-  out.push(`<g fill="none" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">`)
+  // Lines end flat: the head end hides under the head (a round cap as wide as
+  // a stick head bulged at the base), and the tail gets its rounding from a
+  // circle of the line's radius, drawn with the heads. Corners stay round.
+  // The default ink is set once per group; only coloured and highlighted
+  // pieces carry their own colour (a 1000×1000 board has ~90 000 pieces).
+  const INK = '#232447'
+  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
   const heads = []
   const highlight = []      // paths of the longest pieces, drawn last
   const highlightHeads = []
@@ -1575,7 +1581,7 @@ function toSvg(board, opts = {}) {
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
-    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
+    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : INK
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
     // The head follows the width of ITS line (highlighted pieces are
@@ -1598,18 +1604,28 @@ function toSvg(board, opts = {}) {
     const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
     const bx = tx - dx * height, by = ty - dy * height
-    const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
-    const pts = [`${bx},${by}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
-    const line = `<polyline points="${pts}" stroke="${col}"/>`
+    // Line and head overlap by 0.2 of the line width, so no anti-aliasing
+    // seam shows at the base: an arrow, wider than the line, takes the line
+    // that far past the base; a stick, exactly as wide, gets a collar of that
+    // length behind the base instead (a five-point outline).
+    const lap = 0.2 * w
+    const collar = stick ? ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${by - dy * lap + dx * half}` : ''
+    const fill = col === INK ? '' : ` fill="${col}"`
+    const tailCell = pc.cells[pc.cells.length - 1]
+    const head = `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${by + dx * half}"${fill}/>` +
+      `<circle cx="${cx(tailCell.x)}" cy="${cy(tailCell.y)}" r="${w / 2}"${fill}/>`
+    const ex = stick ? bx : bx + dx * lap, ey = stick ? by : by + dy * lap
+    const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
+    const line = `<polyline points="${pts}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
   })
   out.push('</g>')
   if (highlight.length) {
-    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="round" stroke-linejoin="round">`)
+    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="round">`)
     out.push(...highlight)
     out.push('</g>')
   }
-  out.push(`<g>${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
+  out.push(`<g fill="${INK}">${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
   return out.join('\n')
 }
 
