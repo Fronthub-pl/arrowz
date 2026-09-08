@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint } from './engine.mjs'
+import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint, PARAM_SPEC, RULES, RULE_REASONS, INACTIVE_REASONS, validateParams, formatViolation } from './engine.mjs'
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
 // A set of cells in the GIVEN order — the order decides which cell the test
@@ -149,8 +149,10 @@ test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', 
   assert.ok(ms < 4000, `took ${Math.round(ms)} ms`)
 })
 
-test('generate: closes the board without Warnsdorff and with only short pieces', () => {
-  for (const over of [{ warns: 0 }, { wShort: 0.85, wMid: 0.1 }, { headBias: 1 }]) {
+test('generate: closes the board with the weakest nook rule, mostly short pieces and tunnels', () => {
+  // The extremes of the old ranges (warns 0, shares 0.95) are outside the safe
+  // envelope now; these are the hardest settings the envelope still allows.
+  for (const over of [{ warns: 2 }, { wShort: 0.7, wMid: 0.1 }, { headBias: 1 }]) {
     const r = generate({ W: 100, H: 100, seed: 3, restarts: 0, ...over })
     assert.equal(r.ok && r.metrics.solvable && r.metrics.coverage === 1, true, JSON.stringify(over))
   }
@@ -161,11 +163,138 @@ test('generate: a jam reports how many legal heads were left at the best moment'
   // can cover them: the run jams at once. The count of legal heads at the
   // moment of the smallest leftover tells a jam of geometry (no head at all)
   // from a jam of the search (heads exist, the carver gave up on them).
-  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 })
+  // absorbLimit 0 is outside the safe envelope (it lets leftovers pile up),
+  // which is exactly what this test needs: `unchecked` is the escape hatch for
+  // engine-internal tests that want a jam on purpose.
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 }, { unchecked: true })
   assert.equal(r.ok, false)
   assert.equal(Number.isInteger(r.stuck.heads), true, JSON.stringify(r.stuck))
   assert.equal(r.stuck.heads, r.board.stuckHeads)
   assert.ok(r.stuck.heads >= 0 && r.stuck.heads <= 2 * (12 + 12))
+})
+
+// --- The safe envelope: validateParams, RULES, generate() refusing bad input ---
+
+test('validateParams: the defaults and every recorded-board setting are inside the envelope', () => {
+  assert.deepEqual(validateParams(defaultParams()), [])
+  for (const extra of [{ headBias: -1 }, { headBias: 1 }, { giants: 4 }, { warns: 2 }, { wShort: 0.7, wMid: 0.1 }]) {
+    assert.deepEqual(validateParams({ ...defaultParams(), ...extra }), [], JSON.stringify(extra))
+  }
+})
+
+test('validateParams: each narrowed knob rejects its old extreme with the new bounds', () => {
+  const cases = [
+    ['pStraight', 0, 0.6, 1],
+    ['warns', 0, 2, 16],
+    ['anticoil', 20, 1, 10],
+    ['absorbLimit', 0, 12, 64],
+    ['strandLimit', 2, 10, 30],
+    ['headTries', 1, 2, 16],
+    ['headTries', 32, 2, 16],
+    ['maxBack', 5000, 0, 1000],
+    ['restarts', 10, 0, 5],
+    ['wGiant', 0.5, 0, 0.2],
+    ['giantStraight', 0, 0.3, 1],
+    ['giantSpacing', 6, 1, 3],
+  ]
+  for (const [key, value, min, max] of cases) {
+    const v = validateParams({ ...defaultParams(), [key]: value })
+    assert.deepEqual(v, [{ kind: 'range', key, value, min, max }], `${key} = ${value}`)
+    // The new bound itself is still allowed.
+    assert.deepEqual(validateParams({ ...defaultParams(), [key]: value < min ? min : max }), [], `${key} at the bound`)
+  }
+  // The spec must agree with the table the tests encode.
+  for (const [key, , min, max] of cases) {
+    const s = PARAM_SPEC.find((s) => s.key === key)
+    assert.equal(s.min, min, `${key}.min`)
+    assert.equal(s.max, max, `${key}.max`)
+  }
+})
+
+test('validateParams: a value that is not a finite number is a range violation', () => {
+  for (const value of [NaN, Infinity, -Infinity, undefined, null, '5', true]) {
+    const v = validateParams({ ...defaultParams(), W: value })
+    assert.deepEqual(v, [{ kind: 'range', key: 'W', value, min: 4, max: 1000 }], String(value))
+  }
+})
+
+test('validateParams: ignores keys that are not knobs and does not check step alignment', () => {
+  const p = { ...defaultParams(), ruleB: false, voidFrac: 0.3, trace: true, debug: 'x', unknownKnob: 1e9 }
+  assert.deepEqual(validateParams(p), [])
+  // maxBack has step 50; 25 is off the step but inside the range, so it passes.
+  assert.deepEqual(validateParams({ ...defaultParams(), maxBack: 25 }), [])
+})
+
+test('validateParams: cross-knob rules fire beyond their boundary and not at it', () => {
+  const rule = (key, keys) => [{ kind: 'rule', key, keys }]
+  // sharesSum: wShort + wMid <= 0.9
+  assert.deepEqual(validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.1 }), [])
+  assert.deepEqual(validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.2 }), rule('sharesSum', ['wShort', 'wMid']))
+  // lmaxHole: Lmax 0 or >= 6
+  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 0 }), [])
+  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 6 }), [])
+  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 3 }), rule('lmaxHole', ['Lmax']))
+  // mixHole: mix -1 or within 0.3..0.7
+  for (const mix of [-1, 0.3, 0.5, 0.7]) assert.deepEqual(validateParams({ ...defaultParams(), mix }), [], `mix ${mix}`)
+  for (const mix of [0.1, 0.8]) assert.deepEqual(validateParams({ ...defaultParams(), mix }), rule('mixHole', ['mix']), `mix ${mix}`)
+  // Every rule has a reason text and only names real knobs.
+  for (const r of RULES) {
+    assert.equal(typeof RULE_REASONS[r.key], 'string', r.key)
+    for (const k of r.keys) assert.ok(PARAM_SPEC.some((s) => s.key === k), `${r.key} names ${k}`)
+  }
+})
+
+test('validateParams: range violations come first, then rule violations, all of them at once', () => {
+  const v = validateParams({ ...defaultParams(), pStraight: 0.2, Lmax: 3, warns: 0 })
+  assert.deepEqual(v.map((x) => [x.kind, x.key]), [['range', 'pStraight'], ['range', 'warns'], ['rule', 'lmaxHole']])
+})
+
+test('formatViolation: one English line per violation', () => {
+  assert.equal(formatViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }), 'straightness bias: 0.2 is outside 0.6..1')
+  assert.equal(formatViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }), 'width: 2000 is outside 4..1000')
+  assert.equal(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
+  assert.equal(formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }), 'maximum length must be 0 (automatic) or at least 6')
+  assert.equal(formatViolation({ kind: 'rule', key: 'mixHole', keys: ['mix'] }), 'mixing must be -1 (off) or between 0.3 and 0.7')
+})
+
+test('generate: refuses parameters outside the envelope before carving anything', () => {
+  // A 1000x1000 board would take seconds to carve; the refusal has to be instant.
+  const t0 = performance.now()
+  let err = null
+  try { generate({ W: 1000, H: 1000, seed: 1, pStraight: 0.2, Lmax: 3 }) } catch (e) { err = e }
+  const ms = performance.now() - t0
+  assert.ok(err instanceof RangeError, 'throws a RangeError')
+  assert.equal(err.message, 'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 6')
+  assert.deepEqual(err.violations, [
+    { kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 },
+    { kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] },
+  ])
+  assert.ok(ms < 200, `refusal took ${Math.round(ms)} ms, so it carved first`)
+})
+
+test('generate: unchecked skips the envelope check and carves anyway', () => {
+  const r = generate({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 }, { unchecked: true })
+  assert.equal(typeof r.ok, 'boolean')
+  assert.ok(r.board.pieces.length > 0)
+  assert.throws(() => generate({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 }), RangeError)
+})
+
+test('PARAM_SPEC: skeleton straightness and nook rule are inactive only without a skeleton', () => {
+  // They shape every giant regardless of giantStep (the serpentine only seeds
+  // the path), so 'stepNonZero' is gone and giantJitter keeps 'stepZero'.
+  assert.equal('stepNonZero' in INACTIVE_REASONS, false)
+  const spec = (k) => PARAM_SPEC.find((s) => s.key === k)
+  for (const key of ['giantStraight', 'giantWarns']) {
+    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0, giantStep: 14 }), 'skeletonOff', key)
+    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 14 }), null, `${key} with a serpentine`)
+    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), null, `${key} with random growth`)
+    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0.1, giantStep: 14 }), null, `${key} with wGiant only`)
+  }
+  assert.equal(spec('giantJitter').inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), 'stepZero')
+  for (const s of PARAM_SPEC) {
+    const why = s.inactive?.({ ...defaultParams(), giants: 0, wGiant: 0 })
+    if (why) assert.ok(why in INACTIVE_REASONS, `${s.key}: unknown reason ${why}`)
+  }
 })
 
 test('analyse: does not overflow the stack with hundreds of thousands of pieces (the worker in Chrome has a small stack)', () => {
