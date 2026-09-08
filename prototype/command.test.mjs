@@ -2,8 +2,8 @@
 // into the same parameters.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildCommand, parseArgs, boardId, DEFAULT_VIEW } from './command.mjs'
-import { defaultParams, PARAM_SPEC } from './engine.mjs'
+import { buildCommand, parseArgs, boardId, helpText, ALIASES, DEFAULT_VIEW } from './command.mjs'
+import { defaultParams, PARAM_SPEC, RULES, RULE_REASONS } from './engine.mjs'
 
 const argvOf = (cmd) => cmd.split(' ').slice(2)   // drop "node prototype/carve.mjs"
 
@@ -44,4 +44,46 @@ test('boardId: stable, ignores view and key order, distinguishes seeds', () => {
   assert.equal(boardId({ ...p, cell: 99, colored: true }), id)
   assert.notEqual(boardId({ ...p, seed: 8 }), id)
   assert.notEqual(boardId({ ...p, anticoil: 1 }), id)
+})
+
+// --- --help and the parser/validator split ----------------------------------
+
+test('helpText: one row per knob with flag, range, step, default and help', () => {
+  const text = helpText()
+  const lines = text.split('\n')
+  for (const s of PARAM_SPEC) {
+    const flag = `--${s.key.toLowerCase()}`
+    const row = lines.find((l) => l.startsWith(`  ${flag} `))
+    assert.ok(row, `no row for ${flag}`)
+    assert.ok(row.includes(s.label), `${flag}: label missing`)
+    assert.ok(row.includes(`${s.min}..${s.max}`), `${flag}: range missing`)
+    assert.ok(row.includes(` ${s.step} `), `${flag}: step missing`)
+    assert.ok(row.includes(` ${s.def} `), `${flag}: default missing`)
+    assert.ok(row.endsWith(s.help), `${flag}: help missing`)
+  }
+})
+
+test('helpText: every rule key and text, every alias, every mode flag', () => {
+  const text = helpText()
+  for (const r of RULES) assert.ok(text.includes(r.key), `rule key ${r.key} missing`)
+  for (const reason of Object.values(RULE_REASONS)) assert.ok(text.includes(reason), `rule text missing: ${reason}`)
+  for (const [alias, key] of Object.entries(ALIASES)) {
+    assert.match(text, new RegExp(`--${alias}\\s+same as --${key.toLowerCase()}`), `alias --${alias}`)
+  }
+  for (const flag of ['--svg[=path]', '--dry-run', '--bench=N', '--runs=N', '--only=<level>', '--mid=N', '--square', '--portrait', '--show', '--help', '-h', '--cell=N', '--stroke=R', '--colored', '--top=N']) {
+    assert.ok(text.includes(flag), `mode flag ${flag} missing`)
+  }
+  assert.match(text, /^Usage: node prototype\/carve\.mjs /)
+  assert.ok(!text.includes('\u2014'), 'no em dashes in the help text')
+})
+
+test('parseArgs only parses: out-of-range values and broken rules pass through untouched', () => {
+  const r = parseArgs(['--pstraight=0.3', '--lmax=3', '--warns=0', '--wshort=0.6', '--wmid=0.6'])
+  assert.equal(r.params.pStraight, 0.3)
+  assert.equal(r.params.Lmax, 3)
+  assert.equal(r.params.warns, 0)
+  assert.equal(r.params.wShort + r.params.wMid, 1.2)
+  assert.deepEqual(r.rest, [])
+  // --help and -h are not engine parameters: they land in rest for carve.mjs
+  assert.deepEqual(parseArgs(['--help', '-h']).rest, ['--help', '-h'])
 })

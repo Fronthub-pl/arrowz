@@ -9,9 +9,12 @@
 //                   the id, metrics and fingerprint (alone or next to --svg)
 //   --bench=N       benchmark, N runs per level
 //   (no mode)       metrics report per level, --runs=N, --only=Name, --show
+//   --help, -h      usage, one row per knob with its allowed range, the rules
+// Parameters outside the safe envelope (validateParams) are refused before
+// any generation, in every mode, with exit code 2.
 import { writeFileSync } from 'node:fs'
-import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render } from './engine.mjs'
-import { parseArgs, buildCommand, boardId } from './command.mjs'
+import { generate, toSvg, fingerprint, DIRS, Carver, analyse, mulberry32, render, validateParams, formatViolation } from './engine.mjs'
+import { parseArgs, buildCommand, boardId, helpText } from './command.mjs'
 import { saveBoard } from './store.mjs'
 
 // Trace and debug enter the engine as functions — the engine knows no `process`.
@@ -28,13 +31,38 @@ const arg = (k, dflt) => {
 }
 const has = (flag) => rest.includes(`--${flag}`)
 
+if (has('help') || rest.includes('-h')) {
+  console.log(helpText())
+  process.exit(0)
+}
+
+// --- the safe envelope ------------------------------------------------------
+// The parser only parses; here the parsed parameters meet the ranges and the
+// cross-knob rules of the engine. A violation ends the run before any board
+// is generated: --dry-run answers on stdout in JSON (scripts read it), every
+// other mode explains on stderr. Exit code 2 = bad input, 1 = a board that
+// did not close.
+const dryRun = has('dry-run')
+function refuseInvalid(params) {
+  const violations = validateParams(params)
+  if (!violations.length) return
+  if (dryRun) {
+    console.log(JSON.stringify({ ok: false, error: 'invalid parameters', violations }))
+  } else {
+    console.error('invalid parameters:')
+    for (const v of violations) console.error(`  - ${formatViolation(v)}`)
+    console.error('see --help for the allowed ranges')
+  }
+  process.exit(2)
+}
+refuseInvalid(cli)
+
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
 // A dry run generates, measures and renders exactly as a real run would, and
 // then writes nothing: stdout carries one JSON line so that scripts can
 // compare boards across runtimes without a file — the fingerprint is the
 // same one the engine tests freeze recorded boards with.
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-const dryRun = has('dry-run')
 if (svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...cli, trace, debug })
@@ -112,17 +140,20 @@ const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['
 const midArg = arg('mid', 0)
 if (midArg) BASE.push(['Mid', midArg])
 const FORMATS = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
-const presets = BASE.flatMap(([name, n, only]) =>
-  FORMATS.filter(([, r]) => !only || r === 1).map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r })))
+const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]
+const presets = BASE.flatMap(([name, n, squareOnly]) =>
+  FORMATS.filter(([, r]) => !squareOnly || r === 1).map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r })))
+  .filter((pre) => !only || pre.name.toLowerCase() === only.toLowerCase())
+// The shared knobs passed the check above; the level sizes still have to
+// (only --mid can put one outside 4..1000). Checked before the first run.
+for (const pre of presets) refuseInvalid({ ...cli, W: pre.W, H: pre.H })
 
 const runs = arg('runs', 3)
-const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]
 const show = has('show')
 const bench = arg('bench', 0)
 if (bench > 0) {
   console.log(`BENCHMARK — ${bench} runs per level\n`)
   for (const pre of presets) {
-    if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
     const times = [], backs = [], lens = [], maxLens = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
@@ -151,7 +182,6 @@ if (bench > 0) {
 }
 console.log('PROTOTYPE — carving from a full board, minimum length 2\n')
 for (const pre of presets) {
-  if (only && pre.name.toLowerCase() !== only.toLowerCase()) continue
   const acc = []
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
