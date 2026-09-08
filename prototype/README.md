@@ -15,8 +15,19 @@ short, so no skeleton line goes wall to wall). The tree ends with Insane,
 browser worker; layers and skeleton modes take minutes there, see round 9).
 A preset is a full configuration (defaults plus its overrides), and the
 drop-down follows the knobs: change the width by hand and it goes blank.
-Every description is one or two plain sentences on what a knob does and which
-way to turn it; the measurements behind them are in the rounds below.
+Every description is one or two plain sentences on what a knob does, which
+way to turn it and when it breaks; the measurements behind them are in the
+rounds below.
+
+Every knob has a **safe range**: the bounds of the inputs come from
+`PARAM_SPEC`, the same table the engine validates against (round 11). Values
+loaded from a URL, a preset or a stored board are pulled into that range, and
+a notice says so once. Rules that tie several knobs together (short plus
+medium shares at most 0.9; `Lmax` 0 or at least 6; mixing -1 or between 0.3
+and 0.7) are checked after every change: the offending rows turn red with the
+reason next to the help text, the violations are listed under the preset
+drop-down, and **Generate stays disabled** until they are fixed. The CLI
+command stays visible, so a blocked configuration can still be copied.
 On top of that there are preview toggles: **arrow colouring** (each piece in a
 different colour — diagnostic mode) and **highlighting the N longest pieces**
 (in pink, with a table of their length, span, density and coiling).
@@ -62,6 +73,7 @@ node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
 node prototype/carve.mjs --bench=20 --only=Extreme·sq
 node prototype/carve.mjs --only=Insane           # 1000×1000, the ceiling; ~10 s per run
 node prototype/carve.mjs --dry-run --w=25 --h=50 --seed=7        # compute only, nothing written
+node prototype/carve.mjs --help                  # every knob: flag, range, step, default, help; the cross-knob rules
 ```
 
 `--dry-run` generates, measures and renders exactly like `--svg` (with or
@@ -80,6 +92,40 @@ are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
 Levels run from Easy 25 to Insane 1000; Insane exists only as a square, so the
 default report (3 runs per level and format) takes about half a minute longer
 than it did when it stopped at Extreme.
+`--help` (or `-h`) prints the usage, a table of every knob (flag, label,
+allowed range `min..max`, step, default, one-line help), the cross-knob rules
+and the old aliases; it needs no other flag and exits with code 0.
+
+**Every mode validates before generating.** The parsed engine parameters go
+through `validateParams` from `engine.mjs` (the same check the lab runs after
+every knob change, and the one `generate()` itself repeats) before a single
+cell is carved. A value outside its `PARAM_SPEC` range, or a broken cross-knob
+rule, ends the run with **exit code 2** and nothing written. The report,
+`--only`, `--bench` and `--svg` modes print to stderr:
+
+```
+invalid parameters:
+  - straightness bias: 0.3 is outside 0.6..1
+see --help for the allowed ranges
+```
+
+one `  - ` line per violation, in the `formatViolation` format: a range
+violation is `<label>: <value> is outside <min>..<max>`, a rule violation is
+the rule's text (for example `short and medium shares together must stay at
+or below 0.9`). `--dry-run` keeps its JSON contract and prints one line to
+stdout instead:
+
+```
+{"ok":false,"error":"invalid parameters","violations":[{"kind":"range","key":"pStraight","value":0.3,"min":0.6,"max":1}]}
+```
+
+A rule violation in that array looks like
+`{"kind":"rule","key":"sharesSum","keys":["wShort","wMid"]}`. Exit codes,
+then: 0 the board closed, 1 it failed to close, 2 it was refused before
+carving. Boards stored before round 11 may have been made with settings that
+are now outside the range: their SVG stays in the store and can be viewed,
+but the lab refuses to rebuild them (a notice instead of a worker error) and
+their command exits with code 2.
 
 ## What it settled
 
@@ -442,3 +488,109 @@ the 400×400 layers run with a restart `5d446ea4` in both. The old engine's
 first layers attempt at 1000×1000 takes over half an hour, so its jam
 report was not waited for; by construction (same search order, same budget,
 memo skips only attempts that would fail identically) it is the same jam.
+
+## Round 11 — the safe envelope
+
+Question: which knobs make a board fail to close, at which values, and why.
+Rounds 8 and 9 answered it for the defaults up to 200×200 and for layers at
+1000×1000, but the lab still let every knob run over its whole range, and a
+preset, a URL or a stored board could carry a configuration nobody had
+measured. The answer is a measured **envelope**: narrower `PARAM_SPEC`
+ranges plus three cross-knob rules, enforced in one place (`validateParams`
+in `engine.mjs`) and surfaced by every entry point: `generate()` throws
+`RangeError('invalid parameters: ...')` with the violations attached, the
+CLI exits with code 2, the lab pulls loaded values into range and blocks
+Generate while a violation stands.
+
+```
+node prototype/carve.mjs --help                                  # the envelope, knob by knob
+node prototype/carve.mjs --dry-run --w=400 --h=400 --pstraight=0.3   # refused: exit 2, one JSON line
+node --test 'prototype/envelope.test.mjs'                        # the envelope, the rules, the pinned fingerprint
+```
+
+**Method.** Five measurements run in parallel, about 8100 generations
+without restarts (`restarts` 0, so every jam counts, and no run was
+restarted by hand), boards up to 400×400: a sweep of every knob alone at
+200×200 and 400×400, a random sweep of the whole knob space at 400×400, a
+`pStraight` by `anticoil` grid, a rescue test (does `headTries`, `maxBack`
+or `restarts` save a seed that jammed) and a re-read of an earlier
+1000×1000 random sweep. Alongside, a code-level analysis of what `Carver`
+holds at the moment it gives up.
+
+**Mechanism.** A jam is a set of free islands that all still have legal
+heads but nothing carvable from them: an L whose head sits in the corner, so
+the ray leaves no cell to grow into, or a "hair" beside the head whose ray is
+blocked by another free island. The islands wait on each other in a cycle,
+so no single carve resolves them and a backtrack rarely lands on them.
+`wouldStrand` checks that the leftover is coverable by paths of length at
+least 2, not that the cuts can be made in any order; the exact test
+(`strandLimit`) and absorption (`absorbLimit`) are the nets that catch such
+islands while they are small. Every knob in the table either produces the
+islands faster or removes a net.
+
+| knob | old range | new range | why |
+|---|---|---|---|
+| `pStraight` | 0..1 | 0.6..1 | the only knob that jams alone: 400×400 jams 5/5 at 0.3 or less, 3/5 at 0.4, backtracks at 0.45-0.5, clean from 0.6; in the 1000×1000 random sweep 92% closed at 0.6 or more against 48% below |
+| `warns` | 0..16 | 2..16 | 0 and 1 give the same board (the rule is off); 3 of the 8 random jams at 400×400 had `warns` 0; at 1000×1000 with low `pStraight`, `warns` of 9.5 or more closed 72% against 26% |
+| `anticoil` | 1..20 | 1..10 | 10 or more with `pStraight` at most 0.45 jams 4/5; even `pStraight` 0.6 with `anticoil` 20 jammed 1/3 at 400×400 |
+| `absorbLimit` | 0..64 | 12..64 | 0 at `pStraight` 0.3 jams 9/10 with a median of 3 backtracks; in the random 400×400 sweep, below 13 closes 78-80% against 86-100% |
+| `strandLimit` | 2..30 | 10..30 | 2-3 leaves ten-cell leftovers ("left 10 in 1") from 500×500; below 10 costs 1.5-2.2× the time |
+| `headTries` | 1..32 | 2..16 | 1 starves the search at low `pStraight` (0.3: 8/10 jams, 0.2: 5/10); with `absorbLimit` 0 it is 0/10 and neither restarts nor backtrack budget rescue it; 8 or more gives the same board as 4 in 8/10 seeds |
+| `maxBack` | 0..200000 | 0..1000 (0 = 200) | a backtrack costs ~18 ms at 200×200; 1000 rescued 1 of 11 jams, 5000 rescued none more at 61-139 s |
+| `restarts` | 0..10 | 0..5 | restarts rescue shredded jams 8/8 within 2 (p ~ 0.67 per restart); beyond 5 there is no evidence of help |
+| `wGiant` | 0..0.5 | 0..0.2 | 0.43 or more in 3 of the 4 high-`pStraight` timeouts at 1000×1000; the top quartile costs 2× the time |
+| `giantStraight` | 0..1 | 0.3..1 | below 0.15 closes 50% in the 400×400 random sweep; it is active at every `giantStep`, see below |
+| `giantSpacing` | 1..6 | 1..3 | 6 costs 1.9× the time and has no effect on closing |
+
+Defaults are unchanged, and every preset (square, portrait, tunnels,
+skeleton, serpentine, Insane) sits inside the envelope with margin.
+
+**Cross-knob rules** (`RULES` in `engine.mjs`, texts in `RULE_REASONS`):
+
+- `wShort + wMid <= 0.9`: the long bucket keeps at least a tenth of the
+  pieces. Not measured in this round; it pins the heavy-tailed distribution
+  of round 4 instead of letting the weights order a board without long
+  pieces.
+- `Lmax` is 0 (automatic, 2.5 × the longer side) or at least 6: `Lmax` 3 is
+  pathological (200×200: 2/10 jams after 40-60 s; 400×400 8× the time),
+  worse than 2 or 4; 4-5 are 1.8× slower. Pieces that short cut the board
+  into crumbs.
+- `mix` is -1 (off) or between 0.3 and 0.7: the extremes, `[0, 0.3)` and
+  `(0.7, 1]`, close 80% against 94-96% inside the band.
+
+**`giantStraight` and `giantWarns` are active at every serpentine step.**
+The lab used to dim them as "only works with serpentine step 0". Wrong: the
+serpentine only seeds the path, the tail keeps growing on these weights, and
+with `wGiant` > 0 the later giants grow entirely on them. Their inactive
+reason is now the skeleton being off (`giants` 0 and `wGiant` 0), the
+`stepNonZero` reason is gone, and `giantJitter` alone keeps `stepZero`. The
+`giantStraight` bound above was measured with that in mind. All help texts
+were rewritten in the same pattern: what the knob does, which way to turn
+it, when it breaks.
+
+**Not covered.** 1000×1000 was not re-validated in this round; the Insane
+figures above come from the earlier random sweep, and the envelope is a
+400×400 result that the Insane presets merely sit inside. Several bounds are
+time-only, not closing bounds: above `maxBack` 1000, `restarts` 5,
+`giantSpacing` 3, `headTries` 16 and `wGiant` 0.2 the board still closes,
+it only takes longer or gives the same board. The difficulty and skeleton
+knobs never jam up to 400×400 (2236/2236 closed, 0 backtracks); they only
+degrade appearance (`giantJitter` 0 gives one piece of `giantSpan` × side
+cells; `probe` 1 with `probeLen` 2 gives 11 000 crumbs), so they keep their
+full ranges.
+
+**Fix ideas left for later**, in the order they would pay off:
+
+1. A hair and L-corner test at cut time: reject a cut that leaves a free
+   island whose only heads are corner heads or heads with a blocked ray,
+   instead of finding the island at the jam. `wouldStrand` would then check
+   the order of cuts, not only coverability.
+2. Extending a path instead of only shortening it when the leftover fails
+   the test: today the loop hands cells back one at a time, which is why
+   `absorbLimit` and `strandLimit` carry so much weight.
+3. Never let the straight weight reach zero inside the engine, so that the
+   low end of `pStraight` bends instead of jamming; then the floor of 0.6
+   could come down.
+4. Several `carveOne` draws before a backtrack: a backtrack costs ~18 ms at
+   200×200 and rarely lands on the jam, while another head or direction is
+   almost free.

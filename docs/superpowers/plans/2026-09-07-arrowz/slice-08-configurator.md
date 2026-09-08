@@ -32,6 +32,12 @@ Constraints from the implementation map apply. Critical for this slice:
 - Ranges: board `10×10 … 200×200`, long share `0 … 0.45`,
   `Lmax` `16 … 5·max(W,H)`, coiling strength `0 … 8`, line thickness
   `0.35 … 0.65`.
+- **Parameter envelope** (spec §7, 2026-09-08): every generator knob the
+  form exposes uses the bounds and cross-knob rules of `validateParams`
+  from Slice 2, marks the offending fields and disables Generate while a
+  violation stands. Values loaded from a preset or a saved board are
+  clamped into range with a notice; the form never sends the generator a
+  configuration it would refuse.
 - The configurator **does not apply the difficulty band** — the player gets
   exactly what they asked for, plus a report of what was executed.
 
