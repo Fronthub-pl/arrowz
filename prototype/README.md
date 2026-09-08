@@ -69,7 +69,7 @@ it 1:1: the same command in a terminal gives the same board byte for byte
 (`carve.test.mjs` guards this). The UI is bilingual (PL/EN switch in the
 panel header; the choice is kept in `localStorage` and in the URL).
 
-Every generated board — from the lab and from `carve.mjs --svg` — lands in
+Every generated board — from the lab and from `carve.mjs` — lands in
 `prototype/boards/<W>x<H>/<id>.svg` with metadata and the command in
 `<id>.json` (gitignored; the id is the seed plus a hash of the parameters, so
 the same configuration overwrites its own entry — keeping its original
@@ -97,18 +97,40 @@ A probe for the specification, **not production code**. It was built to settle t
 open questions before the implementation plan was written. It has no tests, no types and
 no view layer, and it must not be developed further — the implementation starts from scratch, in TypeScript.
 
+The default call is the **simple mode**: the same inputs as the simple view
+of the lab (`lab-simple.mjs` turns them into engine parameters in both), one
+board into the store every time. `--length` and `--straight` are the two
+sliders, 0..1; `--straight=1` is the straightest board. `--randomized` draws
+the knobs afresh inside the slider ranges, like the lab's checkbox, with
+`Math.random`, so the simple command is a wish, not a configuration: the
+board's meta keeps the full `--advanced` command that reproduces it byte for
+byte (`command`) next to the simple one as typed (`simpleCommand`). Any flag
+outside the list below is refused with exit code 2 and a hint.
+
 ```
-node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12    # one board -> prototype/boards/
-node prototype/carve.mjs --svg=board.svg --w=100 --h=200 --giants=4 --cell=8 --top=5
-node prototype/carve.mjs                         # report on all levels
-node prototype/carve.mjs --only=Easy·sq --show   # with ASCII preview
-node prototype/carve.mjs --headbias=1            # tunnelling (deepest line)
-node prototype/carve.mjs --headbias=-1           # layers (shallowest line)
-node prototype/carve.mjs --wlateral=6 --pstraight=0.6 --runs=3
-node prototype/carve.mjs --bench=20 --only=Extreme·sq
-node prototype/carve.mjs --only=Insane           # 1000×1000, the ceiling; ~10 s per run
-node prototype/carve.mjs --dry-run --w=25 --h=50 --seed=7        # compute only, nothing written
-node prototype/carve.mjs --help                  # every knob: flag, range, step, default, help; the cross-knob rules
+node prototype/carve.mjs --width=25 --height=50                      # the lab's default board -> prototype/boards/
+node prototype/carve.mjs --width=100 --height=200 --length=0.25 --straight=0.9 --skeleton --seed=3
+node prototype/carve.mjs --width=400 --height=400 --randomized --colorized --lineweight=0.4
+node prototype/carve.mjs --width=25 --height=50 --arrowwidth=0.8 --arrowheight=1.2 --svg=board.svg
+node prototype/carve.mjs --width=25 --height=50 --dry-run            # compute only, one JSON line
+node prototype/carve.mjs --help                                      # the simple flags
+```
+
+`--advanced` unlocks every engine knob, the report and the benchmark. The
+lab's advanced view prints its command in this form.
+
+```
+node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12    # one board -> prototype/boards/
+node prototype/carve.mjs --advanced --svg=board.svg --w=100 --h=200 --giants=4 --cell=8 --top=5
+node prototype/carve.mjs --advanced                         # report on all levels
+node prototype/carve.mjs --advanced --only=Easy·sq --show   # with ASCII preview
+node prototype/carve.mjs --advanced --headbias=1            # tunnelling (deepest line)
+node prototype/carve.mjs --advanced --headbias=-1           # layers (shallowest line)
+node prototype/carve.mjs --advanced --wlateral=6 --pstraight=0.6 --runs=3
+node prototype/carve.mjs --advanced --bench=20 --only=Extreme·sq
+node prototype/carve.mjs --advanced --only=Insane           # 1000×1000, the ceiling; ~10 s per run
+node prototype/carve.mjs --advanced --dry-run --w=25 --h=50 --seed=7        # compute only, nothing written
+node prototype/carve.mjs --advanced --help                  # every knob: flag, range, step, default, help; the cross-knob rules
 ```
 
 `--dry-run` generates, measures and renders exactly like `--svg` (with or
@@ -214,7 +236,7 @@ longest 74, f0 = 0.061, **1.87 turns per piece, 69% multi-line**, 0 backtracks,
 34 ms of generation.
 
 ```
-node prototype/carve.mjs --only=Easy --ruleb --warns=4 --lateral=3 --show
+node prototype/carve.mjs --advanced --only=Easy --ruleb --warns=4 --lateral=3 --show
 ```
 
 ## Round 3 — calibration
@@ -239,8 +261,8 @@ restarts allowed.
 Configuration adopted as the default:
 
 ```
-node prototype/carve.mjs --ruleb --warns=4 --wshort=0.10 --wmid=0.70 --lateral=3
-node prototype/carve.mjs --bench=30 --ruleb --only=Nightmare --wshort=0.10 --wmid=0.70
+node prototype/carve.mjs --advanced --ruleb --warns=4 --wshort=0.10 --wmid=0.70 --lateral=3
+node prototype/carve.mjs --advanced --bench=30 --ruleb --only=Nightmare --wshort=0.10 --wmid=0.70
 ```
 
 **Open:** the final calibration of appearance cannot be done on the ASCII preview —
@@ -250,8 +272,8 @@ Tuning `warns` and the length weights has to happen on the target SVG renderer.
 ## Round 4 — SVG renderer and visual calibration
 
 ```
-node prototype/carve.mjs --svg=plansza.svg --size=50 --cell=14 --warns=4 --wshort=0.62 --wmid=0.23
-node prototype/carve.mjs --svg=debug.svg --colored     # colour per piece, diagnostic mode
+node prototype/carve.mjs --advanced --svg=plansza.svg --size=50 --cell=14 --warns=4 --wshort=0.62 --wmid=0.23
+node prototype/carve.mjs --advanced --svg=debug.svg --colored     # colour per piece, diagnostic mode
 rsvg-convert -w 900 plansza.svg -o plansza.png
 ```
 
@@ -333,7 +355,7 @@ precisely from coiling. The two quantities are coupled.
 in 64 ms, at most 0.5 restarts per run.
 
 ```
-node prototype/carve.mjs --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
+node prototype/carve.mjs --advanced --svg=p.svg --w=25 --h=50 --anticoil=6 --wshort=0.20 --wmid=0.08
 ```
 
 The section-F variants are reproduced with commands in the lab (Saved boards
@@ -346,7 +368,7 @@ half of the runs with a restart), and why are the lines short and pressed agains
 
 ```
 node --test 'prototype/*.test.mjs'                  # robustness tests (decomposable, local defect, absorption, closing)
-node prototype/carve.mjs --only=Extreme    # 200×200
+node prototype/carve.mjs --advanced --only=Extreme    # 200×200
 ```
 
 **Cause 1 — a faulty decomposability test for the leftover fragment.** `decomposable` grew
@@ -435,8 +457,8 @@ Decision: the project limit is 1000×1000, the Insane level, square only (a
 tree, the CLI level list, the spec and the implementation plans follow.
 
 ```
-node prototype/carve.mjs --only=Insane                       # defaults: ~10 s, 0 backtracks
-node prototype/carve.mjs --svg --w=1000 --h=1000 --headbias=-1   # layers: minutes
+node prototype/carve.mjs --advanced --only=Insane                       # defaults: ~10 s, 0 backtracks
+node prototype/carve.mjs --advanced --svg --w=1000 --h=1000 --headbias=-1   # layers: minutes
 ```
 
 Measured (seed 7, one run each, Node 24):
@@ -555,8 +577,8 @@ CLI exits with code 2, the lab pulls loaded values into range and blocks
 Generate while a violation stands.
 
 ```
-node prototype/carve.mjs --help                                  # the envelope, knob by knob
-node prototype/carve.mjs --dry-run --w=400 --h=400 --pstraight=0.3   # refused: exit 2, one JSON line
+node prototype/carve.mjs --advanced --help                                  # the envelope, knob by knob
+node prototype/carve.mjs --advanced --dry-run --w=400 --h=400 --pstraight=0.3   # refused: exit 2, one JSON line
 node --test 'prototype/envelope.test.mjs'                        # the envelope, the rules, the pinned fingerprint
 ```
 
@@ -654,8 +676,8 @@ and 600×600 — and where does the time go on the boards that close but take
 minutes.
 
 ```
-node prototype/carve.mjs --dry-run --w=600 --h=600 --seed=2 --restarts=0 --pstraight=0.6                          # jams: 87 cells left in 30 crumbs
-node prototype/carve.mjs --dry-run --w=600 --h=600 --seed=3 --restarts=0 --wgiant=0.16 --giantspan=163 --giantstep=2   # closes; the dense-skeleton corner
+node prototype/carve.mjs --advanced --dry-run --w=600 --h=600 --seed=2 --restarts=0 --pstraight=0.6                          # jams: 87 cells left in 30 crumbs
+node prototype/carve.mjs --advanced --dry-run --w=600 --h=600 --seed=3 --restarts=0 --wgiant=0.16 --giantspan=163 --giantstep=2   # closes; the dense-skeleton corner
 node --test 'prototype/shortening.test.mjs'                                    # the loop: original versus incremental, pinned fingerprints
 ```
 
