@@ -444,26 +444,41 @@ test('analyse: metrics are identical to the ones recorded with the Set-based blo
   }
 })
 
-// Arrowheads are narrow isosceles triangles: with a base as wide as the old
-// 0.84 of a cell, the heads of two pieces meeting at a right angle in
-// neighbouring cells touched each other.
-test('toSvg: every arrowhead is taller than its base is wide', () => {
+// The arrowhead scales with the stroke and the line ends under it: a fixed
+// head was swallowed by the round line cap from a stroke of 0.5 up, and a
+// wide head touched the heads of neighbours at a right angle.
+test('toSvg: at every stroke the arrowhead is wider than the line, inside its cell, and the line ends under it', () => {
   const { toSvg } = engineExports
+  const cell = 20
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
-  const svg = toSvg(board, { cell: 10, colored: false, strokeRatio: 0.5, top: 0 })
-  const heads = [...svg.matchAll(/<polygon points="([^"]+)"/g)].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
-  assert.equal(heads.length, board.pieces.length, 'one head per piece')
-  heads.forEach(([tip, a, b], i) => {
-    const base = Math.hypot(a[0] - b[0], a[1] - b[1])
-    const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-    const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1])
-    assert.ok(base < height, `base ${base} should be narrower than height ${height}`)
-    assert.ok(base <= 6, `base ${base} must leave room for a perpendicular neighbour (≤ 0.6 of a cell)`)
-    // The tip stays inside the head cell (pad 10, cell 10: centre at 15 + 10n):
-    // a tip reaching into the next cell looked like the arrow overshot its point.
-    const head = board.pieces[i].cells[0]
-    const centre = [15 + head.x * 10, 15 + head.y * 10]
-    const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1])
-    assert.ok(reach <= 5 + 1e-9, `tip reaches ${reach} beyond the head centre (max 0.5 of a cell)`)
-  })
+  for (let s = 0.2; s <= 0.9 + 1e-9; s += 0.05) {
+    const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0 })
+    const parse = (tag) => [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
+    const heads = parse('polygon'), lines = parse('polyline')
+    assert.equal(heads.length, board.pieces.length, 'one head per piece')
+    assert.equal(lines.length, board.pieces.length, 'one line per piece')
+    heads.forEach(([tip, a, b], i) => {
+      const label = `stroke ${s.toFixed(2)} piece ${i}`
+      const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
+      const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+      const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
+      // Wider than the line by a clear margin, unless a neighbouring line is
+      // in the way (0.05 of a cell left to it at the widest).
+      assert.ok(base >= Math.min(s + 0.2, 2 - s - 0.12) - 1e-6, `${label}: base ${base} too narrow for stroke ${s}`)
+      assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
+      assert.ok(height >= 0.85 * base, `${label}: head ${height} tall for a ${base} base is stubby`)
+      // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
+      const head = board.pieces[i].cells[0]
+      const centre = [30 + head.x * cell, 30 + head.y * cell]
+      const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1]) / cell
+      assert.ok(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
+      // The line stops short of the base by half its width, so its round cap
+      // ends exactly on the base and the head is never swallowed by the cap.
+      const dir = [(tip[0] - mid[0]) / (height * cell), (tip[1] - mid[1]) / (height * cell)]
+      const [first] = lines[i]
+      const capFront = [first[0] + dir[0] * s * cell / 2, first[1] + dir[1] * s * cell / 2]
+      assert.ok(Math.hypot(capFront[0] - mid[0], capFront[1] - mid[1]) < 1e-6, `${label}: line cap ends at ${capFront}, base at ${mid}`)
+      assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < cell, `${label}: line end behind the neck cell`)
+    })
+  }
 })

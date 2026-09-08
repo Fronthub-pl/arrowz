@@ -1572,23 +1572,30 @@ function toSvg(board, opts = {}) {
   const highlightHeads = []
   // In colour mode the pink would blend into the palette, so highlighted
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
-  const hiWidth = (sw * (colored ? 1.5 : 1.15)).toFixed(2)
+  const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
     const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : '#232447'
-    const pts = pc.cells.map((c) => `${cx(c.x)},${cy(c.y)}`).join(' ')
-    const line = `<polyline points="${pts}" stroke="${col}"/>`
     const { dx, dy } = DIRS[pc.dir]
     const hx = cx(pc.cells[0].x), hy = cy(pc.cells[0].y)
-    // A narrow isosceles head: tip 0.48 of a cell past the head centre, so it
-    // stays inside the head cell (0.62 looked like an overshoot, and two heads
-    // facing each other in neighbouring cells overlapped), base 0.1 behind the
-    // centre and 0.56 wide (a 0.84 base made two heads meeting at a right
-    // angle in neighbouring cells touch).
-    const tip = cell * 0.48, len = cell * 0.58, half = cell * 0.28
+    // The head scales with the width of ITS line (highlighted pieces are
+    // thicker): an isosceles triangle 0.24 of a cell wider than the line, at
+    // most 0.05 short of a line in the next cell, and at least 0.9 times as
+    // tall as wide. Its tip stays 0.48 past the head centre, inside the head
+    // cell (an overshooting tip looked wrong and facing heads overlapped),
+    // so a bigger head grows backwards. The line stops half its width short
+    // of the base: its round cap ends exactly on the base instead of
+    // swallowing the head, which a fixed head suffered from a stroke of 0.5 up.
+    const w = isLong ? hiWidth : sw
+    const half = Math.min(w / 2 + 0.12 * cell, cell - w / 2 - 0.05 * cell)
+    const height = Math.max(0.58 * cell, 0.9 * 2 * half)
+    const tip = 0.48 * cell
     const tx = hx + dx * tip, ty = hy + dy * tip
-    const bx = tx - dx * len, by = ty - dy * len
+    const bx = tx - dx * height, by = ty - dy * height
     const head = `<polygon points="${tx},${ty} ${bx - dy * half},${by + dx * half} ${bx + dy * half},${by - dx * half}" fill="${col}"/>`
+    const ex = bx - dx * w / 2, ey = by - dy * w / 2
+    const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
+    const line = `<polyline points="${pts}" stroke="${col}"/>`
     if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
   })
   out.push('</g>')
