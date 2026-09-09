@@ -151,6 +151,7 @@ deno task carve --advanced --bench=20 --only=Extreme·sq
 deno task carve --advanced --only=Insane                    # 1000×1000, the ceiling; ~10 s per run
 deno task carve --advanced --dry-run --w=25 --h=50 --seed=7                 # compute only, nothing written
 deno task carve --advanced --help                           # every knob: flag, range, step, default, help; the cross-knob rules
+CARVE_TIMEOUT_S=120 deno task carve --advanced --svg --w=1000 --h=1000 --seed=30   # give up after two minutes, store what was carved
 ```
 
 `--dry-run` generates, measures and renders exactly like `--svg` (with or
@@ -161,6 +162,22 @@ coiling, f0, solvability), times, and a fingerprint of the board — the FNV
 hash the engine tests freeze recorded boards with — so two runtimes or two
 engine versions can be compared without a file. A board that fails to close
 prints a JSON line with `ok: false` and exits with code 1.
+
+**A board that does not close is stored too.** `--svg` and the simple mode
+write it like a closed one, with the free cells drawn as holes (the lab's
+"show jammed cells" rendering), so that a jam can be looked at and not only
+counted; the exit code stays 1 for scripts. The meta carries the closing
+report next to `ok: false`: `restarts` and `backtracks` used, `stuck` (cells
+left, fragment sizes, legal heads at the best moment) and `aborted`.
+`CARVE_TIMEOUT_S=N` is a wall-clock budget for measurements: past N seconds
+the run is aborted from the progress callback, no restart follows, and the
+board carved so far is stored with `aborted: true` (`--dry-run` prints the
+same fields and writes nothing). For that to work the engine calls the
+progress callback at least once a second, not only at every 500th piece: in a
+thrash the piece count circles one value and used to miss every multiple of
+500 for minutes, which also silenced the lab's progress bar. The 1000×1000
+diagnosis of round 9 relied on this in its Node form (the archived branch
+`archive/worktree-jam-preview`); this is the same tooling on Deno.
 
 Engine parameters are `--<PARAM_SPEC key in lower case>=value`; the defaults
 are the same as in the lab. Old names `--straight`, `--lateral`, `--absorb`,
