@@ -34,7 +34,7 @@ import {
   validateParams,
 } from './engine.mjs'
 import { boardId, buildCommand, buildSimpleCommand, helpText, parseArgs, parseSimpleArgs } from './command.mjs'
-import { simpleParams } from './lab-simple.mjs'
+import { simpleParams } from './lab-simple.ts'
 import { saveBoard } from './store.mjs'
 
 // Trace and debug enter the engine as functions — the engine knows no `process`.

@@ -12,7 +12,7 @@ import {
   parseArgs,
   parseSimpleArgs,
 } from './command.mjs'
-import { defaultChoice, exportCell } from './lab-simple.mjs'
+import { defaultChoice, exportCell } from './lab-simple.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
 
 const argvOf = (cmd) => cmd.split(' ').slice(2) // drop "node prototype/carve.mjs"

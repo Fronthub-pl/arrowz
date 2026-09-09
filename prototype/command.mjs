@@ -5,7 +5,7 @@
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
-import { defaultChoice, exportCell } from './lab-simple.mjs'
+import { defaultChoice, exportCell } from './lab-simple.ts'
 
 // Old flag names from rounds 1–7; README examples must keep working.
 export const ALIASES = {
