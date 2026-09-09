@@ -3,7 +3,7 @@
 // gitignored — a 1000×1000 board is tens of MB, and the command in the meta
 // reproduces any board.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardMeta, BoardSize, Params, View } from './types.ts'
+import type { BoardMeta, BoardSize, Params, Stuck, View } from './types.ts'
 import { boardId, DEFAULT_VIEW } from './command.ts'
 import { defaultParams } from './engine.ts'
 
@@ -13,7 +13,16 @@ export interface SaveInput {
   view: View
   command: string
   simpleCommand?: string
-  metrics?: { ok?: boolean; pieces?: number; maxLen?: number; genMs?: number }
+  metrics?: {
+    ok?: boolean
+    pieces?: number
+    maxLen?: number
+    genMs?: number
+    restarts?: number
+    backtracks?: number
+    aborted?: boolean
+    stuck?: Stuck | null
+  }
   source: string
 }
 
@@ -34,14 +43,23 @@ function exists(path: string): boolean {
  * The JSON of a stored board, or null when the file is missing, broken or not
  * an object. A board saved before a knob existed lacks it in params and view:
  * the missing fields take the engine defaults here, at the boundary, so every
- * reader — the page, buildCommand — sees a complete Params and View.
+ * reader — the page, buildCommand — sees a complete Params and View. A board
+ * saved before the closing report existed gets its empty values the same way.
  */
 function readMeta(file: string): BoardMeta | null {
   try {
     const parsed: unknown = JSON.parse(Deno.readTextFileSync(file))
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
-    return { ...meta, params: { ...defaultParams(), ...meta.params }, view: { ...DEFAULT_VIEW, ...meta.view } }
+    return {
+      ...meta,
+      params: { ...defaultParams(), ...meta.params },
+      view: { ...DEFAULT_VIEW, ...meta.view },
+      restarts: meta.restarts ?? null,
+      backtracks: meta.backtracks ?? null,
+      aborted: meta.aborted ?? false,
+      stuck: meta.stuck ?? null,
+    }
   } catch {
     return null
   }
@@ -76,6 +94,10 @@ export function saveBoard({ svg, params, view, command, simpleCommand, metrics =
     maxLen: metrics.maxLen ?? null,
     genMs: metrics.genMs ?? null,
     svgBytes: new TextEncoder().encode(svg).byteLength,
+    restarts: metrics.restarts ?? null,
+    backtracks: metrics.backtracks ?? null,
+    aborted: metrics.aborted ?? false,
+    stuck: metrics.stuck ?? null,
   }
   Deno.writeTextFileSync(join(dir, `${id}.svg`), svg)
   Deno.writeTextFileSync(metaFile, JSON.stringify(meta, null, 2))

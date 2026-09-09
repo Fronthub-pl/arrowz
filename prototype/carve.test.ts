@@ -28,11 +28,11 @@ const readMeta = (file: string): BoardMeta => JSON.parse(Deno.readTextFileSync(f
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 
 /** Runs carve.ts with the board store pointed at boardsDir. */
-function runCarve(argv: readonly string[], boardsDir: string) {
+function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
   const r = new Deno.Command(Deno.execPath(), {
     args: ['run', '--allow-read', '--allow-write', '--allow-env', carve, ...argv],
     cwd: dirname(here),
-    env: { ARROWZ_BOARDS_DIR: boardsDir },
+    env: { ARROWZ_BOARDS_DIR: boardsDir, ...env },
     stdout: 'piped',
     stderr: 'piped',
   }).outputSync()
@@ -55,14 +55,18 @@ interface DryLine {
   maxLen?: number
   genMs?: number
   fingerprint?: string
+  aborted?: boolean
+  stuck?: { remaining: number; sizes: number[]; heads: number | null }
+  restarts?: number
+  backtracks?: number
   error?: string
   errors?: string[]
   violations?: unknown[]
 }
 
 /** Runs carve.ts with the board store pointed at <dir>/boards and parses the JSON line. */
-function dryRun(args: readonly string[], dir: string) {
-  const r = runCarve(args, join(dir, 'boards'))
+function dryRun(args: readonly string[], dir: string, env: Record<string, string> = {}) {
+  const r = runCarve(args, join(dir, 'boards'), env)
   const line = r.stdout.split('\n').find((l) => l.startsWith('{'))
   // The line was printed by the CLI under test: the sanctioned narrowing at an I/O boundary.
   const json = line ? (JSON.parse(line) as DryLine) : null
@@ -200,9 +204,68 @@ Deno.test('carve.ts --advanced --help and -h print the knob table and exit 0, ev
     assertMatch(r.stdout, new RegExp(`^Usage: ${prefixRe} `))
     assertMatch(r.stdout, /--pstraight\s+straightness bias\s+0\.6\.\.1/)
     assert(r.stdout.includes('maximum length must be 0 (automatic) or at least 6'))
+    assert(r.stdout.includes('CARVE_TIMEOUT_S'), 'the time budget is documented with the other variables')
     assertEquals(r.stderr, '')
   }
   assertEquals(entries(dir), 0)
+})
+
+// --- boards that do not close -------------------------------------------------
+// A board that does not close still goes to the store, with its holes drawn,
+// so that a jam can be looked at in the lab and not only counted; the exit
+// code stays 1 for scripts. CARVE_TIMEOUT_S is a wall-clock budget for
+// measurements: past it the run is aborted and what was carved is stored.
+// No setting inside the envelope jams cheaply, so the budget is the fixture:
+// 400×400 takes seconds, a zero budget stops it at the first progress tick.
+
+const LONG = ['--advanced', '--w=400', '--h=400', '--seed=7']
+const longId = boardId({ ...defaultParams(), W: 400, H: 400, seed: 7 })
+
+Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved so far, holes drawn', () => {
+  const dir = tmp()
+  const copy = join(dir, 'copy.svg')
+  const r = runCarve([...LONG, `--svg=${copy}`], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
+  assertEquals(r.status, 1, r.stderr)
+  assertMatch(r.stderr, /^aborted after \d+\.\d s: board 400x400 \(seed 7\) has \d+ cells left/)
+  assertMatch(r.stdout, new RegExp(`400x400/${longId}\\.svg {2}\\+ .*not closed: \\d+ cells left in \\d+ fragments`))
+  const meta = readMeta(join(dir, 'boards', '400x400', `${longId}.json`))
+  assertEquals(meta.ok, false)
+  assertEquals(meta.aborted, true)
+  assertEquals(meta.restarts, 0, 'an aborted attempt is not restarted')
+  assertEquals(typeof meta.backtracks, 'number')
+  assert(meta.pieces !== null && meta.pieces > 0, 'the partial board has pieces')
+  assert(meta.stuck && meta.stuck.remaining > 0 && meta.stuck.sizes.length > 0, JSON.stringify(meta.stuck))
+  assert(meta.genMs !== null && meta.genMs < 3000, `aborted early, not after the full run: ${meta.genMs} ms`)
+  const svg = Deno.readTextFileSync(join(dir, 'boards', '400x400', `${longId}.svg`))
+  assertMatch(svg, /<rect /, 'the holes are drawn')
+  assertEquals(Deno.readTextFileSync(copy), svg, 'the --svg=path copy is written too')
+  assertEquals(meta.source, 'cli')
+})
+
+Deno.test('carve.ts simple mode stores an aborted board as well', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=400', '--height=400', '--seed=7'], dir, { CARVE_TIMEOUT_S: '0' })
+  assertEquals(r.status, 1, r.stderr)
+  const id = boardId(simpleParams({ ...defaultChoice(), W: 400, H: 400, seed: 7 }))
+  const meta = readMeta(join(dir, '400x400', `${id}.json`))
+  assertEquals([meta.ok, meta.aborted], [false, true])
+  assertMatch(meta.simpleCommand ?? '', / --width=400 --height=400 --seed=7/)
+})
+
+Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSON line and writes nothing', () => {
+  const dir = tmp()
+  const r = dryRun([...LONG, '--dry-run'], dir, { CARVE_TIMEOUT_S: '0' })
+  assertEquals(r.status, 1, r.stderr)
+  assert(r.json, `no JSON line in:\n${r.stdout}`)
+  assertEquals([r.json.dryRun, r.json.ok, r.json.aborted, r.json.restarts], [true, false, true, 0])
+  assertEquals(r.json.id, longId)
+  assert(r.json.stuck && r.json.stuck.remaining > 0)
+  assertEquals(typeof r.json.backtracks, 'number')
+  assertEquals(entries(dir), 0, 'nothing is written')
+  // a budget that is not a number is refused, not silently ignored
+  const bad = dryRun(['--advanced', '--dry-run', '--w=10', '--h=10'], dir, { CARVE_TIMEOUT_S: 'soon' })
+  assertEquals(bad.status, 2)
+  assertMatch(bad.stderr, /invalid CARVE_TIMEOUT_S: soon/)
 })
 
 // --- the simple mode (no --advanced) ----------------------------------------
@@ -354,6 +417,7 @@ Deno.test('carve.ts --help without --advanced prints the simple flags and points
       assert(r.stdout.includes(f), `${f} missing from the simple help`)
     }
     assert(!r.stdout.includes('--pstraight'), 'the knob table is behind --advanced --help')
+    assert(r.stdout.includes('CARVE_TIMEOUT_S'), 'the time budget is documented with the other variables')
     assertEquals(r.stderr, '')
   }
   assertEquals(entries(dir), 0)
