@@ -100,7 +100,7 @@ test and build for the projects touched by a pull request.
 arrowz/
   deno.json                 workspace members, fmt/lint/compiler options, exclude
   package.json              root: nx, typescript, eslint; packageManager pnpm
-  pnpm-workspace.yaml       packages: apps/*, packages/board-element
+  pnpm-workspace.yaml       packages: packages/*, apps/*
   nx.json                   namedInputs, targetDefaults, local cache
   .github/workflows/ci.yml  affected check, lint, test, build
   .vscode/settings.json     Deno enabled only under packages/engine and packages/cli
@@ -251,7 +251,12 @@ No Nx plugins are installed in step 1; `@nx/vite`, `@nx/angular` and
 `@nx/eslint` arrive with the steps that need them.
 
 Root `package.json`: `"packageManager": "pnpm@12.3.4"` (what corepack
-resolves on 2026-09-09), devDependencies `nx` (23.2.x) and `typescript`.
+resolves on 2026-09-09), devDependencies `nx` (23.2.x) and `typescript`
+(5.9.x: the stable emitter that has carried `rewriteRelativeImportExtensions`
+since 5.7; the native 7.x compiler is not evaluated in this step).
+`pnpm-workspace.yaml` lists `packages/*` and `apps/*`, so `@arrowz/engine`
+is a workspace package the applications can link with `workspace:*`;
+`packages/cli` has no `package.json` and pnpm ignores it.
 pnpm is not installed on the development machine; corepack is, so the plan
 starts with `corepack enable pnpm`.
 
@@ -351,9 +356,10 @@ moves, each as a throwaway experiment in a temporary directory:
 2. **`tsc` emission of the engine.** `tsc` with
    `rewriteRelativeImportExtensions` on the current `engine.ts`, `types.ts`
    and `command.ts` must emit without errors and the emitted module must
-   produce the golden 40×40 fingerprint under Node 24. If the installed
-   `typescript` (7.x at the time of writing) rejects the flag or the
-   sources, the plan pins the newest 5.x that accepts them.
+   produce the golden 40×40 fingerprint under Node 24 with `typescript`
+   5.9.x. The engine calls `performance.now()`, which the `es2022` lib does
+   not declare, so the build tsconfig adds the `dom` lib for emission only;
+   `neutral.test.ts` still keeps DOM calls out of the sources.
 
 Further risks: the fmt exclude list must be checked against `deno fmt
 --check` before the move (a forgotten path makes CI fail on generated files);
