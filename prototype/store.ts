@@ -5,6 +5,7 @@
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { BoardMeta, BoardSize, Params, View } from './types.ts'
 import { boardId, DEFAULT_VIEW } from './command.ts'
+import { defaultParams } from './engine.ts'
 
 export interface SaveInput {
   svg: string
@@ -30,14 +31,17 @@ function exists(path: string): boolean {
 }
 
 /**
- * The JSON of a stored board, or null when the file is missing or broken.
- * A board saved before the arrowhead knobs existed has a view without
- * headWidth/headHeight; the missing view fields take the defaults (0 = automatic).
+ * The JSON of a stored board, or null when the file is missing, broken or not
+ * an object. A board saved before a knob existed lacks it in params and view:
+ * the missing fields take the engine defaults here, at the boundary, so every
+ * reader — the page, buildCommand — sees a complete Params and View.
  */
 function readMeta(file: string): BoardMeta | null {
   try {
-    const parsed = JSON.parse(Deno.readTextFileSync(file)) as BoardMeta
-    return { ...parsed, view: { ...DEFAULT_VIEW, ...parsed.view } }
+    const parsed: unknown = JSON.parse(Deno.readTextFileSync(file))
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const meta = parsed as BoardMeta
+    return { ...meta, params: { ...defaultParams(), ...meta.params }, view: { ...DEFAULT_VIEW, ...meta.view } }
   } catch {
     return null
   }

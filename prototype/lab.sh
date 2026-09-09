@@ -9,11 +9,14 @@ set -e
 cd "$(dirname "$0")/.."
 PORT=${1:-8777}
 deno task bundle
+# The trap is armed before the first background job, so a Ctrl+C in the gap
+# between the two starts still kills what is already running.
+WATCH=; SRV=;
+trap 'kill $WATCH $SRV 2>/dev/null' EXIT INT TERM
 deno task bundle --watch &
 WATCH=$!
 deno run --allow-net --allow-read --allow-write --allow-env prototype/lab-server.ts "$PORT" &
 SRV=$!
-trap 'kill $WATCH $SRV 2>/dev/null' EXIT INT TERM
 sleep 1
 open "http://localhost:$PORT/lab.html" 2>/dev/null || true
 wait $SRV

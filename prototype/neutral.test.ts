@@ -5,6 +5,8 @@ import { dirname, fromFileUrl, join } from '@std/path'
 import { assert } from '@std/assert'
 
 const NEUTRAL = ['types.ts', 'engine.ts', 'command.ts', 'lab-simple.ts', 'lab-presets.ts', 'lab-i18n.ts']
+// `document.` is matched with the dot, not as a bare word: the engine comments
+// use the English word "document", which a `\bdocument\b` pattern would flag.
 const FORBIDDEN = [
   /\bDeno\./,
   /\bdocument\./,

@@ -12,6 +12,7 @@ interface GoldenCase {
   argv: string[] | null
   fingerprint: string
   pieces: number
+  maxLen: number | null
 }
 const golden = JSON.parse(Deno.readTextFileSync(join(dirname(fromFileUrl(import.meta.url)), 'fingerprints.json'))) as {
   cases: GoldenCase[]
@@ -25,11 +26,14 @@ function paramsOf(c: GoldenCase): Params {
   return simpleParams(parseSimpleArgs(c.argv).choice)
 }
 
+// Every recorded board is checked, big500 included: it costs about 1.3 s per
+// run, which is worth paying to keep the whole golden set under guard.
 for (const c of golden.cases) {
-  if (c.name === 'big500') continue // 1.3 s; covered by the CLI comparison in the plan, not by every test run
   Deno.test(`golden board ${c.name} reproduces the fingerprint recorded on Node`, () => {
     const r = generate(paramsOf(c), { unchecked: c.argv === null })
     assertEquals(fingerprint(r.board), c.fingerprint)
     assertEquals(r.board.pieces.length, c.pieces)
+    // The unchecked case records no maxLen — it has no metrics.
+    if (c.maxLen !== null) assertEquals(r.metrics?.maxLen, c.maxLen)
   })
 }

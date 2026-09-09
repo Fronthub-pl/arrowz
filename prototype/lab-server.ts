@@ -67,7 +67,10 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       let info: Deno.FileInfo
       try {
         info = await Deno.stat(file)
-      } catch {
+      } catch (err) {
+        // Only a missing file is a 404; a permission error or a broken disk is
+        // a server fault and goes to the outer catch as a 500.
+        if (!(err instanceof Deno.errors.NotFound)) throw err
         const hint = rel.startsWith('/dist/') ? ' (run: deno task bundle)' : ''
         return send(404, JSON.stringify({ error: `not found${hint}` }))
       }

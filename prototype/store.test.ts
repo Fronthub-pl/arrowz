@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import { join } from '@std/path'
 import { defaultParams } from './engine.ts'
-import { COMMAND_PREFIX } from './command.ts'
+import { buildCommand, COMMAND_PREFIX } from './command.ts'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 import type { BoardMeta, ParamKey } from './types.ts'
 
@@ -90,7 +90,7 @@ Deno.test('listBoards: sizes ascending by cells, boards newest first, same id ov
   assertEquals(Deno.readTextFileSync(join(dir, '25x50', first.id + '.svg')), '<svg>2</svg>')
 })
 
-Deno.test('listBoards skips junk: foreign directories, json without svg, broken json', () => {
+Deno.test('listBoards skips junk: foreign directories, json without svg, broken json, JSON scalars', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, 'notes'))
   Deno.mkdirSync(join(dir, '10x10'))
@@ -98,6 +98,12 @@ Deno.test('listBoards skips junk: foreign directories, json without svg, broken 
   Deno.mkdirSync(join(dir, '25x50'))
   Deno.writeTextFileSync(join(dir, '25x50', 'broken.json'), '{not json')
   Deno.writeTextFileSync(join(dir, '25x50', 'broken.svg'), '<svg/>')
+  // Valid JSON that is not an object is not a board either.
+  const scalars: Record<string, string> = { num: '5', str: '"x"', nil: 'null' }
+  for (const [name, text] of Object.entries(scalars)) {
+    Deno.writeTextFileSync(join(dir, '25x50', `scalar-${name}.json`), text)
+    Deno.writeTextFileSync(join(dir, '25x50', `scalar-${name}.svg`), '<svg/>')
+  }
   saveBoard(entry())
   const sizes = listBoards()
   assertEquals(sizes.map((s) => s.size), ['25x50'])
@@ -132,6 +138,40 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.id, 'seed7-legacy00')
   assertEquals(board?.view, { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 })
+})
+
+// The same for params: a board saved before a knob existed does not name it.
+// Without filling it here the page would re-save the board with a command
+// carrying `--headtries=undefined`.
+Deno.test('listBoards fills legacy params without a knob with the engine default', () => {
+  const dir = freshDir()
+  Deno.mkdirSync(join(dir, '25x50'))
+  const legacyParams: Record<string, unknown> = { ...params() }
+  delete legacyParams.headTries
+  const legacy = {
+    id: 'seed7-legacy01',
+    W: 25,
+    H: 50,
+    seed: 7,
+    params: legacyParams,
+    view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    source: 'cli',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ok: true,
+    pieces: 126,
+    maxLen: 68,
+    genMs: 12,
+    svgBytes: 6,
+  }
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy01.json'), JSON.stringify(legacy))
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy01.svg'), '<svg/>')
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.id, 'seed7-legacy01')
+  assertEquals(board?.params.headTries, defaultParams().headTries)
+  assert(board)
+  assertEquals(buildCommand(board.params).includes('undefined'), false, 'no knob is written as undefined')
 })
 
 Deno.test('listBoards without a directory returns an empty list', () => {

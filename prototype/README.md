@@ -9,9 +9,9 @@ binary at `prototype/dist/carve`. The lab page and worker are TypeScript,
 bundled by `deno task bundle` into `prototype/dist/`; `sh prototype/lab.sh`
 builds once, rebuilds on every edit and serves without caching. The
 generator is unchanged by the rewrite: `fingerprints.json` holds nine boards
-recorded on Node; `fingerprints.test.ts` reproduces eight of them on every run
-(the 500×500 case is checked by the CLI comparison only, it is too slow for the
-suite).
+recorded on Node; `fingerprints.test.ts` reproduces all nine of them on every
+run. Measured on 2026-09-09, 500×500 seed 7: Deno 1.35 s vs Node 24 1.42 s of
+generation, the same fingerprint `298c749e`.
 
 ## Lab (interactive)
 

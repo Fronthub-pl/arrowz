@@ -993,7 +993,9 @@ el('libCopy').addEventListener('click', async () => {
 el('libLoad').addEventListener('click', () => {
   const board = libBoard
   if (!board) return
-  // A board saved before a knob existed does not name it: that knob stays as it is.
+  // A board saved before a knob existed does not name it in its JSON; the store
+  // fills the gap with the engine default when it reads the meta, so that knob
+  // loads as its default rather than keeping the value now on the screen.
   const loaded = readParams(board.params)
   let clamped = false
   for (const spec of PARAM_SPEC) {
