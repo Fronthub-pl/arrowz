@@ -5,10 +5,10 @@
 // directory, which must stay empty.
 import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from './engine.ts'
-import { boardId, buildCommand, buildSimpleCommand, COMMAND_PREFIX, DEFAULT_VIEW } from './command.ts'
-import { defaultChoice, exportCell, simpleParams, simpleRanges } from './lab-simple.ts'
-import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from './types.ts'
+import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from '@arrowz/engine'
+import { boardId, buildCommand, buildSimpleCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
+import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
 
 const here = dirname(fromFileUrl(import.meta.url))
 const carve = join(here, 'carve.ts')

@@ -1,9 +1,9 @@
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import { join } from '@std/path'
-import { defaultParams } from './engine.ts'
-import { buildCommand, COMMAND_PREFIX } from './command.ts'
+import { defaultParams } from '@arrowz/engine'
+import { buildCommand, COMMAND_PREFIX } from '@arrowz/engine/command'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
-import type { BoardMeta, ParamKey } from './types.ts'
+import type { BoardMeta, ParamKey } from '@arrowz/engine'
 
 /** A fresh, empty store for one test: the store reads ARROWZ_BOARDS_DIR at call time. */
 function freshDir(): string {

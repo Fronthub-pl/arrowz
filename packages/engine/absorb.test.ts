@@ -7,7 +7,7 @@
 // around them. The acceptance criterion is not "faster" but "the same
 // absorbPath calls, the same absorptions, the same board" for every seed, so
 // this file keeps the ORIGINAL method as the oracle and runs every board
-// twice. Run: deno test --allow-read --allow-run prototype/
+// twice. Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals } from '@std/assert'
 import { Carver, defaultParams, DIRS, fingerprint, mulberry32 } from './engine.ts'
 import type { Cell, Params, Piece } from './types.ts'

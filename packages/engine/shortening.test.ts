@@ -5,7 +5,7 @@
 // trimmed path, which made big skeleton boards take minutes. The engine now
 // does it in O(L) inside Carver.prototype.shortenPath, and the acceptance
 // criterion is not "faster" but "chooses exactly the same length on every
-// path". Run: deno test --allow-read --allow-run prototype/
+// path". Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals } from '@std/assert'
 import { Carver, defaultParams, fingerprint, generate, mulberry32 } from './engine.ts'
 import type { Cell, Params } from './types.ts'

@@ -1,0 +1,5 @@
+// Public surface of @arrowz/engine: the generator, its parameter table and
+// the board types. The command parser, the simple view, the presets and
+// the dictionaries are separate subpath exports (see deno.json).
+export * from './engine.ts'
+export type * from './types.ts'

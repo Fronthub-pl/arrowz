@@ -1,7 +1,7 @@
-// Lab server: static files from prototype/ without caching (a rebuilt bundle
+// Lab server: static files from packages/cli/ without caching (a rebuilt bundle
 // must reach the browser immediately) plus the board store under /api/boards
 // (GET list, POST save, DELETE one) and /boards/. Run: deno task lab, or
-// deno run --allow-net --allow-read --allow-write --allow-env prototype/lab-server.ts [port]
+// deno run --allow-net --allow-read --allow-write --allow-env packages/cli/lab-server.ts [port]
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 
@@ -57,7 +57,7 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       }
       if (req.method !== 'GET') return send(405, '{"error":"GET only"}')
 
-      // The store may live outside prototype/ (ARROWZ_BOARDS_DIR), so /boards/
+      // The store may live outside packages/cli/ (ARROWZ_BOARDS_DIR), so /boards/
       // has its own base directory. The normalised path must stay inside it.
       const rel = decodeURIComponent(url.pathname === '/' ? '/lab.html' : url.pathname)
       const inBoards = rel.startsWith('/boards/')

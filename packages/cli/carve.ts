@@ -5,14 +5,14 @@
 // Simple mode (default): the inputs of the simple lab view — a size, the
 // sliders --length and --straight in 0..1, --skeleton, --seed, the view
 // (--colorized, --lineweight, --arrowwidth, --arrowheight) and --randomized.
-// Always one board → prototype/boards/ (+ a copy with --svg=path), or with
+// Always one board → packages/cli/boards/ (+ a copy with --svg=path), or with
 // --dry-run one JSON line and nothing written. Any other flag is refused.
 //
 // Advanced mode (--advanced): engine parameters as --<PARAM_SPEC key in lower
 // case>=value, defaults from defaultParams(). The lab builds its command with
 // the same parser, so the command from the lab reproduces the board bit for
 // bit. Modes:
-//   --svg[=path]    one board → prototype/boards/ (+ a copy at path)
+//   --svg[=path]    one board → packages/cli/boards/ (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
 //                   the id, metrics and fingerprint (alone or next to --svg)
 //   --bench=N       benchmark, N runs per level
@@ -22,7 +22,7 @@
 // any generation, in every mode, with exit code 2. A board that does not
 // close is stored too, with its holes drawn, and the exit code is 1;
 // CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
-import type { CarverStats, Metrics, Params, TraceInfo, Violation } from './types.ts'
+import type { CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
   analyse,
   Carver,
@@ -35,7 +35,7 @@ import {
   render,
   toSvg,
   validateParams,
-} from './engine.ts'
+} from '@arrowz/engine'
 import {
   boardId,
   buildCommand,
@@ -44,8 +44,8 @@ import {
   helpText,
   parseArgs,
   parseSimpleArgs,
-} from './command.ts'
-import { simpleParams } from './lab-simple.ts'
+} from '@arrowz/engine/command'
+import { simpleParams } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).

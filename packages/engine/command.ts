@@ -31,7 +31,7 @@ type FlagRow = readonly [string, string]
 // Mode and view flags read by the CLI (not engine parameters). Kept next to
 // the parser so that --help and the parser cannot drift apart.
 const MODE_FLAGS: readonly FlagRow[] = [
-  ['--svg[=path]', 'one board into prototype/boards/ (ARROWZ_BOARDS_DIR), plus a copy at path'],
+  ['--svg[=path]', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR), plus a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
   ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
   ['--bench=N', 'benchmark instead of the report, N runs per level'],
@@ -74,7 +74,7 @@ const SIMPLE_FLAGS: readonly FlagRow[] = [
   ['--arrowheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
 ]
 const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
-  ['(no mode)', 'one board into prototype/boards/ (ARROWZ_BOARDS_DIR)'],
+  ['(no mode)', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR)'],
   ['--svg=path', 'the same, plus a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
   ['--advanced', 'every engine knob, the report and the benchmark: see --advanced --help'],

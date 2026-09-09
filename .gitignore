@@ -5,6 +5,5 @@ dist/
 *.local
 .basic-memory/
 packages/cli/boards/
-prototype/boards/
 .claude/worktrees/
 .superpowers/

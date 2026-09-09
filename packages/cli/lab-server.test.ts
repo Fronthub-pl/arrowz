@@ -1,8 +1,8 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
-import { defaultParams } from './engine.ts'
-import { COMMAND_PREFIX } from './command.ts'
+import { defaultParams } from '@arrowz/engine'
+import { COMMAND_PREFIX } from '@arrowz/engine/command'
 import { createLabServer } from './lab-server.ts'
-import type { BoardMeta, BoardSize } from './types.ts'
+import type { BoardMeta, BoardSize } from '@arrowz/engine'
 
 /** One server per test on a fresh, empty store; shut down before the sanitizers look. */
 async function withServer(fn: (base: string) => Promise<void>) {

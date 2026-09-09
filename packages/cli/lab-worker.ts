@@ -7,8 +7,8 @@
 // The worker keeps the last generated board on its side, so switching the
 // colour or the number of highlighted pieces redraws the SVG without
 // regenerating.
-import { generate, toSvg } from './engine.ts'
-import type { Board, LongestSummary, Metrics, Params, View, WorkerIn, WorkerOut } from './types.ts'
+import { generate, toSvg } from '@arrowz/engine'
+import type { Board, LongestSummary, Metrics, Params, View, WorkerIn, WorkerOut } from '@arrowz/engine'
 
 let last: { board: Board; metrics: Metrics | null; params: Params } | null = null
 
