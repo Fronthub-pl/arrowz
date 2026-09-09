@@ -153,7 +153,7 @@ unless marked optional; numbers are plain `number`.
   `BoardSize` — `{ size: string; W; H; cells: number; boards: BoardMeta[] }`.
 - `WorkerIn` — `{ type: 'generate'; params: Params; view: View; tag?: string } | { type: 'render'; view: View; tag?: string }`.
 - `WorkerOut` — `{ type: 'progress'; info: TraceInfo } | { type: 'error'; message: string } | { type: 'done'; ok; metrics; backtracks; restartsUsed; genMs; metricsMs; totalMs; stuck; pieces; stats } | { type: 'render'; svg: string; longest: LongestSummary[]; tag?: string }`.
-- `Dictionary` — the shape of `EN`: `groups`, `groupHelp`, `presets`, `simple`, `ui`, each a record of string keys to strings (nested where the page nests them). `EN` is written first and `Dictionary` is `typeof EN` with every leaf widened to `string`; `PL` is declared as `Dictionary & { reasons: Record<InactiveKey | RuleKey, string>; params: Record<ParamKey, { label: string; help: string }> }` — the English label, help and reason texts live in `PARAM_SPEC`, `INACTIVE_REASONS` and `RULE_REASONS`, so only the translation carries those two sections. A Polish string missing for any English key, or a Polish knob text for a key the engine does not have, is a compile error.
+- `Dictionary` — the shape of `EN`: `groups`, `groupHelp`, `presets`, `simple`, `ui`, each a record of string keys to strings (nested where the page nests them). `EN` is written first and `Dictionary` is `typeof EN` with every leaf widened to `string`; `PL` is declared as `Dictionary & { reasons: Record<InactiveKey | RuleKey, string>; params: Record<ParamKey, { label: string; help: string }> }` — the English label, help and reason texts live in `PARAM_SPEC`, `INACTIVE_REASONS` and `RULE_REASONS`, so only the translation carries those two sections. A Polish string missing for any English key, a Polish function with more parameters than its English original, or a Polish knob text for a key the engine does not have, is a compile error; a Polish function with fewer parameters still compiles.
 
 ### 4.2 `engine.d.ts` — the build-time contract
 
@@ -241,7 +241,8 @@ version still list and open.
 `Request`/`Response`; `createLabServer(): (req: Request) => Promise<Response>`
 exported for the test, `Deno.serve` called under `import.meta.main`. Routes,
 status codes, headers (`Cache-Control: no-store`), the path-traversal guards
-and the MIME map are unchanged; `dist/` is served like any other file under
+and the MIME map are unchanged (plus `.map` for source maps, minus the dead
+`.mjs` entry); `dist/` is served like any other file under
 `prototype/`. A request for `/dist/…` that finds no file answers 404 with the
 message `run: deno task bundle`, so a missing build is diagnosed in the browser
 instead of a blank page.

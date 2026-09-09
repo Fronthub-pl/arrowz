@@ -10,15 +10,22 @@
 - **User-facing tools ship bilingual UI (Polish and English).** The generator
   lab (`prototype/lab.html`) has a language switch; every visible string,
   parameter label, help text and "inactive" reason lives in the dictionary
-  (`prototype/lab-i18n.mjs`), with English as the source language in code
+  (`prototype/lab-i18n.ts`), with English as the source language in code
   (`PARAM_SPEC`) and Polish as the translation.
 
 ## Prototype
 
-- `node --test 'prototype/*.test.mjs'` must pass after every change.
-- The engine (`prototype/engine.mjs`) knows neither `process` nor DOM; never
-  spread arrays proportional to the number of cells or pieces
+- The prototype is TypeScript on Deno 2.9: `deno task test` must pass after
+  every change, and `deno task verify` (check, lint, fmt, test) before a PR.
+- The engine (`prototype/engine.ts`) knows neither Deno nor the DOM, and so do
+  `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`: the DOM lib
+  is referenced only in `lab-page.ts`, and `neutral.test.ts` greps the rest.
+  Never spread arrays proportional to the number of cells or pieces
   (`Math.min(...arr)`) — it overflows the worker stack in Chrome.
+- No `any`, no non-null assertions; a type fix must never add a value-changing
+  fallback in the engine (`fingerprints.test.ts` guards the boards).
+- The lab page and worker are bundled by `deno task bundle` into
+  `prototype/dist/` (gitignored); `sh prototype/lab.sh` builds, watches and serves.
 - No attribution lines in commit messages or PR descriptions.
 
 <!-- jbcontext-instructions-start -->

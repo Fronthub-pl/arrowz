@@ -1,6 +1,6 @@
 // THROWAWAY PROTOTYPE — probe engine, not production code.
 //
-// This file is shared by the CLI (carve.mjs) and the browser lab (lab.html)
+// This file is shared by the CLI (carve.ts) and the browser lab (lab.html)
 // so that two copies of the algorithm never come into existence and drift apart.
 // It must not touch `process` or the DOM — everything comes in as parameters.
 
@@ -757,7 +757,7 @@ class Carver implements Board {
     // The full sequence for prefix L, which is known to pass. Should the
     // replay ever disagree, `wouldStrand` stays the ground truth: fall back
     // to the plain creep rather than abort the generation (the lab worker
-    // would die with it). The differential test in shortening.test.mjs is
+    // would die with it). The differential test in shortening.test.ts is
     // where a disagreement is meant to surface.
     for (let e = 0; e < 4 * L; e++) {
       cur = e
@@ -2639,7 +2639,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
  * FNV-1a over the owner grid and the piece cell sequences: any change in which
  * cell belongs to which piece, or in the order of cells within a piece, changes
  * the hash. It is the "same board for the same seed" guarantee in one number —
- * the tests freeze recorded boards with it, and `carve.mjs --dry-run` prints
+ * the tests freeze recorded boards with it, and `carve.ts --dry-run` prints
  * it so that two runtimes can be compared without writing a file.
  */
 function fingerprint(board: Board): string {

@@ -8,7 +8,6 @@ import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from '.
 const ROOT = dirname(fromFileUrl(import.meta.url))
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
-  '.mjs': 'text/javascript',
   '.js': 'text/javascript',
   '.map': 'application/json',
   '.svg': 'image/svg+xml',

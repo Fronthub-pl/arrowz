@@ -41,7 +41,7 @@ export const EN = {
       serpentine: 'winding skeleton',
     },
   },
-  // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
+  // The simple view (lab-simple.ts): plain choices instead of thirty knobs.
   simple: {
     viewSimple: 'Simple',
     viewAdvanced: 'Advanced',
@@ -149,7 +149,7 @@ export const EN = {
     boardCommand: 'Command of this board',
     loadIntoLab: 'Load into lab',
     noStoreServer: 'No store server — run sh prototype/lab.sh.',
-    storeEmpty: 'The store is empty. Generate a board in the lab or with carve.mjs --svg.',
+    storeEmpty: 'The store is empty. Generate a board in the lab or with deno task carve.',
     notClosed: 'not closed',
     piecesShort: (n: number | string) => `${n} pieces`,
     longestShort: (n: number | string) => `longest ${n}`,
@@ -388,7 +388,7 @@ export const PL: Translation = {
       serpentine: 'szkielet z serpentynami',
     },
   },
-  // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
+  // The simple view (lab-simple.ts): plain choices instead of thirty knobs.
   simple: {
     viewSimple: 'Prosty',
     viewAdvanced: 'Zaawansowany',
@@ -495,7 +495,7 @@ export const PL: Translation = {
     boardCommand: 'Komenda tej planszy',
     loadIntoLab: 'Wczytaj do laboratorium',
     noStoreServer: 'Brak serwera magazynu — uruchom sh prototype/lab.sh.',
-    storeEmpty: 'Magazyn jest pusty. Wygeneruj planszę w laboratorium albo przez carve.mjs --svg.',
+    storeEmpty: 'Magazyn jest pusty. Wygeneruj planszę w laboratorium albo przez deno task carve.',
     notClosed: 'niedomknięta',
     piecesShort: (n) => `${n} elem.`,
     longestShort: (n) => `najdłuższy ${n}`,

@@ -172,9 +172,9 @@ Deno.test('generate: refuses a violation with a RangeError carrying the violatio
 })
 
 Deno.test('generate: an in-envelope board still closes with the fingerprint recorded on main', () => {
-  // Recorded on main (96b9d4a) before the envelope existed, with
-  // `node -e` over engine.mjs and fingerprint(): validation must not touch
-  // the algorithm, so the same call gives the same board.
+  // Recorded on main (96b9d4a) before the envelope existed, on the Node
+  // prototype with fingerprint(): validation must not touch the algorithm,
+  // so the same call gives the same board.
   const r = generate(withDefaults({ W: 40, H: 40, seed: 1, restarts: 0 }))
   assertEquals(r.ok, true)
   assertEquals(r.restartsUsed, 0)
