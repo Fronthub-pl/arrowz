@@ -18,7 +18,7 @@ jobs:
           filter: tree:0
           fetch-depth: 0
 
-      - uses: denoland/setup-deno@v2.0.5
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: '~2.9'
 
