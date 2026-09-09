@@ -5,16 +5,23 @@
 // trimmed path, which made big skeleton boards take minutes. The engine now
 // does it in O(L) inside Carver.prototype.shortenPath, and the acceptance
 // criterion is not "faster" but "chooses exactly the same length on every
-// path". Run: node --test 'prototype/*.test.mjs'
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { Carver, defaultParams, fingerprint, generate, mulberry32 } from './engine.mjs'
+// path". Run: deno test --allow-read --allow-run prototype/
+import { assert, assertEquals } from '@std/assert'
+import { Carver, defaultParams, fingerprint, generate, mulberry32 } from './engine.ts'
+import type { Cell, Params } from './types.ts'
+
+/** Reads an index the test guarantees to be valid; a miss is a test bug, so it throws. */
+function at<T>(arr: ArrayLike<T>, i: number): T {
+  const v = arr[i]
+  if (v === undefined) throw new Error(`index ${i} out of ${arr.length}`)
+  return v
+}
 
 // The ORIGINAL block, verbatim in behaviour, kept here as the oracle: the fast
 // method must return the same boolean and leave the path at the same length
 // as this search for every call, whatever shortcuts it takes internally.
 // It costs Θ(L²/32) per trimmed path, so it lives in a test, not in the engine.
-function shortenPathReference(carver, path, failed) {
+function shortenPathReference(carver: Carver, path: Cell[], failed: Set<number>): boolean {
   const step = Math.max(1, Math.floor(path.length / 32))
   for (let L = path.length - step; L >= 2; L -= step) {
     const shorter = path.slice(0, L)
@@ -36,7 +43,7 @@ function shortenPathReference(carver, path, failed) {
 // giantStep 2) whose skeleton length spans the board many times, more
 // skeletons drawn later (wGiant), with and without cutting the runs short
 // (giantJitter), the layers mode, and the defaults for ordinary paths.
-const FAMILIES = [
+const FAMILIES: Partial<Params>[] = [
   { giants: 4, giantStep: 2, giantSpan: 30, wGiant: 0.2 },
   { giants: 4, giantStep: 2, giantSpan: 200, wGiant: 0.2, giantJitter: 1 },
   { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0.1, giantJitter: 0 },
@@ -46,61 +53,74 @@ const FAMILIES = [
   {},
 ]
 
+/** One board of the list: its size and seed plus the family's knobs. */
+type BoardSpec = { W: number; H: number; seed: number } & Partial<Params>
+
 // 64 seeded boards, 40..120 on each side, cycling through the families.
-function boardList(n = 64, sizeMax = 120) {
+function boardList(n = 64, sizeMax = 120): BoardSpec[] {
   const rng = mulberry32(20260908)
-  const out = []
+  const out: BoardSpec[] = []
   for (let i = 0; i < n; i++) {
     const W = 40 + Math.floor(rng() * (sizeMax - 39))
     const H = 40 + Math.floor(rng() * (sizeMax - 39))
     const seed = 1 + Math.floor(rng() * 100000)
-    out.push({ W, H, seed, ...FAMILIES[i % FAMILIES.length] })
+    out.push({ W, H, seed, ...at(FAMILIES, i % FAMILIES.length) })
   }
   return out
 }
 
-const label = (b) =>
+const label = (b: BoardSpec): string =>
   `${b.W}×${b.H} seed ${b.seed} ${JSON.stringify({ ...b, W: undefined, H: undefined, seed: undefined })}`
 
-test('shortenPath: agrees with the original jump-and-creep search on every call over 64 trimming boards', () => {
+/** One call on which the fast method and the reference disagreed. */
+type Mismatch = { board: string; len0: number; want: boolean; wantLen: number; got: boolean; gotLen: number }
+
+Deno.test('shortenPath: agrees with the original jump-and-creep search on every call over 64 trimming boards', () => {
   const proto = Carver.prototype
-  assert.equal(
+  assertEquals(
     typeof proto.shortenPath,
     'function',
     'Carver.prototype.shortenPath is missing: carveOne() still inlines the shortening block, so there is nothing to compare with the reference',
   )
   const real = proto.shortenPath
-  let calls = 0, trims = 0, refusals = 0, current = null
-  const mismatches = []
+  let calls = 0, trims = 0, refusals = 0
+  let current: BoardSpec | null = null
+  const mismatches: Mismatch[] = []
   // For every call: the real method on the real path and `failed`, the
   // reference on copies taken before the call. The order does not matter for
   // the verdict (wouldStrand re-stamps everything it needs on each call and
   // `failed` is local to one carve), but running the real method first means
   // it sees exactly the carver state it sees in production.
-  proto.shortenPath = function (path, failed) {
+  proto.shortenPath = function (this: Carver, path: Cell[], failed: Set<number>): boolean {
     calls++
     const refPath = path.slice(), refFailed = new Set(failed), len0 = path.length
     const got = real.call(this, path, failed)
     const want = shortenPathReference(this, refPath, refFailed)
     let same = got === want && path.length === refPath.length
-    for (let i = 0; same && i < path.length; i++) same = path[i].x === refPath[i].x && path[i].y === refPath[i].y
-    if (!same) mismatches.push({ board: label(current), len0, want, wantLen: refPath.length, got, gotLen: path.length })
+    for (let i = 0; same && i < path.length; i++) {
+      const p = at(path, i), r = at(refPath, i)
+      same = p.x === r.x && p.y === r.y
+    }
+    if (!same) {
+      if (!current) throw new Error('shortenPath called outside a board')
+      mismatches.push({ board: label(current), len0, want, wantLen: refPath.length, got, gotLen: path.length })
+    }
     if (want) trims++
     else refusals++
     return got
   }
-  const fps = []
+  const fps: { fp: string; trims: number }[] = []
   try {
     for (const b of boardList()) {
       current = b
-      const p = { ...defaultParams(), ...b }
+      const p: Params = { ...defaultParams(), ...b }
       const c = new Carver(p.W, p.H, p, mulberry32(p.seed))
       const ok = c.run(200)
       // A mismatch is the finding; report it before anything downstream of it
       // (a board that does not close or a wrong statistic) can hide it.
       if (mismatches.length) break
-      assert.equal(ok, true, `${label(b)} did not close`)
-      assert.equal(
+      assertEquals(ok, true, `${label(b)} did not close`)
+      assertEquals(
         c.stats.strandTrunc,
         trims - fps.reduce((s, f) => s + f.trims, 0),
         `${label(b)}: strandTrunc disagrees with the reference's trim count`,
@@ -110,7 +130,7 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
   } finally {
     proto.shortenPath = real
   }
-  assert.deepEqual(
+  assertEquals(
     mismatches,
     [],
     `shortenPath differs from the reference on ${mismatches.length} call(s) of the first differing board`,
@@ -118,14 +138,14 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
   // Counts recorded on main with the reference replayed against the inline
   // block (0 mismatches there); pinned so that the test cannot pass vacuously
   // and so that a change in how often the loop runs shows up too.
-  assert.ok(calls >= 3000, `${calls} calls exercised`)
-  assert.equal(trims, 1716, 'paths trimmed')
-  assert.equal(refusals, 2605, 'paths refused (no prefix >= 2 passes)')
+  assert(calls >= 3000, `${calls} calls exercised`)
+  assertEquals(trims, 1716, 'paths trimmed')
+  assertEquals(refusals, 2605, 'paths refused (no prefix >= 2 passes)')
   // All 64 boards rolled into one hash (FNV-1a over the comma-joined
   // fingerprints), recorded on main.
   let h = 2166136261
   for (const ch of fps.map((f) => f.fp).join(',')) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0
-  assert.equal(h.toString(16), '78b8a0ad', 'rolled-up fingerprint of the 64 boards')
+  assertEquals(h.toString(16), '78b8a0ad', 'rolled-up fingerprint of the 64 boards')
 })
 
 // Boards where the leftover test trims, recorded on main (09966e7) before
@@ -135,7 +155,16 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
 // seed 2), trimmed ordinary paths, wGiant boards with dozens of trims, the
 // layers mode, and a board whose only shortening call refuses (80×80 seed 1
 // with giantSpan 60: zero trims, one refusal).
-const PINNED = [
+const PINNED: {
+  W: number
+  H: number
+  seed: number
+  params: Partial<Params>
+  fp: string
+  pieces: number
+  trunc: number
+  loss: number
+}[] = [
   { W: 40, H: 40, seed: 2, params: {}, fp: '4979c09d', pieces: 174, trunc: 14, loss: 124 },
   { W: 60, H: 60, seed: 2, params: {}, fp: '92d39ec1', pieces: 354, trunc: 35, loss: 344 },
   {
@@ -231,16 +260,16 @@ const PINNED = [
   },
 ]
 
-test('generate: boards that trim reproduce the fingerprints and trim statistics recorded on main', () => {
+Deno.test('generate: boards that trim reproduce the fingerprints and trim statistics recorded on main', () => {
   for (const g of PINNED) {
-    const r = generate({ W: g.W, H: g.H, seed: g.seed, ...g.params })
+    const r = generate({ ...defaultParams(), W: g.W, H: g.H, seed: g.seed, ...g.params })
     const name = `${g.W}×${g.H} seed ${g.seed} ${JSON.stringify(g.params)}`
-    assert.equal(r.ok, true, `${name}: did not close`)
-    assert.equal(r.restartsUsed, 0, `${name}: restarts`)
-    assert.equal(r.backtracks, 0, `${name}: backtracks`)
-    assert.equal(r.board.pieces.length, g.pieces, `${name}: pieces`)
-    assert.equal(r.board.stats.strandTrunc, g.trunc, `${name}: paths trimmed`)
-    assert.equal(r.board.stats.strandLoss, g.loss, `${name}: cells trimmed off`)
-    assert.equal(fingerprint(r.board), g.fp, `${name}: fingerprint`)
+    assertEquals(r.ok, true, `${name}: did not close`)
+    assertEquals(r.restartsUsed, 0, `${name}: restarts`)
+    assertEquals(r.backtracks, 0, `${name}: backtracks`)
+    assertEquals(r.board.pieces.length, g.pieces, `${name}: pieces`)
+    assertEquals(r.board.stats.strandTrunc, g.trunc, `${name}: paths trimmed`)
+    assertEquals(r.board.stats.strandLoss, g.loss, `${name}: cells trimmed off`)
+    assertEquals(fingerprint(r.board), g.fp, `${name}: fingerprint`)
   }
 })

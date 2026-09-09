@@ -10,8 +10,7 @@ import {
   simpleRanges,
 } from './lab-simple.ts'
 import { PRESETS } from './lab-presets.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, mulberry32, PARAM_SPEC, validateParams } from './engine.mjs'
+import { defaultParams, mulberry32, PARAM_SPEC, validateParams } from './engine.ts'
 import { type Dictionary, EN, PL } from './lab-i18n.ts'
 import type { ParamKey, Params, ParamSpec, Range, SimpleChoice } from './types.ts'
 

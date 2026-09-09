@@ -1,7 +1,6 @@
 import { assert, assertEquals } from '@std/assert'
 import { findPreset, PRESETS } from './lab-presets.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, PARAM_SPEC, validateParams } from './engine.mjs'
+import { defaultParams, PARAM_SPEC, validateParams } from './engine.ts'
 import { EN, PL } from './lab-i18n.ts'
 import type { ParamKey, ParamSpec } from './types.ts'
 

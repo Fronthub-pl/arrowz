@@ -5,8 +5,7 @@
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, View } from './types.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */

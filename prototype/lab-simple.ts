@@ -18,8 +18,7 @@
 // Labels come from the dictionaries (lab-i18n.ts, `simple`); nothing here
 // knows the DOM.
 import type { ParamKey, Params, ParamSpec, Range, SimpleChoice } from './types.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, PARAM_SPEC } from './engine.mjs'
+import { defaultParams, PARAM_SPEC } from './engine.ts'
 import { PRESETS } from './lab-presets.ts'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
