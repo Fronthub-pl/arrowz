@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .nx/
+# Vitest browser mode drops failure screenshots here.
+.vitest/
 .DS_Store
 *.local
 .basic-memory/
