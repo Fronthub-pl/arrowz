@@ -123,6 +123,20 @@ describe('mount and viewport', () => {
     expect(el.tabIndex).toBe(0)
   })
 
+  test('two zooms in one frame emit a single viewport-change', async () => {
+    await mount()
+    const seen: ViewportChangeEvent[] = []
+    const onChange = (e: Event) => seen.push(e as ViewportChangeEvent)
+    document.addEventListener('viewport-change', onChange)
+    el.zoomBy(1.1)
+    el.zoomBy(1.1)
+    await raf()
+    document.removeEventListener('viewport-change', onChange)
+    expect(seen.length).toBe(1)
+    expect(seen[0]?.detail.cellPx).toBeCloseTo(el.viewport?.cellPx ?? 0, 6)
+    expect(seen[0]?.detail.cellPx).toBeCloseTo(10 * 1.1 * 1.1, 6)
+  })
+
   test('resizing the host refits when fitted', async () => {
     await mount()
     el.style.width = '600px'
@@ -170,6 +184,21 @@ describe('clicks', () => {
     expect(seen.length).toBe(0)
   })
 
+  test('a modifier press drops the piece cursor for the grab cursor', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    const svg = svgOf(el)
+    svg.dispatchEvent(pointer('pointermove', p.x, p.y))
+    expect(svg.classList.contains('over-piece')).toBe(true)
+    svg.dispatchEvent(pointer('pointerdown', p.x, p.y, { metaKey: true }))
+    expect(svg.classList.contains('over-piece')).toBe(false)
+    expect(svg.classList.contains('panning')).toBe(true)
+    svg.dispatchEvent(pointer('pointerup', p.x, p.y, { metaKey: true }))
+    expect(svg.classList.contains('panning')).toBe(false)
+  })
+
   test('a modifier drag pans', async () => {
     await mount()
     el.zoomBy(3)
@@ -202,6 +231,38 @@ describe('effects and labels', () => {
     el.setAttribute('lang', 'de')
     await el.updateComplete
     expect(el.shadowRoot?.querySelector('button')?.getAttribute('title')).toBe('Zoom in')
+  })
+
+  test('the lang property and the lang attribute stay in step', async () => {
+    await mount()
+    el.lang = 'pl'
+    await el.updateComplete
+    expect(el.getAttribute('lang')).toBe('pl')
+    expect(el.shadowRoot?.querySelector('button')?.getAttribute('title')).toBe('Powiększ')
+    el.setAttribute('lang', 'en')
+    await el.updateComplete
+    expect(el.lang).toBe('en')
+    expect(el.shadowRoot?.querySelector('button')?.getAttribute('title')).toBe('Zoom in')
+  })
+
+  test('a view change repaints the pieces and leaves the viewport alone', async () => {
+    await mount()
+    el.zoomBy(2)
+    await raf()
+    const before = el.viewport
+    if (!before) throw new Error('need a viewport')
+    const seen: Event[] = []
+    const onChange = (e: Event) => seen.push(e)
+    document.addEventListener('viewport-change', onChange)
+    el.view = { ...el.view, stroke: 0.3 }
+    await el.updateComplete
+    await raf()
+    document.removeEventListener('viewport-change', onChange)
+    expect(svgOf(el).querySelector('g.pieces')?.getAttribute('stroke-width')).toBe('0.3')
+    expect(el.viewport?.cellPx).toBeCloseTo(before.cellPx, 6)
+    expect(el.viewport?.originX).toBeCloseTo(before.originX, 6)
+    expect(el.viewport?.originY).toBeCloseTo(before.originY, 6)
+    expect(seen.length).toBe(0)
   })
 
   test('a board minus one piece keeps the other nodes', async () => {

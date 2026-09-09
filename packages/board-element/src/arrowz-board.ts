@@ -29,18 +29,27 @@ export const WHEEL_RATE = 0.0015
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
+/** Field for field: the six numbers and the flag the consumer is told about. */
+function sameViewport(a: Viewport, b: Viewport): boolean {
+  return a.cellPx === b.cellPx && a.originX === b.originX && a.originY === b.originY &&
+    a.hostWidth === b.hostWidth && a.hostHeight === b.hostHeight && a.fitted === b.fitted
+}
+
 export class ArrowzBoard extends LitElement {
   static properties = {
     board: { attribute: false },
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
-    lang: { type: String },
+    // No accessor: the native HTMLElement.lang stays in force, so the property
+    // and the attribute never disagree (`:lang()`, hyphenation and assistive
+    // tech read the attribute). attributeChangedCallback below asks for the
+    // re-render that the missing accessor would have asked for.
+    lang: { type: String, noAccessor: true },
   }
 
   declare board: Board | null
   declare view: Partial<BoardView>
   declare interactive: boolean
-  declare lang: string
 
   static styles = css`
     :host {
@@ -115,7 +124,6 @@ export class ArrowzBoard extends LitElement {
     this.board = null
     this.view = {}
     this.interactive = false
-    this.lang = ''
     const svg = this.layer.svg
     svg.addEventListener('pointerdown', this.onPointerDown)
     svg.addEventListener('pointermove', this.onPointerMove)
@@ -125,6 +133,17 @@ export class ArrowzBoard extends LitElement {
     svg.addEventListener('wheel', this.onWheel, { passive: false })
     svg.addEventListener('dblclick', this.onDoubleClick)
     this.addEventListener('keydown', this.onKeyDown)
+  }
+
+  static override get observedAttributes(): string[] {
+    const base = super.observedAttributes
+    return base.includes('lang') ? [...base] : [...base, 'lang']
+  }
+
+  override attributeChangedCallback(name: string, old: string | null, value: string | null): void {
+    super.attributeChangedCallback(name, old, value)
+    // `lang` has no Lit accessor, so nothing else would schedule the update.
+    if (name === 'lang') this.requestUpdate('lang')
   }
 
   override connectedCallback(): void {
@@ -158,13 +177,15 @@ export class ArrowzBoard extends LitElement {
   }
 
   override updated(changed: PropertyValues<this>): void {
-    if (changed.has('board') || changed.has('view')) {
-      const previous = this.layer.board
-      this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view })
-      const sizeChanged = !previous || !this.board || previous.W !== this.board.W || previous.H !== this.board.H
-      if (sizeChanged) this.vp = null
-      this.syncViewport()
-    }
+    if (!changed.has('board') && !changed.has('view')) return
+    const previous = this.layer.board
+    this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view })
+    // A view change repaints the same cells: the viewport is the board's
+    // geometry against the host, and neither of those moved.
+    if (!changed.has('board')) return
+    const sizeChanged = !previous || !this.board || previous.W !== this.board.W || previous.H !== this.board.H
+    if (sizeChanged) this.vp = null
+    this.syncViewport()
   }
 
   // --- public API ------------------------------------------------------------
@@ -221,7 +242,11 @@ export class ArrowzBoard extends LitElement {
   }
 
   private setViewport(v: Viewport): void {
+    const previous = this.vp
     this.vp = v
+    // A resize that changes nothing (a repaint, a host size set to what it
+    // already was) must not repaint the attribute nor wake the consumer.
+    if (previous !== null && sameViewport(previous, v)) return
     this.layer.svg.setAttribute('viewBox', viewBox(v))
     if (this.changeQueued) return
     this.changeQueued = true
@@ -265,7 +290,11 @@ export class ArrowzBoard extends LitElement {
       // ignore
     }
     this.apply(this.gestures.down(this.sample(e)))
-    this.layer.svg.classList.toggle('panning', this.gestures.panning)
+    const panning = this.gestures.panning
+    // The pointer cursor of a piece under the press outranks the grab cursor,
+    // and a pan stops refreshing it, so it has to go before the pan starts.
+    if (panning) this.layer.svg.classList.remove('over-piece')
+    this.layer.svg.classList.toggle('panning', panning)
   }
 
   private readonly onPointerMove = (e: PointerEvent): void => {
