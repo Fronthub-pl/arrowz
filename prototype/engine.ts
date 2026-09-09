@@ -1645,7 +1645,11 @@ class Carver implements Board {
     if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     let scanMisses = 0
     while (this.remaining > 0) {
-      if (this.p.trace && this.pieces.length % 500 === 0 && performance.now() - lastLog > 250) {
+      // Progress every 500 pieces, and at least once a second regardless: in
+      // a thrash the piece count circles one value and may miss every
+      // multiple of 500 for minutes, which would silence the lab's progress
+      // and a time budget that aborts from this callback.
+      if (this.p.trace && performance.now() - lastLog > (this.pieces.length % 500 === 0 ? 250 : 1000)) {
         lastLog = performance.now()
         const info: TraceInfo = {
           pieces: this.pieces.length,
@@ -2597,6 +2601,19 @@ export class InvalidParamsError extends RangeError {
  * `violations` attached is thrown before any carving starts. `unchecked`
  * skips that check; it exists for engine-internal tests only.
  */
+/**
+ * Thrown from a `trace` callback to stop generate(): the attempt ends, the
+ * board carved so far comes back as a failed run (`aborted: true`) and no
+ * restart follows. The CLI uses it for a wall-clock budget; the engine
+ * itself never throws it.
+ */
+export class GenerateAbort extends Error {
+  constructor(message = 'generation aborted') {
+    super(message)
+    this.name = 'GenerateAbort'
+  }
+}
+
 export function generate(params: Params, { unchecked = false }: { unchecked?: boolean } = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
   if (!unchecked) {
@@ -2607,10 +2624,16 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
   let carver: Carver | null = null
   let ok = false
   let used = 0
-  for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
+  let aborted = false
+  for (let attempt = 0; attempt <= p.restarts && !ok && !aborted; attempt++) {
     used = attempt
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
-    ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
+    try {
+      ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
+    } catch (err) {
+      if (!(err instanceof GenerateAbort)) throw err
+      aborted = true
+    }
   }
   // restarts >= 0, so the loop ran at least once
   if (!carver) throw new Error('generate: no attempt ran')
@@ -2621,17 +2644,23 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
     board: carver,
     metrics,
     ok,
+    aborted,
     restartsUsed: used,
     backtracks: carver.backtracks,
     genMs,
     metricsMs: performance.now() - t1,
     // `heads` = legal heads at the moment of the smallest leftover: zero means
     // the geometry closed the board, more means the search gave up on them.
-    stuck: ok ? null : {
-      remaining: carver.stuckRemaining ?? carver.remaining,
-      sizes: carver.stuckSizes ?? [],
-      heads: carver.stuckHeads ?? null,
-    },
+    // An aborted attempt has no such moment: its leftover is what is free now.
+    stuck: ok
+      ? null
+      : aborted
+      ? { remaining: carver.remaining, sizes: carver.leftoverReport(), heads: carver.legalHeadCount() }
+      : {
+        remaining: carver.stuckRemaining ?? carver.remaining,
+        sizes: carver.stuckSizes ?? [],
+        heads: carver.stuckHeads ?? null,
+      },
   }
 }
 
