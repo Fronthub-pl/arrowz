@@ -154,7 +154,7 @@ export interface PieceShape {
 }
 
 export function pieceShape(piece: Piece, o: ShapeOptions): PieceShape
-export function voidStrips(board: Board): { x: number; y: number; w: number }[]  // in cells
+export function voidStrips(board: Board): { x: number; y: number; len: number }[]  // in cells
 ```
 
 `toSvg` calls `pieceShape` with its `cell`, `pad = cell` and the piece's
