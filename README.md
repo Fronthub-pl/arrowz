@@ -925,7 +925,16 @@ nothing was written.
 
 **`failed to close board …`** — the generator tried, backed up, restarted, and
 still could not fill the board. Almost always a setting marked **Careful:**
-above. Move it back towards its default, or try another seed.
+above. Move it back towards its default, or try another seed. The picture is
+in `prototype/boards/` all the same, uncovered squares tinted pink, so you can
+see where it got stuck.
+
+**One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
+the generator stops there, saving whatever it had drawn:
+
+```sh
+CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+```
 
 **The report takes forever** — `deno task carve --advanced` with nothing else
 walks every difficulty level up to 1000×1000, three times each. Add
