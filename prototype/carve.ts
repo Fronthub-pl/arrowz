@@ -1,6 +1,6 @@
 // THROWAWAY PROTOTYPE — CLI layer over the engine in engine.mjs.
-// Run: node prototype/carve.mjs --width=N --height=N [options]
-//      node prototype/carve.mjs --advanced [--<knob>=value ...] [mode]
+// Run: deno task carve --width=N --height=N [options]
+//      deno task carve --advanced [--<knob>=value ...] [mode]
 //
 // Simple mode (default): the inputs of the simple lab view — a size, the
 // sliders --length and --straight in 0..1, --skeleton, --seed, the view
@@ -20,7 +20,8 @@
 //   --help, -h      usage, one row per knob with its allowed range, the rules
 // Parameters outside the safe envelope (validateParams) are refused before
 // any generation, in every mode, with exit code 2.
-import { writeFileSync } from 'node:fs'
+import type { CarverStats, Metrics, Params, TraceInfo, Violation } from './types.ts'
+// @ts-types="./engine.d.ts"
 import {
   analyse,
   Carver,
@@ -33,38 +34,53 @@ import {
   toSvg,
   validateParams,
 } from './engine.mjs'
-import { boardId, buildCommand, buildSimpleCommand, helpText, parseArgs, parseSimpleArgs } from './command.ts'
+import {
+  boardId,
+  buildCommand,
+  buildSimpleCommand,
+  DEFAULT_VIEW,
+  helpText,
+  parseArgs,
+  parseSimpleArgs,
+} from './command.ts'
 import { simpleParams } from './lab-simple.ts'
-import { saveBoard } from './store.mjs'
+import { saveBoard } from './store.ts'
 
-// Trace and debug enter the engine as functions — the engine knows no `process`.
-const trace = process.env.CARVE_TRACE
-  ? (i) =>
+// The CLI is a program, not a module: nothing imports it (the tests spawn it).
+if (!import.meta.main) throw new Error('carve.ts is the CLI entry point; import command.ts or the engine instead')
+
+// Trace and debug enter the engine as functions — the engine knows no `Deno`.
+// Left undefined (not null) so they fit the optional hooks of Params.
+const trace = Deno.env.get('CARVE_TRACE')
+  ? (i: TraceInfo) =>
     console.error(
       `    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`,
     )
-  : null
-const debug = process.env.GIANT_DEBUG ? (msg) => console.error(msg) : null
+  : undefined
+const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) : undefined
+/** The hooks as they are spread into a parameter set: only the ones that are on. */
+const hooks: Pick<Params, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
 
 // --advanced selects the full knob set and every mode; the flag itself is not
 // a parameter, so it is taken off argv before the parser sees it. Without it
 // the simple parser runs, and the choice it reads becomes engine parameters
 // through the same function the lab uses (simpleParams).
-const argvIn = process.argv.slice(2)
+const argvIn = Deno.args
 const advanced = argvIn.includes('--advanced')
 const simple = advanced ? null : parseSimpleArgs(argvIn)
-const parsed = advanced ? parseArgs(argvIn.filter((a) => a !== '--advanced')) : simple
-const { view, rest } = parsed
+const adv = advanced ? parseArgs(argvIn.filter((a) => a !== '--advanced')) : null
+const view = (simple ?? adv)?.view ?? DEFAULT_VIEW // one of the two is always set
+const rest = (simple ?? adv)?.rest ?? []
 // Mode flags (not engine parameters) — read from what is left after the parser.
-const arg = (k, dflt) => {
+const arg = (k: string, dflt: number): number => {
   const hit = rest.find((a) => a.startsWith(`--${k}=`))
   return hit ? Number(hit.split('=')[1]) : dflt
 }
-const has = (flag) => rest.includes(`--${flag}`)
+const has = (flag: string): boolean => rest.includes(`--${flag}`)
 
 if (has('help') || rest.includes('-h')) {
   console.log(helpText({ advanced }))
-  process.exit(0)
+  Deno.exit(0)
 }
 
 // --- the safe envelope ------------------------------------------------------
@@ -74,26 +90,46 @@ if (has('help') || rest.includes('-h')) {
 // other mode explains on stderr. Exit code 2 = bad input, 1 = a board that
 // did not close.
 const dryRun = has('dry-run')
-function refuse(error, items, format) {
+function refuseErrors(error: string, items: readonly string[]): never {
   if (dryRun) {
-    console.log(JSON.stringify({ ok: false, error, [format ? 'violations' : 'errors']: items }))
+    console.log(JSON.stringify({ ok: false, error, errors: items }))
   } else {
     console.error(`${error}:`)
-    for (const it of items) console.error(`  - ${format ? format(it) : it}`)
-    console.error(format ? 'see --help for the allowed ranges' : 'see --help')
+    for (const it of items) console.error(`  - ${it}`)
+    console.error('see --help')
   }
-  process.exit(2)
+  Deno.exit(2)
+}
+function refuseViolations(items: readonly Violation[]): never {
+  const error = 'invalid parameters'
+  if (dryRun) {
+    console.log(JSON.stringify({ ok: false, error, violations: items }))
+  } else {
+    console.error(`${error}:`)
+    for (const it of items) console.error(`  - ${formatViolation(it)}`)
+    console.error('see --help for the allowed ranges')
+  }
+  Deno.exit(2)
 }
 // Simple mode: the flags themselves can be wrong (a missing size, a slider
 // outside 0..1, an advanced flag without --advanced). Checked before any
 // knob exists. --randomized draws like the lab: Math.random, not reproducible;
 // the meta keeps the full command, which is.
-if (simple?.errors.length) refuse('invalid arguments', simple.errors)
-const params = advanced ? parsed.params : simpleParams(simple.choice, simple.choice.random ? Math.random : null)
-const simpleCommand = advanced ? null : buildSimpleCommand(simple.choice, view)
-function refuseInvalid(params) {
+let params: Params
+let simpleCommand: string | null
+if (adv) {
+  params = adv.params
+  simpleCommand = null
+} else if (simple) {
+  if (simple.errors.length) refuseErrors('invalid arguments', simple.errors)
+  params = simpleParams(simple.choice, simple.choice.random ? Math.random : null)
+  simpleCommand = buildSimpleCommand(simple.choice, view)
+} else {
+  throw new Error('unreachable: neither parser ran')
+}
+function refuseInvalid(params: Params): void {
   const violations = validateParams(params)
-  if (violations.length) refuse('invalid parameters', violations, formatViolation)
+  if (violations.length) refuseViolations(violations)
 }
 refuseInvalid(params)
 
@@ -106,8 +142,10 @@ refuseInvalid(params)
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
 if (!advanced || svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
-  const result = generate({ ...params, trace, debug })
+  const result = generate({ ...params, ...hooks })
   if (!result.ok) {
+    const stuck = result.stuck
+    if (!stuck) throw new Error('unreachable: not ok without stuck')
     if (dryRun) {
       console.log(
         JSON.stringify({
@@ -117,20 +155,22 @@ if (!advanced || svgFlag || dryRun) {
           seed: params.seed,
           id: boardId(params),
           ok: false,
-          stuck: result.stuck,
+          stuck,
           restarts: result.restartsUsed,
           genMs: result.genMs,
         }),
       )
     }
     console.error(
-      `failed to close board ${params.W}x${params.H} (seed ${params.seed}): ${result.stuck.remaining} cells left, ${
-        result.stuck.heads ?? '?'
+      `failed to close board ${params.W}x${params.H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
+        stuck.heads ?? '?'
       } legal heads at the best moment`,
     )
-    process.exit(1)
+    Deno.exit(1)
   }
-  const c = result.board, m = result.metrics, W = params.W, H = params.H
+  const c = result.board, W = params.W, H = params.H
+  const m = result.metrics
+  if (!m) throw new Error('unreachable: ok without metrics')
   const svg = toSvg(c, {
     cell: view.cell,
     colored: view.colored,
@@ -141,7 +181,7 @@ if (!advanced || svgFlag || dryRun) {
   })
   // The full command reproduces the board in every case; the simple command
   // (simple mode only) records what was asked for.
-  const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : null) }
+  const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }
   if (dryRun) {
     console.log(JSON.stringify({
       dryRun: true,
@@ -164,10 +204,10 @@ if (!advanced || svgFlag || dryRun) {
       restarts: result.restartsUsed,
       genMs: Math.round(result.genMs),
       metricsMs: Math.round(result.metricsMs),
-      svgBytes: Buffer.byteLength(svg),
+      svgBytes: new TextEncoder().encode(svg).byteLength,
       fingerprint: fingerprint(c),
     }))
-    process.exit(0)
+    Deno.exit(0)
   }
   const meta = saveBoard({
     svg,
@@ -177,7 +217,7 @@ if (!advanced || svgFlag || dryRun) {
     source: 'cli',
     metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
   })
-  if (svgOut) writeFileSync(svgOut, svg)
+  if (svgOut) Deno.writeTextFileSync(svgOut, svg)
   if (view.top > 0) {
     // Longest-piece stats: the span (how many columns and rows it crosses)
     // tells whether a piece crosses the board or coils in one region.
@@ -185,7 +225,7 @@ if (!advanced || svgFlag || dryRun) {
     console.log(`  ${view.top} longest pieces:`)
     for (const pc of longest) {
       let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-      const cols = new Set(), rows = new Set()
+      const cols = new Set<number>(), rows = new Set<number>()
       for (const q of pc.cells) {
         if (q.x < minX) minX = q.x
         if (q.x > maxX) maxX = q.x
@@ -196,17 +236,17 @@ if (!advanced || svgFlag || dryRun) {
       }
       const spanX = maxX - minX + 1, spanY = maxY - minY + 1
       const own = new Set(pc.cells.map((q) => q.y * W + q.x))
-      let coiled = 0, bends = 0, prev = null
-      for (let i = 0; i < pc.cells.length; i++) {
-        const q = pc.cells[i]
+      let coiled = 0, bends = 0, prev: { dx: number; dy: number } | null = null
+      for (const [i, q] of pc.cells.entries()) {
         let n = 0
         for (const { dx, dy } of DIRS) {
           const ax = q.x + dx, ay = q.y + dy
           if (ax >= 0 && ay >= 0 && ax < W && ay < H && own.has(ay * W + ax)) n++
         }
         if (n >= 3) coiled++
-        if (i > 0) {
-          const dx = q.x - pc.cells[i - 1].x, dy = q.y - pc.cells[i - 1].y
+        const before = pc.cells[i - 1]
+        if (before) {
+          const dx = q.x - before.x, dy = q.y - before.y
           if (prev && (dx !== prev.dx || dy !== prev.dy)) bends++
           prev = { dx, dy }
         }
@@ -231,7 +271,7 @@ if (!advanced || svgFlag || dryRun) {
       (100 * m.coil).toFixed(0)
     }% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`,
   )
-  process.exit(0)
+  Deno.exit(0)
 }
 
 // --- levels for the report and benchmark modes -----------------------------
@@ -240,15 +280,14 @@ if (!advanced || svgFlag || dryRun) {
 // Insane is the project ceiling: a million cells, ~10 s per run. It exists
 // only as a square (the third field), like the game's Insane level — a
 // 1000×2000 portrait would double the time for no new information.
-const BASE = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], ['Extreme', 200], [
-  'Insane',
-  1000,
-  'square',
-]]
+const BASE: [string, number, 'square'?][] = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], [
+  'Extreme',
+  200,
+], ['Insane', 1000, 'square']]
 // Intermediate scale — for finding the limit of closability.
 const midArg = arg('mid', 0)
 if (midArg) BASE.push(['Mid', midArg])
-const FORMATS = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
+const FORMATS: [string, number][] = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
 const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]
 const presets = BASE.flatMap(([name, n, squareOnly]) =>
   FORMATS.filter(([, r]) => !squareOnly || r === 1).map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r }))
@@ -258,16 +297,23 @@ const presets = BASE.flatMap(([name, n, squareOnly]) =>
 // (only --mid can put one outside 4..1000). Checked before the first run.
 for (const pre of presets) refuseInvalid({ ...params, W: pre.W, H: pre.H })
 
+/** An element of a sorted sample; the sample is never empty where this is read. */
+function at(arr: readonly number[], i: number): number {
+  const v = arr[i]
+  if (v === undefined) throw new Error(`no sample at ${i}`)
+  return v
+}
+
 const runs = arg('runs', 3)
 const show = has('show')
 const bench = arg('bench', 0)
 if (bench > 0) {
   console.log(`BENCHMARK — ${bench} runs per level\n`)
   for (const pre of presets) {
-    const times = [], backs = [], lens = [], maxLens = []
+    const times: number[] = [], backs: number[] = [], lens: number[] = [], maxLens: number[] = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
-      const run = { ...params, W: pre.W, H: pre.H, trace, debug }
+      const run: Params = { ...params, W: pre.W, H: pre.H, ...hooks }
       const t0 = performance.now()
       const seed = 50000 + r
       let c = new Carver(pre.W, pre.H, run, mulberry32(seed))
@@ -286,35 +332,43 @@ if (bench > 0) {
       backs.push(c.backtracks)
       restartsTotal += rs
       lens.push(c.pieces.reduce((a, x) => a + x.cells.length, 0) / c.pieces.length)
-      maxLens.push(Math.max(...c.pieces.map((x) => x.cells.length)))
+      // A loop, not Math.max(...): the spread would grow with the piece count.
+      let max = 0
+      for (const x of c.pieces) if (x.cells.length > max) max = x.cells.length
+      maxLens.push(max)
     }
     times.sort((a, b) => a - b)
     backs.sort((a, b) => a - b)
-    const q = (arr, pp) => arr[Math.min(arr.length - 1, Math.floor(arr.length * pp))]
-    const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length
+    const q = (arr: readonly number[], pp: number) => at(arr, Math.min(arr.length - 1, Math.floor(arr.length * pp)))
+    const mean = (a: readonly number[]) => a.reduce((x, y) => x + y, 0) / a.length
     console.log(`--- ${pre.name} ${pre.W}x${pre.H} ---`)
     console.log(
       `  time [ms]   p50 ${q(times, 0.5).toFixed(0)}   p90 ${q(times, 0.9).toFixed(0)}   p99 ${
         q(times, 0.99).toFixed(0)
-      }   max ${times[times.length - 1].toFixed(0)}`,
+      }   max ${at(times, times.length - 1).toFixed(0)}`,
     )
     console.log(
       `  backtracks  p50 ${q(backs, 0.5)}   p90 ${q(backs, 0.9)}   p99 ${q(backs, 0.99)}   max ${
-        backs[backs.length - 1]
+        at(backs, backs.length - 1)
       }`,
     )
     console.log(`  length      mean ${mean(lens).toFixed(2)}   maximum (mean) ${mean(maxLens).toFixed(0)}`)
     console.log(`  robustness  restarts ${restartsTotal}   failures ${fails}/${bench}\n`)
   }
-  process.exit(0)
+  Deno.exit(0)
 }
+
+/** One closed run of the report: the metrics plus timing and carver diagnostics. */
+type MetricsRun = Metrics & { tGen: number; tAna: number; backtracks: number; restarts: number; st: CarverStats }
+type FailedRun = { failed: true; restarts: number; remaining: number }
+
 console.log('PROTOTYPE — carving from a full board, minimum length 2\n')
 for (const pre of presets) {
-  const acc = []
+  const acc: (MetricsRun | FailedRun)[] = []
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const run = { ...params, W: pre.W, H: pre.H, trace, debug }
+    const run: Params = { ...params, W: pre.W, H: pre.H, ...hooks }
     const t0 = performance.now()
     let c = new Carver(pre.W, pre.H, run, rng)
     let ok = c.run()
@@ -357,10 +411,11 @@ for (const pre of presets) {
     acc.push({ ...m, tGen, tAna, backtracks: c.backtracks, restarts, st: c.stats })
     if (show && r === 0 && pre.W <= 40) console.log(render(c) + '\n')
   }
-  const good = acc.filter((a) => !a.failed)
-  const avg = (f) => good.reduce((s, a) => s + f(a), 0) / good.length
+  const good = acc.filter((a): a is MetricsRun => !('failed' in a))
+  const avg = (f: (a: MetricsRun) => number) => good.reduce((s, a) => s + f(a), 0) / good.length
   console.log(`--- ${pre.name} ${pre.W}x${pre.H} (${runs} runs) ---`)
-  if (!good.length) {
+  const first = good[0]
+  if (!first) {
     console.log('  FAILED to close the board\n')
     continue
   }
@@ -374,7 +429,6 @@ for (const pre of presets) {
       avg((a) => a.maxLen).toFixed(0)
     }`,
   )
-  const h = good[0].hist
   console.log(
     `  length dist.  2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${
       (avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)
@@ -412,7 +466,7 @@ for (const pre of presets) {
     }% of length`,
   )
   console.log(`  backtracks    ${avg((a) => a.backtracks).toFixed(1)}   restarts: ${avg((a) => a.restarts).toFixed(1)}`)
-  const st = good[0].st
+  const st = first.st
   console.log(
     `  diagnostics   mean want ${(st.want / st.n).toFixed(1)} -> got ${(st.got / st.n).toFixed(1)}   stall ${
       (100 * st.stall / st.n).toFixed(0)
