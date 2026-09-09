@@ -38,6 +38,19 @@ export const DEFAULT_VIEW: BoardView = {
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
+export const EXIT_MS = 320
+export const SHAKE_MS = 230
+
+function reducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function at<T>(arr: ArrayLike<T>, i: number): T {
+  const v = arr[i]
+  if (v === undefined) throw new RangeError(`index ${i} out of ${arr.length}`)
+  return v
+}
+
 interface PieceNodes {
   piece: Piece
   line: SVGGElement
@@ -69,6 +82,8 @@ export class SvgLayer {
   private readonly topGroup: SVGGElement
   private readonly headsGroup: SVGGElement
   private nodes = new Map<number, PieceNodes>()
+  private running = new Map<number, Animation[]>()
+  private exiting = new Set<number>()
   private current: Board | null = null
   private view: BoardView = DEFAULT_VIEW
 
@@ -104,8 +119,76 @@ export class SvgLayer {
     return n ? { line: n.line, head: n.head } : null
   }
 
-  isExiting(_id: number): boolean {
-    return false
+  isExiting(id: number): boolean {
+    return this.exiting.has(id)
+  }
+
+  /**
+   * Slides the piece off the board along `dir` while fading, then removes
+   * its nodes. The distance is what it takes to clear the board edge from the
+   * head plus the piece's own length, so no tail is left behind. On SVG
+   * elements a CSS px in translate() is one user unit, that is one cell.
+   */
+  animateExit(id: number, dir: number): Promise<void> {
+    const n = this.nodes.get(id)
+    const board = this.current
+    if (!n || !board) return Promise.resolve()
+    this.cancelRunning(id)
+    this.exiting.add(id)
+    const { dx, dy } = at(DIRS, dir)
+    const head = at(n.piece.cells, 0)
+    const toEdge = dx > 0 ? board.W - head.x : dx < 0 ? head.x + 1 : dy > 0 ? board.H - head.y : head.y + 1
+    const distance = toEdge + n.piece.cells.length + 1
+    const keyframes: Keyframe[] = [
+      { transform: 'translate(0px, 0px)', opacity: 1 },
+      { transform: `translate(${dx * distance}px, ${dy * distance}px)`, opacity: 0 },
+    ]
+    const duration = reducedMotion() ? 0 : EXIT_MS
+    const anims = [n.line, n.head].map((el) => el.animate(keyframes, { duration, easing: 'ease-in', fill: 'forwards' }))
+    this.running.set(id, anims)
+    return this.settle(id, anims).then((finished) => {
+      if (!finished) return
+      n.line.remove()
+      n.head.remove()
+      this.nodes.delete(id)
+    }).finally(() => {
+      this.exiting.delete(id)
+    })
+  }
+
+  /** Nudges the piece `distance` cells along its own direction and back. */
+  shake(id: number, distance: number): Promise<void> {
+    const n = this.nodes.get(id)
+    if (!n) return Promise.resolve()
+    this.cancelRunning(id)
+    const { dx, dy } = at(DIRS, n.piece.dir)
+    const keyframes: Keyframe[] = [
+      { transform: 'translate(0px, 0px)', offset: 0 },
+      { transform: `translate(${dx * distance}px, ${dy * distance}px)`, offset: 0.4, easing: 'ease-out' },
+      { transform: 'translate(0px, 0px)', offset: 1 },
+    ]
+    const duration = reducedMotion() ? 0 : SHAKE_MS
+    const anims = [n.line, n.head].map((el) => el.animate(keyframes, { duration, easing: 'ease-out' }))
+    this.running.set(id, anims)
+    return this.settle(id, anims).then(() => undefined)
+  }
+
+  /** Resolves true when every animation finished, false when one was cancelled. */
+  private settle(id: number, anims: Animation[]): Promise<boolean> {
+    return Promise.all(anims.map((a) => a.finished)).then(
+      () => {
+        if (this.running.get(id) === anims) this.running.delete(id)
+        return true
+      },
+      () => false,
+    )
+  }
+
+  private cancelRunning(id: number): void {
+    const anims = this.running.get(id)
+    if (!anims) return
+    this.running.delete(id)
+    for (const a of anims) a.cancel()
   }
 
   /**
@@ -137,6 +220,8 @@ export class SvgLayer {
     this.topGroup.replaceChildren()
     this.headsGroup.replaceChildren()
     this.voidsGroup.replaceChildren()
+    for (const id of [...this.running.keys()]) this.cancelRunning(id)
+    this.exiting.clear()
     this.nodes.clear()
   }
 
@@ -234,6 +319,7 @@ export class SvgLayer {
     for (const pc of board.pieces) next.set(pc.id, pc)
     for (const [id, n] of this.nodes) {
       if (next.get(id) !== n.piece) {
+        this.cancelRunning(id)
         n.line.remove()
         n.head.remove()
         this.nodes.delete(id)
@@ -284,6 +370,3 @@ function groupsFrom(parent: SVGGElement, from: number): Map<number, SVGGElement>
   }
   return found
 }
-
-// DIRS is used by the animations of the next task; keep the import live.
-export const DIRECTIONS = DIRS

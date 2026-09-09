@@ -130,3 +130,44 @@ describe('diff', () => {
     expect(layer.svg.querySelector('g.pieces')?.getAttribute('stroke-width')).toBe('0.3')
   })
 })
+
+describe('animations', () => {
+  test('animateExit removes the nodes when it resolves and marks the piece as exiting meanwhile', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = layer.animateExit(pc.id, pc.dir)
+    expect(layer.isExiting(pc.id)).toBe(true)
+    await p
+    expect(layer.hasPiece(pc.id)).toBe(false)
+    expect(layer.isExiting(pc.id)).toBe(false)
+    expect(layer.svg.querySelectorAll(`g[data-id="${pc.id}"]`).length).toBe(0)
+  })
+
+  test('shake resolves and keeps the piece', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    await layer.shake(pc.id, 0.3)
+    expect(layer.hasPiece(pc.id)).toBe(true)
+  })
+
+  test('unknown ids resolve without throwing', async () => {
+    layer.setBoard(board(), DEFAULT_VIEW)
+    await expect(layer.animateExit(999999, 0)).resolves.toBeUndefined()
+    await expect(layer.shake(999999, 1)).resolves.toBeUndefined()
+  })
+
+  test('a rebuild cancels a running animation and its promise still resolves', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = layer.animateExit(pc.id, pc.dir)
+    layer.setBoard(board(8), DEFAULT_VIEW)
+    await expect(p).resolves.toBeUndefined()
+    expect(layer.isExiting(pc.id)).toBe(false)
+  })
+})
