@@ -12,12 +12,29 @@
     "semiColons": false,
     "singleQuote": true,
     "lineWidth": 120,
-    "exclude": ["**/*.md", "prototype/lab.html", "prototype/boards/", "prototype/dist/", "docs/"]
+    "exclude": [
+      "**/*.md",
+      "prototype/lab.html",
+      "prototype/boards/",
+      "prototype/dist/",
+      "docs/",
+      "node_modules/",
+      ".nx/",
+      "pnpm-lock.yaml"
+    ]
   },
   "lint": {
     "rules": { "tags": ["recommended"], "include": ["no-explicit-any", "no-non-null-assertion"] }
   },
-  "exclude": ["docs/", "prototype/boards/", "prototype/dist/", ".claude/", ".mcp.json"],
+  "exclude": [
+    "docs/",
+    "prototype/boards/",
+    "prototype/dist/",
+    ".claude/",
+    ".mcp.json",
+    "node_modules/",
+    ".nx/"
+  ],
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net prototype/",
     "check": "deno check prototype/*.ts",
