@@ -244,6 +244,10 @@ reducer removes pieces by filtering the array, so its next board reuses every
 remaining piece object and the update costs one pass over ids; a fresh board
 of the same size from the lab has new objects and rebuilds, as it should.
 
+In the diagnostic modes (`colored` or `top > 0`) a board change always
+rebuilds, because the hues and the highlighted set depend on the whole piece
+list, not on one piece.
+
 Changing `view` rebuilds the layer (stroke and heads change every path).
 Changing `interactive` or `lang` touches only the chrome and the cursor.
 
@@ -354,8 +358,10 @@ A `ResizeObserver` on the host feeds `resize`; until the host has a size, no
 
 ## 9. Animations (`svg-layer.ts`)
 
-Web Animations API on the two `<g data-id>` nodes of a piece, in world
-units through the `transform` attribute (`translate(dx, dy)` in cells).
+Web Animations API on the two `<g data-id>` nodes of a piece, through the
+CSS `transform` property. On SVG elements a CSS `px` in `translate()` is one
+user unit, so `translate(3px, 0)` moves a piece three cells regardless of the
+zoom.
 
 | Effect | Motion | Duration |
 |---|---|---|
