@@ -162,10 +162,14 @@ export class SvgLayer {
     // Highlighted pieces are thicker, as in toSvg: 1.15x in monochrome, 1.5x in colour.
     const hiWidth = Number((v.stroke * (v.colored ? 1.5 : 1.15)).toFixed(2))
     this.topGroup.setAttribute('stroke-width', String(hiWidth))
+    // The group carries the highlight too, so a theme with highlight === ink
+    // (where markup() emits no per-piece stroke) still draws the top pieces.
+    this.topGroup.setAttribute('stroke', v.highlight)
     this.headsGroup.setAttribute('fill', v.ink)
-    const longest = new Set(
-      [...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, v.top).map((p) => p.id),
-    )
+    // Sorting the pieces is only worth it when some of them go on top.
+    const longest = v.top > 0
+      ? new Set([...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, v.top).map((p) => p.id))
+      : new Set<number>()
     const lines: string[] = []
     const tops: string[] = []
     const heads: string[] = []
@@ -235,18 +239,50 @@ export class SvgLayer {
         this.nodes.delete(id)
       }
     }
+    const added: Piece[] = []
+    const lines: string[] = []
+    const heads: string[] = []
     for (const pc of board.pieces) {
       if (this.nodes.has(pc.id)) continue
       const [line, head] = this.markup(pc, this.view.stroke, null)
-      this.piecesGroup.insertAdjacentHTML('beforeend', line)
-      this.headsGroup.insertAdjacentHTML('beforeend', head)
-      const lineEl = this.piecesGroup.lastElementChild
-      const headEl = this.headsGroup.lastElementChild
-      if (lineEl instanceof SVGGElement && headEl instanceof SVGGElement) {
-        this.nodes.set(pc.id, { piece: pc, line: lineEl, head: headEl })
-      }
+      added.push(pc)
+      lines.push(line)
+      heads.push(head)
+    }
+    if (added.length === 0) return
+    // One fragment parse per group, not per piece: a reseed of the same size
+    // replaces every piece, and 2N parses would cost more than a rebuild.
+    const lineFrom = this.piecesGroup.children.length
+    const headFrom = this.headsGroup.children.length
+    this.piecesGroup.insertAdjacentHTML('beforeend', lines.join(''))
+    this.headsGroup.insertAdjacentHTML('beforeend', heads.join(''))
+    this.link(added, lineFrom, headFrom)
+  }
+
+  /** Registers the groups just appended, pairing line and head by their id. */
+  private link(added: Piece[], lineFrom: number, headFrom: number): void {
+    const lines = groupsFrom(this.piecesGroup, lineFrom)
+    const heads = groupsFrom(this.headsGroup, headFrom)
+    for (const pc of added) {
+      const line = lines.get(pc.id)
+      const head = heads.get(pc.id)
+      // Both nodes come from markup() in the same pass, so a miss would mean
+      // the fragment parser dropped one: loud, because a stray node would
+      // stay on the board with nothing able to reach it.
+      if (!line || !head) throw new Error(`svg-layer: piece ${pc.id} lost its ${line ? 'head' : 'line'} node`)
+      this.nodes.set(pc.id, { piece: pc, line, head })
     }
   }
+}
+
+/** The `<g data-id>` children of a group from `from` on, by piece id. */
+function groupsFrom(parent: SVGGElement, from: number): Map<number, SVGGElement> {
+  const found = new Map<number, SVGGElement>()
+  for (let i = from; i < parent.children.length; i++) {
+    const child = parent.children[i]
+    if (child instanceof SVGGElement) found.set(Number(child.dataset.id), child)
+  }
+  return found
 }
 
 // DIRS is used by the animations of the next task; keep the import live.

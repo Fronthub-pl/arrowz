@@ -99,7 +99,7 @@ describe('diff', () => {
     expect(layer.nodesOf(kept.id)?.line).toBe(keptNode) // the same DOM node
   })
 
-  test('a fresh board of the same size with new piece objects rebuilds', () => {
+  test('a same-size reseed replaces every node through the diff path', () => {
     const a = board(7)
     layer.setBoard(a, DEFAULT_VIEW)
     const first = a.pieces[0]
@@ -109,6 +109,14 @@ describe('diff', () => {
     layer.setBoard(b, DEFAULT_VIEW)
     expect(layer.pieceCount).toBe(b.pieces.length)
     expect(layer.nodesOf(first.id)?.line).not.toBe(node)
+  })
+
+  test('a same-size reseed leaves no duplicate nodes behind', () => {
+    layer.setBoard(board(7), DEFAULT_VIEW)
+    const b = board(8)
+    layer.setBoard(b, DEFAULT_VIEW)
+    expect(layer.svg.querySelectorAll('g.pieces > g[data-id]').length).toBe(b.pieces.length)
+    expect(layer.svg.querySelectorAll('g.heads > g[data-id]').length).toBe(b.pieces.length)
   })
 
   test('a changed view rebuilds every node', () => {
