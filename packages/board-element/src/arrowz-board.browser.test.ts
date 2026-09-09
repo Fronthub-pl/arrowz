@@ -243,6 +243,10 @@ describe('effects and labels', () => {
     await el.updateComplete
     expect(el.lang).toBe('en')
     expect(el.shadowRoot?.querySelector('button')?.getAttribute('title')).toBe('Zoom in')
+    el.removeAttribute('lang')
+    await el.updateComplete
+    expect(el.hasAttribute('lang')).toBe(false)
+    expect(el.shadowRoot?.querySelector('button')?.getAttribute('title')).toBe('Zoom in')
   })
 
   test('a view change repaints the pieces and leaves the viewport alone', async () => {

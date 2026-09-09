@@ -141,9 +141,15 @@ export class ArrowzBoard extends LitElement {
   }
 
   override attributeChangedCallback(name: string, old: string | null, value: string | null): void {
-    super.attributeChangedCallback(name, old, value)
     // `lang` has no Lit accessor, so nothing else would schedule the update.
-    if (name === 'lang') this.requestUpdate('lang')
+    // Lit is not told about it either: its write-back of the converted value
+    // is pure churn on top of the native accessor, and on a removal it would
+    // hand the non-nullable HTMLElement.lang a null, which becomes "null".
+    if (name === 'lang') {
+      this.requestUpdate('lang')
+      return
+    }
+    super.attributeChangedCallback(name, old, value)
   }
 
   override connectedCallback(): void {
