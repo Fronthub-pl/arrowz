@@ -563,11 +563,18 @@ Kliknij grupę, żeby ją rozwinąć.
 <details>
 <summary><b>Plansza</b> — 3 pokrętła</summary>
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--w` | 4–1000 | 25 | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu przy 1000×1000. |
-| `--h` | 4–1000 | 50 | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
-| `--seed` | 0–999999 | 7 | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
+**`--w`** — zakres 4–1000, domyślnie 25
+
+Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu przy 1000×1000.
+
+**`--h`** — zakres 4–1000, domyślnie 50
+
+Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej
+liczbie kwadratów.
+
+**`--seed`** — zakres 0–999999, domyślnie 7
+
+Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza.
 
 </details>
 
@@ -578,11 +585,21 @@ Przed narysowaniem każdej strzałki generator rzuca trójścienną kostką, że
 wybrać docelową długość: krótka (2–6 kwadratów), średnia (7–15) albo długa (16
 wzwyż). Te pokrętła obciążają kostkę. Długie dostają to, co zostanie.
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--wshort` | 0–1 | 0.2 | Udział krótkich strzałek. Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. |
-| `--wmid` | 0–1 | 0.08 | Udział średnich strzałek. |
-| `--lmax` | 0–5000 | 0 | Najdłuższa strzałka, o jaką generator będzie się starał. 0 znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy i generator się zacina — utyka, bo nie zostaje mu ani jedna dozwolona strzałka do narysowania. Używaj 0 albo 6 wzwyż. |
+**`--wshort`** — zakres 0–1, domyślnie 0.2
+
+Udział krótkich strzałek. Im wyżej, tym więcej strzałek i grotów, ale plansza
+zmienia się w sieczkę z haczyków.
+
+**`--wmid`** — zakres 0–1, domyślnie 0.08
+
+Udział średnich strzałek.
+
+**`--lmax`** — zakres 0–5000, domyślnie 0
+
+Najdłuższa strzałka, o jaką generator będzie się starał. 0 znaczy „dwa i pół
+długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy
+i generator się zacina — utyka, bo nie zostaje mu ani jedna dozwolona strzałka
+do narysowania. Używaj 0 albo 6 wzwyż.
 
 </details>
 
@@ -593,14 +610,40 @@ Za każdym razem, gdy linia rośnie o jeden kwadrat, te pokrętła rywalizują o
 który sąsiedni kwadrat weźmie. Ich wartości są mnożone przez siebie, więc jedna
 skrajna wartość zagłusza resztę.
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--pstraight` | 0.6–1 | 0.85 | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** to jedyne pokrętło, które samo potrafi wszystko zepsuć. Poniżej 0,6 duże plansze przestają działać; dokładnie przy 0,6 plansze powyżej 500×500 czasem się zacinają. 0,65 jest bezpieczne. |
-| `--wlateral` | 0–20 | 3 | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
-| `--warns` | 2–16 | 4 | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** poniżej 2 reguła się wyłącza i plansze się zacinają. |
-| `--anticoil` | 1–10 | 6 | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** przy 10 i `--pstraight` na poziomie 0,45 lub niżej generator zacina się cztery razy na pięć. |
-| `--hug` | 1–20 | 1 | Premia za prowadzenie linii wzdłuż już narysowanych strzałek. Ledwo widoczna; zostawiona do eksperymentów. |
-| `--edgehug` | 0–4 | 0 | Czy krawędź planszy liczy się do tej premii jak sąsiad. Nic nie robi, dopóki `--hug` nie przekracza 1. |
+**`--pstraight`** — zakres 0.6–1, domyślnie 0.85
+
+Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki.
+**Uwaga:** to jedyne pokrętło, które samo potrafi wszystko zepsuć. Poniżej 0,6
+duże plansze przestają działać; dokładnie przy 0,6 plansze powyżej 500×500
+czasem się zacinają. 0,65 jest bezpieczne.
+
+**`--wlateral`** — zakres 0–20, domyślnie 3
+
+O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0
+daje długie proste pchnięcia i od czasu do czasu ogromne spirale.
+
+**`--warns`** — zakres 2–16, domyślnie 4
+
+Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe
+uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych.
+**Uwaga:** poniżej 2 reguła się wyłącza i plansze się zacinają.
+
+**`--anticoil`** — zakres 1–10, domyślnie 6
+
+Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im
+wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** przy 10 i
+`--pstraight` na poziomie 0,45 lub niżej generator zacina się cztery razy na
+pięć.
+
+**`--hug`** — zakres 1–20, domyślnie 1
+
+Premia za prowadzenie linii wzdłuż już narysowanych strzałek. Ledwo widoczna;
+zostawiona do eksperymentów.
+
+**`--edgehug`** — zakres 0–4, domyślnie 0
+
+Czy krawędź planszy liczy się do tej premii jak sąsiad. Nic nie robi, dopóki
+`--hug` nie przekracza 1.
 
 </details>
 
@@ -610,12 +653,29 @@ skrajna wartość zagłusza resztę.
 Te zmieniają to, kto kogo blokuje — czyli trudność — nie zmieniając zbytnio
 tego, jak plansza wygląda.
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--headbias` | `-1`, `0` albo `1` | 0 | Gdzie zaczyna się każda nowa strzałka. `-1` obiera planszę warstwami od zewnątrz (łatwo: wiele strzałek wolnych naraz). 0 zaczyna gdziekolwiek. 1 drąży tunele w głąb od najgłębszego punktu (trudno: mało wolnych strzałek naraz). **Uwaga:** tryb warstw jest wolny — 400×400 zajęło dwie i pół minuty, a 1000×1000 przerwano po dziesięciu. |
-| `--mix` | `-1`, albo 0.3–0.7 | -1 | Miesza oba powyższe style. Wartość to udział strzałek zaczynanych jako tunele; reszta zaczyna się jako warstwy. `-1` wyłącza mieszanie. **Uwaga:** wartości spoza 0,3–0,7 zostawiają plansze niedokończone. |
-| `--probe` | 0–1 | 0 | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast ze zwykłej kostki. |
-| `--probelen` | 2–200 | 12 | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
+**`--headbias`** — zakres `-1`, `0` albo `1`, domyślnie 0
+
+Gdzie zaczyna się każda nowa strzałka. `-1` obiera planszę warstwami od
+zewnątrz (łatwo: wiele strzałek wolnych naraz). 0 zaczyna gdziekolwiek. 1 drąży
+tunele w głąb od najgłębszego punktu (trudno: mało wolnych strzałek naraz).
+**Uwaga:** tryb warstw jest wolny — 400×400 zajęło dwie i pół minuty, a
+1000×1000 przerwano po dziesięciu.
+
+**`--mix`** — zakres `-1`, albo 0.3–0.7, domyślnie `-1`
+
+Miesza oba powyższe style. Wartość to udział strzałek zaczynanych jako tunele;
+reszta zaczyna się jako warstwy. `-1` wyłącza mieszanie. **Uwaga:** wartości
+spoza 0,3–0,7 zostawiają plansze niedokończone.
+
+**`--probe`** — zakres 0–1, domyślnie 0
+
+Udział strzałek, których długość losuje się wokół jednej ustalonej wartości
+zamiast ze zwykłej kostki.
+
+**`--probelen`** — zakres 2–200, domyślnie 12
+
+Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje
+kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0.
 
 </details>
 
@@ -626,18 +686,57 @@ Włączany przez `--skeleton` w trybie zwykłym. Pierwsze kilka strzałek jest
 rysowanych jako długie zygzakujące autostrady przez całą planszę, a reszta
 wypełnia się wokół nich.
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--giants` | 0–40 | 0 | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
-| `--giantspan` | 0–200 | 30 | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
-| `--giantstep` | 0–40 | 14 | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad, a 0 pozwala jej błądzić swobodnie. |
-| `--giantjitter` | 0–1 | 0.6 | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
-| `--wgiant` | 0–0.2 | 0 | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej 0,2 plansze robią się wolne i przestają się kończyć przy 1000×1000. |
-| `--giantstraight` | 0.3–1 | 0.94 | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej 0,3 plansze przestają się kończyć. |
-| `--giantwarns` | 0–16 | 0 | Reguła wypełniania zakamarków, tylko dla autostrad. Zostaw 0 — zwija je, a autostrada ma jechać daleko. |
-| `--giantanticoil` | 1–20 | 6 | Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch wartości: tej albo ogólnej. |
-| `--giantspacing` | 1–3 | 2 | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. Powyżej 3 tylko kosztuje czas. |
-| `--giantspacepenalty` | 1–40 | 8 | Jak mocno autostrada jest odpychana od samej siebie. Kara, nie zakaz, więc może zawracać. |
+**`--giants`** — zakres 0–40, domyślnie 0
+
+Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba
+o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne
+autostrady nie mają się już gdzie zmieścić.
+
+**`--giantspan`** — zakres 0–200, domyślnie 30
+
+Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku
+planszy. Kończy wcześniej, gdy zabraknie miejsca.
+
+**`--giantstep`** — zakres 0–40, domyślnie 14
+
+Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w
+zeszycie w linie, duży — kilka szerokich autostrad, a 0 pozwala jej błądzić
+swobodnie.
+
+**`--giantjitter`** — zakres 0–1, domyślnie 0.6
+
+Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej
+przeszkody. 0 daje idealnie proste, regularne brzegi.
+
+**`--wgiant`** — zakres 0–0.2, domyślnie 0
+
+Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej
+0,2 plansze robią się wolne i przestają się kończyć przy 1000×1000.
+
+**`--giantstraight`** — zakres 0.3–1, domyślnie 0.94
+
+Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej
+0,3 plansze przestają się kończyć.
+
+**`--giantwarns`** — zakres 0–16, domyślnie 0
+
+Reguła wypełniania zakamarków, tylko dla autostrad. Zostaw 0 — zwija je, a
+autostrada ma jechać daleko.
+
+**`--giantanticoil`** — zakres 1–20, domyślnie 6
+
+Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch
+wartości: tej albo ogólnej.
+
+**`--giantspacing`** — zakres 1–3, domyślnie 2
+
+Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. Powyżej
+3 tylko kosztuje czas.
+
+**`--giantspacepenalty`** — zakres 1–40, domyślnie 8
+
+Jak mocno autostrada jest odpychana od samej siebie. Kara, nie zakaz, więc może
+zawracać.
 
 </details>
 
@@ -648,13 +747,33 @@ Co generator robi, gdy nie umie już znaleźć dozwolonej strzałki do narysowan
 Ustawienia domyślne radzą sobie z planszami do 400×400; te pokrętła są do
 eksperymentów.
 
-| Opcja | Zakres | Domyślnie | Co robi |
-|---|---|---|---|
-| `--headtries` | 2–16 | 4 | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1 poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
-| `--strandlimit` | 10–30 | 30 | Największa resztka, którą jeszcze porządnie się sprawdza pod kątem tego, czy zmieści się w niej strzałka. **Uwaga:** poniżej 10 na dużych planszach prześlizgują się dziury po dziesięć kwadratów. |
-| `--absorblimit` | 12–64 | 24 | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** przy dolnym krańcu zakresu, poniżej 13, resztki się piętrzą i plansze psują się dużo częściej. |
-| `--maxback` | 0–1000, co 50 | 0 (= 200) | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. Więcej rzadko cokolwiek ratuje; tylko odwleka złą wiadomość. |
-| `--restarts` | 0–5 | 3 | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
+**`--headtries`** — zakres 2–16, domyślnie 4
+
+Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1
+poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle
+wychodzi ta sama plansza co przy 4.
+
+**`--strandlimit`** — zakres 10–30, domyślnie 30
+
+Największa resztka, którą jeszcze porządnie się sprawdza pod kątem tego, czy
+zmieści się w niej strzałka. **Uwaga:** poniżej 10 na dużych planszach
+prześlizgują się dziury po dziesięć kwadratów.
+
+**`--absorblimit`** — zakres 12–64, domyślnie 24
+
+Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do
+sąsiedniej strzałki. **Uwaga:** przy dolnym krańcu zakresu, poniżej 13, resztki
+się piętrzą i plansze psują się dużo częściej.
+
+**`--maxback`** — zakres 0–1000, co 50, domyślnie 0 (= 200)
+
+Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od
+nowa. Więcej rzadko cokolwiek ratuje; tylko odwleka złą wiadomość.
+
+**`--restarts`** — zakres 0–5, domyślnie 3
+
+Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0
+pokazuje surową skuteczność twoich ustawień.
 
 </details>
 
