@@ -836,8 +836,11 @@ thresholds must be calibrated per format.
 (prototype round 8) the ceiling moved to **Insane: a million cells and ~86 000 pieces**,
 which closes with zero backtracks and passes the solver. In practice the board size is
 limited by nothing but legibility and generation time — and at Insane the time is no
-longer negligible: ~10 s in Node and ~27 s in a Chrome worker with the default knobs,
-minutes with piece start = layers or with a skeleton (see "Generation time distribution").
+longer negligible: ~10 s in Node and ~8–9 s in a Chrome worker with the default knobs
+when the tab is in front (about 4× longer when another window is in front: macOS
+demotes a backgrounded renderer to the efficiency cores, and the page still reports
+itself visible), ~20 s with piece start = layers and ~10 s with a skeleton (see
+"Generation time distribution").
 
 All four close 100% and pass the solver. `f0` arranges itself into a descending sequence
 without additional control — the board size alone suffices as a difficulty regulator, so
@@ -866,9 +869,11 @@ is what matters (30–100 seeds per row, weights as above):
 No generation failure has ever been recorded with the five allowed restarts. A tail on
 the order of half a second means that **a loading indicator is needed** (shown after
 ~200 ms). Up to Extreme, moving generation to a Web Worker is a convenience; **at Insane
-it is mandatory**: a single run takes ~10 s in Node and ~27 s in a Chrome worker, so the
-generator must run off the main thread, report progress and be abortable (the prototype
-lab already does all three). Piece start = layers (`headBias` -1) is the slow setting:
+it is mandatory**: a single run takes ~10 s in Node and ~8–9 s in a Chrome worker with
+the tab in front, and about 4× longer while the player looks at another window (the
+renderer is demoted by the OS, not throttled by the page, so the Page Visibility API
+does not see it), so the generator must run off the main thread, report progress and
+be abortable (the prototype lab already does all three). Piece start = layers (`headBias` -1) is the slow setting:
 at 400×400 it took 149 s instead of 1.4 s, 86% of it in the leftover-absorption path
 search, re-run from scratch for the same fragments before every backtrack. Memoising
 failed fragments (invalidated by per-cell change stamps) and an allocation-free search

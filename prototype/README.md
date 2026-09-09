@@ -44,8 +44,11 @@ A preset drop-down at the top is a tree: a difficulty level per group
 (`lab-presets.mjs`), a few options each — square, portrait, tunnels, skeleton;
 the huge level also has a winding skeleton (serpentine step 3, every run cut
 short, so no skeleton line goes wall to wall). The tree ends with Insane,
-1000×1000 — the project ceiling, square only (~10 s in Node, ~27 s in the
-browser worker; layers and skeleton modes take minutes there, see round 9).
+1000×1000 — the project ceiling, square only (~10 s in Node, ~8–9 s in the
+browser worker with the tab in front, and about 4× longer when another
+window is in front, because macOS demotes a backgrounded renderer to the
+efficiency cores — the page still reports itself visible; layers take ~20 s
+and a skeleton ~10 s there, see rounds 9 and 12).
 A preset is a full configuration (defaults plus its overrides), and the
 drop-down follows the knobs: change the width by hand and it goes blank.
 Every description is one or two plain sentences on what a knob does, which
