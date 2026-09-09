@@ -1,0 +1,18 @@
+{
+  "name": "@arrowz/engine",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./dist/mod.d.ts", "default": "./dist/mod.js" },
+    "./command": { "types": "./dist/command.d.ts", "default": "./dist/command.js" },
+    "./simple": { "types": "./dist/lab-simple.d.ts", "default": "./dist/lab-simple.js" },
+    "./presets": { "types": "./dist/lab-presets.d.ts", "default": "./dist/lab-presets.js" },
+    "./i18n": { "types": "./dist/lab-i18n.d.ts", "default": "./dist/lab-i18n.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "pnpm -w exec tsc -p packages/engine/tsconfig.build.json",
+    "smoke": "node scripts/node-smoke.mjs"
+  }
+}
