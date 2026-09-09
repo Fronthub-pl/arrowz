@@ -194,8 +194,10 @@ tekstowy, który go opisuje. Obrazek otworzy dowolna przeglądarka.
 
 ### Pięć rzeczy do wypróbowania
 
-Skopiuj którąkolwiek z nich. Każda zapisuje obrazek w `prototype/boards/`;
-dopisz `--dry-run`, żeby zobaczyć same liczby, bez tworzenia pliku.
+Skopiuj dowolne z tych poleceń. Każde zapisuje obrazek w `prototype/boards/`;
+dopisz `--dry-run` (opisane niżej), żeby zobaczyć same liczby bez tworzenia
+pliku. Każdą użytą tu flagę objaśnia sekcja
+[Ustawienia na co dzień](#ustawienia-na-co-dzień).
 
 ```sh
 # na tyle mała, że da się prześledzić okiem każdą strzałkę
@@ -504,7 +506,8 @@ Zmniejszenie `--length` naprawdę znaczy „podnieś udział krótkich strzałek
 obniż udział średnich” — dwa pokrętła naraz.
 
 Nie potrzebujesz tej sekcji, żeby używać narzędzia. Jest tu, bo pytanie „co to
-pokrętło właściwie robi” zasługuje na odpowiedź.
+pokrętło właściwie robi” zasługuje na odpowiedź. Te codzienne nazywam na tej
+stronie opcjami, a te wewnętrzne, które za nimi stoją — pokrętłami.
 
 ```sh
 deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
@@ -514,14 +517,12 @@ W trybie zaawansowanym zmieniają się dwie rzeczy. Szerokość i wysokość sta
 się `--w` i `--h`. I znikają codzienne opcje — ustawiasz sam pokrętła, które za
 nimi stoją.
 
-Wszystkie trzydzieści jeden pokręteł jest niżej, w grupach takich, jakich
-używa generator. Kliknij grupę, żeby ją rozwinąć.
+### Jak wygląda kilka z nich
 
-### Jak to wygląda
+Cztery pokrętła obok siebie, wszystkie na planszy 30×30 z ziarnem 7. Trzy z
+nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 
-Cztery pokrętła, których efekt widać, wszystkie na planszy 30×30 z ziarnem 7.
-
-**`--warns` — wypełnianie niewygodnych zakamarków**
+**`--warns` — najpierw niewygodne zakamarki**
 
 | `--warns=2` | `--warns=16` |
 |---|---|
@@ -535,7 +536,7 @@ Cztery pokrętła, których efekt widać, wszystkie na planszy 30×30 z ziarnem 
 | <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
 | 49 strzałek, średnio 18,4 kwadratu | 96 strzałek, średnio 9,4 kwadratu |
 
-**`--probe` — jedna docelowa długość dla prawie wszystkich strzałek**
+**`--probe` — jedna docelowa długość dla wszystkich strzałek**
 
 | `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
 |---|---|
@@ -547,15 +548,20 @@ Cztery pokrętła, których efekt widać, wszystkie na planszy 30×30 z ziarnem 
 | `--headbias=-1` (warstwy) | `--headbias=1` (tunele) |
 |---|---|
 | <img src="docs/images/adv-layers.png" width="300"> | <img src="docs/images/adv-tunnels.png" width="300"> |
-| 83 strzałki, **34%** z nich wolnych na starcie | 90 strzałek, wolnych tylko **6,7%** |
+| 83 strzałki, **34%** z nich wolnych na starcie | 90 strzałek, na starcie wolnych tylko **6,7%** |
 
 Dwa ostatnie obrazki są do siebie bardzo podobne i o to właśnie chodzi. To
-pokrętło ledwo dotyka rysunku; decyduje o tym, ile strzałek wolno ci w danej
-chwili stuknąć, a to właśnie czyni planszę łatwą albo trudną. Zostawione samo
-sobie (`--headbias=0`) daje wynik pośredni, 13%.
+pokrętło ledwo dotyka rysunku. Zmienia za to, ile strzałek jest wolnych w
+danej chwili, a to decyduje, czy plansza jest łatwa, czy trudna. Przy
+ustawieniu domyślnym (`--headbias=0`) plansza ląduje pośrodku: 13% wolnych.
+
+### Sześć grup
+
+Wszystkie trzydzieści jeden pokręteł, w grupach takich, jakich używa generator.
+Kliknij grupę, żeby ją rozwinąć.
 
 <details>
-<summary><b>Plansza</b> — 3 pokręteł</summary>
+<summary><b>Plansza</b> — 3 pokrętła</summary>
 
 | Opcja | Zakres | Domyślnie | Co robi |
 |---|---|---|---|
@@ -566,7 +572,7 @@ sobie (`--headbias=0`) daje wynik pośredni, 13%.
 </details>
 
 <details>
-<summary><b>Jak długie są strzałki</b> — 3 pokręteł</summary>
+<summary><b>Jak długie są strzałki</b> — 3 pokrętła</summary>
 
 Przed narysowaniem każdej strzałki generator rzuca trójścienną kostką, żeby
 wybrać docelową długość: krótka (2–6 kwadratów), średnia (7–15) albo długa (16
@@ -599,7 +605,7 @@ skrajna wartość zagłusza resztę.
 </details>
 
 <details>
-<summary><b>Jak trudna jest łamigłówka</b> — 4 pokręteł</summary>
+<summary><b>Jak trudna jest łamigłówka</b> — 4 pokrętła</summary>
 
 Te zmieniają to, kto kogo blokuje — czyli trudność — nie zmieniając zbytnio
 tego, jak plansza wygląda.
@@ -795,7 +801,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | **grot** | Ostry koniec strzałki. Pokazuje, w którą stronę strzałka jedzie. W kodzie *head*. |
 | **pas** | Prosty pasek kwadratów od grotu strzałki do krawędzi planszy. Jeśli jest wolny, strzałka może wyjechać. W kodzie *corridor*, korytarz. |
 | **wolna** | Strzałka z wolnym pasem, którą można zdjąć od razu. |
-| **ziarno** | Liczba, która decyduje, jaką planszę dostajesz. To samo ziarno i te same ustawienia, ta sama plansza. |
+| **ziarno** | Liczba, która decyduje, jaką planszę otrzymasz. To samo ziarno i te same ustawienia, ta sama plansza. |
 | **szkielet** | Kilka bardzo długich strzałek narysowanych na początku, przecinających całą planszę. W kodzie *giants* albo *skeleton*. |
 | **warstwy / tunele** | Dwa sposoby wyznaczania miejsca startu kolejnej strzałki. Warstwy obierają planszę od zewnątrz i ułatwiają grę; tunele drążą w głąb i utrudniają. |
 | **zacięcie** | Zapędzenie się generatora w kozi róg podczas budowania, tak że nie da się dołożyć żadnej dozwolonej strzałki. |

@@ -5,7 +5,7 @@
 Arrowz is a puzzle. You get a rectangle packed with arrows, and you have to
 clear it — one arrow at a time, in the right order. This repository holds the
 part that makes the puzzles: a **board generator**, plus a command-line tool
-and a small web page for driving it.
+and a small web page for using it.
 
 This page is written for someone who has never seen the project. No programming
 knowledge is assumed. If a word needs explaining, it is explained where it
@@ -195,10 +195,11 @@ small text file describing it. Open the picture in any browser.
 ### Five things to try
 
 Copy any of these. Each one writes a picture into `prototype/boards/`; add
-`--dry-run` to any of them to see the numbers without writing a file.
+`--dry-run` (explained below) to see the numbers without writing a file. Every
+flag used here is explained in [The everyday settings](#the-everyday-settings).
 
 ```sh
-# small enough to follow every arrow with your eye
+# small enough to follow every arrow by eye
 deno task carve --width=12 --height=12 --colorized
 
 # a dense field of tiny arrows
@@ -505,7 +506,8 @@ internal dials, and `--advanced` lets you reach them directly. Turning
 and lower the share of medium ones" — two dials at once.
 
 You do not need this section to use the tool. It is here because the question
-"what does this dial actually do" deserves an answer.
+"what does this dial actually do" deserves an answer. The everyday ones are
+called options on this page; the internal ones behind them are called dials.
 
 ```sh
 deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
@@ -514,12 +516,10 @@ deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
 Two things change in advanced mode. Width and height become `--w` and `--h`.
 And the everyday options are gone — you set the underlying dials yourself.
 
-All thirty-one dials are listed below, grouped the way the generator groups
-them. Click a group to open it.
-
 ### What some of these look like
 
-Four dials with an effect you can see, all on a 30×30 board with seed 7.
+Four dials side by side, all on a 30×30 board with seed 7. Three of them
+change the picture; the fourth changes something you cannot see.
 
 **`--warns` — filling awkward corners first**
 
@@ -535,7 +535,7 @@ Four dials with an effect you can see, all on a 30×30 board with seed 7.
 | <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
 | 49 arrows, average 18.4 squares | 96 arrows, average 9.4 squares |
 
-**`--probe` — one target length for nearly every arrow**
+**`--probe` — one target length for every arrow**
 
 | `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
 |---|---|
@@ -550,9 +550,14 @@ Four dials with an effect you can see, all on a 30×30 board with seed 7.
 | 83 arrows, **34%** of them free to leave at the start | 90 arrows, only **6.7%** free at the start |
 
 The last two pictures look much alike, and that is exactly the point. This
-dial barely touches the drawing; it decides how many arrows you can legally
-tap at any moment, which is what makes a board easy or hard. Left to itself
-(`--headbias=0`) the board sits between the two, at 13%.
+dial barely touches the drawing. What it changes is how many arrows are free
+at any moment, and that is what makes a board easy or hard. At the default
+(`--headbias=0`) the board sits between the two: 13% free.
+
+### The six groups
+
+All thirty-one dials, grouped the way the generator groups them. Click a group
+to open it.
 
 <details>
 <summary><b>Board</b> — 3 dials</summary>
@@ -590,7 +595,7 @@ drowns out the rest.
 | Option | Range | Default | What it does |
 |---|---|---|---|
 | `--pstraight` | 0.6–1 | 0.85 | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** this is the one dial that can break things on its own. Below 0.6 large boards stop working; at exactly 0.6, boards above 500×500 sometimes jam. 0.65 is safe. |
-| `--wlateral` | 0–20 | 3 | How much a line prefers turning sideways over pushing deeper into open space. 0 gives straight thrusts and, occasionally, enormous spirals. |
+| `--wlateral` | 0–20 | 3 | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
 | `--warns` | 2–16 | 4 | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule switches off and boards jam. |
 | `--anticoil` | 1–10 | 6 | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** at 10 with `--pstraight` at 0.45 or below, the generator jams four times out of five. |
 | `--hug` | 1–20 | 1 | Bonus for running alongside arrows already drawn. Barely visible; kept for experiments. |
