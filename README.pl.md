@@ -387,6 +387,40 @@ liczbie kwadratów, bo strzałki mają dalej do przejechania.
 |---|---|
 | <img src="docs/images/portrait.png" width="200"> | <img src="docs/images/big.png" width="330"> |
 
+### Jak duża może być plansza
+
+Sufit to 1000×1000 — milion kwadratów. Powyżej mniej więcej dwustu kwadratów
+na bok pojedyncze strzałki przestają być na ekranie widoczne, a plansza
+zamienia się w tkaninę. Wszystkie trzy poniżej pokazane są tutaj w tej samej
+szerokości; różni je tylko prawdziwy rozmiar.
+
+| 200×200 | 500×500 | 1000×1000 |
+|---|---|---|
+| <img src="docs/images/scale-200.png" width="250"> | <img src="docs/images/scale-500.png" width="250"> | <img src="docs/images/scale-1000.png" width="250"> |
+| **3619 strzałek**, 0,2 s | **21 771 strzałek**, 1,4 s | **85 809 strzałek**, 9,6 s |
+
+W samej łamigłówce nic się przy tym rozmiarze nie zmienia. Oto okno trzydzieści
+na trzydzieści w planszę o milionie kwadratów, narysowane w tym samym
+powiększeniu co plansze 30×30 z porównań niżej — ten sam obrazek, tyle że
+wycinek dużo większego:
+
+<p align="center">
+  <img src="docs/images/scale-1000-detail.png" alt="Okno trzydzieści na trzydzieści w planszę 1000 na 1000" width="440">
+</p>
+
+W liczbach warto zauważyć dwie rzeczy. Średnia strzałka prawie nie rośnie wraz
+z planszą — 11,1 kwadratu przy 200×200 wobec 11,7 przy 1000×1000 — więc
+większa plansza daje więcej strzałek, a nie dłuższe. Rośnie za to najdłuższa
+pojedyncza strzałka: 213 kwadratów, potem 278, potem 354.
+
+W odróżnieniu od mniejszych przykładów te trzy nie leżą tu jako rysunki do
+pobrania. Ich pliki mają 0,9 MB, 7 MB i 22 MB, czyli więcej, niż powinno leżeć
+w repozytorium. Zrób własne jednym poleceniem:
+
+```sh
+deno task carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
+```
+
 ### Ziarno — `--seed`
 
 Liczba od 0 do 999999, która wybiera, jaką planszę dostaniesz. Przy reszcie

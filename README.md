@@ -389,6 +389,40 @@ because arrows have further to travel.
 |---|---|
 | <img src="docs/images/portrait.png" width="200"> | <img src="docs/images/big.png" width="330"> |
 
+### How big a board can get
+
+The ceiling is 1000×1000 — a million squares. Past roughly two hundred squares
+a side the arrows stop being individually visible on screen, and the board
+turns into fabric. All three below are shown at the same width here; only the
+real size differs.
+
+| 200×200 | 500×500 | 1000×1000 |
+|---|---|---|
+| <img src="docs/images/scale-200.png" width="250"> | <img src="docs/images/scale-500.png" width="250"> | <img src="docs/images/scale-1000.png" width="250"> |
+| **3,619 arrows**, 0.2 s | **21,771 arrows**, 1.4 s | **85,809 arrows**, 9.6 s |
+
+Nothing about the puzzle changes at that size. Here is a thirty-by-thirty
+window into the million-square board, drawn at the same zoom as the 30×30
+boards in the comparisons below — the same picture, just one part of a much
+bigger one:
+
+<p align="center">
+  <img src="docs/images/scale-1000-detail.png" alt="A thirty by thirty window into a 1000 by 1000 board" width="440">
+</p>
+
+Two things are worth noticing in the numbers. The average arrow barely grows
+with the board — 11.1 squares at 200×200 against 11.7 at 1000×1000 — so a
+bigger board buys you more arrows rather than longer ones. The single longest
+arrow does grow: 213 squares, then 278, then 354.
+
+Unlike the smaller examples, these three are not stored here as drawings you
+can download. Their files run to 0.9 MB, 7 MB and 22 MB, which is more than
+belongs in a repository. Make your own with one command:
+
+```sh
+deno task carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
+```
+
 ### Seed — `--seed`
 
 A number from 0 to 999999 that picks which board you get. With everything else
