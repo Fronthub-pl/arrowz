@@ -5,3 +5,4 @@ dist/
 .basic-memory/
 prototype/boards/
 .claude/worktrees/
+prototype/dist/

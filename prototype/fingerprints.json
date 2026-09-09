@@ -1,0 +1,110 @@
+{
+  "cases": [
+    {
+      "name": "defaults",
+      "argv": [
+        "--advanced",
+        "--dry-run"
+      ],
+      "fingerprint": "adb427b",
+      "pieces": 126,
+      "maxLen": 68
+    },
+    {
+      "name": "simple",
+      "argv": [
+        "--width=25",
+        "--height=50",
+        "--dry-run"
+      ],
+      "fingerprint": "adb427b",
+      "pieces": 126,
+      "maxLen": 68
+    },
+    {
+      "name": "skeleton",
+      "argv": [
+        "--advanced",
+        "--dry-run",
+        "--w=100",
+        "--h=200",
+        "--giants=4"
+      ],
+      "fingerprint": "f3f823e4",
+      "pieces": 1704,
+      "maxLen": 662
+    },
+    {
+      "name": "tunnels",
+      "argv": [
+        "--advanced",
+        "--dry-run",
+        "--w=100",
+        "--h=200",
+        "--headbias=1"
+      ],
+      "fingerprint": "ee131a8",
+      "pieces": 1711,
+      "maxLen": 186
+    },
+    {
+      "name": "layers",
+      "argv": [
+        "--advanced",
+        "--dry-run",
+        "--w=100",
+        "--h=100",
+        "--mix=0.5"
+      ],
+      "fingerprint": "96e296b5",
+      "pieces": 926,
+      "maxLen": 193
+    },
+    {
+      "name": "corner",
+      "argv": [
+        "--width=200",
+        "--height=200",
+        "--length=0",
+        "--straight=0",
+        "--dry-run"
+      ],
+      "fingerprint": "eb168a66",
+      "pieces": 7422,
+      "maxLen": 137
+    },
+    {
+      "name": "longstraight",
+      "argv": [
+        "--width=200",
+        "--height=200",
+        "--length=1",
+        "--straight=1",
+        "--skeleton",
+        "--dry-run"
+      ],
+      "fingerprint": "5c44b1a7",
+      "pieces": 714,
+      "maxLen": 1028
+    },
+    {
+      "name": "big500",
+      "argv": [
+        "--advanced",
+        "--dry-run",
+        "--w=500",
+        "--h=500"
+      ],
+      "fingerprint": "298c749e",
+      "pieces": 21771,
+      "maxLen": 278
+    },
+    {
+      "name": "voids",
+      "argv": null,
+      "fingerprint": "428f9085",
+      "pieces": 215,
+      "maxLen": null
+    }
+  ]
+}
