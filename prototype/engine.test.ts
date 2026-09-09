@@ -480,9 +480,7 @@ Deno.test('PARAM_SPEC: skeleton straightness and nook rule are inactive only wit
     )
   }
   assertEquals(inactiveOf('giantJitter')(withDefaults({ giants: 4, giantStep: 0 })), 'stepZero')
-  for (const row of PARAM_SPEC) {
-    // the `as const` table is a union of rows; only the ParamSpec view has the optional `inactive`
-    const s: ParamSpec = row
+  for (const s of PARAM_SPEC) {
     const why = s.inactive?.(withDefaults({ giants: 0, wGiant: 0 }))
     if (why) assert(why in INACTIVE_REASONS, `${s.key}: unknown reason ${why}`)
   }

@@ -2163,7 +2163,7 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
 // INACTIVE_REASONS (or null); the lab translates the key into text.
 const skeletonOff = (p: Params): InactiveKey | null => (p.giants <= 0 && p.wGiant <= 0 ? 'skeletonOff' : null)
 
-export const PARAM_SPEC = [
+const PARAM_TABLE = [
   {
     key: 'W',
     label: 'width',
@@ -2516,10 +2516,14 @@ export const PARAM_SPEC = [
 ] as const satisfies readonly ParamSpec[]
 
 // The key set of the table must equal ParamKey in both directions.
-type SpecKey = (typeof PARAM_SPEC)[number]['key']
+type SpecKey = (typeof PARAM_TABLE)[number]['key']
 type Equal<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 const _paramKeysMatch: Equal<SpecKey, ParamKey> = true
 void _paramKeysMatch
+
+// Consumers see the plain spec array: iterating the literal table would give
+// a union of rows, most of which have no `inactive` property.
+export const PARAM_SPEC: readonly ParamSpec[] = PARAM_TABLE
 
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
 // The lab maps a key to the current language (see lab-i18n.ts for Polish).
