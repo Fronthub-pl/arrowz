@@ -192,6 +192,28 @@ helper libraries it needs. After that a 25×25 board takes well under a second.
 The board lands in `prototype/boards/25x25/` as two files — a picture and a
 small text file describing it. Open the picture in any browser.
 
+### Five things to try
+
+Copy any of these. Each one writes a picture into `prototype/boards/`; add
+`--dry-run` to any of them to see the numbers without writing a file.
+
+```sh
+# small enough to follow every arrow with your eye
+deno task carve --width=12 --height=12 --colorized
+
+# a dense field of tiny arrows
+deno task carve --width=40 --height=40 --length=0 --colorized
+
+# a few long snakes instead
+deno task carve --width=40 --height=40 --length=1 --straight=1 --colorized
+
+# long highways crossing the whole board
+deno task carve --width=80 --height=80 --skeleton --colorized
+
+# a tall board, which is harder to play than a square one
+deno task carve --width=40 --height=80
+```
+
 ### Checking that everything works
 
 ```sh
@@ -477,7 +499,7 @@ squares. Both default to 0, which means "work it out from the line thickness".
 
 ## The full set of settings
 
-The ten everyday options are shortcuts. Behind each of them sit several
+The eleven everyday flags are shortcuts. Behind each of them sit several
 internal dials, and `--advanced` lets you reach them directly. Turning
 `--length` down, for instance, really means "raise the share of short arrows
 and lower the share of medium ones" — two dials at once.
@@ -492,7 +514,48 @@ deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
 Two things change in advanced mode. Width and height become `--w` and `--h`.
 And the everyday options are gone — you set the underlying dials yourself.
 
-### Board
+All thirty-one dials are listed below, grouped the way the generator groups
+them. Click a group to open it.
+
+### What some of these look like
+
+Four dials with an effect you can see, all on a 30×30 board with seed 7.
+
+**`--warns` — filling awkward corners first**
+
+| `--warns=2` | `--warns=16` |
+|---|---|
+| <img src="docs/images/adv-warns-low.png" width="300"> | <img src="docs/images/adv-warns-high.png" width="300"> |
+| 98 arrows, 2.4 turns each | 70 arrows, 3.8 turns each |
+
+**`--wlateral` — turning sideways instead of pushing on**
+
+| `--wlateral=0` | `--wlateral=20` |
+|---|---|
+| <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
+| 49 arrows, average 18.4 squares | 96 arrows, average 9.4 squares |
+
+**`--probe` — one target length for nearly every arrow**
+
+| `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
+|---|---|
+| <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
+| 253 arrows, none longer than 4 squares | 61 arrows, longest 92 squares |
+
+**`--headbias` — the dial you cannot see**
+
+| `--headbias=-1` (layers) | `--headbias=1` (tunnels) |
+|---|---|
+| <img src="docs/images/adv-layers.png" width="300"> | <img src="docs/images/adv-tunnels.png" width="300"> |
+| 83 arrows, **34%** of them free to leave at the start | 90 arrows, only **6.7%** free at the start |
+
+The last two pictures look much alike, and that is exactly the point. This
+dial barely touches the drawing; it decides how many arrows you can legally
+tap at any moment, which is what makes a board easy or hard. Left to itself
+(`--headbias=0`) the board sits between the two, at 13%.
+
+<details>
+<summary><b>Board</b> — 3 dials</summary>
 
 | Option | Range | Default | What it does |
 |---|---|---|---|
@@ -500,7 +563,10 @@ And the everyday options are gone — you set the underlying dials yourself.
 | `--h` | 4–1000 | 50 | Rows. A tall board is harder to play than a square one with the same number of squares. |
 | `--seed` | 0–999999 | 7 | Picks the board. Same seed and same dials, same board. |
 
-### How long the arrows are
+</details>
+
+<details>
+<summary><b>How long the arrows are</b> — 3 dials</summary>
 
 Before drawing each arrow, the generator rolls a three-sided die to pick a
 target length: short (2–6 squares), medium (7–15) or long (16 and up). These
@@ -512,7 +578,10 @@ dials load the die. Long gets whatever share is left over.
 | `--wmid` | 0–1 | 0.08 | Share of medium arrows. |
 | `--lmax` | 0–5000 | 0 | The longest arrow the generator will attempt. 0 means "two and a half times the longer side". **Careful:** 1 to 5 shreds the board into crumbs and the generator jams — it gets stuck with no legal arrow left to draw. Use 0, or 6 and up. |
 
-### How the lines wander
+</details>
+
+<details>
+<summary><b>How the lines wander</b> — 6 dials</summary>
 
 Each time a line grows by one square, these dials compete over which
 neighbouring square it takes. They multiply together, so one extreme value
@@ -527,7 +596,10 @@ drowns out the rest.
 | `--hug` | 1–20 | 1 | Bonus for running alongside arrows already drawn. Barely visible; kept for experiments. |
 | `--edgehug` | 0–4 | 0 | Whether the board's own edge counts as a neighbour for that bonus. Does nothing unless `--hug` is above 1. |
 
-### How hard the puzzle is
+</details>
+
+<details>
+<summary><b>How hard the puzzle is</b> — 4 dials</summary>
 
 These change which arrows block which — the difficulty — without much changing
 what the board looks like.
@@ -539,7 +611,10 @@ what the board looks like.
 | `--probe` | 0–1 | 0 | Share of arrows whose length is drawn around one fixed target instead of the usual three-faced die. |
 | `--probelen` | 2–200 | 12 | That fixed target, give or take half. 2 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
 
-### The backbone
+</details>
+
+<details>
+<summary><b>The backbone</b> — 10 dials</summary>
 
 Switched on by `--skeleton` in everyday mode. The first few arrows are drawn as
 long zig-zagging highways across the whole board, and everything else fills in
@@ -558,7 +633,10 @@ around them.
 | `--giantspacing` | 1–3 | 2 | How many squares a highway keeps between its own parallel runs. Above 3 only costs time. |
 | `--giantspacepenalty` | 1–40 | 8 | How firmly it is pushed away from itself. A penalty, not a ban, so it can still turn back. |
 
-### Getting unstuck
+</details>
+
+<details>
+<summary><b>Getting unstuck</b> — 5 dials</summary>
 
 What the generator does when it can no longer find a legal arrow to draw. The
 defaults handle boards up to 400×400; these are for experiments.
@@ -570,6 +648,8 @@ defaults handle boards up to 400×400; these are for experiments.
 | `--absorblimit` | 12–64 | 24 | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** at the bottom of the range, below 13, leftovers pile up and boards fail far more often. |
 | `--maxback` | 0–1000, in steps of 50 | 0 (= 200) | How many drawn arrows may be undone in one attempt before starting over. More rarely rescues anything; it just delays the bad news. |
 | `--restarts` | 0–5 | 3 | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+
+</details>
 
 ### Combinations that are refused
 

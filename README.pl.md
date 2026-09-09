@@ -192,6 +192,28 @@ poniżej sekundy.
 Plansza ląduje w `prototype/boards/25x25/` jako dwa pliki — obrazek i mały plik
 tekstowy, który go opisuje. Obrazek otworzy dowolna przeglądarka.
 
+### Pięć rzeczy do wypróbowania
+
+Skopiuj którąkolwiek z nich. Każda zapisuje obrazek w `prototype/boards/`;
+dopisz `--dry-run`, żeby zobaczyć same liczby, bez tworzenia pliku.
+
+```sh
+# na tyle mała, że da się prześledzić okiem każdą strzałkę
+deno task carve --width=12 --height=12 --colorized
+
+# gęste pole malutkich strzałek
+deno task carve --width=40 --height=40 --length=0 --colorized
+
+# zamiast tego kilka długich węży
+deno task carve --width=40 --height=40 --length=1 --straight=1 --colorized
+
+# długie autostrady przez całą planszę
+deno task carve --width=80 --height=80 --skeleton --colorized
+
+# plansza pionowa, trudniejsza w grze od kwadratowej
+deno task carve --width=40 --height=80
+```
+
 ### Sprawdzenie, czy wszystko działa
 
 ```sh
@@ -476,10 +498,10 @@ kwadratach. Oba domyślnie 0, co znaczy „wylicz z grubości linii”.
 
 ## Pełny zestaw ustawień
 
-Dziesięć codziennych opcji to skróty. Za każdą z nich stoi kilka wewnętrznych
-pokręteł, a `--advanced` pozwala sięgnąć do nich wprost. Skręcenie `--length` w
-dół naprawdę znaczy „podnieś udział krótkich strzałek i obniż udział średnich”
-— dwa pokrętła naraz.
+Jedenaście codziennych flag to skróty. Za każdą z nich stoi kilka
+wewnętrznych pokręteł, a `--advanced` pozwala sięgnąć do nich wprost.
+Zmniejszenie `--length` naprawdę znaczy „podnieś udział krótkich strzałek i
+obniż udział średnich” — dwa pokrętła naraz.
 
 Nie potrzebujesz tej sekcji, żeby używać narzędzia. Jest tu, bo pytanie „co to
 pokrętło właściwie robi” zasługuje na odpowiedź.
@@ -492,7 +514,48 @@ W trybie zaawansowanym zmieniają się dwie rzeczy. Szerokość i wysokość sta
 się `--w` i `--h`. I znikają codzienne opcje — ustawiasz sam pokrętła, które za
 nimi stoją.
 
-### Plansza
+Wszystkie trzydzieści jeden pokręteł jest niżej, w grupach takich, jakich
+używa generator. Kliknij grupę, żeby ją rozwinąć.
+
+### Jak to wygląda
+
+Cztery pokrętła, których efekt widać, wszystkie na planszy 30×30 z ziarnem 7.
+
+**`--warns` — wypełnianie niewygodnych zakamarków**
+
+| `--warns=2` | `--warns=16` |
+|---|---|
+| <img src="docs/images/adv-warns-low.png" width="300"> | <img src="docs/images/adv-warns-high.png" width="300"> |
+| 98 strzałek, średnio 2,4 zakrętu | 70 strzałek, średnio 3,8 zakrętu |
+
+**`--wlateral` — skręcanie w bok zamiast parcia naprzód**
+
+| `--wlateral=0` | `--wlateral=20` |
+|---|---|
+| <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
+| 49 strzałek, średnio 18,4 kwadratu | 96 strzałek, średnio 9,4 kwadratu |
+
+**`--probe` — jedna docelowa długość dla prawie wszystkich strzałek**
+
+| `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
+|---|---|
+| <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
+| 253 strzałki, żadna dłuższa niż 4 kwadraty | 61 strzałek, najdłuższa 92 kwadraty |
+
+**`--headbias` — pokrętło, którego nie widać**
+
+| `--headbias=-1` (warstwy) | `--headbias=1` (tunele) |
+|---|---|
+| <img src="docs/images/adv-layers.png" width="300"> | <img src="docs/images/adv-tunnels.png" width="300"> |
+| 83 strzałki, **34%** z nich wolnych na starcie | 90 strzałek, wolnych tylko **6,7%** |
+
+Dwa ostatnie obrazki są do siebie bardzo podobne i o to właśnie chodzi. To
+pokrętło ledwo dotyka rysunku; decyduje o tym, ile strzałek wolno ci w danej
+chwili stuknąć, a to właśnie czyni planszę łatwą albo trudną. Zostawione samo
+sobie (`--headbias=0`) daje wynik pośredni, 13%.
+
+<details>
+<summary><b>Plansza</b> — 3 pokręteł</summary>
 
 | Opcja | Zakres | Domyślnie | Co robi |
 |---|---|---|---|
@@ -500,7 +563,10 @@ nimi stoją.
 | `--h` | 4–1000 | 50 | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
 | `--seed` | 0–999999 | 7 | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
 
-### Jak długie są strzałki
+</details>
+
+<details>
+<summary><b>Jak długie są strzałki</b> — 3 pokręteł</summary>
 
 Przed narysowaniem każdej strzałki generator rzuca trójścienną kostką, żeby
 wybrać docelową długość: krótka (2–6 kwadratów), średnia (7–15) albo długa (16
@@ -512,7 +578,10 @@ wzwyż). Te pokrętła obciążają kostkę. Długie dostają to, co zostanie.
 | `--wmid` | 0–1 | 0.08 | Udział średnich strzałek. |
 | `--lmax` | 0–5000 | 0 | Najdłuższa strzałka, o jaką generator będzie się starał. 0 znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy i generator się zacina — utyka, bo nie zostaje mu ani jedna dozwolona strzałka do narysowania. Używaj 0 albo 6 wzwyż. |
 
-### Jak błądzą linie
+</details>
+
+<details>
+<summary><b>Jak błądzą linie</b> — 6 pokręteł</summary>
 
 Za każdym razem, gdy linia rośnie o jeden kwadrat, te pokrętła rywalizują o to,
 który sąsiedni kwadrat weźmie. Ich wartości są mnożone przez siebie, więc jedna
@@ -527,7 +596,10 @@ skrajna wartość zagłusza resztę.
 | `--hug` | 1–20 | 1 | Premia za prowadzenie linii wzdłuż już narysowanych strzałek. Ledwo widoczna; zostawiona do eksperymentów. |
 | `--edgehug` | 0–4 | 0 | Czy krawędź planszy liczy się do tej premii jak sąsiad. Nic nie robi, dopóki `--hug` nie przekracza 1. |
 
-### Jak trudna jest łamigłówka
+</details>
+
+<details>
+<summary><b>Jak trudna jest łamigłówka</b> — 4 pokręteł</summary>
 
 Te zmieniają to, kto kogo blokuje — czyli trudność — nie zmieniając zbytnio
 tego, jak plansza wygląda.
@@ -539,7 +611,10 @@ tego, jak plansza wygląda.
 | `--probe` | 0–1 | 0 | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast ze zwykłej kostki. |
 | `--probelen` | 2–200 | 12 | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
 
-### Szkielet
+</details>
+
+<details>
+<summary><b>Szkielet</b> — 10 pokręteł</summary>
 
 Włączany przez `--skeleton` w trybie zwykłym. Pierwsze kilka strzałek jest
 rysowanych jako długie zygzakujące autostrady przez całą planszę, a reszta
@@ -558,7 +633,10 @@ wypełnia się wokół nich.
 | `--giantspacing` | 1–3 | 2 | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. Powyżej 3 tylko kosztuje czas. |
 | `--giantspacepenalty` | 1–40 | 8 | Jak mocno autostrada jest odpychana od samej siebie. Kara, nie zakaz, więc może zawracać. |
 
-### Wychodzenie z zacięcia
+</details>
+
+<details>
+<summary><b>Wychodzenie z zacięcia</b> — 5 pokręteł</summary>
 
 Co generator robi, gdy nie umie już znaleźć dozwolonej strzałki do narysowania.
 Ustawienia domyślne radzą sobie z planszami do 400×400; te pokrętła są do
@@ -571,6 +649,8 @@ eksperymentów.
 | `--absorblimit` | 12–64 | 24 | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** przy dolnym krańcu zakresu, poniżej 13, resztki się piętrzą i plansze psują się dużo częściej. |
 | `--maxback` | 0–1000, co 50 | 0 (= 200) | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. Więcej rzadko cokolwiek ratuje; tylko odwleka złą wiadomość. |
 | `--restarts` | 0–5 | 3 | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
+
+</details>
 
 ### Kombinacje, które są odrzucane
 
