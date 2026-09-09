@@ -1,6 +1,199 @@
-// Polish translations for the generator lab. English is the source language
-// and lives in PARAM_SPEC / lab.html; this file only holds the translation.
-export const PL = {
+// English is the source language and lives in PARAM_SPEC / lab.html / EN;
+// PL only holds the translation, checked against EN's shape by the compiler.
+import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
+
+// English: the source language. Parameter texts and inactive reasons come
+// from the engine (PARAM_SPEC, INACTIVE_REASONS); only lab strings live here.
+export const EN = {
+  groups: {
+    board: 'board',
+    lengths: 'lengths',
+    shape: 'shape',
+    difficulty: 'difficulty',
+    skeleton: 'skeleton',
+    closing: 'closing',
+  },
+  groupHelp: {
+    lengths:
+      'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
+    shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
+    difficulty: 'How hard it is to find a piece with a free way out. Changes the blocking, not the look.',
+    skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
+    closing:
+      'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
+  },
+  presets: {
+    placeholder: 'Preset…',
+    levels: {
+      easy: 'Easy',
+      medium: 'Medium',
+      hard: 'Hard',
+      nightmare: 'Nightmare',
+      extreme: 'Extreme',
+      huge: 'Huge',
+      insane: 'Insane',
+    },
+    modes: {
+      square: 'square',
+      portrait: 'portrait',
+      tunnels: 'tunnels',
+      skeleton: 'skeleton',
+      serpentine: 'winding skeleton',
+    },
+  },
+  // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
+  simple: {
+    viewSimple: 'Simple',
+    viewAdvanced: 'Advanced',
+    lengths: 'piece length',
+    shape: 'line shape',
+    skeleton: 'skeleton',
+    options: {
+      skeleton: { off: 'no skeleton', on: 'with a skeleton' },
+    },
+    ends: {
+      lengths: ['very short', 'very long'],
+      shape: ['straightest lines', 'most winding'],
+    },
+    randomize: 'randomise the settings on every generate',
+    randomizeHelp:
+      'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
+  },
+  ui: {
+    title: 'Generator lab',
+    subtitle: 'Same engine as carve.mjs: engine.mjs.',
+    generate: 'Generate',
+    reseed: 'New seed',
+    reset: 'Defaults',
+    downloadSvg: 'Download SVG',
+    abort: 'Abort',
+    commandHead: 'CLI command (matches the current settings)',
+    copy: 'Copy',
+    copied: 'Copied',
+    preview: 'Preview',
+    fitBoard: 'fit the board to the window',
+    zoomLabel: 'zoom (px width)',
+    zoomHelp:
+      'The preview is vector, so zooming never blurs — on a 1000×1000 board go to several thousand pixels and scroll. Does not affect the downloaded file.',
+    cellLabel: 'cell size in export (px)',
+    cellHelp: 'Affects only the downloaded SVG and the CLI command. No effect on the preview.',
+    strokeLabel: 'stroke width (grid units)',
+    headWidthLabel: 'arrowhead width (grid units, 0 = automatic)',
+    headHeightLabel: 'arrowhead height (grid units, 0 = automatic)',
+    headHelp:
+      'Automatic: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide and 0.9 tall; from 0.5 a sharpened stick as wide as the line, 1.4 strokes tall. A head narrower than the line is widened to it.',
+    colored: 'colour the arrows (each piece a different colour)',
+    hilite: 'highlight the longest pieces',
+    voids: 'show jammed cells',
+    topLabel: 'how many longest',
+    autoRun: 'generate right after a change',
+    showHelp: 'show parameter descriptions',
+    tabLab: 'Lab',
+    tabLibrary: 'Saved boards',
+    fullView: 'Full view (key F)',
+    pressGenerate: 'Press "Generate".',
+    generating: 'Generating…',
+    generatingBig: (W: number, H: number, cells: string) =>
+      `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
+    progress: (pct: string, pieces: string, remaining: string, backtracks: number, s: string) =>
+      `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+    workerError: 'Worker error:',
+    generationError: 'Generation error:',
+    aborted: 'Aborted.',
+    closed: 'Board closed 100%.',
+    solvable: 'Solvable.',
+    unsolvable: 'UNSOLVABLE — a generator bug.',
+    notClosedStatus: (remaining: string, fragments: number, largest: number) =>
+      `Board not closed. At the best moment ${remaining} cells remained in ${fragments} fragments (largest ${largest}).`,
+    stat_board: 'board',
+    stat_boardVal: (W: number, H: number, cells: string, seed: number) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
+    stat_pieces: 'pieces',
+    stat_avgLen: 'average length',
+    stat_longest: 'longest',
+    stat_longestVal: (n: number, pct: string) => `${n} cells (${pct} of the board)`,
+    stat_lengths: 'length distribution',
+    stat_f0: 'f0 (free at start)',
+    stat_almost: 'almost1 (one blocker)',
+    stat_D: 'D (blocking depth)',
+    stat_corridor: 'mean corridor',
+    stat_span: 'mean span',
+    stat_spanTop: 'span of top 10%',
+    stat_spanMax: 'span of the record holder',
+    stat_outDeg: 'unblocks on average',
+    stat_maxOut: 'unblocks record',
+    stat_blockDist: 'unblock distance',
+    piecesUnit: 'pieces',
+    perimeterUnit: 'of perimeter',
+    stat_bends: 'bends per piece',
+    stat_coil: 'coiling',
+    stat_border: 'shared border',
+    stat_multi: 'multi-line',
+    stat_stall: 'stalls before target',
+    stat_stallVal: (pStall: string, pGot: string) => `${pStall} of paths, reaching ${pGot} of the ordered length`,
+    stat_absorbed: 'absorbed leftovers',
+    stat_absorbedVal: (n: number, cells: number) => `${n} fragments (${cells} cells)`,
+    stat_backtracks: 'backtracks / restarts',
+    stat_time: 'time',
+    stat_timeVal: (g: string, m: string) => `generation ${g} s, metrics ${m} s`,
+    longestHead: (n: number) => `${n} longest`,
+    longestHelp:
+      'Span = what fraction of the board side the piece covers. Density = how tightly it fills its rectangle. Coiling = share of cells touching their own path on three sides. A snake crossing the board has a high span and low other two; a coil the opposite.',
+    th_len: 'length',
+    th_box: 'box',
+    th_span: 'span',
+    th_density: 'density',
+    th_coil: 'coiling',
+    saved: 'saved',
+    notSaved: 'not saved (no store server)',
+    refresh: 'Refresh',
+    boardCommand: 'Command of this board',
+    loadIntoLab: 'Load into lab',
+    noStoreServer: 'No store server — run sh prototype/lab.sh.',
+    storeEmpty: 'The store is empty. Generate a board in the lab or with carve.mjs --svg.',
+    notClosed: 'not closed',
+    piecesShort: (n: number | string) => `${n} pieces`,
+    longestShort: (n: number | string) => `longest ${n}`,
+    genShort: (s: string) => `${s} s to generate`,
+    loadingBoard: (id: string) => `Loading ${id}…`,
+    savedBoard: (id: string, seed: number, source: string, gen: string) =>
+      `Saved board ${id}, seed ${seed}, source: ${source}, generated in ${gen}.`,
+    deleteBoard: 'Delete from disk',
+    confirmDelete: 'Really delete?',
+    rebuilding: (id: string) => `Rebuilding board ${id} to redraw it…`,
+    viewSaved: (id: string) => `Saved the new view of board ${id}.`,
+    deletedBoard: (id: string) => `Deleted ${id}.`,
+    deleteFailed: 'Could not delete the board.',
+    inactivePrefix: 'No effect: ',
+    // Safe envelope: settings the engine refuses to generate with.
+    violationsTitle: 'Settings outside the safe range',
+    rangeViolation: (label: string, value: unknown, min: number, max: number) =>
+      `${label}: ${value} is outside ${min}..${max}`,
+    generateBlocked: 'Fix the settings marked in red to generate',
+    clamped: 'Some loaded settings were pulled into the safe range',
+    storedInvalid: 'This board was made with settings outside the safe range and cannot be rebuilt',
+  },
+} as const
+
+/** A string leaf stays a string; a function leaf keeps its exact parameter list. */
+type Widen<T> = T extends string ? string
+  : T extends (...args: infer A) => string ? (...args: A) => string
+  : { [K in keyof T]: Widen<T[K]> }
+
+/** The shape every language must have: EN's keys, with leaves widened. */
+export type Dictionary = Widen<typeof EN>
+export type UiKey = keyof Dictionary['ui']
+/** Arguments of a ui entry: none for a string, the function's parameters otherwise. */
+export type UiArgs<K extends UiKey> = Dictionary['ui'][K] extends (...args: infer A) => string ? A : []
+
+/** The translation carries what EN does not: knob texts and reason texts live in the engine tables in English. */
+export type Translation = Dictionary & {
+  reasons: Record<InactiveKey | RuleKey, string>
+  params: Record<ParamKey, { label: string; help: string }>
+}
+
+// Polish: the translation of the lab, plus the parameter and reason texts the
+// engine keeps in English only.
+export const PL: Translation = {
   groups: {
     board: 'plansza',
     lengths: 'długości',
@@ -323,174 +516,5 @@ export const PL = {
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
     storedInvalid: 'Ta plansza powstała z ustawień poza bezpiecznym zakresem i nie da się jej przebudować',
-  },
-}
-
-// English: the source language. Parameter texts and inactive reasons come
-// from the engine (PARAM_SPEC, INACTIVE_REASONS); only lab strings live here.
-export const EN = {
-  groups: {
-    board: 'board',
-    lengths: 'lengths',
-    shape: 'shape',
-    difficulty: 'difficulty',
-    skeleton: 'skeleton',
-    closing: 'closing',
-  },
-  groupHelp: {
-    lengths:
-      'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
-    shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
-    difficulty: 'How hard it is to find a piece with a free way out. Changes the blocking, not the look.',
-    skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
-    closing:
-      'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
-  },
-  presets: {
-    placeholder: 'Preset…',
-    levels: {
-      easy: 'Easy',
-      medium: 'Medium',
-      hard: 'Hard',
-      nightmare: 'Nightmare',
-      extreme: 'Extreme',
-      huge: 'Huge',
-      insane: 'Insane',
-    },
-    modes: {
-      square: 'square',
-      portrait: 'portrait',
-      tunnels: 'tunnels',
-      skeleton: 'skeleton',
-      serpentine: 'winding skeleton',
-    },
-  },
-  // The simple view (lab-simple.mjs): plain choices instead of thirty knobs.
-  simple: {
-    viewSimple: 'Simple',
-    viewAdvanced: 'Advanced',
-    lengths: 'piece length',
-    shape: 'line shape',
-    skeleton: 'skeleton',
-    options: {
-      skeleton: { off: 'no skeleton', on: 'with a skeleton' },
-    },
-    ends: {
-      lengths: ['very short', 'very long'],
-      shape: ['straightest lines', 'most winding'],
-    },
-    randomize: 'randomise the settings on every generate',
-    randomizeHelp:
-      'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
-  },
-  ui: {
-    title: 'Generator lab',
-    subtitle: 'Same engine as carve.mjs: engine.mjs.',
-    generate: 'Generate',
-    reseed: 'New seed',
-    reset: 'Defaults',
-    downloadSvg: 'Download SVG',
-    abort: 'Abort',
-    commandHead: 'CLI command (matches the current settings)',
-    copy: 'Copy',
-    copied: 'Copied',
-    preview: 'Preview',
-    fitBoard: 'fit the board to the window',
-    zoomLabel: 'zoom (px width)',
-    zoomHelp:
-      'The preview is vector, so zooming never blurs — on a 1000×1000 board go to several thousand pixels and scroll. Does not affect the downloaded file.',
-    cellLabel: 'cell size in export (px)',
-    cellHelp: 'Affects only the downloaded SVG and the CLI command. No effect on the preview.',
-    strokeLabel: 'stroke width (grid units)',
-    headWidthLabel: 'arrowhead width (grid units, 0 = automatic)',
-    headHeightLabel: 'arrowhead height (grid units, 0 = automatic)',
-    headHelp:
-      'Automatic: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide and 0.9 tall; from 0.5 a sharpened stick as wide as the line, 1.4 strokes tall. A head narrower than the line is widened to it.',
-    colored: 'colour the arrows (each piece a different colour)',
-    hilite: 'highlight the longest pieces',
-    voids: 'show jammed cells',
-    topLabel: 'how many longest',
-    autoRun: 'generate right after a change',
-    showHelp: 'show parameter descriptions',
-    tabLab: 'Lab',
-    tabLibrary: 'Saved boards',
-    fullView: 'Full view (key F)',
-    pressGenerate: 'Press "Generate".',
-    generating: 'Generating…',
-    generatingBig: (W, H, cells) => `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
-    progress: (pct, pieces, remaining, backtracks, s) =>
-      `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
-    workerError: 'Worker error:',
-    generationError: 'Generation error:',
-    aborted: 'Aborted.',
-    closed: 'Board closed 100%.',
-    solvable: 'Solvable.',
-    unsolvable: 'UNSOLVABLE — a generator bug.',
-    notClosedStatus: (remaining, fragments, largest) =>
-      `Board not closed. At the best moment ${remaining} cells remained in ${fragments} fragments (largest ${largest}).`,
-    stat_board: 'board',
-    stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
-    stat_pieces: 'pieces',
-    stat_avgLen: 'average length',
-    stat_longest: 'longest',
-    stat_longestVal: (n, pct) => `${n} cells (${pct} of the board)`,
-    stat_lengths: 'length distribution',
-    stat_f0: 'f0 (free at start)',
-    stat_almost: 'almost1 (one blocker)',
-    stat_D: 'D (blocking depth)',
-    stat_corridor: 'mean corridor',
-    stat_span: 'mean span',
-    stat_spanTop: 'span of top 10%',
-    stat_spanMax: 'span of the record holder',
-    stat_outDeg: 'unblocks on average',
-    stat_maxOut: 'unblocks record',
-    stat_blockDist: 'unblock distance',
-    piecesUnit: 'pieces',
-    perimeterUnit: 'of perimeter',
-    stat_bends: 'bends per piece',
-    stat_coil: 'coiling',
-    stat_border: 'shared border',
-    stat_multi: 'multi-line',
-    stat_stall: 'stalls before target',
-    stat_stallVal: (pStall, pGot) => `${pStall} of paths, reaching ${pGot} of the ordered length`,
-    stat_absorbed: 'absorbed leftovers',
-    stat_absorbedVal: (n, cells) => `${n} fragments (${cells} cells)`,
-    stat_backtracks: 'backtracks / restarts',
-    stat_time: 'time',
-    stat_timeVal: (g, m) => `generation ${g} s, metrics ${m} s`,
-    longestHead: (n) => `${n} longest`,
-    longestHelp:
-      'Span = what fraction of the board side the piece covers. Density = how tightly it fills its rectangle. Coiling = share of cells touching their own path on three sides. A snake crossing the board has a high span and low other two; a coil the opposite.',
-    th_len: 'length',
-    th_box: 'box',
-    th_span: 'span',
-    th_density: 'density',
-    th_coil: 'coiling',
-    saved: 'saved',
-    notSaved: 'not saved (no store server)',
-    refresh: 'Refresh',
-    boardCommand: 'Command of this board',
-    loadIntoLab: 'Load into lab',
-    noStoreServer: 'No store server — run sh prototype/lab.sh.',
-    storeEmpty: 'The store is empty. Generate a board in the lab or with carve.mjs --svg.',
-    notClosed: 'not closed',
-    piecesShort: (n) => `${n} pieces`,
-    longestShort: (n) => `longest ${n}`,
-    genShort: (s) => `${s} s to generate`,
-    loadingBoard: (id) => `Loading ${id}…`,
-    savedBoard: (id, seed, source, gen) => `Saved board ${id}, seed ${seed}, source: ${source}, generated in ${gen}.`,
-    deleteBoard: 'Delete from disk',
-    confirmDelete: 'Really delete?',
-    rebuilding: (id) => `Rebuilding board ${id} to redraw it…`,
-    viewSaved: (id) => `Saved the new view of board ${id}.`,
-    deletedBoard: (id) => `Deleted ${id}.`,
-    deleteFailed: 'Could not delete the board.',
-    inactivePrefix: 'No effect: ',
-    // Safe envelope: settings the engine refuses to generate with.
-    violationsTitle: 'Settings outside the safe range',
-    rangeViolation: (label, value, min, max) => `${label}: ${value} is outside ${min}..${max}`,
-    generateBlocked: 'Fix the settings marked in red to generate',
-    clamped: 'Some loaded settings were pulled into the safe range',
-    storedInvalid: 'This board was made with settings outside the safe range and cannot be rebuilt',
   },
 }

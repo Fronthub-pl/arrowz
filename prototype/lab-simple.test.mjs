@@ -12,7 +12,7 @@ import {
 } from './lab-simple.mjs'
 import { PRESETS } from './lab-presets.ts'
 import { defaultParams, mulberry32, PARAM_SPEC, validateParams } from './engine.mjs'
-import { EN, PL } from './lab-i18n.mjs'
+import { EN, PL } from './lab-i18n.ts'
 
 const specs = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 // Slider anchors plus a few positions in between.

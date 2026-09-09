@@ -2,7 +2,7 @@ import { assert, assertEquals } from '@std/assert'
 import { findPreset, PRESETS } from './lab-presets.ts'
 // @ts-types="./engine.d.ts"
 import { defaultParams, PARAM_SPEC, validateParams } from './engine.mjs'
-import { EN, PL } from './lab-i18n.mjs'
+import { EN, PL } from './lab-i18n.ts'
 import type { ParamKey, ParamSpec } from './types.ts'
 
 const specs = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
@@ -40,10 +40,8 @@ Deno.test('every preset passes the engine validation once merged over the defaul
 
 Deno.test('both dictionaries name every preset level and mode', () => {
   for (const level of PRESETS) {
-    // @ts-expect-error i18n typed in Task 6
-    assert(EN.presets.levels[level.id], `EN level ${level.id}`)
-    // @ts-expect-error i18n typed in Task 6
-    assert(PL.presets.levels[level.id], `PL level ${level.id}`)
+    assert(Object.hasOwn(EN.presets.levels, level.id), `EN level ${level.id}`)
+    assert(Object.hasOwn(PL.presets.levels, level.id), `PL level ${level.id}`)
     for (const o of level.options) {
       assert(EN.presets.modes[o.mode], `EN mode ${o.mode}`)
       assert(PL.presets.modes[o.mode], `PL mode ${o.mode}`)
