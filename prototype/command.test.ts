@@ -13,8 +13,7 @@ import {
   parseSimpleArgs,
 } from './command.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
 import type { Params, SimpleChoice } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix

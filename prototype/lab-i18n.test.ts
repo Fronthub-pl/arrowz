@@ -1,7 +1,6 @@
 import { assert, assertEquals } from '@std/assert'
 import { type Dictionary, EN, PL, type UiKey } from './lab-i18n.ts'
-// @ts-types="./engine.d.ts"
-import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.mjs'
+import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
 import type { InactiveKey, RuleKey } from './types.ts'
 
 type GroupHelpKey = keyof Dictionary['groupHelp']
