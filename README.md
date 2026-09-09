@@ -562,11 +562,18 @@ to open it.
 <details>
 <summary><b>Board</b> — 3 dials</summary>
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--w` | 4–1000 | 25 | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
-| `--h` | 4–1000 | 50 | Rows. A tall board is harder to play than a square one with the same number of squares. |
-| `--seed` | 0–999999 | 7 | Picks the board. Same seed and same dials, same board. |
+**`--w`** — range 4–1000, default 25
+
+Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000.
+
+**`--h`** — range 4–1000, default 50
+
+Rows. A tall board is harder to play than a square one with the same number of
+squares.
+
+**`--seed`** — range 0–999999, default 7
+
+Picks the board. Same seed and same dials, same board.
 
 </details>
 
@@ -577,11 +584,21 @@ Before drawing each arrow, the generator rolls a three-sided die to pick a
 target length: short (2–6 squares), medium (7–15) or long (16 and up). These
 dials load the die. Long gets whatever share is left over.
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--wshort` | 0–1 | 0.2 | Share of short arrows. Higher means more arrows and more tips, but the board turns into a mess of little hooks. |
-| `--wmid` | 0–1 | 0.08 | Share of medium arrows. |
-| `--lmax` | 0–5000 | 0 | The longest arrow the generator will attempt. 0 means "two and a half times the longer side". **Careful:** 1 to 5 shreds the board into crumbs and the generator jams — it gets stuck with no legal arrow left to draw. Use 0, or 6 and up. |
+**`--wshort`** — range 0–1, default 0.2
+
+Share of short arrows. Higher means more arrows and more tips, but the board
+turns into a mess of little hooks.
+
+**`--wmid`** — range 0–1, default 0.08
+
+Share of medium arrows.
+
+**`--lmax`** — range 0–5000, default 0
+
+The longest arrow the generator will attempt. 0 means "two and a half times the
+longer side". **Careful:** 1 to 5 shreds the board into crumbs and the
+generator jams — it gets stuck with no legal arrow left to draw. Use 0, or 6
+and up.
 
 </details>
 
@@ -592,14 +609,39 @@ Each time a line grows by one square, these dials compete over which
 neighbouring square it takes. They multiply together, so one extreme value
 drowns out the rest.
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--pstraight` | 0.6–1 | 0.85 | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** this is the one dial that can break things on its own. Below 0.6 large boards stop working; at exactly 0.6, boards above 500×500 sometimes jam. 0.65 is safe. |
-| `--wlateral` | 0–20 | 3 | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
-| `--warns` | 2–16 | 4 | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule switches off and boards jam. |
-| `--anticoil` | 1–10 | 6 | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** at 10 with `--pstraight` at 0.45 or below, the generator jams four times out of five. |
-| `--hug` | 1–20 | 1 | Bonus for running alongside arrows already drawn. Barely visible; kept for experiments. |
-| `--edgehug` | 0–4 | 0 | Whether the board's own edge counts as a neighbour for that bonus. Does nothing unless `--hug` is above 1. |
+**`--pstraight`** — range 0.6–1, default 0.85
+
+How eagerly a line keeps going straight. Higher gives longer straight runs.
+**Careful:** this is the one dial that can break things on its own. Below 0.6
+large boards stop working; at exactly 0.6, boards above 500×500 sometimes jam.
+0.65 is safe.
+
+**`--wlateral`** — range 0–20, default 3
+
+How much a line prefers turning sideways over pushing deeper into open space. 0
+gives long straight pushes and, occasionally, enormous spirals.
+
+**`--warns`** — range 2–16, default 4
+
+How eagerly a line fills awkward corners before they become dead ends. Higher
+gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule
+switches off and boards jam.
+
+**`--anticoil`** — range 1–10, default 6
+
+How hard a line tries not to touch itself. 1 turns it off; higher gives fewer
+spirals and slightly shorter arrows. **Careful:** at 10 with `--pstraight` at
+0.45 or below, the generator jams four times out of five.
+
+**`--hug`** — range 1–20, default 1
+
+Bonus for running alongside arrows already drawn. Barely visible; kept for
+experiments.
+
+**`--edgehug`** — range 0–4, default 0
+
+Whether the board's own edge counts as a neighbour for that bonus. Does nothing
+unless `--hug` is above 1.
 
 </details>
 
@@ -609,12 +651,28 @@ drowns out the rest.
 These change which arrows block which — the difficulty — without much changing
 what the board looks like.
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--headbias` | `-1`, `0` or `1` | 0 | Where each new arrow starts. `-1` peels the board in layers from the outside (easy: many arrows free at once). 0 starts anywhere. 1 digs inward from the deepest point (hard: few arrows free at once). **Careful:** layers mode is slow — 400×400 took two and a half minutes, and 1000×1000 was abandoned after ten. |
-| `--mix` | `-1`, or 0.3–0.7 | -1 | Blends the two styles above. The value is the share of arrows that start as tunnels; the rest start as layers. `-1` switches the blend off. **Careful:** values outside 0.3–0.7 leave boards unfinished. |
-| `--probe` | 0–1 | 0 | Share of arrows whose length is drawn around one fixed target instead of the usual three-faced die. |
-| `--probelen` | 2–200 | 12 | That fixed target, give or take half. 2 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
+**`--headbias`** — range `-1`, `0` or `1`, default 0
+
+Where each new arrow starts. `-1` peels the board in layers from the outside
+(easy: many arrows free at once). 0 starts anywhere. 1 digs inward from the
+deepest point (hard: few arrows free at once). **Careful:** layers mode is slow
+— 400×400 took two and a half minutes, and 1000×1000 was abandoned after ten.
+
+**`--mix`** — range `-1`, or 0.3–0.7, default `-1`
+
+Blends the two styles above. The value is the share of arrows that start as
+tunnels; the rest start as layers. `-1` switches the blend off. **Careful:**
+values outside 0.3–0.7 leave boards unfinished.
+
+**`--probe`** — range 0–1, default 0
+
+Share of arrows whose length is drawn around one fixed target instead of the
+usual three-faced die.
+
+**`--probelen`** — range 2–200, default 12
+
+That fixed target, give or take half. 2 triples the number of arrows; 200 gives
+a few very long ones. Does nothing unless `--probe` is above 0.
 
 </details>
 
@@ -625,18 +683,56 @@ Switched on by `--skeleton` in everyday mode. The first few arrows are drawn as
 long zig-zagging highways across the whole board, and everything else fills in
 around them.
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--giants` | 0–40 | 0 | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, the later highways run out of room. |
-| `--giantspan` | 0–200 | 30 | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
-| `--giantstep` | 0–40 | 14 | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; 0 lets it wander freely. |
-| `--giantjitter` | 0–1 | 0.6 | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
-| `--wgiant` | 0–0.2 | 0 | The chance that an arrow drawn later is also a highway. **Careful:** above 0.2 boards get slow and stop finishing at 1000×1000. |
-| `--giantstraight` | 0.3–1 | 0.94 | How straight a highway runs where it has free space. **Careful:** below 0.3 boards stop finishing. |
-| `--giantwarns` | 0–16 | 0 | The corner-filling rule, applied to highways only. Leave at 0 — it curls them up, and a highway is supposed to travel. |
-| `--giantanticoil` | 1–20 | 6 | The self-touching penalty, for highways only. Whichever is higher, this or the general one, wins. |
-| `--giantspacing` | 1–3 | 2 | How many squares a highway keeps between its own parallel runs. Above 3 only costs time. |
-| `--giantspacepenalty` | 1–40 | 8 | How firmly it is pushed away from itself. A penalty, not a ban, so it can still turn back. |
+**`--giants`** — range 0–40, default 0
+
+How many of the first arrows are highways. 0 means none; 4 is a good starting
+point. Asking for many more is harmless but pointless: after the first two or
+three, the later highways run out of room.
+
+**`--giantspan`** — range 0–200, default 30
+
+How long one highway aims to be, counted in lengths of the board's longer side.
+It stops early if it runs out of room.
+
+**`--giantstep`** — range 0–40, default 14
+
+The gap between the parallel runs of a highway. Small gives regular stripes
+like ruled paper; large gives a few sweeping highways; 0 lets it wander freely.
+
+**`--giantjitter`** — range 0–1, default 0.6
+
+How often a run stops short instead of going all the way to the obstacle. 0
+gives perfectly straight, regular edges.
+
+**`--wgiant`** — range 0–0.2, default 0
+
+The chance that an arrow drawn later is also a highway. **Careful:** above 0.2
+boards get slow and stop finishing at 1000×1000.
+
+**`--giantstraight`** — range 0.3–1, default 0.94
+
+How straight a highway runs where it has free space. **Careful:** below 0.3
+boards stop finishing.
+
+**`--giantwarns`** — range 0–16, default 0
+
+The corner-filling rule, applied to highways only. Leave at 0 — it curls them
+up, and a highway is supposed to travel.
+
+**`--giantanticoil`** — range 1–20, default 6
+
+The self-touching penalty, for highways only. Whichever is higher, this or the
+general one, wins.
+
+**`--giantspacing`** — range 1–3, default 2
+
+How many squares a highway keeps between its own parallel runs. Above 3 only
+costs time.
+
+**`--giantspacepenalty`** — range 1–40, default 8
+
+How firmly it is pushed away from itself. A penalty, not a ban, so it can still
+turn back.
 
 </details>
 
@@ -646,13 +742,32 @@ around them.
 What the generator does when it can no longer find a legal arrow to draw. The
 defaults handle boards up to 400×400; these are for experiments.
 
-| Option | Range | Default | What it does |
-|---|---|---|---|
-| `--headtries` | 2–16 | 4 | How many starting spots to try before giving up on a direction. **Careful:** at 1 the search is too shallow for hard settings. At 8 and above you usually get the same board as at 4. |
-| `--strandlimit` | 10–30 | 30 | The largest leftover patch that still gets a proper check for whether an arrow fits in it. **Careful:** below 10, ten-square holes slip through on big boards. |
-| `--absorblimit` | 12–64 | 24 | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** at the bottom of the range, below 13, leftovers pile up and boards fail far more often. |
-| `--maxback` | 0–1000, in steps of 50 | 0 (= 200) | How many drawn arrows may be undone in one attempt before starting over. More rarely rescues anything; it just delays the bad news. |
-| `--restarts` | 0–5 | 3 | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+**`--headtries`** — range 2–16, default 4
+
+How many starting spots to try before giving up on a direction. **Careful:** at
+1 the search is too shallow for hard settings. At 8 and above you usually get
+the same board as at 4.
+
+**`--strandlimit`** — range 10–30, default 30
+
+The largest leftover patch that still gets a proper check for whether an arrow
+fits in it. **Careful:** below 10, ten-square holes slip through on big boards.
+
+**`--absorblimit`** — range 12–64, default 24
+
+A leftover patch up to this size that no arrow fits into gets glued onto a
+neighbouring arrow. **Careful:** at the bottom of the range, below 13,
+leftovers pile up and boards fail far more often.
+
+**`--maxback`** — range 0–1000, in steps of 50, default 0 (= 200)
+
+How many drawn arrows may be undone in one attempt before starting over. More
+rarely rescues anything; it just delays the bad news.
+
+**`--restarts`** — range 0–5, default 3
+
+How many fresh attempts, each with a nudged seed, after a failure. 0 shows you
+the raw success rate of your settings.
 
 </details>
 
