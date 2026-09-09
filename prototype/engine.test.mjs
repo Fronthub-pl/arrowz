@@ -5,7 +5,20 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { Carver, defaultParams, mulberry32, generate, analyse, fingerprint, PARAM_SPEC, RULES, RULE_REASONS, INACTIVE_REASONS, validateParams, formatViolation } from './engine.mjs'
+import {
+  analyse,
+  Carver,
+  defaultParams,
+  fingerprint,
+  formatViolation,
+  generate,
+  INACTIVE_REASONS,
+  mulberry32,
+  PARAM_SPEC,
+  RULE_REASONS,
+  RULES,
+  validateParams,
+} from './engine.mjs'
 import * as engineExports from './engine.mjs'
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
@@ -87,7 +100,7 @@ test('generate: closes the board 100% and solvably on several sizes and seeds', 
   const cases = [
     [25, 50, [1, 2, 3, 4, 5]],
     [100, 100, [1, 2]],
-    [200, 200, [1, 5, 49]],   // 5 and 49 are seeds that once failed to close
+    [200, 200, [1, 5, 49]], // 5 and 49 are seeds that once failed to close
   ]
   for (const [W, H, seeds] of cases) {
     for (const seed of seeds) {
@@ -174,7 +187,9 @@ test('generate: a board starved of head draws closes by scanning every legal hea
   // the test needs a starved search, which the envelope forbids, so it
   // bypasses the check like the other engine-internal jam tests.
   for (const seed of [3, 4, 6]) {
-    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }, { unchecked: true })
+    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }, {
+      unchecked: true,
+    })
     assert.equal(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
     assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
     assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
@@ -190,7 +205,16 @@ test('generate: after three missed head scans in a row the jam is left to backtr
   // 1.3–3.7× slower. A scan that misses three times running is a geometric
   // jam, not a starved search: stop scanning until a scan hits again.
   // absorbLimit 0 is outside the safe envelope, so the check is bypassed.
-  const r = generate({ ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.25, absorbLimit: 0, restarts: 0, maxBack: 20 }, { unchecked: true })
+  const r = generate({
+    ...defaultParams(),
+    W: 40,
+    H: 40,
+    seed: 1,
+    voidFrac: 0.25,
+    absorbLimit: 0,
+    restarts: 0,
+    maxBack: 20,
+  }, { unchecked: true })
   assert.equal(r.ok, false)
   assert.equal(r.backtracks, 20)
   assert.equal(r.board.stats.headScanHits ?? 0, 0)
@@ -206,7 +230,16 @@ test('generate: head scans in one attempt are limited to the backtrack budget', 
   // time. The scan is a cheaper alternative to an undo, so it gets the same
   // budget per attempt as the undos; after that the jam goes to backtracking.
   // absorbLimit 0 is outside the safe envelope, so the check is bypassed.
-  const r = generate({ ...defaultParams(), W: 80, H: 80, seed: 4, voidFrac: 0.3, absorbLimit: 0, restarts: 0, maxBack: 20 }, { unchecked: true })
+  const r = generate({
+    ...defaultParams(),
+    W: 80,
+    H: 80,
+    seed: 4,
+    voidFrac: 0.3,
+    absorbLimit: 0,
+    restarts: 0,
+    maxBack: 20,
+  }, { unchecked: true })
   assert.equal(r.ok, false)
   assert.equal(r.backtracks, 20)
   assert.ok(r.board.stats.headScanHits > 0, 'the case should have scan hits')
@@ -221,7 +254,9 @@ test('generate: a jam reports how many legal heads were left at the best moment'
   // absorbLimit 0 is outside the safe envelope (it lets leftovers pile up),
   // which is exactly what this test needs: `unchecked` is the escape hatch for
   // engine-internal tests that want a jam on purpose.
-  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 }, { unchecked: true })
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 }, {
+    unchecked: true,
+  })
   assert.equal(r.ok, false)
   assert.equal(Number.isInteger(r.stuck.heads), true, JSON.stringify(r.stuck))
   assert.equal(r.stuck.heads, r.board.stuckHeads)
@@ -284,14 +319,19 @@ test('validateParams: cross-knob rules fire beyond their boundary and not at it'
   const rule = (key, keys) => [{ kind: 'rule', key, keys }]
   // sharesSum: wShort + wMid <= 0.9
   assert.deepEqual(validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.1 }), [])
-  assert.deepEqual(validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.2 }), rule('sharesSum', ['wShort', 'wMid']))
+  assert.deepEqual(
+    validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.2 }),
+    rule('sharesSum', ['wShort', 'wMid']),
+  )
   // lmaxHole: Lmax 0 or >= 6
   assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 0 }), [])
   assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 6 }), [])
   assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 3 }), rule('lmaxHole', ['Lmax']))
   // mixHole: mix -1 or within 0.3..0.7
   for (const mix of [-1, 0.3, 0.5, 0.7]) assert.deepEqual(validateParams({ ...defaultParams(), mix }), [], `mix ${mix}`)
-  for (const mix of [0.1, 0.8]) assert.deepEqual(validateParams({ ...defaultParams(), mix }), rule('mixHole', ['mix']), `mix ${mix}`)
+  for (const mix of [0.1, 0.8]) {
+    assert.deepEqual(validateParams({ ...defaultParams(), mix }), rule('mixHole', ['mix']), `mix ${mix}`)
+  }
   // Every rule has a reason text and only names real knobs.
   for (const r of RULES) {
     assert.equal(typeof RULE_REASONS[r.key], 'string', r.key)
@@ -305,21 +345,40 @@ test('validateParams: range violations come first, then rule violations, all of 
 })
 
 test('formatViolation: one English line per violation', () => {
-  assert.equal(formatViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }), 'straightness bias: 0.2 is outside 0.6..1')
-  assert.equal(formatViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }), 'width: 2000 is outside 4..1000')
+  assert.equal(
+    formatViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }),
+    'straightness bias: 0.2 is outside 0.6..1',
+  )
+  assert.equal(
+    formatViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }),
+    'width: 2000 is outside 4..1000',
+  )
   assert.equal(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
-  assert.equal(formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }), 'maximum length must be 0 (automatic) or at least 6')
-  assert.equal(formatViolation({ kind: 'rule', key: 'mixHole', keys: ['mix'] }), 'mixing must be -1 (off) or between 0.3 and 0.7')
+  assert.equal(
+    formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }),
+    'maximum length must be 0 (automatic) or at least 6',
+  )
+  assert.equal(
+    formatViolation({ kind: 'rule', key: 'mixHole', keys: ['mix'] }),
+    'mixing must be -1 (off) or between 0.3 and 0.7',
+  )
 })
 
 test('generate: refuses parameters outside the envelope before carving anything', () => {
   // A 1000x1000 board would take seconds to carve; the refusal has to be instant.
   const t0 = performance.now()
   let err = null
-  try { generate({ W: 1000, H: 1000, seed: 1, pStraight: 0.2, Lmax: 3 }) } catch (e) { err = e }
+  try {
+    generate({ W: 1000, H: 1000, seed: 1, pStraight: 0.2, Lmax: 3 })
+  } catch (e) {
+    err = e
+  }
   const ms = performance.now() - t0
   assert.ok(err instanceof RangeError, 'throws a RangeError')
-  assert.equal(err.message, 'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 6')
+  assert.equal(
+    err.message,
+    'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 6',
+  )
   assert.deepEqual(err.violations, [
     { kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 },
     { kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] },
@@ -343,7 +402,11 @@ test('PARAM_SPEC: skeleton straightness and nook rule are inactive only without 
     assert.equal(spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0, giantStep: 14 }), 'skeletonOff', key)
     assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 14 }), null, `${key} with a serpentine`)
     assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), null, `${key} with random growth`)
-    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0.1, giantStep: 14 }), null, `${key} with wGiant only`)
+    assert.equal(
+      spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0.1, giantStep: 14 }),
+      null,
+      `${key} with wGiant only`,
+    )
   }
   assert.equal(spec('giantJitter').inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), 'stepZero')
   for (const s of PARAM_SPEC) {
@@ -361,7 +424,8 @@ test('analyse: does not overflow the stack with hundreds of thousands of pieces 
   const c = new Carver(W, H, defaultParams(), mulberry32(1))
   for (let y = 0; y < H; y++) {
     c.pieces.push({ id: y, dir: 1, cells: [{ x: 1, y }, { x: 0, y }] })
-    c.owner[y * W] = y; c.owner[y * W + 1] = y
+    c.owner[y * W] = y
+    c.owner[y * W + 1] = y
   }
   c.remaining = 0
   const m = analyse(c)
@@ -380,7 +444,9 @@ test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150
   // edges) killed the CLI with "Reached heap limit" after the generator had
   // closed them at 150 MB. The child process makes the bound a real assertion.
   const script = `
-    import { Carver, defaultParams, mulberry32, analyse } from ${JSON.stringify(new URL('./engine.mjs', import.meta.url).href)}
+    import { Carver, defaultParams, mulberry32, analyse } from ${
+    JSON.stringify(new URL('./engine.mjs', import.meta.url).href)
+  }
     const W = 400, H = 400
     const c = new Carver(W, H, defaultParams(), mulberry32(1))
     let id = 0
@@ -392,8 +458,14 @@ test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150
     const m = analyse(c)
     console.log(JSON.stringify({ N: m.N, solvable: m.solvable, f0: m.f0, outDeg: m.outDeg, maxOut: m.maxOut, D: m.D, almost: m.almost }))
   `
-  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', script], { encoding: 'utf8' })
-  assert.equal(r.status, 0, `analyse died under a 256 MB heap:\n${r.stderr.split('\n').filter((l) => /FATAL|heap/.test(l)).join('\n')}`)
+  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', script], {
+    encoding: 'utf8',
+  })
+  assert.equal(
+    r.status,
+    0,
+    `analyse died under a 256 MB heap:\n${r.stderr.split('\n').filter((l) => /FATAL|heap/.test(l)).join('\n')}`,
+  )
   const m = JSON.parse(r.stdout.trim().split('\n').pop())
   // The same numbers the Set-based implementation produced without the cap.
   assert.deepEqual(m, { N: 80000, solvable: true, f0: 0.005, outDeg: 99.5, maxOut: 199, D: 199, almost: 400 })
@@ -409,12 +481,16 @@ test('analyse: a piece bordering two hundred thousand others does not overflow t
   const W = 3, H = 200000
   const c = new Carver(W, H, defaultParams(), mulberry32(1))
   const line = []
-  for (let y = 0; y < H; y++) { line.push({ x: 0, y }); c.owner[y * W] = 0 }
+  for (let y = 0; y < H; y++) {
+    line.push({ x: 0, y })
+    c.owner[y * W] = 0
+  }
   c.pieces.push({ id: 0, dir: 0, cells: line })
   for (let y = 0; y < H; y++) {
     const id = y + 1
     c.pieces.push({ id, dir: 1, cells: [{ x: 2, y }, { x: 1, y }] })
-    c.owner[y * W + 1] = id; c.owner[y * W + 2] = id
+    c.owner[y * W + 1] = id
+    c.owner[y * W + 2] = id
   }
   c.remaining = 0
   const m = analyse(c)
@@ -430,10 +506,118 @@ test('analyse: metrics are identical to the ones recorded with the Set-based blo
   // Recorded on 2026-09-08 before the blocking graph moved to typed arrays;
   // the storage may change, the numbers may not (order of summation included).
   const recorded = {
-    '25x50-seed7': { N: 126, solvable: true, unsolved: 0, f0: 0.07936507936507936, T2: 0, almost: 29, D: 10, bends: 2.738095238095238, multiLine: 0.7301587301587301, coil: 0.244, selfAdj: 2.1744, bendsPerCell: 0.276, span: 0.15476190476190452, spanTop10: 0.4784615384615386, spanMax: 0.72, outDeg: 3.253968253968254, maxOut: 30, blockDist: 0.16227642276422763, neighbours: 8.121951219512194, sharedBorder: 0.5496450712402696, longPieces: 41, meanCorridorLen: 8.11111111111111, minLen: 2, maxLen: 68, hist: { '2-6': 83, '7-15': 22, '16-49': 17, '50+': 4 }, coverage: 1 },
-    '60x60-seed3': { N: 328, solvable: true, unsolved: 0, f0: 0.08231707317073171, T2: 0, almost: 46, D: 16, bends: 2.908536585365854, multiLine: 0.7103658536585366, coil: 0.30944444444444447, selfAdj: 2.2733333333333334, bendsPerCell: 0.265, span: 0.0861788617886183, spanTop10: 0.2833333333333333, spanMax: 0.5333333333333333, outDeg: 5.524390243902439, maxOut: 59, blockDist: 0.14292218543046356, neighbours: 7.7073170731707314, sharedBorder: 0.5480881033121535, longPieces: 123, meanCorridorLen: 14.628048780487806, minLen: 2, maxLen: 102, hist: { '2-6': 199, '7-15': 70, '16-49': 48, '50+': 11 }, coverage: 1 },
-    '40x40-seed2-giants4': { N: 163, solvable: true, unsolved: 0, f0: 0.09202453987730061, T2: 0, almost: 31, D: 9, bends: 2.4171779141104293, multiLine: 0.7055214723926381, coil: 0.1925, selfAdj: 2.07875, bendsPerCell: 0.24625, span: 0.12760736196319025, spanTop10: 0.45294117647058824, spanMax: 1, outDeg: 3.8098159509202456, maxOut: 56, blockDist: 0.1807769726247987, neighbours: 8.125, sharedBorder: 0.5503663717809313, longPieces: 56, meanCorridorLen: 9.049079754601227, minLen: 2, maxLen: 117, hist: { '2-6': 102, '7-15': 36, '16-49': 20, '50+': 5 }, coverage: 1 },
-    '50x50-seed5-headBias1': { N: 259, solvable: true, unsolved: 0, f0: 0.02702702702702703, T2: 0, almost: 29, D: 18, bends: 2.718146718146718, multiLine: 0.7413127413127413, coil: 0.2552, selfAdj: 2.1808, bendsPerCell: 0.2816, span: 0.10169884169884122, spanTop10: 0.3223076923076923, spanMax: 0.7, outDeg: 6.8687258687258685, maxOut: 62, blockDist: 0.1705902192242833, neighbours: 7.515463917525773, sharedBorder: 0.5778675337884203, longPieces: 97, meanCorridorLen: 17.47876447876448, minLen: 2, maxLen: 71, hist: { '2-6': 159, '7-15': 49, '16-49': 50, '50+': 1 }, coverage: 1 },
+    '25x50-seed7': {
+      N: 126,
+      solvable: true,
+      unsolved: 0,
+      f0: 0.07936507936507936,
+      T2: 0,
+      almost: 29,
+      D: 10,
+      bends: 2.738095238095238,
+      multiLine: 0.7301587301587301,
+      coil: 0.244,
+      selfAdj: 2.1744,
+      bendsPerCell: 0.276,
+      span: 0.15476190476190452,
+      spanTop10: 0.4784615384615386,
+      spanMax: 0.72,
+      outDeg: 3.253968253968254,
+      maxOut: 30,
+      blockDist: 0.16227642276422763,
+      neighbours: 8.121951219512194,
+      sharedBorder: 0.5496450712402696,
+      longPieces: 41,
+      meanCorridorLen: 8.11111111111111,
+      minLen: 2,
+      maxLen: 68,
+      hist: { '2-6': 83, '7-15': 22, '16-49': 17, '50+': 4 },
+      coverage: 1,
+    },
+    '60x60-seed3': {
+      N: 328,
+      solvable: true,
+      unsolved: 0,
+      f0: 0.08231707317073171,
+      T2: 0,
+      almost: 46,
+      D: 16,
+      bends: 2.908536585365854,
+      multiLine: 0.7103658536585366,
+      coil: 0.30944444444444447,
+      selfAdj: 2.2733333333333334,
+      bendsPerCell: 0.265,
+      span: 0.0861788617886183,
+      spanTop10: 0.2833333333333333,
+      spanMax: 0.5333333333333333,
+      outDeg: 5.524390243902439,
+      maxOut: 59,
+      blockDist: 0.14292218543046356,
+      neighbours: 7.7073170731707314,
+      sharedBorder: 0.5480881033121535,
+      longPieces: 123,
+      meanCorridorLen: 14.628048780487806,
+      minLen: 2,
+      maxLen: 102,
+      hist: { '2-6': 199, '7-15': 70, '16-49': 48, '50+': 11 },
+      coverage: 1,
+    },
+    '40x40-seed2-giants4': {
+      N: 163,
+      solvable: true,
+      unsolved: 0,
+      f0: 0.09202453987730061,
+      T2: 0,
+      almost: 31,
+      D: 9,
+      bends: 2.4171779141104293,
+      multiLine: 0.7055214723926381,
+      coil: 0.1925,
+      selfAdj: 2.07875,
+      bendsPerCell: 0.24625,
+      span: 0.12760736196319025,
+      spanTop10: 0.45294117647058824,
+      spanMax: 1,
+      outDeg: 3.8098159509202456,
+      maxOut: 56,
+      blockDist: 0.1807769726247987,
+      neighbours: 8.125,
+      sharedBorder: 0.5503663717809313,
+      longPieces: 56,
+      meanCorridorLen: 9.049079754601227,
+      minLen: 2,
+      maxLen: 117,
+      hist: { '2-6': 102, '7-15': 36, '16-49': 20, '50+': 5 },
+      coverage: 1,
+    },
+    '50x50-seed5-headBias1': {
+      N: 259,
+      solvable: true,
+      unsolved: 0,
+      f0: 0.02702702702702703,
+      T2: 0,
+      almost: 29,
+      D: 18,
+      bends: 2.718146718146718,
+      multiLine: 0.7413127413127413,
+      coil: 0.2552,
+      selfAdj: 2.1808,
+      bendsPerCell: 0.2816,
+      span: 0.10169884169884122,
+      spanTop10: 0.3223076923076923,
+      spanMax: 0.7,
+      outDeg: 6.8687258687258685,
+      maxOut: 62,
+      blockDist: 0.1705902192242833,
+      neighbours: 7.515463917525773,
+      sharedBorder: 0.5778675337884203,
+      longPieces: 97,
+      meanCorridorLen: 17.47876447876448,
+      minLen: 2,
+      maxLen: 71,
+      hist: { '2-6': 159, '7-15': 49, '16-49': 50, '50+': 1 },
+      coverage: 1,
+    },
   }
   const boards = [[25, 50, 7, {}], [60, 60, 3, {}], [40, 40, 2, { giants: 4 }], [50, 50, 5, { headBias: 1 }]]
   for (const [W, H, seed, extra] of boards) {
@@ -453,15 +637,26 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
   for (let s = 0.2; s <= 0.9 + 1e-9; s += 0.05) {
     const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0 })
-    const parse = (tag) => [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
+    const parse = (tag) =>
+      [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) =>
+        m[1].split(' ').map((p) => p.split(',').map(Number))
+      )
     // A head is tip, base corner, [collar corners], base corner: the base
     // corners are the second and the last point.
-    const heads = parse('polygon').map((pts) => [pts[0], pts[1], pts[pts.length - 1], pts.length]), lines = parse('polyline')
-    const tails = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/g)].map((m) => ({ cx: Number(m[1]), cy: Number(m[2]), r: Number(m[3]) }))
+    const heads = parse('polygon').map((pts) => [pts[0], pts[1], pts[pts.length - 1], pts.length]),
+      lines = parse('polyline')
+    const tails = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/g)].map((m) => ({
+      cx: Number(m[1]),
+      cy: Number(m[2]),
+      r: Number(m[3]),
+    }))
     assert.equal(heads.length, board.pieces.length, 'one head per piece')
     assert.equal(lines.length, board.pieces.length, 'one line per piece')
     assert.equal(tails.length, board.pieces.length, 'one tail circle per piece')
-    assert.ok(!/stroke-linecap="round"/.test(svg), 'lines end flat: the tail is a circle, the head end hides under the head')
+    assert.ok(
+      !/stroke-linecap="round"/.test(svg),
+      'lines end flat: the tail is a circle, the head end hides under the head',
+    )
     assert.ok(/stroke-linejoin="round"/.test(svg), 'corners stay round')
     heads.forEach(([tip, a, b, corners], i) => {
       const label = `stroke ${s.toFixed(2)} piece ${i}`
@@ -496,22 +691,38 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       if (s < 0.5 - 1e-9) {
         assert.equal(corners, 3, `${label}: an arrow is a plain triangle`)
         const into = [mid[0] + dir[0] * 0.2 * s * cell, mid[1] + dir[1] * 0.2 * s * cell]
-        assert.ok(Math.hypot(first[0] - into[0], first[1] - into[1]) < 1e-6, `${label}: line ends at ${first}, expected ${into}`)
+        assert.ok(
+          Math.hypot(first[0] - into[0], first[1] - into[1]) < 1e-6,
+          `${label}: line ends at ${first}, expected ${into}`,
+        )
       } else {
         assert.equal(corners, 5, `${label}: a stick has a collar`)
-        assert.ok(Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6, `${label}: line ends at ${first}, base at ${mid}`)
+        assert.ok(
+          Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6,
+          `${label}: line ends at ${first}, base at ${mid}`,
+        )
         const collar = parse('polygon')[i].slice(2, 4)
         for (const c of collar) {
           const back = Math.hypot(c[0] - mid[0], c[1] - mid[1])
-          assert.ok(Math.abs(back - Math.hypot(0.2 * s * cell, base * cell / 2)) < 1e-6, `${label}: collar corner ${c} off (${back})`)
+          assert.ok(
+            Math.abs(back - Math.hypot(0.2 * s * cell, base * cell / 2)) < 1e-6,
+            `${label}: collar corner ${c} off (${back})`,
+          )
         }
       }
       const tailCell = board.pieces[i].cells[board.pieces[i].cells.length - 1]
       const tail = tails[i]
       assert.ok(tail, `${label}: no tail circle`)
-      assert.deepEqual([tail.cx, tail.cy], [30 + tailCell.x * cell, 30 + tailCell.y * cell], `${label}: tail circle off the tail cell`)
+      assert.deepEqual(
+        [tail.cx, tail.cy],
+        [30 + tailCell.x * cell, 30 + tailCell.y * cell],
+        `${label}: tail circle off the tail cell`,
+      )
       assert.ok(Math.abs(tail.r - s * cell / 2) < 1e-6, `${label}: tail radius ${tail.r} for stroke ${s}`)
-      assert.ok(Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell, `${label}: line end behind the neck cell`)
+      assert.ok(
+        Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell,
+        `${label}: line end behind the neck cell`,
+      )
     })
   }
 })
@@ -528,7 +739,10 @@ test('toSvg: head width and height knobs override the automatic size', () => {
       const pts = m[1].split(' ').map((p) => p.split(',').map(Number))
       const [tip, a] = pts, b = pts[pts.length - 1]
       const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
-      return { base: Math.hypot(a[0] - b[0], a[1] - b[1]) / cell, height: Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell }
+      return {
+        base: Math.hypot(a[0] - b[0], a[1] - b[1]) / cell,
+        height: Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell,
+      }
     })
   }
   for (const h of measure({ strokeRatio: 0.3, headWidth: 0.8, headHeight: 1.2 })) {
@@ -543,5 +757,9 @@ test('toSvg: head width and height knobs override the automatic size', () => {
     assert.ok(Math.abs(h.base - (0.4 + 0.9 * 0.3)) < 1e-6, `width 0 keeps the automatic rule: ${h.base}`)
     assert.ok(Math.abs(h.height - 0.5) < 1e-6, `height ${h.height}`)
   }
-  assert.deepEqual(measure({ strokeRatio: 0.3 }), measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0 }), 'zeros mean automatic')
+  assert.deepEqual(
+    measure({ strokeRatio: 0.3 }),
+    measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0 }),
+    'zeros mean automatic',
+  )
 })

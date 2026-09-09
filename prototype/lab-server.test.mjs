@@ -1,4 +1,4 @@
-import { test, before, after } from 'node:test'
+import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -16,9 +16,14 @@ before(async () => {
 after(() => server.close())
 
 test('POST /api/boards saves, GET lists, the SVG is served from the store', async () => {
-  const body = { svg: '<svg>x</svg>', params: { ...defaultParams(), W: 25, H: 50, seed: 7 },
-    view: { cell: 12, stroke: 0.5, colored: false, top: 0 }, command: 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12',
-    metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 10 }, source: 'lab' }
+  const body = {
+    svg: '<svg>x</svg>',
+    params: { ...defaultParams(), W: 25, H: 50, seed: 7 },
+    view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
+    command: 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12',
+    metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 10 },
+    source: 'lab',
+  }
   const post = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
   assert.equal(post.status, 201)
   const meta = await post.json()
@@ -46,8 +51,13 @@ test('static lab files without cache; paths escaping the directory are rejected'
 })
 
 test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives 404', async () => {
-  const body = { svg: '<svg>del</svg>', params: { ...defaultParams(), W: 10, H: 10, seed: 3 },
-    view: { cell: 12, stroke: 0.5, colored: false, top: 0 }, command: 'x', source: 'lab' }
+  const body = {
+    svg: '<svg>del</svg>',
+    params: { ...defaultParams(), W: 10, H: 10, seed: 3 },
+    view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
+    command: 'x',
+    source: 'lab',
+  }
   const meta = await (await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })).json()
   const del = await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })
   assert.equal(del.status, 200)

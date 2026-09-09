@@ -1,6 +1,6 @@
-import { test, beforeEach } from 'node:test'
+import { beforeEach, test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defaultParams } from './engine.mjs'
@@ -13,9 +13,13 @@ beforeEach(() => {
 
 const params = (over) => ({ ...defaultParams(), W: 25, H: 50, seed: 7, ...over })
 const entry = ({ params: over, ...rest } = {}) => ({
-  svg: '<svg/>', params: params(over), view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
-  command: 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12', source: 'cli',
-  metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 }, ...rest,
+  svg: '<svg/>',
+  params: params(over),
+  view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
+  command: 'node prototype/carve.mjs --svg --w=25 --h=50 --seed=7 --cell=12',
+  source: 'cli',
+  metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
+  ...rest,
 })
 
 test('saveBoard writes SVG and meta into the size directory', async () => {
@@ -66,7 +70,7 @@ test('listBoards skips junk: foreign directories, json without svg, broken json'
   const { saveBoard, listBoards } = await import('./store.mjs')
   mkdirSync(join(dir, 'notes'))
   mkdirSync(join(dir, '10x10'))
-  writeFileSync(join(dir, '10x10', 'seed1-deadbeef.json'), '{"id":"seed1-deadbeef"}')   // no svg
+  writeFileSync(join(dir, '10x10', 'seed1-deadbeef.json'), '{"id":"seed1-deadbeef"}') // no svg
   mkdirSync(join(dir, '25x50'))
   writeFileSync(join(dir, '25x50', 'broken.json'), '{not json')
   writeFileSync(join(dir, '25x50', 'broken.svg'), '<svg/>')

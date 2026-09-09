@@ -8,7 +8,7 @@
 // path". Run: node --test 'prototype/*.test.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Carver, defaultParams, mulberry32, generate, fingerprint } from './engine.mjs'
+import { Carver, defaultParams, fingerprint, generate, mulberry32 } from './engine.mjs'
 
 // The ORIGINAL block, verbatim in behaviour, kept here as the oracle: the fast
 // method must return the same boolean and leave the path at the same length
@@ -59,12 +59,16 @@ function boardList(n = 64, sizeMax = 120) {
   return out
 }
 
-const label = (b) => `${b.W}×${b.H} seed ${b.seed} ${JSON.stringify({ ...b, W: undefined, H: undefined, seed: undefined })}`
+const label = (b) =>
+  `${b.W}×${b.H} seed ${b.seed} ${JSON.stringify({ ...b, W: undefined, H: undefined, seed: undefined })}`
 
 test('shortenPath: agrees with the original jump-and-creep search on every call over 64 trimming boards', () => {
   const proto = Carver.prototype
-  assert.equal(typeof proto.shortenPath, 'function',
-    'Carver.prototype.shortenPath is missing: carveOne() still inlines the shortening block, so there is nothing to compare with the reference')
+  assert.equal(
+    typeof proto.shortenPath,
+    'function',
+    'Carver.prototype.shortenPath is missing: carveOne() still inlines the shortening block, so there is nothing to compare with the reference',
+  )
   const real = proto.shortenPath
   let calls = 0, trims = 0, refusals = 0, current = null
   const mismatches = []
@@ -81,7 +85,8 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
     let same = got === want && path.length === refPath.length
     for (let i = 0; same && i < path.length; i++) same = path[i].x === refPath[i].x && path[i].y === refPath[i].y
     if (!same) mismatches.push({ board: label(current), len0, want, wantLen: refPath.length, got, gotLen: path.length })
-    if (want) trims++; else refusals++
+    if (want) trims++
+    else refusals++
     return got
   }
   const fps = []
@@ -95,13 +100,21 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
       // (a board that does not close or a wrong statistic) can hide it.
       if (mismatches.length) break
       assert.equal(ok, true, `${label(b)} did not close`)
-      assert.equal(c.stats.strandTrunc, trims - fps.reduce((s, f) => s + f.trims, 0), `${label(b)}: strandTrunc disagrees with the reference's trim count`)
+      assert.equal(
+        c.stats.strandTrunc,
+        trims - fps.reduce((s, f) => s + f.trims, 0),
+        `${label(b)}: strandTrunc disagrees with the reference's trim count`,
+      )
       fps.push({ fp: fingerprint(c), trims: c.stats.strandTrunc })
     }
   } finally {
     proto.shortenPath = real
   }
-  assert.deepEqual(mismatches, [], `shortenPath differs from the reference on ${mismatches.length} call(s) of the first differing board`)
+  assert.deepEqual(
+    mismatches,
+    [],
+    `shortenPath differs from the reference on ${mismatches.length} call(s) of the first differing board`,
+  )
   // Counts recorded on main with the reference replayed against the inline
   // block (0 mismatches there); pinned so that the test cannot pass vacuously
   // and so that a change in how often the loop runs shows up too.
@@ -125,16 +138,97 @@ test('shortenPath: agrees with the original jump-and-creep search on every call 
 const PINNED = [
   { W: 40, H: 40, seed: 2, params: {}, fp: '4979c09d', pieces: 174, trunc: 14, loss: 124 },
   { W: 60, H: 60, seed: 2, params: {}, fp: '92d39ec1', pieces: 354, trunc: 35, loss: 344 },
-  { W: 60, H: 60, seed: 1, params: { giants: 4, giantStep: 2, giantSpan: 30, wGiant: 0.2 }, fp: '1c2a0b08', pieces: 239, trunc: 14, loss: 1005 },
-  { W: 100, H: 100, seed: 2, params: { giants: 4, giantStep: 2, giantSpan: 30, wGiant: 0.2 }, fp: '900966b5', pieces: 710, trunc: 34, loss: 1938 },
-  { W: 60, H: 60, seed: 2, params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0.1, giantJitter: 0 }, fp: '7e84de51', pieces: 85, trunc: 2, loss: 1831 },
-  { W: 120, H: 120, seed: 2, params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0.1, giantJitter: 0 }, fp: '78ab2971', pieces: 159, trunc: 2, loss: 7262 },
-  { W: 80, H: 80, seed: 2, params: { giants: 4, giantStep: 2, giantSpan: 200, wGiant: 0.2, giantJitter: 1 }, fp: '61c4217f', pieces: 532, trunc: 37, loss: 1422 },
-  { W: 120, H: 120, seed: 3, params: { giants: 4, giantStep: 2, giantSpan: 200, wGiant: 0.2, giantJitter: 1 }, fp: 'e07ae4b7', pieces: 1185, trunc: 98, loss: 2972 },
-  { W: 100, H: 100, seed: 3, params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0, giantJitter: 1 }, fp: 'b1d3e6b2', pieces: 917, trunc: 75, loss: 699 },
+  {
+    W: 60,
+    H: 60,
+    seed: 1,
+    params: { giants: 4, giantStep: 2, giantSpan: 30, wGiant: 0.2 },
+    fp: '1c2a0b08',
+    pieces: 239,
+    trunc: 14,
+    loss: 1005,
+  },
+  {
+    W: 100,
+    H: 100,
+    seed: 2,
+    params: { giants: 4, giantStep: 2, giantSpan: 30, wGiant: 0.2 },
+    fp: '900966b5',
+    pieces: 710,
+    trunc: 34,
+    loss: 1938,
+  },
+  {
+    W: 60,
+    H: 60,
+    seed: 2,
+    params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0.1, giantJitter: 0 },
+    fp: '7e84de51',
+    pieces: 85,
+    trunc: 2,
+    loss: 1831,
+  },
+  {
+    W: 120,
+    H: 120,
+    seed: 2,
+    params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0.1, giantJitter: 0 },
+    fp: '78ab2971',
+    pieces: 159,
+    trunc: 2,
+    loss: 7262,
+  },
+  {
+    W: 80,
+    H: 80,
+    seed: 2,
+    params: { giants: 4, giantStep: 2, giantSpan: 200, wGiant: 0.2, giantJitter: 1 },
+    fp: '61c4217f',
+    pieces: 532,
+    trunc: 37,
+    loss: 1422,
+  },
+  {
+    W: 120,
+    H: 120,
+    seed: 3,
+    params: { giants: 4, giantStep: 2, giantSpan: 200, wGiant: 0.2, giantJitter: 1 },
+    fp: 'e07ae4b7',
+    pieces: 1185,
+    trunc: 98,
+    loss: 2972,
+  },
+  {
+    W: 100,
+    H: 100,
+    seed: 3,
+    params: { giants: 4, giantStep: 2, giantSpan: 100, wGiant: 0, giantJitter: 1 },
+    fp: 'b1d3e6b2',
+    pieces: 917,
+    trunc: 75,
+    loss: 699,
+  },
   { W: 80, H: 80, seed: 1, params: { headBias: -1 }, fp: 'e3c3823f', pieces: 594, trunc: 51, loss: 339 },
-  { W: 120, H: 120, seed: 2, params: { headBias: -1, giants: 4, giantStep: 2, giantSpan: 50, wGiant: 0.1 }, fp: '2c6096c', pieces: 993, trunc: 56, loss: 830 },
-  { W: 80, H: 80, seed: 1, params: { giants: 4, giantStep: 2, giantSpan: 60, wGiant: 0.15, giantJitter: 0 }, fp: '24ccc2d8', pieces: 84, trunc: 0, loss: 0 },
+  {
+    W: 120,
+    H: 120,
+    seed: 2,
+    params: { headBias: -1, giants: 4, giantStep: 2, giantSpan: 50, wGiant: 0.1 },
+    fp: '2c6096c',
+    pieces: 993,
+    trunc: 56,
+    loss: 830,
+  },
+  {
+    W: 80,
+    H: 80,
+    seed: 1,
+    params: { giants: 4, giantStep: 2, giantSpan: 60, wGiant: 0.15, giantJitter: 0 },
+    fp: '24ccc2d8',
+    pieces: 84,
+    trunc: 0,
+    loss: 0,
+  },
 ]
 
 test('generate: boards that trim reproduce the fingerprints and trim statistics recorded on main', () => {

@@ -10,7 +10,7 @@
 // twice. Run: node --test 'prototype/*.test.mjs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { Carver, defaultParams, mulberry32, fingerprint, DIRS } from './engine.mjs'
+import { Carver, defaultParams, DIRS, fingerprint, mulberry32 } from './engine.mjs'
 
 // The ORIGINAL absorbLeftover, copied verbatim from main f200c6c. It walks
 // `s = 0..W*H` with a fresh Uint8Array on every call, so it costs Θ(W*H) per
@@ -24,7 +24,11 @@ class RefCarver extends Carver {
     const posOf = (pc, i) => {
       const key = pc.id
       let m = cellIndexIn.get(key)
-      if (!m) { m = new Map(); pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k)); cellIndexIn.set(key, m) }
+      if (!m) {
+        m = new Map()
+        pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k))
+        cellIndexIn.set(key, m)
+      }
       return m.get(i)
     }
     const { touched, absorbMemo } = this
@@ -49,7 +53,10 @@ class RefCarver extends Carver {
           if (!this.inside(nx, ny)) continue
           const j = this.idx(nx, ny)
           if (touched[j] > changed) changed = touched[j]
-          if (owner[j] === -1 && !seen[j]) { seen[j] = 1; stack.push(j) }
+          if (owner[j] === -1 && !seen[j]) {
+            seen[j] = 1
+            stack.push(j)
+          }
         }
       }
       if (tooBig) continue
@@ -111,17 +118,54 @@ const H1 = { headTries: 1 }
 const FAMILIES = [
   { name: 'defaults (inside the envelope)', side: 100, seeds: [1, 2], params: {} },
   { name: 'short pieces', side: 120, seeds: [1, 2, 3], params: { ...H1, wShort: 0.6, wMid: 0.3, Lmax: 6 } },
-  { name: 'low straightness (envelope floor)', side: 120, seeds: [1, 2, 3], params: { ...H1, pStraight: 0.6, warns: 2 } },
+  {
+    name: 'low straightness (envelope floor)',
+    side: 120,
+    seeds: [1, 2, 3],
+    params: { ...H1, pStraight: 0.6, warns: 2 },
+  },
   { name: 'absorbLimit 12', side: 100, seeds: [1, 2, 3], params: { ...H1, absorbLimit: 12, pStraight: 0.2, warns: 2 } },
   { name: 'absorbLimit 40', side: 100, seeds: [1, 2, 3], params: { ...H1, absorbLimit: 40, pStraight: 0.2, warns: 2 } },
   { name: 'strandLimit 10', side: 100, seeds: [1, 2, 3], params: { ...H1, strandLimit: 10, pStraight: 0.2, warns: 2 } },
   { name: 'layers', side: 100, seeds: [1, 2], params: { ...H1, headBias: -1, pStraight: 0.2, warns: 2 } },
-  { name: 'skeleton', side: 100, seeds: [1, 2, 3], params: { ...H1, giants: 4, giantStep: 2, pStraight: 0.2, warns: 2 } },
-  { name: 'voids', side: 60, seeds: [1, 2, 3, 4], params: { ...H1, voidFrac: 0.05, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 } },
-  { name: 'voids, more of them', side: 60, seeds: [1, 2, 3, 4], params: { ...H1, voidFrac: 0.1, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 } },
-  { name: 'voids that backtrack', side: 40, seeds: [1, 4, 5], params: { voidFrac: 0.2, restarts: 1, maxBack: 50 }, backtracks: true },
-  { name: 'starved heads (engine.test jam boards)', side: 200, seeds: [3, 4, 6], params: { ...H1, pStraight: 0.2, restarts: 0, maxBack: 50 } },
-  { name: 'starved heads that backtrack and restart', side: 200, seeds: [1], params: { ...H1, pStraight: 0.2, restarts: 1, maxBack: 50 }, backtracks: true },
+  {
+    name: 'skeleton',
+    side: 100,
+    seeds: [1, 2, 3],
+    params: { ...H1, giants: 4, giantStep: 2, pStraight: 0.2, warns: 2 },
+  },
+  {
+    name: 'voids',
+    side: 60,
+    seeds: [1, 2, 3, 4],
+    params: { ...H1, voidFrac: 0.05, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+  },
+  {
+    name: 'voids, more of them',
+    side: 60,
+    seeds: [1, 2, 3, 4],
+    params: { ...H1, voidFrac: 0.1, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+  },
+  {
+    name: 'voids that backtrack',
+    side: 40,
+    seeds: [1, 4, 5],
+    params: { voidFrac: 0.2, restarts: 1, maxBack: 50 },
+    backtracks: true,
+  },
+  {
+    name: 'starved heads (engine.test jam boards)',
+    side: 200,
+    seeds: [3, 4, 6],
+    params: { ...H1, pStraight: 0.2, restarts: 0, maxBack: 50 },
+  },
+  {
+    name: 'starved heads that backtrack and restart',
+    side: 200,
+    seeds: [1],
+    params: { ...H1, pStraight: 0.2, restarts: 1, maxBack: 50 },
+    backtracks: true,
+  },
 ]
 
 const label = (f, seed) => `${f.name} ${f.side}×${f.side} seed ${seed}`
@@ -160,7 +204,11 @@ function recordAbsorbPaths(fn) {
     log.push([s, pc.id, k, found !== null])
     return found
   }
-  try { return { result: fn(), log } } finally { proto.absorbPath = real }
+  try {
+    return { result: fn(), log }
+  } finally {
+    proto.absorbPath = real
+  }
 }
 
 test('absorbLeftover: the incremental scan makes the same absorbPath calls and the same board as the full scan', (t) => {
@@ -186,11 +234,15 @@ test('absorbLeftover: the incremental scan makes the same absorbPath calls and t
       fam.calls += ref.log.length
       fam.attempts += ref.result.attempts
     }
-    t.diagnostic(`${f.name}: ${fam.absorbs} absorptions (${fam.absorbed} cells) in ${fam.calls} absorbPath calls, ${fam.backtracks} backtracks, ${fam.attempts} attempts over ${f.seeds.length} seeds`)
+    t.diagnostic(
+      `${f.name}: ${fam.absorbs} absorptions (${fam.absorbed} cells) in ${fam.calls} absorbPath calls, ${fam.backtracks} backtracks, ${fam.attempts} attempts over ${f.seeds.length} seeds`,
+    )
     // The comparison proves nothing on a board that never absorbs: every
     // family but the in-envelope defaults must absorb, and the two
     // backtracking families must backtrack.
-    if (f.params.headTries === 1) assert.ok(fam.absorbs > 0, `${f.name}: no absorption at all, the family exercises nothing`)
+    if (f.params.headTries === 1) {
+      assert.ok(fam.absorbs > 0, `${f.name}: no absorption at all, the family exercises nothing`)
+    }
     if (f.backtracks) assert.ok(fam.backtracks > 0, `${f.name}: no backtrack at all`)
     totalAbsorbs += fam.absorbs
     totalBacktracks += fam.backtracks
@@ -220,11 +272,17 @@ test('absorbLeftover: the incremental scan visits far fewer cells than the full 
     return real.call(this)
   }
   let ref
-  try { ref = runLoop(RefCarver, p) } finally { proto.absorbLeftover = real }
+  try {
+    ref = runLoop(RefCarver, p)
+  } finally {
+    proto.absorbLeftover = real
+  }
   const got = runLoop(Carver, p)
   assert.equal(got.fp, ref.fp)
   assert.ok(ref.absorbs > 100, `${ref.absorbs} absorptions on the reference board`)
-  t.diagnostic(`${calls} calls: old scan ${oldPops} flood pops + ${oldWalk} index walk, new scan ${got.scanned} flood pops`)
+  t.diagnostic(
+    `${calls} calls: old scan ${oldPops} flood pops + ${oldWalk} index walk, new scan ${got.scanned} flood pops`,
+  )
   assert.ok(got.scanned > 0, 'stats.absorbScanned is missing: the engine does not report the cells its scan visits')
   assert.ok(got.scanned * 4 < oldPops, `new scan popped ${got.scanned} cells against ${oldPops} for the old one`)
 })

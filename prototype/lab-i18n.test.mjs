@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { EN, PL } from './lab-i18n.mjs'
-import { PARAM_SPEC, INACTIVE_REASONS, RULE_REASONS } from './engine.mjs'
+import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.mjs'
 
 test('Polish dictionary covers every parameter and group', () => {
   for (const s of PARAM_SPEC) {

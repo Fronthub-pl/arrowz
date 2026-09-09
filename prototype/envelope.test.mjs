@@ -5,8 +5,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  PARAM_SPEC, INACTIVE_REASONS, RULES, RULE_REASONS,
-  defaultParams, validateParams, formatViolation, generate, fingerprint,
+  defaultParams,
+  fingerprint,
+  formatViolation,
+  generate,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  RULE_REASONS,
+  RULES,
+  validateParams,
 } from './engine.mjs'
 import { PRESETS } from './lab-presets.mjs'
 
@@ -37,9 +44,11 @@ test('envelope: the defaults validate clean', () => {
 
 test('envelope: every preset merged over the defaults validates clean', () => {
   let count = 0
-  for (const level of PRESETS) for (const o of level.options) {
-    assert.deepEqual(validateParams(withDefaults(o.params)), [], `preset ${o.id}`)
-    count++
+  for (const level of PRESETS) {
+    for (const o of level.options) {
+      assert.deepEqual(validateParams(withDefaults(o.params)), [], `preset ${o.id}`)
+      count++
+    }
   }
   assert.ok(count >= 20, `${count} presets checked`)
 })
@@ -106,12 +115,16 @@ test('rule lmaxHole: Lmax is 0 or at least 6, at the boundary', () => {
   assert.deepEqual(validateParams(withDefaults({ Lmax: 0 })), [])
   assert.deepEqual(validateParams(withDefaults({ Lmax: 6 })), [])
   assert.deepEqual(validateParams(withDefaults({ Lmax: 5000 })), [])
-  for (const Lmax of [1, 3, 5]) assert.deepEqual(validateParams(withDefaults({ Lmax })), rule('lmaxHole'), `Lmax=${Lmax}`)
+  for (const Lmax of [1, 3, 5]) {
+    assert.deepEqual(validateParams(withDefaults({ Lmax })), rule('lmaxHole'), `Lmax=${Lmax}`)
+  }
 })
 
 test('rule mixHole: mix is -1 or within 0.3..0.7, at the boundary', () => {
   for (const mix of [-1, 0.3, 0.5, 0.7]) assert.deepEqual(validateParams(withDefaults({ mix })), [], `mix=${mix}`)
-  for (const mix of [0, 0.25, 0.75, 1]) assert.deepEqual(validateParams(withDefaults({ mix })), rule('mixHole'), `mix=${mix}`)
+  for (const mix of [0, 0.25, 0.75, 1]) {
+    assert.deepEqual(validateParams(withDefaults({ mix })), rule('mixHole'), `mix=${mix}`)
+  }
 })
 
 test('generate: refuses a violation with a RangeError carrying the violations', () => {

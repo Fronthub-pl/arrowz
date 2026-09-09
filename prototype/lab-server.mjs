@@ -5,14 +5,18 @@
 // Run: node prototype/lab-server.mjs [port]
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { join, normalize, extname, dirname, resolve, sep } from 'node:path'
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { saveBoard, listBoards, deleteBoard, boardsDir } from './store.mjs'
+import { boardsDir, deleteBoard, listBoards, saveBoard } from './store.mjs'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const MIME = {
-  '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript', '.js': 'text/javascript',
-  '.svg': 'image/svg+xml', '.json': 'application/json', '.css': 'text/css',
+  '.html': 'text/html; charset=utf-8',
+  '.mjs': 'text/javascript',
+  '.js': 'text/javascript',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.css': 'text/css',
 }
 
 function send(res, status, body, type = 'application/json') {
@@ -35,7 +39,9 @@ export function createLabServer() {
       }
       if (url.pathname === '/api/boards' && req.method === 'POST') {
         const body = JSON.parse(await readBody(req))
-        if (typeof body.svg !== 'string' || !body.params) return send(res, 400, '{"error":"svg and params are required"}')
+        if (typeof body.svg !== 'string' || !body.params) {
+          return send(res, 400, '{"error":"svg and params are required"}')
+        }
         return send(res, 201, JSON.stringify(saveBoard({ ...body, source: body.source ?? 'lab' })))
       }
       // Segments are matched on the raw path and decoded one by one, so an
@@ -43,8 +49,11 @@ export function createLabServer() {
       const del = req.method === 'DELETE' && /^\/api\/boards\/([^/]+)\/([^/]+)$/.exec(url.pathname)
       if (del) {
         let ok
-        try { ok = deleteBoard(decodeURIComponent(del[1]), decodeURIComponent(del[2])) }
-        catch (err) { return send(res, 400, JSON.stringify({ error: err.message })) }
+        try {
+          ok = deleteBoard(decodeURIComponent(del[1]), decodeURIComponent(del[2]))
+        } catch (err) {
+          return send(res, 400, JSON.stringify({ error: err.message }))
+        }
         return send(res, ok ? 200 : 404, JSON.stringify({ deleted: ok }))
       }
       if (req.method !== 'GET') return send(res, 405, '{"error":"GET only"}')

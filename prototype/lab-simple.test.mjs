@@ -1,16 +1,29 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SIMPLE_SIZES, SIMPLE_CHOICES, SIMPLE_SLIDERS, defaultChoice, normalizeChoice, simpleRanges, simpleParams, exportCell } from './lab-simple.mjs'
+import {
+  defaultChoice,
+  exportCell,
+  normalizeChoice,
+  SIMPLE_CHOICES,
+  SIMPLE_SIZES,
+  SIMPLE_SLIDERS,
+  simpleParams,
+  simpleRanges,
+} from './lab-simple.mjs'
 import { PRESETS } from './lab-presets.mjs'
-import { PARAM_SPEC, defaultParams, validateParams, mulberry32 } from './engine.mjs'
+import { defaultParams, mulberry32, PARAM_SPEC, validateParams } from './engine.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 
 const specs = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 // Slider anchors plus a few positions in between.
 const positions = [0, 0.1, 0.25, 0.37, 0.5, 0.66, 0.75, 0.9, 1]
 const combos = []
-for (const lengths of positions) for (const shape of positions) for (const skeleton of SIMPLE_CHOICES.skeleton) {
-  combos.push({ lengths, shape, skeleton })
+for (const lengths of positions) {
+  for (const shape of positions) {
+    for (const skeleton of SIMPLE_CHOICES.skeleton) {
+      combos.push({ lengths, shape, skeleton })
+    }
+  }
 }
 const choice = (over) => ({ ...defaultChoice(), ...over })
 
@@ -43,9 +56,16 @@ test('normalizeChoice takes any engine size, clamps it and reads the old size id
   assert.equal(normalizeChoice({ W: 5000 }).W, 1000, 'clamped to the engine maximum')
   assert.equal(normalizeChoice({ H: 1 }).H, 4, 'clamped to the engine minimum')
   assert.equal(normalizeChoice({ W: 12.7 }).W, 13, 'whole cells')
-  assert.deepEqual([normalizeChoice({ size: '100x200' }).W, normalizeChoice({ size: '100x200' }).H], [100, 200], 'old recipe')
+  assert.deepEqual(
+    [normalizeChoice({ size: '100x200' }).W, normalizeChoice({ size: '100x200' }).H],
+    [100, 200],
+    'old recipe',
+  )
   assert.equal(normalizeChoice({ size: '100x200', W: 40 }).W, 40, 'explicit W wins over the old id')
-  assert.deepEqual([normalizeChoice({ W: 'x', size: 'junk' }).W, normalizeChoice({ W: 'x', size: 'junk' }).H], [d.W, d.H])
+  assert.deepEqual([normalizeChoice({ W: 'x', size: 'junk' }).W, normalizeChoice({ W: 'x', size: 'junk' }).H], [
+    d.W,
+    d.H,
+  ])
   assert.equal(normalizeChoice({ size: '100x200' }).size, undefined, 'the id is not carried on')
   const p = simpleParams({ ...d, W: 37, H: 91 })
   assert.equal(p.W, 37)
@@ -78,36 +98,43 @@ test('normalizeChoice maps the old category names to slider positions and repair
 })
 
 test('every slider position at every size passes the engine validation without randomising', () => {
-  for (const size of SIMPLE_SIZES) for (const c of combos) {
-    const p = simpleParams(choice({ ...c, W: size.W, H: size.H, seed: 11 }))
-    assert.equal(p.W, size.W)
-    assert.equal(p.H, size.H)
-    assert.equal(p.seed, 11)
-    assert.deepEqual(validateParams(p), [], `${size.id} ${JSON.stringify(c)}`)
+  for (const size of SIMPLE_SIZES) {
+    for (const c of combos) {
+      const p = simpleParams(choice({ ...c, W: size.W, H: size.H, seed: 11 }))
+      assert.equal(p.W, size.W)
+      assert.equal(p.H, size.H)
+      assert.equal(p.seed, 11)
+      assert.deepEqual(validateParams(p), [], `${size.id} ${JSON.stringify(c)}`)
+    }
   }
 })
 
 test('randomised parameters stay inside the position ranges, on the knob step and inside the envelope', () => {
   const rng = mulberry32(2026)
-  for (const size of SIMPLE_SIZES) for (const c of combos) {
-    const ch = choice({ ...c, W: size.W, H: size.H })
-    const ranges = simpleRanges(ch)
-    for (let i = 0; i < 8; i++) {
-      const p = simpleParams(ch, rng)
-      assert.deepEqual(validateParams(p), [], `${size.id} ${JSON.stringify(c)} ${JSON.stringify(p)}`)
-      for (const [key, r] of Object.entries(ranges)) {
-        const spec = specs.get(key)
-        assert.ok(spec, `range for unknown knob ${key}`)
-        if (r.pick) { assert.ok(r.pick.includes(p[key]), `${key}=${p[key]} not in ${r.pick}`); continue }
-        assert.ok(p[key] >= r.lo - 1e-9 && p[key] <= r.hi + 1e-9, `${key}=${p[key]} outside ${r.lo}..${r.hi}`)
-        const steps = (p[key] - spec.min) / spec.step
-        assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${key}=${p[key]} is not on step ${spec.step}`)
-      }
-      // Knobs the choice does not name keep their defaults — closing knobs
-      // above all: a random backtrack budget turns a jam into minutes of waiting.
-      for (const spec of PARAM_SPEC) {
-        if (ranges[spec.key] || ['W', 'H', 'seed'].includes(spec.key)) continue
-        assert.equal(p[spec.key], spec.def, `${spec.key} should stay at its default`)
+  for (const size of SIMPLE_SIZES) {
+    for (const c of combos) {
+      const ch = choice({ ...c, W: size.W, H: size.H })
+      const ranges = simpleRanges(ch)
+      for (let i = 0; i < 8; i++) {
+        const p = simpleParams(ch, rng)
+        assert.deepEqual(validateParams(p), [], `${size.id} ${JSON.stringify(c)} ${JSON.stringify(p)}`)
+        for (const [key, r] of Object.entries(ranges)) {
+          const spec = specs.get(key)
+          assert.ok(spec, `range for unknown knob ${key}`)
+          if (r.pick) {
+            assert.ok(r.pick.includes(p[key]), `${key}=${p[key]} not in ${r.pick}`)
+            continue
+          }
+          assert.ok(p[key] >= r.lo - 1e-9 && p[key] <= r.hi + 1e-9, `${key}=${p[key]} outside ${r.lo}..${r.hi}`)
+          const steps = (p[key] - spec.min) / spec.step
+          assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${key}=${p[key]} is not on step ${spec.step}`)
+        }
+        // Knobs the choice does not name keep their defaults — closing knobs
+        // above all: a random backtrack budget turns a jam into minutes of waiting.
+        for (const spec of PARAM_SPEC) {
+          if (ranges[spec.key] || ['W', 'H', 'seed'].includes(spec.key)) continue
+          assert.equal(p[spec.key], spec.def, `${spec.key} should stay at its default`)
+        }
       }
     }
   }
@@ -126,11 +153,19 @@ test('the sliders pull the knobs the way their ends promise, monotonically', () 
   let prev = null
   for (const t of positions) {
     const p = simpleParams(choice({ lengths: t }))
-    if (prev) assert.ok(p.wShort <= prev.wShort + 1e-9, `short share must not rise from ${prev.wShort} to ${p.wShort} at ${t}`)
+    if (prev) {
+      assert.ok(p.wShort <= prev.wShort + 1e-9, `short share must not rise from ${prev.wShort} to ${p.wShort} at ${t}`)
+    }
     prev = p
   }
-  assert.ok(simpleParams(choice({ lengths: 0 })).wShort > simpleParams(choice({ lengths: 0.25 })).wShort, 'very short is shorter than short')
-  assert.ok(simpleParams(choice({ lengths: 1 })).wShort < simpleParams(choice({ lengths: 0.75 })).wShort, 'very long is longer than long')
+  assert.ok(
+    simpleParams(choice({ lengths: 0 })).wShort > simpleParams(choice({ lengths: 0.25 })).wShort,
+    'very short is shorter than short',
+  )
+  assert.ok(
+    simpleParams(choice({ lengths: 1 })).wShort < simpleParams(choice({ lengths: 0.75 })).wShort,
+    'very long is longer than long',
+  )
   prev = null
   for (const t of positions) {
     const p = simpleParams(choice({ shape: t }))
@@ -140,8 +175,14 @@ test('the sliders pull the knobs the way their ends promise, monotonically', () 
     }
     prev = p
   }
-  assert.ok(simpleParams(choice({ shape: 0 })).pStraight > simpleParams(choice({ shape: 0.25 })).pStraight, 'straightest is straighter than straight')
-  assert.ok(simpleParams(choice({ shape: 1 })).wLateral > simpleParams(choice({ shape: 0.75 })).wLateral, 'most winding winds more than winding')
+  assert.ok(
+    simpleParams(choice({ shape: 0 })).pStraight > simpleParams(choice({ shape: 0.25 })).pStraight,
+    'straightest is straighter than straight',
+  )
+  assert.ok(
+    simpleParams(choice({ shape: 1 })).wLateral > simpleParams(choice({ shape: 0.75 })).wLateral,
+    'most winding winds more than winding',
+  )
   assert.equal(simpleParams(choice({ skeleton: 'off' })).giants, 0)
   assert.ok(simpleParams(choice({ skeleton: 'on' })).giants > 0)
 })
@@ -171,9 +212,14 @@ test('both dictionaries label every simple choice, slider end, size and view str
     for (const key of Object.keys(SIMPLE_SLIDERS)) {
       assert.equal(typeof d.simple[key], 'string', `${key} label`)
       const ends = d.simple.ends[key]
-      assert.ok(Array.isArray(ends) && ends.length === 2 && ends.every((e) => typeof e === 'string' && e.length > 0), `${key} ends`)
+      assert.ok(
+        Array.isArray(ends) && ends.length === 2 && ends.every((e) => typeof e === 'string' && e.length > 0),
+        `${key} ends`,
+      )
     }
-    for (const k of ['viewSimple', 'viewAdvanced', 'randomize', 'randomizeHelp']) assert.equal(typeof d.simple[k], 'string', k)
+    for (const k of ['viewSimple', 'viewAdvanced', 'randomize', 'randomizeHelp']) {
+      assert.equal(typeof d.simple[k], 'string', k)
+    }
     assert.equal(d.simple.size, undefined, 'the size label is gone with the size list')
   }
   assert.deepEqual(Object.keys(PL.simple).sort(), Object.keys(EN.simple).sort())

@@ -4,12 +4,15 @@
 // The command is the canonical way to invoke carve.mjs: flag = PARAM_SPEC key
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
-import { PARAM_SPEC, defaultParams, RULES, RULE_REASONS } from './engine.mjs'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
 import { defaultChoice, exportCell } from './lab-simple.mjs'
 
 // Old flag names from rounds 1–7; README examples must keep working.
 export const ALIASES = {
-  straight: 'pStraight', lateral: 'wLateral', absorb: 'absorbLimit', giantspacepen: 'giantSpacePenalty',
+  straight: 'pStraight',
+  lateral: 'wLateral',
+  absorb: 'absorbLimit',
+  giantspacepen: 'giantSpacePenalty',
 }
 
 const KEY_BY_FLAG = new Map(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
@@ -26,7 +29,10 @@ const MODE_FLAGS = [
   ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
   ['--bench=N', 'benchmark instead of the report, N runs per level'],
   ['--runs=N', 'runs per level in the report (default 3)'],
-  ['--only=<level>', 'one level only, case-insensitive: --only=easy·sq, --only=hard·pt, or --only=easy with --square/--portrait'],
+  [
+    '--only=<level>',
+    'one level only, case-insensitive: --only=easy·sq, --only=hard·pt, or --only=easy with --square/--portrait',
+  ],
   ['--mid=N', 'an extra level "Mid" with N cells on the shorter side'],
   ['--square', 'levels as 1:1 boards only'],
   ['--portrait', 'levels as 1:2 boards only'],
@@ -51,7 +57,10 @@ const SIMPLE_FLAGS = [
   ['--straight=R', 'line shape, 0 = most winding, 1 = straightest (default 0.5)'],
   ['--skeleton', 'a skeleton of long pieces first'],
   ['--seed=N', 'seed of the board (default 7)'],
-  ['--randomized', 'draw every knob afresh inside the slider ranges; not reproducible, the board meta keeps the full command'],
+  [
+    '--randomized',
+    'draw every knob afresh inside the slider ranges; not reproducible, the board meta keeps the full command',
+  ],
   ['--colorized', 'a different colour for every piece'],
   ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
@@ -104,14 +113,19 @@ export function helpText({ advanced = false } = {}) {
   list(VIEW_FLAGS)
   out.push('')
   out.push('Knobs:')
-  const rows = PARAM_SPEC.map((s) => [flagOf(s.key), s.label, `${s.min}..${s.max}`, String(s.step), String(s.def), s.help])
+  const rows = PARAM_SPEC.map((
+    s,
+  ) => [flagOf(s.key), s.label, `${s.min}..${s.max}`, String(s.step), String(s.def), s.help])
   const head = ['flag', 'label', 'range', 'step', 'default', 'help']
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)))
   const line = (r) => '  ' + r.map((c, i) => (i === r.length - 1 ? c : c.padEnd(widths[i]))).join('  ')
   out.push(line(head))
   let group = null
   for (let i = 0; i < rows.length; i++) {
-    if (PARAM_SPEC[i].group !== group) { group = PARAM_SPEC[i].group; out.push(`  [${group}]`) }
+    if (PARAM_SPEC[i].group !== group) {
+      group = PARAM_SPEC[i].group
+      out.push(`  [${group}]`)
+    }
     out.push(line(rows[i]))
   }
   out.push('')
@@ -128,7 +142,12 @@ export function helpText({ advanced = false } = {}) {
 /** Command text reproducing the board for the given parameters and view. */
 export function buildCommand(params, view = {}) {
   const v = { ...DEFAULT_VIEW, ...view }
-  const parts = ['node prototype/carve.mjs --advanced --svg', `--w=${params.W}`, `--h=${params.H}`, `--seed=${params.seed}`]
+  const parts = [
+    'node prototype/carve.mjs --advanced --svg',
+    `--w=${params.W}`,
+    `--h=${params.H}`,
+    `--seed=${params.seed}`,
+  ]
   for (const s of PARAM_SPEC) {
     if (s.key === 'W' || s.key === 'H' || s.key === 'seed') continue
     if (params[s.key] !== undefined && params[s.key] !== s.def) parts.push(`--${s.key.toLowerCase()}=${params[s.key]}`)
@@ -151,16 +170,34 @@ export function parseArgs(argv) {
   const view = { ...DEFAULT_VIEW }
   const rest = []
   for (const a of argv) {
-    if (!a.startsWith('--')) { rest.push(a); continue }
+    if (!a.startsWith('--')) {
+      rest.push(a)
+      continue
+    }
     const eq = a.indexOf('=')
     const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
     const raw = eq < 0 ? null : a.slice(eq + 1)
     const key = KEY_BY_FLAG.get(name)
-    if (key) { params[key] = Number(raw); continue }
-    if (name === 'cell' || name === 'stroke' || name === 'top') { view[name] = Number(raw); continue }
-    if (name === 'headwidth') { view.headWidth = Number(raw); continue }
-    if (name === 'headheight') { view.headHeight = Number(raw); continue }
-    if (name === 'colored') { view.colored = true; continue }
+    if (key) {
+      params[key] = Number(raw)
+      continue
+    }
+    if (name === 'cell' || name === 'stroke' || name === 'top') {
+      view[name] = Number(raw)
+      continue
+    }
+    if (name === 'headwidth') {
+      view.headWidth = Number(raw)
+      continue
+    }
+    if (name === 'headheight') {
+      view.headHeight = Number(raw)
+      continue
+    }
+    if (name === 'colored') {
+      view.colored = true
+      continue
+    }
     rest.push(a)
   }
   return { params, view, rest }
@@ -174,11 +211,19 @@ export function parseArgs(argv) {
 // --straight=1 is the straightest board.
 
 const SIMPLE_NUMBER = new Map([
-  ['width', ['choice', 'W']], ['height', ['choice', 'H']], ['seed', ['choice', 'seed']],
-  ['length', ['choice', 'lengths']], ['straight', ['choice', 'shape']],
-  ['lineweight', ['view', 'stroke']], ['arrowwidth', ['view', 'headWidth']], ['arrowheight', ['view', 'headHeight']],
+  ['width', ['choice', 'W']],
+  ['height', ['choice', 'H']],
+  ['seed', ['choice', 'seed']],
+  ['length', ['choice', 'lengths']],
+  ['straight', ['choice', 'shape']],
+  ['lineweight', ['view', 'stroke']],
+  ['arrowwidth', ['view', 'headWidth']],
+  ['arrowheight', ['view', 'headHeight']],
 ])
-const SIMPLE_SWITCH = new Map([['skeleton', ['choice', 'skeleton', 'on']], ['randomized', ['choice', 'random', true]], ['colorized', ['view', 'colored', true]]])
+const SIMPLE_SWITCH = new Map([['skeleton', ['choice', 'skeleton', 'on']], ['randomized', ['choice', 'random', true]], [
+  'colorized',
+  ['view', 'colored', true],
+]])
 const SIMPLE_SLIDER = new Set(['length', 'straight'])
 // Mode flags carve.mjs reads in the simple mode; anything else is refused.
 const SIMPLE_PASS = /^(--svg(=.*)?|--dry-run|--help|-h)$/
@@ -197,7 +242,10 @@ export function parseSimpleArgs(argv) {
   const rest = [], errors = []
   const seen = new Set()
   for (const a of argv) {
-    if (!a.startsWith('--') || SIMPLE_PASS.test(a)) { rest.push(a); continue }
+    if (!a.startsWith('--') || SIMPLE_PASS.test(a)) {
+      rest.push(a)
+      continue
+    }
     const eq = a.indexOf('=')
     const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
     const raw = eq < 0 ? null : a.slice(eq + 1)
@@ -206,12 +254,21 @@ export function parseSimpleArgs(argv) {
       ;(target === 'choice' ? choice : view)[key] = value
       continue
     }
-    if (!SIMPLE_NUMBER.has(name)) { errors.push(`unknown flag --${name} (${ADVANCED_HINT})`); continue }
+    if (!SIMPLE_NUMBER.has(name)) {
+      errors.push(`unknown flag --${name} (${ADVANCED_HINT})`)
+      continue
+    }
     const [target, key] = SIMPLE_NUMBER.get(name)
-    seen.add(name)   // given, even if the value is bad: that is its own error
+    seen.add(name) // given, even if the value is bad: that is its own error
     const n = raw === null || raw === '' ? NaN : Number(raw)
-    if (!Number.isFinite(n)) { errors.push(`${a} is not a number`); continue }
-    if (SIMPLE_SLIDER.has(name) && (n < 0 || n > 1)) { errors.push(`${a} is outside 0..1`); continue }
+    if (!Number.isFinite(n)) {
+      errors.push(`${a} is not a number`)
+      continue
+    }
+    if (SIMPLE_SLIDER.has(name) && (n < 0 || n > 1)) {
+      errors.push(`${a} is outside 0..1`)
+      continue
+    }
     ;(target === 'choice' ? choice : view)[key] = name === 'straight' ? round6(1 - n) : n
   }
   const missing = ['width', 'height'].filter((name) => !seen.has(name)).map((name) => `missing --${name}`)

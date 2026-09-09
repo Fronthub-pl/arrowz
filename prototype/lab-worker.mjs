@@ -7,7 +7,7 @@
 // regenerating.
 import { generate, toSvg } from './engine.mjs'
 
-let last = null      // { board, metrics, params }
+let last = null // { board, metrics, params }
 
 function longestSummary(board, n) {
   const W = board.W
@@ -30,7 +30,9 @@ function longestSummary(board, n) {
     const sx = maxX - minX + 1
     const sy = maxY - minY + 1
     return {
-      len: pc.cells.length, sx, sy,
+      len: pc.cells.length,
+      sx,
+      sy,
       span: Math.max(sx / board.W, sy / board.H),
       density: pc.cells.length / (sx * sy),
       coil: coil / pc.cells.length,
@@ -43,7 +45,12 @@ function longestSummary(board, n) {
 function render(view, tag) {
   if (!last) return
   const svg = toSvg(last.board, {
-    cell: view.cell, colored: view.colored, strokeRatio: view.stroke, headWidth: view.headWidth, headHeight: view.headHeight, top: view.top,
+    cell: view.cell,
+    colored: view.colored,
+    strokeRatio: view.stroke,
+    headWidth: view.headWidth,
+    headHeight: view.headHeight,
+    top: view.top,
     voids: view.voids,
   })
   self.postMessage({ type: 'render', svg, longest: longestSummary(last.board, view.top), tag })
@@ -52,7 +59,10 @@ function render(view, tag) {
 self.onmessage = (event) => {
   const { type, params, view, tag } = event.data
 
-  if (type === 'render') { render(view, tag); return }
+  if (type === 'render') {
+    render(view, tag)
+    return
+  }
 
   if (type === 'generate') {
     const started = performance.now()

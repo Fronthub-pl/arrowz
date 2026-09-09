@@ -2,8 +2,17 @@
 // Shared by the CLI (carve.mjs --svg) and the lab server. The directory is
 // gitignored — a 1000×1000 board is tens of MB, and the command in the meta
 // reproduces any board.
-import { mkdirSync, writeFileSync, readdirSync, readFileSync, statSync, existsSync, unlinkSync, rmdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { boardId } from './command.mjs'
 
@@ -24,13 +33,27 @@ export function saveBoard({ svg, params, view, command, simpleCommand, metrics =
   const metaFile = join(dir, `${id}.json`)
   let createdAt = now
   if (existsSync(metaFile)) {
-    try { createdAt = JSON.parse(readFileSync(metaFile, 'utf8')).createdAt ?? now } catch { /* broken entry: start over */ }
+    try {
+      createdAt = JSON.parse(readFileSync(metaFile, 'utf8')).createdAt ?? now
+    } catch { /* broken entry: start over */ }
   }
   const meta = {
-    id, W: params.W, H: params.H, seed: params.seed, params, view, command, ...(simpleCommand ? { simpleCommand } : null), source,
-    createdAt, updatedAt: now,
-    ok: metrics.ok ?? null, pieces: metrics.pieces ?? null, maxLen: metrics.maxLen ?? null,
-    genMs: metrics.genMs ?? null, svgBytes: Buffer.byteLength(svg),
+    id,
+    W: params.W,
+    H: params.H,
+    seed: params.seed,
+    params,
+    view,
+    command,
+    ...(simpleCommand ? { simpleCommand } : null),
+    source,
+    createdAt,
+    updatedAt: now,
+    ok: metrics.ok ?? null,
+    pieces: metrics.pieces ?? null,
+    maxLen: metrics.maxLen ?? null,
+    genMs: metrics.genMs ?? null,
+    svgBytes: Buffer.byteLength(svg),
   }
   writeFileSync(join(dir, `${id}.svg`), svg)
   writeFileSync(metaFile, JSON.stringify(meta, null, 2))
@@ -48,7 +71,10 @@ export function deleteBoard(size, id) {
   let removed = false
   for (const ext of ['.svg', '.json']) {
     const file = join(dir, id + ext)
-    if (existsSync(file)) { unlinkSync(file); removed = true }
+    if (existsSync(file)) {
+      unlinkSync(file)
+      removed = true
+    }
   }
   if (existsSync(dir) && readdirSync(dir).length === 0) rmdirSync(dir)
   return removed
@@ -68,7 +94,9 @@ export function listBoards() {
     for (const f of readdirSync(dir)) {
       if (!f.endsWith('.json')) continue
       if (!existsSync(join(dir, f.slice(0, -5) + '.svg'))) continue
-      try { boards.push(JSON.parse(readFileSync(join(dir, f), 'utf8'))) } catch { /* broken entry */ }
+      try {
+        boards.push(JSON.parse(readFileSync(join(dir, f), 'utf8')))
+      } catch { /* broken entry */ }
     }
     if (!boards.length) continue
     boards.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))

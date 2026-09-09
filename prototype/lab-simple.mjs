@@ -17,7 +17,7 @@
 //
 // Labels come from the dictionaries (lab-i18n.mjs, `simple`); nothing here
 // knows the DOM.
-import { PARAM_SPEC, defaultParams } from './engine.mjs'
+import { defaultParams, PARAM_SPEC } from './engine.mjs'
 import { PRESETS } from './lab-presets.mjs'
 
 const specByKey = new Map(PARAM_SPEC.map((s) => [s.key, s]))
@@ -25,9 +25,11 @@ const specByKey = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 /** Every distinct preset size, smallest first — the sizes the ranges are exercised at. */
 export const SIMPLE_SIZES = (() => {
   const seen = new Map()
-  for (const l of PRESETS) for (const o of l.options) {
-    const id = `${o.params.W}x${o.params.H}`
-    if (!seen.has(id)) seen.set(id, { id, W: o.params.W, H: o.params.H })
+  for (const l of PRESETS) {
+    for (const o of l.options) {
+      const id = `${o.params.W}x${o.params.H}`
+      if (!seen.has(id)) seen.set(id, { id, W: o.params.W, H: o.params.H })
+    }
   }
   return [...seen.values()].sort((a, b) => a.W * a.H - b.W * b.H || a.W - b.W)
 })()
@@ -80,7 +82,13 @@ export const SIMPLE_SLIDERS = {
 // tail of the measurements; these ranges stay below all three.
 const SKELETON = {
   off: {},
-  on: { giants: r(3, 6, 4), giantStep: r(6, 14, 14), giantJitter: r(0.3, 1, 0.6), giantSpan: r(10, 40, 30), wGiant: r(0, 0.1, 0) },
+  on: {
+    giants: r(3, 6, 4),
+    giantStep: r(6, 14, 14),
+    giantJitter: r(0.3, 1, 0.6),
+    giantSpan: r(10, 40, 30),
+    wGiant: r(0, 0.1, 0),
+  },
 }
 
 // Where pieces start and the probe share change the look without touching
@@ -146,8 +154,15 @@ function lerpRanges(anchors, t) {
   const a = anchors[i], b = anchors[i + 1]
   const out = {}
   for (const key of Object.keys(a)) {
-    if (a[key].pick) { out[key] = f < 0.5 ? a[key] : b[key]; continue }
-    out[key] = { lo: a[key].lo + (b[key].lo - a[key].lo) * f, hi: a[key].hi + (b[key].hi - a[key].hi) * f, def: a[key].def + (b[key].def - a[key].def) * f }
+    if (a[key].pick) {
+      out[key] = f < 0.5 ? a[key] : b[key]
+      continue
+    }
+    out[key] = {
+      lo: a[key].lo + (b[key].lo - a[key].lo) * f,
+      hi: a[key].hi + (b[key].hi - a[key].hi) * f,
+      def: a[key].def + (b[key].def - a[key].def) * f,
+    }
   }
   return out
 }
@@ -188,8 +203,17 @@ export function simpleRanges(choice) {
 function bigShape(t) {
   if (t <= 0.5) return null
   const base = lerpRanges(SHAPE_ANCHORS, t).pStraight
-  const raised = lerpRanges([SHAPE_ANCHORS[2], SHAPE_ANCHORS_BIG[3], SHAPE_ANCHORS_BIG[4]].map((a) => ({ pStraight: a.pStraight })), (t - 0.5) * 2).pStraight
-  return { pStraight: { lo: Math.max(base.lo, raised.lo), hi: Math.max(base.hi, raised.hi), def: Math.max(base.def, raised.def) } }
+  const raised = lerpRanges(
+    [SHAPE_ANCHORS[2], SHAPE_ANCHORS_BIG[3], SHAPE_ANCHORS_BIG[4]].map((a) => ({ pStraight: a.pStraight })),
+    (t - 0.5) * 2,
+  ).pStraight
+  return {
+    pStraight: {
+      lo: Math.max(base.lo, raised.lo),
+      hi: Math.max(base.hi, raised.hi),
+      def: Math.max(base.def, raised.def),
+    },
+  }
 }
 
 function draw(key, range, rng) {

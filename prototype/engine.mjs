@@ -6,8 +6,8 @@
 
 const DIRS = [
   { dx: 0, dy: -1, ch: '↑' }, // 0 up
-  { dx: 1, dy: 0, ch: '→' },  // 1 right
-  { dx: 0, dy: 1, ch: '↓' },  // 2 down
+  { dx: 1, dy: 0, ch: '→' }, // 1 right
+  { dx: 0, dy: 1, ch: '↓' }, // 2 down
   { dx: -1, dy: 0, ch: '←' }, // 3 left
 ]
 
@@ -37,7 +37,10 @@ class Carver {
       const target = Math.round(W * H * params.voidFrac)
       while (v < target) {
         const i = Math.floor(rng() * W * H)
-        if (this.owner[i] === -1) { this.owner[i] = -2; v++ }
+        if (this.owner[i] === -1) {
+          this.owner[i] = -2
+          v++
+        }
       }
       this.remaining -= target
     }
@@ -66,7 +69,7 @@ class Carver {
     // again in exactly the same way — so it is skipped (see absorbLeftover).
     this.version = 0
     this.touched = new Int32Array(W * H)
-    this.absorbMemo = new Map()  // first cell of the fragment -> { version, pieces }
+    this.absorbMemo = new Map() // first cell of the fragment -> { version, pieces }
     // Dirty cells of the incremental fragment scan of absorbLeftover, one bit
     // per cell: a cell that changed owner or lies next to one (set by touch),
     // or the smallest cell of a fragment the scan discovered and did not get
@@ -119,9 +122,15 @@ class Carver {
     }
   }
 
-  idx(x, y) { return y * this.W + x }
-  inside(x, y) { return x >= 0 && y >= 0 && x < this.W && y < this.H }
-  free(x, y) { return this.owner[this.idx(x, y)] === -1 }
+  idx(x, y) {
+    return y * this.W + x
+  }
+  inside(x, y) {
+    return x >= 0 && y >= 0 && x < this.W && y < this.H
+  }
+  free(x, y) {
+    return this.owner[this.idx(x, y)] === -1
+  }
 
   // first unassigned cell on the line, counting from the exit edge of direction d
   headCandidate(d, line) {
@@ -136,17 +145,24 @@ class Carver {
   recomputeLines(cells) {
     const { W, H, owner, depth } = this
     const cols = new Set(), rows = new Set()
-    for (const c of cells) { cols.add(c.x); rows.add(c.y) }
+    for (const c of cells) {
+      cols.add(c.x)
+      rows.add(c.y)
+    }
     for (const x of cols) {
-      let k = 0; while (k < H && owner[this.idx(x, k)] !== -1) k++
+      let k = 0
+      while (k < H && owner[this.idx(x, k)] !== -1) k++
       depth[0][x] = k
-      k = 0; while (k < H && owner[this.idx(x, H - 1 - k)] !== -1) k++
+      k = 0
+      while (k < H && owner[this.idx(x, H - 1 - k)] !== -1) k++
       depth[2][x] = k
     }
     for (const y of rows) {
-      let k = 0; while (k < W && owner[this.idx(k, y)] !== -1) k++
+      let k = 0
+      while (k < W && owner[this.idx(k, y)] !== -1) k++
       depth[3][y] = k
-      k = 0; while (k < W && owner[this.idx(W - 1 - k, y)] !== -1) k++
+      k = 0
+      while (k < W && owner[this.idx(W - 1 - k, y)] !== -1) k++
       depth[1][y] = k
     }
   }
@@ -159,7 +175,8 @@ class Carver {
     while (this.inside(cx, cy)) {
       const i = this.idx(cx, cy)
       if (this.owner[i] === -1 && !pathSet.has(i)) return false
-      cx += dx; cy += dy
+      cx += dx
+      cy += dy
     }
     return true
   }
@@ -277,7 +294,8 @@ class Carver {
       if (y < H - 1 && isFree(i + W)) n++
       if (x > 0 && isFree(i - 1)) n++
       if (x < W - 1 && isFree(i + 1)) n++
-      degStamp[i] = cacheGen; degVal[i] = n
+      degStamp[i] = cacheGen
+      degVal[i] = n
       return n
     }
     const nbrs = (i, out) => {
@@ -321,12 +339,22 @@ class Carver {
               if (ui === vi || ui === wi) continue
               if (side === 1) { // do not count a shared neighbour twice
                 let dup = false
-                for (let b = 0; b < kv; b++) if (nv[b] === ui) { dup = true; break }
+                for (let b = 0; b < kv; b++) {
+                  if (nv[b] === ui) {
+                    dup = true
+                    break
+                  }
+                }
                 if (dup) continue
               }
               const ke = nbrs(ui, ne)
               let ok = true
-              for (let b = 0; b < ke; b++) if (ne[b] !== vi && ne[b] !== wi) { ok = false; break }
+              for (let b = 0; b < ke; b++) {
+                if (ne[b] !== vi && ne[b] !== wi) {
+                  ok = false
+                  break
+                }
+              }
               if (ok) isolated++
             }
           }
@@ -360,15 +388,22 @@ class Carver {
         if (owner[start] !== -1 || takenStamp[start] === seenGen || seenStamp[start] === seenGen) continue
         const comp = []
         stack.length = 0
-        stack.push(start); seenStamp[start] = seenGen
+        stack.push(start)
+        seenStamp[start] = seenGen
         let overflow = false
         while (stack.length) {
           const i = stack.pop()
           comp.push(i)
-          if (comp.length > limit) { overflow = true; break }
+          if (comp.length > limit) {
+            overflow = true
+            break
+          }
           const x = i % W, y = (i / W) | 0
           const tryPush = (j) => {
-            if (owner[j] === -1 && takenStamp[j] !== seenGen && seenStamp[j] !== seenGen) { seenStamp[j] = seenGen; stack.push(j) }
+            if (owner[j] === -1 && takenStamp[j] !== seenGen && seenStamp[j] !== seenGen) {
+              seenStamp[j] = seenGen
+              stack.push(j)
+            }
           }
           if (y > 0) tryPush(i - W)
           if (y < H - 1) tryPush(i + W)
@@ -382,11 +417,11 @@ class Carver {
           // cells back to it. A non-local defect does not go away because of
           // that, and letting it through would mean a pocket that cannot be
           // carved until the end of the generation.
-          if (failed) for (const i of comp) if (failed.has(i)) return true
+          if (failed) { for (const i of comp) if (failed.has(i)) return true }
           continue
         }
         if (!this.decomposable(new Set(comp))) {
-          if (failed) for (const i of comp) failed.add(i)
+          if (failed) { for (const i of comp) failed.add(i) }
           return true
         }
       }
@@ -452,7 +487,10 @@ class Carver {
             for (let py = -2; py <= 2; py++) {
               if (Math.abs(px) + Math.abs(py) > 2) continue
               const wx = vx + px, wy = vy + py
-              if (this.inside(wx, wy) && takenStamp[wy * W + wx] === takenGen) { near = true; break }
+              if (this.inside(wx, wy) && takenStamp[wy * W + wx] === takenGen) {
+                near = true
+                break
+              }
             }
           }
           if (!near) continue
@@ -506,7 +544,8 @@ class Carver {
     const takenGen = ++this.gen
     for (let i = 0; i < L; i++) {
       const c = path[i], ci = c.y * W + c.x
-      takenStamp[ci] = takenGen; creepPos[ci] = i
+      takenStamp[ci] = takenGen
+      creepPos[ci] = i
     }
     const creepGen = ++this.gen
     const lists = new Map() // entry -> cells it marked seen (popped or pushed)
@@ -519,7 +558,10 @@ class Carver {
       while (i > 0) {
         const p = (i - 1) >> 1
         if (heap[p] <= heap[i]) break
-        const t = heap[p]; heap[p] = heap[i]; heap[i] = t; i = p
+        const t = heap[p]
+        heap[p] = heap[i]
+        heap[i] = t
+        i = p
       }
     }
     const pop = () => {
@@ -533,12 +575,17 @@ class Carver {
           if (l < heap.length && heap[l] < heap[m]) m = l
           if (r < heap.length && heap[r] < heap[m]) m = r
           if (m === i) break
-          const t = heap[m]; heap[m] = heap[i]; heap[i] = t; i = m
+          const t = heap[m]
+          heap[m] = heap[i]
+          heap[i] = t
+          i = m
         }
       }
       return top
     }
-    const addIfLater = (e) => { if (e > cur) push(e) }
+    const addIfLater = (e) => {
+      if (e > cur) push(e)
+    }
     const seen = (x, e) => seenStamp[x] === creepGen && (creepInfo[x] >> 1) <= e
     const poppedEntry = (x) => (seenStamp[x] === creepGen && (creepInfo[x] & 1)) ? creepInfo[x] >> 1 : -1
     // Every later entry whose footprint contains x.
@@ -559,11 +606,15 @@ class Carver {
     const mark = (x, e) => {
       // a stale mark of a later entry: that entry read x, so it is affected
       if (seenStamp[x] === creepGen) addIfLater(creepInfo[x] >> 1)
-      seenStamp[x] = creepGen; creepInfo[x] = e << 1
+      seenStamp[x] = creepGen
+      creepInfo[x] = e << 1
       curList.push(x)
     }
     const tryPush = (j, e) => {
-      if (owner[j] === -1 && takenStamp[j] !== takenGen && !seen(j, e)) { mark(j, e); stack.push(j) }
+      if (owner[j] === -1 && takenStamp[j] !== takenGen && !seen(j, e)) {
+        mark(j, e)
+        stack.push(j)
+      }
     }
     // Runs entry e in the current state; true = this prefix strands.
     const evalEntry = (e) => {
@@ -574,13 +625,19 @@ class Carver {
       if (owner[start] !== -1 || takenStamp[start] === takenGen || seen(start, e)) return false
       curList = []
       lists.set(e, curList)
-      comp.length = 0; stack.length = 0
-      stack.push(start); mark(start, e)
+      comp.length = 0
+      stack.length = 0
+      stack.push(start)
+      mark(start, e)
       let overflow = false
       while (stack.length) {
         const i = stack.pop()
-        comp.push(i); creepInfo[i] |= 1
-        if (comp.length > limit) { overflow = true; break }
+        comp.push(i)
+        creepInfo[i] |= 1
+        if (comp.length > limit) {
+          overflow = true
+          break
+        }
         const ix = i % W, iy = (i / W) | 0
         if (iy > 0) tryPush(i - W, e)
         if (iy < this.H - 1) tryPush(i + W, e)
@@ -605,7 +662,8 @@ class Carver {
     let best = L
     for (let k = L + 1; k < hi; k++) {
       const c = path[k - 1], ci = c.y * W + c.x
-      takenStamp[ci] = takenGen; creepPos[ci] = k - 1
+      takenStamp[ci] = takenGen
+      creepPos[ci] = k - 1
       if (this.defectNear(c.x, c.y, takenGen)) break
       cur = -1
       markDirty(ci)
@@ -622,15 +680,18 @@ class Carver {
           for (const x of old) if (seenStamp[x] === creepGen && (creepInfo[x] >> 1) === e) seenStamp[x] = 0
         }
         curList = null
-        if (evalEntry(e)) { strand = true; break }
+        if (evalEntry(e)) {
+          strand = true
+          break
+        }
         // cells whose seen state, as later entries observe it, changed:
         // marked now but not before, or marked before and by nobody <= e now.
         // degStamp is free scratch here (defectNear takes a fresh cache
         // generation on every step).
         const tag = ++this.gen
-        if (old) for (const x of old) degStamp[x] = tag
-        if (curList) for (const x of curList) if (degStamp[x] !== tag) markDirty(x)
-        if (old) for (const x of old) if (!seen(x, e)) markDirty(x)
+        if (old) { for (const x of old) degStamp[x] = tag }
+        if (curList) { for (const x of curList) if (degStamp[x] !== tag) markDirty(x) }
+        if (old) { for (const x of old) if (!seen(x, e)) markDirty(x) }
       }
       if (strand) break
       best = k
@@ -663,9 +724,13 @@ class Carver {
     const cap = this.lmax()
     const r = rng()
     let lo, hi
-    if (r < p.wShort) { lo = 2; hi = 6 }
-    else if (r < p.wShort + p.wMid) { lo = 7; hi = 15 }
-    else { // log-uniform within the long bucket
+    if (r < p.wShort) {
+      lo = 2
+      hi = 6
+    } else if (r < p.wShort + p.wMid) {
+      lo = 7
+      hi = 15
+    } else { // log-uniform within the long bucket
       const a = 16, b = Math.max(17, cap)
       return Math.min(cap, Math.round(a * Math.exp(rng() * Math.log(b / a))))
     }
@@ -686,15 +751,17 @@ class Carver {
   growSerpentine(head, neck, d, maxLen) {
     const { rng, p } = this
     const step = Math.max(2, p.giantStep)
-    const advance = DIRS[(d + 2) % 4]                 // into the board
+    const advance = DIRS[(d + 2) % 4] // into the board
     const along = d === 0 || d === 2 ? { dx: 1, dy: 0 } : { dx: 0, dy: 1 }
-    let dir = rng() < 0.5 ? 1 : -1                    // direction of the first run
+    let dir = rng() < 0.5 ? 1 : -1 // direction of the first run
 
     const path = [head, neck]
     const used = new Set([this.idx(head.x, head.y), this.idx(neck.x, neck.y)])
-    const free = (x, y) =>
-      this.inside(x, y) && this.owner[this.idx(x, y)] === -1 && !used.has(this.idx(x, y))
-    const push = (x, y) => { path.push({ x, y }); used.add(this.idx(x, y)) }
+    const free = (x, y) => this.inside(x, y) && this.owner[this.idx(x, y)] === -1 && !used.has(this.idx(x, y))
+    const push = (x, y) => {
+      path.push({ x, y })
+      used.add(this.idx(x, y))
+    }
 
     let cur = { x: neck.x, y: neck.y }
     while (path.length < maxLen) {
@@ -705,16 +772,20 @@ class Carver {
       while (ran < runCap && path.length < maxLen) {
         const nx = cur.x + along.dx * dir, ny = cur.y + along.dy * dir
         if (!free(nx, ny)) break
-        push(nx, ny); cur = { x: nx, y: ny }; ran++
+        push(nx, ny)
+        cur = { x: nx, y: ny }
+        ran++
       }
       // jump `step` cells inward and turn around
       let moved = 0
       while (moved < step && path.length < maxLen) {
         const nx = cur.x + advance.dx, ny = cur.y + advance.dy
         if (!free(nx, ny)) break
-        push(nx, ny); cur = { x: nx, y: ny }; moved++
+        push(nx, ny)
+        cur = { x: nx, y: ny }
+        moved++
       }
-      if (moved === 0) break          // nowhere to descend — end of the serpentine
+      if (moved === 0) break // nowhere to descend — end of the serpentine
       dir = -dir
     }
     return path
@@ -736,7 +807,9 @@ class Carver {
     const order = [0, 1, 2, 3]
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1))
-      const t = order[i]; order[i] = order[j]; order[j] = t
+      const t = order[i]
+      order[i] = order[j]
+      order[j] = t
     }
 
     for (const d of order) {
@@ -784,175 +857,188 @@ class Carver {
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
       for (const pool of pools) {
-      const tries = scanAll ? pool.length : Math.min(Math.max(1, p.headTries), pool.length)
-      for (let attempt = 0; attempt < tries && !carved; attempt++) {
-      const pick = Math.floor(rng() * pool.length)
-      const h = pool[pick]
-      pool.splice(pick, 1)
-      const bx = h.x + back.dx, by = h.y + back.dy
-      const path = [h, { x: bx, y: by }]
-      const pathSet = new Set([this.idx(h.x, h.y), this.idx(bx, by)])
-      // position of a cell in the path — the spacing rule must tell "my own tail,
-      // which I just came from" apart from "my own run from a hundred cells ago"
-      const pathPos = new Map([[this.idx(h.x, h.y), 0], [this.idx(bx, by), 1]])
-      // PROBE: every so often drive a long straight piece inward to make a step
-      // in the frontier profile. Without steps all subsequent pieces are straight
-      // strokes, because a bend requires matching the depth of the neighbour's frontier.
-      const isProbe = rng() < p.probe
-      // Giants are carved AT THE START, while the board is empty: only then does
-      // the path have room to run across the whole grid. Drawing them mid-way
-      // does not work — after a thousand cuts the unassigned area is already ragged.
-      // The carving order is the solution order, so giants are also the first
-      // to be removed in the game and their removal unblocks the rest of the board.
-      const isGiant = p.giantSpan > 0 &&
-        (this.pieces.length < p.giants || (p.wGiant > 0 && rng() < p.wGiant))
-      const want = isGiant
-        ? this.giantLength()
-        : isProbe
-          ? Math.max(4, Math.round(p.probeLen * (0.5 + rng())))
-          : this.targetLength(progress)
-      // A piece that is meant to have REACH must run straight — coiling eats
-      // length without gaining ground. So for giants we swap the weights:
-      // strongly straight, no Warnsdorff (it is what coils), with a self-contact penalty.
-      const pStraight = isGiant ? p.giantStraight : p.pStraight
-      const warns = isGiant ? p.giantWarns : p.warns
-      const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
-      let lastDir = { dx: back.dx, dy: back.dy }
+        const tries = scanAll ? pool.length : Math.min(Math.max(1, p.headTries), pool.length)
+        for (let attempt = 0; attempt < tries && !carved; attempt++) {
+          const pick = Math.floor(rng() * pool.length)
+          const h = pool[pick]
+          pool.splice(pick, 1)
+          const bx = h.x + back.dx, by = h.y + back.dy
+          const path = [h, { x: bx, y: by }]
+          const pathSet = new Set([this.idx(h.x, h.y), this.idx(bx, by)])
+          // position of a cell in the path — the spacing rule must tell "my own tail,
+          // which I just came from" apart from "my own run from a hundred cells ago"
+          const pathPos = new Map([[this.idx(h.x, h.y), 0], [this.idx(bx, by), 1]])
+          // PROBE: every so often drive a long straight piece inward to make a step
+          // in the frontier profile. Without steps all subsequent pieces are straight
+          // strokes, because a bend requires matching the depth of the neighbour's frontier.
+          const isProbe = rng() < p.probe
+          // Giants are carved AT THE START, while the board is empty: only then does
+          // the path have room to run across the whole grid. Drawing them mid-way
+          // does not work — after a thousand cuts the unassigned area is already ragged.
+          // The carving order is the solution order, so giants are also the first
+          // to be removed in the game and their removal unblocks the rest of the board.
+          const isGiant = p.giantSpan > 0 &&
+            (this.pieces.length < p.giants || (p.wGiant > 0 && rng() < p.wGiant))
+          const want = isGiant
+            ? this.giantLength()
+            : isProbe
+            ? Math.max(4, Math.round(p.probeLen * (0.5 + rng())))
+            : this.targetLength(progress)
+          // A piece that is meant to have REACH must run straight — coiling eats
+          // length without gaining ground. So for giants we swap the weights:
+          // strongly straight, no Warnsdorff (it is what coils), with a self-contact penalty.
+          const pStraight = isGiant ? p.giantStraight : p.pStraight
+          const warns = isGiant ? p.giantWarns : p.warns
+          const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
+          let lastDir = { dx: back.dx, dy: back.dy }
 
-      if (isGiant && p.giantStep > 0) {
-        const serp = this.growSerpentine(h, { x: bx, y: by }, d, want)
-        if (serp.length >= 2) {
-          path.length = 0
-          pathSet.clear()
-          for (const c of serp) { path.push(c); pathSet.add(this.idx(c.x, c.y)) }
-        }
-      }
-
-      while (path.length < want) {
-        const tail = path[path.length - 1]
-        const cand = []
-        for (const dd of DIRS) {
-          const nx = tail.x + dd.dx, ny = tail.y + dd.dy
-          if (!this.inside(nx, ny)) continue
-          const i = this.idx(nx, ny)
-          if (this.owner[i] !== -1 || pathSet.has(i)) continue
-          if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
-          // Moving INWARD (along -d) is always legal, but it cuts the path off
-          // from the frontier and thus from any future bends. Moving SIDEWAYS is
-          // legal only at the level of the neighbouring line's frontier — and it
-          // is what builds the shape. That is why we reward sideways, not "straight".
-          const inward = dd.dx === back.dx && dd.dy === back.dy
-          const straight = dd.dx === lastDir.dx && dd.dy === lastDir.dy
-          let w = inward ? 1 : p.wLateral
-          if (straight) w *= pStraight / (1 - Math.min(0.999, pStraight))
-          // One pass over the neighbours counts three things at once:
-          //  deg     - free exits (Warnsdorff),
-          //  foreign - neighbours belonging to ALREADY CARVED pieces (and the edge),
-          //  own     - neighbours belonging to the path being built right now.
-          let deg = 0, foreign = 0, own = 0
-          for (const e of DIRS) {
-            const ax = nx + e.dx, ay = ny + e.dy
-            if (!this.inside(ax, ay)) { foreign += p.edgeHug; continue }
-            const j = this.idx(ax, ay)
-            if (pathSet.has(j)) own++
-            else if (this.owner[j] === -1) deg++
-            else foreign++
-          }
-          if (warns > 0) {
-            // Warnsdorff: prefer the cell with the fewest free neighbours.
-            // It eats dead ends before they close instead of stranding them.
-            w *= Math.pow(warns, 3 - deg)
-          }
-          // HUG: a bonus for hugging other pieces. Hypothesis — this is what
-          // should give the impression of "wrapping" instead of coiling on itself.
-          if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
-          // ANTICOIL: a penalty for touching one's own path. The tail cell we
-          // come from does not count — hence own - 1.
-          if (anticoil > 1 && own > 1) w *= Math.pow(anticoil, -(own - 1))
-
-          // SPACING RULE (giants only). A snake that is meant to cross the board
-          // back and forth must not turn around right next to itself — otherwise
-          // it eats its own space and gets stuck. We enforce a minimum distance
-          // to its own runs from at least a few steps ago; the channels left
-          // between the runs will later be filled by other pieces.
-          if (isGiant && p.giantSpacing > 1 && p.giantSpacePenalty > 1) {
-            const k = p.giantSpacing
-            const here = path.length
-            let near = 0
-            for (let ox = -k; ox <= k; ox++) {
-              for (let oy = -k; oy <= k; oy++) {
-                if (ox === 0 && oy === 0) continue
-                const px = nx + ox, py = ny + oy
-                if (!this.inside(px, py)) continue
-                const pos = pathPos.get(this.idx(px, py))
-                // The last 2k cells are the tail's natural neighbourhood — skipped.
-                if (pos !== undefined && here - pos > 2 * k) near++
+          if (isGiant && p.giantStep > 0) {
+            const serp = this.growSerpentine(h, { x: bx, y: by }, d, want)
+            if (serp.length >= 2) {
+              path.length = 0
+              pathSet.clear()
+              for (const c of serp) {
+                path.push(c)
+                pathSet.add(this.idx(c.x, c.y))
               }
             }
-            // A PENALTY, not a ban. A ban would make turning around impossible:
-            // moving from lane to lane requires crossing the spacing zone, so the
-            // snake got stuck after two hundred cells regardless of the ordered length.
-            if (near > 0) w *= Math.pow(p.giantSpacePenalty, -near)
           }
-          cand.push({ x: nx, y: ny, dd, w })
-        }
-        if (!cand.length) {
-          // Stall diagnostics: what surrounds the tail (own path, another
-          // piece, the edge) and after how many cells. This settles whether the
-          // path is closed off by its own body or by nooks of the frontier.
-          let own = 0, foreign = 0, edge = 0
-          for (const dd of DIRS) {
-            const nx = tail.x + dd.dx, ny = tail.y + dd.dy
-            if (!this.inside(nx, ny)) edge++
-            else if (pathSet.has(this.idx(nx, ny))) own++
-            else foreign++
+
+          while (path.length < want) {
+            const tail = path[path.length - 1]
+            const cand = []
+            for (const dd of DIRS) {
+              const nx = tail.x + dd.dx, ny = tail.y + dd.dy
+              if (!this.inside(nx, ny)) continue
+              const i = this.idx(nx, ny)
+              if (this.owner[i] !== -1 || pathSet.has(i)) continue
+              if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
+              // Moving INWARD (along -d) is always legal, but it cuts the path off
+              // from the frontier and thus from any future bends. Moving SIDEWAYS is
+              // legal only at the level of the neighbouring line's frontier — and it
+              // is what builds the shape. That is why we reward sideways, not "straight".
+              const inward = dd.dx === back.dx && dd.dy === back.dy
+              const straight = dd.dx === lastDir.dx && dd.dy === lastDir.dy
+              let w = inward ? 1 : p.wLateral
+              if (straight) w *= pStraight / (1 - Math.min(0.999, pStraight))
+              // One pass over the neighbours counts three things at once:
+              //  deg     - free exits (Warnsdorff),
+              //  foreign - neighbours belonging to ALREADY CARVED pieces (and the edge),
+              //  own     - neighbours belonging to the path being built right now.
+              let deg = 0, foreign = 0, own = 0
+              for (const e of DIRS) {
+                const ax = nx + e.dx, ay = ny + e.dy
+                if (!this.inside(ax, ay)) {
+                  foreign += p.edgeHug
+                  continue
+                }
+                const j = this.idx(ax, ay)
+                if (pathSet.has(j)) own++
+                else if (this.owner[j] === -1) deg++
+                else foreign++
+              }
+              if (warns > 0) {
+                // Warnsdorff: prefer the cell with the fewest free neighbours.
+                // It eats dead ends before they close instead of stranding them.
+                w *= Math.pow(warns, 3 - deg)
+              }
+              // HUG: a bonus for hugging other pieces. Hypothesis — this is what
+              // should give the impression of "wrapping" instead of coiling on itself.
+              if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
+              // ANTICOIL: a penalty for touching one's own path. The tail cell we
+              // come from does not count — hence own - 1.
+              if (anticoil > 1 && own > 1) w *= Math.pow(anticoil, -(own - 1))
+
+              // SPACING RULE (giants only). A snake that is meant to cross the board
+              // back and forth must not turn around right next to itself — otherwise
+              // it eats its own space and gets stuck. We enforce a minimum distance
+              // to its own runs from at least a few steps ago; the channels left
+              // between the runs will later be filled by other pieces.
+              if (isGiant && p.giantSpacing > 1 && p.giantSpacePenalty > 1) {
+                const k = p.giantSpacing
+                const here = path.length
+                let near = 0
+                for (let ox = -k; ox <= k; ox++) {
+                  for (let oy = -k; oy <= k; oy++) {
+                    if (ox === 0 && oy === 0) continue
+                    const px = nx + ox, py = ny + oy
+                    if (!this.inside(px, py)) continue
+                    const pos = pathPos.get(this.idx(px, py))
+                    // The last 2k cells are the tail's natural neighbourhood — skipped.
+                    if (pos !== undefined && here - pos > 2 * k) near++
+                  }
+                }
+                // A PENALTY, not a ban. A ban would make turning around impossible:
+                // moving from lane to lane requires crossing the spacing zone, so the
+                // snake got stuck after two hundred cells regardless of the ordered length.
+                if (near > 0) w *= Math.pow(p.giantSpacePenalty, -near)
+              }
+              cand.push({ x: nx, y: ny, dd, w })
+            }
+            if (!cand.length) {
+              // Stall diagnostics: what surrounds the tail (own path, another
+              // piece, the edge) and after how many cells. This settles whether the
+              // path is closed off by its own body or by nooks of the frontier.
+              let own = 0, foreign = 0, edge = 0
+              for (const dd of DIRS) {
+                const nx = tail.x + dd.dx, ny = tail.y + dd.dy
+                if (!this.inside(nx, ny)) edge++
+                else if (pathSet.has(this.idx(nx, ny))) own++
+                else foreign++
+              }
+              const st = this.stats
+              st.stallOwn = (st.stallOwn ?? 0) + own
+              st.stallForeign = (st.stallForeign ?? 0) + foreign
+              st.stallEdge = (st.stallEdge ?? 0) + edge
+              st.stallLen = (st.stallLen ?? 0) + path.length
+              st.stallSelfTrap = (st.stallSelfTrap ?? 0) + (own >= 2 ? 1 : 0)
+              break
+            }
+            let total = cand.reduce((s, c) => s + c.w, 0), r = rng() * total, pick = cand[0]
+            for (const c of cand) {
+              r -= c.w
+              if (r <= 0) {
+                pick = c
+                break
+              }
+            }
+            path.push({ x: pick.x, y: pick.y })
+            pathSet.add(this.idx(pick.x, pick.y))
+            pathPos.set(this.idx(pick.x, pick.y), path.length - 1)
+            lastDir = pick.dd
           }
-          const st = this.stats
-          st.stallOwn = (st.stallOwn ?? 0) + own
-          st.stallForeign = (st.stallForeign ?? 0) + foreign
-          st.stallEdge = (st.stallEdge ?? 0) + edge
-          st.stallLen = (st.stallLen ?? 0) + path.length
-          st.stallSelfTrap = (st.stallSelfTrap ?? 0) + (own >= 2 ? 1 : 0)
-          break
-        }
-        let total = cand.reduce((s, c) => s + c.w, 0), r = rng() * total, pick = cand[0]
-        for (const c of cand) { r -= c.w; if (r <= 0) { pick = c; break } }
-        path.push({ x: pick.x, y: pick.y })
-        pathSet.add(this.idx(pick.x, pick.y))
-        pathPos.set(this.idx(pick.x, pick.y), path.length - 1)
-        lastDir = pick.dd
-      }
 
-      if (path.length < 2) continue
-      if (isGiant && this.p.debug) {
-        const grew = path.length
-        this.p.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
-      }
-      this.stats.want += want; this.stats.n++
-      if (path.length < want) this.stats.stall++
-      const beforeStrand = path.length
-      // Cells of fragments that failed the exact test — shortening the path
-      // must not "push" them above the test limit (see wouldStrand).
-      const failed = new Set()
-      if (this.wouldStrand(path, failed)) {
-        if (!this.shortenPath(path, failed)) continue
-        this.stats.strandTrunc++
-        this.stats.strandLoss += beforeStrand - path.length
-        if (isGiant && this.p.debug) {
-          this.p.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
-        }
-      }
-      this.stats.got += path.length
+          if (path.length < 2) continue
+          if (isGiant && this.p.debug) {
+            const grew = path.length
+            this.p.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
+          }
+          this.stats.want += want
+          this.stats.n++
+          if (path.length < want) this.stats.stall++
+          const beforeStrand = path.length
+          // Cells of fragments that failed the exact test — shortening the path
+          // must not "push" them above the test limit (see wouldStrand).
+          const failed = new Set()
+          if (this.wouldStrand(path, failed)) {
+            if (!this.shortenPath(path, failed)) continue
+            this.stats.strandTrunc++
+            this.stats.strandLoss += beforeStrand - path.length
+            if (isGiant && this.p.debug) {
+              this.p.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
+            }
+          }
+          this.stats.got += path.length
 
-      const id = this.pieces.length
-      for (const c of path) this.owner[this.idx(c.x, c.y)] = id
-      this.pieces.push({ id, cells: path, dir: d })
-      this.remaining -= path.length
-      this.recomputeLines(path)
-      this.touch(path)
-      carved = true
-      }
-      if (carved) break
+          const id = this.pieces.length
+          for (const c of path) this.owner[this.idx(c.x, c.y)] = id
+          this.pieces.push({ id, cells: path, dir: d })
+          this.remaining -= path.length
+          this.recomputeLines(path)
+          this.touch(path)
+          carved = true
+        }
+        if (carved) break
       }
       if (carved) return true
     }
@@ -1032,7 +1118,11 @@ class Carver {
     const posOf = (pc, i) => {
       const key = pc.id
       let m = cellIndexIn.get(key)
-      if (!m) { m = new Map(); pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k)); cellIndexIn.set(key, m) }
+      if (!m) {
+        m = new Map()
+        pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k))
+        cellIndexIn.set(key, m)
+      }
       return m.get(i)
     }
     // DISCOVERY: the fragment of free cells around a dirty cell, with a size
@@ -1071,18 +1161,66 @@ class Carver {
         if (touched[i] > changed) changed = touched[i]
         const x = i % W, y = (i / W) | 0
         let j
-        if (y > 0) { j = i - W; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
-        if (x < W - 1) { j = i + 1; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
-        if (y < H - 1) { j = i + W; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
-        if (x > 0) { j = i - 1; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
-        if (tooBig && partial) { stack.length = 0; break }
+        if (y > 0) {
+          j = i - W
+          if (touched[j] > changed) changed = touched[j]
+          if (owner[j] === -1 && absorbSeen[j] !== g) {
+            if (absorbSeen[j] >= base) tooBig = true
+            else {
+              absorbSeen[j] = g
+              stack.push(j)
+            }
+          }
+        }
+        if (x < W - 1) {
+          j = i + 1
+          if (touched[j] > changed) changed = touched[j]
+          if (owner[j] === -1 && absorbSeen[j] !== g) {
+            if (absorbSeen[j] >= base) tooBig = true
+            else {
+              absorbSeen[j] = g
+              stack.push(j)
+            }
+          }
+        }
+        if (y < H - 1) {
+          j = i + W
+          if (touched[j] > changed) changed = touched[j]
+          if (owner[j] === -1 && absorbSeen[j] !== g) {
+            if (absorbSeen[j] >= base) tooBig = true
+            else {
+              absorbSeen[j] = g
+              stack.push(j)
+            }
+          }
+        }
+        if (x > 0) {
+          j = i - 1
+          if (touched[j] > changed) changed = touched[j]
+          if (owner[j] === -1 && absorbSeen[j] !== g) {
+            if (absorbSeen[j] >= base) tooBig = true
+            else {
+              absorbSeen[j] = g
+              stack.push(j)
+            }
+          }
+        }
+        if (tooBig && partial) {
+          stack.length = 0
+          break
+        }
       }
       scanned += size
       if (tooBig) return
       const e = { s, changed }
       let h = heap.length
       heap.push(e)
-      while (h > 0) { const par = (h - 1) >> 1; if (heap[par].s <= s) break; heap[h] = heap[par]; h = par }
+      while (h > 0) {
+        const par = (h - 1) >> 1
+        if (heap[par].s <= s) break
+        heap[h] = heap[par]
+        h = par
+      }
       heap[h] = e
     }
     const heapPop = () => {
@@ -1096,7 +1234,8 @@ class Carver {
           if (c >= m) break
           if (c + 1 < m && heap[c + 1].s < heap[c].s) c++
           if (last.s <= heap[c].s) break
-          heap[h] = heap[c]; h = c
+          heap[h] = heap[c]
+          h = c
         }
         heap[h] = last
       }
@@ -1110,7 +1249,9 @@ class Carver {
       // fragment. If nothing around it changed since the last failed attempt
       // and no candidate tail was rewritten, the attempt would fail again.
       const memo = absorbMemo.get(s)
-      if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) return false
+      if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) {
+        return false
+      }
       // The fragment again, flood-filled from s exactly like the full walk
       // did: the candidate order below follows the order of `comp`.
       const comp = []
@@ -1125,7 +1266,10 @@ class Carver {
           const nx = x + dx, ny = y + dy
           if (!this.inside(nx, ny)) continue
           const j = this.idx(nx, ny)
-          if (owner[j] === -1 && absorbSeen[j] !== compGen) { absorbSeen[j] = compGen; stack.push(j) }
+          if (owner[j] === -1 && absorbSeen[j] !== compGen) {
+            absorbSeen[j] = compGen
+            stack.push(j)
+          }
         }
       }
       // candidates: (piece, position of the contact cell); tail end = the cells after it
@@ -1242,7 +1386,7 @@ class Carver {
     const nStarts = nbr(this.idx(anchor.x, anchor.y), starts)
 
     const path = new Int32Array(size)
-    const next = new Int32Array(4 * (size + 1))   // per depth: up to 4 candidates
+    const next = new Int32Array(4 * (size + 1)) // per depth: up to 4 candidates
     const deg = new Int32Array(4 * (size + 1))
     const tmp = new Int32Array(4)
     let usedGen = 0
@@ -1269,14 +1413,22 @@ class Carver {
         if (cx > 0 && absRegion[c - 1] === regionGen && absUsed[c - 1] !== usedGen) d++
         // stable insertion: after every entry with degree <= d
         let pos = cnt
-        while (pos > 0 && deg[base + pos - 1] > d) { next[base + pos] = next[base + pos - 1]; deg[base + pos] = deg[base + pos - 1]; pos-- }
-        next[base + pos] = c; deg[base + pos] = d; cnt++
+        while (pos > 0 && deg[base + pos - 1] > d) {
+          next[base + pos] = next[base + pos - 1]
+          deg[base + pos] = deg[base + pos - 1]
+          pos--
+        }
+        next[base + pos] = c
+        deg[base + pos] = d
+        cnt++
       }
       for (let a = 0; a < cnt; a++) {
         const c = next[base + a]
-        absUsed[c] = usedGen; path[len++] = c
+        absUsed[c] = usedGen
+        path[len++] = c
         if (search(c, depth + 1)) return true
-        absUsed[c] = 0; len--
+        absUsed[c] = 0
+        len--
       }
       return false
     }
@@ -1284,7 +1436,9 @@ class Carver {
     for (let si = 0; si < nStarts; si++) {
       const s0 = starts[si]
       usedGen = ++this.absGen
-      absUsed[s0] = usedGen; path[0] = s0; len = 1
+      absUsed[s0] = usedGen
+      path[0] = s0
+      len = 1
       if (search(s0, 1)) return path.subarray(0, len)
       if (budget < 0) break
     }
@@ -1446,7 +1600,11 @@ function analyse(board, ruleB = true) {
   const addBlocker = (i, o) => {
     if (stamp[o] === i) return
     stamp[o] = i
-    if (edgeCount === edges.length) { const grown = new Int32Array(edges.length * 2); grown.set(edges); edges = grown }
+    if (edgeCount === edges.length) {
+      const grown = new Int32Array(edges.length * 2)
+      grown.set(edges)
+      edges = grown
+    }
     edges[edgeCount++] = o
   }
   let corridorTotal = 0, corridorLines = 0
@@ -1462,12 +1620,17 @@ function analyse(board, ruleB = true) {
       let x = h.x, y = h.y, lastOwn = 0, step = 0
       corridorLines++
       while (true) {
-        x += dx; y += dy; step++
+        x += dx
+        y += dy
+        step++
         if (!inside(x, y)) break
         corridorTotal++
         const o = owner[idx(x, y)]
         if (o === -2) continue
-        if (o === pc.id) { lastOwn = step; continue }
+        if (o === pc.id) {
+          lastOwn = step
+          continue
+        }
         addBlocker(i, o)
         minDist[i] = Math.min(minDist[i], step - lastOwn)
       }
@@ -1481,14 +1644,20 @@ function analyse(board, ruleB = true) {
       if (!cur || depth > cur.depth) lines.set(key, { c, depth })
     }
     for (const { c, depth } of lines.values()) {
-      corridorTotal += depth; corridorLines++
+      corridorTotal += depth
+      corridorLines++
       let x = c.x, y = c.y, lastOwn = 0, step = 0
       while (true) {
-        x += dx; y += dy; step++
+        x += dx
+        y += dy
+        step++
         if (!inside(x, y)) break
         const o = owner[idx(x, y)]
-        if (o === -2) continue            // a void does not block
-        if (o === pc.id) { lastOwn = step; continue }
+        if (o === -2) continue // a void does not block
+        if (o === pc.id) {
+          lastOwn = step
+          continue
+        }
         addBlocker(i, o)
         minDist[i] = Math.min(minDist[i], step - lastOwn)
       }
@@ -1511,12 +1680,16 @@ function analyse(board, ruleB = true) {
   const remaining = new Int32Array(N)
   const queue = new Int32Array(N)
   let head = 0, tail = 0
-  for (let i = 0; i < N; i++) { remaining[i] = blockerCount(i); if (remaining[i] === 0) queue[tail++] = i }
+  for (let i = 0; i < N; i++) {
+    remaining[i] = blockerCount(i)
+    if (remaining[i] === 0) queue[tail++] = i
+  }
   const freeCount = tail
   const depthOf = new Int32Array(N)
   let done = 0, maxDepth = 0
   while (head < tail) {
-    const i = queue[head++]; done++
+    const i = queue[head++]
+    done++
     if (depthOf[i] > maxDepth) maxDepth = depthOf[i]
     for (let e = outStart[i]; e < outStart[i + 1]; e++) {
       const j = blocks[e]
@@ -1586,18 +1759,21 @@ function analyse(board, ruleB = true) {
       prev = { dx, dy }
     }
     const own = new Set(pc.cells.map((c) => idx(c.x, c.y)))
-    const borderWith = new Map()   // id of another piece -> number of shared edges
+    const borderWith = new Map() // id of another piece -> number of shared edges
     for (const c of pc.cells) {
       let n = 0
       for (const { dx, dy } of DIRS) {
         const ax = c.x + dx, ay = c.y + dy
         if (!inside(ax, ay)) continue
         const j = idx(ax, ay)
-        if (own.has(j)) { n++; continue }
+        if (own.has(j)) {
+          n++
+          continue
+        }
         const o = owner[j]
         if (o >= 0) borderWith.set(o, (borderWith.get(o) ?? 0) + 1)
       }
-      if (n >= 3) coil++     // the path touches itself -> a clump, not a line
+      if (n >= 3) coil++ // the path touches itself -> a clump, not a line
       selfAdjTotal += n
       cellsTotal++
     }
@@ -1632,8 +1808,16 @@ function analyse(board, ruleB = true) {
   }
 
   return {
-    N, solvable: done === N, unsolved: N - done,
-    f0: freeCount / N, T2, almost, D: maxDepth, bends: bends / N, multiLine: multiLine / N, coil: coil / cellsTotal,
+    N,
+    solvable: done === N,
+    unsolved: N - done,
+    f0: freeCount / N,
+    T2,
+    almost,
+    D: maxDepth,
+    bends: bends / N,
+    multiLine: multiLine / N,
+    coil: coil / cellsTotal,
     selfAdj: selfAdjTotal / cellsTotal,
     bendsPerCell: bends / cellsTotal,
     span: spanSum / N,
@@ -1646,7 +1830,9 @@ function analyse(board, ruleB = true) {
     sharedBorder: longPieces ? sharedBorderTotal / longPieces : 0,
     longPieces,
     meanCorridorLen: corridorTotal / Math.max(1, corridorLines),
-    minLen, maxLen, hist,
+    minLen,
+    maxLen,
+    hist,
     coverage: covered / (W * H),
   }
 }
@@ -1660,7 +1846,10 @@ function render(board) {
   for (const pc of pieces) {
     const set = new Set(pc.cells.map((c) => idx(c.x, c.y)))
     pc.cells.forEach((c, i) => {
-      if (i === 0) { grid[c.y][c.x] = DIRS[pc.dir].ch; return }
+      if (i === 0) {
+        grid[c.y][c.x] = DIRS[pc.dir].ch
+        return
+      }
       let up = false, dn = false, lf = false, rt = false
       if (c.y > 0 && set.has(idx(c.x, c.y - 1))) up = true
       if (c.y < H - 1 && set.has(idx(c.x, c.y + 1))) dn = true
@@ -1683,7 +1872,6 @@ function render(board) {
   }
   return grid.map((r) => r.join('')).join('\n')
 }
-
 
 // ---------------------------------------------------------------- SVG
 
@@ -1719,7 +1907,9 @@ function toSvg(board, opts = {}) {
         const empty = x < W && board.owner[y * W + x] === -1
         if (empty && start < 0) start = x
         if (!empty && start >= 0) {
-          rects.push(`<rect x="${pad + start * cell}" y="${pad + y * cell}" width="${(x - start) * cell}" height="${cell}"/>`)
+          rects.push(
+            `<rect x="${pad + start * cell}" y="${pad + y * cell}" width="${(x - start) * cell}" height="${cell}"/>`,
+          )
           start = -1
         }
       }
@@ -1735,7 +1925,7 @@ function toSvg(board, opts = {}) {
   const INK = '#232447'
   out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
   const heads = []
-  const highlight = []      // paths of the longest pieces, drawn last
+  const highlight = [] // paths of the longest pieces, drawn last
   const highlightHeads = []
   // In colour mode the pink would blend into the palette, so highlighted
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
@@ -1775,15 +1965,28 @@ function toSvg(board, opts = {}) {
     // a collar of that length behind the base instead (a five-point outline).
     const lap = 0.2 * w
     const fits = w / 2 <= half * (1 - lap / height) + 1e-9
-    const collar = fits ? '' : ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${by - dy * lap + dx * half}`
+    const collar = fits
+      ? ''
+      : ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${
+        by - dy * lap + dx * half
+      }`
     const fill = col === INK ? '' : ` fill="${col}"`
     const tailCell = pc.cells[pc.cells.length - 1]
-    const head = `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${by + dx * half}"${fill}/>` +
+    const head =
+      `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${
+        by + dx * half
+      }"${fill}/>` +
       `<circle cx="${cx(tailCell.x)}" cy="${cy(tailCell.y)}" r="${w / 2}"${fill}/>`
     const ex = fits ? bx + dx * lap : bx, ey = fits ? by + dy * lap : by
     const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
     const line = `<polyline points="${pts}"${col === INK ? '' : ` stroke="${col}"`}/>`
-    if (isLong) { highlight.push(line); highlightHeads.push(head) } else { out.push(line); heads.push(head) }
+    if (isLong) {
+      highlight.push(line)
+      highlightHeads.push(head)
+    } else {
+      out.push(line)
+      heads.push(head)
+    }
   })
   out.push('</g>')
   if (highlight.length) {
@@ -1794,7 +1997,6 @@ function toSvg(board, opts = {}) {
   out.push(`<g fill="${INK}">${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
   return out.join('\n')
 }
-
 
 /**
  * The full set of parameters with default values. A single source of truth for
@@ -1808,84 +2010,355 @@ function toSvg(board, opts = {}) {
 const skeletonOff = (p) => (p.giants <= 0 && p.wGiant <= 0 ? 'skeletonOff' : null)
 
 export const PARAM_SPEC = [
-  { key: 'W', label: 'width', group: 'board', min: 4, max: 1000, step: 1, def: 25,
-    help: 'Number of columns. Boards up to 400×400 generate in under two seconds; 1000×1000 takes about ten.' },
-  { key: 'H', label: 'height', group: 'board', min: 4, max: 1000, step: 1, def: 50,
-    help: 'Number of rows. A tall board is harder than a square one with the same number of cells.' },
-  { key: 'seed', label: 'seed', group: 'board', min: 0, max: 999999, step: 1, def: 7,
-    help: 'The same seed with the same settings always gives the same board.' },
+  {
+    key: 'W',
+    label: 'width',
+    group: 'board',
+    min: 4,
+    max: 1000,
+    step: 1,
+    def: 25,
+    help: 'Number of columns. Boards up to 400×400 generate in under two seconds; 1000×1000 takes about ten.',
+  },
+  {
+    key: 'H',
+    label: 'height',
+    group: 'board',
+    min: 4,
+    max: 1000,
+    step: 1,
+    def: 50,
+    help: 'Number of rows. A tall board is harder than a square one with the same number of cells.',
+  },
+  {
+    key: 'seed',
+    label: 'seed',
+    group: 'board',
+    min: 0,
+    max: 999999,
+    step: 1,
+    def: 7,
+    help: 'The same seed with the same settings always gives the same board.',
+  },
 
-  { key: 'wShort', label: 'share of short pieces (2–6 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.2,
-    help: 'Fraction of short pieces. Higher = more arrowheads, but a mess of little hooks. Short and medium together may not exceed 0.9.' },
-  { key: 'wMid', label: 'share of medium pieces (7–15 cells)', group: 'lengths', min: 0, max: 1, step: 0.01, def: 0.08,
-    help: 'Fraction of medium pieces. Whatever is left after short and medium goes to long pieces. Short and medium together may not exceed 0.9.' },
-  { key: 'Lmax', label: 'maximum length (0 = 2.5 × side)', group: 'lengths', min: 0, max: 5000, step: 1, def: 0,
-    help: 'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.' },
+  {
+    key: 'wShort',
+    label: 'share of short pieces (2–6 cells)',
+    group: 'lengths',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    def: 0.2,
+    help:
+      'Fraction of short pieces. Higher = more arrowheads, but a mess of little hooks. Short and medium together may not exceed 0.9.',
+  },
+  {
+    key: 'wMid',
+    label: 'share of medium pieces (7–15 cells)',
+    group: 'lengths',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    def: 0.08,
+    help:
+      'Fraction of medium pieces. Whatever is left after short and medium goes to long pieces. Short and medium together may not exceed 0.9.',
+  },
+  {
+    key: 'Lmax',
+    label: 'maximum length (0 = 2.5 × side)',
+    group: 'lengths',
+    min: 0,
+    max: 5000,
+    step: 1,
+    def: 0,
+    help:
+      'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.',
+  },
 
-  { key: 'pStraight', label: 'straightness bias', group: 'shape', min: 0.6, max: 1, step: 0.01, def: 0.85,
-    help: 'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing. At 0.6 boards over 500x500 may jam; 0.65 is safe.' },
-  { key: 'wLateral', label: 'sideways move bonus', group: 'shape', min: 0, max: 20, step: 0.5, def: 3,
-    help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.' },
-  { key: 'warns', label: 'closing off nooks', group: 'shape', min: 2, max: 16, step: 1, def: 4,
-    help: 'How strongly a line fills nooks with few exits first. Higher = fewer, longer, more coiled pieces. Below 2 the rule is off and boards jam.' },
-  { key: 'anticoil', label: 'coiling penalty', group: 'shape', min: 1, max: 10, step: 1, def: 6,
-    help: 'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.' },
-  { key: 'hug', label: 'hug bonus', group: 'shape', min: 1, max: 20, step: 1, def: 1,
-    help: 'Bonus for running along already carved pieces. Little visible effect; kept for experiments.' },
-  { key: 'edgeHug', label: 'edge counts as a piece', group: 'shape', min: 0, max: 4, step: 1, def: 0,
+  {
+    key: 'pStraight',
+    label: 'straightness bias',
+    group: 'shape',
+    min: 0.6,
+    max: 1,
+    step: 0.01,
+    def: 0.85,
+    help:
+      'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing. At 0.6 boards over 500x500 may jam; 0.65 is safe.',
+  },
+  {
+    key: 'wLateral',
+    label: 'sideways move bonus',
+    group: 'shape',
+    min: 0,
+    max: 20,
+    step: 0.5,
+    def: 3,
+    help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.',
+  },
+  {
+    key: 'warns',
+    label: 'closing off nooks',
+    group: 'shape',
+    min: 2,
+    max: 16,
+    step: 1,
+    def: 4,
+    help:
+      'How strongly a line fills nooks with few exits first. Higher = fewer, longer, more coiled pieces. Below 2 the rule is off and boards jam.',
+  },
+  {
+    key: 'anticoil',
+    label: 'coiling penalty',
+    group: 'shape',
+    min: 1,
+    max: 10,
+    step: 1,
+    def: 6,
+    help:
+      'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.',
+  },
+  {
+    key: 'hug',
+    label: 'hug bonus',
+    group: 'shape',
+    min: 1,
+    max: 20,
+    step: 1,
+    def: 1,
+    help: 'Bonus for running along already carved pieces. Little visible effect; kept for experiments.',
+  },
+  {
+    key: 'edgeHug',
+    label: 'edge counts as a piece',
+    group: 'shape',
+    min: 0,
+    max: 4,
+    step: 1,
+    def: 0,
     inactive: (p) => (p.hug <= 1 ? 'hugOff' : null),
-    help: 'Whether the board edge counts as a neighbouring piece for the hug bonus.' },
+    help: 'Whether the board edge counts as a neighbouring piece for the hug bonus.',
+  },
 
-  { key: 'headBias', label: 'piece start (-1 layers, 0 random, 1 tunnels)', group: 'difficulty', min: -1, max: 1, step: 1, def: 0,
+  {
+    key: 'headBias',
+    label: 'piece start (-1 layers, 0 random, 1 tunnels)',
+    group: 'difficulty',
+    min: -1,
+    max: 1,
+    step: 1,
+    def: 0,
     inactive: (p) => (p.mix >= 0 ? 'mixOn' : null),
-    help: 'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.' },
-  { key: 'mix', label: 'layer/tunnel mixing (-1 = off)', group: 'difficulty', min: -1, max: 1, step: 0.05, def: -1,
-    help: 'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.' },
-  { key: 'probe', label: 'share of probe pieces', group: 'difficulty', min: 0, max: 1, step: 0.01, def: 0,
-    help: 'Fraction of pieces whose target length is drawn around the probe length instead of the usual mix. At 1 with length 12 the board is all short pieces.' },
-  { key: 'probeLen', label: 'probe length', group: 'difficulty', min: 2, max: 200, step: 1, def: 12,
+    help:
+      'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.',
+  },
+  {
+    key: 'mix',
+    label: 'layer/tunnel mixing (-1 = off)',
+    group: 'difficulty',
+    min: -1,
+    max: 1,
+    step: 0.05,
+    def: -1,
+    help:
+      'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.',
+  },
+  {
+    key: 'probe',
+    label: 'share of probe pieces',
+    group: 'difficulty',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    def: 0,
+    help:
+      'Fraction of pieces whose target length is drawn around the probe length instead of the usual mix. At 1 with length 12 the board is all short pieces.',
+  },
+  {
+    key: 'probeLen',
+    label: 'probe length',
+    group: 'difficulty',
+    min: 2,
+    max: 200,
+    step: 1,
+    def: 12,
     inactive: (p) => (p.probe <= 0 ? 'probeOff' : null),
-    help: 'Target length of a probe, give or take half. Short probes (2) triple the piece count; long ones (200) give fewer, longer pieces.' },
+    help:
+      'Target length of a probe, give or take half. Short probes (2) triple the piece count; long ones (200) give fewer, longer pieces.',
+  },
 
-  { key: 'giants', label: 'number of skeleton pieces (0 = no skeleton)', group: 'skeleton', min: 0, max: 40, step: 1, def: 0,
-    help: 'How many of the first pieces are long lines crossing the board. 0 = no skeleton; 4 is a good start.' },
-  { key: 'giantSpan', label: 'skeleton length (in board sides)', group: 'skeleton', min: 0, max: 200, step: 1, def: 30, inactive: skeletonOff,
-    help: 'Target length of one skeleton, in board sides. The line stops earlier when it runs out of room.' },
-  { key: 'giantStep', label: 'serpentine step (0 = random growth)', group: 'skeleton', min: 0, max: 40, step: 1, def: 14, inactive: skeletonOff,
-    help: 'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. 0 = random growth.' },
-  { key: 'giantJitter', label: 'cutting serpentine runs short', group: 'skeleton', min: 0, max: 1, step: 0.05, def: 0.6,
+  {
+    key: 'giants',
+    label: 'number of skeleton pieces (0 = no skeleton)',
+    group: 'skeleton',
+    min: 0,
+    max: 40,
+    step: 1,
+    def: 0,
+    help: 'How many of the first pieces are long lines crossing the board. 0 = no skeleton; 4 is a good start.',
+  },
+  {
+    key: 'giantSpan',
+    label: 'skeleton length (in board sides)',
+    group: 'skeleton',
+    min: 0,
+    max: 200,
+    step: 1,
+    def: 30,
+    inactive: skeletonOff,
+    help: 'Target length of one skeleton, in board sides. The line stops earlier when it runs out of room.',
+  },
+  {
+    key: 'giantStep',
+    label: 'serpentine step (0 = random growth)',
+    group: 'skeleton',
+    min: 0,
+    max: 40,
+    step: 1,
+    def: 14,
+    inactive: skeletonOff,
+    help: 'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. 0 = random growth.',
+  },
+  {
+    key: 'giantJitter',
+    label: 'cutting serpentine runs short',
+    group: 'skeleton',
+    min: 0,
+    max: 1,
+    step: 0.05,
+    def: 0.6,
     inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'stepZero' : null),
-    help: 'How often a skeleton run stops short of an obstacle. 0 = straight, regular edges.' },
-  { key: 'wGiant', label: 'share of skeletons after the start', group: 'skeleton', min: 0, max: 0.2, step: 0.01, def: 0,
+    help: 'How often a skeleton run stops short of an obstacle. 0 = straight, regular edges.',
+  },
+  {
+    key: 'wGiant',
+    label: 'share of skeletons after the start',
+    group: 'skeleton',
+    min: 0,
+    max: 0.2,
+    step: 0.01,
+    def: 0,
     inactive: (p) => (p.giantSpan <= 0 ? 'spanZero' : null),
-    help: 'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.' },
+    help:
+      'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.',
+  },
   // giantStraight and giantWarns act on every skeleton regardless of giantStep:
   // the serpentine only seeds the path, the tail keeps growing on these weights
   // (see growPiece), and the giants that wGiant adds later grow entirely on
   // them. So they are inactive only when there is no skeleton at all.
-  { key: 'giantStraight', label: 'skeleton straightness', group: 'skeleton', min: 0.3, max: 1, step: 0.01, def: 0.94,
+  {
+    key: 'giantStraight',
+    label: 'skeleton straightness',
+    group: 'skeleton',
+    min: 0.3,
+    max: 1,
+    step: 0.01,
+    def: 0.94,
     inactive: skeletonOff,
-    help: 'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.' },
-  { key: 'giantWarns', label: 'closing off nooks for the skeleton', group: 'skeleton', min: 0, max: 16, step: 1, def: 0,
+    help:
+      'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.',
+  },
+  {
+    key: 'giantWarns',
+    label: 'closing off nooks for the skeleton',
+    group: 'skeleton',
+    min: 0,
+    max: 16,
+    step: 1,
+    def: 0,
     inactive: skeletonOff,
-    help: 'Nook rule for the skeleton alone, where it grows freely. Keep at 0: it coils the line, and a skeleton should go far.' },
-  { key: 'giantAnticoil', label: 'skeleton coiling penalty', group: 'skeleton', min: 1, max: 20, step: 1, def: 6, inactive: skeletonOff,
-    help: 'Self-touching penalty for the skeleton alone. The higher of this and the general one applies.' },
-  { key: 'giantSpacing', label: 'skeleton spacing radius', group: 'skeleton', min: 1, max: 3, step: 1, def: 2, inactive: skeletonOff,
-    help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.' },
-  { key: 'giantSpacePenalty', label: 'skeleton spacing strength', group: 'skeleton', min: 1, max: 40, step: 1, def: 8, inactive: skeletonOff,
-    help: 'How strongly the skeleton is pushed away from itself. A penalty, not a ban, so it can turn around.' },
+    help:
+      'Nook rule for the skeleton alone, where it grows freely. Keep at 0: it coils the line, and a skeleton should go far.',
+  },
+  {
+    key: 'giantAnticoil',
+    label: 'skeleton coiling penalty',
+    group: 'skeleton',
+    min: 1,
+    max: 20,
+    step: 1,
+    def: 6,
+    inactive: skeletonOff,
+    help: 'Self-touching penalty for the skeleton alone. The higher of this and the general one applies.',
+  },
+  {
+    key: 'giantSpacing',
+    label: 'skeleton spacing radius',
+    group: 'skeleton',
+    min: 1,
+    max: 3,
+    step: 1,
+    def: 2,
+    inactive: skeletonOff,
+    help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
+  },
+  {
+    key: 'giantSpacePenalty',
+    label: 'skeleton spacing strength',
+    group: 'skeleton',
+    min: 1,
+    max: 40,
+    step: 1,
+    def: 8,
+    inactive: skeletonOff,
+    help: 'How strongly the skeleton is pushed away from itself. A penalty, not a ban, so it can turn around.',
+  },
 
-  { key: 'headTries', label: 'start attempts per direction', group: 'closing', min: 2, max: 16, step: 1, def: 4,
-    help: 'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.' },
-  { key: 'strandLimit', label: 'exact leftover test up to N cells', group: 'closing', min: 10, max: 30, step: 1, def: 30,
-    help: 'Up to what size a free fragment is checked exactly for being cuttable. Below 10 ten-cell leftovers slip through on big boards.' },
-  { key: 'absorbLimit', label: 'leftover absorption up to N cells', group: 'closing', min: 12, max: 64, step: 1, def: 24,
-    help: 'A fragment up to this size that cannot be carved is glued to a neighbour. Below 12 leftovers pile up and boards jam.' },
-  { key: 'maxBack', label: 'backtrack budget (0 = 200)', group: 'closing', min: 0, max: 1000, step: 50, def: 0,
-    help: 'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough; more only delays the verdict.' },
-  { key: 'restarts', label: 'allowed restarts', group: 'closing', min: 0, max: 5, step: 1, def: 3,
-    help: 'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate; more than 5 almost never helps.' },
+  {
+    key: 'headTries',
+    label: 'start attempts per direction',
+    group: 'closing',
+    min: 2,
+    max: 16,
+    step: 1,
+    def: 4,
+    help:
+      'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.',
+  },
+  {
+    key: 'strandLimit',
+    label: 'exact leftover test up to N cells',
+    group: 'closing',
+    min: 10,
+    max: 30,
+    step: 1,
+    def: 30,
+    help:
+      'Up to what size a free fragment is checked exactly for being cuttable. Below 10 ten-cell leftovers slip through on big boards.',
+  },
+  {
+    key: 'absorbLimit',
+    label: 'leftover absorption up to N cells',
+    group: 'closing',
+    min: 12,
+    max: 64,
+    step: 1,
+    def: 24,
+    help:
+      'A fragment up to this size that cannot be carved is glued to a neighbour. Below 12 leftovers pile up and boards jam.',
+  },
+  {
+    key: 'maxBack',
+    label: 'backtrack budget (0 = 200)',
+    group: 'closing',
+    min: 0,
+    max: 1000,
+    step: 50,
+    def: 0,
+    help:
+      'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough; more only delays the verdict.',
+  },
+  {
+    key: 'restarts',
+    label: 'allowed restarts',
+    group: 'closing',
+    min: 0,
+    max: 5,
+    step: 1,
+    def: 3,
+    help:
+      'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate; more than 5 almost never helps.',
+  },
 ]
 
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
@@ -1991,7 +2464,11 @@ export function generate(params, { unchecked = false } = {}) {
     metricsMs: performance.now() - t1,
     // `heads` = legal heads at the moment of the smallest leftover: zero means
     // the geometry closed the board, more means the search gave up on them.
-    stuck: ok ? null : { remaining: carver.stuckRemaining ?? carver.remaining, sizes: carver.stuckSizes ?? [], heads: carver.stuckHeads ?? null },
+    stuck: ok ? null : {
+      remaining: carver.stuckRemaining ?? carver.remaining,
+      sizes: carver.stuckSizes ?? [],
+      heads: carver.stuckHeads ?? null,
+    },
   }
 }
 
@@ -2006,8 +2483,11 @@ function fingerprint(board) {
   const fnv = (h, v) => Math.imul(h ^ v, 16777619) >>> 0
   let h = 2166136261
   for (let i = 0; i < board.owner.length; i++) h = fnv(h, board.owner[i] + 3)
-  for (const pc of board.pieces) { h = fnv(h, pc.dir); for (const c of pc.cells) h = fnv(h, c.y * board.W + c.x) }
+  for (const pc of board.pieces) {
+    h = fnv(h, pc.dir)
+    for (const c of pc.cells) h = fnv(h, c.y * board.W + c.x)
+  }
   return h.toString(16)
 }
 
-export { mulberry32, Carver, analyse, render, toSvg, fingerprint, DIRS }
+export { analyse, Carver, DIRS, fingerprint, mulberry32, render, toSvg }

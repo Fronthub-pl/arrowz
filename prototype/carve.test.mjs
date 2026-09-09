@@ -6,13 +6,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, readdirSync, existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generate, toSvg, defaultParams, fingerprint, validateParams, formatViolation } from './engine.mjs'
-import { buildCommand, buildSimpleCommand, boardId, DEFAULT_VIEW } from './command.mjs'
-import { defaultChoice, simpleParams, simpleRanges, exportCell } from './lab-simple.mjs'
+import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from './engine.mjs'
+import { boardId, buildCommand, buildSimpleCommand, DEFAULT_VIEW } from './command.mjs'
+import { defaultChoice, exportCell, simpleParams, simpleRanges } from './lab-simple.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -22,10 +22,12 @@ test('carve.mjs --advanced --svg reproduces the generate() board byte for byte',
   const view = { cell: 10, stroke: 0.5, colored: true, top: 3 }
   const expected = toSvg(generate(params).board, { cell: 10, colored: true, strokeRatio: 0.5, top: 3 })
 
-  const cmd = buildCommand(params, view)          // "node prototype/carve.mjs --svg …"
+  const cmd = buildCommand(params, view) // "node prototype/carve.mjs --svg …"
   const argv = cmd.split(' ').slice(2)
   const out = execFileSync('node', [join(here, 'carve.mjs'), ...argv], {
-    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: dir }, encoding: 'utf8',
+    cwd: dirname(here),
+    env: { ...process.env, ARROWZ_BOARDS_DIR: dir },
+    encoding: 'utf8',
   })
   const id = boardId(params)
   assert.match(out, new RegExp(`25x50/${id}\\.svg`))
@@ -39,7 +41,9 @@ test('carve.mjs --svg=path also writes a copy at the path', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
   const copy = join(dir, 'copy.svg')
   execFileSync('node', [join(here, 'carve.mjs'), '--advanced', `--svg=${copy}`, '--w=10', '--h=10', '--seed=3'], {
-    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: dir }, encoding: 'utf8',
+    cwd: dirname(here),
+    env: { ...process.env, ARROWZ_BOARDS_DIR: dir },
+    encoding: 'utf8',
   })
   const id = boardId({ ...defaultParams(), W: 10, H: 10, seed: 3 })
   assert.equal(readFileSync(copy, 'utf8'), readFileSync(join(dir, '10x10', `${id}.svg`), 'utf8'))
@@ -50,7 +54,9 @@ test('carve.mjs --svg=path also writes a copy at the path', () => {
 // Runs carve.mjs with the board store pointed at <dir>/boards.
 function dryRun(args, dir) {
   const r = spawnSync('node', [join(here, 'carve.mjs'), ...args], {
-    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: join(dir, 'boards') }, encoding: 'utf8',
+    cwd: dirname(here),
+    env: { ...process.env, ARROWZ_BOARDS_DIR: join(dir, 'boards') },
+    encoding: 'utf8',
   })
   const line = r.stdout.split('\n').find((l) => l.startsWith('{'))
   return { status: r.status, stdout: r.stdout, stderr: r.stderr, json: line ? JSON.parse(line) : null }
@@ -170,7 +176,9 @@ test('carve.mjs --advanced --help and -h print the knob table and exit 0, even w
 
 function runCli(args, dir) {
   const r = spawnSync('node', [join(here, 'carve.mjs'), ...args], {
-    cwd: dirname(here), env: { ...process.env, ARROWZ_BOARDS_DIR: dir }, encoding: 'utf8',
+    cwd: dirname(here),
+    env: { ...process.env, ARROWZ_BOARDS_DIR: dir },
+    encoding: 'utf8',
   })
   return { status: r.status, stdout: r.stdout, stderr: r.stderr }
 }
@@ -180,9 +188,24 @@ test('carve.mjs without --advanced writes the board the simple lab view makes fo
   const choice = { ...defaultChoice(), W: 25, H: 50, seed: 7, lengths: 0.25, shape: 0.2, skeleton: 'on', random: false }
   const params = simpleParams(choice)
   const view = { ...DEFAULT_VIEW, cell: exportCell(25, 50), colored: true }
-  const expected = toSvg(generate(params).board, { cell: view.cell, colored: true, strokeRatio: 0.5, headWidth: 0, headHeight: 0, top: 0 })
+  const expected = toSvg(generate(params).board, {
+    cell: view.cell,
+    colored: true,
+    strokeRatio: 0.5,
+    headWidth: 0,
+    headHeight: 0,
+    top: 0,
+  })
 
-  const r = runCli(['--width=25', '--height=50', '--seed=7', '--length=0.25', '--straight=0.8', '--skeleton', '--colorized'], dir)
+  const r = runCli([
+    '--width=25',
+    '--height=50',
+    '--seed=7',
+    '--length=0.25',
+    '--straight=0.8',
+    '--skeleton',
+    '--colorized',
+  ], dir)
   assert.equal(r.status, 0, r.stderr)
   const id = boardId(params)
   assert.match(r.stdout, new RegExp(`25x50/${id}\\.svg`))
@@ -190,7 +213,10 @@ test('carve.mjs without --advanced writes the board the simple lab view makes fo
   const meta = JSON.parse(readFileSync(join(dir, '25x50', `${id}.json`), 'utf8'))
   assert.equal(meta.command, buildCommand(params, view), 'the full command reproduces the board')
   assert.match(meta.command, /^node prototype\/carve\.mjs --advanced --svg /)
-  assert.equal(meta.simpleCommand, 'node prototype/carve.mjs --width=25 --height=50 --seed=7 --length=0.25 --straight=0.8 --skeleton --colorized')
+  assert.equal(
+    meta.simpleCommand,
+    'node prototype/carve.mjs --width=25 --height=50 --seed=7 --length=0.25 --straight=0.8 --skeleton --colorized',
+  )
   assert.equal(meta.simpleCommand, buildSimpleCommand(choice, view))
   assert.equal(meta.source, 'cli')
   assert.deepEqual(meta.params, params)
@@ -219,7 +245,16 @@ test('carve.mjs simple mode: --svg=path writes a copy, --dry-run writes nothing 
 test('carve.mjs simple mode: --randomized draws every knob inside the slider ranges', () => {
   const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
   const choice = { ...defaultChoice(), W: 20, H: 20, seed: 1, lengths: 0, shape: 0, skeleton: 'on' }
-  const r = dryRun(['--dry-run', '--width=20', '--height=20', '--seed=1', '--length=0', '--straight=1', '--skeleton', '--randomized'], dir)
+  const r = dryRun([
+    '--dry-run',
+    '--width=20',
+    '--height=20',
+    '--seed=1',
+    '--length=0',
+    '--straight=1',
+    '--skeleton',
+    '--randomized',
+  ], dir)
   assert.equal(r.status, 0, r.stderr)
   assert.ok(r.json, `no JSON line in:\n${r.stdout}`)
   assert.equal(r.json.ok, true)
@@ -237,7 +272,10 @@ test('carve.mjs simple mode refuses advanced flags and a missing size: exit 2, a
   const dir = mkdtempSync(join(tmpdir(), 'arrowz-cli-'))
   const r = runCli(['--w=10', '--h=10'], dir)
   assert.equal(r.status, 2)
-  assert.match(r.stderr, /^invalid arguments:\n  - missing --width\n  - missing --height\n  - unknown flag --w \(engine knobs, the report and the benchmark need --advanced\)\n/)
+  assert.match(
+    r.stderr,
+    /^invalid arguments:\n  - missing --width\n  - missing --height\n  - unknown flag --w \(engine knobs, the report and the benchmark need --advanced\)\n/,
+  )
   assert.match(r.stderr, /see --help\n$/)
   assert.equal(r.stdout, '')
   assert.equal(readdirSync(dir).length, 0, 'the store must not be created')
@@ -255,7 +293,22 @@ test('carve.mjs --help without --advanced prints the simple flags and points at 
     const r = dryRun([flag, '--w=10'], dir)
     assert.equal(r.status, 0, flag)
     assert.match(r.stdout, /^Usage: node prototype\/carve\.mjs --width=N --height=N/)
-    for (const f of ['--length=R', '--straight=R', '--skeleton', '--seed=N', '--randomized', '--colorized', '--lineweight=R', '--arrowwidth=R', '--arrowheight=R', '--svg=path', '--dry-run', '--advanced']) {
+    for (
+      const f of [
+        '--length=R',
+        '--straight=R',
+        '--skeleton',
+        '--seed=N',
+        '--randomized',
+        '--colorized',
+        '--lineweight=R',
+        '--arrowwidth=R',
+        '--arrowheight=R',
+        '--svg=path',
+        '--dry-run',
+        '--advanced',
+      ]
+    ) {
       assert.ok(r.stdout.includes(f), `${f} missing from the simple help`)
     }
     assert.ok(!r.stdout.includes('--pstraight'), 'the knob table is behind --advanced --help')

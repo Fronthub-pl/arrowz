@@ -2,11 +2,20 @@
 // into the same parameters.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildCommand, parseArgs, boardId, helpText, ALIASES, DEFAULT_VIEW, parseSimpleArgs, buildSimpleCommand } from './command.mjs'
+import {
+  ALIASES,
+  boardId,
+  buildCommand,
+  buildSimpleCommand,
+  DEFAULT_VIEW,
+  helpText,
+  parseArgs,
+  parseSimpleArgs,
+} from './command.mjs'
 import { defaultChoice, exportCell } from './lab-simple.mjs'
-import { defaultParams, PARAM_SPEC, RULES, RULE_REASONS } from './engine.mjs'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.mjs'
 
-const argvOf = (cmd) => cmd.split(' ').slice(2)   // drop "node prototype/carve.mjs"
+const argvOf = (cmd) => cmd.split(' ').slice(2) // drop "node prototype/carve.mjs"
 
 test('buildCommand: default params give only size, seed, --svg and --cell', () => {
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
@@ -31,8 +40,14 @@ test('buildCommand: automatic head size adds no flag; DEFAULT_VIEW carries the z
   assert.equal(DEFAULT_VIEW.headWidth, 0)
   assert.equal(DEFAULT_VIEW.headHeight, 0)
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
-  assert.equal(buildCommand(p, { headWidth: 0, headHeight: 0 }), 'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12')
-  assert.equal(buildCommand(p, { headWidth: 0.6 }), 'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6')
+  assert.equal(
+    buildCommand(p, { headWidth: 0, headHeight: 0 }),
+    'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12',
+  )
+  assert.equal(
+    buildCommand(p, { headWidth: 0.6 }),
+    'node prototype/carve.mjs --advanced --svg --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6',
+  )
 })
 
 test('parseArgs: old flag names are aliases, unknown flags go to rest', () => {
@@ -80,7 +95,27 @@ test('helpText: every rule key and text, every alias, every mode flag', () => {
   for (const [alias, key] of Object.entries(ALIASES)) {
     assert.match(text, new RegExp(`--${alias}\\s+same as --${key.toLowerCase()}`), `alias --${alias}`)
   }
-  for (const flag of ['--svg[=path]', '--dry-run', '--bench=N', '--runs=N', '--only=<level>', '--mid=N', '--square', '--portrait', '--show', '--help', '-h', '--cell=N', '--stroke=R', '--headwidth=R', '--headheight=R', '--colored', '--top=N']) {
+  for (
+    const flag of [
+      '--svg[=path]',
+      '--dry-run',
+      '--bench=N',
+      '--runs=N',
+      '--only=<level>',
+      '--mid=N',
+      '--square',
+      '--portrait',
+      '--show',
+      '--help',
+      '-h',
+      '--cell=N',
+      '--stroke=R',
+      '--headwidth=R',
+      '--headheight=R',
+      '--colored',
+      '--top=N',
+    ]
+  ) {
     assert.ok(text.includes(flag), `mode flag ${flag} missing`)
   }
   assert.match(text, /^Usage: node prototype\/carve\.mjs --advanced /)
@@ -90,7 +125,25 @@ test('helpText: every rule key and text, every alias, every mode flag', () => {
 test('helpText: the default text is the simple mode, one row per simple flag, a pointer at --advanced', () => {
   const text = helpText()
   assert.match(text, /^Usage: node prototype\/carve\.mjs --width=N --height=N/)
-  for (const f of ['--width=N', '--height=N', '--length=R', '--straight=R', '--skeleton', '--seed=N', '--randomized', '--colorized', '--lineweight=R', '--arrowwidth=R', '--arrowheight=R', '--svg=path', '--dry-run', '--advanced', '--help, -h']) {
+  for (
+    const f of [
+      '--width=N',
+      '--height=N',
+      '--length=R',
+      '--straight=R',
+      '--skeleton',
+      '--seed=N',
+      '--randomized',
+      '--colorized',
+      '--lineweight=R',
+      '--arrowwidth=R',
+      '--arrowheight=R',
+      '--svg=path',
+      '--dry-run',
+      '--advanced',
+      '--help, -h',
+    ]
+  ) {
     assert.ok(text.includes(f), `${f} missing`)
   }
   assert.ok(text.includes('--advanced --help'), 'points at the advanced help')
@@ -124,7 +177,15 @@ test('parseSimpleArgs: width and height are required, everything else defaults t
 })
 
 test('parseSimpleArgs: --straight is the shape slider read from the straight end', () => {
-  const r = parseSimpleArgs(['--width=25', '--height=50', '--length=0.25', '--straight=0.8', '--seed=3', '--skeleton', '--randomized'])
+  const r = parseSimpleArgs([
+    '--width=25',
+    '--height=50',
+    '--length=0.25',
+    '--straight=0.8',
+    '--seed=3',
+    '--skeleton',
+    '--randomized',
+  ])
   assert.deepEqual(r.errors, [])
   assert.equal(r.choice.lengths, 0.25)
   assert.equal(r.choice.shape, 0.2, '1 - straight, without float noise')
@@ -136,13 +197,35 @@ test('parseSimpleArgs: --straight is the shape slider read from the straight end
 })
 
 test('parseSimpleArgs: the view flags carry the lab names', () => {
-  const r = parseSimpleArgs(['--width=40', '--height=40', '--colorized', '--lineweight=0.3', '--arrowwidth=0.8', '--arrowheight=1.2'])
+  const r = parseSimpleArgs([
+    '--width=40',
+    '--height=40',
+    '--colorized',
+    '--lineweight=0.3',
+    '--arrowwidth=0.8',
+    '--arrowheight=1.2',
+  ])
   assert.deepEqual(r.errors, [])
-  assert.deepEqual(r.view, { cell: exportCell(40, 40), stroke: 0.3, headWidth: 0.8, headHeight: 1.2, colored: true, top: 0 })
+  assert.deepEqual(r.view, {
+    cell: exportCell(40, 40),
+    stroke: 0.3,
+    headWidth: 0.8,
+    headHeight: 1.2,
+    colored: true,
+    top: 0,
+  })
 })
 
 test('parseSimpleArgs: slider values outside 0..1 and unknown flags are errors', () => {
-  const r = parseSimpleArgs(['--width=25', '--height=50', '--length=1.5', '--straight=-1', '--w=10', '--runs=3', '--cell=8'])
+  const r = parseSimpleArgs([
+    '--width=25',
+    '--height=50',
+    '--length=1.5',
+    '--straight=-1',
+    '--w=10',
+    '--runs=3',
+    '--cell=8',
+  ])
   assert.deepEqual(r.errors, [
     '--length=1.5 is outside 0..1',
     '--straight=-1 is outside 0..1',
@@ -161,11 +244,17 @@ test('parseSimpleArgs: the one-board mode flags and --help pass through in rest'
 
 test('buildSimpleCommand ↔ parseSimpleArgs: defaults give size and seed only, changes round-trip', () => {
   const d = { ...defaultChoice(), W: 25, H: 50, random: false }
-  assert.equal(buildSimpleCommand(d, { ...DEFAULT_VIEW, cell: exportCell(25, 50) }), 'node prototype/carve.mjs --width=25 --height=50 --seed=7')
+  assert.equal(
+    buildSimpleCommand(d, { ...DEFAULT_VIEW, cell: exportCell(25, 50) }),
+    'node prototype/carve.mjs --width=25 --height=50 --seed=7',
+  )
   const c = { W: 100, H: 200, lengths: 0.25, shape: 0.2, skeleton: 'on', seed: 42, random: true }
   const v = { cell: exportCell(100, 200), stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 0 }
   const cmd = buildSimpleCommand(c, v)
-  assert.equal(cmd, 'node prototype/carve.mjs --width=100 --height=200 --seed=42 --length=0.25 --straight=0.8 --skeleton --randomized --lineweight=0.4 --arrowwidth=0.8 --arrowheight=1.2 --colorized')
+  assert.equal(
+    cmd,
+    'node prototype/carve.mjs --width=100 --height=200 --seed=42 --length=0.25 --straight=0.8 --skeleton --randomized --lineweight=0.4 --arrowwidth=0.8 --arrowheight=1.2 --colorized',
+  )
   const back = parseSimpleArgs(argvOf(cmd))
   assert.deepEqual(back.errors, [])
   assert.deepEqual(back.choice, c)

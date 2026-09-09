@@ -1,0 +1,8 @@
+{
+  "fmt": {
+    "semiColons": false,
+    "singleQuote": true,
+    "lineWidth": 120,
+    "exclude": ["**/*.md", "prototype/lab.html", "prototype/boards/", "prototype/dist/", "docs/"]
+  }
+}
