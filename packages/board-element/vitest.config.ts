@@ -15,6 +15,9 @@ export default defineConfig({
         },
       },
       {
+        // ARROWZ_* reaches the browser too, so perf.browser.test.ts can read
+        // ARROWZ_MEASURE from import.meta.env (Vite only forwards VITE_* by default).
+        envPrefix: ['VITE_', 'ARROWZ_'],
         test: {
           name: 'chromium',
           include: ['src/**/*.browser.test.ts'],
