@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from './engine.mjs'
-import { boardId, buildCommand, buildSimpleCommand, DEFAULT_VIEW } from './command.mjs'
+import { boardId, buildCommand, buildSimpleCommand, DEFAULT_VIEW } from './command.ts'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from './lab-simple.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))

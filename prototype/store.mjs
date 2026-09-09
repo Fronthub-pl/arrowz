@@ -14,7 +14,7 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { boardId } from './command.mjs'
+import { boardId } from './command.ts'
 
 export function boardsDir() {
   return process.env.ARROWZ_BOARDS_DIR || join(dirname(fileURLToPath(import.meta.url)), 'boards')
