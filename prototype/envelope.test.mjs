@@ -15,7 +15,7 @@ import {
   RULES,
   validateParams,
 } from './engine.mjs'
-import { PRESETS } from './lab-presets.mjs'
+import { PRESETS } from './lab-presets.ts'
 
 const spec = (key) => PARAM_SPEC.find((s) => s.key === key)
 const withDefaults = (over) => ({ ...defaultParams(), ...over })

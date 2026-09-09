@@ -1,8 +1,10 @@
 // Presets for the lab: a tree of difficulty levels, each with a few options.
 // An option is a full configuration = engine defaults + these overrides, so
 // choosing one never inherits knobs left over from the previous experiment.
-// Labels come from the dictionaries (lab-i18n.mjs) by level id and mode.
-function level(id, side, tall) {
+// Labels come from the dictionaries (lab-i18n.ts) by level id and mode.
+import type { Params, Preset, PresetLevel } from './types.ts'
+
+function level(id: string, side: number, tall: number): PresetLevel {
   return {
     id,
     options: [
@@ -14,7 +16,7 @@ function level(id, side, tall) {
   }
 }
 
-export const PRESETS = [
+export const PRESETS: readonly PresetLevel[] = [
   level('easy', 25, 50),
   level('medium', 50, 100),
   level('hard', 75, 150),
@@ -49,19 +51,23 @@ export const PRESETS = [
   },
 ]
 
+/** Typed Object.keys for a preset's overrides. */
+function overrideKeys(p: Preset): (keyof Preset['params'])[] {
+  return Object.keys(p.params) as (keyof Preset['params'])[]
+}
+
 /**
  * The option matching the current parameters, or null. The most specific
  * match wins: "portrait" is a subset of "tunnels", so with tunnels on the
  * tunnels option is the answer. Knobs outside the preset are ignored.
  */
-export function findPreset(params) {
-  let best = null
+export function findPreset(params: Params): Preset | null {
+  let best: Preset | null = null
   for (const l of PRESETS) {
     for (const o of l.options) {
-      const keys = Object.keys(o.params)
-      if (
-        keys.every((k) => params[k] === o.params[k]) && keys.length > (best ? Object.keys(best.params).length : 0)
-      ) best = o
+      const keys = overrideKeys(o)
+      const matches = keys.every((k) => params[k] === o.params[k])
+      if (matches && keys.length > (best ? overrideKeys(best).length : 0)) best = o
     }
   }
   return best

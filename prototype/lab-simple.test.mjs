@@ -10,7 +10,7 @@ import {
   simpleParams,
   simpleRanges,
 } from './lab-simple.mjs'
-import { PRESETS } from './lab-presets.mjs'
+import { PRESETS } from './lab-presets.ts'
 import { defaultParams, mulberry32, PARAM_SPEC, validateParams } from './engine.mjs'
 import { EN, PL } from './lab-i18n.mjs'
 

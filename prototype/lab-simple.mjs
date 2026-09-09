@@ -18,7 +18,7 @@
 // Labels come from the dictionaries (lab-i18n.mjs, `simple`); nothing here
 // knows the DOM.
 import { defaultParams, PARAM_SPEC } from './engine.mjs'
-import { PRESETS } from './lab-presets.mjs'
+import { PRESETS } from './lab-presets.ts'
 
 const specByKey = new Map(PARAM_SPEC.map((s) => [s.key, s]))
 
