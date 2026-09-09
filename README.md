@@ -988,7 +988,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
 
 The code under `packages/` started as a throwaway prototype written to settle
-what makes a good board. It settled them, so it became the engine the game is
+what makes a good board. It settled that, so it became the engine the game is
 built on; the tag `v1.0.0-alpha.1` marks that point. The game itself, a
 reusable board component and a new lab are built next to it in this
 repository (see `docs/superpowers/specs/2026-09-09-monorepo-design.md`).

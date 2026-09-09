@@ -2,7 +2,12 @@
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "defaultBase": "main",
   "namedInputs": {
-    "sharedGlobals": ["{workspaceRoot}/deno.json", "{workspaceRoot}/deno.lock"],
+    "sharedGlobals": [
+      "{workspaceRoot}/deno.json",
+      "{workspaceRoot}/deno.lock",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/.github/workflows/*.yml"
+    ],
     "default": [
       "{projectRoot}/**/*",
       "!{projectRoot}/dist/**",

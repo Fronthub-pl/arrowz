@@ -22,6 +22,6 @@
       "outputs": ["{projectRoot}/dist"],
       "options": { "cwd": "packages/cli", "command": "deno task bundle" }
     },
-    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test"] }
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "bundle"] }
   }
 }

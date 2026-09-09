@@ -22,8 +22,10 @@ for (const c of golden.cases) {
   if (c.name === 'big500') continue
   const r = generate(paramsOf(c), { unchecked: c.argv === null })
   const got = fingerprint(r.board)
-  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces)`)
+  // The unchecked case records no maxLen — it has no metrics.
+  const maxLenOk = c.maxLen === null || r.metrics?.maxLen === c.maxLen
+  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen})`)
   if (!ok) failures++
 }
 if (failures > 0) {
