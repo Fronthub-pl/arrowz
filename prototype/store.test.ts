@@ -1,7 +1,6 @@
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import { join } from '@std/path'
-// @ts-types="./engine.d.ts"
-import { defaultParams } from './engine.mjs'
+import { defaultParams } from './engine.ts'
 import { COMMAND_PREFIX } from './command.ts'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 import type { BoardMeta, ParamKey } from './types.ts'
@@ -103,6 +102,36 @@ Deno.test('listBoards skips junk: foreign directories, json without svg, broken 
   const sizes = listBoards()
   assertEquals(sizes.map((s) => s.size), ['25x50'])
   assertEquals(sizes[0]?.boards.length, 1)
+})
+
+// Boards saved before the arrowhead knobs existed carry a view without
+// headWidth/headHeight; the store fills them with the defaults, as the old
+// lab page did with `?? 0`.
+Deno.test('listBoards fills a legacy view without arrowhead fields with the defaults', () => {
+  const dir = freshDir()
+  Deno.mkdirSync(join(dir, '25x50'))
+  const legacy = {
+    id: 'seed7-legacy00',
+    W: 25,
+    H: 50,
+    seed: 7,
+    params: params(),
+    view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
+    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    source: 'cli',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ok: true,
+    pieces: 126,
+    maxLen: 68,
+    genMs: 12,
+    svgBytes: 6,
+  }
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.json'), JSON.stringify(legacy))
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.svg'), '<svg/>')
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.id, 'seed7-legacy00')
+  assertEquals(board?.view, { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 })
 })
 
 Deno.test('listBoards without a directory returns an empty list', () => {

@@ -20,8 +20,7 @@ import type {
   WorkerIn,
   WorkerOut,
 } from './types.ts'
-// @ts-types="./engine.d.ts"
-import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from './engine.mjs'
+import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from './engine.ts'
 import { buildCommand } from './command.ts'
 import { type Dictionary, EN, PL, type UiArgs, type UiKey } from './lab-i18n.ts'
 import { findPreset, PRESETS } from './lab-presets.ts'

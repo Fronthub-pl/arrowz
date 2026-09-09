@@ -4,7 +4,7 @@
 // reproduces any board.
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { BoardMeta, BoardSize, Params, View } from './types.ts'
-import { boardId } from './command.ts'
+import { boardId, DEFAULT_VIEW } from './command.ts'
 
 export interface SaveInput {
   svg: string
@@ -29,10 +29,15 @@ function exists(path: string): boolean {
   }
 }
 
-/** The JSON of a stored board, or null when the file is missing or broken. */
+/**
+ * The JSON of a stored board, or null when the file is missing or broken.
+ * A board saved before the arrowhead knobs existed has a view without
+ * headWidth/headHeight; the missing view fields take the defaults (0 = automatic).
+ */
 function readMeta(file: string): BoardMeta | null {
   try {
-    return JSON.parse(Deno.readTextFileSync(file)) as BoardMeta
+    const parsed = JSON.parse(Deno.readTextFileSync(file)) as BoardMeta
+    return { ...parsed, view: { ...DEFAULT_VIEW, ...parsed.view } }
   } catch {
     return null
   }

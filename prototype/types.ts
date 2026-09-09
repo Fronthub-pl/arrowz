@@ -97,6 +97,13 @@ export interface CarverStats {
   absorbScanned?: number
   headScans?: number
   headScanHits?: number
+  // Stall diagnostics of carveOne: why a piece stopped growing (own body,
+  // a foreign piece, the edge), the length it reached and self-traps.
+  stallOwn?: number
+  stallForeign?: number
+  stallEdge?: number
+  stallLen?: number
+  stallSelfTrap?: number
 }
 
 /** The public surface of a carved board that analyse, render, toSvg and fingerprint read. */

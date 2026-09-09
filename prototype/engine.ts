@@ -67,17 +67,6 @@ const DIRS: readonly Dir[] = [
 /** A step direction without the glyph: what the growth loop of carveOne compares. */
 type Step = { dx: number; dy: number }
 
-// CONTRACT GAP: carveOne keeps stall diagnostics in `stats` that CarverStats
-// (types.ts) does not list. They are engine-internal counters, so the carver
-// widens its `stats` locally; `Board.stats: CarverStats` still holds.
-type StallStats = {
-  stallOwn?: number
-  stallForeign?: number
-  stallEdge?: number
-  stallLen?: number
-  stallSelfTrap?: number
-}
-
 /** The vertex predicate of hasLocalDefect, bound to one board state (see defectKernel). */
 type DefectKernel = {
   isFree: (i: number) => boolean
@@ -108,7 +97,7 @@ class Carver implements Board {
   pieces: Piece[]
   remaining: number
   backtracks: number
-  stats: CarverStats & StallStats
+  stats: CarverStats
   depth: Int32Array[]
   takenStamp: Int32Array
   seenStamp: Int32Array

@@ -1,6 +1,5 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
-// @ts-types="./engine.d.ts"
-import { defaultParams } from './engine.mjs'
+import { defaultParams } from './engine.ts'
 import { COMMAND_PREFIX } from './command.ts'
 import { createLabServer } from './lab-server.ts'
 import type { BoardMeta, BoardSize } from './types.ts'
@@ -57,7 +56,7 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
     const missing = await fetch(base + '/missing.txt')
     assertEquals(missing.status, 404)
     await missing.body?.cancel()
-    const escape = await fetch(base + '/boards/..%2F..%2Fengine.mjs')
+    const escape = await fetch(base + '/boards/..%2F..%2Fengine.ts')
     assertEquals(escape.status, 403)
     await escape.body?.cancel()
     const dist = await fetch(base + '/dist/lab-page.js')

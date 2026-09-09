@@ -1,4 +1,4 @@
-// THROWAWAY PROTOTYPE — CLI layer over the engine in engine.mjs.
+// THROWAWAY PROTOTYPE — CLI layer over the engine in engine.ts.
 // Run: deno task carve --width=N --height=N [options]
 //      deno task carve --advanced [--<knob>=value ...] [mode]
 //
@@ -21,7 +21,6 @@
 // Parameters outside the safe envelope (validateParams) are refused before
 // any generation, in every mode, with exit code 2.
 import type { CarverStats, Metrics, Params, TraceInfo, Violation } from './types.ts'
-// @ts-types="./engine.d.ts"
 import {
   analyse,
   Carver,
@@ -33,7 +32,7 @@ import {
   render,
   toSvg,
   validateParams,
-} from './engine.mjs'
+} from './engine.ts'
 import {
   boardId,
   buildCommand,

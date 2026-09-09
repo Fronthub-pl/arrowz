@@ -5,8 +5,7 @@
 // directory, which must stay empty.
 import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-// @ts-types="./engine.d.ts"
-import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from './engine.mjs'
+import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from './engine.ts'
 import { boardId, buildCommand, buildSimpleCommand, COMMAND_PREFIX, DEFAULT_VIEW } from './command.ts'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from './lab-simple.ts'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from './types.ts'

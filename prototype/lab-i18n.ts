@@ -61,7 +61,7 @@ export const EN = {
   },
   ui: {
     title: 'Generator lab',
-    subtitle: 'Same engine as carve.mjs: engine.mjs.',
+    subtitle: 'Same engine as carve.ts: engine.ts.',
     generate: 'Generate',
     reseed: 'New seed',
     reset: 'Defaults',
@@ -408,7 +408,7 @@ export const PL: Translation = {
   },
   ui: {
     title: 'Laboratorium generatora',
-    subtitle: 'Ten sam silnik co carve.mjs: engine.mjs.',
+    subtitle: 'Ten sam silnik co carve.ts: engine.ts.',
     generate: 'Generuj',
     reseed: 'Nowe ziarno',
     reset: 'Domyślne',

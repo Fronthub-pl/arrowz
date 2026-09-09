@@ -19,12 +19,7 @@ Deno.test('runtime-neutral modules use no Deno, DOM, Node or process API', () =>
   const here = dirname(fromFileUrl(import.meta.url))
   for (const name of NEUTRAL) {
     const file = join(here, name)
-    let text: string
-    try {
-      text = Deno.readTextFileSync(file)
-    } catch {
-      text = Deno.readTextFileSync(file.replace(/\.ts$/, '.mjs')) // engine.mjs until integration
-    }
+    const text = Deno.readTextFileSync(file)
     for (const re of FORBIDDEN) assert(!re.test(text), `${name} matches ${re}`)
   }
 })
