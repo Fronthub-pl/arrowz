@@ -111,13 +111,7 @@ export class GestureMachine {
     if (!this.pointers.has(p.id)) return NONE
     this.pointers.delete(p.id)
     if (this.pointers.size === 1) {
-      // From a pinch back to one finger: it continues as a pan, never a tap.
-      const [rest] = [...this.pointers.values()]
-      this.press = rest ?? null
-      this.last = rest ?? null
-      this.pinchMid = null
-      this.moved = true
-      this.isPanning = true
+      this.dropToOnePointer()
       return NONE
     }
     if (this.pointers.size > 1) return NONE
@@ -142,8 +136,27 @@ export class GestureMachine {
 
   cancel(id: number): Intent {
     this.pointers.delete(id)
+    if (this.pointers.size === 1) {
+      this.dropToOnePointer()
+      return NONE
+    }
     if (this.pointers.size === 0) this.reset()
     return NONE
+  }
+
+  /**
+   * Shared handling for both `up` and `cancel` when a pointer count drops
+   * from 2 (or more) to exactly 1: the surviving pointer becomes the new
+   * press/last, the pinch is cleared, and the interaction continues as a
+   * pan, never a tap.
+   */
+  private dropToOnePointer(): void {
+    const [rest] = [...this.pointers.values()]
+    this.press = rest ?? null
+    this.last = rest ?? null
+    this.pinchMid = null
+    this.moved = true
+    this.isPanning = true
   }
 
   private reset(): void {

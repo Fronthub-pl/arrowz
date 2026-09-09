@@ -85,6 +85,15 @@ describe('touch', () => {
     expect(m.move(touch(1, 110, 100, 60))).toEqual({ type: 'pan', dx: 10, dy: 0 })
     expect(m.up(touch(1, 110, 100, 80))).toEqual({ type: 'none' })
   })
+
+  test('cancelling one of two fingers drops to a pan on the survivor, never a click', () => {
+    const m = new GestureMachine()
+    m.down(touch(1, 100, 100, 0))
+    m.down(touch(2, 200, 100, 0))
+    expect(m.cancel(1)).toEqual({ type: 'none' })
+    expect(m.move(touch(2, 210, 100, 20))).toEqual({ type: 'pan', dx: 10, dy: 0 })
+    expect(m.up(touch(2, 210, 100, 40))).toEqual({ type: 'none' })
+  })
 })
 
 test('cancel resets everything', () => {
