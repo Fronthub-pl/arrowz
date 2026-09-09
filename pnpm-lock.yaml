@@ -116,6 +116,8 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/engine: {}
+
 packages:
 
   '@clack/core@1.4.3':
