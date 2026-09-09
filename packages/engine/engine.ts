@@ -21,17 +21,9 @@ import type {
   TraceInfo,
   Violation,
 } from './types.ts'
-
-/**
- * Reads an index the algorithm guarantees to be valid. Under
- * noUncheckedIndexedAccess every `arr[i]` is `T | undefined`; a silent
- * `?? 0` would change a board, so an impossible miss throws instead.
- */
-function at<T>(arr: ArrayLike<T>, i: number): T {
-  const v = arr[i]
-  if (v === undefined) throw new RangeError(`index ${i} out of ${arr.length}`)
-  return v
-}
+// `at`, the directions and the piece shapes live in the geometry module, so
+// the board element draws a head from the same arithmetic as this file.
+import { at, DIRS, pieceShape, voidStrips } from './geometry.ts'
 
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
@@ -53,16 +45,6 @@ function pop<T>(arr: T[]): T {
   if (v === undefined) throw new RangeError('pop of an empty array')
   return v
 }
-
-/** One of the four directions; `ch` is the head glyph of `render`. */
-type Dir = { dx: number; dy: number; ch: string }
-
-const DIRS: readonly Dir[] = [
-  { dx: 0, dy: -1, ch: '↑' }, // 0 up
-  { dx: 1, dy: 0, ch: '→' }, // 1 right
-  { dx: 0, dy: 1, ch: '↓' }, // 2 down
-  { dx: -1, dy: 0, ch: '←' }, // 3 left
-]
 
 /** A step direction without the glyph: what the growth loop of carveOne compares. */
 type Step = { dx: number; dy: number }
@@ -2033,39 +2015,24 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   const pad = cell
   const sw = cell * (opts.strokeRatio ?? 0.5)
   const w = W * cell + pad * 2, h = H * cell + pad * 2
-  const cx = (x: number): number => pad + x * cell + cell / 2
-  const cy = (y: number): number => pad + y * cell + cell / 2
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
     `<rect width="${w}" height="${h}" fill="#f6f6fa"/>`,
   ]
 
-  // Jam preview: cells the generator failed to carve. We merge them into
-  // horizontal strips — with 55 thousand holes, separate rectangles would
-  // produce a document that cannot be displayed.
+  // Jam preview: cells the generator failed to carve, as horizontal strips.
   if (voids && board.owner) {
-    const rects: string[] = []
-    for (let y = 0; y < H; y++) {
-      let start = -1
-      for (let x = 0; x <= W; x++) {
-        const empty = x < W && board.owner[y * W + x] === -1
-        if (empty && start < 0) start = x
-        if (!empty && start >= 0) {
-          rects.push(
-            `<rect x="${pad + start * cell}" y="${pad + y * cell}" width="${(x - start) * cell}" height="${cell}"/>`,
-          )
-          start = -1
-        }
-      }
-    }
+    const rects = voidStrips(board).map((s) =>
+      `<rect x="${pad + s.x * cell}" y="${pad + s.y * cell}" width="${s.len * cell}" height="${cell}"/>`
+    )
     if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
   }
 
-  // Lines end flat: the head end hides under the head (a round cap as wide as
-  // a stick head bulged at the base), and the tail gets its rounding from a
-  // circle of the line's radius, drawn with the heads. Corners stay round.
-  // The default ink is set once per group; only coloured and highlighted
-  // pieces carry their own colour (a 1000×1000 board has ~90 000 pieces).
+  // Lines end flat: the head end hides under the head, and the tail gets its
+  // rounding from a circle of the line's radius, drawn with the heads. Corners
+  // stay round. The default ink is set once per group; only coloured and
+  // highlighted pieces carry their own colour (a 1000×1000 board has ~90 000
+  // pieces).
   const INK = '#232447'
   out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
   const heads: string[] = []
@@ -2074,59 +2041,18 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   // In colour mode the pink would blend into the palette, so highlighted
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
+  // `undefined > 0` was false in the untyped code: a missing knob means automatic
+  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 0
+  const pt = ([x, y]: [number, number]): string => `${x},${y}`
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
     const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : INK
-    const { dx, dy } = at(DIRS, pc.dir)
-    const headCell = at(pc.cells, 0)
-    const hx = cx(headCell.x), hy = cy(headCell.y)
-    // The head follows the width of ITS line (highlighted pieces are
-    // thicker). A thin line (under half a cell) gets an arrow: an isosceles
-    // triangle 0.4 of a cell plus 0.9 of the line width wide, always 0.9 of a
-    // cell tall. From half a cell up there is no
-    // room for a wider head between neighbours, so the line ends as a
-    // sharpened stick: a triangle exactly as wide as the line and 1.4 times
-    // as tall. Either way the tip stays 0.48 past the head centre, inside the
-    // head cell (an overshooting tip looked wrong and facing heads
-    // overlapped), so a bigger head grows backwards, and the line runs up to
-    // the base itself with its round cap hidden inside the head. A head only
-    // slightly wider than the line, with the cap ending short of the base,
-    // looked like a triangle perched on a pill, with notches at the corners;
-    // a fixed head was swallowed by the cap from a stroke of 0.5 up.
-    // Both sizes can be set by hand (opts.headWidth / headHeight, in cells;
-    // 0 = automatic); a head narrower than its line is widened to the line.
-    const w = isLong ? hiWidth : sw
-    const stick = w >= 0.5 * cell - 1e-9
-    const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
-    const autoHeight = stick ? 1.4 * w : 0.9 * cell
-    // `undefined > 0` was false in the untyped code: a missing knob means automatic
-    const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 0
-    const half = Math.max(w, headWidth > 0 ? headWidth * cell : autoWidth) / 2
-    const height = headHeight > 0 ? headHeight * cell : autoHeight
-    const tip = 0.48 * cell
-    const tx = hx + dx * tip, ty = hy + dy * tip
-    const bx = tx - dx * height, by = ty - dy * height
-    // Line and head overlap by 0.2 of the line width, so no anti-aliasing
-    // seam shows at the base: a head the line fits into that deep takes the
-    // line that far past the base; a head as wide as the line (a stick) gets
-    // a collar of that length behind the base instead (a five-point outline).
-    const lap = 0.2 * w
-    const fits = w / 2 <= half * (1 - lap / height) + 1e-9
-    const collar = fits
-      ? ''
-      : ` ${bx - dx * lap + dy * half},${by - dy * lap - dx * half} ${bx - dx * lap - dy * half},${
-        by - dy * lap + dx * half
-      }`
+    const width = isLong ? hiWidth : sw
+    const s = pieceShape(pc, { cell, pad, width, headWidth, headHeight })
     const fill = col === INK ? '' : ` fill="${col}"`
-    const tailCell = at(pc.cells, pc.cells.length - 1)
-    const head =
-      `<polygon points="${tx},${ty} ${bx + dy * half},${by - dx * half}${collar} ${bx - dy * half},${
-        by + dx * half
-      }"${fill}/>` +
-      `<circle cx="${cx(tailCell.x)}" cy="${cy(tailCell.y)}" r="${w / 2}"${fill}/>`
-    const ex = fits ? bx + dx * lap : bx, ey = fits ? by + dy * lap : by
-    const pts = [`${ex},${ey}`, ...pc.cells.slice(1).map((c) => `${cx(c.x)},${cy(c.y)}`)].join(' ')
-    const line = `<polyline points="${pts}"${col === INK ? '' : ` stroke="${col}"`}/>`
+    const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` +
+      `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
+    const line = `<polyline points="${s.line.map(pt).join(' ')}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) {
       highlight.push(line)
       highlightHeads.push(head)

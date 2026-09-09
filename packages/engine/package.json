@@ -3,6 +3,7 @@
   "version": "1.0.0-alpha.1",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": { "types": "./dist/mod.d.ts", "default": "./dist/mod.js" },
     "./command": { "types": "./dist/command.d.ts", "default": "./dist/command.js" },
