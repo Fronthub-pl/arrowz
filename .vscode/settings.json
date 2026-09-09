@@ -1,0 +1,8 @@
+{
+  "deno.enable": false,
+  "deno.enablePaths": ["packages/engine", "packages/cli"],
+  "deno.lint": true,
+  "editor.formatOnSave": true,
+  "[typescript]": { "editor.defaultFormatter": "denoland.vscode-deno" },
+  "files.exclude": { "**/.nx": true }
+}

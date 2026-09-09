@@ -1,0 +1,18 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "engine",
+  "projectType": "library",
+  "sourceRoot": "packages/engine",
+  "targets": {
+    "check": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "deno check *.ts" } },
+    "lint": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "deno lint" } },
+    "fmt": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "deno fmt --check" } },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "packages/engine", "command": "deno test --allow-read --allow-run" }
+    },
+    "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run build" } },
+    "smoke": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run smoke" } },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "smoke"] }
+  }
+}
