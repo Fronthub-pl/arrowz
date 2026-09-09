@@ -67,6 +67,23 @@ class Carver {
     this.version = 0
     this.touched = new Int32Array(W * H)
     this.absorbMemo = new Map()  // first cell of the fragment -> { version, pieces }
+    // Dirty cells of the incremental fragment scan of absorbLeftover, one bit
+    // per cell: a cell that changed owner or lies next to one (set by touch),
+    // or the smallest cell of a fragment the scan discovered and did not get
+    // to evaluate. The scan walks the bits in index order and clears the ones
+    // it processes; after a successful absorption the rest stay set for the
+    // next call. Every bit is set at construction: the first scan sees the
+    // whole board — the initial state, the voids of `voidFrac` that no touch()
+    // ever reports, and, since a restart is a new Carver, every attempt.
+    this.absorbDirty = new Int32Array((W * H + 31) >> 5).fill(-1)
+    this.absorbFull = true // the first scan floods every fragment to the end
+    // Scratch of the scan: the visited stamp of the flood fills, their stack,
+    // and the discovered fragments waiting for their turn (a heap on the
+    // smallest cell index).
+    this.absorbSeen = new Int32Array(W * H)
+    this.absorbSeenGen = 0
+    this.absorbStack = []
+    this.absorbHeap = []
     // Scratch for the absorption path search: region and used-cell membership
     // by stamp, so a candidate costs no allocation beyond its own path.
     this.absRegion = new Int32Array(W * H)
@@ -74,10 +91,32 @@ class Carver {
     this.absGen = 0
   }
 
-  // Marks the cells of `cells` ({x, y} objects) as changed at a new version.
+  // Marks the cells of `cells` ({x, y} objects) as changed at a new version,
+  // and marks them and their neighbours dirty for the fragment scan of
+  // absorbLeftover: a fragment can change, appear, or lose its memo only
+  // through an owner change in it or beside it (see absorbLeftover).
   touch(cells) {
     const v = ++this.version
     for (const c of cells) this.touched[this.idx(c.x, c.y)] = v
+    if (this.absorbFull) return // every bit is still set: the first scan is pending
+    for (const c of cells) {
+      this.seedAbsorb(this.idx(c.x, c.y))
+      this.seedAround(c.x, c.y)
+    }
+  }
+
+  // Marks cell i dirty for the fragment scan of absorbLeftover. A cell that
+  // is not free is skipped by the scan, so there is nothing to check here.
+  seedAbsorb(i) {
+    this.absorbDirty[i >> 5] |= 1 << (i & 31)
+  }
+
+  // Marks the in-bounds 4-neighbours of (x, y) dirty.
+  seedAround(x, y) {
+    for (const { dx, dy } of DIRS) {
+      const nx = x + dx, ny = y + dy
+      if (this.inside(nx, ny)) this.seedAbsorb(this.idx(nx, ny))
+    }
   }
 
   idx(x, y) { return y * this.W + x }
@@ -964,11 +1003,31 @@ class Carver {
    * `absorbLimit` cells: a large free area needs ordinary carving, not gluing
    * into a single clump. One call absorbs one fragment and returns true so the
    * generator tries carving normally again.
+   *
+   * The fragments are tried in the order of their smallest cell index, a
+   * fragment whose memo is still valid is skipped (see MEMO below), and the
+   * call returns at the first success. The scan that finds them is
+   * INCREMENTAL: the original walked every cell of the board on every call;
+   * this one walks a bitmap of DIRTY cells and flood-fills only the fragments
+   * around them. Every cell is dirty at construction, so the first call sees
+   * the whole board; afterwards touch() marks every cell that changed owner
+   * and its neighbours, a success marks the neighbours of the rewritten tail,
+   * and the fragments the walk discovered but did not get to before the
+   * success are marked again. That evaluates a SUPERSET of the fragments the
+   * full walk would evaluate, in the same order, with the same memo check, so
+   * the absorptions are identical: a fragment can change, appear, or lose its
+   * memo only through an owner change in it or next to it, or through the
+   * rewritten tail of a candidate piece (which every such fragment touches at
+   * a position >= 1). A fragment above the limit is dropped: it can only come
+   * under the limit when a cell inside it is assigned, and that assignment's
+   * touch() marks every part it splits into. Marking too much only costs a
+   * flood fill; marking too little would change boards.
    */
   absorbLeftover() {
     const limit = this.p.absorbLimit ?? 0
     if (limit <= 0) return false
-    const { W, H, owner } = this
+    const { W, H, owner, touched, absorbMemo, absorbSeen } = this
+    const stack = this.absorbStack
     const cellIndexIn = new Map() // "id:idx" -> position of the cell within the piece
     const posOf = (pc, i) => {
       const key = pc.id
@@ -976,38 +1035,99 @@ class Carver {
       if (!m) { m = new Map(); pc.cells.forEach((c, k) => m.set(this.idx(c.x, c.y), k)); cellIndexIn.set(key, m) }
       return m.get(i)
     }
-    const { touched, absorbMemo } = this
-    const seen = new Uint8Array(W * H)
-    for (let s = 0; s < W * H; s++) {
-      if (owner[s] !== -1 || seen[s]) continue
-      // the fragment of free cells around s, with a size limit
-      const comp = []
-      const stack = [s]
-      seen[s] = 1
-      let tooBig = false
-      // the newest change among the fragment's cells and their neighbours
-      let changed = 0
+    // DISCOVERY: the fragment of free cells around a dirty cell, with a size
+    // limit. Only its smallest cell `s`, its size and `changed` — the newest
+    // change among the fragment's cells and their neighbours — are kept; all
+    // three are independent of the cell the flood starts from and of the
+    // order in which the neighbours are taken, so this flood is unrolled.
+    // Every flood has its own stamp, and any stamp from this call (>= base)
+    // means "already visited in this scan".
+    //
+    // The incremental scan STOPS a flood as soon as the fragment is over the
+    // limit — a dirty cell next to the carving frontier lies in the big free
+    // area, and walking all of it on every call is what made the old scan
+    // slow. An unseen cell whose flood reaches a cell that a stopped flood
+    // marked is in that same over-limit fragment (a fragment under the limit
+    // is always flooded completely, so its cells never meet an unseen dirty
+    // cell); it is dropped without walking further. The first scan visits
+    // every cell anyway, so it floods to the end and never meets that case.
+    const heap = this.absorbHeap // discovered fragments { s, changed }, a min-heap on s
+    heap.length = 0
+    const base = this.absorbSeenGen + 1
+    const partial = !this.absorbFull
+    this.absorbFull = false
+    let scanned = 0
+    const discover = (seed) => {
+      if (owner[seed] !== -1 || absorbSeen[seed] >= base) return
+      const g = ++this.absorbSeenGen
+      absorbSeen[seed] = g
+      stack.push(seed)
+      let s = seed, size = 0, changed = 0, tooBig = false
       while (stack.length) {
         const i = stack.pop()
-        if (!tooBig) comp.push(i)
-        if (comp.length > limit) tooBig = true
+        size++
+        if (size > limit) tooBig = true
+        if (i < s) s = i
         if (touched[i] > changed) changed = touched[i]
         const x = i % W, y = (i / W) | 0
-        for (const { dx, dy } of DIRS) {
-          const nx = x + dx, ny = y + dy
-          if (!this.inside(nx, ny)) continue
-          const j = this.idx(nx, ny)
-          if (touched[j] > changed) changed = touched[j]
-          if (owner[j] === -1 && !seen[j]) { seen[j] = 1; stack.push(j) }
-        }
+        let j
+        if (y > 0) { j = i - W; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
+        if (x < W - 1) { j = i + 1; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
+        if (y < H - 1) { j = i + W; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
+        if (x > 0) { j = i - 1; if (touched[j] > changed) changed = touched[j]; if (owner[j] === -1 && absorbSeen[j] !== g) { if (absorbSeen[j] >= base) tooBig = true; else { absorbSeen[j] = g; stack.push(j) } } }
+        if (tooBig && partial) { stack.length = 0; break }
       }
-      if (tooBig) continue
+      scanned += size
+      if (tooBig) return
+      const e = { s, changed }
+      let h = heap.length
+      heap.push(e)
+      while (h > 0) { const par = (h - 1) >> 1; if (heap[par].s <= s) break; heap[h] = heap[par]; h = par }
+      heap[h] = e
+    }
+    const heapPop = () => {
+      const top = heap[0]
+      const last = heap.pop()
+      const m = heap.length
+      if (m) {
+        let h = 0
+        for (;;) {
+          let c = 2 * h + 1
+          if (c >= m) break
+          if (c + 1 < m && heap[c + 1].s < heap[c].s) c++
+          if (last.s <= heap[c].s) break
+          heap[h] = heap[c]; h = c
+        }
+        heap[h] = last
+      }
+      return top
+    }
+    // EVALUATION of one fragment, from the memo check on exactly like the
+    // full walk did. Returns true after an absorption.
+    const evaluate = (s, changed) => {
       // MEMO: s is the smallest index of its fragment (every free cell before
       // it already belongs to an earlier fragment), so it identifies the
       // fragment. If nothing around it changed since the last failed attempt
       // and no candidate tail was rewritten, the attempt would fail again.
       const memo = absorbMemo.get(s)
-      if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) continue
+      if (memo && memo.version >= changed && memo.pieces.every((pc) => (pc.tailVersion ?? 0) <= memo.version)) return false
+      // The fragment again, flood-filled from s exactly like the full walk
+      // did: the candidate order below follows the order of `comp`.
+      const comp = []
+      const compGen = ++this.absorbSeenGen
+      absorbSeen[s] = compGen
+      stack.push(s)
+      while (stack.length) {
+        const i = stack.pop()
+        comp.push(i)
+        const x = i % W, y = (i / W) | 0
+        for (const { dx, dy } of DIRS) {
+          const nx = x + dx, ny = y + dy
+          if (!this.inside(nx, ny)) continue
+          const j = this.idx(nx, ny)
+          if (owner[j] === -1 && absorbSeen[j] !== compGen) { absorbSeen[j] = compGen; stack.push(j) }
+        }
+      }
       // candidates: (piece, position of the contact cell); tail end = the cells after it
       const cands = new Map()
       for (const i of comp) {
@@ -1040,10 +1160,51 @@ class Carver {
         this.touch(absorbed)
         this.stats.absorbed = (this.stats.absorbed ?? 0) + comp.length
         this.stats.absorbs = (this.stats.absorbs ?? 0) + 1
+        // The rewritten tail invalidates the memo of every fragment that had
+        // pc as a candidate; each of them touches pc at a position >= 1, and
+        // the new cells cover the old ones (re-laid, not released).
+        for (let j = 1; j < pc.cells.length; j++) this.seedAround(pc.cells[j].x, pc.cells[j].y)
         return true
       }
       absorbMemo.set(s, { version: this.version, pieces: list.map((c) => c.pc) })
+      return false
     }
+    // THE WALK over the dirty bits in index order, lazily evaluating the
+    // discovered fragments in the order of s like the full walk did: a
+    // fragment under the limit that contains cell i has its smallest cell
+    // less than `span` indices below i, so once the walk is span past the
+    // smallest discovered s, that fragment is the next one. A bit is cleared
+    // when its cell is processed; on a success the walk stops and the bits
+    // after it stay set, and the fragments still in the heap are marked dirty
+    // again — the full walk would reach them all on its next call. Not
+    // discovering the rest is what keeps a hit as cheap as it was.
+    const dirty = this.absorbDirty
+    const span = limit * (W + 1)
+    const hit = () => {
+      for (let h = 0; h < heap.length; h++) this.seedAbsorb(heap[h].s)
+      this.stats.absorbScanned = (this.stats.absorbScanned ?? 0) + scanned
+      return true
+    }
+    for (let w = 0; w < dirty.length; w++) {
+      let bits = dirty[w]
+      while (bits !== 0) {
+        const b = bits & -bits
+        bits ^= b
+        const i = (w << 5) + (31 - Math.clz32(b))
+        if (i >= W * H) break // the padding bits of the last word are no cells
+        while (heap.length && heap[0].s < i - span) {
+          const f = heapPop()
+          if (evaluate(f.s, f.changed)) return hit()
+        }
+        dirty[w] ^= b // cleared only once the walk really gets to i: a hit above returns first
+        discover(i)
+      }
+    }
+    while (heap.length) {
+      const f = heapPop()
+      if (evaluate(f.s, f.changed)) return hit()
+    }
+    this.stats.absorbScanned = (this.stats.absorbScanned ?? 0) + scanned
     return false
   }
 
