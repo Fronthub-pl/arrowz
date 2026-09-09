@@ -75,11 +75,25 @@ describe('build', () => {
     expect(tip?.[1]).toBeCloseTo((head?.y ?? 0) + 0.5, 9)
   })
 
-  test('setBoard(null) empties the layer', () => {
+  test('setBoard(null) empties the layer and shrinks the paper', () => {
     layer.setBoard(board(), DEFAULT_VIEW)
     layer.setBoard(null, DEFAULT_VIEW)
     expect(layer.pieceCount).toBe(0)
     expect(layer.svg.querySelectorAll('g[data-id]').length).toBe(0)
+    expect(layer.svg.querySelector('rect.paper')?.getAttribute('width')).toBe('0')
+  })
+
+  test('a colour from the consumer is escaped, not parsed as markup', () => {
+    const evil = '"><script>x</script>'
+    const b = board()
+    // The page carries the test runner's own scripts, so the count is the baseline.
+    const before = document.querySelectorAll('script').length
+    expect(() => layer.setBoard(b, { ...DEFAULT_VIEW, top: 1, highlight: evil })).not.toThrow()
+    expect(layer.svg.querySelectorAll('script').length).toBe(0)
+    expect(document.querySelectorAll('script').length).toBe(before)
+    const top = layer.svg.querySelector('g.top > g[data-id]')
+    expect(top).not.toBeNull()
+    expect(top?.getAttribute('stroke')).toBe(evil)
   })
 })
 

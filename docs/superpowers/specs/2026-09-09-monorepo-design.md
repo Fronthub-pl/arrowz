@@ -316,7 +316,8 @@ CI (about 1.3 s for the 500×500 case).
 ### 11.1 `<arrowz-board>` (step 2)
 
 Lit element in `packages/board-element`, npm package `@arrowz/board-element`,
-depends on `@arrowz/engine` for types only. Properties: `board: Board`,
+depends on `@arrowz/engine` for the board types and the `geometry` module
+(`DIRS`, `pieceShape`, `voidStrips`). Properties: `board: Board`,
 `view: View` (line weight, arrowhead size, colours), `interactive: boolean`.
 Methods: `animateExit(pieceId, dir)`, `shake(pieceId, distance)`, `fit()`,
 `zoomBy(factor)`. Events: `piece-click` (`{ pieceId }`), `viewport-change`.

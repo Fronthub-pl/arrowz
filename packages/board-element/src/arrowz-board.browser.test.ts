@@ -163,6 +163,18 @@ describe('clicks', () => {
     expect(seen[0]?.composed).toBe(true)
   })
 
+  test('a secondary mouse button is not a press: no piece-click on release', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const seen: Event[] = []
+    document.addEventListener('piece-click', (e) => seen.push(e))
+    const p = headPoint(el, pc.id)
+    svgOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2 }))
+    svgOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0 }))
+    expect(seen.length).toBe(0)
+  })
+
   test('no piece-click without interactive, with the modifier, or when released over another piece', async () => {
     await mount()
     const [a, b] = el.board?.pieces ?? []

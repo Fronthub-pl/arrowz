@@ -164,10 +164,11 @@ spaces). The element calls it with `cell = 1`, `pad = 0`.
 Byte identity of `toSvg` is a hard requirement: the CLI's byte-for-byte test
 against the engine, the pinned fingerprints and the README images all depend
 on it. The extraction keeps the order of floating-point operations, and a new
-Deno test pins SHA-256 hashes of `toSvg` output for five boards and option
+Deno test pins SHA-256 hashes of `toSvg` output for six boards and option
 sets (`defaults`, `skeleton 100×200 top 5`, `colored`, `thin-narrow-head`,
-`voids` on a jammed board), computed on `main` before the change and
-committed as `packages/engine/svg-golden.json`.
+`voids` on a jammed board, `voids-strips` on an unchecked board with
+hand-cleared cells), computed on `main` before the change and committed as
+`packages/engine/svg-golden.json`.
 
 Other engine changes: `mod.ts` exports the module; `neutral.test.ts` adds
 `geometry.ts` to `NEUTRAL`; `tsconfig.build.json` adds it to `include`;
@@ -451,8 +452,9 @@ guarding the export.
 (`deno lint`), `fmt` (`deno fmt --check`), `test` (`vitest run`, `dependsOn:
 ["^build"]` so the engine's `dist/` exists), `build` (`tsc -p
 tsconfig.build.json`, cached, output `dist/`), `serve` (`vite`, not cached),
-`verify` (noop over check, lint, fmt, test, build). `nx.json` gets the
-`serve` default and nothing else; `pnpm nx run-many -t verify` and
+`verify` (noop over check, lint, fmt, test, build). `nx.json` is untouched;
+`serve` carries `cache: false` in the project's own `project.json`; `pnpm nx
+run-many -t verify` and
 `nx affected` pick the project up through `pnpm-workspace.yaml`.
 
 Root `deno.json`: `exclude` and `fmt.exclude` gain `**/node_modules/`,
@@ -518,7 +520,7 @@ packages; the new package is checked by the TypeScript server through its
 - **Vitest 5.0.0 is days old.** If browser mode misbehaves, pin Vitest 4.1
   with the matching `@vitest/browser-playwright`; the configuration is the
   same shape.
-- **Byte identity of `toSvg`.** Guarded by five golden hashes, the CLI test
+- **Byte identity of `toSvg`.** Guarded by six golden hashes, the CLI test
   and the fingerprints; the extraction must preserve the order of arithmetic.
 - **Deno lint and fmt over a Node package.** Both are syntactic and do not
   resolve `lit`; if a rule fires on browser globals, the rule is disabled per

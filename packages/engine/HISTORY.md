@@ -1078,9 +1078,11 @@ the time to get there changed.
 
 `toSvg` no longer computes the head polygon, the polyline and the tail
 circle inline: `geometry.ts` (`DIRS`, `pieceShape`, `voidStrips`) does, in
-any output unit, and `toSvg` formats the numbers exactly as before. Five
+any output unit, and `toSvg` formats the numbers exactly as before. Six
 SHA-256 hashes of `toSvg` output (`svg-golden.json`, recorded before the
-extraction) guard the bytes next to the CLI test and the fingerprints.
+extraction) guard the bytes next to the CLI test and the fingerprints; one of
+them, `voids-strips`, clears a few cells by hand, because `voidFrac` marks
+holes as `-2` and only uncarved `-1` cells get a strip.
 
 The first consumer of `geometry.ts` outside the CLI is `<arrowz-board>`
 (`packages/board-element`, Lit 3): one `<svg>` in cell units, zoom and pan

@@ -74,6 +74,16 @@ function sameView(a: BoardView, b: BoardView): boolean {
 
 const pt = ([x, y]: [number, number]): string => `${x},${y}`
 
+/**
+ * Escapes a string on its way into an attribute of the markup that `markup()`
+ * hands to `innerHTML`. The colours come from the consumer (`view.highlight`
+ * and friends), so without this a value like `"><script>` would close the
+ * attribute and inject nodes.
+ */
+function attr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 export class SvgLayer {
   readonly svg: SVGSVGElement
   private readonly paper: SVGRectElement
@@ -220,6 +230,10 @@ export class SvgLayer {
   }
 
   private clear(): void {
+    // A cleared layer draws nothing at all: leaving the paper at the old size
+    // would keep a coloured rectangle of the previous board on screen.
+    this.paper.setAttribute('width', '0')
+    this.paper.setAttribute('height', '0')
     this.piecesGroup.replaceChildren()
     this.topGroup.replaceChildren()
     this.headsGroup.replaceChildren()
@@ -291,8 +305,8 @@ export class SvgLayer {
       headWidth: this.view.headWidth,
       headHeight: this.view.headHeight,
     })
-    const stroke = colour === null ? '' : ` stroke="${colour}"`
-    const fill = colour === null ? '' : ` fill="${colour}"`
+    const stroke = colour === null ? '' : ` stroke="${attr(colour)}"`
+    const fill = colour === null ? '' : ` fill="${attr(colour)}"`
     const line = `<g data-id="${pc.id}"${stroke}><polyline points="${s.line.map(pt).join(' ')}"/></g>`
     const head = `<g data-id="${pc.id}"${fill}><polygon points="${s.head.map(pt).join(' ')}"/>` +
       `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"/></g>`

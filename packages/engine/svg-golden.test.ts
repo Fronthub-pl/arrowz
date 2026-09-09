@@ -1,6 +1,6 @@
 // toSvg must stay byte-identical: the CLI test, the README images and the
 // board element's geometry all assume the shapes it draws never drift.
-import { assertEquals } from '@std/assert'
+import { assertEquals, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { generate, toSvg } from './engine.ts'
 import { SVG_GOLDEN_CASES } from './svg-golden.ts'
@@ -17,6 +17,10 @@ async function sha256(text: string): Promise<string> {
 for (const c of SVG_GOLDEN_CASES) {
   Deno.test(`toSvg golden ${c.name} keeps its recorded hash`, async () => {
     const r = generate(c.params, { unchecked: c.unchecked })
-    assertEquals(await sha256(toSvg(r.board, c.opts)), golden.hashes[c.name])
+    c.mutate?.(r.board)
+    const svg = toSvg(r.board, c.opts)
+    assertEquals(await sha256(svg), golden.hashes[c.name])
+    // The mutated case exists to reach the void strips: prove they are drawn.
+    if (c.name === 'voids-strips') assertStringIncludes(svg, 'fill="#e8467c" fill-opacity=".22"')
   })
 }

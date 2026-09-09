@@ -289,6 +289,10 @@ export class ArrowzBoard extends LitElement {
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
+    // Only the primary button starts a press: a right-click or a middle-click
+    // is not a board gesture. The machine never sees it, and the later move and
+    // up for an unknown pointer id are no-ops, so nothing has to be undone.
+    if (e.button !== 0 && e.pointerType !== 'touch') return
     // Synthetic events in tests have no active pointer; capture is best effort.
     try {
       this.layer.svg.setPointerCapture(e.pointerId)
@@ -320,8 +324,10 @@ export class ArrowzBoard extends LitElement {
   }
 
   private readonly onWheel = (e: WheelEvent): void => {
-    e.preventDefault()
+    // Without a viewport there is nothing to zoom, and swallowing the scroll of
+    // an empty or unsized element would only break the page around it.
     if (!this.vp) return
+    e.preventDefault()
     const r = this.layer.svg.getBoundingClientRect()
     this.setViewport(zoomAt(this.vp, Math.exp(-e.deltaY * WHEEL_RATE), e.clientX - r.left, e.clientY - r.top))
   }
