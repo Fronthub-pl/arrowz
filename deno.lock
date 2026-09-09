@@ -33,6 +33,19 @@
         "npm:nx@^23.2.0",
         "npm:typescript@^5.9.3"
       ]
+    },
+    "members": {
+      "packages/board-element": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@vitest/browser-playwright@5",
+            "npm:lit@^3.3.3",
+            "npm:playwright@^1.63.0",
+            "npm:vite@^8.2.2",
+            "npm:vitest@5"
+          ]
+        }
+      }
     }
   }
 }
