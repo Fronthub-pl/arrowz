@@ -1,10 +1,8 @@
-// Generator robustness tests. Run: node --test 'prototype/*.test.mjs'
+// Generator robustness tests. Run: deno test --allow-read --allow-run prototype/
 //
 // The prototype is disposable code, but the generator must close boards up to 200×200
 // without failures — these tests guard that, not eyeballing in the laboratory.
-import { test } from 'node:test'
-import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { assert, assertEquals, assertThrows } from '@std/assert'
 import {
   analyse,
   Carver,
@@ -13,54 +11,101 @@ import {
   formatViolation,
   generate,
   INACTIVE_REASONS,
+  InvalidParamsError,
   mulberry32,
   PARAM_SPEC,
   RULE_REASONS,
   RULES,
   validateParams,
-} from './engine.mjs'
-import * as engineExports from './engine.mjs'
+} from './engine.ts'
+import * as engineExports from './engine.ts'
+import type {
+  GenerateResult,
+  InactiveKey,
+  Metrics,
+  ParamKey,
+  Params,
+  ParamSpec,
+  Piece,
+  RuleKey,
+  SvgOptions,
+  Violation,
+} from './types.ts'
+
+/** Reads an index the test guarantees to be valid; a miss is a test bug, so it throws. */
+function at<T>(arr: ArrayLike<T>, i: number): T {
+  const v = arr[i]
+  if (v === undefined) throw new Error(`index ${i} out of ${arr.length}`)
+  return v
+}
 
 const carver = () => new Carver(10, 10, defaultParams(), mulberry32(1))
 // A set of cells in the GIVEN order — the order decides which cell the test
 // takes first, and the bug was precisely that the result depended on it.
-const cells = (arr) => new Set(arr.map(([x, y]) => y * 10 + x))
+const cells = (arr: [number, number][]) => new Set(arr.map(([x, y]) => y * 10 + x))
+/** The defaults with some knobs changed: what the untyped tests passed to generate(). */
+const withDefaults = (over: Partial<Params>): Params => ({ ...defaultParams(), ...over })
+/** The defaults with one knob set by key. */
+const withKnob = (key: ParamKey, value: number): Params => {
+  const p = defaultParams()
+  p[key] = value
+  return p
+}
+/** A parameter set with junk in it, for the validation tests only: the one cast of this file. */
+const withRaw = (over: Record<string, unknown>): Params => ({ ...defaultParams(), ...over } as Params)
+/** The metrics of a closed board; generate() reports null only for an empty board. */
+const metricsOf = (r: GenerateResult): Metrics => {
+  if (!r.metrics) throw new Error('no metrics')
+  return r.metrics
+}
+/** A knob's spec; every key used here is a PARAM_SPEC key, so a miss is a test bug. */
+const spec = (key: ParamKey): ParamSpec => {
+  const s = PARAM_SPEC.find((s) => s.key === key)
+  if (!s) throw new Error(`unknown parameter ${key}`)
+  return s
+}
+/** The inactive rule of a knob that has one. */
+const inactiveOf = (key: ParamKey): (p: Params) => InactiveKey | null => {
+  const f = spec(key).inactive
+  if (!f) throw new Error(`${key} has no inactive rule`)
+  return f
+}
 
-test('decomposable: L-tromino regardless of the starting cell', () => {
+Deno.test('decomposable: L-tromino regardless of the starting cell', () => {
   const c = carver()
-  assert.equal(c.decomposable(cells([[1, 1], [0, 1], [1, 0]])), true, 'start at the corner')
-  assert.equal(c.decomposable(cells([[0, 1], [1, 1], [1, 0]])), true, 'start on an arm')
+  assertEquals(c.decomposable(cells([[1, 1], [0, 1], [1, 0]])), true, 'start at the corner')
+  assertEquals(c.decomposable(cells([[0, 1], [1, 1], [1, 0]])), true, 'start on an arm')
 })
 
-test('decomposable: straight triple starting in the middle', () => {
-  assert.equal(carver().decomposable(cells([[1, 0], [0, 0], [2, 0]])), true)
+Deno.test('decomposable: straight triple starting in the middle', () => {
+  assertEquals(carver().decomposable(cells([[1, 0], [0, 0], [2, 0]])), true)
 })
 
-test('decomposable: T-tetromino and plus-pentomino are not decomposable', () => {
+Deno.test('decomposable: T-tetromino and plus-pentomino are not decomposable', () => {
   const c = carver()
-  assert.equal(c.decomposable(cells([[1, 0], [0, 1], [1, 1], [2, 1]])), false)
-  assert.equal(c.decomposable(cells([[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]])), false)
+  assertEquals(c.decomposable(cells([[1, 0], [0, 1], [1, 1], [2, 1]])), false)
+  assertEquals(c.decomposable(cells([[1, 0], [0, 1], [1, 1], [2, 1], [1, 2]])), false)
 })
 
-test('decomposable: fragment on which seed 5 got stuck on 200×200', () => {
+Deno.test('decomposable: fragment on which seed 5 got stuck on 200×200', () => {
   // ··█··
   // ··█··
   // █████
   // ·█·█·
   const shape = cells([[2, 0], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [1, 3], [3, 3]])
-  assert.equal(carver().decomposable(shape), true)
+  assertEquals(carver().decomposable(shape), true)
 })
 
-test('decomposable: single cell and empty set', () => {
+Deno.test('decomposable: single cell and empty set', () => {
   const c = carver()
-  assert.equal(c.decomposable(cells([])), true)
-  assert.equal(c.decomposable(cells([[3, 3]])), false)
+  assertEquals(c.decomposable(cells([])), true)
+  assertEquals(c.decomposable(cells([[3, 3]])), false)
 })
 
-test('hasLocalDefect: cross with three leaves and a diagonal pair isolating five cells', () => {
+Deno.test('hasLocalDefect: cross with three leaves and a diagonal pair isolating five cells', () => {
   // A 10×10 board fully assigned except for the given cells; the "path" is empty,
   // so the test treats the surroundings of the given cells as the path's surroundings.
-  const shapeBoard = (arr) => {
+  const shapeBoard = (arr: [number, number][]) => {
     const c = carver()
     c.owner.fill(0)
     for (const [x, y] of arr) c.owner[y * 10 + x] = -1
@@ -69,46 +114,47 @@ test('hasLocalDefect: cross with three leaves and a diagonal pair isolating five
   }
   // cross: centre (2,2), leaves (2,1),(1,2),(3,2), the fourth arm runs on further
   let c = shapeBoard([[2, 2], [2, 1], [1, 2], [3, 2], [2, 3], [2, 4]])
-  assert.equal(c.hasLocalDefect([{ x: 2, y: 2 }]), true)
+  assertEquals(c.hasLocalDefect([{ x: 2, y: 2 }]), true)
   // fragment from seed 49: S = {(1,2),(2,1)} isolates (0,2),(1,3),(2,0),(1,1),(2,2)
   c = shapeBoard([[2, 0], [4, 0], [1, 1], [2, 1], [3, 1], [4, 1], [0, 2], [1, 2], [2, 2], [1, 3]])
-  assert.equal(c.hasLocalDefect([{ x: 1, y: 2 }]), true)
+  assertEquals(c.hasLocalDefect([{ x: 1, y: 2 }]), true)
   // a straight triple is not a defect
   c = shapeBoard([[1, 1], [2, 1], [3, 1]])
-  assert.equal(c.hasLocalDefect([{ x: 2, y: 1 }]), false)
+  assertEquals(c.hasLocalDefect([{ x: 2, y: 1 }]), false)
 })
 
-test('absorbLeftover: absorbs a single cell with the tail and does not change the blocking graph', () => {
+Deno.test('absorbLeftover: absorbs a single cell with the tail and does not change the blocking graph', () => {
   // A 6×6 board: two pieces laid out by hand, one free cell next to the tail.
   const c = new Carver(6, 6, { ...defaultParams(), absorbLimit: 8 }, mulberry32(1))
   c.owner.fill(0)
-  const a = { id: 0, dir: 0, cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }] }
-  const b = { id: 1, dir: 1, cells: [{ x: 5, y: 0 }, { x: 4, y: 0 }, { x: 3, y: 0 }] }
+  const a: Piece = { id: 0, dir: 0, cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 0, y: 2 }] }
+  const b: Piece = { id: 1, dir: 1, cells: [{ x: 5, y: 0 }, { x: 4, y: 0 }, { x: 3, y: 0 }] }
   c.pieces.push(a, b)
   for (const cell of b.cells) c.owner[cell.y * 6 + cell.x] = 1
   c.owner[3 * 6 + 0] = -1 // (0,3) free, adjacent to the tail of piece 0
   c.remaining = 1
   const before = analyse(c).solvable
-  assert.equal(c.absorbLeftover(), true)
-  assert.equal(c.remaining, 0)
-  assert.equal(c.owner[3 * 6 + 0], 0)
-  assert.deepEqual(a.cells[a.cells.length - 1], { x: 0, y: 3 })
-  assert.equal(analyse(c).solvable, before)
+  assertEquals(c.absorbLeftover(), true)
+  assertEquals(c.remaining, 0)
+  assertEquals(c.owner[3 * 6 + 0], 0)
+  assertEquals(a.cells[a.cells.length - 1], { x: 0, y: 3 })
+  assertEquals(analyse(c).solvable, before)
 })
 
-test('generate: closes the board 100% and solvably on several sizes and seeds', () => {
-  const cases = [
+Deno.test('generate: closes the board 100% and solvably on several sizes and seeds', () => {
+  const cases: [number, number, number[]][] = [
     [25, 50, [1, 2, 3, 4, 5]],
     [100, 100, [1, 2]],
     [200, 200, [1, 5, 49]], // 5 and 49 are seeds that once failed to close
   ]
   for (const [W, H, seeds] of cases) {
     for (const seed of seeds) {
-      const r = generate({ W, H, seed, restarts: 0 })
-      assert.equal(r.ok, true, `${W}×${H} seed ${seed} did not close`)
-      assert.equal(r.metrics.coverage, 1, `${W}×${H} seed ${seed}: coverage ${r.metrics.coverage}`)
-      assert.equal(r.metrics.solvable, true, `${W}×${H} seed ${seed}: unsolvable`)
-      assert.equal(r.backtracks, 0, `${W}×${H} seed ${seed}: ${r.backtracks} backtracks`)
+      const r = generate(withDefaults({ W, H, seed, restarts: 0 }))
+      assertEquals(r.ok, true, `${W}×${H} seed ${seed} did not close`)
+      const m = metricsOf(r)
+      assertEquals(m.coverage, 1, `${W}×${H} seed ${seed}: coverage ${m.coverage}`)
+      assertEquals(m.solvable, true, `${W}×${H} seed ${seed}: unsolvable`)
+      assertEquals(r.backtracks, 0, `${W}×${H} seed ${seed}: ${r.backtracks} backtracks`)
     }
   }
 })
@@ -119,37 +165,45 @@ test('generate: closes the board 100% and solvably on several sizes and seeds', 
 // optimisation of the search cannot change a single cell, only the time.
 // Recorded after the head-quarter fallback of round 9 (before it, seed 5 on
 // 200×200 needed a restart: 3514 pieces, fingerprint 6d2b542d).
-const LAYERS_GOLDEN = [
+const LAYERS_GOLDEN: {
+  W: number
+  H: number
+  seed: number
+  restarts: number
+  backtracks: number
+  pieces: number
+  fp: string
+}[] = [
   { W: 150, H: 150, seed: 7, restarts: 0, backtracks: 0, pieces: 2003, fp: '58c1b0ca' },
   { W: 200, H: 200, seed: 5, restarts: 0, backtracks: 0, pieces: 3419, fp: 'ca001333' },
 ]
 
-test('generate: layers mode reproduces the recorded boards cell for cell', () => {
+Deno.test('generate: layers mode reproduces the recorded boards cell for cell', () => {
   for (const g of LAYERS_GOLDEN) {
-    const r = generate({ W: g.W, H: g.H, seed: g.seed, headBias: -1 })
+    const r = generate(withDefaults({ W: g.W, H: g.H, seed: g.seed, headBias: -1 }))
     const label = `${g.W}×${g.H} seed ${g.seed}`
-    assert.equal(r.ok, true, label)
-    assert.equal(r.restartsUsed, g.restarts, `${label}: restarts`)
-    assert.equal(r.backtracks, g.backtracks, `${label}: backtracks`)
-    assert.equal(r.board.pieces.length, g.pieces, `${label}: pieces`)
-    assert.equal(fingerprint(r.board), g.fp, `${label}: fingerprint`)
+    assertEquals(r.ok, true, label)
+    assertEquals(r.restartsUsed, g.restarts, `${label}: restarts`)
+    assertEquals(r.backtracks, g.backtracks, `${label}: backtracks`)
+    assertEquals(r.board.pieces.length, g.pieces, `${label}: pieces`)
+    assertEquals(fingerprint(r.board), g.fp, `${label}: fingerprint`)
   }
 })
 
-test('generate: layers mode closes 400×400 without restarts or backtracks', () => {
+Deno.test('generate: layers mode closes 400×400 without restarts or backtracks', () => {
   // Seed 5 used to fail after three restarts and seed 7 needed one: with
   // piece start = layers the head pool was only the shallowest quarter of the
   // legal heads, which in the endgame are the dead pockets at the frontier,
   // so the regions of thousands of free cells were never tried (round 9).
   for (const seed of [5, 7]) {
-    const r = generate({ W: 400, H: 400, seed, headBias: -1, restarts: 0 })
-    assert.equal(r.ok, true, `seed ${seed} did not close`)
-    assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
-    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+    const r = generate(withDefaults({ W: 400, H: 400, seed, headBias: -1, restarts: 0 }))
+    assertEquals(r.ok, true, `seed ${seed} did not close`)
+    assertEquals(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
+    assertEquals(metricsOf(r).solvable, true, `seed ${seed}: unsolvable`)
   }
 })
 
-test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', () => {
+Deno.test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', () => {
   // Before the absorption search was optimised this seed took 8.5 s (a
   // failed first attempt with 200 backtracks, three quarters of the time in
   // the path search re-run for the same fragments); after it ~2 s; with the
@@ -157,22 +211,24 @@ test('generate: layers mode on 200×200 seed 5 finishes in under four seconds', 
   // The bound leaves a wide margin for a slow machine and still fails on
   // the old search.
   const t0 = performance.now()
-  const r = generate({ W: 200, H: 200, seed: 5, headBias: -1 })
+  const r = generate(withDefaults({ W: 200, H: 200, seed: 5, headBias: -1 }))
   const ms = performance.now() - t0
-  assert.equal(r.ok, true)
-  assert.ok(ms < 4000, `took ${Math.round(ms)} ms`)
+  assertEquals(r.ok, true)
+  assert(ms < 4000, `took ${Math.round(ms)} ms`)
 })
 
-test('generate: closes the board with the weakest nook rule, mostly short pieces and tunnels', () => {
+Deno.test('generate: closes the board with the weakest nook rule, mostly short pieces and tunnels', () => {
   // The extremes of the old ranges (warns 0, shares 0.95) are outside the safe
   // envelope now; these are the hardest settings the envelope still allows.
-  for (const over of [{ warns: 2 }, { wShort: 0.7, wMid: 0.1 }, { headBias: 1 }]) {
-    const r = generate({ W: 100, H: 100, seed: 3, restarts: 0, ...over })
-    assert.equal(r.ok && r.metrics.solvable && r.metrics.coverage === 1, true, JSON.stringify(over))
+  const overs: Partial<Params>[] = [{ warns: 2 }, { wShort: 0.7, wMid: 0.1 }, { headBias: 1 }]
+  for (const over of overs) {
+    const r = generate(withDefaults({ W: 100, H: 100, seed: 3, restarts: 0, ...over }))
+    const m = metricsOf(r)
+    assertEquals(r.ok && m.solvable && m.coverage === 1, true, JSON.stringify(over))
   }
 })
 
-test('generate: a board starved of head draws closes by scanning every legal head before backtracking', () => {
+Deno.test('generate: a board starved of head draws closes by scanning every legal head before backtracking', () => {
   // One draw per direction and very bendy pieces: 200×200 has dozens of legal
   // heads in the endgame, the four draws all miss, and the generator undid
   // fifty cuts and gave up with 39–133 legal heads still on the board (the
@@ -187,16 +243,16 @@ test('generate: a board starved of head draws closes by scanning every legal hea
   // the test needs a starved search, which the envelope forbids, so it
   // bypasses the check like the other engine-internal jam tests.
   for (const seed of [3, 4, 6]) {
-    const r = generate({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }, {
+    const r = generate(withDefaults({ W: 200, H: 200, seed, headTries: 1, pStraight: 0.2, restarts: 0, maxBack: 50 }), {
       unchecked: true,
     })
-    assert.equal(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
-    assert.equal(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
-    assert.equal(r.metrics.solvable, true, `seed ${seed}: unsolvable`)
+    assertEquals(r.ok, true, `seed ${seed} did not close: ${JSON.stringify(r.stuck)}`)
+    assertEquals(r.backtracks, 0, `seed ${seed}: ${r.backtracks} backtracks`)
+    assertEquals(metricsOf(r).solvable, true, `seed ${seed}: unsolvable`)
   }
 })
 
-test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
+Deno.test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
   // A quarter of the cells are voids: the free area is shredded into islands
   // whose rays cross other islands, so the legal heads that exist all fail
   // the leftover test on even a two-cell piece. The 1000×1000 jams of the
@@ -215,13 +271,14 @@ test('generate: after three missed head scans in a row the jam is left to backtr
     restarts: 0,
     maxBack: 20,
   }, { unchecked: true })
-  assert.equal(r.ok, false)
-  assert.equal(r.backtracks, 20)
-  assert.equal(r.board.stats.headScanHits ?? 0, 0)
-  assert.ok(r.board.stats.headScans <= 3, `${r.board.stats.headScans} scans for 20 backtracks`)
+  assertEquals(r.ok, false)
+  assertEquals(r.backtracks, 20)
+  assertEquals(r.board.stats.headScanHits ?? 0, 0)
+  const scans = r.board.stats.headScans
+  assert(scans !== undefined && scans <= 3, `${scans} scans for 20 backtracks`)
 })
 
-test('generate: head scans in one attempt are limited to the backtrack budget', () => {
+Deno.test('generate: head scans in one attempt are limited to the backtrack budget', () => {
   // With more voids the shredded islands do have the odd carvable head: the
   // scan hits, carves one piece, the draws fail again, and the next scan
   // starts over — one full scan per piece, with ordinary carves in between
@@ -240,13 +297,14 @@ test('generate: head scans in one attempt are limited to the backtrack budget', 
     restarts: 0,
     maxBack: 20,
   }, { unchecked: true })
-  assert.equal(r.ok, false)
-  assert.equal(r.backtracks, 20)
-  assert.ok(r.board.stats.headScanHits > 0, 'the case should have scan hits')
-  assert.ok(r.board.stats.headScans <= 20, `${r.board.stats.headScans} scans for a budget of 20`)
+  assertEquals(r.ok, false)
+  assertEquals(r.backtracks, 20)
+  assert((r.board.stats.headScanHits ?? 0) > 0, 'the case should have scan hits')
+  const scans = r.board.stats.headScans
+  assert(scans !== undefined && scans <= 20, `${scans} scans for a budget of 20`)
 })
 
-test('generate: a jam reports how many legal heads were left at the best moment', () => {
+Deno.test('generate: a jam reports how many legal heads were left at the best moment', () => {
   // Half the cells are voids, so single free cells stay isolated and nothing
   // can cover them: the run jams at once. The count of legal heads at the
   // moment of the smallest leftover tells a jam of geometry (no head at all)
@@ -257,23 +315,30 @@ test('generate: a jam reports how many legal heads were left at the best moment'
   const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 }, {
     unchecked: true,
   })
-  assert.equal(r.ok, false)
-  assert.equal(Number.isInteger(r.stuck.heads), true, JSON.stringify(r.stuck))
-  assert.equal(r.stuck.heads, r.board.stuckHeads)
-  assert.ok(r.stuck.heads >= 0 && r.stuck.heads <= 2 * (12 + 12))
+  assertEquals(r.ok, false)
+  assert(r.stuck, 'a failed run reports where it got stuck')
+  assertEquals(Number.isInteger(r.stuck.heads), true, JSON.stringify(r.stuck))
+  assert(r.board instanceof Carver, 'the board of generate() is the carver')
+  assertEquals(r.stuck.heads, r.board.stuckHeads)
+  const heads = r.stuck.heads
+  assert(heads !== null && heads >= 0 && heads <= 2 * (12 + 12))
 })
 
 // --- The safe envelope: validateParams, RULES, generate() refusing bad input ---
 
-test('validateParams: the defaults and every recorded-board setting are inside the envelope', () => {
-  assert.deepEqual(validateParams(defaultParams()), [])
-  for (const extra of [{ headBias: -1 }, { headBias: 1 }, { giants: 4 }, { warns: 2 }, { wShort: 0.7, wMid: 0.1 }]) {
-    assert.deepEqual(validateParams({ ...defaultParams(), ...extra }), [], JSON.stringify(extra))
+Deno.test('validateParams: the defaults and every recorded-board setting are inside the envelope', () => {
+  assertEquals(validateParams(defaultParams()), [])
+  const extras: Partial<Params>[] = [{ headBias: -1 }, { headBias: 1 }, { giants: 4 }, { warns: 2 }, {
+    wShort: 0.7,
+    wMid: 0.1,
+  }]
+  for (const extra of extras) {
+    assertEquals(validateParams(withDefaults(extra)), [], JSON.stringify(extra))
   }
 })
 
-test('validateParams: each narrowed knob rejects its old extreme with the new bounds', () => {
-  const cases = [
+Deno.test('validateParams: each narrowed knob rejects its old extreme with the new bounds', () => {
+  const cases: [ParamKey, number, number, number][] = [
     ['pStraight', 0, 0.6, 1],
     ['warns', 0, 2, 16],
     ['anticoil', 20, 1, 10],
@@ -288,134 +353,142 @@ test('validateParams: each narrowed knob rejects its old extreme with the new bo
     ['giantSpacing', 6, 1, 3],
   ]
   for (const [key, value, min, max] of cases) {
-    const v = validateParams({ ...defaultParams(), [key]: value })
-    assert.deepEqual(v, [{ kind: 'range', key, value, min, max }], `${key} = ${value}`)
+    const v = validateParams(withKnob(key, value))
+    assertEquals(v, [{ kind: 'range', key, value, min, max }], `${key} = ${value}`)
     // The new bound itself is still allowed.
-    assert.deepEqual(validateParams({ ...defaultParams(), [key]: value < min ? min : max }), [], `${key} at the bound`)
+    assertEquals(validateParams(withKnob(key, value < min ? min : max)), [], `${key} at the bound`)
   }
   // The spec must agree with the table the tests encode.
   for (const [key, , min, max] of cases) {
-    const s = PARAM_SPEC.find((s) => s.key === key)
-    assert.equal(s.min, min, `${key}.min`)
-    assert.equal(s.max, max, `${key}.max`)
+    const s = spec(key)
+    assertEquals(s.min, min, `${key}.min`)
+    assertEquals(s.max, max, `${key}.max`)
   }
 })
 
-test('validateParams: a value that is not a finite number is a range violation', () => {
+Deno.test('validateParams: a value that is not a finite number is a range violation', () => {
   for (const value of [NaN, Infinity, -Infinity, undefined, null, '5', true]) {
-    const v = validateParams({ ...defaultParams(), W: value })
-    assert.deepEqual(v, [{ kind: 'range', key: 'W', value, min: 4, max: 1000 }], String(value))
+    const v = validateParams(withRaw({ W: value }))
+    assertEquals(v, [{ kind: 'range', key: 'W', value, min: 4, max: 1000 }], String(value))
   }
 })
 
-test('validateParams: ignores keys that are not knobs and does not check step alignment', () => {
-  const p = { ...defaultParams(), ruleB: false, voidFrac: 0.3, trace: true, debug: 'x', unknownKnob: 1e9 }
-  assert.deepEqual(validateParams(p), [])
+Deno.test('validateParams: ignores keys that are not knobs and does not check step alignment', () => {
+  const p = withRaw({ ruleB: false, voidFrac: 0.3, trace: true, debug: 'x', unknownKnob: 1e9 })
+  assertEquals(validateParams(p), [])
   // maxBack has step 50; 25 is off the step but inside the range, so it passes.
-  assert.deepEqual(validateParams({ ...defaultParams(), maxBack: 25 }), [])
+  assertEquals(validateParams(withDefaults({ maxBack: 25 })), [])
 })
 
-test('validateParams: cross-knob rules fire beyond their boundary and not at it', () => {
-  const rule = (key, keys) => [{ kind: 'rule', key, keys }]
+Deno.test('validateParams: cross-knob rules fire beyond their boundary and not at it', () => {
+  const rule = (key: RuleKey, keys: ParamKey[]): Violation[] => [{ kind: 'rule', key, keys }]
   // sharesSum: wShort + wMid <= 0.9
-  assert.deepEqual(validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.1 }), [])
-  assert.deepEqual(
-    validateParams({ ...defaultParams(), wShort: 0.8, wMid: 0.2 }),
+  assertEquals(validateParams(withDefaults({ wShort: 0.8, wMid: 0.1 })), [])
+  assertEquals(
+    validateParams(withDefaults({ wShort: 0.8, wMid: 0.2 })),
     rule('sharesSum', ['wShort', 'wMid']),
   )
   // lmaxHole: Lmax 0 or >= 6
-  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 0 }), [])
-  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 6 }), [])
-  assert.deepEqual(validateParams({ ...defaultParams(), Lmax: 3 }), rule('lmaxHole', ['Lmax']))
+  assertEquals(validateParams(withDefaults({ Lmax: 0 })), [])
+  assertEquals(validateParams(withDefaults({ Lmax: 6 })), [])
+  assertEquals(validateParams(withDefaults({ Lmax: 3 })), rule('lmaxHole', ['Lmax']))
   // mixHole: mix -1 or within 0.3..0.7
-  for (const mix of [-1, 0.3, 0.5, 0.7]) assert.deepEqual(validateParams({ ...defaultParams(), mix }), [], `mix ${mix}`)
+  for (const mix of [-1, 0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ mix })), [], `mix ${mix}`)
   for (const mix of [0.1, 0.8]) {
-    assert.deepEqual(validateParams({ ...defaultParams(), mix }), rule('mixHole', ['mix']), `mix ${mix}`)
+    assertEquals(validateParams(withDefaults({ mix })), rule('mixHole', ['mix']), `mix ${mix}`)
   }
   // Every rule has a reason text and only names real knobs.
   for (const r of RULES) {
-    assert.equal(typeof RULE_REASONS[r.key], 'string', r.key)
-    for (const k of r.keys) assert.ok(PARAM_SPEC.some((s) => s.key === k), `${r.key} names ${k}`)
+    assertEquals(typeof RULE_REASONS[r.key], 'string', r.key)
+    for (const k of r.keys) assert(PARAM_SPEC.some((s) => s.key === k), `${r.key} names ${k}`)
   }
 })
 
-test('validateParams: range violations come first, then rule violations, all of them at once', () => {
-  const v = validateParams({ ...defaultParams(), pStraight: 0.2, Lmax: 3, warns: 0 })
-  assert.deepEqual(v.map((x) => [x.kind, x.key]), [['range', 'pStraight'], ['range', 'warns'], ['rule', 'lmaxHole']])
+Deno.test('validateParams: range violations come first, then rule violations, all of them at once', () => {
+  const v = validateParams(withDefaults({ pStraight: 0.2, Lmax: 3, warns: 0 }))
+  assertEquals(v.map((x) => [x.kind, x.key]), [['range', 'pStraight'], ['range', 'warns'], ['rule', 'lmaxHole']])
 })
 
-test('formatViolation: one English line per violation', () => {
-  assert.equal(
+Deno.test('formatViolation: one English line per violation', () => {
+  assertEquals(
     formatViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }),
     'straightness bias: 0.2 is outside 0.6..1',
   )
-  assert.equal(
+  assertEquals(
     formatViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }),
     'width: 2000 is outside 4..1000',
   )
-  assert.equal(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
-  assert.equal(
+  assertEquals(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
+  assertEquals(
     formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }),
     'maximum length must be 0 (automatic) or at least 6',
   )
-  assert.equal(
+  assertEquals(
     formatViolation({ kind: 'rule', key: 'mixHole', keys: ['mix'] }),
     'mixing must be -1 (off) or between 0.3 and 0.7',
   )
 })
 
-test('generate: refuses parameters outside the envelope before carving anything', () => {
+Deno.test('generate: refuses parameters outside the envelope before carving anything', () => {
   // A 1000x1000 board would take seconds to carve; the refusal has to be instant.
   const t0 = performance.now()
-  let err = null
+  let err: unknown = null
   try {
-    generate({ W: 1000, H: 1000, seed: 1, pStraight: 0.2, Lmax: 3 })
+    generate(withDefaults({ W: 1000, H: 1000, seed: 1, pStraight: 0.2, Lmax: 3 }))
   } catch (e) {
     err = e
   }
   const ms = performance.now() - t0
-  assert.ok(err instanceof RangeError, 'throws a RangeError')
-  assert.equal(
+  assert(err instanceof RangeError, 'throws a RangeError')
+  assert(err instanceof InvalidParamsError, 'throws an InvalidParamsError')
+  assertEquals(
     err.message,
     'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 6',
   )
-  assert.deepEqual(err.violations, [
+  assertEquals(err.violations, [
     { kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 },
     { kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] },
   ])
-  assert.ok(ms < 200, `refusal took ${Math.round(ms)} ms, so it carved first`)
+  assert(ms < 200, `refusal took ${Math.round(ms)} ms, so it carved first`)
 })
 
-test('generate: unchecked skips the envelope check and carves anyway', () => {
-  const r = generate({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 }, { unchecked: true })
-  assert.equal(typeof r.ok, 'boolean')
-  assert.ok(r.board.pieces.length > 0)
-  assert.throws(() => generate({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 }), RangeError)
+Deno.test('generate: unchecked skips the envelope check and carves anyway', () => {
+  const r = generate(withDefaults({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 }), { unchecked: true })
+  assertEquals(typeof r.ok, 'boolean')
+  assert(r.board.pieces.length > 0)
+  assertThrows(
+    () => generate(withDefaults({ W: 20, H: 20, seed: 1, warns: 0, restarts: 0 })),
+    InvalidParamsError,
+    'invalid parameters',
+  )
 })
 
-test('PARAM_SPEC: skeleton straightness and nook rule are inactive only without a skeleton', () => {
+Deno.test('PARAM_SPEC: skeleton straightness and nook rule are inactive only without a skeleton', () => {
   // They shape every giant regardless of giantStep (the serpentine only seeds
   // the path), so 'stepNonZero' is gone and giantJitter keeps 'stepZero'.
-  assert.equal('stepNonZero' in INACTIVE_REASONS, false)
-  const spec = (k) => PARAM_SPEC.find((s) => s.key === k)
-  for (const key of ['giantStraight', 'giantWarns']) {
-    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0, giantStep: 14 }), 'skeletonOff', key)
-    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 14 }), null, `${key} with a serpentine`)
-    assert.equal(spec(key).inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), null, `${key} with random growth`)
-    assert.equal(
-      spec(key).inactive({ ...defaultParams(), giants: 0, wGiant: 0.1, giantStep: 14 }),
+  assertEquals('stepNonZero' in INACTIVE_REASONS, false)
+  const keys: ParamKey[] = ['giantStraight', 'giantWarns']
+  for (const key of keys) {
+    const inactive = inactiveOf(key)
+    assertEquals(inactive(withDefaults({ giants: 0, wGiant: 0, giantStep: 14 })), 'skeletonOff', key)
+    assertEquals(inactive(withDefaults({ giants: 4, giantStep: 14 })), null, `${key} with a serpentine`)
+    assertEquals(inactive(withDefaults({ giants: 4, giantStep: 0 })), null, `${key} with random growth`)
+    assertEquals(
+      inactive(withDefaults({ giants: 0, wGiant: 0.1, giantStep: 14 })),
       null,
       `${key} with wGiant only`,
     )
   }
-  assert.equal(spec('giantJitter').inactive({ ...defaultParams(), giants: 4, giantStep: 0 }), 'stepZero')
-  for (const s of PARAM_SPEC) {
-    const why = s.inactive?.({ ...defaultParams(), giants: 0, wGiant: 0 })
-    if (why) assert.ok(why in INACTIVE_REASONS, `${s.key}: unknown reason ${why}`)
+  assertEquals(inactiveOf('giantJitter')(withDefaults({ giants: 4, giantStep: 0 })), 'stepZero')
+  for (const row of PARAM_SPEC) {
+    // the `as const` table is a union of rows; only the ParamSpec view has the optional `inactive`
+    const s: ParamSpec = row
+    const why = s.inactive?.(withDefaults({ giants: 0, wGiant: 0 }))
+    if (why) assert(why in INACTIVE_REASONS, `${s.key}: unknown reason ${why}`)
   }
 })
 
-test('analyse: does not overflow the stack with hundreds of thousands of pieces (the worker in Chrome has a small stack)', () => {
+Deno.test('analyse: does not overflow the stack with hundreds of thousands of pieces (the worker in Chrome has a small stack)', () => {
   // A 2×300 000 board covered with horizontal dominoes with the head at the right edge:
   // 300 000 pieces, all rays empty, so the blocking graph is
   // empty and the test only costs the memory for the pieces. Spreading
@@ -429,13 +502,13 @@ test('analyse: does not overflow the stack with hundreds of thousands of pieces 
   }
   c.remaining = 0
   const m = analyse(c)
-  assert.equal(m.N, H)
-  assert.equal(m.minLen, 2)
-  assert.equal(m.maxLen, 2)
-  assert.equal(m.coverage, 1)
+  assertEquals(m.N, H)
+  assertEquals(m.minLen, 2)
+  assertEquals(m.maxLen, 2)
+  assertEquals(m.coverage, 1)
 })
 
-test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150 thousand pieces ran out of memory)', () => {
+Deno.test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150 thousand pieces ran out of memory)', async () => {
   // 400×400 covered with horizontal dominoes whose head is the LEFT cell and
   // which point left: every ray crosses all dominoes to its left in the row,
   // 100 on average, so the blocking graph has 8 million edges. Kept as Sets of
@@ -445,7 +518,7 @@ test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150
   // closed them at 150 MB. The child process makes the bound a real assertion.
   const script = `
     import { Carver, defaultParams, mulberry32, analyse } from ${
-    JSON.stringify(new URL('./engine.mjs', import.meta.url).href)
+    JSON.stringify(new URL('./engine.ts', import.meta.url).href)
   }
     const W = 400, H = 400
     const c = new Carver(W, H, defaultParams(), mulberry32(1))
@@ -458,20 +531,32 @@ test('analyse: a dense blocking graph fits in a 256 MB heap (1000×1000 with 150
     const m = analyse(c)
     console.log(JSON.stringify({ N: m.N, solvable: m.solvable, f0: m.f0, outDeg: m.outDeg, maxOut: m.maxOut, D: m.D, almost: m.almost }))
   `
-  const r = spawnSync(process.execPath, ['--max-old-space-size=256', '--input-type=module', '-e', script], {
-    encoding: 'utf8',
-  })
-  assert.equal(
-    r.status,
-    0,
-    `analyse died under a 256 MB heap:\n${r.stderr.split('\n').filter((l) => /FATAL|heap/.test(l)).join('\n')}`,
-  )
-  const m = JSON.parse(r.stdout.trim().split('\n').pop())
+  const r = new Deno.Command(Deno.execPath(), {
+    args: ['run', '--allow-read', '--v8-flags=--max-old-space-size=256', '-'],
+    stdin: 'piped',
+    stdout: 'piped',
+    stderr: 'piped',
+  }).spawn()
+  const w = r.stdin.getWriter()
+  await w.write(new TextEncoder().encode(script))
+  await w.close()
+  const out = await r.output()
+  assertEquals(out.code, 0, `analyse died under a 256 MB heap:\n${new TextDecoder().decode(out.stderr)}`)
+  const last = new TextDecoder().decode(out.stdout).trim().split('\n').pop()
+  assert(last, 'no output')
   // The same numbers the Set-based implementation produced without the cap.
-  assert.deepEqual(m, { N: 80000, solvable: true, f0: 0.005, outDeg: 99.5, maxOut: 199, D: 199, almost: 400 })
+  assertEquals(JSON.parse(last), {
+    N: 80000,
+    solvable: true,
+    f0: 0.005,
+    outDeg: 99.5,
+    maxOut: 199,
+    D: 199,
+    almost: 400,
+  })
 })
 
-test('analyse: a piece bordering two hundred thousand others does not overflow the stack', () => {
+Deno.test('analyse: a piece bordering two hundred thousand others does not overflow the stack', () => {
   // 3×200 000: one vertical line down the left column, the other two columns
   // covered with dominoes whose head is at the right edge (all rays empty).
   // The line shares a border with every domino, so its "longest shared border"
@@ -494,18 +579,18 @@ test('analyse: a piece bordering two hundred thousand others does not overflow t
   }
   c.remaining = 0
   const m = analyse(c)
-  assert.equal(m.N, H + 1)
-  assert.equal(m.maxLen, H)
+  assertEquals(m.N, H + 1)
+  assertEquals(m.maxLen, H)
   // The line shares exactly one edge with each domino, so its longest border
   // with a single other piece is one edge over H cells.
-  assert.equal(m.longPieces, 1)
-  assert.equal(m.sharedBorder, 1 / H)
+  assertEquals(m.longPieces, 1)
+  assertEquals(m.sharedBorder, 1 / H)
 })
 
-test('analyse: metrics are identical to the ones recorded with the Set-based blocking graph', () => {
+Deno.test('analyse: metrics are identical to the ones recorded with the Set-based blocking graph', () => {
   // Recorded on 2026-09-08 before the blocking graph moved to typed arrays;
   // the storage may change, the numbers may not (order of summation included).
-  const recorded = {
+  const recorded: Record<string, Metrics> = {
     '25x50-seed7': {
       N: 126,
       solvable: true,
@@ -619,49 +704,68 @@ test('analyse: metrics are identical to the ones recorded with the Set-based blo
       coverage: 1,
     },
   }
-  const boards = [[25, 50, 7, {}], [60, 60, 3, {}], [40, 40, 2, { giants: 4 }], [50, 50, 5, { headBias: 1 }]]
+  const boards: [number, number, number, Partial<Record<ParamKey, number>>][] = [
+    [25, 50, 7, {}],
+    [60, 60, 3, {}],
+    [40, 40, 2, { giants: 4 }],
+    [50, 50, 5, { headBias: 1 }],
+  ]
   for (const [W, H, seed, extra] of boards) {
     const r = generate({ ...defaultParams(), W, H, seed, ...extra })
-    assert.equal(r.ok, true)
-    const key = `${W}x${H}-seed${seed}${Object.keys(extra).map((k) => '-' + k + extra[k]).join('')}`
-    assert.deepEqual(r.metrics, recorded[key], key)
+    assertEquals(r.ok, true)
+    const key = `${W}x${H}-seed${seed}${Object.entries(extra).map(([k, v]) => '-' + k + v).join('')}`
+    assertEquals(r.metrics, recorded[key], key)
   }
 })
+
+/** A point of an SVG points list. */
+type Pt = [number, number]
+const pt = (s: string): Pt => {
+  const [x, y] = s.split(',').map(Number)
+  if (x === undefined || y === undefined) throw new Error(`not a point: ${s}`)
+  return [x, y]
+}
+/** A capture group that the pattern guarantees to exist. */
+const group = (m: RegExpMatchArray, i: number): string => {
+  const g = m[i]
+  if (g === undefined) throw new Error(`no group ${i} in ${m[0]}`)
+  return g
+}
 
 // The arrowhead scales with the stroke and the line ends under it: a fixed
 // head was swallowed by the round line cap from a stroke of 0.5 up, and a
 // wide head touched the heads of neighbours at a right angle.
-test('toSvg: at every stroke the arrowhead is wider than the line, inside its cell, and the line ends under it', () => {
+Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside its cell, and the line ends under it', () => {
   const { toSvg } = engineExports
   const cell = 20
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
   for (let s = 0.2; s <= 0.9 + 1e-9; s += 0.05) {
     const svg = toSvg(board, { cell, colored: false, strokeRatio: s, top: 0 })
-    const parse = (tag) =>
-      [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) =>
-        m[1].split(' ').map((p) => p.split(',').map(Number))
-      )
+    const parse = (tag: string): Pt[][] =>
+      [...svg.matchAll(new RegExp(`<${tag} points="([^"]+)"`, 'g'))].map((m) => group(m, 1).split(' ').map(pt))
     // A head is tip, base corner, [collar corners], base corner: the base
     // corners are the second and the last point.
-    const heads = parse('polygon').map((pts) => [pts[0], pts[1], pts[pts.length - 1], pts.length]),
-      lines = parse('polyline')
+    const heads: [Pt, Pt, Pt, number][] = parse('polygon').map((
+      pts,
+    ) => [at(pts, 0), at(pts, 1), at(pts, pts.length - 1), pts.length])
+    const lines = parse('polyline')
     const tails = [...svg.matchAll(/<circle cx="([^"]+)" cy="([^"]+)" r="([^"]+)"/g)].map((m) => ({
-      cx: Number(m[1]),
-      cy: Number(m[2]),
-      r: Number(m[3]),
+      cx: Number(group(m, 1)),
+      cy: Number(group(m, 2)),
+      r: Number(group(m, 3)),
     }))
-    assert.equal(heads.length, board.pieces.length, 'one head per piece')
-    assert.equal(lines.length, board.pieces.length, 'one line per piece')
-    assert.equal(tails.length, board.pieces.length, 'one tail circle per piece')
-    assert.ok(
+    assertEquals(heads.length, board.pieces.length, 'one head per piece')
+    assertEquals(lines.length, board.pieces.length, 'one line per piece')
+    assertEquals(tails.length, board.pieces.length, 'one tail circle per piece')
+    assert(
       !/stroke-linecap="round"/.test(svg),
       'lines end flat: the tail is a circle, the head end hides under the head',
     )
-    assert.ok(/stroke-linejoin="round"/.test(svg), 'corners stay round')
+    assert(/stroke-linejoin="round"/.test(svg), 'corners stay round')
     heads.forEach(([tip, a, b, corners], i) => {
       const label = `stroke ${s.toFixed(2)} piece ${i}`
       const base = Math.hypot(a[0] - b[0], a[1] - b[1]) / cell
-      const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+      const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
       // Thin lines get an arrow: a head 0.4 of a cell plus 0.9 of the line
       // width wide (0.58 at a stroke of 0.2, 0.8 at 0.45), always 0.9 of a
@@ -669,57 +773,58 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
       // neighbours, so the head is a sharpened stick: exactly as wide as the
       // line, 1.4 times as tall.
       const want = s < 0.5 - 1e-9 ? 0.4 + 0.9 * s : s
-      assert.ok(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
-      assert.ok(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
-      assert.ok(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
+      assert(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
+      assert(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
+      assert(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
       // An arrow keeps one height whatever the line width; a stick is 1.4 lines tall.
       const wantHeight = s < 0.5 - 1e-9 ? 0.9 : 1.4 * s
-      assert.ok(Math.abs(height - wantHeight) < 1e-6, `${label}: head ${height} tall, expected ${wantHeight}`)
+      assert(Math.abs(height - wantHeight) < 1e-6, `${label}: head ${height} tall, expected ${wantHeight}`)
       // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
-      const head = board.pieces[i].cells[0]
-      const centre = [30 + head.x * cell, 30 + head.y * cell]
+      const piece = at(board.pieces, i)
+      const head = at(piece.cells, 0)
+      const centre: Pt = [30 + head.x * cell, 30 + head.y * cell]
       const reach = Math.hypot(tip[0] - centre[0], tip[1] - centre[1]) / cell
-      assert.ok(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
+      assert(reach <= 0.5 + 1e-9, `${label}: tip reaches ${reach} past the head centre`)
       // The line ends flat under the head (a round cap as wide as a stick
       // head bulged at the base) and OVERLAPS it by 0.2 of its width, so no
       // anti-aliasing seam shows at the base: an arrow, wider than the line,
       // takes the line 0.2 w past the base; a stick, exactly as wide, gets a
       // 0.2 w collar behind the base instead. The tail gets its rounding from
       // a circle of the line's radius.
-      const [first] = lines[i]
-      const dir = [(tip[0] - mid[0]) / (height * cell), (tip[1] - mid[1]) / (height * cell)]
+      const first = at(at(lines, i), 0)
+      const dir: Pt = [(tip[0] - mid[0]) / (height * cell), (tip[1] - mid[1]) / (height * cell)]
       if (s < 0.5 - 1e-9) {
-        assert.equal(corners, 3, `${label}: an arrow is a plain triangle`)
-        const into = [mid[0] + dir[0] * 0.2 * s * cell, mid[1] + dir[1] * 0.2 * s * cell]
-        assert.ok(
+        assertEquals(corners, 3, `${label}: an arrow is a plain triangle`)
+        const into: Pt = [mid[0] + dir[0] * 0.2 * s * cell, mid[1] + dir[1] * 0.2 * s * cell]
+        assert(
           Math.hypot(first[0] - into[0], first[1] - into[1]) < 1e-6,
           `${label}: line ends at ${first}, expected ${into}`,
         )
       } else {
-        assert.equal(corners, 5, `${label}: a stick has a collar`)
-        assert.ok(
+        assertEquals(corners, 5, `${label}: a stick has a collar`)
+        assert(
           Math.hypot(first[0] - mid[0], first[1] - mid[1]) < 1e-6,
           `${label}: line ends at ${first}, base at ${mid}`,
         )
-        const collar = parse('polygon')[i].slice(2, 4)
+        const collar = at(parse('polygon'), i).slice(2, 4)
         for (const c of collar) {
           const back = Math.hypot(c[0] - mid[0], c[1] - mid[1])
-          assert.ok(
+          assert(
             Math.abs(back - Math.hypot(0.2 * s * cell, base * cell / 2)) < 1e-6,
             `${label}: collar corner ${c} off (${back})`,
           )
         }
       }
-      const tailCell = board.pieces[i].cells[board.pieces[i].cells.length - 1]
+      const tailCell = at(piece.cells, piece.cells.length - 1)
       const tail = tails[i]
-      assert.ok(tail, `${label}: no tail circle`)
-      assert.deepEqual(
+      assert(tail, `${label}: no tail circle`)
+      assertEquals(
         [tail.cx, tail.cy],
         [30 + tailCell.x * cell, 30 + tailCell.y * cell],
         `${label}: tail circle off the tail cell`,
       )
-      assert.ok(Math.abs(tail.r - s * cell / 2) < 1e-6, `${label}: tail radius ${tail.r} for stroke ${s}`)
-      assert.ok(
+      assert(Math.abs(tail.r - s * cell / 2) < 1e-6, `${label}: tail radius ${tail.r} for stroke ${s}`)
+      assert(
         Math.hypot(first[0] - centre[0], first[1] - centre[1]) < 0.95 * cell,
         `${label}: line end behind the neck cell`,
       )
@@ -729,16 +834,16 @@ test('toSvg: at every stroke the arrowhead is wider than the line, inside its ce
 
 // The head size can be set by hand (view options, in cells); 0 keeps the
 // automatic rule. A head narrower than the line is pulled up to the line.
-test('toSvg: head width and height knobs override the automatic size', () => {
+Deno.test('toSvg: head width and height knobs override the automatic size', () => {
   const { toSvg } = engineExports
   const cell = 20
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
-  const measure = (opts) => {
+  const measure = (opts: SvgOptions) => {
     const svg = toSvg(board, { cell, colored: false, top: 0, ...opts })
     return [...svg.matchAll(/<polygon points="([^"]+)"/g)].map((m) => {
-      const pts = m[1].split(' ').map((p) => p.split(',').map(Number))
-      const [tip, a] = pts, b = pts[pts.length - 1]
-      const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+      const pts = group(m, 1).split(' ').map(pt)
+      const tip = at(pts, 0), a = at(pts, 1), b = at(pts, pts.length - 1)
+      const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       return {
         base: Math.hypot(a[0] - b[0], a[1] - b[1]) / cell,
         height: Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell,
@@ -746,18 +851,18 @@ test('toSvg: head width and height knobs override the automatic size', () => {
     })
   }
   for (const h of measure({ strokeRatio: 0.3, headWidth: 0.8, headHeight: 1.2 })) {
-    assert.ok(Math.abs(h.base - 0.8) < 1e-6, `base ${h.base}`)
-    assert.ok(Math.abs(h.height - 1.2) < 1e-6, `height ${h.height}`)
+    assert(Math.abs(h.base - 0.8) < 1e-6, `base ${h.base}`)
+    assert(Math.abs(h.height - 1.2) < 1e-6, `height ${h.height}`)
   }
   for (const h of measure({ strokeRatio: 0.7, headWidth: 0.4, headHeight: 0 })) {
-    assert.ok(Math.abs(h.base - 0.7) < 1e-6, `a head narrower than the line is widened to it: ${h.base}`)
-    assert.ok(Math.abs(h.height - 1.4 * 0.7) < 1e-6, `height 0 keeps the automatic rule: ${h.height}`)
+    assert(Math.abs(h.base - 0.7) < 1e-6, `a head narrower than the line is widened to it: ${h.base}`)
+    assert(Math.abs(h.height - 1.4 * 0.7) < 1e-6, `height 0 keeps the automatic rule: ${h.height}`)
   }
   for (const h of measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0.5 })) {
-    assert.ok(Math.abs(h.base - (0.4 + 0.9 * 0.3)) < 1e-6, `width 0 keeps the automatic rule: ${h.base}`)
-    assert.ok(Math.abs(h.height - 0.5) < 1e-6, `height ${h.height}`)
+    assert(Math.abs(h.base - (0.4 + 0.9 * 0.3)) < 1e-6, `width 0 keeps the automatic rule: ${h.base}`)
+    assert(Math.abs(h.height - 0.5) < 1e-6, `height ${h.height}`)
   }
-  assert.deepEqual(
+  assertEquals(
     measure({ strokeRatio: 0.3 }),
     measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0 }),
     'zeros mean automatic',
