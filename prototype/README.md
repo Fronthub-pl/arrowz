@@ -9,7 +9,9 @@ binary at `prototype/dist/carve`. The lab page and worker are TypeScript,
 bundled by `deno task bundle` into `prototype/dist/`; `sh prototype/lab.sh`
 builds once, rebuilds on every edit and serves without caching. The
 generator is unchanged by the rewrite: `fingerprints.json` holds nine boards
-recorded on Node, and `fingerprints.test.ts` reproduces them.
+recorded on Node; `fingerprints.test.ts` reproduces eight of them on every run
+(the 500×500 case is checked by the CLI comparison only, it is too slow for the
+suite).
 
 ## Lab (interactive)
 
@@ -111,8 +113,9 @@ The engine lives in `engine.ts` and is shared by the lab and by `carve.ts` —
 there are no two copies of the algorithm that could drift apart.
 
 A probe for the specification, **not production code**. It was built to settle three
-open questions before the implementation plan was written. It has no tests, no types and
-no view layer, and it must not be developed further — the implementation starts from scratch, in TypeScript.
+open questions before the implementation plan was written. It has no view layer and it
+must not be developed further — the implementation starts from scratch; its typed engine
+is the reference the product code is compared against.
 
 The default call is the **simple mode**: the same inputs as the simple view
 of the lab (`lab-simple.ts` turns them into engine parameters in both), one
