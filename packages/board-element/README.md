@@ -26,9 +26,9 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | Property | Type | Default |
 |---|---|---|
 | `board` | `Board \| null` | `null` |
-| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | CLI defaults |
+| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, automatic heads, monochrome) |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
-| `lang` | `'en' \| 'pl'` (attribute) | `'en'` |
+| `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 
 | Method | Behaviour |
 |---|---|
@@ -36,7 +36,10 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `shake(pieceId, distance)` | nudges the piece `distance` cells along its direction and back |
 | `fit()` | fits the board into the host |
 | `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
-| `viewport` | read-only `{ cellPx, originX, originY, fitted, hostWidth, hostHeight }` |
+
+Getter: `viewport` (read-only) returns
+`{ cellPx, originX, originY, fitted, hostWidth, hostHeight }`, or `null`
+before a board and a host size are both known.
 
 | Event | `detail` |
 |---|---|
