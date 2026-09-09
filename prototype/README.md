@@ -29,8 +29,11 @@ the three middle anchors of each slider close 36/36 at 200×200 and 400×400,
 and the eight extreme combinations (very short or very long, straightest or
 most winding, with or without a skeleton) close 24/24 at 200×200, 400×400
 and 500×500 and 16/16 at 1000×1000, all with 0 backtracks; the one slow
-corner is very short plus most winding at 1000×1000, 24–51 s for 120–136
-thousand pieces, everything else there stays under 14 s. Whatever was drawn
+corner is very short plus most winding at 1000×1000 — 24–51 s for 120–136
+thousand pieces in that batch, and the canonical corner (`--length=0
+--straight=0`, seed 7, 173 thousand pieces) 33–35 s before round 13 and
+21–28 s after it, one process at a time on a loaded machine — everything
+else there stays under 14 s. Whatever was drawn
 goes through the knobs, so the command, the URL and the advanced view show
 exactly what was generated. Switching views never touches the knobs; the
 form is applied when something in it is clicked.
@@ -947,3 +950,88 @@ path, which is what set A pays at 800 (7.9 s against 12.4 s before); a
 binary search over the jumps would change which prefix is chosen, so it is
 a board-changing decision for another round. The `pStraight` 0.6 leak at
 600×600 stands as documented above.
+
+## Round 13 — the leftover absorption scans only what changed
+
+Question: where the slow corner of the simple view (very short plus most
+winding, `--length=0 --straight=0`) spends its time at 1000×1000, and
+whether that part can be made cheaper without changing a single board.
+
+```
+node prototype/carve.mjs --width=1000 --height=1000 --length=0 --straight=0 --dry-run   # the corner, seed 7: 173 228 pieces, 33–35 s before, 21–28 s after, same fingerprint 9045118d
+node --test 'prototype/absorb.test.mjs'                                                 # the full scan against the incremental one, boards compared cell by cell
+```
+
+**Mechanism.** `run()` calls `absorbLeftover` whenever no head yields a
+legal path: it looks for a free fragment of at most `absorbLimit` cells and
+glues it onto the tail of a neighbouring piece. Before this round every call
+walked the whole board — a fresh `Uint8Array(W*H)` of "seen" marks, then a
+loop over all `W*H` cells flood-filling every free fragment — although the
+memo of failed fragments (round 9) already spared the path search for a
+fragment nothing had changed around. On the corner board the call happens
+6 560 times at 1000×1000, each time to find a crumb of 3 cells on average
+(21 558 cells absorbed in all), so the scan, not the search, was the cost:
+6.56 billion cell visits, 29% of the self time in a CPU profile (10.9 s of
+37.4 s sampled).
+
+**The fix — an incremental scan, same boards.** The Carver now keeps a
+bitmap of dirty cells, one bit per cell, every bit set at construction.
+Every owner change in the engine (a commit, an undo, an absorption) goes
+through `touch()`, which marks the changed cells and their 4-neighbours;
+after a successful absorption the neighbours of every cell of the rewritten
+piece are marked too, because the memo check treats every fragment that had
+that piece as a candidate as stale. The first scan of a Carver therefore
+walks the whole board (it covers the starting board and the holes of
+`voidFrac`; a restart is a new Carver); every later scan walks the bitmap
+and flood-fills only the fragments around the dirty cells, stopping a flood
+as soon as the fragment is over the limit. A discovered fragment is
+evaluated lazily, in the order of its smallest cell index — the order of
+the old walk — once the walk is far enough past that index for no smaller
+fragment to appear (a fragment of at most `absorbLimit` cells spans fewer
+than `absorbLimit × (W + 1)` indices), and from the memo check on the code
+is the old code: the same flood from the same cell, so the same candidates
+in the same order, the same memo writes, and a hit returns at once, leaving
+the bits after it set and marking the fragments still waiting so the next
+call finds them. The "seen" marks are an `Int32Array` stamped per scan
+instead of a fresh byte array per call, so a call allocates nothing
+proportional to the board. The scan evaluates a superset of the fragments
+the full walk would evaluate, in the same order, with the same memo check —
+marking too much costs a flood fill, marking too little would change
+boards — and `absorb.test.mjs` runs both scans side by side.
+
+**Measured.** One process at a time on an 8-core machine shared with two
+other agents (load 3–6; the metrics time, whose code did not change, shows
+which runs were loaded), seed 7 unless stated, `--dry-run`, main `f200c6c`
+against this branch; every fingerprint, piece count and backtrack count
+identical between the two sides. Peak RSS from `/usr/bin/time -l`.
+
+| board (`--dry-run`) | before | after | ratio |
+|---|---|---|---|
+| corner 1000×1000, seed 7, 173 228 pieces — back-to-back rerun | 34.6 s | 21.4 s | **1.62×** |
+| same, first batch (the after side under load: metrics 4.7 s against 2.7 s) | 32.5 s | 27.6 s | 1.18× |
+| same, in process through `generate()` | 35.3 s | 23.1 s | 1.52× |
+| corner 500×500, seeds 7 / 1 / 2 (44–45 thousand pieces) | 2.84 / 2.99 / 2.62 s | 2.57 / 2.53 / 2.65 s | 1.10× / 1.18× / 0.99× |
+| defaults 500×500 | 1.43 s | 1.48 s | 0.97× |
+| defaults 1000×1000 (after side under load) | 10.1 s | 11.0 s | 0.92× |
+| layers 1000×1000 (`--headbias=-1`) | 19.6 s | 21.1 s | 0.93× |
+| skeleton 1000×1000 (`--giants=4`), back-to-back rerun | 9.6 s | 9.7 s | 0.99× |
+
+Peak RSS shows no systematic change: the corner board spans 649–893 MB
+across four runs on both sides (round 12 saw the same 1.6× run-to-run
+spread), the new stamp array and bitmap cost 4 MB at a million cells, and
+the 6 560 megabytes of throwaway "seen" arrays are gone (GC share 4.3%
+before, 4.1% after — never the cost). Where the work went, by the call
+counter: the corner at 1000×1000 floods about 1 900 free cells per call
+instead of visiting a million, 12.6 million in all against 6.56 billion
+(0.19%); at 500×500 the corner makes 803 calls, so the old walk was 0.3 s
+of 2.8 s and the gain is within half a second; defaults, layers and skeleton
+at 1000×1000 make 298, 31 and 367 calls, the old walk was 0.05–0.6 s of
+10–20 s, and they stay where they were. CPU profile of the corner after:
+31.1 s sampled, `absorbLeftover` with its `discover` 1.2 s (4.0%); what is
+left is the leftover tests (`solve` of `decomposable` 15.9%, `check` of
+`hasLocalDefect` 12.6%, `nbrs` 9.5%, `wouldStrand` 6.0%, `hasLocalDefect`
+5.7%), the carving itself (`carveOne` 15.7%) and the metrics (`analyse`
+8.8%).
+
+The rule for readers: the same seed gives the same board as before; only
+the time to get there changed.
