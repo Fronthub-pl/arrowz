@@ -7,11 +7,9 @@ export interface DemoRequest {
   seed: number
 }
 
-export interface DemoResponse {
-  board: Board
-  ok: boolean
-  genMs: number
-}
+export type DemoResponse =
+  | { board: Board; ok: boolean; genMs: number }
+  | { error: string }
 
 /**
  * The object the carver hands back is structurally wider than `Board`: it also
@@ -33,7 +31,14 @@ function plain(b: Board): Board {
 
 self.onmessage = (e: MessageEvent<DemoRequest>) => {
   const t0 = performance.now()
-  const r = generate({ ...defaultParams(), ...e.data.overrides, seed: e.data.seed })
-  const msg: DemoResponse = { board: plain(r.board), ok: r.ok, genMs: performance.now() - t0 }
+  let msg: DemoResponse
+  try {
+    // generate() throws InvalidParamsError for anything outside the safe
+    // envelope; without this the page would sit on "generating…" for ever.
+    const r = generate({ ...defaultParams(), ...e.data.overrides, seed: e.data.seed })
+    msg = { board: plain(r.board), ok: r.ok, genMs: performance.now() - t0 }
+  } catch (err) {
+    msg = { error: err instanceof Error ? err.message : String(err) }
+  }
   self.postMessage(msg)
 }

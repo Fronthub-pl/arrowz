@@ -1,7 +1,13 @@
-// Nightmare 100×100 (~1 900 pieces) must build and pan within a loose
+// Nightmare 100×100 (915 pieces at seed 7) must build and pan within a loose
 // budget; the times are printed so a regression is visible in the log
 // before it breaks the assertion. Insane (1000×1000) is the same measurement
 // without any budget: it is a report, run on demand with ARROWZ_MEASURE=1.
+//
+// How to read the frame numbers: a frame is timed around the dispatch plus one
+// `await raf()`, so it reports max(work, frame interval) — on a 60 Hz display
+// anything cheaper than ~16.7 ms prints as ~16.7 ms. Only figures well above
+// that measure the element's work; at or near 16.7 ms the frame had room to
+// spare and the number is the wait, not the cost.
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'
@@ -100,7 +106,10 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
   expect(build).toBeLessThan(5000)
   expect(frames.length).toBe(20)
   el.remove()
-})
+  // The timeout has to clear the budget it guards: generation, the mount and
+  // 20 frames all share it, so the default 5 000 ms would abort the test
+  // before a build near 5 000 ms could ever fail the assertion.
+}, 30_000)
 
 // The project ceiling, measured rather than guarded: generation alone takes
 // tens of seconds, so this runs only when asked for by
