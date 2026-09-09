@@ -1,0 +1,16 @@
+{
+  "name": "@arrowz/engine",
+  "version": "1.0.0-alpha.1",
+  "exports": {
+    ".": "./mod.ts",
+    "./command": "./command.ts",
+    "./simple": "./lab-simple.ts",
+    "./presets": "./lab-presets.ts",
+    "./i18n": "./lab-i18n.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}

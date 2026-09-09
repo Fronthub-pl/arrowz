@@ -1,8 +1,9 @@
 node_modules/
 dist/
+.nx/
 .DS_Store
 *.local
 .basic-memory/
-prototype/boards/
+packages/cli/boards/
 .claude/worktrees/
-prototype/dist/
+.superpowers/

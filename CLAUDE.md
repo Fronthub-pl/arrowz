@@ -8,24 +8,30 @@
 - **Conversation with the user is in Polish.** Only the chat is Polish; nothing
   Polish goes into files, except translation dictionaries of user-facing text.
 - **User-facing tools ship bilingual UI (Polish and English).** The generator
-  lab (`prototype/lab.html`) has a language switch; every visible string,
+  lab (`packages/cli/lab.html`) has a language switch; every visible string,
   parameter label, help text and "inactive" reason lives in the dictionary
-  (`prototype/lab-i18n.ts`), with English as the source language in code
+  (`packages/engine/lab-i18n.ts`), with English as the source language in code
   (`PARAM_SPEC`) and Polish as the translation.
 
-## Prototype
+## Packages
 
-- The prototype is TypeScript on Deno 2.9: `deno task test` must pass after
+- The engine and the CLI are TypeScript on Deno 2.9 in `packages/engine`
+  (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
   every change, and `deno task verify` (check, lint, fmt, test) before a PR.
-- The engine (`prototype/engine.ts`) knows neither Deno nor the DOM, and so do
-  `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`: the DOM lib
-  is referenced only in `lab-page.ts`, and `neutral.test.ts` greps the rest.
-  Never spread arrays proportional to the number of cells or pieces
-  (`Math.min(...arr)`) — it overflows the worker stack in Chrome.
+  The whole repository, Node projects included, is verified with
+  `pnpm nx run-many -t verify`; pnpm comes through corepack (`corepack enable pnpm`).
+- The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and
+  so do `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`: the DOM
+  lib is referenced only in `packages/cli/lab-page.ts`, and `neutral.test.ts`
+  greps the rest. Never spread arrays proportional to the number of cells or
+  pieces (`Math.min(...arr)`) — it overflows the worker stack in Chrome.
 - No `any`, no non-null assertions; a type fix must never add a value-changing
-  fallback in the engine (`fingerprints.test.ts` guards the boards).
+  fallback in the engine (`fingerprints.test.ts` guards the boards, and
+  `packages/engine/scripts/node-smoke.mjs` guards the Node build of them).
+- Node consumers get the engine from `packages/engine/dist/`, emitted by
+  `pnpm nx build engine`; never import the engine's `.ts` sources from `apps/`.
 - The lab page and worker are bundled by `deno task bundle` into
-  `prototype/dist/` (gitignored); `sh prototype/lab.sh` builds, watches and serves.
+  `packages/cli/dist/` (gitignored); `sh packages/cli/lab.sh` builds, watches and serves.
 - No attribution lines in commit messages or PR descriptions.
 
 <!-- jbcontext-instructions-start -->

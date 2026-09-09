@@ -19,11 +19,11 @@ import type {
   Violation,
   WorkerIn,
   WorkerOut,
-} from './types.ts'
-import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from './engine.ts'
-import { buildCommand } from './command.ts'
-import { type Dictionary, EN, PL, type UiArgs, type UiKey } from './lab-i18n.ts'
-import { findPreset, PRESETS } from './lab-presets.ts'
+} from '@arrowz/engine'
+import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from '@arrowz/engine'
+import { buildCommand } from '@arrowz/engine/command'
+import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
+import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
   defaultChoice,
   exportCell,
@@ -31,7 +31,7 @@ import {
   SIMPLE_CHOICES,
   SIMPLE_SLIDERS,
   simpleParams,
-} from './lab-simple.ts'
+} from '@arrowz/engine/simple'
 
 /** An element by id; the ids are fixed in lab.html, so a miss is a bug, not a state. */
 function el<T extends HTMLElement = HTMLElement>(id: string): T {

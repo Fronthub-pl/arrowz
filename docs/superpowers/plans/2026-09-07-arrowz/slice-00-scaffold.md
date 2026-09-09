@@ -1,5 +1,9 @@
 # Slice 0 — Application Scaffold
 
+> **Superseded (2026-09-09).** The workspace is created by
+> `docs/superpowers/plans/2026-09-09-monorepo.md`; the Angular application
+> is generated inside it in a later step. Kept for the record.
+
 > **For agentic executors:** REQUIRED SUB-SKILL: use
 > `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans`. Steps have checkboxes (`- [ ]`).

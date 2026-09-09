@@ -1,3 +1,7 @@
+> Moved from `prototype/README.md` on 2026-09-09, when the prototype became
+> `packages/engine` and `packages/cli`. Paths and commands inside describe the
+> layout of that time and are kept as written.
+
 # Prototype — throwaway code
 
 ## Toolchain

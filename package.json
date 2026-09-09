@@ -1,0 +1,15 @@
+{
+  "name": "arrowz",
+  "private": true,
+  "packageManager": "pnpm@12.3.4",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "verify": "nx run-many -t verify",
+    "build": "nx run-many -t build",
+    "graph": "nx graph"
+  },
+  "devDependencies": {
+    "nx": "^23.2.0",
+    "typescript": "^5.9.3"
+  }
+}

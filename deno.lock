@@ -27,6 +27,12 @@
     "dependencies": [
       "jsr:@std/assert@1",
       "jsr:@std/path@1"
-    ]
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:nx@^23.2.0",
+        "npm:typescript@^5.9.3"
+      ]
+    }
   }
 }

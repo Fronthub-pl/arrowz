@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "types": [],
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "rootDir": ".",
+    "outDir": "dist",
+    "skipLibCheck": true
+  },
+  "include": ["mod.ts", "engine.ts", "types.ts", "command.ts", "lab-simple.ts", "lab-presets.ts", "lab-i18n.ts"]
+}

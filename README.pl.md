@@ -189,12 +189,12 @@ Za pierwszym razem Deno poświęci kilka sekund na ściągnięcie dwóch małych
 bibliotek pomocniczych, których potrzebuje. Potem plansza 25×25 powstaje grubo
 poniżej sekundy.
 
-Plansza ląduje w `prototype/boards/25x25/` jako dwa pliki — obrazek i mały plik
+Plansza ląduje w `packages/cli/boards/25x25/` jako dwa pliki — obrazek i mały plik
 tekstowy, który go opisuje. Obrazek otworzy dowolna przeglądarka.
 
 ### Pięć rzeczy do wypróbowania
 
-Skopiuj dowolne z tych poleceń. Każde zapisuje obrazek w `prototype/boards/`;
+Skopiuj dowolne z tych poleceń. Każde zapisuje obrazek w `packages/cli/boards/`;
 dopisz `--dry-run` (opisane niżej), żeby zobaczyć same liczby bez tworzenia
 pliku. Każdą użytą tu flagę objaśnia sekcja
 [Ustawienia na co dzień](#ustawienia-na-co-dzień).
@@ -235,11 +235,11 @@ Jeśli wolisz mieć jeden plik, który uruchamiasz bez każdorazowego udziału D
 deno task compile
 ```
 
-To zapisuje samodzielny program w `prototype/dist/carve`. Przyjmuje dokładnie
+To zapisuje samodzielny program w `packages/cli/dist/carve`. Przyjmuje dokładnie
 te same opcje co `deno task carve`, tylko krócej się go pisze:
 
 ```sh
-./prototype/dist/carve --width=25 --height=25 --dry-run
+./packages/cli/dist/carve --width=25 --height=25 --dry-run
 ```
 
 Jest jeden haczyk. Samodzielny program nie wie, gdzie leży repozytorium, więc
@@ -248,7 +248,7 @@ czegokolwiek, powiedz mu, gdzie ma to odkładać:
 
 ```sh
 export ARROWZ_BOARDS_DIR=~/arrowz-boards
-./prototype/dist/carve --width=25 --height=25
+./packages/cli/dist/carve --width=25 --height=25
 ```
 
 Bez tego zapis kończy się błędem o katalogu, którego nie da się utworzyć.
@@ -277,7 +277,7 @@ deno task carve --advanced --help   # wszystkie pokrętła, jakie są
 deno task carve --width=40 --height=40 --seed=7
 ```
 
-Zapisuje dwa pliki w `prototype/boards/40x40/`:
+Zapisuje dwa pliki w `packages/cli/boards/40x40/`:
 
 * `seed7-7636b469.svg` — obrazek.
 * `seed7-7636b469.json` — mały plik tekstowy z zapisem tego, o co poproszono.
@@ -851,13 +851,13 @@ kombinację.
 Jest mała strona do zabawy ustawieniami i natychmiastowego oglądania wyniku.
 
 ```sh
-sh prototype/lab.sh
+sh packages/cli/lab.sh
 ```
 
 Buduje stronę, otwiera `http://localhost:8777/lab.html` i przebudowuje ją za
 każdym razem, gdy zmieni się plik źródłowy. Zatrzymasz ją klawiszami Ctrl+C.
 Jeśli port 8777 jest już zajęty na twoim komputerze, dopisz inny numer: `sh
-prototype/lab.sh 9000`.
+packages/cli/lab.sh 9000`.
 
 Strona ma dwa tryby i przełącznik polski/angielski.
 
@@ -881,11 +881,11 @@ ustawienia i tak możesz skopiować.
 
 ## Gdzie lądują plansze
 
-Domyślnie plansze trafiają do `prototype/boards/`, po jednym katalogu na każdy
+Domyślnie plansze trafiają do `packages/cli/boards/`, po jednym katalogu na każdy
 rozmiar:
 
 ```
-prototype/boards/
+packages/cli/boards/
   25x25/
     seed7-7d303227.svg     obrazek
     seed7-7d303227.json    z czego powstał
@@ -910,7 +910,7 @@ powstania, czas liczenia i liczbę strzałek. Trzyma też linię `command`, któ
 odtwarza obrazek dokładnie, bajt w bajt. Jeśli masz zachować z planszy jedną
 rzecz, zachowaj tę linię.
 
-> Plansze nie trafiają do repozytorium. `prototype/boards/` jest celowo
+> Plansze nie trafiają do repozytorium. `packages/cli/boards/` jest celowo
 > wykluczone, bo duże plansze ważą dziesiątki megabajtów.
 
 ---
@@ -920,7 +920,7 @@ rzecz, zachowaj tę linię.
 **`deno task couldn't find deno.json`** — jesteś poza katalogiem projektu.
 Wejdź do katalogu `arrowz` i spróbuj jeszcze raz.
 
-**`Requires env access`** — to znaczy, że `deno run prototype/carve.ts` zostało
+**`Requires env access`** — to znaczy, że `deno run packages/cli/carve.ts` zostało
 uruchomione bezpośrednio. Deno nie pozwala programowi tknąć twoich plików ani
 ustawień bez wyraźnej zgody. Używaj `deno task carve`, które nadaje dokładnie
 tyle uprawnień, ile trzeba.
@@ -936,7 +936,7 @@ nic się nie zapisało.
 **`failed to close board …`** — generator próbował, cofał się, zaczynał od nowa
 i mimo to nie zdołał wypełnić planszy. Prawie zawsze chodzi o ustawienie
 oznaczone wyżej jako **Uwaga:**. Cofnij je w stronę wartości domyślnej albo
-zmień ziarno. Obrazek mimo to jest w `prototype/boards/`, z niepokrytymi
+zmień ziarno. Obrazek mimo to jest w `packages/cli/boards/`, z niepokrytymi
 kwadratami na różowo, więc widać, gdzie generator utknął.
 
 **Jedna plansza trwa wieczność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund,
@@ -952,7 +952,7 @@ Dodaj `--only=easy --square --runs=1`. Uwaga: samo `--only=easy` nie pasuje do
 niczego — potrzebuje obok `--square` albo `--portrait`.
 
 **Strona nic nie pokazuje** — stronę trzeba najpierw zbudować. `sh
-prototype/lab.sh` robi to za ciebie; otwarcie `lab.html` prosto z menedżera
+packages/cli/lab.sh` robi to za ciebie; otwarcie `lab.html` prosto z menedżera
 plików nie zadziała.
 
 **Ciekawi cię, co się dzieje** — ustaw `CARVE_TRACE=1`, a będzie meldować
@@ -988,13 +988,17 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Ścieżka | Co to |
 |---|---|
-| `prototype/engine.ts` | Sam generator. Nie wie nic o plikach ani o stronach internetowych. |
-| `prototype/carve.ts` | Narzędzie wiersza poleceń. |
-| `prototype/lab.html`, `lab-page.ts` | Strona internetowa. |
-| `prototype/*.test.ts` | Testy. |
-| `prototype/README.md` | Dziennik inżynierski: każdy pomiar, każda ślepa uliczka, każda decyzja, ze szczegółami. |
+| `packages/engine/engine.ts` | Sam generator. Nie wie nic o plikach ani o stronach internetowych. |
+| `packages/cli/carve.ts` | Narzędzie wiersza poleceń. |
+| `packages/cli/lab.html`, `lab-page.ts` | Strona internetowa. |
+| `packages/*/*.test.ts` | Testy. |
+| `packages/engine/HISTORY.md` | Dziennik inżynierski: każdy pomiar, każda ślepa uliczka, każda decyzja, ze szczegółami. |
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
+| `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
+| `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
 
-Kod w `prototype/` jest prototypem w uczciwym sensie tego słowa: istnieje po
-to, żeby rozstrzygnąć pytania o to, co sprawia, że plansza jest dobra, a
-właściwa gra powstanie osobno.
+Kod w `packages/` zaczynał jako prototyp do wyrzucenia, napisany po to, żeby
+rozstrzygnąć, co czyni planszę dobrą. Rozstrzygnął, więc stał się silnikiem, na
+którym powstaje gra; tag `v1.0.0-alpha.1` wyznacza ten moment. Sama gra, wielokrotnego
+użytku komponent planszy i nowe laboratorium powstają obok, w tym samym repozytorium
+(patrz `docs/superpowers/specs/2026-09-09-monorepo-design.md`).

@@ -1,0 +1,27 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli",
+  "projectType": "application",
+  "sourceRoot": "packages/cli",
+  "implicitDependencies": ["engine"],
+  "targets": {
+    "check": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "deno check *.ts" } },
+    "lint": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "deno lint" } },
+    "fmt": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "deno fmt --check" } },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "packages/cli",
+        "command": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net"
+      }
+    },
+    "bundle": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["production", "^production"],
+      "outputs": ["{projectRoot}/dist"],
+      "options": { "cwd": "packages/cli", "command": "deno task bundle" }
+    },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "bundle"] }
+  }
+}

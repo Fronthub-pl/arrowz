@@ -1,7 +1,7 @@
 // The safe envelope of the generator (prototype round 11), end to end: the
 // narrowed ranges and the cross-knob rules the engine validates against, the
 // refusal in generate(), and proof that validation left the algorithm alone.
-// Run: deno test --allow-read --allow-run prototype/
+// Run: deno test --allow-read --allow-run packages/engine/
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import {
   defaultParams,

@@ -212,7 +212,7 @@ export interface PresetLevel {
   options: Preset[]
 }
 
-/** One stored board: the JSON next to the SVG in prototype/boards/<WxH>/. */
+/** One stored board: the JSON next to the SVG in packages/cli/boards/<WxH>/. */
 export interface BoardMeta {
   id: string
   W: number

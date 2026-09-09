@@ -189,12 +189,12 @@ deno task carve --width=25 --height=25
 The first time you run this, Deno spends a few seconds fetching the two small
 helper libraries it needs. After that a 25×25 board takes well under a second.
 
-The board lands in `prototype/boards/25x25/` as two files — a picture and a
+The board lands in `packages/cli/boards/25x25/` as two files — a picture and a
 small text file describing it. Open the picture in any browser.
 
 ### Five things to try
 
-Copy any of these. Each one writes a picture into `prototype/boards/`; add
+Copy any of these. Each one writes a picture into `packages/cli/boards/`; add
 `--dry-run` (explained below) to see the numbers without writing a file. Every
 flag used here is explained in [The everyday settings](#the-everyday-settings).
 
@@ -235,11 +235,11 @@ every time:
 deno task compile
 ```
 
-That writes a self-contained program to `prototype/dist/carve`. It takes
+That writes a self-contained program to `packages/cli/dist/carve`. It takes
 exactly the same options as `deno task carve`, and is shorter to type:
 
 ```sh
-./prototype/dist/carve --width=25 --height=25 --dry-run
+./packages/cli/dist/carve --width=25 --height=25 --dry-run
 ```
 
 One catch. The standalone program does not know where the repository is, so it
@@ -248,7 +248,7 @@ it where to put them:
 
 ```sh
 export ARROWZ_BOARDS_DIR=~/arrowz-boards
-./prototype/dist/carve --width=25 --height=25
+./packages/cli/dist/carve --width=25 --height=25
 ```
 
 Without that, saving fails with an error about a directory it cannot create.
@@ -277,7 +277,7 @@ deno task carve --advanced --help   # every dial there is
 deno task carve --width=40 --height=40 --seed=7
 ```
 
-Writes two files into `prototype/boards/40x40/`:
+Writes two files into `packages/cli/boards/40x40/`:
 
 * `seed7-7636b469.svg` — the picture.
 * `seed7-7636b469.json` — a small text file recording what was asked for.
@@ -846,13 +846,13 @@ There is a small page for playing with the settings and seeing the result
 immediately.
 
 ```sh
-sh prototype/lab.sh
+sh packages/cli/lab.sh
 ```
 
 It builds the page, opens `http://localhost:8777/lab.html`, and keeps
 rebuilding whenever a source file changes. Stop it with Ctrl+C. If 8777 is
 already in use on your computer, put another number after the command: `sh
-prototype/lab.sh 9000`.
+packages/cli/lab.sh 9000`.
 
 The page has two modes, and a Polish/English switch.
 
@@ -874,10 +874,10 @@ it. The command stays on screen, so you can still copy rejected settings.
 
 ## Where boards are saved
 
-By default, boards go into `prototype/boards/`, sorted into a folder per size:
+By default, boards go into `packages/cli/boards/`, sorted into a folder per size:
 
 ```
-prototype/boards/
+packages/cli/boards/
   25x25/
     seed7-7d303227.svg     the picture
     seed7-7d303227.json    what it was made from
@@ -902,7 +902,7 @@ made, how long it took, and how many arrows it has. It also holds a `command`
 line that reproduces the picture exactly, byte for byte. If you keep only one
 thing from a board, keep that line.
 
-> Boards are not part of the repository. `prototype/boards/` is deliberately
+> Boards are not part of the repository. `packages/cli/boards/` is deliberately
 > left out of it, because large boards run to tens of megabytes.
 
 ---
@@ -912,7 +912,7 @@ thing from a board, keep that line.
 **`deno task couldn't find deno.json`** — you are outside the project folder.
 `cd` into the `arrowz` folder and try again.
 
-**`Requires env access`** — you ran `deno run prototype/carve.ts` directly.
+**`Requires env access`** — you ran `deno run packages/cli/carve.ts` directly.
 Deno refuses to let a program touch your files or settings unless told to. Use
 `deno task carve`, which grants exactly what is needed.
 
@@ -926,7 +926,7 @@ nothing was written.
 **`failed to close board …`** — the generator tried, backed up, restarted, and
 still could not fill the board. Almost always a setting marked **Careful:**
 above. Move it back towards its default, or try another seed. The picture is
-in `prototype/boards/` all the same, uncovered squares tinted pink, so you can
+in `packages/cli/boards/` all the same, uncovered squares tinted pink, so you can
 see where it got stuck.
 
 **One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
@@ -942,7 +942,7 @@ walks every difficulty level up to 1000×1000, three times each. Add
 nothing: it needs `--square` or `--portrait` alongside it.
 
 **The web page shows nothing** — the page needs building first. `sh
-prototype/lab.sh` does it for you; opening `lab.html` straight from your file
+packages/cli/lab.sh` does it for you; opening `lab.html` straight from your file
 manager does not work.
 
 **Wondering what it is doing** — set `CARVE_TRACE=1` and it reports progress as
@@ -978,13 +978,17 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Path | What it is |
 |---|---|
-| `prototype/engine.ts` | The generator itself. Knows nothing about files or web pages. |
-| `prototype/carve.ts` | The command-line tool. |
-| `prototype/lab.html`, `lab-page.ts` | The web page. |
-| `prototype/*.test.ts` | The tests. |
-| `prototype/README.md` | The engineering log: every measurement, every dead end, every decision, in detail. |
+| `packages/engine/engine.ts` | The generator itself. Knows nothing about files or web pages. |
+| `packages/cli/carve.ts` | The command-line tool. |
+| `packages/cli/lab.html`, `lab-page.ts` | The web page. |
+| `packages/*/*.test.ts` | The tests. |
+| `packages/engine/HISTORY.md` | The engineering log: every measurement, every dead end, every decision, in detail. |
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
+| `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
+| `packages/cli/` | The command-line tool, the board store and the lab page. |
 
-The code in `prototype/` is a prototype in the honest sense: it exists to
-settle questions about what makes a good board, and the real game will be built
-separately.
+The code under `packages/` started as a throwaway prototype written to settle
+what makes a good board. It settled that, so it became the engine the game is
+built on; the tag `v1.0.0-alpha.1` marks that point. The game itself, a
+reusable board component and a new lab are built next to it in this
+repository (see `docs/superpowers/specs/2026-09-09-monorepo-design.md`).

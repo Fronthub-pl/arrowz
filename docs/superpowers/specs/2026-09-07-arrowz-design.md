@@ -152,6 +152,12 @@ made it possible to measure them with a prototype before any view layer existed,
 to protect the project from two decisions that would otherwise have been made blind
 (§11, §13).
 
+> **Addendum (2026-09-09).** The tree above described a single Angular
+> workspace. The repository is now a monorepo: `core/` is the package
+> `@arrowz/engine` (`packages/engine`), the renderer is the web component
+> `<arrowz-board>` (`packages/board-element`), and the game lives in
+> `apps/game`. See `docs/superpowers/specs/2026-09-09-monorepo-design.md`.
+
 ## 5. Data model
 
 ```ts

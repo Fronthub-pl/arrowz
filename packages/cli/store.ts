@@ -1,11 +1,11 @@
-// Store of generated boards: prototype/boards/<W>x<H>/<id>.svg + <id>.json.
+// Store of generated boards: packages/cli/boards/<W>x<H>/<id>.svg + <id>.json.
 // Shared by the CLI (carve.ts --svg) and the lab server. The directory is
 // gitignored — a 1000×1000 board is tens of MB, and the command in the meta
 // reproduces any board.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardMeta, BoardSize, Params, Stuck, View } from './types.ts'
-import { boardId, DEFAULT_VIEW } from './command.ts'
-import { defaultParams } from './engine.ts'
+import type { BoardMeta, BoardSize, Params, Stuck, View } from '@arrowz/engine'
+import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { defaultParams } from '@arrowz/engine'
 
 export interface SaveInput {
   svg: string
