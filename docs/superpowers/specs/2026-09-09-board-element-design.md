@@ -104,8 +104,10 @@ packages/board-element/
 Dependencies: `lit ^3.3.3`, `@arrowz/engine workspace:*`. Dev:
 `vitest ^5.0.0`, `@vitest/browser-playwright ^5.0.0`, `playwright ^1.63`,
 `vite ^8.2`, `typescript` from the root. The package is a pnpm workspace
-member, not a Deno workspace member; Deno formats and lints it from the root
-like every other file (§13).
+member and a package.json-only member of the root Deno workspace: Deno's
+config discovery stops at the package's `package.json`, so without
+membership `deno fmt` and `deno lint` in that directory would fall back to
+Deno's defaults; the root `deno task test` excludes the package (§13).
 
 `package.json`:
 
@@ -391,8 +393,8 @@ asserts both dictionaries have the same keys and no empty strings.
 
 `packages/board-element/demo/` on Vite: a preset picker fed from
 `@arrowz/engine/presets`, generation in a worker importing `@arrowz/engine`,
-one `<arrowz-board interactive lang="pl">`, and a panel with the numbers to
-record:
+one `<arrowz-board interactive>` with a `lang=pl` switch (the demo shows
+both languages), and a panel with the numbers to record:
 
 - build: time from `board` assignment to the first paint (`performance.now`
   around the assignment plus one animation frame),
@@ -457,14 +459,19 @@ Root `deno.json`: `exclude` and `fmt.exclude` gain `**/node_modules/`,
 because pnpm creates `packages/board-element/node_modules` and the current
 `node_modules/` pattern covers only the root. Root `deno task check` and
 `deno task test` stay Deno-only; the Deno root tasks are not the full
-verification, `pnpm nx run-many -t verify` is.
+verification, `pnpm nx run-many -t verify` is. The root `deno.json`
+`workspace` lists the package and `test.exclude` keeps `deno test` out of
+it; the root `deno task check` glob also covers
+`packages/engine/scripts/*.ts` so the golden recorder is type-checked.
 
 CI (`.github/workflows/ci.yml`): after `pnpm install`, a step
-`pnpm exec playwright install --only-shell chromium` with
-`actions/cache` on `~/.cache/ms-playwright` keyed by the Playwright version
-from the lockfile. Installing when `board-element` is not affected wastes
-under a minute with a warm cache; a conditional install would need the
-affected list before the install step, which is not worth the complexity.
+`pnpm --filter @arrowz/board-element exec playwright install --with-deps --only-shell chromium`
+with `actions/cache` on `~/.cache/ms-playwright` keyed by the Playwright
+version from the lockfile, with `restore-keys` so a lockfile change reuses
+the previous browser download. Installing when `board-element` is not
+affected wastes under a minute with a warm cache; a conditional install
+would need the affected list before the install step, which is not worth
+the complexity.
 
 Editor: `.vscode/settings.json` keeps `deno.enablePaths` at the two Deno
 packages; the new package is checked by the TypeScript server through its
@@ -484,7 +491,30 @@ packages; the new package is checked by the TypeScript server through its
 ## 15. Risks and measurements
 
 - **Insane in SVG.** Unknown until measured; the acceptance numbers and the
-  fallback order are in §11. Recorded here once measured: *(pending)*.
+  fallback order are in §11.
+
+  Measured 2026-09-10, in headless Chromium 153.0.8010.12 (Playwright
+  1.63.0), Apple M1, macOS 26.6, host 800×800 px, through
+  `src/perf.browser.test.ts` (`ARROWZ_MEASURE=1` for Insane). A pan or zoom
+  frame is measured as dispatch plus one `requestAnimationFrame`, so it
+  reads `max(work, ~16.7 ms)`; only figures well above 16.7 ms measure
+  work.
+
+  | Board | Pieces | SVG nodes | Generation | Build | Pan mean / worst | Zoom mean / worst |
+  |---|---|---|---|---|---|---|
+  | Nightmare 100×100, seed 7 | 915 | not printed | in test | 15 ms | 16.6 / 17.8 ms (rAF floor) | not measured in CI |
+  | Insane 1000×1000, seed 7 | 85 809 | 429 050 | 9.7 s | 1 331 ms | 83.1 / 356.8 ms | 104.5 / 370.7 ms |
+
+  Acceptance of §11: **Nightmare holds** (pan at the frame interval, build
+  far under 5 s). **Insane does not hold for pan and zoom**: build 1.3 s is
+  under the 5 s budget, but a pan frame averages 83 ms against the 50 ms
+  threshold (zoom 105 ms). SVG stays as the renderer of this step; the
+  follow-up, per §11, is a separate spec that first removes the per-piece
+  `<g>` (5 nodes per piece today: two groups, a polyline, a polygon, a
+  circle) and re-measures, then chooses between viewport virtualisation and
+  Canvas if the numbers still fail. Headless Chromium numbers may differ
+  from a foreground window; a manual run of the demo on the target machine
+  should precede that decision.
 - **Vitest 5.0.0 is days old.** If browser mode misbehaves, pin Vitest 4.1
   with the matching `@vitest/browser-playwright`; the configuration is the
   same shape.

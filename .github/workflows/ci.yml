@@ -40,6 +40,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - run: pnpm --filter @arrowz/board-element exec playwright install --with-deps --only-shell chromium
 
