@@ -841,7 +841,15 @@ async function saveBoardToStore(svg: string, done: Done) {
     view,
     command: buildCommand(runParams, view),
     source: 'lab',
-    metrics: { ok: done.ok, pieces: done.pieces, maxLen: done.metrics?.maxLen ?? null, genMs: done.genMs },
+    metrics: {
+      ok: done.ok,
+      pieces: done.pieces,
+      maxLen: done.metrics?.maxLen ?? null,
+      genMs: done.genMs,
+      restarts: done.restartsUsed,
+      backtracks: done.backtracks,
+      stuck: done.stuck,
+    },
   }
   try {
     const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })

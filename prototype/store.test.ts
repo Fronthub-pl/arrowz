@@ -174,6 +174,59 @@ Deno.test('listBoards fills legacy params without a knob with the engine default
   assertEquals(buildCommand(board.params).includes('undefined'), false, 'no knob is written as undefined')
 })
 
+// --- the closing report ------------------------------------------------------
+// A board that did not close is stored too (the lab shows it with its holes),
+// so the meta carries what the run reported: restarts and backtracks used,
+// whether a time budget cut it short, and the leftover of a jam.
+
+Deno.test('saveBoard records the closing report: restarts, backtracks, aborted and the leftover', () => {
+  const dir = freshDir()
+  const stuck = { remaining: 7, sizes: [4, 3], heads: 2 }
+  const meta = saveBoard(entry({
+    metrics: { ok: false, pieces: 10, maxLen: 5, genMs: 3, restarts: 1, backtracks: 42, aborted: true, stuck },
+  }))
+  assertEquals([meta.ok, meta.restarts, meta.backtracks, meta.aborted], [false, 1, 42, true])
+  assertEquals(meta.stuck, stuck)
+  const saved = readMeta(join(dir, '25x50', meta.id + '.json'))
+  assertEquals([saved.ok, saved.restarts, saved.backtracks, saved.aborted], [false, 1, 42, true])
+  assertEquals(saved.stuck, stuck)
+})
+
+Deno.test('saveBoard without a closing report writes null counts, aborted false and no leftover', () => {
+  freshDir()
+  const meta = saveBoard(entry())
+  assertEquals([meta.restarts, meta.backtracks, meta.aborted, meta.stuck], [null, null, false, null])
+})
+
+// A board stored before the closing report existed lacks the fields; the
+// reader fills them so the page never sees undefined.
+Deno.test('listBoards fills a legacy meta without the closing report', () => {
+  const dir = freshDir()
+  Deno.mkdirSync(join(dir, '25x50'))
+  const legacy = {
+    id: 'seed7-legacy02',
+    W: 25,
+    H: 50,
+    seed: 7,
+    params: params(),
+    view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    source: 'cli',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ok: true,
+    pieces: 126,
+    maxLen: 68,
+    genMs: 12,
+    svgBytes: 6,
+  }
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy02.json'), JSON.stringify(legacy))
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy02.svg'), '<svg/>')
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.id, 'seed7-legacy02')
+  assertEquals([board?.restarts, board?.backtracks, board?.aborted, board?.stuck], [null, null, false, null])
+})
+
 Deno.test('listBoards without a directory returns an empty list', () => {
   const missing = join(freshDir(), 'missing')
   Deno.env.set('ARROWZ_BOARDS_DIR', missing)

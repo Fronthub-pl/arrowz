@@ -163,6 +163,8 @@ export interface GenerateResult {
   genMs: number
   metricsMs: number
   stuck: Stuck | null
+  /** True when a `trace` callback threw GenerateAbort: the board is what was carved so far, no restart ran. */
+  aborted: boolean
 }
 
 export interface SvgOptions {
@@ -228,6 +230,12 @@ export interface BoardMeta {
   maxLen: number | null
   genMs: number | null
   svgBytes: number
+  // The closing report, when the writer had one: restarts and backtracks
+  // used, whether a time budget cut the run short, the leftover of a jam.
+  restarts: number | null
+  backtracks: number | null
+  aborted: boolean
+  stuck: Stuck | null
 }
 
 export interface BoardSize {

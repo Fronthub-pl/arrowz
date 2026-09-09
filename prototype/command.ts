@@ -111,7 +111,8 @@ export function helpText({ advanced = false }: { advanced?: boolean } = {}): str
     out.push('Modes:')
     list(SIMPLE_MODE_FLAGS)
     out.push('')
-    out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr).')
+    out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr),')
+    out.push('CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).')
     return out.join('\n')
   }
   out.push(`Usage: ${COMMAND_PREFIX} --advanced [--<knob>=value ...] [mode] [view options]`)
@@ -159,7 +160,8 @@ export function helpText({ advanced = false }: { advanced?: boolean } = {}): str
   out.push('Old flag names, still accepted:')
   list(Object.entries(ALIASES).map(([alias, key]): FlagRow => [`--${alias}`, `same as ${flagOf(key)}`]))
   out.push('')
-  out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1.')
+  out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,')
+  out.push('CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).')
   return out.join('\n')
 }
 

@@ -19,7 +19,9 @@
 //   (no mode)       metrics report per level, --runs=N, --only=Name, --show
 //   --help, -h      usage, one row per knob with its allowed range, the rules
 // Parameters outside the safe envelope (validateParams) are refused before
-// any generation, in every mode, with exit code 2.
+// any generation, in every mode, with exit code 2. A board that does not
+// close is stored too, with its holes drawn, and the exit code is 1;
+// CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
 import type { CarverStats, Metrics, Params, TraceInfo, Violation } from './types.ts'
 import {
   analyse,
@@ -28,6 +30,7 @@ import {
   fingerprint,
   formatViolation,
   generate,
+  GenerateAbort,
   mulberry32,
   render,
   toSvg,
@@ -50,11 +53,26 @@ if (!import.meta.main) throw new Error('carve.ts is the CLI entry point; import 
 
 // Trace and debug enter the engine as functions — the engine knows no `Deno`.
 // Left undefined (not null) so they fit the optional hooks of Params.
-const trace = Deno.env.get('CARVE_TRACE')
-  ? (i: TraceInfo) =>
-    console.error(
-      `    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`,
-    )
+// CARVE_TIMEOUT_S is a wall-clock budget for measurements: the engine calls
+// the trace at least once a second, and past the deadline the callback
+// aborts the run; the board carved so far still goes to the store.
+const timeoutEnv = Deno.env.get('CARVE_TIMEOUT_S')
+const timeoutS = timeoutEnv === undefined ? null : Number(timeoutEnv)
+if (timeoutS !== null && !(timeoutS >= 0)) {
+  console.error(`invalid CARVE_TIMEOUT_S: ${timeoutEnv} is not a number of seconds`)
+  Deno.exit(2)
+}
+const deadline = timeoutS === null ? Infinity : performance.now() + timeoutS * 1000
+const traceOn = Boolean(Deno.env.get('CARVE_TRACE'))
+const trace = traceOn || timeoutS !== null
+  ? (i: TraceInfo) => {
+    if (traceOn) {
+      console.error(
+        `    [trace] pieces ${i.pieces}, remaining ${i.remaining}, backtracks ${i.backtracks}, ${i.ms.toFixed(0)} ms`,
+      )
+    }
+    if (performance.now() > deadline) throw new GenerateAbort(`time budget of ${timeoutS} s exhausted`)
+  }
   : undefined
 const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) : undefined
 /** The hooks as they are spread into a parameter set: only the ones that are on. */
@@ -142,45 +160,83 @@ const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
 if (!advanced || svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...params, ...hooks })
-  if (!result.ok) {
-    const stuck = result.stuck
-    if (!stuck) throw new Error('unreachable: not ok without stuck')
-    if (dryRun) {
-      console.log(
-        JSON.stringify({
-          dryRun: true,
-          W: params.W,
-          H: params.H,
-          seed: params.seed,
-          id: boardId(params),
-          ok: false,
-          stuck,
-          restarts: result.restartsUsed,
-          genMs: result.genMs,
-        }),
-      )
-    }
-    console.error(
-      `failed to close board ${params.W}x${params.H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
-        stuck.heads ?? '?'
-      } legal heads at the best moment`,
-    )
-    Deno.exit(1)
-  }
   const c = result.board, W = params.W, H = params.H
-  const m = result.metrics
-  if (!m) throw new Error('unreachable: ok without metrics')
-  const svg = toSvg(c, {
+  const svgView = {
     cell: view.cell,
     colored: view.colored,
     strokeRatio: view.stroke,
     headWidth: view.headWidth,
     headHeight: view.headHeight,
     top: view.top,
-  })
+  }
   // The full command reproduces the board in every case; the simple command
   // (simple mode only) records what was asked for.
   const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }
+  if (!result.ok) {
+    // A board that did not close (a jam, or the time budget) is stored like a
+    // closed one, with the free cells drawn as holes, so that the lab can show
+    // what the generator left behind; the "not closed" badge comes from ok:false.
+    const { stuck, aborted } = result
+    if (!stuck) throw new Error('unreachable: not ok without stuck')
+    if (dryRun) {
+      console.log(
+        JSON.stringify({
+          dryRun: true,
+          W,
+          H,
+          seed: params.seed,
+          id: boardId(params),
+          ok: false,
+          aborted,
+          stuck,
+          restarts: result.restartsUsed,
+          backtracks: result.backtracks,
+          genMs: result.genMs,
+        }),
+      )
+    }
+    console.error(
+      aborted
+        ? `aborted after ${
+          (result.genMs / 1000).toFixed(1)
+        } s: board ${W}x${H} (seed ${params.seed}) has ${stuck.remaining} cells left`
+        : `failed to close board ${W}x${H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
+          stuck.heads ?? '?'
+        } legal heads at the best moment`,
+    )
+    if (!dryRun) {
+      const svg = toSvg(c, { ...svgView, voids: true })
+      const meta = saveBoard({
+        svg,
+        params,
+        view,
+        ...commands,
+        source: 'cli',
+        metrics: {
+          ok: false,
+          pieces: c.pieces.length,
+          ...(result.metrics ? { maxLen: result.metrics.maxLen } : {}),
+          genMs: result.genMs,
+          restarts: result.restartsUsed,
+          backtracks: result.backtracks,
+          aborted,
+          stuck,
+        },
+      })
+      if (svgOut) Deno.writeTextFileSync(svgOut, svg)
+      console.log(
+        `${meta.W}x${meta.H}/${meta.id}.svg${
+          svgOut ? '  + ' + svgOut : ''
+        }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
+          (result.genMs / 1000).toFixed(2)
+        } s`,
+      )
+    }
+    Deno.exit(1)
+  }
+  const m = result.metrics
+  if (!m) throw new Error('unreachable: ok without metrics')
+  const svg = toSvg(c, svgView)
   if (dryRun) {
     console.log(JSON.stringify({
       dryRun: true,

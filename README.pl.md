@@ -322,6 +322,20 @@ całość zajęła 11 milisekund. `simpleCommand` to polecenie, które ją odtwo
 To najszybszy sposób na wypróbowanie ustawienia: widzisz, ile strzałek wychodzi
 i ile to trwało, bez ani jednego pliku na dysku.
 
+### Gdy plansza się nie domyka
+
+Rzadko, przy dużych rozmiarach, generator poddaje się, zanim pokryje każdy
+kwadrat. Obrazek i tak zostaje zapisany, z niepokrytymi kwadratami
+zabarwionymi na różowo, opis mówi `"ok": false`, a polecenie kończy się kodem 1,
+żeby skrypty to zauważyły. Bieg, który trwa za długo, można przerwać:
+
+```sh
+CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+```
+
+To zatrzymuje się po minucie i zapisuje to, co do tej pory narysowano,
+z oznaczeniem `"aborted": true`.
+
 ### Raport z pomiarów
 
 ```sh
@@ -922,7 +936,15 @@ nic się nie zapisało.
 **`failed to close board …`** — generator próbował, cofał się, zaczynał od nowa
 i mimo to nie zdołał wypełnić planszy. Prawie zawsze chodzi o ustawienie
 oznaczone wyżej jako **Uwaga:**. Cofnij je w stronę wartości domyślnej albo
-zmień ziarno.
+zmień ziarno. Obrazek mimo to jest w `prototype/boards/`, z niepokrytymi
+kwadratami na różowo, więc widać, gdzie generator utknął.
+
+**Jedna plansza trwa wieczność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund,
+a po ich upływie generator przerwie i zapisze to, co zdążył narysować:
+
+```sh
+CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
+```
 
 **Raport trwa wieczność** — `deno task carve --advanced` bez niczego więcej
 przechodzi przez wszystkie poziomy trudności do 1000×1000, po trzy razy każdy.
