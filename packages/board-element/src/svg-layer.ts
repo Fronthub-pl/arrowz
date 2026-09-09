@@ -83,7 +83,7 @@ export class SvgLayer {
   private readonly headsGroup: SVGGElement
   private nodes = new Map<number, PieceNodes>()
   private running = new Map<number, Animation[]>()
-  private exiting = new Set<number>()
+  private exiting = new Map<number, Animation[]>()
   private current: Board | null = null
   private view: BoardView = DEFAULT_VIEW
 
@@ -133,10 +133,11 @@ export class SvgLayer {
     const n = this.nodes.get(id)
     const board = this.current
     if (!n || !board) return Promise.resolve()
-    this.cancelRunning(id)
-    this.exiting.add(id)
+    // Resolved before anything is marked or cancelled: a bad `dir` throws here
+    // and leaves the piece exactly as it was.
     const { dx, dy } = at(DIRS, dir)
     const head = at(n.piece.cells, 0)
+    this.cancelRunning(id)
     const toEdge = dx > 0 ? board.W - head.x : dx < 0 ? head.x + 1 : dy > 0 ? board.H - head.y : head.y + 1
     const distance = toEdge + n.piece.cells.length + 1
     const keyframes: Keyframe[] = [
@@ -146,13 +147,16 @@ export class SvgLayer {
     const duration = reducedMotion() ? 0 : EXIT_MS
     const anims = [n.line, n.head].map((el) => el.animate(keyframes, { duration, easing: 'ease-in', fill: 'forwards' }))
     this.running.set(id, anims)
+    this.exiting.set(id, anims)
     return this.settle(id, anims).then((finished) => {
       if (!finished) return
       n.line.remove()
       n.head.remove()
       this.nodes.delete(id)
     }).finally(() => {
-      this.exiting.delete(id)
+      // Only the exit that owns the mark may clear it: a superseding exit has
+      // already replaced the entry, and its piece is still on its way out.
+      if (this.exiting.get(id) === anims) this.exiting.delete(id)
     })
   }
 

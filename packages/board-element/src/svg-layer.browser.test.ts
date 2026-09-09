@@ -160,7 +160,7 @@ describe('animations', () => {
     await expect(layer.shake(999999, 1)).resolves.toBeUndefined()
   })
 
-  test('a rebuild cancels a running animation and its promise still resolves', async () => {
+  test('a diff that drops the piece cancels a running animation and its promise still resolves', async () => {
     const b = board()
     layer.setBoard(b, DEFAULT_VIEW)
     const pc = b.pieces[0]
@@ -169,5 +169,54 @@ describe('animations', () => {
     layer.setBoard(board(8), DEFAULT_VIEW)
     await expect(p).resolves.toBeUndefined()
     expect(layer.isExiting(pc.id)).toBe(false)
+  })
+
+  test('a rebuild cancels a running animation and its promise still resolves', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = layer.animateExit(pc.id, pc.dir)
+    // A changed view is the one thing that forces rebuild(), and so clear().
+    layer.setBoard(board(), { ...DEFAULT_VIEW, stroke: 0.3 })
+    await expect(p).resolves.toBeUndefined()
+    expect(layer.isExiting(pc.id)).toBe(false)
+  })
+
+  test('a second exit supersedes the first and the piece stays exiting until the second ends', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const first = layer.animateExit(pc.id, pc.dir)
+    const second = layer.animateExit(pc.id, pc.dir)
+    expect(layer.isExiting(pc.id)).toBe(true)
+    await expect(first).resolves.toBeUndefined()
+    expect(layer.isExiting(pc.id)).toBe(true)
+    await expect(second).resolves.toBeUndefined()
+    expect(layer.hasPiece(pc.id)).toBe(false)
+    expect(layer.isExiting(pc.id)).toBe(false)
+    expect(layer.svg.querySelectorAll(`g[data-id="${pc.id}"]`).length).toBe(0)
+  })
+
+  test('the exit slides the head past the edge it faces, plus the length of the piece', async () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const pc = b.pieces.find((p) => p.dir === 1)
+    const head = pc?.cells[0]
+    const line = pc ? layer.nodesOf(pc.id)?.line : null
+    if (!pc || !head || !line) throw new Error('need a right-facing piece')
+    const done = layer.animateExit(pc.id, pc.dir)
+    const effect = line.getAnimations()[0]?.effect
+    if (!(effect instanceof KeyframeEffect)) throw new Error('need a keyframe effect')
+    const last = effect.getKeyframes().at(-1)
+    const transform = typeof last?.transform === 'string' ? last.transform : ''
+    // Chromium is free to normalise the keyframe string, so the assertion goes
+    // through the parsed matrix rather than through the text.
+    const m = new DOMMatrixReadOnly(transform)
+    expect(m.e).toBeCloseTo(b.W - head.x + pc.cells.length + 1, 9)
+    expect(m.f).toBeCloseTo(0, 9)
+    expect(Number(last?.opacity)).toBe(0)
+    await done
   })
 })
