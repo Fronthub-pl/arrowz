@@ -385,9 +385,9 @@ describe('animations', () => {
 
 describe('colours follow the piece', () => {
   test('the hue of a piece does not change when another piece is removed', async () => {
-    const b = board()
-    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
-    const [first, second] = [b.pieces[0], b.pieces[1]]
+    const full = board()
+    layer.setBoard(full, { ...DEFAULT_VIEW, colored: true })
+    const [first, second] = [full.pieces[0], full.pieces[1]]
     expect(first && second).toBeTruthy()
     if (!first || !second) return
     const before = nodes(second.id).line.getAttribute('stroke')
@@ -397,9 +397,15 @@ describe('colours follow the piece', () => {
     // A removal touches nodes, not the tree: the survivor keeps its colour.
     expect(nodes(second.id).line.getAttribute('stroke')).toBe(before)
 
-    // And a redraw of the same view keeps it too, because the hue is the id's.
-    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
-    expect(nodes(second.id).line.getAttribute('stroke')).toBe(before)
+    // A later board that already reflects `first` having left: `second` now
+    // sits one index lower in the array, which is exactly what a colour read
+    // off the index would notice. Drawn on a fresh layer to force a full
+    // rebuild rather than the cheap diff, which never revisits a survivor's
+    // node once drawn — only a rebuild would expose an index-based colour.
+    const shrunk = board(7, { pieces: full.pieces.filter((p) => p.id !== first.id) })
+    const fresh = new SvgLayer()
+    fresh.setBoard(shrunk, { ...DEFAULT_VIEW, colored: true })
+    expect(fresh.nodesOf(second.id)?.line.getAttribute('stroke')).toBe(before)
   })
 
   test('a coloured board diffs by piece identity instead of rebuilding', () => {
