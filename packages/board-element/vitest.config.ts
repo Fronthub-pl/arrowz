@@ -26,7 +26,19 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright(),
+            // The headless SHELL is a separate, stripped binary rasterising in
+            // software at one device pixel per CSS pixel. `channel: 'chromium'`
+            // is Playwright's new headless mode — the real Chrome engine,
+            // headless — and deviceScaleFactor 2 gives it the pixel count a
+            // Retina host rasterises. Measured, the pair moves the ceiling case
+            // from 83 ms a frame to 104 ms: closer, not close. The frame time a
+            // person actually sees is ten times that again, and the difference
+            // is compositing onto a display, which nothing headless does. The
+            // header of perf.browser.test.ts carries the three figures.
+            provider: playwright({
+              launchOptions: { channel: 'chromium' },
+              contextOptions: { deviceScaleFactor: 2 },
+            }),
             instances: [{ browser: 'chromium' }],
           },
         },

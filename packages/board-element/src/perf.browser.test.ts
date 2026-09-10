@@ -8,6 +8,24 @@
 // anything cheaper than ~16.7 ms prints as ~16.7 ms. Only figures well above
 // that measure the element's work; at or near 16.7 ms the frame had room to
 // spare and the number is the wait, not the cost.
+//
+// What these numbers are NOT. They are measured headless, and a headless
+// browser presents nothing to a screen, so it never pays for rasterising and
+// compositing the tree onto a real display. Measured on an M1, host 800×800 at
+// devicePixelRatio 2, Insane seed 7 (85 809 pieces, 429 055 nodes):
+//
+//   headless shell, dpr 1                pan mean   83 ms   build 1 330 ms
+//   real Chrome engine headless, dpr 2   pan mean  104 ms   build 1 920 ms
+//   Chrome 152 in the foreground, GPU    pan mean 1050 ms   build 2 761 ms
+//
+// The first two rows are why vitest.config.ts now asks for the real engine at
+// dpr 2 rather than the stripped shell: same shape, closer numbers. The third
+// row is the one a person actually sees, and no headless mode reaches it — the
+// gap is raster and composite of 429 055 nodes onto a display, which only a
+// foreground browser does. So treat every figure here as a floor and a
+// regression detector, never as a promise about anyone's screen. The ceiling
+// case is unusable in a real browser regardless of what this file prints; the
+// fix for that is a different drawing model, not a different budget.
 import { defaultParams, generate, newSession, play } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'
@@ -88,7 +106,20 @@ async function mount(size: string): Promise<ArrowzBoard> {
   return el
 }
 
-test('Nightmare builds under 5 s and pans 20 frames', async () => {
+/**
+ * The pan budget for Nightmare, in milliseconds of mean frame time. It is the
+ * spec's own figure (§11), and it is asserted on the mean rather than the
+ * worst because a single scheduling spike on a shared CI machine says nothing
+ * about the element.
+ *
+ * Measured, it has room: on an M1 at dpr 2 Nightmare pans at 16.6 ms, the rAF
+ * floor, so the element may triple the work it does per frame before this
+ * fails. That headroom is deliberate — a CI runner has no GPU and is slower
+ * than a laptop, and a gate that flakes gets deleted rather than fixed.
+ */
+const NIGHTMARE_PAN_MS = 50
+
+test('Nightmare builds under 5 s and pans within the budget', async () => {
   const board = generate({ ...defaultParams(), W: 100, H: 100, seed: 7 }).board
   const el = await mount('800px')
   const t0 = performance.now()
@@ -106,6 +137,7 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
   )
   expect(build).toBeLessThan(5000)
   expect(frames.length).toBe(20)
+  expect(mean).toBeLessThan(NIGHTMARE_PAN_MS)
   el.remove()
   // The timeout has to clear the budget it guards: generation, the mount and
   // 20 frames all share it, so the default 5 000 ms would abort the test
