@@ -1,5 +1,5 @@
 import { defaultParams, generate } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import type { Board, Piece } from '@arrowz/engine'
 import { beforeEach, describe, expect, test } from 'vitest'
 import { DEFAULT_VIEW, SvgLayer } from './svg-layer.ts'
 
@@ -8,12 +8,94 @@ function board(seed = 7, extra: Partial<Board> = {}): Board {
   return { ...r.board, ...extra }
 }
 
+/** Head at (5,5) facing right, one cell left, then two down: a corner right behind the head. */
+const BENT: Piece = { id: 424242, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 4, y: 7 }] }
+
+function bentBoard(): Board {
+  return board(7, { pieces: [BENT] })
+}
+
+const frame = (): Promise<void> => new Promise((resolve) => requestAnimationFrame(() => resolve()))
+
 let layer: SvgLayer
 beforeEach(() => {
   document.body.innerHTML = ''
   layer = new SvgLayer()
   document.body.append(layer.svg)
 })
+
+/**
+ * A point of an element in board units, every transform on the way included.
+ * The assertions go through this rather than through attributes, so a piece
+ * moved by a group transform is measured the same as one moved by its points.
+ */
+function world(el: SVGGraphicsElement, x: number, y: number): { x: number; y: number } {
+  const root = layer.svg.getScreenCTM()
+  const own = el.getScreenCTM()
+  if (!root || !own) throw new Error('the layer is not rendered')
+  const p = new DOMPoint(x, y).matrixTransform(own).matrixTransform(root.inverse())
+  return { x: p.x, y: p.y }
+}
+
+function nodes(id: number): { line: SVGGElement; head: SVGGElement } {
+  const n = layer.nodesOf(id)
+  if (!n) throw new Error(`piece ${id} is not on the board`)
+  return n
+}
+
+/** Where the tip of the arrowhead is. */
+function tipOf(id: number): { x: number; y: number } {
+  const poly = nodes(id).head.querySelector('polygon')
+  if (!(poly instanceof SVGPolygonElement)) throw new Error('no head polygon')
+  const tip = poly.points.getItem(0)
+  return world(poly, tip.x, tip.y)
+}
+
+/** Where the rounding at the end of the line is. */
+function tailOf(id: number): { x: number; y: number } {
+  const c = nodes(id).head.querySelector('circle')
+  if (!(c instanceof SVGCircleElement)) throw new Error('no tail circle')
+  return world(c, c.cx.baseVal.value, c.cy.baseVal.value)
+}
+
+function linePoints(id: number): { x: number; y: number }[] {
+  const poly = nodes(id).line.querySelector('polyline')
+  if (!(poly instanceof SVGPolylineElement)) throw new Error('no line polyline')
+  const out: { x: number; y: number }[] = []
+  for (let i = 0; i < poly.points.numberOfItems; i++) {
+    const p = poly.points.getItem(i)
+    out.push(world(poly, p.x, p.y))
+  }
+  return out
+}
+
+/** Everything a ride moves, so a before and after can be compared in one go. */
+function poseOf(id: number): { tip: { x: number; y: number }; tail: { x: number; y: number }; line: string } {
+  const poly = nodes(id).line.querySelector('polyline')
+  return { tip: tipOf(id), tail: tailOf(id), line: poly?.getAttribute('points') ?? '' }
+}
+
+/**
+ * Runs frames until the head has covered `cells`, so what follows measures a
+ * piece in mid-ride. Sampling a fixed number of frames would sometimes land
+ * before the first tick and pass on a piece that had not moved at all.
+ */
+async function ridden(id: number, cells = 0.2): Promise<void> {
+  const start = tipOf(id)
+  for (let i = 0; i < 60; i++) {
+    await frame()
+    const now = tipOf(id)
+    if (Math.hypot(now.x - start.x, now.y - start.y) >= cells) return
+  }
+  throw new Error(`piece ${id} never rode`)
+}
+
+/** The track of BENT: up the column x = 4.5, then right along the row y = 5.5 and out. */
+function expectOnTrack(p: { x: number; y: number }): void {
+  const onColumn = Math.abs(p.x - 4.5) < 1e-6 && p.y >= 5.5 - 1e-6 && p.y <= 7.5 + 1e-6
+  const onRow = Math.abs(p.y - 5.5) < 1e-6 && p.x >= 4.5 - 1e-6
+  expect(onColumn || onRow, `(${p.x}, ${p.y}) is off the track`).toBe(true)
+}
 
 describe('build', () => {
   test('draws every piece as a line group and a head group', () => {
@@ -213,24 +295,90 @@ describe('animations', () => {
     expect(layer.svg.querySelectorAll(`g[data-id="${pc.id}"]`).length).toBe(0)
   })
 
-  test('the exit slides the head past the edge it faces, plus the length of the piece', async () => {
-    const b = board()
-    layer.setBoard(b, DEFAULT_VIEW)
-    const pc = b.pieces.find((p) => p.dir === 1)
-    const head = pc?.cells[0]
-    const line = pc ? layer.nodesOf(pc.id)?.line : null
-    if (!pc || !head || !line) throw new Error('need a right-facing piece')
-    const done = layer.animateExit(pc.id, pc.dir)
-    const effect = line.getAnimations()[0]?.effect
-    if (!(effect instanceof KeyframeEffect)) throw new Error('need a keyframe effect')
-    const last = effect.getKeyframes().at(-1)
-    const transform = typeof last?.transform === 'string' ? last.transform : ''
-    // Chromium is free to normalise the keyframe string, so the assertion goes
-    // through the parsed matrix rather than through the text.
-    const m = new DOMMatrixReadOnly(transform)
-    expect(m.e).toBeCloseTo(b.W - head.x + pc.cells.length + 1, 9)
-    expect(m.f).toBeCloseTo(0, 9)
-    expect(Number(last?.opacity)).toBe(0)
+  test('the paper reaches past the cells by the margin', () => {
+    layer.pad = 2
+    layer.setBoard(board(), DEFAULT_VIEW)
+    const paper = layer.svg.querySelector('rect.paper')
+    expect(paper?.getAttribute('x')).toBe('-2')
+    expect(paper?.getAttribute('y')).toBe('-2')
+    expect(paper?.getAttribute('width')).toBe('34')
+    expect(paper?.getAttribute('height')).toBe('34')
+  })
+
+  test('a riding piece is clipped to the paper, margin included', async () => {
+    layer.pad = 2
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const shaking = layer.shake(BENT.id, 0.3)
+    await ridden(BENT.id, 0.02)
+    const n = nodes(BENT.id)
+    const clip = n.line.getAttribute('clip-path')
+    expect(clip).toBeTruthy()
+    expect(n.head.getAttribute('clip-path')).toBe(clip)
+    const id = clip?.replace(/^url\(#|\)$/g, '')
+    const rect = layer.svg.querySelector(`clipPath[id="${id}"] rect`)
+    const paper = layer.svg.querySelector('rect.paper')
+    for (const a of ['x', 'y', 'width', 'height']) {
+      expect(rect?.getAttribute(a)).toBe(paper?.getAttribute(a))
+    }
+    await shaking
+  })
+
+  test('a piece that has stopped riding carries no clip', async () => {
+    layer.pad = 2
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    await layer.shake(BENT.id, 0.3)
+    const n = nodes(BENT.id)
+    expect(n.line.getAttribute('clip-path')).toBeNull()
+    expect(n.head.getAttribute('clip-path')).toBeNull()
+  })
+
+  test('the head rides straight out along the direction it faces', async () => {
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const before = tipOf(BENT.id)
+    const done = layer.animateExit(BENT.id, BENT.dir)
+    await ridden(BENT.id)
+    const now = tipOf(BENT.id)
+    expect(now.x).toBeGreaterThan(before.x + 1e-6)
+    expect(now.y).toBeCloseTo(before.y, 6)
+    await done
+  })
+
+  test('the tail of a bent piece stays on the track instead of sliding sideways', async () => {
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const before = tailOf(BENT.id)
+    const done = layer.animateExit(BENT.id, BENT.dir)
+    await ridden(BENT.id)
+    const now = tailOf(BENT.id)
+    expect(now).not.toEqual(before)
+    expectOnTrack(now)
+    await done
+  })
+
+  test('a shake leaves the piece exactly where it found it', async () => {
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const before = poseOf(BENT.id)
+    await layer.shake(BENT.id, 0.3)
+    expect(poseOf(BENT.id)).toEqual(before)
+  })
+
+  test('a shake cut short by the next ride hands it a piece at rest', async () => {
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const before = poseOf(BENT.id)
+    const cut = layer.shake(BENT.id, 0.3)
+    await ridden(BENT.id, 0.05)
+    // A nudge of nothing: it can only end where the ride before it left the piece.
+    await layer.shake(BENT.id, 0)
+    expect(poseOf(BENT.id)).toEqual(before)
+    await cut
+  })
+
+  test('the line keeps the corner while it rides, so it never cuts across it', async () => {
+    layer.setBoard(bentBoard(), DEFAULT_VIEW)
+    const done = layer.animateExit(BENT.id, BENT.dir)
+    await ridden(BENT.id)
+    const pts = linePoints(BENT.id)
+    for (const p of pts) expectOnTrack(p)
+    expect(pts.some((p) => Math.abs(p.x - 4.5) < 1e-6 && Math.abs(p.y - 5.5) < 1e-6)).toBe(true)
     await done
   })
 })

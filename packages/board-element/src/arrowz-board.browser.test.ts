@@ -1,7 +1,7 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { ArrowzBoard, ZOOM_STEP } from './arrowz-board.ts'
+import { ArrowzBoard, DEFAULT_PAD, ZOOM_STEP } from './arrowz-board.ts'
 import type { PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
 import './mod.ts'
 import { fit, viewBox, zoomBy } from './viewport.ts'
@@ -11,6 +11,9 @@ function makeBoard(seed = 7): Board {
 }
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+/** Cell size of a 30x30 board fitted into the 300 px host of `mount`, margin included. */
+const FIT = 300 / (30 + 2 * DEFAULT_PAD)
 
 let el: ArrowzBoard
 async function mount(attrs: Record<string, string> = {}): Promise<ArrowzBoard> {
@@ -67,9 +70,9 @@ describe('mount and viewport', () => {
   test('is registered and draws the board fitted to the host', async () => {
     expect(customElements.get('arrowz-board')).toBe(ArrowzBoard)
     await mount()
-    const expected = fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300 })
+    const expected = fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD })
     expect(svgOf(el).getAttribute('viewBox')).toBe(viewBox(expected))
-    expect(el.viewport?.cellPx).toBeCloseTo(10, 6)
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
     expect(el.viewport?.fitted).toBe(true)
     expect(svgOf(el).querySelectorAll('g.heads > g[data-id]').length).toBe(el.board?.pieces.length)
   })
@@ -80,9 +83,9 @@ describe('mount and viewport', () => {
     document.addEventListener('viewport-change', (e) => seen.push(e as ViewportChangeEvent))
     el.zoomBy(2)
     await raf()
-    const expected = zoomBy(fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300 }), 2)
+    const expected = zoomBy(fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD }), 2)
     expect(svgOf(el).getAttribute('viewBox')).toBe(viewBox(expected))
-    expect(seen.at(-1)?.detail.cellPx).toBeCloseTo(20, 6)
+    expect(seen.at(-1)?.detail.cellPx).toBeCloseTo(300 / (30 + 2 * DEFAULT_PAD) * 2, 6)
     expect(seen.at(-1)?.detail.fitted).toBe(false)
     const buttons = el.shadowRoot?.querySelectorAll('button')
     expect(buttons?.length).toBe(3)
@@ -91,7 +94,7 @@ describe('mount and viewport', () => {
     expect(el.viewport?.fitted).toBe(true)
     ;(buttons?.[0] as HTMLButtonElement).click() // zoom in
     await raf()
-    expect(el.viewport?.cellPx).toBeCloseTo(10 * ZOOM_STEP, 6)
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT * ZOOM_STEP, 6)
   })
 
   test('the wheel zooms towards the cursor and is not passive', async () => {
@@ -107,8 +110,9 @@ describe('mount and viewport', () => {
     svgOf(el).dispatchEvent(ev)
     await raf()
     expect(ev.defaultPrevented).toBe(true)
-    expect(el.viewport?.cellPx).toBeGreaterThan(10)
-    expect(el.viewport?.originX).toBeCloseTo(0, 6) // the top-left corner stayed put
+    expect(el.viewport?.cellPx).toBeGreaterThan(FIT)
+    // The top-left corner stayed put, and with a margin that corner is the margin.
+    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
   })
 
   test('keys work when the host is focused', async () => {
@@ -116,7 +120,7 @@ describe('mount and viewport', () => {
     el.focus()
     el.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }))
     await raf()
-    expect(el.viewport?.cellPx).toBeCloseTo(10 * ZOOM_STEP, 6)
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT * ZOOM_STEP, 6)
     el.dispatchEvent(new KeyboardEvent('keydown', { key: '0', bubbles: true }))
     await raf()
     expect(el.viewport?.fitted).toBe(true)
@@ -134,7 +138,7 @@ describe('mount and viewport', () => {
     document.removeEventListener('viewport-change', onChange)
     expect(seen.length).toBe(1)
     expect(seen[0]?.detail.cellPx).toBeCloseTo(el.viewport?.cellPx ?? 0, 6)
-    expect(seen[0]?.detail.cellPx).toBeCloseTo(10 * 1.1 * 1.1, 6)
+    expect(seen[0]?.detail.cellPx).toBeCloseTo(FIT * 1.1 * 1.1, 6)
   })
 
   test('resizing the host refits when fitted', async () => {
@@ -143,8 +147,9 @@ describe('mount and viewport', () => {
     await raf()
     await raf()
     expect(el.viewport?.hostWidth).toBeCloseTo(600, 6)
-    expect(el.viewport?.cellPx).toBeCloseTo(10, 6)
-    expect(el.viewport?.originX).toBeCloseTo(-15, 6)
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
+    // 600 px of view at the height's scale is 76 cells across 38 of board.
+    expect(el.viewport?.originX).toBeCloseTo((30 - 600 / FIT) / 2, 6)
   })
 })
 
@@ -216,11 +221,12 @@ describe('clicks', () => {
     el.zoomBy(3)
     await raf()
     const before = el.viewport?.originX ?? 0
+    const cellPx = el.viewport?.cellPx ?? 1
     svgOf(el).dispatchEvent(pointer('pointerdown', 150, 150, { metaKey: true }))
     svgOf(el).dispatchEvent(pointer('pointermove', 120, 150, { metaKey: true }))
     svgOf(el).dispatchEvent(pointer('pointerup', 120, 150, { metaKey: true }))
     await raf()
-    expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 1, 6) // 30 px at 30 px per cell
+    expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6) // a 30 px drag
   })
 })
 
@@ -290,5 +296,42 @@ describe('effects and labels', () => {
     el.board = { ...b, pieces: b.pieces.slice(1) }
     await el.updateComplete
     expect(svgOf(el).querySelector(`g.pieces > g[data-id="${kept.id}"]`)).toBe(node)
+  })
+})
+
+describe('margin', () => {
+  function paperOf(e: ArrowzBoard): SVGRectElement {
+    const r = e.shadowRoot?.querySelector('rect.paper')
+    if (!(r instanceof SVGRectElement)) throw new Error('no paper')
+    return r
+  }
+
+  test('the board keeps a margin of four cells around the cells by default', async () => {
+    await mount()
+    expect(DEFAULT_PAD).toBe(4)
+    expect(paperOf(el).getAttribute('x')).toBe('-4')
+    expect(paperOf(el).getAttribute('width')).toBe('38')
+    expect(el.viewport?.originX).toBeCloseTo(-4, 6)
+  })
+
+  test('the pad attribute sets the margin', async () => {
+    await mount({ pad: '2' })
+    expect(el.pad).toBe(2)
+    expect(paperOf(el).getAttribute('x')).toBe('-2')
+    expect(paperOf(el).getAttribute('width')).toBe('34')
+  })
+
+  test('a pad of zero draws the board edge to edge, as before', async () => {
+    await mount({ pad: '0' })
+    expect(paperOf(el).getAttribute('x')).toBe('0')
+    expect(paperOf(el).getAttribute('width')).toBe('30')
+  })
+
+  test('the paper follows the margin the view actually keeps, not the one asked for', async () => {
+    // 1 cell of 300/32 px is under the 16 px floor, so the view widens it.
+    await mount({ pad: '1' })
+    const kept = el.viewport?.originX ?? 0
+    expect(kept).toBeLessThan(-1)
+    expect(Number(paperOf(el).getAttribute('x'))).toBeCloseTo(kept, 6)
   })
 })

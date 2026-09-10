@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
-import { fit, MAX_CELL_PX, panBy, resize, screenToCell, viewBox, zoomAt, zoomBy } from './viewport.ts'
+import { fit, MAX_CELL_PX, MIN_PAD_PX, panBy, resize, screenToCell, viewBox, zoomAt, zoomBy } from './viewport.ts'
 
-const input = { W: 100, H: 200, hostWidth: 400, hostHeight: 800 }
+const input = { W: 100, H: 200, hostWidth: 400, hostHeight: 800, pad: 0 }
 
 describe('fit', () => {
   test('scales the board to the host and starts fitted', () => {
@@ -44,7 +44,7 @@ describe('zoomAt', () => {
   })
 
   test('a tiny board in a big host keeps fit reachable above the limit', () => {
-    const v = fit({ W: 4, H: 4, hostWidth: 400, hostHeight: 400 })
+    const v = fit({ W: 4, H: 4, hostWidth: 400, hostHeight: 400, pad: 0 })
     expect(v.cellPx).toBeCloseTo(100, 9)
     expect(zoomAt(v, 2, 200, 200).cellPx).toBeCloseTo(100, 9)
   })
@@ -99,5 +99,46 @@ describe('screenToCell', () => {
     expect(screenToCell(v, 203, 799)).toEqual({ x: 0, y: 199 })
     expect(screenToCell(v, 100, 400)).toBeNull()
     expect(screenToCell(v, 600, 400)).toBeNull()
+  })
+})
+
+describe('margin', () => {
+  const small = { W: 10, H: 10, hostWidth: 400, hostHeight: 400, pad: 3 }
+
+  test('fit leaves the requested margin on every side of the board', () => {
+    const v = fit(small)
+    expect(v.margin).toBeCloseTo(3, 9)
+    expect(v.cellPx).toBeCloseTo(25, 9)
+    expect(viewBox(v)).toBe('-3 -3 16 16')
+  })
+
+  test('no margin asked for means none given', () => {
+    const v = fit({ ...small, pad: 0 })
+    expect(v.margin).toBe(0)
+    expect(viewBox(v)).toBe('0 0 10 10')
+  })
+
+  test('a margin that would shrink below the floor on screen is widened to it', () => {
+    const v = fit({ W: 400, H: 400, hostWidth: 800, hostHeight: 800, pad: 4 })
+    expect(v.margin).toBeGreaterThan(4)
+    expect(v.margin * v.cellPx).toBeCloseTo(MIN_PAD_PX, 6)
+  })
+
+  test('a margin already wider than the floor is left alone', () => {
+    const v = fit(small)
+    expect(v.margin * v.cellPx).toBeGreaterThan(MIN_PAD_PX)
+    expect(v.margin).toBeCloseTo(3, 9)
+  })
+
+  test('panning cannot pull the board past its margin', () => {
+    const v = panBy(zoomAt(fit(small), 4, 0, 0), 5000, 5000)
+    expect(v.originX).toBeGreaterThanOrEqual(-v.margin - 1e-9)
+    expect(v.originY).toBeGreaterThanOrEqual(-v.margin - 1e-9)
+  })
+
+  test('a click in the margin belongs to no cell', () => {
+    const v = fit(small)
+    expect(screenToCell(v, 4, 4)).toBeNull()
+    expect(screenToCell(v, 200, 200)).toEqual({ x: 5, y: 5 })
   })
 })

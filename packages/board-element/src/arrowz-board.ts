@@ -26,6 +26,12 @@ export type ViewportChangeEvent = CustomEvent<BoardViewport>
 export const ZOOM_STEP = 1.25
 /** Wheel factor per event: exp(-deltaY * WHEEL_RATE), smooth for trackpads and mice alike. */
 export const WHEEL_RATE = 0.0015
+/**
+ * Cells of margin drawn around the board unless the `pad` attribute says
+ * otherwise. Without one an arrowhead in an edge cell ends two hundredths of a
+ * cell from the paper's edge, which reads as the board cutting it off.
+ */
+export const DEFAULT_PAD = 4
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
@@ -40,6 +46,7 @@ export class ArrowzBoard extends LitElement {
     board: { attribute: false },
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
+    pad: { type: Number, reflect: true },
     // No accessor: the native HTMLElement.lang stays in force, so the property
     // and the attribute never disagree (`:lang()`, hyphenation and assistive
     // tech read the attribute). attributeChangedCallback below asks for the
@@ -50,6 +57,8 @@ export class ArrowzBoard extends LitElement {
   declare board: Board | null
   declare view: Partial<BoardView>
   declare interactive: boolean
+  /** Margin around the board, in cells. See DEFAULT_PAD. */
+  declare pad: number
 
   static styles = css`
     :host {
@@ -124,6 +133,7 @@ export class ArrowzBoard extends LitElement {
     this.board = null
     this.view = {}
     this.interactive = false
+    this.pad = DEFAULT_PAD
     const svg = this.layer.svg
     svg.addEventListener('pointerdown', this.onPointerDown)
     svg.addEventListener('pointermove', this.onPointerMove)
@@ -183,9 +193,16 @@ export class ArrowzBoard extends LitElement {
   }
 
   override updated(changed: PropertyValues<this>): void {
-    if (!changed.has('board') && !changed.has('view')) return
+    if (!changed.has('board') && !changed.has('view') && !changed.has('pad')) return
     const previous = this.layer.board
     this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view })
+    // The margin is part of what the board is fitted into, so changing it
+    // refits: it is a setting, not something touched during play.
+    if (changed.has('pad')) {
+      this.vp = null
+      this.syncViewport()
+      return
+    }
     // A view change repaints the same cells: the viewport is the board's
     // geometry against the host, and neither of those moved.
     if (!changed.has('board')) return
@@ -240,16 +257,21 @@ export class ArrowzBoard extends LitElement {
     const board = this.board
     if (!board || this.hostWidth <= 0 || this.hostHeight <= 0) {
       this.vp = null
+      this.layer.pad = this.pad
       this.layer.svg.removeAttribute('viewBox')
       return
     }
-    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight }
+    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad: this.pad }
     this.setViewport(this.vp ? resize(this.vp, input.hostWidth, input.hostHeight) : fit(input))
   }
 
   private setViewport(v: Viewport): void {
     const previous = this.vp
     this.vp = v
+    // The paper is drawn to the margin the view actually keeps, not the one
+    // asked for: below the pixel floor those differ, and a paper narrower than
+    // the view would leave a bare strip around the board.
+    this.layer.pad = v.margin
     // A resize that changes nothing (a repaint, a host size set to what it
     // already was) must not repaint the attribute nor wake the consumer.
     if (previous !== null && sameViewport(previous, v)) return

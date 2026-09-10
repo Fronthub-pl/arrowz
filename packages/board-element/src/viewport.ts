@@ -8,6 +8,8 @@ export interface ViewportInput {
   H: number
   hostWidth: number
   hostHeight: number
+  /** Margin asked for around the board, in cells; 0 for none. */
+  pad: number
 }
 
 export interface Viewport extends ViewportInput {
@@ -15,36 +17,62 @@ export interface Viewport extends ViewportInput {
   originX: number
   originY: number
   fitted: boolean
+  /** The margin actually kept, in cells: `pad`, or wider when `pad` would go under MIN_PAD_PX. */
+  margin: number
 }
 
 /** Above this a cell fills so much of the screen that orientation on the board falls apart. */
 export const MAX_CELL_PX = 48
 
+/** Under this a margin stops reading as one on screen, whatever it is worth in cells. */
+export const MIN_PAD_PX = 16
+
+/**
+ * The margin actually kept, in cells. A margin measured in cells shrinks with
+ * them, so on a 400x400 board fitted into a laptop it would come to a pixel or
+ * two; it is widened until it is worth MIN_PAD_PX on the fitted board.
+ * Solving `m * host / (dim + 2m) = MIN_PAD_PX` for `m` gives the closed form
+ * below, so nothing has to be searched for and the result cannot oscillate.
+ *
+ * A `pad` of 0 stays 0: asking for no margin is not asking for a small one.
+ */
+function marginOf(v: ViewportInput): number {
+  if (v.pad <= 0) return 0
+  const room = 2 * MIN_PAD_PX
+  const byWidth = v.hostWidth > room ? MIN_PAD_PX * v.W / (v.hostWidth - room) : 0
+  const byHeight = v.hostHeight > room ? MIN_PAD_PX * v.H / (v.hostHeight - room) : 0
+  return Math.max(v.pad, byWidth, byHeight)
+}
+
 function fitScale(v: ViewportInput): number {
-  return Math.min(v.hostWidth / v.W, v.hostHeight / v.H)
+  const m = marginOf(v)
+  return Math.min(v.hostWidth / (v.W + 2 * m), v.hostHeight / (v.H + 2 * m))
 }
 
 /**
  * Applies both bounds: the scale stays in [fit, 48 px] (or [fit, fit] when
  * the fit already exceeds 48 px, so `fit` is always reachable), and the board
- * cannot leave the view: on an axis where it is larger than the view the
- * origin stays within the board, where it is smaller the board is centred.
+ * with its margin cannot leave the view: on an axis where it is larger than
+ * the view the origin stays within it, where it is smaller it is centred.
  */
 function clamp(v: ViewportInput & { cellPx: number; originX: number; originY: number }): Viewport {
   const f = fitScale(v)
+  const m = marginOf(v)
   const cellPx = Math.min(Math.max(v.cellPx, f), Math.max(MAX_CELL_PX, f))
   const viewW = v.hostWidth / cellPx, viewH = v.hostHeight / cellPx
-  const originX = viewW >= v.W ? (v.W - viewW) / 2 : Math.min(Math.max(v.originX, 0), v.W - viewW)
-  const originY = viewH >= v.H ? (v.H - viewH) / 2 : Math.min(Math.max(v.originY, 0), v.H - viewH)
+  const originX = viewW >= v.W + 2 * m ? (v.W - viewW) / 2 : Math.min(Math.max(v.originX, -m), v.W + m - viewW)
+  const originY = viewH >= v.H + 2 * m ? (v.H - viewH) / 2 : Math.min(Math.max(v.originY, -m), v.H + m - viewH)
   return {
     W: v.W,
     H: v.H,
     hostWidth: v.hostWidth,
     hostHeight: v.hostHeight,
+    pad: v.pad,
     cellPx,
     originX,
     originY,
     fitted: Math.abs(cellPx - f) < 1e-9,
+    margin: m,
   }
 }
 

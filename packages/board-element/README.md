@@ -28,12 +28,13 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `board` | `Board \| null` | `null` |
 | `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, automatic heads, monochrome) |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
+| `pad` | `number` (attribute, reflected): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 
 | Method | Behaviour |
 |---|---|
-| `animateExit(pieceId, dir)` | slides the piece off the board along `dir` (0 up, 1 right, 2 down, 3 left) and removes it; resolves when done |
-| `shake(pieceId, distance)` | nudges the piece `distance` cells along its direction and back |
+| `animateExit(pieceId, dir)` | rides the piece off the board along `dir` (0 up, 1 right, 2 down, 3 left) and removes it; resolves when done |
+| `shake(pieceId, distance)` | nudges the piece `distance` cells down its track and back |
 | `fit()` | fits the board into the host |
 | `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
 
@@ -49,6 +50,33 @@ before a board and a host size are both known.
 Controls: click without a modifier plays; drag with ⌘ or Ctrl pans; wheel
 zooms towards the cursor; one finger pans, two pinch, a tap plays; `+`, `−`,
 `0` and the corner buttons zoom and fit; double click or double tap fits.
+
+### The margin
+
+The board is drawn with a margin of `pad` cells on every side, so an arrowhead
+in an edge cell does not end flush against the paper. The margin is part of
+what the board is fitted into, and it is what a leaving piece is clipped to, so
+an arrow vanishes at the paper's edge rather than floating beside it. Changing
+`pad` refits the board.
+
+A margin measured in cells shrinks with them, so on a large board fitted into a
+small host it would come to a pixel or two. It is widened until it is worth
+`MIN_PAD_PX` on screen. A `pad` of `0` stays `0`: asking for no margin is not
+asking for a small one.
+
+### Riding the track
+
+A piece never slides sideways off its shape. It drives down its own corridor:
+the head runs straight out along its direction, and every other cell passes
+through the place of the one ahead of it, so a bent arrow bends its way out
+instead of moving as one rigid shape. `track.ts` holds that geometry as plain
+numbers; the layer redraws the line, the tail and the head once per frame from
+a single clock, so the three can never drift apart.
+
+Every piece leaves at one speed, `EXIT_SPEED` cells per second, bounded by
+`EXIT_MIN_MS` and `EXIT_MAX_MS`: a long arrow from the far side does not shoot
+out faster than a short one at the edge. `prefers-reduced-motion` collapses
+every ride to no time at all.
 
 ## Development
 

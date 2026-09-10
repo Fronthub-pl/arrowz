@@ -93,6 +93,10 @@ worker.onmessageerror = () => failed('worker sent a message the page could not r
 $<HTMLInputElement>('interactive').addEventListener('change', (e) => {
   board.interactive = (e.target as HTMLInputElement).checked
 })
+$<HTMLInputElement>('pad').addEventListener('change', (e) => {
+  const cells = Number((e.target as HTMLInputElement).value)
+  if (Number.isFinite(cells) && cells >= 0) board.pad = cells
+})
 $<HTMLInputElement>('colored').addEventListener('change', (e) => {
   board.view = { ...board.view, colored: (e.target as HTMLInputElement).checked }
 })
