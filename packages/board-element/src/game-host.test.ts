@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import type { Board, Piece } from '@arrowz/engine'
-import { GameHost, type GameEvent, type GameTarget, MIN_SHAKE_CELLS } from './game-host.ts'
+import { type GameEvent, GameHost, type GameTarget, MIN_SHAKE_CELLS } from './game-host.ts'
 
 function board(W: number, H: number, owner: number[], pieces: Piece[]): Board {
   return {
