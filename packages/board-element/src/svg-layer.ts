@@ -37,6 +37,15 @@ export const DEFAULT_VIEW: BoardView = {
   highlight: '#e8467c',
 }
 
+/**
+ * The diagnostic hue of a piece: the golden angle over its id. It must be the
+ * id and not the position in `board.pieces` — a game removes pieces, and a hue
+ * read off the array would repaint the whole board after every move.
+ */
+export function hueOf(id: number): string {
+  return `hsl(${(id * 137.508) % 360} 62% 42%)`
+}
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /** One clip per layer: two boards on a page must not share the shape they clip to. */
@@ -358,7 +367,7 @@ export class SvgLayer {
    */
   setBoard(board: Board | null, view: BoardView): void {
     const canDiff = board !== null && this.current !== null && board.W === this.current.W &&
-      board.H === this.current.H && sameView(view, this.view) && !view.colored && view.top === 0
+      board.H === this.current.H && sameView(view, this.view) && view.top === 0
     this.view = view
     if (board === null) {
       this.clear()
@@ -436,9 +445,9 @@ export class SvgLayer {
     const tops: string[] = []
     const heads: string[] = []
     const topHeads: string[] = []
-    board.pieces.forEach((pc, i) => {
+    board.pieces.forEach((pc) => {
       const isLong = longest.has(pc.id)
-      const col = isLong ? v.highlight : v.colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : v.ink
+      const col = isLong ? v.highlight : v.colored ? hueOf(pc.id) : v.ink
       const width = isLong ? hiWidth : v.stroke
       const [line, head] = this.markup(pc, width, col === v.ink ? null : col)
       if (isLong) {
@@ -507,7 +516,8 @@ export class SvgLayer {
     const heads: string[] = []
     for (const pc of board.pieces) {
       if (this.nodes.has(pc.id)) continue
-      const [line, head] = this.markup(pc, this.view.stroke, null)
+      const col = this.view.colored ? hueOf(pc.id) : this.view.ink
+      const [line, head] = this.markup(pc, this.view.stroke, col === this.view.ink ? null : col)
       added.push(pc)
       lines.push(line)
       heads.push(head)

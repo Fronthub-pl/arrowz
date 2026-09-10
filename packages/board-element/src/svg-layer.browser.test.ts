@@ -1,7 +1,7 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board, Piece } from '@arrowz/engine'
 import { beforeEach, describe, expect, test } from 'vitest'
-import { DEFAULT_VIEW, SvgLayer } from './svg-layer.ts'
+import { DEFAULT_VIEW, hueOf, SvgLayer } from './svg-layer.ts'
 
 function board(seed = 7, extra: Partial<Board> = {}): Board {
   const r = generate({ ...defaultParams(), W: 30, H: 30, seed })
@@ -380,5 +380,37 @@ describe('animations', () => {
     for (const p of pts) expectOnTrack(p)
     expect(pts.some((p) => Math.abs(p.x - 4.5) < 1e-6 && Math.abs(p.y - 5.5) < 1e-6)).toBe(true)
     await done
+  })
+})
+
+describe('colours follow the piece', () => {
+  test('the hue of a piece does not change when another piece is removed', async () => {
+    const b = board()
+    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
+    const [first, second] = [b.pieces[0], b.pieces[1]]
+    expect(first && second).toBeTruthy()
+    if (!first || !second) return
+    const before = nodes(second.id).line.getAttribute('stroke')
+    expect(before).toBe(hueOf(second.id))
+
+    await layer.animateExit(first.id, first.dir)
+    // A removal touches nodes, not the tree: the survivor keeps its colour.
+    expect(nodes(second.id).line.getAttribute('stroke')).toBe(before)
+
+    // And a redraw of the same view keeps it too, because the hue is the id's.
+    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
+    expect(nodes(second.id).line.getAttribute('stroke')).toBe(before)
+  })
+
+  test('a coloured board diffs by piece identity instead of rebuilding', () => {
+    const b = board()
+    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
+    const kept = b.pieces[2]
+    expect(kept).toBeTruthy()
+    if (!kept) return
+    const node = nodes(kept.id).line
+    layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
+    // The same node object: a rebuild would have replaced it.
+    expect(nodes(kept.id).line).toBe(node)
   })
 })

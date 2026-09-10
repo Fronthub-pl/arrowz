@@ -4,7 +4,7 @@ import type { ArrowzBoard, PieceClickEvent, ViewportChangeEvent } from './arrowz
 
 export { ArrowzBoard, DEFAULT_PAD, WHEEL_RATE, ZOOM_STEP } from './arrowz-board.ts'
 export type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
-export { DEFAULT_VIEW, SHAKE_MS } from './svg-layer.ts'
+export { DEFAULT_VIEW, hueOf, SHAKE_MS } from './svg-layer.ts'
 export type { BoardView } from './svg-layer.ts'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
