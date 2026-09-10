@@ -139,6 +139,33 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   el.remove()
 }, 180_000)
 
+// Same board, same measurement, with the point grid on: the grid is two SVG
+// nodes regardless of board size, so build and pan should track the figures
+// above rather than scale with the 1 000 000 cells they stand in for.
+test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane with the point grid on', async () => {
+  const g0 = performance.now()
+  const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
+  const genMs = performance.now() - g0
+  const el = await mount('800px')
+  el.showPoints = true
+  const t0 = performance.now()
+  el.board = board
+  await el.updateComplete
+  await raf()
+  const build = performance.now() - t0
+  const nodes = el.shadowRoot?.querySelectorAll('svg *').length ?? 0
+  const pieceCount = el.shadowRoot?.querySelectorAll('g.heads > g[data-id]').length ?? 0
+  el.zoomBy(3)
+  await raf()
+  const panStats = summary(await pan(svgOf(el), 60))
+  console.log(
+    `insane+points: pieces=${board.pieces.length} nodes=${nodes} gen=${genMs.toFixed(0)}ms ` +
+      `build=${build.toFixed(1)}ms pan mean=${panStats.mean.toFixed(1)}ms worst=${panStats.worst.toFixed(1)}ms`,
+  )
+  expect(pieceCount).toBe(board.pieces.length)
+  el.remove()
+}, 180_000)
+
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
   'measures a verdict and a coloured removal on Insane',
   async () => {

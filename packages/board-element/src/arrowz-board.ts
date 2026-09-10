@@ -9,7 +9,17 @@ import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
 import { labelsFor } from './i18n.ts'
 import { type BoardView, DEFAULT_VIEW, SvgLayer } from './svg-layer.ts'
-import { fit, panBy, resize, screenToCell, viewBox, type Viewport, zoomAt, zoomBy } from './viewport.ts'
+import {
+  fit,
+  MIN_POINT_CELL_PX,
+  panBy,
+  resize,
+  screenToCell,
+  viewBox,
+  type Viewport,
+  zoomAt,
+  zoomBy,
+} from './viewport.ts'
 
 export interface BoardViewport {
   cellPx: number
@@ -36,6 +46,12 @@ export const WHEEL_RATE = 0.0015
  * cell from the paper's edge, which reads as the board cutting it off.
  */
 export const DEFAULT_PAD = 4
+/** Default of `showPoints`: the point grid is off unless a host asks for it. */
+export const DEFAULT_SHOW_POINTS = false
+/** Default of `pointColor`: the point grid's dot colour. */
+export const DEFAULT_POINT_COLOR = '#c9c9d6'
+/** Default of `pointRadius`: the point grid's dot radius, in cells. */
+export const DEFAULT_POINT_RADIUS = 0.06
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
@@ -52,6 +68,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     interactive: { type: Boolean, reflect: true },
     play: { type: Boolean, reflect: true },
     pad: { type: Number, reflect: true },
+    showPoints: { type: Boolean, reflect: true, attribute: 'show-points' },
+    pointColor: { type: String, reflect: true, attribute: 'point-color' },
+    pointRadius: { type: Number, reflect: true, attribute: 'point-radius' },
     // No accessor: the native HTMLElement.lang stays in force, so the property
     // and the attribute never disagree (`:lang()`, hyphenation and assistive
     // tech read the attribute). attributeChangedCallback below asks for the
@@ -68,6 +87,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   declare play: boolean
   /** Margin around the board, in cells. See DEFAULT_PAD. */
   declare pad: number
+  /** Whether the point grid is drawn under the pieces. See DEFAULT_SHOW_POINTS. */
+  declare showPoints: boolean
+  /** Colour of the point grid's dots. */
+  declare pointColor: string
+  /** Radius of the point grid's dots, in cells. */
+  declare pointRadius: number
   /** Permission to colour the board. Without it the element is monochrome and shows no button. */
   declare enableColors: boolean
   /** The button's choice; null while the board still follows `view.colored`. */
@@ -150,6 +175,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.interactive = false
     this.play = false
     this.pad = DEFAULT_PAD
+    this.showPoints = DEFAULT_SHOW_POINTS
+    this.pointColor = DEFAULT_POINT_COLOR
+    this.pointRadius = DEFAULT_POINT_RADIUS
     this.enableColors = false
     this.coloredOverride = null
     const svg = this.layer.svg
@@ -223,6 +251,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   override updated(changed: PropertyValues<this>): void {
+    // Independent of everything below: the grid lives in its own two nodes,
+    // and re-reading `this.vp` here is what lets a plain colour or radius
+    // change (no board, no viewport move) still repaint it.
+    if (changed.has('showPoints') || changed.has('pointColor') || changed.has('pointRadius')) this.updatePoints()
     if (
       !changed.has('board') && !changed.has('view') && !changed.has('pad') &&
       !changed.has('coloredOverride') && !changed.has('enableColors')
@@ -331,6 +363,19 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     )
   }
 
+  /**
+   * Tells the layer whether to draw the point grid. Only this element knows
+   * `cellPx`, so it — not the layer — decides: `showPoints` asks for the
+   * grid, but below `MIN_POINT_CELL_PX` the raster would moiré, so the
+   * viewport can veto it without `showPoints` itself ever changing. Called on
+   * every viewport change as well as on the three properties, so zooming past
+   * the threshold hides or restores the grid with no property touched.
+   */
+  private updatePoints(): void {
+    const visible = this.showPoints && this.vp !== null && this.vp.cellPx >= MIN_POINT_CELL_PX
+    this.layer.setPoints(visible, this.pointColor, this.pointRadius)
+  }
+
   /** GameTarget: the game host reaches the board through these three. */
   emit(event: GameEvent): void {
     this.dispatchEvent(new CustomEvent(event.type, { detail: event.detail, bubbles: true, composed: true }))
@@ -350,6 +395,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     if (!board || this.hostWidth <= 0 || this.hostHeight <= 0) {
       this.vp = null
       this.layer.pad = this.pad
+      this.updatePoints()
       this.layer.svg.removeAttribute('viewBox')
       return
     }
@@ -364,6 +410,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // asked for: below the pixel floor those differ, and a paper narrower than
     // the view would leave a bare strip around the board.
     this.layer.pad = v.margin
+    this.updatePoints()
     // A resize that changes nothing (a repaint, a host size set to what it
     // already was) must not repaint the attribute nor wake the consumer.
     if (previous !== null && sameViewport(previous, v)) return

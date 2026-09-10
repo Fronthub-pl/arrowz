@@ -340,3 +340,48 @@ describe('margin', () => {
     expect(Number(paperOf(el).getAttribute('x'))).toBeCloseTo(kept, 6)
   })
 })
+
+describe('points', () => {
+  function rectOf(e: ArrowzBoard): SVGRectElement | null {
+    return e.shadowRoot?.querySelector('rect.points') ?? null
+  }
+
+  test('showPoints, pointColor and pointRadius reach the layer', async () => {
+    await mount({ 'show-points': '', 'point-color': '#ff00ff', 'point-radius': '0.2' })
+    const rect = rectOf(el)
+    expect(rect).not.toBeNull()
+    const circle = el.shadowRoot?.querySelector('pattern circle')
+    expect(circle?.getAttribute('fill')).toBe('#ff00ff')
+    expect(circle?.getAttribute('r')).toBe('0.2')
+  })
+
+  test('no grid without show-points, even at a cell size above the threshold', async () => {
+    await mount()
+    expect(rectOf(el)).toBeNull()
+  })
+
+  test('zooming out below the threshold hides the grid and zooming back in restores it, with no property touched in between', async () => {
+    el = document.createElement('arrowz-board')
+    el.style.width = '300px'
+    el.style.height = '300px'
+    el.setAttribute('show-points', '')
+    document.body.append(el)
+    el.board = generate({ ...defaultParams(), W: 200, H: 200, seed: 7 }).board
+    await el.updateComplete
+    await raf()
+    await raf()
+    // Fitted, a 200x200 board in a 300 px host gives well under 6 px per cell.
+    expect(el.viewport?.cellPx).toBeLessThan(6)
+    expect(rectOf(el)).toBeNull()
+
+    el.zoomBy(6)
+    await raf()
+    expect(el.viewport?.cellPx).toBeGreaterThanOrEqual(6)
+    expect(rectOf(el)).not.toBeNull()
+
+    el.fit()
+    await raf()
+    expect(el.viewport?.cellPx).toBeLessThan(6)
+    expect(rectOf(el)).toBeNull()
+  })
+})

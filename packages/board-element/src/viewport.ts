@@ -27,6 +27,9 @@ export const MAX_CELL_PX = 48
 /** Under this a margin stops reading as one on screen, whatever it is worth in cells. */
 export const MIN_PAD_PX = 16
 
+/** Under this a cell's raster is dense enough that the point grid moirés instead of reading as dots. */
+export const MIN_POINT_CELL_PX = 6
+
 /**
  * The margin actually kept, in cells. A margin measured in cells shrinks with
  * them, so on a 400x400 board fitted into a laptop it would come to a pixel or

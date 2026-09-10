@@ -32,6 +32,9 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 | `play` | `boolean` (attribute, reflected) | `false` |
 | `enableColors` | `boolean` (attribute `enable-colors`, reflected) | `false` |
+| `showPoints` | `boolean` (attribute `show-points`, reflected): draws the point grid | `false` |
+| `pointColor` | `string` (attribute `point-color`, reflected): colour of the grid's dots | `'#c9c9d6'` |
+| `pointRadius` | `number` (attribute `point-radius`, reflected): radius of the grid's dots, in cells | `0.06` |
 
 | Method | Behaviour |
 |---|---|
@@ -71,6 +74,31 @@ A margin measured in cells shrinks with them, so on a large board fitted into a
 small host it would come to a pixel or two. It is widened until it is worth
 `MIN_PAD_PX` on screen. A `pad` of `0` stays `0`: asking for no margin is not
 asking for a small one.
+
+### The point grid
+
+With `showPoints` the board draws a grid of one dot per cell underneath the
+pieces, like the ruling of a notebook page the arrows are laid on: their lines
+run from cell centre to cell centre, and this is that same grid made visible.
+It covers the cells only (`0,0` to `W,H`), not the `pad` margin, which stays
+blank paper. `pointColor` and `pointRadius` (in cells) style the dots; the grid
+is drawn once as an SVG pattern of one cell's pitch, so it costs the same two
+nodes at 10×10 as at 1000×1000.
+
+Below `MIN_POINT_CELL_PX` per cell the grid hides itself, `showPoints` left as
+it is: at that density the dots would moiré into grey rather than read as a
+grid, so zooming out past the threshold turns it off and zooming back in turns
+it back on.
+
+Each dot sits at its cell's centre — the same point a piece's line passes
+through — with radius `pointRadius` (default `0.06`), well inside a piece's
+default stroke half-width (`0.25`). Since pieces cover a freshly generated
+board with no gaps, a full board shows none of its dots: they are there,
+painted, just underneath. The grid reveals itself cell by cell as pieces
+leave the board, or wherever a cell was never carved (a void). That is by
+design, not a rendering fault — if the grid looks entirely absent, check
+whether a piece is covering the cell you're looking at before suspecting
+anything else.
 
 ### Riding the track
 

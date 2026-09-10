@@ -9,7 +9,15 @@ import type {
   ViewportChangeEvent,
 } from './arrowz-board.ts'
 
-export { ArrowzBoard, DEFAULT_PAD, WHEEL_RATE, ZOOM_STEP } from './arrowz-board.ts'
+export {
+  ArrowzBoard,
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  DEFAULT_SHOW_POINTS,
+  WHEEL_RATE,
+  ZOOM_STEP,
+} from './arrowz-board.ts'
 export type {
   BoardViewport,
   FinishedEvent,
@@ -26,7 +34,7 @@ export type { BoardView } from './svg-layer.ts'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
 export { EXIT_MAX_MS, EXIT_MIN_MS, EXIT_SPEED } from './track.ts'
-export { MAX_CELL_PX, MIN_PAD_PX } from './viewport.ts'
+export { MAX_CELL_PX, MIN_PAD_PX, MIN_POINT_CELL_PX } from './viewport.ts'
 
 declare global {
   interface HTMLElementTagNameMap {

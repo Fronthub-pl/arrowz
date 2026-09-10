@@ -53,6 +53,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 /** One clip per layer: two boards on a page must not share the shape they clip to. */
 let nextClipId = 0
 
+/** One dot pattern per layer, for the same reason as `nextClipId`. */
+let nextDotsId = 0
+
 export const SHAKE_MS = 230
 
 function reducedMotion(): boolean {
@@ -142,6 +145,8 @@ export class SvgLayer {
   private readonly paper: SVGRectElement
   private readonly clipRect: SVGRectElement
   private readonly clipUrl: string
+  private readonly dotsRect: SVGRectElement
+  private readonly dotsCircle: SVGCircleElement
   private readonly voidsGroup: SVGGElement
   private readonly piecesGroup: SVGGElement
   private readonly topGroup: SVGGElement
@@ -153,6 +158,8 @@ export class SvgLayer {
   private resting = new Map<number, () => void>()
   private current: Board | null = null
   private padCells = 0
+  /** Whether `dotsRect` is on the tree; see `setPoints`. */
+  private pointsVisible = false
   private view: BoardView = DEFAULT_VIEW
   /**
    * Pieces not to draw: a restored game's removed ids. Compared by identity,
@@ -170,8 +177,22 @@ export class SvgLayer {
     this.clipRect = svgEl('rect', { x: '0', y: '0', width: '0', height: '0' })
     const clip = svgEl('clipPath', { id: clipId })
     clip.append(this.clipRect)
+    // One pattern of one cell's pitch holding one dot, tiled by the rect
+    // below: two nodes whatever the board's size, rather than one per cell
+    // (a million of them on Insane, which would overflow the DOM and the
+    // paint budget alike).
+    const dotsId = `arrowz-board-dots-${nextDotsId++}`
+    this.dotsCircle = svgEl('circle', { cx: '0.5', cy: '0.5' })
+    const dotsPattern = svgEl('pattern', {
+      id: dotsId,
+      width: '1',
+      height: '1',
+      patternUnits: 'userSpaceOnUse',
+    })
+    dotsPattern.append(this.dotsCircle)
+    this.dotsRect = svgEl('rect', { class: 'points', x: '0', y: '0', width: '0', height: '0', fill: `url(#${dotsId})` })
     const defs = svgEl('defs')
-    defs.append(clip)
+    defs.append(clip, dotsPattern)
     this.voidsGroup = svgEl('g', { class: 'voids', 'fill-opacity': '.22' })
     this.piecesGroup = svgEl('g', {
       class: 'pieces',
@@ -201,6 +222,28 @@ export class SvgLayer {
     if (cells === this.padCells) return
     this.padCells = cells
     this.drawPaper(this.current)
+  }
+
+  /**
+   * Shows or hides the point grid and sets its colour and radius (in cells).
+   * Never touches `this.nodes` or a piece's markup: the grid lives in its own
+   * two nodes, entirely apart from the pieces, so toggling it never rebuilds
+   * them (see `BoardView` — these three are deliberately not in it).
+   */
+  setPoints(visible: boolean, color: string, radius: number): void {
+    this.dotsCircle.setAttribute('r', String(radius))
+    this.dotsCircle.setAttribute('fill', color)
+    if (visible) this.drawDots(this.current)
+    if (visible === this.pointsVisible) return
+    this.pointsVisible = visible
+    if (visible) this.voidsGroup.before(this.dotsRect)
+    else this.dotsRect.remove()
+  }
+
+  /** Sizes the grid to the cells alone: `0,0` to `W,H`, the margin left blank. */
+  private drawDots(board: Board | null): void {
+    this.dotsRect.setAttribute('width', String(board === null ? 0 : board.W))
+    this.dotsRect.setAttribute('height', String(board === null ? 0 : board.H))
   }
 
   get pieceCount(): number {
@@ -391,6 +434,7 @@ export class SvgLayer {
     }
     this.current = board
     this.drawPaper(board)
+    this.drawDots(board)
     this.drawVoids(board)
   }
 
@@ -413,6 +457,7 @@ export class SvgLayer {
     // A cleared layer draws nothing at all: leaving the paper at the old size
     // would keep a coloured rectangle of the previous board on screen.
     this.drawPaper(null)
+    this.drawDots(null)
     this.piecesGroup.replaceChildren()
     this.topGroup.replaceChildren()
     this.headsGroup.replaceChildren()

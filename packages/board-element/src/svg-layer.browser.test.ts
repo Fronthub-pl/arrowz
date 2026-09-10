@@ -432,3 +432,62 @@ describe('colours follow the piece', () => {
     expect(nodes(kept.id).line).toBe(node)
   })
 })
+
+describe('points', () => {
+  test('no grid is drawn by default', () => {
+    layer.setBoard(board(), DEFAULT_VIEW)
+    // The pattern is cheap, static infrastructure (like the clip path); only
+    // the rect that references it actually paints anything, and it is absent
+    // until `setPoints(true, …)` asks for it.
+    expect(layer.svg.querySelector('rect.points')).toBeNull()
+  })
+
+  test('the pattern is one cell wide and its circle is sized and coloured from the inputs', () => {
+    layer.setBoard(board(), DEFAULT_VIEW)
+    layer.setPoints(true, '#ff00ff', 0.12)
+    const pattern = layer.svg.querySelector('pattern')
+    expect(pattern?.getAttribute('patternUnits')).toBe('userSpaceOnUse')
+    expect(pattern?.getAttribute('width')).toBe('1')
+    expect(pattern?.getAttribute('height')).toBe('1')
+    const circle = pattern?.querySelector('circle')
+    expect(circle?.getAttribute('r')).toBe('0.12')
+    expect(circle?.getAttribute('fill')).toBe('#ff00ff')
+    const rect = layer.svg.querySelector('rect.points')
+    expect(rect?.getAttribute('fill')).toBe(`url(#${pattern?.id})`)
+  })
+
+  test('the rect covers exactly the cells, not the margin', () => {
+    layer.pad = 2
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    layer.setPoints(true, '#c9c9d6', 0.06)
+    const rect = layer.svg.querySelector('rect.points')
+    expect(rect?.getAttribute('x')).toBe('0')
+    expect(rect?.getAttribute('y')).toBe('0')
+    expect(rect?.getAttribute('width')).toBe(String(b.W))
+    expect(rect?.getAttribute('height')).toBe(String(b.H))
+  })
+
+  test('the dots node precedes the pieces group in the tree', () => {
+    layer.setBoard(board(), DEFAULT_VIEW)
+    layer.setPoints(true, '#c9c9d6', 0.06)
+    const dots = layer.svg.querySelector('rect.points')
+    const pieces = layer.svg.querySelector('g.pieces')
+    expect(dots).not.toBeNull()
+    expect(pieces).not.toBeNull()
+    if (!dots || !pieces) return
+    expect(Boolean(dots.compareDocumentPosition(pieces) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true)
+  })
+
+  test('toggling the grid preserves the piece nodes identity', () => {
+    const b = board()
+    layer.setBoard(b, DEFAULT_VIEW)
+    const first = b.pieces[0]
+    if (!first) throw new Error('need a piece')
+    const node = nodes(first.id).line
+    layer.setPoints(true, '#c9c9d6', 0.06)
+    expect(nodes(first.id).line).toBe(node)
+    layer.setPoints(false, '#c9c9d6', 0.06)
+    expect(nodes(first.id).line).toBe(node)
+  })
+})

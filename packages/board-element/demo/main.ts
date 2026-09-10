@@ -112,6 +112,9 @@ $<HTMLInputElement>('pad').addEventListener('change', (e) => {
 $<HTMLInputElement>('colored').addEventListener('change', (e) => {
   board.view = { ...board.view, colored: (e.target as HTMLInputElement).checked }
 })
+$<HTMLInputElement>('points').addEventListener('change', (e) => {
+  board.showPoints = (e.target as HTMLInputElement).checked
+})
 $<HTMLInputElement>('pl').addEventListener('change', (e) => {
   board.setAttribute('lang', (e.target as HTMLInputElement).checked ? 'pl' : 'en')
 })
