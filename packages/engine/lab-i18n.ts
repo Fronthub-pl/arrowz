@@ -79,9 +79,9 @@ export const EN = {
     cellHelp: 'Affects only the downloaded SVG and the CLI command. No effect on the preview.',
     strokeLabel: 'stroke width (grid units)',
     headWidthLabel: 'arrowhead width (grid units, 0 = automatic)',
-    headHeightLabel: 'arrowhead height (grid units, 0 = automatic)',
+    headHeightLabel: 'arrowhead height (grid units)',
     headHelp:
-      'Automatic: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide and 0.9 tall; from 0.5 a sharpened stick as wide as the line, 1.4 strokes tall. A head narrower than the line is widened to it.',
+      'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
     colored: 'colour the arrows (each piece a different colour)',
     hilite: 'highlight the longest pieces',
     voids: 'show jammed cells',
@@ -426,9 +426,9 @@ export const PL: Translation = {
     cellHelp: 'Dotyczy tylko pobieranego SVG i komendy CLI. Na podgląd nie ma wpływu.',
     strokeLabel: 'grubość linii (podziałki)',
     headWidthLabel: 'szerokość grotu (podziałki, 0 = automat)',
-    headHeightLabel: 'wysokość grotu (podziałki, 0 = automat)',
+    headHeightLabel: 'wysokość grotu (podziałki)',
     headHelp:
-      'Automat: poniżej grubości 0,5 strzałka 0,4 + 0,9 grubości szeroka i 0,9 wysoka; od 0,5 zaostrzony kijek szerokości linii, 1,4 grubości wysoki. Grot węższy od linii jest do niej poszerzany.',
+      'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
     colored: 'koloruj strzałki (każdy element inny kolor)',
     hilite: 'wyróżnij najdłuższe elementy',
     voids: 'pokaż komórki zaklinowania',

@@ -84,7 +84,13 @@ test('the line is butt at both its outer ends; merging leaves no interior join t
   const scene = tesselateBoard(board(7, { pieces: [straight] }), DEFAULT_VIEW, NONE)
   const r = scene.rangeOf(straight.id)
   if (!r) throw new Error('no range')
-  const shape = pieceShape(straight, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const shape = pieceShape(straight, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
   const headX = at(shape.line, 0)[0]
   const tailX = at(shape.line, shape.line.length - 1)[0]
   const pts = points(scene.positions, r.line)
@@ -107,7 +113,13 @@ test('a one-cell piece has no line segments and still has a head and a tail', ()
   const scene = tesselateBoard(board(7, { pieces: [DOT] }), DEFAULT_VIEW, NONE)
   const r = scene.rangeOf(DOT.id)
   expect(r?.line.count).toBe(0)
-  const shape = pieceShape(DOT, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const shape = pieceShape(DOT, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
   expect(r?.head.count).toBe(3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS)
 })
 
@@ -115,7 +127,13 @@ test('the head fan reproduces the polygon pieceShape describes', () => {
   const scene = tesselateBoard(board(7, { pieces: [BENT] }), DEFAULT_VIEW, NONE)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('no range')
-  const shape = pieceShape(BENT, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const shape = pieceShape(BENT, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
   const fan = points(scene.positions, { start: r.head.start, count: 3 * (shape.head.length - 2) })
   // positions is a Float32Array (the buffer a GPU draws from), so a point
   // survives the round trip only at float32 precision: compare against the
@@ -204,7 +222,13 @@ test('a ridden piece follows trackLine, corners included', () => {
   const out = new Float32Array(rideVertexBound(BENT) * 2)
   const count = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift: 0.5 }, out)
   const expected = trackLine(BENT.cells, BENT.dir, front, 0.5)
-  const shape = pieceShape(BENT, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const shape = pieceShape(BENT, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
   // The ride is written through the same writeLine, so it merges the same way.
   // `at` is this file's own checked index: the package allows no non-null assertions.
   const turnsAt = (l: readonly [number, number][], i: number): boolean => {
@@ -218,10 +242,14 @@ test('a ridden piece follows trackLine, corners included', () => {
   expect(count).toBe(want)
   // The corner survives the ride: trackLine emits every cell centre still
   // between the two moving ends, so a bent piece never straightens. BENT has
-  // four cells; at shift 0.5 the two ends have moved onto the ray in front of
-  // cell 0 and between cells 2 and 3, leaving the centres of cells 0, 1 and 2
-  // still between them — two ends plus three centres is five points.
-  expect(expected.length).toBe(5)
+  // four cells; the head is one cell tall, so the line begins 0.52 of a cell
+  // behind the head centre, and at shift 0.5 the front end has not quite
+  // reached that centre — it stops 0.02 short of it. The two ends are 0.02
+  // behind cell 0's centre and between cells 2 and 3, leaving the centres of
+  // cells 1 and 2 between them: two ends plus two centres is four points, and
+  // the turn at cell 1 is one of them.
+  expect(expected.length).toBe(4)
+  expect(corners).toBe(1)
 })
 
 test('a ride never writes past the bound the layer allocates', () => {
@@ -315,7 +343,13 @@ test('a straight run costs one segment, not one per cell', () => {
 test('merging leaves a piece with no straight run untouched', () => {
   // ZIGZAG turns at both interior points, so there is nothing to collapse.
   const scene = tesselateBoard(onlyPiece(ZIGZAG), { ...DEFAULT_VIEW, rounded: true }, NONE)
-  const shape = pieceShape(ZIGZAG, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const shape = pieceShape(ZIGZAG, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
   expect(scene.rangeOf(ZIGZAG.id)?.line.count).toBe(6 * (shape.line.length - 1) + 3 * JOIN_SEGMENTS * 2)
 })
 

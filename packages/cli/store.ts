@@ -54,7 +54,14 @@ function readMeta(file: string): BoardMeta | null {
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      view: { ...DEFAULT_VIEW, ...meta.view },
+      // A stored headHeight of 0 meant "automatic", a mode that no longer
+      // exists: read it as unset. Every board written before this change
+      // carries it, and taken literally they would draw no arrowhead at all.
+      view: {
+        ...DEFAULT_VIEW,
+        ...meta.view,
+        ...(meta.view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
+      },
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,

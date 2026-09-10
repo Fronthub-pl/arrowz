@@ -766,17 +766,16 @@ Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside i
       const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
       const height = Math.hypot(tip[0] - mid[0], tip[1] - mid[1]) / cell
       // Thin lines get an arrow: a head 0.4 of a cell plus 0.9 of the line
-      // width wide (0.58 at a stroke of 0.2, 0.8 at 0.45), always 0.9 of a
-      // cell tall. From a stroke of 0.5 up there is no room for that between
-      // neighbours, so the head is a sharpened stick: exactly as wide as the
-      // line, 1.4 times as tall.
+      // width wide (0.58 at a stroke of 0.2, 0.8 at 0.45). From a stroke of
+      // 0.5 up there is no room for that between neighbours, so the head is a
+      // sharpened stick: exactly as wide as the line. Only the width follows
+      // the stroke; the height is a cell here, the default, whatever the line.
       const want = s < 0.5 - 1e-9 ? 0.4 + 0.9 * s : s
       assert(Math.abs(base - want) < 1e-6, `${label}: base ${base}, expected ${want}`)
       assert(base <= 2 - s - 0.09, `${label}: base ${base} would touch a line in the next cell`)
       assert(height >= base, `${label}: head ${height} tall for a ${base} base is stubby`)
-      // An arrow keeps one height whatever the line width; a stick is 1.4 lines tall.
-      const wantHeight = s < 0.5 - 1e-9 ? 0.9 : 1.4 * s
-      assert(Math.abs(height - wantHeight) < 1e-6, `${label}: head ${height} tall, expected ${wantHeight}`)
+      // The height is literal: no stroke of any width moves it off the default.
+      assert(Math.abs(height - 1) < 1e-6, `${label}: head ${height} tall, expected 1`)
       // The tip stays inside the head cell (pad 20, cell 20: centre at 30 + 20n).
       const piece = at(board.pieces, i)
       const head = at(piece.cells, 0)
@@ -832,7 +831,7 @@ Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside i
 
 // The head size can be set by hand (view options, in cells); 0 keeps the
 // automatic rule. A head narrower than the line is pulled up to the line.
-Deno.test('toSvg: head width and height knobs override the automatic size', () => {
+Deno.test('toSvg: the head knobs set the size, and only the width has an automatic mode', () => {
   const { toSvg } = engineExports
   const cell = 20
   const { board } = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 })
@@ -852,9 +851,9 @@ Deno.test('toSvg: head width and height knobs override the automatic size', () =
     assert(Math.abs(h.base - 0.8) < 1e-6, `base ${h.base}`)
     assert(Math.abs(h.height - 1.2) < 1e-6, `height ${h.height}`)
   }
-  for (const h of measure({ strokeRatio: 0.7, headWidth: 0.4, headHeight: 0 })) {
+  for (const h of measure({ strokeRatio: 0.7, headWidth: 0.4, headHeight: 0.9 })) {
     assert(Math.abs(h.base - 0.7) < 1e-6, `a head narrower than the line is widened to it: ${h.base}`)
-    assert(Math.abs(h.height - 1.4 * 0.7) < 1e-6, `height 0 keeps the automatic rule: ${h.height}`)
+    assert(Math.abs(h.height - 0.9) < 1e-6, `height ${h.height}`)
   }
   for (const h of measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0.5 })) {
     assert(Math.abs(h.base - (0.4 + 0.9 * 0.3)) < 1e-6, `width 0 keeps the automatic rule: ${h.base}`)
@@ -862,7 +861,7 @@ Deno.test('toSvg: head width and height knobs override the automatic size', () =
   }
   assertEquals(
     measure({ strokeRatio: 0.3 }),
-    measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 0 }),
-    'zeros mean automatic',
+    measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 1 }),
+    'a missing width means automatic, a missing height means the default of one cell',
   )
 })

@@ -173,7 +173,9 @@ export interface SvgOptions {
   top?: number
   voids?: boolean
   strokeRatio?: number
+  /** Head width in cells; 0 or absent = automatic, from the stroke. */
   headWidth?: number
+  /** Head height in cells, taken literally; absent = the default of 1. */
   headHeight?: number
 }
 

@@ -26,7 +26,7 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | Property | Type | Default |
 |---|---|---|
 | `board` | `Board \| null` | `null` |
-| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, automatic heads, monochrome) |
+| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, monochrome) |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
 | `pad` | `number` (attribute, reflected): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |

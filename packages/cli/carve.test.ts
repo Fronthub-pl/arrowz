@@ -291,8 +291,8 @@ Deno.test('carve.ts without --advanced writes the board the simple lab view make
     cell: view.cell,
     colored: true,
     strokeRatio: 0.5,
-    headWidth: 0,
-    headHeight: 0,
+    headWidth: view.headWidth,
+    headHeight: view.headHeight,
     top: 0,
   })
 

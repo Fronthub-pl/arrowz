@@ -34,7 +34,7 @@ export interface ShapeOptions {
   width: number
   /** Head width in cells; 0 = automatic. */
   headWidth: number
-  /** Head height in cells; 0 = automatic. */
+  /** Head height in cells, taken literally: 0 draws a head of no height. */
   headHeight: number
 }
 
@@ -49,11 +49,12 @@ export interface PieceShape {
 
 /**
  * The shape of one piece. The arithmetic is the one toSvg had inline, in the
- * same order, so the CLI output stays byte-identical:
+ * same order, so extracting it left the CLI output byte-identical:
+ * - the head is exactly headHeight cells tall, whatever that says;
  * - a thin line (under half a cell) gets an arrow: an isosceles triangle
- *   0.4 of a cell plus 0.9 of the line width wide, 0.9 of a cell tall;
+ *   0.4 of a cell plus 0.9 of the line width wide;
  * - from half a cell up the line ends as a sharpened stick: a triangle as
- *   wide as the line and 1.4 times as tall, with a collar behind the base;
+ *   wide as the line, with a collar behind the base;
  * - the tip is always 0.48 past the head centre, so a bigger head grows backwards;
  * - line and head overlap by 0.2 of the line width, so no seam shows.
  *
@@ -63,9 +64,9 @@ export interface PieceShape {
  * an overshooting tip looked wrong and facing heads overlapped. A head only
  * slightly wider than the line, with the cap ending short of the base, looked
  * like a triangle perched on a pill, with notches at the corners; a fixed head
- * was swallowed by the cap from a stroke of 0.5 up. Both sizes can be set by
- * hand (headWidth / headHeight, in cells; 0 = automatic); a head narrower than
- * its line is widened to the line.
+ * was swallowed by the cap from a stroke of 0.5 up. The width can be set by
+ * hand (headWidth, in cells; 0 = automatic), and a head narrower than its line
+ * is widened to the line; the height has no automatic mode at all.
  */
 export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
   const { cell, pad, width: w } = o
@@ -76,9 +77,8 @@ export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
   const hx = cx(headCell.x), hy = cy(headCell.y)
   const stick = w >= 0.5 * cell - 1e-9
   const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
-  const autoHeight = stick ? 1.4 * w : 0.9 * cell
   const half = Math.max(w, o.headWidth > 0 ? o.headWidth * cell : autoWidth) / 2
-  const height = o.headHeight > 0 ? o.headHeight * cell : autoHeight
+  const height = o.headHeight * cell
   const tip = 0.48 * cell
   const tx = hx + dx * tip, ty = hy + dy * tip
   const bx = tx - dx * height, by = ty - dy * height

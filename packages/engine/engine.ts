@@ -2041,8 +2041,11 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   // In colour mode the pink would blend into the palette, so highlighted
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
-  // `undefined > 0` was false in the untyped code: a missing knob means automatic
-  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 0
+  // A missing head width means automatic; a missing head height means the
+  // default one cell, the same number DEFAULT_VIEW carries for the CLI and the
+  // board element. `??`, not `||`, so an explicit 0 stays the 0 that was asked
+  // for: the height has no automatic mode to fall back to.
+  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 1
   const pt = ([x, y]: [number, number]): string => `${x},${y}`
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)

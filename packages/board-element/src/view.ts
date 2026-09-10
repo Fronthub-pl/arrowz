@@ -6,7 +6,7 @@ export interface BoardView {
   stroke: number
   /** Head width in cells; 0 = automatic. */
   headWidth: number
-  /** Head height in cells; 0 = automatic. */
+  /** Head height in cells, taken literally: 0 draws a head of no height. */
   headHeight: number
   /** Round the corners a piece turns through, and cap its tail with a disc. */
   rounded: boolean
@@ -24,7 +24,7 @@ export interface BoardView {
 export const DEFAULT_VIEW: BoardView = {
   stroke: 0.5,
   headWidth: 0,
-  headHeight: 0,
+  headHeight: 1,
   rounded: true,
   colored: false,
   top: 0,

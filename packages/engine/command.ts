@@ -22,8 +22,9 @@ export const ALIASES: Record<string, ParamKey> = {
 const KEY_BY_FLAG = new Map<string, ParamKey>(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
 for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
 
-// headWidth / headHeight: arrowhead size in cells, 0 = automatic (from the stroke).
-export const DEFAULT_VIEW: View = { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 }
+// headWidth: arrowhead width in cells, 0 = automatic (from the stroke).
+// headHeight: arrowhead height in cells, always literal — one cell by default.
+export const DEFAULT_VIEW: View = { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0 }
 
 /** One line of a flag list in --help: the flag itself and its description. */
 type FlagRow = readonly [string, string]
@@ -50,7 +51,7 @@ const VIEW_FLAGS: readonly FlagRow[] = [
   ['--cell=N', `cell size in px (default ${DEFAULT_VIEW.cell})`],
   ['--stroke=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--headwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--headheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
+  ['--headheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
   ['--colored', 'a different colour for every piece'],
   ['--top=N', 'highlight the N longest pieces and print their stats'],
 ]
@@ -71,7 +72,7 @@ const SIMPLE_FLAGS: readonly FlagRow[] = [
   ['--colorized', 'a different colour for every piece'],
   ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--arrowheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
+  ['--arrowheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
 ]
 const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR)'],
@@ -183,7 +184,7 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   parts.push(`--cell=${v.cell}`)
   if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--stroke=${v.stroke}`)
   if (v.headWidth > 0) parts.push(`--headwidth=${v.headWidth}`)
-  if (v.headHeight > 0) parts.push(`--headheight=${v.headHeight}`)
+  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--headheight=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
   return parts.join(' ')
@@ -335,7 +336,7 @@ export function buildSimpleCommand(choice: SimpleChoice, view: Partial<View> = {
   if (choice.random) parts.push('--randomized')
   if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--lineweight=${v.stroke}`)
   if (v.headWidth > 0) parts.push(`--arrowwidth=${v.headWidth}`)
-  if (v.headHeight > 0) parts.push(`--arrowheight=${v.headHeight}`)
+  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrowheight=${v.headHeight}`)
   if (v.colored) parts.push('--colorized')
   return parts.join(' ')
 }
