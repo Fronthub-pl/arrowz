@@ -78,6 +78,11 @@ smaller than the host no longer being pinned to the middle. `fit()`, the `0`
 key, the corner button and a double click all put it back. `zoomBy` still works
 from the centre of the host: a button has no cursor to zoom towards.
 
+Holding ⌘ or Ctrl shows the grab cursor before anything is pressed, and takes
+the piece cursor away while it is held: with the modifier down the next click
+pans instead of playing, so the pointer cursor would promise a move that will
+not happen.
+
 ### The margin
 
 The board is drawn with a margin of `pad` cells on every side, so an arrowhead

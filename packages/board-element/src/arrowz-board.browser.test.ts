@@ -216,6 +216,47 @@ describe('clicks', () => {
     expect(svg.classList.contains('panning')).toBe(false)
   })
 
+  test('holding the modifier shows the grab cursor before any press', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    const svg = svgOf(el)
+    svg.dispatchEvent(pointer('pointerenter', p.x, p.y))
+    svg.dispatchEvent(pointer('pointermove', p.x, p.y))
+    expect(svg.classList.contains('over-piece')).toBe(true)
+    expect(svg.classList.contains('pan-ready')).toBe(false)
+    globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
+    expect(svg.classList.contains('pan-ready')).toBe(true)
+    // A click with the modifier pans instead of playing, so the piece cursor is
+    // not merely outranked: it would be a lie about what the click does.
+    expect(svg.classList.contains('over-piece')).toBe(false)
+    globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta' }))
+    expect(svg.classList.contains('pan-ready')).toBe(false)
+    expect(svg.classList.contains('over-piece')).toBe(true)
+  })
+
+  test('the pointer arriving with the modifier already down finds the grab cursor', async () => {
+    await mount({ interactive: '' })
+    const svg = svgOf(el)
+    svg.dispatchEvent(pointer('pointerenter', 150, 150, { ctrlKey: true }))
+    expect(svg.classList.contains('pan-ready')).toBe(true)
+  })
+
+  test('leaving the board, or the window losing focus, drops the grab cursor', async () => {
+    await mount({ interactive: '' })
+    const svg = svgOf(el)
+    svg.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
+    expect(svg.classList.contains('pan-ready')).toBe(true)
+    svg.dispatchEvent(pointer('pointerleave', 150, 150, { metaKey: true }))
+    expect(svg.classList.contains('pan-ready')).toBe(false)
+    // ⌘-Tab away: the keyup lands in another window, so blur has to do it.
+    svg.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
+    expect(svg.classList.contains('pan-ready')).toBe(true)
+    globalThis.dispatchEvent(new Event('blur'))
+    expect(svg.classList.contains('pan-ready')).toBe(false)
+  })
+
   test('a modifier drag pans', async () => {
     await mount()
     el.zoomBy(3)
