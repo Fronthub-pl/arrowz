@@ -82,6 +82,7 @@ export const EN = {
     headHeightLabel: 'arrowhead height (grid units)',
     headHelp:
       'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
+    rounded: 'round the corners (and the tail)',
     colored: 'colour the arrows (each piece a different colour)',
     hilite: 'highlight the longest pieces',
     voids: 'show jammed cells',
@@ -429,6 +430,7 @@ export const PL: Translation = {
     headHeightLabel: 'wysokość grotu (podziałki)',
     headHelp:
       'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
+    rounded: 'zaokrąglaj rogi (i ogon)',
     colored: 'koloruj strzałki (każdy element inny kolor)',
     hilite: 'wyróżnij najdłuższe elementy',
     voids: 'pokaż komórki zaklinowania',
