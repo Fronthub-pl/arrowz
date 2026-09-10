@@ -119,9 +119,28 @@ function cornersIn(line: readonly [number, number][]): number {
 
 const segmentVertices = (points: number): number => (points <= 1 ? 0 : 6 * (points - 1))
 
+/**
+ * A polyline with its collinear runs collapsed into single segments.
+ *
+ * `pieceShape` pushes the centre of every cell into `line`, so a piece running
+ * straight through six cells carries five 180-degree joins that cost two
+ * triangles each and change nothing. Collapsing them is a debt this file has
+ * carried since it was written, and it is what pays for the corner fans.
+ */
+function mergeCollinear(line: readonly [number, number][]): readonly [number, number][] {
+  if (line.length < 3) return line
+  const out: [number, number][] = [at(line, 0)]
+  for (let i = 1; i < line.length - 1; i++) {
+    if (turnsAt(line, i)) out.push(at(line, i))
+  }
+  out.push(at(line, line.length - 1))
+  return out
+}
+
 /** The vertices one polyline takes, its corner fans included. */
 function lineVerticesOf(line: readonly [number, number][], rounded: boolean): number {
-  return segmentVertices(line.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(line) : 0)
+  const l = mergeCollinear(line)
+  return segmentVertices(l.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(l) : 0)
 }
 
 const headVertices = (points: number, rounded: boolean): number =>
@@ -192,10 +211,11 @@ function writeSegment(
 function writeLine(
   out: Float32Array,
   o: number,
-  line: readonly [number, number][],
+  raw: readonly [number, number][],
   half: number,
   rounded: boolean,
 ): number {
+  const line = mergeCollinear(raw)
   const last = line.length - 1
   for (let i = 1; i <= last; i++) {
     const a = at(line, i - 1), b = at(line, i)

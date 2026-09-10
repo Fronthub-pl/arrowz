@@ -34,11 +34,8 @@ const BENT: Piece = { id: 424242, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }
 const DOT: Piece = { id: 7, dir: 1, cells: [{ x: 2, y: 2 }] }
 /** Head at (0,5) facing right, running straight: every interior point is collinear. */
 const STRAIGHT: Piece = { id: 5, dir: 1, cells: [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 2, y: 5 }] }
-/**
- * Head at (5,5) facing right, then down, then left: two corners and no straight run.
- * Unused so far; a later task's tests reach for it.
- */
-const _ZIGZAG: Piece = { id: 6, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 3, y: 6 }] }
+/** Head at (5,5) facing right, then down, then left: two corners and no straight run. */
+const ZIGZAG: Piece = { id: 6, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 3, y: 6 }] }
 
 const onlyPiece = (pc: Piece) => board(7, { pieces: [pc] })
 
@@ -70,16 +67,17 @@ function positionsVertexCount(p: Float32Array): number {
   return p.length / 2
 }
 
-test('a straight piece contributes six vertices per segment', () => {
+test('a straight piece merges into one segment of six vertices', () => {
   const straight: Piece = { id: 1, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }] }
   const scene = tesselateBoard(board(7, { pieces: [straight] }), DEFAULT_VIEW, NONE)
   const r = scene.rangeOf(1)
   expect(r).not.toBeNull()
-  // pieceShape emits one point per cell, so three cells make two segments.
-  expect(r?.line.count).toBe(12)
+  // pieceShape emits one point per cell, so three collinear cells make two
+  // points to merge into one segment: six vertices, not twelve.
+  expect(r?.line.count).toBe(6)
 })
 
-test('the line is butt at its two outer ends; an interior join still fills', () => {
+test('the line is butt at both its outer ends; merging leaves no interior join to fill', () => {
   // Horizontal (dir 1, dx=1 dy=0), so world x alone pins position along the
   // line and the test needs no projection arithmetic.
   const straight: Piece = { id: 99, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }] }
@@ -87,33 +85,22 @@ test('the line is butt at its two outer ends; an interior join still fills', () 
   const r = scene.rangeOf(straight.id)
   if (!r) throw new Error('no range')
   const shape = pieceShape(straight, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
-  const half = DEFAULT_VIEW.stroke / 2
   const headX = at(shape.line, 0)[0]
-  const jointX = at(shape.line, 1)[0]
-  const tailX = at(shape.line, 2)[0]
+  const tailX = at(shape.line, shape.line.length - 1)[0]
   const pts = points(scene.positions, r.line)
   const f32 = (n: number): number => Math.fround(n)
   const x = (i: number): number | undefined => pts[i]?.[0]
-  // First segment's "a" end (vertices 0, 3, 5 of writeSegment's fixed
-  // layout): the polyline's own first point, square, not pushed out by half
-  // a stroke the way the butt cap of `toSvg` never is either.
+  // The piece's three cells are collinear, so mergeCollinear drops the middle
+  // point before writeLine ever sees it: one segment spans headX to tailX,
+  // and both its ends are the polyline's own outer ends — square, not pushed
+  // out by half a stroke the way the butt cap of `toSvg` never is either.
+  // There is no interior point left to extend a join from.
   expect(x(0)).toBe(f32(headX))
   expect(x(3)).toBe(f32(headX))
   expect(x(5)).toBe(f32(headX))
-  // Last segment's "b" end (vertices 7, 8, 10 within its own six): likewise
-  // the polyline's own last point, unextended — the tail disc rounds it, not
-  // a square cap reaching past the disc's own radius.
-  expect(x(7)).toBe(f32(tailX))
-  expect(x(8)).toBe(f32(tailX))
-  expect(x(10)).toBe(f32(tailX))
-  // The interior join in between still extends by half a stroke on both
-  // sides, so the corner is filled rather than left with a gap.
-  expect(x(1)).toBe(f32(jointX - half))
-  expect(x(2)).toBe(f32(jointX - half))
-  expect(x(4)).toBe(f32(jointX - half))
-  expect(x(6)).toBe(f32(jointX + half))
-  expect(x(9)).toBe(f32(jointX + half))
-  expect(x(11)).toBe(f32(jointX + half))
+  expect(x(1)).toBe(f32(tailX))
+  expect(x(2)).toBe(f32(tailX))
+  expect(x(4)).toBe(f32(tailX))
 })
 
 test('a one-cell piece has no line segments and still has a head and a tail', () => {
@@ -218,10 +205,15 @@ test('a ridden piece follows trackLine, corners included', () => {
   const count = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift: 0.5 }, out)
   const expected = trackLine(BENT.cells, BENT.dir, front, 0.5)
   const shape = pieceShape(BENT, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
-  // Six vertices per segment, one fan per corner, a fan over the head polygon,
-  // and the tail disc.
-  const corners = expected.length > 2 ? 1 : 0
-  const want = 6 * (expected.length - 1) + 3 * JOIN_SEGMENTS * corners +
+  // The ride is written through the same writeLine, so it merges the same way.
+  // `at` is this file's own checked index: the package allows no non-null assertions.
+  const turnsAt = (l: readonly [number, number][], i: number): boolean => {
+    const a = at(l, i - 1), b = at(l, i), c = at(l, i + 1)
+    return Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-9
+  }
+  const corners = expected.filter((_, i) => i > 0 && i < expected.length - 1 && turnsAt(expected, i)).length
+  const segments = corners + 1
+  const want = 6 * segments + 3 * JOIN_SEGMENTS * corners +
     3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
   expect(count).toBe(want)
   // The corner survives the ride: trackLine emits every cell centre still
@@ -312,4 +304,24 @@ test('a sharp tail is a square with the same reach as the disc', () => {
   const cap = points(sharp.positions, r.head).slice(-6)
   const reach = cap.reduce((m, [x, y]) => Math.max(m, Math.abs(x - (tail.x + 0.5)), Math.abs(y - (tail.y + 0.5))), 0)
   expect(reach).toBeCloseTo(half, 9)
+})
+
+test('a straight run costs one segment, not one per cell', () => {
+  // STRAIGHT's line is three collinear points: two segments today, one after merging.
+  const scene = tesselateBoard(onlyPiece(STRAIGHT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  expect(scene.rangeOf(STRAIGHT.id)?.line.count).toBe(6)
+})
+
+test('merging leaves a piece with no straight run untouched', () => {
+  // ZIGZAG turns at both interior points, so there is nothing to collapse.
+  const scene = tesselateBoard(onlyPiece(ZIGZAG), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const shape = pieceShape(ZIGZAG, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  expect(scene.rangeOf(ZIGZAG.id)?.line.count).toBe(6 * (shape.line.length - 1) + 3 * JOIN_SEGMENTS * 2)
+})
+
+test('BENT keeps its corner and loses its straight run', () => {
+  // Its line is head base, (4.5,5.5), (4.5,6.5), (4.5,7.5): one turn, then two
+  // collinear points that merge into one segment. Two segments and one fan.
+  const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  expect(scene.rangeOf(BENT.id)?.line.count).toBe(6 * 2 + 3 * JOIN_SEGMENTS)
 })
