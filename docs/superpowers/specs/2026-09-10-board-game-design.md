@@ -180,9 +180,9 @@ New inputs, on top of `board`, `view`, `pad`, `lang` and `interactive`:
 | `play` | `boolean` (attribute, reflected) | `false` | the element runs the reducer; implies interactivity |
 | `enableColors` | `boolean` (attribute, reflected) | `false` | colouring is permitted (§6) |
 
-Setting `board` starts a new session. Setting `play` while a board is present
-starts one too; clearing `play` keeps the session, so a host that disables the
-board after a loss and re-enables it resumes the same game.
+Setting `board` starts a new session. Setting or clearing `play` while a
+board is present does not: the session survives either way, so a host that
+disables the board after a loss and re-enables it resumes the same game.
 
 | Event | `detail` | When |
 |---|---|---|

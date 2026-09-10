@@ -480,7 +480,16 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     if (pressed === null || pressed !== released) return
     this.dispatchEvent(new CustomEvent('piece-click', { detail: { pieceId: pressed }, bubbles: true, composed: true }))
     // Fire and forget: the promise is the animation, and nothing here waits.
-    if (this.play) void this.game.click(pressed)
+    // A rejection (an out-of-range `dir`, a programming error per game.ts)
+    // would otherwise vanish as an unhandled rejection; throw it back onto
+    // the event loop where a developer, or a test, will see it.
+    if (this.play) {
+      this.game.click(pressed).catch((e) => {
+        queueMicrotask(() => {
+          throw e
+        })
+      })
+    }
   }
 }
 

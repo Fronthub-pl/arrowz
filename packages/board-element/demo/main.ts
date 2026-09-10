@@ -25,7 +25,7 @@ const livesLabel = $<HTMLSpanElement>('lives')
 const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-board.play = true
+board.play = $<HTMLInputElement>('play').checked
 board.enableColors = true
 
 for (const level of PRESETS) {
@@ -98,8 +98,12 @@ worker.onmessage = async (e: MessageEvent<DemoResponse>) => {
 worker.onerror = (e: ErrorEvent) => failed(`worker error: ${e.message}`)
 worker.onmessageerror = () => failed('worker sent a message the page could not read')
 
-$<HTMLInputElement>('interactive').addEventListener('change', (e) => {
-  board.interactive = (e.target as HTMLInputElement).checked
+// The one place the demo can show `interactive` versus `play` (design §4):
+// unchecking this stops the reducer entirely, rather than only changing the
+// cursor, which is all it did while it was wired to `board.interactive` and
+// `board.play` was pinned to `true` unconditionally.
+$<HTMLInputElement>('play').addEventListener('change', (e) => {
+  board.play = (e.target as HTMLInputElement).checked
 })
 $<HTMLInputElement>('pad').addEventListener('change', (e) => {
   const cells = Number((e.target as HTMLInputElement).value)
@@ -119,9 +123,11 @@ let saved: SessionSnapshot | null = null
 
 /**
  * Repaints `left` from the board's own state (piece count minus what
- * `saveState()` says has left) rather than a value threaded through by
- * whichever caller happens to know it, so a removal, a load and a restart
- * all land on the same number and cannot drift apart.
+ * `saveState()` says has left). Used only for a load and a restart, where no
+ * event carries the number directly: `saveState()` fingerprints the whole
+ * board (spec §2), so calling it on every `piece-removed` would run that scan
+ * on every single move, which the removal listener below avoids by reading
+ * `left` off the event instead.
  */
 function paintLeft(): void {
   const total = board.board?.pieces.length ?? 0
@@ -129,13 +135,16 @@ function paintLeft(): void {
   leftLabel.textContent = `left: ${total - removed}`
 }
 
-board.addEventListener('piece-removed', () => {
-  paintLeft()
+board.addEventListener('piece-removed', (e) => {
+  leftLabel.textContent = `left: ${e.detail.left}`
 })
 board.addEventListener('life-lost', (e) => {
   lives--
   livesLabel.textContent = `lives: ${lives} (blocked by ${e.detail.blockerId})`
-  if (lives === 0) board.play = false
+  if (lives === 0) {
+    board.play = false
+    $<HTMLInputElement>('play').checked = false
+  }
 })
 board.addEventListener('finished', (e) => {
   livesLabel.textContent = `cleared ${e.detail.pieces} pieces`
@@ -151,6 +160,7 @@ loadButton.addEventListener('click', () => {
 restartButton.addEventListener('click', () => {
   lives = 3
   board.play = true
+  $<HTMLInputElement>('play').checked = true
   board.restart()
   paintLeft()
   livesLabel.textContent = `lives: ${lives}`

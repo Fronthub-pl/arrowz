@@ -40,6 +40,7 @@ Deno.test('a piece whose ray reaches the edge leaves the board', () => {
   assertEquals(move, { kind: 'exit', pieceId: 0, dir: 3, left: 2, status: 'playing' })
   assertEquals(next.left, 2)
   assertEquals(s.left, 3) // the session handed in is untouched
+  assertEquals([...goneIds(s)], []) // ...and so is its gone set
 })
 
 Deno.test('a piece whose ray meets another piece bounces, naming the blocker', () => {

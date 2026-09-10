@@ -17,7 +17,11 @@ export interface Session {
   readonly board: Board
   /** Indexed by piece id: 1 once the piece has left the board. */
   readonly gone: Uint8Array
-  /** Piece id to its position in `board.pieces`; -1 for an id no piece has. */
+  /**
+   * Piece id to its position in `board.pieces`; -1 for an id no piece has.
+   * An internal lookup cache for `pieceOf`, not part of the session's meaning
+   * — callers should not read it.
+   */
   readonly index: Int32Array
   /** Pieces still on the board. */
   readonly left: number
@@ -149,6 +153,12 @@ export function saveSession(session: Session, colored: boolean): SessionSnapshot
  * owner grid — two million steps on the 1000x1000 ceiling.
  */
 export function loadSession(board: Board, snap: SessionSnapshot): Session {
+  if (
+    snap === null || typeof snap !== 'object' || typeof snap.board !== 'object' || snap.board === null ||
+    !Array.isArray(snap.removed)
+  ) {
+    throw new Error('game: snapshot does not have the shape of a SessionSnapshot')
+  }
   if (snap.v !== 1) throw new Error(`game: snapshot version ${snap.v} is not readable`)
   if (snap.board.W !== board.W || snap.board.H !== board.H) {
     throw new Error(`game: snapshot board is ${snap.board.W}x${snap.board.H}, this one is ${board.W}x${board.H}`)

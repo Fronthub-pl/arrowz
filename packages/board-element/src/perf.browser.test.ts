@@ -178,6 +178,7 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
     expect(survivor && leaving).toBeTruthy()
     if (!survivor || !leaving) return
     const node = svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)
+    expect(node).not.toBeNull()
     await el.animateExit(leaving.id, leaving.dir)
     expect(svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)).toBe(node)
     el.remove()

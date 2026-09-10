@@ -99,8 +99,44 @@ describe('clicks that are not moves', () => {
     expect(target.events).toEqual([])
     expect(target.exits).toEqual([])
 
-    const empty = new GameHost(new FakeTarget())
+    const emptyTarget = new FakeTarget()
+    const empty = new GameHost(emptyTarget)
     await empty.click(0)
+    expect(emptyTarget.events).toEqual([])
+    expect(emptyTarget.exits).toEqual([])
+  })
+})
+
+describe('save and load', () => {
+  test('save is null before a board is set, and a snapshot once one is', async () => {
+    const host = new GameHost(new FakeTarget())
+    expect(host.save(false)).toBeNull()
+    host.setBoard(threeDominoes())
+    expect(host.save(false)).toMatchObject({ v: 1, removed: [], colored: false })
+    await host.click(0)
+    expect(host.save(true)).toMatchObject({ v: 1, removed: [0], colored: true })
+  })
+
+  test('load restores a session and replaces the gone set', async () => {
+    const { host } = hostOf()
+    await host.click(0)
+    const snap = host.save(false)
+    expect(snap).not.toBeNull()
+    if (!snap) return
+
+    const fresh = new GameHost(new FakeTarget())
+    fresh.setBoard(threeDominoes())
+    const before = fresh.goneIds
+    fresh.load(snap)
+    expect(fresh.goneIds).not.toBe(before)
+    expect([...fresh.goneIds]).toEqual([0])
+    expect(fresh.isGone(0)).toBe(true)
+  })
+
+  test('load throws when there is no board to load into', () => {
+    const host = new GameHost(new FakeTarget())
+    expect(() => host.load({ v: 1, board: { W: 3, H: 2, pieces: 3, fingerprint: 'x' }, removed: [], colored: false }))
+      .toThrow(/no board/)
   })
 })
 

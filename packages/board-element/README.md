@@ -49,7 +49,7 @@ before a board and a host size are both known.
 
 | Event | `detail` |
 |---|---|
-| `piece-click` | `{ pieceId }`, only when `interactive` |
+| `piece-click` | `{ pieceId }`, when `interactive` or `play` |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
