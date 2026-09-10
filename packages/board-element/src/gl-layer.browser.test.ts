@@ -1,5 +1,5 @@
 import { defaultParams, generate, voidStrips } from '@arrowz/engine'
-import type { Board, Piece } from '@arrowz/engine'
+import type { Board, Cell, Piece } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
 import { DEFAULT_VIEW } from './view.ts'
@@ -615,6 +615,44 @@ function rightmostInk(y: number): number {
   return last
 }
 
+/**
+ * A board of one straight, `length`-cell piece well short of the edge it
+ * faces, sized so the ride it takes to clear the board runs close to
+ * `EXIT_MAX_MS` and stays clipped, part of the piece still inside the paper,
+ * for most of that time.
+ *
+ * Both properties matter to the frame-sampling test below, and neither comes
+ * from a short piece hugging the edge: `exitDistance` is `toEdge + length +
+ * 1`, so a piece already at the edge gives the shortest possible distance
+ * and `exitMs` clamps its ride to `EXIT_MIN_MS` — over in a frame or two, and
+ * liable to finish between two samples entirely when the browser is busy
+ * enough to space frames out. Placing the piece `toEdge` cells back stretches
+ * the ride toward `EXIT_MAX_MS` instead, and lengthening the piece stretches
+ * the clipped part of it: what stays visible, part in and part out of the
+ * paper, is `length + 1` of those cells, so a longer piece keeps some ink on
+ * screen — the thing this test samples for — over a much bigger share of the
+ * ride than a short one does.
+ */
+function farBoard(W: number, H: number, length: number): Board {
+  const owner = new Int32Array(W * H).fill(-1)
+  const row = Math.floor(H / 2)
+  const head = length - 1
+  const cells: Cell[] = []
+  for (let x = head; x >= 0; x--) {
+    owner[row * W + x] = 0
+    cells.push({ x, y: row })
+  }
+  return {
+    W,
+    H,
+    owner,
+    pieces: [{ id: 0, dir: 1, cells }],
+    stats: { want: 1, got: 1, stall: 0, strandTrunc: 0, strandLoss: 0, n: 1 },
+    backtracks: 0,
+    remaining: 0,
+  }
+}
+
 test('a rider is clipped at the paper, margin and all, and never past it', async () => {
   // The paper keeps a quarter cell of margin while the view keeps three, so
   // there is bare canvas beyond the paper for an unclipped rider to reach —
@@ -622,7 +660,7 @@ test('a rider is clipped at the paper, margin and all, and never past it', async
   // which is what makes the clip's own edge, rather than the board's, the
   // thing under test.
   const pad = 0.25
-  const b = edgeBoard(8, 3)
+  const b = farBoard(17, 3, 12)
   const pc = b.pieces[0]
   if (!pc) throw new Error('need a piece')
   const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 3 })
@@ -636,19 +674,33 @@ test('a rider is clipped at the paper, margin and all, and never past it', async
   const row = Math.round((Math.floor(b.H / 2) + 0.5 - v.originY) * v.cellPx * dpr)
   const boardEdge = (b.W - v.originX) * v.cellPx * dpr
   const paperEdge = Math.round((b.W + pad - v.originX) * v.cellPx * dpr)
-  // At rest the head's tip stops at the board's own edge.
+  // At rest the piece sits well inside the board, short of its own edge.
   expect(rightmostInk(row)).toBeLessThanOrEqual(Math.ceil(boardEdge))
 
+  // Sampled every frame for as long as the ride itself runs, not for a fixed
+  // handful of frames: a fixed count can run out before the ride does when
+  // frames are spaced out, which is exactly the flake this replaces. Only the
+  // frames that actually caught ink feed the measurement — a frame that
+  // caught none says nothing about where the clip sits.
   const ride = layer.animateExit(pc.id, pc.dir)
+  let settled = false
+  void ride.then(() => {
+    settled = true
+  })
   let furthest = -1
   let seen = 0
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 300 && !settled; i++) {
     await frame()
     layer.drawNowForTest()
-    furthest = Math.max(furthest, rightmostInk(row))
+    const x = rightmostInk(row)
+    if (x !== -1) furthest = Math.max(furthest, x)
     seen = Math.max(seen, inked())
   }
   await ride
+
+  // The real failure, named: no sampled frame caught the rider at all, so
+  // there is nothing to assert the clip against.
+  if (furthest === -1) throw new Error('the ride finished before any frame could be sampled')
 
   // It rode into the margin, so the clip is not the board's edge...
   expect(furthest).toBeGreaterThan(boardEdge)
