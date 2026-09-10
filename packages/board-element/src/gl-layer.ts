@@ -403,7 +403,10 @@ export class GlLayer {
       // `rider.data` is exactly `rideVertexBound(piece)` long, and a write past
       // the end of a typed array is dropped rather than raised: the bound holds
       // (tesselate.test.ts pins it), and if it ever stopped holding, the piece
-      // would come out silently truncated instead of loudly wrong.
+      // would come out silently truncated instead of loudly wrong. This runs
+      // inside the frame callback, so it does not reject the ride's promise —
+      // it lands where an unhandled error lands, which is enough to see it,
+      // and the only place the count exists to be checked at all.
       if (count > bound) throw new Error(`gl-layer: piece ${id} rode past its ${bound}-vertex bound`)
       rider.count = count
       this.uploadRiders()
@@ -470,6 +473,12 @@ export class GlLayer {
   /** Stops every ride in flight, each piece back where it was. */
   private cancelAll(): void {
     for (const id of [...this.running.keys()]) this.cancelRunning(id)
+    // A ride whose clock has settled but whose promise chain has not run yet
+    // has left `running` and still holds its rider, so the loop above misses
+    // it. Its piece is written back here rather than dropped: what is thrown
+    // away is the rider, and the static buffer is all that would be left to
+    // draw the piece.
+    for (const id of [...this.riders.keys()]) this.setStaticVisible(id, true)
     this.riders.clear()
     this.exiting.clear()
   }
@@ -708,13 +717,17 @@ export class GlLayer {
     if (this.riders.size === 0 || !this.rideBuffer) return
     const s = vp.cellPx * devicePixelRatio
     const p = this.padCells
+    // All four edges are rounded, and the size is taken from the rounded edges
+    // rather than rounded on its own: a width rounded apart from its left edge
+    // lands the right edge up to a pixel off the paper's, which is a visible
+    // slice of a piece appearing or disappearing as it rides out at the edge.
     const left = Math.round((-p - vp.originX) * s)
     const top = Math.round((-p - vp.originY) * s)
-    const w = Math.round((board.W + 2 * p) * s)
-    const h = Math.round((board.H + 2 * p) * s)
+    const right = Math.round((board.W + p - vp.originX) * s)
+    const bottom = Math.round((board.H + p - vp.originY) * s)
     gl.enable(gl.SCISSOR_TEST)
     // The scissor box counts from the bottom left, the viewport maths from the top.
-    gl.scissor(left, this.canvas.height - top - h, w, h)
+    gl.scissor(left, this.canvas.height - bottom, right - left, bottom - top)
     this.bindAttrs(gl, program, this.rideBuffer, null)
     gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
     const flat = gl.getUniformLocation(program, 'u_flat')

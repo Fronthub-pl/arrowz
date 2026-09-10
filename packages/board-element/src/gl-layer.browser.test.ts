@@ -330,16 +330,94 @@ test('a ride draws a frame of its own while it runs', async () => {
   const b = board()
   const pc = b.pieces[0]
   if (!pc) throw new Error('need a piece')
-  show(b)
+  const solo: Board = { ...b, pieces: [pc] }
+  show(solo, { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' })
+  // Two frames before the ride starts, which warms the clock as well: a ride
+  // handed a stale start time settles on its first tick, and the mid-ride
+  // frame this test is about would never happen.
   await drawn()
+  layer.drawNowForTest()
+  const rest = snapshot()
   const before = layer.drawsForTest
-  // The line bends through the corners while the head runs straight out, so
-  // the layer has to redraw per frame; a ride that only set a transform would
-  // leave this count where it was.
-  const ride = layer.shake(pc.id, 0.3)
+  const ride = layer.shake(pc.id, 3)
   await drawn()
+  layer.drawNowForTest()
+  // The picture, not the count: the settling schedules a frame of its own, so
+  // a ride that never drew a thing would still move `drawsForTest`. The piece
+  // has to be somewhere else and still be there — moved, because the line
+  // bends through the corners while the head runs straight out and no
+  // interpolated transform can express that; still drawn, because a ride that
+  // only collapsed it would move the picture too.
+  expect(snapshot()).not.toEqual(rest)
+  expect(inked()).toBeGreaterThan(0)
   expect(layer.drawsForTest).toBeGreaterThan(before)
   await ride
+})
+
+test('a second exit supersedes the first and the piece stays exiting until the second ends', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const first = layer.animateExit(pc.id, pc.dir)
+  const second = layer.animateExit(pc.id, pc.dir)
+  expect(layer.isExiting(pc.id)).toBe(true)
+  await expect(first).resolves.toBeUndefined()
+  // Only the exit that owns the mark may clear it: the first one lost the
+  // piece to the second, which is still carrying it off the board.
+  expect(layer.isExiting(pc.id)).toBe(true)
+  await expect(second).resolves.toBeUndefined()
+  expect(layer.isExiting(pc.id)).toBe(false)
+  expect(layer.hasPiece(pc.id)).toBe(false)
+})
+
+test('a new board cancels a ride in flight, and the piece it rode is not dropped from the new one', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const p = layer.animateExit(pc.id, pc.dir)
+  const next = board(8)
+  show(next)
+  // The mark goes with the ride, at once: a ride left running would carry on
+  // over the new board and take a piece of it off when it ended.
+  expect(layer.isExiting(pc.id)).toBe(false)
+  await expect(p).resolves.toBeUndefined()
+  expect(layer.pieceCount).toBe(next.pieces.length)
+  expect(layer.hasPiece(pc.id)).toBe(true)
+})
+
+test('a changed view cancels a ride in flight and its promise still resolves', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const p = layer.animateExit(pc.id, pc.dir)
+  // A changed view rebuilds the scene, ranges and all, so a ride left running
+  // would have nothing left to write its piece back into.
+  layer.setBoard(b, { ...DEFAULT_VIEW, stroke: 0.3 })
+  expect(layer.isExiting(pc.id)).toBe(false)
+  await expect(p).resolves.toBeUndefined()
+  expect(layer.hasPiece(pc.id)).toBe(true)
+  expect(layer.pieceCount).toBe(b.pieces.length)
+})
+
+test('disposing cancels a ride in flight and its promise still resolves', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const p = layer.animateExit(pc.id, pc.dir)
+  expect(layer.isExiting(pc.id)).toBe(true)
+  layer.dispose()
+  // Nothing is left in flight the moment the layer gives its buffers back;
+  // `afterEach` disposing a second time must find nothing to do either.
+  expect(layer.isExiting(pc.id)).toBe(false)
+  await expect(p).resolves.toBeUndefined()
 })
 
 test('a shake leaves the picture exactly as it found it', async () => {
