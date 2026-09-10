@@ -143,8 +143,7 @@ function lineVerticesOf(line: readonly [number, number][], rounded: boolean): nu
   return segmentVertices(l.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(l) : 0)
 }
 
-const headVertices = (points: number, rounded: boolean): number =>
-  3 * (points - 2) + (rounded ? 3 * TAIL_SEGMENTS : 6)
+const headVertices = (points: number, rounded: boolean): number => 3 * (points - 2) + (rounded ? 3 * TAIL_SEGMENTS : 6)
 
 /**
  * The most vertices a ride of this piece can need. `trackLine` emits the two
