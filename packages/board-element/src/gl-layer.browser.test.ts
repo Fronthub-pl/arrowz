@@ -497,3 +497,40 @@ test('a piece that has ridden out leaves no ink behind', async () => {
   layer.drawNowForTest()
   expect(inked()).toBe(0)
 })
+
+test('a lost context is taken back and the board is drawn again', async () => {
+  const b = board()
+  const [gone, pc] = [b.pieces[0], b.pieces[1]]
+  if (!gone || !pc) throw new Error('need two pieces')
+  show(b, { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' })
+  await drawn()
+  // A piece dropped before the loss must still be gone after the restore.
+  await layer.animateExit(gone.id, gone.dir)
+  layer.drawNowForTest()
+  expect(layer.hasPiece(gone.id)).toBe(false)
+  expect(inked()).toBeGreaterThan(0)
+
+  const gl = layer.canvas.getContext('webgl2')
+  const lose = gl?.getExtension('WEBGL_lose_context')
+  if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+
+  lose.loseContext()
+  await drawn()
+  expect(layer.supported).toBe(false)
+
+  lose.restoreContext()
+  // The restore event is asynchronous; give it a few frames to arrive.
+  for (let i = 0; i < 10 && !layer.supported; i++) await frame()
+  expect(layer.supported).toBe(true)
+  await drawn()
+  layer.drawNowForTest()
+
+  // Not byte-identical to before the loss: MSAA sample positions are not
+  // contractually stable across two different GL contexts, so this checks
+  // that the board is drawn again and the piece count survived, rather than
+  // that the pixels match the earlier context exactly.
+  expect(inked()).toBeGreaterThan(0)
+  expect(layer.pieceCount).toBe(b.pieces.length - 1)
+  expect(layer.hasPiece(gone.id)).toBe(false)
+  expect(layer.hasPiece(pc.id)).toBe(true)
+})

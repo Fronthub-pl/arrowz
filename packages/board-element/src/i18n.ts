@@ -9,6 +9,8 @@ export interface BoardLabels {
   panHintMac: string
   panHintOther: string
   colors: string
+  /** Shown in place of the board when the browser gives no WebGL2 context. */
+  noWebgl: string
 }
 
 export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
@@ -19,6 +21,7 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     panHintMac: 'Hold ⌘ and drag to pan',
     panHintOther: 'Hold Ctrl and drag to pan',
     colors: 'Piece colours',
+    noWebgl: 'This browser cannot draw the board: WebGL2 is unavailable.',
   },
   pl: {
     zoomIn: 'Powiększ',
@@ -27,6 +30,7 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     panHintMac: 'Przytrzymaj ⌘ i przeciągnij, aby przesunąć',
     panHintOther: 'Przytrzymaj Ctrl i przeciągnij, aby przesunąć',
     colors: 'Kolory figur',
+    noWebgl: 'Ta przeglądarka nie narysuje planszy: WebGL2 jest niedostępny.',
   },
 }
 

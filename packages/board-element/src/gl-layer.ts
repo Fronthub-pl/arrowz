@@ -223,6 +223,19 @@ export class GlLayer {
 
   constructor() {
     this.canvas = document.createElement('canvas')
+    this.canvas.addEventListener('webglcontextlost', this.onLost)
+    this.canvas.addEventListener('webglcontextrestored', this.onRestored)
+    this.acquire()
+  }
+
+  /**
+   * Gets the context and builds both programs and the two buffers every
+   * frame needs, whether this is the layer's very first draw or a context
+   * handed back after a loss. Shared by the constructor and `onRestored` so
+   * the two paths cannot drift apart: a change to how the layer starts up is
+   * automatically a change to how it comes back.
+   */
+  private acquire(): void {
     const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true })
     if (!gl) return
     this.gl = gl
@@ -232,6 +245,43 @@ export class GlLayer {
     this.quadBuffer = gl.createBuffer()
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+  }
+
+  /**
+   * A lost context takes every GL object with it. Default-prevented so the
+   * browser will offer a restore. Every ride in flight is cancelled through
+   * `cancelAll`, which also writes each rider's piece back to its static,
+   * visible shape — moot once the buffer holding it is gone, but it leaves no
+   * ride or rider referring to an object that no longer exists.
+   */
+  private readonly onLost = (e: Event): void => {
+    e.preventDefault()
+    if (this.pending !== 0) cancelAnimationFrame(this.pending)
+    this.pending = 0
+    this.cancelAll()
+    this.gl = null
+    this.program = null
+    this.dotProgram = null
+    this.posBuffer = null
+    this.colorBuffer = null
+    this.quadBuffer = null
+    this.voidBuffer = null
+    this.rideBuffer = null
+  }
+
+  /**
+   * Everything is rebuilt from state the layer still holds: the board and
+   * view `setBoard` last saw, the omissions, the void strips, and the ids in
+   * `dropped`. No ride survives a loss (`onLost` cancelled every one of
+   * them), so there is nothing in `riders` to re-upload here.
+   */
+  private readonly onRestored = (): void => {
+    this.acquire()
+    if (!this.gl) return
+    this.upload()
+    this.uploadVoids(this.current)
+    for (const id of this.dropped) this.setStaticVisible(id, false)
+    this.schedule()
   }
 
   /** False when the browser gave no WebGL2 context at all; the element shows a message. */
@@ -806,6 +856,8 @@ export class GlLayer {
   }
 
   dispose(): void {
+    this.canvas.removeEventListener('webglcontextlost', this.onLost)
+    this.canvas.removeEventListener('webglcontextrestored', this.onRestored)
     // Every ride stops first: one left running would keep asking for frames on
     // a layer that has already handed its buffers back.
     this.cancelAll()
