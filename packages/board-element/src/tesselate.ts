@@ -8,11 +8,17 @@ import { trackLine, trackPoint } from './track.ts'
 import { type BoardView, hueBytes } from './view.ts'
 
 /**
- * Triangles in the tail rounding's fan. The rounding is half a stroke across,
- * so at MAX_CELL_PX (48) it spans some 24 device pixels, where eight segments
- * already read as round.
+ * Triangles in the tail rounding's fan.
+ *
+ * The rounding's radius is a quarter of a cell, so at MAX_CELL_PX (48) on a
+ * dpr 2 screen it is 24 device pixels — the figure the original eight was
+ * chosen against was that same number at dpr 1, and no screen this runs on is
+ * dpr 1. The sagitta of an n-gon at radius r is `r(1 - cos(pi/n))`; holding
+ * it under half a device pixel at r = 24 needs n above 15.4, and eight facets
+ * are plain to the eye at that size. Sixteen costs eight more triangles per
+ * piece and puts the flattening under the pixel grid.
  */
-export const TAIL_SEGMENTS = 8
+export const TAIL_SEGMENTS = 16
 
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
@@ -96,10 +102,10 @@ export function rideVertexBound(piece: Piece): number {
 /**
  * Two triangles for one segment. `startExtend`/`endExtend` say whether that
  * end reaches `half` further out so an interior join fills — the polyline's
- * two outer ends must not: `svg-layer.ts` draws with `stroke-linecap: butt`,
- * and the tail is rounded by its own disc, so a square cap out there would
- * reach `0.707 * w` into its corners, past that disc's radius, and bury the
- * disc's triangles under geometry nothing ever shows.
+ * two outer ends must not: the piece is drawn the way `toSvg` draws it, with
+ * a butt cap, and the tail is rounded by its own disc, so a square cap out
+ * there would reach `0.707 * w` into its corners, past that disc's radius,
+ * and bury the disc's triangles under geometry nothing ever shows.
  */
 function writeSegment(
   out: Float32Array,

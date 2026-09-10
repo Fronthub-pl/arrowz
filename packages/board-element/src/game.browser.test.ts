@@ -3,7 +3,7 @@ import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
 import { EXIT_MAX_MS } from './track.ts'
-import { SHAKE_MS } from './view.ts'
+import { hueBytes, SHAKE_MS } from './view.ts'
 import './mod.ts'
 
 function makeBoard(seed = 7): Board {
@@ -23,6 +23,10 @@ const bounced = () => new Promise<void>((r) => setTimeout(r, SHAKE_MS + 400))
 
 let el: ArrowzBoard
 async function mount(attrs: Record<string, string> = {}, board = makeBoard()): Promise<ArrowzBoard> {
+  // One board at a time: each holds a WebGL context, a page is allowed about
+  // sixteen, and a test that mounts three in a row must not be the reason
+  // some other board loses its own.
+  el?.remove()
   el = document.createElement('arrowz-board')
   el.style.width = '300px'
   el.style.height = '300px'
@@ -39,6 +43,51 @@ function canvasOf(e: ArrowzBoard): HTMLCanvasElement {
   const canvas = e.shadowRoot?.querySelector('canvas')
   if (!canvas) throw new Error('no canvas in the shadow root')
   return canvas
+}
+
+/** Pixels the board actually covered: the paper is opaque, the page behind it is not. */
+function opaque(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 3; i < buf.length; i += 4) if (buf[i] === 255) n++
+  return n
+}
+
+/** How many pixels of a painted board are exactly a piece's own diagnostic hue. */
+function hued(buf: Uint8Array, id: number): number {
+  const [r, g, b] = hueBytes(id)
+  let n = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    if (buf[i] === r && buf[i + 1] === g && buf[i + 2] === b && buf[i + 3] === 255) n++
+  }
+  return n
+}
+
+/**
+ * One frame of the board, read straight off the GPU, in RGBA bytes. The layer
+ * draws on a frame it asks for itself and the drawing buffer is gone once
+ * that frame has been composited, so the read happens on the same frame and
+ * after the draw: the nudge asks for the frame — a zoom too small to see —
+ * and a callback registered after it runs after the layer's own. The loop is
+ * for the first frame after a mount, which comes back empty because the
+ * buffer is sized on that very draw.
+ */
+async function painted(e: ArrowzBoard): Promise<Uint8Array> {
+  const canvas = canvasOf(e)
+  const gl = canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2 context on the board')
+  let buf: Uint8Array = new Uint8Array(0)
+  for (let i = 0; i < 10; i++) {
+    e.zoomBy(1 + 1e-6)
+    buf = await new Promise<Uint8Array>((resolve) => {
+      requestAnimationFrame(() => {
+        const bytes = new Uint8Array(canvas.width * canvas.height * 4)
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes)
+        resolve(bytes)
+      })
+    })
+    if (opaque(buf) > 0) return buf
+  }
+  return buf
 }
 
 /** Clicks the centre of the head cell of a piece the way a mouse would. */
@@ -324,24 +373,30 @@ describe('colours', () => {
 
   test('without the permission there is no button and no colour', async () => {
     // The same board and the same `view.colored: true`, mounted once without
-    // the permission and once with it. Which hue a piece is drawn in belongs
-    // to the tesselator and its own test; what this asserts is the verdict
-    // the element reaches and hands both the layer and the snapshot, so a
-    // bypassed permission and a `colored` getter regressed to always-false
-    // are both caught.
+    // the permission and once with it, and read off the GPU both times: a
+    // board that is merely monochrome and a board whose colour was suppressed
+    // look alike in one mount, so it takes the pair to catch both a bypassed
+    // permission and a `colored` getter regressed to always-false. The
+    // snapshot is checked alongside the pixels because the same verdict
+    // travels in it.
     const board = makeBoard()
-    expect(board.pieces[0]).toBeTruthy()
+    const first = board.pieces[0]
+    if (!first) throw new Error('need a piece')
 
     await mount({ play: '' }, board)
     el.view = { colored: true }
     await el.updateComplete
     expect(colourButton(el)).toBeNull()
     expect(el.saveState()?.colored).toBe(false)
+    const plain = await painted(el)
+    expect(opaque(plain)).toBeGreaterThan(0)
+    expect(hued(plain, first.id)).toBe(0)
 
     const withPermission = await mount({ 'enable-colors': '', play: '' }, board)
     withPermission.view = { colored: true }
     await withPermission.updateComplete
     expect(withPermission.saveState()?.colored).toBe(true)
+    expect(hued(await painted(withPermission), first.id)).toBeGreaterThan(0)
   })
 
   test('with the permission the button paints the board and its label follows lang', async () => {
@@ -350,9 +405,13 @@ describe('colours', () => {
     expect(button?.getAttribute('aria-label')).toBe('Kolory figur')
     expect(button?.getAttribute('aria-pressed')).toBe('false')
     expect(el.saveState()?.colored).toBe(false)
+    const first = el.board?.pieces[0]
+    if (!first) throw new Error('need a piece')
+    expect(hued(await painted(el), first.id)).toBe(0)
     button?.click()
     await el.updateComplete
     expect(el.saveState()?.colored).toBe(true)
+    expect(hued(await painted(el), first.id)).toBeGreaterThan(0)
     expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
   })
 

@@ -1,5 +1,5 @@
 import { defaultParams, generate, voidStrips } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import type { Board, Piece } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
 import { DEFAULT_VIEW } from './view.ts'
@@ -533,4 +533,116 @@ test('a lost context is taken back and the board is drawn again', async () => {
   expect(layer.pieceCount).toBe(b.pieces.length - 1)
   expect(layer.hasPiece(gone.id)).toBe(false)
   expect(layer.hasPiece(pc.id)).toBe(true)
+})
+
+/** A board of one two-cell piece, its head in the last column and pointing off it. */
+function edgeBoard(W: number, H: number): Board {
+  const owner = new Int32Array(W * H).fill(-1)
+  const row = Math.floor(H / 2)
+  owner[row * W + (W - 1)] = 0
+  owner[row * W + (W - 2)] = 0
+  return {
+    W,
+    H,
+    owner,
+    pieces: [{ id: 0, dir: 1, cells: [{ x: W - 1, y: row }, { x: W - 2, y: row }] }],
+    stats: { want: 1, got: 1, stall: 0, strandTrunc: 0, strandLoss: 0, n: 1 },
+    backtracks: 0,
+    remaining: 0,
+  }
+}
+
+/** The rightmost device column of a row that holds ink, or -1 for a row with none. */
+function rightmostInk(y: number): number {
+  let last = -1
+  for (let x = 0; x < layer.canvas.width; x++) {
+    const [r, g, b, a] = pixel(x, y)
+    if (a > 0 && r < 100 && g < 100 && b < 100) last = x
+  }
+  return last
+}
+
+test('a rider is clipped at the paper, margin and all, and never past it', async () => {
+  // The paper keeps a quarter cell of margin while the view keeps three, so
+  // there is bare canvas beyond the paper for an unclipped rider to reach —
+  // and the quarter cell is narrow enough that a ride crosses it in a frame,
+  // which is what makes the clip's own edge, rather than the board's, the
+  // thing under test.
+  const pad = 0.25
+  const b = edgeBoard(8, 3)
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 3 })
+  layer.setBoard(b, { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' })
+  layer.pad = pad
+  layer.setViewport(v)
+  await drawn()
+  layer.drawNowForTest()
+
+  const dpr = devicePixelRatio
+  const row = Math.round((Math.floor(b.H / 2) + 0.5 - v.originY) * v.cellPx * dpr)
+  const boardEdge = (b.W - v.originX) * v.cellPx * dpr
+  const paperEdge = Math.round((b.W + pad - v.originX) * v.cellPx * dpr)
+  // At rest the head's tip stops at the board's own edge.
+  expect(rightmostInk(row)).toBeLessThanOrEqual(Math.ceil(boardEdge))
+
+  const ride = layer.animateExit(pc.id, pc.dir)
+  let furthest = -1
+  let seen = 0
+  for (let i = 0; i < 6; i++) {
+    await frame()
+    layer.drawNowForTest()
+    furthest = Math.max(furthest, rightmostInk(row))
+    seen = Math.max(seen, inked())
+  }
+  await ride
+
+  // It rode into the margin, so the clip is not the board's edge...
+  expect(furthest).toBeGreaterThan(boardEdge)
+  // ...and no further, though the ride carries it cells past the paper.
+  expect(furthest).toBeLessThanOrEqual(paperEdge)
+  // The clip takes the part that left the paper, never the piece: the rider
+  // was on the canvas throughout.
+  expect(seen).toBeGreaterThan(0)
+})
+
+test('a monochrome board allocates no colour buffer, and the first colouring builds one that stays', () => {
+  const b = board()
+  show(b)
+  layer.drawNowForTest()
+  // Spec §8: the colour buffer is the diagnostic mode's alone, and it is what
+  // the ceiling case's 47.7 MB rather than 73 MB rests on.
+  expect(layer.hasColorsForTest).toBe(false)
+
+  layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })
+  layer.drawNowForTest()
+  expect(layer.hasColorsForTest).toBe(true)
+
+  // Built once and kept: going back to monochrome is a uniform, not a rebuild.
+  layer.setBoard(b, DEFAULT_VIEW)
+  layer.drawNowForTest()
+  expect(layer.hasColorsForTest).toBe(true)
+})
+
+test('the dot grid is drawn under the pieces, not over them', () => {
+  // One piece, at a known cell, with dots big enough to swallow it: at the
+  // head's own centre the grid and the piece want the same pixel, so the
+  // pixel says which of the two was drawn last.
+  const b = edgeBoard(30, 30)
+  const piece: Piece = { id: 0, dir: 1, cells: [{ x: 2, y: 2 }, { x: 1, y: 2 }] }
+  layer.setBoard({ ...b, pieces: [piece] }, { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' })
+  layer.setPoints(true, '#ff0000', 0.45)
+  const v = fit({ W: 30, H: 30, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  const cellPx = MIN_POINT_CELL_PX * 4
+  layer.setViewport({ ...v, cellPx, originX: 0, originY: 0 })
+  layer.drawNowForTest()
+
+  const at = (cx: number, cy: number): [number, number, number, number] =>
+    pixel(Math.round(cx * cellPx * devicePixelRatio), Math.round(cy * cellPx * devicePixelRatio))
+  // An empty cell: the dot is the only thing there, so the grid did draw.
+  const [dotR, dotG, dotB] = at(6.5, 6.5)
+  expect([dotR > 200, dotG < 80, dotB < 80]).toEqual([true, true, true])
+  // The head's cell: the piece covers the dot the grid put there.
+  const [inkR, inkG, inkB] = at(2.5, 2.5)
+  expect([inkR < 80, inkG < 80, inkB < 80]).toEqual([true, true, true])
 })

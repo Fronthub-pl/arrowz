@@ -234,6 +234,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     super.connectedCallback()
     // Back before the queued disposal ran: this was a move, not a removal.
     this.disposeQueued = false
+    // Back after one: the layer gave its context up, and asks for it again.
+    // A no-op on a board that never left, and the context arrives on its own
+    // event, so nothing here waits for it.
+    this.layer.restore()
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.observer = new ResizeObserver((entries) => {
       const entry = entries[0]
@@ -251,7 +255,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * The disposal waits one microtask because moving a node between parents is
    * a removal and an insertion in the same task: `connectedCallback` clears
    * the flag, and only a disconnect that is still a disconnect once the task
-   * ends takes the context down.
+   * ends takes the context down. A board attached again later is not left
+   * blank either — `connectedCallback` asks the layer for a context back —
+   * but that costs a rebuild, and a move should cost nothing.
    */
   override disconnectedCallback(): void {
     super.disconnectedCallback()

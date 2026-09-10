@@ -42,6 +42,57 @@ function canvasOf(e: ArrowzBoard): HTMLCanvasElement {
   return canvas
 }
 
+/** Pixels the board actually covered: the paper is opaque, the page behind it is not. */
+function opaque(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 3; i < buf.length; i += 4) if (buf[i] === 255) n++
+  return n
+}
+
+/**
+ * One frame of the board, read straight off the GPU, in RGBA bytes.
+ *
+ * The layer draws on a frame it asks for itself and the drawing buffer is
+ * gone once that frame has been composited, so the read has to happen on the
+ * same frame and after the draw. The nudge asks for the frame — a zoom too
+ * small to see, which is all the public API has for saying "draw" — and a
+ * callback registered after it runs after the layer's own, frames being run
+ * in the order they were asked for.
+ *
+ * The loop is for the very first frame after a mount, which comes back empty:
+ * the buffer is sized on the layer's first draw, and a read of that same
+ * frame catches it before anything has landed in it. Every frame after it is
+ * the picture.
+ */
+async function painted(e: ArrowzBoard): Promise<Uint8Array> {
+  const canvas = canvasOf(e)
+  const gl = canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2 context on the board')
+  let buf: Uint8Array = new Uint8Array(0)
+  for (let i = 0; i < 10; i++) {
+    e.zoomBy(1 + 1e-6)
+    buf = await new Promise<Uint8Array>((resolve) => {
+      requestAnimationFrame(() => {
+        const bytes = new Uint8Array(canvas.width * canvas.height * 4)
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes)
+        resolve(bytes)
+      })
+    })
+    if (opaque(buf) > 0) return buf
+  }
+  return buf
+}
+
+/** How many pixels of a painted board are neither the page behind it nor bare paper. */
+function inked(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    const [r, g, b, a] = [buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0]
+    if (a === 255 && r < 200 && g < 200 && b < 200) n++
+  }
+  return n
+}
+
 /** The six fields the element reports, taken from a viewport computed here. */
 function reported(v: Viewport): BoardViewport {
   const { cellPx, originX, originY, fitted, hostWidth, hostHeight } = v
@@ -446,5 +497,53 @@ describe('points', () => {
     await raf()
     expect(el.viewport?.cellPx).toBeLessThan(MIN_POINT_CELL_PX)
     expect(el.showPoints).toBe(true)
+  })
+})
+
+describe('the context a board holds', () => {
+  /** Whether the canvas's context is gone, asked of the canvas rather than the layer. */
+  const isLost = (canvas: HTMLCanvasElement): boolean => canvas.getContext('webgl2')?.isContextLost() ?? true
+
+  async function settle(canvas: HTMLCanvasElement, lost: boolean): Promise<void> {
+    for (let i = 0; i < 20 && isLost(canvas) !== lost; i++) await raf()
+  }
+
+  test('a detached board gives its context up, and an attached one takes it back', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const drawn = el.pieceCount
+    expect(drawn).toBeGreaterThan(0)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+
+    el.remove()
+    // A page holds about sixteen live contexts, so the whole point of the
+    // disposal is that the context itself goes, not merely the buffers in it.
+    await settle(canvas, true)
+    expect(isLost(canvas)).toBe(true)
+
+    document.body.append(el)
+    await settle(canvas, false)
+    expect(isLost(canvas)).toBe(false)
+    // The board is rebuilt from what the layer still holds: nothing was
+    // handed back to it, and the count of pieces it draws never moved.
+    expect(el.pieceCount).toBe(drawn)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+  })
+
+  test('a board moved between parents keeps the context it had', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const box = document.createElement('div')
+    box.style.width = '300px'
+    box.style.height = '300px'
+    document.body.append(box)
+    // A move is a removal and an insertion in one task, and must cost neither
+    // the context nor the rebuild that taking it back would need.
+    box.append(el)
+    await new Promise<void>((r) => queueMicrotask(() => r()))
+    expect(isLost(canvas)).toBe(false)
+    await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
   })
 })

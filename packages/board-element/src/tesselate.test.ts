@@ -85,7 +85,7 @@ test('the line is butt at its two outer ends; an interior join still fills', () 
   const x = (i: number): number | undefined => pts[i]?.[0]
   // First segment's "a" end (vertices 0, 3, 5 of writeSegment's fixed
   // layout): the polyline's own first point, square, not pushed out by half
-  // a stroke the way svg-layer.ts's butt cap never is either.
+  // a stroke the way the butt cap of `toSvg` never is either.
   expect(x(0)).toBe(f32(headX))
   expect(x(3)).toBe(f32(headX))
   expect(x(5)).toBe(f32(headX))
@@ -169,11 +169,33 @@ test('the top pieces are the longest ones and land in their own blocks', () => {
   }
 })
 
+test('an omitted piece takes no highlight slot from the board that is left', () => {
+  const b = board()
+  const view = { ...DEFAULT_VIEW, top: 2 }
+  const longest = [...b.pieces].sort((x, y) => y.cells.length - x.cells.length)
+  const gone = longest[0]
+  if (!gone) throw new Error('need a piece')
+  const highlighted = (scene: ReturnType<typeof tesselateBoard>): number[] =>
+    scene.drawnIds().filter((id) => scene.rangeOf(id)?.top === true)
+
+  // The longest piece of all is one of the two highlighted, until it is the
+  // one the session has removed.
+  expect(highlighted(tesselateBoard(b, view, NONE))).toContain(gone.id)
+
+  const without = tesselateBoard(b, view, new Set([gone.id]))
+  const tops = highlighted(without)
+  // Two, not one: a restored game omits the pieces that left, and an omitted
+  // piece that kept its slot would leave the board a highlight short.
+  expect(tops.length).toBe(view.top)
+  expect(tops).not.toContain(gone.id)
+})
+
 test('a highlighted piece is drawn thicker, as toSvg draws it', () => {
   expect(strokeOf(DEFAULT_VIEW, false)).toBe(0.5)
   // 0.5 * 1.15 is 0.575 in exact arithmetic, but toFixed(2) rounds off the
   // double's actual binary value, which sits fractionally under 0.575: the
-  // same rounding svg-layer.ts's `hiWidth` performs, so the two layers agree.
+  // same rounding `toSvg`'s own highlight width performs, so the CLI's
+  // export and the board on screen draw a highlighted piece alike.
   expect(strokeOf(DEFAULT_VIEW, true)).toBe(0.57)
   expect(strokeOf({ ...DEFAULT_VIEW, colored: true }, true)).toBe(0.75) // 0.5 * 1.5
 })

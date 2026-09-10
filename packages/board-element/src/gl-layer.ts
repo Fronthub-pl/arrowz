@@ -180,6 +180,16 @@ export class GlLayer {
   private posBuffer: WebGLBuffer | null = null
   private colorBuffer: WebGLBuffer | null = null
   /**
+   * The extension that gives a context up and asks for it back, kept from
+   * before a loss: a lost context grants no extensions, so a layer that only
+   * looked for it once the context was gone could never get one.
+   */
+  private loseExt: WEBGL_lose_context | null = null
+  /** True from the browser's lost event until the restore; only then may a context be asked back. */
+  private contextLost = false
+  /** A restore asked for before the lost event arrived; `onLost` carries it out. */
+  private restoreWanted = false
+  /**
    * Scratch storage for whatever single quad the current pass is drawing —
    * the paper's, then the dot grid's. Each pass re-uploads its own quad into
    * it with `bufferData` before drawing, so its contents are never valid
@@ -239,6 +249,13 @@ export class GlLayer {
     const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true })
     if (!gl) return
     this.gl = gl
+    this.contextLost = false
+    this.restoreWanted = false
+    // Kept across a loss: the extension object of a live context is what asks
+    // for the next one back. A context that never grants it (no such
+    // extension) simply cannot be given up early, which costs nothing but the
+    // slot a disposed layer would have freed.
+    this.loseExt = gl.getExtension('WEBGL_lose_context') ?? this.loseExt
     this.program = link(gl, VERT, FRAG)
     this.dotProgram = link(gl, DOT_VERT, DOT_FRAG)
     this.posBuffer = gl.createBuffer()
@@ -267,6 +284,14 @@ export class GlLayer {
     this.quadBuffer = null
     this.voidBuffer = null
     this.rideBuffer = null
+    this.contextLost = true
+    // A restore asked for before the browser had got round to dispatching
+    // this event: a context is only restorable once it has been declared
+    // lost, so the request waited for here.
+    if (this.restoreWanted) {
+      this.restoreWanted = false
+      this.loseExt?.restoreContext()
+    }
   }
 
   /**
@@ -289,6 +314,22 @@ export class GlLayer {
     return this.gl !== null
   }
 
+  /**
+   * Asks for the context back after `dispose()` gave it up, or after a loss
+   * the browser has not offered a restore for. A no-op on a live layer and on
+   * one that never had a context at all.
+   *
+   * The context comes back asynchronously, through the same
+   * `webglcontextrestored` event a driver reset would use, so the board is
+   * rebuilt by `onRestored` from the state the layer still holds rather than
+   * by anything the caller has to hand back.
+   */
+  restore(): void {
+    if (this.gl || !this.loseExt) return
+    if (this.contextLost) this.loseExt.restoreContext()
+    else this.restoreWanted = true
+  }
+
   get board(): Board | null {
     return this.current
   }
@@ -299,6 +340,11 @@ export class GlLayer {
 
   get drawsForTest(): number {
     return this.frameCount
+  }
+
+  /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
+  get hasColorsForTest(): boolean {
+    return this.colorBuffer !== null
   }
 
   /** How many void strips the current board uploaded; the browser test asserts the pass exists. */
@@ -807,8 +853,9 @@ export class GlLayer {
   /**
    * The grid over the cells alone: 0,0 to W,H, the margin left blank, shown
    * only once a cell is big enough to hold a dot — below MIN_POINT_CELL_PX a
-   * dense raster of dots moirés instead of reading as dots, the same rule
-   * `SvgLayer.setPoints` follows by never mounting its pattern rect.
+   * dense raster of dots moirés instead of reading as dots. The element
+   * decides that, because only it knows `cellPx`; the pass refuses on its own
+   * as well, so a viewport handed straight to the layer cannot get past it.
    */
   private drawDots(gl: WebGL2RenderingContext): void {
     const board = this.current, vp = this.vp, prog = this.dotProgram
@@ -855,9 +902,20 @@ export class GlLayer {
     this.draw()
   }
 
+  /**
+   * Hands everything back: the GL objects, and then the context itself.
+   *
+   * The context matters more than the objects. A page is allowed something
+   * like sixteen live ones, and the browser takes the oldest away to make
+   * room for a new one, so a layer that only deleted its buffers would still
+   * cost some other board its picture. Giving it up is what
+   * `WEBGL_lose_context.loseContext()` is for.
+   *
+   * The two canvas listeners stay: they are the layer's own way back, and
+   * `restore()` leans on them. `onLost` will run once the browser dispatches
+   * the loss, and finds nothing left to tear down.
+   */
   dispose(): void {
-    this.canvas.removeEventListener('webglcontextlost', this.onLost)
-    this.canvas.removeEventListener('webglcontextrestored', this.onRestored)
     // Every ride stops first: one left running would keep asking for frames on
     // a layer that has already handed its buffers back.
     this.cancelAll()
@@ -881,5 +939,6 @@ export class GlLayer {
     this.rideBuffer = null
     this.voidBuffer = null
     this.gl = null
+    if (gl && !gl.isContextLost()) this.loseExt?.loseContext()
   }
 }
