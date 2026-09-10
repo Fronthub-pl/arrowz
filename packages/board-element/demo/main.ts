@@ -1,9 +1,9 @@
-// The demo: a preset picker, generation in a worker, the element with the
-// two effects wired to clicks, and the measurements of the spec (§11):
-// build time, node count, pan and zoom frame times.
+// The demo: a preset picker, generation in a worker, the element playing a
+// real game (`play`, coloured, save/load/restart), and the measurements of
+// the spec (§11): build time, node count, pan and zoom frame times.
 import { PRESETS } from '@arrowz/engine/presets'
 import '../src/mod.ts'
-import type { ArrowzBoard, PieceClickEvent } from '../src/mod.ts'
+import type { ArrowzBoard, SessionSnapshot } from '../src/mod.ts'
 import type { DemoRequest, DemoResponse } from './worker.ts'
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -17,8 +17,16 @@ const stats = $<HTMLSpanElement>('stats')
 const preset = $<HTMLSelectElement>('preset')
 const generateButton = $<HTMLButtonElement>('generate')
 const measureButton = $<HTMLButtonElement>('measure')
+const saveButton = $<HTMLButtonElement>('save')
+const loadButton = $<HTMLButtonElement>('load')
+const restartButton = $<HTMLButtonElement>('restart')
+const leftLabel = $<HTMLSpanElement>('left')
+const livesLabel = $<HTMLSpanElement>('lives')
 const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
+
+board.play = true
+board.enableColors = true
 
 for (const level of PRESETS) {
   const group = document.createElement('optgroup')
@@ -104,26 +112,32 @@ $<HTMLInputElement>('pl').addEventListener('change', (e) => {
   board.setAttribute('lang', (e.target as HTMLInputElement).checked ? 'pl' : 'en')
 })
 
-let shiftHeld = false
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Shift') shiftHeld = true
-})
-document.addEventListener('keyup', (e) => {
-  if (e.key === 'Shift') shiftHeld = false
-})
+// With `play` the element runs the game itself; this is the host's half —
+// the life count and the save slot, both of which live outside the element.
+let lives = 3
+let saved: SessionSnapshot | null = null
 
-board.addEventListener('piece-click', async (e: PieceClickEvent) => {
-  const b = board.board
-  const pc = b?.pieces.find((p) => p.id === e.detail.pieceId)
-  if (!b || !pc) return
-  if (shiftHeld) {
-    await board.shake(pc.id, 0.3)
-    return
-  }
-  await board.animateExit(pc.id, pc.dir)
-  const owner = new Int32Array(b.owner)
-  for (const c of pc.cells) owner[c.y * b.W + c.x] = -1
-  board.board = { ...b, owner, pieces: b.pieces.filter((p) => p !== pc) }
+board.addEventListener('piece-removed', (e) => {
+  leftLabel.textContent = `left: ${e.detail.left}`
+})
+board.addEventListener('life-lost', (e) => {
+  lives--
+  livesLabel.textContent = `lives: ${lives} (blocked by ${e.detail.blockerId})`
+  if (lives === 0) board.play = false
+})
+board.addEventListener('finished', (e) => {
+  livesLabel.textContent = `cleared ${e.detail.pieces} pieces`
+})
+saveButton.addEventListener('click', () => {
+  saved = board.saveState()
+})
+loadButton.addEventListener('click', () => {
+  if (saved) board.loadState(saved)
+})
+restartButton.addEventListener('click', () => {
+  lives = 3
+  board.play = true
+  board.restart()
 })
 
 /**

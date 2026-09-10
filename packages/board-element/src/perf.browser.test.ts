@@ -11,6 +11,7 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'
+import { GameHost } from './game-host.ts'
 import './mod.ts'
 import type { ArrowzBoard } from './mod.ts'
 
@@ -138,3 +139,41 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   expect(pieceCount).toBe(board.pieces.length)
   el.remove()
 }, 180_000)
+
+test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
+  'measures a verdict and a coloured removal on Insane',
+  async () => {
+    const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
+
+    // The verdict alone, with no rendering in the way: the reducer's cost.
+    const host = new GameHost({
+      animateExit: () => Promise.resolve(),
+      shake: () => Promise.resolve(),
+      emit: () => {},
+    })
+    host.setBoard(board)
+    const worst = board.pieces.reduce((a, b) => (a.cells.length >= b.cells.length ? a : b))
+    const t0 = performance.now()
+    await host.click(worst.id)
+    const verdictMs = performance.now() - t0
+    console.log(`insane verdict: piece=${worst.id} cells=${worst.cells.length} ${verdictMs.toFixed(3)}ms`)
+    expect(verdictMs).toBeLessThan(1)
+
+    // A removal in coloured mode must touch the nodes of one piece, not the tree.
+    const el = await mount('800px')
+    el.enableColors = true
+    el.view = { colored: true }
+    el.board = board
+    await el.updateComplete
+    await raf()
+    const survivor = board.pieces[1]
+    const leaving = board.pieces[0]
+    expect(survivor && leaving).toBeTruthy()
+    if (!survivor || !leaving) return
+    const node = svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)
+    await el.animateExit(leaving.id, leaving.dir)
+    expect(svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)).toBe(node)
+    el.remove()
+  },
+  180_000,
+)

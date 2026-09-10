@@ -30,6 +30,8 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `interactive` | `boolean` (attribute, reflected) | `false` |
 | `pad` | `number` (attribute, reflected): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
+| `play` | `boolean` (attribute, reflected) | `false` |
+| `enableColors` | `boolean` (attribute `enable-colors`, reflected) | `false` |
 
 | Method | Behaviour |
 |---|---|
@@ -37,6 +39,9 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `shake(pieceId, distance)` | nudges the piece `distance` cells down its track and back |
 | `fit()` | fits the board into the host |
 | `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
+| `saveState()` | the game in progress as a value the host can store, or `null` before a board is set |
+| `loadState(snap)` | restores a game; throws when the snapshot is not this board's |
+| `restart()` | drops the game and puts every piece back |
 
 Getter: `viewport` (read-only) returns
 `{ cellPx, originX, originY, fitted, hostWidth, hostHeight }`, or `null`
@@ -46,6 +51,9 @@ before a board and a host size are both known.
 |---|---|
 | `piece-click` | `{ pieceId }`, only when `interactive` |
 | `viewport-change` | the viewport snapshot, at most once per frame |
+| `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
+| `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
+| `finished` | `{ pieces }`, after the ride of the last piece |
 
 Controls: click without a modifier plays; drag with ⌘ or Ctrl pans; wheel
 zooms towards the cursor; one finger pans, two pinch, a tap plays; `+`, `−`,
@@ -77,6 +85,27 @@ Every piece leaves at one speed, `EXIT_SPEED` cells per second, bounded by
 `EXIT_MIN_MS` and `EXIT_MAX_MS`: a long arrow from the far side does not shoot
 out faster than a short one at the edge. `prefers-reduced-motion` collapses
 every ride to no time at all.
+
+### Playing the board
+
+With `play` the element decides the move itself: a free piece rides out, a
+blocked one bounces against the piece that stops it. The element counts no
+lives — it reports `life-lost` and the host decides what that costs, and stops
+the board by clearing `play`. `saveState()` hands back the game as a small
+value (the removed ids, the board's fingerprint and the colour choice); where
+it is kept is the host's business.
+
+Colours are off unless `enableColors` is set: monochrome is part of the puzzle,
+so telling the pieces apart without colour is the task. With the permission the
+board grows a fourth chrome button, and a board may arrive coloured through
+`view.colored` or through a loaded game.
+
+Assigning `board` always starts a new game and redraws the board in full: a
+fresh session owns a fresh "gone" set, and the layer compares that set by
+identity to decide what it may keep, so a board reassignment can no longer
+diff against the previous one. A host driving play therefore never filters a
+`Board` and hands it back — it lets `play` run the game and reads the result
+from the events.
 
 ## Development
 

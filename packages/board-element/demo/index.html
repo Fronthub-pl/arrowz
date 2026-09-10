@@ -19,10 +19,15 @@
     <label>Seed <input id="seed" type="number" value="7" min="0" style="width: 6em"></label>
     <label>Pad <input id="pad" type="number" value="4" min="0" step="1" style="width: 4em"></label>
     <button id="generate" type="button">Generate</button>
-    <label><input id="interactive" type="checkbox" checked> interactive (click = exit, ⇧ click = shake)</label>
+    <label><input id="interactive" type="checkbox" checked> interactive</label>
     <label><input id="colored" type="checkbox"> colored</label>
     <label><input id="pl" type="checkbox"> lang=pl</label>
     <button id="measure" type="button">Measure pan and zoom</button>
+    <button id="save">Save</button>
+    <button id="load">Load</button>
+    <button id="restart">Restart</button>
+    <span id="left"></span>
+    <span id="lives"></span>
     <span id="stats">idle</span>
   </header>
   <arrowz-board id="board" interactive></arrowz-board>

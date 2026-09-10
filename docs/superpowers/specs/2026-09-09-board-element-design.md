@@ -245,7 +245,9 @@ is kept only if the `Piece` object is the very same reference as the one it
 was built from; a different object under the same id is rebuilt. The game
 reducer removes pieces by filtering the array, so its next board reuses every
 remaining piece object and the update costs one pass over ids; a fresh board
-of the same size from the lab has new objects and rebuilds, as it should.
+of the same size from the lab has new objects and rebuilds, as it should. That
+clause is superseded by `docs/superpowers/specs/2026-09-10-board-game-design.md`
+§2, which keeps `Board` immutable for the lifetime of a session.
 
 In the diagnostic modes (`colored` or `top > 0`) a board change always
 rebuilds, because the hues and the highlighted set depend on the whole piece
