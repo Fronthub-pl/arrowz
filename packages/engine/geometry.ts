@@ -35,6 +35,15 @@ export const DIRS: readonly Dir[] = [
  */
 export const DEFAULT_HEAD_HEIGHT = 1
 
+/**
+ * Whether a piece's turns are drawn rounded and its tail as a disc, the
+ * default for every surface that has not been told otherwise: toSvg's own
+ * fallback, the CLI's DEFAULT_VIEW and the board element's BoardView. Lives
+ * here for the same reason DEFAULT_HEAD_HEIGHT does: geometry.ts is the one
+ * cycle-free home command.ts, engine.ts and the board element can all reach.
+ */
+export const DEFAULT_ROUNDED = true
+
 export interface ShapeOptions {
   /** Size of one cell in output units. */
   cell: number

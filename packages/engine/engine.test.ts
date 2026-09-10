@@ -829,6 +829,15 @@ Deno.test('toSvg: at every stroke the arrowhead is wider than the line, inside i
   }
 })
 
+Deno.test('sharp corners mitre and the tail squares off', () => {
+  const { toSvg } = engineExports
+  const r = generate(defaultParams())
+  const svg = toSvg(r.board, { rounded: false })
+  assert(/stroke-linejoin="miter"/.test(svg), 'corners mitre')
+  assert(!/<circle /.test(svg), 'no tail disc')
+  assert(/<rect [^>]*width="[\d.]+" height="[\d.]+"\/>/.test(svg), 'a square tail')
+})
+
 // The head size can be set by hand (view options, in cells); 0 keeps the
 // automatic rule. A head narrower than the line is pulled up to the line.
 Deno.test('toSvg: the head knobs set the size, and only the width has an automatic mode', () => {

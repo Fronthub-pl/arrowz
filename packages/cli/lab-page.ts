@@ -20,7 +20,14 @@ import type {
   WorkerIn,
   WorkerOut,
 } from '@arrowz/engine'
-import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from '@arrowz/engine'
+import {
+  DEFAULT_ROUNDED,
+  defaultParams,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  RULE_REASONS,
+  validateParams,
+} from '@arrowz/engine'
 import { buildCommand } from '@arrowz/engine/command'
 import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
@@ -589,6 +596,7 @@ function viewOptions(): View {
     headHeight: Number(el<HTMLInputElement>('headHeight').value),
     colored: el<HTMLInputElement>('colored').checked,
     top: el<HTMLInputElement>('hilite').checked ? Number(el<HTMLInputElement>('top').value) : 0,
+    rounded: DEFAULT_ROUNDED, // the checkbox that drives this arrives in the next task
   }
 }
 // "Show jammed cells" is not part of the view (the CLI has no such flag); it
@@ -1045,6 +1053,7 @@ function libView(meta: BoardMeta): View {
     headHeight: Number(el<HTMLInputElement>('libHeadHeight').value),
     colored: el<HTMLInputElement>('libColored').checked,
     top: 0, // stored boards carry no highlight
+    rounded: DEFAULT_ROUNDED, // the checkbox that drives this arrives in the next task
   }
 }
 function scheduleLibRender() {

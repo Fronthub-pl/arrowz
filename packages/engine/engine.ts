@@ -23,7 +23,7 @@ import type {
 } from './types.ts'
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
-import { at, DEFAULT_HEAD_HEIGHT, DIRS, pieceShape, voidStrips } from './geometry.ts'
+import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
 
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
@@ -2034,7 +2034,9 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   // highlighted pieces carry their own colour (a 1000×1000 board has ~90 000
   // pieces).
   const INK = '#232447'
-  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
+  const rounded = opts.rounded ?? DEFAULT_ROUNDED
+  const join = rounded ? 'round' : 'miter'
+  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="${join}">`)
   const heads: string[] = []
   const highlight: string[] = [] // paths of the longest pieces, drawn last
   const highlightHeads: string[] = []
@@ -2053,8 +2055,12 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
     const width = isLong ? hiWidth : sw
     const s = pieceShape(pc, { cell, pad, width, headWidth, headHeight })
     const fill = col === INK ? '' : ` fill="${col}"`
-    const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` +
-      `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
+    const tail = rounded
+      ? `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
+      : `<rect x="${s.tail.x - s.tail.r}" y="${s.tail.y - s.tail.r}" width="${s.tail.r * 2}" height="${
+        s.tail.r * 2
+      }"${fill}/>`
+    const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` + tail
     const line = `<polyline points="${s.line.map(pt).join(' ')}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) {
       highlight.push(line)
@@ -2066,7 +2072,7 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   })
   out.push('</g>')
   if (highlight.length) {
-    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="round">`)
+    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="${join}">`)
     out.push(...highlight)
     out.push('</g>')
   }

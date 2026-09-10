@@ -1,6 +1,6 @@
 // What a board looks like, and the diagnostic hue of a piece. No renderer and
 // no DOM: mod.ts exports these, so they must not move when the layer does.
-import { DEFAULT_HEAD_HEIGHT } from '@arrowz/engine'
+import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
 
 export interface BoardView {
   /** Stroke width as a fraction of a cell. */
@@ -28,7 +28,7 @@ export const DEFAULT_VIEW: BoardView = {
   // The engine's number, not a copy of it: the CLI export and this board draw
   // the same head without anyone setting a knob.
   headHeight: DEFAULT_HEAD_HEIGHT,
-  rounded: true,
+  rounded: DEFAULT_ROUNDED,
   colored: false,
   top: 0,
   voids: false,

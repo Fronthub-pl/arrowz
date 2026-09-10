@@ -35,7 +35,7 @@ Deno.test('buildCommand: default params give only size, seed, --svg and --cell',
 
 Deno.test('buildCommand ↔ parseArgs: round trip for changed knobs and view', () => {
   const p = { ...defaultParams(), W: 100, H: 200, seed: 42, anticoil: 3, giants: 4, headBias: -1, wShort: 0.5 }
-  const v = { cell: 8, stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 5 }
+  const v = { cell: 8, stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 5, rounded: true }
   const cmd = buildCommand(p, v)
   assertMatch(cmd, /--anticoil=3 /)
   assertMatch(cmd, /--headbias=-1 /)
@@ -230,6 +230,7 @@ Deno.test('parseSimpleArgs: the view flags carry the lab names', () => {
     headHeight: 1.2,
     colored: true,
     top: 0,
+    rounded: true,
   })
 })
 
@@ -274,7 +275,15 @@ Deno.test('buildSimpleCommand ↔ parseSimpleArgs: defaults give size and seed o
     seed: 42,
     random: true,
   }
-  const v = { cell: exportCell(100, 200), stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 0 }
+  const v = {
+    cell: exportCell(100, 200),
+    stroke: 0.4,
+    headWidth: 0.8,
+    headHeight: 1.2,
+    colored: true,
+    top: 0,
+    rounded: true,
+  }
   const cmd = buildSimpleCommand(c, v)
   assertEquals(
     cmd,
@@ -285,4 +294,19 @@ Deno.test('buildSimpleCommand ↔ parseSimpleArgs: defaults give size and seed o
   assertEquals(back.choice, c)
   assertEquals(back.view, v)
   assertEquals(back.rest, [])
+})
+
+Deno.test('--sharp round-trips through both dialects', () => {
+  const advanced = parseArgs(['--sharp'])
+  assertEquals(advanced.view.rounded, false)
+  assertMatch(buildCommand(advanced.params, advanced.view), /--sharp\b/)
+  const simple = parseSimpleArgs(['--width=10', '--height=10', '--sharp'])
+  assertEquals(simple.view.rounded, false)
+  assertMatch(buildSimpleCommand(simple.choice, simple.view), /--sharp\b/)
+})
+
+Deno.test('a rounded board prints no switch', () => {
+  const r = parseArgs([])
+  assertEquals(r.view.rounded, true)
+  assert(!buildCommand(r.params, r.view).includes('--sharp'))
 })

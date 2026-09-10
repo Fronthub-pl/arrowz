@@ -6,7 +6,7 @@
 // so both sides build and read the text with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, View } from './types.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
-import { DEFAULT_HEAD_HEIGHT } from './geometry.ts'
+import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
@@ -33,6 +33,7 @@ export const DEFAULT_VIEW: View = {
   headHeight: DEFAULT_HEAD_HEIGHT,
   colored: false,
   top: 0,
+  rounded: DEFAULT_ROUNDED,
 }
 
 /** One line of a flag list in --help: the flag itself and its description. */
@@ -63,6 +64,7 @@ const VIEW_FLAGS: readonly FlagRow[] = [
   ['--headheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
   ['--colored', 'a different colour for every piece'],
   ['--top=N', 'highlight the N longest pieces and print their stats'],
+  ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
 
 // The simple mode: the flags of the simple lab view. Kept next to the parser
@@ -82,6 +84,7 @@ const SIMPLE_FLAGS: readonly FlagRow[] = [
   ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
   ['--arrowheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
+  ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
 const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR)'],
@@ -196,6 +199,7 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--headheight=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
+  if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
 }
 
@@ -236,6 +240,10 @@ export function parseArgs(argv: readonly string[]): { params: Params; view: View
       view.colored = true
       continue
     }
+    if (name === 'sharp') {
+      view.rounded = false
+      continue
+    }
     rest.push(a)
   }
   return { params, view, rest }
@@ -269,11 +277,13 @@ type SwitchTarget =
   | readonly ['choice', 'skeleton', 'on']
   | readonly ['choice', 'random', true]
   | readonly ['view', 'colored', true]
+  | readonly ['view', 'rounded', false]
 
 const SIMPLE_SWITCH = new Map<string, SwitchTarget>([
   ['skeleton', ['choice', 'skeleton', 'on']],
   ['randomized', ['choice', 'random', true]],
   ['colorized', ['view', 'colored', true]],
+  ['sharp', ['view', 'rounded', false]],
 ])
 const SIMPLE_SLIDER = new Set(['length', 'straight'])
 // Mode flags the CLI reads in the simple mode; anything else is refused.
@@ -307,7 +317,8 @@ export function parseSimpleArgs(
       if (sw[0] === 'choice') {
         if (sw[1] === 'skeleton') choice.skeleton = sw[2]
         else choice.random = sw[2]
-      } else view.colored = sw[2]
+      } else if (sw[1] === 'colored') view.colored = sw[2]
+      else view.rounded = sw[2]
       continue
     }
     const target = SIMPLE_NUMBER.get(name)
@@ -347,6 +358,7 @@ export function buildSimpleCommand(choice: SimpleChoice, view: Partial<View> = {
   if (v.headWidth > 0) parts.push(`--arrowwidth=${v.headWidth}`)
   if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrowheight=${v.headHeight}`)
   if (v.colored) parts.push('--colorized')
+  if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
 }
 
