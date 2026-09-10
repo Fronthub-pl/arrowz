@@ -70,6 +70,36 @@ function snapshot(): Uint8Array {
   return buf
 }
 
+/**
+ * How many pixels of the drawing buffer are dark. Used with white paper and
+ * black ink, so it counts the pieces and nothing else: the margin outside the
+ * paper is transparent, which is dark in the red channel but has no alpha.
+ */
+function inked(): number {
+  const buf = snapshot()
+  let n = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    const [r, g, b, a] = [buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0]
+    if (a > 0 && r < 100 && g < 100 && b < 100) n++
+  }
+  return n
+}
+
+/**
+ * How much ink the drawing buffer holds: how far every pixel that was painted
+ * at all is from white. Used with half transparent ink, where a shape drawn
+ * twice composites twice and comes out measurably darker than the same shape
+ * drawn once — which a single-pixel or an inked() count could not tell apart.
+ */
+function darkness(): number {
+  const buf = snapshot()
+  let sum = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    if ((buf[i + 3] ?? 0) > 0) sum += 255 - (buf[i] ?? 0)
+  }
+  return sum
+}
+
 function show(b: Board | null, view = DEFAULT_VIEW): void {
   layer.setBoard(b, view)
   layer.setViewport(fit({ W: b?.W ?? 1, H: b?.H ?? 1, hostWidth: HOST, hostHeight: HOST, pad: 0 }))
@@ -225,4 +255,167 @@ test('the voids draw the highlight colour, at .22 opacity, over cells the genera
   expect(g).toBeGreaterThanOrEqual(195)
   expect(g).toBeLessThanOrEqual(203)
   expect(blue).toBe(255)
+})
+
+test('an exit removes the piece and resolves', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  expect(layer.hasPiece(pc.id)).toBe(true)
+  await layer.animateExit(pc.id, pc.dir)
+  expect(layer.hasPiece(pc.id)).toBe(false)
+  expect(layer.isExiting(pc.id)).toBe(false)
+  expect(layer.pieceCount).toBe(b.pieces.length - 1)
+})
+
+test('a piece on its way out is marked while it rides', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const done = layer.animateExit(pc.id, pc.dir)
+  expect(layer.isExiting(pc.id)).toBe(true)
+  await done
+  expect(layer.isExiting(pc.id)).toBe(false)
+})
+
+test('a shake leaves the piece where it started', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  await layer.shake(pc.id, 0.3)
+  expect(layer.hasPiece(pc.id)).toBe(true)
+  expect(layer.pieceCount).toBe(b.pieces.length)
+})
+
+test('an exit on a piece that is not there resolves without drawing', async () => {
+  show(board())
+  await drawn()
+  await expect(layer.animateExit(-1, 1)).resolves.toBeUndefined()
+})
+
+test('a second ride supersedes the first without leaving the piece behind', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const first = layer.shake(pc.id, 0.3)
+  const second = layer.animateExit(pc.id, pc.dir)
+  await Promise.all([first, second])
+  expect(layer.hasPiece(pc.id)).toBe(false)
+})
+
+test('a bad direction throws and leaves the piece exactly as it was', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  layer.drawNowForTest()
+  const before = snapshot()
+  expect(() => layer.animateExit(pc.id, 9)).toThrow()
+  expect(layer.isExiting(pc.id)).toBe(false)
+  expect(layer.hasPiece(pc.id)).toBe(true)
+  await drawn()
+  layer.drawNowForTest()
+  expect(snapshot()).toEqual(before)
+})
+
+test('a ride draws a frame of its own while it runs', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  await drawn()
+  const before = layer.drawsForTest
+  // The line bends through the corners while the head runs straight out, so
+  // the layer has to redraw per frame; a ride that only set a transform would
+  // leave this count where it was.
+  const ride = layer.shake(pc.id, 0.3)
+  await drawn()
+  expect(layer.drawsForTest).toBeGreaterThan(before)
+  await ride
+})
+
+test('a shake leaves the picture exactly as it found it', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  show(b)
+  layer.drawNowForTest()
+  const before = snapshot()
+  await layer.shake(pc.id, 0.3)
+  layer.drawNowForTest()
+  // Byte for byte: the piece's triangles are written back from the scene, so a
+  // rider left in the buffer or a range left collapsed would both show here.
+  expect(snapshot()).toEqual(before)
+})
+
+test('a riding piece is drawn once: the static buffer lets go of it', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  // One piece alone, in half transparent ink: the resting picture and the
+  // riding picture are the same shape, so the only thing that can darken the
+  // canvas is the static buffer drawing the piece the rider is already drawing.
+  const solo: Board = { ...b, pieces: [pc] }
+  show(solo, { ...DEFAULT_VIEW, paper: '#ffffff', ink: 'rgba(0, 0, 0, 0.5)' })
+  // The frame clock has to be warm before the ride starts. `document.timeline`
+  // only moves when a frame is produced, and a ride begun after a gap between
+  // frames — the previous test's teardown is one — is handed a start time that
+  // old, so it is already past its duration on its first tick and settles at
+  // once. The piece would be back at rest before the picture below is read.
+  await drawn()
+  layer.drawNowForTest()
+  const rest = darkness()
+  expect(rest).toBeGreaterThan(0)
+  // A shake of no distance rides the piece to exactly where it already is.
+  const ride = layer.shake(pc.id, 0)
+  await drawn()
+  layer.drawNowForTest()
+  const riding = darkness()
+  await ride
+  expect(riding).toBeGreaterThan(rest * 0.95)
+  expect(riding).toBeLessThan(rest * 1.05)
+})
+
+test('two pieces can ride at once, each drawn once', async () => {
+  const b = board()
+  const [one, two] = [b.pieces[0], b.pieces[1]]
+  if (!one || !two) throw new Error('need two pieces')
+  // Two quick clicks are all it takes for two rides to overlap, and the rider
+  // buffer holds them both: a buffer holding only whichever uploaded last
+  // would leave the other piece out of the frame, which is half the ink.
+  const pair: Board = { ...b, pieces: [one, two] }
+  show(pair, { ...DEFAULT_VIEW, paper: '#ffffff', ink: 'rgba(0, 0, 0, 0.5)' })
+  await drawn()
+  layer.drawNowForTest()
+  const rest = darkness()
+  const rides = [layer.shake(one.id, 0), layer.shake(two.id, 0)]
+  await drawn()
+  layer.drawNowForTest()
+  const riding = darkness()
+  await Promise.all(rides)
+  expect(riding).toBeGreaterThan(rest * 0.95)
+  expect(riding).toBeLessThan(rest * 1.05)
+})
+
+test('a piece that has ridden out leaves no ink behind', async () => {
+  const b = board()
+  const pc = b.pieces[0]
+  if (!pc) throw new Error('need a piece')
+  // One piece alone, so every inked pixel on the canvas is that piece: with
+  // the rest of the board drawn there would be nothing to count.
+  const solo: Board = { ...b, pieces: [pc] }
+  show(solo, { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' })
+  layer.drawNowForTest()
+  expect(inked()).toBeGreaterThan(0)
+  await layer.animateExit(pc.id, pc.dir)
+  layer.drawNowForTest()
+  expect(inked()).toBe(0)
 })
