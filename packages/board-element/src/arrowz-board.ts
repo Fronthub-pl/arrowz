@@ -57,6 +57,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // tech read the attribute). attributeChangedCallback below asks for the
     // re-render that the missing accessor would have asked for.
     lang: { type: String, noAccessor: true },
+    enableColors: { type: Boolean, reflect: true, attribute: 'enable-colors' },
+    coloredOverride: { state: true },
   }
 
   declare board: Board | null
@@ -66,6 +68,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   declare play: boolean
   /** Margin around the board, in cells. See DEFAULT_PAD. */
   declare pad: number
+  /** Permission to colour the board. Without it the element is monochrome and shows no button. */
+  declare enableColors: boolean
+  /** The button's choice; null while the board still follows `view.colored`. */
+  declare coloredOverride: boolean | null
 
   static styles = css`
     :host {
@@ -144,6 +150,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.interactive = false
     this.play = false
     this.pad = DEFAULT_PAD
+    this.enableColors = false
+    this.coloredOverride = null
     const svg = this.layer.svg
     svg.addEventListener('pointerdown', this.onPointerDown)
     svg.addEventListener('pointermove', this.onPointerMove)
@@ -198,12 +206,27 @@ export class ArrowzBoard extends LitElement implements GameTarget {
         <button type="button" title=${l.zoomOut} aria-label=${l.zoomOut} @click=${() =>
           this.zoomBy(1 / ZOOM_STEP)}>−</button>
         <button type="button" title=${l.fit} aria-label=${l.fit} @click=${() => this.fit()}>⤢</button>
+        ${this.enableColors
+          ? html`
+            <button
+              type="button"
+              class="colors"
+              title=${l.colors}
+              aria-label=${l.colors}
+              aria-pressed=${this.colored ? 'true' : 'false'}
+              @click=${() => this.coloredOverride = !this.colored}
+            >◑</button>
+          `
+          : ''}
       </div>
     `
   }
 
   override updated(changed: PropertyValues<this>): void {
-    if (!changed.has('board') && !changed.has('view') && !changed.has('pad')) return
+    if (
+      !changed.has('board') && !changed.has('view') && !changed.has('pad') &&
+      !changed.has('coloredOverride') && !changed.has('enableColors')
+    ) return
     const previous = this.layer.board
     if (changed.has('board')) this.game.setBoard(this.board)
     this.redraw()
@@ -257,12 +280,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /** The game in progress, as a value the host can store. */
   saveState(): SessionSnapshot | null {
-    return this.game.save(false)
+    return this.game.save(this.colored)
   }
 
   /** Restores a game saved by `saveState`. Throws when the snapshot is not this board's. */
   loadState(snap: SessionSnapshot): void {
     this.game.load(snap)
+    this.coloredOverride = snap.colored
     this.redraw()
   }
 
@@ -272,9 +296,22 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.redraw()
   }
 
+  /**
+   * Whether the pieces are drawn in their own hues. The permission wins over
+   * everything: monochrome is part of the task (design §11), so a host has to
+   * ask for the exception before either the button or `view.colored` counts.
+   */
+  private get colored(): boolean {
+    return this.enableColors && (this.coloredOverride ?? this.view.colored ?? false)
+  }
+
   /** Draws the board as the session now stands. */
   private redraw(): void {
-    this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view }, this.game.goneIds)
+    this.layer.setBoard(
+      this.board,
+      { ...DEFAULT_VIEW, ...this.view, colored: this.colored },
+      this.game.goneIds,
+    )
   }
 
   /** GameTarget: the game host reaches the board through these three. */

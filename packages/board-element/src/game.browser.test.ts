@@ -2,6 +2,7 @@ import { defaultParams, DIRS, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
+import { hueOf } from './svg-layer.ts'
 import './mod.ts'
 
 function makeBoard(seed = 7): Board {
@@ -249,5 +250,51 @@ describe('saving and restoring', () => {
     await el.updateComplete
     expect(svgOf(el).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length)
     expect(el.saveState()?.removed).toEqual([])
+  })
+})
+
+describe('colours', () => {
+  const colourButton = (e: ArrowzBoard): HTMLButtonElement | null =>
+    e.shadowRoot?.querySelector<HTMLButtonElement>('button.colors') ?? null
+
+  test('without the permission there is no button and no colour', async () => {
+    await mount({ play: '' })
+    el.view = { colored: true }
+    await el.updateComplete
+    expect(colourButton(el)).toBeNull()
+    const first = el.board?.pieces[0]
+    expect(first).toBeTruthy()
+    if (first) expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke')).toBeNull()
+  })
+
+  test('with the permission the button paints the board and its label follows lang', async () => {
+    await mount({ 'enable-colors': '', lang: 'pl' })
+    const button = colourButton(el)
+    expect(button?.getAttribute('aria-label')).toBe('Kolory figur')
+    expect(button?.getAttribute('aria-pressed')).toBe('false')
+    button?.click()
+    await el.updateComplete
+    const first = el.board?.pieces[0]
+    if (first) {
+      expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke'))
+        .toBe(hueOf(first.id))
+    }
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test('a board may arrive coloured, and the choice travels in the snapshot', async () => {
+    await mount({ 'enable-colors': '', play: '' })
+    el.view = { colored: true }
+    await el.updateComplete
+    expect(el.saveState()?.colored).toBe(true)
+    colourButton(el)?.click()
+    await el.updateComplete
+    expect(el.saveState()?.colored).toBe(false)
+
+    const snap = el.saveState()
+    const fresh = await mount({ 'enable-colors': '', play: '' }, el.board ?? makeBoard())
+    if (snap) fresh.loadState({ ...snap, colored: true })
+    await fresh.updateComplete
+    expect(colourButton(fresh)?.getAttribute('aria-pressed')).toBe('true')
   })
 })

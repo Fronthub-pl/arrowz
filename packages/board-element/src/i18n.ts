@@ -8,6 +8,7 @@ export interface BoardLabels {
   fit: string
   panHintMac: string
   panHintOther: string
+  colors: string
 }
 
 export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
@@ -17,6 +18,7 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     fit: 'Fit the board',
     panHintMac: 'Hold ⌘ and drag to pan',
     panHintOther: 'Hold Ctrl and drag to pan',
+    colors: 'Piece colours',
   },
   pl: {
     zoomIn: 'Powiększ',
@@ -24,6 +26,7 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     fit: 'Dopasuj planszę',
     panHintMac: 'Przytrzymaj ⌘ i przeciągnij, aby przesunąć',
     panHintOther: 'Przytrzymaj Ctrl i przeciągnij, aby przesunąć',
+    colors: 'Kolory figur',
   },
 }
 

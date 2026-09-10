@@ -20,3 +20,8 @@ test('labelsFor picks Polish for pl and pl-PL and falls back to English', () => 
   expect(labelsFor('')).toBe(BOARD_LABELS.en)
   expect(labelsFor(null)).toBe(BOARD_LABELS.en)
 })
+
+test('the colour button is labelled in both languages', () => {
+  expect(labelsFor('pl').colors).toBe('Kolory figur')
+  expect(labelsFor('en').colors).toBe('Piece colours')
+})
