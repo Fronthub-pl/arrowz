@@ -328,22 +328,20 @@ git commit -m "A piece can turn through a rounded corner"
 
 ```ts
 test('a sharp tail is a square with the same reach as the disc', () => {
-  const round = tesselateBoard(BENT_BOARD, { ...DEFAULT_VIEW, rounded: true }, new Set())
-  const sharp = tesselateBoard(BENT_BOARD, { ...DEFAULT_VIEW, rounded: false }, new Set())
+  const round = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const sharp = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: false }, NONE)
+  const headOf = (s: Scene) => s.rangeOf(BENT.id)?.head.count ?? 0
   // The disc is TAIL_SEGMENTS triangles; the square is two.
-  const roundHead = round.rangeOf(BENT.id)?.head.count ?? 0
-  const sharpHead = sharp.rangeOf(BENT.id)?.head.count ?? 0
-  expect(roundHead - sharpHead).toBe(3 * TAIL_SEGMENTS - 6)
-  // Same bounding box: the switch changes corners, never how much room a piece takes.
-  const half = DEFAULT_VIEW.stroke / 2
-  const tail = BENT.cells[BENT.cells.length - 1]!
+  expect(headOf(round) - headOf(sharp)).toBe(3 * TAIL_SEGMENTS - 6)
+
+  // Same reach: the switch changes the corner, never how much room a piece takes.
   const r = sharp.rangeOf(BENT.id)
   if (!r) throw new Error('BENT is not drawn')
-  let maxDx = 0
-  for (let i = r.head.start + r.head.count - 6; i < r.head.start + r.head.count; i++) {
-    maxDx = Math.max(maxDx, Math.abs(sharp.positions[i * 2]! - (tail.x + 0.5)))
-  }
-  expect(maxDx).toBeCloseTo(half, 9)
+  const half = DEFAULT_VIEW.stroke / 2
+  const tail = at(BENT.cells, BENT.cells.length - 1)
+  const cap = points(sharp.positions, r.head).slice(-6)
+  const reach = cap.reduce((m, [x, y]) => Math.max(m, Math.abs(x - (tail.x + 0.5)), Math.abs(y - (tail.y + 0.5))), 0)
+  expect(reach).toBeCloseTo(half, 9)
 })
 ```
 
@@ -507,10 +505,12 @@ itself rather than importing it:
 
 ```ts
   // The ride is written through the same writeLine, so it merges the same way.
-  const turns = (l: readonly [number, number][], i: number) =>
-    Math.abs((l[i]![0] - l[i - 1]![0]) * (l[i + 1]![1] - l[i]![1]) -
-      (l[i]![1] - l[i - 1]![1]) * (l[i + 1]![0] - l[i]![0])) > 1e-9
-  const corners = expected.filter((_, i) => i > 0 && i < expected.length - 1 && turns(expected, i)).length
+  // `at` is this file's own checked index: the package allows no non-null assertions.
+  const turnsAt = (l: readonly [number, number][], i: number): boolean => {
+    const a = at(l, i - 1), b = at(l, i), c = at(l, i + 1)
+    return Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-9
+  }
+  const corners = expected.filter((_, i) => i > 0 && i < expected.length - 1 && turnsAt(expected, i)).length
   const segments = corners + 1
   const want = 6 * segments + 3 * JOIN_SEGMENTS * corners +
     3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
@@ -980,9 +980,25 @@ ranges and both need the switch.
 
 - [ ] **Step 1: Write the failing test**
 
-In `packages/board-element/demo/controls.test.ts`:
+In `packages/board-element/demo/controls.test.ts`. The first test is the red
+one — it pins the exact numbers the spec names, and today's demo has none of
+them. The second cannot go red on its own; it is the regression net whose
+absence let the demo and the lab drift apart in the first place, so write it
+as a net and do not pretend it is the red step.
 
 ```ts
+test('the view ranges are the ones the lab offers', () => {
+  const ranges = Object.fromEntries(
+    VIEW_CONTROLS.filter((c) => c.kind === 'number').map((c) => [c.id, [c.min, c.max, c.step]]),
+  )
+  expect(ranges).toEqual({
+    stroke: [0.2, 0.9, 0.05],
+    headWidth: [0, 0.9, 0.05],
+    headHeight: [0.1, 1, 0.05],
+    top: [0, 50, 1],
+  })
+})
+
 test('every number control has a default inside its own range', () => {
   for (const control of [...ATTRIBUTES, ...VIEW_CONTROLS]) {
     if (control.kind !== 'number') continue
@@ -992,14 +1008,15 @@ test('every number control has a default inside its own range', () => {
 })
 ```
 
-This is the assertion whose absence let the demo and the lab drift apart.
+`VIEW_CONTROLS.filter((c) => c.kind === 'number')` does not narrow the union on
+its own; give the callback the type predicate the file's `Control` union needs,
+or read `c.min` through a small `isNumberControl` guard declared next to it.
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `cd packages/board-element && pnpm vitest run --project node controls`
-Expected: FAIL — `headHeight` defaults to 1 (Task 5) with a maximum of 3 and a
-minimum of 0, so it passes by accident today; if it does pass, tighten the
-ranges first in Step 3 and watch it fail then.
+Expected: FAIL on the first test — the demo offers `stroke` 0.05 to 1.5 and
+both head knobs 0 to 3.
 
 - [ ] **Step 3: Retune the demo's ranges**
 
