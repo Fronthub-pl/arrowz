@@ -149,25 +149,41 @@ describe('play', () => {
     expect(svgOf(el).querySelector(`g.heads > g[data-id="${free}"]`)).not.toBeNull()
   })
 
-  test('a board replaced mid-ride leaves no game stuck', async () => {
-    const board = makeBoard()
-    const { free } = verdicts(board)
+  test('a rebuild mid-ride resolves the ride instead of hanging the game', async () => {
+    // A two-piece board built by hand: both point off the edge, so the
+    // second click rides out the last piece on the board.
+    const board: Board = {
+      W: 2,
+      H: 2,
+      owner: Int32Array.from([0, 1, 0, 1]),
+      pieces: [
+        { id: 0, cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }], dir: 3 },
+        { id: 1, cells: [{ x: 1, y: 0 }, { x: 1, y: 1 }], dir: 1 },
+      ],
+      stats: { want: 2, got: 2, stall: 0, strandTrunc: 0, strandLoss: 0, n: 2 },
+      backtracks: 0,
+      remaining: 0,
+    }
     await mount({ play: '' }, board)
-    let finished = 0
-    el.addEventListener('finished', () => finished++)
-    clickPiece(el, free)
+    const finished: number[] = []
+    el.addEventListener('finished', (e) => finished.push(e.detail.pieces))
+    clickPiece(el, 0)
+    await new Promise<void>((r) => setTimeout(r, 700)) // the first ride settles
+    clickPiece(el, 1) // the last piece: this ride is the one that wins the game
     await raf() // the ride has started
-    el.board = makeBoard(9) // a rebuild cancels it
+    const rebuilt = makeBoard()
+    el.board = rebuilt // a rebuild cancels it
     await el.updateComplete
     await new Promise<void>((r) => setTimeout(r, 700))
-    // The cancelled ride resolved, the new board plays, and nothing finished.
-    expect(finished).toBe(0)
-    const next = verdicts(el.board ?? board)
+    // The cancelled last ride resolved rather than hanging: `finished` still
+    // arrives, reporting the piece count of the board it belonged to.
+    expect(finished).toEqual([2])
+    const { free } = verdicts(el.board ?? rebuilt)
     const removed: number[] = []
     el.addEventListener('piece-removed', (e) => removed.push(e.detail.pieceId))
-    clickPiece(el, next.free)
+    clickPiece(el, free)
     await new Promise<void>((r) => setTimeout(r, 700))
-    expect(removed).toEqual([next.free])
+    expect(removed).toEqual([free])
   })
 
   test('the board is finished when the last piece has ridden out', async () => {
