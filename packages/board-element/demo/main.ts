@@ -117,8 +117,20 @@ $<HTMLInputElement>('pl').addEventListener('change', (e) => {
 let lives = 3
 let saved: SessionSnapshot | null = null
 
-board.addEventListener('piece-removed', (e) => {
-  leftLabel.textContent = `left: ${e.detail.left}`
+/**
+ * Repaints `left` from the board's own state (piece count minus what
+ * `saveState()` says has left) rather than a value threaded through by
+ * whichever caller happens to know it, so a removal, a load and a restart
+ * all land on the same number and cannot drift apart.
+ */
+function paintLeft(): void {
+  const total = board.board?.pieces.length ?? 0
+  const removed = board.saveState()?.removed.length ?? 0
+  leftLabel.textContent = `left: ${total - removed}`
+}
+
+board.addEventListener('piece-removed', () => {
+  paintLeft()
 })
 board.addEventListener('life-lost', (e) => {
   lives--
@@ -132,12 +144,16 @@ saveButton.addEventListener('click', () => {
   saved = board.saveState()
 })
 loadButton.addEventListener('click', () => {
-  if (saved) board.loadState(saved)
+  if (!saved) return
+  board.loadState(saved)
+  paintLeft()
 })
 restartButton.addEventListener('click', () => {
   lives = 3
   board.play = true
   board.restart()
+  paintLeft()
+  livesLabel.textContent = `lives: ${lives}`
 })
 
 /**

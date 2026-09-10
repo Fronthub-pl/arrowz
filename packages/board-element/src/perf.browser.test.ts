@@ -147,16 +147,24 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
     // The verdict alone: the reducer's ray scan, with no animation, no event
     // dispatch and no host bookkeeping in the way. Printed, not asserted — the
     // file's header already says the Insane case is a report, not a gate.
+    // `play` never mutates its session, so calling it on the same piece over
+    // and over walks the ray in full every time rather than short-circuiting
+    // on a piece already gone; a single call is too close to
+    // `performance.now()`'s own resolution to say anything, so the printed
+    // figure is a mean over many calls instead.
     const session = newSession(board)
     const worst = board.pieces.reduce((a, b) => (a.cells.length >= b.cells.length ? a : b))
-    // One warm call on a different piece, discarded, so the printed figure is
-    // not also paying for the module's cold JIT.
+    // One warm call on a different piece, discarded, so the loop below is not
+    // also paying for the module's cold JIT.
     const warm = board.pieces.find((p) => p.id !== worst.id) ?? worst
     play(session, warm.id)
+    const calls = 5000
     const t0 = performance.now()
-    play(session, worst.id)
-    const verdictMs = performance.now() - t0
-    console.log(`insane verdict: piece=${worst.id} cells=${worst.cells.length} ${verdictMs.toFixed(3)}ms`)
+    for (let i = 0; i < calls; i++) play(session, worst.id)
+    const verdictMs = (performance.now() - t0) / calls
+    console.log(
+      `insane verdict: piece=${worst.id} cells=${worst.cells.length} mean of ${calls} calls ${verdictMs.toFixed(4)}ms`,
+    )
 
     // A removal in coloured mode must touch the nodes of one piece, not the tree.
     const el = await mount('800px')
