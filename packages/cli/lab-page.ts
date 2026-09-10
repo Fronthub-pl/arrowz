@@ -1207,7 +1207,14 @@ function loadFromUrl(): boolean {
     if (view.cell) el<HTMLInputElement>('cell').value = String(view.cell)
     if (view.stroke) el<HTMLInputElement>('stroke').value = String(view.stroke)
     if (view.headWidth) el<HTMLInputElement>('headWidth').value = String(view.headWidth)
-    if (view.headHeight) el<HTMLInputElement>('headHeight').value = String(view.headHeight)
+    // A hash headHeight of 0 meant "automatic": it was this input's own
+    // default until the height became literal, so every link shared before
+    // that change carries one, as a string, which is truthy. Read it as unset
+    // and keep the page default — the same rule readMeta applies to a stored
+    // board (store.ts). Nothing is lost: once the panel's minimum for this
+    // input is 0.1 the lab cannot write a 0 into a hash at all, so a 0 here is
+    // an old link rather than a height anybody chose.
+    if (Number(view.headHeight) > 0) el<HTMLInputElement>('headHeight').value = String(view.headHeight)
     if (view.top) el<HTMLInputElement>('top').value = String(view.top)
     el<HTMLInputElement>('colored').checked = !!view.colored
     el<HTMLInputElement>('hilite').checked = view.hilite !== false

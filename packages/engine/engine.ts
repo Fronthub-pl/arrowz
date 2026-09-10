@@ -23,7 +23,7 @@ import type {
 } from './types.ts'
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
-import { at, DIRS, pieceShape, voidStrips } from './geometry.ts'
+import { at, DEFAULT_HEAD_HEIGHT, DIRS, pieceShape, voidStrips } from './geometry.ts'
 
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
@@ -2042,10 +2042,10 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
   // A missing head width means automatic; a missing head height means the
-  // default one cell, the same number DEFAULT_VIEW carries for the CLI and the
+  // shared default, the same number DEFAULT_VIEW carries for the CLI and the
   // board element. `??`, not `||`, so an explicit 0 stays the 0 that was asked
   // for: the height has no automatic mode to fall back to.
-  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 1
+  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? DEFAULT_HEAD_HEIGHT
   const pt = ([x, y]: [number, number]): string => `${x},${y}`
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)

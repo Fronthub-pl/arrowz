@@ -6,6 +6,7 @@
 // so both sides build and read the text with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, View } from './types.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
+import { DEFAULT_HEAD_HEIGHT } from './geometry.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
@@ -23,8 +24,16 @@ const KEY_BY_FLAG = new Map<string, ParamKey>(PARAM_SPEC.map((s) => [s.key.toLow
 for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
 
 // headWidth: arrowhead width in cells, 0 = automatic (from the stroke).
-// headHeight: arrowhead height in cells, always literal — one cell by default.
-export const DEFAULT_VIEW: View = { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0 }
+// headHeight: arrowhead height in cells, always literal; the default is the
+// engine's own, so this view, toSvg and the board element cannot drift apart.
+export const DEFAULT_VIEW: View = {
+  cell: 12,
+  stroke: 0.5,
+  headWidth: 0,
+  headHeight: DEFAULT_HEAD_HEIGHT,
+  colored: false,
+  top: 0,
+}
 
 /** One line of a flag list in --help: the flag itself and its description. */
 type FlagRow = readonly [string, string]

@@ -25,6 +25,16 @@ export const DIRS: readonly Dir[] = [
   { dx: -1, dy: 0, ch: '←' }, // 3 left
 ]
 
+/**
+ * The head height every surface starts from, in cells: the CLI's DEFAULT_VIEW,
+ * the board element's BoardView and toSvg's own fallback. The one place the
+ * number lives, and it lives HERE rather than next to DEFAULT_VIEW because
+ * command.ts imports engine.ts, so engine.ts cannot import command.ts back;
+ * geometry.ts imports nothing but types.ts, so all three can reach it.
+ * (packages/cli/lab.html repeats it as an input value: HTML imports nothing.)
+ */
+export const DEFAULT_HEAD_HEIGHT = 1
+
 export interface ShapeOptions {
   /** Size of one cell in output units. */
   cell: number
