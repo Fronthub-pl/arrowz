@@ -34,15 +34,15 @@ function summary(frames: readonly number[]): { mean: number; worst: number } {
   return { mean: sum / frames.length, worst }
 }
 
-function svgOf(el: ArrowzBoard): SVGSVGElement {
-  const svg = el.shadowRoot?.querySelector('svg')
-  if (!svg) throw new Error('no svg')
-  return svg
+function canvasOf(el: ArrowzBoard): HTMLCanvasElement {
+  const canvas = el.shadowRoot?.querySelector('canvas')
+  if (!canvas) throw new Error('no canvas')
+  return canvas
 }
 
-/** A modifier drag over the svg: `count` frames, reporting the time of each. */
-async function pan(svg: SVGSVGElement, count: number): Promise<number[]> {
-  const r = svg.getBoundingClientRect()
+/** A modifier drag over the canvas: `count` frames, reporting the time of each. */
+async function pan(canvas: HTMLCanvasElement, count: number): Promise<number[]> {
+  const r = canvas.getBoundingClientRect()
   const ev = (type: string, x: number, y: number) =>
     new PointerEvent(type, {
       bubbles: true,
@@ -53,14 +53,14 @@ async function pan(svg: SVGSVGElement, count: number): Promise<number[]> {
       ctrlKey: true,
     })
   const frames: number[] = []
-  svg.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))
+  canvas.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))
   for (let i = 1; i <= count; i++) {
     const t = performance.now()
-    svg.dispatchEvent(ev('pointermove', r.width / 2 - i * 3, r.height / 2 - i * 2))
+    canvas.dispatchEvent(ev('pointermove', r.width / 2 - i * 3, r.height / 2 - i * 2))
     await raf()
     frames.push(performance.now() - t)
   }
-  svg.dispatchEvent(ev('pointerup', r.width / 2 - count * 3, r.height / 2 - count * 2))
+  canvas.dispatchEvent(ev('pointerup', r.width / 2 - count * 3, r.height / 2 - count * 2))
   return frames
 }
 
@@ -98,7 +98,7 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
   const build = performance.now() - t0
   el.zoomBy(3)
   await raf()
-  const frames = await pan(svgOf(el), 20)
+  const frames = await pan(canvasOf(el), 20)
   const { mean, worst } = summary(frames)
   console.log(
     `nightmare: pieces=${board.pieces.length} build=${build.toFixed(1)}ms ` +
@@ -125,14 +125,17 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   await el.updateComplete
   await raf()
   const build = performance.now() - t0
-  const nodes = el.shadowRoot?.querySelectorAll('svg *').length ?? 0
-  const pieceCount = el.shadowRoot?.querySelectorAll('g.heads > g[data-id]').length ?? 0
+  // The node count this line used to print was the SVG tree's, and there is
+  // no tree any more: the board is one canvas whatever its size. What the
+  // figure was watched for — that the board really did build every piece —
+  // is now the layer's own count of them, printed and asserted below.
+  const pieceCount = el.pieceCount
   el.zoomBy(3)
   await raf()
-  const panStats = summary(await pan(svgOf(el), 60))
+  const panStats = summary(await pan(canvasOf(el), 60))
   const zoomStats = summary(await zoom(el, 60))
   console.log(
-    `insane: pieces=${board.pieces.length} nodes=${nodes} gen=${genMs.toFixed(0)}ms ` +
+    `insane: pieces=${board.pieces.length} drawn=${pieceCount} gen=${genMs.toFixed(0)}ms ` +
       `build=${build.toFixed(1)}ms pan mean=${panStats.mean.toFixed(1)}ms worst=${panStats.worst.toFixed(1)}ms ` +
       `zoom mean=${zoomStats.mean.toFixed(1)}ms worst=${zoomStats.worst.toFixed(1)}ms`,
   )
@@ -142,15 +145,15 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
 
 // Same board, with and without the point grid, both measured at the same
 // zoom: at Insane's fitted scale cellPx is well under MIN_POINT_CELL_PX, so
-// the grid is invisible (and the rect never enters the DOM) until zoomed in.
-// The factor is computed from the fitted cellPx rather than guessed, so a
-// later change to the fit maths or the threshold can't silently turn this
-// back into measuring nothing; both runs zoom by that same factor, so the
-// comparison is the grid's cost, not the zoom's.
+// the element vetoes the grid until it is zoomed in. The factor is computed
+// from the fitted cellPx rather than guessed, so a later change to the fit
+// maths or the threshold can't silently turn this back into measuring
+// nothing; both runs zoom by that same factor, so the comparison is the
+// grid's cost, not the zoom's.
 async function runInsane(
   board: Board,
   showPoints: boolean,
-): Promise<{ build: number; nodes: number; panStats: { mean: number; worst: number } }> {
+): Promise<{ build: number; drawn: number; panStats: { mean: number; worst: number } }> {
   const el = await mount('800px')
   el.showPoints = showPoints
   const t0 = performance.now()
@@ -167,13 +170,10 @@ async function runInsane(
   if (!vp || vp.cellPx < MIN_POINT_CELL_PX) {
     throw new Error(`grid threshold not crossed: cellPx=${vp?.cellPx ?? 'null'}`)
   }
-  if (showPoints && !el.shadowRoot?.querySelector('rect.points')) {
-    throw new Error('the grid should be in the DOM once the threshold is crossed')
-  }
-  const nodes = el.shadowRoot?.querySelectorAll('svg *').length ?? 0
-  const panStats = summary(await pan(svgOf(el), 60))
+  const drawn = el.pieceCount
+  const panStats = summary(await pan(canvasOf(el), 60))
   el.remove()
-  return { build, nodes, panStats }
+  return { build, drawn, panStats }
 }
 
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
@@ -183,17 +183,20 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
     const off = await runInsane(board, false)
     const on = await runInsane(board, true)
     console.log(
-      `insane grid off: pieces=${board.pieces.length} nodes=${off.nodes} build=${off.build.toFixed(1)}ms ` +
+      `insane grid off: pieces=${board.pieces.length} drawn=${off.drawn} build=${off.build.toFixed(1)}ms ` +
         `pan mean=${off.panStats.mean.toFixed(1)}ms worst=${off.panStats.worst.toFixed(1)}ms`,
     )
     console.log(
-      `insane grid on:  pieces=${board.pieces.length} nodes=${on.nodes} build=${on.build.toFixed(1)}ms ` +
+      `insane grid on:  pieces=${board.pieces.length} drawn=${on.drawn} build=${on.build.toFixed(1)}ms ` +
         `pan mean=${on.panStats.mean.toFixed(1)}ms worst=${on.panStats.worst.toFixed(1)}ms`,
     )
-    // The pattern and its circle live in `defs` regardless of visibility
-    // (cheap, static, like the clip path); only the rect that references it
-    // is conditional, so the grid costs exactly one extra node once visible.
-    expect(on.nodes).toBe(off.nodes + 1)
+    // The grid used to cost exactly one SVG node, and that was the assertion
+    // here. On the GPU it costs one quad and one shader over the whole board,
+    // so there is nothing left to count: the two pan figures above are the
+    // measurement, and what is asserted is only that the grid changed nothing
+    // about the board underneath it — the same pieces are drawn either way.
+    expect(on.drawn).toBe(off.drawn)
+    expect(on.drawn).toBe(board.pieces.length)
   },
   180_000,
 )
@@ -225,21 +228,25 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
       `insane verdict: piece=${worst.id} cells=${worst.cells.length} mean of ${calls} calls ${verdictMs.toFixed(4)}ms`,
     )
 
-    // A removal in coloured mode must touch the nodes of one piece, not the tree.
+    // A removal in coloured mode must cost one piece, not the board. It used
+    // to be asserted as the survivor's nodes surviving; the buffer's answer to
+    // the same question is the count, which falls by exactly one — a rebuild
+    // of the whole board would have re-tesselated it against the session and
+    // taken the ridden piece out of the total a second time.
     const el = await mount('800px')
     el.enableColors = true
     el.view = { colored: true }
     el.board = board
     await el.updateComplete
     await raf()
-    const survivor = board.pieces[1]
     const leaving = board.pieces[0]
-    expect(survivor && leaving).toBeTruthy()
-    if (!survivor || !leaving) return
-    const node = svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)
-    expect(node).not.toBeNull()
+    expect(leaving).toBeTruthy()
+    if (!leaving) return
+    expect(el.pieceCount).toBe(board.pieces.length)
+    const t1 = performance.now()
     await el.animateExit(leaving.id, leaving.dir)
-    expect(svgOf(el).querySelector(`g.pieces > g[data-id="${survivor.id}"]`)).toBe(node)
+    console.log(`insane coloured removal: piece=${leaving.id} ${(performance.now() - t1).toFixed(1)}ms of ride`)
+    expect(el.pieceCount).toBe(board.pieces.length - 1)
     el.remove()
   },
   180_000,

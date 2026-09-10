@@ -1,6 +1,7 @@
 // The viewport in pure numbers: no DOM, so it is tested in Node. World units
-// are cells; the host is in CSS pixels; `cellPx` ties the two together and
-// the SVG viewBox is derived from the three numbers.
+// are cells; the host is in CSS pixels; `cellPx` ties the two together, and
+// the layer turns the three numbers into the uniforms it draws the board
+// with. Nothing here knows what draws it.
 import type { Cell } from '@arrowz/engine'
 
 export interface ViewportInput {
@@ -126,8 +127,4 @@ export function screenToCell(v: Viewport, px: number, py: number): Cell | null {
   const x = Math.floor(v.originX + px / v.cellPx)
   const y = Math.floor(v.originY + py / v.cellPx)
   return x >= 0 && y >= 0 && x < v.W && y < v.H ? { x, y } : null
-}
-
-export function viewBox(v: Viewport): string {
-  return `${v.originX} ${v.originY} ${v.hostWidth / v.cellPx} ${v.hostHeight / v.cellPx}`
 }

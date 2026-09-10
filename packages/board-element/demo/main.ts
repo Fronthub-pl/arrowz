@@ -163,9 +163,8 @@ worker.onmessage = async (e: MessageEvent<DemoResponse>) => {
     await board.updateComplete
     await raf()
     const build = performance.now() - t0
-    const nodes = board.shadowRoot?.querySelectorAll('svg *').length ?? 0
     generationLine = `generated in ${genMs.toFixed(0)} ms (ok=${ok}), pieces ${generated.pieces.length}, ` +
-      `build ${build.toFixed(0)} ms, svg nodes ${nodes}`
+      `build ${build.toFixed(0)} ms, drawn ${board.pieceCount}`
     say()
     summary = { W: generated.W, H: generated.H, seed: Number(seedInput.value) }
     refreshSnippet()
@@ -267,14 +266,14 @@ $<HTMLButtonElement>('clear').addEventListener('click', () => events.clear())
  * element's work; 16.7 ms means the frame had room to spare.
  */
 measureButton.addEventListener('click', async () => {
-  const svg = board.shadowRoot?.querySelector('svg')
-  if (!svg || !board.board) return
+  const canvas = board.shadowRoot?.querySelector('canvas')
+  if (!canvas || !board.board) return
   busy(true)
   try {
     board.fit()
     board.zoomBy(3)
     await raf()
-    const r = svg.getBoundingClientRect()
+    const r = canvas.getBoundingClientRect()
     const ev = (type: string, x: number, y: number) =>
       new PointerEvent(type, {
         bubbles: true,
@@ -285,14 +284,14 @@ measureButton.addEventListener('click', async () => {
         ctrlKey: true,
       })
     const panFrames: number[] = []
-    svg.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))
+    canvas.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))
     for (let i = 1; i <= 60; i++) {
       const t = performance.now()
-      svg.dispatchEvent(ev('pointermove', r.width / 2 - i * 3, r.height / 2 - i * 2))
+      canvas.dispatchEvent(ev('pointermove', r.width / 2 - i * 3, r.height / 2 - i * 2))
       await raf()
       panFrames.push(performance.now() - t)
     }
-    svg.dispatchEvent(ev('pointerup', r.width / 2 - 180, r.height / 2 - 120))
+    canvas.dispatchEvent(ev('pointerup', r.width / 2 - 180, r.height / 2 - 120))
     const zoomFrames: number[] = []
     for (let i = 0; i < 60; i++) {
       const t = performance.now()

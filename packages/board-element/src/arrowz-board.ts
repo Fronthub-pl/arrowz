@@ -1,5 +1,5 @@
 // The board element: a Lit shell for the chrome (zoom buttons, pan hint)
-// around one <svg> owned by SvgLayer. Lit never renders the pieces; it
+// around one <canvas> owned by GlLayer. Lit never renders the pieces; it
 // renders the handful of nodes around them. The viewport is pure math from
 // viewport.ts, the pointer rules are the state machine of gestures.ts, and
 // this file only wires DOM events to both and exposes the public API.
@@ -7,20 +7,10 @@ import { css, html, LitElement, type PropertyValues } from 'lit'
 import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
+import { GlLayer } from './gl-layer.ts'
 import { labelsFor } from './i18n.ts'
-import { SvgLayer } from './svg-layer.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
-import {
-  fit,
-  MIN_POINT_CELL_PX,
-  panBy,
-  resize,
-  screenToCell,
-  viewBox,
-  type Viewport,
-  zoomAt,
-  zoomBy,
-} from './viewport.ts'
+import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
 
 export interface BoardViewport {
   cellPx: number
@@ -111,23 +101,36 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       outline: 2px solid #4a7cff;
       outline-offset: -2px;
     }
-    svg {
+    canvas {
       display: block;
       width: 100%;
       height: 100%;
+      /* Without this the browser claims the touch for a scroll or a pinch
+        before the pointer events reach the gesture machine, exactly as it
+        would have on the <svg> these rules used to name. */
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
     }
-    :host([interactive]) svg.over-piece,
-    :host([play]) svg.over-piece {
+    :host([interactive]) canvas.over-piece,
+    :host([play]) canvas.over-piece {
       cursor: pointer;
     }
-    svg.pan-ready {
+    canvas.pan-ready {
       cursor: grab;
     }
-    svg.panning {
+    canvas.panning {
       cursor: grabbing;
+    }
+    .unsupported {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      margin: 0;
+      padding: 1rem;
+      text-align: center;
+      font: 14px system-ui, sans-serif;
+      color: #232447;
     }
     .chrome {
       position: absolute;
@@ -163,11 +166,22 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     }
   `
 
-  private readonly layer = new SvgLayer()
+  private readonly layer = new GlLayer()
+  /**
+   * Whether the browser gave the layer a context at all, read once, when the
+   * layer is built. `layer.supported` also goes false for as long as a lost
+   * context has not been handed back, and that is a failure the layer
+   * recovers from by itself: swapping the canvas for the "no WebGL2" message
+   * in the middle of it would tell the reader something untrue and take the
+   * canvas the pointer listeners are on out of the tree while it happened.
+   */
+  private readonly hasWebgl = this.layer.supported
   private readonly gestures = new GestureMachine()
   private readonly game = new GameHost(this)
   private vp: Viewport | null = null
   private observer: ResizeObserver | null = null
+  /** Set while a disconnect waits to see whether it was only a move; see `disconnectedCallback`. */
+  private disposeQueued = false
   /** Where the pointer last was, to put the piece cursor back when the modifier goes up. */
   private lastPointer: { x: number; y: number } | null = null
   private hostWidth = 0
@@ -186,16 +200,16 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.pointRadius = DEFAULT_POINT_RADIUS
     this.enableColors = false
     this.coloredOverride = null
-    const svg = this.layer.svg
-    svg.addEventListener('pointerenter', this.onPointerEnter)
-    svg.addEventListener('pointerleave', this.onPointerLeave)
-    svg.addEventListener('pointerdown', this.onPointerDown)
-    svg.addEventListener('pointermove', this.onPointerMove)
-    svg.addEventListener('pointerup', this.onPointerUp)
-    svg.addEventListener('pointercancel', this.onPointerCancel)
+    const canvas = this.layer.canvas
+    canvas.addEventListener('pointerenter', this.onPointerEnter)
+    canvas.addEventListener('pointerleave', this.onPointerLeave)
+    canvas.addEventListener('pointerdown', this.onPointerDown)
+    canvas.addEventListener('pointermove', this.onPointerMove)
+    canvas.addEventListener('pointerup', this.onPointerUp)
+    canvas.addEventListener('pointercancel', this.onPointerCancel)
     // Not passive: the browser zoom must not fire on Ctrl/⌘ + wheel.
-    svg.addEventListener('wheel', this.onWheel, { passive: false })
-    svg.addEventListener('dblclick', this.onDoubleClick)
+    canvas.addEventListener('wheel', this.onWheel, { passive: false })
+    canvas.addEventListener('dblclick', this.onDoubleClick)
     this.addEventListener('keydown', this.onKeyDown)
   }
 
@@ -218,6 +232,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   override connectedCallback(): void {
     super.connectedCallback()
+    // Back before the queued disposal ran: this was a move, not a removal.
+    this.disposeQueued = false
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.observer = new ResizeObserver((entries) => {
       const entry = entries[0]
@@ -226,18 +242,35 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.observer.observe(this)
   }
 
+  /**
+   * A WebGL context is not garbage collected on the browser's own schedule:
+   * a page holds around sixteen of them at a time, and the oldest is taken
+   * away to make room for a new one, so a board that is removed without
+   * handing its context back is a board that steals another board's.
+   *
+   * The disposal waits one microtask because moving a node between parents is
+   * a removal and an insertion in the same task: `connectedCallback` clears
+   * the flag, and only a disconnect that is still a disconnect once the task
+   * ends takes the context down.
+   */
   override disconnectedCallback(): void {
     super.disconnectedCallback()
     this.observer?.disconnect()
     this.observer = null
     // A board removed while the pointer was over it never gets its leave.
     this.stopWatchingModifier()
+    this.disposeQueued = true
+    queueMicrotask(() => {
+      if (!this.disposeQueued) return
+      this.disposeQueued = false
+      this.layer.dispose()
+    })
   }
 
   override render() {
     const l = labelsFor(this.lang)
     return html`
-      ${this.layer.svg}
+      ${this.hasWebgl ? this.layer.canvas : html`<p class="unsupported">${l.noWebgl}</p>`}
       <div class="chrome">
         <span class="hint">${isMac ? l.panHintMac : l.panHintOther}</span>
         <button type="button" title=${l.zoomIn} aria-label=${l.zoomIn} @click=${() => this.zoomBy(ZOOM_STEP)}>+</button>
@@ -300,6 +333,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       hostWidth: v.hostWidth,
       hostHeight: v.hostHeight,
     }
+  }
+
+  /** How many pieces the layer is drawing; the board's own count, not the DOM's. */
+  get pieceCount(): number {
+    return this.layer.pieceCount
   }
 
   fit(): void {
@@ -406,7 +444,6 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       this.vp = null
       this.layer.pad = this.pad
       this.updatePoints()
-      this.layer.svg.removeAttribute('viewBox')
       return
     }
     const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad: this.pad }
@@ -422,9 +459,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.layer.pad = v.margin
     this.updatePoints()
     // A resize that changes nothing (a repaint, a host size set to what it
-    // already was) must not repaint the attribute nor wake the consumer.
+    // already was) must not ask for a frame nor wake the consumer.
     if (previous !== null && sameViewport(previous, v)) return
-    this.layer.svg.setAttribute('viewBox', viewBox(v))
+    this.layer.setViewport(v)
     if (this.changeQueued) return
     this.changeQueued = true
     requestAnimationFrame(() => {
@@ -437,7 +474,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   // --- input -----------------------------------------------------------------
 
   private sample(e: PointerEvent): PointerSample {
-    const r = this.layer.svg.getBoundingClientRect()
+    const r = this.layer.canvas.getBoundingClientRect()
     const kind = e.pointerType === 'touch' ? 'touch' : e.pointerType === 'pen' ? 'pen' : 'mouse'
     return {
       id: e.pointerId,
@@ -471,12 +508,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * over it, so a board nobody is pointing at listens to nothing.
    */
   private setPanReady(on: boolean): void {
-    const svg = this.layer.svg
-    if (svg.classList.contains('pan-ready') === on) return
-    svg.classList.toggle('pan-ready', on)
-    if (on) svg.classList.remove('over-piece')
+    const canvas = this.layer.canvas
+    if (canvas.classList.contains('pan-ready') === on) return
+    canvas.classList.toggle('pan-ready', on)
+    if (on) canvas.classList.remove('over-piece')
     else if (this.lastPointer) {
-      svg.classList.toggle('over-piece', this.pieceAt(this.lastPointer.x, this.lastPointer.y) !== null)
+      canvas.classList.toggle('over-piece', this.pieceAt(this.lastPointer.x, this.lastPointer.y) !== null)
     }
   }
 
@@ -514,7 +551,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     if (e.button !== 0 && e.pointerType !== 'touch') return
     // Synthetic events in tests have no active pointer; capture is best effort.
     try {
-      this.layer.svg.setPointerCapture(e.pointerId)
+      this.layer.canvas.setPointerCapture(e.pointerId)
     } catch {
       // ignore
     }
@@ -522,8 +559,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const panning = this.gestures.panning
     // The pointer cursor of a piece under the press outranks the grab cursor,
     // and a pan stops refreshing it, so it has to go before the pan starts.
-    if (panning) this.layer.svg.classList.remove('over-piece')
-    this.layer.svg.classList.toggle('panning', panning)
+    if (panning) this.layer.canvas.classList.remove('over-piece')
+    this.layer.canvas.classList.toggle('panning', panning)
   }
 
   private readonly onPointerMove = (e: PointerEvent): void => {
@@ -532,19 +569,19 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.apply(this.gestures.move(s))
     if (this.gestures.panning) return
     this.setPanReady(e.metaKey || e.ctrlKey)
-    if (!this.layer.svg.classList.contains('pan-ready')) {
-      this.layer.svg.classList.toggle('over-piece', this.pieceAt(s.x, s.y) !== null)
+    if (!this.layer.canvas.classList.contains('pan-ready')) {
+      this.layer.canvas.classList.toggle('over-piece', this.pieceAt(s.x, s.y) !== null)
     }
   }
 
   private readonly onPointerUp = (e: PointerEvent): void => {
     this.apply(this.gestures.up(this.sample(e)))
-    this.layer.svg.classList.remove('panning')
+    this.layer.canvas.classList.remove('panning')
   }
 
   private readonly onPointerCancel = (e: PointerEvent): void => {
     this.gestures.cancel(e.pointerId)
-    this.layer.svg.classList.remove('panning')
+    this.layer.canvas.classList.remove('panning')
   }
 
   private readonly onWheel = (e: WheelEvent): void => {
@@ -552,7 +589,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // an empty or unsized element would only break the page around it.
     if (!this.vp) return
     e.preventDefault()
-    const r = this.layer.svg.getBoundingClientRect()
+    const r = this.layer.canvas.getBoundingClientRect()
     this.setViewport(zoomAt(this.vp, Math.exp(-e.deltaY * WHEEL_RATE), e.clientX - r.left, e.clientY - r.top))
   }
 
