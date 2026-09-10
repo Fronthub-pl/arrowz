@@ -12,6 +12,35 @@
 // anything cheaper than ~16.7 ms prints as ~16.7 ms. Only figures well above
 // that measure the element's work; at or near 16.7 ms the frame had room to
 // spare and the number is the wait, not the cost.
+//
+// What these numbers are NOT. There are three environments in play, and only
+// the last one is what a person sees: the Playwright headless shell (a
+// separate, stripped binary rasterising in software at one device pixel per
+// CSS pixel), the real Chrome engine running headless (closer to a screen,
+// but still no screen), and a foreground Chrome with a GPU, actually
+// rasterising and compositing onto a display. Measured on an M1, host
+// 800×800 at devicePixelRatio 2, Insane seed 7 (85 809 pieces) — the SVG
+// layer this branch replaced, the same baseline the Insane test below
+// compares itself against:
+//
+//   headless shell, dpr 1                pan mean   83 ms   build 1 330 ms
+//   real Chrome engine headless, dpr 2   pan mean  104 ms   build 1 920 ms
+//   Chrome 152 in the foreground, GPU    pan mean 1050 ms   build 2 761 ms
+//
+// The first two rows are why vitest.config.ts moved this suite's default
+// browser project from the shell to the real engine at dpr 2: same shape,
+// closer numbers. The third row is the one a person actually sees, and no
+// headless mode reaches it — the gap is rasterising and compositing onto a
+// display, which only a foreground browser does. Those three rows are the
+// SVG layer's, not this layer's: this layer draws one canvas instead of a
+// tree, so "429 055 nodes" no longer means anything, and headless WebGL2
+// software-rasterises triangles at a cost this table cannot predict — the
+// Insane test below prints this layer's own headless and foreground figures
+// side by side, and that is where its current numbers live. So treat every
+// headless figure in this file, for either layer, as a floor and a
+// regression detector, never as a promise about anyone's screen. The ceiling
+// case is unusable in a real browser regardless of what this file prints;
+// the fix for that is a different drawing model, not a different budget.
 import { defaultParams, generate, newSession, play } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'
@@ -107,7 +136,7 @@ async function mount(size: string): Promise<ArrowzBoard> {
   return el
 }
 
-test('Nightmare builds under 5 s and pans 20 frames', async () => {
+test('Nightmare builds under 5 s and pans within the budget', async () => {
   const board = generate({ ...defaultParams(), W: 100, H: 100, seed: 7 }).board
   const el = await mount('800px')
   const t0 = performance.now()
@@ -191,14 +220,25 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
 // tens of seconds, so this runs only when asked for by
 // `ARROWZ_MEASURE=1 pnpm vitest run --project chromium perf`.
 //
-// Measured here (headless shell, dpr 1): pan mean 789.6 ms, worst 1030.9 ms;
-// zoom mean 807.5 ms, worst 1051.2 ms — nowhere near the spec's 50 ms
-// acceptance criterion, so this stays a report rather than an assertion.
-// Nightmare above pans at ~19-28 ms in its own, separate `vitest`
-// invocation; the disproportionate slowdown here, growing with piece (and
-// so vertex) count rather than staying flat with screen pixels, is the
-// signature of a software rasteriser standing in for a real GPU, which is
-// what this headless environment gives WebGL2.
+// Measured under the headless shell at dpr 1, before this repo moved the
+// default browser project to the real Chrome engine at dpr 2: pan mean
+// 789.6 ms, worst 1030.9 ms; zoom mean 807.5 ms, worst 1051.2 ms — nowhere
+// near the spec's 50 ms acceptance criterion, and the disproportionate
+// slowdown, growing with piece (and so vertex) count rather than staying
+// flat with screen pixels, was the signature of a software rasteriser
+// standing in for a real GPU, which is what that shell gave WebGL2.
+//
+// Measured again after the move, on the same M1 host, real Chrome engine
+// headless at dpr 2: pan mean 16.6 ms, worst 18.5 ms; zoom mean 16.6 ms,
+// worst 18.6 ms — indistinguishable from Nightmare's own headless pan time
+// above, i.e. at the rAF floor rather than doing visibly more work per
+// frame. That is not this layer getting cheaper; it is this host's headless
+// Chrome reaching its GPU where the old shell could not. A host without one
+// — most CI runners, including this repo's — still has no GPU for headless
+// Chrome to reach, real engine or not, so a runner there may still see
+// something closer to the software-rasterised figures above than to these;
+// nobody has measured that combination yet, so treat 16.6 ms as this host's
+// number, not the project's.
 //
 // This is now confirmed, not merely inferred: the same board and the same
 // scripted movement, in a foreground Chrome 152 on an Apple M1,
@@ -207,11 +247,12 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
 // the 50 ms criterion with room to spare. The SVG layer this branch
 // replaced, same board and movement, foreground Chrome, recorded before
 // this branch began: build 2 761 ms, pan mean 1 050.5 ms, worst 1 289.1 ms —
-// this layer is about 31× faster to pan and 8× faster to build. No CI
-// runner without a GPU can measure this layer's real cost, because it
-// rasterises upward of two million triangles on the CPU instead of the GPU;
-// the 789.6 ms below stays useful only as a relative regression signal
-// against itself, never as a stand-in for the acceptance criterion.
+// this layer is about 31× faster to pan and 8× faster to build. A CI runner
+// without a GPU still cannot measure this layer's real cost the way a
+// foreground browser sees it, because headless there rasterises upward of
+// two million triangles on the CPU instead of the GPU; the figures above
+// stay useful only as a relative regression signal against themselves,
+// never as a stand-in for the acceptance criterion.
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ_MEASURE=1', async () => {
   const g0 = performance.now()
   const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board

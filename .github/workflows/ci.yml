@@ -39,11 +39,18 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          # The key names the browser build, not just the lockfile: the perf
+          # test needs the full Chromium rather than the headless shell, and
+          # the lockfile does not change when that choice does. Without the
+          # marker the old shell-only cache would restore on every run and the
+          # browser would be downloaded again each time, never saved.
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            playwright-${{ runner.os }}-
+            playwright-chromium-${{ runner.os }}-
 
-      - run: pnpm --filter @arrowz/board-element exec playwright install --with-deps --only-shell chromium
+      # The full Chromium, not `--only-shell`: vitest.config.ts runs the browser
+      # project on the real Chrome engine, which the headless shell is not.
+      - run: pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium
 
       - uses: nrwl/nx-set-shas@v5
 

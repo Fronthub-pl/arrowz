@@ -605,12 +605,23 @@ function edgeBoard(W: number, H: number): Board {
   }
 }
 
-/** The rightmost device column of a row that holds ink, or -1 for a row with none. */
+/**
+ * The rightmost device column of a row that holds ink, or -1 for a row with
+ * none. The alpha floor is well above zero on purpose: the drawing buffer is
+ * premultiplied, so the antialiased seam between an opaque shape and the
+ * fully transparent canvas beyond it is a handful of low-coverage pixels
+ * whose colour channels sit near black at a fraction of full alpha — dark by
+ * this function's own colour test, but paper or margin, not ink. That seam
+ * exists at the paper's own edge as much as at a piece's, and its exact
+ * pixels shift with devicePixelRatio because they are a sub-pixel coverage
+ * artefact, not a drawn colour; a floor near full alpha keeps it out while
+ * still catching every pixel a piece or a rider actually painted.
+ */
 function rightmostInk(y: number): number {
   let last = -1
   for (let x = 0; x < layer.canvas.width; x++) {
     const [r, g, b, a] = pixel(x, y)
-    if (a > 0 && r < 100 && g < 100 && b < 100) last = x
+    if (a > 200 && r < 100 && g < 100 && b < 100) last = x
   }
   return last
 }
