@@ -258,13 +258,32 @@ describe('colours', () => {
     e.shadowRoot?.querySelector<HTMLButtonElement>('button.colors') ?? null
 
   test('without the permission there is no button and no colour', async () => {
-    await mount({ play: '' })
+    // The same board and the same `view.colored: true`, mounted once without
+    // the permission and once with it: an assertion resting only on "no
+    // stroke attribute" cannot tell a suppressed colour from a board that was
+    // never going to be coloured (markup() omits the attribute for any piece
+    // whose colour equals view.ink). Contrasting the two mounts of the same
+    // piece catches both a bypassed permission and a `colored` getter that
+    // regressed to always-false.
+    const board = makeBoard()
+    const first = board.pieces[0]
+    expect(first).toBeTruthy()
+
+    await mount({ play: '' }, board)
     el.view = { colored: true }
     await el.updateComplete
     expect(colourButton(el)).toBeNull()
-    const first = el.board?.pieces[0]
-    expect(first).toBeTruthy()
-    if (first) expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke')).toBeNull()
+    if (first) {
+      expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke')).toBeNull()
+    }
+
+    const withPermission = await mount({ 'enable-colors': '', play: '' }, board)
+    withPermission.view = { colored: true }
+    await withPermission.updateComplete
+    if (first) {
+      expect(svgOf(withPermission).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke'))
+        .toBe(hueOf(first.id))
+    }
   })
 
   test('with the permission the button paints the board and its label follows lang', async () => {
