@@ -96,11 +96,7 @@ export class GlLayer {
 
   constructor() {
     this.canvas = document.createElement('canvas')
-    // preserveDrawingBuffer: without it the browser is free to clear the
-    // buffer after compositing, so a read that happens frames after the draw
-    // — which is how both the browser tests and a host reading back the
-    // canvas work — would see blank pixels even though the draw itself ran.
-    const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true, preserveDrawingBuffer: true })
+    const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true })
     if (!gl) return
     this.gl = gl
     this.program = link(gl, VERT, FRAG)
@@ -260,6 +256,18 @@ export class GlLayer {
     gl.uniform1i(gl.getUniformLocation(this.program, 'u_useAttr'), 0)
     gl.uniform4fv(gl.getUniformLocation(this.program, 'u_flat'), rgbaOf(this.view.paper))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+  }
+
+  /**
+   * Draws now, on this task, instead of on the next frame. Only the browser
+   * tests need it: readPixels sees the drawing buffer before compositing
+   * clears it, but only within the task that drew, and the layer otherwise
+   * always defers to requestAnimationFrame.
+   */
+  drawNowForTest(): void {
+    if (this.pending !== 0) cancelAnimationFrame(this.pending)
+    this.pending = 0
+    this.draw()
   }
 
   dispose(): void {

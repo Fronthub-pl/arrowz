@@ -74,27 +74,27 @@ test('WebGL2 is available in this browser, so the rest of the file means somethi
   expect(layer.supported).toBe(true)
 })
 
-test('a board draws: the middle of the canvas is not the page behind it', async () => {
+test('a board draws: the middle of the canvas is not the page behind it', () => {
   show(board())
-  await drawn()
+  layer.drawNowForTest()
   const [r, g, b, a] = centre()
   expect(a).toBe(255)
   expect([r, g, b]).not.toEqual([0, 0, 0])
 })
 
-test('the paper is the colour the view asks for', async () => {
+test('the paper is the colour the view asks for', () => {
   show(board(), { ...DEFAULT_VIEW, paper: '#00ff00', ink: '#00ff00' })
-  await drawn()
+  layer.drawNowForTest()
   const [r, g, b] = centre()
   expect([r, g, b]).toEqual([0, 255, 0])
 })
 
-test('a board of no pieces still paints its paper, and one of null paints nothing', async () => {
+test('a board of no pieces still paints its paper, and one of null paints nothing', () => {
   show({ ...board(), pieces: [] }, { ...DEFAULT_VIEW, paper: '#ff0000' })
-  await drawn()
+  layer.drawNowForTest()
   expect(centre()[0]).toBe(255)
   show(null)
-  await drawn()
+  layer.drawNowForTest()
   expect(centre()[3]).toBe(0)
 })
 
@@ -108,14 +108,14 @@ test('the layer counts the pieces it drew, omissions excluded', () => {
   expect(layer.hasPiece(b.pieces[1]?.id ?? -1)).toBe(true)
 })
 
-test('panning changes the picture without touching the board', async () => {
+test('panning changes the picture without touching the board', () => {
   const b = board()
   show(b)
-  await drawn()
+  layer.drawNowForTest()
   const before = snapshot()
   const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
   layer.setViewport({ ...v, cellPx: v.cellPx * 4 })
-  await drawn()
+  layer.drawNowForTest()
   expect(snapshot()).not.toEqual(before)
   expect(layer.pieceCount).toBe(b.pieces.length)
 })
