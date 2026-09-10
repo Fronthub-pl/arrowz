@@ -4,4 +4,6 @@
 export * from './engine.ts'
 export { pieceShape, voidStrips } from './geometry.ts'
 export type { Dir, PieceShape, ShapeOptions } from './geometry.ts'
+export { newSession, play } from './game.ts'
+export type { Move, Session } from './game.ts'
 export type * from './types.ts'
