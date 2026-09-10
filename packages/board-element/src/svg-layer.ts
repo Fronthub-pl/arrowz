@@ -447,9 +447,17 @@ export class SvgLayer {
     // (where markup() emits no per-piece stroke) still draws the top pieces.
     this.topGroup.setAttribute('stroke', v.highlight)
     this.headsGroup.setAttribute('fill', v.ink)
-    // Sorting the pieces is only worth it when some of them go on top.
+    // Sorting the pieces is only worth it when some of them go on top. Built
+    // from the pieces that will actually be drawn: an omitted piece (already
+    // off the board a restored game resumes) must not take one of the N
+    // slots and leave fewer than N pieces highlighted.
     const longest = v.top > 0
-      ? new Set([...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, v.top).map((p) => p.id))
+      ? new Set(
+        board.pieces.filter((pc) => !this.omit.has(pc.id)).sort((a, b) => b.cells.length - a.cells.length).slice(
+          0,
+          v.top,
+        ).map((p) => p.id),
+      )
       : new Set<number>()
     const lines: string[] = []
     const tops: string[] = []

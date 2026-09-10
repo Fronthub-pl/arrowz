@@ -130,6 +130,18 @@ describe('build', () => {
     expect(layer.svg.querySelector(`g.top > g[data-id="${longest?.id}"]`)).not.toBeNull()
   })
 
+  test('an omitted piece does not steal a top slot from the ones that stay', () => {
+    const b = board()
+    const longest = [...b.pieces].sort((a, c) => c.cells.length - a.cells.length).slice(0, 3)[0]
+    if (!longest) throw new Error('need a piece')
+    // One of the three longest is left out, as a restored game would leave
+    // out a piece that has already exited: the remaining two slots must be
+    // backfilled from the pieces that are actually drawn, not left short —
+    // an omitted piece must not consume one of the N slots on its way out.
+    layer.setBoard(b, { ...DEFAULT_VIEW, top: 3 }, new Set([longest.id]))
+    expect(layer.svg.querySelectorAll('g.top > g[data-id]').length).toBe(3)
+  })
+
   test('voids draws the empty cells as strips only when asked', () => {
     const b = board()
     const owner = new Int32Array(b.owner)
