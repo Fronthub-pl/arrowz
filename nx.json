@@ -23,15 +23,61 @@
   "targetDefaults": {
     "build": {
       "cache": true,
-      "dependsOn": ["^build"],
-      "inputs": ["production", "^production"],
-      "outputs": ["{projectRoot}/dist"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ],
+      "outputs": [
+        "{projectRoot}/dist"
+      ]
     },
-    "check": { "cache": true, "inputs": ["default", "^production"] },
-    "lint": { "cache": true, "inputs": ["default"] },
-    "fmt": { "cache": true, "inputs": ["default"] },
-    "test": { "cache": true, "inputs": ["default", "^production"] },
-    "smoke": { "cache": true, "dependsOn": ["build"], "inputs": ["production", "^production"] },
-    "verify": { "dependsOn": ["check", "lint", "fmt", "test"] }
-  }
+    "check": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production"
+      ]
+    },
+    "lint": {
+      "cache": true,
+      "inputs": [
+        "default"
+      ]
+    },
+    "fmt": {
+      "cache": true,
+      "inputs": [
+        "default"
+      ]
+    },
+    "test": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production"
+      ]
+    },
+    "smoke": {
+      "cache": true,
+      "dependsOn": [
+        "build"
+      ],
+      "inputs": [
+        "production",
+        "^production"
+      ]
+    },
+    "verify": {
+      "dependsOn": [
+        "check",
+        "lint",
+        "fmt",
+        "test"
+      ]
+    }
+  },
+  "analytics": false
 }
