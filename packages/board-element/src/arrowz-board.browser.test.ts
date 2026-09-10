@@ -287,15 +287,20 @@ describe('effects and labels', () => {
     expect(seen.length).toBe(0)
   })
 
-  test('a board minus one piece keeps the other nodes', async () => {
+  test('a board minus one piece still draws the piece that stayed', async () => {
+    // Reassigning `board` starts a fresh game session (the element always
+    // owns one), so the redraw omits nothing yet keeps nothing by identity
+    // either — a fresh session's goneIds Set forces svg-layer to rebuild.
+    // See `svg-layer.browser.test.ts`'s `diff` suite for node-identity
+    // coverage of the layer itself, called without a session in the way.
     await mount()
     const b = el.board
     const kept = b?.pieces[1]
     if (!b || !kept) throw new Error('need a board with two pieces')
-    const node = svgOf(el).querySelector(`g.pieces > g[data-id="${kept.id}"]`)
     el.board = { ...b, pieces: b.pieces.slice(1) }
     await el.updateComplete
-    expect(svgOf(el).querySelector(`g.pieces > g[data-id="${kept.id}"]`)).toBe(node)
+    expect(svgOf(el).querySelector(`g.pieces > g[data-id="${kept.id}"]`)).not.toBeNull()
+    expect(svgOf(el).querySelectorAll('g.pieces > g[data-id]').length).toBe(b.pieces.length - 1)
   })
 })
 

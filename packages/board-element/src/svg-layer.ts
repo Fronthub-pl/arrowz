@@ -46,6 +46,8 @@ export function hueOf(id: number): string {
   return `hsl(${(id * 137.508) % 360} 62% 42%)`
 }
 
+const NO_OMISSIONS: ReadonlySet<number> = new Set()
+
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
 /** One clip per layer: two boards on a page must not share the shape they clip to. */
@@ -152,6 +154,13 @@ export class SvgLayer {
   private current: Board | null = null
   private padCells = 0
   private view: BoardView = DEFAULT_VIEW
+  /**
+   * Pieces not to draw: a restored game's removed ids. Compared by identity,
+   * because the game host mutates one Set per session — a fresh Set means a
+   * fresh board and a rebuild, while a piece added to the old one is already
+   * off the tree.
+   */
+  private omit: ReadonlySet<number> = NO_OMISSIONS
 
   constructor() {
     this.svg = svgEl('svg', { xmlns: SVG_NS, preserveAspectRatio: 'xMidYMid meet' })
@@ -360,15 +369,16 @@ export class SvgLayer {
   }
 
   /**
-   * Draws a board. Same size, same view and no diagnostic mode: only the
+   * Draws a board. Same size, same view and the same omissions: only the
    * pieces whose id or object changed are touched, so the game's next board
    * (the same piece objects minus one) costs one pass over the ids.
    * Anything else rebuilds the tree.
    */
-  setBoard(board: Board | null, view: BoardView): void {
+  setBoard(board: Board | null, view: BoardView, omit: ReadonlySet<number> = NO_OMISSIONS): void {
     const canDiff = board !== null && this.current !== null && board.W === this.current.W &&
-      board.H === this.current.H && sameView(view, this.view) && view.top === 0
+      board.H === this.current.H && sameView(view, this.view) && view.top === 0 && omit === this.omit
     this.view = view
+    this.omit = omit
     if (board === null) {
       this.clear()
       this.current = null
@@ -446,6 +456,7 @@ export class SvgLayer {
     const heads: string[] = []
     const topHeads: string[] = []
     board.pieces.forEach((pc) => {
+      if (this.omit.has(pc.id)) return
       const isLong = longest.has(pc.id)
       const col = isLong ? v.highlight : v.colored ? hueOf(pc.id) : v.ink
       const width = isLong ? hiWidth : v.stroke
@@ -515,7 +526,7 @@ export class SvgLayer {
     const lines: string[] = []
     const heads: string[] = []
     for (const pc of board.pieces) {
-      if (this.nodes.has(pc.id)) continue
+      if (this.nodes.has(pc.id) || this.omit.has(pc.id)) continue
       const col = this.view.colored ? hueOf(pc.id) : this.view.ink
       const [line, head] = this.markup(pc, this.view.stroke, col === this.view.ink ? null : col)
       added.push(pc)

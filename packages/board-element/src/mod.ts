@@ -20,6 +20,7 @@ export type {
 } from './arrowz-board.ts'
 export { GameHost, MIN_SHAKE_CELLS } from './game-host.ts'
 export type { GameEvent, GameTarget } from './game-host.ts'
+export type { Session, SessionSnapshot } from '@arrowz/engine'
 export { DEFAULT_VIEW, hueOf, SHAKE_MS } from './svg-layer.ts'
 export type { BoardView } from './svg-layer.ts'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'

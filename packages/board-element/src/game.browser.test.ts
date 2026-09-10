@@ -211,3 +211,43 @@ describe('play', () => {
     expect(order).toEqual(['removed', 'removed', 'finished:2'])
   })
 })
+
+describe('saving and restoring', () => {
+  test('a restored board is drawn without the pieces that left', async () => {
+    const board = makeBoard()
+    const { free } = verdicts(board)
+    await mount({ play: '' }, board)
+    clickPiece(el, free)
+    await new Promise<void>((r) => setTimeout(r, 700))
+    const snap = el.saveState()
+    expect(snap?.removed).toEqual([free])
+
+    const fresh = await mount({ play: '' }, board)
+    expect(svgOf(fresh).querySelector(`g.heads > g[data-id="${free}"]`)).not.toBeNull()
+    if (snap) fresh.loadState(snap)
+    await fresh.updateComplete
+    expect(svgOf(fresh).querySelector(`g.heads > g[data-id="${free}"]`)).toBeNull()
+    expect(svgOf(fresh).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length - 1)
+  })
+
+  test('a snapshot from another board is refused', async () => {
+    await mount({ play: '' }, makeBoard(1))
+    const snap = el.saveState()
+    const other = await mount({ play: '' }, makeBoard(2))
+    expect(() => {
+      if (snap) other.loadState(snap)
+    }).toThrow(/fingerprint|pieces|board/)
+  })
+
+  test('restart puts every piece back', async () => {
+    const board = makeBoard()
+    const { free } = verdicts(board)
+    await mount({ play: '' }, board)
+    clickPiece(el, free)
+    await new Promise<void>((r) => setTimeout(r, 700))
+    el.restart()
+    await el.updateComplete
+    expect(svgOf(el).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length)
+    expect(el.saveState()?.removed).toEqual([])
+  })
+})

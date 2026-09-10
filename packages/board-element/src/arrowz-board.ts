@@ -4,7 +4,7 @@
 // viewport.ts, the pointer rules are the state machine of gestures.ts, and
 // this file only wires DOM events to both and exposes the public API.
 import { css, html, LitElement, type PropertyValues } from 'lit'
-import type { Board } from '@arrowz/engine'
+import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
 import { labelsFor } from './i18n.ts'
@@ -205,8 +205,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   override updated(changed: PropertyValues<this>): void {
     if (!changed.has('board') && !changed.has('view') && !changed.has('pad')) return
     const previous = this.layer.board
-    this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view })
     if (changed.has('board')) this.game.setBoard(this.board)
+    this.redraw()
     // The margin is part of what the board is fitted into, so changing it
     // refits: it is a setting, not something touched during play.
     if (changed.has('pad')) {
@@ -253,6 +253,28 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   shake(pieceId: number, distance: number): Promise<void> {
     return this.layer.shake(pieceId, distance)
+  }
+
+  /** The game in progress, as a value the host can store. */
+  saveState(): SessionSnapshot | null {
+    return this.game.save(false)
+  }
+
+  /** Restores a game saved by `saveState`. Throws when the snapshot is not this board's. */
+  loadState(snap: SessionSnapshot): void {
+    this.game.load(snap)
+    this.redraw()
+  }
+
+  /** Drops the game and puts every piece back. */
+  restart(): void {
+    this.game.setBoard(this.board)
+    this.redraw()
+  }
+
+  /** Draws the board as the session now stands. */
+  private redraw(): void {
+    this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view }, this.game.goneIds)
   }
 
   /** GameTarget: the game host reaches the board through these three. */
