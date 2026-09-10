@@ -47,11 +47,11 @@ Oto plansza osiem na osiem, każda strzałka w innym kolorze, żeby dało się j
 odróżnić:
 
 <p align="center">
-  <img src="docs/images/tiny-colorized.png" alt="Mała plansza z sześcioma strzałkami w różnych kolorach" width="360">
+  <img src="docs/images/tiny-colorized.png" alt="Mała plansza z siedmioma strzałkami w różnych kolorach" width="360">
 </p>
 
-Sześć strzałek, sześć grotów. Zielona jest zgięta w haczyk, czerwona zgina się
-dwa razy, fioletowa ma raptem dwa kwadraty. Strzałka może mieć od dwóch do
+Siedem strzałek, siedem grotów. Zielona jest zgięta w haczyk, czerwona zgina
+się dwa razy, fioletowa ma raptem dwa kwadraty. Strzałka może mieć od dwóch do
 kilkuset kwadratów długości.
 
 Prawdziwe plansze są jednokolorowe, bo odróżnianie strzałek okiem to właśnie
@@ -386,8 +386,8 @@ spoza zakresu.
 
 ## Ustawienia na co dzień
 
-Jedenaście flag w czterech grupach: dwie na rozmiar, jedna na szczęście, cztery
-zmieniające łamigłówkę i cztery zmieniające tylko wygląd obrazka.
+Dwanaście flag w czterech grupach: dwie na rozmiar, jedna na szczęście, cztery
+zmieniające łamigłówkę i pięć zmieniających tylko wygląd obrazka.
 
 ### Rozmiar — `--width` i `--height`
 
@@ -516,7 +516,7 @@ deno task carve --width=40 --height=40 --randomized
 
 ### Jak rysowany jest obrazek
 
-Te cztery nie zmieniają w łamigłówce nic — tylko to, jak wygląda na ekranie.
+Te pięć nie zmienia w łamigłówce nic — tylko to, jak wygląda na ekranie.
 
 **`--colorized`** daje każdej strzałce własny kolor. Bezużyteczne do gry,
 znakomite do zrozumienia. Wszystkie porównawcze obrazki na tej stronie z tego
@@ -538,17 +538,25 @@ trójkątem, szerszym od linii. Gdy linia robi się gruba, na szerszy trójkąt 
 ma już miejsca, więc grot zmienia się w zaostrzony czubek.
 
 **`--arrowwidth`** i **`--arrowheight`** ustawiają rozmiar grotów ręcznie, w
-kwadratach. Oba domyślnie 0, co znaczy „wylicz z grubości linii”.
+kwadratach. Działają różnie. `--arrowwidth` domyślnie wynosi 0, a 0 znaczy
+„wylicz z grubości linii”; każda inna wartość to szerokość w kwadratach.
+`--arrowheight` nie ma takiego trybu automatycznego — jest brany dosłownie i
+domyślnie wynosi `1`, czyli cały kwadrat. Po `--arrowheight=0` grot nie ma
+żadnej wysokości.
 
 | `--arrowwidth=0.6 --arrowheight=0.6` | `--arrowwidth=2 --arrowheight=2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 
+**`--sharp`** zdejmuje zaokrąglenia. Normalnie linia skręca łagodnym łukiem, a
+jej tępy koniec jest zaokrąglony; z `--sharp` zakręty są kanciaste, a tępy
+koniec jest kwadratem.
+
 ---
 
 ## Pełny zestaw ustawień
 
-Jedenaście codziennych flag to skróty. Za każdą z nich stoi kilka
+Dwanaście codziennych flag to skróty. Za każdą z nich stoi kilka
 wewnętrznych pokręteł, a `--advanced` pozwala sięgnąć do nich wprost.
 Zmniejszenie `--length` naprawdę znaczy „podnieś udział krótkich strzałek i
 obniż udział średnich” — dwa pokrętła naraz.
@@ -992,6 +1000,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/cli/carve.ts` | Narzędzie wiersza poleceń. |
 | `packages/cli/lab.html`, `lab-page.ts` | Strona internetowa. |
 | `packages/*/*.test.ts` | Testy. |
+| `docs/images/manifest.json` | Komenda, która stworzyła każdy obrazek na tej stronie; `deno task docs` rysuje je wszystkie od nowa. |
 | `packages/engine/HISTORY.md` | Dziennik inżynierski: każdy pomiar, każda ślepa uliczka, każda decyzja, ze szczegółami. |
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |

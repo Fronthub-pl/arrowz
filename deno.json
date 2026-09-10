@@ -47,11 +47,12 @@
   ],
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net packages/",
-    "check": "deno check packages/engine/*.ts packages/engine/scripts/*.ts packages/cli/*.ts",
+    "check": "deno check packages/engine/*.ts packages/engine/scripts/*.ts packages/cli/*.ts packages/cli/scripts/*.ts",
     "lint": "deno lint",
     "fmt": "deno fmt --check",
     "verify": "deno task check && deno task lint && deno task fmt && deno task test",
     "carve": "deno task --cwd=packages/cli carve",
+    "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
     "lab": "deno task --cwd=packages/cli lab",
     "bundle": "deno task --cwd=packages/cli bundle",
     "compile": "deno task --cwd=packages/cli compile"
