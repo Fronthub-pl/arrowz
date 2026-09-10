@@ -334,6 +334,25 @@ describe('clicks', () => {
     await raf()
     expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6) // a 30 px drag
   })
+
+  test('a double click leaves the viewport alone and fires one piece-click', async () => {
+    const el = await mount({ play: '' })
+    const canvas = canvasOf(el)
+    el.zoomBy(ZOOM_STEP)
+    await raf()
+    const before = el.viewport
+    let clicks = 0
+    el.addEventListener('piece-click', () => clicks++)
+    const press = (detail: number) => {
+      canvas.dispatchEvent(pointer('pointerdown', 40, 40, { detail }))
+      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail }))
+    }
+    press(1)
+    press(2)
+    await raf()
+    expect(el.viewport).toEqual(before)
+    expect(clicks).toBe(1)
+  })
 })
 
 describe('effects and labels', () => {

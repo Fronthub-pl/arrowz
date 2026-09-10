@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { GestureMachine, type PointerSample } from './gestures.ts'
 
 function mouse(x: number, y: number, modifier = false, t = 0): PointerSample {
-  return { id: 1, x, y, kind: 'mouse', modifier, t }
+  return { id: 1, x, y, kind: 'mouse', modifier, t, repeat: false }
 }
 function touch(id: number, x: number, y: number, t: number): PointerSample {
-  return { id, x, y, kind: 'touch', modifier: false, t }
+  return { id, x, y, kind: 'touch', modifier: false, t, repeat: false }
 }
 
 describe('mouse', () => {
@@ -30,6 +30,12 @@ describe('mouse', () => {
     const m = new GestureMachine()
     m.down(mouse(10, 10))
     expect(m.move(mouse(60, 60))).toEqual({ type: 'none' })
+  })
+
+  test('a repeat press yields no click', () => {
+    const m = new GestureMachine()
+    m.down({ ...mouse(10, 10), repeat: true })
+    expect(m.up({ ...mouse(10, 10), repeat: true })).toEqual({ type: 'none' })
   })
 })
 
@@ -56,15 +62,20 @@ describe('touch', () => {
     expect(m.up(touch(5, 70, 45, 80))).toEqual({ type: 'none' })
   })
 
-  test('two taps close in time and place fit the board', () => {
+  test('a second tap close in time and place does nothing at all', () => {
     const m = new GestureMachine()
-    m.down(touch(5, 40, 40, 0))
-    expect(m.up(touch(5, 40, 40, 50)).type).toBe('click')
+    m.down(touch(5, 44, 41, 0))
+    expect(m.up(touch(5, 44, 41, 100))).toEqual({ type: 'click', pressX: 44, pressY: 41, x: 44, y: 41 })
     m.down(touch(6, 45, 42, 200))
-    expect(m.up(touch(6, 45, 42, 250))).toEqual({ type: 'fit' })
-    // The third tap starts a fresh sequence.
-    m.down(touch(7, 45, 42, 300))
-    expect(m.up(touch(7, 45, 42, 350)).type).toBe('click')
+    expect(m.up(touch(6, 45, 42, 250))).toEqual({ type: 'none' })
+  })
+
+  test('two quick taps far enough apart are both clicks', () => {
+    const m = new GestureMachine()
+    m.down(touch(5, 20, 20, 0))
+    expect(m.up(touch(5, 20, 20, 40))).toEqual({ type: 'click', pressX: 20, pressY: 20, x: 20, y: 20 })
+    m.down(touch(6, 80, 80, 80))
+    expect(m.up(touch(6, 80, 80, 120))).toEqual({ type: 'click', pressX: 80, pressY: 80, x: 80, y: 80 })
   })
 
   test('two fingers pinch towards the midpoint and pan with it', () => {

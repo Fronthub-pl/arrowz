@@ -209,7 +209,6 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     canvas.addEventListener('pointercancel', this.onPointerCancel)
     // Not passive: the browser zoom must not fire on Ctrl/⌘ + wheel.
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
-    canvas.addEventListener('dblclick', this.onDoubleClick)
     this.addEventListener('keydown', this.onKeyDown)
   }
 
@@ -489,6 +488,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       kind,
       modifier: e.metaKey || e.ctrlKey,
       t: e.timeStamp,
+      // The browser's own repeat count: 2 on the second click of a double,
+      // 3 on a triple, and so on. Only mouse/pen deliver it; touch's own
+      // double-tap detection lives in the gesture machine instead.
+      repeat: e.detail >= 2,
     }
   }
 
@@ -599,10 +602,6 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.setViewport(zoomAt(this.vp, Math.exp(-e.deltaY * WHEEL_RATE), e.clientX - r.left, e.clientY - r.top))
   }
 
-  private readonly onDoubleClick = (): void => {
-    this.fit()
-  }
-
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (e.key === '+' || e.key === '=') this.zoomBy(ZOOM_STEP)
     else if (e.key === '-') this.zoomBy(1 / ZOOM_STEP)
@@ -613,10 +612,6 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   private apply(intent: Intent): void {
     if (intent.type === 'none') return
-    if (intent.type === 'fit') {
-      this.fit()
-      return
-    }
     if (!this.vp) return
     if (intent.type === 'pan') {
       this.setViewport(panBy(this.vp, intent.dx, intent.dy))

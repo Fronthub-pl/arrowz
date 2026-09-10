@@ -3,7 +3,10 @@
 // - mouse: click on release (the element checks it is the same piece as on
 //   press), pan only with the modifier held on press;
 // - touch: tap = short press within the slop; beyond it one finger pans;
-//   two fingers pinch; two quick taps fit the board.
+//   two fingers pinch; a second tap close in time and place to the last one
+//   does nothing at all;
+// - mouse: a repeat press (the browser's own double/triple-click count) does
+//   nothing at all either, for the same reason as the touch case above.
 export type PointerKind = 'mouse' | 'touch' | 'pen'
 
 export interface PointerSample {
@@ -15,6 +18,8 @@ export interface PointerSample {
   modifier: boolean
   /** Event timestamp in ms. */
   t: number
+  /** The browser's own repeat count: true when this press is the second or later of a double. */
+  repeat: boolean
 }
 
 export type Intent =
@@ -22,10 +27,16 @@ export type Intent =
   | { type: 'click'; pressX: number; pressY: number; x: number; y: number }
   | { type: 'pan'; dx: number; dy: number }
   | { type: 'pinch'; factor: number; x: number; y: number; dx: number; dy: number }
-  | { type: 'fit' }
 
 export const TAP_SLOP_PX = 8
 export const TAP_MS = 300
+/**
+ * DOUBLE_TAP_PX and DOUBLE_TAP_MS no longer mark a fit gesture: the design
+ * ruled that a second press this close in place and time to the last one is
+ * a slipped finger, not an instruction, so it now defines the window in
+ * which that repeat is ignored — on touch as a second tap, and on mouse
+ * through `PointerSample.repeat`.
+ */
 export const DOUBLE_TAP_PX = 24
 export const DOUBLE_TAP_MS = 300
 
@@ -123,14 +134,15 @@ export class GestureMachine {
     if (press.kind === 'touch') {
       if (moved || p.t - press.t > TAP_MS) return NONE
       const tap = { x: p.x, y: p.y, t: p.t }
-      if (this.lastTap && tap.t - this.lastTap.t <= DOUBLE_TAP_MS && dist(tap, this.lastTap) <= DOUBLE_TAP_PX) {
-        this.lastTap = null
-        return { type: 'fit' }
-      }
+      // A second tap at the same place inside the window is a slipped finger,
+      // not an instruction: it plays nothing and moves nothing.
+      const repeat = this.lastTap !== null && tap.t - this.lastTap.t <= DOUBLE_TAP_MS &&
+        dist(tap, this.lastTap) <= DOUBLE_TAP_PX
       this.lastTap = tap
+      if (repeat) return NONE
       return { type: 'click', pressX: press.x, pressY: press.y, x: p.x, y: p.y }
     }
-    if (wasPanning) return NONE
+    if (wasPanning || press.repeat) return NONE
     return { type: 'click', pressX: press.x, pressY: press.y, x: p.x, y: p.y }
   }
 
