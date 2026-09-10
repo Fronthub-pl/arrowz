@@ -20,6 +20,17 @@ import { type BoardView, hueBytes } from './view.ts'
  */
 export const TAIL_SEGMENTS = 16
 
+/**
+ * Triangles in the fan that rounds one corner.
+ *
+ * A piece only ever turns through a right angle, so the fan sweeps a quarter
+ * and its facets are those of a `4 * JOIN_SEGMENTS`-gon. The sagitta rule of
+ * TAIL_SEGMENTS applies at the corner's own radius, which is the widest a
+ * stroke may be: at `stroke` 0.9 and MAX_CELL_PX (48) on a dpr 2 screen that
+ * is 43 device pixels, and `43 * (1 - cos(pi / 4k)) < 0.5` needs k above 5.15.
+ */
+export const JOIN_SEGMENTS = 6
+
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
 
@@ -87,7 +98,28 @@ export function frontOf(piece: Piece, view: BoardView, top: boolean, dir: number
   return -((p[0] - (head.x + 0.5)) * d.dx + (p[1] - (head.y + 0.5)) * d.dy)
 }
 
-const lineVertices = (points: number): number => (points <= 1 ? 0 : 6 * (points - 1))
+/** Whether the polyline turns at its i-th point; the game only turns by a right angle. */
+function turnsAt(line: readonly [number, number][], i: number): boolean {
+  const a = at(line, i - 1), b = at(line, i), c = at(line, i + 1)
+  return Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-9
+}
+
+/** How many of a polyline's interior points are corners rather than straights. */
+function cornersIn(line: readonly [number, number][]): number {
+  let n = 0
+  for (let i = 1; i < line.length - 1; i++) {
+    if (turnsAt(line, i)) n++
+  }
+  return n
+}
+
+const segmentVertices = (points: number): number => (points <= 1 ? 0 : 6 * (points - 1))
+
+/** The vertices one polyline takes, its corner fans included. */
+function lineVerticesOf(line: readonly [number, number][], rounded: boolean): number {
+  return segmentVertices(line.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(line) : 0)
+}
+
 const headVertices = (points: number): number => 3 * (points - 2) + 3 * TAIL_SEGMENTS
 
 /**
@@ -96,7 +128,10 @@ const headVertices = (points: number): number => 3 * (points - 2) + 3 * TAIL_SEG
  * points longer than the resting line; the head takes its widest form.
  */
 export function rideVertexBound(piece: Piece): number {
-  return lineVertices(piece.cells.length + 2) + headVertices(MAX_HEAD_POINTS)
+  const points = piece.cells.length + 2
+  // Every interior point may be a corner, and a rounded tail is the larger cap.
+  const worstLine = segmentVertices(points) + 3 * JOIN_SEGMENTS * Math.max(points - 2, 0)
+  return worstLine + headVertices(MAX_HEAD_POINTS)
 }
 
 /**
@@ -146,13 +181,63 @@ function writeSegment(
 /**
  * A polyline as segments, in order. Only interior joins extend by `half`;
  * the first point of the first segment and the last point of the last
- * segment are the polyline's own two outer ends, and stay put.
+ * segment are the polyline's own two outer ends, and stay put. Rounded turns
+ * are covered instead by a fan written after every segment.
  */
-function writeLine(out: Float32Array, o: number, line: readonly [number, number][], half: number): number {
+function writeLine(
+  out: Float32Array,
+  o: number,
+  line: readonly [number, number][],
+  half: number,
+  rounded: boolean,
+): number {
   const last = line.length - 1
   for (let i = 1; i <= last; i++) {
     const a = at(line, i - 1), b = at(line, i)
-    o = writeSegment(out, o, a[0], a[1], b[0], b[1], half, i > 1, i < last)
+    // A rounded corner is filled by its own fan, so the segments meeting there
+    // must stop at the corner: a square extension would poke out past the arc.
+    const startExtend = i > 1 && !(rounded && turnsAt(line, i - 1))
+    const endExtend = i < last && !(rounded && turnsAt(line, i))
+    o = writeSegment(out, o, a[0], a[1], b[0], b[1], half, startExtend, endExtend)
+  }
+  if (!rounded) return o
+  for (let i = 1; i < last; i++) {
+    if (turnsAt(line, i)) o = writeJoin(out, o, line, i, half)
+  }
+  return o
+}
+
+/**
+ * One corner as a quarter-turn fan. Two butt-ended segments meeting at a right
+ * angle leave exactly one square of side `half` uncovered — the outer corner —
+ * and this sweeps an arc of radius `half` across it. Which side is outer, and
+ * which way the sweep runs, both come off the sign of the turn.
+ */
+function writeJoin(
+  out: Float32Array,
+  o: number,
+  line: readonly [number, number][],
+  i: number,
+  half: number,
+): number {
+  const a = at(line, i - 1), b = at(line, i), c = at(line, i + 1)
+  const ux = b[0] - a[0], uy = b[1] - a[1]
+  const vx = c[0] - b[0], vy = c[1] - b[1]
+  const turn = ux * vy - uy * vx > 0 ? 1 : -1
+  const ul = Math.hypot(ux, uy)
+  if (ul === 0) return o
+  // The normal of the incoming segment that points away from the turn.
+  const nx = (turn * uy) / ul, ny = (-turn * ux) / ul
+  const a0 = Math.atan2(ny, nx)
+  const step = (turn * Math.PI) / 2 / JOIN_SEGMENTS
+  for (let k = 0; k < JOIN_SEGMENTS; k++) {
+    const t0 = a0 + k * step, t1 = a0 + (k + 1) * step
+    out[o++] = b[0]
+    out[o++] = b[1]
+    out[o++] = b[0] + Math.cos(t0) * half
+    out[o++] = b[1] + Math.sin(t0) * half
+    out[o++] = b[0] + Math.cos(t1) * half
+    out[o++] = b[1] + Math.sin(t1) * half
   }
   return o
 }
@@ -210,7 +295,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
   for (const pc of drawn) {
     const top = tops.has(pc.id)
     const s = shapeOf(pc, view, top)
-    const line = lineVertices(s.line.length)
+    const line = lineVerticesOf(s.line, view.rounded)
     const head = headVertices(s.head.length)
     counts.set(pc.id, { line, head })
     size[top ? 'topLines' : 'lines'] += line
@@ -248,7 +333,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     const headBlock: Block = top ? 'topHeads' : 'heads'
 
     const lineStart = cursor[lineBlock]
-    writeLine(positions, lineStart * 2, s.line, half)
+    writeLine(positions, lineStart * 2, s.line, half, view.rounded)
     cursor[lineBlock] = lineStart + c.line
 
     const headStart = cursor[headBlock]
@@ -311,7 +396,7 @@ export function tesselatePiece(
   const s = shapeOf(piece, view, top)
   const half = strokeOf(view, top) / 2
   const line = ride === null ? s.line : trackLine(piece.cells, ride.dir, ride.front, ride.shift)
-  let o = writeLine(out, 0, line, half)
+  let o = writeLine(out, 0, line, half, view.rounded)
   const d = ride === null ? { dx: 0, dy: 0 } : at(DIRS, ride.dir)
   const shift = ride === null ? 0 : ride.shift
   o = writeFan(out, o, s.head, d.dx * shift, d.dy * shift)

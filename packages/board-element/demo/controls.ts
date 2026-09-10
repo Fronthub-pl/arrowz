@@ -151,6 +151,13 @@ export const VIEW_CONTROLS: readonly Control[] = [
   },
   {
     kind: 'bool',
+    id: 'rounded',
+    label: 'rounded',
+    hint: 'Rounds the corners a piece turns through and caps its tail with a disc.',
+    def: DEFAULT_VIEW.rounded,
+  },
+  {
+    kind: 'bool',
     id: 'colored',
     label: 'colored',
     hint: 'Per-piece hues. Needs enable-colors for the board to honour it.',
@@ -204,6 +211,8 @@ export function withField(view: BoardView, id: string, value: ControlValue): Boa
       return { ...view, headWidth: asNumber(value) }
     case 'headHeight':
       return { ...view, headHeight: asNumber(value) }
+    case 'rounded':
+      return { ...view, rounded: asBool(value) }
     case 'colored':
       return { ...view, colored: asBool(value) }
     case 'top':

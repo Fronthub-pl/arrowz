@@ -5,7 +5,9 @@ import { trackLine } from './track.ts'
 import { DEFAULT_VIEW, hueBytes } from './view.ts'
 import {
   frontOf,
+  JOIN_SEGMENTS,
   rideVertexBound,
+  type Scene,
   strokeOf,
   TAIL_SEGMENTS,
   tesselateBoard,
@@ -30,6 +32,15 @@ function board(seed = 7, extra: Partial<Board> = {}): Board {
 const BENT: Piece = { id: 424242, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 4, y: 7 }] }
 /** A single cell facing right: its line is one point, so it has no segments at all. */
 const DOT: Piece = { id: 7, dir: 1, cells: [{ x: 2, y: 2 }] }
+/** Head at (0,5) facing right, running straight: every interior point is collinear. */
+const STRAIGHT: Piece = { id: 5, dir: 1, cells: [{ x: 0, y: 5 }, { x: 1, y: 5 }, { x: 2, y: 5 }] }
+/**
+ * Head at (5,5) facing right, then down, then left: two corners and no straight run.
+ * Unused so far; a later task's tests reach for it.
+ */
+const _ZIGZAG: Piece = { id: 6, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 3, y: 6 }] }
+
+const onlyPiece = (pc: Piece) => board(7, { pieces: [pc] })
 
 /** Every vertex of a range, as [x, y] pairs. */
 function points(positions: Float32Array, r: { start: number; count: number }): [number, number][] {
@@ -207,8 +218,11 @@ test('a ridden piece follows trackLine, corners included', () => {
   const count = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift: 0.5 }, out)
   const expected = trackLine(BENT.cells, BENT.dir, front, 0.5)
   const shape = pieceShape(BENT, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
-  // Six vertices per segment, a fan over the head polygon, and the tail disc.
-  const want = 6 * (expected.length - 1) + 3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
+  // Six vertices per segment, one fan per corner, a fan over the head polygon,
+  // and the tail disc.
+  const corners = expected.length > 2 ? 1 : 0
+  const want = 6 * (expected.length - 1) + 3 * JOIN_SEGMENTS * corners +
+    3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
   expect(count).toBe(want)
   // The corner survives the ride: trackLine emits every cell centre still
   // between the two moving ends, so a bent piece never straightens. BENT has
@@ -240,4 +254,34 @@ test('the colour buffer carries hueBytes for every vertex of a piece', () => {
   const i = r.head.start * 4
   expect([colors[i], colors[i + 1], colors[i + 2]]).toEqual(hueBytes(BENT.id))
   expect(colors[i + 3]).toBe(255)
+})
+
+test('a corner costs one fan when rounded and nothing when sharp', () => {
+  const sharp = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: false }, NONE)
+  const round = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const lineOf = (s: Scene) => s.rangeOf(BENT.id)?.line.count ?? 0
+  // BENT turns once. A fan is JOIN_SEGMENTS triangles, three vertices each.
+  expect(lineOf(round) - lineOf(sharp)).toBe(3 * JOIN_SEGMENTS)
+})
+
+test('a straight piece writes the same line in both modes', () => {
+  const sharp = tesselateBoard(onlyPiece(STRAIGHT), { ...DEFAULT_VIEW, rounded: false }, NONE)
+  const round = tesselateBoard(onlyPiece(STRAIGHT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  expect(round.rangeOf(STRAIGHT.id)?.line.count).toBe(sharp.rangeOf(STRAIGHT.id)?.line.count)
+})
+
+test('a rounded corner stays inside the disc it replaces', () => {
+  const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const r = scene.rangeOf(BENT.id)
+  if (!r) throw new Error('BENT is not drawn')
+  const half = DEFAULT_VIEW.stroke / 2
+  // BENT turns at cells[1]; a cell centre sits half a cell in from its corner.
+  const corner = at(BENT.cells, 1)
+  const cx = corner.x + 0.5, cy = corner.y + 0.5
+  // Fans are written after every segment, so the corner owns the tail of the range.
+  // positions is a Float32Array, so a vertex the fan places exactly on the arc
+  // still rounds off by up to float32's own precision at this magnitude — the
+  // same slack `toBeCloseTo(x, 6)` gives elsewhere in this file.
+  const fan = points(scene.positions, r.line).slice(-3 * JOIN_SEGMENTS)
+  for (const [x, y] of fan) expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(half + 1e-6)
 })

@@ -8,6 +8,8 @@ export interface BoardView {
   headWidth: number
   /** Head height in cells; 0 = automatic. */
   headHeight: number
+  /** Round the corners a piece turns through, and cap its tail with a disc. */
+  rounded: boolean
   /** Per-piece hues: the diagnostic mode of the lab. */
   colored: boolean
   /** How many longest pieces are drawn highlighted and on top. */
@@ -23,6 +25,7 @@ export const DEFAULT_VIEW: BoardView = {
   stroke: 0.5,
   headWidth: 0,
   headHeight: 0,
+  rounded: true,
   colored: false,
   top: 0,
   voids: false,
