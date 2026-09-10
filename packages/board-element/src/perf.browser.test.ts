@@ -23,15 +23,30 @@ declare global {
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
-/** Mean and worst of a run of frame times; no spread, the arrays are long. */
-function summary(frames: readonly number[]): { mean: number; worst: number } {
+/** The middle value of a sorted copy of `values`; 0 for an empty input,
+ * which never happens here but keeps the function total without a
+ * non-null assertion. */
+function median(values: readonly number[]): number {
+  const sorted = values.slice().sort((a, b) => a - b)
+  const n = sorted.length
+  if (n === 0) return 0
+  const mid = Math.floor(n / 2)
+  if (n % 2 === 1) return sorted[mid] ?? 0
+  const lo = sorted[mid - 1]
+  const hi = sorted[mid]
+  return lo === undefined || hi === undefined ? 0 : (lo + hi) / 2
+}
+
+/** Mean, worst and median of a run of frame times; no spread, the arrays are
+ * long — the median sorts a copy instead. */
+function summary(frames: readonly number[]): { mean: number; worst: number; median: number } {
   let sum = 0
   let worst = 0
   for (const f of frames) {
     sum += f
     if (f > worst) worst = f
   }
-  return { mean: sum / frames.length, worst }
+  return { mean: sum / frames.length, worst, median: median(frames) }
 }
 
 function canvasOf(el: ArrowzBoard): HTMLCanvasElement {
@@ -88,6 +103,23 @@ async function mount(size: string): Promise<ArrowzBoard> {
   return el
 }
 
+// `nx run-many -t verify` runs the engine's tests and both packages' builds
+// alongside this browser suite, all competing for the same CPU; a handful of
+// this test's twenty frames can stall for hundreds of milliseconds while the
+// scheduler attends to something else, and a mean has no defence against
+// that — one stalled frame in twenty can drag it well past any budget that
+// still fails on a real regression. A median ignores that handful of stalls
+// and still catches the thing this gate exists for: every frame getting
+// slower.
+//
+// Measured on this file's own environment (Playwright's headless shell,
+// devicePixelRatio 1), run alone rather than under `nx run-many`, across two
+// separate runs: pan mean 19.2-27.6 ms — run-to-run noise on a shared
+// machine, not a trend. 50 ms is not derived from that figure; it is the
+// spec's own original acceptance criterion, so the gate guards the number
+// the project actually chose rather than one invented to accommodate noise.
+const NIGHTMARE_PAN_MS = 50
+
 test('Nightmare builds under 5 s and pans 20 frames', async () => {
   const board = generate({ ...defaultParams(), W: 100, H: 100, seed: 7 }).board
   const el = await mount('800px')
@@ -99,22 +131,14 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
   el.zoomBy(3)
   await raf()
   const frames = await pan(canvasOf(el), 20)
-  const { mean, worst } = summary(frames)
+  const { mean, worst, median: med } = summary(frames)
   console.log(
     `nightmare: pieces=${board.pieces.length} build=${build.toFixed(1)}ms ` +
-      `pan mean=${mean.toFixed(1)}ms worst=${worst.toFixed(1)}ms`,
+      `pan mean=${mean.toFixed(1)}ms worst=${worst.toFixed(1)}ms median=${med.toFixed(1)}ms`,
   )
   expect(build).toBeLessThan(5000)
   expect(frames.length).toBe(20)
-  // Measured on this file's own environment (Playwright's headless shell,
-  // devicePixelRatio 1) across two separate runs: pan mean 19.2 ms (worst
-  // 20.8 ms), then 27.6 ms (worst 69.4 ms) — run-to-run noise on a shared
-  // machine, not a trend. The budget below gives the higher of the two means
-  // about 4.3× headroom, because a CI runner has no GPU of its own and can
-  // fall back to a software rasteriser slower than a laptop's — the Insane
-  // report further down this file shows just how much slower a
-  // piece-count-heavy board gets under exactly that fallback.
-  expect(mean).toBeLessThan(120)
+  expect(med).toBeLessThan(NIGHTMARE_PAN_MS)
   el.remove()
   // The timeout has to clear the budget it guards: generation, the mount and
   // 20 frames all share it, so the default 5 000 ms would abort the test
@@ -168,7 +192,8 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   console.log(
     `insane: pieces=${board.pieces.length} drawn=${pieceCount} gen=${genMs.toFixed(0)}ms ` +
       `build=${build.toFixed(1)}ms pan mean=${panStats.mean.toFixed(1)}ms worst=${panStats.worst.toFixed(1)}ms ` +
-      `zoom mean=${zoomStats.mean.toFixed(1)}ms worst=${zoomStats.worst.toFixed(1)}ms`,
+      `median=${panStats.median.toFixed(1)}ms zoom mean=${zoomStats.mean.toFixed(1)}ms ` +
+      `worst=${zoomStats.worst.toFixed(1)}ms median=${zoomStats.median.toFixed(1)}ms`,
   )
   expect(pieceCount).toBe(board.pieces.length)
   el.remove()
@@ -184,7 +209,7 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
 async function runInsane(
   board: Board,
   showPoints: boolean,
-): Promise<{ build: number; drawn: number; panStats: { mean: number; worst: number } }> {
+): Promise<{ build: number; drawn: number; panStats: { mean: number; worst: number; median: number } }> {
   const el = await mount('800px')
   el.showPoints = showPoints
   const t0 = performance.now()
@@ -215,11 +240,13 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
     const on = await runInsane(board, true)
     console.log(
       `insane grid off: pieces=${board.pieces.length} drawn=${off.drawn} build=${off.build.toFixed(1)}ms ` +
-        `pan mean=${off.panStats.mean.toFixed(1)}ms worst=${off.panStats.worst.toFixed(1)}ms`,
+        `pan mean=${off.panStats.mean.toFixed(1)}ms worst=${off.panStats.worst.toFixed(1)}ms ` +
+        `median=${off.panStats.median.toFixed(1)}ms`,
     )
     console.log(
       `insane grid on:  pieces=${board.pieces.length} drawn=${on.drawn} build=${on.build.toFixed(1)}ms ` +
-        `pan mean=${on.panStats.mean.toFixed(1)}ms worst=${on.panStats.worst.toFixed(1)}ms`,
+        `pan mean=${on.panStats.mean.toFixed(1)}ms worst=${on.panStats.worst.toFixed(1)}ms ` +
+        `median=${on.panStats.median.toFixed(1)}ms`,
     )
     // The grid used to cost exactly one SVG node, and that was the assertion
     // here. On the GPU it costs one quad and one shader over the whole board,
