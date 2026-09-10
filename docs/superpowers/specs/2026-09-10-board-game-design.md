@@ -106,7 +106,6 @@ hue would shift. See §6.
 ```ts
 // packages/engine/game.ts
 import type { Board } from './types.ts'
-import type { Dir } from './geometry.ts'
 
 export interface Session {
   readonly board: Board
@@ -118,7 +117,7 @@ export interface Session {
 }
 
 export type Move =
-  | { kind: 'exit'; pieceId: number; dir: Dir; left: number; status: 'playing' | 'won' }
+  | { kind: 'exit'; pieceId: number; dir: number; left: number; status: 'playing' | 'won' }
   | { kind: 'bounce'; pieceId: number; distance: number; blockerId: number }
   | { kind: 'ignored' }
 
@@ -134,6 +133,11 @@ export function play(session: Session, pieceId: number): { next: Session; move: 
 export function saveSession(session: Session, colored: boolean): SessionSnapshot
 export function loadSession(board: Board, snap: SessionSnapshot): Session
 ```
+
+The exit direction is a plain `number`, the index into `DIRS`, because `Dir`
+in `geometry.ts` names the direction *record* (`{ dx, dy, ch }`) and not the
+numeric union; `Piece.dir` and `SvgLayer.animateExit` are numbers for the same
+reason.
 
 `newSession` allocates `gone` of length `maxId + 1` and an `Int32Array` map
 from piece id to its index in `board.pieces`. Ids are dense today
@@ -264,8 +268,10 @@ every move. Line 361 disables the cheap identity diff whenever `colored` is on
 or `top > 0`, and the `colored` half of that guard existed precisely because
 the hue could shift; with the hue tied to the id, that half goes. The `top`
 half stays, because the highlight of the longest pieces is a ranking over the
-array. After the change a coloured board diffs like a monochrome one, so
-toggling colours or removing one arrow no longer rebuilds 86 000 elements. The
+array. After the change a coloured board diffs like a monochrome one, so removing
+one arrow during a coloured game no longer rebuilds 86 000 elements. Toggling
+the mode still rebuilds, and must: every stroke on the board changes colour,
+and `sameView` sees `colored` flip. The
 CLI's `toSvg` is a separate code path and stays byte-identical: its hashes in
 `svg-golden.json` and the fingerprints are not touched.
 
@@ -331,7 +337,8 @@ Chromium (Vitest browser mode), `packages/board-element/src`:
   removed.
 
 `perf.browser.test.ts` gains two measurements on Insane 1000x1000: a click
-verdict under 1 ms, and a colour toggle that does not rebuild the board.
+verdict under 1 ms, and a removal in coloured mode that touches only the nodes
+of the piece that left.
 
 ## 9. Superseded decisions
 
@@ -356,7 +363,7 @@ verdict under 1 ms, and a colour toggle that does not rebuild the board.
 | Risk | Mitigation |
 |---|---|
 | The hue change alters the CLI's SVG output | `toSvg` is a separate function; the golden hashes and the byte-for-byte CLI test guard it, and they must stay green untouched |
-| The diff in coloured mode reveals a latent bug in the layer's identity path | The regression test on hues plus the Insane colour-toggle measurement; the guard on line 361 is removed only with both green |
+| The diff in coloured mode reveals a latent bug in the layer's identity path | The regression test on hues plus the Insane coloured-removal measurement; the `colored` half of the guard on line 361 is removed only with both green |
 | A snapshot of a large board is heavy (up to ~600 kB of ids at the ceiling) | Accepted: a typical 50x50 board is a few hundred bytes, and `v` allows delta encoding later without breaking readers |
 | `finished` awaiting the last ride never fires if a rebuild cancels the animation | The layer's promises resolve on cancellation (PR #28); a test rebuilds the board mid-ride and asserts no stuck state |
 | The host disables `play` mid-ride | The ride finishes and its events still fire; `play` gates the click path, not the animations |
