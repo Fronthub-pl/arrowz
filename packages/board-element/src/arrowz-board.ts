@@ -8,7 +8,8 @@ import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
 import { labelsFor } from './i18n.ts'
-import { type BoardView, DEFAULT_VIEW, SvgLayer } from './svg-layer.ts'
+import { SvgLayer } from './svg-layer.ts'
+import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import {
   fit,
   MIN_POINT_CELL_PX,

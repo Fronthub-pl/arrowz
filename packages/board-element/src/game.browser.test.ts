@@ -2,7 +2,7 @@ import { defaultParams, DIRS, generate } from '@arrowz/engine'
 import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
-import { hueOf } from './svg-layer.ts'
+import { hueOf } from './view.ts'
 import './mod.ts'
 
 function makeBoard(seed = 7): Board {

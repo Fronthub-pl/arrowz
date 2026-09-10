@@ -6,45 +6,7 @@
 import { DIRS, pieceShape, voidStrips } from '@arrowz/engine'
 import type { Board, Piece } from '@arrowz/engine'
 import { exitDistance, exitMs, shakeShift, trackLine, trackPoint } from './track.ts'
-
-export interface BoardView {
-  /** Stroke width as a fraction of a cell. */
-  stroke: number
-  /** Head width in cells; 0 = automatic. */
-  headWidth: number
-  /** Head height in cells; 0 = automatic. */
-  headHeight: number
-  /** Per-piece hues: the diagnostic mode of the lab. */
-  colored: boolean
-  /** How many longest pieces are drawn highlighted and on top. */
-  top: number
-  /** Draw the cells the generator failed to carve. */
-  voids: boolean
-  ink: string
-  paper: string
-  highlight: string
-}
-
-export const DEFAULT_VIEW: BoardView = {
-  stroke: 0.5,
-  headWidth: 0,
-  headHeight: 0,
-  colored: false,
-  top: 0,
-  voids: false,
-  ink: '#232447',
-  paper: '#f6f6fa',
-  highlight: '#e8467c',
-}
-
-/**
- * The diagnostic hue of a piece: the golden angle over its id. It must be the
- * id and not the position in `board.pieces` — a game removes pieces, and a hue
- * read off the array would repaint the whole board after every move.
- */
-export function hueOf(id: number): string {
-  return `hsl(${(id * 137.508) % 360} 62% 42%)`
-}
+import { type BoardView, DEFAULT_VIEW, hueOf, SHAKE_MS } from './view.ts'
 
 const NO_OMISSIONS: ReadonlySet<number> = new Set()
 
@@ -55,8 +17,6 @@ let nextClipId = 0
 
 /** One dot pattern per layer, for the same reason as `nextClipId`. */
 let nextDotsId = 0
-
-export const SHAKE_MS = 230
 
 function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches

@@ -1,7 +1,8 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board, Piece } from '@arrowz/engine'
 import { beforeEach, describe, expect, test } from 'vitest'
-import { DEFAULT_VIEW, hueOf, SvgLayer } from './svg-layer.ts'
+import { SvgLayer } from './svg-layer.ts'
+import { DEFAULT_VIEW, hueOf } from './view.ts'
 
 function board(seed = 7, extra: Partial<Board> = {}): Board {
   const r = generate({ ...defaultParams(), W: 30, H: 30, seed })
