@@ -216,10 +216,11 @@ export class GlLayer {
   private pointsVisible = false
   private pointRadius = 0.1
   private pointRgba: Rgba = [0, 0, 0, 1]
+  /** The CSS `pointRgba` was resolved from; `''` is no colour, so the first call always resolves. */
+  private pointColor = ''
   private scene: Scene | null = null
   private current: Board | null = null
   private view: BoardView = DEFAULT_VIEW
-  private omit: ReadonlySet<number> = new Set()
   private vp: Viewport | null = null
   private padCells = 0
   private pending = 0
@@ -230,6 +231,16 @@ export class GlLayer {
   private highlightRgba: Rgba = [0, 0, 0, 1]
   /** Frames actually drawn; exposed read-only via `drawsForTest`, which the browser tests assert on coalescing with. */
   private frameCount = 0
+  /**
+   * The resolution the canvas is currently sized for, held as a media query
+   * that stops matching the moment `devicePixelRatio` moves. Nothing else the
+   * layer watches notices a window dragged onto a Retina display: the host's
+   * CSS size does not change, so the element's ResizeObserver never fires,
+   * and the board would stay at the old device resolution — visibly blurry —
+   * until some interaction happened to ask for a frame. The SVG layer had no
+   * such state to go stale.
+   */
+  private dprQuery: MediaQueryList | null = null
 
   constructor() {
     this.canvas = document.createElement('canvas')
@@ -261,7 +272,46 @@ export class GlLayer {
     this.posBuffer = gl.createBuffer()
     this.quadBuffer = gl.createBuffer()
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    // The drawing buffer is premultiplied — the default of a WebGL2 context,
+    // and nothing here asks for otherwise — while every colour reaching a
+    // uniform came straight from CSS through `rgbaOf`, with its alpha
+    // unmultiplied. Separate factors reconcile the two: the colour channels
+    // premultiply the source as they blend it, and the alpha channel
+    // accumulates `src.a + dst.a * (1 - src.a)` rather than `src.a * src.a`.
+    // The single-factor form got the colour right and the alpha wrong, which
+    // looks like nothing in a readback and washes the pixel out on screen:
+    // the voids' .22 pass over opaque paper left alpha at .83 instead of 1,
+    // and the compositor read the sixth of the pixel that was missing as a
+    // hole and let the page through it — the tint the SVG group drew as
+    // rgb(243, 207, 222) came out all but white.
+    gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    this.watchDpr()
+  }
+
+  /**
+   * Watches for the next change of `devicePixelRatio`, replacing whatever was
+   * watched before. A media query can only name one resolution, so it has to
+   * be re-armed on every change: the query that has just stopped matching
+   * would never fire again.
+   */
+  private watchDpr(): void {
+    if (typeof matchMedia !== 'function') return
+    this.dprQuery?.removeEventListener('change', this.onDprChange)
+    this.dprQuery = matchMedia(`(resolution: ${devicePixelRatio}dppx)`)
+    this.dprQuery.addEventListener('change', this.onDprChange)
+  }
+
+  /** Drops the watch, so a disposed layer leaves no listener on the window. */
+  private unwatchDpr(): void {
+    this.dprQuery?.removeEventListener('change', this.onDprChange)
+    this.dprQuery = null
+  }
+
+  private readonly onDprChange = (): void => {
+    this.watchDpr()
+    // `resize()` reads the ratio again and re-sizes the drawing buffer; the
+    // draw's own uniforms take it from there. All this has to do is ask.
+    this.schedule()
   }
 
   /**
@@ -296,9 +346,11 @@ export class GlLayer {
 
   /**
    * Everything is rebuilt from state the layer still holds: the board and
-   * view `setBoard` last saw, the omissions, the void strips, and the ids in
-   * `dropped`. No ride survives a loss (`onLost` cancelled every one of
-   * them), so there is nothing in `riders` to re-upload here.
+   * view `setBoard` last saw, the scene it tesselated from them — omissions
+   * and all, which is why the omit set itself need not be kept — the void
+   * strips, and the ids in `dropped`. No ride survives a loss (`onLost`
+   * cancelled every one of them), so there is nothing in `riders` to
+   * re-upload here.
    */
   private readonly onRestored = (): void => {
     this.acquire()
@@ -319,13 +371,23 @@ export class GlLayer {
    * the browser has not offered a restore for. A no-op on a live layer and on
    * one that never had a context at all.
    *
-   * The context comes back asynchronously, through the same
-   * `webglcontextrestored` event a driver reset would use, so the board is
-   * rebuilt by `onRestored` from the state the layer still holds rather than
-   * by anything the caller has to hand back.
+   * With `WEBGL_lose_context` the context comes back asynchronously, through
+   * the same `webglcontextrestored` event a driver reset would use. Without
+   * it `dispose()` never gave the context up — it could not — so the canvas
+   * still holds a live one, and the layer rebuilds on it here and now rather
+   * than waiting for an event no one will dispatch. Either way the board
+   * comes back through `onRestored`, from the state the layer still holds
+   * rather than from anything the caller has to hand back.
    */
   restore(): void {
-    if (this.gl || !this.loseExt) return
+    if (this.gl) return
+    if (!this.loseExt) {
+      // The one case nothing here can undo: a context the driver took away
+      // comes back only when the browser offers it, and without the extension
+      // there is nothing to ask with. A disposed context was never taken.
+      if (!this.contextLost) this.onRestored()
+      return
+    }
     if (this.contextLost) this.loseExt.restoreContext()
     else this.restoreWanted = true
   }
@@ -378,7 +440,6 @@ export class GlLayer {
     // layer's own rebuild stops the animations it finds running.
     this.cancelAll()
     this.view = view
-    this.omit = omit
     this.current = board
     this.dropped.clear()
     this.scene = board === null ? null : tesselateBoard(board, view, omit)
@@ -402,9 +463,20 @@ export class GlLayer {
    * it never rebuilds anything (these three are deliberately not in BoardView).
    * The colour is resolved here, once, rather than in the draw loop — the
    * same rule `setBoard` follows for `inkRgba`, `paperRgba` and `highlightRgba`.
+   *
+   * Settings that have not moved return before either. The element re-states
+   * all three on every viewport change, because only it knows whether
+   * `cellPx` has crossed MIN_POINT_CELL_PX, so without this guard `rgbaOf` —
+   * a `getImageData` readback — would run on every frame of a pan, which is
+   * the one thing the resolved-in-the-setters rule exists to stop. The
+   * `schedule()` costs as much again: a resize that changes nothing still
+   * reaches here, and would ask for a frame behind the element's own guard
+   * against exactly that.
    */
   setPoints(visible: boolean, color: string, radius: number): void {
+    if (visible === this.pointsVisible && color === this.pointColor && radius === this.pointRadius) return
     this.pointsVisible = visible
+    this.pointColor = color
     this.pointRgba = rgbaOf(color)
     this.pointRadius = radius
     this.schedule()
@@ -911,9 +983,16 @@ export class GlLayer {
    * cost some other board its picture. Giving it up is what
    * `WEBGL_lose_context.loseContext()` is for.
    *
+   * On a browser that grants no such extension the context cannot be given up
+   * at all, and only the objects go — which is a rebuild, not a death: there
+   * is no loss for the browser to offer a restore for, so `restore()` takes
+   * the context the canvas still holds back in place instead of waiting.
+   *
    * The two canvas listeners stay: they are the layer's own way back, and
    * `restore()` leans on them. `onLost` will run once the browser dispatches
-   * the loss, and finds nothing left to tear down.
+   * the loss, and finds nothing left to tear down. The resolution watch does
+   * not stay — nothing is going to redraw at the new ratio meanwhile, and a
+   * listener on the window would outlive the board that wanted it.
    */
   dispose(): void {
     // Every ride stops first: one left running would keep asking for frames on
@@ -921,6 +1000,7 @@ export class GlLayer {
     this.cancelAll()
     if (this.pending !== 0) cancelAnimationFrame(this.pending)
     this.pending = 0
+    this.unwatchDpr()
     const gl = this.gl
     if (gl) {
       if (this.program) gl.deleteProgram(this.program)

@@ -45,6 +45,22 @@ function pixel(x: number, y: number): [number, number, number, number] {
   return [r, g, b, a]
 }
 
+/**
+ * One pixel as the page behind the canvas sees it, over a grey `page` level.
+ *
+ * The drawing buffer is premultiplied, so what lands on screen is the buffer's
+ * own colour plus whatever shows through the alpha it did not write. A pass
+ * that composites straight alpha into a premultiplied buffer gets the colour
+ * channels right and the alpha channel wrong, which a raw `pixel()` read
+ * cannot tell from correct — and which washes the pixel out here.
+ */
+function composited(x: number, y: number, page: number): [number, number, number] {
+  const [r, g, b, a] = pixel(x, y)
+  const through = page * (1 - a / 255)
+  const over = (c: number): number => Math.min(255, Math.round(c + through))
+  return [over(r), over(g), over(b)]
+}
+
 /** The middle of the drawing buffer, whatever the device pixel ratio is. */
 function centre(): [number, number, number, number] {
   return pixel(Math.floor(layer.canvas.width / 2), Math.floor(layer.canvas.height / 2))
@@ -175,6 +191,36 @@ test('several viewport changes inside one frame cost one draw', async () => {
   expect(layer.drawsForTest).toBe(before + 1)
 })
 
+test('a pan re-stating the same point settings costs the pan and nothing else', async () => {
+  const b = board()
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  show(b)
+  layer.setPoints(true, '#ff0000', 0.12)
+  await drawn()
+  const before = layer.drawsForTest
+
+  // The element hands the layer all three point settings on every viewport
+  // change, because only it knows whether `cellPx` has crossed
+  // MIN_POINT_CELL_PX (arrowz-board.ts, `updatePoints`). Each viewport below
+  // legitimately costs its own frame; the settings that come with it have not
+  // moved and must cost none — which is also what keeps `rgbaOf`, a
+  // `getImageData` readback, out of the frames of a pan. They are re-stated
+  // on a frame of their own here, because inside the viewport's frame a
+  // second `schedule()` would be free whether it was wanted or not.
+  for (const factor of [1.1, 1.2, 1.3]) {
+    layer.setViewport({ ...v, cellPx: v.cellPx * factor })
+    await drawn()
+    layer.setPoints(true, '#ff0000', 0.12)
+    await drawn()
+  }
+  expect(layer.drawsForTest).toBe(before + 3)
+
+  // A guard, not a mute: a colour that did move still repaints the grid.
+  layer.setPoints(true, '#00ff00', 0.12)
+  await drawn()
+  expect(layer.drawsForTest).toBe(before + 4)
+})
+
 /**
  * How many pixels in the row through the first dot's centre are the dot
  * colour. The row is derived from `cellPx` and `devicePixelRatio` rather than
@@ -237,24 +283,31 @@ test('the voids draw the highlight colour, at .22 opacity, over cells the genera
   const px = Math.round(0.5 * v.cellPx * dpr)
   const py = Math.round(0.5 * v.cellPx * dpr)
 
-  const paper = '#ffffff'
-  const highlight = '#0000ff'
-  layer.setBoard(b, { ...DEFAULT_VIEW, voids: false, paper, ink: paper })
+  // The view's own two colours, so the arithmetic below is the one a board
+  // actually performs: paper #f6f6fa is (246, 246, 250) and highlight #e8467c
+  // is (232, 70, 124).
+  const paper = DEFAULT_VIEW.paper
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: false, ink: paper })
   layer.drawNowForTest()
   expect(layer.voidCountForTest).toBe(0)
-  expect(pixel(px, py)).toEqual([255, 255, 255, 255])
+  expect(pixel(px, py)).toEqual([246, 246, 250, 255])
 
-  layer.setBoard(b, { ...DEFAULT_VIEW, voids: true, paper, ink: paper, highlight })
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: true, ink: paper })
   layer.drawNowForTest()
   expect(layer.voidCountForTest).toBe(strips.length)
-  const [r, g, blue] = pixel(px, py)
-  // Blue at alpha 1, blended at .22 fill-opacity over white paper:
-  // 0*.22 + 255*.78 ~ 199 for red and green, 255*.22 + 255*.78 = 255 for blue.
-  expect(r).toBeGreaterThanOrEqual(195)
-  expect(r).toBeLessThanOrEqual(203)
-  expect(g).toBeGreaterThanOrEqual(195)
-  expect(g).toBeLessThanOrEqual(203)
-  expect(blue).toBe(255)
+
+  // The alpha is half the assertion, and the half that was missing. The pass
+  // covers opaque paper, so whatever it does to the colour it must leave the
+  // pixel opaque: `src.a + dst.a * (1 - src.a)` is .22 + .78 = 1. Blending
+  // straight alpha into the premultiplied buffer left .22 * .22 + .78 = .83
+  // instead, and the compositor read the sixth of the pixel that was missing
+  // as a hole and let the white page through it.
+  expect(pixel(px, py)[3]).toBe(255)
+  // The highlight at the .22 fill-opacity the SVG group carried, over the
+  // paper, computed rather than recorded: 232*.22 + 246*.78 = 242.92 for red,
+  // 70*.22 + 246*.78 = 207.28 for green, 124*.22 + 250*.78 = 222.28 for blue.
+  // Over a white page it stays exactly that, because nothing shows through.
+  expect(composited(px, py, 255)).toEqual([243, 207, 222])
 })
 
 test('an exit removes the piece and resolves', async () => {
