@@ -5,6 +5,7 @@
 // this file only wires DOM events to both and exposes the public API.
 import { css, html, LitElement, type PropertyValues } from 'lit'
 import type { Board } from '@arrowz/engine'
+import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
 import { labelsFor } from './i18n.ts'
 import { type BoardView, DEFAULT_VIEW, SvgLayer } from './svg-layer.ts'
@@ -21,6 +22,9 @@ export interface BoardViewport {
 
 export type PieceClickEvent = CustomEvent<{ pieceId: number }>
 export type ViewportChangeEvent = CustomEvent<BoardViewport>
+export type PieceRemovedEvent = CustomEvent<{ pieceId: number; left: number }>
+export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; distance: number }>
+export type FinishedEvent = CustomEvent<{ pieces: number }>
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
@@ -41,11 +45,12 @@ function sameViewport(a: Viewport, b: Viewport): boolean {
     a.hostWidth === b.hostWidth && a.hostHeight === b.hostHeight && a.fitted === b.fitted
 }
 
-export class ArrowzBoard extends LitElement {
+export class ArrowzBoard extends LitElement implements GameTarget {
   static properties = {
     board: { attribute: false },
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
+    play: { type: Boolean, reflect: true },
     pad: { type: Number, reflect: true },
     // No accessor: the native HTMLElement.lang stays in force, so the property
     // and the attribute never disagree (`:lang()`, hyphenation and assistive
@@ -57,6 +62,8 @@ export class ArrowzBoard extends LitElement {
   declare board: Board | null
   declare view: Partial<BoardView>
   declare interactive: boolean
+  /** Runs the reducer: a click plays the board instead of only reporting. Implies interactivity. */
+  declare play: boolean
   /** Margin around the board, in cells. See DEFAULT_PAD. */
   declare pad: number
 
@@ -80,7 +87,8 @@ export class ArrowzBoard extends LitElement {
       user-select: none;
       -webkit-user-select: none;
     }
-    :host([interactive]) svg.over-piece {
+    :host([interactive]) svg.over-piece,
+    :host([play]) svg.over-piece {
       cursor: pointer;
     }
     svg.panning {
@@ -122,6 +130,7 @@ export class ArrowzBoard extends LitElement {
 
   private readonly layer = new SvgLayer()
   private readonly gestures = new GestureMachine()
+  private readonly game = new GameHost(this)
   private vp: Viewport | null = null
   private observer: ResizeObserver | null = null
   private hostWidth = 0
@@ -133,6 +142,7 @@ export class ArrowzBoard extends LitElement {
     this.board = null
     this.view = {}
     this.interactive = false
+    this.play = false
     this.pad = DEFAULT_PAD
     const svg = this.layer.svg
     svg.addEventListener('pointerdown', this.onPointerDown)
@@ -196,6 +206,7 @@ export class ArrowzBoard extends LitElement {
     if (!changed.has('board') && !changed.has('view') && !changed.has('pad')) return
     const previous = this.layer.board
     this.layer.setBoard(this.board, { ...DEFAULT_VIEW, ...this.view })
+    if (changed.has('board')) this.game.setBoard(this.board)
     // The margin is part of what the board is fitted into, so changing it
     // refits: it is a setting, not something touched during play.
     if (changed.has('pad')) {
@@ -242,6 +253,11 @@ export class ArrowzBoard extends LitElement {
 
   shake(pieceId: number, distance: number): Promise<void> {
     return this.layer.shake(pieceId, distance)
+  }
+
+  /** GameTarget: the game host reaches the board through these three. */
+  emit(event: GameEvent): void {
+    this.dispatchEvent(new CustomEvent(event.type, { detail: event.detail, bubbles: true, composed: true }))
   }
 
   // --- viewport --------------------------------------------------------------
@@ -307,7 +323,8 @@ export class ArrowzBoard extends LitElement {
     if (!cell) return null
     // owner holds the piece id, -1 for an uncarved cell and -2 for a void.
     const id = board.owner[cell.y * board.W + cell.x]
-    return id === undefined || id < 0 || this.layer.isExiting(id) ? null : id
+    if (id === undefined || id < 0) return null
+    return this.layer.isExiting(id) || this.game.isGone(id) ? null : id
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
@@ -381,11 +398,13 @@ export class ArrowzBoard extends LitElement {
       this.setViewport(panBy(zoomAt(this.vp, intent.factor, intent.x, intent.y), intent.dx, intent.dy))
       return
     }
-    if (!this.interactive) return
+    if (!this.interactive && !this.play) return
     const pressed = this.pieceAt(intent.pressX, intent.pressY)
     const released = this.pieceAt(intent.x, intent.y)
     if (pressed === null || pressed !== released) return
     this.dispatchEvent(new CustomEvent('piece-click', { detail: { pieceId: pressed }, bubbles: true, composed: true }))
+    // Fire and forget: the promise is the animation, and nothing here waits.
+    if (this.play) void this.game.click(pressed)
   }
 }
 
