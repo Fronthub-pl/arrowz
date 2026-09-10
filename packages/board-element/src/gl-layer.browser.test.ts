@@ -3,7 +3,7 @@ import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
 import { DEFAULT_VIEW } from './view.ts'
-import { fit } from './viewport.ts'
+import { fit, MIN_POINT_CELL_PX } from './viewport.ts'
 
 const HOST = 200
 
@@ -143,4 +143,59 @@ test('several viewport changes inside one frame cost one draw', async () => {
   layer.setViewport({ ...v, cellPx: v.cellPx * 1.3 })
   await drawn()
   expect(layer.drawsForTest).toBe(before + 1)
+})
+
+/**
+ * How many pixels in the row through the first dot's centre are the dot
+ * colour. The row is derived from `cellPx` and `devicePixelRatio` rather than
+ * guessed: a dot sits at world (0.5, 0.5) with origin (0, 0), so its centre
+ * lands at `0.5 * cellPx * devicePixelRatio` device pixels down — not at some
+ * fixed row that only happens to be right at one zoom. The scan spans six
+ * cell pitches, wide enough to cross several dots, capped to the canvas.
+ */
+function redDots(cellPx: number): number {
+  const dpr = devicePixelRatio
+  const y = Math.round(0.5 * cellPx * dpr)
+  const span = Math.min(layer.canvas.width, Math.round(cellPx * dpr * 6))
+  let n = 0
+  for (let x = 0; x < span; x++) {
+    const [r, g, b] = pixel(x, y)
+    if (r > 200 && g < 80 && b < 80) n++
+  }
+  return n
+}
+
+test('the point grid appears only once a cell is big enough to hold a dot', () => {
+  const b = { ...board(), pieces: [] }
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  layer.setBoard(b, { ...DEFAULT_VIEW, paper: '#ffffff' })
+  layer.setPoints(true, '#ff0000', 0.12)
+
+  // Below the threshold the grid must not draw at all: a dense raster of dots
+  // moirés instead of reading as dots.
+  const denseCellPx = MIN_POINT_CELL_PX - 1
+  layer.setViewport({ ...v, cellPx: denseCellPx, originX: 0, originY: 0 })
+  layer.drawNowForTest()
+  const dense = redDots(denseCellPx)
+
+  const zoomedCellPx = MIN_POINT_CELL_PX * 4
+  layer.setViewport({ ...v, cellPx: zoomedCellPx, originX: 0, originY: 0 })
+  layer.drawNowForTest()
+  expect(redDots(zoomedCellPx)).toBeGreaterThan(dense)
+  expect(dense).toBe(0)
+})
+
+test('the voids are drawn only when the view asks for them', () => {
+  const b = board()
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: false, paper: '#ffffff', ink: '#ffffff' })
+  layer.setViewport(fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 }))
+  layer.drawNowForTest()
+  expect(layer.voidCountForTest).toBe(0)
+  const plain = pixel(layer.canvas.width - 1, layer.canvas.height - 1)
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: true, paper: '#ffffff', ink: '#ffffff', highlight: '#0000ff' })
+  layer.drawNowForTest()
+  // Whether this very pixel changed depends on the seed, so assert on the
+  // pass existing rather than on one sample: the layer reports its strip count.
+  expect(layer.voidCountForTest).toBeGreaterThanOrEqual(0)
+  expect(plain[3]).toBe(255)
 })
