@@ -345,7 +345,11 @@ describe('clicks', () => {
     el.addEventListener('piece-click', () => clicks++)
     const press = (detail: number) => {
       canvas.dispatchEvent(pointer('pointerdown', 40, 40, { detail }))
-      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail }))
+      // Real browsers increment `detail` per click on `pointerdown` but always
+      // send 0 on the matching `pointerup` (w3c/pointerevents#98); `repeat`
+      // has to be read off the down-time sample, and setting `detail` here to
+      // anything else would let a regression that reads it off `up` pass too.
+      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail: 0 }))
     }
     press(1)
     press(2)

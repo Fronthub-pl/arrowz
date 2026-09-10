@@ -1,12 +1,11 @@
 // Turns raw pointer samples into intents, with no DOM, so the rules of the
 // game design (§11) are tested as a table in Node:
 // - mouse: click on release (the element checks it is the same piece as on
-//   press), pan only with the modifier held on press;
+//   press), pan only with the modifier held on press, and a repeat press
+//   (the browser's own double/triple-click count) does nothing at all;
 // - touch: tap = short press within the slop; beyond it one finger pans;
 //   two fingers pinch; a second tap close in time and place to the last one
-//   does nothing at all;
-// - mouse: a repeat press (the browser's own double/triple-click count) does
-//   nothing at all either, for the same reason as the touch case above.
+//   does nothing at all, for the same reason as the mouse case above.
 export type PointerKind = 'mouse' | 'touch' | 'pen'
 
 export interface PointerSample {
@@ -34,8 +33,12 @@ export const TAP_MS = 300
  * DOUBLE_TAP_PX and DOUBLE_TAP_MS no longer mark a fit gesture: the design
  * ruled that a second press this close in place and time to the last one is
  * a slipped finger, not an instruction, so it now defines the window in
- * which that repeat is ignored — on touch as a second tap, and on mouse
- * through `PointerSample.repeat`.
+ * which that repeat is ignored. These two thresholds are ours and govern the
+ * touch path only, as a second tap. On mouse and pen the equivalent window
+ * belongs to the browser, not to us, and reaches us already decided, as
+ * `PointerEvent.detail` (see `PointerSample.repeat`) — which is why the two
+ * inputs are suppressed by different mechanisms even though the rule is the
+ * same.
  */
 export const DOUBLE_TAP_PX = 24
 export const DOUBLE_TAP_MS = 300
