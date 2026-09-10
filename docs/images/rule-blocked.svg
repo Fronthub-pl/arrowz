@@ -19,10 +19,10 @@
 <rect x="140.5" y="100.5" width="199" height="39" fill="none" stroke="#c1444a" stroke-width="2" stroke-dasharray="6 5"/>
 <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="round">
 <polyline points="200,200 160,200 120,200" stroke="#a3a3ba"/>
-<polyline points="220,120 220,160 220,200" stroke="#c1444a"/>
+<polyline points="240,120 240,160 240,200" stroke="#c1444a"/>
 <polyline points="120,120 80,120 40,120 40,160 40,200" stroke="#232447"/>
 </g>
 <polygon points="218,200 202,188 202,212" fill="#a3a3ba"/><circle cx="120" cy="200" r="10" fill="#a3a3ba"/>
-<polygon points="220,102 208,118 232,118" fill="#c1444a"/><circle cx="220" cy="200" r="10" fill="#c1444a"/>
+<polygon points="240,102 228,118 252,118" fill="#c1444a"/><circle cx="240" cy="200" r="10" fill="#c1444a"/>
 <polygon points="138,120 122,108 122,132" fill="#232447"/><circle cx="40" cy="200" r="10" fill="#232447"/>
 </svg>
