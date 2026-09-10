@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>arrowz-board demo</title>
+  <style>
+    html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; color: #232447; }
+    body { display: grid; grid-template-rows: auto 1fr; }
+    header { display: flex; gap: 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+    arrowz-board { width: 100%; height: 100%; }
+    #stats { font-variant-numeric: tabular-nums; white-space: pre; }
+    label { display: inline-flex; gap: 4px; align-items: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <label>Preset <select id="preset"></select></label>
+    <label>Seed <input id="seed" type="number" value="7" min="0" style="width: 6em"></label>
+    <label>Pad <input id="pad" type="number" value="4" min="0" step="1" style="width: 4em"></label>
+    <button id="generate" type="button">Generate</button>
+    <label><input id="play" type="checkbox" checked> play</label>
+    <label><input id="colored" type="checkbox"> colored</label>
+    <label><input id="points" type="checkbox"> points</label>
+    <label><input id="pl" type="checkbox"> lang=pl</label>
+    <button id="measure" type="button">Measure pan and zoom</button>
+    <button id="save" type="button">Save</button>
+    <button id="load" type="button">Load</button>
+    <button id="restart" type="button">Restart</button>
+    <span id="left"></span>
+    <span id="lives"></span>
+    <span id="stats">idle</span>
+  </header>
+  <arrowz-board id="board"></arrowz-board>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

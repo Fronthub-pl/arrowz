@@ -1,5 +1,5 @@
 {
-  "workspace": ["./packages/engine", "./packages/cli"],
+  "workspace": ["./packages/engine", "./packages/cli", "./packages/board-element"],
   "nodeModulesDir": "manual",
   "compilerOptions": {
     "strict": true,
@@ -17,11 +17,13 @@
     "exclude": [
       "**/*.md",
       "packages/cli/lab.html",
+      "packages/board-element/demo/index.html",
       "packages/cli/boards/",
       "**/dist/",
       "docs/",
       "apps/",
       "node_modules/",
+      "**/node_modules/",
       ".nx/",
       "pnpm-lock.yaml"
     ]
@@ -29,10 +31,23 @@
   "lint": {
     "rules": { "tags": ["recommended"], "include": ["no-explicit-any", "no-non-null-assertion"] }
   },
-  "exclude": ["docs/", "apps/", "node_modules/", ".nx/", "**/dist/", "packages/cli/boards/", ".claude/", ".mcp.json"],
+  "test": {
+    "exclude": ["packages/board-element/"]
+  },
+  "exclude": [
+    "docs/",
+    "apps/",
+    "node_modules/",
+    "**/node_modules/",
+    ".nx/",
+    "**/dist/",
+    "packages/cli/boards/",
+    ".claude/",
+    ".mcp.json"
+  ],
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net packages/",
-    "check": "deno check packages/engine/*.ts packages/cli/*.ts",
+    "check": "deno check packages/engine/*.ts packages/engine/scripts/*.ts packages/cli/*.ts",
     "lint": "deno lint",
     "fmt": "deno fmt --check",
     "verify": "deno task check && deno task lint && deno task fmt && deno task test",

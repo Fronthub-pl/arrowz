@@ -1073,3 +1073,23 @@ left is the leftover tests (`solve` of `decomposable` 15.9%, `check` of
 
 The rule for readers: the same seed gives the same board as before; only
 the time to get there changed.
+
+## 2026-09-10 — piece shapes extracted, first interactive consumer
+
+`toSvg` no longer computes the head polygon, the polyline and the tail
+circle inline: `geometry.ts` (`DIRS`, `pieceShape`, `voidStrips`) does, in
+any output unit, and `toSvg` formats the numbers exactly as before. Six
+SHA-256 hashes of `toSvg` output (`svg-golden.json`, recorded before the
+extraction) guard the bytes next to the CLI test and the fingerprints; one of
+them, `voids-strips`, clears a few cells by hand, because `voidFrac` marks
+holes as `-2` and only uncarved `-1` cells get a strip.
+
+The first consumer of `geometry.ts` outside the CLI is `<arrowz-board>`
+(`packages/board-element`, Lit 3): one `<svg>` in cell units, zoom and pan
+through `viewBox`, effects through the Web Animations API. Measured on
+2026-09-10 in headless Chromium 153 on an Apple M1: Nightmare 100×100
+(915 pieces) builds in 15 ms and pans at the frame interval; Insane
+1000×1000 (85 809 pieces, 429 050 SVG nodes) builds in 1.3 s but pans at
+83 ms per frame (worst 357 ms) and zooms at 105 ms, above the 50 ms
+acceptance of the board element spec. Next: drop the per-piece `<g>`,
+re-measure, then decide between virtualisation and Canvas.

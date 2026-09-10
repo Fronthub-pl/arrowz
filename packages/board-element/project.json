@@ -1,0 +1,34 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "board-element",
+  "projectType": "library",
+  "sourceRoot": "packages/board-element/src",
+  "targets": {
+    "check": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": { "cwd": "packages/board-element", "command": "pnpm run check" }
+    },
+    "lint": { "executor": "nx:run-commands", "options": { "cwd": "packages/board-element", "command": "deno lint" } },
+    "fmt": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "packages/board-element", "command": "deno fmt --check" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": { "cwd": "packages/board-element", "command": "pnpm run test" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "packages/board-element", "command": "pnpm run build" }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["^build"],
+      "options": { "cwd": "packages/board-element", "command": "pnpm run serve" }
+    },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build"] }
+  }
+}

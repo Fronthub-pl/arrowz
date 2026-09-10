@@ -35,6 +35,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      - run: pnpm --filter @arrowz/board-element exec playwright install --with-deps --only-shell chromium
+
       - uses: nrwl/nx-set-shas@v5
 
       - run: pnpm nx affected -t check lint fmt test build smoke bundle
