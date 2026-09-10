@@ -102,9 +102,16 @@ packages/board-element/src/
 with a renderer. Without it the public surface would move when the layer did.
 
 `tesselate.ts` joins `viewport.ts` and `track.ts` as a DOM-free module tested
-by the `node` Vitest project. It must not import anything from `gl-layer.ts`;
-`neutral.test.ts` already greps for the DOM lib and this module is expected to
-stay out of it.
+by the `node` Vitest project. It must not import anything from `gl-layer.ts`.
+The guard is not `neutral.test.ts`: that test lives in `packages/engine` and
+greps only the engine's own files, never this package's. The real guard is
+that `tesselate.ts` runs in the `node` Vitest project, which has no DOM at
+runtime — an actual DOM access fails there, not merely a lint rule. Note
+honestly that this is a runtime guard, not a type-level one: this package's
+`tsconfig.json` includes the DOM lib, so a type-only DOM reference (a
+parameter typed `HTMLCanvasElement`, say) would still compile in
+`tesselate.ts` and only surface as a test failure once something tried to
+call it.
 
 ## 4. The tesselator (`tesselate.ts`, pure)
 
@@ -141,16 +148,30 @@ pass.
 
 A line is expanded segment by segment into two triangles, each quad extended
 by half the stroke width at both ends so the joins and caps fill without
-mitring; measured on Insane this produced 2 085 809 triangles for the whole
-board. A head polygon (four points, or five when the line is as wide as the
+mitring. A head polygon (four points, or five when the line is as wide as the
 head) becomes a fan.
 
-The tail rounding is a fan too, of a segment count fixed at build time. Eight
-segments is the starting value: the rounding is half a stroke wide, so at
-`MAX_CELL_PX` (48) it spans 24 device pixels at dpr 1, where eight segments
-already read as round. **The spike did not tesselate the tails**, so the
-triangle count above and the memory figure in §13 are both slightly low; the
-plan must re-measure once the fan is in, and §13 says so.
+The tail rounding is a fan too, of a segment count fixed at build time:
+`TAIL_SEGMENTS = 16`. Eight was the starting value, and it was wrong: it was
+chosen against the rounding's span at devicePixelRatio 1, but no screen this
+runs on is dpr 1. The rounding is half a stroke wide, so at `MAX_CELL_PX`
+(48) on a real, dpr 2 screen it spans 48 device pixels, not 24 — and at that
+size eight facets were plainly visible to the eye in a foreground Chrome. The
+sagitta of an n-gon at radius r is `r(1 - cos(pi/n))`; holding it under half a
+device pixel at r = 24 needs n above 15.4, which is why the constant doubled
+rather than climbed by one.
+
+Measured on the finished layer rather than estimated, the whole Insane board
+(1000×1000, seed 7, 85 809 pieces) comes to 10 376 259 vertices — 3 458 753
+triangles, up from the spike's 2 085 809 because the spike drew no tail
+roundings at all. The tail fans alone account for roughly 4.1 million of
+those vertices (85 809 pieces × 48 vertices a tail), which is why doubling
+`TAIL_SEGMENTS` moves §13's memory figure by more than a rounding error. The
+alternative this displaces, and the cheaper one if that figure ever matters:
+a signed-distance round cap computed in the fragment shader, at six vertices
+a tail instead of forty-eight, correct at every zoom instead of faceted at
+some. Rejected here only because the plain fan was already working and the
+memory was not yet measured to be a problem; §13 records it as the way back.
 
 `tesselatePiece` writes into a caller-owned buffer and returns the vertex
 count, so a ride allocates nothing per frame. Its upper bound is known and
@@ -231,8 +252,8 @@ colour.
 Because the coloured mode is the lab's diagnostic view rather than the game's,
 the buffer is **built lazily, the first time colours are switched on**, and
 kept afterwards. A default monochrome board therefore carries no colour buffer
-at all, which is what drops the ceiling figure in §13 from about 73 MB to
-47.7 MB. The first toggle costs one tesselation pass and one upload; every
+at all, which is what drops the ceiling figure in §13 from 118.7 MB to
+79.2 MB. The first toggle costs one tesselation pass and one upload; every
 toggle after it is a uniform, still an improvement on the SVG layer, where it
 is a full rebuild.
 
@@ -285,11 +306,19 @@ is synchronous and slow:
 - a simulated context loss and restore (via `WEBGL_lose_context`) redraws the
   same picture.
 
-**Unchanged in intent:** `game.browser.test.ts` and
-`arrowz-board.browser.test.ts` test behaviour and events, not markup, and stay
-— except the two `viewBox` assertions of §6 and any query for `g[data-id]`,
-which `perf.browser.test.ts:161` also uses to count pieces and which becomes
-`layer.pieceCount`.
+**`arrowz-board.browser.test.ts` is unchanged in intent:** it tests behaviour
+and events, not markup, and stays — except the two `viewBox` assertions of
+§6 and any query for `g[data-id]`, which `perf.browser.test.ts:161` also uses
+to count pieces and which becomes `layer.pieceCount`.
+
+**`game.browser.test.ts` was not unchanged in intent, and the claim that it
+would pass untouched was wrong.** It was proven false by experiment, not by
+inspection: run against the old SVG file with the new layer underneath,
+11 of its 15 tests failed. The file carried its own `svgOf` helper and eleven
+assertions against markup — queries for `<g>`, `data-id` attributes and
+similar — dressed as behaviour tests. Those had to be rewritten against the
+new layer's public surface (`pieceCount`, the `viewport` property, events)
+rather than surviving as written.
 
 ## 11. Verification
 
@@ -313,13 +342,22 @@ gate.
 
 ## 13. Risks
 
-**GPU memory at the ceiling: 47.7 MB monochrome, about 73 MB once colours are
-switched on, and both figures are low.** The positions were measured; the
-colour buffer adds roughly 25 MB when §8 builds it. But the spike that
-measured the positions drew no tail roundings (§4), so the real totals are
-higher by their fans. The plan re-measures on the finished layer rather than
-carrying these estimates forward. Acceptable on a laptop, unproven on a phone;
-the escape route is §12's instanced variant.
+**GPU memory at the ceiling: 79.2 MB monochrome, 118.7 MB once colours are
+switched on.** Measured, not estimated: a temporary log in `gl-layer.ts`'s
+`upload()` printed `positions.byteLength` and the colour buffer's
+`byteLength` for an Insane board (1000×1000, seed 7, 85 809 pieces) in both
+modes, then was removed. The positions buffer is 83 010 072 bytes —
+10 376 259 vertices, two `Float32`s each; the colour buffer, built only once
+colours are switched on (§8), is 41 505 036 bytes, four bytes a vertex. Both
+figures are worse than the spike's — by about two-thirds — because the spike
+drew no tail roundings at all, and `TAIL_SEGMENTS` has since doubled to 16
+(§4) for a rounding that reads correctly at dpr 2: the tail fans alone are
+roughly 4.1 million of the 10.4 million vertices. Acceptable on a laptop,
+unproven on a phone; the escape routes are §12's instanced variant, which
+touches the whole board's geometry, and the narrower one recorded in §4 — a
+signed-distance round cap for the tails alone, at six vertices instead of
+forty-eight, which is the cheaper fix if this figure is the one that turns
+out to matter.
 
 **Antialiasing at sub-pixel density.** At the fitted scale a cell is 0.8 px
 wide, so the whole board is finer than the raster. MSAA may moiré differently

@@ -1093,3 +1093,47 @@ through `viewBox`, effects through the Web Animations API. Measured on
 83 ms per frame (worst 357 ms) and zooms at 105 ms, above the 50 ms
 acceptance of the board element spec. Next: drop the per-piece `<g>`,
 re-measure, then decide between virtualisation and Canvas.
+
+## 2026-09-10 — the SVG layer goes, `<arrowz-board>` draws on the GPU
+
+`svg-layer.ts` is deleted. `<arrowz-board>` now tesselates `pieceShape()`
+output into two typed-array buffers (`tesselate.ts`, pure, DOM-free, tested
+in the `node` Vitest project) and draws them with WebGL2 (`gl-layer.ts`): one
+static buffer for the whole board, one small dynamic buffer for whichever
+piece is riding its track. A pan or a zoom writes two uniforms and issues six
+`drawArrays` calls; nothing is re-tesselated or re-uploaded for either. A
+removed piece zeroes its own range of the static buffer with
+`bufferSubData` rather than triggering a rebuild, which is the property the
+SVG layer's `diff()` had and had to survive the rewrite.
+
+**Measured in this repository's own test environment** (Playwright's
+headless shell, devicePixelRatio 1 — not the foreground, hardware-accelerated
+Chrome the design's spike used): Nightmare 100×100 (915 pieces) builds in
+100–160 ms and pans at 19–28 ms a frame, near the 60 Hz floor. Insane
+1000×1000 (85 809 pieces, 10 376 259 vertices) builds in 260–350 ms but pans
+at 672–790 ms a frame (worst up to 1 101 ms) and zooms at 808 ms — far above
+the spec's 50 ms acceptance, and worse, not better, than the SVG layer's own
+83 ms in the previous round's measurement. The regression is the environment,
+not the design: pan cost here grows with piece (and so vertex) count rather
+than staying flat with screen pixels, which is what a software rasteriser
+standing in for a GPU does to a vertex-heavy scene. The design's spike, run
+in a foreground Chrome with real hardware acceleration at dpr 2, measured
+16.5 ms for the same board; a separate branch moves this suite to that same
+real engine, and that run is the one the 50 ms acceptance is actually
+decided against. The point grid's cost is isolated by toggling it at a fixed
+zoom on the same board: build rises by ~68 ms (one extra quad and shader),
+pan does not move, matching the design's claim that the grid is a fixed
+per-frame cost rather than one proportional to the board.
+
+**GPU memory, measured directly** rather than estimated (a temporary log of
+`positions.byteLength` and the colour buffer's `byteLength` in `upload()`,
+removed after reading): the Insane board's static position buffer is
+83 010 072 bytes (10 376 259 vertices, two `Float32`s each) — 79.2 MB. The
+colour buffer, built only once the lab's coloured mode is switched on, is a
+further 41 505 036 bytes (four bytes a vertex) — 118.7 MB total. Both figures
+are about two-thirds higher than the design's spike predicted (47.7 MB and
+73 MB): the spike never tesselated the tail roundings, and `TAIL_SEGMENTS`
+has since doubled from 8 to 16, needed so the rounding stays smooth at
+devicePixelRatio 2 rather than the dpr 1 the constant was originally chosen
+against. The tail fans alone account for roughly 4.1 million of the
+10.4 million vertices.

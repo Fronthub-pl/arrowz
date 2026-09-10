@@ -106,6 +106,13 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
   )
   expect(build).toBeLessThan(5000)
   expect(frames.length).toBe(20)
+  // Measured on this file's own environment (Playwright's headless shell,
+  // devicePixelRatio 1): pan mean 19.2 ms, worst 20.8 ms. The budget below
+  // gives that mean roughly sixfold headroom, because a CI runner has no GPU
+  // of its own and can fall back to a software rasteriser slower than a
+  // laptop's — the Insane report further down this file shows just how much
+  // slower a piece-count-heavy board gets under exactly that fallback.
+  expect(mean).toBeLessThan(120)
   el.remove()
   // The timeout has to clear the budget it guards: generation, the mount and
   // 20 frames all share it, so the default 5 000 ms would abort the test
@@ -115,6 +122,18 @@ test('Nightmare builds under 5 s and pans 20 frames', async () => {
 // The project ceiling, measured rather than guarded: generation alone takes
 // tens of seconds, so this runs only when asked for by
 // `ARROWZ_MEASURE=1 pnpm vitest run --project chromium perf`.
+//
+// Measured here (headless shell, dpr 1): pan mean 789.6 ms, worst 1030.9 ms;
+// zoom mean 807.5 ms, worst 1051.2 ms — nowhere near the spec's 50 ms
+// acceptance criterion, so this stays a report rather than an assertion.
+// Nightmare above pans at ~19 ms in the same run; the disproportionate
+// slowdown here, growing with piece (and so vertex) count rather than
+// staying flat with screen pixels, is the signature of a software
+// rasteriser standing in for a real GPU, which is what this environment
+// gives WebGL2. The spike this design argues from (§1 of the spec) was run
+// in a foreground Chrome with real hardware acceleration at dpr 2 and
+// measured 16.5 ms; PR #32 moves this suite to that same real engine, and
+// that is the run that will tell whether the criterion is actually met.
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ_MEASURE=1', async () => {
   const g0 = performance.now()
   const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
