@@ -124,7 +124,8 @@ function lineVerticesOf(line: readonly [number, number][], rounded: boolean): nu
   return segmentVertices(line.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(line) : 0)
 }
 
-const headVertices = (points: number): number => 3 * (points - 2) + 3 * TAIL_SEGMENTS
+const headVertices = (points: number, rounded: boolean): number =>
+  3 * (points - 2) + (rounded ? 3 * TAIL_SEGMENTS : 6)
 
 /**
  * The most vertices a ride of this piece can need. `trackLine` emits the two
@@ -135,7 +136,7 @@ export function rideVertexBound(piece: Piece): number {
   const points = piece.cells.length + 2
   // Every interior point may be a corner, and a rounded tail is the larger cap.
   const worstLine = segmentVertices(points) + 3 * JOIN_SEGMENTS * Math.max(points - 2, 0)
-  return worstLine + headVertices(MAX_HEAD_POINTS)
+  return worstLine + headVertices(MAX_HEAD_POINTS, true)
 }
 
 /**
@@ -276,6 +277,21 @@ function writeDisc(out: Float32Array, o: number, cx: number, cy: number, r: numb
   return o
 }
 
+/** The square tail cap: the same reach as the disc it replaces, with flat sides. */
+function writeSquare(out: Float32Array, o: number, cx: number, cy: number, half: number): number {
+  const put = (x: number, y: number): void => {
+    out[o++] = x
+    out[o++] = y
+  }
+  put(cx - half, cy - half)
+  put(cx + half, cy - half)
+  put(cx + half, cy + half)
+  put(cx - half, cy - half)
+  put(cx + half, cy + half)
+  put(cx - half, cy + half)
+  return o
+}
+
 /** The ids of the `view.top` longest pieces that will actually be drawn. */
 function topIds(board: Board, view: BoardView, omit: ReadonlySet<number>): Set<number> {
   if (view.top <= 0) return new Set<number>()
@@ -300,7 +316,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     const top = tops.has(pc.id)
     const s = shapeOf(pc, view, top)
     const line = lineVerticesOf(s.line, view.rounded)
-    const head = headVertices(s.head.length)
+    const head = headVertices(s.head.length, view.rounded)
     counts.set(pc.id, { line, head })
     size[top ? 'topLines' : 'lines'] += line
     size[top ? 'topHeads' : 'heads'] += head
@@ -342,7 +358,8 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
 
     const headStart = cursor[headBlock]
     const headEnd = writeFan(positions, headStart * 2, s.head, 0, 0)
-    writeDisc(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
+    if (view.rounded) writeDisc(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
+    else writeSquare(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
     cursor[headBlock] = headStart + c.head
 
     ranges.set(pc.id, {
@@ -406,6 +423,6 @@ export function tesselatePiece(
   o = writeFan(out, o, s.head, d.dx * shift, d.dy * shift)
   const last = piece.cells.length - 1
   const [tx, ty] = ride === null ? [s.tail.x, s.tail.y] : trackPoint(piece.cells, ride.dir, last - shift)
-  o = writeDisc(out, o, tx, ty, s.tail.r)
+  o = view.rounded ? writeDisc(out, o, tx, ty, s.tail.r) : writeSquare(out, o, tx, ty, s.tail.r)
   return o / 2
 }

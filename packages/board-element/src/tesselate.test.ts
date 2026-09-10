@@ -296,3 +296,20 @@ test('a rounded corner sits on the outer side of the turn, at radius half', () =
     expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(half + tol)
   }
 })
+
+test('a sharp tail is a square with the same reach as the disc', () => {
+  const round = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const sharp = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: false }, NONE)
+  const headOf = (s: Scene) => s.rangeOf(BENT.id)?.head.count ?? 0
+  // The disc is TAIL_SEGMENTS triangles; the square is two.
+  expect(headOf(round) - headOf(sharp)).toBe(3 * TAIL_SEGMENTS - 6)
+
+  // Same reach: the switch changes the corner, never how much room a piece takes.
+  const r = sharp.rangeOf(BENT.id)
+  if (!r) throw new Error('BENT is not drawn')
+  const half = DEFAULT_VIEW.stroke / 2
+  const tail = at(BENT.cells, BENT.cells.length - 1)
+  const cap = points(sharp.positions, r.head).slice(-6)
+  const reach = cap.reduce((m, [x, y]) => Math.max(m, Math.abs(x - (tail.x + 0.5)), Math.abs(y - (tail.y + 0.5))), 0)
+  expect(reach).toBeCloseTo(half, 9)
+})
