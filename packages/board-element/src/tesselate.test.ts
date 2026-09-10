@@ -270,7 +270,7 @@ test('a straight piece writes the same line in both modes', () => {
   expect(round.rangeOf(STRAIGHT.id)?.line.count).toBe(sharp.rangeOf(STRAIGHT.id)?.line.count)
 })
 
-test('a rounded corner stays inside the disc it replaces', () => {
+test('a rounded corner sits on the outer side of the turn, at radius half', () => {
   const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('BENT is not drawn')
@@ -279,9 +279,20 @@ test('a rounded corner stays inside the disc it replaces', () => {
   const corner = at(BENT.cells, 1)
   const cx = corner.x + 0.5, cy = corner.y + 0.5
   // Fans are written after every segment, so the corner owns the tail of the range.
+  const fan = points(scene.positions, r.line).slice(-3 * JOIN_SEGMENTS)
   // positions is a Float32Array, so a vertex the fan places exactly on the arc
   // still rounds off by up to float32's own precision at this magnitude — the
   // same slack `toBeCloseTo(x, 6)` gives elsewhere in this file.
-  const fan = points(scene.positions, r.line).slice(-3 * JOIN_SEGMENTS)
-  for (const [x, y] of fan) expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(half + 1e-6)
+  const tol = 1e-6
+  // BENT turns from -x (incoming) to +y (outgoing) at this corner, so the
+  // square the fan replaces is the one two butt-ended segments would leave
+  // uncovered on the outer side of that turn: x <= cx and y <= cy. Every fan
+  // vertex must land there and nowhere else — a sign flip in writeJoin's
+  // choice of normal would instead sweep the fan across the inner corner,
+  // which a plain "stays within radius half" check could never catch.
+  for (const [x, y] of fan) {
+    expect(x).toBeLessThanOrEqual(cx + tol)
+    expect(y).toBeLessThanOrEqual(cy + tol)
+    expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(half + tol)
+  }
 })

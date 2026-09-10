@@ -26,10 +26,14 @@ export const TAIL_SEGMENTS = 16
  * A piece only ever turns through a right angle, so the fan sweeps a quarter
  * and its facets are those of a `4 * JOIN_SEGMENTS`-gon. The sagitta rule of
  * TAIL_SEGMENTS applies at the corner's own radius, which is the widest a
- * stroke may be: at `stroke` 0.9 and MAX_CELL_PX (48) on a dpr 2 screen that
- * is 43 device pixels, and `43 * (1 - cos(pi / 4k)) < 0.5` needs k above 5.15.
+ * corner is ever drawn with: the panel's maximum `stroke` of 0.9, times the
+ * 1.5 the colour mode's highlight applies (`strokeOf`), is 1.35 of a cell. At
+ * MAX_CELL_PX (48) on a dpr 2 screen that is 64.8 device pixels, and
+ * `64.8 * (1 - cos(pi / 4k)) < 0.5` needs k above 6.32. A host is free to set
+ * `view.stroke` past what the panel offers; the cost there is visible
+ * faceting on that corner, not anything breaking.
  */
-export const JOIN_SEGMENTS = 6
+export const JOIN_SEGMENTS = 7
 
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
