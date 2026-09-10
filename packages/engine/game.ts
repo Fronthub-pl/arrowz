@@ -9,6 +9,7 @@
 // session is nothing but the set of pieces that have left.
 //
 // Runtime-neutral, like engine.ts: no Deno, DOM, Node or process API.
+import { fingerprint } from './engine.ts'
 import { DIRS } from './geometry.ts'
 import type { Board, Piece } from './types.ts'
 
@@ -108,4 +109,66 @@ export function play(session: Session, pieceId: number): { next: Session; move: 
     next: { board: session.board, gone, index: session.index, left, status },
     move: { kind: 'exit', pieceId, dir: piece.dir, left, status },
   }
+}
+
+/**
+ * A saved game. It holds the removed ids and enough of the board's identity
+ * to refuse a snapshot taken on a different one; the seed and the parameters
+ * are not here, because a Board does not carry them and the fingerprint
+ * identifies the board more strictly than a seed would.
+ */
+export interface SessionSnapshot {
+  v: 1
+  board: { W: number; H: number; pieces: number; fingerprint: string }
+  removed: number[]
+  colored: boolean
+}
+
+/** The ids of the pieces that have left, ascending. */
+export function goneIds(session: Session): number[] {
+  const ids: number[] = []
+  for (const pc of session.board.pieces) {
+    if (at(session.gone, pc.id) === 1) ids.push(pc.id)
+  }
+  return ids.sort((a, b) => a - b)
+}
+
+export function saveSession(session: Session, colored: boolean): SessionSnapshot {
+  const { board } = session
+  return {
+    v: 1,
+    board: { W: board.W, H: board.H, pieces: board.pieces.length, fingerprint: fingerprint(board) },
+    removed: goneIds(session),
+    colored,
+  }
+}
+
+/**
+ * Restores a session over a board. The cheap gates come first: the size and
+ * the piece count are two comparisons, while the fingerprint walks the whole
+ * owner grid — two million steps on the 1000x1000 ceiling.
+ */
+export function loadSession(board: Board, snap: SessionSnapshot): Session {
+  if (snap.v !== 1) throw new Error(`game: snapshot version ${snap.v} is not readable`)
+  if (snap.board.W !== board.W || snap.board.H !== board.H) {
+    throw new Error(`game: snapshot board is ${snap.board.W}x${snap.board.H}, this one is ${board.W}x${board.H}`)
+  }
+  if (snap.board.pieces !== board.pieces.length) {
+    throw new Error(`game: snapshot board has ${snap.board.pieces} pieces, this one has ${board.pieces.length}`)
+  }
+  if (snap.board.fingerprint !== fingerprint(board)) {
+    throw new Error('game: snapshot fingerprint does not match this board')
+  }
+  const session = newSession(board)
+  const gone = session.gone
+  let left = session.left
+  for (const id of snap.removed) {
+    if (!Number.isInteger(id) || id < 0 || id >= session.index.length || at(session.index, id) < 0) {
+      throw new Error(`game: snapshot names piece ${id}, which is not on this board`)
+    }
+    if (at(gone, id) === 1) continue
+    gone[id] = 1
+    left--
+  }
+  return { board, gone, index: session.index, left, status: left === 0 ? 'won' : 'playing' }
 }

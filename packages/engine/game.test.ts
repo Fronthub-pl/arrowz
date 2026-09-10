@@ -1,5 +1,6 @@
-import { assertEquals, assertThrows } from '@std/assert'
-import { newSession, play } from './game.ts'
+import { assert, assertEquals, assertThrows } from '@std/assert'
+import { defaultParams, generate } from './engine.ts'
+import { goneIds, loadSession, newSession, play, saveSession } from './game.ts'
 import type { Board, Piece } from './types.ts'
 
 /**
@@ -96,4 +97,50 @@ Deno.test('void and uncarved cells do not block, and the distance counts the cel
 Deno.test('a piece with a direction outside 0..3 is a programming error, not a move', () => {
   const b = board(2, 1, [0, 0], [{ id: 0, cells: [{ x: 1, y: 0 }, { x: 0, y: 0 }], dir: 9 }])
   assertThrows(() => play(newSession(b), 0), RangeError)
+})
+
+Deno.test('a snapshot round-trips through a board of the same identity', () => {
+  const b = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 }).board
+  let s = newSession(b)
+  const first = b.pieces[0]
+  assert(first !== undefined)
+  const played = play(s, first.id)
+  s = played.next
+  const snap = saveSession(s, true)
+  assertEquals(snap.v, 1)
+  assertEquals(snap.colored, true)
+  assertEquals(snap.board.W, 20)
+  assertEquals(snap.board.pieces, b.pieces.length)
+  if (played.move.kind === 'exit') assertEquals(snap.removed, [first.id])
+
+  const back = loadSession(b, snap)
+  assertEquals(back.left, s.left)
+  assertEquals(back.status, s.status)
+  assertEquals([...goneIds(back)], [...goneIds(s)])
+})
+
+Deno.test('the removed ids come out in ascending order', () => {
+  const b = threeDominoes()
+  let s = newSession(b)
+  for (const id of [2, 0]) s = play(s, id).next
+  assertEquals(saveSession(s, false).removed, [0, 2])
+})
+
+Deno.test('a snapshot is refused when it does not describe this board', () => {
+  const b = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 }).board
+  const snap = saveSession(newSession(b), false)
+  const bad = (patch: Partial<typeof snap.board>) => ({ ...snap, board: { ...snap.board, ...patch } })
+  assertThrows(() => loadSession(b, bad({ W: 21 })), Error, 'board')
+  assertThrows(() => loadSession(b, bad({ pieces: 1 })), Error, 'pieces')
+  assertThrows(() => loadSession(b, bad({ fingerprint: 'deadbeef' })), Error, 'fingerprint')
+  assertThrows(() => loadSession(b, { ...snap, v: 2 as 1 }), Error, 'version')
+  assertThrows(() => loadSession(b, { ...snap, removed: [b.pieces.length + 5] }), Error, 'piece')
+})
+
+Deno.test('a loaded session that has everything removed is won', () => {
+  const b = threeDominoes()
+  const snap = { v: 1 as const, board: saveSession(newSession(b), false).board, removed: [0, 1, 2], colored: false }
+  const s = loadSession(b, snap)
+  assertEquals(s.left, 0)
+  assertEquals(s.status, 'won')
 })
