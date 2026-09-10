@@ -93,7 +93,14 @@ export function rideVertexBound(piece: Piece): number {
   return lineVertices(piece.cells.length + 2) + headVertices(MAX_HEAD_POINTS)
 }
 
-/** Two triangles for one segment, extended by `half` at both ends so joins fill. */
+/**
+ * Two triangles for one segment. `startExtend`/`endExtend` say whether that
+ * end reaches `half` further out so an interior join fills — the polyline's
+ * two outer ends must not: `svg-layer.ts` draws with `stroke-linecap: butt`,
+ * and the tail is rounded by its own disc, so a square cap out there would
+ * reach `0.707 * w` into its corners, past that disc's radius, and bury the
+ * disc's triangles under geometry nothing ever shows.
+ */
 function writeSegment(
   out: Float32Array,
   o: number,
@@ -102,6 +109,8 @@ function writeSegment(
   x1: number,
   y1: number,
   half: number,
+  startExtend: boolean,
+  endExtend: boolean,
 ): number {
   let dx = x1 - x0, dy = y1 - y0
   const len = Math.hypot(dx, dy)
@@ -110,8 +119,10 @@ function writeSegment(
   if (len === 0) return o
   dx /= len
   dy /= len
-  const ax = x0 - dx * half, ay = y0 - dy * half
-  const bx = x1 + dx * half, by = y1 + dy * half
+  const startHalf = startExtend ? half : 0
+  const endHalf = endExtend ? half : 0
+  const ax = x0 - dx * startHalf, ay = y0 - dy * startHalf
+  const bx = x1 + dx * endHalf, by = y1 + dy * endHalf
   const nx = -dy * half, ny = dx * half
   const put = (x: number, y: number): void => {
     out[o++] = x
@@ -123,6 +134,20 @@ function writeSegment(
   put(ax + nx, ay + ny)
   put(bx - nx, by - ny)
   put(ax - nx, ay - ny)
+  return o
+}
+
+/**
+ * A polyline as segments, in order. Only interior joins extend by `half`;
+ * the first point of the first segment and the last point of the last
+ * segment are the polyline's own two outer ends, and stay put.
+ */
+function writeLine(out: Float32Array, o: number, line: readonly [number, number][], half: number): number {
+  const last = line.length - 1
+  for (let i = 1; i <= last; i++) {
+    const a = at(line, i - 1), b = at(line, i)
+    o = writeSegment(out, o, a[0], a[1], b[0], b[1], half, i > 1, i < last)
+  }
   return o
 }
 
@@ -172,7 +197,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
 
   // Two passes over the pieces, and pieceShape called in both. Once would need
   // the head's point count known in advance, and only pieceShape may decide
-  // whether a head has four points or five — deriving it here again is exactly
+  // whether a head has three points or five — deriving it here again is exactly
   // the divergence geometry.ts exists to prevent.
   const counts = new Map<number, { line: number; head: number }>()
   const size: Record<Block, number> = { lines: 0, topLines: 0, heads: 0, topHeads: 0 }
@@ -217,16 +242,12 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     const headBlock: Block = top ? 'topHeads' : 'heads'
 
     const lineStart = cursor[lineBlock]
-    let o = lineStart * 2
-    for (let i = 1; i < s.line.length; i++) {
-      const a = at(s.line, i - 1), b = at(s.line, i)
-      o = writeSegment(positions, o, a[0], a[1], b[0], b[1], half)
-    }
+    writeLine(positions, lineStart * 2, s.line, half)
     cursor[lineBlock] = lineStart + c.line
 
     const headStart = cursor[headBlock]
-    o = writeFan(positions, headStart * 2, s.head, 0, 0)
-    writeDisc(positions, o, s.tail.x, s.tail.y, s.tail.r)
+    const headEnd = writeFan(positions, headStart * 2, s.head, 0, 0)
+    writeDisc(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
     cursor[headBlock] = headStart + c.head
 
     ranges.set(pc.id, {
@@ -249,7 +270,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
  * only when colours are switched on (see the layer), so a monochrome board
  * never allocates it.
  */
-export function tesselateColors(scene: Scene, _view: BoardView): Uint8Array {
+export function tesselateColors(scene: Scene): Uint8Array {
   const vertices = scene.positions.length / 2
   const colors = new Uint8Array(vertices * 4)
   for (const id of scene.drawnIds()) {
@@ -284,11 +305,7 @@ export function tesselatePiece(
   const s = shapeOf(piece, view, top)
   const half = strokeOf(view, top) / 2
   const line = ride === null ? s.line : trackLine(piece.cells, ride.dir, ride.front, ride.shift)
-  let o = 0
-  for (let i = 1; i < line.length; i++) {
-    const a = at(line, i - 1), b = at(line, i)
-    o = writeSegment(out, o, a[0], a[1], b[0], b[1], half)
-  }
+  let o = writeLine(out, 0, line, half)
   const d = ride === null ? { dx: 0, dy: 0 } : at(DIRS, ride.dir)
   const shift = ride === null ? 0 : ride.shift
   o = writeFan(out, o, s.head, d.dx * shift, d.dy * shift)

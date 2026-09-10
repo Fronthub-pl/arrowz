@@ -68,6 +68,43 @@ test('a straight piece contributes six vertices per segment', () => {
   expect(r?.line.count).toBe(12)
 })
 
+test('the line is butt at its two outer ends; an interior join still fills', () => {
+  // Horizontal (dir 1, dx=1 dy=0), so world x alone pins position along the
+  // line and the test needs no projection arithmetic.
+  const straight: Piece = { id: 99, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 3, y: 5 }] }
+  const scene = tesselateBoard(board(7, { pieces: [straight] }), DEFAULT_VIEW, NONE)
+  const r = scene.rangeOf(straight.id)
+  if (!r) throw new Error('no range')
+  const shape = pieceShape(straight, { cell: 1, pad: 0, width: DEFAULT_VIEW.stroke, headWidth: 0, headHeight: 0 })
+  const half = DEFAULT_VIEW.stroke / 2
+  const headX = at(shape.line, 0)[0]
+  const jointX = at(shape.line, 1)[0]
+  const tailX = at(shape.line, 2)[0]
+  const pts = points(scene.positions, r.line)
+  const f32 = (n: number): number => Math.fround(n)
+  const x = (i: number): number | undefined => pts[i]?.[0]
+  // First segment's "a" end (vertices 0, 3, 5 of writeSegment's fixed
+  // layout): the polyline's own first point, square, not pushed out by half
+  // a stroke the way svg-layer.ts's butt cap never is either.
+  expect(x(0)).toBe(f32(headX))
+  expect(x(3)).toBe(f32(headX))
+  expect(x(5)).toBe(f32(headX))
+  // Last segment's "b" end (vertices 7, 8, 10 within its own six): likewise
+  // the polyline's own last point, unextended — the tail disc rounds it, not
+  // a square cap reaching past the disc's own radius.
+  expect(x(7)).toBe(f32(tailX))
+  expect(x(8)).toBe(f32(tailX))
+  expect(x(10)).toBe(f32(tailX))
+  // The interior join in between still extends by half a stroke on both
+  // sides, so the corner is filled rather than left with a gap.
+  expect(x(1)).toBe(f32(jointX - half))
+  expect(x(2)).toBe(f32(jointX - half))
+  expect(x(4)).toBe(f32(jointX - half))
+  expect(x(6)).toBe(f32(jointX + half))
+  expect(x(9)).toBe(f32(jointX + half))
+  expect(x(11)).toBe(f32(jointX + half))
+})
+
 test('a one-cell piece has no line segments and still has a head and a tail', () => {
   const scene = tesselateBoard(board(7, { pieces: [DOT] }), DEFAULT_VIEW, NONE)
   const r = scene.rangeOf(DOT.id)
@@ -152,8 +189,11 @@ test('a ridden piece follows trackLine, corners included', () => {
   const want = 6 * (expected.length - 1) + 3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
   expect(count).toBe(want)
   // The corner survives the ride: trackLine emits every cell centre still
-  // between the two moving ends, so a bent piece never straightens.
-  expect(expected.length).toBeGreaterThanOrEqual(3)
+  // between the two moving ends, so a bent piece never straightens. BENT has
+  // four cells; at shift 0.5 the two ends have moved onto the ray in front of
+  // cell 0 and between cells 2 and 3, leaving the centres of cells 0, 1 and 2
+  // still between them — two ends plus three centres is five points.
+  expect(expected.length).toBe(5)
 })
 
 test('a ride never writes past the bound the layer allocates', () => {
@@ -171,7 +211,7 @@ test('the colour buffer carries hueBytes for every vertex of a piece', () => {
   const b = board(7, { pieces: [BENT] })
   const view = { ...DEFAULT_VIEW, colored: true }
   const scene = tesselateBoard(b, view, NONE)
-  const colors = tesselateColors(scene, view)
+  const colors = tesselateColors(scene)
   expect(colors.length).toBe(scene.positions.length / 2 * 4)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('no range')
