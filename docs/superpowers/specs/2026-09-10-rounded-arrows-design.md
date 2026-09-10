@@ -110,6 +110,19 @@ below that a line is under one pixel at the CLI's default cell size of 12, so
 the demo's 0.05 was never a usable setting. The head knobs take the lab's step
 of 0.05 rather than the demo's 0.1, which the narrower range now affords.
 
+**R7. A stored head height of 0 is read as unset, not as zero.** All 218
+boards under `packages/cli/boards/` carry `"headHeight": 0`, which meant
+automatic when they were written. `store.ts:57` already spreads a stored view
+over `DEFAULT_VIEW` for exactly this reason ("a board saved before a knob
+existed lacks it"); the same place now also rewrites a stored 0 to the new
+default. Without it, every saved board would re-render in the library with no
+arrowhead at all.
+
+**R8. The CLI takes `--headheight=0` literally.** It draws a head of no
+height, and the help text stops promising otherwise. Silently reinterpreting a
+number the user typed is worse than drawing what they asked for, and anyone who
+used 0 to mean automatic now gets the same result by omitting the flag.
+
 ## 3. Decisions
 
 1. **`rounded` is a view field on all three surfaces**, defaulting to `true`.
@@ -177,7 +190,10 @@ Two consumers must follow:
 
 ## 5. `rounded` across the three surfaces
 
-**Engine.** `ShapeOptions` and `View` gain `rounded: boolean`. `toSvg` writes
+**Engine.** `SvgOptions` gains `rounded?: boolean` and `View` gains
+`rounded: boolean`. `ShapeOptions` does **not**: `pieceShape` already returns
+the tail as a centre and a radius, and whether that is drawn as a disc or a
+square is the renderer's business, exactly as it is in the WebGL layer. `toSvg` writes
 `stroke-linejoin="round"` or `"miter"` on both stroke groups
 (`engine.ts:2037`, `:2066`), and the tail becomes `<circle>` or `<rect>`
 accordingly. Nothing else in the SVG changes.
@@ -202,6 +218,9 @@ the rest, so `--top` boards change in a second way.
 
 That is a deliberate, visible change to the CLI's default output, and it
 invalidates:
+
+- the 218 board files under `packages/cli/boards/`, every one of which stores
+  `headHeight: 0` — handled on read by R7 rather than by rewriting them;
 
 - `packages/engine/svg-golden.json` — re-recorded with
   `packages/engine/scripts/record-svg-golden.ts`;
