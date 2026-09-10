@@ -28,6 +28,7 @@ export const MIN_SHAKE_CELLS = 0.35
 
 export class GameHost {
   private session: Session | null = null
+  private boardRef: Board | null = null
   /**
    * The ids that have left, as one Set per session, mutated in place. The
    * layer compares it by identity to decide whether it may keep its nodes, so
@@ -41,12 +42,18 @@ export class GameHost {
     return this.gone
   }
 
+  /** The board the current session was built from, or null before one is set. */
+  get board(): Board | null {
+    return this.boardRef
+  }
+
   isGone(pieceId: number): boolean {
     return this.gone.has(pieceId)
   }
 
   /** Starts a fresh session, or drops the session when there is no board. */
   setBoard(board: Board | null): void {
+    this.boardRef = board
     this.session = board === null ? null : newSession(board)
     this.gone = new Set()
   }

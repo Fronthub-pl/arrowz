@@ -1,5 +1,5 @@
 import { defaultParams, DIRS, generate } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
 import { hueOf } from './svg-layer.ts'
@@ -214,6 +214,59 @@ describe('play', () => {
 })
 
 describe('saving and restoring', () => {
+  test('loadState before a board is set throws', () => {
+    el = document.createElement('arrowz-board')
+    document.body.append(el)
+    const snap: SessionSnapshot = {
+      v: 1,
+      board: { W: 1, H: 1, pieces: 0, fingerprint: 'x' },
+      removed: [],
+      colored: false,
+    }
+    expect(() => el.loadState(snap)).toThrow(/no board/)
+  })
+
+  // Regression guard for the element lagging Lit's asynchronous `updated()`
+  // by one microtask: `board` is a plain property, so nothing schedules the
+  // session's rebuild until Lit gets around to it. `saveState`, `loadState`
+  // and `restart` must reconcile the session themselves instead of trusting
+  // that a render has already happened.
+  test('a board and a loadState assigned back to back, with no await in between, land on the right session', async () => {
+    const board = makeBoard()
+    const { free } = verdicts(board)
+    await mount({ play: '' }, board)
+    clickPiece(el, free)
+    await new Promise<void>((r) => setTimeout(r, 700))
+    const snap = el.saveState()
+    expect(snap?.removed).toEqual([free])
+
+    const fresh = document.createElement('arrowz-board')
+    fresh.style.width = '300px'
+    fresh.style.height = '300px'
+    fresh.setAttribute('play', '')
+    document.body.append(fresh)
+    // No await between these two: `updated()` has not run yet.
+    fresh.board = board
+    if (snap) fresh.loadState(snap)
+    await fresh.updateComplete
+    await raf()
+    expect(svgOf(fresh).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length - 1)
+    fresh.remove()
+  })
+
+  test('saveState right after assigning a board reflects that board, not a stale one', () => {
+    const board = makeBoard()
+    const fresh = document.createElement('arrowz-board')
+    document.body.append(fresh)
+    fresh.board = board
+    const snap = fresh.saveState()
+    expect(snap).not.toBeNull()
+    expect(snap?.board.W).toBe(board.W)
+    expect(snap?.board.pieces).toBe(board.pieces.length)
+    expect(snap?.removed).toEqual([])
+    fresh.remove()
+  })
+
   test('a restored board is drawn without the pieces that left', async () => {
     const board = makeBoard()
     const { free } = verdicts(board)

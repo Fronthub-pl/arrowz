@@ -228,7 +228,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       !changed.has('coloredOverride') && !changed.has('enableColors')
     ) return
     const previous = this.layer.board
-    if (changed.has('board')) this.game.setBoard(this.board)
+    this.syncSession()
     this.redraw()
     // The margin is part of what the board is fitted into, so changing it
     // refits: it is a setting, not something touched during play.
@@ -280,20 +280,37 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /** The game in progress, as a value the host can store. */
   saveState(): SessionSnapshot | null {
+    this.syncSession()
     return this.game.save(this.colored)
   }
 
   /** Restores a game saved by `saveState`. Throws when the snapshot is not this board's. */
   loadState(snap: SessionSnapshot): void {
+    this.syncSession()
     this.game.load(snap)
-    this.coloredOverride = snap.colored
+    // Without the permission `saveState()` always records `colored: false`
+    // (§6): honouring it here would pin the override to false and outlive a
+    // later grant of the permission, so it only travels when it can be true.
+    if (this.enableColors) this.coloredOverride = snap.colored
     this.redraw()
   }
 
   /** Drops the game and puts every piece back. */
   restart(): void {
+    this.syncSession()
     this.game.setBoard(this.board)
     this.redraw()
+  }
+
+  /**
+   * Reconciles the session with `board` for a caller that runs between
+   * `this.board = ...` and Lit's next, asynchronous `updated()`: without this,
+   * `saveState`/`loadState`/`restart` called in that window would see the
+   * previous session, or none. A no-op when the two already agree, so it never
+   * forces a needless rebuild of the session or its `gone` set.
+   */
+  private syncSession(): void {
+    if (this.game.board !== this.board) this.game.setBoard(this.board)
   }
 
   /**
