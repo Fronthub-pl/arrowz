@@ -1,4 +1,4 @@
-import { defaultParams, generate } from '@arrowz/engine'
+import { defaultParams, generate, voidStrips } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
@@ -185,17 +185,44 @@ test('the point grid appears only once a cell is big enough to hold a dot', () =
   expect(dense).toBe(0)
 })
 
-test('the voids are drawn only when the view asks for them', () => {
-  const b = board()
-  layer.setBoard(b, { ...DEFAULT_VIEW, voids: false, paper: '#ffffff', ink: '#ffffff' })
-  layer.setViewport(fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 }))
+test('the voids draw the highlight colour, at .22 opacity, over cells the generator left empty', () => {
+  // seed 7 on a 30x30 board happens to leave voidStrips() empty, so the test
+  // cannot rely on the generator to produce any: it carves its own run of
+  // empty cells into a copy of the owner grid — the only thing voidStrips()
+  // reads (see packages/engine/geometry.ts) — and asserts on that fixture
+  // directly, so the test cannot silently start exercising nothing again.
+  const base = board()
+  const owner = Int32Array.from(base.owner)
+  const runLen = 4
+  for (let x = 0; x < runLen; x++) owner[x] = -1
+  const b: Board = { ...base, owner, pieces: [] }
+  const strips = voidStrips(b)
+  expect(strips.length).toBeGreaterThan(0)
+
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  layer.setViewport({ ...v, originX: 0, originY: 0 })
+  // The centre of the carved run's first cell, in device pixels off an
+  // origin of (0, 0) — computed the way redDots() computes its row, not guessed.
+  const dpr = devicePixelRatio
+  const px = Math.round(0.5 * v.cellPx * dpr)
+  const py = Math.round(0.5 * v.cellPx * dpr)
+
+  const paper = '#ffffff'
+  const highlight = '#0000ff'
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: false, paper, ink: paper })
   layer.drawNowForTest()
   expect(layer.voidCountForTest).toBe(0)
-  const plain = pixel(layer.canvas.width - 1, layer.canvas.height - 1)
-  layer.setBoard(b, { ...DEFAULT_VIEW, voids: true, paper: '#ffffff', ink: '#ffffff', highlight: '#0000ff' })
+  expect(pixel(px, py)).toEqual([255, 255, 255, 255])
+
+  layer.setBoard(b, { ...DEFAULT_VIEW, voids: true, paper, ink: paper, highlight })
   layer.drawNowForTest()
-  // Whether this very pixel changed depends on the seed, so assert on the
-  // pass existing rather than on one sample: the layer reports its strip count.
-  expect(layer.voidCountForTest).toBeGreaterThanOrEqual(0)
-  expect(plain[3]).toBe(255)
+  expect(layer.voidCountForTest).toBe(strips.length)
+  const [r, g, blue] = pixel(px, py)
+  // Blue at alpha 1, blended at .22 fill-opacity over white paper:
+  // 0*.22 + 255*.78 ~ 199 for red and green, 255*.22 + 255*.78 = 255 for blue.
+  expect(r).toBeGreaterThanOrEqual(195)
+  expect(r).toBeLessThanOrEqual(203)
+  expect(g).toBeGreaterThanOrEqual(195)
+  expect(g).toBeLessThanOrEqual(203)
+  expect(blue).toBe(255)
 })

@@ -139,6 +139,13 @@ export class GlLayer {
   private dotProgram: WebGLProgram | null = null
   private posBuffer: WebGLBuffer | null = null
   private colorBuffer: WebGLBuffer | null = null
+  /**
+   * Scratch storage for whatever single quad the current pass is drawing —
+   * the paper's, then the dot grid's. Each pass re-uploads its own quad into
+   * it with `bufferData` before drawing, so its contents are never valid
+   * across passes: a pass added later must not assume what it holds coming
+   * in, only what it writes itself.
+   */
   private quadBuffer: WebGLBuffer | null = null
   private voidBuffer: WebGLBuffer | null = null
   private voidVertices = 0
