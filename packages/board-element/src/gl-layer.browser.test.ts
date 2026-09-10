@@ -1,6 +1,6 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
-import { beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
 import { DEFAULT_VIEW } from './view.ts'
 import { fit } from './viewport.ts'
@@ -20,6 +20,11 @@ beforeEach(() => {
   layer.canvas.style.width = `${HOST}px`
   layer.canvas.style.height = `${HOST}px`
   document.body.append(layer.canvas)
+})
+
+/** Every context this file opens must close: browsers cap live WebGL contexts. */
+afterEach(() => {
+  layer.dispose()
 })
 
 /** The layer schedules on rAF; two frames guarantee the draw has happened. */
@@ -83,10 +88,18 @@ test('a board draws: the middle of the canvas is not the page behind it', () => 
 })
 
 test('the paper is the colour the view asks for', () => {
-  show(board(), { ...DEFAULT_VIEW, paper: '#00ff00', ink: '#00ff00' })
+  // ink and paper differ, so a green read only proves something: the centre
+  // pixel could be either colour depending on the board, but the corner
+  // cannot — it samples deep in the margin, cells away from where any piece
+  // could reach, wide enough (pad 10 against a ~2.9-cell fitted margin) that
+  // the paper quad is guaranteed to cover it.
+  const b = board()
+  layer.setBoard(b, { ...DEFAULT_VIEW, paper: '#00ff00', ink: '#ff00ff' })
+  layer.pad = 10
+  layer.setViewport(fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 2 }))
   layer.drawNowForTest()
-  const [r, g, b] = centre()
-  expect([r, g, b]).toEqual([0, 255, 0])
+  const [red, green, blue] = pixel(0, 0)
+  expect([red, green, blue]).toEqual([0, 255, 0])
 })
 
 test('a board of no pieces still paints its paper, and one of null paints nothing', () => {

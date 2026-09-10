@@ -31,17 +31,33 @@ void main() { color = v_color; }`
 type Rgba = [number, number, number, number]
 
 /**
+ * A single 2D context, reused by every `rgbaOf` call rather than one canvas
+ * created per call. Lazy so importing this module never touches the DOM.
+ */
+let probeCtx: CanvasRenderingContext2D | null | undefined
+
+function probe(): CanvasRenderingContext2D | null {
+  if (probeCtx === undefined) probeCtx = document.createElement('canvas').getContext('2d')
+  return probeCtx
+}
+
+/**
  * A CSS colour as GL floats. The browser does the parsing, so anything a
  * consumer may put in `view.ink` works — names, hex of either length, hsl(),
  * the colour functions of tomorrow — without this file owning a parser.
+ *
+ * Resolved once per `BoardView`, in `setBoard` (and per point colour, in
+ * `setPoints`) — never from the draw loop. `draw()` runs up to three colours
+ * a frame, and each call here is a canvas readback; paid once per board or
+ * view change, it is free, paid sixty times a second it is not.
  */
 function rgbaOf(css: string): Rgba {
-  const probe = document.createElement('canvas').getContext('2d')
-  if (!probe) return [0, 0, 0, 1]
-  probe.fillStyle = '#000'
-  probe.fillStyle = css
-  probe.fillRect(0, 0, 1, 1)
-  const d = probe.getImageData(0, 0, 1, 1).data
+  const ctx = probe()
+  if (!ctx) return [0, 0, 0, 1]
+  ctx.fillStyle = '#000'
+  ctx.fillStyle = css
+  ctx.fillRect(0, 0, 1, 1)
+  const d = ctx.getImageData(0, 0, 1, 1).data
   const [r, g, b, a] = [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0, d[3] ?? 255]
   return [r / 255, g / 255, b / 255, a / 255]
 }
@@ -60,12 +76,19 @@ function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLSh
 function link(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
   const p = gl.createProgram()
   if (!p) throw new Error('gl-layer: createProgram failed')
-  gl.attachShader(p, compile(gl, gl.VERTEX_SHADER, vert))
-  gl.attachShader(p, compile(gl, gl.FRAGMENT_SHADER, frag))
+  const vs = compile(gl, gl.VERTEX_SHADER, vert)
+  const fs = compile(gl, gl.FRAGMENT_SHADER, frag)
+  gl.attachShader(p, vs)
+  gl.attachShader(p, fs)
   gl.linkProgram(p)
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
-    throw new Error(`gl-layer: ${gl.getProgramInfoLog(p) ?? 'program did not link'}`)
-  }
+  const ok = gl.getProgramParameter(p, gl.LINK_STATUS)
+  const log = gl.getProgramInfoLog(p)
+  // Once a program is linked, its shaders can be released immediately — the
+  // normal WebGL idiom, and it keeps the constructor from leaking two shader
+  // objects per layer.
+  gl.deleteShader(vs)
+  gl.deleteShader(fs)
+  if (!ok) throw new Error(`gl-layer: ${log ?? 'program did not link'}`)
   return p
 }
 
@@ -91,8 +114,13 @@ export class GlLayer {
   private vp: Viewport | null = null
   private padCells = 0
   private pending = 0
-  /** Frames actually drawn; the browser tests assert on coalescing with it. */
-  drawsForTest = 0
+  /** How many pieces `scene` actually draws; counted once in `setBoard`, not on every `pieceCount` read. */
+  private pieceTotal = 0
+  private inkRgba: Rgba = [0, 0, 0, 1]
+  private paperRgba: Rgba = [0, 0, 0, 1]
+  private highlightRgba: Rgba = [0, 0, 0, 1]
+  /** Frames actually drawn; exposed read-only via `drawsForTest`, which the browser tests assert on coalescing with. */
+  private frameCount = 0
 
   constructor() {
     this.canvas = document.createElement('canvas')
@@ -116,7 +144,11 @@ export class GlLayer {
   }
 
   get pieceCount(): number {
-    return this.scene?.drawnIds().length ?? 0
+    return this.pieceTotal
+  }
+
+  get drawsForTest(): number {
+    return this.frameCount
   }
 
   hasPiece(id: number): boolean {
@@ -142,6 +174,10 @@ export class GlLayer {
     this.omit = omit
     this.current = board
     this.scene = board === null ? null : tesselateBoard(board, view, omit)
+    this.pieceTotal = this.scene?.drawnIds().length ?? 0
+    this.inkRgba = rgbaOf(view.ink)
+    this.paperRgba = rgbaOf(view.paper)
+    this.highlightRgba = rgbaOf(view.highlight)
     this.upload()
     this.schedule()
   }
@@ -177,24 +213,63 @@ export class GlLayer {
     })
   }
 
-  private resize(): void {
+  /**
+   * Sizes the drawing buffer to the host, in device pixels. Returns false
+   * when the host has no laid-out size yet: before layout, `clientWidth`/
+   * `clientHeight` read 0, and drawing would otherwise commit the buffer to
+   * 1x1 and never revisit it, because nothing else re-checks the size. The
+   * caller skips the frame instead; the next `schedule()`, once whatever
+   * triggers it happens after layout, tries again.
+   */
+  private resize(): boolean {
     const gl = this.gl
-    if (!gl) return
+    if (!gl) return false
     const dpr = devicePixelRatio
-    const w = Math.max(1, Math.round(this.canvas.clientWidth * dpr))
-    const h = Math.max(1, Math.round(this.canvas.clientHeight * dpr))
+    const w = Math.round(this.canvas.clientWidth * dpr)
+    const h = Math.round(this.canvas.clientHeight * dpr)
+    if (w <= 0 || h <= 0) return false
     if (this.canvas.width !== w || this.canvas.height !== h) {
       this.canvas.width = w
       this.canvas.height = h
     }
     gl.viewport(0, 0, this.canvas.width, this.canvas.height)
+    return true
+  }
+
+  /**
+   * Binds `pos` to `a_pos`, and either binds `color` to `a_color` or
+   * disables it. Every pass — the paper and the four piece blocks today,
+   * more to come — routes through here instead of repeating the six lines by
+   * hand, so a pass that would hand a colour buffer sized for a different
+   * position buffer has to say so explicitly at its own call site, rather
+   * than the mismatch surviving because of the order passes happen to run in.
+   */
+  private bindAttrs(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    pos: WebGLBuffer | null,
+    color: WebGLBuffer | null,
+  ): void {
+    const posLoc = gl.getAttribLocation(program, 'a_pos')
+    gl.bindBuffer(gl.ARRAY_BUFFER, pos)
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    const colorLoc = gl.getAttribLocation(program, 'a_color')
+    if (color) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, color)
+      gl.enableVertexAttribArray(colorLoc)
+      gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0)
+    } else {
+      gl.disableVertexAttribArray(colorLoc)
+    }
   }
 
   private draw(): void {
     const gl = this.gl
-    if (!gl || !this.program) return
-    this.resize()
-    this.drawsForTest++
+    const program = this.program
+    if (!gl || !program) return
+    if (!this.resize()) return
+    this.frameCount++
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     const vp = this.vp
@@ -202,59 +277,41 @@ export class GlLayer {
     const board = this.current
     if (!vp || !board) return
 
-    const program = this.program
     gl.useProgram(program)
     const loc = (name: string): WebGLUniformLocation | null => gl.getUniformLocation(program, name)
     gl.uniform2f(loc('u_origin'), vp.originX, vp.originY)
     gl.uniform1f(loc('u_scale'), vp.cellPx * devicePixelRatio)
     gl.uniform2f(loc('u_size'), this.canvas.width, this.canvas.height)
 
-    this.drawPaper(gl)
+    this.drawPaper(gl, program)
     if (!scene) return
 
-    const posLoc = gl.getAttribLocation(this.program, 'a_pos')
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer)
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-
-    const colorLoc = gl.getAttribLocation(this.program, 'a_color')
     const useAttr = this.view.colored && this.colorBuffer !== null
-    if (useAttr && this.colorBuffer) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer)
-      gl.enableVertexAttribArray(colorLoc)
-      gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0)
-    } else {
-      gl.disableVertexAttribArray(colorLoc)
-    }
+    this.bindAttrs(gl, program, this.posBuffer, useAttr ? this.colorBuffer : null)
 
-    const ink = rgbaOf(this.view.ink)
-    const highlight = rgbaOf(this.view.highlight)
     for (const pass of PASSES) {
       const range = scene.blocks[pass.block]
       if (range.count === 0) continue
       // Highlighted pieces take one flat colour, so the diagnostic hues never
       // reach them — the same rule the SVG group carried on its stroke.
       gl.uniform1i(loc('u_useAttr'), !pass.highlight && useAttr ? 1 : 0)
-      gl.uniform4fv(loc('u_flat'), pass.highlight ? highlight : ink)
+      gl.uniform4fv(loc('u_flat'), pass.highlight ? this.highlightRgba : this.inkRgba)
       gl.drawArrays(gl.TRIANGLES, range.start, range.count)
     }
   }
 
   /** The paper: one quad over the cells plus the margin. */
-  private drawPaper(gl: WebGL2RenderingContext): void {
+  private drawPaper(gl: WebGL2RenderingContext, program: WebGLProgram): void {
     const board = this.current
-    if (!board || !this.program || !this.quadBuffer) return
+    if (!board || !this.quadBuffer) return
     const p = this.padCells
     const x0 = -p, y0 = -p, x1 = board.W + p, y1 = board.H + p
     const quad = new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1])
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, quad, gl.DYNAMIC_DRAW)
-    const posLoc = gl.getAttribLocation(this.program, 'a_pos')
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.disableVertexAttribArray(gl.getAttribLocation(this.program, 'a_color'))
-    gl.uniform1i(gl.getUniformLocation(this.program, 'u_useAttr'), 0)
-    gl.uniform4fv(gl.getUniformLocation(this.program, 'u_flat'), rgbaOf(this.view.paper))
+    this.bindAttrs(gl, program, this.quadBuffer, null)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
+    gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), this.paperRgba)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
   }
 
@@ -273,5 +330,17 @@ export class GlLayer {
   dispose(): void {
     if (this.pending !== 0) cancelAnimationFrame(this.pending)
     this.pending = 0
+    const gl = this.gl
+    if (gl) {
+      if (this.program) gl.deleteProgram(this.program)
+      if (this.posBuffer) gl.deleteBuffer(this.posBuffer)
+      if (this.colorBuffer) gl.deleteBuffer(this.colorBuffer)
+      if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer)
+    }
+    this.program = null
+    this.posBuffer = null
+    this.colorBuffer = null
+    this.quadBuffer = null
+    this.gl = null
   }
 }
