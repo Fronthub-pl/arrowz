@@ -112,8 +112,8 @@ stay out of it.
 export interface Scene {
   /** Triangle vertices, x and y interleaved, in cells. */
   positions: Float32Array
-  /** One piece id per vertex, for the hue the shader computes. */
-  ids: Uint32Array
+  /** RGBA8 per vertex, four bytes each; only built for the coloured mode (§8). */
+  colors: Uint8Array | null
   /** Where each block starts and how long it is, in vertices. */
   blocks: Readonly<Record<Block, Range>>
   /** Where one piece's vertices sit, so a removal or a ride can zero them. */
@@ -217,11 +217,24 @@ back when it is cancelled; an exit leaves it zeroed and drops the piece.
 
 ## 8. Colour
 
-Each vertex carries the id of its piece as a `uint32` attribute, and the
-shader computes the hue: the golden angle over the id, then HSL to RGB, both
-a few lines of GLSL. Toggling the coloured mode is therefore **one uniform
-and no buffer write** — an improvement on the SVG layer, where it is a full
-rebuild.
+Monochrome needs no per-vertex colour at all: the pass sets `view.ink` as a
+uniform. The coloured mode gets a second buffer of `RGBA8` per vertex, filled
+on the CPU from `hueOf()`.
+
+The hue is deliberately **not** computed in the shader. GLSL works in float32,
+and `id * 137.508` for an id around 86 000 lands near 11.8 million, past
+2^23, where the unit in the last place is already 2 — the hues would quantise
+to every other degree and stop matching `hueOf()`, which the element exports
+to consumers. Keeping the arithmetic on the CPU keeps one source of the
+colour.
+
+Because the coloured mode is the lab's diagnostic view rather than the game's,
+the buffer is **built lazily, the first time colours are switched on**, and
+kept afterwards. A default monochrome board therefore carries no colour buffer
+at all, which is what drops the ceiling figure in §13 from about 73 MB to
+47.7 MB. The first toggle costs one tesselation pass and one upload; every
+toggle after it is a uniform, still an improvement on the SVG layer, where it
+is a full rebuild.
 
 Highlighted pieces need no per-vertex flag, because they occupy their own
 blocks and their pass sets `view.highlight` as a uniform. Their stroke is
@@ -300,12 +313,13 @@ gate.
 
 ## 13. Risks
 
-**GPU memory at the ceiling: about 73 MB, and that figure is low.** 47.7 MB of
-positions plus roughly 25 MB of ids — but the spike that measured the
-positions drew no tail roundings (§4), so the real total is higher by their
-fans. The plan re-measures it on the finished layer rather than carrying this
-estimate forward. Acceptable on a laptop, unproven on a phone; the escape
-route is §12's instanced variant.
+**GPU memory at the ceiling: 47.7 MB monochrome, about 73 MB once colours are
+switched on, and both figures are low.** The positions were measured; the
+colour buffer adds roughly 25 MB when §8 builds it. But the spike that
+measured the positions drew no tail roundings (§4), so the real totals are
+higher by their fans. The plan re-measures on the finished layer rather than
+carrying these estimates forward. Acceptable on a laptop, unproven on a phone;
+the escape route is §12's instanced variant.
 
 **Antialiasing at sub-pixel density.** At the fitted scale a cell is 0.8 px
 wide, so the whole board is finer than the raster. MSAA may moiré differently
