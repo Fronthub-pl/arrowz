@@ -1,4 +1,4 @@
-# Rounded arrows, honest ranges, and a quiet double click
+# Rounded arrows, honest ranges, and a harmless slip of the finger
 
 Date: 2026-09-10. Status: draft design, awaiting review.
 
@@ -12,7 +12,8 @@ Builds on `docs/superpowers/specs/2026-09-10-webgl-board-layer-design.md` §4
 Five observations from driving the demo, in the order they were raised:
 
 1. A double click on the board resets the view **and** clicks the arrow under
-   the cursor. The reset is unwanted.
+   the cursor. Both are unwanted: a slipped finger should cost neither the
+   viewport nor a move.
 2. The pieces turn through hard right angles. The SVG export does not: it has
    asked the rasteriser for round joins since the beginning. The board should
    look the way the export looks, and the choice should be a knob.
@@ -75,19 +76,18 @@ see §10.
 Where the request left room for two readings, this is the reading taken. Each
 is cheap to overturn; none is buried in the implementation.
 
-**R1. A double click does nothing at all on the board.** The `dblclick`
-listener goes (`arrowz-board.ts:212`, `:602`), and the second press of a rapid
-mouse double (`PointerEvent.detail >= 2`) produces no click intent. The first
-click still plays its piece: suppressing it would mean holding every mouse
-click for the 300 ms of the double-click window, which makes the whole board
-feel slow to serve a gesture nobody asked for. `fit()` keeps its ⤢ button, its
-`0` key and its touch double tap.
+**R1. A repeated press does nothing, on either input.** A second press at the
+same place, inside the double window, yields no intent at all: it neither
+resets the view nor plays a piece. The reason is a slipped finger, not a
+gesture — an accidental repeat must never cost a move or a viewport. The first
+press still plays its piece: suppressing that too would mean holding every
+press for the 300 ms of the window, which makes the whole board feel slow.
 
-**R2. The touch double tap keeps resetting the view.** It is a gesture the game
-design §11 specifies, and a touch user has no `0` key and a small ⤢ target.
-This is the ruling most likely to be overturned: if the intent was "no
-double-anything resets the view", the `fit` branch in `GestureMachine.up`
-(`gestures.ts:128`) goes too and `Intent` loses its `fit` member.
+**R2. Nothing resets the view by being done twice.** The `dblclick` listener
+goes (`arrowz-board.ts:212`, `:602`), the `fit` branch of `GestureMachine.up`
+(`gestures.ts:128`) goes, `Intent` loses its `fit` member and `apply()` loses
+the branch that handled it. `fit()` keeps its exit button and its `0` key,
+which are the two ways to ask for it deliberately.
 
 **R3. `rounded` governs joins and the tail cap, never the head.** The head
 stays a sharp polygon in both modes. `rounded` means exactly what
@@ -216,14 +216,28 @@ once, by reading what each image shows and what README claims about it, and
 every regenerated image is compared against its predecessor by eye before the
 old one is replaced.
 
-## 7. The double click
+## 7. The repeated press
 
-`arrowz-board.ts` drops `onDoubleClick` and its listener. `apply()` gains a
-guard so that a mouse press whose `detail` is 2 or more yields no click intent;
-the cleanest seam is `PointerSample`, which already carries `modifier` and `t`,
-gaining a `repeat: boolean` that `GestureMachine.up` refuses to turn into a
-click. That keeps the rule in `gestures.ts`, where the other pointer rules live
-and where they are tested as a table in Node.
+Both inputs already funnel through `GestureMachine`, and both already carry
+what is needed to spot a repeat, so the rule lives there rather than in the
+element:
+
+- **Touch.** `up` keeps the `lastTap` bookkeeping it has, with the same
+  `DOUBLE_TAP_MS` and `DOUBLE_TAP_PX` window; a tap inside that window returns
+  `none` where it used to return `fit`. The position check is what keeps fast
+  honest play working: two quick taps 24 pixels apart are two different
+  pieces, and both are played.
+- **Mouse.** `PointerSample` gains a `repeat: boolean`, filled from
+  `PointerEvent.detail >= 2`, which the browser already increments only for
+  presses inside its own double-click distance and time. `up` refuses to turn
+  a repeat into a click.
+
+`arrowz-board.ts` drops `onDoubleClick`, its listener, and the `fit` branch of
+`apply()`. `Intent` loses `fit`; nothing produces it any more.
+
+Storing the rule in `gestures.ts` keeps it beside the other pointer rules and
+inside the table that tests them in Node, which is the only place either input
+is covered without a browser.
 
 ## 8. Tests
 
@@ -244,10 +258,11 @@ New:
   more vertices when rounded than when sharp; a straight piece writes the same
   in both modes; `mergeCollinear` leaves a piece with no straight run
   untouched; the square tail cap covers the same bounding box as the disc.
-- `gestures.test.ts` — a repeat press yields no click; a first press still
-  does; the touch double tap still yields `fit` (R2).
+- `gestures.test.ts` — a repeat press yields no intent on either input; a
+  first press still yields a click; two quick taps far enough apart are both
+  clicks, so honest fast play on touch survives; no input produces `fit`.
 - `arrowz-board.browser.test.ts` — a double click leaves the viewport where it
-  was.
+  was and fires one `piece-click`, not two.
 - `controls.test.ts` — every `NumberControl` default lies inside its own
   min and max. This is the assertion whose absence let the demo and the lab
   drift apart in the first place.
@@ -303,6 +318,8 @@ fixed head was swallowed by the cap from a stroke of 0.5 up
 The new range (0.1 – 1) is the mitigation; the demo check of §9.4 is where it
 gets confirmed.
 
-**R2's asymmetry.** After this change a mouse double click does nothing and a
-touch double tap fits. That is defensible and it is also exactly the kind of
-difference that reads as a bug six months later.
+**Touch loses its only gesture for framing the board.** After this change a
+touch user reaches `fit()` solely through the exit button in the chrome, which
+is a small target on a phone. That is the accepted price of R1: a slipped
+finger costing a viewport is the worse failure, and it is the one that happens
+by accident rather than on purpose.
