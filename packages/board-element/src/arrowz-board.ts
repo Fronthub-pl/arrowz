@@ -122,6 +122,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     :host([play]) svg.over-piece {
       cursor: pointer;
     }
+    svg.pan-ready {
+      cursor: grab;
+    }
     svg.panning {
       cursor: grabbing;
     }
@@ -164,6 +167,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private readonly game = new GameHost(this)
   private vp: Viewport | null = null
   private observer: ResizeObserver | null = null
+  /** Where the pointer last was, to put the piece cursor back when the modifier goes up. */
+  private lastPointer: { x: number; y: number } | null = null
   private hostWidth = 0
   private hostHeight = 0
   private changeQueued = false
@@ -181,6 +186,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.enableColors = false
     this.coloredOverride = null
     const svg = this.layer.svg
+    svg.addEventListener('pointerenter', this.onPointerEnter)
+    svg.addEventListener('pointerleave', this.onPointerLeave)
     svg.addEventListener('pointerdown', this.onPointerDown)
     svg.addEventListener('pointermove', this.onPointerMove)
     svg.addEventListener('pointerup', this.onPointerUp)
@@ -222,6 +229,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     super.disconnectedCallback()
     this.observer?.disconnect()
     this.observer = null
+    // A board removed while the pointer was over it never gets its leave.
+    this.stopWatchingModifier()
   }
 
   override render() {
@@ -450,6 +459,53 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     return this.layer.isExiting(id) || this.game.isGone(id) ? null : id
   }
 
+  /**
+   * The grab cursor while the modifier is held, before any button is pressed.
+   *
+   * The modifier decides what the next click does — pan, not play — so the
+   * cursor has to answer before the click, and the piece cursor has to go while
+   * it is held: leaving it would promise a move the click will not make. The
+   * key events are taken from the window, because the board is not necessarily
+   * focused when someone puts their hand on ⌘, and only while the pointer is
+   * over it, so a board nobody is pointing at listens to nothing.
+   */
+  private setPanReady(on: boolean): void {
+    const svg = this.layer.svg
+    if (svg.classList.contains('pan-ready') === on) return
+    svg.classList.toggle('pan-ready', on)
+    if (on) svg.classList.remove('over-piece')
+    else if (this.lastPointer) {
+      svg.classList.toggle('over-piece', this.pieceAt(this.lastPointer.x, this.lastPointer.y) !== null)
+    }
+  }
+
+  private readonly onModifierKey = (e: KeyboardEvent): void => {
+    this.setPanReady(e.metaKey || e.ctrlKey)
+  }
+
+  // ⌘-Tab hands the keyup to another window, so the class would stay behind.
+  private readonly onWindowBlur = (): void => {
+    this.setPanReady(false)
+  }
+
+  private readonly onPointerEnter = (e: PointerEvent): void => {
+    globalThis.addEventListener('keydown', this.onModifierKey)
+    globalThis.addEventListener('keyup', this.onModifierKey)
+    globalThis.addEventListener('blur', this.onWindowBlur)
+    this.setPanReady(e.metaKey || e.ctrlKey)
+  }
+
+  private readonly onPointerLeave = (): void => {
+    this.stopWatchingModifier()
+  }
+
+  private stopWatchingModifier(): void {
+    globalThis.removeEventListener('keydown', this.onModifierKey)
+    globalThis.removeEventListener('keyup', this.onModifierKey)
+    globalThis.removeEventListener('blur', this.onWindowBlur)
+    this.setPanReady(false)
+  }
+
   private readonly onPointerDown = (e: PointerEvent): void => {
     // Only the primary button starts a press: a right-click or a middle-click
     // is not a board gesture. The machine never sees it, and the later move and
@@ -471,8 +527,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   private readonly onPointerMove = (e: PointerEvent): void => {
     const s = this.sample(e)
+    this.lastPointer = { x: s.x, y: s.y }
     this.apply(this.gestures.move(s))
-    if (!this.gestures.panning) this.layer.svg.classList.toggle('over-piece', this.pieceAt(s.x, s.y) !== null)
+    if (this.gestures.panning) return
+    this.setPanReady(e.metaKey || e.ctrlKey)
+    if (!this.layer.svg.classList.contains('pan-ready')) {
+      this.layer.svg.classList.toggle('over-piece', this.pieceAt(s.x, s.y) !== null)
+    }
   }
 
   private readonly onPointerUp = (e: PointerEvent): void => {

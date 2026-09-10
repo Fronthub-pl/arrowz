@@ -1,9 +1,13 @@
-// The demo: a preset picker, generation in a worker, the element playing a
-// real game (`play`, coloured, save/load/restart), and the measurements of
-// the spec (§11): build time, node count, pan and zoom frame times.
+// The demo: a board generated in a worker, and an inspector beside it. The
+// panel is the only thing that drives the element, so what it shows — the
+// controls, the markup, the events — is the element's actual state, not a
+// second copy of it kept in step by hand.
 import { PRESETS } from '@arrowz/engine/presets'
 import '../src/mod.ts'
-import type { ArrowzBoard, SessionSnapshot } from '../src/mod.ts'
+import { type ArrowzBoard, type BoardView, DEFAULT_VIEW, type SessionSnapshot } from '../src/mod.ts'
+import { ATTRIBUTES, type Control, type ControlValue, VIEW_CONTROLS, viewRecord, withField } from './controls.ts'
+import { buildControls, EventConsole } from './panel.ts'
+import { type BoardSummary, snippet } from './snippet.ts'
 import type { DemoRequest, DemoResponse } from './worker.ts'
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -13,20 +17,17 @@ const $ = <T extends HTMLElement>(id: string): T => {
 }
 
 const board = $<ArrowzBoard>('board')
-const stats = $<HTMLSpanElement>('stats')
+const stats = $<HTMLParagraphElement>('stats')
+const session = $<HTMLParagraphElement>('session')
+const snippetPre = $<HTMLPreElement>('snippet')
 const preset = $<HTMLSelectElement>('preset')
+const seedInput = $<HTMLInputElement>('seed')
 const generateButton = $<HTMLButtonElement>('generate')
 const measureButton = $<HTMLButtonElement>('measure')
-const saveButton = $<HTMLButtonElement>('save')
 const loadButton = $<HTMLButtonElement>('load')
-const restartButton = $<HTMLButtonElement>('restart')
-const leftLabel = $<HTMLSpanElement>('left')
-const livesLabel = $<HTMLSpanElement>('lives')
+const copyButton = $<HTMLButtonElement>('copy')
 const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
-
-board.play = $<HTMLInputElement>('play').checked
-board.enableColors = true
 
 for (const level of PRESETS) {
   const group = document.createElement('optgroup')
@@ -41,9 +42,85 @@ for (const level of PRESETS) {
 }
 preset.value = 'nightmare-square'
 
-// The status span holds two lines the two buttons own separately: the state of
-// the last generation, and under it the last measurement. Keeping the first in
-// a variable is what stops repeated "Measure" clicks from piling their output
+// ── The inputs ──────────────────────────────────────────────────────────────
+
+/** What the demo opens with: a board that plays, and permission to colour it. */
+const INITIAL: readonly (readonly [string, ControlValue])[] = [['play', true], ['enable-colors', true]]
+
+let view: BoardView = { ...DEFAULT_VIEW }
+board.view = view
+
+function applyAttribute(control: Control, value: ControlValue): void {
+  if (control.kind === 'bool') {
+    if (value === true) board.setAttribute(control.id, '')
+    else board.removeAttribute(control.id)
+    return
+  }
+  board.setAttribute(control.id, String(value))
+}
+
+/** The element's own state, never a shadow copy: an absent attribute is its default. */
+function readAttribute(control: Control): ControlValue {
+  if (control.kind === 'bool') return board.hasAttribute(control.id)
+  const held = board.getAttribute(control.id)
+  if (held === null) return control.def
+  return control.kind === 'number' ? Number(held) : held
+}
+
+const byId = new Map(ATTRIBUTES.map((control) => [control.id, control]))
+for (const [id, value] of INITIAL) {
+  const control = byId.get(id)
+  if (control) applyAttribute(control, value)
+}
+
+const syncAttributes = buildControls($('attrs'), ATTRIBUTES, readAttribute, applyAttribute)
+buildControls(
+  $('view-controls'),
+  VIEW_CONTROLS,
+  (control) => viewRecord(view)[control.id] ?? control.def,
+  (control, value) => {
+    view = withField(view, control.id, value)
+    board.view = view
+    refreshSnippet()
+  },
+)
+
+// ── The markup ──────────────────────────────────────────────────────────────
+
+let summary: BoardSummary | null = null
+
+function refreshSnippet(): void {
+  const attrs = board.getAttributeNames().map((name) => [name, board.getAttribute(name) ?? ''] as const)
+  snippetPre.textContent = snippet({ attrs, view: viewRecord(view), board: summary })
+}
+
+// Every attribute of the element is reflected, so watching the DOM catches the
+// panel's own edits and the ones the demo makes behind the panel's back (play
+// cleared on the last life) with one listener instead of a call at each site.
+new MutationObserver(() => {
+  syncAttributes()
+  refreshSnippet()
+}).observe(board, { attributes: true })
+
+copyButton.addEventListener('click', () => {
+  navigator.clipboard.writeText(snippetPre.textContent ?? '').then(
+    () => flash('Copied'),
+    () => flash('Copy failed'),
+  )
+})
+
+function flash(text: string): void {
+  copyButton.textContent = text
+  setTimeout(() => (copyButton.textContent = 'Copy'), 1200)
+}
+
+refreshSnippet()
+
+// ── Generation ──────────────────────────────────────────────────────────────
+
+// The status paragraph holds two lines the two buttons own separately: the state
+// of the last generation, and under it the last measurement. Keeping the first
+// in a variable is what stops repeated "Measure" clicks from piling their output
 // on top of each other, the way re-reading `stats.textContent` would.
 let generationLine = 'idle'
 
@@ -66,7 +143,7 @@ function failed(text: string): void {
 generateButton.addEventListener('click', () => {
   const opt = PRESETS.flatMap((l) => l.options).find((o) => o.id === preset.value)
   if (!opt) return
-  const req: DemoRequest = { overrides: opt.params, seed: Number($<HTMLInputElement>('seed').value) }
+  const req: DemoRequest = { overrides: opt.params, seed: Number(seedInput.value) }
   busy(true)
   generationLine = 'generating…'
   say()
@@ -90,6 +167,11 @@ worker.onmessage = async (e: MessageEvent<DemoResponse>) => {
     generationLine = `generated in ${genMs.toFixed(0)} ms (ok=${ok}), pieces ${generated.pieces.length}, ` +
       `build ${build.toFixed(0)} ms, svg nodes ${nodes}`
     say()
+    summary = { W: generated.W, H: generated.H, seed: Number(seedInput.value) }
+    refreshSnippet()
+    lives = 3
+    note = ''
+    recountLeft()
   } finally {
     busy(false)
   }
@@ -98,76 +180,83 @@ worker.onmessage = async (e: MessageEvent<DemoResponse>) => {
 worker.onerror = (e: ErrorEvent) => failed(`worker error: ${e.message}`)
 worker.onmessageerror = () => failed('worker sent a message the page could not read')
 
-// The one place the demo can show `interactive` versus `play` (design §4):
-// unchecking this stops the reducer entirely, rather than only changing the
-// cursor, which is all it did while it was wired to `board.interactive` and
-// `board.play` was pinned to `true` unconditionally.
-$<HTMLInputElement>('play').addEventListener('change', (e) => {
-  board.play = (e.target as HTMLInputElement).checked
-})
-$<HTMLInputElement>('pad').addEventListener('change', (e) => {
-  const cells = Number((e.target as HTMLInputElement).value)
-  if (Number.isFinite(cells) && cells >= 0) board.pad = cells
-})
-$<HTMLInputElement>('colored').addEventListener('change', (e) => {
-  board.view = { ...board.view, colored: (e.target as HTMLInputElement).checked }
-})
-$<HTMLInputElement>('points').addEventListener('change', (e) => {
-  board.showPoints = (e.target as HTMLInputElement).checked
-})
-$<HTMLInputElement>('pl').addEventListener('change', (e) => {
-  board.setAttribute('lang', (e.target as HTMLInputElement).checked ? 'pl' : 'en')
-})
+// ── The session the host owns ───────────────────────────────────────────────
 
-// With `play` the element runs the game itself; this is the host's half —
-// the life count and the save slot, both of which live outside the element.
 let lives = 3
+let left = 0
+let note = ''
 let saved: SessionSnapshot | null = null
 
+function paintSession(): void {
+  session.textContent = `lives: ${lives} · left: ${left}${note ? ` · ${note}` : ''}`
+}
+
 /**
- * Repaints `left` from the board's own state (piece count minus what
- * `saveState()` says has left). Used only for a load and a restart, where no
- * event carries the number directly: `saveState()` fingerprints the whole
- * board (spec §2), so calling it on every `piece-removed` would run that scan
- * on every single move, which the removal listener below avoids by reading
- * `left` off the event instead.
+ * Recounts from the board's own state, for a load and a restart, where no event
+ * carries the number. `saveState()` fingerprints the whole board (spec §2), so
+ * the removal listener below reads `left` off the event instead of calling this
+ * on every single move.
  */
-function paintLeft(): void {
+function recountLeft(): void {
   const total = board.board?.pieces.length ?? 0
-  const removed = board.saveState()?.removed.length ?? 0
-  leftLabel.textContent = `left: ${total - removed}`
+  left = total - (board.saveState()?.removed.length ?? 0)
+  paintSession()
 }
 
 board.addEventListener('piece-removed', (e) => {
-  leftLabel.textContent = `left: ${e.detail.left}`
+  left = e.detail.left
+  paintSession()
 })
 board.addEventListener('life-lost', (e) => {
   lives--
-  livesLabel.textContent = `lives: ${lives} (blocked by ${e.detail.blockerId})`
-  if (lives === 0) {
-    board.play = false
-    $<HTMLInputElement>('play').checked = false
-  }
+  note = `blocked by ${e.detail.blockerId}`
+  // The element counts no lives: running out is the host's decision, and the
+  // panel follows the attribute back through the observer above.
+  if (lives === 0) board.removeAttribute('play')
+  paintSession()
 })
 board.addEventListener('finished', (e) => {
-  livesLabel.textContent = `cleared ${e.detail.pieces} pieces`
+  note = `cleared ${e.detail.pieces} pieces`
+  paintSession()
 })
-saveButton.addEventListener('click', () => {
+
+$<HTMLButtonElement>('fit').addEventListener('click', () => board.fit())
+$<HTMLButtonElement>('save').addEventListener('click', () => {
   saved = board.saveState()
+  loadButton.disabled = saved === null
 })
 loadButton.addEventListener('click', () => {
   if (!saved) return
   board.loadState(saved)
-  paintLeft()
+  recountLeft()
 })
-restartButton.addEventListener('click', () => {
+$<HTMLButtonElement>('restart').addEventListener('click', () => {
   lives = 3
-  board.play = true
-  $<HTMLInputElement>('play').checked = true
+  note = ''
+  board.setAttribute('play', '')
   board.restart()
-  paintLeft()
-  livesLabel.textContent = `lives: ${lives}`
+  recountLeft()
 })
+
+// ── The events ──────────────────────────────────────────────────────────────
+
+const EVENT_TYPES: readonly string[] = [
+  'piece-click',
+  'piece-removed',
+  'life-lost',
+  'finished',
+  'viewport-change',
+]
+
+const events = new EventConsole($('console'), $('filters'), EVENT_TYPES, ['viewport-change'])
+for (const type of EVENT_TYPES) {
+  board.addEventListener(type, (e: Event) => {
+    events.record(type, e instanceof CustomEvent ? e.detail : null)
+  })
+}
+$<HTMLButtonElement>('clear').addEventListener('click', () => events.clear())
+
+// ── The measurement of the spec (§11) ───────────────────────────────────────
 
 /**
  * Scripted pan (60 frames of modifier drag) and zoom (60 frames of zoomBy), reporting mean and worst frame time.

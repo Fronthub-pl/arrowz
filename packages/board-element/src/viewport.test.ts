@@ -49,12 +49,33 @@ describe('zoomAt', () => {
     expect(zoomAt(v, 2, 200, 200).cellPx).toBeCloseTo(100, 9)
   })
 
-  test('the board never leaves the view', () => {
+  test('a corner zoom pins the corner rather than pulling the board away', () => {
     const v = zoomAt(fit(input), 4, 0, 0)
-    expect(v.originX).toBeGreaterThanOrEqual(0)
-    expect(v.originY).toBeGreaterThanOrEqual(0)
-    expect(v.originX + v.hostWidth / v.cellPx).toBeLessThanOrEqual(input.W + 1e-9)
-    expect(v.originY + v.hostHeight / v.cellPx).toBeLessThanOrEqual(input.H + 1e-9)
+    expect(v.originX).toBeCloseTo(0, 9)
+    expect(v.originY).toBeCloseTo(0, 9)
+  })
+
+  test('keeps the exact point under the cursor, however close to the edge', () => {
+    const edge = { W: 100, H: 100, hostWidth: 900, hostHeight: 500, pad: 4 }
+    const v = fit(edge)
+    // Just inside the board's top-left corner: at this fit the board spans
+    // x 200..700 of the 900 px host, and fills its height.
+    const px = 210, py = 15
+    const anchorX = v.originX + px / v.cellPx, anchorY = v.originY + py / v.cellPx
+    let z = v
+    for (let i = 0; i < 8; i++) z = zoomAt(z, 1.35, px, py)
+    expect((anchorX - z.originX) * z.cellPx).toBeCloseTo(px, 6)
+    expect((anchorY - z.originY) * z.cellPx).toBeCloseTo(py, 6)
+  })
+
+  test('the exact point survives a zoom out as well', () => {
+    const wide = fit({ W: 100, H: 100, hostWidth: 900, hostHeight: 500, pad: 4 })
+    const zoomed = zoomAt(wide, 6, 700, 400)
+    const px = 120, py = 90
+    const anchorX = zoomed.originX + px / zoomed.cellPx, anchorY = zoomed.originY + py / zoomed.cellPx
+    const out = zoomAt(zoomed, 1 / 1.35, px, py)
+    expect((anchorX - out.originX) * out.cellPx).toBeCloseTo(px, 6)
+    expect((anchorY - out.originY) * out.cellPx).toBeCloseTo(py, 6)
   })
 })
 
@@ -69,9 +90,11 @@ describe('zoomBy and panBy', () => {
     const v = zoomAt(fit(input), 2, 200, 400) // cellPx 8, view 50×100 cells, origin (25, 50)
     const moved = panBy(v, 80, 0) // drag right by 80 px = 10 cells: the origin goes left
     expect(moved.originX).toBeCloseTo(15, 9)
+    // The drag stops with the view's centre on the board's edge, half a view
+    // short of the origin the old "the board fills the view" rule would give.
     const clamped = panBy(v, 10000, 10000)
-    expect(clamped.originX).toBeCloseTo(0, 9)
-    expect(clamped.originY).toBeCloseTo(0, 9)
+    expect(clamped.originX).toBeCloseTo(-v.hostWidth / v.cellPx / 2, 9)
+    expect(clamped.originY).toBeCloseTo(-v.hostHeight / v.cellPx / 2, 9)
   })
 })
 
@@ -130,10 +153,15 @@ describe('margin', () => {
     expect(v.margin).toBeCloseTo(3, 9)
   })
 
-  test('panning cannot pull the board past its margin', () => {
-    const v = panBy(zoomAt(fit(small), 4, 0, 0), 5000, 5000)
-    expect(v.originX).toBeGreaterThanOrEqual(-v.margin - 1e-9)
-    expect(v.originY).toBeGreaterThanOrEqual(-v.margin - 1e-9)
+  test('panning cannot pull the view centre off the board', () => {
+    const far = panBy(zoomAt(fit(small), 4, 0, 0), 5000, 5000)
+    const centreX = far.originX + far.hostWidth / far.cellPx / 2
+    const centreY = far.originY + far.hostHeight / far.cellPx / 2
+    expect(centreX).toBeCloseTo(-far.margin, 9)
+    expect(centreY).toBeCloseTo(-far.margin, 9)
+    const back = panBy(far, -5000, -5000)
+    expect(back.originX + back.hostWidth / back.cellPx / 2).toBeCloseTo(small.W + back.margin, 9)
+    expect(back.originY + back.hostHeight / back.cellPx / 2).toBeCloseTo(small.H + back.margin, 9)
   })
 
   test('a click in the margin belongs to no cell', () => {

@@ -62,6 +62,27 @@ Controls: click without a modifier plays; drag with ⌘ or Ctrl pans; wheel
 zooms towards the cursor; one finger pans, two pinch, a tap plays; `+`, `−`,
 `0` and the corner buttons zoom and fit; double click or double tap fits.
 
+### Zoom and pan
+
+The wheel zoom holds the point under the cursor exactly: whatever is under the
+pointer when the wheel turns is still under it afterwards, at every step and
+anywhere on the board. What bounds the view is the centre of it staying between
+the board's two margins, rather than the stricter "the board fills the view" —
+that one has to overrule the anchor as soon as the cursor is near an edge,
+because holding the point there means showing blank beside the board. Measured
+on a 100x100 board, eight wheel steps into a corner under the strict rule
+dragged the point 583 px away from the cursor.
+
+So blank paper beside the board is the price of the anchor, as is a board
+smaller than the host no longer being pinned to the middle. `fit()`, the `0`
+key, the corner button and a double click all put it back. `zoomBy` still works
+from the centre of the host: a button has no cursor to zoom towards.
+
+Holding ⌘ or Ctrl shows the grab cursor before anything is pressed, and takes
+the piece cursor away while it is held: with the modifier down the next click
+pans instead of playing, so the pointer cursor would promise a move that will
+not happen.
+
 ### The margin
 
 The board is drawn with a margin of `pad` cells on every side, so an arrowhead
@@ -142,3 +163,20 @@ pnpm nx serve board-element     # demo at http://localhost:8778 with measurement
 pnpm nx test board-element      # Vitest: node project + chromium project
 pnpm nx verify board-element    # check, lint, fmt, test, build
 ```
+
+### The demo's inspector
+
+Beside the board the demo page lists every input the element takes: the
+reflected attributes, the fields of `view`, and the methods a host would call.
+A control drives the element directly, so the panel is not a second copy of the
+state kept in step by hand — one table (`demo/controls.ts`) builds the controls
+and tells the HTML pane what to print, so a new property on the element is one
+row in it.
+
+The HTML pane is written from the element's own attributes and prints only what
+differs from the defaults: the shortest markup that reproduces what is on
+screen, with `view` and `board` as the two assignments no attribute can carry.
+The event pane logs what the element reports, a checkbox per type;
+`viewport-change` starts muted because it fires once a frame while a drag is in
+flight, and consecutive repeats of any event fold into a count rather than
+spending the buffer the four game events share.

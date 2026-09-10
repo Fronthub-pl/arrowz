@@ -10,7 +10,9 @@ export default defineConfig({
         test: {
           name: 'node',
           environment: 'node',
-          include: ['src/**/*.test.ts'],
+          // The demo's pure modules (the inspector's snippet and event log)
+          // run here too: they touch no DOM, and they are what a test can pin.
+          include: ['src/**/*.test.ts', 'demo/**/*.test.ts'],
           exclude: ['src/**/*.browser.test.ts'],
         },
       },

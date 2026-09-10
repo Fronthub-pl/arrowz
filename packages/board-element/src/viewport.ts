@@ -54,17 +54,27 @@ function fitScale(v: ViewportInput): number {
 
 /**
  * Applies both bounds: the scale stays in [fit, 48 px] (or [fit, fit] when
- * the fit already exceeds 48 px, so `fit` is always reachable), and the board
- * with its margin cannot leave the view: on an axis where it is larger than
- * the view the origin stays within it, where it is smaller it is centred.
+ * the fit already exceeds 48 px, so `fit` is always reachable), and the centre
+ * of the view stays on the board with its margin.
+ *
+ * The centre rule is what lets `zoomAt` mean what it says. A stricter one —
+ * "the board must fill the view" — has to overrule the anchor as soon as the
+ * cursor is near an edge, because holding the point there requires showing
+ * blank beside the board; measured on a 100x100 board, eight wheel steps into a
+ * corner dragged the point 583 px away from the cursor. Zooming towards a point
+ * pulls the view's centre towards it, so on the board this bound never binds
+ * and the anchor is exact; it only stops a pan from leaving the board behind.
  */
 function clamp(v: ViewportInput & { cellPx: number; originX: number; originY: number }): Viewport {
   const f = fitScale(v)
   const m = marginOf(v)
   const cellPx = Math.min(Math.max(v.cellPx, f), Math.max(MAX_CELL_PX, f))
   const viewW = v.hostWidth / cellPx, viewH = v.hostHeight / cellPx
-  const originX = viewW >= v.W + 2 * m ? (v.W - viewW) / 2 : Math.min(Math.max(v.originX, -m), v.W + m - viewW)
-  const originY = viewH >= v.H + 2 * m ? (v.H - viewH) / 2 : Math.min(Math.max(v.originY, -m), v.H + m - viewH)
+  /** The origin that keeps the middle of the view between the board's two margins. */
+  const axis = (o: number, dim: number, view: number): number =>
+    Math.min(Math.max(o, -m - view / 2), dim + m - view / 2)
+  const originX = axis(v.originX, v.W, viewW)
+  const originY = axis(v.originY, v.H, viewH)
   return {
     W: v.W,
     H: v.H,
@@ -79,8 +89,15 @@ function clamp(v: ViewportInput & { cellPx: number; originX: number; originY: nu
   }
 }
 
+/**
+ * The whole board in the middle of the host. `clamp` no longer centres anything
+ * — it only bounds — so the middle is named here, which is also the one place
+ * that has to know it: fitting is the gesture that asks for it.
+ */
 export function fit(v: ViewportInput): Viewport {
-  return clamp({ ...v, cellPx: fitScale(v), originX: 0, originY: 0 })
+  const cellPx = fitScale(v)
+  const viewW = v.hostWidth / cellPx, viewH = v.hostHeight / cellPx
+  return clamp({ ...v, cellPx, originX: (v.W - viewW) / 2, originY: (v.H - viewH) / 2 })
 }
 
 /** Scales by `factor` keeping the world point under the screen point (px, py) fixed. */
