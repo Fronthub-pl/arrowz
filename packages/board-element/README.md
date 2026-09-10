@@ -142,3 +142,20 @@ pnpm nx serve board-element     # demo at http://localhost:8778 with measurement
 pnpm nx test board-element      # Vitest: node project + chromium project
 pnpm nx verify board-element    # check, lint, fmt, test, build
 ```
+
+### The demo's inspector
+
+Beside the board the demo page lists every input the element takes: the
+reflected attributes, the fields of `view`, and the methods a host would call.
+A control drives the element directly, so the panel is not a second copy of the
+state kept in step by hand — one table (`demo/controls.ts`) builds the controls
+and tells the HTML pane what to print, so a new property on the element is one
+row in it.
+
+The HTML pane is written from the element's own attributes and prints only what
+differs from the defaults: the shortest markup that reproduces what is on
+screen, with `view` and `board` as the two assignments no attribute can carry.
+The event pane logs what the element reports, a checkbox per type;
+`viewport-change` starts muted because it fires once a frame while a drag is in
+flight, and consecutive repeats of any event fold into a count rather than
+spending the buffer the four game events share.
