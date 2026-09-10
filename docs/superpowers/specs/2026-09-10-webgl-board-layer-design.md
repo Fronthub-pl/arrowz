@@ -163,15 +163,20 @@ rather than climbed by one.
 
 Measured on the finished layer rather than estimated, the whole Insane board
 (1000×1000, seed 7, 85 809 pieces) comes to 10 376 259 vertices — 3 458 753
-triangles, up from the spike's 2 085 809 because the spike drew no tail
-roundings at all. The tail fans alone account for roughly 4.1 million of
-those vertices (85 809 pieces × 48 vertices a tail), which is why doubling
-`TAIL_SEGMENTS` moves §13's memory figure by more than a rounding error. The
-alternative this displaces, and the cheaper one if that figure ever matters:
-a signed-distance round cap computed in the fragment shader, at six vertices
-a tail instead of forty-eight, correct at every zoom instead of faceted at
-some. Rejected here only because the plain fan was already working and the
-memory was not yet measured to be a problem; §13 records it as the way back.
+triangles: roughly 1.83 million for lines, 0.26 million for head polygons,
+1.37 million for tail roundings, up from the spike's 2 085 809 (lines and
+heads only) because the spike drew no tail roundings at all. The tail fans
+are therefore about 40% of every triangle on the board, and at the fitted
+zoom — a cell 0.8 px wide — not one of them is visible; doubling
+`TAIL_SEGMENTS` bought a round tail at high zoom and charged for it at every
+zoom. The alternative this displaces is not a rejected footnote but §12's
+named next step: a signed-distance round cap computed in the fragment
+shader, six vertices a tail instead of forty-eight, cutting that ~40% and
+staying correct at every zoom instead of faceted at some. This branch ships
+with the plain fan regardless — re-tesselating again would restart review on
+the most delicate file in the plan, and the 34 ms Insane pan figure of §11 is
+the improvement this plan set out to deliver — but §12 and §13 record the
+cap as the way back, not merely as a possibility.
 
 `tesselatePiece` writes into a caller-owned buffer and returns the vertex
 count, so a ride allocates nothing per frame. Its upper bound is known and
@@ -329,6 +334,23 @@ if an engine test moves, something has gone wrong). The measurement of
 looked at by eye in a foreground Chrome, since §2.5 makes that the fidelity
 gate.
 
+The §1 acceptance criterion (Insane under 50 ms) is met, confirmed on real
+hardware rather than inferred: foreground Chrome 152, Apple M1,
+devicePixelRatio 1, host about 1200×1200, driven through the demo's own
+scripted pan and zoom — Insane 1000×1000 seed 7 (85 809 pieces) builds in
+338 ms and pans at 34.0 ms mean (worst 73.5 ms), zooms at 33.3 ms mean
+(worst 34.9 ms). The same board and movement on the SVG layer, recorded in a
+foreground Chrome before this branch began: build 2 761 ms, pan mean
+1 050.5 ms, worst 1 289.1 ms — about 31× slower to pan and 8× slower to
+build than the layer that replaced it. `perf.browser.test.ts`'s own Insane
+run, executed in Playwright's headless shell at dpr 1 rather than a
+foreground, hardware-accelerated browser, still reports a pan mean of
+789.6 ms: no CI runner without a GPU can measure this layer's real cost,
+because it rasterises upward of two million triangles on the CPU instead of
+the GPU. That headless number is kept as a report, never asserted against
+the 50 ms criterion, and stays useful only as a relative regression signal
+against itself.
+
 ## 12. Out of scope
 
 - Board accessibility (§2.6): roles, labels, per-piece keyboard navigation.
@@ -339,6 +361,22 @@ gate.
 - The generator's own cost. Insane takes 12-24 s to generate, which is a
   larger number than anything in this document, and a different problem.
 - Any change to `packages/engine` or `packages/cli`.
+
+**Named next step, not merely a rejected footnote: a signed-distance round
+cap for the tails.** §4 and §13 measure the cost of the plain triangle fan
+at `TAIL_SEGMENTS = 16`: 1.37 million of the board's 3.46 million triangles
+are tail roundings, roughly 40% of everything drawn, and none of it is
+visible at the fitted zoom (a cell is 0.8 px wide there). The ruling for this
+branch is to ship with the fan as it stands — the 34 ms Insane pan figure in
+§11 is the improvement this plan was asked to deliver, and re-tesselating
+the geometry again would restart review on the most delicate file in the
+plan — but the fan is not the final answer to that 40%. A signed-distance
+round cap computed in the fragment shader would draw the same rounding from
+six vertices instead of forty-eight, cutting roughly 40% of the board's
+geometry, and stay exactly round at every zoom instead of faceted at some.
+This is the next step for whoever picks up the memory figure in §13, ranked
+ahead of the coarser instanced-geometry variant above because it touches
+only the tails, not the whole board's geometry.
 
 ## 13. Risks
 
@@ -352,12 +390,17 @@ colours are switched on (§8), is 41 505 036 bytes, four bytes a vertex. Both
 figures are worse than the spike's — by about two-thirds — because the spike
 drew no tail roundings at all, and `TAIL_SEGMENTS` has since doubled to 16
 (§4) for a rounding that reads correctly at dpr 2: the tail fans alone are
-roughly 4.1 million of the 10.4 million vertices. Acceptable on a laptop,
-unproven on a phone; the escape routes are §12's instanced variant, which
-touches the whole board's geometry, and the narrower one recorded in §4 — a
-signed-distance round cap for the tails alone, at six vertices instead of
-forty-eight, which is the cheaper fix if this figure is the one that turns
-out to matter.
+roughly 4.1 million of the 10.4 million vertices. In triangles rather than
+vertices, the ceiling is roughly 1.83 million for lines, 0.26 million for
+head polygons and 1.37 million for tail roundings — the tails alone are
+about 40% of the board, invisible at the fitted zoom, and doubling
+`TAIL_SEGMENTS` bought a round tail at high zoom while charging for it at
+every zoom. Acceptable on a laptop, unproven on a phone; the escape routes
+are §12's instanced variant, which touches the whole board's geometry, and
+§12's named next step — a signed-distance round cap for the tails alone, at
+six vertices instead of forty-eight, cutting that ~40% and staying exactly
+round at every zoom — which is the cheaper fix and the one recommended if
+this figure is the one that turns out to matter.
 
 **Antialiasing at sub-pixel density.** At the fitted scale a cell is 0.8 px
 wide, so the whole board is finer than the raster. MSAA may moiré differently
