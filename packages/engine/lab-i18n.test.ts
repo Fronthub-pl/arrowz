@@ -1,5 +1,5 @@
 import { assert, assertEquals } from '@std/assert'
-import { type Dictionary, EN, PL, type UiKey } from './lab-i18n.ts'
+import { type Dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
 import type { InactiveKey, RuleKey } from './types.ts'
 
@@ -75,4 +75,10 @@ Deno.test('both ui dictionaries explain a board file that cannot be read', () =>
     const text = d.ui.boardFileError('25x50/seed7-abc', 'the body ends early')
     assert(text.includes('25x50/seed7-abc') && text.includes('the body ends early'), text)
   }
+})
+
+Deno.test('escapeHtml turns every markup character into an entity', () => {
+  assertEquals(escapeHtml(`<img src=x onerror="a('&')">`), '&lt;img src=x onerror=&quot;a(&#39;&amp;&#39;)&quot;&gt;')
+  assertEquals(escapeHtml(42), '42')
+  assertEquals(escapeHtml('seed7-ab12cd34'), 'seed7-ab12cd34')
 })

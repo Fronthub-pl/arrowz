@@ -32,7 +32,7 @@ import {
   validateParams,
 } from '@arrowz/engine'
 import { buildCommand, svgOptions } from '@arrowz/engine/command'
-import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
+import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
   defaultChoice,
@@ -689,7 +689,7 @@ function newWorker(): Worker {
   const w = new Worker(new URL('./lab-worker.js', import.meta.url), { type: 'module' })
   w.onmessage = (e: MessageEvent<WorkerOut>) => onWorkerMessage(e.data)
   w.onerror = (e) => {
-    setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
+    setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(e.message)}`)
     finish()
   }
   return w
@@ -711,7 +711,7 @@ function onWorkerMessage(msg: WorkerOut) {
       return
     }
     case 'error':
-      setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`)
+      setStatus(`<span class="bad">${t('generationError')}</span> ${escapeHtml(msg.message)}`)
       finish()
       return
     case 'svg':
@@ -723,7 +723,9 @@ function onWorkerMessage(msg: WorkerOut) {
       } catch (err) {
         // The worker encoded this file a moment ago: a failure is a codec bug, shown rather than hidden.
         setStatus(
-          `<span class="bad">${t('generationError')}</span> ${err instanceof Error ? err.message : String(err)}`,
+          `<span class="bad">${t('generationError')}</span> ${
+            escapeHtml(err instanceof Error ? err.message : String(err))
+          }`,
         )
         finish()
         return
@@ -895,12 +897,12 @@ el('download').addEventListener('click', () => {
       a.click()
       URL.revokeObjectURL(url)
     } else if (msg.type === 'error') {
-      setStatus(`<span class="bad">${t('workerError')}</span> ${msg.message}`)
+      setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(msg.message)}`)
     }
     done()
   }
   w.onerror = (e) => {
-    setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
+    setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(e.message)}`)
     done()
   }
   btn.disabled = true
@@ -941,7 +943,10 @@ async function saveBoardToStore(board: BoardFile, done: Done) {
     })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const meta: BoardMeta = await r.json()
-    el('status').insertAdjacentHTML('beforeend', ` · ${t('saved')} <code>${meta.W}x${meta.H}/${meta.id}</code>`)
+    el('status').insertAdjacentHTML(
+      'beforeend',
+      ` · ${t('saved')} <code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
+    )
     boardsCache = null // the store tab list is stale
   } catch {
     el('status').insertAdjacentHTML('beforeend', ` · <span class="bad">${t('notSaved')}</span>`)
@@ -1037,10 +1042,10 @@ function renderLibrary() {
     const row = document.createElement('div')
     row.className = 'boardrow' + (libBoard?.id === meta.id ? ' on' : '')
     const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
-    row.innerHTML = `<span class="id">${meta.id}</span><span>${when}</span>` +
-      `<span class="meta">${t('piecesShort', meta.pieces ?? '?')} · ${t('longestShort', meta.maxLen ?? '?')} · ${
-        t('genShort', genSeconds(meta))
-      } · ${meta.source}` +
+    row.innerHTML = `<span class="id">${escapeHtml(meta.id)}</span><span>${escapeHtml(when)}</span>` +
+      `<span class="meta">${t('piecesShort', escapeHtml(meta.pieces ?? '?'))} · ${
+        t('longestShort', escapeHtml(meta.maxLen ?? '?'))
+      } · ${t('genShort', genSeconds(meta))} · ${escapeHtml(meta.source)}` +
       `${meta.ok === false ? ` · <b class="bad">${t('notClosed')}</b>` : ''}</span>`
     row.addEventListener('click', () => openBoard(meta))
     el('libList').append(row)
@@ -1054,7 +1059,13 @@ function genSeconds(meta: BoardMeta): string {
 }
 function showBoardStatus(meta: BoardMeta) {
   setStatus(
-    t('savedBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`, meta.seed, meta.source, `${genSeconds(meta)} s`),
+    t(
+      'savedBoard',
+      `<code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
+      escapeHtml(meta.seed),
+      escapeHtml(meta.source),
+      `${genSeconds(meta)} s`,
+    ),
   )
 }
 
@@ -1077,14 +1088,13 @@ async function openBoard(meta: BoardMeta) {
   el<HTMLInputElement>('libHeadHeight').value = String(meta.view.headHeight)
   el<HTMLInputElement>('libRounded').checked = meta.view.rounded !== false
   el<HTMLInputElement>('libColored').checked = meta.view.colored
-  const name = `<code>${meta.W}x${meta.H}/${meta.id}</code>`
+  const name = `<code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`
   setStatus(t('loadingBoard', name))
   // A board that cannot be read leaves the board area empty, so no other board
   // stands under its error. The reason may quote the file, so it is escaped.
   const refuse = (err: unknown) => {
     showBoard(null, {})
-    const reason = (err instanceof Error ? err.message : String(err))
-      .replace(/[&<>]/g, (c) => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;')
+    const reason = escapeHtml(err instanceof Error ? err.message : String(err))
     setStatus(`<span class="bad">${t('boardFileError', name, reason)}</span>`)
   }
   let file: unknown
@@ -1192,7 +1202,7 @@ async function saveLibView() {
     if (activeTab === 'library' && libBoard === meta) {
       libBoard = saved
       el('libCommand').textContent = saved.command
-      setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
+      setStatus(t('viewSaved', `<code>${escapeHtml(`${saved.W}x${saved.H}/${saved.id}`)}</code>`))
     }
     // The store keeps createdAt on an overwrite, so the row stays in place;
     // the list is refreshed for the new meta only.
@@ -1233,7 +1243,7 @@ el('libDelete').addEventListener('click', async () => {
   libData = null
   showLibDetail(false)
   showBoard(null, {})
-  setStatus(t('deletedBoard', `<code>${name}</code>`))
+  setStatus(t('deletedBoard', `<code>${escapeHtml(name)}</code>`))
   await loadLibrary({ force: true })
 })
 
