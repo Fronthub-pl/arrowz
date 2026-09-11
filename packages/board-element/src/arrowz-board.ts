@@ -176,7 +176,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * canvas the pointer listeners are on out of the tree while it happened.
    */
   private readonly hasWebgl = this.layer.supported
-  private readonly gestures = new GestureMachine()
+  // Today's rule until the player's choice is wired in: `click` mode.
+  private readonly gestures = new GestureMachine('click')
   private readonly game = new GameHost(this)
   private vp: Viewport | null = null
   private observer: ResizeObserver | null = null
@@ -492,6 +493,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       // 3 on a triple, and so on. Only mouse/pen deliver it; touch's own
       // double-tap detection lives in the gesture machine instead.
       repeat: e.detail >= 2,
+      pressed: (e.buttons & 1) !== 0,
+      primary: e.isPrimary,
     }
   }
 

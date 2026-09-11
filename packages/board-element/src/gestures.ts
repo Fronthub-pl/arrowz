@@ -1,12 +1,22 @@
 // Turns raw pointer samples into intents, with no DOM, so the rules of the
 // game design (§11) are tested as a table in Node:
-// - mouse: click on release (the element checks it is the same piece as on
-//   press), pan only with the modifier held on press, and a repeat press
-//   (the browser's own double/triple-click count) does nothing at all;
+// - mouse and pen, `drag` mode (the default): a plain drag pans and a plain
+//   click does nothing; a click with the modifier plays;
+// - mouse and pen, `click` mode (the rule before 2026-09-11): a plain click
+//   plays; a drag with the modifier pans;
+// - either mode: the element checks the click lands on the piece it was
+//   pressed on, a repeat press (the browser's own double/triple-click count)
+//   does nothing at all, and a move with no button held ends the press — its
+//   release went somewhere else;
 // - touch: tap = short press within the slop; beyond it one finger pans;
 //   two fingers pinch; a second tap close in time and place to the last one
-//   does nothing at all, for the same reason as the mouse case above.
+//   does nothing at all, for the same reason as the mouse case above; a
+//   primary touch going down drops every other touch still held, since the
+//   browser only marks a touch primary when no other is active.
 export type PointerKind = 'mouse' | 'touch' | 'pen'
+
+/** Which mouse and pen gesture pans: a plain drag (`drag`) or a drag with the modifier (`click`). */
+export type GestureMode = 'drag' | 'click'
 
 export interface PointerSample {
   id: number
@@ -19,6 +29,10 @@ export interface PointerSample {
   t: number
   /** The browser's own repeat count: true when this press is the second or later of a double. */
   repeat: boolean
+  /** `buttons & 1` at the time of the sample: whether the primary button (or the pen tip) is down. */
+  pressed: boolean
+  /** `isPrimary`: for touch, true only when no other touch is active. */
+  primary: boolean
 }
 
 export type Intent =
@@ -58,19 +72,36 @@ export class GestureMachine {
   private pinchDist = 0
   private pinchMid: { x: number; y: number } | null = null
   private lastTap: { x: number; y: number; t: number } | null = null
+  private currentMode: GestureMode
+
+  constructor(mode: GestureMode = 'drag') {
+    this.currentMode = mode
+  }
+
+  get mode(): GestureMode {
+    return this.currentMode
+  }
+
+  /** Applies from the next press: a press already under way keeps the rule it started with. */
+  set mode(m: GestureMode) {
+    this.currentMode = m
+  }
 
   get panning(): boolean {
     return this.isPanning
   }
 
   down(p: PointerSample): Intent {
+    // The browser marks a touch primary only when no other touch is active,
+    // so any touch still held here lost its end somewhere: drop them all.
+    if (p.kind === 'touch' && p.primary && this.pointers.size > 0) this.reset()
     this.pointers.set(p.id, p)
     if (this.pointers.size === 1) {
       this.press = p
       this.last = p
       this.moved = false
-      // A mouse (or pen) pans only with the modifier held from the press on.
-      this.isPanning = p.kind !== 'touch' && p.modifier
+      // A mouse (or pen) pans with the modifier in `click` mode and without it in `drag` mode.
+      this.isPanning = p.kind !== 'touch' && p.modifier !== (this.currentMode === 'drag')
       return NONE
     }
     if (this.pointers.size === 2) {
@@ -87,6 +118,12 @@ export class GestureMachine {
 
   move(p: PointerSample): Intent {
     if (!this.pointers.has(p.id)) return NONE
+    // A mouse or pen moving with no button held has already been released,
+    // somewhere this element never heard about: the press is over.
+    if (p.kind !== 'touch' && !p.pressed) {
+      this.reset()
+      return NONE
+    }
     this.pointers.set(p.id, p)
     if (this.pointers.size >= 2 && this.pinchMid) {
       const [a, b] = [...this.pointers.values()]

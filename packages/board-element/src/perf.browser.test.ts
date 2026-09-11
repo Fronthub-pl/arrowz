@@ -99,6 +99,7 @@ async function pan(canvas: HTMLCanvasElement, count: number): Promise<number[]> 
       clientX: r.left + x,
       clientY: r.top + y,
       ctrlKey: true,
+      buttons: 1,
     })
   const frames: number[] = []
   canvas.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))

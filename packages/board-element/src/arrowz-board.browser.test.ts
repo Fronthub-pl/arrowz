@@ -119,6 +119,8 @@ function pointer(type: string, x: number, y: number, init: Partial<PointerEventI
     isPrimary: true,
     clientX: r.left + x,
     clientY: r.top + y,
+    // A real press and drag hold the primary button; the release has let go of it.
+    buttons: type === 'pointerup' ? 0 : 1,
     ...init,
   })
 }

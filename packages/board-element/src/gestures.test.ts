@@ -1,23 +1,23 @@
 import { describe, expect, test } from 'vitest'
 import { GestureMachine, type PointerSample } from './gestures.ts'
 
-function mouse(x: number, y: number, modifier = false, t = 0): PointerSample {
-  return { id: 1, x, y, kind: 'mouse', modifier, t, repeat: false }
+function mouse(x: number, y: number, modifier = false, t = 0, pressed = true): PointerSample {
+  return { id: 1, x, y, kind: 'mouse', modifier, t, repeat: false, pressed, primary: true }
 }
-function touch(id: number, x: number, y: number, t: number): PointerSample {
-  return { id, x, y, kind: 'touch', modifier: false, t, repeat: false }
+function touch(id: number, x: number, y: number, t: number, primary = false): PointerSample {
+  return { id, x, y, kind: 'touch', modifier: false, t, repeat: false, pressed: true, primary }
 }
 
-describe('mouse', () => {
+describe('mouse, click mode (the rule before 2026-09-11)', () => {
   test('press and release without a modifier is a click carrying both positions', () => {
-    const m = new GestureMachine()
+    const m = new GestureMachine('click')
     expect(m.down(mouse(10, 10))).toEqual({ type: 'none' })
     expect(m.move(mouse(12, 11))).toEqual({ type: 'none' })
     expect(m.up(mouse(12, 11))).toEqual({ type: 'click', pressX: 10, pressY: 10, x: 12, y: 11 })
   })
 
   test('drag with the modifier pans and never clicks', () => {
-    const m = new GestureMachine()
+    const m = new GestureMachine('click')
     m.down(mouse(10, 10, true))
     expect(m.panning).toBe(true)
     expect(m.move(mouse(15, 12, true))).toEqual({ type: 'pan', dx: 5, dy: 2 })
@@ -27,13 +27,13 @@ describe('mouse', () => {
   })
 
   test('drag without the modifier does nothing while moving', () => {
-    const m = new GestureMachine()
+    const m = new GestureMachine('click')
     m.down(mouse(10, 10))
     expect(m.move(mouse(60, 60))).toEqual({ type: 'none' })
   })
 
   test('a repeat press yields no click', () => {
-    const m = new GestureMachine()
+    const m = new GestureMachine('click')
     m.down({ ...mouse(10, 10), repeat: true })
     expect(m.up({ ...mouse(10, 10), repeat: true })).toEqual({ type: 'none' })
   })
@@ -108,9 +108,104 @@ describe('touch', () => {
 })
 
 test('cancel resets everything', () => {
-  const m = new GestureMachine()
+  const m = new GestureMachine('click')
   m.down(mouse(10, 10, true))
   expect(m.cancel(1)).toEqual({ type: 'none' })
   expect(m.panning).toBe(false)
   expect(m.move(mouse(50, 50, true))).toEqual({ type: 'none' })
+})
+
+describe('mouse, drag mode (the default)', () => {
+  test('the default mode is drag', () => {
+    expect(new GestureMachine().mode).toBe('drag')
+  })
+
+  test('a plain drag pans and its release clicks nothing', () => {
+    const m = new GestureMachine()
+    m.down(mouse(10, 10))
+    expect(m.panning).toBe(true)
+    expect(m.move(mouse(15, 12))).toEqual({ type: 'pan', dx: 5, dy: 2 })
+    expect(m.up(mouse(15, 12))).toEqual({ type: 'none' })
+  })
+
+  test('a plain click without movement does nothing at all', () => {
+    const m = new GestureMachine()
+    m.down(mouse(10, 10))
+    expect(m.up(mouse(10, 10))).toEqual({ type: 'none' })
+  })
+
+  test('a modifier click plays', () => {
+    const m = new GestureMachine()
+    m.down(mouse(10, 10, true))
+    expect(m.panning).toBe(false)
+    expect(m.up(mouse(11, 10, true))).toEqual({ type: 'click', pressX: 10, pressY: 10, x: 11, y: 10 })
+  })
+
+  test('a modifier drag does not pan', () => {
+    const m = new GestureMachine()
+    m.down(mouse(10, 10, true))
+    expect(m.move(mouse(60, 60, true))).toEqual({ type: 'none' })
+  })
+
+  test('a repeat modifier press yields no click', () => {
+    const m = new GestureMachine()
+    m.down({ ...mouse(10, 10, true), repeat: true })
+    expect(m.up({ ...mouse(10, 10, true), repeat: true })).toEqual({ type: 'none' })
+  })
+
+  test('a mode change applies from the next press', () => {
+    const m = new GestureMachine('drag')
+    m.down(mouse(10, 10))
+    m.mode = 'click'
+    expect(m.move(mouse(20, 10))).toEqual({ type: 'pan', dx: 10, dy: 0 })
+    m.up(mouse(20, 10))
+    m.down(mouse(10, 10))
+    expect(m.panning).toBe(false)
+  })
+
+  test('pen follows the mouse rule', () => {
+    const m = new GestureMachine()
+    m.down({ ...mouse(10, 10), kind: 'pen' })
+    expect(m.panning).toBe(true)
+  })
+})
+
+describe('a release that never arrived', () => {
+  for (const mode of ['drag', 'click'] as const) {
+    test(`a move with no button pressed ends the press (${mode} mode)`, () => {
+      const m = new GestureMachine(mode)
+      const panKey = mode === 'click'
+      m.down(mouse(10, 10, panKey))
+      expect(m.move(mouse(20, 10, panKey))).toEqual({ type: 'pan', dx: 10, dy: 0 })
+      // The pointerup went elsewhere (a context menu, another window).
+      expect(m.move(mouse(40, 40, false, 0, false))).toEqual({ type: 'none' })
+      expect(m.panning).toBe(false)
+      expect(m.move(mouse(60, 60, panKey))).toEqual({ type: 'none' })
+      expect(m.up(mouse(60, 60, panKey))).toEqual({ type: 'none' })
+    })
+  }
+})
+
+describe('a touch that never ended', () => {
+  test('a primary touch drops the stale one, and the tap clicks', () => {
+    const m = new GestureMachine()
+    m.down(touch(21, 300, 300, 0, true)) // its pointerup and pointercancel never arrive
+    m.down(touch(22, 400, 400, 1000, true)) // the browser says this one is the only touch
+    expect(m.up(touch(22, 400, 400, 1050))).toEqual({ type: 'click', pressX: 400, pressY: 400, x: 400, y: 400 })
+  })
+
+  test('a second, non-primary finger still starts a pinch', () => {
+    const m = new GestureMachine()
+    m.down(touch(1, 100, 100, 0, true))
+    m.down(touch(2, 200, 100, 0, false))
+    expect(m.move(touch(2, 300, 100, 20)).type).toBe('pinch')
+  })
+
+  test('touch ignores the mode', () => {
+    for (const mode of ['drag', 'click'] as const) {
+      const m = new GestureMachine(mode)
+      m.down(touch(5, 40, 40, 0, true))
+      expect(m.up(touch(5, 40, 40, 100))).toEqual({ type: 'click', pressX: 40, pressY: 40, x: 40, y: 40 })
+    }
+  })
 })
