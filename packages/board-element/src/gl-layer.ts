@@ -1,8 +1,9 @@
 // The board on the GPU. The whole board goes into one static buffer once; a
-// pan is two uniforms and six draw calls, so a frame costs what the host has
-// pixels and not what the board has pieces. A piece part way down its own
-// track is re-tesselated every frame into a second, small buffer, and its
-// triangles in the static one are collapsed for as long as it rides.
+// pan is a handful of uniforms and a dozen draw calls at most, so a frame
+// costs what the host has pixels and not what the board has pieces. A piece
+// part way down its own track is re-tesselated every frame into a second,
+// small buffer, and its triangles and discs in the static one are collapsed
+// for as long as it rides.
 //
 // This file is the layer's life: the context taken, lost, handed back and
 // given up, the board and view it draws, and the order of a frame. What a
@@ -361,10 +362,11 @@ export class GlLayer {
   }
 
   /**
-   * Collapses a piece's triangles in the static buffer, or writes them back.
-   * A collapsed triangle has all three vertices at the origin, so it covers no
-   * fragment at all — the piece goes without the board being re-tesselated,
-   * which is the whole point of the range map.
+   * Collapses a piece's triangles and discs in the static buffer, or writes
+   * them back. A collapsed triangle has all three vertices at the origin, and
+   * a collapsed disc has no radius, so neither covers a fragment — the piece
+   * goes without the board being re-tesselated, which is the whole point of
+   * the range map.
    */
   private setStaticVisible(id: number, visible: boolean): void {
     const scene = this.scene
@@ -376,7 +378,7 @@ export class GlLayer {
     this.res.writeRange(scene, r, visible)
   }
 
-  /** Every rider's triangles into the rider buffer; see `GlResources.uploadRiders`. */
+  /** Every rider's triangles and discs into the rider buffers; see `GlResources.uploadRiders`. */
   private uploadRiders(): void {
     this.res?.uploadRiders(this.rides.riders)
   }
@@ -457,8 +459,17 @@ export class GlLayer {
     })
     drawVoids(res, this.highlightRgba)
     if (!scene) return
-    drawPieces(res, scene, this.view.colored && res.colorBuffer !== null, this.inkRgba, this.highlightRgba)
-    drawRiders(res, this.rides.riders, vp, board, this.padCells, height)
+    drawPieces(
+      res,
+      scene,
+      this.view.colored && res.colorBuffer !== null,
+      this.inkRgba,
+      this.highlightRgba,
+      vp,
+      width,
+      height,
+    )
+    drawRiders(res, this.rides.riders, vp, board, this.padCells, width, height)
   }
 
   /**

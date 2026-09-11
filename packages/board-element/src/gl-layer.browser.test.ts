@@ -1,8 +1,9 @@
-import { defaultParams, generate, voidStrips } from '@arrowz/engine'
+import { defaultParams, generate, pieceShape, voidStrips } from '@arrowz/engine'
 import type { Board, Cell, Piece } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
-import { DEFAULT_VIEW } from './view.ts'
+import { MIN_CORNER_PX } from './gl-passes.ts'
+import { DEFAULT_VIEW, hueBytes } from './view.ts'
 import { fit, MIN_POINT_CELL_PX } from './viewport.ts'
 
 const HOST = 200
@@ -122,6 +123,80 @@ function show(b: Board | null, view = DEFAULT_VIEW): void {
   layer.setBoard(b, view)
   layer.setViewport(fit({ W: b?.W ?? 1, H: b?.H ?? 1, hostWidth: HOST, hostHeight: HOST, pad: 0 }))
 }
+
+/** Head at (5,5) facing right, one cell left, then two down: one corner, and a tail at (4.5, 7.5). */
+const BENT: Piece = { id: 0, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x: 4, y: 6 }, { x: 4, y: 7 }] }
+const INK_ON_PAPER = { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' }
+
+/**
+ * Far past MAX_CELL_PX on purpose. The triangle fans this layer used to draw
+ * kept each facet's sagitta under half a device pixel at MAX_CELL_PX, so only
+ * here does a facet's chord sit measurably inside the true circle — about 38
+ * device pixels for a tail at dpr 2, 12 for a corner.
+ */
+const PROBE_CELL_PX = 4000
+
+/** Shows the board zoomed to PROBE_CELL_PX with the point (x, y), in cells, in the middle of the canvas. */
+function probeAt(b: Board, x: number, y: number): void {
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  const half = HOST / 2 / PROBE_CELL_PX
+  layer.setViewport({ ...v, cellPx: PROBE_CELL_PX, originX: x - half, originY: y - half })
+}
+
+/**
+ * Two points on the ray from (cx, cy) at `theta`: one halfway between the
+ * true circle of radius `r` and the chord of an `n`-gon's facet there, and
+ * one three device pixels outside the circle. With `theta` in the middle of a
+ * facet, the first is paper under a fan and ink under a disc.
+ */
+function probes(
+  cx: number,
+  cy: number,
+  r: number,
+  theta: number,
+  n: number,
+): { between: [number, number]; beyond: [number, number] } {
+  const sagitta = r * (1 - Math.cos(Math.PI / n))
+  const px = 1 / (PROBE_CELL_PX * devicePixelRatio)
+  const along = (d: number): [number, number] => [cx + Math.cos(theta) * d, cy + Math.sin(theta) * d]
+  return { between: along(r - sagitta / 2), beyond: along(r + 3 * px) }
+}
+
+const isInk = ([r, g, b, a]: [number, number, number, number]): boolean => a > 200 && r < 100 && g < 100 && b < 100
+const isPaper = ([r, g, b]: [number, number, number, number]): boolean => r > 200 && g > 200 && b > 200
+
+/** BENT's shape, at the default view's widths. */
+function bentShape() {
+  return pieceShape(BENT, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
+}
+
+/**
+ * BENT's tail probes. Its line arrives at the tail from above, so the ray
+ * points down and a little left: 9π/16 is the middle of the old sixteen-facet
+ * fan's facet between π/2 and 5π/8.
+ */
+function tailProbes(): { between: [number, number]; beyond: [number, number] } {
+  const s = bentShape()
+  return probes(s.tail.x, s.tail.y, s.tail.r, Math.PI / 2 + Math.PI / 16, 16)
+}
+
+/**
+ * BENT's corner probes. It turns at (4.5, 5.5) from running left to running
+ * down, so the outer side of the turn is up and to the left, and 5π/4 is the
+ * middle of that quarter — the middle of the old seven-facet quarter fan's
+ * fourth facet, a full turn of 28.
+ */
+function cornerProbes(): { between: [number, number]; beyond: [number, number] } {
+  return probes(4.5, 5.5, DEFAULT_VIEW.stroke / 2, (5 * Math.PI) / 4, 28)
+}
+
+const bentBoard = (): Board => ({ ...edgeBoard(30, 30), pieces: [BENT] })
 
 test('WebGL2 is available in this browser, so the rest of the file means something', () => {
   expect(layer.supported).toBe(true)
@@ -787,4 +862,162 @@ test('a layer takes no context until it is asked to', () => {
   idle.restore()
   expect(idle.supported).toBe(true)
   idle.dispose()
+})
+
+test('a tail is a true circle: ink where the old fan left a facet of paper', () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between, beyond } = tailProbes()
+  probeAt(b, ...between)
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+  probeAt(b, ...beyond)
+  layer.drawNowForTest()
+  expect(isPaper(centre())).toBe(true)
+})
+
+test('a rounded corner is a true arc: ink where the old quarter fan left a facet of paper', () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between, beyond } = cornerProbes()
+  probeAt(b, ...between)
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+  probeAt(b, ...beyond)
+  layer.drawNowForTest()
+  expect(isPaper(centre())).toBe(true)
+})
+
+test('a disc takes the diagnostic hue, and a highlighted piece takes the highlight', () => {
+  const b = bentBoard()
+  const { between } = tailProbes()
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true })
+  probeAt(b, ...between)
+  layer.drawNowForTest()
+  const [r, g, bl] = centre()
+  const [hr, hg, hb] = hueBytes(BENT.id)
+  expect(Math.abs(r - hr)).toBeLessThanOrEqual(2)
+  expect(Math.abs(g - hg)).toBeLessThanOrEqual(2)
+  expect(Math.abs(bl - hb)).toBeLessThanOrEqual(2)
+
+  // BENT is the only piece, so top: 1 highlights it, and a highlighted piece
+  // is flat whatever the mode: the diagnostic hues never reach it.
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true, top: 1, highlight: '#ff0000' })
+  layer.drawNowForTest()
+  const [tr, tg, tb] = centre()
+  expect([tr > 240, tg < 15, tb < 15]).toEqual([true, true, true])
+})
+
+test('a piece that has ridden out leaves no disc behind, even zoomed in on where its tail was', async () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between } = tailProbes()
+  probeAt(b, ...between)
+  await drawn()
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+  await layer.animateExit(BENT.id, BENT.dir)
+  layer.drawNowForTest()
+  // The dropped piece's discs are zeroed in the static buffer: r = 0 draws nothing.
+  expect(isPaper(centre())).toBe(true)
+})
+
+test('a lost context comes back with its discs', async () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between } = tailProbes()
+  probeAt(b, ...between)
+  await drawn()
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+
+  const lose = layer.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+  if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+  lose.loseContext()
+  await drawn()
+  lose.restoreContext()
+  for (let i = 0; i < 10 && !layer.supported; i++) await frame()
+  expect(layer.supported).toBe(true)
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+})
+
+test('a riding piece draws its tail as a true circle too', async () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between } = tailProbes()
+  probeAt(b, ...between)
+  // Warm the frame clock first, or the ride settles on its first tick (see
+  // 'a riding piece is drawn once').
+  await drawn()
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+  // A shake of no distance rides the piece to where it already is: the static
+  // buffer lets go of it, and only the rider draws it.
+  const ride = layer.shake(BENT.id, 0)
+  await drawn()
+  layer.drawNowForTest()
+  const riding = centre()
+  await ride
+  expect(isInk(riding)).toBe(true)
+})
+
+test('a frame leaves no instanced attribute behind, and the main program current', async () => {
+  const b = bentBoard()
+  // Coloured, so the disc pass sets the colour attribute's divisor too, and
+  // riding, so drawRiders' disc pass runs last in the frame.
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true })
+  probeAt(b, ...tailProbes().between)
+  await drawn()
+  const ride = layer.shake(BENT.id, 0)
+  await drawn()
+  layer.drawNowForTest()
+  const gl = layer.canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2')
+  // The linker assigns attribute locations, so which location a leaked
+  // divisor would land on differs by driver: check them all.
+  const n: number = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
+  for (let i = 0; i < n; i++) expect(gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_DIVISOR)).toBe(0)
+  // The main program is the only one with both a_pos and a_color and no a_disc.
+  const current: WebGLProgram | null = gl.getParameter(gl.CURRENT_PROGRAM)
+  if (!current) throw new Error('no program current')
+  expect(gl.getAttribLocation(current, 'a_color')).not.toBe(-1)
+  expect(gl.getAttribLocation(current, 'a_disc')).toBe(-1)
+  await ride
+})
+
+test('corner discs under half a device pixel are not drawn, and tails always are', () => {
+  const b = bentBoard()
+  const gl = layer.canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2')
+  // Every instanced draw is a block of discs; record how many discs each one drew.
+  const instances: number[] = []
+  const draw = gl.drawArraysInstanced.bind(gl)
+  gl.drawArraysInstanced = (mode: number, first: number, count: number, n: number): void => {
+    instances.push(n)
+    draw(mode, first, count, n)
+  }
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  const half = DEFAULT_VIEW.stroke / 2
+  const cellPxFor = (radiusPx: number): number => radiusPx / (half * devicePixelRatio)
+
+  layer.setBoard(b, INK_ON_PAPER)
+  // Just under the threshold: BENT's one corner disc is skipped, its tail is not.
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1])
+
+  // Just over it: the corner comes back, drawn before the tail (lines before heads).
+  instances.length = 0
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 1.1) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
+
+  // Each block measures its own radius: highlighted in colour mode, BENT is
+  // 1.5 times thicker, so the zoom that hid its corner above shows it now.
+  instances.length = 0
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true, top: 1 })
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
 })
