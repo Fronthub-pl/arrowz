@@ -106,12 +106,21 @@ export interface CarverStats {
   stallSelfTrap?: number
 }
 
-/** The public surface of a carved board that analyse, render, toSvg and fingerprint read. */
-export interface Board {
+/**
+ * What a drawn and played board is: analyse, render, toSvg, fingerprint, the
+ * game and the board element read only these four fields. A board decoded
+ * from a file (board-file.ts) has nothing else.
+ */
+export interface BoardData {
   W: number
   H: number
+  /** Piece id per cell; -1 an uncarved cell, -2 a void. */
   owner: Int32Array
   pieces: Piece[]
+}
+
+/** What the generator hands back: the board plus its closing report. */
+export interface Board extends BoardData {
   stats: CarverStats
   backtracks: number
   remaining: number
