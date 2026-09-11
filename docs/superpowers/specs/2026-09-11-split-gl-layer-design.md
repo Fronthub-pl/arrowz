@@ -93,7 +93,7 @@ export class GlResources {
   upload(scene: Scene | null, colored: boolean): void
   uploadVoids(data: Float32Array): void
   writeRange(scene: Scene, ranges: PieceRanges, visible: boolean): void
-  uploadRiders(riders: Iterable<Rider>): void
+  uploadRiders(riders: ReadonlyMap<number, Rider>): void   // walks them twice
   delete(): void                          // deletes every object it holds
 }
 ```
@@ -144,16 +144,18 @@ private uploadVoids(board: Board | null): void {
 Today, a throw from `link` part way through `acquire` leaves a partial set:
 `program` linked, `dotProgram` and both buffers still null. After the split,
 `create` returns the whole set or throws before `res` is assigned, so the set
-is either complete or absent. The shaders are constants, so the path cannot
-be reached short of a driver that rejects them. It is named here so that no
+is either complete or absent. If the second `link` throws, the first program
+is left for the context to take with it, where today `dispose` would have
+deleted it. The shaders are constants, so the path cannot be reached short of
+a driver that rejects them. It is named here so that no
 one has to discover it.
 
 ## 4. `Rides` and its host
 
 ```ts
 export interface RideHost {
-  readonly board: Board | null
-  readonly view: BoardView
+  board(): Board | null
+  view(): BoardView
   rangesOf(id: number): PieceRanges | null
   setStaticVisible(id: number, visible: boolean): void
   riderColor(id: number, top: boolean): Rgba
@@ -172,16 +174,20 @@ export class Rides {
 }
 ```
 
-`GlLayer` builds the host as a private object literal in its constructor,
-whose members close over the layer's own private methods and fields. It does
+`GlLayer` builds the host as a private field initialised with an object
+literal of arrow functions, which close over the layer's own private methods
+and fields. `board` and `view` are functions rather than getters because a
+getter in an object literal would need `this` aliased (`deno lint`'s
+`no-this-alias`). It does
 **not** declare `implements RideHost`, because that would make
 `setStaticVisible`, `drop` and `uploadRiders` public members of the element's
 layer.
 
 `Rides` moves `ride`, `settle`, `cancelRunning`, `pieceOf` and the maps
 `riders`, `running` and `exiting` out of `GlLayer` unchanged, with `this.X` of
-the layer read as `host.X`. `host.view` is read inside the per-frame `draw`
-closure, as `this.view` is today, not captured once at the ride's start.
+the layer read through the host. `host.view()` is called inside the per-frame
+`draw` closure, as `this.view` is read there today, not captured once at the
+ride's start.
 
 `drop`, `dropped`, `pieceTotal`, `riderColor` and `setStaticVisible` stay in
 the facade. They are board state, and `setBoard` and `onRestored` use them
@@ -204,12 +210,12 @@ task that moves rides checks them line by line against `main`.
 - **`ride(...)`**, at the start: `host.rangesOf(id)` (none: nothing ridden,
   `done` resolves false); `host.riderColor(id, top)`;
   `host.setStaticVisible(id, false)`.
-  - Per frame: `tesselatePiece(piece, host.view, ...)`, the bound check that
+  - Per frame: `tesselatePiece(piece, host.view(), ...)`, the bound check that
     throws, then `host.uploadRiders()` and `host.schedule()`.
   - When it settles and still owns its rider: delete it; if it finished and
     `shift(1) === 0`, `host.setStaticVisible(id, true)`; then
     `host.uploadRiders()` and `host.schedule()`.
-- **`animateExit(id, dir)`**: `host.board` and `pieceOf`; `exitDistance`
+- **`animateExit(id, dir)`**: `host.board()` and `pieceOf`; `exitDistance`
   (which may throw, leaving everything as it was); `cancelRunning`; the ride;
   and, if it finished, `host.drop(id)`.
 - **`shake(id, distance)`**: `pieceOf`; `cancelRunning`; the ride.
@@ -266,8 +272,10 @@ put it back.
   `arrowz-board.browser.test.ts`, `game.browser.test.ts`,
   `lit.browser.test.ts`, and the `node` project.
 - Each task in the plan is one commit, and the suite is green at every one of
-  them. The tasks run in sequence, leaves first and seams last, because each
-  one cuts code out of the same file. Whichever commit turns a test red is the
+  them. The tasks run in sequence because each one cuts code out of the same
+  file: the leaves (shaders and colour, `voidQuads`) first, then rides, then
+  `GlResources` (which needs the `Rider` type from `rides.ts`), then passes
+  (which take a `GlResources`). Whichever commit turns a test red is the
   one that broke it.
 - `ARROWZ_MEASURE=1` before the first task and after the last one, in the same
   headless environment. The numbers are relative (the headless shell
