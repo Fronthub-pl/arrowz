@@ -23,6 +23,14 @@ export default defineConfig({
         test: {
           name: 'chromium',
           include: ['src/**/*.browser.test.ts'],
+          // One file at a time. Parallel files share one browser, and on a
+          // GPU-less runner one software WebGL renderer: the element's heavy
+          // files space the frames out far enough that an exit ride (at most
+          // 600 ms) in gl-layer.browser.test.ts ends before a single frame is
+          // sampled. Reproduced with SwiftShader, which is what CI draws with;
+          // with files in parallel the two ride tests fail every run, one at a
+          // time they pass (PR #40).
+          fileParallelism: false,
           browser: {
             enabled: true,
             headless: true,
