@@ -38,6 +38,9 @@ export const JOIN_SEGMENTS = 7
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
 
+/** Floats a disc takes in `Scene.discs`: its centre, then its radius. */
+export const FLOATS_PER_DISC = 3
+
 export interface Range {
   start: number
   count: number
@@ -55,6 +58,10 @@ export interface Ride {
 export interface PieceRanges {
   line: Range
   head: Range
+  /** The piece's corner discs, inside its line block's discs. */
+  corners: Range
+  /** The piece's tail disc — one, or none when sharp — inside its head block's discs. */
+  tail: Range
   top: boolean
 }
 
@@ -63,8 +70,18 @@ export interface Scene {
   positions: Float32Array
   /** Where each block starts and how long it is, in vertices, in draw order. */
   blocks: Readonly<Record<Block, Range>>
+  /** Discs, as cx, cy and r interleaved, in cells: the tail caps and the round joins. */
+  discs: Float32Array
+  /** Where each block's discs start and how many there are, in discs, in the same order. */
+  discBlocks: Readonly<Record<Block, Range>>
   rangeOf(id: number): PieceRanges | null
   drawnIds(): number[]
+}
+
+/** How many vertices and discs one piece wrote. */
+export interface Written {
+  vertices: number
+  discs: number
 }
 
 function at<T>(arr: ArrayLike<T>, i: number): T {
@@ -155,6 +172,15 @@ export function rideVertexBound(piece: Piece): number {
   // Every interior point may be a corner, and a rounded tail is the larger cap.
   const worstLine = segmentVertices(points) + 3 * JOIN_SEGMENTS * Math.max(points - 2, 0)
   return worstLine + headVertices(MAX_HEAD_POINTS, true)
+}
+
+/**
+ * The most discs a ride of this piece can need. `trackLine` emits at most
+ * `cells.length + 2` points, so a ride has at most `cells.length` interior
+ * points, and so at most that many corners; the tail is one more.
+ */
+export function rideDiscBound(piece: Piece): number {
+  return piece.cells.length + 1
 }
 
 /**
@@ -311,6 +337,32 @@ function writeSquare(out: Float32Array, o: number, cx: number, cy: number, half:
   return o
 }
 
+/**
+ * A disc of radius `half` on every corner of the merged polyline: what
+ * `stroke-linejoin="round"` draws. The disc is whole, not the quarter that
+ * shows — the other three quarters lie under the two butt-ended segments that
+ * meet there, so drawing them changes no pixel.
+ */
+function writeCorners(out: Float32Array, o: number, raw: readonly [number, number][], half: number): number {
+  const line = mergeCollinear(raw)
+  for (let i = 1; i < line.length - 1; i++) {
+    if (!turnsAt(line, i)) continue
+    const p = at(line, i)
+    out[o++] = p[0]
+    out[o++] = p[1]
+    out[o++] = half
+  }
+  return o
+}
+
+/** The tail cap as one disc, where `pieceShape` puts it. */
+function writeTailDisc(out: Float32Array, o: number, cx: number, cy: number, r: number): number {
+  out[o++] = cx
+  out[o++] = cy
+  out[o++] = r
+  return o
+}
+
 /** The ids of the `view.top` longest pieces that will actually be drawn. */
 function topIds(board: Board, view: BoardView, omit: ReadonlySet<number>): Set<number> {
   if (view.top <= 0) return new Set<number>()
@@ -321,6 +373,37 @@ function topIds(board: Board, view: BoardView, omit: ReadonlySet<number>): Set<n
   return new Set(drawn.slice(0, view.top).map((p) => p.id))
 }
 
+const ORDER: readonly Block[] = ['lines', 'topLines', 'heads', 'topHeads']
+
+/** Blocks laid back to back in draw order, from how long each one is. */
+function layOut(size: Readonly<Record<Block, number>>): Record<Block, Range> {
+  const out: Record<Block, Range> = {
+    lines: { start: 0, count: 0 },
+    topLines: { start: 0, count: 0 },
+    heads: { start: 0, count: 0 },
+    topHeads: { start: 0, count: 0 },
+  }
+  let start = 0
+  for (const name of ORDER) {
+    out[name] = { start, count: size[name] }
+    start += size[name]
+  }
+  return out
+}
+
+/** Where the last block ends: the length of the whole stream. */
+const endOf = (blocks: Readonly<Record<Block, Range>>): number => blocks.topHeads.start + blocks.topHeads.count
+
+/** A write cursor per block, each at its block's start. */
+function cursorsOf(blocks: Readonly<Record<Block, Range>>): Record<Block, number> {
+  return {
+    lines: blocks.lines.start,
+    topLines: blocks.topLines.start,
+    heads: blocks.heads.start,
+    topHeads: blocks.topHeads.start,
+  }
+}
+
 export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<number>): Scene {
   const tops = topIds(board, view, omit)
   const drawn = board.pieces.filter((pc) => !omit.has(pc.id))
@@ -329,38 +412,31 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
   // the head's point count known in advance, and only pieceShape may decide
   // whether a head has three points or five — deriving it here again is exactly
   // the divergence geometry.ts exists to prevent.
-  const counts = new Map<number, { line: number; head: number }>()
+  const counts = new Map<number, { line: number; head: number; corners: number; tail: number }>()
   const size: Record<Block, number> = { lines: 0, topLines: 0, heads: 0, topHeads: 0 }
+  const discSize: Record<Block, number> = { lines: 0, topLines: 0, heads: 0, topHeads: 0 }
   for (const pc of drawn) {
     const top = tops.has(pc.id)
     const s = shapeOf(pc, view, top)
     const line = lineVerticesOf(s.line, view.rounded)
     const head = headVertices(s.head.length, view.rounded)
-    counts.set(pc.id, { line, head })
+    // A corner disc belongs to its piece's line block and the tail disc to its
+    // head block: where the fans that drew them used to live.
+    const corners = view.rounded ? cornersIn(mergeCollinear(s.line)) : 0
+    const tail = view.rounded ? 1 : 0
+    counts.set(pc.id, { line, head, corners, tail })
     size[top ? 'topLines' : 'lines'] += line
     size[top ? 'topHeads' : 'heads'] += head
+    discSize[top ? 'topLines' : 'lines'] += corners
+    discSize[top ? 'topHeads' : 'heads'] += tail
   }
 
-  const order: readonly Block[] = ['lines', 'topLines', 'heads', 'topHeads']
-  const blocks: Record<Block, Range> = {
-    lines: { start: 0, count: 0 },
-    topLines: { start: 0, count: 0 },
-    heads: { start: 0, count: 0 },
-    topHeads: { start: 0, count: 0 },
-  }
-  let start = 0
-  for (const name of order) {
-    blocks[name] = { start, count: size[name] }
-    start += size[name]
-  }
-
-  const positions = new Float32Array(start * 2)
-  const cursor: Record<Block, number> = {
-    lines: blocks.lines.start,
-    topLines: blocks.topLines.start,
-    heads: blocks.heads.start,
-    topHeads: blocks.topHeads.start,
-  }
+  const blocks = layOut(size)
+  const discBlocks = layOut(discSize)
+  const positions = new Float32Array(endOf(blocks) * 2)
+  const discs = new Float32Array(endOf(discBlocks) * FLOATS_PER_DISC)
+  const cursor = cursorsOf(blocks)
+  const discCursor = cursorsOf(discBlocks)
   const ranges = new Map<number, PieceRanges>()
   for (const pc of drawn) {
     const top = tops.has(pc.id)
@@ -381,9 +457,20 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     else writeSquare(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
     cursor[headBlock] = headStart + c.head
 
+    const cornerStart = discCursor[lineBlock]
+    const tailStart = discCursor[headBlock]
+    if (view.rounded) {
+      writeCorners(discs, cornerStart * FLOATS_PER_DISC, s.line, half)
+      writeTailDisc(discs, tailStart * FLOATS_PER_DISC, s.tail.x, s.tail.y, s.tail.r)
+    }
+    discCursor[lineBlock] = cornerStart + c.corners
+    discCursor[headBlock] = tailStart + c.tail
+
     ranges.set(pc.id, {
       line: { start: lineStart, count: c.line },
       head: { start: headStart, count: c.head },
+      corners: { start: cornerStart, count: c.corners },
+      tail: { start: tailStart, count: c.tail },
       top,
     })
   }
@@ -391,40 +478,54 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
   return {
     positions,
     blocks,
+    discs,
+    discBlocks,
     rangeOf: (id) => ranges.get(id) ?? null,
     drawnIds: () => [...ranges.keys()],
   }
 }
 
-/**
- * The colour of every vertex, four bytes each, for the diagnostic mode. Built
- * only when colours are switched on (see `GlResources.upload`), so a monochrome board
- * never allocates it.
- */
-export function tesselateColors(scene: Scene): Uint8Array {
-  const vertices = scene.positions.length / 2
-  const colors = new Uint8Array(vertices * 4)
-  for (const id of scene.drawnIds()) {
-    const r = scene.rangeOf(id)
-    if (!r) continue
-    const [red, green, blue] = hueBytes(id)
-    for (const range of [r.line, r.head]) {
-      for (let i = 0; i < range.count; i++) {
-        const o = (range.start + i) * 4
-        colors[o] = red
-        colors[o + 1] = green
-        colors[o + 2] = blue
-        colors[o + 3] = 255
-      }
+/** The diagnostic colours: four bytes a vertex, and four a disc. */
+export interface SceneColors {
+  vertices: Uint8Array
+  discs: Uint8Array
+}
+
+/** Writes one opaque colour over every element of the ranges, four bytes each. */
+function paint(bytes: Uint8Array, ranges: readonly Range[], rgb: readonly [number, number, number]): void {
+  for (const range of ranges) {
+    for (let i = 0; i < range.count; i++) {
+      const o = (range.start + i) * 4
+      bytes[o] = rgb[0]
+      bytes[o + 1] = rgb[1]
+      bytes[o + 2] = rgb[2]
+      bytes[o + 3] = 255
     }
   }
-  return colors
 }
 
 /**
- * One piece's triangles into a caller-owned buffer, at rest or part way down
- * its own track. Returns the vertex count written, never more than
- * `rideVertexBound(piece)`.
+ * The colour of every vertex and every disc, for the diagnostic mode. Built
+ * only when colours are switched on (see `GlResources.upload`), so a
+ * monochrome board never allocates it.
+ */
+export function tesselateColors(scene: Scene): SceneColors {
+  const vertices = new Uint8Array((scene.positions.length / 2) * 4)
+  const discs = new Uint8Array((scene.discs.length / FLOATS_PER_DISC) * 4)
+  for (const id of scene.drawnIds()) {
+    const r = scene.rangeOf(id)
+    if (!r) continue
+    const rgb = hueBytes(id)
+    paint(vertices, [r.line, r.head], rgb)
+    paint(discs, [r.corners, r.tail], rgb)
+  }
+  return { vertices, discs }
+}
+
+/**
+ * One piece's triangles and discs into caller-owned buffers, at rest or part
+ * way down its own track. Never writes more than `rideVertexBound(piece)`
+ * vertices or `rideDiscBound(piece)` discs.
  */
 export function tesselatePiece(
   piece: Piece,
@@ -432,7 +533,8 @@ export function tesselatePiece(
   top: boolean,
   ride: Ride | null,
   out: Float32Array,
-): number {
+  discsOut: Float32Array,
+): Written {
   const s = shapeOf(piece, view, top)
   const half = strokeOf(view, top) / 2
   const line = ride === null ? s.line : trackLine(piece.cells, ride.dir, ride.front, ride.shift)
@@ -443,7 +545,12 @@ export function tesselatePiece(
   const last = piece.cells.length - 1
   const [tx, ty] = ride === null ? [s.tail.x, s.tail.y] : trackPoint(piece.cells, ride.dir, last - shift)
   o = view.rounded ? writeDisc(out, o, tx, ty, s.tail.r) : writeSquare(out, o, tx, ty, s.tail.r)
-  return o / 2
+  let q = 0
+  if (view.rounded) {
+    q = writeCorners(discsOut, q, line, half)
+    q = writeTailDisc(discsOut, q, tx, ty, s.tail.r)
+  }
+  return { vertices: o / 2, discs: q / FLOATS_PER_DISC }
 }
 
 /**

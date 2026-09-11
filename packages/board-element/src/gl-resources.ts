@@ -73,7 +73,7 @@ export class GlResources {
       this.colorBuffer ??= gl.createBuffer()
       if (this.colorBuffer) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, tesselateColors(scene), gl.STATIC_DRAW)
+        gl.bufferData(gl.ARRAY_BUFFER, tesselateColors(scene).vertices, gl.STATIC_DRAW)
       }
     }
   }

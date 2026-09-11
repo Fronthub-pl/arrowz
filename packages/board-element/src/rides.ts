@@ -4,7 +4,15 @@
 // host.
 import type { Board, Piece } from '@arrowz/engine'
 import type { Rgba } from './gl-color.ts'
-import { frontOf, type PieceRanges, type Ride, rideVertexBound, tesselatePiece } from './tesselate.ts'
+import {
+  FLOATS_PER_DISC,
+  frontOf,
+  type PieceRanges,
+  type Ride,
+  rideDiscBound,
+  rideVertexBound,
+  tesselatePiece,
+} from './tesselate.ts'
 import { exitDistance, exitMs, shakeShift } from './track.ts'
 import { type BoardView, SHAKE_MS } from './view.ts'
 
@@ -13,16 +21,21 @@ function reducedMotion(): boolean {
 }
 
 /**
- * A piece part way down its own track: its triangles in cells, how many of
- * them are live, where they sit in the rider buffer, and the colour they take.
- * `data` is allocated to `rideVertexBound(piece)` once, at the ride's start,
- * so a frame of a ride allocates nothing.
+ * A piece part way down its own track: its triangles and discs in cells, how
+ * many of each are live, where they sit in the rider buffers, and the colour
+ * they take. `data` and `discs` are allocated to `rideVertexBound(piece)` and
+ * `rideDiscBound(piece)` once, at the ride's start, so a frame of a ride
+ * allocates nothing.
  */
 export interface Rider {
   data: Float32Array
   count: number
   /** Where its vertices begin in the rider buffer; `GlResources.uploadRiders` owns this. */
   start: number
+  discs: Float32Array
+  discCount: number
+  /** Where its discs begin in the rider disc buffer; `GlResources.uploadRiders` owns this. */
+  discStart: number
   color: Rgba
 }
 
@@ -158,7 +171,16 @@ export class Rides {
     const top = ranges.top
     const front = frontOf(piece, host.view(), top, dir)
     const bound = rideVertexBound(piece)
-    const rider: Rider = { data: new Float32Array(bound * 2), count: 0, start: 0, color: host.riderColor(id, top) }
+    const discBound = rideDiscBound(piece)
+    const rider: Rider = {
+      data: new Float32Array(bound * 2),
+      count: 0,
+      start: 0,
+      discs: new Float32Array(discBound * FLOATS_PER_DISC),
+      discCount: 0,
+      discStart: 0,
+      color: host.riderColor(id, top),
+    }
     // The rider takes the piece over from here: the static buffer holds its
     // collapsed triangles until the ride is cancelled, or for good if it ends
     // anywhere but where it started.
@@ -167,16 +189,20 @@ export class Rides {
 
     const draw = (shifted: number): void => {
       const track: Ride = { dir, front, shift: shifted }
-      const count = tesselatePiece(piece, host.view(), top, track, rider.data)
-      // `rider.data` is exactly `rideVertexBound(piece)` long, and a write past
-      // the end of a typed array is dropped rather than raised: the bound holds
-      // (tesselate.test.ts pins it), and if it ever stopped holding, the piece
-      // would come out silently truncated instead of loudly wrong. This runs
-      // inside the frame callback, so it does not reject the ride's promise —
-      // it lands where an unhandled error lands, which is enough to see it,
-      // and the only place the count exists to be checked at all.
-      if (count > bound) throw new Error(`gl-layer: piece ${id} rode past its ${bound}-vertex bound`)
-      rider.count = count
+      // `rider.data` and `rider.discs` are exactly their bounds long, and a
+      // write past the end of a typed array is dropped rather than raised: the
+      // bounds hold (tesselate.test.ts pins them), and if they ever stopped
+      // holding, the piece would come out silently truncated instead of loudly
+      // wrong. This runs inside the frame callback, so it does not reject the
+      // ride's promise — it lands where an unhandled error lands, which is
+      // enough to see it, and the only place the counts exist to be checked at
+      // all.
+      const written = tesselatePiece(piece, host.view(), top, track, rider.data, rider.discs)
+      if (written.vertices > bound || written.discs > discBound) {
+        throw new Error(`gl-layer: piece ${id} rode past its ${bound}-vertex or ${discBound}-disc bound`)
+      }
+      rider.count = written.vertices
+      rider.discCount = written.discs
       host.uploadRiders()
       host.schedule()
     }

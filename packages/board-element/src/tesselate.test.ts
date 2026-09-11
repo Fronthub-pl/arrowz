@@ -4,8 +4,11 @@ import { expect, test } from 'vitest'
 import { trackLine } from './track.ts'
 import { DEFAULT_VIEW, hueBytes } from './view.ts'
 import {
+  FLOATS_PER_DISC,
   frontOf,
   JOIN_SEGMENTS,
+  type Range,
+  rideDiscBound,
   rideVertexBound,
   type Scene,
   strokeOf,
@@ -50,6 +53,31 @@ function points(positions: Float32Array, r: { start: number; count: number }): [
     out.push([x, y])
   }
   return out
+}
+
+const f32 = (n: number): number => Math.fround(n)
+
+/** Every disc of a range, as [cx, cy, r] triples. */
+function discsIn(discs: Float32Array, r: Range): [number, number, number][] {
+  const out: [number, number, number][] = []
+  for (let i = 0; i < r.count; i++) {
+    const o = (r.start + i) * FLOATS_PER_DISC
+    const cx = discs[o], cy = discs[o + 1], rad = discs[o + 2]
+    if (cx === undefined || cy === undefined || rad === undefined) throw new Error('range runs past the discs')
+    out.push([cx, cy, rad])
+  }
+  return out
+}
+
+/** The shape the tesselator draws a piece from, at the default view's widths. */
+function shapeOf(pc: Piece) {
+  return pieceShape(pc, {
+    cell: 1,
+    pad: 0,
+    width: DEFAULT_VIEW.stroke,
+    headWidth: DEFAULT_VIEW.headWidth,
+    headHeight: DEFAULT_VIEW.headHeight,
+  })
 }
 
 test('the four blocks tile the buffer exactly: no gap, no overlap', () => {
@@ -221,7 +249,8 @@ test('a ridden piece follows trackLine, corners included', () => {
   const view = DEFAULT_VIEW
   const front = frontOf(BENT, view, false, BENT.dir)
   const out = new Float32Array(rideVertexBound(BENT) * 2)
-  const count = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift: 0.5 }, out)
+  const discs = new Float32Array(rideDiscBound(BENT) * FLOATS_PER_DISC)
+  const w = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift: 0.5 }, out, discs)
   const expected = trackLine(BENT.cells, BENT.dir, front, 0.5)
   const shape = pieceShape(BENT, {
     cell: 1,
@@ -240,7 +269,9 @@ test('a ridden piece follows trackLine, corners included', () => {
   const segments = corners + 1
   const want = 6 * segments + 3 * JOIN_SEGMENTS * corners +
     3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
-  expect(count).toBe(want)
+  expect(w.vertices).toBe(want)
+  // One disc a corner, and the tail's.
+  expect(w.discs).toBe(corners + 1)
   // The corner survives the ride: trackLine emits every cell centre still
   // between the two moving ends, so a bent piece never straightens. BENT has
   // four cells; the head is one cell tall, so the line begins 0.52 of a cell
@@ -253,14 +284,19 @@ test('a ridden piece follows trackLine, corners included', () => {
   expect(corners).toBe(1)
 })
 
-test('a ride never writes past the bound the layer allocates', () => {
+test('a ride never writes past either bound the layer allocates', () => {
   const view = DEFAULT_VIEW
-  const bound = rideVertexBound(BENT)
-  const out = new Float32Array(bound * 2)
-  const front = frontOf(BENT, view, false, BENT.dir)
-  for (const shift of [0, 0.01, 0.5, 1, 1.5, 2, 3, 3.99, 4, 10]) {
-    const count = tesselatePiece(BENT, view, false, { dir: BENT.dir, front, shift }, out)
-    expect(count).toBeLessThanOrEqual(bound)
+  for (const pc of [BENT, ZIGZAG, STRAIGHT]) {
+    const bound = rideVertexBound(pc)
+    const discBound = rideDiscBound(pc)
+    const out = new Float32Array(bound * 2)
+    const discs = new Float32Array(discBound * FLOATS_PER_DISC)
+    const front = frontOf(pc, view, false, pc.dir)
+    for (const shift of [0, 0.01, 0.5, 1, 1.5, 2, 3, 3.99, 4, 10]) {
+      const w = tesselatePiece(pc, view, false, { dir: pc.dir, front, shift }, out, discs)
+      expect(w.vertices).toBeLessThanOrEqual(bound)
+      expect(w.discs).toBeLessThanOrEqual(discBound)
+    }
   }
 })
 
@@ -268,7 +304,7 @@ test('the colour buffer carries hueBytes for every vertex of a piece', () => {
   const b = board(7, { pieces: [BENT] })
   const view = { ...DEFAULT_VIEW, colored: true }
   const scene = tesselateBoard(b, view, NONE)
-  const colors = tesselateColors(scene)
+  const colors = tesselateColors(scene).vertices
   expect(colors.length).toBe(scene.positions.length / 2 * 4)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('no range')
@@ -359,6 +395,93 @@ test('BENT keeps its corner and loses its straight run', () => {
   // collinear points that merge into one segment. Two segments and one fan.
   const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
   expect(scene.rangeOf(BENT.id)?.line.count).toBe(6 * 2 + 3 * JOIN_SEGMENTS)
+})
+
+test('a rounded piece carries a disc on its corner and one on its tail', () => {
+  const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  const r = scene.rangeOf(BENT.id)
+  if (!r) throw new Error('BENT is not drawn')
+  // BENT turns once, at cells[1]; its straight run merges away and adds no disc.
+  expect(r.corners.count).toBe(1)
+  expect(r.tail.count).toBe(1)
+  // A round join is a whole disc of radius half the stroke, on the vertex.
+  const corner = at(BENT.cells, 1)
+  expect(discsIn(scene.discs, r.corners)).toEqual([[
+    f32(corner.x + 0.5),
+    f32(corner.y + 0.5),
+    f32(DEFAULT_VIEW.stroke / 2),
+  ]])
+  const s = shapeOf(BENT)
+  expect(discsIn(scene.discs, r.tail)).toEqual([[f32(s.tail.x), f32(s.tail.y), f32(s.tail.r)]])
+})
+
+test('a straight piece has only its tail disc, and a sharp piece has none', () => {
+  const round = tesselateBoard(onlyPiece(STRAIGHT), { ...DEFAULT_VIEW, rounded: true }, NONE)
+  expect(round.rangeOf(STRAIGHT.id)?.corners.count).toBe(0)
+  expect(round.rangeOf(STRAIGHT.id)?.tail.count).toBe(1)
+  const sharp = tesselateBoard(onlyPiece(ZIGZAG), { ...DEFAULT_VIEW, rounded: false }, NONE)
+  expect(sharp.discs.length).toBe(0)
+  expect(sharp.rangeOf(ZIGZAG.id)?.corners.count).toBe(0)
+  expect(sharp.rangeOf(ZIGZAG.id)?.tail.count).toBe(0)
+})
+
+test('the four disc blocks tile the disc buffer, and every piece sits inside its own', () => {
+  const scene = tesselateBoard(board(), { ...DEFAULT_VIEW, top: 3 }, NONE)
+  const order = ['lines', 'topLines', 'heads', 'topHeads'] as const
+  let n = 0
+  for (const name of order) {
+    expect(scene.discBlocks[name].start).toBe(n)
+    n += scene.discBlocks[name].count
+  }
+  expect(scene.discs.length).toBe(n * FLOATS_PER_DISC)
+  const inside = (r: Range, block: Range): boolean =>
+    r.start >= block.start && r.start + r.count <= block.start + block.count
+  for (const id of scene.drawnIds()) {
+    const r = scene.rangeOf(id)
+    if (!r) throw new Error(`piece ${id} has no range`)
+    expect(inside(r.corners, scene.discBlocks[r.top ? 'topLines' : 'lines'])).toBe(true)
+    expect(inside(r.tail, scene.discBlocks[r.top ? 'topHeads' : 'heads'])).toBe(true)
+  }
+})
+
+test("zeroing one piece's discs leaves its neighbours' discs byte for byte", () => {
+  const b = board()
+  const scene = tesselateBoard(b, DEFAULT_VIEW, NONE)
+  const [victim, witness] = [b.pieces[1], b.pieces[2]]
+  if (!victim || !witness) throw new Error('need three pieces')
+  const vr = scene.rangeOf(victim.id)
+  const wr = scene.rangeOf(witness.id)
+  if (!vr || !wr) throw new Error('no ranges')
+  const before = [...discsIn(scene.discs, wr.corners), ...discsIn(scene.discs, wr.tail)]
+  for (const range of [vr.corners, vr.tail]) {
+    scene.discs.fill(0, range.start * FLOATS_PER_DISC, (range.start + range.count) * FLOATS_PER_DISC)
+  }
+  expect([...discsIn(scene.discs, wr.corners), ...discsIn(scene.discs, wr.tail)]).toEqual(before)
+})
+
+test('the colour streams carry hueBytes for every disc of a piece too', () => {
+  const scene = tesselateBoard(board(7, { pieces: [BENT] }), { ...DEFAULT_VIEW, colored: true }, NONE)
+  const colors = tesselateColors(scene)
+  expect(colors.discs.length).toBe((scene.discs.length / FLOATS_PER_DISC) * 4)
+  const r = scene.rangeOf(BENT.id)
+  if (!r) throw new Error('no range')
+  for (const range of [r.corners, r.tail]) {
+    const i = range.start * 4
+    expect(Array.from(colors.discs.subarray(i, i + 4))).toEqual([...hueBytes(BENT.id), 255])
+  }
+})
+
+test('a piece at rest writes the discs the board holds for it, corners then tail', () => {
+  const scene = tesselateBoard(onlyPiece(BENT), DEFAULT_VIEW, NONE)
+  const r = scene.rangeOf(BENT.id)
+  if (!r) throw new Error('BENT is not drawn')
+  const out = new Float32Array(rideVertexBound(BENT) * 2)
+  const discs = new Float32Array(rideDiscBound(BENT) * FLOATS_PER_DISC)
+  const w = tesselatePiece(BENT, DEFAULT_VIEW, false, null, out, discs)
+  expect(discsIn(discs, { start: 0, count: w.discs })).toEqual([
+    ...discsIn(scene.discs, r.corners),
+    ...discsIn(scene.discs, r.tail),
+  ])
 })
 
 test('voidQuads is empty when there are no strips', () => {
