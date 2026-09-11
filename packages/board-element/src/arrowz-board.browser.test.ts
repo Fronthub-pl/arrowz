@@ -732,6 +732,22 @@ describe('margin', () => {
     expect(kept).toBeLessThan(-1)
     expect(viewCells(el)).toBeCloseTo(30 - 2 * kept, 6)
   })
+
+  test('removing the pad attribute restores the default margin', async () => {
+    await mount({ pad: '2' })
+    el.removeAttribute('pad')
+    await el.updateComplete
+    expect(el.pad).toBe(DEFAULT_PAD)
+    await raf()
+    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+  })
+
+  test('removing the point-radius attribute restores the default radius', async () => {
+    await mount({ 'point-radius': '0.2' })
+    el.removeAttribute('point-radius')
+    await el.updateComplete
+    expect(el.pointRadius).toBe(DEFAULT_POINT_RADIUS)
+  })
 })
 
 describe('points', () => {
@@ -876,12 +892,15 @@ describe('nonsense in, a drawable board out', () => {
 
   test('a pad that is not a number fits as the default pad, and the attribute keeps what was set', async () => {
     const details: BoardViewport[] = []
-    document.addEventListener('viewport-change', (e) => details.push((e as ViewportChangeEvent).detail))
+    const onChange = (e: Event) => details.push((e as ViewportChangeEvent).detail)
+    document.addEventListener('viewport-change', onChange)
     await mount({ pad: 'abc' })
     expect(el.getAttribute('pad')).toBe('abc')
     expect(allFinite(el.viewport)).toBe(true)
     expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+    expect(details.length).toBeGreaterThan(0)
     expect(details.every(allFinite)).toBe(true)
+    document.removeEventListener('viewport-change', onChange)
   })
 
   test('a stroke or head height that is not a number still draws the pieces', async () => {
@@ -920,7 +939,7 @@ describe('nonsense in, a drawable board out', () => {
     expect(magenta).toBe(0)
   })
 
-  test('a point radius that is not a number keeps its attribute, and draws the default radius', async () => {
+  test('a point radius that is not a number keeps its attribute, and the viewport stays finite', async () => {
     await mount({ 'show-points': '', 'point-radius': 'abc' })
     expect(el.getAttribute('point-radius')).toBe('abc')
     expect(allFinite(el.viewport)).toBe(true)
