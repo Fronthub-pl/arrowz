@@ -60,13 +60,18 @@ function storeMode(mode: GestureMode): void {
   try {
     globalThis.localStorage?.setItem(GESTURE_STORAGE_KEY, mode)
   } catch {
-    // Private mode or a sandboxed frame: the choice lasts as long as the page.
+    // Private mode or a sandboxed frame: the choice holds until the element
+    // next reads storage — a reconnect or a reload comes back as `drag`.
   }
 }
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
-/** The browser's own colour parser, so anything `view.ink` may say is judged the way it will be drawn. */
+/**
+ * The browser's own colour parser, so anything `view.ink`, `paper`,
+ * `highlight` or `point-color` may say is judged the way it will be drawn —
+ * every colour the element draws, not only `view.ink`.
+ */
 const isCssColor = (c: string): boolean => typeof CSS !== 'undefined' && CSS.supports('color', c)
 
 /** Field for field: the six numbers and the flag the consumer is told about. */
