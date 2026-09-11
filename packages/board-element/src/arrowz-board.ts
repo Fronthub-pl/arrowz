@@ -134,9 +134,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       outline-offset: -2px;
     }
     canvas {
-      display: block;
+      /* Out of the flow: a canvas in it lends the host its intrinsic size, and
+        since the canvas is sized to the host, the host's height would depend
+        on whatever size it had before (spec §9). The host is sized by its
+        consumer, like any <div>. */
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
+      display: block;
       /* Without this the browser claims the touch for a scroll or a pinch
         before the pointer events reach the gesture machine, exactly as it
         would have on the <svg> these rules used to name. */

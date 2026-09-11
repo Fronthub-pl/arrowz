@@ -252,6 +252,44 @@ describe('mount and viewport', () => {
     el.dispatchEvent(e)
     expect(e.defaultPrevented).toBe(false)
   })
+
+  test('the host takes its parent height back after an odd size, whatever the canvas was', async () => {
+    const box = document.createElement('div')
+    box.style.width = '300px'
+    box.style.height = '240px'
+    document.body.append(box)
+    el = document.createElement('arrowz-board')
+    el.style.width = '100%'
+    el.style.height = '100%'
+    box.append(el)
+    el.board = makeBoard()
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBeCloseTo(240, 0)
+    el.style.width = '20px'
+    el.style.height = '3000px'
+    await raf()
+    await raf()
+    el.style.width = '100%'
+    el.style.height = '100%'
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBeCloseTo(240, 0)
+    expect(el.viewport?.hostHeight).toBeCloseTo(240, 0)
+    box.remove()
+  })
+
+  test('a host nobody sized has no height of its own', async () => {
+    el = document.createElement('arrowz-board')
+    document.body.append(el)
+    el.board = makeBoard()
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBe(0)
+    expect(el.viewport).toBeNull()
+  })
 })
 
 describe('clicks', () => {
