@@ -122,6 +122,17 @@ Deno.test('decodeBoard refuses pieces that leave the board, overlap, sit on a vo
   refuse(encodeBoard(twice), 'id 0, which is negative or repeats')
 })
 
+Deno.test('decodeBoard refuses an id an Int32Array cannot hold', () => {
+  // encodeBoard cannot write such an id (its varints are 32-bit), so the body
+  // is written by hand: one piece, id 2^32 - 1 (zigzag(2^32) = 2^33 as a
+  // five-byte varint), head cell 0, one cell pointing right, no voids.
+  const one = encodeBoard(handBoard(4, 4, [{ id: 0, dir: 1, cells: [{ x: 0, y: 0 }] }]))
+  refuse(
+    withBody(one, [0x80, 0x80, 0x80, 0x80, 0x20, 0, 1 * 4 + 1, 0]),
+    `piece 0 has id ${2 ** 32 - 1}, above the largest id a board can hold`,
+  )
+})
+
 Deno.test('decodeBoard refuses a header that disagrees with the body', () => {
   const good = encodeBoard(tiny())
   refuse({ ...good, unfilled: 0 }, 'the header counts 1 voids and 0 unfilled cells, the body 1 and 9')
