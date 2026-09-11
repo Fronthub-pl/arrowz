@@ -152,11 +152,11 @@ export const EN = {
     longestShort: (n: number | string) => `longest ${n}`,
     genShort: (s: string) => `${s} s to generate`,
     loadingBoard: (id: string) => `Loading ${id}…`,
+    boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
     savedBoard: (id: string, seed: number, source: string, gen: string) =>
       `Saved board ${id}, seed ${seed}, source: ${source}, generated in ${gen}.`,
     deleteBoard: 'Delete from disk',
     confirmDelete: 'Really delete?',
-    rebuilding: (id: string) => `Rebuilding board ${id} to redraw it…`,
     viewSaved: (id: string) => `Saved the new view of board ${id}.`,
     deletedBoard: (id: string) => `Deleted ${id}.`,
     deleteFailed: 'Could not delete the board.',
@@ -167,7 +167,6 @@ export const EN = {
       `${label}: ${value} is outside ${min}..${max}`,
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
-    storedInvalid: 'This board was made with settings outside the safe range and cannot be rebuilt',
   },
 } as const
 
@@ -495,11 +494,11 @@ export const PL: Translation = {
     longestShort: (n) => `najdłuższy ${n}`,
     genShort: (s) => `${s} s generacji`,
     loadingBoard: (id) => `Wczytuję ${id}…`,
+    boardFileError: (id, reason) => `Nie da się odczytać planszy ${id}: ${reason}`,
     savedBoard: (id, seed, source, gen) =>
       `Zapisana plansza ${id}, ziarno ${seed}, źródło: ${source}, generacja ${gen}.`,
     deleteBoard: 'Usuń z dysku',
     confirmDelete: 'Na pewno usunąć?',
-    rebuilding: (id) => `Odtwarzam planszę ${id}, żeby ją przerysować…`,
     viewSaved: (id) => `Zapisano nowy widok planszy ${id}.`,
     deletedBoard: (id) => `Usunięto ${id}.`,
     deleteFailed: 'Nie udało się usunąć planszy.',
@@ -509,6 +508,5 @@ export const PL: Translation = {
     rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
-    storedInvalid: 'Ta plansza powstała z ustawień poza bezpiecznym zakresem i nie da się jej przebudować',
   },
 }

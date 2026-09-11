@@ -121,7 +121,7 @@
                overflow: hidden; min-height: 0; position: relative; }
   /* Stacked under 1500px, the row is as tall as its content, and the element
      has none of its own (the old SVG did): the box takes most of the window. */
-  @media (max-width: 1500px) { #boardWrap { height: 75vh; } }
+  @media (max-width: 1500px) { body:not(.solo) #boardWrap { height: 75vh; } }
   /* Full view: the panel and stats disappear, the board gets the whole window.
      On a square board that is 1003 → 1828 px on a 4K screen. */
   /* One column, not "0 1fr": with the panel hidden, main landed in a

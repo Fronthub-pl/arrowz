@@ -79,6 +79,8 @@ function boardView(v: View, voids: boolean): Partial<BoardView> {
 
 /** Puts a board on screen with a view; null clears the board. */
 function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
+  // The lab's checkboxes own the colour; the element's own colour button is a peek until the next redraw.
+  boardEl.coloredOverride = null
   boardEl.board = board
   boardEl.view = view
 }
@@ -653,7 +655,7 @@ function viewOptions(): View {
   }
 }
 // "Show jammed cells" is not part of the view (the CLI has no such flag); it
-// travels next to the view in the worker message.
+// goes to the element and the SVG download next to the view.
 function voidsOn(): boolean {
   return el<HTMLInputElement>('voids').checked
 }
@@ -914,12 +916,16 @@ async function saveBoardToStore(board: BoardFile, done: Done) {
 }
 
 // --- tabs and the saved-boards tab ------------------------------------------
-// The store tab uses THE SAME board area as the lab: fit, zoom and full view
-// work without a separate path. Back in the lab, the lab's own board comes back.
+// Both tabs share one <arrowz-board>, and full view works for both. Back in
+// the lab, the lab's own board comes back.
 type Tab = 'lab' | 'library'
 let activeTab: Tab = 'lab'
 let libSize: string | null = null // chosen size ('25x50')
 let libBoard: BoardMeta | null = null // chosen board (meta)
+// The chosen board as the store holds it (sent back untouched when its view
+// is saved) and decoded for the element.
+let libFile: unknown = null
+let libData: BoardData | null = null
 
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('#tabs button')
 /** The tab a markup button switches to; the two buttons are fixed in lab.html. */
@@ -1025,11 +1031,10 @@ function showLibDetail(on: boolean) {
   for (const id of ['libDetail', 'libCommandBox', 'libView']) el(id).hidden = !on
 }
 
-// Until the library reads board files (the next step), a stored board is
-// listed and its detail shown, but nothing is drawn: the store no longer
-// writes the SVG the library used to fetch.
-function openBoard(meta: BoardMeta) {
+async function openBoard(meta: BoardMeta) {
   libBoard = meta
+  libFile = null
+  libData = null
   disarmDelete()
   renderLibrary()
   showLibDetail(true)
@@ -1039,7 +1044,35 @@ function openBoard(meta: BoardMeta) {
   el<HTMLInputElement>('libHeadHeight').value = String(meta.view.headHeight)
   el<HTMLInputElement>('libRounded').checked = meta.view.rounded !== false
   el<HTMLInputElement>('libColored').checked = meta.view.colored
-  showBoard(null, {})
+  const name = `<code>${meta.W}x${meta.H}/${meta.id}</code>`
+  setStatus(t('loadingBoard', name))
+  // A board that cannot be read leaves the board area empty, so no other board
+  // stands under its error. The reason may quote the file, so it is escaped.
+  const refuse = (err: unknown) => {
+    showBoard(null, {})
+    const reason = (err instanceof Error ? err.message : String(err))
+      .replace(/[&<>]/g, (c) => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;')
+    setStatus(`<span class="bad">${t('boardFileError', name, reason)}</span>`)
+  }
+  let file: unknown
+  try {
+    const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.board.json`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    file = await r.json()
+  } catch (err) {
+    if (activeTab === 'library' && libBoard === meta) refuse(err)
+    return
+  }
+  // Another board may have been chosen, or the tab left, while this one loaded.
+  if (activeTab !== 'library' || libBoard !== meta) return
+  try {
+    libData = decodeBoard(file)
+  } catch (err) {
+    refuse(err)
+    return
+  }
+  libFile = file
+  showLibBoard(meta)
   showBoardStatus(meta)
 }
 el('libCopy').addEventListener('click', async () => {
@@ -1075,9 +1108,11 @@ el('libLoad').addEventListener('click', () => {
 })
 
 // --- editing the view of a stored board ------------------------------------
-// The library draws no board until it reads board files (the next step); the
-// view it will draw a stored board with comes from these rows.
-// deno-lint-ignore no-unused-vars -- used again once the library draws board files
+// The store holds the board itself, so a new stroke or colour is only a new
+// view: the element redraws at once, and after a pause the same board file
+// goes back to the store with the new view in its meta. Nothing is
+// regenerated, and the command in the meta still reproduces the board.
+let libTimer: ReturnType<typeof setTimeout> | undefined
 function libView(meta: BoardMeta): View {
   return {
     cell: meta.view.cell,
@@ -1089,6 +1124,49 @@ function libView(meta: BoardMeta): View {
     rounded: el<HTMLInputElement>('libRounded').checked,
   }
 }
+/** The chosen stored board on screen; its holes show only when it did not close. */
+function showLibBoard(meta: BoardMeta): void {
+  showBoard(libData, boardView(libView(meta), meta.ok === false))
+}
+function onLibViewInput() {
+  if (!libBoard || !libData) return
+  showLibBoard(libBoard)
+  clearTimeout(libTimer)
+  libTimer = setTimeout(saveLibView, 350)
+}
+async function saveLibView() {
+  const meta = libBoard
+  if (!meta || libFile === null) return
+  const view = libView(meta)
+  const body = {
+    board: libFile,
+    params: meta.params,
+    view,
+    command: buildCommand(meta.params, view),
+    source: meta.source,
+    metrics: { ok: meta.ok, pieces: meta.pieces, maxLen: meta.maxLen, genMs: meta.genMs },
+  }
+  try {
+    const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    const saved: BoardMeta = await r.json()
+    // Another board may have been chosen, or the tab left, while this one saved:
+    // then the new meta must not take the place of the board now shown.
+    if (activeTab === 'library' && libBoard === meta) {
+      libBoard = saved
+      el('libCommand').textContent = saved.command
+      setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
+    }
+    // The store keeps createdAt on an overwrite, so the row stays in place;
+    // the list is refreshed for the new meta only.
+    await loadLibrary({ force: true })
+  } catch {
+    setStatus(`<span class="bad">${t('notSaved')}</span>`)
+  }
+}
+for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) el(id).addEventListener('input', onLibViewInput)
+el('libRounded').addEventListener('change', onLibViewInput)
+el('libColored').addEventListener('change', onLibViewInput)
 
 // Deleting takes two clicks on the same button: the first arms it, the second
 // removes the files. Selecting another board or switching language disarms.
@@ -1114,6 +1192,8 @@ el('libDelete').addEventListener('click', async () => {
     return
   }
   libBoard = null
+  libFile = null
+  libData = null
   showLibDetail(false)
   showBoard(null, {})
   setStatus(t('deletedBoard', `<code>${name}</code>`))
