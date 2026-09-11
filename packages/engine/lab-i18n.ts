@@ -209,6 +209,7 @@ export const PL: Translation = {
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
     mixHole: 'mieszanie musi być -1 (wyłączone) albo między 0,3 a 0,7',
+    wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
   },
   params: {
     W: {

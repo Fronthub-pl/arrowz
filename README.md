@@ -848,7 +848,7 @@ the raw success rate of your settings.
 
 ### Combinations that are refused
 
-Three rules cannot be written as a simple from–to range, so they are checked
+Four rules cannot be written as a simple from–to range, so they are checked
 separately:
 
 | Rule | In plain words |
@@ -856,6 +856,7 @@ separately:
 | Short plus medium share | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
 | Maximum length | `--lmax` must be 0 (automatic) or at least 6. |
 | The layers/tunnels blend | `--mix` must be `-1` (off) or between 0.3 and 0.7. |
+| Whole numbers | `--width`, `--height` and `--seed` take whole numbers only. |
 
 Break a rule, or put any dial outside its range, and the generator refuses
 before drawing anything, tells you which value was wrong, and stops with status

@@ -113,6 +113,11 @@ class Carver implements Board {
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
+    // More voids than cells would never be placed and the loop below would not
+    // end; the unchecked path skips validateParams, so the guard lives here.
+    if (!(params.voidFrac >= 0 && params.voidFrac < 1)) {
+      throw new RangeError(`voidFrac ${params.voidFrac} is outside [0, 1)`)
+    }
     if (params.voidFrac > 0) {
       let v = 0
       const target = Math.round(W * H * params.voidFrac)
@@ -2075,7 +2080,7 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   out.push('</g>')
   if (highlight.length) {
     out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="${join}">`)
-    out.push(...highlight)
+    for (const line of highlight) out.push(line)
     out.push('</g>')
   }
   out.push(`<g fill="${INK}">${heads.join('')}${highlightHeads.join('')}</g>`, '</svg>')
@@ -2482,12 +2487,20 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
   { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
   { key: 'mixHole', keys: ['mix'], check: (p) => p.mix === -1 || (p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9) },
+  // A size or seed with a fraction is not a board the tools can name: the
+  // seed goes into the board id and so into file names.
+  {
+    key: 'wholeNumbers',
+    keys: ['W', 'H', 'seed'],
+    check: (p) => Number.isInteger(p.W) && Number.isInteger(p.H) && Number.isInteger(p.seed),
+  },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
   lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
   mixHole: 'mixing must be -1 (off) or between 0.3 and 0.7',
+  wholeNumbers: 'width, height and seed must be whole numbers',
 }
 
 /**

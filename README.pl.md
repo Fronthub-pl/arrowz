@@ -853,7 +853,7 @@ pokazuje surową skuteczność twoich ustawień.
 
 ### Kombinacje, które są odrzucane
 
-Trzech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
+Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
 | Reguła | Po ludzku |
@@ -861,6 +861,7 @@ je osobno:
 | Udział krótkich plus średnich | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
 | Długość maksymalna | `--lmax` musi być 0 (automatycznie) albo co najmniej 6. |
 | Mieszanie warstw i tuneli | `--mix` musi być `-1` (wyłączone) albo między 0,3 a 0,7. |
+| Liczby całkowite | `--width`, `--height` i `--seed` przyjmują tylko liczby całkowite. |
 
 Złam regułę albo wyjdź którymkolwiek pokrętłem poza zakres, a generator odmówi,
 zanim cokolwiek narysuje, powie ci, która wartość była zła, i zakończy się
