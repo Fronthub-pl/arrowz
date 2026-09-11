@@ -4,6 +4,7 @@
 export * from './engine.ts'
 export { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, pieceShape, voidStrips } from './geometry.ts'
 export type { Dir, PieceShape, ShapeOptions } from './geometry.ts'
+export { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard } from './board-file.ts'
 export { goneIds, loadSession, newSession, play, saveSession } from './game.ts'
 export type { Move, Session, SessionSnapshot } from './game.ts'
 export type * from './types.ts'

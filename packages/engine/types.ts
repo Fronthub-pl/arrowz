@@ -126,6 +126,27 @@ export interface Board extends BoardData {
   remaining: number
 }
 
+/**
+ * A board as a file (board-file.ts): a JSON envelope a person can read around
+ * a packed body that only decodeBoard reads. The counts and the fingerprint
+ * are readable without decoding; the decoder checks them against the body.
+ */
+export interface BoardFile {
+  format: 'arrowz-board'
+  v: 1
+  W: number
+  H: number
+  pieces: number
+  /** Cells with owner -2. */
+  voids: number
+  /** Cells with owner -1; 0 for a board that closed. */
+  unfilled: number
+  /** fingerprint() of the board. */
+  fingerprint: string
+  /** base64 of the packed body. */
+  body: string
+}
+
 export type HistBucket = '2-6' | '7-15' | '16-49' | '50+'
 
 export interface Metrics {

@@ -1,9 +1,10 @@
 // Proves that the tsc emission in dist/ is the same engine: every golden
 // board of fingerprints.json except big500 (21 771 pieces, left to the Deno
-// test) must reproduce its fingerprint under Node.
+// test) must reproduce its fingerprint under Node, directly and through the
+// board file.
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
-import { defaultParams, fingerprint, generate } from '../dist/mod.js'
+import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate } from '../dist/mod.js'
 import { parseArgs, parseSimpleArgs } from '../dist/command.js'
 import { simpleParams } from '../dist/lab-simple.js'
 
@@ -24,8 +25,15 @@ for (const c of golden.cases) {
   const got = fingerprint(r.board)
   // The unchecked case records no maxLen — it has no metrics.
   const maxLenOk = c.maxLen === null || r.metrics?.maxLen === c.maxLen
-  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen})`)
+  // A Cloud Function will read these files: the file must round-trip in Node too.
+  const back = decodeBoard(JSON.parse(JSON.stringify(encodeBoard(r.board))))
+  const fileOk = fingerprint(back) === c.fingerprint
+  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk
+  console.log(
+    `${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen}, file ${
+      fileOk ? 'ok' : 'FAIL'
+    })`,
+  )
   if (!ok) failures++
 }
 if (failures > 0) {
