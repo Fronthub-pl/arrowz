@@ -5,6 +5,8 @@
 // triangles in the static one are collapsed for as long as it rides.
 import { voidStrips } from '@arrowz/engine'
 import type { Board, Piece } from '@arrowz/engine'
+import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
+import { DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
 import { exitDistance, exitMs, shakeShift } from './track.ts'
 import {
   type Block,
@@ -17,62 +19,8 @@ import {
   tesselateColors,
   tesselatePiece,
 } from './tesselate.ts'
-import { type BoardView, DEFAULT_VIEW, hueBytes, SHAKE_MS } from './view.ts'
+import { type BoardView, DEFAULT_VIEW, SHAKE_MS } from './view.ts'
 import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
-
-const VERT = `#version 300 es
-in vec2 a_pos;
-in vec4 a_color;
-uniform vec2 u_origin;
-uniform float u_scale;
-uniform vec2 u_size;
-uniform vec4 u_flat;
-uniform bool u_useAttr;
-out vec4 v_color;
-void main() {
-  vec2 px = (a_pos - u_origin) * u_scale;
-  gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, 0.0, 1.0);
-  v_color = u_useAttr ? a_color : u_flat;
-}`
-
-const FRAG = `#version 300 es
-precision mediump float;
-in vec4 v_color;
-out vec4 color;
-void main() { color = v_color; }`
-
-// The dot grid's own program: its fragment shader is the pattern the SVG
-// layer tiles as a one-cell <pattern> holding one circle, expressed with no
-// geometry at all — one quad over the cells, coloured per fragment.
-const DOT_VERT = `#version 300 es
-in vec2 a_pos;
-uniform vec2 u_origin;
-uniform float u_scale;
-uniform vec2 u_size;
-out vec2 v_world;
-void main() {
-  v_world = a_pos;
-  vec2 px = (a_pos - u_origin) * u_scale;
-  gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, 0.0, 1.0);
-}`
-
-// One dot per cell, at the cell's centre. u_feather is one device pixel in
-// cells, so the edge is antialiased at any zoom.
-const DOT_FRAG = `#version 300 es
-precision mediump float;
-in vec2 v_world;
-uniform vec4 u_dot;
-uniform float u_radius;
-uniform float u_feather;
-out vec4 color;
-void main() {
-  float d = length(fract(v_world) - 0.5);
-  float a = 1.0 - smoothstep(u_radius - u_feather, u_radius + u_feather, d);
-  if (a <= 0.0) discard;
-  color = vec4(u_dot.rgb, u_dot.a * a);
-}`
-
-type Rgba = [number, number, number, number]
 
 function reducedMotion(): boolean {
   return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -90,78 +38,6 @@ interface Rider {
   /** Where its vertices begin in the rider buffer; `uploadRiders` owns this. */
   start: number
   color: Rgba
-}
-
-/** A piece's diagnostic hue as GL floats, without going through CSS and a canvas. */
-function hueRgba(id: number): Rgba {
-  const [r, g, b] = hueBytes(id)
-  return [r / 255, g / 255, b / 255, 1]
-}
-
-/**
- * A single 2D context, reused by every `rgbaOf` call rather than one canvas
- * created per call. Lazy so importing this module never touches the DOM.
- */
-let probeCtx: CanvasRenderingContext2D | null | undefined
-
-function probe(): CanvasRenderingContext2D | null {
-  if (probeCtx === undefined) probeCtx = document.createElement('canvas').getContext('2d')
-  return probeCtx
-}
-
-/**
- * A CSS colour as GL floats. The browser does the parsing, so anything a
- * consumer may put in `view.ink` works — names, hex of either length, hsl(),
- * the colour functions of tomorrow — without this file owning a parser.
- *
- * Resolved once per `BoardView`, in `setBoard` (and per point colour, in
- * `setPoints`) — never from the draw loop. `draw()` runs up to three colours
- * a frame, and each call here is a canvas readback; paid once per board or
- * view change, it is free, paid sixty times a second it is not.
- */
-function rgbaOf(css: string): Rgba {
-  const ctx = probe()
-  if (!ctx) return [0, 0, 0, 1]
-  // The one pixel is cleared first: `fillRect` composites, so a half
-  // transparent colour would otherwise be read over whatever the previous
-  // call left there and come back opaque.
-  ctx.clearRect(0, 0, 1, 1)
-  ctx.fillStyle = '#000'
-  ctx.fillStyle = css
-  ctx.fillRect(0, 0, 1, 1)
-  const d = ctx.getImageData(0, 0, 1, 1).data
-  const [r, g, b, a] = [d[0] ?? 0, d[1] ?? 0, d[2] ?? 0, d[3] ?? 255]
-  return [r / 255, g / 255, b / 255, a / 255]
-}
-
-function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader {
-  const sh = gl.createShader(type)
-  if (!sh) throw new Error('gl-layer: createShader failed')
-  gl.shaderSource(sh, src)
-  gl.compileShader(sh)
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    throw new Error(`gl-layer: ${gl.getShaderInfoLog(sh) ?? 'shader did not compile'}`)
-  }
-  return sh
-}
-
-function link(gl: WebGL2RenderingContext, vert: string, frag: string): WebGLProgram {
-  const p = gl.createProgram()
-  if (!p) throw new Error('gl-layer: createProgram failed')
-  const vs = compile(gl, gl.VERTEX_SHADER, vert)
-  const fs = compile(gl, gl.FRAGMENT_SHADER, frag)
-  gl.attachShader(p, vs)
-  gl.attachShader(p, fs)
-  gl.linkProgram(p)
-  const ok = gl.getProgramParameter(p, gl.LINK_STATUS)
-  const log = gl.getProgramInfoLog(p)
-  // Once a program is linked, its shaders can be released immediately — the
-  // normal WebGL idiom, and it keeps the constructor from leaking two shader
-  // objects per layer.
-  gl.deleteShader(vs)
-  gl.deleteShader(fs)
-  if (!ok) throw new Error(`gl-layer: ${log ?? 'program did not link'}`)
-  return p
 }
 
 /** The blocks in draw order, with where each takes its colour from. */
