@@ -25,3 +25,10 @@ test('the colour button is labelled in both languages', () => {
   expect(labelsFor('pl').colors).toBe('Kolory figur')
   expect(labelsFor('en').colors).toBe('Piece colours')
 })
+
+test('every label has both languages, the WebGL message included', () => {
+  const keys = Object.keys(BOARD_LABELS.en)
+  expect(Object.keys(BOARD_LABELS.pl).sort()).toEqual(keys.sort())
+  expect(BOARD_LABELS.en.noWebgl.length).toBeGreaterThan(0)
+  expect(BOARD_LABELS.pl.noWebgl).not.toBe(BOARD_LABELS.en.noWebgl)
+})

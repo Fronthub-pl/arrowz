@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { fit, MAX_CELL_PX, MIN_PAD_PX, panBy, resize, screenToCell, viewBox, zoomAt, zoomBy } from './viewport.ts'
+import { fit, MAX_CELL_PX, MIN_PAD_PX, panBy, resize, screenToCell, zoomAt, zoomBy } from './viewport.ts'
 
 const input = { W: 100, H: 200, hostWidth: 400, hostHeight: 800, pad: 0 }
 
@@ -10,7 +10,6 @@ describe('fit', () => {
     expect(v.originX).toBeCloseTo(0, 9)
     expect(v.originY).toBeCloseTo(0, 9)
     expect(v.fitted).toBe(true)
-    expect(viewBox(v)).toBe('0 0 100 200')
   })
 
   test('centres the board on the axis with slack', () => {
@@ -132,13 +131,17 @@ describe('margin', () => {
     const v = fit(small)
     expect(v.margin).toBeCloseTo(3, 9)
     expect(v.cellPx).toBeCloseTo(25, 9)
-    expect(viewBox(v)).toBe('-3 -3 16 16')
+    // The view starts at the outer edge of the margin and is 16 cells wide:
+    // the 10 of the board and 3 on each side.
+    expect(v.originX).toBeCloseTo(-3, 9)
+    expect(v.hostWidth / v.cellPx).toBeCloseTo(16, 9)
   })
 
   test('no margin asked for means none given', () => {
     const v = fit({ ...small, pad: 0 })
     expect(v.margin).toBe(0)
-    expect(viewBox(v)).toBe('0 0 10 10')
+    expect(v.originX).toBeCloseTo(0, 9)
+    expect(v.hostWidth / v.cellPx).toBeCloseTo(10, 9)
   })
 
   test('a margin that would shrink below the floor on screen is widened to it', () => {

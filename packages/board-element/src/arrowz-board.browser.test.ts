@@ -1,10 +1,17 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { ArrowzBoard, DEFAULT_PAD, ZOOM_STEP } from './arrowz-board.ts'
-import type { PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
+import {
+  ArrowzBoard,
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  DEFAULT_SHOW_POINTS,
+  ZOOM_STEP,
+} from './arrowz-board.ts'
+import type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
 import './mod.ts'
-import { fit, viewBox, zoomBy } from './viewport.ts'
+import { fit, MIN_POINT_CELL_PX, type Viewport, zoomBy } from './viewport.ts'
 
 function makeBoard(seed = 7): Board {
   return generate({ ...defaultParams(), W: 30, H: 30, seed }).board
@@ -29,13 +36,70 @@ async function mount(attrs: Record<string, string> = {}): Promise<ArrowzBoard> {
   return el
 }
 
-function svgOf(e: ArrowzBoard): SVGSVGElement {
-  const svg = e.shadowRoot?.querySelector('svg')
-  if (!svg) throw new Error('no svg in the shadow root')
-  return svg
+function canvasOf(e: ArrowzBoard): HTMLCanvasElement {
+  const canvas = e.shadowRoot?.querySelector('canvas')
+  if (!canvas) throw new Error('no canvas in the shadow root')
+  return canvas
 }
 
-/** Screen coordinates (relative to the svg) of the centre of the head cell of a piece. */
+/** Pixels the board actually covered: the paper is opaque, the page behind it is not. */
+function opaque(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 3; i < buf.length; i += 4) if (buf[i] === 255) n++
+  return n
+}
+
+/**
+ * One frame of the board, read straight off the GPU, in RGBA bytes.
+ *
+ * The layer draws on a frame it asks for itself and the drawing buffer is
+ * gone once that frame has been composited, so the read has to happen on the
+ * same frame and after the draw. The nudge asks for the frame — a zoom too
+ * small to see, which is all the public API has for saying "draw" — and a
+ * callback registered after it runs after the layer's own, frames being run
+ * in the order they were asked for.
+ *
+ * The loop is for the very first frame after a mount, which comes back empty:
+ * the buffer is sized on the layer's first draw, and a read of that same
+ * frame catches it before anything has landed in it. Every frame after it is
+ * the picture.
+ */
+async function painted(e: ArrowzBoard): Promise<Uint8Array> {
+  const canvas = canvasOf(e)
+  const gl = canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2 context on the board')
+  let buf: Uint8Array = new Uint8Array(0)
+  for (let i = 0; i < 10; i++) {
+    e.zoomBy(1 + 1e-6)
+    buf = await new Promise<Uint8Array>((resolve) => {
+      requestAnimationFrame(() => {
+        const bytes = new Uint8Array(canvas.width * canvas.height * 4)
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes)
+        resolve(bytes)
+      })
+    })
+    if (opaque(buf) > 0) return buf
+  }
+  return buf
+}
+
+/** How many pixels of a painted board are neither the page behind it nor bare paper. */
+function inked(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    const [r, g, b, a] = [buf[i] ?? 0, buf[i + 1] ?? 0, buf[i + 2] ?? 0, buf[i + 3] ?? 0]
+    if (a === 255 && r < 200 && g < 200 && b < 200) n++
+  }
+  return n
+}
+
+/** The six fields the element reports, taken from a viewport computed here. */
+function reported(v: Viewport): BoardViewport {
+  const { cellPx, originX, originY, fitted, hostWidth, hostHeight } = v
+  return { cellPx, originX, originY, fitted, hostWidth, hostHeight }
+}
+
+/** Screen coordinates (relative to the canvas) of the centre of the head cell of a piece. */
 function headPoint(e: ArrowzBoard, pieceId: number): { x: number; y: number } {
   const vp = e.viewport
   const pc = e.board?.pieces.find((p) => p.id === pieceId)
@@ -45,7 +109,7 @@ function headPoint(e: ArrowzBoard, pieceId: number): { x: number; y: number } {
 }
 
 function pointer(type: string, x: number, y: number, init: Partial<PointerEventInit> = {}): PointerEvent {
-  const r = svgOf(el).getBoundingClientRect()
+  const r = canvasOf(el).getBoundingClientRect()
   return new PointerEvent(type, {
     bubbles: true,
     composed: true,
@@ -71,20 +135,21 @@ describe('mount and viewport', () => {
     expect(customElements.get('arrowz-board')).toBe(ArrowzBoard)
     await mount()
     const expected = fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD })
-    expect(svgOf(el).getAttribute('viewBox')).toBe(viewBox(expected))
+    expect(el.viewport).toEqual(reported(expected))
     expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
     expect(el.viewport?.fitted).toBe(true)
-    expect(svgOf(el).querySelectorAll('g.heads > g[data-id]').length).toBe(el.board?.pieces.length)
+    expect(canvasOf(el).isConnected).toBe(true)
+    expect(el.pieceCount).toBe(el.board?.pieces.length)
   })
 
-  test('zoomBy, fit and the buttons change the viewBox and emit viewport-change', async () => {
+  test('zoomBy, fit and the buttons move the viewport and emit viewport-change', async () => {
     await mount()
     const seen: ViewportChangeEvent[] = []
     document.addEventListener('viewport-change', (e) => seen.push(e as ViewportChangeEvent))
     el.zoomBy(2)
     await raf()
     const expected = zoomBy(fit({ W: 30, H: 30, hostWidth: 300, hostHeight: 300, pad: DEFAULT_PAD }), 2)
-    expect(svgOf(el).getAttribute('viewBox')).toBe(viewBox(expected))
+    expect(el.viewport).toEqual(reported(expected))
     expect(seen.at(-1)?.detail.cellPx).toBeCloseTo(300 / (30 + 2 * DEFAULT_PAD) * 2, 6)
     expect(seen.at(-1)?.detail.fitted).toBe(false)
     const buttons = el.shadowRoot?.querySelectorAll('button')
@@ -99,7 +164,7 @@ describe('mount and viewport', () => {
 
   test('the wheel zooms towards the cursor and is not passive', async () => {
     await mount()
-    const r = svgOf(el).getBoundingClientRect()
+    const r = canvasOf(el).getBoundingClientRect()
     const ev = new WheelEvent('wheel', {
       deltaY: -500,
       clientX: r.left,
@@ -107,7 +172,7 @@ describe('mount and viewport', () => {
       bubbles: true,
       cancelable: true,
     })
-    svgOf(el).dispatchEvent(ev)
+    canvasOf(el).dispatchEvent(ev)
     await raf()
     expect(ev.defaultPrevented).toBe(true)
     expect(el.viewport?.cellPx).toBeGreaterThan(FIT)
@@ -161,8 +226,8 @@ describe('clicks', () => {
     const seen: PieceClickEvent[] = []
     document.addEventListener('piece-click', (e) => seen.push(e as PieceClickEvent))
     const p = headPoint(el, pc.id)
-    svgOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
-    svgOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
     expect(seen.length).toBe(1)
     expect(seen[0]?.detail.pieceId).toBe(pc.id)
     expect(seen[0]?.composed).toBe(true)
@@ -175,8 +240,8 @@ describe('clicks', () => {
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const p = headPoint(el, pc.id)
-    svgOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2 }))
-    svgOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2 }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0 }))
     expect(seen.length).toBe(0)
   })
 
@@ -187,17 +252,17 @@ describe('clicks', () => {
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const pa = headPoint(el, a.id), pb = headPoint(el, b.id)
-    svgOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    svgOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
     expect(seen.length).toBe(0)
     el.interactive = true
     await el.updateComplete
-    svgOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
-    svgOf(el).dispatchEvent(pointer('pointermove', pa.x + 30, pa.y, { ctrlKey: true }))
-    svgOf(el).dispatchEvent(pointer('pointerup', pa.x + 30, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointermove', pa.x + 30, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x + 30, pa.y, { ctrlKey: true }))
     expect(seen.length).toBe(0)
-    svgOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    svgOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y))
     expect(seen.length).toBe(0)
   })
 
@@ -206,14 +271,14 @@ describe('clicks', () => {
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
-    const svg = svgOf(el)
-    svg.dispatchEvent(pointer('pointermove', p.x, p.y))
-    expect(svg.classList.contains('over-piece')).toBe(true)
-    svg.dispatchEvent(pointer('pointerdown', p.x, p.y, { metaKey: true }))
-    expect(svg.classList.contains('over-piece')).toBe(false)
-    expect(svg.classList.contains('panning')).toBe(true)
-    svg.dispatchEvent(pointer('pointerup', p.x, p.y, { metaKey: true }))
-    expect(svg.classList.contains('panning')).toBe(false)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y))
+    expect(canvas.classList.contains('over-piece')).toBe(true)
+    canvas.dispatchEvent(pointer('pointerdown', p.x, p.y, { metaKey: true }))
+    expect(canvas.classList.contains('over-piece')).toBe(false)
+    expect(canvas.classList.contains('panning')).toBe(true)
+    canvas.dispatchEvent(pointer('pointerup', p.x, p.y, { metaKey: true }))
+    expect(canvas.classList.contains('panning')).toBe(false)
   })
 
   test('holding the modifier shows the grab cursor before any press', async () => {
@@ -221,40 +286,40 @@ describe('clicks', () => {
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
-    const svg = svgOf(el)
-    svg.dispatchEvent(pointer('pointerenter', p.x, p.y))
-    svg.dispatchEvent(pointer('pointermove', p.x, p.y))
-    expect(svg.classList.contains('over-piece')).toBe(true)
-    expect(svg.classList.contains('pan-ready')).toBe(false)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', p.x, p.y))
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y))
+    expect(canvas.classList.contains('over-piece')).toBe(true)
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
     globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
-    expect(svg.classList.contains('pan-ready')).toBe(true)
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
     // A click with the modifier pans instead of playing, so the piece cursor is
     // not merely outranked: it would be a lie about what the click does.
-    expect(svg.classList.contains('over-piece')).toBe(false)
+    expect(canvas.classList.contains('over-piece')).toBe(false)
     globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta' }))
-    expect(svg.classList.contains('pan-ready')).toBe(false)
-    expect(svg.classList.contains('over-piece')).toBe(true)
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
+    expect(canvas.classList.contains('over-piece')).toBe(true)
   })
 
   test('the pointer arriving with the modifier already down finds the grab cursor', async () => {
     await mount({ interactive: '' })
-    const svg = svgOf(el)
-    svg.dispatchEvent(pointer('pointerenter', 150, 150, { ctrlKey: true }))
-    expect(svg.classList.contains('pan-ready')).toBe(true)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', 150, 150, { ctrlKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
   })
 
   test('leaving the board, or the window losing focus, drops the grab cursor', async () => {
     await mount({ interactive: '' })
-    const svg = svgOf(el)
-    svg.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
-    expect(svg.classList.contains('pan-ready')).toBe(true)
-    svg.dispatchEvent(pointer('pointerleave', 150, 150, { metaKey: true }))
-    expect(svg.classList.contains('pan-ready')).toBe(false)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
+    canvas.dispatchEvent(pointer('pointerleave', 150, 150, { metaKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
     // ⌘-Tab away: the keyup lands in another window, so blur has to do it.
-    svg.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
-    expect(svg.classList.contains('pan-ready')).toBe(true)
+    canvas.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
     globalThis.dispatchEvent(new Event('blur'))
-    expect(svg.classList.contains('pan-ready')).toBe(false)
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
   })
 
   test('a modifier drag pans', async () => {
@@ -263,9 +328,9 @@ describe('clicks', () => {
     await raf()
     const before = el.viewport?.originX ?? 0
     const cellPx = el.viewport?.cellPx ?? 1
-    svgOf(el).dispatchEvent(pointer('pointerdown', 150, 150, { metaKey: true }))
-    svgOf(el).dispatchEvent(pointer('pointermove', 120, 150, { metaKey: true }))
-    svgOf(el).dispatchEvent(pointer('pointerup', 120, 150, { metaKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', 150, 150, { metaKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointermove', 120, 150, { metaKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', 120, 150, { metaKey: true }))
     await raf()
     expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6) // a 30 px drag
   })
@@ -276,12 +341,16 @@ describe('effects and labels', () => {
     await mount()
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
+    const all = el.board?.pieces.length ?? 0
+    // The exit is the layer's, so the count it keeps is the proof the call
+    // reached it: a piece that rides out for good stops being drawn.
     await el.animateExit(pc.id, pc.dir)
-    expect(svgOf(el).querySelectorAll(`g[data-id="${pc.id}"]`).length).toBe(0)
+    expect(el.pieceCount).toBe(all - 1)
     const other = el.board?.pieces[1]
     if (!other) throw new Error('need a second piece')
+    // A shake is a ride that comes back: the piece is still drawn afterwards.
     await el.shake(other.id, 0.3)
-    expect(svgOf(el).querySelectorAll(`g[data-id="${other.id}"]`).length).toBe(2)
+    expect(el.pieceCount).toBe(all - 1)
   })
 
   test('lang="pl" switches the button labels, anything else is English', async () => {
@@ -321,87 +390,92 @@ describe('effects and labels', () => {
     await el.updateComplete
     await raf()
     document.removeEventListener('viewport-change', onChange)
-    expect(svgOf(el).querySelector('g.pieces')?.getAttribute('stroke-width')).toBe('0.3')
+    // The stroke is geometry the layer rebuilds; what the element owes is a
+    // repaint of the same pieces at the same viewport, and no event.
+    expect(el.pieceCount).toBe(el.board?.pieces.length)
     expect(el.viewport?.cellPx).toBeCloseTo(before.cellPx, 6)
     expect(el.viewport?.originX).toBeCloseTo(before.originX, 6)
     expect(el.viewport?.originY).toBeCloseTo(before.originY, 6)
     expect(seen.length).toBe(0)
   })
 
-  test('a board minus one piece still draws the piece that stayed', async () => {
+  test('a board minus one piece still draws the pieces that stayed', async () => {
     // Reassigning `board` starts a fresh game session (the element always
-    // owns one), so the redraw omits nothing yet keeps nothing by identity
-    // either — a fresh session's goneIds Set forces svg-layer to rebuild.
-    // See `svg-layer.browser.test.ts`'s `diff` suite for node-identity
-    // coverage of the layer itself, called without a session in the way.
+    // owns one), so the redraw omits nothing: every piece of the new board is
+    // tesselated again. See `gl-layer.browser.test.ts` for what the layer
+    // draws, called without a session in the way.
     await mount()
     const b = el.board
     const kept = b?.pieces[1]
     if (!b || !kept) throw new Error('need a board with two pieces')
     el.board = { ...b, pieces: b.pieces.slice(1) }
     await el.updateComplete
-    expect(svgOf(el).querySelector(`g.pieces > g[data-id="${kept.id}"]`)).not.toBeNull()
-    expect(svgOf(el).querySelectorAll('g.pieces > g[data-id]').length).toBe(b.pieces.length - 1)
+    expect(el.pieceCount).toBe(b.pieces.length - 1)
   })
 })
 
 describe('margin', () => {
-  function paperOf(e: ArrowzBoard): SVGRectElement {
-    const r = e.shadowRoot?.querySelector('rect.paper')
-    if (!(r instanceof SVGRectElement)) throw new Error('no paper')
-    return r
+  /** How many cells of world the view spans across its width. */
+  function viewCells(e: ArrowzBoard): number {
+    const vp = e.viewport
+    if (!vp) throw new Error('need a viewport')
+    return vp.hostWidth / vp.cellPx
   }
 
+  // What the element decides is the margin the viewport keeps, and a fitted
+  // board shows it in the origin it starts at and the width it spans. The
+  // paper drawn to that margin is the layer's, in `gl-layer.browser.test.ts`.
   test('the board keeps a margin of four cells around the cells by default', async () => {
     await mount()
     expect(DEFAULT_PAD).toBe(4)
-    expect(paperOf(el).getAttribute('x')).toBe('-4')
-    expect(paperOf(el).getAttribute('width')).toBe('38')
     expect(el.viewport?.originX).toBeCloseTo(-4, 6)
+    expect(viewCells(el)).toBeCloseTo(38, 6)
   })
 
   test('the pad attribute sets the margin', async () => {
     await mount({ pad: '2' })
     expect(el.pad).toBe(2)
-    expect(paperOf(el).getAttribute('x')).toBe('-2')
-    expect(paperOf(el).getAttribute('width')).toBe('34')
+    expect(el.viewport?.originX).toBeCloseTo(-2, 6)
+    expect(viewCells(el)).toBeCloseTo(34, 6)
   })
 
   test('a pad of zero draws the board edge to edge, as before', async () => {
     await mount({ pad: '0' })
-    expect(paperOf(el).getAttribute('x')).toBe('0')
-    expect(paperOf(el).getAttribute('width')).toBe('30')
+    expect(el.viewport?.originX).toBeCloseTo(0, 6)
+    expect(viewCells(el)).toBeCloseTo(30, 6)
   })
 
-  test('the paper follows the margin the view actually keeps, not the one asked for', async () => {
-    // 1 cell of 300/32 px is under the 16 px floor, so the view widens it.
+  test('the view keeps a wider margin than the one asked for when the pixels are too few', async () => {
+    // 1 cell of 300/32 px is under the 16 px floor, so the view widens it,
+    // and the element hands the layer that kept margin rather than `pad`.
     await mount({ pad: '1' })
+    expect(el.pad).toBe(1)
     const kept = el.viewport?.originX ?? 0
     expect(kept).toBeLessThan(-1)
-    expect(Number(paperOf(el).getAttribute('x'))).toBeCloseTo(kept, 6)
+    expect(viewCells(el)).toBeCloseTo(30 - 2 * kept, 6)
   })
 })
 
 describe('points', () => {
-  function rectOf(e: ArrowzBoard): SVGRectElement | null {
-    return e.shadowRoot?.querySelector('rect.points') ?? null
-  }
-
-  test('showPoints, pointColor and pointRadius reach the layer', async () => {
+  // Whether the dots are drawn is the layer's, and its own test walks the
+  // pixels; what the element owns is the three properties and the threshold
+  // its viewport crosses, which is what is asserted here.
+  test('show-points, point-color and point-radius arrive as properties', async () => {
     await mount({ 'show-points': '', 'point-color': '#ff00ff', 'point-radius': '0.2' })
-    const rect = rectOf(el)
-    expect(rect).not.toBeNull()
-    const circle = el.shadowRoot?.querySelector('pattern circle')
-    expect(circle?.getAttribute('fill')).toBe('#ff00ff')
-    expect(circle?.getAttribute('r')).toBe('0.2')
+    expect(el.showPoints).toBe(true)
+    expect(el.pointColor).toBe('#ff00ff')
+    expect(el.pointRadius).toBe(0.2)
+    expect(el.viewport?.cellPx).toBeGreaterThanOrEqual(MIN_POINT_CELL_PX)
   })
 
-  test('no grid without show-points, even at a cell size above the threshold', async () => {
+  test('the grid is off unless a host asks for it', async () => {
     await mount()
-    expect(rectOf(el)).toBeNull()
+    expect(el.showPoints).toBe(DEFAULT_SHOW_POINTS)
+    expect(el.pointColor).toBe(DEFAULT_POINT_COLOR)
+    expect(el.pointRadius).toBe(DEFAULT_POINT_RADIUS)
   })
 
-  test('zooming out below the threshold hides the grid and zooming back in restores it, with no property touched in between', async () => {
+  test('zooming crosses the grid threshold in both directions, with no property touched in between', async () => {
     el = document.createElement('arrowz-board')
     el.style.width = '300px'
     el.style.height = '300px'
@@ -412,17 +486,64 @@ describe('points', () => {
     await raf()
     await raf()
     // Fitted, a 200x200 board in a 300 px host gives well under 6 px per cell.
-    expect(el.viewport?.cellPx).toBeLessThan(6)
-    expect(rectOf(el)).toBeNull()
+    expect(el.viewport?.cellPx).toBeLessThan(MIN_POINT_CELL_PX)
 
     el.zoomBy(6)
     await raf()
-    expect(el.viewport?.cellPx).toBeGreaterThanOrEqual(6)
-    expect(rectOf(el)).not.toBeNull()
+    expect(el.viewport?.cellPx).toBeGreaterThanOrEqual(MIN_POINT_CELL_PX)
+    expect(el.showPoints).toBe(true)
 
     el.fit()
     await raf()
-    expect(el.viewport?.cellPx).toBeLessThan(6)
-    expect(rectOf(el)).toBeNull()
+    expect(el.viewport?.cellPx).toBeLessThan(MIN_POINT_CELL_PX)
+    expect(el.showPoints).toBe(true)
+  })
+})
+
+describe('the context a board holds', () => {
+  /** Whether the canvas's context is gone, asked of the canvas rather than the layer. */
+  const isLost = (canvas: HTMLCanvasElement): boolean => canvas.getContext('webgl2')?.isContextLost() ?? true
+
+  async function settle(canvas: HTMLCanvasElement, lost: boolean): Promise<void> {
+    for (let i = 0; i < 20 && isLost(canvas) !== lost; i++) await raf()
+  }
+
+  test('a detached board gives its context up, and an attached one takes it back', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const drawn = el.pieceCount
+    expect(drawn).toBeGreaterThan(0)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+
+    el.remove()
+    // A page holds about sixteen live contexts, so the whole point of the
+    // disposal is that the context itself goes, not merely the buffers in it.
+    await settle(canvas, true)
+    expect(isLost(canvas)).toBe(true)
+
+    document.body.append(el)
+    await settle(canvas, false)
+    expect(isLost(canvas)).toBe(false)
+    // The board is rebuilt from what the layer still holds: nothing was
+    // handed back to it, and the count of pieces it draws never moved.
+    expect(el.pieceCount).toBe(drawn)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+  })
+
+  test('a board moved between parents keeps the context it had', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const box = document.createElement('div')
+    box.style.width = '300px'
+    box.style.height = '300px'
+    document.body.append(box)
+    // A move is a removal and an insertion in one task, and must cost neither
+    // the context nor the rebuild that taking it back would need.
+    box.append(el)
+    await new Promise<void>((r) => queueMicrotask(() => r()))
+    expect(isLost(canvas)).toBe(false)
+    await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
   })
 })

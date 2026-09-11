@@ -1093,3 +1093,70 @@ through `viewBox`, effects through the Web Animations API. Measured on
 83 ms per frame (worst 357 ms) and zooms at 105 ms, above the 50 ms
 acceptance of the board element spec. Next: drop the per-piece `<g>`,
 re-measure, then decide between virtualisation and Canvas.
+
+## 2026-09-10 — the SVG layer goes, `<arrowz-board>` draws on the GPU
+
+`svg-layer.ts` is deleted. `<arrowz-board>` now tesselates `pieceShape()`
+output into two typed-array buffers (`tesselate.ts`, pure, DOM-free, tested
+in the `node` Vitest project) and draws them with WebGL2 (`gl-layer.ts`): one
+static buffer for the whole board, one small dynamic buffer for whichever
+piece is riding its track. A pan or a zoom writes two uniforms and issues six
+`drawArrays` calls; nothing is re-tesselated or re-uploaded for either. A
+removed piece zeroes its own range of the static buffer with
+`bufferSubData` rather than triggering a rebuild, which is the property the
+SVG layer's `diff()` had and had to survive the rewrite.
+
+**Measured in this repository's own test environment** (Playwright's
+headless shell, devicePixelRatio 1 — not the foreground, hardware-accelerated
+Chrome the design's spike used): Nightmare 100×100 (915 pieces) builds in
+100–160 ms and pans at 19–28 ms a frame, near the 60 Hz floor. Insane
+1000×1000 (85 809 pieces, 10 376 259 vertices) builds in 260–350 ms but pans
+at 672–790 ms a frame (worst up to 1 101 ms) and zooms at 808 ms — far above
+the spec's 50 ms acceptance, and worse, not better, than the SVG layer's own
+83 ms in the previous round's measurement.
+
+**Confirmed on real hardware, not merely inferred:** the same board and the
+same scripted movement, in a foreground Chrome 152 on an Apple M1,
+devicePixelRatio 1, host about 1200×1200 — Insane builds in 338 ms and pans
+at 34.0 ms mean (worst 73.5 ms), zooms at 33.3 ms mean (worst 34.9 ms), under
+the spec's 50 ms acceptance with room to spare. The SVG layer this branch
+replaced, the same board and movement, foreground Chrome, recorded before
+this branch began: build 2 761 ms, pan mean 1 050.5 ms, worst 1 289.1 ms — the
+GPU layer is about 31× faster to pan and 8× faster to build than what it
+replaced. The headless shell's 789.6 ms was therefore a property of the
+environment, not the design: pan cost there grows with piece (and so vertex)
+count rather than staying flat with screen pixels, which is what a software
+rasteriser standing in for a GPU does to a vertex-heavy scene. No CI runner
+without a GPU can measure this layer's real cost, because it rasterises
+2 million-plus triangles on the CPU instead of the GPU; the headless number
+stays useful only as a relative regression signal against itself, never as a
+stand-in for the acceptance criterion. The point grid's cost is isolated by
+toggling it at a fixed zoom on the same board: build rises by ~68 ms (one
+extra quad and shader), pan does not move, matching the design's claim that
+the grid is a fixed per-frame cost rather than one proportional to the board.
+
+**GPU memory, measured directly** rather than estimated (a temporary log of
+`positions.byteLength` and the colour buffer's `byteLength` in `upload()`,
+removed after reading): the Insane board's static position buffer is
+83 010 072 bytes (10 376 259 vertices, two `Float32`s each) — 79.2 MB. The
+colour buffer, built only once the lab's coloured mode is switched on, is a
+further 41 505 036 bytes (four bytes a vertex) — 118.7 MB total. Both figures
+are about two-thirds higher than the design's spike predicted (47.7 MB and
+73 MB): the spike never tesselated the tail roundings, and `TAIL_SEGMENTS`
+has since doubled from 8 to 16, needed so the rounding stays smooth at
+devicePixelRatio 2 rather than the dpr 1 the constant was originally chosen
+against.
+
+**The triangle budget behind that memory:** at the ceiling, lines are
+roughly 1.83 million triangles, head polygons 0.26 million, and tail
+roundings 1.37 million — about 40% of every triangle on the board. At the
+fitted zoom, where a cell is 0.8 px wide, none of that 40% is visible:
+doubling `TAIL_SEGMENTS` to 16 bought a round tail at high zoom and charged
+for it at every zoom, including the one where the board is first seen. The
+constant stays at 16 for this branch — the 34 ms figure above is the
+improvement this round was asked to deliver, and re-tesselating again would
+restart review on the most delicate file in the plan — but it is not the
+final answer to this cost. Next: a signed-distance round cap computed in the
+fragment shader, six vertices a tail instead of forty-eight, removing
+roughly 40% of the board's geometry and staying exactly round at every zoom
+instead of faceted at some.

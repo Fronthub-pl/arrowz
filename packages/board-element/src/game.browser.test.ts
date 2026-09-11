@@ -2,7 +2,8 @@ import { defaultParams, DIRS, generate } from '@arrowz/engine'
 import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
-import { hueOf } from './svg-layer.ts'
+import { EXIT_MAX_MS } from './track.ts'
+import { hueBytes, SHAKE_MS } from './view.ts'
 import './mod.ts'
 
 function makeBoard(seed = 7): Board {
@@ -11,8 +12,21 @@ function makeBoard(seed = 7): Board {
 
 const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
+/**
+ * The rides are real animations, so a test that looks at the board after one
+ * has to outwait it. The waits are tied to the two durations rather than
+ * guessed: a flat 700 ms left an exit capped at EXIT_MAX_MS only 100 ms of
+ * slack, and a machine running the whole workspace's tests at once ate it.
+ */
+const exited = () => new Promise<void>((r) => setTimeout(r, EXIT_MAX_MS + 400))
+const bounced = () => new Promise<void>((r) => setTimeout(r, SHAKE_MS + 400))
+
 let el: ArrowzBoard
 async function mount(attrs: Record<string, string> = {}, board = makeBoard()): Promise<ArrowzBoard> {
+  // One board at a time: each holds a WebGL context, a page is allowed about
+  // sixteen, and a test that mounts three in a row must not be the reason
+  // some other board loses its own.
+  el?.remove()
   el = document.createElement('arrowz-board')
   el.style.width = '300px'
   el.style.height = '300px'
@@ -25,10 +39,55 @@ async function mount(attrs: Record<string, string> = {}, board = makeBoard()): P
   return el
 }
 
-function svgOf(e: ArrowzBoard): SVGSVGElement {
-  const svg = e.shadowRoot?.querySelector('svg')
-  if (!svg) throw new Error('no svg in the shadow root')
-  return svg
+function canvasOf(e: ArrowzBoard): HTMLCanvasElement {
+  const canvas = e.shadowRoot?.querySelector('canvas')
+  if (!canvas) throw new Error('no canvas in the shadow root')
+  return canvas
+}
+
+/** Pixels the board actually covered: the paper is opaque, the page behind it is not. */
+function opaque(buf: Uint8Array): number {
+  let n = 0
+  for (let i = 3; i < buf.length; i += 4) if (buf[i] === 255) n++
+  return n
+}
+
+/** How many pixels of a painted board are exactly a piece's own diagnostic hue. */
+function hued(buf: Uint8Array, id: number): number {
+  const [r, g, b] = hueBytes(id)
+  let n = 0
+  for (let i = 0; i < buf.length; i += 4) {
+    if (buf[i] === r && buf[i + 1] === g && buf[i + 2] === b && buf[i + 3] === 255) n++
+  }
+  return n
+}
+
+/**
+ * One frame of the board, read straight off the GPU, in RGBA bytes. The layer
+ * draws on a frame it asks for itself and the drawing buffer is gone once
+ * that frame has been composited, so the read happens on the same frame and
+ * after the draw: the nudge asks for the frame — a zoom too small to see —
+ * and a callback registered after it runs after the layer's own. The loop is
+ * for the first frame after a mount, which comes back empty because the
+ * buffer is sized on that very draw.
+ */
+async function painted(e: ArrowzBoard): Promise<Uint8Array> {
+  const canvas = canvasOf(e)
+  const gl = canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2 context on the board')
+  let buf: Uint8Array = new Uint8Array(0)
+  for (let i = 0; i < 10; i++) {
+    e.zoomBy(1 + 1e-6)
+    buf = await new Promise<Uint8Array>((resolve) => {
+      requestAnimationFrame(() => {
+        const bytes = new Uint8Array(canvas.width * canvas.height * 4)
+        gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, bytes)
+        resolve(bytes)
+      })
+    })
+    if (opaque(buf) > 0) return buf
+  }
+  return buf
 }
 
 /** Clicks the centre of the head cell of a piece the way a mouse would. */
@@ -36,7 +95,7 @@ function clickPiece(e: ArrowzBoard, pieceId: number): void {
   const vp = e.viewport
   const head = e.board?.pieces.find((p) => p.id === pieceId)?.cells[0]
   if (!vp || !head) throw new Error('need a viewport and a piece')
-  const r = svgOf(e).getBoundingClientRect()
+  const r = canvasOf(e).getBoundingClientRect()
   const x = r.left + (head.x + 0.5 - vp.originX) * vp.cellPx
   const y = r.top + (head.y + 0.5 - vp.originY) * vp.cellPx
   const init = {
@@ -49,9 +108,9 @@ function clickPiece(e: ArrowzBoard, pieceId: number): void {
     clientX: x,
     clientY: y,
   }
-  const svg = svgOf(e)
-  svg.dispatchEvent(new PointerEvent('pointerdown', init))
-  svg.dispatchEvent(new PointerEvent('pointerup', init))
+  const canvas = canvasOf(e)
+  canvas.dispatchEvent(new PointerEvent('pointerdown', init))
+  canvas.dispatchEvent(new PointerEvent('pointerup', init))
 }
 
 /**
@@ -103,9 +162,10 @@ describe('play', () => {
     const seen: Array<{ pieceId: number; left: number }> = []
     el.addEventListener('piece-removed', (e) => seen.push(e.detail))
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     expect(seen).toEqual([{ pieceId: free, left: board.pieces.length - 1 }])
-    expect(svgOf(el).querySelector(`g.heads > g[data-id="${free}"]`)).toBeNull()
+    // The piece has ridden off the board, so the layer has stopped drawing it.
+    expect(el.pieceCount).toBe(board.pieces.length - 1)
   })
 
   test('a click on a blocked piece keeps it, and costs a life every time', async () => {
@@ -115,11 +175,12 @@ describe('play', () => {
     const seen: Array<{ pieceId: number; blockerId: number }> = []
     el.addEventListener('life-lost', (e) => seen.push({ pieceId: e.detail.pieceId, blockerId: e.detail.blockerId }))
     clickPiece(el, blocked)
-    await new Promise<void>((r) => setTimeout(r, 400))
+    await bounced()
     clickPiece(el, blocked)
-    await new Promise<void>((r) => setTimeout(r, 400))
+    await bounced()
     expect(seen).toEqual([{ pieceId: blocked, blockerId: blocker }, { pieceId: blocked, blockerId: blocker }])
-    expect(svgOf(el).querySelector(`g.heads > g[data-id="${blocked}"]`)).not.toBeNull()
+    // A bounce is a ride that comes back: every piece is still drawn.
+    expect(el.pieceCount).toBe(board.pieces.length)
   })
 
   test('a cell vacated by a removed piece is no longer a piece', async () => {
@@ -129,9 +190,9 @@ describe('play', () => {
     const removed: number[] = []
     el.addEventListener('piece-removed', (e) => removed.push(e.detail.pieceId))
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     clickPiece(el, free) // the same screen point, now empty paper
-    await new Promise<void>((r) => setTimeout(r, 400))
+    await bounced()
     expect(removed).toEqual([free])
   })
 
@@ -144,10 +205,10 @@ describe('play', () => {
     el.addEventListener('piece-click', (e) => clicks.push(e.detail.pieceId))
     el.addEventListener('piece-removed', (e) => removals.push(e.detail.pieceId))
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 400))
+    await bounced()
     expect(clicks).toEqual([free])
     expect(removals).toEqual([])
-    expect(svgOf(el).querySelector(`g.heads > g[data-id="${free}"]`)).not.toBeNull()
+    expect(el.pieceCount).toBe(board.pieces.length)
   })
 
   test('a rebuild mid-ride resolves the ride instead of hanging the game', async () => {
@@ -169,13 +230,13 @@ describe('play', () => {
     const finished: number[] = []
     el.addEventListener('finished', (e) => finished.push(e.detail.pieces))
     clickPiece(el, 0)
-    await new Promise<void>((r) => setTimeout(r, 700)) // the first ride settles
+    await exited() // the first ride settles
     clickPiece(el, 1) // the last piece: this ride is the one that wins the game
     await raf() // the ride has started
     const rebuilt = makeBoard()
     el.board = rebuilt // a rebuild cancels it
     await el.updateComplete
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     // The cancelled last ride resolved rather than hanging: `finished` still
     // arrives, reporting the piece count of the board it belonged to.
     expect(finished).toEqual([2])
@@ -183,7 +244,7 @@ describe('play', () => {
     const removed: number[] = []
     el.addEventListener('piece-removed', (e) => removed.push(e.detail.pieceId))
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     expect(removed).toEqual([free])
   })
 
@@ -206,9 +267,9 @@ describe('play', () => {
     el.addEventListener('piece-removed', () => order.push('removed'))
     el.addEventListener('finished', (e) => order.push(`finished:${e.detail.pieces}`))
     clickPiece(el, 0)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     clickPiece(el, 1)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     expect(order).toEqual(['removed', 'removed', 'finished:2'])
   })
 })
@@ -236,7 +297,7 @@ describe('saving and restoring', () => {
     const { free } = verdicts(board)
     await mount({ play: '' }, board)
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     const snap = el.saveState()
     expect(snap?.removed).toEqual([free])
 
@@ -250,7 +311,7 @@ describe('saving and restoring', () => {
     if (snap) fresh.loadState(snap)
     await fresh.updateComplete
     await raf()
-    expect(svgOf(fresh).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length - 1)
+    expect(fresh.pieceCount).toBe(board.pieces.length - 1)
     fresh.remove()
   })
 
@@ -272,16 +333,16 @@ describe('saving and restoring', () => {
     const { free } = verdicts(board)
     await mount({ play: '' }, board)
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     const snap = el.saveState()
     expect(snap?.removed).toEqual([free])
 
     const fresh = await mount({ play: '' }, board)
-    expect(svgOf(fresh).querySelector(`g.heads > g[data-id="${free}"]`)).not.toBeNull()
+    expect(fresh.pieceCount).toBe(board.pieces.length)
     if (snap) fresh.loadState(snap)
     await fresh.updateComplete
-    expect(svgOf(fresh).querySelector(`g.heads > g[data-id="${free}"]`)).toBeNull()
-    expect(svgOf(fresh).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length - 1)
+    // The restored board omits the piece that had left, so it is drawn one short.
+    expect(fresh.pieceCount).toBe(board.pieces.length - 1)
   })
 
   test('a snapshot from another board is refused', async () => {
@@ -298,10 +359,10 @@ describe('saving and restoring', () => {
     const { free } = verdicts(board)
     await mount({ play: '' }, board)
     clickPiece(el, free)
-    await new Promise<void>((r) => setTimeout(r, 700))
+    await exited()
     el.restart()
     await el.updateComplete
-    expect(svgOf(el).querySelectorAll('g.heads > g[data-id]').length).toBe(board.pieces.length)
+    expect(el.pieceCount).toBe(board.pieces.length)
     expect(el.saveState()?.removed).toEqual([])
   })
 })
@@ -312,31 +373,30 @@ describe('colours', () => {
 
   test('without the permission there is no button and no colour', async () => {
     // The same board and the same `view.colored: true`, mounted once without
-    // the permission and once with it: an assertion resting only on "no
-    // stroke attribute" cannot tell a suppressed colour from a board that was
-    // never going to be coloured (markup() omits the attribute for any piece
-    // whose colour equals view.ink). Contrasting the two mounts of the same
-    // piece catches both a bypassed permission and a `colored` getter that
-    // regressed to always-false.
+    // the permission and once with it, and read off the GPU both times: a
+    // board that is merely monochrome and a board whose colour was suppressed
+    // look alike in one mount, so it takes the pair to catch both a bypassed
+    // permission and a `colored` getter regressed to always-false. The
+    // snapshot is checked alongside the pixels because the same verdict
+    // travels in it.
     const board = makeBoard()
     const first = board.pieces[0]
-    expect(first).toBeTruthy()
+    if (!first) throw new Error('need a piece')
 
     await mount({ play: '' }, board)
     el.view = { colored: true }
     await el.updateComplete
     expect(colourButton(el)).toBeNull()
-    if (first) {
-      expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke')).toBeNull()
-    }
+    expect(el.saveState()?.colored).toBe(false)
+    const plain = await painted(el)
+    expect(opaque(plain)).toBeGreaterThan(0)
+    expect(hued(plain, first.id)).toBe(0)
 
     const withPermission = await mount({ 'enable-colors': '', play: '' }, board)
     withPermission.view = { colored: true }
     await withPermission.updateComplete
-    if (first) {
-      expect(svgOf(withPermission).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke'))
-        .toBe(hueOf(first.id))
-    }
+    expect(withPermission.saveState()?.colored).toBe(true)
+    expect(hued(await painted(withPermission), first.id)).toBeGreaterThan(0)
   })
 
   test('with the permission the button paints the board and its label follows lang', async () => {
@@ -344,13 +404,14 @@ describe('colours', () => {
     const button = colourButton(el)
     expect(button?.getAttribute('aria-label')).toBe('Kolory figur')
     expect(button?.getAttribute('aria-pressed')).toBe('false')
+    expect(el.saveState()?.colored).toBe(false)
+    const first = el.board?.pieces[0]
+    if (!first) throw new Error('need a piece')
+    expect(hued(await painted(el), first.id)).toBe(0)
     button?.click()
     await el.updateComplete
-    const first = el.board?.pieces[0]
-    if (first) {
-      expect(svgOf(el).querySelector(`g.pieces > g[data-id="${first.id}"]`)?.getAttribute('stroke'))
-        .toBe(hueOf(first.id))
-    }
+    expect(el.saveState()?.colored).toBe(true)
+    expect(hued(await painted(el), first.id)).toBeGreaterThan(0)
     expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
   })
 
