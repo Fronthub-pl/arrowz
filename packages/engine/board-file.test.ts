@@ -122,15 +122,41 @@ Deno.test('decodeBoard refuses pieces that leave the board, overlap, sit on a vo
   refuse(encodeBoard(twice), 'id 0, which is negative or repeats')
 })
 
-Deno.test('decodeBoard refuses an id an Int32Array cannot hold', () => {
+Deno.test('decodeBoard refuses an id the board cannot have', () => {
   // encodeBoard cannot write such an id (its varints are 32-bit), so the body
   // is written by hand: one piece, id 2^32 - 1 (zigzag(2^32) = 2^33 as a
   // five-byte varint), head cell 0, one cell pointing right, no voids.
   const one = encodeBoard(handBoard(4, 4, [{ id: 0, dir: 1, cells: [{ x: 0, y: 0 }] }]))
   refuse(
     withBody(one, [0x80, 0x80, 0x80, 0x80, 0x20, 0, 1 * 4 + 1, 0]),
-    `piece 0 has id ${2 ** 32 - 1}, above the largest id a board can hold`,
+    `piece 0 has id ${2 ** 32 - 1}, more ids than the board has cells`,
   )
+  // A 4×4 board has 16 cells, so its ids run 0..15: 15 is read, 16 is refused.
+  const last = handBoard(4, 4, [{ id: 15, dir: 1, cells: [{ x: 0, y: 0 }] }])
+  assertSameBoard(decodeBoard(encodeBoard(last)), last)
+  refuse(
+    encodeBoard(handBoard(4, 4, [{ id: 16, dir: 1, cells: [{ x: 0, y: 0 }] }])),
+    'piece 0 has id 16, more ids than the board has cells',
+  )
+})
+
+Deno.test('decodeBoard refuses a head outside the board, an empty piece and non-zero padding', () => {
+  // The body of tiny(), byte by byte: piece 0 is [2, 0, 15] (zigzag(0 - -1),
+  // head cell 0, 3 * 4 + dir 3), piece 5 is [10, 15, 14] (zigzag(5 - 0), head
+  // cell 15, 3 * 4 + dir 2), then the step byte 197 (right, right, up, left),
+  // then the voids [1, 5] (one void, at cell 5).
+  const good = encodeBoard(tiny())
+  const bytes = bodyOf(good)
+  assertEquals(bytes, [2, 0, 15, 10, 15, 14, 197, 1, 5])
+  const edit = (index: number, value: number): BoardFile => withBody(good, bytes.map((b, i) => i === index ? value : b))
+  // Byte 1, the head of piece 0: cell 16 is one past the last cell of a 4×4 board.
+  refuse(edit(1, 16), 'piece 0 has its head outside the board')
+  // Byte 2, the length and direction of piece 0: 0 * 4 + 3 is a piece of no cells.
+  refuse(edit(2, 0 * 4 + 3), 'piece 0 has 0 cells')
+  // Byte 5, the length and direction of piece 5: 2 * 4 + 2 leaves piece 5 one
+  // step, so the step byte holds three steps and its last two bits (left, 0b11)
+  // become padding that is not zero.
+  refuse(edit(5, 2 * 4 + 2), 'the step stream is not padded with zero bits')
 })
 
 Deno.test('decodeBoard refuses a header that disagrees with the body', () => {

@@ -272,8 +272,9 @@ export function decodeBoard(file: unknown): BoardData {
   for (let i = 0; i < head.pieces; i++) {
     const id = prevId + unzigzag(r.varint())
     if (id < 0 || seen.has(id)) throw new BoardFileError(`piece ${i} has id ${id}, which is negative or repeats`)
-    // owner is an Int32Array: a larger id would wrap and pass for another piece, -1 or a void.
-    if (id > 0x7fffffff) throw new BoardFileError(`piece ${i} has id ${id}, above the largest id a board can hold`)
+    // The generator numbers pieces from 0, so an id is below the number of cells; a larger one would
+    // make a session allocate arrays as long as the id, and past 2^31 wrap in the Int32Array owner.
+    if (id >= cells) throw new BoardFileError(`piece ${i} has id ${id}, more ids than the board has cells`)
     seen.add(id)
     const cell = r.varint()
     if (cell >= cells) throw new BoardFileError(`piece ${id} has its head outside the board`)
