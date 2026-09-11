@@ -3,22 +3,20 @@
 // pixels and not what the board has pieces. A piece part way down its own
 // track is re-tesselated every frame into a second, small buffer, and its
 // triangles in the static one are collapsed for as long as it rides.
+//
+// This file is the layer's life: the context taken, lost, handed back and
+// given up, the board and view it draws, and the order of a frame. What a
+// frame draws is gl-passes.ts, the GL objects are gl-resources.ts, and a ride
+// is rides.ts.
 import { voidStrips } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
+import { drawDots, drawPaper, drawPieces, drawRiders, drawVoids, setView } from './gl-passes.ts'
 import { GlResources } from './gl-resources.ts'
 import { Rides } from './rides.ts'
-import { type Block, type PieceRanges, type Scene, tesselateBoard, voidQuads } from './tesselate.ts'
+import { type PieceRanges, type Scene, tesselateBoard, voidQuads } from './tesselate.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
-import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
-
-/** The blocks in draw order, with where each takes its colour from. */
-const PASSES: readonly { block: Block; highlight: boolean }[] = [
-  { block: 'lines', highlight: false },
-  { block: 'topLines', highlight: true },
-  { block: 'heads', highlight: false },
-  { block: 'topHeads', highlight: true },
-]
+import type { Viewport } from './viewport.ts'
 
 export class GlLayer {
   readonly canvas: HTMLCanvasElement
@@ -435,46 +433,11 @@ export class GlLayer {
     return true
   }
 
-  /**
-   * Binds `pos` to `a_pos`, and either binds `color` to `a_color` or
-   * disables it. Every pass on the main program — the paper and the four
-   * piece blocks today, plus the voids — routes through here instead of
-   * repeating the six lines by hand, so a pass that would hand a colour
-   * buffer sized for a different position buffer has to say so explicitly at
-   * its own call site, rather than the mismatch surviving because of the
-   * order passes happen to run in.
-   *
-   * Takes the program explicitly so the dot pass's program — which has no
-   * `a_color` at all — can share it too: `getAttribLocation` returns -1 for
-   * an attribute a program does not declare, and disabling a negative
-   * location is a GL error, so that case is a no-op rather than a call.
-   */
-  private bindAttrs(
-    gl: WebGL2RenderingContext,
-    program: WebGLProgram,
-    pos: WebGLBuffer | null,
-    color: WebGLBuffer | null,
-  ): void {
-    const posLoc = gl.getAttribLocation(program, 'a_pos')
-    gl.bindBuffer(gl.ARRAY_BUFFER, pos)
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    const colorLoc = gl.getAttribLocation(program, 'a_color')
-    if (colorLoc === -1) return
-    if (color) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, color)
-      gl.enableVertexAttribArray(colorLoc)
-      gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0)
-    } else {
-      gl.disableVertexAttribArray(colorLoc)
-    }
-  }
-
+  /** One frame: the passes of `gl-passes.ts`, in the order they have always run. */
   private draw(): void {
     const gl = this.gl
     const res = this.res
     if (!gl || !res) return
-    const program = res.program
     if (!this.resize()) return
     this.frameCount++
     gl.clearColor(0, 0, 0, 0)
@@ -483,123 +446,20 @@ export class GlLayer {
     const scene = this.scene
     const board = this.current
     if (!vp || !board) return
+    const { width, height } = this.canvas
 
-    gl.useProgram(program)
-    const loc = (name: string): WebGLUniformLocation | null => gl.getUniformLocation(program, name)
-    gl.uniform2f(loc('u_origin'), vp.originX, vp.originY)
-    gl.uniform1f(loc('u_scale'), vp.cellPx * devicePixelRatio)
-    gl.uniform2f(loc('u_size'), this.canvas.width, this.canvas.height)
-
-    this.drawPaper(res, board)
-    this.drawDots(res, board, vp)
-    this.drawVoids(res)
-    if (!scene) return
-
-    const useAttr = this.view.colored && res.colorBuffer !== null
-    this.bindAttrs(gl, program, res.posBuffer, useAttr ? res.colorBuffer : null)
-
-    for (const pass of PASSES) {
-      const range = scene.blocks[pass.block]
-      if (range.count === 0) continue
-      // Highlighted pieces take one flat colour, so the diagnostic hues never
-      // reach them — the same rule the SVG group carried on its stroke.
-      gl.uniform1i(loc('u_useAttr'), !pass.highlight && useAttr ? 1 : 0)
-      gl.uniform4fv(loc('u_flat'), pass.highlight ? this.highlightRgba : this.inkRgba)
-      gl.drawArrays(gl.TRIANGLES, range.start, range.count)
-    }
-
-    this.drawRiders(res, vp, board)
-  }
-
-  /**
-   * The pieces part way down their own track, over the resting ones and
-   * clipped to the paper. Only a riding piece is clipped: a scissor over the
-   * whole board would cost nothing here, but the rule is the SVG's — a piece
-   * leaves at the paper's edge, and nothing else ever reaches it.
-   */
-  private drawRiders(res: GlResources, vp: Viewport, board: Board): void {
-    if (this.rides.riders.size === 0 || !res.rideBuffer) return
-    const gl = res.gl
-    const program = res.program
-    const s = vp.cellPx * devicePixelRatio
-    const p = this.padCells
-    // All four edges are rounded, and the size is taken from the rounded edges
-    // rather than rounded on its own: a width rounded apart from its left edge
-    // lands the right edge up to a pixel off the paper's, which is a visible
-    // slice of a piece appearing or disappearing as it rides out at the edge.
-    const left = Math.round((-p - vp.originX) * s)
-    const top = Math.round((-p - vp.originY) * s)
-    const right = Math.round((board.W + p - vp.originX) * s)
-    const bottom = Math.round((board.H + p - vp.originY) * s)
-    gl.enable(gl.SCISSOR_TEST)
-    // The scissor box counts from the bottom left, the viewport maths from the top.
-    gl.scissor(left, this.canvas.height - bottom, right - left, bottom - top)
-    this.bindAttrs(gl, program, res.rideBuffer, null)
-    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
-    const flat = gl.getUniformLocation(program, 'u_flat')
-    for (const r of this.rides.riders.values()) {
-      if (r.count === 0) continue
-      gl.uniform4fv(flat, r.color)
-      gl.drawArrays(gl.TRIANGLES, r.start, r.count)
-    }
-    gl.disable(gl.SCISSOR_TEST)
-  }
-
-  /** The paper: one quad over the cells plus the margin. */
-  private drawPaper(res: GlResources, board: Board): void {
-    if (!res.quadBuffer) return
-    const gl = res.gl
-    const p = this.padCells
-    const x0 = -p, y0 = -p, x1 = board.W + p, y1 = board.H + p
-    const quad = new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1])
-    gl.bindBuffer(gl.ARRAY_BUFFER, res.quadBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.DYNAMIC_DRAW)
-    this.bindAttrs(gl, res.program, res.quadBuffer, null)
-    gl.uniform1i(gl.getUniformLocation(res.program, 'u_useAttr'), 0)
-    gl.uniform4fv(gl.getUniformLocation(res.program, 'u_flat'), this.paperRgba)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-  }
-
-  /**
-   * The grid over the cells alone: 0,0 to W,H, the margin left blank, shown
-   * only once a cell is big enough to hold a dot — below MIN_POINT_CELL_PX a
-   * dense raster of dots moirés instead of reading as dots. The element
-   * decides that, because only it knows `cellPx`; the pass refuses on its own
-   * as well, so a viewport handed straight to the layer cannot get past it.
-   */
-  private drawDots(res: GlResources, board: Board, vp: Viewport): void {
-    const prog = res.dotProgram
-    if (!res.quadBuffer) return
-    if (!this.pointsVisible || vp.cellPx < MIN_POINT_CELL_PX) return
-    const gl = res.gl
-    const quad = new Float32Array([0, 0, board.W, 0, board.W, board.H, 0, 0, board.W, board.H, 0, board.H])
-    gl.useProgram(prog)
-    gl.bindBuffer(gl.ARRAY_BUFFER, res.quadBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.DYNAMIC_DRAW)
-    this.bindAttrs(gl, prog, res.quadBuffer, null)
-    const scale = vp.cellPx * devicePixelRatio
-    const loc = (name: string): WebGLUniformLocation | null => gl.getUniformLocation(prog, name)
-    gl.uniform2f(loc('u_origin'), vp.originX, vp.originY)
-    gl.uniform1f(loc('u_scale'), scale)
-    gl.uniform2f(loc('u_size'), this.canvas.width, this.canvas.height)
-    gl.uniform4fv(loc('u_dot'), this.pointRgba)
-    gl.uniform1f(loc('u_radius'), this.pointRadius)
-    gl.uniform1f(loc('u_feather'), 1 / scale)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    // Restores the main program: every pass after this one — the voids and
-    // the piece blocks — assumes it is the active program and current.
     gl.useProgram(res.program)
-  }
-
-  /** The cells the generator failed to carve, in the highlight colour at .22 opacity — the SVG group's fill-opacity. */
-  private drawVoids(res: GlResources): void {
-    if (res.voidVertices === 0 || !res.voidBuffer) return
-    const gl = res.gl
-    this.bindAttrs(gl, res.program, res.voidBuffer, null)
-    gl.uniform1i(gl.getUniformLocation(res.program, 'u_useAttr'), 0)
-    const [r, g, b, a] = this.highlightRgba
-    gl.uniform4fv(gl.getUniformLocation(res.program, 'u_flat'), [r, g, b, a * 0.22])
-    gl.drawArrays(gl.TRIANGLES, 0, res.voidVertices)
+    setView(gl, res.program, vp, width, height)
+    drawPaper(res, board, this.padCells, this.paperRgba)
+    drawDots(res, board, vp, width, height, {
+      visible: this.pointsVisible,
+      rgba: this.pointRgba,
+      radius: this.pointRadius,
+    })
+    drawVoids(res, this.highlightRgba)
+    if (!scene) return
+    drawPieces(res, scene, this.view.colored && res.colorBuffer !== null, this.inkRgba, this.highlightRgba)
+    drawRiders(res, this.rides.riders, vp, board, this.padCells, height)
   }
 
   /**
