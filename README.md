@@ -876,6 +876,10 @@ immediately.
 sh packages/cli/lab.sh
 ```
 
+The page draws the board with the board element, which needs Lit: run
+`corepack enable pnpm && pnpm install` once at the top of the repository
+before the first start.
+
 It builds the page, opens `http://localhost:8777/lab.html`, and keeps
 rebuilding whenever a source file changes. Stop it with Ctrl+C. If 8777 is
 already in use on your computer, put another number after the command: `sh

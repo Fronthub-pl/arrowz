@@ -880,6 +880,10 @@ Jest mała strona do zabawy ustawieniami i natychmiastowego oglądania wyniku.
 sh packages/cli/lab.sh
 ```
 
+Strona rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
+uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
+katalogu repozytorium.
+
 Buduje stronę, otwiera `http://localhost:8777/lab.html` i przebudowuje ją za
 każdym razem, gdy zmieni się plik źródłowy. Zatrzymasz ją klawiszami Ctrl+C.
 Jeśli port 8777 jest już zajęty na twoim komputerze, dopisz inny numer: `sh

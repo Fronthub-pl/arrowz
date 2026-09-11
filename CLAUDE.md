@@ -32,6 +32,9 @@
   `pnpm nx build engine`; never import the engine's `.ts` sources from `apps/`.
 - The lab page and worker are bundled by `deno task bundle` into
   `packages/cli/dist/` (gitignored); `sh packages/cli/lab.sh` builds, watches and serves.
+- `deno task check`, `deno task bundle`, `deno task verify` and `lab.sh` need
+  `corepack enable pnpm && pnpm install` once: the lab imports the board element,
+  whose Lit resolves only from `packages/board-element/node_modules`.
 - No attribution lines in commit messages or PR descriptions.
 
 <!-- jbcontext-instructions-start -->

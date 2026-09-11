@@ -8,6 +8,11 @@
 set -e
 cd "$(dirname "$0")"
 PORT=${1:-8777}
+# The page bundles the board element, whose Lit comes only from pnpm's node_modules.
+if [ ! -e ../board-element/node_modules/lit ]; then
+  echo 'lab.sh: run "corepack enable pnpm && pnpm install" at the repository root first (the lab bundles the board element and its Lit)' >&2
+  exit 1
+fi
 deno task bundle
 # The trap is armed before the first background job, so a Ctrl+C in the gap
 # between the two starts still kills what is already running.
