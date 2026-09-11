@@ -205,7 +205,8 @@ function forSeed(seed: number): { params: Params; simpleCommand: string | null }
 // The simple mode always lands here; the advanced mode with --board, --svg or
 // --dry-run. The store gets the board file and its meta, and an SVG preview
 // only with --svg. A dry run generates, measures and encodes exactly as a real
-// run would, and then writes nothing: stdout carries one JSON line so that
+// run would, draws no SVG (the board file is what gets stored; boardBytes is
+// its size), and writes nothing: stdout carries one JSON line so that
 // scripts can compare boards across runtimes without a file — the
 // fingerprint is the same one the engine tests freeze recorded boards with.
 
@@ -347,7 +348,6 @@ if (!advanced || svgFlag || has('board') || dryRun) {
       restarts: result.restartsUsed,
       genMs: Math.round(result.genMs),
       metricsMs: Math.round(result.metricsMs),
-      svgBytes: new TextEncoder().encode(toSvg(c, svgView)).byteLength,
       boardBytes,
       fingerprint: fingerprint(c),
     }))
