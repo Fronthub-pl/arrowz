@@ -292,6 +292,18 @@ describe('mount and viewport', () => {
   })
 
   test('a board that went through a board file draws exactly like the generated one', async () => {
+    // The very first WebGL2 context a browser process ever creates paints a
+    // couple of anti-aliased edge pixels differently from every context
+    // after it — a driver/shader warm-up cost, not anything this element or
+    // the board-file round trip controls (elsewhere in this suite there is
+    // always an earlier test's context ahead of this one; alone, there is
+    // not). A throwaway mount and paint, on its own context that is then
+    // discarded, absorbs that one-time cost before the comparison below, so
+    // this test passes the same way whether it runs alone or last.
+    await mount()
+    await painted(el)
+    el.remove()
+
     await mount()
     const original = el.board
     if (!original) throw new Error('mount sets a board')
