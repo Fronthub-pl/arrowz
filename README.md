@@ -870,15 +870,13 @@ combination.
 ## The web page
 
 There is a small page for playing with the settings and seeing the result
-immediately.
+immediately. The page draws the board with the board element, which needs Lit:
+run `corepack enable pnpm && pnpm install` once at the top of the repository
+before the first start. Then:
 
 ```sh
 sh packages/cli/lab.sh
 ```
-
-The page draws the board with the board element, which needs Lit: run
-`corepack enable pnpm && pnpm install` once at the top of the repository
-before the first start.
 
 It builds the page, opens `http://localhost:8777/lab.html`, and keeps
 rebuilding whenever a source file changes. Stop it with Ctrl+C. If 8777 is
