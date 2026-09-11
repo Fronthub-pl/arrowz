@@ -147,7 +147,8 @@ program, so `setView` serves all three programs.
   device pixel in cells: the antialiased edge needs somewhere to fall.
 - A disc of `r <= 0` is emitted as a degenerate quad — every vertex at the
   same clip point, no fragment. This is what removing a piece means for its
-  discs (§5.2). Without it the one-pixel margin would leave a dot.
+  discs (§5.2). The fragment rule below would already give such a disc no
+  alpha; collapsing it in the vertex shader means it costs no fragment either.
 - It passes `v_local = a_corner · (r + f)` and `v_r = r`, both in cells.
 
 `DISC_FRAG` computes coverage analytically. The canvas has MSAA, but MSAA
@@ -322,6 +323,10 @@ PR description.
   location the main program reuses would draw the board as instances of its
   first vertex. §5.3 resets divisors on the way out, and the browser suite's
   existing pixel tests after a coloured frame catch a leak.
-- **Precision.** `DISC_FRAG` is `mediump`; `v_local` is under one cell and
-  `u_scale` under 100 device pixels a cell, well inside `mediump`'s range.
-  World positions stay in the vertex shader, which is `highp`.
+- **Precision.** `DISC_FRAG` is `highp`, unlike `FRAG` and `DOT_FRAG`. Two
+  reasons: `u_scale` is declared in both disc shaders, and GLSL ES refuses
+  to link a uniform declared at two precisions (the vertex shader is `highp`
+  by default); and where `mediump` is a real fp16 — phones — its step at a
+  few thousand device pixels is about two pixels, which the browser tests of
+  §7, zoomed far past `MAX_CELL_PX` to make a facet measurable, would feel.
+  GLSL ES 3.00 guarantees `highp` in fragment shaders.
