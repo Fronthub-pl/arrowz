@@ -164,29 +164,46 @@ export class GlResources {
   }
 
   /**
-   * Every rider's triangles into the rider buffer, back to back, and each
-   * rider's own slice of it recorded. One upload for all of them rather than
-   * one buffer per ride: two pieces can be riding at once — two quick clicks
-   * are enough — and a buffer holding only whichever uploaded last would drop
-   * the other one for the frame. Takes the map rather than an iterator because
-   * it walks the riders twice.
+   * Every rider's triangles and discs into the rider buffers, back to back,
+   * and each rider's own slices of them recorded. One upload for all of them
+   * rather than one buffer per ride: two pieces can be riding at once — two
+   * quick clicks are enough — and a buffer holding only whichever uploaded
+   * last would drop the other one for the frame. Takes the map rather than an
+   * iterator because it walks the riders twice.
    */
   uploadRiders(riders: ReadonlyMap<number, Rider>): void {
     const gl = this.gl
     let total = 0
-    for (const r of riders.values()) total += r.count
+    let discTotal = 0
+    for (const r of riders.values()) {
+      total += r.count
+      discTotal += r.discCount
+    }
     if (total === 0) return
     if (this.rideScratch.length < total * 2) this.rideScratch = new Float32Array(total * 2)
+    if (this.rideDiscScratch.length < discTotal * FLOATS_PER_DISC) {
+      this.rideDiscScratch = new Float32Array(discTotal * FLOATS_PER_DISC)
+    }
     let at = 0
+    let discAt = 0
     for (const r of riders.values()) {
       r.start = at
       this.rideScratch.set(r.data.subarray(0, r.count * 2), at * 2)
       at += r.count
+      r.discStart = discAt
+      this.rideDiscScratch.set(r.discs.subarray(0, r.discCount * FLOATS_PER_DISC), discAt * FLOATS_PER_DISC)
+      discAt += r.discCount
     }
     this.rideBuffer ??= gl.createBuffer()
-    if (!this.rideBuffer) return
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.rideBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, this.rideScratch.subarray(0, total * 2), gl.DYNAMIC_DRAW)
+    if (this.rideBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.rideBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, this.rideScratch.subarray(0, total * 2), gl.DYNAMIC_DRAW)
+    }
+    if (discTotal === 0) return
+    this.rideDiscBuffer ??= gl.createBuffer()
+    if (!this.rideDiscBuffer) return
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.rideDiscBuffer)
+    gl.bufferData(gl.ARRAY_BUFFER, this.rideDiscScratch.subarray(0, discTotal * FLOATS_PER_DISC), gl.DYNAMIC_DRAW)
   }
 
   /** Deletes every object this holds; the layer drops the instance straight after. */

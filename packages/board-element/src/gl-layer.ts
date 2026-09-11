@@ -467,7 +467,7 @@ export class GlLayer {
       width,
       height,
     )
-    drawRiders(res, this.rides.riders, vp, board, this.padCells, height)
+    drawRiders(res, this.rides.riders, vp, board, this.padCells, width, height)
   }
 
   /**

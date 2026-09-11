@@ -235,9 +235,10 @@ export function drawPieces(
 
 /**
  * The pieces part way down their own track, over the resting ones and
- * clipped to the paper. Only a riding piece is clipped: a scissor over the
- * whole board would cost nothing here, but the rule is the SVG's — a piece
- * leaves at the paper's edge, and nothing else ever reaches it.
+ * clipped to the paper: each rider's triangles, then its discs. Only a
+ * riding piece is clipped: a scissor over the whole board would cost nothing
+ * here, but the rule is the SVG's — a piece leaves at the paper's edge, and
+ * nothing else ever reaches it.
  */
 export function drawRiders(
   res: GlResources,
@@ -245,6 +246,7 @@ export function drawRiders(
   vp: Viewport,
   board: Board,
   pad: number,
+  width: number,
   height: number,
 ): void {
   if (riders.size === 0 || !res.rideBuffer) return
@@ -263,13 +265,21 @@ export function drawRiders(
   gl.enable(gl.SCISSOR_TEST)
   // The scissor box counts from the bottom left, the viewport maths from the top.
   gl.scissor(left, height - bottom, right - left, bottom - top)
-  bindAttrs(gl, program, res.rideBuffer, null)
-  gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
-  const flat = gl.getUniformLocation(program, 'u_flat')
+  gl.useProgram(res.discProgram)
+  setView(gl, res.discProgram, vp, width, height)
   for (const r of riders.values()) {
     if (r.count === 0) continue
-    gl.uniform4fv(flat, r.color)
+    gl.useProgram(program)
+    // Bound again every rider: the disc pass before it left its arrays disabled.
+    bindAttrs(gl, program, res.rideBuffer, null)
+    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
+    gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), r.color)
     gl.drawArrays(gl.TRIANGLES, r.start, r.count)
+    if (r.discCount > 0 && res.rideDiscBuffer) {
+      gl.useProgram(res.discProgram)
+      drawDiscBlock(res, res.rideDiscBuffer, null, { start: r.discStart, count: r.discCount }, r.color)
+    }
   }
+  gl.useProgram(program)
   gl.disable(gl.SCISSOR_TEST)
 }

@@ -940,3 +940,47 @@ test('a lost context comes back with its discs', async () => {
   layer.drawNowForTest()
   expect(isInk(centre())).toBe(true)
 })
+
+test('a riding piece draws its tail as a true circle too', async () => {
+  const b = bentBoard()
+  layer.setBoard(b, INK_ON_PAPER)
+  const { between } = tailProbes()
+  probeAt(b, ...between)
+  // Warm the frame clock first, or the ride settles on its first tick (see
+  // 'a riding piece is drawn once').
+  await drawn()
+  layer.drawNowForTest()
+  expect(isInk(centre())).toBe(true)
+  // A shake of no distance rides the piece to where it already is: the static
+  // buffer lets go of it, and only the rider draws it.
+  const ride = layer.shake(BENT.id, 0)
+  await drawn()
+  layer.drawNowForTest()
+  const riding = centre()
+  await ride
+  expect(isInk(riding)).toBe(true)
+})
+
+test('a frame leaves no instanced attribute behind, and the main program current', async () => {
+  const b = bentBoard()
+  // Coloured, so the disc pass sets the colour attribute's divisor too, and
+  // riding, so drawRiders' disc pass runs last in the frame.
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true })
+  probeAt(b, ...tailProbes().between)
+  await drawn()
+  const ride = layer.shake(BENT.id, 0)
+  await drawn()
+  layer.drawNowForTest()
+  const gl = layer.canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2')
+  // The linker assigns attribute locations, so which location a leaked
+  // divisor would land on differs by driver: check them all.
+  const n: number = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
+  for (let i = 0; i < n; i++) expect(gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_DIVISOR)).toBe(0)
+  // The main program is the only one with both a_pos and a_color and no a_disc.
+  const current: WebGLProgram | null = gl.getParameter(gl.CURRENT_PROGRAM)
+  if (!current) throw new Error('no program current')
+  expect(gl.getAttribLocation(current, 'a_color')).not.toBe(-1)
+  expect(gl.getAttribLocation(current, 'a_disc')).toBe(-1)
+  await ride
+})
