@@ -1,21 +1,13 @@
 import { describe, expect, test } from 'vitest'
-import type { Board, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget, MIN_SHAKE_CELLS } from './game-host.ts'
 
-function board(W: number, H: number, owner: number[], pieces: Piece[]): Board {
-  return {
-    W,
-    H,
-    owner: Int32Array.from(owner),
-    pieces,
-    stats: { want: pieces.length, got: pieces.length, stall: 0, strandTrunc: 0, strandLoss: 0, n: pieces.length },
-    backtracks: 0,
-    remaining: 0,
-  }
+function board(W: number, H: number, owner: number[], pieces: Piece[]): BoardData {
+  return { W, H, owner: Int32Array.from(owner), pieces }
 }
 
 /** The same three dominoes as the engine's tests: 0 is free, 1 is blocked by 2, 2 is free. */
-function threeDominoes(): Board {
+function threeDominoes(): BoardData {
   return board(3, 2, [0, 1, 2, 0, 1, 2], [
     { id: 0, cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }], dir: 3 },
     { id: 1, cells: [{ x: 1, y: 0 }, { x: 1, y: 1 }], dir: 1 },

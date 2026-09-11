@@ -2,7 +2,7 @@
 // driving `tesselatePiece` once a frame into its rider's own triangles. The
 // layer owns the GPU and the frame, so a ride reaches either only through its
 // host.
-import type { Board, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@arrowz/engine'
 import type { Rgba } from './gl-color.ts'
 import { frontOf, type PieceRanges, type Ride, rideVertexBound, tesselatePiece } from './tesselate.ts'
 import { exitDistance, exitMs, shakeShift } from './track.ts'
@@ -33,7 +33,7 @@ export interface Rider {
  */
 export interface RideHost {
   /** The board being drawn, or null before there is one. */
-  board(): Board | null
+  board(): BoardData | null
   /** The view the board was tesselated with; read on every frame of a ride. */
   view(): BoardView
   /** Where a piece's triangles are, or null once it has ridden off for good. */

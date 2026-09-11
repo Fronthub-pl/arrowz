@@ -1,7 +1,7 @@
 // What a frame draws, pass by pass. Each pass is a function of the GL objects
 // and of the state it is handed, and keeps none of its own, so the order of a
 // frame is written in one place: `GlLayer.draw`.
-import type { Board } from '@arrowz/engine'
+import type { BoardData } from '@arrowz/engine'
 import type { Rgba } from './gl-color.ts'
 import type { GlResources } from './gl-resources.ts'
 import type { Rider } from './rides.ts'
@@ -76,7 +76,7 @@ export function setView(
 }
 
 /** The paper: one quad over the cells plus the margin. */
-export function drawPaper(res: GlResources, board: Board, pad: number, paper: Rgba): void {
+export function drawPaper(res: GlResources, board: BoardData, pad: number, paper: Rgba): void {
   if (!res.quadBuffer) return
   const gl = res.gl
   const p = pad
@@ -99,7 +99,7 @@ export function drawPaper(res: GlResources, board: Board, pad: number, paper: Rg
  */
 export function drawDots(
   res: GlResources,
-  board: Board,
+  board: BoardData,
   vp: Viewport,
   width: number,
   height: number,
@@ -165,7 +165,7 @@ export function drawRiders(
   res: GlResources,
   riders: ReadonlyMap<number, Rider>,
   vp: Viewport,
-  board: Board,
+  board: BoardData,
   pad: number,
   height: number,
 ): void {

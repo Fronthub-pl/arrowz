@@ -1,4 +1,4 @@
-import { defaultParams, generate } from '@arrowz/engine'
+import { decodeBoard, defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
@@ -289,6 +289,21 @@ describe('mount and viewport', () => {
     await raf()
     expect(el.getBoundingClientRect().height).toBe(0)
     expect(el.viewport).toBeNull()
+  })
+
+  test('a board that went through a board file draws exactly like the generated one', async () => {
+    await mount()
+    const original = el.board
+    if (!original) throw new Error('mount sets a board')
+    const before = await painted(el)
+    el.remove()
+    await mount()
+    el.board = decodeBoard(JSON.parse(JSON.stringify(encodeBoard(original))))
+    await el.updateComplete
+    await raf()
+    const after = await painted(el)
+    expect(el.pieceCount).toBe(original.pieces.length)
+    expect(inked(after)).toBe(inked(before))
   })
 })
 
