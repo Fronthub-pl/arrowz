@@ -475,3 +475,62 @@ Deno.test('carve.ts --help without --advanced prints the simple flags and points
   }
   assertEquals(entries(dir), 0)
 })
+
+// --- a batch: --count=N [--max-seeds=M] --------------------------------------
+// A pool of boards for Storage: N closed boards on the seeds from --seed up.
+// A seed that does not close is skipped and not stored; the batch gives up
+// after --max-seeds seeds (default 2·N). Closing is deterministic, so the
+// same command always writes the same files.
+
+Deno.test('carve.ts --count=3 writes three closed boards on consecutive seeds and exits 0', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=10', '--height=10', '--seed=1', '--count=3'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  for (const seed of [1, 2, 3]) {
+    const params = simpleParams({ ...defaultChoice(), W: 10, H: 10, seed })
+    const id = boardId(params)
+    assertEquals(storedFingerprint(join(dir, '10x10', `${id}.board.json`)), fingerprint(generate(params).board))
+    assertMatch(readMeta(join(dir, '10x10', `${id}.json`)).simpleCommand ?? '', new RegExp(` --seed=${seed}$`))
+  }
+  assertEquals(entries(join(dir, '10x10')), 6, 'a board file and a meta per board, no preview')
+  assertMatch(r.stdout, /batch: 3\/3 boards written, 3 seeds tried\n$/)
+})
+
+Deno.test('carve.ts --count with --svg writes a preview per board', () => {
+  const dir = tmp()
+  const r = runCarve(['--advanced', '--svg', '--w=10', '--h=10', '--seed=1', '--count=2'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  assertEquals(entries(join(dir, '10x10')), 6, 'board file, meta and preview for each of two boards')
+})
+
+Deno.test('carve.ts --count skips seeds that do not close, stores none of them, and exits 1 at the seed limit', () => {
+  const dir = tmp()
+  const r = runCarve([...LONG, '--board', '--count=2', '--max-seeds=2'], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
+  assertEquals(r.status, 1, r.stderr)
+  assertMatch(r.stderr, /seed 7: not closed \(\d+ cells left\), skipped\n/)
+  assertMatch(r.stderr, /seed 8: not closed \(\d+ cells left\), skipped\n/)
+  assertMatch(r.stdout, /batch: 0\/2 boards written, 2 seeds tried, not closed: 7 8\n$/)
+  assertEquals(exists(join(dir, 'boards')), false, 'nothing is stored')
+})
+
+Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exit 2, nothing written', () => {
+  const dir = tmp()
+  const cases: [string[], string][] = [
+    [['--width=10', '--height=10', '--count=0'], '--count=0 is not a positive integer'],
+    [['--width=10', '--height=10', '--count=two'], '--count=two is not a positive integer'],
+    [['--width=10', '--height=10', '--max-seeds=3'], '--max-seeds needs --count'],
+    [['--advanced', '--w=10', '--h=10', '--count=2'], '--count needs a mode that writes boards'],
+    [['--width=10', '--height=10', '--svg=one.svg', '--count=2'], '--svg=path names one file'],
+    // --count=1 may reach two seeds (2·N): 999999 and 1000000, one past the envelope.
+    [['--width=10', '--height=10', '--seed=999999', '--count=1'], 'seed: 1000000 is outside 0..999999'],
+  ]
+  for (const [argv, message] of cases) {
+    const r = runCarve(argv, dir)
+    assertEquals(r.status, 2, argv.join(' '))
+    assert(r.stderr.includes(message), `${argv.join(' ')}: stderr lacks "${message}":\n${r.stderr}`)
+  }
+  const dry = dryRun(['--width=10', '--height=10', '--dry-run', '--count=2'], dir)
+  assertEquals(dry.status, 2)
+  assertEquals(dry.json?.error, 'invalid arguments')
+  assertEquals(entries(dir), 0, 'nothing is written')
+})

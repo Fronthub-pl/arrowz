@@ -117,6 +117,8 @@ Deno.test('helpText: every rule key and text, every alias, every mode flag', () 
       '--board',
       '--svg[=path]',
       '--dry-run',
+      '--count=N',
+      '--max-seeds=M',
       '--bench=N',
       '--runs=N',
       '--only=<level>',
@@ -158,6 +160,8 @@ Deno.test('helpText: the default text is the simple mode, one row per simple fla
       '--arrowheight=R',
       '--svg[=path]',
       '--dry-run',
+      '--count=N',
+      '--max-seeds=M',
       '--advanced',
       '--help, -h',
     ]
@@ -256,9 +260,19 @@ Deno.test('parseSimpleArgs: slider values outside 0..1 and unknown flags are err
 })
 
 Deno.test('parseSimpleArgs: the one-board mode flags and --help pass through in rest', () => {
-  const r = parseSimpleArgs(['--width=25', '--height=50', '--svg=out.svg', '--dry-run', '--help', '-h', '--svg'])
+  const r = parseSimpleArgs([
+    '--width=25',
+    '--height=50',
+    '--svg=out.svg',
+    '--dry-run',
+    '--help',
+    '-h',
+    '--svg',
+    '--count=3',
+    '--max-seeds=9',
+  ])
   assertEquals(r.errors, [])
-  assertEquals(r.rest, ['--svg=out.svg', '--dry-run', '--help', '-h', '--svg'])
+  assertEquals(r.rest, ['--svg=out.svg', '--dry-run', '--help', '-h', '--svg', '--count=3', '--max-seeds=9'])
 })
 
 Deno.test('buildSimpleCommand ↔ parseSimpleArgs: defaults give size and seed only, changes round-trip', () => {

@@ -67,6 +67,11 @@ const MODE_FLAGS: readonly FlagRow[] = [
   ['--board', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
   ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --board or --svg)'],
+  [
+    '--count=N',
+    'with --board or --svg: N closed boards on the seeds from --seed up; one that does not close is skipped',
+  ],
+  ['--max-seeds=M', 'with --count: give up after M seeds (default 2 x N)'],
   ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
   ['--bench=N', 'benchmark instead of the report, N runs per level'],
   ['--runs=N', 'runs per level in the report (default 3)'],
@@ -113,6 +118,8 @@ const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
   ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout'],
+  ['--count=N', 'N closed boards on the seeds from --seed up; one that does not close is skipped'],
+  ['--max-seeds=M', 'with --count: give up after M seeds (default 2 x N)'],
   ['--advanced', 'every engine knob, the report and the benchmark: see --advanced --help'],
   ['--help, -h', 'this text'],
 ]
@@ -310,7 +317,7 @@ const SIMPLE_SWITCH = new Map<string, SwitchTarget>([
 ])
 const SIMPLE_SLIDER = new Set(['length', 'straight'])
 // Mode flags the CLI reads in the simple mode; anything else is refused.
-const SIMPLE_PASS = /^(--svg(=.*)?|--dry-run|--help|-h)$/
+const SIMPLE_PASS = /^(--svg(=.*)?|--dry-run|--help|-h|--count=.*|--max-seeds=.*)$/
 const ADVANCED_HINT = 'engine knobs, the report and the benchmark need --advanced'
 
 const round6 = (v: number) => Number(v.toFixed(6))
