@@ -68,11 +68,10 @@ Deno.test('buildCommand: a head knob at its default adds no flag; a zero height 
 })
 
 Deno.test('parseArgs: old flag names are aliases, unknown flags go to rest', () => {
-  const r = parseArgs(['--straight=0.6', '--lateral=6', '--absorb=0', '--giantspacepen=12', '--runs=3', '--show'])
+  const r = parseArgs(['--straight=0.6', '--lateral=6', '--absorb=0', '--runs=3', '--show'])
   assertEquals(r.params.pStraight, 0.6)
   assertEquals(r.params.wLateral, 6)
   assertEquals(r.params.absorbLimit, 0)
-  assertEquals(r.params.giantSpacePenalty, 12)
   assertEquals(r.rest, ['--runs=3', '--show'])
   assertEquals(r.view, DEFAULT_VIEW)
 })

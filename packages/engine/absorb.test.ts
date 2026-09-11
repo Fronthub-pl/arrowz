@@ -134,9 +134,10 @@ type Family = { name: string; side: number; seeds: number[]; params: Partial<Par
 // the head draws on purpose (headTries 1, pStraight 0.2 — outside the
 // envelope, hence Carver is built directly, like `generate(.., { unchecked })`
 // would). Every family is a knob that absorbLeftover reads or that changes
-// the fragments it sees: the absorption limit, the exact-test limit, layers,
-// a skeleton, voids present from construction (the fragments no touch() ever
-// seeds), and two families that backtrack and restart.
+// the fragments it sees: the absorption limit, layers, a skeleton, voids
+// present from construction (the fragments no touch() ever seeds), and two
+// families that backtrack and restart. The exact-test limit (STRAND_LIMIT)
+// is a constant now, so it no longer varies across families.
 const H1: Partial<Params> = { headTries: 1 }
 const FAMILIES: Family[] = [
   { name: 'defaults (inside the envelope)', side: 100, seeds: [1, 2], params: {} },
@@ -149,7 +150,6 @@ const FAMILIES: Family[] = [
   },
   { name: 'absorbLimit 12', side: 100, seeds: [1, 2, 3], params: { ...H1, absorbLimit: 12, pStraight: 0.2, warns: 2 } },
   { name: 'absorbLimit 40', side: 100, seeds: [1, 2, 3], params: { ...H1, absorbLimit: 40, pStraight: 0.2, warns: 2 } },
-  { name: 'strandLimit 10', side: 100, seeds: [1, 2, 3], params: { ...H1, strandLimit: 10, pStraight: 0.2, warns: 2 } },
   { name: 'layers', side: 100, seeds: [1, 2], params: { ...H1, headBias: -1, pStraight: 0.2, warns: 2 } },
   {
     name: 'skeleton',

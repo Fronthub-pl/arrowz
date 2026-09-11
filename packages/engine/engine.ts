@@ -26,6 +26,17 @@ import type {
 // the board element draws a head from the same arithmetic as this file.
 import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
 
+// Retired knobs, kept as the constants their defaults always were. Each was
+// inert at that value: HUG gates its own rule on `> 1`, EDGE_HUG only feeds
+// that gate, STRAND_LIMIT's default was its maximum, GIANT_WARNS was
+// documented as "keep at 0", and GIANT_SPACE_PENALTY only applies when the
+// spacing radius is above 1.
+const HUG = 1
+const EDGE_HUG = 0
+const STRAND_LIMIT = 30
+const GIANT_WARNS = 0
+const GIANT_SPACE_PENALTY = 8
+
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
  * guarantee, a separate call site so the keyed load of the hot loops keeps
@@ -453,7 +464,7 @@ class Carver implements Board {
     return { isFree, check }
   }
 
-  // Does carving `cells` strand the rest: a fragment of up to `strandLimit`
+  // Does carving `cells` strand the rest: a fragment of up to `STRAND_LIMIT`
   // cells that cannot be decomposed into paths, or a local defect in a fragment
   // of any size. `failed` (optional) collects the cells of fragments that
   // failed the exact test.
@@ -465,7 +476,7 @@ class Carver implements Board {
     // a separate stamp for cells visited by the flood fill
     const seenGen = ++this.gen
     for (const c of cells) takenStamp[this.idx(c.x, c.y)] = seenGen
-    const limit = this.p.strandLimit
+    const limit = STRAND_LIMIT
     const stack: number[] = []
     for (const c of cells) {
       for (const { dx, dy } of DIRS) {
@@ -627,7 +638,7 @@ class Carver implements Board {
   creepUp(path: Cell[], L: number, hi: number, failed: Set<number>): number {
     if (hi <= L + 1) return L
     const { W, owner, takenStamp, seenStamp, creepPos, creepInfo, degStamp } = this
-    const limit = this.p.strandLimit
+    const limit = STRAND_LIMIT
     const takenGen = ++this.gen
     for (let i = 0; i < L; i++) {
       const c = at(path, i), ci = c.y * W + c.x
@@ -984,7 +995,7 @@ class Carver implements Board {
           // length without gaining ground. So for giants we swap the weights:
           // strongly straight, no Warnsdorff (it is what coils), with a self-contact penalty.
           const pStraight = isGiant ? p.giantStraight : p.pStraight
-          const warns = isGiant ? p.giantWarns : p.warns
+          const warns = isGiant ? GIANT_WARNS : p.warns
           const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
           let lastDir: Step = { dx: back.dx, dy: back.dy }
 
@@ -1025,7 +1036,7 @@ class Carver implements Board {
               for (const e of DIRS) {
                 const ax = nx + e.dx, ay = ny + e.dy
                 if (!this.inside(ax, ay)) {
-                  foreign += p.edgeHug
+                  foreign += EDGE_HUG
                   continue
                 }
                 const j = this.idx(ax, ay)
@@ -1040,7 +1051,7 @@ class Carver implements Board {
               }
               // HUG: a bonus for hugging other pieces. Hypothesis — this is what
               // should give the impression of "wrapping" instead of coiling on itself.
-              if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
+              if (HUG > 1 && foreign > 0) w *= Math.pow(HUG, foreign)
               // ANTICOIL: a penalty for touching one's own path. The tail cell we
               // come from does not count — hence own - 1.
               if (anticoil > 1 && own > 1) w *= Math.pow(anticoil, -(own - 1))
@@ -1050,7 +1061,7 @@ class Carver implements Board {
               // it eats its own space and gets stuck. We enforce a minimum distance
               // to its own runs from at least a few steps ago; the channels left
               // between the runs will later be filled by other pieces.
-              if (isGiant && p.giantSpacing > 1 && p.giantSpacePenalty > 1) {
+              if (isGiant && p.giantSpacing > 1 && GIANT_SPACE_PENALTY > 1) {
                 const k = p.giantSpacing
                 const here = path.length
                 let near = 0
@@ -1067,7 +1078,7 @@ class Carver implements Board {
                 // A PENALTY, not a ban. A ban would make turning around impossible:
                 // moving from lane to lane requires crossing the spacing zone, so the
                 // snake got stuck after two hundred cells regardless of the ordered length.
-                if (near > 0) w *= Math.pow(p.giantSpacePenalty, -near)
+                if (near > 0) w *= Math.pow(GIANT_SPACE_PENALTY, -near)
               }
               cand.push({ x: nx, y: ny, dd, w })
             }
@@ -2207,27 +2218,6 @@ const PARAM_TABLE = [
     help:
       'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.',
   },
-  {
-    key: 'hug',
-    label: 'hug bonus',
-    group: 'shape',
-    min: 1,
-    max: 20,
-    step: 1,
-    def: 1,
-    help: 'Bonus for running along already carved pieces. Little visible effect; kept for experiments.',
-  },
-  {
-    key: 'edgeHug',
-    label: 'edge counts as a piece',
-    group: 'shape',
-    min: 0,
-    max: 4,
-    step: 1,
-    def: 0,
-    inactive: (p) => (p.hug <= 1 ? 'hugOff' : null),
-    help: 'Whether the board edge counts as a neighbouring piece for the hug bonus.',
-  },
 
   {
     key: 'headBias',
@@ -2237,7 +2227,7 @@ const PARAM_TABLE = [
     max: 1,
     step: 1,
     def: 0,
-    inactive: (p) => (p.mix >= 0 ? 'mixOn' : null),
+    surface: 'start',
     help:
       'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.',
   },
@@ -2249,6 +2239,7 @@ const PARAM_TABLE = [
     max: 1,
     step: 0.05,
     def: -1,
+    surface: 'start',
     help:
       'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.',
   },
@@ -2290,7 +2281,7 @@ const PARAM_TABLE = [
     key: 'giantSpan',
     label: 'skeleton length (in board sides)',
     group: 'skeleton',
-    min: 0,
+    min: 1,
     max: 200,
     step: 1,
     def: 30,
@@ -2327,14 +2318,13 @@ const PARAM_TABLE = [
     max: 0.2,
     step: 0.01,
     def: 0,
-    inactive: (p) => (p.giantSpan <= 0 ? 'spanZero' : null),
     help:
       'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.',
   },
-  // giantStraight and giantWarns act on every skeleton regardless of giantStep:
-  // the serpentine only seeds the path, the tail keeps growing on these weights
+  // giantStraight acts on every skeleton regardless of giantStep: the
+  // serpentine only seeds the path, the tail keeps growing on this weight
   // (see growPiece), and the giants that wGiant adds later grow entirely on
-  // them. So they are inactive only when there is no skeleton at all.
+  // it. So it is inactive only when there is no skeleton at all.
   {
     key: 'giantStraight',
     label: 'skeleton straightness',
@@ -2346,18 +2336,6 @@ const PARAM_TABLE = [
     inactive: skeletonOff,
     help:
       'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.',
-  },
-  {
-    key: 'giantWarns',
-    label: 'closing off nooks for the skeleton',
-    group: 'skeleton',
-    min: 0,
-    max: 16,
-    step: 1,
-    def: 0,
-    inactive: skeletonOff,
-    help:
-      'Nook rule for the skeleton alone, where it grows freely. Keep at 0: it coils the line, and a skeleton should go far.',
   },
   {
     key: 'giantAnticoil',
@@ -2382,18 +2360,6 @@ const PARAM_TABLE = [
     help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
   },
   {
-    key: 'giantSpacePenalty',
-    label: 'skeleton spacing strength',
-    group: 'skeleton',
-    min: 1,
-    max: 40,
-    step: 1,
-    def: 8,
-    inactive: skeletonOff,
-    help: 'How strongly the skeleton is pushed away from itself. A penalty, not a ban, so it can turn around.',
-  },
-
-  {
     key: 'headTries',
     label: 'start attempts per direction',
     group: 'closing',
@@ -2403,17 +2369,6 @@ const PARAM_TABLE = [
     def: 4,
     help:
       'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.',
-  },
-  {
-    key: 'strandLimit',
-    label: 'exact leftover test up to N cells',
-    group: 'closing',
-    min: 10,
-    max: 30,
-    step: 1,
-    def: 30,
-    help:
-      'Up to what size a free fragment is checked exactly for being cuttable. Below 10 ten-cell leftovers slip through on big boards.',
   },
   {
     key: 'absorbLimit',
@@ -2464,11 +2419,8 @@ export const PARAM_SPEC: readonly ParamSpec[] = PARAM_TABLE
 // The lab maps a key to the current language (see lab-i18n.ts for Polish).
 export const INACTIVE_REASONS: Record<InactiveKey, string> = {
   skeletonOff: 'requires skeleton pieces > 0',
-  hugOff: 'only works with hug bonus > 1',
-  mixOn: 'superseded by layer/tunnel mixing',
   probeOff: 'only works with probe share > 0',
   stepZero: 'only works with serpentine step > 0',
-  spanZero: 'requires skeleton length > 0',
 }
 
 export function defaultParams(): Params {
@@ -2486,7 +2438,6 @@ export function defaultParams(): Params {
 export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (p: Params) => boolean }[] = [
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
   { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
-  { key: 'mixHole', keys: ['mix'], check: (p) => p.mix === -1 || (p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9) },
   // A size or seed with a fraction is not a board the tools can name: the
   // seed goes into the board id and so into file names.
   {
@@ -2499,7 +2450,6 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
   lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
-  mixHole: 'mixing must be -1 (off) or between 0.3 and 0.7',
   wholeNumbers: 'width, height and seed must be whole numbers',
 }
 

@@ -211,15 +211,11 @@ export const PL: Translation = {
   },
   reasons: {
     skeletonOff: 'wymaga elementów szkieletowych > 0',
-    hugOff: 'działa tylko przy premii za przyleganie > 1',
-    mixOn: 'zastąpione przez mieszanie warstw i tuneli',
     probeOff: 'działa tylko przy udziale sond > 0',
     stepZero: 'działa tylko przy skoku serpentyny > 0',
-    spanZero: 'wymaga długości szkieletu > 0',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
-    mixHole: 'mieszanie musi być -1 (wyłączone) albo między 0,3 a 0,7',
     wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
   },
   params: {
@@ -268,15 +264,6 @@ export const PL: Translation = {
       help:
         'Jak mocno linia unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze elementy. Powyżej 10 zacina się przy małej skłonności do prostej.',
     },
-    hug: {
-      label: 'premia za przyleganie',
-      help: 'Premia za bieg wzdłuż już wyciętych elementów. Mało widoczny efekt; zostawiona do eksperymentów.',
-    },
-    edgeHug: {
-      label: 'krawędź jak element',
-      help: 'Czy przy premii za przyleganie krawędź planszy liczy się jak sąsiedni element.',
-    },
-
     headBias: {
       label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)',
       help:
@@ -324,11 +311,6 @@ export const PL: Translation = {
       help:
         'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. Poniżej 0,3 plansze przestają się domykać.',
     },
-    giantWarns: {
-      label: 'domykanie zakamarków dla szkieletu',
-      help:
-        'Reguła zakamarków tylko dla szkieletu, tam gdzie rośnie swobodnie. Zostaw 0: zwija linię, a szkielet ma iść daleko.',
-    },
     giantAnticoil: {
       label: 'kara za zwijanie szkieletu',
       help: 'Kara za dotykanie siebie tylko dla szkieletu. Obowiązuje wyższa z tej i ogólnej.',
@@ -338,20 +320,10 @@ export const PL: Translation = {
       help:
         'Jak daleko szkielet trzyma się od własnych wcześniejszych biegów, w komórkach. Powyżej 3 tylko kosztuje czas.',
     },
-    giantSpacePenalty: {
-      label: 'siła odstępu szkieletu',
-      help: 'Jak mocno szkielet jest odpychany od siebie. Kara, nie zakaz, więc może zawracać.',
-    },
-
     headTries: {
       label: 'prób startu na kierunek',
       help:
         'Ile miejsc startu wypróbować przed zmianą kierunku. 1 głodzi szukanie przy trudnych ustawieniach; powyżej 16 tylko kosztuje czas.',
-    },
-    strandLimit: {
-      label: 'dokładny test resztki do N komórek',
-      help:
-        'Do jakiego rozmiaru wolny fragment jest sprawdzany dokładnie, czy da się pociąć. Poniżej 10 na dużych planszach prześlizgują się resztki po 10 komórek.',
     },
     absorbLimit: {
       label: 'wchłanianie resztek do N komórek',

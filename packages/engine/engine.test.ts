@@ -343,7 +343,6 @@ Deno.test('validateParams: each narrowed knob rejects its old extreme with the n
     ['warns', 0, 2, 16],
     ['anticoil', 20, 1, 10],
     ['absorbLimit', 0, 12, 64],
-    ['strandLimit', 2, 10, 30],
     ['headTries', 1, 2, 16],
     ['headTries', 32, 2, 16],
     ['maxBack', 5000, 0, 1000],
@@ -395,11 +394,6 @@ Deno.test('validateParams: cross-knob rules fire beyond their boundary and not a
   assertEquals(validateParams(withDefaults({ Lmax: 0 })), [])
   assertEquals(validateParams(withDefaults({ Lmax: 6 })), [])
   assertEquals(validateParams(withDefaults({ Lmax: 3 })), rule('lmaxHole', ['Lmax']))
-  // mixHole: mix -1 or within 0.3..0.7
-  for (const mix of [-1, 0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ mix })), [], `mix ${mix}`)
-  for (const mix of [0.1, 0.8]) {
-    assertEquals(validateParams(withDefaults({ mix })), rule('mixHole', ['mix']), `mix ${mix}`)
-  }
   // Every rule has a reason text and only names real knobs.
   for (const r of RULES) {
     assertEquals(typeof RULE_REASONS[r.key], 'string', r.key)
@@ -425,10 +419,6 @@ Deno.test('formatViolation: one English line per violation', () => {
   assertEquals(
     formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }),
     'maximum length must be 0 (automatic) or at least 6',
-  )
-  assertEquals(
-    formatViolation({ kind: 'rule', key: 'mixHole', keys: ['mix'] }),
-    'mixing must be -1 (off) or between 0.3 and 0.7',
   )
 })
 
@@ -466,11 +456,11 @@ Deno.test('generate: unchecked skips the envelope check and carves anyway', () =
   )
 })
 
-Deno.test('PARAM_SPEC: skeleton straightness and nook rule are inactive only without a skeleton', () => {
-  // They shape every giant regardless of giantStep (the serpentine only seeds
+Deno.test('PARAM_SPEC: skeleton straightness is inactive only without a skeleton', () => {
+  // It shapes every giant regardless of giantStep (the serpentine only seeds
   // the path), so 'stepNonZero' is gone and giantJitter keeps 'stepZero'.
   assertEquals('stepNonZero' in INACTIVE_REASONS, false)
-  const keys: ParamKey[] = ['giantStraight', 'giantWarns']
+  const keys: ParamKey[] = ['giantStraight']
   for (const key of keys) {
     const inactive = inactiveOf(key)
     assertEquals(inactive(withDefaults({ giants: 0, wGiant: 0, giantStep: 14 })), 'skeletonOff', key)

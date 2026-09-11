@@ -17,7 +17,6 @@ export const ALIASES: Record<string, ParamKey> = {
   straight: 'pStraight',
   lateral: 'wLateral',
   absorb: 'absorbLimit',
-  giantspacepen: 'giantSpacePenalty',
 }
 
 const KEY_BY_FLAG = new Map<string, ParamKey>(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))

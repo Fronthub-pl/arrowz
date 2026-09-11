@@ -14,8 +14,6 @@ export type ParamKey =
   | 'wLateral'
   | 'warns'
   | 'anticoil'
-  | 'hug'
-  | 'edgeHug'
   | 'headBias'
   | 'mix'
   | 'probe'
@@ -26,19 +24,16 @@ export type ParamKey =
   | 'giantJitter'
   | 'wGiant'
   | 'giantStraight'
-  | 'giantWarns'
   | 'giantAnticoil'
   | 'giantSpacing'
-  | 'giantSpacePenalty'
   | 'headTries'
-  | 'strandLimit'
   | 'absorbLimit'
   | 'maxBack'
   | 'restarts'
 
 export type ParamGroup = 'board' | 'lengths' | 'shape' | 'difficulty' | 'skeleton' | 'closing'
-export type InactiveKey = 'skeletonOff' | 'hugOff' | 'mixOn' | 'probeOff' | 'stepZero' | 'spanZero'
-export type RuleKey = 'sharesSum' | 'lmaxHole' | 'mixHole' | 'wholeNumbers'
+export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero'
+export type RuleKey = 'sharesSum' | 'lmaxHole' | 'wholeNumbers'
 
 export interface TraceInfo {
   pieces: number
@@ -66,6 +61,8 @@ export interface ParamSpec {
   def: number
   help: string
   inactive?: (p: Params) => InactiveKey | null
+  /** Two knobs that one surface flag writes (`--start` = headBias + mix); such a knob has no row of its own. */
+  surface?: 'start'
 }
 
 export type Violation =
