@@ -2,6 +2,7 @@ import { defaultParams, generate, pieceShape, voidStrips } from '@arrowz/engine'
 import type { Board, Cell, Piece } from '@arrowz/engine'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { GlLayer } from './gl-layer.ts'
+import { MIN_CORNER_PX } from './gl-passes.ts'
 import { DEFAULT_VIEW, hueBytes } from './view.ts'
 import { fit, MIN_POINT_CELL_PX } from './viewport.ts'
 
@@ -983,4 +984,40 @@ test('a frame leaves no instanced attribute behind, and the main program current
   expect(gl.getAttribLocation(current, 'a_color')).not.toBe(-1)
   expect(gl.getAttribLocation(current, 'a_disc')).toBe(-1)
   await ride
+})
+
+test('corner discs under half a device pixel are not drawn, and tails always are', () => {
+  const b = bentBoard()
+  const gl = layer.canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2')
+  // Every instanced draw is a block of discs; record how many discs each one drew.
+  const instances: number[] = []
+  const draw = gl.drawArraysInstanced.bind(gl)
+  gl.drawArraysInstanced = (mode: number, first: number, count: number, n: number): void => {
+    instances.push(n)
+    draw(mode, first, count, n)
+  }
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  const half = DEFAULT_VIEW.stroke / 2
+  const cellPxFor = (radiusPx: number): number => radiusPx / (half * devicePixelRatio)
+
+  layer.setBoard(b, INK_ON_PAPER)
+  // Just under the threshold: BENT's one corner disc is skipped, its tail is not.
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1])
+
+  // Just over it: the corner comes back, drawn before the tail (lines before heads).
+  instances.length = 0
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 1.1) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
+
+  // Each block measures its own radius: highlighted in colour mode, BENT is
+  // 1.5 times thicker, so the zoom that hid its corner above shows it now.
+  instances.length = 0
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true, top: 1 })
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
 })

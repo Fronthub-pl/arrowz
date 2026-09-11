@@ -63,6 +63,21 @@ const DISC_BYTES = 3 * Float32Array.BYTES_PER_ELEMENT
 const COLOR_BYTES = 4
 
 /**
+ * The smallest corner disc drawn, as a radius in device pixels. Below it,
+ * three quarters of a corner disc lie under the two segments it joins and
+ * the quarter left over is at most a quarter of a pixel, while 276 k of them
+ * on Insane cost the fitted frame more GPU time than every other pass
+ * together. Tails are always drawn: they stick out past the line's end.
+ */
+export const MIN_CORNER_PX = 0.5
+
+/** Whether a block's discs are corners too small to draw at this zoom; a head block's discs are tails, never too small. */
+function cornersTooSmall(scene: Scene, block: Block, vp: Viewport): boolean {
+  if (block !== 'lines' && block !== 'topLines') return false
+  return scene.cornerRadius[block] * vp.cellPx * devicePixelRatio < MIN_CORNER_PX
+}
+
+/**
  * One block of discs, as instances of the unit quad. WebGL2 has no
  * `baseInstance`, so the block's first disc is reached by pointing the
  * instanced attributes at it. Leaves the attribute state as it found it —
@@ -224,7 +239,7 @@ export function drawPieces(
       gl.drawArrays(gl.TRIANGLES, range.start, range.count)
     }
     const discs = scene.discBlocks[pass.block]
-    if (discs.count > 0 && res.discBuffer) {
+    if (discs.count > 0 && res.discBuffer && !cornersTooSmall(scene, pass.block, vp)) {
       gl.useProgram(res.discProgram)
       drawDiscBlock(res, res.discBuffer, attr ? res.discColorBuffer : null, discs, flat)
     }

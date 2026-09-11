@@ -224,6 +224,17 @@ so the picture composites the same. Within a block, discs now follow all of
 the block's triangles rather than each piece's own; every overlap inside a
 block is between one colour and itself, so nothing shows.
 
+A line block's discs are skipped outright when its corner radius — half that
+block's stroke, the same for every corner in it (`Scene.cornerRadius`) — is
+under `MIN_CORNER_PX`, half a device pixel, at the current zoom. Below that
+size three quarters of the disc lie under the two segments it joins and the
+quarter left over is at most a quarter of a pixel; drawing them anyway cost
+the fitted Insane frame about 1.2 ms of GPU time over `main` (Task 5 of the
+plan measured it), and skipping them brought the frame to 6.0 ms against
+`main`'s 8.6-9.9. The decision is one comparison per block on the CPU, so a
+skipped block costs nothing on the GPU. Head blocks are never skipped: a tail
+sticks out past the line's end. Riders draw every disc they have.
+
 A disc pass switches to the disc program and back; like `drawDots`, it ends
 with `gl.useProgram(res.program)`, which every later pass assumes. The
 instanced attributes' divisors are reset to 0 on the way out, so the main

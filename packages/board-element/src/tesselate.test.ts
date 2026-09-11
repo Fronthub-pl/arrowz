@@ -479,6 +479,14 @@ test('a piece at rest writes the discs the board holds for it, corners then tail
   ])
 })
 
+test('the scene knows the radius of every corner disc in each line block', () => {
+  const view = { ...DEFAULT_VIEW, top: 2 }
+  const scene = tesselateBoard(board(), view, NONE)
+  // Half the stroke each block is drawn with: highlighted pieces are thicker.
+  expect(scene.cornerRadius.lines).toBe(strokeOf(view, false) / 2)
+  expect(scene.cornerRadius.topLines).toBe(strokeOf(view, true) / 2)
+})
+
 test('voidQuads is empty when there are no strips', () => {
   expect(voidQuads([])).toEqual(new Float32Array(0))
 })

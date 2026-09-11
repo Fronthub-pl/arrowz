@@ -47,6 +47,12 @@ export interface Scene {
   discs: Float32Array
   /** Where each block's discs start and how many there are, in discs, in the same order. */
   discBlocks: Readonly<Record<Block, Range>>
+  /**
+   * The radius every corner disc of a line block is drawn with, in cells:
+   * half that block's stroke. The disc pass compares it with the zoom, so a
+   * whole block of corners too small to see is never drawn.
+   */
+  cornerRadius: Readonly<Record<'lines' | 'topLines', number>>
   rangeOf(id: number): PieceRanges | null
   drawnIds(): number[]
 }
@@ -403,6 +409,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     blocks,
     discs,
     discBlocks,
+    cornerRadius: { lines: strokeOf(view, false) / 2, topLines: strokeOf(view, true) / 2 },
     rangeOf: (id) => ranges.get(id) ?? null,
     drawnIds: () => [...ranges.keys()],
   }
