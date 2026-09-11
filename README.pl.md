@@ -1032,7 +1032,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
 | `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
 
-Otwarcie repozytorium w Claude Code uruchamia `jbcontext index` przez hooki w
+Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
 `.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
 uruchamia `jbcontext mcp`. Oba wywołują program zainstalowany na Twoim
 komputerze, więc przejrzyj je, zanim zaufasz temu katalogowi.

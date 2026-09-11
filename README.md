@@ -1020,7 +1020,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
 
-Opening the repository in Claude Code runs `jbcontext index` through the hooks in
+Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
 `.claude/settings.json` (at the start and end of a session), and `.mcp.json`
 starts `jbcontext mcp`. Both run a program installed on your machine, so read
 them before you trust the folder.
