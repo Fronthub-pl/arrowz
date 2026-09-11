@@ -295,9 +295,7 @@ export interface LongestSummary {
   coil: number
 }
 
-export type WorkerIn =
-  | { type: 'generate'; params: Params; view: View; voids?: boolean; tag?: string }
-  | { type: 'render'; view: View; voids?: boolean; tag?: string }
+export type WorkerIn = { type: 'generate'; params: Params }
 
 export type WorkerOut =
   | { type: 'progress'; info: TraceInfo }
@@ -314,5 +312,6 @@ export type WorkerOut =
     stuck: Stuck | null
     pieces: number
     stats: CarverStats
+    /** The board as its file: one string across the worker boundary, and the file the store keeps. */
+    board: BoardFile
   }
-  | { type: 'render'; svg: string; longest: LongestSummary[]; tag?: string }

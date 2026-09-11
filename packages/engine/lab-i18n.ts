@@ -71,10 +71,6 @@ export const EN = {
     copy: 'Copy',
     copied: 'Copied',
     preview: 'Preview',
-    fitBoard: 'fit the board to the window',
-    zoomLabel: 'zoom (px width)',
-    zoomHelp:
-      'The preview is vector, so zooming never blurs — on a 1000×1000 board go to several thousand pixels and scroll. Does not affect the downloaded file.',
     cellLabel: 'cell size in export (px)',
     cellHelp: 'Affects only the downloaded SVG and the CLI command. No effect on the preview.',
     strokeLabel: 'stroke width (grid units)',
@@ -419,10 +415,6 @@ export const PL: Translation = {
     copy: 'Kopiuj',
     copied: 'Skopiowano',
     preview: 'Podgląd',
-    fitBoard: 'dopasuj planszę do okna',
-    zoomLabel: 'powiększenie (px szerokości)',
-    zoomHelp:
-      'Podgląd jest wektorowy, więc powiększenie nie psuje ostrości — przy planszy 1000×1000 warto zejść w szczegóły na kilka tysięcy pikseli i przewijać. Nie wpływa na plik do pobrania.',
     cellLabel: 'rozmiar komórki w eksporcie (px)',
     cellHelp: 'Dotyczy tylko pobieranego SVG i komendy CLI. Na podgląd nie ma wpływu.',
     strokeLabel: 'grubość linii (podziałki)',
