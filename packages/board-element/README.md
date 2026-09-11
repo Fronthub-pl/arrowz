@@ -50,6 +50,9 @@ Getter: `viewport` (read-only) returns
 `{ cellPx, originX, originY, fitted, hostWidth, hostHeight }`, or `null`
 before a board and a host size are both known.
 
+Getter: `gestureMode` (`'drag' | 'click'`, read-only): the rule mouse and pen
+follow now.
+
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
@@ -103,10 +106,12 @@ or put it in a parent that has them. The canvas fills the host and takes no part
 in its layout.
 
 Numbers and colours the board cannot draw are replaced, silently and only in
-the drawing; the properties and attributes keep what was set.
+the drawing; this covers both attributes and `view`, and the properties and
+attributes keep what was set. The zoom methods separately ignore a factor that
+is not a finite positive number, leaving the viewport as it was.
 
 - A value that is not a finite number becomes its default.
-- `stroke` is at most one cell.
+- `stroke` is at most one cell, and zero or less becomes the default.
 - Head sizes and `pad` are never negative.
 - `top` is a whole count.
 - `point-radius` stays within [0, 0.5].

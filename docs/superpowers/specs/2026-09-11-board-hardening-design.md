@@ -1,6 +1,6 @@
 # Board hardening, and a drag that pans
 
-Date: 2026-09-11. Status: draft design, awaiting review.
+Date: 2026-09-11. Status: implemented on feat/board-hardening; reviewed.
 
 Baseline: `feat/rounded-arrows` at `0a14e7a` (PR #34, draft, on top of PR #33).
 Neither is on `main` yet, and most of what follows is about code only they
@@ -239,7 +239,8 @@ export function drawablePointRadius(r: number): number
   `syncViewport()` (pad) and in `updatePoints()` (radius, colour).
 - The properties and attributes keep exactly what the host set, as `margin`
   already does for `pad`, so Lit never reflects a corrected value back.
-- `viewport-change` can then never carry a `NaN`.
+- `viewport-change` can then never carry a `NaN` from an attribute, a `view`
+  field or a zoom factor.
 
 ## 9. Layout
 
