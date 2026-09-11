@@ -1032,6 +1032,11 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
 | `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
 
+Otwarcie repozytorium w Claude Code uruchamia `jbcontext index` przez hooki w
+`.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
+uruchamia `jbcontext mcp`. Oba wywołują program zainstalowany na Twoim
+komputerze, więc przejrzyj je, zanim zaufasz temu katalogowi.
+
 Kod w `packages/` zaczynał jako prototyp do wyrzucenia, napisany po to, żeby
 rozstrzygnąć, co czyni planszę dobrą. Rozstrzygnął, więc stał się silnikiem, na
 którym powstaje gra; tag `v1.0.0-alpha.1` wyznacza ten moment. Sama gra, wielokrotnego

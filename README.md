@@ -1020,6 +1020,11 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
 
+Opening the repository in Claude Code runs `jbcontext index` through the hooks in
+`.claude/settings.json` (at the start and end of a session), and `.mcp.json`
+starts `jbcontext mcp`. Both run a program installed on your machine, so read
+them before you trust the folder.
+
 The code under `packages/` started as a throwaway prototype written to settle
 what makes a good board. It settled that, so it became the engine the game is
 built on; the tag `v1.0.0-alpha.1` marks that point. The game itself, a

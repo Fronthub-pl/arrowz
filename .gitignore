@@ -9,3 +9,9 @@ dist/
 packages/cli/boards/
 .claude/worktrees/
 .superpowers/
+
+# Credentials never enter the repository (the Firebase slice brings a service account).
+.env
+.env.*
+*service-account*.json
+*serviceAccount*.json

@@ -1,0 +1,7 @@
+# The workflow pins actions by commit; Dependabot proposes the new commit when a tag moves.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
