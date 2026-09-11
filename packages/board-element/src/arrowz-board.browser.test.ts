@@ -321,6 +321,22 @@ describe('clicks', () => {
     expect(seen[0]?.detail.pieceId).toBe(pc.id)
   })
 
+  test('the window losing focus mid-press cancels the gesture: no late piece-click', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const seen: Event[] = []
+    document.addEventListener('piece-click', (e) => seen.push(e))
+    const p = headPoint(el, pc.id)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', p.x, p.y, { ctrlKey: true }))
+    canvas.dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    globalThis.dispatchEvent(new Event('blur'))
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y, { ctrlKey: true, buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
+    expect(seen.length).toBe(0)
+  })
+
   test('a secondary mouse button is not a press: no piece-click on release', async () => {
     await mount({ interactive: '' })
     const pc = el.board?.pieces[0]

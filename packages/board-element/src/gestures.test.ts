@@ -115,6 +115,14 @@ test('cancel resets everything', () => {
   expect(m.move(mouse(50, 50, true))).toEqual({ type: 'none' })
 })
 
+test('cancelAll drops every pointer, so a late move or up plays nothing', () => {
+  const m = new GestureMachine()
+  m.down(mouse(10, 10, true))
+  m.cancelAll()
+  expect(m.move(mouse(10, 10, true, 0, false))).toEqual({ type: 'none' })
+  expect(m.up(mouse(10, 10, true))).toEqual({ type: 'none' })
+})
+
 describe('mouse, drag mode (the default)', () => {
   test('the default mode is drag', () => {
     expect(new GestureMachine().mode).toBe('drag')

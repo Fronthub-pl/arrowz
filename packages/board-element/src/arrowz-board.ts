@@ -668,8 +668,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.setModifier(e.metaKey || e.ctrlKey)
   }
 
-  // ⌘-Tab hands the keyup to another window, so the modifier would stay "held".
+  // ⌘-Tab hands the keyup to another window, so the modifier would stay
+  // "held". Worse, the press itself is stranded: its eventual release, if
+  // one ever arrives, will land back over the board as a plain hover move
+  // with no button held, which the gesture machine reads as that release —
+  // playing a click nobody meant. Cancelling the gesture here, before that
+  // move can arrive, keeps it from ever being asked to decide.
   private readonly onWindowBlur = (): void => {
+    this.gestures.cancelAll()
+    this.layer.canvas.classList.remove('panning')
     this.setModifier(false)
   }
 

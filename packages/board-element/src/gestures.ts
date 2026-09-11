@@ -184,6 +184,16 @@ export class GestureMachine {
     return { type: 'click', pressX: press.x, pressY: press.y, x: p.x, y: p.y }
   }
 
+  /**
+   * Drops every pointer at once: the window losing focus mid-press means the
+   * eventual release, if one ever arrives, will land somewhere else. A thin
+   * public wrapper over `reset()`; `lastTap` is left alone, as `reset()`
+   * leaves it, so a repeat tap right after regaining focus is still caught.
+   */
+  cancelAll(): void {
+    this.reset()
+  }
+
   cancel(id: number): Intent {
     this.pointers.delete(id)
     if (this.pointers.size === 1) {
