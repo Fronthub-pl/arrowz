@@ -108,9 +108,9 @@ value is zigzag-encoded first.
 3. **Voids**: a count, then the void cell indices ascending as varint
    differences (the first one from 0).
 
-Sizes: Easy fits in a few hundred bytes. Insane (1000×1000, ~86 000 pieces)
-comes to roughly 0.7 MB of body and 0.9 MB of base64. The test records the
-measured size as a ceiling (§6).
+Sizes: Easy fits in a few hundred bytes. Insane (1000×1000, seed 7, 85 809
+pieces) measured 884 750 bytes of file on 2026-09-11 (`--dry-run`,
+`boardBytes`); the test pins the golden board big500 as a ceiling (§6).
 
 base64 is encoded and decoded by the module itself, in chunks, so that no
 platform API is needed and a string of a million characters never goes
@@ -234,7 +234,14 @@ images keep being produced.
 - The DOM rule holds: only `lab-page.ts` imports the element.
 
 Decoding runs on the page. If Insane takes more than ~300 ms there, it moves
-into the lab worker, which then posts `BoardData`.
+into the lab worker, which then posts `BoardData`. Measured on 2026-09-11
+(Insane, seed 7, Apple M1): `decodeBoard` takes 111 ms median and 145 ms at
+most over 5 runs in Deno 2.9.6 (V8 15.0), and 81 ms of the `done` handler's
+158 ms on Chrome 152's main thread (DevTools performance trace), so it stays
+on the page. The element's first draw that follows (tessellation 414 ms,
+buffer upload 114 ms) makes the board's arrival one ~740 ms main-thread task.
+The longest-pieces table (`longestSummary`, top 5) re-sorts every piece on
+each preview change and takes 16 ms median in Deno, 15 ms in the Chrome trace.
 
 ### 5.1 Risk: Lit in a Deno bundle
 
@@ -245,6 +252,11 @@ member of the Deno workspace with `lit` in `node_modules`? If not, the
 fallback is that `bundle` and `lab.sh` first run `pnpm nx build
 board-element` and the lab imports its `dist/`. The spike's answer is
 recorded in the plan before any lab work starts.
+
+Outcome (2026-09-11, planning spike): `deno bundle` takes the element from
+`../board-element/src/mod.ts` with Lit; the import must be a value import used
+by the page, and `arrowz-board.ts` needed `override` on two statics for
+`deno check`. No fallback needed.
 
 ## 6. Testing
 
@@ -257,8 +269,9 @@ Engine (`deno task test`):
 - **Rejections**: wrong `format` or `v`, bad base64, a truncated body,
   trailing bytes, a step off the board, two pieces on one cell, a piece on a
   void, a repeated id, counts that disagree, a fingerprint that disagrees.
-- **Size**: the Insane board's file size is measured once and pinned as a
-  ceiling, so a regression in the encoding shows up as a failing test.
+- **Size**: the file of the golden board big500 is pinned as a ceiling in
+  `fingerprints.test.ts`; Insane is measured through `--dry-run` and recorded
+  in §2.3.
 - `neutral.test.ts` covers `board-file.ts`.
 - `node-smoke.mjs` decodes a board in Node and checks its fingerprint: a
   Cloud Function will read these files.
