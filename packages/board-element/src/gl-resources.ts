@@ -4,9 +4,12 @@
 // listed once, here, rather than once each for taking, losing and handing
 // back a context. The lazy fields below are written only by this class; the
 // passes read them.
-import { DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
+import { DISC_FRAG, DISC_VERT, DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
 import type { Rider } from './rides.ts'
-import { type PieceRanges, type Scene, tesselateColors } from './tesselate.ts'
+import { FLOATS_PER_DISC, type PieceRanges, type Range, type Scene, tesselateColors } from './tesselate.ts'
+
+/** Two triangles over [-1, 1]²: the six vertices every disc instance is drawn with. */
+const UNIT_QUAD = new Float32Array([-1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, 1])
 
 export class GlResources {
   readonly gl: WebGL2RenderingContext
@@ -22,14 +25,25 @@ export class GlResources {
    * in, only what it writes itself.
    */
   readonly quadBuffer: WebGLBuffer | null
+  readonly discProgram: WebGLProgram
+  /** The whole board's discs, cx, cy and r each, in cells. */
+  readonly discBuffer: WebGLBuffer | null
+  /** UNIT_QUAD, written once when the resources are made. */
+  readonly cornerBuffer: WebGLBuffer | null
   /** The diagnostic mode's per-vertex colours; a monochrome board never creates it. */
   colorBuffer: WebGLBuffer | null = null
+  /** The diagnostic colour of every disc; made alongside `colorBuffer`, and only then. */
+  discColorBuffer: WebGLBuffer | null = null
   voidBuffer: WebGLBuffer | null = null
   voidVertices = 0
   /** The riders' own buffer, rewritten whole every frame one of them moves. */
   rideBuffer: WebGLBuffer | null = null
   /** Every rider's triangles back to back, for one upload; grown, never rebuilt per frame. */
   private rideScratch = new Float32Array(0)
+  /** The riders' discs, back to back, rewritten with `rideBuffer`. */
+  rideDiscBuffer: WebGLBuffer | null = null
+  /** Every rider's discs back to back, for one upload; grown, never rebuilt per frame. */
+  private rideDiscScratch = new Float32Array(0)
 
   private constructor(
     gl: WebGL2RenderingContext,
@@ -37,23 +51,44 @@ export class GlResources {
     dotProgram: WebGLProgram,
     posBuffer: WebGLBuffer | null,
     quadBuffer: WebGLBuffer | null,
+    discProgram: WebGLProgram,
+    discBuffer: WebGLBuffer | null,
+    cornerBuffer: WebGLBuffer | null,
   ) {
     this.gl = gl
     this.program = program
     this.dotProgram = dotProgram
     this.posBuffer = posBuffer
     this.quadBuffer = quadBuffer
+    this.discProgram = discProgram
+    this.discBuffer = discBuffer
+    this.cornerBuffer = cornerBuffer
   }
 
   /**
-   * Both programs and the two buffers every frame needs, in the order the
-   * layer has always made them. All of it or nothing: a throw from `link`
-   * leaves the layer with no resources rather than half of them.
+   * The three programs, the two buffers every frame needs, and the two every
+   * disc does. All of it or nothing: a throw from `link` leaves the layer
+   * with no resources rather than part of them.
    */
   static create(gl: WebGL2RenderingContext): GlResources {
     const program = link(gl, VERT, FRAG)
     const dotProgram = link(gl, DOT_VERT, DOT_FRAG)
-    return new GlResources(gl, program, dotProgram, gl.createBuffer(), gl.createBuffer())
+    const discProgram = link(gl, DISC_VERT, DISC_FRAG)
+    const cornerBuffer = gl.createBuffer()
+    if (cornerBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, UNIT_QUAD, gl.STATIC_DRAW)
+    }
+    return new GlResources(
+      gl,
+      program,
+      dotProgram,
+      gl.createBuffer(),
+      gl.createBuffer(),
+      discProgram,
+      gl.createBuffer(),
+      cornerBuffer,
+    )
   }
 
   /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
@@ -61,19 +96,29 @@ export class GlResources {
     return this.colorBuffer !== null
   }
 
-  /** The board's triangles, and its colours when the view asks for them. */
+  /** The board's triangles and discs, and their colours when the view asks for them. */
   upload(scene: Scene | null, colored: boolean): void {
     const gl = this.gl
     if (!this.posBuffer) return
     gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, scene?.positions ?? new Float32Array(0), gl.DYNAMIC_DRAW)
-    // The colour buffer is the diagnostic mode's alone: a monochrome board
+    if (this.discBuffer) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.discBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, scene?.discs ?? new Float32Array(0), gl.DYNAMIC_DRAW)
+    }
+    // The colour buffers are the diagnostic mode's alone: a monochrome board
     // takes its colour from a uniform and allocates nothing (spec §8).
     if (scene && colored) {
+      const colors = tesselateColors(scene)
       this.colorBuffer ??= gl.createBuffer()
+      this.discColorBuffer ??= gl.createBuffer()
       if (this.colorBuffer) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, tesselateColors(scene).vertices, gl.STATIC_DRAW)
+        gl.bufferData(gl.ARRAY_BUFFER, colors.vertices, gl.STATIC_DRAW)
+      }
+      if (this.discColorBuffer) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.discColorBuffer)
+        gl.bufferData(gl.ARRAY_BUFFER, colors.discs, gl.STATIC_DRAW)
       }
     }
   }
@@ -90,20 +135,31 @@ export class GlResources {
   }
 
   /**
-   * Collapses one piece's triangles in the static buffer, or writes them back
-   * from the scene. A collapsed triangle has all three vertices at the origin,
-   * so it covers no fragment at all.
+   * Collapses one piece in the static buffers, or writes it back from the
+   * scene. A collapsed triangle has all three vertices at the origin and a
+   * collapsed disc has no radius, so neither covers a fragment.
    */
   writeRange(scene: Scene, r: PieceRanges, visible: boolean): void {
+    if (this.posBuffer) this.writeSlices(this.posBuffer, scene.positions, [r.line, r.head], 2, visible)
+    if (this.discBuffer) this.writeSlices(this.discBuffer, scene.discs, [r.corners, r.tail], FLOATS_PER_DISC, visible)
+  }
+
+  /** The ranges of `source`, `per` floats an element, into `buffer` — or zeroes of the same length. */
+  private writeSlices(
+    buffer: WebGLBuffer,
+    source: Float32Array,
+    ranges: readonly Range[],
+    per: number,
+    visible: boolean,
+  ): void {
     const gl = this.gl
-    if (!this.posBuffer) return
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer)
-    for (const range of [r.line, r.head]) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    for (const range of ranges) {
       if (range.count === 0) continue
       const slice = visible
-        ? scene.positions.subarray(range.start * 2, (range.start + range.count) * 2)
-        : new Float32Array(range.count * 2)
-      gl.bufferSubData(gl.ARRAY_BUFFER, range.start * 2 * Float32Array.BYTES_PER_ELEMENT, slice)
+        ? source.subarray(range.start * per, (range.start + range.count) * per)
+        : new Float32Array(range.count * per)
+      gl.bufferSubData(gl.ARRAY_BUFFER, range.start * per * Float32Array.BYTES_PER_ELEMENT, slice)
     }
   }
 
@@ -138,10 +194,15 @@ export class GlResources {
     const gl = this.gl
     gl.deleteProgram(this.program)
     gl.deleteProgram(this.dotProgram)
+    gl.deleteProgram(this.discProgram)
     if (this.posBuffer) gl.deleteBuffer(this.posBuffer)
     if (this.colorBuffer) gl.deleteBuffer(this.colorBuffer)
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer)
     if (this.rideBuffer) gl.deleteBuffer(this.rideBuffer)
     if (this.voidBuffer) gl.deleteBuffer(this.voidBuffer)
+    if (this.discBuffer) gl.deleteBuffer(this.discBuffer)
+    if (this.cornerBuffer) gl.deleteBuffer(this.cornerBuffer)
+    if (this.discColorBuffer) gl.deleteBuffer(this.discColorBuffer)
+    if (this.rideDiscBuffer) gl.deleteBuffer(this.rideDiscBuffer)
   }
 }

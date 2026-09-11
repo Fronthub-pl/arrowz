@@ -5,7 +5,7 @@ import type { Board } from '@arrowz/engine'
 import type { Rgba } from './gl-color.ts'
 import type { GlResources } from './gl-resources.ts'
 import type { Rider } from './rides.ts'
-import type { Block, Scene } from './tesselate.ts'
+import type { Block, Range, Scene } from './tesselate.ts'
 import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
 
 /** The blocks in draw order, with where each takes its colour from. */
@@ -54,6 +54,59 @@ function bindAttrs(
     gl.enableVertexAttribArray(colorLoc)
     gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, 0, 0)
   } else {
+    gl.disableVertexAttribArray(colorLoc)
+  }
+}
+
+/** Bytes a disc takes in a disc buffer, and a disc colour in a colour buffer. */
+const DISC_BYTES = 3 * Float32Array.BYTES_PER_ELEMENT
+const COLOR_BYTES = 4
+
+/**
+ * One block of discs, as instances of the unit quad. WebGL2 has no
+ * `baseInstance`, so the block's first disc is reached by pointing the
+ * instanced attributes at it. Leaves the attribute state as it found it —
+ * divisors back to 0 and its arrays disabled — because every program shares
+ * the default vertex array, and a divisor left at 1 on a location the main
+ * program uses would draw the board as copies of its first vertex.
+ * `res.discProgram` must be the one in use.
+ */
+function drawDiscBlock(
+  res: GlResources,
+  discs: WebGLBuffer,
+  colors: WebGLBuffer | null,
+  range: Range,
+  flat: Rgba,
+): void {
+  if (range.count === 0 || !res.cornerBuffer) return
+  const gl = res.gl
+  const prog = res.discProgram
+  const cornerLoc = gl.getAttribLocation(prog, 'a_corner')
+  const discLoc = gl.getAttribLocation(prog, 'a_disc')
+  const colorLoc = gl.getAttribLocation(prog, 'a_color')
+  gl.bindBuffer(gl.ARRAY_BUFFER, res.cornerBuffer)
+  gl.enableVertexAttribArray(cornerLoc)
+  gl.vertexAttribPointer(cornerLoc, 2, gl.FLOAT, false, 0, 0)
+  gl.bindBuffer(gl.ARRAY_BUFFER, discs)
+  gl.enableVertexAttribArray(discLoc)
+  gl.vertexAttribPointer(discLoc, 3, gl.FLOAT, false, DISC_BYTES, range.start * DISC_BYTES)
+  gl.vertexAttribDivisor(discLoc, 1)
+  if (colors) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, colors)
+    gl.enableVertexAttribArray(colorLoc)
+    gl.vertexAttribPointer(colorLoc, 4, gl.UNSIGNED_BYTE, true, COLOR_BYTES, range.start * COLOR_BYTES)
+    gl.vertexAttribDivisor(colorLoc, 1)
+  } else if (colorLoc !== -1) {
+    gl.disableVertexAttribArray(colorLoc)
+  }
+  gl.uniform1i(gl.getUniformLocation(prog, 'u_useAttr'), colors ? 1 : 0)
+  gl.uniform4fv(gl.getUniformLocation(prog, 'u_flat'), flat)
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, range.count)
+  gl.vertexAttribDivisor(discLoc, 0)
+  gl.disableVertexAttribArray(discLoc)
+  gl.disableVertexAttribArray(cornerLoc)
+  if (colors) {
+    gl.vertexAttribDivisor(colorLoc, 0)
     gl.disableVertexAttribArray(colorLoc)
   }
 }
@@ -136,23 +189,48 @@ export function drawVoids(res: GlResources, highlight: Rgba): void {
 }
 
 /**
- * The four blocks of the static buffer, in `PASSES` order. `useAttr` is true
- * when the board is drawn in its diagnostic colours and the colour buffer
- * exists.
+ * The four blocks of the static buffer, in `PASSES` order, each followed by
+ * its own discs: the corners after the lines they join, the tails after the
+ * heads. That is the order the fans used to be drawn in, block for block, so
+ * the picture composites as it always has. `useAttr` is true when the board
+ * is drawn in its diagnostic colours and the colour buffers exist.
  */
-export function drawPieces(res: GlResources, scene: Scene, useAttr: boolean, ink: Rgba, highlight: Rgba): void {
+export function drawPieces(
+  res: GlResources,
+  scene: Scene,
+  useAttr: boolean,
+  ink: Rgba,
+  highlight: Rgba,
+  vp: Viewport,
+  width: number,
+  height: number,
+): void {
   const gl = res.gl
   const program = res.program
-  bindAttrs(gl, program, res.posBuffer, useAttr ? res.colorBuffer : null)
+  gl.useProgram(res.discProgram)
+  setView(gl, res.discProgram, vp, width, height)
   for (const pass of PASSES) {
-    const range = scene.blocks[pass.block]
-    if (range.count === 0) continue
     // Highlighted pieces take one flat colour, so the diagnostic hues never
     // reach them — the same rule the SVG group carried on its stroke.
-    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), !pass.highlight && useAttr ? 1 : 0)
-    gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), pass.highlight ? highlight : ink)
-    gl.drawArrays(gl.TRIANGLES, range.start, range.count)
+    const attr = !pass.highlight && useAttr
+    const flat = pass.highlight ? highlight : ink
+    const range = scene.blocks[pass.block]
+    if (range.count > 0) {
+      gl.useProgram(program)
+      // Bound again every pass: the disc pass before it left its arrays disabled.
+      bindAttrs(gl, program, res.posBuffer, useAttr ? res.colorBuffer : null)
+      gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), attr ? 1 : 0)
+      gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), flat)
+      gl.drawArrays(gl.TRIANGLES, range.start, range.count)
+    }
+    const discs = scene.discBlocks[pass.block]
+    if (discs.count > 0 && res.discBuffer) {
+      gl.useProgram(res.discProgram)
+      drawDiscBlock(res, res.discBuffer, attr ? res.discColorBuffer : null, discs, flat)
+    }
   }
+  // Every pass after this one assumes the main program is current.
+  gl.useProgram(program)
 }
 
 /**

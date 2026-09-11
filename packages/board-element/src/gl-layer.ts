@@ -457,7 +457,16 @@ export class GlLayer {
     })
     drawVoids(res, this.highlightRgba)
     if (!scene) return
-    drawPieces(res, scene, this.view.colored && res.colorBuffer !== null, this.inkRgba, this.highlightRgba)
+    drawPieces(
+      res,
+      scene,
+      this.view.colored && res.colorBuffer !== null,
+      this.inkRgba,
+      this.highlightRgba,
+      vp,
+      width,
+      height,
+    )
     drawRiders(res, this.rides.riders, vp, board, this.padCells, height)
   }
 
