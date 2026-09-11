@@ -135,17 +135,22 @@ the always-applied difficulty baseline, and sets `mix`, which nothing else sets.
 - With `--randomized`, the everyday flags draw their bundles from the measured safe
   ranges; an explicit knob is **pinned** — it is not drawn — while every other knob of the
   bundle keeps being drawn. With `--count=N`, the pin holds for every seed in the run.
-- **Pins go into the draw, not over it.** `simpleParams` gains a third argument:
+- **A pin changes only what it names.** `simpleParams` gains a third argument:
 
   ```ts
   simpleParams(choice: SimpleChoice, rng: (() => number) | null, pins?: Partial<Record<ParamKey, number>>)
   ```
 
-  `draw` skips a pinned key, and the `wShort + wMid <= 0.9` clamp adjusts only an *unpinned*
-  partner. Applying pins after the draw instead (`{ ...simpleParams(...), ...pins }`) would let
-  `--randomized --wshort=0.8` fail the envelope on some seeds and kill a `--count` batch
-  halfway through; with pins inside the draw, two pinned knobs that break the rule are refused
-  immediately and identically on every run.
+  The whole bundle is drawn first, then the pinned values are written over it. Skipping the
+  draw for a pinned knob would look equivalent and is not: a draw not taken leaves the random
+  stream one value ahead, so pinning `pStraight` would silently change `wLateral`, `warns` and
+  `anticoil` too (measured: 4 → 5, 4 → 5, 6 → 7 on one seed). Drawing and then overwriting
+  keeps every unpinned knob at exactly the value it would have had without the pin.
+
+  The `wShort + wMid <= 0.9` clamp stays pin-aware: it moves only an unpinned partner, so a
+  pinned share is never quietly rewritten. With both shares pinned it moves neither, and the
+  envelope refuses the pair — identically on every seed, so a `--count` batch fails on its
+  first board rather than halfway through.
 - Every override prints one line to **stderr**, once per run rather than once per seed
   (so the `--dry-run` JSON on stdout stays machine-readable):
 
