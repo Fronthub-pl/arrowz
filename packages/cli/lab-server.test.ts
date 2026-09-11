@@ -1,7 +1,9 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
+import { dirname } from '@std/path'
 import { defaultParams, encodeBoard } from '@arrowz/engine'
 import { COMMAND_PREFIX } from '@arrowz/engine/command'
-import { createLabServer } from './lab-server.ts'
+import { createLabServer, MAX_BODY } from './lab-server.ts'
+import { saveBoard } from './store.ts'
 import type { BoardMeta, BoardSize } from '@arrowz/engine'
 
 /** One server per test on a fresh, empty store; shut down before the sanitizers look. */
@@ -18,12 +20,11 @@ async function withServer(fn: (base: string) => Promise<void>) {
 /** The file of an empty board of a size: enough for the server, which decodes it before saving. */
 const emptyFile = (W: number, H: number) => encodeBoard({ W, H, owner: new Int32Array(W * H).fill(-1), pieces: [] })
 
-Deno.test('POST /api/boards saves, GET lists, the board file and the preview are served from the store', () =>
+Deno.test('POST /api/boards saves, GET lists, the board file is served from the store', () =>
   withServer(async (base) => {
     const board = emptyFile(25, 50)
     const body = {
       board,
-      svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 25, H: 50, seed: 7 },
       view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
       command: `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
@@ -40,9 +41,78 @@ Deno.test('POST /api/boards saves, GET lists, the board file and the preview are
     const file = await fetch(`${base}/boards/25x50/${meta.id}.board.json`)
     assertEquals(file.headers.get('content-type'), 'application/json')
     assertEquals(await file.json(), board)
-    const svg = await fetch(`${base}/boards/25x50/${meta.id}.svg`)
+  }))
+
+Deno.test('a preview saved by the CLI is served from the store as SVG', () =>
+  withServer(async (base) => {
+    const meta = saveBoard({
+      board: emptyFile(10, 10),
+      svg: '<svg>x</svg>',
+      params: { ...defaultParams(), W: 10, H: 10, seed: 5 },
+      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
+      command: 'x',
+      source: 'cli',
+    })
+    const svg = await fetch(`${base}/boards/10x10/${meta.id}.svg`)
     assertEquals(svg.headers.get('content-type'), 'image/svg+xml')
     assertEquals(await svg.text(), '<svg>x</svg>')
+  }))
+
+/** A valid POST body for a 10×10 board; each case below breaks one field. */
+const validBody = () => ({
+  board: emptyFile(10, 10),
+  params: { ...defaultParams(), W: 10, H: 10, seed: 3 },
+  view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0 },
+  command: 'x',
+  source: 'lab',
+})
+
+Deno.test('POST refuses fields the store would write or the page would show unchecked', () =>
+  withServer(async (base) => {
+    const store = Deno.env.get('ARROWZ_BOARDS_DIR') ?? ''
+    const b = validBody()
+    const cases: [unknown, string][] = [
+      [{ ...b, params: { ...b.params, seed: '/../../escape' } }, 'params.seed'],
+      [{ ...b, params: { ...b.params, seed: 1.5 } }, 'whole numbers'],
+      [{ ...b, source: '<img src=x onerror=alert(1)>' }, 'source'],
+      [{ ...b, svg: '<svg><script>alert(1)</script></svg>' }, 'svg is not accepted'],
+      [{ ...b, view: { ...b.view, top: 'x' } }, 'view.top'],
+      [{ ...b, view: { ...b.view, colored: 'yes' } }, 'view.colored'],
+      [{ ...b, command: 'x'.repeat(5000) }, 'command'],
+      [{ ...b, metrics: { pieces: '<b>' } }, 'metrics.pieces'],
+      [{ ...b, metrics: { stuck: { remaining: 1, sizes: ['x'], heads: null } } }, 'metrics.stuck'],
+    ]
+    for (const [body, error] of cases) {
+      const r = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
+      assertEquals(r.status, 400, error)
+      const got: { error: string } = await r.json()
+      assert(got.error.includes(error), `${got.error} lacks ${error}`)
+    }
+    const beside = [...Deno.readDirSync(dirname(store))].map((e) => e.name)
+    assert(!beside.some((n) => n.startsWith('escape')), 'a file was written beside the store')
+    assertEquals(await (await fetch(base + '/api/boards')).json(), [])
+  }))
+
+Deno.test('POST keeps only the knobs of PARAM_SPEC', () =>
+  withServer(async (base) => {
+    const b = validBody()
+    const body = { ...b, params: { ...b.params, ruleB: false, voidFrac: 0.5, junk: 1 } }
+    const r = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    assertEquals(r.status, 201)
+    const meta: BoardMeta = await r.json()
+    assertEquals(meta.params.ruleB, true)
+    assertEquals(meta.params.voidFrac, 0)
+    assert(!('junk' in meta.params))
+  }))
+
+Deno.test('POST refuses a body that is not JSON (400) or larger than the cap (413)', () =>
+  withServer(async (base) => {
+    const bad = await fetch(base + '/api/boards', { method: 'POST', body: '{' })
+    assertEquals(bad.status, 400)
+    await bad.body?.cancel()
+    const big = await fetch(base + '/api/boards', { method: 'POST', body: 'x'.repeat(MAX_BODY + 1) })
+    assertEquals(big.status, 413)
+    await big.body?.cancel()
   }))
 
 Deno.test('POST stores the board file as the engine writes it, without keys it does not know', () =>
