@@ -3,7 +3,7 @@
 // carve.ts in a child process and compare the SVG byte for byte.
 // --dry-run is tested the same way: the board store points at a temporary
 // directory, which must stay empty.
-import { assert, assertEquals, assertMatch } from '@std/assert'
+import { assert, assertEquals, assertMatch, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, fingerprint, formatViolation, generate, toSvg, validateParams } from '@arrowz/engine'
 import { boardId, buildCommand, buildSimpleCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
@@ -98,6 +98,31 @@ Deno.test('carve.ts --svg=path also writes a copy at the path', () => {
   assertEquals(r.status, 0, r.stderr)
   const id = boardId({ ...defaultParams(), W: 10, H: 10, seed: 3 })
   assertEquals(Deno.readTextFileSync(copy), Deno.readTextFileSync(join(dir, '10x10', `${id}.svg`)))
+})
+
+// A view flag has to reach the drawing, not only the command text and the
+// meta. --sharp was parsed, printed and stored while the SVG on disk stayed
+// round, because the CLI named the fields of its SvgOptions by hand and did
+// not name this one. So this test asserts on the written characters: a
+// comparison against a toSvg call that names the same fields is a mirror and
+// agrees with itself whatever the CLI does.
+Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () => {
+  const dir = tmp()
+  const store = join(dir, 'store')
+  const sharpPath = join(dir, 'sharp.svg')
+  const roundPath = join(dir, 'round.svg')
+  const sharp = runCarve(['--width=10', '--height=10', '--seed=3', '--sharp', `--svg=${sharpPath}`], store)
+  assertEquals(sharp.status, 0, sharp.stderr)
+  const round = runCarve(['--width=10', '--height=10', '--seed=3', `--svg=${roundPath}`], store)
+  assertEquals(round.status, 0, round.stderr)
+
+  const sharpSvg = Deno.readTextFileSync(sharpPath)
+  assertStringIncludes(sharpSvg, 'stroke-linejoin="miter"')
+  assert(!sharpSvg.includes('<circle'), 'a sharp board squares its tails off')
+
+  const roundSvg = Deno.readTextFileSync(roundPath)
+  assertStringIncludes(roundSvg, 'stroke-linejoin="round"')
+  assertStringIncludes(roundSvg, '<circle')
 })
 
 // --- --dry-run ---------------------------------------------------------------

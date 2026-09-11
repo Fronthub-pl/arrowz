@@ -4,7 +4,7 @@
 // The command is the canonical way to invoke the CLI: flag = PARAM_SPEC key
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
-import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, View } from './types.ts'
+import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View } from './types.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
@@ -34,6 +34,28 @@ export const DEFAULT_VIEW: View = {
   colored: false,
   top: 0,
   rounded: DEFAULT_ROUNDED,
+}
+
+/**
+ * The SvgOptions a view implies: every field of the view that `toSvg` reads,
+ * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.
+ *
+ * The one place the translation lives. Naming the fields by hand at each call
+ * site is how `--sharp` and the lab's rounding checkbox came to be parsed,
+ * printed and stored while the drawing never changed: a field added to `View`
+ * was silently dropped on the way to `toSvg`. `voids` has no home in a view,
+ * so callers that need it spread it over the result.
+ */
+export function svgOptions(view: View): SvgOptions {
+  return {
+    cell: view.cell,
+    colored: view.colored,
+    strokeRatio: view.stroke,
+    headWidth: view.headWidth,
+    headHeight: view.headHeight,
+    top: view.top,
+    rounded: view.rounded,
+  }
 }
 
 /** One line of a flag list in --help: the flag itself and its description. */

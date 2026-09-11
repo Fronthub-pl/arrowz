@@ -2028,11 +2028,12 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
     if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
   }
 
-  // Lines end flat: the head end hides under the head, and the tail gets its
-  // rounding from a circle of the line's radius, drawn with the heads. Corners
-  // stay round. The default ink is set once per group; only coloured and
-  // highlighted pieces carry their own colour (a 1000×1000 board has ~90 000
-  // pieces).
+  // Lines end flat: the head end hides under the head, and the tail is capped
+  // by a shape drawn with the heads — a disc of the line's radius when
+  // `rounded`, a square of the same reach when not. The corners follow the
+  // same switch, through stroke-linejoin. The default ink is set once per
+  // group; only coloured and highlighted pieces carry their own colour (a
+  // 1000×1000 board has ~90 000 pieces).
   const INK = '#232447'
   const rounded = opts.rounded ?? DEFAULT_ROUNDED
   const join = rounded ? 'round' : 'miter'

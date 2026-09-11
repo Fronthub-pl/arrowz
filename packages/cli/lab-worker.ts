@@ -8,6 +8,7 @@
 // colour or the number of highlighted pieces redraws the SVG without
 // regenerating.
 import { generate, toSvg } from '@arrowz/engine'
+import { svgOptions } from '@arrowz/engine/command'
 import type { Board, LongestSummary, Metrics, Params, View, WorkerIn, WorkerOut } from '@arrowz/engine'
 
 let last: { board: Board; metrics: Metrics | null; params: Params } | null = null
@@ -51,12 +52,7 @@ function longestSummary(board: Board, n: number): LongestSummary[] {
 function render(view: View, voids: boolean | undefined, tag?: string) {
   if (!last) return
   const svg = toSvg(last.board, {
-    cell: view.cell,
-    colored: view.colored,
-    strokeRatio: view.stroke,
-    headWidth: view.headWidth,
-    headHeight: view.headHeight,
-    top: view.top,
+    ...svgOptions(view),
     ...(voids !== undefined ? { voids } : {}),
   })
   post({ type: 'render', svg, longest: longestSummary(last.board, view.top), ...(tag ? { tag } : {}) })

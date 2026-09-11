@@ -26,7 +26,7 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | Property | Type | Default |
 |---|---|---|
 | `board` | `Board \| null` | `null` |
-| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, monochrome) |
+| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
 | `pad` | `number` (attribute, reflected): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
@@ -60,7 +60,9 @@ before a board and a host size are both known.
 
 Controls: click without a modifier plays; drag with ⌘ or Ctrl pans; wheel
 zooms towards the cursor; one finger pans, two pinch, a tap plays; `+`, `−`,
-`0` and the corner buttons zoom and fit; double click or double tap fits.
+`0` and the corner buttons zoom and fit. A repeated press — a double click, a
+double tap — does nothing at all: the second one is read as a slipped finger,
+not as an instruction.
 
 ### Zoom and pan
 
@@ -75,8 +77,9 @@ dragged the point 583 px away from the cursor.
 
 So blank paper beside the board is the price of the anchor, as is a board
 smaller than the host no longer being pinned to the middle. `fit()`, the `0`
-key, the corner button and a double click all put it back. `zoomBy` still works
-from the centre of the host: a button has no cursor to zoom towards.
+key and the corner button put it back — a double click does not, it does
+nothing at all. `zoomBy` still works from the centre of the host: a button has
+no cursor to zoom towards.
 
 Holding ⌘ or Ctrl shows the grab cursor before anything is pressed, and takes
 the piece cursor away while it is held: with the modifier down the next click

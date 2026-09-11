@@ -20,7 +20,14 @@ import type {
   WorkerIn,
   WorkerOut,
 } from '@arrowz/engine'
-import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from '@arrowz/engine'
+import {
+  DEFAULT_HEAD_HEIGHT,
+  defaultParams,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  RULE_REASONS,
+  validateParams,
+} from '@arrowz/engine'
 import { buildCommand } from '@arrowz/engine/command'
 import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
@@ -581,12 +588,25 @@ el('boardWrap').addEventListener('dblclick', () => {
   saveToUrl()
 })
 
+/**
+ * A number box that has been emptied reads back as '', and `Number('')` is 0.
+ * For the head height that used to be harmless — 0 meant "automatic" — and now
+ * means a head of no height at all, drawn headless and printed as
+ * `--headheight=0`. Nobody clears a box to ask for that, so an empty (or
+ * unparseable) one falls back to the default the box was born with.
+ */
+function headHeightOf(id: string): number {
+  const raw = el<HTMLInputElement>(id).value.trim()
+  const n = Number(raw)
+  return raw === '' || !Number.isFinite(n) ? DEFAULT_HEAD_HEIGHT : n
+}
+
 function viewOptions(): View {
   return {
     cell: Number(el<HTMLInputElement>('cell').value),
     stroke: Number(el<HTMLInputElement>('stroke').value),
     headWidth: Number(el<HTMLInputElement>('headWidth').value),
-    headHeight: Number(el<HTMLInputElement>('headHeight').value),
+    headHeight: headHeightOf('headHeight'),
     colored: el<HTMLInputElement>('colored').checked,
     top: el<HTMLInputElement>('hilite').checked ? Number(el<HTMLInputElement>('top').value) : 0,
     rounded: el<HTMLInputElement>('rounded').checked,
@@ -1045,7 +1065,7 @@ function libView(meta: BoardMeta): View {
     cell: meta.view.cell,
     stroke: Number(el<HTMLInputElement>('libStroke').value),
     headWidth: Number(el<HTMLInputElement>('libHeadWidth').value),
-    headHeight: Number(el<HTMLInputElement>('libHeadHeight').value),
+    headHeight: headHeightOf('libHeadHeight'),
     colored: el<HTMLInputElement>('libColored').checked,
     top: 0, // stored boards carry no highlight
     rounded: el<HTMLInputElement>('libRounded').checked,

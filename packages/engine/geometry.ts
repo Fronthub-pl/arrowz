@@ -62,7 +62,14 @@ export interface PieceShape {
   line: [number, number][]
   /** Head polygon: tip, one side, (two collar points when the line is as wide as the head), the other side. */
   head: [number, number][]
-  /** The tail rounding: a circle of the line's radius on the last cell. */
+  /**
+   * The tail cap: a centre on the last cell and the line's radius as its
+   * reach. Deliberately not a circle — the renderer decides the shape, a disc
+   * when `rounded` and a square of the same reach when not, and both occupy
+   * the same room. This is why `ShapeOptions` carries no `rounded`: the switch
+   * changes no arithmetic here, so the shape stays the one shape both modes
+   * are drawn from.
+   */
   tail: { x: number; y: number; r: number }
 }
 

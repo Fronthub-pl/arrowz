@@ -157,11 +157,18 @@ square of side `half`, on the outer side of the turn. The fan sweeps that
 square. Which side is outer, and which way the sweep runs, both come off the
 sign of the cross product of the two directions.
 
-`JOIN_SEGMENTS = 6`. The sagitta rule of `TAIL_SEGMENTS` applies at the
-corner's own radius, which is the widest a stroke may now be: at `stroke` 0.9
-and `MAX_CELL_PX` (48) on a dpr 2 screen that radius is 43 device pixels, and a
-quarter arc of `k` facets is a `4k`-gon, so `43 · (1 − cos(π / 4k)) < 0.5`
-needs `k` above 5.15.
+`JOIN_SEGMENTS = 7`. The sagitta rule of `TAIL_SEGMENTS` applies at the
+corner's own radius, which is the widest a corner is ever drawn with — and
+that is not the panel's maximum `stroke` on its own. A highlighted piece in
+colour mode is drawn at 1.5 times the stroke (`strokeOf`), so 0.9 becomes 1.35
+of a cell and the corner radius is half of that. At `MAX_CELL_PX` (48) on a
+dpr 2 screen that radius is 64.8 device pixels, and a quarter arc of `k`
+facets is a `4k`-gon, so `64.8 · (1 − cos(π / 4k)) < 0.5` needs `k` above 6.32.
+(Derived at 0.9 alone the radius is 43 device pixels and `k` above 5.15, which
+is the 6 an earlier draft of this section carried; the highlight is what
+pushes it to 7.) A host is free to set `view.stroke` past what the panel
+offers; the cost there is visible faceting on that corner, not anything
+breaking.
 
 When `rounded` is false the corner keeps today's shape: both segments extend
 by `half` into the join, which is exactly the miter an SVG rasteriser draws at
@@ -262,9 +269,12 @@ is covered without a browser.
 
 Changed:
 
-- `tesselate.test.ts:212` — the vertex-count formula gains the fan term. The
-  spike showed the ridden bent piece going from 81 to 99 vertices, which is
-  exactly one fan.
+- `tesselate.test.ts:212` — the vertex-count formula gains the fan term. One
+  fan is `3 · JOIN_SEGMENTS`, so at the 7 this ships with a corner costs 21
+  vertices, not the 18 the spike saw at 6 when it measured the ridden bent
+  piece going from 81 to 99. The test asserts that difference between a
+  rounded and a sharp piece rather than a fixed total: `mergeCollinear`
+  (§4.3) lands in the same change and moves every absolute count.
 - `svg-golden.json` — re-recorded (§6).
 - `engine.test.ts:762` — asserts `stroke-linejoin="round"`; it keeps that for
   the default and gains a case for `--sharp`.

@@ -1103,6 +1103,10 @@ board the player must be able to zoom in without guessing how.
 | `+` / `−` keys | as above |
 | double click, double tap, the `0` key, the "fit" button | fitting the whole board to the screen |
 
+> Superseded: fitting is left to the `0` key and the "fit" button; a repeated
+> press does nothing at all. See R1 and R2 of
+> `docs/superpowers/specs/2026-09-10-rounded-arrows-design.md`.
+
 The scale range is bounded on both sides:
 
 - **the lower bound** is fitting the whole board to the screen — you cannot zoom out

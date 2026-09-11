@@ -838,8 +838,10 @@ Deno.test('sharp corners mitre and the tail squares off', () => {
   assert(/<rect [^>]*width="[\d.]+" height="[\d.]+"\/>/.test(svg), 'a square tail')
 })
 
-// The head size can be set by hand (view options, in cells); 0 keeps the
-// automatic rule. A head narrower than the line is pulled up to the line.
+// The head size can be set by hand (view options, in cells). Only the width
+// still has an automatic rule, which 0 selects; the height is always taken
+// literally, so 0 there is a head of no height. A head narrower than the line
+// is pulled up to the line.
 Deno.test('toSvg: the head knobs set the size, and only the width has an automatic mode', () => {
   const { toSvg } = engineExports
   const cell = 20
