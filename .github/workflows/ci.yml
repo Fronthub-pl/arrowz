@@ -54,4 +54,16 @@ jobs:
 
       - uses: nrwl/nx-set-shas@v5
 
-      - run: pnpm nx affected -t check lint fmt test build smoke bundle
+      # The board element's browser tests run on their own, after everything
+      # else. The runner has no GPU, so Chromium draws WebGL in software, on the
+      # same CPU that the Deno suites load when Nx runs them in parallel; the
+      # ride tests sample frames against a wall clock, and with the engine's
+      # tests alongside, a whole exit ride (at most 600 ms) finished before a
+      # single frame came (PR #40). Alone, they get the CPU to themselves.
+      - run: pnpm nx affected -t check lint fmt build smoke bundle
+      - run: pnpm nx affected -t test --exclude=board-element
+      - name: Board element tests, alone
+        run: |
+          if pnpm nx show projects --affected --json | grep -q '"board-element"'; then
+            pnpm nx run board-element:test
+          fi
