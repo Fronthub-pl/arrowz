@@ -216,15 +216,22 @@ Deno.test('big boards get a higher straightness floor and no layers mode when ra
   assert(minSmall >= 0.65 - 1e-9)
 })
 
-Deno.test('a pinned knob is not drawn, and its bundle partners still are', () => {
-  const choice = { ...defaultChoice(), W: 60, H: 60, lengths: 0.5, shape: 0.5 }
-  const rng = () => 0.5
-  const pinned = simpleParams(choice, rng, { pStraight: 0.97 })
+// The pin goes over the finished draw, never into it. Skipping a pinned
+// knob's draw() would leave one value of the stream unspent and shift every
+// partner drawn after it — measured on this very choice before the fix:
+// wLateral 4 -> 5, warns 4 -> 5, anticoil 6 -> 7. A constant rng hides that,
+// so this test runs a real stream.
+Deno.test('a pin changes only the knob it names, and never moves its partners', () => {
+  const c = choice({ W: 60, H: 60, lengths: 0.5, shape: 0.5 })
+  // A fresh generator per call: mulberry32 is stateful, and the claim under
+  // test is that both runs draw the same values in the same order.
+  const pinned = simpleParams(c, mulberry32(7), { pStraight: 0.97 })
+  const free = simpleParams(c, mulberry32(7))
   assertEquals(pinned.pStraight, 0.97)
-  const free = simpleParams(choice, rng)
   assert(free.pStraight !== 0.97, 'the draw would have picked the pinned value anyway')
   assertEquals(pinned.wLateral, free.wLateral)
   assertEquals(pinned.warns, free.warns)
+  assertEquals(pinned.anticoil, free.anticoil)
 })
 
 Deno.test('the short-plus-medium clamp moves only an unpinned partner', () => {

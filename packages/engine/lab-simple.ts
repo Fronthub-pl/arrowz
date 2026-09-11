@@ -297,9 +297,10 @@ function draw(key: ParamKey, range: Range, rng: (() => number) | null): number {
 /**
  * Full engine parameters for a choice. With `rng` (a function returning
  * [0, 1)) every ranged knob is drawn inside its range; without it the
- * canonical values are used. A knob named in `pins` is not drawn at all —
- * the value given is the caller's word — while the rest of its bundle keeps
- * being drawn around it.
+ * canonical values are used. The bundle is drawn first and the knobs named in
+ * `pins` are written over the result afterwards, so a pin changes only the
+ * knob it names: every other knob keeps the value it would have had without
+ * the pin, down to its place in the random stream.
  */
 export function simpleParams(
   choice: SimpleChoice,
@@ -310,15 +311,14 @@ export function simpleParams(
   const p: Params = { ...defaultParams(), W: c.W, H: c.H, seed: c.seed }
   const ranges = simpleRanges(c)
   for (const key of anchorKeys(ranges)) {
-    const pinnedValue = pins[key]
-    if (pinnedValue !== undefined) {
-      p[key] = pinnedValue
-      continue
-    }
     const range = ranges[key]
     if (range) p[key] = draw(key, range, rng)
   }
-  // A pin on a knob no slider controls (Lmax, restarts, ...) counts too.
+  // The pins go on top of the finished draw, never into it: skipping a pinned
+  // knob's draw would leave its value unspent in the stream and shift every
+  // partner drawn after it. A pin on a knob no anchor controls (Lmax,
+  // restarts, ...) is the only kind that adds a value here rather than
+  // replacing one the draw just made.
   for (const [key, value] of Object.entries(pins)) {
     if (value !== undefined) p[key as ParamKey] = value
   }

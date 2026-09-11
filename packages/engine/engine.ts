@@ -2517,16 +2517,6 @@ export class InvalidParamsError extends RangeError {
 }
 
 /**
- * Generates a board: carves until it succeeds, restarting with a derived seed
- * on failure. Returns the board, metrics and the run — also on failure, so
- * that the lab has something to show. A knob left out of `params` takes its
- * default, and everything that is not a knob — the hooks, the test-only
- * `voidFrac` and `ruleB` — rides in `opts`. The merged parameters must sit inside
- * the safe envelope (validateParams), otherwise a RangeError with
- * `violations` attached is thrown before any carving starts. `unchecked`
- * skips that check; it exists for engine-internal tests only.
- */
-/**
  * Thrown from a `trace` callback to stop generate(): the attempt ends, the
  * board carved so far comes back as a failed run (`aborted: true`) and no
  * restart follows. The CLI uses it for a wall-clock budget; the engine
@@ -2539,6 +2529,16 @@ export class GenerateAbort extends Error {
   }
 }
 
+/**
+ * Generates a board: carves until it succeeds, restarting with a derived seed
+ * on failure. Returns the board, metrics and the run — also on failure, so
+ * that the lab has something to show. A knob left out of `params` takes its
+ * default, and everything that is not a knob — the hooks, the test-only
+ * `voidFrac` and `ruleB` — rides in `opts`. The merged parameters must sit
+ * inside the safe envelope (validateParams), otherwise a RangeError with
+ * `violations` attached is thrown before any carving starts. `unchecked`
+ * skips that check; it exists for engine-internal tests only.
+ */
 export function generate(params: Partial<Params>, opts: GenerateOptions = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
   const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true } = opts
