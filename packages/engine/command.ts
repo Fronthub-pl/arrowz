@@ -1,26 +1,137 @@
 // Shared command text and board id for the lab (browser) and the CLI
-// (carve). Pure: no fs, no DOM.
+// (carve). Pure: no fs, no DOM, no randomness.
 //
-// The command is the canonical way to invoke the CLI: flag = PARAM_SPEC key
-// in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
-// so both sides build and read the text with this code.
+// One parser, one spelling per option. An everyday flag (--width, --length,
+// --winding, --skeleton) sets a whole bundle of knobs; a knob flag is its
+// PARAM_SPEC key in lower case, never hyphenated (--pstraight, --giantspan),
+// and a CLI flag is hyphenated (--dry-run, --arrow-width). A knob written on
+// the command line is a PIN: it wins over the bundle and pins only itself.
+// The lab has to mirror the CLI 1:1, so both sides build and read the text
+// with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View } from './types.ts'
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
+import { PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
-import { defaultChoice, exportCell } from './lab-simple.ts'
+import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
 export const COMMAND_PREFIX = 'deno task carve'
 
-// Old flag names from rounds 1–7; README examples must keep working.
-export const ALIASES: Record<string, ParamKey> = {
-  straight: 'pStraight',
-  lateral: 'wLateral',
-  absorb: 'absorbLimit',
+/** A knob flag whose value may also be a word: the word and the number it stores. */
+const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
+  Lmax: { auto: 0 },
+  maxBack: { auto: 0 },
+  giantStep: { random: 0 },
+  giantSpacing: { off: 1 },
 }
 
-const KEY_BY_FLAG = new Map<string, ParamKey>(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
-for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
+/** `--start` is the one flag that writes two stored knobs. */
+const START: Record<string, { headBias: number; mix: number }> = {
+  layers: { headBias: -1, mix: -1 },
+  random: { headBias: 0, mix: -1 },
+  tunnels: { headBias: 1, mix: -1 },
+}
+
+/** Spellings that were dropped, and what to use instead; each is refused by name. */
+const RETIRED: Record<string, string> = {
+  advanced: 'the CLI has one mode now; drop --advanced',
+  board: 'a board file is always written; drop --board',
+  straight: 'use --winding=R (0 = straightest) or the knob --pstraight=R',
+  stroke: 'use --line=R',
+  lineweight: 'use --line=R',
+  headwidth: 'use --arrow-width=R',
+  arrowwidth: 'use --arrow-width=R',
+  headheight: 'use --arrow-height=R',
+  arrowheight: 'use --arrow-height=R',
+  colorized: 'use --colored',
+  w: 'use --width=N',
+  h: 'use --height=N',
+  lateral: 'use --wlateral=R',
+  absorb: 'use --absorblimit=N',
+  giantspacepen: 'the spacing strength is fixed now; use --giantspacing=off|2|3',
+  headbias: 'use --start=layers|random|tunnels',
+  mix: 'use --start=0.3..0.7 (or layers|random|tunnels to turn mixing off)',
+}
+
+// The size and the seed are knobs in PARAM_SPEC (they are stored and hashed),
+// but on the command line they are everyday flags: --width, --height, --seed.
+const EVERYDAY_KEYS = new Set<ParamKey>(['W', 'H', 'seed'])
+
+const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
+
+/** A knob's spec; every key used here comes from PARAM_SPEC, so a miss is a programming error. */
+function specOf(key: ParamKey): ParamSpec {
+  const s = specByKey.get(key)
+  if (!s) throw new Error(`unknown parameter ${key}`)
+  return s
+}
+
+/** The flag that writes a knob: the everyday spelling for the size and the seed, the key otherwise. */
+function flagOf(key: ParamKey): string {
+  if (key === 'W') return '--width'
+  if (key === 'H') return '--height'
+  return `--${key.toLowerCase()}`
+}
+
+/** The knob flags a value can be written on: every key except the two behind --start. */
+const KEY_BY_FLAG = new Map<string, ParamKey>(
+  PARAM_SPEC.filter((s) => s.surface !== 'start' && !EVERYDAY_KEYS.has(s.key))
+    .map((s) => [s.key.toLowerCase(), s.key]),
+)
+
+/** The number a word stands for, or null when the knob has no such word. */
+function wordValue(key: ParamKey, raw: string): number | null {
+  return WORDS[key]?.[raw] ?? null
+}
+
+/** The word a value is spelled with, or null when it is printed as a number. */
+function wordOf(key: ParamKey, value: number): string | null {
+  for (const [word, n] of Object.entries(WORDS[key] ?? {})) if (n === value) return word
+  return null
+}
+
+/** The words a knob accepts beside a number, for an error message and the help. */
+function wordsOf(key: ParamKey): string[] {
+  return Object.keys(WORDS[key] ?? {})
+}
+
+/** A finite number, or null when the text is missing or is not one. */
+function numberOf(raw: string | null): number | null {
+  if (raw === null || raw === '') return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Whether the two knobs behind --start are both at their defaults. */
+function isDefaultStart(params: Params): boolean {
+  return PARAM_SPEC.every((s) => s.surface !== 'start' || params[s.key] === s.def)
+}
+
+/**
+ * How `--start` spells the pair it writes. A mix at or above 0 is the mixing
+ * share itself; otherwise the pair is one of the three words. A value off the
+ * step grid (only a hand-edited board file has one) has no spelling at all, so
+ * it is printed as the number it is and refused on the way back in, loudly,
+ * rather than silently becoming another board.
+ */
+function startFlag(params: Params): string {
+  if (params.mix >= 0) return `--start=${params.mix}`
+  for (const [word, v] of Object.entries(START)) {
+    if (v.headBias === params.headBias && v.mix === params.mix) return `--start=${word}`
+  }
+  return `--start=${params.headBias}`
+}
+
+/**
+ * How one knob is written on the command line: the flag and the word or the
+ * number it takes. `headBias` and `mix` share the flag `--start`, so the whole
+ * set is needed to spell either of them. The one place a word is chosen, so
+ * the command text, the help and the CLI's notes cannot drift apart.
+ */
+export function knobFlag(params: Params, key: ParamKey): string {
+  if (specOf(key).surface === 'start') return startFlag(params)
+  const value = params[key]
+  return `${flagOf(key)}=${wordOf(key, value) ?? value}`
+}
 
 // headWidth: arrowhead width in cells, 0 = automatic (from the stroke).
 // headHeight: arrowhead height in cells, always literal; the default is the
@@ -60,67 +171,36 @@ export function svgOptions(view: View): SvgOptions {
 /** One line of a flag list in --help: the flag itself and its description. */
 type FlagRow = readonly [string, string]
 
-// Mode and view flags read by the CLI (not engine parameters). Kept next to
-// the parser so that --help and the parser cannot drift apart.
-const MODE_FLAGS: readonly FlagRow[] = [
-  ['--board', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
-  ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
-  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --board or --svg)'],
-  [
-    '--count=N',
-    'with --board or --svg: N closed boards on the seeds from --seed up; one that does not close is skipped',
-  ],
-  ['--max-seeds=M', 'with --count: give up after M seeds (default 2 x N)'],
-  ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
-  ['--bench=N', 'benchmark instead of the report, N runs per level'],
-  ['--runs=N', 'runs per level in the report (default 3)'],
-  [
-    '--only=<level>',
-    'one level only, case-insensitive: --only=easy·sq, --only=hard·pt, or --only=easy with --square/--portrait',
-  ],
-  ['--mid=N', 'an extra level "Mid" with N cells on the shorter side'],
-  ['--square', 'levels as 1:1 boards only'],
-  ['--portrait', 'levels as 1:2 boards only'],
-  ['--show', 'report: print the first board of each level up to 40 cells wide'],
-  ['--help, -h', 'this text'],
-]
-const VIEW_FLAGS: readonly FlagRow[] = [
-  ['--cell=N', `cell size in px (default ${DEFAULT_VIEW.cell})`],
-  ['--stroke=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
-  ['--headwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--headheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
-  ['--colored', 'a different colour for every piece'],
-  ['--top=N', 'highlight the N longest pieces and print their stats'],
-  ['--sharp', 'square corners and a square tail (default: rounded)'],
-]
-
-// The simple mode: the flags of the simple lab view. Kept next to the parser
-// below for the same reason as MODE_FLAGS.
-const SIMPLE_FLAGS: readonly FlagRow[] = [
+// The flags the CLI reads that are not knobs. Kept next to the parser so that
+// --help and the parser cannot drift apart.
+const EVERYDAY_FLAGS: readonly FlagRow[] = [
   ['--width=N', 'board width in cells (required)'],
   ['--height=N', 'board height in cells (required)'],
-  ['--length=R', 'piece length, 0 = very short, 1 = very long (default 0.75)'],
-  ['--straight=R', 'line shape, 0 = most winding, 1 = straightest (default 0.5)'],
-  ['--skeleton', 'a skeleton of long pieces first'],
   ['--seed=N', 'seed of the board (default 7)'],
+  ['--length=R', 'piece length, 0 = very short, 1 = very long (default 0.75)'],
+  ['--winding=R', 'line shape, 0 = straightest, 1 = most winding (default 0.5)'],
+  ['--skeleton', 'a skeleton of long pieces first'],
   [
     '--randomized',
-    'draw every knob afresh inside the slider ranges; not reproducible, the board meta keeps the full command',
+    'draw each bundle afresh inside the measured ranges; not reproducible, the board meta keeps the full command',
   ],
-  ['--colorized', 'a different colour for every piece'],
-  ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
-  ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--arrowheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
-  ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
-const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
+const OUTPUT_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
   ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout'],
   ['--count=N', 'N closed boards on the seeds from --seed up; one that does not close is skipped'],
   ['--max-seeds=M', 'with --count: give up after M seeds (default 2 x N)'],
-  ['--advanced', 'every engine knob, the report and the benchmark: see --advanced --help'],
-  ['--help, -h', 'this text'],
+  ['--help, -h', 'this text; --help=knobs adds the table of every knob'],
+]
+const PICTURE_FLAGS: readonly FlagRow[] = [
+  ['--cell=N', 'cell size in px (default: about 1600 px on the longer side)'],
+  ['--line=R', `line width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
+  ['--arrow-width=R', 'arrowhead width in cells (default auto, from the line width)'],
+  ['--arrow-height=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
+  ['--colored', 'a different colour for every piece'],
+  ['--sharp', 'square corners and a square tail (default: rounded)'],
+  ['--top=N', 'highlight the N longest pieces and print their stats'],
 ]
 
 /** A cell of the knob table; every row is built with one cell per column, so a gap is a programming error. */
@@ -130,116 +210,211 @@ function cellAt(row: readonly string[], i: number): string {
   return c
 }
 
+/** The values a knob flag takes: its words first, where it has any, then its numeric range. */
+function rangeText(key: ParamKey): string {
+  const s = specOf(key)
+  return [...wordsOf(key), `${s.min}..${s.max}`].join('|')
+}
+
 /**
- * Usage text for --help. The default is the simple mode: its flags and modes.
- * With { advanced: true }: modes, one row per PARAM_SPEC knob, rules, aliases.
+ * Usage text for --help. The default is the short form: the everyday flags,
+ * the modes and the picture. With { knobs: true } the full knob table follows,
+ * one row per PARAM_SPEC entry plus the merged --start, with the rules and
+ * what a pin costs.
  */
-export function helpText({ advanced = false }: { advanced?: boolean } = {}): string {
+export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   const out: string[] = []
-  const flagOf = (key: ParamKey) => `--${key.toLowerCase()}`
   const list = (rows: readonly FlagRow[], indent = '  ') => {
     const w = Math.max(...rows.map(([f]) => f.length))
     for (const [f, text] of rows) out.push(`${indent}${f.padEnd(w)}  ${text}`)
   }
-  if (!advanced) {
-    out.push(`Usage: ${COMMAND_PREFIX} --width=N --height=N [options] [mode]`)
+  out.push(`Usage: ${COMMAND_PREFIX} --width=N --height=N [--seed=N] [options] [mode]`)
+  out.push('')
+  out.push('One board from the everyday choices. The sliders take 0..1; each sets a bundle')
+  out.push('of engine knobs, and a knob named on the command line wins over its bundle.')
+  out.push('')
+  out.push('Everyday:')
+  list(EVERYDAY_FLAGS)
+  out.push('')
+  out.push('Output:')
+  list(OUTPUT_FLAGS)
+  out.push('')
+  out.push('Picture (kept in the meta, drawn by --svg):')
+  list(PICTURE_FLAGS)
+  out.push('')
+  if (!knobs) {
+    out.push('Knobs: --lmax=auto|6..5000, --start=layers|random|tunnels|0.3..0.7, --restarts=0..5,')
+    // KEY_BY_FLAG holds every knob flag except --start, and three of them are named above.
+    const more = KEY_BY_FLAG.size + 1 - 3
+    out.push(`and ${more} more. A knob flag is its key in lower case, never hyphenated: see --help=knobs.`)
     out.push('')
-    out.push('One board from the choices of the simple lab view. The sliders take 0..1; the')
-    out.push('engine knobs behind them follow the lab ranges for that position.')
-    out.push('')
-    out.push('Options:')
-    list(SIMPLE_FLAGS)
-    out.push('')
-    out.push('Modes:')
-    list(SIMPLE_MODE_FLAGS)
-    out.push('')
-    out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr),')
-    out.push('CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).')
+    out.push(environment())
     return out.join('\n')
   }
-  out.push(`Usage: ${COMMAND_PREFIX} --advanced [--<knob>=value ...] [mode] [view options]`)
+  out.push('Knobs. A knob flag is its key in lower case and is never hyphenated; a CLI flag')
+  out.push('is hyphenated instead (--dry-run, --max-seeds, --arrow-width). A value outside')
+  out.push('the range below, or breaking a rule, is refused before any board is generated.')
   out.push('')
-  out.push('Every knob below is a flag: --<key in lower case>=value. Values outside the')
-  out.push('allowed range or breaking a rule are refused before any board is generated.')
-  out.push('Without --advanced the CLI takes the simple flags instead: see --help.')
-  out.push('')
-  out.push('Modes:')
-  list(MODE_FLAGS)
-  out.push('')
-  out.push('View options (kept in the meta, drawn by --svg):')
-  list(VIEW_FLAGS)
-  out.push('')
-  out.push('Knobs:')
   const rowOf = (s: ParamSpec): string[] => [
-    flagOf(s.key),
+    `${flagOf(s.key)}=${rangeText(s.key)}`,
     s.label,
-    `${s.min}..${s.max}`,
     String(s.step),
-    String(s.def),
+    String(wordOf(s.key, s.def) ?? s.def),
     s.help,
   ]
-  const rows = PARAM_SPEC.map(rowOf)
-  const head: readonly string[] = ['flag', 'label', 'range', 'step', 'default', 'help']
-  // ~31 knobs and 6 columns: a spread of a list that is neither cells nor pieces.
+  const startRow: string[] = [
+    `--start=${Object.keys(START).join('|')}|0.3..0.7`,
+    'where a piece starts, and layer/tunnel mixing',
+    '-',
+    'random',
+    'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). ' +
+    'A number in 0.3..0.7 mixes the two instead: the fraction of pieces that start as tunnels.',
+  ]
+  // One row per knob plus the merged --start: 26 keys and 25 flags, over 5
+  // columns. A spread of a list that is neither cells nor pieces.
+  const rows: string[][] = []
+  let startDone = false
+  for (const s of PARAM_SPEC) {
+    if (s.surface !== 'start') {
+      rows.push(rowOf(s))
+      continue
+    }
+    if (startDone) continue
+    startDone = true
+    rows.push(startRow)
+  }
+  const head: readonly string[] = ['flag', 'knob', 'step', 'default', 'help']
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => cellAt(r, i).length)))
   const line = (r: readonly string[]) =>
     '  ' + r.map((c, i) => (i === r.length - 1 ? c : c.padEnd(widths[i] ?? 0))).join('  ')
   out.push(line(head))
   let group: ParamGroup | null = null
-  for (const [i, s] of PARAM_SPEC.entries()) {
+  let row = 0
+  startDone = false
+  for (const s of PARAM_SPEC) {
+    if (s.surface === 'start' && startDone) continue
+    if (s.surface === 'start') startDone = true
     if (s.group !== group) {
       group = s.group
       out.push(`  [${group}]`)
     }
-    const row = rows[i]
-    if (!row) continue
-    out.push(line(row))
+    const r = rows[row++]
+    if (!r) continue
+    out.push(line(r))
   }
+  out.push('')
+  const legend = PARAM_SPEC.filter((s) => wordsOf(s.key).length)
+    .flatMap((s) => wordsOf(s.key).map((word) => `${flagOf(s.key)}=${word} is ${WORDS[s.key]?.[word]}`))
+  out.push(`A word in a range spells one number: ${legend.join(', ')}.`)
   out.push('')
   out.push('Rules (checked together with the ranges):')
   list(RULES.map((r): FlagRow => [`${r.key} (${r.keys.map(flagOf).join(', ')})`, RULE_REASONS[r.key]]))
   out.push('')
-  out.push('Old flag names, still accepted:')
-  list(Object.entries(ALIASES).map(([alias, key]): FlagRow => [`--${alias}`, `same as ${flagOf(key)}`]))
+  out.push('Pinning. An everyday flag sets a bundle: --length sets the two share knobs,')
+  out.push('--winding the four shape knobs, --skeleton the five skeleton knobs, and every')
+  out.push('board gets the difficulty baseline. A knob you name yourself is pinned: it')
+  out.push('keeps its value while the rest of its bundle is still chosen (and, with')
+  out.push('--randomized, still drawn) around it. The safe ranges were measured as whole')
+  out.push('bundles, so a half-pinned bundle stays inside the envelope but is no longer')
+  out.push('covered by the promise that every everyday combination closes.')
   out.push('')
-  out.push('Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,')
-  out.push('CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).')
+  out.push(environment())
   return out.join('\n')
+}
+
+/** The environment variables, named the same way in both help texts. */
+function environment(): string {
+  return [
+    'Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,',
+    'CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).',
+  ].join('\n')
 }
 
 /** Command text reproducing the board for the given parameters and view. */
 export function buildCommand(params: Params, view: Partial<View> = {}): string {
-  const v = { ...DEFAULT_VIEW, ...view }
-  const parts = [
-    `${COMMAND_PREFIX} --advanced --board`,
-    `--w=${params.W}`,
-    `--h=${params.H}`,
-    `--seed=${params.seed}`,
-  ]
+  // A view without a cell size is drawn at the size the CLI picks for the
+  // board, so the everyday command carries no --cell at all.
+  const fit = exportCell(params.W, params.H)
+  const v: View = { ...DEFAULT_VIEW, cell: fit, ...view }
+  const parts = [COMMAND_PREFIX, `--width=${params.W}`, `--height=${params.H}`, `--seed=${params.seed}`]
+  let startDone = false
   for (const s of PARAM_SPEC) {
-    if (s.key === 'W' || s.key === 'H' || s.key === 'seed') continue
+    if (EVERYDAY_KEYS.has(s.key)) continue
+    if (s.surface === 'start') {
+      // One flag writes both stored knobs, so it is printed once, in their place.
+      if (startDone) continue
+      startDone = true
+      if (!isDefaultStart(params)) parts.push(startFlag(params))
+      continue
+    }
     // A Params has every knob, so the old "is it there at all" guard is gone.
-    const value = params[s.key]
-    if (value !== s.def) parts.push(`--${s.key.toLowerCase()}=${value}`)
+    if (params[s.key] !== s.def) parts.push(knobFlag(params, s.key))
   }
-  parts.push(`--cell=${v.cell}`)
-  if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--stroke=${v.stroke}`)
-  if (v.headWidth > 0) parts.push(`--headwidth=${v.headWidth}`)
-  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--headheight=${v.headHeight}`)
+  if (v.cell !== fit) parts.push(`--cell=${v.cell}`)
+  if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--line=${v.stroke}`)
+  if (v.headWidth > 0) parts.push(`--arrow-width=${v.headWidth}`)
+  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrow-height=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
   if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
 }
 
+/** What one call of the CLI asked for: the everyday choice, the knobs it pinned, the view and the modes. */
+export interface ParsedArgs {
+  params: Params
+  view: View
+  /** Knob keys written on the command line, in the order they appeared. */
+  pins: ParamKey[]
+  choice: SimpleChoice & { random: boolean }
+  rest: string[]
+  errors: string[]
+}
+
+/** Where an everyday number lands in the choice. */
+const EVERYDAY_NUMBER = new Map<string, 'W' | 'H' | 'seed' | 'lengths' | 'shape'>([
+  ['width', 'W'],
+  ['height', 'H'],
+  ['seed', 'seed'],
+  ['length', 'lengths'],
+  ['winding', 'shape'],
+])
+/** The two everyday numbers that are slider positions, and so bounded by 0..1. */
+const SLIDERS = new Set(['length', 'winding'])
+/** Where a picture number lands in the view; the switches (--colored, --sharp) are read on their own. */
+const VIEW_NUMBER = new Map<string, 'cell' | 'stroke' | 'headWidth' | 'headHeight' | 'top'>([
+  ['cell', 'cell'],
+  ['line', 'stroke'],
+  ['arrow-width', 'headWidth'],
+  ['arrow-height', 'headHeight'],
+  ['top', 'top'],
+])
+/** Mode flags: not the parser's business, handed to the CLI untouched. */
+const MODE_FLAGS = new Set(['svg', 'dry-run', 'count', 'max-seeds', 'help'])
+
 /**
- * Splits argv into engine parameters (full set with defaults), view options
- * and the rest — mode flags (--svg, --runs, --bench…) read by the CLI.
+ * Splits argv into the everyday choice, the knobs it pins, the view, the mode
+ * flags (rest) and a list of errors: a missing size, a slider outside 0..1, a
+ * value that is neither a word nor a number, a retired spelling, an unknown
+ * flag.
+ *
+ * Pure, and unrandomised on purpose: `params` is the set the choice gives with
+ * the pins written over it, which is what the lab and --help print. Drawing
+ * for --randomized is the caller's job, so that one parse can serve a whole
+ * batch of seeds.
  */
-export function parseArgs(argv: readonly string[]): { params: Params; view: View; rest: string[] } {
-  const params = defaultParams()
-  const view = { ...DEFAULT_VIEW }
+export function parseArgs(argv: readonly string[]): ParsedArgs {
+  const choice: SimpleChoice & { random: boolean } = { ...defaultChoice(), random: false }
+  const view: View = { ...DEFAULT_VIEW }
+  const pins: ParamKey[] = []
+  const pinned: Partial<Record<ParamKey, number>> = {}
   const rest: string[] = []
+  const errors: string[] = []
+  const seen = new Set<string>()
+  const pin = (key: ParamKey, value: number) => {
+    if (!pins.includes(key)) pins.push(key)
+    pinned[key] = value
+  }
   for (const a of argv) {
     if (!a.startsWith('--')) {
       rest.push(a)
@@ -248,21 +423,70 @@ export function parseArgs(argv: readonly string[]): { params: Params; view: View
     const eq = a.indexOf('=')
     const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
     const raw = eq < 0 ? null : a.slice(eq + 1)
+    seen.add(name) // given, even if the value is bad: that is its own error
+    const retired = RETIRED[name]
+    if (retired !== undefined) {
+      errors.push(`--${name} is gone: ${retired}`)
+      continue
+    }
+    if (MODE_FLAGS.has(name)) {
+      rest.push(a)
+      continue
+    }
+    if (name === 'start') {
+      const word = raw === null ? undefined : START[raw]
+      if (word) {
+        pin('headBias', word.headBias)
+        pin('mix', word.mix)
+        continue
+      }
+      const n = numberOf(raw)
+      if (n === null) {
+        errors.push(`${a} is not ${Object.keys(START).join(', ')} and not a number in 0.3..0.7`)
+        continue
+      }
+      if (n < 0.3 || n > 0.7) {
+        errors.push(`${a} is outside 0.3..0.7`)
+        continue
+      }
+      // Mixing on: the share is the number, and where a piece starts is left
+      // to it, exactly as the stored pair says.
+      pin('headBias', 0)
+      pin('mix', n)
+      continue
+    }
+    if (name === 'skeleton') {
+      choice.skeleton = 'on'
+      continue
+    }
+    if (name === 'randomized') {
+      choice.random = true
+      continue
+    }
+    const field = EVERYDAY_NUMBER.get(name)
+    if (field) {
+      const n = numberOf(raw)
+      if (n === null) {
+        errors.push(`${a} is not a number`)
+        continue
+      }
+      if (SLIDERS.has(name) && (n < 0 || n > 1)) {
+        errors.push(`${a} is outside 0..1`)
+        continue
+      }
+      choice[field] = n
+      continue
+    }
     const key = KEY_BY_FLAG.get(name)
     if (key) {
-      params[key] = Number(raw)
-      continue
-    }
-    if (name === 'cell' || name === 'stroke' || name === 'top') {
-      view[name] = Number(raw)
-      continue
-    }
-    if (name === 'headwidth') {
-      view.headWidth = Number(raw)
-      continue
-    }
-    if (name === 'headheight') {
-      view.headHeight = Number(raw)
+      const word = raw === null ? null : wordValue(key, raw)
+      const n = word ?? numberOf(raw)
+      if (n === null) {
+        const words = wordsOf(key)
+        errors.push(`${a} is not a number${words.length ? ` and not ${words.join(' or ')}` : ''}`)
+        continue
+      }
+      pin(key, n)
       continue
     }
     if (name === 'colored') {
@@ -273,122 +497,24 @@ export function parseArgs(argv: readonly string[]): { params: Params; view: View
       view.rounded = false
       continue
     }
-    rest.push(a)
-  }
-  return { params, view, rest }
-}
-
-// --- the simple mode (no --advanced) ----------------------------------------
-// The default way to call the CLI takes what the simple lab view takes: a
-// size, two slider positions in 0..1, a skeleton switch, a seed, the view and
-// a randomise flag. Two-word flags are lower case without a separator, like
-// --headwidth. --straight reads the shape slider from its straight end, so
-// --straight=1 is the straightest board.
-
-/** Where a numeric simple flag lands: a choice field or a view field. */
-type NumberTarget =
-  | readonly ['choice', 'W' | 'H' | 'seed' | 'lengths' | 'shape']
-  | readonly ['view', 'stroke' | 'headWidth' | 'headHeight']
-
-const SIMPLE_NUMBER = new Map<string, NumberTarget>([
-  ['width', ['choice', 'W']],
-  ['height', ['choice', 'H']],
-  ['seed', ['choice', 'seed']],
-  ['length', ['choice', 'lengths']],
-  ['straight', ['choice', 'shape']],
-  ['lineweight', ['view', 'stroke']],
-  ['arrowwidth', ['view', 'headWidth']],
-  ['arrowheight', ['view', 'headHeight']],
-])
-
-/** Where a switch flag lands, together with the value it sets. */
-type SwitchTarget =
-  | readonly ['choice', 'skeleton', 'on']
-  | readonly ['choice', 'random', true]
-  | readonly ['view', 'colored', true]
-  | readonly ['view', 'rounded', false]
-
-const SIMPLE_SWITCH = new Map<string, SwitchTarget>([
-  ['skeleton', ['choice', 'skeleton', 'on']],
-  ['randomized', ['choice', 'random', true]],
-  ['colorized', ['view', 'colored', true]],
-  ['sharp', ['view', 'rounded', false]],
-])
-const SIMPLE_SLIDER = new Set(['length', 'straight'])
-// Mode flags the CLI reads in the simple mode; anything else is refused.
-const SIMPLE_PASS = /^(--svg(=.*)?|--dry-run|--help|-h|--count=.*|--max-seeds=.*)$/
-const ADVANCED_HINT = 'engine knobs, the report and the benchmark need --advanced'
-
-const round6 = (v: number) => Number(v.toFixed(6))
-
-/**
- * Splits argv into a simple-view choice (lab-simple.ts), view options, the
- * mode flags (rest) and a list of errors: a missing size, a slider value
- * outside 0..1, a value that is not a number, an unknown flag.
- */
-export function parseSimpleArgs(
-  argv: readonly string[],
-): { choice: SimpleChoice & { random: boolean }; view: View; rest: string[]; errors: string[] } {
-  const choice: SimpleChoice & { random: boolean } = { ...defaultChoice(), random: false }
-  const view = { ...DEFAULT_VIEW }
-  const rest: string[] = [], errors: string[] = []
-  const seen = new Set<string>()
-  for (const a of argv) {
-    if (!a.startsWith('--') || SIMPLE_PASS.test(a)) {
-      rest.push(a)
+    const field2 = VIEW_NUMBER.get(name)
+    if (field2) {
+      const n = name === 'arrow-width' && raw === 'auto' ? 0 : numberOf(raw)
+      if (n === null) {
+        errors.push(`${a} is not a number`)
+        continue
+      }
+      view[field2] = n
       continue
     }
-    const eq = a.indexOf('=')
-    const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
-    const raw = eq < 0 ? null : a.slice(eq + 1)
-    const sw = SIMPLE_SWITCH.get(name)
-    if (sw) {
-      if (sw[0] === 'choice') {
-        if (sw[1] === 'skeleton') choice.skeleton = sw[2]
-        else choice.random = sw[2]
-      } else if (sw[1] === 'colored') view.colored = sw[2]
-      else view.rounded = sw[2]
-      continue
-    }
-    const target = SIMPLE_NUMBER.get(name)
-    if (!target) {
-      errors.push(`unknown flag --${name} (${ADVANCED_HINT})`)
-      continue
-    }
-    seen.add(name) // given, even if the value is bad: that is its own error
-    const n = raw === null || raw === '' ? NaN : Number(raw)
-    if (!Number.isFinite(n)) {
-      errors.push(`${a} is not a number`)
-      continue
-    }
-    if (SIMPLE_SLIDER.has(name) && (n < 0 || n > 1)) {
-      errors.push(`${a} is outside 0..1`)
-      continue
-    }
-    const value = name === 'straight' ? round6(1 - n) : n
-    if (target[0] === 'choice') choice[target[1]] = value
-    else view[target[1]] = value
+    errors.push(`unknown flag --${name}; see --help`)
   }
   const missing = ['width', 'height'].filter((name) => !seen.has(name)).map((name) => `missing --${name}`)
-  if (Number.isFinite(choice.W) && Number.isFinite(choice.H)) view.cell = exportCell(choice.W, choice.H)
-  return { choice, view, rest, errors: [...missing, ...errors] }
-}
-
-/** Simple command text for a choice and view: size and seed always, the rest only when off the default. */
-export function buildSimpleCommand(choice: SimpleChoice, view: Partial<View> = {}): string {
-  const d = defaultChoice()
-  const v = { ...DEFAULT_VIEW, ...view }
-  const parts = [COMMAND_PREFIX, `--width=${choice.W}`, `--height=${choice.H}`, `--seed=${choice.seed}`]
-  if (choice.lengths !== d.lengths) parts.push(`--length=${choice.lengths}`)
-  if (choice.shape !== d.shape) parts.push(`--straight=${round6(1 - choice.shape)}`)
-  if (choice.skeleton === 'on') parts.push('--skeleton')
-  if (choice.random) parts.push('--randomized')
-  if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--lineweight=${v.stroke}`)
-  if (v.headWidth > 0) parts.push(`--arrowwidth=${v.headWidth}`)
-  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrowheight=${v.headHeight}`)
-  if (v.colored) parts.push('--colorized')
-  if (!v.rounded) parts.push('--sharp')
-  return parts.join(' ')
+  // The picture is drawn to a fixed size unless the caller asked for a cell.
+  if (!seen.has('cell') && Number.isFinite(choice.W) && Number.isFinite(choice.H)) {
+    view.cell = exportCell(choice.W, choice.H)
+  }
+  return { params: simpleParams(choice, null, pinned), view, pins, choice, rest, errors: [...missing, ...errors] }
 }
 
 /**
