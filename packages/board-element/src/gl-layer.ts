@@ -4,42 +4,13 @@
 // track is re-tesselated every frame into a second, small buffer, and its
 // triangles in the static one are collapsed for as long as it rides.
 import { voidStrips } from '@arrowz/engine'
-import type { Board, Piece } from '@arrowz/engine'
+import type { Board } from '@arrowz/engine'
 import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
 import { DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
-import { exitDistance, exitMs, shakeShift } from './track.ts'
-import {
-  type Block,
-  frontOf,
-  type PieceRanges,
-  type Ride,
-  rideVertexBound,
-  type Scene,
-  tesselateBoard,
-  tesselateColors,
-  tesselatePiece,
-  voidQuads,
-} from './tesselate.ts'
-import { type BoardView, DEFAULT_VIEW, SHAKE_MS } from './view.ts'
+import { Rides } from './rides.ts'
+import { type Block, type PieceRanges, type Scene, tesselateBoard, tesselateColors, voidQuads } from './tesselate.ts'
+import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
-
-function reducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-}
-
-/**
- * A piece part way down its own track: its triangles in cells, how many of
- * them are live, where they sit in the rider buffer, and the colour they take.
- * `data` is allocated to `rideVertexBound(piece)` once, at the ride's start,
- * so a frame of a ride allocates nothing.
- */
-interface Rider {
-  data: Float32Array
-  count: number
-  /** Where its vertices begin in the rider buffer; `uploadRiders` owns this. */
-  start: number
-  color: Rgba
-}
 
 /** The blocks in draw order, with where each takes its colour from. */
 const PASSES: readonly { block: Block; highlight: boolean }[] = [
@@ -71,6 +42,20 @@ export class GlLayer {
   /** Called when the browser takes the context away, not when `dispose()` gives it up. */
   onForeignLoss: (() => void) | null = null
   /**
+   * Every ride in flight. Its host is arrow functions over the layer's own
+   * private members, so none of them becomes a member the element can reach.
+   */
+  private readonly rides = new Rides({
+    board: () => this.current,
+    view: () => this.view,
+    rangesOf: (id) => this.rangesOf(id),
+    setStaticVisible: (id, visible) => this.setStaticVisible(id, visible),
+    riderColor: (id, top) => this.riderColor(id, top),
+    uploadRiders: () => this.uploadRiders(),
+    schedule: () => this.schedule(),
+    drop: (id) => this.drop(id),
+  })
+  /**
    * Scratch storage for whatever single quad the current pass is drawing —
    * the paper's, then the dot grid's. Each pass re-uploads its own quad into
    * it with `bufferData` before drawing, so its contents are never valid
@@ -82,12 +67,6 @@ export class GlLayer {
   private rideBuffer: WebGLBuffer | null = null
   /** Every rider's triangles back to back, for one upload; grown, never rebuilt per frame. */
   private rideScratch = new Float32Array(0)
-  /** The pieces part way down their own track, by id. */
-  private riders = new Map<number, Rider>()
-  /** The animations of every ride in flight, by piece id. */
-  private running = new Map<number, Animation[]>()
-  /** The animations of the exits in flight; what `isExiting` answers from. */
-  private exiting = new Map<number, Animation[]>()
   /** Pieces that have ridden off for good: collapsed in the buffer, and out of `rangesOf`. */
   private dropped = new Set<number>()
   private voidBuffer: WebGLBuffer | null = null
@@ -205,7 +184,7 @@ export class GlLayer {
   /**
    * A lost context takes every GL object with it. Default-prevented so the
    * browser will offer a restore. Every ride in flight is cancelled through
-   * `cancelAll`, which also writes each rider's piece back to its static,
+   * `rides.cancelAll()`, which also writes each rider's piece back to its static,
    * visible shape — moot once the buffer holding it is gone, but it leaves no
    * ride or rider referring to an object that no longer exists.
    */
@@ -215,7 +194,7 @@ export class GlLayer {
     e.preventDefault()
     if (this.pending !== 0) cancelAnimationFrame(this.pending)
     this.pending = 0
-    this.cancelAll()
+    this.rides.cancelAll()
     this.gl = null
     this.program = null
     this.dotProgram = null
@@ -241,7 +220,7 @@ export class GlLayer {
    * view `setBoard` last saw, the scene it tesselated from them — omissions
    * and all, which is why the omit set itself need not be kept — the void
    * strips, and the ids in `dropped`. No ride survives a loss (`onLost`
-   * cancelled every one of them), so there is nothing in `riders` to
+   * cancelled every one of them), so there is nothing in `rides.riders` to
    * re-upload here.
    */
   private readonly onRestored = (): void => {
@@ -335,7 +314,7 @@ export class GlLayer {
     // A new scene has new ranges, so a ride from the old one has nothing left
     // to write its piece back into: every ride stops here, the way the SVG
     // layer's own rebuild stops the animations it finds running.
-    this.cancelAll()
+    this.rides.cancelAll()
     this.view = view
     this.current = board
     this.dropped.clear()
@@ -381,171 +360,17 @@ export class GlLayer {
 
   /** True only while an exit is in flight; a piece that shakes is not leaving. */
   isExiting(id: number): boolean {
-    return this.exiting.has(id)
+    return this.rides.isExiting(id)
   }
 
-  /**
-   * Rides the piece off the board head first and drops it. The head runs
-   * straight out along `dir`, every other cell passes through the place of the
-   * one ahead of it, and the ride is long enough for the tail to clear the
-   * edge too. Resolves when the ride ends: if it finished, the piece is gone
-   * for good, and if it was superseded, the piece belongs to whatever
-   * superseded it.
-   */
+  /** Rides the piece off the board head first and drops it; see `Rides.animateExit`. */
   animateExit(id: number, dir: number): Promise<void> {
-    const board = this.current
-    const piece = this.pieceOf(id)
-    if (!board || !piece) return Promise.resolve()
-    // Resolved before anything is marked or cancelled: a bad `dir` throws here
-    // and leaves the piece exactly as it was.
-    const distance = exitDistance(piece.cells, dir, board.W, board.H)
-    this.cancelRunning(id)
-    const duration = reducedMotion() ? 0 : exitMs(distance)
-    const { anims, done } = this.ride(id, piece, dir, duration, (p) => p * distance)
-    this.exiting.set(id, anims)
-    return done.then((finished) => {
-      if (finished) this.drop(id)
-    }).finally(() => {
-      // Only the exit that owns the mark may clear it: a superseding exit has
-      // already replaced the entry, and its piece is still on its way out.
-      if (this.exiting.get(id) === anims) this.exiting.delete(id)
-    })
+    return this.rides.animateExit(id, dir)
   }
 
   /** Nudges the piece `distance` cells down its own track and back. */
   shake(id: number, distance: number): Promise<void> {
-    const piece = this.pieceOf(id)
-    if (!piece) return Promise.resolve()
-    this.cancelRunning(id)
-    const duration = reducedMotion() ? 0 : SHAKE_MS
-    return this.ride(id, piece, piece.dir, duration, (p) => shakeShift(p, distance)).done.then(() => undefined)
-  }
-
-  /**
-   * The piece behind an id, or null when the board never drew it or it has
-   * ridden off. One scan of the pieces per ride, never per frame: the scene
-   * knows where a piece's triangles are but not the cells they came from.
-   */
-  private pieceOf(id: number): Piece | null {
-    if (!this.rangesOf(id)) return null
-    return this.current?.pieces.find((p) => p.id === id) ?? null
-  }
-
-  /**
-   * Drives the piece down its own track, `shift(progress)` cells at a time,
-   * and registers the ride so a later one can cancel it.
-   *
-   * The clock is a Web Animation over nothing at all: it gives the ride a
-   * `finished` promise and a `cancel()`, so everything built on those keeps
-   * working, while the drawing happens per frame. It has to, because a piece
-   * on a bent track does not move as one — its line bends through the corners
-   * while the head runs straight out — and no interpolated transform can do
-   * that. Head, line and tail come out of one `tesselatePiece` call, so they
-   * cannot drift apart.
-   */
-  private ride(
-    id: number,
-    piece: Piece,
-    dir: number,
-    duration: number,
-    shift: (p: number) => number,
-  ): { anims: Animation[]; done: Promise<boolean> } {
-    const ranges = this.rangesOf(id)
-    if (!ranges) return { anims: [], done: Promise.resolve(false) }
-    const top = ranges.top
-    const front = frontOf(piece, this.view, top, dir)
-    const bound = rideVertexBound(piece)
-    const rider: Rider = { data: new Float32Array(bound * 2), count: 0, start: 0, color: this.riderColor(id, top) }
-    // The rider takes the piece over from here: the static buffer holds its
-    // collapsed triangles until the ride is cancelled, or for good if it ends
-    // anywhere but where it started.
-    this.setStaticVisible(id, false)
-    this.riders.set(id, rider)
-
-    const draw = (shifted: number): void => {
-      const track: Ride = { dir, front, shift: shifted }
-      const count = tesselatePiece(piece, this.view, top, track, rider.data)
-      // `rider.data` is exactly `rideVertexBound(piece)` long, and a write past
-      // the end of a typed array is dropped rather than raised: the bound holds
-      // (tesselate.test.ts pins it), and if it ever stopped holding, the piece
-      // would come out silently truncated instead of loudly wrong. This runs
-      // inside the frame callback, so it does not reject the ride's promise —
-      // it lands where an unhandled error lands, which is enough to see it,
-      // and the only place the count exists to be checked at all.
-      if (count > bound) throw new Error(`gl-layer: piece ${id} rode past its ${bound}-vertex bound`)
-      rider.count = count
-      this.uploadRiders()
-      this.schedule()
-    }
-
-    const clock = new Animation(new KeyframeEffect(null, null, { duration, fill: 'forwards' }), document.timeline)
-    const anims = [clock]
-    const tick = (): void => {
-      // Cancelled rides stop here; the last frame of a finished one is not
-      // drawn by the loop but by `done`, so that a caller awaiting the ride
-      // never sees the piece a frame short of where the ride leaves it.
-      if (clock.playState !== 'running') return
-      const p = clock.effect?.getComputedTiming().progress
-      draw(shift(typeof p === 'number' ? p : 0))
-      requestAnimationFrame(tick)
-    }
-    this.running.set(id, anims)
-    clock.play()
-    requestAnimationFrame(tick)
-    const done = this.settle(id, anims).then((finished) => {
-      // A superseding ride has already put this rider away and installed its
-      // own; this one must touch neither it nor the piece it now owns.
-      if (this.riders.get(id) !== rider) return finished
-      this.riders.delete(id)
-      // A ride that ends where it started is put back rather than drawn there,
-      // so rounding cannot leave the piece a hair off its resting shape. One
-      // that ends anywhere else leaves it collapsed, for its caller to drop.
-      if (finished && shift(1) === 0) this.setStaticVisible(id, true)
-      this.uploadRiders()
-      this.schedule()
-      return finished
-    })
-    return { anims, done }
-  }
-
-  /** Resolves true when every animation finished, false when one was cancelled. */
-  private settle(id: number, anims: Animation[]): Promise<boolean> {
-    return Promise.all(anims.map((a) => a.finished)).then(
-      () => {
-        if (this.running.get(id) === anims) this.running.delete(id)
-        return true
-      },
-      () => false,
-    )
-  }
-
-  /**
-   * Stops the ride of a piece and writes its triangles back into the static
-   * buffer at once. Here and not in the cancelled ride's own settling, which
-   * cannot know whether the piece is wanted back: a superseding ride collapses
-   * it again on the very next line, while a `setBoard` or a `dispose` has no
-   * next ride to draw it, and the piece would be gone from the board for as
-   * long as it stayed.
-   */
-  private cancelRunning(id: number): void {
-    const anims = this.running.get(id)
-    this.running.delete(id)
-    if (anims) { for (const a of anims) a.cancel() }
-    if (this.riders.delete(id)) this.uploadRiders()
-    this.setStaticVisible(id, true)
-  }
-
-  /** Stops every ride in flight, each piece back where it was. */
-  private cancelAll(): void {
-    for (const id of [...this.running.keys()]) this.cancelRunning(id)
-    // A ride whose clock has settled but whose promise chain has not run yet
-    // has left `running` and still holds its rider, so the loop above misses
-    // it. Its piece is written back here rather than dropped: what is thrown
-    // away is the rider, and the static buffer is all that would be left to
-    // draw the piece.
-    for (const id of [...this.riders.keys()]) this.setStaticVisible(id, true)
-    this.riders.clear()
-    this.exiting.clear()
+    return this.rides.shake(id, distance)
   }
 
   /** Takes a piece off for good: its triangles stay collapsed and its range goes. */
@@ -597,11 +422,11 @@ export class GlLayer {
     const gl = this.gl
     if (!gl) return
     let total = 0
-    for (const r of this.riders.values()) total += r.count
+    for (const r of this.rides.riders.values()) total += r.count
     if (total === 0) return
     if (this.rideScratch.length < total * 2) this.rideScratch = new Float32Array(total * 2)
     let at = 0
-    for (const r of this.riders.values()) {
+    for (const r of this.rides.riders.values()) {
       r.start = at
       this.rideScratch.set(r.data.subarray(0, r.count * 2), at * 2)
       at += r.count
@@ -763,7 +588,7 @@ export class GlLayer {
    * leaves at the paper's edge, and nothing else ever reaches it.
    */
   private drawRiders(gl: WebGL2RenderingContext, program: WebGLProgram, vp: Viewport, board: Board): void {
-    if (this.riders.size === 0 || !this.rideBuffer) return
+    if (this.rides.riders.size === 0 || !this.rideBuffer) return
     const s = vp.cellPx * devicePixelRatio
     const p = this.padCells
     // All four edges are rounded, and the size is taken from the rounded edges
@@ -780,7 +605,7 @@ export class GlLayer {
     this.bindAttrs(gl, program, this.rideBuffer, null)
     gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
     const flat = gl.getUniformLocation(program, 'u_flat')
-    for (const r of this.riders.values()) {
+    for (const r of this.rides.riders.values()) {
       if (r.count === 0) continue
       gl.uniform4fv(flat, r.color)
       gl.drawArrays(gl.TRIANGLES, r.start, r.count)
@@ -878,7 +703,7 @@ export class GlLayer {
   dispose(): void {
     // Every ride stops first: one left running would keep asking for frames on
     // a layer that has already handed its buffers back.
-    this.cancelAll()
+    this.rides.cancelAll()
     if (this.pending !== 0) cancelAnimationFrame(this.pending)
     this.pending = 0
     this.unwatchDpr()
