@@ -6,9 +6,9 @@
 import { voidStrips } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
-import { DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
+import { GlResources } from './gl-resources.ts'
 import { Rides } from './rides.ts'
-import { type Block, type PieceRanges, type Scene, tesselateBoard, tesselateColors, voidQuads } from './tesselate.ts'
+import { type Block, type PieceRanges, type Scene, tesselateBoard, voidQuads } from './tesselate.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
 
@@ -23,10 +23,8 @@ const PASSES: readonly { block: Block; highlight: boolean }[] = [
 export class GlLayer {
   readonly canvas: HTMLCanvasElement
   private gl: WebGL2RenderingContext | null = null
-  private program: WebGLProgram | null = null
-  private dotProgram: WebGLProgram | null = null
-  private posBuffer: WebGLBuffer | null = null
-  private colorBuffer: WebGLBuffer | null = null
+  /** Every GL object the layer holds; null exactly when `gl` is, or when making them threw. */
+  private res: GlResources | null = null
   /**
    * The extension that gives a context up and asks for it back, kept from
    * before a loss: a lost context grants no extensions, so a layer that only
@@ -55,22 +53,8 @@ export class GlLayer {
     schedule: () => this.schedule(),
     drop: (id) => this.drop(id),
   })
-  /**
-   * Scratch storage for whatever single quad the current pass is drawing —
-   * the paper's, then the dot grid's. Each pass re-uploads its own quad into
-   * it with `bufferData` before drawing, so its contents are never valid
-   * across passes: a pass added later must not assume what it holds coming
-   * in, only what it writes itself.
-   */
-  private quadBuffer: WebGLBuffer | null = null
-  /** The riders' own buffer, rewritten whole every frame one of them moves. */
-  private rideBuffer: WebGLBuffer | null = null
-  /** Every rider's triangles back to back, for one upload; grown, never rebuilt per frame. */
-  private rideScratch = new Float32Array(0)
   /** Pieces that have ridden off for good: collapsed in the buffer, and out of `rangesOf`. */
   private dropped = new Set<number>()
-  private voidBuffer: WebGLBuffer | null = null
-  private voidVertices = 0
   /** Void strips uploaded for the current board; the browser test asserts the pass exists. */
   private voidStripCount = 0
   private pointsVisible = false
@@ -116,8 +100,8 @@ export class GlLayer {
   }
 
   /**
-   * Gets the context and builds both programs and the two buffers every
-   * frame needs, whether this is the layer's very first draw or a context
+   * Gets the context and makes the `GlResources` every frame needs,
+   * whether this is the layer's very first draw or a context
    * handed back after a loss. Both reach it through `onRestored` — the first
    * `restore()` falls through to it — so the two paths cannot drift apart: a
    * change to how the layer starts up is automatically a change to how it
@@ -134,10 +118,7 @@ export class GlLayer {
     // extension) simply cannot be given up early, which costs nothing but the
     // slot a disposed layer would have freed.
     this.loseExt = gl.getExtension('WEBGL_lose_context') ?? this.loseExt
-    this.program = link(gl, VERT, FRAG)
-    this.dotProgram = link(gl, DOT_VERT, DOT_FRAG)
-    this.posBuffer = gl.createBuffer()
-    this.quadBuffer = gl.createBuffer()
+    this.res = GlResources.create(gl)
     gl.enable(gl.BLEND)
     // The drawing buffer is premultiplied — the default of a WebGL2 context,
     // and nothing here asks for otherwise — while every colour reaching a
@@ -196,13 +177,7 @@ export class GlLayer {
     this.pending = 0
     this.rides.cancelAll()
     this.gl = null
-    this.program = null
-    this.dotProgram = null
-    this.posBuffer = null
-    this.colorBuffer = null
-    this.quadBuffer = null
-    this.voidBuffer = null
-    this.rideBuffer = null
+    this.res = null
     this.contextLost = true
     // A restore asked for before the browser had got round to dispatching
     // this event: a context is only restorable once it has been declared
@@ -282,7 +257,7 @@ export class GlLayer {
 
   /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
   get hasColorsForTest(): boolean {
-    return this.colorBuffer !== null
+    return this.res?.hasColors ?? false
   }
 
   /** How many void strips the current board uploaded; the browser test asserts the pass exists. */
@@ -395,63 +370,23 @@ export class GlLayer {
    * which is the whole point of the range map.
    */
   private setStaticVisible(id: number, visible: boolean): void {
-    const gl = this.gl, scene = this.scene
+    const scene = this.scene
     // Only a piece still on the board is written back, while collapsing reads
     // the raw range: `drop` collapses a piece on its way to taking its range
     // away, and a dropped piece must never come back.
     const r = visible ? this.rangesOf(id) : (scene?.rangeOf(id) ?? null)
-    if (!gl || !scene || !r || !this.posBuffer) return
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer)
-    for (const range of [r.line, r.head]) {
-      if (range.count === 0) continue
-      const slice = visible
-        ? scene.positions.subarray(range.start * 2, (range.start + range.count) * 2)
-        : new Float32Array(range.count * 2)
-      gl.bufferSubData(gl.ARRAY_BUFFER, range.start * 2 * Float32Array.BYTES_PER_ELEMENT, slice)
-    }
+    if (!scene || !r || !this.res) return
+    this.res.writeRange(scene, r, visible)
   }
 
-  /**
-   * Every rider's triangles into the rider buffer, back to back, and each
-   * rider's own slice of it recorded. One upload for all of them rather than
-   * one buffer per ride: two pieces can be riding at once — two quick clicks
-   * are enough — and a buffer holding only whichever uploaded last would drop
-   * the other one for the frame.
-   */
+  /** Every rider's triangles into the rider buffer; see `GlResources.uploadRiders`. */
   private uploadRiders(): void {
-    const gl = this.gl
-    if (!gl) return
-    let total = 0
-    for (const r of this.rides.riders.values()) total += r.count
-    if (total === 0) return
-    if (this.rideScratch.length < total * 2) this.rideScratch = new Float32Array(total * 2)
-    let at = 0
-    for (const r of this.rides.riders.values()) {
-      r.start = at
-      this.rideScratch.set(r.data.subarray(0, r.count * 2), at * 2)
-      at += r.count
-    }
-    this.rideBuffer ??= gl.createBuffer()
-    if (!this.rideBuffer) return
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.rideBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, this.rideScratch.subarray(0, total * 2), gl.DYNAMIC_DRAW)
+    this.res?.uploadRiders(this.rides.riders)
   }
 
+  /** The scene into the static buffers; see `GlResources.upload`. */
   private upload(): void {
-    const gl = this.gl
-    const scene = this.scene
-    if (!gl || !this.posBuffer) return
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.posBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, scene?.positions ?? new Float32Array(0), gl.DYNAMIC_DRAW)
-    // The colour buffer is the diagnostic mode's alone: a monochrome board
-    // takes its colour from a uniform and allocates nothing (spec §8).
-    if (scene && this.view.colored) {
-      this.colorBuffer ??= gl.createBuffer()
-      if (this.colorBuffer) {
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer)
-        gl.bufferData(gl.ARRAY_BUFFER, tesselateColors(scene), gl.STATIC_DRAW)
-      }
-    }
+    this.res?.upload(this.scene, this.view.colored)
   }
 
   /**
@@ -461,17 +396,11 @@ export class GlLayer {
    * the whole board costs, for a pass that never moves.
    */
   private uploadVoids(board: Board | null): void {
-    const gl = this.gl
-    if (!gl) return
-    this.voidBuffer ??= gl.createBuffer()
+    const res = this.res
+    if (!res) return
     const strips = board !== null && this.view.voids ? voidStrips(board) : []
     this.voidStripCount = strips.length
-    const data = voidQuads(strips)
-    this.voidVertices = strips.length * 6
-    if (this.voidBuffer) {
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.voidBuffer)
-      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW)
-    }
+    res.uploadVoids(voidQuads(strips))
   }
 
   /** Coalesces every change inside one frame into one draw. */
@@ -543,8 +472,9 @@ export class GlLayer {
 
   private draw(): void {
     const gl = this.gl
-    const program = this.program
-    if (!gl || !program) return
+    const res = this.res
+    if (!gl || !res) return
+    const program = res.program
     if (!this.resize()) return
     this.frameCount++
     gl.clearColor(0, 0, 0, 0)
@@ -560,13 +490,13 @@ export class GlLayer {
     gl.uniform1f(loc('u_scale'), vp.cellPx * devicePixelRatio)
     gl.uniform2f(loc('u_size'), this.canvas.width, this.canvas.height)
 
-    this.drawPaper(gl, program)
-    this.drawDots(gl)
-    this.drawVoids(gl, program)
+    this.drawPaper(res, board)
+    this.drawDots(res, board, vp)
+    this.drawVoids(res)
     if (!scene) return
 
-    const useAttr = this.view.colored && this.colorBuffer !== null
-    this.bindAttrs(gl, program, this.posBuffer, useAttr ? this.colorBuffer : null)
+    const useAttr = this.view.colored && res.colorBuffer !== null
+    this.bindAttrs(gl, program, res.posBuffer, useAttr ? res.colorBuffer : null)
 
     for (const pass of PASSES) {
       const range = scene.blocks[pass.block]
@@ -578,7 +508,7 @@ export class GlLayer {
       gl.drawArrays(gl.TRIANGLES, range.start, range.count)
     }
 
-    this.drawRiders(gl, program, vp, board)
+    this.drawRiders(res, vp, board)
   }
 
   /**
@@ -587,8 +517,10 @@ export class GlLayer {
    * whole board would cost nothing here, but the rule is the SVG's — a piece
    * leaves at the paper's edge, and nothing else ever reaches it.
    */
-  private drawRiders(gl: WebGL2RenderingContext, program: WebGLProgram, vp: Viewport, board: Board): void {
-    if (this.rides.riders.size === 0 || !this.rideBuffer) return
+  private drawRiders(res: GlResources, vp: Viewport, board: Board): void {
+    if (this.rides.riders.size === 0 || !res.rideBuffer) return
+    const gl = res.gl
+    const program = res.program
     const s = vp.cellPx * devicePixelRatio
     const p = this.padCells
     // All four edges are rounded, and the size is taken from the rounded edges
@@ -602,7 +534,7 @@ export class GlLayer {
     gl.enable(gl.SCISSOR_TEST)
     // The scissor box counts from the bottom left, the viewport maths from the top.
     gl.scissor(left, this.canvas.height - bottom, right - left, bottom - top)
-    this.bindAttrs(gl, program, this.rideBuffer, null)
+    this.bindAttrs(gl, program, res.rideBuffer, null)
     gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
     const flat = gl.getUniformLocation(program, 'u_flat')
     for (const r of this.rides.riders.values()) {
@@ -614,17 +546,17 @@ export class GlLayer {
   }
 
   /** The paper: one quad over the cells plus the margin. */
-  private drawPaper(gl: WebGL2RenderingContext, program: WebGLProgram): void {
-    const board = this.current
-    if (!board || !this.quadBuffer) return
+  private drawPaper(res: GlResources, board: Board): void {
+    if (!res.quadBuffer) return
+    const gl = res.gl
     const p = this.padCells
     const x0 = -p, y0 = -p, x1 = board.W + p, y1 = board.H + p
     const quad = new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1])
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.quadBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, quad, gl.DYNAMIC_DRAW)
-    this.bindAttrs(gl, program, this.quadBuffer, null)
-    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
-    gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), this.paperRgba)
+    this.bindAttrs(gl, res.program, res.quadBuffer, null)
+    gl.uniform1i(gl.getUniformLocation(res.program, 'u_useAttr'), 0)
+    gl.uniform4fv(gl.getUniformLocation(res.program, 'u_flat'), this.paperRgba)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
   }
 
@@ -635,15 +567,16 @@ export class GlLayer {
    * decides that, because only it knows `cellPx`; the pass refuses on its own
    * as well, so a viewport handed straight to the layer cannot get past it.
    */
-  private drawDots(gl: WebGL2RenderingContext): void {
-    const board = this.current, vp = this.vp, prog = this.dotProgram
-    if (!board || !vp || !prog || !this.quadBuffer) return
+  private drawDots(res: GlResources, board: Board, vp: Viewport): void {
+    const prog = res.dotProgram
+    if (!res.quadBuffer) return
     if (!this.pointsVisible || vp.cellPx < MIN_POINT_CELL_PX) return
+    const gl = res.gl
     const quad = new Float32Array([0, 0, board.W, 0, board.W, board.H, 0, 0, board.W, board.H, 0, board.H])
     gl.useProgram(prog)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.quadBuffer)
     gl.bufferData(gl.ARRAY_BUFFER, quad, gl.DYNAMIC_DRAW)
-    this.bindAttrs(gl, prog, this.quadBuffer, null)
+    this.bindAttrs(gl, prog, res.quadBuffer, null)
     const scale = vp.cellPx * devicePixelRatio
     const loc = (name: string): WebGLUniformLocation | null => gl.getUniformLocation(prog, name)
     gl.uniform2f(loc('u_origin'), vp.originX, vp.originY)
@@ -655,17 +588,18 @@ export class GlLayer {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
     // Restores the main program: every pass after this one — the voids and
     // the piece blocks — assumes it is the active program and current.
-    gl.useProgram(this.program)
+    gl.useProgram(res.program)
   }
 
   /** The cells the generator failed to carve, in the highlight colour at .22 opacity — the SVG group's fill-opacity. */
-  private drawVoids(gl: WebGL2RenderingContext, program: WebGLProgram): void {
-    if (this.voidVertices === 0 || !this.voidBuffer) return
-    this.bindAttrs(gl, program, this.voidBuffer, null)
-    gl.uniform1i(gl.getUniformLocation(program, 'u_useAttr'), 0)
+  private drawVoids(res: GlResources): void {
+    if (res.voidVertices === 0 || !res.voidBuffer) return
+    const gl = res.gl
+    this.bindAttrs(gl, res.program, res.voidBuffer, null)
+    gl.uniform1i(gl.getUniformLocation(res.program, 'u_useAttr'), 0)
     const [r, g, b, a] = this.highlightRgba
-    gl.uniform4fv(gl.getUniformLocation(program, 'u_flat'), [r, g, b, a * 0.22])
-    gl.drawArrays(gl.TRIANGLES, 0, this.voidVertices)
+    gl.uniform4fv(gl.getUniformLocation(res.program, 'u_flat'), [r, g, b, a * 0.22])
+    gl.drawArrays(gl.TRIANGLES, 0, res.voidVertices)
   }
 
   /**
@@ -708,22 +642,8 @@ export class GlLayer {
     this.pending = 0
     this.unwatchDpr()
     const gl = this.gl
-    if (gl) {
-      if (this.program) gl.deleteProgram(this.program)
-      if (this.dotProgram) gl.deleteProgram(this.dotProgram)
-      if (this.posBuffer) gl.deleteBuffer(this.posBuffer)
-      if (this.colorBuffer) gl.deleteBuffer(this.colorBuffer)
-      if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer)
-      if (this.rideBuffer) gl.deleteBuffer(this.rideBuffer)
-      if (this.voidBuffer) gl.deleteBuffer(this.voidBuffer)
-    }
-    this.program = null
-    this.dotProgram = null
-    this.posBuffer = null
-    this.colorBuffer = null
-    this.quadBuffer = null
-    this.rideBuffer = null
-    this.voidBuffer = null
+    this.res?.delete()
+    this.res = null
     this.gl = null
     if (gl && !gl.isContextLost() && this.loseExt) {
       this.disposing = true

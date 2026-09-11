@@ -21,7 +21,7 @@ function reducedMotion(): boolean {
 export interface Rider {
   data: Float32Array
   count: number
-  /** Where its vertices begin in the rider buffer; `GlLayer.uploadRiders` owns this. */
+  /** Where its vertices begin in the rider buffer; `GlResources.uploadRiders` owns this. */
   start: number
   color: Rgba
 }
