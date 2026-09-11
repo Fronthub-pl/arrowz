@@ -10,7 +10,7 @@
 // frame draws is gl-passes.ts, the GL objects are gl-resources.ts, and a ride
 // is rides.ts.
 import { voidStrips } from '@arrowz/engine'
-import type { Board } from '@arrowz/engine'
+import type { BoardData } from '@arrowz/engine'
 import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
 import { drawDots, drawPaper, drawPieces, drawRiders, drawVoids, setView } from './gl-passes.ts'
 import { GlResources } from './gl-resources.ts'
@@ -62,7 +62,7 @@ export class GlLayer {
   /** The CSS `pointRgba` was resolved from; `''` is no colour, so the first call always resolves. */
   private pointColor = ''
   private scene: Scene | null = null
-  private current: Board | null = null
+  private current: BoardData | null = null
   private view: BoardView = DEFAULT_VIEW
   private vp: Viewport | null = null
   private padCells = 0
@@ -241,7 +241,7 @@ export class GlLayer {
     else this.restoreWanted = true
   }
 
-  get board(): Board | null {
+  get board(): BoardData | null {
     return this.current
   }
 
@@ -283,7 +283,7 @@ export class GlLayer {
     this.schedule()
   }
 
-  setBoard(board: Board | null, view: BoardView, omit: ReadonlySet<number> = new Set()): void {
+  setBoard(board: BoardData | null, view: BoardView, omit: ReadonlySet<number> = new Set()): void {
     // A new scene has new ranges, so a ride from the old one has nothing left
     // to write its piece back into: every ride stops here, the way the SVG
     // layer's own rebuild stops the animations it finds running.
@@ -394,7 +394,7 @@ export class GlLayer {
    * pan or a colour change would otherwise demand) would cost what redrawing
    * the whole board costs, for a pass that never moves.
    */
-  private uploadVoids(board: Board | null): void {
+  private uploadVoids(board: BoardData | null): void {
     const res = this.res
     if (!res) return
     const strips = board !== null && this.view.voids ? voidStrips(board) : []

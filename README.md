@@ -135,7 +135,7 @@ Every board the generator hands back has been checked. It guarantees:
 | **The board can always be cleared** | Before handing the board over, the generator works out who blocks whom and proves the puzzle has a solution. |
 | **It knows at least one solution** | The order in which the generator built the arrows is itself a winning order. |
 | **You cannot play yourself into a corner** | Any sequence of legal moves eventually empties the board. |
-| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical picture, down to the last square. |
+| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical board, down to the last square. |
 
 One thing it does **not** promise: that every request succeeds. On hard
 settings the generator can paint itself into a corner while building. When that
@@ -183,20 +183,23 @@ Run every command on this page from inside that `arrowz` folder.
 ### Making your first board
 
 ```sh
-deno task carve --width=25 --height=25
+deno task carve --width=25 --height=25 --svg
 ```
 
 The first time you run this, Deno spends a few seconds fetching the two small
 helper libraries it needs. After that a 25×25 board takes well under a second.
 
-The board lands in `packages/cli/boards/25x25/` as two files — a picture and a
-small text file describing it. Open the picture in any browser.
+The board lands in `packages/cli/boards/25x25/` as three files: the board itself
+(`.board.json`, the file the game reads), a small text file describing it
+(`.json`) and, because of `--svg`, a picture (`.svg`). Open the picture in any
+browser.
 
 ### Five things to try
 
-Copy any of these. Each one writes a picture into `packages/cli/boards/`; add
-`--dry-run` (explained below) to see the numbers without writing a file. Every
-flag used here is explained in [The everyday settings](#the-everyday-settings).
+Copy any of these. Each one writes a board into `packages/cli/boards/`; add
+`--svg` to get a picture of it as well, or `--dry-run` (explained below) to see
+the numbers without writing a file. Every flag used here is explained in
+[The everyday settings](#the-everyday-settings).
 
 ```sh
 # small enough to follow every arrow by eye
@@ -279,19 +282,34 @@ deno task carve --width=40 --height=40 --seed=7
 
 Writes two files into `packages/cli/boards/40x40/`:
 
-* `seed7-7636b469.svg` — the picture.
+* `seed7-7636b469.board.json` — the board: every arrow, cell by cell, packed
+  small. This is the file a game loads.
 * `seed7-7636b469.json` — a small text file recording what was asked for.
 
 The name is the seed number plus a short code worked out from the settings. Two
 boards made with different settings therefore never overwrite each other.
 
-### Saving a board somewhere specific
+### Getting a picture as well
 
 ```sh
+deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-Same as above, and additionally drops a copy at `my-board.svg`.
+`--svg` adds `seed7-7636b469.svg` next to the board. `--svg=my-board.svg` does
+the same and also drops a copy at `my-board.svg`.
+
+### Making many boards at once
+
+```sh
+deno task carve --width=100 --height=200 --seed=1 --count=50
+```
+
+Makes 50 boards on the seeds 1, 2, 3 and so on. A seed whose board does not
+close is skipped (and not saved), and the next seed is tried, until there are
+50. After twice as many seeds as boards it gives up; `--max-seeds=200` moves
+that limit. The last line says how many boards were written and which seeds
+were skipped. The same command always makes the same boards.
 
 ### Describing a board without saving it
 
@@ -327,9 +345,10 @@ how long it took, without a single file on disk.
 ### When a board does not close
 
 Rarely, at large sizes, the generator gives up before every square is covered.
-The picture is still saved, with the uncovered squares tinted pink, the
-description says `"ok": false`, and the command exits with code 1 so that
-scripts notice. A run that is taking too long can be cut short:
+The board is still saved, the description says `"ok": false`, and the command
+exits with code 1 so that scripts notice. Add `--svg` and the picture shows
+the uncovered squares tinted pink. A run that is taking too long can be cut
+short:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
@@ -851,7 +870,9 @@ combination.
 ## The web page
 
 There is a small page for playing with the settings and seeing the result
-immediately.
+immediately. The page draws the board with the board element, which needs Lit:
+run `corepack enable pnpm && pnpm install` once at the top of the repository
+before the first start. Then:
 
 ```sh
 sh packages/cli/lab.sh
@@ -887,8 +908,9 @@ By default, boards go into `packages/cli/boards/`, sorted into a folder per size
 ```
 packages/cli/boards/
   25x25/
-    seed7-7d303227.svg     the picture
-    seed7-7d303227.json    what it was made from
+    seed7-7d303227.board.json   the board
+    seed7-7d303227.json         what it was made from
+    seed7-7d303227.svg          the picture, only with --svg
   40x40/
     ...
 ```
@@ -896,7 +918,7 @@ packages/cli/boards/
 The file name is the seed followed by a short code derived from the settings.
 Change a setting and you get a different code, so nothing is overwritten by
 accident. (Colours and line thickness are not part of the code, so changing
-only those writes to the same file name and replaces the old picture.)
+only those writes to the same file name and replaces the old files.)
 
 Point it somewhere else with the `ARROWZ_BOARDS_DIR` variable:
 
@@ -905,13 +927,14 @@ export ARROWZ_BOARDS_DIR=~/arrowz-boards
 deno task carve --width=25 --height=25
 ```
 
-The `.json` file next to each picture holds every setting used, when it was
+The `.json` file next to each board holds every setting used, when it was
 made, how long it took, and how many arrows it has. It also holds a `command`
-line that reproduces the picture exactly, byte for byte. If you keep only one
-thing from a board, keep that line.
+line that makes the same board again, exactly. If you keep only one thing from
+a board, keep that line.
 
 > Boards are not part of the repository. `packages/cli/boards/` is deliberately
-> left out of it, because large boards run to tens of megabytes.
+> left out of it: a 1000×1000 board file is about a megabyte, and its picture
+> tens of megabytes.
 
 ---
 
@@ -933,9 +956,9 @@ nothing was written.
 
 **`failed to close board …`** — the generator tried, backed up, restarted, and
 still could not fill the board. Almost always a setting marked **Careful:**
-above. Move it back towards its default, or try another seed. The picture is
-in `packages/cli/boards/` all the same, uncovered squares tinted pink, so you can
-see where it got stuck.
+above. Move it back towards its default, or try another seed. The board is in
+`packages/cli/boards/` all the same; add `--svg` and the picture shows the
+uncovered squares tinted pink, so you can see where it got stuck.
 
 **One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
 the generator stops there, saving whatever it had drawn:

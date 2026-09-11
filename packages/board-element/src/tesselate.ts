@@ -4,7 +4,7 @@
 // ride touches one piece and never the board. Knows neither DOM nor WebGL, so
 // it is tested in Node like viewport.ts and track.ts.
 import { DIRS, pieceShape } from '@arrowz/engine'
-import type { Board, Piece } from '@arrowz/engine'
+import type { BoardData, Piece } from '@arrowz/engine'
 import { trackLine, trackPoint } from './track.ts'
 import { type BoardView, hueBytes } from './view.ts'
 
@@ -291,7 +291,7 @@ function writeTailDisc(out: Float32Array, o: number, cx: number, cy: number, r: 
 }
 
 /** The ids of the `view.top` longest pieces that will actually be drawn. */
-function topIds(board: Board, view: BoardView, omit: ReadonlySet<number>): Set<number> {
+function topIds(board: BoardData, view: BoardView, omit: ReadonlySet<number>): Set<number> {
   if (view.top <= 0) return new Set<number>()
   // Built from the pieces that will be drawn: an omitted one must not take a
   // slot and leave fewer than N pieces highlighted.
@@ -331,7 +331,7 @@ function cursorsOf(blocks: Readonly<Record<Block, Range>>): Record<Block, number
   }
 }
 
-export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<number>): Scene {
+export function tesselateBoard(board: BoardData, view: BoardView, omit: ReadonlySet<number>): Scene {
   const tops = topIds(board, view, omit)
   const drawn = board.pieces.filter((pc) => !omit.has(pc.id))
 

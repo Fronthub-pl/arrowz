@@ -134,7 +134,7 @@ Każda plansza, którą generator oddaje, jest wcześniej sprawdzona. Gwarantuje
 | **Planszę zawsze da się opróżnić** | Zanim odda planszę, generator wylicza, kto kogo blokuje, i dowodzi, że rozwiązanie istnieje. |
 | **Zna co najmniej jedno rozwiązanie** | Kolejność, w jakiej sam budował strzałki, jest zwycięską kolejnością. |
 | **Nie da się zapędzić w ślepy zaułek** | Dowolny ciąg dozwolonych ruchów prędzej czy później opróżnia planszę. |
-| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczny obrazek, co do kwadratu. |
+| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczną planszę, co do kwadratu. |
 
 Jednej rzeczy **nie** obiecuje: że każde zamówienie się uda. Przy trudnych
 ustawieniach generator potrafi się w trakcie budowania zapędzić w kozi róg.
@@ -182,22 +182,24 @@ Każde polecenie z tej strony uruchamiasz z katalogu `arrowz`.
 ### Pierwsza plansza
 
 ```sh
-deno task carve --width=25 --height=25
+deno task carve --width=25 --height=25 --svg
 ```
 
 Za pierwszym razem Deno poświęci kilka sekund na ściągnięcie dwóch małych
 bibliotek pomocniczych, których potrzebuje. Potem plansza 25×25 powstaje grubo
 poniżej sekundy.
 
-Plansza ląduje w `packages/cli/boards/25x25/` jako dwa pliki — obrazek i mały plik
-tekstowy, który go opisuje. Obrazek otworzy dowolna przeglądarka.
+Plansza ląduje w `packages/cli/boards/25x25/` jako trzy pliki: sama plansza
+(`.board.json`, plik, który czyta gra), mały plik tekstowy, który ją opisuje
+(`.json`), i — dzięki `--svg` — obrazek (`.svg`). Obrazek otworzy dowolna
+przeglądarka.
 
 ### Pięć rzeczy do wypróbowania
 
-Skopiuj dowolne z tych poleceń. Każde zapisuje obrazek w `packages/cli/boards/`;
-dopisz `--dry-run` (opisane niżej), żeby zobaczyć same liczby bez tworzenia
-pliku. Każdą użytą tu flagę objaśnia sekcja
-[Ustawienia na co dzień](#ustawienia-na-co-dzień).
+Skopiuj dowolne z tych poleceń. Każde zapisuje planszę w `packages/cli/boards/`;
+dopisz `--svg`, żeby dostać też jej obrazek, albo `--dry-run` (opisane niżej),
+żeby zobaczyć same liczby bez tworzenia pliku. Każdą użytą tu flagę objaśnia
+sekcja [Ustawienia na co dzień](#ustawienia-na-co-dzień).
 
 ```sh
 # na tyle mała, że da się prześledzić okiem każdą strzałkę
@@ -279,19 +281,34 @@ deno task carve --width=40 --height=40 --seed=7
 
 Zapisuje dwa pliki w `packages/cli/boards/40x40/`:
 
-* `seed7-7636b469.svg` — obrazek.
+* `seed7-7636b469.board.json` — plansza: każda strzałka, komórka po komórce,
+  ciasno spakowana. Ten plik wczytuje gra.
 * `seed7-7636b469.json` — mały plik tekstowy z zapisem tego, o co poproszono.
 
 Nazwa to numer ziarna plus krótki kod wyliczony z ustawień. Dwie plansze
 zrobione przy różnych ustawieniach nigdy się więc nawzajem nie nadpiszą.
 
-### Zapis planszy w konkretnym miejscu
+### Obrazek w dodatku
 
 ```sh
+deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=moja-plansza.svg
 ```
 
-To samo co wyżej, a dodatkowo kopia w `moja-plansza.svg`.
+`--svg` dokłada `seed7-7636b469.svg` obok planszy. `--svg=moja-plansza.svg`
+robi to samo i dodatkowo zostawia kopię w `moja-plansza.svg`.
+
+### Wiele plansz naraz
+
+```sh
+deno task carve --width=100 --height=200 --seed=1 --count=50
+```
+
+Robi 50 plansz na ziarnach 1, 2, 3 i dalej. Ziarno, którego plansza się nie
+domyka, jest pomijane (i nie zapisywane), a próbowane jest następne, aż będzie
+50. Po dwa razy większej liczbie ziaren niż plansz poddaje się; `--max-seeds=200`
+przesuwa tę granicę. Ostatnia linia mówi, ile plansz zapisano i które ziarna
+pominięto. To samo polecenie zawsze robi te same plansze.
 
 ### Podgląd bez zapisywania
 
@@ -325,9 +342,10 @@ i ile to trwało, bez ani jednego pliku na dysku.
 ### Gdy plansza się nie domyka
 
 Rzadko, przy dużych rozmiarach, generator poddaje się, zanim pokryje każdy
-kwadrat. Obrazek i tak zostaje zapisany, z niepokrytymi kwadratami
-zabarwionymi na różowo, opis mówi `"ok": false`, a polecenie kończy się kodem 1,
-żeby skrypty to zauważyły. Bieg, który trwa za długo, można przerwać:
+kwadrat. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie
+kończy się kodem 1, żeby skrypty to zauważyły. Dopisz `--svg`, a obrazek
+pokaże niepokryte kwadraty na różowo. Bieg, który trwa za długo, można
+przerwać:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
@@ -857,13 +875,17 @@ kombinację.
 ## Strona internetowa
 
 Jest mała strona do zabawy ustawieniami i natychmiastowego oglądania wyniku.
+Strona rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
+uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
+katalogu repozytorium. Potem:
 
 ```sh
 sh packages/cli/lab.sh
 ```
 
-Buduje stronę, otwiera `http://localhost:8777/lab.html` i przebudowuje ją za
-każdym razem, gdy zmieni się plik źródłowy. Zatrzymasz ją klawiszami Ctrl+C.
+Polecenie buduje stronę, otwiera `http://localhost:8777/lab.html`
+i przebudowuje ją za każdym razem, gdy zmieni się plik źródłowy. Zatrzymasz je
+klawiszami Ctrl+C.
 Jeśli port 8777 jest już zajęty na twoim komputerze, dopisz inny numer: `sh
 packages/cli/lab.sh 9000`.
 
@@ -895,8 +917,9 @@ rozmiar:
 ```
 packages/cli/boards/
   25x25/
-    seed7-7d303227.svg     obrazek
-    seed7-7d303227.json    z czego powstał
+    seed7-7d303227.board.json   plansza
+    seed7-7d303227.json         z czego powstała
+    seed7-7d303227.svg          obrazek, tylko z --svg
   40x40/
     ...
 ```
@@ -904,7 +927,7 @@ packages/cli/boards/
 Nazwa pliku to ziarno, a po nim krótki kod wyliczony z ustawień. Zmień
 ustawienie, a dostaniesz inny kod, więc nic nie nadpisze się przypadkiem.
 (Kolory i grubość linii nie wchodzą do kodu, więc zmiana tylko ich zapisuje pod
-tą samą nazwą i zastępuje poprzedni obrazek.)
+tą samą nazwą i zastępuje poprzednie pliki.)
 
 Wskaż inne miejsce zmienną `ARROWZ_BOARDS_DIR`:
 
@@ -913,13 +936,14 @@ export ARROWZ_BOARDS_DIR=~/arrowz-boards
 deno task carve --width=25 --height=25
 ```
 
-Plik `.json` obok każdego obrazka trzyma wszystkie użyte ustawienia, datę
+Plik `.json` obok każdej planszy trzyma wszystkie użyte ustawienia, datę
 powstania, czas liczenia i liczbę strzałek. Trzyma też linię `command`, która
-odtwarza obrazek dokładnie, bajt w bajt. Jeśli masz zachować z planszy jedną
-rzecz, zachowaj tę linię.
+robi tę samą planszę jeszcze raz, dokładnie. Jeśli masz zachować z planszy
+jedną rzecz, zachowaj tę linię.
 
 > Plansze nie trafiają do repozytorium. `packages/cli/boards/` jest celowo
-> wykluczone, bo duże plansze ważą dziesiątki megabajtów.
+> wykluczone: plik planszy 1000×1000 waży około megabajta, a jej obrazek
+> dziesiątki megabajtów.
 
 ---
 
@@ -944,8 +968,9 @@ nic się nie zapisało.
 **`failed to close board …`** — generator próbował, cofał się, zaczynał od nowa
 i mimo to nie zdołał wypełnić planszy. Prawie zawsze chodzi o ustawienie
 oznaczone wyżej jako **Uwaga:**. Cofnij je w stronę wartości domyślnej albo
-zmień ziarno. Obrazek mimo to jest w `packages/cli/boards/`, z niepokrytymi
-kwadratami na różowo, więc widać, gdzie generator utknął.
+zmień ziarno. Plansza mimo to jest w `packages/cli/boards/`; dopisz `--svg`, a
+obrazek pokaże niepokryte kwadraty na różowo, więc widać, gdzie generator
+utknął.
 
 **Jedna plansza trwa wieczność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund,
 a po ich upływie generator przerwie i zapisze to, co zdążył narysować:

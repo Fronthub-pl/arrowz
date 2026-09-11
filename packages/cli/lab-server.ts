@@ -1,8 +1,9 @@
 // Lab server: static files from packages/cli/ without caching (a rebuilt bundle
 // must reach the browser immediately) plus the board store under /api/boards
-// (GET list, POST save, DELETE one) and /boards/. Run: deno task lab, or
+// (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab, or
 // deno run --allow-net --allow-read --allow-write --allow-env packages/cli/lab-server.ts [port]
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
+import { decodeBoard, encodeBoard } from '@arrowz/engine'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 
 const ROOT = dirname(fromFileUrl(import.meta.url))
@@ -25,11 +26,30 @@ function send(status: number, body: BodyInit, type = 'application/json'): Respon
 /** What the lab posts: a SaveInput whose source may be missing (the server fills in 'lab'). */
 type PostBody = Omit<SaveInput, 'source'> & { source?: string }
 
-/** Runtime check of a POST body: the two fields the store cannot do without. */
-function isPostBody(v: unknown): v is PostBody {
-  if (typeof v !== 'object' || v === null) return false
-  const o = v as { svg?: unknown; params?: unknown }
-  return typeof o.svg === 'string' && typeof o.params === 'object' && o.params !== null
+/**
+ * Runtime check of a POST body: the params, an optional SVG string, and a
+ * board file the engine can read, of the size the params ask for. Returns
+ * the body or the reason it was refused.
+ */
+function checkPost(v: unknown): { body: PostBody } | { error: string } {
+  if (typeof v !== 'object' || v === null) return { error: 'the body is not a JSON object' }
+  const o = v as { board?: unknown; params?: unknown; svg?: unknown }
+  if (typeof o.params !== 'object' || o.params === null) return { error: 'params are required' }
+  if (o.svg !== undefined && typeof o.svg !== 'string') return { error: 'svg must be a string' }
+  let board
+  try {
+    board = decodeBoard(o.board)
+  } catch (err) {
+    return { error: `board: ${err instanceof Error ? err.message : String(err)}` }
+  }
+  const p = o.params as { W?: unknown; H?: unknown }
+  if (board.W !== p.W || board.H !== p.H) {
+    return { error: `board file is ${board.W}x${board.H}, the params ask for ${String(p.W)}x${String(p.H)}` }
+  }
+  // Checked field by field above: the sanctioned narrowing at an I/O boundary.
+  // The board is stored as encodeBoard writes it, so keys the engine does not
+  // know never reach the file; a valid file encodes back to itself.
+  return { body: { ...(v as PostBody), board: encodeBoard(board) } }
 }
 
 export function createLabServer(): (req: Request) => Promise<Response> {
@@ -38,9 +58,9 @@ export function createLabServer(): (req: Request) => Promise<Response> {
     try {
       if (url.pathname === '/api/boards' && req.method === 'GET') return send(200, JSON.stringify(listBoards()))
       if (url.pathname === '/api/boards' && req.method === 'POST') {
-        const body: unknown = JSON.parse(await req.text())
-        if (!isPostBody(body)) return send(400, '{"error":"svg and params are required"}')
-        return send(201, JSON.stringify(saveBoard({ ...body, source: body.source ?? 'lab' })))
+        const checked = checkPost(JSON.parse(await req.text()))
+        if ('error' in checked) return send(400, JSON.stringify({ error: checked.error }))
+        return send(201, JSON.stringify(saveBoard({ ...checked.body, source: checked.body.source ?? 'lab' })))
       }
       // Segments are matched on the raw path and decoded one by one, so an
       // encoded slash cannot smuggle a directory step into a name.

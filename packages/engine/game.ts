@@ -11,10 +11,10 @@
 // Runtime-neutral, like engine.ts: no Deno, DOM, Node or process API.
 import { fingerprint } from './engine.ts'
 import { DIRS } from './geometry.ts'
-import type { Board, Piece } from './types.ts'
+import type { BoardData, Piece } from './types.ts'
 
 export interface Session {
-  readonly board: Board
+  readonly board: BoardData
   /** Indexed by piece id: 1 once the piece has left the board. */
   readonly gone: Uint8Array
   /**
@@ -42,7 +42,7 @@ function at<T>(arr: ArrayLike<T>, i: number): T {
 }
 
 /** A fresh session over a board. The board is never modified afterwards. */
-export function newSession(board: Board): Session {
+export function newSession(board: BoardData): Session {
   let maxId = -1
   for (const pc of board.pieces) maxId = Math.max(maxId, pc.id)
   const index = new Int32Array(maxId + 1).fill(-1)
@@ -152,7 +152,7 @@ export function saveSession(session: Session, colored: boolean): SessionSnapshot
  * the piece count are two comparisons, while the fingerprint walks the whole
  * owner grid — two million steps on the 1000x1000 ceiling.
  */
-export function loadSession(board: Board, snap: SessionSnapshot): Session {
+export function loadSession(board: BoardData, snap: SessionSnapshot): Session {
   if (
     snap === null || typeof snap !== 'object' || typeof snap.board !== 'object' || snap.board === null ||
     !Array.isArray(snap.removed)

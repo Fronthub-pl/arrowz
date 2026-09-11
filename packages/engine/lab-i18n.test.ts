@@ -40,7 +40,7 @@ Deno.test('EN and PL ui dictionaries have the same keys and the same value kinds
 
 Deno.test('both ui dictionaries describe the safe envelope', () => {
   const dictionaries: Dictionary[] = [EN, PL]
-  const envelopeKeys: UiKey[] = ['violationsTitle', 'generateBlocked', 'clamped', 'storedInvalid']
+  const envelopeKeys: UiKey[] = ['violationsTitle', 'generateBlocked', 'clamped']
   for (const d of dictionaries) {
     for (const k of envelopeKeys) {
       assertEquals(typeof d.ui[k], 'string', k)
@@ -67,5 +67,12 @@ Deno.test('parameter and group descriptions stay short in both languages', () =>
   for (const g of groupHelpKeys(EN)) {
     assert(EN.groupHelp[g].length <= MAX_HELP, `EN group ${g}`)
     assert(PL.groupHelp[g].length <= MAX_HELP, `PL group ${g}`)
+  }
+})
+
+Deno.test('both ui dictionaries explain a board file that cannot be read', () => {
+  for (const d of [EN, PL]) {
+    const text = d.ui.boardFileError('25x50/seed7-abc', 'the body ends early')
+    assert(text.includes('25x50/seed7-abc') && text.includes('the body ends early'), text)
   }
 })

@@ -106,15 +106,45 @@ export interface CarverStats {
   stallSelfTrap?: number
 }
 
-/** The public surface of a carved board that analyse, render, toSvg and fingerprint read. */
-export interface Board {
+/**
+ * What a drawn and played board is: analyse, render, toSvg, fingerprint, the
+ * game and the board element read only these four fields. A board decoded
+ * from a file (board-file.ts) has nothing else.
+ */
+export interface BoardData {
   W: number
   H: number
+  /** Piece id per cell; -1 an uncarved cell, -2 a void. */
   owner: Int32Array
   pieces: Piece[]
+}
+
+/** What the generator hands back: the board plus its closing report. */
+export interface Board extends BoardData {
   stats: CarverStats
   backtracks: number
   remaining: number
+}
+
+/**
+ * A board as a file (board-file.ts): a JSON envelope a person can read around
+ * a packed body that only decodeBoard reads. The counts and the fingerprint
+ * are readable without decoding; the decoder checks them against the body.
+ */
+export interface BoardFile {
+  format: 'arrowz-board'
+  v: 1
+  W: number
+  H: number
+  pieces: number
+  /** Cells with owner -2. */
+  voids: number
+  /** Cells with owner -1; 0 for a board that closed. */
+  unfilled: number
+  /** fingerprint() of the board. */
+  fingerprint: string
+  /** base64 of the packed body. */
+  body: string
 }
 
 export type HistBucket = '2-6' | '7-15' | '16-49' | '50+'
@@ -217,7 +247,7 @@ export interface PresetLevel {
   options: Preset[]
 }
 
-/** One stored board: the JSON next to the SVG in packages/cli/boards/<WxH>/. */
+/** One stored board: the meta JSON next to the board file in packages/cli/boards/<WxH>/. */
 export interface BoardMeta {
   id: string
   W: number
@@ -234,7 +264,12 @@ export interface BoardMeta {
   pieces: number | null
   maxLen: number | null
   genMs: number | null
-  svgBytes: number
+  /** fingerprint() of the stored board; null for a meta written before board files. */
+  fingerprint: string | null
+  /** Size of <id>.board.json in bytes; null for a meta written before board files. */
+  boardBytes: number | null
+  /** Whether an SVG preview (<id>.svg) sits next to the board file. */
+  svg: boolean
   // The closing report, when the writer had one: restarts and backtracks
   // used, whether a time budget cut the run short, the leftover of a jam.
   restarts: number | null
@@ -260,9 +295,7 @@ export interface LongestSummary {
   coil: number
 }
 
-export type WorkerIn =
-  | { type: 'generate'; params: Params; view: View; voids?: boolean; tag?: string }
-  | { type: 'render'; view: View; voids?: boolean; tag?: string }
+export type WorkerIn = { type: 'generate'; params: Params }
 
 export type WorkerOut =
   | { type: 'progress'; info: TraceInfo }
@@ -279,5 +312,6 @@ export type WorkerOut =
     stuck: Stuck | null
     pieces: number
     stats: CarverStats
+    /** The board as its file: one string across the worker boundary, and the file the store keeps. */
+    board: BoardFile
   }
-  | { type: 'render'; svg: string; longest: LongestSummary[]; tag?: string }

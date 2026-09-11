@@ -6,6 +6,7 @@
 
 import type {
   Board,
+  BoardData,
   CarverStats,
   Cell,
   GenerateResult,
@@ -1692,7 +1693,7 @@ class Carver implements Board {
 
 // ---------------------------------------------------------------- metrics
 
-function analyse(board: Board, ruleB = true): Metrics {
+function analyse(board: BoardData, ruleB = true): Metrics {
   const { W, H, owner, pieces } = board
   const idx = (x: number, y: number): number => y * W + x
   const inside = (x: number, y: number): boolean => x >= 0 && y >= 0 && x < W && y < H
@@ -1965,7 +1966,7 @@ function analyse(board: Board, ruleB = true): Metrics {
 
 // ---------------------------------------------------------------- render
 
-function render(board: Board): string {
+function render(board: BoardData): string {
   const { W, H, pieces } = board
   const idx = (x: number, y: number): number => y * W + x
   const grid: string[][] = Array.from({ length: H }, () => new Array<string>(W).fill(' '))
@@ -2004,7 +2005,7 @@ function render(board: Board): string {
 // A preview for judging the look by eye. The monochrome variant is faithful
 // to the original and is the proper LEGIBILITY test: the player, too, has to
 // tell the pieces apart without the help of colour.
-function toSvg(board: Board, opts: SvgOptions = {}): string {
+function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   const { cell = 16, colored = false, top = 0, voids = false } = opts
   const { W, H, pieces } = board
   // The set of ids of the N longest pieces — we draw them in red and ON TOP,
@@ -2607,7 +2608,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
  * the tests freeze recorded boards with it, and `carve.ts --dry-run` prints
  * it so that two runtimes can be compared without writing a file.
  */
-function fingerprint(board: Board): string {
+function fingerprint(board: BoardData): string {
   const fnv = (h: number, v: number): number => Math.imul(h ^ v, 16777619) >>> 0
   let h = 2166136261
   for (let i = 0; i < board.owner.length; i++) h = fnv(h, num(board.owner, i) + 3)

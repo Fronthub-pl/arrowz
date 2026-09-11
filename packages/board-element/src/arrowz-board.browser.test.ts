@@ -1,4 +1,4 @@
-import { defaultParams, generate } from '@arrowz/engine'
+import { decodeBoard, defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import {
@@ -289,6 +289,40 @@ describe('mount and viewport', () => {
     await raf()
     expect(el.getBoundingClientRect().height).toBe(0)
     expect(el.viewport).toBeNull()
+  })
+
+  test('a board that went through a board file draws exactly like the generated one', async () => {
+    // The very first WebGL2 context a browser process ever creates paints a
+    // couple of anti-aliased edge pixels differently from every context
+    // after it — a driver/shader warm-up cost, not anything this element or
+    // the board-file round trip controls (elsewhere in this suite there is
+    // always an earlier test's context ahead of this one; alone, there is
+    // not). A throwaway mount and paint, on its own context that is then
+    // discarded, absorbs that one-time cost before the comparison below, so
+    // this test passes the same way whether it runs alone or last.
+    await mount()
+    await painted(el)
+    el.remove()
+
+    await mount()
+    const original = el.board
+    if (!original) throw new Error('mount sets a board')
+    const before = await painted(el)
+    el.remove()
+    await mount()
+    el.board = decodeBoard(JSON.parse(JSON.stringify(encodeBoard(original))))
+    await el.updateComplete
+    await raf()
+    const after = await painted(el)
+    expect(el.pieceCount).toBe(original.pieces.length)
+    expect(inked(after)).toBe(inked(before))
+    // Hit tests answer with the same ids: the pieces keep their ids in order,
+    // and the owner grid names the same piece at the first piece's head.
+    expect(el.board?.pieces.map((p) => p.id)).toEqual(original.pieces.map((p) => p.id))
+    const head = original.pieces[0]?.cells[0]
+    if (!head) throw new Error('the board has a first piece')
+    const i = head.y * original.W + head.x
+    expect(el.board?.owner[i]).toBe(original.owner[i])
   })
 })
 

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams, encodeBoard } from '@arrowz/engine'
 import { COMMAND_PREFIX } from '@arrowz/engine/command'
 import { createLabServer } from './lab-server.ts'
 import type { BoardMeta, BoardSize } from '@arrowz/engine'
@@ -15,13 +15,18 @@ async function withServer(fn: (base: string) => Promise<void>) {
   }
 }
 
-Deno.test('POST /api/boards saves, GET lists, the SVG is served from the store', () =>
+/** The file of an empty board of a size: enough for the server, which decodes it before saving. */
+const emptyFile = (W: number, H: number) => encodeBoard({ W, H, owner: new Int32Array(W * H).fill(-1), pieces: [] })
+
+Deno.test('POST /api/boards saves, GET lists, the board file and the preview are served from the store', () =>
   withServer(async (base) => {
+    const board = emptyFile(25, 50)
     const body = {
+      board,
       svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 25, H: 50, seed: 7 },
       view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
-      command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+      command: `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
       metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 10 },
       source: 'lab',
     }
@@ -32,16 +37,45 @@ Deno.test('POST /api/boards saves, GET lists, the SVG is served from the store',
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()
     assertEquals(list[0]?.size, '25x50')
     assertEquals(list[0]?.boards[0]?.id, meta.id)
+    const file = await fetch(`${base}/boards/25x50/${meta.id}.board.json`)
+    assertEquals(file.headers.get('content-type'), 'application/json')
+    assertEquals(await file.json(), board)
     const svg = await fetch(`${base}/boards/25x50/${meta.id}.svg`)
     assertEquals(svg.headers.get('content-type'), 'image/svg+xml')
     assertEquals(await svg.text(), '<svg>x</svg>')
   }))
 
-Deno.test('POST without svg gives 400', () =>
+Deno.test('POST stores the board file as the engine writes it, without keys it does not know', () =>
   withServer(async (base) => {
-    const r = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify({ params: {} }) })
-    assertEquals(r.status, 400)
-    await r.body?.cancel()
+    const body = {
+      board: { ...emptyFile(10, 10), junk: 'x'.repeat(1000) },
+      params: { ...defaultParams(), W: 10, H: 10, seed: 4 },
+      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+      command: `${COMMAND_PREFIX} --advanced --board --w=10 --h=10 --seed=4 --cell=12`,
+    }
+    const post = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    assertEquals(post.status, 201)
+    const meta: BoardMeta = await post.json()
+    const stored = await (await fetch(`${base}/boards/10x10/${meta.id}.board.json`)).json()
+    assert(!('junk' in stored), 'the junk key reached the file')
+    assertEquals(stored, emptyFile(10, 10))
+  }))
+
+Deno.test('POST without params, without a readable board file or with a board of another size gives 400', () =>
+  withServer(async (base) => {
+    const params = { ...defaultParams(), W: 10, H: 10, seed: 3 }
+    const cases: [unknown, string][] = [
+      [{ board: emptyFile(10, 10) }, 'params are required'],
+      [{ params }, 'board: not a board file'],
+      [{ params, board: { ...emptyFile(10, 10), fingerprint: 'x' } }, 'board: the fingerprint'],
+      [{ params, board: emptyFile(12, 12) }, 'board file is 12x12'],
+    ]
+    for (const [body, error] of cases) {
+      const r = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
+      assertEquals(r.status, 400)
+      const got: { error: string } = await r.json()
+      assert(got.error.includes(error), `${got.error} lacks ${error}`)
+    }
   }))
 
 Deno.test('static lab files without cache; paths escaping the directory are rejected', () =>
@@ -70,7 +104,7 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
 Deno.test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives 404', () =>
   withServer(async (base) => {
     const body = {
-      svg: '<svg>del</svg>',
+      board: emptyFile(10, 10),
       params: { ...defaultParams(), W: 10, H: 10, seed: 3 },
       view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
       command: 'x',
@@ -81,7 +115,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives
     const del = await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })
     assertEquals(del.status, 200)
     assertEquals(await del.json(), { deleted: true })
-    const gone = await fetch(`${base}/boards/10x10/${meta.id}.svg`)
+    const gone = await fetch(`${base}/boards/10x10/${meta.id}.board.json`)
     assertEquals(gone.status, 404)
     await gone.body?.cancel()
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()

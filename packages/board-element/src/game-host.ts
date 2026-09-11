@@ -6,7 +6,7 @@
 // Not a Lit ReactiveController: nothing here needs a render pass, and a plain
 // class with an injected target is what makes the Node tests possible.
 import { goneIds, loadSession, newSession, play, saveSession } from '@arrowz/engine'
-import type { Board, Session, SessionSnapshot } from '@arrowz/engine'
+import type { BoardData, Session, SessionSnapshot } from '@arrowz/engine'
 
 export type GameEvent =
   | { type: 'piece-removed'; detail: { pieceId: number; left: number } }
@@ -28,7 +28,7 @@ export const MIN_SHAKE_CELLS = 0.35
 
 export class GameHost {
   private session: Session | null = null
-  private boardRef: Board | null = null
+  private boardRef: BoardData | null = null
   /**
    * The ids that have left, as one Set per session, mutated in place. The
    * layer compares it by identity to decide whether it may keep its nodes, so
@@ -43,7 +43,7 @@ export class GameHost {
   }
 
   /** The board the current session was built from, or null before one is set. */
-  get board(): Board | null {
+  get board(): BoardData | null {
     return this.boardRef
   }
 
@@ -52,7 +52,7 @@ export class GameHost {
   }
 
   /** Starts a fresh session, or drops the session when there is no board. */
-  setBoard(board: Board | null): void {
+  setBoard(board: BoardData | null): void {
     this.boardRef = board
     this.session = board === null ? null : newSession(board)
     this.gone = new Set()

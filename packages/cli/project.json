@@ -3,7 +3,7 @@
   "name": "cli",
   "projectType": "application",
   "sourceRoot": "packages/cli",
-  "implicitDependencies": ["engine"],
+  "implicitDependencies": ["engine", "board-element"],
   "targets": {
     "check": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "deno check *.ts" } },
     "lint": { "executor": "nx:run-commands", "options": { "cwd": "packages/cli", "command": "deno lint" } },

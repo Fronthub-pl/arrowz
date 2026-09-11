@@ -4,7 +4,7 @@
 // viewport.ts, the pointer rules are the state machine of gestures.ts, and
 // this file only wires DOM events to both and exposes the public API.
 import { css, html, LitElement, type PropertyValues } from 'lit'
-import type { Board, SessionSnapshot } from '@arrowz/engine'
+import type { BoardData, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type GestureMode, type Intent, type PointerSample } from './gestures.ts'
 import { GlLayer } from './gl-layer.ts'
@@ -81,7 +81,7 @@ function sameViewport(a: Viewport, b: Viewport): boolean {
 }
 
 export class ArrowzBoard extends LitElement implements GameTarget {
-  static properties = {
+  static override properties = {
     board: { attribute: false },
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
@@ -106,7 +106,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     chosenMode: { state: true },
   }
 
-  declare board: Board | null
+  declare board: BoardData | null
   declare view: Partial<BoardView>
   declare interactive: boolean
   /** Runs the reducer: a click plays the board instead of only reporting. Implies interactivity. */
@@ -126,7 +126,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   /** The player's gesture choice, from storage on connect and from the switch after. */
   declare chosenMode: GestureMode
 
-  static styles = css`
+  static override styles = css`
     :host {
       display: block;
       position: relative;

@@ -1,9 +1,9 @@
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import { join } from '@std/path'
-import { defaultParams } from '@arrowz/engine'
+import { defaultParams, encodeBoard } from '@arrowz/engine'
 import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
-import type { BoardMeta, ParamKey } from '@arrowz/engine'
+import type { BoardFile, BoardMeta, ParamKey } from '@arrowz/engine'
 
 /** A fresh, empty store for one test: the store reads ARROWZ_BOARDS_DIR at call time. */
 function freshDir(): string {
@@ -32,29 +32,55 @@ const params = (over: Partial<Record<ParamKey, number>> = {}) => ({
   seed: 7,
   ...over,
 })
+/** The file of an empty board of a size: the store does not decode it, it only has to fit the params. */
+const emptyFile = (W: number, H: number): BoardFile =>
+  encodeBoard({ W, H, owner: new Int32Array(W * H).fill(-1), pieces: [] })
+
 const entry = (
   { params: over, ...rest }: Partial<Omit<SaveInput, 'params'>> & { params?: Partial<Record<ParamKey, number>> } = {},
-): SaveInput => ({
-  svg: '<svg/>',
-  params: params(over),
-  view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: true },
-  command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
-  source: 'cli',
-  metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
-  ...rest,
-})
+): SaveInput => {
+  const p = params(over)
+  return {
+    board: emptyFile(p.W, p.H),
+    params: p,
+    view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: true },
+    command: `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
+    source: 'cli',
+    metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
+    ...rest,
+  }
+}
 
-Deno.test('saveBoard writes SVG and meta into the size directory', () => {
+Deno.test('saveBoard writes the board file and the meta, and no SVG unless given', () => {
   const dir = freshDir()
   const meta = saveBoard(entry())
   assertMatch(meta.id, /^seed7-/)
-  assertEquals(Deno.readTextFileSync(join(dir, '25x50', meta.id + '.svg')), '<svg/>')
+  const file = entry().board
+  assertEquals(Deno.readTextFileSync(join(dir, '25x50', meta.id + '.board.json')), JSON.stringify(file))
+  assert(!exists(join(dir, '25x50', meta.id + '.svg')), 'no preview without an svg')
   const saved = readMeta(join(dir, '25x50', meta.id + '.json'))
   assertEquals(saved.pieces, 126)
   assertEquals(saved.source, 'cli')
-  assertEquals(saved.svgBytes, 6)
+  assertEquals(saved.fingerprint, file.fingerprint)
+  assertEquals(saved.boardBytes, JSON.stringify(file).length)
+  assertEquals(saved.svg, false)
   assert(saved.createdAt)
   assertEquals('simpleCommand' in saved, false, 'no simple command unless one was given')
+})
+
+Deno.test('saveBoard with an svg keeps the preview; a later save without one removes it', () => {
+  const dir = freshDir()
+  const withSvg = saveBoard(entry({ svg: '<svg/>' }))
+  assertEquals(withSvg.svg, true)
+  assertEquals(Deno.readTextFileSync(join(dir, '25x50', withSvg.id + '.svg')), '<svg/>')
+  const without = saveBoard(entry())
+  assertEquals(without.svg, false)
+  assert(!exists(join(dir, '25x50', without.id + '.svg')), 'a stale preview does not outlive the save')
+})
+
+Deno.test('saveBoard refuses a board file of another size than the params', () => {
+  freshDir()
+  assertThrows(() => saveBoard({ ...entry(), board: emptyFile(10, 10) }), Error, 'board file is 10x10')
 })
 
 // A board from the CLI simple mode carries the command as typed next to the
@@ -64,7 +90,7 @@ Deno.test('saveBoard keeps the simple command when given', () => {
   const meta = saveBoard(entry({ simpleCommand: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7` }))
   const saved = readMeta(join(dir, '25x50', meta.id + '.json'))
   assertEquals(saved.simpleCommand, `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`)
-  assert(saved.command.startsWith(`${COMMAND_PREFIX} --advanced --svg `))
+  assert(saved.command.startsWith(`${COMMAND_PREFIX} --advanced --board `))
 })
 
 Deno.test('listBoards: sizes ascending by cells, boards newest first, same id overwrites in place', async () => {
@@ -90,20 +116,23 @@ Deno.test('listBoards: sizes ascending by cells, boards newest first, same id ov
   assertEquals(Deno.readTextFileSync(join(dir, '25x50', first.id + '.svg')), '<svg>2</svg>')
 })
 
-Deno.test('listBoards skips junk: foreign directories, json without svg, broken json, JSON scalars', () => {
+Deno.test('listBoards skips junk: foreign directories, json without a board file, broken json, JSON scalars', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, 'notes'))
   Deno.mkdirSync(join(dir, '10x10'))
-  Deno.writeTextFileSync(join(dir, '10x10', 'seed1-deadbeef.json'), '{"id":"seed1-deadbeef"}') // no svg
+  Deno.writeTextFileSync(join(dir, '10x10', 'seed1-deadbeef.json'), '{"id":"seed1-deadbeef"}') // no board file
   Deno.mkdirSync(join(dir, '25x50'))
   Deno.writeTextFileSync(join(dir, '25x50', 'broken.json'), '{not json')
-  Deno.writeTextFileSync(join(dir, '25x50', 'broken.svg'), '<svg/>')
+  Deno.writeTextFileSync(join(dir, '25x50', 'broken.board.json'), '<svg/>')
   // Valid JSON that is not an object is not a board either.
   const scalars: Record<string, string> = { num: '5', str: '"x"', nil: 'null' }
   for (const [name, text] of Object.entries(scalars)) {
     Deno.writeTextFileSync(join(dir, '25x50', `scalar-${name}.json`), text)
-    Deno.writeTextFileSync(join(dir, '25x50', `scalar-${name}.svg`), '<svg/>')
+    Deno.writeTextFileSync(join(dir, '25x50', `scalar-${name}.board.json`), '<svg/>')
   }
+  // A board written before board files: meta and SVG, no board file. Not listed.
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed3-oldstore.json'), '{"id":"seed3-oldstore"}')
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed3-oldstore.svg'), '<svg/>')
   saveBoard(entry())
   const sizes = listBoards()
   assertEquals(sizes.map((s) => s.size), ['25x50'])
@@ -134,7 +163,7 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
     svgBytes: 6,
   }
   Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.json'), JSON.stringify(legacy))
-  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.svg'), '<svg/>')
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.board.json'), '{}')
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.id, 'seed7-legacy00')
   assertEquals(
@@ -180,7 +209,7 @@ Deno.test('listBoards fills legacy params without a knob with the engine default
     svgBytes: 6,
   }
   Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy01.json'), JSON.stringify(legacy))
-  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy01.svg'), '<svg/>')
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy01.board.json'), '{}')
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.id, 'seed7-legacy01')
   assertEquals(board?.params.headTries, defaultParams().headTries)
@@ -235,10 +264,11 @@ Deno.test('listBoards fills a legacy meta without the closing report', () => {
     svgBytes: 6,
   }
   Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy02.json'), JSON.stringify(legacy))
-  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy02.svg'), '<svg/>')
+  Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy02.board.json'), '{}')
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.id, 'seed7-legacy02')
   assertEquals([board?.restarts, board?.backtracks, board?.aborted, board?.stuck], [null, null, false, null])
+  assertEquals([board?.fingerprint, board?.boardBytes, board?.svg], [null, null, false])
 })
 
 Deno.test('listBoards without a directory returns an empty list', () => {
@@ -248,13 +278,12 @@ Deno.test('listBoards without a directory returns an empty list', () => {
   assertEquals(listBoards(), [])
 })
 
-Deno.test('deleteBoard removes svg and json and an emptied size directory', () => {
+Deno.test('deleteBoard removes the board file, the meta, the preview and an emptied size directory', () => {
   const dir = freshDir()
   const kept = saveBoard(entry({ params: { seed: 1 } }))
-  const gone = saveBoard(entry({ params: { seed: 2 } }))
+  const gone = saveBoard(entry({ params: { seed: 2 }, svg: '<svg/>' }))
   assertEquals(deleteBoard('25x50', gone.id), true)
-  assert(!exists(join(dir, '25x50', gone.id + '.svg')))
-  assert(!exists(join(dir, '25x50', gone.id + '.json')))
+  for (const ext of ['.board.json', '.json', '.svg']) assert(!exists(join(dir, '25x50', gone.id + ext)), ext)
   assertEquals(listBoards()[0]?.boards.map((b) => b.id), [kept.id])
   assertEquals(deleteBoard('25x50', kept.id), true)
   assert(!exists(join(dir, '25x50')), 'empty size directory is removed')

@@ -5,28 +5,35 @@
 // Simple mode (default): the inputs of the simple lab view — a size, the
 // sliders --length and --straight in 0..1, --skeleton, --seed, the view
 // (--colorized, --lineweight, --arrowwidth, --arrowheight) and --randomized.
-// Always one board → packages/cli/boards/ (+ a copy with --svg=path), or with
-// --dry-run one JSON line and nothing written. Any other flag is refused.
+// Always one board file → packages/cli/boards/ (+ an SVG preview with --svg,
+// + a copy with --svg=path), or with --dry-run one JSON line and nothing
+// written. Any other flag is refused.
 //
 // Advanced mode (--advanced): engine parameters as --<PARAM_SPEC key in lower
 // case>=value, defaults from defaultParams(). The lab builds its command with
 // the same parser, so the command from the lab reproduces the board bit for
 // bit. Modes:
-//   --svg[=path]    one board → packages/cli/boards/ (+ a copy at path)
+//   --board         one board file → packages/cli/boards/
+//   --svg[=path]    the same, plus an SVG preview in the store (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
-//                   the id, metrics and fingerprint (alone or next to --svg)
+//                   the id, metrics and fingerprint (alone or next to --board or --svg)
+//   --count=N       with --board or --svg (or in the simple mode): N closed
+//                   boards on the seeds from --seed up, skipping any that
+//                   does not close; --max-seeds=M gives up after M seeds
+//                   (default 2·N); exit 1 when it gives up
 //   --bench=N       benchmark, N runs per level
 //   (no mode)       metrics report per level, --runs=N, --only=Name, --show
 //   --help, -h      usage, one row per knob with its allowed range, the rules
 // Parameters outside the safe envelope (validateParams) are refused before
 // any generation, in every mode, with exit code 2. A board that does not
-// close is stored too, with its holes drawn, and the exit code is 1;
+// close is stored too (its preview draws the holes), and the exit code is 1;
 // CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
-import type { CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
+import type { BoardMeta, CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
   analyse,
   Carver,
   DIRS,
+  encodeBoard,
   fingerprint,
   formatViolation,
   generate,
@@ -63,7 +70,12 @@ if (timeoutS !== null && !(timeoutS >= 0)) {
   console.error(`invalid CARVE_TIMEOUT_S: ${timeoutEnv} is not a number of seconds`)
   Deno.exit(2)
 }
-const deadline = timeoutS === null ? Infinity : performance.now() + timeoutS * 1000
+let deadline = Infinity
+/** Starts the CARVE_TIMEOUT_S budget afresh: once for the run, and once per seed of a batch. */
+function armDeadline(): void {
+  deadline = timeoutS === null ? Infinity : performance.now() + timeoutS * 1000
+}
+armDeadline()
 const traceOn = Boolean(Deno.env.get('CARVE_TRACE'))
 const trace = traceOn || timeoutS !== null
   ? (i: TraceInfo) => {
@@ -151,25 +163,106 @@ function refuseInvalid(params: Params): void {
 }
 refuseInvalid(params)
 
+// --- a batch: --count=N [--max-seeds=M] ------------------------------------
+// N closed boards on the seeds from --seed up, for a pool of boards to upload.
+// Refused where it cannot apply, before any board is generated.
+/** A positive integer flag, or null when it is absent; anything else is refused. */
+function positiveFlag(name: string): number | null {
+  const hit = rest.find((a) => a.startsWith(`--${name}=`))
+  if (hit === undefined) return null
+  const n = Number(hit.slice(name.length + 3))
+  if (!Number.isInteger(n) || n < 1) refuseErrors('invalid arguments', [`${hit} is not a positive integer`])
+  return n
+}
+const count = positiveFlag('count')
+const maxSeeds = positiveFlag('max-seeds')
+const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
+const writesBoards = !dryRun && (!advanced || Boolean(svgFlag) || has('board'))
+if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
+if (count !== null && !writesBoards) {
+  refuseErrors('invalid arguments', [
+    '--count needs a mode that writes boards: the simple mode, --board or --svg (not --dry-run, --bench or the report)',
+  ])
+}
+if (count !== null && svgFlag?.startsWith('--svg=')) {
+  refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
+}
+const seedLimit = count === null ? 0 : maxSeeds ?? 2 * count
+// The last seed the batch may reach has to be a seed the engine accepts.
+if (count !== null) refuseInvalid({ ...params, seed: params.seed + seedLimit - 1 })
+
+/** The parameters and the simple command of one seed; --randomized draws them anew for every seed. */
+function forSeed(seed: number): { params: Params; simpleCommand: string | null } {
+  if (!simple) return { params: { ...params, seed }, simpleCommand: null }
+  const choice = { ...simple.choice, seed }
+  return {
+    params: simpleParams(choice, choice.random ? Math.random : null),
+    simpleCommand: buildSimpleCommand(choice, view),
+  }
+}
+
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
-// The simple mode always lands here; the advanced mode with --svg or
-// --dry-run. A dry run generates, measures and renders exactly as a real run
-// would, and then writes nothing: stdout carries one JSON line so that
+// The simple mode always lands here; the advanced mode with --board, --svg or
+// --dry-run. The store gets the board file and its meta, and an SVG preview
+// only with --svg. A dry run generates, measures and encodes exactly as a real
+// run would, and then writes nothing: stdout carries one JSON line so that
 // scripts can compare boards across runtimes without a file — the
 // fingerprint is the same one the engine tests freeze recorded boards with.
-const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-if (!advanced || svgFlag || dryRun) {
+
+/** What one stored board left on disk, as the report line names it. */
+function storedNames(meta: BoardMeta, svgOut: string | null): string {
+  const base = `${meta.W}x${meta.H}/${meta.id}`
+  return `${base}.board.json${meta.svg ? `  + ${base}.svg` : ''}${svgOut ? `  + ${svgOut}` : ''}`
+}
+
+if (!advanced || svgFlag || has('board') || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
+  if (count !== null) {
+    let written = 0, tried = 0
+    const skipped: number[] = []
+    for (let seed = params.seed; written < count && tried < seedLimit; seed++) {
+      tried++
+      const pick = forSeed(seed)
+      armDeadline()
+      const result = generate({ ...pick.params, ...hooks })
+      if (!result.ok) {
+        skipped.push(seed)
+        console.error(`seed ${seed}: not closed (${result.stuck?.remaining ?? '?'} cells left), skipped`)
+        continue
+      }
+      const m = result.metrics
+      if (!m) throw new Error('unreachable: ok without metrics')
+      const svg = svgFlag ? toSvg(result.board, svgOptions(view)) : undefined
+      const meta = saveBoard({
+        board: encodeBoard(result.board),
+        ...(svg !== undefined ? { svg } : {}),
+        params: pick.params,
+        view,
+        command: buildCommand(pick.params, view),
+        ...(pick.simpleCommand ? { simpleCommand: pick.simpleCommand } : {}),
+        source: 'cli',
+        metrics: { ok: true, pieces: result.board.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
+      })
+      written++
+      console.log(`${storedNames(meta, null)}  pieces=${m.N} maxLen=${m.maxLen} ${(result.genMs / 1000).toFixed(2)} s`)
+    }
+    const notClosed = skipped.length ? `, not closed: ${skipped.join(' ')}` : ''
+    console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}`)
+    Deno.exit(written === count ? 0 : 1)
+  }
   const result = generate({ ...params, ...hooks })
   const c = result.board, W = params.W, H = params.H
   const svgView = svgOptions(view)
+  const file = encodeBoard(c)
+  const boardBytes = new TextEncoder().encode(JSON.stringify(file)).byteLength
   // The full command reproduces the board in every case; the simple command
   // (simple mode only) records what was asked for.
   const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }
   if (!result.ok) {
     // A board that did not close (a jam, or the time budget) is stored like a
-    // closed one, with the free cells drawn as holes, so that the lab can show
-    // what the generator left behind; the "not closed" badge comes from ok:false.
+    // closed one, so that the lab can show what the generator left behind;
+    // its preview draws the free cells as holes, and the "not closed" badge
+    // comes from ok:false.
     const { stuck, aborted } = result
     if (!stuck) throw new Error('unreachable: not ok without stuck')
     if (dryRun) {
@@ -186,6 +279,7 @@ if (!advanced || svgFlag || dryRun) {
           restarts: result.restartsUsed,
           backtracks: result.backtracks,
           genMs: result.genMs,
+          boardBytes,
         }),
       )
     }
@@ -199,9 +293,10 @@ if (!advanced || svgFlag || dryRun) {
         } legal heads at the best moment`,
     )
     if (!dryRun) {
-      const svg = toSvg(c, { ...svgView, voids: true })
+      const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
       const meta = saveBoard({
-        svg,
+        board: file,
+        ...(svg !== undefined ? { svg } : {}),
         params,
         view,
         ...commands,
@@ -217,10 +312,10 @@ if (!advanced || svgFlag || dryRun) {
           stuck,
         },
       })
-      if (svgOut) Deno.writeTextFileSync(svgOut, svg)
+      if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
       console.log(
-        `${meta.W}x${meta.H}/${meta.id}.svg${
-          svgOut ? '  + ' + svgOut : ''
+        `${
+          storedNames(meta, svgOut)
         }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
           (result.genMs / 1000).toFixed(2)
         } s`,
@@ -230,7 +325,6 @@ if (!advanced || svgFlag || dryRun) {
   }
   const m = result.metrics
   if (!m) throw new Error('unreachable: ok without metrics')
-  const svg = toSvg(c, svgView)
   if (dryRun) {
     console.log(JSON.stringify({
       dryRun: true,
@@ -253,20 +347,23 @@ if (!advanced || svgFlag || dryRun) {
       restarts: result.restartsUsed,
       genMs: Math.round(result.genMs),
       metricsMs: Math.round(result.metricsMs),
-      svgBytes: new TextEncoder().encode(svg).byteLength,
+      svgBytes: new TextEncoder().encode(toSvg(c, svgView)).byteLength,
+      boardBytes,
       fingerprint: fingerprint(c),
     }))
     Deno.exit(0)
   }
+  const svg = svgFlag ? toSvg(c, svgView) : undefined
   const meta = saveBoard({
-    svg,
+    board: file,
+    ...(svg !== undefined ? { svg } : {}),
     params,
     view,
     ...commands,
     source: 'cli',
     metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
   })
-  if (svgOut) Deno.writeTextFileSync(svgOut, svg)
+  if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
   if (view.top > 0) {
     // Longest-piece stats: the span (how many columns and rows it crosses)
     // tells whether a piece crosses the board or coils in one region.
@@ -314,11 +411,11 @@ if (!advanced || svgFlag || dryRun) {
     }
   }
   console.log(
-    `${meta.W}x${meta.H}/${meta.id}.svg${svgOut ? '  + ' + svgOut : ''}  pieces=${m.N} avgLen=${
-      (W * H / m.N).toFixed(1)
-    } maxLen=${m.maxLen} bends=${m.bends.toFixed(2)} coiling=${
-      (100 * m.coil).toFixed(0)
-    }% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`,
+    `${storedNames(meta, svgOut)}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${
+      m.bends.toFixed(2)
+    } coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${
+      (result.genMs / 1000).toFixed(2)
+    } s`,
   )
   Deno.exit(0)
 }

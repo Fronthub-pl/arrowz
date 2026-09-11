@@ -95,8 +95,7 @@
   body.tab-library #stats, body.tab-library #topTable { display: none; }
   /* The saved-boards tab only browses the store: no presets, no generator
      knobs. The panel keeps what acts on the stored board — the board's
-     command, and stroke, head and colour rows in the place of the lab's — plus
-     fit and zoom. */
+     command, and stroke, head and colour rows in the place of the lab's. */
   body.tab-library .labonly, body.tab-library #presets { display: none; }   /* #presets: the id rule above outranks the class */
   body:not(.tab-library) .libonly { display: none; }
   .libhead { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; }
@@ -115,12 +114,14 @@
               overflow: hidden; visibility: hidden; }
   #progress.on { visibility: visible; }
   #bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
-  /* The container scrolls when the zoom exceeds the window. The SVG has a
-     viewBox in cell units, so it scales without losing sharpness — the pixel
-     cell size concerns only the downloaded file and the CLI command. */
+  /* The board element pans and zooms inside this box and sizes itself to it;
+     the box only has to have a size. The pixel cell size concerns only the
+     downloaded SVG and the CLI command. */
   #boardWrap { background: var(--paper); border: 1px solid var(--line); border-radius: 8px;
-               overflow: auto; min-height: 0; display: grid; place-items: center; padding: .4rem; }
-  body.fitboard #boardWrap { overflow: hidden; }
+               overflow: hidden; min-height: 0; position: relative; }
+  /* Stacked under 1500px, the row is as tall as its content, and the element
+     has none of its own (the old SVG did): the box takes most of the window. */
+  @media (max-width: 1500px) { body:not(.solo) #boardWrap { height: 75vh; } }
   /* Full view: the panel and stats disappear, the board gets the whole window.
      On a square board that is 1003 → 1828 px on a 4K screen. */
   /* One column, not "0 1fr": with the panel hidden, main landed in a
@@ -130,14 +131,7 @@
   body.solo .cols { grid-template-columns: 1fr; }
   #solo { position: fixed; right: 1rem; top: .7rem; z-index: 5; opacity: .55; }
   #solo:hover { opacity: 1; }
-  #board { line-height: 0; }
-  #board svg { display: block; }
-  /* When fitting, the SVG gets the WHOLE container rectangle and the drawing
-     fits itself thanks to viewBox and preserveAspectRatio. max-height alone
-     is not enough — it limits but does not enlarge. */
-  body.fitboard #boardWrap > #board { width: 100%; height: 100%; min-height: 0; }
-  body.fitboard #board svg { width: 100%; height: 100%; }
-  body:not(.fitboard) #board svg { width: calc(var(--zoom) * 1px); height: auto; }
+  #board { position: absolute; inset: 0; }
   /* Fixed height and no wrapping: a growing progress message would shift the
      board on every update. */
   .status { height: 1.3rem; line-height: 1.3rem; font-size: 13px;
@@ -215,13 +209,6 @@
   </div>
 
   <h2 data-i18n="preview">Preview</h2>
-  <label class="check"><input type="checkbox" id="fit" checked> <span data-i18n="fitBoard">fit the board to the window</span></label>
-  <div class="row" id="zoomRow">
-    <label for="zoom" data-i18n="zoomLabel">zoom (px width)</label>
-    <input type="number" id="zoom" value="1600" min="200" max="12000" step="100">
-    <input type="range" id="zoomRange" min="200" max="12000" step="100" value="1600">
-    <p class="help" data-i18n="zoomHelp"></p>
-  </div>
   <div class="row labonly advonly">
     <label for="cell" data-i18n="cellLabel">cell size in export (px)</label>
     <input type="number" id="cell" value="12" min="1" max="40" step="1">
@@ -280,7 +267,7 @@
   <div class="status" id="status"></div>
   <div id="progress"><div id="bar"></div></div>
   <div class="cols">
-    <div id="boardWrap"><div id="board"></div></div>
+    <div id="boardWrap"><arrowz-board id="board" enable-colors></arrowz-board></div>
     <div id="side">
       <table class="stats" id="stats"></table>
       <div id="topTable"></div>

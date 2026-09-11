@@ -1,5 +1,5 @@
 import { defaultParams, DIRS, generate } from '@arrowz/engine'
-import type { Board, SessionSnapshot } from '@arrowz/engine'
+import type { Board, BoardData, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
 import { EXIT_MAX_MS } from './track.ts'
@@ -22,7 +22,7 @@ const exited = () => new Promise<void>((r) => setTimeout(r, EXIT_MAX_MS + 400))
 const bounced = () => new Promise<void>((r) => setTimeout(r, SHAKE_MS + 400))
 
 let el: ArrowzBoard
-async function mount(attrs: Record<string, string> = {}, board = makeBoard()): Promise<ArrowzBoard> {
+async function mount(attrs: Record<string, string> = {}, board: BoardData = makeBoard()): Promise<ArrowzBoard> {
   // One board at a time: each holds a WebGL context, a page is allowed about
   // sixteen, and a test that mounts three in a row must not be the reason
   // some other board loses its own.
@@ -120,7 +120,7 @@ function clickPiece(e: ArrowzBoard, pieceId: number): void {
  * is blocked. Walked here independently of `game.ts`, so the element's tests
  * do not assume the reducer is right — they only need a piece of each kind.
  */
-function verdicts(board: Board): { free: number; blocked: number; blocker: number } {
+function verdicts(board: BoardData): { free: number; blocked: number; blocker: number } {
   let free = -1
   let blocked = -1
   let blocker = -1

@@ -4,66 +4,17 @@
 // responsive. A 1000×1000 board takes tens of seconds to compute — on the main
 // thread it would freeze the tab.
 //
-// The worker keeps the last generated board on its side, so switching the
-// colour or the number of highlighted pieces redraws the SVG without
-// regenerating.
-import { generate, toSvg } from '@arrowz/engine'
-import { svgOptions } from '@arrowz/engine/command'
-import type { Board, LongestSummary, Metrics, Params, View, WorkerIn, WorkerOut } from '@arrowz/engine'
-
-let last: { board: Board; metrics: Metrics | null; params: Params } | null = null
+// The finished board goes back as its board file: one string crosses the
+// worker boundary instead of ~90 000 piece objects, and it is the very file
+// the page sends to the store. Drawing, the SVG export and the table of the
+// longest pieces happen on the page, from the decoded board.
+import { encodeBoard, generate } from '@arrowz/engine'
+import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
 const post = (m: WorkerOut) => self.postMessage(m)
 
-function longestSummary(board: Board, n: number): LongestSummary[] {
-  const W = board.W
-  const longest = [...board.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
-  return longest.map((pc) => {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    const own = new Set(pc.cells.map((c) => c.y * W + c.x))
-    let coil = 0
-    for (const c of pc.cells) {
-      if (c.x < minX) minX = c.x
-      if (c.x > maxX) maxX = c.x
-      if (c.y < minY) minY = c.y
-      if (c.y > maxY) maxY = c.y
-      let touch = 0
-      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
-        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
-      }
-      if (touch >= 3) coil++
-    }
-    const sx = maxX - minX + 1
-    const sy = maxY - minY + 1
-    return {
-      len: pc.cells.length,
-      sx,
-      sy,
-      span: Math.max(sx / board.W, sy / board.H),
-      density: pc.cells.length / (sx * sy),
-      coil: coil / pc.cells.length,
-    }
-  })
-}
-
-// `tag` comes back with the SVG so the page can tell a preview apart from a
-// render made for the store (no highlight). `voids` travels next to the view
-// (View has no such field): the page sends its "show jammed cells" checkbox.
-function render(view: View, voids: boolean | undefined, tag?: string) {
-  if (!last) return
-  const svg = toSvg(last.board, {
-    ...svgOptions(view),
-    ...(voids !== undefined ? { voids } : {}),
-  })
-  post({ type: 'render', svg, longest: longestSummary(last.board, view.top), ...(tag ? { tag } : {}) })
-}
-
 self.onmessage = (event: MessageEvent<WorkerIn>) => {
   const msg = event.data
-  if (msg.type === 'render') {
-    render(msg.view, msg.voids, msg.tag)
-    return
-  }
   const started = performance.now()
   let result
   try {
@@ -79,7 +30,6 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
     return
   }
-  last = { board: result.board, metrics: result.metrics, params: msg.params }
   post({
     type: 'done',
     ok: result.ok,
@@ -92,6 +42,6 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     stuck: result.stuck,
     pieces: result.board.pieces.length,
     stats: result.board.stats,
+    board: encodeBoard(result.board),
   })
-  render(msg.view, msg.voids)
 }

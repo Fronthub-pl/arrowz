@@ -4,6 +4,8 @@
 // lab.html loads that file. Everything the page knows about parameters comes
 // from PARAM_SPEC, so the panel cannot drift from the engine.
 import type {
+  BoardData,
+  BoardFile,
   BoardMeta,
   BoardSize,
   InactiveKey,
@@ -21,14 +23,16 @@ import type {
   WorkerOut,
 } from '@arrowz/engine'
 import {
+  decodeBoard,
   DEFAULT_HEAD_HEIGHT,
   defaultParams,
   INACTIVE_REASONS,
   PARAM_SPEC,
   RULE_REASONS,
+  toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand } from '@arrowz/engine/command'
+import { buildCommand, svgOptions } from '@arrowz/engine/command'
 import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
@@ -39,12 +43,79 @@ import {
   SIMPLE_SLIDERS,
   simpleParams,
 } from '@arrowz/engine/simple'
+// The board element from its sources: a relative path, because Deno does not
+// resolve the Node package name, and a value import (ArrowzBoard, used in the
+// instanceof below), because a bare side-effect import is dropped by the
+// bundler — the package's sideEffects names only its dist/.
+import { ArrowzBoard, type BoardView } from '../board-element/src/mod.ts'
 
 /** An element by id; the ids are fixed in lab.html, so a miss is a bug, not a state. */
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
   const e = document.getElementById(id)
   if (!e) throw new Error(`missing element #${id}`)
   return e as T
+}
+
+// --- the board -------------------------------------------------------------
+// Both tabs draw into one <arrowz-board>, the renderer of the game, so every
+// board looked at here is also a check of the element. The element pans and
+// zooms by itself (drag, wheel, its own buttons).
+const boardNode = el('board')
+if (!(boardNode instanceof ArrowzBoard)) throw new Error('#board is not an <arrowz-board>')
+const boardEl: ArrowzBoard = boardNode
+
+/** The lab's view as the element takes it; `cell` is a size in the exported SVG and does not apply. */
+function boardView(v: View, voids: boolean): Partial<BoardView> {
+  return {
+    stroke: v.stroke,
+    headWidth: v.headWidth,
+    headHeight: v.headHeight,
+    rounded: v.rounded,
+    colored: v.colored,
+    top: v.top,
+    voids,
+  }
+}
+
+/** Puts a board on screen with a view; null clears the board. */
+function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
+  // The lab's checkboxes own the colour; the element's own colour button is a peek until the next redraw.
+  boardEl.coloredOverride = null
+  boardEl.board = board
+  boardEl.view = view
+}
+
+/** The table of the N longest pieces: their box, how far they reach and how much they coil. */
+function longestSummary(board: BoardData, n: number): LongestSummary[] {
+  const W = board.W
+  // slice(), not a spread into a call: the piece count reaches ~90 000.
+  const longest = board.pieces.slice().sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
+  return longest.map((pc) => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    const own = new Set(pc.cells.map((c) => c.y * W + c.x))
+    let coil = 0
+    for (const c of pc.cells) {
+      if (c.x < minX) minX = c.x
+      if (c.x > maxX) maxX = c.x
+      if (c.y < minY) minY = c.y
+      if (c.y > maxY) maxY = c.y
+      let touch = 0
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
+        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
+      }
+      if (touch >= 3) coil++
+    }
+    const sx = maxX - minX + 1
+    const sy = maxY - minY + 1
+    return {
+      len: pc.cells.length,
+      sx,
+      sy,
+      span: Math.max(sx / board.W, sy / board.H),
+      density: pc.cells.length / (sx * sy),
+      coil: coil / pc.cells.length,
+    }
+  })
 }
 const state: Params = { ...defaultParams() }
 
@@ -257,6 +328,7 @@ function refreshRunButton() {
 
 function applyLanguage() {
   document.documentElement.lang = lang
+  boardEl.lang = lang
   localStorage.setItem('labLang', lang)
   el('langPl').classList.toggle('on', lang === 'pl')
   el('langEn').classList.toggle('on', lang === 'en')
@@ -558,36 +630,6 @@ function showClamped(on: boolean) {
 }
 el('clampDismiss').addEventListener('click', () => showClamped(false))
 
-// --- preview zoom -----------------------------------------------------------
-function applyZoom() {
-  const fit = el<HTMLInputElement>('fit').checked
-  document.body.classList.toggle('fitboard', fit)
-  el('zoomRow').style.opacity = fit ? '.45' : '1'
-  document.documentElement.style.setProperty('--zoom', el<HTMLInputElement>('zoom').value)
-}
-el('fit').addEventListener('change', () => {
-  applyZoom()
-  saveToUrl()
-})
-el('zoom').addEventListener('input', () => {
-  el<HTMLInputElement>('zoomRange').value = el<HTMLInputElement>('zoom').value
-  el<HTMLInputElement>('fit').checked = false
-  applyZoom()
-  saveToUrl()
-})
-el('zoomRange').addEventListener('input', () => {
-  el<HTMLInputElement>('zoom').value = el<HTMLInputElement>('zoomRange').value
-  el<HTMLInputElement>('fit').checked = false
-  applyZoom()
-  saveToUrl()
-})
-// double-click on the board toggles fit and zoom
-el('boardWrap').addEventListener('dblclick', () => {
-  el<HTMLInputElement>('fit').checked = !el<HTMLInputElement>('fit').checked
-  applyZoom()
-  saveToUrl()
-})
-
 /**
  * A number box that has been emptied reads back as '', and `Number('')` is 0.
  * For the head height that used to be harmless — 0 meant "automatic" — and now
@@ -613,13 +655,9 @@ function viewOptions(): View {
   }
 }
 // "Show jammed cells" is not part of the view (the CLI has no such flag); it
-// travels next to the view in the worker message.
+// goes to the element and the SVG download next to the view.
 function voidsOn(): boolean {
   return el<HTMLInputElement>('voids').checked
-}
-/** Everything the worker draws with, as one string: the key that tells a stale render from a current one. */
-function viewKey(): string {
-  return JSON.stringify({ ...viewOptions(), voids: voidsOn() })
 }
 
 // --- live command -----------------------------------------------------------
@@ -643,14 +681,14 @@ function flashCopied(btn: HTMLButtonElement) {
 // --- worker: generation off the UI thread -----------------------------------
 // A 1000×1000 board takes ~10 s (400×400 ~1.4 s). On the main thread it would
 // freeze the tab, so the engine runs in a worker and the page receives
-// progress and the finished SVG.
+// progress and the finished board file.
 type Done = Extract<WorkerOut, { type: 'done' }>
 let worker: Worker | null = null
 let busy = false
 
 function newWorker(): Worker {
   const w = new Worker(new URL('./lab-worker.js', import.meta.url), { type: 'module' })
-  w.onmessage = (e: MessageEvent<WorkerOut>) => onWorkerMessage(w, e.data)
+  w.onmessage = (e: MessageEvent<WorkerOut>) => onWorkerMessage(e.data)
   w.onerror = (e) => {
     setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
     finish()
@@ -663,7 +701,7 @@ function ensureWorker(): Worker {
   return worker
 }
 
-function onWorkerMessage(w: Worker, msg: WorkerOut) {
+function onWorkerMessage(msg: WorkerOut) {
   switch (msg.type) {
     case 'progress': {
       const { pieces, remaining, backtracks, ms, total } = msg.info
@@ -677,35 +715,34 @@ function onWorkerMessage(w: Worker, msg: WorkerOut) {
       setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`)
       finish()
       return
-    case 'done':
-      lastDone = msg
-      report(msg)
-      finish()
-      // The stored file has no highlight: the pink marks the longest pieces
-      // for the preview only. A separate render goes to the store.
-      w.postMessage({ type: 'render', view: storeView(), voids: voidsOn(), tag: 'store' } satisfies WorkerIn)
-      // a view changed during the run applies now
-      if (pendingRedraw || sentView !== viewKey()) {
-        pendingRedraw = false
-        redraw()
-      }
-      return
-    case 'render':
-      if (msg.tag === 'store') {
-        if (lastDone) saveBoardToStore(msg.svg, lastDone)
+    case 'done': {
+      let board: BoardData
+      try {
+        board = decodeBoard(msg.board)
+      } catch (err) {
+        // The worker encoded this file a moment ago: a failure is a codec bug, shown rather than hidden.
+        setStatus(
+          `<span class="bad">${t('generationError')}</span> ${err instanceof Error ? err.message : String(err)}`,
+        )
+        finish()
         return
       }
-      if (activeTab === 'lab') el('board').innerHTML = msg.svg
-      lastLongest = msg.longest
-      renderLongest(msg.longest)
+      lastDone = msg
+      labBoard = board
+      report(msg)
+      finish()
+      if (activeTab === 'lab') showLabBoard()
+      saveBoardToStore(msg.board, msg)
+      return
+    }
   }
 }
 
 let lastDone: Done | null = null
+let labBoard: BoardData | null = null // the last generated board, decoded
 let lastLongest: LongestSummary[] | null = null
 let boardsCache: BoardSize[] | null = null // last list from /api/boards, null = fetch again
 let runParams: Params = { ...state } // parameters the last board was generated from
-let sentView = '' // the view last requested from the worker
 // metrics of the previous run — the delta column shows what turning a knob
 // changed, without noting numbers on the side
 let prevStats = new Map<number, number>()
@@ -761,30 +798,24 @@ function run() {
   // The report describes the board that WAS PRODUCED, not the current form
   // fields — the user may have changed them after generating.
   runParams = { ...state }
-  sentView = viewKey()
-  ensureWorker().postMessage(
-    { type: 'generate', params: runParams, view: viewOptions(), voids: voidsOn() } satisfies WorkerIn,
-  )
+  ensureWorker().postMessage({ type: 'generate', params: runParams } satisfies WorkerIn)
   saveToUrl()
 }
 
-// Preview toggles redraw the board without regenerating. During a run the
-// change is deferred and applied right after — before, it was silently lost
-// and "how many longest" looked broken.
-let pendingRedraw = false
+/** The lab tab's board with the lab's view, and the table of its longest pieces. */
+function showLabBoard(): void {
+  const view = viewOptions()
+  showBoard(labBoard, boardView(view, voidsOn()))
+  lastLongest = labBoard ? longestSummary(labBoard, view.top) : null
+  renderLongest(lastLongest ?? [])
+}
+
+// Preview toggles only change what the element draws: the page holds the
+// decoded board, so nothing is regenerated and nothing waits for the worker,
+// not even during a run.
 function redraw() {
   saveToUrl()
-  if (busy) {
-    pendingRedraw = true
-    return
-  }
-  if (!lastDone) return
-  if (!worker) {
-    run() // after an abort the worker has no board
-    return
-  }
-  sentView = viewKey()
-  worker.postMessage({ type: 'render', view: viewOptions(), voids: voidsOn() } satisfies WorkerIn)
+  if (activeTab === 'lab') showLabBoard()
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -837,8 +868,9 @@ el('help').addEventListener('change', () => {
   saveToUrl()
 })
 el('download').addEventListener('click', () => {
-  const svg = el('board').innerHTML
-  if (!svg) return
+  if (!labBoard) return
+  // The SVG is an export only: drawn here, on demand, from the board on screen.
+  const svg = toSvg(labBoard, { ...svgOptions(viewOptions()), voids: voidsOn() })
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const a = document.createElement('a')
   a.href = url
@@ -848,16 +880,16 @@ el('download').addEventListener('click', () => {
 })
 
 // --- board store ------------------------------------------------------------
-// The board goes to disk through the lab server — once per generation, with
-// the view as rendered. A missing store server (e.g. other static hosting)
-// does not break the report; it only appends a warning to the status.
+// The board goes to disk through the lab server — once per generation, as its
+// board file with the view of the moment. A missing store server (e.g. other
+// static hosting) does not break the report; it only appends a warning to the status.
 function storeView(): View {
   return { ...viewOptions(), top: 0 }
 }
-async function saveBoardToStore(svg: string, done: Done) {
+async function saveBoardToStore(board: BoardFile, done: Done) {
   const view = storeView()
   const body = {
-    svg,
+    board,
     params: runParams,
     view,
     command: buildCommand(runParams, view),
@@ -884,13 +916,16 @@ async function saveBoardToStore(svg: string, done: Done) {
 }
 
 // --- tabs and the saved-boards tab ------------------------------------------
-// The store tab uses THE SAME board area as the lab: fit, zoom and full view
-// work without a separate path. Back in the lab, the worker board returns
-// through `render`.
+// Both tabs share one <arrowz-board>, and full view works for both. Back in
+// the lab, the lab's own board comes back.
 type Tab = 'lab' | 'library'
 let activeTab: Tab = 'lab'
 let libSize: string | null = null // chosen size ('25x50')
 let libBoard: BoardMeta | null = null // chosen board (meta)
+// The chosen board as the store holds it (sent back untouched when its view
+// is saved) and decoded for the element.
+let libFile: unknown = null
+let libData: BoardData | null = null
 
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('#tabs button')
 /** The tab a markup button switches to; the two buttons are fixed in lab.html. */
@@ -905,9 +940,9 @@ function showTab(name: Tab) {
   for (const b of tabButtons) b.classList.toggle('on', tabOf(b) === name)
   el('library').hidden = name !== 'library'
   if (name === 'library') loadLibrary({ open: true })
-  else if (lastDone && worker && !busy) {
-    redraw()
-    report(lastDone, { keepPrev: true })
+  else {
+    showLabBoard()
+    if (lastDone) report(lastDone, { keepPrev: true })
   }
   saveToUrl()
 }
@@ -998,6 +1033,8 @@ function showLibDetail(on: boolean) {
 
 async function openBoard(meta: BoardMeta) {
   libBoard = meta
+  libFile = null
+  libData = null
   disarmDelete()
   renderLibrary()
   showLibDetail(true)
@@ -1007,11 +1044,35 @@ async function openBoard(meta: BoardMeta) {
   el<HTMLInputElement>('libHeadHeight').value = String(meta.view.headHeight)
   el<HTMLInputElement>('libRounded').checked = meta.view.rounded !== false
   el<HTMLInputElement>('libColored').checked = meta.view.colored
-  if (libWorkerId !== meta.id) dropLibWorker()
-  setStatus(t('loadingBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
-  const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.svg`)
-  if (activeTab !== 'library') return
-  el('board').innerHTML = await r.text()
+  const name = `<code>${meta.W}x${meta.H}/${meta.id}</code>`
+  setStatus(t('loadingBoard', name))
+  // A board that cannot be read leaves the board area empty, so no other board
+  // stands under its error. The reason may quote the file, so it is escaped.
+  const refuse = (err: unknown) => {
+    showBoard(null, {})
+    const reason = (err instanceof Error ? err.message : String(err))
+      .replace(/[&<>]/g, (c) => c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;')
+    setStatus(`<span class="bad">${t('boardFileError', name, reason)}</span>`)
+  }
+  let file: unknown
+  try {
+    const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.board.json`)
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+    file = await r.json()
+  } catch (err) {
+    if (activeTab === 'library' && libBoard === meta) refuse(err)
+    return
+  }
+  // Another board may have been chosen, or the tab left, while this one loaded.
+  if (activeTab !== 'library' || libBoard !== meta) return
+  try {
+    libData = decodeBoard(file)
+  } catch (err) {
+    refuse(err)
+    return
+  }
+  libFile = file
+  showLibBoard(meta)
   showBoardStatus(meta)
 }
 el('libCopy').addEventListener('click', async () => {
@@ -1047,19 +1108,11 @@ el('libLoad').addEventListener('click', () => {
 })
 
 // --- editing the view of a stored board ------------------------------------
-// The store holds only the SVG, so a stored board is regenerated in its own
-// worker from its parameters (the engine is deterministic: the same board
-// comes back) and redrawn with the new stroke or colours. Saving goes through
-// the same POST as the lab, so the file stays byte for byte what the CLI
-// command in the meta would produce. The lab worker keeps its own board.
-let libWorker: Worker | null = null
-let libWorkerId: string | null = null // id of the board the library worker holds
+// The store holds the board itself, so a new stroke or colour is only a new
+// view: the element redraws at once, and after a pause the same board file
+// goes back to the store with the new view in its meta. Nothing is
+// regenerated, and the command in the meta still reproduces the board.
 let libTimer: ReturnType<typeof setTimeout> | undefined
-function dropLibWorker() {
-  if (libWorker) libWorker.terminate()
-  libWorker = null
-  libWorkerId = null
-}
 function libView(meta: BoardMeta): View {
   return {
     cell: meta.view.cell,
@@ -1071,56 +1124,22 @@ function libView(meta: BoardMeta): View {
     rounded: el<HTMLInputElement>('libRounded').checked,
   }
 }
-function scheduleLibRender() {
+/** The chosen stored board on screen; its holes show only when it did not close. */
+function showLibBoard(meta: BoardMeta): void {
+  showBoard(libData, boardView(libView(meta), meta.ok === false))
+}
+function onLibViewInput() {
+  if (!libBoard || !libData) return
+  showLibBoard(libBoard)
   clearTimeout(libTimer)
-  libTimer = setTimeout(libRender, 350)
+  libTimer = setTimeout(saveLibView, 350)
 }
-function libRender() {
+async function saveLibView() {
   const meta = libBoard
-  if (!meta) return
-  // A board made before the safe envelope may carry settings the engine now
-  // refuses; say so instead of letting the worker fail on generate().
-  // Merged with the defaults, exactly as generate() validates.
-  if (validateParams({ ...defaultParams(), ...meta.params }).length) {
-    setStatus(`<span class="bad">${t('storedInvalid')}</span>`)
-    return
-  }
-  const view = libView(meta)
-  // Stored boards show no jammed cells (voids: false), as the CLI draws them.
-  if (libWorker && libWorkerId === meta.id) {
-    libWorker.postMessage({ type: 'render', view, voids: false } satisfies WorkerIn)
-    return
-  }
-  dropLibWorker()
-  libWorkerId = meta.id
-  const w = new Worker(new URL('./lab-worker.js', import.meta.url), { type: 'module' })
-  libWorker = w
-  w.onerror = (e) => {
-    setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
-    dropLibWorker()
-  }
-  w.onmessage = (e: MessageEvent<WorkerOut>) => onLibWorkerMessage(meta, e.data)
-  setStatus(t('rebuilding', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
-  w.postMessage({ type: 'generate', params: meta.params, view, voids: false } satisfies WorkerIn)
-}
-async function onLibWorkerMessage(meta: BoardMeta, msg: WorkerOut) {
-  if (activeTab !== 'library' || libBoard?.id !== meta.id) return
-  if (msg.type === 'progress') {
-    const { pieces, remaining, backtracks, ms, total } = msg.info
-    const done = 100 * (1 - remaining / total)
-    setStatus(t('progress', done.toFixed(1), fmt(pieces), fmt(remaining), backtracks, (ms / 1000).toFixed(1)))
-    return
-  }
-  if (msg.type === 'error') {
-    setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`)
-    dropLibWorker()
-    return
-  }
-  if (msg.type !== 'render') return
-  el('board').innerHTML = msg.svg
+  if (!meta || libFile === null) return
   const view = libView(meta)
   const body = {
-    svg: msg.svg,
+    board: libFile,
     params: meta.params,
     view,
     command: buildCommand(meta.params, view),
@@ -1131,9 +1150,13 @@ async function onLibWorkerMessage(meta: BoardMeta, msg: WorkerOut) {
     const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const saved: BoardMeta = await r.json()
-    libBoard = saved
-    el('libCommand').textContent = saved.command
-    setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
+    // Another board may have been chosen, or the tab left, while this one saved:
+    // then the new meta must not take the place of the board now shown.
+    if (activeTab === 'library' && libBoard === meta) {
+      libBoard = saved
+      el('libCommand').textContent = saved.command
+      setStatus(t('viewSaved', `<code>${saved.W}x${saved.H}/${saved.id}</code>`))
+    }
     // The store keeps createdAt on an overwrite, so the row stays in place;
     // the list is refreshed for the new meta only.
     await loadLibrary({ force: true })
@@ -1141,9 +1164,9 @@ async function onLibWorkerMessage(meta: BoardMeta, msg: WorkerOut) {
     setStatus(`<span class="bad">${t('notSaved')}</span>`)
   }
 }
-for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) el(id).addEventListener('input', scheduleLibRender)
-el('libRounded').addEventListener('change', scheduleLibRender)
-el('libColored').addEventListener('change', scheduleLibRender)
+for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) el(id).addEventListener('input', onLibViewInput)
+el('libRounded').addEventListener('change', onLibViewInput)
+el('libColored').addEventListener('change', onLibViewInput)
 
 // Deleting takes two clicks on the same button: the first arms it, the second
 // removes the files. Selecting another board or switching language disarms.
@@ -1169,9 +1192,10 @@ el('libDelete').addEventListener('click', async () => {
     return
   }
   libBoard = null
-  dropLibWorker()
+  libFile = null
+  libData = null
   showLibDetail(false)
-  el('board').innerHTML = ''
+  showBoard(null, {})
   setStatus(t('deletedBoard', `<code>${name}</code>`))
   await loadLibrary({ force: true })
 })
@@ -1194,8 +1218,6 @@ type UrlView = {
   colored: boolean
   hilite: boolean
   help: boolean
-  fit: boolean
-  zoom: string
   lang: Lang
   tab: Tab
 }
@@ -1210,8 +1232,6 @@ function saveToUrl() {
     colored: el<HTMLInputElement>('colored').checked,
     hilite: el<HTMLInputElement>('hilite').checked,
     help: el<HTMLInputElement>('help').checked,
-    fit: el<HTMLInputElement>('fit').checked,
-    zoom: el<HTMLInputElement>('zoom').value,
     lang,
     tab: activeTab,
   }
@@ -1248,13 +1268,7 @@ function loadFromUrl(): boolean {
     el<HTMLInputElement>('hilite').checked = view.hilite !== false
     el<HTMLInputElement>('help').checked = view.help !== false
     document.body.classList.toggle('nohelp', view.help === false)
-    if (view.zoom) {
-      el<HTMLInputElement>('zoom').value = String(view.zoom)
-      el<HTMLInputElement>('zoomRange').value = String(view.zoom)
-    }
-    el<HTMLInputElement>('fit').checked = view.fit !== false
     if (view.lang === 'pl' || view.lang === 'en') lang = view.lang
-    applyZoom()
     if (view.tab === 'library') showTab('library')
     return true
   } catch {
@@ -1391,7 +1405,6 @@ function renderLongest(longest: LongestSummary[]) {
     `<th>${t('th_density')}</th><th>${t('th_coil')}</th></tr>${body}</table>`
 }
 
-applyZoom()
 const fromUrl = loadFromUrl()
 applyLanguage()
 // A shared URL carries its own knobs; otherwise the first board of the simple

@@ -1,8 +1,8 @@
 // The shapes of the pieces in output units: what toSvg formats into SVG text
-// and what the board element inserts into its own SVG. One source, so the
-// CLI export and the interactive board can never draw a head differently.
-// Knows neither Deno nor the DOM.
-import type { Board, Piece } from './types.ts'
+// and what the board element tesselates into triangles for WebGL. One source,
+// so the CLI export and the interactive board can never draw a head
+// differently. Knows neither Deno nor the DOM.
+import type { BoardData, Piece } from './types.ts'
 
 /**
  * Reads an index the algorithm guarantees to be valid. Under
@@ -137,7 +137,7 @@ export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
  * cells). With 55 thousand holes, separate rectangles would produce a
  * document that cannot be displayed.
  */
-export function voidStrips(board: Board): { x: number; y: number; len: number }[] {
+export function voidStrips(board: BoardData): { x: number; y: number; len: number }[] {
   const { W, H, owner } = board
   const strips: { x: number; y: number; len: number }[] = []
   for (let y = 0; y < H; y++) {
