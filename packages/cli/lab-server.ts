@@ -1,7 +1,7 @@
 // Lab server: static files from packages/cli/ without caching (a rebuilt bundle
 // must reach the browser immediately) plus the board store under /api/boards
-// (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab, or
-// deno run --allow-net --allow-read --allow-write --allow-env packages/cli/lab-server.ts [port]
+// (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab (lab.sh scopes the
+// permissions: net on 127.0.0.1, read of packages/cli/ and the store, write of the store, one env var).
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
 import { decodeBoard, defaultParams, encodeBoard, formatViolation, PARAM_SPEC, validateParams } from '@arrowz/engine'
 import type { Params, View } from '@arrowz/engine'
