@@ -28,9 +28,9 @@ function reverseKeys(p: Params): Params {
   return out as Params
 }
 
-Deno.test('buildCommand: default params give only size, seed, --svg and --cell', () => {
+Deno.test('buildCommand: default params give only size, seed, --board and --cell', () => {
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
-  assertEquals(buildCommand(p), `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`)
+  assertEquals(buildCommand(p), `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`)
 })
 
 Deno.test('buildCommand ↔ parseArgs: round trip for changed knobs and view', () => {
@@ -43,7 +43,7 @@ Deno.test('buildCommand ↔ parseArgs: round trip for changed knobs and view', (
   const back = parseArgs(argvOf(cmd))
   for (const s of PARAM_SPEC) assertEquals(back.params[s.key], p[s.key], s.key)
   assertEquals(back.view, v)
-  assertEquals(back.rest, ['--advanced', '--svg'])
+  assertEquals(back.rest, ['--advanced', '--board'])
 })
 
 // The width defaults to 0 (automatic) and the height to one cell (literal);
@@ -55,15 +55,15 @@ Deno.test('buildCommand: a head knob at its default adds no flag; a zero height 
   const p = { ...defaultParams(), W: 25, H: 50, seed: 7 }
   assertEquals(
     buildCommand(p, { headWidth: 0, headHeight: 1 }),
-    `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
   )
   assertEquals(
     buildCommand(p, { headWidth: 0.6 }),
-    `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6`,
+    `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12 --headwidth=0.6`,
   )
   assertEquals(
     buildCommand(p, { headHeight: 0 }),
-    `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12 --headheight=0`,
+    `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12 --headheight=0`,
   )
 })
 
@@ -114,6 +114,7 @@ Deno.test('helpText: every rule key and text, every alias, every mode flag', () 
   }
   for (
     const flag of [
+      '--board',
       '--svg[=path]',
       '--dry-run',
       '--bench=N',
@@ -155,7 +156,7 @@ Deno.test('helpText: the default text is the simple mode, one row per simple fla
       '--lineweight=R',
       '--arrowwidth=R',
       '--arrowheight=R',
-      '--svg=path',
+      '--svg[=path]',
       '--dry-run',
       '--advanced',
       '--help, -h',

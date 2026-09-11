@@ -1,14 +1,16 @@
-// Store of generated boards: packages/cli/boards/<W>x<H>/<id>.svg + <id>.json.
-// Shared by the CLI (carve.ts --svg) and the lab server. The directory is
-// gitignored — a 1000×1000 board is tens of MB, and the command in the meta
-// reproduces any board.
+// Store of generated boards: packages/cli/boards/<W>x<H>/<id>.board.json + <id>.json,
+// plus <id>.svg when a preview was asked for. Shared by the CLI (carve.ts) and
+// the lab server. The directory is gitignored — a 1000×1000 board file is about
+// a megabyte, and the command in the meta reproduces any board.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardMeta, BoardSize, Params, Stuck, View } from '@arrowz/engine'
+import type { BoardFile, BoardMeta, BoardSize, Params, Stuck, View } from '@arrowz/engine'
 import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { defaultParams } from '@arrowz/engine'
 
 export interface SaveInput {
-  svg: string
+  board: BoardFile
+  /** The SVG preview. Without it no preview is kept: one left by an earlier save of this id is removed. */
+  svg?: string
   params: Params
   view: View
   command: string
@@ -73,13 +75,21 @@ function readMeta(file: string): BoardMeta | null {
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,
       stuck: meta.stuck ?? null,
+      fingerprint: meta.fingerprint ?? null,
+      boardBytes: meta.boardBytes ?? null,
+      svg: meta.svg ?? false,
     }
   } catch {
     return null
   }
 }
 
-export function saveBoard({ svg, params, view, command, simpleCommand, metrics = {}, source }: SaveInput): BoardMeta {
+export function saveBoard(
+  { board, svg, params, view, command, simpleCommand, metrics = {}, source }: SaveInput,
+): BoardMeta {
+  if (board.W !== params.W || board.H !== params.H) {
+    throw new Error(`board file is ${board.W}x${board.H}, the params ask for ${params.W}x${params.H}`)
+  }
   const id = boardId(params)
   const size = `${params.W}x${params.H}`
   const dir = join(boardsDir(), size)
@@ -91,6 +101,7 @@ export function saveBoard({ svg, params, view, command, simpleCommand, metrics =
   const now = new Date().toISOString()
   const metaFile = join(dir, `${id}.json`)
   const createdAt = readMeta(metaFile)?.createdAt ?? now
+  const boardText = JSON.stringify(board)
   const meta: BoardMeta = {
     id,
     W: params.W,
@@ -107,19 +118,24 @@ export function saveBoard({ svg, params, view, command, simpleCommand, metrics =
     pieces: metrics.pieces ?? null,
     maxLen: metrics.maxLen ?? null,
     genMs: metrics.genMs ?? null,
-    svgBytes: new TextEncoder().encode(svg).byteLength,
+    fingerprint: board.fingerprint,
+    boardBytes: new TextEncoder().encode(boardText).byteLength,
+    svg: svg !== undefined,
     restarts: metrics.restarts ?? null,
     backtracks: metrics.backtracks ?? null,
     aborted: metrics.aborted ?? false,
     stuck: metrics.stuck ?? null,
   }
-  Deno.writeTextFileSync(join(dir, `${id}.svg`), svg)
+  Deno.writeTextFileSync(join(dir, `${id}.board.json`), boardText)
+  const svgFile = join(dir, `${id}.svg`)
+  if (svg !== undefined) Deno.writeTextFileSync(svgFile, svg)
+  else if (exists(svgFile)) Deno.removeSync(svgFile)
   Deno.writeTextFileSync(metaFile, JSON.stringify(meta, null, 2))
   return meta
 }
 
 /**
- * Removes one board (svg + json). Returns false when there was nothing to
+ * Removes one board (board file, meta and preview). Returns false when there was nothing to
  * remove. A size directory left empty is removed too, so the list does not
  * keep an empty size. Names are validated: they come straight from a URL.
  */
@@ -127,7 +143,7 @@ export function deleteBoard(size: string, id: string): boolean {
   if (!/^\d+x\d+$/.test(size) || !/^[\w-]+$/.test(id)) throw new Error(`invalid board name ${size}/${id}`)
   const dir = join(boardsDir(), size)
   let removed = false
-  for (const ext of ['.svg', '.json']) {
+  for (const ext of ['.board.json', '.json', '.svg']) {
     const file = join(dir, id + ext)
     if (exists(file)) {
       Deno.removeSync(file)
@@ -149,8 +165,8 @@ export function listBoards(): BoardSize[] {
     const dir = join(root, entry.name)
     const boards: BoardMeta[] = []
     for (const f of Deno.readDirSync(dir)) {
-      if (!f.name.endsWith('.json')) continue
-      if (!exists(join(dir, f.name.slice(0, -5) + '.svg'))) continue
+      if (!f.name.endsWith('.json') || f.name.endsWith('.board.json')) continue
+      if (!exists(join(dir, f.name.slice(0, -'.json'.length) + '.board.json'))) continue
       const meta = readMeta(join(dir, f.name))
       if (meta) boards.push(meta)
     }

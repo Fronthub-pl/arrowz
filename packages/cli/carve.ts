@@ -5,14 +5,16 @@
 // Simple mode (default): the inputs of the simple lab view — a size, the
 // sliders --length and --straight in 0..1, --skeleton, --seed, the view
 // (--colorized, --lineweight, --arrowwidth, --arrowheight) and --randomized.
-// Always one board → packages/cli/boards/ (+ a copy with --svg=path), or with
-// --dry-run one JSON line and nothing written. Any other flag is refused.
+// Always one board file → packages/cli/boards/ (+ an SVG preview with --svg,
+// + a copy with --svg=path), or with --dry-run one JSON line and nothing
+// written. Any other flag is refused.
 //
 // Advanced mode (--advanced): engine parameters as --<PARAM_SPEC key in lower
 // case>=value, defaults from defaultParams(). The lab builds its command with
 // the same parser, so the command from the lab reproduces the board bit for
 // bit. Modes:
-//   --svg[=path]    one board → packages/cli/boards/ (+ a copy at path)
+//   --board         one board file → packages/cli/boards/
+//   --svg[=path]    the same, plus an SVG preview in the store (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
 //                   the id, metrics and fingerprint (alone or next to --svg)
 //   --bench=N       benchmark, N runs per level
@@ -20,13 +22,14 @@
 //   --help, -h      usage, one row per knob with its allowed range, the rules
 // Parameters outside the safe envelope (validateParams) are refused before
 // any generation, in every mode, with exit code 2. A board that does not
-// close is stored too, with its holes drawn, and the exit code is 1;
+// close is stored too (its preview draws the holes), and the exit code is 1;
 // CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
-import type { CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
+import type { BoardMeta, CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
   analyse,
   Carver,
   DIRS,
+  encodeBoard,
   fingerprint,
   formatViolation,
   generate,
@@ -152,24 +155,35 @@ function refuseInvalid(params: Params): void {
 refuseInvalid(params)
 
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
-// The simple mode always lands here; the advanced mode with --svg or
-// --dry-run. A dry run generates, measures and renders exactly as a real run
-// would, and then writes nothing: stdout carries one JSON line so that
+// The simple mode always lands here; the advanced mode with --board, --svg or
+// --dry-run. The store gets the board file and its meta, and an SVG preview
+// only with --svg. A dry run generates, measures and encodes exactly as a real
+// run would, and then writes nothing: stdout carries one JSON line so that
 // scripts can compare boards across runtimes without a file — the
 // fingerprint is the same one the engine tests freeze recorded boards with.
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-if (!advanced || svgFlag || dryRun) {
+
+/** What one stored board left on disk, as the report line names it. */
+function storedNames(meta: BoardMeta, svgOut: string | null): string {
+  const base = `${meta.W}x${meta.H}/${meta.id}`
+  return `${base}.board.json${meta.svg ? `  + ${base}.svg` : ''}${svgOut ? `  + ${svgOut}` : ''}`
+}
+
+if (!advanced || svgFlag || has('board') || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...params, ...hooks })
   const c = result.board, W = params.W, H = params.H
   const svgView = svgOptions(view)
+  const file = encodeBoard(c)
+  const boardBytes = new TextEncoder().encode(JSON.stringify(file)).byteLength
   // The full command reproduces the board in every case; the simple command
   // (simple mode only) records what was asked for.
   const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }
   if (!result.ok) {
     // A board that did not close (a jam, or the time budget) is stored like a
-    // closed one, with the free cells drawn as holes, so that the lab can show
-    // what the generator left behind; the "not closed" badge comes from ok:false.
+    // closed one, so that the lab can show what the generator left behind;
+    // its preview draws the free cells as holes, and the "not closed" badge
+    // comes from ok:false.
     const { stuck, aborted } = result
     if (!stuck) throw new Error('unreachable: not ok without stuck')
     if (dryRun) {
@@ -186,6 +200,7 @@ if (!advanced || svgFlag || dryRun) {
           restarts: result.restartsUsed,
           backtracks: result.backtracks,
           genMs: result.genMs,
+          boardBytes,
         }),
       )
     }
@@ -199,9 +214,10 @@ if (!advanced || svgFlag || dryRun) {
         } legal heads at the best moment`,
     )
     if (!dryRun) {
-      const svg = toSvg(c, { ...svgView, voids: true })
+      const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
       const meta = saveBoard({
-        svg,
+        board: file,
+        ...(svg !== undefined ? { svg } : {}),
         params,
         view,
         ...commands,
@@ -217,10 +233,10 @@ if (!advanced || svgFlag || dryRun) {
           stuck,
         },
       })
-      if (svgOut) Deno.writeTextFileSync(svgOut, svg)
+      if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
       console.log(
-        `${meta.W}x${meta.H}/${meta.id}.svg${
-          svgOut ? '  + ' + svgOut : ''
+        `${
+          storedNames(meta, svgOut)
         }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
           (result.genMs / 1000).toFixed(2)
         } s`,
@@ -230,7 +246,6 @@ if (!advanced || svgFlag || dryRun) {
   }
   const m = result.metrics
   if (!m) throw new Error('unreachable: ok without metrics')
-  const svg = toSvg(c, svgView)
   if (dryRun) {
     console.log(JSON.stringify({
       dryRun: true,
@@ -253,20 +268,23 @@ if (!advanced || svgFlag || dryRun) {
       restarts: result.restartsUsed,
       genMs: Math.round(result.genMs),
       metricsMs: Math.round(result.metricsMs),
-      svgBytes: new TextEncoder().encode(svg).byteLength,
+      svgBytes: new TextEncoder().encode(toSvg(c, svgView)).byteLength,
+      boardBytes,
       fingerprint: fingerprint(c),
     }))
     Deno.exit(0)
   }
+  const svg = svgFlag ? toSvg(c, svgView) : undefined
   const meta = saveBoard({
-    svg,
+    board: file,
+    ...(svg !== undefined ? { svg } : {}),
     params,
     view,
     ...commands,
     source: 'cli',
     metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
   })
-  if (svgOut) Deno.writeTextFileSync(svgOut, svg)
+  if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
   if (view.top > 0) {
     // Longest-piece stats: the span (how many columns and rows it crosses)
     // tells whether a piece crosses the board or coils in one region.
@@ -314,11 +332,11 @@ if (!advanced || svgFlag || dryRun) {
     }
   }
   console.log(
-    `${meta.W}x${meta.H}/${meta.id}.svg${svgOut ? '  + ' + svgOut : ''}  pieces=${m.N} avgLen=${
-      (W * H / m.N).toFixed(1)
-    } maxLen=${m.maxLen} bends=${m.bends.toFixed(2)} coiling=${
-      (100 * m.coil).toFixed(0)
-    }% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`,
+    `${storedNames(meta, svgOut)}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${
+      m.bends.toFixed(2)
+    } coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${
+      (result.genMs / 1000).toFixed(2)
+    } s`,
   )
   Deno.exit(0)
 }

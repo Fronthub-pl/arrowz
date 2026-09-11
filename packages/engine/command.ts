@@ -64,8 +64,9 @@ type FlagRow = readonly [string, string]
 // Mode and view flags read by the CLI (not engine parameters). Kept next to
 // the parser so that --help and the parser cannot drift apart.
 const MODE_FLAGS: readonly FlagRow[] = [
-  ['--svg[=path]', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR), plus a copy at path'],
-  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
+  ['--board', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
+  ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
+  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --board or --svg)'],
   ['(no mode)', 'metrics report per level: Easy 25, Medium 50, Hard 75, Nightmare 100, Extreme 200, Insane 1000'],
   ['--bench=N', 'benchmark instead of the report, N runs per level'],
   ['--runs=N', 'runs per level in the report (default 3)'],
@@ -109,9 +110,9 @@ const SIMPLE_FLAGS: readonly FlagRow[] = [
   ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
 const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
-  ['(no mode)', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR)'],
-  ['--svg=path', 'the same, plus a copy at path'],
-  ['--dry-run', 'one board, nothing written: one JSON line on stdout (alone or next to --svg)'],
+  ['(no mode)', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
+  ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
+  ['--dry-run', 'one board, nothing written: one JSON line on stdout'],
   ['--advanced', 'every engine knob, the report and the benchmark: see --advanced --help'],
   ['--help, -h', 'this text'],
 ]
@@ -159,7 +160,7 @@ export function helpText({ advanced = false }: { advanced?: boolean } = {}): str
   out.push('Modes:')
   list(MODE_FLAGS)
   out.push('')
-  out.push('View options (--svg and --dry-run):')
+  out.push('View options (kept in the meta, drawn by --svg):')
   list(VIEW_FLAGS)
   out.push('')
   out.push('Knobs:')
@@ -204,7 +205,7 @@ export function helpText({ advanced = false }: { advanced?: boolean } = {}): str
 export function buildCommand(params: Params, view: Partial<View> = {}): string {
   const v = { ...DEFAULT_VIEW, ...view }
   const parts = [
-    `${COMMAND_PREFIX} --advanced --svg`,
+    `${COMMAND_PREFIX} --advanced --board`,
     `--w=${params.W}`,
     `--h=${params.H}`,
     `--seed=${params.seed}`,

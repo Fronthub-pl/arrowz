@@ -247,7 +247,7 @@ export interface PresetLevel {
   options: Preset[]
 }
 
-/** One stored board: the JSON next to the SVG in packages/cli/boards/<WxH>/. */
+/** One stored board: the meta JSON next to the board file in packages/cli/boards/<WxH>/. */
 export interface BoardMeta {
   id: string
   W: number
@@ -264,7 +264,12 @@ export interface BoardMeta {
   pieces: number | null
   maxLen: number | null
   genMs: number | null
-  svgBytes: number
+  /** fingerprint() of the stored board; null for a meta written before board files. */
+  fingerprint: string | null
+  /** Size of <id>.board.json in bytes; null for a meta written before board files. */
+  boardBytes: number | null
+  /** Whether an SVG preview (<id>.svg) sits next to the board file. */
+  svg: boolean
   // The closing report, when the writer had one: restarts and backtracks
   // used, whether a time budget cut the run short, the leftover of a jam.
   restarts: number | null
