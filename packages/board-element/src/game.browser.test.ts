@@ -90,7 +90,7 @@ async function painted(e: ArrowzBoard): Promise<Uint8Array> {
   return buf
 }
 
-/** Clicks the centre of the head cell of a piece the way a mouse would. */
+/** Clicks the centre of the head cell of a piece the way a mouse would in drag mode, the default: with the modifier. */
 function clickPiece(e: ArrowzBoard, pieceId: number): void {
   const vp = e.viewport
   const head = e.board?.pieces.find((p) => p.id === pieceId)?.cells[0]
@@ -107,6 +107,8 @@ function clickPiece(e: ArrowzBoard, pieceId: number): void {
     isPrimary: true,
     clientX: x,
     clientY: y,
+    ctrlKey: true,
+    buttons: 1,
   }
   const canvas = canvasOf(e)
   canvas.dispatchEvent(new PointerEvent('pointerdown', init))

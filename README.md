@@ -47,12 +47,12 @@ Here is an eight-by-eight board with each arrow in its own colour, so you can
 tell them apart:
 
 <p align="center">
-  <img src="docs/images/tiny-colorized.png" alt="A small board with six arrows in different colours" width="360">
+  <img src="docs/images/tiny-colorized.png" alt="A small board with seven arrows in different colours" width="360">
 </p>
 
-Six arrows, six tips. The green one is bent into a hook, the red one is bent
-twice, the purple one is just two squares long. Arrows can be as short as two
-squares or as long as several hundred.
+Seven arrows, seven tips. The green one is bent into a hook, the red one is
+bent twice, the purple one is just two squares long. Arrows can be as short as
+two squares or as long as several hundred.
 
 Real boards use one colour for everything, because telling the arrows apart by
 eye is the whole point of the game:
@@ -388,8 +388,8 @@ something out of range.
 
 ## The everyday settings
 
-Eleven flags in four groups: two for size, one for luck, four that change the
-puzzle, and four that change only how the picture is drawn.
+Twelve flags in four groups: two for size, one for luck, four that change the
+puzzle, and five that change only how the picture is drawn.
 
 ### Size — `--width` and `--height`
 
@@ -517,7 +517,7 @@ deno task carve --width=40 --height=40 --randomized
 
 ### How the picture is drawn
 
-These four change nothing about the puzzle — only how it looks on screen.
+These five change nothing about the puzzle — only how it looks on screen.
 
 **`--colorized`** gives every arrow its own colour. Useless for playing,
 excellent for understanding. Every comparison picture on this page uses it.
@@ -538,17 +538,25 @@ wider than the line. Once the line gets thick, there is no room for a wider
 triangle, so the tip becomes a sharpened point instead.
 
 **`--arrowwidth`** and **`--arrowheight`** size the tips by hand, measured in
-squares. Both default to 0, which means "work it out from the line thickness".
+squares. They behave differently. `--arrowwidth` defaults to 0, and 0 means
+"work it out from the line thickness"; anything else is a width in squares.
+`--arrowheight` has no such automatic mode — it is always taken literally, and
+it defaults to `1`, one whole square. Ask for `--arrowheight=0` and you get a
+tip of no height at all.
 
 | `--arrowwidth=0.6 --arrowheight=0.6` | `--arrowwidth=2 --arrowheight=2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 
+**`--sharp`** takes the rounding off. Normally a line turns a corner in a
+curve and its blunt end is a rounded cap; with `--sharp` the corners are
+angular and the blunt end is a square.
+
 ---
 
 ## The full set of settings
 
-The eleven everyday flags are shortcuts. Behind each of them sit several
+The twelve everyday flags are shortcuts. Behind each of them sit several
 internal dials, and `--advanced` lets you reach them directly. Turning
 `--length` down, for instance, really means "raise the share of short arrows
 and lower the share of medium ones" — two dials at once.
@@ -982,6 +990,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `packages/cli/carve.ts` | The command-line tool. |
 | `packages/cli/lab.html`, `lab-page.ts` | The web page. |
 | `packages/*/*.test.ts` | The tests. |
+| `docs/images/manifest.json` | The command behind every picture on this page; `deno task docs` draws them all again. |
 | `packages/engine/HISTORY.md` | The engineering log: every measurement, every dead end, every decision, in detail. |
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |

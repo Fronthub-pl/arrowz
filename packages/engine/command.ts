@@ -4,8 +4,9 @@
 // The command is the canonical way to invoke the CLI: flag = PARAM_SPEC key
 // in lower case, defaults from the engine. The lab has to mirror the CLI 1:1,
 // so both sides build and read the text with this code.
-import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, View } from './types.ts'
+import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View } from './types.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
+import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell } from './lab-simple.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
@@ -22,8 +23,40 @@ export const ALIASES: Record<string, ParamKey> = {
 const KEY_BY_FLAG = new Map<string, ParamKey>(PARAM_SPEC.map((s) => [s.key.toLowerCase(), s.key]))
 for (const [alias, key] of Object.entries(ALIASES)) KEY_BY_FLAG.set(alias, key)
 
-// headWidth / headHeight: arrowhead size in cells, 0 = automatic (from the stroke).
-export const DEFAULT_VIEW: View = { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 }
+// headWidth: arrowhead width in cells, 0 = automatic (from the stroke).
+// headHeight: arrowhead height in cells, always literal; the default is the
+// engine's own, so this view, toSvg and the board element cannot drift apart.
+export const DEFAULT_VIEW: View = {
+  cell: 12,
+  stroke: 0.5,
+  headWidth: 0,
+  headHeight: DEFAULT_HEAD_HEIGHT,
+  colored: false,
+  top: 0,
+  rounded: DEFAULT_ROUNDED,
+}
+
+/**
+ * The SvgOptions a view implies: every field of the view that `toSvg` reads,
+ * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.
+ *
+ * The one place the translation lives. Naming the fields by hand at each call
+ * site is how `--sharp` and the lab's rounding checkbox came to be parsed,
+ * printed and stored while the drawing never changed: a field added to `View`
+ * was silently dropped on the way to `toSvg`. `voids` has no home in a view,
+ * so callers that need it spread it over the result.
+ */
+export function svgOptions(view: View): SvgOptions {
+  return {
+    cell: view.cell,
+    colored: view.colored,
+    strokeRatio: view.stroke,
+    headWidth: view.headWidth,
+    headHeight: view.headHeight,
+    top: view.top,
+    rounded: view.rounded,
+  }
+}
 
 /** One line of a flag list in --help: the flag itself and its description. */
 type FlagRow = readonly [string, string]
@@ -50,9 +83,10 @@ const VIEW_FLAGS: readonly FlagRow[] = [
   ['--cell=N', `cell size in px (default ${DEFAULT_VIEW.cell})`],
   ['--stroke=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--headwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--headheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
+  ['--headheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
   ['--colored', 'a different colour for every piece'],
   ['--top=N', 'highlight the N longest pieces and print their stats'],
+  ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
 
 // The simple mode: the flags of the simple lab view. Kept next to the parser
@@ -71,7 +105,8 @@ const SIMPLE_FLAGS: readonly FlagRow[] = [
   ['--colorized', 'a different colour for every piece'],
   ['--lineweight=R', `stroke width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrowwidth=R', 'arrowhead width in cells (default 0 = automatic, from the stroke)'],
-  ['--arrowheight=R', 'arrowhead height in cells (default 0 = automatic, from the stroke)'],
+  ['--arrowheight=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
+  ['--sharp', 'square corners and a square tail (default: rounded)'],
 ]
 const SIMPLE_MODE_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board into packages/cli/boards/ (ARROWZ_BOARDS_DIR)'],
@@ -183,9 +218,10 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   parts.push(`--cell=${v.cell}`)
   if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--stroke=${v.stroke}`)
   if (v.headWidth > 0) parts.push(`--headwidth=${v.headWidth}`)
-  if (v.headHeight > 0) parts.push(`--headheight=${v.headHeight}`)
+  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--headheight=${v.headHeight}`)
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
+  if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
 }
 
@@ -226,6 +262,10 @@ export function parseArgs(argv: readonly string[]): { params: Params; view: View
       view.colored = true
       continue
     }
+    if (name === 'sharp') {
+      view.rounded = false
+      continue
+    }
     rest.push(a)
   }
   return { params, view, rest }
@@ -259,11 +299,13 @@ type SwitchTarget =
   | readonly ['choice', 'skeleton', 'on']
   | readonly ['choice', 'random', true]
   | readonly ['view', 'colored', true]
+  | readonly ['view', 'rounded', false]
 
 const SIMPLE_SWITCH = new Map<string, SwitchTarget>([
   ['skeleton', ['choice', 'skeleton', 'on']],
   ['randomized', ['choice', 'random', true]],
   ['colorized', ['view', 'colored', true]],
+  ['sharp', ['view', 'rounded', false]],
 ])
 const SIMPLE_SLIDER = new Set(['length', 'straight'])
 // Mode flags the CLI reads in the simple mode; anything else is refused.
@@ -297,7 +339,8 @@ export function parseSimpleArgs(
       if (sw[0] === 'choice') {
         if (sw[1] === 'skeleton') choice.skeleton = sw[2]
         else choice.random = sw[2]
-      } else view.colored = sw[2]
+      } else if (sw[1] === 'colored') view.colored = sw[2]
+      else view.rounded = sw[2]
       continue
     }
     const target = SIMPLE_NUMBER.get(name)
@@ -335,8 +378,9 @@ export function buildSimpleCommand(choice: SimpleChoice, view: Partial<View> = {
   if (choice.random) parts.push('--randomized')
   if (v.stroke !== DEFAULT_VIEW.stroke) parts.push(`--lineweight=${v.stroke}`)
   if (v.headWidth > 0) parts.push(`--arrowwidth=${v.headWidth}`)
-  if (v.headHeight > 0) parts.push(`--arrowheight=${v.headHeight}`)
+  if (v.headHeight !== DEFAULT_VIEW.headHeight) parts.push(`--arrowheight=${v.headHeight}`)
   if (v.colored) parts.push('--colorized')
+  if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
 }
 

@@ -329,6 +329,9 @@ The element listens on the `<svg>` only: `pointerdown`, `pointermove`,
 and on the host `keydown`. Hit-testing is `screenToCell` → `board.owner[y·W + x]`
 → piece id, with no listeners on pieces.
 
+> Superseded: the `dblclick` listener was removed. See R1 and R2 of
+> `docs/superpowers/specs/2026-09-10-rounded-arrows-design.md`.
+
 Decisions, from the game design §11:
 
 | Input | Effect |
@@ -343,6 +346,14 @@ Decisions, from the game design §11:
 | double click, double tap (two taps within 300 ms and 24 px) | `fit()` |
 | keys `+` or `=`, `-`, `0` (host focused) | `zoomBy(1.25)`, `zoomBy(1 / 1.25)`, `fit()` |
 | buttons `+`, `−`, fit in the corner | the same three |
+
+> Superseded: on mouse and pen a plain drag now pans and a ⌘/Ctrl click plays;
+> the rows above are the `click` mode a player can switch back to. Keys with a
+> modifier are no longer taken. See §4 and §7 of
+> `docs/superpowers/specs/2026-09-11-board-hardening-design.md`.
+
+> Superseded: a repeated press now yields no intent at all, on either input.
+> See R1 and R2 of `docs/superpowers/specs/2026-09-10-rounded-arrows-design.md`.
 
 The wheel factor is `exp(−deltaY · 0.0015)` per event; trackpads deliver
 many small deltas and mice few large ones, and the exponent keeps both smooth.
@@ -425,6 +436,8 @@ Node project of Vitest (`src/*.test.ts`):
   only when fitted, `screenToCell` on and off the board.
 - `gestures.test.ts`: the table of §8 as intents (click, pan, pinch, tap,
   double tap, cancelled click on movement, modifier drag).
+  > Superseded: the double-tap row now asserts that nothing happens. See R1
+  > and R2 of `docs/superpowers/specs/2026-09-10-rounded-arrows-design.md`.
 - `i18n.test.ts`: dictionary completeness.
 
 Chromium project (`src/*.browser.test.ts`), real DOM, real SVG:

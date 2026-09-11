@@ -25,6 +25,25 @@ export const DIRS: readonly Dir[] = [
   { dx: -1, dy: 0, ch: '←' }, // 3 left
 ]
 
+/**
+ * The head height every surface starts from, in cells: the CLI's DEFAULT_VIEW,
+ * the board element's BoardView and toSvg's own fallback. The one place the
+ * number lives, and it lives HERE rather than next to DEFAULT_VIEW because
+ * command.ts imports engine.ts, so engine.ts cannot import command.ts back;
+ * geometry.ts imports nothing but types.ts, so all three can reach it.
+ * (packages/cli/lab.html repeats it as an input value: HTML imports nothing.)
+ */
+export const DEFAULT_HEAD_HEIGHT = 1
+
+/**
+ * Whether a piece's turns are drawn rounded and its tail as a disc, the
+ * default for every surface that has not been told otherwise: toSvg's own
+ * fallback, the CLI's DEFAULT_VIEW and the board element's BoardView. Lives
+ * here for the same reason DEFAULT_HEAD_HEIGHT does: geometry.ts is the one
+ * cycle-free home command.ts, engine.ts and the board element can all reach.
+ */
+export const DEFAULT_ROUNDED = true
+
 export interface ShapeOptions {
   /** Size of one cell in output units. */
   cell: number
@@ -34,7 +53,7 @@ export interface ShapeOptions {
   width: number
   /** Head width in cells; 0 = automatic. */
   headWidth: number
-  /** Head height in cells; 0 = automatic. */
+  /** Head height in cells, taken literally: 0 draws a head of no height. */
   headHeight: number
 }
 
@@ -43,17 +62,25 @@ export interface PieceShape {
   line: [number, number][]
   /** Head polygon: tip, one side, (two collar points when the line is as wide as the head), the other side. */
   head: [number, number][]
-  /** The tail rounding: a circle of the line's radius on the last cell. */
+  /**
+   * The tail cap: a centre on the last cell and the line's radius as its
+   * reach. Deliberately not a circle — the renderer decides the shape, a disc
+   * when `rounded` and a square of the same reach when not, and both occupy
+   * the same room. This is why `ShapeOptions` carries no `rounded`: the switch
+   * changes no arithmetic here, so the shape stays the one shape both modes
+   * are drawn from.
+   */
   tail: { x: number; y: number; r: number }
 }
 
 /**
  * The shape of one piece. The arithmetic is the one toSvg had inline, in the
- * same order, so the CLI output stays byte-identical:
+ * same order, so extracting it left the CLI output byte-identical:
+ * - the head is exactly headHeight cells tall, whatever that says;
  * - a thin line (under half a cell) gets an arrow: an isosceles triangle
- *   0.4 of a cell plus 0.9 of the line width wide, 0.9 of a cell tall;
+ *   0.4 of a cell plus 0.9 of the line width wide;
  * - from half a cell up the line ends as a sharpened stick: a triangle as
- *   wide as the line and 1.4 times as tall, with a collar behind the base;
+ *   wide as the line, with a collar behind the base;
  * - the tip is always 0.48 past the head centre, so a bigger head grows backwards;
  * - line and head overlap by 0.2 of the line width, so no seam shows.
  *
@@ -63,9 +90,9 @@ export interface PieceShape {
  * an overshooting tip looked wrong and facing heads overlapped. A head only
  * slightly wider than the line, with the cap ending short of the base, looked
  * like a triangle perched on a pill, with notches at the corners; a fixed head
- * was swallowed by the cap from a stroke of 0.5 up. Both sizes can be set by
- * hand (headWidth / headHeight, in cells; 0 = automatic); a head narrower than
- * its line is widened to the line.
+ * was swallowed by the cap from a stroke of 0.5 up. The width can be set by
+ * hand (headWidth, in cells; 0 = automatic), and a head narrower than its line
+ * is widened to the line; the height has no automatic mode at all.
  */
 export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
   const { cell, pad, width: w } = o
@@ -76,9 +103,8 @@ export function pieceShape(pc: Piece, o: ShapeOptions): PieceShape {
   const hx = cx(headCell.x), hy = cy(headCell.y)
   const stick = w >= 0.5 * cell - 1e-9
   const autoWidth = stick ? w : 0.4 * cell + 0.9 * w
-  const autoHeight = stick ? 1.4 * w : 0.9 * cell
   const half = Math.max(w, o.headWidth > 0 ? o.headWidth * cell : autoWidth) / 2
-  const height = o.headHeight > 0 ? o.headHeight * cell : autoHeight
+  const height = o.headHeight * cell
   const tip = 0.48 * cell
   const tx = hx + dx * tip, ty = hy + dy * tip
   const bx = tx - dx * height, by = ty - dy * height

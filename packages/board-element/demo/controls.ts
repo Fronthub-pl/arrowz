@@ -125,8 +125,8 @@ export const VIEW_CONTROLS: readonly Control[] = [
     label: 'stroke',
     hint: 'Line width as a fraction of a cell.',
     def: DEFAULT_VIEW.stroke,
-    min: 0.05,
-    max: 1.5,
+    min: 0.2,
+    max: 0.9,
     step: 0.05,
   },
   {
@@ -136,18 +136,25 @@ export const VIEW_CONTROLS: readonly Control[] = [
     hint: 'Arrowhead width in cells; 0 is automatic.',
     def: DEFAULT_VIEW.headWidth,
     min: 0,
-    max: 3,
-    step: 0.1,
+    max: 0.9,
+    step: 0.05,
   },
   {
     kind: 'number',
     id: 'headHeight',
     label: 'headHeight',
-    hint: 'Arrowhead height in cells; 0 is automatic.',
+    hint: 'Arrowhead height in cells.',
     def: DEFAULT_VIEW.headHeight,
-    min: 0,
-    max: 3,
-    step: 0.1,
+    min: 0.1,
+    max: 1,
+    step: 0.05,
+  },
+  {
+    kind: 'bool',
+    id: 'rounded',
+    label: 'rounded',
+    hint: 'Rounds the corners a piece turns through and caps its tail with a disc.',
+    def: DEFAULT_VIEW.rounded,
   },
   {
     kind: 'bool',
@@ -204,6 +211,8 @@ export function withField(view: BoardView, id: string, value: ControlValue): Boa
       return { ...view, headWidth: asNumber(value) }
     case 'headHeight':
       return { ...view, headHeight: asNumber(value) }
+    case 'rounded':
+      return { ...view, rounded: asBool(value) }
     case 'colored':
       return { ...view, colored: asBool(value) }
     case 'top':

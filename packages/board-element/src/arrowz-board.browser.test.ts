@@ -7,6 +7,7 @@ import {
   DEFAULT_POINT_COLOR,
   DEFAULT_POINT_RADIUS,
   DEFAULT_SHOW_POINTS,
+  GESTURE_STORAGE_KEY,
   ZOOM_STEP,
 } from './arrowz-board.ts'
 import type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
@@ -119,12 +120,21 @@ function pointer(type: string, x: number, y: number, init: Partial<PointerEventI
     isPrimary: true,
     clientX: r.left + x,
     clientY: r.top + y,
+    // A real press and drag hold the primary button; the release has let go of it.
+    buttons: type === 'pointerup' ? 0 : 1,
     ...init,
   })
 }
 
+/** Mounts in the rule before 2026-09-11: a plain click plays, the modifier pans. */
+async function mountClickMode(attrs: Record<string, string> = {}): Promise<ArrowzBoard> {
+  localStorage.setItem(GESTURE_STORAGE_KEY, 'click')
+  return await mount(attrs)
+}
+
 beforeEach(() => {
   document.body.innerHTML = ''
+  localStorage.removeItem(GESTURE_STORAGE_KEY)
 })
 afterEach(() => {
   el?.remove()
@@ -216,6 +226,70 @@ describe('mount and viewport', () => {
     // 600 px of view at the height's scale is 76 cells across 38 of board.
     expect(el.viewport?.originX).toBeCloseTo((30 - 600 / FIT) / 2, 6)
   })
+
+  test('keys with ⌘, Ctrl or Alt are left to the browser', async () => {
+    await mount()
+    el.focus()
+    for (const mod of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }]) {
+      for (const key of ['+', '=', '-', '0']) {
+        const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mod })
+        el.dispatchEvent(e)
+        expect(e.defaultPrevented, `${JSON.stringify(mod)} ${key}`).toBe(false)
+      }
+    }
+    await raf()
+    expect(el.viewport?.fitted).toBe(true)
+  })
+
+  test('without a board no key is taken', async () => {
+    el = document.createElement('arrowz-board')
+    el.style.width = '300px'
+    el.style.height = '300px'
+    document.body.append(el)
+    await el.updateComplete
+    el.focus()
+    const e = new KeyboardEvent('keydown', { key: '+', bubbles: true, cancelable: true })
+    el.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(false)
+  })
+
+  test('the host takes its parent height back after an odd size, whatever the canvas was', async () => {
+    const box = document.createElement('div')
+    box.style.width = '300px'
+    box.style.height = '240px'
+    document.body.append(box)
+    el = document.createElement('arrowz-board')
+    el.style.width = '100%'
+    el.style.height = '100%'
+    box.append(el)
+    el.board = makeBoard()
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBeCloseTo(240, 0)
+    el.style.width = '20px'
+    el.style.height = '3000px'
+    await raf()
+    await raf()
+    el.style.width = '100%'
+    el.style.height = '100%'
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBeCloseTo(240, 0)
+    expect(el.viewport?.hostHeight).toBeCloseTo(240, 0)
+    box.remove()
+  })
+
+  test('a host nobody sized has no height of its own', async () => {
+    el = document.createElement('arrowz-board')
+    document.body.append(el)
+    el.board = makeBoard()
+    await el.updateComplete
+    await raf()
+    await raf()
+    expect(el.getBoundingClientRect().height).toBe(0)
+    expect(el.viewport).toBeNull()
+  })
 })
 
 describe('clicks', () => {
@@ -226,11 +300,41 @@ describe('clicks', () => {
     const seen: PieceClickEvent[] = []
     document.addEventListener('piece-click', (e) => seen.push(e as PieceClickEvent))
     const p = headPoint(el, pc.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
     expect(seen.length).toBe(1)
     expect(seen[0]?.detail.pieceId).toBe(pc.id)
     expect(seen[0]?.composed).toBe(true)
+  })
+
+  test('a modifier click whose button is reported up by a move before the pointerup still plays once', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const seen: PieceClickEvent[] = []
+    document.addEventListener('piece-click', (e) => seen.push(e as PieceClickEvent))
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointermove', p.x, p.y, { ctrlKey: true, buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
+    expect(seen.length).toBe(1)
+    expect(seen[0]?.detail.pieceId).toBe(pc.id)
+  })
+
+  test('the window losing focus mid-press cancels the gesture: no late piece-click', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const seen: Event[] = []
+    document.addEventListener('piece-click', (e) => seen.push(e))
+    const p = headPoint(el, pc.id)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', p.x, p.y, { ctrlKey: true }))
+    canvas.dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    globalThis.dispatchEvent(new Event('blur'))
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y, { ctrlKey: true, buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
+    expect(seen.length).toBe(0)
   })
 
   test('a secondary mouse button is not a press: no piece-click on release', async () => {
@@ -240,34 +344,33 @@ describe('clicks', () => {
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const p = headPoint(el, pc.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2 }))
-    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2, ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0, ctrlKey: true }))
     expect(seen.length).toBe(0)
   })
 
-  test('no piece-click without interactive, with the modifier, or when released over another piece', async () => {
+  test('no piece-click without interactive, without the modifier, or when released over another piece', async () => {
     await mount()
     const [a, b] = el.board?.pieces ?? []
     if (!a || !b) throw new Error('need two pieces')
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const pa = headPoint(el, a.id), pb = headPoint(el, b.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y, { ctrlKey: true }))
     expect(seen.length).toBe(0)
     el.interactive = true
     await el.updateComplete
-    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
-    canvasOf(el).dispatchEvent(pointer('pointermove', pa.x + 30, pa.y, { ctrlKey: true }))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x + 30, pa.y, { ctrlKey: true }))
-    expect(seen.length).toBe(0)
     canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
+    expect(seen.length).toBe(0)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y, { ctrlKey: true }))
     expect(seen.length).toBe(0)
   })
 
-  test('a modifier press drops the piece cursor for the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('a modifier press drops the piece cursor for the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
@@ -281,8 +384,8 @@ describe('clicks', () => {
     expect(canvas.classList.contains('panning')).toBe(false)
   })
 
-  test('holding the modifier shows the grab cursor before any press', async () => {
-    await mount({ interactive: '' })
+  test('holding the modifier shows the grab cursor before any press (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
@@ -301,15 +404,15 @@ describe('clicks', () => {
     expect(canvas.classList.contains('over-piece')).toBe(true)
   })
 
-  test('the pointer arriving with the modifier already down finds the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('the pointer arriving with the modifier already down finds the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const canvas = canvasOf(el)
     canvas.dispatchEvent(pointer('pointerenter', 150, 150, { ctrlKey: true }))
     expect(canvas.classList.contains('pan-ready')).toBe(true)
   })
 
-  test('leaving the board, or the window losing focus, drops the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('leaving the board, or the window losing focus, drops the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const canvas = canvasOf(el)
     canvas.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
     expect(canvas.classList.contains('pan-ready')).toBe(true)
@@ -322,8 +425,9 @@ describe('clicks', () => {
     expect(canvas.classList.contains('pan-ready')).toBe(false)
   })
 
-  test('a modifier drag pans', async () => {
-    await mount()
+  test('a modifier drag pans (click mode)', async () => {
+    // Interactive: a board that only pans is in drag mode whatever is stored.
+    await mountClickMode({ interactive: '' })
     el.zoomBy(3)
     await raf()
     const before = el.viewport?.originX ?? 0
@@ -333,6 +437,180 @@ describe('clicks', () => {
     canvasOf(el).dispatchEvent(pointer('pointerup', 120, 150, { metaKey: true }))
     await raf()
     expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6) // a 30 px drag
+  })
+
+  test('a double click leaves the viewport alone and fires one piece-click', async () => {
+    const el = await mount({ play: '' })
+    const canvas = canvasOf(el)
+    el.zoomBy(ZOOM_STEP)
+    await raf()
+    const before = el.viewport
+    let clicks = 0
+    el.addEventListener('piece-click', () => clicks++)
+    const press = (detail: number) => {
+      canvas.dispatchEvent(pointer('pointerdown', 40, 40, { detail, ctrlKey: true }))
+      // Real browsers increment `detail` per click on `pointerdown` but always
+      // send 0 on the matching `pointerup` (w3c/pointerevents#98); `repeat`
+      // has to be read off the down-time sample, and setting `detail` here to
+      // anything else would let a regression that reads it off `up` pass too.
+      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail: 0, ctrlKey: true }))
+    }
+    press(1)
+    press(2)
+    await raf()
+    expect(el.viewport).toEqual(before)
+    expect(clicks).toBe(1)
+  })
+
+  test('a plain drag pans, and a plain click plays nothing', async () => {
+    await mount({ play: '' })
+    el.zoomBy(3)
+    await raf()
+    const seen: Event[] = []
+    el.addEventListener('piece-click', (e) => seen.push(e))
+    const before = el.viewport?.originX ?? 0
+    const cellPx = el.viewport?.cellPx ?? 1
+    canvasOf(el).dispatchEvent(pointer('pointerdown', 150, 150))
+    canvasOf(el).dispatchEvent(pointer('pointermove', 120, 150))
+    canvasOf(el).dispatchEvent(pointer('pointerup', 120, 150))
+    await raf()
+    expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6)
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    expect(seen.length).toBe(0)
+  })
+
+  test('in drag mode the board shows grab, and the piece cursor only while the modifier is held', async () => {
+    await mount({ play: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', p.x, p.y, { buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y, { buttons: 0 }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
+    expect(canvas.classList.contains('over-piece')).toBe(false)
+    globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
+    expect(canvas.classList.contains('over-piece')).toBe(true)
+    globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta' }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
+    expect(canvas.classList.contains('over-piece')).toBe(false)
+  })
+
+  test('a Ctrl secondary click keeps its context menu shut only where it plays', async () => {
+    await mount({ play: '' })
+    const menu = (ctrlKey: boolean) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ctrlKey })
+      canvasOf(el).dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    expect(menu(true)).toBe(true)
+    expect(menu(false)).toBe(false)
+    el.removeAttribute('play')
+    await el.updateComplete
+    expect(menu(true)).toBe(false)
+  })
+
+  test('a capture lost mid-drag ends the pan, and a later move does not pan', async () => {
+    await mount()
+    el.zoomBy(3)
+    await raf()
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerdown', 150, 150))
+    canvas.dispatchEvent(pointer('pointermove', 140, 150))
+    expect(canvas.classList.contains('panning')).toBe(true)
+    canvas.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1, bubbles: true }))
+    expect(canvas.classList.contains('panning')).toBe(false)
+    await raf()
+    const before = el.viewport?.originX
+    canvas.dispatchEvent(pointer('pointermove', 100, 150))
+    await raf()
+    expect(el.viewport?.originX).toBe(before)
+  })
+
+  test('a move with no button held after a lost release does not pan', async () => {
+    await mount()
+    el.zoomBy(3)
+    await raf()
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerdown', 150, 150))
+    canvas.dispatchEvent(pointer('pointermove', 140, 150))
+    await raf()
+    const before = el.viewport?.originX
+    canvas.dispatchEvent(pointer('pointermove', 100, 150, { buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointermove', 60, 150, { buttons: 0 }))
+    expect(canvas.classList.contains('panning')).toBe(false)
+    await raf()
+    expect(el.viewport?.originX).toBe(before)
+  })
+})
+
+describe('the gesture switch', () => {
+  const switchOf = (e: ArrowzBoard) => e.shadowRoot?.querySelector<HTMLButtonElement>('button.gestures') ?? null
+  const hintOf = (e: ArrowzBoard) => e.shadowRoot?.querySelector('.hint')?.textContent ?? ''
+  const mac = /Mac/.test(navigator.platform)
+
+  test('a board that only pans has no switch, is in drag mode, and says so', async () => {
+    localStorage.setItem(GESTURE_STORAGE_KEY, 'click')
+    await mount()
+    expect(switchOf(el)).toBeNull()
+    expect(el.gestureMode).toBe('drag')
+    expect(hintOf(el)).toBe('Drag to pan')
+  })
+
+  test('a playable board starts in drag mode with the switch released', async () => {
+    await mount({ play: '' })
+    const button = switchOf(el)
+    expect(button).not.toBeNull()
+    expect(button?.getAttribute('aria-pressed')).toBe('false')
+    expect(button?.getAttribute('title')).toBe(mac ? 'Click plays without ⌘' : 'Click plays without Ctrl')
+    expect(el.gestureMode).toBe('drag')
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click to play' : 'Drag to pan · Ctrl-click to play')
+  })
+
+  test('pressing it switches to click mode, and a plain click plays again', async () => {
+    await mount({ interactive: '' })
+    switchOf(el)?.click()
+    await el.updateComplete
+    expect(el.gestureMode).toBe('click')
+    expect(switchOf(el)?.getAttribute('aria-pressed')).toBe('true')
+    expect(hintOf(el)).toBe(mac ? 'Hold ⌘ and drag to pan' : 'Hold Ctrl and drag to pan')
+    expect(localStorage.getItem(GESTURE_STORAGE_KEY)).toBe('click')
+    const seen: Event[] = []
+    el.addEventListener('piece-click', (e) => seen.push(e))
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    expect(seen.length).toBe(1)
+  })
+
+  test('the choice outlives the element', async () => {
+    await mount({ play: '' })
+    switchOf(el)?.click()
+    await el.updateComplete
+    el.remove()
+    await mount({ play: '' })
+    expect(el.gestureMode).toBe('click')
+  })
+
+  test('a stored value that is neither mode reads as drag', async () => {
+    localStorage.setItem(GESTURE_STORAGE_KEY, 'sideways')
+    await mount({ play: '' })
+    expect(el.gestureMode).toBe('drag')
+  })
+
+  test('lang="pl" labels the switch and the hint in Polish', async () => {
+    await mount({ play: '', lang: 'pl' })
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik gra bez ⌘' : 'Klik gra bez Ctrl')
+    expect(hintOf(el)).toBe(
+      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik gra' : 'Przeciągnij, aby przesunąć · Ctrl + klik gra',
+    )
   })
 })
 
@@ -454,6 +732,22 @@ describe('margin', () => {
     expect(kept).toBeLessThan(-1)
     expect(viewCells(el)).toBeCloseTo(30 - 2 * kept, 6)
   })
+
+  test('removing the pad attribute restores the default margin', async () => {
+    await mount({ pad: '2' })
+    el.removeAttribute('pad')
+    await el.updateComplete
+    expect(el.pad).toBe(DEFAULT_PAD)
+    await raf()
+    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+  })
+
+  test('removing the point-radius attribute restores the default radius', async () => {
+    await mount({ 'point-radius': '0.2' })
+    el.removeAttribute('point-radius')
+    await el.updateComplete
+    expect(el.pointRadius).toBe(DEFAULT_POINT_RADIUS)
+  })
 })
 
 describe('points', () => {
@@ -545,5 +839,119 @@ describe('the context a board holds', () => {
     await raf()
     expect(isLost(canvas)).toBe(false)
     expect(inked(await painted(el))).toBeGreaterThan(0)
+  })
+
+  test('elements created and never connected take no context from a connected board', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    // Chrome holds about sixteen live contexts; a constructor that took one
+    // would have evicted this board's by the sixteenth.
+    const orphans: HTMLElement[] = []
+    for (let i = 0; i < 20; i++) orphans.push(document.createElement('arrowz-board'))
+    await raf()
+    await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+    expect(orphans.length).toBe(20)
+  })
+
+  test('a visible board whose context the browser takes gets it back by itself', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const lose = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+    if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+    // A simulated loss is restored only when someone asks: the browser will
+    // not, so a board that recovers here recovered on its own.
+    lose.loseContext()
+    for (let i = 0; i < 30 && (isLost(canvas) || el.pieceCount === 0); i++) await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+  })
+
+  test('a board outside the viewport waits to be scrolled to before asking', async () => {
+    await mount()
+    el.style.position = 'absolute'
+    el.style.top = '10000px'
+    await raf()
+    await raf()
+    const canvas = canvasOf(el)
+    const lose = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+    if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+    lose.loseContext()
+    for (let i = 0; i < 10; i++) await raf()
+    expect(isLost(canvas)).toBe(true)
+    el.style.top = '0px'
+    for (let i = 0; i < 30 && isLost(canvas); i++) await raf()
+    expect(isLost(canvas)).toBe(false)
+  })
+})
+
+describe('nonsense in, a drawable board out', () => {
+  const allFinite = (v: BoardViewport | null | undefined): boolean =>
+    v !== null && v !== undefined && [v.cellPx, v.originX, v.originY, v.hostWidth, v.hostHeight].every(Number.isFinite)
+
+  test('a pad that is not a number fits as the default pad, and the attribute keeps what was set', async () => {
+    const details: BoardViewport[] = []
+    const onChange = (e: Event) => details.push((e as ViewportChangeEvent).detail)
+    document.addEventListener('viewport-change', onChange)
+    await mount({ pad: 'abc' })
+    expect(el.getAttribute('pad')).toBe('abc')
+    expect(allFinite(el.viewport)).toBe(true)
+    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+    expect(details.length).toBeGreaterThan(0)
+    expect(details.every(allFinite)).toBe(true)
+    document.removeEventListener('viewport-change', onChange)
+  })
+
+  test('a stroke or head height that is not a number still draws the pieces', async () => {
+    await mount()
+    el.view = { ...el.view, stroke: NaN, headHeight: NaN }
+    await el.updateComplete
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+    expect(Number.isNaN(el.view.stroke)).toBe(true) // the property keeps what the host set
+  })
+
+  test('a point radius past half a cell does not flood the paper', async () => {
+    await mount({ 'show-points': '', 'point-color': '#ff00ff', 'point-radius': '5' })
+    el.zoomBy(3)
+    await raf()
+    const buf = await painted(el)
+    const canvas = canvasOf(el)
+    const vp = el.viewport
+    if (!vp) throw new Error('need a viewport')
+    const dpr = devicePixelRatio
+    // A cell corner is 0.707 cells from the dot at the cell's centre and a
+    // quarter cell clear of any stroke: a dot of radius ≤ 0.5 never reaches
+    // it, and an unclamped radius of 5 paints every one of them.
+    let corners = 0, magenta = 0
+    for (let y = 1; y < 30; y++) {
+      for (let x = 1; x < 30; x++) {
+        const px = Math.round((x - vp.originX) * vp.cellPx * dpr)
+        const py = Math.round((y - vp.originY) * vp.cellPx * dpr)
+        if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) continue
+        const i = ((canvas.height - 1 - py) * canvas.width + px) * 4 // readPixels rows run bottom-up
+        corners++
+        if (buf[i] === 255 && buf[i + 1] === 0 && buf[i + 2] === 255) magenta++
+      }
+    }
+    expect(el.pointRadius).toBe(5) // the attribute keeps what the host set
+    expect(corners).toBeGreaterThan(20)
+    expect(magenta).toBe(0)
+  })
+
+  test('a point radius that is not a number keeps its attribute, and the viewport stays finite', async () => {
+    await mount({ 'show-points': '', 'point-radius': 'abc' })
+    expect(el.getAttribute('point-radius')).toBe('abc')
+    expect(allFinite(el.viewport)).toBe(true)
+  })
+
+  test('zoomBy ignores a factor that is not a finite positive number', async () => {
+    await mount()
+    const before = el.viewport
+    el.zoomBy(NaN)
+    el.zoomBy(0)
+    el.zoomBy(-2)
+    expect(el.viewport).toEqual(before)
+    expect(allFinite(el.viewport)).toBe(true)
   })
 })

@@ -1,0 +1,189 @@
+{
+  "$comment": [
+    "How every picture on README.md and README.pl.md was made. `deno task docs` replays this file:",
+    "one CLI run per entry writing <out>.svg, then `rsvg-convert -w <width>` writing <out>.png.",
+    "`dialect` picks the CLI's flag set: \"simple\" is the everyday one, \"advanced\" prepends --advanced.",
+    "`width` is the PNG width in pixels; the height follows the SVG's aspect ratio.",
+    "`keepSvg: false` means the drawing is too large to belong in the repository (README says so",
+    "in the text next to it), so only the PNG is written and the SVG goes to a temporary file.",
+    "`handMade` lists the pictures this file deliberately does NOT cover: they were drawn by hand",
+    "and no CLI invocation reproduces them."
+  ],
+  "images": [
+    { "out": "hero", "dialect": "simple", "flags": ["--width=40", "--height=40", "--seed=7"], "width": 700 },
+    {
+      "out": "tiny-colorized",
+      "dialect": "simple",
+      "flags": ["--width=8", "--height=8", "--seed=7", "--colorized"],
+      "width": 420
+    },
+    { "out": "tiny", "dialect": "simple", "flags": ["--width=8", "--height=8", "--seed=7"], "width": 420 },
+    { "out": "portrait", "dialect": "simple", "flags": ["--width=20", "--height=40", "--seed=7"], "width": 420 },
+    { "out": "big", "dialect": "simple", "flags": ["--width=100", "--height=100", "--seed=7"], "width": 700 },
+    {
+      "out": "scale-200",
+      "dialect": "simple",
+      "flags": ["--width=200", "--height=200", "--seed=7"],
+      "width": 420,
+      "keepSvg": false,
+      "note": "3,619 arrows; the drawing is 0.9 MB, which README says is too much for the repository."
+    },
+    {
+      "out": "scale-500",
+      "dialect": "simple",
+      "flags": ["--width=500", "--height=500", "--seed=7"],
+      "width": 420,
+      "keepSvg": false,
+      "note": "21,771 arrows; the drawing is 7 MB."
+    },
+    {
+      "out": "scale-1000",
+      "dialect": "simple",
+      "flags": ["--width=1000", "--height=1000", "--seed=7"],
+      "width": 420,
+      "keepSvg": false,
+      "note": "85,809 arrows; the drawing is 22 MB and the run takes about twelve seconds."
+    },
+    { "out": "seed-7", "dialect": "simple", "flags": ["--width=20", "--height=20", "--seed=7"], "width": 420 },
+    { "out": "seed-42", "dialect": "simple", "flags": ["--width=20", "--height=20", "--seed=42"], "width": 420 },
+    {
+      "out": "length-short",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=0", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "default-30",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "length-long",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=1", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "straight-winding",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--straight=0", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "straight-straight",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--straight=1", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "skeleton-off",
+      "dialect": "simple",
+      "flags": ["--width=60", "--height=60", "--seed=7", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "skeleton-on",
+      "dialect": "simple",
+      "flags": ["--width=60", "--height=60", "--seed=7", "--skeleton", "--colorized"],
+      "width": 420
+    },
+    {
+      "out": "colorized",
+      "dialect": "simple",
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colorized"],
+      "width": 420,
+      "note": "The same board as default-30, byte for byte; README shows it under a different heading."
+    },
+    {
+      "out": "weight-thin",
+      "dialect": "simple",
+      "flags": ["--width=20", "--height=20", "--seed=7", "--lineweight=0.2"],
+      "width": 420
+    },
+    {
+      "out": "weight-thick",
+      "dialect": "simple",
+      "flags": ["--width=20", "--height=20", "--seed=7", "--lineweight=0.9"],
+      "width": 420
+    },
+    {
+      "out": "head-small",
+      "dialect": "simple",
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrowwidth=0.6", "--arrowheight=0.6"],
+      "width": 420
+    },
+    {
+      "out": "head-big",
+      "dialect": "simple",
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrowwidth=2", "--arrowheight=2"],
+      "width": 420
+    },
+    {
+      "out": "adv-warns-low",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--warns=2", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-warns-high",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--warns=16", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-lateral-0",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--wlateral=0", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-lateral-20",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--wlateral=20", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-probe-short",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--probe=1", "--probelen=2", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-probe-long",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--probe=1", "--probelen=200", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-layers",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--headbias=-1", "--cell=18", "--colored"],
+      "width": 420
+    },
+    {
+      "out": "adv-tunnels",
+      "dialect": "advanced",
+      "flags": ["--w=30", "--h=30", "--seed=7", "--headbias=1", "--cell=18", "--colored"],
+      "width": 420
+    }
+  ],
+  "handMade": [
+    {
+      "out": "rule-free",
+      "why": "A hand-drawn composite: a grid of <line> elements the CLI never emits, a dashed lane, and a piece group in the CLI's style pasted in. No invocation reproduces it."
+    },
+    {
+      "out": "rule-blocked",
+      "why": "Hand-drawn like rule-free, with a second piece parked across the lane."
+    },
+    {
+      "out": "rule-shape",
+      "why": "Hand-drawn like rule-free, with a horseshoe piece curled around another."
+    },
+    {
+      "out": "scale-1000-detail",
+      "why": "A 30x30 window cut out of a 1000x1000 board drawn at cell 18. Only the PNG was ever kept, and it records neither the crop origin nor the command, so the window cannot be reconstructed."
+    }
+  ]
+}

@@ -20,7 +20,14 @@ import type {
   WorkerIn,
   WorkerOut,
 } from '@arrowz/engine'
-import { defaultParams, INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, validateParams } from '@arrowz/engine'
+import {
+  DEFAULT_HEAD_HEIGHT,
+  defaultParams,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  RULE_REASONS,
+  validateParams,
+} from '@arrowz/engine'
 import { buildCommand } from '@arrowz/engine/command'
 import { type Dictionary, EN, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
@@ -581,14 +588,28 @@ el('boardWrap').addEventListener('dblclick', () => {
   saveToUrl()
 })
 
+/**
+ * A number box that has been emptied reads back as '', and `Number('')` is 0.
+ * For the head height that used to be harmless — 0 meant "automatic" — and now
+ * means a head of no height at all, drawn headless and printed as
+ * `--headheight=0`. Nobody clears a box to ask for that, so an empty (or
+ * unparseable) one falls back to the default the box was born with.
+ */
+function headHeightOf(id: string): number {
+  const raw = el<HTMLInputElement>(id).value.trim()
+  const n = Number(raw)
+  return raw === '' || !Number.isFinite(n) ? DEFAULT_HEAD_HEIGHT : n
+}
+
 function viewOptions(): View {
   return {
     cell: Number(el<HTMLInputElement>('cell').value),
     stroke: Number(el<HTMLInputElement>('stroke').value),
     headWidth: Number(el<HTMLInputElement>('headWidth').value),
-    headHeight: Number(el<HTMLInputElement>('headHeight').value),
+    headHeight: headHeightOf('headHeight'),
     colored: el<HTMLInputElement>('colored').checked,
     top: el<HTMLInputElement>('hilite').checked ? Number(el<HTMLInputElement>('top').value) : 0,
+    rounded: el<HTMLInputElement>('rounded').checked,
   }
 }
 // "Show jammed cells" is not part of the view (the CLI has no such flag); it
@@ -792,7 +813,7 @@ el('reset').addEventListener('click', () => {
   }
   run()
 })
-for (const id of ['cell', 'stroke', 'headWidth', 'headHeight', 'colored', 'hilite', 'top', 'voids']) {
+for (const id of ['cell', 'stroke', 'headWidth', 'headHeight', 'rounded', 'colored', 'hilite', 'top', 'voids']) {
   el(id).addEventListener('input', () => {
     updateCommand()
     redraw()
@@ -984,6 +1005,7 @@ async function openBoard(meta: BoardMeta) {
   el<HTMLInputElement>('libStroke').value = String(meta.view.stroke)
   el<HTMLInputElement>('libHeadWidth').value = String(meta.view.headWidth)
   el<HTMLInputElement>('libHeadHeight').value = String(meta.view.headHeight)
+  el<HTMLInputElement>('libRounded').checked = meta.view.rounded !== false
   el<HTMLInputElement>('libColored').checked = meta.view.colored
   if (libWorkerId !== meta.id) dropLibWorker()
   setStatus(t('loadingBoard', `<code>${meta.W}x${meta.H}/${meta.id}</code>`))
@@ -1016,6 +1038,7 @@ el('libLoad').addEventListener('click', () => {
   if (v.stroke) el<HTMLInputElement>('stroke').value = String(v.stroke)
   el<HTMLInputElement>('headWidth').value = String(v.headWidth)
   el<HTMLInputElement>('headHeight').value = String(v.headHeight)
+  el<HTMLInputElement>('rounded').checked = v.rounded !== false
   el<HTMLInputElement>('colored').checked = v.colored
   el<HTMLInputElement>('hilite').checked = v.top > 0
   if (v.top > 0) el<HTMLInputElement>('top').value = String(v.top)
@@ -1042,9 +1065,10 @@ function libView(meta: BoardMeta): View {
     cell: meta.view.cell,
     stroke: Number(el<HTMLInputElement>('libStroke').value),
     headWidth: Number(el<HTMLInputElement>('libHeadWidth').value),
-    headHeight: Number(el<HTMLInputElement>('libHeadHeight').value),
+    headHeight: headHeightOf('libHeadHeight'),
     colored: el<HTMLInputElement>('libColored').checked,
     top: 0, // stored boards carry no highlight
+    rounded: el<HTMLInputElement>('libRounded').checked,
   }
 }
 function scheduleLibRender() {
@@ -1118,6 +1142,7 @@ async function onLibWorkerMessage(meta: BoardMeta, msg: WorkerOut) {
   }
 }
 for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) el(id).addEventListener('input', scheduleLibRender)
+el('libRounded').addEventListener('change', scheduleLibRender)
 el('libColored').addEventListener('change', scheduleLibRender)
 
 // Deleting takes two clicks on the same button: the first arms it, the second
@@ -1165,6 +1190,7 @@ type UrlView = {
   top: string
   headWidth: string
   headHeight: string
+  rounded: boolean
   colored: boolean
   hilite: boolean
   help: boolean
@@ -1180,6 +1206,7 @@ function saveToUrl() {
     top: el<HTMLInputElement>('top').value,
     headWidth: el<HTMLInputElement>('headWidth').value,
     headHeight: el<HTMLInputElement>('headHeight').value,
+    rounded: el<HTMLInputElement>('rounded').checked,
     colored: el<HTMLInputElement>('colored').checked,
     hilite: el<HTMLInputElement>('hilite').checked,
     help: el<HTMLInputElement>('help').checked,
@@ -1207,8 +1234,16 @@ function loadFromUrl(): boolean {
     if (view.cell) el<HTMLInputElement>('cell').value = String(view.cell)
     if (view.stroke) el<HTMLInputElement>('stroke').value = String(view.stroke)
     if (view.headWidth) el<HTMLInputElement>('headWidth').value = String(view.headWidth)
-    if (view.headHeight) el<HTMLInputElement>('headHeight').value = String(view.headHeight)
+    // A hash headHeight of 0 meant "automatic": it was this input's own
+    // default until the height became literal, so every link shared before
+    // that change carries one, as a string, which is truthy. Read it as unset
+    // and keep the page default — the same rule readMeta applies to a stored
+    // board (store.ts). Nothing is lost: once the panel's minimum for this
+    // input is 0.1 the lab cannot write a 0 into a hash at all, so a 0 here is
+    // an old link rather than a height anybody chose.
+    if (Number(view.headHeight) > 0) el<HTMLInputElement>('headHeight').value = String(view.headHeight)
     if (view.top) el<HTMLInputElement>('top').value = String(view.top)
+    el<HTMLInputElement>('rounded').checked = view.rounded !== false
     el<HTMLInputElement>('colored').checked = !!view.colored
     el<HTMLInputElement>('hilite').checked = view.hilite !== false
     el<HTMLInputElement>('help').checked = view.help !== false

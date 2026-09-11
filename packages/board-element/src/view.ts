@@ -1,13 +1,16 @@
 // What a board looks like, and the diagnostic hue of a piece. No renderer and
 // no DOM: mod.ts exports these, so they must not move when the layer does.
+import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
 
 export interface BoardView {
   /** Stroke width as a fraction of a cell. */
   stroke: number
   /** Head width in cells; 0 = automatic. */
   headWidth: number
-  /** Head height in cells; 0 = automatic. */
+  /** Head height in cells, taken literally: 0 draws a head of no height. */
   headHeight: number
+  /** Round the corners a piece turns through, and cap its tail with a disc. */
+  rounded: boolean
   /** Per-piece hues: the diagnostic mode of the lab. */
   colored: boolean
   /** How many longest pieces are drawn highlighted and on top. */
@@ -22,7 +25,10 @@ export interface BoardView {
 export const DEFAULT_VIEW: BoardView = {
   stroke: 0.5,
   headWidth: 0,
-  headHeight: 0,
+  // The engine's number, not a copy of it: the CLI export and this board draw
+  // the same head without anyone setting a knob.
+  headHeight: DEFAULT_HEAD_HEIGHT,
+  rounded: DEFAULT_ROUNDED,
   colored: false,
   top: 0,
   voids: false,

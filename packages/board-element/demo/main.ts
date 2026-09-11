@@ -179,6 +179,9 @@ worker.onmessage = async (e: MessageEvent<DemoResponse>) => {
 worker.onerror = (e: ErrorEvent) => failed(`worker error: ${e.message}`)
 worker.onmessageerror = () => failed('worker sent a message the page could not read')
 
+// The demo opens on a board rather than on an empty host that waits for a click.
+generateButton.click()
+
 // ── The session the host owns ───────────────────────────────────────────────
 
 let lives = 3
@@ -258,7 +261,9 @@ $<HTMLButtonElement>('clear').addEventListener('click', () => events.clear())
 // ── The measurement of the spec (§11) ───────────────────────────────────────
 
 /**
- * Scripted pan (60 frames of modifier drag) and zoom (60 frames of zoomBy), reporting mean and worst frame time.
+ * Scripted pan (60 frames, dragging the way the board's current gesture mode
+ * pans: a plain drag in `drag` mode, a modifier drag in `click` mode) and zoom
+ * (60 frames of zoomBy), reporting mean and worst frame time.
  *
  * Each frame is timed around the dispatch plus one `await raf()`, so the figure
  * is max(work, frame interval): on a 60 Hz display anything cheaper than
@@ -281,7 +286,8 @@ measureButton.addEventListener('click', async () => {
         pointerType: 'mouse',
         clientX: r.left + x,
         clientY: r.top + y,
-        ctrlKey: true,
+        ctrlKey: board.gestureMode === 'click',
+        buttons: 1,
       })
     const panFrames: number[] = []
     canvas.dispatchEvent(ev('pointerdown', r.width / 2, r.height / 2))

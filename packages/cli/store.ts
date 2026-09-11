@@ -54,7 +54,21 @@ function readMeta(file: string): BoardMeta | null {
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      view: { ...DEFAULT_VIEW, ...meta.view },
+      // A stored headHeight of 0 meant "automatic", a mode that no longer
+      // exists: read it as unset. Every board written before this change
+      // carries it, and taken literally they would draw no arrowhead at all.
+      //
+      // That is no longer the only way a 0 can get here: `--headheight=0` is
+      // now accepted literally and on purpose, so a board CAN be saved
+      // headless deliberately. The migration cannot tell the two apart and has
+      // no expiry date, which costs exactly this: such a board is shown in the
+      // library with a head of the default height, while the command stored
+      // next to it still says `--headheight=0` and reproduces it headless.
+      view: {
+        ...DEFAULT_VIEW,
+        ...meta.view,
+        ...(meta.view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
+      },
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,

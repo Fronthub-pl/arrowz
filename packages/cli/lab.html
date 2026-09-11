@@ -233,13 +233,14 @@
   </div>
   <div class="row labonly">
     <label for="headWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
-    <input type="number" id="headWidth" value="0" min="0" max="1.2" step="0.05">
+    <input type="number" id="headWidth" value="0" min="0" max="0.9" step="0.05">
   </div>
   <div class="row labonly">
-    <label for="headHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
-    <input type="number" id="headHeight" value="0" min="0" max="1.3" step="0.05">
+    <label for="headHeight" data-i18n="headHeightLabel">arrowhead height (grid units)</label>
+    <input type="number" id="headHeight" value="1" min="0.1" max="1" step="0.05">
     <p class="help" data-i18n="headHelp"></p>
   </div>
+  <label class="check labonly"><input type="checkbox" id="rounded" checked> <span data-i18n="rounded">round the corners</span></label>
   <label class="check labonly"><input type="checkbox" id="colored"> <span data-i18n="colored">colour the arrows</span></label>
   <div id="libView" class="libonly" hidden>
     <div class="row">
@@ -248,13 +249,14 @@
     </div>
     <div class="row">
       <label for="libHeadWidth" data-i18n="headWidthLabel">arrowhead width (grid units, 0 = automatic)</label>
-      <input type="number" id="libHeadWidth" value="0" min="0" max="1.2" step="0.05">
+      <input type="number" id="libHeadWidth" value="0" min="0" max="0.9" step="0.05">
     </div>
     <div class="row">
-      <label for="libHeadHeight" data-i18n="headHeightLabel">arrowhead height (grid units, 0 = automatic)</label>
-      <input type="number" id="libHeadHeight" value="0" min="0" max="1.3" step="0.05">
+      <label for="libHeadHeight" data-i18n="headHeightLabel">arrowhead height (grid units)</label>
+      <input type="number" id="libHeadHeight" value="1" min="0.1" max="1" step="0.05">
       <p class="help" data-i18n="headHelp"></p>
     </div>
+    <label class="check"><input type="checkbox" id="libRounded" checked> <span data-i18n="rounded">round the corners</span></label>
     <label class="check"><input type="checkbox" id="libColored"> <span data-i18n="colored">colour the arrows</span></label>
   </div>
   <label class="check labonly"><input type="checkbox" id="hilite" checked> <span data-i18n="hilite">highlight the longest pieces</span></label>

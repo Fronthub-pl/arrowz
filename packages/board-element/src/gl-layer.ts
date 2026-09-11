@@ -189,6 +189,10 @@ export class GlLayer {
   private contextLost = false
   /** A restore asked for before the lost event arrived; `onLost` carries it out. */
   private restoreWanted = false
+  /** Set by `dispose()` just before it gives the context up, so `onLost` knows the loss was its own. */
+  private disposing = false
+  /** Called when the browser takes the context away, not when `dispose()` gives it up. */
+  onForeignLoss: (() => void) | null = null
   /**
    * Scratch storage for whatever single quad the current pass is drawing —
    * the paper's, then the dot grid's. Each pass re-uploads its own quad into
@@ -242,19 +246,26 @@ export class GlLayer {
    */
   private dprQuery: MediaQueryList | null = null
 
+  /**
+   * Creates the canvas and nothing else. The context is taken by the first
+   * `restore()` — the element calls it on connect — because a context held
+   * from construction is held by every element ever created, connected or
+   * not, and a page gets about sixteen: the seventeenth `createElement`
+   * would evict a board someone is looking at.
+   */
   constructor() {
     this.canvas = document.createElement('canvas')
     this.canvas.addEventListener('webglcontextlost', this.onLost)
     this.canvas.addEventListener('webglcontextrestored', this.onRestored)
-    this.acquire()
   }
 
   /**
    * Gets the context and builds both programs and the two buffers every
    * frame needs, whether this is the layer's very first draw or a context
-   * handed back after a loss. Shared by the constructor and `onRestored` so
-   * the two paths cannot drift apart: a change to how the layer starts up is
-   * automatically a change to how it comes back.
+   * handed back after a loss. Both reach it through `onRestored` — the first
+   * `restore()` falls through to it — so the two paths cannot drift apart: a
+   * change to how the layer starts up is automatically a change to how it
+   * comes back.
    */
   private acquire(): void {
     const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true })
@@ -322,6 +333,8 @@ export class GlLayer {
    * ride or rider referring to an object that no longer exists.
    */
   private readonly onLost = (e: Event): void => {
+    const foreign = !this.disposing
+    this.disposing = false
     e.preventDefault()
     if (this.pending !== 0) cancelAnimationFrame(this.pending)
     this.pending = 0
@@ -342,6 +355,8 @@ export class GlLayer {
       this.restoreWanted = false
       this.loseExt?.restoreContext()
     }
+    // Someone else's loss: whoever owns the layer decides when to ask back.
+    if (foreign) this.onForeignLoss?.()
   }
 
   /**
@@ -361,15 +376,20 @@ export class GlLayer {
     this.schedule()
   }
 
-  /** False when the browser gave no WebGL2 context at all; the element shows a message. */
+  /**
+   * False when the browser gave no WebGL2 context at all, and the element
+   * shows a message. Also false before the first `restore()`, which is what
+   * takes the context, and while a lost one has not come back.
+   */
   get supported(): boolean {
     return this.gl !== null
   }
 
   /**
-   * Asks for the context back after `dispose()` gave it up, or after a loss
-   * the browser has not offered a restore for. A no-op on a live layer and on
-   * one that never had a context at all.
+   * Takes the context for a layer that never had one — synchronously, since
+   * there is no loss to wait out — and asks for it back after `dispose()`
+   * gave it up, or after a loss the browser has not offered a restore for.
+   * A no-op on a live layer.
    *
    * With `WEBGL_lose_context` the context comes back asynchronously, through
    * the same `webglcontextrestored` event a driver reset would use. Without
@@ -1019,6 +1039,9 @@ export class GlLayer {
     this.rideBuffer = null
     this.voidBuffer = null
     this.gl = null
-    if (gl && !gl.isContextLost()) this.loseExt?.loseContext()
+    if (gl && !gl.isContextLost() && this.loseExt) {
+      this.disposing = true
+      this.loseExt.loseContext()
+    }
   }
 }

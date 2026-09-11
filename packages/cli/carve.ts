@@ -44,6 +44,7 @@ import {
   helpText,
   parseArgs,
   parseSimpleArgs,
+  svgOptions,
 } from '@arrowz/engine/command'
 import { simpleParams } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
@@ -161,14 +162,7 @@ if (!advanced || svgFlag || dryRun) {
   const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
   const result = generate({ ...params, ...hooks })
   const c = result.board, W = params.W, H = params.H
-  const svgView = {
-    cell: view.cell,
-    colored: view.colored,
-    strokeRatio: view.stroke,
-    headWidth: view.headWidth,
-    headHeight: view.headHeight,
-    top: view.top,
-  }
+  const svgView = svgOptions(view)
   // The full command reproduces the board in every case; the simple command
   // (simple mode only) records what was asked for.
   const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }

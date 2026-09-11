@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
 import { join } from '@std/path'
 import { defaultParams } from '@arrowz/engine'
-import { buildCommand, COMMAND_PREFIX } from '@arrowz/engine/command'
+import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 import type { BoardMeta, ParamKey } from '@arrowz/engine'
 
@@ -37,7 +37,7 @@ const entry = (
 ): SaveInput => ({
   svg: '<svg/>',
   params: params(over),
-  view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+  view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: true },
   command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
   source: 'cli',
   metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
@@ -110,9 +110,9 @@ Deno.test('listBoards skips junk: foreign directories, json without svg, broken 
   assertEquals(sizes[0]?.boards.length, 1)
 })
 
-// Boards saved before the arrowhead knobs existed carry a view without
-// headWidth/headHeight; the store fills them with the defaults, as the old
-// lab page did with `?? 0`.
+// Boards saved before the arrowhead knobs (or rounded) existed carry a view
+// without them; the store fills them with the defaults, as the old lab page
+// did.
 Deno.test('listBoards fills a legacy view without arrowhead fields with the defaults', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))
@@ -137,7 +137,21 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
   Deno.writeTextFileSync(join(dir, '25x50', 'seed7-legacy00.svg'), '<svg/>')
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.id, 'seed7-legacy00')
-  assertEquals(board?.view, { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 })
+  assertEquals(
+    board?.view,
+    { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
+  )
+})
+
+// Every board written before the head height became literal stores 0, which
+// meant "automatic" then and would mean "no arrowhead at all" now.
+Deno.test('a board saved when the head height was automatic reads as the new default', () => {
+  freshDir()
+  saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+  const board = listBoards()[0]?.boards[0]
+  // The literal 1, not DEFAULT_VIEW.headHeight: the number is the point.
+  assertEquals(board?.view.headHeight, 1)
+  assertEquals(DEFAULT_VIEW.headHeight, 1)
 })
 
 // The same for params: a board saved before a knob existed does not name it.

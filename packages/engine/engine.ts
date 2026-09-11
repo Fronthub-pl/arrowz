@@ -23,7 +23,7 @@ import type {
 } from './types.ts'
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
-import { at, DIRS, pieceShape, voidStrips } from './geometry.ts'
+import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
 
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
@@ -2028,21 +2028,27 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
     if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
   }
 
-  // Lines end flat: the head end hides under the head, and the tail gets its
-  // rounding from a circle of the line's radius, drawn with the heads. Corners
-  // stay round. The default ink is set once per group; only coloured and
-  // highlighted pieces carry their own colour (a 1000×1000 board has ~90 000
-  // pieces).
+  // Lines end flat: the head end hides under the head, and the tail is capped
+  // by a shape drawn with the heads — a disc of the line's radius when
+  // `rounded`, a square of the same reach when not. The corners follow the
+  // same switch, through stroke-linejoin. The default ink is set once per
+  // group; only coloured and highlighted pieces carry their own colour (a
+  // 1000×1000 board has ~90 000 pieces).
   const INK = '#232447'
-  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="round">`)
+  const rounded = opts.rounded ?? DEFAULT_ROUNDED
+  const join = rounded ? 'round' : 'miter'
+  out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="${join}">`)
   const heads: string[] = []
   const highlight: string[] = [] // paths of the longest pieces, drawn last
   const highlightHeads: string[] = []
   // In colour mode the pink would blend into the palette, so highlighted
   // pieces are drawn thicker — legible regardless of the neighbours' colours.
   const hiWidth = Number((sw * (colored ? 1.5 : 1.15)).toFixed(2))
-  // `undefined > 0` was false in the untyped code: a missing knob means automatic
-  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? 0
+  // A missing head width means automatic; a missing head height means the
+  // shared default, the same number DEFAULT_VIEW carries for the CLI and the
+  // board element. `??`, not `||`, so an explicit 0 stays the 0 that was asked
+  // for: the height has no automatic mode to fall back to.
+  const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? DEFAULT_HEAD_HEIGHT
   const pt = ([x, y]: [number, number]): string => `${x},${y}`
   pieces.forEach((pc, i) => {
     const isLong = longest.has(pc.id)
@@ -2050,8 +2056,12 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
     const width = isLong ? hiWidth : sw
     const s = pieceShape(pc, { cell, pad, width, headWidth, headHeight })
     const fill = col === INK ? '' : ` fill="${col}"`
-    const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` +
-      `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
+    const tail = rounded
+      ? `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
+      : `<rect x="${s.tail.x - s.tail.r}" y="${s.tail.y - s.tail.r}" width="${s.tail.r * 2}" height="${
+        s.tail.r * 2
+      }"${fill}/>`
+    const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` + tail
     const line = `<polyline points="${s.line.map(pt).join(' ')}"${col === INK ? '' : ` stroke="${col}"`}/>`
     if (isLong) {
       highlight.push(line)
@@ -2063,7 +2073,7 @@ function toSvg(board: Board, opts: SvgOptions = {}): string {
   })
   out.push('</g>')
   if (highlight.length) {
-    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="round">`)
+    out.push(`<g fill="none" stroke-width="${hiWidth}" stroke-linecap="butt" stroke-linejoin="${join}">`)
     out.push(...highlight)
     out.push('</g>')
   }

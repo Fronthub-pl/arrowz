@@ -1,10 +1,23 @@
 // Turns raw pointer samples into intents, with no DOM, so the rules of the
 // game design (§11) are tested as a table in Node:
-// - mouse: click on release (the element checks it is the same piece as on
-//   press), pan only with the modifier held on press;
+// - mouse and pen, `drag` mode (the default): a plain drag pans and a plain
+//   click does nothing; a click with the modifier plays;
+// - mouse and pen, `click` mode (the rule before 2026-09-11): a plain click
+//   plays; a drag with the modifier pans;
+// - either mode: the element checks the click lands on the piece it was
+//   pressed on, a repeat press (the browser's own double/triple-click count)
+//   does nothing at all, and a move with no button held is taken as the
+//   release — its release went somewhere else, or the browser reported the
+//   button up before, or instead of, the pointerup;
 // - touch: tap = short press within the slop; beyond it one finger pans;
-//   two fingers pinch; two quick taps fit the board.
+//   two fingers pinch; a second tap close in time and place to the last one
+//   does nothing at all, for the same reason as the mouse case above; a
+//   primary touch going down drops every other touch still held, since the
+//   browser only marks a touch primary when no other is active.
 export type PointerKind = 'mouse' | 'touch' | 'pen'
+
+/** Which mouse and pen gesture pans: a plain drag (`drag`) or a drag with the modifier (`click`). */
+export type GestureMode = 'drag' | 'click'
 
 export interface PointerSample {
   id: number
@@ -15,6 +28,12 @@ export interface PointerSample {
   modifier: boolean
   /** Event timestamp in ms. */
   t: number
+  /** The browser's own repeat count: true when this press is the second or later of a double. */
+  repeat: boolean
+  /** `buttons & 1` at the time of the sample: whether the primary button (or the pen tip) is down. */
+  pressed: boolean
+  /** `isPrimary`: for touch, true only when no other touch is active. */
+  primary: boolean
 }
 
 export type Intent =
@@ -22,10 +41,20 @@ export type Intent =
   | { type: 'click'; pressX: number; pressY: number; x: number; y: number }
   | { type: 'pan'; dx: number; dy: number }
   | { type: 'pinch'; factor: number; x: number; y: number; dx: number; dy: number }
-  | { type: 'fit' }
 
 export const TAP_SLOP_PX = 8
 export const TAP_MS = 300
+/**
+ * DOUBLE_TAP_PX and DOUBLE_TAP_MS no longer mark a fit gesture: the design
+ * ruled that a second press this close in place and time to the last one is
+ * a slipped finger, not an instruction, so it now defines the window in
+ * which that repeat is ignored. These two thresholds are ours and govern the
+ * touch path only, as a second tap. On mouse and pen the equivalent window
+ * belongs to the browser, not to us, and reaches us already decided, as
+ * `PointerEvent.detail` (see `PointerSample.repeat`) — which is why the two
+ * inputs are suppressed by different mechanisms even though the rule is the
+ * same.
+ */
 export const DOUBLE_TAP_PX = 24
 export const DOUBLE_TAP_MS = 300
 
@@ -44,19 +73,36 @@ export class GestureMachine {
   private pinchDist = 0
   private pinchMid: { x: number; y: number } | null = null
   private lastTap: { x: number; y: number; t: number } | null = null
+  private currentMode: GestureMode
+
+  constructor(mode: GestureMode = 'drag') {
+    this.currentMode = mode
+  }
+
+  get mode(): GestureMode {
+    return this.currentMode
+  }
+
+  /** Applies from the next press: a press already under way keeps the rule it started with. */
+  set mode(m: GestureMode) {
+    this.currentMode = m
+  }
 
   get panning(): boolean {
     return this.isPanning
   }
 
   down(p: PointerSample): Intent {
+    // The browser marks a touch primary only when no other touch is active,
+    // so any touch still held here lost its end somewhere: drop them all.
+    if (p.kind === 'touch' && p.primary && this.pointers.size > 0) this.reset()
     this.pointers.set(p.id, p)
     if (this.pointers.size === 1) {
       this.press = p
       this.last = p
       this.moved = false
-      // A mouse (or pen) pans only with the modifier held from the press on.
-      this.isPanning = p.kind !== 'touch' && p.modifier
+      // A mouse (or pen) pans with the modifier in `click` mode and without it in `drag` mode.
+      this.isPanning = p.kind !== 'touch' && p.modifier !== (this.currentMode === 'drag')
       return NONE
     }
     if (this.pointers.size === 2) {
@@ -73,6 +119,9 @@ export class GestureMachine {
 
   move(p: PointerSample): Intent {
     if (!this.pointers.has(p.id)) return NONE
+    // A mouse or pen moving with no button held is taken as the release: the
+    // browser reported the button up before, or instead of, the pointerup.
+    if (p.kind !== 'touch' && !p.pressed) return this.up(p)
     this.pointers.set(p.id, p)
     if (this.pointers.size >= 2 && this.pinchMid) {
       const [a, b] = [...this.pointers.values()]
@@ -123,15 +172,26 @@ export class GestureMachine {
     if (press.kind === 'touch') {
       if (moved || p.t - press.t > TAP_MS) return NONE
       const tap = { x: p.x, y: p.y, t: p.t }
-      if (this.lastTap && tap.t - this.lastTap.t <= DOUBLE_TAP_MS && dist(tap, this.lastTap) <= DOUBLE_TAP_PX) {
-        this.lastTap = null
-        return { type: 'fit' }
-      }
+      // A second tap at the same place inside the window is a slipped finger,
+      // not an instruction: it plays nothing and moves nothing.
+      const repeat = this.lastTap !== null && tap.t - this.lastTap.t <= DOUBLE_TAP_MS &&
+        dist(tap, this.lastTap) <= DOUBLE_TAP_PX
       this.lastTap = tap
+      if (repeat) return NONE
       return { type: 'click', pressX: press.x, pressY: press.y, x: p.x, y: p.y }
     }
-    if (wasPanning) return NONE
+    if (wasPanning || press.repeat) return NONE
     return { type: 'click', pressX: press.x, pressY: press.y, x: p.x, y: p.y }
+  }
+
+  /**
+   * Drops every pointer at once: the window losing focus mid-press means the
+   * eventual release, if one ever arrives, will land somewhere else. A thin
+   * public wrapper over `reset()`; `lastTap` is left alone, as `reset()`
+   * leaves it, so a repeat tap right after regaining focus is still caught.
+   */
+  cancelAll(): void {
+    this.reset()
   }
 
   cancel(id: number): Intent {
