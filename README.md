@@ -345,9 +345,10 @@ how long it took, without a single file on disk.
 ### When a board does not close
 
 Rarely, at large sizes, the generator gives up before every square is covered.
-The picture is still saved, with the uncovered squares tinted pink, the
-description says `"ok": false`, and the command exits with code 1 so that
-scripts notice. A run that is taking too long can be cut short:
+The board is still saved, the description says `"ok": false`, and the command
+exits with code 1 so that scripts notice. Add `--svg` and the picture shows
+the uncovered squares tinted pink. A run that is taking too long can be cut
+short:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000

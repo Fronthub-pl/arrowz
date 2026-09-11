@@ -342,9 +342,10 @@ i ile to trwało, bez ani jednego pliku na dysku.
 ### Gdy plansza się nie domyka
 
 Rzadko, przy dużych rozmiarach, generator poddaje się, zanim pokryje każdy
-kwadrat. Obrazek i tak zostaje zapisany, z niepokrytymi kwadratami
-zabarwionymi na różowo, opis mówi `"ok": false`, a polecenie kończy się kodem 1,
-żeby skrypty to zauważyły. Bieg, który trwa za długo, można przerwać:
+kwadrat. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie
+kończy się kodem 1, żeby skrypty to zauważyły. Dopisz `--svg`, a obrazek
+pokaże niepokryte kwadraty na różowo. Bieg, który trwa za długo, można
+przerwać:
 
 ```sh
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
