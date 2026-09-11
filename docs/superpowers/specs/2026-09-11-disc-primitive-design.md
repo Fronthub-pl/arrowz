@@ -1,6 +1,6 @@
 # One disc primitive for the tail and the corners
 
-Date: 2026-09-11. Status: draft design, awaiting review.
+Date: 2026-09-11. Status: implemented on `feat/disc-primitive`; measured in §10.
 
 Baseline: `main` at `f09310a` (PRs #33 to #38 merged). Branch
 `feat/disc-primitive`. This is the third of three passes agreed after PR #34:
@@ -355,3 +355,38 @@ PR description.
   one, is a quadrant mask per corner disc in the shader, which changes the
   disc format; ruled out of this pass, and put to the user with the
   screenshots of §7.
+
+## 10. Measured
+
+Insane (1000×1000, seed 7), `GlLayer` alone in an 800 px host, real Chrome
+headless on an M1 with its GPU, device pixel ratio 2. GPU time is an
+`EXT_disjoint_timer_query_webgl2` query around one `drawNowForTest()`, fifteen
+samples, median; each side run at least twice, alternating, and the ranges
+below are across runs. The fitted zoom is `fit()`'s; "max" is `MAX_CELL_PX`
+over the board's centre. The measurement file was temporary and is not in
+the tree.
+
+| | `main` (`f09310a`) | this branch |
+| --- | --- | --- |
+| Static data, monochrome | 102.9 MB (12.87 M vertices) | **27.9 MB** (2.95 M vertices + 362 144 discs) |
+| Extra once colours are on | 51.5 MB | **13.2 MB** |
+| `setBoard` (tesselate + upload) | 424-627 ms | **135-222 ms** |
+| GPU a frame, fitted, monochrome | 8.3-9.9 ms | **5.7-5.9 ms** |
+| GPU a frame, fitted, coloured | 9.7-11.7 ms | **6.8-6.9 ms** |
+| GPU a frame, max, monochrome | 6.6-8.4 ms | 6.4-7.3 ms |
+| GPU a frame, max, coloured | 6.6-8.3 ms | 6.7-6.8 ms |
+
+The acceptance of §7 holds. It did not at first: with the quad widened by a
+whole pixel and every corner disc drawn, the fitted frame was 12.4 ms. Two
+changes brought it down, both measured before they were made: the half-pixel
+margin of §5.1 (to 10.2-11.9 ms) and skipping sub-pixel corner discs, §5.3
+(to 5.7-5.9 ms). §1's estimate of ~21 MB assumed ~2.1 M vertices for the
+segments and heads; the board this generator now makes has 2.95 M.
+
+Screenshots, `main` against the branch: at `MAX_CELL_PX` and at 8 px a cell,
+monochrome and coloured, no difference the eye finds; at the fitted zoom the
+same tone once sub-pixel corners are skipped (a shade darker before). With an
+`rgba` ink both are wrong in the way §9 describes: `main` darkens every inner
+corner square and half of every tail, the branch darkens the three covered
+quarters of every corner disc and half of every tail. The user ruled that
+translucent ink is not a supported look, and left it as it is.
