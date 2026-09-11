@@ -91,6 +91,10 @@ Deno.test('POST refuses fields the store would write or the page would show unch
       [{ ...b, command: 'x'.repeat(5000) }, 'command'],
       [{ ...b, metrics: { pieces: '<b>' } }, 'metrics.pieces'],
       [{ ...b, metrics: { stuck: { remaining: 1, sizes: ['x'], heads: null } } }, 'metrics.stuck'],
+      // The board is 10x10 (100 cells): remaining cannot exceed the cell count.
+      [{ ...b, metrics: { stuck: { remaining: 1000, sizes: [], heads: null } } }, 'metrics.stuck'],
+      // An island count (sizes.length) cannot exceed the stuck cells (remaining).
+      [{ ...b, metrics: { stuck: { remaining: 1, sizes: [2, 1], heads: null } } }, 'metrics.stuck'],
     ]
     for (const [body, error] of cases) {
       const r = await post(base, body)
@@ -103,6 +107,14 @@ Deno.test('POST refuses fields the store would write or the page would show unch
     const inside = [...Deno.readDirSync(store)].map((e) => e.name)
     assert(!inside.some((n) => n.startsWith('escape')), 'a file was written in the store')
     assertEquals(await (await fetch(base + '/api/boards')).json(), [])
+  }))
+
+Deno.test('POST accepts a stuck report whose sizes fit within remaining', () =>
+  withServer(async (base) => {
+    const b = validBody()
+    const body = { ...b, metrics: { stuck: { remaining: 3, sizes: [2, 1], heads: null } } }
+    const r = await post(base, body)
+    assertEquals(r.status, 201)
   }))
 
 Deno.test('POST keeps only the knobs of PARAM_SPEC', () =>
@@ -124,10 +136,11 @@ Deno.test('POST refuses a body that is not JSON (400)', () =>
     await bad.body?.cancel()
   }))
 
-// Called directly on the handler, with no socket: the server answers from
-// Content-Length before reading the body, and a real connection can see that
-// as a reset rather than the 413 it sent.
-Deno.test('POST refuses a body larger than the cap (413)', async () => {
+// Called directly on the handler, with no socket: a real connection would see
+// a reset rather than the 413 it sends. A Request built from a plain string
+// body carries no Content-Length header of its own (only a real HTTP layer
+// adds one when the request goes out), so this covers the streamed cap only.
+Deno.test('POST refuses a body larger than the cap, read as a stream (413)', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
   const handle = createLabServer()
   const big = await handle(
@@ -135,6 +148,22 @@ Deno.test('POST refuses a body larger than the cap (413)', async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: 'x'.repeat(MAX_BODY + 1),
+    }),
+  )
+  assertEquals(big.status, 413)
+  await big.body?.cancel()
+})
+
+// A declared Content-Length over the cap is refused before the body is ever
+// read, which the streamed case above cannot reach (it sends no such header).
+Deno.test('POST refuses a body whose declared Content-Length exceeds the cap (413)', async () => {
+  Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
+  const handle = createLabServer()
+  const big = await handle(
+    new Request('http://localhost:8777/api/boards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': String(MAX_BODY + 1) },
+      body: '{}',
     }),
   )
   assertEquals(big.status, 413)
@@ -189,6 +218,9 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
     const escape = await fetch(base + '/boards/..%2F..%2Fengine.ts')
     assertEquals(escape.status, 403)
     await escape.body?.cancel()
+    const malformed = await fetch(base + '/%E0')
+    assertEquals(malformed.status, 400)
+    assertEquals(await malformed.json(), { error: 'malformed path' })
     const dist = await fetch(base + '/dist/lab-page.js')
     assert(
       dist.status === 200 || (await dist.text()).includes('deno task bundle'),

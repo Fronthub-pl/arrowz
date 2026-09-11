@@ -58,11 +58,13 @@ const LOCAL_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
  * than the lab's is a page of another site or another local port acting in
  * the user's name (CSRF). Tools without a browser send no Origin and pass.
  * A POST must say it is JSON: a cross-origin page can only send that after a
- * CORS preflight, which this server never grants.
+ * CORS preflight, which this server never grants. Only GET skips the checks
+ * below: HEAD meets them like any other method, then reaches the router's
+ * 405 (it answers GET only), so the two never disagree on what is a read.
  */
 function refusal(req: Request, url: URL): { status: number; error: string } | null {
   if (!LOCAL_HOSTS.includes(url.hostname)) return { status: 403, error: `host ${url.hostname} is not this machine` }
-  if (req.method === 'GET' || req.method === 'HEAD') return null
+  if (req.method === 'GET') return null
   const origin = req.headers.get('origin')
   if (origin !== null && origin !== url.origin) return { status: 403, error: `origin ${origin} is not the lab` }
   const type = req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase()
@@ -122,8 +124,13 @@ function checkView(v: unknown): Checked<View> {
 const METRIC_NUMBERS = ['pieces', 'maxLen', 'genMs', 'restarts', 'backtracks'] as const
 const METRIC_FLAGS = ['ok', 'aborted'] as const
 
-/** The closing report of a POST. Absent and null fields stay absent: the store writes null for them. */
-function checkMetrics(v: unknown): Checked<Metrics> {
+/**
+ * The closing report of a POST. Absent and null fields stay absent: the store
+ * writes null for them. `stuck` is bounded by the board's own cell count: an
+ * unbounded `sizes` array is how a 17 MB meta reaches `listBoards()`, which
+ * inlines `stuck` into every `GET /api/boards`.
+ */
+function checkMetrics(v: unknown, params: Params): Checked<Metrics> {
   if (v === undefined) return { ok: {} }
   if (!isRec(v)) return { error: 'metrics must be an object' }
   const metrics: Metrics = {}
@@ -147,9 +154,20 @@ function checkMetrics(v: unknown): Checked<Metrics> {
     if (!isNum(remaining) || !Array.isArray(sizes) || !(heads === null || isNum(heads))) {
       return { error: 'metrics.stuck is not a closing report' }
     }
+    const cells = params.W * params.H
+    if (remaining < 0 || remaining > cells) {
+      return { error: `metrics.stuck.remaining must be between 0 and ${cells}` }
+    }
+    if (heads !== null && (heads < 0 || heads > cells)) {
+      return { error: `metrics.stuck.heads must be between 0 and ${cells}` }
+    }
     // Filtered rather than asserted: a length that changes is an entry that was not a number.
     const numbers = sizes.filter(isNum)
     if (numbers.length !== sizes.length) return { error: 'metrics.stuck is not a closing report' }
+    // An island (one entry of sizes) cannot exceed the stuck cells it is carved from.
+    if (numbers.length > remaining) {
+      return { error: 'metrics.stuck.sizes cannot list more islands than remaining cells' }
+    }
     metrics.stuck = { remaining, sizes: numbers, heads }
   }
   return { ok: metrics }
@@ -179,7 +197,7 @@ function checkPost(v: unknown): Checked<SaveInput> {
   }
   const view = checkView(v.view)
   if ('error' in view) return view
-  const metrics = checkMetrics(v.metrics)
+  const metrics = checkMetrics(v.metrics, params.ok)
   if ('error' in metrics) return metrics
   const command = v.command
   if (!isText(command)) return { error: `command must be a string of at most ${MAX_TEXT} characters` }
@@ -213,21 +231,13 @@ async function readBody(req: Request, limit: number): Promise<string | null> {
   if (!req.body) return ''
   const chunks: Uint8Array[] = []
   let size = 0
-  let over = false
-  // break (not return) inside the loop first, so the reader it holds is
-  // released before the cancel below: a stream cannot be cancelled while a
-  // for-await loop still has it locked.
   for await (const chunk of req.body) {
     size += chunk.byteLength
-    if (size > limit) {
-      over = true
-      break
-    }
+    // Leaving a for-await over a ReadableStream by return already calls the
+    // iterator's return(), which cancels the stream: no explicit cancel() is
+    // needed here.
+    if (size > limit) return null
     chunks.push(chunk)
-  }
-  if (over) {
-    await req.body?.cancel()
-    return null
   }
   const all = new Uint8Array(size)
   let at = 0
@@ -277,7 +287,12 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       // its own base directory (the store may live outside packages/cli/, see
       // ARROWZ_BOARDS_DIR). The sources next to the page are not. The
       // normalised path must stay inside its area.
-      const rel = decodeURIComponent(url.pathname === '/' ? '/lab.html' : url.pathname)
+      let rel: string
+      try {
+        rel = decodeURIComponent(url.pathname === '/' ? '/lab.html' : url.pathname)
+      } catch {
+        return send(400, '{"error":"malformed path"}')
+      }
       const area = rel === '/lab.html'
         ? { base: ROOT, name: 'lab.html', csp: LAB_CSP }
         : rel.startsWith('/dist/')
