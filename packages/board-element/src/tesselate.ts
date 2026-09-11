@@ -445,3 +445,29 @@ export function tesselatePiece(
   o = view.rounded ? writeDisc(out, o, tx, ty, s.tail.r) : writeSquare(out, o, tx, ty, s.tail.r)
   return o / 2
 }
+
+/**
+ * The cells the generator failed to carve, as two triangles per strip, in
+ * cells: the geometry of the voids pass. The strips are static, so the layer
+ * builds this once per board and never per frame.
+ */
+export function voidQuads(strips: readonly { x: number; y: number; len: number }[]): Float32Array {
+  const data = new Float32Array(strips.length * 12)
+  let o = 0
+  for (const s of strips) {
+    const x0 = s.x, y0 = s.y, x1 = s.x + s.len, y1 = s.y + 1
+    data[o++] = x0
+    data[o++] = y0
+    data[o++] = x1
+    data[o++] = y0
+    data[o++] = x1
+    data[o++] = y1
+    data[o++] = x0
+    data[o++] = y0
+    data[o++] = x1
+    data[o++] = y1
+    data[o++] = x0
+    data[o++] = y1
+  }
+  return data
+}

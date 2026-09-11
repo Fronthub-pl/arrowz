@@ -18,6 +18,7 @@ import {
   tesselateBoard,
   tesselateColors,
   tesselatePiece,
+  voidQuads,
 } from './tesselate.ts'
 import { type BoardView, DEFAULT_VIEW, SHAKE_MS } from './view.ts'
 import { MIN_POINT_CELL_PX, type Viewport } from './viewport.ts'
@@ -640,23 +641,7 @@ export class GlLayer {
     this.voidBuffer ??= gl.createBuffer()
     const strips = board !== null && this.view.voids ? voidStrips(board) : []
     this.voidStripCount = strips.length
-    const data = new Float32Array(strips.length * 12)
-    let o = 0
-    for (const s of strips) {
-      const x0 = s.x, y0 = s.y, x1 = s.x + s.len, y1 = s.y + 1
-      data[o++] = x0
-      data[o++] = y0
-      data[o++] = x1
-      data[o++] = y0
-      data[o++] = x1
-      data[o++] = y1
-      data[o++] = x0
-      data[o++] = y0
-      data[o++] = x1
-      data[o++] = y1
-      data[o++] = x0
-      data[o++] = y1
-    }
+    const data = voidQuads(strips)
     this.voidVertices = strips.length * 6
     if (this.voidBuffer) {
       gl.bindBuffer(gl.ARRAY_BUFFER, this.voidBuffer)
