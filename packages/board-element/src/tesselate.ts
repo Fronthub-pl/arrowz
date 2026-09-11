@@ -398,7 +398,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
 
 /**
  * The colour of every vertex, four bytes each, for the diagnostic mode. Built
- * only when colours are switched on (see the layer), so a monochrome board
+ * only when colours are switched on (see `GlResources.upload`), so a monochrome board
  * never allocates it.
  */
 export function tesselateColors(scene: Scene): Uint8Array {

@@ -2,7 +2,8 @@
 // lives exactly as long as the context it was made on: a loss drops the whole
 // object and a restore makes a new one, so what the layer holds on the GPU is
 // listed once, here, rather than once each for taking, losing and handing
-// back a context.
+// back a context. The lazy fields below are written only by this class; the
+// passes read them.
 import { DOT_FRAG, DOT_VERT, FRAG, link, VERT } from './gl-shaders.ts'
 import type { Rider } from './rides.ts'
 import { type PieceRanges, type Scene, tesselateColors } from './tesselate.ts'

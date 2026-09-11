@@ -37,7 +37,7 @@ export interface Points {
  * an attribute a program does not declare, and disabling a negative
  * location is a GL error, so that case is a no-op rather than a call.
  */
-export function bindAttrs(
+function bindAttrs(
   gl: WebGL2RenderingContext,
   program: WebGLProgram,
   pos: WebGLBuffer | null,

@@ -98,12 +98,11 @@ export class GlLayer {
   }
 
   /**
-   * Gets the context and makes the `GlResources` every frame needs,
-   * whether this is the layer's very first draw or a context
-   * handed back after a loss. Both reach it through `onRestored` — the first
-   * `restore()` falls through to it — so the two paths cannot drift apart: a
-   * change to how the layer starts up is automatically a change to how it
-   * comes back.
+   * Gets the context and makes the `GlResources` every frame needs, whether
+   * this is the layer's very first draw or a context handed back after a
+   * loss. Both reach it through `onRestored` — the first `restore()` falls
+   * through to it — so the two paths cannot drift apart: a change to how the
+   * layer starts up is automatically a change to how it comes back.
    */
   private acquire(): void {
     const gl = this.canvas.getContext('webgl2', { antialias: true, alpha: true })
