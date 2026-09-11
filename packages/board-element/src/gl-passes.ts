@@ -105,7 +105,7 @@ function drawDiscBlock(
   gl.vertexAttribDivisor(discLoc, 0)
   gl.disableVertexAttribArray(discLoc)
   gl.disableVertexAttribArray(cornerLoc)
-  if (colors) {
+  if (colorLoc !== -1) {
     gl.vertexAttribDivisor(colorLoc, 0)
     gl.disableVertexAttribArray(colorLoc)
   }

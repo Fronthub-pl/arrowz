@@ -126,9 +126,9 @@ function mergeCollinear(line: readonly [number, number][]): readonly [number, nu
   return out
 }
 
-/** The vertices one polyline takes: its merged segments, six each. */
+/** The vertices one polyline takes, given its collinear runs already merged. */
 function lineVerticesOf(line: readonly [number, number][]): number {
-  return segmentVertices(mergeCollinear(line).length)
+  return segmentVertices(line.length)
 }
 
 /** A head's fan, plus the sharp tail's square; a round tail is a disc, not triangles. */
@@ -204,15 +204,16 @@ function writeSegment(
  * the first point of the first segment and the last point of the last
  * segment are the polyline's own two outer ends, and stay put. A rounded
  * turn is covered by a disc in the scene's disc stream instead (`writeCorners`).
+ * `line` must already have its collinear runs merged: the caller merges once
+ * and hands the result to both `writeLine` and `writeCorners`.
  */
 function writeLine(
   out: Float32Array,
   o: number,
-  raw: readonly [number, number][],
+  line: readonly [number, number][],
   half: number,
   rounded: boolean,
 ): number {
-  const line = mergeCollinear(raw)
   const last = line.length - 1
   for (let i = 1; i <= last; i++) {
     const a = at(line, i - 1), b = at(line, i)
@@ -259,10 +260,11 @@ function writeSquare(out: Float32Array, o: number, cx: number, cy: number, half:
  * A disc of radius `half` on every corner of the merged polyline: what
  * `stroke-linejoin="round"` draws. The disc is whole, not the quarter that
  * shows — the other three quarters lie under the two butt-ended segments that
- * meet there, so drawing them changes no pixel.
+ * meet there, so drawing them changes no pixel. `line` must already have its
+ * collinear runs merged: the caller merges once and hands the result to both
+ * `writeLine` and `writeCorners`.
  */
-function writeCorners(out: Float32Array, o: number, raw: readonly [number, number][], half: number): number {
-  const line = mergeCollinear(raw)
+function writeCorners(out: Float32Array, o: number, line: readonly [number, number][], half: number): number {
   for (let i = 1; i < line.length - 1; i++) {
     if (!turnsAt(line, i)) continue
     const p = at(line, i)
@@ -336,11 +338,12 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
   for (const pc of drawn) {
     const top = tops.has(pc.id)
     const s = shapeOf(pc, view, top)
-    const line = lineVerticesOf(s.line)
+    const merged = mergeCollinear(s.line)
+    const line = lineVerticesOf(merged)
     const head = headVertices(s.head.length, view.rounded)
     // A corner disc belongs to its piece's line block and the tail disc to its
     // head block: where the fans that drew them used to live.
-    const corners = view.rounded ? cornersIn(mergeCollinear(s.line)) : 0
+    const corners = view.rounded ? cornersIn(merged) : 0
     const tail = view.rounded ? 1 : 0
     counts.set(pc.id, { line, head, corners, tail })
     size[top ? 'topLines' : 'lines'] += line
@@ -365,8 +368,10 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     const lineBlock: Block = top ? 'topLines' : 'lines'
     const headBlock: Block = top ? 'topHeads' : 'heads'
 
+    const merged = mergeCollinear(s.line)
+
     const lineStart = cursor[lineBlock]
-    writeLine(positions, lineStart * 2, s.line, half, view.rounded)
+    writeLine(positions, lineStart * 2, merged, half, view.rounded)
     cursor[lineBlock] = lineStart + c.line
 
     const headStart = cursor[headBlock]
@@ -377,7 +382,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
     const cornerStart = discCursor[lineBlock]
     const tailStart = discCursor[headBlock]
     if (view.rounded) {
-      writeCorners(discs, cornerStart * FLOATS_PER_DISC, s.line, half)
+      writeCorners(discs, cornerStart * FLOATS_PER_DISC, merged, half)
       writeTailDisc(discs, tailStart * FLOATS_PER_DISC, s.tail.x, s.tail.y, s.tail.r)
     }
     discCursor[lineBlock] = cornerStart + c.corners
@@ -455,7 +460,8 @@ export function tesselatePiece(
   const s = shapeOf(piece, view, top)
   const half = strokeOf(view, top) / 2
   const line = ride === null ? s.line : trackLine(piece.cells, ride.dir, ride.front, ride.shift)
-  let o = writeLine(out, 0, line, half, view.rounded)
+  const merged = mergeCollinear(line)
+  let o = writeLine(out, 0, merged, half, view.rounded)
   const d = ride === null ? { dx: 0, dy: 0 } : at(DIRS, ride.dir)
   const shift = ride === null ? 0 : ride.shift
   o = writeFan(out, o, s.head, d.dx * shift, d.dy * shift)
@@ -464,7 +470,7 @@ export function tesselatePiece(
   if (!view.rounded) o = writeSquare(out, o, tx, ty, s.tail.r)
   let q = 0
   if (view.rounded) {
-    q = writeCorners(discsOut, q, line, half)
+    q = writeCorners(discsOut, q, merged, half)
     q = writeTailDisc(discsOut, q, tx, ty, s.tail.r)
   }
   return { vertices: o / 2, discs: q / FLOATS_PER_DISC }
