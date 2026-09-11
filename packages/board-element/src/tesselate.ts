@@ -7,34 +7,6 @@ import type { Board, Piece } from '@arrowz/engine'
 import { trackLine, trackPoint } from './track.ts'
 import { type BoardView, hueBytes } from './view.ts'
 
-/**
- * Triangles in the tail rounding's fan.
- *
- * The rounding's radius is a quarter of a cell, so at MAX_CELL_PX (48) on a
- * dpr 2 screen it is 24 device pixels — the figure the original eight was
- * chosen against was that same number at dpr 1, and no screen this runs on is
- * dpr 1. The sagitta of an n-gon at radius r is `r(1 - cos(pi/n))`; holding
- * it under half a device pixel at r = 24 needs n above 15.4, and eight facets
- * are plain to the eye at that size. Sixteen costs eight more triangles per
- * piece and puts the flattening under the pixel grid.
- */
-export const TAIL_SEGMENTS = 16
-
-/**
- * Triangles in the fan that rounds one corner.
- *
- * A piece only ever turns through a right angle, so the fan sweeps a quarter
- * and its facets are those of a `4 * JOIN_SEGMENTS`-gon. The sagitta rule of
- * TAIL_SEGMENTS applies at the corner's own radius, which is the widest a
- * corner is ever drawn with: the panel's maximum `stroke` of 0.9, times the
- * 1.5 the colour mode's highlight applies (`strokeOf`), is 1.35 of a cell. At
- * MAX_CELL_PX (48) on a dpr 2 screen that is 64.8 device pixels, and
- * `64.8 * (1 - cos(pi / 4k)) < 0.5` needs k above 6.32. A host is free to set
- * `view.stroke` past what the panel offers; the cost there is visible
- * faceting on that corner, not anything breaking.
- */
-export const JOIN_SEGMENTS = 7
-
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
 
@@ -142,7 +114,7 @@ const segmentVertices = (points: number): number => (points <= 1 ? 0 : 6 * (poin
  * `pieceShape` pushes the centre of every cell into `line`, so a piece running
  * straight through six cells carries five 180-degree joins that cost two
  * triangles each and change nothing. Collapsing them is a debt this file has
- * carried since it was written, and it is what pays for the corner fans.
+ * carried since it was written, and it is what pays for the corner discs.
  */
 function mergeCollinear(line: readonly [number, number][]): readonly [number, number][] {
   if (line.length < 3) return line
@@ -154,24 +126,24 @@ function mergeCollinear(line: readonly [number, number][]): readonly [number, nu
   return out
 }
 
-/** The vertices one polyline takes, its corner fans included. */
-function lineVerticesOf(line: readonly [number, number][], rounded: boolean): number {
-  const l = mergeCollinear(line)
-  return segmentVertices(l.length) + (rounded ? 3 * JOIN_SEGMENTS * cornersIn(l) : 0)
+/** The vertices one polyline takes: its merged segments, six each. */
+function lineVerticesOf(line: readonly [number, number][]): number {
+  return segmentVertices(mergeCollinear(line).length)
 }
 
-const headVertices = (points: number, rounded: boolean): number => 3 * (points - 2) + (rounded ? 3 * TAIL_SEGMENTS : 6)
+/** A head's fan, plus the sharp tail's square; a round tail is a disc, not triangles. */
+const headVertices = (points: number, rounded: boolean): number => 3 * (points - 2) + (rounded ? 0 : 6)
 
 /**
  * The most vertices a ride of this piece can need. `trackLine` emits the two
  * moving ends plus every cell centre still between them, so it is at most two
- * points longer than the resting line; the head takes its widest form.
+ * points longer than the resting line; the head takes its widest form, and
+ * the tail the square.
  */
 export function rideVertexBound(piece: Piece): number {
   const points = piece.cells.length + 2
-  // Every interior point may be a corner, and a rounded tail is the larger cap.
-  const worstLine = segmentVertices(points) + 3 * JOIN_SEGMENTS * Math.max(points - 2, 0)
-  return worstLine + headVertices(MAX_HEAD_POINTS, true)
+  // The sharp tail's square is the only cap that costs triangles now.
+  return segmentVertices(points) + headVertices(MAX_HEAD_POINTS, false)
 }
 
 /**
@@ -189,7 +161,7 @@ export function rideDiscBound(piece: Piece): number {
  * two outer ends must not: the piece is drawn the way `toSvg` draws it, with
  * a butt cap, and the tail is rounded by its own disc, so a square cap out
  * there would reach `0.707 * w` into its corners, past that disc's radius,
- * and bury the disc's triangles under geometry nothing ever shows.
+ * and show as a square corner the disc cannot hide.
  */
 function writeSegment(
   out: Float32Array,
@@ -230,8 +202,8 @@ function writeSegment(
 /**
  * A polyline as segments, in order. Only interior joins extend by `half`;
  * the first point of the first segment and the last point of the last
- * segment are the polyline's own two outer ends, and stay put. Rounded turns
- * are covered instead by a fan written after every segment.
+ * segment are the polyline's own two outer ends, and stay put. A rounded
+ * turn is covered by a disc in the scene's disc stream instead (`writeCorners`).
  */
 function writeLine(
   out: Float32Array,
@@ -244,50 +216,11 @@ function writeLine(
   const last = line.length - 1
   for (let i = 1; i <= last; i++) {
     const a = at(line, i - 1), b = at(line, i)
-    // A rounded corner is filled by its own fan, so the segments meeting there
+    // A rounded corner is filled by its own disc, so the segments meeting there
     // must stop at the corner: a square extension would poke out past the arc.
     const startExtend = i > 1 && !(rounded && turnsAt(line, i - 1))
     const endExtend = i < last && !(rounded && turnsAt(line, i))
     o = writeSegment(out, o, a[0], a[1], b[0], b[1], half, startExtend, endExtend)
-  }
-  if (!rounded) return o
-  for (let i = 1; i < last; i++) {
-    if (turnsAt(line, i)) o = writeJoin(out, o, line, i, half)
-  }
-  return o
-}
-
-/**
- * One corner as a quarter-turn fan. Two butt-ended segments meeting at a right
- * angle leave exactly one square of side `half` uncovered — the outer corner —
- * and this sweeps an arc of radius `half` across it. Which side is outer, and
- * which way the sweep runs, both come off the sign of the turn.
- */
-function writeJoin(
-  out: Float32Array,
-  o: number,
-  line: readonly [number, number][],
-  i: number,
-  half: number,
-): number {
-  const a = at(line, i - 1), b = at(line, i), c = at(line, i + 1)
-  const ux = b[0] - a[0], uy = b[1] - a[1]
-  const vx = c[0] - b[0], vy = c[1] - b[1]
-  const turn = ux * vy - uy * vx > 0 ? 1 : -1
-  const ul = Math.hypot(ux, uy)
-  if (ul === 0) return o
-  // The normal of the incoming segment that points away from the turn.
-  const nx = (turn * uy) / ul, ny = (-turn * ux) / ul
-  const a0 = Math.atan2(ny, nx)
-  const step = (turn * Math.PI) / 2 / JOIN_SEGMENTS
-  for (let k = 0; k < JOIN_SEGMENTS; k++) {
-    const t0 = a0 + k * step, t1 = a0 + (k + 1) * step
-    out[o++] = b[0]
-    out[o++] = b[1]
-    out[o++] = b[0] + Math.cos(t0) * half
-    out[o++] = b[1] + Math.sin(t0) * half
-    out[o++] = b[0] + Math.cos(t1) * half
-    out[o++] = b[1] + Math.sin(t1) * half
   }
   return o
 }
@@ -303,21 +236,6 @@ function writeFan(out: Float32Array, o: number, pts: readonly [number, number][]
     out[o++] = b[1] + ty
     out[o++] = c[0] + tx
     out[o++] = c[1] + ty
-  }
-  return o
-}
-
-/** The tail rounding as a fan of TAIL_SEGMENTS triangles. */
-function writeDisc(out: Float32Array, o: number, cx: number, cy: number, r: number): number {
-  const step = (Math.PI * 2) / TAIL_SEGMENTS
-  for (let i = 0; i < TAIL_SEGMENTS; i++) {
-    const a = i * step, b = a + step
-    out[o++] = cx
-    out[o++] = cy
-    out[o++] = cx + Math.cos(a) * r
-    out[o++] = cy + Math.sin(a) * r
-    out[o++] = cx + Math.cos(b) * r
-    out[o++] = cy + Math.sin(b) * r
   }
   return o
 }
@@ -418,7 +336,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
   for (const pc of drawn) {
     const top = tops.has(pc.id)
     const s = shapeOf(pc, view, top)
-    const line = lineVerticesOf(s.line, view.rounded)
+    const line = lineVerticesOf(s.line)
     const head = headVertices(s.head.length, view.rounded)
     // A corner disc belongs to its piece's line block and the tail disc to its
     // head block: where the fans that drew them used to live.
@@ -453,8 +371,7 @@ export function tesselateBoard(board: Board, view: BoardView, omit: ReadonlySet<
 
     const headStart = cursor[headBlock]
     const headEnd = writeFan(positions, headStart * 2, s.head, 0, 0)
-    if (view.rounded) writeDisc(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
-    else writeSquare(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
+    if (!view.rounded) writeSquare(positions, headEnd, s.tail.x, s.tail.y, s.tail.r)
     cursor[headBlock] = headStart + c.head
 
     const cornerStart = discCursor[lineBlock]
@@ -544,7 +461,7 @@ export function tesselatePiece(
   o = writeFan(out, o, s.head, d.dx * shift, d.dy * shift)
   const last = piece.cells.length - 1
   const [tx, ty] = ride === null ? [s.tail.x, s.tail.y] : trackPoint(piece.cells, ride.dir, last - shift)
-  o = view.rounded ? writeDisc(out, o, tx, ty, s.tail.r) : writeSquare(out, o, tx, ty, s.tail.r)
+  if (!view.rounded) o = writeSquare(out, o, tx, ty, s.tail.r)
   let q = 0
   if (view.rounded) {
     q = writeCorners(discsOut, q, line, half)

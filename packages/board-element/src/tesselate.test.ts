@@ -6,13 +6,11 @@ import { DEFAULT_VIEW, hueBytes } from './view.ts'
 import {
   FLOATS_PER_DISC,
   frontOf,
-  JOIN_SEGMENTS,
   type Range,
   rideDiscBound,
   rideVertexBound,
   type Scene,
   strokeOf,
-  TAIL_SEGMENTS,
   tesselateBoard,
   tesselateColors,
   tesselatePiece,
@@ -149,7 +147,9 @@ test('a one-cell piece has no line segments and still has a head and a tail', ()
     headWidth: DEFAULT_VIEW.headWidth,
     headHeight: DEFAULT_VIEW.headHeight,
   })
-  expect(r?.head.count).toBe(3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS)
+  // The head is its fan alone; the tail is a disc, not triangles.
+  expect(r?.head.count).toBe(3 * (shape.head.length - 2))
+  expect(r?.tail.count).toBe(1)
 })
 
 test('the head fan reproduces the polygon pieceShape describes', () => {
@@ -267,8 +267,7 @@ test('a ridden piece follows trackLine, corners included', () => {
   }
   const corners = expected.filter((_, i) => i > 0 && i < expected.length - 1 && turnsAt(expected, i)).length
   const segments = corners + 1
-  const want = 6 * segments + 3 * JOIN_SEGMENTS * corners +
-    3 * (shape.head.length - 2) + 3 * TAIL_SEGMENTS
+  const want = 6 * segments + 3 * (shape.head.length - 2)
   expect(w.vertices).toBe(want)
   // One disc a corner, and the tail's.
   expect(w.discs).toBe(corners + 1)
@@ -313,12 +312,14 @@ test('the colour buffer carries hueBytes for every vertex of a piece', () => {
   expect(colors[i + 3]).toBe(255)
 })
 
-test('a corner costs one fan when rounded and nothing when sharp', () => {
+test('a corner costs one disc when rounded, and no triangles in either mode', () => {
   const sharp = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: false }, NONE)
   const round = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
-  const lineOf = (s: Scene) => s.rangeOf(BENT.id)?.line.count ?? 0
-  // BENT turns once. A fan is JOIN_SEGMENTS triangles, three vertices each.
-  expect(lineOf(round) - lineOf(sharp)).toBe(3 * JOIN_SEGMENTS)
+  // BENT turns once. Its segments are six vertices each in both modes; only
+  // where they stop at the corner differs.
+  expect(round.rangeOf(BENT.id)?.line.count).toBe(sharp.rangeOf(BENT.id)?.line.count)
+  expect(round.rangeOf(BENT.id)?.corners.count).toBe(1)
+  expect(sharp.rangeOf(BENT.id)?.corners.count).toBe(0)
 })
 
 test('a straight piece writes the same line in both modes', () => {
@@ -327,30 +328,19 @@ test('a straight piece writes the same line in both modes', () => {
   expect(round.rangeOf(STRAIGHT.id)?.line.count).toBe(sharp.rangeOf(STRAIGHT.id)?.line.count)
 })
 
-test('a rounded corner sits on the outer side of the turn, at radius half', () => {
+test('both segments stop at a rounded corner, so nothing pokes out past its disc', () => {
   const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('BENT is not drawn')
-  const half = DEFAULT_VIEW.stroke / 2
-  // BENT turns at cells[1]; a cell centre sits half a cell in from its corner.
+  // BENT turns at (4.5, 5.5) from running left to running down, so the outer
+  // side of the turn is x < 4.5 and y < 5.5 at once. The disc covers that
+  // quarter; a segment extended by half a stroke would reach into it with a
+  // square corner the disc could never hide.
   const corner = at(BENT.cells, 1)
   const cx = corner.x + 0.5, cy = corner.y + 0.5
-  // Fans are written after every segment, so the corner owns the tail of the range.
-  const fan = points(scene.positions, r.line).slice(-3 * JOIN_SEGMENTS)
-  // positions is a Float32Array, so a vertex the fan places exactly on the arc
-  // still rounds off by up to float32's own precision at this magnitude — the
-  // same slack `toBeCloseTo(x, 6)` gives elsewhere in this file.
   const tol = 1e-6
-  // BENT turns from -x (incoming) to +y (outgoing) at this corner, so the
-  // square the fan replaces is the one two butt-ended segments would leave
-  // uncovered on the outer side of that turn: x <= cx and y <= cy. Every fan
-  // vertex must land there and nowhere else — a sign flip in writeJoin's
-  // choice of normal would instead sweep the fan across the inner corner,
-  // which a plain "stays within radius half" check could never catch.
-  for (const [x, y] of fan) {
-    expect(x).toBeLessThanOrEqual(cx + tol)
-    expect(y).toBeLessThanOrEqual(cy + tol)
-    expect(Math.hypot(x - cx, y - cy)).toBeLessThanOrEqual(half + tol)
+  for (const [x, y] of points(scene.positions, r.line)) {
+    expect(x < cx - tol && y < cy - tol).toBe(false)
   }
 })
 
@@ -358,8 +348,8 @@ test('a sharp tail is a square with the same reach as the disc', () => {
   const round = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
   const sharp = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: false }, NONE)
   const headOf = (s: Scene) => s.rangeOf(BENT.id)?.head.count ?? 0
-  // The disc is TAIL_SEGMENTS triangles; the square is two.
-  expect(headOf(round) - headOf(sharp)).toBe(3 * TAIL_SEGMENTS - 6)
+  // The square is two triangles in the head block; the disc is none, it is in the disc stream.
+  expect(headOf(sharp) - headOf(round)).toBe(6)
 
   // Same reach: the switch changes the corner, never how much room a piece takes.
   const r = sharp.rangeOf(BENT.id)
@@ -369,6 +359,9 @@ test('a sharp tail is a square with the same reach as the disc', () => {
   const cap = points(sharp.positions, r.head).slice(-6)
   const reach = cap.reduce((m, [x, y]) => Math.max(m, Math.abs(x - (tail.x + 0.5)), Math.abs(y - (tail.y + 0.5))), 0)
   expect(reach).toBeCloseTo(half, 9)
+  const tailDisc = round.rangeOf(BENT.id)?.tail
+  if (!tailDisc) throw new Error('no tail disc')
+  expect(reach).toBeCloseTo(at(round.discs, tailDisc.start * FLOATS_PER_DISC + 2), 6)
 })
 
 test('a straight run costs one segment, not one per cell', () => {
@@ -387,14 +380,16 @@ test('merging leaves a piece with no straight run untouched', () => {
     headWidth: DEFAULT_VIEW.headWidth,
     headHeight: DEFAULT_VIEW.headHeight,
   })
-  expect(scene.rangeOf(ZIGZAG.id)?.line.count).toBe(6 * (shape.line.length - 1) + 3 * JOIN_SEGMENTS * 2)
+  expect(scene.rangeOf(ZIGZAG.id)?.line.count).toBe(6 * (shape.line.length - 1))
+  expect(scene.rangeOf(ZIGZAG.id)?.corners.count).toBe(2)
 })
 
 test('BENT keeps its corner and loses its straight run', () => {
   // Its line is head base, (4.5,5.5), (4.5,6.5), (4.5,7.5): one turn, then two
-  // collinear points that merge into one segment. Two segments and one fan.
+  // collinear points that merge into one segment. Two segments and one corner disc.
   const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
-  expect(scene.rangeOf(BENT.id)?.line.count).toBe(6 * 2 + 3 * JOIN_SEGMENTS)
+  expect(scene.rangeOf(BENT.id)?.line.count).toBe(6 * 2)
+  expect(scene.rangeOf(BENT.id)?.corners.count).toBe(1)
 })
 
 test('a rounded piece carries a disc on its corner and one on its tail', () => {
