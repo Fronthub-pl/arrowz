@@ -29,7 +29,6 @@ import {
   INACTIVE_REASONS,
   PARAM_SPEC,
   RULE_REASONS,
-  toSvg,
   validateParams,
 } from '@arrowz/engine'
 import { buildCommand, svgOptions } from '@arrowz/engine/command'
@@ -715,6 +714,8 @@ function onWorkerMessage(msg: WorkerOut) {
       setStatus(`<span class="bad">${t('generationError')}</span> ${msg.message}`)
       finish()
       return
+    case 'svg':
+      return // only the export worker draws an SVG; see the download button
     case 'done': {
       let board: BoardData
       try {
@@ -729,6 +730,7 @@ function onWorkerMessage(msg: WorkerOut) {
       }
       lastDone = msg
       labBoard = board
+      labParams = runParams
       report(msg)
       finish()
       if (activeTab === 'lab') showLabBoard()
@@ -743,6 +745,9 @@ let labBoard: BoardData | null = null // the last generated board, decoded
 let lastLongest: LongestSummary[] | null = null
 let boardsCache: BoardSize[] | null = null // last list from /api/boards, null = fetch again
 let runParams: Params = { ...state } // parameters the last board was generated from
+// parameters of the board on screen: runParams moves on as soon as a new run
+// starts, while the board (and its SVG export) stays until the run ends
+let labParams: Params = runParams
 // metrics of the previous run — the delta column shows what turning a knob
 // changed, without noting numbers on the side
 let prevStats = new Map<number, number>()
@@ -867,16 +872,40 @@ el('help').addEventListener('change', () => {
   document.body.classList.toggle('nohelp', !el<HTMLInputElement>('help').checked)
   saveToUrl()
 })
+// The SVG is an export only, drawn on demand from the board on screen. On the
+// largest boards it is tens of megabytes of text, so it is drawn in a worker of
+// its own: not the generation worker, which a new run terminates, and whose
+// queue would hold the export back until the run ends.
 el('download').addEventListener('click', () => {
-  if (!labBoard) return
-  // The SVG is an export only: drawn here, on demand, from the board on screen.
-  const svg = toSvg(labBoard, { ...svgOptions(viewOptions()), voids: voidsOn() })
-  const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `arrowz-${runParams.W}x${runParams.H}-seed${runParams.seed}.svg`
-  a.click()
-  URL.revokeObjectURL(url)
+  if (!lastDone) return
+  const btn = el<HTMLButtonElement>('download')
+  const name = `arrowz-${labParams.W}x${labParams.H}-seed${labParams.seed}.svg`
+  const w = new Worker(new URL('./lab-worker.js', import.meta.url), { type: 'module' })
+  const done = () => {
+    w.terminate()
+    btn.disabled = false
+  }
+  w.onmessage = (e: MessageEvent<WorkerOut>) => {
+    const msg = e.data
+    if (msg.type === 'svg') {
+      const url = URL.createObjectURL(new Blob([msg.svg], { type: 'image/svg+xml' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      a.click()
+      URL.revokeObjectURL(url)
+    } else if (msg.type === 'error') {
+      setStatus(`<span class="bad">${t('workerError')}</span> ${msg.message}`)
+    }
+    done()
+  }
+  w.onerror = (e) => {
+    setStatus(`<span class="bad">${t('workerError')}</span> ${e.message}`)
+    done()
+  }
+  btn.disabled = true
+  const options = { ...svgOptions(viewOptions()), voids: voidsOn() }
+  w.postMessage({ type: 'svg', board: lastDone.board, options } satisfies WorkerIn)
 })
 
 // --- board store ------------------------------------------------------------

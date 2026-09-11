@@ -295,11 +295,15 @@ export interface LongestSummary {
   coil: number
 }
 
-export type WorkerIn = { type: 'generate'; params: Params }
+export type WorkerIn =
+  | { type: 'generate'; params: Params }
+  /** The SVG export: drawn off the page's thread, from the board file the page holds. */
+  | { type: 'svg'; board: BoardFile; options: SvgOptions }
 
 export type WorkerOut =
   | { type: 'progress'; info: TraceInfo }
   | { type: 'error'; message: string }
+  | { type: 'svg'; svg: string }
   | {
     type: 'done'
     ok: boolean

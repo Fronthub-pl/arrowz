@@ -6,15 +6,25 @@
 //
 // The finished board goes back as its board file: one string crosses the
 // worker boundary instead of ~90 000 piece objects, and it is the very file
-// the page sends to the store. Drawing, the SVG export and the table of the
-// longest pieces happen on the page, from the decoded board.
-import { encodeBoard, generate } from '@arrowz/engine'
+// the page sends to the store. Drawing and the table of the longest pieces
+// happen on the page, from the decoded board. The SVG export comes back here,
+// to a worker of its own: the page sends the board file and the view, and
+// gets the finished text (tens of megabytes on the largest boards).
+import { decodeBoard, encodeBoard, generate, toSvg } from '@arrowz/engine'
 import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
 const post = (m: WorkerOut) => self.postMessage(m)
 
 self.onmessage = (event: MessageEvent<WorkerIn>) => {
   const msg = event.data
+  if (msg.type === 'svg') {
+    try {
+      post({ type: 'svg', svg: toSvg(decodeBoard(msg.board), msg.options) })
+    } catch (err) {
+      post({ type: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+    return
+  }
   const started = performance.now()
   let result
   try {

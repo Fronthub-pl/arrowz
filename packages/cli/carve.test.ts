@@ -170,6 +170,8 @@ Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one 
   assertEquals(typeof r.json.genMs, 'number')
   assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --advanced --board --w=10 --h=10 --seed=1`))
   assertEquals(typeof r.json.boardBytes, 'number')
+  // The board file is what gets stored; a dry run draws no SVG just to weigh it.
+  assertEquals(Object.hasOwn(r.json, 'svgBytes'), false, 'no SVG is rendered, so none is measured')
 })
 
 Deno.test('carve.ts --dry-run alone selects the one-board mode and its fingerprint matches the engine', () => {

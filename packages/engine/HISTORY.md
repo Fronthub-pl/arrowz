@@ -158,11 +158,13 @@ deno task carve --advanced --help                           # every knob: flag, 
 CARVE_TIMEOUT_S=120 deno task carve --advanced --svg --w=1000 --h=1000 --seed=30   # give up after two minutes, store what was carved
 ```
 
-`--dry-run` generates, measures and renders exactly like `--svg` (with or
-without it on the command line) but writes neither the store entry nor the
+`--dry-run` generates and measures exactly like `--svg` (with or without it on
+the command line) but draws no SVG and writes neither the store entry nor the
 `--svg=path` copy. It prints one JSON line: the board id the store would use,
 the engine parameters, the metrics (pieces, mean and maximum length, bends,
-coiling, f0, solvability), times, and a fingerprint of the board — the FNV
+coiling, f0, solvability), times, the size of the board file (`boardBytes`;
+until the board file it was the size of the SVG, `svgBytes`, which cost a full
+render per dry run), and a fingerprint of the board — the FNV
 hash the engine tests freeze recorded boards with — so two runtimes or two
 engine versions can be compared without a file. A board that fails to close
 prints a JSON line with `ok: false` and exits with code 1.
