@@ -347,6 +347,11 @@ Decisions, from the game design §11:
 | keys `+` or `=`, `-`, `0` (host focused) | `zoomBy(1.25)`, `zoomBy(1 / 1.25)`, `fit()` |
 | buttons `+`, `−`, fit in the corner | the same three |
 
+> Superseded: on mouse and pen a plain drag now pans and a ⌘/Ctrl click plays;
+> the rows above are the `click` mode a player can switch back to. Keys with a
+> modifier are no longer taken. See §4 and §7 of
+> `docs/superpowers/specs/2026-09-11-board-hardening-design.md`.
+
 > Superseded: a repeated press now yields no intent at all, on either input.
 > See R1 and R2 of `docs/superpowers/specs/2026-09-10-rounded-arrows-design.md`.
 
