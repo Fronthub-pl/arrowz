@@ -1412,3 +1412,136 @@ Same demo, same board: fitted zoom and `MAX_CELL_PX`, monochrome and coloured, `
 - `pnpm nx run-many -t verify` and `deno task verify` from the root: both green.
 - Commit the spec, push, and open the PR with `gh pr create --base main` — title "One instanced disc draws every tail cap and round join", body: what changed, the measured figures, the screenshots' verdict, no attribution lines. Merging is the user's (`gh pr merge` needs their `!` command).
 - `git worktree remove ../arrowz-main`.
+
+---
+
+### Task 6: Corner discs under half a device pixel are not drawn (added after Task 5's measurement)
+
+Task 5 measured the branch about 1.2 ms a frame slower on the GPU than `main` at the fitted zoom, outside the spec's ±0.9 ms band: 362 k discs of about 0.2 px radius each run the fragment shader and blend, where the fans' tiny triangles mostly hit no MSAA sample. A spike that skipped the corner discs below half a device pixel of radius brought the fitted frame to 6.0 ms (`main` 8.6-9.9 ms) with the fitted screenshot back to `main`'s tone and the 8 px/cell screenshot identical to `main`. Below that size three quarters of a corner disc lie under its segments and the rest is at most a quarter of a pixel. Tails are always drawn: they stick out past the line's end.
+
+**Files:**
+- Modify: `packages/board-element/src/tesselate.ts` (`Scene.cornerRadius`, set in `tesselateBoard`)
+- Modify: `packages/board-element/src/gl-passes.ts` (`MIN_CORNER_PX`, `cornersTooSmall`, `drawPieces`)
+- Modify: `docs/superpowers/specs/2026-09-11-disc-primitive-design.md` (§5.3)
+- Test: `packages/board-element/src/tesselate.test.ts`, `packages/board-element/src/gl-layer.browser.test.ts`
+
+**Interfaces:**
+- Produces: `Scene.cornerRadius: Readonly<Record<'lines' | 'topLines', number>>`; `export const MIN_CORNER_PX = 0.5` in `gl-passes.ts`.
+- Riders are not touched: a rider draws every disc it has (a handful of pieces; its discs are one run of corners then tail).
+
+- [ ] **Step 1: Write the failing tests**
+
+`tesselate.test.ts`, before the `voidQuads` tests:
+
+```ts
+test('the scene knows the radius of every corner disc in each line block', () => {
+  const view = { ...DEFAULT_VIEW, top: 2 }
+  const scene = tesselateBoard(board(), view, NONE)
+  // Half the stroke each block is drawn with: highlighted pieces are thicker.
+  expect(scene.cornerRadius.lines).toBe(strokeOf(view, false) / 2)
+  expect(scene.cornerRadius.topLines).toBe(strokeOf(view, true) / 2)
+})
+```
+
+`gl-layer.browser.test.ts`: add `MIN_CORNER_PX` to an import from `./gl-passes.ts` (new import line), then append:
+
+```ts
+test('corner discs under half a device pixel are not drawn, and tails always are', () => {
+  const b = bentBoard()
+  const gl = layer.canvas.getContext('webgl2')
+  if (!gl) throw new Error('no webgl2')
+  // Every instanced draw is a block of discs; record how many discs each one drew.
+  const instances: number[] = []
+  const draw = gl.drawArraysInstanced.bind(gl)
+  gl.drawArraysInstanced = (mode: number, first: number, count: number, n: number): void => {
+    instances.push(n)
+    draw(mode, first, count, n)
+  }
+  const v = fit({ W: b.W, H: b.H, hostWidth: HOST, hostHeight: HOST, pad: 0 })
+  const half = DEFAULT_VIEW.stroke / 2
+  const cellPxFor = (radiusPx: number): number => radiusPx / (half * devicePixelRatio)
+
+  layer.setBoard(b, INK_ON_PAPER)
+  // Just under the threshold: BENT's one corner disc is skipped, its tail is not.
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1])
+
+  // Just over it: the corner comes back, drawn before the tail (lines before heads).
+  instances.length = 0
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 1.1) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
+
+  // Each block measures its own radius: highlighted in colour mode, BENT is
+  // 1.5 times thicker, so the zoom that hid its corner above shows it now.
+  instances.length = 0
+  layer.setBoard(b, { ...INK_ON_PAPER, colored: true, top: 1 })
+  layer.setViewport({ ...v, cellPx: cellPxFor(MIN_CORNER_PX * 0.9) })
+  layer.drawNowForTest()
+  expect(instances).toEqual([1, 1])
+})
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run (from `packages/board-element/`): `pnpm vitest run --project node src/tesselate.test.ts` and `pnpm vitest run --project chromium src/gl-layer.browser.test.ts -t "corner discs under half"`.
+Expected: FAIL — `cornerRadius` is undefined; `MIN_CORNER_PX` is not exported, and once it is, the first `expect(instances)` sees `[1, 1]`.
+
+- [ ] **Step 3: Implement**
+
+`tesselate.ts`, in `Scene` after `discBlocks`:
+
+```ts
+  /**
+   * The radius every corner disc of a line block is drawn with, in cells:
+   * half that block's stroke. The disc pass compares it with the zoom, so a
+   * whole block of corners too small to see is never drawn.
+   */
+  cornerRadius: Readonly<Record<'lines' | 'topLines', number>>
+```
+
+and in `tesselateBoard`'s returned object, after `discBlocks,`:
+
+```ts
+    cornerRadius: { lines: strokeOf(view, false) / 2, topLines: strokeOf(view, true) / 2 },
+```
+
+`gl-passes.ts`, below `COLOR_BYTES`:
+
+```ts
+/**
+ * The smallest corner disc drawn, as a radius in device pixels. Below it,
+ * three quarters of a corner disc lie under the two segments it joins and
+ * the quarter left over is at most a quarter of a pixel, while 276 k of them
+ * on Insane cost the fitted frame more GPU time than every other pass
+ * together. Tails are always drawn: they stick out past the line's end.
+ */
+export const MIN_CORNER_PX = 0.5
+
+/** Whether a block's discs are corners too small to draw at this zoom; a head block's discs are tails, never too small. */
+function cornersTooSmall(scene: Scene, block: Block, vp: Viewport): boolean {
+  if (block !== 'lines' && block !== 'topLines') return false
+  return scene.cornerRadius[block] * vp.cellPx * devicePixelRatio < MIN_CORNER_PX
+}
+```
+
+and in `drawPieces`, the disc condition becomes:
+
+```ts
+    const discs = scene.discBlocks[pass.block]
+    if (discs.count > 0 && res.discBuffer && !cornersTooSmall(scene, pass.block, vp)) {
+```
+
+Spec §5.3, after the paragraph that ends "every overlap inside a block is between one colour and itself, so nothing shows.", add:
+
+"A line block's discs are skipped outright when its corner radius — half that block's stroke, the same for every corner in it (`Scene.cornerRadius`) — is under `MIN_CORNER_PX`, half a device pixel, at the current zoom. Below that size three quarters of the disc lie under the two segments it joins and the quarter left over is at most a quarter of a pixel; drawing them anyway cost the fitted Insane frame about 1.2 ms of GPU time over `main` (Task 5 of the plan measured it), and skipping them brought the frame to 6.0 ms against `main`'s 8.6-9.9. The decision is one comparison per block on the CPU, so a skipped block costs nothing on the GPU. Head blocks are never skipped: a tail sticks out past the line's end. Riders draw every disc they have."
+
+- [ ] **Step 4: Run the gates** (Global Constraints). Expected: all PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/board-element/src/tesselate.ts packages/board-element/src/tesselate.test.ts packages/board-element/src/gl-passes.ts packages/board-element/src/gl-layer.browser.test.ts docs/superpowers/specs/2026-09-11-disc-primitive-design.md
+git commit -m "Corner discs too small to see are not drawn: a line block's discs are skipped under half a device pixel of radius"
+```
