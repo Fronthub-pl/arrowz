@@ -17,6 +17,8 @@ let layer: GlLayer
 beforeEach(() => {
   document.body.innerHTML = ''
   layer = new GlLayer()
+  // The constructor takes no context any more; the element asks on connect.
+  layer.restore()
   layer.canvas.style.width = `${HOST}px`
   layer.canvas.style.height = `${HOST}px`
   document.body.append(layer.canvas)
@@ -761,4 +763,28 @@ test('the dot grid is drawn under the pieces, not over them', () => {
   // The head's cell: the piece covers the dot the grid put there.
   const [inkR, inkG, inkB] = at(2.5, 2.5)
   expect([inkR < 80, inkG < 80, inkB < 80]).toEqual([true, true, true])
+})
+
+test('a loss the browser caused is reported, and one dispose() caused is not', async () => {
+  let reported = 0
+  layer.onForeignLoss = () => reported++
+  const lose = layer.canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+  if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+  lose.loseContext()
+  await drawn()
+  expect(reported).toBe(1)
+  layer.restore()
+  for (let i = 0; i < 10 && !layer.supported; i++) await frame()
+  expect(layer.supported).toBe(true)
+  layer.dispose()
+  await drawn()
+  expect(reported).toBe(1)
+})
+
+test('a layer takes no context until it is asked to', () => {
+  const idle = new GlLayer()
+  expect(idle.supported).toBe(false)
+  idle.restore()
+  expect(idle.supported).toBe(true)
+  idle.dispose()
 })

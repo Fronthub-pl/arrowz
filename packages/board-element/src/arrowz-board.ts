@@ -168,14 +168,19 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   private readonly layer = new GlLayer()
   /**
-   * Whether the browser gave the layer a context at all, read once, when the
-   * layer is built. `layer.supported` also goes false for as long as a lost
-   * context has not been handed back, and that is a failure the layer
-   * recovers from by itself: swapping the canvas for the "no WebGL2" message
-   * in the middle of it would tell the reader something untrue and take the
-   * canvas the pointer listeners are on out of the tree while it happened.
+   * Whether the browser gave the layer a context at all, read once, on the
+   * first connect — the layer takes none before (see GlLayer's constructor).
+   * `layer.supported` also goes false for as long as a lost context has not
+   * been handed back, and that is a failure the layer recovers from by
+   * itself: swapping the canvas for the "no WebGL2" message in the middle of
+   * it would tell the reader something untrue and take the canvas the
+   * pointer listeners are on out of the tree while it happened.
    */
-  private readonly hasWebgl = this.layer.supported
+  private hasWebgl = true
+  /** Whether `hasWebgl` has been read; see above. */
+  private acquired = false
+  /** Waits for the board to be visible after the browser took its context; see `watchForRevival`. */
+  private revival: IntersectionObserver | null = null
   // Today's rule until the player's choice is wired in: `click` mode.
   private readonly gestures = new GestureMachine('click')
   private readonly game = new GameHost(this)
@@ -211,6 +216,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Not passive: the browser zoom must not fire on Ctrl/⌘ + wheel.
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
     this.addEventListener('keydown', this.onKeyDown)
+    this.layer.onForeignLoss = () => this.watchForRevival()
   }
 
   static override get observedAttributes(): string[] {
@@ -234,10 +240,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     super.connectedCallback()
     // Back before the queued disposal ran: this was a move, not a removal.
     this.disposeQueued = false
-    // Back after one: the layer gave its context up, and asks for it again.
-    // A no-op on a board that never left, and the context arrives on its own
-    // event, so nothing here waits for it.
+    // The first connect: the layer takes its very first context here, at once.
+    // Back after a removal: the layer gave its context up, and asks for it
+    // again. A no-op on a board that never left, and a context asked back
+    // arrives on its own event, so nothing here waits for it.
     this.layer.restore()
+    if (!this.acquired) {
+      this.acquired = true
+      this.hasWebgl = this.layer.supported
+    }
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
     this.observer = new ResizeObserver((entries) => {
       const entry = entries[0]
@@ -265,12 +276,35 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.observer = null
     // A board removed while the pointer was over it never gets its leave.
     this.stopWatchingModifier()
+    this.stopRevival()
     this.disposeQueued = true
     queueMicrotask(() => {
       if (!this.disposeQueued) return
       this.disposeQueued = false
       this.layer.dispose()
     })
+  }
+
+  /**
+   * The browser took the context — another board needed the slot — and will
+   * not give it back by itself. The board asks for it once someone can see
+   * it: at once if it is on screen, when it is scrolled to otherwise. More
+   * than about sixteen boards on screen at once will take each other's
+   * contexts in turn; that ceiling is the browser's (spec §5).
+   */
+  private watchForRevival(): void {
+    if (!this.isConnected || this.revival) return
+    this.revival = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return
+      this.stopRevival()
+      this.layer.restore()
+    })
+    this.revival.observe(this)
+  }
+
+  private stopRevival(): void {
+    this.revival?.disconnect()
+    this.revival = null
   }
 
   override render() {

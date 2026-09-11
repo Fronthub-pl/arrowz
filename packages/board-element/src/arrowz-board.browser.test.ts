@@ -571,4 +571,48 @@ describe('the context a board holds', () => {
     expect(isLost(canvas)).toBe(false)
     expect(inked(await painted(el))).toBeGreaterThan(0)
   })
+
+  test('elements created and never connected take no context from a connected board', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    // Chrome holds about sixteen live contexts; a constructor that took one
+    // would have evicted this board's by the sixteenth.
+    const orphans: HTMLElement[] = []
+    for (let i = 0; i < 20; i++) orphans.push(document.createElement('arrowz-board'))
+    await raf()
+    await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+    expect(orphans.length).toBe(20)
+  })
+
+  test('a visible board whose context the browser takes gets it back by itself', async () => {
+    await mount()
+    const canvas = canvasOf(el)
+    const lose = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+    if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+    // A simulated loss is restored only when someone asks: the browser will
+    // not, so a board that recovers here recovered on its own.
+    lose.loseContext()
+    for (let i = 0; i < 30 && (isLost(canvas) || el.pieceCount === 0); i++) await raf()
+    expect(isLost(canvas)).toBe(false)
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+  })
+
+  test('a board outside the viewport waits to be scrolled to before asking', async () => {
+    await mount()
+    el.style.position = 'absolute'
+    el.style.top = '10000px'
+    await raf()
+    await raf()
+    const canvas = canvasOf(el)
+    const lose = canvas.getContext('webgl2')?.getExtension('WEBGL_lose_context')
+    if (!lose) throw new Error('WEBGL_lose_context is needed for this test')
+    lose.loseContext()
+    for (let i = 0; i < 10; i++) await raf()
+    expect(isLost(canvas)).toBe(true)
+    el.style.top = '0px'
+    for (let i = 0; i < 30 && isLost(canvas); i++) await raf()
+    expect(isLost(canvas)).toBe(false)
+  })
 })
