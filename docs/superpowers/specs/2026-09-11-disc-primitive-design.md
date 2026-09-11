@@ -330,3 +330,14 @@ PR description.
   few thousand device pixels is about two pixels, which the browser tests of
   §7, zoomed far past `MAX_CELL_PX` to make a facet measurable, would feel.
   GLSL ES 3.00 guarantees `highp` in fragment shaders.
+- **Translucent ink composites twice under a corner disc.** §2's "drawing the
+  whole disc changes no pixel" and §5.3's "every overlap inside a block is
+  between one colour and itself" hold for opaque ink only. With an `rgba`
+  `view.ink`, the three quarters of a corner disc that lie under the two
+  segments are drawn twice and read darker than the segments; the SVG's
+  round join, being part of one stroke, is not. `main` already did this at
+  every tail (half the tail fan lay under the last segment); this branch
+  extends it to corners. The default ink is opaque. A fix, if the user wants
+  one, is a quadrant mask per corner disc in the shader, which changes the
+  disc format; ruled out of this pass, and put to the user with the
+  screenshots of §7.

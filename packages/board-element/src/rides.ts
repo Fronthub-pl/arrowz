@@ -1,7 +1,7 @@
 // The pieces part way down their own track. A ride is a Web Animation clock
-// driving `tesselatePiece` once a frame into its rider's own triangles. The
-// layer owns the GPU and the frame, so a ride reaches either only through its
-// host.
+// driving `tesselatePiece` once a frame into its rider's own triangles and
+// discs. The layer owns the GPU and the frame, so a ride reaches either only
+// through its host.
 import type { Board, Piece } from '@arrowz/engine'
 import type { Rgba } from './gl-color.ts'
 import {

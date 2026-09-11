@@ -1,7 +1,8 @@
-// The board as triangles: pieceShape() expanded into vertices a GPU can draw,
-// with a map from piece id to its slice of the buffer, so a removal or a ride
-// touches one piece and never the board. Knows neither DOM nor WebGL, so it is
-// tested in Node like viewport.ts and track.ts.
+// The board as triangles plus discs: pieceShape() expanded into vertices a
+// GPU can draw, and the tail caps and round joins into discs it can instance,
+// with a map from piece id to its slice of each buffer, so a removal or a
+// ride touches one piece and never the board. Knows neither DOM nor WebGL, so
+// it is tested in Node like viewport.ts and track.ts.
 import { DIRS, pieceShape } from '@arrowz/engine'
 import type { Board, Piece } from '@arrowz/engine'
 import { trackLine, trackPoint } from './track.ts'

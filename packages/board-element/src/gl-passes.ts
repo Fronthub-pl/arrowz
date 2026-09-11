@@ -112,9 +112,9 @@ function drawDiscBlock(
 }
 
 /**
- * The three uniforms both programs place the board with: the view's top left
- * in cells, a cell's size in device pixels, and the drawing buffer's size.
- * `program` must be the one in use.
+ * The three uniforms every program — main, dot and disc — places the board
+ * with: the view's top left in cells, a cell's size in device pixels, and the
+ * drawing buffer's size. `program` must be the one in use.
  */
 export function setView(
   gl: WebGL2RenderingContext,
