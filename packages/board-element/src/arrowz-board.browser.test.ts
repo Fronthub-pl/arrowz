@@ -316,6 +316,13 @@ describe('mount and viewport', () => {
     const after = await painted(el)
     expect(el.pieceCount).toBe(original.pieces.length)
     expect(inked(after)).toBe(inked(before))
+    // Hit tests answer with the same ids: the pieces keep their ids in order,
+    // and the owner grid names the same piece at the first piece's head.
+    expect(el.board?.pieces.map((p) => p.id)).toEqual(original.pieces.map((p) => p.id))
+    const head = original.pieces[0]?.cells[0]
+    if (!head) throw new Error('the board has a first piece')
+    const i = head.y * original.W + head.x
+    expect(el.board?.owner[i]).toBe(original.owner[i])
   })
 })
 
