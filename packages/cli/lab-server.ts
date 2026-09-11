@@ -24,11 +24,52 @@ const MIME: Record<string, string> = {
   '.css': 'text/css',
 }
 
-function send(status: number, body: BodyInit, type = 'application/json'): Response {
+/**
+ * The lab page may load its own script, bundle, workers and API only. Inline
+ * style attributes stay allowed: the page builds table rows with them.
+ */
+export const LAB_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data: blob:; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; " +
+  "form-action 'none'; frame-ancestors 'none'"
+/** Stored files are data, never a page: an SVG opened on its own runs no script and reaches nothing. */
+export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+
+function send(status: number, body: BodyInit, type = 'application/json', csp = LAB_CSP): Response {
   return new Response(body, {
     status,
-    headers: { 'Content-Type': type, 'Cache-Control': 'no-store, must-revalidate' },
+    headers: {
+      'Content-Type': type,
+      'Cache-Control': 'no-store, must-revalidate',
+      'Content-Security-Policy': csp,
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      'Cross-Origin-Resource-Policy': 'same-origin',
+    },
   })
+}
+
+const LOCAL_HOSTS: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
+
+/**
+ * Why a request is refused before routing, or null. The lab serves this
+ * machine only: a Host that is not a loopback name is a page that rebound its
+ * own domain to 127.0.0.1 (DNS rebinding), and a write with an Origin other
+ * than the lab's is a page of another site or another local port acting in
+ * the user's name (CSRF). Tools without a browser send no Origin and pass.
+ * A POST must say it is JSON: a cross-origin page can only send that after a
+ * CORS preflight, which this server never grants.
+ */
+function refusal(req: Request, url: URL): { status: number; error: string } | null {
+  if (!LOCAL_HOSTS.includes(url.hostname)) return { status: 403, error: `host ${url.hostname} is not this machine` }
+  if (req.method === 'GET' || req.method === 'HEAD') return null
+  const origin = req.headers.get('origin')
+  if (origin !== null && origin !== url.origin) return { status: 403, error: `origin ${origin} is not the lab` }
+  const type = req.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase()
+  if (req.method === 'POST' && type !== 'application/json') {
+    return { status: 415, error: 'POST needs Content-Type: application/json' }
+  }
+  return null
 }
 
 type Rec = Record<string, unknown>
@@ -165,14 +206,28 @@ function checkPost(v: unknown): Checked<SaveInput> {
 
 /** The body as text, or null when it is larger than limit bytes (declared or actual). */
 async function readBody(req: Request, limit: number): Promise<string | null> {
-  if (Number(req.headers.get('content-length') ?? 0) > limit) return null
+  if (Number(req.headers.get('content-length') ?? 0) > limit) {
+    await req.body?.cancel()
+    return null
+  }
   if (!req.body) return ''
   const chunks: Uint8Array[] = []
   let size = 0
+  let over = false
+  // break (not return) inside the loop first, so the reader it holds is
+  // released before the cancel below: a stream cannot be cancelled while a
+  // for-await loop still has it locked.
   for await (const chunk of req.body) {
     size += chunk.byteLength
-    if (size > limit) return null
+    if (size > limit) {
+      over = true
+      break
+    }
     chunks.push(chunk)
+  }
+  if (over) {
+    await req.body?.cancel()
+    return null
   }
   const all = new Uint8Array(size)
   let at = 0
@@ -186,6 +241,8 @@ async function readBody(req: Request, limit: number): Promise<string | null> {
 export function createLabServer(): (req: Request) => Promise<Response> {
   return async (req) => {
     const url = new URL(req.url)
+    const refused = refusal(req, url)
+    if (refused) return send(refused.status, JSON.stringify({ error: refused.error }))
     try {
       if (url.pathname === '/api/boards' && req.method === 'GET') return send(200, JSON.stringify(listBoards()))
       if (url.pathname === '/api/boards' && req.method === 'POST') {
@@ -216,12 +273,21 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       }
       if (req.method !== 'GET') return send(405, '{"error":"GET only"}')
 
-      // The store may live outside packages/cli/ (ARROWZ_BOARDS_DIR), so /boards/
-      // has its own base directory. The normalised path must stay inside it.
+      // Three areas are served: the page, its bundle and the store, each from
+      // its own base directory (the store may live outside packages/cli/, see
+      // ARROWZ_BOARDS_DIR). The sources next to the page are not. The
+      // normalised path must stay inside its area.
       const rel = decodeURIComponent(url.pathname === '/' ? '/lab.html' : url.pathname)
-      const inBoards = rel.startsWith('/boards/')
-      const baseDir = resolve(inBoards ? boardsDir() : ROOT)
-      const file = normalize(join(baseDir, inBoards ? rel.slice('/boards/'.length) : rel.slice(1)))
+      const area = rel === '/lab.html'
+        ? { base: ROOT, name: 'lab.html', csp: LAB_CSP }
+        : rel.startsWith('/dist/')
+        ? { base: join(ROOT, 'dist'), name: rel.slice('/dist/'.length), csp: LAB_CSP }
+        : rel.startsWith('/boards/')
+        ? { base: boardsDir(), name: rel.slice('/boards/'.length), csp: STORE_CSP }
+        : null
+      if (!area) return send(404, '{"error":"not found"}')
+      const baseDir = resolve(area.base)
+      const file = normalize(join(baseDir, area.name))
       if (!file.startsWith(baseDir + SEPARATOR)) return send(403, '{"error":"outside base directory"}')
       let info: Deno.FileInfo
       try {
@@ -235,7 +301,7 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       }
       if (!info.isFile) return send(404, '{"error":"not found"}')
       const data = await Deno.readFile(file)
-      return send(200, data, MIME[extname(file)] ?? 'application/octet-stream')
+      return send(200, data, MIME[extname(file)] ?? 'application/octet-stream', area.csp)
     } catch (err) {
       return send(500, JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
     }

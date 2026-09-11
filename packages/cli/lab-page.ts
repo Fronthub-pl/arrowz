@@ -934,7 +934,11 @@ async function saveBoardToStore(board: BoardFile, done: Done) {
     },
   }
   try {
-    const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    const r = await fetch('/api/boards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const meta: BoardMeta = await r.json()
     el('status').insertAdjacentHTML('beforeend', ` · ${t('saved')} <code>${meta.W}x${meta.H}/${meta.id}</code>`)
@@ -1176,7 +1180,11 @@ async function saveLibView() {
     metrics: { ok: meta.ok, pieces: meta.pieces, maxLen: meta.maxLen, genMs: meta.genMs },
   }
   try {
-    const r = await fetch('/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    const r = await fetch('/api/boards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     const saved: BoardMeta = await r.json()
     // Another board may have been chosen, or the tab left, while this one saved:
