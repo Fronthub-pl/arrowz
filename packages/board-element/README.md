@@ -28,13 +28,13 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `board` | `Board \| null` | `null` |
 | `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
-| `pad` | `number` (attribute, reflected): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
+| `pad` | `number` (attribute, reflected, default not shown until set — removing the attribute restores it): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 | `play` | `boolean` (attribute, reflected) | `false` |
 | `enableColors` | `boolean` (attribute `enable-colors`, reflected) | `false` |
 | `showPoints` | `boolean` (attribute `show-points`, reflected): draws the point grid | `false` |
 | `pointColor` | `string` (attribute `point-color`, reflected): colour of the grid's dots | `'#c9c9d6'` |
-| `pointRadius` | `number` (attribute `point-radius`, reflected): radius of the grid's dots, in cells | `0.06` |
+| `pointRadius` | `number` (attribute `point-radius`, reflected, default not shown until set — removing the attribute restores it): radius of the grid's dots, in cells | `0.06` |
 
 | Method | Behaviour |
 |---|---|
@@ -58,11 +58,19 @@ before a board and a host size are both known.
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
 | `finished` | `{ pieces }`, after the ride of the last piece |
 
-Controls: click without a modifier plays; drag with ⌘ or Ctrl pans; wheel
-zooms towards the cursor; one finger pans, two pinch, a tap plays; `+`, `−`,
-`0` and the corner buttons zoom and fit. A repeated press — a double click, a
-double tap — does nothing at all: the second one is read as a slipped finger,
-not as an instruction.
+Controls, mouse and pen: a plain drag pans, and a click with ⌘ (Ctrl elsewhere)
+plays. A plain click does nothing, so a hand that twitches while panning never
+costs a life. A playable board (`play` or `interactive`) shows a ☝ switch in the
+corner. Pressed, it restores the rule from before: a plain click plays and a
+drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
+`localStorage` under `arrowz-board.gestures`, read by each board when it
+connects, and readable as the `gestureMode` property. There is no attribute for
+it. A board that only pans has no switch and always pans with a plain drag.
+Touch is the same in both modes: one finger pans, two pinch, a tap plays. The
+wheel zooms towards the cursor; `+`, `−`, `0` and the corner buttons zoom and
+fit, and with ⌘, Ctrl or Alt held those keys are left to the browser's own page
+zoom. A repeated press — a double click, a double tap — does nothing at all:
+the second one is read as a slipped finger, not as an instruction.
 
 ### Zoom and pan
 
@@ -81,10 +89,28 @@ key and the corner button put it back — a double click does not, it does
 nothing at all. `zoomBy` still works from the centre of the host: a button has
 no cursor to zoom towards.
 
-Holding ⌘ or Ctrl shows the grab cursor before anything is pressed, and takes
-the piece cursor away while it is held: with the modifier down the next click
-pans instead of playing, so the pointer cursor would promise a move that will
-not happen.
+The cursor tells what the next click will do before it is made. In the default
+mode the board shows the grab cursor, and a piece shows the pointer cursor only
+while ⌘ or Ctrl is held, since only then does a click play. In the switched
+mode it is the other way round: the modifier turns the board to grab and takes
+the piece cursor away. On macOS a Ctrl click is a secondary click. Where it
+plays, the board keeps the context menu shut.
+
+### Size, and values the board cannot draw
+
+The host has no size of its own, like a `<div>`: give it a width and a height,
+or put it in a parent that has them. The canvas fills the host and takes no part
+in its layout.
+
+Numbers and colours the board cannot draw are replaced, silently and only in
+the drawing; the properties and attributes keep what was set.
+
+- A value that is not a finite number becomes its default.
+- `stroke` is at most one cell.
+- Head sizes and `pad` are never negative.
+- `top` is a whole count.
+- `point-radius` stays within [0, 0.5].
+- A colour the browser cannot parse becomes the default of its field.
 
 ### The margin
 
@@ -158,6 +184,14 @@ identity to decide what it may keep, so a board reassignment can no longer
 diff against the previous one. A host driving play therefore never filters a
 `Board` and hands it back — it lets `play` run the game and reads the result
 from the events.
+
+### The WebGL context
+
+A board takes its WebGL context when it is connected, not when it is created,
+and gives it up when it is removed. If the browser takes it away — a page gets
+about sixteen — the board asks for it back as soon as it is on screen. More
+than about sixteen boards on screen at once will take each other's contexts in
+turn.
 
 ## Development
 
