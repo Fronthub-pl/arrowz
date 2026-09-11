@@ -135,7 +135,7 @@ Every board the generator hands back has been checked. It guarantees:
 | **The board can always be cleared** | Before handing the board over, the generator works out who blocks whom and proves the puzzle has a solution. |
 | **It knows at least one solution** | The order in which the generator built the arrows is itself a winning order. |
 | **You cannot play yourself into a corner** | Any sequence of legal moves eventually empties the board. |
-| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical picture, down to the last square. |
+| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical board, down to the last square. |
 
 One thing it does **not** promise: that every request succeeds. On hard
 settings the generator can paint itself into a corner while building. When that

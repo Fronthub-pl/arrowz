@@ -134,7 +134,7 @@ Każda plansza, którą generator oddaje, jest wcześniej sprawdzona. Gwarantuje
 | **Planszę zawsze da się opróżnić** | Zanim odda planszę, generator wylicza, kto kogo blokuje, i dowodzi, że rozwiązanie istnieje. |
 | **Zna co najmniej jedno rozwiązanie** | Kolejność, w jakiej sam budował strzałki, jest zwycięską kolejnością. |
 | **Nie da się zapędzić w ślepy zaułek** | Dowolny ciąg dozwolonych ruchów prędzej czy później opróżnia planszę. |
-| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczny obrazek, co do kwadratu. |
+| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczną planszę, co do kwadratu. |
 
 Jednej rzeczy **nie** obiecuje: że każde zamówienie się uda. Przy trudnych
 ustawieniach generator potrafi się w trakcie budowania zapędzić w kozi róg.
