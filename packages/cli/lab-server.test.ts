@@ -124,8 +124,9 @@ Deno.test('POST keeps only the knobs of PARAM_SPEC', () =>
     const r = await post(base, body)
     assertEquals(r.status, 201)
     const meta: BoardMeta = await r.json()
-    assertEquals(meta.params.ruleB, true)
-    assertEquals(meta.params.voidFrac, 0)
+    // ruleB and voidFrac are generate() options, not knobs: they never reach a stored board.
+    assert(!('ruleB' in meta.params))
+    assert(!('voidFrac' in meta.params))
     assert(!('junk' in meta.params))
   }))
 

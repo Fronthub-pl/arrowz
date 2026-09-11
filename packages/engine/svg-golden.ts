@@ -1,12 +1,13 @@
 // The boards and options whose toSvg output is pinned by svg-golden.json.
 // The recorder and the test share this list so they can never disagree.
 import { defaultParams } from './engine.ts'
-import type { Board, Params, SvgOptions } from './types.ts'
+import type { Board, GenerateOptions, Params, SvgOptions } from './types.ts'
 
 export interface SvgGoldenCase {
   name: string
   params: Params
-  unchecked: boolean
+  /** What generate() gets beside the knobs: the void cases carve holes, outside the envelope. */
+  gen: GenerateOptions
   opts: SvgOptions
   /** Runs on the generated board before toSvg, to reach branches the generator does not. */
   mutate?: (board: Board) => void
@@ -18,29 +19,29 @@ function clearRun(board: Board, x0: number, x1: number, y: number): void {
 }
 
 export const SVG_GOLDEN_CASES: readonly SvgGoldenCase[] = [
-  { name: 'defaults', params: defaultParams(), unchecked: false, opts: {} },
+  { name: 'defaults', params: defaultParams(), gen: {}, opts: {} },
   {
     name: 'skeleton-top',
     params: { ...defaultParams(), W: 100, H: 200, giants: 4 },
-    unchecked: false,
+    gen: {},
     opts: { cell: 12, top: 5 },
   },
   {
     name: 'colored-stick',
     params: defaultParams(),
-    unchecked: false,
+    gen: {},
     opts: { colored: true, strokeRatio: 0.7, headWidth: 0.9, headHeight: 1.1 },
   },
   {
     name: 'thin-narrow-head',
     params: defaultParams(),
-    unchecked: false,
+    gen: {},
     opts: { strokeRatio: 0.3, headWidth: 0.2 },
   },
   {
     name: 'voids',
-    params: { ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.1 },
-    unchecked: true,
+    params: { ...defaultParams(), W: 40, H: 40, seed: 1 },
+    gen: { unchecked: true, voidFrac: 0.1 },
     opts: { voids: true, cell: 8 },
   },
   // voidFrac punches holes as owner -2, which the void strips never draw: only
@@ -48,8 +49,8 @@ export const SVG_GOLDEN_CASES: readonly SvgGoldenCase[] = [
   // runs of different lengths on one row, a third row and a lone corner cell.
   {
     name: 'voids-strips',
-    params: { ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.1 },
-    unchecked: true,
+    params: { ...defaultParams(), W: 40, H: 40, seed: 1 },
+    gen: { unchecked: true, voidFrac: 0.1 },
     opts: { voids: true, cell: 8 },
     mutate: (board) => {
       clearRun(board, 1, 3, 0)

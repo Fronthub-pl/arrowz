@@ -297,18 +297,61 @@ function draw(key: ParamKey, range: Range, rng: (() => number) | null): number {
 /**
  * Full engine parameters for a choice. With `rng` (a function returning
  * [0, 1)) every ranged knob is drawn inside its range; without it the
- * canonical values are used.
+ * canonical values are used. A knob named in `pins` is not drawn at all —
+ * the value given is the caller's word — while the rest of its bundle keeps
+ * being drawn around it.
  */
-export function simpleParams(choice: SimpleChoice, rng: (() => number) | null = null): Params {
+export function simpleParams(
+  choice: SimpleChoice,
+  rng: (() => number) | null = null,
+  pins: Partial<Record<ParamKey, number>> = {},
+): Params {
   const c = normalizeChoice(choice)
   const p: Params = { ...defaultParams(), W: c.W, H: c.H, seed: c.seed }
   const ranges = simpleRanges(c)
   for (const key of anchorKeys(ranges)) {
+    const pinnedValue = pins[key]
+    if (pinnedValue !== undefined) {
+      p[key] = pinnedValue
+      continue
+    }
     const range = ranges[key]
     if (range) p[key] = draw(key, range, rng)
   }
-  // The engine caps short + medium at 0.9; the ranges respect it at the
-  // anchors, but a draw near the short end can land a hair above.
-  if (p.wShort + p.wMid > 0.9) p.wMid = Number((0.9 - p.wShort).toFixed(6))
+  // A pin on a knob no slider controls (Lmax, restarts, ...) counts too.
+  for (const [key, value] of Object.entries(pins)) {
+    if (value !== undefined) p[key as ParamKey] = value
+  }
+  // The engine caps short + medium at 0.9. A pinned share is the caller's
+  // word, so the clamp moves the other one; with both pinned it moves neither
+  // and the envelope refuses the pair, identically on every seed.
+  if (p.wShort + p.wMid > 0.9) {
+    if (pins.wMid === undefined) p.wMid = Number((0.9 - p.wShort).toFixed(6))
+    else if (pins.wShort === undefined) p.wShort = Number((0.9 - p.wMid).toFixed(6))
+  }
   return p
+}
+
+/** The CLI's vocabulary for the simple choice: the recommended entry point for an application. */
+export function presetParams(
+  { W, H, seed, length, winding, skeleton, rng }: {
+    W: number
+    H: number
+    seed?: number
+    length?: number
+    winding?: number
+    skeleton?: boolean
+    rng?: () => number
+  },
+): Params {
+  const d = defaultChoice()
+  return simpleParams({
+    W,
+    H,
+    seed: seed ?? d.seed,
+    lengths: length ?? d.lengths,
+    // `winding` is the shape slider itself: 0 = straightest lines.
+    shape: winding ?? d.shape,
+    skeleton: skeleton ? 'on' : 'off',
+  }, rng ?? null)
 }

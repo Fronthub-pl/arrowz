@@ -82,11 +82,10 @@ type Checked<T> = { ok: T } | { error: string }
 type Metrics = NonNullable<SaveInput['metrics']>
 
 /**
- * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: ruleB,
- * voidFrac and keys the engine does not know keep their defaults, and the
- * result must pass the engine's envelope, so the store holds only boards the
- * engine would generate. The seed goes into file names; a string or a
- * fraction never gets that far.
+ * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: a key the
+ * engine does not know is dropped, and the result must pass the engine's
+ * envelope, so the store holds only boards the engine would generate. The
+ * seed goes into file names; a string or a fraction never gets that far.
  */
 function checkParams(v: unknown): Checked<Params> {
   if (!isRec(v)) return { error: 'params are required' }

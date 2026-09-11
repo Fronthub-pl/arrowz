@@ -2,7 +2,7 @@
 //
 // The prototype is disposable code, but the generator must close boards up to 200×200
 // without failures — these tests guard that, not eyeballing in the laboratory.
-import { assert, assertEquals, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertNotEquals, assertThrows } from '@std/assert'
 import {
   analyse,
   Carver,
@@ -266,11 +266,10 @@ Deno.test('generate: after three missed head scans in a row the jam is left to b
     W: 40,
     H: 40,
     seed: 1,
-    voidFrac: 0.25,
     absorbLimit: 0,
     restarts: 0,
     maxBack: 20,
-  }, { unchecked: true })
+  }, { unchecked: true, voidFrac: 0.25 })
   assertEquals(r.ok, false)
   assertEquals(r.backtracks, 20)
   assertEquals(r.board.stats.headScanHits ?? 0, 0)
@@ -292,11 +291,10 @@ Deno.test('generate: head scans in one attempt are limited to the backtrack budg
     W: 80,
     H: 80,
     seed: 4,
-    voidFrac: 0.3,
     absorbLimit: 0,
     restarts: 0,
     maxBack: 20,
-  }, { unchecked: true })
+  }, { unchecked: true, voidFrac: 0.3 })
   assertEquals(r.ok, false)
   assertEquals(r.backtracks, 20)
   assert((r.board.stats.headScanHits ?? 0) > 0, 'the case should have scan hits')
@@ -312,8 +310,9 @@ Deno.test('generate: a jam reports how many legal heads were left at the best mo
   // absorbLimit 0 is outside the safe envelope (it lets leftovers pile up),
   // which is exactly what this test needs: `unchecked` is the escape hatch for
   // engine-internal tests that want a jam on purpose.
-  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, voidFrac: 0.5, absorbLimit: 0, restarts: 0 }, {
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1, absorbLimit: 0, restarts: 0 }, {
     unchecked: true,
+    voidFrac: 0.5,
   })
   assertEquals(r.ok, false)
   assert(r.stuck, 'a failed run reports where it got stuck')
@@ -888,9 +887,34 @@ Deno.test('toSvg highlights half a million pieces without overflowing the stack'
 Deno.test('the Carver refuses a void fraction outside [0, 1)', () => {
   for (const voidFrac of [-0.1, 1, 2, Number.NaN]) {
     assertThrows(
-      () => generate({ ...defaultParams(), W: 10, H: 10, voidFrac }, { unchecked: true }),
+      () => generate({ ...defaultParams(), W: 10, H: 10 }, { unchecked: true, voidFrac }),
       RangeError,
       'voidFrac',
     )
   }
+})
+
+Deno.test('generate takes a partial parameter set and its hooks in the options', () => {
+  // The debug hook rather than the trace: the trace fires on a wall clock
+  // (250 ms into the run, then once a second), so a board small enough to
+  // keep this test quick would never report — measured, a 20×20 closes in
+  // 39 ms and traces zero times. A skeleton makes the carver narrate every
+  // giant piece instead, which is deterministic. The trace hook in the
+  // options is what abort.test.ts drives.
+  const seen: string[] = []
+  const r = generate({ W: 20, H: 20, seed: 5, giants: 2 }, { debug: (msg) => seen.push(msg) })
+  assertEquals(r.ok, true)
+  assert(seen.length > 0, 'the debug hook ran')
+  // The knobs left out are the defaults, and a hook changes no board.
+  const same = generate({ ...defaultParams(), W: 20, H: 20, seed: 5, giants: 2 })
+  assertEquals(fingerprint(r.board), fingerprint(same.board))
+})
+
+Deno.test('voidFrac and ruleB live in the options, not in the parameters', () => {
+  const r = generate({ W: 40, H: 40, seed: 1 }, { unchecked: true, voidFrac: 0.1 })
+  assert(r.board.owner.some((o) => o === -2), 'voids were carved')
+  // Rule B is the carver's ray test: switching it off is a different board.
+  const on = generate({ W: 40, H: 40, seed: 1 })
+  const off = generate({ W: 40, H: 40, seed: 1 }, { ruleB: false })
+  assertNotEquals(fingerprint(on.board), fingerprint(off.board), 'ruleB reaches the carver')
 })

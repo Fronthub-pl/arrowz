@@ -9,6 +9,7 @@ import type {
   BoardData,
   CarverStats,
   Cell,
+  GenerateOptions,
   GenerateResult,
   HistBucket,
   InactiveKey,
@@ -82,11 +83,28 @@ function mulberry32(seed: number): () => number {
 
 // ---------------------------------------------------------------- board
 
+/**
+ * What a carver needs beside the knobs: generate()'s hooks and the two
+ * test-only switches. `undefined` is spelled out rather than left to the
+ * optional marker, so generate() can hand over hooks it may not have
+ * (exactOptionalPropertyTypes).
+ */
+type CarverOptions = {
+  trace?: ((info: TraceInfo) => void) | undefined
+  debug?: ((msg: string) => void) | undefined
+  voidFrac?: number | undefined
+  ruleB?: boolean | undefined
+}
+
 class Carver implements Board {
   W: number
   H: number
   p: Params
   rng: () => number
+  // The hooks and the metrics switch of generate(); only knobs live in `p`.
+  trace: ((info: TraceInfo) => void) | undefined
+  debug: ((msg: string) => void) | undefined
+  ruleB: boolean
   owner: Int32Array
   pieces: Piece[]
   remaining: number
@@ -116,22 +134,26 @@ class Carver implements Board {
   stuckSizes?: number[]
   stuckHeads?: number
 
-  constructor(W: number, H: number, params: Params, rng: () => number) {
+  constructor(W: number, H: number, params: Params, rng: () => number, opts: CarverOptions = {}) {
     this.W = W
     this.H = H
     this.p = params
     this.rng = rng
+    this.trace = opts.trace
+    this.debug = opts.debug
+    this.ruleB = opts.ruleB ?? true
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
+    const voidFrac = opts.voidFrac ?? 0
     // More voids than cells would never be placed and the loop below would not
     // end; the unchecked path skips validateParams, so the guard lives here.
-    if (!(params.voidFrac >= 0 && params.voidFrac < 1)) {
-      throw new RangeError(`voidFrac ${params.voidFrac} is outside [0, 1)`)
+    if (!(voidFrac >= 0 && voidFrac < 1)) {
+      throw new RangeError(`voidFrac ${voidFrac} is outside [0, 1)`)
     }
-    if (params.voidFrac > 0) {
+    if (voidFrac > 0) {
       let v = 0
-      const target = Math.round(W * H * params.voidFrac)
+      const target = Math.round(W * H * voidFrac)
       while (v < target) {
         const i = Math.floor(rng() * W * H)
         if (this.owner[i] === -1) {
@@ -1019,7 +1041,7 @@ class Carver implements Board {
               if (!this.inside(nx, ny)) continue
               const i = this.idx(nx, ny)
               if (this.owner[i] !== -1 || pathSet.has(i)) continue
-              if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
+              if (!this.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
               // Moving INWARD (along -d) is always legal, but it cuts the path off
               // from the frontier and thus from any future bends. Moving SIDEWAYS is
               // legal only at the level of the neighbouring line's frontier — and it
@@ -1117,9 +1139,9 @@ class Carver implements Board {
           }
 
           if (path.length < 2) continue
-          if (isGiant && this.p.debug) {
+          if (isGiant && this.debug) {
             const grew = path.length
-            this.p.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
+            this.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
           }
           this.stats.want += want
           this.stats.n++
@@ -1132,8 +1154,8 @@ class Carver implements Board {
             if (!this.shortenPath(path, failed)) continue
             this.stats.strandTrunc++
             this.stats.strandLoss += beforeStrand - path.length
-            if (isGiant && this.p.debug) {
-              this.p.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
+            if (isGiant && this.debug) {
+              this.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
             }
           }
           this.stats.got += path.length
@@ -1648,7 +1670,7 @@ class Carver implements Board {
       // a thrash the piece count circles one value and may miss every
       // multiple of 500 for minutes, which would silence the lab's progress
       // and a time budget that aborts from this callback.
-      if (this.p.trace && performance.now() - lastLog > (this.pieces.length % 500 === 0 ? 250 : 1000)) {
+      if (this.trace && performance.now() - lastLog > (this.pieces.length % 500 === 0 ? 250 : 1000)) {
         lastLog = performance.now()
         const info: TraceInfo = {
           pieces: this.pieces.length,
@@ -1657,7 +1679,7 @@ class Carver implements Board {
           ms: lastLog - t0,
           total: this.W * this.H,
         }
-        this.p.trace(info)
+        this.trace(info)
       }
       if (this.carveOne()) continue
       // Before undoing anything, try absorbing the leftovers with a neighbour's
@@ -2359,6 +2381,7 @@ const PARAM_TABLE = [
     inactive: skeletonOff,
     help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
   },
+
   {
     key: 'headTries',
     label: 'start attempts per direction',
@@ -2426,7 +2449,7 @@ export const INACTIVE_REASONS: Record<InactiveKey, string> = {
 export function defaultParams(): Params {
   // The one cast of the engine: the loop below fills every ParamKey (the
   // type-level assertion above guarantees the table has them all).
-  const p = { ruleB: true, voidFrac: 0 } as Params
+  const p = {} as Params
   for (const s of PARAM_SPEC) p[s.key] = s.def
   return p
 }
@@ -2458,8 +2481,8 @@ export const RULE_REASONS: Record<RuleKey, string> = {
  * valid, otherwise one entry per problem: every PARAM_SPEC key whose value is
  * not a finite number inside [min, max] gives
  * { kind: 'range', key, value, min, max }, and every RULES entry that fails
- * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC (ruleB, voidFrac,
- * trace, debug) are ignored; step alignment is not checked.
+ * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC are ignored;
+ * step alignment is not checked.
  */
 export function validateParams(params: Params): Violation[] {
   const out: Violation[] = []
@@ -2496,7 +2519,9 @@ export class InvalidParamsError extends RangeError {
 /**
  * Generates a board: carves until it succeeds, restarting with a derived seed
  * on failure. Returns the board, metrics and the run — also on failure, so
- * that the lab has something to show. The merged parameters must sit inside
+ * that the lab has something to show. A knob left out of `params` takes its
+ * default, and everything that is not a knob — the hooks, the test-only
+ * `voidFrac` and `ruleB` — rides in `opts`. The merged parameters must sit inside
  * the safe envelope (validateParams), otherwise a RangeError with
  * `violations` attached is thrown before any carving starts. `unchecked`
  * skips that check; it exists for engine-internal tests only.
@@ -2514,8 +2539,9 @@ export class GenerateAbort extends Error {
   }
 }
 
-export function generate(params: Params, { unchecked = false }: { unchecked?: boolean } = {}): GenerateResult {
+export function generate(params: Partial<Params>, opts: GenerateOptions = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
+  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true } = opts
   if (!unchecked) {
     const violations = validateParams(p)
     if (violations.length) throw new InvalidParamsError(violations)
@@ -2527,7 +2553,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
   let aborted = false
   for (let attempt = 0; attempt <= p.restarts && !ok && !aborted; attempt++) {
     used = attempt
-    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
+    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
     try {
       ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
     } catch (err) {
@@ -2539,7 +2565,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
   if (!carver) throw new Error('generate: no attempt ran')
   const genMs = performance.now() - t0
   const t1 = performance.now()
-  const metrics = carver.pieces.length ? analyse(carver, p.ruleB) : null
+  const metrics = carver.pieces.length ? analyse(carver, ruleB) : null
   return {
     board: carver,
     metrics,

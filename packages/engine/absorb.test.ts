@@ -127,7 +127,15 @@ class RefCarver extends Carver {
 }
 
 /** One family of settings: a name, a square side, the seeds and the knobs over the defaults. */
-type Family = { name: string; side: number; seeds: number[]; params: Partial<Params>; backtracks?: boolean }
+type Family = {
+  name: string
+  side: number
+  seeds: number[]
+  params: Partial<Params>
+  /** Voids present from construction: a generate() option now, not a knob. */
+  voidFrac?: number
+  backtracks?: boolean
+}
 
 // Absorption only runs when no head yields a path, which on boards this small
 // almost never happens inside the safe envelope: the settings below starve
@@ -161,19 +169,22 @@ const FAMILIES: Family[] = [
     name: 'voids',
     side: 60,
     seeds: [1, 2, 3, 4],
-    params: { ...H1, voidFrac: 0.05, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+    params: { ...H1, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+    voidFrac: 0.05,
   },
   {
     name: 'voids, more of them',
     side: 60,
     seeds: [1, 2, 3, 4],
-    params: { ...H1, voidFrac: 0.1, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+    params: { ...H1, pStraight: 0.2, warns: 2, maxBack: 50, restarts: 1 },
+    voidFrac: 0.1,
   },
   {
     name: 'voids that backtrack',
     side: 40,
     seeds: [1, 4, 5],
-    params: { voidFrac: 0.2, restarts: 1, maxBack: 50 },
+    params: { restarts: 1, maxBack: 50 },
+    voidFrac: 0.2,
     backtracks: true,
   },
   {
@@ -207,12 +218,12 @@ type RunResult = {
 // The generation loop of generate(), with the carver class as a parameter and
 // the statistics summed over the attempts (generate() reports only the last
 // carver; an absorption in a failed attempt must agree too).
-function runLoop(Cls: typeof Carver, p: Params): RunResult {
+function runLoop(Cls: typeof Carver, p: Params, voidFrac = 0): RunResult {
   let ok = false
   let carver: Carver | null = null
   const out: RunResult = { attempts: 0, absorbs: 0, absorbed: 0, backtracks: 0, scanned: 0, ok: false, fp: '' }
   for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
-    carver = new Cls(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
+    carver = new Cls(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { voidFrac })
     ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
     out.attempts++
     out.absorbs += carver.stats.absorbs ?? 0
@@ -260,8 +271,8 @@ Deno.test('absorbLeftover: the incremental scan makes the same absorbPath calls 
     const fam = { absorbs: 0, absorbed: 0, backtracks: 0, calls: 0, attempts: 0 }
     for (const seed of f.seeds) {
       const p: Params = { ...defaultParams(), W: f.side, H: f.side, seed, ...f.params }
-      const ref = recordAbsorbPaths(() => runLoop(RefCarver, p))
-      const got = recordAbsorbPaths(() => runLoop(Carver, p))
+      const ref = recordAbsorbPaths(() => runLoop(RefCarver, p, f.voidFrac))
+      const got = recordAbsorbPaths(() => runLoop(Carver, p, f.voidFrac))
       const name = label(f, seed)
       assertEquals(got.result.fp, ref.result.fp, `${name}: fingerprint`)
       assertEquals(got.result.ok, ref.result.ok, `${name}: closed`)

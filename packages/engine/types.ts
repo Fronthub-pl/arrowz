@@ -43,13 +43,19 @@ export interface TraceInfo {
   total: number
 }
 
-/** A full engine parameter set: every knob, the two engine-only fields, and the optional hooks. */
-export type Params = Record<ParamKey, number> & {
-  ruleB: boolean
-  voidFrac: number
+/** What generate() takes beside the knobs: the envelope switch, the hooks, and two test-only fields. */
+export interface GenerateOptions {
+  unchecked?: boolean
   trace?: (info: TraceInfo) => void
   debug?: (msg: string) => void
+  /** Test-only: the share of cells left as voids, in [0, 1). */
+  voidFrac?: number
+  /** Test-only: rule B of the metrics pass. */
+  ruleB?: boolean
 }
+
+/** A full engine parameter set: the knobs of PARAM_SPEC and nothing else. */
+export type Params = Record<ParamKey, number>
 
 export interface ParamSpec {
   key: ParamKey

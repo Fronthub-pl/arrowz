@@ -28,18 +28,14 @@
 // any generation, in every mode, with exit code 2. A board that does not
 // close is stored too (its preview draws the holes), and the exit code is 1;
 // CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
-import type { BoardMeta, CarverStats, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
+import type { BoardMeta, CarverStats, GenerateOptions, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
-  analyse,
-  Carver,
   DIRS,
   encodeBoard,
   fingerprint,
   formatViolation,
   generate,
   GenerateAbort,
-  mulberry32,
-  render,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
@@ -54,13 +50,16 @@ import {
   svgOptions,
 } from '@arrowz/engine/command'
 import { simpleParams } from '@arrowz/engine/simple'
+// The report and bench sections build a carver by hand; those four are engine
+// internals, not part of its public surface, so they come from its sources.
+import { analyse, Carver, mulberry32, render } from '../engine/engine.ts'
 import { saveBoard } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).
 if (!import.meta.main) throw new Error('carve.ts is the CLI entry point; import command.ts or the engine instead')
 
 // Trace and debug enter the engine as functions — the engine knows no `Deno`.
-// Left undefined (not null) so they fit the optional hooks of Params.
+// Left undefined (not null) so they fit the optional hooks of GenerateOptions.
 // CARVE_TIMEOUT_S is a wall-clock budget for measurements: the engine calls
 // the trace at least once a second, and past the deadline the callback
 // aborts the run; the board carved so far still goes to the store.
@@ -88,8 +87,8 @@ const trace = traceOn || timeoutS !== null
   }
   : undefined
 const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) : undefined
-/** The hooks as they are spread into a parameter set: only the ones that are on. */
-const hooks: Pick<Params, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
+/** The hooks as generate() takes them, beside the knobs: only the ones that are on. */
+const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
 
 // --advanced selects the full knob set and every mode; the flag itself is not
 // a parameter, so it is taken off argv before the parser sees it. Without it
@@ -225,7 +224,7 @@ if (!advanced || svgFlag || has('board') || dryRun) {
       tried++
       const pick = forSeed(seed)
       armDeadline()
-      const result = generate({ ...pick.params, ...hooks })
+      const result = generate(pick.params, hooks)
       if (!result.ok) {
         skipped.push(seed)
         console.error(`seed ${seed}: not closed (${result.stuck?.remaining ?? '?'} cells left), skipped`)
@@ -251,7 +250,7 @@ if (!advanced || svgFlag || has('board') || dryRun) {
     console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}`)
     Deno.exit(written === count ? 0 : 1)
   }
-  const result = generate({ ...params, ...hooks })
+  const result = generate(params, hooks)
   const c = result.board, W = params.W, H = params.H
   const svgView = svgOptions(view)
   const file = encodeBoard(c)
@@ -459,14 +458,14 @@ if (bench > 0) {
     const times: number[] = [], backs: number[] = [], lens: number[] = [], maxLens: number[] = []
     let fails = 0, restartsTotal = 0
     for (let r = 0; r < bench; r++) {
-      const run: Params = { ...params, W: pre.W, H: pre.H, ...hooks }
+      const run: Params = { ...params, W: pre.W, H: pre.H }
       const t0 = performance.now()
       const seed = 50000 + r
-      let c = new Carver(pre.W, pre.H, run, mulberry32(seed))
+      let c = new Carver(pre.W, pre.H, run, mulberry32(seed), hooks)
       let ok = c.run(), rs = 0
       while (!ok && rs < 5) {
         rs++
-        c = new Carver(pre.W, pre.H, run, mulberry32(seed + 999983 * rs))
+        c = new Carver(pre.W, pre.H, run, mulberry32(seed + 999983 * rs), hooks)
         ok = c.run()
       }
       const dt = performance.now() - t0
@@ -514,14 +513,14 @@ for (const pre of presets) {
   for (let r = 0; r < runs; r++) {
     const seed = 1000 + r
     const rng = mulberry32(seed)
-    const run: Params = { ...params, W: pre.W, H: pre.H, ...hooks }
+    const run: Params = { ...params, W: pre.W, H: pre.H }
     const t0 = performance.now()
-    let c = new Carver(pre.W, pre.H, run, rng)
+    let c = new Carver(pre.W, pre.H, run, rng, hooks)
     let ok = c.run()
     let restarts = 0
     while (!ok && restarts < 3) {
       restarts++
-      c = new Carver(pre.W, pre.H, run, mulberry32(seed + 7777 * restarts))
+      c = new Carver(pre.W, pre.H, run, mulberry32(seed + 7777 * restarts), hooks)
       ok = c.run()
     }
     const tGen = performance.now() - t0
@@ -552,7 +551,7 @@ for (const pre of presets) {
       continue
     }
     const t1 = performance.now()
-    const m = analyse(c, run.ruleB)
+    const m = analyse(c)
     const tAna = performance.now() - t1
     acc.push({ ...m, tGen, tAna, backtracks: c.backtracks, restarts, st: c.stats })
     if (show && r === 0 && pre.W <= 40) console.log(render(c) + '\n')
