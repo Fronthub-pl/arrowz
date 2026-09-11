@@ -851,4 +851,10 @@ describe('nonsense in, a drawable board out', () => {
     expect(corners).toBeGreaterThan(20)
     expect(magenta).toBe(0)
   })
+
+  test('a point radius that is not a number keeps its attribute, and draws the default radius', async () => {
+    await mount({ 'show-points': '', 'point-radius': 'abc' })
+    expect(el.getAttribute('point-radius')).toBe('abc')
+    expect(allFinite(el.viewport)).toBe(true)
+  })
 })

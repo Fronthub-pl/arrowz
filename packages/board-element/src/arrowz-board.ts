@@ -81,16 +81,16 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
     play: { type: Boolean, reflect: true },
-    // useDefault: the constructor's initial value must not be the one Lit
-    // reflects back once an attribute has since corrected the property to
-    // something else (a plain `reflect: true` schedules that reflection at
-    // construction time, before any attribute is read, and flushes it with
-    // whatever the property holds by the first update — see the "nonsense"
-    // pad test).
+    // useDefault, here and on pointRadius below: the constructor's initial
+    // value must not be the one Lit reflects back once an attribute has
+    // since corrected the property to something else (a plain
+    // `reflect: true` schedules that reflection at construction time, before
+    // any attribute is read, and flushes it with whatever the property holds
+    // by the first update — see the "nonsense" pad and point-radius tests).
     pad: { type: Number, reflect: true, useDefault: true },
     showPoints: { type: Boolean, reflect: true, attribute: 'show-points' },
     pointColor: { type: String, reflect: true, attribute: 'point-color' },
-    pointRadius: { type: Number, reflect: true, attribute: 'point-radius' },
+    pointRadius: { type: Number, reflect: true, attribute: 'point-radius', useDefault: true },
     // No accessor: the native HTMLElement.lang stays in force, so the property
     // and the attribute never disagree (`:lang()`, hyphenation and assistive
     // tech read the attribute). attributeChangedCallback below asks for the
