@@ -6,8 +6,17 @@ export interface BoardLabels {
   zoomIn: string
   zoomOut: string
   fit: string
-  panHintMac: string
-  panHintOther: string
+  /** The hint on a board that only pans: a plain drag. */
+  dragHint: string
+  /** The hint on a playable board in `drag` mode. */
+  dragPlayHintMac: string
+  dragPlayHintOther: string
+  /** The hint in `click` mode, today's rule: the modifier pans. */
+  clickHintMac: string
+  clickHintOther: string
+  /** The gesture switch: pressed means a plain click plays. */
+  gesturesMac: string
+  gesturesOther: string
   colors: string
   /** Shown in place of the board when the browser gives no WebGL2 context. */
   noWebgl: string
@@ -18,8 +27,13 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     fit: 'Fit the board',
-    panHintMac: 'Hold ⌘ and drag to pan',
-    panHintOther: 'Hold Ctrl and drag to pan',
+    dragHint: 'Drag to pan',
+    dragPlayHintMac: 'Drag to pan · ⌘-click to play',
+    dragPlayHintOther: 'Drag to pan · Ctrl-click to play',
+    clickHintMac: 'Hold ⌘ and drag to pan',
+    clickHintOther: 'Hold Ctrl and drag to pan',
+    gesturesMac: 'Click plays without ⌘',
+    gesturesOther: 'Click plays without Ctrl',
     colors: 'Piece colours',
     noWebgl: 'This browser cannot draw the board: WebGL2 is unavailable.',
   },
@@ -27,8 +41,13 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     zoomIn: 'Powiększ',
     zoomOut: 'Pomniejsz',
     fit: 'Dopasuj planszę',
-    panHintMac: 'Przytrzymaj ⌘ i przeciągnij, aby przesunąć',
-    panHintOther: 'Przytrzymaj Ctrl i przeciągnij, aby przesunąć',
+    dragHint: 'Przeciągnij, aby przesunąć',
+    dragPlayHintMac: 'Przeciągnij, aby przesunąć · ⌘ + klik gra',
+    dragPlayHintOther: 'Przeciągnij, aby przesunąć · Ctrl + klik gra',
+    clickHintMac: 'Przytrzymaj ⌘ i przeciągnij, aby przesunąć',
+    clickHintOther: 'Przytrzymaj Ctrl i przeciągnij, aby przesunąć',
+    gesturesMac: 'Klik gra bez ⌘',
+    gesturesOther: 'Klik gra bez Ctrl',
     colors: 'Kolory figur',
     noWebgl: 'Ta przeglądarka nie narysuje planszy: WebGL2 jest niedostępny.',
   },

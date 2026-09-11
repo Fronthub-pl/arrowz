@@ -6,9 +6,9 @@
 import { css, html, LitElement, type PropertyValues } from 'lit'
 import type { Board, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
-import { GestureMachine, type Intent, type PointerSample } from './gestures.ts'
+import { GestureMachine, type GestureMode, type Intent, type PointerSample } from './gestures.ts'
 import { GlLayer } from './gl-layer.ts'
-import { labelsFor } from './i18n.ts'
+import { type BoardLabels, labelsFor } from './i18n.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
 
@@ -43,6 +43,25 @@ export const DEFAULT_SHOW_POINTS = false
 export const DEFAULT_POINT_COLOR = '#c9c9d6'
 /** Default of `pointRadius`: the point grid's dot radius, in cells. */
 export const DEFAULT_POINT_RADIUS = 0.06
+/** Where the player's gesture choice is kept, per origin: `'drag'` or `'click'`. */
+export const GESTURE_STORAGE_KEY = 'arrowz-board.gestures'
+
+/** The stored choice; anything unreadable or unknown is `drag`, the default. */
+function storedMode(): GestureMode {
+  try {
+    return globalThis.localStorage?.getItem(GESTURE_STORAGE_KEY) === 'click' ? 'click' : 'drag'
+  } catch {
+    return 'drag' // storage refused (a sandboxed frame): the default
+  }
+}
+
+function storeMode(mode: GestureMode): void {
+  try {
+    globalThis.localStorage?.setItem(GESTURE_STORAGE_KEY, mode)
+  } catch {
+    // Private mode or a sandboxed frame: the choice lasts as long as the page.
+  }
+}
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
@@ -69,6 +88,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     lang: { type: String, noAccessor: true },
     enableColors: { type: Boolean, reflect: true, attribute: 'enable-colors' },
     coloredOverride: { state: true },
+    chosenMode: { state: true },
   }
 
   declare board: Board | null
@@ -88,6 +108,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   declare enableColors: boolean
   /** The button's choice; null while the board still follows `view.colored`. */
   declare coloredOverride: boolean | null
+  /** The player's gesture choice, from storage on connect and from the switch after. */
+  declare chosenMode: GestureMode
 
   static styles = css`
     :host {
@@ -159,8 +181,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     button:hover {
       background: #eef;
     }
+    button[aria-pressed='true'] {
+      background: #dde;
+    }
     @media (pointer: coarse) {
-      .hint {
+      .hint,
+      .gestures {
         display: none;
       }
     }
@@ -181,15 +207,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private acquired = false
   /** Waits for the board to be visible after the browser took its context; see `watchForRevival`. */
   private revival: IntersectionObserver | null = null
-  // Today's rule until the player's choice is wired in: `click` mode.
-  private readonly gestures = new GestureMachine('click')
+  private readonly gestures = new GestureMachine()
   private readonly game = new GameHost(this)
   private vp: Viewport | null = null
   private observer: ResizeObserver | null = null
   /** Set while a disconnect waits to see whether it was only a move; see `disconnectedCallback`. */
   private disposeQueued = false
-  /** Where the pointer last was, to put the piece cursor back when the modifier goes up. */
+  /** Where the pointer last was, to redraw the cursor when the modifier changes without a move. */
   private lastPointer: { x: number; y: number } | null = null
+  private modifierHeld = false
   private hostWidth = 0
   private hostHeight = 0
   private changeQueued = false
@@ -206,6 +232,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.pointRadius = DEFAULT_POINT_RADIUS
     this.enableColors = false
     this.coloredOverride = null
+    this.chosenMode = 'drag'
     const canvas = this.layer.canvas
     canvas.addEventListener('pointerenter', this.onPointerEnter)
     canvas.addEventListener('pointerleave', this.onPointerLeave)
@@ -213,6 +240,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     canvas.addEventListener('pointermove', this.onPointerMove)
     canvas.addEventListener('pointerup', this.onPointerUp)
     canvas.addEventListener('pointercancel', this.onPointerCancel)
+    canvas.addEventListener('contextmenu', this.onContextMenu)
     // Not passive: the browser zoom must not fire on Ctrl/⌘ + wheel.
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
     this.addEventListener('keydown', this.onKeyDown)
@@ -238,6 +266,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   override connectedCallback(): void {
     super.connectedCallback()
+    this.chosenMode = storedMode()
     // Back before the queued disposal ran: this was a move, not a removal.
     this.disposeQueued = false
     // The first connect: the layer takes its very first context here, at once.
@@ -312,7 +341,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     return html`
       ${this.hasWebgl ? this.layer.canvas : html`<p class="unsupported">${l.noWebgl}</p>`}
       <div class="chrome">
-        <span class="hint">${isMac ? l.panHintMac : l.panHintOther}</span>
+        <span class="hint">${this.hint(l)}</span>
         <button type="button" title=${l.zoomIn} aria-label=${l.zoomIn} @click=${() => this.zoomBy(ZOOM_STEP)}>+</button>
         <button type="button" title=${l.zoomOut} aria-label=${l.zoomOut} @click=${() =>
           this.zoomBy(1 / ZOOM_STEP)}>−</button>
@@ -329,11 +358,37 @@ export class ArrowzBoard extends LitElement implements GameTarget {
             >◑</button>
           `
           : ''}
+        ${this.playable
+          ? html`
+            <button
+              type="button"
+              class="gestures"
+              title=${isMac ? l.gesturesMac : l.gesturesOther}
+              aria-label=${isMac ? l.gesturesMac : l.gesturesOther}
+              aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
+              @click=${this.toggleGestures}
+            >☝</button>
+          `
+          : ''}
       </div>
     `
   }
 
+  private hint(l: BoardLabels): string {
+    if (this.gestureMode === 'click') return isMac ? l.clickHintMac : l.clickHintOther
+    if (!this.playable) return l.dragHint
+    return isMac ? l.dragPlayHintMac : l.dragPlayHintOther
+  }
+
+  private readonly toggleGestures = (): void => {
+    this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
+    storeMode(this.chosenMode)
+  }
+
   override updated(changed: PropertyValues<this>): void {
+    // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
+    this.gestures.mode = this.gestureMode
+    if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
     // Independent of everything below: the grid lives in its own two nodes,
     // and re-reading `this.vp` here is what lets a plain colour or radius
     // change (no board, no viewport move) still repaint it.
@@ -378,6 +433,16 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   /** How many pieces the layer is drawing; the board's own count, not the DOM's. */
   get pieceCount(): number {
     return this.layer.pieceCount
+  }
+
+  /** The rule the mouse and pen follow now: the player's choice on a playable board, `drag` otherwise. */
+  get gestureMode(): GestureMode {
+    return this.playable ? this.chosenMode : 'drag'
+  }
+
+  /** Whether a click can do anything: a board that only pans has only panning to choose. */
+  private get playable(): boolean {
+    return this.play || this.interactive
   }
 
   fit(): void {
@@ -544,39 +609,51 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   /**
-   * The grab cursor while the modifier is held, before any button is pressed.
-   *
-   * The modifier decides what the next click does — pan, not play — so the
-   * cursor has to answer before the click, and the piece cursor has to go while
-   * it is held: leaving it would promise a move the click will not make. The
-   * key events are taken from the window, because the board is not necessarily
-   * focused when someone puts their hand on ⌘, and only while the pointer is
-   * over it, so a board nobody is pointing at listens to nothing.
+   * The cursor answers before the click, because the modifier decides what
+   * the next click does. In `drag` mode the board is `grab` everywhere and
+   * a piece shows `pointer` only while the modifier is held — only then
+   * does a click play. In `click` mode it is the other way round: the
+   * modifier turns the board to `grab` and takes the piece cursor away,
+   * which would otherwise promise a move the click will not make. The key
+   * events are taken from the window, because the board is not
+   * necessarily focused when someone puts their hand on ⌘, and only while
+   * the pointer is over it, so a board nobody is pointing at listens to
+   * nothing.
    */
-  private setPanReady(on: boolean): void {
+  private refreshCursor(): void {
+    if (this.gestures.panning) return
     const canvas = this.layer.canvas
-    if (canvas.classList.contains('pan-ready') === on) return
-    canvas.classList.toggle('pan-ready', on)
-    if (on) canvas.classList.remove('over-piece')
-    else if (this.lastPointer) {
-      canvas.classList.toggle('over-piece', this.pieceAt(this.lastPointer.x, this.lastPointer.y) !== null)
+    const p = this.lastPointer
+    if (!p) {
+      canvas.classList.remove('pan-ready', 'over-piece')
+      return
     }
+    const panReady = this.modifierHeld !== (this.gestureMode === 'drag')
+    canvas.classList.toggle('pan-ready', panReady)
+    canvas.classList.toggle('over-piece', !panReady && this.pieceAt(p.x, p.y) !== null)
+  }
+
+  private setModifier(held: boolean): void {
+    this.modifierHeld = held
+    this.refreshCursor()
   }
 
   private readonly onModifierKey = (e: KeyboardEvent): void => {
-    this.setPanReady(e.metaKey || e.ctrlKey)
+    this.setModifier(e.metaKey || e.ctrlKey)
   }
 
-  // ⌘-Tab hands the keyup to another window, so the class would stay behind.
+  // ⌘-Tab hands the keyup to another window, so the modifier would stay "held".
   private readonly onWindowBlur = (): void => {
-    this.setPanReady(false)
+    this.setModifier(false)
   }
 
   private readonly onPointerEnter = (e: PointerEvent): void => {
     globalThis.addEventListener('keydown', this.onModifierKey)
     globalThis.addEventListener('keyup', this.onModifierKey)
     globalThis.addEventListener('blur', this.onWindowBlur)
-    this.setPanReady(e.metaKey || e.ctrlKey)
+    const s = this.sample(e)
+    this.lastPointer = { x: s.x, y: s.y }
+    this.setModifier(e.metaKey || e.ctrlKey)
   }
 
   private readonly onPointerLeave = (): void => {
@@ -587,7 +664,18 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     globalThis.removeEventListener('keydown', this.onModifierKey)
     globalThis.removeEventListener('keyup', this.onModifierKey)
     globalThis.removeEventListener('blur', this.onWindowBlur)
-    this.setPanReady(false)
+    this.lastPointer = null
+    this.modifierHeld = false
+    this.refreshCursor()
+  }
+
+  /**
+   * On macOS a Ctrl click is a secondary click: the press arrives as a
+   * primary one with `ctrlKey`, then a context menu. Where that press plays,
+   * the menu stays shut; everywhere else it is the page's.
+   */
+  private readonly onContextMenu = (e: MouseEvent): void => {
+    if (e.ctrlKey && this.playable && this.gestureMode === 'drag') e.preventDefault()
   }
 
   private readonly onPointerDown = (e: PointerEvent): void => {
@@ -614,20 +702,19 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.lastPointer = { x: s.x, y: s.y }
     this.apply(this.gestures.move(s))
     if (this.gestures.panning) return
-    this.setPanReady(e.metaKey || e.ctrlKey)
-    if (!this.layer.canvas.classList.contains('pan-ready')) {
-      this.layer.canvas.classList.toggle('over-piece', this.pieceAt(s.x, s.y) !== null)
-    }
+    this.setModifier(e.metaKey || e.ctrlKey)
   }
 
   private readonly onPointerUp = (e: PointerEvent): void => {
     this.apply(this.gestures.up(this.sample(e)))
     this.layer.canvas.classList.remove('panning')
+    this.refreshCursor()
   }
 
   private readonly onPointerCancel = (e: PointerEvent): void => {
     this.gestures.cancel(e.pointerId)
     this.layer.canvas.classList.remove('panning')
+    this.refreshCursor()
   }
 
   private readonly onWheel = (e: WheelEvent): void => {

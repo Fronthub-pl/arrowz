@@ -88,7 +88,7 @@ function canvasOf(el: ArrowzBoard): HTMLCanvasElement {
   return canvas
 }
 
-/** A modifier drag over the canvas: `count` frames, reporting the time of each. */
+/** A plain drag over the canvas: `count` frames, reporting the time of each. */
 async function pan(canvas: HTMLCanvasElement, count: number): Promise<number[]> {
   const r = canvas.getBoundingClientRect()
   const ev = (type: string, x: number, y: number) =>
@@ -98,7 +98,6 @@ async function pan(canvas: HTMLCanvasElement, count: number): Promise<number[]> 
       pointerType: 'mouse',
       clientX: r.left + x,
       clientY: r.top + y,
-      ctrlKey: true,
       buttons: 1,
     })
   const frames: number[] = []
@@ -127,6 +126,7 @@ async function zoom(el: ArrowzBoard, count: number): Promise<number[]> {
 
 /** A mounted, sized element; two frames so the ResizeObserver has delivered. */
 async function mount(size: string): Promise<ArrowzBoard> {
+  localStorage.removeItem('arrowz-board.gestures')
   const el = document.createElement('arrowz-board')
   el.style.width = size
   el.style.height = size

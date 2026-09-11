@@ -7,6 +7,7 @@ import {
   DEFAULT_POINT_COLOR,
   DEFAULT_POINT_RADIUS,
   DEFAULT_SHOW_POINTS,
+  GESTURE_STORAGE_KEY,
   ZOOM_STEP,
 } from './arrowz-board.ts'
 import type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
@@ -125,8 +126,15 @@ function pointer(type: string, x: number, y: number, init: Partial<PointerEventI
   })
 }
 
+/** Mounts in the rule before 2026-09-11: a plain click plays, the modifier pans. */
+async function mountClickMode(attrs: Record<string, string> = {}): Promise<ArrowzBoard> {
+  localStorage.setItem(GESTURE_STORAGE_KEY, 'click')
+  return await mount(attrs)
+}
+
 beforeEach(() => {
   document.body.innerHTML = ''
+  localStorage.removeItem(GESTURE_STORAGE_KEY)
 })
 afterEach(() => {
   el?.remove()
@@ -228,8 +236,8 @@ describe('clicks', () => {
     const seen: PieceClickEvent[] = []
     document.addEventListener('piece-click', (e) => seen.push(e as PieceClickEvent))
     const p = headPoint(el, pc.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
     expect(seen.length).toBe(1)
     expect(seen[0]?.detail.pieceId).toBe(pc.id)
     expect(seen[0]?.composed).toBe(true)
@@ -242,34 +250,33 @@ describe('clicks', () => {
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const p = headPoint(el, pc.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2 }))
-    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { button: 2, buttons: 2, ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { button: 2, buttons: 0, ctrlKey: true }))
     expect(seen.length).toBe(0)
   })
 
-  test('no piece-click without interactive, with the modifier, or when released over another piece', async () => {
+  test('no piece-click without interactive, without the modifier, or when released over another piece', async () => {
     await mount()
     const [a, b] = el.board?.pieces ?? []
     if (!a || !b) throw new Error('need two pieces')
     const seen: Event[] = []
     document.addEventListener('piece-click', (e) => seen.push(e))
     const pa = headPoint(el, a.id), pb = headPoint(el, b.id)
-    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y, { ctrlKey: true }))
     expect(seen.length).toBe(0)
     el.interactive = true
     await el.updateComplete
-    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
-    canvasOf(el).dispatchEvent(pointer('pointermove', pa.x + 30, pa.y, { ctrlKey: true }))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x + 30, pa.y, { ctrlKey: true }))
-    expect(seen.length).toBe(0)
     canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y))
-    canvasOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pa.x, pa.y))
+    expect(seen.length).toBe(0)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', pa.x, pa.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', pb.x, pb.y, { ctrlKey: true }))
     expect(seen.length).toBe(0)
   })
 
-  test('a modifier press drops the piece cursor for the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('a modifier press drops the piece cursor for the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
@@ -283,8 +290,8 @@ describe('clicks', () => {
     expect(canvas.classList.contains('panning')).toBe(false)
   })
 
-  test('holding the modifier shows the grab cursor before any press', async () => {
-    await mount({ interactive: '' })
+  test('holding the modifier shows the grab cursor before any press (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const pc = el.board?.pieces[0]
     if (!pc) throw new Error('need a piece')
     const p = headPoint(el, pc.id)
@@ -303,15 +310,15 @@ describe('clicks', () => {
     expect(canvas.classList.contains('over-piece')).toBe(true)
   })
 
-  test('the pointer arriving with the modifier already down finds the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('the pointer arriving with the modifier already down finds the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const canvas = canvasOf(el)
     canvas.dispatchEvent(pointer('pointerenter', 150, 150, { ctrlKey: true }))
     expect(canvas.classList.contains('pan-ready')).toBe(true)
   })
 
-  test('leaving the board, or the window losing focus, drops the grab cursor', async () => {
-    await mount({ interactive: '' })
+  test('leaving the board, or the window losing focus, drops the grab cursor (click mode)', async () => {
+    await mountClickMode({ interactive: '' })
     const canvas = canvasOf(el)
     canvas.dispatchEvent(pointer('pointerenter', 150, 150, { metaKey: true }))
     expect(canvas.classList.contains('pan-ready')).toBe(true)
@@ -324,8 +331,9 @@ describe('clicks', () => {
     expect(canvas.classList.contains('pan-ready')).toBe(false)
   })
 
-  test('a modifier drag pans', async () => {
-    await mount()
+  test('a modifier drag pans (click mode)', async () => {
+    // Interactive: a board that only pans is in drag mode whatever is stored.
+    await mountClickMode({ interactive: '' })
     el.zoomBy(3)
     await raf()
     const before = el.viewport?.originX ?? 0
@@ -346,18 +354,136 @@ describe('clicks', () => {
     let clicks = 0
     el.addEventListener('piece-click', () => clicks++)
     const press = (detail: number) => {
-      canvas.dispatchEvent(pointer('pointerdown', 40, 40, { detail }))
+      canvas.dispatchEvent(pointer('pointerdown', 40, 40, { detail, ctrlKey: true }))
       // Real browsers increment `detail` per click on `pointerdown` but always
       // send 0 on the matching `pointerup` (w3c/pointerevents#98); `repeat`
       // has to be read off the down-time sample, and setting `detail` here to
       // anything else would let a regression that reads it off `up` pass too.
-      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail: 0 }))
+      canvas.dispatchEvent(pointer('pointerup', 40, 40, { detail: 0, ctrlKey: true }))
     }
     press(1)
     press(2)
     await raf()
     expect(el.viewport).toEqual(before)
     expect(clicks).toBe(1)
+  })
+
+  test('a plain drag pans, and a plain click plays nothing', async () => {
+    await mount({ play: '' })
+    el.zoomBy(3)
+    await raf()
+    const seen: Event[] = []
+    el.addEventListener('piece-click', (e) => seen.push(e))
+    const before = el.viewport?.originX ?? 0
+    const cellPx = el.viewport?.cellPx ?? 1
+    canvasOf(el).dispatchEvent(pointer('pointerdown', 150, 150))
+    canvasOf(el).dispatchEvent(pointer('pointermove', 120, 150))
+    canvasOf(el).dispatchEvent(pointer('pointerup', 120, 150))
+    await raf()
+    expect(el.viewport?.originX ?? 0).toBeCloseTo(before + 30 / cellPx, 6)
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    expect(seen.length).toBe(0)
+  })
+
+  test('in drag mode the board shows grab, and the piece cursor only while the modifier is held', async () => {
+    await mount({ play: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerenter', p.x, p.y, { buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointermove', p.x, p.y, { buttons: 0 }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
+    expect(canvas.classList.contains('over-piece')).toBe(false)
+    globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Meta', metaKey: true }))
+    expect(canvas.classList.contains('pan-ready')).toBe(false)
+    expect(canvas.classList.contains('over-piece')).toBe(true)
+    globalThis.dispatchEvent(new KeyboardEvent('keyup', { key: 'Meta' }))
+    expect(canvas.classList.contains('pan-ready')).toBe(true)
+    expect(canvas.classList.contains('over-piece')).toBe(false)
+  })
+
+  test('a Ctrl secondary click keeps its context menu shut only where it plays', async () => {
+    await mount({ play: '' })
+    const menu = (ctrlKey: boolean) => {
+      const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, ctrlKey })
+      canvasOf(el).dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    expect(menu(true)).toBe(true)
+    expect(menu(false)).toBe(false)
+    el.removeAttribute('play')
+    await el.updateComplete
+    expect(menu(true)).toBe(false)
+  })
+})
+
+describe('the gesture switch', () => {
+  const switchOf = (e: ArrowzBoard) => e.shadowRoot?.querySelector<HTMLButtonElement>('button.gestures') ?? null
+  const hintOf = (e: ArrowzBoard) => e.shadowRoot?.querySelector('.hint')?.textContent ?? ''
+  const mac = /Mac/.test(navigator.platform)
+
+  test('a board that only pans has no switch, is in drag mode, and says so', async () => {
+    localStorage.setItem(GESTURE_STORAGE_KEY, 'click')
+    await mount()
+    expect(switchOf(el)).toBeNull()
+    expect(el.gestureMode).toBe('drag')
+    expect(hintOf(el)).toBe('Drag to pan')
+  })
+
+  test('a playable board starts in drag mode with the switch released', async () => {
+    await mount({ play: '' })
+    const button = switchOf(el)
+    expect(button).not.toBeNull()
+    expect(button?.getAttribute('aria-pressed')).toBe('false')
+    expect(button?.getAttribute('title')).toBe(mac ? 'Click plays without ⌘' : 'Click plays without Ctrl')
+    expect(el.gestureMode).toBe('drag')
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click to play' : 'Drag to pan · Ctrl-click to play')
+  })
+
+  test('pressing it switches to click mode, and a plain click plays again', async () => {
+    await mount({ interactive: '' })
+    switchOf(el)?.click()
+    await el.updateComplete
+    expect(el.gestureMode).toBe('click')
+    expect(switchOf(el)?.getAttribute('aria-pressed')).toBe('true')
+    expect(hintOf(el)).toBe(mac ? 'Hold ⌘ and drag to pan' : 'Hold Ctrl and drag to pan')
+    expect(localStorage.getItem(GESTURE_STORAGE_KEY)).toBe('click')
+    const seen: Event[] = []
+    el.addEventListener('piece-click', (e) => seen.push(e))
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y))
+    expect(seen.length).toBe(1)
+  })
+
+  test('the choice outlives the element', async () => {
+    await mount({ play: '' })
+    switchOf(el)?.click()
+    await el.updateComplete
+    el.remove()
+    await mount({ play: '' })
+    expect(el.gestureMode).toBe('click')
+  })
+
+  test('a stored value that is neither mode reads as drag', async () => {
+    localStorage.setItem(GESTURE_STORAGE_KEY, 'sideways')
+    await mount({ play: '' })
+    expect(el.gestureMode).toBe('drag')
+  })
+
+  test('lang="pl" labels the switch and the hint in Polish', async () => {
+    await mount({ play: '', lang: 'pl' })
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik gra bez ⌘' : 'Klik gra bez Ctrl')
+    expect(hintOf(el)).toBe(
+      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik gra' : 'Przeciągnij, aby przesunąć · Ctrl + klik gra',
+    )
   })
 })
 

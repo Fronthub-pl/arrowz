@@ -15,6 +15,7 @@ export {
   DEFAULT_POINT_COLOR,
   DEFAULT_POINT_RADIUS,
   DEFAULT_SHOW_POINTS,
+  GESTURE_STORAGE_KEY,
   WHEEL_RATE,
   ZOOM_STEP,
 } from './arrowz-board.ts'
@@ -26,6 +27,7 @@ export type {
   PieceRemovedEvent,
   ViewportChangeEvent,
 } from './arrowz-board.ts'
+export type { GestureMode } from './gestures.ts'
 export { GameHost, MIN_SHAKE_CELLS } from './game-host.ts'
 export type { GameEvent, GameTarget } from './game-host.ts'
 export type { Session, SessionSnapshot } from '@arrowz/engine'

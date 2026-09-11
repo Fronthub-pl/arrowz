@@ -281,7 +281,7 @@ measureButton.addEventListener('click', async () => {
         pointerType: 'mouse',
         clientX: r.left + x,
         clientY: r.top + y,
-        ctrlKey: true,
+        ctrlKey: board.gestureMode === 'click',
         buttons: 1,
       })
     const panFrames: number[] = []
