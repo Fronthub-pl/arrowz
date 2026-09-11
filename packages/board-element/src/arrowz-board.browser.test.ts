@@ -307,6 +307,20 @@ describe('clicks', () => {
     expect(seen[0]?.composed).toBe(true)
   })
 
+  test('a modifier click whose button is reported up by a move before the pointerup still plays once', async () => {
+    await mount({ interactive: '' })
+    const pc = el.board?.pieces[0]
+    if (!pc) throw new Error('need a piece')
+    const seen: PieceClickEvent[] = []
+    document.addEventListener('piece-click', (e) => seen.push(e as PieceClickEvent))
+    const p = headPoint(el, pc.id)
+    canvasOf(el).dispatchEvent(pointer('pointerdown', p.x, p.y, { ctrlKey: true }))
+    canvasOf(el).dispatchEvent(pointer('pointermove', p.x, p.y, { ctrlKey: true, buttons: 0 }))
+    canvasOf(el).dispatchEvent(pointer('pointerup', p.x, p.y, { ctrlKey: true }))
+    expect(seen.length).toBe(1)
+    expect(seen[0]?.detail.pieceId).toBe(pc.id)
+  })
+
   test('a secondary mouse button is not a press: no piece-click on release', async () => {
     await mount({ interactive: '' })
     const pc = el.board?.pieces[0]

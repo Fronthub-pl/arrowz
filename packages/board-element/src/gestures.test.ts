@@ -170,7 +170,7 @@ describe('mouse, drag mode (the default)', () => {
   })
 })
 
-describe('a release that never arrived', () => {
+describe('a move with no button held is the release', () => {
   for (const mode of ['drag', 'click'] as const) {
     test(`a move with no button pressed ends the press (${mode} mode)`, () => {
       const m = new GestureMachine(mode)
@@ -183,7 +183,28 @@ describe('a release that never arrived', () => {
       expect(m.move(mouse(60, 60, panKey))).toEqual({ type: 'none' })
       expect(m.up(mouse(60, 60, panKey))).toEqual({ type: 'none' })
     })
+
+    test(`a move with no button pressed plays the click of a press that did not pan (${mode} mode)`, () => {
+      const m = new GestureMachine(mode)
+      const clickKey = mode === 'drag'
+      m.down(mouse(10, 10, clickKey))
+      expect(m.move(mouse(10, 10, clickKey, 0, false))).toEqual({
+        type: 'click',
+        pressX: 10,
+        pressY: 10,
+        x: 10,
+        y: 10,
+      })
+      // The real pointerup finds no pointer left and plays nothing a second time.
+      expect(m.up(mouse(10, 10, clickKey))).toEqual({ type: 'none' })
+    })
   }
+
+  test('a repeat press followed by a move with no button pressed yields no click', () => {
+    const m = new GestureMachine()
+    m.down({ ...mouse(10, 10, true), repeat: true })
+    expect(m.move(mouse(10, 10, true, 0, false))).toEqual({ type: 'none' })
+  })
 })
 
 describe('a touch that never ended', () => {

@@ -6,8 +6,9 @@
 //   plays; a drag with the modifier pans;
 // - either mode: the element checks the click lands on the piece it was
 //   pressed on, a repeat press (the browser's own double/triple-click count)
-//   does nothing at all, and a move with no button held ends the press — its
-//   release went somewhere else;
+//   does nothing at all, and a move with no button held is taken as the
+//   release — its release went somewhere else, or the browser reported the
+//   button up before, or instead of, the pointerup;
 // - touch: tap = short press within the slop; beyond it one finger pans;
 //   two fingers pinch; a second tap close in time and place to the last one
 //   does nothing at all, for the same reason as the mouse case above; a
@@ -118,12 +119,9 @@ export class GestureMachine {
 
   move(p: PointerSample): Intent {
     if (!this.pointers.has(p.id)) return NONE
-    // A mouse or pen moving with no button held has already been released,
-    // somewhere this element never heard about: the press is over.
-    if (p.kind !== 'touch' && !p.pressed) {
-      this.reset()
-      return NONE
-    }
+    // A mouse or pen moving with no button held is taken as the release: the
+    // browser reported the button up before, or instead of, the pointerup.
+    if (p.kind !== 'touch' && !p.pressed) return this.up(p)
     this.pointers.set(p.id, p)
     if (this.pointers.size >= 2 && this.pinchMid) {
       const [a, b] = [...this.pointers.values()]

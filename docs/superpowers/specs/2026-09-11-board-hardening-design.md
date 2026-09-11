@@ -100,7 +100,7 @@ players who prefer it.
 | Public API | a read-only `gestureMode` getter; no attribute, no event |
 | Context acquisition | on the first connect, not in the constructor |
 | Context taken by the browser | ask for it back as soon as the board is visible (`IntersectionObserver`) |
-| Lost release | a mouse or pen move with no button pressed ends the gesture; `lostpointercapture` cancels it |
+| Lost release | a mouse or pen move with no button pressed is taken as the release; `lostpointercapture` cancels it |
 | Keys | ignored with ⌘, Ctrl or Alt; not default-prevented without a viewport |
 | Validation | pure `src/sanitize.ts`, applied on the way to the layer and the viewport; properties keep what the host set |
 | Layout | canvas `position: absolute; inset: 0` |
@@ -197,8 +197,11 @@ English and Polish both; the key-parity test covers them.
 - `PointerSample` gains `pressed: boolean` (`(buttons & 1) !== 0`) and
   `primary: boolean` (`isPrimary`).
 - `move()` of a mouse or pen sample that belongs to the current press and has
-  `pressed === false` resets the machine and returns `none`. The release was
-  lost; nothing is clicked.
+  `pressed === false` is taken as the release: the machine returns what `up()`
+  would for that sample — `none` after a pan, the click after a press that did
+  not move. A later `pointerup` finds no pointer and does nothing. (Amended
+  2026-09-11: a reset lost real clicks when a zero-button move arrived between
+  press and release, as automation delivers it.)
 - The element listens for `lostpointercapture` and calls `gestures.cancel(id)`,
   clearing the `panning` class.
 - `down()` of a touch sample with `primary === true` first drops every other
