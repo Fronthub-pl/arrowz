@@ -925,4 +925,14 @@ describe('nonsense in, a drawable board out', () => {
     expect(el.getAttribute('point-radius')).toBe('abc')
     expect(allFinite(el.viewport)).toBe(true)
   })
+
+  test('zoomBy ignores a factor that is not a finite positive number', async () => {
+    await mount()
+    const before = el.viewport
+    el.zoomBy(NaN)
+    el.zoomBy(0)
+    el.zoomBy(-2)
+    expect(el.viewport).toEqual(before)
+    expect(allFinite(el.viewport)).toBe(true)
+  })
 })

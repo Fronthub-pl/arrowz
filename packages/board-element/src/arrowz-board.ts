@@ -472,7 +472,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   zoomBy(factor: number): void {
-    if (!this.vp) return
+    if (!this.vp || !Number.isFinite(factor) || factor <= 0) return
     this.setViewport(zoomBy(this.vp, factor))
   }
 
