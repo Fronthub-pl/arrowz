@@ -176,14 +176,15 @@ function positiveFlag(name: string): number | null {
 }
 const count = positiveFlag('count')
 const maxSeeds = positiveFlag('max-seeds')
-const writesBoards = !dryRun && (!advanced || rest.some((a) => a === '--board' || a.startsWith('--svg')))
+const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
+const writesBoards = !dryRun && (!advanced || Boolean(svgFlag) || has('board'))
 if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
 if (count !== null && !writesBoards) {
   refuseErrors('invalid arguments', [
     '--count needs a mode that writes boards: the simple mode, --board or --svg (not --dry-run, --bench or the report)',
   ])
 }
-if (count !== null && rest.some((a) => a.startsWith('--svg='))) {
+if (count !== null && svgFlag?.startsWith('--svg=')) {
   refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
 }
 const seedLimit = count === null ? 0 : maxSeeds ?? 2 * count
@@ -207,7 +208,6 @@ function forSeed(seed: number): { params: Params; simpleCommand: string | null }
 // run would, and then writes nothing: stdout carries one JSON line so that
 // scripts can compare boards across runtimes without a file — the
 // fingerprint is the same one the engine tests freeze recorded boards with.
-const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
 
 /** What one stored board left on disk, as the report line names it. */
 function storedNames(meta: BoardMeta, svgOut: string | null): string {
