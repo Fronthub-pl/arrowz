@@ -13,6 +13,7 @@ import {
   tesselateBoard,
   tesselateColors,
   tesselatePiece,
+  voidQuads,
 } from './tesselate.ts'
 
 function at<T>(arr: ArrayLike<T>, i: number): T {
@@ -358,4 +359,19 @@ test('BENT keeps its corner and loses its straight run', () => {
   // collinear points that merge into one segment. Two segments and one fan.
   const scene = tesselateBoard(onlyPiece(BENT), { ...DEFAULT_VIEW, rounded: true }, NONE)
   expect(scene.rangeOf(BENT.id)?.line.count).toBe(6 * 2 + 3 * JOIN_SEGMENTS)
+})
+
+test('voidQuads is empty when there are no strips', () => {
+  expect(voidQuads([])).toEqual(new Float32Array(0))
+})
+
+test('voidQuads covers a strip with two triangles, in cells', () => {
+  // Three cells from (2,5): x runs 2 to 5, y runs 5 to 6.
+  expect(Array.from(voidQuads([{ x: 2, y: 5, len: 3 }]))).toEqual([2, 5, 5, 5, 5, 6, 2, 5, 5, 6, 2, 6])
+})
+
+test('voidQuads puts strips back to back, twelve floats each', () => {
+  const q = voidQuads([{ x: 0, y: 0, len: 1 }, { x: 4, y: 2, len: 2 }])
+  expect(q.length).toBe(24)
+  expect(Array.from(q.subarray(12))).toEqual([4, 2, 6, 2, 6, 3, 4, 2, 6, 3, 4, 3])
 })
