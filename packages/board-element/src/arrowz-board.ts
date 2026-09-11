@@ -9,6 +9,7 @@ import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
 import { GestureMachine, type GestureMode, type Intent, type PointerSample } from './gestures.ts'
 import { GlLayer } from './gl-layer.ts'
 import { type BoardLabels, labelsFor } from './i18n.ts'
+import { drawableColor, drawablePad, drawablePointRadius, drawableView } from './sanitize.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
 
@@ -65,6 +66,9 @@ function storeMode(mode: GestureMode): void {
 
 const isMac = typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
 
+/** The browser's own colour parser, so anything `view.ink` may say is judged the way it will be drawn. */
+const isCssColor = (c: string): boolean => typeof CSS !== 'undefined' && CSS.supports('color', c)
+
 /** Field for field: the six numbers and the flag the consumer is told about. */
 function sameViewport(a: Viewport, b: Viewport): boolean {
   return a.cellPx === b.cellPx && a.originX === b.originX && a.originY === b.originY &&
@@ -77,7 +81,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     view: { attribute: false },
     interactive: { type: Boolean, reflect: true },
     play: { type: Boolean, reflect: true },
-    pad: { type: Number, reflect: true },
+    // useDefault: the constructor's initial value must not be the one Lit
+    // reflects back once an attribute has since corrected the property to
+    // something else (a plain `reflect: true` schedules that reflection at
+    // construction time, before any attribute is read, and flushes it with
+    // whatever the property holds by the first update — see the "nonsense"
+    // pad test).
+    pad: { type: Number, reflect: true, useDefault: true },
     showPoints: { type: Boolean, reflect: true, attribute: 'show-points' },
     pointColor: { type: String, reflect: true, attribute: 'point-color' },
     pointRadius: { type: Number, reflect: true, attribute: 'point-radius' },
@@ -240,6 +250,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     canvas.addEventListener('pointermove', this.onPointerMove)
     canvas.addEventListener('pointerup', this.onPointerUp)
     canvas.addEventListener('pointercancel', this.onPointerCancel)
+    // A capture taken away (a context menu, the element leaving the tree) is a
+    // gesture that will get no release. The browser also sends one after every
+    // ordinary release, and cancelling a gesture that already ended is a no-op
+    // in the machine.
+    canvas.addEventListener('lostpointercapture', this.onPointerCancel)
     canvas.addEventListener('contextmenu', this.onContextMenu)
     // Not passive: the browser zoom must not fire on Ctrl/⌘ + wheel.
     canvas.addEventListener('wheel', this.onWheel, { passive: false })
@@ -511,7 +526,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private redraw(): void {
     this.layer.setBoard(
       this.board,
-      { ...DEFAULT_VIEW, ...this.view, colored: this.colored },
+      drawableView({ ...DEFAULT_VIEW, ...this.view, colored: this.colored }, isCssColor),
       this.game.goneIds,
     )
   }
@@ -526,7 +541,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    */
   private updatePoints(): void {
     const visible = this.showPoints && this.vp !== null && this.vp.cellPx >= MIN_POINT_CELL_PX
-    this.layer.setPoints(visible, this.pointColor, this.pointRadius)
+    this.layer.setPoints(
+      visible,
+      drawableColor(this.pointColor, DEFAULT_POINT_COLOR, isCssColor),
+      drawablePointRadius(this.pointRadius, DEFAULT_POINT_RADIUS),
+    )
   }
 
   /** GameTarget: the game host reaches the board through these three. */
@@ -544,14 +563,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /** Creates or adapts the viewport once both a board and a host size exist. */
   private syncViewport(): void {
+    const pad = drawablePad(this.pad, DEFAULT_PAD)
     const board = this.board
     if (!board || this.hostWidth <= 0 || this.hostHeight <= 0) {
       this.vp = null
-      this.layer.pad = this.pad
+      this.layer.pad = pad
       this.updatePoints()
       return
     }
-    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad: this.pad }
+    const input = { W: board.W, H: board.H, hostWidth: this.hostWidth, hostHeight: this.hostHeight, pad }
     this.setViewport(this.vp ? resize(this.vp, input.hostWidth, input.hostHeight) : fit(input))
   }
 
@@ -701,6 +721,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const s = this.sample(e)
     this.lastPointer = { x: s.x, y: s.y }
     this.apply(this.gestures.move(s))
+    if (!this.gestures.panning) this.layer.canvas.classList.remove('panning')
     if (this.gestures.panning) return
     this.setModifier(e.metaKey || e.ctrlKey)
   }
@@ -727,6 +748,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   }
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
+    // ⌘/Ctrl + -, + and 0 are the browser's page zoom, and Alt belongs to
+    // the platform; without a viewport there is nothing to zoom, and the
+    // wheel does not swallow its event there either.
+    if (e.metaKey || e.ctrlKey || e.altKey || !this.vp) return
     if (e.key === '+' || e.key === '=') this.zoomBy(ZOOM_STEP)
     else if (e.key === '-') this.zoomBy(1 / ZOOM_STEP)
     else if (e.key === '0') this.fit()

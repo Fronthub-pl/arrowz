@@ -226,6 +226,32 @@ describe('mount and viewport', () => {
     // 600 px of view at the height's scale is 76 cells across 38 of board.
     expect(el.viewport?.originX).toBeCloseTo((30 - 600 / FIT) / 2, 6)
   })
+
+  test('keys with ⌘, Ctrl or Alt are left to the browser', async () => {
+    await mount()
+    el.focus()
+    for (const mod of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }]) {
+      for (const key of ['+', '=', '-', '0']) {
+        const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...mod })
+        el.dispatchEvent(e)
+        expect(e.defaultPrevented, `${JSON.stringify(mod)} ${key}`).toBe(false)
+      }
+    }
+    await raf()
+    expect(el.viewport?.fitted).toBe(true)
+  })
+
+  test('without a board no key is taken', async () => {
+    el = document.createElement('arrowz-board')
+    el.style.width = '300px'
+    el.style.height = '300px'
+    document.body.append(el)
+    await el.updateComplete
+    el.focus()
+    const e = new KeyboardEvent('keydown', { key: '+', bubbles: true, cancelable: true })
+    el.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(false)
+  })
 })
 
 describe('clicks', () => {
@@ -419,6 +445,39 @@ describe('clicks', () => {
     el.removeAttribute('play')
     await el.updateComplete
     expect(menu(true)).toBe(false)
+  })
+
+  test('a capture lost mid-drag ends the pan, and a later move does not pan', async () => {
+    await mount()
+    el.zoomBy(3)
+    await raf()
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerdown', 150, 150))
+    canvas.dispatchEvent(pointer('pointermove', 140, 150))
+    expect(canvas.classList.contains('panning')).toBe(true)
+    canvas.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1, bubbles: true }))
+    expect(canvas.classList.contains('panning')).toBe(false)
+    await raf()
+    const before = el.viewport?.originX
+    canvas.dispatchEvent(pointer('pointermove', 100, 150))
+    await raf()
+    expect(el.viewport?.originX).toBe(before)
+  })
+
+  test('a move with no button held after a lost release does not pan', async () => {
+    await mount()
+    el.zoomBy(3)
+    await raf()
+    const canvas = canvasOf(el)
+    canvas.dispatchEvent(pointer('pointerdown', 150, 150))
+    canvas.dispatchEvent(pointer('pointermove', 140, 150))
+    await raf()
+    const before = el.viewport?.originX
+    canvas.dispatchEvent(pointer('pointermove', 100, 150, { buttons: 0 }))
+    canvas.dispatchEvent(pointer('pointermove', 60, 150, { buttons: 0 }))
+    expect(canvas.classList.contains('panning')).toBe(false)
+    await raf()
+    expect(el.viewport?.originX).toBe(before)
   })
 })
 
@@ -740,5 +799,56 @@ describe('the context a board holds', () => {
     el.style.top = '0px'
     for (let i = 0; i < 30 && isLost(canvas); i++) await raf()
     expect(isLost(canvas)).toBe(false)
+  })
+})
+
+describe('nonsense in, a drawable board out', () => {
+  const allFinite = (v: BoardViewport | null | undefined): boolean =>
+    v !== null && v !== undefined && [v.cellPx, v.originX, v.originY, v.hostWidth, v.hostHeight].every(Number.isFinite)
+
+  test('a pad that is not a number fits as the default pad, and the attribute keeps what was set', async () => {
+    const details: BoardViewport[] = []
+    document.addEventListener('viewport-change', (e) => details.push((e as ViewportChangeEvent).detail))
+    await mount({ pad: 'abc' })
+    expect(el.getAttribute('pad')).toBe('abc')
+    expect(allFinite(el.viewport)).toBe(true)
+    expect(el.viewport?.originX).toBeCloseTo(-DEFAULT_PAD, 6)
+    expect(details.every(allFinite)).toBe(true)
+  })
+
+  test('a stroke or head height that is not a number still draws the pieces', async () => {
+    await mount()
+    el.view = { ...el.view, stroke: NaN, headHeight: NaN }
+    await el.updateComplete
+    expect(inked(await painted(el))).toBeGreaterThan(0)
+    expect(Number.isNaN(el.view.stroke)).toBe(true) // the property keeps what the host set
+  })
+
+  test('a point radius past half a cell does not flood the paper', async () => {
+    await mount({ 'show-points': '', 'point-color': '#ff00ff', 'point-radius': '5' })
+    el.zoomBy(3)
+    await raf()
+    const buf = await painted(el)
+    const canvas = canvasOf(el)
+    const vp = el.viewport
+    if (!vp) throw new Error('need a viewport')
+    const dpr = devicePixelRatio
+    // A cell corner is 0.707 cells from the dot at the cell's centre and a
+    // quarter cell clear of any stroke: a dot of radius ≤ 0.5 never reaches
+    // it, and an unclamped radius of 5 paints every one of them.
+    let corners = 0, magenta = 0
+    for (let y = 1; y < 30; y++) {
+      for (let x = 1; x < 30; x++) {
+        const px = Math.round((x - vp.originX) * vp.cellPx * dpr)
+        const py = Math.round((y - vp.originY) * vp.cellPx * dpr)
+        if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) continue
+        const i = ((canvas.height - 1 - py) * canvas.width + px) * 4 // readPixels rows run bottom-up
+        corners++
+        if (buf[i] === 255 && buf[i + 1] === 0 && buf[i + 2] === 255) magenta++
+      }
+    }
+    expect(el.pointRadius).toBe(5) // the attribute keeps what the host set
+    expect(corners).toBeGreaterThan(20)
+    expect(magenta).toBe(0)
   })
 })
