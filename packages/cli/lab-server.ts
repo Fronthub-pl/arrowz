@@ -3,7 +3,7 @@
 // (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab, or
 // deno run --allow-net --allow-read --allow-write --allow-env packages/cli/lab-server.ts [port]
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, encodeBoard } from '@arrowz/engine'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 
 const ROOT = dirname(fromFileUrl(import.meta.url))
@@ -47,7 +47,9 @@ function checkPost(v: unknown): { body: PostBody } | { error: string } {
     return { error: `board file is ${board.W}x${board.H}, the params ask for ${String(p.W)}x${String(p.H)}` }
   }
   // Checked field by field above: the sanctioned narrowing at an I/O boundary.
-  return { body: v as PostBody }
+  // The board is stored as encodeBoard writes it, so keys the engine does not
+  // know never reach the file; a valid file encodes back to itself.
+  return { body: { ...(v as PostBody), board: encodeBoard(board) } }
 }
 
 export function createLabServer(): (req: Request) => Promise<Response> {

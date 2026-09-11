@@ -45,6 +45,22 @@ Deno.test('POST /api/boards saves, GET lists, the board file and the preview are
     assertEquals(await svg.text(), '<svg>x</svg>')
   }))
 
+Deno.test('POST stores the board file as the engine writes it, without keys it does not know', () =>
+  withServer(async (base) => {
+    const body = {
+      board: { ...emptyFile(10, 10), junk: 'x'.repeat(1000) },
+      params: { ...defaultParams(), W: 10, H: 10, seed: 4 },
+      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+      command: `${COMMAND_PREFIX} --advanced --board --w=10 --h=10 --seed=4 --cell=12`,
+    }
+    const post = await fetch(base + '/api/boards', { method: 'POST', body: JSON.stringify(body) })
+    assertEquals(post.status, 201)
+    const meta: BoardMeta = await post.json()
+    const stored = await (await fetch(`${base}/boards/10x10/${meta.id}.board.json`)).json()
+    assert(!('junk' in stored), 'the junk key reached the file')
+    assertEquals(stored, emptyFile(10, 10))
+  }))
+
 Deno.test('POST without params, without a readable board file or with a board of another size gives 400', () =>
   withServer(async (base) => {
     const params = { ...defaultParams(), W: 10, H: 10, seed: 3 }
