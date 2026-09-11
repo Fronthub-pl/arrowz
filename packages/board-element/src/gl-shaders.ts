@@ -86,8 +86,9 @@ export function link(gl: WebGL2RenderingContext, vert: string, frag: string): We
 }
 
 // Every tail cap and every round join, as instances of one unit quad. The
-// quad is widened by one device pixel (1 / u_scale, in cells) past the
-// disc's radius so its antialiased edge has somewhere to fall. A disc of no
+// quad is widened by half a device pixel (0.5 / u_scale, in cells) past the
+// disc's radius, exactly as far as the edge's ramp reaches, so the
+// antialiased edge fits and no fragment is spent beyond it. A disc of no
 // radius is a removed piece's: every vertex goes to the same clip point, so
 // it costs no fragment at all.
 export const DISC_VERT = `#version 300 es
@@ -111,7 +112,7 @@ void main() {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     return;
   }
-  v_local = a_corner * (r + 1.0 / u_scale);
+  v_local = a_corner * (r + 0.5 / u_scale);
   vec2 px = (a_disc.xy + v_local - u_origin) * u_scale;
   gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, 0.0, 1.0);
 }`

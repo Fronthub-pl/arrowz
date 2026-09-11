@@ -143,8 +143,11 @@ four bytes per vertex as today, and four bytes per disc, both from
 same `u_origin`, `u_scale`, `u_size`, `u_flat` and `u_useAttr` as the main
 program, so `setView` serves all three programs.
 
-- The quad spans `r + f` around the centre, where `f = 1 / u_scale` is one
-  device pixel in cells: the antialiased edge needs somewhere to fall.
+- The quad spans `r + f` around the centre, where `f = 0.5 / u_scale` is half
+  a device pixel in cells: exactly as far as the edge's ramp below reaches, so
+  the antialiased edge fits and no fragment is spent past it. A full pixel was
+  the first choice; measured on Insane it nearly tripled every disc's fragment
+  area at the fitted zoom and cost 2.4 ms of GPU time a frame.
 - A disc of `r <= 0` is emitted as a degenerate quad — every vertex at the
   same clip point, no fragment. This is what removing a piece means for its
   discs (§5.2). The fragment rule below would already give such a disc no
