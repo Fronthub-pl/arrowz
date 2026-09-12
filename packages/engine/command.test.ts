@@ -12,11 +12,13 @@ import {
   knobFlag,
   parseArgs,
   START,
+  VIEW_FLAG,
+  VIEW_RANGE,
   wordFor,
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
-import type { Params } from './types.ts'
+import type { Params, ViewNumber } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
@@ -299,6 +301,33 @@ Deno.test('a name off Object.prototype is not a word, not a knob value and not a
       `--${name}: ${flag.errors.join('; ')}`,
     )
   }
+})
+
+// The picture flags took anything: --cell=-5 and --top=-1 passed without a
+// word, and a negative cell is an SVG with a negative viewBox. Each has a
+// range now, wide enough for every picture README shows.
+Deno.test('parseArgs: every picture number is bounded, at both ends', () => {
+  for (const [field, r] of Object.entries(VIEW_RANGE)) {
+    const flag = VIEW_FLAG[field as ViewNumber]
+    for (const value of [r.min, r.max]) {
+      const { errors, view } = parseArgs([...SIZE, `--${flag}=${value}`])
+      assertEquals(errors, [], `--${flag}=${value}`)
+      assertEquals(view[field as ViewNumber], value, `--${flag}=${value}`)
+    }
+    for (const value of [r.min - 1, r.max + 1]) {
+      const { errors } = parseArgs([...SIZE, `--${flag}=${value}`])
+      assertEquals(errors, [`--${flag}=${value} is outside ${r.min}..${r.max}`], `--${flag}=${value}`)
+    }
+  }
+})
+
+Deno.test('parseArgs: the two picture numbers counted in whole units refuse a fraction', () => {
+  assertEquals(parseArgs([...SIZE, '--cell=12.5']).errors, ['--cell=12.5 is not a whole number'])
+  assertEquals(parseArgs([...SIZE, '--top=2.5']).errors, ['--top=2.5 is not a whole number'])
+  // The ratios are ratios: a fraction is the point of them.
+  assertEquals(parseArgs([...SIZE, '--line=0.55', '--arrow-height=0.75']).errors, [])
+  // auto is still the fifth word of the legend, and it is inside the range.
+  assertEquals(parseArgs([...SIZE, '--arrow-width=auto']).view.headWidth, DEFAULT_VIEW.headWidth)
 })
 
 Deno.test('parseArgs: the size takes whole numbers inside its own range', () => {

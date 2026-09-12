@@ -8,7 +8,7 @@
 // the command line is a PIN: it wins over the bundle and pins only itself.
 // The lab has to mirror the CLI 1:1, so both sides build and read the text
 // with this code.
-import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View } from './types.ts'
+import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View, ViewNumber } from './types.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
@@ -447,13 +447,49 @@ const SLIDERS = new Set(['length', 'winding'])
 /** The two everyday numbers that are knobs of their own, and so bounded by their own spec. */
 const SIZE_KEYS = new Map<string, ParamKey>([['width', 'W'], ['height', 'H']])
 /** Where a picture number lands in the view; the switches (--colored, --sharp) are read on their own. */
-const VIEW_NUMBER = new Map<string, 'cell' | 'stroke' | 'headWidth' | 'headHeight' | 'top'>([
+const VIEW_NUMBER = new Map<string, ViewNumber>([
   ['cell', 'cell'],
   ['line', 'stroke'],
   ['arrow-width', 'headWidth'],
   ['arrow-height', 'headHeight'],
   ['top', 'top'],
 ])
+
+/** The flag that writes each picture number, the other half of VIEW_NUMBER. */
+export const VIEW_FLAG: Readonly<Record<ViewNumber, string>> = {
+  cell: 'cell',
+  stroke: 'line',
+  headWidth: 'arrow-width',
+  headHeight: 'arrow-height',
+  top: 'top',
+}
+
+/**
+ * What each picture number may be. The bounds are the drawing's own, not the
+ * lab's: the lab's fields are deliberately narrower (a cell of 1..40, a line
+ * of 0.2..0.9), while the CLI also draws the pictures README shows, an
+ * arrowhead of 2 squares and a tip of no height among them. What has to hold
+ * is the direction that matters for the mirror — every value the lab can
+ * reach is a value the CLI takes — and `carve.test.ts` reads `lab.html` to
+ * check exactly that.
+ *
+ * `whole` marks the two flags the help spells `N`: a picture measured in
+ * pixels or in pieces cannot have a fraction. The other three are ratios of a
+ * square, where the fraction is the point.
+ */
+export const VIEW_RANGE: Readonly<Record<ViewNumber, Readonly<{ min: number; max: number; whole: boolean }>>> = {
+  // A square smaller than a pixel is not a picture; 200 px on a 1000-square
+  // side is a 200 000 px drawing, past what a viewer opens.
+  cell: { min: 1, max: 200, whole: true },
+  // A line of no width draws nothing; past 2 it is twice its own square.
+  stroke: { min: 0.05, max: 2, whole: false },
+  // 0 is the automatic width, from the line; README's biggest head is 2.
+  headWidth: { min: 0, max: 3, whole: false },
+  // 0 is a tip of no height at all, which README shows on purpose.
+  headHeight: { min: 0, max: 3, whole: false },
+  // 0 is no highlight; the list prints one line per piece, so it stays short.
+  top: { min: 0, max: 1000, whole: true },
+}
 /** Mode flags: not the parser's business, handed to the CLI untouched. */
 const MODE_FLAGS = new Set(['svg', 'dry-run', 'count', 'max-seeds', 'help'])
 
@@ -603,6 +639,15 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       const n = name === 'arrow-width' && raw === 'auto' ? DEFAULT_VIEW.headWidth : numberOf(raw)
       if (n === null) {
         errors.push(`${a} is not a number`)
+        continue
+      }
+      const r = VIEW_RANGE[field2]
+      if (r.whole && !Number.isInteger(n)) {
+        errors.push(`${a} is not a whole number`)
+        continue
+      }
+      if (n < r.min || n > r.max) {
+        errors.push(`${a} is outside ${r.min}..${r.max}`)
         continue
       }
       view[field2] = n

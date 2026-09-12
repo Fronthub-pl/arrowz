@@ -4,8 +4,8 @@
 // permissions: net on 127.0.0.1, read of packages/cli/ and the store, write of the store, one env var).
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
 import { decodeBoard, defaultParams, encodeBoard, formatViolation, PARAM_SPEC, validateParams } from '@arrowz/engine'
-import type { Params, View } from '@arrowz/engine'
-import { DEFAULT_VIEW } from '@arrowz/engine/command'
+import type { Params, View, ViewNumber } from '@arrowz/engine'
+import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 
 /** The largest POST body read. The lab posts no SVG, and a 1000×1000 board file is about a megabyte. */
@@ -100,14 +100,20 @@ function checkParams(v: unknown): Checked<Params> {
   return { ok: params }
 }
 
-const VIEW_NUMBERS = ['cell', 'stroke', 'headWidth', 'headHeight', 'top'] as const
+/** The numbers of a view, straight from the table that bounds them. */
+const VIEW_NUMBERS = Object.keys(VIEW_RANGE) as ViewNumber[]
 
 function checkView(v: unknown): Checked<View> {
   if (!isRec(v)) return { error: 'view is required' }
   const view: View = { ...DEFAULT_VIEW }
   for (const k of VIEW_NUMBERS) {
     const value = v[k]
-    if (!isNum(value) || value < 0) return { error: `view.${k} must be a number of at least 0` }
+    const r = VIEW_RANGE[k]
+    // The CLI's own range for the flag that writes this field, so a stored
+    // view is a picture carve.ts could have drawn.
+    if (!isNum(value) || value < r.min || value > r.max || (r.whole && !Number.isInteger(value))) {
+      return { error: `view.${k} must be ${r.whole ? 'a whole number' : 'a number'} in ${r.min}..${r.max}` }
+    }
     view[k] = value
   }
   if (typeof v.colored !== 'boolean') return { error: 'view.colored must be true or false' }

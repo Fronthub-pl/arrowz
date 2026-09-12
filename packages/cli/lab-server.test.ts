@@ -87,6 +87,11 @@ Deno.test('POST refuses fields the store would write or the page would show unch
       [{ ...b, source: '<img src=x onerror=alert(1)>' }, 'source'],
       [{ ...b, svg: '<svg><script>alert(1)</script></svg>' }, 'svg is not accepted'],
       [{ ...b, view: { ...b.view, top: 'x' } }, 'view.top'],
+      // The view numbers carry the CLI's ranges, so what the server stores is
+      // a picture the CLI could have drawn.
+      [{ ...b, view: { ...b.view, cell: 0 } }, 'view.cell must be a whole number in 1..200'],
+      [{ ...b, view: { ...b.view, cell: 12.5 } }, 'view.cell must be a whole number in 1..200'],
+      [{ ...b, view: { ...b.view, headHeight: 5 } }, 'view.headHeight must be a number in 0..3'],
       [{ ...b, view: { ...b.view, colored: 'yes' } }, 'view.colored'],
       [{ ...b, command: 'x'.repeat(5000) }, 'command'],
       [{ ...b, metrics: { pieces: '<b>' } }, 'metrics.pieces'],
