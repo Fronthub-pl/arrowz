@@ -34,7 +34,7 @@ export type ParamKey =
   | 'restarts'
 
 export type ParamGroup = 'board' | 'lengths' | 'shape' | 'difficulty' | 'skeleton' | 'closing'
-export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero'
+export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero' | 'anticoilWins'
 export type RuleKey = 'sharesSum' | 'lmaxHole' | 'startPair' | 'straightFloor'
 
 export interface TraceInfo {
