@@ -9,17 +9,8 @@
 // bundle keeps being chosen around it.
 import { assert, assertEquals, assertMatch, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import {
-  decodeBoard,
-  defaultParams,
-  fingerprint,
-  formatViolation,
-  generate,
-  PARAM_SPEC,
-  toSvg,
-  validateParams,
-} from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
+import { decodeBoard, defaultParams, fingerprint, generate, PARAM_SPEC, toSvg, validateParams } from '@arrowz/engine'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View, ViewNumber } from '@arrowz/engine'
 
@@ -270,7 +261,7 @@ Deno.test('the note names an everyday flag only when the run was given it', () =
 // range violation, --lmax=3 breaks the lmaxHole rule.
 
 const BAD = ['--width=10', '--height=10', '--seed=1', '--pstraight=0.3', '--lmax=3']
-const expectedLines = validateParams({ ...defaultParams(), pStraight: 0.3, Lmax: 3 }).map(formatViolation)
+const expectedLines = validateParams({ ...defaultParams(), pStraight: 0.3, Lmax: 3 }).map(flagViolation)
 
 Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, nothing written', () => {
   const dir = tmp()
@@ -278,7 +269,7 @@ Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, no
   assertEquals(r.status, 2)
   assert(r.json, `no JSON line in:\n${r.stdout}`)
   assertEquals(r.json.ok, false)
-  assertEquals(r.json.error, 'invalid parameters')
+  assertEquals(r.json.error, 'invalid arguments')
   assertEquals(r.json.violations?.length, 2)
   assertEquals(r.json.violations?.[0], { kind: 'range', key: 'pStraight', value: 0.3, min: 0.6, max: 1 })
   assertEquals(r.json.violations?.[1], { kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] })
@@ -298,7 +289,7 @@ Deno.test('a share pinned above the cap is refused by the sum rule, not by its p
     const r = dryRun(['--dry-run', '--width=10', '--height=10', flag], dir)
     assertEquals(r.status, 2, flag)
     assert(r.json, `no JSON line in:\n${r.stdout}`)
-    assertEquals(r.json.error, 'invalid parameters', flag)
+    assertEquals(r.json.error, 'invalid arguments', flag)
     assertEquals(r.json.violations, [{ kind: 'range', key, value: 1, min: 0, max: 0.9 }, sharesSum], flag)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
@@ -316,9 +307,9 @@ Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stde
   const r = dryRun(['--svg=' + out, ...BAD], dir)
   assertEquals(r.status, 2)
   assertEquals(expectedLines.length, 2)
-  assertMatch(r.stderr, /invalid parameters:\n/)
+  assertMatch(r.stderr, /invalid arguments:\n/)
   for (const line of expectedLines) assert(r.stderr.includes(`  - ${line}\n`), `stderr lacks: ${line}\n${r.stderr}`)
-  assertMatch(r.stderr, /see --help for the allowed ranges\n$/)
+  assertMatch(r.stderr, /see --help\n$/)
   assertEquals(r.stdout, '', 'nothing on stdout')
   assertEquals(exists(out), false, 'the --svg=path copy must not be written')
   assertEquals(entries(dir), 0, 'the store must not be created')
@@ -332,14 +323,14 @@ Deno.test('a value between two steps is refused, and no board is written', () =>
   for (const [flag, over] of cases) {
     // The line the engine writes for this value, so the test cannot drift
     // from the knob's label the way a hand-copied string would.
-    const lines = validateParams({ ...defaultParams(), ...over }).map(formatViolation)
+    const lines = validateParams({ ...defaultParams(), ...over }).map(flagViolation)
     assertEquals(lines.length, 1, flag)
     const [line] = lines
     assert(line, flag)
     const dir = tmp()
     const r = runCarve(['--width=10', '--height=10', flag], join(dir, 'boards'))
     assertEquals(r.status, 2, `${flag}\n${r.stdout}${r.stderr}`)
-    assertStringIncludes(r.stderr, 'invalid parameters:')
+    assertStringIncludes(r.stderr, 'invalid arguments:')
     assertStringIncludes(r.stderr, `  - ${line}\n`)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
@@ -431,7 +422,7 @@ Deno.test('carve.ts refuses an unknown flag and a missing size: exit 2, a hint, 
   assertEquals(r.status, 2)
   assertMatch(
     r.stderr,
-    /^invalid arguments:\n {2}- missing --width\n {2}- missing --height\n {2}- unknown flag --nope; see --help\n/,
+    /^invalid arguments:\n {2}- missing --width\n {2}- missing --height\n {2}- unknown flag --nope\nsee --help\n$/,
   )
   assertMatch(r.stderr, /see --help\n$/)
   assertEquals(r.stdout, '')
@@ -697,7 +688,7 @@ Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exi
     [['--width=10', '--height=10', '--max-seeds=3'], '--max-seeds needs --count'],
     [['--width=10', '--height=10', '--svg=one.svg', '--count=2'], '--svg=path names one file'],
     // --count=1 may reach two seeds (2·N): 999999 and 1000000, one past the envelope.
-    [['--width=10', '--height=10', '--seed=999999', '--count=1'], 'seed: 1000000 is outside 0..999999'],
+    [['--width=10', '--height=10', '--seed=999999', '--count=1'], '--seed=1000000 is outside 0..999999'],
   ]
   for (const [argv, message] of cases) {
     const r = runCarve(argv, dir)
@@ -708,4 +699,49 @@ Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exi
   assertEquals(dry.status, 2)
   assertEquals(dry.json?.error, 'invalid arguments')
   assertEquals(entries(dir), 0, 'nothing is written')
+})
+
+// --- one voice for a refusal ---------------------------------------------
+// Two layers refuse: the parser, which never saw a knob, and the envelope,
+// which has them all. They used to answer differently — `invalid arguments`
+// with a flag name and `see --help`, against `invalid parameters` with the
+// label the web page prints and `see --help for the allowed ranges`. A user
+// cannot tell which layer caught them, and should not have to.
+Deno.test('both layers refuse in the same words, and every line names a flag', () => {
+  const cases: readonly [what: string, args: string[]][] = [
+    ['the parser', ['--width=10', '--height=10', '--start=0.8']],
+    ['the parser, on a picture flag', ['--width=10', '--height=10', '--cell=-5']],
+    ['a range', ['--width=10', '--height=10', '--warns=1']],
+    ['a step', ['--width=10', '--height=10', '--maxback=75']],
+    ['a rule', ['--width=10', '--height=10', '--wshort=0.9', '--wmid=0.5']],
+    ['a rule with a computed bound', ['--width=1000', '--height=1000', '--pstraight=0.65']],
+  ]
+  for (const [what, args] of cases) {
+    const dir = tmp()
+    const r = runCarve(args, join(dir, 'boards'))
+    assertEquals(r.status, 2, `${what}: ${args.join(' ')}\n${r.stdout}${r.stderr}`)
+    const lines = r.stderr.trimEnd().split('\n')
+    assertEquals(lines[0], 'invalid arguments:', what)
+    assertEquals(lines[lines.length - 1], 'see --help', what)
+    for (const line of lines.slice(1, -1)) {
+      assertMatch(line, /^ {2}- --[a-z-]+/, `${what}: ${line}`)
+    }
+    assertEquals(entries(dir), 0, 'nothing is written')
+  }
+})
+
+// --dry-run answers in JSON, and a script reading it should not have to know
+// which layer refused either: the text is in `errors` both times, and the
+// structured form stays beside it when the envelope is the one that spoke.
+Deno.test('--dry-run reports both layers under one shape', () => {
+  const dir = tmp()
+  const parser = dryRun(['--dry-run', '--width=10', '--height=10', '--start=0.8'], dir)
+  assertEquals(parser.json?.error, 'invalid arguments')
+  assertEquals(parser.json?.errors, ['--start=0.8 is outside 0.3..0.7'])
+  assertEquals(parser.json?.violations, undefined, 'the parser has no violations to report')
+
+  const envelope = dryRun(['--dry-run', '--width=10', '--height=10', '--warns=1'], dir)
+  assertEquals(envelope.json?.error, 'invalid arguments')
+  assertEquals(envelope.json?.errors, ['--warns=1 is outside 2..16'])
+  assertEquals(envelope.json?.violations, [{ kind: 'range', key: 'warns', value: 1, min: 2, max: 16 }])
 })

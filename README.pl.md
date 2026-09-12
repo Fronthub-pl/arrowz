@@ -393,9 +393,9 @@ deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```
-invalid parameters:
-  - straightness bias: 0.2 is outside 0.6..1
-see --help for the allowed ranges
+invalid arguments:
+  - --pstraight=0.2 is outside 0.6..1
+see --help
 ```
 
 Polecenie kończy się kodem 2. Kod wyjścia to liczba, którą program zostawia po
@@ -851,7 +851,7 @@ uruchomione bezpośrednio. Deno nie pozwala programowi tknąć twoich plików an
 ustawień bez wyraźnej zgody. Używaj zadania `carve`, które nadaje dokładnie
 tyle uprawnień, ile trzeba.
 
-**`unknown flag --foo; see --help`** — CLI w ogóle nie rozpoznaje tej flagi.
+**`unknown flag --foo`** — CLI w ogóle nie rozpoznaje tej flagi.
 Sprawdź pisownię w `--help` albo `--help=knobs`.
 
 **`--straight is gone: use --winding=R …`** (albo `--advanced`, `--board`,
@@ -860,9 +860,11 @@ Sprawdź pisownię w `--help` albo `--help=knobs`.
 `--mix`) — stara pisownia sprzed czasów, gdy to narzędzie miało jeden tryb.
 Komunikat nazywa zastępstwo — użyj go zamiast tego.
 
-**`invalid parameters: … is outside …`** — któraś wartość jest poza zakresem.
-Komunikat podaje nazwę ustawienia i dozwolony zakres. Nic się nie policzyło i
-nic się nie zapisało.
+**`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — któraś wartość jest
+poza zakresem, leży między dwoma ustawieniami pokrętła albo łamie jedną z reguł.
+Każdy wiersz zaczyna się od flagi do zmiany — niezależnie od tego, czy złapał ją
+parser, czy koperta — a złamana reguła nazywa wszystkie flagi, których dotyczy.
+Nic się nie policzyło i nic się nie zapisało.
 
 **`failed to close board …`** — generator próbował, cofał się, zaczynał od nowa
 i mimo to nie zdołał wypełnić planszy. Prawie zawsze chodzi o ustawienie

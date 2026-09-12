@@ -8,6 +8,7 @@ import {
   buildCommand,
   COMMAND_PREFIX,
   DEFAULT_VIEW,
+  flagViolation,
   helpText,
   knobFlag,
   parseArgs,
@@ -323,7 +324,7 @@ Deno.test('a name off Object.prototype is not a word, not a knob value and not a
     // The parser lowercases a flag name, so this is the spelling it saw.
     const flag = parseArgs([...SIZE, `--${name}=1`])
     assert(
-      flag.errors.some((e) => e === `unknown flag --${name.toLowerCase()}; see --help`),
+      flag.errors.some((e) => e === `unknown flag --${name.toLowerCase()}`),
       `--${name}: ${flag.errors.join('; ')}`,
     )
   }
@@ -555,4 +556,66 @@ Deno.test('--sharp round-trips, and a rounded board prints no switch', () => {
   const round = parseArgs(SIZE)
   assertEquals(round.view.rounded, true)
   assert(!buildCommand(round.params, round.view).includes('--sharp'))
+})
+
+// --- one voice for a refusal ---------------------------------------------
+// The parser and the envelope refuse the same kind of thing at two different
+// moments, and they used to say it two different ways: the parser named the
+// flag (`--start=0.8 is outside 0.3..0.7`), the envelope named the label the
+// web page prints beside the field (`straightness bias: 0.2 is outside
+// 0.6..1`), and a broken rule named nothing the user could type at all.
+Deno.test('flagViolation: a refusal names the flag, the way the parser does', () => {
+  assertEquals(
+    flagViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }),
+    '--pstraight=0.2 is outside 0.6..1',
+  )
+  // The size and the seed are knobs, but on the command line they are the
+  // everyday flags, and that is the spelling a refusal has to use.
+  assertEquals(
+    flagViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }),
+    '--width=2000 is outside 4..1000',
+  )
+  assertEquals(
+    flagViolation({ kind: 'step', key: 'maxBack', value: 75, step: 50, min: 50 }),
+    '--maxback=75 sits between the settings 50 and 100',
+  )
+})
+
+Deno.test('flagViolation: a broken rule names every flag it is about', () => {
+  const rule = (key: 'sharesSum' | 'startPair' | 'straightFloor') => {
+    const r = RULES.find((r) => r.key === key)
+    assert(r, key)
+    return r
+  }
+  const shares = rule('sharesSum')
+  assertEquals(
+    flagViolation({ kind: 'rule', key: 'sharesSum', keys: shares.keys }),
+    `--wshort, --wmid: ${RULE_REASONS.sharesSum}`,
+  )
+  // Two knobs, one flag between them: --start is named once, not twice.
+  const start = rule('startPair')
+  assertEquals(
+    flagViolation({ kind: 'rule', key: 'startPair', keys: start.keys }),
+    `--start: ${RULE_REASONS.startPair}`,
+  )
+  // A computed bound keeps the number the user has to type.
+  const floor = rule('straightFloor')
+  const text = flagViolation({ kind: 'rule', key: 'straightFloor', keys: floor.keys, need: 0.8 })
+  assertMatch(text, /^--pstraight, --warns, --anticoil: /)
+  assert(text.endsWith('this board needs at least 0.8'), text)
+})
+
+Deno.test('flagViolation: every violation the envelope can raise names a flag', () => {
+  const bad: Params = {
+    ...defaultParams(),
+    W: 1000,
+    H: 1000,
+    pStraight: 0.65,
+    wShort: 2,
+    maxBack: 75,
+    Lmax: 3,
+  }
+  const lines = validateParams(bad).map(flagViolation)
+  assert(lines.length >= 4, `${lines.length} violations`)
+  for (const line of lines) assertMatch(line, /^--[a-z-]+/, line)
 })
