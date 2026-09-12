@@ -653,35 +653,44 @@ otherwise.
 
 All 25, grouped the way `deno task carve --help=knobs` groups them. Ranges
 spell their word forms where one exists; `auto`, `random` and `off` are
-explained where they appear.
+explained where they appear. **Step** is the distance between the settings a
+knob has: a value that lands between two of them is refused, the same as one
+outside the range, because it is a value neither the slider on the web page
+nor the printed command could reach again.
 
-| Group | Flag | Range | Default | What it does |
-|---|---|---|---|---|
-| Board | `--width` | 4–1000 | 25 | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
-| Board | `--height` | 4–1000 | 50 | Rows. A tall board is harder to play than a square one with the same number of squares. |
-| Board | `--seed` | 0–999999 | 7 | Picks the board. Same seed and same knobs, same board. |
-| Lengths | `--wshort` | 0–1 | 0.2 | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
-| Lengths | `--wmid` | 0–1 | 0.08 | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
-| Lengths | `--lmax` | `auto`\|6–5000 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** 1 to 5 shreds the board into crumbs and the generator jams. Use `auto`, or 6 and up. |
-| Shape | `--pstraight` | 0.6–1 | 0.85 | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** this is the one knob that can break things on its own. Below 0.6 large boards stop closing; at exactly 0.6, boards above 500×500 sometimes jam. 0.65 is safe. |
-| Shape | `--wlateral` | 0–20 | 3 | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
-| Shape | `--warns` | 2–16 | 4 | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule switches off and boards jam. |
-| Shape | `--anticoil` | 1–10 | 6 | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** above 10 it jams more readily at low straightness. |
-| Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | `random` | Where the next arrow starts: the shallowest line (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
-| Difficulty | `--probe` | 0–1 | 0 | Share of arrows whose length is drawn around one fixed target instead of the usual three-way split. |
-| Difficulty | `--probelen` | 2–200 | 12 | That fixed target, give or take half. 2 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
-| Skeleton | `--giants` | 0–40 | 0 | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |
-| Skeleton | `--giantspan` | 1–200 | 30 | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
-| Skeleton | `--giantstep` | `random`\|1–40 | 14 | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
-| Skeleton | `--giantjitter` | 0–1 | 0.6 | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
-| Skeleton | `--wgiant` | 0–0.2 | 0 | The chance that an arrow drawn later is also a highway. **Careful:** above 0.2 boards get slow and stop closing at 1000×1000. |
-| Skeleton | `--giantstraight` | 0.3–1 | 0.94 | How straight a highway runs where it has free space. **Careful:** below 0.3 boards stop closing. |
-| Skeleton | `--giantanticoil` | 1–20 | 6 | The self-touching penalty, for highways only. Whichever is higher, this or the general `--anticoil`, wins. |
-| Skeleton | `--giantspacing` | `off`\|2\|3 | 2 | How many squares a highway keeps between its own parallel runs. `off` turns the rule off; above 3 only costs time. |
-| Closing | `--headtries` | 2–16 | 4 | How many starting spots to try before giving up on a direction. **Careful:** at 1 the search is too shallow for hard settings. At 8 and above you usually get the same board as at 4. |
-| Closing | `--absorblimit` | 12–64 | 24 | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards fail far more often. |
-| Closing | `--maxback` | `auto`\|50–1000, steps of 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
-| Closing | `--restarts` | 0–5 | 3 | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+This table is not copied by hand — `readme.test.ts` compares its flag, range,
+step and default against the ones the CLI prints, in both languages, so a
+knob that moves has to move here too.
+
+<!-- knob-table -->
+
+| Group | Flag | Range | Step | Default | What it does |
+|---|---|---|---|---|---|
+| Board | `--width` | 4–1000 | 1 | `25` | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
+| Board | `--height` | 4–1000 | 1 | `50` | Rows. A tall board is harder to play than a square one with the same number of squares. |
+| Board | `--seed` | 0–999999 | 1 | `7` | Picks the board. Same seed and same knobs, same board. |
+| Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
+| Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
+| Lengths | `--lmax` | `auto`\|17–5000 | 1 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** below 17 the cap swallows both the medium and the long bucket, so the share between them stops changing the board. Use `auto`, or 17 and up. |
+| Shape | `--pstraight` | 0.6–1 | 0.01 | `0.85` | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** the floor rises with the board. 0.6 closes 500×500, 600×600 needs 0.65, 800×800 needs 0.7 and 1000×1000 needs 0.8; a low `--warns` or a high `--anticoil` raises it further still. |
+| Shape | `--wlateral` | 0–20 | 0.5 | `3` | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
+| Shape | `--warns` | 2–16 | 1 | `4` | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** 2 and 3 raise the straightness a large board needs; at 6 and up they lower it. |
+| Shape | `--anticoil` | 1–10 | 1 | `6` | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** 7 and up raise the straightness a large board needs; 4 and below lower it. |
+| Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Where the next arrow starts: the shallowest line (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
+| Difficulty | `--probe` | 0–1 | 0.01 | `0` | Share of arrows whose length is drawn around one fixed target instead of the usual three-way split. |
+| Difficulty | `--probelen` | 4–200 | 1 | `12` | That fixed target, give or take half. 4 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
+| Skeleton | `--giants` | 0–40 | 1 | `0` | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |
+| Skeleton | `--giantspan` | 1–200 | 1 | `30` | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
+| Skeleton | `--giantstep` | `random`\|1–40 | 1 | `14` | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
+| Skeleton | `--giantjitter` | 0–1 | 0.05 | `0.6` | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
+| Skeleton | `--wgiant` | 0–0.2 | 0.01 | `0` | The chance that an arrow drawn later is also a highway. **Careful:** at 0.2 boards get slow and stop closing at 1000×1000. |
+| Skeleton | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | How straight a highway runs where it has free space. **Careful:** 0.5 is no preference at all; below it the knob would weigh a straight move down, which is not what its name says. |
+| Skeleton | `--giantanticoil` | 1–20 | 1 | `6` | The self-touching penalty, for highways only. Whichever is higher, this or the general `--anticoil`, wins. |
+| Skeleton | `--giantspacing` | `off`\|2\|3 | 1 | `2` | How many squares a highway keeps between its own parallel runs. `off` turns the rule off. The flag takes these three values and nothing else: a wider radius only cost time, so it is not offered. |
+| Closing | `--headtries` | 2–16 | 1 | `4` | How many starting spots to try before giving up on a direction. **Careful:** at 2 the search is shallow for hard settings. At 8 and above you usually get the same board as at 4. |
+| Closing | `--absorblimit` | 12–64 | 1 | `24` | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards fail far more often. |
+| Closing | `--maxback` | `auto`\|50–1000 | 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
+| Closing | `--restarts` | 0–5 | 1 | `3` | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
 
 Five knobs from an earlier version of this tool — `hug`, `edgehug`,
 `strandlimit`, `giantwarns` and `giantspacepenalty` — are gone. Each did
@@ -733,16 +742,21 @@ choosing one: the number is the share of arrows that start as tunnels.
 Four rules cannot be written as a simple from–to range, so they are checked
 separately:
 
-| Rule | In plain words |
-|---|---|
-| Short plus medium share | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
-| Maximum length | `--lmax` must be `auto` or at least 6. |
-| Whole numbers | `--width`, `--height` and `--seed` take whole numbers only. |
-| Start and mixing | `--start` takes a word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose start and mixing are a pair no `--start` can write is refused, because its command would rebuild a different board. |
+<!-- rule-table -->
 
-Break a rule, or put any knob outside its range, and the generator refuses
-before drawing anything, tells you which value was wrong, and stops with
-status code 2. It never quietly rounds your number into range.
+| Flags | What is checked |
+|---|---|
+| `--wshort`, `--wmid` | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
+| `--lmax` | `auto`, or 17 and up. |
+| `--start` | A word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose start and mixing are a pair no `--start` can write is refused, because its command would rebuild a different board. |
+| `--pstraight`, `--warns`, `--anticoil` | The straightness a board needs rises with its longer side — 0.6 up to 500×500, 0.65 at 600×600, 0.7 at 800×800, 0.8 at 1000×1000 — and `--warns` below 4, or `--anticoil` above 6, raises it further; a high `--warns` or a low `--anticoil` lowers it. Below the floor the board does not close, and the refusal names the number this board needs. |
+
+Break a rule, put any knob outside its range, or land between two of its
+steps, and the generator refuses before drawing anything, tells you which
+value was wrong, and stops with status code 2. It never quietly rounds your
+number into range: `--maxback=75` is refused rather than nudged to 50 or 100,
+because a value no slider and no printed command can reach would make the
+board unreproducible.
 
 The everyday options cannot break these rules. They were built so that every
 value of every everyday option, at every board size, produces a valid

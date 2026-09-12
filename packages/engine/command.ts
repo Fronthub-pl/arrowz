@@ -8,7 +8,17 @@
 // the command line is a PIN: it wins over the bundle and pins only itself.
 // The lab has to mirror the CLI 1:1, so both sides build and read the text
 // with this code.
-import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View, ViewNumber } from './types.ts'
+import type {
+  ParamGroup,
+  ParamKey,
+  Params,
+  ParamSpec,
+  RuleKey,
+  SimpleChoice,
+  SvgOptions,
+  View,
+  ViewNumber,
+} from './types.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
@@ -276,6 +286,63 @@ function rangeText(key: ParamKey): string {
 }
 
 /**
+ * One row of the knob table: the flag, the values it takes, the step between
+ * them, the default spelled the way the flag spells it, and the help line.
+ * `--help=knobs` prints it and README.md tabulates it, so the two cannot say
+ * different things (readme.test.ts holds them together).
+ */
+export interface KnobRow {
+  group: ParamGroup
+  flag: string
+  values: string
+  label: string
+  step: string
+  def: string
+  help: string
+}
+
+/** The knob table: one row per PARAM_SPEC entry, with headBias and mix merged into --start. */
+export const KNOB_ROWS: readonly KnobRow[] = (() => {
+  const rows: KnobRow[] = []
+  let startDone = false
+  for (const s of PARAM_SPEC) {
+    if (s.surface === 'start') {
+      if (startDone) continue
+      startDone = true
+      rows.push({
+        group: s.group,
+        flag: '--start',
+        values: `${Object.keys(START.words).join('|')}|${MIX_SHARE.min}..${MIX_SHARE.max}`,
+        label: 'where a piece starts, and layer/tunnel mixing',
+        step: '-',
+        def: 'random',
+        help:
+          'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). ' +
+          `A number in ${MIX_SHARE.min}..${MIX_SHARE.max} mixes the two instead: the fraction of pieces that start as tunnels.`,
+      })
+      continue
+    }
+    rows.push({
+      group: s.group,
+      flag: flagOf(s.key),
+      values: rangeText(s.key),
+      label: s.label,
+      step: String(s.step),
+      def: String(wordFor(s.key, s.def) ?? s.def),
+      help: s.help,
+    })
+  }
+  return rows
+})()
+
+/** The cross-knob rules, each with the flags it is about. */
+export const RULE_ROWS: readonly { key: RuleKey; flags: readonly string[]; reason: string }[] = RULES.map((r) => ({
+  key: r.key,
+  flags: ruleFlags(r.keys),
+  reason: RULE_REASONS[r.key],
+}))
+
+/**
  * Usage text for --help. The default is the short form: the everyday flags,
  * the modes and the picture. With { knobs: true } the full knob table follows,
  * one row per PARAM_SPEC entry plus the merged --start, with the rules and
@@ -318,53 +385,23 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push('is hyphenated instead (--dry-run, --max-seeds, --arrow-width). A value outside')
   out.push('the range below, or breaking a rule, is refused before any board is generated.')
   out.push('')
-  const rowOf = (s: ParamSpec): string[] => [
-    `${flagOf(s.key)}=${rangeText(s.key)}`,
-    s.label,
-    String(s.step),
-    String(wordFor(s.key, s.def) ?? s.def),
-    s.help,
-  ]
-  const startRow: string[] = [
-    `--start=${Object.keys(START.words).join('|')}|${START.mix.min}..${START.mix.max}`,
-    'where a piece starts, and layer/tunnel mixing',
-    '-',
-    'random',
-    'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). ' +
-    `A number in ${START.mix.min}..${START.mix.max} mixes the two instead: the fraction of pieces that start as tunnels.`,
-  ]
   // One row per knob plus the merged --start: 26 keys and 25 flags, over 5
   // columns. A spread of a list that is neither cells nor pieces.
-  const rows: string[][] = []
-  let startDone = false
-  for (const s of PARAM_SPEC) {
-    if (s.surface !== 'start') {
-      rows.push(rowOf(s))
-      continue
-    }
-    if (startDone) continue
-    startDone = true
-    rows.push(startRow)
-  }
+  const rows: string[][] = KNOB_ROWS.map((r) => [`${r.flag}=${r.values}`, r.label, r.step, r.def, r.help])
   const head: readonly string[] = ['flag', 'knob', 'step', 'default', 'help']
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => cellAt(r, i).length)))
   const line = (r: readonly string[]) =>
     '  ' + r.map((c, i) => (i === r.length - 1 ? c : c.padEnd(widths[i] ?? 0))).join('  ')
   out.push(line(head))
   let group: ParamGroup | null = null
-  let row = 0
-  startDone = false
-  for (const s of PARAM_SPEC) {
-    if (s.surface === 'start' && startDone) continue
-    if (s.surface === 'start') startDone = true
-    if (s.group !== group) {
-      group = s.group
+  KNOB_ROWS.forEach((knob, i) => {
+    if (knob.group !== group) {
+      group = knob.group
       out.push(`  [${group}]`)
     }
-    const r = rows[row++]
-    if (!r) continue
-    out.push(line(r))
-  }
+    const r = rows[i]
+    if (r) out.push(line(r))
+  })
   out.push('')
   const legend = PARAM_SPEC.filter((s) => wordsOf(s.key).length)
     .flatMap((s) => wordsOf(s.key).map((word) => `${flagOf(s.key)}=${word} is ${WORDS[s.key]?.[word]}`))
@@ -374,7 +411,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push(`A word in a range spells one number: ${legend.join(', ')}.`)
   out.push('')
   out.push('Rules (checked together with the ranges):')
-  list(RULES.map((r): FlagRow => [`${r.key} (${ruleFlags(r.keys).join(', ')})`, RULE_REASONS[r.key]]))
+  list(RULE_ROWS.map((r): FlagRow => [`${r.key} (${r.flags.join(', ')})`, r.reason]))
   out.push('')
   out.push('Pinning. An everyday flag sets a bundle: --length sets the two share knobs,')
   out.push('--winding the four shape knobs, --skeleton the five skeleton knobs, and every')
