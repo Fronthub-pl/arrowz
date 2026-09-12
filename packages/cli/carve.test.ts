@@ -3,6 +3,10 @@
 // carve.ts in a child process and compare the SVG byte for byte.
 // --dry-run is tested the same way: the board store points at a temporary
 // directory, which must stay empty.
+//
+// The CLI has one mode. Every run makes a board from the everyday flags, and
+// a knob named on the command line is pinned: it holds while the rest of its
+// bundle keeps being chosen around it.
 import { assert, assertEquals, assertMatch, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import {
@@ -11,10 +15,11 @@ import {
   fingerprint,
   formatViolation,
   generate,
+  PARAM_SPEC,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { boardId, buildCommand, buildSimpleCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
 
@@ -36,6 +41,8 @@ const readMeta = (file: string): BoardMeta => JSON.parse(Deno.readTextFileSync(f
 const storedFingerprint = (file: string): string => fingerprint(decodeBoard(JSON.parse(Deno.readTextFileSync(file))))
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
+/** A command text as argv: everything after the prefix. */
+const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ')
 
 /** Runs carve.ts with the board store pointed at boardsDir. */
 function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
@@ -60,7 +67,8 @@ interface DryLine {
   params?: Params
   view?: View
   command?: string
-  simpleCommand?: string
+  /** The knob keys the command line pinned, in the order they appeared. */
+  pinned?: ParamKey[]
   pieces?: number
   maxLen?: number
   genMs?: number
@@ -84,15 +92,14 @@ function dryRun(args: readonly string[], dir: string, env: Record<string, string
   return { ...r, json }
 }
 
-Deno.test('carve.ts --advanced --svg reproduces the generate() board byte for byte', () => {
+Deno.test('carve.ts --svg reproduces the generate() board byte for byte', () => {
   const dir = tmp()
   const params = { ...defaultParams(), W: 25, H: 50, seed: 7, anticoil: 3, giants: 2 }
   const view = { cell: 10, stroke: 0.5, colored: true, top: 3 }
   const expected = toSvg(generate(params).board, { cell: 10, colored: true, strokeRatio: 0.5, top: 3 })
 
-  const cmd = buildCommand(params, view) // "deno task carve --advanced --board …"
-  const argv = [...cmd.slice(COMMAND_PREFIX.length + 1).split(' '), '--svg']
-  const r = runCarve(argv, dir)
+  const cmd = buildCommand(params, view)
+  const r = runCarve([...argvOf(cmd), '--svg'], dir)
   assertEquals(r.status, 0, r.stderr)
   const id = boardId(params)
   assertMatch(r.stdout, new RegExp(`25x50/${id}\\.board\\.json {2}\\+ 25x50/${id}\\.svg`))
@@ -102,13 +109,14 @@ Deno.test('carve.ts --advanced --svg reproduces the generate() board byte for by
   assertEquals(meta.command, cmd)
   assertEquals(meta.svg, true)
   assertEquals(meta.source, 'cli')
+  assertEquals('simpleCommand' in meta, false, 'there is one dialect, so one command')
 })
 
-Deno.test('carve.ts --advanced --board writes the board file and the meta, and no SVG', () => {
+Deno.test('carve.ts writes the board file and the meta, and no SVG unless asked', () => {
   const dir = tmp()
-  const r = runCarve(['--advanced', '--board', '--w=10', '--h=10', '--seed=3'], dir)
+  const r = runCarve(['--width=10', '--height=10', '--seed=3'], dir)
   assertEquals(r.status, 0, r.stderr)
-  const params = { ...defaultParams(), W: 10, H: 10, seed: 3 }
+  const params = simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 })
   const id = boardId(params)
   assertMatch(r.stdout, new RegExp(`^10x10/${id}\\.board\\.json {2}pieces=`))
   assertEquals(storedFingerprint(join(dir, '10x10', `${id}.board.json`)), fingerprint(generate(params).board))
@@ -119,9 +127,9 @@ Deno.test('carve.ts --advanced --board writes the board file and the meta, and n
 Deno.test('carve.ts --svg=path also writes a copy at the path', () => {
   const dir = tmp()
   const copy = join(dir, 'copy.svg')
-  const r = runCarve(['--advanced', `--svg=${copy}`, '--w=10', '--h=10', '--seed=3'], dir)
+  const r = runCarve([`--svg=${copy}`, '--width=10', '--height=10', '--seed=3'], dir)
   assertEquals(r.status, 0, r.stderr)
-  const id = boardId({ ...defaultParams(), W: 10, H: 10, seed: 3 })
+  const id = boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))
   assertEquals(Deno.readTextFileSync(copy), Deno.readTextFileSync(join(dir, '10x10', `${id}.svg`)))
 })
 
@@ -155,7 +163,7 @@ Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () 
 Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one JSON line', () => {
   const dir = tmp()
   const out = join(dir, 'out.svg')
-  const r = dryRun(['--advanced', '--dry-run', '--svg=' + out, '--w=10', '--h=10', '--seed=1'], dir)
+  const r = dryRun(['--dry-run', '--svg=' + out, '--width=10', '--height=10', '--seed=1'], dir)
   assertEquals(r.status, 0, r.stderr)
   assertEquals(exists(join(dir, 'boards')), false, 'the store must not be created')
   assertEquals(exists(out), false, 'the --svg=path copy must not be written')
@@ -164,19 +172,21 @@ Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one 
   assertEquals(r.json.dryRun, true)
   assertEquals(r.json.ok, true)
   assertEquals([r.json.W, r.json.H, r.json.seed], [10, 10, 1])
-  assertEquals(r.json.id, boardId({ ...defaultParams(), W: 10, H: 10, seed: 1 }))
+  assertEquals(r.json.id, boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 })))
   assertEquals(typeof r.json.pieces, 'number')
   assertEquals(typeof r.json.maxLen, 'number')
   assertEquals(typeof r.json.genMs, 'number')
-  assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --advanced --board --w=10 --h=10 --seed=1`))
+  assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --width=10 --height=10 --seed=1`))
+  assertEquals(r.json.pinned, [], 'nothing was pinned')
   assertEquals(typeof r.json.boardBytes, 'number')
   // The board file is what gets stored; a dry run draws no SVG just to weigh it.
   assertEquals(Object.hasOwn(r.json, 'svgBytes'), false, 'no SVG is rendered, so none is measured')
+  assertEquals(Object.hasOwn(r.json, 'simpleCommand'), false, 'there is one dialect, so one command')
 })
 
 Deno.test('carve.ts --dry-run alone selects the one-board mode and its fingerprint matches the engine', () => {
   const dir = tmp()
-  const r = dryRun(['--advanced', '--dry-run', '--w=25', '--h=50', '--seed=7', '--headbias=1'], dir)
+  const r = dryRun(['--dry-run', '--width=25', '--height=50', '--seed=7', '--start=tunnels'], dir)
   assertEquals(r.status, 0, r.stderr)
   assert(r.json, `no JSON line in:\n${r.stdout}`)
   // the same parameters through the CLI parser and through generate() directly
@@ -184,7 +194,60 @@ Deno.test('carve.ts --dry-run alone selects the one-board mode and its fingerpri
   assertEquals(r.json.fingerprint, fingerprint(expected.board))
   assertEquals(r.json.pieces, expected.board.pieces.length)
   assertEquals(r.json.params?.headBias, 1)
+  assertEquals(r.json.params?.mix, -1)
+  assertEquals(r.json.pinned, ['headBias', 'mix'], 'one flag pins the two knobs behind it')
   assertEquals(entries(dir), 0, 'nothing is written')
+})
+
+// --- the overlap rule: a pin wins, and pins only itself -----------------------
+
+Deno.test('a pinned knob holds while its bundle partners still vary', () => {
+  const dir = tmp()
+  const runs = [7, 8].map((seed) =>
+    dryRun([
+      '--width=40',
+      '--height=40',
+      `--seed=${seed}`,
+      '--winding=0.4',
+      '--randomized',
+      '--pstraight=0.93',
+      '--dry-run',
+    ], dir)
+  )
+  for (const r of runs) {
+    assertEquals(r.status, 0, r.stderr)
+    assert(r.json?.params, `no JSON line in:\n${r.stdout}`)
+    assertEquals(r.json.params.pStraight, 0.93, 'the pin holds')
+    assertEquals(r.json.pinned, ['pStraight'])
+    assertEquals(validateParams(r.json.params), [], 'a drawn set stays inside the envelope')
+  }
+  // Everything except the pin is drawn afresh, so two runs cannot match.
+  const drawn = (j: DryLine) => PARAM_SPEC.filter((s) => s.key !== 'pStraight').map((s) => j.params?.[s.key]).join(',')
+  assert(drawn(runs[0]?.json ?? { ok: true }) !== drawn(runs[1]?.json ?? { ok: true }), 'the rest of the bundle varies')
+  assert(runs[0]?.stderr.includes('--pstraight=0.93 is pinned'), runs[0]?.stderr)
+  assert(runs[0]?.stderr.includes('--winding still sets'), runs[0]?.stderr)
+})
+
+Deno.test('the note never lands on stdout, so --dry-run stays machine-readable', () => {
+  const dir = tmp()
+  const r = runCarve(
+    ['--width=20', '--height=20', '--winding=0.4', '--pstraight=0.9', '--dry-run'],
+    join(dir, 'boards'),
+  )
+  JSON.parse(r.stdout) // throws if the note leaked
+  assertEquals(r.status, 0, r.stderr)
+  assertStringIncludes(r.stderr, 'note: --pstraight=0.9 is pinned')
+})
+
+Deno.test('the note is printed once per run, not once per seed', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=10', '--height=10', '--seed=1', '--count=3', '--restarts=4'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  const notes = r.stderr.split('\n').filter((l) => l.startsWith('note:'))
+  assertEquals(notes.length, 1, r.stderr)
+  assertStringIncludes(notes[0] ?? '', '--restarts=4 is pinned')
+  // A knob in no bundle has no partners to name.
+  assertEquals(notes[0]?.includes(';'), false, notes[0])
 })
 
 // --- the safe envelope --------------------------------------------------------
@@ -192,7 +255,7 @@ Deno.test('carve.ts --dry-run alone selects the one-board mode and its fingerpri
 // before any generation, in every mode, with exit code 2. --pstraight=0.3 is a
 // range violation, --lmax=3 breaks the lmaxHole rule.
 
-const BAD = ['--advanced', '--w=10', '--h=10', '--seed=1', '--pstraight=0.3', '--lmax=3']
+const BAD = ['--width=10', '--height=10', '--seed=1', '--pstraight=0.3', '--lmax=3']
 const expectedLines = validateParams({ ...defaultParams(), pStraight: 0.3, Lmax: 3 }).map(formatViolation)
 
 Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, nothing written', () => {
@@ -215,7 +278,7 @@ Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stde
   const r = dryRun(['--svg=' + out, ...BAD], dir)
   assertEquals(r.status, 2)
   assertEquals(expectedLines.length, 2)
-  assertMatch(r.stderr, /^invalid parameters:\n/)
+  assertMatch(r.stderr, /invalid parameters:\n/)
   for (const line of expectedLines) assert(r.stderr.includes(`  - ${line}\n`), `stderr lacks: ${line}\n${r.stderr}`)
   assertMatch(r.stderr, /see --help for the allowed ranges\n$/)
   assertEquals(r.stdout, '', 'nothing on stdout')
@@ -223,63 +286,76 @@ Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stde
   assertEquals(entries(dir), 0, 'the store must not be created')
 })
 
-Deno.test('carve.ts report and bench modes refuse invalid parameters before the first level', () => {
+// --- refusals -----------------------------------------------------------------
+
+Deno.test('a retired flag is refused with its replacement, exit code 2', () => {
   const dir = tmp()
-  for (const mode of [['--only=easy', '--square', '--runs=1'], ['--bench=1', '--only=easy', '--square']]) {
-    const r = dryRun(['--advanced', ...mode, '--warns=1'], dir)
-    assertEquals(r.status, 2, mode.join(' '))
-    assertMatch(r.stderr, /^invalid parameters:\n {2}- closing off nooks: 1 is outside 2\.\.16\n/)
-    assertEquals(r.stdout, '', `no report header for ${mode.join(' ')}`)
-  }
-  // a level size from --mid is validated like a knob
-  const r = dryRun(['--advanced', '--only=mid', '--square', '--mid=2', '--runs=1'], dir)
+  const r = dryRun(['--advanced', '--w=10', '--h=10', '--dry-run'], dir)
   assertEquals(r.status, 2)
-  assertMatch(r.stderr, /width: 2 is outside 4\.\.1000/)
+  assert(r.json, `no JSON line in:\n${r.stdout}`)
+  assertEquals(r.json.ok, false)
+  assert((r.json.errors ?? []).join(' ').includes('--advanced'), r.stdout)
+  assert((r.json.errors ?? []).join(' ').includes('--width=N'), 'the message names the replacement')
+  assertEquals(entries(dir), 0, 'nothing is written')
 })
 
-// The report and the benchmark have no other test that runs them to the end.
-Deno.test('carve.ts --advanced report and bench modes run one level to the end', () => {
+Deno.test('carve.ts refuses an unknown flag and a missing size: exit 2, a hint, nothing written', () => {
   const dir = tmp()
-  const report = dryRun(['--advanced', '--only=easy', '--square', '--runs=1'], dir)
-  assertEquals(report.status, 0, report.stderr)
-  assertMatch(report.stdout, /--- Easy 25x25 \(1 runs\) ---\n {2}coverage\s+100\.00%/)
-  const bench = dryRun(['--advanced', '--bench=1', '--only=easy', '--square'], dir)
-  assertEquals(bench.status, 0, bench.stderr)
-  assertMatch(bench.stdout, /--- Easy 25x25 ---\n {2}time \[ms\]/)
-  assertEquals(entries(dir), 0, 'the report writes nothing')
+  const r = runCarve(['--nope=1'], dir)
+  assertEquals(r.status, 2)
+  assertMatch(
+    r.stderr,
+    /^invalid arguments:\n {2}- missing --width\n {2}- missing --height\n {2}- unknown flag --nope; see --help\n/,
+  )
+  assertMatch(r.stderr, /see --help\n$/)
+  assertEquals(r.stdout, '')
+  assertEquals(entries(dir), 0, 'the store must not be created')
+
+  const d = dryRun(['--dry-run', '--width=10', '--height=10', '--length=2'], dir)
+  assertEquals(d.status, 2)
+  assertEquals(d.json, { ok: false, error: 'invalid arguments', errors: ['--length=2 is outside 0..1'] })
+  assertEquals(d.stdout.trim().split('\n').length, 1, 'exactly one line on stdout')
+  assertEquals(entries(dir), 0)
 })
 
-Deno.test('carve.ts --advanced --help and -h print the knob table and exit 0, even with bad parameters', () => {
+// --- --help ---------------------------------------------------------------------
+
+Deno.test('carve.ts --help is short, --help=knobs adds the table, both exit 0 with bad parameters', () => {
   const dir = tmp()
   for (const flag of ['--help', '-h']) {
-    const r = dryRun(['--advanced', flag, '--pstraight=0'], dir)
+    const r = dryRun([flag, '--pstraight=0'], dir)
     assertEquals(r.status, 0, flag)
-    assertMatch(r.stdout, new RegExp(`^Usage: ${prefixRe} `))
-    assertMatch(r.stdout, /--pstraight\s+straightness bias\s+0\.6\.\.1/)
-    assert(r.stdout.includes('maximum length must be 0 (automatic) or at least 6'))
+    assertMatch(r.stdout, new RegExp(`^Usage: ${prefixRe} --width=N --height=N`))
+    assert(!r.stdout.includes('--pstraight'), 'the knob table is behind --help=knobs')
     assert(r.stdout.includes('CARVE_TIMEOUT_S'), 'the time budget is documented with the other variables')
     assertEquals(r.stderr, '')
   }
+  const knobs = dryRun(['--help=knobs', '--pstraight=0'], dir)
+  assertEquals(knobs.status, 0)
+  assertMatch(knobs.stdout, /--pstraight=0\.6\.\.1\s+straightness bias/)
+  assert(knobs.stdout.includes('maximum length must be 0 (automatic) or at least 6'))
+  assert(knobs.stdout.includes('--start=layers|random|tunnels'), 'the merged control is listed')
+  assertEquals(knobs.stderr, '')
   assertEquals(entries(dir), 0)
 })
 
 // --- boards that do not close -------------------------------------------------
-// A board that does not close still goes to the store, with its holes drawn,
+// A board that did not close still goes to the store, with its holes drawn,
 // so that a jam can be looked at in the lab and not only counted; the exit
 // code stays 1 for scripts. CARVE_TIMEOUT_S is a wall-clock budget for
 // measurements: past it the run is aborted and what was carved is stored.
 // No setting inside the envelope jams cheaply, so the budget is the fixture:
 // 400×400 takes seconds, a zero budget stops it at the first progress tick.
 
-const LONG = ['--advanced', '--w=400', '--h=400', '--seed=7']
-const longId = boardId({ ...defaultParams(), W: 400, H: 400, seed: 7 })
+const LONG = ['--width=400', '--height=400', '--seed=7']
+const longId = boardId(simpleParams({ ...defaultChoice(), W: 400, H: 400, seed: 7 }))
 
 Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved so far, holes drawn', () => {
   const dir = tmp()
   const copy = join(dir, 'copy.svg')
   const r = runCarve([...LONG, `--svg=${copy}`], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
   assertEquals(r.status, 1, r.stderr)
-  assertMatch(r.stderr, /^aborted after \d+\.\d s: board 400x400 \(seed 7\) has \d+ cells left/)
+  assertMatch(r.stderr, /aborted after \d+\.\d s: board 400x400 \(seed 7\) has \d+ cells left/)
   assertMatch(
     r.stdout,
     new RegExp(
@@ -299,18 +375,7 @@ Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved s
   assertMatch(svg, /<rect /, 'the holes are drawn')
   assertEquals(Deno.readTextFileSync(copy), svg, 'the --svg=path copy is written too')
   assertEquals(meta.source, 'cli')
-})
-
-Deno.test('carve.ts simple mode stores an aborted board as well', () => {
-  const dir = tmp()
-  const r = runCarve(['--width=400', '--height=400', '--seed=7'], dir, { CARVE_TIMEOUT_S: '0' })
-  assertEquals(r.status, 1, r.stderr)
-  const id = boardId(simpleParams({ ...defaultChoice(), W: 400, H: 400, seed: 7 }))
-  const meta = readMeta(join(dir, '400x400', `${id}.json`))
-  assertEquals([meta.ok, meta.aborted], [false, true])
-  assertMatch(meta.simpleCommand ?? '', / --width=400 --height=400 --seed=7/)
-  assert(exists(join(dir, '400x400', `${id}.board.json`)))
-  assertEquals(exists(join(dir, '400x400', `${id}.svg`)), false, 'no preview without --svg')
+  assertMatch(meta.command, / --width=400 --height=400 --seed=7/)
 })
 
 Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSON line and writes nothing', () => {
@@ -324,17 +389,14 @@ Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSO
   assertEquals(typeof r.json.backtracks, 'number')
   assertEquals(entries(dir), 0, 'nothing is written')
   // a budget that is not a number is refused, not silently ignored
-  const bad = dryRun(['--advanced', '--dry-run', '--w=10', '--h=10'], dir, { CARVE_TIMEOUT_S: 'soon' })
+  const bad = dryRun(['--dry-run', '--width=10', '--height=10'], dir, { CARVE_TIMEOUT_S: 'soon' })
   assertEquals(bad.status, 2)
   assertMatch(bad.stderr, /invalid CARVE_TIMEOUT_S: soon/)
 })
 
-// --- the simple mode (no --advanced) ----------------------------------------
-// The default call takes the simple lab view's inputs and always makes one
-// board. The store meta keeps the full --advanced command (it reproduces the
-// board even after --randomized) and the simple command next to it.
+// --- the everyday flags make the board the lab's simple view makes -------------
 
-Deno.test('carve.ts without --advanced writes the board file of the board the simple lab view makes, and no SVG', () => {
+Deno.test('carve.ts turns the everyday flags into the board of the simple lab view', () => {
   const dir = tmp()
   const choice: SimpleChoice = {
     ...defaultChoice(),
@@ -349,14 +411,15 @@ Deno.test('carve.ts without --advanced writes the board file of the board the si
   const params = simpleParams(choice)
   const view = { ...DEFAULT_VIEW, cell: exportCell(25, 50), colored: true }
 
+  // --winding is the shape slider itself: 0.2 here, not 0.8 through an inversion.
   const r = runCarve([
     '--width=25',
     '--height=50',
     '--seed=7',
     '--length=0.25',
-    '--straight=0.8',
+    '--winding=0.2',
     '--skeleton',
-    '--colorized',
+    '--colored',
   ], dir)
   assertEquals(r.status, 0, r.stderr)
   const id = boardId(params)
@@ -364,48 +427,24 @@ Deno.test('carve.ts without --advanced writes the board file of the board the si
   assertEquals(storedFingerprint(join(dir, '25x50', `${id}.board.json`)), fingerprint(generate(params).board))
   assertEquals(exists(join(dir, '25x50', `${id}.svg`)), false, 'no preview without --svg')
   const meta = readMeta(join(dir, '25x50', `${id}.json`))
-  assertEquals(meta.command, buildCommand(params, view), 'the full command reproduces the board')
-  assertMatch(meta.command, new RegExp(`^${prefixRe} --advanced --board `))
-  assertEquals(
-    meta.simpleCommand,
-    `${COMMAND_PREFIX} --width=25 --height=50 --seed=7 --length=0.25 --straight=0.8 --skeleton --colorized`,
-  )
-  assertEquals(meta.simpleCommand, buildSimpleCommand(choice, view))
+  assertEquals(meta.command, buildCommand(params, view), 'the command reproduces the board')
+  assertMatch(meta.command, new RegExp(`^${prefixRe} --width=25 --height=50 --seed=7 `))
   assertEquals(meta.source, 'cli')
   assertEquals(meta.params, params)
   assertEquals([meta.svg, meta.fingerprint], [false, fingerprint(generate(params).board)])
+  assertEquals(r.stderr, '', 'nothing was pinned, so there is no note')
 })
 
-Deno.test('carve.ts simple mode: --svg=path writes a copy, --dry-run writes nothing and prints both commands', () => {
+Deno.test('carve.ts --randomized draws every knob inside the slider ranges', () => {
   const dir = tmp()
-  const copy = join(dir, 'copy.svg')
-  const ok = runCarve(['--width=10', '--height=10', '--seed=1', `--svg=${copy}`], join(dir, 'store'))
-  assertEquals(ok.status, 0, ok.stderr)
-  const id = boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 }))
-  assertEquals(Deno.readTextFileSync(copy), Deno.readTextFileSync(join(dir, 'store', '10x10', `${id}.svg`)))
-
-  const dry = tmp()
-  const r = dryRun(['--dry-run', '--width=10', '--height=10', '--seed=1', '--length=0'], dry)
-  assertEquals(r.status, 0, r.stderr)
-  assert(r.json, `no JSON line in:\n${r.stdout}`)
-  assertEquals(r.json.ok, true)
-  assertEquals(r.json.params, simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1, lengths: 0 }))
-  assertEquals(r.json.simpleCommand, `${COMMAND_PREFIX} --width=10 --height=10 --seed=1 --length=0`)
-  assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --advanced --board --w=10 --h=10 --seed=1 `))
-  assertEquals(r.json.view?.cell, exportCell(10, 10))
-  assertEquals(entries(dry), 0, 'nothing is written')
-})
-
-Deno.test('carve.ts simple mode: --randomized draws every knob inside the slider ranges', () => {
-  const dir = tmp()
-  const choice: SimpleChoice = { ...defaultChoice(), W: 20, H: 20, seed: 1, lengths: 0, shape: 0, skeleton: 'on' }
+  const choice: SimpleChoice = { ...defaultChoice(), W: 20, H: 20, seed: 1, lengths: 0, shape: 1, skeleton: 'on' }
   const r = dryRun([
     '--dry-run',
     '--width=20',
     '--height=20',
     '--seed=1',
     '--length=0',
-    '--straight=1',
+    '--winding=1',
     '--skeleton',
     '--randomized',
   ], dir)
@@ -424,58 +463,8 @@ Deno.test('carve.ts simple mode: --randomized draws every knob inside the slider
     if ('pick' in range) assert(range.pick.includes(v), `${key}=${v} not in ${range.pick}`)
     else assert(v >= range.lo - 1e-9 && v <= range.hi + 1e-9, `${key}=${v} outside ${range.lo}..${range.hi}`)
   }
-  assertMatch(r.json.simpleCommand ?? '', / --randomized$/)
-  assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --advanced --board `))
-})
-
-Deno.test('carve.ts simple mode refuses advanced flags and a missing size: exit 2, a hint, nothing written', () => {
-  const dir = tmp()
-  const r = runCarve(['--w=10', '--h=10'], dir)
-  assertEquals(r.status, 2)
-  assertMatch(
-    r.stderr,
-    /^invalid arguments:\n {2}- missing --width\n {2}- missing --height\n {2}- unknown flag --w \(engine knobs, the report and the benchmark need --advanced\)\n/,
-  )
-  assertMatch(r.stderr, /see --help\n$/)
-  assertEquals(r.stdout, '')
-  assertEquals(entries(dir), 0, 'the store must not be created')
-
-  const d = dryRun(['--dry-run', '--width=10', '--height=10', '--length=2'], dir)
-  assertEquals(d.status, 2)
-  assertEquals(d.json, { ok: false, error: 'invalid arguments', errors: ['--length=2 is outside 0..1'] })
-  assertEquals(d.stdout.trim().split('\n').length, 1, 'exactly one line on stdout')
-  assertEquals(entries(dir), 0)
-})
-
-Deno.test('carve.ts --help without --advanced prints the simple flags and points at --advanced', () => {
-  const dir = tmp()
-  for (const flag of ['--help', '-h']) {
-    const r = dryRun([flag, '--w=10'], dir)
-    assertEquals(r.status, 0, flag)
-    assertMatch(r.stdout, new RegExp(`^Usage: ${prefixRe} --width=N --height=N`))
-    for (
-      const f of [
-        '--length=R',
-        '--straight=R',
-        '--skeleton',
-        '--seed=N',
-        '--randomized',
-        '--colorized',
-        '--lineweight=R',
-        '--arrowwidth=R',
-        '--arrowheight=R',
-        '--svg[=path]',
-        '--dry-run',
-        '--advanced',
-      ]
-    ) {
-      assert(r.stdout.includes(f), `${f} missing from the simple help`)
-    }
-    assert(!r.stdout.includes('--pstraight'), 'the knob table is behind --advanced --help')
-    assert(r.stdout.includes('CARVE_TIMEOUT_S'), 'the time budget is documented with the other variables')
-    assertEquals(r.stderr, '')
-  }
-  assertEquals(entries(dir), 0)
+  assertEquals(r.json.pinned, [], 'a slider is not a pin')
+  assertMatch(r.json.command ?? '', new RegExp(`^${prefixRe} --width=20 --height=20 --seed=1 `))
 })
 
 // --- a batch: --count=N [--max-seeds=M] --------------------------------------
@@ -492,7 +481,7 @@ Deno.test('carve.ts --count=3 writes three closed boards on consecutive seeds an
     const params = simpleParams({ ...defaultChoice(), W: 10, H: 10, seed })
     const id = boardId(params)
     assertEquals(storedFingerprint(join(dir, '10x10', `${id}.board.json`)), fingerprint(generate(params).board))
-    assertMatch(readMeta(join(dir, '10x10', `${id}.json`)).simpleCommand ?? '', new RegExp(` --seed=${seed}$`))
+    assertMatch(readMeta(join(dir, '10x10', `${id}.json`)).command, new RegExp(` --seed=${seed}$`))
   }
   assertEquals(entries(join(dir, '10x10')), 6, 'a board file and a meta per board, no preview')
   assertMatch(r.stdout, /batch: 3\/3 boards written, 3 seeds tried\n$/)
@@ -500,14 +489,14 @@ Deno.test('carve.ts --count=3 writes three closed boards on consecutive seeds an
 
 Deno.test('carve.ts --count with --svg writes a preview per board', () => {
   const dir = tmp()
-  const r = runCarve(['--advanced', '--svg', '--w=10', '--h=10', '--seed=1', '--count=2'], dir)
+  const r = runCarve(['--svg', '--width=10', '--height=10', '--seed=1', '--count=2'], dir)
   assertEquals(r.status, 0, r.stderr)
   assertEquals(entries(join(dir, '10x10')), 6, 'board file, meta and preview for each of two boards')
 })
 
 Deno.test('carve.ts --count skips seeds that do not close, stores none of them, and exits 1 at the seed limit', () => {
   const dir = tmp()
-  const r = runCarve([...LONG, '--board', '--count=2', '--max-seeds=2'], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
+  const r = runCarve([...LONG, '--count=2', '--max-seeds=2'], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
   assertEquals(r.status, 1, r.stderr)
   assertMatch(r.stderr, /seed 7: not closed \(\d+ cells left\), skipped\n/)
   assertMatch(r.stderr, /seed 8: not closed \(\d+ cells left\), skipped\n/)
@@ -521,7 +510,6 @@ Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exi
     [['--width=10', '--height=10', '--count=0'], '--count=0 is not a positive integer'],
     [['--width=10', '--height=10', '--count=two'], '--count=two is not a positive integer'],
     [['--width=10', '--height=10', '--max-seeds=3'], '--max-seeds needs --count'],
-    [['--advanced', '--w=10', '--h=10', '--count=2'], '--count needs a mode that writes boards'],
     [['--width=10', '--height=10', '--svg=one.svg', '--count=2'], '--svg=path names one file'],
     // --count=1 may reach two seeds (2·N): 999999 and 1000000, one past the envelope.
     [['--width=10', '--height=10', '--seed=999999', '--count=1'], 'seed: 1000000 is outside 0..999999'],

@@ -259,6 +259,10 @@ export interface BoardMeta {
   params: Params
   view: View
   command: string
+  /**
+   * The second command a board stored before the CLI had one dialect carries.
+   * Read only: nothing writes it any more, and `command` is the one command.
+   */
   simpleCommand?: string
   source: string
   createdAt: string

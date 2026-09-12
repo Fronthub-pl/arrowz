@@ -1,34 +1,32 @@
 // THROWAWAY PROTOTYPE — CLI layer over the engine in engine.ts.
-// Run: deno task carve --width=N --height=N [options]
-//      deno task carve --advanced [--<knob>=value ...] [mode]
+// Run: deno task carve --width=N --height=N [options] [mode]
 //
-// Simple mode (default): the inputs of the simple lab view — a size, the
-// sliders --length and --straight in 0..1, --skeleton, --seed, the view
-// (--colorized, --lineweight, --arrowwidth, --arrowheight) and --randomized.
+// One mode. The everyday flags of the simple lab view — a size, the sliders
+// --length and --winding in 0..1, --skeleton, --seed, the picture (--colored,
+// --line, --arrow-width, --arrow-height) and --randomized — stand beside
+// every engine knob, each spelled as its PARAM_SPEC key in lower case. An
+// everyday flag sets a whole bundle of knobs; a knob written on the command
+// line is PINNED: the bundle is drawn first and the pin is written over it,
+// so a pin changes only the knob it names. Each pin is named once per run on
+// stderr, because --dry-run owns stdout.
+//
 // Always one board file → packages/cli/boards/ (+ an SVG preview with --svg,
 // + a copy with --svg=path), or with --dry-run one JSON line and nothing
-// written. Any other flag is refused.
-//
-// Advanced mode (--advanced): engine parameters as --<PARAM_SPEC key in lower
-// case>=value, defaults from defaultParams(). The lab builds its command with
-// the same parser, so the command from the lab reproduces the board bit for
-// bit. Modes:
-//   --board         one board file → packages/cli/boards/
-//   --svg[=path]    the same, plus an SVG preview in the store (+ a copy at path)
+// written. Modes:
+//   --svg[=path]    an SVG preview in the store as well (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
-//                   the id, metrics and fingerprint (alone or next to --board or --svg)
-//   --count=N       with --board or --svg (or in the simple mode): N closed
-//                   boards on the seeds from --seed up, skipping any that
-//                   does not close; --max-seeds=M gives up after M seeds
+//                   the id, metrics, the pinned knobs and the fingerprint
+//   --count=N       N closed boards on the seeds from --seed up, skipping any
+//                   that does not close; --max-seeds=M gives up after M seeds
 //                   (default 2·N); exit 1 when it gives up
-//   --bench=N       benchmark, N runs per level
-//   (no mode)       metrics report per level, --runs=N, --only=Name, --show
-//   --help, -h      usage, one row per knob with its allowed range, the rules
-// Parameters outside the safe envelope (validateParams) are refused before
-// any generation, in every mode, with exit code 2. A board that does not
-// close is stored too (its preview draws the holes), and the exit code is 1;
-// CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what was carved.
-import type { BoardMeta, CarverStats, GenerateOptions, Metrics, Params, TraceInfo, Violation } from '@arrowz/engine'
+//   --help, -h      usage; --help=knobs adds the table of every knob
+// A retired spelling (--advanced, --board, --straight, --w) and an unknown
+// flag are refused by name with exit code 2, and so are parameters outside
+// the safe envelope (validateParams), before any generation. A board that
+// does not close is stored too (its preview draws the holes), and the exit
+// code is 1; CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what
+// was carved.
+import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
 import {
   DIRS,
   encodeBoard,
@@ -39,20 +37,8 @@ import {
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import {
-  boardId,
-  buildCommand,
-  buildSimpleCommand,
-  DEFAULT_VIEW,
-  helpText,
-  parseArgs,
-  parseSimpleArgs,
-  svgOptions,
-} from '@arrowz/engine/command'
-import { simpleParams } from '@arrowz/engine/simple'
-// The report and bench sections build a carver by hand; those four are engine
-// internals, not part of its public surface, so they come from its sources.
-import { analyse, Carver, mulberry32, render } from '../engine/engine.ts'
+import { boardId, buildCommand, helpText, knobFlag, parseArgs, svgOptions } from '@arrowz/engine/command'
+import { BUNDLES, simpleParams } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).
@@ -90,25 +76,18 @@ const debug = Deno.env.get('GIANT_DEBUG') ? (msg: string) => console.error(msg) 
 /** The hooks as generate() takes them, beside the knobs: only the ones that are on. */
 const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } : {}), ...(debug ? { debug } : {}) }
 
-// --advanced selects the full knob set and every mode; the flag itself is not
-// a parameter, so it is taken off argv before the parser sees it. Without it
-// the simple parser runs, and the choice it reads becomes engine parameters
-// through the same function the lab uses (simpleParams).
-const argvIn = Deno.args
-const advanced = argvIn.includes('--advanced')
-const simple = advanced ? null : parseSimpleArgs(argvIn)
-const adv = advanced ? parseArgs(argvIn.filter((a) => a !== '--advanced')) : null
-const view = (simple ?? adv)?.view ?? DEFAULT_VIEW // one of the two is always set
-const rest = (simple ?? adv)?.rest ?? []
+// One parser reads every flag. It is pure — it hands back the everyday
+// choice, the knobs the command line pinned and the view, and leaves the
+// drawing to us — so a batch can redraw for each seed and keep the same pins.
+const parsed = parseArgs(Deno.args)
+const view = parsed.view
+const rest = parsed.rest
 // Mode flags (not engine parameters) — read from what is left after the parser.
-const arg = (k: string, dflt: number): number => {
-  const hit = rest.find((a) => a.startsWith(`--${k}=`))
-  return hit ? Number(hit.split('=')[1]) : dflt
-}
 const has = (flag: string): boolean => rest.includes(`--${flag}`)
 
-if (has('help') || rest.includes('-h')) {
-  console.log(helpText({ advanced }))
+// --help wins over a bad flag: it is what a user reaches for to fix one.
+if (has('help') || rest.includes('-h') || rest.some((a) => a.startsWith('--help='))) {
+  console.log(helpText({ knobs: rest.includes('--help=knobs') }))
   Deno.exit(0)
 }
 
@@ -140,27 +119,46 @@ function refuseViolations(items: readonly Violation[]): never {
   }
   Deno.exit(2)
 }
-// Simple mode: the flags themselves can be wrong (a missing size, a slider
-// outside 0..1, an advanced flag without --advanced). Checked before any
-// knob exists. --randomized draws like the lab: Math.random, not reproducible;
-// the meta keeps the full command, which is.
-let params: Params
-let simpleCommand: string | null
-if (adv) {
-  params = adv.params
-  simpleCommand = null
-} else if (simple) {
-  if (simple.errors.length) refuseErrors('invalid arguments', simple.errors)
-  params = simpleParams(simple.choice, simple.choice.random ? Math.random : null)
-  simpleCommand = buildSimpleCommand(simple.choice, view)
-} else {
-  throw new Error('unreachable: neither parser ran')
-}
-function refuseInvalid(params: Params): void {
-  const violations = validateParams(params)
+// The flags themselves can be wrong (a missing size, a slider outside 0..1, a
+// retired spelling, an unknown flag). Checked before any knob exists.
+if (parsed.errors.length) refuseErrors('invalid arguments', parsed.errors)
+
+// The pins, by the value the parser read for each. --randomized draws like
+// the lab: Math.random, not reproducible; the meta keeps the command, which
+// is. The pins go on top of the draw, so every knob nobody named keeps the
+// value it would have had without them.
+const pinned: Partial<Record<ParamKey, number>> = {}
+for (const key of parsed.pins) pinned[key] = parsed.params[key]
+const params = simpleParams(parsed.choice, parsed.choice.random ? Math.random : null, pinned)
+function refuseInvalid(p: Params): void {
+  const violations = validateParams(p)
   if (violations.length) refuseViolations(violations)
 }
 refuseInvalid(params)
+
+/** Which everyday flag's bundle a knob belongs to, or null when no flag sets it. */
+type BundleKey = keyof typeof BUNDLES
+const BUNDLE_KEYS: readonly BundleKey[] = ['length', 'winding', 'skeleton', 'difficulty']
+function bundleOf(key: ParamKey): BundleKey | null {
+  for (const name of BUNDLE_KEYS) if (BUNDLES[name].includes(key)) return name
+  return null
+}
+/** How the note names whatever still sets the rest of a bundle. */
+function bundleFlag(bundle: BundleKey): string {
+  return bundle === 'difficulty' ? 'the difficulty baseline' : `--${bundle}`
+}
+
+// One line per pinned knob, on stderr: --dry-run owns stdout. Printed once
+// for the whole run rather than once per seed, so a batch stays readable and
+// the JSON of a dry run still parses.
+for (const key of parsed.pins) {
+  // --start writes two knobs with one flag, so it is named once, at the first.
+  if (key === 'mix') continue
+  const bundle = bundleOf(key)
+  const partners = (bundle ? BUNDLES[bundle] : []).filter((k) => k !== key && !parsed.pins.includes(k))
+  const tail = bundle && partners.length ? `; ${bundleFlag(bundle)} still sets ${partners.join(', ')}` : ''
+  console.error(`note: ${knobFlag(params, key)} is pinned${tail}`)
+}
 
 // --- a batch: --count=N [--max-seeds=M] ------------------------------------
 // N closed boards on the seeds from --seed up, for a pool of boards to upload.
@@ -176,12 +174,10 @@ function positiveFlag(name: string): number | null {
 const count = positiveFlag('count')
 const maxSeeds = positiveFlag('max-seeds')
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-const writesBoards = !dryRun && (!advanced || Boolean(svgFlag) || has('board'))
+const writesBoards = !dryRun
 if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
 if (count !== null && !writesBoards) {
-  refuseErrors('invalid arguments', [
-    '--count needs a mode that writes boards: the simple mode, --board or --svg (not --dry-run, --bench or the report)',
-  ])
+  refuseErrors('invalid arguments', ['--count needs a mode that writes boards, and --dry-run writes none'])
 }
 if (count !== null && svgFlag?.startsWith('--svg=')) {
   refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
@@ -190,19 +186,15 @@ const seedLimit = count === null ? 0 : maxSeeds ?? 2 * count
 // The last seed the batch may reach has to be a seed the engine accepts.
 if (count !== null) refuseInvalid({ ...params, seed: params.seed + seedLimit - 1 })
 
-/** The parameters and the simple command of one seed; --randomized draws them anew for every seed. */
-function forSeed(seed: number): { params: Params; simpleCommand: string | null } {
-  if (!simple) return { params: { ...params, seed }, simpleCommand: null }
-  const choice = { ...simple.choice, seed }
-  return {
-    params: simpleParams(choice, choice.random ? Math.random : null),
-    simpleCommand: buildSimpleCommand(choice, view),
-  }
+/** The parameters of one seed: --randomized draws them anew for each, over the same pins. */
+function forSeed(seed: number): Params {
+  const choice = { ...parsed.choice, seed }
+  return simpleParams(choice, choice.random ? Math.random : null, pinned)
 }
 
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
-// The simple mode always lands here; the advanced mode with --board, --svg or
-// --dry-run. The store gets the board file and its meta, and an SVG preview
+// Every run lands here, because making a board is what the CLI does. The
+// store gets the board file and its meta, and an SVG preview
 // only with --svg. A dry run generates, measures and encodes exactly as a real
 // run would, draws no SVG (the board file is what gets stored; boardBytes is
 // its size), and writes nothing: stdout carries one JSON line so that
@@ -215,411 +207,210 @@ function storedNames(meta: BoardMeta, svgOut: string | null): string {
   return `${base}.board.json${meta.svg ? `  + ${base}.svg` : ''}${svgOut ? `  + ${svgOut}` : ''}`
 }
 
-if (!advanced || svgFlag || has('board') || dryRun) {
-  const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
-  if (count !== null) {
-    let written = 0, tried = 0
-    const skipped: number[] = []
-    for (let seed = params.seed; written < count && tried < seedLimit; seed++) {
-      tried++
-      const pick = forSeed(seed)
-      armDeadline()
-      const result = generate(pick.params, hooks)
-      if (!result.ok) {
-        skipped.push(seed)
-        console.error(`seed ${seed}: not closed (${result.stuck?.remaining ?? '?'} cells left), skipped`)
-        continue
-      }
-      const m = result.metrics
-      if (!m) throw new Error('unreachable: ok without metrics')
-      const svg = svgFlag ? toSvg(result.board, svgOptions(view)) : undefined
-      const meta = saveBoard({
-        board: encodeBoard(result.board),
-        ...(svg !== undefined ? { svg } : {}),
-        params: pick.params,
-        view,
-        command: buildCommand(pick.params, view),
-        ...(pick.simpleCommand ? { simpleCommand: pick.simpleCommand } : {}),
-        source: 'cli',
-        metrics: { ok: true, pieces: result.board.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
-      })
-      written++
-      console.log(`${storedNames(meta, null)}  pieces=${m.N} maxLen=${m.maxLen} ${(result.genMs / 1000).toFixed(2)} s`)
-    }
-    const notClosed = skipped.length ? `, not closed: ${skipped.join(' ')}` : ''
-    console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}`)
-    Deno.exit(written === count ? 0 : 1)
-  }
-  const result = generate(params, hooks)
-  const c = result.board, W = params.W, H = params.H
-  const svgView = svgOptions(view)
-  const file = encodeBoard(c)
-  const boardBytes = new TextEncoder().encode(JSON.stringify(file)).byteLength
-  // The full command reproduces the board in every case; the simple command
-  // (simple mode only) records what was asked for.
-  const commands = { command: buildCommand(params, view), ...(simpleCommand ? { simpleCommand } : {}) }
-  if (!result.ok) {
-    // A board that did not close (a jam, or the time budget) is stored like a
-    // closed one, so that the lab can show what the generator left behind;
-    // its preview draws the free cells as holes, and the "not closed" badge
-    // comes from ok:false.
-    const { stuck, aborted } = result
-    if (!stuck) throw new Error('unreachable: not ok without stuck')
-    if (dryRun) {
-      console.log(
-        JSON.stringify({
-          dryRun: true,
-          W,
-          H,
-          seed: params.seed,
-          id: boardId(params),
-          ok: false,
-          aborted,
-          stuck,
-          restarts: result.restartsUsed,
-          backtracks: result.backtracks,
-          genMs: result.genMs,
-          boardBytes,
-        }),
-      )
-    }
-    console.error(
-      aborted
-        ? `aborted after ${
-          (result.genMs / 1000).toFixed(1)
-        } s: board ${W}x${H} (seed ${params.seed}) has ${stuck.remaining} cells left`
-        : `failed to close board ${W}x${H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
-          stuck.heads ?? '?'
-        } legal heads at the best moment`,
-    )
-    if (!dryRun) {
-      const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
-      const meta = saveBoard({
-        board: file,
-        ...(svg !== undefined ? { svg } : {}),
-        params,
-        view,
-        ...commands,
-        source: 'cli',
-        metrics: {
-          ok: false,
-          pieces: c.pieces.length,
-          ...(result.metrics ? { maxLen: result.metrics.maxLen } : {}),
-          genMs: result.genMs,
-          restarts: result.restartsUsed,
-          backtracks: result.backtracks,
-          aborted,
-          stuck,
-        },
-      })
-      if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
-      console.log(
-        `${
-          storedNames(meta, svgOut)
-        }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
-          (result.genMs / 1000).toFixed(2)
-        } s`,
-      )
-    }
-    Deno.exit(1)
-  }
-  const m = result.metrics
-  if (!m) throw new Error('unreachable: ok without metrics')
-  if (dryRun) {
-    console.log(JSON.stringify({
-      dryRun: true,
-      W,
-      H,
-      seed: params.seed,
-      id: boardId(params),
-      params,
-      view,
-      ...commands,
-      ok: true,
-      pieces: m.N,
-      avgLen: +(W * H / m.N).toFixed(2),
-      maxLen: m.maxLen,
-      bends: +m.bends.toFixed(3),
-      coiling: +m.coil.toFixed(3),
-      f0: +m.f0.toFixed(4),
-      solvable: m.solvable,
-      backtracks: result.backtracks,
-      restarts: result.restartsUsed,
-      genMs: Math.round(result.genMs),
-      metricsMs: Math.round(result.metricsMs),
-      boardBytes,
-      fingerprint: fingerprint(c),
-    }))
-    Deno.exit(0)
-  }
-  const svg = svgFlag ? toSvg(c, svgView) : undefined
-  const meta = saveBoard({
-    board: file,
-    ...(svg !== undefined ? { svg } : {}),
-    params,
-    view,
-    ...commands,
-    source: 'cli',
-    metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
-  })
-  if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
-  if (view.top > 0) {
-    // Longest-piece stats: the span (how many columns and rows it crosses)
-    // tells whether a piece crosses the board or coils in one region.
-    const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, view.top)
-    console.log(`  ${view.top} longest pieces:`)
-    for (const pc of longest) {
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-      const cols = new Set<number>(), rows = new Set<number>()
-      for (const q of pc.cells) {
-        if (q.x < minX) minX = q.x
-        if (q.x > maxX) maxX = q.x
-        if (q.y < minY) minY = q.y
-        if (q.y > maxY) maxY = q.y
-        cols.add(q.x)
-        rows.add(q.y)
-      }
-      const spanX = maxX - minX + 1, spanY = maxY - minY + 1
-      const own = new Set(pc.cells.map((q) => q.y * W + q.x))
-      let coiled = 0, bends = 0, prev: { dx: number; dy: number } | null = null
-      for (const [i, q] of pc.cells.entries()) {
-        let n = 0
-        for (const { dx, dy } of DIRS) {
-          const ax = q.x + dx, ay = q.y + dy
-          if (ax >= 0 && ay >= 0 && ax < W && ay < H && own.has(ay * W + ax)) n++
-        }
-        if (n >= 3) coiled++
-        const before = pc.cells[i - 1]
-        if (before) {
-          const dx = q.x - before.x, dy = q.y - before.y
-          if (prev && (dx !== prev.dx || dy !== prev.dy)) bends++
-          prev = { dx, dy }
-        }
-      }
-      // Stretch: what fraction of its bounding rectangle the piece fills.
-      const fill = pc.cells.length / (spanX * spanY)
-      console.log(
-        `    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${
-          String(spanY).padStart(3)
-        } (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  cols ${
-          String(cols.size).padStart(3)
-        }  rows ${String(rows.size).padStart(3)}  bbox density ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${
-          (100 * coiled / pc.cells.length).toFixed(0)
-        }%`,
-      )
-    }
-  }
-  console.log(
-    `${storedNames(meta, svgOut)}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${
-      m.bends.toFixed(2)
-    } coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${
-      (result.genMs / 1000).toFixed(2)
-    } s`,
-  )
-  Deno.exit(0)
-}
-
-// --- levels for the report and benchmark modes -----------------------------
-// Two independent knobs: level (base size) and format (1:1 or 1:2).
-// The portrait format matches a phone screen and the reference screenshot.
-// Insane is the project ceiling: a million cells, ~10 s per run. It exists
-// only as a square (the third field), like the game's Insane level — a
-// 1000×2000 portrait would double the time for no new information.
-const BASE: [string, number, 'square'?][] = [['Easy', 25], ['Medium', 50], ['Hard', 75], ['Nightmare', 100], [
-  'Extreme',
-  200,
-], ['Insane', 1000, 'square']]
-// Intermediate scale — for finding the limit of closability.
-const midArg = arg('mid', 0)
-if (midArg) BASE.push(['Mid', midArg])
-const FORMATS: [string, number][] = has('square') ? [['', 1]] : has('portrait') ? [['', 2]] : [['·sq', 1], ['·pt', 2]]
-const only = rest.find((a) => a.startsWith('--only='))?.split('=')[1]
-const presets = BASE.flatMap(([name, n, squareOnly]) =>
-  FORMATS.filter(([, r]) => !squareOnly || r === 1).map(([sfx, r]) => ({ name: name + sfx, W: n, H: n * r }))
-)
-  .filter((pre) => !only || pre.name.toLowerCase() === only.toLowerCase())
-// The shared knobs passed the check above; the level sizes still have to
-// (only --mid can put one outside 4..1000). Checked before the first run.
-for (const pre of presets) refuseInvalid({ ...params, W: pre.W, H: pre.H })
-
-/** An element of a sorted sample; the sample is never empty where this is read. */
-function at(arr: readonly number[], i: number): number {
-  const v = arr[i]
-  if (v === undefined) throw new Error(`no sample at ${i}`)
-  return v
-}
-
-const runs = arg('runs', 3)
-const show = has('show')
-const bench = arg('bench', 0)
-if (bench > 0) {
-  console.log(`BENCHMARK — ${bench} runs per level\n`)
-  for (const pre of presets) {
-    const times: number[] = [], backs: number[] = [], lens: number[] = [], maxLens: number[] = []
-    let fails = 0, restartsTotal = 0
-    for (let r = 0; r < bench; r++) {
-      const run: Params = { ...params, W: pre.W, H: pre.H }
-      const t0 = performance.now()
-      const seed = 50000 + r
-      let c = new Carver(pre.W, pre.H, run, mulberry32(seed), hooks)
-      let ok = c.run(), rs = 0
-      while (!ok && rs < 5) {
-        rs++
-        c = new Carver(pre.W, pre.H, run, mulberry32(seed + 999983 * rs), hooks)
-        ok = c.run()
-      }
-      const dt = performance.now() - t0
-      if (!ok) {
-        fails++
-        continue
-      }
-      times.push(dt)
-      backs.push(c.backtracks)
-      restartsTotal += rs
-      lens.push(c.pieces.reduce((a, x) => a + x.cells.length, 0) / c.pieces.length)
-      // A loop, not Math.max(...): the spread would grow with the piece count.
-      let max = 0
-      for (const x of c.pieces) if (x.cells.length > max) max = x.cells.length
-      maxLens.push(max)
-    }
-    times.sort((a, b) => a - b)
-    backs.sort((a, b) => a - b)
-    const q = (arr: readonly number[], pp: number) => at(arr, Math.min(arr.length - 1, Math.floor(arr.length * pp)))
-    const mean = (a: readonly number[]) => a.reduce((x, y) => x + y, 0) / a.length
-    console.log(`--- ${pre.name} ${pre.W}x${pre.H} ---`)
-    console.log(
-      `  time [ms]   p50 ${q(times, 0.5).toFixed(0)}   p90 ${q(times, 0.9).toFixed(0)}   p99 ${
-        q(times, 0.99).toFixed(0)
-      }   max ${at(times, times.length - 1).toFixed(0)}`,
-    )
-    console.log(
-      `  backtracks  p50 ${q(backs, 0.5)}   p90 ${q(backs, 0.9)}   p99 ${q(backs, 0.99)}   max ${
-        at(backs, backs.length - 1)
-      }`,
-    )
-    console.log(`  length      mean ${mean(lens).toFixed(2)}   maximum (mean) ${mean(maxLens).toFixed(0)}`)
-    console.log(`  robustness  restarts ${restartsTotal}   failures ${fails}/${bench}\n`)
-  }
-  Deno.exit(0)
-}
-
-/** One closed run of the report: the metrics plus timing and carver diagnostics. */
-type MetricsRun = Metrics & { tGen: number; tAna: number; backtracks: number; restarts: number; st: CarverStats }
-type FailedRun = { failed: true; restarts: number; remaining: number }
-
-console.log('PROTOTYPE — carving from a full board, minimum length 2\n')
-for (const pre of presets) {
-  const acc: (MetricsRun | FailedRun)[] = []
-  for (let r = 0; r < runs; r++) {
-    const seed = 1000 + r
-    const rng = mulberry32(seed)
-    const run: Params = { ...params, W: pre.W, H: pre.H }
-    const t0 = performance.now()
-    let c = new Carver(pre.W, pre.H, run, rng, hooks)
-    let ok = c.run()
-    let restarts = 0
-    while (!ok && restarts < 3) {
-      restarts++
-      c = new Carver(pre.W, pre.H, run, mulberry32(seed + 7777 * restarts), hooks)
-      ok = c.run()
-    }
-    const tGen = performance.now() - t0
-    if (!ok) {
-      const sizes = c.stuckSizes ?? c.leftoverReport()
-      const hist = { '1': 0, '2-5': 0, '6-20': 0, '21-100': 0, '100+': 0 }
-      for (const z of sizes) {
-        if (z === 1) hist['1']++
-        else if (z <= 5) hist['2-5']++
-        else if (z <= 20) hist['6-20']++
-        else if (z <= 100) hist['21-100']++
-        else hist['100+']++
-      }
-      console.log(
-        `  STUCK         at the best moment ${
-          c.stuckRemaining ?? c.remaining
-        } cells remained in ${sizes.length} fragments; largest ${sizes[0]}`,
-      )
-      console.log(
-        `                legal heads at that moment: ${c.stuckHeads ?? '?'} (out of ${2 * (c.W + c.H)} possible)`,
-      )
-      console.log(
-        `                sizes: singletons ${hist['1']}, 2-5: ${hist['2-5']}, 6-20: ${hist['6-20']}, 21-100: ${
-          hist['21-100']
-        }, 100+: ${hist['100+']}`,
-      )
-      acc.push({ failed: true, restarts, remaining: c.remaining })
+const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
+if (count !== null) {
+  let written = 0, tried = 0
+  const skipped: number[] = []
+  for (let seed = params.seed; written < count && tried < seedLimit; seed++) {
+    tried++
+    const seedParams = forSeed(seed)
+    armDeadline()
+    const result = generate(seedParams, hooks)
+    if (!result.ok) {
+      skipped.push(seed)
+      console.error(`seed ${seed}: not closed (${result.stuck?.remaining ?? '?'} cells left), skipped`)
       continue
     }
-    const t1 = performance.now()
-    const m = analyse(c)
-    const tAna = performance.now() - t1
-    acc.push({ ...m, tGen, tAna, backtracks: c.backtracks, restarts, st: c.stats })
-    if (show && r === 0 && pre.W <= 40) console.log(render(c) + '\n')
+    const m = result.metrics
+    if (!m) throw new Error('unreachable: ok without metrics')
+    const svg = svgFlag ? toSvg(result.board, svgOptions(view)) : undefined
+    const meta = saveBoard({
+      board: encodeBoard(result.board),
+      ...(svg !== undefined ? { svg } : {}),
+      params: seedParams,
+      view,
+      command: buildCommand(seedParams, view),
+      source: 'cli',
+      metrics: { ok: true, pieces: result.board.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
+    })
+    written++
+    console.log(`${storedNames(meta, null)}  pieces=${m.N} maxLen=${m.maxLen} ${(result.genMs / 1000).toFixed(2)} s`)
   }
-  const good = acc.filter((a): a is MetricsRun => !('failed' in a))
-  const avg = (f: (a: MetricsRun) => number) => good.reduce((s, a) => s + f(a), 0) / good.length
-  console.log(`--- ${pre.name} ${pre.W}x${pre.H} (${runs} runs) ---`)
-  const first = good[0]
-  if (!first) {
-    console.log('  FAILED to close the board\n')
-    continue
-  }
-  console.log(
-    `  coverage      ${(avg((a) => a.coverage) * 100).toFixed(2)}%   solvable: ${
-      good.every((a) => a.solvable) ? 'YES' : 'NO'
-    }`,
-  )
-  console.log(
-    `  pieces        ${avg((a) => a.N).toFixed(0)}   length ${avg((a) => a.minLen).toFixed(0)}..${
-      avg((a) => a.maxLen).toFixed(0)
-    }`,
-  )
-  console.log(
-    `  length dist.  2-6: ${(avg((a) => a.hist['2-6'] / a.N) * 100).toFixed(0)}%  7-15: ${
-      (avg((a) => a.hist['7-15'] / a.N) * 100).toFixed(0)
-    }%  16-49: ${(avg((a) => a.hist['16-49'] / a.N) * 100).toFixed(0)}%  50+: ${
-      (avg((a) => a.hist['50+'] / a.N) * 100).toFixed(1)
-    }%`,
-  )
-  console.log(
-    `  f0            ${avg((a) => a.f0).toFixed(3)}   T2: ${avg((a) => a.T2).toFixed(0)}   1-blocker: ${
-      avg((a) => a.almost).toFixed(0)
-    } (${(100 * avg((a) => a.almost / a.N)).toFixed(0)}%)   D: ${avg((a) => a.D).toFixed(0)}   corridor: ${
-      avg((a) => a.meanCorridorLen).toFixed(1)
-    }`,
-  )
-  console.log(
-    `  SHAPE         bends/piece ${avg((a) => a.bends).toFixed(2)}   multi-line ${
-      (100 * avg((a) => a.multiLine)).toFixed(0)
-    }%   coiling ${(100 * avg((a) => a.coil)).toFixed(0)}%`,
-  )
-  console.log(
-    `  REACH         mean ${(100 * avg((a) => a.span)).toFixed(0)}% of side   top 10%: ${
-      (100 * avg((a) => a.spanTop10)).toFixed(0)
-    }%   record ${(100 * avg((a) => a.spanMax)).toFixed(0)}%`,
-  )
-  console.log(
-    `  UNBLOCKING    mean ${avg((a) => a.outDeg).toFixed(1)} pieces/removal   record ${
-      avg((a) => a.maxOut).toFixed(0)
-    }   mean distance ${(100 * avg((a) => a.blockDist)).toFixed(0)}% of perimeter`,
-  )
-  console.log(
-    `  WRAPPING      bends/cell ${avg((a) => a.bendsPerCell).toFixed(3)}   own neighbours/cell ${
-      avg((a) => a.selfAdj).toFixed(2)
-    }   foreign neighbours/piece ${avg((a) => a.neighbours).toFixed(1)}   longest shared border ${
-      (100 * avg((a) => a.sharedBorder)).toFixed(0)
-    }% of length`,
-  )
-  console.log(`  backtracks    ${avg((a) => a.backtracks).toFixed(1)}   restarts: ${avg((a) => a.restarts).toFixed(1)}`)
-  const st = first.st
-  console.log(
-    `  diagnostics   mean want ${(st.want / st.n).toFixed(1)} -> got ${(st.got / st.n).toFixed(1)}   stall ${
-      (100 * st.stall / st.n).toFixed(0)
-    }%   strand-trunc ${(100 * st.strandTrunc / st.n).toFixed(0)}% (mean -${
-      (st.strandLoss / Math.max(1, st.strandTrunc)).toFixed(1)
-    })`,
-  )
-  console.log(
-    `  time          generation ${avg((a) => a.tGen).toFixed(0)} ms, metrics ${avg((a) => a.tAna).toFixed(0)} ms\n`,
-  )
+  const notClosed = skipped.length ? `, not closed: ${skipped.join(' ')}` : ''
+  console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}`)
+  Deno.exit(written === count ? 0 : 1)
 }
+const result = generate(params, hooks)
+const c = result.board, W = params.W, H = params.H
+const svgView = svgOptions(view)
+const file = encodeBoard(c)
+const boardBytes = new TextEncoder().encode(JSON.stringify(file)).byteLength
+// One dialect, one command, and it reproduces the board in every case —
+// after --randomized too, because it carries the knobs that were drawn.
+const command = buildCommand(params, view)
+if (!result.ok) {
+  // A board that did not close (a jam, or the time budget) is stored like a
+  // closed one, so that the lab can show what the generator left behind;
+  // its preview draws the free cells as holes, and the "not closed" badge
+  // comes from ok:false.
+  const { stuck, aborted } = result
+  if (!stuck) throw new Error('unreachable: not ok without stuck')
+  if (dryRun) {
+    console.log(
+      JSON.stringify({
+        dryRun: true,
+        W,
+        H,
+        seed: params.seed,
+        id: boardId(params),
+        ok: false,
+        aborted,
+        stuck,
+        restarts: result.restartsUsed,
+        backtracks: result.backtracks,
+        genMs: result.genMs,
+        boardBytes,
+      }),
+    )
+  }
+  console.error(
+    aborted
+      ? `aborted after ${
+        (result.genMs / 1000).toFixed(1)
+      } s: board ${W}x${H} (seed ${params.seed}) has ${stuck.remaining} cells left`
+      : `failed to close board ${W}x${H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
+        stuck.heads ?? '?'
+      } legal heads at the best moment`,
+  )
+  if (!dryRun) {
+    const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
+    const meta = saveBoard({
+      board: file,
+      ...(svg !== undefined ? { svg } : {}),
+      params,
+      view,
+      command,
+      source: 'cli',
+      metrics: {
+        ok: false,
+        pieces: c.pieces.length,
+        ...(result.metrics ? { maxLen: result.metrics.maxLen } : {}),
+        genMs: result.genMs,
+        restarts: result.restartsUsed,
+        backtracks: result.backtracks,
+        aborted,
+        stuck,
+      },
+    })
+    if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
+    console.log(
+      `${
+        storedNames(meta, svgOut)
+      }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
+        (result.genMs / 1000).toFixed(2)
+      } s`,
+    )
+  }
+  Deno.exit(1)
+}
+const m = result.metrics
+if (!m) throw new Error('unreachable: ok without metrics')
+if (dryRun) {
+  console.log(JSON.stringify({
+    dryRun: true,
+    W,
+    H,
+    seed: params.seed,
+    id: boardId(params),
+    params,
+    pinned: parsed.pins,
+    view,
+    command,
+    ok: true,
+    pieces: m.N,
+    avgLen: +(W * H / m.N).toFixed(2),
+    maxLen: m.maxLen,
+    bends: +m.bends.toFixed(3),
+    coiling: +m.coil.toFixed(3),
+    f0: +m.f0.toFixed(4),
+    solvable: m.solvable,
+    backtracks: result.backtracks,
+    restarts: result.restartsUsed,
+    genMs: Math.round(result.genMs),
+    metricsMs: Math.round(result.metricsMs),
+    boardBytes,
+    fingerprint: fingerprint(c),
+  }))
+  Deno.exit(0)
+}
+const svg = svgFlag ? toSvg(c, svgView) : undefined
+const meta = saveBoard({
+  board: file,
+  ...(svg !== undefined ? { svg } : {}),
+  params,
+  view,
+  command,
+  source: 'cli',
+  metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
+})
+if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
+if (view.top > 0) {
+  // Longest-piece stats: the span (how many columns and rows it crosses)
+  // tells whether a piece crosses the board or coils in one region.
+  const longest = [...c.pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, view.top)
+  console.log(`  ${view.top} longest pieces:`)
+  for (const pc of longest) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    const cols = new Set<number>(), rows = new Set<number>()
+    for (const q of pc.cells) {
+      if (q.x < minX) minX = q.x
+      if (q.x > maxX) maxX = q.x
+      if (q.y < minY) minY = q.y
+      if (q.y > maxY) maxY = q.y
+      cols.add(q.x)
+      rows.add(q.y)
+    }
+    const spanX = maxX - minX + 1, spanY = maxY - minY + 1
+    const own = new Set(pc.cells.map((q) => q.y * W + q.x))
+    let coiled = 0, bends = 0, prev: { dx: number; dy: number } | null = null
+    for (const [i, q] of pc.cells.entries()) {
+      let n = 0
+      for (const { dx, dy } of DIRS) {
+        const ax = q.x + dx, ay = q.y + dy
+        if (ax >= 0 && ay >= 0 && ax < W && ay < H && own.has(ay * W + ax)) n++
+      }
+      if (n >= 3) coiled++
+      const before = pc.cells[i - 1]
+      if (before) {
+        const dx = q.x - before.x, dy = q.y - before.y
+        if (prev && (dx !== prev.dx || dy !== prev.dy)) bends++
+        prev = { dx, dy }
+      }
+    }
+    // Stretch: what fraction of its bounding rectangle the piece fills.
+    const fill = pc.cells.length / (spanX * spanY)
+    console.log(
+      `    len ${String(pc.cells.length).padStart(4)}  bbox ${String(spanX).padStart(3)}x${
+        String(spanY).padStart(3)
+      } (${(100 * spanX / W).toFixed(0)}% x ${(100 * spanY / H).toFixed(0)}% of board)  cols ${
+        String(cols.size).padStart(3)
+      }  rows ${String(rows.size).padStart(3)}  bbox density ${(100 * fill).toFixed(0)}%  bends ${bends}  coiling ${
+        (100 * coiled / pc.cells.length).toFixed(0)
+      }%`,
+    )
+  }
+}
+console.log(
+  `${storedNames(meta, svgOut)}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${
+    m.bends.toFixed(2)
+  } coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${
+    (result.genMs / 1000).toFixed(2)
+  } s`,
+)
+Deno.exit(0)
+
+// The metrics report and the benchmark used to run from here, for a call that
+// named no board mode. With one mode every run makes a board, so they became
+// unreachable code that no longer type-checks: they move to `deno task report`
+// in their own commit, and the block they start from is kept verbatim in git
+// at c3037ec:packages/cli/carve.ts.

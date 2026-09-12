@@ -200,10 +200,6 @@ function checkPost(v: unknown): Checked<SaveInput> {
   if ('error' in metrics) return metrics
   const command = v.command
   if (!isText(command)) return { error: `command must be a string of at most ${MAX_TEXT} characters` }
-  const simpleCommand = v.simpleCommand
-  if (simpleCommand !== undefined && !isText(simpleCommand)) {
-    return { error: `simpleCommand must be a string of at most ${MAX_TEXT} characters` }
-  }
   const source = v.source ?? 'lab'
   if (typeof source !== 'string' || !SOURCES.includes(source)) {
     return { error: `source must be one of ${SOURCES.join(', ')}` }
@@ -214,7 +210,6 @@ function checkPost(v: unknown): Checked<SaveInput> {
       params: params.ok,
       view: view.ok,
       command,
-      ...(simpleCommand !== undefined ? { simpleCommand } : {}),
       metrics: metrics.ok,
       source,
     },

@@ -14,7 +14,6 @@ export interface SaveInput {
   params: Params
   view: View
   command: string
-  simpleCommand?: string
   metrics?: {
     ok?: boolean
     pieces?: number
@@ -85,7 +84,7 @@ function readMeta(file: string): BoardMeta | null {
 }
 
 export function saveBoard(
-  { board, svg, params, view, command, simpleCommand, metrics = {}, source }: SaveInput,
+  { board, svg, params, view, command, metrics = {}, source }: SaveInput,
 ): BoardMeta {
   if (board.W !== params.W || board.H !== params.H) {
     throw new Error(`board file is ${board.W}x${board.H}, the params ask for ${params.W}x${params.H}`)
@@ -114,7 +113,6 @@ export function saveBoard(
     params,
     view,
     command,
-    ...(simpleCommand ? { simpleCommand } : {}),
     source,
     createdAt,
     updatedAt: now,

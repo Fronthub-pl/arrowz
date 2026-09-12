@@ -128,6 +128,27 @@ const SKELETON: Record<SimpleChoice['skeleton'], Anchor> = {
 const DIFFICULTY: Anchor = { headBias: { pick: [-1, 0, 1], def: 0 }, probe: r(0, 0.3, 0), probeLen: r(6, 40, 12) }
 const DIFFICULTY_BIG: Anchor = { headBias: { pick: [0, 1], def: 0 } }
 
+/** The first anchor of a slider; every slider has at least one, so a miss is a programming error. */
+function firstAnchor(anchors: readonly Anchor[]): Anchor {
+  const a = anchors[0]
+  if (!a) throw new Error('a slider needs at least one anchor')
+  return a
+}
+
+/**
+ * The knobs each everyday flag sets, read off the very anchors the ranges use,
+ * so the two cannot drift apart. Every anchor of one slider names the same
+ * knobs, so the first one speaks for all of them. `difficulty` is the baseline
+ * every board gets, whatever the flags say; `mix` belongs to no bundle,
+ * because only `--start` ever writes it.
+ */
+export const BUNDLES: Record<'length' | 'winding' | 'skeleton' | 'difficulty', readonly ParamKey[]> = {
+  length: anchorKeys(firstAnchor(LENGTH_ANCHORS)),
+  winding: anchorKeys(firstAnchor(SHAPE_ANCHORS)),
+  skeleton: anchorKeys(SKELETON.on),
+  difficulty: anchorKeys(DIFFICULTY),
+}
+
 /**
  * Cell size for the exported SVG: 1600 px on the longer side, between 1 and
  * 18 px. The lab and the CLI simple mode share it, so the same choice gives

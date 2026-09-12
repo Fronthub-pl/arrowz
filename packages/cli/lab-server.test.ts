@@ -35,7 +35,7 @@ Deno.test('POST /api/boards saves, GET lists, the board file is served from the 
       board,
       params: { ...defaultParams(), W: 25, H: 50, seed: 7 },
       view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
-      command: `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
+      command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
       metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 10 },
       source: 'lab',
     }
@@ -177,7 +177,7 @@ Deno.test('POST stores the board file as the engine writes it, without keys it d
       board: { ...emptyFile(10, 10), junk: 'x'.repeat(1000) },
       params: { ...defaultParams(), W: 10, H: 10, seed: 4 },
       view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
-      command: `${COMMAND_PREFIX} --advanced --board --w=10 --h=10 --seed=4 --cell=12`,
+      command: `${COMMAND_PREFIX} --width=10 --height=10 --seed=4`,
     }
     const resp = await post(base, body)
     assertEquals(resp.status, 201)
