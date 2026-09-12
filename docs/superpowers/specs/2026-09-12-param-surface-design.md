@@ -78,8 +78,10 @@ deno task carve --width=N --height=N [--seed=N]
   (`--runs`, `--bench`, `--only`, `--mid`, `--square`, `--portrait`, `--show`). They are
   engine research, not board making, and they are seven of the flags in today's help.
 - **`simpleCommand` disappears from the board meta.** With one dialect there is no second
-  command to record; `command` is the only one. The server keeps accepting the field as
-  optional text so a meta written before this change still loads.
+  command to record; `command` is the only one. The server stops naming the field, and since
+  it rebuilds what it stores from checked values, a POST that still carries one is answered
+  as before and the field is simply dropped. A meta written before this change still loads:
+  the store spreads what it reads, so the old field survives on disk and in the library.
 
 ## 3. 31 knobs become 25
 
