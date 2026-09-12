@@ -302,9 +302,12 @@ the undo path. What is left:
   itself. It now costs a biased `--start` plus a tenth, with the boards unchanged. What
   is left for §4 is a product question — whether Insane at roughly 25 s instead of 12 s
   is a default anyone wants — not an engineering one.
-- *The per-undo invariant*, in `engine.test.ts` rather than in a script: the line table
-  compared to a from-scratch fold **after each undo**, on the `starved heads` seed that
-  now reaches 50 backtracks with the lever on.
+- ~~*The per-undo invariant*~~ Done: `engine.test.ts` now hangs the check on `undoLast`
+  — the only place cells go back to unassigned — and compares the maintained table to a
+  from-scratch fold after every undo, over 57 undos on three jam boards, both signs of
+  the lever, with and without voids. It asserts that a frontier actually receded, so it
+  cannot pass on a table that only ever grew, and disabling the rebuild branch makes it
+  fail.
 - The per-level trap counts that decide §4, and the fingerprint pair.
 
 **R2:**

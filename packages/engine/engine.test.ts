@@ -341,6 +341,102 @@ Deno.test('generate: a board starved of head draws closes by scanning every lega
   }
 })
 
+/**
+ * Folds a board's prefixes into a fresh line table the way foldHomo maintains
+ * one, and names the lines where the two disagree. The incremental table only
+ * ever grows, except after an undo, where the frontier recedes and the line is
+ * rebuilt from nothing — so this is the check that the rebuild leaves nothing
+ * stale behind.
+ */
+function staleHomoLines(c: Carver): string[] {
+  const bad: string[] = []
+  for (let d = 0; d < 4; d++) {
+    const nLines = d === 0 || d === 2 ? c.W : c.H
+    const front = at(c.depth, d)
+    const homo = at(c.lineHomo, d)
+    for (let line = 0; line < nLines; line++) {
+      const upTo = at(front, line)
+      let want = -1
+      for (let k = 0; k < upTo; k++) {
+        const cell = c.prefixCell(d, line, k)
+        const o = at(c.owner, c.idx(cell.x, cell.y))
+        if (o < 0) continue
+        if (want === -1) want = o
+        else if (want !== o && want !== -2) want = -2
+      }
+      const got = at(homo, line)
+      if (got !== want) bad.push(`d${d} line ${line}: table ${got}, board ${want}`)
+    }
+  }
+  return bad
+}
+
+Deno.test("the trap lever's line table is rebuilt by every undo", () => {
+  // lineHomo (CarverOptions.trapBias) is folded forward in recomputeLines and
+  // only grows — except after an undo, where the frontier recedes and the line
+  // has to be rebuilt. Every board recorded for the R1 spike closed with zero
+  // backtracks, so that branch had never run in a measurement; the settings
+  // below are the ones that do reach it (the backtracking families of
+  // absorb.test.ts), driven through Carver directly because they sit outside
+  // the safe envelope on purpose, like the other engine-internal jam tests.
+  //
+  // undoLast is the only place cells go back to unassigned, and undoToFrontier
+  // is its only caller, so the check hangs there: after every undo the
+  // maintained table must equal a fold of the board as it now stands.
+  class WatchedCarver extends Carver {
+    undos = 0
+    receded = 0
+    stale: string[] = []
+    override undoLast(k: number): void {
+      const before = this.depth.map((d) => Int32Array.from(d))
+      super.undoLast(k)
+      this.undos++
+      for (let d = 0; d < 4; d++) {
+        const was = at(before, d), now = at(this.depth, d)
+        for (let line = 0; line < now.length; line++) if (at(now, line) < at(was, line)) this.receded++
+      }
+      for (const line of staleHomoLines(this)) this.stale.push(`undo ${this.undos}: ${line}`)
+    }
+  }
+
+  // The seeds are the ones that actually reach undoLast. A backtrack is not
+  // enough: undoToFrontier counts one and undoes nothing when no assigned cell
+  // borders a free one. The two signs of the lever carve differently and so
+  // jam on different seeds, which is why +1 is here on a seed of its own.
+  const cases: [string, number, number, number, number, Partial<Params>][] = [
+    ['starved heads', 200, 8, -1, 0, { headTries: 1, pStraight: 0.2, maxBack: 50 }],
+    ['voids', 40, 10, -1, 0.2, { maxBack: 50 }],
+    ['voids', 40, 10, 1, 0.2, { maxBack: 50 }],
+  ]
+  let undos = 0, receded = 0
+  for (const [name, side, seed, trapBias, voidFrac, over] of cases) {
+    const label = `${name} ${side}×${side} seed ${seed} trapBias ${trapBias}`
+    const p = withDefaults({ W: side, H: side, seed, restarts: 0, ...over })
+    const c = new WatchedCarver(side, side, p, mulberry32(seed), { trapBias, voidFrac })
+    c.run()
+    assert(c.undos > 0, `${label}: nothing was undone, so the case proves nothing`)
+    assertEquals(c.stale, [], `${label}: the table disagrees with the board`)
+    undos += c.undos
+    receded += c.receded
+  }
+  // The starved case alone undoes fifty cuts. Without a frontier that receded
+  // the rebuild branch would never be reached, and the test would stay green on
+  // a table that only ever grew.
+  assert(undos >= 50, `only ${undos} undos`)
+  assert(receded > 0, 'no line frontier ever receded')
+
+  // A comparison that cannot fail would pass all of the above: poke one line of
+  // a finished table and it must be named.
+  const poked = new Carver(40, 40, withDefaults({ W: 40, H: 40, seed: 3, restarts: 0, maxBack: 50 }), mulberry32(3), {
+    trapBias: -1,
+    voidFrac: 0.2,
+  })
+  poked.run()
+  assertEquals(staleHomoLines(poked), [])
+  at(poked.lineHomo, 0)[0] = 12345
+  assertEquals(staleHomoLines(poked).length, 1)
+})
+
 Deno.test('generate: after three missed head scans in a row the jam is left to backtracking', () => {
   // A quarter of the cells are voids: the free area is shredded into islands
   // whose rays cross other islands, so the legal heads that exist all fail
