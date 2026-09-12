@@ -652,35 +652,44 @@ dokładnie tak samo jak zawsze.
 
 Wszystkie 25, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
 Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
-`off` są objaśnione tam, gdzie się pojawiają.
+`off` są objaśnione tam, gdzie się pojawiają. **Krok** to odstęp między
+ustawieniami, jakie pokrętło ma do zaoferowania: wartość, która wyląduje
+między dwoma z nich, jest odrzucana tak samo jak ta poza zakresem — bo do
+takiej wartości nie sięgnie ani suwak na stronie, ani wypisane polecenie.
 
-| Grupa | Flaga | Zakres | Domyślnie | Co robi |
-|---|---|---|---|---|
-| Plansza | `--width` | 4–1000 | 25 | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu sekund przy 1000×1000. |
-| Plansza | `--height` | 4–1000 | 50 | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
-| Plansza | `--seed` | 0–999999 | 7 | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
-| Długości | `--wshort` | 0–1 | 0.2 | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
-| Długości | `--wmid` | 0–1 | 0.08 | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
-| Długości | `--lmax` | `auto`\|6–5000 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy i generator się zacina. Używaj `auto` albo 6 wzwyż. |
-| Kształt | `--pstraight` | 0.6–1 | 0.85 | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** to jedyne pokrętło, które samo potrafi wszystko zepsuć. Poniżej 0,6 duże plansze przestają się domykać; dokładnie przy 0,6 plansze powyżej 500×500 czasem się zacinają. 0,65 jest bezpieczne. |
-| Kształt | `--wlateral` | 0–20 | 3 | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
-| Kształt | `--warns` | 2–16 | 4 | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** poniżej 2 reguła się wyłącza i plansze się zacinają. |
-| Kształt | `--anticoil` | 1–10 | 6 | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** powyżej 10 zacina się łatwiej przy niskiej prostości. |
-| Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsza linia (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsza (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
-| Trudność | `--probe` | 0–1 | 0 | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast zwykłego podziału na trzy. |
-| Trudność | `--probelen` | 2–200 | 12 | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
-| Szkielet | `--giants` | 0–40 | 0 | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
-| Szkielet | `--giantspan` | 1–200 | 30 | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
-| Szkielet | `--giantstep` | `random`\|1–40 | 14 | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
-| Szkielet | `--giantjitter` | 0–1 | 0.6 | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
-| Szkielet | `--wgiant` | 0–0.2 | 0 | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000. |
-| Szkielet | `--giantstraight` | 0.3–1 | 0.94 | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej 0,3 plansze przestają się domykać. |
-| Szkielet | `--giantanticoil` | 1–20 | 6 | Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil`. |
-| Szkielet | `--giantspacing` | `off`\|2\|3 | 2 | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. `off` wyłącza regułę; powyżej 3 tylko kosztuje czas. |
-| Zamykanie | `--headtries` | 2–16 | 4 | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1 poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
-| Zamykanie | `--absorblimit` | 12–64 | 24 | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze psują się dużo częściej. |
-| Zamykanie | `--maxback` | `auto`\|50–1000, co 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
-| Zamykanie | `--restarts` | 0–5 | 3 | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
+Tej tabeli nikt nie przepisuje ręcznie — `readme.test.ts` porównuje flagę,
+zakres, krok i wartość domyślną z tym, co drukuje CLI, w obu językach, więc
+pokrętło, które się zmieni, musi się zmienić i tutaj.
+
+<!-- knob-table -->
+
+| Grupa | Flaga | Zakres | Krok | Domyślnie | Co robi |
+|---|---|---|---|---|---|
+| Plansza | `--width` | 4–1000 | 1 | `25` | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu sekund przy 1000×1000. |
+| Plansza | `--height` | 4–1000 | 1 | `50` | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
+| Plansza | `--seed` | 0–999999 | 1 | `7` | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
+| Długości | `--wshort` | 0–0.9 | 0.01 | `0.2` | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--wmid` | 0–0.9 | 0.01 | `0.08` | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--lmax` | `auto`\|17–5000 | 1 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** poniżej 17 limit pochłania i kubełek średnich, i długich, więc udział między nimi przestaje zmieniać planszę. Używaj `auto` albo 17 wzwyż. |
+| Kształt | `--pstraight` | 0.6–1 | 0.01 | `0.85` | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** podłoga rośnie z planszą. 0,6 domyka 500×500, 600×600 wymaga 0,65, 800×800 — 0,7, a 1000×1000 — 0,8; niskie `--warns` albo wysokie `--anticoil` podnosi ją jeszcze bardziej. |
+| Kształt | `--wlateral` | 0–20 | 0.5 | `3` | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
+| Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
+| Kształt | `--anticoil` | 1–10 | 1 | `6` | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** 7 i więcej podnosi prostość, jakiej wymaga duża plansza; 4 i mniej ją obniża. |
+| Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsza linia (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsza (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
+| Trudność | `--probe` | 0–1 | 0.01 | `0` | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast zwykłego podziału na trzy. |
+| Trudność | `--probelen` | 4–200 | 1 | `12` | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
+| Szkielet | `--giants` | 0–40 | 1 | `0` | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
+| Szkielet | `--giantspan` | 1–200 | 1 | `30` | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
+| Szkielet | `--giantstep` | `random`\|1–40 | 1 | `14` | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
+| Szkielet | `--giantjitter` | 0–1 | 0.05 | `0.6` | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
+| Szkielet | `--wgiant` | 0–0.2 | 0.01 | `0` | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** przy 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000. |
+| Szkielet | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** 0,5 to brak preferencji; poniżej pokrętło ważyłoby ruch prosto w dół, czyli odwrotnie, niż mówi jego nazwa. |
+| Szkielet | `--giantanticoil` | 1–20 | 1 | `6` | Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil` — więc przy domyślnych, gdzie obie wynoszą 6, skręcenie tej w dół nic nie zmienia. |
+| Szkielet | `--giantspacing` | `off`\|2\|3 | 1 | `2` | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. `off` wyłącza regułę. Flaga przyjmuje te trzy wartości i nic poza tym: szerszy promień tylko kosztował czas, więc nie jest oferowany. |
+| Zamykanie | `--headtries` | 2–16 | 1 | `4` | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 2 poszukiwanie jest płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
+| Zamykanie | `--absorblimit` | 12–64 | 1 | `24` | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze psują się dużo częściej. |
+| Zamykanie | `--maxback` | `auto`\|50–1000 | 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
+| Zamykanie | `--restarts` | 0–5 | 1 | `3` | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
 
 Pięć pokręteł z wcześniejszej wersji tego narzędzia — `hug`, `edgehug`,
 `strandlimit`, `giantwarns` i `giantspacepenalty` — zniknęło. Każde nic nie
@@ -733,16 +742,21 @@ tunele.
 Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
-| Reguła | Po ludzku |
-|---|---|
-| Udział krótkich plus średnich | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
-| Długość maksymalna | `--lmax` musi być `auto` albo co najmniej 6. |
-| Liczby całkowite | `--width`, `--height` i `--seed` przyjmują tylko liczby całkowite. |
-| Start i mieszanie | `--start` przyjmuje słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start i mieszanie tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
+<!-- rule-table -->
 
-Złam regułę albo wyjdź którymkolwiek pokrętłem poza zakres, a generator odmówi,
-zanim cokolwiek narysuje, powie ci, która wartość była zła, i zakończy się
-kodem 2. Nigdy po cichu nie zaokrągli twojej liczby do zakresu.
+| Flagi | Co jest sprawdzane |
+|---|---|
+| `--wshort`, `--wmid` | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
+| `--lmax` | `auto` albo 17 wzwyż. |
+| `--start` | Słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start i mieszanie tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
+| `--pstraight`, `--warns`, `--anticoil` | Prostość, jakiej wymaga plansza, rośnie z jej dłuższym bokiem — 0,6 do 500×500, 0,65 przy 600×600, 0,7 przy 800×800, 0,8 przy 1000×1000 — a `--warns` poniżej 4 albo `--anticoil` powyżej 6 podnosi ją jeszcze; wysokie `--warns` albo niskie `--anticoil` ją obniża. Poniżej podłogi plansza się nie domyka, a odmowa podaje liczbę, jakiej ta plansza potrzebuje. |
+
+Złam regułę, wyjdź którymkolwiek pokrętłem poza zakres albo wyląduj między
+dwoma jego krokami, a generator odmówi, zanim cokolwiek narysuje, powie ci,
+która wartość była zła, i zakończy się kodem 2. Nigdy po cichu nie zaokrągli
+twojej liczby do zakresu: `--maxback=75` jest odrzucane, a nie dosuwane do 50
+czy 100, bo wartość, do której nie sięga ani suwak, ani wypisane polecenie,
+uczyniłaby planszę nieodtwarzalną.
 
 Codzienne opcje nie potrafią złamać tych reguł. Zbudowano je tak, żeby każda
 wartość każdej codziennej opcji, przy każdym rozmiarze planszy, dawała poprawną
