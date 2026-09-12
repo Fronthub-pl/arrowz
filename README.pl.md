@@ -203,16 +203,16 @@ sekcja [Ustawienia na co dzień](#ustawienia-na-co-dzień).
 
 ```sh
 # na tyle mała, że da się prześledzić okiem każdą strzałkę
-deno task carve --width=12 --height=12 --colorized
+deno task carve --width=12 --height=12 --colored
 
 # gęste pole malutkich strzałek
-deno task carve --width=40 --height=40 --length=0 --colorized
+deno task carve --width=40 --height=40 --length=0 --colored
 
 # zamiast tego kilka długich węży
-deno task carve --width=40 --height=40 --length=1 --straight=1 --colorized
+deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 
 # długie autostrady przez całą planszę
-deno task carve --width=80 --height=80 --skeleton --colorized
+deno task carve --width=80 --height=80 --skeleton --colored
 
 # plansza pionowa, trudniejsza w grze od kwadratowej
 deno task carve --width=40 --height=80
@@ -238,7 +238,7 @@ deno task compile
 ```
 
 To zapisuje samodzielny program w `packages/cli/dist/carve`. Przyjmuje dokładnie
-te same opcje co `deno task carve`, tylko krócej się go pisze:
+te same opcje co zadanie `carve`, tylko krócej się go pisze:
 
 ```sh
 ./packages/cli/dist/carve --width=25 --height=25 --dry-run
@@ -261,16 +261,15 @@ tak czy inaczej.
 
 ## Polecenia
 
-Wszystko dzieje się przez jedno polecenie, `deno task carve`, które ma dwa
-tryby. **Zwykły** obejmuje codzienne opcje i to jego używasz na co dzień.
-**Zaawansowany**, włączany przez `--advanced`, odsłania wszystkie trzydzieści
-kilka wewnętrznych pokręteł.
+Wszystko dzieje się przez zadanie `carve`, jeden dialekt: codzienne flagi i
+pokrętła silnika stoją obok siebie w tym samym poleceniu. Nie ma przełącznika,
+który zmieniałby znaczenie flagi.
 
-Oba wypisują własną instrukcję:
+Wypisuje własną instrukcję:
 
 ```sh
-deno task carve --help              # codzienne opcje
-deno task carve --advanced --help   # wszystkie pokrętła, jakie są
+deno task carve --help          # krótka forma: codzienne flagi, wynik, obrazek
+deno task carve --help=knobs    # pełna tabela: każde pokrętło, jego zakres i wartość domyślna
 ```
 
 ### Jedna plansza
@@ -281,9 +280,9 @@ deno task carve --width=40 --height=40 --seed=7
 
 Zapisuje dwa pliki w `packages/cli/boards/40x40/`:
 
-* `seed7-7636b469.board.json` — plansza: każda strzałka, komórka po komórce,
+* `seed7-f48ddb0f.board.json` — plansza: każda strzałka, komórka po komórce,
   ciasno spakowana. Ten plik wczytuje gra.
-* `seed7-7636b469.json` — mały plik tekstowy z zapisem tego, o co poproszono.
+* `seed7-f48ddb0f.json` — mały plik tekstowy z zapisem tego, o co poproszono.
 
 Nazwa to numer ziarna plus krótki kod wyliczony z ustawień. Dwie plansze
 zrobione przy różnych ustawieniach nigdy się więc nawzajem nie nadpiszą.
@@ -295,7 +294,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=moja-plansza.svg
 ```
 
-`--svg` dokłada `seed7-7636b469.svg` obok planszy. `--svg=moja-plansza.svg`
+`--svg` dokłada `seed7-f48ddb0f.svg` obok planszy. `--svg=moja-plansza.svg`
 robi to samo i dodatkowo zostawia kopię w `moja-plansza.svg`.
 
 ### Wiele plansz naraz
@@ -328,13 +327,17 @@ przeznaczonym dla programów, nie dla ludzi. Skrócone do tego, co ciekawe:
   "maxLen": 44,
   "solvable": true,
   "genMs": 11,
-  "simpleCommand": "deno task carve --width=30 --height=30 --seed=7"
+  "pinned": [],
+  "command": "deno task carve --width=30 --height=30 --seed=7"
 }
 ```
 
 Czyta się to tak: plansza powstała bez problemu, ma 87 strzałek, średnia
 strzałka mierzy 10,3 kwadratu, najdłuższa 44, łamigłówka ma rozwiązanie, a
-całość zajęła 11 milisekund. `simpleCommand` to polecenie, które ją odtworzy.
+całość zajęła 11 milisekund. `command` to polecenie, które ją odtworzy.
+`pinned` wymienia pokrętła, które nazwałeś sam w poleceniu — tutaj puste, bo
+ten bieg użył tylko codziennych flag; zobacz [„Gdy pokrętło spotka codzienną
+flagę”](#gdy-pokrętło-spotka-codzienną-flagę) niżej.
 
 To najszybszy sposób na wypróbowanie ustawienia: widzisz, ile strzałek wychodzi
 i ile to trwało, bez ani jednego pliku na dysku.
@@ -357,12 +360,12 @@ z oznaczeniem `"aborted": true`.
 ### Raport z pomiarów
 
 ```sh
-deno task carve --advanced --only=easy --square --runs=1
+deno task report --only=easy --square --runs=1
 ```
 
-Buduje plansze w wybranym rozmiarze i wypisuje stronę pomiarów na ich temat. To
-narzędzie diagnostyczne dla osób strojących generator, nie coś, co musisz
-czytać. Prawdziwy wynik:
+Osobne polecenie, `deno task report`, buduje plansze w wybranym rozmiarze i
+wypisuje stronę pomiarów na ich temat. To narzędzie diagnostyczne dla osób
+strojących generator, nie coś, co musisz czytać. Prawdziwy wynik:
 
 ```
 --- Easy 25x25 (1 runs) ---
@@ -386,7 +389,7 @@ Generator odrzuca ustawienia, o których wie, że nie zadziałają, zanim cokolw
 zacznie liczyć — nie po dziesięciu minutach mielenia:
 
 ```sh
-deno task carve --advanced --pstraight=0.2 --svg=/tmp/x.svg
+deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```
@@ -482,19 +485,20 @@ Więcej strzałek to nie automatycznie trudniej — to inny rodzaj trudności. P
 krótkich strzałkach jest dużo do oglądania; długich jest mniej, ale każda sięga
 dalej i blokuje więcej.
 
-### Kształt linii — `--straight`
+### Kształt linii — `--winding`
 
 Pokrętło od 0 do 1. Domyślnie `0.5`. Steruje tym, jak chętnie linia idzie
-prosto, zamiast skręcać.
+prosto, zamiast skręcać: `0` to najprostsza plansza, `1` — najbardziej
+pokręcona.
 
-**Zwiększ**, a strzałki będą biec długimi prostymi pociągnięciami.
-**Zmniejsz**, a zaczną się wić, skręcać co kilka kwadratów i wciskać w małe
+**Zmniejsz**, a strzałki będą biec długimi prostymi pociągnięciami.
+**Zwiększ**, a zaczną się wić, skręcać co kilka kwadratów i wciskać w małe
 zakamarki.
 
-| `--straight=0` (najbardziej pokręcone) | domyślnie (`0.5`) | `--straight=1` (najprostsze) |
+| `--winding=0` (najprostsze) | domyślnie (`0.5`) | `--winding=1` (najbardziej pokręcone) |
 |---|---|---|
-| <img src="docs/images/straight-winding.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/straight-straight.png" width="250"> |
-| 66 strzałek, średnio 5,5 zakrętu | 87 strzałek, średnio 3,2 zakrętu | 49 strzałek, średnio 2,1 zakrętu |
+| <img src="docs/images/straight-straight.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/straight-winding.png" width="250"> |
+| 49 strzałek, średnio 2,1 zakrętu | 87 strzałek, średnio 3,2 zakrętu | 66 strzałek, średnio 5,5 zakrętu |
 
 Warto zauważyć: przekręcenie tego pokrętła do końca w którąkolwiek stronę daje
 *mniej* strzałek niż środek. Proste linie biegną dalej, zanim się skończą;
@@ -532,22 +536,26 @@ do kwadratu.
 deno task carve --width=40 --height=40 --randomized
 ```
 
+Nazwanie jednego z wewnętrznych pokręteł (niżej) obok `--randomized` przypina
+to jedno pokrętło, a resztę zostawia nadal losowaną — zobacz [„Gdy pokrętło
+spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę).
+
 ### Jak rysowany jest obrazek
 
 Te pięć nie zmienia w łamigłówce nic — tylko to, jak wygląda na ekranie.
 
-**`--colorized`** daje każdej strzałce własny kolor. Bezużyteczne do gry,
+**`--colored`** daje każdej strzałce własny kolor. Bezużyteczne do gry,
 znakomite do zrozumienia. Wszystkie porównawcze obrazki na tej stronie z tego
 korzystają.
 
-| zwykłe | `--colorized` |
+| zwykłe | `--colored` |
 |---|---|
 | <img src="docs/images/seed-7.png" width="260"> | <img src="docs/images/colorized.png" width="260"> |
 
-**`--lineweight`** to grubość linii jako ułamek jednego kwadratu. Domyślnie
-`0.5`, czyli linia wypełnia połowę swojego kwadratu.
+**`--line`** to grubość linii jako ułamek jednego kwadratu. Domyślnie `0.5`,
+czyli linia wypełnia połowę swojego kwadratu.
 
-| `--lineweight=0.2` | `--lineweight=0.9` |
+| `--line=0.2` | `--line=0.9` |
 |---|---|
 | <img src="docs/images/weight-thin.png" width="260"> | <img src="docs/images/weight-thick.png" width="260"> |
 
@@ -555,14 +563,14 @@ Zwróć uwagę, co dzieje się z grotami. Na cienkiej linii grot jest porządnym
 trójkątem, szerszym od linii. Gdy linia robi się gruba, na szerszy trójkąt nie
 ma już miejsca, więc grot zmienia się w zaostrzony czubek.
 
-**`--arrowwidth`** i **`--arrowheight`** ustawiają rozmiar grotów ręcznie, w
-kwadratach. Działają różnie. `--arrowwidth` domyślnie wynosi 0, a 0 znaczy
-„wylicz z grubości linii”; każda inna wartość to szerokość w kwadratach.
-`--arrowheight` nie ma takiego trybu automatycznego — jest brany dosłownie i
-domyślnie wynosi `1`, czyli cały kwadrat. Po `--arrowheight=0` grot nie ma
+**`--arrow-width`** i **`--arrow-height`** ustawiają rozmiar grotów ręcznie, w
+kwadratach. Działają różnie. `--arrow-width` domyślnie ma wartość `auto`, co
+znaczy „wylicz z grubości linii”; podana liczba to szerokość w kwadratach.
+`--arrow-height` nie ma takiego trybu automatycznego — jest brany dosłownie i
+domyślnie wynosi `1`, czyli cały kwadrat. Po `--arrow-height=0` grot nie ma
 żadnej wysokości.
 
-| `--arrowwidth=0.6 --arrowheight=0.6` | `--arrowwidth=2 --arrowheight=2` |
+| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=2 --arrow-height=2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 
@@ -574,22 +582,110 @@ koniec jest kwadratem.
 
 ## Pełny zestaw ustawień
 
-Dwanaście codziennych flag to skróty. Za każdą z nich stoi kilka
-wewnętrznych pokręteł, a `--advanced` pozwala sięgnąć do nich wprost.
-Zmniejszenie `--length` naprawdę znaczy „podnieś udział krótkich strzałek i
-obniż udział średnich” — dwa pokrętła naraz.
+Dwanaście codziennych flag to skróty. Za każdą z nich stoi kilka wewnętrznych
+pokręteł, do których możesz sięgnąć wprost, w tym samym poleceniu co codzienne
+flagi — nie ma osobnego trybu, do którego trzeba by przełączyć. Zmniejszenie
+`--length` naprawdę znaczy „podnieś udział krótkich strzałek i obniż udział
+średnich” — dwa pokrętła naraz.
 
 Nie potrzebujesz tej sekcji, żeby używać narzędzia. Jest tu, bo pytanie „co to
 pokrętło właściwie robi” zasługuje na odpowiedź. Te codzienne nazywam na tej
 stronie opcjami, a te wewnętrzne, które za nimi stoją — pokrętłami.
 
 ```sh
-deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
+deno task carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
 ```
 
-W trybie zaawansowanym zmieniają się dwie rzeczy. Szerokość i wysokość stają
-się `--w` i `--h`. I znikają codzienne opcje — ustawiasz sam pokrętła, które za
-nimi stoją.
+To wszystko: nazwij pokrętło, a przejmie ono kontrolę nad tym, co inaczej
+ustawiłaby codzienna flaga. Następna sekcja mówi dokładnie, co znaczy
+„przejmuje kontrolę”, gdy więcej niż jedno pokrętło dzieli codzienną flagę.
+
+### Gdy pokrętło spotka codzienną flagę
+
+Codzienna flaga to nie skrót do jednego pokrętła — ustawia cały *zestaw*:
+
+| Codzienna flaga | Pokrętła, które ustawia |
+|---|---|
+| `--length` | `wshort`, `wmid` |
+| `--winding` | `pstraight`, `wlateral`, `warns`, `anticoil` |
+| `--skeleton` | `giants`, `giantspan`, `giantstep`, `giantjitter`, `wgiant` |
+| *(zawsze, podstawa trudności)* | połowa `--start`, `probe`, `probelen` |
+
+`--start` to własny, mały przypadek tej samej reguły: ustawia powyższą podstawę
+trudności, a do tego mieszankę warstw i tuneli, której nic innego nie ustawia.
+Osiem pokręteł — `lmax`, `giantstraight`, `giantanticoil`, `giantspacing`,
+`headtries`, `absorblimit`, `maxback`, `restarts` — nie należy do żadnego
+zestawu, więc nazwanie któregoś z nich nigdy nie było niejednoznaczne.
+
+**Pokrętło nazwane w poleceniu wygrywa i przypina tylko samo siebie.** Bez
+`--randomized` codzienna flaga wybiera jedną wartość dla każdego pokrętła w
+swoim zestawie; nazwanie pokrętła samodzielnie zastępuje tę jedną wartość,
+zostawiając resztę zestawu dokładnie taką, jaką ustawiłaby codzienna flaga.
+Z `--randomized` codzienne flagi losują swoje zestawy z bezpiecznych,
+zmierzonych zakresów przy każdym biegu; nazwane przez ciebie pokrętło jest
+**przypięte** zamiast losowane, a reszta jego zestawu jest losowana nadal,
+ziarno po ziarnie.
+
+CLI mówi o tym raz na bieg, na stderr, i dopisuje ten sam fakt do JSON-a z
+`--dry-run`, więc skrypt widzi to bez parsowania stderr:
+
+```sh
+deno task carve --width=30 --height=30 --randomized --pstraight=0.9 --dry-run
+```
+
+```
+note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
+```
+
+```json
+{ "...": "...", "pinned": ["pStraight"], "...": "..." }
+```
+
+Co tracisz, przypinając: bezpieczne zakresy w tabeli niżej zmierzono jako całe
+zestawy, więc na wpół przypięty zestaw wciąż mieści się w kopercie
+bezpieczeństwa, ale nie jest już objęty obietnicą, że *każda* codzienna
+kombinacja się domyka. Koperta ma i tak ostatnie słowo — przypięta wartość
+poza własnym zakresem, albo kombinacja łamiąca regułę, jest odrzucana
+dokładnie tak samo jak zawsze.
+
+### Pokrętła
+
+Wszystkie 25, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
+Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
+`off` są objaśnione tam, gdzie się pojawiają.
+
+| Grupa | Flaga | Zakres | Domyślnie | Co robi |
+|---|---|---|---|---|
+| Plansza | `--width` | 4–1000 | 25 | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu sekund przy 1000×1000. |
+| Plansza | `--height` | 4–1000 | 50 | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
+| Plansza | `--seed` | 0–999999 | 7 | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
+| Długości | `--wshort` | 0–1 | 0.2 | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--wmid` | 0–1 | 0.08 | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--lmax` | `auto`\|6–5000 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy i generator się zacina. Używaj `auto` albo 6 wzwyż. |
+| Kształt | `--pstraight` | 0.6–1 | 0.85 | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** to jedyne pokrętło, które samo potrafi wszystko zepsuć. Poniżej 0,6 duże plansze przestają się domykać; dokładnie przy 0,6 plansze powyżej 500×500 czasem się zacinają. 0,65 jest bezpieczne. |
+| Kształt | `--wlateral` | 0–20 | 3 | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
+| Kształt | `--warns` | 2–16 | 4 | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** poniżej 2 reguła się wyłącza i plansze się zacinają. |
+| Kształt | `--anticoil` | 1–10 | 6 | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** powyżej 10 zacina się łatwiej przy niskiej prostości. |
+| Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsza linia (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsza (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
+| Trudność | `--probe` | 0–1 | 0 | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast zwykłego podziału na trzy. |
+| Trudność | `--probelen` | 2–200 | 12 | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
+| Szkielet | `--giants` | 0–40 | 0 | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
+| Szkielet | `--giantspan` | 1–200 | 30 | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
+| Szkielet | `--giantstep` | `random`\|1–40 | `random` | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
+| Szkielet | `--giantjitter` | 0–1 | 0.6 | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
+| Szkielet | `--wgiant` | 0–0.2 | 0 | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000. |
+| Szkielet | `--giantstraight` | 0.3–1 | 0.94 | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej 0,3 plansze przestają się domykać. |
+| Szkielet | `--giantanticoil` | 1–20 | 6 | Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil`. |
+| Szkielet | `--giantspacing` | `off`\|2\|3 | 2 | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. `off` wyłącza regułę; powyżej 3 tylko kosztuje czas. |
+| Zamykanie | `--headtries` | 2–16 | 4 | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1 poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
+| Zamykanie | `--absorblimit` | 12–64 | 24 | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze psują się dużo częściej. |
+| Zamykanie | `--maxback` | `auto`\|0–1000, co 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
+| Zamykanie | `--restarts` | 0–5 | 3 | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
+
+Pięć pokręteł z wcześniejszej wersji tego narzędzia — `hug`, `edgehug`,
+`strandlimit`, `giantwarns` i `giantspacepenalty` — zniknęło. Każde nic nie
+robiło przy swojej wartości domyślnej, więc ich usunięcie nie zmienia żadnej
+planszy; każde żyje teraz w silniku jako stała, a nie flaga.
 
 ### Jak wygląda kilka z nich
 
@@ -617,9 +713,9 @@ nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
 | 253 strzałki, żadna dłuższa niż 4 kwadraty | 61 strzałek, najdłuższa 92 kwadraty |
 
-**`--headbias` — pokrętło, którego nie widać**
+**`--start` — pokrętło, którego nie widać**
 
-| `--headbias=-1` (warstwy) | `--headbias=1` (tunele) |
+| `--start=layers` | `--start=tunnels` |
 |---|---|
 | <img src="docs/images/adv-layers.png" width="300"> | <img src="docs/images/adv-tunnels.png" width="300"> |
 | 83 strzałki, **34%** z nich wolnych na starcie | 90 strzałek, na starcie wolnych tylko **6,7%** |
@@ -627,240 +723,20 @@ nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 Dwa ostatnie obrazki są do siebie bardzo podobne i o to właśnie chodzi. To
 pokrętło ledwo dotyka rysunku. Zmienia za to, ile strzałek jest wolnych w
 danej chwili, a to decyduje, czy plansza jest łatwa, czy trudna. Przy
-ustawieniu domyślnym (`--headbias=0`) plansza ląduje pośrodku: 13% wolnych.
-
-### Sześć grup
-
-Wszystkie trzydzieści jeden pokręteł, w grupach takich, jakich używa generator.
-Kliknij grupę, żeby ją rozwinąć.
-
-<details>
-<summary><b>Plansza</b> — 3 pokrętła</summary>
-
-**`--w`** — zakres 4–1000, domyślnie 25
-
-Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu przy 1000×1000.
-
-**`--h`** — zakres 4–1000, domyślnie 50
-
-Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej
-liczbie kwadratów.
-
-**`--seed`** — zakres 0–999999, domyślnie 7
-
-Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza.
-
-</details>
-
-<details>
-<summary><b>Jak długie są strzałki</b> — 3 pokrętła</summary>
-
-Przed narysowaniem każdej strzałki generator rzuca trójścienną kostką, żeby
-wybrać docelową długość: krótka (2–6 kwadratów), średnia (7–15) albo długa (16
-wzwyż). Te pokrętła obciążają kostkę. Długie dostają to, co zostanie.
-
-**`--wshort`** — zakres 0–1, domyślnie 0.2
-
-Udział krótkich strzałek. Im wyżej, tym więcej strzałek i grotów, ale plansza
-zmienia się w sieczkę z haczyków.
-
-**`--wmid`** — zakres 0–1, domyślnie 0.08
-
-Udział średnich strzałek.
-
-**`--lmax`** — zakres 0–5000, domyślnie 0
-
-Najdłuższa strzałka, o jaką generator będzie się starał. 0 znaczy „dwa i pół
-długości dłuższego boku”. **Uwaga:** wartości od 1 do 5 tną planszę na okruchy
-i generator się zacina — utyka, bo nie zostaje mu ani jedna dozwolona strzałka
-do narysowania. Używaj 0 albo 6 wzwyż.
-
-</details>
-
-<details>
-<summary><b>Jak błądzą linie</b> — 6 pokręteł</summary>
-
-Za każdym razem, gdy linia rośnie o jeden kwadrat, te pokrętła rywalizują o to,
-który sąsiedni kwadrat weźmie. Ich wartości są mnożone przez siebie, więc jedna
-skrajna wartość zagłusza resztę.
-
-**`--pstraight`** — zakres 0.6–1, domyślnie 0.85
-
-Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki.
-**Uwaga:** to jedyne pokrętło, które samo potrafi wszystko zepsuć. Poniżej 0,6
-duże plansze przestają działać; dokładnie przy 0,6 plansze powyżej 500×500
-czasem się zacinają. 0,65 jest bezpieczne.
-
-**`--wlateral`** — zakres 0–20, domyślnie 3
-
-O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0
-daje długie proste pchnięcia i od czasu do czasu ogromne spirale.
-
-**`--warns`** — zakres 2–16, domyślnie 4
-
-Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe
-uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych.
-**Uwaga:** poniżej 2 reguła się wyłącza i plansze się zacinają.
-
-**`--anticoil`** — zakres 1–10, domyślnie 6
-
-Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im
-wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** przy 10 i
-`--pstraight` na poziomie 0,45 lub niżej generator zacina się cztery razy na
-pięć.
-
-**`--hug`** — zakres 1–20, domyślnie 1
-
-Premia za prowadzenie linii wzdłuż już narysowanych strzałek. Ledwo widoczna;
-zostawiona do eksperymentów.
-
-**`--edgehug`** — zakres 0–4, domyślnie 0
-
-Czy krawędź planszy liczy się do tej premii jak sąsiad. Nic nie robi, dopóki
-`--hug` nie przekracza 1.
-
-</details>
-
-<details>
-<summary><b>Jak trudna jest łamigłówka</b> — 4 pokrętła</summary>
-
-Te zmieniają to, kto kogo blokuje — czyli trudność — nie zmieniając zbytnio
-tego, jak plansza wygląda.
-
-**`--headbias`** — zakres `-1`, `0` albo `1`, domyślnie 0
-
-Gdzie zaczyna się każda nowa strzałka. `-1` obiera planszę warstwami od
-zewnątrz (łatwo: wiele strzałek wolnych naraz). 0 zaczyna gdziekolwiek. 1 drąży
-tunele w głąb od najgłębszego punktu (trudno: mało wolnych strzałek naraz).
-**Uwaga:** tryb warstw jest wolny — 400×400 zajęło dwie i pół minuty, a
-1000×1000 przerwano po dziesięciu.
-
-**`--mix`** — zakres `-1`, albo 0.3–0.7, domyślnie `-1`
-
-Miesza oba powyższe style. Wartość to udział strzałek zaczynanych jako tunele;
-reszta zaczyna się jako warstwy. `-1` wyłącza mieszanie. **Uwaga:** wartości
-spoza 0,3–0,7 zostawiają plansze niedokończone.
-
-**`--probe`** — zakres 0–1, domyślnie 0
-
-Udział strzałek, których długość losuje się wokół jednej ustalonej wartości
-zamiast ze zwykłej kostki.
-
-**`--probelen`** — zakres 2–200, domyślnie 12
-
-Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje
-kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0.
-
-</details>
-
-<details>
-<summary><b>Szkielet</b> — 10 pokręteł</summary>
-
-Włączany przez `--skeleton` w trybie zwykłym. Pierwsze kilka strzałek jest
-rysowanych jako długie zygzakujące autostrady przez całą planszę, a reszta
-wypełnia się wokół nich.
-
-**`--giants`** — zakres 0–40, domyślnie 0
-
-Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba
-o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne
-autostrady nie mają się już gdzie zmieścić.
-
-**`--giantspan`** — zakres 0–200, domyślnie 30
-
-Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku
-planszy. Kończy wcześniej, gdy zabraknie miejsca.
-
-**`--giantstep`** — zakres 0–40, domyślnie 14
-
-Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w
-zeszycie w linie, duży — kilka szerokich autostrad, a 0 pozwala jej błądzić
-swobodnie.
-
-**`--giantjitter`** — zakres 0–1, domyślnie 0.6
-
-Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej
-przeszkody. 0 daje idealnie proste, regularne brzegi.
-
-**`--wgiant`** — zakres 0–0.2, domyślnie 0
-
-Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej
-0,2 plansze robią się wolne i przestają się kończyć przy 1000×1000.
-
-**`--giantstraight`** — zakres 0.3–1, domyślnie 0.94
-
-Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej
-0,3 plansze przestają się kończyć.
-
-**`--giantwarns`** — zakres 0–16, domyślnie 0
-
-Reguła wypełniania zakamarków, tylko dla autostrad. Zostaw 0 — zwija je, a
-autostrada ma jechać daleko.
-
-**`--giantanticoil`** — zakres 1–20, domyślnie 6
-
-Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch
-wartości: tej albo ogólnej.
-
-**`--giantspacing`** — zakres 1–3, domyślnie 2
-
-Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. Powyżej
-3 tylko kosztuje czas.
-
-**`--giantspacepenalty`** — zakres 1–40, domyślnie 8
-
-Jak mocno autostrada jest odpychana od samej siebie. Kara, nie zakaz, więc może
-zawracać.
-
-</details>
-
-<details>
-<summary><b>Wychodzenie z zacięcia</b> — 5 pokręteł</summary>
-
-Co generator robi, gdy nie umie już znaleźć dozwolonej strzałki do narysowania.
-Ustawienia domyślne radzą sobie z planszami do 400×400; te pokrętła są do
-eksperymentów.
-
-**`--headtries`** — zakres 2–16, domyślnie 4
-
-Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1
-poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle
-wychodzi ta sama plansza co przy 4.
-
-**`--strandlimit`** — zakres 10–30, domyślnie 30
-
-Największa resztka, którą jeszcze porządnie się sprawdza pod kątem tego, czy
-zmieści się w niej strzałka. **Uwaga:** poniżej 10 na dużych planszach
-prześlizgują się dziury po dziesięć kwadratów.
-
-**`--absorblimit`** — zakres 12–64, domyślnie 24
-
-Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do
-sąsiedniej strzałki. **Uwaga:** przy dolnym krańcu zakresu, poniżej 13, resztki
-się piętrzą i plansze psują się dużo częściej.
-
-**`--maxback`** — zakres 0–1000, co 50, domyślnie 0 (= 200)
-
-Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od
-nowa. Więcej rzadko cokolwiek ratuje; tylko odwleka złą wiadomość.
-
-**`--restarts`** — zakres 0–5, domyślnie 3
-
-Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0
-pokazuje surową skuteczność twoich ustawień.
-
-</details>
+ustawieniu domyślnym (`--start=random`) plansza ląduje pośrodku: 13% wolnych.
+Liczba w 0,3–0,7 (`--start=0.3`…`--start=0.7`) miesza `layers` i `tunnels`
+zamiast wybierać jeden styl: liczba to udział strzałek zaczynających się jako
+tunele.
 
 ### Kombinacje, które są odrzucane
 
-Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
+Trzech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
 | Reguła | Po ludzku |
 |---|---|
 | Udział krótkich plus średnich | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
-| Długość maksymalna | `--lmax` musi być 0 (automatycznie) albo co najmniej 6. |
-| Mieszanie warstw i tuneli | `--mix` musi być `-1` (wyłączone) albo między 0,3 a 0,7. |
+| Długość maksymalna | `--lmax` musi być `auto` albo co najmniej 6. |
 | Liczby całkowite | `--width`, `--height` i `--seed` przyjmują tylko liczby całkowite. |
 
 Złam regułę albo wyjdź którymkolwiek pokrętłem poza zakres, a generator odmówi,
@@ -869,7 +745,9 @@ kodem 2. Nigdy po cichu nie zaokrągli twojej liczby do zakresu.
 
 Codzienne opcje nie potrafią złamać tych reguł. Zbudowano je tak, żeby każda
 wartość każdej codziennej opcji, przy każdym rozmiarze planszy, dawała poprawną
-kombinację.
+kombinację — o ile zostawisz każde pokrętło w jego zestawie do ustawienia przez
+codzienną flagę; co kosztuje przypięcie jednego, mówi wyżej sekcja [„Gdy
+pokrętło spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę).
 
 ---
 
@@ -918,9 +796,9 @@ rozmiar:
 ```
 packages/cli/boards/
   25x25/
-    seed7-7d303227.board.json   plansza
-    seed7-7d303227.json         z czego powstała
-    seed7-7d303227.svg          obrazek, tylko z --svg
+    seed7-8796a4f9.board.json   plansza
+    seed7-8796a4f9.json         z czego powstała
+    seed7-8796a4f9.svg          obrazek, tylko z --svg
   40x40/
     ...
 ```
@@ -955,12 +833,17 @@ Wejdź do katalogu `arrowz` i spróbuj jeszcze raz.
 
 **`Requires env access`** — to znaczy, że `deno run packages/cli/carve.ts` zostało
 uruchomione bezpośrednio. Deno nie pozwala programowi tknąć twoich plików ani
-ustawień bez wyraźnej zgody. Używaj `deno task carve`, które nadaje dokładnie
+ustawień bez wyraźnej zgody. Używaj zadania `carve`, które nadaje dokładnie
 tyle uprawnień, ile trzeba.
 
-**`unknown flag --pstraight`** — to pokrętło istnieje tylko w trybie
-zaawansowanym. Dodaj `--advanced` i pamiętaj, że szerokość i wysokość stają się
-tam `--w` i `--h`.
+**`unknown flag --foo; see --help`** — CLI w ogóle nie rozpoznaje tej flagi.
+Sprawdź pisownię w `--help` albo `--help=knobs`.
+
+**`--straight is gone: use --winding=R …`** (albo `--advanced`, `--board`,
+`--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`,
+`--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`,
+`--mix`) — stara pisownia sprzed czasów, gdy to narzędzie miało jeden tryb.
+Komunikat nazywa zastępstwo — użyj go zamiast tego.
 
 **`invalid parameters: … is outside …`** — któraś wartość jest poza zakresem.
 Komunikat podaje nazwę ustawienia i dozwolony zakres. Nic się nie policzyło i
@@ -980,9 +863,9 @@ a po ich upływie generator przerwie i zapisze to, co zdążył narysować:
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
 ```
 
-**Raport trwa wieczność** — `deno task carve --advanced` bez niczego więcej
-przechodzi przez wszystkie poziomy trudności do 1000×1000, po trzy razy każdy.
-Dodaj `--only=easy --square --runs=1`. Uwaga: samo `--only=easy` nie pasuje do
+**Raport trwa wieczność** — `deno task report` bez niczego więcej przechodzi
+przez wszystkie poziomy trudności do 1000×1000, po trzy razy każdy. Dodaj
+`--only=easy --square --runs=1`. Uwaga: samo `--only=easy` nie pasuje do
 niczego — potrzebuje obok `--square` albo `--portrait`.
 
 **Strona nic nie pokazuje** — stronę trzeba najpierw zbudować. `sh

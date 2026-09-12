@@ -203,16 +203,16 @@ the numbers without writing a file. Every flag used here is explained in
 
 ```sh
 # small enough to follow every arrow by eye
-deno task carve --width=12 --height=12 --colorized
+deno task carve --width=12 --height=12 --colored
 
 # a dense field of tiny arrows
-deno task carve --width=40 --height=40 --length=0 --colorized
+deno task carve --width=40 --height=40 --length=0 --colored
 
 # a few long snakes instead
-deno task carve --width=40 --height=40 --length=1 --straight=1 --colorized
+deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 
 # long highways crossing the whole board
-deno task carve --width=80 --height=80 --skeleton --colorized
+deno task carve --width=80 --height=80 --skeleton --colored
 
 # a tall board, which is harder to play than a square one
 deno task carve --width=40 --height=80
@@ -239,7 +239,7 @@ deno task compile
 ```
 
 That writes a self-contained program to `packages/cli/dist/carve`. It takes
-exactly the same options as `deno task carve`, and is shorter to type:
+exactly the same options as the `carve` task, and is shorter to type:
 
 ```sh
 ./packages/cli/dist/carve --width=25 --height=25 --dry-run
@@ -262,16 +262,15 @@ either way.
 
 ## The commands
 
-Everything runs through one command, `deno task carve`, which has two modes.
-The **plain** mode covers the everyday options and is what you want most of the
-time. The **advanced** mode, switched on with `--advanced`, exposes all
-thirty-odd internal dials.
+Everything runs through the `carve` task, one dialect: the everyday flags and
+the engine's own knobs stand side by side on the same command line. There is
+no switch that changes what a flag means.
 
-Both print their own instructions:
+It prints its own instructions:
 
 ```sh
-deno task carve --help              # the everyday options
-deno task carve --advanced --help   # every dial there is
+deno task carve --help          # the short form: everyday flags, output, picture
+deno task carve --help=knobs    # the full table: every knob, its range and default
 ```
 
 ### Making a board
@@ -282,9 +281,9 @@ deno task carve --width=40 --height=40 --seed=7
 
 Writes two files into `packages/cli/boards/40x40/`:
 
-* `seed7-7636b469.board.json` — the board: every arrow, cell by cell, packed
+* `seed7-f48ddb0f.board.json` — the board: every arrow, cell by cell, packed
   small. This is the file a game loads.
-* `seed7-7636b469.json` — a small text file recording what was asked for.
+* `seed7-f48ddb0f.json` — a small text file recording what was asked for.
 
 The name is the seed number plus a short code worked out from the settings. Two
 boards made with different settings therefore never overwrite each other.
@@ -296,7 +295,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-`--svg` adds `seed7-7636b469.svg` next to the board. `--svg=my-board.svg` does
+`--svg` adds `seed7-f48ddb0f.svg` next to the board. `--svg=my-board.svg` does
 the same and also drops a copy at `my-board.svg`.
 
 ### Making many boards at once
@@ -330,14 +329,17 @@ parts:
   "maxLen": 44,
   "solvable": true,
   "genMs": 11,
-  "simpleCommand": "deno task carve --width=30 --height=30 --seed=7"
+  "pinned": [],
+  "command": "deno task carve --width=30 --height=30 --seed=7"
 }
 ```
 
 Read that as: the board was built successfully, it holds 87 arrows, the average
 arrow is 10.3 squares long, the longest is 44, the puzzle has a solution, and
-the whole thing took 11 milliseconds. `simpleCommand` is the command that
-reproduces it.
+the whole thing took 11 milliseconds. `command` is the command that reproduces
+it. `pinned` lists any knob you named yourself on the command line — empty
+here, because this run used only everyday flags; see
+["When a knob meets an everyday flag"](#when-a-knob-meets-an-everyday-flag) below.
 
 This is the fastest way to try a setting: you see how many arrows you get and
 how long it took, without a single file on disk.
@@ -360,12 +362,12 @@ That stops after a minute and saves whatever was drawn by then, marked
 ### Printing the measurements report
 
 ```sh
-deno task carve --advanced --only=easy --square --runs=1
+deno task report --only=easy --square --runs=1
 ```
 
-Builds boards at a chosen size and prints a page of measurements about them.
-This one is a diagnostic tool for people tuning the generator, not something
-you need to read. Real output:
+A separate command, `deno task report`, builds boards at a chosen size and
+prints a page of measurements about them. This one is a diagnostic tool for
+people tuning the generator, not something you need to read. Real output:
 
 ```
 --- Easy 25x25 (1 runs) ---
@@ -389,7 +391,7 @@ The generator refuses settings it knows will not work before it starts, not
 after ten minutes of grinding:
 
 ```sh
-deno task carve --advanced --pstraight=0.2 --svg=/tmp/x.svg
+deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```
@@ -485,18 +487,19 @@ More arrows is not automatically harder — it is a different kind of hard. Shor
 arrows give you many things to look at; long arrows give you fewer but each one
 reaches further and blocks more.
 
-### Line shape — `--straight`
+### Line shape — `--winding`
 
 A dial from 0 to 1. Default: `0.5`. It controls how eagerly a line keeps going
-straight instead of turning.
+straight instead of turning: `0` is the straightest a board gets, `1` is the
+most winding.
 
-Turn it **up** and arrows run in long straight strokes. Turn it **down** and
+Turn it **down** and arrows run in long straight strokes. Turn it **up** and
 they wriggle, turning every few squares and worming into small pockets.
 
-| `--straight=0` (most winding) | default (`0.5`) | `--straight=1` (straightest) |
+| `--winding=0` (straightest) | default (`0.5`) | `--winding=1` (most winding) |
 |---|---|---|
-| <img src="docs/images/straight-winding.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/straight-straight.png" width="250"> |
-| 66 arrows, 5.5 turns each | 87 arrows, 3.2 turns each | 49 arrows, 2.1 turns each |
+| <img src="docs/images/straight-straight.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/straight-winding.png" width="250"> |
+| 49 arrows, 2.1 turns each | 87 arrows, 3.2 turns each | 66 arrows, 5.5 turns each |
 
 Worth noticing: pushing this dial to either extreme gives you *fewer* arrows
 than the middle. Straight lines run further before they stop; winding lines
@@ -534,21 +537,25 @@ exactly.
 deno task carve --width=40 --height=40 --randomized
 ```
 
+Naming one of the internal knobs (below) alongside `--randomized` pins that one
+knob and leaves the rest still being drawn — see
+["When a knob meets an everyday flag"](#when-a-knob-meets-an-everyday-flag).
+
 ### How the picture is drawn
 
 These five change nothing about the puzzle — only how it looks on screen.
 
-**`--colorized`** gives every arrow its own colour. Useless for playing,
+**`--colored`** gives every arrow its own colour. Useless for playing,
 excellent for understanding. Every comparison picture on this page uses it.
 
-| normal | `--colorized` |
+| normal | `--colored` |
 |---|---|
 | <img src="docs/images/seed-7.png" width="260"> | <img src="docs/images/colorized.png" width="260"> |
 
-**`--lineweight`** is how thick the lines are, as a fraction of one square.
-Default `0.5`, meaning a line fills half its square.
+**`--line`** is how thick the lines are, as a fraction of one square. Default
+`0.5`, meaning a line fills half its square.
 
-| `--lineweight=0.2` | `--lineweight=0.9` |
+| `--line=0.2` | `--line=0.9` |
 |---|---|
 | <img src="docs/images/weight-thin.png" width="260"> | <img src="docs/images/weight-thick.png" width="260"> |
 
@@ -556,14 +563,14 @@ Note what happens to the tips. On a thin line the tip is a proper triangle,
 wider than the line. Once the line gets thick, there is no room for a wider
 triangle, so the tip becomes a sharpened point instead.
 
-**`--arrowwidth`** and **`--arrowheight`** size the tips by hand, measured in
-squares. They behave differently. `--arrowwidth` defaults to 0, and 0 means
-"work it out from the line thickness"; anything else is a width in squares.
-`--arrowheight` has no such automatic mode — it is always taken literally, and
-it defaults to `1`, one whole square. Ask for `--arrowheight=0` and you get a
+**`--arrow-width`** and **`--arrow-height`** size the tips by hand, measured in
+squares. They behave differently. `--arrow-width` defaults to `auto`, meaning
+"work it out from the line thickness"; a number instead is a width in squares.
+`--arrow-height` has no such automatic mode — it is always taken literally, and
+it defaults to `1`, one whole square. Ask for `--arrow-height=0` and you get a
 tip of no height at all.
 
-| `--arrowwidth=0.6 --arrowheight=0.6` | `--arrowwidth=2 --arrowheight=2` |
+| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=2 --arrow-height=2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 
@@ -576,24 +583,114 @@ angular and the blunt end is a square.
 ## The full set of settings
 
 The twelve everyday flags are shortcuts. Behind each of them sit several
-internal dials, and `--advanced` lets you reach them directly. Turning
+internal knobs, and you can reach any of them directly, on the same command
+line as the everyday flags — there is no separate mode to switch into. Turning
 `--length` down, for instance, really means "raise the share of short arrows
-and lower the share of medium ones" — two dials at once.
+and lower the share of medium ones" — two knobs at once.
 
 You do not need this section to use the tool. It is here because the question
-"what does this dial actually do" deserves an answer. The everyday ones are
-called options on this page; the internal ones behind them are called dials.
+"what does this knob actually do" deserves an answer. The everyday ones are
+called options on this page; the internal ones behind them are called knobs.
 
 ```sh
-deno task carve --advanced --w=40 --h=40 --seed=7 --pstraight=0.95 --svg
+deno task carve --width=40 --height=40 --seed=7 --pstraight=0.95 --svg
 ```
 
-Two things change in advanced mode. Width and height become `--w` and `--h`.
-And the everyday options are gone — you set the underlying dials yourself.
+That is the whole of it: name a knob and it takes over from whichever everyday
+flag would otherwise have set it. The next section says exactly what "takes
+over" means when more than one knob shares an everyday flag.
+
+### When a knob meets an everyday flag
+
+An everyday flag is not a shortcut for one knob — it sets a whole *bundle* of
+them:
+
+| Everyday flag | Knobs it sets |
+|---|---|
+| `--length` | `wshort`, `wmid` |
+| `--winding` | `pstraight`, `wlateral`, `warns`, `anticoil` |
+| `--skeleton` | `giants`, `giantspan`, `giantstep`, `giantjitter`, `wgiant` |
+| *(always, the difficulty baseline)* | half of `--start`, `probe`, `probelen` |
+
+`--start` is its own small case of the same rule: it sets the difficulty-baseline
+half above, plus the layers/tunnels mix that nothing else sets. Eight knobs —
+`lmax`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`,
+`absorblimit`, `maxback`, `restarts` — sit in no bundle at all, so naming one of
+those has never been ambiguous.
+
+**A knob written on the command line wins, and pins only itself.** Without
+`--randomized`, an everyday flag picks one value per knob in its bundle; naming
+a knob yourself replaces that one value and leaves the rest of the bundle
+exactly as the everyday flag would have set it. With `--randomized`, the
+everyday flags draw their bundles from the measured safe ranges on every run;
+a knob you name is **pinned** instead of drawn, while the rest of its bundle
+keeps being drawn around it, seed after seed.
+
+The CLI tells you when this happens, once per run, on stderr, and adds the
+same fact to the `--dry-run` JSON so a script can see it without parsing
+stderr:
+
+```sh
+deno task carve --width=30 --height=30 --randomized --pstraight=0.9 --dry-run
+```
+
+```
+note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
+```
+
+```json
+{ "...": "...", "pinned": ["pStraight"], "...": "..." }
+```
+
+What you give up by pinning: the safe ranges in the table below were measured
+as whole bundles, so a half-pinned bundle still stays inside the envelope, but
+it is no longer covered by the promise that *every* everyday combination
+closes. The envelope still has the last word — a pinned value outside its own
+range, or a combination that breaks a rule, is refused exactly as it would be
+otherwise.
+
+### The knobs
+
+All 25, grouped the way `deno task carve --help=knobs` groups them. Ranges
+spell their word forms where one exists; `auto`, `random` and `off` are
+explained where they appear.
+
+| Group | Flag | Range | Default | What it does |
+|---|---|---|---|---|
+| Board | `--width` | 4–1000 | 25 | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
+| Board | `--height` | 4–1000 | 50 | Rows. A tall board is harder to play than a square one with the same number of squares. |
+| Board | `--seed` | 0–999999 | 7 | Picks the board. Same seed and same knobs, same board. |
+| Lengths | `--wshort` | 0–1 | 0.2 | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
+| Lengths | `--wmid` | 0–1 | 0.08 | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
+| Lengths | `--lmax` | `auto`\|6–5000 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** 1 to 5 shreds the board into crumbs and the generator jams. Use `auto`, or 6 and up. |
+| Shape | `--pstraight` | 0.6–1 | 0.85 | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** this is the one knob that can break things on its own. Below 0.6 large boards stop closing; at exactly 0.6, boards above 500×500 sometimes jam. 0.65 is safe. |
+| Shape | `--wlateral` | 0–20 | 3 | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
+| Shape | `--warns` | 2–16 | 4 | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule switches off and boards jam. |
+| Shape | `--anticoil` | 1–10 | 6 | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** above 10 it jams more readily at low straightness. |
+| Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | `random` | Where the next arrow starts: the shallowest line (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
+| Difficulty | `--probe` | 0–1 | 0 | Share of arrows whose length is drawn around one fixed target instead of the usual three-way split. |
+| Difficulty | `--probelen` | 2–200 | 12 | That fixed target, give or take half. 2 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
+| Skeleton | `--giants` | 0–40 | 0 | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |
+| Skeleton | `--giantspan` | 1–200 | 30 | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
+| Skeleton | `--giantstep` | `random`\|1–40 | `random` | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
+| Skeleton | `--giantjitter` | 0–1 | 0.6 | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
+| Skeleton | `--wgiant` | 0–0.2 | 0 | The chance that an arrow drawn later is also a highway. **Careful:** above 0.2 boards get slow and stop closing at 1000×1000. |
+| Skeleton | `--giantstraight` | 0.3–1 | 0.94 | How straight a highway runs where it has free space. **Careful:** below 0.3 boards stop closing. |
+| Skeleton | `--giantanticoil` | 1–20 | 6 | The self-touching penalty, for highways only. Whichever is higher, this or the general `--anticoil`, wins. |
+| Skeleton | `--giantspacing` | `off`\|2\|3 | 2 | How many squares a highway keeps between its own parallel runs. `off` turns the rule off; above 3 only costs time. |
+| Closing | `--headtries` | 2–16 | 4 | How many starting spots to try before giving up on a direction. **Careful:** at 1 the search is too shallow for hard settings. At 8 and above you usually get the same board as at 4. |
+| Closing | `--absorblimit` | 12–64 | 24 | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards fail far more often. |
+| Closing | `--maxback` | `auto`\|0–1000, steps of 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
+| Closing | `--restarts` | 0–5 | 3 | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+
+Five knobs from an earlier version of this tool — `hug`, `edgehug`,
+`strandlimit`, `giantwarns` and `giantspacepenalty` — are gone. Each did
+nothing at its default, so removing it changes no board; each now lives in the
+engine as a fixed constant instead of a flag.
 
 ### What some of these look like
 
-Four dials side by side, all on a 30×30 board with seed 7. Three of them
+Four knobs side by side, all on a 30×30 board with seed 7. Three of them
 change the picture; the fourth changes something you cannot see.
 
 **`--warns` — filling awkward corners first**
@@ -617,254 +714,40 @@ change the picture; the fourth changes something you cannot see.
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
 | 253 arrows, none longer than 4 squares | 61 arrows, longest 92 squares |
 
-**`--headbias` — the dial you cannot see**
+**`--start` — the knob you cannot see**
 
-| `--headbias=-1` (layers) | `--headbias=1` (tunnels) |
+| `--start=layers` | `--start=tunnels` |
 |---|---|
 | <img src="docs/images/adv-layers.png" width="300"> | <img src="docs/images/adv-tunnels.png" width="300"> |
 | 83 arrows, **34%** of them free to leave at the start | 90 arrows, only **6.7%** free at the start |
 
 The last two pictures look much alike, and that is exactly the point. This
-dial barely touches the drawing. What it changes is how many arrows are free
+knob barely touches the drawing. What it changes is how many arrows are free
 at any moment, and that is what makes a board easy or hard. At the default
-(`--headbias=0`) the board sits between the two: 13% free.
-
-### The six groups
-
-All thirty-one dials, grouped the way the generator groups them. Click a group
-to open it.
-
-<details>
-<summary><b>Board</b> — 3 dials</summary>
-
-**`--w`** — range 4–1000, default 25
-
-Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000.
-
-**`--h`** — range 4–1000, default 50
-
-Rows. A tall board is harder to play than a square one with the same number of
-squares.
-
-**`--seed`** — range 0–999999, default 7
-
-Picks the board. Same seed and same dials, same board.
-
-</details>
-
-<details>
-<summary><b>How long the arrows are</b> — 3 dials</summary>
-
-Before drawing each arrow, the generator rolls a three-sided die to pick a
-target length: short (2–6 squares), medium (7–15) or long (16 and up). These
-dials load the die. Long gets whatever share is left over.
-
-**`--wshort`** — range 0–1, default 0.2
-
-Share of short arrows. Higher means more arrows and more tips, but the board
-turns into a mess of little hooks.
-
-**`--wmid`** — range 0–1, default 0.08
-
-Share of medium arrows.
-
-**`--lmax`** — range 0–5000, default 0
-
-The longest arrow the generator will attempt. 0 means "two and a half times the
-longer side". **Careful:** 1 to 5 shreds the board into crumbs and the
-generator jams — it gets stuck with no legal arrow left to draw. Use 0, or 6
-and up.
-
-</details>
-
-<details>
-<summary><b>How the lines wander</b> — 6 dials</summary>
-
-Each time a line grows by one square, these dials compete over which
-neighbouring square it takes. They multiply together, so one extreme value
-drowns out the rest.
-
-**`--pstraight`** — range 0.6–1, default 0.85
-
-How eagerly a line keeps going straight. Higher gives longer straight runs.
-**Careful:** this is the one dial that can break things on its own. Below 0.6
-large boards stop working; at exactly 0.6, boards above 500×500 sometimes jam.
-0.65 is safe.
-
-**`--wlateral`** — range 0–20, default 3
-
-How much a line prefers turning sideways over pushing deeper into open space. 0
-gives long straight pushes and, occasionally, enormous spirals.
-
-**`--warns`** — range 2–16, default 4
-
-How eagerly a line fills awkward corners before they become dead ends. Higher
-gives fewer, longer, more curled-up arrows. **Careful:** below 2 the rule
-switches off and boards jam.
-
-**`--anticoil`** — range 1–10, default 6
-
-How hard a line tries not to touch itself. 1 turns it off; higher gives fewer
-spirals and slightly shorter arrows. **Careful:** at 10 with `--pstraight` at
-0.45 or below, the generator jams four times out of five.
-
-**`--hug`** — range 1–20, default 1
-
-Bonus for running alongside arrows already drawn. Barely visible; kept for
-experiments.
-
-**`--edgehug`** — range 0–4, default 0
-
-Whether the board's own edge counts as a neighbour for that bonus. Does nothing
-unless `--hug` is above 1.
-
-</details>
-
-<details>
-<summary><b>How hard the puzzle is</b> — 4 dials</summary>
-
-These change which arrows block which — the difficulty — without much changing
-what the board looks like.
-
-**`--headbias`** — range `-1`, `0` or `1`, default 0
-
-Where each new arrow starts. `-1` peels the board in layers from the outside
-(easy: many arrows free at once). 0 starts anywhere. 1 digs inward from the
-deepest point (hard: few arrows free at once). **Careful:** layers mode is slow
-— 400×400 took two and a half minutes, and 1000×1000 was abandoned after ten.
-
-**`--mix`** — range `-1`, or 0.3–0.7, default `-1`
-
-Blends the two styles above. The value is the share of arrows that start as
-tunnels; the rest start as layers. `-1` switches the blend off. **Careful:**
-values outside 0.3–0.7 leave boards unfinished.
-
-**`--probe`** — range 0–1, default 0
-
-Share of arrows whose length is drawn around one fixed target instead of the
-usual three-faced die.
-
-**`--probelen`** — range 2–200, default 12
-
-That fixed target, give or take half. 2 triples the number of arrows; 200 gives
-a few very long ones. Does nothing unless `--probe` is above 0.
-
-</details>
-
-<details>
-<summary><b>The backbone</b> — 10 dials</summary>
-
-Switched on by `--skeleton` in everyday mode. The first few arrows are drawn as
-long zig-zagging highways across the whole board, and everything else fills in
-around them.
-
-**`--giants`** — range 0–40, default 0
-
-How many of the first arrows are highways. 0 means none; 4 is a good starting
-point. Asking for many more is harmless but pointless: after the first two or
-three, the later highways run out of room.
-
-**`--giantspan`** — range 0–200, default 30
-
-How long one highway aims to be, counted in lengths of the board's longer side.
-It stops early if it runs out of room.
-
-**`--giantstep`** — range 0–40, default 14
-
-The gap between the parallel runs of a highway. Small gives regular stripes
-like ruled paper; large gives a few sweeping highways; 0 lets it wander freely.
-
-**`--giantjitter`** — range 0–1, default 0.6
-
-How often a run stops short instead of going all the way to the obstacle. 0
-gives perfectly straight, regular edges.
-
-**`--wgiant`** — range 0–0.2, default 0
-
-The chance that an arrow drawn later is also a highway. **Careful:** above 0.2
-boards get slow and stop finishing at 1000×1000.
-
-**`--giantstraight`** — range 0.3–1, default 0.94
-
-How straight a highway runs where it has free space. **Careful:** below 0.3
-boards stop finishing.
-
-**`--giantwarns`** — range 0–16, default 0
-
-The corner-filling rule, applied to highways only. Leave at 0 — it curls them
-up, and a highway is supposed to travel.
-
-**`--giantanticoil`** — range 1–20, default 6
-
-The self-touching penalty, for highways only. Whichever is higher, this or the
-general one, wins.
-
-**`--giantspacing`** — range 1–3, default 2
-
-How many squares a highway keeps between its own parallel runs. Above 3 only
-costs time.
-
-**`--giantspacepenalty`** — range 1–40, default 8
-
-How firmly it is pushed away from itself. A penalty, not a ban, so it can still
-turn back.
-
-</details>
-
-<details>
-<summary><b>Getting unstuck</b> — 5 dials</summary>
-
-What the generator does when it can no longer find a legal arrow to draw. The
-defaults handle boards up to 400×400; these are for experiments.
-
-**`--headtries`** — range 2–16, default 4
-
-How many starting spots to try before giving up on a direction. **Careful:** at
-1 the search is too shallow for hard settings. At 8 and above you usually get
-the same board as at 4.
-
-**`--strandlimit`** — range 10–30, default 30
-
-The largest leftover patch that still gets a proper check for whether an arrow
-fits in it. **Careful:** below 10, ten-square holes slip through on big boards.
-
-**`--absorblimit`** — range 12–64, default 24
-
-A leftover patch up to this size that no arrow fits into gets glued onto a
-neighbouring arrow. **Careful:** at the bottom of the range, below 13,
-leftovers pile up and boards fail far more often.
-
-**`--maxback`** — range 0–1000, in steps of 50, default 0 (= 200)
-
-How many drawn arrows may be undone in one attempt before starting over. More
-rarely rescues anything; it just delays the bad news.
-
-**`--restarts`** — range 0–5, default 3
-
-How many fresh attempts, each with a nudged seed, after a failure. 0 shows you
-the raw success rate of your settings.
-
-</details>
+(`--start=random`) the board sits between the two: 13% free. A number in
+0.3–0.7 (`--start=0.3`…`--start=0.7`) mixes `layers` and `tunnels` instead of
+choosing one: the number is the share of arrows that start as tunnels.
 
 ### Combinations that are refused
 
-Four rules cannot be written as a simple from–to range, so they are checked
+Three rules cannot be written as a simple from–to range, so they are checked
 separately:
 
 | Rule | In plain words |
 |---|---|
 | Short plus medium share | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
-| Maximum length | `--lmax` must be 0 (automatic) or at least 6. |
-| The layers/tunnels blend | `--mix` must be `-1` (off) or between 0.3 and 0.7. |
+| Maximum length | `--lmax` must be `auto` or at least 6. |
 | Whole numbers | `--width`, `--height` and `--seed` take whole numbers only. |
 
-Break a rule, or put any dial outside its range, and the generator refuses
-before drawing anything, tells you which value was wrong, and stops with status
-code 2. It never quietly rounds your number into range.
+Break a rule, or put any knob outside its range, and the generator refuses
+before drawing anything, tells you which value was wrong, and stops with
+status code 2. It never quietly rounds your number into range.
 
 The everyday options cannot break these rules. They were built so that every
 value of every everyday option, at every board size, produces a valid
-combination.
+combination — as long as you leave every knob in its bundle to be set by the
+everyday flag; see ["When a knob meets an everyday
+flag"](#when-a-knob-meets-an-everyday-flag) above for what pinning one costs.
 
 ---
 
@@ -888,7 +771,7 @@ The page has two modes, and a Polish/English switch.
 
 **Simple** is the default: board size, two sliders (arrow length, line shape),
 a backbone switch and the seed — the same choices as the plain command line.
-**Advanced** shows every dial from the previous section, with a description of
+**Advanced** shows every knob from the previous section, with a description of
 each and a list of ready-made settings, from Easy 25×25 up to Insane 1000×1000.
 
 Two things the page does that the command line does not. It shows you the exact
@@ -896,7 +779,7 @@ command that would reproduce whatever you are looking at, so you can copy it.
 And it keeps a library of saved boards, so you can put one aside and come back
 to it.
 
-If you set a dial outside its safe range, the offending row turns red, the
+If you set a knob outside its safe range, the offending row turns red, the
 reason appears next to it, and the Generate button stops working until you fix
 it. The command stays on screen, so you can still copy rejected settings.
 
@@ -909,9 +792,9 @@ By default, boards go into `packages/cli/boards/`, sorted into a folder per size
 ```
 packages/cli/boards/
   25x25/
-    seed7-7d303227.board.json   the board
-    seed7-7d303227.json         what it was made from
-    seed7-7d303227.svg          the picture, only with --svg
+    seed7-8796a4f9.board.json   the board
+    seed7-8796a4f9.json         what it was made from
+    seed7-8796a4f9.svg          the picture, only with --svg
   40x40/
     ...
 ```
@@ -946,10 +829,16 @@ a board, keep that line.
 
 **`Requires env access`** — you ran `deno run packages/cli/carve.ts` directly.
 Deno refuses to let a program touch your files or settings unless told to. Use
-`deno task carve`, which grants exactly what is needed.
+the `carve` task, which grants exactly what is needed.
 
-**`unknown flag --pstraight`** — that dial only exists in advanced mode. Add
-`--advanced`, and remember that width and height become `--w` and `--h` there.
+**`unknown flag --foo; see --help`** — the CLI does not recognise that flag at
+all. Check the spelling against `--help` or `--help=knobs`.
+
+**`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`,
+`--w`/`--h`, `--colorized`, `--lineweight`, `--headwidth`/`--arrowwidth`,
+`--headheight`/`--arrowheight`, `--lateral`, `--absorb`, `--headbias`,
+`--mix`) — an old spelling from before this tool had one mode. The message
+names its replacement; use that instead.
 
 **`invalid parameters: … is outside …`** — one of your values is out of range.
 The message names the setting and the allowed range. Nothing was generated and
@@ -968,10 +857,10 @@ the generator stops there, saving whatever it had drawn:
 CARVE_TIMEOUT_S=60 deno task carve --width=1000 --height=1000
 ```
 
-**The report takes forever** — `deno task carve --advanced` with nothing else
-walks every difficulty level up to 1000×1000, three times each. Add
-`--only=easy --square --runs=1`. Note that `--only=easy` on its own matches
-nothing: it needs `--square` or `--portrait` alongside it.
+**The report takes forever** — `deno task report` with nothing else walks
+every difficulty level up to 1000×1000, three times each. Add `--only=easy
+--square --runs=1`. Note that `--only=easy` on its own matches nothing: it
+needs `--square` or `--portrait` alongside it.
 
 **The web page shows nothing** — the page needs building first. `sh
 packages/cli/lab.sh` does it for you; opening `lab.html` straight from your file
