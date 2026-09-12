@@ -2263,7 +2263,7 @@ const PARAM_TABLE = [
     def: -1,
     surface: 'start',
     help:
-      'Fraction of pieces that start as tunnels, the rest as layers. The slider offers 0.3-0.7, because the extremes leave boards unclosed.',
+      'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed.',
   },
   {
     key: 'probe',
@@ -2474,12 +2474,27 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
     keys: ['W', 'H', 'seed'],
     check: (p) => Number.isInteger(p.W) && Number.isInteger(p.H) && Number.isInteger(p.seed),
   },
+  // One flag (--start) writes both knobs, so only the pairs it can spell are
+  // storable: a whole-number start with mixing off, or start 0 with a mixing
+  // share. Anything else is a board no command text names — a start of 0.5
+  // prints as --start=0.5 and reads back as a share, and a start beside a
+  // share changes the board id while the carver ignores it (it reads headBias
+  // only while mix is below 0).
+  {
+    key: 'startPair',
+    keys: ['headBias', 'mix'],
+    check: (p) =>
+      (p.mix === -1 && Number.isInteger(p.headBias)) ||
+      (p.headBias === 0 && p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9),
+  },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
   lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
   wholeNumbers: 'width, height and seed must be whole numbers',
+  startPair:
+    'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of 0.3 to 0.7',
 }
 
 /**

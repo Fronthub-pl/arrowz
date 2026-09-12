@@ -228,6 +228,8 @@ export const PL: Translation = {
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
     wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
+    startPair:
+      'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
   },
   // Words of the fixed-choice knobs. The key is the word the CLI takes
   // (--giantspacing=off), the value is what the lab shows in Polish.
@@ -288,7 +290,7 @@ export const PL: Translation = {
     mix: {
       label: 'udział mieszania (tunele wśród warstw)',
       help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. Suwak daje 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
+        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
     },
     probe: {
       label: 'udział elementów-sond',

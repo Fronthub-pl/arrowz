@@ -126,10 +126,10 @@ function isDefaultStart(params: Params): boolean {
 
 /**
  * How `--start` spells the pair it writes. A mix at or above 0 is the mixing
- * share itself; otherwise the pair is one of the three words. A value off the
- * step grid (only a hand-edited board file has one) has no spelling at all, so
- * it is printed as the number it is and refused on the way back in, loudly,
- * rather than silently becoming another board.
+ * share itself; otherwise the pair is one of the three words. The last line is
+ * for a pair that is neither: `validateParams` refuses such a pair (the
+ * `startPair` rule), and the lab still calls this on unvalidated state, so the
+ * number is printed as it is rather than silently becoming another board.
  */
 function startFlag(params: Params): string {
   if (params.mix >= 0) return `--start=${params.mix}`
@@ -220,6 +220,16 @@ const PICTURE_FLAGS: readonly FlagRow[] = [
   ['--sharp', 'square corners and a square tail (default: rounded)'],
   ['--top=N', 'highlight the N longest pieces and print their stats'],
 ]
+
+/** The flags a rule names: the two knobs behind --start have one flag between them, so it is listed once. */
+function ruleFlags(keys: readonly ParamKey[]): string[] {
+  const out: string[] = []
+  for (const key of keys) {
+    const flag = specOf(key).surface === 'start' ? '--start' : flagOf(key)
+    if (!out.includes(flag)) out.push(flag)
+  }
+  return out
+}
 
 /** A cell of the knob table; every row is built with one cell per column, so a gap is a programming error. */
 function cellAt(row: readonly string[], i: number): string {
@@ -330,7 +340,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push(`A word in a range spells one number: ${legend.join(', ')}.`)
   out.push('')
   out.push('Rules (checked together with the ranges):')
-  list(RULES.map((r): FlagRow => [`${r.key} (${r.keys.map(flagOf).join(', ')})`, RULE_REASONS[r.key]]))
+  list(RULES.map((r): FlagRow => [`${r.key} (${ruleFlags(r.keys).join(', ')})`, RULE_REASONS[r.key]]))
   out.push('')
   out.push('Pinning. An everyday flag sets a bundle: --length sets the two share knobs,')
   out.push('--winding the four shape knobs, --skeleton the five skeleton knobs, and every')

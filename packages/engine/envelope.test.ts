@@ -113,8 +113,8 @@ Deno.test('envelope: keys outside PARAM_SPEC are ignored', () => {
   assertEquals(validateParams(withRaw({ ruleB: false, voidFrac: 2, trace: true, debug: 'x' })), [])
 })
 
-Deno.test('envelope: the three cross-knob rules exist with a reason each', () => {
-  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'wholeNumbers'])
+Deno.test('envelope: the four cross-knob rules exist with a reason each', () => {
+  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'wholeNumbers', 'startPair'])
   for (const r of RULES) {
     assert(Array.isArray(r.keys) && r.keys.length >= 1, r.key)
     for (const k of r.keys) assert(spec(k), `${r.key} names unknown knob ${k}`)
@@ -164,6 +164,31 @@ Deno.test('rule wholeNumbers: width, height and seed are whole numbers', () => {
   for (const over of [{ W: 10.5 }, { H: 12.25 }, { seed: 1.5 }]) {
     assertEquals(validateParams(withDefaults(over)), rule('wholeNumbers'), JSON.stringify(over))
   }
+})
+
+// --start is the only way to write the two stored knobs, so a stored pair it
+// cannot spell has no command text: --start=0.5 reads back as a mixing share,
+// and (headBias 1, mix 0.5) carves the board (0, 0.5) carves while hashing to
+// another id. The rule makes flag and pair a bijection.
+Deno.test('rule startPair: only a pair --start can spell', () => {
+  // Mixing off: the three whole-number starts the words spell.
+  for (const headBias of [-1, 0, 1]) {
+    assertEquals(validateParams(withDefaults({ headBias, mix: -1 })), [], `headBias=${headBias}`)
+  }
+  // Mixing on: the start is 0 and the share is the number --start takes.
+  for (const mix of [0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ headBias: 0, mix })), [], `mix=${mix}`)
+  // A start between the words, with mixing off: --start=0.5 would read back as a share.
+  assertEquals(validateParams(withDefaults({ headBias: 0.5, mix: -1 })), rule('startPair'))
+  // A start of its own beside a share: the engine ignores it, the board id does not.
+  assertEquals(validateParams(withDefaults({ headBias: 1, mix: 0.5 })), rule('startPair'))
+  assertEquals(validateParams(withDefaults({ headBias: -1, mix: 0.5 })), rule('startPair'))
+  // The hole of the share range, and the mix of 0 that is a third behaviour.
+  for (const mix of [0, 0.2, 0.75, 1]) {
+    assertEquals(validateParams(withDefaults({ headBias: 0, mix })), rule('startPair'), `mix=${mix}`)
+  }
+  const first = rule('startPair')[0]
+  assert(first)
+  assertEquals(first.kind === 'rule' ? first.keys : null, ['headBias', 'mix'])
 })
 
 Deno.test('generate: refuses a violation with a RangeError carrying the violations', () => {

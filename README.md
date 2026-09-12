@@ -730,7 +730,7 @@ choosing one: the number is the share of arrows that start as tunnels.
 
 ### Combinations that are refused
 
-Three rules cannot be written as a simple from–to range, so they are checked
+Four rules cannot be written as a simple from–to range, so they are checked
 separately:
 
 | Rule | In plain words |
@@ -738,6 +738,7 @@ separately:
 | Short plus medium share | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
 | Maximum length | `--lmax` must be `auto` or at least 6. |
 | Whole numbers | `--width`, `--height` and `--seed` take whole numbers only. |
+| Start and mixing | `--start` takes a word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose start and mixing are a pair no `--start` can write is refused, because its command would rebuild a different board. |
 
 Break a rule, or put any knob outside its range, and the generator refuses
 before drawing anything, tells you which value was wrong, and stops with

@@ -730,7 +730,7 @@ tunele.
 
 ### Kombinacje, które są odrzucane
 
-Trzech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
+Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
 | Reguła | Po ludzku |
@@ -738,6 +738,7 @@ je osobno:
 | Udział krótkich plus średnich | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
 | Długość maksymalna | `--lmax` musi być `auto` albo co najmniej 6. |
 | Liczby całkowite | `--width`, `--height` i `--seed` przyjmują tylko liczby całkowite. |
+| Start i mieszanie | `--start` przyjmuje słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start i mieszanie tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
 
 Złam regułę albo wyjdź którymkolwiek pokrętłem poza zakres, a generator odmówi,
 zanim cokolwiek narysuje, powie ci, która wartość była zła, i zakończy się

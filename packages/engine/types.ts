@@ -33,7 +33,7 @@ export type ParamKey =
 
 export type ParamGroup = 'board' | 'lengths' | 'shape' | 'difficulty' | 'skeleton' | 'closing'
 export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero'
-export type RuleKey = 'sharesSum' | 'lmaxHole' | 'wholeNumbers'
+export type RuleKey = 'sharesSum' | 'lmaxHole' | 'wholeNumbers' | 'startPair'
 
 export interface TraceInfo {
   pieces: number
