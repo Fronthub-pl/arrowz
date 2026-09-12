@@ -9,7 +9,16 @@
 // bundle keeps being chosen around it.
 import { assert, assertEquals, assertMatch, assertStringIncludes } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { decodeBoard, defaultParams, fingerprint, generate, PARAM_SPEC, toSvg, validateParams } from '@arrowz/engine'
+import {
+  decodeBoard,
+  defaultParams,
+  fingerprint,
+  generate,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  toSvg,
+  validateParams,
+} from '@arrowz/engine'
 import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View, ViewNumber } from '@arrowz/engine'
@@ -253,6 +262,56 @@ Deno.test('the note names an everyday flag only when the run was given it', () =
   const with_ = runCarve(['--width=10', '--height=10', '--skeleton', '--giantstep=5', '--dry-run'], dir)
   assertEquals(with_.status, 0, with_.stderr)
   assertStringIncludes(with_.stderr, '--skeleton still sets')
+})
+
+// --- a pin that changes nothing ----------------------------------------------
+// The lab has dimmed a knob with no effect since the sliders existed; the
+// command line said nothing, so a pin that could not move a single cell looked
+// exactly like one that carved a different board.
+
+Deno.test('a pin that can change nothing says so, in the words the lab dims it with', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=10', '--height=10', '--giantstep=5', '--dry-run'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  // No skeleton on this run, so every skeleton knob is dead -- and the reason
+  // is read from the engine's own table rather than spelled again here.
+  assertStringIncludes(r.stderr, `note: --giantstep=5 has no effect here: ${INACTIVE_REASONS.skeletonOff}`)
+  // Its own line, under the pin it is about.
+  const notes = r.stderr.split('\n').filter((l) => l.startsWith('note:'))
+  assertEquals(notes.length, 2, r.stderr)
+  assertStringIncludes(notes[0] ?? '', 'is pinned')
+  JSON.parse(r.stdout) // stdout stays machine-readable, note or no note
+})
+
+Deno.test('a pin that does something is not told that it does nothing', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=10', '--height=10', '--skeleton', '--giantstep=5', '--dry-run'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  assertEquals(r.stderr.includes('has no effect'), false, r.stderr)
+})
+
+Deno.test('the no-effect note is left off a batch that draws its knobs per seed', () => {
+  const dir = tmp()
+  // --randomized draws the bundles anew for every board and the draw is not a
+  // function of the seed, so a run cannot know what the boards after the first
+  // will get. The note prints once for the whole run, so on that shape it
+  // prints nothing -- deliberately conservative: here the skeleton is off on
+  // every board (--randomized alone never turns it on), and the note still
+  // stays away, because the rule's inputs are not something the run can see.
+  const batch = runCarve(
+    ['--width=10', '--height=10', '--seed=1', '--count=2', '--randomized', '--giantstep=5'],
+    dir,
+  )
+  assertEquals(batch.status, 0, batch.stderr)
+  assertStringIncludes(batch.stderr, '--giantstep=5 is pinned')
+  assertEquals(batch.stderr.includes('has no effect'), false, batch.stderr)
+  // One board speaks about itself, drawn or not: these are its own settings.
+  const one = runCarve(
+    ['--width=10', '--height=10', '--seed=1', '--randomized', '--giantstep=5', '--dry-run'],
+    dir,
+  )
+  assertEquals(one.status, 0, one.stderr)
+  assertStringIncludes(one.stderr, `note: --giantstep=5 has no effect here: ${INACTIVE_REASONS.skeletonOff}`)
 })
 
 // --- the safe envelope --------------------------------------------------------

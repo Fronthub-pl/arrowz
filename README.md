@@ -645,6 +645,24 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 { "...": "...", "pinned": ["pStraight"], "...": "..." }
 ```
 
+A pin can also name a knob that changes nothing under the rest of your
+settings: a skeleton knob without a skeleton, the probe length with the probe
+share at 0. The lab dims such a row; the CLI says it on a line of its own, in
+the same words.
+
+```sh
+deno task carve --width=30 --height=30 --probelen=30 --dry-run
+```
+
+```
+note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
+note: --probelen=30 has no effect here: only works with probe share > 0
+```
+
+That second line is left off a `--count` batch drawn with `--randomized`:
+there every board gets its own knobs, drawn afresh rather than from the seed,
+so one note printed for the whole run could not speak for all of them.
+
 What you give up by pinning: the safe ranges in the table below were measured
 as whole bundles, so a half-pinned bundle still stays inside the envelope, but
 it is no longer covered by the promise that *every* everyday combination

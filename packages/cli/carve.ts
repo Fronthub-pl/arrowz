@@ -27,7 +27,17 @@
 // code is 1; CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what
 // was carved.
 import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
-import { DIRS, encodeBoard, fingerprint, generate, GenerateAbort, toSvg, validateParams } from '@arrowz/engine'
+import {
+  DIRS,
+  encodeBoard,
+  fingerprint,
+  generate,
+  GenerateAbort,
+  INACTIVE_REASONS,
+  PARAM_SPEC,
+  toSvg,
+  validateParams,
+} from '@arrowz/engine'
 import { boardId, buildCommand, flagViolation, helpText, knobFlag, parseArgs, svgOptions } from '@arrowz/engine/command'
 import { BUNDLES, simpleParams } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
@@ -216,6 +226,24 @@ function bundleNamed(bundle: BundleKey): boolean {
   return bundle === 'difficulty' || givenFlags.has(`--${bundle}`)
 }
 
+const INACTIVE_BY_KEY = new Map(PARAM_SPEC.filter((s) => s.inactive).map((s) => [s.key, s.inactive]))
+/**
+ * Why a pinned knob does nothing under these very settings, in the words the
+ * lab dims its row with (INACTIVE_REASONS), or null when it does something.
+ * The lab has said this since the knobs had sliders; the command line said
+ * nothing at all, so `--giantanticoil=3` looked like a setting and was a no-op.
+ *
+ * A batch that DRAWS its knobs per seed is the one case left out: the reason
+ * usually turns on other knobs, `--randomized` gives every board its own, and
+ * a note printed once for the run would be speaking about the first board
+ * only. Silence beats a claim that holds for one board in three.
+ */
+function noEffect(key: ParamKey): string | null {
+  if (count !== null && parsed.choice.random) return null
+  const reason = INACTIVE_BY_KEY.get(key)?.(params) ?? null
+  return reason ? INACTIVE_REASONS[reason] : null
+}
+
 // One line per pinned knob, on stderr: --dry-run owns stdout. Printed once
 // for the whole run rather than once per seed, so a batch stays readable and
 // the JSON of a dry run still parses.
@@ -228,6 +256,11 @@ for (const key of parsed.pins) {
     ? `; ${bundleFlag(bundle)} still sets ${partners.join(', ')}`
     : ''
   console.error(`note: ${knobFlag(params, key)} is pinned${tail}`)
+  // Its own line, right under the pin it is about: a knob that changes nothing
+  // is a different message from a knob that holds against its bundle, and a
+  // reader grepping for one should not have to read past the other.
+  const dead = noEffect(key)
+  if (dead) console.error(`note: ${knobFlag(params, key)} has no effect here: ${dead}`)
 }
 
 // --- a batch: --count=N [--max-seeds=M] ------------------------------------

@@ -645,6 +645,24 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 { "...": "...", "pinned": ["pStraight"], "...": "..." }
 ```
 
+Przypiąć można też pokrętło, które przy pozostałych ustawieniach nie zmienia
+niczego: pokrętło szkieletu bez szkieletu, długość sondy przy udziale sond
+równym 0. Lab przygasza taki wiersz; CLI mówi to osobną linią, tymi samymi
+słowami.
+
+```sh
+deno task carve --width=30 --height=30 --probelen=30 --dry-run
+```
+
+```
+note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
+note: --probelen=30 has no effect here: only works with probe share > 0
+```
+
+Tej drugiej linii nie ma przy serii `--count` losowanej przez `--randomized`:
+tam każda plansza dostaje własne pokrętła, losowane na nowo, a nie z ziarna,
+więc jedna nota na cały bieg nie mogłaby mówić za wszystkie.
+
 Co tracisz, przypinając: bezpieczne zakresy w tabeli niżej zmierzono jako całe
 zestawy, więc na wpół przypięty zestaw wciąż mieści się w kopercie
 bezpieczeństwa, ale nie jest już objęty obietnicą, że *każda* codzienna
