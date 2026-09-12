@@ -22,7 +22,7 @@ escape branch in the growth loop. At `backbite: 0` no draw is made and no branch
 taken — the 53 engine tests pass and every fingerprint check against `generate()`
 came back equal, so today's boards are unchanged cell for cell.
 
-Raw rows: `/tmp/arrowz-measure/{r1-1000,r1-cost-1000,r1-bb8-1000,r2-1000}.jsonl`.
+Raw rows: `/tmp/arrowz-measure/{r1-1000,r1-cost-1000,r1-bb8-1000,r2-1000,r2-1000-fixed,r1-freebias-1000,r1-trap-1000}.jsonl`.
 
 ## R1, part 1: the depth IS known at carve time (spec section 10.2)
 
@@ -88,6 +88,13 @@ not to its conclusion. R1 stays affordable; it just has to carry `lineMax`, not 
 walk.
 
 ## R2: the tail backbite at 1000x1000 (spec section 10.1)
+
+> **The sweep below measured a move with a bug in it.** The backbite could bite at
+> position 0, which reverses the suffix from `cells[1]` and so moves the neck - the
+> cell behind the head that `pieceShape` starts the line at. Pieces rendered with the
+> arrowhead stuck on the side of the line. The fix restricts the bite to position 1
+> and up; see "Re-measured after the neck fix" below for the numbers that hold. No
+> conclusion changed, but the piece lengths in this table are 8-10% too generous.
 
 4 sets x 3 seeds x `backbite` 0/2/4/8 = 48 boards. `edge` is the most winding LEGAL
 setting at this size: `warns` 6 and `anticoil` 4 pull `straightFloor` down to 0.65 and
@@ -170,3 +177,55 @@ rather than to absolute depths, which makes the bands survive `backbite` changin
   leftover test throws away. No coupling rule with `pStraight` is indicated by these
   points. What it does NOT deliver is the honouring of ordered lengths, which was the
   headline claim in section 2.2 — that gap belongs to `targetLength`, not to stalls.
+
+
+## Re-measured after the neck fix
+
+32 boards, 2 seeds, same four sets, `backbite` 0 and 8. Closure is unchanged:
+**32/32 closed, 0 backtracks, 0 restarts, 0 timeouts**, and the fingerprints at cap 0
+still match `generate()`.
+
+| set | bb | seconds | pieces | mean length | longest | strandLoss | free arrows | D | mean length before the fix |
+|---|---|---|---|---|---|---|---|---|---|
+| square | 0 | 12.7 | 86 070 | 11.6 | 438 | 103 576 | 463 | 790 | 11.7 |
+| square | 8 | 12.9 | 65 274 | 15.3 | 812 | 308 502 | 284 | 504 | 16.9 |
+| tunnels | 0 | 27.7 | 85 376 | 11.7 | 484 | 107 474 | 124 | 1034 | 11.7 |
+| tunnels | 8 | 30.8 | 65 421 | 15.3 | 820 | 305 948 | 80 | 706 | 16.8 |
+| skeleton | 0 | 16.1 | 82 892 | 12.1 | 19 124 | 99 370 | 513 | 714 | 12.1 |
+| skeleton | 8 | 18.3 | 61 998 | 16.1 | 19 511 | 294 632 | 385 | 401 | 17.6 |
+| edge | 0 | 20.0 | 77 260 | 12.9 | 306 | 131 080 | 255 | 548 | 12.8 |
+| edge | 8 | 16.6 | 58 614 | 17.1 | 570 | 348 720 | 205 | 422 | 18.3 |
+
+What the fix costs: mean piece length rises 32-33% instead of 40-45%. Everything else
+holds - the longest piece still roughly doubles, `strandLoss` still triples, time is
+still flat, D still falls 30-43%, and free arrows still drop by a third.
+
+## R1 as a trap lever, not a free-arrow lever
+
+Measured after the f0 spike came back negative. A piece has exactly one blocker
+precisely when its line prefix has a single owner, and "no owner change along the
+prefix" is equivalent to "one owner", so the test is one integer per line, maintained
+exactly as `lineMax` is: -1 empty, -2 several, >= 0 the sole owner
+(`CarverOptions.trapBias`).
+
+1000x1000, 3 seeds, all closed with 0 backtracks:
+
+| setting | pieces | free arrows | traps | traps as share | D |
+|---|---|---|---|---|---|
+| `--start=random` (today) | 85 666 | 454 | 680 | 0.79% | 811 |
+| `--start=layers` (today) | 85 386 | 549 | 672 | 0.79% | 1046 |
+| `--start=tunnels` (today) | 85 506 | 142 | 521 | 0.61% | 1003 |
+| spike, most free (freeBias +1) | 85 828 | 556 | 371 | 0.43% | 1136 |
+| **spike, most traps (trapBias +1)** | 85 028 | 276 | **912** | **1.07%** | 1010 |
+| **spike, fewest traps (trapBias -1)** | 85 346 | 395 | **178** | **0.21%** | 1052 |
+
+A 5.1x range on traps, against 1.3x for every existing knob. And the direction matters
+more than the range: every existing knob moves free arrows and traps TOGETHER (layers
+lifts both, tunnels drops both, short pieces triple both), while `trapBias -1` drops
+traps to a quarter while lifting free arrows. That separation is what no knob has, and
+it is the thing README calls the difficulty: seeing which arrow is actually free.
+
+The f0 spike is recorded as a reject: 165-556 free arrows against 142-549 for today's
+`--start` and 320-2417 for the length knobs. Ranking heads cannot beat the geometric
+ceiling, because a piece is free exactly when its head sits on the rim, and only the
+number of pieces changes how many heads get there.
