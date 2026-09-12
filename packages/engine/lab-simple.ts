@@ -345,10 +345,13 @@ export function simpleParams(
   }
   // The engine caps short + medium at 0.9. A pinned share is the caller's
   // word, so the clamp moves the other one; with both pinned it moves neither
-  // and the envelope refuses the pair, identically on every seed.
+  // and the envelope refuses the pair, identically on every seed. The move
+  // stops at 0: a pin above the cap would otherwise push its partner below
+  // its own minimum, and the envelope would answer with a range violation
+  // about a knob nobody named instead of the rule about the sum.
   if (p.wShort + p.wMid > 0.9) {
-    if (pins.wMid === undefined) p.wMid = Number((0.9 - p.wShort).toFixed(6))
-    else if (pins.wShort === undefined) p.wShort = Number((0.9 - p.wMid).toFixed(6))
+    if (pins.wMid === undefined) p.wMid = Math.max(0, Number((0.9 - p.wShort).toFixed(6)))
+    else if (pins.wShort === undefined) p.wShort = Math.max(0, Number((0.9 - p.wMid).toFixed(6)))
   }
   return p
 }

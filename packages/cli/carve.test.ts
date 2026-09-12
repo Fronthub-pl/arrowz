@@ -286,6 +286,23 @@ Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, no
   assertEquals(entries(dir), 0, 'nothing is written')
 })
 
+// A share named on the command line can ask for more than the cap allows.
+// The clamp then moves the partner nobody named, and must stop at 0: the
+// refusal has to be the rule about the sum, never a range violation about a
+// knob the command line never mentioned.
+Deno.test('a share pinned above the cap is refused by the sum rule, not by its partner', () => {
+  const sharesSum = { kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }
+  for (const flag of ['--wshort=1', '--wmid=1']) {
+    const dir = tmp()
+    const r = dryRun(['--dry-run', '--width=10', '--height=10', flag], dir)
+    assertEquals(r.status, 2, flag)
+    assert(r.json, `no JSON line in:\n${r.stdout}`)
+    assertEquals(r.json.error, 'invalid parameters', flag)
+    assertEquals(r.json.violations, [sharesSum], flag)
+    assertEquals(entries(dir), 0, 'nothing is written')
+  }
+})
+
 Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stderr, no file', () => {
   const dir = tmp()
   const out = join(dir, 'out.svg')

@@ -246,6 +246,23 @@ Deno.test('the short-plus-medium clamp moves only an unpinned partner', () => {
   assert(validateParams(both).length > 0, 'two pins that break the rule must reach the envelope')
 })
 
+// A pin can ask for more than the cap allows. The partner it moves is a knob
+// nobody named, so the move must stay inside that knob's own range: a share
+// below 0 turns the answer into a range violation about a knob the caller
+// never touched, instead of the rule about the sum they did break.
+Deno.test('a share pinned above the cap leaves its partner at 0, never below', () => {
+  const choice = { ...defaultChoice(), lengths: 0 }
+  const short = simpleParams(choice, () => 0.99, { wShort: 1 })
+  assertEquals(short.wShort, 1)
+  assertEquals(short.wMid, 0)
+  assertEquals(validateParams(short), [{ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }])
+
+  const mid = simpleParams(choice, () => 0.99, { wMid: 1 })
+  assertEquals(mid.wMid, 1)
+  assertEquals(mid.wShort, 0)
+  assertEquals(validateParams(mid), [{ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }])
+})
+
 Deno.test('presetParams takes the CLI vocabulary and gives the same board as the lab choice', () => {
   const viaPreset = presetParams({ W: 40, H: 40, seed: 3, length: 0.25, winding: 0.75, skeleton: true })
   const viaChoice = simpleParams({ W: 40, H: 40, seed: 3, lengths: 0.25, shape: 0.75, skeleton: 'on' })
