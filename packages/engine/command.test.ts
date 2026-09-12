@@ -5,7 +5,7 @@
 import { assert, assertEquals, assertMatch, assertNotEquals } from '@std/assert'
 import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, helpText, parseArgs, wordFor } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import type { Params } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
@@ -119,6 +119,9 @@ Deno.test('--start writes both stored knobs', () => {
   for (const [word, headBias, mix] of cases) {
     const { params } = parseArgs([...SIZE, `--start=${word}`])
     assertEquals([params.headBias, params.mix], [headBias, mix], word)
+    // Every spelling of the flag writes a pair the envelope accepts: the rule
+    // over the two knobs and the flag say the same thing.
+    assertEquals(validateParams(params), [], `--start=${word}`)
   }
   assert(/--start=tunnels/.test(buildCommand(parseArgs([...SIZE, '--start=tunnels']).params)))
   assert(/--start=0.5/.test(buildCommand(parseArgs([...SIZE, '--start=0.5']).params)))
@@ -233,6 +236,36 @@ Deno.test('retired spellings name their replacement, and unknown flags are refus
   assert(errors.some((e) => e.includes('--advanced')), errors.join('; '))
   assert(errors.some((e) => e.includes('--board')), errors.join('; '))
   assert(errors.some((e) => e.includes('--nope')), errors.join('; '))
+})
+
+// The size is a knob (it is stored and hashed), but it arrives as an everyday
+// flag, and normalizeChoice rounds and clamps it for the lab's sake. So the
+// parser has to refuse what that clamp would otherwise swallow: --width=2000
+// used to give a 1000-wide board and exit 0, while --seed=1.5 was refused.
+Deno.test('parseArgs: the size takes whole numbers inside its own range', () => {
+  assertEquals(parseArgs(['--width=2000', '--height=50']).errors, ['--width=2000 is outside 4..1000'])
+  assertEquals(parseArgs(['--width=3', '--height=50']).errors, ['--width=3 is outside 4..1000'])
+  assertEquals(parseArgs(['--width=25.5', '--height=50']).errors, ['--width=25.5 is not a whole number'])
+  assertEquals(parseArgs(['--width=25', '--height=0']).errors, ['--height=0 is outside 4..1000'])
+  assertEquals(parseArgs(['--width=25', '--height=50.5']).errors, ['--height=50.5 is not a whole number'])
+  // The bounds themselves are accepted, and the board is the size that was asked for.
+  assertEquals(parseArgs(['--width=4', '--height=1000']).errors, [])
+  assertEquals(parseArgs(['--width=4', '--height=1000']).params.H, 1000)
+})
+
+// A switch is on or off; a value on one used to turn it ON, so --skeleton=off
+// asked for a skeleton. A bare word used to land in the mode list and be read
+// by nobody. Both contradict "an unknown flag is refused".
+Deno.test('parseArgs: a switch takes no value, and a stray word is not an argument', () => {
+  for (const flag of ['--skeleton=off', '--randomized=false', '--sharp=no', '--colored=0']) {
+    assertEquals(parseArgs([...SIZE, flag]).errors, [`${flag} takes no value`], flag)
+  }
+  assertEquals(parseArgs([...SIZE, '--skeleton=off']).choice.skeleton, 'off')
+  assertEquals(parseArgs([...SIZE, 'board.json']).errors, ['unexpected argument: board.json'])
+  assertEquals(parseArgs([...SIZE, 'board.json']).rest, [], 'a stray word is not a mode flag')
+  // -h is the one flag written with a single dash, and it still passes through.
+  assertEquals(parseArgs([...SIZE, '-h']).errors, [])
+  assertEquals(parseArgs([...SIZE, '-h']).rest, ['-h'])
 })
 
 Deno.test('every retired spelling of a knob names the flag that replaced it', () => {

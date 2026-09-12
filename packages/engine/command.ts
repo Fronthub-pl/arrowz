@@ -413,6 +413,8 @@ const EVERYDAY_NUMBER = new Map<string, 'W' | 'H' | 'seed' | 'lengths' | 'shape'
 ])
 /** The two everyday numbers that are slider positions, and so bounded by 0..1. */
 const SLIDERS = new Set(['length', 'winding'])
+/** The two everyday numbers that are knobs of their own, and so bounded by their own spec. */
+const SIZE_KEYS = new Map<string, ParamKey>([['width', 'W'], ['height', 'H']])
 /** Where a picture number lands in the view; the switches (--colored, --sharp) are read on their own. */
 const VIEW_NUMBER = new Map<string, 'cell' | 'stroke' | 'headWidth' | 'headHeight' | 'top'>([
   ['cell', 'cell'],
@@ -426,9 +428,10 @@ const MODE_FLAGS = new Set(['svg', 'dry-run', 'count', 'max-seeds', 'help'])
 
 /**
  * Splits argv into the everyday choice, the knobs it pins, the view, the mode
- * flags (rest) and a list of errors: a missing size, a slider outside 0..1, a
- * value that is neither a word nor a number, a retired spelling, an unknown
- * flag.
+ * flags (rest) and a list of errors: a missing size, a size that is not a
+ * whole number inside its range, a slider outside 0..1, a value that is
+ * neither a word nor a number, a value on a switch, a token that is not a
+ * flag at all, a retired spelling, an unknown flag.
  *
  * Pure, and unrandomised on purpose: `params` is the set the choice gives with
  * the pins written over it, which is what the lab and --help print. Drawing
@@ -447,9 +450,24 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     if (!pins.includes(key)) pins.push(key)
     pinned[key] = value
   }
+  // A switch is on or off, so a value on one says nothing the switch can
+  // carry: --skeleton=off used to turn the skeleton ON, like --colored=0 the
+  // colours. Refused by name instead.
+  const switchOn = (a: string, raw: string | null): boolean => {
+    if (raw === null) return true
+    errors.push(`${a} takes no value`)
+    return false
+  }
   for (const a of argv) {
-    if (!a.startsWith('--')) {
+    // -h is the one flag written with a single dash, and it is a mode flag.
+    if (a === '-h') {
       rest.push(a)
+      continue
+    }
+    // A token that is not a flag used to go into rest, where no mode reader
+    // ever looked at it: silently ignored input, which is what exit 2 is for.
+    if (!a.startsWith('--')) {
+      errors.push(`unexpected argument: ${a}`)
       continue
     }
     const eq = a.indexOf('=')
@@ -489,11 +507,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       continue
     }
     if (name === 'skeleton') {
-      choice.skeleton = 'on'
+      if (switchOn(a, raw)) choice.skeleton = 'on'
       continue
     }
     if (name === 'randomized') {
-      choice.random = true
+      if (switchOn(a, raw)) choice.random = true
       continue
     }
     const field = EVERYDAY_NUMBER.get(name)
@@ -506,6 +524,22 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       if (SLIDERS.has(name) && (n < 0 || n > 1)) {
         errors.push(`${a} is outside 0..1`)
         continue
+      }
+      // The size is a knob, and normalizeChoice rounds and clamps it for the
+      // lab (a URL hash, a stored board). The clamp has to stay there, so the
+      // refusal belongs here: --width=2000 used to give a 1000-wide board and
+      // exit 0, while --seed=1.5 was refused by the envelope.
+      const sizeKey = SIZE_KEYS.get(name)
+      if (sizeKey) {
+        const s = specOf(sizeKey)
+        if (!Number.isInteger(n)) {
+          errors.push(`${a} is not a whole number`)
+          continue
+        }
+        if (n < s.min || n > s.max) {
+          errors.push(`${a} is outside ${s.min}..${s.max}`)
+          continue
+        }
       }
       choice[field] = n
       continue
@@ -523,11 +557,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       continue
     }
     if (name === 'colored') {
-      view.colored = true
+      if (switchOn(a, raw)) view.colored = true
       continue
     }
     if (name === 'sharp') {
-      view.rounded = false
+      if (switchOn(a, raw)) view.rounded = false
       continue
     }
     const field2 = VIEW_NUMBER.get(name)

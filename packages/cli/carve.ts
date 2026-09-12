@@ -82,8 +82,16 @@ const hooks: Pick<GenerateOptions, 'trace' | 'debug'> = { ...(trace ? { trace } 
 const parsed = parseArgs(Deno.args)
 const view = parsed.view
 const rest = parsed.rest
-// Mode flags (not engine parameters) — read from what is left after the parser.
-const has = (flag: string): boolean => rest.includes(`--${flag}`)
+// Mode flags (not engine parameters) — read from what is left after the
+// parser. Every reader marks what it took, so an entry nobody took is caught
+// below rather than ignored: --dry-run=1 is not --dry-run, and --count
+// without a value is not --count=N.
+const used = new Set<string>()
+const has = (flag: string): boolean => {
+  const hit = rest.includes(`--${flag}`)
+  if (hit) used.add(`--${flag}`)
+  return hit
+}
 
 // --- the safe envelope ------------------------------------------------------
 // The parser only parses; here the parsed parameters meet the ranges and the
@@ -119,6 +127,7 @@ function refuseViolations(items: readonly Violation[]): never {
 // flag is refused by name, the same as an unknown flag is.
 const helpFlag = rest.find((a) => a === '--help' || a === '-h' || a.startsWith('--help='))
 if (helpFlag !== undefined) {
+  used.add(helpFlag)
   if (helpFlag !== '--help' && helpFlag !== '-h' && helpFlag !== '--help=knobs') {
     refuseErrors('invalid arguments', [`${helpFlag} is not --help or --help=knobs`])
   }
@@ -129,6 +138,49 @@ if (helpFlag !== undefined) {
 // The flags themselves can be wrong (a missing size, a slider outside 0..1, a
 // retired spelling, an unknown flag). Checked before any knob exists.
 if (parsed.errors.length) refuseErrors('invalid arguments', parsed.errors)
+
+// --- the modes: --svg[=path], --count=N [--max-seeds=M] ---------------------
+// Read before any knob, so that a mode flag the CLI cannot honour is refused
+// before a board is made. A batch gives N closed boards on the seeds from
+// --seed up, for a pool of boards to upload.
+/** A positive integer flag, or null when it is absent; anything else is refused. */
+function positiveFlag(name: string): number | null {
+  const hit = rest.find((a) => a.startsWith(`--${name}=`))
+  if (hit === undefined) return null
+  used.add(hit)
+  const n = Number(hit.slice(name.length + 3))
+  if (!Number.isInteger(n) || n < 1) refuseErrors('invalid arguments', [`${hit} is not a positive integer`])
+  return n
+}
+const count = positiveFlag('count')
+const maxSeeds = positiveFlag('max-seeds')
+const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
+if (svgFlag !== undefined) used.add(svgFlag)
+const writesBoards = !dryRun
+if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
+if (count !== null && !writesBoards) {
+  refuseErrors('invalid arguments', ['--count needs a mode that writes boards, and --dry-run writes none'])
+}
+if (count !== null && svgFlag?.startsWith('--svg=')) {
+  refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
+}
+
+/** Mode flags that are switches, and mode flags that need a value: both spellings are refused by name. */
+const VALUELESS_MODES = new Set(['--dry-run', '--help'])
+const VALUED_MODES = new Set(['--count', '--max-seeds'])
+/** Why a mode flag no reader took is refused. */
+function unreadReason(arg: string): string {
+  const eq = arg.indexOf('=')
+  const name = eq < 0 ? arg : arg.slice(0, eq)
+  if (eq >= 0 && VALUELESS_MODES.has(name)) return `${arg} takes no value`
+  if (eq < 0 && VALUED_MODES.has(name)) return `${arg} needs a value`
+  return `${arg} is read by no mode; see --help`
+}
+// A mode flag the readers above did not take is input nobody acts on:
+// --dry-run=1 used to write a board because carve.ts matches --dry-run
+// exactly, and --count alone was dropped on the floor.
+const unread = rest.filter((a) => !used.has(a))
+if (unread.length) refuseErrors('invalid arguments', unread.map(unreadReason))
 
 // The pins, by the value the parser read for each. --randomized draws like
 // the lab: Math.random, not reproducible; the meta keeps the command, which
@@ -172,27 +224,8 @@ for (const key of parsed.pins) {
 }
 
 // --- a batch: --count=N [--max-seeds=M] ------------------------------------
-// N closed boards on the seeds from --seed up, for a pool of boards to upload.
-// Refused where it cannot apply, before any board is generated.
-/** A positive integer flag, or null when it is absent; anything else is refused. */
-function positiveFlag(name: string): number | null {
-  const hit = rest.find((a) => a.startsWith(`--${name}=`))
-  if (hit === undefined) return null
-  const n = Number(hit.slice(name.length + 3))
-  if (!Number.isInteger(n) || n < 1) refuseErrors('invalid arguments', [`${hit} is not a positive integer`])
-  return n
-}
-const count = positiveFlag('count')
-const maxSeeds = positiveFlag('max-seeds')
-const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
-const writesBoards = !dryRun
-if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
-if (count !== null && !writesBoards) {
-  refuseErrors('invalid arguments', ['--count needs a mode that writes boards, and --dry-run writes none'])
-}
-if (count !== null && svgFlag?.startsWith('--svg=')) {
-  refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
-}
+// The flags themselves were read and refused above; what is left needs the
+// knobs, because the last seed of the batch has to be one the engine accepts.
 const seedLimit = count === null ? 0 : maxSeeds ?? 2 * count
 // The last seed the batch may reach has to be a seed the engine accepts.
 if (count !== null) refuseInvalid({ ...params, seed: params.seed + seedLimit - 1 })

@@ -318,6 +318,43 @@ Deno.test('carve.ts refuses an unknown flag and a missing size: exit 2, a hint, 
   assertEquals(entries(dir), 0)
 })
 
+// A mode flag is handed to the CLI untouched, so the CLI is where a value on
+// a switch and a missing value are caught: --dry-run=1 was passed through and
+// matched by nobody, so a board was written; --count alone was ignored.
+Deno.test('carve.ts refuses a mode flag no mode reads: exit 2, nothing written', () => {
+  const dir = tmp()
+  const cases: [string[], string][] = [
+    [['--width=10', '--height=10', '--dry-run=1'], '--dry-run=1 takes no value'],
+    [['--width=10', '--height=10', '--count'], '--count needs a value'],
+    [['--width=10', '--height=10', '--max-seeds'], '--max-seeds needs a value'],
+  ]
+  for (const [argv, message] of cases) {
+    const r = runCarve(argv, join(dir, 'boards'))
+    assertEquals(r.status, 2, `${argv.join(' ')}: ${r.stderr}`)
+    assert(r.stderr.includes(message), `${argv.join(' ')}: stderr lacks "${message}":\n${r.stderr}`)
+    assertEquals(exists(join(dir, 'boards')), false, 'nothing is written')
+  }
+})
+
+// The parser's own refusals reach the CLI: a switch with a value used to turn
+// the switch on, a bare word used to be dropped into the mode list and read by
+// nobody, and a size outside the range was quietly clamped into it.
+Deno.test('carve.ts refuses a value on a switch, a stray word and a size outside the range: exit 2', () => {
+  const dir = tmp()
+  const cases: [string[], string][] = [
+    [['--width=10', '--height=10', '--skeleton=off'], '--skeleton=off takes no value'],
+    [['--width=10', '--height=10', 'board.json'], 'unexpected argument: board.json'],
+    [['--width=2000', '--height=10'], '--width=2000 is outside 4..1000'],
+    [['--width=25.5', '--height=10'], '--width=25.5 is not a whole number'],
+  ]
+  for (const [argv, message] of cases) {
+    const r = runCarve(argv, join(dir, 'boards'))
+    assertEquals(r.status, 2, `${argv.join(' ')}: ${r.stderr}`)
+    assert(r.stderr.includes(message), `${argv.join(' ')}: stderr lacks "${message}":\n${r.stderr}`)
+    assertEquals(exists(join(dir, 'boards')), false, 'nothing is written')
+  }
+})
+
 // --- --help ---------------------------------------------------------------------
 
 Deno.test('carve.ts --help is short, --help=knobs adds the table, both exit 0 with bad parameters', () => {
