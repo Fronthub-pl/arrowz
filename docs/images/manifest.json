@@ -2,7 +2,6 @@
   "$comment": [
     "How every picture on README.md and README.pl.md was made. `deno task docs` replays this file:",
     "one CLI run per entry writing <out>.svg, then `rsvg-convert -w <width>` writing <out>.png.",
-    "`dialect` picks the CLI's flag set: \"simple\" is the everyday one, \"advanced\" prepends --advanced.",
     "`width` is the PNG width in pixels; the height follows the SVG's aspect ratio.",
     "`keepSvg: false` means the drawing is too large to belong in the repository (README says so",
     "in the text next to it), so only the PNG is written and the SVG goes to a temporary file.",
@@ -10,19 +9,17 @@
     "and no CLI invocation reproduces them."
   ],
   "images": [
-    { "out": "hero", "dialect": "simple", "flags": ["--width=40", "--height=40", "--seed=7"], "width": 700 },
+    { "out": "hero", "flags": ["--width=40", "--height=40", "--seed=7"], "width": 700 },
     {
       "out": "tiny-colorized",
-      "dialect": "simple",
-      "flags": ["--width=8", "--height=8", "--seed=7", "--colorized"],
+      "flags": ["--width=8", "--height=8", "--seed=7", "--colored"],
       "width": 420
     },
-    { "out": "tiny", "dialect": "simple", "flags": ["--width=8", "--height=8", "--seed=7"], "width": 420 },
-    { "out": "portrait", "dialect": "simple", "flags": ["--width=20", "--height=40", "--seed=7"], "width": 420 },
-    { "out": "big", "dialect": "simple", "flags": ["--width=100", "--height=100", "--seed=7"], "width": 700 },
+    { "out": "tiny", "flags": ["--width=8", "--height=8", "--seed=7"], "width": 420 },
+    { "out": "portrait", "flags": ["--width=20", "--height=40", "--seed=7"], "width": 420 },
+    { "out": "big", "flags": ["--width=100", "--height=100", "--seed=7"], "width": 700 },
     {
       "out": "scale-200",
-      "dialect": "simple",
       "flags": ["--width=200", "--height=200", "--seed=7"],
       "width": 420,
       "keepSvg": false,
@@ -30,7 +27,6 @@
     },
     {
       "out": "scale-500",
-      "dialect": "simple",
       "flags": ["--width=500", "--height=500", "--seed=7"],
       "width": 420,
       "keepSvg": false,
@@ -38,133 +34,112 @@
     },
     {
       "out": "scale-1000",
-      "dialect": "simple",
       "flags": ["--width=1000", "--height=1000", "--seed=7"],
       "width": 420,
       "keepSvg": false,
       "note": "85,809 arrows; the drawing is 22 MB and the run takes about twelve seconds."
     },
-    { "out": "seed-7", "dialect": "simple", "flags": ["--width=20", "--height=20", "--seed=7"], "width": 420 },
-    { "out": "seed-42", "dialect": "simple", "flags": ["--width=20", "--height=20", "--seed=42"], "width": 420 },
+    { "out": "seed-7", "flags": ["--width=20", "--height=20", "--seed=7"], "width": 420 },
+    { "out": "seed-42", "flags": ["--width=20", "--height=20", "--seed=42"], "width": 420 },
     {
       "out": "length-short",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--length=0", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=0", "--colored"],
       "width": 420
     },
     {
       "out": "default-30",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colored"],
       "width": 420
     },
     {
       "out": "length-long",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--length=1", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--length=1", "--colored"],
       "width": 420
     },
     {
       "out": "straight-winding",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--straight=0", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=1", "--colored"],
       "width": 420
     },
     {
       "out": "straight-straight",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--straight=1", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--winding=0", "--colored"],
       "width": 420
     },
     {
       "out": "skeleton-off",
-      "dialect": "simple",
-      "flags": ["--width=60", "--height=60", "--seed=7", "--colorized"],
+      "flags": ["--width=60", "--height=60", "--seed=7", "--colored"],
       "width": 420
     },
     {
       "out": "skeleton-on",
-      "dialect": "simple",
-      "flags": ["--width=60", "--height=60", "--seed=7", "--skeleton", "--colorized"],
+      "flags": ["--width=60", "--height=60", "--seed=7", "--skeleton", "--colored"],
       "width": 420
     },
     {
       "out": "colorized",
-      "dialect": "simple",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--colorized"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--colored"],
       "width": 420,
       "note": "The same board as default-30, byte for byte; README shows it under a different heading."
     },
     {
       "out": "weight-thin",
-      "dialect": "simple",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--lineweight=0.2"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.2"],
       "width": 420
     },
     {
       "out": "weight-thick",
-      "dialect": "simple",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--lineweight=0.9"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--line=0.9"],
       "width": 420
     },
     {
       "out": "head-small",
-      "dialect": "simple",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--arrowwidth=0.6", "--arrowheight=0.6"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.6", "--arrow-height=0.6"],
       "width": 420
     },
     {
       "out": "head-big",
-      "dialect": "simple",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--arrowwidth=2", "--arrowheight=2"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=2", "--arrow-height=2"],
       "width": 420
     },
     {
       "out": "adv-warns-low",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--warns=2", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=2", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-warns-high",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--warns=16", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--warns=16", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-lateral-0",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--wlateral=0", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=0", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-lateral-20",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--wlateral=20", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--wlateral=20", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-probe-short",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--probe=1", "--probelen=2", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=2", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-probe-long",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--probe=1", "--probelen=200", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=200", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-layers",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--headbias=-1", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--start=layers", "--cell=18", "--colored"],
       "width": 420
     },
     {
       "out": "adv-tunnels",
-      "dialect": "advanced",
-      "flags": ["--w=30", "--h=30", "--seed=7", "--headbias=1", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--start=tunnels", "--cell=18", "--colored"],
       "width": 420
     }
   ],

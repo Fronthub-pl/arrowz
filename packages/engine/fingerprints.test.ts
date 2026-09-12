@@ -3,8 +3,7 @@
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, fingerprint, generate } from './engine.ts'
-import { parseArgs, parseSimpleArgs } from './command.ts'
-import { simpleParams } from './lab-simple.ts'
+import { parseArgs } from './command.ts'
 import { decodeBoard, encodeBoard } from './board-file.ts'
 import type { GenerateOptions, Params } from './types.ts'
 
@@ -21,10 +20,9 @@ const golden = JSON.parse(Deno.readTextFileSync(join(dirname(fromFileUrl(import.
 
 function paramsOf(c: GoldenCase): Params {
   if (c.argv === null) return { ...defaultParams(), W: 40, H: 40, seed: 1 }
-  if (c.argv.includes('--advanced')) {
-    return parseArgs(c.argv.filter((a) => a !== '--advanced' && a !== '--dry-run')).params
-  }
-  return simpleParams(parseSimpleArgs(c.argv).choice)
+  const parsed = parseArgs(c.argv.filter((a) => a !== '--dry-run'))
+  if (parsed.errors.length) throw new Error(`${c.name}: ${parsed.errors.join('; ')}`)
+  return parsed.params
 }
 
 /** The case without an argv is the void board: voids and the escape hatch are options, not knobs. */

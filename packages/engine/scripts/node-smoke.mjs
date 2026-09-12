@@ -5,17 +5,15 @@
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
 import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate } from '../dist/mod.js'
-import { parseArgs, parseSimpleArgs } from '../dist/command.js'
-import { simpleParams } from '../dist/lab-simple.js'
+import { parseArgs } from '../dist/command.js'
 
 const golden = JSON.parse(readFileSync(new URL('../fingerprints.json', import.meta.url), 'utf8'))
 
 function paramsOf(c) {
   if (c.argv === null) return { ...defaultParams(), W: 40, H: 40, seed: 1 }
-  if (c.argv.includes('--advanced')) {
-    return parseArgs(c.argv.filter((a) => a !== '--advanced' && a !== '--dry-run')).params
-  }
-  return simpleParams(parseSimpleArgs(c.argv).choice)
+  const parsed = parseArgs(c.argv.filter((a) => a !== '--dry-run'))
+  if (parsed.errors.length) throw new Error(`${c.name}: ${parsed.errors.join('; ')}`)
+  return parsed.params
 }
 
 /** The case without an argv is the void board: voids and the escape hatch are options, not knobs. */
