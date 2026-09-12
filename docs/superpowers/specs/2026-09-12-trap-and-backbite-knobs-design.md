@@ -140,17 +140,37 @@ ahead of it in the same `if` chain. Measured at 200×200 over 3 seeds: with the 
 made and its result thrown away — the same shape `startPair` already documents.
 
 So `--start=tunnels --trapbias=1` is a legal command in which `--start` cannot reach
-the board. The audit's own rule applies: a knob with no effect must say so. The PR
-takes one of two ways out, and the choice is a gate in §7:
+the board. The audit's own rule applies: a knob with no effect must say so.
 
-1. **Secondary key.** Rank by depth as today, then partition by the trap bit inside
-   that order. `--start` keeps working, the knob composes, and the measured endpoints
-   change — the whole R1 evidence base would have to be re-measured.
-2. **`inactive` reason.** Keep the replacement ranking and declare `headBias`/`mix`
-   inactive while `|trapBias| = 1`, in both languages. Cheap, honest, and it keeps
-   every measured row valid, at the cost of a knob that switches another knob off.
+**Ruling: neither an `inactive` reason nor a secondary key — the trap bit becomes the
+outer key and today's depth ranking moves inside it.** Partition the heads into two
+buckets by the trap bit (the wanted bucket first), and order each bucket by depth
+exactly as `bias` orders the whole list today. The knob keeps its full strength,
+`--start` keeps a real job inside each bucket, and no knob has to be declared dead.
 
-`backbite` gets neither: it works in every mode and touches no other knob.
+This is not the compromise it looks like, because of one fact about the default: at
+`--start=random` the carver applies **no ranking at all** (`bias` is 0 and `ranked` is
+the head list untouched). Every recorded `trapBias` row was taken there. So under the
+new shape those rows keep the trap bit as their only key — and they keep it in the same
+order, because today's comparator returns 0 within a bucket and `Array.prototype.sort`
+has been stable since ES2019. **The boards must come out bit for bit identical, and the
+PR proves it by fingerprint rather than by argument** (§7). The earlier claim in this
+section, that a composing design would invalidate the R1 evidence base, was wrong: it
+invalidates nothing that was measured, because nothing was measured with `--start` set.
+
+The quarter pools are untouched either way: their condition already treats a non-zero
+`trapBias` as "a ranking was applied".
+
+What the change does add is behaviour nobody has measured — `--start=tunnels` or
+`layers` *together with* the lever — and that is a small, named gate rather than a
+re-run of everything.
+
+It also costs less than what is there today. The outer key is a boolean, so the
+partition is O(heads) with no allocation, and the inner sort runs only when `bias` is
+non-zero — which at the default it is not. The current code sorts on every cut in every
+mode.
+
+`backbite` needs none of this: it works in every mode and touches no other knob.
 
 ## 3. Envelope and rules
 
@@ -188,9 +208,11 @@ of measurements above rather than taste:
 - *Cost.* `trapBias ±0.6` on Insane would take the lab worker from ~12 s of carving to
   ~26–31 s per board unless the two optimisations of §2.1 land first. A preset that
   doubles the wait is a product decision, not a default.
-- *The `--start` collision.* `level()` gives every level a `-tunnels` variant, so a
-  preset carrying `trapBias` would silently drop tunnels on the share of cuts the lever
-  claims. Until §2.3 is resolved, the two cannot be bundled together.
+- *The `--start` combination.* `level()` gives every level a `-tunnels` variant, so a
+  preset carrying `trapBias` bundles the two. Under the §2.3 ruling that is legal and
+  means something, but what it means has never been measured — so the per-level counts
+  are taken with the bundle as it will actually ship, `-tunnels` variants included, and
+  not at `--start=random` alone.
 
 `backbite` stays 0 in every preset: it changes the look of the boards the README
 documents, and that is a separate decision from shipping the knob.
@@ -255,8 +277,11 @@ the undo path. What is left:
   claims resolution the noise floor may not support. If the interior is not monotone the
   knob degrades to the three-state `choice` of §2.1 — and then `command.ts` is no longer
   untouched (§5.8).
-- *The `--start` decision of §2.3*, which is a gate and not a measurement: secondary key
-  (and re-measure everything) or `inactive` (and keep the evidence).
+- *The two consequences of the §2.3 ruling.* First, a fingerprint check that the
+  bucket-and-order shape reproduces the recorded `--start=random` boards exactly; if it
+  does not, the stability argument is wrong and the ruling goes back open. Second, the
+  one genuinely new combination: `tunnels` and `layers` at `trapBias ±1`, to record what
+  `--start` still does from inside a bucket.
 - *A timing gate.* The two optimisations of §2.1 must bring the lever back under
   today's `--start=tunnels`, or the presets of §4 stay at 0. Measured against the same
   two controls, so the two terms stay separable.
