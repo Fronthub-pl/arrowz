@@ -224,10 +224,10 @@ deno task carve --width=40 --height=80
 deno task test
 ```
 
-Uruchamia własny zestaw sprawdzeń projektu — 124 z nich, w tym dziewięć plansz
-wzorcowych, które muszą wyjść co do piksela tak samo za każdym razem. Zajmuje
-jakieś pół minuty. Nie musisz tego uruchamiać, żeby korzystać z narzędzia; jest
-po to, żeby mieć pewność, że nic się nie zepsuło.
+Uruchamia własny zestaw sprawdzeń projektu, w tym dziewięć plansz wzorcowych,
+które muszą wyjść co do piksela tak samo za każdym razem. Zajmuje jakieś pół
+minuty. Nie musisz tego uruchamiać, żeby korzystać z narzędzia; jest po to,
+żeby mieć pewność, że nic się nie zepsuło.
 
 ### Samodzielny program
 
@@ -671,7 +671,7 @@ Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
 | Trudność | `--probelen` | 2–200 | 12 | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
 | Szkielet | `--giants` | 0–40 | 0 | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
 | Szkielet | `--giantspan` | 1–200 | 30 | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
-| Szkielet | `--giantstep` | `random`\|1–40 | `random` | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
+| Szkielet | `--giantstep` | `random`\|1–40 | 14 | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
 | Szkielet | `--giantjitter` | 0–1 | 0.6 | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
 | Szkielet | `--wgiant` | 0–0.2 | 0 | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** powyżej 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000. |
 | Szkielet | `--giantstraight` | 0.3–1 | 0.94 | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** poniżej 0,3 plansze przestają się domykać. |

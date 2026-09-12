@@ -224,10 +224,10 @@ deno task carve --width=40 --height=80
 deno task test
 ```
 
-This runs the project's own set of checks — 124 of them, including nine
-reference boards that must come out pixel-identical every time. It takes about
-half a minute. You do not need to run it to use the tool; it is there if you
-want to be sure nothing is broken.
+This runs the project's own set of checks, including nine reference boards
+that must come out pixel-identical every time. It takes about half a minute.
+You do not need to run it to use the tool; it is there if you want to be sure
+nothing is broken.
 
 ### Making a standalone program
 
@@ -470,7 +470,7 @@ different board of the same character. Default: 7.
 
 ### Arrow length — `--length`
 
-A dial from 0 to 1. Default: `0.75`.
+An option from 0 to 1. Default: `0.75`.
 
 Turn it **down** and the board fills with short arrows: many of them, each with
 its own tip, packed together like a field of little hooks. Turn it **up** and
@@ -489,9 +489,9 @@ reaches further and blocks more.
 
 ### Line shape — `--winding`
 
-A dial from 0 to 1. Default: `0.5`. It controls how eagerly a line keeps going
-straight instead of turning: `0` is the straightest a board gets, `1` is the
-most winding.
+An option from 0 to 1. Default: `0.5`. It controls how eagerly a line keeps
+going straight instead of turning: `0` is the straightest a board gets, `1` is
+the most winding.
 
 Turn it **down** and arrows run in long straight strokes. Turn it **up** and
 they wriggle, turning every few squares and worming into small pockets.
@@ -501,7 +501,7 @@ they wriggle, turning every few squares and worming into small pockets.
 | <img src="docs/images/straight-straight.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/straight-winding.png" width="250"> |
 | 49 arrows, 2.1 turns each | 87 arrows, 3.2 turns each | 66 arrows, 5.5 turns each |
 
-Worth noticing: pushing this dial to either extreme gives you *fewer* arrows
+Worth noticing: pushing this option to either extreme gives you *fewer* arrows
 than the middle. Straight lines run further before they stop; winding lines
 swallow more squares per arrow while filling in corners. The busiest boards are
 the ones in between.
@@ -522,9 +522,9 @@ rarely produces one that crosses the entire board.
 
 ### Fresh luck every time — `--randomized`
 
-Normally a dial position means one exact recipe. With `--randomized`, each dial
-position is treated as a *range*, and the generator draws a fresh value from
-inside it on every run.
+Normally an option's position means one exact recipe. With `--randomized`,
+each option's position is treated as a *range*, and the generator draws a
+fresh value from inside it on every run.
 
 The practical effect: with this switch on, the same seed gives you a different
 board every time. That extra roll of the dice is not controlled by the seed.
@@ -672,7 +672,7 @@ explained where they appear.
 | Difficulty | `--probelen` | 2–200 | 12 | That fixed target, give or take half. 2 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
 | Skeleton | `--giants` | 0–40 | 0 | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |
 | Skeleton | `--giantspan` | 1–200 | 30 | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
-| Skeleton | `--giantstep` | `random`\|1–40 | `random` | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
+| Skeleton | `--giantstep` | `random`\|1–40 | 14 | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
 | Skeleton | `--giantjitter` | 0–1 | 0.6 | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
 | Skeleton | `--wgiant` | 0–0.2 | 0 | The chance that an arrow drawn later is also a highway. **Careful:** above 0.2 boards get slow and stop closing at 1000×1000. |
 | Skeleton | `--giantstraight` | 0.3–1 | 0.94 | How straight a highway runs where it has free space. **Careful:** below 0.3 boards stop closing. |
