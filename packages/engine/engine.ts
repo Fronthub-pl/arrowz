@@ -2709,10 +2709,9 @@ export function defaultParams(): Params {
  * 485 runs with restarts off over 100 settings, squares from 300 to 1000 a
  * side; see HISTORY.md).
  *
- * Two things raise it. The board's longer side does, on its own and with
- * every other knob at its default: 0.6 closes 500x500 but not 600, 0.65
- * closes 700 but not 800, and 1000 needs 0.8. And the two winding knobs move
- * it both ways — a nook rule below its default, or a coiling penalty above
+ * Two things raise it. The board's SIZE does, on its own and with every other
+ * knob at its default: 0.6 closes 500x500 but not 600, 0.65 closes 700 but
+ * not 800, and 1000 needs 0.8. And the two winding knobs move it both ways — a nook rule below its default, or a coiling penalty above
  * its, leaves more crumbs at the frontier and makes a board behave as if it
  * were LARGER; a high nook rule or a low coiling penalty makes it behave
  * smaller. Neither knob jams a board on its own at any setting, which is why
@@ -2721,11 +2720,24 @@ export function defaultParams(): Params {
  * The factors are fitted to the campaign, not derived: they refuse every one
  * of the 100 settings that jammed even once, and nine that never did
  * (straight-floor.test.ts lists those nine by name).
+ *
+ * Which size, though? Round 14 measured squares only, and on a square every
+ * candidate agrees. Round 15 (2026-09-13, rectangles; see the measurements
+ * document) settled it: what counts is the EQUIVALENT SQUARE, the geometric
+ * mean of the two sides. 250x1000 closes at 0.6 like the 500x500 of the same
+ * area, not at the 0.8 the longer side used to demand of it, and the two
+ * equal-area pairs land where the mean says they land. The rule used to read
+ * the longer side on the strength of a README line about a tall board being
+ * harder -- which is true, and is about the PLAYER: a tall board has shorter
+ * corridors, so fewer arrows are free at once. The carver does not care.
+ *
+ * On a square the mean is the side, so every number round 14 measured, and
+ * every one of the nine it costs, is exactly as it was.
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
   const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.8 : 1
-  const side = Math.max(p.W, p.H) * nooks * coiling
+  const side = Math.sqrt(p.W * p.H) * nooks * coiling
   const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
   return Math.min(STRAIGHT_TOP, Number((STRAIGHT_BASE + 0.05 * steps).toFixed(2)))
 }
@@ -2790,7 +2802,7 @@ export const RULE_REASONS: Record<RuleKey, string> = {
     'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of ' +
     `${MIX_SHARE.min} to ${MIX_SHARE.max}`,
   straightFloor:
-    'straightness bias has to rise with the board: a longer side, closing off nooks below 4, or a coiling penalty above 6 each raise the floor',
+    'straightness bias has to rise with the board: more squares, closing off nooks below 4, or a coiling penalty above 6 each raise the floor',
 }
 
 /**
