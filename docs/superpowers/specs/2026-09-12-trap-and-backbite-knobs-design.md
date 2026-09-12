@@ -60,24 +60,34 @@ PR would otherwise re-litigate every decision the first one makes.
 |---|---|
 | key | `trapBias` |
 | group | `difficulty` |
-| min / max / step | −1 / 1 / 0.05 |
+| min / max / step | −1 / 1 / **1**, `control: choice` (`avoid` / `off` / `seek`) |
 | default | 0 |
 | label (EN) | `traps (arrows that look ready to go)` |
 
-**Semantics.** The sign is the direction, the magnitude is the share of cuts that use
-the trap ranking: at `−0.4`, four cuts in ten rank heads so that a head whose corridor
-holds a single piece comes last; the rest rank as today. `0` is today's engine, and no
-draw is made, so every recorded board is unchanged.
+**Semantics.** Three states. `seek` ranks a head whose corridor holds a single piece
+first, `avoid` ranks it last, `off` is today's engine — no draw is made at any of them,
+so every recorded board is unchanged. This is `headBias`'s shape, and `headBias` is the
+knob it sits next to in the ranking.
 
-This mirrors `mix`, which turns `headBias`'s three-way choice into a share, except
-that here one knob carries both the direction and the share, because unlike
-`headBias`/`mix` there is no third mode to name.
+**Why not the share this section used to propose.** The first draft made the magnitude
+a share of cuts, on the reasoning that the endpoints were the measured ones and the
+interior would interpolate. It was staked on a measurement that had not run. It has
+now, at eleven points and 3 seeds (the table is in the measurements document), and it
+came back against the share on three counts:
 
-**Why a share rather than the measured three-state.** The measurements used ±1 and 0.
-A share is the same mechanism sampled per cut, so the endpoints are the measured ones
-and the interior interpolates. Step 3 of the plan measures that the interior is
-monotone; if it is not, the knob degrades to `min/max/step = −1/1/1` with a
-`control: choice` of `avoid / off / seek`, which is exactly `headBias`'s shape.
+- **Not monotone.** The trap count peaks at `+0.6` and falls through `+0.8` to `+1`;
+  per seed the peak is never at the end of the dial. The last 40% of the seeking side
+  buys nothing.
+- **The step is below the noise.** Neighbouring points differ by a median of 66 traps
+  while the seed spread within a point is 58. A 0.2 step is worth one seed of noise;
+  the proposed 0.05 step is worth a quarter of one. Forty stops the generator cannot
+  tell apart is the thing the parameter audit spent seven PRs removing.
+- **Avoidance lives at its endpoint.** `0 → −0.8` covers 41% of the way to `−1`; the
+  single last step covers the rest. One cut in five ranked the old way makes traps that
+  nothing later removes, so avoidance only pays closed.
+
+The share survives in `CarverOptions` as the measurement path that produced this
+verdict and can re-check it; no continuous surface is exposed.
 
 **Mechanism.** `lineHomo[d][line]`, one integer per line: `−1` empty prefix, `−2`
 several owners, `≥ 0` the id of the sole owner. Folded forward only over the cells the
@@ -206,23 +216,32 @@ levels a second axis, and the plan measures the trap count per level before choo
 
 | level | intent | first proposal |
 |---|---|---|
-| easy, medium | few traps: a board a beginner can read | `trapBias −0.6` |
-| hard, nightmare | as today | `0` |
-| extreme, huge, insane | traps sought | `trapBias +0.6` |
+| easy, medium | few traps: a board a beginner can read | `trapBias avoid` |
+| hard, nightmare | as today | `off` |
+| extreme, huge, insane | traps sought | `trapBias seek` |
 
 **"Easy" means traps, and only traps.** The measurements are explicit that the other
-two metrics do not follow: at `−1` the free arrows sit 8% *below* today's board and `D`
-rises 29%. So the claim a preset may make is "fewer arrows that look ready to go", not
-"a simpler board" — and the README wording has to match that, or the preset promises
-something the generator does not deliver.
+two metrics do not follow: at `avoid` the free arrows sit 8% *below* today's board and
+`D` rises 29%. So the claim a preset may make is "fewer arrows that look ready to go",
+not "a simpler board" — and the README wording has to match that, or the preset
+promises something the generator does not deliver.
+
+This is where the three-state of §2.1 costs something real, and it is worth naming: the
+board that has *both* fewer traps and more free arrows does exist, around a share of
+`−0.8` (479 traps against 695, and 554 free arrows against 436), and a three-state
+cannot reach it. The knob buys its honesty by giving up the one setting a beginner
+preset would have liked best. If that board turns out to be what the levels want, the
+way back is a fourth word rather than a return to the share.
 
 **Two conditions before any preset takes a non-zero value**, both of them consequences
 of measurements above rather than taste:
 
-- *Cost.* With §2.1 paid down, `trapBias ±0.6` on Insane takes the lab worker from
+- *Cost.* With §2.1 paid down, `avoid` or `seek` on Insane takes the lab worker from
   ~12 s of carving to ~25 s per board — the same order as `--start=tunnels`, which the
-  presets already ship. A preset that doubles the wait is still a product decision
-  rather than an obvious default, but it is no longer an outlier among the presets.
+  presets already ship. Generation time tracks the share of ranked cuts, so the
+  three-state pays the endpoint price by construction: there is no cheap middle setting
+  to hide in. A preset that doubles the wait is still a product decision rather than an
+  obvious default, but it is no longer an outlier among the presets.
 - *The `--start` combination.* `level()` gives every level a `-tunnels` variant, so a
   preset carrying `trapBias` bundles the two. Under the §2.3 ruling that is legal and
   means something, but what it means has never been measured — so the per-level counts
@@ -262,9 +281,9 @@ Both PRs touch the same list; the entries are what the repo's own guards require
      knobs at all, and takes them out of the "MEASUREMENT ONLY" comments.
    - The sentence "All 25" in `README.md` and `README.pl.md` is written by hand;
      `readme.test.ts` counts table rows and would not catch it.
-   - The `choice` fallback of §2.1 needs a `WORDS.trapBias` entry in `command.ts` for
-     `rangeText`, so "command.ts — nothing" holds for the share and not for the
-     fallback.
+   - The three-state of §2.1 needs a `WORDS.trapBias` entry in `command.ts` for
+     `rangeText`, the way `giantSpacing` has one. "command.ts — nothing" was true only
+     for the share the measurements rejected.
    - `lab-simple.ts` decides whether `trapBias` joins the difficulty bundle that
      `--randomized` draws from, and the README row that documents it.
 
@@ -287,11 +306,10 @@ the undo path. What is left:
 
 **R1:**
 
-- *Monotonicity of the share* — 0, ±0.2, ±0.4, ±0.6, ±0.8, ±1 at 1000×1000, **3 seeds
-  per point**, not one: the low corner already showed a 2× seed spread, and a 0.05 step
-  claims resolution the noise floor may not support. If the interior is not monotone the
-  knob degrades to the three-state `choice` of §2.1 — and then `command.ts` is no longer
-  untouched (§5.8).
+- ~~*Monotonicity of the share*~~ Done, and the share lost: not monotone above `+0.6`,
+  a usable step four times coarser than the one proposed, and an avoiding side whose
+  value is all in its endpoint. §2.1 now specifies the three-state `choice`, and §5.8's
+  `WORDS.trapBias` entry is no longer a fallback but the plan.
 - *The two consequences of the §2.3 ruling.* First, a fingerprint check that the
   bucket-and-order shape reproduces the recorded `--start=random` boards exactly; if it
   does not, the stability argument is wrong and the ruling goes back open. Second, the

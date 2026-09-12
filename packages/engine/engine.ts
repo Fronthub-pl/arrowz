@@ -107,9 +107,11 @@ type CarverOptions = {
    */
   freeBias?: number | undefined
   /**
-   * MEASUREMENT ONLY (R1 spike, not a knob): +1 ranks heads whose line prefix
-   * has a single owner first, so the piece ends up with exactly one blocker
-   * and looks ready to leave; -1 ranks them last; 0 leaves ranking untouched.
+   * MEASUREMENT ONLY (R1 spike, not a knob): the sign is the direction and the
+   * magnitude is the share of cuts that rank by it. +1 ranks heads whose line
+   * prefix has a single owner first, so the piece ends up with exactly one
+   * blocker and looks ready to leave; -1 ranks them last; -0.4 does that on
+   * four cuts in ten and ranks the rest as today; 0 leaves ranking untouched.
    */
   trapBias?: number | undefined
 }
@@ -129,8 +131,9 @@ class Carver implements Board {
   freeBias: number
   /**
    * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
-   * a SINGLE piece, -1 avoids them, 0 is off. Such a head becomes a piece with
-   * exactly one blocker — a piece that looks ready to leave (`almost`).
+   * a SINGLE piece, -1 avoids them, 0 is off, and a magnitude below 1 is the
+   * SHARE of cuts that rank that way. Such a head becomes a piece with exactly
+   * one blocker — a piece that looks ready to leave (`almost`).
    */
   trapBias: number
   /** Per direction and line: -1 empty prefix, -2 several owners, >= 0 the sole owner. */
@@ -176,7 +179,10 @@ class Carver implements Board {
     this.ruleB = opts.ruleB ?? true
     this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
     this.freeBias = Math.sign(opts.freeBias ?? 0)
-    this.trapBias = Math.sign(opts.trapBias ?? 0)
+    // Not Math.sign: the magnitude is the share of cuts that rank by the trap
+    // bit, so it has to survive. Clamped like backbiteCap, because this is a
+    // measurement switch and validateParams never sees it.
+    this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? 0))
     // The upkeep is folded into recomputeLines, so it costs the lines a cut
     // moves rather than a pass over the board; it is only paid when the spike
     // asks for it.
@@ -1117,8 +1123,15 @@ class Carver implements Board {
       // straight shapes), the rest the shallowest (layers -> bends, but high f0).
       // These two goals pull in opposite directions, so we look for a ratio.
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
+      // MEASUREMENT ONLY (R1 spike): the magnitude of trapBias is the share of
+      // cuts that rank by the trap bit; the rest rank as today. NO DRAW IS MADE
+      // at 0 or at a full +-1, so both endpoints leave the recorded boards
+      // exactly as they were — a draw whose outcome is never in doubt would
+      // still shift the random stream, which is the trap `mix` documents.
+      const share = Math.abs(this.trapBias)
+      const useTrap = share === 0 ? false : share === 1 ? true : rng() < share
       let ranked = heads
-      if (this.trapBias !== 0) {
+      if (useTrap) {
         // MEASUREMENT ONLY (R1 spike): whether the line prefix has one owner,
         // i.e. whether this head would become a piece that LOOKS ready, is the
         // OUTER key — and the depth ranking above orders each bucket from the
@@ -1169,7 +1182,7 @@ class Carver implements Board {
       // the regions of thousands of free cells sit in the deeper quarters —
       // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
       const quarter = Math.max(1, Math.ceil(ranked.length / 4))
-      const pools: Cell[][] = bias === 0 && this.freeBias === 0 && this.trapBias === 0
+      const pools: Cell[][] = bias === 0 && this.freeBias === 0 && !useTrap
         ? [[...ranked]]
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false

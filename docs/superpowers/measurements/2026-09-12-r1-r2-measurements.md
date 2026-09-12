@@ -404,3 +404,68 @@ reachable while the lever ranks, because ranking is what costs; the honest
 target, and what the measurements now show, is **the price of a biased `--start`
 plus about a tenth for the table**. Going below that means changing the quarter
 pools, which changes every recorded board and belongs to no knob.
+
+## Is the share monotone? No, and the step is below the noise
+
+The design wanted one signed knob whose magnitude is the share of cuts that rank
+by the trap bit, stepping 0.05. Three points of that range had ever been
+measured. `measure-r1-share.ts` sweeps eleven at 1000x1000, 3 seeds each, every
+board closed with 0 backtracks and 0 restarts. The endpoints make no draw, so
+`0` and `±1` are the boards the earlier runs recorded and the interior can be
+read against them directly.
+
+| trapBias | traps (median) | per seed | free arrows | D | genMs |
+|---|---|---|---|---|---|
+| -1.0 | **167** | 215, 167, 153 | 403 | 1097 | 25.8 s |
+| -0.8 | 479 | 479, 464, 485 | 554 | 1017 | 17.5 s |
+| -0.6 | 543 | 520, 543, 608 | 524 | 856 | 16.2 s |
+| -0.4 | 630 | 630, 538, 640 | 494 | 858 | 16.0 s |
+| -0.2 | 687 | 733, 687, 675 | 517 | 733 | 13.8 s |
+| 0 | 695 | 628, 695, 716 | 436 | 853 | 12.0 s |
+| +0.2 | 820 | 794, 820, 831 | 511 | 790 | 10.9 s |
+| +0.4 | 887 | 887, 887, 835 | 417 | 798 | 14.0 s |
+| +0.6 | **995** | 1020, 995, 976 | 387 | 915 | 14.2 s |
+| +0.8 | 975 | 922, 975, 980 | 323 | 1036 | 20.3 s |
+| +1.0 | 948 | 948, 955, 832 | 273 | 1007 | 25.0 s |
+
+Three things, and each of them says the same word about the knob's shape.
+
+**It is not monotone.** Two inversions in ten steps, both at the top: the trap
+count peaks at `+0.6` and then falls through `+0.8` to `+1`. Per seed the peak
+is at `+0.6` twice and at `+0.8` once; **it is never at `+1`**. The drops (20 and
+27 traps) sit inside the seed spread, so the honest reading is not "the end of
+the dial is worse" but "**from `+0.6` up the curve is flat, and the last 40% of
+the positive side buys nothing**". Seeking traps does not need the whole dial.
+
+**The step the design wanted is four times below the noise.** The median step
+between neighbouring points is 66 traps and the median seed spread within a
+point is 58. A 0.2 step is therefore worth about one seed's worth of noise, and
+the proposed 0.05 step is worth a quarter of that. Forty stops would be forty
+promises the generator cannot keep apart.
+
+**The avoiding direction is convex and lives at its endpoint.** `0 → -0.8`
+covers 41% of the range to `-1`; the single last step covers the other 59%.
+`-0.8` still leaves 479 traps, only 31% below today's 695, while `-1` leaves 167,
+76% below. One cut in five ranked the old way creates traps that nothing later
+removes — avoidance leaks, so it pays only when it is closed.
+
+A fourth thing, for §4 of the design rather than for the knob's shape: the free
+arrows behave differently in the interior than at the endpoint. `-0.8` reaches
+554 against today's 436, a 27% rise, while `-1` drops to 403. So the "fewer
+traps AND more free arrows" board, the one a beginner preset would want, exists
+at about `-0.8` and not at the end of the dial.
+
+Generation time tracks the share of ranked cuts, as the cost model predicts:
+12 s at 0, 14-17 s through the middle, 25-26 s at either endpoint.
+
+### Verdict: the knob ships as the three-state the fallback named
+
+`min/max/step = -1/1/1` with `control: choice` and the words `avoid / off /
+seek`, which is `headBias`'s shape. The share is not defensible as a continuous
+knob: it is not monotone where it matters most, its usable resolution is coarser
+than one seed of noise, and on the avoiding side only the endpoint is worth
+having. The share stays in `CarverOptions` as the measurement path that produced
+this verdict and can re-check it, but no continuous surface is exposed.
+
+This makes "`command.ts` — nothing" false: `rangeText` needs a `WORDS.trapBias`
+entry for the three words, the way `giantSpacing` has one.
