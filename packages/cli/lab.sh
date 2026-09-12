@@ -20,7 +20,12 @@ WATCH=; SRV=;
 trap 'kill $WATCH $SRV 2>/dev/null' EXIT INT TERM
 deno task bundle --watch &
 WATCH=$!
-deno run --allow-net --allow-read --allow-write --allow-env lab-server.ts "$PORT" &
+# The server gets what it serves and nothing more: the network on this
+# machine, reading its own directory and the store, writing the store only.
+BOARDS=${ARROWZ_BOARDS_DIR:-$PWD/boards}
+mkdir -p "$BOARDS"
+deno run --allow-net=127.0.0.1 --allow-read=.,"$BOARDS" --allow-write="$BOARDS" --allow-env=ARROWZ_BOARDS_DIR \
+  lab-server.ts "$PORT" &
 SRV=$!
 sleep 1
 open "http://localhost:$PORT/lab.html" 2>/dev/null || true

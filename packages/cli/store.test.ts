@@ -83,6 +83,17 @@ Deno.test('saveBoard refuses a board file of another size than the params', () =
   assertThrows(() => saveBoard({ ...entry(), board: emptyFile(10, 10) }), Error, 'board file is 10x10')
 })
 
+Deno.test('saveBoard refuses params whose id is not seed<digits>-<hash>', () => {
+  freshDir()
+  // A cast on purpose: this is the value an unchecked caller could hand over.
+  const params = { ...defaultParams(), W: 10, H: 10, seed: '../x' as unknown as number }
+  assertThrows(
+    () => saveBoard({ board: emptyFile(10, 10), params, view: DEFAULT_VIEW, command: 'x', source: 'cli' }),
+    Error,
+    'invalid board id',
+  )
+})
+
 // A board from the CLI simple mode carries the command as typed next to the
 // full one; the full one reproduces the board, the simple one records the wish.
 Deno.test('saveBoard keeps the simple command when given', () => {

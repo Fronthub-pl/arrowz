@@ -367,9 +367,12 @@ Deno.test('validateParams: each narrowed knob rejects its old extreme with the n
 })
 
 Deno.test('validateParams: a value that is not a finite number is a range violation', () => {
+  // wLateral, not W: W now also sits in the wholeNumbers rule, and every one
+  // of these junk values fails Number.isInteger too, which would add a second
+  // violation and defeat the point of this test.
   for (const value of [NaN, Infinity, -Infinity, undefined, null, '5', true]) {
-    const v = validateParams(withRaw({ W: value }))
-    assertEquals(v, [{ kind: 'range', key: 'W', value, min: 4, max: 1000 }], String(value))
+    const v = validateParams(withRaw({ wLateral: value }))
+    assertEquals(v, [{ kind: 'range', key: 'wLateral', value, min: 0, max: 20 }], String(value))
   }
 })
 
@@ -875,4 +878,29 @@ Deno.test('toSvg: the head knobs set the size, and only the width has an automat
     measure({ strokeRatio: 0.3, headWidth: 0, headHeight: 1 }),
     'a missing width means automatic, a missing height means the default of one cell',
   )
+})
+
+// A board file can carry far more pieces than a call may take arguments:
+// highlighting all of them must not spread the lines into one push().
+Deno.test('toSvg highlights half a million pieces without overflowing the stack', () => {
+  const { toSvg } = engineExports
+  const base = generate({ ...defaultParams(), W: 12, H: 12, seed: 3 }).board
+  const N = 500_000
+  const pieces = Array.from({ length: N }, (_, i) => {
+    const p = base.pieces[i % base.pieces.length]
+    if (!p) throw new Error('the base board has no pieces')
+    return { ...p, id: i }
+  })
+  const svg = toSvg({ W: base.W, H: base.H, owner: base.owner, pieces }, { top: N })
+  assert(svg.endsWith('</svg>'))
+})
+
+Deno.test('the Carver refuses a void fraction outside [0, 1)', () => {
+  for (const voidFrac of [-0.1, 1, 2, Number.NaN]) {
+    assertThrows(
+      () => generate({ ...defaultParams(), W: 10, H: 10, voidFrac }, { unchecked: true }),
+      RangeError,
+      'voidFrac',
+    )
+  }
 })

@@ -91,6 +91,10 @@ export function saveBoard(
     throw new Error(`board file is ${board.W}x${board.H}, the params ask for ${params.W}x${params.H}`)
   }
   const id = boardId(params)
+  // The id names three files. The server validates params before this point;
+  // this is the last line should an unchecked caller reach it. The hash is
+  // fnv1a zero-padded to eight lowercase hex digits.
+  if (!/^seed\d+-[0-9a-f]{8}$/.test(id)) throw new Error(`invalid board id ${id}`)
   const size = `${params.W}x${params.H}`
   const dir = join(boardsDir(), size)
   Deno.mkdirSync(dir, { recursive: true })

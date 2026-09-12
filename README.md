@@ -848,7 +848,7 @@ the raw success rate of your settings.
 
 ### Combinations that are refused
 
-Three rules cannot be written as a simple from–to range, so they are checked
+Four rules cannot be written as a simple from–to range, so they are checked
 separately:
 
 | Rule | In plain words |
@@ -856,6 +856,7 @@ separately:
 | Short plus medium share | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
 | Maximum length | `--lmax` must be 0 (automatic) or at least 6. |
 | The layers/tunnels blend | `--mix` must be `-1` (off) or between 0.3 and 0.7. |
+| Whole numbers | `--width`, `--height` and `--seed` take whole numbers only. |
 
 Break a rule, or put any dial outside its range, and the generator refuses
 before drawing anything, tells you which value was wrong, and stops with status
@@ -1018,6 +1019,11 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
+
+Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
+`.claude/settings.json` (at the start and end of a session), and `.mcp.json`
+starts `jbcontext mcp`. Both run a program installed on your machine, so read
+them before you trust the folder.
 
 The code under `packages/` started as a throwaway prototype written to settle
 what makes a good board. It settled that, so it became the engine the game is

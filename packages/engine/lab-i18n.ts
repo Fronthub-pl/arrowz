@@ -2,6 +2,17 @@
 // PL only holds the translation, checked against EN's shape by the compiler.
 import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
 
+const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+
+/**
+ * Text for innerHTML. The lab's strings (this dictionary) are markup the page
+ * trusts; a value from the store, a board file, a server reply or an error
+ * message is data and passes through here before it joins them.
+ */
+export function escapeHtml(s: string | number): string {
+  return String(s).replace(/[&<>"']/g, (c) => ENTITIES[c] ?? c)
+}
+
 // English: the source language. Parameter texts and inactive reasons come
 // from the engine (PARAM_SPEC, INACTIVE_REASONS); only lab strings live here.
 export const EN = {
@@ -153,7 +164,7 @@ export const EN = {
     genShort: (s: string) => `${s} s to generate`,
     loadingBoard: (id: string) => `Loading ${id}…`,
     boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
-    savedBoard: (id: string, seed: number, source: string, gen: string) =>
+    savedBoard: (id: string, seed: number | string, source: string, gen: string) =>
       `Saved board ${id}, seed ${seed}, source: ${source}, generated in ${gen}.`,
     deleteBoard: 'Delete from disk',
     confirmDelete: 'Really delete?',
@@ -209,6 +220,7 @@ export const PL: Translation = {
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
     mixHole: 'mieszanie musi być -1 (wyłączone) albo między 0,3 a 0,7',
+    wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
   },
   params: {
     W: {

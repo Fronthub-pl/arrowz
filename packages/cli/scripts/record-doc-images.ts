@@ -108,7 +108,7 @@ for (const entry of entries) {
     'run',
     '--allow-read',
     '--allow-write',
-    '--allow-env',
+    '--allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG',
     carve,
     ...(entry.dialect === 'advanced' ? ['--advanced'] : []),
     ...entry.flags,

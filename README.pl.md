@@ -853,7 +853,7 @@ pokazuje surową skuteczność twoich ustawień.
 
 ### Kombinacje, które są odrzucane
 
-Trzech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
+Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
 | Reguła | Po ludzku |
@@ -861,6 +861,7 @@ je osobno:
 | Udział krótkich plus średnich | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
 | Długość maksymalna | `--lmax` musi być 0 (automatycznie) albo co najmniej 6. |
 | Mieszanie warstw i tuneli | `--mix` musi być `-1` (wyłączone) albo między 0,3 a 0,7. |
+| Liczby całkowite | `--width`, `--height` i `--seed` przyjmują tylko liczby całkowite. |
 
 Złam regułę albo wyjdź którymkolwiek pokrętłem poza zakres, a generator odmówi,
 zanim cokolwiek narysuje, powie ci, która wartość była zła, i zakończy się
@@ -1030,6 +1031,11 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
 | `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
+
+Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
+`.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
+uruchamia `jbcontext mcp`. Oba wywołują program zainstalowany na Twoim
+komputerze, więc przejrzyj je, zanim zaufasz temu katalogowi.
 
 Kod w `packages/` zaczynał jako prototyp do wyrzucenia, napisany po to, żeby
 rozstrzygnąć, co czyni planszę dobrą. Rozstrzygnął, więc stał się silnikiem, na

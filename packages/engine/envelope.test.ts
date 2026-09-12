@@ -114,8 +114,8 @@ Deno.test('envelope: keys outside PARAM_SPEC are ignored', () => {
   assertEquals(validateParams(withRaw({ ruleB: false, voidFrac: 2, trace: true, debug: 'x' })), [])
 })
 
-Deno.test('envelope: the three cross-knob rules exist with a reason each', () => {
-  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'mixHole'])
+Deno.test('envelope: the four cross-knob rules exist with a reason each', () => {
+  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'mixHole', 'wholeNumbers'])
   for (const r of RULES) {
     assert(Array.isArray(r.keys) && r.keys.length >= 1, r.key)
     for (const k of r.keys) assert(spec(k), `${r.key} names unknown knob ${k}`)
@@ -154,6 +154,13 @@ Deno.test('rule mixHole: mix is -1 or within 0.3..0.7, at the boundary', () => {
   for (const mix of [-1, 0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ mix })), [], `mix=${mix}`)
   for (const mix of [0, 0.25, 0.75, 1]) {
     assertEquals(validateParams(withDefaults({ mix })), rule('mixHole'), `mix=${mix}`)
+  }
+})
+
+Deno.test('rule wholeNumbers: width, height and seed are whole numbers', () => {
+  assertEquals(validateParams(withDefaults({ W: 10, H: 12, seed: 0 })), [])
+  for (const over of [{ W: 10.5 }, { H: 12.25 }, { seed: 1.5 }]) {
+    assertEquals(validateParams(withDefaults(over)), rule('wholeNumbers'), JSON.stringify(over))
   }
 })
 
