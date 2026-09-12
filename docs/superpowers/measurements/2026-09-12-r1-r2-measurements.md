@@ -354,3 +354,53 @@ heads` seed 8 at `trapBias -1`, 50 backtracks, 0 mismatches.
 This is evidence, not proof: the comparison runs at the end of the carve, so a
 line that was repaired by a later rebuild would not show. The per-undo invariant
 belongs in `engine.test.ts` and is listed as a gate for the R1 PR.
+
+## Paying the cost down, and what was left when it was paid
+
+Two changes, both of them behaviour-preserving, re-measured with the same script
+and the same seeds (`measure-r1-r2-interaction.ts`, 39 boards per run):
+
+1. The fold moved out of a per-cut scan of every line header into
+   `recomputeLines`, the one place a frontier depth changes, with `-2` treated as
+   the absorbing value it is and `prefixCell` inlined.
+2. The boolean trap bit became a stable two-bucket partition instead of a sort,
+   and the depth ranking became a comparator over the depth array instead of a
+   map/sort/map with a wrapper object per head.
+
+**Nothing on the board moved.** All 39 rows match the original run on every
+metric — pieces, traps, free arrows, D, longest piece, backtracks, backbites —
+and the 9 recorded `--start=random` fingerprints at `trapBias 0` and `±1` are
+identical. The boards are the same boards; only the clock changed.
+
+Medians of 3 seeds, normalised against each run's own default board because the
+machine drifts about 5% between runs:
+
+| setting | before | after | normalised |
+|---|---|---|---|
+| `trap 0 / bb 0` (default) | 12.3 s | 12.2 s | 1.00x -> 1.00x |
+| control `tunnels` | 21.6 s | 22.1 s | 1.75x -> 1.80x |
+| control `free-spike` | 20.6 s | 21.0 s | 1.67x -> 1.71x |
+| `trap -1 / bb 0` | 31.4 s | 24.6 s | 2.55x -> 2.01x |
+| `trap +1 / bb 0` | 26.2 s | 24.7 s | 2.12x -> 2.02x |
+
+### The residual is not the line table
+
+Read against the controls rather than against the default, the result is sharper
+than the totals suggest. A ranking with no table costs 1.71-1.80x; the lever
+costs 2.01x. So **the table's own share fell from +21% (at `+1`) and +45% (at
+`-1`) over an equally ranked board to +11%, the same in both directions** — the
+asymmetry between the two signs was the scan, and the scan is gone.
+
+What is left is not overhead at all. At `--start=random` with the lever on there
+is now **no sort anywhere**: heads are partitioned in O(heads) and the table is
+amortised. The remaining 1.8x is the quarter pools — a ranked cut draws from the
+first quarter of the list and tries the next quarters when it fails, so a biased
+ranking carves through more failed attempts than an unbiased one. Every biased
+setting pays it: `tunnels` 1.80x and the rejected `freeBias` spike 1.71x, neither
+of which has a line table at all.
+
+That reframes the gate. "Bring the lever back under `--start=tunnels`" is not
+reachable while the lever ranks, because ranking is what costs; the honest
+target, and what the measurements now show, is **the price of a biased `--start`
+plus about a tenth for the table**. Going below that means changing the quarter
+pools, which changes every recorded board and belongs to no knob.

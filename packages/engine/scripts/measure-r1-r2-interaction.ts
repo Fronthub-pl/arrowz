@@ -12,7 +12,7 @@
  *    backbite {0, 8}, several seeds, so the span of the pair rests on more than
  *    one board.
  *
- * 2. COST ATTRIBUTION. trapBias keeps `lineHomo` up to date (refreshHomo) AND
+ * 2. COST ATTRIBUTION. trapBias keeps `lineHomo` up to date (foldHomo) AND
  *    takes the map/sort/map ranking branch with its quarter pools, exactly like
  *    `--start` does. Two controls separate the two costs at the same size and
  *    seed: `tunnels` (headBias 1) and `free-spike` (freeBias 1) both pay the

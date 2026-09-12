@@ -94,13 +94,27 @@ controls that take the same ranking branch and allocate no line table place the 
 the map/sort/map ranking with its quarter pools — a price `--start` already pays today —
 and a further 6–11 s is `lineHomo` upkeep.
 
-Both terms are avoidable and the PR pays them down rather than shipping them:
+**Both terms were paid down before the knob was staked, and the boards did not move.**
+The fold now happens in `recomputeLines` — the one place a frontier depth changes —
+with `−2` treated as the absorbing value it is and `prefixCell` inlined, instead of a
+per-cut scan of all 2W+2H line headers (about 86 000 calls at this size, so 3.4e8
+header visits the "4.0e6 cells" figure omitted). The boolean trap bit is a stable
+two-bucket partition, not a sort. All 39 measured rows and all 9 recorded fingerprints
+came out identical afterwards, so this cost nothing in evidence.
 
-- The trap bit is a single boolean, so the ranking needs a stable two-bucket partition
-  (O(heads), no allocation), not `sort`.
-- `refreshHomo` walks all 2W+2H line headers on every `carveOne` — about 86 000 calls
-  at this size, so 3.4e8 header visits that the "4.0e6 cells" figure omits. The fold
-  belongs in `recomputeLines`, the one place the frontier depth changes.
+What that bought, and what it did not:
+
+| | before | after |
+|---|---|---|
+| the lever, against the default board | 2.1–2.6× | **2.0×**, both signs |
+| the lever, against an equally ranked board | +21% / +45% | **+11%**, both signs |
+
+The residual is **not** the line table. At `--start=random` with the lever on there is
+now no sort anywhere and the table is amortised; the remaining 1.8× is the quarter
+pools, which every biased ranking pays — `--start=tunnels` 1.80× and the `freeBias`
+spike 1.71×, neither of which keeps a table. So the honest price of this knob is *the
+price of a biased `--start`, plus about a tenth*, and going below it means changing the
+quarter pools, which would move every recorded board and belongs to no knob.
 
 The O(ray) alternative of the adoption spec costs 3.3–7.5e9 steps per board and stays
 rejected; the point of the table was never in doubt, only its price tag.
@@ -205,9 +219,10 @@ something the generator does not deliver.
 **Two conditions before any preset takes a non-zero value**, both of them consequences
 of measurements above rather than taste:
 
-- *Cost.* `trapBias ±0.6` on Insane would take the lab worker from ~12 s of carving to
-  ~26–31 s per board unless the two optimisations of §2.1 land first. A preset that
-  doubles the wait is a product decision, not a default.
+- *Cost.* With §2.1 paid down, `trapBias ±0.6` on Insane takes the lab worker from
+  ~12 s of carving to ~25 s per board — the same order as `--start=tunnels`, which the
+  presets already ship. A preset that doubles the wait is still a product decision
+  rather than an obvious default, but it is no longer an outlier among the presets.
 - *The `--start` combination.* `level()` gives every level a `-tunnels` variant, so a
   preset carrying `trapBias` bundles the two. Under the §2.3 ruling that is legal and
   means something, but what it means has never been measured — so the per-level counts
@@ -282,9 +297,11 @@ the undo path. What is left:
   does not, the stability argument is wrong and the ruling goes back open. Second, the
   one genuinely new combination: `tunnels` and `layers` at `trapBias ±1`, to record what
   `--start` still does from inside a bucket.
-- *A timing gate.* The two optimisations of §2.1 must bring the lever back under
-  today's `--start=tunnels`, or the presets of §4 stay at 0. Measured against the same
-  two controls, so the two terms stay separable.
+- ~~*A timing gate.*~~ Done, and the target it named turned out to be the wrong one:
+  the lever cannot go under `--start=tunnels`, because what it pays for is ranking
+  itself. It now costs a biased `--start` plus a tenth, with the boards unchanged. What
+  is left for §4 is a product question — whether Insane at roughly 25 s instead of 12 s
+  is a default anyone wants — not an engineering one.
 - *The per-undo invariant*, in `engine.test.ts` rather than in a script: the line table
   compared to a from-scratch fold **after each undo**, on the `starved heads` seed that
   now reaches 50 backtracks with the lever on.

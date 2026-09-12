@@ -177,8 +177,9 @@ class Carver implements Board {
     this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
     this.freeBias = Math.sign(opts.freeBias ?? 0)
     this.trapBias = Math.sign(opts.trapBias ?? 0)
-    // The upkeep costs four passes over the grid per board, so it is only paid
-    // when the spike asks for it.
+    // The upkeep is folded into recomputeLines, so it costs the lines a cut
+    // moves rather than a pass over the board; it is only paid when the spike
+    // asks for it.
     const homo = this.trapBias !== 0
     this.lineHomo = homo
       ? [new Int32Array(W).fill(-1), new Int32Array(H).fill(-1), new Int32Array(W).fill(-1), new Int32Array(H).fill(-1)]
@@ -306,6 +307,10 @@ class Carver implements Board {
 
   recomputeLines(cells: readonly Cell[]): void {
     const { W, H, owner, depth } = this
+    // MEASUREMENT ONLY (R1 spike): this is the one place a frontier depth
+    // changes, so it is also the one place the line table can change — folding
+    // here costs the lines that moved, where a scan per cut cost all of them.
+    const homo = this.trapBias !== 0
     const cols = new Set<number>(), rows = new Set<number>()
     for (const c of cells) {
       cols.add(c.x)
@@ -315,17 +320,21 @@ class Carver implements Board {
       let k = 0
       while (k < H && owner[this.idx(x, k)] !== -1) k++
       at(depth, 0)[x] = k
+      if (homo) this.foldHomo(0, x, k)
       k = 0
       while (k < H && owner[this.idx(x, H - 1 - k)] !== -1) k++
       at(depth, 2)[x] = k
+      if (homo) this.foldHomo(2, x, k)
     }
     for (const y of rows) {
       let k = 0
       while (k < W && owner[this.idx(k, y)] !== -1) k++
       at(depth, 3)[y] = k
+      if (homo) this.foldHomo(3, y, k)
       k = 0
       while (k < W && owner[this.idx(W - 1 - k, y)] !== -1) k++
       at(depth, 1)[y] = k
+      if (homo) this.foldHomo(1, y, k)
     }
   }
 
@@ -1011,35 +1020,59 @@ class Carver implements Board {
   }
 
   /**
-   * MEASUREMENT ONLY (R1 spike). Folds every newly assigned prefix cell into
-   * lineHomo. A head whose line prefix has a single owner becomes a piece with
-   * exactly one blocker, so this is the O(1) read behind trapBias. The prefix
-   * only grows, except after an undo, where the line is rebuilt.
+   * MEASUREMENT ONLY (R1 spike). Folds one line's newly assigned prefix cells
+   * into lineHomo. A head whose line prefix has a single owner becomes a piece
+   * with exactly one blocker, so this is the O(1) read behind trapBias. The
+   * prefix only grows, except after an undo, where the line is rebuilt — which
+   * is why `lineHomoSeen` is compared against the new depth rather than trusted.
    */
-  refreshHomo(): void {
-    for (let d = 0; d < 4; d++) {
-      const nLines = d === 0 || d === 2 ? this.W : this.H
-      const front = at(this.depth, d)
-      const homo = at(this.lineHomo, d)
-      const seen = at(this.lineHomoSeen, d)
-      for (let line = 0; line < nLines; line++) {
-        const upTo = num(front, line)
-        let from = num(seen, line)
-        if (upTo < from) {
-          homo[line] = -1
-          from = 0
-        }
-        for (let k = from; k < upTo; k++) {
-          const c = this.prefixCell(d, line, k)
-          const o = num(this.owner, this.idx(c.x, c.y))
-          if (o < 0) continue
-          const cur = num(homo, line)
-          if (cur === -1) homo[line] = o
-          else if (cur !== o && cur !== -2) homo[line] = -2
-        }
-        seen[line] = upTo
-      }
+  foldHomo(d: number, line: number, upTo: number): void {
+    const { W, H, owner } = this
+    const homo = at(this.lineHomo, d)
+    const seen = at(this.lineHomoSeen, d)
+    let from = num(seen, line)
+    if (upTo < from) {
+      homo[line] = -1
+      from = 0
     }
+    let cur = num(homo, line)
+    // -2 is absorbing: a prefix with several owners keeps having several,
+    // until an undo rebuilds the line. Most lines reach it early, so this is
+    // what makes the upkeep amortize to nothing.
+    if (cur !== -2) {
+      for (let k = from; k < upTo; k++) {
+        // prefixCell inlined: an object per prefix cell would be four million
+        // allocations a board at the project ceiling.
+        const i = d === 0
+          ? this.idx(line, k)
+          : d === 2
+          ? this.idx(line, H - 1 - k)
+          : d === 1
+          ? this.idx(W - 1 - k, line)
+          : this.idx(k, line)
+        const o = num(owner, i)
+        if (o < 0) continue
+        if (cur === -1) cur = o
+        else if (cur !== o) {
+          cur = -2
+          break
+        }
+      }
+      homo[line] = cur
+    }
+    seen[line] = upTo
+  }
+
+  /**
+   * Orders heads by how deep their line's frontier has advanced: deepest first
+   * for tunnels, shallowest for layers. A comparator over the depth array does
+   * what a map/sort/map did, without a wrapper object per head, and the order
+   * is the same because the keys are the same and the sort is stable.
+   */
+  orderByDepth(cells: Cell[], d: number, bias: number): void {
+    const dep = at(this.depth, d)
+    const key = (c: Cell): number => num(dep, d === 0 || d === 2 ? c.x : c.y)
+    cells.sort((a, b) => bias > 0 ? key(b) - key(a) : key(a) - key(b))
   }
 
   /** The cell of a line at distance k from the exit edge of direction d. */
@@ -1052,7 +1085,6 @@ class Carver implements Board {
 
   carveOne(scanAll = false): boolean {
     const { rng, p } = this
-    if (this.trapBias !== 0) this.refreshHomo()
     const progress = 1 - this.remaining / (this.W * this.H)
     // NOT `sort(() => rng() - 0.5)`: the number of comparator calls depends on
     // the Array.prototype.sort implementation, so different JS engines consume a
@@ -1087,14 +1119,26 @@ class Carver implements Board {
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
       let ranked = heads
       if (this.trapBias !== 0) {
-        // MEASUREMENT ONLY (R1 spike): rank by whether the line prefix has one
-        // owner, i.e. whether this head would become a piece that LOOKS ready.
+        // MEASUREMENT ONLY (R1 spike): whether the line prefix has one owner,
+        // i.e. whether this head would become a piece that LOOKS ready, is the
+        // OUTER key — and the depth ranking above orders each bucket from the
+        // inside, so `--start` still reaches the board instead of being
+        // shadowed by the lever. A boolean key needs a stable partition, not a
+        // sort; at `--start=random` there is no inner order to apply, which is
+        // why every board recorded there comes out cell for cell the same.
         const want = this.trapBias > 0
         const homo = at(this.lineHomo, d)
-        ranked = heads
-          .map((c) => ({ c, one: num(homo, d === 0 || d === 2 ? c.x : c.y) >= 0 }))
-          .sort((a, b) => (a.one === b.one ? 0 : (a.one === want ? -1 : 1)))
-          .map((z) => z.c)
+        const first: Cell[] = [], rest: Cell[] = []
+        for (const c of heads) {
+          if ((num(homo, d === 0 || d === 2 ? c.x : c.y) >= 0) === want) first.push(c)
+          else rest.push(c)
+        }
+        if (bias !== 0) {
+          this.orderByDepth(first, d, bias)
+          this.orderByDepth(rest, d, bias)
+        }
+        for (const c of rest) first.push(c)
+        ranked = first
       } else if (this.freeBias !== 0) {
         // MEASUREMENT ONLY (R1 spike): a piece is free at the start exactly when
         // its head sits on the exit edge — the ray to the edge is the assigned
@@ -1108,10 +1152,8 @@ class Carver implements Board {
           .map((z) => z.c)
       } else if (bias !== 0) {
         // depth of a head's line = how deep the frontier has advanced in that line
+        this.orderByDepth(heads, d, bias)
         ranked = heads
-          .map((c) => ({ c, dep: num(at(this.depth, d), d === 0 || d === 2 ? c.x : c.y) }))
-          .sort((a, b) => (bias > 0 ? b.dep - a.dep : a.dep - b.dep))
-          .map((z) => z.c)
       }
       // SEVERAL TRIES PER DIRECTION. One try is enough on a small board, where
       // there are a dozen or so candidates. At 400x400 there can be several

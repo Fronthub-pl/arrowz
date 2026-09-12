@@ -16,7 +16,7 @@
  *    the board id should change while the ranking does not.
  *
  * B. HAS THE UNDO PATH EVER RUN? Every recorded trapBias row has
- *    `backtracks: 0`, so `refreshHomo`'s rebuild branch (`upTo < from`) has
+ *    `backtracks: 0`, so the rebuild branch of the fold (`upTo < from`) had
  *    never executed in a measurement. The two families below are the repo's
  *    known backtracking boards (absorb.test.ts): they are re-run with the trap
  *    lever on, and the line table is checked against a from-scratch fold of the
@@ -73,8 +73,8 @@ type UndoRow = {
 }
 
 /**
- * Folds the finished board into a fresh line table the same way refreshHomo
- * does, and compares it with the one the carver maintained incrementally.
+ * Folds the finished board into a fresh line table the same way foldHomo does,
+ * and compares it with the one the carver maintained incrementally.
  */
 function homoMismatch(c: Carver): { mismatch: number; lines: number } {
   if (!c.lineHomo.length) return { mismatch: 0, lines: 0 }
@@ -159,10 +159,9 @@ function undo(out: (row: UndoRow) => void): void {
         const p: Params = { ...defaultParams(), W: f.side, H: f.side, seed, restarts: 0, ...f.over }
         const c = new Carver(p.W, p.H, p, mulberry32(p.seed), { trapBias, voidFrac: f.voidFrac })
         const ok = c.run()
-        // The table lags the last cut by one carveOne; bring it level before
-        // comparing, so the check sees the state an undo left behind and not
-        // the one cut that follows it.
-        if (trapBias !== 0) c.refreshHomo()
+        // The table is folded in recomputeLines, so it is level with the board
+        // at every moment the carve stops — including the state an undo left
+        // behind.
         const h = homoMismatch(c)
         out({
           part: 'undo',
