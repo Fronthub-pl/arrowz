@@ -18,7 +18,7 @@
 // Labels come from the dictionaries (lab-i18n.ts, `simple`); nothing here
 // knows the DOM.
 import type { ParamKey, Params, ParamSpec, Range, SimpleChoice } from './types.ts'
-import { defaultParams, PARAM_SPEC, snapToStep } from './engine.ts'
+import { defaultParams, PARAM_SPEC, snapToStep, straightFloor } from './engine.ts'
 import { PRESETS } from './lab-presets.ts'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
@@ -265,6 +265,7 @@ export function simpleRanges(choice: SimpleChoice): Partial<Record<ParamKey, Ran
     ...DIFFICULTY,
     ...(big ? DIFFICULTY_BIG : null),
   }
+  fitWinding(merged, c.W, c.H)
   const out: Anchor = {}
   for (const key of anchorKeys(merged)) {
     const range = merged[key]
@@ -273,6 +274,49 @@ export function simpleRanges(choice: SimpleChoice): Partial<Record<ParamKey, Ran
     out[key] = snapRange(key, range)
   }
   return out
+}
+
+/** A numeric range of the merged anchor; the shape anchors set all three winding knobs this way. */
+function numericRange(merged: Anchor, key: ParamKey): { lo: number; hi: number; def: number } {
+  const range = merged[key]
+  if (!range || 'pick' in range) throw new Error(`a shape anchor must set ${key} as a numeric range`)
+  return range
+}
+
+/**
+ * Pulls a slider position inside the engine's straightness floor.
+ *
+ * The floor rises with the board and with the two winding knobs (see
+ * straightFloor in engine.ts), so a position that looks safe at its
+ * canonical values can still DRAW a corner below it. Measured at 1000x1000:
+ * the middle of the shape slider could draw a nook rule of 3 with a coiling
+ * penalty of 8 at a straightness of 0.8, and that board never closes.
+ *
+ * The corner is pulled in rather than the straightness pushed up — capping
+ * the coiling penalty and raising the nook floor costs less of the look the
+ * slider promises, and neither may pass the position's own canonical value,
+ * so the board a position gives without randomising never moves. Only if
+ * that is not enough does the straightness itself rise.
+ */
+function fitWinding(merged: Anchor, W: number, H: number): void {
+  const straight = numericRange(merged, 'pStraight')
+  const warns = numericRange(merged, 'warns')
+  const anticoil = numericRange(merged, 'anticoil')
+  const floorAt = (): number => straightFloor({ ...defaultParams(), W, H, warns: warns.lo, anticoil: anticoil.hi })
+  while (floorAt() > straight.lo + 1e-9) {
+    if (anticoil.hi > anticoil.def) anticoil.hi -= 1
+    else if (warns.lo < warns.def) warns.lo += 1
+    else break
+  }
+  const need = floorAt()
+  if (need > straight.lo + 1e-9) {
+    straight.lo = need
+    straight.hi = Math.max(straight.hi, need)
+    straight.def = Math.max(straight.def, need)
+  }
+  merged.warns = warns
+  merged.anticoil = anticoil
+  merged.pStraight = straight
 }
 
 /** The straightness range of a shape anchor; the shape anchors all set pStraight as lo/hi/def. */

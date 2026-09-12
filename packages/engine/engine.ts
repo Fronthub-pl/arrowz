@@ -2474,7 +2474,53 @@ export function defaultParams(): Params {
 // the measurements showed to jam or leave boards unclosed. Each rule names the
 // knobs it involves so that the lab can mark their rows. Texts are keyed like
 // INACTIVE_REASONS; the lab translates them (lab-i18n PL.reasons).
-export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (p: Params) => boolean }[] = [
+/**
+ * The straightness a board needs to close, measured in round 14 (2026-09-12,
+ * 485 runs with restarts off over 100 settings, squares from 300 to 1000 a
+ * side; see HISTORY.md).
+ *
+ * Two things raise it. The board's longer side does, on its own and with
+ * every other knob at its default: 0.6 closes 500x500 but not 600, 0.65
+ * closes 700 but not 800, and 1000 needs 0.8. And the two winding knobs move
+ * it both ways — a nook rule below its default, or a coiling penalty above
+ * its, leaves more crumbs at the frontier and makes a board behave as if it
+ * were LARGER; a high nook rule or a low coiling penalty makes it behave
+ * smaller. Neither knob jams a board on its own at any setting, which is why
+ * their own ranges are untouched and the coupling lives here.
+ *
+ * The factors are fitted to the campaign, not derived: they refuse every one
+ * of the 100 settings that jammed even once, and nine that never did
+ * (straight-floor.test.ts lists those nine by name).
+ */
+export function straightFloor(p: Params): number {
+  const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
+  const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.8 : 1
+  const side = Math.max(p.W, p.H) * nooks * coiling
+  const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
+  return Math.min(STRAIGHT_TOP, Number((STRAIGHT_BASE + 0.05 * steps).toFixed(2)))
+}
+/** The knobs the floor is read from; while any of them is out of range, the rule says nothing. */
+const STRAIGHT_KEYS: readonly ParamKey[] = ['pStraight', 'warns', 'anticoil', 'W', 'H']
+const RANGE_BY_KEY = new Map<ParamKey, { min: number; max: number }>(PARAM_SPEC.map((s) => [s.key, s]))
+function inRange(p: Params, key: ParamKey): boolean {
+  const r = RANGE_BY_KEY.get(key)
+  const v: unknown = p[key]
+  return r !== undefined && typeof v === 'number' && Number.isFinite(v) && v >= r.min && v <= r.max
+}
+
+/** The board a knob at its minimum still closes, the cells a step of 0.05 buys, and the knob's own ends. */
+const STRAIGHT_FREE = 400
+const STRAIGHT_STRIDE = 150
+const STRAIGHT_BASE = 0.6
+const STRAIGHT_TOP = 1
+
+export const RULES: readonly {
+  key: RuleKey
+  keys: readonly ParamKey[]
+  check: (p: Params) => boolean
+  /** The bound the rule computed, for a rule whose bound is not a constant. */
+  need?: (p: Params) => number
+}[] = [
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
   // 17 is the first cap that truncates no length bucket: the medium one runs
   // to 15, the long one is drawn between 16 and max(17, cap). Under a lower
@@ -2494,6 +2540,17 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
       (p.mix === -1 && Number.isInteger(p.headBias)) ||
       (p.headBias === 0 && p.mix >= MIX_SHARE.min - 1e-9 && p.mix <= MIX_SHARE.max + 1e-9),
   },
+  // The one rule that reads the board size: the knobs it names are safe at
+  // every setting on a small board and at their defaults on a large one, so
+  // there is no range to narrow — only a floor that moves.
+  {
+    key: 'straightFloor',
+    keys: ['pStraight', 'warns', 'anticoil'],
+    // One value, one complaint: a knob already outside its own range has its
+    // own line, and a floor computed from it would be nonsense anyway.
+    check: (p) => STRAIGHT_KEYS.some((k) => !inRange(p, k)) || p.pStraight >= straightFloor(p) - 1e-9,
+    need: straightFloor,
+  },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
@@ -2502,6 +2559,8 @@ export const RULE_REASONS: Record<RuleKey, string> = {
   startPair:
     'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of ' +
     `${MIX_SHARE.min} to ${MIX_SHARE.max}`,
+  straightFloor:
+    'straightness bias has to rise with the board: a longer side, closing off nooks below 4, or a coiling penalty above 6 each raise the floor',
 }
 
 /**
@@ -2528,7 +2587,9 @@ export function validateParams(params: Params): Violation[] {
     }
   }
   for (const r of RULES) {
-    if (!r.check(params)) out.push({ kind: 'rule', key: r.key, keys: r.keys })
+    if (r.check(params)) continue
+    const v: Violation = { kind: 'rule', key: r.key, keys: r.keys }
+    out.push(r.need ? { ...v, need: r.need(params) } : v)
   }
   return out
 }
@@ -2542,7 +2603,10 @@ export function formatViolation(v: Violation): string {
     const [below, above] = stepsAround(v.value, v.step, v.min)
     return `${LABEL_BY_KEY.get(v.key) ?? v.key}: ${v.value} sits between the settings ${below} and ${above}`
   }
-  return RULE_REASONS[v.key] ?? v.key
+  const reason = RULE_REASONS[v.key] ?? v.key
+  // A rule with a computed bound says the number too: "raise the floor" is
+  // advice, "at least 0.8" is the value to type.
+  return v.need === undefined ? reason : `${reason}; this board needs at least ${v.need}`
 }
 
 /**
