@@ -207,6 +207,14 @@ export interface GenerateResult {
   stuck: Stuck | null
   /** True when a `trace` callback threw GenerateAbort: the board is what was carved so far, no restart ran. */
   aborted: boolean
+  /**
+   * True when the board handed back covers every cell but its rays make a
+   * cycle, so no order of taps empties it. It describes the last attempt, the
+   * way `ok` and `stuck` do: earlier attempts that deadlocked were spent on a
+   * restart and left no trace but `restartsUsed`. A deadlocked board has
+   * `ok: false` and `stuck: null` — nothing is stuck, the order is missing.
+   */
+  deadlock: boolean
 }
 
 export interface SvgOptions {
@@ -333,6 +341,7 @@ export type WorkerOut =
     metricsMs: number
     totalMs: number
     stuck: Stuck | null
+    deadlock: boolean
     pieces: number
     stats: CarverStats
     /** The board as its file: one string across the worker boundary, and the file the store keeps. */

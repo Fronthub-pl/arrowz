@@ -1542,14 +1542,18 @@ const stat = (k: string, v: string | number, num?: number, better = 0): StatRow 
 const SEP: StatRow = { k: '—', v: '', num: undefined, better: 0 }
 
 function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
-  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, stats } = msg
+  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, deadlock, stats } = msg
   const rp = runParams
   const cells = rp.W * rp.H
 
   if (!ok) {
+    // A deadlocked board is closed, so it has no leftover to report: the run
+    // failed on the order, not on the geometry.
     setStatus(
       `<span class="bad">${
-        t('notClosedStatus', fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
+        deadlock
+          ? t('unsolvable')
+          : t('notClosedStatus', fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
       }</span>`,
     )
   } else if (metrics) {

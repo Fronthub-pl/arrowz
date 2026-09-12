@@ -2675,8 +2675,13 @@ export function generate(params: Partial<Params>, opts: GenerateOptions = {}): G
   let ok = false
   let used = 0
   let aborted = false
+  let deadlock = false
+  let metrics: Metrics | null = null
+  let metricsMs = 0
   for (let attempt = 0; attempt <= p.restarts && !ok && !aborted; attempt++) {
     used = attempt
+    metrics = null
+    deadlock = false
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
     try {
       ok = carver.run()
@@ -2684,25 +2689,46 @@ export function generate(params: Partial<Params>, opts: GenerateOptions = {}): G
       if (!(err instanceof GenerateAbort)) throw err
       aborted = true
     }
+    // Covering the board is half the promise. The rays make a blocking graph,
+    // and a cycle in it — two heads facing each other down one line is the
+    // smallest — is a board no order of taps empties. analyse() runs Kahn over
+    // that graph, so the proof costs the metrics that go back anyway, and a
+    // board that fails it is spent like a jam: on the next restart.
+    if (ok) {
+      const t = performance.now()
+      metrics = analyse(carver, ruleB)
+      metricsMs += performance.now() - t
+      if (!metrics.solvable) {
+        ok = false
+        deadlock = true
+      }
+    }
   }
   // restarts >= 0, so the loop ran at least once
   if (!carver) throw new Error('generate: no attempt ran')
-  const genMs = performance.now() - t0
-  const t1 = performance.now()
-  const metrics = carver.pieces.length ? analyse(carver, ruleB) : null
+  // A jam and an abort leave the metrics of the board they got to; a closed
+  // board, deadlocked or not, was analysed in the loop.
+  if (!metrics && carver.pieces.length) {
+    const t = performance.now()
+    metrics = analyse(carver, ruleB)
+    metricsMs += performance.now() - t
+  }
   return {
     board: carver,
     metrics,
     ok,
     aborted,
+    deadlock,
     restartsUsed: used,
     backtracks: carver.backtracks,
-    genMs,
-    metricsMs: performance.now() - t1,
+    // The proof runs inside the loop, so its time comes out of the total:
+    // genMs stays the time spent carving.
+    genMs: performance.now() - t0 - metricsMs,
+    metricsMs,
     // `heads` = legal heads at the moment of the smallest leftover: zero means
     // the geometry closed the board, more means the search gave up on them.
     // An aborted attempt has no such moment: its leftover is what is free now.
-    stuck: ok
+    stuck: ok || deadlock
       ? null
       : aborted
       ? { remaining: carver.remaining, sizes: carver.leftoverReport(), heads: carver.legalHeadCount() }
