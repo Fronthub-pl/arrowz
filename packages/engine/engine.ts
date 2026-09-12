@@ -100,6 +100,18 @@ type CarverOptions = {
    * today's engine, cell for cell — no draw is made and no branch is taken.
    */
   backbite?: number | undefined
+  /**
+   * MEASUREMENT ONLY (R1 spike, not a knob): +1 ranks heads that sit on an
+   * empty front first (every such piece is free at the start), -1 ranks them
+   * last, 0 leaves today's ranking untouched.
+   */
+  freeBias?: number | undefined
+  /**
+   * MEASUREMENT ONLY (R1 spike, not a knob): +1 ranks heads whose line prefix
+   * has a single owner first, so the piece ends up with exactly one blocker
+   * and looks ready to leave; -1 ranks them last; 0 leaves ranking untouched.
+   */
+  trapBias?: number | undefined
 }
 
 class Carver implements Board {
@@ -113,6 +125,18 @@ class Carver implements Board {
   ruleB: boolean
   /** MEASUREMENT ONLY: cap on consecutive tail backbites; 0 disables the move. */
   backbiteCap: number
+  /** MEASUREMENT ONLY (R1 spike): +1 prefers heads on an empty front, -1 avoids them, 0 is off. */
+  freeBias: number
+  /**
+   * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
+   * a SINGLE piece, -1 avoids them, 0 is off. Such a head becomes a piece with
+   * exactly one blocker — a piece that looks ready to leave (`almost`).
+   */
+  trapBias: number
+  /** Per direction and line: -1 empty prefix, -2 several owners, >= 0 the sole owner. */
+  lineHomo: Int32Array[]
+  /** How far each line's prefix was already folded into lineHomo. */
+  lineHomoSeen: Int32Array[]
   owner: Int32Array
   pieces: Piece[]
   remaining: number
@@ -151,6 +175,15 @@ class Carver implements Board {
     this.debug = opts.debug
     this.ruleB = opts.ruleB ?? true
     this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
+    this.freeBias = Math.sign(opts.freeBias ?? 0)
+    this.trapBias = Math.sign(opts.trapBias ?? 0)
+    // The upkeep costs four passes over the grid per board, so it is only paid
+    // when the spike asks for it.
+    const homo = this.trapBias !== 0
+    this.lineHomo = homo
+      ? [new Int32Array(W).fill(-1), new Int32Array(H).fill(-1), new Int32Array(W).fill(-1), new Int32Array(H).fill(-1)]
+      : []
+    this.lineHomoSeen = homo ? [new Int32Array(W), new Int32Array(H), new Int32Array(W), new Int32Array(H)] : []
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
@@ -970,8 +1003,49 @@ class Carver implements Board {
     return true
   }
 
+  /**
+   * MEASUREMENT ONLY (R1 spike). Folds every newly assigned prefix cell into
+   * lineHomo. A head whose line prefix has a single owner becomes a piece with
+   * exactly one blocker, so this is the O(1) read behind trapBias. The prefix
+   * only grows, except after an undo, where the line is rebuilt.
+   */
+  refreshHomo(): void {
+    for (let d = 0; d < 4; d++) {
+      const nLines = d === 0 || d === 2 ? this.W : this.H
+      const front = at(this.depth, d)
+      const homo = at(this.lineHomo, d)
+      const seen = at(this.lineHomoSeen, d)
+      for (let line = 0; line < nLines; line++) {
+        const upTo = num(front, line)
+        let from = num(seen, line)
+        if (upTo < from) {
+          homo[line] = -1
+          from = 0
+        }
+        for (let k = from; k < upTo; k++) {
+          const c = this.prefixCell(d, line, k)
+          const o = num(this.owner, this.idx(c.x, c.y))
+          if (o < 0) continue
+          const cur = num(homo, line)
+          if (cur === -1) homo[line] = o
+          else if (cur !== o && cur !== -2) homo[line] = -2
+        }
+        seen[line] = upTo
+      }
+    }
+  }
+
+  /** The cell of a line at distance k from the exit edge of direction d. */
+  prefixCell(d: number, line: number, k: number): Cell {
+    if (d === 0) return { x: line, y: k }
+    if (d === 2) return { x: line, y: this.H - 1 - k }
+    if (d === 1) return { x: this.W - 1 - k, y: line }
+    return { x: k, y: line }
+  }
+
   carveOne(scanAll = false): boolean {
     const { rng, p } = this
+    if (this.trapBias !== 0) this.refreshHomo()
     const progress = 1 - this.remaining / (this.W * this.H)
     // NOT `sort(() => rng() - 0.5)`: the number of comparator calls depends on
     // the Array.prototype.sort implementation, so different JS engines consume a
@@ -1005,7 +1079,27 @@ class Carver implements Board {
       // These two goals pull in opposite directions, so we look for a ratio.
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
       let ranked = heads
-      if (bias !== 0) {
+      if (this.trapBias !== 0) {
+        // MEASUREMENT ONLY (R1 spike): rank by whether the line prefix has one
+        // owner, i.e. whether this head would become a piece that LOOKS ready.
+        const want = this.trapBias > 0
+        const homo = at(this.lineHomo, d)
+        ranked = heads
+          .map((c) => ({ c, one: num(homo, d === 0 || d === 2 ? c.x : c.y) >= 0 }))
+          .sort((a, b) => (a.one === b.one ? 0 : (a.one === want ? -1 : 1)))
+          .map((z) => z.c)
+      } else if (this.freeBias !== 0) {
+        // MEASUREMENT ONLY (R1 spike): a piece is free at the start exactly when
+        // its head sits on the exit edge — the ray to the edge is the assigned
+        // prefix of its line, so an empty prefix means no blocker at all. The
+        // spike ranks heads by that one bit to find the reachable range of f0:
+        // +1 cuts every free arrow it can, -1 avoids them.
+        const want = this.freeBias > 0
+        ranked = heads
+          .map((c) => ({ c, empty: num(at(this.depth, d), d === 0 || d === 2 ? c.x : c.y) === 0 }))
+          .sort((a, b) => (a.empty === b.empty ? 0 : (a.empty === want ? -1 : 1)))
+          .map((z) => z.c)
+      } else if (bias !== 0) {
         // depth of a head's line = how deep the frontier has advanced in that line
         ranked = heads
           .map((c) => ({ c, dep: num(at(this.depth, d), d === 0 || d === 2 ? c.x : c.y) }))
@@ -1026,7 +1120,7 @@ class Carver implements Board {
       // the regions of thousands of free cells sit in the deeper quarters —
       // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
       const quarter = Math.max(1, Math.ceil(ranked.length / 4))
-      const pools: Cell[][] = bias === 0
+      const pools: Cell[][] = bias === 0 && this.freeBias === 0 && this.trapBias === 0
         ? [[...ranked]]
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
