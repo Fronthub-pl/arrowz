@@ -17,7 +17,6 @@
     "exclude": [
       "**/*.md",
       "packages/cli/lab.html",
-      "packages/cli/gallery.html",
       "packages/board-element/demo/index.html",
       "packages/cli/boards/",
       "**/dist/",
