@@ -365,20 +365,52 @@ Deno.test('validateParams: each narrowed knob rejects its old extreme with the n
 })
 
 Deno.test('validateParams: a value that is not a finite number is a range violation', () => {
-  // wLateral, not W: W now also sits in the wholeNumbers rule, and every one
-  // of these junk values fails Number.isInteger too, which would add a second
-  // violation and defeat the point of this test.
+  // wLateral, not W: a junk value is reported by the range alone, and this
+  // test wants exactly one violation to look at.
   for (const value of [NaN, Infinity, -Infinity, undefined, null, '5', true]) {
     const v = validateParams(withRaw({ wLateral: value }))
     assertEquals(v, [{ kind: 'range', key: 'wLateral', value, min: 0, max: 20 }], String(value))
   }
 })
 
-Deno.test('validateParams: ignores keys that are not knobs and does not check step alignment', () => {
+Deno.test('validateParams: ignores keys that are not knobs', () => {
   const p = withRaw({ ruleB: false, voidFrac: 0.3, trace: true, debug: 'x', unknownKnob: 1e9 })
   assertEquals(validateParams(p), [])
-  // maxBack has step 50; 25 is off the step but inside the range, so it passes.
-  assertEquals(validateParams(withDefaults({ maxBack: 25 })), [])
+})
+
+// The step is what the two surfaces can spell: a slider stop in the lab, a
+// value the flag prints back in the CLI. A value between two stops is a board
+// no surface can offer again — and it goes into the board id and into the
+// recorded command, so the board file cannot be reproduced from either.
+Deno.test('validateParams: a value between two steps is a violation of its own', () => {
+  const off: [ParamKey, number, number, number][] = [
+    ['maxBack', 25, 50, 0], // the coarsest step in the table
+    ['warns', 2.5, 1, 2], // a whole-number knob with a fraction
+    ['wShort', 0.155, 0.01, 0], // a hundredth of a share, one digit too far
+    ['mix', 0.33, 0.05, -1], // the mixing grid, counted from -1
+    ['wLateral', 3.2, 0.5, 0], // the one half-step knob
+  ]
+  for (const [key, value, step, min] of off) {
+    assertEquals(validateParams(withDefaults({ [key]: value })), [{ kind: 'step', key, value, step, min }], key)
+  }
+  // Every stop of the coarsest and of the finest knob passes, ends included.
+  for (const maxBack of [0, 50, 500, 1000]) assertEquals(validateParams(withDefaults({ maxBack })), [], `${maxBack}`)
+  for (const pStraight of [0.6, 0.85, 0.99, 1]) {
+    assertEquals(validateParams(withDefaults({ pStraight })), [], `${pStraight}`)
+  }
+})
+
+// One value, one complaint: a number outside the range is answered by the
+// range alone, whether or not it also sits between two steps.
+Deno.test('validateParams: a value outside the range is not also reported off the step', () => {
+  assertEquals(validateParams(withDefaults({ warns: 100.5 })), [{
+    kind: 'range',
+    key: 'warns',
+    value: 100.5,
+    min: 2,
+    max: 16,
+  }])
+  assertEquals(validateParams(withRaw({ warns: 'x' })), [{ kind: 'range', key: 'warns', value: 'x', min: 2, max: 16 }])
 })
 
 Deno.test('validateParams: cross-knob rules fire beyond their boundary and not at it', () => {

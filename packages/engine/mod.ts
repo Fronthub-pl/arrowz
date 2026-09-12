@@ -18,6 +18,8 @@ export {
   PARAM_SPEC,
   RULE_REASONS,
   RULES,
+  snapToStep,
+  stepsAround,
   toSvg,
   validateParams,
 } from './engine.ts'

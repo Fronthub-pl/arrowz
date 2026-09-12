@@ -317,6 +317,31 @@ Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stde
   assertEquals(entries(dir), 0, 'the store must not be created')
 })
 
+// A value between two stops used to carve a board with its own id: --maxback=25
+// (step 50) and --warns=2.5 both produced a board whose recorded command no
+// slider and no flag can offer back. The step is part of the envelope now.
+Deno.test('a value between two steps is refused, and no board is written', () => {
+  const cases: [string, Partial<Params>][] = [['--maxback=25', { maxBack: 25 }], ['--warns=2.5', { warns: 2.5 }]]
+  for (const [flag, over] of cases) {
+    // The line the engine writes for this value, so the test cannot drift
+    // from the knob's label the way a hand-copied string would.
+    const lines = validateParams({ ...defaultParams(), ...over }).map(formatViolation)
+    assertEquals(lines.length, 1, flag)
+    const [line] = lines
+    assert(line, flag)
+    const dir = tmp()
+    const r = runCarve(['--width=10', '--height=10', flag], join(dir, 'boards'))
+    assertEquals(r.status, 2, `${flag}\n${r.stdout}${r.stderr}`)
+    assertStringIncludes(r.stderr, 'invalid parameters:')
+    assertStringIncludes(r.stderr, `  - ${line}\n`)
+    assertEquals(entries(dir), 0, 'nothing is written')
+  }
+  // The stops themselves still carve.
+  const dir = tmp()
+  const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--maxback=50', '--warns=3'], dir)
+  assertEquals(ok.status, 0, ok.stderr)
+})
+
 // --- refusals -----------------------------------------------------------------
 
 Deno.test('a retired flag is refused with its replacement, exit code 2', () => {

@@ -29,6 +29,8 @@ import {
   INACTIVE_REASONS,
   PARAM_SPEC,
   RULE_REASONS,
+  snapToStep,
+  stepsAround,
   validateParams,
 } from '@arrowz/engine'
 import { buildCommand, START, svgOptions, wordFor } from '@arrowz/engine/command'
@@ -444,13 +446,18 @@ function violationText(v: Violation): string {
     const spec = specByKey.get(v.key)
     return t('rangeViolation', spec ? paramText(spec).label : v.key, v.value, v.min, v.max)
   }
+  if (v.kind === 'step') {
+    const spec = specByKey.get(v.key)
+    const [below, above] = stepsAround(v.value, v.step, v.min)
+    return t('stepViolation', spec ? paramText(spec).label : v.key, v.value, below, above)
+  }
   return reasonText(v.key)
 }
 function refreshActive() {
   violations = validateParams(state)
   const broken = new Map<ParamKey, string[]>() // knob key -> texts of the violations naming it
   for (const v of violations) {
-    for (const k of v.kind === 'range' ? [v.key] : v.keys) {
+    for (const k of v.kind === 'rule' ? v.keys : [v.key]) {
       const list = broken.get(k)
       if (list) list.push(violationText(v))
       else broken.set(k, [violationText(v)])
@@ -763,11 +770,13 @@ el('sRandom').addEventListener('change', () => {
 })
 
 // Pulls a value loaded from outside (URL, preset, stored board) into the
-// knob's range; anything that is not a finite number (an emptied field)
-// falls back to the default. Pure, so it can be tested without the page.
+// knob's range and onto its grid; anything that is not a finite number (an
+// emptied field) falls back to the default. Both halves matter: a value
+// between two stops is a step violation, which would leave the panel red
+// with no control able to fix it. Pure, so it can be tested without the page.
 function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
   if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
-  const v = Math.min(spec.max, Math.max(spec.min, value))
+  const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)
   return { value: v, clamped: v !== value }
 }
 

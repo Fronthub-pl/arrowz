@@ -33,7 +33,7 @@ export type ParamKey =
 
 export type ParamGroup = 'board' | 'lengths' | 'shape' | 'difficulty' | 'skeleton' | 'closing'
 export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero'
-export type RuleKey = 'sharesSum' | 'lmaxHole' | 'wholeNumbers' | 'startPair'
+export type RuleKey = 'sharesSum' | 'lmaxHole' | 'startPair'
 
 export interface TraceInfo {
   pieces: number
@@ -78,6 +78,7 @@ export interface ParamSpec {
 
 export type Violation =
   | { kind: 'range'; key: ParamKey; value: unknown; min: number; max: number }
+  | { kind: 'step'; key: ParamKey; value: number; step: number; min: number }
   | { kind: 'rule'; key: RuleKey; keys: readonly ParamKey[] }
 
 export interface Cell {
