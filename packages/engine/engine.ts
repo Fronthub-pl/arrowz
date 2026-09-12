@@ -2882,7 +2882,7 @@ export class GenerateAbort extends Error {
  */
 export function generate(params: Partial<Params>, opts: GenerateOptions = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
-  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true } = opts
+  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true, trapBias = 0, backbite = 0 } = opts
   if (!unchecked) {
     const violations = validateParams(p)
     if (violations.length) throw new InvalidParamsError(violations)
@@ -2899,7 +2899,14 @@ export function generate(params: Partial<Params>, opts: GenerateOptions = {}): G
     used = attempt
     metrics = null
     deadlock = false
-    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
+    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), {
+      trace,
+      debug,
+      voidFrac,
+      ruleB,
+      trapBias,
+      backbite,
+    })
     try {
       ok = carver.run()
     } catch (err) {

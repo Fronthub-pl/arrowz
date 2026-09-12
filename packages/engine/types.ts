@@ -52,6 +52,14 @@ export interface GenerateOptions {
   voidFrac?: number
   /** Test-only: rule B of the metrics pass. */
   ruleB?: boolean
+  /**
+   * MEASUREMENT ONLY (R1/R2, see CarverOptions): the trap lever and the tail
+   * backbite, which are not knobs yet. They are here so the golden set can
+   * freeze a board carved with them; when they become knobs the field goes and
+   * the recorded case moves to an argv, and the hash must not move with it.
+   */
+  trapBias?: number
+  backbite?: number
 }
 
 /** A full engine parameter set: the knobs of PARAM_SPEC and nothing else. */

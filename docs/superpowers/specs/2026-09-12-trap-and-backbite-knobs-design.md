@@ -269,7 +269,11 @@ Both PRs touch the same list; the entries are what the repo's own guards require
 5. `packages/engine/lab-i18n.ts` — label and help in PL and EN, guarded by
    `lab-i18n.test.ts`.
 6. `packages/engine/fingerprints.json` — a recorded pair per knob: off (must equal
-   today's hash) and on (new).
+   today's hash) and on (new). R1's is in: `trap-off`, `trap-seek` and `trap-avoid` at
+   100×200, about 0.4 s added to every `deno task test`. Because the option has no flag
+   yet, a case may carry it in an `opts` field; **when it becomes a knob the case moves
+   to an argv and the recorded hash must not move with it**, which turns the promotion
+   into a checkable step rather than a leap.
 7. `packages/engine/envelope.test.ts` — the new range in the envelope sweep, and the
    knob count: `envelope.test.ts:201` asserts `PARAM_SPEC.length === 26`, so each PR
    bumps it by one (27, then 28). That assertion is the repo's guard against a knob
@@ -332,7 +336,12 @@ the undo path. What is left:
 - ~~The per-level trap counts that decide §4~~ Done, and §4 reversed: the levels
   already order the trap share monotonically, backwards, and the lever is too narrow to
   reorder them. No preset takes it.
-- The fingerprint pair.
+- ~~The fingerprint pair.~~ Done. Three cases, and the mutation checks say what each
+  one is worth: making the share draw at 0 breaks twelve of the thirteen golden boards,
+  so the existing set already guarded that; disabling the depth ordering inside the
+  buckets breaks `trap-seek` **and nothing else**. The new cases earn their place by
+  freezing the carved-with-the-lever boards and the composed `--start` path of §2.3,
+  which nothing guarded before.
 
 **R2:**
 
