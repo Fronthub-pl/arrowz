@@ -469,3 +469,81 @@ this verdict and can re-check it, but no continuous surface is exposed.
 
 This makes "`command.ts` — nothing" false: `rangeText` needs a `WORDS.trapBias`
 entry for the three words, the way `giantSpacing` has one.
+
+## Per level: the lever cannot carry a difficulty ladder
+
+`measure-r1-levels.ts` runs every shipped preset option — all 26 of them, seven
+levels, the `-tunnels` and `-skeleton` variants included, because under the §2.3
+ruling the lever and `--start` compose — at `avoid`, `off` and `seek`, 3 seeds
+each. **234 boards, all closed, zero failures and zero timeouts.** The lever is
+safe everywhere the presets go; what it is not is a level attribute.
+
+A trap count is not comparable across sizes (65 pieces on `easy-square`, 86 000
+on `insane-square`), so the share is the number a ladder would use:
+
+| level | cells | share `off` | share `avoid` | share `seek` | avoid | seek |
+|---|---|---|---|---|---|---|
+| easy | 1 250 | **19.65%** | 5.19% | 29.36% | 0.26x | 1.49x |
+| medium | 5 000 | 9.76% | 1.69% | 15.69% | 0.17x | 1.61x |
+| hard | 11 250 | 8.00% | 1.04% | 11.55% | 0.13x | 1.44x |
+| nightmare | 20 000 | 5.66% | 0.91% | 8.13% | 0.16x | 1.44x |
+| extreme | 80 000 | 3.19% | 0.45% | 4.05% | 0.14x | 1.27x |
+| huge | 160 000 | 2.12% | 0.42% | 2.63% | 0.20x | 1.24x |
+| insane | 1 000 000 | **0.81%** | 0.25% | 1.10% | 0.31x | 1.37x |
+
+### The ladder already exists, and it runs backwards
+
+The trap share falls monotonically from `easy` to `insane`, a 24x spread, with
+no knob involved. On the axis README calls the difficulty — seeing which arrow
+is actually free — **`easy` is the hardest level the generator ships and
+`insane` the easiest**: one piece in five looks ready to go on a 25x25 board,
+against one in 123 at the ceiling. That is a property of small boards, where a
+piece's corridor is short and rarely crosses more than one other piece.
+
+### The proposal would break the one ordering there is
+
+§4 proposed `avoid` for easy and medium, `off` in the middle, `seek` at the top.
+Applied to the measured shares:
+
+| | easy | medium | hard | nightmare | extreme | huge | insane |
+|---|---|---|---|---|---|---|---|
+| today | 19.65% | 9.76% | 8.00% | 5.66% | 3.19% | 2.12% | 0.81% |
+| proposed | 5.19% | 1.69% | 8.00% | 5.66% | 4.05% | 2.63% | 1.10% |
+
+Today's row is strictly decreasing. The proposed row goes down, up, down — and
+it cannot be repaired by a different assignment, because the arithmetic does not
+allow it: the lever spans about 6x inside a level while the levels span 24x
+between them. **No assignment of three states can make the trap share increase
+with difficulty**, and the proposal's main achievement is to turn a monotone
+sequence into a jagged one.
+
+The asymmetry is part of why. Avoiding is strong (0.13-0.31x) and seeking is
+weak (1.24-1.61x), so the top of the ladder, where the proposal needed lift, is
+where the lever has least to give.
+
+### Where the lever is worth having: inside a level
+
+Composed with `--start`, which §2.3 kept alive, the pair spans a level widely:
+
+| level | lowest | highest | span |
+|---|---|---|---|
+| easy | 2.19% (`easy-tunnels` avoid) | 36.99% (`easy-square` seek) | 16.9x |
+| hard | 0.90% (`hard-tunnels` avoid) | 14.63% (`hard-square` seek) | 16.2x |
+| nightmare | 0.28% (`nightmare-tunnels` avoid) | 13.52% (`nightmare-square` seek) | 48.7x |
+| insane | 0.19% (`insane-square` avoid) | 1.13% (`insane-skeleton` seek) | 5.8x |
+
+And on this axis the lever is the stronger of the two: on `hard-square` it spans
+12.8x where `--start` spans 2.7x. So the knob's value is a choice a player or a
+designer makes within a level, not a number a level carries.
+
+### Verdict: no preset takes it
+
+`trapBias` stays `off` in every preset, for the same reason `backbite` does. One
+option is worth a footnote — `huge-400-skeleton` reads 302 traps at `seek`
+against 309 at `off`, the single place in 26 where `avoid <= off <= seek` fails,
+and the gap is inside the seed spread.
+
+What the run does surface is a product question the measurements cannot settle:
+`easy` being the most trap-dense level is backwards from its name. Fixing it is
+one level's decision (`avoid` takes `easy` from 19.65% to 5.19%), not a ladder,
+and it is a question about what "easy" should mean.

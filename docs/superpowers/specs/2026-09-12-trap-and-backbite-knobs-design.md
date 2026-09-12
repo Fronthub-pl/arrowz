@@ -210,46 +210,49 @@ is a question of honesty about an existing knob rather than a new refusal.
 
 ## 4. Presets
 
-Difficulty levels are sizes today (`easy` 25 … `insane` 1000), which is why
-`--start=tunnels` is the only thing that makes a small board hard. `trapBias` gives the
-levels a second axis, and the plan measures the trap count per level before choosing:
+**Neither knob takes a preset value.** `trapBias` stays `off` and `backbite` stays 0
+everywhere, and for `trapBias` that reverses what this section proposed before it was
+measured.
 
-| level | intent | first proposal |
-|---|---|---|
-| easy, medium | few traps: a board a beginner can read | `trapBias avoid` |
-| hard, nightmare | as today | `off` |
-| extreme, huge, insane | traps sought | `trapBias seek` |
+Difficulty levels are sizes today (`easy` 25 … `insane` 1000), and the proposal was to
+give them a second axis: `avoid` for the small levels, `off` in the middle, `seek` at
+the top. All 26 shipped preset options were then measured at the three states, 3 seeds
+each — 234 boards, all closed, zero failures — and the idea does not survive its own
+numbers.
 
-**"Easy" means traps, and only traps.** The measurements are explicit that the other
-two metrics do not follow: at `avoid` the free arrows sit 8% *below* today's board and
-`D` rises 29%. So the claim a preset may make is "fewer arrows that look ready to go",
-not "a simpler board" — and the README wording has to match that, or the preset
-promises something the generator does not deliver.
+**The ladder already exists and it runs backwards.** The share of pieces that look
+ready to go falls monotonically with level, from 19.65% on `easy` to 0.81% on `insane`,
+a 24× spread with no knob involved. On the axis README calls the difficulty, `easy` is
+the hardest level the generator ships.
 
-This is where the three-state of §2.1 costs something real, and it is worth naming: the
-board that has *both* fewer traps and more free arrows does exist, around a share of
-`−0.8` (479 traps against 695, and 554 free arrows against 436), and a three-state
-cannot reach it. The knob buys its honesty by giving up the one setting a beginner
-preset would have liked best. If that board turns out to be what the levels want, the
-way back is a fourth word rather than a return to the share.
+**The lever cannot reorder that.** It spans about 6× inside a level against 24× between
+levels, and it is asymmetric in the wrong direction for the job: avoiding is strong
+(0.13–0.31×), seeking is weak (1.24–1.61×), so the top of the ladder, where the
+proposal needed lift, is where the knob has least to give. Applying the proposal turns a
+strictly decreasing sequence into a jagged one:
 
-**Two conditions before any preset takes a non-zero value**, both of them consequences
-of measurements above rather than taste:
+| | easy | medium | hard | nightmare | extreme | huge | insane |
+|---|---|---|---|---|---|---|---|
+| today | 19.65% | 9.76% | 8.00% | 5.66% | 3.19% | 2.12% | 0.81% |
+| proposed | 5.19% | 1.69% | 8.00% | 5.66% | 4.05% | 2.63% | 1.10% |
 
-- *Cost.* With §2.1 paid down, `avoid` or `seek` on Insane takes the lab worker from
-  ~12 s of carving to ~25 s per board — the same order as `--start=tunnels`, which the
-  presets already ship. Generation time tracks the share of ranked cuts, so the
-  three-state pays the endpoint price by construction: there is no cheap middle setting
-  to hide in. A preset that doubles the wait is still a product decision rather than an
-  obvious default, but it is no longer an outlier among the presets.
-- *The `--start` combination.* `level()` gives every level a `-tunnels` variant, so a
-  preset carrying `trapBias` bundles the two. Under the §2.3 ruling that is legal and
-  means something, but what it means has never been measured — so the per-level counts
-  are taken with the bundle as it will actually ship, `-tunnels` variants included, and
-  not at `--start=random` alone.
+No assignment of three states repairs it; the arithmetic forbids it.
 
-`backbite` stays 0 in every preset: it changes the look of the boards the README
-documents, and that is a separate decision from shipping the knob.
+**Where the knob is worth having is inside a level.** Composed with `--start`, which
+§2.3 kept alive, the pair spans 5.8× on `insane`, 16× on `easy` and `hard` and 48× on
+`nightmare` — and on that axis the lever is the stronger of the two (12.8× against
+`--start`'s 2.7× on `hard-square`). That makes it a choice a player or a designer makes
+for a board, not a number a level carries. Which is exactly the surface a flag gives it.
+
+Two things this leaves open, both of them product questions rather than measurements:
+
+- `easy` being the most trap-dense level is backwards from its name. `avoid` would take
+  it from 19.65% to 5.19% in one line. That is one level's decision, and it turns on
+  what "easy" is meant to mean — the measurements cannot settle it.
+- Cost. `avoid` or `seek` on Insane takes the lab worker from ~12 s of carving to ~25 s
+  per board, the same order as `--start=tunnels`, which the presets already ship.
+  Generation time tracks the share of ranked cuts, so the three-state pays the endpoint
+  price by construction: there is no cheap middle setting to hide in.
 
 ## 5. Blast radius, per PR
 
@@ -326,7 +329,10 @@ the undo path. What is left:
   the lever, with and without voids. It asserts that a frontier actually receded, so it
   cannot pass on a table that only ever grew, and disabling the rebuild branch makes it
   fail.
-- The per-level trap counts that decide §4, and the fingerprint pair.
+- ~~The per-level trap counts that decide §4~~ Done, and §4 reversed: the levels
+  already order the trap share monotonically, backwards, and the lever is too narrow to
+  reorder them. No preset takes it.
+- The fingerprint pair.
 
 **R2:**
 
