@@ -16,6 +16,16 @@ import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
 export const COMMAND_PREFIX = 'deno task carve'
 
+/**
+ * An own-property read of one of the dictionaries below. They are plain object
+ * literals, so a key that came from the command line would otherwise reach
+ * Object.prototype: `--start=constructor` used to read a native function and
+ * take it for a word. A key from outside must find an own property or nothing.
+ */
+function own<T>(dict: Readonly<Record<string, T>>, key: string): T | undefined {
+  return Object.hasOwn(dict, key) ? dict[key] : undefined
+}
+
 /** A knob flag whose value may also be a word: the word and the number it stores. */
 const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
   Lmax: { auto: 0 },
@@ -94,7 +104,9 @@ const KNOB_FLAGS = PARAM_SPEC.filter((s) => s.surface !== 'start').length + 1
 
 /** The number a word stands for, or null when the knob has no such word. */
 function wordValue(key: ParamKey, raw: string): number | null {
-  return WORDS[key]?.[raw] ?? null
+  const words = WORDS[key]
+  if (words === undefined) return null
+  return own(words, raw) ?? null
 }
 
 /**
@@ -493,7 +505,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     const name = (eq < 0 ? a.slice(2) : a.slice(2, eq)).toLowerCase()
     const raw = eq < 0 ? null : a.slice(eq + 1)
     seen.add(name) // given, even if the value is bad: that is its own error
-    const retired = RETIRED[name]
+    const retired = own(RETIRED, name)
     if (retired !== undefined) {
       errors.push(`--${name} is gone: ${retired}`)
       continue
@@ -503,8 +515,8 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       continue
     }
     if (name === 'start') {
-      const word = raw === null ? undefined : START.words[raw]
-      if (word) {
+      const word = raw === null ? undefined : own(START.words, raw)
+      if (word !== undefined) {
         pin('headBias', word.headBias)
         pin('mix', word.mix)
         continue
