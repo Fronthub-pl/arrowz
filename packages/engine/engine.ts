@@ -2602,7 +2602,11 @@ const PARAM_TABLE = [
     max: 20,
     step: 1,
     def: 6,
-    inactive: skeletonOff,
+    // The engine reads Math.max(anticoil, giantAnticoil) and nothing else, so
+    // at or below the general penalty this knob cannot change a single cell --
+    // which is where its default sits (6 against 6). The lab said nothing about
+    // that until now; the README always did.
+    inactive: (p) => skeletonOff(p) ?? (p.giantAnticoil <= p.anticoil ? 'anticoilWins' : null),
     help: 'Self-touching penalty for the skeleton alone. The higher of this and the general one applies.',
   },
   {
@@ -2685,6 +2689,7 @@ export const INACTIVE_REASONS: Record<InactiveKey, string> = {
   skeletonOff: 'requires skeleton pieces > 0',
   probeOff: 'only works with probe share > 0',
   stepZero: 'only works with serpentine step > 0',
+  anticoilWins: 'only acts above the general coiling penalty',
 }
 
 export function defaultParams(): Params {

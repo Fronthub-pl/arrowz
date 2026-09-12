@@ -228,6 +228,7 @@ export const PL: Translation = {
     skeletonOff: 'wymaga elementów szkieletowych > 0',
     probeOff: 'działa tylko przy udziale sond > 0',
     stepZero: 'działa tylko przy skoku serpentyny > 0',
+    anticoilWins: 'działa dopiero powyżej ogólnej kary za zwijanie',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 17',

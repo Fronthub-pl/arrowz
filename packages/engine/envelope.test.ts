@@ -2,7 +2,7 @@
 // narrowed ranges and the cross-knob rules the engine validates against, the
 // refusal in generate(), and proof that validation left the algorithm alone.
 // Run: deno test --allow-read --allow-run packages/engine/
-import { assert, assertEquals, assertMatch, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertMatch, assertNotEquals, assertThrows } from '@std/assert'
 import {
   defaultParams,
   fingerprint,
@@ -358,6 +358,38 @@ Deno.test('inactive: giantStraight acts at every serpentine step', () => {
   assertEquals(inactiveOf('giantJitter')(withDefaults({ giants: 4, giantStep: 0 })), 'stepZero')
   assertEquals(inactiveOf('giantJitter')(on), null)
   assertEquals('stepNonZero' in INACTIVE_REASONS, false, 'stepNonZero reason removed')
+})
+
+Deno.test('inactive: giantAnticoil is dead at or below the general penalty, and the boards say so', () => {
+  const inactive = inactiveOf('giantAnticoil')
+  // The rule at its boundary -- and the DEFAULT sits on it, 6 against 6.
+  assertEquals(inactive(withDefaults({ giants: 4 })), 'anticoilWins')
+  assertEquals(inactive(withDefaults({ giants: 4, giantAnticoil: 5 })), 'anticoilWins')
+  assertEquals(inactive(withDefaults({ giants: 4, giantAnticoil: 7 })), null)
+  // The boundary is the other knob, not the number 6: raising the general
+  // penalty puts a value that was live back to sleep, and lowering it wakes one.
+  assertEquals(inactive(withDefaults({ giants: 4, anticoil: 8, giantAnticoil: 7 })), 'anticoilWins')
+  assertEquals(inactive(withDefaults({ giants: 4, anticoil: 3, giantAnticoil: 6 })), null)
+  // With no skeleton at all the older reason speaks: it explains more.
+  assertEquals(inactive(withDefaults({ giants: 0, wGiant: 0, giantAnticoil: 20 })), 'skeletonOff')
+
+  // What makes the dimming honest: while the rule fires the board does not move
+  // at all. The engine reads Math.max(anticoil, giantAnticoil) in one place and
+  // nowhere else, so every dimmed value has to carve the same cells.
+  const board = (anticoil: number, giantAnticoil: number): string =>
+    fingerprint(generate(withDefaults({ W: 60, H: 60, seed: 3, giants: 4, anticoil, giantAnticoil })).board)
+  assertEquals(new Set([1, 3, 6].map((ga) => board(6, ga))).size, 1, 'the dimmed values carved different boards')
+  assertEquals(
+    new Set([1, 3].map((ga) => board(3, ga))).size,
+    1,
+    'the dimmed values carved different boards at anticoil 3',
+  )
+  // And a value the rule calls live does change the board. The penalty is
+  // coarse, so not every step above the floor moves a given board -- these two
+  // are the measured ones, and one of them is 6, dead at anticoil 6 and alive
+  // at 3, which is the whole point of the rule reading both knobs.
+  assertNotEquals(board(6, 12), board(6, 6), 'giantAnticoil 12 carved the board anticoil 6 already gave')
+  assertNotEquals(board(3, 6), board(3, 3), 'giantAnticoil 6 carved the board anticoil 3 already gave')
 })
 
 // The retired knobs were inert at their defaults: pinning them as constants
