@@ -52,6 +52,7 @@
     "fmt": "deno fmt --check",
     "verify": "deno task check && deno task lint && deno task fmt && deno task test",
     "carve": "deno task --cwd=packages/cli carve",
+    "report": "deno task --cwd=packages/cli report",
     "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
     "lab": "deno task --cwd=packages/cli lab",
     "bundle": "deno task --cwd=packages/cli bundle",

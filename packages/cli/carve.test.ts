@@ -339,6 +339,19 @@ Deno.test('carve.ts --help is short, --help=knobs adds the table, both exit 0 wi
   assertEquals(entries(dir), 0)
 })
 
+Deno.test('carve.ts refuses an unknown value of --help by name, exit code 2', () => {
+  const dir = tmp()
+  const r = dryRun(['--help=bogus', '--dry-run', '--width=10', '--height=10'], dir)
+  assertEquals(r.status, 2)
+  assert(r.json, `no JSON line in:\n${r.stdout}`)
+  assertEquals(r.json.ok, false)
+  assert(
+    (r.json.errors ?? []).join(' ').includes('--help=bogus is not --help or --help=knobs'),
+    r.stdout,
+  )
+  assertEquals(entries(dir), 0, 'nothing is written')
+})
+
 // --- boards that do not close -------------------------------------------------
 // A board that did not close still goes to the store, with its holes drawn,
 // so that a jam can be looked at in the lab and not only counted; the exit
@@ -392,6 +405,15 @@ Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSO
   const bad = dryRun(['--dry-run', '--width=10', '--height=10'], dir, { CARVE_TIMEOUT_S: 'soon' })
   assertEquals(bad.status, 2)
   assertMatch(bad.stderr, /invalid CARVE_TIMEOUT_S: soon/)
+})
+
+Deno.test('carve.ts --dry-run of a board that does not close still prints the pinned knobs', () => {
+  const dir = tmp()
+  const r = dryRun([...LONG, '--dry-run', '--restarts=4'], dir, { CARVE_TIMEOUT_S: '0' })
+  assertEquals(r.status, 1, r.stderr)
+  assert(r.json, `no JSON line in:\n${r.stdout}`)
+  assertEquals(r.json.ok, false)
+  assertEquals(r.json.pinned, ['restarts'], 'a script need not parse stderr for a board that does not close either')
 })
 
 // --- the everyday flags make the board the lab's simple view makes -------------

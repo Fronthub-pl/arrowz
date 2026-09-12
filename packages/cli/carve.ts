@@ -85,12 +85,6 @@ const rest = parsed.rest
 // Mode flags (not engine parameters) — read from what is left after the parser.
 const has = (flag: string): boolean => rest.includes(`--${flag}`)
 
-// --help wins over a bad flag: it is what a user reaches for to fix one.
-if (has('help') || rest.includes('-h') || rest.some((a) => a.startsWith('--help='))) {
-  console.log(helpText({ knobs: rest.includes('--help=knobs') }))
-  Deno.exit(0)
-}
-
 // --- the safe envelope ------------------------------------------------------
 // The parser only parses; here the parsed parameters meet the ranges and the
 // cross-knob rules of the engine. A violation ends the run before any board
@@ -119,6 +113,19 @@ function refuseViolations(items: readonly Violation[]): never {
   }
   Deno.exit(2)
 }
+
+// --help wins over a bad flag: it is what a user reaches for to fix one. Its
+// only values are --help and --help=knobs; an unknown value of this known
+// flag is refused by name, the same as an unknown flag is.
+const helpFlag = rest.find((a) => a === '--help' || a === '-h' || a.startsWith('--help='))
+if (helpFlag !== undefined) {
+  if (helpFlag !== '--help' && helpFlag !== '-h' && helpFlag !== '--help=knobs') {
+    refuseErrors('invalid arguments', [`${helpFlag} is not --help or --help=knobs`])
+  }
+  console.log(helpText({ knobs: helpFlag === '--help=knobs' }))
+  Deno.exit(0)
+}
+
 // The flags themselves can be wrong (a missing size, a slider outside 0..1, a
 // retired spelling, an unknown flag). Checked before any knob exists.
 if (parsed.errors.length) refuseErrors('invalid arguments', parsed.errors)
@@ -128,6 +135,10 @@ if (parsed.errors.length) refuseErrors('invalid arguments', parsed.errors)
 // is. The pins go on top of the draw, so every knob nobody named keeps the
 // value it would have had without them.
 const pinned: Partial<Record<ParamKey, number>> = {}
+// Reading a pin back out of parsed.params (rather than off the flag itself)
+// is correct only because the clamp below never moves a pinned value once
+// simpleParams has written it; a clamp that could would silently re-pin the
+// moved value here.
 for (const key of parsed.pins) pinned[key] = parsed.params[key]
 const params = simpleParams(parsed.choice, parsed.choice.random ? Math.random : null, pinned)
 function refuseInvalid(p: Params): void {
@@ -266,6 +277,7 @@ if (!result.ok) {
         ok: false,
         aborted,
         stuck,
+        pinned: parsed.pins,
         restarts: result.restartsUsed,
         backtracks: result.backtracks,
         genMs: result.genMs,
@@ -408,9 +420,3 @@ console.log(
   } s`,
 )
 Deno.exit(0)
-
-// The metrics report and the benchmark used to run from here, for a call that
-// named no board mode. With one mode every run makes a board, so they became
-// unreachable code that no longer type-checks: they move to `deno task report`
-// in their own commit, and the block they start from is kept verbatim in git
-// at c3037ec:packages/cli/carve.ts.

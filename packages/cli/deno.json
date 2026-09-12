@@ -6,6 +6,7 @@
   },
   "tasks": {
     "carve": "deno run --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG carve.ts",
+    "report": "deno run --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG report.ts",
     "bundle": "deno bundle --platform browser --outdir dist --sourcemap linked lab-page.ts lab-worker.ts",
     "lab": "sh lab.sh",
     "compile": "deno compile --allow-read --allow-write --allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG -o dist/carve carve.ts"
