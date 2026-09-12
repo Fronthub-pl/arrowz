@@ -42,20 +42,37 @@ const withKnob = (key: ParamKey, value: number): Params => {
 const withRaw = (over: Record<string, unknown>): Params => ({ ...defaultParams(), ...over } as Params)
 
 // The envelope as measured on 2026-09-08 (~8100 runs without restarts, boards
-// up to 400x400). Pinned here on purpose instead of read from PARAM_SPEC, so
-// that a range drifting back to its old width fails this test. `old` are the
-// former extremes that the measurements showed to jam or only cost time.
-const NARROWED: { key: ParamKey; min: number; max: number; old: number[] }[] = [
+// up to 400x400), and narrowed again on 2026-09-12 wherever a knob's own
+// arithmetic makes its far end mean nothing. Pinned here on purpose instead of
+// read from PARAM_SPEC, so that a range drifting back to its old width fails
+// this test. `old` are the former extremes; `with` holds the companion knobs a
+// bound needs so that reaching it does not break a cross-knob rule.
+const NARROWED: { key: ParamKey; min: number; max: number; old: number[]; with?: Partial<Params> }[] = [
   { key: 'pStraight', min: 0.6, max: 1, old: [0, 0.3] },
   { key: 'warns', min: 2, max: 16, old: [0, 1] },
   { key: 'anticoil', min: 1, max: 10, old: [20] },
   { key: 'absorbLimit', min: 12, max: 64, old: [0] },
   { key: 'headTries', min: 2, max: 16, old: [1, 32] },
-  { key: 'maxBack', min: 0, max: 1000, old: [200000] },
+  // The old 0 was an "auto" the engine read as 200, so the slider ran
+  // 0 (=200), 50, 100 ... and got STRICTER as it moved right, with 200
+  // duplicating 0 under a second board id. The number stands for itself now.
+  { key: 'maxBack', min: 50, max: 1000, old: [0, 200000] },
   { key: 'restarts', min: 0, max: 5, old: [10] },
   { key: 'wGiant', min: 0, max: 0.2, old: [0.5] },
-  { key: 'giantStraight', min: 0.3, max: 1, old: [0] },
+  // Straightness is a weight of pStraight / (1 - pStraight): it is 1 at 0.5
+  // and BELOW 1 under it, so a knob named after straightness used to punish
+  // going straight. 0.5 is where it stops arguing with its own label.
+  { key: 'giantStraight', min: 0.5, max: 1, old: [0, 0.3] },
   { key: 'giantSpacing', min: 1, max: 3, old: [6] },
+  // sharesSum caps short plus medium at 0.9, so the top tenth of each share
+  // was a value with no legal partner.
+  { key: 'wShort', min: 0, max: 0.9, old: [1], with: { wMid: 0 } },
+  { key: 'wMid', min: 0, max: 0.9, old: [1], with: { wShort: 0 } },
+  // A probe draws max(4, round(probeLen * (0.5 + r))), so 2 and 3 both draw 4
+  // every single time: measured on 40x40 with probe 1, one fingerprint for both.
+  { key: 'probeLen', min: 4, max: 200, old: [2, 3] },
+  // Only --start writes the mixing share, and it spells 0.3 to 0.7.
+  { key: 'mix', min: -1, max: 0.7, old: [1] },
 ]
 
 Deno.test('envelope: the defaults validate clean', () => {
@@ -87,15 +104,18 @@ Deno.test('envelope: each old extreme is a range violation naming min and max', 
   for (const n of NARROWED) {
     const label = spec(n.key).label
     for (const value of n.old) {
-      const v = validateParams(withKnob(n.key, value))
+      // A value the range refuses often breaks a cross-knob rule as well — a
+      // share of 1 has no partner left. The rules are another test's business.
+      const v = validateParams({ ...withKnob(n.key, value), ...n.with }).filter((x) => x.kind !== 'rule')
       assertEquals(v, [{ kind: 'range', key: n.key, value, min: n.min, max: n.max }], `${n.key}=${value}`)
       const first = v[0]
       assert(first, `${n.key}=${value}: a violation`)
       assertEquals(formatViolation(first), `${label}: ${value} is outside ${n.min}..${n.max}`)
     }
-    // The bounds themselves are inside.
-    assertEquals(validateParams(withKnob(n.key, n.min)), [], `${n.key}=${n.min}`)
-    assertEquals(validateParams(withKnob(n.key, n.max)), [], `${n.key}=${n.max}`)
+    // The bounds themselves are inside, rules and all.
+    for (const bound of [n.min, n.max]) {
+      assertEquals(validateParams({ ...withKnob(n.key, bound), ...n.with }), [], `${n.key}=${bound}`)
+    }
   }
 })
 
@@ -169,12 +189,12 @@ Deno.test('snapToStep: the nearest stop, counted from the knob minimum', () => {
 })
 
 Deno.test('envelope: a step violation names the knob, the step and the two stops around the value', () => {
-  const v: Violation = { kind: 'step', key: 'maxBack', value: 25, step: 50, min: 0 }
+  const v: Violation = { kind: 'step', key: 'maxBack', value: 75, step: 50, min: 50 }
   const text = formatViolation(v)
   assert(text.includes(spec('maxBack').label), text)
-  assert(text.includes('25'), text)
+  assert(text.includes('75'), text)
   assert(text.includes('50'), text)
-  assert(text.includes('0'), text)
+  assert(text.includes('100'), text)
 })
 
 Deno.test('envelope: the knob table holds 26 keys, and the retired ones are gone', () => {
@@ -198,19 +218,56 @@ Deno.test('rule sharesSum: short plus medium at most 0.9, at the boundary', () =
   assertEquals(validateParams(withDefaults({ wShort: 0.7, wMid: 0.2 })), [])
   assertEquals(validateParams(withDefaults({ wShort: 0.9, wMid: 0 })), [])
   assertEquals(validateParams(withDefaults({ wShort: 0.5, wMid: 0.41 })), rule('sharesSum'))
-  assertEquals(validateParams(withDefaults({ wShort: 1, wMid: 0 })), rule('sharesSum'))
+  // Both shares inside their own range, the sum over the cap: the rule is the
+  // only thing that can say it.
+  assertEquals(validateParams(withDefaults({ wShort: 0.9, wMid: 0.01 })), rule('sharesSum'))
   const first = rule('sharesSum')[0]
   assert(first)
   assertEquals(first.kind === 'rule' ? first.keys : null, ['wShort', 'wMid'])
 })
 
-Deno.test('rule lmaxHole: Lmax is 0 or at least 6, at the boundary', () => {
+Deno.test('rule lmaxHole: Lmax is 0 or at least 17, at the boundary', () => {
   assertEquals(validateParams(withDefaults({ Lmax: 0 })), [])
-  assertEquals(validateParams(withDefaults({ Lmax: 6 })), [])
+  assertEquals(validateParams(withDefaults({ Lmax: 17 })), [])
   assertEquals(validateParams(withDefaults({ Lmax: 5000 })), [])
-  for (const Lmax of [1, 3, 5]) {
+  for (const Lmax of [1, 3, 5, 6, 10, 16]) {
     assertEquals(validateParams(withDefaults({ Lmax })), rule('lmaxHole'), `Lmax=${Lmax}`)
   }
+})
+
+// Why the floor moved from 6 up to 17. The cap cuts the length buckets from
+// the top, and 17 is the first value that cuts none of them: the medium bucket
+// runs to 15, the long one starts at 16 and is drawn between 16 and max(17,
+// cap). Under a lower cap the medium and the long bucket both return the cap
+// itself, and both spend exactly one random draw doing it — so the share
+// between them changes nothing whatsoever, while the board id says it did.
+Deno.test('rule lmaxHole: under the old floor the medium share was dead weight', () => {
+  const board = (Lmax: number, wMid: number): string =>
+    fingerprint(generate(withDefaults({ W: 40, H: 40, Lmax, wMid }), { unchecked: true }).board)
+  assertEquals(board(6, 0.08), board(6, 0.7), 'cap 6: the share of medium pieces changed nothing')
+  assert(board(17, 0.08) !== board(17, 0.7), 'cap 17: the share is back in play')
+})
+
+// Why the probe length starts at 4: the drawn length is max(4, round(probeLen
+// * (0.5 + r))), and for 2 and 3 the rounded part never reaches 4.
+Deno.test('probe length: below 4 every probe came out the same length', () => {
+  const board = (probeLen: number): string =>
+    fingerprint(generate(withDefaults({ W: 40, H: 40, probe: 1, probeLen }), { unchecked: true }).board)
+  assertEquals(board(2), board(3), 'probe lengths 2 and 3 drew the same board')
+  assert(board(3) !== board(4), 'probe length 4 draws its own board')
+})
+
+// The backtrack budget used to be zero for "auto", which the engine read as
+// 200 — two stored values, one board, two ids, and a slider that grew
+// stricter as it moved right. The number is the value now; `auto` is a
+// spelling of it (see command.test.ts), and the default is what auto meant.
+Deno.test('envelope: the backtrack budget is a plain number, not a sentinel', () => {
+  assertEquals(spec('maxBack').def, 200)
+  assertEquals(validateParams(withDefaults({ maxBack: 0 })), [
+    { kind: 'range', key: 'maxBack', value: 0, min: 50, max: 1000 },
+  ])
+  // The label no longer has to explain a hole in its own range.
+  assert(!spec('maxBack').label.includes('auto'), spec('maxBack').label)
 })
 
 // Width, height and seed step by 1, so the step says what the wholeNumbers
@@ -252,7 +309,9 @@ Deno.test('rule startPair: only a pair --start can spell', () => {
   assertEquals(validateParams(withDefaults({ headBias: 1, mix: 0.5 })), rule('startPair'))
   assertEquals(validateParams(withDefaults({ headBias: -1, mix: 0.5 })), rule('startPair'))
   // The hole of the share range, and the mix of 0 that is a third behaviour.
-  for (const mix of [0, 0.2, 0.75, 1]) {
+  // Above 0.7 the knob's own range now speaks first, so the rule is left with
+  // the gap between the sentinel and the window.
+  for (const mix of [0, 0.2] as const) {
     assertEquals(validateParams(withDefaults({ headBias: 0, mix })), rule('startPair'), `mix=${mix}`)
   }
   const first = rule('startPair')[0]

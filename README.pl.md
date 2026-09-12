@@ -708,7 +708,7 @@ nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 
 **`--probe` — jedna docelowa długość dla wszystkich strzałek**
 
-| `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
+| `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
 | 253 strzałki, żadna dłuższa niż 4 kwadraty | 61 strzałek, najdłuższa 92 kwadraty |

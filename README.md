@@ -709,7 +709,7 @@ change the picture; the fourth changes something you cannot see.
 
 **`--probe` — one target length for every arrow**
 
-| `--probe=1 --probelen=2` | `--probe=1 --probelen=200` |
+| `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
 | 253 arrows, none longer than 4 squares | 61 arrows, longest 92 squares |

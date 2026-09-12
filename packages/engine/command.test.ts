@@ -17,7 +17,7 @@ import {
   wordFor,
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
+import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import type { Params, ViewNumber } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
@@ -84,7 +84,7 @@ Deno.test('buildCommand: a head knob at its default adds no flag; a zero height 
 Deno.test('words are accepted and printed back', () => {
   const { params } = parseArgs([...SIZE, '--lmax=auto', '--maxback=auto', '--giantstep=random'])
   assertEquals(params.Lmax, 0)
-  assertEquals(params.maxBack, 0)
+  assertEquals(params.maxBack, 200) // not a sentinel any more: auto is a spelling of the number
   assertEquals(params.giantStep, 0)
   // The flag itself, not the command: a knob at its default is left out of the
   // command altogether, so "the command has no --lmax=0 in it" could never go
@@ -103,12 +103,38 @@ Deno.test("START is read-only: the words and the share range are the parser's ow
   assertEquals([START.mix.min, START.mix.max], [0.3, 0.7])
 })
 
+// The window of shares --start can spell used to be written out three times:
+// here, in the startPair rule and in the sentence the rule is reported with.
+// One of them is the source, and the knob's own range may not run past it —
+// a stored mix above 0.7 would be a board no command text names.
+Deno.test('the mixing window has one source, and the knob range stops at it', () => {
+  assertEquals(START.mix, MIX_SHARE)
+  const mix = PARAM_SPEC.find((s) => s.key === 'mix')
+  assert(mix, 'mix is a knob')
+  assertEquals(mix.max, MIX_SHARE.max)
+  assert(RULE_REASONS.startPair.includes(`${MIX_SHARE.min} to ${MIX_SHARE.max}`), RULE_REASONS.startPair)
+  // The sentinel that turns mixing off is the only value below the window.
+  assertEquals(mix.min, -1)
+})
+
+// `auto` used to be a second value (0) that the engine silently read as 200:
+// the same board twice, under two ids, from two spellings. Now it is one
+// value with two spellings, and the id cannot tell them apart.
+Deno.test('the backtrack budget: auto is a spelling of 200, not a value of its own', () => {
+  const auto = parseArgs([...SIZE, '--maxback=auto']).params
+  const plain = parseArgs([...SIZE, '--maxback=200']).params
+  assertEquals(auto.maxBack, 200)
+  assertEquals(boardId(auto), boardId(plain))
+  assertEquals(wordFor('maxBack', 200), 'auto')
+  assertEquals(wordFor('maxBack', 0), null)
+})
+
 // The lab shows the word beside the field, so it asks for it by value rather
 // than keeping a second table of its own.
 Deno.test('wordFor: the word a value is spelled with, and nothing where there is none', () => {
   assertEquals(wordFor('Lmax', 0), 'auto')
   assertEquals(wordFor('Lmax', 12), null)
-  assertEquals(wordFor('maxBack', 0), 'auto')
+  assertEquals(wordFor('maxBack', 200), 'auto')
   assertEquals(wordFor('giantStep', 0), 'random')
   assertEquals(wordFor('giantSpacing', 1), 'off')
   assertEquals(wordFor('giantSpacing', 2), null)
@@ -400,7 +426,7 @@ Deno.test('--help: "and N more" counts the rows --help=knobs prints', () => {
 // cannot live in the knob table, and the legend is where the two meet.
 Deno.test('helpText: the legend spells every word the parser takes, the view one included', () => {
   const text = helpText({ knobs: true })
-  const legend = ['--lmax=auto is 0', '--maxback=auto is 0', '--giantstep=random is 0', '--giantspacing=off is 1']
+  const legend = ['--lmax=auto is 0', '--maxback=auto is 200', '--giantstep=random is 0', '--giantspacing=off is 1']
   for (const entry of [...legend, '--arrow-width=auto is 0']) assert(text.includes(entry), `legend missing: ${entry}`)
 })
 
@@ -441,12 +467,12 @@ function rangeOf(text: string, flag: string): string {
 // --giantspacing=off|1..3 where the flag takes off|2|3.
 Deno.test('helpText: a knob row prints the values its flag really takes', () => {
   const text = helpText({ knobs: true })
-  assertEquals(rangeOf(text, '--lmax'), 'auto|6..5000')
+  assertEquals(rangeOf(text, '--lmax'), 'auto|17..5000')
   assertEquals(rangeOf(text, '--maxback'), 'auto|50..1000')
   assertEquals(rangeOf(text, '--giantstep'), 'random|1..40')
   assertEquals(rangeOf(text, '--giantspacing'), 'off|2|3')
   // The short help names the same range as the table it points at.
-  assert(helpText().includes('--lmax=auto|6..5000'), helpText())
+  assert(helpText().includes('--lmax=auto|17..5000'), helpText())
 })
 
 // Spec §8: the table is where a flag gets copied from, so a row nobody can

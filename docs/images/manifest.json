@@ -124,7 +124,7 @@
     },
     {
       "out": "adv-probe-short",
-      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=2", "--cell=18", "--colored"],
+      "flags": ["--width=30", "--height=30", "--seed=7", "--probe=1", "--probelen=4", "--cell=18", "--colored"],
       "width": 420
     },
     {

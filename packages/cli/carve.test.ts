@@ -287,20 +287,27 @@ Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, no
 })
 
 // A share named on the command line can ask for more than the cap allows.
-// The clamp then moves the partner nobody named, and must stop at 0: the
-// refusal has to be the rule about the sum, never a range violation about a
-// knob the command line never mentioned.
+// The clamp then moves the partner nobody named, and must stop at 0: every
+// line of the refusal has to be about the share that was named, or about the
+// sum — never a range violation about a knob the command line never mentioned.
 Deno.test('a share pinned above the cap is refused by the sum rule, not by its partner', () => {
   const sharesSum = { kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }
-  for (const flag of ['--wshort=1', '--wmid=1']) {
+  const cases = [['--wshort=1', 'wShort'], ['--wmid=1', 'wMid']] as const
+  for (const [flag, key] of cases) {
     const dir = tmp()
     const r = dryRun(['--dry-run', '--width=10', '--height=10', flag], dir)
     assertEquals(r.status, 2, flag)
     assert(r.json, `no JSON line in:\n${r.stdout}`)
     assertEquals(r.json.error, 'invalid parameters', flag)
-    assertEquals(r.json.violations, [sharesSum], flag)
+    assertEquals(r.json.violations, [{ kind: 'range', key, value: 1, min: 0, max: 0.9 }, sharesSum], flag)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
+  // The cap and the top of the range are the same number now, so the share
+  // the clamp can actually satisfy is carved instead of refused.
+  const dir = tmp()
+  const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--wshort=0.9'], dir)
+  assertEquals(ok.status, 0, ok.stdout + ok.stderr)
+  assertEquals(ok.json?.params?.wMid, 0, 'the partner is clamped to zero, and that validates')
 })
 
 Deno.test('carve.ts --svg with invalid parameters: exit 2, both messages on stderr, no file', () => {
@@ -489,7 +496,7 @@ Deno.test('carve.ts --help is short, --help=knobs adds the table, both exit 0 wi
   const knobs = dryRun(['--help=knobs', '--pstraight=0'], dir)
   assertEquals(knobs.status, 0)
   assertMatch(knobs.stdout, /--pstraight=0\.6\.\.1\s+straightness bias/)
-  assert(knobs.stdout.includes('maximum length must be 0 (automatic) or at least 6'))
+  assert(knobs.stdout.includes('maximum length must be 0 (automatic) or at least 17'))
   assert(knobs.stdout.includes('--start=layers|random|tunnels'), 'the merged control is listed')
   assertEquals(knobs.stderr, '')
   assertEquals(entries(dir), 0)
