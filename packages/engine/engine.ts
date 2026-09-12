@@ -95,12 +95,6 @@ type CarverOptions = {
   voidFrac?: number | undefined
   ruleB?: boolean | undefined
   /**
-   * MEASUREMENT ONLY (R2 of the prior-art adoption spec, not a knob): how many
-   * consecutive tail backbites the growth loop may use to escape a stall. 0 is
-   * today's engine, cell for cell — no draw is made and no branch is taken.
-   */
-  backbite?: number | undefined
-  /**
    * MEASUREMENT ONLY (R1 spike, not a knob): the sign is the direction and the
    * magnitude is the share of cuts that rank by it. +1 ranks heads whose line
    * prefix has a single owner first, so the piece ends up with exactly one
@@ -119,7 +113,7 @@ class Carver implements Board {
   trace: ((info: TraceInfo) => void) | undefined
   debug: ((msg: string) => void) | undefined
   ruleB: boolean
-  /** MEASUREMENT ONLY: cap on consecutive tail backbites; 0 disables the move. */
+  /** Cap on consecutive tail backbites (the `backbite` knob); 0 disables the move. */
   backbiteCap: number
   /**
    * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
@@ -169,11 +163,13 @@ class Carver implements Board {
     this.trace = opts.trace
     this.debug = opts.debug
     this.ruleB = opts.ruleB ?? true
-    this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
+    // Clamped here as well as in the envelope, because generate()'s
+    // `unchecked` path hands over a Params that validateParams never saw.
+    this.backbiteCap = Math.max(0, Math.floor(params.backbite))
     // The knob is the source. The option overrides it because the share the
     // three-state was chosen over is only reachable this way and has to stay
-    // measurable (scripts/measure-r1-share.ts); it is clamped like
-    // backbiteCap, since validateParams never sees an override.
+    // measurable (scripts/measure-r1-share.ts); the override is clamped here,
+    // since validateParams never sees it.
     this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? params.trapBias))
     // The upkeep is folded into recomputeLines, so it costs the lines a cut
     // moves rather than a pass over the board; it is only paid when the spike
@@ -975,8 +971,8 @@ class Carver implements Board {
    * random order — the FULL SCAN that `run()` makes before it undoes anything.
    */
   /**
-   * MEASUREMENT ONLY (R2). The backbite move of Mansfield (2006), applied to
-   * the TAIL: pick an own cell adjacent to the tail that is not its
+   * The backbite move of Mansfield (2006), applied to the TAIL, and what the
+   * `backbite` knob buys: pick an own cell adjacent to the tail that is not its
    * predecessor, drop the edge that would close the loop, and reverse the
    * suffix behind it. The cell set is unchanged, the path stays simple, and
    * cells[0] — the head, hence the ray, the blockers and the piece's place in
@@ -1202,8 +1198,8 @@ class Carver implements Board {
           const warns = isGiant ? GIANT_WARNS : p.warns
           const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
           let lastDir: Step = { dx: back.dx, dy: back.dy }
-          // MEASUREMENT ONLY (R2): consecutive backbites left; refilled by every
-          // cell the loop manages to add, so the cap bounds a run of escapes.
+          // Consecutive backbites left; refilled by every cell the loop manages
+          // to add, so the knob bounds a run of escapes rather than a piece.
           let bitesLeft = this.backbiteCap
 
           if (isGiant && p.giantStep > 0) {
@@ -1290,10 +1286,10 @@ class Carver implements Board {
               cand.push({ x: nx, y: ny, dd, w })
             }
             if (!cand.length) {
-              // MEASUREMENT ONLY (R2): before recording a stall, try to bite the
-              // tail back onto the path. The move changes neither the cell set
-              // nor the head, so the piece keeps its ray and its blockers; it
-              // only hands the growth loop a different tail to grow from.
+              // Before recording a stall, try to bite the tail back onto the
+              // path. The move changes neither the cell set nor the head, so
+              // the piece keeps its ray and its blockers; it only hands the
+              // growth loop a different tail to grow from.
               if (bitesLeft > 0 && this.backbiteTail(path, pathPos)) {
                 bitesLeft--
                 const t = at(path, path.length - 1), q = at(path, path.length - 2)
@@ -2402,6 +2398,17 @@ const PARAM_TABLE = [
     def: 0,
     help:
       'The longest piece the generator tries for. auto = 2.5 x the longer side. Below 17 the cap eats the medium and long buckets, so use auto or 17 and up.',
+  },
+  {
+    key: 'backbite',
+    label: 'tail rework when a line gets stuck',
+    group: 'lengths',
+    min: 0,
+    max: 8,
+    step: 1,
+    def: 0,
+    help:
+      'How many times in a row a line that has nowhere left to go may rework its own tail instead of stopping. 0 is off. Higher gives longer pieces and fewer of them.',
   },
 
   {

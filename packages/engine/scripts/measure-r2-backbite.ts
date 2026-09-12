@@ -74,7 +74,7 @@ function runOne(
   budgetMs: number,
   checkFingerprint: boolean,
 ): Row {
-  const p: Params = { ...defaultParams(), ...params, seed }
+  const p: Params = { ...defaultParams(), ...params, seed, backbite }
   const violations = validateParams(p)
   if (violations.length) {
     throw new Error(`${label}: outside the envelope: ${violations.map((v) => `${v.kind}:${v.key}`).join(', ')}`)
@@ -90,7 +90,6 @@ function runOne(
     used = attempt
     metrics = null
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), {
-      backbite,
       trace: () => {
         if (performance.now() > deadline) throw new GenerateAbort()
       },

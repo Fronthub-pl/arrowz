@@ -22,6 +22,7 @@ import {
 import * as engineExports from './engine.ts'
 import type {
   BoardData,
+  Cell,
   GenerateResult,
   InactiveKey,
   Metrics,
@@ -1159,9 +1160,90 @@ Deno.test("carver: the cell behind every head is the piece's second cell", () =>
   // carveOne starts every path as [head, cell behind head]; anything that
   // rewrites a path afterwards has to keep that.
   for (const backbite of [0, 2, 8]) {
-    const p: Params = { ...defaultParams(), W: 40, H: 40, seed: 7 }
-    const c = new Carver(p.W, p.H, p, mulberry32(p.seed), { backbite })
+    const p: Params = { ...defaultParams(), W: 40, H: 40, seed: 7, backbite }
+    const c = new Carver(p.W, p.H, p, mulberry32(p.seed))
     assert(c.run(), `backbite ${backbite}: the board did not close`)
     assertEquals(neckOutOfPlace(c), null, `backbite ${backbite}`)
   }
+})
+
+/**
+ * Is `path` still a simple path, and does `pathPos` still agree with it? The
+ * loop's `pathSet` needs no upkeep — the bite never changes which cells are on
+ * the path — but `pathPos` is rewritten by every bite, and it is where the next
+ * bite looks its spots up.
+ */
+function pathBroken(c: Carver, path: Cell[], pathPos: Map<number, number>): string | null {
+  const seen = new Set<number>()
+  for (let i = 0; i < path.length; i++) {
+    const cell = at(path, i)
+    const id = c.idx(cell.x, cell.y)
+    if (seen.has(id)) return `cell (${cell.x}, ${cell.y}) appears twice`
+    seen.add(id)
+    if (pathPos.get(id) !== i) return `pathPos says ${pathPos.get(id)} for the cell at position ${i}`
+    if (i > 0) {
+      const prev = at(path, i - 1)
+      if (Math.abs(prev.x - cell.x) + Math.abs(prev.y - cell.y) !== 1) {
+        return `positions ${i - 1} and ${i} are not neighbours`
+      }
+    }
+  }
+  if (pathPos.size !== path.length) return `pathPos holds ${pathPos.size} cells for a path of ${path.length}`
+  return null
+}
+
+Deno.test('backbite: the move keeps the head, the neck, the cell set and a simple path', () => {
+  // The move itself, away from the growth loop: everything the loop assumes
+  // about a path it did not grow has to survive every bite, not just the last.
+  const p: Params = { ...defaultParams(), W: 6, H: 6 }
+  const c = new Carver(p.W, p.H, p, mulberry32(3))
+  // A boustrophedon over the whole board, so the tail has several own
+  // neighbours and the draw inside the move is actually exercised.
+  const path: Cell[] = []
+  for (let y = 0; y < p.H; y++) {
+    for (let x = 0; x < p.W; x++) path.push({ x: y % 2 === 0 ? x : p.W - 1 - x, y })
+  }
+  const pathPos = new Map<number, number>()
+  path.forEach((cell, i) => pathPos.set(c.idx(cell.x, cell.y), i))
+  const head = { ...at(path, 0) }, neck = { ...at(path, 1) }
+  const cells = new Set(path.map((cell) => c.idx(cell.x, cell.y)))
+  let bites = 0
+  for (let k = 0; k < 200; k++) {
+    if (!c.backbiteTail(path, pathPos)) continue
+    bites++
+    assertEquals(pathBroken(c, path, pathPos), null, `after bite ${bites}`)
+    assertEquals(at(path, 0), head, `bite ${bites} moved the head`)
+    assertEquals(at(path, 1), neck, `bite ${bites} moved the neck`)
+    assertEquals(path.length, cells.size, `bite ${bites} changed the length`)
+    for (const id of cells) assert(pathPos.has(id), `bite ${bites} dropped a cell`)
+  }
+  // A bite needs an own neighbour behind the tail; on this path one is almost
+  // always there, so a move that silently stopped working would show up here.
+  assert(bites > 100, `only ${bites} of 200 bites took`)
+})
+
+Deno.test('backbite: the bite that would move the neck is refused, and so is a path too short', () => {
+  const p: Params = { ...defaultParams(), W: 6, H: 6 }
+  const c = new Carver(p.W, p.H, p, mulberry32(1))
+  const make = (cells: [number, number][]): [Cell[], Map<number, number>] => {
+    const path: Cell[] = cells.map(([x, y]) => ({ x, y }))
+    const pos = new Map<number, number>()
+    path.forEach((cell, i) => pos.set(c.idx(cell.x, cell.y), i))
+    return [path, pos]
+  }
+  // The tail's only own neighbour other than its predecessor is the HEAD.
+  // Biting there reverses the suffix from cells[1], which is the neck — the
+  // bug the playground caught. The move has to say no and let the loop stall.
+  const [ring, ringPos] = make([[0, 0], [0, 1], [1, 1], [1, 0]])
+  assertEquals(c.backbiteTail(ring, ringPos), false)
+  assertEquals(ring.map((cell) => [cell.x, cell.y]), [[0, 0], [0, 1], [1, 1], [1, 0]])
+  // Three cells leave no legal spot at all: position 0 is the only neighbour
+  // the tail can reach, and a suffix of one cell reverses to itself.
+  const [short, shortPos] = make([[0, 0], [0, 1], [1, 1]])
+  assertEquals(c.backbiteTail(short, shortPos), false)
+  // The shortest path that CAN be bitten, with the one legal spot taken.
+  const [hook, hookPos] = make([[0, 0], [1, 0], [2, 0], [2, 1], [1, 1]])
+  assertEquals(c.backbiteTail(hook, hookPos), true)
+  assertEquals(hook.map((cell) => [cell.x, cell.y]), [[0, 0], [1, 0], [1, 1], [2, 1], [2, 0]])
+  assertEquals(pathBroken(c, hook, hookPos), null)
 })

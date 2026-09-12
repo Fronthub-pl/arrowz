@@ -82,3 +82,32 @@ Deno.test("the trap lever at 0 is today's board, cell for cell", () => {
     assert(byName(n).fingerprint !== off.fingerprint, `${n} carved the same board as off`)
   }
 })
+
+Deno.test("the backbite cap at 0 is today's board, cell for cell", () => {
+  // The same pair as the trap lever's, for the same reason: at 0 the growth
+  // loop never reaches the bite, so `bite-off` must hash exactly as `tunnels`
+  // does. `bite-2` is in the set as well as `bite-8`, because the allowance is
+  // refilled by every cell the loop adds — a cap of 2 exercises the refill,
+  // which an endpoint alone would not. Recorded at 100x200 with the fixed
+  // move, the one that bites from position 1 so the neck stays put.
+  const byName = (n: string): GoldenCase => {
+    const c = golden.cases.find((x) => x.name === n)
+    if (!c) throw new Error(`no golden case ${n}`)
+    return c
+  }
+  const off = byName('bite-off'), plain = byName('tunnels')
+  assertEquals(
+    off.argv?.filter((a) => a !== '--backbite=0'),
+    plain.argv,
+    'bite-off must ask for tunnels and nothing else',
+  )
+  assertEquals(off.fingerprint, plain.fingerprint)
+  assertEquals(off.pieces, plain.pieces)
+  // The caps that do bite must give other boards, and two different ones: a
+  // cap that stopped being read would pass the pair and fail here.
+  const on = ['bite-2', 'bite-8'].map(byName)
+  for (const c of on) assert(c.fingerprint !== off.fingerprint, `${c.name} carved the same board as off`)
+  assert(on[0]?.fingerprint !== on[1]?.fingerprint, 'bite-2 and bite-8 carved the same board')
+  // And the bite buys length: fewer pieces over the same cells.
+  for (const c of on) assert(c.pieces < off.pieces, `${c.name} has ${c.pieces} pieces, not fewer than ${off.pieces}`)
+})

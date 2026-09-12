@@ -197,8 +197,8 @@ Deno.test('envelope: a step violation names the knob, the step and the two stops
   assert(text.includes('100'), text)
 })
 
-Deno.test('envelope: the knob table holds 27 keys, and the retired ones are gone', () => {
-  assertEquals(PARAM_SPEC.length, 27)
+Deno.test('envelope: the knob table holds 28 keys, and the retired ones are gone', () => {
+  assertEquals(PARAM_SPEC.length, 28)
   for (const gone of ['hug', 'edgeHug', 'strandLimit', 'giantWarns', 'giantSpacePenalty', 'freeBias']) {
     assert(!PARAM_SPEC.some((s) => String(s.key) === gone), `${gone} is still a knob`)
   }

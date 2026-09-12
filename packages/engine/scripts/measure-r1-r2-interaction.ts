@@ -77,7 +77,7 @@ function statNum(s: CarverStats, k: keyof CarverStats): number {
 }
 
 function runOne(cfg: Config, seed: number, budgetMs: number): Row {
-  const p: Params = { ...defaultParams(), ...cfg.params, seed }
+  const p: Params = { ...defaultParams(), ...cfg.params, seed, backbite: cfg.backbite }
   const violations = validateParams(p)
   if (violations.length) throw new Error(`${cfg.set}/${cfg.label}: outside the envelope`)
   const t0 = performance.now()
@@ -92,7 +92,6 @@ function runOne(cfg: Config, seed: number, budgetMs: number): Row {
     metrics = null
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), {
       trapBias: cfg.trapBias,
-      backbite: cfg.backbite,
       trace: () => {
         if (performance.now() > deadline) throw new GenerateAbort()
       },

@@ -10,6 +10,7 @@ export type ParamKey =
   | 'wShort'
   | 'wMid'
   | 'Lmax'
+  | 'backbite'
   | 'pStraight'
   | 'wLateral'
   | 'warns'
@@ -117,7 +118,7 @@ export interface CarverStats {
   stallEdge?: number
   stallLen?: number
   stallSelfTrap?: number
-  /** MEASUREMENT ONLY (R2): tail backbites taken, and stalls they could not save. */
+  /** Tail backbites taken, and the stalls they could not save (the `backbite` knob). */
   backbites?: number
   backbiteGiveUps?: number
 }

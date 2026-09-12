@@ -613,9 +613,13 @@ Codzienna flaga to nie skrót do jednego pokrętła — ustawia cały *zestaw*:
 
 `--start` to własny, mały przypadek tej samej reguły: ustawia powyższą podstawę
 trudności, a do tego mieszankę warstw i tuneli, której nic innego nie ustawia.
-Osiem pokręteł — `lmax`, `giantstraight`, `giantanticoil`, `giantspacing`,
-`headtries`, `absorblimit`, `maxback`, `restarts` — nie należy do żadnego
-zestawu, więc nazwanie któregoś z nich nigdy nie było niejednoznaczne.
+Dziesięć pokręteł nie należy do żadnego zestawu, więc nazwanie któregoś z nich
+nigdy nie było niejednoznaczne:
+
+<!-- unbundled -->
+
+`lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`,
+`giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
 
 **Pokrętło nazwane w poleceniu wygrywa i przypina tylko samo siebie.** Bez
 `--randomized` codzienna flaga wybiera jedną wartość dla każdego pokrętła w
@@ -650,7 +654,7 @@ dokładnie tak samo jak zawsze.
 
 ### Pokrętła
 
-Wszystkie 26, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
+Wszystkie 27, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
 Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
 `off` są objaśnione tam, gdzie się pojawiają. **Krok** to odstęp między
 ustawieniami, jakie pokrętło ma do zaoferowania: wartość, która wyląduje
@@ -671,6 +675,7 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 | Długości | `--wshort` | 0–0.9 | 0.01 | `0.2` | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
 | Długości | `--wmid` | 0–0.9 | 0.01 | `0.08` | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
 | Długości | `--lmax` | `auto`\|17–5000 | 1 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** poniżej 17 limit pochłania i kubełek średnich, i długich, więc udział między nimi przestaje zmieniać planszę. Używaj `auto` albo 17 wzwyż. |
+| Długości | `--backbite` | 0–8 | 1 | `0` | Ile razy z rzędu linia, która nie ma już gdzie iść, może przerobić własny ogon, zamiast się tam zatrzymać. Grot, kwadraty strzałki i korytarz przed nią zostają takie same: przebudowane zostaje tylko ciało za grotem, co daje linii nowy ogon do rośnięcia. 0 wyłącza i daje dzisiejszą planszę, kwadrat w kwadrat. Przy 8 strzałki wychodzą średnio o mniej więcej trzecią dłuższe i jest ich o około czwartą mniej; większość tego jest już przy 2, a plansza nie liczy się mierzalnie dłużej. |
 | Kształt | `--pstraight` | 0.6–1 | 0.01 | `0.85` | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** podłoga rośnie z planszą. 0,6 domyka 500×500, 600×600 wymaga 0,65, 800×800 — 0,7, a 1000×1000 — 0,8; niskie `--warns` albo wysokie `--anticoil` podnosi ją jeszcze bardziej. |
 | Kształt | `--wlateral` | 0–20 | 0.5 | `3` | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
 | Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
