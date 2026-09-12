@@ -250,6 +250,20 @@ Deno.test('the note is printed once per run, not once per seed', () => {
   assertEquals(notes[0]?.includes(';'), false, notes[0])
 })
 
+// The tail of the note names what still sets the rest of the bundle, so it may
+// only name a flag that is actually on the command line: it used to promise
+// "--skeleton still sets giants, ..." on a run with no --skeleton at all.
+Deno.test('the note names an everyday flag only when the run was given it', () => {
+  const dir = tmp()
+  const without = runCarve(['--width=10', '--height=10', '--giantstep=5', '--dry-run'], dir)
+  assertEquals(without.status, 0, without.stderr)
+  assertStringIncludes(without.stderr, 'note: --giantstep=5 is pinned')
+  assertEquals(without.stderr.includes('--skeleton still sets'), false, without.stderr)
+  const with_ = runCarve(['--width=10', '--height=10', '--skeleton', '--giantstep=5', '--dry-run'], dir)
+  assertEquals(with_.status, 0, with_.stderr)
+  assertStringIncludes(with_.stderr, '--skeleton still sets')
+})
+
 // --- the safe envelope --------------------------------------------------------
 // Parameters outside PARAM_SPEC ranges or breaking a RULES entry are refused
 // before any generation, in every mode, with exit code 2. --pstraight=0.3 is a

@@ -3,7 +3,17 @@
 // stands in for a sentinel number, --start writes the two knobs behind it,
 // and a retired spelling is refused by name.
 import { assert, assertEquals, assertMatch, assertNotEquals } from '@std/assert'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, helpText, parseArgs, wordFor } from './command.ts'
+import {
+  boardId,
+  buildCommand,
+  COMMAND_PREFIX,
+  DEFAULT_VIEW,
+  helpText,
+  knobFlag,
+  parseArgs,
+  START,
+  wordFor,
+} from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import type { Params } from './types.ts'
@@ -74,9 +84,21 @@ Deno.test('words are accepted and printed back', () => {
   assertEquals(params.Lmax, 0)
   assertEquals(params.maxBack, 0)
   assertEquals(params.giantStep, 0)
+  // The flag itself, not the command: a knob at its default is left out of the
+  // command altogether, so "the command has no --lmax=0 in it" could never go
+  // red. knobFlag is the one place a word is chosen.
+  assertEquals(knobFlag(params, 'Lmax'), '--lmax=auto')
+  assertEquals(knobFlag(params, 'maxBack'), '--maxback=auto')
+  assertEquals(knobFlag(params, 'giantStep'), '--giantstep=random')
   const text = buildCommand({ ...params, Lmax: 0, giantStep: 0 }, DEFAULT_VIEW)
-  assert(!/--lmax=0\b/.test(text), text)
   assert(/--giantstep=random/.test(text), text)
+})
+
+// The parser's own table: a consumer that could rewrite it would change what
+// every --start on the machine means, in the lab and in the CLI alike.
+Deno.test("START is read-only: the words and the share range are the parser's own", () => {
+  assertEquals(Object.keys(START.words), ['layers', 'random', 'tunnels'])
+  assertEquals([START.mix.min, START.mix.max], [0.3, 0.7])
 })
 
 // The lab shows the word beside the field, so it asks for it by value rather

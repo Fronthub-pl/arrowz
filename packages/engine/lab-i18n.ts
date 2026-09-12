@@ -258,9 +258,9 @@ export const PL: Translation = {
         'Jaka część elementów ma być średnia. Reszta po krótkich i średnich idzie na długie. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
     },
     Lmax: {
-      label: 'długość maksymalna (0 = 2,5 × bok)',
+      label: 'długość maksymalna (auto = 2,5 × bok)',
       help:
-        'Najdłuższy element, o jaki stara się generator. 0 = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj 0 albo co najmniej 6.',
+        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj auto albo co najmniej 6.',
     },
 
     pStraight: {
@@ -312,8 +312,9 @@ export const PL: Translation = {
       help: 'Docelowa długość jednego szkieletu w bokach planszy. Linia kończy wcześniej, gdy zabraknie miejsca.',
     },
     giantStep: {
-      label: 'skok serpentyny (0 = wzrost losowy)',
-      help: 'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. 0 = wzrost losowy.',
+      label: 'skok serpentyny (random = wzrost swobodny)',
+      help:
+        'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. random = wzrost swobodny, bez serpentyny.',
     },
     giantJitter: {
       label: 'urywanie biegów serpentyny',
@@ -349,9 +350,9 @@ export const PL: Translation = {
         'Fragment do tego rozmiaru, którego nie da się wyciąć, dokleja się do sąsiada. Poniżej 12 resztki się piętrzą i plansze się zacinają.',
     },
     maxBack: {
-      label: 'budżet nawrotów (0 = 200)',
+      label: 'budżet nawrotów (auto = 200)',
       help:
-        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 0 = 200, to wystarcza; więcej tylko opóźnia werdykt.',
+        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. auto = 200, to wystarcza; więcej tylko opóźnia werdykt.',
     },
     restarts: {
       label: 'dopuszczalne restarty',

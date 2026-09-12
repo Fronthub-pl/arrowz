@@ -10,7 +10,7 @@ import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from '.
 
 /** The largest POST body read. The lab posts no SVG, and a 1000×1000 board file is about a megabyte. */
 export const MAX_BODY = 16 * 1024 * 1024
-/** The longest command or simple command stored. */
+/** The longest command stored beside a board; there is one dialect, so one command. */
 const MAX_TEXT = 4096
 const SOURCES: readonly string[] = ['lab', 'cli']
 

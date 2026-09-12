@@ -2187,14 +2187,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'Lmax',
-    label: 'maximum length (0 = 2.5 × side)',
+    label: 'maximum length (auto = 2.5 × side)',
     group: 'lengths',
     min: 0,
     max: 5000,
     step: 1,
     def: 0,
     help:
-      'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.',
+      'The longest piece the generator tries for. auto = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use auto or at least 6.',
   },
 
   {
@@ -2312,14 +2312,15 @@ const PARAM_TABLE = [
   },
   {
     key: 'giantStep',
-    label: 'serpentine step (0 = random growth)',
+    label: 'serpentine step (random = free growth)',
     group: 'skeleton',
     min: 0,
     max: 40,
     step: 1,
     def: 14,
     inactive: skeletonOff,
-    help: 'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. 0 = random growth.',
+    help:
+      'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. random = free growth, with no serpentine at all.',
   },
   {
     key: 'giantJitter',
@@ -2412,14 +2413,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'maxBack',
-    label: 'backtrack budget (0 = 200)',
+    label: 'backtrack budget (auto = 200)',
     group: 'closing',
     min: 0,
     max: 1000,
     step: 50,
     def: 0,
     help:
-      'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough; more only delays the verdict.',
+      'How many carves may be undone in one attempt before starting over. auto = 200, which is enough; more only delays the verdict.',
   },
   {
     key: 'restarts',

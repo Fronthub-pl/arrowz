@@ -210,6 +210,20 @@ function bundleOf(key: ParamKey): BundleKey | null {
 function bundleFlag(bundle: BundleKey): string {
   return bundle === 'difficulty' ? 'the difficulty baseline' : `--${bundle}`
 }
+/** The flags this run was given, by name: a value is not part of the name. */
+const givenFlags = new Set(Deno.args.map((a) => {
+  const eq = a.indexOf('=')
+  return eq < 0 ? a : a.slice(0, eq)
+}))
+/**
+ * Whether what still sets the rest of a bundle is here to be named: the
+ * difficulty baseline always is, an everyday flag only when it was given. The
+ * note used to promise that "--skeleton still sets giants, ..." on a command
+ * line with no --skeleton on it.
+ */
+function bundleNamed(bundle: BundleKey): boolean {
+  return bundle === 'difficulty' || givenFlags.has(`--${bundle}`)
+}
 
 // One line per pinned knob, on stderr: --dry-run owns stdout. Printed once
 // for the whole run rather than once per seed, so a batch stays readable and
@@ -219,7 +233,9 @@ for (const key of parsed.pins) {
   if (key === 'mix') continue
   const bundle = bundleOf(key)
   const partners = (bundle ? BUNDLES[bundle] : []).filter((k) => k !== key && !parsed.pins.includes(k))
-  const tail = bundle && partners.length ? `; ${bundleFlag(bundle)} still sets ${partners.join(', ')}` : ''
+  const tail = bundle && partners.length && bundleNamed(bundle)
+    ? `; ${bundleFlag(bundle)} still sets ${partners.join(', ')}`
+    : ''
   console.error(`note: ${knobFlag(params, key)} is pinned${tail}`)
 }
 

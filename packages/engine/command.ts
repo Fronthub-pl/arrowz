@@ -30,10 +30,10 @@ const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
  * the range below. The lab builds its own start control from this table, so
  * the two surfaces cannot offer different values.
  */
-export const START: {
-  words: Record<string, { headBias: number; mix: number }>
-  mix: { min: number; max: number }
-} = {
+export const START: Readonly<{
+  words: Readonly<Record<string, Readonly<{ headBias: number; mix: number }>>>
+  mix: Readonly<{ min: number; max: number }>
+}> = {
   words: {
     layers: { headBias: -1, mix: -1 },
     random: { headBias: 0, mix: -1 },
