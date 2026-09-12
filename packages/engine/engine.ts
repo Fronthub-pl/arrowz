@@ -94,6 +94,12 @@ type CarverOptions = {
   debug?: ((msg: string) => void) | undefined
   voidFrac?: number | undefined
   ruleB?: boolean | undefined
+  /**
+   * MEASUREMENT ONLY (R2 of the prior-art adoption spec, not a knob): how many
+   * consecutive tail backbites the growth loop may use to escape a stall. 0 is
+   * today's engine, cell for cell — no draw is made and no branch is taken.
+   */
+  backbite?: number | undefined
 }
 
 class Carver implements Board {
@@ -105,6 +111,8 @@ class Carver implements Board {
   trace: ((info: TraceInfo) => void) | undefined
   debug: ((msg: string) => void) | undefined
   ruleB: boolean
+  /** MEASUREMENT ONLY: cap on consecutive tail backbites; 0 disables the move. */
+  backbiteCap: number
   owner: Int32Array
   pieces: Piece[]
   remaining: number
@@ -142,6 +150,7 @@ class Carver implements Board {
     this.trace = opts.trace
     this.debug = opts.debug
     this.ruleB = opts.ruleB ?? true
+    this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
@@ -925,6 +934,42 @@ class Carver implements Board {
    * pool; with `scanAll` every legal head of every pool is tried once, in
    * random order — the FULL SCAN that `run()` makes before it undoes anything.
    */
+  /**
+   * MEASUREMENT ONLY (R2). The backbite move of Mansfield (2006), applied to
+   * the TAIL: pick an own cell adjacent to the tail that is not its
+   * predecessor, drop the edge that would close the loop, and reverse the
+   * suffix behind it. The cell set is unchanged, the path stays simple, and
+   * cells[0] — the head, hence the ray, the blockers and the piece's place in
+   * the blocking graph — is never touched. Returns false when the tail has no
+   * own neighbour to bite (then the growth loop stalls as it does today).
+   */
+  backbiteTail(path: Cell[], pathPos: Map<number, number>): boolean {
+    if (path.length < 3) return false
+    const tail = at(path, path.length - 1)
+    const spots: number[] = []
+    for (const dd of DIRS) {
+      const nx = tail.x + dd.dx, ny = tail.y + dd.dy
+      if (!this.inside(nx, ny)) continue
+      const pos = pathPos.get(this.idx(nx, ny))
+      // The predecessor (and the tail itself) close no loop; a bite at
+      // path.length - 3 or earlier leaves a suffix of >= 2 cells to reverse.
+      if (pos === undefined || pos >= path.length - 2) continue
+      spots.push(pos)
+    }
+    if (!spots.length) return false
+    const p = at(spots, Math.floor(this.rng() * spots.length))
+    for (let i = p + 1, j = path.length - 1; i < j; i++, j--) {
+      const a = at(path, i), b = at(path, j)
+      path[i] = b
+      path[j] = a
+    }
+    for (let i = p + 1; i < path.length; i++) {
+      const c = at(path, i)
+      pathPos.set(this.idx(c.x, c.y), i)
+    }
+    return true
+  }
+
   carveOne(scanAll = false): boolean {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
@@ -1020,6 +1065,9 @@ class Carver implements Board {
           const warns = isGiant ? GIANT_WARNS : p.warns
           const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
           let lastDir: Step = { dx: back.dx, dy: back.dy }
+          // MEASUREMENT ONLY (R2): consecutive backbites left; refilled by every
+          // cell the loop manages to add, so the cap bounds a run of escapes.
+          let bitesLeft = this.backbiteCap
 
           if (isGiant && p.giantStep > 0) {
             const serp = this.growSerpentine(h, { x: bx, y: by }, d, want)
@@ -1105,6 +1153,18 @@ class Carver implements Board {
               cand.push({ x: nx, y: ny, dd, w })
             }
             if (!cand.length) {
+              // MEASUREMENT ONLY (R2): before recording a stall, try to bite the
+              // tail back onto the path. The move changes neither the cell set
+              // nor the head, so the piece keeps its ray and its blockers; it
+              // only hands the growth loop a different tail to grow from.
+              if (bitesLeft > 0 && this.backbiteTail(path, pathPos)) {
+                bitesLeft--
+                const t = at(path, path.length - 1), q = at(path, path.length - 2)
+                lastDir = { dx: t.x - q.x, dy: t.y - q.y }
+                this.stats.backbites = (this.stats.backbites ?? 0) + 1
+                continue
+              }
+              if (this.backbiteCap > 0) this.stats.backbiteGiveUps = (this.stats.backbiteGiveUps ?? 0) + 1
               // Stall diagnostics: what surrounds the tail (own path, another
               // piece, the edge) and after how many cells. This settles whether the
               // path is closed off by its own body or by nooks of the frontier.
@@ -1136,6 +1196,7 @@ class Carver implements Board {
             pathSet.add(this.idx(pick.x, pick.y))
             pathPos.set(this.idx(pick.x, pick.y), path.length - 1)
             lastDir = pick.dd
+            bitesLeft = this.backbiteCap
           }
 
           if (path.length < 2) continue
