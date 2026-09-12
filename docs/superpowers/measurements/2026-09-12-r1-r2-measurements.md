@@ -547,3 +547,90 @@ What the run does surface is a product question the measurements cannot settle:
 `easy` being the most trap-dense level is backwards from its name. Fixing it is
 one level's decision (`avoid` takes `easy` from 19.65% to 5.19%), not a ladder,
 and it is a question about what "easy" should mean.
+
+## The intermediate caps, with the fixed move (R2's open gate)
+
+Measured on 2026-09-13, on `knob/backbite`, before `backbite` became a knob. The
+re-run after the neck fix covered caps 0 and 8 only, so the two settings a player
+would most plausibly pick — 2 and 4 — had only ever been measured with the buggy
+move, the one that could bite at position 0 and walk the neck off the head. This
+run closes that gate: **48 boards at 1000x1000**, the same four sets, caps 0, 2, 4
+and 8, three seeds each.
+
+    deno run --allow-read --allow-write packages/engine/scripts/measure-r2-backbite.ts 1000 3 300
+
+| set | bb | seconds | pieces | mean length | longest | strandLoss | free arrows | D | bites | stalls left |
+|---|---|---|---|---|---|---|---|---|---|---|
+| square | 0 | 12.9 | 85 666 | 11.7 | 417 | 102 612 | 454 | 811 | 0 | 0 |
+| square | 2 | 12.9 | 72 025 | 13.9 | 519 | 198 240 | 341 | 595 | 62 930 | 180 739 |
+| square | 4 | 13.2 | 68 458 | 14.6 | 547 | 246 294 | 317 | 541 | 121 603 | 173 484 |
+| square | 8 | 13.4 | 65 362 | 15.3 | 823 | 310 593 | 320 | 516 | 207 210 | 165 373 |
+| tunnels | 0 | 31.4 | 85 506 | 11.7 | 465 | 107 000 | 142 | 1003 | 0 | 0 |
+| tunnels | 2 | 31.4 | 72 298 | 13.8 | 697 | 200 246 | 105 | 807 | 134 678 | 665 962 |
+| tunnels | 4 | 30.0 | 67 515 | 14.8 | 670 | 249 206 | 80 | 730 | 240 078 | 653 756 |
+| tunnels | 8 | 26.4 | 65 056 | 15.4 | 804 | 309 956 | 87 | 747 | 382 198 | 566 119 |
+| skeleton | 0 | 19.0 | 82 875 | 12.1 | 16 994 | 105 889 | 496 | 666 | 0 | 0 |
+| skeleton | 2 | 18.4 | 69 167 | 14.5 | 17 605 | 192 222 | 365 | 478 | 60 377 | 150 121 |
+| skeleton | 4 | 23.1 | 66 629 | 15.0 | 15 567 | 237 841 | 406 | 483 | 112 227 | 146 816 |
+| skeleton | 8 | 22.2 | 62 085 | 16.1 | 16 456 | 295 894 | 371 | 375 | 185 604 | 118 532 |
+| edge | 0 | 28.6 | 78 370 | 12.8 | 290 | 130 770 | 280 | 539 | 0 | 0 |
+| edge | 2 | 22.0 | 65 896 | 15.2 | 405 | 231 326 | 216 | 458 | 60 246 | 218 423 |
+| edge | 4 | 20.0 | 62 719 | 16.0 | 489 | 275 755 | 231 | 450 | 101 816 | 200 574 |
+| edge | 8 | 20.6 | 59 575 | 16.8 | 586 | 342 906 | 195 | 411 | 190 501 | 197 513 |
+
+Closure is untouched: **48/48 closed, 0 backtracks, 0 restarts, 0 timeouts**, and at
+cap 0 all four sets still hash exactly as `generate()` does.
+
+### What the intermediate caps say
+
+**The cap is monotone in length, and the curve is the same in all four sets.** Mean
+piece length rises **+19 to +20% at cap 2** and **+31 to +33% at cap 8**, and cap 2
+carries 58-61% of the whole gain in every set — square 61%, tunnels 58%, skeleton 59%,
+edge 60%. That is the shape a knob wants: no dead interior, and no cliff.
+
+| set | 0 | 2 | 4 | 8 | seed spread |
+|---|---|---|---|---|---|
+| square | 11.7 | 13.9 | 14.6 | 15.3 | 0.07-0.26 |
+| tunnels | 11.7 | 13.8 | 14.8 | 15.4 | 0.07-0.72 |
+| skeleton | 12.1 | 14.5 | 15.0 | 16.1 | 0.05-0.39 |
+| edge | 12.8 | 15.2 | 16.0 | 16.8 | 0.56-1.19 |
+
+The step 2 -> 4 is about +0.7 cells, above the seed spread on `square` and `skeleton`
+and inside it on `edge`, where three seeds span 1.2 cells on their own. So the honest
+reading is four usable settings on a calm board and three on the most winding legal one
+(0, 2-4, 8) — not nine, which is what a 0..8 slider suggests, and which is why the help
+text talks about what the cap does rather than naming a value to pick.
+
+**The bite saves a growing share of the stalls it is offered.** The allowance is
+refilled by every cell the loop adds, so a higher cap does not mean more stalls to
+rescue — it means more rescues per stall:
+
+| set | cap 2 | cap 4 | cap 8 |
+|---|---|---|---|
+| square | 25.8% | 41.2% | 55.6% |
+| tunnels | 16.8% | 26.9% | 40.3% |
+| skeleton | 28.7% | 43.3% | 61.0% |
+| edge | 21.6% | 33.7% | 49.1% |
+
+The `stalls left` column is exactly the number of stalls the cap could not save, and it
+*falls* as the cap rises (square 180 739 -> 165 373) while the bites triple: fewer,
+longer pieces mean fewer growth loops to stall in the first place.
+
+**It still costs no measurable time.** Paired by seed, cap 8 minus cap 0 is +0.2 to
++0.8 s of ~13 s on `square`, and on the winding sets the seed noise swamps the sign
+entirely (tunnels +1.5, -11.9, -4.7 s; edge -14.4, 0.0, -9.6 s). The cap buys length
+for free, because the bites it pays for are set against pieces it no longer has to
+start.
+
+**What it does cost is `strandLoss`**, which doubles by cap 2 (square 102 612 ->
+198 240) and triples by cap 8 — cells the carver grows and then discards when a strand
+is truncated. Free arrows fall by a quarter at cap 2 and then flatten; D falls with the
+cap throughout (square 811 -> 516), the same direction the 0/8 run reported.
+
+### Verdict for R2
+
+Every gate section 7 set for the knob is closed: the intermediate caps behave, the move
+has a unit test, and the pair is recorded. `backbite` ships as a `lengths` knob,
+0..8 step 1, default 0, in no preset and no `--randomized` bundle.
+
+

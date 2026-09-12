@@ -144,7 +144,10 @@ rejected; the point of the table was never in doubt, only its price tag.
 
 **Semantics.** How many consecutive tail backbites a stalled path may use before it
 gives up. Each cell the path manages to add refills the allowance, so the cap bounds a
-run of escapes rather than a whole piece.
+run of escapes rather than a whole piece. Measured over the range at 1000x1000: mean
+piece length rises +19-20% at cap 2 and +31-33% at cap 8, the share of stalls the bite
+rescues grows from about a fifth to about a half, and generating time does not
+measurably move.
 
 **Mechanism.** Mansfield's backbite restricted to the tail and to positions ≥ 1: pick
 an own cell adjacent to the tail that is neither the predecessor nor the neck, drop
@@ -350,13 +353,24 @@ the undo path. What is left:
 
 **R2:**
 
-- The intermediate caps 2 and 4 with the fixed move: the re-run covers caps 0 and 8
-  across `square`, `tunnels`, `skeleton` and `edge`, so what ships between the endpoints
-  was only ever measured with the buggy move.
-- A unit test of the move itself — head fixed, cell set fixed, path simple — which the
-  adoption spec asked for and which `engine.test.ts` currently covers only for the neck.
-- The fingerprint pair; and a named size for it, because `fingerprints.test.ts` runs
-  every recorded case on every `deno task test`.
+- ~~The intermediate caps 2 and 4 with the fixed move.~~ Done, 48 boards at 1000x1000,
+  3 seeds, the same four sets (2026-09-13, in the measurements document). The interior
+  behaves: mean length rises +19-20% at cap 2 and +31-33% at cap 8, with cap 2 carrying
+  58-61% of the gain in every set, 48/48 closed, 0 backtracks, and no measurable time
+  cost. The step 2 -> 4 is above the seed spread on the calm sets and inside it on
+  `edge`, so the range is honest but its interior is coarser than 0..8 suggests.
+- ~~A unit test of the move itself~~ Done, in `engine.test.ts`, in two parts: 200 bites
+  on a boustrophedon path assert the head, the neck, the cell set, simplicity and
+  `pathPos` after **every** bite, and a second test pins the two refusals — the bite
+  that would move the neck, and a path too short to have a legal spot. Both fail when
+  the position-0 guard is loosened, which the board-level neck test alone did not do
+  cheaply.
+- ~~The fingerprint pair; and a named size for it.~~ Done: `bite-off`, `bite-2` and
+  `bite-8` at 100x200 on `--start=tunnels`, about 0.65 s added to `deno task test`.
+  `bite-off` hashes exactly as `tunnels` (the cap-0 claim, recorded as its own case so
+  a draw costed at 0 fails by name), and 2 is in the set beside 8 because the allowance
+  is refilled by every cell the loop adds — an endpoint alone would not exercise the
+  refill.
 
 Neither PR is staked before its measurements run: the repo treats measurement as a
 gate, and both knobs now exist precisely because measurement overturned the design
