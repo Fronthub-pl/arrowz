@@ -19,9 +19,9 @@ import {
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
-import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
+import type { BoardMeta, ParamKey, Params, SimpleChoice, View, ViewNumber } from '@arrowz/engine'
 
 const here = dirname(fromFileUrl(import.meta.url))
 const carve = join(here, 'carve.ts')
@@ -340,6 +340,55 @@ Deno.test('a value between two steps is refused, and no board is written', () =>
   const dir = tmp()
   const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--maxback=50', '--warns=3'], dir)
   assertEquals(ok.status, 0, ok.stderr)
+})
+
+// The picture flags used to take anything: --cell=-5 drew an SVG with a
+// negative viewBox, --top=-1 and --arrow-height=-3 went through in silence.
+Deno.test('a picture number outside its range is refused, and no board is written', () => {
+  for (const flag of ['--cell=-5', '--cell=0', '--top=-1', '--line=0', '--arrow-height=-3', '--cell=12.5']) {
+    const dir = tmp()
+    const r = runCarve(['--width=10', '--height=10', flag], join(dir, 'boards'))
+    assertEquals(r.status, 2, `${flag}\n${r.stdout}${r.stderr}`)
+    assertStringIncludes(r.stderr, 'invalid arguments:')
+    assertStringIncludes(r.stderr, flag)
+    assertEquals(entries(dir), 0, 'nothing is written')
+  }
+  // Every picture README shows still draws: the big head and the tip of no height.
+  const dir = tmp()
+  const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--arrow-width=2', '--arrow-height=0'], dir)
+  assertEquals(ok.status, 0, ok.stderr)
+})
+
+// The lab's own fields are narrower than the CLI on purpose (a cell of 1..40
+// against 1..200), but they must never be wider: every command the lab prints
+// has to be one carve.ts accepts.
+Deno.test('every picture field of the lab stays inside the CLI range', () => {
+  const html = Deno.readTextFileSync(join(here, 'lab.html'))
+  const fields = new Map<string, { min: number; max: number }>()
+  for (const tag of html.matchAll(/<input type="number"[^>]*>/g)) {
+    const id = /id="([\w-]+)"/.exec(tag[0])?.[1]
+    const min = /min="([-\d.]+)"/.exec(tag[0])?.[1]
+    const max = /max="([-\d.]+)"/.exec(tag[0])?.[1]
+    if (id && min !== undefined && max !== undefined) fields.set(id, { min: Number(min), max: Number(max) })
+  }
+  assert(fields.size >= 8, `only ${fields.size} number fields found in lab.html`)
+  const byField: [string, ViewNumber][] = [
+    ['cell', 'cell'],
+    ['stroke', 'stroke'],
+    ['libStroke', 'stroke'],
+    ['headWidth', 'headWidth'],
+    ['libHeadWidth', 'headWidth'],
+    ['headHeight', 'headHeight'],
+    ['libHeadHeight', 'headHeight'],
+    ['top', 'top'],
+  ]
+  for (const [id, field] of byField) {
+    const f = fields.get(id)
+    assert(f, `lab.html has no number field ${id}`)
+    const r = VIEW_RANGE[field]
+    assert(f.min >= r.min, `${id} min ${f.min} is below the CLI's ${r.min}`)
+    assert(f.max <= r.max, `${id} max ${f.max} is above the CLI's ${r.max}`)
+  }
 })
 
 // --- refusals -----------------------------------------------------------------

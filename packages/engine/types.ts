@@ -220,6 +220,9 @@ export interface SvgOptions {
   rounded?: boolean
 }
 
+/** The fields of a View that carry a number, and so have a flag that takes one. */
+export type ViewNumber = 'cell' | 'stroke' | 'headWidth' | 'headHeight' | 'top'
+
 /** View options of the lab and the CLI (the shape of DEFAULT_VIEW). */
 export interface View {
   cell: number

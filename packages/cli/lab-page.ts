@@ -18,13 +18,13 @@ import type {
   RuleKey,
   SimpleChoice,
   View,
+  ViewNumber,
   Violation,
   WorkerIn,
   WorkerOut,
 } from '@arrowz/engine'
 import {
   decodeBoard,
-  DEFAULT_HEAD_HEIGHT,
   defaultParams,
   INACTIVE_REASONS,
   PARAM_SPEC,
@@ -33,7 +33,7 @@ import {
   stepsAround,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, START, svgOptions, wordFor } from '@arrowz/engine/command'
+import { buildCommand, DEFAULT_VIEW, START, svgOptions, VIEW_RANGE, wordFor } from '@arrowz/engine/command'
 import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
@@ -827,20 +827,29 @@ el('clampDismiss').addEventListener('click', () => showClamped(false))
  * `--headheight=0`. Nobody clears a box to ask for that, so an empty (or
  * unparseable) one falls back to the default the box was born with.
  */
-function headHeightOf(id: string): number {
+/**
+ * A picture number from a field, held inside the range the CLI takes. The
+ * field's own min and max stop the arrows, not typing, so without this a
+ * typed-over value would print a command carve.ts refuses. An empty or
+ * unreadable field falls back to the default, as it always did.
+ */
+function viewNumber(id: string, field: ViewNumber): number {
   const raw = el<HTMLInputElement>(id).value.trim()
   const n = Number(raw)
-  return raw === '' || !Number.isFinite(n) ? DEFAULT_HEAD_HEIGHT : n
+  if (raw === '' || !Number.isFinite(n)) return DEFAULT_VIEW[field]
+  const r = VIEW_RANGE[field]
+  const v = Math.min(r.max, Math.max(r.min, n))
+  return r.whole ? Math.round(v) : v
 }
 
 function viewOptions(): View {
   return {
-    cell: Number(el<HTMLInputElement>('cell').value),
-    stroke: Number(el<HTMLInputElement>('stroke').value),
-    headWidth: Number(el<HTMLInputElement>('headWidth').value),
-    headHeight: headHeightOf('headHeight'),
+    cell: viewNumber('cell', 'cell'),
+    stroke: viewNumber('stroke', 'stroke'),
+    headWidth: viewNumber('headWidth', 'headWidth'),
+    headHeight: viewNumber('headHeight', 'headHeight'),
     colored: el<HTMLInputElement>('colored').checked,
-    top: el<HTMLInputElement>('hilite').checked ? Number(el<HTMLInputElement>('top').value) : 0,
+    top: el<HTMLInputElement>('hilite').checked ? viewNumber('top', 'top') : 0,
     rounded: el<HTMLInputElement>('rounded').checked,
   }
 }
@@ -1350,9 +1359,9 @@ let libTimer: ReturnType<typeof setTimeout> | undefined
 function libView(meta: BoardMeta): View {
   return {
     cell: meta.view.cell,
-    stroke: Number(el<HTMLInputElement>('libStroke').value),
-    headWidth: Number(el<HTMLInputElement>('libHeadWidth').value),
-    headHeight: headHeightOf('libHeadHeight'),
+    stroke: viewNumber('libStroke', 'stroke'),
+    headWidth: viewNumber('libHeadWidth', 'headWidth'),
+    headHeight: viewNumber('libHeadHeight', 'headHeight'),
     colored: el<HTMLInputElement>('libColored').checked,
     top: 0, // stored boards carry no highlight
     rounded: el<HTMLInputElement>('libRounded').checked,
