@@ -451,7 +451,8 @@ function violationText(v: Violation): string {
     const [below, above] = stepsAround(v.value, v.step, v.min)
     return t('stepViolation', spec ? paramText(spec).label : v.key, v.value, below, above)
   }
-  return reasonText(v.key)
+  const reason = reasonText(v.key)
+  return v.need === undefined ? reason : t('needViolation', reason, v.need)
 }
 function refreshActive() {
   violations = validateParams(state)

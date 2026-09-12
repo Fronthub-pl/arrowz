@@ -30,6 +30,12 @@ for (const lengths of positions) {
 const choice = (over: Partial<SimpleChoice>): SimpleChoice => ({ ...defaultChoice(), ...over })
 /** Typed Object.keys for a range map: its keys are PARAM_SPEC keys by construction. */
 const rangeKeys = (r: Partial<Record<ParamKey, Range>>): ParamKey[] => Object.keys(r) as ParamKey[]
+const withDefaults = (over: Partial<Params>): Params => ({ ...defaultParams(), ...over })
+/** The lo/hi/def of a numeric range; the three winding knobs are always numeric. */
+const numeric = (range: Range | undefined): { lo: number; hi: number; def: number } => {
+  if (!range || 'pick' in range) throw new Error('expected a numeric range')
+  return range
+}
 /** Typed Object.keys for the choice groups and the sliders. */
 const choiceKeys = (): (keyof typeof SIMPLE_CHOICES)[] => Object.keys(SIMPLE_CHOICES) as (keyof typeof SIMPLE_CHOICES)[]
 const sliderKeys = (): (keyof typeof SIMPLE_SLIDERS)[] => Object.keys(SIMPLE_SLIDERS) as (keyof typeof SIMPLE_SLIDERS)[]
@@ -203,6 +209,43 @@ Deno.test('the sliders pull the knobs the way their ends promise, monotonically'
 // Measured: at 600×600 pStraight 0.6 leaves boards unclosed, 0.65 and 0.7
 // close; at 1000×1000 layers mode starves. The random ranges narrow with
 // the board, while the small boards keep the wider ones.
+// Measured in round 14: at 1000x1000 the middle of the shape slider could
+// draw a nook rule of 3 with a coiling penalty of 8 at a straightness of 0.8,
+// and that board never closes (0/1 in the campaign, and its neighbours 0/3).
+// The fix pulls the corner in rather than pushing the straightness up, so the
+// board a position gives WITHOUT randomising has to come out unchanged.
+Deno.test('a slider position never offers a corner the engine could not close', () => {
+  for (const size of SIMPLE_SIZES) {
+    for (let i = 0; i <= 4; i++) {
+      const shape = i / 4
+      const ch = choice({ W: size.W, H: size.H, shape })
+      const r = simpleRanges(ch)
+      const worst = withDefaults({
+        W: size.W,
+        H: size.H,
+        pStraight: numeric(r.pStraight).lo,
+        warns: numeric(r.warns).lo,
+        anticoil: numeric(r.anticoil).hi,
+      })
+      assertEquals(validateParams(worst), [], `${size.id} shape ${shape}: the worst corner it can draw`)
+    }
+  }
+})
+
+Deno.test('the fix to that corner left every canonical board where it was', () => {
+  const canonical: readonly [shape: number, pStraight: number, warns: number, anticoil: number][] = [
+    [0, 1, 4, 6],
+    [0.25, 0.95, 4, 6],
+    [0.5, 0.85, 4, 6],
+    [0.75, 0.72, 5, 4],
+    [1, 0.7, 8, 2],
+  ]
+  for (const [shape, pStraight, warns, anticoil] of canonical) {
+    const p = simpleParams(choice({ W: 1000, H: 1000, shape }))
+    assertEquals([p.pStraight, p.warns, p.anticoil], [pStraight, warns, anticoil], `shape ${shape}`)
+  }
+})
+
 Deno.test('big boards get a higher straightness floor and no layers mode when randomised', () => {
   const rng = mulberry32(7)
   let minSmall = 1

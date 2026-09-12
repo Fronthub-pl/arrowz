@@ -20,6 +20,7 @@ export {
   RULES,
   snapToStep,
   stepsAround,
+  straightFloor,
   toSvg,
   validateParams,
 } from './engine.ts'

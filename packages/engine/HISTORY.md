@@ -1162,3 +1162,89 @@ final answer to this cost. Next: a signed-distance round cap computed in the
 fragment shader, six vertices a tail instead of forty-eight, removing
 roughly 40% of the board's geometry and staying exactly round at every zoom
 instead of faceted at some.
+
+## Round 14 — the straightness floor rises with the board (2026-09-12)
+
+Round 12 left the envelope leaking at one corner: `pStraight` 0.6 closed
+500×500 fifteen times out of fifteen but only eleven out of fifteen at
+600×600, and the conjunctions with `warns` 2 or `anticoil` 10 failed
+outright. That round recorded the leak and deliberately did not move the
+floor, because "the envelope has no rule that couples `pStraight` with
+`warns` or `anticoil`". This round measured the coupling and added it.
+
+**485 runs over 100 settings, restarts off**, on square boards from 300 to
+1000 a side, four seeds a cell in the main grid and three at the ceiling.
+Restarts are off on purpose: a corner that only closes because a derived
+seed rescued it is not a corner the envelope should promise. Two of the
+three settings measured with the default three restarts confirm why —
+500×500 with `pStraight` 0.65 and `warns` 2 closed twice out of three, but
+took 266 and 273 seconds to do it, and 600×600 did not close at all.
+
+**The floor rises with the board on its own.** Every other knob at its
+default:
+
+| longer side | 0.6 | 0.65 | 0.7 | 0.75 | 0.8 |
+|---|---|---|---|---|---|
+| 500 | 15/15 | 9/9 | 4/4 | 4/4 | 4/4 |
+| 600 | 22/30 | 14/14 | 4/4 | 4/4 | 4/4 |
+| 700 | — | 3/3 | — | — | — |
+| 800 | — | **0/3** | 3/3 | — | — |
+| 1000 | — | **0/3** | **0/3** | **2/3** | 3/3 |
+
+So `--pstraight=0.65 --width=1000 --height=1000` was legal input that never
+produced a board: 134 seconds of carving and then exit 1. The envelope's
+single floor of 0.6 was measured at 400×400 and never re-measured at the
+ceiling the generator gained in round 9.
+
+**Neither winding knob jams a board on its own.** At 600×600 with the
+default straightness, `warns` 2 closes 5/5 and `anticoil` 10 closes 5/5.
+The jam needs both a low straightness and a winding knob away from its
+default:
+
+| 600×600 | 0.65 | 0.7 | 0.75 | 0.8 |
+|---|---|---|---|---|
+| `warns` 4, `anticoil` 6 | 14/14 | 4/4 | 4/4 | 4/4 |
+| `warns` 4, `anticoil` 8 | 3/4 | 4/4 | 4/4 | 4/4 |
+| `warns` 4, `anticoil` 10 | 3/9 | 9/9 | 4/4 | 4/4 |
+| `warns` 3, `anticoil` 6 | 2/9 | 4/4 | 4/4 | 4/4 |
+| `warns` 3, `anticoil` 10 | 0/4 | 3/4 | 4/4 | 4/4 |
+| `warns` 2, `anticoil` 6 | 0/9 | 2/13 | 9/9 | 9/9 |
+| `warns` 2, `anticoil` 10 | 0/4 | 0/4 | 4/4 | 7/7 |
+
+The pattern is a floor that moves, not a threshold that trips: each step the
+nook rule takes below its default, and the coiling penalty rising above its,
+costs about one step of 0.05 in straightness. It works downwards too —
+`warns` 8 closes 600×600 at 0.6 (3/3), 800×800 at 0.65 (3/3) and 1000×1000
+at 0.7 (3/3), all of them below the floor their size would otherwise ask
+for, and `anticoil` 4 buys the same relief (1000×1000 at 0.7 with `warns` 6
+closes 3/3 where `anticoil` 6 gives 2/3).
+
+**The rule.** `straightFloor(p)` reads the two winding knobs as a size: the
+nook rule at 2 makes a board behave as if it were 1.5× longer a side, at 3
+as 1.2×, and at 6 or above as 0.85×; the coiling penalty at 7 or above as
+1.2×, at 4 or below as 0.8×. The floor is then 0.6 plus 0.05 for every 150
+cells of that effective side above 400, capped at the knob's own maximum.
+The factors are fitted, not derived. Against the campaign they refuse every
+one of the settings that jammed even once and nine that never did;
+`straight-floor.test.ts` carries the whole table and names those nine, so a
+later change to the floor has to say which of them it buys back.
+
+**Two boards the lab itself could not close.** The measurement was aimed at
+the CLI and hit the generator lab on the way. At 1000×1000 the shape slider
+in the middle drew `warns` from 3 and `anticoil` up to 8 while offering
+straightness from 0.80 — measured 0/1 at exactly that corner and 0/3 at its
+neighbours. One position further along it drew `warns` 4 with `anticoil` 6
+at straightness 0.70 — 0/3. Both are ordinary presses of Generate, not
+hand-written flags. The fix pulls the corner in rather than pushing the
+straightness up (`fitWinding` in `lab-simple.ts`): the coiling penalty is
+capped and the nook floor raised, neither past the position's own canonical
+value, so every board the slider gives without randomising comes out
+unchanged — verified knob by knob at all five anchors. Only the randomised
+draws lost ground: at 1000×1000 the middle position now draws `warns` 4–6
+instead of 3–6 and `anticoil` 4–6 instead of 4–8.
+
+**What it did not settle.** The factors are a fit over squares; boards far
+from square were not swept, and the rule reads the longer side alone on the
+strength of round 12's "a tall board is harder than a square one with the
+same number of cells". The nine conservative refusals are all at 500 with
+both knobs deviating, or at 1000 — the two ends where the grid is thinnest.
