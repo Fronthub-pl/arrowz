@@ -240,6 +240,7 @@ export const PL: Translation = {
   // (--giantspacing=off), the value is what the lab shows in Polish.
   choices: {
     giantSpacing: { off: 'bez odstępu', '2': '2', '3': '3' },
+    trapBias: { avoid: 'unikaj', off: 'bez zmian', seek: 'szukaj' },
   },
   params: {
     W: {
@@ -296,6 +297,11 @@ export const PL: Translation = {
       label: 'udział mieszania (tunele wśród warstw)',
       help:
         'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7. -1 wyłącza mieszanie.',
+    },
+    trapBias: {
+      label: 'pułapki (strzałki, które wyglądają na gotowe)',
+      help:
+        'Głowa, w której korytarzu stoi już jeden element, da element wyglądający na gotowy, choć nim nie jest. „Szukaj" daje ich o połowę więcej, „unikaj" cztery razy mniej.',
     },
     probe: {
       label: 'udział elementów-sond',

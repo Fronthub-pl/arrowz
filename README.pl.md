@@ -650,7 +650,7 @@ dokładnie tak samo jak zawsze.
 
 ### Pokrętła
 
-Wszystkie 25, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
+Wszystkie 26, w grupach takich, jak grupuje je `deno task carve --help=knobs`.
 Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
 `off` są objaśnione tam, gdzie się pojawiają. **Krok** to odstęp między
 ustawieniami, jakie pokrętło ma do zaoferowania: wartość, która wyląduje
@@ -676,6 +676,7 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 | Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
 | Kształt | `--anticoil` | 1–10 | 1 | `6` | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** 7 i więcej podnosi prostość, jakiej wymaga duża plansza; 4 i mniej ją obniża. |
 | Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsza linia (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsza (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
+| Trudność | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | Jak traktowany jest start, w którego korytarzu stoi już dokładnie jedna strzałka. Taka strzałka wygląda potem na gotową do wyjazdu, choć wciąż blokuje ją jedna inna — i to właśnie czyni planszę trudną do odczytania. `seek` daje ich o połowę więcej, `avoid` mniej więcej cztery razy mniej. Ustawienie inne niż `off` z grubsza podwaja czas liczenia planszy. |
 | Trudność | `--probe` | 0–1 | 0.01 | `0` | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast zwykłego podziału na trzy. |
 | Trudność | `--probelen` | 4–200 | 1 | `12` | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
 | Szkielet | `--giants` | 0–40 | 1 | `0` | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |

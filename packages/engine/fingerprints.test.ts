@@ -54,3 +54,31 @@ for (const c of golden.cases) {
     }
   })
 }
+
+Deno.test("the trap lever at 0 is today's board, cell for cell", () => {
+  // The other half of the pair. `trap-off` is `tunnels` with the lever spelled
+  // out as off, so the two must hash the same: at 0 the carver takes no branch
+  // and makes no draw, and the knob's whole claim to being safe to ship rests
+  // on that. Recording it as its own case means a change that quietly costs a
+  // draw at 0 fails here by name, rather than moving nine unrelated golden
+  // boards at once. These three hashes were recorded while the lever was still
+  // a measurement option reached through GenerateOptions; they did not move
+  // when it became a flag, which is what made the promotion checkable.
+  const byName = (n: string): GoldenCase => {
+    const c = golden.cases.find((x) => x.name === n)
+    if (!c) throw new Error(`no golden case ${n}`)
+    return c
+  }
+  const off = byName('trap-off'), plain = byName('tunnels')
+  assertEquals(
+    off.argv?.filter((a) => a !== '--trapbias=off'),
+    plain.argv,
+    'trap-off must ask for tunnels and nothing else',
+  )
+  assertEquals(off.fingerprint, plain.fingerprint)
+  assertEquals(off.pieces, plain.pieces)
+  // And the on-cases must differ from it, or the pair would prove nothing.
+  for (const n of ['trap-seek', 'trap-avoid']) {
+    assert(byName(n).fingerprint !== off.fingerprint, `${n} carved the same board as off`)
+  }
+})

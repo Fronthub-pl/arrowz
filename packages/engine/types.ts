@@ -16,6 +16,7 @@ export type ParamKey =
   | 'anticoil'
   | 'headBias'
   | 'mix'
+  | 'trapBias'
   | 'probe'
   | 'probeLen'
   | 'giants'
@@ -116,6 +117,9 @@ export interface CarverStats {
   stallEdge?: number
   stallLen?: number
   stallSelfTrap?: number
+  /** MEASUREMENT ONLY (R2): tail backbites taken, and stalls they could not save. */
+  backbites?: number
+  backbiteGiveUps?: number
 }
 
 /**

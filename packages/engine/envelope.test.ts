@@ -197,9 +197,9 @@ Deno.test('envelope: a step violation names the knob, the step and the two stops
   assert(text.includes('100'), text)
 })
 
-Deno.test('envelope: the knob table holds 26 keys, and the retired ones are gone', () => {
-  assertEquals(PARAM_SPEC.length, 26)
-  for (const gone of ['hug', 'edgeHug', 'strandLimit', 'giantWarns', 'giantSpacePenalty']) {
+Deno.test('envelope: the knob table holds 27 keys, and the retired ones are gone', () => {
+  assertEquals(PARAM_SPEC.length, 27)
+  for (const gone of ['hug', 'edgeHug', 'strandLimit', 'giantWarns', 'giantSpacePenalty', 'freeBias']) {
     assert(!PARAM_SPEC.some((s) => String(s.key) === gone), `${gone} is still a knob`)
   }
   // headBias and mix stay stored, but the surface shows one control for both.

@@ -94,6 +94,20 @@ type CarverOptions = {
   debug?: ((msg: string) => void) | undefined
   voidFrac?: number | undefined
   ruleB?: boolean | undefined
+  /**
+   * MEASUREMENT ONLY (R2 of the prior-art adoption spec, not a knob): how many
+   * consecutive tail backbites the growth loop may use to escape a stall. 0 is
+   * today's engine, cell for cell — no draw is made and no branch is taken.
+   */
+  backbite?: number | undefined
+  /**
+   * MEASUREMENT ONLY (R1 spike, not a knob): the sign is the direction and the
+   * magnitude is the share of cuts that rank by it. +1 ranks heads whose line
+   * prefix has a single owner first, so the piece ends up with exactly one
+   * blocker and looks ready to leave; -1 ranks them last; -0.4 does that on
+   * four cuts in ten and ranks the rest as today; 0 leaves ranking untouched.
+   */
+  trapBias?: number | undefined
 }
 
 class Carver implements Board {
@@ -105,6 +119,19 @@ class Carver implements Board {
   trace: ((info: TraceInfo) => void) | undefined
   debug: ((msg: string) => void) | undefined
   ruleB: boolean
+  /** MEASUREMENT ONLY: cap on consecutive tail backbites; 0 disables the move. */
+  backbiteCap: number
+  /**
+   * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
+   * a SINGLE piece, -1 avoids them, 0 is off, and a magnitude below 1 is the
+   * SHARE of cuts that rank that way. Such a head becomes a piece with exactly
+   * one blocker — a piece that looks ready to leave (`almost`).
+   */
+  trapBias: number
+  /** Per direction and line: -1 empty prefix, -2 several owners, >= 0 the sole owner. */
+  lineHomo: Int32Array[]
+  /** How far each line's prefix was already folded into lineHomo. */
+  lineHomoSeen: Int32Array[]
   owner: Int32Array
   pieces: Piece[]
   remaining: number
@@ -142,6 +169,20 @@ class Carver implements Board {
     this.trace = opts.trace
     this.debug = opts.debug
     this.ruleB = opts.ruleB ?? true
+    this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
+    // The knob is the source. The option overrides it because the share the
+    // three-state was chosen over is only reachable this way and has to stay
+    // measurable (scripts/measure-r1-share.ts); it is clamped like
+    // backbiteCap, since validateParams never sees an override.
+    this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? params.trapBias))
+    // The upkeep is folded into recomputeLines, so it costs the lines a cut
+    // moves rather than a pass over the board; it is only paid when the spike
+    // asks for it.
+    const homo = this.trapBias !== 0
+    this.lineHomo = homo
+      ? [new Int32Array(W).fill(-1), new Int32Array(H).fill(-1), new Int32Array(W).fill(-1), new Int32Array(H).fill(-1)]
+      : []
+    this.lineHomoSeen = homo ? [new Int32Array(W), new Int32Array(H), new Int32Array(W), new Int32Array(H)] : []
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
@@ -264,6 +305,10 @@ class Carver implements Board {
 
   recomputeLines(cells: readonly Cell[]): void {
     const { W, H, owner, depth } = this
+    // MEASUREMENT ONLY (R1 spike): this is the one place a frontier depth
+    // changes, so it is also the one place the line table can change — folding
+    // here costs the lines that moved, where a scan per cut cost all of them.
+    const homo = this.trapBias !== 0
     const cols = new Set<number>(), rows = new Set<number>()
     for (const c of cells) {
       cols.add(c.x)
@@ -273,17 +318,21 @@ class Carver implements Board {
       let k = 0
       while (k < H && owner[this.idx(x, k)] !== -1) k++
       at(depth, 0)[x] = k
+      if (homo) this.foldHomo(0, x, k)
       k = 0
       while (k < H && owner[this.idx(x, H - 1 - k)] !== -1) k++
       at(depth, 2)[x] = k
+      if (homo) this.foldHomo(2, x, k)
     }
     for (const y of rows) {
       let k = 0
       while (k < W && owner[this.idx(k, y)] !== -1) k++
       at(depth, 3)[y] = k
+      if (homo) this.foldHomo(3, y, k)
       k = 0
       while (k < W && owner[this.idx(W - 1 - k, y)] !== -1) k++
       at(depth, 1)[y] = k
+      if (homo) this.foldHomo(1, y, k)
     }
   }
 
@@ -925,6 +974,113 @@ class Carver implements Board {
    * pool; with `scanAll` every legal head of every pool is tried once, in
    * random order — the FULL SCAN that `run()` makes before it undoes anything.
    */
+  /**
+   * MEASUREMENT ONLY (R2). The backbite move of Mansfield (2006), applied to
+   * the TAIL: pick an own cell adjacent to the tail that is not its
+   * predecessor, drop the edge that would close the loop, and reverse the
+   * suffix behind it. The cell set is unchanged, the path stays simple, and
+   * cells[0] — the head, hence the ray, the blockers and the piece's place in
+   * the blocking graph — is never touched. Returns false when the tail has no
+   * own neighbour to bite (then the growth loop stalls as it does today).
+   */
+  backbiteTail(path: Cell[], pathPos: Map<number, number>): boolean {
+    // Four cells, not three: a bite at position 0 would reverse the suffix from
+    // cells[1], i.e. move the NECK, and the arrowhead is drawn from the head
+    // towards the exit edge with the line starting at its base — the cell
+    // behind the head (pieceShape). A piece whose body leaves the head
+    // sideways renders as a head stuck on the side of a line.
+    if (path.length < 4) return false
+    const tail = at(path, path.length - 1)
+    const spots: number[] = []
+    for (const dd of DIRS) {
+      const nx = tail.x + dd.dx, ny = tail.y + dd.dy
+      if (!this.inside(nx, ny)) continue
+      const pos = pathPos.get(this.idx(nx, ny))
+      // The predecessor (and the tail itself) close no loop; a bite at
+      // path.length - 3 or earlier leaves a suffix of >= 2 cells to reverse;
+      // and position 0 is excluded so the neck stays where the head shape
+      // needs it (see above).
+      if (pos === undefined || pos < 1 || pos >= path.length - 2) continue
+      spots.push(pos)
+    }
+    if (!spots.length) return false
+    const p = at(spots, Math.floor(this.rng() * spots.length))
+    for (let i = p + 1, j = path.length - 1; i < j; i++, j--) {
+      const a = at(path, i), b = at(path, j)
+      path[i] = b
+      path[j] = a
+    }
+    for (let i = p + 1; i < path.length; i++) {
+      const c = at(path, i)
+      pathPos.set(this.idx(c.x, c.y), i)
+    }
+    return true
+  }
+
+  /**
+   * MEASUREMENT ONLY (R1 spike). Folds one line's newly assigned prefix cells
+   * into lineHomo. A head whose line prefix has a single owner becomes a piece
+   * with exactly one blocker, so this is the O(1) read behind trapBias. The
+   * prefix only grows, except after an undo, where the line is rebuilt — which
+   * is why `lineHomoSeen` is compared against the new depth rather than trusted.
+   */
+  foldHomo(d: number, line: number, upTo: number): void {
+    const { W, H, owner } = this
+    const homo = at(this.lineHomo, d)
+    const seen = at(this.lineHomoSeen, d)
+    let from = num(seen, line)
+    if (upTo < from) {
+      homo[line] = -1
+      from = 0
+    }
+    let cur = num(homo, line)
+    // -2 is absorbing: a prefix with several owners keeps having several,
+    // until an undo rebuilds the line. Most lines reach it early, so this is
+    // what makes the upkeep amortize to nothing.
+    if (cur !== -2) {
+      for (let k = from; k < upTo; k++) {
+        // prefixCell inlined: an object per prefix cell would be four million
+        // allocations a board at the project ceiling.
+        const i = d === 0
+          ? this.idx(line, k)
+          : d === 2
+          ? this.idx(line, H - 1 - k)
+          : d === 1
+          ? this.idx(W - 1 - k, line)
+          : this.idx(k, line)
+        const o = num(owner, i)
+        if (o < 0) continue
+        if (cur === -1) cur = o
+        else if (cur !== o) {
+          cur = -2
+          break
+        }
+      }
+      homo[line] = cur
+    }
+    seen[line] = upTo
+  }
+
+  /**
+   * Orders heads by how deep their line's frontier has advanced: deepest first
+   * for tunnels, shallowest for layers. A comparator over the depth array does
+   * what a map/sort/map did, without a wrapper object per head, and the order
+   * is the same because the keys are the same and the sort is stable.
+   */
+  orderByDepth(cells: Cell[], d: number, bias: number): void {
+    const dep = at(this.depth, d)
+    const key = (c: Cell): number => num(dep, d === 0 || d === 2 ? c.x : c.y)
+    cells.sort((a, b) => bias > 0 ? key(b) - key(a) : key(a) - key(b))
+  }
+
+  /** The cell of a line at distance k from the exit edge of direction d. */
+  prefixCell(d: number, line: number, k: number): Cell {
+    if (d === 0) return { x: line, y: k }
+    if (d === 2) return { x: line, y: this.H - 1 - k }
+    if (d === 1) return { x: this.W - 1 - k, y: line }
+    return { x: k, y: line }
+  }
+
   carveOne(scanAll = false): boolean {
     const { rng, p } = this
     const progress = 1 - this.remaining / (this.W * this.H)
@@ -959,13 +1115,39 @@ class Carver implements Board {
       // straight shapes), the rest the shallowest (layers -> bends, but high f0).
       // These two goals pull in opposite directions, so we look for a ratio.
       const bias = p.mix >= 0 ? (rng() < p.mix ? 1 : -1) : p.headBias
+      // MEASUREMENT ONLY (R1 spike): the magnitude of trapBias is the share of
+      // cuts that rank by the trap bit; the rest rank as today. NO DRAW IS MADE
+      // at 0 or at a full +-1, so both endpoints leave the recorded boards
+      // exactly as they were — a draw whose outcome is never in doubt would
+      // still shift the random stream, which is the trap `mix` documents.
+      const share = Math.abs(this.trapBias)
+      const useTrap = share === 0 ? false : share === 1 ? true : rng() < share
       let ranked = heads
-      if (bias !== 0) {
+      if (useTrap) {
+        // MEASUREMENT ONLY (R1 spike): whether the line prefix has one owner,
+        // i.e. whether this head would become a piece that LOOKS ready, is the
+        // OUTER key — and the depth ranking above orders each bucket from the
+        // inside, so `--start` still reaches the board instead of being
+        // shadowed by the lever. A boolean key needs a stable partition, not a
+        // sort; at `--start=random` there is no inner order to apply, which is
+        // why every board recorded there comes out cell for cell the same.
+        const want = this.trapBias > 0
+        const homo = at(this.lineHomo, d)
+        const first: Cell[] = [], rest: Cell[] = []
+        for (const c of heads) {
+          if ((num(homo, d === 0 || d === 2 ? c.x : c.y) >= 0) === want) first.push(c)
+          else rest.push(c)
+        }
+        if (bias !== 0) {
+          this.orderByDepth(first, d, bias)
+          this.orderByDepth(rest, d, bias)
+        }
+        for (const c of rest) first.push(c)
+        ranked = first
+      } else if (bias !== 0) {
         // depth of a head's line = how deep the frontier has advanced in that line
+        this.orderByDepth(heads, d, bias)
         ranked = heads
-          .map((c) => ({ c, dep: num(at(this.depth, d), d === 0 || d === 2 ? c.x : c.y) }))
-          .sort((a, b) => (bias > 0 ? b.dep - a.dep : a.dep - b.dep))
-          .map((z) => z.c)
       }
       // SEVERAL TRIES PER DIRECTION. One try is enough on a small board, where
       // there are a dozen or so candidates. At 400x400 there can be several
@@ -981,7 +1163,7 @@ class Carver implements Board {
       // the regions of thousands of free cells sit in the deeper quarters —
       // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
       const quarter = Math.max(1, Math.ceil(ranked.length / 4))
-      const pools: Cell[][] = bias === 0
+      const pools: Cell[][] = bias === 0 && !useTrap
         ? [[...ranked]]
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
@@ -1020,6 +1202,9 @@ class Carver implements Board {
           const warns = isGiant ? GIANT_WARNS : p.warns
           const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
           let lastDir: Step = { dx: back.dx, dy: back.dy }
+          // MEASUREMENT ONLY (R2): consecutive backbites left; refilled by every
+          // cell the loop manages to add, so the cap bounds a run of escapes.
+          let bitesLeft = this.backbiteCap
 
           if (isGiant && p.giantStep > 0) {
             const serp = this.growSerpentine(h, { x: bx, y: by }, d, want)
@@ -1105,6 +1290,18 @@ class Carver implements Board {
               cand.push({ x: nx, y: ny, dd, w })
             }
             if (!cand.length) {
+              // MEASUREMENT ONLY (R2): before recording a stall, try to bite the
+              // tail back onto the path. The move changes neither the cell set
+              // nor the head, so the piece keeps its ray and its blockers; it
+              // only hands the growth loop a different tail to grow from.
+              if (bitesLeft > 0 && this.backbiteTail(path, pathPos)) {
+                bitesLeft--
+                const t = at(path, path.length - 1), q = at(path, path.length - 2)
+                lastDir = { dx: t.x - q.x, dy: t.y - q.y }
+                this.stats.backbites = (this.stats.backbites ?? 0) + 1
+                continue
+              }
+              if (this.backbiteCap > 0) this.stats.backbiteGiveUps = (this.stats.backbiteGiveUps ?? 0) + 1
               // Stall diagnostics: what surrounds the tail (own path, another
               // piece, the edge) and after how many cells. This settles whether the
               // path is closed off by its own body or by nooks of the frontier.
@@ -1136,6 +1333,7 @@ class Carver implements Board {
             pathSet.add(this.idx(pick.x, pick.y))
             pathPos.set(this.idx(pick.x, pick.y), path.length - 1)
             lastDir = pick.dd
+            bitesLeft = this.backbiteCap
           }
 
           if (path.length < 2) continue
@@ -2274,6 +2472,26 @@ const PARAM_TABLE = [
     help:
       'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed. -1 turns mixing off.',
   },
+  {
+    key: 'trapBias',
+    label: 'traps (arrows that look ready to go)',
+    group: 'difficulty',
+    min: -1,
+    max: 1,
+    step: 1,
+    def: 0,
+    // Three values, each with a word the CLI spells, so the lab offers the
+    // words rather than a slider over -1..1. A share of cuts was measured and
+    // lost: the interior is not monotone above +0.6 and its usable step is
+    // coarser than one seed of noise (2026-09-12-r1-r2-measurements.md).
+    control: {
+      kind: 'choice',
+      choices: [{ value: -1, word: 'avoid' }, { value: 0, word: 'off' }, { value: 1, word: 'seek' }],
+    },
+    help:
+      'Ranks heads whose corridor already holds one piece: such a piece looks ready to leave but is not. seek makes half again as many, avoid a quarter, off is today.',
+  },
+
   {
     key: 'probe',
     label: 'share of probe pieces',

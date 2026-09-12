@@ -52,6 +52,7 @@ const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
   maxBack: { auto: 200 },
   giantStep: { random: 0 },
   giantSpacing: { off: 1 },
+  trapBias: { avoid: -1, off: 0, seek: 1 },
 }
 
 /**
@@ -415,7 +416,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push('is hyphenated instead (--dry-run, --max-seeds, --arrow-width). A value outside')
   out.push('the range below, or breaking a rule, is refused before any board is generated.')
   out.push('')
-  // One row per knob plus the merged --start: 26 keys and 25 flags, over 5
+  // One row per knob plus the merged --start: 27 keys and 26 flags, over 5
   // columns. A spread of a list that is neither cells nor pieces.
   const rows: string[][] = KNOB_ROWS.map((r) => [`${r.flag}=${r.values}`, r.label, r.step, r.def, r.help])
   const head: readonly string[] = ['flag', 'knob', 'step', 'default', 'help']
