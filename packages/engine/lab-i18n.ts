@@ -185,6 +185,8 @@ export const EN = {
     violationsTitle: 'Settings outside the safe range',
     rangeViolation: (label: string, value: unknown, min: number, max: number) =>
       `${label}: ${value} is outside ${min}..${max}`,
+    stepViolation: (label: string, value: number, below: number, above: number) =>
+      `${label}: ${value} sits between the settings ${below} and ${above}`,
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
   },
@@ -227,7 +229,6 @@ export const PL: Translation = {
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
-    wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
     startPair:
       'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
   },
@@ -515,6 +516,7 @@ export const PL: Translation = {
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Ustawienia poza bezpiecznym zakresem',
     rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
+    stepViolation: (label, value, below, above) => `${label}: ${value} leży między ustawieniami ${below} i ${above}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
   },

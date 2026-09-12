@@ -2468,13 +2468,6 @@ export function defaultParams(): Params {
 export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (p: Params) => boolean }[] = [
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
   { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
-  // A size or seed with a fraction is not a board the tools can name: the
-  // seed goes into the board id and so into file names.
-  {
-    key: 'wholeNumbers',
-    keys: ['W', 'H', 'seed'],
-    check: (p) => Number.isInteger(p.W) && Number.isInteger(p.H) && Number.isInteger(p.seed),
-  },
   // One flag (--start) writes both knobs, so only the pairs it can spell are
   // storable: a whole-number start with mixing off, or start 0 with a mixing
   // share. Anything else is a board no command text names — a start of 0.5
@@ -2493,7 +2486,6 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
   lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
-  wholeNumbers: 'width, height and seed must be whole numbers',
   startPair:
     'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of 0.3 to 0.7',
 }
@@ -2502,9 +2494,11 @@ export const RULE_REASONS: Record<RuleKey, string> = {
  * Checks a full parameter set against the safe envelope. Returns [] when it is
  * valid, otherwise one entry per problem: every PARAM_SPEC key whose value is
  * not a finite number inside [min, max] gives
- * { kind: 'range', key, value, min, max }, and every RULES entry that fails
- * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC are ignored;
- * step alignment is not checked.
+ * { kind: 'range', key, value, min, max }, every value inside the range but
+ * between two of the knob's steps gives { kind: 'step', key, value, step, min },
+ * and every RULES entry that fails gives { kind: 'rule', key, keys }. A knob is
+ * reported once: a value outside the range is not also reported off the step.
+ * Keys outside PARAM_SPEC are ignored.
  */
 export function validateParams(params: Params): Violation[] {
   const out: Violation[] = []
@@ -2512,6 +2506,11 @@ export function validateParams(params: Params): Violation[] {
     const value: unknown = params[s.key]
     if (typeof value !== 'number' || !Number.isFinite(value) || value < s.min || value > s.max) {
       out.push({ kind: 'range', key: s.key, value, min: s.min, max: s.max })
+      continue // one value, one complaint: the range already names it
+    }
+    const steps = (value - s.min) / s.step
+    if (Math.abs(steps - Math.round(steps)) > 1e-9) {
+      out.push({ kind: 'step', key: s.key, value, step: s.step, min: s.min })
     }
   }
   for (const r of RULES) {
@@ -2525,7 +2524,32 @@ const LABEL_BY_KEY = new Map<ParamKey, string>(PARAM_SPEC.map((s) => [s.key, s.l
 /** One English line for a violation from validateParams(). */
 export function formatViolation(v: Violation): string {
   if (v.kind === 'range') return `${LABEL_BY_KEY.get(v.key) ?? v.key}: ${v.value} is outside ${v.min}..${v.max}`
+  if (v.kind === 'step') {
+    const [below, above] = stepsAround(v.value, v.step, v.min)
+    return `${LABEL_BY_KEY.get(v.key) ?? v.key}: ${v.value} sits between the settings ${below} and ${above}`
+  }
   return RULE_REASONS[v.key] ?? v.key
+}
+
+/**
+ * The two settings a value between two steps sits between. Both are counted
+ * from the knob minimum, the way the lab slider counts them, and rounded like
+ * a drawn value so that 0.30000000000000004 is not offered as a setting.
+ */
+export function stepsAround(value: number, step: number, min: number): [number, number] {
+  const k = Math.floor((value - min) / step)
+  const at = (i: number) => Number((min + i * step).toFixed(6))
+  return [at(k), at(k + 1)]
+}
+
+/**
+ * The nearest stop of a knob's grid. Everything that writes a knob from
+ * outside the panel — the draw of the simple view, a preset, a URL, a stored
+ * board — goes through here, so a value that arrives between two stops can
+ * still be generated with instead of blocking on a step violation.
+ */
+export function snapToStep(value: number, step: number, min: number): number {
+  return Number((min + Math.round((value - min) / step) * step).toFixed(6))
 }
 
 /** What generate() throws for parameters outside the safe envelope. */

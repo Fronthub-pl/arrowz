@@ -18,7 +18,7 @@
 // Labels come from the dictionaries (lab-i18n.ts, `simple`); nothing here
 // knows the DOM.
 import type { ParamKey, Params, ParamSpec, Range, SimpleChoice } from './types.ts'
-import { defaultParams, PARAM_SPEC } from './engine.ts'
+import { defaultParams, PARAM_SPEC, snapToStep } from './engine.ts'
 import { PRESETS } from './lab-presets.ts'
 
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
@@ -310,7 +310,7 @@ function draw(key: ParamKey, range: Range, rng: (() => number) | null): number {
   const spec = specOf(key)
   const raw = range.lo + rng() * (range.hi - range.lo)
   // Snap to the knob step, measured from the knob minimum like the lab slider.
-  const snapped = spec.min + Math.round((raw - spec.min) / spec.step) * spec.step
+  const snapped = snapToStep(raw, spec.step, spec.min)
   const v = Math.min(range.hi, Math.max(range.lo, snapped))
   return Number(v.toFixed(6))
 }

@@ -13,6 +13,7 @@ import {
   PARAM_SPEC,
   RULE_REASONS,
   RULES,
+  snapToStep,
   validateParams,
 } from './engine.ts'
 import { PRESETS } from './lab-presets.ts'
@@ -113,14 +114,67 @@ Deno.test('envelope: keys outside PARAM_SPEC are ignored', () => {
   assertEquals(validateParams(withRaw({ ruleB: false, voidFrac: 2, trace: true, debug: 'x' })), [])
 })
 
-Deno.test('envelope: the four cross-knob rules exist with a reason each', () => {
-  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'wholeNumbers', 'startPair'])
+Deno.test('envelope: the three cross-knob rules exist with a reason each', () => {
+  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'startPair'])
   for (const r of RULES) {
     assert(Array.isArray(r.keys) && r.keys.length >= 1, r.key)
     for (const k of r.keys) assert(spec(k), `${r.key} names unknown knob ${k}`)
     assertEquals(typeof RULE_REASONS[r.key], 'string', r.key)
     assertEquals(formatViolation({ kind: 'rule', key: r.key, keys: r.keys }), RULE_REASONS[r.key])
   }
+})
+
+// A step the surfaces cannot reach the end of would make the maximum
+// unspellable: the lab slider stops short of it and the flag that prints the
+// value back is refused. Every default has to be a stop too, or the untouched
+// board would not validate.
+Deno.test('envelope: every knob range is a whole number of steps, and every default is a stop', () => {
+  /** Whether a value is one of the stops the lab slider offers for a knob. */
+  const onStep = (value: number, s: ParamSpec): boolean => {
+    const k = (value - s.min) / s.step
+    return Math.abs(k - Math.round(k)) < 1e-9
+  }
+  for (const s of PARAM_SPEC) {
+    assert(s.step > 0, `${s.key} has step ${s.step}`)
+    assert(onStep(s.max, s), `${s.key}: max ${s.max} is not a whole number of ${s.step} from ${s.min}`)
+    assert(onStep(s.def, s), `${s.key}: default ${s.def} is off the step ${s.step}`)
+    // The knob alone, at its far end: a step violation there would put the
+    // maximum out of reach of both surfaces. Cross-knob rules are another
+    // test's business — wShort at 1 breaks sharesSum, and rightly so.
+    const atMax = validateParams(withKnob(s.key, s.max)).filter((v) => v.kind === 'step')
+    assertEquals(atMax, [], `${s.key} max ${s.max}`)
+  }
+})
+
+// Everything that writes a knob from outside — the draw of the simple view,
+// a preset, a URL, a stored board — goes onto the grid through this one
+// formula, so a loaded value can always be generated with.
+Deno.test('snapToStep: the nearest stop, counted from the knob minimum', () => {
+  assertEquals(snapToStep(24, 50, 0), 0)
+  // Exactly between two stops the larger one wins, as it does for the range
+  // input the lab draws the knob with.
+  assertEquals(snapToStep(25, 50, 0), 50)
+  assertEquals(snapToStep(0.33, 0.05, -1), 0.35)
+  assertEquals(snapToStep(0.855, 0.01, 0), 0.86)
+  // A stop stays where it is, and the result carries no float dust.
+  for (const [value, step, min] of [[0.3, 0.05, -1], [0.85, 0.01, 0], [1000, 50, 0]] as const) {
+    assertEquals(snapToStep(value, step, min), value, `${value}`)
+  }
+  // Every knob: a value a hair off any stop lands back on it and validates.
+  for (const s of PARAM_SPEC) {
+    const off = s.min + 1.4 * s.step
+    const snapped = snapToStep(off, s.step, s.min)
+    assertEquals(validateParams(withKnob(s.key, snapped)).filter((v) => v.kind === 'step'), [], s.key)
+  }
+})
+
+Deno.test('envelope: a step violation names the knob, the step and the two stops around the value', () => {
+  const v: Violation = { kind: 'step', key: 'maxBack', value: 25, step: 50, min: 0 }
+  const text = formatViolation(v)
+  assert(text.includes(spec('maxBack').label), text)
+  assert(text.includes('25'), text)
+  assert(text.includes('50'), text)
+  assert(text.includes('0'), text)
 })
 
 Deno.test('envelope: the knob table holds 26 keys, and the retired ones are gone', () => {
@@ -159,11 +213,22 @@ Deno.test('rule lmaxHole: Lmax is 0 or at least 6, at the boundary', () => {
   }
 })
 
-Deno.test('rule wholeNumbers: width, height and seed are whole numbers', () => {
+// Width, height and seed step by 1, so the step says what the wholeNumbers
+// rule used to say, one knob at a time: a fraction here would go into the
+// board id and so into a file name.
+Deno.test('a fractional size or seed is off the step of 1, and names only itself', () => {
   assertEquals(validateParams(withDefaults({ W: 10, H: 12, seed: 0 })), [])
-  for (const over of [{ W: 10.5 }, { H: 12.25 }, { seed: 1.5 }]) {
-    assertEquals(validateParams(withDefaults(over)), rule('wholeNumbers'), JSON.stringify(over))
+  const cases: readonly [Partial<Params>, ParamKey, number][] = [
+    [{ W: 10.5 }, 'W', 10.5],
+    [{ H: 12.25 }, 'H', 12.25],
+    [{ seed: 1.5 }, 'seed', 1.5],
+  ]
+  for (const [over, key, value] of cases) {
+    const expected: Violation[] = [{ kind: 'step', key, value, step: 1, min: spec(key).min }]
+    assertEquals(validateParams(withDefaults(over)), expected, JSON.stringify(over))
   }
+  // Two fractions, two complaints, each naming its own knob.
+  assertEquals(validateParams(withDefaults({ W: 10.5, seed: 1.5 })).length, 2)
 })
 
 // --start is the only way to write the two stored knobs, so a stored pair it
@@ -177,8 +242,12 @@ Deno.test('rule startPair: only a pair --start can spell', () => {
   }
   // Mixing on: the start is 0 and the share is the number --start takes.
   for (const mix of [0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ headBias: 0, mix })), [], `mix=${mix}`)
-  // A start between the words, with mixing off: --start=0.5 would read back as a share.
-  assertEquals(validateParams(withDefaults({ headBias: 0.5, mix: -1 })), rule('startPair'))
+  // A start between the words, with mixing off: --start=0.5 would read back as
+  // a share. It is also off the step of the knob, and both are said.
+  assertEquals(validateParams(withDefaults({ headBias: 0.5, mix: -1 })), [
+    { kind: 'step', key: 'headBias', value: 0.5, step: 1, min: -1 },
+    ...rule('startPair'),
+  ])
   // A start of its own beside a share: the engine ignores it, the board id does not.
   assertEquals(validateParams(withDefaults({ headBias: 1, mix: 0.5 })), rule('startPair'))
   assertEquals(validateParams(withDefaults({ headBias: -1, mix: 0.5 })), rule('startPair'))

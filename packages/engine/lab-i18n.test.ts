@@ -5,7 +5,7 @@ import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
 
 type GroupHelpKey = keyof Dictionary['groupHelp']
 
-const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'wholeNumbers', 'startPair']
+const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'startPair']
 const reasonKeys = (o: Record<string, string>) => Object.keys(o) as (InactiveKey | RuleKey)[]
 const uiKeys = (d: Dictionary) => Object.keys(d.ui) as UiKey[]
 const groupHelpKeys = (d: Dictionary) => Object.keys(d.groupHelp) as GroupHelpKey[]
@@ -78,6 +78,13 @@ Deno.test('both ui dictionaries describe the safe envelope', () => {
     assert(text.includes('straightness bias'), text)
     assert(text.includes('0.4'), text)
     assert(text.includes('0.6..1'), text)
+    assertEquals(typeof d.ui.stepViolation, 'function')
+    const step = d.ui.stepViolation('maximum backtracks', 25, 0, 50)
+    assertEquals(typeof step, 'string')
+    assert(step.includes('maximum backtracks'), step)
+    assert(step.includes('25'), step)
+    assert(step.includes('0'), step)
+    assert(step.includes('50'), step)
   }
 })
 

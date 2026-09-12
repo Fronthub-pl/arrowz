@@ -83,7 +83,7 @@ Deno.test('POST refuses fields the store would write or the page would show unch
       // join() normalises '/../../escape' back inside the store root, so only
       // an extra '..' actually lands the would-be file beside the store.
       [{ ...b, params: { ...b.params, seed: '/../../../escape' } }, 'params.seed'],
-      [{ ...b, params: { ...b.params, seed: 1.5 } }, 'whole numbers'],
+      [{ ...b, params: { ...b.params, seed: 1.5 } }, 'seed: 1.5'],
       [{ ...b, source: '<img src=x onerror=alert(1)>' }, 'source'],
       [{ ...b, svg: '<svg><script>alert(1)</script></svg>' }, 'svg is not accepted'],
       [{ ...b, view: { ...b.view, top: 'x' } }, 'view.top'],
