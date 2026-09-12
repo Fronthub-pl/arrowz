@@ -317,11 +317,13 @@ the undo path. What is left:
   a usable step four times coarser than the one proposed, and an avoiding side whose
   value is all in its endpoint. §2.1 now specifies the three-state `choice`, and §5.8's
   `WORDS.trapBias` entry is no longer a fallback but the plan.
-- *The two consequences of the §2.3 ruling.* First, a fingerprint check that the
-  bucket-and-order shape reproduces the recorded `--start=random` boards exactly; if it
-  does not, the stability argument is wrong and the ruling goes back open. Second, the
-  one genuinely new combination: `tunnels` and `layers` at `trapBias ±1`, to record what
-  `--start` still does from inside a bucket.
+- ~~*The two consequences of the §2.3 ruling.*~~ Both done. The bucket-and-order shape
+  reproduces every recorded `--start=random` board exactly — 9 of 9 fingerprints
+  unchanged, checked again after the cost work and after the share landed, and now held
+  by `trap-avoid` in the golden set rather than by a script. And the combination nobody
+  had measured is recorded twice over: `tunnels` and `layers` at `±1` give three
+  distinct boards where they used to give one, and the level sweep carries every
+  `-tunnels` option at all three states.
 - ~~*A timing gate.*~~ Done, and the target it named turned out to be the wrong one:
   the lever cannot go under `--start=tunnels`, because what it pays for is ranking
   itself. It now costs a biased `--start` plus a tenth, with the boards unchanged. What
