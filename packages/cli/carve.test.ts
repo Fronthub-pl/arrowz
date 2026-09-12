@@ -330,6 +330,20 @@ Deno.test('a retired flag is refused with its replacement, exit code 2', () => {
   assertEquals(entries(dir), 0, 'nothing is written')
 })
 
+// The worst of the three: --start=constructor read Object.prototype.constructor
+// out of the word table, took it for a word and carved the DEFAULT board with
+// exit 0, reporting a pin (headBias, mix) the command line never wrote.
+Deno.test('a start named after Object.prototype is refused, and no board is written', () => {
+  for (const name of ['constructor', 'toString', 'valueOf']) {
+    const dir = tmp()
+    const r = runCarve(['--width=10', '--height=10', `--start=${name}`], join(dir, 'boards'))
+    assertEquals(r.status, 2, `--start=${name}\n${r.stdout}${r.stderr}`)
+    assertStringIncludes(r.stderr, `--start=${name} is not layers, random, tunnels`)
+    assertEquals(r.stdout, '', 'nothing on stdout')
+    assertEquals(entries(dir), 0, 'nothing is written')
+  }
+})
+
 Deno.test('carve.ts refuses an unknown flag and a missing size: exit 2, a hint, nothing written', () => {
   const dir = tmp()
   const r = runCarve(['--nope=1'], dir)

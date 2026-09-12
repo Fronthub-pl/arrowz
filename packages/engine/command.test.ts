@@ -270,6 +270,37 @@ Deno.test('retired spellings name their replacement, and unknown flags are refus
 // flag, and normalizeChoice rounds and clamps it for the lab's sake. So the
 // parser has to refuse what that clamp would otherwise swallow: --width=2000
 // used to give a 1000-wide board and exit 0, while --seed=1.5 was refused.
+// Every dictionary the command line indexes is a plain object literal, so a
+// name off Object.prototype read back as a value: --start=constructor pinned
+// the pair --start=random spells and carved the default board with exit 0,
+// --lmax=constructor pinned a native function as a knob value, and
+// --constructor was answered as a retired flag whose replacement text was that
+// function. A key that came from the command line must reach an own property
+// of the dictionary or nothing at all.
+Deno.test('a name off Object.prototype is not a word, not a knob value and not a retired flag', () => {
+  const freeLmax = parseArgs(SIZE).params.Lmax
+  for (const name of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+    const start = parseArgs([...SIZE, `--start=${name}`])
+    assertEquals(start.pins, [], `--start=${name} pinned ${start.pins.join(', ')}`)
+    assert(start.errors.some((e) => e.includes(`--start=${name}`)), `--start=${name}: ${start.errors.join('; ')}`)
+
+    const knob = parseArgs([...SIZE, `--lmax=${name}`])
+    assertEquals(knob.pins, [], `--lmax=${name} pinned ${knob.pins.join(', ')}`)
+    assertEquals(knob.params.Lmax, freeLmax, `--lmax=${name} moved the knob`)
+    assert(
+      knob.errors.some((e) => e.includes(`--lmax=${name}`) && e.includes('not a number')),
+      `--lmax=${name}: ${knob.errors.join('; ')}`,
+    )
+
+    // The parser lowercases a flag name, so this is the spelling it saw.
+    const flag = parseArgs([...SIZE, `--${name}=1`])
+    assert(
+      flag.errors.some((e) => e === `unknown flag --${name.toLowerCase()}; see --help`),
+      `--${name}: ${flag.errors.join('; ')}`,
+    )
+  }
+})
+
 Deno.test('parseArgs: the size takes whole numbers inside its own range', () => {
   assertEquals(parseArgs(['--width=2000', '--height=50']).errors, ['--width=2000 is outside 4..1000'])
   assertEquals(parseArgs(['--width=3', '--height=50']).errors, ['--width=3 is outside 4..1000'])
