@@ -70,6 +70,15 @@ export const EN = {
     randomizeHelp:
       'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
   },
+  // The one control the lab builds by hand, because the CLI has one flag for
+  // the two knobs behind it: --start writes headBias and mix together, so
+  // neither of them gets a row, and their texts are not PARAM_SPEC's.
+  start: {
+    label: 'piece start',
+    help:
+      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Mixing starts that fraction of pieces as tunnels.',
+    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
+  },
   ui: {
     title: 'Generator lab',
     subtitle: 'Same engine as carve.ts: engine.ts.',
@@ -196,6 +205,8 @@ export type UiArgs<K extends UiKey> = Dictionary['ui'][K] extends (...args: infe
 export type Translation = Dictionary & {
   reasons: Record<InactiveKey | RuleKey, string>
   params: Record<ParamKey, { label: string; help: string }>
+  /** Each value of a fixed-choice knob, keyed by the English word PARAM_SPEC gives it — the word the flag takes. */
+  choices: Partial<Record<ParamKey, Record<string, string>>>
 }
 
 // Polish: the translation of the lab, plus the parameter and reason texts the
@@ -211,16 +222,19 @@ export const PL: Translation = {
   },
   reasons: {
     skeletonOff: 'wymaga elementów szkieletowych > 0',
-    hugOff: 'działa tylko przy premii za przyleganie > 1',
-    mixOn: 'zastąpione przez mieszanie warstw i tuneli',
     probeOff: 'działa tylko przy udziale sond > 0',
     stepZero: 'działa tylko przy skoku serpentyny > 0',
-    spanZero: 'wymaga długości szkieletu > 0',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
-    mixHole: 'mieszanie musi być -1 (wyłączone) albo między 0,3 a 0,7',
     wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
+    startPair:
+      'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
+  },
+  // Words of the fixed-choice knobs. The key is the word the CLI takes
+  // (--giantspacing=off), the value is what the lab shows in Polish.
+  choices: {
+    giantSpacing: { off: 'bez odstępu', '2': '2', '3': '3' },
   },
   params: {
     W: {
@@ -244,9 +258,9 @@ export const PL: Translation = {
         'Jaka część elementów ma być średnia. Reszta po krótkich i średnich idzie na długie. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
     },
     Lmax: {
-      label: 'długość maksymalna (0 = 2,5 × bok)',
+      label: 'długość maksymalna (auto = 2,5 × bok)',
       help:
-        'Najdłuższy element, o jaki stara się generator. 0 = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj 0 albo co najmniej 6.',
+        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj auto albo co najmniej 6.',
     },
 
     pStraight: {
@@ -268,24 +282,15 @@ export const PL: Translation = {
       help:
         'Jak mocno linia unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze elementy. Powyżej 10 zacina się przy małej skłonności do prostej.',
     },
-    hug: {
-      label: 'premia za przyleganie',
-      help: 'Premia za bieg wzdłuż już wyciętych elementów. Mało widoczny efekt; zostawiona do eksperymentów.',
-    },
-    edgeHug: {
-      label: 'krawędź jak element',
-      help: 'Czy przy premii za przyleganie krawędź planszy liczy się jak sąsiedni element.',
-    },
-
     headBias: {
       label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)',
       help:
         'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.',
     },
     mix: {
-      label: 'mieszanie warstw i tuneli (-1 = wyłączone)',
+      label: 'udział mieszania (tunele wśród warstw)',
       help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. -1 = wyłączone; inaczej 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
+        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
     },
     probe: {
       label: 'udział elementów-sond',
@@ -307,8 +312,9 @@ export const PL: Translation = {
       help: 'Docelowa długość jednego szkieletu w bokach planszy. Linia kończy wcześniej, gdy zabraknie miejsca.',
     },
     giantStep: {
-      label: 'skok serpentyny (0 = wzrost losowy)',
-      help: 'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. 0 = wzrost losowy.',
+      label: 'skok serpentyny (random = wzrost swobodny)',
+      help:
+        'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. random = wzrost swobodny, bez serpentyny.',
     },
     giantJitter: {
       label: 'urywanie biegów serpentyny',
@@ -324,11 +330,6 @@ export const PL: Translation = {
       help:
         'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. Poniżej 0,3 plansze przestają się domykać.',
     },
-    giantWarns: {
-      label: 'domykanie zakamarków dla szkieletu',
-      help:
-        'Reguła zakamarków tylko dla szkieletu, tam gdzie rośnie swobodnie. Zostaw 0: zwija linię, a szkielet ma iść daleko.',
-    },
     giantAnticoil: {
       label: 'kara za zwijanie szkieletu',
       help: 'Kara za dotykanie siebie tylko dla szkieletu. Obowiązuje wyższa z tej i ogólnej.',
@@ -338,20 +339,10 @@ export const PL: Translation = {
       help:
         'Jak daleko szkielet trzyma się od własnych wcześniejszych biegów, w komórkach. Powyżej 3 tylko kosztuje czas.',
     },
-    giantSpacePenalty: {
-      label: 'siła odstępu szkieletu',
-      help: 'Jak mocno szkielet jest odpychany od siebie. Kara, nie zakaz, więc może zawracać.',
-    },
-
     headTries: {
       label: 'prób startu na kierunek',
       help:
         'Ile miejsc startu wypróbować przed zmianą kierunku. 1 głodzi szukanie przy trudnych ustawieniach; powyżej 16 tylko kosztuje czas.',
-    },
-    strandLimit: {
-      label: 'dokładny test resztki do N komórek',
-      help:
-        'Do jakiego rozmiaru wolny fragment jest sprawdzany dokładnie, czy da się pociąć. Poniżej 10 na dużych planszach prześlizgują się resztki po 10 komórek.',
     },
     absorbLimit: {
       label: 'wchłanianie resztek do N komórek',
@@ -359,9 +350,9 @@ export const PL: Translation = {
         'Fragment do tego rozmiaru, którego nie da się wyciąć, dokleja się do sąsiada. Poniżej 12 resztki się piętrzą i plansze się zacinają.',
     },
     maxBack: {
-      label: 'budżet nawrotów (0 = 200)',
+      label: 'budżet nawrotów (auto = 200)',
       help:
-        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 0 = 200, to wystarcza; więcej tylko opóźnia werdykt.',
+        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. auto = 200, to wystarcza; więcej tylko opóźnia werdykt.',
     },
     restarts: {
       label: 'dopuszczalne restarty',
@@ -413,6 +404,12 @@ export const PL: Translation = {
     randomize: 'losuj ustawienia przy każdym generowaniu',
     randomizeHelp:
       'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
+  },
+  start: {
+    label: 'start elementów',
+    help:
+      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Mieszanie startuje tunelami tę część elementów.',
+    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszanie' },
   },
   ui: {
     title: 'Laboratorium generatora',

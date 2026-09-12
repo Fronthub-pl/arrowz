@@ -16,8 +16,6 @@ import { dirname, fromFileUrl, join } from '@std/path'
 interface ImageEntry {
   /** File name without an extension, under docs/images/. */
   out: string
-  /** Which flag set of the CLI: the everyday one, or --advanced. */
-  dialect: 'simple' | 'advanced'
   /** The flags themselves, without --svg (the script adds it). */
   flags: string[]
   /** Width of the PNG in pixels; the height follows the drawing's aspect ratio. */
@@ -47,7 +45,7 @@ const carve = join(root, 'packages', 'cli', 'carve.ts')
 function isEntry(value: unknown): value is ImageEntry {
   if (typeof value !== 'object' || value === null) return false
   const e = value as Partial<ImageEntry>
-  return typeof e.out === 'string' && (e.dialect === 'simple' || e.dialect === 'advanced') &&
+  return typeof e.out === 'string' &&
     Array.isArray(e.flags) && e.flags.every((f) => typeof f === 'string') && typeof e.width === 'number'
 }
 
@@ -110,7 +108,6 @@ for (const entry of entries) {
     '--allow-write',
     '--allow-env=ARROWZ_BOARDS_DIR,CARVE_TIMEOUT_S,CARVE_TRACE,GIANT_DEBUG',
     carve,
-    ...(entry.dialect === 'advanced' ? ['--advanced'] : []),
     ...entry.flags,
     `--svg=${svg}`,
   ]

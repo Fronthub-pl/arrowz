@@ -74,7 +74,7 @@ Deno.test('an empty board and a board of voids survive the round trip', () => {
 })
 
 Deno.test('a generated board with voids keeps its -2 cells through the file', () => {
-  const board = generate({ ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.1 }, { unchecked: true }).board
+  const board = generate({ ...defaultParams(), W: 40, H: 40, seed: 1 }, { unchecked: true, voidFrac: 0.1 }).board
   const file = encodeBoard(board)
   assert(file.voids > 0, 'the fixture has voids')
   assertSameBoard(decodeBoard(file), board)

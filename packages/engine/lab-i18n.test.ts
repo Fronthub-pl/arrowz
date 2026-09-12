@@ -1,11 +1,11 @@
 import { assert, assertEquals } from '@std/assert'
 import { type Dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
-import type { InactiveKey, RuleKey } from './types.ts'
+import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
 
 type GroupHelpKey = keyof Dictionary['groupHelp']
 
-const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'mixHole', 'wholeNumbers']
+const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'wholeNumbers', 'startPair']
 const reasonKeys = (o: Record<string, string>) => Object.keys(o) as (InactiveKey | RuleKey)[]
 const uiKeys = (d: Dictionary) => Object.keys(d.ui) as UiKey[]
 const groupHelpKeys = (d: Dictionary) => Object.keys(d.groupHelp) as GroupHelpKey[]
@@ -18,6 +18,32 @@ Deno.test('Polish dictionary covers every parameter and group', () => {
   for (const g of new Set(PARAM_SPEC.map((s) => s.group))) {
     assert(PL.groups[g], `group ${g}`)
     assert(EN.groups[g], `group ${g}`)
+  }
+})
+
+// A knob with a `choice` control is drawn as the CLI's own list of values, so
+// every choice needs a Polish word; English takes the word PARAM_SPEC gives it.
+// The start control has no PARAM_SPEC row at all, so both languages carry its
+// label, its help and its four choices.
+Deno.test('both dictionaries cover the fixed-choice knobs and the start control', () => {
+  const choiceKeys = new Set<ParamKey>()
+  for (const s of PARAM_SPEC) {
+    if (s.control?.kind !== 'choice') continue
+    choiceKeys.add(s.key)
+    const words = PL.choices[s.key]
+    assert(words, `no Polish words for ${s.key}`)
+    for (const c of s.control.choices) assert(words[c.word], `Polish word for ${s.key}=${c.word}`)
+  }
+  assert(choiceKeys.size > 0, 'the lab draws at least one knob as a list of values')
+  for (const k of Object.keys(PL.choices)) assert(choiceKeys.has(k as ParamKey), `stale choices ${k}`)
+  const dictionaries: Dictionary[] = [EN, PL]
+  for (const d of dictionaries) {
+    assert(d.start.label.length > 0, 'start label')
+    for (const word of Object.values(d.start.options)) {
+      assert(word.length > 0, 'start option')
+      // The help is the only place the four choices are explained, so it names them.
+      assert(d.start.help.toLowerCase().includes(word.toLowerCase()), `the start help names ${word}`)
+    }
   }
 })
 

@@ -9,6 +9,7 @@ import type {
   BoardData,
   CarverStats,
   Cell,
+  GenerateOptions,
   GenerateResult,
   HistBucket,
   InactiveKey,
@@ -25,6 +26,17 @@ import type {
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
 import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
+
+// Retired knobs, kept as the constants their defaults always were. Each was
+// inert at that value: HUG gates its own rule on `> 1`, EDGE_HUG only feeds
+// that gate, STRAND_LIMIT's default was its maximum, GIANT_WARNS was
+// documented as "keep at 0", and GIANT_SPACE_PENALTY only applies when the
+// spacing radius is above 1.
+const HUG = 1
+const EDGE_HUG = 0
+const STRAND_LIMIT = 30
+const GIANT_WARNS = 0
+const GIANT_SPACE_PENALTY = 8
 
 /**
  * `at` for the typed-array scratch (owner, stamps, counters): the same
@@ -71,11 +83,28 @@ function mulberry32(seed: number): () => number {
 
 // ---------------------------------------------------------------- board
 
+/**
+ * What a carver needs beside the knobs: generate()'s hooks and the two
+ * test-only switches. `undefined` is spelled out rather than left to the
+ * optional marker, so generate() can hand over hooks it may not have
+ * (exactOptionalPropertyTypes).
+ */
+type CarverOptions = {
+  trace?: ((info: TraceInfo) => void) | undefined
+  debug?: ((msg: string) => void) | undefined
+  voidFrac?: number | undefined
+  ruleB?: boolean | undefined
+}
+
 class Carver implements Board {
   W: number
   H: number
   p: Params
   rng: () => number
+  // The hooks and the metrics switch of generate(); only knobs live in `p`.
+  trace: ((info: TraceInfo) => void) | undefined
+  debug: ((msg: string) => void) | undefined
+  ruleB: boolean
   owner: Int32Array
   pieces: Piece[]
   remaining: number
@@ -105,22 +134,26 @@ class Carver implements Board {
   stuckSizes?: number[]
   stuckHeads?: number
 
-  constructor(W: number, H: number, params: Params, rng: () => number) {
+  constructor(W: number, H: number, params: Params, rng: () => number, opts: CarverOptions = {}) {
     this.W = W
     this.H = H
     this.p = params
     this.rng = rng
+    this.trace = opts.trace
+    this.debug = opts.debug
+    this.ruleB = opts.ruleB ?? true
     this.owner = new Int32Array(W * H).fill(-1) // -1 = unassigned (set R)
     this.pieces = []
     this.remaining = W * H
+    const voidFrac = opts.voidFrac ?? 0
     // More voids than cells would never be placed and the loop below would not
     // end; the unchecked path skips validateParams, so the guard lives here.
-    if (!(params.voidFrac >= 0 && params.voidFrac < 1)) {
-      throw new RangeError(`voidFrac ${params.voidFrac} is outside [0, 1)`)
+    if (!(voidFrac >= 0 && voidFrac < 1)) {
+      throw new RangeError(`voidFrac ${voidFrac} is outside [0, 1)`)
     }
-    if (params.voidFrac > 0) {
+    if (voidFrac > 0) {
       let v = 0
-      const target = Math.round(W * H * params.voidFrac)
+      const target = Math.round(W * H * voidFrac)
       while (v < target) {
         const i = Math.floor(rng() * W * H)
         if (this.owner[i] === -1) {
@@ -453,7 +486,7 @@ class Carver implements Board {
     return { isFree, check }
   }
 
-  // Does carving `cells` strand the rest: a fragment of up to `strandLimit`
+  // Does carving `cells` strand the rest: a fragment of up to `STRAND_LIMIT`
   // cells that cannot be decomposed into paths, or a local defect in a fragment
   // of any size. `failed` (optional) collects the cells of fragments that
   // failed the exact test.
@@ -465,7 +498,7 @@ class Carver implements Board {
     // a separate stamp for cells visited by the flood fill
     const seenGen = ++this.gen
     for (const c of cells) takenStamp[this.idx(c.x, c.y)] = seenGen
-    const limit = this.p.strandLimit
+    const limit = STRAND_LIMIT
     const stack: number[] = []
     for (const c of cells) {
       for (const { dx, dy } of DIRS) {
@@ -627,7 +660,7 @@ class Carver implements Board {
   creepUp(path: Cell[], L: number, hi: number, failed: Set<number>): number {
     if (hi <= L + 1) return L
     const { W, owner, takenStamp, seenStamp, creepPos, creepInfo, degStamp } = this
-    const limit = this.p.strandLimit
+    const limit = STRAND_LIMIT
     const takenGen = ++this.gen
     for (let i = 0; i < L; i++) {
       const c = at(path, i), ci = c.y * W + c.x
@@ -984,7 +1017,7 @@ class Carver implements Board {
           // length without gaining ground. So for giants we swap the weights:
           // strongly straight, no Warnsdorff (it is what coils), with a self-contact penalty.
           const pStraight = isGiant ? p.giantStraight : p.pStraight
-          const warns = isGiant ? p.giantWarns : p.warns
+          const warns = isGiant ? GIANT_WARNS : p.warns
           const anticoil = isGiant ? Math.max(p.anticoil, p.giantAnticoil) : p.anticoil
           let lastDir: Step = { dx: back.dx, dy: back.dy }
 
@@ -1008,7 +1041,7 @@ class Carver implements Board {
               if (!this.inside(nx, ny)) continue
               const i = this.idx(nx, ny)
               if (this.owner[i] !== -1 || pathSet.has(i)) continue
-              if (!p.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
+              if (!this.ruleB && !this.rayClear(nx, ny, d, pathSet)) continue
               // Moving INWARD (along -d) is always legal, but it cuts the path off
               // from the frontier and thus from any future bends. Moving SIDEWAYS is
               // legal only at the level of the neighbouring line's frontier — and it
@@ -1025,7 +1058,7 @@ class Carver implements Board {
               for (const e of DIRS) {
                 const ax = nx + e.dx, ay = ny + e.dy
                 if (!this.inside(ax, ay)) {
-                  foreign += p.edgeHug
+                  foreign += EDGE_HUG
                   continue
                 }
                 const j = this.idx(ax, ay)
@@ -1040,7 +1073,7 @@ class Carver implements Board {
               }
               // HUG: a bonus for hugging other pieces. Hypothesis — this is what
               // should give the impression of "wrapping" instead of coiling on itself.
-              if (p.hug > 1 && foreign > 0) w *= Math.pow(p.hug, foreign)
+              if (HUG > 1 && foreign > 0) w *= Math.pow(HUG, foreign)
               // ANTICOIL: a penalty for touching one's own path. The tail cell we
               // come from does not count — hence own - 1.
               if (anticoil > 1 && own > 1) w *= Math.pow(anticoil, -(own - 1))
@@ -1050,7 +1083,7 @@ class Carver implements Board {
               // it eats its own space and gets stuck. We enforce a minimum distance
               // to its own runs from at least a few steps ago; the channels left
               // between the runs will later be filled by other pieces.
-              if (isGiant && p.giantSpacing > 1 && p.giantSpacePenalty > 1) {
+              if (isGiant && p.giantSpacing > 1 && GIANT_SPACE_PENALTY > 1) {
                 const k = p.giantSpacing
                 const here = path.length
                 let near = 0
@@ -1067,7 +1100,7 @@ class Carver implements Board {
                 // A PENALTY, not a ban. A ban would make turning around impossible:
                 // moving from lane to lane requires crossing the spacing zone, so the
                 // snake got stuck after two hundred cells regardless of the ordered length.
-                if (near > 0) w *= Math.pow(p.giantSpacePenalty, -near)
+                if (near > 0) w *= Math.pow(GIANT_SPACE_PENALTY, -near)
               }
               cand.push({ x: nx, y: ny, dd, w })
             }
@@ -1106,9 +1139,9 @@ class Carver implements Board {
           }
 
           if (path.length < 2) continue
-          if (isGiant && this.p.debug) {
+          if (isGiant && this.debug) {
             const grew = path.length
-            this.p.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
+            this.debug(`  [giant] ordered ${want}, growth gave ${grew} (${grew < want ? 'STUCK' : 'full length'})`)
           }
           this.stats.want += want
           this.stats.n++
@@ -1121,8 +1154,8 @@ class Carver implements Board {
             if (!this.shortenPath(path, failed)) continue
             this.stats.strandTrunc++
             this.stats.strandLoss += beforeStrand - path.length
-            if (isGiant && this.p.debug) {
-              this.p.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
+            if (isGiant && this.debug) {
+              this.debug(`  [giant] leftover test trimmed ${beforeStrand} -> ${path.length}`)
             }
           }
           this.stats.got += path.length
@@ -1637,7 +1670,7 @@ class Carver implements Board {
       // a thrash the piece count circles one value and may miss every
       // multiple of 500 for minutes, which would silence the lab's progress
       // and a time budget that aborts from this callback.
-      if (this.p.trace && performance.now() - lastLog > (this.pieces.length % 500 === 0 ? 250 : 1000)) {
+      if (this.trace && performance.now() - lastLog > (this.pieces.length % 500 === 0 ? 250 : 1000)) {
         lastLog = performance.now()
         const info: TraceInfo = {
           pieces: this.pieces.length,
@@ -1646,7 +1679,7 @@ class Carver implements Board {
           ms: lastLog - t0,
           total: this.W * this.H,
         }
-        this.p.trace(info)
+        this.trace(info)
       }
       if (this.carveOne()) continue
       // Before undoing anything, try absorbing the leftovers with a neighbour's
@@ -2154,14 +2187,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'Lmax',
-    label: 'maximum length (0 = 2.5 × side)',
+    label: 'maximum length (auto = 2.5 × side)',
     group: 'lengths',
     min: 0,
     max: 5000,
     step: 1,
     def: 0,
     help:
-      'The longest piece the generator tries for. 0 = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use 0 or at least 6.',
+      'The longest piece the generator tries for. auto = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use auto or at least 6.',
   },
 
   {
@@ -2207,27 +2240,6 @@ const PARAM_TABLE = [
     help:
       'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.',
   },
-  {
-    key: 'hug',
-    label: 'hug bonus',
-    group: 'shape',
-    min: 1,
-    max: 20,
-    step: 1,
-    def: 1,
-    help: 'Bonus for running along already carved pieces. Little visible effect; kept for experiments.',
-  },
-  {
-    key: 'edgeHug',
-    label: 'edge counts as a piece',
-    group: 'shape',
-    min: 0,
-    max: 4,
-    step: 1,
-    def: 0,
-    inactive: (p) => (p.hug <= 1 ? 'hugOff' : null),
-    help: 'Whether the board edge counts as a neighbouring piece for the hug bonus.',
-  },
 
   {
     key: 'headBias',
@@ -2237,20 +2249,21 @@ const PARAM_TABLE = [
     max: 1,
     step: 1,
     def: 0,
-    inactive: (p) => (p.mix >= 0 ? 'mixOn' : null),
+    surface: 'start',
     help:
       'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.',
   },
   {
     key: 'mix',
-    label: 'layer/tunnel mixing (-1 = off)',
+    label: 'mixing share (tunnels among layers)',
     group: 'difficulty',
     min: -1,
     max: 1,
     step: 0.05,
     def: -1,
+    surface: 'start',
     help:
-      'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.',
+      'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed.',
   },
   {
     key: 'probe',
@@ -2290,7 +2303,7 @@ const PARAM_TABLE = [
     key: 'giantSpan',
     label: 'skeleton length (in board sides)',
     group: 'skeleton',
-    min: 0,
+    min: 1,
     max: 200,
     step: 1,
     def: 30,
@@ -2299,14 +2312,15 @@ const PARAM_TABLE = [
   },
   {
     key: 'giantStep',
-    label: 'serpentine step (0 = random growth)',
+    label: 'serpentine step (random = free growth)',
     group: 'skeleton',
     min: 0,
     max: 40,
     step: 1,
     def: 14,
     inactive: skeletonOff,
-    help: 'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. 0 = random growth.',
+    help:
+      'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. random = free growth, with no serpentine at all.',
   },
   {
     key: 'giantJitter',
@@ -2327,14 +2341,13 @@ const PARAM_TABLE = [
     max: 0.2,
     step: 0.01,
     def: 0,
-    inactive: (p) => (p.giantSpan <= 0 ? 'spanZero' : null),
     help:
       'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.',
   },
-  // giantStraight and giantWarns act on every skeleton regardless of giantStep:
-  // the serpentine only seeds the path, the tail keeps growing on these weights
+  // giantStraight acts on every skeleton regardless of giantStep: the
+  // serpentine only seeds the path, the tail keeps growing on this weight
   // (see growPiece), and the giants that wGiant adds later grow entirely on
-  // them. So they are inactive only when there is no skeleton at all.
+  // it. So it is inactive only when there is no skeleton at all.
   {
     key: 'giantStraight',
     label: 'skeleton straightness',
@@ -2346,18 +2359,6 @@ const PARAM_TABLE = [
     inactive: skeletonOff,
     help:
       'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.',
-  },
-  {
-    key: 'giantWarns',
-    label: 'closing off nooks for the skeleton',
-    group: 'skeleton',
-    min: 0,
-    max: 16,
-    step: 1,
-    def: 0,
-    inactive: skeletonOff,
-    help:
-      'Nook rule for the skeleton alone, where it grows freely. Keep at 0: it coils the line, and a skeleton should go far.',
   },
   {
     key: 'giantAnticoil',
@@ -2379,18 +2380,13 @@ const PARAM_TABLE = [
     step: 1,
     def: 2,
     inactive: skeletonOff,
+    // Three values, and the CLI spells 1 as `off` (--giantspacing=off|2|3), so
+    // the lab offers the same three words instead of a slider over 1..3.
+    control: {
+      kind: 'choice',
+      choices: [{ value: 1, word: 'off' }, { value: 2, word: '2' }, { value: 3, word: '3' }],
+    },
     help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
-  },
-  {
-    key: 'giantSpacePenalty',
-    label: 'skeleton spacing strength',
-    group: 'skeleton',
-    min: 1,
-    max: 40,
-    step: 1,
-    def: 8,
-    inactive: skeletonOff,
-    help: 'How strongly the skeleton is pushed away from itself. A penalty, not a ban, so it can turn around.',
   },
 
   {
@@ -2405,17 +2401,6 @@ const PARAM_TABLE = [
       'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.',
   },
   {
-    key: 'strandLimit',
-    label: 'exact leftover test up to N cells',
-    group: 'closing',
-    min: 10,
-    max: 30,
-    step: 1,
-    def: 30,
-    help:
-      'Up to what size a free fragment is checked exactly for being cuttable. Below 10 ten-cell leftovers slip through on big boards.',
-  },
-  {
     key: 'absorbLimit',
     label: 'leftover absorption up to N cells',
     group: 'closing',
@@ -2428,14 +2413,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'maxBack',
-    label: 'backtrack budget (0 = 200)',
+    label: 'backtrack budget (auto = 200)',
     group: 'closing',
     min: 0,
     max: 1000,
     step: 50,
     def: 0,
     help:
-      'How many carves may be undone in one attempt before starting over. 0 = 200, which is enough; more only delays the verdict.',
+      'How many carves may be undone in one attempt before starting over. auto = 200, which is enough; more only delays the verdict.',
   },
   {
     key: 'restarts',
@@ -2464,17 +2449,14 @@ export const PARAM_SPEC: readonly ParamSpec[] = PARAM_TABLE
 // The lab maps a key to the current language (see lab-i18n.ts for Polish).
 export const INACTIVE_REASONS: Record<InactiveKey, string> = {
   skeletonOff: 'requires skeleton pieces > 0',
-  hugOff: 'only works with hug bonus > 1',
-  mixOn: 'superseded by layer/tunnel mixing',
   probeOff: 'only works with probe share > 0',
   stepZero: 'only works with serpentine step > 0',
-  spanZero: 'requires skeleton length > 0',
 }
 
 export function defaultParams(): Params {
   // The one cast of the engine: the loop below fills every ParamKey (the
   // type-level assertion above guarantees the table has them all).
-  const p = { ruleB: true, voidFrac: 0 } as Params
+  const p = {} as Params
   for (const s of PARAM_SPEC) p[s.key] = s.def
   return p
 }
@@ -2486,7 +2468,6 @@ export function defaultParams(): Params {
 export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (p: Params) => boolean }[] = [
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
   { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
-  { key: 'mixHole', keys: ['mix'], check: (p) => p.mix === -1 || (p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9) },
   // A size or seed with a fraction is not a board the tools can name: the
   // seed goes into the board id and so into file names.
   {
@@ -2494,13 +2475,27 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
     keys: ['W', 'H', 'seed'],
     check: (p) => Number.isInteger(p.W) && Number.isInteger(p.H) && Number.isInteger(p.seed),
   },
+  // One flag (--start) writes both knobs, so only the pairs it can spell are
+  // storable: a whole-number start with mixing off, or start 0 with a mixing
+  // share. Anything else is a board no command text names — a start of 0.5
+  // prints as --start=0.5 and reads back as a share, and a start beside a
+  // share changes the board id while the carver ignores it (it reads headBias
+  // only while mix is below 0).
+  {
+    key: 'startPair',
+    keys: ['headBias', 'mix'],
+    check: (p) =>
+      (p.mix === -1 && Number.isInteger(p.headBias)) ||
+      (p.headBias === 0 && p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9),
+  },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
   lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
-  mixHole: 'mixing must be -1 (off) or between 0.3 and 0.7',
   wholeNumbers: 'width, height and seed must be whole numbers',
+  startPair:
+    'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of 0.3 to 0.7',
 }
 
 /**
@@ -2508,8 +2503,8 @@ export const RULE_REASONS: Record<RuleKey, string> = {
  * valid, otherwise one entry per problem: every PARAM_SPEC key whose value is
  * not a finite number inside [min, max] gives
  * { kind: 'range', key, value, min, max }, and every RULES entry that fails
- * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC (ruleB, voidFrac,
- * trace, debug) are ignored; step alignment is not checked.
+ * gives { kind: 'rule', key, keys }. Keys outside PARAM_SPEC are ignored;
+ * step alignment is not checked.
  */
 export function validateParams(params: Params): Violation[] {
   const out: Violation[] = []
@@ -2544,14 +2539,6 @@ export class InvalidParamsError extends RangeError {
 }
 
 /**
- * Generates a board: carves until it succeeds, restarting with a derived seed
- * on failure. Returns the board, metrics and the run — also on failure, so
- * that the lab has something to show. The merged parameters must sit inside
- * the safe envelope (validateParams), otherwise a RangeError with
- * `violations` attached is thrown before any carving starts. `unchecked`
- * skips that check; it exists for engine-internal tests only.
- */
-/**
  * Thrown from a `trace` callback to stop generate(): the attempt ends, the
  * board carved so far comes back as a failed run (`aborted: true`) and no
  * restart follows. The CLI uses it for a wall-clock budget; the engine
@@ -2564,8 +2551,19 @@ export class GenerateAbort extends Error {
   }
 }
 
-export function generate(params: Params, { unchecked = false }: { unchecked?: boolean } = {}): GenerateResult {
+/**
+ * Generates a board: carves until it succeeds, restarting with a derived seed
+ * on failure. Returns the board, metrics and the run — also on failure, so
+ * that the lab has something to show. A knob left out of `params` takes its
+ * default, and everything that is not a knob — the hooks, the test-only
+ * `voidFrac` and `ruleB` — rides in `opts`. The merged parameters must sit
+ * inside the safe envelope (validateParams), otherwise a RangeError with
+ * `violations` attached is thrown before any carving starts. `unchecked`
+ * skips that check; it exists for engine-internal tests only.
+ */
+export function generate(params: Partial<Params>, opts: GenerateOptions = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
+  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true } = opts
   if (!unchecked) {
     const violations = validateParams(p)
     if (violations.length) throw new InvalidParamsError(violations)
@@ -2577,7 +2575,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
   let aborted = false
   for (let attempt = 0; attempt <= p.restarts && !ok && !aborted; attempt++) {
     used = attempt
-    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
+    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
     try {
       ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
     } catch (err) {
@@ -2589,7 +2587,7 @@ export function generate(params: Params, { unchecked = false }: { unchecked?: bo
   if (!carver) throw new Error('generate: no attempt ran')
   const genMs = performance.now() - t0
   const t1 = performance.now()
-  const metrics = carver.pieces.length ? analyse(carver, p.ruleB) : null
+  const metrics = carver.pieces.length ? analyse(carver, ruleB) : null
   return {
     board: carver,
     metrics,

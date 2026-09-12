@@ -128,6 +128,27 @@ const SKELETON: Record<SimpleChoice['skeleton'], Anchor> = {
 const DIFFICULTY: Anchor = { headBias: { pick: [-1, 0, 1], def: 0 }, probe: r(0, 0.3, 0), probeLen: r(6, 40, 12) }
 const DIFFICULTY_BIG: Anchor = { headBias: { pick: [0, 1], def: 0 } }
 
+/** The first anchor of a slider; every slider has at least one, so a miss is a programming error. */
+function firstAnchor(anchors: readonly Anchor[]): Anchor {
+  const a = anchors[0]
+  if (!a) throw new Error('a slider needs at least one anchor')
+  return a
+}
+
+/**
+ * The knobs each everyday flag sets, read off the very anchors the ranges use,
+ * so the two cannot drift apart. Every anchor of one slider names the same
+ * knobs, so the first one speaks for all of them. `difficulty` is the baseline
+ * every board gets, whatever the flags say; `mix` belongs to no bundle,
+ * because only `--start` ever writes it.
+ */
+export const BUNDLES: Record<'length' | 'winding' | 'skeleton' | 'difficulty', readonly ParamKey[]> = {
+  length: anchorKeys(firstAnchor(LENGTH_ANCHORS)),
+  winding: anchorKeys(firstAnchor(SHAPE_ANCHORS)),
+  skeleton: anchorKeys(SKELETON.on),
+  difficulty: anchorKeys(DIFFICULTY),
+}
+
 /**
  * Cell size for the exported SVG: 1600 px on the longer side, between 1 and
  * 18 px. The lab and the CLI simple mode share it, so the same choice gives
@@ -297,9 +318,16 @@ function draw(key: ParamKey, range: Range, rng: (() => number) | null): number {
 /**
  * Full engine parameters for a choice. With `rng` (a function returning
  * [0, 1)) every ranged knob is drawn inside its range; without it the
- * canonical values are used.
+ * canonical values are used. The bundle is drawn first and the knobs named in
+ * `pins` are written over the result afterwards, so a pin changes only the
+ * knob it names: every other knob keeps the value it would have had without
+ * the pin, down to its place in the random stream.
  */
-export function simpleParams(choice: SimpleChoice, rng: (() => number) | null = null): Params {
+export function simpleParams(
+  choice: SimpleChoice,
+  rng: (() => number) | null = null,
+  pins: Partial<Record<ParamKey, number>> = {},
+): Params {
   const c = normalizeChoice(choice)
   const p: Params = { ...defaultParams(), W: c.W, H: c.H, seed: c.seed }
   const ranges = simpleRanges(c)
@@ -307,8 +335,44 @@ export function simpleParams(choice: SimpleChoice, rng: (() => number) | null = 
     const range = ranges[key]
     if (range) p[key] = draw(key, range, rng)
   }
-  // The engine caps short + medium at 0.9; the ranges respect it at the
-  // anchors, but a draw near the short end can land a hair above.
-  if (p.wShort + p.wMid > 0.9) p.wMid = Number((0.9 - p.wShort).toFixed(6))
+  // The pins go on top of the finished draw, never into it: skipping a pinned
+  // knob's draw would leave its value unspent in the stream and shift every
+  // partner drawn after it. A pin on a knob no anchor controls (Lmax,
+  // restarts, ...) is the only kind that adds a value here rather than
+  // replacing one the draw just made.
+  for (const [key, value] of Object.entries(pins)) {
+    if (value !== undefined) p[key as ParamKey] = value
+  }
+  // The engine caps short + medium at 0.9. A pinned share is the caller's
+  // word, so the clamp moves the other one; with both pinned it moves neither
+  // and the envelope refuses the pair, identically on every seed.
+  if (p.wShort + p.wMid > 0.9) {
+    if (pins.wMid === undefined) p.wMid = Number((0.9 - p.wShort).toFixed(6))
+    else if (pins.wShort === undefined) p.wShort = Number((0.9 - p.wMid).toFixed(6))
+  }
   return p
+}
+
+/** The CLI's vocabulary for the simple choice: the recommended entry point for an application. */
+export function presetParams(
+  { W, H, seed, length, winding, skeleton, rng }: {
+    W: number
+    H: number
+    seed?: number
+    length?: number
+    winding?: number
+    skeleton?: boolean
+    rng?: () => number
+  },
+): Params {
+  const d = defaultChoice()
+  return simpleParams({
+    W,
+    H,
+    seed: seed ?? d.seed,
+    lengths: length ?? d.lengths,
+    // `winding` is the shape slider itself: 0 = straightest lines.
+    shape: winding ?? d.shape,
+    skeleton: skeleton ? 'on' : 'off',
+  }, rng ?? null)
 }

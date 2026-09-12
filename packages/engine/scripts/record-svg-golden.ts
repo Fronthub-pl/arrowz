@@ -13,7 +13,7 @@ async function sha256(text: string): Promise<string> {
 
 const hashes: Record<string, string> = {}
 for (const c of SVG_GOLDEN_CASES) {
-  const r = generate(c.params, { unchecked: c.unchecked })
+  const r = generate(c.params, c.gen)
   c.mutate?.(r.board)
   hashes[c.name] = await sha256(toSvg(r.board, c.opts))
 }

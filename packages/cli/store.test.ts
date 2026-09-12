@@ -44,7 +44,7 @@ const entry = (
     board: emptyFile(p.W, p.H),
     params: p,
     view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: true },
-    command: `${COMMAND_PREFIX} --advanced --board --w=25 --h=50 --seed=7 --cell=12`,
+    command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
     source: 'cli',
     metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
     ...rest,
@@ -65,7 +65,7 @@ Deno.test('saveBoard writes the board file and the meta, and no SVG unless given
   assertEquals(saved.boardBytes, JSON.stringify(file).length)
   assertEquals(saved.svg, false)
   assert(saved.createdAt)
-  assertEquals('simpleCommand' in saved, false, 'no simple command unless one was given')
+  assertEquals('simpleCommand' in saved, false, 'one dialect, so one command')
 })
 
 Deno.test('saveBoard with an svg keeps the preview; a later save without one removes it', () => {
@@ -94,14 +94,14 @@ Deno.test('saveBoard refuses params whose id is not seed<digits>-<hash>', () => 
   )
 })
 
-// A board from the CLI simple mode carries the command as typed next to the
-// full one; the full one reproduces the board, the simple one records the wish.
-Deno.test('saveBoard keeps the simple command when given', () => {
+// One dialect, one command: it reproduces the board on its own, and the
+// second command older metas carry is never written again.
+Deno.test('saveBoard writes the one command it was given and no simpleCommand', () => {
   const dir = freshDir()
-  const meta = saveBoard(entry({ simpleCommand: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7` }))
+  const meta = saveBoard(entry())
   const saved = readMeta(join(dir, '25x50', meta.id + '.json'))
-  assertEquals(saved.simpleCommand, `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`)
-  assert(saved.command.startsWith(`${COMMAND_PREFIX} --advanced --board `))
+  assertEquals('simpleCommand' in saved, false)
+  assert(saved.command.startsWith(`${COMMAND_PREFIX} --width=`))
 })
 
 Deno.test('listBoards: sizes ascending by cells, boards newest first, same id overwrites in place', async () => {
@@ -163,7 +163,7 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
     seed: 7,
     params: params(),
     view: { cell: 12, stroke: 0.5, colored: false, top: 0 },
-    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
     source: 'cli',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -209,7 +209,7 @@ Deno.test('listBoards fills legacy params without a knob with the engine default
     seed: 7,
     params: legacyParams,
     view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
-    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
     source: 'cli',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
@@ -264,7 +264,7 @@ Deno.test('listBoards fills a legacy meta without the closing report', () => {
     seed: 7,
     params: params(),
     view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
-    command: `${COMMAND_PREFIX} --advanced --svg --w=25 --h=50 --seed=7 --cell=12`,
+    command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
     source: 'cli',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

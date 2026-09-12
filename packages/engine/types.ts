@@ -14,8 +14,6 @@ export type ParamKey =
   | 'wLateral'
   | 'warns'
   | 'anticoil'
-  | 'hug'
-  | 'edgeHug'
   | 'headBias'
   | 'mix'
   | 'probe'
@@ -26,19 +24,16 @@ export type ParamKey =
   | 'giantJitter'
   | 'wGiant'
   | 'giantStraight'
-  | 'giantWarns'
   | 'giantAnticoil'
   | 'giantSpacing'
-  | 'giantSpacePenalty'
   | 'headTries'
-  | 'strandLimit'
   | 'absorbLimit'
   | 'maxBack'
   | 'restarts'
 
 export type ParamGroup = 'board' | 'lengths' | 'shape' | 'difficulty' | 'skeleton' | 'closing'
-export type InactiveKey = 'skeletonOff' | 'hugOff' | 'mixOn' | 'probeOff' | 'stepZero' | 'spanZero'
-export type RuleKey = 'sharesSum' | 'lmaxHole' | 'mixHole' | 'wholeNumbers'
+export type InactiveKey = 'skeletonOff' | 'probeOff' | 'stepZero'
+export type RuleKey = 'sharesSum' | 'lmaxHole' | 'wholeNumbers' | 'startPair'
 
 export interface TraceInfo {
   pieces: number
@@ -48,13 +43,22 @@ export interface TraceInfo {
   total: number
 }
 
-/** A full engine parameter set: every knob, the two engine-only fields, and the optional hooks. */
-export type Params = Record<ParamKey, number> & {
-  ruleB: boolean
-  voidFrac: number
+/** What generate() takes beside the knobs: the envelope switch, the hooks, and two test-only fields. */
+export interface GenerateOptions {
+  unchecked?: boolean
   trace?: (info: TraceInfo) => void
   debug?: (msg: string) => void
+  /** Test-only: the share of cells left as voids, in [0, 1). */
+  voidFrac?: number
+  /** Test-only: rule B of the metrics pass. */
+  ruleB?: boolean
 }
+
+/** A full engine parameter set: the knobs of PARAM_SPEC and nothing else. */
+export type Params = Record<ParamKey, number>
+
+/** How the lab draws a knob: a number with a slider, or a fixed set of choices. */
+export type ParamControl = { kind: 'number' } | { kind: 'choice'; choices: readonly { value: number; word: string }[] }
 
 export interface ParamSpec {
   key: ParamKey
@@ -66,6 +70,10 @@ export interface ParamSpec {
   def: number
   help: string
   inactive?: (p: Params) => InactiveKey | null
+  /** Two knobs that one surface flag writes (`--start` = headBias + mix); such a knob has no row of its own. */
+  surface?: 'start'
+  /** How the lab draws the knob; absent is a number with a slider. The words are the ones the CLI takes. */
+  control?: ParamControl
 }
 
 export type Violation =
@@ -256,6 +264,10 @@ export interface BoardMeta {
   params: Params
   view: View
   command: string
+  /**
+   * The second command a board stored before the CLI had one dialect carries.
+   * Read only: nothing writes it any more, and `command` is the one command.
+   */
   simpleCommand?: string
   source: string
   createdAt: string

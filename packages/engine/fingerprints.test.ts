@@ -3,10 +3,9 @@
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, fingerprint, generate } from './engine.ts'
-import { parseArgs, parseSimpleArgs } from './command.ts'
-import { simpleParams } from './lab-simple.ts'
+import { parseArgs } from './command.ts'
 import { decodeBoard, encodeBoard } from './board-file.ts'
-import type { Params } from './types.ts'
+import type { GenerateOptions, Params } from './types.ts'
 
 interface GoldenCase {
   name: string
@@ -20,11 +19,15 @@ const golden = JSON.parse(Deno.readTextFileSync(join(dirname(fromFileUrl(import.
 }
 
 function paramsOf(c: GoldenCase): Params {
-  if (c.argv === null) return { ...defaultParams(), W: 40, H: 40, seed: 1, voidFrac: 0.1 }
-  if (c.argv.includes('--advanced')) {
-    return parseArgs(c.argv.filter((a) => a !== '--advanced' && a !== '--dry-run')).params
-  }
-  return simpleParams(parseSimpleArgs(c.argv).choice)
+  if (c.argv === null) return { ...defaultParams(), W: 40, H: 40, seed: 1 }
+  const parsed = parseArgs(c.argv.filter((a) => a !== '--dry-run'))
+  if (parsed.errors.length) throw new Error(`${c.name}: ${parsed.errors.join('; ')}`)
+  return parsed.params
+}
+
+/** The case without an argv is the void board: voids and the escape hatch are options, not knobs. */
+function optsOf(c: GoldenCase): GenerateOptions {
+  return c.argv === null ? { unchecked: true, voidFrac: 0.1 } : {}
 }
 
 // Every recorded board is checked, big500 included: it costs about 1.3 s per
@@ -36,7 +39,7 @@ const BIG500_FILE_BYTES = 221956
 
 for (const c of golden.cases) {
   Deno.test(`golden board ${c.name} reproduces the fingerprint recorded on Node and survives the board file`, () => {
-    const r = generate(paramsOf(c), { unchecked: c.argv === null })
+    const r = generate(paramsOf(c), optsOf(c))
     assertEquals(fingerprint(r.board), c.fingerprint)
     assertEquals(r.board.pieces.length, c.pieces)
     // The unchecked case records no maxLen — it has no metrics.

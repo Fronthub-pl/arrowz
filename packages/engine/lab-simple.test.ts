@@ -3,6 +3,7 @@ import {
   defaultChoice,
   exportCell,
   normalizeChoice,
+  presetParams,
   SIMPLE_CHOICES,
   SIMPLE_SIZES,
   SIMPLE_SLIDERS,
@@ -213,6 +214,42 @@ Deno.test('big boards get a higher straightness floor and no layers mode when ra
   }
   assert(minSmall < 0.7, `small boards may go below 0.7 (min ${minSmall})`)
   assert(minSmall >= 0.65 - 1e-9)
+})
+
+// The pin goes over the finished draw, never into it. Skipping a pinned
+// knob's draw() would leave one value of the stream unspent and shift every
+// partner drawn after it — measured on this very choice before the fix:
+// wLateral 4 -> 5, warns 4 -> 5, anticoil 6 -> 7. A constant rng hides that,
+// so this test runs a real stream.
+Deno.test('a pin changes only the knob it names, and never moves its partners', () => {
+  const c = choice({ W: 60, H: 60, lengths: 0.5, shape: 0.5 })
+  // A fresh generator per call: mulberry32 is stateful, and the claim under
+  // test is that both runs draw the same values in the same order.
+  const pinned = simpleParams(c, mulberry32(7), { pStraight: 0.97 })
+  const free = simpleParams(c, mulberry32(7))
+  assertEquals(pinned.pStraight, 0.97)
+  assert(free.pStraight !== 0.97, 'the draw would have picked the pinned value anyway')
+  assertEquals(pinned.wLateral, free.wLateral)
+  assertEquals(pinned.warns, free.warns)
+  assertEquals(pinned.anticoil, free.anticoil)
+})
+
+Deno.test('the short-plus-medium clamp moves only an unpinned partner', () => {
+  const choice = { ...defaultChoice(), lengths: 0 }
+  const pinned = simpleParams(choice, () => 0.99, { wShort: 0.85 })
+  assertEquals(pinned.wShort, 0.85)
+  assert(pinned.wShort + pinned.wMid <= 0.9 + 1e-9, `${pinned.wShort} + ${pinned.wMid}`)
+  // Both pinned: the engine refuses, the same way on every run.
+  const both = simpleParams(choice, () => 0.99, { wShort: 0.85, wMid: 0.2 })
+  assertEquals(both.wShort, 0.85)
+  assertEquals(both.wMid, 0.2)
+  assert(validateParams(both).length > 0, 'two pins that break the rule must reach the envelope')
+})
+
+Deno.test('presetParams takes the CLI vocabulary and gives the same board as the lab choice', () => {
+  const viaPreset = presetParams({ W: 40, H: 40, seed: 3, length: 0.25, winding: 0.75, skeleton: true })
+  const viaChoice = simpleParams({ W: 40, H: 40, seed: 3, lengths: 0.25, shape: 0.75, skeleton: 'on' })
+  assertEquals(viaPreset, viaChoice)
 })
 
 Deno.test('both dictionaries label every simple choice, slider end, size and view string', () => {

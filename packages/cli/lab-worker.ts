@@ -28,8 +28,7 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
   const started = performance.now()
   let result
   try {
-    result = generate({
-      ...msg.params,
+    result = generate(msg.params, {
       // Progress is sent as it happens: on large boards the user has to
       // see that something is going on, and be able to abort.
       trace: (info) => post({ type: 'progress', info }),

@@ -49,7 +49,6 @@ const NARROWED: { key: ParamKey; min: number; max: number; old: number[] }[] = [
   { key: 'warns', min: 2, max: 16, old: [0, 1] },
   { key: 'anticoil', min: 1, max: 10, old: [20] },
   { key: 'absorbLimit', min: 12, max: 64, old: [0] },
-  { key: 'strandLimit', min: 10, max: 30, old: [2] },
   { key: 'headTries', min: 2, max: 16, old: [1, 32] },
   { key: 'maxBack', min: 0, max: 1000, old: [200000] },
   { key: 'restarts', min: 0, max: 5, old: [10] },
@@ -115,13 +114,23 @@ Deno.test('envelope: keys outside PARAM_SPEC are ignored', () => {
 })
 
 Deno.test('envelope: the four cross-knob rules exist with a reason each', () => {
-  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'mixHole', 'wholeNumbers'])
+  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'wholeNumbers', 'startPair'])
   for (const r of RULES) {
     assert(Array.isArray(r.keys) && r.keys.length >= 1, r.key)
     for (const k of r.keys) assert(spec(k), `${r.key} names unknown knob ${k}`)
     assertEquals(typeof RULE_REASONS[r.key], 'string', r.key)
     assertEquals(formatViolation({ kind: 'rule', key: r.key, keys: r.keys }), RULE_REASONS[r.key])
   }
+})
+
+Deno.test('envelope: the knob table holds 26 keys, and the retired ones are gone', () => {
+  assertEquals(PARAM_SPEC.length, 26)
+  for (const gone of ['hug', 'edgeHug', 'strandLimit', 'giantWarns', 'giantSpacePenalty']) {
+    assert(!PARAM_SPEC.some((s) => String(s.key) === gone), `${gone} is still a knob`)
+  }
+  // headBias and mix stay stored, but the surface shows one control for both.
+  for (const key of ['headBias', 'mix'] as const) assertEquals(spec(key).surface, 'start')
+  assertEquals(spec('giantSpan').min, 1)
 })
 
 const rule = (key: RuleKey): Violation[] => {
@@ -150,18 +159,36 @@ Deno.test('rule lmaxHole: Lmax is 0 or at least 6, at the boundary', () => {
   }
 })
 
-Deno.test('rule mixHole: mix is -1 or within 0.3..0.7, at the boundary', () => {
-  for (const mix of [-1, 0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ mix })), [], `mix=${mix}`)
-  for (const mix of [0, 0.25, 0.75, 1]) {
-    assertEquals(validateParams(withDefaults({ mix })), rule('mixHole'), `mix=${mix}`)
-  }
-})
-
 Deno.test('rule wholeNumbers: width, height and seed are whole numbers', () => {
   assertEquals(validateParams(withDefaults({ W: 10, H: 12, seed: 0 })), [])
   for (const over of [{ W: 10.5 }, { H: 12.25 }, { seed: 1.5 }]) {
     assertEquals(validateParams(withDefaults(over)), rule('wholeNumbers'), JSON.stringify(over))
   }
+})
+
+// --start is the only way to write the two stored knobs, so a stored pair it
+// cannot spell has no command text: --start=0.5 reads back as a mixing share,
+// and (headBias 1, mix 0.5) carves the board (0, 0.5) carves while hashing to
+// another id. The rule makes flag and pair a bijection.
+Deno.test('rule startPair: only a pair --start can spell', () => {
+  // Mixing off: the three whole-number starts the words spell.
+  for (const headBias of [-1, 0, 1]) {
+    assertEquals(validateParams(withDefaults({ headBias, mix: -1 })), [], `headBias=${headBias}`)
+  }
+  // Mixing on: the start is 0 and the share is the number --start takes.
+  for (const mix of [0.3, 0.5, 0.7]) assertEquals(validateParams(withDefaults({ headBias: 0, mix })), [], `mix=${mix}`)
+  // A start between the words, with mixing off: --start=0.5 would read back as a share.
+  assertEquals(validateParams(withDefaults({ headBias: 0.5, mix: -1 })), rule('startPair'))
+  // A start of its own beside a share: the engine ignores it, the board id does not.
+  assertEquals(validateParams(withDefaults({ headBias: 1, mix: 0.5 })), rule('startPair'))
+  assertEquals(validateParams(withDefaults({ headBias: -1, mix: 0.5 })), rule('startPair'))
+  // The hole of the share range, and the mix of 0 that is a third behaviour.
+  for (const mix of [0, 0.2, 0.75, 1]) {
+    assertEquals(validateParams(withDefaults({ headBias: 0, mix })), rule('startPair'), `mix=${mix}`)
+  }
+  const first = rule('startPair')[0]
+  assert(first)
+  assertEquals(first.kind === 'rule' ? first.keys : null, ['headBias', 'mix'])
 })
 
 Deno.test('generate: refuses a violation with a RangeError carrying the violations', () => {
@@ -188,10 +215,10 @@ Deno.test('generate: an in-envelope board still closes with the fingerprint reco
   assertEquals(fingerprint(r.board), 'fb7e5f93')
 })
 
-Deno.test('inactive: giantStraight and giantWarns act at every serpentine step', () => {
+Deno.test('inactive: giantStraight acts at every serpentine step', () => {
   const on = withDefaults({ giants: 4, giantStep: 3 })
   const off = withDefaults({ giants: 0, wGiant: 0 })
-  const keys: ParamKey[] = ['giantStraight', 'giantWarns']
+  const keys: ParamKey[] = ['giantStraight']
   for (const key of keys) {
     const inactive = inactiveOf(key)
     assertEquals(inactive(on), null, `${key} with giants 4, giantStep 3`)
@@ -203,4 +230,11 @@ Deno.test('inactive: giantStraight and giantWarns act at every serpentine step',
   assertEquals(inactiveOf('giantJitter')(withDefaults({ giants: 4, giantStep: 0 })), 'stepZero')
   assertEquals(inactiveOf('giantJitter')(on), null)
   assertEquals('stepNonZero' in INACTIVE_REASONS, false, 'stepNonZero reason removed')
+})
+
+// The retired knobs were inert at their defaults: pinning them as constants
+// must reproduce the board a default run gave before this change.
+Deno.test('retiring the dead knobs leaves the default board untouched', () => {
+  const r = generate({ ...defaultParams(), W: 60, H: 60, seed: 11 })
+  assertEquals(fingerprint(r.board), '20244258')
 })

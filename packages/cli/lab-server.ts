@@ -10,7 +10,7 @@ import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from '.
 
 /** The largest POST body read. The lab posts no SVG, and a 1000×1000 board file is about a megabyte. */
 export const MAX_BODY = 16 * 1024 * 1024
-/** The longest command or simple command stored. */
+/** The longest command stored beside a board; there is one dialect, so one command. */
 const MAX_TEXT = 4096
 const SOURCES: readonly string[] = ['lab', 'cli']
 
@@ -82,11 +82,10 @@ type Checked<T> = { ok: T } | { error: string }
 type Metrics = NonNullable<SaveInput['metrics']>
 
 /**
- * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: ruleB,
- * voidFrac and keys the engine does not know keep their defaults, and the
- * result must pass the engine's envelope, so the store holds only boards the
- * engine would generate. The seed goes into file names; a string or a
- * fraction never gets that far.
+ * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: a key the
+ * engine does not know is dropped, and the result must pass the engine's
+ * envelope, so the store holds only boards the engine would generate. The
+ * seed goes into file names; a string or a fraction never gets that far.
  */
 function checkParams(v: unknown): Checked<Params> {
   if (!isRec(v)) return { error: 'params are required' }
@@ -201,10 +200,6 @@ function checkPost(v: unknown): Checked<SaveInput> {
   if ('error' in metrics) return metrics
   const command = v.command
   if (!isText(command)) return { error: `command must be a string of at most ${MAX_TEXT} characters` }
-  const simpleCommand = v.simpleCommand
-  if (simpleCommand !== undefined && !isText(simpleCommand)) {
-    return { error: `simpleCommand must be a string of at most ${MAX_TEXT} characters` }
-  }
   const source = v.source ?? 'lab'
   if (typeof source !== 'string' || !SOURCES.includes(source)) {
     return { error: `source must be one of ${SOURCES.join(', ')}` }
@@ -215,7 +210,6 @@ function checkPost(v: unknown): Checked<SaveInput> {
       params: params.ok,
       view: view.ok,
       command,
-      ...(simpleCommand !== undefined ? { simpleCommand } : {}),
       metrics: metrics.ok,
       source,
     },

@@ -16,7 +16,7 @@ async function sha256(text: string): Promise<string> {
 
 for (const c of SVG_GOLDEN_CASES) {
   Deno.test(`toSvg golden ${c.name} keeps its recorded hash`, async () => {
-    const r = generate(c.params, { unchecked: c.unchecked })
+    const r = generate(c.params, c.gen)
     c.mutate?.(r.board)
     const svg = toSvg(r.board, c.opts)
     assertEquals(await sha256(svg), golden.hashes[c.name])
