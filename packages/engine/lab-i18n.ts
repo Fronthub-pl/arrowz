@@ -268,6 +268,11 @@ export const PL: Translation = {
       help:
         'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. Poniżej 17 limit zjada kubełek średnich i długich, więc daj auto albo 17 w górę.',
     },
+    backbite: {
+      label: 'przerabianie ogona, gdy linia ugrzęźnie',
+      help:
+        'Ile razy z rzędu linia, która nie ma już gdzie iść, może przerobić własny ogon, zamiast się zatrzymać. 0 wyłącza. Więcej daje dłuższe elementy i mniej ich.',
+    },
 
     pStraight: {
       label: 'skłonność do prostej',

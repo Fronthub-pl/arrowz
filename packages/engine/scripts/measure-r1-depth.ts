@@ -213,7 +213,7 @@ function runOne(
   checkFingerprint: boolean,
   backbite = 0,
 ): Row {
-  const p: Params = { ...defaultParams(), ...params, seed }
+  const p: Params = { ...defaultParams(), ...params, seed, backbite }
   const t0 = performance.now()
   let carver: DepthCarver | null = null
   let ok = false
@@ -222,7 +222,7 @@ function runOne(
   for (let attempt = 0; attempt <= p.restarts && !ok; attempt++) {
     used = attempt
     metrics = null
-    carver = new DepthCarver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { backbite })
+    carver = new DepthCarver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983))
     ok = carver.run()
     if (ok) {
       metrics = analyse(carver, true)

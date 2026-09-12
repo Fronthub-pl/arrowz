@@ -10,8 +10,9 @@
 // heading nor the column names need to be in English.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { formatViolation, validateParams } from '@arrowz/engine'
+import { formatViolation, PARAM_SPEC, validateParams } from '@arrowz/engine'
 import { COMMAND_PREFIX, flagViolation, KNOB_ROWS, parseArgs, RULE_ROWS } from '@arrowz/engine/command'
+import { BUNDLES } from '@arrowz/engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['README.md', 'README.pl.md'] as const
@@ -63,6 +64,31 @@ for (const file of READMES) {
       assertEquals(step, knob.step, `${knob.flag}: step`)
       assertEquals(def, knob.def, `${knob.flag}: default`)
     })
+  })
+
+  // The knobs in no bundle are a hand-written list in the prose, and a knob
+  // lands there by DEFAULT — so the sentence goes stale by doing nothing at
+  // all. It said eight for a round after `trapbias` had become the ninth. The
+  // list is read back off the page and compared with the one BUNDLES implies;
+  // the board knobs and `mix` are left out of it, because `--width`, `--height`
+  // and `--seed` are nobody's bundle and `--start` is the one thing that writes
+  // `mix`.
+  Deno.test(`${file}: the knobs in no bundle are the ones the page lists`, () => {
+    const lines = text.split('\n')
+    const start = lines.findIndex((l) => l.trim() === '<!-- unbundled -->')
+    assert(start >= 0, `${file} has no unbundled anchor`)
+    const para: string[] = []
+    for (let i = start + 1; i < lines.length; i++) {
+      const line = (lines[i] ?? '').trim()
+      if (!line && para.length) break
+      if (line) para.push(line)
+    }
+    const listed = [...para.join(' ').matchAll(/`([a-z]+)`/g)].map((m) => m[1])
+    const bundled = new Set(Object.values(BUNDLES).flat())
+    const want = PARAM_SPEC
+      .filter((s) => s.group !== 'board' && s.key !== 'mix' && !bundled.has(s.key))
+      .map((s) => s.key.toLowerCase())
+    assertEquals(listed, want, 'the knobs the page says are in no bundle')
   })
 
   Deno.test(`${file}: the rules table names every rule and the flags it is about`, () => {

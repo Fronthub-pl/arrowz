@@ -613,10 +613,13 @@ them:
 | *(always, the difficulty baseline)* | half of `--start`, `probe`, `probelen` |
 
 `--start` is its own small case of the same rule: it sets the difficulty-baseline
-half above, plus the layers/tunnels mix that nothing else sets. Eight knobs —
-`lmax`, `giantstraight`, `giantanticoil`, `giantspacing`, `headtries`,
-`absorblimit`, `maxback`, `restarts` — sit in no bundle at all, so naming one of
-those has never been ambiguous.
+half above, plus the layers/tunnels mix that nothing else sets. Ten knobs sit in
+no bundle at all, so naming one of those has never been ambiguous:
+
+<!-- unbundled -->
+
+`lmax`, `backbite`, `trapbias`, `giantstraight`, `giantanticoil`,
+`giantspacing`, `headtries`, `absorblimit`, `maxback`, `restarts`.
 
 **A knob written on the command line wins, and pins only itself.** Without
 `--randomized`, an everyday flag picks one value per knob in its bundle; naming
@@ -651,7 +654,7 @@ otherwise.
 
 ### The knobs
 
-All 26, grouped the way `deno task carve --help=knobs` groups them. Ranges
+All 27, grouped the way `deno task carve --help=knobs` groups them. Ranges
 spell their word forms where one exists; `auto`, `random` and `off` are
 explained where they appear. **Step** is the distance between the settings a
 knob has: a value that lands between two of them is refused, the same as one
@@ -672,6 +675,7 @@ knob that moves has to move here too.
 | Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
 | Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
 | Lengths | `--lmax` | `auto`\|17–5000 | 1 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** below 17 the cap swallows both the medium and the long bucket, so the share between them stops changing the board. Use `auto`, or 17 and up. |
+| Lengths | `--backbite` | 0–8 | 1 | `0` | How many times in a row a line that has run out of room may rework its own tail instead of stopping there. The arrowhead, its squares and the corridor in front of it all stay as they were: only the body behind the head is re-routed, which hands the line a new tail to grow from. 0 is off, and gives today's board square for square. At 8 the arrows come out about a third longer on average and about a quarter fewer of them; most of that is already there at 2, and the board takes no measurably longer to generate. |
 | Shape | `--pstraight` | 0.6–1 | 0.01 | `0.85` | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** the floor rises with the board. 0.6 closes 500×500, 600×600 needs 0.65, 800×800 needs 0.7 and 1000×1000 needs 0.8; a low `--warns` or a high `--anticoil` raises it further still. |
 | Shape | `--wlateral` | 0–20 | 0.5 | `3` | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
 | Shape | `--warns` | 2–16 | 1 | `4` | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** 2 and 3 raise the straightness a large board needs; at 6 and up they lower it. |
