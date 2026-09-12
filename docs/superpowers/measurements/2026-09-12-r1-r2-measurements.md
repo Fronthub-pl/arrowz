@@ -222,10 +222,135 @@ exactly as `lineMax` is: -1 empty, -2 several, >= 0 the sole owner
 A 5.1x range on traps, against 1.3x for every existing knob. And the direction matters
 more than the range: every existing knob moves free arrows and traps TOGETHER (layers
 lifts both, tunnels drops both, short pieces triple both), while `trapBias -1` drops
-traps to a quarter while lifting free arrows. That separation is what no knob has, and
-it is the thing README calls the difficulty: seeing which arrow is actually free.
+traps to a quarter and leaves free arrows roughly where they are. That separation is
+what no knob has, and it is the thing README calls the difficulty: seeing which arrow
+is actually free.
+
+(Corrected below: against `trapBias +1` the free arrows do rise, but against today's
+board they fall 8% at the defaults. See "Free arrows: the separation, stated
+correctly".)
 
 The f0 spike is recorded as a reject: 165-556 free arrows against 142-549 for today's
 `--start` and 320-2417 for the length knobs. Ranking heads cannot beat the geometric
 ceiling, because a piece is free exactly when its head sits on the rim, and only the
 number of pieces changes how many heads get there.
+
+## R1 x R2: the interaction, the cost, and the corner
+
+Three gaps the sweeps above left open, all closed by
+`packages/engine/scripts/measure-r1-r2-interaction.ts` (1000x1000, 3 seeds,
+13 settings, 39 boards) and `measure-r1-start-shadow.ts` (200x200 and the two
+backtracking families of `absorb.test.ts`). Every one of the 39 boards closed
+with 0 restarts and 0 backtracks.
+
+### The pair: traps at 1000x1000
+
+Median of 3 seeds, per-seed values in brackets (seeds 1, 2, 3):
+
+| | `backbite 0` | `backbite 8` |
+|---|---|---|
+| `trapBias -1` | **167** [215, 167, 153] | **107** [98, 107, 195] |
+| `trapBias 0` | 695 [628, 695, 716] | 611 [606, 611, 663] |
+| `trapBias +1` | **948** [948, 955, 832] | 741 [741, 644, 762] |
+
+The trap lever alone spans 5.7x on the medians (167 -> 948) and 4.4-5.7x per
+seed. The pair spans 8.9x on the medians (107 -> 948), but **the low corner is
+the one place where the seed decides**: 98, 107 and 195 traps on the three
+seeds, a 2x spread, against 7% at the default and 13% at `+1`. Per seed the
+total span is 9.7x, 8.9x and 4.3x.
+
+So the coupling is real at `+1`, where every seed loses traps to the backbite
+(-22%, -33%, -8%), and **not reproducible at `-1`**: two seeds more than halve
+(-54%, -36%) and the third goes the other way (153 -> 195, +27%). On its own
+the backbite costs 12% of the traps on the medians (695 -> 611; -3.5%, -12%,
+-7.4% per seed), so it still does not undo the trap lever — but "complementary
+at the low end" is a one-seed reading, not a measured effect.
+
+### Free arrows: the separation, stated correctly
+
+Same runs, `backbite 0`, median of 3 seeds:
+
+| setting | traps | free arrows | D |
+|---|---|---|---|
+| `trapBias 0` (today) | 695 | 436 | 853 |
+| `trapBias -1` | 167 (-76%) | 403 (-8%) | 1097 (+29%) |
+| `trapBias +1` | 948 (+36%) | 273 (-37%) | 1007 (+18%) |
+
+`trapBias -1` does **not** lift free arrows at the defaults: it leaves them
+roughly where they are while cutting traps fourfold. That is still a separation
+no existing knob has — every one of them moves the two together — but the
+earlier wording ("drops traps to a quarter while lifting free arrows") was
+comparing `-1` against `+1`, not against today's board. At the envelope corner
+the stronger claim does hold: 277 -> 348 free arrows, +26%.
+
+`D` rises at both extremes, so a board with few traps is not a board with a
+shorter blocking chain.
+
+### What the trap lever costs
+
+The same 39 runs, median generation time, and two controls that isolate the two
+terms. `tunnels` and `free-spike` both take the map/sort/map ranking branch with
+its quarter pools and **neither allocates a line table**:
+
+| setting | genMs (median) | vs today |
+|---|---|---|
+| `trapBias 0` (today) | 12 323 | 1.00x |
+| control `free-spike` (`freeBias 1`) | 20 591 | 1.67x |
+| control `tunnels` (`headBias 1`) | 21 606 | 1.75x |
+| `trapBias +1` | 26 185 | 2.12x |
+| `trapBias -1` | 31 384 | 2.55x |
+
+The trap lever costs **2.1-2.6x the default board**, not the "four passes over
+the grid" the design claims. Roughly 8-9 s of that is the ranking branch, which
+`--start=tunnels` already pays today, and a further 6-11 s is `lineHomo`. The
+table is therefore a real cost and not the whole cost, and both terms are
+avoidable: a single boolean key needs a two-bucket partition, not a sort, and
+`refreshHomo` walks all 2W+2H line headers on every `carveOne` (about 86 000
+calls at this size) rather than folding only the lines that moved.
+
+### The envelope corner, for R1 this time
+
+`edge` = `warns 6 + anticoil 4 + pStraight 0.65`, the straightness floor at this
+size. 3 seeds each, all closed, 0 backtracks, 0 restarts:
+
+| setting | traps | free arrows | genMs |
+|---|---|---|---|
+| `trap 0 / bb 0` | 559 | 277 | 14 990 |
+| `trap -1 / bb 0` | 130 | 348 | 32 861 |
+| `trap -1 / bb 8` | 94 | 220 | 30 088 |
+| `trap +1 / bb 0` | 744 | 126 | 35 437 |
+| `trap +1 / bb 8` | 604 | 91 | 25 506 |
+
+The corner behaves like the square board and closes at every combination, so the
+"no new RULES entry" verdict now rests on measured R1 rows and not on R2's alone.
+
+### `trapBias` switches `--start` off, provably
+
+`headBias` is read in exactly one place in the carver, and only while `mix` is
+below 0 — the reason the `startPair` rule exists. The trap ranking sits ahead of
+it in the same `if` chain, so with the lever on, `--start` cannot reach the
+board at all. Fingerprints at 200x200, 3 seeds, `trapBias -1` and `+1`:
+
+| `--start` | `trapBias 0` | `trapBias +-1` |
+|---|---|---|
+| `square`, `tunnels`, `layers` | 3 distinct hashes | **1 hash, identical board** |
+| `mix 0.5` | 4th hash | different hash, same ranking |
+
+`mix` still changes the board id because its draw is made and its result thrown
+away — exactly the situation `startPair` already describes for the pair. So the
+knob needs either an `inactive` reason on `headBias`/`mix`, or the trap bit has
+to become a secondary key inside today's ranking rather than a replacement for
+it. No recorded row combined the two before this one.
+
+### The undo path does run, and the table survives it
+
+Every earlier `trapBias` row had `backtracks: 0`, so `refreshHomo`'s rebuild
+branch had never executed. Re-running the two known backtracking families with
+the lever on: **11 runs undo at least one cut, 61 backtracks in total, and the
+line table disagrees with a from-scratch fold of the board on 0 lines** (160
+lines per 40x40 board, 800 per 200x200). The deepest single run is `starved
+heads` seed 8 at `trapBias -1`, 50 backtracks, 0 mismatches.
+
+This is evidence, not proof: the comparison runs at the end of the carve, so a
+line that was repaired by a later rebuild would not show. The per-undo invariant
+belongs in `engine.test.ts` and is listed as a gate for the R1 PR.
