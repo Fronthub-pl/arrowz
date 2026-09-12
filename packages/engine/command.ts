@@ -24,11 +24,22 @@ const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
   giantSpacing: { off: 1 },
 }
 
-/** `--start` is the one flag that writes two stored knobs. */
-const START: Record<string, { headBias: number; mix: number }> = {
-  layers: { headBias: -1, mix: -1 },
-  random: { headBias: 0, mix: -1 },
-  tunnels: { headBias: 1, mix: -1 },
+/**
+ * The `--start` surface: the one flag that writes two stored knobs. Each word
+ * stores a pair of them; a number stores the mixing share itself, taken from
+ * the range below. The lab builds its own start control from this table, so
+ * the two surfaces cannot offer different values.
+ */
+export const START: {
+  words: Record<string, { headBias: number; mix: number }>
+  mix: { min: number; max: number }
+} = {
+  words: {
+    layers: { headBias: -1, mix: -1 },
+    random: { headBias: 0, mix: -1 },
+    tunnels: { headBias: 1, mix: -1 },
+  },
+  mix: { min: 0.3, max: 0.7 },
 }
 
 /** Spellings that were dropped, and what to use instead; each is refused by name. */
@@ -78,13 +89,20 @@ const KEY_BY_FLAG = new Map<string, ParamKey>(
     .map((s) => [s.key.toLowerCase(), s.key]),
 )
 
+/** Rows of the knob table, and so knob flags: one per key, with the two behind --start merged into one. */
+const KNOB_FLAGS = PARAM_SPEC.filter((s) => s.surface !== 'start').length + 1
+
 /** The number a word stands for, or null when the knob has no such word. */
 function wordValue(key: ParamKey, raw: string): number | null {
   return WORDS[key]?.[raw] ?? null
 }
 
-/** The word a value is spelled with, or null when it is printed as a number. */
-function wordOf(key: ParamKey, value: number): string | null {
+/**
+ * The word a knob's value is spelled with, or null when it has none:
+ * `wordFor('Lmax', 0)` is 'auto'. The table itself stays private, so the lab
+ * shows the word beside a field without a second list of its own.
+ */
+export function wordFor(key: ParamKey, value: number): string | null {
   for (const [word, n] of Object.entries(WORDS[key] ?? {})) if (n === value) return word
   return null
 }
@@ -115,7 +133,7 @@ function isDefaultStart(params: Params): boolean {
  */
 function startFlag(params: Params): string {
   if (params.mix >= 0) return `--start=${params.mix}`
-  for (const [word, v] of Object.entries(START)) {
+  for (const [word, v] of Object.entries(START.words)) {
     if (v.headBias === params.headBias && v.mix === params.mix) return `--start=${word}`
   }
   return `--start=${params.headBias}`
@@ -130,7 +148,7 @@ function startFlag(params: Params): string {
 export function knobFlag(params: Params, key: ParamKey): string {
   if (specOf(key).surface === 'start') return startFlag(params)
   const value = params[key]
-  return `${flagOf(key)}=${wordOf(key, value) ?? value}`
+  return `${flagOf(key)}=${wordFor(key, value) ?? value}`
 }
 
 // headWidth: arrowhead width in cells, 0 = automatic (from the stroke).
@@ -196,7 +214,7 @@ const OUTPUT_FLAGS: readonly FlagRow[] = [
 const PICTURE_FLAGS: readonly FlagRow[] = [
   ['--cell=N', 'cell size in px (default: about 1600 px on the longer side)'],
   ['--line=R', `line width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
-  ['--arrow-width=R', 'arrowhead width in cells (default auto, from the line width)'],
+  ['--arrow-width=R|auto', 'arrowhead width in cells (default auto, from the line width)'],
   ['--arrow-height=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
   ['--colored', 'a different colour for every piece'],
   ['--sharp', 'square corners and a square tail (default: rounded)'],
@@ -244,8 +262,9 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push('')
   if (!knobs) {
     out.push('Knobs: --lmax=auto|6..5000, --start=layers|random|tunnels|0.3..0.7, --restarts=0..5,')
-    // KEY_BY_FLAG holds every knob flag except --start, and three of them are named above.
-    const more = KEY_BY_FLAG.size + 1 - 3
+    // Counted off the knob table itself, so the short help cannot promise
+    // fewer rows than --help=knobs prints: every row but the three named above.
+    const more = KNOB_FLAGS - 3
     out.push(`and ${more} more. A knob flag is its key in lower case, never hyphenated: see --help=knobs.`)
     out.push('')
     out.push(environment())
@@ -259,16 +278,16 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
     `${flagOf(s.key)}=${rangeText(s.key)}`,
     s.label,
     String(s.step),
-    String(wordOf(s.key, s.def) ?? s.def),
+    String(wordFor(s.key, s.def) ?? s.def),
     s.help,
   ]
   const startRow: string[] = [
-    `--start=${Object.keys(START).join('|')}|0.3..0.7`,
+    `--start=${Object.keys(START.words).join('|')}|${START.mix.min}..${START.mix.max}`,
     'where a piece starts, and layer/tunnel mixing',
     '-',
     'random',
     'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). ' +
-    'A number in 0.3..0.7 mixes the two instead: the fraction of pieces that start as tunnels.',
+    `A number in ${START.mix.min}..${START.mix.max} mixes the two instead: the fraction of pieces that start as tunnels.`,
   ]
   // One row per knob plus the merged --start: 26 keys and 25 flags, over 5
   // columns. A spread of a list that is neither cells nor pieces.
@@ -305,6 +324,9 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push('')
   const legend = PARAM_SPEC.filter((s) => wordsOf(s.key).length)
     .flatMap((s) => wordsOf(s.key).map((word) => `${flagOf(s.key)}=${word} is ${WORDS[s.key]?.[word]}`))
+  // The picture flags are not knobs, so --arrow-width cannot live in WORDS
+  // (see parseArgs); its word belongs in the same legend all the same.
+  legend.push(`--arrow-width=auto is ${DEFAULT_VIEW.headWidth}`)
   out.push(`A word in a range spells one number: ${legend.join(', ')}.`)
   out.push('')
   out.push('Rules (checked together with the ranges):')
@@ -434,19 +456,20 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       continue
     }
     if (name === 'start') {
-      const word = raw === null ? undefined : START[raw]
+      const word = raw === null ? undefined : START.words[raw]
       if (word) {
         pin('headBias', word.headBias)
         pin('mix', word.mix)
         continue
       }
+      const share = `${START.mix.min}..${START.mix.max}`
       const n = numberOf(raw)
       if (n === null) {
-        errors.push(`${a} is not ${Object.keys(START).join(', ')} and not a number in 0.3..0.7`)
+        errors.push(`${a} is not ${Object.keys(START.words).join(', ')} and not a number in ${share}`)
         continue
       }
-      if (n < 0.3 || n > 0.7) {
-        errors.push(`${a} is outside 0.3..0.7`)
+      if (n < START.mix.min || n > START.mix.max) {
+        errors.push(`${a} is outside ${share}`)
         continue
       }
       // Mixing on: the share is the number, and where a piece starts is left
@@ -499,7 +522,10 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     const field2 = VIEW_NUMBER.get(name)
     if (field2) {
-      const n = name === 'arrow-width' && raw === 'auto' ? 0 : numberOf(raw)
+      // The fifth word of the legend, and the only one outside WORDS: that
+      // table is keyed by ParamKey, and the view is not a knob. Both sides of
+      // the pair live here — the word read in, the word printed by helpText.
+      const n = name === 'arrow-width' && raw === 'auto' ? DEFAULT_VIEW.headWidth : numberOf(raw)
       if (n === null) {
         errors.push(`${a} is not a number`)
         continue

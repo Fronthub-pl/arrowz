@@ -57,6 +57,9 @@ export interface GenerateOptions {
 /** A full engine parameter set: the knobs of PARAM_SPEC and nothing else. */
 export type Params = Record<ParamKey, number>
 
+/** How the lab draws a knob: a number with a slider, or a fixed set of choices. */
+export type ParamControl = { kind: 'number' } | { kind: 'choice'; choices: readonly { value: number; word: string }[] }
+
 export interface ParamSpec {
   key: ParamKey
   label: string
@@ -69,6 +72,8 @@ export interface ParamSpec {
   inactive?: (p: Params) => InactiveKey | null
   /** Two knobs that one surface flag writes (`--start` = headBias + mix); such a knob has no row of its own. */
   surface?: 'start'
+  /** How the lab draws the knob; absent is a number with a slider. The words are the ones the CLI takes. */
+  control?: ParamControl
 }
 
 export type Violation =

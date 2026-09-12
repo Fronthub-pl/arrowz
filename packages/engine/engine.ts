@@ -2255,7 +2255,7 @@ const PARAM_TABLE = [
   },
   {
     key: 'mix',
-    label: 'layer/tunnel mixing (-1 = off)',
+    label: 'mixing share (tunnels among layers)',
     group: 'difficulty',
     min: -1,
     max: 1,
@@ -2263,7 +2263,7 @@ const PARAM_TABLE = [
     def: -1,
     surface: 'start',
     help:
-      'Fraction of pieces that start as tunnels, the rest as layers. -1 = off; otherwise 0.3-0.7, because the extremes leave boards unclosed.',
+      'Fraction of pieces that start as tunnels, the rest as layers. The slider offers 0.3-0.7, because the extremes leave boards unclosed.',
   },
   {
     key: 'probe',
@@ -2379,6 +2379,12 @@ const PARAM_TABLE = [
     step: 1,
     def: 2,
     inactive: skeletonOff,
+    // Three values, and the CLI spells 1 as `off` (--giantspacing=off|2|3), so
+    // the lab offers the same three words instead of a slider over 1..3.
+    control: {
+      kind: 'choice',
+      choices: [{ value: 1, word: 'off' }, { value: 2, word: '2' }, { value: 3, word: '3' }],
+    },
     help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
   },
 

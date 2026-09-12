@@ -70,6 +70,15 @@ export const EN = {
     randomizeHelp:
       'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
   },
+  // The one control the lab builds by hand, because the CLI has one flag for
+  // the two knobs behind it: --start writes headBias and mix together, so
+  // neither of them gets a row, and their texts are not PARAM_SPEC's.
+  start: {
+    label: 'piece start',
+    help:
+      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Mixing starts that fraction of pieces as tunnels.',
+    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
+  },
   ui: {
     title: 'Generator lab',
     subtitle: 'Same engine as carve.ts: engine.ts.',
@@ -196,6 +205,8 @@ export type UiArgs<K extends UiKey> = Dictionary['ui'][K] extends (...args: infe
 export type Translation = Dictionary & {
   reasons: Record<InactiveKey | RuleKey, string>
   params: Record<ParamKey, { label: string; help: string }>
+  /** Each value of a fixed-choice knob, keyed by the English word PARAM_SPEC gives it — the word the flag takes. */
+  choices: Partial<Record<ParamKey, Record<string, string>>>
 }
 
 // Polish: the translation of the lab, plus the parameter and reason texts the
@@ -217,6 +228,11 @@ export const PL: Translation = {
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
     wholeNumbers: 'szerokość, wysokość i ziarno muszą być liczbami całkowitymi',
+  },
+  // Words of the fixed-choice knobs. The key is the word the CLI takes
+  // (--giantspacing=off), the value is what the lab shows in Polish.
+  choices: {
+    giantSpacing: { off: 'bez odstępu', '2': '2', '3': '3' },
   },
   params: {
     W: {
@@ -270,9 +286,9 @@ export const PL: Translation = {
         'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.',
     },
     mix: {
-      label: 'mieszanie warstw i tuneli (-1 = wyłączone)',
+      label: 'udział mieszania (tunele wśród warstw)',
       help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. -1 = wyłączone; inaczej 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
+        'Jaka część elementów startuje tunelami, reszta warstwami. Suwak daje 0,3-0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
     },
     probe: {
       label: 'udział elementów-sond',
@@ -385,6 +401,12 @@ export const PL: Translation = {
     randomize: 'losuj ustawienia przy każdym generowaniu',
     randomizeHelp:
       'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
+  },
+  start: {
+    label: 'start elementów',
+    help:
+      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Mieszanie startuje tunelami tę część elementów.',
+    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszanie' },
   },
   ui: {
     title: 'Laboratorium generatora',

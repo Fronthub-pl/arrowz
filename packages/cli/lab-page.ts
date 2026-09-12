@@ -31,7 +31,7 @@ import {
   RULE_REASONS,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, svgOptions } from '@arrowz/engine/command'
+import { buildCommand, START, svgOptions, wordFor } from '@arrowz/engine/command'
 import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
@@ -172,6 +172,12 @@ function paramText(spec: ParamSpec): { label: string; help: string } {
   const pl = lang === 'pl' ? PL.params[spec.key] : null
   return { label: pl?.label ?? spec.label, help: pl?.help ?? spec.help }
 }
+// A choice is stored as a number and written on the command line as the word
+// PARAM_SPEC gives it (--giantspacing=off), which is also its English text;
+// Polish translates that word, and the command box keeps showing the CLI's.
+function choiceText(key: ParamKey, word: string): string {
+  return (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word
+}
 // Reason keys come from two engine tables: INACTIVE_REASONS (a knob with no
 // effect) and RULE_REASONS (a cross-knob rule broken). PL.reasons covers both.
 function reasonText(key: InactiveKey | RuleKey): string {
@@ -199,18 +205,199 @@ for (const spec of PARAM_SPEC) {
 // reachable without scrolling through thirty fields.
 const OPEN_BY_DEFAULT: ReadonlySet<ParamGroup> = new Set<ParamGroup>(['board', 'skeleton'])
 
-type ParamRow = {
+// A knob is drawn as a number with a slider, or — where PARAM_SPEC gives it a
+// `control` of choices — as the list of values its flag takes. setParam, the
+// language switch and the inactive pass each branch on `kind` once.
+type ParamRowBase = {
   row: HTMLDivElement
   spec: ParamSpec
   label: HTMLLabelElement
-  num: HTMLInputElement
-  range: HTMLInputElement
   help: HTMLParagraphElement | null
 }
+type NumberRow = ParamRowBase & {
+  kind: 'number'
+  num: HTMLInputElement
+  range: HTMLInputElement
+  /** The word the CLI spells the current value with (--lmax=auto); empty when it has none. */
+  word: HTMLSpanElement
+}
+type ChoiceRow = ParamRowBase & {
+  kind: 'choice'
+  select: HTMLSelectElement
+  options: { word: string; option: HTMLOptionElement }[]
+}
+type ParamRow = NumberRow | ChoiceRow
 const paramRows = new Map<ParamKey, ParamRow>()
 type GroupBox = { box: HTMLDetailsElement; sum: HTMLElement; help: HTMLParagraphElement | null }
 const groupBoxes = new Map<ParamGroup, GroupBox>()
 const panel = el('params')
+
+/** The help paragraph under a row, when the knob has one. */
+function helpOf(spec: ParamSpec, row: HTMLDivElement): HTMLParagraphElement | null {
+  if (!spec.help) return null
+  const help = document.createElement('p')
+  help.className = 'help'
+  help.textContent = spec.help
+  row.append(help)
+  return help
+}
+
+/** The label of a row; a language change replaces its text. */
+function labelOf(spec: ParamSpec): HTMLLabelElement {
+  const label = document.createElement('label')
+  label.textContent = spec.label
+  label.htmlFor = 'p_' + spec.key
+  return label
+}
+
+/** After a knob was edited in its own row: the word beside it, the panel, the command, maybe a run. */
+function onKnobEdit(entry: ParamRow): void {
+  if (entry.kind === 'number') showWord(entry)
+  refreshActive()
+  updateCommand()
+  if (el<HTMLInputElement>('auto').checked) schedule()
+}
+
+/** The word the CLI would print for the value in the field, beside the field; nothing when it has none. */
+function showWord(entry: NumberRow): void {
+  const word = wordFor(entry.spec.key, state[entry.spec.key]) ?? ''
+  entry.word.textContent = word
+  entry.row.classList.toggle('worded', word !== '')
+}
+
+/**
+ * A knob as a number box and a slider. `bounds` is the knob's own range,
+ * except for the mixing share, whose row offers only what --start can spell.
+ */
+function numberRow(spec: ParamSpec, bounds: { min: number; max: number } = spec): NumberRow {
+  const row = document.createElement('div')
+  row.className = 'row'
+  const label = labelOf(spec)
+  const word = document.createElement('span')
+  word.className = 'word'
+  const num = document.createElement('input')
+  num.type = 'number'
+  num.id = 'p_' + spec.key
+  const range = document.createElement('input')
+  range.type = 'range'
+  for (const input of [num, range]) {
+    input.min = String(bounds.min)
+    input.max = String(bounds.max)
+    input.step = String(spec.step)
+    input.value = String(state[spec.key])
+  }
+  row.append(label, word, num, range)
+  const entry: NumberRow = { kind: 'number', row, spec, label, num, range, word, help: helpOf(spec, row) }
+  const sync = (v: string) => {
+    state[spec.key] = Number(v)
+    num.value = v
+    range.value = v
+    onKnobEdit(entry)
+  }
+  num.addEventListener('input', () => sync(num.value))
+  range.addEventListener('input', () => sync(range.value))
+  showWord(entry)
+  return entry
+}
+
+/** A knob whose values are a fixed list: the words its flag takes, in the field's place. */
+function choiceRow(spec: ParamSpec, choices: readonly { value: number; word: string }[]): ChoiceRow {
+  const row = document.createElement('div')
+  row.className = 'row choice'
+  const label = labelOf(spec)
+  const select = document.createElement('select')
+  select.id = 'p_' + spec.key
+  const options = choices.map((c) => ({ word: c.word, option: new Option(c.word, String(c.value)) }))
+  for (const { option } of options) select.append(option)
+  select.value = String(state[spec.key])
+  row.append(label, select)
+  const entry: ChoiceRow = { kind: 'choice', row, spec, label, select, options, help: helpOf(spec, row) }
+  select.addEventListener('change', () => {
+    state[spec.key] = Number(select.value)
+    onKnobEdit(entry)
+  })
+  return entry
+}
+
+// --- the piece start ---------------------------------------------------------
+// One flag writes headBias and mix on the command line (--start=layers|random|
+// tunnels|R), so the panel shows one control in their place: the three words
+// the CLI takes, plus `mixing`, which reveals the share as a row of its own.
+// Both knobs stay in PARAM_SPEC — they are stored in the board file and hashed
+// into the board id — and the row loop below builds no row for either.
+type StartChoice = keyof Dictionary['start']['options']
+const START_CHOICES = Object.keys(EN.start.options) as StartChoice[]
+/** The share `mixing` starts from when the stored value is no share at all: the middle of the range. */
+const MIX_START = (START.mix.min + START.mix.max) / 2
+function isStartChoice(v: string): v is StartChoice {
+  return Object.hasOwn(EN.start.options, v)
+}
+const startRow = document.createElement('div')
+startRow.className = 'row choice'
+const startLabel = document.createElement('label')
+startLabel.htmlFor = 'p_start'
+const startSelect = document.createElement('select')
+startSelect.id = 'p_start'
+const startOptions = START_CHOICES.map((choice) => ({ choice, option: new Option(choice, choice) }))
+for (const { option } of startOptions) startSelect.append(option)
+const startHelp = document.createElement('p')
+startHelp.className = 'help'
+startRow.append(startLabel, startSelect, startHelp)
+// The mixing share is an ordinary knob row, bounded by what --start spells and
+// shown only while the control stands on `mixing`.
+const mixRow = numberRow(specOf('mix'), START.mix)
+paramRows.set('mix', mixRow)
+startSelect.addEventListener('change', () => {
+  const v = startSelect.value
+  // The options are built from the dictionary, so anything else is a bug here.
+  if (!isStartChoice(v)) throw new Error(`unknown start choice ${v}`)
+  setStart(v)
+  if (el<HTMLInputElement>('auto').checked) schedule()
+})
+// A share typed outside the range would print a command the CLI refuses, and
+// no cross-knob rule guards it any more, so a committed value snaps back.
+mixRow.num.addEventListener('change', () => {
+  setParam('mix', Math.min(START.mix.max, Math.max(START.mix.min, Number(mixRow.num.value))))
+})
+
+/** Writes the two knobs behind the control: a word stores its pair, `mixing` keeps a share in range. */
+function setStart(choice: StartChoice): void {
+  const pair = START.words[choice]
+  if (pair) {
+    setParam('headBias', pair.headBias)
+    setParam('mix', pair.mix)
+    return
+  }
+  const share = state.mix >= START.mix.min && state.mix <= START.mix.max ? state.mix : MIX_START
+  setParam('headBias', 0)
+  setParam('mix', share)
+}
+
+/** Which of the four the stored pair stands for: a share is `mixing`, mixing off is what headBias says. */
+function startChoiceOfState(): StartChoice {
+  if (state.mix >= 0) return 'mixing'
+  for (const [word, pair] of Object.entries(START.words)) {
+    if (pair.headBias === state.headBias && isStartChoice(word)) return word
+  }
+  return 'random'
+}
+
+/** The control follows the two stored knobs; the share row appears with `mixing`. */
+function syncStart(): void {
+  const choice = startChoiceOfState()
+  startSelect.value = choice
+  mixRow.row.hidden = choice !== 'mixing'
+}
+
+/** The start control's own texts; every knob row takes its label and help from PARAM_SPEC. */
+function startLabels(): void {
+  const d = DICT[lang].start
+  startLabel.textContent = d.label
+  startHelp.textContent = d.help
+  for (const { choice, option } of startOptions) option.textContent = d.options[choice]
+}
+
+let startBuilt = false
 for (const [group, specs] of groups) {
   const box = document.createElement('details')
   box.className = 'group'
@@ -227,44 +414,21 @@ for (const [group, specs] of groups) {
   }
   groupBoxes.set(group, { box, sum, help: gh })
   for (const spec of specs) {
-    const row = document.createElement('div')
-    row.className = 'row'
-    const label = document.createElement('label')
-    label.textContent = spec.label
-    label.htmlFor = 'p_' + spec.key
-    const num = document.createElement('input')
-    num.type = 'number'
-    num.id = 'p_' + spec.key
-    const range = document.createElement('input')
-    range.type = 'range'
-    for (const input of [num, range]) {
-      input.min = String(spec.min)
-      input.max = String(spec.max)
-      input.step = String(spec.step)
-      input.value = String(state[spec.key])
+    // The two knobs behind --start share one control, built where the first of
+    // them would have stood, with the share row under it.
+    if (spec.surface === 'start') {
+      if (startBuilt) continue
+      startBuilt = true
+      box.append(startRow, mixRow.row)
+      continue
     }
-    const sync = (v: string) => {
-      state[spec.key] = Number(v)
-      num.value = v
-      range.value = v
-      refreshActive()
-      updateCommand()
-      if (el<HTMLInputElement>('auto').checked) schedule()
-    }
-    num.addEventListener('input', () => sync(num.value))
-    range.addEventListener('input', () => sync(range.value))
-    row.append(label, num, range)
-    let help: HTMLParagraphElement | null = null
-    if (spec.help) {
-      help = document.createElement('p')
-      help.className = 'help'
-      help.textContent = spec.help
-      row.append(help)
-    }
-    box.append(row)
-    paramRows.set(spec.key, { row, spec, label, num, range, help })
+    const entry = spec.control?.kind === 'choice' ? choiceRow(spec, spec.control.choices) : numberRow(spec)
+    box.append(entry.row)
+    paramRows.set(spec.key, entry)
   }
 }
+if (!startBuilt) throw new Error('no knob behind --start in PARAM_SPEC')
+syncStart()
 
 // Knobs with no effect at the current settings are dimmed with a reason —
 // otherwise changing the serpentine step with the skeleton off looks like
@@ -345,11 +509,15 @@ function applyLanguage() {
     sum.textContent = DICT[lang].groups[group]
     if (help) help.textContent = stringAt(DICT[lang].groupHelp, group) ?? stringAt(EN.groupHelp, group) ?? ''
   }
-  for (const { label, spec, help } of paramRows.values()) {
-    const tx = paramText(spec)
-    label.textContent = tx.label
-    if (help) help.textContent = tx.help
+  for (const entry of paramRows.values()) {
+    const tx = paramText(entry.spec)
+    entry.label.textContent = tx.label
+    if (entry.help) entry.help.textContent = tx.help
+    if (entry.kind === 'choice') {
+      for (const { word, option } of entry.options) option.textContent = choiceText(entry.spec.key, word)
+    }
   }
+  startLabels()
   refreshActive()
   if (lastDone) report(lastDone, { keepPrev: true })
   if (lastLongest) renderLongest(lastLongest)
@@ -606,13 +774,15 @@ function clampParam(spec: ParamSpec, value: number): { value: number; clamped: b
 // Every path that sets a knob from outside goes through here. Returns whether
 // the value had to be clamped, so a load can show the notice once.
 function setParam(key: ParamKey, value: number): boolean {
-  const c = clampParam(specOf(key), value)
+  const spec = specOf(key)
+  const c = clampParam(spec, value)
   state[key] = c.value
-  const row = paramRows.get(key)
-  // The panel has a row for every PARAM_SPEC key.
-  if (!row) throw new Error(`no panel row for ${key}`)
-  row.num.value = String(c.value)
-  row.range.value = String(c.value)
+  const entry = paramRows.get(key)
+  if (entry) syncRow(entry)
+  // headBias is the one knob with no row of its own: the start control shows
+  // it, together with mix, which has one. Any other miss is a panel bug.
+  else if (spec.surface !== 'start') throw new Error(`no panel row for ${key}`)
+  if (spec.surface === 'start') syncStart()
   // The simple view shows the seed too — unless the user is typing it there.
   if (key === 'seed' && document.activeElement !== el('sSeed')) {
     el<HTMLInputElement>('sSeed').value = String(c.value)
@@ -620,6 +790,18 @@ function setParam(key: ParamKey, value: number): boolean {
   refreshActive()
   updateCommand()
   return c.clamped
+}
+
+/** A row's fields follow the value now stored. */
+function syncRow(entry: ParamRow): void {
+  const v = String(state[entry.spec.key])
+  if (entry.kind === 'choice') {
+    entry.select.value = v
+    return
+  }
+  entry.num.value = v
+  entry.range.value = v
+  showWord(entry)
 }
 
 // The clamped notice: shown after a load that moved a value, dismissable,

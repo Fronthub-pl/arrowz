@@ -3,7 +3,7 @@
 // stands in for a sentinel number, --start writes the two knobs behind it,
 // and a retired spelling is refused by name.
 import { assert, assertEquals, assertMatch, assertNotEquals } from '@std/assert'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, helpText, parseArgs } from './command.ts'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, helpText, parseArgs, wordFor } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
 import type { Params } from './types.ts'
@@ -71,6 +71,37 @@ Deno.test('words are accepted and printed back', () => {
   const text = buildCommand({ ...params, Lmax: 0, giantStep: 0 }, DEFAULT_VIEW)
   assert(!/--lmax=0\b/.test(text), text)
   assert(/--giantstep=random/.test(text), text)
+})
+
+// The lab shows the word beside the field, so it asks for it by value rather
+// than keeping a second table of its own.
+Deno.test('wordFor: the word a value is spelled with, and nothing where there is none', () => {
+  assertEquals(wordFor('Lmax', 0), 'auto')
+  assertEquals(wordFor('Lmax', 12), null)
+  assertEquals(wordFor('maxBack', 0), 'auto')
+  assertEquals(wordFor('giantStep', 0), 'random')
+  assertEquals(wordFor('giantSpacing', 1), 'off')
+  assertEquals(wordFor('giantSpacing', 2), null)
+  assertEquals(wordFor('pStraight', 0.85), null)
+})
+
+// The lab builds a `choice` control straight from PARAM_SPEC and prints its
+// command with this module, so every choice must be a value the flag takes.
+Deno.test('every fixed-choice knob offers values its flag accepts', () => {
+  let checked = 0
+  for (const s of PARAM_SPEC) {
+    if (s.control?.kind !== 'choice') continue
+    for (const c of s.control.choices) {
+      checked++
+      assertEquals(c.word, wordFor(s.key, c.value) ?? String(c.value), `${s.key}=${c.value}`)
+      assert(c.value >= s.min && c.value <= s.max, `${s.key}=${c.value} is outside ${s.min}..${s.max}`)
+      const flag = `--${s.key.toLowerCase()}=${c.word}`
+      const { params, errors } = parseArgs([...SIZE, flag])
+      assertEquals(errors, [], flag)
+      assertEquals(params[s.key], c.value, flag)
+    }
+  }
+  assert(checked > 0, 'at least one knob is drawn as a list of values')
 })
 
 Deno.test('a bare sentinel number is accepted on input just as its word is', () => {
@@ -227,6 +258,29 @@ Deno.test('--help is short, --help=knobs lists every knob flag once', () => {
   }
   assert(knobs.includes('--start='), 'the merged control is listed')
   assert(!knobs.includes('--headbias'), 'a surface knob has no flag of its own')
+})
+
+// Two ways of counting one table drifted apart once: the short help promised
+// 19 knob flags where --help=knobs printed 25 rows.
+Deno.test('--help: "and N more" counts the rows --help=knobs prints', () => {
+  const lines = helpText({ knobs: true }).split('\n')
+  const header = lines.findIndex((l) => l.trimStart().startsWith('flag '))
+  assert(header > 0, 'the knob table has a header row')
+  const rows = lines.slice(header + 1, lines.indexOf('', header)).filter((l) => l.trimStart().startsWith('--'))
+  const short = helpText()
+  const named = ['--lmax=', '--start=', '--restarts=']
+  for (const f of named) assert(short.includes(f), `${f} is named in the short help`)
+  const more = /and (\d+) more/.exec(short)
+  assert(more, short)
+  assertEquals(Number(more[1]), rows.length - named.length, 'the short help promises the table it points at')
+})
+
+// Five words, one of them the view's: --arrow-width is not a knob, so it
+// cannot live in the knob table, and the legend is where the two meet.
+Deno.test('helpText: the legend spells every word the parser takes, the view one included', () => {
+  const text = helpText({ knobs: true })
+  const legend = ['--lmax=auto is 0', '--maxback=auto is 0', '--giantstep=random is 0', '--giantspacing=off is 1']
+  for (const entry of [...legend, '--arrow-width=auto is 0']) assert(text.includes(entry), `legend missing: ${entry}`)
 })
 
 Deno.test('helpText: both texts name the everyday flags, the modes and the environment', () => {
