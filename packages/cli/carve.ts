@@ -304,8 +304,17 @@ if (!result.ok) {
   // closed one, so that the lab can show what the generator left behind;
   // its preview draws the free cells as holes, and the "not closed" badge
   // comes from ok:false.
-  const { stuck, aborted } = result
-  if (!stuck) throw new Error('unreachable: not ok without stuck')
+  const { stuck, aborted, deadlock } = result
+  if (!stuck && !deadlock) throw new Error('unreachable: not ok without stuck or deadlock')
+  // Two failures, two stories. A jam left cells uncarved; a deadlock covered
+  // them all and still has no order of taps that empties the board, so there
+  // is no leftover to count.
+  const why = stuck
+    ? `${stuck.remaining} cells left, ${stuck.heads ?? '?'} legal heads at the best moment`
+    : 'covered, but the rays make a cycle: no order of taps empties it'
+  const shortWhy = stuck
+    ? `not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments`
+    : 'deadlocked: the rays make a cycle'
   if (dryRun) {
     console.log(
       JSON.stringify({
@@ -316,6 +325,7 @@ if (!result.ok) {
         id: boardId(params),
         ok: false,
         aborted,
+        deadlock,
         stuck,
         pinned: parsed.pins,
         restarts: result.restartsUsed,
@@ -327,12 +337,10 @@ if (!result.ok) {
   }
   console.error(
     aborted
-      ? `aborted after ${
-        (result.genMs / 1000).toFixed(1)
-      } s: board ${W}x${H} (seed ${params.seed}) has ${stuck.remaining} cells left`
-      : `failed to close board ${W}x${H} (seed ${params.seed}): ${stuck.remaining} cells left, ${
-        stuck.heads ?? '?'
-      } legal heads at the best moment`,
+      ? `aborted after ${(result.genMs / 1000).toFixed(1)} s: board ${W}x${H} (seed ${params.seed}) has ${
+        stuck?.remaining ?? 0
+      } cells left`
+      : `failed to close board ${W}x${H} (seed ${params.seed}): ${why}`,
   )
   if (!dryRun) {
     const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
@@ -358,7 +366,7 @@ if (!result.ok) {
     console.log(
       `${
         storedNames(meta, svgOut)
-      }  not closed: ${stuck.remaining} cells left in ${stuck.sizes.length} fragments, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
+      }  ${shortWhy}, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
         (result.genMs / 1000).toFixed(2)
       } s`,
     )

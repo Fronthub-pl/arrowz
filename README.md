@@ -867,6 +867,14 @@ above. Move it back towards its default, or try another seed. The board is in
 `packages/cli/boards/` all the same; add `--svg` and the picture shows the
 uncovered squares tinted pink, so you can see where it got stuck.
 
+**`failed to close board …: covered, but the rays make a cycle`** — every
+square is filled, and still no tap is ever legal: two arrows point at each
+other, or a longer ring of them do. This is a bug in the generator, not a
+setting you chose — nothing you can type produces it, because the generator
+gives each arrow its lane before anything stands in it. If you ever see the
+line, the board is still written to `packages/cli/boards/`; please keep it and
+report it, because it is the board that should not exist.
+
 **One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
 the generator stops there, saving whatever it had drawn:
 

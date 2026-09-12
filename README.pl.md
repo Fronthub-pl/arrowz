@@ -873,6 +873,15 @@ zmień ziarno. Plansza mimo to jest w `packages/cli/boards/`; dopisz `--svg`, a
 obrazek pokaże niepokryte kwadraty na różowo, więc widać, gdzie generator
 utknął.
 
+**`failed to close board …: covered, but the rays make a cycle`** — każdy
+kwadrat jest wypełniony, a i tak żadne stuknięcie nigdy nie jest dozwolone: dwie
+strzałki wskazują na siebie albo robi to dłuższy ich pierścień. To błąd
+generatora, nie wybrane przez Ciebie ustawienie — żadne, które można wpisać, nie
+daje takiej planszy, bo generator daje każdej strzałce jej tor, zanim cokolwiek
+na nim stanie. Jeśli kiedykolwiek zobaczysz tę linię, plansza i tak jest
+zapisana w `packages/cli/boards/`; zachowaj ją i zgłoś, bo to plansza, która nie
+powinna istnieć.
+
 **Jedna plansza trwa wieczność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund,
 a po ich upływie generator przerwie i zapisze to, co zdążył narysować:
 

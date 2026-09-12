@@ -49,6 +49,7 @@ self.onmessage = (event: MessageEvent<WorkerIn>) => {
     metricsMs: result.metricsMs,
     totalMs: performance.now() - started,
     stuck: result.stuck,
+    deadlock: result.deadlock,
     pieces: result.board.pieces.length,
     stats: result.board.stats,
     board: encodeBoard(result.board),

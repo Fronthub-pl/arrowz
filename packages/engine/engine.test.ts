@@ -7,6 +7,7 @@ import {
   analyse,
   Carver,
   defaultParams,
+  DIRS,
   fingerprint,
   formatViolation,
   generate,
@@ -20,6 +21,7 @@ import {
 } from './engine.ts'
 import * as engineExports from './engine.ts'
 import type {
+  BoardData,
   GenerateResult,
   InactiveKey,
   Metrics,
@@ -141,6 +143,78 @@ Deno.test('absorbLeftover: absorbs a single cell with the tail and does not chan
   assertEquals(analyse(c).solvable, before)
 })
 
+/**
+ * The smallest cycle in the blocking graph, built by hand because the carver
+ * cannot produce one: a 4×1 board covered by two pieces of two cells, piece 0
+ * pointing right into piece 1 and piece 1 pointing left into piece 0.
+ */
+function facingHeads(): Carver {
+  const c = new Carver(4, 1, defaultParams(), mulberry32(1))
+  c.owner.fill(0)
+  const right: Piece = { id: 0, dir: 1, cells: [{ x: 1, y: 0 }, { x: 0, y: 0 }] }
+  const left: Piece = { id: 1, dir: 3, cells: [{ x: 2, y: 0 }, { x: 3, y: 0 }] }
+  c.pieces.push(right, left)
+  for (const cell of left.cells) c.owner[cell.x] = 1
+  c.remaining = 0
+  return c
+}
+
+/**
+ * The first piece a ray crosses that is younger than the piece casting it, or
+ * null when every blocker is older. That ordering is the mechanism behind the
+ * blocking graph being acyclic, and so behind the promise that the order the
+ * generator carved in is an order that empties the board: a head is the first
+ * unassigned cell on its line counting from the exit edge (headCandidate), so
+ * the corridor in front of it already belongs to older pieces; absorption
+ * rewrites tails only, and backtracking removes later pieces only. The ray is
+ * walked here rather than read from analyse(), so the test agrees with the
+ * board and not with the graph builder it is checking.
+ */
+function youngerBlocker(c: BoardData): string | null {
+  for (const pc of c.pieces) {
+    const head = pc.cells[0]
+    const dir = DIRS[pc.dir]
+    if (!head || !dir) return `piece ${pc.id} has no head`
+    let x = head.x + dir.dx, y = head.y + dir.dy
+    while (x >= 0 && y >= 0 && x < c.W && y < c.H) {
+      const o = c.owner[y * c.W + x]
+      if (o === undefined) return `piece ${pc.id} ran off the owner grid`
+      if (o > pc.id) return `piece ${pc.id} is blocked by the younger piece ${o}`
+      x += dir.dx
+      y += dir.dy
+    }
+  }
+  return null
+}
+
+Deno.test('analyse: two heads facing each other down one line have no removal order', () => {
+  const c = facingHeads()
+  const m = analyse(c)
+  assertEquals(m.coverage, 1)
+  assertEquals(m.solvable, false)
+  assertEquals(m.unsolved, 2) // neither piece ever reaches the front of the queue
+  assertEquals(m.f0, 0)
+})
+
+Deno.test('carver: every blocker is older than the piece it blocks', () => {
+  // Kahn's verdict says a board has an order; this says why it always will.
+  // The check runs on boards that absorbed fragments, that scanned the whole
+  // head pool, and that undid cuts — the three moments that move cells around
+  // after a piece is carved — and on the hand-built cycle as a control, so a
+  // check that could not fail would be caught here.
+  const cases: [string, Partial<Params>, boolean][] = [
+    ['plain 60×60', { W: 60, H: 60, seed: 1 }, false],
+    ['heavy absorption', { W: 60, H: 60, seed: 4, absorbLimit: 12 }, false],
+    ['starved heads, undoes cuts', { W: 100, H: 100, seed: 1, headTries: 1, pStraight: 0.2, maxBack: 50 }, true],
+  ]
+  for (const [name, over, unchecked] of cases) {
+    const r = generate(withDefaults({ restarts: 0, ...over }), unchecked ? { unchecked: true } : {})
+    assertEquals(youngerBlocker(r.board), null, name)
+    assert(r.board.pieces.length > 0, name)
+  }
+  assertEquals(youngerBlocker(facingHeads()), 'piece 0 is blocked by the younger piece 1')
+})
+
 Deno.test('generate: closes the board 100% and solvably on several sizes and seeds', () => {
   const cases: [number, number, number[]][] = [
     [25, 50, [1, 2, 3, 4, 5]],
@@ -156,6 +230,21 @@ Deno.test('generate: closes the board 100% and solvably on several sizes and see
       assertEquals(m.solvable, true, `${W}×${H} seed ${seed}: unsolvable`)
       assertEquals(r.backtracks, 0, `${W}×${H} seed ${seed}: ${r.backtracks} backtracks`)
     }
+  }
+})
+
+Deno.test('generate: ok is a promise about the removal order, not only about the cells', () => {
+  // The gate in generate(): a closed board whose rays make a cycle is spent
+  // like a jam, on the next restart, and a deadlock that survives the last
+  // attempt comes back as ok: false with deadlock: true and nothing stuck —
+  // there is no leftover to report, only a missing order. So ok: true says
+  // both things: every cell is carved, and some order of taps empties it.
+  for (const seed of [1, 2, 3, 7, 11, 13]) {
+    const r = generate(withDefaults({ W: 60, H: 60, seed, restarts: 0 }))
+    assertEquals(r.deadlock, false, `seed ${seed}: deadlocked`)
+    assertEquals(r.ok, true, `seed ${seed} did not close`)
+    assertEquals(r.stuck, null, `seed ${seed}: stuck on a closed board`)
+    assertEquals(metricsOf(r).solvable, true, `seed ${seed}: ok without an order`)
   }
 })
 
