@@ -344,10 +344,10 @@ Deno.test('validateParams: each narrowed knob rejects its old extreme with the n
     ['absorbLimit', 0, 12, 64],
     ['headTries', 1, 2, 16],
     ['headTries', 32, 2, 16],
-    ['maxBack', 5000, 0, 1000],
+    ['maxBack', 5000, 50, 1000],
     ['restarts', 10, 0, 5],
     ['wGiant', 0.5, 0, 0.2],
-    ['giantStraight', 0, 0.3, 1],
+    ['giantStraight', 0, 0.5, 1],
     ['giantSpacing', 6, 1, 3],
   ]
   for (const [key, value, min, max] of cases) {
@@ -384,7 +384,7 @@ Deno.test('validateParams: ignores keys that are not knobs', () => {
 // recorded command, so the board file cannot be reproduced from either.
 Deno.test('validateParams: a value between two steps is a violation of its own', () => {
   const off: [ParamKey, number, number, number][] = [
-    ['maxBack', 25, 50, 0], // the coarsest step in the table
+    ['maxBack', 75, 50, 50], // the coarsest step in the table
     ['warns', 2.5, 1, 2], // a whole-number knob with a fraction
     ['wShort', 0.155, 0.01, 0], // a hundredth of a share, one digit too far
     ['mix', 0.33, 0.05, -1], // the mixing grid, counted from -1
@@ -394,7 +394,7 @@ Deno.test('validateParams: a value between two steps is a violation of its own',
     assertEquals(validateParams(withDefaults({ [key]: value })), [{ kind: 'step', key, value, step, min }], key)
   }
   // Every stop of the coarsest and of the finest knob passes, ends included.
-  for (const maxBack of [0, 50, 500, 1000]) assertEquals(validateParams(withDefaults({ maxBack })), [], `${maxBack}`)
+  for (const maxBack of [50, 200, 500, 1000]) assertEquals(validateParams(withDefaults({ maxBack })), [], `${maxBack}`)
   for (const pStraight of [0.6, 0.85, 0.99, 1]) {
     assertEquals(validateParams(withDefaults({ pStraight })), [], `${pStraight}`)
   }
@@ -421,9 +421,9 @@ Deno.test('validateParams: cross-knob rules fire beyond their boundary and not a
     validateParams(withDefaults({ wShort: 0.8, wMid: 0.2 })),
     rule('sharesSum', ['wShort', 'wMid']),
   )
-  // lmaxHole: Lmax 0 or >= 6
+  // lmaxHole: Lmax 0 or >= 17
   assertEquals(validateParams(withDefaults({ Lmax: 0 })), [])
-  assertEquals(validateParams(withDefaults({ Lmax: 6 })), [])
+  assertEquals(validateParams(withDefaults({ Lmax: 17 })), [])
   assertEquals(validateParams(withDefaults({ Lmax: 3 })), rule('lmaxHole', ['Lmax']))
   // Every rule has a reason text and only names real knobs.
   for (const r of RULES) {
@@ -449,7 +449,7 @@ Deno.test('formatViolation: one English line per violation', () => {
   assertEquals(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
   assertEquals(
     formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }),
-    'maximum length must be 0 (automatic) or at least 6',
+    'maximum length must be 0 (automatic) or at least 17',
   )
 })
 
@@ -467,7 +467,7 @@ Deno.test('generate: refuses parameters outside the envelope before carving anyt
   assert(err instanceof InvalidParamsError, 'throws an InvalidParamsError')
   assertEquals(
     err.message,
-    'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 6',
+    'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 17',
   )
   assertEquals(err.violations, [
     { kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 },

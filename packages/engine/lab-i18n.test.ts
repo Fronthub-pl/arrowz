@@ -88,6 +88,24 @@ Deno.test('both ui dictionaries describe the safe envelope', () => {
   }
 })
 
+// A number in a description is a bound, and a bound that drifts between the
+// two languages is a lie in one of them: the Polish rule reason kept saying
+// "at least 6" for a whole PR after the floor moved to 17. Polish writes the
+// decimal comma and the multiplication sign, so both sides are normalised
+// before the numbers are compared.
+const numbersIn = (text: string): string[] =>
+  (text.replace(/(\d),(\d)/g, '$1.$2').replace(/[x×]/g, ' ').match(/\d+(?:\.\d+)?/g) ?? []).sort()
+
+Deno.test('every number in an English description appears in the Polish one', () => {
+  for (const s of PARAM_SPEC) {
+    assertEquals(numbersIn(PL.params[s.key].help), numbersIn(s.help), `help ${s.key}`)
+    assertEquals(numbersIn(PL.params[s.key].label), numbersIn(s.label), `label ${s.key}`)
+  }
+  for (const key of ruleKeys) {
+    assertEquals(numbersIn(PL.reasons[key]), numbersIn(RULE_REASONS[key]), `rule ${key}`)
+  }
+})
+
 // Descriptions are for turning a knob, not for reading a report: one or two
 // plain sentences. Measurements belong in README.md.
 const MAX_HELP = 170

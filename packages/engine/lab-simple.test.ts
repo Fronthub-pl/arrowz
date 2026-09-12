@@ -252,15 +252,20 @@ Deno.test('the short-plus-medium clamp moves only an unpinned partner', () => {
 // never touched, instead of the rule about the sum they did break.
 Deno.test('a share pinned above the cap leaves its partner at 0, never below', () => {
   const choice = { ...defaultChoice(), lengths: 0 }
-  const short = simpleParams(choice, () => 0.99, { wShort: 1 })
-  assertEquals(short.wShort, 1)
-  assertEquals(short.wMid, 0)
-  assertEquals(validateParams(short), [{ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }])
+  // At the top of the share's own range the partner lands exactly on 0 and
+  // the pair validates clean: the cap on the sum and the range now agree.
+  const top = simpleParams(choice, () => 0.99, { wShort: 0.9 })
+  assertEquals([top.wShort, top.wMid], [0.9, 0])
+  assertEquals(validateParams(top), [])
 
-  const mid = simpleParams(choice, () => 0.99, { wMid: 1 })
-  assertEquals(mid.wMid, 1)
-  assertEquals(mid.wShort, 0)
-  assertEquals(validateParams(mid), [{ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }])
+  // Above it every complaint names the knob the caller pinned, and the
+  // partner it moved says nothing at all.
+  for (const [key, other] of [['wShort', 'wMid'], ['wMid', 'wShort']] as const) {
+    const p = simpleParams(choice, () => 0.99, { [key]: 1 })
+    assertEquals(p[key], 1)
+    assertEquals(p[other], 0)
+    assertEquals(validateParams(p).map((v) => v.key), [key, 'sharesSum'], key)
+  }
 })
 
 Deno.test('presetParams takes the CLI vocabulary and gives the same board as the lab choice', () => {

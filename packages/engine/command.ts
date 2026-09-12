@@ -9,7 +9,7 @@
 // The lab has to mirror the CLI 1:1, so both sides build and read the text
 // with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View, ViewNumber } from './types.ts'
-import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
+import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 
@@ -29,7 +29,7 @@ function own<T>(dict: Readonly<Record<string, T>>, key: string): T | undefined {
 /** A knob flag whose value may also be a word: the word and the number it stores. */
 const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
   Lmax: { auto: 0 },
-  maxBack: { auto: 0 },
+  maxBack: { auto: 200 },
   giantStep: { random: 0 },
   giantSpacing: { off: 1 },
 }
@@ -49,7 +49,7 @@ export const START: Readonly<{
     random: { headBias: 0, mix: -1 },
     tunnels: { headBias: 1, mix: -1 },
   },
-  mix: { min: 0.3, max: 0.7 },
+  mix: MIX_SHARE,
 }
 
 /** Spellings that were dropped, and what to use instead; each is refused by name. */
@@ -70,7 +70,7 @@ const RETIRED: Record<string, string> = {
   absorb: 'use --absorblimit=N',
   giantspacepen: 'the spacing strength is fixed now; use --giantspacing=off|2|3',
   headbias: 'use --start=layers|random|tunnels',
-  mix: 'use --start=0.3..0.7 (or layers|random|tunnels to turn mixing off)',
+  mix: `use --start=${MIX_SHARE.min}..${MIX_SHARE.max} (or layers|random|tunnels to turn mixing off)`,
 }
 
 // The size and the seed are knobs in PARAM_SPEC (they are stored and hashed),
@@ -260,8 +260,8 @@ function refusedAlone(key: ParamKey, value: number): boolean {
 /**
  * The values a knob flag takes. Its words come first, then the numbers it
  * really accepts: the range starts at the first value no word spells and no
- * rule refuses, so `--lmax` prints auto|6..5000 (auto is 0, and lmaxHole
- * refuses 1..5) and `--maxback` prints auto|50..1000. A knob the lab draws as
+ * rule refuses, so `--lmax` prints auto|17..5000 (auto is 0, and lmaxHole
+ * refuses 1..16) and `--maxback` prints auto|50..1000. A knob the lab draws as
  * a list of values prints that list, because that is what its flag takes:
  * `--giantspacing=off|2|3`, not the 1..3 behind it.
  *
@@ -302,7 +302,10 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   list(PICTURE_FLAGS)
   out.push('')
   if (!knobs) {
-    out.push('Knobs: --lmax=auto|6..5000, --start=layers|random|tunnels|0.3..0.7, --restarts=0..5,')
+    // Spelled by the same helper the knob table uses: the summary named three
+    // ranges in a string literal, and one of them had already drifted.
+    const start = [...Object.keys(START.words), `${MIX_SHARE.min}..${MIX_SHARE.max}`].join('|')
+    out.push(`Knobs: --lmax=${rangeText('Lmax')}, --start=${start}, --restarts=${rangeText('restarts')},`)
     // Counted off the knob table itself, so the short help cannot promise
     // fewer rows than --help=knobs prints: every row but the three named above.
     const more = KNOB_FLAGS - 3

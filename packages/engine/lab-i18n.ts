@@ -228,7 +228,7 @@ export const PL: Translation = {
     stepZero: 'działa tylko przy skoku serpentyny > 0',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
-    lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 6',
+    lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 17',
     startPair:
       'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
   },
@@ -261,7 +261,7 @@ export const PL: Translation = {
     Lmax: {
       label: 'długość maksymalna (auto = 2,5 × bok)',
       help:
-        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. 1-5 tną planszę na okruchy i zacinają, więc daj auto albo co najmniej 6.',
+        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. Poniżej 17 limit zjada kubełek średnich i długich, więc daj auto albo 17 w górę.',
     },
 
     pStraight: {
@@ -291,7 +291,7 @@ export const PL: Translation = {
     mix: {
       label: 'udział mieszania (tunele wśród warstw)',
       help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7, bo skrajne wartości zostawiają plansze niedomknięte.',
+        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7. -1 wyłącza mieszanie.',
     },
     probe: {
       label: 'udział elementów-sond',
@@ -301,7 +301,7 @@ export const PL: Translation = {
     probeLen: {
       label: 'długość sondy',
       help:
-        'Docelowa długość sondy, plus minus połowa. Krótkie sondy (2) potrajają liczbę elementów, długie (200) dają mniej dłuższych.',
+        'Docelowa długość sondy, plus minus połowa. Krótkie sondy (4) potrajają liczbę elementów, długie (200) dają mniej dłuższych.',
     },
 
     giants: {
@@ -329,7 +329,7 @@ export const PL: Translation = {
     giantStraight: {
       label: 'skłonność szkieletu do prostej',
       help:
-        'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. Poniżej 0,3 plansze przestają się domykać.',
+        'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. 0,5 to brak preferencji.',
     },
     giantAnticoil: {
       label: 'kara za zwijanie szkieletu',
@@ -351,9 +351,9 @@ export const PL: Translation = {
         'Fragment do tego rozmiaru, którego nie da się wyciąć, dokleja się do sąsiada. Poniżej 12 resztki się piętrzą i plansze się zacinają.',
     },
     maxBack: {
-      label: 'budżet nawrotów (auto = 200)',
+      label: 'budżet nawrotów',
       help:
-        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. auto = 200, to wystarcza; więcej tylko opóźnia werdykt.',
+        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 200 wystarcza; więcej tylko opóźnia werdykt. --maxback=auto to 200.',
     },
     restarts: {
       label: 'dopuszczalne restarty',

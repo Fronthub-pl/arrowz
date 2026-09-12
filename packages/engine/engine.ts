@@ -1656,14 +1656,15 @@ class Carver implements Board {
     }
   }
 
-  run(maxBacktracks = 200): boolean {
+  // The budget is deliberately small: a targeted backtrack can be deep (it
+  // undoes back to the newest neighbour of the leftover, i.e. sometimes
+  // thousands of pieces), so after a couple of hundred backtracks a restart
+  // with a derived seed is cheaper and more effective. The knob is the
+  // default, so a caller that has parameters need not repeat itself, and one
+  // that is measuring a single run can still name its own number.
+  run(maxBacktracks: number = this.p.maxBack): boolean {
     const t0 = performance.now()
     let lastLog = t0
-    // The budget is deliberately small: a targeted backtrack can be deep (it
-    // undoes back to the newest neighbour of the leftover, i.e. sometimes
-    // thousands of pieces), so after 200 backtracks a restart with a derived
-    // seed is cheaper and more effective.
-    if (this.p.maxBack > 0) maxBacktracks = this.p.maxBack
     let scanMisses = 0
     while (this.remaining > 0) {
       // Progress every 500 pieces, and at least once a second regardless: in
@@ -2131,6 +2132,14 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
 // INACTIVE_REASONS (or null); the lab translates the key into text.
 const skeletonOff = (p: Params): InactiveKey | null => (p.giants <= 0 && p.wGiant <= 0 ? 'skeletonOff' : null)
 
+/**
+ * The window of mixing shares the `--start` flag can spell. One flag writes
+ * both knobs behind the piece start, so this is what a stored `mix` may be
+ * besides the -1 that turns mixing off: the knob's own range, the startPair
+ * rule and the parser all read it from here.
+ */
+export const MIX_SHARE = { min: 0.3, max: 0.7 } as const
+
 const PARAM_TABLE = [
   {
     key: 'W',
@@ -2168,7 +2177,7 @@ const PARAM_TABLE = [
     label: 'share of short pieces (2–6 cells)',
     group: 'lengths',
     min: 0,
-    max: 1,
+    max: 0.9,
     step: 0.01,
     def: 0.2,
     help:
@@ -2179,7 +2188,7 @@ const PARAM_TABLE = [
     label: 'share of medium pieces (7–15 cells)',
     group: 'lengths',
     min: 0,
-    max: 1,
+    max: 0.9,
     step: 0.01,
     def: 0.08,
     help:
@@ -2194,7 +2203,7 @@ const PARAM_TABLE = [
     step: 1,
     def: 0,
     help:
-      'The longest piece the generator tries for. auto = 2.5 x the longer side. 1-5 cut the board into crumbs and jam, so use auto or at least 6.',
+      'The longest piece the generator tries for. auto = 2.5 x the longer side. Below 17 the cap eats the medium and long buckets, so use auto or 17 and up.',
   },
 
   {
@@ -2258,12 +2267,12 @@ const PARAM_TABLE = [
     label: 'mixing share (tunnels among layers)',
     group: 'difficulty',
     min: -1,
-    max: 1,
+    max: MIX_SHARE.max,
     step: 0.05,
     def: -1,
     surface: 'start',
     help:
-      'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed.',
+      'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed. -1 turns mixing off.',
   },
   {
     key: 'probe',
@@ -2280,13 +2289,13 @@ const PARAM_TABLE = [
     key: 'probeLen',
     label: 'probe length',
     group: 'difficulty',
-    min: 2,
+    min: 4,
     max: 200,
     step: 1,
     def: 12,
     inactive: (p) => (p.probe <= 0 ? 'probeOff' : null),
     help:
-      'Target length of a probe, give or take half. Short probes (2) triple the piece count; long ones (200) give fewer, longer pieces.',
+      'Target length of a probe, give or take half. Short probes (4) triple the piece count; long ones (200) give fewer, longer pieces.',
   },
 
   {
@@ -2352,13 +2361,13 @@ const PARAM_TABLE = [
     key: 'giantStraight',
     label: 'skeleton straightness',
     group: 'skeleton',
-    min: 0.3,
+    min: 0.5,
     max: 1,
     step: 0.01,
     def: 0.94,
     inactive: skeletonOff,
     help:
-      'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. Below 0.3 boards stop closing.',
+      'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. 0.5 is no preference at all.',
   },
   {
     key: 'giantAnticoil',
@@ -2413,14 +2422,14 @@ const PARAM_TABLE = [
   },
   {
     key: 'maxBack',
-    label: 'backtrack budget (auto = 200)',
+    label: 'backtrack budget',
     group: 'closing',
-    min: 0,
+    min: 50,
     max: 1000,
     step: 50,
-    def: 0,
+    def: 200,
     help:
-      'How many carves may be undone in one attempt before starting over. auto = 200, which is enough; more only delays the verdict.',
+      'How many carves may be undone in one attempt before starting over. 200 is enough; more only delays the verdict. --maxback=auto spells 200.',
   },
   {
     key: 'restarts',
@@ -2467,7 +2476,11 @@ export function defaultParams(): Params {
 // INACTIVE_REASONS; the lab translates them (lab-i18n PL.reasons).
 export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (p: Params) => boolean }[] = [
   { key: 'sharesSum', keys: ['wShort', 'wMid'], check: (p) => p.wShort + p.wMid <= 0.9 + 1e-9 },
-  { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 6 },
+  // 17 is the first cap that truncates no length bucket: the medium one runs
+  // to 15, the long one is drawn between 16 and max(17, cap). Under a lower
+  // cap the medium and the long bucket both come out at the cap, so the share
+  // between them stops changing the board while it still changes the id.
+  { key: 'lmaxHole', keys: ['Lmax'], check: (p) => p.Lmax === 0 || p.Lmax >= 17 },
   // One flag (--start) writes both knobs, so only the pairs it can spell are
   // storable: a whole-number start with mixing off, or start 0 with a mixing
   // share. Anything else is a board no command text names — a start of 0.5
@@ -2479,15 +2492,16 @@ export const RULES: readonly { key: RuleKey; keys: readonly ParamKey[]; check: (
     keys: ['headBias', 'mix'],
     check: (p) =>
       (p.mix === -1 && Number.isInteger(p.headBias)) ||
-      (p.headBias === 0 && p.mix >= 0.3 - 1e-9 && p.mix <= 0.7 + 1e-9),
+      (p.headBias === 0 && p.mix >= MIX_SHARE.min - 1e-9 && p.mix <= MIX_SHARE.max + 1e-9),
   },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares together must stay at or below 0.9',
-  lmaxHole: 'maximum length must be 0 (automatic) or at least 6',
+  lmaxHole: 'maximum length must be 0 (automatic) or at least 17',
   startPair:
-    'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of 0.3 to 0.7',
+    'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of ' +
+    `${MIX_SHARE.min} to ${MIX_SHARE.max}`,
 }
 
 /**
@@ -2601,7 +2615,7 @@ export function generate(params: Partial<Params>, opts: GenerateOptions = {}): G
     used = attempt
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
     try {
-      ok = carver.run(p.maxBack > 0 ? p.maxBack : 200)
+      ok = carver.run()
     } catch (err) {
       if (!(err instanceof GenerateAbort)) throw err
       aborted = true
