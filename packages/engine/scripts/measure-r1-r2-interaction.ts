@@ -6,18 +6,19 @@
  * Three questions the earlier sweeps left open, in one grid because they share
  * the same runs:
  *
- * 1. INTERACTION. `measure-r1-freebias.ts` swept trapBias at backbite 0 and
+ * 1. INTERACTION. The R1 spike swept trapBias at backbite 0 and
  *    `measure-r2-backbite.ts` swept backbite at trapBias 0, so the corner where
  *    both are on was never recorded. The grid below is trapBias {-1, 0, 1} x
  *    backbite {0, 8}, several seeds, so the span of the pair rests on more than
  *    one board.
  *
  * 2. COST ATTRIBUTION. trapBias keeps `lineHomo` up to date (foldHomo) AND
- *    takes the map/sort/map ranking branch with its quarter pools, exactly like
- *    `--start` does. Two controls separate the two costs at the same size and
- *    seed: `tunnels` (headBias 1) and `free-spike` (freeBias 1) both pay the
- *    ranking and neither allocates a line table, so the gap between them and
- *    trapBias is what the table itself costs.
+ *    ranks the heads, with the quarter pools that follow from ranking at all,
+ *    exactly like `--start` does. `tunnels` (headBias 1) is the control: it
+ *    pays the ranking and allocates no line table, so the gap between it and
+ *    trapBias is what the table costs. The original run carried a second
+ *    control, the `freeBias` spike, which agreed with `tunnels` to within a
+ *    twentieth and went out with the knob's PR.
  *
  * 3. THE ENVELOPE CORNER FOR R1. `edge` (warns 6, anticoil 4, pStraight on the
  *    straightness floor) was run for R2 only; every recorded trapBias row sits
@@ -39,7 +40,6 @@ type Row = {
   label: string
   trapBias: number
   backbite: number
-  freeBias: number
   headBias: number
   seed: number
   side: number
@@ -69,7 +69,6 @@ type Config = {
   params: Partial<Params>
   trapBias: number
   backbite: number
-  freeBias: number
 }
 
 function statNum(s: CarverStats, k: keyof CarverStats): number {
@@ -94,7 +93,6 @@ function runOne(cfg: Config, seed: number, budgetMs: number): Row {
     carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), {
       trapBias: cfg.trapBias,
       backbite: cfg.backbite,
-      freeBias: cfg.freeBias,
       trace: () => {
         if (performance.now() > deadline) throw new GenerateAbort()
       },
@@ -117,7 +115,6 @@ function runOne(cfg: Config, seed: number, budgetMs: number): Row {
     label: cfg.label,
     trapBias: cfg.trapBias,
     backbite: cfg.backbite,
-    freeBias: cfg.freeBias,
     headBias: p.headBias,
     seed,
     side: p.W,
@@ -155,7 +152,6 @@ function configs(side: number): Config[] {
         params: square,
         trapBias,
         backbite,
-        freeBias: 0,
       })
     }
   }
@@ -166,12 +162,10 @@ function configs(side: number): Config[] {
     params: { ...square, headBias: 1 },
     trapBias: 0,
     backbite: 0,
-    freeBias: 0,
   })
-  out.push({ set: 'square', label: 'control free-spike', params: square, trapBias: 0, backbite: 0, freeBias: 1 })
   // The envelope corner. trapBias 0 / backbite 0 is the reference point; the R2
   // sweep already covers trap 0 at cap 8, so the pair is measured at +-1 only.
-  out.push({ set: 'edge', label: 'trap 0 / bb 0', params: edge, trapBias: 0, backbite: 0, freeBias: 0 })
+  out.push({ set: 'edge', label: 'trap 0 / bb 0', params: edge, trapBias: 0, backbite: 0 })
   for (const trapBias of [-1, 1]) {
     for (const backbite of [0, 8]) {
       out.push({
@@ -180,7 +174,6 @@ function configs(side: number): Config[] {
         params: edge,
         trapBias,
         backbite,
-        freeBias: 0,
       })
     }
   }

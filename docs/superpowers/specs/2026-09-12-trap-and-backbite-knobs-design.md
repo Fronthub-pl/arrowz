@@ -10,6 +10,9 @@ Two PRs, one design, because both knobs land on the same surface (`PARAM_TABLE`,
 README tables, the PL/EN dictionaries, the presets, the fingerprints) and the second
 PR would otherwise re-litigate every decision the first one makes.
 
+**Status.** R1 has landed: `trapBias` is a knob, `--trapbias=avoid|off|seek`, and every
+gate §7 set for it is closed. R2 is still a design and its gates are still open.
+
 ## 1. What the measurements settled
 
 - **R1 is not a free-arrow lever.** A piece is free at the start exactly when its head
@@ -279,9 +282,9 @@ Both PRs touch the same list; the entries are what the repo's own guards require
    bumps it by one (27, then 28). That assertion is the repo's guard against a knob
    appearing without anyone noticing, so it is updated deliberately, not silenced.
 8. Deletions and hand-written counts the generated surfaces do not cover:
-   - `freeBias` goes out with R1. It is a rejected spike, and a rejected spike that
-     ships is a knob nobody chose; it is also one of the two cost controls, so it is
-     removed only after the timing gate of §7 has run.
+   - `freeBias` went out with R1, after the timing gate had used it: a rejected spike
+     that ships is a knob nobody chose. `--start=tunnels` remains as the ranking-only
+     control, and the two agreed to within a twentieth while both existed.
    - `Math.sign` on the option: a share needs the magnitude, so the constructor stops
      collapsing the value.
    - Both options move from `CarverOptions` into `Params`, which is what makes them

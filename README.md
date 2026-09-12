@@ -651,7 +651,7 @@ otherwise.
 
 ### The knobs
 
-All 25, grouped the way `deno task carve --help=knobs` groups them. Ranges
+All 26, grouped the way `deno task carve --help=knobs` groups them. Ranges
 spell their word forms where one exists; `auto`, `random` and `off` are
 explained where they appear. **Step** is the distance between the settings a
 knob has: a value that lands between two of them is refused, the same as one
@@ -677,6 +677,7 @@ knob that moves has to move here too.
 | Shape | `--warns` | 2–16 | 1 | `4` | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** 2 and 3 raise the straightness a large board needs; at 6 and up they lower it. |
 | Shape | `--anticoil` | 1–10 | 1 | `6` | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** 7 and up raise the straightness a large board needs; 4 and below lower it. |
 | Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Where the next arrow starts: the shallowest line (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
+| Difficulty | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | How a start whose corridor already holds exactly one arrow is ranked. Such an arrow ends up looking ready to leave while one other arrow still blocks it, which is the thing that makes a board hard to read. `seek` makes half again as many of them, `avoid` about a quarter as many. Anything but `off` roughly doubles the time a board takes to generate. |
 | Difficulty | `--probe` | 0–1 | 0.01 | `0` | Share of arrows whose length is drawn around one fixed target instead of the usual three-way split. |
 | Difficulty | `--probelen` | 4–200 | 1 | `12` | That fixed target, give or take half. 4 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
 | Skeleton | `--giants` | 0–40 | 1 | `0` | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |

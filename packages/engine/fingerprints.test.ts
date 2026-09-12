@@ -13,12 +13,6 @@ interface GoldenCase {
   fingerprint: string
   pieces: number
   maxLen: number | null
-  /**
-   * The measurement options of R1 and R2, which have no flag yet. A case that
-   * carries them records a board no command can ask for; when they become
-   * knobs the case moves to an argv and the fingerprint must not move with it.
-   */
-  opts?: { trapBias?: number; backbite?: number }
 }
 const golden = JSON.parse(Deno.readTextFileSync(join(dirname(fromFileUrl(import.meta.url)), 'fingerprints.json'))) as {
   cases: GoldenCase[]
@@ -33,8 +27,7 @@ function paramsOf(c: GoldenCase): Params {
 
 /** The case without an argv is the void board: voids and the escape hatch are options, not knobs. */
 function optsOf(c: GoldenCase): GenerateOptions {
-  const base: GenerateOptions = c.argv === null ? { unchecked: true, voidFrac: 0.1 } : {}
-  return c.opts ? { ...base, ...c.opts } : base
+  return c.argv === null ? { unchecked: true, voidFrac: 0.1 } : {}
 }
 
 // Every recorded board is checked, big500 included: it costs about 1.3 s per
@@ -63,19 +56,25 @@ for (const c of golden.cases) {
 }
 
 Deno.test("the trap lever at 0 is today's board, cell for cell", () => {
-  // The other half of the pair. `trap-off` carries the same argv as `tunnels`
-  // and the lever switched off, so the two must hash the same: at 0 the carver
-  // takes no branch and makes no draw, and the knob's whole claim to being
-  // safe to ship rests on that. Recording it as its own case means a change
-  // that quietly costs a draw at 0 fails here by name, rather than moving nine
-  // unrelated golden boards at once.
+  // The other half of the pair. `trap-off` is `tunnels` with the lever spelled
+  // out as off, so the two must hash the same: at 0 the carver takes no branch
+  // and makes no draw, and the knob's whole claim to being safe to ship rests
+  // on that. Recording it as its own case means a change that quietly costs a
+  // draw at 0 fails here by name, rather than moving nine unrelated golden
+  // boards at once. These three hashes were recorded while the lever was still
+  // a measurement option reached through GenerateOptions; they did not move
+  // when it became a flag, which is what made the promotion checkable.
   const byName = (n: string): GoldenCase => {
     const c = golden.cases.find((x) => x.name === n)
     if (!c) throw new Error(`no golden case ${n}`)
     return c
   }
   const off = byName('trap-off'), plain = byName('tunnels')
-  assertEquals(off.argv, plain.argv, 'trap-off must ask for the same board as tunnels')
+  assertEquals(
+    off.argv?.filter((a) => a !== '--trapbias=off'),
+    plain.argv,
+    'trap-off must ask for tunnels and nothing else',
+  )
   assertEquals(off.fingerprint, plain.fingerprint)
   assertEquals(off.pieces, plain.pieces)
   // And the on-cases must differ from it, or the pair would prove nothing.

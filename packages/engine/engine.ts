@@ -101,12 +101,6 @@ type CarverOptions = {
    */
   backbite?: number | undefined
   /**
-   * MEASUREMENT ONLY (R1 spike, not a knob): +1 ranks heads that sit on an
-   * empty front first (every such piece is free at the start), -1 ranks them
-   * last, 0 leaves today's ranking untouched.
-   */
-  freeBias?: number | undefined
-  /**
    * MEASUREMENT ONLY (R1 spike, not a knob): the sign is the direction and the
    * magnitude is the share of cuts that rank by it. +1 ranks heads whose line
    * prefix has a single owner first, so the piece ends up with exactly one
@@ -127,8 +121,6 @@ class Carver implements Board {
   ruleB: boolean
   /** MEASUREMENT ONLY: cap on consecutive tail backbites; 0 disables the move. */
   backbiteCap: number
-  /** MEASUREMENT ONLY (R1 spike): +1 prefers heads on an empty front, -1 avoids them, 0 is off. */
-  freeBias: number
   /**
    * MEASUREMENT ONLY (R1 spike): +1 prefers heads whose line prefix belongs to
    * a SINGLE piece, -1 avoids them, 0 is off, and a magnitude below 1 is the
@@ -178,11 +170,11 @@ class Carver implements Board {
     this.debug = opts.debug
     this.ruleB = opts.ruleB ?? true
     this.backbiteCap = Math.max(0, Math.floor(opts.backbite ?? 0))
-    this.freeBias = Math.sign(opts.freeBias ?? 0)
-    // Not Math.sign: the magnitude is the share of cuts that rank by the trap
-    // bit, so it has to survive. Clamped like backbiteCap, because this is a
-    // measurement switch and validateParams never sees it.
-    this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? 0))
+    // The knob is the source. The option overrides it because the share the
+    // three-state was chosen over is only reachable this way and has to stay
+    // measurable (scripts/measure-r1-share.ts); it is clamped like
+    // backbiteCap, since validateParams never sees an override.
+    this.trapBias = Math.max(-1, Math.min(1, opts.trapBias ?? params.trapBias))
     // The upkeep is folded into recomputeLines, so it costs the lines a cut
     // moves rather than a pass over the board; it is only paid when the spike
     // asks for it.
@@ -1152,17 +1144,6 @@ class Carver implements Board {
         }
         for (const c of rest) first.push(c)
         ranked = first
-      } else if (this.freeBias !== 0) {
-        // MEASUREMENT ONLY (R1 spike): a piece is free at the start exactly when
-        // its head sits on the exit edge — the ray to the edge is the assigned
-        // prefix of its line, so an empty prefix means no blocker at all. The
-        // spike ranks heads by that one bit to find the reachable range of f0:
-        // +1 cuts every free arrow it can, -1 avoids them.
-        const want = this.freeBias > 0
-        ranked = heads
-          .map((c) => ({ c, empty: num(at(this.depth, d), d === 0 || d === 2 ? c.x : c.y) === 0 }))
-          .sort((a, b) => (a.empty === b.empty ? 0 : (a.empty === want ? -1 : 1)))
-          .map((z) => z.c)
       } else if (bias !== 0) {
         // depth of a head's line = how deep the frontier has advanced in that line
         this.orderByDepth(heads, d, bias)
@@ -1182,7 +1163,7 @@ class Carver implements Board {
       // the regions of thousands of free cells sit in the deeper quarters —
       // and a backtrack undoes pieces elsewhere, so it never helps (round 9).
       const quarter = Math.max(1, Math.ceil(ranked.length / 4))
-      const pools: Cell[][] = bias === 0 && this.freeBias === 0 && !useTrap
+      const pools: Cell[][] = bias === 0 && !useTrap
         ? [[...ranked]]
         : [0, 1, 2, 3].map((q) => ranked.slice(q * quarter, (q + 1) * quarter)).filter((x) => x.length)
       let carved = false
@@ -2492,6 +2473,26 @@ const PARAM_TABLE = [
       'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed. -1 turns mixing off.',
   },
   {
+    key: 'trapBias',
+    label: 'traps (arrows that look ready to go)',
+    group: 'difficulty',
+    min: -1,
+    max: 1,
+    step: 1,
+    def: 0,
+    // Three values, each with a word the CLI spells, so the lab offers the
+    // words rather than a slider over -1..1. A share of cuts was measured and
+    // lost: the interior is not monotone above +0.6 and its usable step is
+    // coarser than one seed of noise (2026-09-12-r1-r2-measurements.md).
+    control: {
+      kind: 'choice',
+      choices: [{ value: -1, word: 'avoid' }, { value: 0, word: 'off' }, { value: 1, word: 'seek' }],
+    },
+    help:
+      'Ranks heads whose corridor already holds one piece: such a piece looks ready to leave but is not. seek makes half again as many, avoid a quarter, off is today.',
+  },
+
+  {
     key: 'probe',
     label: 'share of probe pieces',
     group: 'difficulty',
@@ -2882,7 +2883,7 @@ export class GenerateAbort extends Error {
  */
 export function generate(params: Partial<Params>, opts: GenerateOptions = {}): GenerateResult {
   const p: Params = { ...defaultParams(), ...params }
-  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true, trapBias = 0, backbite = 0 } = opts
+  const { unchecked = false, trace, debug, voidFrac = 0, ruleB = true } = opts
   if (!unchecked) {
     const violations = validateParams(p)
     if (violations.length) throw new InvalidParamsError(violations)
@@ -2899,14 +2900,7 @@ export function generate(params: Partial<Params>, opts: GenerateOptions = {}): G
     used = attempt
     metrics = null
     deadlock = false
-    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), {
-      trace,
-      debug,
-      voidFrac,
-      ruleB,
-      trapBias,
-      backbite,
-    })
+    carver = new Carver(p.W, p.H, p, mulberry32(p.seed + attempt * 999983), { trace, debug, voidFrac, ruleB })
     try {
       ok = carver.run()
     } catch (err) {

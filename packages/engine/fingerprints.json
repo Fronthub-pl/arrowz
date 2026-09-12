@@ -109,14 +109,12 @@
         "--width=100",
         "--height=200",
         "--start=tunnels",
+        "--trapbias=off",
         "--dry-run"
       ],
       "fingerprint": "ee131a8",
       "pieces": 1711,
-      "maxLen": 186,
-      "opts": {
-        "trapBias": 0
-      }
+      "maxLen": 186
     },
     {
       "name": "trap-seek",
@@ -124,28 +122,24 @@
         "--width=100",
         "--height=200",
         "--start=tunnels",
+        "--trapbias=seek",
         "--dry-run"
       ],
       "fingerprint": "d057f51",
       "pieces": 1712,
-      "maxLen": 223,
-      "opts": {
-        "trapBias": 1
-      }
+      "maxLen": 223
     },
     {
       "name": "trap-avoid",
       "argv": [
         "--width=100",
         "--height=200",
+        "--trapbias=avoid",
         "--dry-run"
       ],
       "fingerprint": "b50ec211",
       "pieces": 1713,
-      "maxLen": 162,
-      "opts": {
-        "trapBias": -1
-      }
+      "maxLen": 162
     }
   ]
 }
