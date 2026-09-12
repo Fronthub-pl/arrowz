@@ -395,9 +395,9 @@ deno task carve --width=30 --height=30 --pstraight=0.2 --svg=/tmp/x.svg
 ```
 
 ```
-invalid parameters:
-  - straightness bias: 0.2 is outside 0.6..1
-see --help for the allowed ranges
+invalid arguments:
+  - --pstraight=0.2 is outside 0.6..1
+see --help
 ```
 
 The command ends with status code 2. A status code is a number a program leaves
@@ -846,7 +846,7 @@ a board, keep that line.
 Deno refuses to let a program touch your files or settings unless told to. Use
 the `carve` task, which grants exactly what is needed.
 
-**`unknown flag --foo; see --help`** — the CLI does not recognise that flag at
+**`unknown flag --foo`** — the CLI does not recognise that flag at
 all. Check the spelling against `--help` or `--help=knobs`.
 
 **`--straight is gone: use --winding=R …`** (or `--advanced`, `--board`,
@@ -855,9 +855,11 @@ all. Check the spelling against `--help` or `--help=knobs`.
 `--mix`) — an old spelling from before this tool had one mode. The message
 names its replacement; use that instead.
 
-**`invalid parameters: … is outside …`** — one of your values is out of range.
-The message names the setting and the allowed range. Nothing was generated and
-nothing was written.
+**`invalid arguments: --pstraight=0.2 is outside 0.6..1`** — a value is out of
+range, between two of a knob's settings, or breaks one of the rules. Every line
+starts with the flag to change, whether the parser caught it or the safe
+envelope did, and a broken rule names every flag it is about. Nothing was
+generated and nothing was written.
 
 **`failed to close board …`** — the generator tried, backed up, restarted, and
 still could not fill the board. Almost always a setting marked **Careful:**

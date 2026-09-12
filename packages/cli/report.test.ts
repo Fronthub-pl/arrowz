@@ -28,13 +28,13 @@ Deno.test('report.ts and --bench refuse invalid parameters before the first leve
   for (const mode of [['--only=easy', '--square', '--runs=1'], ['--bench=1', '--only=easy', '--square']]) {
     const r = runReport([...mode, '--warns=1'], join(dir, 'boards'))
     assertEquals(r.status, 2, mode.join(' '))
-    assertMatch(r.stderr, /^invalid parameters:\n {2}- closing off nooks: 1 is outside 2\.\.16\n/)
+    assertMatch(r.stderr, /^invalid arguments:\n {2}- --warns=1 is outside 2\.\.16\n/)
     assertEquals(r.stdout, '', `no report header for ${mode.join(' ')}`)
   }
   // a level size from --mid is validated like a knob
   const r = runReport(['--only=mid', '--square', '--mid=2', '--runs=1'], join(dir, 'boards'))
   assertEquals(r.status, 2)
-  assertMatch(r.stderr, /width: 2 is outside 4\.\.1000/)
+  assertMatch(r.stderr, /--width=2 is outside 4\.\.1000/)
 })
 
 // The report and the benchmark have no other test that runs them to the end.

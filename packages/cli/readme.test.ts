@@ -11,7 +11,7 @@
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { formatViolation, validateParams } from '@arrowz/engine'
-import { KNOB_ROWS, parseArgs, RULE_ROWS } from '@arrowz/engine/command'
+import { COMMAND_PREFIX, flagViolation, KNOB_ROWS, parseArgs, RULE_ROWS } from '@arrowz/engine/command'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['README.md', 'README.pl.md'] as const
@@ -100,6 +100,36 @@ for (const file of READMES) {
       }
     })
     assert(checked >= 8, `only ${checked} numbers checked`)
+  })
+
+  // The page shows what a refusal looks like. Until now nothing checked that it
+  // still looks like that: the transcript said `invalid parameters:` with the
+  // label the web page prints, months after the CLI had stopped saying either.
+  // The command above the block is re-run through the parser and the envelope,
+  // and the block has to be what the CLI would print.
+  Deno.test(`${file}: a documented refusal is the one the CLI prints`, () => {
+    const lines = text.split('\n')
+    let command: string | null = null
+    let checked = 0
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i] ?? ''
+      if (line.trim() === '```sh') {
+        command = (lines[i + 1] ?? '').trim()
+        continue
+      }
+      if (line.trim() !== '```' || (lines[i + 1] ?? '').trim() !== 'invalid arguments:') continue
+      const block: string[] = []
+      for (let j = i + 1; j < lines.length && (lines[j] ?? '').trim() !== '```'; j++) block.push(lines[j] ?? '')
+      const shown = command ?? ''
+      assert(shown.startsWith(COMMAND_PREFIX), `no command above the refusal in ${file}`)
+      const args = shown.slice(COMMAND_PREFIX.length).trim().split(/\s+/).filter((a) => !a.startsWith('--svg'))
+      const { params, errors } = parseArgs(args)
+      const said = errors.length ? errors : validateParams(params).map(flagViolation)
+      assert(said.length, `${shown} is not refused any more`)
+      assertEquals(block, ['invalid arguments:', ...said.map((e) => `  - ${e}`), 'see --help'], shown)
+      checked++
+    }
+    assert(checked >= 1, `${file} shows no refusal`)
   })
 }
 

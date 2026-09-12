@@ -15,8 +15,8 @@
 // is refused before the first level, exit code 2; CARVE_TIMEOUT_S=N aborts
 // a run after N seconds, same as carve.ts.
 import type { CarverStats, GenerateOptions, Metrics, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
-import { formatViolation, GenerateAbort, validateParams } from '@arrowz/engine'
-import { parseArgs } from '@arrowz/engine/command'
+import { GenerateAbort, validateParams } from '@arrowz/engine'
+import { flagViolation, parseArgs } from '@arrowz/engine/command'
 import { simpleParams } from '@arrowz/engine/simple'
 // The report and bench sections build a carver by hand; those four are engine
 // internals, not part of its public surface, so they come from its sources.
@@ -76,21 +76,21 @@ const has = (flag: string): boolean => rest.includes(`--${flag}`)
 // --- the safe envelope ------------------------------------------------------
 // The parser only parses; here the parsed knobs meet the ranges and the
 // cross-knob rules of the engine, before any level runs. Exit code 2.
-function refuseErrors(error: string, items: readonly string[]): never {
-  console.error(`${error}:`)
+// One voice for both layers, as in carve.ts: the heading does not say which
+// of them caught it, and every line starts with the flag to change.
+function refuseErrors(items: readonly string[]): never {
+  console.error('invalid arguments:')
   for (const it of items) console.error(`  - ${it}`)
   Deno.exit(2)
 }
 function refuseViolations(items: readonly Violation[]): never {
-  console.error('invalid parameters:')
-  for (const it of items) console.error(`  - ${formatViolation(it)}`)
-  Deno.exit(2)
+  refuseErrors(items.map(flagViolation))
 }
 // A report has no size of its own — every level sets W and H — so the two
 // parser errors that only matter to a single board are not errors here.
 const NO_SIZE = new Set(['missing --width', 'missing --height'])
 const parseErrors = parsed.errors.filter((e) => !NO_SIZE.has(e))
-if (parseErrors.length) refuseErrors('invalid arguments', parseErrors)
+if (parseErrors.length) refuseErrors(parseErrors)
 
 // The pins, by the value the parser read for each. The pins go on top of the
 // draw, so every knob nobody named keeps the value it would have had without

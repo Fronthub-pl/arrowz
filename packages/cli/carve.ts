@@ -27,17 +27,8 @@
 // code is 1; CARVE_TIMEOUT_S=N aborts a run after N seconds and stores what
 // was carved.
 import type { BoardMeta, GenerateOptions, ParamKey, Params, TraceInfo, Violation } from '@arrowz/engine'
-import {
-  DIRS,
-  encodeBoard,
-  fingerprint,
-  formatViolation,
-  generate,
-  GenerateAbort,
-  toSvg,
-  validateParams,
-} from '@arrowz/engine'
-import { boardId, buildCommand, helpText, knobFlag, parseArgs, svgOptions } from '@arrowz/engine/command'
+import { DIRS, encodeBoard, fingerprint, generate, GenerateAbort, toSvg, validateParams } from '@arrowz/engine'
+import { boardId, buildCommand, flagViolation, helpText, knobFlag, parseArgs, svgOptions } from '@arrowz/engine/command'
 import { BUNDLES, simpleParams } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
 
@@ -100,26 +91,26 @@ const has = (flag: string): boolean => {
 // other mode explains on stderr. Exit code 2 = bad input, 1 = a board that
 // did not close.
 const dryRun = has('dry-run')
-function refuseErrors(error: string, items: readonly string[]): never {
+// One voice, whichever layer caught it. The parser and the envelope refuse
+// the same kind of thing at two different moments, and a user cannot tell
+// which of them spoke — so both use the same heading, the same closing line
+// and lines that all start with the flag to change. --dry-run keeps the text
+// in `errors` both times and adds `violations` when the envelope is the one
+// that answered, so a script has one field to read and the structure beside it.
+const REFUSED = 'invalid arguments'
+function refuseErrors(items: readonly string[], violations?: readonly Violation[]): never {
   if (dryRun) {
-    console.log(JSON.stringify({ ok: false, error, errors: items }))
+    const line = { ok: false, error: REFUSED, errors: items }
+    console.log(JSON.stringify(violations ? { ...line, violations } : line))
   } else {
-    console.error(`${error}:`)
+    console.error(`${REFUSED}:`)
     for (const it of items) console.error(`  - ${it}`)
     console.error('see --help')
   }
   Deno.exit(2)
 }
 function refuseViolations(items: readonly Violation[]): never {
-  const error = 'invalid parameters'
-  if (dryRun) {
-    console.log(JSON.stringify({ ok: false, error, violations: items }))
-  } else {
-    console.error(`${error}:`)
-    for (const it of items) console.error(`  - ${formatViolation(it)}`)
-    console.error('see --help for the allowed ranges')
-  }
-  Deno.exit(2)
+  refuseErrors(items.map(flagViolation), items)
 }
 
 // --help wins over a bad flag: it is what a user reaches for to fix one. Its
@@ -129,7 +120,7 @@ const helpFlag = rest.find((a) => a === '--help' || a === '-h' || a.startsWith('
 if (helpFlag !== undefined) {
   used.add(helpFlag)
   if (helpFlag !== '--help' && helpFlag !== '-h' && helpFlag !== '--help=knobs') {
-    refuseErrors('invalid arguments', [`${helpFlag} is not --help or --help=knobs`])
+    refuseErrors([`${helpFlag} is not --help or --help=knobs`])
   }
   console.log(helpText({ knobs: helpFlag === '--help=knobs' }))
   Deno.exit(0)
@@ -137,7 +128,7 @@ if (helpFlag !== undefined) {
 
 // The flags themselves can be wrong (a missing size, a slider outside 0..1, a
 // retired spelling, an unknown flag). Checked before any knob exists.
-if (parsed.errors.length) refuseErrors('invalid arguments', parsed.errors)
+if (parsed.errors.length) refuseErrors(parsed.errors)
 
 // --- the modes: --svg[=path], --count=N [--max-seeds=M] ---------------------
 // Read before any knob, so that a mode flag the CLI cannot honour is refused
@@ -149,7 +140,7 @@ function positiveFlag(name: string): number | null {
   if (hit === undefined) return null
   used.add(hit)
   const n = Number(hit.slice(name.length + 3))
-  if (!Number.isInteger(n) || n < 1) refuseErrors('invalid arguments', [`${hit} is not a positive integer`])
+  if (!Number.isInteger(n) || n < 1) refuseErrors([`${hit} is not a positive integer`])
   return n
 }
 const count = positiveFlag('count')
@@ -157,12 +148,12 @@ const maxSeeds = positiveFlag('max-seeds')
 const svgFlag = rest.find((a) => a === '--svg' || a.startsWith('--svg='))
 if (svgFlag !== undefined) used.add(svgFlag)
 const writesBoards = !dryRun
-if (maxSeeds !== null && count === null) refuseErrors('invalid arguments', ['--max-seeds needs --count'])
+if (maxSeeds !== null && count === null) refuseErrors(['--max-seeds needs --count'])
 if (count !== null && !writesBoards) {
-  refuseErrors('invalid arguments', ['--count needs a mode that writes boards, and --dry-run writes none'])
+  refuseErrors(['--count needs a mode that writes boards, and --dry-run writes none'])
 }
 if (count !== null && svgFlag?.startsWith('--svg=')) {
-  refuseErrors('invalid arguments', ['--svg=path names one file; with --count use --svg'])
+  refuseErrors(['--svg=path names one file; with --count use --svg'])
 }
 
 /** Mode flags that are switches, and mode flags that need a value: both spellings are refused by name. */
@@ -174,13 +165,13 @@ function unreadReason(arg: string): string {
   const name = eq < 0 ? arg : arg.slice(0, eq)
   if (eq >= 0 && VALUELESS_MODES.has(name)) return `${arg} takes no value`
   if (eq < 0 && VALUED_MODES.has(name)) return `${arg} needs a value`
-  return `${arg} is read by no mode; see --help`
+  return `${arg} is read by no mode`
 }
 // A mode flag the readers above did not take is input nobody acts on:
 // --dry-run=1 used to write a board because carve.ts matches --dry-run
 // exactly, and --count alone was dropped on the floor.
 const unread = rest.filter((a) => !used.has(a))
-if (unread.length) refuseErrors('invalid arguments', unread.map(unreadReason))
+if (unread.length) refuseErrors(unread.map(unreadReason))
 
 // The pins, by the value the parser read for each. --randomized draws like
 // the lab: Math.random, not reproducible; the meta keeps the command, which

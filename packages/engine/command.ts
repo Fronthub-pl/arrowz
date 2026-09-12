@@ -18,8 +18,18 @@ import type {
   SvgOptions,
   View,
   ViewNumber,
+  Violation,
 } from './types.ts'
-import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
+import {
+  defaultParams,
+  formatViolation,
+  MIX_SHARE,
+  PARAM_SPEC,
+  RULE_REASONS,
+  RULES,
+  stepsAround,
+  validateParams,
+} from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 
@@ -334,6 +344,26 @@ export const KNOB_ROWS: readonly KnobRow[] = (() => {
   }
   return rows
 })()
+
+/**
+ * A violation in the command line's own vocabulary.
+ *
+ * The parser and the envelope refuse the same kind of thing at two different
+ * moments, and they used to say it two different ways: the parser named the
+ * flag (`--start=0.8 is outside 0.3..0.7`), the envelope named the label the
+ * web page prints beside the field (`straightness bias: 0.2 is outside
+ * 0.6..1`), and a broken rule named nothing a user could type at all. On this
+ * surface every line starts with the flag to change; `formatViolation` in the
+ * engine keeps the label form, which is the one the web page wants.
+ */
+export function flagViolation(v: Violation): string {
+  if (v.kind === 'rule') return `${ruleFlags(v.keys).join(', ')}: ${formatViolation(v)}`
+  if (v.kind === 'step') {
+    const [below, above] = stepsAround(v.value, v.step, v.min)
+    return `${flagOf(v.key)}=${v.value} sits between the settings ${below} and ${above}`
+  }
+  return `${flagOf(v.key)}=${v.value} is outside ${v.min}..${v.max}`
+}
 
 /** The cross-knob rules, each with the flags it is about. */
 export const RULE_ROWS: readonly { key: RuleKey; flags: readonly string[]; reason: string }[] = RULES.map((r) => ({
@@ -693,7 +723,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       view[field2] = n
       continue
     }
-    errors.push(`unknown flag --${name}; see --help`)
+    errors.push(`unknown flag --${name}`)
   }
   const missing = ['width', 'height'].filter((name) => !seen.has(name)).map((name) => `missing --${name}`)
   // The picture is drawn to a fixed size unless the caller asked for a cell.
