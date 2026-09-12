@@ -1039,3 +1039,33 @@ Deno.test('voidFrac and ruleB live in the options, not in the parameters', () =>
   const off = generate({ W: 40, H: 40, seed: 1 }, { ruleB: false })
   assertNotEquals(fingerprint(on.board), fingerprint(off.board), 'ruleB reaches the carver')
 })
+
+/** The first cell behind the head, in the direction opposite to the piece's exit. */
+function neckOutOfPlace(board: BoardData): string | null {
+  for (const pc of board.pieces) {
+    const back = at(DIRS, (pc.dir + 2) % 4)
+    const h = at(pc.cells, 0)
+    const neck = pc.cells[1]
+    if (!neck) continue
+    if (neck.x !== h.x + back.dx || neck.y !== h.y + back.dy) {
+      return `piece ${pc.id} has its neck at (${neck.x}, ${neck.y}), not behind the head at (${h.x}, ${h.y})`
+    }
+  }
+  return null
+}
+
+Deno.test("carver: the cell behind every head is the piece's second cell", () => {
+  // toSvg and the board element draw the arrowhead from the head cell towards
+  // the exit edge and start the line at the head's BASE, one head-height
+  // behind it (pieceShape, geometry.ts). The shape is only a shape if the
+  // second cell is that base — a piece whose body leaves the head sideways
+  // renders as an arrowhead stuck on the side of a line running past it.
+  // carveOne starts every path as [head, cell behind head]; anything that
+  // rewrites a path afterwards has to keep that.
+  for (const backbite of [0, 2, 8]) {
+    const p: Params = { ...defaultParams(), W: 40, H: 40, seed: 7 }
+    const c = new Carver(p.W, p.H, p, mulberry32(p.seed), { backbite })
+    assert(c.run(), `backbite ${backbite}: the board did not close`)
+    assertEquals(neckOutOfPlace(c), null, `backbite ${backbite}`)
+  }
+})

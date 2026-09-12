@@ -977,7 +977,12 @@ class Carver implements Board {
    * own neighbour to bite (then the growth loop stalls as it does today).
    */
   backbiteTail(path: Cell[], pathPos: Map<number, number>): boolean {
-    if (path.length < 3) return false
+    // Four cells, not three: a bite at position 0 would reverse the suffix from
+    // cells[1], i.e. move the NECK, and the arrowhead is drawn from the head
+    // towards the exit edge with the line starting at its base — the cell
+    // behind the head (pieceShape). A piece whose body leaves the head
+    // sideways renders as a head stuck on the side of a line.
+    if (path.length < 4) return false
     const tail = at(path, path.length - 1)
     const spots: number[] = []
     for (const dd of DIRS) {
@@ -985,8 +990,10 @@ class Carver implements Board {
       if (!this.inside(nx, ny)) continue
       const pos = pathPos.get(this.idx(nx, ny))
       // The predecessor (and the tail itself) close no loop; a bite at
-      // path.length - 3 or earlier leaves a suffix of >= 2 cells to reverse.
-      if (pos === undefined || pos >= path.length - 2) continue
+      // path.length - 3 or earlier leaves a suffix of >= 2 cells to reverse;
+      // and position 0 is excluded so the neck stays where the head shape
+      // needs it (see above).
+      if (pos === undefined || pos < 1 || pos >= path.length - 2) continue
       spots.push(pos)
     }
     if (!spots.length) return false

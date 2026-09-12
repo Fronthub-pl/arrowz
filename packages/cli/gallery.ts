@@ -1,115 +1,33 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
-// The gallery page of the R1/R2 measurements: one board per setting, with the
-// free arrows and the traps marked on it. Built by `deno task bundle` into
-// dist/gallery.js; gallery.html loads that file.
+// The R1/R2 playground: one board, the two measurement options as sliders, and
+// the free arrows and traps ringed on the board. Built by `deno task bundle`
+// into dist/gallery.js; gallery.html loads that file.
 //
-// The boards are carved here rather than loaded from files, because two of the
-// settings are Carver OPTIONS of the measurement branch (freeBias, trapBias,
-// backbite), not knobs, so `generate()` cannot reach them.
+// The board is carved here rather than loaded from a file, because trapBias,
+// freeBias and backbite are Carver OPTIONS of the measurement branch, not
+// knobs, so `generate()` cannot reach them.
 import { ArrowzBoard } from '../board-element/src/mod.ts'
 import { analyse, Carver, defaultParams, mulberry32 } from '../engine/engine.ts'
 import { DIRS } from '../engine/geometry.ts'
 import type { Params } from '../engine/types.ts'
 
-const SIDE = 40
-const SEED = 7
-
-type Config = {
-  title: string
-  tag: 'today' | 'r1' | 'r2' | 'len'
-  knobs: string
-  params: Partial<Params>
-  opts?: { freeBias?: number; trapBias?: number; backbite?: number }
-  look: string
-}
-
-const CONFIGS: readonly Config[] = [
-  {
-    title: 'Defaults',
-    tag: 'today',
-    knobs: '--start=random',
-    params: {},
-    look:
-      '16 free, 31 traps. The baseline every other card is compared against. Note that the marks cluster on the left and top rims and thin out towards the middle: a head deep in the board has many pieces in its corridor, so it is neither free nor a trap.',
-  },
-  {
-    title: 'Layers',
-    tag: 'today',
-    knobs: '--start=layers',
-    params: { headBias: -1 },
-    look:
-      "30 free (nearly double the baseline), 34 traps. <b>Today's knobs move both numbers the same way:</b> more heads on the rim means more free arrows AND more arrows with a single piece in the way. Nothing in the generator separates the two.",
-  },
-  {
-    title: 'Tunnels',
-    tag: 'today',
-    knobs: '--start=tunnels',
-    params: { headBias: 1 },
-    look:
-      '11 free, 16 traps — both down. Heads start deep, behind other pieces, so fewer of them reach the rim at all. At 1000&times;1000 this is the lowest free count any existing knob reaches: 142 of 85 500 pieces.',
-  },
-  {
-    title: 'Fewest traps',
-    tag: 'r1',
-    knobs: 'trapBias -1 (R1 spike)',
-    params: {},
-    opts: { trapBias: -1 },
-    look:
-      '<b>8 traps against 31 in the baseline — a quarter — while free arrows go UP, 24 against 16.</b> This is the card that justifies R1: no existing knob moves the two numbers in opposite directions. A board you can largely play by eye.',
-  },
-  {
-    title: 'Most traps',
-    tag: 'r1',
-    knobs: 'trapBias +1 (R1 spike)',
-    params: {},
-    opts: { trapBias: 1 },
-    look:
-      '38 traps against 31, and free arrows down to 11. <b>The lever is asymmetric:</b> avoiding traps works far better than manufacturing them, here and at 1000&times;1000 (912 traps at most, 178 at fewest, 680 at the baseline). The useful end is the other card.',
-  },
-  {
-    title: 'Most free arrows',
-    tag: 'r1',
-    knobs: 'freeBias +1 (R1 spike)',
-    params: {},
-    opts: { freeBias: 1 },
-    look:
-      '<b>The spike that did NOT justify a knob.</b> 22 free arrows, fewer than <code>--start=layers</code> reaches here (30) with no new code at all. At 1000&times;1000 the two tie: 556 against 549. Ranking heads cannot beat the geometric ceiling — only the number of heads can.',
-  },
-  {
-    title: 'Short pieces',
-    tag: 'len',
-    knobs: '--wshort=0.9 --wmid=0',
-    params: { wShort: 0.9, wMid: 0 },
-    look:
-      '<b>The strongest lever on free arrows, and it already exists.</b> Twice the pieces means twice the heads, and free arrows rise with them: at 1000&times;1000 from 454 to 1900. But traps rise just as fast — like every other existing knob, length moves the two together.',
-  },
-  {
-    title: 'Tail backbite',
-    tag: 'r2',
-    knobs: 'backbite 8 (R2)',
-    params: {},
-    opts: { backbite: 8 },
-    look:
-      '<b>Compare the piece count with the first card: 111 against 152.</b> The stall escape grows longer, more wound pieces, and fewer pieces means fewer heads on the rim — at 1000&times;1000 free arrows drop 39%, from 454 to 276. This is why R2 moves what R1 would be aiming at.',
-  },
-]
-
 type Marked = { x: number; y: number; kind: 'free' | 'trap' }
 
-/** Per piece: how many distinct other pieces its ray crosses, capped at 2. */
-function classify(
-  board: {
-    W: number
-    H: number
-    owner: Int32Array
-    pieces: { cells: { x: number; y: number }[]; dir: number; id: number }[]
-  },
-): {
-  marks: Marked[]
-  free: number
-  traps: number
-} {
+/** What both the board element and classify() need: the grid and its pieces. */
+type BoardLike = {
+  W: number
+  H: number
+  owner: Int32Array
+  pieces: { cells: { x: number; y: number }[]; dir: number; id: number }[]
+}
+
+/**
+ * Walks each piece's ray to the exit edge and counts the distinct pieces on it,
+ * stopping at two: a piece with none is free to leave, a piece with exactly one
+ * is the trap that looks free. Anything deeper gets no mark.
+ */
+function classify(board: BoardLike): { marks: Marked[]; free: number; traps: number } {
   const marks: Marked[] = []
   let free = 0, traps = 0
   const seen = new Int32Array(board.pieces.length).fill(-1)
@@ -153,35 +71,37 @@ function stat(value: string, label: string, cls = ''): HTMLElement {
   return box
 }
 
-function build(cfg: Config): HTMLElement {
-  const p: Params = { ...defaultParams(), ...cfg.params, W: SIDE, H: SIDE, seed: SEED }
-  const carver = new Carver(p.W, p.H, p, mulberry32(p.seed), { ...cfg.opts })
-  const ok = carver.run()
-  const metrics = ok ? analyse(carver, true) : null
-  const { marks, free, traps } = classify(carver)
+function control<T extends HTMLElement>(id: string): T {
+  const node = document.getElementById(id)
+  if (!node) throw new Error(`#${id} is missing`)
+  return node as T
+}
 
-  const card = el('div', 'card')
-  card.append(el('h2', undefined, `${cfg.title}<span class="tag ${cfg.tag}">${cfg.tag}</span>`))
-  card.append(el('p', 'knobs', cfg.knobs))
+type Mounted = { set: (carver: BoardLike, marks: Marked[]) => void }
 
-  const stage = el('div', 'stage')
+/**
+ * Mounts the board and its mark overlay into `stage`. The overlay is redrawn on
+ * every viewport change, because pan and zoom move the cells under it.
+ */
+function mount(stage: HTMLElement): Mounted {
   const board = new ArrowzBoard()
-  board.board = carver
   board.pad = 1
   stage.append(board)
-
   const svgNs = 'http://www.w3.org/2000/svg'
   const marksSvg = document.createElementNS(svgNs, 'svg')
   marksSvg.setAttribute('class', 'marks')
   stage.append(marksSvg)
 
+  let marks: Marked[] = []
   const draw = (): void => {
     const vp = board.viewport
     if (!vp) return
     marksSvg.replaceChildren()
     // A ring, not a disc: the mark has to read on top of a dark arrow without
-    // hiding the arrowhead it is pointing at.
-    const r = Math.max(3, vp.cellPx * 0.42)
+    // hiding the arrowhead it is pointing at. Below a pixel and a half a ring
+    // is mud, so past that the marks are left off rather than drawn as noise.
+    const r = vp.cellPx * 0.42
+    if (r < 1.6) return
     for (const m of marks) {
       const dot = document.createElementNS(svgNs, 'circle')
       dot.setAttribute('cx', String((m.x + 0.5 - vp.originX) * vp.cellPx))
@@ -189,28 +109,90 @@ function build(cfg: Config): HTMLElement {
       dot.setAttribute('r', String(r))
       dot.setAttribute('fill', 'none')
       dot.setAttribute('stroke', m.kind === 'free' ? '#00b877' : '#ff3d84')
-      dot.setAttribute('stroke-width', String(Math.max(1.5, r * 0.42)))
+      dot.setAttribute('stroke-width', String(Math.max(1, r * 0.42)))
       marksSvg.append(dot)
     }
   }
   board.addEventListener('viewport-change', draw)
-  requestAnimationFrame(draw)
-
-  card.append(stage)
-
-  const stats = el('div', 'stats')
-  const meanLen = metrics ? (SIDE * SIDE) / metrics.N : 0
-  stats.append(
-    stat(String(metrics?.N ?? 0), 'pieces'),
-    stat(String(free), 'free', 'free'),
-    stat(String(traps), 'traps', 'trap'),
-    stat(meanLen.toFixed(1), 'mean cells'),
-  )
-  card.append(stats)
-  card.append(el('p', 'look', cfg.look))
-  return card
+  return {
+    set: (carver, next) => {
+      marks = next
+      board.board = carver
+      requestAnimationFrame(draw)
+    },
+  }
 }
 
-const cards = document.getElementById('cards')
-if (!cards) throw new Error('#cards is missing')
-for (const cfg of CONFIGS) cards.append(build(cfg))
+/** Roughly what a board of this side costs, from the measurements. */
+function sizeWarning(side: number): string {
+  if (side >= 1000) return 'About 10–25 s in this tab, and the page stops responding while it carves.'
+  if (side >= 400) return 'A second or two per change.'
+  return ''
+}
+
+function playground(): void {
+  const mounted = mount(control<HTMLElement>('play-stage'))
+  const statsBox = control<HTMLElement>('play-stats')
+
+  const level = control<HTMLSelectElement>('k-level')
+  const seed = control<HTMLInputElement>('k-seed')
+  const trap = control<HTMLInputElement>('k-trap')
+  const free = control<HTMLInputElement>('k-free')
+  const back = control<HTMLInputElement>('k-back')
+  const start = control<HTMLSelectElement>('k-start')
+  const short = control<HTMLInputElement>('k-short')
+  const showFree = control<HTMLInputElement>('k-showfree')
+  const showTraps = control<HTMLInputElement>('k-showtraps')
+  const freeKnob = control<HTMLElement>('knob-free')
+
+  const render = (): void => {
+    const trapBias = Number(trap.value)
+    const backbite = Number(back.value)
+    const freeBias = Number(free.value)
+    const side = Number(level.value)
+    control<HTMLOutputElement>('o-trap').value = String(trapBias)
+    control<HTMLOutputElement>('o-back').value = String(backbite)
+    control<HTMLOutputElement>('o-free').value = String(freeBias)
+    control<HTMLOutputElement>('o-short').value = Number(short.value).toFixed(2)
+    control<HTMLOutputElement>('o-side').value = `${side}×${side}`
+    control<HTMLElement>('size-warn').textContent = sizeWarning(side)
+    // trapBias wins over freeBias in the carver, so say so rather than let the
+    // slider pretend it is doing something.
+    freeKnob.classList.toggle('off', trapBias !== 0)
+
+    const p: Params = {
+      ...defaultParams(),
+      W: side,
+      H: side,
+      seed: Math.max(1, Math.floor(Number(seed.value) || 1)),
+      headBias: Number(start.value),
+      wShort: Number(short.value),
+    }
+    const t0 = performance.now()
+    const carver = new Carver(p.W, p.H, p, mulberry32(p.seed), { trapBias, backbite, freeBias })
+    const ok = carver.run()
+    const ms = performance.now() - t0
+    const metrics = ok ? analyse(carver, true) : null
+    const { marks, free: freeCount, traps } = classify(carver)
+    const shown = marks.filter((m) => (m.kind === 'free' ? showFree.checked : showTraps.checked))
+    mounted.set(carver, shown)
+
+    const n = metrics?.N ?? carver.pieces.length
+    statsBox.replaceChildren(
+      stat(n.toLocaleString('en'), 'pieces'),
+      stat(freeCount.toLocaleString('en'), 'free', 'free'),
+      stat(traps.toLocaleString('en'), 'traps', 'trap'),
+      stat(n ? ((side * side) / n).toFixed(1) : '0', 'mean cells'),
+      stat(String(metrics?.D ?? 0), 'depth'),
+      stat(`${Math.round(ms)} ms`, ok ? 'carved' : 'jammed'),
+    )
+  }
+
+  for (const node of [level, seed, trap, free, back, start, short, showFree, showTraps]) {
+    node.addEventListener('change', render)
+    if (node instanceof HTMLInputElement && node.type === 'range') node.addEventListener('input', render)
+  }
+  render()
+}
+
+playground()
