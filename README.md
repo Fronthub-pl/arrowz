@@ -680,7 +680,7 @@ explained where they appear.
 | Skeleton | `--giantspacing` | `off`\|2\|3 | 2 | How many squares a highway keeps between its own parallel runs. `off` turns the rule off; above 3 only costs time. |
 | Closing | `--headtries` | 2–16 | 4 | How many starting spots to try before giving up on a direction. **Careful:** at 1 the search is too shallow for hard settings. At 8 and above you usually get the same board as at 4. |
 | Closing | `--absorblimit` | 12–64 | 24 | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards fail far more often. |
-| Closing | `--maxback` | `auto`\|0–1000, steps of 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
+| Closing | `--maxback` | `auto`\|50–1000, steps of 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
 | Closing | `--restarts` | 0–5 | 3 | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
 
 Five knobs from an earlier version of this tool — `hug`, `edgehug`,

@@ -9,7 +9,7 @@
 // The lab has to mirror the CLI 1:1, so both sides build and read the text
 // with this code.
 import type { ParamGroup, ParamKey, Params, ParamSpec, SimpleChoice, SvgOptions, View } from './types.ts'
-import { PARAM_SPEC, RULE_REASONS, RULES } from './engine.ts'
+import { defaultParams, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 
@@ -238,10 +238,29 @@ function cellAt(row: readonly string[], i: number): string {
   return c
 }
 
-/** The values a knob flag takes: its words first, where it has any, then its numeric range. */
+/** Whether a rule refuses this knob at this value, every other knob standing at its default. */
+function refusedAlone(key: ParamKey, value: number): boolean {
+  const p = defaultParams()
+  p[key] = value
+  return validateParams(p).length > 0
+}
+
+/**
+ * The values a knob flag takes. Its words come first, then the numbers it
+ * really accepts: the range starts at the first value no word spells and no
+ * rule refuses, so `--lmax` prints auto|6..5000 (auto is 0, and lmaxHole
+ * refuses 1..5) and `--maxback` prints auto|50..1000. A knob the lab draws as
+ * a list of values prints that list, because that is what its flag takes:
+ * `--giantspacing=off|2|3`, not the 1..3 behind it.
+ *
+ * Joining the words to the raw bounds is what printed ranges the tool refuses.
+ */
 function rangeText(key: ParamKey): string {
   const s = specOf(key)
-  return [...wordsOf(key), `${s.min}..${s.max}`].join('|')
+  if (s.control?.kind === 'choice') return s.control.choices.map((c) => c.word).join('|')
+  let lo = s.min
+  while (lo < s.max && (wordFor(key, lo) !== null || refusedAlone(key, lo))) lo = Number((lo + s.step).toFixed(6))
+  return [...wordsOf(key), `${lo}..${s.max}`].join('|')
 }
 
 /**

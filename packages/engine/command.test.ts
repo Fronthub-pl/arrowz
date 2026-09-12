@@ -21,6 +21,12 @@ function reverseKeys(p: Params): Params {
 }
 /** The size flags every call needs, so a test names only what it is about. */
 const SIZE = ['--width=25', '--height=50']
+/** The defaults with one knob set by key, for the envelope checks of the help table. */
+function withKnob(key: keyof Params, value: number): Params {
+  const p = defaultParams()
+  p[key] = value
+  return p
+}
 
 // --- buildCommand -----------------------------------------------------------
 
@@ -331,6 +337,59 @@ Deno.test('helpText: both texts name the everyday flags, the modes and the envir
   }
 })
 
+/**
+ * The values a knob row prints for its flag: the text between the '=' and the
+ * column padding. Read from the knob table alone — the everyday list above it
+ * prints --width=N, which is a placeholder and not a range.
+ */
+function rangeOf(text: string, flag: string): string {
+  const lines = text.split('\n')
+  const header = lines.findIndex((l) => l.trimStart().startsWith('flag '))
+  assert(header > 0, 'the knob table has a header row')
+  const row = lines.slice(header + 1).map((l) => l.trimStart()).find((l) => l.startsWith(`${flag}=`))
+  assert(row, `no row for ${flag}`)
+  const value = row.slice(flag.length + 1).split(/\s{2,}/)[0]
+  assert(value, `no range for ${flag}`)
+  return value.trim()
+}
+
+// The table used to join the words to the raw bounds, so it offered values the
+// tool refuses: --lmax=auto|0..5000 (0 is what `auto` spells, and 1..5 break
+// the lmaxHole rule), --maxback=auto|0..1000, --giantstep=random|0..40, and
+// --giantspacing=off|1..3 where the flag takes off|2|3.
+Deno.test('helpText: a knob row prints the values its flag really takes', () => {
+  const text = helpText({ knobs: true })
+  assertEquals(rangeOf(text, '--lmax'), 'auto|6..5000')
+  assertEquals(rangeOf(text, '--maxback'), 'auto|50..1000')
+  assertEquals(rangeOf(text, '--giantstep'), 'random|1..40')
+  assertEquals(rangeOf(text, '--giantspacing'), 'off|2|3')
+  // The short help names the same range as the table it points at.
+  assert(helpText().includes('--lmax=auto|6..5000'), helpText())
+})
+
+// Spec §8: the table is where a flag gets copied from, so a row nobody can
+// type is a bug in the row.
+Deno.test('helpText: every flag --help=knobs prints parses with the first value it offers', () => {
+  const text = helpText({ knobs: true })
+  const lines = text.split('\n')
+  const header = lines.findIndex((l) => l.trimStart().startsWith('flag '))
+  assert(header > 0, 'the knob table has a header row')
+  const rows = lines.slice(header + 1, lines.indexOf('', header)).filter((l) => l.trimStart().startsWith('--'))
+  assertEquals(rows.length, PARAM_SPEC.filter((s) => s.surface !== 'start').length + 1, 'one row per knob flag')
+  for (const row of rows) {
+    const m = /^(--[a-z-]+)=(\S+)/.exec(row.trimStart())
+    assert(m, `no flag in row: ${row}`)
+    const [, flag, range] = m
+    assert(flag && range, row)
+    // The first value the range offers: a word, or the bottom of the numbers.
+    const first = range.split('|')[0] ?? ''
+    const value = first.includes('..') ? first.split('..')[0] : first
+    const { errors, params } = parseArgs([...SIZE, `${flag}=${value}`])
+    assertEquals(errors, [], `${flag}=${value}`)
+    assertEquals(validateParams(params), [], `${flag}=${value} parses into a set the envelope refuses`)
+  }
+})
+
 Deno.test('helpText: the knob table carries every rule and says what pinning costs', () => {
   const text = helpText({ knobs: true })
   for (const r of RULES) assert(text.includes(r.key), `rule key ${r.key} missing`)
@@ -347,8 +406,23 @@ Deno.test('helpText: the knob table carries every rule and says what pinning cos
     const row = table.find((l) => l.trimStart().startsWith(`${flag}=`))
     assert(row, `no row for ${s.key}`)
     assert(row.includes(s.label), `${s.key}: label missing`)
-    assert(row.includes(`${s.min}..${s.max}`), `${s.key}: range missing`)
     assert(row.endsWith(s.help), `${s.key}: help missing`)
+    // The printed range is checked against the rules, not against the raw
+    // bounds: the bottom it prints is a value the tool takes, and the step
+    // below it is not (it is under the minimum, spelled by a word, or refused).
+    const printed = rangeOf(text, flag)
+    if (s.control?.kind === 'choice') {
+      assertEquals(printed, s.control.choices.map((c) => c.word).join('|'), `${s.key}: the choices themselves`)
+      continue
+    }
+    const numeric = printed.split('|').at(-1) ?? ''
+    const [loText, maxText] = numeric.split('..')
+    assertEquals(Number(maxText), s.max, `${s.key}: the top of the printed range`)
+    const lo = Number(loText)
+    assertEquals(validateParams(withKnob(s.key, lo)), [], `${s.key}=${lo} is printed but refused`)
+    const below = Number((lo - s.step).toFixed(6))
+    const shut = below < s.min || wordFor(s.key, below) !== null || validateParams(withKnob(s.key, below)).length > 0
+    assert(shut, `${s.key}: ${below} is legal, so the range starts too high at ${lo}`)
   }
   assert(text.includes('pinned'), 'the knob table says what a pin costs')
 })

@@ -679,7 +679,7 @@ Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
 | Szkielet | `--giantspacing` | `off`\|2\|3 | 2 | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. `off` wyłącza regułę; powyżej 3 tylko kosztuje czas. |
 | Zamykanie | `--headtries` | 2–16 | 4 | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 1 poszukiwanie jest za płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
 | Zamykanie | `--absorblimit` | 12–64 | 24 | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze psują się dużo częściej. |
-| Zamykanie | `--maxback` | `auto`\|0–1000, co 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
+| Zamykanie | `--maxback` | `auto`\|50–1000, co 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
 | Zamykanie | `--restarts` | 0–5 | 3 | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
 
 Pięć pokręteł z wcześniejszej wersji tego narzędzia — `hug`, `edgehug`,
