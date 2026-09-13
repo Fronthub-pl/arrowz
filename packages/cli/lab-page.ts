@@ -44,6 +44,7 @@ import {
 } from '@arrowz/engine/command'
 import { dictionary, EN, escapeHtml, type Lang, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
+import { genSeconds, pct, reportRows } from '@arrowz/engine/report'
 import {
   defaultChoice,
   exportCell,
@@ -1143,18 +1144,13 @@ function renderLibrary() {
     row.innerHTML = `<span class="id">${escapeHtml(meta.id)}</span><span>${escapeHtml(when)}</span>` +
       `<span class="meta">${dict.t('piecesShort', escapeHtml(meta.pieces ?? '?'))} · ${
         dict.t('longestShort', escapeHtml(meta.maxLen ?? '?'))
-      } · ${dict.t('genShort', genSeconds(meta))} · ${escapeHtml(meta.source)}` +
+      } · ${dict.t('genShort', genSeconds(meta, '—'))} · ${escapeHtml(meta.source)}` +
       `${meta.ok === false ? ` · <b class="bad">${dict.t('notClosed')}</b>` : ''}</span>`
     row.addEventListener('click', () => openBoard(meta))
     el('libList').append(row)
   }
 }
 
-// Generation time from the meta, as seconds; boards saved before the field
-// existed show a dash.
-function genSeconds(meta: BoardMeta): string {
-  return meta.genMs === null ? '—' : (meta.genMs / 1000).toFixed(meta.genMs < 10000 ? 2 : 1)
-}
 function showBoardStatus(meta: BoardMeta) {
   setStatus(
     dict.t(
@@ -1162,7 +1158,7 @@ function showBoardStatus(meta: BoardMeta) {
       `<code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
       escapeHtml(meta.seed),
       escapeHtml(meta.source),
-      `${genSeconds(meta)} s`,
+      `${genSeconds(meta, '—')} s`,
     ),
   )
 }
@@ -1429,19 +1425,8 @@ globalThis.addEventListener('hashchange', () => {
 })
 
 // --- report -----------------------------------------------------------------
-function pct(v: number): string {
-  return (100 * v).toFixed(0) + '%'
-}
-
-/** One line of the stats table: label, shown value, the number compared with the previous run, and whether an increase is an improvement. */
-type StatRow = { k: string; v: string | number; num: number | undefined; better: number }
-const stat = (k: string, v: string | number, num?: number, better = 0): StatRow => ({ k, v, num, better })
-const SEP: StatRow = { k: '—', v: '', num: undefined, better: 0 }
-
 function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
-  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, deadlock, stats } = msg
-  const rp = runParams
-  const cells = rp.W * rp.H
+  const { metrics, ok, stuck, deadlock } = msg
 
   if (!ok) {
     // A deadlocked board is closed, so it has no leftover to report: the run
@@ -1470,69 +1455,14 @@ function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
     return
   }
 
-  // Third item: the numeric value compared with the previous run; fourth says
-  // whether an increase is an improvement (delta colour).
-  const rows: StatRow[] = [
-    stat(dict.t('stat_board'), dict.t('stat_boardVal', rp.W, rp.H, dict.fmt(cells), rp.seed)),
-    stat(dict.t('stat_pieces'), dict.fmt(metrics.N), metrics.N, 0),
-    stat(dict.t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N, 0),
-    stat(
-      dict.t('stat_longest'),
-      dict.t('stat_longestVal', metrics.maxLen, pct(metrics.maxLen / cells)),
-      metrics.maxLen,
-      1,
-    ),
-    stat(
-      dict.t('stat_lengths'),
-      `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${
-        pct(metrics.hist['16-49'] / metrics.N)
-      } · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`,
-    ),
-    SEP,
-    stat(dict.t('stat_f0'), metrics.f0.toFixed(3), metrics.f0, 0),
-    stat(dict.t('stat_almost'), `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0),
-    stat(dict.t('stat_D'), metrics.D, metrics.D, 0),
-    stat(dict.t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0),
-    SEP,
-    stat(dict.t('stat_span'), pct(metrics.span), 100 * metrics.span, 1),
-    stat(dict.t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10, 1),
-    stat(dict.t('stat_spanMax'), pct(metrics.spanMax), 100 * metrics.spanMax, 1),
-    stat(dict.t('stat_outDeg'), `${metrics.outDeg.toFixed(1)} ${dict.t('piecesUnit')}`, metrics.outDeg, 1),
-    stat(dict.t('stat_maxOut'), `${metrics.maxOut} ${dict.t('piecesUnit')}`, metrics.maxOut, 1),
-    stat(dict.t('stat_blockDist'), `${pct(metrics.blockDist)} ${dict.t('perimeterUnit')}`, 100 * metrics.blockDist, 1),
-    SEP,
-    stat(dict.t('stat_bends'), metrics.bends.toFixed(2), metrics.bends, 1),
-    stat(dict.t('stat_coil'), pct(metrics.coil), 100 * metrics.coil, -1),
-    stat(dict.t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1),
-    stat(dict.t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine, 1),
-    SEP,
-    // Stalling explains short lines better than the length distribution: a
-    // path dies in a frontier pocket long before the ordered length.
-    stat(
-      dict.t('stat_stall'),
-      stats.n ? dict.t('stat_stallVal', pct(stats.stall / stats.n), pct(stats.got / stats.want)) : '—',
-      stats.n ? 100 * stats.stall / stats.n : undefined,
-      -1,
-    ),
-    stat(
-      dict.t('stat_absorbed'),
-      dict.t('stat_absorbedVal', stats.absorbs ?? 0, stats.absorbed ?? 0),
-      stats.absorbs ?? 0,
-      -1,
-    ),
-    stat(dict.t('stat_backtracks'), `${backtracks} / ${restartsUsed}`, backtracks, -1),
-    stat(
-      dict.t('stat_time'),
-      dict.t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)),
-      genMs,
-      -1,
-    ),
-  ]
+  // The rows are the engine's: a pure mapping from the metrics, the same in
+  // both languages. What stays here is the delta against the previous run.
+  const rows = reportRows(msg, runParams, dict)
 
   // Deltas are keyed by row index, not label, so a language switch keeps them.
   el('stats').innerHTML = rows
-    .map(({ k, v, num, better }, i) => {
-      if (k === '—') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
+    .map(({ kind, label, value, num, better }, i) => {
+      if (kind === 'separator') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
       let delta = ''
       const prev = prevStats.get(i)
       if (num !== undefined && prev !== undefined && Math.abs(num - prev) > 1e-9) {
@@ -1545,7 +1475,7 @@ function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
         delta = `<td class="delta${cls}">${diff > 0 ? '+' : '−'}${shown}</td>`
       }
       if (num !== undefined) prevStatsNext.set(i, num)
-      return `<tr><td>${k}</td><td class="num">${v}</td>${delta || '<td></td>'}</tr>`
+      return `<tr><td>${label}</td><td class="num">${value}</td>${delta || '<td></td>'}</tr>`
     })
     .join('')
 
