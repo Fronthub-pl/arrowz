@@ -176,8 +176,51 @@ Deno.test('straightFloor: the floor a board of each size needs at the default wi
   for (const [side, floor] of table) {
     assertEquals(straightFloor(withDefaults({ W: side, H: side })), floor, `${side}`)
   }
-  // The longer side is what counts, not the area: a tall board is the hard one.
-  assertEquals(straightFloor(withDefaults({ W: 4, H: 1000 })), straightFloor(withDefaults({ W: 1000, H: 1000 })))
+})
+
+// Round 15 (2026-09-13): the same walk on RECTANGLES, three seeds a point,
+// restarts off, by scripts/measure-straight-floor-shape.ts. Round 14 measured
+// squares only, where the longer side, the shorter side and the equivalent
+// square are one number, so it could not tell them apart -- and the rule it
+// produced read the longer side, on the strength of a README line about tall
+// boards being harder. That line is about the PLAYER. These shapes are about
+// the carver, and they say the floor is the equivalent square's.
+//
+// W, H, and the lowest straightness at which all three seeds closed.
+const SHAPES: readonly (readonly [W: number, H: number, measured: number])[] = [
+  [4, 1000, 0.6],
+  [100, 1000, 0.6],
+  [250, 1000, 0.6],
+  [350, 1000, 0.6],
+  [480, 1000, 0.65],
+  [490, 1000, 0.7],
+  [810, 1000, 0.75],
+  [500, 500, 0.6],
+  [700, 700, 0.65],
+  [900, 900, 0.75],
+  [1000, 1000, 0.8],
+]
+
+Deno.test('straightFloor: on a rectangle the floor is the equivalent square, both ways', () => {
+  for (const [W, H, measured] of SHAPES) {
+    const floor = straightFloor(withDefaults({ W, H }))
+    // Never under what the shape needed: that is a jam the envelope allows.
+    assert(floor >= measured - 1e-9, `${W}x${H} needed ${measured} and the rule asks only ${floor}`)
+    // Never more than one step over it: that is a legal board refused, which
+    // is what the longer side did to every rectangle on the list.
+    assert(floor <= measured + 0.05 + 1e-9, `${W}x${H} closed at ${measured} and the rule asks ${floor}`)
+  }
+  // 480x1000 is the sharpest of them: its equivalent square is 692.8, just
+  // under the step at 700, so the rule grants it 0.65 -- and 0.65 is exactly
+  // where it closed, with 0.6 failing on all three seeds. A rectangle just
+  // below a step is where a jam would have hidden, and none does.
+  assertEquals(straightFloor(withDefaults({ W: 480, H: 1000 })), 0.65)
+  // Equal area, different shape: the pair the campaign turned on.
+  assertEquals(straightFloor(withDefaults({ W: 490, H: 1000 })), straightFloor(withDefaults({ W: 700, H: 700 })))
+  // What the old rule did: a strip of four thousand cells was asked for the
+  // straightness of a million.
+  assertEquals(straightFloor(withDefaults({ W: 4, H: 1000 })), 0.6)
+  assertEquals(straightFloor(withDefaults({ W: 1000, H: 1000 })), 0.8)
 })
 
 Deno.test('straightFloor: the nook rule and the coiling penalty move the floor both ways', () => {

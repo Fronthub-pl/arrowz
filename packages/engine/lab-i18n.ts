@@ -233,7 +233,7 @@ export const PL: Translation = {
     sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
     lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 17',
     straightFloor:
-      'skłonność do prostej musi rosnąć z planszą: dłuższy bok, zamykanie zakamarków poniżej 4 albo kara za zwijanie powyżej 6 — każde z nich podnosi podłogę',
+      'skłonność do prostej musi rosnąć z planszą: więcej kwadratów, zamykanie zakamarków poniżej 4 albo kara za zwijanie powyżej 6 — każde z nich podnosi podłogę',
     startPair:
       'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
   },
