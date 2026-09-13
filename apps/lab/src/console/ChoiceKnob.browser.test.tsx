@@ -1,4 +1,4 @@
-import { PARAM_SPEC } from '@arrowz/engine'
+import { PARAM_SPEC, type Violation } from '@arrowz/engine'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -39,4 +39,23 @@ test('a choice knob still says what it does', async () => {
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
   // There is no slider here, so this paragraph is the knob's only description.
   expect(screen.container.querySelector('.why')?.textContent).toContain(trapBias.help.slice(0, 24))
+})
+
+test('a violated choice knob says why, in error colour, and the select points at the reason', async () => {
+  useStore.getState().params.reset()
+  // No knob combination can reach this today: `params.set` always runs
+  // `clampParam`, so a `range` violation can never be stored, and no rule in
+  // RULES names `trapBias` or `giantSpacing`. The `broken` branch exists for
+  // the malformed input a later PR's URL hash will admit, so it is written
+  // straight to the store — past the public API — rather than left unchecked.
+  const violation: Violation = { kind: 'range', key: 'trapBias', value: 5, min: -1, max: 1 }
+  useStore.setState((state) => ({
+    params: { ...state.params, broken: { trapBias: [violation] } },
+  }))
+  const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
+  const why = screen.container.querySelector('.why')
+  expect(why?.textContent ?? '').toContain('5 is outside -1..1')
+  expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
+  await expect.element(screen.getByRole('combobox')).toHaveAttribute('aria-describedby', 'knob-trapBias-why')
+  useStore.getState().params.reset()
 })
