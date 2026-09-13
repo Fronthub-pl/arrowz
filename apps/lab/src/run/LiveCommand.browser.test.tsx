@@ -10,10 +10,23 @@ function commandNow() {
   return buildCommand(state.params.values, viewOf(state.view))
 }
 
+let cleanupListeners: Array<() => void> = []
+
+/** Watches a `window` event for the rest of the current test, torn down in `afterEach`. */
+function watch(type: string) {
+  const events: Event[] = []
+  const handler = (e: Event) => events.push(e)
+  window.addEventListener(type, handler)
+  cleanupListeners.push(() => window.removeEventListener(type, handler))
+  return events
+}
+
 beforeEach(() => useStore.getState().params.reset())
 afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
+  for (const cleanup of cleanupListeners) cleanup()
+  cleanupListeners = []
 })
 
 describe('LiveCommand', () => {
@@ -51,16 +64,25 @@ describe('LiveCommand', () => {
   })
 
   it('stays on its normal label, and raises no unhandled rejection, when the browser refuses the copy', async () => {
-    const rejections: PromiseRejectionEvent[] = []
-    const onRejection = (e: PromiseRejectionEvent) => rejections.push(e)
-    window.addEventListener('unhandledrejection', onRejection)
+    const rejections = watch('unhandledrejection')
     vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
       writeText: () => Promise.reject(new Error('denied')),
     } as unknown as Clipboard)
     const screen = await render(<LiveCommand />)
     await screen.getByRole('button', { name: 'Copy' }).click()
     await expect.element(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
-    window.removeEventListener('unhandledrejection', onRejection)
     expect(rejections).toHaveLength(0)
+  })
+
+  it('stays on its normal label, and raises no uncaught error, outside a secure context', async () => {
+    // Outside a secure context the Clipboard interface is not exposed at
+    // all: `navigator.clipboard` is `undefined`, so `.writeText` would throw
+    // while being looked up, before any promise exists to reject or catch.
+    const errors = watch('error')
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(undefined as unknown as Clipboard)
+    const screen = await render(<LiveCommand />)
+    await screen.getByRole('button', { name: 'Copy' }).click()
+    await expect.element(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    expect(errors).toHaveLength(0)
   })
 })
