@@ -245,16 +245,29 @@ test('the knobs on screen are the knobs the run used', async () => {
 // calls.
 test('the saved board carries the view on screen', async () => {
   const fetchSpy = vi.spyOn(window, 'fetch')
+  // `mountApp` resets the run and the params; the view slice is nobody's to
+  // reset, so this test puts back what it moved. Its own state, restored by
+  // hand rather than by a slice action no page would ever call.
+  const was = { colored: useStore.getState().view.colored, stroke: useStore.getState().view.stroke }
   try {
     const screen = await mountApp()
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
     await screen.getByRole('switch', { name: /colour the arrows/i }).click()
+    // A second field, and a number rather than a flag: one boolean surviving
+    // the trip says less than "the view the user was looking at survived it".
+    useStore.getState().view.setNumber('stroke', '0.8')
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
 
-    const post = fetchSpy.mock.calls.find((call) => String(call[0]) === '/api/boards')
-    const request = JSON.parse(String(post?.[1]?.body)) as StoreRequest
+    // Filtered, not `find`: the tests above poll only to `run.phase === 'done'`
+    // and never await their own save, so a POST of theirs can still land inside
+    // this spy's window — and `find` would then read that body instead of this
+    // one. The length assertion is what says which POST this is.
+    const posts = fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards')
+    expect(posts).toHaveLength(1)
+    const request = JSON.parse(String(posts[0]?.[1]?.body)) as StoreRequest
     expect(request.view.colored).toBe(true)
+    expect(request.view.stroke).toBe(0.8)
     // The zeroing that used to be a no-op, now that the view is the lab's: the
     // highlight is on and set to 5 pieces, and a stored board keeps none of it.
     expect(useStore.getState().view.top).toBe(5)
@@ -265,5 +278,7 @@ test('the saved board carries the view on screen', async () => {
     expect(request.view.cell).not.toBe(12)
   } finally {
     fetchSpy.mockRestore()
+    if (useStore.getState().view.colored !== was.colored) useStore.getState().view.toggle('colored')
+    useStore.getState().view.setNumber('stroke', String(was.stroke))
   }
 }, 40_000)

@@ -29,6 +29,23 @@ test('editing a preview field redraws the board without generating', async () =>
   useStore.getState().view.toggle('colored')
 })
 
+// `boardViewOf(viewOf(view), view.voids)` takes the flag as a second argument,
+// so `view.hilite` would type-check in its place and the whole suite would stay
+// green — every other test here toggles `colored`. Voids is off and hilite is
+// on by the end of this test, so the two cannot be swapped without it failing.
+test('the voids flag reaches the element, and it is the voids flag', async () => {
+  const screen = await render(<Probe />)
+  const element = boardEl(screen.container)
+  expect(element?.view?.voids).toBe(true)
+  try {
+    useStore.getState().view.toggle('voids')
+    await expect.poll(() => element?.view?.voids).toBe(false)
+    expect(useStore.getState().view.hilite).toBe(true)
+  } finally {
+    useStore.getState().view.toggle('voids')
+  }
+})
+
 test('a progress message does not reassign the element view', async () => {
   const screen = await render(<Probe />)
   const element = boardEl(screen.container)

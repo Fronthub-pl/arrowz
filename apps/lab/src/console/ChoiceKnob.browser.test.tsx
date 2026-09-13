@@ -52,10 +52,16 @@ test('a violated choice knob says why, in error colour, and the select points at
   useStore.setState((state) => ({
     params: { ...state.params, broken: { trapBias: [violation] } },
   }))
-  const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-  const why = screen.container.querySelector('.why')
-  expect(why?.textContent ?? '').toContain('5 is outside -1..1')
-  expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
-  await expect.element(screen.getByRole('combobox')).toHaveAttribute('aria-describedby', 'knob-trapBias-why')
-  useStore.getState().params.reset()
+  // In a `finally`: the violation above is hand-made and the store outlives the
+  // test, so a failing assertion would otherwise leak a broken knob into every
+  // test declared after this one.
+  try {
+    const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
+    const why = screen.container.querySelector('.why')
+    expect(why?.textContent ?? '').toContain('5 is outside -1..1')
+    expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
+    await expect.element(screen.getByRole('combobox')).toHaveAttribute('aria-describedby', 'knob-trapBias-why')
+  } finally {
+    useStore.getState().params.reset()
+  }
 })

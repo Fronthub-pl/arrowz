@@ -163,7 +163,11 @@
   font-variant-numeric: tabular-nums;
   cursor: text;
 }
-.fw-k .num:hover {
+/* `button.num` and not `.num`: the preview field below is an
+   `input[type='number']` carrying the same class, and an unscoped selector
+   reached it too — underlining a field's digits with the click affordance of a
+   control it is not. */
+.fw-k button.num:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -309,8 +313,10 @@
   background: var(--void);
   transform: translateX(18px);
 }
-/* A preview number is a plain field, not the knob's scrubbable value; it
-   keeps the knob's colour and loses the pointer affordance. */
+/* A preview number is a plain field, not the knob's scrubbable value: it keeps
+   the knob's colour and takes a border of its own, and the hover underline
+   above is scoped to `button.num` so this field does not claim the affordance
+   of a button. */
 .fw-k input[type='number'].num {
   width: 72px;
   padding: 0 4px;

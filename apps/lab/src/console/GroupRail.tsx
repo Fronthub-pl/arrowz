@@ -30,12 +30,19 @@ export function GroupRail() {
     const next = ENTRIES[(at + delta + ENTRIES.length) % ENTRIES.length]
     if (next) select(next)
   }
+  /** The first or last entry, from the list itself: `RAIL_GROUPS` is derived
+   *  from `PARAM_SPEC` so the console cannot hide a group the engine has, and a
+   *  hard-coded 'board' would put that back the day the table's first group
+   *  changes name. */
+  const jump = (to: RailEntry | undefined) => {
+    if (to) select(to)
+  }
   const onKeyDown = (event: React.KeyboardEvent) => {
     const keys: Record<string, () => void> = {
       ArrowDown: () => move(1),
       ArrowUp: () => move(-1),
-      Home: () => select('board'),
-      End: () => select('preview'),
+      Home: () => jump(ENTRIES[0]),
+      End: () => jump(ENTRIES.at(-1)),
     }
     const action = keys[event.key]
     if (!action) return

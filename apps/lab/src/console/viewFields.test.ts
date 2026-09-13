@@ -15,5 +15,9 @@ test('no field offers a number the CLI would refuse', () => {
 })
 
 test('the table covers every number the view has', () => {
-  expect(VIEW_FIELDS.map((f) => f.field).sort()).toEqual(['cell', 'headHeight', 'headWidth', 'stroke', 'top'])
+  // Against `VIEW_RANGE`'s own keys and not a literal: this file exists to
+  // survive the deletion of lab.html, and `VIEW_RANGE` is typed
+  // `Record<ViewNumber, …>`, so a sixth view number shows up here the day it is
+  // added rather than the day somebody remembers to widen a list.
+  expect(VIEW_FIELDS.map((f) => f.field).sort()).toEqual(Object.keys(VIEW_RANGE).sort())
 })
