@@ -107,8 +107,23 @@ function specOf(key: ParamKey): ParamSpec {
   return s
 }
 
+/**
+ * The violations no edit to the command line could answer: a value outside its
+ * own range or off its own step, on a knob nobody wrote. The envelope runs on
+ * the drawn set, so such a violation names a knob an everyday flag chose --
+ * telling the caller to fix it would be telling them to fix somebody else's
+ * arithmetic. `typed` is the set of keys whose value came from a number the
+ * caller wrote (the pins, plus the size and the seed).
+ *
+ * A rule is never in here: a rule is about the combination, and the caller can
+ * always act on it by writing one of its knobs differently.
+ */
+export function drawnViolations(violations: readonly Violation[], typed: ReadonlySet<ParamKey>): Violation[] {
+  return violations.filter((v) => (v.kind === 'range' || v.kind === 'step') && !typed.has(v.key))
+}
+
 /** The flag that writes a knob: the everyday spelling for the size and the seed, the key otherwise. */
-function flagOf(key: ParamKey): string {
+export function flagOf(key: ParamKey): string {
   if (key === 'W') return '--width'
   if (key === 'H') return '--height'
   return `--${key.toLowerCase()}`

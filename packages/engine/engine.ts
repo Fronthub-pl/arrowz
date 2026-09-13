@@ -2816,7 +2816,17 @@ export function validateParams(params: Params): Violation[] {
       out.push({ kind: 'step', key: s.key, value, step: s.step, min: s.min })
     }
   }
+  // One value, one complaint, for rules as well as knobs: a rule computed from
+  // a value already outside its own range says nothing the range line does not
+  // — and it says it about a SECOND knob, which the caller may never have
+  // written. `--wmid=0.95` used to answer with its own range and with the sum
+  // rule naming `--wshort`, a knob nobody had touched. straightFloor has
+  // guarded itself this way since round 14; the guard belongs to every rule.
+  // A step violation does not silence anything: the value is still in range,
+  // so the rule's arithmetic still means what it says.
+  const outOfRange = new Set(out.filter((v) => v.kind === 'range').map((v) => v.key))
   for (const r of RULES) {
+    if (r.keys.some((k) => outOfRange.has(k))) continue
     if (r.check(params)) continue
     const v: Violation = { kind: 'rule', key: r.key, keys: r.keys }
     out.push(r.need ? { ...v, need: r.need(params) } : v)

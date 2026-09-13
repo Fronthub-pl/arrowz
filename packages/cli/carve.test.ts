@@ -16,6 +16,7 @@ import {
   generate,
   INACTIVE_REASONS,
   PARAM_SPEC,
+  RULE_REASONS,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
@@ -264,6 +265,38 @@ Deno.test('the note names an everyday flag only when the run was given it', () =
   assertStringIncludes(with_.stderr, '--skeleton still sets')
 })
 
+// --- a value the draw had to move --------------------------------------------
+// The envelope runs after the draw, so the draw is allowed to move a value to
+// keep a rule -- and until now it moved it in silence. The pin note said
+// "--length still sets wShort" while the 0.75 it set had become 0.4.
+
+Deno.test('a value the draw had to move is said out loud, with both numbers and the rule', () => {
+  const dir = tmp()
+  const r = dryRun(['--width=10', '--height=10', '--length=0', '--wmid=0.5', '--dry-run'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  assertStringIncludes(r.stderr, 'note: --wshort moved from 0.75 to 0.4:')
+  // The reason is the envelope's own words, not a second copy of them here.
+  assertStringIncludes(r.stderr, RULE_REASONS.sharesSum)
+  assertEquals(r.json?.params?.wShort, 0.4, 'and the number in the note is the number in the board')
+  assertEquals(r.json?.params?.wMid, 0.5)
+})
+
+Deno.test('a draw that moves nothing says nothing about moving', () => {
+  const dir = tmp()
+  const r = dryRun(['--width=10', '--height=10', '--length=0', '--wmid=0.1', '--dry-run'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  assertStringIncludes(r.stderr, '--wmid=0.1 is pinned')
+  assertEquals(r.stderr.includes('moved from'), false, r.stderr)
+})
+
+Deno.test('a moved value is said once per knob, not once per board', () => {
+  const dir = tmp()
+  const r = runCarve(['--width=10', '--height=10', '--seed=1', '--count=3', '--length=0', '--wmid=0.5'], dir)
+  assertEquals(r.status, 0, r.stderr)
+  const moves = r.stderr.split('\n').filter((l) => l.includes('moved from'))
+  assertEquals(moves.length, 1, r.stderr)
+})
+
 // --- a pin that changes nothing ----------------------------------------------
 // The lab has dimmed a knob with no effect since the sliders existed; the
 // command line said nothing, so a pin that could not move a single cell looked
@@ -337,11 +370,11 @@ Deno.test('carve.ts --dry-run with invalid parameters: exit 2, one JSON line, no
 })
 
 // A share named on the command line can ask for more than the cap allows.
-// The clamp then moves the partner nobody named, and must stop at 0: every
-// line of the refusal has to be about the share that was named, or about the
-// sum — never a range violation about a knob the command line never mentioned.
-Deno.test('a share pinned above the cap is refused by the sum rule, not by its partner', () => {
-  const sharesSum = { kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }
+// The clamp then moves the partner nobody named, and must stop at 0. The
+// refusal is ONE line, about the share that was named: the sum rule stays
+// quiet while one of its knobs is outside its own range, or the answer to one
+// mistake would name a second knob the command line never mentioned.
+Deno.test('a share pinned above the cap is refused once, by its own range', () => {
   const cases = [['--wshort=1', 'wShort'], ['--wmid=1', 'wMid']] as const
   for (const [flag, key] of cases) {
     const dir = tmp()
@@ -349,7 +382,7 @@ Deno.test('a share pinned above the cap is refused by the sum rule, not by its p
     assertEquals(r.status, 2, flag)
     assert(r.json, `no JSON line in:\n${r.stdout}`)
     assertEquals(r.json.error, 'invalid arguments', flag)
-    assertEquals(r.json.violations, [{ kind: 'range', key, value: 1, min: 0, max: 0.9 }, sharesSum], flag)
+    assertEquals(r.json.violations, [{ kind: 'range', key, value: 1, min: 0, max: 0.9 }], flag)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
   // The cap and the top of the range are the same number now, so the share

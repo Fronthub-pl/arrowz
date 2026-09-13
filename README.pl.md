@@ -663,6 +663,22 @@ Tej drugiej linii nie ma przy serii `--count` losowanej przez `--randomized`:
 tam każda plansza dostaje własne pokrętła, losowane na nowo, a nie z ziarna,
 więc jedna nota na cały bieg nie mogłaby mówić za wszystkie.
 
+A kiedy losowanie musi **przesunąć** własną wartość, żeby dotrzymać reguły,
+mówi którą i dokąd. Nazwanie udziału większego, niż zostaje pod czapką,
+sprawia, że udział ustawiony przez codzienną flagę ustępuje:
+
+```sh
+deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
+```
+
+```
+note: --wmid=0.5 is pinned; --length still sets wShort
+note: --wshort moved from 0.75 to 0.4: short and medium shares together must stay at or below 0.9
+```
+
+Pierwsza linia była do tej pory całą opowieścią, a 0,4 na planszy było liczbą,
+której nic na ekranie nie tłumaczyło.
+
 Co tracisz, przypinając: bezpieczne zakresy w tabeli niżej zmierzono jako całe
 zestawy, więc na wpół przypięty zestaw wciąż mieści się w kopercie
 bezpieczeństwa, ale nie jest już objęty obietnicą, że *każda* codzienna

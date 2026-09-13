@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import {
   defaultChoice,
+  drawParams,
   exportCell,
   normalizeChoice,
   presetParams,
@@ -301,14 +302,78 @@ Deno.test('a share pinned above the cap leaves its partner at 0, never below', (
   assertEquals([top.wShort, top.wMid], [0.9, 0])
   assertEquals(validateParams(top), [])
 
-  // Above it every complaint names the knob the caller pinned, and the
-  // partner it moved says nothing at all.
+  // Above it there is exactly ONE complaint, and it names the knob the caller
+  // pinned. The partner it moved says nothing, and neither does the sum rule:
+  // a value already outside its own range makes the sum arithmetic meaningless,
+  // and the rule would name a second knob nobody wrote (validateParams).
   for (const [key, other] of [['wShort', 'wMid'], ['wMid', 'wShort']] as const) {
     const p = simpleParams(choice, () => 0.99, { [key]: 1 })
     assertEquals(p[key], 1)
     assertEquals(p[other], 0)
-    assertEquals(validateParams(p).map((v) => v.key), [key, 'sharesSum'], key)
+    assertEquals(validateParams(p).map((v) => v.key), [key], key)
   }
+})
+
+Deno.test('the draw says which value it had to move, and under which rule', () => {
+  // The draw is the only place that can know: a caller who wanted to work the
+  // move out for themselves would have to draw a second time, and under
+  // --randomized a second draw is a different board.
+  const choice = { ...defaultChoice(), lengths: 0 }
+  // Long pieces put the short share at 0.75; a pin of 0.5 on the other share
+  // leaves it 0.4 of room, so the draw moves the one nobody pinned.
+  const drawn = drawParams(choice, null, { wMid: 0.5 })
+  assertEquals(drawn.params.wMid, 0.5)
+  assertEquals(drawn.params.wShort, 0.4)
+  assertEquals(drawn.moved, [{ key: 'wShort', from: 0.75, to: 0.4, rule: 'sharesSum' }])
+  // simpleParams is this draw with the report thrown away.
+  assertEquals(simpleParams(choice, null, { wMid: 0.5 }), drawn.params)
+  // A pin that fits moves nothing, and says nothing.
+  assertEquals(drawParams(choice, null, { wMid: 0.1 }).moved, [])
+  // Both shares pinned: the draw moves neither -- it would be overwriting the
+  // caller -- so it has nothing to report and the envelope refuses the pair.
+  const both = drawParams(choice, null, { wShort: 0.6, wMid: 0.5 })
+  assertEquals(both.moved, [])
+  assertEquals(validateParams(both.params).map((v) => v.key), ['sharesSum'])
+})
+
+Deno.test('every value the draw moves is a value the draw reports', () => {
+  // The invariant the note rests on, and the answer to the audit's last open
+  // item: the envelope runs AFTER the draw, so the draw may move a value to
+  // keep a rule -- but it may not move one in silence. Swept over the everyday
+  // choices and every knob a command line can pin, at both ends of its range:
+  // any knob that comes out different from the unpinned draw has to be in the
+  // report. A future transform that clamps something new fails here.
+  const choices = [
+    defaultChoice(),
+    { ...defaultChoice(), lengths: 0 },
+    { ...defaultChoice(), lengths: 1 },
+    { ...defaultChoice(), shape: 0 },
+    { ...defaultChoice(), skeleton: 'on' as const },
+    { ...defaultChoice(), lengths: 0, shape: 1 },
+  ]
+  let swept = 0
+  for (const choice of choices) {
+    const alone = drawParams(choice, null, {})
+    for (const spec of PARAM_SPEC) {
+      if (spec.key === 'W' || spec.key === 'H' || spec.key === 'seed') continue
+      for (const value of [spec.min, spec.max]) {
+        swept++
+        const drawn = drawParams(choice, null, { [spec.key]: value })
+        assertEquals(drawn.params[spec.key], value, `${spec.key}: a pin is never moved`)
+        for (const other of PARAM_SPEC) {
+          if (other.key === spec.key) continue
+          if (drawn.params[other.key] === alone.params[other.key]) continue
+          assert(
+            drawn.moved.some((m) => m.key === other.key),
+            `pinning ${spec.key}=${value} moved ${other.key} from ${alone.params[other.key]} to ${
+              drawn.params[other.key]
+            } and said nothing`,
+          )
+        }
+      }
+    }
+  }
+  assert(swept >= 300, `only ${swept} pins swept`)
 })
 
 Deno.test('presetParams takes the CLI vocabulary and gives the same board as the lab choice', () => {

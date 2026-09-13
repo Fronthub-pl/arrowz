@@ -17,7 +17,7 @@
 //
 // Labels come from the dictionaries (lab-i18n.ts, `simple`); nothing here
 // knows the DOM.
-import type { ParamKey, Params, ParamSpec, Range, SimpleChoice } from './types.ts'
+import type { ParamKey, Params, ParamSpec, Range, RuleKey, SimpleChoice } from './types.ts'
 import { defaultParams, PARAM_SPEC, snapToStep, straightFloor } from './engine.ts'
 import { PRESETS } from './lab-presets.ts'
 
@@ -367,11 +367,25 @@ function draw(key: ParamKey, range: Range, rng: (() => number) | null): number {
  * knob it names: every other knob keeps the value it would have had without
  * the pin, down to its place in the random stream.
  */
-export function simpleParams(
+/**
+ * A value the draw had to move to keep a rule of the envelope, and which rule.
+ * The draw is the only thing that can move a value nobody wrote, so it is the
+ * only thing that can say so: recomputing the move from outside would need a
+ * second draw, and under `--randomized` a second draw is a different board.
+ */
+export interface Move {
+  key: ParamKey
+  from: number
+  to: number
+  rule: RuleKey
+}
+
+/** `simpleParams`, plus what it had to move. */
+export function drawParams(
   choice: SimpleChoice,
   rng: (() => number) | null = null,
   pins: Partial<Record<ParamKey, number>> = {},
-): Params {
+): { params: Params; moved: Move[] } {
   const c = normalizeChoice(choice)
   const p: Params = { ...defaultParams(), W: c.W, H: c.H, seed: c.seed }
   const ranges = simpleRanges(c)
@@ -393,11 +407,26 @@ export function simpleParams(
   // stops at 0: a pin above the cap would otherwise push its partner below
   // its own minimum, and the envelope would answer with a range violation
   // about a knob nobody named instead of the rule about the sum.
-  if (p.wShort + p.wMid > 0.9) {
-    if (pins.wMid === undefined) p.wMid = Math.max(0, Number((0.9 - p.wShort).toFixed(6)))
-    else if (pins.wShort === undefined) p.wShort = Math.max(0, Number((0.9 - p.wMid).toFixed(6)))
+  const moved: Move[] = []
+  const move = (key: 'wShort' | 'wMid', to: number) => {
+    if (p[key] === to) return
+    moved.push({ key, from: p[key], to, rule: 'sharesSum' })
+    p[key] = to
   }
-  return p
+  if (p.wShort + p.wMid > 0.9) {
+    if (pins.wMid === undefined) move('wMid', Math.max(0, Number((0.9 - p.wShort).toFixed(6))))
+    else if (pins.wShort === undefined) move('wShort', Math.max(0, Number((0.9 - p.wMid).toFixed(6))))
+  }
+  return { params: p, moved }
+}
+
+/** The drawn parameter set on its own; `drawParams` is the same call with the moves. */
+export function simpleParams(
+  choice: SimpleChoice,
+  rng: (() => number) | null = null,
+  pins: Partial<Record<ParamKey, number>> = {},
+): Params {
+  return drawParams(choice, rng, pins).params
 }
 
 /** The CLI's vocabulary for the simple choice: the recommended entry point for an application. */

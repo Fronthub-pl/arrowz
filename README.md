@@ -663,6 +663,22 @@ That second line is left off a `--count` batch drawn with `--randomized`:
 there every board gets its own knobs, drawn afresh rather than from the seed,
 so one note printed for the whole run could not speak for all of them.
 
+And when the draw has to **move** a value of its own to keep a rule, it says
+which one and where it went. Naming a share bigger than what is left under the
+cap makes the everyday flag's share give way:
+
+```sh
+deno task carve --width=30 --height=30 --length=0 --wmid=0.5 --dry-run
+```
+
+```
+note: --wmid=0.5 is pinned; --length still sets wShort
+note: --wshort moved from 0.75 to 0.4: short and medium shares together must stay at or below 0.9
+```
+
+The first line used to be the whole story, and the 0.4 in the board was a
+number nothing on the screen accounted for.
+
 What you give up by pinning: the safe ranges in the table below were measured
 as whole bundles, so a half-pinned bundle still stays inside the envelope, but
 it is no longer covered by the promise that *every* everyday combination
