@@ -1,6 +1,7 @@
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LiveCommand } from './LiveCommand'
+import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
 
 /**
@@ -18,6 +19,10 @@ export function RunColumn({ control }: { control: RunControl }) {
   const blocked = useStore((state) => state.params.violations.length > 0)
   const setMany = useStore((state) => state.params.setMany)
   const resetParams = useStore((state) => state.params.reset)
+  const auto = useStore((state) => state.ui.auto)
+  const help = useStore((state) => state.ui.help)
+  const setAuto = useStore((state) => state.ui.setAuto)
+  const setHelp = useStore((state) => state.ui.setHelp)
 
   // `setMany` and not `set`: a seed the machine drew is not a knob a person
   // typed, and only the typed path may wake `auto` (Ruling 3). The range is
@@ -54,6 +59,10 @@ export function RunColumn({ control }: { control: RunControl }) {
         <button type="button" onClick={control.abort} disabled={!running}>
           {dict.t('abort')}
         </button>
+      </div>
+      <div className="fw-ghost">
+        <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
+        <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
       </div>
     </section>
   )

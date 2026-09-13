@@ -50,6 +50,17 @@ describe('RunColumn', () => {
     await screen.getByRole('button', { name: 'Abort' }).click()
     expect(g.aborted()).toBe(1)
   })
+
+  // The hook behind `auto` is tested on its own; what is only visible here is
+  // that the column's two switches are the store's two fields and not local
+  // state of their own.
+  it('flips the store from either switch', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await screen.getByRole('switch', { name: 'generate right after a change' }).click()
+    expect(useStore.getState().ui.auto).toBe(true)
+    await screen.getByRole('switch', { name: 'show parameter descriptions' }).click()
+    expect(useStore.getState().ui.help).toBe(false)
+  })
 })
 
 describe('the alternative actions', () => {

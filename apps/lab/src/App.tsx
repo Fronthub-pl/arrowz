@@ -6,6 +6,7 @@ import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
 import { LabRoute } from './routes/LabRoute'
+import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
@@ -70,6 +71,7 @@ function Shell() {
   // a run, nor unmount <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
   const control = useRun(generator)
+  useAutoRun(control)
   const onLab = selectedIndex(useLocation().pathname) === 0
   useStoreSave()
   return (

@@ -46,9 +46,27 @@
   gap: 2px;
   padding-top: 8px;
 }
+/* The mock's `.fw-k .row` shape, outside a knob. */
+.fw-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+.fw-opt .lab {
+  color: var(--mist);
+  min-width: 0;
+}
 @media (pointer: coarse) {
   .fw .fw-alt button {
     height: 44px;
+  }
+  /* The mock's switch is 44×26; the row, not the track, carries the touch
+     target, because raising `.fw-sw` itself would move ViewPanel's five as
+     well and that belongs in one PR about all seven. */
+  .fw-opt {
+    min-height: 44px;
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
