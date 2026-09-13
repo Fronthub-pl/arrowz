@@ -27,9 +27,10 @@ export function ChoiceKnob({
     : inactive
       ? `${dict.t('inactivePrefix')}${dict.reason(inactive)}`
       : null
-  // Same shape as ValueKnob: the description always shows, the state goes in
-  // front of it. A choice knob has no slider, so this paragraph is the only
-  // place either of them can appear.
+  // Same shape as ValueKnob: the description is always present, the state
+  // goes in front of it when there is one, and the help switch hides only the
+  // description from the eye (Ruling 9). A choice knob has no slider, so this
+  // paragraph is the only place either of them can appear.
   const whyId = `knob-${spec.key}-why`
   return (
     <div className={`fw-k choice${broken ? ' bad' : ''}${inactive ? ' off' : ''}`}>

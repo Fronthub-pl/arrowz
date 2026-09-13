@@ -1,6 +1,6 @@
 import { type ParamKey, PARAM_SPEC } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
-import { describe, expect, it, test } from 'vitest'
+import { beforeEach, describe, expect, it, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
 import { KnobPanel } from './KnobPanel'
@@ -68,18 +68,34 @@ test('a group with help prints it under the heading', async () => {
 })
 
 describe('the help switch', () => {
+  // This repository's other browser files open a describe block the same
+  // way (RunColumn.browser.test.tsx): without it, a case left `wShort`/`wMid`
+  // at 0.8 and `ui.help` at false, leaking into whatever ran after it.
+  beforeEach(() => {
+    const state = useStore.getState()
+    state.params.reset()
+    state.ui.setHelp(true)
+  })
+
   it('shows every description while it is on', async () => {
     useStore.getState().ui.setHelp(true)
     const screen = await render(<KnobPanel group="board" />)
-    await expect.element(screen.getByText(helpFor('W'))).toBeVisible()
+    const desc = screen.getByText(helpFor('W')).element()
+    // The switch is on: nothing clips the description away.
+    expect(getComputedStyle(desc).clipPath).toBe('none')
   })
 
-  // Ruling 9: hidden from the eye, kept for a screen reader. `toBeVisible`
-  // and not `textContent`, because the text is meant to still be there.
+  // Measured, not `toBeVisible()`: that matcher reads the bounding rect, which
+  // a 1x1px clipped box still has, so it cannot tell `.fw-vh` apart from an
+  // element that merely happens to be small. `clipPath`/`position` are the
+  // properties the CSS actually sets, so they are what a reversal would break.
   it('hides the descriptions from the eye when it is off', async () => {
     useStore.getState().ui.setHelp(false)
     const screen = await render(<KnobPanel group="board" />)
-    await expect.element(screen.getByText(helpFor('W'))).not.toBeVisible()
+    const desc = screen.getByText(helpFor('W')).element()
+    const style = getComputedStyle(desc)
+    expect(style.clipPath).toBe('inset(50%)')
+    expect(style.position).toBe('absolute')
   })
 
   it('keeps the description in the accessibility tree when it is off', async () => {
@@ -87,6 +103,14 @@ describe('the help switch', () => {
     const screen = await render(<KnobPanel group="board" />)
     const described = screen.container.querySelector('#knob-W-why')
     expect(described?.textContent).toContain(helpFor('W'))
+    // `textContent` alone would stay unchanged under `display: none` too —
+    // that gap is what let a `display: none` "simplification" through with a
+    // green suite. `display`/`visibility` are what actually govern whether an
+    // element leaves the accessibility tree.
+    const desc = screen.getByText(helpFor('W')).element()
+    const style = getComputedStyle(desc)
+    expect(style.display).not.toBe('none')
+    expect(style.visibility).not.toBe('hidden')
   })
 
   // The whole point of splitting the paragraph. The old lab kept the reason
@@ -104,6 +128,15 @@ describe('the help switch', () => {
     const violation = useStore.getState().params.violations[0]
     if (violation === undefined) throw new Error('expected a violation')
     await expect.element(why.getByText(EN.violation(violation))).toBeVisible()
+    // The brief calls this ordering a behaviour worth keeping: the split
+    // would currently survive a reversal (description before reason)
+    // unnoticed by every other assertion in this file.
+    const paragraph = why.element()
+    const stateSpan = paragraph.querySelector('.state')
+    const descSpan = paragraph.querySelector('.desc')
+    if (stateSpan === null || descSpan === null) throw new Error('expected both spans')
+    const children = [...paragraph.children]
+    expect(children.indexOf(stateSpan)).toBeLessThan(children.indexOf(descSpan))
   })
 
   it('hides the group description too', async () => {
