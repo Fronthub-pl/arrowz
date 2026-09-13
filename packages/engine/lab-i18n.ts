@@ -1,5 +1,6 @@
 // English is the source language and lives in PARAM_SPEC / lab.html / EN;
 // PL only holds the translation, checked against EN's shape by the compiler.
+import type { StartChoice } from './command.ts'
 import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
 
 const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
@@ -538,3 +539,7 @@ export const PL: Translation = {
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
   },
 }
+
+// The CLI owns the four start choices; a dictionary missing one must not compile.
+EN.start.options satisfies Record<StartChoice, string>
+PL.start.options satisfies Record<StartChoice, string>

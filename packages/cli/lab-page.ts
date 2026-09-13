@@ -34,7 +34,18 @@ import {
   stepsAround,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, START, svgOptions, viewNumberOf, wordFor } from '@arrowz/engine/command'
+import {
+  buildCommand,
+  isStartChoice,
+  MIX_START,
+  START,
+  START_CHOICES,
+  type StartChoice,
+  startChoiceOf,
+  svgOptions,
+  viewNumberOf,
+  wordFor,
+} from '@arrowz/engine/command'
 import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
@@ -317,13 +328,6 @@ function choiceRow(spec: ParamSpec, choices: readonly { value: number; word: str
 // the CLI takes, plus `mixing`, which reveals the share as a row of its own.
 // Both knobs stay in PARAM_SPEC — they are stored in the board file and hashed
 // into the board id — and the row loop below builds no row for either.
-type StartChoice = keyof Dictionary['start']['options']
-const START_CHOICES = Object.keys(EN.start.options) as StartChoice[]
-/** The share `mixing` starts from when the stored value is no share at all: the middle of the range. */
-const MIX_START = (START.mix.min + START.mix.max) / 2
-function isStartChoice(v: string): v is StartChoice {
-  return Object.hasOwn(EN.start.options, v)
-}
 const startRow = document.createElement('div')
 startRow.className = 'row choice'
 const startLabel = document.createElement('label')
@@ -341,7 +345,7 @@ const mixRow = numberRow(specOf('mix'), START.mix)
 paramRows.set('mix', mixRow)
 startSelect.addEventListener('change', () => {
   const v = startSelect.value
-  // The options are built from the dictionary, so anything else is a bug here.
+  // The options are built from the CLI's own vocabulary, so anything else is a bug here.
   if (!isStartChoice(v)) throw new Error(`unknown start choice ${v}`)
   setStart(v)
   if (el<HTMLInputElement>('auto').checked) schedule()
@@ -354,7 +358,8 @@ mixRow.num.addEventListener('change', () => {
 
 /** Writes the two knobs behind the control: a word stores its pair, `mixing` keeps a share in range. */
 function setStart(choice: StartChoice): void {
-  const pair = START.words[choice]
+  // 'mixing' is not a word in the table: it is the share, handled below.
+  const pair = choice === 'mixing' ? undefined : START.words[choice]
   if (pair) {
     setParam('headBias', pair.headBias)
     setParam('mix', pair.mix)
@@ -365,18 +370,9 @@ function setStart(choice: StartChoice): void {
   setParam('mix', share)
 }
 
-/** Which of the four the stored pair stands for: a share is `mixing`, mixing off is what headBias says. */
-function startChoiceOfState(): StartChoice {
-  if (state.mix >= 0) return 'mixing'
-  for (const [word, pair] of Object.entries(START.words)) {
-    if (pair.headBias === state.headBias && isStartChoice(word)) return word
-  }
-  return 'random'
-}
-
 /** The control follows the two stored knobs; the share row appears with `mixing`. */
 function syncStart(): void {
-  const choice = startChoiceOfState()
+  const choice = startChoiceOf(state)
   startSelect.value = choice
   mixRow.row.hidden = choice !== 'mixing'
 }

@@ -62,7 +62,7 @@ const WORDS: Partial<Record<ParamKey, Record<string, number>>> = {
  * the two surfaces cannot offer different values.
  */
 export const START: Readonly<{
-  words: Readonly<Record<string, Readonly<{ headBias: number; mix: number }>>>
+  words: Readonly<Record<'layers' | 'random' | 'tunnels', Readonly<{ headBias: number; mix: number }>>>
   mix: Readonly<{ min: number; max: number }>
 }> = {
   words: {
@@ -71,6 +71,31 @@ export const START: Readonly<{
     tunnels: { headBias: 1, mix: -1 },
   },
   mix: MIX_SHARE,
+}
+
+/**
+ * How a surface names the start: the three words of START.words, plus mixing,
+ * which is not a word but a share (mix >= 0). The vocabulary belongs here
+ * beside the table; the dictionaries translate these keys rather than define
+ * them.
+ */
+export type StartChoice = keyof typeof START.words | 'mixing'
+export const START_CHOICES: readonly StartChoice[] = [
+  ...(Object.keys(START.words) as (keyof typeof START.words)[]),
+  'mixing',
+]
+export function isStartChoice(v: string): v is StartChoice {
+  return (START_CHOICES as readonly string[]).includes(v)
+}
+/** The share mixing starts from when the stored value is no share at all: the middle of the range. */
+export const MIX_START: number = (START.mix.min + START.mix.max) / 2
+/** Which choice a stored pair stands for: a share is mixing, mixing off is what headBias says. */
+export function startChoiceOf(params: Params): StartChoice {
+  if (params.mix >= 0) return 'mixing'
+  for (const [word, pair] of Object.entries(START.words)) {
+    if (pair.headBias === params.headBias && isStartChoice(word)) return word
+  }
+  return 'random'
 }
 
 /** Spellings that were dropped, and what to use instead; each is refused by name. */

@@ -12,8 +12,12 @@ import {
   flagViolation,
   helpText,
   knobFlag,
+  MIX_START,
   parseArgs,
   START,
+  START_CHOICES,
+  type StartChoice,
+  startChoiceOf,
   VIEW_FLAG,
   VIEW_RANGE,
   viewNumberOf,
@@ -663,4 +667,35 @@ Deno.test('viewNumberOf rounds the whole-number fields only', () => {
   const f = VIEW_RANGE[frac]
   const midF = (f.min + f.max) / 2
   assertEquals(viewNumberOf(String(midF), frac), midF)
+})
+
+Deno.test('START_CHOICES is the CLI vocabulary plus mixing, in surface order', () => {
+  assertEquals([...START_CHOICES], ['layers', 'random', 'tunnels', 'mixing'])
+  for (const word of Object.keys(START.words)) assert(START_CHOICES.includes(word as StartChoice))
+})
+
+Deno.test('startChoiceOf reads mixing off the share, and the rest off headBias', () => {
+  const base = defaultParams()
+  assertEquals(startChoiceOf({ ...base, mix: START.mix.min }), 'mixing')
+  assertEquals(startChoiceOf({ ...base, mix: 0 }), 'mixing')
+  for (const [word, pair] of Object.entries(START.words)) {
+    assertEquals(startChoiceOf({ ...base, mix: -1, headBias: pair.headBias }), word)
+  }
+})
+
+Deno.test('startChoiceOf falls back to random for a headBias no word names', () => {
+  const base = defaultParams()
+  assertEquals(startChoiceOf({ ...base, mix: -1, headBias: 0.37 }), 'random')
+})
+
+Deno.test('MIX_START is the middle of the share range', () => {
+  assertEquals(MIX_START, (START.mix.min + START.mix.max) / 2)
+})
+
+Deno.test('every start choice has a label in both dictionaries', async () => {
+  const { EN, PL } = await import('./lab-i18n.ts')
+  for (const choice of START_CHOICES) {
+    assert(EN.start.options[choice], `EN is missing ${choice}`)
+    assert(PL.start.options[choice], `PL is missing ${choice}`)
+  }
 })
