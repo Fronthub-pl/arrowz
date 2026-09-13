@@ -14,6 +14,7 @@
   "dependencies": {
     "@arrowz/board-element": "workspace:*",
     "@arrowz/engine": "workspace:*",
+    "@lit/react": "^1.0.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.3.1",
