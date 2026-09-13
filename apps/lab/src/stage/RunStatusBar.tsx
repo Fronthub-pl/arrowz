@@ -10,6 +10,7 @@ import { useStore } from '../state/store'
 export function RunStatusBar() {
   const dict = useDictionary()
   const run = useStore((state) => state.run)
+  const blocked = useStore((state) => state.params.violations.length > 0)
 
   let text: string
   if (run.phase === 'running') {
@@ -26,19 +27,28 @@ export function RunStatusBar() {
     // replaces this line with the report's own markup and takes the tags back.
     // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
     // region has to be text.
-    text =
-      p === null
-        ? dict.t('generating')
-        : dict
-            .t(
-              'progress',
-              (100 * (1 - p.remaining / p.total)).toFixed(1),
-              dict.short(p.pieces),
-              dict.short(p.remaining),
-              p.backtracks,
-              (p.ms / 1000).toFixed(1),
-            )
-            .replace(/<\/?b>/g, '')
+    if (p === null) {
+      // The size is the run's, not the console's: the old lab reads `state`
+      // at the moment `run()` fires, and a knob edited during a carve must
+      // not rewrite the warning about the carve already going.
+      const started = run.params
+      const cells = started === null ? 0 : started.W * started.H
+      text =
+        started !== null && cells > 200_000
+          ? dict.t('generatingBig', started.W, started.H, dict.fmt(cells))
+          : dict.t('generating')
+    } else {
+      text = dict
+        .t(
+          'progress',
+          (100 * (1 - p.remaining / p.total)).toFixed(1),
+          dict.short(p.pieces),
+          dict.short(p.remaining),
+          p.backtracks,
+          (p.ms / 1000).toFixed(1),
+        )
+        .replace(/<\/?b>/g, '')
+    }
   } else if (run.phase === 'error') {
     // Both failure paths land here: the worker's `error` message (a thrown
     // InvalidParamsError) and its `onerror` both call the slice's `failed()`
@@ -48,10 +58,10 @@ export function RunStatusBar() {
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || run.report === null) {
-    // Idle, and `wasAborted` says which idle: the old lab keeps the abort on
-    // screen rather than resetting the line to its opening prompt
-    // (lab-page.ts:863-868).
-    text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
+    // Idle, and three idles are distinguishable: refused, aborted, fresh. The
+    // refusal comes first — a page that says "Press Generate" beside a
+    // Generate it has disabled is telling the user to do the impossible.
+    text = blocked ? dict.t('generateBlocked') : run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (run.report.ok) {
     text = dict.t('closed')
   } else if (run.report.deadlock) {
@@ -64,5 +74,11 @@ export function RunStatusBar() {
   // The store's answer is appended, never substituted: a missing store must
   // not overwrite what the run itself reported (§5.3).
   const saved = run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
-  return <output aria-live="polite">{`${text}${saved}`}</output>
+  // The lab has a second `role="status"` region (a clamp notice), so a screen
+  // reader needs a name to tell the two apart.
+  return (
+    <output aria-live="polite" aria-label={dict.t('runStatus')}>
+      {`${text}${saved}`}
+    </output>
+  )
 }
