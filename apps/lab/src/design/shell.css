@@ -142,3 +142,48 @@
     min-height: 0;
   }
 }
+
+.fw-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  background: var(--void);
+}
+.fw-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ash);
+  flex-wrap: wrap;
+}
+.fw-bar output {
+  font-variant-numeric: tabular-nums;
+}
+.fw-go {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--signal);
+  color: var(--void);
+  font-family: var(--ui);
+  cursor: pointer;
+  transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-go:hover:not(:disabled) {
+  background: var(--signal-hover);
+}
+.fw-go:active:not(:disabled) {
+  background: var(--signal-press);
+}
+.fw-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .fw-go {
+    height: 44px;
+  }
+}
