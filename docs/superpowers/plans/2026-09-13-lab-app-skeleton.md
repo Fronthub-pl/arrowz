@@ -1495,6 +1495,7 @@ Create `apps/lab/src/state/run.slice.test.ts`:
 
 ```ts
 import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
+import type { BoardMeta } from '@arrowz/engine'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
 
@@ -1517,6 +1518,9 @@ const report = {
   board: file,
 }
 const run = () => useStore.getState().run
+// Built from the fields `BoardMeta` declares in packages/engine/types.ts —
+// open it and fill every one; this test only reads `id`.
+const aBoardMeta: BoardMeta = { /* see types.ts */ }
 
 beforeEach(() => {
   run().reset()
@@ -1540,7 +1544,9 @@ test('started moves to running and pins the parameters the run uses', () => {
 test('starting a second run clears the first one board and store outcome', () => {
   run().started(params)
   run().finished({ board: result.board, file, report })
-  run().stored({ ok: true, meta: { id: 'seed1-deadbeef' } as never })
+  // Read BoardMeta from packages/engine/types.ts and build a real one; the
+  // repository forbids `any`, and a cast here would hide a shape change.
+  run().stored({ ok: true, meta: aBoardMeta })
   run().started({ ...params, seed: 2 })
   expect(run().phase).toBe('running')
   expect(run().board).toBeNull()
@@ -2178,7 +2184,7 @@ The lab panel is mounted in `App`, beside `<Routes>`, and hidden when the path i
 
 **Interfaces:**
 - Consumes: `useGenerator`/`Generator` (Task 8), `Stage` (Task 9), `saveBoard` (Task 6), the `run` slice (Task 7), `selectedIndex` (Task 5)
-- Produces: `export function LabRoute(props: { generator: Generator; hidden: boolean }): JSX.Element`; `export function RunStatusBar(): JSX.Element`
+- Produces: `export function LabRoute(props: { generator: Generator; params: Params; hidden: boolean }): JSX.Element`; `export function RunStatusBar(): JSX.Element`; `export function Shell(props: { params?: Params }): JSX.Element` from `App.tsx`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2186,10 +2192,11 @@ Create `apps/lab/src/routes/LabRoute.browser.test.tsx`:
 
 ```tsx
 import { defaultParams } from '@arrowz/engine'
+import { BrowserRouter } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
-import { App } from '../App'
+import { App, Shell } from '../App'
 import { useStore } from '../state/store'
 
 // The real App, address bar and all: Ruling 5's claim is about what App
@@ -2224,15 +2231,11 @@ test('Generate carves a board, draws it, and says so', async () => {
 // The architectural claim of this PR, and the one §11.6 of the spec says was
 // got wrong once already. Node identity is the assertion that matters: a
 // remounted element is a disposed GL context, whatever the run's phase says.
-test('a route change keeps the very same board element and its run', async () => {
+// This half needs no run at all, so it is fast and never races.
+test('a route change keeps the very same board element', async () => {
   const screen = await mountApp()
   const before = screen.container.querySelector('arrowz-board')
   expect(before).not.toBeNull()
-
-  // 200x200 takes ~330 ms in process — long enough to still be running after a
-  // click round-trip, short enough not to slow the suite.
-  useStore.getState().run.reset()
-  await screen.getByRole('button', { name: 'Generate' }).click()
 
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards' }))
   await expect.element(screen.getByRole('tabpanel', { name: 'Saved boards' })).toBeVisible()
@@ -2241,8 +2244,29 @@ test('a route change keeps the very same board element and its run', async () =>
 
   await userEvent.click(screen.getByRole('tab', { name: 'Lab' }))
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
+})
+
+// The other half: a run in flight survives the same trip. It needs a board big
+// enough to still be carving after a click round-trip (200×200 ≈ 330 ms in
+// process; the defaults are 25×50 and finish in tens of milliseconds), so the
+// shell is mounted directly with those parameters.
+test('a run in flight survives a route change', async () => {
+  window.history.pushState({}, '', '/')
+  useStore.getState().run.reset()
+  const screen = await render(
+    <BrowserRouter>
+      <Shell params={{ ...defaultParams(), W: 200, H: 200, seed: 9 }} />
+    </BrowserRouter>,
+  )
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  await expect.poll(() => useStore.getState().run.phase).toBe('running')
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards' }))
+  // Still running right after the trip: nothing terminated the worker.
+  expect(useStore.getState().run.phase).toBe('running')
+
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
-  expect(screen.container.querySelector('arrowz-board')?.board).not.toBeNull()
+  expect(useStore.getState().run.board?.W).toBe(200)
 }, 40_000)
 
 test('the lab panel is hidden off-route and shown on it', async () => {
@@ -2333,22 +2357,27 @@ export function RunStatusBar() {
 `apps/lab/src/routes/LabRoute.tsx`:
 
 ```tsx
-import { defaultParams } from '@arrowz/engine'
+import type { Params } from '@arrowz/engine'
 import { useDictionary } from '../i18n'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
 import { useStore } from '../state/store'
 import type { Generator } from '../worker/useGenerator'
 
-// PR 3 replaces this with the params slice; until then a run uses the
-// defaults, which is what the CLI uses when it is given no knobs.
-const params = defaultParams()
-
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
- * column of §5.1 arrives in PR 3 and takes the button with it.
+ * column of §5.1 arrives in PR 3 and takes the button with it; `params` comes
+ * from the shell until the params slice does (PR 3).
  */
-export function LabRoute({ generator, hidden }: { generator: Generator; hidden: boolean }) {
+export function LabRoute({
+  generator,
+  params,
+  hidden,
+}: {
+  generator: Generator
+  params: Params
+  hidden: boolean
+}) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   return (
@@ -2373,7 +2402,7 @@ export function LabRoute({ generator, hidden }: { generator: Generator; hidden: 
 
 ```tsx
 import { defaultParams } from '@arrowz/engine'
-import type { BoardFile } from '@arrowz/engine'
+import type { BoardFile, Params } from '@arrowz/engine'
 import { DEFAULT_VIEW, storeRequest } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
@@ -2385,7 +2414,7 @@ import { TopBar } from './shell/TopBar'
 import { useStore } from './state/store'
 import { useGenerator } from './worker/useGenerator'
 
-const params = defaultParams()
+const DEFAULTS = defaultParams()
 
 /**
  * Saves each finished run once. `App` subscribes to one field rather than to
@@ -2417,7 +2446,13 @@ function useStoreSave() {
   }, [file])
 }
 
-function Shell() {
+/**
+ * Exported for the browser tests: `params` is what Generate starts a run with,
+ * and a test that must observe a run *in flight* needs a board bigger than the
+ * defaults, which carve in tens of milliseconds. PR 3 replaces the prop with
+ * the params slice.
+ */
+export function Shell({ params = DEFAULTS }: { params?: Params }) {
   // Above the routes on purpose: §6 and Ruling 5.
   const generator = useGenerator()
   const onLab = selectedIndex(useLocation().pathname) === 0
@@ -2426,7 +2461,7 @@ function Shell() {
     <div className="fw">
       <TopBar W={params.W} H={params.H} />
       <TabRow />
-      <LabRoute generator={generator} hidden={!onLab} />
+      <LabRoute generator={generator} params={params} hidden={!onLab} />
       <AppRoutes />
     </div>
   )
