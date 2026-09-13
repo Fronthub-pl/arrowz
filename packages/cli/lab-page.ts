@@ -49,7 +49,8 @@ import { genSeconds, pct, reportRows } from '@arrowz/engine/report'
 import {
   defaultChoice,
   exportCell,
-  normalizeChoice,
+  type Recipe,
+  recipeOf,
   SIMPLE_CHOICES,
   SIMPLE_SLIDERS,
   simpleParams,
@@ -500,14 +501,6 @@ el<HTMLSelectElement>('presets').addEventListener('change', () => {
 // setParam like a preset, so the command, the advanced view and the URL show
 // exactly what was generated — the values drawn in random mode included.
 const SIMPLE_KEY = 'labSimple'
-/** The stored recipe: a choice without its seed (the seed lives in the knobs) and with the randomise flag settled. */
-type Recipe = Omit<SimpleChoice, 'seed' | 'random'> & { random: boolean }
-// The stored recipe goes through normalizeChoice as is (old size ids and
-// category names, junk, clamping); defaults fill only what is missing.
-function recipeOf(raw: unknown): Recipe {
-  const { seed: _seed, random, ...rest } = normalizeChoice(raw)
-  return { ...rest, random: random === true }
-}
 let simpleChoice: Recipe = recipeOf(readJson(localStorage.getItem(SIMPLE_KEY)))
 
 // The size is edited like in the advanced view: a number and a slider per
