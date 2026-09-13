@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { DEFAULT_VIEW, hueBytes, hueDegrees, hueOf } from './view.ts'
+import { DEFAULT_VIEW as CLI_VIEW } from '@arrowz/engine/command'
+import { boardViewOf, DEFAULT_VIEW, hueBytes, hueDegrees, hueOf } from './view.ts'
 
 test('hueOf is unchanged: the golden angle over the id, at fixed saturation and lightness', () => {
   expect(hueOf(0)).toBe('hsl(0 62% 42%)')
@@ -34,4 +35,20 @@ test('DEFAULT_VIEW is the shape the element starts from', () => {
   expect(DEFAULT_VIEW.stroke).toBe(0.5)
   expect(DEFAULT_VIEW.colored).toBe(false)
   expect(DEFAULT_VIEW.top).toBe(0)
+})
+
+test('boardViewOf carries the seven look fields and the voids flag', () => {
+  expect(boardViewOf(CLI_VIEW, true)).toEqual({
+    stroke: CLI_VIEW.stroke,
+    headWidth: CLI_VIEW.headWidth,
+    headHeight: CLI_VIEW.headHeight,
+    rounded: CLI_VIEW.rounded,
+    colored: CLI_VIEW.colored,
+    top: CLI_VIEW.top,
+    voids: true,
+  })
+})
+
+test('boardViewOf drops cell, because the element scales itself', () => {
+  expect('cell' in boardViewOf(CLI_VIEW, false)).toBe(false)
 })

@@ -1,10 +1,11 @@
-import { assert, assertEquals, assertNotEquals } from '@std/assert'
+import { assert, assertEquals, assertFalse, assertNotEquals } from '@std/assert'
 import {
   defaultChoice,
   drawParams,
   exportCell,
   normalizeChoice,
   presetParams,
+  recipeOf,
   SIMPLE_CHOICES,
   SIMPLE_SIZES,
   SIMPLE_SLIDERS,
@@ -414,4 +415,30 @@ Deno.test('exportCell: 1600 px on the longer side, clamped to 1..18', () => {
   assertEquals(exportCell(400, 400), 4)
   assertEquals(exportCell(1000, 1000), 2)
   assertEquals(exportCell(4000, 1000), 1)
+})
+
+Deno.test('recipeOf drops the seed, because the seed lives in the knobs', () => {
+  const got = recipeOf({ ...defaultChoice(), seed: 99 })
+  assertFalse('seed' in got)
+})
+
+Deno.test('recipeOf settles the randomise flag to a boolean', () => {
+  assertEquals(recipeOf({}).random, false)
+  assertEquals(recipeOf({ random: true }).random, true)
+  assertEquals(recipeOf({ random: 'yes' }).random, false)
+})
+
+Deno.test('recipeOf survives junk and an old stored shape by falling back field by field', () => {
+  // Not a tautology: assert the concrete defaults, since the type guarantees
+  // every key is present whatever normalizeChoice did with it.
+  const base = recipeOf(defaultChoice())
+  const got = recipeOf({ size: 'huge', skeleton: 'nonsense', nothing: 1 })
+  assertEquals(got.skeleton, base.skeleton)
+  assertEquals(got.W, base.W)
+  assertEquals(got.H, base.H)
+  assertFalse('nothing' in got)
+})
+
+Deno.test('recipeOf on nothing at all is the default recipe', () => {
+  assertEquals(recipeOf(null), recipeOf(defaultChoice()))
 })

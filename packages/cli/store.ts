@@ -3,28 +3,15 @@
 // the lab server. The directory is gitignored — a 1000×1000 board file is about
 // a megabyte, and the command in the meta reproduces any board.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardFile, BoardMeta, BoardSize, Params, Stuck, View } from '@arrowz/engine'
+import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
 import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { defaultParams } from '@arrowz/engine'
 
-export interface SaveInput {
-  board: BoardFile
+/** The wire contract plus the two fields only the CLI sends. */
+export interface SaveInput extends StoreRequest {
   /** The SVG preview. Without it no preview is kept: one left by an earlier save of this id is removed. */
   svg?: string
-  params: Params
-  view: View
-  command: string
-  metrics?: {
-    ok?: boolean
-    pieces?: number
-    maxLen?: number
-    genMs?: number
-    restarts?: number
-    backtracks?: number
-    aborted?: boolean
-    stuck?: Stuck | null
-  }
-  source: string
+  metrics?: StoreRequest['metrics'] & { aborted?: boolean }
 }
 
 export function boardsDir(): string {

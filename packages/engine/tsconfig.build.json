@@ -24,6 +24,7 @@
     "command.ts",
     "lab-simple.ts",
     "lab-presets.ts",
-    "lab-i18n.ts"
+    "lab-i18n.ts",
+    "lab-report.ts"
   ]
 }

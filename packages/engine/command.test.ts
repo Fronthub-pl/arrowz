@@ -12,10 +12,16 @@ import {
   flagViolation,
   helpText,
   knobFlag,
+  MIX_START,
   parseArgs,
   START,
+  START_CHOICES,
+  type StartChoice,
+  startChoiceOf,
+  storeRequest,
   VIEW_FLAG,
   VIEW_RANGE,
+  viewNumberOf,
   wordFor,
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
@@ -638,4 +644,86 @@ Deno.test('drawnViolations names the values nobody wrote, and never a rule', () 
   assertEquals(drawnViolations([drawn, mine, stepOfMine, stepOfTheirs, rule], typed), [drawn, stepOfTheirs])
   assertEquals(drawnViolations([mine, stepOfMine, rule], typed), [])
   assertEquals(drawnViolations([], typed), [])
+})
+
+Deno.test('viewNumberOf falls back to the default for an empty or unreadable field', () => {
+  assertEquals(viewNumberOf('', 'stroke'), DEFAULT_VIEW.stroke)
+  assertEquals(viewNumberOf('   ', 'stroke'), DEFAULT_VIEW.stroke)
+  assertEquals(viewNumberOf('wide', 'stroke'), DEFAULT_VIEW.stroke)
+})
+
+Deno.test('viewNumberOf clamps into VIEW_RANGE', () => {
+  const r = VIEW_RANGE.stroke
+  assertEquals(viewNumberOf(String(r.max + 1), 'stroke'), r.max)
+  assertEquals(viewNumberOf(String(r.min - 1), 'stroke'), r.min)
+})
+
+Deno.test('viewNumberOf rounds the whole-number fields only', () => {
+  const whole = (Object.keys(VIEW_RANGE) as ViewNumber[]).find((f) => VIEW_RANGE[f].whole)
+  const frac = (Object.keys(VIEW_RANGE) as ViewNumber[]).find((f) => !VIEW_RANGE[f].whole)
+  assert(whole && frac)
+  const w = VIEW_RANGE[whole]
+  const mid = Math.min(w.max, w.min + 1) + 0.4
+  assertEquals(viewNumberOf(String(mid), whole), Math.round(mid))
+  const f = VIEW_RANGE[frac]
+  const midF = (f.min + f.max) / 2
+  assertEquals(viewNumberOf(String(midF), frac), midF)
+})
+
+Deno.test('START_CHOICES is the CLI vocabulary plus mixing, in surface order', () => {
+  assertEquals([...START_CHOICES], ['layers', 'random', 'tunnels', 'mixing'])
+  for (const word of Object.keys(START.words)) assert(START_CHOICES.includes(word as StartChoice))
+})
+
+Deno.test('startChoiceOf reads mixing off the share, and the rest off headBias', () => {
+  const base = defaultParams()
+  assertEquals(startChoiceOf({ ...base, mix: START.mix.min }), 'mixing')
+  assertEquals(startChoiceOf({ ...base, mix: 0 }), 'mixing')
+  for (const [word, pair] of Object.entries(START.words)) {
+    assertEquals(startChoiceOf({ ...base, mix: -1, headBias: pair.headBias }), word)
+  }
+})
+
+Deno.test('startChoiceOf falls back to random for a headBias no word names', () => {
+  const base = defaultParams()
+  assertEquals(startChoiceOf({ ...base, mix: -1, headBias: 0.37 }), 'random')
+})
+
+Deno.test('MIX_START is the middle of the share range', () => {
+  assertEquals(MIX_START, (START.mix.min + START.mix.max) / 2)
+})
+
+Deno.test('every start choice has a label in both dictionaries', async () => {
+  const { EN, PL } = await import('./lab-i18n.ts')
+  for (const choice of START_CHOICES) {
+    assert(EN.start.options[choice], `EN is missing ${choice}`)
+    assert(PL.start.options[choice], `PL is missing ${choice}`)
+  }
+})
+
+Deno.test('storeRequest builds the command from the parameters it is given', () => {
+  const params = { ...defaultParams(), W: 25, H: 50, seed: 7 }
+  const req = storeRequest({ v: 1 } as never, params, DEFAULT_VIEW, 'lab')
+  assertEquals(req.command, buildCommand(params, DEFAULT_VIEW))
+  assertEquals(req.source, 'lab')
+  assertEquals(req.params.seed, 7)
+})
+
+Deno.test('storeRequest carries nulls through: a stored board reports missing figures as null', () => {
+  // Both callers need this: the lab sends `maxLen: null` for a run without
+  // metrics, and a re-POST of a stored board copies BoardMeta, whose ok,
+  // pieces and genMs are nullable (types.ts:281-284).
+  const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'lab', {
+    ok: null,
+    pieces: null,
+    maxLen: null,
+    genMs: null,
+  })
+  assertEquals(req.metrics?.maxLen, null)
+  assertEquals(req.metrics?.genMs, null)
+})
+
+Deno.test('storeRequest omits metrics entirely when none are passed', () => {
+  const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'cli')
+  assertEquals(req.metrics, undefined)
 })

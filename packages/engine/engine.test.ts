@@ -2,10 +2,11 @@
 //
 // The prototype is disposable code, but the generator must close boards up to 200×200
 // without failures — these tests guard that, not eyeballing in the laboratory.
-import { assert, assertEquals, assertNotEquals, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertFalse, assertNotEquals, assertThrows } from '@std/assert'
 import {
   analyse,
   Carver,
+  clampParam,
   defaultParams,
   DIRS,
   fingerprint,
@@ -13,10 +14,14 @@ import {
   generate,
   INACTIVE_REASONS,
   InvalidParamsError,
+  isFiniteNumber,
+  longestSummary,
   mulberry32,
   PARAM_SPEC,
+  readParams,
   RULE_REASONS,
   RULES,
+  snapToStep,
   validateParams,
 } from './engine.ts'
 import * as engineExports from './engine.ts'
@@ -1246,4 +1251,95 @@ Deno.test('backbite: the bite that would move the neck is refused, and so is a p
   assertEquals(c.backbiteTail(hook, hookPos), true)
   assertEquals(hook.map((cell) => [cell.x, cell.y]), [[0, 0], [1, 0], [1, 1], [2, 1], [2, 0]])
   assertEquals(pathBroken(c, hook, hookPos), null)
+})
+
+Deno.test('isFiniteNumber accepts only finite numbers', () => {
+  assert(isFiniteNumber(0))
+  assert(isFiniteNumber(-1.5))
+  assertFalse(isFiniteNumber(Number.NaN))
+  assertFalse(isFiniteNumber(Number.POSITIVE_INFINITY))
+  assertFalse(isFiniteNumber('1'))
+  assertFalse(isFiniteNumber(null))
+  assertFalse(isFiniteNumber(undefined))
+})
+
+Deno.test('readParams keeps finite numbers under known keys and drops everything else', () => {
+  const got = readParams({ W: 40, H: '50', seed: Number.NaN, nonsense: 7, pStraight: 0.8 })
+  assertEquals(got, { W: 40, pStraight: 0.8 })
+})
+
+Deno.test('readParams on a non-object is empty, not a throw', () => {
+  assertEquals(readParams(null), {})
+  assertEquals(readParams('{}'), {})
+  assertEquals(readParams([1, 2]), {})
+})
+
+Deno.test('readParams does not check the envelope: that is the caller decision', () => {
+  // W below its minimum survives the read; validateParams is what refuses it.
+  const spec = PARAM_SPEC.find((s) => s.key === 'W')
+  assert(spec)
+  const got = readParams({ W: spec.min - 1 })
+  assertEquals(got.W, spec.min - 1)
+  assert(validateParams({ ...defaultParams(), W: spec.min - 1 }).length > 0)
+})
+
+Deno.test('clampParam clamps into the range and reports it', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'pStraight')
+  assert(spec)
+  assertEquals(clampParam(spec, spec.max + 1), { value: spec.max, clamped: true })
+  assertEquals(clampParam(spec, spec.min - 1), { value: spec.min, clamped: true })
+})
+
+Deno.test('clampParam snaps to the step, so the panel can never be left red', () => {
+  const spec = PARAM_SPEC.find((s) => s.step > 0 && s.max > s.min + s.step)
+  assert(spec)
+  const between = spec.min + spec.step / 2
+  const got = clampParam(spec, between)
+  assertEquals(got.value, snapToStep(between, spec.step, spec.min))
+  assert(got.clamped)
+  assertEquals(validateParams({ ...defaultParams(), [spec.key]: got.value }).filter((v) => v.kind === 'step'), [])
+})
+
+Deno.test('clampParam falls back to the default for a non-finite value', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'seed')
+  assert(spec)
+  assertEquals(clampParam(spec, Number.NaN), { value: spec.def, clamped: true })
+})
+
+Deno.test('clampParam leaves a legal value alone and says so', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'W')
+  assert(spec)
+  assertEquals(clampParam(spec, spec.def), { value: spec.def, clamped: false })
+})
+
+Deno.test('longestSummary returns the n longest pieces, longest first', () => {
+  const r = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 })
+  const got = longestSummary(r.board, 5)
+  assertEquals(got.length, Math.min(5, r.board.pieces.length))
+  for (let i = 1; i < got.length; i++) {
+    const prev = got[i - 1], cur = got[i]
+    assert(prev && cur && prev.len >= cur.len)
+  }
+})
+
+Deno.test('longestSummary measures the box, the span and the density of a piece', () => {
+  const r = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 })
+  const top = longestSummary(r.board, 1)[0]
+  assert(top)
+  assertEquals(top.span, Math.max(top.sx / r.board.W, top.sy / r.board.H))
+  assertEquals(top.density, top.len / (top.sx * top.sy))
+  assert(top.density > 0 && top.density <= 1)
+  assert(top.coil >= 0 && top.coil <= 1)
+})
+
+Deno.test('longestSummary asks for more pieces than exist without failing', () => {
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1 })
+  assertEquals(longestSummary(r.board, 10_000).length, r.board.pieces.length)
+})
+
+Deno.test('longestSummary leaves the board it reads untouched', () => {
+  const r = generate({ ...defaultParams(), W: 16, H: 16, seed: 5 })
+  const before = r.board.pieces.map((p) => p.id)
+  longestSummary(r.board, 3)
+  assertEquals(r.board.pieces.map((p) => p.id), before)
 })

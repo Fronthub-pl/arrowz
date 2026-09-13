@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import process from 'node:process'
 import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate } from '../dist/mod.js'
 import { parseArgs } from '../dist/command.js'
+import { genSeconds } from '../dist/lab-report.js'
 
 const golden = JSON.parse(readFileSync(new URL('../fingerprints.json', import.meta.url), 'utf8'))
 
@@ -41,6 +42,10 @@ for (const c of golden.cases) {
 }
 if (failures > 0) {
   console.error(`${failures} golden board(s) differ under Node`)
+  process.exit(1)
+}
+if (genSeconds({ genMs: 4800 }, '—') !== '4.80' || genSeconds({ genMs: null }, '—') !== '—') {
+  console.error('lab-report is not emitted correctly into dist/')
   process.exit(1)
 }
 console.log('all golden boards reproduce under Node')
