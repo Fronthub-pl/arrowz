@@ -210,8 +210,10 @@ body {
    of the component carries it, and PR 3 adds many more controls into the same
    cascade. */
 .fw .fw-go {
-  height: 32px;
-  padding: 0 14px;
+  height: 40px;
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 0 16px;
   border: 0;
   background: var(--signal);
   color: var(--void);

@@ -1,19 +1,15 @@
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
-import { useDictionary } from '../i18n'
+import { RunColumn } from '../run/RunColumn'
 import type { RunControl } from '../run/useRun'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
-import { useStore } from '../state/store'
 
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
- * column of §5.1 arrives in PR 4 and takes the button with it.
+ * column of §5.1 lives inside the console; `.fw-bar` keeps `RunStatusBar` alone.
  */
 export function LabRoute({ control, hidden }: { control: RunControl; hidden: boolean }) {
-  const dict = useDictionary()
-  const running = useStore((state) => state.run.phase === 'running')
-  const blocked = useStore((state) => state.params.violations.length > 0)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -22,20 +18,13 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
     <main hidden={hidden}>
       <section id="lab-panel" role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
         <div className="fw-bar">
-          <button
-            type="button"
-            className="fw-go"
-            onClick={control.start}
-            disabled={running || blocked}
-            title={blocked ? dict.t('generateBlocked') : undefined}
-          >
-            {dict.t('generate')}
-          </button>
           <RunStatusBar />
         </div>
         <div className="fw-lab">
           <Stage />
-          <Console />
+          <Console>
+            <RunColumn control={control} />
+          </Console>
           <Violations />
         </div>
       </section>

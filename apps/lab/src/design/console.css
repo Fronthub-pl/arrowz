@@ -3,11 +3,10 @@
    specificity collision between two rules written in different tasks, and one
    file per surface keeps such a collision inside the surface that caused it.
 
-   Two tracks, not the mock's three: the run column is lifted above the console
-   (spec §5.1) and arrives in the next PR. */
+   The mock's three tracks: the group rail, one panel, and the run column. */
 .fw-console {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
+  grid-template-columns: 168px minmax(0, 1fr) 216px;
   gap: 1px;
   background: var(--border);
   border-top: 1px solid var(--border);
@@ -361,6 +360,10 @@
 @media (max-width: 900px) {
   .fw-console {
     grid-template-columns: 150px minmax(0, 1fr);
+  }
+  /* A full-width row under the two tracks, which is the mock's own query. */
+  .fw-run-col {
+    grid-column: 1 / -1;
   }
 }
 

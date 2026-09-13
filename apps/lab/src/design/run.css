@@ -1,0 +1,53 @@
+/* The run column, ported from `fronthub-workshop-v2.css` (`.fw-run-col`,
+   `.fw-alt`, `.fw-ghost`). The mock has no Abort and no switches here; both
+   are added under their own comments. */
+.fw-run-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-alt {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* `.fw .fw-alt button` and not a bare selector: the `.fw button` reset in
+   shell.css is (0,1,1) and would outrank (0,1,0) on `color`. Every rule in
+   this file carries the prefix for the same reason. */
+.fw .fw-alt button {
+  flex: none;
+  height: 32px;
+  min-height: 32px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw .fw-alt button:hover:not(:disabled) {
+  background: var(--surface);
+}
+/* The mock has no disabled state, because nothing in it can refuse. Half
+   opacity is what `.fw .fw-go:disabled` already uses, so the two refusals
+   look like one rule. Measured: --ink at 0.5 over --graphite is 4.70:1. */
+.fw .fw-alt button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.fw-ghost {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+@media (pointer: coarse) {
+  .fw .fw-alt button {
+    height: 44px;
+  }
+}
