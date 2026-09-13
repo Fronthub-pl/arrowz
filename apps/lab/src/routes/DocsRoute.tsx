@@ -6,13 +6,7 @@ export function DocsRoute() {
   const { what } = useParams()
   return (
     <main>
-      <section
-        id="docs-panel"
-        role="tabpanel"
-        aria-labelledby="tab-docs-panel"
-        aria-label={dict.t('tabDocs')}
-        tabIndex={0}
-      >
+      <section id="docs-panel" role="tabpanel" aria-labelledby="tab-docs-panel" tabIndex={0}>
         <h2>{dict.t('tabDocs')}</h2>
         {/* PR 6 fills this: the element's API, and the CLI help from helpText(). */}
         <p>{what}</p>

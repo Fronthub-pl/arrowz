@@ -10,14 +10,25 @@ const at = (path: string) =>
     </MemoryRouter>,
   )
 
+// The tabpanel has no accessible name here: it takes "name from author" only
+// (no "name from content"), and its aria-labelledby points at the tab strip's
+// id, which does not exist until a later task renders it. So this test locates
+// the panel by role and checks the wiring instead of the name; the whole-app
+// test with the real tab strip asserts the accessible name once it exists.
 test('/boards is the saved boards', async () => {
   const screen = await at('/boards')
-  await expect.element(screen.getByRole('tabpanel', { name: 'Saved boards' })).toBeVisible()
+  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  const panel = screen.container.querySelector('[role="tabpanel"]')
+  expect(panel?.getAttribute('aria-labelledby')).toBe('tab-boards-panel')
 })
 
+// Same reasoning as above: no accessible name without the tab strip, so this
+// checks the wiring and that the route segment reaches the page.
 test('/docs/element is the docs, and the segment reaches the page', async () => {
   const screen = await at('/docs/element')
-  await expect.element(screen.getByRole('tabpanel', { name: 'Docs' })).toBeVisible()
+  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  const panel = screen.container.querySelector('[role="tabpanel"]')
+  expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
   await expect.element(screen.getByText('element')).toBeVisible()
 })
 
