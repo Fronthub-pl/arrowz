@@ -1,0 +1,101 @@
+/* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
+   everything else. */
+.fw {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: 48px auto minmax(0, 1fr);
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  font-synthesis: none;
+  text-wrap: pretty;
+}
+.fw *,
+.fw *::before,
+.fw *::after {
+  box-sizing: border-box;
+}
+.fw button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+.fw .caps {
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw :focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.fw-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--signal);
+  color: var(--void);
+}
+.fw-top .mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.fw-top .name {
+  font-size: 13px;
+}
+.fw-top .sep {
+  opacity: 0.5;
+}
+/* §7.1: tabular-nums on every number, so a changing size does not jitter. */
+.fw-top .dims {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+.fw-top .right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.fw-tabrow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+}
+.fw-tabrow button {
+  padding: 10px 0 8px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ash);
+  cursor: pointer;
+  transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-tabrow button:hover {
+  color: var(--ink);
+}
+.fw-tabrow button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+
+/* §7.2: the design system asks for 44px targets where there is no hover. */
+@media (pointer: coarse) {
+  .fw-tabrow button {
+    padding: 15px 0 13px;
+  }
+}
