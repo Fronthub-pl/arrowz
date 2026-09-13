@@ -1,5 +1,6 @@
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { LiveCommand } from './LiveCommand'
 import type { RunControl } from './useRun'
 
 /**
@@ -17,6 +18,7 @@ export function RunColumn({ control }: { control: RunControl }) {
   const blocked = useStore((state) => state.params.violations.length > 0)
   return (
     <section className="fw-run-col" aria-label={dict.t('runColumn')}>
+      <LiveCommand />
       <button
         type="button"
         className="fw-go"

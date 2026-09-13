@@ -51,3 +51,57 @@
     height: 44px;
   }
 }
+/* `<figure>` carries a browser default margin; the mock's box has none, and
+   the flex column depends on it. */
+.fw-cmdfig {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fw-cmdhd {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ash);
+  margin-bottom: 6px;
+}
+/* The mock paints this button `--signal`, which measures 3.81:1 on
+   `--graphite` — under AA at 12px — and spends a colour §7.1 reserves for
+   state and data on an action. `--mist` is 8.05:1 and moves to `--ink` on
+   hover, the same ash-to-ink move `.fw-tabrow button` already makes. */
+.fw .fw-cmdhd button {
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  padding: 0;
+}
+.fw .fw-cmdhd button:hover {
+  color: var(--ink);
+}
+.fw-cmd {
+  flex: 0 1 auto;
+  min-height: 58px;
+  overflow: hidden;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--void);
+  border: 1px solid var(--border);
+  color: var(--ash);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font: inherit;
+}
+.fw-cmd b {
+  font-weight: 400;
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .fw .fw-cmdhd button {
+    min-height: 44px;
+  }
+}
