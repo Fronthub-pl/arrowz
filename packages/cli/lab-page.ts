@@ -105,8 +105,6 @@ function readJson(text: string | null): unknown {
   }
 }
 // --- language ---------------------------------------------------------------
-// English is the source language (PARAM_SPEC, INACTIVE_REASONS, EN.ui);
-// Polish is a translation looked up by key, falling back to English.
 let lang: Lang = localStorage.getItem('labLang') === 'pl' ||
     (localStorage.getItem('labLang') === null && navigator.language.toLowerCase().startsWith('pl'))
   ? 'pl'

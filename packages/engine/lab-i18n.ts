@@ -577,6 +577,9 @@ export function dictionary(lang: Lang): Dict {
   const d = lang === 'pl' ? PL : EN
   const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
   const fmt = (n: number) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
+  // English is the source language: PARAM_SPEC, INACTIVE_REASONS/RULE_REASONS
+  // and EN.ui. PL.ui is checked against EN.ui's keys by lab-i18n.test.ts, but
+  // `t` still falls back to EN.ui[key] for a key a stale PL table is missing.
   // The call site is typed by UiArgs<K>; the cast only dispatches the call over
   // the union of function-valued entries, which TypeScript cannot resolve generically.
   const t = <K extends UiKey>(key: K, ...args: UiArgs<K>): string => {

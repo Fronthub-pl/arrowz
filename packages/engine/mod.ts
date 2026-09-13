@@ -1,6 +1,6 @@
 // Public surface of @arrowz/engine: the generator, its parameter table and
-// the board types. The command parser, the simple view, the presets and
-// the dictionaries are separate subpath exports (see deno.json).
+// the board types. The command parser, the simple view, the presets, the
+// dictionaries and the run report are separate subpath exports (see deno.json).
 //
 // The list is explicit rather than a star: `Carver`, `mulberry32` and
 // `render` stay internal, because only this workspace's own tests and the

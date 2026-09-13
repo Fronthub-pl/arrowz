@@ -195,3 +195,21 @@ Deno.test('violation reads a rule reason in both languages and appends what is n
   assert(en.includes('0.7'), en)
   assertNotEquals(en, pl)
 })
+
+// `reason` dispatches an InactiveKey to INACTIVE_REASONS and a RuleKey to
+// RULE_REASONS (see the `Object.hasOwn` check in lab-i18n.ts). An inverted
+// condition there would make one branch return `undefined`, and a dimmed
+// knob's tooltip would render the literal text "undefined" — so this pins
+// both branches against the tables the factory actually reads.
+Deno.test('reason resolves an inactive key from INACTIVE_REASONS and a rule key from RULE_REASONS', () => {
+  const en = dictionary('en')
+  assertEquals(en.reason('skeletonOff'), INACTIVE_REASONS.skeletonOff)
+  assertEquals(en.reason('sharesSum'), RULE_REASONS.sharesSum)
+})
+
+Deno.test('choiceText looks up a real Polish word for a real choice pair', () => {
+  const pl = dictionary('pl')
+  const words = PL.choices.trapBias
+  assert(words, 'expected PL.choices.trapBias to exist')
+  assertEquals(pl.choiceText('trapBias', 'seek'), words.seek)
+})
