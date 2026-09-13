@@ -841,6 +841,13 @@ czerwony, obok pojawia się powód, a przycisk generowania przestaje działać,
 dopóki tego nie poprawisz. Polecenie zostaje na ekranie, więc odrzucone
 ustawienia i tak możesz skopiować.
 
+Powstaje drugie laboratorium, w `apps/lab` — tym razem aplikacja w Reakcie,
+serwowana przez Vite zamiast złożonego skryptu. Uruchamiasz je poleceniem
+`pnpm nx serve lab` obok `deno task lab`, które serwuje na porcie 8777
+magazyn plansz, do którego nowe laboratorium zapisuje; sama aplikacja
+nasłuchuje na porcie 8779. Nie zastępuje jeszcze strony opisanej wyżej — to
+stanie się w kolejnym kroku.
+
 ---
 
 ## Gdzie lądują plansze
@@ -980,6 +987,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
 | `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
+| `apps/lab/` | Nowe laboratorium w Reakcie, budowane obok strony wyżej; jeszcze jej nie zastępuje. |
 
 Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
 `.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
