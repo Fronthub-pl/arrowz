@@ -58,7 +58,7 @@ import {
 // resolve the Node package name, and a value import (ArrowzBoard, used in the
 // instanceof below), because a bare side-effect import is dropped by the
 // bundler — the package's sideEffects names only its dist/.
-import { ArrowzBoard, type BoardView } from '../board-element/src/mod.ts'
+import { ArrowzBoard, type BoardView, boardViewOf } from '../board-element/src/mod.ts'
 
 /** An element by id; the ids are fixed in lab.html, so a miss is a bug, not a state. */
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -74,19 +74,6 @@ function el<T extends HTMLElement = HTMLElement>(id: string): T {
 const boardNode = el('board')
 if (!(boardNode instanceof ArrowzBoard)) throw new Error('#board is not an <arrowz-board>')
 const boardEl: ArrowzBoard = boardNode
-
-/** The lab's view as the element takes it; `cell` is a size in the exported SVG and does not apply. */
-function boardView(v: View, voids: boolean): Partial<BoardView> {
-  return {
-    stroke: v.stroke,
-    headWidth: v.headWidth,
-    headHeight: v.headHeight,
-    rounded: v.rounded,
-    colored: v.colored,
-    top: v.top,
-    voids,
-  }
-}
 
 /** Puts a board on screen with a view; null clears the board. */
 function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
@@ -912,7 +899,7 @@ function run() {
 /** The lab tab's board with the lab's view, and the table of its longest pieces. */
 function showLabBoard(): void {
   const view = viewOptions()
-  showBoard(labBoard, boardView(view, voidsOn()))
+  showBoard(labBoard, boardViewOf(view, voidsOn()))
   lastLongest = labBoard ? longestSummary(labBoard, view.top) : null
   renderLongest(lastLongest ?? [])
 }
@@ -1257,7 +1244,7 @@ function libView(meta: BoardMeta): View {
 }
 /** The chosen stored board on screen; its holes show only when it did not close. */
 function showLibBoard(meta: BoardMeta): void {
-  showBoard(libData, boardView(libView(meta), meta.ok === false))
+  showBoard(libData, boardViewOf(libView(meta), meta.ok === false))
 }
 function onLibViewInput() {
   if (!libBoard || !libData) return
