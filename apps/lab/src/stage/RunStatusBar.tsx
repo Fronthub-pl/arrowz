@@ -74,8 +74,9 @@ export function RunStatusBar() {
   // The store's answer is appended, never substituted: a missing store must
   // not overwrite what the run itself reported (§5.3).
   const saved = run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
-  // The lab has a second `role="status"` region (a clamp notice), so a screen
-  // reader needs a name to tell the two apart.
+  // A later task adds a second `role="status"` region (a clamp notice), so
+  // this one gets a name now, ahead of that, for a screen reader to tell the
+  // two apart.
   return (
     <output aria-live="polite" aria-label={dict.t('runStatus')}>
       {`${text}${saved}`}

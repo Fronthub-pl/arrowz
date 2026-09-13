@@ -38,6 +38,19 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(/600×600/)
   })
 
+  it("keeps naming the run's own size after a knob moves during the carve", async () => {
+    const state = useStore.getState()
+    state.params.setMany({ W: 600, H: 600 })
+    state.run.started(useStore.getState().params.values)
+    const screen = await render(<RunStatusBar />)
+    // The console's own knobs move to a small size while the run is still in
+    // flight. A component that (wrongly) read the live knobs instead of
+    // `run.params` would now print the plain `generating` text; this must
+    // still name the run's own 600×600.
+    useStore.getState().params.setMany({ W: 25, H: 25 })
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/600×600/)
+  })
+
   it('says only "Generating…" for a board under the threshold', async () => {
     const state = useStore.getState()
     state.params.setMany({ W: 25, H: 25 })
