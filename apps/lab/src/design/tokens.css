@@ -26,6 +26,6 @@
   --signal-press: #4c57be;
   --warn: #d9a038;
   --error: #de5c4e;
-  --ui: Archivo, Helvetica, Arial, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  --ui: 'Archivo Variable', Archivo, Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
 }
