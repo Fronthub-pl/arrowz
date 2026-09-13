@@ -6,6 +6,7 @@ import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
 import { LabRoute } from './routes/LabRoute'
+import { useRun } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useStore } from './state/store'
@@ -68,13 +69,14 @@ function Shell() {
   // Above the routes on purpose: §6 and Ruling 5. A route change must not kill
   // a run, nor unmount <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
+  const control = useRun(generator)
   const onLab = selectedIndex(useLocation().pathname) === 0
   useStoreSave()
   return (
     <div className="fw">
       <TopBar />
       <TabRow />
-      <LabRoute generator={generator} hidden={!onLab} />
+      <LabRoute control={control} hidden={!onLab} />
       <AppRoutes />
     </div>
   )
