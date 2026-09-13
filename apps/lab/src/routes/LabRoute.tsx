@@ -3,14 +3,22 @@ import { useDictionary } from '../i18n'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
 import { useStore } from '../state/store'
-import type { Generator } from '../worker/useGenerator'
+import type { GeneratorHandle } from '../worker/useGenerator'
 
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
  * column of §5.1 arrives in PR 3 and takes the button with it; `params` comes
  * from the shell until the params slice does (PR 3).
  */
-export function LabRoute({ generator, params, hidden }: { generator: Generator; params: Params; hidden: boolean }) {
+export function LabRoute({
+  generator,
+  params,
+  hidden,
+}: {
+  generator: GeneratorHandle
+  params: Params
+  hidden: boolean
+}) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   return (

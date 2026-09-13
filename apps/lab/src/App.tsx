@@ -33,7 +33,10 @@ function useStoreSave() {
     if (posted.current === file) return
     posted.current = file
     // The stored view is the lab's view with top zeroed, as the old lab
-    // stores it (`storeView()` in lab-page.ts).
+    // stores it (`storeView()` in lab-page.ts). Zeroing is a no-op today,
+    // because `DEFAULT_VIEW.top` is already 0 (command.ts:238); it becomes
+    // load-bearing in PR 3, when the view slice replaces `DEFAULT_VIEW` with
+    // the view actually on screen.
     const request = storeRequest(file, runParams, { ...DEFAULT_VIEW, top: 0 }, 'lab', {
       ok: report.ok,
       pieces: report.pieces,

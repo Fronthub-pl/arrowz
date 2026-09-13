@@ -130,8 +130,13 @@ test('the lab panel is hidden off-route and shown on it', async () => {
   const screen = await mountApp()
   // `hidden` is on the <main> around the tabpanel, not on the panel itself:
   // the id has to stay on what the tab strip's aria-controls points at, which
-  // is the tabpanel, as the other two panels have it. With the id back on the
-  // <main> the two lines below fail and the `closest('main')` ones would not.
+  // is the tabpanel, as the other two panels have it. Moving the id back to
+  // the <main> is caught by the `role` assertion alone: `#lab-panel` would
+  // then be the <main>, whose role is not `tabpanel`. The `aria-controls`
+  // assertion cannot catch it — it reads a string TabRow hard-codes in `TABS`
+  // and passes wherever the id actually lives — but it is what pins the two
+  // halves of the pair together, so a rename of the id on one side without the
+  // other still fails here.
   const panel = screen.container.querySelector('#lab-panel')
   expect(panel?.getAttribute('role')).toBe('tabpanel')
   expect(screen.container.querySelector('#tab-lab-panel')?.getAttribute('aria-controls')).toBe('lab-panel')

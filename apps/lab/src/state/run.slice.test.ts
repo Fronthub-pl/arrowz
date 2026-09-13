@@ -123,3 +123,22 @@ test('aborting a run returns to idle without an error', () => {
   expect(run().phase).toBe('idle')
   expect(run().message).toBeNull()
 })
+
+// An abort and a fresh page are both idle with no report, and the status line
+// has to tell them apart: the old lab prints `aborted`, not `pressGenerate`.
+test('aborting records that it happened, and the next run forgets it', () => {
+  run().started(params)
+  run().aborted()
+  expect(run().wasAborted).toBe(true)
+  run().started(params)
+  expect(run().wasAborted).toBe(false)
+})
+
+// The other half of the distinction, and the reason `aborted()` and `reset()`
+// are no longer the same function: a reset is the opening state, not an abort.
+test('reset does not record an abort', () => {
+  run().started(params)
+  run().aborted()
+  run().reset()
+  expect(run().wasAborted).toBe(false)
+})

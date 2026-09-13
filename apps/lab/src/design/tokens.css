@@ -6,8 +6,12 @@
 
    Dark is the only theme, radius is zero everywhere except the switch and the
    ready dot, `--signal` carries state and data only, and `--warn` is reserved
-   for a clamped value or a rule bound. */
-.fw {
+   for a clamped value or a rule bound.
+
+   On `:root` and not on `.fw`: anything rendered outside the shell's own div —
+   the document reset in shell.css, a `<dialog>` or a toast on `document.body`,
+   the palette of PR 7 — would otherwise resolve every `var(--…)` to nothing. */
+:root {
   --void: #0e0f12;
   --graphite: #16171b;
   --surface: #1c1f24;

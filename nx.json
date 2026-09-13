@@ -17,6 +17,7 @@
     "production": [
       "default",
       "!{projectRoot}/**/*.test.ts",
+      "!{projectRoot}/**/*.test.tsx",
       "!{projectRoot}/**/*.md"
     ]
   },

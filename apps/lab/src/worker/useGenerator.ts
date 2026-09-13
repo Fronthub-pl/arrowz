@@ -3,7 +3,12 @@ import type { BoardData, Params, WorkerIn, WorkerOut } from '@arrowz/engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '../state/store'
 
-export interface Generator {
+/**
+ * Named `GeneratorHandle` and not `Generator`: the latter shadows the global
+ * `Generator<T>` of the standard library, and PR 3 threads this type through
+ * several more components.
+ */
+export interface GeneratorHandle {
   start(params: Params): void
   abort(): void
 }
@@ -24,7 +29,7 @@ const actions = () => useStore.getState().run
  * Mounted once, in App: a route change must neither kill a run in flight nor
  * unmount <arrowz-board>, whose disposal releases the GL context.
  */
-export function useGenerator(): Generator {
+export function useGenerator(): GeneratorHandle {
   const worker = useRef<Worker | null>(null)
   const busy = useRef(false)
 
@@ -78,7 +83,7 @@ export function useGenerator(): Generator {
   // The worker outlives every route, and dies with the application.
   useEffect(() => kill, [kill])
 
-  return useMemo<Generator>(
+  return useMemo<GeneratorHandle>(
     () => ({
       start(params) {
         if (busy.current) kill()

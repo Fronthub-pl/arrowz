@@ -5,15 +5,15 @@ import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
-import { useGenerator, type Generator } from './useGenerator'
+import { useGenerator, type GeneratorHandle } from './useGenerator'
 
-function Harness({ drive }: { drive: (g: Generator) => void | (() => void) }) {
+function Harness({ drive }: { drive: (g: GeneratorHandle) => void | (() => void) }) {
   const generator = useGenerator()
   useEffect(() => drive(generator), [generator, drive])
   return null
 }
 
-const start = (params: Parameters<Generator['start']>[0]) => (g: Generator) => g.start(params)
+const start = (params: Parameters<GeneratorHandle['start']>[0]) => (g: GeneratorHandle) => g.start(params)
 
 // Every test here states its own timeout, because the chromium project sets no
 // `testTimeout` and Vitest's default is 5 s — shorter than the poll budgets

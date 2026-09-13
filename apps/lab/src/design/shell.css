@@ -1,3 +1,17 @@
+/* The document itself, which the shell cannot reach from inside its own div:
+   the user agent's `body { margin: 8px }` frames a `--void` page in white on
+   all four sides, and those 16px on top of `.fw`'s `min-height: 100vh` put a
+   scrollbar in every viewport. `color-scheme: dark` is what paints that
+   scrollbar — and any other user agent surface — dark rather than light.
+   The tokens are on `:root` (tokens.css) so `var(--void)` resolves here. */
+html {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--void);
+}
+
 /* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
    everything else. */
 .fw {
@@ -170,7 +184,13 @@
 .fw-bar output {
   font-variant-numeric: tabular-nums;
 }
-.fw-go {
+/* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
+   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`, leaving
+   the button `--ash` on `--signal` (contrast 1.45:1 against the 4.03:1 §7.1
+   asks for) in the mono stack. The `.fw` prefix makes it (0,2,0). Every rule
+   of the component carries it, and PR 3 adds many more controls into the same
+   cascade. */
+.fw .fw-go {
   height: 32px;
   padding: 0 14px;
   border: 0;
@@ -180,19 +200,19 @@
   cursor: pointer;
   transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw-go:hover:not(:disabled) {
+.fw .fw-go:hover:not(:disabled) {
   background: var(--signal-hover);
 }
-.fw-go:active:not(:disabled) {
+.fw .fw-go:active:not(:disabled) {
   background: var(--signal-press);
 }
-.fw-go:disabled {
+.fw .fw-go:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
 @media (pointer: coarse) {
-  .fw-go {
+  .fw .fw-go {
     height: 44px;
   }
 }

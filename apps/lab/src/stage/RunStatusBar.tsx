@@ -48,7 +48,10 @@ export function RunStatusBar() {
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || run.report === null) {
-    text = dict.t('pressGenerate')
+    // Idle, and `wasAborted` says which idle: the old lab keeps the abort on
+    // screen rather than resetting the line to its opening prompt
+    // (lab-page.ts:863-868).
+    text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (run.report.ok) {
     text = dict.t('closed')
   } else if (run.report.deadlock) {

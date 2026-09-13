@@ -17,6 +17,13 @@ export interface RunState {
   message: string | null
   /** The store's answer, kept apart so it cannot overwrite the run's outcome. */
   saved: SaveOutcome | null
+  /**
+   * Why the slice is idle. An abort and a fresh page are both `idle` with no
+   * report, and the old lab tells them apart (`dict.t('aborted')`,
+   * lab-page.ts:863-868); without this the status line forgets the abort
+   * happened and prints `pressGenerate`.
+   */
+  wasAborted: boolean
   started(params: Params): void
   progressed(info: TraceInfo): void
   finished(result: { board: BoardData; file: BoardFile; report: DoneReport }): void
@@ -35,6 +42,7 @@ const EMPTY = {
   report: null,
   message: null,
   saved: null,
+  wasAborted: false,
 } as const
 
 type SetStore = (fn: (state: { run: RunState }) => { run: RunState }) => void
@@ -48,7 +56,9 @@ export function createRunSlice(set: SetStore): RunState {
     finished: ({ board, file, report }) => patch({ phase: 'done', progress: null, board, file, report, message: null }),
     failed: (message) => patch({ phase: 'error', progress: null, board: null, file: null, message }),
     stored: (saved) => patch({ saved }),
-    aborted: () => patch({ ...EMPTY }),
+    // The only transition that leaves a mark on an otherwise empty slice: the
+    // spread clears everything, then the flag goes back on.
+    aborted: () => patch({ ...EMPTY, wasAborted: true }),
     reset: () => patch({ ...EMPTY }),
   }
 }
