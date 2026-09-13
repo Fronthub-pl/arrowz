@@ -3,14 +3,17 @@ import { expect, test } from 'vitest'
 import { VIEW_FIELDS } from './viewFields'
 // `ViewNumber` comes from the root export; `VIEW_RANGE` from /command.
 
-test('no field offers a number the CLI would refuse', () => {
-  // The successor to carve.test.ts:456-480, which checks the same thing
-  // against lab.html — a file PR 8 deletes.
+test('a step is a step a whole-number field can land on', () => {
+  // What is left of the successor to carve.test.ts:456-480 once the bounds are
+  // read from `VIEW_RANGE` rather than restated: the bounds can no longer
+  // disagree with the CLI, but the step still can — a fractional step on a
+  // field the store rounds would make every arrow press either a no-op or a
+  // jump of one, depending on where the value already sat.
   for (const field of VIEW_FIELDS) {
     const range = VIEW_RANGE[field.field]
-    expect(field.min).toBeGreaterThanOrEqual(range.min)
-    expect(field.max).toBeLessThanOrEqual(range.max)
-    expect(field.min).toBeLessThan(field.max)
+    expect(field.step).toBeGreaterThan(0)
+    expect(field.step).toBeLessThanOrEqual(range.max - range.min)
+    if (range.whole) expect(Number.isInteger(field.step)).toBe(true)
   }
 })
 

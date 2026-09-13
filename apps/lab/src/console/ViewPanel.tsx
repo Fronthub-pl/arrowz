@@ -1,3 +1,4 @@
+import { VIEW_RANGE } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
@@ -21,12 +22,22 @@ const FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' 
  * being typed into; the store owns it the rest of the time, which is exactly
  * the `document.activeElement` guard the old lab uses for its second seed
  * field (`lab-page.ts:679-681`), kept where it is actually needed.
+ *
+ * For PR 5: the library's preview carries a second copy of three of these
+ * fields (`libStroke`, `libHeadWidth`, `libHeadHeight` in lab.html), and
+ * carve.test.ts checks all eight ids against `VIEW_RANGE` today. That test dies
+ * with lab.html in PR 8, so the library's three have to come through this
+ * component — reusing it is what keeps them measured once carve.test.ts is gone.
  */
 function ViewNumberField({ field }: { field: ViewField }) {
   const dict = useDictionary()
   const value = useStore((state) => state.view[field.field])
   const setNumber = useStore((state) => state.view.setNumber)
   const ref = useRef<HTMLInputElement>(null)
+  // The engine's own bounds, not a copy of them: `commit` below clamps through
+  // the store, which clamps through `VIEW_RANGE`, so any other pair of numbers
+  // here would be a field disagreeing with what it is about to store.
+  const range = VIEW_RANGE[field.field]
 
   useEffect(() => {
     const node = ref.current
@@ -52,8 +63,8 @@ function ViewNumberField({ field }: { field: ViewField }) {
           type="number"
           id={`view-${field.field}`}
           className="num"
-          min={field.min}
-          max={field.max}
+          min={range.min}
+          max={range.max}
           step={field.step}
           defaultValue={String(value)}
           onBlur={commit}

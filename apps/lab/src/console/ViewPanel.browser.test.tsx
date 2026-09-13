@@ -1,3 +1,4 @@
+import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -34,9 +35,32 @@ test('a number field commits on blur, clamped to what the CLI takes', async () =
   const cell = screen.getByRole('spinbutton', { name: /cell size/i })
   await userEvent.fill(cell, '300')
   await userEvent.tab()
-  // 200 is the CLI's ceiling; the field's own max of 40 only stops the arrows.
+  // 200 is the CLI's ceiling, and now the field's own as well, so the box that
+  // shows the clamped value is not `:invalid` for showing it.
   expect(view().cell).toBe(200)
+  expect(screen.container.querySelector<HTMLInputElement>('#view-cell')?.checkValidity()).toBe(true)
   await expect.element(cell).toHaveValue(200)
+})
+
+test('every number field declares the bounds the engine actually takes', async () => {
+  // The successor to carve.test.ts:456-480, which reads lab.html — a file PR 8
+  // deletes. It checks the rendered attributes rather than the `VIEW_FIELDS`
+  // table, because the table no longer carries bounds: what a person and a
+  // screen reader are told is what the DOM says, and that is what has to agree
+  // with `VIEW_RANGE`.
+  const screen = await render(<ViewPanel />)
+  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')]
+  expect(fields).toHaveLength(Object.keys(VIEW_RANGE).length)
+  for (const input of fields) {
+    const key = input.id.replace(/^view-/, '') as keyof typeof VIEW_RANGE
+    const range = VIEW_RANGE[key]
+    expect(range, `no VIEW_RANGE entry for ${input.id}`).toBeDefined()
+    expect(Number(input.min)).toBe(range.min)
+    expect(Number(input.max)).toBe(range.max)
+    // Not just "in range": a field is `:invalid` on a value off its own step
+    // too, and the default it opens with must not be one.
+    expect(input.checkValidity(), `${input.id} opens invalid at ${input.value}`).toBe(true)
+  }
 })
 
 test('a field being typed into is not rewritten under the cursor', async () => {

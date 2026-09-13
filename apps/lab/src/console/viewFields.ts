@@ -13,21 +13,24 @@ export interface ViewField {
   /** The dictionary key of the label, and of the help paragraph where there is one. */
   label: PlainUiKey
   help?: PlainUiKey
-  min: number
-  max: number
   step: number
 }
 
 /**
- * The four (five, with `top`) number fields of the preview, with the bounds
- * the old lab gives them — narrower than `VIEW_RANGE` on purpose: the range
- * is what the CLI accepts, these are what a person is offered. Typing past
- * them still works and still clamps, exactly as it does today.
+ * The four (five, with `top`) number fields of the preview.
+ *
+ * No bounds here on purpose. The old lab wrote its own, narrower than
+ * `VIEW_RANGE` — `cell` was offered 1..40 where the CLI takes 1..200 — and a
+ * field that declares a ceiling its own store legally passes is a field that
+ * goes `:invalid` on a legal value and reports `aria-valuemax=40` beside
+ * `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the point of
+ * render instead, so the contradiction cannot be written down. Only `step`
+ * lives here: it is a keyboard convenience, not a claim about what is allowed.
  */
 export const VIEW_FIELDS: readonly ViewField[] = [
-  { field: 'cell', label: 'cellLabel', help: 'cellHelp', min: 1, max: 40, step: 1 },
-  { field: 'stroke', label: 'strokeLabel', min: 0.2, max: 0.9, step: 0.05 },
-  { field: 'headWidth', label: 'headWidthLabel', min: 0, max: 0.9, step: 0.05 },
-  { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', min: 0.1, max: 1, step: 0.05 },
-  { field: 'top', label: 'topLabel', min: 1, max: 50, step: 1 },
+  { field: 'cell', label: 'cellLabel', help: 'cellHelp', step: 1 },
+  { field: 'stroke', label: 'strokeLabel', step: 0.05 },
+  { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
+  { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', step: 0.05 },
+  { field: 'top', label: 'topLabel', step: 1 },
 ]
