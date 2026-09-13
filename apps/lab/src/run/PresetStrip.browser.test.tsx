@@ -7,6 +7,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { PresetStrip } from './PresetStrip'
+// The last case measures where the marker lands, which needs the real cascade:
+// the tokens, `.fw`'s font and grid, and the strip's own rules, in the order
+// `main.tsx` loads them. `console.css` is not among them — nothing in this
+// file renders a console.
+import '../design/tokens.css'
+import '../design/shell.css'
+import '../design/run.css'
 
 function stub() {
   const calls = { start: 0 }
@@ -103,5 +110,30 @@ describe('PresetStrip', () => {
     await screen.getByRole('button', { name: /Easy.*square/ }).click()
     await act(async () => useStore.getState().params.set('seed', 12))
     expect(screen.container.textContent).not.toContain('edited')
+  })
+
+  // Geometry, because no text lookup can fail for this: `getByText('edited')`
+  // and `container.textContent` both resolve at any scroll offset, and the
+  // browser pass found the marker parked 1170px past the visible right edge of
+  // the strip — the one element that says why the highlight went, where nobody
+  // would ever see it, with the suite green. Rendered inside the app's own
+  // `.fw` root so the strip scrolls here as it scrolls there.
+  it('keeps the marker inside the part of the strip a reader can see', async () => {
+    const screen = await render(
+      <div className="fw">
+        <PresetStrip control={stub().control} />
+      </div>,
+    )
+    await screen.getByRole('button', { name: /Easy.*square/ }).click()
+    await act(async () => useStore.getState().params.set('W', 26))
+    const strip = screen.container.querySelector('.fw-presets')
+    if (strip === null) throw new Error('the strip is not on the page')
+    // A strip wide enough for all twenty-six chips has no edge to fall off,
+    // and this case would pass without asserting anything.
+    expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth)
+    const row = strip.getBoundingClientRect()
+    const marker = screen.getByText('edited').element().getBoundingClientRect()
+    expect(marker.left).toBeGreaterThanOrEqual(row.left)
+    expect(marker.right).toBeLessThanOrEqual(row.right)
   })
 })
