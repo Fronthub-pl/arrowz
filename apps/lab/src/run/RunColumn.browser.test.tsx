@@ -1,5 +1,6 @@
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { defaultParams, PARAM_SPEC } from '@arrowz/engine'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { RunColumn } from './RunColumn'
@@ -48,5 +49,56 @@ describe('RunColumn', () => {
     await expect.element(screen.getByRole('button', { name: 'Abort' })).toBeEnabled()
     await screen.getByRole('button', { name: 'Abort' }).click()
     expect(g.aborted()).toBe(1)
+  })
+})
+
+describe('the alternative actions', () => {
+  it('draws a new seed and runs at once', async () => {
+    const g = stub()
+    useStore.getState().params.setMany({ seed: 1 })
+    const screen = await render(<RunColumn control={g.control} />)
+    await screen.getByRole('button', { name: 'New seed' }).click()
+    expect(useStore.getState().params.values.seed).not.toBe(1)
+    expect(g.started()).toBe(1)
+  })
+
+  // Ruling 3: the seed came from Math.random, not from a hand, so it must not
+  // look like an edit — otherwise `auto` starts a second run behind it.
+  it('draws that seed through the machine path, leaving the edit count alone', async () => {
+    const before = useStore.getState().params.edits
+    const screen = await render(<RunColumn control={stub().control} />)
+    await screen.getByRole('button', { name: 'New seed' }).click()
+    expect(useStore.getState().params.edits).toBe(before)
+  })
+
+  it('puts every knob back and runs at once', async () => {
+    const g = stub()
+    useStore.getState().params.set('W', 77)
+    const screen = await render(<RunColumn control={g.control} />)
+    await screen.getByRole('button', { name: 'Defaults' }).click()
+    expect(useStore.getState().params.values.W).toBe(defaultParams().W)
+    expect(g.started()).toBe(1)
+  })
+
+  it('keeps a drawn seed inside what the knob accepts', async () => {
+    const spec = PARAM_SPEC.find((s) => s.key === 'seed')
+    if (spec === undefined) throw new Error('PARAM_SPEC has no seed')
+    const screen = await render(<RunColumn control={stub().control} />)
+    for (let i = 0; i < 20; i++) await screen.getByRole('button', { name: 'New seed' }).click()
+    const seed = useStore.getState().params.values.seed
+    expect(seed).toBeGreaterThanOrEqual(spec.min)
+    expect(seed).toBeLessThanOrEqual(spec.max)
+  })
+
+  // Neither button is disabled by a broken rule, and neither should be: the
+  // point of Defaults is to escape one. New seed cannot, and says so through
+  // the status line rather than through a dead button (Ruling 13).
+  it('leaves Defaults usable while a rule is broken, and it clears the rule', async () => {
+    const g = stub()
+    useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
+    const screen = await render(<RunColumn control={g.control} />)
+    await screen.getByRole('button', { name: 'Defaults' }).click()
+    expect(useStore.getState().params.violations).toHaveLength(0)
+    expect(g.started()).toBe(1)
   })
 })

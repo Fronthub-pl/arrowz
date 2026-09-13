@@ -16,6 +16,22 @@ export function RunColumn({ control }: { control: RunControl }) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
+  const setMany = useStore((state) => state.params.setMany)
+  const resetParams = useStore((state) => state.params.reset)
+
+  // `setMany` and not `set`: a seed the machine drew is not a knob a person
+  // typed, and only the typed path may wake `auto` (Ruling 3). The range is
+  // the old lab's own (`lab-page.ts:919`), and `clampParam` holds it inside
+  // PARAM_SPEC's bounds regardless.
+  const reseed = () => {
+    setMany({ seed: Math.floor(Math.random() * 999999) })
+    control.start()
+  }
+  const defaults = () => {
+    resetParams()
+    control.start()
+  }
+
   return (
     <section className="fw-run-col" aria-label={dict.t('runColumn')}>
       <LiveCommand />
@@ -29,6 +45,12 @@ export function RunColumn({ control }: { control: RunControl }) {
         {dict.t('generate')}
       </button>
       <div className="fw-alt">
+        <button type="button" onClick={reseed}>
+          {dict.t('reseed')}
+        </button>
+        <button type="button" onClick={defaults}>
+          {dict.t('reset')}
+        </button>
         <button type="button" onClick={control.abort} disabled={!running}>
           {dict.t('abort')}
         </button>
