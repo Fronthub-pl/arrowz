@@ -11,6 +11,16 @@ import { useStore } from '../state/store'
  *
  * `--warn` and not `--error`: nothing is refused, a value moved, and §7.1
  * reserves warn for exactly that.
+ *
+ * The region is deliberately unnamed, unlike `RunStatusBar`'s. `status` is not
+ * a landmark, so the name is not something a reader navigates by, and what is
+ * announced here is the whole message, which says what it is on its own — the
+ * status bar's "Board closed 100%." does not, which is why that one carries a
+ * name. The cost is that this region has no stable handle: a whole-page test
+ * wanting it must reach for the message text or the class, because the run
+ * status bar is the one `getByRole('status', { name: 'Run status' })` finds.
+ * A dictionary key used by nothing but a test would buy the handle; that is
+ * the trade, and it was taken on purpose rather than overlooked.
  */
 export function ClampNotice({ focusOnDismiss }: { focusOnDismiss: RefObject<HTMLButtonElement | null> }) {
   const dict = useDictionary()

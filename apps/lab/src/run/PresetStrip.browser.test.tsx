@@ -1,6 +1,7 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
+import { act } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
@@ -29,10 +30,17 @@ describe('PresetStrip', () => {
   })
 
   // Ruling 8: four chips read `square`, so the name a screen reader hears
-  // carries the level and the size the visible label drops.
+  // carries the level and the size the visible label drops. The regex pins the
+  // format of one name; the set is the property the visible label breaks —
+  // twenty-six chips, twenty-six names, no two of them the same.
   it('names each chip in full for a screen reader', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await expect.element(screen.getByRole('button', { name: /Easy.*25×50.*tunnels/ })).toBeInTheDocument()
+    const names = screen
+      .getByRole('button')
+      .elements()
+      .map((chip) => chip.getAttribute('aria-label'))
+    expect(new Set(names).size).toBe(OPTIONS.length)
   })
 
   // A preset is a full configuration, not a patch (`lab-presets.ts`'s head
@@ -47,10 +55,16 @@ describe('PresetStrip', () => {
   })
 
   // §2.2 row 2: "all knobs set from the preset, `cell` from `exportCell`".
+  //
+  // Hard 75×150 and not a smaller board: `exportCell` saturates at 18, which
+  // every board up to 91 cells on its longer side reaches, so a preset from
+  // the top of the table would be satisfied by the 18 another case has
+  // already left behind — and by the wrong size as readily as the right one.
+  // 75×150 gives 11, which is neither 18 nor the slice's own starting 12.
   it('sets the export cell size the preset implies', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
-    await screen.getByRole('button', { name: /Medium.*square/ }).click()
-    expect(useStore.getState().view.cell).toBe(exportCell(50, 50))
+    await screen.getByRole('button', { name: /Hard.*portrait/ }).click()
+    expect(useStore.getState().view.cell).toBe(exportCell(75, 150))
   })
 
   it('runs at once, and through the machine path', async () => {
@@ -80,10 +94,14 @@ describe('PresetStrip', () => {
     await expect.element(screen.getByText('edited')).toBeInTheDocument()
   })
 
+  // `act`, as `useAutoRun.browser.test.tsx` wraps its own store writes: a write
+  // from outside a React event reaches the DOM on a microtask at the earliest,
+  // and a synchronous read after it would see the render before it — in which
+  // the marker is equally absent, whatever `findPreset` makes of the seed.
   it('does not say so for a knob no preset names', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await screen.getByRole('button', { name: /Easy.*square/ }).click()
-    useStore.getState().params.set('seed', 12)
+    await act(async () => useStore.getState().params.set('seed', 12))
     expect(screen.container.textContent).not.toContain('edited')
   })
 })

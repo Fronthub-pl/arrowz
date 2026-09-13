@@ -1,4 +1,4 @@
-import { findPreset } from '@arrowz/engine/presets'
+import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 
@@ -17,13 +17,19 @@ export function TopBar() {
   const W = values.W
   const H = values.H
   const preset = findPreset(values)
+  // The level that *contains* the option, not the first segment of its id:
+  // `PRESETS` nests the options under their level already, so the containing
+  // level is exact, and a level id with a hyphen of its own (`very-hard`)
+  // cannot cut the name down to its mode. `findPreset` returns the very object
+  // the table holds, so identity is the right test.
+  const level = preset === null ? undefined : PRESETS.find((entry) => entry.options.includes(preset))
   // Same narrowing as `PresetStrip`: a level id is a plain string, the
-  // dictionary's `levels` a fixed-key object. An option's id is `<level>-…`.
+  // dictionary's `levels` a fixed-key object.
   const levels = dict.d.presets.levels as Partial<Record<string, string>>
   const name =
-    preset === null
+    preset === null || level === undefined
       ? null
-      : `${levels[preset.id.split('-')[0] ?? ''] ?? ''} ${dict.d.presets.modes[preset.mode]}`.trim()
+      : `${levels[level.id] ?? level.id} ${dict.d.presets.modes[preset.mode]}`
   return (
     <header className="fw-top">
       <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">

@@ -1,5 +1,5 @@
 import { dictionary } from '@arrowz/engine/i18n'
-import { useRef } from 'react'
+import { act, useRef } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
@@ -47,10 +47,18 @@ describe('ClampNotice', () => {
 
   // Replaced by the outcome of the next load, not stacked with it: the old
   // lab's `showClamped(clamped)` takes a boolean for exactly this reason.
+  //
+  // Each write is wrapped in `act`, as `useAutoRun.browser.test.tsx` wraps its
+  // own: a store write from outside a React event reaches the DOM on a
+  // microtask at the earliest, so a synchronous read after it sees the render
+  // before it — and an implementation that latched, raising once and never
+  // lowering, would pass. The raise is asserted before the lower for the same
+  // reason: without it the case is equally true of a region never filled.
   it('is lowered again by a load that had nothing to clamp', async () => {
     const screen = await render(<Host />)
-    useStore.getState().ui.raiseClamped(true)
-    useStore.getState().ui.raiseClamped(false)
+    await act(async () => useStore.getState().ui.raiseClamped(true))
+    expect(screen.getByRole('status').element().textContent).toContain(EN.t('clamped'))
+    await act(async () => useStore.getState().ui.raiseClamped(false))
     expect(screen.getByRole('status').element().textContent).toBe('')
   })
 })
