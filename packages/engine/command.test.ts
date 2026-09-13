@@ -8,6 +8,7 @@ import {
   buildCommand,
   COMMAND_PREFIX,
   DEFAULT_VIEW,
+  drawnViolations,
   flagViolation,
   helpText,
   knobFlag,
@@ -19,7 +20,7 @@ import {
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
-import type { Params, ViewNumber } from './types.ts'
+import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
@@ -618,4 +619,23 @@ Deno.test('flagViolation: every violation the envelope can raise names a flag', 
   const lines = validateParams(bad).map(flagViolation)
   assert(lines.length >= 4, `${lines.length} violations`)
   for (const line of lines) assertMatch(line, /^--[a-z-]+/, line)
+})
+
+Deno.test('drawnViolations names the values nobody wrote, and never a rule', () => {
+  // The envelope runs on the DRAWN set, so a range violation can land on a knob
+  // an everyday flag chose. Telling the caller to fix that is telling them to
+  // fix somebody else's arithmetic; the CLI refuses it as a bug in the draw
+  // instead. Nothing produces one today, which is exactly why the split is a
+  // function with a test rather than a comment.
+  const typed = new Set<ParamKey>(['W', 'H', 'seed', 'wMid'])
+  const drawn: Violation = { kind: 'range', key: 'wShort', value: 1.2, min: 0, max: 0.9 }
+  const mine: Violation = { kind: 'range', key: 'wMid', value: 1.2, min: 0, max: 0.9 }
+  const stepOfMine: Violation = { kind: 'step', key: 'wMid', value: 0.055, step: 0.01, min: 0 }
+  const stepOfTheirs: Violation = { kind: 'step', key: 'wShort', value: 0.055, step: 0.01, min: 0 }
+  // A rule is about the combination, and the caller can always answer it by
+  // writing one of its knobs differently -- so it stays theirs to fix.
+  const rule: Violation = { kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }
+  assertEquals(drawnViolations([drawn, mine, stepOfMine, stepOfTheirs, rule], typed), [drawn, stepOfTheirs])
+  assertEquals(drawnViolations([mine, stepOfMine, rule], typed), [])
+  assertEquals(drawnViolations([], typed), [])
 })

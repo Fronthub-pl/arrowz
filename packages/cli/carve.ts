@@ -35,11 +35,23 @@ import {
   GenerateAbort,
   INACTIVE_REASONS,
   PARAM_SPEC,
+  RULE_REASONS,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { boardId, buildCommand, flagViolation, helpText, knobFlag, parseArgs, svgOptions } from '@arrowz/engine/command'
-import { BUNDLES, simpleParams } from '@arrowz/engine/simple'
+import {
+  boardId,
+  buildCommand,
+  drawnViolations,
+  flagOf,
+  flagViolation,
+  helpText,
+  knobFlag,
+  parseArgs,
+  svgOptions,
+} from '@arrowz/engine/command'
+import { BUNDLES, drawParams } from '@arrowz/engine/simple'
+import type { Move } from '@arrowz/engine/simple'
 import { saveBoard } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).
@@ -189,13 +201,41 @@ if (unread.length) refuseErrors(unread.map(unreadReason))
 // value it would have had without them.
 const pinned: Partial<Record<ParamKey, number>> = {}
 // Reading a pin back out of parsed.params (rather than off the flag itself)
-// is correct only because the clamp below never moves a pinned value once
-// simpleParams has written it; a clamp that could would silently re-pin the
-// moved value here.
+// is correct only because the draw never moves a pinned value once it has
+// written it; a clamp that could would silently re-pin the moved value here.
+// That was a comment for three rounds and is now a test: lab-simple.test.ts
+// sweeps 300 pins and asserts every one comes back unmoved.
 for (const key of parsed.pins) pinned[key] = parsed.params[key]
-const params = simpleParams(parsed.choice, parsed.choice.random ? Math.random : null, pinned)
+const draw = drawParams(parsed.choice, parsed.choice.random ? Math.random : null, pinned)
+const params = draw.params
+/** Knobs whose value is a number this command line wrote: the pins, plus the size and the seed. */
+const typedKeys = new Set<ParamKey>([...parsed.pins, 'W', 'H', 'seed'])
+/**
+ * A range or step violation about a knob NOBODY wrote cannot be the caller's
+ * mistake: an everyday flag drew that value, and no edit to the command line
+ * as typed would answer it. The envelope runs after the draw, so without this
+ * the refusal would name the drawn knob and read like advice. It is a bug in
+ * the draw, and it is refused as one.
+ *
+ * Nothing produces one today -- the share clamp is the only transform and it
+ * stops inside the ranges -- which is the whole reason the check is here: the
+ * next transform will be written by someone who does not remember this one.
+ */
 function refuseInvalid(p: Params): void {
   const violations = validateParams(p)
+  const drawn = drawnViolations(violations, typedKeys)
+  if (drawn.length) {
+    refuseErrors(
+      drawn.map((v) => {
+        const key = v.kind === 'rule' ? 'W' : v.key
+        const bundle = bundleOf(key)
+        const who = bundle ? bundleFlag(bundle) : 'the defaults'
+        return `${flagViolation(v)}; nothing on this command line wrote ${flagOf(key)} -- ${who} drew it, ` +
+          'which is a bug in the draw rather than in the command'
+      }),
+      violations,
+    )
+  }
   if (violations.length) refuseViolations(violations)
 }
 refuseInvalid(params)
@@ -263,6 +303,26 @@ for (const key of parsed.pins) {
   if (dead) console.error(`note: ${knobFlag(params, key)} has no effect here: ${dead}`)
 }
 
+/**
+ * A knob the draw had to move to keep a rule, said once per knob for the whole
+ * run. Without it the pin note was a half-truth: `--length=0 --wmid=0.5` said
+ * "--length still sets wShort" while the share it set, 0.75, had been moved to
+ * 0.4 to keep the pair under the cap, and nothing anywhere said so.
+ *
+ * Once per KNOB, not once per move: with --randomized every board draws its own
+ * numbers, so the first board that moves a knob speaks for the run and the rest
+ * stay quiet rather than printing a line each.
+ */
+const movesSaid = new Set<ParamKey>()
+function noteMoves(moves: readonly Move[]): void {
+  for (const m of moves) {
+    if (movesSaid.has(m.key)) continue
+    movesSaid.add(m.key)
+    console.error(`note: ${flagOf(m.key)} moved from ${m.from} to ${m.to}: ${RULE_REASONS[m.rule]}`)
+  }
+}
+noteMoves(draw.moved)
+
 // --- a batch: --count=N [--max-seeds=M] ------------------------------------
 // The flags themselves were read and refused above; what is left needs the
 // knobs, because the last seed of the batch has to be one the engine accepts.
@@ -273,7 +333,9 @@ if (count !== null) refuseInvalid({ ...params, seed: params.seed + seedLimit - 1
 /** The parameters of one seed: --randomized draws them anew for each, over the same pins. */
 function forSeed(seed: number): Params {
   const choice = { ...parsed.choice, seed }
-  return simpleParams(choice, choice.random ? Math.random : null, pinned)
+  const d = drawParams(choice, choice.random ? Math.random : null, pinned)
+  noteMoves(d.moved)
+  return d.params
 }
 
 // --- one board into the store (or, with --dry-run, nowhere) ----------------
