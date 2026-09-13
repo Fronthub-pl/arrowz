@@ -1,0 +1,27 @@
+/* The Fronthub design system's tokens as the workshop mock declares them,
+   minus `--ok` and `--signal-soft`, which the mock declares and never uses.
+   `--error` and `--border-strong` are the opposite case: used by the mock,
+   absent from the design system's own token list, and flagged there rather
+   than resolved here (spec §7.1).
+
+   Dark is the only theme, radius is zero everywhere except the switch and the
+   ready dot, `--signal` carries state and data only, and `--warn` is reserved
+   for a clamped value or a rule bound. */
+.fw {
+  --void: #0e0f12;
+  --graphite: #16171b;
+  --surface: #1c1f24;
+  --border: #2a2c33;
+  --border-strong: #3a3e47;
+  --ash: #8a8f99;
+  --mist: #a9aeb8;
+  --ink: #edeef2;
+  --paper: #f4f5f8;
+  --signal: #5e6ad2;
+  --signal-hover: #6f7adb;
+  --signal-press: #4c57be;
+  --warn: #d9a038;
+  --error: #de5c4e;
+  --ui: Archivo, Helvetica, Arial, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+}

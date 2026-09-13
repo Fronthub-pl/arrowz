@@ -1,0 +1,29 @@
+{
+  "name": "@arrowz/lab",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "build": "vite build",
+    "serve": "vite"
+  },
+  "dependencies": {
+    "@arrowz/board-element": "workspace:*",
+    "@arrowz/engine": "workspace:*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.5.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/browser-playwright": "^5.0.0",
+    "playwright": "^1.63.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
+  }
+}
