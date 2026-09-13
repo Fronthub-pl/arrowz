@@ -87,6 +87,10 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
             type="button"
             className="num"
             aria-label={`${label}: ${word ?? value}`}
+            // The same paragraph the slider points at. Both surfaces of the
+            // value carry it: a knob's reason reaching only one of them is a
+            // reason a keyboard user meets half the time.
+            aria-describedby={whyId}
             onClick={() => setDraft(String(value))}
           >
             {word === null ? null : <em>{word}</em>}
@@ -100,6 +104,7 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
             inputMode="decimal"
             value={draft}
             aria-label={label}
+            aria-describedby={whyId}
             onChange={(event) => setDraft(event.currentTarget.value)}
             onBlur={commit}
             onKeyDown={(event) => {

@@ -203,12 +203,19 @@
 /* A knob that does nothing at these settings. The *control* is dimmed; the
    sentence explaining why is not. The mock dims the whole card at `.4`, and
    the old lab does the same (lab.html:160) — which puts the one line that
-   says "No effect: needs skeleton elements > 0" at about 2.3:1. */
+   says "No effect: needs skeleton elements > 0" at about 2.3:1.
+
+   `.7` and not `.55`: the exemption AA grants a dimmed control is for a
+   *disabled* one, and this knob is not disabled — it takes focus, it takes a
+   value, and it keeps it. `--mist` over `--void` composites to 4.73:1 at .7
+   and to 3.35:1 at .55; console.test.ts computes the number rather than
+   trusting this comment. The dim still reads as a dim: `--mist` lands at about
+   #7b7e86, not back at its own #a9aeb8. */
 .fw-k.off .lab,
 .fw-k.off .num,
 .fw-k.off select,
 .fw-k.off .bar {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 .fw-k.off .num {
   color: var(--mist);

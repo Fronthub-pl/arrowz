@@ -142,6 +142,23 @@ test('an inactive knob says what would make it do something', async () => {
   const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
   // giants is 0, so the serpentine knobs do nothing.
   expect(screen.container.querySelector('.why')?.textContent).toContain('No effect:')
+  // The one place this console knowingly departs from the spec's table: a knob
+  // that does nothing is dimmed, but it is not disabled — it is focusable,
+  // operable, and it keeps what is typed into it. A later "correction" back to
+  // `aria-disabled` would be silent, so both halves are asserted.
+  expect(screen.container.querySelector('.fw-k')?.className).toContain('off')
+  expect(screen.container.querySelector('[aria-disabled]')).toBeNull()
+})
+
+test('the reason reaches the number and the inline entry, not only the slider', async () => {
+  params().reset()
+  const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
+  const number = screen.getByRole('button', { name: /skeleton length/ })
+  // Tabbing to the number used to announce "skeleton length: 30, button" and
+  // nothing about why the knob is dead.
+  await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why')
+  await number.click()
+  await expect.element(screen.getByRole('textbox')).toHaveAttribute('aria-describedby', 'knob-giantSpan-why')
 })
 
 test('a knob under a rule floor states the bound in words, not only as a mark', async () => {
