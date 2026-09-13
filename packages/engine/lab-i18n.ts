@@ -109,6 +109,9 @@ export const EN = {
     showHelp: 'show parameter descriptions',
     tabLab: 'Lab',
     tabLibrary: 'Saved boards',
+    tabDocs: 'Docs',
+    /** The accessible name of the tab strip itself, not of any one tab. */
+    tabsLabel: 'Sections',
     fullView: 'Full view (key F)',
     pressGenerate: 'Press "Generate".',
     generating: 'Generating…',
@@ -458,6 +461,8 @@ export const PL: Translation = {
     showHelp: 'pokazuj opisy parametrów',
     tabLab: 'Laboratorium',
     tabLibrary: 'Zapisane plansze',
+    tabDocs: 'Dokumentacja',
+    tabsLabel: 'Sekcje',
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',

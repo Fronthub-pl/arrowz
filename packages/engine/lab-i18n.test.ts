@@ -213,3 +213,17 @@ Deno.test('choiceText looks up a real Polish word for a real choice pair', () =>
   assert(words, 'expected PL.choices.trapBias to exist')
   assertEquals(pl.choiceText('trapBias', 'seek'), words.seek)
 })
+
+Deno.test('the third tab has a name in both languages', () => {
+  assertEquals(dictionary('en').t('tabDocs'), 'Docs')
+  assertEquals(dictionary('pl').t('tabDocs'), 'Dokumentacja')
+})
+
+Deno.test('the tab strip has a name of its own, distinct from every tab', () => {
+  for (const lang of ['en', 'pl'] as const) {
+    const dict = dictionary(lang)
+    const strip = dict.t('tabsLabel')
+    assert(strip.length > 0)
+    for (const tab of ['tabLab', 'tabLibrary', 'tabDocs'] as const) assertNotEquals(strip, dict.t(tab))
+  }
+})
