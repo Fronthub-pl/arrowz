@@ -23,8 +23,11 @@ export function TabRow() {
 
   // Arrow keys move the selection and the focus together; the pattern wraps at
   // both ends, and Home/End jump. A mouse user never meets this path, which is
-  // exactly why the mock has none of it.
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  // exactly why the mock has none of it. The listener sits on each tab, not on
+  // the tablist: the event still fires from the focused button either way, and
+  // the tablist container is then never a target of a handler or a click, so
+  // it needs no tabIndex of its own.
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const last = TABS.length - 1
     const next =
       event.key === 'ArrowRight'
@@ -47,15 +50,7 @@ export function TabRow() {
   }
 
   return (
-    <div
-      className="fw-tabrow"
-      role="tablist"
-      aria-label={dict.t('tabsLabel')}
-      // Not in the tab order: the roving tabindex lives on the tabs below.
-      // jsx-a11y still wants a container with a key handler to be focusable.
-      tabIndex={-1}
-      onKeyDown={onKeyDown}
-    >
+    <div className="fw-tabrow" role="tablist" aria-label={dict.t('tabsLabel')}>
       {TABS.map((tab, i) => (
         <button
           key={tab.path}
@@ -73,6 +68,7 @@ export function TabRow() {
             if (node && i === current && node.parentElement?.contains(document.activeElement)) node.focus()
           }}
           onClick={() => void navigate(tab.path)}
+          onKeyDown={onKeyDown}
         >
           {dict.t(tab.key)}
         </button>

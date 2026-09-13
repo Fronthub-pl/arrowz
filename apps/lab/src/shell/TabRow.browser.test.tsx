@@ -60,3 +60,20 @@ test('the left arrow from the first tab wraps to the last', async () => {
   await userEvent.keyboard('{ArrowLeft}')
   await expect.element(screen.getByRole('tab', { name: 'Docs', selected: true })).toBeVisible()
 })
+
+// The forward counterpart of the wrap above: from the last tab, right wraps
+// back to the first.
+test('the right arrow from the last tab wraps to the first', async () => {
+  const screen = await mount('/docs/element')
+  await screen.getByRole('tab', { name: 'Docs' }).click()
+  await userEvent.keyboard('{ArrowRight}')
+  await expect.element(screen.getByRole('tab', { name: 'Lab', selected: true })).toBeVisible()
+})
+
+// A plain decrement, with no boundary and no wrap involved.
+test('the left arrow from the middle tab moves to the first', async () => {
+  const screen = await mount('/boards')
+  await screen.getByRole('tab', { name: 'Saved boards' }).click()
+  await userEvent.keyboard('{ArrowLeft}')
+  await expect.element(screen.getByRole('tab', { name: 'Lab', selected: true })).toBeVisible()
+})
