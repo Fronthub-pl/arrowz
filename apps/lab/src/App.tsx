@@ -1,3 +1,12 @@
+import { BrowserRouter } from 'react-router'
+import { AppRoutes } from './AppRoutes'
+
 export function App() {
-  return <div className="fw" />
+  return (
+    <BrowserRouter>
+      <div className="fw">
+        <AppRoutes />
+      </div>
+    </BrowserRouter>
+  )
 }
