@@ -5,12 +5,18 @@ export type SaveOutcome = { ok: true; meta: BoardMeta } | { ok: false; error: st
 /**
  * The store is optional: the lab runs from any static host, and a missing
  * server must cost the run nothing. Both calls therefore report failure as a
- * value; neither throws.
+ * value. A rejected `fetch` and an answer that is not OK are treated alike —
+ * a store that refuses the connection and a store that returns 500 are the
+ * same thing to a caller with a list to render.
  */
 export async function listBoards(): Promise<BoardSize[]> {
-  const response = await fetch('/api/boards')
-  if (!response.ok) return []
-  return (await response.json()) as BoardSize[]
+  try {
+    const response = await fetch('/api/boards')
+    if (!response.ok) return []
+    return (await response.json()) as BoardSize[]
+  } catch {
+    return []
+  }
 }
 
 export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {

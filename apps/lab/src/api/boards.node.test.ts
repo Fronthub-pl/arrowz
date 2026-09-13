@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import { labProxy } from '../../vite.proxy'
+import { listBoards } from './boards'
 
 const STORE_PORT = 8790
 const VITE_PORT = 8791
@@ -77,7 +78,7 @@ test('a GET through the proxy reaches the store', async () => {
 })
 
 // The whole point of the task. The server refuses a write whose Origin is not
-// its own (lab-server.ts:76-77); this proves the proxy leaves the pair
+// its own (lab-server.ts:77); this proves the proxy leaves the pair
 // consistent, and it is what would go red if changeOrigin were ever added.
 test('a POST through the proxy is accepted, Origin and all', async () => {
   const params = { ...defaultParams(), W: 12, H: 12, seed: 3 }
@@ -120,4 +121,24 @@ test('the /boards route itself is not proxied', async () => {
   const r = await fetch(`${VITE_ORIGIN}/boards`)
   expect(r.status).toBe(200)
   expect(r.headers.get('content-type')).toMatch(/text\/html/)
+})
+
+// Nothing listens here.
+const DEAD_ORIGIN = 'http://127.0.0.1:8792'
+
+// The store is optional, so an unreachable one must resolve to an empty list
+// rather than reject. `listBoards` fetches a relative path, which Node cannot
+// resolve on its own, so the stub supplies only the origin and forwards the
+// call: the rejection under test is a real ECONNREFUSED from a real socket. A
+// second Vite server pointed at a dead target would instead exercise the
+// proxy's own error response, which is the `!response.ok` branch and not the
+// rejection branch this covers.
+test('listBoards answers with an empty list when the store is unreachable', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), DEAD_ORIGIN), args[1])
+  try {
+    await expect(listBoards()).resolves.toEqual([])
+  } finally {
+    globalThis.fetch = original
+  }
 })
