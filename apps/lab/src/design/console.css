@@ -137,3 +137,79 @@
   height: 8px;
   background: var(--warn);
 }
+.fw-k {
+  padding: 8px 0;
+  min-width: 0;
+}
+.fw-k .top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fw-k .lab {
+  color: var(--mist);
+  min-width: 0;
+}
+/* The mock's number is a span with `cursor: ew-resize` and a pointer scrub.
+   Here it is a button that opens the inline entry: the scrub is a mouse-only
+   gesture with no keyboard equivalent (Ruling 4). */
+.fw-k .num {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+}
+.fw-k .num:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fw-k .num em {
+  font-style: normal;
+  color: var(--mist);
+  margin-right: 8px;
+}
+.fw-k input {
+  width: 72px;
+  padding: 0 4px;
+  border: 1px solid var(--signal);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+.fw-k .why {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ash);
+}
+/* A knob the engine would refuse. The mock has no such state — its only knob
+   state is `.hold` in warn — and `--warn` belongs to the rule bound, so a
+   refusal gets `--error` and the two cannot be confused. */
+.fw-k.bad .num,
+.fw-k.bad .why {
+  color: var(--error);
+}
+.fw-k.bad .bar input[type='range']::-webkit-slider-thumb {
+  background: var(--error);
+}
+.fw-k.bad .bar input[type='range']::-moz-range-thumb {
+  background: var(--error);
+}
+/* A knob that does nothing at these settings. The *control* is dimmed; the
+   sentence explaining why is not. The mock dims the whole card at `.4`, and
+   the old lab does the same (lab.html:160) — which puts the one line that
+   says "No effect: needs skeleton elements > 0" at about 2.3:1. */
+.fw-k.off .lab,
+.fw-k.off .num,
+.fw-k.off select,
+.fw-k.off .bar {
+  opacity: 0.55;
+}
+.fw-k.off .num {
+  color: var(--mist);
+}
