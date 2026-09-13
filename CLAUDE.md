@@ -17,7 +17,7 @@
 
 - The engine and the CLI are TypeScript on Deno 2.9 in `packages/engine`
   (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
-  every change, and `deno task verify` (check, lint, fmt, test) before a PR.
+  every change, and `deno task verify` (check, lint, fmt, test, bundle) before a PR.
   The whole repository, Node projects included, is verified with
   `pnpm nx run-many -t verify`; pnpm comes through corepack (`corepack enable pnpm`).
 - The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and
@@ -32,6 +32,9 @@
   `pnpm nx build engine`; never import the engine's `.ts` sources from `apps/`.
 - The lab page and worker are bundled by `deno task bundle` into
   `packages/cli/dist/` (gitignored); `sh packages/cli/lab.sh` builds, watches and serves.
+  Both gates bundle, and `lab-bundle.test.ts` runs the bundled worker and checks
+  the page's fixed lookups against `lab.html`: the lab is built by the gates, so
+  what it does at run time has to be checked by something.
 - `deno task check`, `deno task bundle`, `deno task verify` and `lab.sh` need
   `corepack enable pnpm && pnpm install` once: the lab imports the board element,
   whose Lit resolves only from `packages/board-element/node_modules`.
