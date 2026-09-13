@@ -37,9 +37,11 @@ export function KnobSlider({
   const dict = useDictionary()
   const word = wordFor(spec.key, value)
   const pct = percent(value, bounds.min, bounds.max)
-  // A floor outside the knob's own range marks nothing: the whole track is
-  // already below it, and a marker at 0% or 100% would suggest otherwise.
-  const markFloor = floor !== undefined && floor > bounds.min && floor < bounds.max ? floor : undefined
+  // A floor at the knob's minimum binds nothing — the whole track is already
+  // legal, and a mark at 0% would suggest otherwise. A floor at its maximum
+  // binds everything but the last value, which is worth marking at 100%.
+  // Only a floor past the maximum is off the track.
+  const markFloor = floor !== undefined && floor > bounds.min && floor <= bounds.max ? floor : undefined
   return (
     <div className="bar">
       <input

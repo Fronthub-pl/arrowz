@@ -85,3 +85,23 @@ test('a floor outside the knob range marks nothing', async () => {
   )
   expect(screen.container.querySelectorAll('.bar u')).toHaveLength(0)
 })
+
+test('a floor exactly at the knob minimum marks nothing, because it binds nothing', async () => {
+  // pStraight runs 0.6..1; STRAIGHT_BASE is exactly 0.6 on a small board, and
+  // the whole track is already legal, so a mark at 0% would claim otherwise.
+  const screen = await render(
+    <KnobSlider spec={specOf('pStraight')} value={0.6} floor={0.6} label="straightness" onCommit={() => {}} />,
+  )
+  expect(screen.container.querySelectorAll('.bar u')).toHaveLength(0)
+})
+
+test('a floor exactly at the knob maximum marks the end of the track', async () => {
+  // pStraight runs 0.6..1; STRAIGHT_TOP is exactly 1 for some boards, and a
+  // floor there refuses every value but the last, which is worth marking.
+  const screen = await render(
+    <KnobSlider spec={specOf('pStraight')} value={0.6} floor={1} label="straightness" onCommit={() => {}} />,
+  )
+  const marker = screen.container.querySelector('.bar u')
+  expect(marker?.getAttribute('style')).toContain('100%')
+  expect(marker?.getAttribute('title')).toBe('Rule bound: 1')
+})
