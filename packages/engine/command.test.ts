@@ -18,6 +18,7 @@ import {
   START_CHOICES,
   type StartChoice,
   startChoiceOf,
+  storeRequest,
   VIEW_FLAG,
   VIEW_RANGE,
   viewNumberOf,
@@ -698,4 +699,31 @@ Deno.test('every start choice has a label in both dictionaries', async () => {
     assert(EN.start.options[choice], `EN is missing ${choice}`)
     assert(PL.start.options[choice], `PL is missing ${choice}`)
   }
+})
+
+Deno.test('storeRequest builds the command from the parameters it is given', () => {
+  const params = { ...defaultParams(), W: 25, H: 50, seed: 7 }
+  const req = storeRequest({ v: 1 } as never, params, DEFAULT_VIEW, 'lab')
+  assertEquals(req.command, buildCommand(params, DEFAULT_VIEW))
+  assertEquals(req.source, 'lab')
+  assertEquals(req.params.seed, 7)
+})
+
+Deno.test('storeRequest carries nulls through: a stored board reports missing figures as null', () => {
+  // Both callers need this: the lab sends `maxLen: null` for a run without
+  // metrics, and a re-POST of a stored board copies BoardMeta, whose ok,
+  // pieces and genMs are nullable (types.ts:281-284).
+  const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'lab', {
+    ok: null,
+    pieces: null,
+    maxLen: null,
+    genMs: null,
+  })
+  assertEquals(req.metrics?.maxLen, null)
+  assertEquals(req.metrics?.genMs, null)
+})
+
+Deno.test('storeRequest omits metrics entirely when none are passed', () => {
+  const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'cli')
+  assertEquals(req.metrics, undefined)
 })

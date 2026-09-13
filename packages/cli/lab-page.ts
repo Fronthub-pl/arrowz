@@ -38,6 +38,7 @@ import {
   START_CHOICES,
   type StartChoice,
   startChoiceOf,
+  storeRequest,
   svgOptions,
   viewNumberOf,
   wordFor,
@@ -1018,22 +1019,15 @@ function storeView(): View {
 }
 async function saveBoardToStore(board: BoardFile, done: Done) {
   const view = storeView()
-  const body = {
-    board,
-    params: runParams,
-    view,
-    command: buildCommand(runParams, view),
-    source: 'lab',
-    metrics: {
-      ok: done.ok,
-      pieces: done.pieces,
-      maxLen: done.metrics?.maxLen ?? null,
-      genMs: done.genMs,
-      restarts: done.restartsUsed,
-      backtracks: done.backtracks,
-      stuck: done.stuck,
-    },
-  }
+  const body = storeRequest(board, runParams, view, 'lab', {
+    ok: done.ok,
+    pieces: done.pieces,
+    maxLen: done.metrics?.maxLen ?? null,
+    genMs: done.genMs,
+    restarts: done.restartsUsed,
+    backtracks: done.backtracks,
+    stuck: done.stuck,
+  })
   try {
     const r = await fetch('/api/boards', {
       method: 'POST',
@@ -1275,14 +1269,15 @@ async function saveLibView() {
   const meta = libBoard
   if (!meta || libFile === null) return
   const view = libView(meta)
-  const body = {
-    board: libFile,
-    params: meta.params,
-    view,
-    command: buildCommand(meta.params, view),
-    source: meta.source,
-    metrics: { ok: meta.ok, pieces: meta.pieces, maxLen: meta.maxLen, genMs: meta.genMs },
-  }
+  // The page holds the file as unknown because it reads nothing in it, but
+  // decodeBoard accepted it when it loaded and it goes back to the store
+  // untouched, so the contract's BoardFile is what it is.
+  const body = storeRequest(libFile as BoardFile, meta.params, view, meta.source, {
+    ok: meta.ok,
+    pieces: meta.pieces,
+    maxLen: meta.maxLen,
+    genMs: meta.genMs,
+  })
   try {
     const r = await fetch('/api/boards', {
       method: 'POST',

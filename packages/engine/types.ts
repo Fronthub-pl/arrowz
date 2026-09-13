@@ -310,6 +310,30 @@ export interface BoardMeta {
   stuck: Stuck | null
 }
 
+/**
+ * The body of a board-store write. Mutable and nullable on purpose:
+ * `lab-server.ts`'s checkMetrics builds one field by field, and a `BoardMeta`
+ * read back out of the store carries `null` where a run had no figure (see
+ * `ok`, `pieces`, `maxLen` and `genMs` above). Making these readonly or
+ * non-nullable breaks both callers.
+ */
+export interface StoreRequest {
+  board: BoardFile
+  params: Params
+  view: View
+  command: string
+  source: string
+  metrics?: {
+    ok?: boolean | null
+    pieces?: number | null
+    maxLen?: number | null
+    genMs?: number | null
+    restarts?: number | null
+    backtracks?: number | null
+    stuck?: Stuck | null
+  }
+}
+
 export interface BoardSize {
   size: string
   W: number

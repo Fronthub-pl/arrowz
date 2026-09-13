@@ -9,12 +9,14 @@
 // The lab has to mirror the CLI 1:1, so both sides build and read the text
 // with this code.
 import type {
+  BoardFile,
   ParamGroup,
   ParamKey,
   Params,
   ParamSpec,
   RuleKey,
   SimpleChoice,
+  StoreRequest,
   SvgOptions,
   View,
   ViewNumber,
@@ -532,6 +534,21 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   if (v.top > 0) parts.push(`--top=${v.top}`)
   if (!v.rounded) parts.push('--sharp')
   return parts.join(' ')
+}
+
+/**
+ * The body of a board-store write, built where the command is built so the two
+ * cannot disagree. The store's own input type adds what only the CLI sends.
+ */
+export function storeRequest(
+  board: BoardFile,
+  params: Params,
+  view: View,
+  source: string,
+  metrics?: StoreRequest['metrics'],
+): StoreRequest {
+  const req: StoreRequest = { board, params, view, command: buildCommand(params, view), source }
+  return metrics === undefined ? req : { ...req, metrics }
 }
 
 /** What one call of the CLI asked for: the everyday choice, the knobs it pinned, the view and the modes. */
