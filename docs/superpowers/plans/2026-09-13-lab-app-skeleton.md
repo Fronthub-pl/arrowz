@@ -2,23 +2,24 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up `apps/lab` as a Vite + React project that enters both gates, carries the design system's tokens, routes, talks to the board store through a proxy that survives the server's CSRF refusal, and walks one path end to end — press Generate, watch a worker carve, draw the board in `<arrowz-board>`, save it to the store.
+**Goal:** Stand up `apps/lab` as a Vite + React project that enters both gates, carries the design system's tokens, routes, reaches the board store through a proxy, and walks one path end to end — press Generate, watch a worker carve, draw the board in `<arrowz-board>`, save it to the store.
 
-**Architecture:** The application is assembled bottom-up in twelve tasks, each of which leaves the repository green. The project joins Nx before it has any behaviour (Task 1), acquires its own linter (Task 2), then routes (Task 4), a shell (Task 5), a store client (Task 6), a run state machine (Task 7), a worker (Task 8), a board (Task 9), and only then the path that ties them together (Task 10). Two tasks exist purely to stop something from silently rotting: Task 3 adds the dictionary key the third tab needs on the Deno side, and Task 11 gives the Vite-built worker the fingerprint test that `lab-bundle.test.ts` gives the Deno-bundled one.
+**Architecture:** The application is assembled bottom-up in twelve tasks, each of which leaves the repository green. The project joins Nx before it has any behaviour (Task 1), acquires its own linter (Task 2), then routes (Task 4), a shell (Task 5), a store client (Task 6), a run state machine (Task 7), a worker (Task 8), a board (Task 9), and only then the path that ties them together (Task 10). Two tasks exist purely to stop something from silently rotting: Task 3 adds the dictionary keys the third tab needs on the Deno side, and Task 11 gives the Vite-served worker the parity test that `lab-bundle.test.ts` gives the Deno-bundled one.
 
 **Tech Stack:** Vite 8, React 19, React Router 8 (declarative mode), Zustand 5, `@lit/react`, Vitest 5 with a Node project and a Playwright Chromium browser project, ESLint 10 flat config with `typescript-eslint`, `eslint-plugin-react-hooks` and `eslint-plugin-jsx-a11y`, Prettier 3.9, Nx 23, pnpm 12, Node 24.
 
-**Spec:** `docs/superpowers/specs/2026-09-13-lab-react-app-design.md` (§3, §4.3, §4.4, §5.1, §5.3, §6, §7.1, §8, §9, §10 row "2")
+**Spec:** `docs/superpowers/specs/2026-09-13-lab-react-app-design.md` (§3, §4.3, §4.4, §5.1, §5.3, §6, §7.1, §8, §9, §10 row "2"). **This plan overturns §9.1 of that spec on measured evidence** — see Ruling 8.
 
 ## Global Constraints
 
 - Everything in the repository is in English: code, identifiers, comments, tests, documentation, branch names, commit messages, PR titles and descriptions. Conversation with the user is Polish; nothing Polish goes into files except translation dictionaries.
 - No `any`, no non-null assertions — in `apps/lab` these are ESLint rules, since `deno lint` does not read `apps/`.
 - `deno.json` excludes `apps/` from `fmt`, `lint`, `test` and type checking, and **stays that way**. `apps/lab` is formatted by Prettier and linted by ESLint.
-- Prettier is configured to match the repository's `deno fmt` settings: no semicolons, single quotes, print width 120. A reviewer moving between `packages/` and `apps/` must not see a different dialect.
+- **Every task runs `pnpm --filter @arrowz/lab exec prettier --write .` before its commit.** `fmt` is `prettier --check .`, and the code blocks in this plan are hand-formatted; pasting one literally and committing turns `fmt` red. Format first, then verify, then commit.
+- Prettier matches the repository's `deno fmt` settings: no semicolons, single quotes, print width 120. A reviewer moving between `packages/` and `apps/` must not meet a different dialect.
 - `packages/engine/dist/` and `packages/board-element/dist/` are gitignored and produced by `pnpm nx build engine` / `pnpm nx build board-element`. Every `apps/lab` target that compiles or runs code carries `dependsOn: ["^build"]`.
 - `apps/lab` depends on `@arrowz/engine` and `@arrowz/board-element` **by package name**, never by relative path, and never on the engine's `.ts` sources.
-- `apps/lab` pins the **same `playwright` version as `packages/board-element`** so CI's cached Chromium is shared. CI installs the browser with `pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium`; a different version would download a second one on every run.
+- `apps/lab` pins the **same `vite`, `vitest`, `@vitest/browser-playwright` and `playwright` versions as `packages/board-element`** so CI's cached Chromium is shared. CI installs the browser with `pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium`; a different version would download a second one on every run.
 - `pnpm nx run-many -t verify` must be green before the PR, and `deno task verify` must stay green (Task 3 is the only task that touches Deno-side code).
 - Never spread arrays proportional to the number of cells or pieces (`Math.min(...arr)`) — it overflows the worker stack in Chrome.
 - No attribution lines in commit messages or pull request descriptions.
@@ -26,15 +27,26 @@
 
 ## Rulings I made
 
-The spec does not decide these, and an implementer who guesses differently produces work that PR 3 has to undo. They are rulings, not questions.
+The spec does not decide these, and an implementer who guesses differently produces work that PR 3 has to undo.
 
-1. **Texts come from `dictionary('en')` from the first commit, not from string literals.** The language switch and the `lang` slice are PR 4, but the dictionary already exists (`@arrowz/engine/i18n`) and already has the keys. Literals would mean a sweep through every component in PR 4; a fixed `'en'` argument means PR 4 changes one call site.
-2. **PR 2 introduces the Zustand store with exactly one slice, `run`.** `useGenerator` is mounted in `App` and read in `LabRoute`; without a store the state would travel by props through the router, and PR 3 would rewrite it. The other six slices of §5.3 stay unwritten.
-3. **`run.slice` holds no history in PR 2.** History exists for the filmstrip, which is PR 7. The state machine is written so that adding history is an addition, not a change: the current run is one field.
-4. **The three routes exist from Task 4, two of them as a heading and a paragraph.** A tab strip with a dead tab cannot be tested; a tab strip whose third tab reaches an empty `<main>` can.
-5. **`AppRoutes` is separated from `App`.** `App` owns `<BrowserRouter>`, `useGenerator` and the board; `AppRoutes` owns `<Routes>`. Browser tests wrap `AppRoutes` in `<MemoryRouter>`; nothing else can test routing without touching the address bar.
-6. **The dev server listens on 8779.** `lab-server.ts` holds 8777 and `board-element`'s demo holds 8778.
-7. **`apps/lab` gets `@types/node` and `"types": ["node"]`,** because Task 6's integration test spawns the Deno lab server. An ESLint rule confines `node:` imports to `*.node.test.ts`, so the application code cannot quietly acquire a Node dependency.
+1. **Texts come from the dictionary from the first commit, through one hook.** `src/i18n.ts` exports `useDictionary()`, which returns `dictionary('en')` today and reads the `lang` slice in PR 4. Every component calls the hook; nobody holds a module-level `const dict`, because a module constant cannot react to a language change and PR 4 would have to rewrite each one.
+2. **PR 2 introduces the Zustand store with exactly one slice, `run`.** `useGenerator` is mounted in `App` and read in the lab panel; without a store the state would travel by props through the router, and PR 3 would rewrite it. The other six slices of §5.3 stay unwritten.
+3. **`run.slice` holds no history in PR 2.** History exists for the filmstrip, which is PR 7. The state machine is written so that adding history is an addition, not a change.
+4. **The three routes exist from Task 4, two of them as a heading and a paragraph.** A tab strip with a dead tab cannot be tested; a tab strip whose third tab reaches an empty panel can.
+5. **The lab panel is never unmounted; the route decides whether it is visible.** `<arrowz-board>`'s `disconnectedCallback` disposes the GL layer in a microtask (`packages/board-element/src/arrowz-board.ts:328-341`), and `useGenerator`'s cleanup terminates the worker. Both are mounted in `App`, outside `<Routes>`, and the lab panel carries `hidden` when the path is not `/`. The route table therefore maps `/` to `element={null}` — the lab is already on screen. This is the arrangement §5.1 and §6 ask for; the spec's own file name (`routes/LabRoute.tsx`) is kept so the two documents still line up.
+6. **`AppRoutes` is separated from `App`.** `App` owns `<BrowserRouter>`, `useGenerator`, the board and the save effect; `AppRoutes` owns `<Routes>`. Browser tests wrap the pieces in `<MemoryRouter>`; nothing else can test routing without touching the address bar.
+7. **The dev server listens on 8779.** `lab-server.ts` holds 8777 and `board-element`'s demo holds 8778.
+8. **The proxy sets a target and nothing else — no `changeOrigin`, no `proxyReq` hook.** Spec §9.1 asks for a hook that rewrites `Origin`; measured against Vite 8.2.2 and the server's own refusal rule (`lab-server.ts:66-79`), the hook is only needed *because* `changeOrigin` would be set, and `changeOrigin` is not needed at all. Three variants, one echo upstream computing `new URL(req.url, 'http://' + host)` exactly as `Deno.serve` does, one caller sending the header pair a browser tab sends:
+
+   | proxy options | upstream `Host` | upstream `Origin` | server's `url.origin` | refused? |
+   |---|---|---|---|---|
+   | `{ target }` | `localhost:8796` | `http://localhost:8796` | `http://localhost:8796` | **no** |
+   | `{ target, changeOrigin: true }` | `127.0.0.1:8795` | `http://localhost:8797` | `http://127.0.0.1:8795` | **yes, 403** |
+   | `{ target, changeOrigin: true, configure: hook }` | `127.0.0.1:8795` | `http://127.0.0.1:8795` | `http://127.0.0.1:8795` | no |
+
+   Without `changeOrigin` the client's `Host` is forwarded unchanged, so the origin the server derives from it is the origin the browser declares, and they agree by construction. `localhost` is in `LOCAL_HOSTS` (`lab-server.ts:60`), so the rebinding guard passes too. The simplest configuration is also the correct one; §9.1 is wrong about the necessity, right about the mechanism.
+9. **Task 11 proves parity through Vite's *transform*, not through `vite build`.** In browser mode the worker is served as transformed modules; rollup, minification and `sideEffects: false` never run. That is still worth pinning — a wrong alias or a dropped subpath export shows up here — but it is not the whole of what `lab-bundle.test.ts` proves. A parity test over the **built** artefact is a listed prerequisite of PR 8 and is recorded in Task 12, Step 6 rather than smuggled in here under a name it does not earn.
+10. **`types: []` in `tsconfig.json`.** Only the integration test needs Node's globals, and it says so itself with a triple-slash reference. A project-wide `types: ["node"]` would make `process`, `Buffer` and `__dirname` type-visible in browser code, which the ESLint import ban does not cover.
 
 ## File structure after this PR
 
@@ -44,27 +56,30 @@ apps/lab/
   project.json              the Nx targets, shaped like board-element's
   tsconfig.json             strict, bundler resolution, react-jsx
   index.html                the Vite entry
-  vite.config.ts            react plugin, port 8779, the proxy with the Origin rewrite
-  vitest.config.ts          two projects: node and chromium
-  vitest.setup.ts           imports vitest-browser-react's types and matchers
+  vite.config.ts            react plugin, port 8779, the proxy
+  vite.proxy.ts             the proxy table, importable by the integration test
+  vitest.config.ts          three projects: node, node-integration, chromium
+  vitest.setup.ts           imports vitest-browser-react's types and cleanup
   eslint.config.js          flat config: js, typescript-eslint, react-hooks, jsx-a11y
   .prettierrc.json          no semicolons, single quotes, width 120
   .prettierignore           dist
   src/
     vite-env.d.ts           /// <reference types="vite/client" />
     main.tsx                mount
-    App.tsx                 BrowserRouter, useGenerator, the single BoardCanvas
+    i18n.ts                 useDictionary() — one call site for PR 4
+    App.tsx                 BrowserRouter, useGenerator, the lab panel, the save effect
     AppRoutes.tsx           <Routes>, testable without the address bar
     shell/
       TopBar.tsx            mark, name, dims, right group
       TabRow.tsx            role="tablist", arrow keys, Home/End, aria-controls
     routes/
-      LabRoute.tsx          the stage, Generate, the run status line
+      LabRoute.tsx          the run bar and the stage; always mounted, `hidden` off-route
       SavedBoardsRoute.tsx  heading and a paragraph (PR 5 fills it)
       DocsRoute.tsx         heading and a paragraph (PR 6 fills it)
     stage/
       Stage.tsx             70px + 1fr, the board frame
       BoardCanvas.tsx       createComponent(<arrowz-board>) — the only @lit/react site
+      RunStatusBar.tsx      the live region: phase, progress, store outcome
     state/
       store.ts              the Zustand store
       run.slice.ts          idle | running | done | error
@@ -72,7 +87,7 @@ apps/lab/
     worker/
       generate.worker.ts    imports @arrowz/engine, speaks WorkerIn/WorkerOut
       useGenerator.ts       one long-lived worker, replace-by-terminate
-      fingerprint.browser.test.ts
+      parity.browser.test.ts
     api/
       boards.ts             GET / POST against the store
       boards.node.test.ts   against a live lab-server behind a live Vite proxy
@@ -82,13 +97,7 @@ apps/lab/
       shell.css             the ported shell rules of §7.1
 ```
 
-Files this PR modifies outside `apps/lab`:
-
-- `packages/engine/lab-i18n.ts` — one key in `EN.ui` and one in `PL.ui` (Task 3)
-- `packages/engine/lab-i18n.test.ts` — the assertion for it (Task 3)
-- `README.md` / `README.pl.md` — the new project in the layout section (Task 12)
-
-Nothing in `packages/cli` changes. The old lab keeps working until PR 8.
+Files this PR modifies outside `apps/lab`: `packages/engine/lab-i18n.ts` and its test (Task 3), `README.md` and `README.pl.md` (Task 12). Nothing in `packages/cli` changes; the old lab keeps working until PR 8.
 
 ---
 
@@ -97,25 +106,15 @@ Nothing in `packages/cli` changes. The old lab keeps working until PR 8.
 An empty React application that Nx can `check`, `test`, `build` and `verify`, carrying the design system's tokens and one test that pins them. The token test is not ceremony: §7.1 drops two of the mock's eighteen custom properties, and nothing but a test remembers that.
 
 **Files:**
-- Create: `apps/lab/package.json`
-- Create: `apps/lab/project.json`
-- Create: `apps/lab/tsconfig.json`
-- Create: `apps/lab/index.html`
-- Create: `apps/lab/vite.config.ts`
-- Create: `apps/lab/vitest.config.ts`
-- Create: `apps/lab/src/vite-env.d.ts`
-- Create: `apps/lab/src/main.tsx`
-- Create: `apps/lab/src/App.tsx`
-- Create: `apps/lab/src/design/tokens.css`
+- Create: `apps/lab/package.json`, `apps/lab/project.json`, `apps/lab/tsconfig.json`, `apps/lab/index.html`, `apps/lab/vite.config.ts`, `apps/lab/vitest.config.ts`
+- Create: `apps/lab/src/vite-env.d.ts`, `apps/lab/src/main.tsx`, `apps/lab/src/App.tsx`, `apps/lab/src/design/tokens.css`
 - Test: `apps/lab/src/design/tokens.test.ts`
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: the package name `@arrowz/lab`, the Nx project name `lab`, and `export function App(): JSX.Element` from `src/App.tsx`
+- Produces: the package name `@arrowz/lab`, the Nx project name `lab`, `export function App(): JSX.Element`
 
 - [ ] **Step 1: Create the package and install the dependencies**
-
-The versions are not written into `package.json` by hand — `pnpm add` resolves them and writes the ranges. Two are constrained:
 
 ```bash
 cd /Users/tomek/dev/arrowz
@@ -141,17 +140,14 @@ pnpm --filter @arrowz/lab add react react-dom
 pnpm --filter @arrowz/lab add -D @vitejs/plugin-react @types/react @types/react-dom @types/node typescript
 ```
 
-Vite, Vitest and Playwright must match `packages/board-element` exactly, so read its versions and install those:
+Four versions must match `packages/board-element` exactly. Print them and install those ranges verbatim:
 
 ```bash
-node -e "const p=require('./packages/board-element/package.json');console.log(p.devDependencies.vite,p.devDependencies.vitest,p.devDependencies.playwright,p.devDependencies['@vitest/browser-playwright'])"
+node -e "const d=require('./packages/board-element/package.json').devDependencies;console.log(['vite','vitest','playwright','@vitest/browser-playwright'].map(k=>k+'@'+d[k]).join(' '))"
+pnpm --filter @arrowz/lab add -D <the four printed specifiers>
 ```
 
-Install the four printed ranges verbatim:
-
-```bash
-pnpm --filter @arrowz/lab add -D vite@<printed> vitest@<printed> playwright@<printed> @vitest/browser-playwright@<printed>
-```
+`@types/node` is a dev dependency for the integration test of Task 6 only; `tsconfig.json` keeps `types: []` (Ruling 10) and that one file asks for the types itself.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -163,8 +159,8 @@ import tokens from './tokens.css?raw'
 
 const declared = [...tokens.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1])
 
-// The mock defines eighteen custom properties (fronthub-workshop-v2.css:11-29).
-// Spec §7.1 keeps sixteen: fourteen colours and two fonts, in the mock's order.
+// The mock declares eighteen custom properties. Spec §7.1 keeps sixteen:
+// fourteen colours and two fonts, in the mock's order.
 test('tokens.css declares the sixteen tokens the spec keeps, in order', () => {
   expect(declared).toEqual([
     '--void',
@@ -186,7 +182,7 @@ test('tokens.css declares the sixteen tokens the spec keeps, in order', () => {
   ])
 })
 
-// Defined by the mock and never used by it. Copying them would import two
+// Declared by the mock and never used by it. Copying them would import two
 // dead names into a design system that is about to be extended.
 test('the two unused tokens of the mock are not ported', () => {
   expect(declared).not.toContain('--ok')
@@ -196,13 +192,12 @@ test('the two unused tokens of the mock are not ported', () => {
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-First create the remaining configuration so Vitest can start at all:
+Create `apps/lab/vitest.config.ts` first, or Vitest has nothing to collect:
 
-```bash
-cat > apps/lab/vitest.config.ts <<'TS'
+```ts
 import { defineConfig } from 'vitest/config'
 
-// One project for now; Task 4 adds the Chromium one beside it.
+// Task 4 adds the node-integration and chromium projects beside this one.
 export default defineConfig({
   test: {
     projects: [
@@ -211,13 +206,12 @@ export default defineConfig({
           name: 'node',
           environment: 'node',
           include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-          exclude: ['src/**/*.browser.test.ts', 'src/**/*.browser.test.tsx'],
+          exclude: ['src/**/*.browser.test.ts', 'src/**/*.browser.test.tsx', 'src/**/*.node.test.ts'],
         },
       },
     ],
   },
 })
-TS
 ```
 
 Run: `pnpm --filter @arrowz/lab exec vitest run`
@@ -225,33 +219,33 @@ Expected: FAIL — `Failed to resolve import "./tokens.css?raw"`.
 
 - [ ] **Step 4: Write the tokens**
 
-Create `apps/lab/src/design/tokens.css`:
+Create `apps/lab/src/design/tokens.css`. These values are the port's source of truth: the mock lives in the Claude Design project "Arrowz workshop", not in this repository, so nothing here can be diffed against it later.
 
 ```css
-/* The Fronthub design system's tokens as the workshop mock declares them
-   (fronthub-workshop-v2.css:11-29), minus `--ok` and `--signal-soft`, which
-   the mock defines and never uses. `--error` and `--border-strong` are the
-   opposite case: used by the mock, absent from the design system's own token
-   list, and flagged there rather than resolved here (spec §7.1).
+/* The Fronthub design system's tokens as the workshop mock declares them,
+   minus `--ok` and `--signal-soft`, which the mock declares and never uses.
+   `--error` and `--border-strong` are the opposite case: used by the mock,
+   absent from the design system's own token list, and flagged there rather
+   than resolved here (spec §7.1).
 
    Dark is the only theme, radius is zero everywhere except the switch and the
    ready dot, `--signal` carries state and data only, and `--warn` is reserved
    for a clamped value or a rule bound. */
 .fw {
-  --void: #0E0F12;
-  --graphite: #16171B;
-  --surface: #1C1F24;
-  --border: #2A2C33;
-  --border-strong: #3A3E47;
-  --ash: #8A8F99;
-  --mist: #A9AEB8;
-  --ink: #EDEEF2;
-  --paper: #F4F5F8;
-  --signal: #5E6AD2;
-  --signal-hover: #6F7ADB;
-  --signal-press: #4C57BE;
-  --warn: #D9A038;
-  --error: #DE5C4E;
+  --void: #0e0f12;
+  --graphite: #16171b;
+  --surface: #1c1f24;
+  --border: #2a2c33;
+  --border-strong: #3a3e47;
+  --ash: #8a8f99;
+  --mist: #a9aeb8;
+  --ink: #edeef2;
+  --paper: #f4f5f8;
+  --signal: #5e6ad2;
+  --signal-hover: #6f7adb;
+  --signal-press: #4c57be;
+  --warn: #d9a038;
+  --error: #de5c4e;
   --ui: Archivo, Helvetica, Arial, sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 }
@@ -277,7 +271,7 @@ Create `apps/lab/src/design/tokens.css`:
     "moduleResolution": "bundler",
     "target": "es2022",
     "lib": ["es2022", "dom", "dom.iterable"],
-    "types": ["node"],
+    "types": [],
     "jsx": "react-jsx",
     "noEmit": true,
     "skipLibCheck": true,
@@ -286,11 +280,11 @@ Create `apps/lab/src/design/tokens.css`:
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "vite.config.ts", "vite.proxy.ts", "vitest.config.ts", "vitest.setup.ts"]
 }
 ```
 
-`moduleResolution: "bundler"` rather than `board-element`'s `nodenext`: this project is bundled by Vite rather than emitted by `tsc`, and `bundler` is what reads `@arrowz/engine`'s `exports` map without demanding file extensions in every import.
+`include` already names `vite.proxy.ts` (Task 6) and `vitest.setup.ts` (Task 4); listing a file that does not exist yet is not an error, and adding them later is a step everyone forgets. `moduleResolution: "bundler"` rather than `board-element`'s `nodenext`: this project is bundled by Vite rather than emitted by `tsc`, and `bundler` reads `@arrowz/engine`'s `exports` map without demanding file extensions in every import.
 
 `apps/lab/index.html`:
 
@@ -375,6 +369,7 @@ Expected: PASS, 2 tests.
     "test": {
       "executor": "nx:run-commands",
       "dependsOn": ["^build"],
+      "parallelism": false,
       "options": { "cwd": "apps/lab", "command": "pnpm run test" }
     },
     "build": {
@@ -393,16 +388,17 @@ Expected: PASS, 2 tests.
 }
 ```
 
-`lint` and `fmt` join `verify` in Task 2. `serve` carries `dependsOn: ["^build"]` explicitly because `nx.json`'s default puts it on `build` alone, and a fresh clone has no `packages/engine/dist/`.
+`lint` and `fmt` join `verify` in Task 2. `serve` carries `dependsOn: ["^build"]` explicitly because `nx.json`'s default puts it on `build` alone, and a fresh clone has no `packages/engine/dist/`. `test` carries `"parallelism": false` because `board-element`'s `vitest.config.ts` records that its timing-sensitive browser tests already fail when they merely share one software renderer; two Chromiums on a two-core CI runner is a condition nobody has measured, and this project's tests carve real boards.
 
 - [ ] **Step 8: Verify the project through Nx**
 
 Run: `pnpm nx run-many -t verify --projects=lab`
-Expected: `check`, `test` and `build` all pass. If `check` fails on an unresolved `@arrowz/engine`, run `pnpm nx build engine` and read `apps/lab/node_modules/@arrowz/engine` — the workspace link must point at `packages/engine`.
+Expected: `check`, `test` and `build` pass. If `check` fails on an unresolved `@arrowz/engine`, run `pnpm nx build engine` and check that `apps/lab/node_modules/@arrowz/engine` links to `packages/engine`.
 
 - [ ] **Step 9: Commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 git add apps/lab pnpm-lock.yaml
 git commit -m "Stand up apps/lab with the design system's tokens"
 ```
@@ -411,45 +407,35 @@ git commit -m "Stand up apps/lab with the design system's tokens"
 
 ### Task 2: The project's own linter and formatter
 
-`deno lint` and `deno fmt` do not read `apps/`, so the two rules the repository cares about most — no `any`, no non-null assertions — are unenforced in this project until ESLint arrives. `jsx-a11y` is here for a reason the spec states plainly: the mock has nine classes of accessibility gap, and the port must not inherit them.
+`deno lint` and `deno fmt` do not read `apps/`, so the two rules the repository cares about most — no `any`, no non-null assertions — are unenforced here until ESLint arrives. `jsx-a11y` is here for the reason the spec states plainly: the mock has nine classes of accessibility gap, and the port must not inherit them.
 
 **Files:**
-- Create: `apps/lab/eslint.config.js`
-- Create: `apps/lab/.prettierrc.json`
-- Create: `apps/lab/.prettierignore`
-- Modify: `apps/lab/package.json` (scripts, devDependencies)
-- Modify: `apps/lab/project.json` (the `lint` and `fmt` targets, `verify`'s `dependsOn`)
+- Create: `apps/lab/eslint.config.js`, `apps/lab/.prettierrc.json`, `apps/lab/.prettierignore`
+- Modify: `apps/lab/package.json` (scripts, devDependencies), `apps/lab/project.json` (`lint`, `fmt`, `verify`)
 
 **Interfaces:**
 - Consumes: the project of Task 1
-- Produces: `pnpm run lint` and `pnpm run fmt` in `apps/lab`, and `nx run lab:lint` / `nx run lab:fmt`
+- Produces: `pnpm run lint` and `pnpm run fmt` in `apps/lab`; `nx run lab:lint` / `nx run lab:fmt`
 
 - [ ] **Step 1: Install the toolchain**
 
 ```bash
 cd /Users/tomek/dev/arrowz
 pnpm --filter @arrowz/lab add -D eslint @eslint/js typescript-eslint eslint-plugin-react-hooks eslint-plugin-jsx-a11y prettier
+node -e "const d=require('./apps/lab/package.json').devDependencies;console.log('eslint',d.eslint,'prettier',d.prettier)"
 ```
 
-Then confirm the major versions the spec names, and stop if either is lower:
-
-```bash
-node -e "const p=require('./apps/lab/package.json');console.log('eslint',p.devDependencies.eslint,'prettier',p.devDependencies.prettier)"
-```
-
-Expected: `eslint ^10.x`, `prettier ^3.9.x` or newer.
+Expected: `eslint ^10.x`, `prettier ^3.9.x` or newer. pnpm will warn that `eslint-plugin-jsx-a11y` declares no ESLint 10 peer — expected, and not fatal: the plugin uses none of the context APIs ESLint 10 removed. If the install *fails* rather than warns, stop and report it.
 
 - [ ] **Step 2: Write the failing test**
 
-This task's test is a command, not a file: a deliberately bad component that each of the three plugins must reject. Create it as a scratch file — it is deleted in Step 5.
+This task's test is a command against a deliberately bad component that each of the three plugins must reject. It is deleted in Step 5.
 
 ```bash
 mkdir -p apps/lab/src/scratch
 cat > apps/lab/src/scratch/bad.tsx <<'TSX'
-// Each line below must be rejected by one of the three plugins.
 export function Bad({ onPick }: { onPick: (v: unknown) => void }) {
   const value = (globalThis as any).nothing
-  // eslint-plugin-jsx-a11y: a click handler on a div with no role or keyboard path
   return <div onClick={() => onPick(value!)}>pick</div>
 }
 TSX
@@ -458,7 +444,7 @@ TSX
 - [ ] **Step 3: Run the linter to verify it fails**
 
 Run: `pnpm --filter @arrowz/lab exec eslint src/scratch/bad.tsx`
-Expected: FAIL with at least three rule ids — `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-non-null-assertion` and `jsx-a11y/click-events-have-key-events` (or `jsx-a11y/no-static-element-interactions`). If ESLint reports "no configuration found", that is this step failing correctly; write the config in Step 4 and run it again.
+Expected: FAIL. "No configuration found" is this step failing correctly; write Step 4 and run it again.
 
 - [ ] **Step 4: Write the configuration**
 
@@ -475,17 +461,18 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommended,
   jsxA11y.flatConfigs.recommended,
-  reactHooks.configs['recommended-latest'],
+  // `configs.flat.*` — `configs['recommended-latest']` is the legacy eslintrc
+  // shape (`plugins` as an array), which ESLint 10 rejects outright.
+  reactHooks.configs.flat.recommended,
   {
-    languageOptions: {
-      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
-    },
     rules: {
       // The repository's two hard rules. deno lint enforces them in packages/;
       // apps/ is outside its reach, so they are stated here.
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
-      // Node belongs in the integration tests that spawn the lab server, and
+      // tsc exempts `_`-prefixed bindings; this rule does not unless told to.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // Node belongs in the integration test that spawns the lab server, and
       // nowhere else: this application runs in a browser.
       'no-restricted-imports': ['error', { patterns: ['node:*'] }],
     },
@@ -497,7 +484,7 @@ export default tseslint.config(
 )
 ```
 
-If `reactHooks.configs['recommended-latest']` is undefined on the installed version, print the available keys with `node -e "import('eslint-plugin-react-hooks').then(m=>console.log(Object.keys(m.default.configs)))"` and use the flat recommended config it names. Do not silently drop the plugin — the rules-of-hooks check is the reason it is here.
+No `languageOptions.parserOptions`. `projectService` would put every file ESLint visits under a tsconfig, and `eslint .` visits `eslint.config.js`, which no tsconfig includes — typescript-eslint then reports a parse error for it. No rule enabled here is type-aware, so the project service would buy nothing anyway.
 
 `apps/lab/.prettierrc.json`:
 
@@ -515,17 +502,12 @@ If `reactHooks.configs['recommended-latest']` is undefined on the installed vers
 dist
 ```
 
-Add to `apps/lab/package.json`'s `scripts`:
+Add to `apps/lab/package.json`'s `scripts`: `"lint": "eslint ."` and `"fmt": "prettier --check ."`.
 
-```json
-"lint": "eslint .",
-"fmt": "prettier --check ."
-```
-
-- [ ] **Step 5: Run the linter to verify it now reports the three rules, then delete the scratch file**
+- [ ] **Step 5: Verify the three plugins fire, then delete the scratch file**
 
 Run: `pnpm --filter @arrowz/lab exec eslint src/scratch/bad.tsx`
-Expected: FAIL, naming `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-non-null-assertion` and a `jsx-a11y/*` rule. Then:
+Expected: FAIL naming `@typescript-eslint/no-explicit-any`, `@typescript-eslint/no-non-null-assertion` and a `jsx-a11y/*` rule (`click-events-have-key-events` or `no-static-element-interactions`). If ESLint instead throws `ConfigError: Key "plugins"`, the react-hooks config key is wrong — print `node -e "import('eslint-plugin-react-hooks').then(m=>console.log(Object.keys(m.default.configs),Object.keys(m.default.configs.flat??{})))"` and use the flat one. Do not drop the plugin: the rules-of-hooks check is why it is here.
 
 ```bash
 rm -r apps/lab/src/scratch
@@ -547,14 +529,10 @@ In `apps/lab/project.json` add:
 
 and change `verify` to `"dependsOn": ["check", "lint", "fmt", "test", "build"]`.
 
-- [ ] **Step 7: Verify**
-
-Run: `pnpm nx run-many -t verify --projects=lab`
-Expected: five targets pass.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 7: Verify and commit**
 
 ```bash
+pnpm nx run-many -t verify --projects=lab
 git add apps/lab pnpm-lock.yaml
 git commit -m "Give apps/lab ESLint and Prettier, with the repository's two hard rules"
 ```
@@ -563,10 +541,10 @@ git commit -m "Give apps/lab ESLint and Prettier, with the repository's two hard
 
 ### Task 3: The dictionary learns the third tab and the strip's own name
 
-The lab has two tabs today (`tabLab`, `tabLibrary`, `lab-i18n.ts:110-111`). The application has three: the docs route is part of step 3 of the road map, and §5.2 names it. A tablist also needs an accessible name of its own, and reusing a tab's name for the list that contains it is worse than having none. Both keys belong in the engine's dictionary with their neighbours, in both languages — `lab-i18n.test.ts` checks that `PL.ui` covers `EN.ui`, so a one-sided addition turns the Deno gate red.
+The lab has two tabs today (`tabLab`, `tabLibrary`, `lab-i18n.ts:110-111`). The application has three: the docs route is part of step 3 of the road map, and §5.2 names it. A tablist also needs an accessible name of its own, and reusing a tab's name for the list containing it is worse than having none. Both keys belong in the engine's dictionary with their neighbours, in both languages — `lab-i18n.test.ts` checks that `PL.ui` covers `EN.ui`, so a one-sided addition turns the Deno gate red.
 
 **Files:**
-- Modify: `packages/engine/lab-i18n.ts:110-111` (add to `EN.ui`) and the matching place in `PL.ui` (`:459-460`)
+- Modify: `packages/engine/lab-i18n.ts` (`EN.ui` after `:111`, `PL.ui` after `:460`)
 - Test: `packages/engine/lab-i18n.test.ts` (append)
 
 **Interfaces:**
@@ -619,38 +597,30 @@ and after `tabLibrary` in `PL.ui`:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `deno test -A packages/engine/lab-i18n.test.ts`
-Expected: PASS.
-
-Run: `deno task test`
-Expected: PASS — the key-parity test over `EN.ui` and `PL.ui` is in this suite.
+Run: `deno test -A packages/engine/lab-i18n.test.ts`, then `deno task test`
+Expected: PASS. The key-parity test between `EN.ui` and `PL.ui` is in the second suite; `PL: Translation` also forces the same key set at type level.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add packages/engine/lab-i18n.ts packages/engine/lab-i18n.test.ts
-git commit -m "Name the docs tab in both dictionaries"
+git commit -m "Name the docs tab and the tab strip in both dictionaries"
 ```
 
 ---
 
-### Task 4: Three routes, and a browser to test them in
+### Task 4: Three routes, one dictionary hook, and a browser to test them in
 
-Declarative React Router: `<BrowserRouter>` in `App`, `<Routes>` in `AppRoutes` so that a test can mount the routing without an address bar. This task also stands up the Chromium project that Tasks 5, 8, 9, 10 and 11 all need.
+Declarative React Router: `<BrowserRouter>` in `App`, `<Routes>` in `AppRoutes` so a test can mount the routing without an address bar. This task also stands up the Chromium project that Tasks 5, 8, 9, 10 and 11 need, and the `useDictionary()` hook of Ruling 1.
 
 **Files:**
-- Create: `apps/lab/src/AppRoutes.tsx`
-- Create: `apps/lab/src/routes/LabRoute.tsx`
-- Create: `apps/lab/src/routes/SavedBoardsRoute.tsx`
-- Create: `apps/lab/src/routes/DocsRoute.tsx`
-- Create: `apps/lab/vitest.setup.ts`
-- Modify: `apps/lab/src/App.tsx`
-- Modify: `apps/lab/vitest.config.ts` (the Chromium project)
+- Create: `apps/lab/src/i18n.ts`, `apps/lab/src/AppRoutes.tsx`, `apps/lab/src/routes/SavedBoardsRoute.tsx`, `apps/lab/src/routes/DocsRoute.tsx`, `apps/lab/vitest.setup.ts`
+- Modify: `apps/lab/src/App.tsx`, `apps/lab/vitest.config.ts`
 - Test: `apps/lab/src/AppRoutes.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `App` from Task 1
-- Produces: `export function AppRoutes(): JSX.Element`; the route paths `/`, `/boards`, `/docs/:what`; each route renders a `<main>` with `role="tabpanel"` and the ids `lab-panel`, `boards-panel`, `docs-panel`
+- Consumes: `App` from Task 1; `dictionary`, `Dict` from `@arrowz/engine/i18n`
+- Produces: `export function useDictionary(): Dict`; `export function AppRoutes(): JSX.Element`; the paths `/`, `/boards`, `/docs/:what`; the panel ids `lab-panel`, `boards-panel`, `docs-panel`
 
 - [ ] **Step 1: Install the router and the browser test tools**
 
@@ -661,7 +631,9 @@ pnpm --filter @arrowz/lab add -D vitest-browser-react
 node -e "console.log(require('./apps/lab/package.json').dependencies['react-router'])"
 ```
 
-Expected: `^8.x`. The spec's choice is React Router 8 in **declarative** mode — `<BrowserRouter>` and `<Routes>` only. Do not add `@react-router/dev`, `routes.ts`, or any framework-mode plugin.
+Expected: `^8.x`. Declarative mode only — `<BrowserRouter>` and `<Routes>`. Do not add `@react-router/dev`, `routes.ts`, or any framework-mode plugin.
+
+`userEvent` comes from `vitest/browser`, which is not a separate install: `vitest/browser/context.d.ts` re-exports `@vitest/browser-playwright/context`, and that package is already a dev dependency from Task 1.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -673,48 +645,51 @@ import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { AppRoutes } from './AppRoutes'
 
-test('the root path is the lab', async () => {
-  const screen = await render(
-    <MemoryRouter initialEntries={['/']}>
+const at = (path: string) =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
       <AppRoutes />
     </MemoryRouter>,
   )
-  await expect.element(screen.getByRole('tabpanel', { name: 'Lab' })).toBeVisible()
-})
 
 test('/boards is the saved boards', async () => {
-  const screen = await render(
-    <MemoryRouter initialEntries={['/boards']}>
-      <AppRoutes />
-    </MemoryRouter>,
-  )
+  const screen = await at('/boards')
   await expect.element(screen.getByRole('tabpanel', { name: 'Saved boards' })).toBeVisible()
 })
 
 test('/docs/element is the docs, and the segment reaches the page', async () => {
-  const screen = await render(
-    <MemoryRouter initialEntries={['/docs/element']}>
-      <AppRoutes />
-    </MemoryRouter>,
-  )
+  const screen = await at('/docs/element')
   await expect.element(screen.getByRole('tabpanel', { name: 'Docs' })).toBeVisible()
   await expect.element(screen.getByText('element')).toBeVisible()
 })
 
-// A path nobody routed must not render a blank page with no explanation.
-test('an unknown path lands on the lab', async () => {
-  const screen = await render(
-    <MemoryRouter initialEntries={['/nowhere']}>
-      <AppRoutes />
-    </MemoryRouter>,
-  )
-  await expect.element(screen.getByRole('tabpanel', { name: 'Lab' })).toBeVisible()
+// The lab is not a route element (Ruling 5): App mounts it beside <Routes> and
+// hides it off-route, so `/` renders nothing here.
+test('the root path renders no panel of its own', async () => {
+  const screen = await at('/')
+  expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
+})
+
+test('an unknown path redirects to the root', async () => {
+  const screen = await at('/nowhere')
+  expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
+})
+
+// Each panel is inside a <main>, not instead of it: role="tabpanel" on <main>
+// would erase the page's only landmark.
+test('each panel keeps the main landmark around it', async () => {
+  const screen = await at('/boards')
+  await expect.element(screen.getByRole('main')).toBeVisible()
+  const panel = screen.container.querySelector('[role="tabpanel"]')
+  expect(panel?.closest('main')).not.toBeNull()
+  expect(panel?.getAttribute('aria-labelledby')).toBe('tab-boards-panel')
+  expect(panel?.getAttribute('tabindex')).toBe('0')
 })
 ```
 
 - [ ] **Step 3: Run the test to verify it fails**
 
-Add the Chromium project to `apps/lab/vitest.config.ts` first — without it the file is not collected:
+Rewrite `apps/lab/vitest.config.ts` with all three projects:
 
 ```ts
 import react from '@vitejs/plugin-react'
@@ -737,8 +712,9 @@ export default defineConfig({
           name: 'node-integration',
           environment: 'node',
           include: ['src/**/*.node.test.ts'],
-          // Each one owns a port and a temporary store directory.
+          // Each file owns a port and a temporary store directory.
           fileParallelism: false,
+          testTimeout: 60_000,
         },
       },
       {
@@ -770,7 +746,7 @@ export default defineConfig({
 `apps/lab/vitest.setup.ts`:
 
 ```ts
-// Brings vitest-browser-react's types and its automatic cleanup into every
+// Brings vitest-browser-react's matchers and its beforeEach cleanup into every
 // browser test file.
 import 'vitest-browser-react'
 ```
@@ -784,36 +760,39 @@ pnpm --filter @arrowz/board-element exec playwright install --with-deps chromium
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium`
 Expected: FAIL — `Failed to resolve import "./AppRoutes"`.
 
-- [ ] **Step 4: Write the routes**
+- [ ] **Step 4: Write the dictionary hook and the routes**
 
-`apps/lab/src/routes/LabRoute.tsx`:
+`apps/lab/src/i18n.ts`:
 
-```tsx
-import { dictionary } from '@arrowz/engine/i18n'
+```ts
+import { dictionary, type Dict } from '@arrowz/engine/i18n'
 
-const dict = dictionary('en')
+const EN = dictionary('en')
 
-export function LabRoute() {
-  return (
-    <main id="lab-panel" role="tabpanel" aria-label={dict.t('tabLab')}>
-      {/* The stage arrives in Task 9, Generate in Task 10. */}
-    </main>
-  )
+/**
+ * The application's only dictionary access. PR 4 adds the `lang` slice and
+ * makes this read it; until then every component already gets its text from
+ * the dictionary rather than from a literal, so PR 4 changes this file and
+ * nothing else.
+ */
+export function useDictionary(): Dict {
+  return EN
 }
 ```
 
 `apps/lab/src/routes/SavedBoardsRoute.tsx`:
 
 ```tsx
-import { dictionary } from '@arrowz/engine/i18n'
-
-const dict = dictionary('en')
+import { useDictionary } from '../i18n'
 
 export function SavedBoardsRoute() {
+  const dict = useDictionary()
   return (
-    <main id="boards-panel" role="tabpanel" aria-label={dict.t('tabLibrary')}>
-      <h2>{dict.t('tabLibrary')}</h2>
-      {/* PR 5 fills this: list, size chips, detail, load into lab, delete. */}
+    <main>
+      <section id="boards-panel" role="tabpanel" aria-labelledby="tab-boards-panel" tabIndex={0}>
+        <h2>{dict.t('tabLibrary')}</h2>
+        {/* PR 5 fills this: list, size chips, detail, load into lab, delete. */}
+      </section>
     </main>
   )
 }
@@ -822,18 +801,19 @@ export function SavedBoardsRoute() {
 `apps/lab/src/routes/DocsRoute.tsx`:
 
 ```tsx
-import { dictionary } from '@arrowz/engine/i18n'
 import { useParams } from 'react-router'
-
-const dict = dictionary('en')
+import { useDictionary } from '../i18n'
 
 export function DocsRoute() {
+  const dict = useDictionary()
   const { what } = useParams()
   return (
-    <main id="docs-panel" role="tabpanel" aria-label={dict.t('tabDocs')}>
-      <h2>{dict.t('tabDocs')}</h2>
-      {/* PR 6 fills this: the element's API, and the CLI help built from helpText(). */}
-      <p>{what}</p>
+    <main>
+      <section id="docs-panel" role="tabpanel" aria-labelledby="tab-docs-panel" tabIndex={0}>
+        <h2>{dict.t('tabDocs')}</h2>
+        {/* PR 6 fills this: the element's API, and the CLI help from helpText(). */}
+        <p>{what}</p>
+      </section>
     </main>
   )
 }
@@ -844,16 +824,18 @@ export function DocsRoute() {
 ```tsx
 import { Navigate, Route, Routes } from 'react-router'
 import { DocsRoute } from './routes/DocsRoute'
-import { LabRoute } from './routes/LabRoute'
 import { SavedBoardsRoute } from './routes/SavedBoardsRoute'
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<LabRoute />} />
+      {/* `/` renders nothing: the lab panel is mounted in App and merely
+          hidden off-route, so that a route change neither kills a run nor
+          disposes the board's GL context (Ruling 5). */}
+      <Route path="/" element={null} />
       <Route path="/boards" element={<SavedBoardsRoute />} />
       <Route path="/docs/:what" element={<DocsRoute />} />
-      {/* A stale deep link is a lab, not a blank page. */}
+      {/* A stale deep link is the lab, not a blank page. */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
@@ -880,14 +862,15 @@ export function App() {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium`
-Expected: PASS, 4 tests.
+Expected: PASS, 5 tests.
 
 - [ ] **Step 6: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab pnpm-lock.yaml
-git commit -m "Route the lab, the saved boards and the docs"
+git commit -m "Route the saved boards and the docs, and read every text from the dictionary"
 ```
 
 ---
@@ -897,15 +880,12 @@ git commit -m "Route the lab, the saved boards and the docs"
 The mock's tabs carry `aria-selected` on plain buttons with no `role="tab"` and no arrow keys (§7.2). This is the first of the nine gaps the port must fix, and the tab strip is where a wrong pattern would be copied into every later panel.
 
 **Files:**
-- Create: `apps/lab/src/shell/TopBar.tsx`
-- Create: `apps/lab/src/shell/TabRow.tsx`
-- Create: `apps/lab/src/design/shell.css`
-- Modify: `apps/lab/src/App.tsx`
-- Modify: `apps/lab/src/main.tsx` (import `shell.css`)
+- Create: `apps/lab/src/shell/TopBar.tsx`, `apps/lab/src/shell/TabRow.tsx`, `apps/lab/src/design/shell.css`
+- Modify: `apps/lab/src/App.tsx`, `apps/lab/src/main.tsx`
 - Test: `apps/lab/src/shell/TabRow.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `AppRoutes`, the route paths of Task 4
+- Consumes: `AppRoutes` and the paths of Task 4
 - Produces: `export function TopBar(props: { W: number; H: number }): JSX.Element`; `export function TabRow(): JSX.Element`
 
 - [ ] **Step 1: Write the failing test**
@@ -915,6 +895,7 @@ Create `apps/lab/src/shell/TabRow.browser.test.tsx`:
 ```tsx
 import { MemoryRouter } from 'react-router'
 import { expect, test } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { TabRow } from './TabRow'
 
@@ -927,7 +908,7 @@ const mount = (path: string) =>
 
 test('the strip is a tablist with three tabs and one selected', async () => {
   const screen = await mount('/')
-  await expect.element(screen.getByRole('tablist')).toBeVisible()
+  await expect.element(screen.getByRole('tablist', { name: 'Sections' })).toBeVisible()
   await expect.element(screen.getByRole('tab', { name: 'Lab', selected: true })).toBeVisible()
   await expect.element(screen.getByRole('tab', { name: 'Saved boards', selected: false })).toBeVisible()
   await expect.element(screen.getByRole('tab', { name: 'Docs', selected: false })).toBeVisible()
@@ -939,19 +920,26 @@ test('only the selected tab is in the tab order', async () => {
   await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('tabindex', '-1')
 })
 
-test('each tab points at the panel it controls', async () => {
-  const screen = await mount('/')
-  await expect.element(screen.getByRole('tab', { name: 'Lab' })).toHaveAttribute('aria-controls', 'lab-panel')
+test('the selected tab points at the panel it controls', async () => {
+  const screen = await mount('/boards')
   await expect
     .element(screen.getByRole('tab', { name: 'Saved boards' }))
     .toHaveAttribute('aria-controls', 'boards-panel')
-  await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-controls', 'docs-panel')
+  // aria-controls on an unselected tab would point at an id that is not in the
+  // document, which is worse than no association at all.
+  await expect.element(screen.getByRole('tab', { name: 'Docs' })).not.toHaveAttribute('aria-controls')
 })
 
-test('the right arrow moves the selection, and End reaches the last tab', async () => {
+test('every tab carries the id its panel labels itself with', async () => {
   const screen = await mount('/')
-  const lab = screen.getByRole('tab', { name: 'Lab' })
-  await lab.click()
+  await expect.element(screen.getByRole('tab', { name: 'Lab' })).toHaveAttribute('id', 'tab-lab-panel')
+  await expect.element(screen.getByRole('tab', { name: 'Saved boards' })).toHaveAttribute('id', 'tab-boards-panel')
+  await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('id', 'tab-docs-panel')
+})
+
+test('the right arrow moves the selection, and Home/End reach the ends', async () => {
+  const screen = await mount('/')
+  await screen.getByRole('tab', { name: 'Lab' }).click()
   await userEvent.keyboard('{ArrowRight}')
   await expect.element(screen.getByRole('tab', { name: 'Saved boards', selected: true })).toBeVisible()
   await userEvent.keyboard('{End}')
@@ -969,12 +957,6 @@ test('the left arrow from the first tab wraps to the last', async () => {
 })
 ```
 
-Add the import for `userEvent` at the top of the file:
-
-```tsx
-import { userEvent } from '@vitest/browser/context'
-```
-
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium TabRow`
@@ -985,38 +967,38 @@ Expected: FAIL — `Failed to resolve import "./TabRow"`.
 `apps/lab/src/shell/TabRow.tsx`:
 
 ```tsx
-import { dictionary } from '@arrowz/engine/i18n'
+import type { KeyboardEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router'
+import { useDictionary } from '../i18n'
 
-const dict = dictionary('en')
-
-// The tab strip is the application's only navigation, so the route is the
+// The strip is the application's only navigation, so the route is the
 // selection: no second copy of "which tab is open" to drift from the URL.
 const TABS = [
-  { path: '/', panel: 'lab-panel', label: () => dict.t('tabLab') },
-  { path: '/boards', panel: 'boards-panel', label: () => dict.t('tabLibrary') },
-  { path: '/docs/element', panel: 'docs-panel', label: () => dict.t('tabDocs') },
+  { path: '/', panel: 'lab-panel', key: 'tabLab' },
+  { path: '/boards', panel: 'boards-panel', key: 'tabLibrary' },
+  { path: '/docs/element', panel: 'docs-panel', key: 'tabDocs' },
 ] as const
 
-function selectedIndex(pathname: string): number {
+export function selectedIndex(pathname: string): number {
   if (pathname.startsWith('/boards')) return 1
   if (pathname.startsWith('/docs')) return 2
   return 0
 }
 
 export function TabRow() {
+  const dict = useDictionary()
   const navigate = useNavigate()
   const current = selectedIndex(useLocation().pathname)
 
   // Arrow keys move the selection and the focus together; the pattern wraps at
   // both ends, and Home/End jump. A mouse user never meets this path, which is
   // exactly why the mock has none of it.
-  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const last = TABS.length - 1
     const next = event.key === 'ArrowRight'
-      ? (current === last ? 0 : current + 1)
+      ? current === last ? 0 : current + 1
       : event.key === 'ArrowLeft'
-      ? (current === 0 ? last : current - 1)
+      ? current === 0 ? last : current - 1
       : event.key === 'Home'
       ? 0
       : event.key === 'End'
@@ -1025,8 +1007,7 @@ export function TabRow() {
     if (next === null) return
     event.preventDefault()
     const tab = TABS[next]
-    if (!tab) return
-    void navigate(tab.path)
+    if (tab) void navigate(tab.path)
   }
 
   return (
@@ -1038,16 +1019,18 @@ export function TabRow() {
           role="tab"
           id={`tab-${tab.panel}`}
           aria-selected={i === current}
-          aria-controls={tab.panel}
+          // Only the selected panel is in the document; pointing at an absent
+          // id is worse than not pointing at all.
+          {...(i === current ? { 'aria-controls': tab.panel } : {})}
           tabIndex={i === current ? 0 : -1}
           ref={(node) => {
-            // Focus follows the selection, but only while the strip already has
-            // it: clicking a tab must not steal focus back from the panel.
+            // Focus follows the selection, but only while the strip already
+            // has it: clicking a tab must not steal focus back from a panel.
             if (node && i === current && node.parentElement?.contains(document.activeElement)) node.focus()
           }}
           onClick={() => void navigate(tab.path)}
         >
-          {tab.label()}
+          {dict.t(tab.key)}
         </button>
       ))}
     </div>
@@ -1058,17 +1041,19 @@ export function TabRow() {
 `apps/lab/src/shell/TopBar.tsx`:
 
 ```tsx
-/** The one large Signal plane of the mock: the mark, the name and the board's size. */
+/** The one large Signal plane of the mock: the mark, the name and the size. */
 export function TopBar({ W, H }: { W: number; H: number }) {
   return (
     <header className="fw-top">
+      <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M3 17 L10 3 L17 17 L10 13 Z" fill="currentColor" />
+      </svg>
       <span className="name">Arrowz</span>
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
       {/* The right group is where ⌘K (PR 3), the language switch and the
           simple/advanced switch (PR 4) go. It stays empty rather than
-          carrying a placeholder: an empty flex group costs nothing and a
-          label with no meaning would have to be found and removed later. */}
+          carrying a placeholder nobody would remember to remove. */}
       <div className="right" />
     </header>
   )
@@ -1077,11 +1062,11 @@ export function TopBar({ W, H }: { W: number; H: number }) {
 
 - [ ] **Step 4: Write the shell's styles**
 
-`apps/lab/src/design/shell.css` — ported verbatim from the mock (`fronthub-workshop-v2.css:31-60`), minus the rules for parts this PR does not have:
+`apps/lab/src/design/shell.css`, ported from the mock's shell rules:
 
 ```css
-/* The shell's grid and the two bars, ported from the workshop mock.
-   48px auto 1fr: top bar, tab strip, everything else. */
+/* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
+   everything else. */
 .fw {
   display: grid;
   min-height: 100vh;
@@ -1125,14 +1110,21 @@ export function TopBar({ W, H }: { W: number; H: number }) {
   background: var(--signal);
   color: var(--void);
 }
+.fw-top .mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
 .fw-top .name {
   font-size: 13px;
 }
 .fw-top .sep {
   opacity: 0.5;
 }
+/* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
   opacity: 0.8;
+  font-variant-numeric: tabular-nums;
 }
 .fw-top .right {
   margin-left: auto;
@@ -1168,8 +1160,7 @@ export function TopBar({ W, H }: { W: number; H: number }) {
   border-bottom-color: var(--signal);
 }
 
-/* The design system asks for 44px targets on touch; the mock's 24-32px
-   heights are kept for pointers and raised where there is no hover. */
+/* §7.2: the design system asks for 44px targets where there is no hover. */
 @media (pointer: coarse) {
   .fw-tabrow button {
     padding: 15px 0 13px;
@@ -1177,7 +1168,7 @@ export function TopBar({ W, H }: { W: number; H: number }) {
 }
 ```
 
-Import it in `apps/lab/src/main.tsx`, after the tokens:
+Import it in `apps/lab/src/main.tsx` after the tokens:
 
 ```tsx
 import './design/tokens.css'
@@ -1193,7 +1184,7 @@ import { AppRoutes } from './AppRoutes'
 import { TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 
-// The knobs are PR 3; until then the top bar shows the defaults the run uses.
+// The knobs are PR 3; until then the top bar shows the defaults a run uses.
 const params = defaultParams()
 
 export function App() {
@@ -1212,11 +1203,12 @@ export function App() {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium`
-Expected: PASS — the four route tests and the five tab tests.
+Expected: PASS — five route tests and six tab tests.
 
 - [ ] **Step 6: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab
 git commit -m "Add the shell: a top bar and a tab strip with the full tablist pattern"
@@ -1224,33 +1216,32 @@ git commit -m "Add the shell: a top bar and a tab strip with the full tablist pa
 
 ---
 
-### Task 6: The store client, and the proxy that survives the server's CSRF refusal
+### Task 6: The store client and the proxy
 
-`lab-server.ts:69` refuses any write whose `Origin` is not its own. Vite's `changeOrigin` rewrites `Host`, not `Origin`, so without a `proxyReq` hook every POST from the dev server gets a 403 (§9.1). This is a prerequisite, not a verification — so the test starts both servers and posts a board through the proxy.
+Ruling 8 measured what the proxy has to be: a target and nothing else. The tests start both servers and post a real board through the whole path, so the day someone adds `changeOrigin: true` "for tidiness", they meet a 403 here rather than in a browser.
 
 **Files:**
-- Create: `apps/lab/src/api/boards.ts`
-- Modify: `apps/lab/vite.config.ts` (the proxy)
+- Create: `apps/lab/vite.proxy.ts`, `apps/lab/src/api/boards.ts`
+- Modify: `apps/lab/vite.config.ts`
 - Test: `apps/lab/src/api/boards.node.test.ts`
 
 **Interfaces:**
 - Consumes: `BoardMeta`, `BoardSize`, `StoreRequest` from `@arrowz/engine`
-- Produces:
-  - `export async function listBoards(): Promise<BoardSize[]>`
-  - `export async function saveBoard(request: StoreRequest): Promise<SaveOutcome>` where `export type SaveOutcome = { ok: true; meta: BoardMeta } | { ok: false; error: string }`
-  - `export const LAB_SERVER = 'http://127.0.0.1:8777'` and `export function labProxy(target: string): ProxyOptions` from `vite.config.ts`'s helper module — see Step 4; the test imports the helper, not the config
+- Produces: `export const LAB_SERVER: string` and `export function labProxy(target?: string): Record<string, ProxyOptions>` from `apps/lab/vite.proxy.ts` (Step 3); `export async function listBoards(): Promise<BoardSize[]>`; `export async function saveBoard(request: StoreRequest): Promise<SaveOutcome>`; `export type SaveOutcome = { ok: true; meta: BoardMeta } | { ok: false; error: string }`
 
 - [ ] **Step 1: Write the failing test**
 
 Create `apps/lab/src/api/boards.node.test.ts`:
 
 ```ts
+/// <reference types="node" />
 import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import { DEFAULT_VIEW, storeRequest } from '@arrowz/engine/command'
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import { labProxy } from '../../vite.proxy'
@@ -1259,43 +1250,55 @@ const STORE_PORT = 8790
 const VITE_PORT = 8791
 const STORE_ORIGIN = `http://127.0.0.1:${STORE_PORT}`
 const VITE_ORIGIN = `http://127.0.0.1:${VITE_PORT}`
+const REPO = fileURLToPath(new URL('../../../..', import.meta.url))
+const APP = fileURLToPath(new URL('../..', import.meta.url))
 
-let store: ReturnType<typeof spawn>
+let store: ChildProcess
 let vite: ViteDevServer
 let boardsDir: string
 
 beforeAll(async () => {
   boardsDir = mkdtempSync(join(tmpdir(), 'arrowz-lab-'))
-  store = spawn('deno', [
-    'run',
-    `--allow-net=127.0.0.1:${STORE_PORT}`,
-    '--allow-read',
-    `--allow-write=${boardsDir}`,
-    '--allow-env=ARROWZ_BOARDS_DIR',
-    'packages/cli/lab-server.ts',
-    String(STORE_PORT),
-  ], { cwd: new URL('../../../..', import.meta.url).pathname, env: { ...process.env, ARROWZ_BOARDS_DIR: boardsDir } })
+  store = spawn(
+    'deno',
+    [
+      'run',
+      `--allow-net=127.0.0.1:${STORE_PORT}`,
+      '--allow-read',
+      `--allow-write=${boardsDir}`,
+      '--allow-env=ARROWZ_BOARDS_DIR',
+      'packages/cli/lab-server.ts',
+      String(STORE_PORT),
+    ],
+    { cwd: REPO, env: { ...process.env, ARROWZ_BOARDS_DIR: boardsDir } },
+  )
+  // ENOENT on `deno` must fail this hook, not surface as an uncaught error.
+  store.on('error', (err) => {
+    throw err
+  })
 
-  // Deno.serve is listening once a GET answers; poll rather than sleep.
-  for (let i = 0; i < 100; i++) {
+  let up = false
+  for (let i = 0; i < 100 && !up; i++) {
     try {
       const r = await fetch(`${STORE_ORIGIN}/api/boards`)
-      if (r.ok) {
-        await r.body?.cancel()
-        break
-      }
+      await r.body?.cancel()
+      up = r.ok
     } catch {
       await new Promise((done) => setTimeout(done, 100))
     }
   }
+  if (!up) throw new Error(`the lab server never answered on ${STORE_ORIGIN}`)
 
   vite = await createServer({
-    root: new URL('../..', import.meta.url).pathname,
+    root: APP,
     configFile: false,
-    server: { port: VITE_PORT, proxy: labProxy(STORE_ORIGIN) },
+    // host: Vite binds `localhost`, which Node 24 resolves to ::1 here, and
+    // every fetch to 127.0.0.1 would be refused. strictPort: a silently
+    // shifted port would make VITE_ORIGIN a lie.
+    server: { host: '127.0.0.1', port: VITE_PORT, strictPort: true, proxy: labProxy(STORE_ORIGIN) },
   })
   await vite.listen()
-}, 60_000)
+})
 
 afterAll(async () => {
   await vite?.close()
@@ -1309,8 +1312,9 @@ test('a GET through the proxy reaches the store', async () => {
   expect(await r.json()).toEqual([])
 })
 
-// The whole reason this task exists. Without the Origin rewrite the server
-// refuses with 403 "origin http://127.0.0.1:8791 is not the lab".
+// The whole point of the task. The server refuses a write whose Origin is not
+// its own (lab-server.ts:76-77); this proves the proxy leaves the pair
+// consistent, and it is what would go red if changeOrigin were ever added.
 test('a POST through the proxy is accepted, Origin and all', async () => {
   const params = { ...defaultParams(), W: 12, H: 12, seed: 3 }
   const result = generate(params)
@@ -1323,25 +1327,35 @@ test('a POST through the proxy is accepted, Origin and all', async () => {
   })
 
   expect(r.status).toBe(201)
-  const meta = await r.json()
+  const meta = (await r.json()) as { id: string }
   expect(meta.id).toMatch(/^seed3-[0-9a-f]{8}$/)
 })
 
 test('the saved board comes back in the listing', async () => {
-  const r = await fetch(`${VITE_ORIGIN}/api/boards`)
-  const sizes = await r.json()
+  const sizes = (await (await fetch(`${VITE_ORIGIN}/api/boards`)).json()) as {
+    size: string
+    boards: { id: string }[]
+  }[]
   expect(sizes).toHaveLength(1)
-  expect(sizes[0].size).toBe('12x12')
-  expect(sizes[0].boards).toHaveLength(1)
+  expect(sizes[0]?.size).toBe('12x12')
+  expect(sizes[0]?.boards).toHaveLength(1)
 })
 
-// The board files themselves are served from /boards/, and PR 5 reads them.
-// The proxy has to cover that path too, not only /api.
+// PR 5 reads the stored files from /boards/, so the proxy covers that path.
 test('the stored board file is reachable through the proxy', async () => {
-  const listing = await (await fetch(`${VITE_ORIGIN}/api/boards`)).json()
-  const file = `${VITE_ORIGIN}/boards/12x12/${listing[0].boards[0].id}.board.json`
-  const r = await fetch(file)
+  const sizes = (await (await fetch(`${VITE_ORIGIN}/api/boards`)).json()) as { boards: { id: string }[] }[]
+  const id = sizes[0]?.boards[0]?.id
+  const r = await fetch(`${VITE_ORIGIN}/boards/12x12/${id}.board.json`)
   expect(r.status).toBe(200)
+})
+
+// The SPA owns /boards; only /boards/ is the store's. A prefix key without the
+// slash would proxy the Saved boards route itself, and a reload or a deep link
+// would land on the store's 404 instead of the application.
+test('the /boards route itself is not proxied', async () => {
+  const r = await fetch(`${VITE_ORIGIN}/boards`)
+  expect(r.status).toBe(200)
+  expect(r.headers.get('content-type')).toMatch(/text\/html/)
 })
 ```
 
@@ -1350,9 +1364,9 @@ test('the stored board file is reachable through the proxy', async () => {
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=node-integration`
 Expected: FAIL — `Failed to resolve import "../../vite.proxy"`.
 
-- [ ] **Step 3: Write the proxy helper**
+- [ ] **Step 3: Write the proxy table**
 
-The helper lives in its own module so the test can import it without loading the whole config. Create `apps/lab/vite.proxy.ts`:
+The helper is its own module so the test can import it without loading the whole config. Create `apps/lab/vite.proxy.ts`:
 
 ```ts
 import type { ProxyOptions } from 'vite'
@@ -1363,26 +1377,20 @@ export const LAB_SERVER = 'http://127.0.0.1:8777'
 /**
  * The board store's two paths, proxied to the Deno lab server.
  *
- * `changeOrigin` rewrites the `Host` header; the browser still sends
- * `Origin: http://127.0.0.1:8779`, and lab-server.ts:69 refuses any write
- * whose Origin is not its own — a deliberate CSRF refusal that this PR does
- * not weaken. The hook therefore presents the server's own origin, which is
- * what a page served from that server would have sent.
+ * A target and nothing else. `changeOrigin` would rewrite `Host` to the
+ * target's, and the server derives its own origin from `Host` before
+ * comparing it with the request's `Origin` (`lab-server.ts:66-79`) — so
+ * setting it is what would earn the 403 that spec §9.1 predicts, and a
+ * `proxyReq` hook rewriting `Origin` would then be needed to undo the damage.
+ * Forwarding the browser's own `Host` keeps the pair consistent by
+ * construction, and `localhost` is in the server's LOCAL_HOSTS. Measured
+ * against Vite 8.2.2; `boards.node.test.ts` holds the line.
  *
- * `/boards/` carries the stored board files (lab-server.ts:307), so PR 5's
- * library needs it as much as PR 2's save needs `/api`.
+ * Both keys end in a slash. Vite matches string keys by prefix, so `/boards`
+ * would also capture the application's own Saved boards route.
  */
 export function labProxy(target: string = LAB_SERVER): Record<string, ProxyOptions> {
-  const options: ProxyOptions = {
-    target,
-    changeOrigin: true,
-    configure: (proxy) => {
-      proxy.on('proxyReq', (proxyReq) => {
-        if (proxyReq.getHeader('origin') !== undefined) proxyReq.setHeader('origin', target)
-      })
-    },
-  }
-  return { '/api': options, '/boards': { ...options } }
+  return { '/api/': { target }, '/boards/': { target } }
 }
 ```
 
@@ -1401,12 +1409,10 @@ export default defineConfig({
 })
 ```
 
-Add `vite.proxy.ts` to `tsconfig.json`'s `include`.
-
-- [ ] **Step 4: Run the test to verify the proxy tests pass**
+- [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=node-integration`
-Expected: PASS, 4 tests. If the POST comes back 403, the `proxyReq` hook did not run — check that `configure` is on the `/api` entry and not on the server object.
+Expected: PASS, 5 tests. A 403 on the POST means something rewrote `Host`; a 404 with `application/json` on the last test means a proxy key lost its trailing slash.
 
 - [ ] **Step 5: Write the client**
 
@@ -1448,9 +1454,10 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
 - [ ] **Step 6: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab
-git commit -m "Proxy the board store, rewriting the Origin the server checks"
+git commit -m "Proxy the board store with a target and nothing else"
 ```
 
 ---
@@ -1460,18 +1467,18 @@ git commit -m "Proxy the board store, rewriting the Origin the server checks"
 One store, one slice. The state machine is §5.3's, minus the history the filmstrip needs in PR 7.
 
 **Files:**
-- Create: `apps/lab/src/state/run.slice.ts`
-- Create: `apps/lab/src/state/store.ts`
+- Create: `apps/lab/src/state/run.slice.ts`, `apps/lab/src/state/store.ts`
 - Test: `apps/lab/src/state/run.slice.test.ts`
 
 **Interfaces:**
-- Consumes: `BoardData`, `BoardFile`, `Params`, `TraceInfo` from `@arrowz/engine`
+- Consumes: `BoardData`, `BoardFile`, `Params`, `TraceInfo`, `WorkerOut` from `@arrowz/engine`; `SaveOutcome` from `../api/boards`
 - Produces:
-  - `export type RunPhase = 'idle' | 'running' | 'done' | 'error'`
-  - `export interface RunState { phase: RunPhase; params: Params | null; progress: TraceInfo | null; board: BoardData | null; file: BoardFile | null; report: DoneReport | null; message: string | null; saved: SaveOutcome | null }`
-  - `export interface RunActions { started(params: Params): void; progressed(info: TraceInfo): void; finished(r: { board: BoardData; file: BoardFile; report: DoneReport }): void; failed(message: string): void; stored(outcome: SaveOutcome): void; aborted(): void }`
   - `export type DoneReport = Extract<WorkerOut, { type: 'done' }>`
-  - `export const useStore` (Zustand) from `store.ts`
+  - `export type RunPhase = 'idle' | 'running' | 'done' | 'error'`
+  - `export interface RunState` with the fields `phase`, `params`, `progress`, `board`, `file`, `report`, `message`, `saved` and the actions `started(params: Params)`, `progressed(info: TraceInfo)`, `finished(r: { board: BoardData; file: BoardFile; report: DoneReport })`, `failed(message: string)`, `stored(outcome: SaveOutcome)`, `aborted()`, `reset()` — all returning `void`
+  - `export const useStore` (Zustand) and `export interface Store { run: RunState }` from `store.ts`
+
+`file` is a **`BoardFile` object**, not a string: `packages/engine/types.ts:151-165` declares `{ format, v, W, H, pieces, voids, unfilled, fingerprint, body }`, and `encodeBoard` returns that.
 
 - [ ] **Step 1: Install Zustand**
 
@@ -1493,9 +1500,10 @@ import { useStore } from './store'
 
 const params = { ...defaultParams(), W: 8, H: 8, seed: 1 }
 const result = generate(params)
+const file = encodeBoard(result.board)
 const report = {
   type: 'done' as const,
-  ok: true,
+  ok: result.ok,
   metrics: result.metrics,
   backtracks: result.backtracks,
   restartsUsed: result.restartsUsed,
@@ -1506,85 +1514,80 @@ const report = {
   deadlock: result.deadlock,
   pieces: result.board.pieces.length,
   stats: result.board.stats,
-  board: encodeBoard(result.board),
+  board: file,
 }
+const run = () => useStore.getState().run
 
 beforeEach(() => {
-  useStore.getState().run.reset()
+  run().reset()
 })
 
 test('a fresh store is idle and holds nothing', () => {
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('idle')
-  expect(run.board).toBeNull()
-  expect(run.params).toBeNull()
+  expect(run().phase).toBe('idle')
+  expect(run().board).toBeNull()
+  expect(run().params).toBeNull()
 })
 
 test('started moves to running and pins the parameters the run uses', () => {
-  useStore.getState().run.started(params)
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('running')
-  expect(run.params).toEqual(params)
-  expect(run.progress).toBeNull()
+  run().started(params)
+  expect(run().phase).toBe('running')
+  expect(run().params).toEqual(params)
+  expect(run().progress).toBeNull()
 })
 
 // The board on screen belongs to the run that made it, not to the knobs: §5.3
 // keeps three parameter sets apart, and this is the one that matters here.
-test('starting a second run clears the first one board and message', () => {
-  useStore.getState().run.started(params)
-  useStore.getState().run.finished({ board: result.board, file: report.board, report })
-  useStore.getState().run.started({ ...params, seed: 2 })
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('running')
-  expect(run.board).toBeNull()
-  expect(run.saved).toBeNull()
+test('starting a second run clears the first one board and store outcome', () => {
+  run().started(params)
+  run().finished({ board: result.board, file, report })
+  run().stored({ ok: true, meta: { id: 'seed1-deadbeef' } as never })
+  run().started({ ...params, seed: 2 })
+  expect(run().phase).toBe('running')
+  expect(run().board).toBeNull()
+  expect(run().saved).toBeNull()
 })
 
 test('progress is kept while running and dropped when the run ends', () => {
-  useStore.getState().run.started(params)
+  run().started(params)
   // TraceInfo, as types.ts:40-46 declares it.
-  useStore.getState().run.progressed({ pieces: 3, remaining: 40, backtracks: 0, ms: 12, total: 64 })
-  expect(useStore.getState().run.progress?.remaining).toBe(40)
-  useStore.getState().run.finished({ board: result.board, file: report.board, report })
-  expect(useStore.getState().run.progress).toBeNull()
+  run().progressed({ pieces: 3, remaining: 40, backtracks: 0, ms: 12, total: 64 })
+  expect(run().progress?.remaining).toBe(40)
+  run().finished({ board: result.board, file, report })
+  expect(run().progress).toBeNull()
 })
 
 test('finished holds the board, its file and the report', () => {
-  useStore.getState().run.started(params)
-  useStore.getState().run.finished({ board: result.board, file: report.board, report })
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('done')
-  expect(run.board).toBe(result.board)
-  expect(run.file).toBe(report.board)
-  expect(run.report?.pieces).toBe(result.board.pieces.length)
+  run().started(params)
+  run().finished({ board: result.board, file, report })
+  expect(run().phase).toBe('done')
+  expect(run().board).toBe(result.board)
+  expect(run().file?.fingerprint).toBe(file.fingerprint)
+  expect(run().report?.pieces).toBe(result.board.pieces.length)
 })
 
 test('failed carries the message and keeps no board', () => {
-  useStore.getState().run.started(params)
-  useStore.getState().run.failed('the envelope refuses these parameters')
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('error')
-  expect(run.message).toBe('the envelope refuses these parameters')
-  expect(run.board).toBeNull()
+  run().started(params)
+  run().failed('the envelope refuses these parameters')
+  expect(run().phase).toBe('error')
+  expect(run().message).toBe('the envelope refuses these parameters')
+  expect(run().board).toBeNull()
 })
 
 // A store failure must never overwrite a run's outcome: §5.3 says status is
 // structured data carrying a source, and this is that rule at slice level.
 test('a store failure leaves the run done', () => {
-  useStore.getState().run.started(params)
-  useStore.getState().run.finished({ board: result.board, file: report.board, report })
-  useStore.getState().run.stored({ ok: false, error: 'no store server' })
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('done')
-  expect(run.saved).toEqual({ ok: false, error: 'no store server' })
+  run().started(params)
+  run().finished({ board: result.board, file, report })
+  run().stored({ ok: false, error: 'no store server' })
+  expect(run().phase).toBe('done')
+  expect(run().saved).toEqual({ ok: false, error: 'no store server' })
 })
 
 test('aborting a run returns to idle without an error', () => {
-  useStore.getState().run.started(params)
-  useStore.getState().run.aborted()
-  const { run } = useStore.getState()
-  expect(run.phase).toBe('idle')
-  expect(run.message).toBeNull()
+  run().started(params)
+  run().aborted()
+  expect(run().phase).toBe('idle')
+  expect(run().message).toBeNull()
 })
 ```
 
@@ -1601,7 +1604,7 @@ Expected: FAIL — `Failed to resolve import "./store"`.
 import type { BoardData, BoardFile, Params, TraceInfo, WorkerOut } from '@arrowz/engine'
 import type { SaveOutcome } from '../api/boards'
 
-/** The `done` message of the worker, which is also what the report reads. */
+/** The worker's `done` message, which is also what the report reads. */
 export type DoneReport = Extract<WorkerOut, { type: 'done' }>
 
 export type RunPhase = 'idle' | 'running' | 'done' | 'error'
@@ -1637,16 +1640,15 @@ const EMPTY = {
   saved: null,
 } as const
 
-type Set = (fn: (state: { run: RunState }) => { run: RunState }) => void
+type SetStore = (fn: (state: { run: RunState }) => { run: RunState }) => void
 
-export function createRunSlice(set: Set): RunState {
+export function createRunSlice(set: SetStore): RunState {
   const patch = (next: Partial<RunState>) => set((state) => ({ run: { ...state.run, ...next } }))
   return {
     ...EMPTY,
     started: (params) => patch({ ...EMPTY, phase: 'running', params }),
     progressed: (progress) => patch({ progress }),
-    finished: ({ board, file, report }) =>
-      patch({ phase: 'done', progress: null, board, file, report, message: null }),
+    finished: ({ board, file, report }) => patch({ phase: 'done', progress: null, board, file, report, message: null }),
     failed: (message) => patch({ phase: 'error', progress: null, board: null, file: null, message }),
     stored: (saved) => patch({ saved }),
     aborted: () => patch({ ...EMPTY }),
@@ -1678,11 +1680,12 @@ export const useStore = create<Store>()((set) => ({
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=node`
-Expected: PASS — the two token tests and the eight slice tests.
+Expected: PASS — two token tests and eight slice tests.
 
 - [ ] **Step 6: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab pnpm-lock.yaml
 git commit -m "Add the run slice: the state machine of a generation"
@@ -1692,91 +1695,92 @@ git commit -m "Add the run slice: the state machine of a generation"
 
 ### Task 8: The worker and `useGenerator`
 
-One long-lived worker, reused while idle, terminated to abort or to replace a run in flight — today's behaviour (`lab-page.ts:899-902`, `:1002`), and the reason §6 leaves the protocol alone. `useGenerator` is mounted in `App`, above the routes, so a route change neither kills a run nor disposes the GL context.
+One long-lived worker, reused while idle, terminated to abort or to replace a run in flight — today's behaviour (`lab-page.ts:776` `ensureWorker`, `:856` `killWorker`, `:879` `if (busy) killWorker()`), and the reason §6 leaves the protocol alone.
 
 **Files:**
-- Create: `apps/lab/src/worker/generate.worker.ts`
-- Create: `apps/lab/src/worker/useGenerator.ts`
+- Create: `apps/lab/src/worker/generate.worker.ts`, `apps/lab/src/worker/useGenerator.ts`
 - Modify: `apps/lab/src/App.tsx`
 - Test: `apps/lab/src/worker/useGenerator.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `run` slice actions from Task 7; `WorkerIn`, `WorkerOut`, `decodeBoard` from `@arrowz/engine`
-- Produces: `export function useGenerator(): { start(params: Params): void; abort(): void }`
+- Consumes: the `run` slice of Task 7; `WorkerIn`, `WorkerOut`, `decodeBoard` from `@arrowz/engine`
+- Produces: `export interface Generator { start(params: Params): void; abort(): void }` and `export function useGenerator(): Generator`, both from `useGenerator.ts`
 
 - [ ] **Step 1: Write the failing test**
+
+Board sizes here are chosen from measurement, not from taste: in-process, 16×16 carves in about 3 ms, 25×25 in about 25 ms and 200×200 in about 330 ms. A test that needs to observe a run *in flight* must use the large one; a test that only needs a finished board should use a small one.
 
 Create `apps/lab/src/worker/useGenerator.browser.test.tsx`:
 
 ```tsx
 import { defaultParams } from '@arrowz/engine'
 import { useEffect } from 'react'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
-import { useGenerator } from './useGenerator'
+import { useGenerator, type Generator } from './useGenerator'
 
-function Harness({ seed, W }: { seed: number; W: number }) {
+function Harness({ drive }: { drive: (g: Generator) => void | (() => void) }) {
   const generator = useGenerator()
-  useEffect(() => {
-    generator.start({ ...defaultParams(), W, H: W, seed })
-  }, [generator, seed, W])
-  const phase = useStore((s) => s.run.phase)
-  const pieces = useStore((s) => s.run.report?.pieces ?? 0)
-  return <output>{`${phase}:${pieces}`}</output>
+  useEffect(() => drive(generator), [generator, drive])
+  return null
 }
+
+const start = (params: Parameters<Generator['start']>[0]) => (g: Generator) => g.start(params)
 
 test('a run carves a board and lands in done', async () => {
   useStore.getState().run.reset()
-  const screen = await render(<Harness seed={5} W={16} />)
-  await expect.element(screen.getByRole('status')).toHaveTextContent(/^done:[1-9]/, { timeout: 20_000 })
-  const { run } = useStore.getState()
-  expect(run.board?.W).toBe(16)
-  expect(run.file).toMatch(/^arrowz/)
-})
-
-test('the board the slice holds is the decoded board, not the file', async () => {
-  useStore.getState().run.reset()
-  await render(<Harness seed={6} W={12} />)
+  await render(<Harness drive={start({ ...defaultParams(), W: 16, H: 16, seed: 5 })} />)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
   const { run } = useStore.getState()
-  expect(run.board?.pieces.length).toBeGreaterThan(0)
+  expect(run.board?.W).toBe(16)
+  // BoardFile is an object (types.ts:151); its fingerprint is the board's.
+  expect(run.file?.format).toBe('arrowz-board')
   expect(run.report?.pieces).toBe(run.board?.pieces.length)
 })
 
-// The worker throws InvalidParamsError for parameters outside the envelope,
-// and the page must show that message rather than hang in `running`.
+// The worker throws InvalidParamsError for parameters outside the envelope
+// (pStraight's floor is 0.6, engine.ts:2452), and the page must show that
+// message rather than hang in `running`.
 test('parameters outside the envelope end in error with the engine message', async () => {
   useStore.getState().run.reset()
-  function Bad() {
-    const generator = useGenerator()
-    useEffect(() => {
-      generator.start({ ...defaultParams(), W: 12, H: 12, pStraight: 0 })
-    }, [generator])
-    return null
-  }
-  await render(<Bad />)
+  await render(<Harness drive={start({ ...defaultParams(), W: 12, H: 12, pStraight: 0 })} />)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('error')
   expect(useStore.getState().run.message ?? '').not.toBe('')
 })
 
-test('abort returns the run to idle', async () => {
+// Abort must terminate the worker, not merely relabel the slice: a live worker
+// would deliver `done` afterwards and drag the run back out of idle. The wait
+// is longer than the board takes, so a missing terminate() shows up.
+test('abort terminates the worker, and nothing arrives afterwards', async () => {
   useStore.getState().run.reset()
-  function Abortable() {
-    const generator = useGenerator()
-    useEffect(() => {
-      generator.start({ ...defaultParams(), W: 200, H: 200, seed: 9 })
-      const id = setTimeout(() => generator.abort(), 50)
-      return () => clearTimeout(id)
-    }, [generator])
-    return null
-  }
-  await render(<Abortable />)
+  const terminate = vi.spyOn(Worker.prototype, 'terminate')
+  await render(
+    <Harness
+      drive={(g) => {
+        g.start({ ...defaultParams(), W: 200, H: 200, seed: 9 })
+        const id = setTimeout(() => g.abort(), 30)
+        return () => clearTimeout(id)
+      }}
+    />,
+  )
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('idle')
+  expect(terminate).toHaveBeenCalled()
+  await new Promise((done) => setTimeout(done, 2_000))
+  expect(useStore.getState().run.phase).toBe('idle')
+  expect(useStore.getState().run.board).toBeNull()
+  terminate.mockRestore()
 })
-```
 
-Note the harness uses `<output>`, whose implicit role is `status`.
+// Progress is what the status line lives on during a long carve.
+test('a large run reports progress before it finishes', async () => {
+  useStore.getState().run.reset()
+  await render(<Harness drive={start({ ...defaultParams(), W: 200, H: 200, seed: 11 })} />)
+  await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(useStore.getState().run.progress).toBeNull()
+}, 40_000)
+```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -1791,10 +1795,11 @@ Expected: FAIL — `Failed to resolve import "./useGenerator"`.
 import { decodeBoard, encodeBoard, generate, toSvg } from '@arrowz/engine'
 import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
-// The same two messages the Deno lab worker answers (packages/cli/lab-worker.ts),
-// against the same engine: the protocol is shared, so §6 leaves it untouched.
-// The finished board crosses as its board file — one string instead of ~90 000
-// piece objects — and it is the very file that goes to the store.
+// The same two messages the Deno lab worker answers
+// (packages/cli/lab-worker.ts), against the same engine: the protocol is
+// shared, so §6 leaves it untouched. The finished board crosses as its board
+// file — one packed record instead of ~90 000 piece objects — and it is the
+// very file that goes to the store.
 const post = (message: WorkerOut) => self.postMessage(message)
 
 self.onmessage = (event: MessageEvent<WorkerIn>) => {
@@ -1844,25 +1849,30 @@ import type { Params, WorkerIn, WorkerOut } from '@arrowz/engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '../state/store'
 
+export interface Generator {
+  start(params: Params): void
+  abort(): void
+}
+
+// Module scope, so the callbacks below have no changing dependency to declare.
+// The slice is read rather than subscribed to: this hook publishes state and
+// never renders from it, and a subscription would re-render App — the whole
+// shell — on every progress message.
+const actions = () => useStore.getState().run
+
 /**
  * One worker for the whole session, reused while idle and terminated to
  * abort. `generate()` is synchronous, so the worker's event loop is blocked
- * for a whole run and a second message would simply queue behind the first;
- * replacing the run means terminating the worker and building a new one, as
- * the Deno lab does (lab-page.ts:899-902, :1002).
+ * for a whole run and a second message would queue behind the first;
+ * replacing a run means terminating the worker and building a new one, as the
+ * Deno lab does (lab-page.ts:856, :879).
  *
  * Mounted once, in App: a route change must neither kill a run in flight nor
  * unmount <arrowz-board>, whose disposal releases the GL context.
- *
- * The slice is read with `useStore.getState()` rather than a selector: this
- * hook publishes state and never renders from it, and a subscription here
- * would re-render App — the whole shell — on every progress message, which
- * on a large board arrives many times a second.
  */
-export function useGenerator(): { start(params: Params): void; abort(): void } {
+export function useGenerator(): Generator {
   const worker = useRef<Worker | null>(null)
   const busy = useRef(false)
-  const actions = () => useStore.getState().run
 
   const kill = useCallback(() => {
     worker.current?.terminate()
@@ -1901,25 +1911,28 @@ export function useGenerator(): { start(params: Params): void; abort(): void } {
   // The worker outlives every route, and dies with the application.
   useEffect(() => kill, [kill])
 
-  return useMemo(() => ({
-    start(params: Params) {
-      if (busy.current) kill()
-      actions().started(params)
-      busy.current = true
-      ensure().postMessage({ type: 'generate', params } satisfies WorkerIn)
-    },
-    abort() {
-      if (!busy.current) return
-      kill()
-      actions().aborted()
-    },
-  }), [ensure, kill])
+  return useMemo<Generator>(
+    () => ({
+      start(params) {
+        if (busy.current) kill()
+        actions().started(params)
+        busy.current = true
+        ensure().postMessage({ type: 'generate', params } satisfies WorkerIn)
+      },
+      abort() {
+        if (!busy.current) return
+        kill()
+        actions().aborted()
+      },
+    }),
+    [ensure, kill],
+  )
 }
 ```
 
 - [ ] **Step 5: Mount it in `App`**
 
-In `apps/lab/src/App.tsx`, call the hook inside the router so that the routes can reach its result through the store, and pass the handle down in Task 10:
+`apps/lab/src/App.tsx` — the hook is called above the routes, and nothing consumes it yet (Task 10 gives it to the run bar):
 
 ```tsx
 import { defaultParams } from '@arrowz/engine'
@@ -1931,49 +1944,28 @@ import { useGenerator } from './worker/useGenerator'
 
 const params = defaultParams()
 
-export function App() {
+function Shell() {
   // Above the routes on purpose: §6. A route change must not kill a run.
-  const generator = useGenerator()
+  useGenerator()
+  return (
+    <div className="fw">
+      <TopBar W={params.W} H={params.H} />
+      <TabRow />
+      <AppRoutes />
+    </div>
+  )
+}
+
+export function App() {
   return (
     <BrowserRouter>
-      <div className="fw">
-        <TopBar W={params.W} H={params.H} />
-        <TabRow />
-        <AppRoutes generator={generator} />
-      </div>
+      <Shell />
     </BrowserRouter>
   )
 }
 ```
 
-and give `AppRoutes` the prop, passing it to `LabRoute` only:
-
-```tsx
-import type { Params } from '@arrowz/engine'
-
-export interface Generator {
-  start(params: Params): void
-  abort(): void
-}
-
-export function AppRoutes({ generator }: { generator: Generator }) {
-  return (
-    <Routes>
-      <Route path="/" element={<LabRoute generator={generator} />} />
-      …
-```
-
-`LabRoute` takes the prop and ignores it until Task 10:
-
-```tsx
-export function LabRoute({ generator: _generator }: { generator: Generator }) {
-```
-
-The existing route tests construct `AppRoutes` without the prop; give them a stub:
-
-```tsx
-const generator = { start: () => {}, abort: () => {} }
-```
+`Shell` exists because `useGenerator` and, in Task 10, `useLocation` are hooks, and a hook cannot run in the component that renders `<BrowserRouter>` itself.
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
@@ -1983,6 +1975,7 @@ Expected: PASS — routes, tabs and the four generator tests.
 - [ ] **Step 7: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab
 git commit -m "Carve in a worker that outlives every route"
@@ -1995,13 +1988,12 @@ git commit -m "Carve in a worker that outlives every route"
 `<arrowz-board>` takes the board and the view as **objects**. React on its own stringifies unknown props onto attributes, which would hand the element `"[object Object]"`; `createComponent` sets them as properties instead.
 
 **Files:**
-- Create: `apps/lab/src/stage/BoardCanvas.tsx`
-- Create: `apps/lab/src/stage/Stage.tsx`
-- Modify: `apps/lab/src/design/shell.css` (the stage's grid)
+- Create: `apps/lab/src/stage/BoardCanvas.tsx`, `apps/lab/src/stage/Stage.tsx`
+- Modify: `apps/lab/src/design/shell.css`
 - Test: `apps/lab/src/stage/BoardCanvas.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `ArrowzBoard`, `boardViewOf`, `BoardView` from `@arrowz/board-element`; `DEFAULT_VIEW` from `@arrowz/engine/command`
+- Consumes: `ArrowzBoard`, `boardViewOf`, `PieceClickEvent`, `ViewportChangeEvent` from `@arrowz/board-element`; `DEFAULT_VIEW` from `@arrowz/engine/command`
 - Produces: `export const BoardCanvas` (the wrapped element) and `export function Stage(): JSX.Element`
 
 - [ ] **Step 1: Install `@lit/react`**
@@ -2023,15 +2015,14 @@ import { render } from 'vitest-browser-react'
 import { BoardCanvas } from './BoardCanvas'
 
 const board = generate({ ...defaultParams(), W: 10, H: 10, seed: 2 }).board
+const view = boardViewOf(DEFAULT_VIEW, false)
 
 test('the element receives the board as an object, not as an attribute', async () => {
-  const screen = await render(
-    <BoardCanvas board={board} view={boardViewOf(DEFAULT_VIEW, false)} interactive={false} />,
-  )
+  const screen = await render(<BoardCanvas board={board} view={view} interactive={false} />)
   const element = screen.container.querySelector('arrowz-board')
   expect(element).not.toBeNull()
-  // The property carries the decoded board; the attribute was never written.
   expect(element?.board?.pieces.length).toBe(board.pieces.length)
+  // Had React written it as an attribute, this would be "[object Object]".
   expect(element?.getAttribute('board')).toBeNull()
 })
 
@@ -2039,12 +2030,11 @@ test('the view reaches the element as an object too', async () => {
   const screen = await render(
     <BoardCanvas board={board} view={boardViewOf({ ...DEFAULT_VIEW, stroke: 3 }, false)} interactive={false} />,
   )
-  const element = screen.container.querySelector('arrowz-board')
-  expect(element?.view?.stroke).toBe(3)
+  expect(screen.container.querySelector('arrowz-board')?.view?.stroke).toBe(3)
 })
 
 test('a null board renders the element without drawing anything', async () => {
-  const screen = await render(<BoardCanvas board={null} view={boardViewOf(DEFAULT_VIEW, false)} interactive={false} />)
+  const screen = await render(<BoardCanvas board={null} view={view} interactive={false} />)
   expect(screen.container.querySelector('arrowz-board')?.board).toBeNull()
 })
 ```
@@ -2066,9 +2056,9 @@ import * as React from 'react'
 
 /**
  * The application's only `@lit/react` site. The element takes the board and
- * the view as objects; React alone would stringify them onto attributes,
- * and `createComponent` sets properties instead. Importing the element class
- * also registers the tag.
+ * the view as objects; React alone would stringify them onto attributes, and
+ * `createComponent` sets properties instead. Importing the element class also
+ * registers the tag.
  */
 export const BoardCanvas = createComponent({
   tagName: 'arrowz-board',
@@ -2089,10 +2079,15 @@ import { DEFAULT_VIEW } from '@arrowz/engine/command'
 import { useStore } from '../state/store'
 import { BoardCanvas } from './BoardCanvas'
 
+// Hoisted: a new object per render would change the element's `view` property
+// identity on every progress message. The nine preview fields are PR 3, and
+// this becomes a selector over the view slice then.
+const VIEW = boardViewOf(DEFAULT_VIEW, false)
+
 /**
- * 70px + 1fr: the run rail of the mock and the board beside it. The rail is
- * empty until PR 7 fills it with the filmstrip; the column stays, because the
- * board's width must not move when it arrives.
+ * 70px + 1fr: the mock's run rail and the board beside it. The rail is empty
+ * until PR 7 fills it with the filmstrip; the column stays, so the board's
+ * width does not move when it arrives.
  */
 export function Stage() {
   const board = useStore((state) => state.run.board)
@@ -2101,7 +2096,7 @@ export function Stage() {
       <div className="fw-runs" />
       <div className="fw-boardwrap">
         <div className="fw-board">
-          <BoardCanvas board={board} view={boardViewOf(DEFAULT_VIEW, false)} interactive={false} />
+          <BoardCanvas board={board} view={VIEW} interactive={false} />
         </div>
       </div>
     </div>
@@ -2109,7 +2104,7 @@ export function Stage() {
 }
 ```
 
-Append to `apps/lab/src/design/shell.css` (ported from the mock, `:104-131`):
+Append to `apps/lab/src/design/shell.css`:
 
 ```css
 .fw-stage {
@@ -2164,6 +2159,7 @@ Expected: PASS, 3 tests.
 - [ ] **Step 6: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab pnpm-lock.yaml
 git commit -m "Draw the board through @lit/react, with objects as properties"
@@ -2173,201 +2169,283 @@ git commit -m "Draw the board through @lit/react, with objects as properties"
 
 ### Task 10: The path this PR exists for — generate, draw, save
 
+The lab panel is mounted in `App`, beside `<Routes>`, and hidden when the path is not `/` (Ruling 5). That is what makes the route-change test meaningful rather than decorative.
+
 **Files:**
-- Modify: `apps/lab/src/routes/LabRoute.tsx`
-- Modify: `apps/lab/src/App.tsx` (save on a finished run)
-- Modify: `apps/lab/src/design/shell.css` (the status bar)
+- Create: `apps/lab/src/routes/LabRoute.tsx`, `apps/lab/src/stage/RunStatusBar.tsx`
+- Modify: `apps/lab/src/App.tsx`, `apps/lab/src/design/shell.css`
 - Test: `apps/lab/src/routes/LabRoute.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `useGenerator` (Task 8), `Stage` (Task 9), `saveBoard` (Task 6), the `run` slice (Task 7)
-- Produces: `export function LabRoute({ generator }: { generator: Generator }): JSX.Element`
+- Consumes: `useGenerator`/`Generator` (Task 8), `Stage` (Task 9), `saveBoard` (Task 6), the `run` slice (Task 7), `selectedIndex` (Task 5)
+- Produces: `export function LabRoute(props: { generator: Generator; hidden: boolean }): JSX.Element`; `export function RunStatusBar(): JSX.Element`
 
 - [ ] **Step 1: Write the failing test**
 
 Create `apps/lab/src/routes/LabRoute.browser.test.tsx`:
 
 ```tsx
-import { MemoryRouter } from 'react-router'
+import { defaultParams } from '@arrowz/engine'
 import { expect, test, vi } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
-import { userEvent } from '@vitest/browser/context'
-import { AppRoutes } from '../AppRoutes'
+import { App } from '../App'
 import { useStore } from '../state/store'
-import { useGenerator } from '../worker/useGenerator'
 
-function Host({ path = '/' }: { path?: string }) {
-  const generator = useGenerator()
-  return (
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes generator={generator} />
-    </MemoryRouter>
-  )
+// The real App, address bar and all: Ruling 5's claim is about what App
+// mounts, so a MemoryRouter harness would test the wrong thing.
+async function mountApp() {
+  window.history.pushState({}, '', '/')
+  useStore.getState().run.reset()
+  return render(<App />)
 }
 
-test('Generate carves a board, draws it and reports the outcome', async () => {
-  useStore.getState().run.reset()
-  const errors: string[] = []
-  const spy = vi.spyOn(console, 'error').mockImplementation((...args) => errors.push(String(args[0])))
+test('Generate carves a board, draws it, and says so', async () => {
+  const errors: unknown[] = []
+  const spy = vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args[0]))
+  try {
+    const screen = await mountApp()
+    await expect.element(screen.getByRole('status')).toHaveTextContent('Press "Generate".')
 
-  const screen = await render(<Host />)
-  await screen.getByRole('button', { name: 'Generate' }).click()
+    await screen.getByRole('button', { name: 'Generate' }).click()
+    await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
 
-  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
-  const element = screen.container.querySelector('arrowz-board')
-  expect(element?.board?.pieces.length).toBeGreaterThan(0)
-  await expect.element(screen.getByRole('status')).toBeVisible()
+    const element = screen.container.querySelector('arrowz-board')
+    expect(element?.board?.pieces.length).toBeGreaterThan(0)
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Board closed/)
 
-  // §8: a full run from Generate to a drawn board with zero console errors.
-  expect(errors).toEqual([])
-  spy.mockRestore()
+    // §8: a full run from Generate to a drawn board with zero console errors.
+    expect(errors).toEqual([])
+  } finally {
+    spy.mockRestore()
+  }
 }, 40_000)
 
-// §5.3: `useGenerator` and the board live above the routes, so leaving the lab
-// mid-run neither kills the run nor disposes the GL context.
-test('a route change during a run leaves the run alive', async () => {
+// The architectural claim of this PR, and the one §11.6 of the spec says was
+// got wrong once already. Node identity is the assertion that matters: a
+// remounted element is a disposed GL context, whatever the run's phase says.
+test('a route change keeps the very same board element and its run', async () => {
+  const screen = await mountApp()
+  const before = screen.container.querySelector('arrowz-board')
+  expect(before).not.toBeNull()
+
+  // 200x200 takes ~330 ms in process — long enough to still be running after a
+  // click round-trip, short enough not to slow the suite.
   useStore.getState().run.reset()
-  const screen = await render(<Host />)
   await screen.getByRole('button', { name: 'Generate' }).click()
-  await expect.poll(() => useStore.getState().run.phase).toBe('running')
 
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards' }))
-  expect(useStore.getState().run.phase).not.toBe('idle')
+  await expect.element(screen.getByRole('tabpanel', { name: 'Saved boards' })).toBeVisible()
+  // Same node, still in the document, merely hidden.
+  expect(screen.container.querySelector('arrowz-board')).toBe(before)
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab' }))
+  expect(screen.container.querySelector('arrowz-board')).toBe(before)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(screen.container.querySelector('arrowz-board')?.board).not.toBeNull()
 }, 40_000)
 
-test('the run status names the phase it is in', async () => {
-  useStore.getState().run.reset()
-  const screen = await render(<Host />)
-  await expect.element(screen.getByRole('status')).toHaveTextContent('')
+test('the lab panel is hidden off-route and shown on it', async () => {
+  const screen = await mountApp()
+  const panel = screen.container.querySelector('#lab-panel')
+  expect(panel?.hasAttribute('hidden')).toBe(false)
+  await userEvent.click(screen.getByRole('tab', { name: 'Docs' }))
+  expect(screen.container.querySelector('#lab-panel')?.hasAttribute('hidden')).toBe(true)
+})
+
+test('a finished run is offered to the store and the outcome is appended', async () => {
+  const screen = await mountApp()
   await screen.getByRole('button', { name: 'Generate' }).click()
-  await expect.element(screen.getByRole('status')).toHaveTextContent('Generating…')
+  await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+  // No store server answers in the browser test, so the outcome is a failure —
+  // and the run's own outcome must survive beside it.
+  expect(useStore.getState().run.phase).toBe('done')
+  await expect.element(screen.getByRole('status')).toMatchTextContent(/not saved|saved/)
 }, 40_000)
 ```
-
-The second test navigates through the tab strip, so `Host` must render it. Wrap the routes in the same shell the application uses by importing `TabRow` beside `AppRoutes`:
-
-```tsx
-import { TabRow } from '../shell/TabRow'
-```
-
-and render `<TabRow />` above `<AppRoutes …/>` inside the `MemoryRouter`.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium LabRoute`
 Expected: FAIL — no button named `Generate`.
 
-- [ ] **Step 3: Write the route**
+- [ ] **Step 3: Write the status bar**
+
+`apps/lab/src/stage/RunStatusBar.tsx`:
+
+```tsx
+import { useDictionary } from '../i18n'
+import { useStore } from '../state/store'
+
+/**
+ * The live region. The mock's run state has no `aria-live`, so a screen reader
+ * would never learn that a thirty-second carve had finished (§7.2). `<output>`
+ * already has the `status` role — writing it again is what
+ * `jsx-a11y/no-redundant-roles` exists to catch.
+ */
+export function RunStatusBar() {
+  const dict = useDictionary()
+  const run = useStore((state) => state.run)
+
+  let text: string
+  if (run.phase === 'running') {
+    const p = run.progress
+    // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
+    // measured in cells left, not pieces made, and the two counts are
+    // abbreviated with `short`, not `fmt`.
+    text = p === null
+      ? dict.t('generating')
+      : dict.t(
+        'progress',
+        (100 * (1 - p.remaining / p.total)).toFixed(1),
+        dict.short(p.pieces),
+        dict.short(p.remaining),
+        p.backtracks,
+        (p.ms / 1000).toFixed(1),
+      )
+  } else if (run.phase === 'error') {
+    // The worker reports a thrown InvalidParamsError as `error`; onerror is
+    // the other, rarer case. The old lab keeps the two words apart, and so
+    // does this (lab-i18n.ts:119-120).
+    text = `${dict.t('generationError')} ${run.message ?? ''}`
+  } else if (run.phase !== 'done' || run.report === null) {
+    text = dict.t('pressGenerate')
+  } else if (run.report.ok) {
+    text = dict.t('closed')
+  } else if (run.report.deadlock) {
+    text = dict.t('unsolvable')
+  } else {
+    const stuck = run.report.stuck
+    text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
+  }
+
+  // The store's answer is appended, never substituted: a missing store must
+  // not overwrite what the run itself reported (§5.3).
+  const saved = run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
+  return <output aria-live="polite">{`${text}${saved}`}</output>
+}
+```
+
+`dict.t('progress', …)` renders HTML tags in the old lab (`<b>`); here it is plain text in a `<output>`, which is what `aria-live` needs. The tags appear literally; PR 4 replaces this line with the report's own markup. Note it in a comment so nobody "fixes" it by reaching for `dangerouslySetInnerHTML`.
+
+- [ ] **Step 4: Write the lab panel**
 
 `apps/lab/src/routes/LabRoute.tsx`:
 
 ```tsx
 import { defaultParams } from '@arrowz/engine'
-import { dictionary } from '@arrowz/engine/i18n'
-import type { Generator } from '../AppRoutes'
+import { useDictionary } from '../i18n'
+import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
 import { useStore } from '../state/store'
+import type { Generator } from '../worker/useGenerator'
 
-const dict = dictionary('en')
-// PR 3 replaces this with the params slice; until then the run uses the
+// PR 3 replaces this with the params slice; until then a run uses the
 // defaults, which is what the CLI uses when it is given no knobs.
 const params = defaultParams()
 
 /**
- * The four words the status line can say, all of them the dictionary's. The
- * old lab words the same four at `lab-page.ts:1405-1417`; the report itself,
- * with its metrics and its delta, is PR 4.
+ * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
+ * column of §5.1 arrives in PR 3 and takes the button with it.
  */
-function statusText(run: RunState): string {
-  if (run.phase === 'running') return dict.t('generating')
-  if (run.phase === 'error') return `${dict.t('workerError')} ${run.message ?? ''}`
-  if (run.phase !== 'done' || !run.report) return dict.t('pressGenerate')
-  if (run.report.ok) return dict.t('closed')
-  if (run.report.deadlock) return dict.t('unsolvable')
-  const stuck = run.report.stuck
-  return dict.t(
-    'notClosedStatus',
-    dict.fmt(stuck?.remaining ?? 0),
-    stuck?.sizes.length ?? 0,
-    stuck?.sizes[0] ?? 0,
-  )
-}
-
-export function LabRoute({ generator }: { generator: Generator }) {
-  const run = useStore((state) => state.run)
-
+export function LabRoute({ generator, hidden }: { generator: Generator; hidden: boolean }) {
+  const dict = useDictionary()
+  const running = useStore((state) => state.run.phase === 'running')
   return (
-    <main id="lab-panel" role="tabpanel" aria-label={dict.t('tabLab')}>
-      <div className="fw-view">
+    <main id="lab-panel" hidden={hidden}>
+      <section role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
         <div className="fw-bar">
-          <button
-            type="button"
-            className="fw-go"
-            onClick={() => generator.start(params)}
-            disabled={run.phase === 'running'}
-          >
+          <button type="button" className="fw-go" onClick={() => generator.start(params)} disabled={running}>
             {dict.t('generate')}
           </button>
-          {/* aria-live: the mock's run state has none, and a screen reader
-              would never learn that a thirty-second carve had finished.
-              The store's answer is appended, never substituted: a missing
-              store must not overwrite what the run itself reported. */}
-          <output role="status" aria-live="polite">
-            {statusText(run)}
-            {run.saved ? ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}` : ''}
-          </output>
+          <RunStatusBar />
         </div>
         <Stage />
-      </div>
+      </section>
     </main>
   )
 }
 ```
 
-`LabRoute` subscribes to the whole slice on purpose — it renders from four of its fields, and it is the leaf the progress messages are for. `App` must not (Step 4).
+- [ ] **Step 5: Mount the panel and the save effect in `App`**
 
-The four keys used here all exist today: `generating` (`lab-i18n.ts:114`), `workerError` (`:119`), `closed` (`:122`), `unsolvable` (`:124`), `notClosedStatus` (`:125`), `pressGenerate` (`:113`), `saved` (`:165`) and `notSaved` (`:166`). Import `RunState` from `../state/run.slice`.
-
-- [ ] **Step 4: Save the finished board**
-
-In `apps/lab/src/App.tsx`, save each finished run exactly once, from above the routes:
+`apps/lab/src/App.tsx`:
 
 ```tsx
-import { storeRequest } from '@arrowz/engine/command'
-import { DEFAULT_VIEW } from '@arrowz/engine/command'
+import { defaultParams } from '@arrowz/engine'
+import type { BoardFile } from '@arrowz/engine'
+import { DEFAULT_VIEW, storeRequest } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
+import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
+import { AppRoutes } from './AppRoutes'
+import { LabRoute } from './routes/LabRoute'
+import { selectedIndex, TabRow } from './shell/TabRow'
+import { TopBar } from './shell/TopBar'
+import { useStore } from './state/store'
+import { useGenerator } from './worker/useGenerator'
 
-// …inside App, after the generator. App subscribes to one field, not to the
-// slice: a subscription to `run` would re-render the shell on every progress
-// message. The board file is the run's identity here, so the same finished
-// run is never posted twice — including under StrictMode's double effect.
-const file = useStore((state) => state.run.file)
-const posted = useRef<string | null>(null)
-useEffect(() => {
-  const { phase, params: runParams, report } = useStore.getState().run
-  if (phase !== 'done' || !file || !runParams || !report) return
-  if (posted.current === file) return
-  posted.current = file
-  // The stored view is the lab's view with top zeroed, as the old lab stores
-  // it (`lab-page.ts` storeView()).
-  const request = storeRequest(file, runParams, { ...DEFAULT_VIEW, top: 0 }, 'lab', {
-    ok: report.ok,
-    pieces: report.pieces,
-    maxLen: report.metrics?.maxLen ?? null,
-    genMs: report.genMs,
-    restarts: report.restartsUsed,
-    backtracks: report.backtracks,
-    stuck: report.stuck,
-  })
-  void saveBoard(request).then((outcome) => useStore.getState().run.stored(outcome))
-}, [file])
+const params = defaultParams()
+
+/**
+ * Saves each finished run once. `App` subscribes to one field rather than to
+ * the slice: a subscription to `run` would re-render the shell on every
+ * progress message. The guard keys on the file object's identity, which is
+ * fresh per run even when two runs carve the same board, so pressing Generate
+ * twice with the same seed still reports a save both times.
+ */
+function useStoreSave() {
+  const file = useStore((state) => state.run.file)
+  const posted = useRef<BoardFile | null>(null)
+  useEffect(() => {
+    const { phase, params: runParams, report } = useStore.getState().run
+    if (phase !== 'done' || file === null || runParams === null || report === null) return
+    if (posted.current === file) return
+    posted.current = file
+    // The stored view is the lab's view with top zeroed, as the old lab
+    // stores it (`storeView()` in lab-page.ts).
+    const request = storeRequest(file, runParams, { ...DEFAULT_VIEW, top: 0 }, 'lab', {
+      ok: report.ok,
+      pieces: report.pieces,
+      maxLen: report.metrics?.maxLen ?? null,
+      genMs: report.genMs,
+      restarts: report.restartsUsed,
+      backtracks: report.backtracks,
+      stuck: report.stuck,
+    })
+    void saveBoard(request).then((outcome) => useStore.getState().run.stored(outcome))
+  }, [file])
+}
+
+function Shell() {
+  // Above the routes on purpose: §6 and Ruling 5.
+  const generator = useGenerator()
+  const onLab = selectedIndex(useLocation().pathname) === 0
+  useStoreSave()
+  return (
+    <div className="fw">
+      <TopBar W={params.W} H={params.H} />
+      <TabRow />
+      <LabRoute generator={generator} hidden={!onLab} />
+      <AppRoutes />
+    </div>
+  )
+}
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <Shell />
+    </BrowserRouter>
+  )
+}
 ```
 
-- [ ] **Step 5: Add the status bar's styles**
+The lab panel and `<Routes>` are siblings in the shell's third grid row; only one of them ever has content, because `/` renders no route element.
 
-Append to `apps/lab/src/design/shell.css` (from the mock, `:114-121`):
+- [ ] **Step 6: Add the run bar's styles**
+
+Append to `apps/lab/src/design/shell.css`:
 
 ```css
 .fw-view {
@@ -2384,6 +2462,9 @@ Append to `apps/lab/src/design/shell.css` (from the mock, `:114-121`):
   border-bottom: 1px solid var(--border);
   color: var(--ash);
   flex-wrap: wrap;
+}
+.fw-bar output {
+  font-variant-numeric: tabular-nums;
 }
 .fw-go {
   height: 32px;
@@ -2405,18 +2486,25 @@ Append to `apps/lab/src/design/shell.css` (from the mock, `:114-121`):
   opacity: 0.5;
   cursor: default;
 }
+
+@media (pointer: coarse) {
+  .fw-go {
+    height: 44px;
+  }
+}
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium`
 Expected: PASS, every browser test.
 
 If the "zero console errors" assertion fails on a React `act` warning, fix the component rather than the assertion: a state update outside React's knowledge is exactly the class of bug that assertion exists to catch.
 
-- [ ] **Step 7: Verify and commit**
+- [ ] **Step 8: Verify and commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 pnpm nx run-many -t verify --projects=lab
 git add apps/lab
 git commit -m "Walk one path end to end: generate, draw, save"
@@ -2424,29 +2512,20 @@ git commit -m "Walk one path end to end: generate, draw, save"
 
 ---
 
-### Task 11: The fingerprint test over the Vite-built worker
+### Task 11: Engine parity through Vite's transform
 
-`lab-bundle.test.ts:61-88` runs the **Deno-bundled** worker and compares its board's fingerprint against an in-process `generate()`. Zero console errors does not prove that a Vite-bundled engine carves the same board — a bundler that dropped or reordered a module would show up on someone's screen, not in a test. PR 8 removes the Deno one; this is its successor, and §8 requires it to exist first.
+`lab-bundle.test.ts:61-88` runs the **Deno-bundled** worker and compares its board's fingerprint against an in-process `generate()`. This is the same idea for the Vite side, and Ruling 9 is honest about its reach: in browser mode Vite serves the worker as transformed modules, so this catches a wrong alias, a dropped subpath export or a module the transform reorders — not a rollup or minifier fault. The test over the built artefact is a prerequisite of PR 8 and is recorded in Task 12.
 
 **Files:**
-- Test: `apps/lab/src/worker/fingerprint.browser.test.ts`
+- Test: `apps/lab/src/worker/parity.browser.test.ts`
 
 **Interfaces:**
-- Consumes: `generate`, `decodeBoard`, `encodeBoard`, `fingerprint`, `toSvg`, `svgOptions` from `@arrowz/engine`; the worker of Task 8
+- Consumes: `generate`, `decodeBoard`, `encodeBoard`, `fingerprint`, `toSvg` from `@arrowz/engine`; `DEFAULT_VIEW`, `svgOptions` from `@arrowz/engine/command` (`svgOptions` is exported from `command.ts:252` and is **not** re-exported by `mod.ts`)
 - Produces: nothing — this task adds only a test
 
-- [ ] **Step 1: Confirm the names the test imports**
+- [ ] **Step 1: Write the test**
 
-```bash
-grep -n "export function fingerprint\|export function svgOptions" packages/engine/*.ts | grep -v test
-grep -n "fingerprint\|svgOptions" packages/engine/mod.ts
-```
-
-Both must be reachable from `@arrowz/engine`. If `svgOptions` is not exported from the package root, import it from the subpath that has it and record which one in the test's header comment.
-
-- [ ] **Step 2: Write the failing test**
-
-Create `apps/lab/src/worker/fingerprint.browser.test.ts`:
+Create `apps/lab/src/worker/parity.browser.test.ts`:
 
 ```ts
 import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, toSvg } from '@arrowz/engine'
@@ -2454,10 +2533,10 @@ import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 import { DEFAULT_VIEW, svgOptions } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 
-// The successor to packages/cli/lab-bundle.test.ts: that test proves the
-// Deno-bundled worker carves the board the engine carves, and PR 8 deletes it
-// along with the old lab. This proves the same thing about the Vite build,
-// which is the only one that will remain.
+// The counterpart of packages/cli/lab-bundle.test.ts, which proves the
+// Deno-bundled worker carves the board the engine carves and which PR 8
+// deletes with the old lab. This proves it for the engine as Vite transforms
+// it; the build-output test is PR 8's prerequisite (Ruling 9).
 function ask(message: WorkerIn): Promise<WorkerOut> {
   const worker = new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' })
   return new Promise<WorkerOut>((resolve, reject) => {
@@ -2469,7 +2548,7 @@ function ask(message: WorkerIn): Promise<WorkerOut> {
   }).finally(() => worker.terminate())
 }
 
-test('the Vite-built worker carves the board the engine carves', async () => {
+test('the worker carves the board the engine carves', async () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 7 }
   const answer = await ask({ type: 'generate', params })
   expect(answer.type).toBe('done')
@@ -2477,10 +2556,13 @@ test('the Vite-built worker carves the board the engine carves', async () => {
 
   const mine = generate(params)
   expect(fingerprint(decodeBoard(answer.board))).toBe(fingerprint(mine.board))
+  // The file carries its own fingerprint; if the two agree, the record that
+  // reaches the store is the board that was drawn.
+  expect(answer.board.fingerprint).toBe(fingerprint(mine.board))
   expect(answer.pieces).toBe(mine.board.pieces.length)
 }, 30_000)
 
-test('the Vite-built worker draws the SVG the engine draws', async () => {
+test('the worker draws the SVG the engine draws', async () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 7 }
   const mine = generate(params)
   const options = svgOptions(DEFAULT_VIEW)
@@ -2491,16 +2573,17 @@ test('the Vite-built worker draws the SVG the engine draws', async () => {
 }, 30_000)
 ```
 
-- [ ] **Step 3: Run the test**
+- [ ] **Step 2: Run the test**
 
-Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium fingerprint`
-Expected: PASS. If the fingerprints differ, do not adjust the test: compare `pnpm nx build engine`'s output with what Vite resolved, because a mismatch here means the application and the CLI carve different boards.
+Run: `pnpm --filter @arrowz/lab exec vitest run --project=chromium parity`
+Expected: PASS, 2 tests. If the fingerprints differ, do not adjust the test — a mismatch means the application and the CLI carve different boards.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
+pnpm --filter @arrowz/lab exec prettier --write .
 git add apps/lab
-git commit -m "Fingerprint the Vite-built worker against the engine"
+git commit -m "Pin engine parity through the Vite-transformed worker"
 ```
 
 ---
@@ -2508,16 +2591,19 @@ git commit -m "Fingerprint the Vite-built worker against the engine"
 ### Task 12: Close the PR
 
 **Files:**
-- Modify: `README.md`, `README.pl.md` (the repository layout section)
+- Modify: `README.md`, `README.pl.md`
 - Verify: everything
 
 - [ ] **Step 1: Name the project in both READMEs**
 
+Neither README has a package-layout list; the lab is described in prose under `## The web page` in `README.md` (around `:808-830`) and its Polish twin in `README.pl.md` (around `:817`). Confirm the headings first:
+
 ```bash
-grep -n "packages/board-element" README.md README.pl.md | head
+grep -n "^## " README.md | sed -n '1,40p'
+grep -n "^## " README.pl.md | sed -n '1,40p'
 ```
 
-Add `apps/lab` to the same list in both files, one line each, in English in `README.md` and Polish in `README.pl.md`. Say what it is (the generator lab as a React application), what runs it (`pnpm nx serve lab`, with `deno task lab` beside it for the board store) and that it is being built alongside the old lab, which goes away in a later step.
+Append one paragraph to that section in each file, in the file's own language: the React lab is being built at `apps/lab`, it runs with `pnpm nx serve lab` beside `deno task lab` for the board store, and it replaces the page described above in a later step.
 
 - [ ] **Step 2: Run both gates**
 
@@ -2527,7 +2613,7 @@ deno task verify
 pnpm nx run-many -t verify
 ```
 
-Expected: both green. `deno task verify` covers the change of Task 3; the Nx run covers `apps/lab` and proves the new project did not break `engine`, `cli` or `board-element`.
+Expected: both green. `deno task verify` covers Task 3; the Nx run covers `apps/lab` and proves the new project broke neither `engine`, `cli` nor `board-element`.
 
 - [ ] **Step 3: Confirm the project entered CI without a workflow change**
 
@@ -2535,7 +2621,7 @@ Expected: both green. `deno task verify` covers the change of Task 3; the Nx run
 pnpm nx show project lab --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(Object.keys(JSON.parse(s).targets)))"
 ```
 
-Expected: `check`, `lint`, `fmt`, `test`, `build`, `serve`, `verify`. CI runs `nx affected -t check lint fmt test build smoke bundle`, so six of those seven run there with no edit to `.github/workflows/ci.yml`. `apps/lab` has no `smoke` or `bundle` target, and Nx skips targets a project does not declare.
+Expected: `check`, `lint`, `fmt`, `test`, `build`, `serve`, `verify`. CI runs `nx affected -t check lint fmt test build smoke bundle`, so six of those seven run there with no edit to `.github/workflows/ci.yml`; `apps/lab` declares no `smoke` or `bundle` target and Nx skips what a project does not have.
 
 - [ ] **Step 4: Run the application by hand, against the real store**
 
@@ -2544,9 +2630,17 @@ deno task lab            # the board store on 8777, in one terminal
 pnpm nx serve lab        # the application on 8779, in another
 ```
 
-Open `http://localhost:8779/`, press Generate, and check three things the tests cannot: the board appears in the element's own control bar; the status line reports the save; and `packages/cli/boards/` gained a directory. Then switch to Saved boards and back mid-run and confirm the run survives.
+Open `http://localhost:8779/`, press Generate, and check four things the tests cannot: the board appears inside the element's own control bar; the status line reports the save; `packages/cli/boards/` gained a directory; and a reload of `http://localhost:8779/boards` serves the application rather than the store's 404.
 
-- [ ] **Step 5: Commit and open the pull request**
+- [ ] **Step 5: Record the CI timing of the two browser projects**
+
+The first CI run of this branch is the first time `apps/lab`'s Chromium tests and `board-element`'s share a runner. `lab`'s `test` target carries `"parallelism": false`, so Nx will not run it beside another task, but the two projects still run in sequence on a two-core box. Read the job's timing from `gh run view --log` and note in the PR whether either project's browser tests slowed by more than half; if they did, say so rather than leaving the next person to discover it.
+
+- [ ] **Step 6: Write down what PR 8 must not forget**
+
+Add to the PR description, and to the memory note for this session: **before PR 8 deletes `lab-bundle.test.ts`, `apps/lab` needs a parity test over the output of `vite build`**, not only over Vite's transform (Ruling 9). The shape that works: a `*.node.test.ts` that calls Vite's `build()` into a temporary directory, serves it, and drives the emitted worker in Playwright against an in-process `generate()`.
+
+- [ ] **Step 7: Commit and open the pull request**
 
 ```bash
 git add README.md README.pl.md
@@ -2560,24 +2654,50 @@ PR 2 of `docs/superpowers/specs/2026-09-13-lab-react-app-design.md` (§10).
 **What is here.** `apps/lab`: Vite 8 + React 19, its own ESLint 10 and
 Prettier, an Nx project that enters both gates, the design system's fourteen
 colour tokens and two font tokens, the shell (top bar and a tab strip with the
-full tablist pattern), three routes, the board-store client behind a Vite proxy
-that rewrites the `Origin` the server checks, the run slice, one long-lived
-generation worker with `useGenerator` mounted above the routes, the board drawn
-through `@lit/react`, and one path walked end to end: Generate, carve, draw,
-save.
+full tablist pattern), three routes, the board-store client behind a Vite
+proxy, the run slice, one long-lived generation worker with `useGenerator`
+mounted above the routes, the board drawn through `@lit/react`, and one path
+walked end to end: Generate, carve, draw, save.
 
-**Two tests earn their place.** `tokens.test.ts` pins the sixteen tokens the
-spec keeps, including the two the mock defines and never uses.
-`fingerprint.browser.test.ts` is the successor to `lab-bundle.test.ts`: it
-proves the Vite-built worker carves the board the engine carves, and §8 asks
-for it to exist before PR 8 deletes the Deno one.
+**It overturns §9.1 of the spec, with a measurement.** The spec asks for a
+`proxyReq` hook that rewrites `Origin`. Measured against Vite 8.2.2: the hook
+is only needed because `changeOrigin` would be set, and `changeOrigin` is not
+needed at all — forwarding the browser's own `Host` keeps `Host` and `Origin`
+consistent, which is exactly what `lab-server.ts:66-79` checks. The proxy is a
+target and nothing else, and `boards.node.test.ts` holds that line against both
+a 403 and the `/boards` prefix swallowing the application's own route.
+
+**Three tests earn their place.** `tokens.test.ts` pins the sixteen tokens the
+spec keeps, including the two the mock declares and never uses.
+`parity.browser.test.ts` proves the Vite-transformed worker carves the board
+the engine carves. `LabRoute.browser.test.tsx` asserts that a route change
+leaves the *same* `<arrowz-board>` node in the document — node identity, not
+the run's phase, because a remounted element is a disposed GL context whatever
+the phase says.
 
 **What is deliberately absent**, each with its own PR: the knob console (3),
 the simple view, the language switch and the report (4), the library (5), the
 docs content (6), the run filmstrip and the ⌘K palette (7). The old lab in
-`packages/cli` is untouched and retires in PR 8.
+`packages/cli` is untouched and retires in PR 8 — which first needs a parity
+test over the output of `vite build`, not only over Vite's transform.
 
 **Stacked on #63.** Retarget with `gh pr edit --base main` once that merges.
 MD
 )"
 ```
+
+---
+
+## What changed in revision 2
+
+Three adversarial reviews found defects worth recording, because several were decisions dressed as details.
+
+1. **The board was mounted under a route** — §11.6 of the spec is the record of that exact mistake being made and corrected once already. The plan's own Ruling 5 and file-structure block said `App` owned it while the code in Tasks 9 and 10 put it inside `LabRoute`. The panel is now mounted in `App` and hidden off-route, `/` maps to `element={null}`, and the test asserts **node identity** across a route change rather than the run's phase, which would have passed with the claim false.
+2. **§9.1's `Origin` rewrite was unnecessary.** Measured: `changeOrigin` is what creates the 403 the spec predicts. The proxy is now a bare target, and the keys carry trailing slashes so `/boards` reaches the application rather than the store.
+3. **`BoardFile` is an object, not a string** (`types.ts:151-165`). A `toMatch` assertion would have thrown and a `useRef<string | null>` would have failed `check`.
+4. **Four ESLint and matcher facts, each of which stopped the plan at its own "expected PASS"**: `reactHooks.configs['recommended-latest']` is the legacy shape that ESLint 10 rejects (the flat one is `configs.flat.recommended`); `projectService` errors on files no tsconfig includes; `toHaveTextContent` is exact equality and `toMatchTextContent` is the regex matcher, with timeouts belonging to `expect.element`; `<output role="status">` trips `jsx-a11y/no-redundant-roles`, which this plan's own Task 2 turns on.
+5. **`userEvent` comes from `vitest/browser`.** Verified in the installed tree: `vitest/browser/context.d.ts` re-exports `@vitest/browser-playwright/context`, which is already a dependency.
+6. **Two tests proved nothing.** The route-change test raced a 25×50 board that carves in tens of milliseconds, and the abort test read the slice synchronously, so an `abort()` that never terminated the worker would have passed. Both now use a 200×200 board, and abort spies on `Worker.prototype.terminate` and waits past the run.
+7. **`dictionary('en')` as a module constant in four files** made Ruling 1's promise false. One `useDictionary()` hook replaces them.
+8. **The parity test was named for something it does not do.** In browser mode Vite serves transformed modules; `vite build` never runs. Ruling 9 says so, and the build-output test is written down as PR 8's prerequisite instead of being implied here.
+9. **Smaller, all real:** `prettier --write` is now a step in every task rather than a single pass in Task 2 (the plan's own snippets are hand-formatted); the integration test binds `127.0.0.1` with `strictPort` (Vite's default `localhost` resolves to `::1` on Node 24, refusing every fetch to `127.0.0.1`) and fails loudly if `deno` is missing; `types: []` stays project-wide with a triple-slash reference in the one file that needs Node; `role="tabpanel"` moved off `<main>`, which it was erasing, onto a labelled child with `tabIndex={0}`; `aria-controls` is set only on the selected tab, because the other panels are not in the document; `lab-page.ts` anchors were stale after PR 1; the READMEs have no layout list to add to; and `test` carries `"parallelism": false` so two software-rendered Chromiums do not meet on a two-core runner.
