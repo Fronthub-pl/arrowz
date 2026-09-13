@@ -837,6 +837,12 @@ If you set a knob outside its safe range, the offending row turns red, the
 reason appears next to it, and the Generate button stops working until you fix
 it. The command stays on screen, so you can still copy rejected settings.
 
+A second lab is being built at `apps/lab`, this one a React application
+served by Vite instead of a bundled script. Run it with `pnpm nx serve lab`
+alongside `deno task lab`, which serves the board store on port 8777 that the
+new lab saves to; the application itself listens on port 8779. It does not
+replace the page above yet — that happens in a later step.
+
 ---
 
 ## Where boards are saved
@@ -972,6 +978,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
+| `apps/lab/` | The new React lab, built next to the page above; not yet its replacement. |
 
 Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
 `.claude/settings.json` (at the start and end of a session), and `.mcp.json`

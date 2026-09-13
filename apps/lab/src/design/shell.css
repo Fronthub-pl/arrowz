@@ -1,0 +1,218 @@
+/* The document itself, which the shell cannot reach from inside its own div:
+   the user agent's `body { margin: 8px }` frames a `--void` page in white on
+   all four sides, and those 16px on top of `.fw`'s `min-height: 100vh` put a
+   scrollbar in every viewport. `color-scheme: dark` is what paints that
+   scrollbar — and any other user agent surface — dark rather than light.
+   The tokens are on `:root` (tokens.css) so `var(--void)` resolves here. */
+html {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--void);
+}
+
+/* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
+   everything else. */
+.fw {
+  display: grid;
+  min-height: 100vh;
+  grid-template-rows: 48px auto minmax(0, 1fr);
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  font-synthesis: none;
+  text-wrap: pretty;
+}
+.fw *,
+.fw *::before,
+.fw *::after {
+  box-sizing: border-box;
+}
+.fw button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+.fw .caps {
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw :focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+.fw-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--signal);
+  color: var(--void);
+}
+.fw-top .mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.fw-top .name {
+  font-size: 13px;
+}
+.fw-top .sep {
+  opacity: 0.5;
+}
+/* §7.1: tabular-nums on every number, so a changing size does not jitter. */
+.fw-top .dims {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+.fw-top .right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.fw-tabrow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+}
+.fw-tabrow button {
+  padding: 10px 0 8px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ash);
+  cursor: pointer;
+  transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-tabrow button:hover {
+  color: var(--ink);
+}
+.fw-tabrow button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+
+/* §7.2: the design system asks for 44px targets where there is no hover. */
+@media (pointer: coarse) {
+  .fw-tabrow button {
+    padding: 15px 0 13px;
+  }
+}
+
+.fw-stage {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  gap: 1px;
+  background: var(--border);
+  min-height: 0;
+}
+.fw-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--void);
+  overflow-y: auto;
+}
+.fw-boardwrap {
+  position: relative;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+  background: var(--void);
+}
+.fw-board {
+  position: relative;
+  height: 100%;
+  min-height: 260px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.fw-board arrowz-board {
+  display: block;
+  height: 100%;
+}
+
+/* The mock's second breakpoint: below this height the board gives up its
+   minimum rather than pushing the console off the screen. */
+@media (max-height: 700px) {
+  .fw-board {
+    min-height: 0;
+  }
+}
+
+/* `height: 100%` and not `display: grid` on the panel's <main>: the shell
+   stretches that <main> to row 3, but it is a block box with no height of its
+   own, so without this the run bar and the stage each take an auto row, the
+   board falls back to its `min-height`, and under the `max-height: 700px` rule
+   below — where that minimum becomes 0 — the board collapses to nothing.
+   Giving `#lab-panel`'s <main> a `display` would fix the chain and silently
+   defeat `hidden`: an author `display` declaration beats the UA's
+   `[hidden] { display: none }`, and the off-route panel would stay on screen. */
+.fw-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--void);
+}
+.fw-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ash);
+  flex-wrap: wrap;
+}
+.fw-bar output {
+  font-variant-numeric: tabular-nums;
+}
+/* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
+   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`, leaving
+   the button `--ash` on `--signal` (contrast 1.45:1 against the 4.03:1 §7.1
+   asks for) in the mono stack. The `.fw` prefix makes it (0,2,0). Every rule
+   of the component carries it, and PR 3 adds many more controls into the same
+   cascade. */
+.fw .fw-go {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--signal);
+  color: var(--void);
+  font-family: var(--ui);
+  cursor: pointer;
+  transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-go:hover:not(:disabled) {
+  background: var(--signal-hover);
+}
+.fw .fw-go:active:not(:disabled) {
+  background: var(--signal-press);
+}
+.fw .fw-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .fw .fw-go {
+    height: 44px;
+  }
+}
