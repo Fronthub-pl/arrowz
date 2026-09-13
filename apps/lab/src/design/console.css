@@ -213,3 +213,22 @@
 .fw-k.off .num {
   color: var(--mist);
 }
+/* The mock has no choice knob; this is its number treatment applied to a
+   select, so the two kinds of knob sit on one grid without a seam. */
+.fw-k select {
+  flex: none;
+  max-width: 50%;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--void);
+  color: var(--signal);
+  font: inherit;
+}
+.fw-k.off select {
+  color: var(--mist);
+}
+.fw-k.bad select {
+  color: var(--error);
+  border-color: var(--error);
+}
