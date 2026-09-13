@@ -350,3 +350,22 @@
     grid-template-columns: 150px minmax(0, 1fr);
   }
 }
+
+/* The mock's note is bordered in `--warn`; this one is `--error` (Task 7): warn
+   is the rule bound, error is a refusal, and the two colours must not collapse
+   into one. */
+.fw-note {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--error);
+  background: var(--graphite);
+  color: var(--mist);
+}
+.fw-note b {
+  font-weight: 400;
+  color: var(--error);
+}
+.fw-note ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}

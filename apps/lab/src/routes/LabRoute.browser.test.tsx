@@ -200,3 +200,14 @@ test('picking a rail entry replaces the panel', async () => {
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
 })
+
+test('Generate is refused while a rule is broken, and the reasons are on screen', async () => {
+  const screen = await mountApp()
+  useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
+  const generate = screen.getByRole('button', { name: 'Generate' })
+  await expect.element(generate).toBeDisabled()
+  await expect.element(generate).toHaveAttribute('title', 'Fix the settings marked in red to generate')
+  await expect.element(screen.getByRole('region', { name: 'Settings outside the safe range' })).toBeVisible()
+  useStore.getState().params.reset()
+  await expect.element(generate).toBeEnabled()
+})

@@ -1,5 +1,6 @@
 import type { Params } from '@arrowz/engine'
 import { Console } from '../console/Console'
+import { Violations } from '../console/Violations'
 import { useDictionary } from '../i18n'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
@@ -22,6 +23,7 @@ export function LabRoute({
 }) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
+  const blocked = useStore((state) => state.params.violations.length > 0)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -30,7 +32,13 @@ export function LabRoute({
     <main hidden={hidden}>
       <section id="lab-panel" role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
         <div className="fw-bar">
-          <button type="button" className="fw-go" onClick={() => generator.start(params)} disabled={running}>
+          <button
+            type="button"
+            className="fw-go"
+            onClick={() => generator.start(params)}
+            disabled={running || blocked}
+            title={blocked ? dict.t('generateBlocked') : undefined}
+          >
             {dict.t('generate')}
           </button>
           <RunStatusBar />
@@ -38,6 +46,7 @@ export function LabRoute({
         <div className="fw-lab">
           <Stage />
           <Console />
+          <Violations />
         </div>
       </section>
     </main>
