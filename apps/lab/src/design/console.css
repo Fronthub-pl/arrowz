@@ -232,3 +232,34 @@
   color: var(--error);
   border-color: var(--error);
 }
+.fw-knobs {
+  background: var(--void);
+  padding: 14px 20px 18px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-khd {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.fw-khd b {
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.fw-khd span {
+  color: var(--ash);
+}
+.fw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0 24px;
+  align-content: start;
+}
