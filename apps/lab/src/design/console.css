@@ -62,3 +62,78 @@
 .fw-rail button[aria-selected='true'] .n {
   color: var(--void);
 }
+/* The mock draws the bar as a div with a pointer handler and no keyboard.
+   This is the same 2px bar over a native range input, so arrow keys, Home,
+   End, PageUp/PageDown and touch come from the platform (Ruling 3). */
+.fw-k .bar {
+  position: relative;
+  margin-top: 10px;
+  height: 12px;
+}
+.fw-k .bar input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  /* `border: 0` is load-bearing: `.fw-k input` in Task 7 styles the inline
+     entry with a 1px signal border, and both selectors reach this input. */
+  border: 0;
+  background: none;
+  cursor: ew-resize;
+}
+.fw-k .bar input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  margin-top: 5px;
+  background: linear-gradient(to right, var(--signal) 0 var(--pct), var(--border) var(--pct) 100%);
+}
+.fw-k .bar input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2px;
+  height: 12px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--signal);
+}
+.fw-k .bar input[type='range']::-moz-range-track {
+  height: 2px;
+  background: var(--border);
+}
+.fw-k .bar input[type='range']::-moz-range-progress {
+  height: 2px;
+  background: var(--signal);
+}
+.fw-k .bar input[type='range']::-moz-range-thumb {
+  width: 2px;
+  height: 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--signal);
+}
+/* The rule floor: a mark with a reason, never a limit (spec §5.4). `--warn`
+   is the token reserved for exactly this and for a clamped value. */
+.fw-k .bar u {
+  position: absolute;
+  top: 5px;
+  height: 2px;
+  width: 0;
+  border-left: 1px solid var(--warn);
+  text-decoration: none;
+  /* No `pointer-events: none`: the mock's marker is decoration, this one
+     carries a `title`, and suppressing pointer events suppresses the tooltip
+     that is its only surface for a mouse user. The knob's own `.why` states
+     the bound in text, for everyone else. */
+}
+.fw-k .bar u::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -3px;
+  width: 1px;
+  height: 8px;
+  background: var(--warn);
+}
