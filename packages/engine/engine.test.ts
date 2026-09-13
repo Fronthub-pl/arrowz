@@ -15,6 +15,7 @@ import {
   INACTIVE_REASONS,
   InvalidParamsError,
   isFiniteNumber,
+  longestSummary,
   mulberry32,
   PARAM_SPEC,
   readParams,
@@ -1309,4 +1310,36 @@ Deno.test('clampParam leaves a legal value alone and says so', () => {
   const spec = PARAM_SPEC.find((s) => s.key === 'W')
   assert(spec)
   assertEquals(clampParam(spec, spec.def), { value: spec.def, clamped: false })
+})
+
+Deno.test('longestSummary returns the n longest pieces, longest first', () => {
+  const r = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 })
+  const got = longestSummary(r.board, 5)
+  assertEquals(got.length, Math.min(5, r.board.pieces.length))
+  for (let i = 1; i < got.length; i++) {
+    const prev = got[i - 1], cur = got[i]
+    assert(prev && cur && prev.len >= cur.len)
+  }
+})
+
+Deno.test('longestSummary measures the box, the span and the density of a piece', () => {
+  const r = generate({ ...defaultParams(), W: 20, H: 20, seed: 3 })
+  const top = longestSummary(r.board, 1)[0]
+  assert(top)
+  assertEquals(top.span, Math.max(top.sx / r.board.W, top.sy / r.board.H))
+  assertEquals(top.density, top.len / (top.sx * top.sy))
+  assert(top.density > 0 && top.density <= 1)
+  assert(top.coil >= 0 && top.coil <= 1)
+})
+
+Deno.test('longestSummary asks for more pieces than exist without failing', () => {
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 1 })
+  assertEquals(longestSummary(r.board, 10_000).length, r.board.pieces.length)
+})
+
+Deno.test('longestSummary leaves the board it reads untouched', () => {
+  const r = generate({ ...defaultParams(), W: 16, H: 16, seed: 5 })
+  const before = r.board.pieces.map((p) => p.id)
+  longestSummary(r.board, 3)
+  assertEquals(r.board.pieces.map((p) => p.id), before)
 })

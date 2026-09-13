@@ -17,6 +17,7 @@ export {
   INACTIVE_REASONS,
   InvalidParamsError,
   isFiniteNumber,
+  longestSummary,
   PARAM_SPEC,
   readParams,
   RULE_REASONS,

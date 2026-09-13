@@ -21,7 +21,15 @@ import type {
   WorkerIn,
   WorkerOut,
 } from '@arrowz/engine'
-import { clampParam, decodeBoard, defaultParams, PARAM_SPEC, readParams, validateParams } from '@arrowz/engine'
+import {
+  clampParam,
+  decodeBoard,
+  defaultParams,
+  longestSummary,
+  PARAM_SPEC,
+  readParams,
+  validateParams,
+} from '@arrowz/engine'
 import {
   buildCommand,
   isStartChoice,
@@ -86,38 +94,6 @@ function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
   boardEl.view = view
 }
 
-/** The table of the N longest pieces: their box, how far they reach and how much they coil. */
-function longestSummary(board: BoardData, n: number): LongestSummary[] {
-  const W = board.W
-  // slice(), not a spread into a call: the piece count reaches ~90 000.
-  const longest = board.pieces.slice().sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
-  return longest.map((pc) => {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    const own = new Set(pc.cells.map((c) => c.y * W + c.x))
-    let coil = 0
-    for (const c of pc.cells) {
-      if (c.x < minX) minX = c.x
-      if (c.x > maxX) maxX = c.x
-      if (c.y < minY) minY = c.y
-      if (c.y > maxY) maxY = c.y
-      let touch = 0
-      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
-        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
-      }
-      if (touch >= 3) coil++
-    }
-    const sx = maxX - minX + 1
-    const sy = maxY - minY + 1
-    return {
-      len: pc.cells.length,
-      sx,
-      sy,
-      span: Math.max(sx / board.W, sy / board.H),
-      density: pc.cells.length / (sx * sy),
-      coil: coil / pc.cells.length,
-    }
-  })
-}
 const state: Params = { ...defaultParams() }
 
 /** Something parsed from JSON that is an object: its fields are still unknown. */
