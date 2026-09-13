@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createParamsSlice, type ParamsState } from './params.slice'
 import { createRunSlice, type RunState } from './run.slice'
+import { createUiSlice, type UiState } from './ui.slice'
 import { createViewSlice, type ViewState } from './view.slice'
 
 /**
@@ -12,10 +13,12 @@ export interface Store {
   run: RunState
   params: ParamsState
   view: ViewState
+  ui: UiState
 }
 
 export const useStore = create<Store>()((set) => ({
   run: createRunSlice(set),
   params: createParamsSlice(set),
   view: createViewSlice(set),
+  ui: createUiSlice(set),
 }))
