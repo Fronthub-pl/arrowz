@@ -1,4 +1,3 @@
-import type { Params } from '@arrowz/engine'
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
 import { useDictionary } from '../i18n'
@@ -9,21 +8,16 @@ import type { GeneratorHandle } from '../worker/useGenerator'
 
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
- * column of §5.1 arrives in PR 3 and takes the button with it; `params` comes
- * from the shell until the params slice does (PR 3).
+ * column of §5.1 arrives in PR 4 and takes the button with it.
  */
-export function LabRoute({
-  generator,
-  params,
-  hidden,
-}: {
-  generator: GeneratorHandle
-  params: Params
-  hidden: boolean
-}) {
+export function LabRoute({ generator, hidden }: { generator: GeneratorHandle; hidden: boolean }) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
+  // Read at the click, not through a subscription: the button does not need
+  // to rerender on every knob edit, and `getState()` is the value at the
+  // moment the run starts — which is exactly what the run must use.
+  const start = () => generator.start(useStore.getState().params.values)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -35,7 +29,7 @@ export function LabRoute({
           <button
             type="button"
             className="fw-go"
-            onClick={() => generator.start(params)}
+            onClick={start}
             disabled={running || blocked}
             title={blocked ? dict.t('generateBlocked') : undefined}
           >

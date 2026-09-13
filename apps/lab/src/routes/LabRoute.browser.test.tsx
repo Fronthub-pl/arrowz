@@ -1,17 +1,19 @@
-import { defaultParams } from '@arrowz/engine'
+import type { StoreRequest } from '@arrowz/engine'
 import { StrictMode } from 'react'
-import { BrowserRouter } from 'react-router'
 import { expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
-import { App, Shell } from '../App'
+import { App } from '../App'
 import { useStore } from '../state/store'
 
 // The real App, address bar and all: Ruling 5's claim is about what App
-// mounts, so a MemoryRouter harness would test the wrong thing.
+// mounts, so a MemoryRouter harness would test the wrong thing. The params
+// slice is reset alongside the run: the store outlives a test, and the sizes
+// one test commits would otherwise be what the next one carves.
 async function mountApp() {
   window.history.pushState({}, '', '/')
   useStore.getState().run.reset()
+  useStore.getState().params.reset()
   return render(<App />)
 }
 
@@ -78,10 +80,10 @@ test('a route change keeps the very same board element', async () => {
 // reaches the live element while the user is off-route. It needs a board big
 // enough to still be carving after a Playwright click round-trip, which costs
 // tens of milliseconds on its own; the defaults are 25×50 and finish in tens of
-// milliseconds, so the shell is mounted directly with larger parameters. 600×600
-// and not 200×200: Task 8 measured 200×200 at 228 ms in Chromium — a race this
-// test would win while proving nothing — and settled on 600×600, at about 2.5 s,
-// for exactly this margin. That size also buys the progress line, which the
+// milliseconds, so the console commits a larger board before the run. 600×600 and
+// not 200×200: Task 8 measured 200×200 at 228 ms in Chromium — a race this test
+// would win while proving nothing — and settled on 600×600, at about 2.5 s, for
+// exactly this margin. That size also buys the progress line, which the
 // engine emits no sooner than 250 ms into a carve (Task 8 measured eight
 // messages at 600×600 and none at 200×200).
 //
@@ -94,13 +96,8 @@ test('a route change keeps the very same board element', async () => {
 // claim that one makes on its own: a run that finishes while the user is
 // off-route still lands on the same live element.
 test('a run in flight survives a route change, and finishes into the same element', async () => {
-  window.history.pushState({}, '', '/')
-  useStore.getState().run.reset()
-  const screen = await render(
-    <BrowserRouter>
-      <Shell params={{ ...defaultParams(), W: 600, H: 600, seed: 9 }} />
-    </BrowserRouter>,
-  )
+  const screen = await mountApp()
+  useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   await expect.poll(() => useStore.getState().run.phase).toBe('running')
 
@@ -154,6 +151,9 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
   window.history.pushState({}, '', '/')
   useStore.getState().run.reset()
+  // Not through `mountApp`, which renders `App` bare: the defaults have to be
+  // put back here too, or this test carves whatever the last one left behind.
+  useStore.getState().params.reset()
   const fetchSpy = vi.spyOn(window, 'fetch')
   const posts = () => fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards')
   try {
@@ -175,10 +175,10 @@ test('a finished run is offered to the store once per run, and the outcome is ap
       .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 
-    // The guard keys on the file object's identity, not on its value. Both
-    // presses run the shell's one `DEFAULTS` object, so the second carves a
-    // board equal to the first in every field, fingerprint included — a guard
-    // that compared values would post once and swallow the second run.
+    // The guard keys on the file object's identity, not on its value. Nothing
+    // touches a knob between the two presses, so the second carves a board
+    // equal to the first in every field, fingerprint included — a guard that
+    // compared values would post once and swallow the second run.
     await generate.click()
     await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 20_000 }).toBe(true)
     expect(posts()).toHaveLength(2)
@@ -211,3 +211,54 @@ test('Generate is refused while a rule is broken, and the reasons are on screen'
   useStore.getState().params.reset()
   await expect.element(generate).toBeEnabled()
 })
+
+test('a board carved from the console reaches the element and the store', async () => {
+  const screen = await mountApp()
+  // The sizes this file already measured: 600×600, because PR 2 timed 200×200
+  // at 228 ms and the engine emits no progress before 250 ms (see the comment
+  // above the in-flight test). Migrating to the slice must not change them.
+  useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(useStore.getState().run.params?.W).toBe(600)
+}, 40_000)
+
+test('the knobs on screen are the knobs the run used', async () => {
+  const screen = await mountApp()
+  // 'board' exactly: the route strip has a tab called "Saved boards".
+  await screen.getByRole('tab', { name: 'board', exact: true }).click()
+  // Commit a seed through the console itself, not through the store.
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox'), '42')
+  await userEvent.keyboard('{Enter}')
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(useStore.getState().run.params?.seed).toBe(42)
+}, 40_000)
+
+// The picture a saved board carries is the one the board was drawn with, and
+// `DEFAULT_VIEW` sits close enough to the lab's own starting view that only a
+// field the user moved tells the two apart — so this test moves one. Read off
+// the POST body rather than off `run.saved`, which says only that the store
+// answered: the same reason the StrictMode test above counts the client's own
+// calls.
+test('the saved board carries the view on screen', async () => {
+  const fetchSpy = vi.spyOn(window, 'fetch')
+  try {
+    const screen = await mountApp()
+    await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
+    await screen.getByRole('switch', { name: /colour the arrows/i }).click()
+    await screen.getByRole('button', { name: 'Generate' }).click()
+    await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+
+    const post = fetchSpy.mock.calls.find((call) => String(call[0]) === '/api/boards')
+    const request = JSON.parse(String(post?.[1]?.body)) as StoreRequest
+    expect(request.view.colored).toBe(true)
+    // The zeroing that used to be a no-op, now that the view is the lab's: the
+    // highlight is on and set to 5 pieces, and a stored board keeps none of it.
+    expect(useStore.getState().view.top).toBe(5)
+    expect(request.view.top).toBe(0)
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 40_000)

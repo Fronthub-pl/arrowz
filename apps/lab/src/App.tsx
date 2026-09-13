@@ -1,6 +1,5 @@
-import { defaultParams } from '@arrowz/engine'
-import type { BoardFile, Params } from '@arrowz/engine'
-import { DEFAULT_VIEW, storeRequest } from '@arrowz/engine/command'
+import type { BoardFile } from '@arrowz/engine'
+import { storeRequest } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
@@ -9,10 +8,8 @@ import { LabRoute } from './routes/LabRoute'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useStore } from './state/store'
+import { viewOf } from './state/view.slice'
 import { useGenerator } from './worker/useGenerator'
-
-// The knobs are PR 3; until then the top bar shows the defaults a run uses.
-const DEFAULTS = defaultParams()
 
 /**
  * Saves each finished run once. `App` subscribes to one field rather than to
@@ -32,12 +29,10 @@ function useStoreSave() {
     if (phase !== 'done' || file === null || runParams === null || report === null) return
     if (posted.current === file) return
     posted.current = file
-    // The stored view is the lab's view with top zeroed, as the old lab
-    // stores it (`storeView()` in lab-page.ts). Zeroing is a no-op today,
-    // because `DEFAULT_VIEW.top` is already 0 (command.ts:238); it becomes
-    // load-bearing in PR 3, when the view slice replaces `DEFAULT_VIEW` with
-    // the view actually on screen.
-    const request = storeRequest(file, runParams, { ...DEFAULT_VIEW, top: 0 }, 'lab', {
+    // The stored view is the lab's view with top zeroed, as the old lab stores
+    // it (`storeView()` in lab-page.ts): a saved board is a picture, and the
+    // highlight is a reading aid for the run that just finished.
+    const request = storeRequest(file, runParams, { ...viewOf(useStore.getState().view), top: 0 }, 'lab', {
       ok: report.ok,
       pieces: report.pieces,
       maxLen: report.metrics?.maxLen ?? null,
@@ -58,12 +53,10 @@ function useStoreSave() {
 }
 
 /**
- * Exported for the browser tests: `params` is what Generate starts a run with,
- * and a test that must observe a run *in flight* needs a board bigger than the
- * defaults, which carve in tens of milliseconds. PR 3 replaces the prop with
- * the params slice.
+ * Everything above the routes, and nothing a caller configures: what a run is
+ * started with is the params slice, which a test drives the way a user does.
  */
-export function Shell({ params = DEFAULTS }: { params?: Params }) {
+function Shell() {
   // Above the routes on purpose: §6 and Ruling 5. A route change must not kill
   // a run, nor unmount <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
@@ -71,9 +64,9 @@ export function Shell({ params = DEFAULTS }: { params?: Params }) {
   useStoreSave()
   return (
     <div className="fw">
-      <TopBar W={params.W} H={params.H} />
+      <TopBar />
       <TabRow />
-      <LabRoute generator={generator} params={params} hidden={!onLab} />
+      <LabRoute generator={generator} hidden={!onLab} />
       <AppRoutes />
     </div>
   )
