@@ -4,7 +4,9 @@
 
 **Goal:** Move ten pure fragments out of `packages/cli/lab-page.ts` into `@arrowz/engine` and `@arrowz/board-element`, give each one the unit test it never had, and extract the shared "finite number" predicate without weakening the board server's refusals.
 
-**Architecture:** Every fragment lands in a module that is already exported, so only one new module (`packages/engine/lab-report.ts`) needs export plumbing. The old lab switches to each moved function in the same task, so `deno task verify` stays green task by task and the whole PR is a behaviour-preserving move. Nothing in the new React application is created here.
+**Architecture:** Every fragment lands in a module that is already exported, so only one new module (`packages/engine/lab-report.ts`) needs export plumbing. The old lab switches to each moved function in the same task, so the whole PR is a behaviour-preserving move and any one task can be rejected without blocking its neighbours.
+
+**Each task must prune the page's now-unused imports before its commit.** `deno lint`'s `no-unused-vars` is part of `deno task verify`, so leaving `snapToStep` (after Task 2), `stepsAround`, `INACTIVE_REASONS`, `RULE_REASONS`, `PL`, `Dictionary`, `UiArgs` (after Task 5) or `normalizeChoice`, `SimpleChoice` (after Task 10) behind turns the full gate red. Run `deno task verify` at the end of every task, not only in Task 11.
 
 **Tech Stack:** Deno 2.9 workspace, TypeScript strict with `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`, `@std/assert` for engine tests, Vitest 5 for `board-element`, Nx for task orchestration.
 
@@ -28,7 +30,7 @@
 |---|---|---|
 | `isFiniteNumber`, `readParams` | `engine.ts` → `mod.ts` | `PARAM_SPEC` lives there; no new export needed |
 | `clampParam` | `engine.ts` → `mod.ts` | `snapToStep` is its neighbour |
-| `longestSummary` | `engine.ts` → `mod.ts` | beside `analyse`; `LongestSummary` is already in `types.ts` |
+| `longestSummary` | `engine.ts` → `mod.ts` | beside `analyse`; `LongestSummary` is already in `types.ts:324` |
 | `viewNumberOf` | `command.ts` | `VIEW_RANGE` and `DEFAULT_VIEW` live there |
 | `START_CHOICES`, `isStartChoice`, `MIX_START`, `startChoiceOf` | `command.ts` | `START` lives there and its comment already says the lab builds its control from that table |
 | `storeRequest` + its type | `command.ts` + `types.ts` | `buildCommand` and `boardId` are its neighbours; `packages/cli/store.ts` cannot be imported by the engine |
@@ -46,7 +48,7 @@ The page drops a non-number and shows a default; the server refuses the POST. On
 **Files:**
 - Modify: `packages/engine/engine.ts` (add near `validateParams`, around `:2818`)
 - Modify: `packages/engine/mod.ts:8-25` (export list)
-- Modify: `packages/cli/lab-page.ts:123-150` (delete `isRecord`, `readParams`; import instead)
+- Modify: `packages/cli/lab-page.ts:142-150` (delete `readParams`; import instead — `isRecord` and `stringAt` stay)
 - Modify: `packages/cli/lab-server.ts:78-79` (use the shared predicate, keep the refusal)
 - Test: `packages/engine/engine.test.ts` (append)
 
@@ -90,7 +92,7 @@ Deno.test('readParams does not check the envelope: that is the caller decision',
 })
 ```
 
-Add `assertFalse` to the file's existing `@std/assert` import if it is not there.
+`packages/engine/engine.test.ts:5-21` imports neither `assertFalse` nor the new names. Extend both import blocks: add `assertFalse` to the `@std/assert` import, and `isFiniteNumber`, `readParams` to the engine import. Without that the file fails to compile and Step 2 reports a missing export rather than a missing definition — the same red, a different message.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -139,15 +141,9 @@ Expected: PASS.
 
 - [ ] **Step 5: Switch the page over**
 
-In `packages/cli/lab-page.ts`, delete `isRecord` (`:124-127`) and `readParams` (`:142-150`), add `readParams` to the `@arrowz/engine` import list, and replace `isRecord` at its remaining call sites with the engine's reader where it was guarding a params read. `stringAt` stays: it takes an already-narrowed record, so give it the narrowing inline:
+In `packages/cli/lab-page.ts`, delete **only** `readParams` (`:142-150`) and add it to the `@arrowz/engine` import list.
 
-```ts
-function stringAt(rec: unknown, key: string): string | undefined {
-  if (typeof rec !== 'object' || rec === null) return undefined
-  const v = (rec as Record<string, unknown>)[key]
-  return typeof v === 'string' ? v : undefined
-}
-```
+**`isRecord` and `stringAt` stay.** `isRecord` still guards the `__view` record in `loadFromUrl` (`:1484-1485`: `isRecord(saved) ? saved : {}` and `isRecord(root.__view) ? root.__view : {}`), which is a view, not parameters, and `readParams` does not cover it. `stringAt` has four remaining callers besides the one inside `choiceText` (`:415`, `:514`, `:568`, `:734`), all reading dictionary sections by a hand-typed key. Deleting either leaves the page failing `deno check`.
 
 - [ ] **Step 6: Switch the server's predicate, not its reaction**
 
@@ -461,9 +457,18 @@ export const START: Readonly<{
 }> = { /* unchanged body */ }
 ```
 
-- [ ] **Step 4: Type the dictionary against the vocabulary**
+- [ ] **Step 4: Make a missing translation a type error, not a test failure**
 
-In `packages/engine/lab-i18n.ts`, type the `start.options` field of `Dictionary` as `Readonly<Record<StartChoice, string>>`, importing `StartChoice` as a type from `./command.ts`. A missing translation then fails `deno check`, not a test.
+`Dictionary` cannot be edited: it is derived from the `EN` literal — `export type Dictionary = Widen<typeof EN>` (`lab-i18n.ts:203`, over `EN … as const` at `:195`). There is no declared `start.options` field to retype. Constrain the values instead, under the `EN` and `PL` literals:
+
+```ts
+import type { StartChoice } from './command.ts'
+// The CLI owns the four start choices; a dictionary missing one must not compile.
+EN.start.options satisfies Record<StartChoice, string>
+PL.start.options satisfies Record<StartChoice, string>
+```
+
+`satisfies` checks without widening the literal, so `UiKey` and `UiArgs` keep working off `typeof EN`.
 
 - [ ] **Step 5: Run to verify they pass**
 
@@ -473,6 +478,13 @@ Expected: PASS.
 - [ ] **Step 6: Switch the page over**
 
 In `packages/cli/lab-page.ts`, delete `type StartChoice` (`:330`), `START_CHOICES` (`:331`), `MIX_START` (`:333`), `isStartChoice` (`:334-336`) and `startChoiceOfState` (`:379-385`); import the four names from `@arrowz/engine/command` and call `startChoiceOf(state)` at the one call site. `setStart` stays in the page — it writes rows and refreshes the panel, so it is not pure and becomes a store action in the React application.
+
+**`setStart` will not compile until it is adjusted.** `packages/cli/lab-page.ts:367` reads `const pair = START.words[choice]` with `choice: StartChoice`. That compiles today only because `words` is `Record<string, …>` and `noUncheckedIndexedAccess` makes `pair` optional — which is what the `if (pair)` below it relies on. After the narrowing, indexing a three-key record with a union containing `'mixing'` is an error. One line fixes it and states the intent better than the old code did:
+
+```ts
+// 'mixing' is not a word in the table: it is the share, handled below.
+const pair = choice === 'mixing' ? undefined : START.words[choice]
+```
 
 Run: `deno task check && deno task test`
 Expected: PASS.
@@ -508,6 +520,8 @@ missing a translation fails the type check instead of a test."
 export type Lang = 'en' | 'pl'
 export interface Dict {
   readonly lang: Lang
+  /** The raw sections the page reads directly: start, groups, groupHelp, presets, simple. */
+  readonly d: Dictionary
   t<K extends UiKey>(key: K, ...args: UiArgs<K>): string
   paramText(spec: ParamSpec): { label: string; help: string }
   choiceText(key: ParamKey, word: string): string
@@ -522,20 +536,25 @@ export function dictionary(lang: Lang): Dict
 - [ ] **Step 1: Write the failing tests**
 
 ```ts
-Deno.test('dictionary falls back to English for a key Polish lacks', () => {
+Deno.test('dictionary returns the language it was asked for, and two of them coexist', () => {
+  // The point of the factory: no module-level `let lang`, so a caller can hold
+  // both at once. `lab-i18n.test.ts:60-65` already proves PL covers every EN
+  // key, so there is no fallback path left to test — this pins that the two
+  // instances do not share state.
+  const en = dictionary('en')
   const pl = dictionary('pl')
-  assertEquals(typeof pl.t('generate'), 'string')
+  assertEquals(en.lang, 'en')
   assertEquals(pl.lang, 'pl')
+  assertNotEquals(en.t('generate'), pl.t('generate'))
 })
 
-Deno.test('paramText prefers the Polish label and keeps the English help when there is none', () => {
+Deno.test('paramText takes the label from the language, not from the spec', () => {
   const spec = PARAM_SPEC[0]
   assert(spec)
-  const en = dictionary('en').paramText(spec)
-  assertEquals(en, { label: spec.label, help: spec.help })
+  assertEquals(dictionary('en').paramText(spec), { label: spec.label, help: spec.help })
   const pl = dictionary('pl').paramText(spec)
-  assertEquals(typeof pl.label, 'string')
-  assert(pl.label.length > 0)
+  assertNotEquals(pl.label, spec.label)
+  assertEquals(pl.label, PL.params[spec.key]?.label)
 })
 
 Deno.test('fmt groups by locale and short abbreviates from ten thousand', () => {
@@ -546,18 +565,15 @@ Deno.test('fmt groups by locale and short abbreviates from ten thousand', () => 
   assertEquals(en.short(86000), '86k')
 })
 
-Deno.test('violation names the knob, the value and the bounds for a range break', () => {
+Deno.test('violation names the knob, the value and both bounds for a range break', () => {
+  // `W` has min 4, so a single-digit substring match would be satisfied by the
+  // value alone: assert against the whole formatted string.
   const spec = PARAM_SPEC.find((s) => s.key === 'W')
   assert(spec)
-  const text = dictionary('en').violation({
-    kind: 'range',
-    key: 'W',
-    value: spec.min - 1,
-    min: spec.min,
-    max: spec.max,
-  })
-  assert(text.includes(String(spec.min)), text)
-  assert(text.includes(spec.label), text)
+  const en = dictionary('en')
+  const text = en.violation({ kind: 'range', key: 'W', value: spec.min - 1, min: spec.min, max: spec.max })
+  assertEquals(text, en.t('rangeViolation', spec.label, spec.min - 1, spec.min, spec.max))
+  assert(text.includes(String(spec.max)), text)
 })
 
 Deno.test('violation offers the two legal stops around a step break', () => {
@@ -565,8 +581,11 @@ Deno.test('violation offers the two legal stops around a step break', () => {
   assert(spec)
   const value = spec.min + spec.step / 2
   const [below, above] = stepsAround(value, spec.step, spec.min)
-  const text = dictionary('en').violation({ kind: 'step', key: spec.key, value, step: spec.step, min: spec.min })
-  assert(text.includes(String(below)) && text.includes(String(above)), text)
+  assertNotEquals(below, above)
+  const en = dictionary('en')
+  const text = en.violation({ kind: 'step', key: spec.key, value, step: spec.step, min: spec.min })
+  // The whole string, not two substrings: `4` and `5` both occur inside `4.5`.
+  assertEquals(text, en.t('stepViolation', en.paramText(spec).label, value, below, above))
 })
 
 Deno.test('violation reads a rule reason in both languages and appends what is needed', () => {
@@ -579,6 +598,8 @@ Deno.test('violation reads a rule reason in both languages and appends what is n
   assertNotEquals(en, pl)
 })
 ```
+
+`packages/engine/lab-i18n.test.ts:1-4` imports none of `assertNotEquals`, `stepsAround`, `dictionary`, `PL`, `PARAM_SPEC`, `RULE_REASONS` or the `Violation` type. Extend its import blocks first, or the file will not compile.
 
 `Violation` is a discriminated union (`types.ts:81-87`): `range` carries `value/min/max`, `step` carries `value/step/min`, and `rule` carries `key: RuleKey`, `keys: readonly ParamKey[]` and an optional `need`. The test takes its rule key from `RULE_REASONS` so it cannot name one the engine dropped.
 
@@ -619,6 +640,7 @@ export function dictionary(lang: Lang): Dict {
   }
   return {
     lang,
+    d,
     t,
     paramText,
     choiceText: (key, word) => (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word,
@@ -640,7 +662,7 @@ export function dictionary(lang: Lang): Dict {
 }
 ```
 
-`stringAt` moves here too — it is the dictionary's own lookup helper. `lab-i18n.ts` gains value imports of `PARAM_SPEC`, `INACTIVE_REASONS`, `RULE_REASONS` and `stepsAround` from `./engine.ts`; that direction already exists (the dictionary imports engine types), so there is no cycle. Confirm with `deno check`.
+`stringAt` is copied here as a private helper — the page keeps its own, because four of its callers read dictionary sections directly. `lab-i18n.ts` gains value imports of `PARAM_SPEC`, `INACTIVE_REASONS`, `RULE_REASONS` and `stepsAround` from `./engine.ts`; that direction already exists (the dictionary imports engine types), so there is no cycle. Confirm with `deno check`.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -649,7 +671,22 @@ Expected: PASS.
 
 - [ ] **Step 5: Switch the page over**
 
-In `packages/cli/lab-page.ts`, delete `DICT`, `t`, `paramText`, `choiceText`, `reasonText`, `fmt`, `isInactiveKey`, `stringAt`, `specByKey`'s label duty and `violationText` (`:155-189`, `:444-456`), and hold one `let dict = dictionary(lang)` instead, refreshed in `applyLanguage` (`:500`). Replace `t(` with `dict.t(`, `fmt(` with `dict.fmt(`, `violationText(v)` with `dict.violation(v)`, and the inline `short` in the progress handler (`:909`) with `dict.short`. `isUiKey` stays: it guards `[data-i18n]` attributes, which is a DOM concern.
+In `packages/cli/lab-page.ts`, delete `DICT`, `t`, `paramText`, `choiceText`, `reasonText`, `fmt`, `isInactiveKey` and `violationText` (`:155-189`, `:444-456`), and hold one `let dict = dictionary(lang)` instead — declared where `DICT` was, because `syncStart()` at `:435` is the first top-level call into `t` — refreshed in `applyLanguage` (`:494`).
+
+**The complete replacement list**, so no call site is left dangling:
+
+| Was | Becomes | Sites |
+|---|---|---|
+| `t(` | `dict.t(` | many |
+| `fmt(` | `dict.fmt(` | many |
+| `paramText(` | `dict.paramText(` | 4 |
+| `choiceText(` | `dict.choiceText(` | 1 |
+| `reasonText(` | `dict.reason(` | 1 |
+| `violationText(v)` | `dict.violation(v)` | 1 |
+| the inline `short` in the progress handler (`:909`) | `dict.short` | 1 |
+| `DICT[lang]` | `dict.d` | 5 — `startLabels` (`:397`), `applyLanguage` (`:513`, `:514`), `presetLabels` (`:566`), `simpleLabels` (`:721`) |
+
+`isUiKey` stays: it guards `[data-i18n]` attributes, which is a DOM concern. `stringAt` stays too — four of its five callers read dictionary sections the page still reaches directly. `lab-i18n.ts` keeps its own private copy for `choiceText`.
 
 Run: `deno task check && deno task test`
 Expected: PASS, including `lab-i18n.test.ts` and `lab-bundle.test.ts`.
@@ -775,8 +812,14 @@ export interface StatRow {
   readonly kind: 'row' | 'separator'
   readonly label: string
   readonly value: string
+  /**
+   * The number the surface compares with the previous run, or undefined for a
+   * row that is not comparable. Dropping this field would make the delta
+   * column impossible — today's row type carries it (`lab-page.ts:1538`).
+   */
+  readonly num: number | undefined
   /** +1 when a larger number is better, -1 when smaller is, 0 when neither. */
-  readonly better: 1 | -1 | 0
+  readonly better: number
 }
 export interface ReportInput {
   readonly ok: boolean
@@ -856,7 +899,7 @@ Expected: all three pass, and the smoke script prints its golden boards plus no 
 - [ ] **Step 3: Commit the plumbing on its own**
 
 ```bash
-git add packages/engine/lab-report.ts packages/engine/package.json packages/engine/deno.json packages/engine/tsconfig.build.json packages/engine/scripts/node-smoke.mjs
+git add packages/engine/lab-report.ts packages/engine/package.json packages/engine/deno.json packages/engine/tsconfig.build.json packages/engine/scripts/node-smoke.mjs packages/engine/neutral.test.ts
 git commit -m "Open a sixth engine subpath for the run report
 
 A new module is reachable only after four files agree: the npm exports,
@@ -918,17 +961,27 @@ Deno.test('the row order is the same in both languages, so a delta keyed by labe
   assertEquals(en.map((x) => x.better), pl.map((x) => x.better))
 })
 
-Deno.test('better is only ever -1, 0 or 1', () => {
+Deno.test('a signed row is always a comparable row, or its arrow can never be drawn', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   for (const row of reportRows(run(20, 20, 3), params, dictionary('en'))) {
     assert(row.better === 1 || row.better === -1 || row.better === 0, `${row.label}: ${row.better}`)
+    if (row.better !== 0) assert(row.num !== undefined, `${row.label} is signed but not comparable`)
   }
 })
 
-Deno.test('a board with no metrics still reports its rows', () => {
+Deno.test('a run with no metrics reports no rows, as the page has always done', () => {
+  // The page clears both tables when metrics are null (lab-page.ts:1570-1573);
+  // every row below that point reads metrics.*, so there is nothing to show.
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
-  const rows = reportRows({ ...run(20, 20, 3), metrics: null }, params, dictionary('en'))
-  assert(rows.length > 0)
+  assertEquals(reportRows({ ...run(20, 20, 3), metrics: null }, params, dictionary('en')), [])
+})
+
+Deno.test('every comparable row carries the number the delta column subtracts', () => {
+  const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
+  const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
+  const comparable = rows.filter((r) => r.kind === 'row' && r.num !== undefined)
+  assert(comparable.length >= 10, `only ${comparable.length} rows can be compared`)
+  for (const row of comparable) assert(Number.isFinite(row.num))
 })
 
 Deno.test('genSeconds shows two decimals under ten seconds and one above, and a dash for no timing', () => {
@@ -948,6 +1001,12 @@ Expected: FAIL — `reportRows is not defined`.
 - [ ] **Step 6: Move the rows in**
 
 Move the `stat` helper, the `SEP` marker and the whole row list from `packages/cli/lab-page.ts:1540-1618` into `lab-report.ts` as `reportRows`, replacing `t(...)` with `dict.t(...)` and `fmt(...)` with `dict.fmt(...)`. Keep the row order and every `better` sign exactly as they are. Leave in the page: the status line, the delta column against `prevStats`, and the HTML assembly (`:1619-1643`) — those are surface concerns and the React application rewrites them.
+
+Three details the page's version carries and this one must too:
+
+1. **`stat` takes `string | number`.** Rows like `stat(dict.t('stat_D'), metrics.D, …)` (`:1590`) pass a number; the helper stringifies it. Declaring `value: string` alone would reject a verbatim move.
+2. **Guard the metrics-less run:** `if (!run.metrics) return []`. The page renders nothing at all in that case (`:1570-1573`), and every row below dereferences `metrics.*`.
+3. **`pct` (`:1533`) has two callers** — these rows and `renderLongest` (`:1653`). Export it from `lab-report.ts` and have the page import it, rather than leaving two copies to drift.
 
 - [ ] **Step 7: Run to verify they pass**
 
@@ -993,21 +1052,27 @@ stay with the surface."
 - Produces:
 
 ```ts
+/**
+ * The body of a board-store write. Mutable and nullable on purpose:
+ * `lab-server.ts`'s checkMetrics builds one field by field (`:146`, `:152`,
+ * `:176`), and a `BoardMeta` read back out of the store carries `null` where a
+ * run had no figure (`types.ts:281-284`). Making these readonly or
+ * non-nullable breaks both callers.
+ */
 export interface StoreRequest {
-  readonly board: BoardFile
-  readonly params: Params
-  readonly view: View
-  readonly command: string
-  readonly source: string
-  readonly metrics?: {
-    readonly ok?: boolean
-    readonly pieces?: number
-    /** null when the run produced no metrics; the surface sends the field either way. */
-    readonly maxLen?: number | null
-    readonly genMs?: number
-    readonly restarts?: number
-    readonly backtracks?: number
-    readonly stuck?: Stuck | null
+  board: BoardFile
+  params: Params
+  view: View
+  command: string
+  source: string
+  metrics?: {
+    ok?: boolean | null
+    pieces?: number | null
+    maxLen?: number | null
+    genMs?: number | null
+    restarts?: number | null
+    backtracks?: number | null
+    stuck?: Stuck | null
   }
 }
 export function storeRequest(
@@ -1030,10 +1095,18 @@ Deno.test('storeRequest builds the command from the parameters it is given', () 
   assertEquals(req.params.seed, 7)
 })
 
-Deno.test('storeRequest carries a null maxLen through, because a run without metrics has none', () => {
-  const params = defaultParams()
-  const req = storeRequest({ v: 1 } as never, params, DEFAULT_VIEW, 'lab', { ok: false, maxLen: null })
+Deno.test('storeRequest carries nulls through: a stored board reports missing figures as null', () => {
+  // Both callers need this: the lab sends `maxLen: null` for a run without
+  // metrics, and a re-POST of a stored board copies BoardMeta, whose ok,
+  // pieces and genMs are nullable (types.ts:281-284).
+  const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'lab', {
+    ok: null,
+    pieces: null,
+    maxLen: null,
+    genMs: null,
+  })
   assertEquals(req.metrics?.maxLen, null)
+  assertEquals(req.metrics?.genMs, null)
 })
 
 Deno.test('storeRequest omits metrics entirely when none are passed', () => {
@@ -1089,6 +1162,11 @@ export interface SaveInput extends StoreRequest {
 
 Keep the existing comment. The relation is extension: the CLI sends `svg` and `aborted`, which the lab never does and the server refuses on `svg`.
 
+Then confirm the server still compiles: `lab-server.ts:80` derives `type Metrics = NonNullable<SaveInput['metrics']>` and `checkMetrics` **assigns into it** (`:146`, `:152`, `:176`). That is why `StoreRequest`'s fields are mutable above.
+
+Run: `deno check packages/cli/*.ts`
+Expected: PASS. If it reports "Cannot assign to 'stuck' because it is a read-only property", a `readonly` slipped into `StoreRequest`.
+
 - [ ] **Step 6: Switch the page's two bodies over**
 
 Replace the object literal at `packages/cli/lab-page.ts:1123-1137` with `storeRequest(board, runParams, view, 'lab', { … })`, and the one at `:1385-1392` likewise.
@@ -1128,35 +1206,36 @@ CLI sends."
 
 Append to `packages/board-element/src/view.test.ts`:
 
+The file already has `import { expect, test } from 'vitest'` and imports `DEFAULT_VIEW` from `./view.ts` — the **element's** default view, which is a different thing from the CLI's. Add only what is missing, and alias the CLI one:
+
 ```ts
-import { describe, expect, it } from 'vitest'
-import { boardViewOf } from './view.ts'
-import { DEFAULT_VIEW } from '@arrowz/engine/command'
+// existing line 1 gains nothing; add:
+import { DEFAULT_VIEW as CLI_VIEW } from '@arrowz/engine/command'
+// and add boardViewOf to the existing './view.ts' import
 
-describe('boardViewOf', () => {
-  it('carries the seven look fields and the voids flag', () => {
-    const got = boardViewOf(DEFAULT_VIEW, true)
-    expect(got).toEqual({
-      stroke: DEFAULT_VIEW.stroke,
-      headWidth: DEFAULT_VIEW.headWidth,
-      headHeight: DEFAULT_VIEW.headHeight,
-      rounded: DEFAULT_VIEW.rounded,
-      colored: DEFAULT_VIEW.colored,
-      top: DEFAULT_VIEW.top,
-      voids: true,
-    })
+test('boardViewOf carries the seven look fields and the voids flag', () => {
+  expect(boardViewOf(CLI_VIEW, true)).toEqual({
+    stroke: CLI_VIEW.stroke,
+    headWidth: CLI_VIEW.headWidth,
+    headHeight: CLI_VIEW.headHeight,
+    rounded: CLI_VIEW.rounded,
+    colored: CLI_VIEW.colored,
+    top: CLI_VIEW.top,
+    voids: true,
   })
+})
 
-  it('drops cell, because the element scales itself', () => {
-    expect('cell' in boardViewOf(DEFAULT_VIEW, false)).toBe(false)
-  })
+test('boardViewOf drops cell, because the element scales itself', () => {
+  expect('cell' in boardViewOf(CLI_VIEW, false)).toBe(false)
 })
 ```
 
+Re-declaring `expect` or `DEFAULT_VIEW` is an "Identifier has already been declared" error before any test runs — Step 2 would then report a syntax error rather than the missing export.
+
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `pnpm --filter @arrowz/board-element exec vitest run src/view.test.ts`
-Expected: FAIL — `boardViewOf is not exported`.
+Run: `pnpm --filter @arrowz/board-element exec vitest run --project node src/view.test.ts`
+Expected: FAIL — `boardViewOf is not exported`. `--project node` matters: `vitest.config.ts` declares a second project on Playwright Chromium, and this file needs no browser. `@arrowz/engine/command` resolves to `packages/engine/dist/command.js`, so `pnpm nx build engine` must have run first.
 
 - [ ] **Step 3: Move the function**
 
@@ -1164,7 +1243,7 @@ Cut `boardView` from `packages/cli/lab-page.ts:69-79` into `packages/board-eleme
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `pnpm --filter @arrowz/board-element exec vitest run src/view.test.ts`
+Run: `pnpm --filter @arrowz/board-element exec vitest run --project node src/view.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Switch the page over**
@@ -1213,16 +1292,23 @@ Deno.test('recipeOf settles the randomise flag to a boolean', () => {
   assertEquals(recipeOf({ random: 'yes' }).random, false)
 })
 
-Deno.test('recipeOf survives junk and an old stored shape', () => {
+Deno.test('recipeOf survives junk and an old stored shape by falling back field by field', () => {
+  // Not a tautology: assert the concrete defaults, since the type guarantees
+  // every key is present whatever normalizeChoice did with it.
+  const base = recipeOf(defaultChoice())
   const got = recipeOf({ size: 'huge', skeleton: 'nonsense', nothing: 1 })
-  assertEquals(got, { ...recipeOf(defaultChoice()), ...got })
-  assertEquals(typeof got.skeleton, typeof defaultChoice().skeleton)
+  assertEquals(got.skeleton, base.skeleton)
+  assertEquals(got.W, base.W)
+  assertEquals(got.H, base.H)
+  assertFalse('nothing' in got)
 })
 
 Deno.test('recipeOf on nothing at all is the default recipe', () => {
   assertEquals(recipeOf(null), recipeOf(defaultChoice()))
 })
 ```
+
+`packages/engine/lab-simple.test.ts:1` does not import `assertFalse`; add it.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -1267,8 +1353,8 @@ surviving the read."
 
 - [ ] **Step 1: Confirm the engine is still Deno-free and DOM-free**
 
-Run: `deno test packages/engine/neutral.test.ts`
-Expected: PASS. The test walks an explicit `NEUTRAL` list (`neutral.test.ts:7-18`) and greps each file for `Deno.`, `document.`, `window.`, `localStorage`, `process.`, `from 'node:` and `Buffer.`. **`'lab-report.ts'` must be added to that list in Task 7** — without it the new module is never checked. Add it in Task 7 Step 1, with the export plumbing.
+Run: `deno test --allow-read packages/engine/neutral.test.ts`
+Expected: PASS. `neutral.test.ts:34` calls `Deno.readTextFileSync`, so without `--allow-read` Deno 2 prompts on a terminal and fails outright without one. The test walks an explicit `NEUTRAL` list (`neutral.test.ts:7-18`) and greps each file for `Deno.`, `document.`, `window.`, `localStorage`, `process.`, `from 'node:` and `Buffer.`. **`'lab-report.ts'` must be added to that list in Task 7** — without it the new module is never checked. Add it in Task 7 Step 1, with the export plumbing.
 
 - [ ] **Step 2: Confirm the bundled worker still carves the same boards**
 
@@ -1284,7 +1370,8 @@ Expected: both green.
 - [ ] **Step 4: Count what left the page**
 
 Run: `wc -l packages/cli/lab-page.ts`
-Expected: fewer than 1668 lines. Record the new figure in the PR description — it is the measurement this PR is for.
+Run: `deno test packages/engine/ | tail -3`
+Expected: a smaller page, and a larger test count to quote beside it. The line count alone proves only that something was deleted; the pair — lines gone from the page, tests gained in the engine — is what this PR is for. Record both in the PR description.
 
 - [ ] **Step 5: Drive the lab by hand**
 
@@ -1307,5 +1394,24 @@ PR description: what moved and where, the line count before and after, and one s
 **Spec coverage.** §4.1's table has ten fragments: `isFiniteNumber`/`readParams` (Task 1), `clampParam` (2), `viewNumberOf` (3), `violationText` inside the dictionary (5), `longestSummary` (6), report rows and `genSeconds` (7), store bodies (8), `boardView` (9), `recipeOf` (10). §4.1's two corrected fragments: `startChoiceOf` (4) and `short(n, locale)` — which Task 5 implements as `dict.short`, since the locale it needs is the dictionary's. §4.3's three plumbing additions are Task 7 Step 1. §9.3's "PR 1 has no behavioural safety net of its own" is answered by a test in every task and the hand-driven pass in Task 11.
 
 **Naming consistency.** `viewNumberOf`, `startChoiceOf`, `boardViewOf` and `storeRequest` are new names, not the page's old ones, because the page keeps thin wrappers of the same name in two cases (`viewNumber`, which still reads the DOM). `dict` is the variable, `Dict` the type, `dictionary()` the factory, used that way in Tasks 5 and 7.
+
+**Corrections from the adversarial review of this plan.** Twelve defects were found by reviewing the plan against the source; six would have stopped `deno check`. Each is fixed in the task it belongs to:
+
+| # | Defect | Where it was |
+|---|---|---|
+| 1 | `StoreRequest`'s `readonly` fields break `checkMetrics`, which assigns into them (`lab-server.ts:146`, `:152`, `:176`) | Task 8 |
+| 2 | `StoreRequest.metrics` needed `ok`, `pieces`, `genMs`, `restarts`, `backtracks` nullable too — a re-POST copies `BoardMeta`, whose fields are nullable (`types.ts:281-284`) | Task 8 |
+| 3 | Narrowing `START.words` breaks `setStart` (`lab-page.ts:367` indexes it with a union containing `'mixing'`) | Task 4 |
+| 4 | `Dictionary` is derived (`Widen<typeof EN>`, `lab-i18n.ts:203`), so its `start.options` field cannot be retyped — a `satisfies` line on the values does the job | Task 4 |
+| 5 | Deleting `DICT` leaves five reads of raw dictionary sections with no replacement; `Dict` gains `d` | Task 5 |
+| 6 | `stringAt` was told both to stay and to be deleted; it stays, with four remaining callers | Tasks 1 and 5 |
+| 7 | Deleting `isRecord` leaves two `loadFromUrl` guards (`:1484-1485`) dangling; only `readParams` moves | Task 1 |
+| 8 | `StatRow` dropped `num`, without which the delta column is impossible (`lab-page.ts:1538`) | Task 7 |
+| 9 | The "no metrics" test could not pass: the page renders nothing in that case (`:1570-1573`), so the test now pins `[]` | Task 7 |
+| 10 | The board-element test re-declared `expect` and `DEFAULT_VIEW`, a syntax error before any test runs | Task 9 |
+| 11 | `neutral.test.ts` needs `--allow-read` | Task 11 |
+| 12 | Four test files lacked imports the new tests use | Tasks 1, 5, 10 |
+
+Six tests were also rewritten because they could not fail: two relied on a dictionary fallback path that `lab-i18n.test.ts:60-65` proves is unreachable, two matched single digits inside a longer number (`4` and `5` inside `4.5`), one restated a type (`better` is typed), and `recipeOf`'s junk test was a tautology. The per-task gate is now stated honestly: `deno task verify` at the end of every task, with the page's unused imports pruned in the same commit, because `no-unused-vars` is part of that gate.
 
 **Soft spots closed before handing this over.** Three assumptions in the first draft of this plan were checked against the source and two were wrong: `genSeconds` reads `meta.genMs`, not `meta.metrics?.genMs`, and switches from two decimals to one at ten seconds; `Violation`'s `rule` arm carries `keys: readonly ParamKey[]` besides `key` and `need`. The row counts were right — 23 rows and 4 separators. `neutral.test.ts` keeps an explicit file list, so `lab-report.ts` must be added to it or the new module goes unchecked; that is now Task 7 Step 1.
