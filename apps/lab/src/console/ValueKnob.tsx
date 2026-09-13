@@ -3,7 +3,7 @@ import { wordFor } from '@arrowz/engine/command'
 import { useEffect, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import { KnobSlider } from './KnobSlider'
+import { boundOn, KnobSlider } from './KnobSlider'
 
 /**
  * One knob: a label, the value with the word the CLI spells it with, a slider,
@@ -47,8 +47,9 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
 
   const { label, help } = dict.paramText(spec)
   const word = wordFor(spec.key, value)
-  // A floor the knob can actually be moved across; the marker draws the same one.
-  const bound = floor !== undefined && floor > bounds.min && floor < bounds.max ? floor : undefined
+  // The same answer the marker draws, from the same predicate: a bound stated
+  // only as a mark is a bound only a mouse can read.
+  const bound = boundOn(floor, bounds)
   const state = broken
     ? broken.map((v) => dict.violation(v)).join('; ')
     : inactive

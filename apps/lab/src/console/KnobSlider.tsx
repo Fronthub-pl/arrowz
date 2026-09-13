@@ -10,6 +10,20 @@ function percent(value: number, min: number, max: number): number {
 }
 
 /**
+ * The floor a knob's track actually carries, if any. A floor at the knob's
+ * minimum bounds nothing — the whole track is legal — so it is not a bound.
+ * A floor at its maximum bounds everything but the last value, which is the
+ * most a bound can say. Past the maximum is off the track.
+ *
+ * One predicate, two readers: the marker draws this number and the knob's
+ * sentence states it, and the two must never disagree about whether there is
+ * one at all.
+ */
+export function boundOn(floor: number | undefined, bounds: { min: number; max: number }): number | undefined {
+  return floor !== undefined && floor > bounds.min && floor <= bounds.max ? floor : undefined
+}
+
+/**
  * A knob's range as the mock's 2px bar, over a native range input (Ruling 3).
  * The fill and the thumb are the input's own pseudo-elements, driven by the
  * `--pct` custom property; the rule marker is a sibling, because it is not
@@ -37,11 +51,10 @@ export function KnobSlider({
   const dict = useDictionary()
   const word = wordFor(spec.key, value)
   const pct = percent(value, bounds.min, bounds.max)
-  // A floor at the knob's minimum binds nothing — the whole track is already
-  // legal, and a mark at 0% would suggest otherwise. A floor at its maximum
-  // binds everything but the last value, which is worth marking at 100%.
-  // Only a floor past the maximum is off the track.
-  const markFloor = floor !== undefined && floor > bounds.min && floor <= bounds.max ? floor : undefined
+  // A mark at 0% would claim a bound where the whole track is already legal;
+  // a mark at 100% says the last value is the only legal one. `boundOn` tells
+  // the two apart, and the knob's sentence reads the same answer.
+  const markFloor = boundOn(floor, bounds)
   return (
     <div className="bar">
       <input

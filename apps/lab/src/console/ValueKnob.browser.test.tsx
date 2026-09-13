@@ -152,3 +152,15 @@ test('a knob under a rule floor states the bound in words, not only as a mark', 
   // the track is the only other place this number appears.
   expect(screen.container.querySelector('.why')?.textContent).toContain('Rule bound')
 })
+
+test('a floor sitting on the knob maximum is stated too, not left to the marker alone', async () => {
+  params().reset()
+  // A side of 1800 buys nine steps, so `straightFloor` returns exactly 1 — the
+  // knob's own maximum. `pStraight` goes there too: a broken knob shows its
+  // violation instead of its bound, and the bound is what this test is about.
+  params().setMany({ W: 1000, H: 1000, warns: 2, anticoil: 7, pStraight: 1 })
+  const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
+  // The marker's only surface is a mouse-hover title; the sentence is the one
+  // everyone reads, screen readers included, through `aria-describedby`.
+  expect(screen.container.querySelector('.why')?.textContent).toContain('Rule bound: 1')
+})
