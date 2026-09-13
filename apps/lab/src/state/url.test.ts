@@ -1,0 +1,74 @@
+import { defaultParams } from '@arrowz/engine'
+import { describe, expect, it } from 'vitest'
+import { decodeHash, encodeHash } from './url'
+import { VIEW } from './url.fixtures'
+
+describe('the hash codec', () => {
+  it('reads back what it wrote', () => {
+    const params = { ...defaultParams(), W: 33, H: 66, seed: 9 }
+    const back = decodeHash(encodeHash({ params, view: VIEW, carried: {} }))
+    expect(back?.params.W).toBe(33)
+    expect(back?.params.seed).toBe(9)
+    expect(back?.view).toEqual(VIEW)
+  })
+
+  // The format is shared with the deployed Deno lab, which writes the view
+  // numbers as the raw strings of its input fields (Ruling 7).
+  it('reads a link the old lab wrote, whose numbers are strings', () => {
+    const legacy =
+      '#' +
+      encodeURIComponent(
+        JSON.stringify({ W: 40, H: 40, __view: { cell: '18', stroke: '0.6', top: '7', rounded: true } }),
+      )
+    const back = decodeHash(legacy)
+    expect(back?.params.W).toBe(40)
+    expect(back?.view.cell).toBe(18)
+    expect(back?.view.stroke).toBe(0.6)
+    expect(back?.view.top).toBe(7)
+  })
+
+  // A head height of 0 meant "automatic" before the height became literal, so
+  // every link shared before that change carries one; reading it as a height
+  // would draw a headless board from an old link.
+  it('treats a head height of 0 as unset, as the store reader does', () => {
+    const legacy = '#' + encodeURIComponent(JSON.stringify({ __view: { headHeight: '0' } }))
+    expect(decodeHash(legacy)?.view.headHeight).toBeUndefined()
+  })
+
+  // A `top` of 0 is legal and means no highlight, so absence and zero are not
+  // the same answer for the other four numbers.
+  it('keeps a zero that is a value rather than an absence', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { top: 0, headWidth: 0 } }))
+    expect(decodeHash(link)?.view.top).toBe(0)
+    expect(decodeHash(link)?.view.headWidth).toBe(0)
+  })
+
+  it('defaults the four flags the way the old lab does', () => {
+    const bare = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: {} })))
+    expect(bare?.view.rounded).toBe(true)
+    expect(bare?.view.hilite).toBe(true)
+    expect(bare?.view.help).toBe(true)
+    expect(bare?.view.colored).toBe(false)
+  })
+
+  it('carries the language and the tab it does not own', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { lang: 'pl', tab: 'library' } }))
+    const back = decodeHash(link)
+    expect(back?.carried).toEqual({ lang: 'pl', tab: 'library' })
+    const round = decodeHash(encodeHash({ params: defaultParams(), view: VIEW, carried: back?.carried ?? {} }))
+    expect(round?.carried).toEqual({ lang: 'pl', tab: 'library' })
+  })
+
+  it('answers null for an empty or unreadable hash rather than throwing', () => {
+    expect(decodeHash('')).toBeNull()
+    expect(decodeHash('#')).toBeNull()
+    expect(decodeHash('#not-json')).toBeNull()
+    expect(decodeHash('#%E0%A4%A')).toBeNull()
+  })
+
+  it('reports only the knobs the link actually named', () => {
+    const back = decodeHash('#' + encodeURIComponent(JSON.stringify({ W: 40 })))
+    expect(back?.params.W).toBe(40)
+    expect(back?.params.H).toBeUndefined()
+  })
+})
