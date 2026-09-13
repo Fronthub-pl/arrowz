@@ -32,11 +32,19 @@ export function LiveCommand() {
   const head = flags === '' ? command : COMMAND_PREFIX
 
   const copy = () => {
-    void navigator.clipboard.writeText(command).then(() => {
-      setCopied(true)
-      clearTimeout(timer.current)
-      timer.current = setTimeout(() => setCopied(false), 1200)
-    })
+    void navigator.clipboard
+      .writeText(command)
+      .then(() => {
+        setCopied(true)
+        clearTimeout(timer.current)
+        timer.current = setTimeout(() => setCopied(false), 1200)
+      })
+      .catch(() => {
+        // Denied permission, an unfocused document, an insecure context:
+        // the browser refuses this call routinely. The button staying on
+        // its normal label is the honest signal that nothing was copied;
+        // a visible error is a UI decision this task does not make.
+      })
   }
 
   return (

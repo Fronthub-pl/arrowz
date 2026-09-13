@@ -49,4 +49,18 @@ describe('LiveCommand', () => {
     await expect.element(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument()
     await expect.element(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
   })
+
+  it('stays on its normal label, and raises no unhandled rejection, when the browser refuses the copy', async () => {
+    const rejections: PromiseRejectionEvent[] = []
+    const onRejection = (e: PromiseRejectionEvent) => rejections.push(e)
+    window.addEventListener('unhandledrejection', onRejection)
+    vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({
+      writeText: () => Promise.reject(new Error('denied')),
+    } as unknown as Clipboard)
+    const screen = await render(<LiveCommand />)
+    await screen.getByRole('button', { name: 'Copy' }).click()
+    await expect.element(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument()
+    window.removeEventListener('unhandledrejection', onRejection)
+    expect(rejections).toHaveLength(0)
+  })
 })
