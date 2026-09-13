@@ -1,5 +1,5 @@
 import { decodeBoard } from '@arrowz/engine'
-import type { Params, WorkerIn, WorkerOut } from '@arrowz/engine'
+import type { BoardData, Params, WorkerIn, WorkerOut } from '@arrowz/engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '../state/store'
 
@@ -46,7 +46,20 @@ export function useGenerator(): Generator {
       }
       if (message.type === 'done') {
         busy.current = false
-        actions().finished({ board: decodeBoard(message.board), file: message.board, report: message })
+        let board: BoardData
+        try {
+          board = decodeBoard(message.board)
+        } catch (err) {
+          // The worker encoded this file a moment ago, so a failure is a codec
+          // bug — shown rather than hidden, as the Deno lab shows it
+          // (lab-page.ts:794-806). Unguarded, the throw would escape this
+          // handler with `busy` already cleared: the slice would sit in
+          // `running` with no message, `abort()` would return early, and the
+          // page would have no way out but a reload.
+          actions().failed(err instanceof Error ? err.message : String(err))
+          return
+        }
+        actions().finished({ board, file: message.board, report: message })
         return
       }
       if (message.type === 'error') {
