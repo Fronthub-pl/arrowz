@@ -14,9 +14,9 @@ export function TopBar() {
       <span className="name">Arrowz</span>
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
-      {/* The right group is where ⌘K (PR 3), the language switch and the
-          simple/advanced switch (PR 4) go. It stays empty rather than
-          carrying a placeholder nobody would remember to remove. */}
+      {/* The right group is where ⌘K (still to come), the language switch
+          and the simple/advanced switch (PR 4) go. It stays empty rather
+          than carrying a placeholder nobody would remember to remove. */}
       <div className="right" />
     </header>
   )
