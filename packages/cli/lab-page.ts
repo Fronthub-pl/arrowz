@@ -24,13 +24,13 @@ import type {
   WorkerOut,
 } from '@arrowz/engine'
 import {
+  clampParam,
   decodeBoard,
   defaultParams,
   INACTIVE_REASONS,
   PARAM_SPEC,
   readParams,
   RULE_REASONS,
-  snapToStep,
   stepsAround,
   validateParams,
 } from '@arrowz/engine'
@@ -759,17 +759,6 @@ el('sRandom').addEventListener('change', () => {
   simpleChoice.random = el<HTMLInputElement>('sRandom').checked
   localStorage.setItem(SIMPLE_KEY, JSON.stringify(simpleChoice))
 })
-
-// Pulls a value loaded from outside (URL, preset, stored board) into the
-// knob's range and onto its grid; anything that is not a finite number (an
-// emptied field) falls back to the default. Both halves matter: a value
-// between two stops is a step violation, which would leave the panel red
-// with no control able to fix it. Pure, so it can be tested without the page.
-function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
-  if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
-  const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)
-  return { value: v, clamped: v !== value }
-}
 
 // Every path that sets a knob from outside goes through here. Returns whether
 // the value had to be clamped, so a load can show the notice once.

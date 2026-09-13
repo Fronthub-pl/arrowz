@@ -2909,6 +2909,20 @@ export function snapToStep(value: number, step: number, min: number): number {
   return Number((min + Math.round((value - min) / step) * step).toFixed(6))
 }
 
+// Pulls a value loaded from outside (URL, preset, stored board) into the
+// knob's range and onto its grid; anything that is not a finite number (an
+// emptied field) falls back to the default. Both halves matter: a value
+// between two stops is a step violation, which would leave the panel red
+// with no control able to fix it. Pure, so it can be tested without the page.
+// This is the range and the step of one knob only. A cross-knob rule — a
+// straightness floor that depends on the board's size — is never clamped:
+// the surface shows it and the run refuses, so no value moves unrecorded.
+export function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
+  if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
+  const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)
+  return { value: v, clamped: v !== value }
+}
+
 /** What generate() throws for parameters outside the safe envelope. */
 export class InvalidParamsError extends RangeError {
   readonly violations: readonly Violation[]

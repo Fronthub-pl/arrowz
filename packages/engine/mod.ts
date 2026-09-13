@@ -7,6 +7,7 @@
 // report task build a carver by hand.
 export {
   analyse,
+  clampParam,
   defaultParams,
   DIRS,
   fingerprint,

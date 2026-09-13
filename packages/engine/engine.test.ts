@@ -6,6 +6,7 @@ import { assert, assertEquals, assertFalse, assertNotEquals, assertThrows } from
 import {
   analyse,
   Carver,
+  clampParam,
   defaultParams,
   DIRS,
   fingerprint,
@@ -19,6 +20,7 @@ import {
   readParams,
   RULE_REASONS,
   RULES,
+  snapToStep,
   validateParams,
 } from './engine.ts'
 import * as engineExports from './engine.ts'
@@ -1278,4 +1280,33 @@ Deno.test('readParams does not check the envelope: that is the caller decision',
   const got = readParams({ W: spec.min - 1 })
   assertEquals(got.W, spec.min - 1)
   assert(validateParams({ ...defaultParams(), W: spec.min - 1 }).length > 0)
+})
+
+Deno.test('clampParam clamps into the range and reports it', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'pStraight')
+  assert(spec)
+  assertEquals(clampParam(spec, spec.max + 1), { value: spec.max, clamped: true })
+  assertEquals(clampParam(spec, spec.min - 1), { value: spec.min, clamped: true })
+})
+
+Deno.test('clampParam snaps to the step, so the panel can never be left red', () => {
+  const spec = PARAM_SPEC.find((s) => s.step > 0 && s.max > s.min + s.step)
+  assert(spec)
+  const between = spec.min + spec.step / 2
+  const got = clampParam(spec, between)
+  assertEquals(got.value, snapToStep(between, spec.step, spec.min))
+  assert(got.clamped)
+  assertEquals(validateParams({ ...defaultParams(), [spec.key]: got.value }).filter((v) => v.kind === 'step'), [])
+})
+
+Deno.test('clampParam falls back to the default for a non-finite value', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'seed')
+  assert(spec)
+  assertEquals(clampParam(spec, Number.NaN), { value: spec.def, clamped: true })
+})
+
+Deno.test('clampParam leaves a legal value alone and says so', () => {
+  const spec = PARAM_SPEC.find((s) => s.key === 'W')
+  assert(spec)
+  assertEquals(clampParam(spec, spec.def), { value: spec.def, clamped: false })
 })
