@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertNotEquals } from '@std/assert'
+import { assert, assertEquals, assertNotEquals, assertStringIncludes } from '@std/assert'
 import { type Dictionary, dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
 import type { InactiveKey, ParamKey, RuleKey, Violation } from './types.ts'
@@ -226,4 +226,27 @@ Deno.test('the tab strip has a name of its own, distinct from every tab', () => 
     assert(strip.length > 0)
     for (const tab of ['tabLab', 'tabLibrary', 'tabDocs'] as const) assertNotEquals(strip, dict.t(tab))
   }
+})
+
+Deno.test('the console rail names itself and its two sections in both languages', () => {
+  for (const lang of ['en', 'pl'] as const) {
+    const dict = dictionary(lang)
+    const label = dict.t('railLabel')
+    assertNotEquals(label, '')
+    // The rail's name must not collide with the tab strip's: a screen reader
+    // lists both landmarks, and two navigations called the same thing are
+    // indistinguishable.
+    assertNotEquals(label, dict.t('tabsLabel'))
+    assertNotEquals(dict.t('railGenerator'), dict.t('railElement'))
+    // A count in a tab's name has to say what it counts.
+    const named = dict.t('violationsInGroup', 'shape', 2)
+    assertStringIncludes(named, 'shape')
+    assertStringIncludes(named, '2')
+    assertNotEquals(named, 'shape 2')
+  }
+})
+
+Deno.test('the rule marker states the bound it marks', () => {
+  assertEquals(dictionary('en').t('ruleBound', 0.75), 'Rule bound: 0.75')
+  assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Granica reguły: 0,75')
 })
