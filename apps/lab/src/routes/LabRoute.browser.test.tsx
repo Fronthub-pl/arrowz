@@ -1,4 +1,5 @@
 import type { StoreRequest } from '@arrowz/engine'
+import { exportCell } from '@arrowz/engine/simple'
 import { StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -258,6 +259,10 @@ test('the saved board carries the view on screen', async () => {
     // highlight is on and set to 5 pieces, and a stored board keeps none of it.
     expect(useStore.getState().view.top).toBe(5)
     expect(request.view.top).toBe(0)
+    // The cell a viewer opens the file at is the run's own, as `carve` computes
+    // it (command.ts:513) — not the slice's starting 12, which nothing moves.
+    expect(request.view.cell).toBe(exportCell(25, 50))
+    expect(request.view.cell).not.toBe(12)
   } finally {
     fetchSpy.mockRestore()
   }

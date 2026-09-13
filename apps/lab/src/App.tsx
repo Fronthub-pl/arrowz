@@ -1,5 +1,6 @@
 import type { BoardFile } from '@arrowz/engine'
 import { storeRequest } from '@arrowz/engine/command'
+import { exportCell } from '@arrowz/engine/simple'
 import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
@@ -32,7 +33,14 @@ function useStoreSave() {
     // The stored view is the lab's view with top zeroed, as the old lab stores
     // it (`storeView()` in lab-page.ts): a saved board is a picture, and the
     // highlight is a reading aid for the run that just finished.
-    const request = storeRequest(file, runParams, { ...viewOf(useStore.getState().view), top: 0 }, 'lab', {
+    //
+    // `cell` is the run's own, computed here and not held in the slice: it is
+    // the square a viewer opens the file at, which `carve` derives from the
+    // size it carved (command.ts:513) rather than from anything typed. Writing
+    // it into the slice instead would overwrite the preview field under a user
+    // who had just set it.
+    const view = { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(runParams.W, runParams.H) }
+    const request = storeRequest(file, runParams, view, 'lab', {
       ok: report.ok,
       pieces: report.pieces,
       maxLen: report.metrics?.maxLen ?? null,

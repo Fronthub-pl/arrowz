@@ -13,9 +13,17 @@ body {
 }
 
 /* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
-   everything else. */
+   everything else.
+
+   `height` as well as `min-height`: `minmax(0, 1fr)` has to resolve against a
+   definite height, and a grid whose only sizing is a minimum has none — so the
+   third row grew with its content instead of scrolling inside itself, and a
+   couple of broken rules pushed the note that explains them off the bottom of
+   the viewport (measured at 1280x800: 30px of overflow with two violations).
+   The `min-height` stays: it is what fills a viewport the content underfills. */
 .fw {
   display: grid;
+  height: 100vh;
   min-height: 100vh;
   grid-template-rows: 48px auto minmax(0, 1fr);
   background: var(--void);
@@ -47,6 +55,16 @@ body {
 .fw :focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
+}
+
+/* Row three of that grid is a route's <main>, and `.fw-view` below asks it for
+   `height: 100%`. A <main> is a block box with `height: auto`, so without this
+   the percentage resolves to `auto` and the chain breaks one level above the
+   panel. Every route's <main> takes the rule, not only the lab's: each of them
+   is row three while its own route is the one on screen. */
+.fw > main {
+  height: 100%;
+  min-height: 0;
 }
 
 .fw-top {
