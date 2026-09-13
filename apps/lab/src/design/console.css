@@ -190,6 +190,25 @@
   line-height: 1.6;
   color: var(--ash);
 }
+/* Out of sight, in the accessibility tree. Ruling 9: the help switch is
+   labelled "show parameter descriptions", and showing is what a screen reader
+   does not do. `clip-path` rather than `display: none`, which would take the
+   text out of the tree and dangle every `aria-describedby` pointing at it. */
+.fw-vh {
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+/* A paragraph holding only a hidden description must not reserve a line. */
+.fw-k .why:not(:has(> :not(.fw-vh))) {
+  margin: 0;
+}
 /* A knob the engine would refuse. The mock has no such state — its only knob
    state is `.hold` in warn — and `--warn` belongs to the rule bound, so a
    refusal gets `--error` and the two cannot be confused. */

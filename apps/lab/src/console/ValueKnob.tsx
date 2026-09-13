@@ -20,6 +20,7 @@ import { boundOn, KnobSlider } from './KnobSlider'
  */
 export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: { min: number; max: number } }) {
   const dict = useDictionary()
+  const showHelp = useStore((state) => state.ui.help)
   const value = useStore((state) => state.params.values[spec.key])
   const broken = useStore((state) => state.params.broken[spec.key])
   const inactive = useStore((state) => state.params.inactive[spec.key])
@@ -45,7 +46,7 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
     }
   }, [editing])
 
-  const { label, help } = dict.paramText(spec)
+  const { label, help: description } = dict.paramText(spec)
   const word = wordFor(spec.key, value)
   // The same answer the marker draws, from the same predicate: a bound stated
   // only as a mark is a bound only a mouse can read.
@@ -59,7 +60,12 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
         : dict.t('ruleBound', bound)
   // The description is always present; the state, when there is one, goes in
   // front of it — the shape the old lab builds with `help.dataset.why`.
-  const why = state === null ? help : `${state}. ${help}`
+  //
+  // Two spans, not one string. The state must survive the switch: it is the
+  // reason the run is refused, and the switch is about descriptions (Ruling
+  // 9). The description stays in the tree, visually hidden, so
+  // `aria-describedby` never dangles and a link carrying `help:false` does
+  // not strip the descriptions from someone else's screen reader.
   const whyId = `knob-${spec.key}-why`
 
   const commit = () => {
@@ -133,8 +139,16 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
         describedBy={whyId}
         onCommit={(next) => set(spec.key, next)}
       />
-      <p className="why" id={whyId}>
-        {why}
+      <p className="why" id={whyId} data-testid={whyId}>
+        {/* The separator lives outside `.state`: an exact-text lookup for the
+            reason alone (rather than "reason. ") must still find it. */}
+        {state === null ? null : (
+          <>
+            <span className="state">{state}</span>
+            {'. '}
+          </>
+        )}
+        <span className={showHelp ? 'desc' : 'desc fw-vh'}>{description}</span>
       </p>
     </div>
   )
