@@ -186,3 +186,17 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     fetchSpy.mockRestore()
   }
 }, 60_000)
+
+test('the lab route shows the console under the stage', async () => {
+  const screen = await mountApp()
+  await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
+  await expect.element(screen.getByRole('tabpanel', { name: 'board' })).toBeVisible()
+})
+
+test('picking a rail entry replaces the panel', async () => {
+  const screen = await mountApp()
+  await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
+  await expect.element(screen.getByText('number of skeleton pieces (0 = no skeleton)')).toBeVisible()
+  await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
+  await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
+})

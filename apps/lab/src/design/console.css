@@ -313,3 +313,40 @@
   font: inherit;
   text-align: right;
 }
+
+/* A finger needs more than a 12px track and a text-height number. `shell.css`
+   raises the tabs and Generate the same way (spec §7.2). */
+@media (pointer: coarse) {
+  .fw-k .bar,
+  .fw-k .bar input[type='range'] {
+    height: 24px;
+  }
+  .fw-k .bar input[type='range']::-webkit-slider-runnable-track {
+    margin-top: 11px;
+  }
+  .fw-k .bar input[type='range']::-webkit-slider-thumb {
+    width: 4px;
+    height: 24px;
+    margin-top: -11px;
+  }
+  .fw-k .bar u {
+    top: 11px;
+  }
+  .fw-k .num,
+  .fw-k select {
+    min-height: 32px;
+  }
+}
+
+/* The stage takes what it needs, the console the rest, and the board never
+   collapses below the height at which it is a picture rather than a strip. */
+.fw-lab {
+  display: grid;
+  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+@media (max-width: 900px) {
+  .fw-console {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+}

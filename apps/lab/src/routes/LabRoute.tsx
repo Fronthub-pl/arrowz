@@ -1,4 +1,5 @@
 import type { Params } from '@arrowz/engine'
+import { Console } from '../console/Console'
 import { useDictionary } from '../i18n'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
@@ -34,7 +35,10 @@ export function LabRoute({
           </button>
           <RunStatusBar />
         </div>
-        <Stage />
+        <div className="fw-lab">
+          <Stage />
+          <Console />
+        </div>
       </section>
     </main>
   )
