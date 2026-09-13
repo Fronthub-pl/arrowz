@@ -576,6 +576,21 @@ export const VIEW_RANGE: Readonly<Record<ViewNumber, Readonly<{ min: number; max
   // 0 is no highlight; the list prints one line per piece, so it stays short.
   top: { min: 0, max: 1000, whole: true },
 }
+
+/**
+ * A view number as a surface should read it: an empty or unreadable field is
+ * the default, anything outside the table is clamped into it, and the whole
+ * fields round. Tolerant, because a person is typing — the board server reads
+ * the same fields strictly, and refuses instead of clamping.
+ */
+export function viewNumberOf(raw: string, field: ViewNumber): number {
+  const text = raw.trim()
+  const n = Number(text)
+  if (text === '' || !Number.isFinite(n)) return DEFAULT_VIEW[field]
+  const r = VIEW_RANGE[field]
+  const v = Math.min(r.max, Math.max(r.min, n))
+  return r.whole ? Math.round(v) : v
+}
 /** Mode flags: not the parser's business, handed to the CLI untouched. */
 const MODE_FLAGS = new Set(['svg', 'dry-run', 'count', 'max-seeds', 'help'])
 

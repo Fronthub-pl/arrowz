@@ -16,6 +16,7 @@ import {
   START,
   VIEW_FLAG,
   VIEW_RANGE,
+  viewNumberOf,
   wordFor,
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
@@ -638,4 +639,28 @@ Deno.test('drawnViolations names the values nobody wrote, and never a rule', () 
   assertEquals(drawnViolations([drawn, mine, stepOfMine, stepOfTheirs, rule], typed), [drawn, stepOfTheirs])
   assertEquals(drawnViolations([mine, stepOfMine, rule], typed), [])
   assertEquals(drawnViolations([], typed), [])
+})
+
+Deno.test('viewNumberOf falls back to the default for an empty or unreadable field', () => {
+  assertEquals(viewNumberOf('', 'stroke'), DEFAULT_VIEW.stroke)
+  assertEquals(viewNumberOf('   ', 'stroke'), DEFAULT_VIEW.stroke)
+  assertEquals(viewNumberOf('wide', 'stroke'), DEFAULT_VIEW.stroke)
+})
+
+Deno.test('viewNumberOf clamps into VIEW_RANGE', () => {
+  const r = VIEW_RANGE.stroke
+  assertEquals(viewNumberOf(String(r.max + 1), 'stroke'), r.max)
+  assertEquals(viewNumberOf(String(r.min - 1), 'stroke'), r.min)
+})
+
+Deno.test('viewNumberOf rounds the whole-number fields only', () => {
+  const whole = (Object.keys(VIEW_RANGE) as ViewNumber[]).find((f) => VIEW_RANGE[f].whole)
+  const frac = (Object.keys(VIEW_RANGE) as ViewNumber[]).find((f) => !VIEW_RANGE[f].whole)
+  assert(whole && frac)
+  const w = VIEW_RANGE[whole]
+  const mid = Math.min(w.max, w.min + 1) + 0.4
+  assertEquals(viewNumberOf(String(mid), whole), Math.round(mid))
+  const f = VIEW_RANGE[frac]
+  const midF = (f.min + f.max) / 2
+  assertEquals(viewNumberOf(String(midF), frac), midF)
 })

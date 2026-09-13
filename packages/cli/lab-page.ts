@@ -34,7 +34,7 @@ import {
   stepsAround,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, DEFAULT_VIEW, START, svgOptions, VIEW_RANGE, wordFor } from '@arrowz/engine/command'
+import { buildCommand, START, svgOptions, viewNumberOf, wordFor } from '@arrowz/engine/command'
 import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import {
@@ -814,12 +814,7 @@ el('clampDismiss').addEventListener('click', () => showClamped(false))
  * unreadable field falls back to the default, as it always did.
  */
 function viewNumber(id: string, field: ViewNumber): number {
-  const raw = el<HTMLInputElement>(id).value.trim()
-  const n = Number(raw)
-  if (raw === '' || !Number.isFinite(n)) return DEFAULT_VIEW[field]
-  const r = VIEW_RANGE[field]
-  const v = Math.min(r.max, Math.max(r.min, n))
-  return r.whole ? Math.round(v) : v
+  return viewNumberOf(el<HTMLInputElement>(id).value, field)
 }
 
 function viewOptions(): View {
