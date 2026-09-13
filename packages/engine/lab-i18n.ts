@@ -188,6 +188,17 @@ export const EN = {
     inactivePrefix: 'No effect: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Settings outside the safe range',
+    // The parameter console (apps/lab). The rail is a landmark of its own, so
+    // it needs a name the tab strip does not already use.
+    railLabel: 'Parameter groups',
+    railGenerator: 'generator',
+    railElement: 'element',
+    // The floor a cross-knob rule puts on a knob: drawn on the slider's track,
+    // and named here because a mark is not a message.
+    ruleBound: (need: number) => `Rule bound: ${need}`,
+    // A rail entry that carries a count names what the count is.
+    violationsInGroup: (group: string, count: number) =>
+      `${group}, ${count} setting${count === 1 ? '' : 's'} outside the safe range`,
     rangeViolation: (label: string, value: unknown, min: number, max: number) =>
       `${label}: ${value} is outside ${min}..${max}`,
     stepViolation: (label: string, value: number, below: number, above: number) =>
@@ -538,6 +549,11 @@ export const PL: Translation = {
     inactivePrefix: 'Bez wpływu: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Ustawienia poza bezpiecznym zakresem',
+    railLabel: 'Grupy parametrów',
+    railGenerator: 'generator',
+    railElement: 'element',
+    ruleBound: (need: number) => `Granica reguły: ${need.toLocaleString('pl')}`,
+    violationsInGroup: (group: string, count: number) => `${group}, ustawienia poza zakresem: ${count}`,
     rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
     stepViolation: (label, value, below, above) => `${label}: ${value} leży między ustawieniami ${below} i ${above}`,
     needViolation: (reason, need) => `${reason}; ta plansza wymaga co najmniej ${need}`,

@@ -1,6 +1,6 @@
 /* The document itself, which the shell cannot reach from inside its own div:
    the user agent's `body { margin: 8px }` frames a `--void` page in white on
-   all four sides, and those 16px on top of `.fw`'s `min-height: 100vh` put a
+   all four sides, and those 16px on top of `.fw`'s `height: 100vh` put a
    scrollbar in every viewport. `color-scheme: dark` is what paints that
    scrollbar — and any other user agent surface — dark rather than light.
    The tokens are on `:root` (tokens.css) so `var(--void)` resolves here. */
@@ -13,10 +13,19 @@ body {
 }
 
 /* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
-   everything else. */
+   everything else.
+
+   `height` and not `min-height`: `minmax(0, 1fr)` has to resolve against a
+   definite height, and a grid whose only sizing is a minimum has none — so the
+   third row grew with its content instead of scrolling inside itself, and a
+   couple of broken rules pushed the note that explains them off the bottom of
+   the viewport (measured at 1280x800: 30px of overflow with two violations).
+   `height` fills a viewport the content underfills as well, so the
+   `min-height` that used to sit here was a second copy of the same number with
+   nothing left to do. */
 .fw {
   display: grid;
-  min-height: 100vh;
+  height: 100vh;
   grid-template-rows: 48px auto minmax(0, 1fr);
   background: var(--void);
   color: var(--ink);
@@ -47,6 +56,16 @@ body {
 .fw :focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: 2px;
+}
+
+/* Row three of that grid is a route's <main>, and `.fw-view` below asks it for
+   `height: 100%`. A <main> is a block box with `height: auto`, so without this
+   the percentage resolves to `auto` and the chain breaks one level above the
+   panel. Every route's <main> takes the rule, not only the lab's: each of them
+   is row three while its own route is the one on screen. */
+.fw > main {
+  height: 100%;
+  min-height: 0;
 }
 
 .fw-top {

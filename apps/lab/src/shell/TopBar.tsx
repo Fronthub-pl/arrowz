@@ -1,5 +1,11 @@
+import { useStore } from '../state/store'
+
 /** The one large Signal plane of the mock: the mark, the name and the size. */
-export function TopBar({ W, H }: { W: number; H: number }) {
+export function TopBar() {
+  // Two primitive selectors rather than one on `params.values`: the bar shows
+  // the board's size, and must not rerender when another knob moves.
+  const W = useStore((state) => state.params.values.W)
+  const H = useStore((state) => state.params.values.H)
   return (
     <header className="fw-top">
       <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -8,9 +14,9 @@ export function TopBar({ W, H }: { W: number; H: number }) {
       <span className="name">Arrowz</span>
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
-      {/* The right group is where ⌘K (PR 3), the language switch and the
-          simple/advanced switch (PR 4) go. It stays empty rather than
-          carrying a placeholder nobody would remember to remove. */}
+      {/* The right group is where ⌘K (still to come), the language switch
+          and the simple/advanced switch (PR 4) go. It stays empty rather
+          than carrying a placeholder nobody would remember to remove. */}
       <div className="right" />
     </header>
   )

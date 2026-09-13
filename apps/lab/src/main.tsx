@@ -10,6 +10,7 @@ import '@fontsource-variable/archivo'
 import '@fontsource-variable/jetbrains-mono'
 import './design/tokens.css'
 import './design/shell.css'
+import './design/console.css'
 
 const root = document.getElementById('root')
 // A missing mount point is a broken index.html, not a runtime condition to

@@ -846,7 +846,9 @@ serwowana przez Vite zamiast złożonego skryptu. Uruchamiasz je poleceniem
 `pnpm nx serve lab` obok `deno task lab`, które serwuje na porcie 8777
 magazyn plansz, do którego nowe laboratorium zapisuje; sama aplikacja
 nasłuchuje na porcie 8779. Nie zastępuje jeszcze strony opisanej wyżej — to
-stanie się w kolejnym kroku.
+stanie się w kolejnym kroku. Zaawansowana konsola — dwadzieścia osiem
+pokręteł w sześciu grupach, plus pola podglądu — mieszka już tutaj; kolumna
+uruchamiania, presety i skrót URL wciąż istnieją tylko na starej stronie.
 
 ---
 

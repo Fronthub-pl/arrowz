@@ -841,7 +841,10 @@ A second lab is being built at `apps/lab`, this one a React application
 served by Vite instead of a bundled script. Run it with `pnpm nx serve lab`
 alongside `deno task lab`, which serves the board store on port 8777 that the
 new lab saves to; the application itself listens on port 8779. It does not
-replace the page above yet — that happens in a later step.
+replace the page above yet — that happens in a later step. Its advanced
+console — twenty-eight knobs across six groups, plus the preview fields —
+now lives there; the run column, the presets and the URL hash are still
+only in the page above.
 
 ---
 
