@@ -156,7 +156,12 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   // put back here too, or this test carves whatever the last one left behind.
   useStore.getState().params.reset()
   const fetchSpy = vi.spyOn(window, 'fetch')
-  const posts = () => fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards')
+  // The method is part of the predicate: `listBoards()` GETs this same address
+  // (api/boards.ts), and PR 5's saved-boards route is what starts calling it —
+  // an address-only filter would then count a GET as a save and fail this test
+  // for a reason that has nothing to do with what it guards.
+  const posts = () =>
+    fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
   try {
     const screen = await render(
       <StrictMode>
@@ -263,7 +268,7 @@ test('the saved board carries the view on screen', async () => {
     // and never await their own save, so a POST of theirs can still land inside
     // this spy's window — and `find` would then read that body instead of this
     // one. The length assertion is what says which POST this is.
-    const posts = fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards')
+    const posts = fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
     expect(posts).toHaveLength(1)
     const request = JSON.parse(String(posts[0]?.[1]?.body)) as StoreRequest
     expect(request.view.colored).toBe(true)
