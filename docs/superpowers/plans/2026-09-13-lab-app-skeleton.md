@@ -2580,6 +2580,7 @@ function ask(message: WorkerIn): Promise<WorkerOut> {
       if (event.data.type !== 'progress') resolve(event.data)
     }
     worker.onerror = (event) => reject(new Error(event.message))
+    worker.postMessage(message)
   }).finally(() => worker.terminate())
 }
 
