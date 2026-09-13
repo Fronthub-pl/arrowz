@@ -7,7 +7,9 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "build": "vite build",
-    "serve": "vite"
+    "serve": "vite",
+    "lint": "eslint .",
+    "fmt": "prettier --check ."
   },
   "dependencies": {
     "@arrowz/board-element": "workspace:*",
@@ -16,12 +18,18 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.5.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/browser-playwright": "^5.0.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "playwright": "^1.63.0",
+    "prettier": "^3.9.6",
+    "typescript-eslint": "^8.70.0",
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
   }
