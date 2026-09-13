@@ -9,7 +9,8 @@
     "./command": { "types": "./dist/command.d.ts", "default": "./dist/command.js" },
     "./simple": { "types": "./dist/lab-simple.d.ts", "default": "./dist/lab-simple.js" },
     "./presets": { "types": "./dist/lab-presets.d.ts", "default": "./dist/lab-presets.js" },
-    "./i18n": { "types": "./dist/lab-i18n.d.ts", "default": "./dist/lab-i18n.js" }
+    "./i18n": { "types": "./dist/lab-i18n.d.ts", "default": "./dist/lab-i18n.js" },
+    "./report": { "types": "./dist/lab-report.d.ts", "default": "./dist/lab-report.js" }
   },
   "files": ["dist"],
   "scripts": {
