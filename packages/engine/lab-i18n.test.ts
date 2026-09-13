@@ -1,7 +1,7 @@
-import { assert, assertEquals } from '@std/assert'
-import { type Dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
-import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS } from './engine.ts'
-import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
+import { assert, assertEquals, assertNotEquals } from '@std/assert'
+import { type Dictionary, dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
+import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
+import type { InactiveKey, ParamKey, RuleKey, Violation } from './types.ts'
 
 type GroupHelpKey = keyof Dictionary['groupHelp']
 
@@ -132,4 +132,66 @@ Deno.test('escapeHtml turns every markup character into an entity', () => {
   assertEquals(escapeHtml(`<img src=x onerror="a('&')">`), '&lt;img src=x onerror=&quot;a(&#39;&amp;&#39;)&quot;&gt;')
   assertEquals(escapeHtml(42), '42')
   assertEquals(escapeHtml('seed7-ab12cd34'), 'seed7-ab12cd34')
+})
+
+Deno.test('dictionary returns the language it was asked for, and two of them coexist', () => {
+  // The point of the factory: no module-level `let lang`, so a caller can hold
+  // both at once. The coverage tests above already prove PL covers every EN
+  // key, so there is no fallback path left to test — this pins that the two
+  // instances do not share state.
+  const en = dictionary('en')
+  const pl = dictionary('pl')
+  assertEquals(en.lang, 'en')
+  assertEquals(pl.lang, 'pl')
+  assertNotEquals(en.t('generate'), pl.t('generate'))
+})
+
+Deno.test('paramText takes the label from the language, not from the spec', () => {
+  const spec = PARAM_SPEC[0]
+  assert(spec)
+  assertEquals(dictionary('en').paramText(spec), { label: spec.label, help: spec.help })
+  const pl = dictionary('pl').paramText(spec)
+  assertNotEquals(pl.label, spec.label)
+  assertEquals(pl.label, PL.params[spec.key]?.label)
+})
+
+Deno.test('fmt groups by locale and short abbreviates from ten thousand', () => {
+  const en = dictionary('en')
+  assertEquals(en.fmt(1234567), (1234567).toLocaleString('en'))
+  assertEquals(en.short(9999), en.fmt(9999))
+  assertEquals(en.short(10000), '10k')
+  assertEquals(en.short(86000), '86k')
+})
+
+Deno.test('violation names the knob, the value and both bounds for a range break', () => {
+  // `W` has min 4, so a single-digit substring match would be satisfied by the
+  // value alone: assert against the whole formatted string.
+  const spec = PARAM_SPEC.find((s) => s.key === 'W')
+  assert(spec)
+  const en = dictionary('en')
+  const text = en.violation({ kind: 'range', key: 'W', value: spec.min - 1, min: spec.min, max: spec.max })
+  assertEquals(text, en.t('rangeViolation', spec.label, spec.min - 1, spec.min, spec.max))
+  assert(text.includes(String(spec.max)), text)
+})
+
+Deno.test('violation offers the two legal stops around a step break', () => {
+  const spec = PARAM_SPEC.find((s) => s.step > 0)
+  assert(spec)
+  const value = spec.min + spec.step / 2
+  const [below, above] = stepsAround(value, spec.step, spec.min)
+  assertNotEquals(below, above)
+  const en = dictionary('en')
+  const text = en.violation({ kind: 'step', key: spec.key, value, step: spec.step, min: spec.min })
+  // The whole string, not two substrings: `4` and `5` both occur inside `4.5`.
+  assertEquals(text, en.t('stepViolation', en.paramText(spec).label, value, below, above))
+})
+
+Deno.test('violation reads a rule reason in both languages and appends what is needed', () => {
+  // `kind: 'rule'` carries the knobs the rule spans as well as its key.
+  const ruleKey = Object.keys(RULE_REASONS)[0] as RuleKey
+  const v: Violation = { kind: 'rule', key: ruleKey, keys: [], need: 0.7 }
+  const en = dictionary('en').violation(v)
+  const pl = dictionary('pl').violation(v)
+  assert(en.includes('0.7'), en)
+  assertNotEquals(en, pl)
 })
