@@ -379,11 +379,12 @@
   }
 }
 
-/* The stage takes what it needs, the console the rest, and the board never
-   collapses below the height at which it is a picture rather than a strip. */
+/* The preset strip is the first row and takes its own height; the stage then
+   takes what it needs, the console the rest, and the board never collapses
+   below the height at which it is a picture rather than a strip. */
 .fw-lab {
   display: grid;
-  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr);
   min-height: 0;
 }
 @media (max-width: 900px) {
@@ -413,4 +414,32 @@
 .fw-note ul {
   margin: 6px 0 0;
   padding-left: 18px;
+}
+
+/* The clamp notice: a value moved, nothing was refused. `--warn` is reserved
+   for exactly this and for a rule bound (§7.1); the refusal note keeps
+   `--error`. The empty region has no class at all, so it draws nothing. */
+.fw-note.hold {
+  border-left-color: var(--warn);
+}
+.fw-note.hold b {
+  color: var(--warn);
+}
+/* `--mist` for the same reason as the copy button: `--signal` is 3.81:1 here
+   and is reserved for state and data. */
+.fw .fw-note.hold button {
+  margin-left: 12px;
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  padding: 0;
+}
+.fw .fw-note.hold button:hover {
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .fw .fw-note.hold button {
+    min-height: 44px;
+  }
 }

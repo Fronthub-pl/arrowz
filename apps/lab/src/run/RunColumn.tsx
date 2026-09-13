@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LiveCommand } from './LiveCommand'
@@ -12,8 +13,19 @@ import type { RunControl } from './useRun'
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a
  * person sees. `RunStatusBar` speaks it (Task 5) and `Violations` spells it out.
+ *
+ * `goRef` is the route's: the clamp notice dismisses itself and hands the
+ * focus to Generate, which is the action the preset that clamped was chosen
+ * for. Optional, so that a caller with no notice beside it — this column's
+ * own tests today — mounts the column unchanged.
  */
-export function RunColumn({ control }: { control: RunControl }) {
+export function RunColumn({
+  control,
+  goRef,
+}: {
+  control: RunControl
+  goRef?: RefObject<HTMLButtonElement | null> | undefined
+}) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
@@ -43,6 +55,7 @@ export function RunColumn({ control }: { control: RunControl }) {
       <button
         type="button"
         className="fw-go"
+        ref={goRef}
         onClick={control.start}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}

@@ -18,6 +18,10 @@ async function mountApp() {
   return render(<App />)
 }
 
+// `getByRole('status', { name: 'Run status' })` and not the bare role: the lab
+// route holds two status regions — the run status bar and the clamp notice —
+// and only the name tells them apart.
+//
 // Every test here states its own timeout, for the reason
 // useGenerator.browser.test.tsx records: the chromium project sets no
 // `testTimeout`, so Vitest's 5 s default would cut short polls that are budgeted
@@ -39,14 +43,18 @@ test('Generate carves a board, draws it, and says so', async () => {
   const spy = vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args[0]))
   try {
     const screen = await mountApp()
-    await expect.element(screen.getByRole('status'), { timeout: 5_000 }).toHaveTextContent('Press "Generate".')
+    await expect
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+      .toHaveTextContent('Press "Generate".')
 
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
 
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.board?.pieces.length).toBeGreaterThan(0)
-    await expect.element(screen.getByRole('status'), { timeout: 5_000 }).toMatchTextContent(/Board closed/)
+    await expect
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+      .toMatchTextContent(/Board closed/)
 
     // §8: a full run from Generate to a drawn board with zero console errors.
     expect(errors).toEqual([])
@@ -107,7 +115,7 @@ test('a run in flight survives a route change, and finishes into the same elemen
   // abbreviated and the dictionary's <b> tags stripped.
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await expect
-    .element(screen.getByRole('status'), { timeout: 5_000 })
+    .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
     .toMatchTextContent(/^[\d.]+% · .* pieces · .* left/)
 
   const before = screen.container.querySelector('arrowz-board')
@@ -177,7 +185,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     // store's answer for the run's would match a looser pattern.
     expect(useStore.getState().run.phase).toBe('done')
     await expect
-      .element(screen.getByRole('status'), { timeout: 5_000 })
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
       .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 

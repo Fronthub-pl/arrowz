@@ -210,6 +210,12 @@ export const EN = {
     needViolation: (reason: string, need: number) => `${reason}; this board needs at least ${need}`,
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
+    // The preset strip: its accessible name (it carries no visible caption),
+    // the mark for a knob moved since a preset was chosen, and the button
+    // that puts the clamp notice away.
+    presetsLabel: 'Presets',
+    presetsDirty: 'edited',
+    dismiss: 'Dismiss',
   },
 } as const
 
@@ -565,6 +571,9 @@ export const PL: Translation = {
     needViolation: (reason, need) => `${reason}; ta plansza wymaga co najmniej ${need}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
+    presetsLabel: 'Presety',
+    presetsDirty: 'zmienione',
+    dismiss: 'Zamknij',
   },
 }
 

@@ -123,3 +123,63 @@
     min-height: 44px;
   }
 }
+
+/* presets, from the mock's `.fw-presets` — a flat flex row of labels and
+   chips, which is exactly the mock's own structure. */
+.fw-presets {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 16px;
+  height: 38px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.fw-presets .lbl {
+  flex: none;
+  margin: 0 10px 0 14px;
+  color: var(--ash);
+  white-space: nowrap;
+}
+.fw-presets .lbl:first-child {
+  margin-left: 0;
+}
+.fw .fw-presets button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fw .fw-presets button:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+/* The mock keys this off `aria-pressed`; twenty-six toggle buttons of which
+   one never un-presses is the wrong state, so the strip uses `aria-current`
+   as the group rail does. */
+.fw .fw-presets button[aria-current='true'] {
+  color: var(--void);
+  background: var(--signal);
+  border-color: transparent;
+}
+/* The mock paints this `--warn`, which §7.1 reserves for a clamped value or a
+   rule bound; "edited" is neither. `--mist` measures 8.61:1 on `--void`. */
+.fw-presets .dirty {
+  flex: none;
+  margin-left: 10px;
+  color: var(--mist);
+}
+@media (pointer: coarse) {
+  .fw-presets {
+    height: auto;
+    padding: 6px 16px;
+  }
+  .fw .fw-presets button {
+    height: 44px;
+  }
+}
