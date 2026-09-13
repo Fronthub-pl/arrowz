@@ -80,7 +80,12 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  it('keeps a drawn seed inside what the knob accepts', async () => {
+  // This does not exercise clamping: the draw's range is a subset of the
+  // knob's, so nothing here would fail if the clamp were removed. It guards
+  // the literal in `reseed` from drifting past the spec; clamping itself is
+  // covered where clamping lives (params.slice.test.ts, "a committed value
+  // is clamped to the knob range and reported").
+  it('never draws a seed the literal could put outside the knob', async () => {
     const spec = PARAM_SPEC.find((s) => s.key === 'seed')
     if (spec === undefined) throw new Error('PARAM_SPEC has no seed')
     const screen = await render(<RunColumn control={stub().control} />)
