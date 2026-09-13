@@ -11,6 +11,7 @@ import { useRun } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useStore } from './state/store'
+import { useUrlHash } from './state/useUrlHash'
 import { viewOf } from './state/view.slice'
 import { useGenerator } from './worker/useGenerator'
 
@@ -72,6 +73,7 @@ function Shell() {
   const generator = useGenerator()
   const control = useRun(generator)
   useAutoRun(control)
+  useUrlHash(control)
   const onLab = selectedIndex(useLocation().pathname) === 0
   useStoreSave()
   return (
