@@ -28,6 +28,7 @@ import {
   defaultParams,
   INACTIVE_REASONS,
   PARAM_SPEC,
+  readParams,
   RULE_REASONS,
   snapToStep,
   stepsAround,
@@ -138,17 +139,6 @@ function readJson(text: string | null): unknown {
     return null
   }
 }
-/** The knob values of an object loaded from outside: finite numbers under known keys only. */
-function readParams(raw: unknown): Partial<Record<ParamKey, number>> {
-  const out: Partial<Record<ParamKey, number>> = {}
-  if (!isRecord(raw)) return out
-  for (const spec of PARAM_SPEC) {
-    const v = raw[spec.key]
-    if (typeof v === 'number' && Number.isFinite(v)) out[spec.key] = v
-  }
-  return out
-}
-
 // --- language ---------------------------------------------------------------
 // English is the source language (PARAM_SPEC, INACTIVE_REASONS, EN.ui);
 // Polish is a translation looked up by key, falling back to English.

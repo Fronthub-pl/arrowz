@@ -2,7 +2,7 @@
 //
 // The prototype is disposable code, but the generator must close boards up to 200×200
 // without failures — these tests guard that, not eyeballing in the laboratory.
-import { assert, assertEquals, assertNotEquals, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertFalse, assertNotEquals, assertThrows } from '@std/assert'
 import {
   analyse,
   Carver,
@@ -13,8 +13,10 @@ import {
   generate,
   INACTIVE_REASONS,
   InvalidParamsError,
+  isFiniteNumber,
   mulberry32,
   PARAM_SPEC,
+  readParams,
   RULE_REASONS,
   RULES,
   validateParams,
@@ -1246,4 +1248,34 @@ Deno.test('backbite: the bite that would move the neck is refused, and so is a p
   assertEquals(c.backbiteTail(hook, hookPos), true)
   assertEquals(hook.map((cell) => [cell.x, cell.y]), [[0, 0], [1, 0], [1, 1], [2, 1], [2, 0]])
   assertEquals(pathBroken(c, hook, hookPos), null)
+})
+
+Deno.test('isFiniteNumber accepts only finite numbers', () => {
+  assert(isFiniteNumber(0))
+  assert(isFiniteNumber(-1.5))
+  assertFalse(isFiniteNumber(Number.NaN))
+  assertFalse(isFiniteNumber(Number.POSITIVE_INFINITY))
+  assertFalse(isFiniteNumber('1'))
+  assertFalse(isFiniteNumber(null))
+  assertFalse(isFiniteNumber(undefined))
+})
+
+Deno.test('readParams keeps finite numbers under known keys and drops everything else', () => {
+  const got = readParams({ W: 40, H: '50', seed: Number.NaN, nonsense: 7, pStraight: 0.8 })
+  assertEquals(got, { W: 40, pStraight: 0.8 })
+})
+
+Deno.test('readParams on a non-object is empty, not a throw', () => {
+  assertEquals(readParams(null), {})
+  assertEquals(readParams('{}'), {})
+  assertEquals(readParams([1, 2]), {})
+})
+
+Deno.test('readParams does not check the envelope: that is the caller decision', () => {
+  // W below its minimum survives the read; validateParams is what refuses it.
+  const spec = PARAM_SPEC.find((s) => s.key === 'W')
+  assert(spec)
+  const got = readParams({ W: spec.min - 1 })
+  assertEquals(got.W, spec.min - 1)
+  assert(validateParams({ ...defaultParams(), W: spec.min - 1 }).length > 0)
 })

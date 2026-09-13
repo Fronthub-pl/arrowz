@@ -2846,6 +2846,33 @@ export function validateParams(params: Params): Violation[] {
   return out
 }
 
+/**
+ * A value that can be used as a knob: a number, and not NaN or an infinity.
+ * The board server and the lab both need this test and must not disagree on
+ * it; what they do with a failure is deliberately different — the page shows
+ * a default, the server refuses the request.
+ */
+export function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * The knob values of an object loaded from outside — storage, a URL, a board
+ * file: finite numbers under PARAM_SPEC keys only. Tolerant on purpose. It
+ * does not check the envelope, so a caller that persists the result must run
+ * validateParams itself.
+ */
+export function readParams(raw: unknown): Partial<Record<ParamKey, number>> {
+  const out: Partial<Record<ParamKey, number>> = {}
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
+  const rec = raw as Record<string, unknown>
+  for (const spec of PARAM_SPEC) {
+    const v = rec[spec.key]
+    if (isFiniteNumber(v)) out[spec.key] = v
+  }
+  return out
+}
+
 const LABEL_BY_KEY = new Map<ParamKey, string>(PARAM_SPEC.map((s) => [s.key, s.label]))
 
 /** One English line for a violation from validateParams(). */
