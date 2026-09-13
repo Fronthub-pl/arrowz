@@ -143,9 +143,18 @@
   }
 }
 
+/* `height: 100%` and not `display: grid` on the panel's <main>: the shell
+   stretches that <main> to row 3, but it is a block box with no height of its
+   own, so without this the run bar and the stage each take an auto row, the
+   board falls back to its `min-height`, and under the `max-height: 700px` rule
+   below — where that minimum becomes 0 — the board collapses to nothing.
+   Giving `#lab-panel`'s <main> a `display` would fix the chain and silently
+   defeat `hidden`: an author `display` declaration beats the UA's
+   `[hidden] { display: none }`, and the off-route panel would stay on screen. */
 .fw-view {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
   background: var(--void);
 }

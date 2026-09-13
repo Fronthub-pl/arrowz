@@ -19,7 +19,10 @@ const DEFAULTS = defaultParams()
  * the slice: a subscription to `run` would re-render the shell on every
  * progress message. The guard keys on the file object's identity, which is
  * fresh per run even when two runs carve the same board, so pressing Generate
- * twice with the same seed still reports a save both times.
+ * twice with the same seed still reports a save both times. The ref survives
+ * StrictMode's double-invoked mount effect, which is why the guard is a ref and
+ * not a piece of state; LabRoute.browser.test.tsx mounts under StrictMode and
+ * counts the POSTs rather than leaving that reasoned and unexercised.
  */
 function useStoreSave() {
   const file = useStore((state) => state.run.file)
@@ -40,7 +43,14 @@ function useStoreSave() {
       backtracks: report.backtracks,
       stuck: report.stuck,
     })
-    void saveBoard(request).then((outcome) => useStore.getState().run.stored(outcome))
+    // The answer is dropped if it is no longer this run's: pressing Generate
+    // again while a slow POST is outstanding clears `saved`, and the stale
+    // outcome would otherwise append " — not saved" to the new run's
+    // "Generating…" line.
+    void saveBoard(request).then((outcome) => {
+      const run = useStore.getState().run
+      if (run.file === file) run.stored(outcome)
+    })
   }, [file])
 }
 

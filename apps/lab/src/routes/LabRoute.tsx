@@ -14,8 +14,12 @@ export function LabRoute({ generator, params, hidden }: { generator: Generator; 
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   return (
-    <main id="lab-panel" hidden={hidden}>
-      <section role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
+    // `hidden` stays on the <main>: it is what keeps the document from having
+    // two visible `main` landmarks. The id belongs on the tabpanel itself,
+    // because that is what the tab strip's `aria-controls` has to resolve to
+    // (TabRow.tsx:63) — the other two panels put it there too.
+    <main hidden={hidden}>
+      <section id="lab-panel" role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
         <div className="fw-bar">
           <button type="button" className="fw-go" onClick={() => generator.start(params)} disabled={running}>
             {dict.t('generate')}

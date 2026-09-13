@@ -18,26 +18,34 @@ export function RunStatusBar() {
     // measured in cells left, not pieces made, and the two counts are
     // abbreviated with `short`, not `fmt`.
     //
-    // `progress` carries `<b>` tags, which the old lab writes as HTML. Here the
-    // line is the text of an `aria-live` region, so the tags show up literally
-    // until PR 4 replaces this with the report's own markup. That is the price
-    // of the live region; it is not a bug to be fixed with
-    // `dangerouslySetInnerHTML`.
+    // The dictionary's `progress` string carries `<b>` markup, which the old
+    // lab writes as HTML. This line is the text of an `aria-live` region, so the
+    // tags would show up literally — a visible defect in the page's primary
+    // status line, not a wart worth preserving — and they are stripped here
+    // rather than in the dictionary, which stays the source of truth. PR 4
+    // replaces this line with the report's own markup and takes the tags back.
+    // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
+    // region has to be text.
     text =
       p === null
         ? dict.t('generating')
-        : dict.t(
-            'progress',
-            (100 * (1 - p.remaining / p.total)).toFixed(1),
-            dict.short(p.pieces),
-            dict.short(p.remaining),
-            p.backtracks,
-            (p.ms / 1000).toFixed(1),
-          )
+        : dict
+            .t(
+              'progress',
+              (100 * (1 - p.remaining / p.total)).toFixed(1),
+              dict.short(p.pieces),
+              dict.short(p.remaining),
+              p.backtracks,
+              (p.ms / 1000).toFixed(1),
+            )
+            .replace(/<\/?b>/g, '')
   } else if (run.phase === 'error') {
-    // The worker reports a thrown InvalidParamsError as `error`; onerror is
-    // the other, rarer case. The old lab keeps the two words apart, and so
-    // does this (lab-i18n.ts:119-120).
+    // Both failure paths land here: the worker's `error` message (a thrown
+    // InvalidParamsError) and its `onerror` both call the slice's `failed()`
+    // (useGenerator.ts:59, :65-68, :70-73), so the phase no longer says which
+    // happened and this component always prints `generationError`. The old lab
+    // keeps the two words apart; `workerError` (lab-i18n.ts:122-123) is
+    // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || run.report === null) {
     text = dict.t('pressGenerate')
