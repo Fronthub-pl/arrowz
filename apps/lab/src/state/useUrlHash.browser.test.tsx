@@ -1,6 +1,6 @@
 import { defaultParams } from '@arrowz/engine'
 import { StrictMode } from 'react'
-import { BrowserRouter } from 'react-router'
+import { BrowserRouter, useNavigate } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RunControl } from '../run/useRun'
@@ -14,6 +14,16 @@ function Host({ control }: { control: RunControl }) {
   return null
 }
 
+/** A route change the way `TabRow` makes one: the router's own navigate, to a bare path. */
+function Away() {
+  const navigate = useNavigate()
+  return (
+    <button type="button" onClick={() => void navigate('/boards')}>
+      away
+    </button>
+  )
+}
+
 /**
  * A real `BrowserRouter`, not a `MemoryRouter`: the hook reads `useLocation`,
  * and these cases assert on the actual `location.pathname`, push and pop real
@@ -24,6 +34,7 @@ function mount(control: RunControl) {
   return render(
     <BrowserRouter>
       <Host control={control} />
+      <Away />
     </BrowserRouter>,
   )
 }
@@ -99,6 +110,20 @@ describe('useUrlHash', () => {
     expect(history.length).toBe(before)
   })
 
+  // The fragment is not the only thing on the entry: react-router keeps its own
+  // record in `history.state`, the index it computes pop deltas from among it,
+  // and this hook rewrites the entry at mount and after every edit.
+  it('leaves the entry the state another library put there', async () => {
+    await mount(stub().control)
+    const before: unknown = history.state
+    // Not an assertion about react-router so much as a guard on this case: if
+    // the router ever stops writing a record, there is nothing here to keep.
+    expect(before).not.toBe(null)
+    useStore.getState().params.set('W', 58)
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(58))
+    expect(history.state).toEqual(before)
+  })
+
   // Ruling 5's debounce: a slider drag commits about sixty times a second,
   // and both Chromium and Safari rate-limit replaceState.
   it('writes once for a burst of edits, not once per edit', async () => {
@@ -130,10 +155,11 @@ describe('useUrlHash', () => {
 
   // The other bug revision 1 shipped: Back from a route without a hash used to
   // start a carve, and `useGenerator` would terminate the one in flight, which
-  // spec §8 forbids. Measured on this runner: Chromium fires `hashchange` for
-  // a traversal only while the path stays put, so it withholds the event here
-  // and this case records the requirement rather than holding the guard. The
-  // case after it holds the guard.
+  // spec §8 forbids. The standard asks for a `hashchange` on this traversal;
+  // no engine shipping today sends one, Chromium included, so on this runner
+  // the case cannot fail for the event it is named after — but its `waitFor`
+  // proves the traversal happened, and it still fails a listener bound to
+  // `popstate`, which does fire here. The case after it holds the ref.
   it('does not start a run when the user navigates back into the lab', async () => {
     const g = stub()
     await mount(g.control)
@@ -146,9 +172,9 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started)
   })
 
-  // The guard the case above asks for, handed the event directly, because the
-  // standard has `hashchange` fire on any difference of fragment and a browser
-  // that does fire it must find the hook already holding its own write. Delete
+  // The ref the case above asks for, handed the event directly, because the
+  // standard has `hashchange` fire on any difference of fragment and an engine
+  // that follows it must find the hook already holding its own write. Delete
   // the `written` ref and this is the only case that notices.
   it('ignores a hashchange that announces the fragment it wrote itself', async () => {
     const g = stub()
@@ -159,5 +185,28 @@ describe('useUrlHash', () => {
     // Dispatch is synchronous, so the listener has run by the next line.
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
     expect(g.started()).toBe(started)
+    // One write, one announcement. A ref held for good would swallow every
+    // later traversal onto that fragment too, so the second event is taken at
+    // face value.
+    globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(g.started()).toBe(started + 1)
+  })
+
+  // The fragment belongs to the whole shell, not to the lab's route: `TabRow`
+  // navigates to bare paths, and a fragment dropped on the way to Boards would
+  // be gone on the way back. The listener is live on every route for the same
+  // reason — a link pasted while Boards is open runs the generator behind it.
+  it('keeps the fragment when the user changes route', async () => {
+    const screen = await mount(stub().control)
+    useStore.getState().params.set('W', 57)
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(57))
+    await screen.getByRole('button', { name: 'away' }).click()
+    // Both in one wait: the router drops the fragment as it pushes the bare
+    // path, and the rewrite lands an effect later, so a wait on the path alone
+    // would read the bar in the window between the two.
+    await vi.waitFor(() => {
+      expect(location.pathname).toBe('/boards')
+      expect(decodeHash(location.hash)?.params.W).toBe(57)
+    })
   })
 })

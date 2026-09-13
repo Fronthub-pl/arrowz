@@ -56,10 +56,18 @@ function applyPayload(payload: HashPayload): void {
  *    `onChange`, about sixty times a second during a drag; Chromium drops
  *    `replaceState` past roughly two hundred calls in ten seconds and Safari
  *    throws past a hundred in thirty, from inside a zustand `set`.
- * 3. **The listener knows this hook's own writes.** `hashchange` fires on
- *    same-document traversal whenever the fragment differs, whatever the
- *    path, so `replaceState` is not the guard revision 1 thought it was: Back
- *    into the lab would start a carve and terminate the one in flight.
+ * 3. **The listener knows this hook's own writes.** The standard fires
+ *    `hashchange` on a traversal whenever the old and the new fragment differ,
+ *    with no requirement that the path be equal; every engine shipping today
+ *    fires it only when the two URLs are equal but for the fragment, which is
+ *    what this repository's probe measured on Chrome. `replaceState` fires it
+ *    on neither reading. So the `written` ref covers the conformant branch —
+ *    Back into the lab announcing a fragment this hook wrote, which would
+ *    start a carve and terminate the one in flight — while on today's engines
+ *    it is the `flush()` on every route change that keeps Back quiet, by
+ *    leaving both entries carrying the same fragment. The ref is exercised by
+ *    the case named "ignores a hashchange that announces the fragment it wrote
+ *    itself", which dispatches the event the standard asks for.
  *
  * The subscription is in an effect and not a selector in render (Ruling 11),
  * for the same reason `useAutoRun`'s is.
@@ -82,12 +90,19 @@ export function useUrlHash(control: RunControl): void {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     const flush = () => {
+      // Unreachable as the effects stand — React runs them in declaration
+      // order, so the read above has set the ref before this one is set up —
+      // and kept because it is what pins that order: a hash written before the
+      // link is read would be the page's defaults overwriting the link.
       if (!readDone.current) return
       const { params, view, ui } = useStore.getState()
       const next = encodeHash({ params: params.values, view: viewFor(view, ui.help), carried: carried.current })
       if (next === location.hash) return
       written.current = next
-      history.replaceState(null, '', next)
+      // `history.state` and not `null`: react-router keeps its own record
+      // there — `idx`, the index it computes pop deltas from, among them — and
+      // this hook replaces the entry at mount and after every edit.
+      history.replaceState(history.state, '', next)
     }
     const schedule = () => {
       clearTimeout(timer)
@@ -108,7 +123,14 @@ export function useUrlHash(control: RunControl): void {
 
   useEffect(() => {
     const onChange = () => {
-      if (location.hash === written.current) return
+      // One write, one announcement: the ref is spent by the event it was set
+      // for. Held for good, it would also swallow a traversal that later lands
+      // on that same fragment — Forward onto the entry this hook wrote, while
+      // the write for the entry Back just applied is still inside its wait.
+      if (location.hash === written.current) {
+        written.current = null
+        return
+      }
       const payload = decodeHash(location.hash)
       if (payload === null) return
       carried.current = payload.carried
