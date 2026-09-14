@@ -1,5 +1,5 @@
 import type { Lang } from '@arrowz/engine/i18n'
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router'
 import type { RunControl } from '../run/useRun'
 import { useStore } from './store'
@@ -48,6 +48,16 @@ function applyPayload(payload: HashPayload): void {
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
 }
 
+export interface UrlHash {
+  /**
+   * Whether the page opened on a link: the hash decoded at mount, whether or
+   * not it named a knob — the old `loadFromUrl` returns true once the JSON
+   * parses (`lab-page.ts:1355-1358`). Read after the mount effects, never
+   * during render.
+   */
+  openedFromLink(): boolean
+}
+
 /**
  * The URL hash, in both directions. Mounted once, in `App`.
  *
@@ -82,9 +92,10 @@ function applyPayload(payload: HashPayload): void {
  * The subscription is in an effect and not a selector in render (Ruling 11),
  * for the same reason `useAutoRun`'s is.
  */
-export function useUrlHash(control: RunControl): void {
+export function useUrlHash(control: RunControl): UrlHash {
   const carried = useRef<Carried>({})
   const readDone = useRef(false)
+  const fromLink = useRef(false)
   const { pathname } = useLocation()
 
   useEffect(() => {
@@ -92,6 +103,7 @@ export function useUrlHash(control: RunControl): void {
     readDone.current = true
     const payload = decodeHash(location.hash)
     if (payload === null) return
+    fromLink.current = true
     carried.current = payload.carried
     applyPayload(payload)
   }, [])
@@ -156,4 +168,7 @@ export function useUrlHash(control: RunControl): void {
     globalThis.addEventListener('hashchange', onChange)
     return () => globalThis.removeEventListener('hashchange', onChange)
   }, [control])
+
+  // Stable, so `App`'s load effect lists it without ever re-running on it.
+  return useMemo(() => ({ openedFromLink: () => fromLink.current }), [])
 }
