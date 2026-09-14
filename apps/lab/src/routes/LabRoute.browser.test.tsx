@@ -12,19 +12,22 @@ import { useStore } from '../state/store'
 // slice is reset alongside the run: the store outlives a test, and the sizes
 // one test commits would otherwise be what the next one carves.
 async function mountApp() {
-  // Back to `/` with no fragment: a test that navigated to /boards must not
-  // leave the next one there, and `useUrlHash` writes the knobs into the
-  // fragment — a link left behind by one test would be read as a pasted one by
-  // the next mount, which now carves a board on load. The `replaceState` then
-  // drops the entry's history state, so each mount starts from the blank
-  // history a real page load has.
+  // `pushState` does two things: a case that navigated to /boards must not
+  // leave the next one there, and it drops the fragment — `useUrlHash` writes
+  // the knobs into it, and a link left behind by one case would be read as a
+  // pasted one by the next mount, which now carves a board on load. The
+  // `replaceState` on the line below adds one thing only: it clears
+  // `history.state`, where react-router keeps its own record, so each mount
+  // starts from the blank entry a real page load has.
   window.history.pushState({}, '', '/')
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   useStore.getState().params.reset()
-  // The switches are the store's too, and the load run makes them matter: a
-  // case that turned `auto` on would otherwise carve on the next case's first
-  // keystroke, and `help` and the clamp notice are what a pasted link moves.
+  // The whole `ui` slice, not a selection of it, and the load run makes it
+  // matter: a case that turned `auto` on would otherwise carve on the next
+  // case's first keystroke. `entry` is reset for the same reason the others
+  // are — the case that picks a rail entry leaves it on 'preview'.
+  useStore.getState().ui.select('board')
   useStore.getState().ui.setAuto(false)
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
@@ -40,9 +43,10 @@ async function mountApp() {
 // `testTimeout`, so Vitest's 5 s default would cut short polls that are budgeted
 // for far longer, and the failure would name a timeout rather than the
 // assertion. Each budget is the sum of that test's polls and fixed waits plus
-// 8 s of headroom for a two-core, software-rendered CI runner. The two tests
-// that carve nothing poll only through `expect.element`, so their budget is
-// dominated by mounting the shell and its WebGL canvas.
+// 8 s of headroom for a two-core, software-rendered CI runner. No test carves
+// nothing any more — the page carves on load — so the two that start no run of
+// their own still pay for the default 25×50 board on top of mounting the shell
+// and its WebGL canvas, which is what dominates their budget.
 //
 // Every `expect.element` here states a 5 s timeout of its own, rather than
 // taking the default and retrying into the test's budget. Each one runs after a
@@ -60,13 +64,39 @@ test('Generate carves a board, draws it, and says so', async () => {
     // without being asked. This is what the page says on load now, and it says
     // more than the `Press "Generate".` it replaces — that line only claimed
     // the page had not run, while this one claims a run finished and closed.
+    //
+    // Anchored at both ends, because `toMatchTextContent` matches anywhere in
+    // the content while the `toHaveTextContent` it replaces compared the whole
+    // of it (@vitest/browser 5: `pass: received === expected`). Nothing may
+    // precede the run's own report and nothing may follow it but the store's
+    // answer, which is optional and open-ended: it is appended asynchronously,
+    // so this line can run before or after it lands, and `notSaved` carries a
+    // parenthesis of its own (lab-i18n.ts:172).
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board closed 100%\./)
+      .toMatchTextContent(/^Board closed 100%\.(?: — (?:not )?saved.*)?$/)
 
+    // The board the load run left, held so the press below can be told from
+    // it. Polling the phase alone would not do it: the page is already `done`
+    // when the click lands, so every assertion after it would be satisfied by
+    // the load board — delete `onClick={control.start}` from `RunColumn` and
+    // this case would stay green, which is the one failure a gate must never
+    // have. `started()` clears `file` (run.slice.ts:54) and `finished()` sets
+    // it with the phase (`:56`), so a `file` that is new and not null is also
+    // proof the run passed through `running`.
+    const onLoad = useStore.getState().run.file
     await screen.getByRole('button', { name: 'Generate' }).click()
-    await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+    await expect
+      .poll(
+        () => {
+          const { file } = useStore.getState().run
+          return file !== null && file !== onLoad
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true)
+    expect(useStore.getState().run.phase).toBe('done')
 
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.board?.pieces.length).toBeGreaterThan(0)
@@ -187,6 +217,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   // Not through `mountApp`, which renders `App` bare: the defaults have to be
   // put back here too, or this test carves whatever the last one left behind.
   useStore.getState().params.reset()
+  useStore.getState().ui.select('board')
   useStore.getState().ui.setAuto(false)
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
@@ -262,7 +293,10 @@ test('Generate is refused while a rule is broken, and the reasons are on screen'
   await expect.element(screen.getByRole('region', { name: 'Settings outside the safe range' })).toBeVisible()
   useStore.getState().params.reset()
   await expect.element(generate).toBeEnabled()
-})
+  // A budget of its own, like every other case here: this one holds a 30 s poll
+  // now, and Vitest's 5 s default would kill the test before the poll could
+  // report, so a slow carve would name a timeout rather than the assertion.
+}, 40_000)
 
 test('a board carved from the console reaches the element and the store', async () => {
   const screen = await mountApp()
