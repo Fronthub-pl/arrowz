@@ -11,4 +11,5 @@ export const VIEW: HashView = {
   colored: false,
   hilite: true,
   help: true,
+  lang: 'en',
 }

@@ -1,3 +1,4 @@
+import type { Lang } from '@arrowz/engine/i18n'
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
 import type { RunControl } from '../run/useRun'
@@ -9,7 +10,7 @@ import type { ViewState } from './view.slice'
 const WRITE_DELAY_MS = 250
 
 /** The view as the link states it, from the slice. */
-function viewFor(view: ViewState, help: boolean) {
+function viewFor(view: ViewState, help: boolean, lang: Lang) {
   return {
     cell: view.cell,
     stroke: view.stroke,
@@ -20,12 +21,13 @@ function viewFor(view: ViewState, help: boolean) {
     colored: view.colored,
     hilite: view.hilite,
     help,
+    lang,
   }
 }
 
 /** Writes a decoded link into the store. The caller decides whether to run. */
 function applyPayload(payload: HashPayload): void {
-  const { params, view, ui } = useStore.getState()
+  const { params, view, ui, lang } = useStore.getState()
   // One `setMany` for every knob the link named: one recompute, one render,
   // and the machine path, so `auto` does not schedule a second run behind the
   // immediate one this trigger owns (Ruling 3).
@@ -41,6 +43,9 @@ function applyPayload(payload: HashPayload): void {
   view.setFlag('colored', payload.view.colored)
   view.setFlag('hilite', payload.view.hilite)
   ui.setHelp(payload.view.help)
+  // Through `setLang`, so a link's language is remembered as well as shown —
+  // the old lab persists it in `applyLanguage` (`lab-page.ts:404`).
+  if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
 }
 
 /**
@@ -99,8 +104,12 @@ export function useUrlHash(control: RunControl): void {
       // and kept because it is what pins that order: a hash written before the
       // link is read would be the page's defaults overwriting the link.
       if (!readDone.current) return
-      const { params, view, ui } = useStore.getState()
-      const next = encodeHash({ params: params.values, view: viewFor(view, ui.help), carried: carried.current })
+      const { params, view, ui, lang } = useStore.getState()
+      const next = encodeHash({
+        params: params.values,
+        view: viewFor(view, ui.help, lang.lang),
+        carried: carried.current,
+      })
       if (next === location.hash) return
       // `history.state` and not `null`: react-router keeps its own record
       // there — `idx`, the index it computes pop deltas from, among them — and
@@ -131,8 +140,12 @@ export function useUrlHash(control: RunControl): void {
       // describing itself, and applying it would be a no-op followed by a run
       // that terminates whatever is in flight. Anything else — a pasted link,
       // a traversal onto a different entry — is a trigger.
-      const { params, view, ui } = useStore.getState()
-      const here = encodeHash({ params: params.values, view: viewFor(view, ui.help), carried: carried.current })
+      const { params, view, ui, lang } = useStore.getState()
+      const here = encodeHash({
+        params: params.values,
+        view: viewFor(view, ui.help, lang.lang),
+        carried: carried.current,
+      })
       if (location.hash === here) return
       const payload = decodeHash(location.hash)
       if (payload === null) return

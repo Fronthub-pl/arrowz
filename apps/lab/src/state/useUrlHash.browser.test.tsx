@@ -51,6 +51,7 @@ beforeEach(() => {
   state.params.reset()
   state.run.reset()
   state.ui.raiseClamped(false)
+  state.lang.setLang('en')
 })
 afterEach(() => history.replaceState(null, '', location.pathname))
 
@@ -256,5 +257,29 @@ describe('useUrlHash', () => {
       expect(location.pathname).toBe('/boards')
       expect(decodeHash(location.hash)?.params.W).toBe(57)
     })
+  })
+
+  it('opens in the language the link names, and remembers it', async () => {
+    history.replaceState(null, '', encodeHash({ params: defaultParams(), view: { ...VIEW, lang: 'pl' }, carried: {} }))
+    await mount(stub().control)
+    expect(useStore.getState().lang.lang).toBe('pl')
+    expect(localStorage.getItem('labLang')).toBe('pl')
+  })
+
+  // The old `saveToUrl` writes `lang` every time (`lab-page.ts:1349`), so a
+  // link copied from either lab opens the other in the same language.
+  it('writes the language on screen into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().lang.setLang('pl')
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.view.lang).toBe('pl'))
+  })
+
+  it('takes a pasted link that changes only the language, and runs it', async () => {
+    const g = stub()
+    await mount(g.control)
+    const started = g.started()
+    location.hash = encodeHash({ params: defaultParams(), view: { ...VIEW, lang: 'pl' }, carried: {} }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().lang.lang).toBe('pl'))
+    expect(g.started()).toBe(started + 1)
   })
 })
