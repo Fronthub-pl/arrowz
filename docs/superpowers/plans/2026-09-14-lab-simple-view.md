@@ -53,11 +53,11 @@ Decisions this plan takes that the spec left open or states differently. An exec
 
 **Ruling 3 — one debounce owner.** `useRun.hold()` keeps a single cancel. A second hook with its own timer would overwrite that slot, and Generate would then cancel one of two pending runs while the other fired 350 ms later and terminated the carve Generate started. `useAutoRun` therefore watches `params.edits` (gated by `auto`) and `recipe.edits` (ungated: the old lab's size fields and sliders call `schedule()` unconditionally, `lab-page.ts:527-529`, `:559-561`). A recipe edit leaves a debt that a later knob edit with `auto` off does not erase, and that a cancel does.
 
-**Ruling 4 — the recipe writes the knobs at once, through the machine path.** `applyRecipe` is `simpleParams` → `params.setMany` → `ui.raiseClamped` → `view.cell = exportCell(W, H)`, the old `applySimple` (`lab-page.ts:631-639`). The command box and the hash therefore describe what the next run uses. The simple view's seed field writes with `setMany` too: through `set` it would wake an `auto` left on in the advanced view, which the simple view hides, and the old seed field starts nothing (`lab-page.ts:660`).
+**Ruling 4 — the recipe writes the knobs at once, through the machine path.** `applyRecipe` is `simpleParams` → `params.setMany` → `ui.raiseClamped` → `view.cell = exportCell(W, H)`, the old `applySimple` (`lab-page.ts:631-639`). The command box and the hash therefore describe what the next run uses. The simple view's seed field writes with `setMany` too: through `set` it would wake an `auto` left on in the advanced view, which the simple view hides, and the old seed field starts nothing (`lab-page.ts:660`). It commits on Enter or blur (§5.5) where the old field wrote on every keystroke, so the command and the hash follow a typed seed at its commit — a parity delta the PR body names.
 
 **Ruling 5 — the draw's moves are not shown.** `drawParams` reports values it moved to keep `sharesSum`; the old lab calls `simpleParams` and ignores them. Measured over 162 recipes × 200 draws: without randomising nothing ever moves (0/162); with it 320 of 32 400 draws move `wMid` by hundredths at the "very short" end. The command already shows the moved value.
 
-**Ruling 6 — the page owns `lang` in the hash.** It leaves `Carried` and is written on every hash write, as the old `saveToUrl` writes it (`lab-page.ts:1349`); `tab` stays carried until PR 5. A link's language is applied through `setLang`, so it is remembered — the old lab persists in `applyLanguage` (`lab-page.ts:404`). The starting language before any link is read follows `lab-page.ts:108-109`: stored `pl` → Polish; nothing stored and a browser asking for Polish → Polish; anything else → English.
+**Ruling 6 — the page owns `lang` in the hash.** It leaves `Carried` and is written on every hash write, as the old `saveToUrl` writes it (`lab-page.ts:1349`); `tab` stays carried until PR 5. A link's language is applied through `setLang`, so it is remembered — the old lab persists in `applyLanguage` (`lab-page.ts:404`). The starting language before any link is read follows `lab-page.ts:108-109`: stored `pl` → Polish; nothing stored and a browser asking for Polish → Polish; anything else → English. The old lab also writes `labLang` on every load, the browser-derived language included (`applyLanguage()` at `lab-page.ts:1476`); this one writes only on a choice, which changes nothing a user sees until the browser's language changes.
 
 **Ruling 7 — one `Console`, two interiors, and §5.1 is amended.** §5.1 says the run column is one instance because the route builds it and hands it to whichever console is on screen. React reconciles by type and position, not by element identity: `<Console>{col}</Console>` replaced by `<SimpleConsole>{col}</SimpleConsole>` is a new parent type, and the column remounts. `Console` instead keeps `{children}` at the third position of its own grid and swaps only the first two — the rail becomes `null`, the panel becomes `SimplePanel`. Task 10 proves the node survives.
 
@@ -74,6 +74,18 @@ Decisions this plan takes that the spec left open or states differently. An exec
 **Ruling 13 — on the top bar's Signal plane the segment inverts, and so does the focus ring.** The unselected option is `--void` text on `--signal` (4.08:1, the pairing `.name` and `.dims` already ship with — the open §7.1 item), the selected one `--ink` on `--void`. The global `:focus-visible` ring is `--signal` and would vanish on that plane, so the top bar's ring is `--void`. Task 12 measures both in the browser.
 
 **Ruling 14 — preferences are read and written through one guarded helper.** The node test project imports the store and has no dependable Web Storage, and a browser may refuse storage; an unreadable preference is the default, never an exception.
+
+---
+
+## Revision 2: what the three reviews changed
+
+Three independent reviews (facts and compilation; whether each test can fail; parity, seams and CSS) ran on revision 1. Recorded so a reviewer of this revision knows which claims were measured.
+
+**Fixed.** `SimplePanel`'s cases asserted absolute `recipe.edits`, which only grows and which `reset()` deliberately leaves alone — the second and third case in file order would have failed for a reason unrelated to their names; every counter assertion is now relative. The stage-height case asserted a 180px floor that an auto-placed stage clears anyway (292px measured at the runner's 414×896); it now compares with the height before the swap. Case 14 claimed to detect the order of the new seed and the draw, which `simpleParams` cannot show; the claim is gone. The StrictMode case in `LabRoute.browser.test.tsx` renders `App` without `mountApp` and would have inherited another case's mode and language; it gets the same resets. Ruling 11 had no case telling "the hash decoded" from "the hash named a knob"; case 18 does. `applyRecipe` replaced the view slice on every slider frame, and the board element redraws everything for a new view; it now writes the cell only when it moves, with a test. Three spec lines still described the rejected design or the old page-load rule; Task 12 amends them. The top bar's and the chip's hover rules could have hidden the selected state by source order alone; they exclude the checked radio. The skeleton card spoke its name twice; `Segmented` takes `labelledBy`. A read-only percent had the text cursor. Four citations and one CSS specificity comment were corrected.
+
+**Rejected after measurement.** One review held that `getByRole('radio', { name: 'PL' })` also matches `Simple`. A probe rendering both radios found one match with and without `exact: true`; the locators stay as written.
+
+**Confirmed, not to be re-litigated.** Every import, export and signature, compiled with the project's `tsc` and ESLint; every old-lab citation; Ruling 7's reconciliation argument and its mutation; the funnel — no simple-view path starts two runs or leaves a debounce behind; Task 4's pass/fail split and its `owed` mutation; node 24 here has no `localStorage` and a `pl-PL` `navigator.language`, so the guarded helper and the no-starting-language rule for node tests are both needed.
 
 ---
 
@@ -698,6 +710,7 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
+  state().view.setNumber('cell', '12')
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -718,6 +731,16 @@ describe('applyRecipe', () => {
     applyRecipe(false)
     expect(state().view.cell).toBe(exportCell(120, 50))
     expect(state().view.cell).toBe(13)
+  })
+
+  // A new view object makes the board element redraw everything, and a slider
+  // drag calls this sixty times a second with an unchanged size.
+  it('leaves the view alone when the export cell does not move', () => {
+    applyRecipe(false)
+    const view = state().view
+    state().recipe.setSlider('shape', 0.9)
+    applyRecipe(false)
+    expect(state().view).toBe(view)
   })
 
   // The page-load run applies the recipe, and StrictMode runs that effect
@@ -798,7 +821,13 @@ export function applyRecipe(random: boolean): void {
   const { recipe, params, ui, view } = useStore.getState()
   const drawn = simpleParams({ ...recipe.value, seed: params.values.seed }, random ? Math.random : null)
   ui.raiseClamped(params.setMany(drawn))
-  view.setNumber('cell', String(exportCell(drawn.W, drawn.H)))
+  // Only when it moves. `setNumber` always replaces the view slice, `Stage`
+  // memoises the element's view on that object, and the element redraws the
+  // whole board for a new view (`arrowz-board.ts:422-428`) — which a slider
+  // drag would pay sixty times a second for a cell that did not change. The
+  // old lab assigned an input's value and redrew nothing.
+  const cell = exportCell(drawn.W, drawn.H)
+  if (view.cell !== cell) view.setNumber('cell', String(cell))
 }
 
 /**
@@ -1229,7 +1258,7 @@ git commit -m "Lift the knob's draft entry into a component the simple view can 
 **Interfaces:**
 - Produces:
   - Five `ui` keys in both dictionaries: `modeLabel`, `languageLabel`, `langPl`, `langEn`, `simplePanel`.
-  - `interface SegmentedOption<T extends string> { value: T; label: string }` and `Segmented<T extends string>({ label, options, value, onChange }: { label: string; options: readonly SegmentedOption<T>[]; value: T; onChange(next: T): void }): ReactElement` from `shell/Segmented.tsx`. Renders `div.fw-seg[role=radiogroup][aria-label]` of `button[role=radio][aria-checked]`; only the checked radio is a tab stop; ArrowRight/ArrowDown, ArrowLeft/ArrowUp (wrapping), Home and End call `onChange` and the focus follows the checked radio while the group holds it. Tasks 7 and 9 use it three times.
+  - `interface SegmentedOption<T extends string> { value: T; label: string }` and `Segmented<T extends string>({ label, labelledBy, options, value, onChange }: { label: string; labelledBy?: string | undefined; options: readonly SegmentedOption<T>[]; value: T; onChange(next: T): void }): ReactElement`; with `labelledBy` the group is named by that element instead of `aria-label` from `shell/Segmented.tsx`. Renders `div.fw-seg[role=radiogroup][aria-label]` of `button[role=radio][aria-checked]`; only the checked radio is a tab stop; ArrowRight/ArrowDown, ArrowLeft/ArrowUp (wrapping), Home and End call `onChange` and the focus follows the checked radio while the group holds it. Tasks 7 and 9 use it three times.
 
 - [ ] **Step 1: Add the dictionary keys**
 
@@ -1335,6 +1364,16 @@ test('only the chosen option is a tab stop', async () => {
   await expect.element(screen.getByRole('radio', { name: 'Beta' })).toHaveAttribute('tabindex', '-1')
   await expect.element(screen.getByRole('radio', { name: 'Gamma' })).toHaveAttribute('tabindex', '-1')
 })
+
+test('takes its name from a visible label when it is given one', async () => {
+  const screen = await render(
+    <div>
+      <span id="letters-label">Letters shown</span>
+      <Segmented label="Letters" labelledBy="letters-label" options={OPTIONS} value="a" onChange={() => {}} />
+    </div>,
+  )
+  await expect.element(screen.getByRole('radiogroup', { name: 'Letters shown' })).toBeVisible()
+})
 ```
 
 - [ ] **Step 3: Run it to verify it fails**
@@ -1365,11 +1404,14 @@ export interface SegmentedOption<T extends string> {
  */
 export function Segmented<T extends string>({
   label,
+  labelledBy,
   options,
   value,
   onChange,
 }: {
   label: string
+  /** The id of a visible label; when given it names the group, so the name is not spoken twice. */
+  labelledBy?: string | undefined
   options: readonly SegmentedOption<T>[]
   value: T
   onChange(next: T): void
@@ -1399,7 +1441,12 @@ export function Segmented<T extends string>({
   }
 
   return (
-    <div className="fw-seg" role="radiogroup" aria-label={label}>
+    <div
+      className="fw-seg"
+      role="radiogroup"
+      aria-label={labelledBy === undefined ? label : undefined}
+      aria-labelledby={labelledBy}
+    >
       {options.map((option, i) => (
         <button
           key={option.value}
@@ -1448,7 +1495,7 @@ Append to `apps/lab/src/design/shell.css`:
     background 120ms cubic-bezier(0.2, 0, 0, 1),
     color 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw .fw-seg button:hover {
+.fw .fw-seg button:not([aria-checked='true']):hover {
   color: var(--ink);
   background: var(--surface);
 }
@@ -1526,7 +1573,7 @@ Append inside the `describe`:
   })
 ```
 
-In `apps/lab/src/routes/LabRoute.browser.test.tsx`, add `useStore.getState().lang.setLang('en')` to `mountApp` after the `ui` resets, and append:
+In `apps/lab/src/routes/LabRoute.browser.test.tsx`, add `useStore.getState().lang.setLang('en')` to `mountApp` after the `ui` resets, and the same line to the hand-rolled reset of `a finished run is offered to the store once per run, and the outcome is appended` — the StrictMode case renders `App` without `mountApp`, so only file order would otherwise keep it in English. Then append:
 
 ```ts
 // The switch reaches three places no component test can see together: the
@@ -1573,7 +1620,7 @@ In `App.tsx`, import it and call `useDocumentLang()` in `Shell` directly after `
 
 - [ ] **Step 4: Give the board its language**
 
-In `apps/lab/src/stage/Stage.tsx`, add `const lang = useStore((state) => state.lang.lang)` beside the other selectors and pass `lang={lang}` to `BoardCanvas`. The element's control bar (zoom, fit, colours, gestures) has its own dictionary keyed by `lang` (`arrowz-board.ts:276-290`).
+In `apps/lab/src/stage/Stage.tsx`, add `const lang = useStore((state) => state.lang.lang)` beside the other selectors and pass `lang={lang}` to `BoardCanvas`. The element's control bar (zoom, fit, colours, gestures) has its own dictionary keyed by `lang` (`labelsFor(this.lang)`, `arrowz-board.ts:366`; the attribute is observed at `:276-290`).
 
 - [ ] **Step 5: Put the two groups in the bar**
 
@@ -1623,13 +1670,14 @@ Append to `apps/lab/src/design/shell.css`:
    `--signal` on `--signal` for the chosen option, and the global focus ring is
    `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on
    `--signal`, the pairing `.name` and `.dims` already ship (4.08:1, the open
-   §7.1 item); the chosen option is `--ink` on `--void`. (0,3,1) outranks the
-   chip's (0,2,1). */
+   §7.1 item); the chosen option is `--ink` on `--void`. The base rule ties with
+   the chip's checked rule and wins by following it; the checked rule here is
+   (0,4,1). */
 .fw .fw-top .fw-seg button {
   border-color: var(--void);
   color: var(--void);
 }
-.fw .fw-top .fw-seg button:hover {
+.fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
   background: none;
   color: var(--void);
   text-decoration: underline;
@@ -1859,23 +1907,26 @@ describe('SimplePanel', () => {
   it('writes a typed width into the recipe and the knobs, and starts nothing', async () => {
     const g = stub()
     const screen = await render(<SimplePanel control={g.control} />)
+    // Relative: `recipe.edits` only grows, and `reset()` leaves it alone on purpose.
+    const shaped = state().recipe.edits
     await screen.getByRole('button', { name: /^width/ }).click()
     await userEvent.fill(screen.getByRole('textbox'), '120')
     await userEvent.keyboard('{Enter}')
     expect(state().recipe.value.W).toBe(120)
     expect(state().params.values).toEqual(drawn())
     expect(state().view.cell).toBe(13)
-    expect(state().recipe.edits).toBe(1)
+    expect(state().recipe.edits).toBe(shaped + 1)
     expect(g.started()).toBe(0)
   })
 
   it('moves the recipe and the knobs with a slider, and starts nothing', async () => {
     const g = stub()
     const screen = await render(<SimplePanel control={g.control} />)
+    const shaped = state().recipe.edits
     slide(screen.container.querySelector<HTMLInputElement>('#simple-lengths'), 20)
     await expect.poll(() => state().recipe.value.lengths).toBe(0.2)
     expect(state().params.values).toEqual(drawn())
-    expect(state().recipe.edits).toBe(1)
+    expect(state().recipe.edits).toBe(shaped + 1)
     expect(g.started()).toBe(0)
   })
 
@@ -1888,11 +1939,12 @@ describe('SimplePanel', () => {
       abort: () => {},
       hold: () => {},
     }
+    const shaped = state().recipe.edits
     const screen = await render(<SimplePanel control={control} />)
     await screen.getByRole('radio', { name: 'with a skeleton' }).click()
     expect(state().recipe.value.skeleton).toBe('on')
     expect(seen).toEqual([drawn()])
-    expect(state().recipe.edits).toBe(0)
+    expect(state().recipe.edits).toBe(shaped)
   })
 
   // The machine path (Ruling 4): a seed typed here must not wake an `auto`
@@ -1900,12 +1952,13 @@ describe('SimplePanel', () => {
   it('writes a typed seed into the knobs without counting it as a knob edit', async () => {
     const g = stub()
     state().ui.setAuto(true)
+    const typed = state().params.edits
     const screen = await render(<SimplePanel control={g.control} />)
     await screen.getByRole('button', { name: /^seed/ }).click()
     await userEvent.fill(screen.getByRole('textbox'), '4242')
     await userEvent.keyboard('{Enter}')
     expect(state().params.values.seed).toBe(4242)
-    expect(state().params.edits).toBe(0)
+    expect(state().params.edits).toBe(typed)
     expect(g.started()).toBe(0)
     state().ui.setAuto(false)
   })
@@ -2098,10 +2151,13 @@ function SkeletonCard({ control }: { control: RunControl }): ReactElement {
   return (
     <div className="fw-k">
       <div className="top">
-        <span className="lab">{dict.d.simple.skeleton}</span>
+        <span className="lab" id="simple-skeleton-label">
+          {dict.d.simple.skeleton}
+        </span>
       </div>
       <Segmented
         label={dict.d.simple.skeleton}
+        labelledBy="simple-skeleton-label"
         value={skeleton}
         options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
         onChange={(next) => {
@@ -2203,6 +2259,11 @@ Append to `apps/lab/src/design/console.css`:
   justify-content: space-between;
   gap: 12px;
 }
+/* A recipe slider's percent is read, not edited: `.fw-k .num`'s text cursor
+   is the knob button's affordance. */
+.fw-k span.num {
+  cursor: default;
+}
 ```
 
 - [ ] **Step 7: Run it to verify it passes**
@@ -2233,7 +2294,7 @@ git commit -m "Build the simple panel from the mock's cards, over the recipe"
 
 Every existing case in these files was written against the advanced console, and a first visit now opens on the simple one (Ruling 2).
 
-- `LabRoute.browser.test.tsx`, in `mountApp` beside the other `ui` resets: `useStore.getState().ui.setMode('advanced')`.
+- `LabRoute.browser.test.tsx`, in `mountApp` beside the other `ui` resets: `useStore.getState().ui.setMode('advanced')` — and the same line in the hand-rolled reset of the StrictMode case `a finished run is offered to the store once per run, and the outcome is appended`, which does not call `mountApp`.
 - `triggers.browser.test.tsx`, in `beforeEach`: `state.ui.setMode('advanced')` and `state.recipe.reset()` and `state.recipe.setRandom(false)`.
 - `RunColumn.browser.test.tsx`, in `beforeEach`: `state.ui.setMode('advanced')`.
 
@@ -2279,9 +2340,13 @@ test('the stage keeps its height when the preset strip goes', async () => {
   const screen = await mountApp()
   const stage = () => screen.container.querySelector<HTMLElement>('.fw-stage')?.getBoundingClientRect().height ?? 0
   await expect.poll(stage).toBeGreaterThanOrEqual(180)
+  const before = stage()
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
-  expect(stage()).toBeGreaterThanOrEqual(180)
+  // Not a 180px floor: at the runner's 414×896 an auto-placed stage still
+  // measures 292px (measured in review), so the floor could not fail. The
+  // strip's row goes to the two remaining rows, so the stage can only grow.
+  await expect.poll(stage).toBeGreaterThanOrEqual(before)
 }, 40_000)
 ```
 
@@ -2361,8 +2426,8 @@ Import `drawIfRandom` and `resetRecipeIfSimple` from `../simple/applyRecipe`, re
 ```tsx
   // Generate and New seed in the simple view with randomising on draw the
   // knobs afresh before the run reads them; in every other state they keep
-  // them (`lab-page.ts:912-921`). New seed moves the seed first, so the draw
-  // is made on the new one.
+  // them (`lab-page.ts:912-921`). New seed moves the seed first, as the old
+  // lab does; the draw does not read the seed, it only carries it along.
   const generate = () => {
     drawIfRandom()
     control.start()
@@ -2415,7 +2480,7 @@ git commit -m "Swap the console's interior for the simple view, keeping the run 
 After the commit, so that `git checkout` restores the committed file and nothing else:
 
 1. Apply the mutation named in the comment of `the simple view replaces the rail and the presets, and keeps the very same run column`, run `pnpm nx run lab:test -- LabRoute`, see that case fail on the identity assertion, then `git checkout -- apps/lab/src/console/Console.tsx`.
-2. Delete the `.fw-lab.simple` rule, run the same command, and see `the stage keeps its height when the preset strip goes` fail; then `git checkout -- apps/lab/src/design/console.css`. If it passes with the rule deleted, the test viewport happens to leave the auto-placed stage 180px tall: do not invent a replacement assertion — restore the file, record the stage's and the console's measured heights with and without the rule in the task report, and let the coordinator rule on the case.
+2. Delete the `.fw-lab.simple` rule, run the same command, and see `the stage keeps its height when the preset strip goes` fail; then `git checkout -- apps/lab/src/design/console.css`. Measured in review at the runner's 414×896: 364px with the strip, 292px in simple mode without the rule, so the case goes red on its last line; with the rule the stage grows.
 
 Record both failure lines in the task report. Neither step leaves a change in the tree.
 
@@ -2434,7 +2499,7 @@ Record both failure lines in the task report. Neither step leaves a change in th
 In `apps/lab/src/run/triggers.browser.test.tsx`: extend the imports with `defaultChoice, recipeOf, simpleParams` from `@arrowz/engine/simple` (beside `exportCell`), `applyRecipe` from `../simple/applyRecipe` and `SimplePanel` from `../simple/SimplePanel`; change `afterEach` to also call `vi.restoreAllMocks()`; rename case 8 to `'8 · page load, advanced view: a run without a click, on the knobs the page opened with'` and replace its last comment with `// The simple view's half is case 16.`; and replace the head comment's paragraphs from "Seven rows are here." to the end of the bullet list with:
 
 ```ts
- * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–17 are
+ * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–18 are
  * the simple view's three rows of its own, and the simple halves of four rows
  * the advanced view shares — Generate and New seed draw the knobs afresh first
  * when randomising (`lab-page.ts:912-921`), Defaults resets the recipe
@@ -2527,9 +2592,10 @@ Append inside the `describe`, after case 8:
   })
 
   // Row 7, simple view with randomising on. One pinned value feeds both the
-  // seed (`Math.floor(0.5 * 999999)`) and the draw, and the draw must be made
-  // on the new seed.
-  it('14 · New seed in the simple view with randomising: at once, drawn on the new seed', async () => {
+  // seed (`Math.floor(0.5 * 999999)`) and the draw. The order of the two is not
+  // claimed: `simpleParams` draws without reading the seed and only writes it
+  // back, so either order gives this snapshot (verified in review).
+  it('14 · New seed in the simple view with randomising: at once, on the new seed and a fresh draw', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
     useStore.getState().recipe.setRandom(true)
@@ -2579,12 +2645,23 @@ Append inside the `describe`, after case 8:
     await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
     expect(useStore.getState().run.params).toEqual({ ...defaultParams(), W: 61 })
   }, 40_000)
+  // Ruling 11's other half: a hash that decodes and names no knob is still a
+  // link — `loadFromUrl` returns true once the JSON parses. An
+  // `openedFromLink` meaning "named a knob" would apply the moved recipe here.
+  it('18 · page load in the simple view from a link naming nothing: a run on the defaults, not the recipe’s', async () => {
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setSlider('lengths', 0.2)
+    history.replaceState(null, '', '#' + encodeURIComponent('{}'))
+    await render(<App />)
+    await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
+    expect(useStore.getState().run.params).toEqual(defaultParams())
+  }, 40_000)
 ```
 
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `pnpm nx run lab:test -- triggers`
-Expected: FAIL in case 16 only — the load run uses `defaultParams()`. Cases 9–15 pass already, because Tasks 3, 4, 9 and 10 built their triggers; case 17 passes because nothing applies the recipe on load yet. Case 16 is this task's test; the others are the table's statement.
+Expected: FAIL in case 16 only — the load run uses `defaultParams()`. Cases 9–15 pass already, because Tasks 3, 4, 9 and 10 built their triggers; cases 17 and 18 pass because nothing applies the recipe on load yet. Case 16 is this task's test; the others are the table's statement.
 
 - [ ] **Step 3: Tell the caller whether the page opened on a link**
 
@@ -2629,7 +2706,7 @@ and replace the last paragraph of the comment above it ("The old lab also applie
 - [ ] **Step 5: Run them to verify they pass**
 
 Run: `pnpm nx run lab:test -- triggers LabRoute useUrlHash`
-Expected: PASS, all seventeen trigger cases.
+Expected: PASS, all eighteen trigger cases.
 
 Run: `pnpm nx run lab:test`
 Expected: PASS.
@@ -2687,7 +2764,9 @@ with:
 
 (lines 308–309), add under `console/` (line 297) the line `    DraftNumber.tsx           the §5.5 draft entry, shared by ValueKnob and the simple view`, and under `shell/` the lines `    Segmented.tsx             one of a few as a radio group: view, language, skeleton` and `    useDocumentLang.ts        <html lang> follows the store`. Add `    storage.ts                localStorage that never throws` under `state/`.
 
-The two sentences below are wrapped at 80 columns in the spec (§5.1 at lines 355–358, §5.2 at lines 383–385); match them across the line breaks and rewrap the replacement to the same width.
+Replace the `RunColumn.tsx` entry's description (lines 311–314) with `command, Generate, New seed, Defaults, auto, help, abort, exports — built by the route and handed to Console as its third child, which keeps one instance in both views`, and the `useAutoRun.ts` entry's (line 320) with `the one debounce: a typed knob behind auto, a recipe edit without it — mounted once, in App`.
+
+The two sentences below are wrapped at 80 columns in the spec (§5.1 at lines 355–357, §5.2 at lines 383–385); match them across the line breaks and rewrap the replacement to the same width.
 
 Replace the sentence "`RunColumn` is built by the route and passed to `Console` as a child, so swapping in `SimpleConsole` cannot fork it; `Console` is therefore the mock's three-track grid and the column is its third track." with:
 
@@ -2698,6 +2777,8 @@ and append after the *Amended after PR 3* paragraph:
 "*Amended in PR 4a.* The paragraph above holds only while one component places the column. React keeps a node by its type and its position among its siblings, not by the identity of the element object: handing the same `<RunColumn>` to a second console component is a new parent, and the column remounts — losing a focus a keyboard user left on Generate and the column's own transition ref. The simple view is therefore not a second console. `Console` swaps its first two tracks — the rail becomes nothing and the panel becomes `SimplePanel` — and keeps `children` in the third position in both views, which `LabRoute.browser.test.tsx` checks by node identity."
 
 - [ ] **Step 3: Amend spec §5.2 and §10**
+
+In §2.2's table (line 80), replace "`applySimple()` first, unless the hash carried knobs" with "`applySimple()` first in the simple view, unless the page opened on a link (the hash decoded)" — Ruling 11.
 
 In §5.2, replace "It swaps `Console` for `SimpleConsole`; the stage, filmstrip, status bar and the run column the route hands in are untouched." with "`Console` swaps its rail and panel for `SimplePanel`; the stage, filmstrip, status bar and the run column the route hands in are untouched."
 
@@ -2731,7 +2812,7 @@ Write the body to `.superpowers/sdd/2026-09-14-lab-simple-view/pr-body.md` (giti
 
 - What the PR adds, that it closes §10 row 4a, and that parity with today's lab is still PR 5.
 - The fourteen rulings, one line each, with the user's four (1, 2, 3, 5) marked as such.
-- **The parity deltas a reviewer must judge rather than skim:** a link's language is remembered (Ruling 6); the skeleton radios run on arrow keys (Ruling 12); a first visit opens the simple view, which the three whole-app test files now opt out of (Ruling 2).
+- **The parity deltas a reviewer must judge rather than skim:** a link's language is remembered (Ruling 6); the skeleton radios run on arrow keys (Ruling 12); a first visit opens the simple view, which the whole-app test files now opt out of (Ruling 2); the simple view's seed commits on Enter or blur rather than per keystroke (Ruling 4); `labLang` is written on a choice, not on every load (Ruling 6).
 - The §5.1 correction (Ruling 7), with the mutation that proves the test.
 - The two harness facts Task 1 pins, with the measurements.
 - The browser pass's nine observations from Task 12 Step 1, with the two contrast figures.
@@ -2745,7 +2826,7 @@ Pushing the branch and opening the pull request are the user's call. When the us
 
 **Spec §10 row 4a.** Language switch — Tasks 2, 6, 7, 8. Simple view — Tasks 3, 5, 9, 10, 11. The `lang` and `recipe` slices and `ui.mode` of §5.3 — Tasks 2, 3. `<html lang>` and the board's `lang` — Task 7. The spec amendments — Task 12.
 
-**§2.2's ten rows.** Cases 1–8 stand from PR #66; case 8 is renamed to the advanced view. The three simple rows are cases 9, 10, 11. The simple halves: Generate (12, 13), New seed (14), Defaults (15), page load (16, 17). Row 9, `hashchange`, has no simple half: it keeps the recipe, and case 17 shows a link's knobs winning over the recipe on load.
+**§2.2's ten rows.** Cases 1–8 stand from PR #66; case 8 is renamed to the advanced view. The three simple rows are cases 9, 10, 11. The simple halves: Generate (12, 13), New seed (14), Defaults (15), page load (16, 17, 18). Row 9, `hashchange`, has no simple half: it keeps the recipe, and case 17 shows a link's knobs winning over the recipe on load.
 
 **Features §10 says the port must restore that belong to 4a.** The simple view's randomising (Tasks 3, 9, 11). The store-save outcome, `generatingBig` and the clamp notice stand from earlier PRs; the clamp notice is now also lowered by the recipe (Task 3, as the old lab does).
 
@@ -2753,7 +2834,7 @@ Pushing the branch and opening the pull request are the user's call. When the us
 
 **Known risks, recorded rather than solved.**
 
-1. **Task 10's stage-height case may not be able to fail** at the test viewport; Step 9 measures it and hands the case to the coordinator if so.
+1. **Task 10's stage-height case** compares with the height before the swap, because review measured an auto-placed stage at 292px — above any fixed floor at the runner's viewport; Step 9 proves the comparison goes red.
 2. **Case 12 pins `Math.random` for the whole case**, and the run column's New seed path and the draw share it. Nothing else in the rendered column calls `Math.random`; if a later PR adds a caller, the case's second assertion is where it shows.
 3. **The top bar's unselected radio is 4.08:1**, under 4.5:1 for its 12px text. It is the pairing the bar already ships (`.name`, `.dims`) and the open §7.1 decision; Task 12 measures it and the PR body names it.
 4. **A language switch re-renders the whole application.** Rare and deliberate, so not measured; if Task 12's pass shows a visible stall at Insane, it goes to the PR body, not into a memoisation this plan does not have a measurement for.
