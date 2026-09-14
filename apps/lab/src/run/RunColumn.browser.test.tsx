@@ -1,7 +1,8 @@
-import { act } from 'react'
+import { act, useRef } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { defaultParams, PARAM_SPEC } from '@arrowz/engine'
+import { defaultParams, encodeBoard, generate, PARAM_SPEC } from '@arrowz/engine'
+import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { RunColumn } from './RunColumn'
@@ -16,6 +17,39 @@ function stub() {
   const calls = { start: 0, abort: 0 }
   const control: RunControl = { start: () => void calls.start++, abort: () => void calls.abort++, hold: () => {} }
   return { control, started: () => calls.start, aborted: () => calls.abort }
+}
+
+// A real finished run, so the focus case below can end a carve the way a carve
+// ends — `finished()`, and not the `aborted()` that would also flip `running`
+// but is the user's own doing. 8×8 because nothing here reads the report; `ok`
+// and `deadlock` are stated rather than taken from the result for the same
+// reason `RunStatusBar.browser.test.tsx` states them.
+const RESULT = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 })
+const CLOSED: DoneReport = {
+  type: 'done',
+  ok: true,
+  metrics: RESULT.metrics,
+  backtracks: RESULT.backtracks,
+  restartsUsed: RESULT.restartsUsed,
+  genMs: RESULT.genMs,
+  metricsMs: RESULT.metricsMs,
+  totalMs: RESULT.genMs + RESULT.metricsMs,
+  stuck: null,
+  deadlock: false,
+  pieces: RESULT.board.pieces.length,
+  stats: RESULT.board.stats,
+  board: encodeBoard(RESULT.board),
+}
+
+/** The one control the button is: `locator.element()` returns an `Element`. */
+function buttonOf(element: Element): HTMLButtonElement {
+  if (!(element instanceof HTMLButtonElement)) throw new Error('that control is not a button')
+  return element
+}
+
+/** Two frames, because the focus fixup happens at a rendering opportunity. */
+function twoFrames(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
 
 beforeEach(() => {
@@ -56,6 +90,59 @@ describe('RunColumn', () => {
     await expect.element(screen.getByRole('button', { name: 'Abort' })).toBeEnabled()
     await screen.getByRole('button', { name: 'Abort' }).click()
     expect(g.aborted()).toBe(1)
+  })
+
+  // The clamp notice parks the focus on Abort when Generate is refused, which
+  // is exactly while a carve is in flight — so that focus has an expiry date.
+  // The commit that ends the carve renders Abort `disabled`, and HTML's focus
+  // fixup then takes the focus off it: the very drop the notice exists to
+  // prevent, deferred by the length of the carve.
+  //
+  // The timing is the whole case. Sampled in Chrome 153.0.8010.12 with the
+  // effect's `focus()` cut out: `document.activeElement` is the Abort button
+  // synchronously after the `act` below, and `document.body` at every later
+  // point sampled — the first macrotask, one frame, two frames, 200 ms. An
+  // assertion placed at the synchronous point passes on the broken code, which
+  // is why this one waits for frames first; two rather than one, so the case
+  // does not sit on the earliest instant the fixup is known to have run.
+  it('carries the focus off Abort when the run that made it live ends', async () => {
+    const g = stub()
+    function Host() {
+      const go = useRef<HTMLButtonElement>(null)
+      const abort = useRef<HTMLButtonElement>(null)
+      return <RunColumn control={g.control} goRef={go} abortRef={abort} />
+    }
+    const screen = await render(<Host />)
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    const abort = buttonOf(screen.getByRole('button', { name: 'Abort' }).element())
+    abort.focus()
+    // The precondition, so a case that never got the focus onto Abort cannot
+    // pass by the focus having been on Generate all along.
+    expect(document.activeElement).toBe(abort)
+
+    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await twoFrames()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+  })
+
+  // The other half of the same guard: `running === false` is true of every
+  // idle render, so a fix that read the state rather than the transition would
+  // pull the focus out of whatever the user was using, on every commit.
+  it('leaves a focus that is not on Abort where the user put it', async () => {
+    const g = stub()
+    function Host() {
+      const go = useRef<HTMLButtonElement>(null)
+      const abort = useRef<HTMLButtonElement>(null)
+      return <RunColumn control={g.control} goRef={go} abortRef={abort} />
+    }
+    const screen = await render(<Host />)
+    const defaults = buttonOf(screen.getByRole('button', { name: 'Defaults' }).element())
+    defaults.focus()
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await twoFrames()
+    expect(document.activeElement).toBe(defaults)
   })
 
   // The hook behind `auto` is tested on its own; what is only visible here is
