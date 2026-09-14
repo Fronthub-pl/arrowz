@@ -87,6 +87,18 @@ body {
 .fw-top .sep {
   opacity: 0.5;
 }
+/* The only untuned span in a bar where every sibling is tuned: a browser pass
+   measured it at 12px full strength beside `.name` at 13px and `.sep` at half,
+   which made the preset's name the loudest thing in the bar after the mark and
+   louder than the size it qualifies. `.dims`' own value, not a third level —
+   the two say the same kind of thing (what the board on screen is) and belong
+   at one weight. Measured on `--signal`: --void is 4.08:1 at full strength and
+   3.35:1 here, which is exactly what `.dims` has shipped at since the bar
+   existed; the pairing itself is the open §7.1 item, decided once for the
+   whole design system rather than per span. */
+.fw-top .preset {
+  opacity: 0.8;
+}
 /* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
   opacity: 0.8;
@@ -210,8 +222,10 @@ body {
    of the component carries it, and PR 3 adds many more controls into the same
    cascade. */
 .fw .fw-go {
-  height: 32px;
-  padding: 0 14px;
+  height: 40px;
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 0 16px;
   border: 0;
   background: var(--signal);
   color: var(--void);

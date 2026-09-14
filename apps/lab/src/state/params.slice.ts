@@ -71,6 +71,14 @@ export function indexesOf(values: Params): Indexes {
 
 export interface ParamsState extends Indexes {
   values: Params
+  /**
+   * How many knobs a person has committed. Only `set` and `setStart` — the
+   * two surfaces a hand reaches — move it; `setMany` and `reset` are the
+   * machine path (preset, Defaults, New seed, link) and every one of those
+   * starts its own run immediately. `useAutoRun` watches this and nothing
+   * else, so the two paths cannot both fire for one action (Ruling 3).
+   */
+  edits: number
   /** Commits one knob. Returns whether the value had to be clamped. */
   set(key: ParamKey, value: number): boolean
   /** Commits several at once — one recompute, one render. Returns whether anything was clamped. */
@@ -96,24 +104,32 @@ function commit(values: Params, patch: Partial<Params>): { values: Params; clamp
 
 export function createParamsSlice(set: SetStore): ParamsState {
   const initial = defaultParams()
-  const write = (patch: Partial<Params>): boolean => {
+  const write = (patch: Partial<Params>, typed: boolean): boolean => {
     let clamped = false
     set((state) => {
       const c = commit(state.params.values, patch)
       clamped = c.clamped
-      return { params: { ...state.params, values: c.values, ...indexesOf(c.values) } }
+      return {
+        params: {
+          ...state.params,
+          values: c.values,
+          edits: typed ? state.params.edits + 1 : state.params.edits,
+          ...indexesOf(c.values),
+        },
+      }
     })
     return clamped
   }
   return {
     values: initial,
+    edits: 0,
     ...indexesOf(initial),
-    set: (key, value) => write({ [key]: value }),
-    setMany: (patch) => write(patch),
+    set: (key, value) => write({ [key]: value }, true),
+    setMany: (patch) => write(patch, false),
     setStart: (choice) => {
       const pair = choice === 'mixing' ? undefined : START.words[choice]
       if (pair) {
-        write(pair)
+        write(pair, true)
         return
       }
       // `mixing` is not a word in the table: it is the share itself, and the
@@ -124,7 +140,14 @@ export function createParamsSlice(set: SetStore): ParamsState {
         const mix = state.params.values.mix
         const share = mix >= START.mix.min && mix <= START.mix.max ? mix : MIX_START
         const c = commit(state.params.values, { headBias: 0, mix: share })
-        return { params: { ...state.params, values: c.values, ...indexesOf(c.values) } }
+        return {
+          params: {
+            ...state.params,
+            values: c.values,
+            edits: state.params.edits + 1,
+            ...indexesOf(c.values),
+          },
+        }
       })
     },
     reset: () => {

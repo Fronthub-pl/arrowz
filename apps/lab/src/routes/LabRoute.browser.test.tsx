@@ -1,6 +1,6 @@
 import type { StoreRequest } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
-import { StrictMode } from 'react'
+import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -12,20 +12,41 @@ import { useStore } from '../state/store'
 // slice is reset alongside the run: the store outlives a test, and the sizes
 // one test commits would otherwise be what the next one carves.
 async function mountApp() {
+  // `pushState` does two things: a case that navigated to /boards must not
+  // leave the next one there, and it drops the fragment — `useUrlHash` writes
+  // the knobs into it, and a link left behind by one case would be read as a
+  // pasted one by the next mount, which now carves a board on load. The
+  // `replaceState` on the line below adds one thing only: it clears
+  // `history.state`, where react-router keeps its own record, so each mount
+  // starts from the blank entry a real page load has.
   window.history.pushState({}, '', '/')
+  history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   useStore.getState().params.reset()
+  // The whole `ui` slice, not a selection of it, and the load run makes it
+  // matter: a case that turned `auto` on would otherwise carve on the next
+  // case's first keystroke. `entry` is reset for the same reason the others
+  // are — the case that picks a rail entry leaves it on 'preview'.
+  useStore.getState().ui.select('board')
+  useStore.getState().ui.setAuto(false)
+  useStore.getState().ui.setHelp(true)
+  useStore.getState().ui.raiseClamped(false)
   return render(<App />)
 }
 
+// `getByRole('status', { name: 'Run status' })` and not the bare role: the lab
+// route holds two status regions — the run status bar and the clamp notice —
+// and only the name tells them apart.
+//
 // Every test here states its own timeout, for the reason
 // useGenerator.browser.test.tsx records: the chromium project sets no
 // `testTimeout`, so Vitest's 5 s default would cut short polls that are budgeted
 // for far longer, and the failure would name a timeout rather than the
 // assertion. Each budget is the sum of that test's polls and fixed waits plus
-// 8 s of headroom for a two-core, software-rendered CI runner. The two tests
-// that carve nothing poll only through `expect.element`, so their budget is
-// dominated by mounting the shell and its WebGL canvas.
+// 8 s of headroom for a two-core, software-rendered CI runner. No test carves
+// nothing any more — the page carves on load — so the two that start no run of
+// their own still pay for the default 25×50 board on top of mounting the shell
+// and its WebGL canvas, which is what dominates their budget.
 //
 // Every `expect.element` here states a 5 s timeout of its own, rather than
 // taking the default and retrying into the test's budget. Each one runs after a
@@ -39,14 +60,49 @@ test('Generate carves a board, draws it, and says so', async () => {
   const spy = vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args[0]))
   try {
     const screen = await mountApp()
-    await expect.element(screen.getByRole('status'), { timeout: 5_000 }).toHaveTextContent('Press "Generate".')
-
-    await screen.getByRole('button', { name: 'Generate' }).click()
+    // §2.2's last row, proven in the real shell: the lab opens on a board
+    // without being asked. This is what the page says on load now, and it says
+    // more than the `Press "Generate".` it replaces — that line only claimed
+    // the page had not run, while this one claims a run finished and closed.
+    //
+    // Anchored at both ends, because `toMatchTextContent` matches anywhere in
+    // the content while the `toHaveTextContent` it replaces compared the whole
+    // of it (@vitest/browser 5: `pass: received === expected`). Nothing may
+    // precede the run's own report and nothing may follow it but the store's
+    // answer, which is optional and open-ended: it is appended asynchronously,
+    // so this line can run before or after it lands, and `notSaved` carries a
+    // parenthesis of its own (lab-i18n.ts:172).
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+    await expect
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+      .toMatchTextContent(/^Board closed 100%\.(?: — (?:not )?saved.*)?$/)
+
+    // The board the load run left, held so the press below can be told from
+    // it. Polling the phase alone would not do it: the page is already `done`
+    // when the click lands, so every assertion after it would be satisfied by
+    // the load board — delete `onClick={control.start}` from `RunColumn` and
+    // this case would stay green, which is the one failure a gate must never
+    // have. `started()` clears `file` (run.slice.ts:54) and `finished()` sets
+    // it with the phase (`:56`), so a `file` that is new and not null is also
+    // proof the run passed through `running`.
+    const onLoad = useStore.getState().run.file
+    await screen.getByRole('button', { name: 'Generate' }).click()
+    await expect
+      .poll(
+        () => {
+          const { file } = useStore.getState().run
+          return file !== null && file !== onLoad
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(true)
+    expect(useStore.getState().run.phase).toBe('done')
 
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.board?.pieces.length).toBeGreaterThan(0)
-    await expect.element(screen.getByRole('status'), { timeout: 5_000 }).toMatchTextContent(/Board closed/)
+    await expect
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+      .toMatchTextContent(/Board closed/)
 
     // §8: a full run from Generate to a drawn board with zero console errors.
     expect(errors).toEqual([])
@@ -98,6 +154,11 @@ test('a route change keeps the very same board element', async () => {
 // off-route still lands on the same live element.
 test('a run in flight survives a route change, and finishes into the same element', async () => {
   const screen = await mountApp()
+  // The load run first, and not a longer timeout on the click below: Generate
+  // is disabled while a run is carving, so `click()` would wait out the load
+  // run's own carve inside its actionability wait and report a timeout rather
+  // than a broken button.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   await expect.poll(() => useStore.getState().run.phase).toBe('running')
@@ -107,7 +168,7 @@ test('a run in flight survives a route change, and finishes into the same elemen
   // abbreviated and the dictionary's <b> tags stripped.
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await expect
-    .element(screen.getByRole('status'), { timeout: 5_000 })
+    .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
     .toMatchTextContent(/^[\d.]+% · .* pieces · .* left/)
 
   const before = screen.container.querySelector('arrowz-board')
@@ -141,7 +202,18 @@ test('the lab panel is hidden off-route and shown on it', async () => {
   expect(panel?.closest('main')).not.toBeNull()
   expect(panel?.closest('main')?.hasAttribute('hidden')).toBe(false)
   await userEvent.click(screen.getByRole('tab', { name: 'Docs' }))
-  expect(screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden')).toBe(true)
+  // Polled, not read at once. `BrowserRouter` commits every location change
+  // inside `React.startTransition` unless it is given `useTransitions={false}`,
+  // which `App` does not, so `hidden` lands after the click has been dispatched
+  // rather than during it: a native `click()` followed by a synchronous read
+  // sees `false` every time. `userEvent.click`'s round-trip usually outlasts the
+  // transition, which is why a synchronous read passed locally and on earlier
+  // CI runs, and failed the one time a slow runner returned first.
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'), {
+      timeout: 5_000,
+    })
+    .toBe(true)
 }, 20_000)
 
 // Mounted under StrictMode, whose double-invoked mount effect is what the save
@@ -151,10 +223,27 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 // goes out and still fails for real.
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
   window.history.pushState({}, '', '/')
+  history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   // Not through `mountApp`, which renders `App` bare: the defaults have to be
   // put back here too, or this test carves whatever the last one left behind.
   useStore.getState().params.reset()
+  useStore.getState().ui.select('board')
+  useStore.getState().ui.setAuto(false)
+  useStore.getState().ui.setHelp(true)
+  useStore.getState().ui.raiseClamped(false)
+  const screen = await render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+  // The page carves on load now, and that run posts too. Its POST is awaited
+  // here rather than counted below: it is asynchronous, so raising the two
+  // counts to 2 and 3 would make them depend on whether it lands inside the
+  // spy's window — the very race the comment in the last test of this file
+  // fights. With the save already in, the spy is installed on a quiet page and
+  // the counts below are this test's own presses, exactly as before.
+  await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
   // The method is part of the predicate: `listBoards()` GETs this same address
   // (api/boards.ts), and PR 5's saved-boards route is what starts calling it —
@@ -163,11 +252,6 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   const posts = () =>
     fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
   try {
-    const screen = await render(
-      <StrictMode>
-        <App />
-      </StrictMode>,
-    )
     const generate = screen.getByRole('button', { name: 'Generate' })
     await generate.click()
     await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
@@ -177,7 +261,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     // store's answer for the run's would match a looser pattern.
     expect(useStore.getState().run.phase).toBe('done')
     await expect
-      .element(screen.getByRole('status'), { timeout: 5_000 })
+      .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
       .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 
@@ -199,6 +283,53 @@ test('the lab route shows the console under the stage', async () => {
   await expect.element(screen.getByRole('tabpanel', { name: 'board' })).toBeVisible()
 })
 
+// The plumbing itself, which nothing else in this branch touches. `ClampNotice`
+// and `RunColumn` are each tested against a host of their own making, so both
+// suites stay green with the wiring cut: delete `ref={abortRef}` from
+// `RunColumn.tsx:151` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
+// feature is dead on the real page while every other case passes. The same was
+// true of `goRef`, so this case covers both — they are the same two lines.
+//
+// Both halves are focus reads, and focus is the one thing a component test
+// cannot fake: the buttons here are the route's own, reached by role rather
+// than by ref, so the assertion can only hold if the ref arrived at the button
+// the page renders.
+test('the clamp notice hands focus to the route’s own buttons', async () => {
+  const screen = await mountApp()
+  // The load run first: Generate is disabled while it carves, and the idle
+  // half below is about Generate being the live one.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  // `goRef`. `act`, because `raiseClamped` is a store write from outside a
+  // React event and the Dismiss button is not in the DOM until it commits.
+  await act(async () => useStore.getState().ui.raiseClamped(true))
+  await screen.getByRole('button', { name: 'Dismiss' }).click()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+
+  // `abortRef`: with a carve in flight Generate is refused and Abort is the
+  // live one. 600×600 and seed 9 for the reason the in-flight case above
+  // gives — the defaults finish in tens of milliseconds, which is less than
+  // the click round-trip this case spends before it looks.
+  useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  await expect.poll(() => useStore.getState().run.phase).toBe('running')
+  await act(async () => useStore.getState().ui.raiseClamped(true))
+  await screen.getByRole('button', { name: 'Dismiss' }).click()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+
+  // And the end of the run does not take that focus down with it: `RunColumn`
+  // moves it to Generate, which the same commit re-enables. This is the whole
+  // mechanism on the real page — the notice parks the focus on Abort, the run
+  // ends, and the focus is still on a control. `vi.waitFor` and not a bare
+  // read: the redirect is a layout effect of the commit the click flushes, and
+  // HTML's own focus fixup would otherwise be racing it.
+  await screen.getByRole('button', { name: 'Abort' }).click()
+  await expect.poll(() => useStore.getState().run.phase).toBe('idle')
+  await vi.waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element()),
+  )
+}, 60_000)
+
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()
   await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
@@ -209,6 +340,10 @@ test('picking a rail entry replaces the panel', async () => {
 
 test('Generate is refused while a rule is broken, and the reasons are on screen', async () => {
   const screen = await mountApp()
+  // The load run has to be over before the rule is broken, or `toBeDisabled`
+  // below would pass on the run rather than on the rule — `RunColumn` disables
+  // Generate for either — and the assertion would stop guarding anything.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
   const generate = screen.getByRole('button', { name: 'Generate' })
   await expect.element(generate).toBeDisabled()
@@ -216,10 +351,16 @@ test('Generate is refused while a rule is broken, and the reasons are on screen'
   await expect.element(screen.getByRole('region', { name: 'Settings outside the safe range' })).toBeVisible()
   useStore.getState().params.reset()
   await expect.element(generate).toBeEnabled()
-})
+  // A budget of its own, like every other case here: this one holds a 30 s poll
+  // now, and Vitest's 5 s default would kill the test before the poll could
+  // report, so a slow carve would name a timeout rather than the assertion.
+}, 40_000)
 
 test('a board carved from the console reaches the element and the store', async () => {
   const screen = await mountApp()
+  // The load run first: Generate is disabled while it carves, and the click
+  // below would spend its actionability wait on it.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   // The sizes this file already measured: 600×600, because PR 2 timed 200×200
   // at 228 ms and the engine emits no progress before 250 ms (see the comment
   // above the in-flight test). Migrating to the slice must not change them.
@@ -231,6 +372,8 @@ test('a board carved from the console reaches the element and the store', async 
 
 test('the knobs on screen are the knobs the run used', async () => {
   const screen = await mountApp()
+  // The load run first, for the reason the case above gives.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   // 'board' exactly: the route strip has a tab called "Saved boards".
   await screen.getByRole('tab', { name: 'board', exact: true }).click()
   // Commit a seed through the console itself, not through the store.
@@ -249,13 +392,19 @@ test('the knobs on screen are the knobs the run used', async () => {
 // answered: the same reason the StrictMode test above counts the client's own
 // calls.
 test('the saved board carries the view on screen', async () => {
-  const fetchSpy = vi.spyOn(window, 'fetch')
   // `mountApp` resets the run and the params; the view slice is nobody's to
   // reset, so this test puts back what it moved. Its own state, restored by
   // hand rather than by a slice action no page would ever call.
   const was = { colored: useStore.getState().view.colored, stroke: useStore.getState().view.stroke }
+  const screen = await mountApp()
+  // The load run's own save is awaited before the spy goes on, for the reason
+  // the StrictMode case above gives: counted instead, it would be a POST that
+  // may or may not be inside the window, and `posts[0]` might be its body
+  // rather than this test's. The spy therefore starts after it, and the length
+  // assertion below still says which POST this is.
+  await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+  const fetchSpy = vi.spyOn(window, 'fetch')
   try {
-    const screen = await mountApp()
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
     await screen.getByRole('switch', { name: /colour the arrows/i }).click()
     // A second field, and a number rather than a flag: one boolean surviving

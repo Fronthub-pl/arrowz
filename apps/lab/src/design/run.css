@@ -1,0 +1,208 @@
+/* The run column, ported from `fronthub-workshop-v2.css` (`.fw-run-col`,
+   `.fw-alt`, `.fw-ghost`). The mock has no Abort and no switches here; both
+   are added under their own comments. */
+.fw-run-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-alt {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* `.fw .fw-alt button` and not a bare selector: the `.fw button` reset in
+   shell.css is (0,1,1) and would outrank (0,1,0) on `color`. Every rule in
+   this file carries the prefix for the same reason. */
+.fw .fw-alt button {
+  flex: none;
+  height: 32px;
+  min-height: 32px;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw .fw-alt button:hover:not(:disabled) {
+  background: var(--surface);
+}
+/* The mock has no disabled state, because nothing in it can refuse. Half
+   opacity is what `.fw .fw-go:disabled` already uses, so the two refusals
+   look like one rule. Measured: --ink at 0.5 over --graphite is 4.70:1. */
+.fw .fw-alt button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.fw-ghost {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+}
+/* The mock's `.fw-k .row` shape, outside a knob. */
+.fw-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+.fw-opt .lab {
+  color: var(--mist);
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .fw .fw-alt button {
+    height: 44px;
+  }
+  /* The mock's switch is 44×26; the row, not the track, carries the touch
+     target, because raising `.fw-sw` itself would move ViewPanel's four as
+     well and that belongs in one PR about all six. */
+  .fw-opt {
+    min-height: 44px;
+  }
+}
+/* `<figure>` carries a browser default margin; the mock's box has none, and
+   the flex column depends on it. */
+.fw-cmdfig {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fw-cmdhd {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ash);
+  margin-bottom: 6px;
+}
+/* The mock paints this button `--signal`, which measures 3.81:1 on
+   `--graphite` — under AA at 12px — and spends a colour §7.1 reserves for
+   state and data on an action. `--mist` is 8.05:1 and moves to `--ink` on
+   hover, the same ash-to-ink move `.fw-tabrow button` already makes. */
+.fw .fw-cmdhd button {
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  padding: 0;
+}
+.fw .fw-cmdhd button:hover {
+  color: var(--ink);
+}
+/* `overflow: auto` and not the mock's `hidden`: the box is the first item of a
+   216px column, it is the only item allowed to shrink, and a browser pass
+   measured it showing `deno task carve --widt` / `h=26 --height=50 --see` and
+   clipping the rest — about a third of a five-flag command, in a box whose
+   stated job (LiveCommand.tsx:8-11) is to show exactly what would be run.
+
+   The alternative was `flex: none` on `.fw-cmdfig`, letting the column itself
+   scroll. Rejected: `LiveCommand` is the FIRST child of `.fw-run-col`, so the
+   figure growing with the command would push Generate, the three alternates
+   and the two switches down the column — the primary action moving under the
+   pointer as a slider is dragged. Scrolling inside the box leaves every other
+   control exactly where it was. */
+.fw-cmd {
+  flex: 0 1 auto;
+  min-height: 58px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--void);
+  border: 1px solid var(--border);
+  color: var(--ash);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font: inherit;
+}
+.fw-cmd b {
+  font-weight: 400;
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .fw .fw-cmdhd button {
+    min-height: 44px;
+  }
+}
+
+/* presets, from the mock's `.fw-presets` — a flat flex row of labels and
+   chips, which is exactly the mock's own structure. */
+.fw-presets {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 16px;
+  height: 38px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.fw-presets .lbl {
+  flex: none;
+  margin: 0 10px 0 14px;
+  color: var(--ash);
+  white-space: nowrap;
+}
+.fw-presets .lbl:first-child {
+  margin-left: 0;
+}
+.fw .fw-presets button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fw .fw-presets button:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+/* The mock keys this off `aria-pressed`; twenty-six toggle buttons of which
+   one never un-presses is the wrong state, so the strip uses `aria-current`
+   as the group rail does. */
+.fw .fw-presets button[aria-current='true'] {
+  color: var(--void);
+  background: var(--signal);
+  border-color: transparent;
+}
+/* The mock paints this `--warn`, which §7.1 reserves for a clamped value or a
+   rule bound; "edited" is neither. `--mist` measures 8.61:1 on `--void`.
+
+   Sticky, and not merely the last item of the row: the strip scrolls, the
+   marker is the last of thirty-three children, and a browser pass measured it
+   at x=2555 in a strip 1385 wide — the one element that says why the highlight
+   went and why the top bar dropped the preset's name, parked past every chip
+   where nobody would see it. Pinned to the visible right edge, on the strip's
+   own `--void` so the chips sliding underneath do not read through it, and the
+   inset is padding rather than margin so that background reaches the edge. */
+.fw-presets .dirty {
+  position: sticky;
+  right: 0;
+  flex: none;
+  padding: 0 16px 0 10px;
+  background: var(--void);
+  color: var(--mist);
+}
+@media (pointer: coarse) {
+  .fw-presets {
+    height: auto;
+    padding: 6px 16px;
+  }
+  .fw .fw-presets button {
+    height: 44px;
+  }
+}

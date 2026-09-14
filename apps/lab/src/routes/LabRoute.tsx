@@ -1,23 +1,23 @@
+import { useRef } from 'react'
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
-import { useDictionary } from '../i18n'
+import { ClampNotice } from '../run/ClampNotice'
+import { PresetStrip } from '../run/PresetStrip'
+import { RunColumn } from '../run/RunColumn'
+import type { RunControl } from '../run/useRun'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
-import { useStore } from '../state/store'
-import type { GeneratorHandle } from '../worker/useGenerator'
 
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
- * column of §5.1 arrives in PR 4 and takes the button with it.
+ * column of §5.1 lives inside the console; `.fw-bar` keeps `RunStatusBar` alone.
  */
-export function LabRoute({ generator, hidden }: { generator: GeneratorHandle; hidden: boolean }) {
-  const dict = useDictionary()
-  const running = useStore((state) => state.run.phase === 'running')
-  const blocked = useStore((state) => state.params.violations.length > 0)
-  // Read at the click, not through a subscription: the button does not need
-  // to rerender on every knob edit, and `getState()` is the value at the
-  // moment the run starts — which is exactly what the run must use.
-  const start = () => generator.start(useStore.getState().params.values)
+export function LabRoute({ control, hidden }: { control: RunControl; hidden: boolean }) {
+  // Owned here rather than in the column, because the notice is the column's
+  // sibling: the dismiss button hands the focus back to Generate, or to
+  // Abort when Generate is the one disabled.
+  const goRef = useRef<HTMLButtonElement>(null)
+  const abortRef = useRef<HTMLButtonElement>(null)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -26,20 +26,15 @@ export function LabRoute({ generator, hidden }: { generator: GeneratorHandle; hi
     <main hidden={hidden}>
       <section id="lab-panel" role="tabpanel" aria-labelledby="tab-lab-panel" tabIndex={0} className="fw-view">
         <div className="fw-bar">
-          <button
-            type="button"
-            className="fw-go"
-            onClick={start}
-            disabled={running || blocked}
-            title={blocked ? dict.t('generateBlocked') : undefined}
-          >
-            {dict.t('generate')}
-          </button>
           <RunStatusBar />
         </div>
         <div className="fw-lab">
+          <PresetStrip control={control} />
           <Stage />
-          <Console />
+          <Console>
+            <RunColumn control={control} goRef={goRef} abortRef={abortRef} />
+          </Console>
+          <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} />
           <Violations />
         </div>
       </section>

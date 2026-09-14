@@ -10,8 +10,16 @@ import { useStore } from '../state/store'
 export function RunStatusBar() {
   const dict = useDictionary()
   const run = useStore((state) => state.run)
+  const blocked = useStore((state) => state.params.violations.length > 0)
 
   let text: string
+  // Whether this line is speaking for a run at all. `run.saved` outlives the
+  // board it describes — only `started`, `aborted` and `reset` clear it
+  // (run.slice.ts:54, :61-62) — so it is a fact about the last board carved and
+  // not about whatever the line happens to be saying. Appended to the refusal,
+  // it read `Fix the settings marked in red to generate — saved`: a sentence
+  // about a board nobody is looking at, glued to a sentence about the knobs.
+  let reportsRun = false
   if (run.phase === 'running') {
     const p = run.progress
     // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
@@ -26,19 +34,39 @@ export function RunStatusBar() {
     // replaces this line with the report's own markup and takes the tags back.
     // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
     // region has to be text.
-    text =
-      p === null
-        ? dict.t('generating')
-        : dict
-            .t(
-              'progress',
-              (100 * (1 - p.remaining / p.total)).toFixed(1),
-              dict.short(p.pieces),
-              dict.short(p.remaining),
-              p.backtracks,
-              (p.ms / 1000).toFixed(1),
-            )
-            .replace(/<\/?b>/g, '')
+    if (p === null) {
+      // The size is the run's, not the console's: the old lab reads `state`
+      // at the moment `run()` fires, and a knob edited during a carve must
+      // not rewrite the warning about the carve already going.
+      const started = run.params
+      const cells = started === null ? 0 : started.W * started.H
+      text =
+        started !== null && cells > 200_000
+          ? dict.t('generatingBig', started.W, started.H, dict.fmt(cells))
+          : dict.t('generating')
+    } else {
+      text = dict
+        .t(
+          'progress',
+          (100 * (1 - p.remaining / p.total)).toFixed(1),
+          dict.short(p.pieces),
+          dict.short(p.remaining),
+          p.backtracks,
+          (p.ms / 1000).toFixed(1),
+        )
+        .replace(/<\/?b>/g, '')
+    }
+  } else if (blocked) {
+    // The refusal outranks every phase but `running`. It used to sit inside
+    // the idle branch, which was the whole story until the page started
+    // carving a board at load: the slice is `done` from the first second of
+    // every session and stays there, so a knob dragged into a violation with
+    // `auto` on refused silently while this line still reported the last
+    // board as closed — a page that is refusing, describing a board that did
+    // not answer the knobs on screen. `running` keeps its own line, because a
+    // carve in flight is the one thing that has more to say than the refusal
+    // and is entitled to report itself.
+    text = dict.t('generateBlocked')
   } else if (run.phase === 'error') {
     // Both failure paths land here: the worker's `error` message (a thrown
     // InvalidParamsError) and its `onerror` both call the slice's `failed()`
@@ -48,21 +76,35 @@ export function RunStatusBar() {
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || run.report === null) {
-    // Idle, and `wasAborted` says which idle: the old lab keeps the abort on
-    // screen rather than resetting the line to its opening prompt
-    // (lab-page.ts:863-868).
+    // Idle, and two idles are distinguishable here: aborted and fresh. The
+    // third, refused, is the branch above — a page that says "Press Generate"
+    // beside a Generate it has disabled is telling the user to do the
+    // impossible, whichever phase the last run left behind.
     text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (run.report.ok) {
+    reportsRun = true
     text = dict.t('closed')
   } else if (run.report.deadlock) {
+    reportsRun = true
     text = dict.t('unsolvable')
   } else {
+    reportsRun = true
     const stuck = run.report.stuck
     text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
   }
 
   // The store's answer is appended, never substituted: a missing store must
-  // not overwrite what the run itself reported (§5.3).
-  const saved = run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
-  return <output aria-live="polite">{`${text}${saved}`}</output>
+  // not overwrite what the run itself reported (§5.3). It is appended only to
+  // the three branches above, the ones reporting a board this run produced —
+  // the flag is set where the text is, so the two cannot drift apart the way a
+  // second copy of the branch conditions would.
+  const saved = !reportsRun || run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
+  // A later task adds a second `role="status"` region (a clamp notice), so
+  // this one gets a name now, ahead of that, for a screen reader to tell the
+  // two apart.
+  return (
+    <output aria-live="polite" aria-label={dict.t('runStatus')}>
+      {`${text}${saved}`}
+    </output>
+  )
 }

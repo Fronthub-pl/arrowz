@@ -1,6 +1,7 @@
 import { defaultParams, PARAM_SPEC, straightFloor } from '@arrowz/engine'
 import { MIX_START, START } from '@arrowz/engine/command'
-import { expect, test } from 'vitest'
+import { beforeEach, describe, expect, it, test } from 'vitest'
+import { createParamsSlice, type ParamsState } from './params.slice'
 import { useStore } from './store'
 
 const params = () => useStore.getState().params
@@ -104,4 +105,52 @@ test('every knob in PARAM_SPEC can be committed by key', () => {
     params().set(spec.key, spec.def)
     expect(params().values[spec.key]).toBe(spec.def)
   }
+})
+
+describe('the edit counter behind auto-generate', () => {
+  // `edits` only ever grows (`reset` leaves it alone by design, see below), so
+  // sharing the module's store across cases would carry a count in from
+  // whichever test ran first. A fresh slice per case is the only way to see
+  // it start at 0, which is what the counter is a change signal, not a
+  // history.
+  let params: () => ParamsState
+
+  beforeEach(() => {
+    const store: { params: ParamsState } = {
+      params: createParamsSlice((fn) => Object.assign(store, fn(store))),
+    }
+    params = () => store.params
+  })
+
+  it('counts a knob a person committed', () => {
+    expect(params().edits).toBe(0)
+    params().set('W', 30)
+    params().set('H', 40)
+    expect(params().edits).toBe(2)
+  })
+
+  it('counts the start control, which writes two knobs through one surface', () => {
+    params().setStart('tunnels')
+    expect(params().edits).toBe(1)
+  })
+
+  it('counts the mixing arm of the start control too', () => {
+    params().setStart('mixing')
+    expect(params().edits).toBe(1)
+  })
+
+  it('counts a clamped commit — the knob moved, whatever the value asked for', () => {
+    params().set('W', 100000)
+    expect(params().edits).toBe(1)
+  })
+
+  // The point of the whole counter: a preset, Defaults, New seed and a link
+  // all start their run themselves, immediately (spec §2.2). If they bumped
+  // this, `auto` would start a second run 350 ms later and terminate the
+  // first mid-carve.
+  it('does not count what a preset, Defaults or a link applied', () => {
+    params().setMany({ W: 30, H: 40 })
+    params().reset()
+    expect(params().edits).toBe(0)
+  })
 })

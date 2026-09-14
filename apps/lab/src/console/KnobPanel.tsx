@@ -1,5 +1,6 @@
 import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
 import { useDictionary } from '../i18n'
+import { useStore } from '../state/store'
 import { panelId, tabId } from './GroupRail'
 import { Knob } from './Knob'
 import { StartKnob } from './StartKnob'
@@ -17,6 +18,7 @@ function specsOf(group: ParamGroup) {
  */
 export function KnobPanel({ group }: { group: ParamGroup }) {
   const dict = useDictionary()
+  const showHelp = useStore((state) => state.ui.help)
   // Five of the six groups have help; `board` has none, and the section is
   // typed by its own keys rather than by ParamGroup.
   const help = (dict.d.groupHelp as Partial<Record<ParamGroup, string>>)[group]
@@ -31,7 +33,7 @@ export function KnobPanel({ group }: { group: ParamGroup }) {
     <div className="fw-knobs" role="tabpanel" id={panelId(group)} aria-labelledby={tabId(group)}>
       <div className="fw-khd">
         <b>{dict.d.groups[group]}</b>
-        {help === undefined ? null : <span>{help}</span>}
+        {help === undefined || !showHelp ? null : <span>{help}</span>}
       </div>
       <div className="fw-grid">
         {specs.map((spec, at) => {

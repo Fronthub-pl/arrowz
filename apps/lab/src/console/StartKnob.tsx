@@ -25,6 +25,7 @@ const MIX_SPEC: ParamSpec = (() => {
  */
 export function StartKnob() {
   const dict = useDictionary()
+  const showHelp = useStore((state) => state.ui.help)
   // The *word*, not the values object. `values` is rebuilt on every commit, so
   // subscribing to it would rerender this control — and the share row under it
   // — on every tick of every slider in the group, which is the one thing the
@@ -58,8 +59,8 @@ export function StartKnob() {
             ))}
           </select>
         </div>
-        <p className="why" id="knob-start-why">
-          {start.help}
+        <p className="why" id="knob-start-why" data-testid="knob-start-why">
+          <span className={showHelp ? 'desc' : 'desc fw-vh'}>{start.help}</span>
         </p>
       </div>
       {choice === 'mixing' ? <ValueKnob spec={MIX_SPEC} bounds={START.mix} /> : null}
