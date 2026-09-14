@@ -87,6 +87,10 @@ Three independent reviews (facts and compilation; whether each test can fail; pa
 
 **Confirmed, not to be re-litigated.** Every import, export and signature, compiled with the project's `tsc` and ESLint; every old-lab citation; Ruling 7's reconciliation argument and its mutation; the funnel — no simple-view path starts two runs or leaves a debounce behind; Task 4's pass/fail split and its `owed` mutation; node 24 here has no `localStorage` and a `pl-PL` `navigator.language`, so the guarded helper and the no-starting-language rule for node tests are both needed.
 
+## Revision 3: what the second round changed
+
+Two reviews ran on revision 2 — one on its diff, one walking every task as an implementer who sees only that task. Neither found a critical or important defect in the application code or the tests. Changed: Task 6 runs the two engine test files rather than the whole Deno suite, whose `packages/cli` half needs a bundle this task never builds, and formats `lab-i18n.ts` with `deno fmt`; the case 8 comment and the `useAutoRun` head-comment paragraph have exact positions; `PositionSlider` imports React once; `Segmented`'s interface names its `aria-labelledby` branch; the stage-height note says why 292px is bound to the viewport's height. Both reviewers independently re-ran the `PL` locator probe and found one match.
+
 ---
 
 ## File Structure
@@ -982,7 +986,7 @@ Expected: FAIL — the first two and the debt case see `0` where they expect `1`
 
 - [ ] **Step 3: Write the implementation**
 
-Replace the body of `useAutoRun` in `apps/lab/src/run/useAutoRun.ts`, and add to its head comment the paragraph below the code:
+Replace the body of `useAutoRun` in `apps/lab/src/run/useAutoRun.ts`, and add the paragraph below the code to its head comment as the last paragraph, after the one that begins `` `ui.auto` is read twice ``:
 
 ```ts
 export function useAutoRun(control: RunControl): void {
@@ -1258,7 +1262,7 @@ git commit -m "Lift the knob's draft entry into a component the simple view can 
 **Interfaces:**
 - Produces:
   - Five `ui` keys in both dictionaries: `modeLabel`, `languageLabel`, `langPl`, `langEn`, `simplePanel`.
-  - `interface SegmentedOption<T extends string> { value: T; label: string }` and `Segmented<T extends string>({ label, labelledBy, options, value, onChange }: { label: string; labelledBy?: string | undefined; options: readonly SegmentedOption<T>[]; value: T; onChange(next: T): void }): ReactElement`; with `labelledBy` the group is named by that element instead of `aria-label` from `shell/Segmented.tsx`. Renders `div.fw-seg[role=radiogroup][aria-label]` of `button[role=radio][aria-checked]`; only the checked radio is a tab stop; ArrowRight/ArrowDown, ArrowLeft/ArrowUp (wrapping), Home and End call `onChange` and the focus follows the checked radio while the group holds it. Tasks 7 and 9 use it three times.
+  - `interface SegmentedOption<T extends string> { value: T; label: string }` and `Segmented<T extends string>({ label, labelledBy, options, value, onChange }: { label: string; labelledBy?: string | undefined; options: readonly SegmentedOption<T>[]; value: T; onChange(next: T): void }): ReactElement`; with `labelledBy` the group is named by that element instead of `aria-label` from `shell/Segmented.tsx`. Renders `div.fw-seg[role=radiogroup]`, named by `aria-label` or, when `labelledBy` is given, by `aria-labelledby`, of `button[role=radio][aria-checked]`; only the checked radio is a tab stop; ArrowRight/ArrowDown, ArrowLeft/ArrowUp (wrapping), Home and End call `onChange` and the focus follows the checked radio while the group holds it. Tasks 7 and 9 use it three times.
 
 - [ ] **Step 1: Add the dictionary keys**
 
@@ -1287,8 +1291,8 @@ In `PL.ui` after `dismiss: 'Zamknij',`:
     simplePanel: 'Proste ustawienia',
 ```
 
-Run: `deno task test` (repository root)
-Expected: PASS — `lab-i18n.test.ts` compares the two key sets.
+Run: `deno test --allow-read packages/engine/lab-i18n.test.ts packages/engine/neutral.test.ts` (repository root)
+Expected: PASS — `lab-i18n.test.ts` compares the two key sets and `neutral.test.ts` keeps the module free of the DOM. Not `deno task test`: that runs `packages/cli` as well, including a bundle test that needs `deno task bundle` first.
 
 Run: `pnpm nx build engine`
 Expected: success; `apps/lab` reads the dictionary from `dist/`.
@@ -1521,6 +1525,8 @@ Expected: PASS.
 ```bash
 cd /Users/tomek/dev/arrowz
 pnpm --dir apps/lab exec prettier --write src
+# `packages/engine` is formatted by deno, not Prettier.
+deno fmt packages/engine/lab-i18n.ts
 git add packages/engine/lab-i18n.ts apps/lab/src/shell apps/lab/src/design/shell.css
 git commit -m "Add a radio group for one-of-a-few choices, and the five words it needs"
 ```
@@ -2039,7 +2045,6 @@ and render `{VIEW_FLAGS.map(({ flag, label }) => <ViewFlagSwitch key={flag} flag
 
 ```tsx
 import type React from 'react'
-import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import type { RecipeSlider } from '../state/recipe.slice'
 import { useStore } from '../state/store'
@@ -2051,7 +2056,7 @@ import { applyRecipe } from './applyRecipe'
  * mock's `.bar`, because a whole percent is the finest step a person drags.
  * The knobs follow at once; the run waits for the debounce (Task 4).
  */
-export function PositionSlider({ slider }: { slider: RecipeSlider }): ReactElement {
+export function PositionSlider({ slider }: { slider: RecipeSlider }): React.ReactElement {
   const dict = useDictionary()
   const position = useStore((state) => state.recipe.value[slider])
   const setSlider = useStore((state) => state.recipe.setSlider)
@@ -2344,7 +2349,9 @@ test('the stage keeps its height when the preset strip goes', async () => {
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   // Not a 180px floor: at the runner's 414×896 an auto-placed stage still
-  // measures 292px (measured in review), so the floor could not fail. The
+  // measures 292px (measured in review: the board's 260px min-height plus its
+  // padding, which the max-height: 700px rule releases), so the floor could
+  // not fail. The
   // strip's row goes to the two remaining rows, so the stage can only grow.
   await expect.poll(stage).toBeGreaterThanOrEqual(before)
 }, 40_000)
@@ -2480,7 +2487,7 @@ git commit -m "Swap the console's interior for the simple view, keeping the run 
 After the commit, so that `git checkout` restores the committed file and nothing else:
 
 1. Apply the mutation named in the comment of `the simple view replaces the rail and the presets, and keeps the very same run column`, run `pnpm nx run lab:test -- LabRoute`, see that case fail on the identity assertion, then `git checkout -- apps/lab/src/console/Console.tsx`.
-2. Delete the `.fw-lab.simple` rule, run the same command, and see `the stage keeps its height when the preset strip goes` fail; then `git checkout -- apps/lab/src/design/console.css`. Measured in review at the runner's 414×896: 364px with the strip, 292px in simple mode without the rule, so the case goes red on its last line; with the rule the stage grows.
+2. Delete the `.fw-lab.simple` rule, run the same command, and see `the stage keeps its height when the preset strip goes` fail; then `git checkout -- apps/lab/src/design/console.css`. Measured in review at the runner's 414×896: 364px with the strip, 292px in simple mode without the rule, so the case goes red on its last line once the poll times out (about a second, not a hang); with the rule the stage grows.
 
 Record both failure lines in the task report. Neither step leaves a change in the tree.
 
@@ -2496,7 +2503,7 @@ Record both failure lines in the task report. Neither step leaves a change in th
 
 - [ ] **Step 1: Write the failing cases**
 
-In `apps/lab/src/run/triggers.browser.test.tsx`: extend the imports with `defaultChoice, recipeOf, simpleParams` from `@arrowz/engine/simple` (beside `exportCell`), `applyRecipe` from `../simple/applyRecipe` and `SimplePanel` from `../simple/SimplePanel`; change `afterEach` to also call `vi.restoreAllMocks()`; rename case 8 to `'8 · page load, advanced view: a run without a click, on the knobs the page opened with'` and replace its last comment with `// The simple view's half is case 16.`; and replace the head comment's paragraphs from "Seven rows are here." to the end of the bullet list with:
+In `apps/lab/src/run/triggers.browser.test.tsx`: extend the imports with `defaultChoice, recipeOf, simpleParams` from `@arrowz/engine/simple` (beside `exportCell`), `applyRecipe` from `../simple/applyRecipe` and `SimplePanel` from `../simple/SimplePanel`; change `afterEach` to also call `vi.restoreAllMocks()`; rename case 8 to `'8 · page load, advanced view: a run without a click, on the knobs the page opened with'` and replace the comment line that begins `// The \`applySimple()\` half` (the second of its two closing comment lines) with `// The simple view's half is case 16.`; and replace the head comment's paragraphs from "Seven rows are here." to the end of the bullet list with:
 
 ```ts
  * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–18 are
@@ -2762,7 +2769,7 @@ with:
                               Generate, New seed and Defaults
 ```
 
-(lines 308–309), add under `console/` (line 297) the line `    DraftNumber.tsx           the §5.5 draft entry, shared by ValueKnob and the simple view`, and under `shell/` the lines `    Segmented.tsx             one of a few as a radio group: view, language, skeleton` and `    useDocumentLang.ts        <html lang> follows the store`. Add `    storage.ts                localStorage that never throws` under `state/`.
+(lines 308–309), add under `console/` (line 297) the line `    DraftNumber.tsx           the §5.5 draft entry, shared by ValueKnob and the simple view`, and under `shell/` (line 283) the lines `    Segmented.tsx             one of a few as a radio group: view, language, skeleton` and `    useDocumentLang.ts        <html lang> follows the store`. Add `    storage.ts                localStorage that never throws` under `state/` (line 329).
 
 Replace the `RunColumn.tsx` entry's description (lines 311–314) with `command, Generate, New seed, Defaults, auto, help, abort, exports — built by the route and handed to Console as its third child, which keeps one instance in both views`, and the `useAutoRun.ts` entry's (line 320) with `the one debounce: a typed knob behind auto, a recipe edit without it — mounted once, in App`.
 
