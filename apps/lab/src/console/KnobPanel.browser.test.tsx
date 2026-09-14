@@ -9,7 +9,21 @@ import { KnobPanel } from './KnobPanel'
 // to see the same clipping the app would apply.
 import '../design/console.css'
 
-const params = () => useStore.getState().params
+// File scope, the way this repository's other browser files open one (see
+// `RunColumn.browser.test.tsx`, whose own file-scope block resets the same
+// four things). A
+// reset inside a describe leaves every case declared above the block running
+// on whatever the case before it happened to leave behind: that is how
+// `a group with help prints it under the heading` came to pass only because it
+// is declared first and `ui.help` defaults true.
+beforeEach(() => {
+  const state = useStore.getState()
+  state.params.reset()
+  state.run.reset()
+  state.ui.setAuto(false)
+  state.ui.setHelp(true)
+})
+
 const EN = dictionary('en')
 function helpFor(key: ParamKey) {
   const spec = PARAM_SPEC.find((s) => s.key === key)
@@ -18,7 +32,6 @@ function helpFor(key: ParamKey) {
 }
 
 test('a panel draws every knob of its group', async () => {
-  params().reset()
   const screen = await render(<KnobPanel group="shape" />)
   // Four knobs in shape: pStraight, wLateral, warns, anticoil.
   expect(screen.container.querySelectorAll('.fw-k')).toHaveLength(4)
@@ -26,7 +39,6 @@ test('a panel draws every knob of its group', async () => {
 })
 
 test('the panel names its group and is the tabpanel the rail points at', async () => {
-  params().reset()
   const screen = await render(<KnobPanel group="skeleton" />)
   const panel = screen.getByRole('tabpanel')
   await expect.element(panel).toHaveAttribute('id', 'rail-panel-skeleton')
@@ -34,7 +46,6 @@ test('the panel names its group and is the tabpanel the rail points at', async (
 })
 
 test('the difficulty group shows one start control, not two knobs', async () => {
-  params().reset()
   const screen = await render(<KnobPanel group="difficulty" />)
   // headBias and mix share --start, so the group's five specs become four
   // controls: the start control, trapBias, probe, probeLen.
@@ -44,7 +55,6 @@ test('the difficulty group shows one start control, not two knobs', async () => 
 })
 
 test('every knob in PARAM_SPEC is reachable from exactly one panel', async () => {
-  params().reset()
   const groups = [...new Set(PARAM_SPEC.map((s) => s.group))]
   const drawn = new Set<string>()
   for (const group of groups) {
@@ -62,21 +72,11 @@ test('every knob in PARAM_SPEC is reachable from exactly one panel', async () =>
 })
 
 test('a group with help prints it under the heading', async () => {
-  params().reset()
   const screen = await render(<KnobPanel group="closing" />)
   await expect.element(screen.getByText(/no legal carve/)).toBeVisible()
 })
 
 describe('the help switch', () => {
-  // This repository's other browser files open a describe block the same
-  // way (RunColumn.browser.test.tsx): without it, a case left `wShort`/`wMid`
-  // at 0.8 and `ui.help` at false, leaking into whatever ran after it.
-  beforeEach(() => {
-    const state = useStore.getState()
-    state.params.reset()
-    state.ui.setHelp(true)
-  })
-
   it('shows every description while it is on', async () => {
     useStore.getState().ui.setHelp(true)
     const screen = await render(<KnobPanel group="board" />)
