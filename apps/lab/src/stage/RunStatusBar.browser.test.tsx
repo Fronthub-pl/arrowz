@@ -1,10 +1,35 @@
+import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
+import { act } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { RunStatusBar } from './RunStatusBar'
 
 const EN = dictionary('en')
+
+// A real finished run, because the refusal case below has to sit on top of the
+// branch that prints a closed board. `ok` and `deadlock` are stated rather than
+// taken from the result: the case is about which branch wins, not about how
+// this 8x8 came out, and a board that happened to come out unsolvable would
+// send it down a different branch and stop it testing what it is named for.
+const RESULT = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 })
+const CLOSED: DoneReport = {
+  type: 'done',
+  ok: true,
+  metrics: RESULT.metrics,
+  backtracks: RESULT.backtracks,
+  restartsUsed: RESULT.restartsUsed,
+  genMs: RESULT.genMs,
+  metricsMs: RESULT.metricsMs,
+  totalMs: RESULT.genMs + RESULT.metricsMs,
+  stuck: null,
+  deadlock: false,
+  pieces: RESULT.board.pieces.length,
+  stats: RESULT.board.stats,
+  board: encodeBoard(RESULT.board),
+}
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -47,8 +72,40 @@ describe('RunStatusBar', () => {
     // flight. A component that (wrongly) read the live knobs instead of
     // `run.params` would now print the plain `generating` text; this must
     // still name the run's own 600×600.
-    useStore.getState().params.setMany({ W: 25, H: 25 })
+    //
+    // `act`, because a store write from outside a React event reaches the DOM
+    // on a microtask at the earliest: without it the discriminating render and
+    // `expect.element`'s first await are racing, and the case can only pass.
+    await act(async () => useStore.getState().params.setMany({ W: 25, H: 25 }))
     await expect.element(screen.getByRole('status')).toMatchTextContent(/600×600/)
+  })
+
+  // Ruling T. The refusal used to print only while the slice was idle, which
+  // was the whole story until the page began carving a board at load: `done`
+  // is now the state of every session from its first second and it stays
+  // there. With `auto` on, a knob dragged into a violation refused silently
+  // while this line kept reporting the board the last run closed.
+  it('says the refusal over a finished run, not the board that run closed', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    const screen = await render(<RunStatusBar />)
+    // The precondition, so the case cannot pass by the refusal being printed
+    // everywhere: with no violation this is the closed board.
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('closed'))
+    await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
+  })
+
+  // The exception the rule keeps: a carve in flight has more to say than the
+  // refusal and is entitled to report itself, even though the knobs it would
+  // be started from now break a rule.
+  it('still reports a run in flight while the knobs on screen are refused', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    const screen = await render(<RunStatusBar />)
+    await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generating'))
   })
 
   it('says only "Generating…" for a board under the threshold', async () => {

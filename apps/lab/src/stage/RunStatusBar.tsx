@@ -49,6 +49,17 @@ export function RunStatusBar() {
         )
         .replace(/<\/?b>/g, '')
     }
+  } else if (blocked) {
+    // The refusal outranks every phase but `running`. It used to sit inside
+    // the idle branch, which was the whole story until the page started
+    // carving a board at load: the slice is `done` from the first second of
+    // every session and stays there, so a knob dragged into a violation with
+    // `auto` on refused silently while this line still reported the last
+    // board as closed — a page that is refusing, describing a board that did
+    // not answer the knobs on screen. `running` keeps its own line, because a
+    // carve in flight is the one thing that has more to say than the refusal
+    // and is entitled to report itself.
+    text = dict.t('generateBlocked')
   } else if (run.phase === 'error') {
     // Both failure paths land here: the worker's `error` message (a thrown
     // InvalidParamsError) and its `onerror` both call the slice's `failed()`
@@ -58,10 +69,11 @@ export function RunStatusBar() {
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || run.report === null) {
-    // Idle, and three idles are distinguishable: refused, aborted, fresh. The
-    // refusal comes first — a page that says "Press Generate" beside a
-    // Generate it has disabled is telling the user to do the impossible.
-    text = blocked ? dict.t('generateBlocked') : run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
+    // Idle, and two idles are distinguishable here: aborted and fresh. The
+    // third, refused, is the branch above — a page that says "Press Generate"
+    // beside a Generate it has disabled is telling the user to do the
+    // impossible, whichever phase the last run left behind.
+    text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (run.report.ok) {
     text = dict.t('closed')
   } else if (run.report.deadlock) {
