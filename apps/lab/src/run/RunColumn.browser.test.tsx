@@ -47,7 +47,12 @@ function buttonOf(element: Element): HTMLButtonElement {
   return element
 }
 
-/** Two frames, because the focus fixup happens at a rendering opportunity. */
+/**
+ * Two frames, because HTML's focus fixup is the "update the rendering" step,
+ * which runs after the animation-frame callbacks of the same frame. Two is the
+ * floor, not a margin — see the measured distribution at the focus cases below
+ * before shortening this.
+ */
 function twoFrames(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
@@ -98,13 +103,22 @@ describe('RunColumn', () => {
   // fixup then takes the focus off it: the very drop the notice exists to
   // prevent, deferred by the length of the carve.
   //
-  // The timing is the whole case. Sampled in Chrome 153.0.8010.12 with the
-  // effect's `focus()` cut out: `document.activeElement` is the Abort button
-  // synchronously after the `act` below, and `document.body` at every later
-  // point sampled — the first macrotask, one frame, two frames, 200 ms. An
-  // assertion placed at the synchronous point passes on the broken code, which
-  // is why this one waits for frames first; two rather than one, so the case
-  // does not sit on the earliest instant the fixup is known to have run.
+  // The timing is the whole case, and it was measured rather than assumed:
+  // batches of 20 samples in Chrome 153.0.8010.12 with the effect's `focus()`
+  // cut out put `document.activeElement` at `document.body` in 0/20
+  // synchronously after the `act` below, 0/20 on a microtask, 0–2/20 on
+  // `setTimeout 0`, 0–2/20 after one `requestAnimationFrame`, and 20/20 after
+  // two. The fixup is not a macrotask: it is the "update the rendering" step,
+  // which runs after the animation-frame callbacks of the same frame, so one
+  // rAF still sees the button, and the stray early samples are runs in which a
+  // frame's rendering step fell between the commit and the sampling call.
+  //
+  // So `twoFrames()` is exactly the minimum, not a margin over one. Of the two
+  // assertions, `toBe(Generate)` catches a deleted branch at any sampling
+  // point, because before the fixup the focus is still on Abort. It is
+  // `not.toBe(document.body)` — the line that says what a person would notice
+  // — that holds on broken code at every point short of two frames, in 18–20
+  // samples of 20. Shortening the wait turns that line into decoration.
   it('carries the focus off Abort when the run that made it live ends', async () => {
     const g = stub()
     function Host() {

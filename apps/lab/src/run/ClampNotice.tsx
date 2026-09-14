@@ -39,11 +39,11 @@ export function ClampNotice({
   //
   // Unless that action is refused: this notice appears exactly when a preset
   // has just started a run, and Generate is disabled while one is in flight
-  // (`RunColumn.tsx:103`) — and `focus()` on a disabled button is a no-op, so
+  // (`RunColumn.tsx:121`) — and `focus()` on a disabled button is a no-op, so
   // dismissing during a long carve dropped the keyboard user on <body> after
   // all. In exactly that state Abort is live: it is out on `!running`
-  // (`RunColumn.tsx:115`) while Generate is out on `running || blocked`
-  // (`:103`), so a carve in flight with the rules kept is precisely the state
+  // (`RunColumn.tsx:133`) while Generate is out on `running || blocked`
+  // (`:121`), so a carve in flight with the rules kept is precisely the state
   // that refuses the one and offers the other — and Abort is then a visible,
   // named control inside the run column, a better landing spot than the region
   // below. The two conditions are not complements, though: a link that clamped
