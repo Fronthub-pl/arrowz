@@ -41,7 +41,10 @@ export default defineConfig({
             headless: true,
             provider: playwright({
               launchOptions: { channel: 'chromium' },
-              contextOptions: { deviceScaleFactor: 2 },
+              // `locale` because Chromium otherwise takes the machine's, and
+              // the lab picks its starting language from `navigator.language`
+              // (src/harness/storage-a.browser.test.ts).
+              contextOptions: { deviceScaleFactor: 2, locale: 'en-US' },
             }),
             instances: [{ browser: 'chromium' }],
           },
