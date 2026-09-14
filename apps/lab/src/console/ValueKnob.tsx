@@ -1,8 +1,8 @@
 import type { ParamSpec } from '@arrowz/engine'
 import { wordFor } from '@arrowz/engine/command'
-import { useEffect, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { DraftNumber } from './DraftNumber'
 import { boundOn, KnobSlider } from './KnobSlider'
 
 /**
@@ -14,9 +14,7 @@ import { boundOn, KnobSlider } from './KnobSlider'
  * none of them, so this component does not render: that is what the sparse
  * indexes in `params.slice` are for.
  *
- * The inline entry holds a draft string and writes the store on blur or Enter
- * (spec §5.5). Clamping per keystroke would turn `0.` into the minimum while
- * someone is still typing `0.85`.
+ * The inline entry is `DraftNumber` (spec §5.5); the knob only knows its bounds.
  */
 export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: { min: number; max: number } }) {
   const dict = useDictionary()
@@ -26,25 +24,6 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
   const inactive = useStore((state) => state.params.inactive[spec.key])
   const floor = useStore((state) => state.params.floor[spec.key])
   const set = useStore((state) => state.params.set)
-  const [draft, setDraft] = useState<string | null>(null)
-
-  const numRef = useRef<HTMLButtonElement>(null)
-  const entryRef = useRef<HTMLInputElement>(null)
-  /** Whether the entry was ever open, so the first render does not steal focus. */
-  const edited = useRef(false)
-  const editing = draft !== null
-
-  // Focus follows the swap in both directions. `autoFocus` would do half of
-  // this and trip `jsx-a11y/no-autofocus`, which is an error here.
-  useEffect(() => {
-    if (editing) {
-      edited.current = true
-      entryRef.current?.focus()
-      entryRef.current?.select()
-    } else if (edited.current) {
-      numRef.current?.focus()
-    }
-  }, [editing])
 
   const { label, help: description } = dict.paramText(spec)
   const word = wordFor(spec.key, value)
@@ -68,66 +47,24 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
   // not strip the descriptions from someone else's screen reader.
   const whyId = `knob-${spec.key}-why`
 
-  const commit = () => {
-    const raw = draft
-    setDraft(null)
-    if (raw === null) return
-    const typed = Number(raw.trim())
-    // An unreadable field commits nothing: `clampParam` maps NaN to the knob's
-    // default and reports it as a clamp, which is a jump nobody asked for.
-    if (raw.trim() === '' || !Number.isFinite(typed)) return
-    // Held inside the *passed* bounds first: the mix row's own range is
-    // narrower than the knob's, and only it knows that.
-    set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))
-  }
-
   return (
     <div className={`fw-k${broken ? ' bad' : ''}${inactive ? ' off' : ''}`}>
       <div className="top">
         <label className="lab" htmlFor={`knob-${spec.key}`}>
           {label}
         </label>
-        {draft === null ? (
-          <button
-            ref={numRef}
-            type="button"
-            className="num"
-            aria-label={`${label}: ${word ?? value}`}
-            // The same paragraph the slider points at. Both surfaces of the
-            // value carry it: a knob's reason reaching only one of them is a
-            // reason a keyboard user meets half the time.
-            aria-describedby={whyId}
-            onClick={() => setDraft(String(value))}
-          >
-            {word === null ? null : <em>{word}</em>}
-            {value}
-          </button>
-        ) : (
-          <input
-            ref={entryRef}
-            type="text"
-            // A number, typed on a touch keyboard, with a decimal separator.
-            inputMode="decimal"
-            value={draft}
-            aria-label={label}
-            aria-describedby={whyId}
-            onChange={(event) => setDraft(event.currentTarget.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                // Without this, Chromium delivers the same key's `keypress` to
-                // whatever has focus *after* the commit — which, thanks to the
-                // effect above, is the number button. It activates, and the
-                // entry a user just closed reopens.
-                event.preventDefault()
-                commit()
-              }
-              // Escape needs no guard: React does not deliver a blur for an
-              // element it is unmounting, so `commit` never runs here.
-              if (event.key === 'Escape') setDraft(null)
-            }}
-          />
-        )}
+        <DraftNumber
+          label={label}
+          value={value}
+          word={word}
+          // The same paragraph the slider points at. Both surfaces of the
+          // value carry it: a knob's reason reaching only one of them is a
+          // reason a keyboard user meets half the time.
+          describedBy={whyId}
+          // Held inside the *passed* bounds first: the mix row's own range is
+          // narrower than the knob's, and only it knows that.
+          onCommit={(typed) => set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))}
+        />
       </div>
       <KnobSlider
         spec={spec}
