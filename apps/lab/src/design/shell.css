@@ -249,3 +249,38 @@ body {
     height: 44px;
   }
 }
+/* One of a few (Segmented.tsx): the preset strip's chip (run.css) with the
+   group rail's selected state, so the lab has one chip and one "chosen". The
+   `.fw` prefix for the reason `.fw .fw-go` gives above. */
+.fw-seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+.fw .fw-seg button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-seg button:not([aria-checked='true']):hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+.fw .fw-seg button[aria-checked='true'] {
+  color: var(--void);
+  background: var(--signal);
+  border-color: transparent;
+}
+@media (pointer: coarse) {
+  .fw .fw-seg button {
+    height: 44px;
+  }
+}
