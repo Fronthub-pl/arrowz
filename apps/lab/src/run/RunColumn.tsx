@@ -19,7 +19,8 @@ import type { RunControl } from './useRun'
  * was chosen for, or to Abort when Generate is the one disabled. Both
  * optional, so that a caller with no notice beside it — this column's own
  * tests today — mounts the column unchanged. The column reads them back as
- * well, to carry that focus off Abort before the end of the carve disables it.
+ * well, to carry the focus between the two whenever the one holding it is
+ * about to be disabled.
  */
 export function RunColumn({
   control,
@@ -40,16 +41,23 @@ export function RunColumn({
   const setAuto = useStore((state) => state.ui.setAuto)
   const setHelp = useStore((state) => state.ui.setHelp)
 
-  // Abort is a landing spot with an expiry date. The clamp notice hands the
-  // focus here when Generate is refused, which is exactly while a carve is in
-  // flight — and when that carve ends this column re-renders Abort as
-  // `disabled`, at which point HTML's focus fixup takes the focus off it and
-  // gives it to the body. So the drop the notice exists to prevent comes back,
-  // merely deferred by the whole length of the carve.
+  // Both of these buttons are a landing spot with an expiry date, because each
+  // is disabled by one of the two transitions of `running`, and HTML's focus
+  // fixup then hands the focus to `document.body`. Ending a run: the clamp
+  // notice parks the focus on Abort while a carve is in flight, and the commit
+  // that ends the carve renders Abort `disabled`. Starting one: Generate is
+  // `disabled={running || blocked}`, so activating Generate is what disables
+  // Generate. Without this effect a keyboard user who tabs to Generate and
+  // presses Enter or Space loses the focus by pressing the button — measured
+  // with a real key press, both keys, `<body>` from the second frame on — which
+  // makes that the ordinary path and not an edge case. The drop is the same in
+  // both directions, so one effect watching the transition both ways closes
+  // both, and the two halves compose: pressing Generate carries the focus to
+  // Abort, and the end of the run carries it back.
   //
   // When the fixup runs was measured rather than assumed: batches of 20 samples
-  // per sampling point, Chrome 153.0.8010.12, this guard cut out. The ranges
-  // span three batches, one of them a reviewer's:
+  // per sampling point, both transitions, Chrome 153.0.8010.12, the matching
+  // branch cut out. The ranges span five batches, one of them a reviewer's:
   //
   //   sampling point                  `document.activeElement` is `<body>`
   //   synchronously after the commit   0/20
@@ -70,28 +78,38 @@ export function RunColumn({
   // the wait in this column's tests.
   //
   // `useLayoutEffect`, because that schedule leaves room: this runs
-  // synchronously after the DOM mutation that disabled Abort and before any
-  // animation frame, so `document.activeElement` is still the button and
-  // Generate — re-rendered enabled in the same commit — can take it.
+  // synchronously after the DOM mutation that disabled the outgoing button and
+  // before any animation frame, so `document.activeElement` is still that
+  // button and its partner — re-rendered enabled in the same commit — can take
+  // the focus first.
   //
-  // The transition is what is watched, not the state: `running === false` is
-  // true of every idle render, and acting on it would steal the focus from
-  // whatever the user had moved it to. The guard is doubled by an identity
-  // check — only a focus that is actually sitting on Abort is redirected.
+  // The transition is what is watched, not the state: `running` is false on
+  // every idle render and true on every running one, and acting on either
+  // would steal the focus from whatever the user had moved it to. The guard is
+  // doubled by an identity check, so only a focus that is actually sitting on
+  // the button being disabled is redirected. `wasRunning` is redundant against the dependency
+  // array as it stands — `goRef` and `abortRef` are stable, so the effect
+  // already runs only when `running` changes — and it stays because it is what
+  // makes "transition, not state" a rule of this effect rather than a property
+  // of its current dependency list, which a later dependency such as `blocked`
+  // would quietly end.
   //
-  // Generate is the target because it is the action the notice wanted in the
-  // first place and the run it was refused for has just ended. When a knob was
-  // dragged into a violation during the carve it is still disabled, `focus()`
-  // is a no-op and the focus is lost after all. New seed and Defaults are live
-  // in that state — neither carries `disabled` at all — but neither is what a
-  // person dismissing a notice asked for, so choosing a landing spot for it is
-  // a design question and not a guard, and it is left open here deliberately
-  // rather than answered in passing.
+  // Only the ending branch can miss. Abort is `disabled={!running}`, so on a
+  // start it is live by construction; on an end Generate is still out whenever
+  // a knob was dragged into a violation during the carve, `focus()` is then a
+  // no-op, and the focus is lost after all. New seed and Defaults are live in
+  // that state — neither carries `disabled` at all — but neither is what a
+  // person dismissing a notice or watching a run end asked for, so choosing a
+  // landing spot for that case is a design question and not a guard, and it is
+  // left open here deliberately rather than answered in passing.
   const wasRunning = useRef(false)
   useLayoutEffect(() => {
     const abort = abortRef?.current ?? null
     const go = goRef?.current ?? null
-    if (wasRunning.current && !running && abort !== null && document.activeElement === abort) {
+    if (running && !wasRunning.current && go !== null && document.activeElement === go) {
+      if (abort !== null && !abort.disabled) abort.focus()
+    }
+    if (!running && wasRunning.current && abort !== null && document.activeElement === abort) {
       if (go !== null && !go.disabled) go.focus()
     }
     wasRunning.current = running

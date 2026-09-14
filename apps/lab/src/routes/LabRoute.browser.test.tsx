@@ -275,7 +275,7 @@ test('the lab route shows the console under the stage', async () => {
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
 // and `RunColumn` are each tested against a host of their own making, so both
 // suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:133` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
+// `RunColumn.tsx:151` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
 // feature is dead on the real page while every other case passes. The same was
 // true of `goRef`, so this case covers both — they are the same two lines.
 //

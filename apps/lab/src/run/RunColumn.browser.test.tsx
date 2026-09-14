@@ -1,6 +1,7 @@
 import { act, useRef } from 'react'
-import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
+import { render } from 'vitest-browser-react'
 import { defaultParams, encodeBoard, generate, PARAM_SPEC } from '@arrowz/engine'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
@@ -55,6 +56,17 @@ function buttonOf(element: Element): HTMLButtonElement {
  */
 function twoFrames(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+}
+
+/**
+ * The route's two refs, which is the only shape in which the focus effect has
+ * anything to aim at. Declared once here rather than four times inside the
+ * cases, so that every focus case mounts the same column the page mounts.
+ */
+function Host({ control }: { control: RunControl }) {
+  const go = useRef<HTMLButtonElement>(null)
+  const abort = useRef<HTMLButtonElement>(null)
+  return <RunColumn control={control} goRef={go} abortRef={abort} />
 }
 
 beforeEach(() => {
@@ -121,12 +133,7 @@ describe('RunColumn', () => {
   // samples of 20. Shortening the wait turns that line into decoration.
   it('carries the focus off Abort when the run that made it live ends', async () => {
     const g = stub()
-    function Host() {
-      const go = useRef<HTMLButtonElement>(null)
-      const abort = useRef<HTMLButtonElement>(null)
-      return <RunColumn control={g.control} goRef={go} abortRef={abort} />
-    }
-    const screen = await render(<Host />)
+    const screen = await render(<Host control={g.control} />)
     await act(async () => useStore.getState().run.started(useStore.getState().params.values))
     const abort = buttonOf(screen.getByRole('button', { name: 'Abort' }).element())
     abort.focus()
@@ -140,20 +147,67 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
   })
 
-  // The other half of the same guard: `running === false` is true of every
-  // idle render, so a fix that read the state rather than the transition would
-  // pull the focus out of whatever the user was using, on every commit.
-  it('leaves a focus that is not on Abort where the user put it', async () => {
+  // The mirror of the case above, and the reason it is not an edge case:
+  // Generate is `disabled={running || blocked}`, so starting a run is what
+  // disables Generate. The fixup follows the same schedule, measured here too
+  // in two batches of 20 with the branch cut out: the focus is still on
+  // Generate in 19–20 samples of 20 at every point short of two frames, and on
+  // `document.body` in 20/20 after two. Hence `twoFrames()` again, for the same
+  // reason and as the same floor.
+  it('carries the focus off Generate when starting a run is what disables it', async () => {
     const g = stub()
-    function Host() {
-      const go = useRef<HTMLButtonElement>(null)
-      const abort = useRef<HTMLButtonElement>(null)
-      return <RunColumn control={g.control} goRef={go} abortRef={abort} />
+    const screen = await render(<Host control={g.control} />)
+    const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
+    go.focus()
+    // The precondition, so a case that never got the focus onto Generate
+    // cannot pass by the focus having been on Abort all along.
+    expect(document.activeElement).toBe(go)
+
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    await twoFrames()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+  })
+
+  // The same transition reached the way a person reaches it, rather than
+  // through the store: a real Enter on a focused Generate. `control.start`
+  // writes `run.started` synchronously — `useGenerator.start` is
+  // `actions().started(params)` before anything asynchronous — so the commit
+  // that disables Generate is the one React flushes for this key press, which
+  // is exactly why the press loses its own focus without the branch.
+  it('keeps the focus on a control when Generate is pressed from the keyboard', async () => {
+    const live: RunControl = {
+      start: () => useStore.getState().run.started(useStore.getState().params.values),
+      abort: () => useStore.getState().run.aborted(),
+      hold: () => {},
     }
-    const screen = await render(<Host />)
+    const screen = await render(<Host control={live} />)
+    const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
+    go.focus()
+    expect(document.activeElement).toBe(go)
+
+    await userEvent.keyboard('{Enter}')
+    expect(useStore.getState().run.phase).toBe('running')
+    await twoFrames()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+  })
+
+  // The other half of the same guard, now in both directions: `running` is
+  // false on every idle render and true on every running one, so a fix that
+  // read the state rather than the transition would pull the focus out of
+  // whatever the user was using, on every commit. Defaults is the probe
+  // because it is live throughout — it carries no `disabled` at all.
+  it('leaves a focus that is on neither button where the user put it', async () => {
+    const g = stub()
+    const screen = await render(<Host control={g.control} />)
     const defaults = buttonOf(screen.getByRole('button', { name: 'Defaults' }).element())
     defaults.focus()
     await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    // Asserted here as well as at the end, so the start branch is named:
+    // without this line a start branch that grabbed the focus would be caught
+    // only indirectly, by the end branch then moving it on to Generate.
+    await twoFrames()
+    expect(document.activeElement).toBe(defaults)
     await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
