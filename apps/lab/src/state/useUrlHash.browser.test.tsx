@@ -144,22 +144,15 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 1)
   })
 
-  it('does not run at itself: its own write is recognised', async () => {
-    const g = stub()
-    await mount(g.control)
-    const started = g.started()
-    useStore.getState().params.set('W', 54)
-    await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(54))
-    expect(g.started()).toBe(started)
-  })
-
   // The other bug revision 1 shipped: Back from a route without a hash used to
   // start a carve, and `useGenerator` would terminate the one in flight, which
   // spec §8 forbids. The standard asks for a `hashchange` on this traversal;
   // no engine shipping today sends one, Chromium included, so on this runner
   // the case cannot fail for the event it is named after — but its `waitFor`
   // proves the traversal happened, and it still fails a listener bound to
-  // `popstate`, which does fire here. The case after it holds the ref.
+  // `popstate`, which does fire here. The case after it holds the rule that
+  // would make this one true on a conformant engine too: the fragment Back
+  // lands on is the one already on screen, so it is not a trigger.
   it('does not start a run when the user navigates back into the lab', async () => {
     const g = stub()
     await mount(g.control)
@@ -172,11 +165,21 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started)
   })
 
-  // The ref the case above asks for, handed the event directly, because the
+  // The rule the case above relies on, handed the event directly, because the
   // standard has `hashchange` fire on any difference of fragment and an engine
-  // that follows it must find the hook already holding its own write. Delete
-  // the `written` ref and this is the only case that notices.
-  it('ignores a hashchange that announces the fragment it wrote itself', async () => {
+  // that follows it would deliver one here. Both halves in one case, because
+  // one without the other is satisfiable by a stub: an early return that never
+  // runs passes the first, and a listener with no early return at all passes
+  // the second.
+  //
+  // This replaces two earlier cases. One, named "does not run at itself",
+  // could not fail for its name on any engine: the hook writes with
+  // `replaceState`, which fires no `hashchange`, so it stayed green with the
+  // whole listener deleted. The other asserted that a *second* dispatch of the
+  // same fragment does start a run — the one-shot `written` ref's behaviour,
+  // and the bug: that ref was never spent by an echo that never came, so it
+  // went stale and swallowed the next genuine traversal instead.
+  it('never runs at a fragment that states what is already on screen, and runs at one that does not', async () => {
     const g = stub()
     await mount(g.control)
     useStore.getState().params.set('W', 56)
@@ -184,12 +187,57 @@ describe('useUrlHash', () => {
     const started = g.started()
     // Dispatch is synchronous, so the listener has run by the next line.
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
-    expect(g.started()).toBe(started)
-    // One write, one announcement. A ref held for good would swallow every
-    // later traversal onto that fragment too, so the second event is taken at
-    // face value.
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(g.started()).toBe(started)
+    // The complementary half. `replaceState` moves the bar without announcing
+    // it, which is exactly the shape of a traversal as far as this listener is
+    // concerned: the fragment on the bar is no longer the one on screen.
+    history.replaceState(
+      history.state,
+      '',
+      encodeHash({ params: { ...defaultParams(), W: 62 }, view: VIEW, carried: {} }),
+    )
+    globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(useStore.getState().params.values.W).toBe(62)
     expect(g.started()).toBe(started + 1)
+  })
+
+  // The bug revision 2 shipped, as the sequence that produced it. A one-shot
+  // ref recording the last fragment written is never spent, because the write
+  // is a `replaceState` and that announces nothing; it goes stale and eats the
+  // next traversal that lands on it. Every fragment here is one the hook wrote
+  // itself, so it is canonical and the early return in `flush()` is reached —
+  // which is the step that leaves the stale ref in place.
+  it('takes the traversal back onto an entry it wrote before the link was pasted', async () => {
+    const g = stub()
+    await mount(g.control)
+    useStore.getState().params.set('W', 55)
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(55))
+    const hashB = location.hash
+    useStore.getState().params.set('W', 61)
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(61))
+    const hashC = location.hash
+    useStore.getState().params.set('W', 55)
+    await vi.waitFor(() => expect(location.hash).toBe(hashB))
+    const started = g.started()
+
+    // The paste, as a new entry. `pushState` and a dispatched event rather
+    // than `location.hash =`, because the assignment lets the engine
+    // re-encode the fragment and this case depends on the two entries
+    // carrying exactly the strings the hook wrote.
+    history.pushState(history.state, '', hashC)
+    globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
+    expect(useStore.getState().params.values.W).toBe(61)
+    expect(g.started()).toBe(started + 1)
+    // The debounced write that follows finds the bar already correct and
+    // returns without touching it. Waited out rather than skipped: it is the
+    // step that used to leave the ref armed at the previous fragment.
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(location.hash).toBe(hashC)
+
+    history.back()
+    await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(55))
+    expect(g.started()).toBe(started + 2)
   })
 
   // The fragment belongs to the whole shell, not to the lab's route: `TabRow`

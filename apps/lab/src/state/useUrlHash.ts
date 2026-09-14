@@ -56,18 +56,23 @@ function applyPayload(payload: HashPayload): void {
  *    `onChange`, about sixty times a second during a drag; Chromium drops
  *    `replaceState` past roughly two hundred calls in ten seconds and Safari
  *    throws past a hundred in thirty, from inside a zustand `set`.
- * 3. **The listener knows this hook's own writes.** The standard fires
- *    `hashchange` on a traversal whenever the old and the new fragment differ,
- *    with no requirement that the path be equal; every engine shipping today
- *    fires it only when the two URLs are equal but for the fragment, which is
- *    what this repository's probe measured on Chrome. `replaceState` fires it
- *    on neither reading. So the `written` ref covers the conformant branch —
- *    Back into the lab announcing a fragment this hook wrote, which would
- *    start a carve and terminate the one in flight — while on today's engines
- *    it is the `flush()` on every route change that keeps Back quiet, by
- *    leaving both entries carrying the same fragment. The ref is exercised by
- *    the case named "ignores a hashchange that announces the fragment it wrote
- *    itself", which dispatches the event the standard asks for.
+ * 3. **The listener compares against the store, not against history.** A
+ *    fragment that already states what is on screen is not a trigger: it is
+ *    the page describing itself. Revision 1 asked the opposite question —
+ *    "did I write this?" — with a one-shot ref set on every write, and that
+ *    could not be made to work here. `replaceState` fires no `hashchange` on
+ *    any engine or per the standard's own sentence, so nothing ever spent the
+ *    ref; it stayed armed at the last fragment written and swallowed the next
+ *    genuine traversal that happened to land on it (edit to `#B`, paste `#C`,
+ *    Back to `#B` → dropped: address bar B, page C, no run). The branch it was
+ *    kept for cannot arise at all, because `flush()` runs on every route
+ *    change and so leaves both entries carrying the same fragment, which no
+ *    reading of `hashchange` fires on — neither the standard's (fires when the
+ *    fragments differ) nor any shipping engine's (fires only when the two URLs
+ *    are equal but for the fragment). A comparison with the current state
+ *    cannot go stale, and it additionally keeps a traversal onto the fragment
+ *    already on screen from starting a carve that would terminate the one in
+ *    flight (§8).
  *
  * The subscription is in an effect and not a selector in render (Ruling 11),
  * for the same reason `useAutoRun`'s is.
@@ -75,7 +80,6 @@ function applyPayload(payload: HashPayload): void {
 export function useUrlHash(control: RunControl): void {
   const carried = useRef<Carried>({})
   const readDone = useRef(false)
-  const written = useRef<string | null>(null)
   const { pathname } = useLocation()
 
   useEffect(() => {
@@ -98,7 +102,6 @@ export function useUrlHash(control: RunControl): void {
       const { params, view, ui } = useStore.getState()
       const next = encodeHash({ params: params.values, view: viewFor(view, ui.help), carried: carried.current })
       if (next === location.hash) return
-      written.current = next
       // `history.state` and not `null`: react-router keeps its own record
       // there — `idx`, the index it computes pop deltas from, among them — and
       // this hook replaces the entry at mount and after every edit.
@@ -123,14 +126,14 @@ export function useUrlHash(control: RunControl): void {
 
   useEffect(() => {
     const onChange = () => {
-      // One write, one announcement: the ref is spent by the event it was set
-      // for. Held for good, it would also swallow a traversal that later lands
-      // on that same fragment — Forward onto the entry this hook wrote, while
-      // the write for the entry Back just applied is still inside its wait.
-      if (location.hash === written.current) {
-        written.current = null
-        return
-      }
+      // Idempotent against the store rather than against history (property 3):
+      // a fragment that already encodes what the page holds is the page
+      // describing itself, and applying it would be a no-op followed by a run
+      // that terminates whatever is in flight. Anything else — a pasted link,
+      // a traversal onto a different entry — is a trigger.
+      const { params, view, ui } = useStore.getState()
+      const here = encodeHash({ params: params.values, view: viewFor(view, ui.help), carried: carried.current })
+      if (location.hash === here) return
       const payload = decodeHash(location.hash)
       if (payload === null) return
       carried.current = payload.carried
