@@ -31,6 +31,7 @@ async function mountApp() {
   useStore.getState().ui.setAuto(false)
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
+  useStore.getState().lang.setLang('en')
   return render(<App />)
 }
 
@@ -232,6 +233,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   useStore.getState().ui.setAuto(false)
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
+  useStore.getState().lang.setLang('en')
   const screen = await render(
     <StrictMode>
       <App />
@@ -276,6 +278,21 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     fetchSpy.mockRestore()
   }
 }, 60_000)
+
+// The switch reaches three places no component test can see together: the
+// document's own `lang` (what a screen reader pronounces with), the board
+// element's `lang` (its control bar has its own dictionary), and a label far
+// from the top bar.
+test('the language switch reaches the document, the board and every label', async () => {
+  const screen = await mountApp()
+  await screen.getByRole('radio', { name: 'PL' }).click()
+  await expect.element(screen.getByRole('button', { name: 'Generuj' })).toBeInTheDocument()
+  await vi.waitFor(() => expect(document.documentElement.lang).toBe('pl'))
+  // `@lit/react` sets the property, and `HTMLElement.lang` reflects it.
+  await vi.waitFor(() => expect(screen.container.querySelector('arrowz-board')?.getAttribute('lang')).toBe('pl'))
+  await screen.getByRole('radio', { name: 'EN' }).click()
+  await vi.waitFor(() => expect(document.documentElement.lang).toBe('en'))
+}, 40_000)
 
 test('the lab route shows the console under the stage', async () => {
   const screen = await mountApp()

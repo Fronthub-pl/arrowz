@@ -284,3 +284,29 @@ body {
     height: 44px;
   }
 }
+
+/* The top bar is the Signal plane, where the chip's own colours would vanish:
+   `--signal` on `--signal` for the chosen option, and the global focus ring is
+   `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on
+   `--signal`, the pairing `.name` and `.dims` already ship (4.08:1, the open
+   §7.1 item); the chosen option is `--ink` on `--void`. The base rule ties with
+   the chip's checked rule and wins by following it; the checked rule here is
+   (0,4,1). */
+.fw .fw-top .fw-seg button {
+  border-color: var(--void);
+  color: var(--void);
+}
+.fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
+  background: none;
+  color: var(--void);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fw .fw-top .fw-seg button[aria-checked='true'] {
+  background: var(--void);
+  color: var(--ink);
+  border-color: var(--void);
+}
+.fw .fw-top :focus-visible {
+  outline-color: var(--void);
+}
