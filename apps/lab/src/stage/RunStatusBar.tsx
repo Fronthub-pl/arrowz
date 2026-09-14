@@ -13,6 +13,13 @@ export function RunStatusBar() {
   const blocked = useStore((state) => state.params.violations.length > 0)
 
   let text: string
+  // Whether this line is speaking for a run at all. `run.saved` outlives the
+  // board it describes — only `started`, `aborted` and `reset` clear it
+  // (run.slice.ts:54, :61-62) — so it is a fact about the last board carved and
+  // not about whatever the line happens to be saying. Appended to the refusal,
+  // it read `Fix the settings marked in red to generate — saved`: a sentence
+  // about a board nobody is looking at, glued to a sentence about the knobs.
+  let reportsRun = false
   if (run.phase === 'running') {
     const p = run.progress
     // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
@@ -75,17 +82,23 @@ export function RunStatusBar() {
     // impossible, whichever phase the last run left behind.
     text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (run.report.ok) {
+    reportsRun = true
     text = dict.t('closed')
   } else if (run.report.deadlock) {
+    reportsRun = true
     text = dict.t('unsolvable')
   } else {
+    reportsRun = true
     const stuck = run.report.stuck
     text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
   }
 
   // The store's answer is appended, never substituted: a missing store must
-  // not overwrite what the run itself reported (§5.3).
-  const saved = run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
+  // not overwrite what the run itself reported (§5.3). It is appended only to
+  // the three branches above, the ones reporting a board this run produced —
+  // the flag is set where the text is, so the two cannot drift apart the way a
+  // second copy of the branch conditions would.
+  const saved = !reportsRun || run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
   // A later task adds a second `role="status"` region (a clamp notice), so
   // this one gets a name now, ahead of that, for a screen reader to tell the
   // two apart.

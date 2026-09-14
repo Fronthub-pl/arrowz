@@ -97,6 +97,29 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
   })
 
+  // The same sequence with the store's answer in it, which is the half nothing
+  // asserted. `stored()` is the only thing that sets `saved` and only
+  // `started`, `aborted` and `reset` clear it (run.slice.ts:54, :58, :61-62),
+  // so a knob dragged into a violation after a saved run leaves the outcome
+  // behind — and the bar used to glue it to the refusal:
+  // `Fix the settings marked in red to generate — not saved (no store server)`.
+  //
+  // The whole text is compared, not matched inside: `toMatchTextContent` is
+  // satisfied by a substring, so it would pass on exactly the line this case
+  // exists to forbid.
+  it('keeps the save outcome off a line that is refusing rather than reporting', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.run.stored({ ok: false, error: 'no store server' })
+    const screen = await render(<RunStatusBar />)
+    // The precondition: beside a line that is reporting a run, the outcome is
+    // still appended — §5.3's rule is not being deleted, only scoped.
+    await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
+    await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
+    expect(screen.getByRole('status').element().textContent).toBe(EN.t('generateBlocked'))
+  })
+
   // The exception the rule keeps: a carve in flight has more to say than the
   // refusal and is entitled to report itself, even though the knobs it would
   // be started from now break a rule.
