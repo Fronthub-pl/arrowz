@@ -14,8 +14,10 @@ import { Stage } from '../stage/Stage'
  */
 export function LabRoute({ control, hidden }: { control: RunControl; hidden: boolean }) {
   // Owned here rather than in the column, because the notice is the column's
-  // sibling: the dismiss button hands the focus back to Generate.
+  // sibling: the dismiss button hands the focus back to Generate, or to
+  // Abort when Generate is the one disabled.
   const goRef = useRef<HTMLButtonElement>(null)
+  const abortRef = useRef<HTMLButtonElement>(null)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -30,9 +32,9 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
           <PresetStrip control={control} />
           <Stage />
           <Console>
-            <RunColumn control={control} goRef={goRef} />
+            <RunColumn control={control} goRef={goRef} abortRef={abortRef} />
           </Console>
-          <ClampNotice focusOnDismiss={goRef} />
+          <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} />
           <Violations />
         </div>
       </section>

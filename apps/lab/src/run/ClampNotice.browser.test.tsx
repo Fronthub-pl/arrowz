@@ -7,14 +7,28 @@ import { ClampNotice } from './ClampNotice'
 
 const EN = dictionary('en')
 
-function Host({ goDisabled = false }: { goDisabled?: boolean }) {
+function Host({
+  goDisabled = false,
+  withAbort = false,
+  abortDisabled = false,
+}: {
+  goDisabled?: boolean
+  withAbort?: boolean
+  abortDisabled?: boolean
+}) {
   const go = useRef<HTMLButtonElement>(null)
+  const abort = useRef<HTMLButtonElement>(null)
   return (
     <>
       <button type="button" ref={go} disabled={goDisabled}>
         Generate
       </button>
-      <ClampNotice focusOnDismiss={go} />
+      {withAbort ? (
+        <button type="button" ref={abort} disabled={abortDisabled}>
+          Abort
+        </button>
+      ) : null}
+      <ClampNotice focusOnDismiss={go} focusOnAbort={withAbort ? abort : undefined} />
     </>
   )
 }
@@ -57,6 +71,19 @@ describe('ClampNotice', () => {
     await screen.getByRole('button', { name: 'Dismiss' }).click()
     expect(document.activeElement).not.toBe(document.body)
     expect(document.activeElement).toBe(screen.getByRole('status').element())
+  })
+
+  // The state Abort exists to catch: a preset both clamps a value and starts
+  // a run, which disables Generate for as long as that run lasts but leaves
+  // Abort live. Landing on the empty, unnamed region was technically "not
+  // <body>", but a screen reader announced nothing there and the focus
+  // outline painted on a collapsed grid row — Abort is visible, named and
+  // inside the run column, so it is where the fallback should go first.
+  it('hands focus to Abort when Generate is disabled and Abort is not', async () => {
+    const screen = await render(<Host goDisabled withAbort />)
+    useStore.getState().ui.raiseClamped(true)
+    await screen.getByRole('button', { name: 'Dismiss' }).click()
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
   })
 
   // Replaced by the outcome of the next load, not stacked with it: the old

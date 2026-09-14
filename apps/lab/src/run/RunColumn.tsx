@@ -14,17 +14,20 @@ import type { RunControl } from './useRun'
  * the triggers that are not buttons, and the disabled attribute is what a
  * person sees. `RunStatusBar` speaks it (Task 5) and `Violations` spells it out.
  *
- * `goRef` is the route's: the clamp notice dismisses itself and hands the
- * focus to Generate, which is the action the preset that clamped was chosen
- * for. Optional, so that a caller with no notice beside it — this column's
- * own tests today — mounts the column unchanged.
+ * `goRef` and `abortRef` are the route's: the clamp notice dismisses itself
+ * and hands focus to Generate, which is the action the preset that clamped
+ * was chosen for, or to Abort when Generate is the one disabled. Both
+ * optional, so that a caller with no notice beside it — this column's own
+ * tests today — mounts the column unchanged.
  */
 export function RunColumn({
   control,
   goRef,
+  abortRef,
 }: {
   control: RunControl
   goRef?: RefObject<HTMLButtonElement | null> | undefined
+  abortRef?: RefObject<HTMLButtonElement | null> | undefined
 }) {
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
@@ -69,7 +72,7 @@ export function RunColumn({
         <button type="button" onClick={defaults}>
           {dict.t('reset')}
         </button>
-        <button type="button" onClick={control.abort} disabled={!running}>
+        <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>
           {dict.t('abort')}
         </button>
       </div>

@@ -22,7 +22,13 @@ import { useStore } from '../state/store'
  * A dictionary key used by nothing but a test would buy the handle; that is
  * the trade, and it was taken on purpose rather than overlooked.
  */
-export function ClampNotice({ focusOnDismiss }: { focusOnDismiss: RefObject<HTMLButtonElement | null> }) {
+export function ClampNotice({
+  focusOnDismiss,
+  focusOnAbort,
+}: {
+  focusOnDismiss: RefObject<HTMLButtonElement | null>
+  focusOnAbort?: RefObject<HTMLButtonElement | null> | undefined
+}) {
   const dict = useDictionary()
   const clamped = useStore((state) => state.ui.clamped)
   const raiseClamped = useStore((state) => state.ui.raiseClamped)
@@ -33,17 +39,23 @@ export function ClampNotice({ focusOnDismiss }: { focusOnDismiss: RefObject<HTML
   //
   // Unless that action is refused: this notice appears exactly when a preset
   // has just started a run, and Generate is disabled while one is in flight
-  // (`RunColumn.tsx:60`) — and `focus()` on a disabled button is a no-op, so
+  // (`RunColumn.tsx:63`) — and `focus()` on a disabled button is a no-op, so
   // dismissing during a long carve dropped the keyboard user on <body> after
-  // all. The fallback is this region itself, at `tabIndex={-1}`: programmatic
-  // focus only, never a tab stop, and the next Tab carries on from where the
-  // notice was rather than from the top of the document. The element outlives
-  // the dismissal — only its content moves — so it is still there to take the
-  // focus after `raiseClamped(false)`.
+  // all. In exactly that state Abort is live: it is disabled on the
+  // complement of Generate's running case (`RunColumn.tsx:75`), so whenever
+  // Generate is out, Abort is a visible, named control inside the run column
+  // — a better landing spot than the region below. Only if both are somehow
+  // disabled does focus fall back to this region itself, at `tabIndex={-1}`:
+  // programmatic focus only, never a tab stop, and the next Tab carries on
+  // from where the notice was rather than from the top of the document. The
+  // element outlives the dismissal — only its content moves — so it is still
+  // there to take the focus after `raiseClamped(false)`.
   const dismiss = () => {
     raiseClamped(false)
     const go = focusOnDismiss.current
+    const abort = focusOnAbort?.current ?? null
     if (go !== null && !go.disabled) go.focus()
+    else if (abort !== null && !abort.disabled) abort.focus()
     else box.current?.focus()
   }
   return (
