@@ -374,9 +374,8 @@ clamp notice hands focus back to.
   group. This is a deliberate UX change, recorded as one.
 - The mock has no simple view. It swaps `Console` for `SimpleConsole`; the
   stage, filmstrip, status bar and the run column the route hands in are
-  untouched. In
-  simple mode `cell`, `voids`, `top`, `auto` and `help` are hidden, as
-  `.advonly` does today (`lab.html:52`).
+  untouched. In simple mode `cell`, `voids`, `top`, `auto` and `help` are
+  hidden, as `.advonly` does today (`lab.html:52`).
 - The mock's `element` tab becomes `docs` with two sections: the element's API,
   and the CLI's help generated at build time from `helpText()`
   (`command.ts:397`) by a prebuild script importing `@arrowz/engine/command`

@@ -11,11 +11,10 @@ import '../design/console.css'
 
 // File scope, the way this repository's other browser files open one (see
 // `RunColumn.browser.test.tsx`, whose own file-scope block resets the same
-// four things). A
-// reset inside a describe leaves every case declared above the block running
-// on whatever the case before it happened to leave behind: that is how
-// `a group with help prints it under the heading` came to pass only because it
-// is declared first and `ui.help` defaults true.
+// four things). A reset inside a describe leaves every case declared above
+// the block running on whatever the case before it happened to leave behind:
+// that is how `a group with help prints it under the heading` came to pass
+// only because it is declared first and `ui.help` defaults true.
 beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
