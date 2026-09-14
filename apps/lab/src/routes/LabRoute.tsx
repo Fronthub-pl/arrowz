@@ -7,6 +7,7 @@ import { RunColumn } from '../run/RunColumn'
 import type { RunControl } from '../run/useRun'
 import { RunStatusBar } from '../stage/RunStatusBar'
 import { Stage } from '../stage/Stage'
+import { useStore } from '../state/store'
 
 /**
  * Always mounted, `hidden` when the route is elsewhere (Ruling 5). The run
@@ -18,6 +19,7 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
   // Abort when Generate is the one disabled.
   const goRef = useRef<HTMLButtonElement>(null)
   const abortRef = useRef<HTMLButtonElement>(null)
+  const simple = useStore((state) => state.ui.mode === 'simple')
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -28,10 +30,10 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
         <div className="fw-bar">
           <RunStatusBar />
         </div>
-        <div className="fw-lab">
-          <PresetStrip control={control} />
+        <div className={simple ? 'fw-lab simple' : 'fw-lab'}>
+          {simple ? null : <PresetStrip control={control} />}
           <Stage />
-          <Console>
+          <Console control={control}>
             <RunColumn control={control} goRef={goRef} abortRef={abortRef} />
           </Console>
           <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} />

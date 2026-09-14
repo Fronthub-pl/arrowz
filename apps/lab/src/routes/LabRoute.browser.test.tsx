@@ -6,6 +6,12 @@ import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { useStore } from '../state/store'
+// The stage-height case measures the lab grid, which needs the real cascade,
+// in the order `main.tsx` loads it.
+import '../design/tokens.css'
+import '../design/shell.css'
+import '../design/console.css'
+import '../design/run.css'
 
 // The real App, address bar and all: Ruling 5's claim is about what App
 // mounts, so a MemoryRouter harness would test the wrong thing. The params
@@ -32,6 +38,7 @@ async function mountApp() {
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
+  useStore.getState().ui.setMode('advanced')
   return render(<App />)
 }
 
@@ -234,6 +241,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
+  useStore.getState().ui.setMode('advanced')
   const screen = await render(
     <StrictMode>
       <App />
@@ -452,4 +460,52 @@ test('the saved board carries the view on screen', async () => {
     if (useStore.getState().view.colored !== was.colored) useStore.getState().view.toggle('colored')
     useStore.getState().view.setNumber('stroke', String(was.stroke))
   }
+}, 40_000)
+
+// Ruling 7, on the real page. The column is looked up once, before the swap,
+// and compared by identity after it: a remount would leave an equal-looking
+// region that is a different node. What a remount costs is real — the focus a
+// keyboard user left on Generate, and the column's `wasRunning` ref.
+//
+// Mutation that must turn this red: in `Console.tsx`, return
+// `<div className="fw-console"><SimplePanel control={control} />{children}</div>`
+// for the simple mode, so `children` moves from the third position to the second.
+test('the simple view replaces the rail and the presets, and keeps the very same run column', async () => {
+  const screen = await mountApp()
+  const column = screen.getByRole('region', { name: 'Run' }).element()
+  await screen.getByRole('radio', { name: 'Simple' }).click()
+  await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
+  expect(screen.getByRole('tablist', { name: 'Parameter groups' }).query()).toBeNull()
+  expect(screen.getByRole('group', { name: 'Presets' }).query()).toBeNull()
+  expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
+  await screen.getByRole('radio', { name: 'Advanced' }).click()
+  await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
+  expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
+}, 40_000)
+
+// Ruling 9: `auto` and `help` belong to the knobs, and the knobs are not on screen.
+test('the simple view hides the two switches only the advanced view has', async () => {
+  const screen = await mountApp()
+  await screen.getByRole('radio', { name: 'Simple' }).click()
+  await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
+  expect(screen.getByRole('switch', { name: 'generate right after a change' }).query()).toBeNull()
+  expect(screen.getByRole('switch', { name: 'show parameter descriptions' }).query()).toBeNull()
+  await expect.element(screen.getByRole('button', { name: 'Generate' })).toBeInTheDocument()
+}, 40_000)
+
+// Ruling 10: without its first row the lab grid would auto-place the stage
+// into the `auto` track. Measured on the element the grid actually sizes.
+test('the stage keeps its height when the preset strip goes', async () => {
+  const screen = await mountApp()
+  const stage = () => screen.container.querySelector<HTMLElement>('.fw-stage')?.getBoundingClientRect().height ?? 0
+  await expect.poll(stage).toBeGreaterThanOrEqual(180)
+  const before = stage()
+  await screen.getByRole('radio', { name: 'Simple' }).click()
+  await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
+  // Not a 180px floor: at the runner's 414×896 an auto-placed stage still
+  // measures 292px (measured in review: the board's 260px min-height plus its
+  // padding, which the max-height: 700px rule releases), so the floor could
+  // not fail. The
+  // strip's row goes to the two remaining rows, so the stage can only grow.
+  await expect.poll(stage).toBeGreaterThanOrEqual(before)
 }, 40_000)
