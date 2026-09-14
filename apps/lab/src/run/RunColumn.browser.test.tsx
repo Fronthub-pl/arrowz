@@ -1,9 +1,16 @@
+import { act } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defaultParams, PARAM_SPEC } from '@arrowz/engine'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { RunColumn } from './RunColumn'
+// The last case measures where the command box clips, which needs the real
+// cascade: the tokens, `.fw`'s font, and the column's own rules, in the order
+// `main.tsx` loads them.
+import '../design/tokens.css'
+import '../design/shell.css'
+import '../design/run.css'
 
 function stub() {
   const calls = { start: 0, abort: 0 }
@@ -116,5 +123,49 @@ describe('the alternative actions', () => {
     await screen.getByRole('button', { name: 'Defaults' }).click()
     expect(useStore.getState().params.violations).toHaveLength(0)
     expect(g.started()).toBe(1)
+  })
+
+  // Geometry and computed style, because no text lookup can fail for this:
+  // `.fw-cmd`'s text is in the DOM whether or not the box paints it, so the
+  // suite stayed green while a browser pass measured the column showing about
+  // a third of the command. Rendered inside a `.fw` root at the console's own
+  // third-track width, with the real cascade, and short enough that the box is
+  // already at its 58px floor — which is the only state in which it clips, and
+  // so the only state in which this rule does anything.
+  it('leaves the whole command reachable, without moving Generate', async () => {
+    const screen = await render(
+      <div className="fw" style={{ display: 'flex', width: '216px', height: '300px' }}>
+        <RunColumn control={stub().control} />
+      </div>,
+    )
+    const generateTop = () => screen.getByRole('button', { name: 'Generate' }).element().getBoundingClientRect().top
+    const before = generateTop()
+    await act(async () =>
+      useStore.getState().params.setMany({
+        W: 137,
+        H: 251,
+        seed: 987654,
+        pStraight: 0.83,
+        wShort: 0.45,
+        wMid: 0.35,
+        trapBias: 3,
+        backbite: 6,
+        giants: 4,
+      }),
+    )
+    const pre = screen.container.querySelector('.fw-cmd')
+    if (pre === null) throw new Error('the command box is not on the page')
+    // A command that already fits has nothing out of sight, and this case
+    // would pass without asserting anything.
+    expect(pre.scrollHeight).toBeGreaterThan(pre.clientHeight)
+    // `overflow-y` and not `scrollTop`: an `overflow: hidden` box is still
+    // programmatically scrollable, so setting `scrollTop` would succeed under
+    // the very rule this case exists to forbid. The computed value is what
+    // decides whether a person can reach the rest.
+    expect(getComputedStyle(pre).overflowY).not.toBe('hidden')
+    // The reason the fix is inside the box rather than `flex: none` on the
+    // figure: `LiveCommand` is the column's first child, so a figure that grew
+    // with the command would walk the primary action down the column.
+    expect(generateTop()).toBe(before)
   })
 })

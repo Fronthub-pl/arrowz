@@ -101,10 +101,22 @@
 .fw .fw-cmdhd button:hover {
   color: var(--ink);
 }
+/* `overflow: auto` and not the mock's `hidden`: the box is the first item of a
+   216px column, it is the only item allowed to shrink, and a browser pass
+   measured it showing `deno task carve --widt` / `h=26 --height=50 --see` and
+   clipping the rest — about a third of a five-flag command, in a box whose
+   stated job (LiveCommand.tsx:8-11) is to show exactly what would be run.
+
+   The alternative was `flex: none` on `.fw-cmdfig`, letting the column itself
+   scroll. Rejected: `LiveCommand` is the FIRST child of `.fw-run-col`, so the
+   figure growing with the command would push Generate, the three alternates
+   and the two switches down the column — the primary action moving under the
+   pointer as a slider is dragged. Scrolling inside the box leaves every other
+   control exactly where it was. */
 .fw-cmd {
   flex: 0 1 auto;
   min-height: 58px;
-  overflow: hidden;
+  overflow: auto;
   margin: 0;
   padding: 10px 12px;
   background: var(--void);
