@@ -64,9 +64,11 @@ export function RunColumn({
   // Generate is the target because it is the action the notice wanted in the
   // first place and the run it was refused for has just ended. When a knob was
   // dragged into a violation during the carve it is still disabled, `focus()`
-  // is a no-op and the focus is lost after all; nothing in this column is live
-  // in that state, and giving it a landing spot is a design question, not a
-  // guard (see the report for PR 5).
+  // is a no-op and the focus is lost after all. Nothing in this column is live
+  // in that state — Generate is out on `running || blocked` and the other three
+  // buttons are not what a person dismissing a notice asked for — so choosing a
+  // landing spot for it is a design question and not a guard, and it is left
+  // open here deliberately rather than answered in passing.
   const wasRunning = useRef(false)
   useLayoutEffect(() => {
     const abort = abortRef?.current ?? null

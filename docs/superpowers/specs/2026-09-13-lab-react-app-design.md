@@ -312,6 +312,12 @@ apps/lab/src/
                               abort, exports — built by the route and handed to
                               whichever console is on screen, so both share one
                               instance
+    LiveCommand.tsx           the CLI line for the knobs on screen, and its copy
+    PresetStrip.tsx           seven levels, twenty-six chips; a chip clamps and runs
+    ClampNotice.tsx           role="status"; dismiss hands focus back to the column
+    OptionSwitch.tsx          the switch `auto` and `help` share with ViewPanel's four
+    useRun.ts                 the one funnel every trigger of §2.2 starts through
+    useAutoRun.ts             the debounce behind `auto` — mounted once, in App
   report/
     StatsTable.tsx            23 rows, 4 separators, delta keyed by metric name
     LongestTable.tsx          longest pieces
@@ -329,7 +335,8 @@ apps/lab/src/
     ui.slice.ts               tab, selected group, palette, mode, solo, help, clamp notice
     lang.slice.ts             PL/EN, localStorage `labLang`
     recipe.slice.ts           the simple view's recipe, localStorage `labSimple`
-    url.ts                    hash codec, tolerant reader, hashchange → store → run
+    url.ts                    hash codec and tolerant reader — a pure module
+    useUrlHash.ts             read once, debounced write, hashchange → store → run
   worker/
     generate.worker.ts        imports @arrowz/engine
     useGenerator.ts           start, progress, abort, result — mounted once, in App
@@ -360,8 +367,9 @@ directly: the column is a grid item of `.fw-console`, which is what lets the
 same rule needs the grid re-parented around both boxes, through a
 `display: contents` wrapper that the query then has no box to address. The
 tree that shipped is
-`LabRoute` → `Console` → `RunColumn`, with the route owning the ref that the
-clamp notice hands focus back to.
+`LabRoute` → `Console` → `RunColumn`, with the route owning the two refs the
+clamp notice hands focus back to — Generate, and Abort for the state in which
+Generate is refused.
 
 ### 5.2 Reconciling the mock with the lab
 
@@ -578,7 +586,7 @@ as §5.4 describes rather than displayed and then ignored.
 |---|---|
 | 1 | Move ten pure fragments (nine engine, one board element) plus `startChoiceOf` and `short(n, locale)` in their corrected shapes; extract the shared "finite number under a `PARAM_SPEC` key" predicate and leave both reactions alone; add the sixth engine export and its tsconfig and smoke entries; add unit tests for every moved fragment; the old lab switches over |
 | 2 | `apps/lab` skeleton: Vite, React, ESLint/Prettier, `project.json`, the proxy **with the `Origin` rewrite**, tokens, shell, `App`-level `useGenerator` and the single `BoardCanvas`, and one end-to-end path — generate, draw, save |
-| 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the lifted run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
+| 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
 | 4 | Simple view, language switch, report with both delta baselines, SVG export, and the `f` hotkey with the solo view — stage chrome rather than a trigger, so §5.1 places them in `BoardFrame.tsx` |
 | 5 | The library: list, size chips, refresh, detail, its own view fields, copy, **load into lab**, two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |

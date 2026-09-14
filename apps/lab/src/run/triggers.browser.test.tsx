@@ -170,9 +170,12 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(defaultParams())
   })
 
-  // Row 9. An external `hashchange` — a link pasted into the bar — and not one
-  // this hook wrote: the fragment it wrote at mount is held by the `written`
-  // ref, which `useUrlHash.browser.test.tsx` exercises from the other side.
+  // Row 9. An external `hashchange` — a link pasted into the bar — and not the
+  // page describing itself. There is no record of what the hook wrote: the
+  // listener re-encodes the store and returns when the fragment already says
+  // that (`useUrlHash.ts:134-136`), so a fragment matching what is on screen is
+  // never a trigger, whoever put it there. `useUrlHash.browser.test.tsx`
+  // exercises that comparison from the other side.
   it('7 · an external hashchange: at once, on the knobs the link named', async () => {
     const r = recorder()
     await render(

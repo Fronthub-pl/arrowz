@@ -63,8 +63,8 @@
     height: 44px;
   }
   /* The mock's switch is 44×26; the row, not the track, carries the touch
-     target, because raising `.fw-sw` itself would move ViewPanel's five as
-     well and that belongs in one PR about all seven. */
+     target, because raising `.fw-sw` itself would move ViewPanel's four as
+     well and that belongs in one PR about all six. */
   .fw-opt {
     min-height: 44px;
   }
