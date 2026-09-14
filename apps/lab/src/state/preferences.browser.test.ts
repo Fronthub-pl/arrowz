@@ -1,0 +1,24 @@
+import { expect, test } from 'vitest'
+import { useStore } from './store'
+
+// First, before anything below writes: the setup file cleared storage before
+// this file's imports and the browser is pinned to en-US (Task 1), so the
+// store was created with nothing remembered.
+test('a fresh page opens in the simple view, in English', () => {
+  expect(useStore.getState().ui.mode).toBe('simple')
+  expect(useStore.getState().lang.lang).toBe('en')
+})
+
+test('a chosen language is remembered under the old lab’s key', () => {
+  useStore.getState().lang.setLang('pl')
+  expect(localStorage.getItem('labLang')).toBe('pl')
+  useStore.getState().lang.setLang('en')
+  expect(localStorage.getItem('labLang')).toBe('en')
+})
+
+test('a chosen view is remembered under the old lab’s key', () => {
+  useStore.getState().ui.setMode('advanced')
+  expect(localStorage.getItem('labView')).toBe('advanced')
+  useStore.getState().ui.setMode('simple')
+  expect(localStorage.getItem('labView')).toBe('simple')
+})
