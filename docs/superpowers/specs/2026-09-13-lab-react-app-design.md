@@ -295,7 +295,8 @@ apps/lab/src/
     RunStatusBar.tsx          ready / carving / failed / saved, aria-live="polite"
     RunDiffStrip.tsx          differences against the peeked run
   console/
-    Console.tsx               168px rail + knob grid (two tracks, not three)
+    Console.tsx               168px rail + knob grid + the run column it is
+                              handed as a child (three tracks)
     GroupRail.tsx             six groups plus the element section, violation counts
     KnobPanel.tsx             group header + grid
     Knob.tsx                  dispatch by spec: value | choice | start
@@ -308,8 +309,9 @@ apps/lab/src/
     SimpleConsole.tsx         sizes, sliders, segmented choices
   run/
     RunColumn.tsx             command, Generate, New seed, Defaults, auto, help,
-                              abort, exports — lifted above Console so both
-                              consoles share one instance
+                              abort, exports — built by the route and handed to
+                              whichever console is on screen, so both share one
+                              instance
   report/
     StatsTable.tsx            23 rows, 4 separators, delta keyed by metric name
     LongestTable.tsx          longest pieces
@@ -343,9 +345,23 @@ no knob is boolean. `ChoiceKnob` and `StartKnob` exist, because two knobs are
 choices and two share the composite start control; the traversal rule is
 Knob-level, not global: the panel builds the start control where the first
 `surface: 'start'` spec would have stood and skips the second (`:418-430`).
-`RunColumn` sits above `Console`, so swapping in `SimpleConsole` cannot fork it;
-`Console` is therefore a two-track grid and the mock's third track is the
-lifted column.
+`RunColumn` is built by the route and passed to `Console` as a child, so
+swapping in `SimpleConsole` cannot fork it; `Console` is therefore the mock's
+three-track grid and the column is its third track.
+
+*Amended after PR 3.* The first draft lifted the column out of the console and
+placed it as the console's sibling. What it was protecting is the single
+instance — a run in flight must survive the simple/advanced swap — and a child
+the caller constructs is the same instance whichever console places it, so the
+guarantee is unchanged. Placing it inside buys back the mock's own grid
+directly: the column is a grid item of `.fw-console`, which is what lets the
+≤900px query turn it into a full-width row under the other two tracks
+(`console.css:390-398`). A lifted column is not in that grid at all, so the
+same rule needs the grid re-parented around both boxes, through a
+`display: contents` wrapper that the query then has no box to address. The
+tree that shipped is
+`LabRoute` → `Console` → `RunColumn`, with the route owning the ref that the
+clamp notice hands focus back to.
 
 ### 5.2 Reconciling the mock with the lab
 
@@ -357,7 +373,8 @@ lifted column.
   rail shows a per-group violation count so nothing hides behind a closed
   group. This is a deliberate UX change, recorded as one.
 - The mock has no simple view. It swaps `Console` for `SimpleConsole`; the
-  stage, filmstrip, status bar and the lifted run column are untouched. In
+  stage, filmstrip, status bar and the run column the route hands in are
+  untouched. In
   simple mode `cell`, `voids`, `top`, `auto` and `help` are hidden, as
   `.advonly` does today (`lab.html:52`).
 - The mock's `element` tab becomes `docs` with two sections: the element's API,
