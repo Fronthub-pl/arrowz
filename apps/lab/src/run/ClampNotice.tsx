@@ -1,4 +1,4 @@
-import type { RefObject } from 'react'
+import { type RefObject, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 
@@ -26,15 +26,28 @@ export function ClampNotice({ focusOnDismiss }: { focusOnDismiss: RefObject<HTML
   const dict = useDictionary()
   const clamped = useStore((state) => state.ui.clamped)
   const raiseClamped = useStore((state) => state.ui.raiseClamped)
+  const box = useRef<HTMLDivElement>(null)
   // The button dismisses itself, so focus would land on <body> and a keyboard
   // user would restart from the top of the document. It goes to the action
   // most likely to come next, which is the run the preset was chosen for.
+  //
+  // Unless that action is refused: this notice appears exactly when a preset
+  // has just started a run, and Generate is disabled while one is in flight
+  // (`RunColumn.tsx:60`) — and `focus()` on a disabled button is a no-op, so
+  // dismissing during a long carve dropped the keyboard user on <body> after
+  // all. The fallback is this region itself, at `tabIndex={-1}`: programmatic
+  // focus only, never a tab stop, and the next Tab carries on from where the
+  // notice was rather than from the top of the document. The element outlives
+  // the dismissal — only its content moves — so it is still there to take the
+  // focus after `raiseClamped(false)`.
   const dismiss = () => {
     raiseClamped(false)
-    focusOnDismiss.current?.focus()
+    const go = focusOnDismiss.current
+    if (go !== null && !go.disabled) go.focus()
+    else box.current?.focus()
   }
   return (
-    <div role="status" className={clamped ? 'fw-note hold' : undefined}>
+    <div ref={box} tabIndex={-1} role="status" className={clamped ? 'fw-note hold' : undefined}>
       {clamped ? (
         <>
           <b>{dict.t('clamped')}</b>

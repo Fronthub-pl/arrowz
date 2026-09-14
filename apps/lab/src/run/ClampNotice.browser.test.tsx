@@ -7,11 +7,11 @@ import { ClampNotice } from './ClampNotice'
 
 const EN = dictionary('en')
 
-function Host() {
+function Host({ goDisabled = false }: { goDisabled?: boolean }) {
   const go = useRef<HTMLButtonElement>(null)
   return (
     <>
-      <button type="button" ref={go}>
+      <button type="button" ref={go} disabled={goDisabled}>
         Generate
       </button>
       <ClampNotice focusOnDismiss={go} />
@@ -43,6 +43,20 @@ describe('ClampNotice', () => {
     await screen.getByRole('button', { name: 'Dismiss' }).click()
     expect(useStore.getState().ui.clamped).toBe(false)
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+  })
+
+  // The state this notice actually appears in: a preset both clamps a value
+  // and starts a run, and Generate is disabled for as long as that run lasts.
+  // `focus()` on a disabled button is a no-op, so a keyboard user dismissing
+  // during a long carve used to land on <body> and restart from the top of the
+  // document. `document.body` is the assertion that discriminates — the
+  // element the old code reached.
+  it('keeps the focus in the page when the action it hands to is refused', async () => {
+    const screen = await render(<Host goDisabled />)
+    useStore.getState().ui.raiseClamped(true)
+    await screen.getByRole('button', { name: 'Dismiss' }).click()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('status').element())
   })
 
   // Replaced by the outcome of the next load, not stacked with it: the old
