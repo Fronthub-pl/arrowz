@@ -1,3 +1,4 @@
+import { recipeOf } from '@arrowz/engine/simple'
 import { expect, test } from 'vitest'
 import { useStore } from './store'
 
@@ -21,4 +22,14 @@ test('a chosen view is remembered under the old lab’s key', () => {
   expect(localStorage.getItem('labView')).toBe('advanced')
   useStore.getState().ui.setMode('simple')
   expect(localStorage.getItem('labView')).toBe('simple')
+})
+
+test('the recipe is remembered under the old lab’s key, in a form its reader takes back', () => {
+  useStore.getState().recipe.setSlider('lengths', 0.3)
+  useStore.getState().recipe.setRandom(true)
+  const stored = localStorage.getItem('labSimple')
+  expect(stored).not.toBeNull()
+  expect(recipeOf(JSON.parse(stored ?? 'null'))).toEqual(useStore.getState().recipe.value)
+  useStore.getState().recipe.reset()
+  useStore.getState().recipe.setRandom(false)
 })

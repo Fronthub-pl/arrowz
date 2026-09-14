@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { createLangSlice, type LangState } from './lang.slice'
 import { createParamsSlice, type ParamsState } from './params.slice'
+import { createRecipeSlice, type RecipeState } from './recipe.slice'
 import { createRunSlice, type RunState } from './run.slice'
 import { createUiSlice, type UiState } from './ui.slice'
 import { createViewSlice, type ViewState } from './view.slice'
@@ -15,6 +16,7 @@ export interface Store {
   view: ViewState
   ui: UiState
   lang: LangState
+  recipe: RecipeState
 }
 
 export const useStore = create<Store>()((set) => ({
@@ -23,4 +25,5 @@ export const useStore = create<Store>()((set) => ({
   view: createViewSlice(set),
   ui: createUiSlice(set),
   lang: createLangSlice(set),
+  recipe: createRecipeSlice(set),
 }))
