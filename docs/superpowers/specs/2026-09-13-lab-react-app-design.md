@@ -356,7 +356,7 @@ the caller constructs is the same instance whichever console places it, so the
 guarantee is unchanged. Placing it inside buys back the mock's own grid
 directly: the column is a grid item of `.fw-console`, which is what lets the
 ≤900px query turn it into a full-width row under the other two tracks
-(`console.css:390-398`). A lifted column is not in that grid at all, so the
+(`console.css:393-401`). A lifted column is not in that grid at all, so the
 same rule needs the grid re-parented around both boxes, through a
 `display: contents` wrapper that the query then has no box to address. The
 tree that shipped is
