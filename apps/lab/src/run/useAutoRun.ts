@@ -22,21 +22,41 @@ export const AUTO_DELAY_MS = 350
  * turning the switch on arms the *next* edit rather than carving the board
  * already on screen; and inside the timer, so that turning it off during the
  * wait cancels the run rather than merely stopping the next one.
+ *
+ * It also watches `recipe.edits`, and that one ignores the switch: the simple
+ * view has no `auto`, and the old lab's size fields and sliders schedule a run
+ * unconditionally (`lab-page.ts:527-529`, `:559-561`). One hook owns both
+ * because `RunControl.hold` keeps one cancel; two timers would overwrite each
+ * other's slot and Generate would leave the other one to fire (Ruling 3 of
+ * PR 4a). A recipe edit leaves a debt: a later knob edit restarts the wait but
+ * keeps the run owed, and only a cancel clears it.
  */
 export function useAutoRun(control: RunControl): void {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
-    const cancel = () => clearTimeout(timer)
+    // A recipe edit is waiting, and it runs whatever `auto` says.
+    let owed = false
+    const cancel = () => {
+      clearTimeout(timer)
+      owed = false
+    }
     const unsubscribe = useStore.subscribe((state, prev) => {
-      if (state.params.edits === prev.params.edits) return
-      cancel()
-      if (!state.ui.auto) return
+      const typed = state.params.edits !== prev.params.edits
+      const shaped = state.recipe.edits !== prev.recipe.edits
+      if (!typed && !shaped) return
+      // Not `cancel()`: restarting the wait must not forgive the debt.
+      clearTimeout(timer)
+      owed = owed || shaped
+      if (!owed && !state.ui.auto) return
       timer = setTimeout(() => {
-        if (useStore.getState().ui.auto) control.start()
+        const run = owed || useStore.getState().ui.auto
+        owed = false
+        if (run) control.start()
       }, AUTO_DELAY_MS)
       // Every other trigger calls `control.start()`, which calls this first.
       // That is what stops a preset chosen 100 ms after a keystroke from
-      // carving twice (Ruling 4).
+      // carving twice (Ruling 4 of PR #66) — and, with one timer for both
+      // kinds of edit, what stops Generate from leaving a recipe run behind.
       control.hold(cancel)
     })
     return () => {
