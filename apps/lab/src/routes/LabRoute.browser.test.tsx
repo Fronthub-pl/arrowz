@@ -202,7 +202,18 @@ test('the lab panel is hidden off-route and shown on it', async () => {
   expect(panel?.closest('main')).not.toBeNull()
   expect(panel?.closest('main')?.hasAttribute('hidden')).toBe(false)
   await userEvent.click(screen.getByRole('tab', { name: 'Docs' }))
-  expect(screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden')).toBe(true)
+  // Polled, not read at once. `BrowserRouter` commits every location change
+  // inside `React.startTransition` unless it is given `useTransitions={false}`,
+  // which `App` does not, so `hidden` lands after the click has been dispatched
+  // rather than during it: a native `click()` followed by a synchronous read
+  // sees `false` every time. `userEvent.click`'s round-trip usually outlasts the
+  // transition, which is why a synchronous read passed locally and on earlier
+  // CI runs, and failed the one time a slow runner returned first.
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'), {
+      timeout: 5_000,
+    })
+    .toBe(true)
 }, 20_000)
 
 // Mounted under StrictMode, whose double-invoked mount effect is what the save
