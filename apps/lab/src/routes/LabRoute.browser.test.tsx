@@ -1,6 +1,6 @@
 import type { StoreRequest } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
-import { StrictMode } from 'react'
+import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -271,6 +271,53 @@ test('the lab route shows the console under the stage', async () => {
   await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
   await expect.element(screen.getByRole('tabpanel', { name: 'board' })).toBeVisible()
 })
+
+// The plumbing itself, which nothing else in this branch touches. `ClampNotice`
+// and `RunColumn` are each tested against a host of their own making, so both
+// suites stay green with the wiring cut: delete `ref={abortRef}` from
+// `RunColumn.tsx:113` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
+// feature is dead on the real page while every other case passes. The same was
+// true of `goRef`, so this case covers both — they are the same two lines.
+//
+// Both halves are focus reads, and focus is the one thing a component test
+// cannot fake: the buttons here are the route's own, reached by role rather
+// than by ref, so the assertion can only hold if the ref arrived at the button
+// the page renders.
+test('the clamp notice hands focus to the route’s own buttons', async () => {
+  const screen = await mountApp()
+  // The load run first: Generate is disabled while it carves, and the idle
+  // half below is about Generate being the live one.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  // `goRef`. `act`, because `raiseClamped` is a store write from outside a
+  // React event and the Dismiss button is not in the DOM until it commits.
+  await act(async () => useStore.getState().ui.raiseClamped(true))
+  await screen.getByRole('button', { name: 'Dismiss' }).click()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
+
+  // `abortRef`: with a carve in flight Generate is refused and Abort is the
+  // live one. 600×600 and seed 9 for the reason the in-flight case above
+  // gives — the defaults finish in tens of milliseconds, which is less than
+  // the click round-trip this case spends before it looks.
+  useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  await expect.poll(() => useStore.getState().run.phase).toBe('running')
+  await act(async () => useStore.getState().ui.raiseClamped(true))
+  await screen.getByRole('button', { name: 'Dismiss' }).click()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
+
+  // And the end of the run does not take that focus down with it: `RunColumn`
+  // moves it to Generate, which the same commit re-enables. This is the whole
+  // mechanism on the real page — the notice parks the focus on Abort, the run
+  // ends, and the focus is still on a control. `vi.waitFor` and not a bare
+  // read: the redirect is a layout effect of the commit the click flushes, and
+  // HTML's own focus fixup would otherwise be racing it.
+  await screen.getByRole('button', { name: 'Abort' }).click()
+  await expect.poll(() => useStore.getState().run.phase).toBe('idle')
+  await vi.waitFor(() =>
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element()),
+  )
+}, 60_000)
 
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()

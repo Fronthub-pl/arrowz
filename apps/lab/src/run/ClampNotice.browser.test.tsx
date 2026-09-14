@@ -86,6 +86,21 @@ describe('ClampNotice', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
   })
 
+  // Both refused at once, which the two conditions plainly allow: Generate is
+  // out on `running || blocked` and Abort is in on `running` alone, so a link
+  // that clamps a value *and* breaks a rule leaves neither live. The region is
+  // the last resort, and this is the case that holds the `!abort.disabled`
+  // half of the guard down — without it `abort.focus()` is a no-op on a
+  // disabled button, nothing else takes the focus, and the dismissed button
+  // unmounts from under it onto <body>.
+  it('falls back to its own region when Abort is refused as well', async () => {
+    const screen = await render(<Host goDisabled withAbort abortDisabled />)
+    useStore.getState().ui.raiseClamped(true)
+    await screen.getByRole('button', { name: 'Dismiss' }).click()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(document.activeElement).toBe(screen.getByRole('status').element())
+  })
+
   // Replaced by the outcome of the next load, not stacked with it: the old
   // lab's `showClamped(clamped)` takes a boolean for exactly this reason.
   //
