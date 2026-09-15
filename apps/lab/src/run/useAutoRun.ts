@@ -6,7 +6,8 @@ import type { RunControl } from './useRun'
 export const AUTO_DELAY_MS = 350
 
 /**
- * Generate a while after the last knob was typed. Mounted once, in `App`.
+ * Generate a while after the last knob was typed, or the last recipe edit.
+ * Mounted once, in `App`.
  *
  * The subscription is inside the effect and not a `useStore(selector)` in
  * render (Ruling 11): `KnobSlider` commits on the range input's `onChange`,

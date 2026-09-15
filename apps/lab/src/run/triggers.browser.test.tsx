@@ -19,8 +19,8 @@ import type { RunControl } from './useRun'
 
 /**
  * Spec §2.2's table, stated as cases: one per row this PR owns. Every trigger
- * it names is already built — Tasks 1 to 13 — so this file is a statement of
- * the contract rather than a discovery about it.
+ * it names is already built, so this file is a statement of the contract
+ * rather than a discovery about it.
  *
  * Each case asserts the two things the table states, and the second half is
  * the one worth the file. **When** the run starts is only half a contract;
@@ -43,9 +43,10 @@ import type { RunControl } from './useRun'
  * fake timers and Playwright's pointer do not mix, and the cards' own wiring is
  * `SimplePanel.browser.test.tsx`'s subject.
  *
- * The control is a stub everywhere but case 8: what a trigger does to the
- * worker is `useGenerator.browser.test.tsx`'s subject, and what it does to the
- * knobs is this one's.
+ * The control is a stub everywhere but cases 8 and 16–18, which mount `App`
+ * with the real one: what a trigger does to the worker is
+ * `useGenerator.browser.test.tsx`'s subject, and what it does to the knobs is
+ * this one's.
  */
 function recorder() {
   const seen: Params[] = []

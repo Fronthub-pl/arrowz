@@ -8,8 +8,10 @@ import type { RunControl } from './useRun'
 
 /**
  * The mock's third console track (`.fw-run-col`). It is a child of `Console`
- * rather than a sibling, so PR 4's simple console places the very same element
- * and cannot fork it (Ruling 2).
+ * rather than a sibling: `Console` keeps `children` at the third position of
+ * its own grid in both views and swaps only the first two — the rail's slot
+ * becomes `null` and the panel becomes `SimplePanel` — so the same node
+ * reaches both interiors (`Console.tsx`'s own comment; PR 4a, Ruling 7).
  *
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a
