@@ -49,7 +49,7 @@ New in this plan, measured on 2026-09-15 with a throw-away probe mounting the wh
 - **`page.viewport(width, height)` from `vitest/browser` resizes the test iframe**, and the size outlives the case that set it. Every layout case in this plan sets its own viewport first.
 - **`.fw-lab` at 1400×900 and 860×900 is 770.2px tall** (top 129.8); the stage is 366.1px in the advanced view (38px preset strip above it) and 385.1px in the simple view.
 - **With a class on `.fw-lab` hiding everything but the stage and redefining both grids** (Task 7's rules), `.fw-boardwrap` equals `.fw-lab` exactly and `<arrowz-board>` is 34px narrower and shorter, at 1400×900, 860×900 and 860×650, in both views.
-- **The command box at ≤900px:** the run column row is 180.1px (advanced) and 189.5px (simple); `.fw-cmdfig` shrinks to 0px and 7.5px while `.fw-cmd` keeps its 58px and paints 72.4px and 64.8px over Generate's top edge. **Above 900px** the same collapse appears once the exports are added: at 1400×900 in the advanced view the figure shrinks to 5.5px and the box overlaps Generate by 66.9px (at 1400×1000, by 16.9px). Without the exports, 1400×900 advanced is squeezed by 11px and does not yet overlap.
+- **The command box at ≤900px:** the run column row is 180.1px (advanced) and 189.5px (simple); `.fw-cmdfig` shrinks to 0px and 7.5px while `.fw-cmd` keeps its 58px and paints 72.4px and 64.8px over Generate's top edge (72.4px in both views once the exports are in the column). **Above 900px** the same collapse appears once the exports are added: at 1400×900 in the advanced view the figure shrinks to 5.5px and the box overlaps Generate by 66.9px (at 1400×1000, by 16.9px). Without the exports, 1400×900 advanced is squeezed by 11px and does not yet overlap.
 - **Three candidate rules for the box**, each measured with the exports present, a short and a long command, at 1400×900, 1400×1000 and 860×900 in both views: `flex: none` on the figure at ≤900px fixes 860 but not 1400, and moves Generate 4.8px as the command grows; `min-height: auto` moves Generate 81.5px as the command grows; **`min-height: calc(1lh + 6px + 58px)` on the figure at every width** gives the figure 84.4px, no overlap anywhere (the box ends 12px above Generate, its margin and the column's gap), and Generate moves 0px as the command grows in the advanced view and at 860 in both views. (The simple view above 900px moves Generate 24.5px for a long command today, before any change; that is untouched.)
 - **The report row at ≤900px**, measured at 860 wide and heights 650, 701, 740, 760, 800, 900, 1100, both views, with a 30-line report:
 
@@ -58,9 +58,9 @@ New in this plan, measured on 2026-09-15 with a throw-away probe mounting the wh
   | none (today, no report) | board 334/353, inside | board 260 **clipped** by the wrap in the advanced view up to 740 | board 209, inside |
   | `minmax(0, 1fr) auto` + report `max-height: 73px` | board 260/279, inside; report 73 | board **clipped** at every height below 900 | report 73, board 135 |
   | `minmax(292px, 2fr) minmax(0, 1fr)` | board 260, report 73/92 | wrap **overflows the stage** by up to 25.4px into the console | report 80 |
-  | **`minmax(min(292px, 100%), 2fr) minmax(0, 1fr)`**, and `minmax(0, 2fr) minmax(0, 1fr)` below 700px of height | board 260, inside; report 73/92 | report 0; board clipped exactly where it is clipped today, nothing overflows | report 80/86, board 128/141, inside |
+  | **`minmax(min(292px, 100%), 2fr) minmax(0, 1fr)`**, and `minmax(0, 2fr) minmax(0, 1fr)` below 700px of height | board 260, inside; report 73/92 | report track 0; board clipped exactly where it is clipped today | report 80/86, board 128/141, inside |
 
-  At 860×1100 the chosen rule gives the report 155/161px and the board 278/291px. At 901px and above the report is the third column, 352px wide (22rem), and the board 445px wide at 901.
+  At 860×1100 the chosen rule gives the report 155/161px and the board 278/291px. *Corrected by review:* the probe's stand-in report had no padding. The real `.fw-report` keeps its 24px of padding when its track is 0, and that box overflows the stage by up to 25px (860×720, advanced) under the console, whose opaque background, later in tree order, paints over it — nothing of it shows. At least one line of report content appears from 860×850 (advanced) and 860×800 (simple); at 860×800 (advanced) and 860×760 (simple) the row is padding only. At 901px and above the report is the third column, 352px wide (22rem), and the board 445px wide at 901.
 - **Contrast of the new pairs**, by WCAG arithmetic on the token hex values: `--ink` on `--graphite` 15.45:1, `--error` on `--graphite` 4.90:1, `--ash` on `--graphite` 5.52:1, `--ink` on `--void` 16.53:1. Each is asserted again by a browser test reading computed colours.
 - **Fixture boards** (`generate({ ...defaultParams(), W: 8, H: 8, seed })`): seed 1 closes with 8 pieces, longest 18; seed 2 closes with 13 pieces, longest 17. The report cases rely on both numbers.
 
@@ -72,7 +72,7 @@ Decisions this plan takes that the spec left open or states differently. An exec
 
 **Ruling 1 — the command box's floor applies at every width, not only at ≤900px.** Spec §10 row 4b says the fix "applies at ≤900px only … and leaves the above-900px ruling of `run.css:104-115` intact". That sentence was written before the exports were measured: with them, 1400×900 in the advanced view overlaps Generate by 66.9px. The floor `min-height: calc(1lh + 6px + 58px)` on `.fw-cmdfig` keeps that ruling's substance at every width — the box scrolls, and Generate does not move as the command grows (measured 0px) — while the column scrolls when its fixed contents outgrow it, which it already does in the simple view. Task 8 amends §10.
 
-**Ruling 2 — the report row at ≤900px is capped by the stage's own rows, not by a `max-height`.** Spec §5.2 asks for "a capped height" chosen by measuring at 860×900. A fixed 73px cap keeps the board whole at 860×900 and clips it at every lower height; a `292px` row minimum overflows into the console below 760px. `minmax(min(292px, 100%), 2fr) minmax(0, 1fr)` holds the board's minimum whenever the stage can afford it, gives the report a third of what is left over, and falls back to today's layout exactly where today's layout already clips (table above). Task 8 amends §5.2.
+**Ruling 2 — the report row at ≤900px is capped by the stage's own rows, not by a `max-height`.** Spec §5.2 asks for "a capped height" chosen by measuring at 860×900. A fixed 73px cap keeps the board whole at 860×900 and clips it at every lower height; a `292px` row minimum overflows into the console below 760px. `minmax(min(292px, 100%), 2fr) minmax(0, 1fr)` holds the board's minimum whenever the stage can afford it, gives the report a third of what is left over, and falls back to today's board exactly where today's layout already clips — the report shrinking to its padding under the console — (table above). Task 8 amends §5.2.
 
 **Ruling 3 — the solo toggle is `⛶`, not `⤢`.** `⤢` is the element's own *fit* button (`arrowz-board.ts:374`), and §5.2 says the toggle is a separate glyph. Its name is `fullView` ("Full view (key F)"), and it carries `aria-pressed`.
 
@@ -93,6 +93,16 @@ Decisions this plan takes that the spec left open or states differently. An exec
 **Ruling 11 — whole-app test helpers live in `src/harness/mountApp.tsx`, used by this plan's new files.** `LabRoute.browser.test.tsx` and `triggers.browser.test.tsx` keep their own resets, each of which carries comments specific to its cases; moving them is not this PR's work.
 
 **Ruling 12 — the statistics labels are row headers.** Each row's label is `<th scope="row">`, so a screen reader reading a value hears its label; the old lab's table had no headers at all.
+
+---
+
+## Revision 2: what the first round of review changed
+
+Three independent reviews ran on revision 1 (`41e1cff`), each applying Tasks 1–7 in its own worktree: facts and compilation; whether each test can fail; seams, CSS and spec coverage. None found a defect in the application code: every step compiled, lint and Prettier stayed clean, `deno task verify` passed, and the chromium project ran 267 of 268.
+
+**Fixed.** Two test defects, each found by all three reviewers or two of them: the annotation's hit test could never pass, because `document.elementFromPoint` skips a `pointer-events: none` box (Ruling 10) — the case now asserts the rule and lifts it for the one read; and the four solo cases looked the run column up by role while it was `display: none`, which a role locator skips — that lookup now passes `includeHidden: true`. One case could not fail for its reason: the exports' `toBeEnabled` during a run retried past the end of the carve, so a button disabled while running passed; it now reads `disabled` once, while `running`. The delta colour case now asserts each cell wears its own token, not only that it reads at AA. Task 2's and Task 7's expected failures name what actually fails; a missing solo toggle reports in 5 s instead of after a 40 s click wait. The ≤900px report text claimed a 0px report below 850px of height: the real column keeps its 24px of padding, covered by the console — the harness table, Ruling 2, the shell.css comment and the browser pass now say so. The exports are asserted in the simple view as well. The frame's test box has one row. Task 8 amends §5.3's "empty table" and §8's unit list. Stale figures (64.8px with the exports, run.css line numbers after Task 5), two find targets that span a line break, and an import order `deno fmt` would rewrite were corrected.
+
+**Confirmed, not to be re-litigated.** Every file:line citation and find target; Task 2's reset list and grep; the plan's three "prove it can fail" mutations, each red for the stated reason (Task 7's for a different mechanism, now recorded); twelve further mutations red for the right reason; the solo geometry at all four sizes; the command box red before its floor and green after; the report and export cases with the real worker.
 
 ---
 
@@ -153,7 +163,7 @@ Decisions this plan takes that the spec left open or states differently. An exec
 In `packages/engine/lab-report.test.ts`, change the import on line 4 to:
 
 ```ts
-import { genSeconds, type ReportInput, reportDelta, reportRows, type StatRow } from './lab-report.ts'
+import { genSeconds, reportDelta, type ReportInput, reportRows, type StatRow } from './lab-report.ts'
 ```
 
 and append at the end of the file:
@@ -568,7 +578,7 @@ test('a run that was never started cannot be completed', () => {
 - [ ] **Step 3: Run them to verify they fail**
 
 Run: `pnpm --dir apps/lab exec vitest run --project node src/state/result.slice.test.ts src/state/store.test.ts`
-Expected: FAIL — `result.slice` cannot be resolved (the fixtures import `FinishedRun` and `completeRun`, which do not exist yet).
+Expected: FAIL — `TypeError: Cannot read properties of undefined (reading 'reset')` in `beforeEach`: the store has no `result` slice yet. (Vitest does not type-check, so the missing `FinishedRun` type is not what fails.)
 
 - [ ] **Step 4: Write the result slice**
 
@@ -937,7 +947,7 @@ function useStoreSave() {
   const board = useStore((state) => state.result.shown?.board ?? null)
 ```
 
-and in the doc comment replace "`run.progressed()` replaces `state.run` and leaves `state.view` alone" with "`run.progressed()` replaces `state.run` and leaves `state.view` and `state.result` alone".
+and in the doc comment replace "`run.progressed()` replaces `state.run` and leaves `state.view` alone" (it spans a line break before "alone") with "`run.progressed()` replaces `state.run` and leaves `state.view` and `state.result` alone".
 
 `apps/lab/src/stage/RunStatusBar.tsx`:
 
@@ -994,7 +1004,7 @@ grep -c "result.reset()" run/triggers.browser.test.tsx console/KnobPanel.browser
 
 Expected counts: 1 for every file except `LabRoute.browser.test.tsx` (2) and `useGenerator.browser.test.tsx` (5).
 
-`stage/RunStatusBar.browser.test.tsx`: replace both `state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })` with `state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })`; replace `state.run.stored({ ok: false, error: 'no store server' })` with `state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })`; in the comment above that case replace "`stored()` is the only thing that sets `saved` and only `started`, `aborted` and `reset` clear it (run.slice.ts:54, :58, :61-62)" with "`result.stored()` is the only thing that sets `saved`, and only the result slice's `show` and `reset` clear it". Then add, as the last case inside the `describe`:
+`stage/RunStatusBar.browser.test.tsx`: replace both `state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })` with `state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })`; replace `state.run.stored({ ok: false, error: 'no store server' })` with `state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })`; in the comment above that case replace "`stored()` is the only thing that sets `saved` and only `started`, `aborted` and `reset` clear it (run.slice.ts:54, :58, :61-62)" (it spans two comment lines; match across the break and rewrap) with "`result.stored()` is the only thing that sets `saved`, and only the result slice's `show` and `reset` clear it". Then add, as the last case inside the `describe`:
 
 ```tsx
   // PR 4b: a run in flight keeps the last result and its answer, so the next
@@ -1225,7 +1235,8 @@ beforeEach(() => {
 /** The frame in a box with a size, as the stage gives it one. */
 async function mountFrame() {
   return render(
-    <div className="fw" style={{ display: 'grid', width: '480px', height: '360px' }}>
+    // One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px.
+    <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
       <BoardFrame />
     </div>,
   )
@@ -1273,8 +1284,14 @@ test('the annotation comes after the element and is what paints at its corner', 
   const label = annotation(screen.container)
   if (element === null || label === null) throw new Error('the frame is not on the page')
   expect(element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  // Ruling 10 takes the annotation out of hit testing, and `elementFromPoint`
+  // honours that (measured: the hit is the `arrowz-board` host). The rule is
+  // asserted, then lifted for this one read, which asks what paints there.
+  expect(getComputedStyle(label).pointerEvents).toBe('none')
   const box = label.getBoundingClientRect()
+  label.style.pointerEvents = 'auto'
   const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+  label.style.pointerEvents = ''
   expect(hit === label || (hit !== null && label.contains(hit))).toBe(true)
 })
 
@@ -1316,8 +1333,8 @@ import { BoardCanvas } from './BoardCanvas'
  * free (arrowz-board.ts:178-185).
  *
  * The element's view is memoised on the *slice's* identity, not rebuilt per
- * render: `run.progressed()` replaces `state.run` and leaves `state.view`
- * alone, so a run's progress messages reassign nothing on the element, while
+ * render: `run.progressed()` replaces `state.run` and leaves `state.view` and
+ * `state.result` alone, so a run's progress messages reassign nothing on the element, while
  * editing a preview field redraws the board without generating.
  */
 export function BoardFrame(): ReactElement {
@@ -1585,10 +1602,26 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   expect(longest()).toBeNull()
 })
 
-/** Measures a delta cell as the screen shows it, after checking which kind it is. */
+const TOKEN = { better: '--ink', worse: '--error', neutral: '--ash' } as const
+
+/** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */
+function tokenColour(token: string): string {
+  const probe = document.createElement('span')
+  probe.style.color = `var(${token})`
+  document.body.append(probe)
+  const colour = getComputedStyle(probe).color
+  probe.remove()
+  return colour
+}
+
+/**
+ * Checks a delta cell's kind, that it wears its own token (§7.1 — a contrast
+ * check alone passes a worse cell left at `--ash`), and that it reads at AA.
+ */
 function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'worse' | 'neutral') {
   if (cell === undefined) throw new Error('a delta cell is missing')
   expect(cell.className).toBe(`fw-delta ${kind}`)
+  expect(getComputedStyle(cell).color, kind).toBe(tokenColour(TOKEN[kind]))
   const { front, back } = shown(cell)
   expect(contrast(front, back), kind).toBeGreaterThanOrEqual(4.5)
 }
@@ -1911,9 +1944,10 @@ In `apps/lab/src/design/shell.css`, in the `.fw-stage` rule (lines 148-154), rep
    860 wide: 73px of report at 900 high in the advanced view, 155px at 1100.
    `min(292px, 100%)` and not a bare 292px: in a stage shorter than that, a bare
    minimum pushed the wrap 25px out of the stage and over the console, where
-   this rule leaves the report at 0px and the board exactly as it is today. A
-   fixed `max-height` on the report instead clipped the board at every height
-   below 900. */
+   this rule leaves the board exactly as it is today and the report at its 24px
+   of padding, which the console's opaque background covers (review measured up
+   to 25px of it past the stage at 860×720). A fixed `max-height` on the report
+   instead clipped the board at every height below 900. */
 @media (max-width: 900px) {
   .fw-stage {
     grid-template-columns: 70px minmax(0, 1fr);
@@ -1975,7 +2009,7 @@ git commit -m "Report the board on screen beside it, with the change against the
 
 ## Task 5: The two exports of the board on screen
 
-**Files:** Create `apps/lab/src/run/download.ts`, `apps/lab/src/run/ExportButtons.tsx`, `apps/lab/src/run/ExportButtons.browser.test.tsx`. Modify `apps/lab/src/run/RunColumn.tsx`, `apps/lab/src/design/run.css`, `apps/lab/src/routes/LabRoute.browser.test.tsx`.
+**Files:** Create `apps/lab/src/run/download.ts`, `apps/lab/src/run/ExportButtons.tsx`, `apps/lab/src/run/ExportButtons.browser.test.tsx`. Modify `apps/lab/src/run/RunColumn.tsx`, `apps/lab/src/run/RunColumn.browser.test.tsx`, `apps/lab/src/design/run.css`, `apps/lab/src/routes/LabRoute.browser.test.tsx`.
 
 **Interfaces:**
 - Consumes: `result.shown` (Task 2); `downloadSvg`, `downloadBoardFile`, `exportsGroup`, `exportError` (Task 1); `contrast`, `shown` (Task 3); `boardId`, `svgOptions` from `@arrowz/engine/command`; `viewOf` from `state/view.slice.ts`; `generate.worker.ts`, which already answers `{ type: 'svg' }`.
@@ -2122,10 +2156,24 @@ test('the export buttons read at AA', async () => {
 })
 ```
 
+Append to `apps/lab/src/run/RunColumn.browser.test.tsx`:
+
+```tsx
+// Spec §5.2: the exports belong to the board, not to the knobs, so the simple
+// view keeps them — unlike `auto` and `help` (PR 4a, Ruling 9).
+describe('the exports', () => {
+  it.each(['advanced', 'simple'] as const)('are in the column in the %s view', async (mode) => {
+    useStore.getState().ui.setMode(mode)
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('group', { name: 'Export' })).toBeInTheDocument()
+  })
+})
+```
+
 - [ ] **Step 2: Run them to verify they fail**
 
-Run: `pnpm --dir apps/lab exec vitest run --project chromium src/run/ExportButtons.browser.test.tsx`
-Expected: FAIL — `./ExportButtons` cannot be resolved.
+Run: `pnpm --dir apps/lab exec vitest run --project chromium src/run/ExportButtons.browser.test.tsx src/run/RunColumn.browser.test.tsx`
+Expected: FAIL — `./ExportButtons` cannot be resolved, and both new `RunColumn` cases find no group named "Export".
 
 - [ ] **Step 3: Write the download and the buttons**
 
@@ -2291,8 +2339,15 @@ In `apps/lab/src/routes/LabRoute.browser.test.tsx`, in "a run in flight keeps th
 
 ```tsx
   // Both exports stay live for the board on screen while the next one carves.
-  await expect.element(screen.getByRole('button', { name: 'Download SVG' })).toBeEnabled()
-  await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeEnabled()
+  // Read at once, not retried: a retrying `toBeEnabled` outlasts the carve and
+  // passes on the finished run, so a button disabled while running would pass
+  // it (measured in review).
+  expect(useStore.getState().run.phase).toBe('running')
+  for (const name of ['Download SVG', 'Download board file']) {
+    const button = screen.getByRole('button', { name }).element()
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`${name} is not a button`)
+    expect(button.disabled, name).toBe(false)
+  }
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
@@ -2331,8 +2386,8 @@ Append to `apps/lab/src/routes/LabLayout.browser.test.tsx` (add `import { act } 
 // 900px once the exports are in the column (PR 4b, Ruling 1). `.fw-cmdfig` is
 // `flex: 0 1 auto` with `min-height: 0`, so the column shrinks the figure below
 // its content while `.fw-cmd` keeps its 58px floor and paints behind Generate:
-// measured 72.4px (860×900 advanced), 64.8px (simple), 66.9px (1400×900
-// advanced, with the exports). What must hold is the run.css ruling as well:
+// measured 72.4px at 860×900 in both views and 66.9px at 1400×900 advanced,
+// all with the exports in the column. What must hold is the run.css ruling as well:
 // the box scrolls, and Generate does not move as the command grows.
 const COMMAND_BOX_SIZES = [
   [860, 900, 'advanced'],
@@ -2381,7 +2436,7 @@ Expected: FAIL in all three cases on the first `toBeLessThanOrEqual` — the box
 
 - [ ] **Step 3: Give the figure its floor**
 
-In `apps/lab/src/design/run.css`, replace the `.fw-cmdfig` rule and its comment (lines 72-80) with:
+In `apps/lab/src/design/run.css`, replace the `.fw-cmdfig` rule and its comment (lines 72-80 before Task 5's insertions, 104-112 after them) with:
 
 ```css
 /* `<figure>` carries a browser default margin; the mock's box has none, and
@@ -2543,6 +2598,9 @@ test.each(SOLO_SIZES)(
     const canvas = element?.shadowRoot?.querySelector('canvas')
     const column = screen.getByRole('region', { name: 'Run' }).element()
     expect(canvas).toBeTruthy()
+    // Named before it is clicked, so a missing toggle reports in 5 s rather
+    // than after `click()`'s 40 s actionability wait.
+    await expect.element(screen.getByRole('button', { name: 'Full view (key F)' }), { timeout: 5_000 }).toBeInTheDocument()
 
     await screen.getByRole('button', { name: 'Full view (key F)' }).click()
     await twoFrames()
@@ -2558,7 +2616,9 @@ test.each(SOLO_SIZES)(
     await expect.element(screen.getByRole('status', { name: 'Run status' })).toBeVisible()
 
     expect(element?.shadowRoot?.querySelector('canvas')).toBe(canvas)
-    expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
+    // `includeHidden`: a role locator skips a `display: none` region, and the
+    // column is exactly that while solo is on.
+    expect(screen.getByRole('region', { name: 'Run', includeHidden: true }).element()).toBe(column)
     await screen.getByRole('button', { name: 'Full view (key F)' }).click()
     await expect.element(screen.getByRole('region', { name: 'Run' })).toBeVisible()
     expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
@@ -2661,8 +2721,8 @@ test('a focus inside what solo hides moves to the toggle', async () => {
 
 - [ ] **Step 4: Run them to verify they fail**
 
-Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage/BoardFrame.browser.test.tsx src/routes/LabLayout.browser.test.tsx -t "solo|f "`
-Expected: FAIL — no button named "Full view (key F)"; `f` leaves `solo` false.
+Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage/BoardFrame.browser.test.tsx src/routes/LabLayout.browser.test.tsx`
+Expected: FAIL — the solo cases on the missing "Full view (key F)" button (after 5 s each), the `f` cases on `expected false to be true`, the focus case on `<body>`; the earlier report and command-box cases still pass.
 
 - [ ] **Step 5: Add the toggle, the class and the key**
 
@@ -2820,7 +2880,7 @@ In `apps/lab/src/design/console.css`, after the `.fw-lab.simple` rule, insert:
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage src/routes`
 Expected: PASS.
 
-Prove the grid redefinition is load-bearing: temporarily delete the `.fw-lab.solo .fw-stage` rule and rerun `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "whole lab"`. Expected: FAIL on `wrap.width` (the hidden rail's 70px column and, above 900px, the report's 22rem column keep their widths). Restore it: PASS.
+Prove the grid redefinition is load-bearing: temporarily delete the `.fw-lab.solo .fw-stage` rule and rerun `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "whole lab"`. Expected: FAIL on `wrap.width` — measured `expected 70 to be close to 1400` (and 860): with the rail hidden, the wrap is the stage's first visible item and auto-places into the 70px rail track. Restore it: PASS.
 
 Run: `pnpm nx run lab:check && pnpm nx run lab:lint`
 Expected: PASS.
@@ -2847,7 +2907,7 @@ Run `sh packages/cli/lab.sh` (it builds the old lab and serves the board store o
 1. After the load run, set 600×600 and press Generate: while it carves, the board, the report, the annotation (naming the 25×50 board) and both export buttons stay; when it finishes, all four describe the 600×600 board.
 2. The second board's report shows deltas, `+` or `−`, coloured by direction; switching to Polish keeps every delta and translates every label.
 3. Download SVG saves `arrowz-600x600-seed9.svg`, which opens as an SVG; Download board file saves `<boardId>.board.json`, byte-identical to the file the store wrote under `packages/cli/boards/600x600/` (compare with `cmp`; read the store, do not modify it). A slow SVG export at 600×600 disables only its own button.
-4. At 860×900 and 860×760 the report is a row under the board, scrolls inside itself, and the board is whole; at 860×700 the report row is 0px tall and nothing overlaps the console.
+4. At 860×900 and 860×850 the report is a row under the board with at least one line of content, scrolling inside itself, and the board is whole; at 860×800 and 860×760 the row is padding only and nothing of it shows over the console; at 860×650 the report is a row again under a board with no minimum.
 5. The command box paints nothing over Generate at 860×900 (both views) and at 1400×900 (advanced); a long command scrolls inside the box.
 6. Solo from the corner button and from `f` gives the board the whole panel in both views; ⌘F opens the browser's find and leaves solo alone; Escape leaves solo on; a keyboard focus on Generate lands on the toggle; the element's zoom and pan still work in solo, and fit refits it on the way in and out.
 7. The console shows no errors; list what it does show, against PR #67's browser pass (Vite's debug lines, React DevTools, "Lit is in dev mode", the `willReadFrequently` warning from `gl-color.ts:45`).
@@ -2865,6 +2925,13 @@ In §5.2's report paragraph, replace "with a capped height, and the board keeps 
 In §5.2's last bullet, replace "The solo toggle is a separate glyph in the frame's top-right corner" with "The solo toggle is a separate glyph, `⛶`, in the frame's top-right corner".
 
 In §8's browser list, replace "the ≤900px command box measured before and after its fix" with "the command box at 860×900 in both views and at 1400×900 in the advanced view, measured before and after its fix".
+
+In §8's unit list, replace "the report's delta, compared by row index, unmoved by a language switch" with "the report's delta compared by row index — `reportDelta` in the engine, and the row alignment unmoved by a language switch in `ReportPanel.browser.test.tsx`, where the dictionary switch is real".
+
+In §5.3's baseline note, replace "A result without metrics shows an empty table and leaves the baseline where it was" with "A result without metrics shows no statistics table, keeps the longest-pieces table (the old lab's `showLabBoard()` redraws it after `report()` clears both, `lab-page.ts:814-816`), and leaves the baseline where it was".
+
+Run: `grep -n "shows an empty table" docs/superpowers/specs/2026-09-13-lab-react-app-design.md`
+Expected: no output.
 
 In §10 row 4b, replace "the fix applies at ≤900px only, after the cause is measured, and leaves the above-900px ruling of `run.css:104-115` (the box scrolls, the column does not grow) intact" with "measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:104-115`: the box scrolls, and Generate does not move as the command grows".
 
