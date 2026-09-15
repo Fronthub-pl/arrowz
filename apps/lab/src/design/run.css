@@ -102,10 +102,21 @@
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
-   the flex column depends on it. */
+   the flex column depends on it.
+
+   The floor is the caption's line, its 6px margin and the box's own 58px
+   (PR 4b, Ruling 1). Without it the column shrank the figure below its content
+   — to 0px at 860×900, and to 5.5px at 1400×900 once the exports joined the
+   column — while `.fw-cmd` kept its 58px and painted behind Generate. With it
+   the figure is 84.4px wherever the column is short; the box still scrolls
+   inside itself and Generate does not move as the command grows (measured 0px
+   at 860 in both views and at 1400 in the advanced view), which is the ruling
+   below. What gives instead is the column, which scrolls, as it already does
+   in the simple view. `flex: none` at ≤900px was measured as the alternative
+   and fixed only 860, moving Generate 4.8px for a long command. */
 .fw-cmdfig {
   flex: 0 1 auto;
-  min-height: 0;
+  min-height: calc(1lh + 6px + 58px);
   margin: 0;
   display: flex;
   flex-direction: column;
