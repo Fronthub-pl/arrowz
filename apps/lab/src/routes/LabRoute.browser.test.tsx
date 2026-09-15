@@ -225,6 +225,16 @@ test('a run in flight keeps the last result on screen', async () => {
     .toMatchTextContent(/^(Generating|[\d.]+%)/)
   expect(element?.board).toBe(board)
   expect(report()?.textContent).toBe(statsBefore)
+  // Both exports stay live for the board on screen while the next one carves.
+  // Read at once, not retried: a retrying `toBeEnabled` outlasts the carve and
+  // passes on the finished run, so a button disabled while running would pass
+  // it (measured in review).
+  expect(useStore.getState().run.phase).toBe('running')
+  for (const name of ['Download SVG', 'Download board file']) {
+    const button = screen.getByRole('button', { name }).element()
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`${name} is not a button`)
+    expect(button.disabled, name).toBe(false)
+  }
   // Kept through the carve as well (Tasks 4 and 5 add their lines here).
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(element?.board?.W).toBe(600)

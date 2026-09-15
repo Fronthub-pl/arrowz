@@ -326,3 +326,13 @@ describe('the alternative actions', () => {
     expect(generateTop()).toBe(before)
   })
 })
+
+// Spec §5.2: the exports belong to the board, not to the knobs, so the simple
+// view keeps them — unlike `auto` and `help` (PR 4a, Ruling 9).
+describe('the exports', () => {
+  it.each(['advanced', 'simple'] as const)('are in the column in the %s view', async (mode) => {
+    useStore.getState().ui.setMode(mode)
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('group', { name: 'Export' })).toBeInTheDocument()
+  })
+})

@@ -58,8 +58,40 @@
   color: var(--mist);
   min-width: 0;
 }
+/* The mock's ghost buttons (`.fw-ghost button`), for the exports: a second
+   ghost group after the switches' one, whose own 8px top padding is the gap
+   between them. `--ash` on `--graphite` is 5.52:1 and moves to `--ink` on
+   hover (ExportButtons.browser.test.tsx measures it). */
+.fw .fw-exports button {
+  flex: none;
+  height: 28px;
+  min-height: 28px;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--ash);
+  text-align: left;
+  cursor: pointer;
+}
+.fw .fw-exports button:hover:not(:disabled) {
+  color: var(--ink);
+}
+/* The same refusal as `.fw .fw-alt button:disabled`. */
+.fw .fw-exports button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* `--error` on `--graphite` is 4.90:1. */
+.fw-export-error {
+  margin: 4px 0 0;
+  color: var(--error);
+  overflow-wrap: anywhere;
+}
 @media (pointer: coarse) {
   .fw .fw-alt button {
+    height: 44px;
+  }
+  .fw .fw-exports button {
     height: 44px;
   }
   /* The mock's switch is 44×26; the row, not the track, carries the touch

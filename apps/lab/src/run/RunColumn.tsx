@@ -2,6 +2,7 @@ import { type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { drawIfRandom, resetRecipeIfSimple } from '../simple/applyRecipe'
 import { useStore } from '../state/store'
+import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
 import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
@@ -175,6 +176,8 @@ export function RunColumn({
           <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
         </div>
       )}
+      {/* In both views: the exports belong to the board, not to the knobs. */}
+      <ExportButtons />
     </section>
   )
 }
