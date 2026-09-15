@@ -18,23 +18,24 @@ import { viewOf } from './state/view.slice'
 import { useGenerator } from './worker/useGenerator'
 
 /**
- * Saves each finished run once. `App` subscribes to one field rather than to
- * the slice: a subscription to `run` would re-render the shell on every
- * progress message. The guard keys on the file object's identity, which is
- * fresh per run even when two runs carve the same board, so pressing Generate
- * twice with the same seed still reports a save both times. The ref survives
- * StrictMode's double-invoked mount effect, which is why the guard is a ref and
- * not a piece of state; LabRoute.browser.test.tsx mounts under StrictMode and
- * counts the POSTs rather than leaving that reasoned and unexercised.
+ * Saves each shown result once. `App` subscribes to one field rather than to
+ * the slice, so a progress message does not re-render the shell. The guard
+ * keys on the file object's identity, which is fresh per run even when two runs
+ * carve the same board, so pressing Generate twice with the same seed still
+ * reports a save both times. The ref survives StrictMode's double-invoked mount
+ * effect, which is why the guard is a ref and not a piece of state;
+ * LabRoute.browser.test.tsx mounts under StrictMode and counts the POSTs.
+ *
+ * A late answer for a board no longer on screen is the result slice's to drop
+ * (`stored` compares the file), so this hook no longer compares anything when
+ * the answer arrives.
  */
 function useStoreSave() {
-  const file = useStore((state) => state.run.file)
+  const shown = useStore((state) => state.result.shown)
   const posted = useRef<BoardFile | null>(null)
   useEffect(() => {
-    const { phase, params: runParams, report } = useStore.getState().run
-    if (phase !== 'done' || file === null || runParams === null || report === null) return
-    if (posted.current === file) return
-    posted.current = file
+    if (shown === null || posted.current === shown.file) return
+    posted.current = shown.file
     // The stored view is the lab's view with top zeroed, as the old lab stores
     // it (`storeView()` in lab-page.ts): a saved board is a picture, and the
     // highlight is a reading aid for the run that just finished.
@@ -44,8 +45,9 @@ function useStoreSave() {
     // size it carved (command.ts:513) rather than from anything typed. Writing
     // it into the slice instead would overwrite the preview field under a user
     // who had just set it.
-    const view = { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(runParams.W, runParams.H) }
-    const request = storeRequest(file, runParams, view, 'lab', {
+    const { file, params, report } = shown
+    const view = { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(params.W, params.H) }
+    const request = storeRequest(file, params, view, 'lab', {
       ok: report.ok,
       pieces: report.pieces,
       maxLen: report.metrics?.maxLen ?? null,
@@ -54,15 +56,8 @@ function useStoreSave() {
       backtracks: report.backtracks,
       stuck: report.stuck,
     })
-    // The answer is dropped if it is no longer this run's: pressing Generate
-    // again while a slow POST is outstanding clears `saved`, and the stale
-    // outcome would otherwise append " — not saved" to the new run's
-    // "Generating…" line.
-    void saveBoard(request).then((outcome) => {
-      const run = useStore.getState().run
-      if (run.file === file) run.stored(outcome)
-    })
-  }, [file])
+    void saveBoard(request).then((outcome) => useStore.getState().result.stored(file, outcome))
+  }, [shown])
 }
 
 /**

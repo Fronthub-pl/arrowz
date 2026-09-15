@@ -21,7 +21,7 @@ function stub() {
 }
 
 // A real finished run, so the focus case below can end a carve the way a carve
-// ends — `finished()`, and not the `aborted()` that would also flip `running`
+// ends — `completeRun()`, and not the `aborted()` that would also flip `running`
 // but is the user's own doing. 8×8 because nothing here reads the report; `ok`
 // and `deadlock` are stated rather than taken from the result for the same
 // reason `RunStatusBar.browser.test.tsx` states them.
@@ -73,6 +73,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
   state.ui.setAuto(false)
   state.ui.setHelp(true)
   state.ui.setMode('advanced')
@@ -142,7 +143,7 @@ describe('RunColumn', () => {
     // pass by the focus having been on Generate all along.
     expect(document.activeElement).toBe(abort)
 
-    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).not.toBe(document.body)
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
@@ -209,7 +210,7 @@ describe('RunColumn', () => {
     // only indirectly, by the end branch then moving it on to Generate.
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
-    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
   })

@@ -64,7 +64,9 @@ export function useGenerator(): GeneratorHandle {
           actions().failed(err instanceof Error ? err.message : String(err))
           return
         }
-        actions().finished({ board, file: message.board, report: message })
+        // Both slices in one update: the run is done and its board is shown
+        // (spec §5.3). Until this line the last result stays on screen.
+        useStore.getState().completeRun({ board, file: message.board, report: message })
         return
       }
       if (message.type === 'error') {

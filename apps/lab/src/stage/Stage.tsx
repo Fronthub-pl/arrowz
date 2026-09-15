@@ -15,7 +15,7 @@ import { BoardCanvas } from './BoardCanvas'
  * while editing a preview field redraws the board without generating.
  */
 export function Stage() {
-  const board = useStore((state) => state.run.board)
+  const board = useStore((state) => state.result.shown?.board ?? null)
   const view = useStore((state) => state.view)
   const lang = useStore((state) => state.lang.lang)
   const elementView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])

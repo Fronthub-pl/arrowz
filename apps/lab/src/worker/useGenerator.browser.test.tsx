@@ -25,13 +25,14 @@ const start = (params: Parameters<GeneratorHandle['start']>[0]) => (g: Generator
 
 test('a run carves a board and lands in done', async () => {
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   await render(<Harness drive={start({ ...defaultParams(), W: 16, H: 16, seed: 5 })} />)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
-  const { run } = useStore.getState()
-  expect(run.board?.W).toBe(16)
+  const { shown } = useStore.getState().result
+  expect(shown?.board.W).toBe(16)
   // BoardFile is an object (types.ts:151); its fingerprint is the board's.
-  expect(run.file?.format).toBe('arrowz-board')
-  expect(run.report?.pieces).toBe(run.board?.pieces.length)
+  expect(shown?.file.format).toBe('arrowz-board')
+  expect(shown?.report.pieces).toBe(shown?.board.pieces.length)
 }, 30_000)
 
 // The worker throws InvalidParamsError for parameters outside the envelope
@@ -39,6 +40,7 @@ test('a run carves a board and lands in done', async () => {
 // message rather than hang in `running`.
 test('parameters outside the envelope end in error with the engine message', async () => {
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   await render(<Harness drive={start({ ...defaultParams(), W: 12, H: 12, pStraight: 0 })} />)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('error')
   expect(useStore.getState().run.message ?? '').not.toBe('')
@@ -53,6 +55,7 @@ test('parameters outside the envelope end in error with the engine message', asy
 // because a genuinely corrupt file cannot be carved to order.
 test('a board file the codec rejects ends in error, not in a stuck run', async () => {
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   const file: BoardFile = {
     format: 'arrowz-board',
     v: 1,
@@ -103,6 +106,7 @@ test('a board file the codec rejects ends in error, not in a stuck run', async (
 // is longer than the board takes, so a missing terminate() shows up.
 test('abort terminates the worker, and nothing arrives afterwards', async () => {
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   const terminate = vi.spyOn(Worker.prototype, 'terminate')
   await render(
     <Harness
@@ -117,7 +121,7 @@ test('abort terminates the worker, and nothing arrives afterwards', async () => 
   expect(terminate).toHaveBeenCalled()
   await new Promise((done) => setTimeout(done, 2_000))
   expect(useStore.getState().run.phase).toBe('idle')
-  expect(useStore.getState().run.board).toBeNull()
+  expect(useStore.getState().result.shown).toBeNull()
   terminate.mockRestore()
 }, 30_000)
 
@@ -131,6 +135,7 @@ test('abort terminates the worker, and nothing arrives afterwards', async () => 
 // carve against the 250 ms gate), where 400 falls silent at about three.
 test('a large run reports progress before it finishes', async () => {
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   await render(<Harness drive={start({ ...defaultParams(), W: 600, H: 600, seed: 11 })} />)
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')

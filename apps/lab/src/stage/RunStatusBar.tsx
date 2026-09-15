@@ -10,12 +10,15 @@ import { useStore } from '../state/store'
 export function RunStatusBar() {
   const dict = useDictionary()
   const run = useStore((state) => state.run)
+  // The board on screen and the store's answer for it: the result slice's,
+  // which a run in flight leaves where it was (spec §5.3).
+  const report = useStore((state) => state.result.shown?.report ?? null)
+  const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
 
   let text: string
-  // Whether this line is speaking for a run at all. `run.saved` outlives the
-  // board it describes — only `started`, `aborted` and `reset` clear it
-  // (run.slice.ts:54, :61-62) — so it is a fact about the last board carved and
+  // Whether this line is speaking for a run at all. `saved` is a fact about the
+  // board on screen — only the result slice's `show` and `reset` clear it — and
   // not about whatever the line happens to be saying. Appended to the refusal,
   // it read `Fix the settings marked in red to generate — saved`: a sentence
   // about a board nobody is looking at, glued to a sentence about the knobs.
@@ -75,21 +78,21 @@ export function RunStatusBar() {
     // keeps the two words apart; `workerError` (lab-i18n.ts:122-123) is
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
-  } else if (run.phase !== 'done' || run.report === null) {
+  } else if (run.phase !== 'done' || report === null) {
     // Idle, and two idles are distinguishable here: aborted and fresh. The
     // third, refused, is the branch above — a page that says "Press Generate"
     // beside a Generate it has disabled is telling the user to do the
     // impossible, whichever phase the last run left behind.
     text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
-  } else if (run.report.ok) {
+  } else if (report.ok) {
     reportsRun = true
     text = dict.t('closed')
-  } else if (run.report.deadlock) {
+  } else if (report.deadlock) {
     reportsRun = true
     text = dict.t('unsolvable')
   } else {
     reportsRun = true
-    const stuck = run.report.stuck
+    const stuck = report.stuck
     text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
   }
 
@@ -98,13 +101,13 @@ export function RunStatusBar() {
   // the three branches above, the ones reporting a board this run produced —
   // the flag is set where the text is, so the two cannot drift apart the way a
   // second copy of the branch conditions would.
-  const saved = !reportsRun || run.saved === null ? '' : ` — ${run.saved.ok ? dict.t('saved') : dict.t('notSaved')}`
+  const answer = !reportsRun || saved === null ? '' : ` — ${saved.ok ? dict.t('saved') : dict.t('notSaved')}`
   // A later task adds a second `role="status"` region (a clamp notice), so
   // this one gets a name now, ahead of that, for a screen reader to tell the
   // two apart.
   return (
     <output aria-live="polite" aria-label={dict.t('runStatus')}>
-      {`${text}${saved}`}
+      {`${text}${answer}`}
     </output>
   )
 }

@@ -72,6 +72,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
   state.ui.setAuto(false)
   state.ui.setHelp(true)
   state.ui.raiseClamped(false)
@@ -201,7 +202,7 @@ describe('what starts a run (spec §2.2)', () => {
   //
   // `run.params` and not `run.phase === 'running'`: the 25×50 board finishes
   // in milliseconds, so a phase read is a race the carve can win. `params` is
-  // set by `started()` and survives `finished()`, so it answers whichever side
+  // set by `started()` and survives `completeRun()`, so it answers whichever side
   // of the carve the poll lands on.
   it('8 · page load, advanced view: a run without a click, on the knobs the page opened with', async () => {
     await render(<App />)

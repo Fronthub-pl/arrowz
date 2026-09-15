@@ -35,6 +35,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
 })
 
 describe('RunStatusBar', () => {
@@ -88,7 +89,7 @@ describe('RunStatusBar', () => {
   it('says the refusal over a finished run, not the board that run closed', async () => {
     const state = useStore.getState()
     state.run.started(state.params.values)
-    state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     const screen = await render(<RunStatusBar />)
     // The precondition, so the case cannot pass by the refusal being printed
     // everywhere: with no violation this is the closed board.
@@ -98,10 +99,10 @@ describe('RunStatusBar', () => {
   })
 
   // The same sequence with the store's answer in it, which is the half nothing
-  // asserted. `stored()` is the only thing that sets `saved` and only
-  // `started`, `aborted` and `reset` clear it (run.slice.ts:54, :58, :61-62),
-  // so a knob dragged into a violation after a saved run leaves the outcome
-  // behind — and the bar used to glue it to the refusal:
+  // asserted. `result.stored()` is the only thing that sets `saved`, and only
+  // the result slice's `show` and `reset` clear it, so a knob dragged into a
+  // violation after a saved run leaves the outcome behind — and the bar used to
+  // glue it to the refusal:
   // `Fix the settings marked in red to generate — not saved (no store server)`.
   //
   // The whole text is compared, not matched inside: `toMatchTextContent` is
@@ -110,8 +111,8 @@ describe('RunStatusBar', () => {
   it('keeps the save outcome off a line that is refusing rather than reporting', async () => {
     const state = useStore.getState()
     state.run.started(state.params.values)
-    state.run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
-    state.run.stored({ ok: false, error: 'no store server' })
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
     const screen = await render(<RunStatusBar />)
     // The precondition: beside a line that is reporting a run, the outcome is
     // still appended — §5.3's rule is not being deleted, only scoped.
@@ -137,5 +138,24 @@ describe('RunStatusBar', () => {
     state.run.started(useStore.getState().params.values)
     const screen = await render(<RunStatusBar />)
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generating'))
+  })
+
+  // PR 4b: a run in flight keeps the last result and its answer, so the next
+  // board must start without the answer of the one before — `show` clears it.
+  // Without that, the next closed board reads "— not saved" before its own
+  // POST has even gone out.
+  it('does not carry the answer for one board onto the next', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
+    const screen = await render(<RunStatusBar />)
+    await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
+    const next = { ...CLOSED, board: { ...CLOSED.board } }
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().completeRun({ board: RESULT.board, file: next.board, report: next })
+    })
+    await expect.poll(() => screen.getByRole('status').element().textContent).toBe(EN.t('closed'))
   })
 })

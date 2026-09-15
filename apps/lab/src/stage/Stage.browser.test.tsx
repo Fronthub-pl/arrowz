@@ -56,4 +56,5 @@ test('a progress message does not reassign the element view', async () => {
   await expect.poll(() => useStore.getState().run.progress?.pieces).toBe(1)
   expect(element?.view).toBe(before)
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
 })

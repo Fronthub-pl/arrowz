@@ -27,6 +27,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
   state.ui.raiseClamped(false)
 })
 
