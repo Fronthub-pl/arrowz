@@ -21,7 +21,7 @@ import {
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
+import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View, ViewNumber } from '@arrowz/engine'
 
@@ -164,7 +164,7 @@ Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () 
 
 // --- --dry-run ---------------------------------------------------------------
 
-Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one JSON line', () => {
+Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one JSON line', async () => {
   const dir = tmp()
   const out = join(dir, 'out.svg')
   const r = dryRun(['--dry-run', '--svg=' + out, '--width=10', '--height=10', '--seed=1'], dir)
@@ -176,7 +176,7 @@ Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one 
   assertEquals(r.json.dryRun, true)
   assertEquals(r.json.ok, true)
   assertEquals([r.json.W, r.json.H, r.json.seed], [10, 10, 1])
-  assertEquals(r.json.id, boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 })))
+  assertEquals(r.json.id, await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 })))
   assertEquals(typeof r.json.pieces, 'number')
   assertEquals(typeof r.json.maxLen, 'number')
   assertEquals(typeof r.json.genMs, 'number')
@@ -610,7 +610,6 @@ Deno.test('carve.ts refuses an unknown value of --help by name, exit code 2', ()
 // 400×400 takes seconds, a zero budget stops it at the first progress tick.
 
 const LONG = ['--width=400', '--height=400', '--seed=7']
-const longId = boardId(simpleParams({ ...defaultChoice(), W: 400, H: 400, seed: 7 }))
 
 Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved so far, holes drawn', () => {
   const dir = tmp()
@@ -649,7 +648,8 @@ Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSO
   assertEquals(r.status, 1, r.stderr)
   assert(r.json, `no JSON line in:\n${r.stdout}`)
   assertEquals([r.json.dryRun, r.json.ok, r.json.aborted, r.json.restarts], [true, false, true, 0])
-  assertEquals(r.json.id, longId)
+  // An aborted board is whatever the deadline left, so only the shape of its name is known.
+  assertMatch(r.json.id ?? '', /^sha256-[0-9a-f]{64}$/)
   assert(r.json.stuck && r.json.stuck.remaining > 0)
   assertEquals(typeof r.json.backtracks, 'number')
   assertEquals(entries(dir), 0, 'nothing is written')
@@ -776,6 +776,42 @@ Deno.test('carve.ts --count skips seeds that do not close, stores none of them, 
   assertMatch(r.stderr, /seed 8: not closed \(\d+ cells left\), skipped\n/)
   assertMatch(r.stdout, /batch: 0\/2 boards written, 2 seeds tried, not closed: 7 8\n$/)
   assertEquals(exists(join(dir, 'boards')), false, 'nothing is stored')
+})
+
+Deno.test('carve.ts run twice says the layout is stored and its recipe updated', async () => {
+  const dir = tmp()
+  const args = ['--width=10', '--height=10', '--seed=3']
+  const first = runCarve(args, dir)
+  assertEquals(first.status, 0, first.stderr)
+  assertEquals(first.stdout.includes('already stored'), false, 'a new layout says nothing about it')
+  const second = runCarve(args, dir)
+  assertEquals(second.status, 0, second.stderr)
+  const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))
+  assertMatch(
+    second.stdout,
+    new RegExp(`^10x10/${id}\\.board\\.json {2}layout already stored, recipe updated {2}pieces=`),
+  )
+  assertEquals(readMeta(join(dir, '10x10', `${id}.json`)).sources.length, 1)
+})
+
+// Goal 4 of the spec, as behaviour: a batch writes N different layouts. The
+// second run over the same seeds finds the first three stored, saves their
+// recipes again and carves on; with the seed limit at 3 it has nothing new.
+Deno.test('carve.ts --count counts new layouts only: a second batch over the same seeds moves past them', async () => {
+  const dir = tmp()
+  const args = ['--width=10', '--height=10', '--seed=1', '--count=3']
+  assertEquals(runCarve(args, dir).status, 0)
+  const again = runCarve(args, dir)
+  assertEquals(again.status, 0, again.stderr)
+  for (const seed of [1, 2, 3]) {
+    const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed }))
+    assertStringIncludes(again.stderr, `seed ${seed}: layout already stored as 10x10/${id}, recipe updated\n`)
+  }
+  assertMatch(again.stdout, /batch: 3\/3 boards written, 6 seeds tried, already stored: 1 2 3\n$/)
+  assertEquals(entries(join(dir, '10x10')), 12, 'six layouts, a board file and a meta each')
+  const capped = runCarve([...args, '--max-seeds=3'], dir)
+  assertEquals(capped.status, 1, capped.stderr)
+  assertMatch(capped.stdout, /batch: 0\/3 boards written, 3 seeds tried, already stored: 1 2 3\n$/)
 })
 
 Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exit 2, nothing written', () => {

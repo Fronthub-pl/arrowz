@@ -15,10 +15,13 @@
 // written. Modes:
 //   --svg[=path]    an SVG preview in the store as well (+ a copy at path)
 //   --dry-run       one board, nothing written: one JSON line on stdout with
-//                   the id, metrics, the pinned knobs and the fingerprint
-//   --count=N       N closed boards on the seeds from --seed up, skipping any
-//                   that does not close; --max-seeds=M gives up after M seeds
-//                   (default 2·N); exit 1 when it gives up
+//                   the id (the layout hash the store would name it by),
+//                   metrics, the pinned knobs and the fingerprint
+//   --count=N       N closed boards of different layouts on the seeds from
+//                   --seed up, skipping any that does not close or whose layout
+//                   is already stored (its recipe is saved all the same);
+//                   --max-seeds=M gives up after M seeds (default 2·N); exit 1
+//                   when it gives up
 //   --help, -h      usage; --help=knobs adds the table of every knob
 // A retired spelling (--advanced, --board, --straight, --w) and an unknown
 // flag are refused by name with exit code 2, and so are parameters outside
@@ -34,13 +37,13 @@ import {
   generate,
   GenerateAbort,
   INACTIVE_REASONS,
+  layoutHash,
   PARAM_SPEC,
   RULE_REASONS,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
 import {
-  boardId,
   buildCommand,
   drawnViolations,
   flagOf,
@@ -52,7 +55,7 @@ import {
 } from '@arrowz/engine/command'
 import { BUNDLES, drawParams } from '@arrowz/engine/simple'
 import type { Move } from '@arrowz/engine/simple'
-import { saveBoard } from './store.ts'
+import { saveBoard, type SaveResult } from './store.ts'
 
 // The CLI is a program, not a module: nothing imports it (the tests spawn it).
 if (!import.meta.main) throw new Error('carve.ts is the CLI entry point; import command.ts or the engine instead')
@@ -353,10 +356,21 @@ function storedNames(meta: BoardMeta, svgOut: string | null): string {
   return `${base}.board.json${meta.svg ? `  + ${base}.svg` : ''}${svgOut ? `  + ${svgOut}` : ''}`
 }
 
+/** What a save found: nothing for a new layout; otherwise that it was stored, and what became of the recipe. */
+function recipeNote(saved: SaveResult): string {
+  return `recipe ${saved.recipeExisted ? 'updated' : 'added'}`
+}
+
+/** The report line's note for a single run, with its two leading spaces, or nothing. */
+function alreadyNote(saved: SaveResult): string {
+  return saved.layoutExisted ? `  layout already stored, ${recipeNote(saved)}` : ''
+}
+
 const svgOut = svgFlag?.includes('=') ? svgFlag.slice('--svg='.length) : null
 if (count !== null) {
   let written = 0, tried = 0
   const skipped: number[] = []
+  const alreadyStored: number[] = []
   for (let seed = params.seed; written < count && tried < seedLimit; seed++) {
     tried++
     const seedParams = forSeed(seed)
@@ -370,7 +384,7 @@ if (count !== null) {
     const m = result.metrics
     if (!m) throw new Error('unreachable: ok without metrics')
     const svg = svgFlag ? toSvg(result.board, svgOptions(view)) : undefined
-    const { meta } = await saveBoard({
+    const saved = await saveBoard({
       board: encodeBoard(result.board),
       ...(svg !== undefined ? { svg } : {}),
       params: seedParams,
@@ -379,11 +393,22 @@ if (count !== null) {
       source: 'cli',
       metrics: { ok: true, pieces: result.board.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
     })
+    // A batch is N different layouts: one already in the store keeps its new
+    // recipe but does not count, and the next seed is tried.
+    if (saved.layoutExisted) {
+      alreadyStored.push(seed)
+      const { W, H, id } = saved.meta
+      console.error(`seed ${seed}: layout already stored as ${W}x${H}/${id}, ${recipeNote(saved)}`)
+      continue
+    }
     written++
-    console.log(`${storedNames(meta, null)}  pieces=${m.N} maxLen=${m.maxLen} ${(result.genMs / 1000).toFixed(2)} s`)
+    console.log(
+      `${storedNames(saved.meta, null)}  pieces=${m.N} maxLen=${m.maxLen} ${(result.genMs / 1000).toFixed(2)} s`,
+    )
   }
   const notClosed = skipped.length ? `, not closed: ${skipped.join(' ')}` : ''
-  console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}`)
+  const stored = alreadyStored.length ? `, already stored: ${alreadyStored.join(' ')}` : ''
+  console.log(`batch: ${written}/${count} boards written, ${tried} seeds tried${notClosed}${stored}`)
   Deno.exit(written === count ? 0 : 1)
 }
 const result = generate(params, hooks)
@@ -417,7 +442,7 @@ if (!result.ok) {
         W,
         H,
         seed: params.seed,
-        id: boardId(params),
+        id: await layoutHash(c),
         ok: false,
         aborted,
         deadlock,
@@ -439,7 +464,7 @@ if (!result.ok) {
   )
   if (!dryRun) {
     const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
-    const { meta } = await saveBoard({
+    const saved = await saveBoard({
       board: file,
       ...(svg !== undefined ? { svg } : {}),
       params,
@@ -457,10 +482,11 @@ if (!result.ok) {
         stuck,
       },
     })
+    const meta = saved.meta
     if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
     console.log(
-      `${
-        storedNames(meta, svgOut)
+      `${storedNames(meta, svgOut)}${
+        alreadyNote(saved)
       }  ${shortWhy}, pieces=${meta.pieces} restarts=${result.restartsUsed} backtracks=${result.backtracks} ${
         (result.genMs / 1000).toFixed(2)
       } s`,
@@ -476,7 +502,7 @@ if (dryRun) {
     W,
     H,
     seed: params.seed,
-    id: boardId(params),
+    id: await layoutHash(c),
     params,
     pinned: parsed.pins,
     view,
@@ -499,7 +525,7 @@ if (dryRun) {
   Deno.exit(0)
 }
 const svg = svgFlag ? toSvg(c, svgView) : undefined
-const { meta } = await saveBoard({
+const saved = await saveBoard({
   board: file,
   ...(svg !== undefined ? { svg } : {}),
   params,
@@ -508,6 +534,7 @@ const { meta } = await saveBoard({
   source: 'cli',
   metrics: { ok: result.ok, pieces: c.pieces.length, maxLen: m.maxLen, genMs: result.genMs },
 })
+const meta = saved.meta
 if (svgOut && svg !== undefined) Deno.writeTextFileSync(svgOut, svg)
 if (view.top > 0) {
   // Longest-piece stats: the span (how many columns and rows it crosses)
@@ -556,10 +583,10 @@ if (view.top > 0) {
   }
 }
 console.log(
-  `${storedNames(meta, svgOut)}  pieces=${m.N} avgLen=${(W * H / m.N).toFixed(1)} maxLen=${m.maxLen} bends=${
-    m.bends.toFixed(2)
-  } coiling=${(100 * m.coil).toFixed(0)}% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${
-    (result.genMs / 1000).toFixed(2)
-  } s`,
+  `${storedNames(meta, svgOut)}${alreadyNote(saved)}  pieces=${m.N} avgLen=${
+    (W * H / m.N).toFixed(1)
+  } maxLen=${m.maxLen} bends=${m.bends.toFixed(2)} coiling=${
+    (100 * m.coil).toFixed(0)
+  }% backtracks=${result.backtracks} restarts=${result.restartsUsed} ${(result.genMs / 1000).toFixed(2)} s`,
 )
 Deno.exit(0)
