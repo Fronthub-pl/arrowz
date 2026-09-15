@@ -2,6 +2,7 @@ import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 import { boardId, svgOptions } from '@arrowz/engine/command'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
+import type { ShownResult } from '../state/result.slice'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
@@ -15,19 +16,25 @@ import { downloadBlob } from './download'
  * (lab-page.ts:955-989): tens of megabytes of text at Insane, off the page's
  * thread, and not in the generation worker, which a new run terminates. One at
  * a time (Ruling 7). The board file costs no worker: it is the file itself.
+ *
+ * An export error is about the board it failed to export, so it is kept beside
+ * that board and shown only while the same result is on screen: the next SVG
+ * export clears it (Ruling 7), and so does another board taking its place.
  */
 export function ExportButtons(): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
   const drawing = useRef<Worker | null>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<{ about: ShownResult; message: string } | null>(null)
+  const shownError = error !== null && error.about === result ? error.message : null
 
   // An export outlives nothing: leaving the page takes its worker down.
   useEffect(() => () => drawing.current?.terminate(), [])
 
   const exportSvg = () => {
     if (result === null || drawing.current !== null) return
+    const about = result
     const { W, H, seed } = result.params
     const name = `arrowz-${W}x${H}-seed${seed}.svg`
     // The view of the moment, cell included: the export field is what `cell` is for.
@@ -41,11 +48,11 @@ export function ExportButtons(): ReactElement {
     worker.onmessage = (event: MessageEvent<WorkerOut>) => {
       const message = event.data
       if (message.type === 'svg') downloadBlob(new Blob([message.svg], { type: 'image/svg+xml' }), name)
-      else if (message.type === 'error') setError(message.message)
+      else if (message.type === 'error') setError({ about, message: message.message })
       end()
     }
     worker.onerror = (event) => {
-      setError(event.message)
+      setError({ about, message: event.message })
       end()
     }
     drawing.current = worker
@@ -74,9 +81,9 @@ export function ExportButtons(): ReactElement {
       <button type="button" onClick={exportFile} disabled={result === null}>
         {dict.t('downloadBoardFile')}
       </button>
-      {error === null ? null : (
+      {shownError === null ? null : (
         <p className="fw-export-error" role="alert">
-          {`${dict.t('exportError')} ${error}`}
+          {`${dict.t('exportError')} ${shownError}`}
         </p>
       )}
     </div>

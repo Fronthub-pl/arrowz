@@ -121,6 +121,27 @@ test('a failed SVG export says so under the buttons, and the button comes back',
   expect(downloads.names).toEqual([])
 })
 
+// The alert is about the board it failed to export: once another board is on
+// screen it would describe a file the buttons no longer export.
+test('an export error goes away when the board on screen changes', async () => {
+  class FailingWorker {
+    onmessage: ((event: MessageEvent<WorkerOut>) => void) | null = null
+    onerror: ((event: ErrorEvent) => void) | null = null
+    postMessage() {
+      const data: WorkerOut = { type: 'error', message: 'the codec refused it' }
+      setTimeout(() => this.onmessage?.(new MessageEvent('message', { data })), 0)
+    }
+    terminate() {}
+  }
+  vi.stubGlobal('Worker', FailingWorker)
+  const screen = await mountButtons()
+  await act(async () => finish(ONE))
+  await screen.getByRole('button', { name: 'Download SVG' }).click()
+  await expect.element(screen.getByRole('alert')).toHaveTextContent('Export failed: the codec refused it')
+  await act(async () => finish(finishedRun(2)))
+  await expect.poll(() => screen.getByRole('alert').query()).toBeNull()
+})
+
 // §7.1, PR 4b: the mock's ghost buttons, `--ash` on `--graphite`.
 test('the export buttons read at AA', async () => {
   const screen = await mountButtons()
