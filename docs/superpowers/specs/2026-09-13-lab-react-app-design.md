@@ -52,7 +52,7 @@ element's own control bar hideable. The last two are recorded in §12.
 
 *Amended in PR 4b.* The anchors in §2 and in the first draft's sections are to
 `lab-page.ts` as it was before PR 1 (1668 lines) and are left as written; every
-amendment from PR 4b cites the file at `1ffb0d6`, where solo is `:939-948` and
+amendment from PR 4b cites the file at `1ffb0d6`, where solo is `:938-949` and
 the SVG download `:959-989`.
 
 The knob table has **28 entries** (`PARAM_SPEC.length`), in **six groups**
@@ -354,7 +354,8 @@ apps/lab/src/
   palette/
     CommandPalette.tsx        role="dialog" + combobox, focus trap
   state/
-    store.ts                  one store, the slices below
+    store.ts                  one store, the slices below, and `completeRun`, the one
+                              action spanning two slices
     params.slice.ts           28 knobs, clamping, per-key violation and inactive indexes
     view.slice.ts             the nine preview fields as typed values
     run.slice.ts              the process: phase, the parameters in flight, progress, history
@@ -415,12 +416,15 @@ keeps `children` in the third position in both views, which
 solo toggle. Solo hides by a class on `.fw-lab` — presets, run rail, report
 column, console, violations and clamp notice — and redefines both grids, because
 a track keeps its size when its only item is `display: none`: `.fw-lab`'s rows
-become the one stage track, in both `.fw-lab` and `.fw-lab.simple` (the rule
+become the one stage track (`minmax(0, 1fr)`), in both `.fw-lab` and `.fw-lab.simple` (the rule
 follows the simple variant, which has the same specificity), and `.fw-stage`'s
 columns — and its ≤900px rows — become the one board track, as the old lab's
-`body.solo .cols` does (`lab.html:140`). The browser test asserts that the
-board's box fills `.fw-lab`'s box less the frame's padding, in both views and
-at both widths, not merely that nodes are hidden. It unmounts nothing, for the
+`body.solo .cols` does (`lab.html:140`). The annotation and the toggle are positioned over the paper, as the old
+lab's `#solo` and `#board` are (`lab.html:141,143`), so they take no height
+from the element. The browser test asserts that `<arrowz-board>`'s box equals
+`.fw-lab`'s box less `.fw-boardwrap`'s 16px padding and `.fw-board`'s 1px
+border, at 1400px and 860px wide, in both views — not merely that nodes are
+hidden. It unmounts nothing, for the
 reason every earlier swap in this tree keeps a node: the GL context, the run
 column's focus and a draft being typed all live in nodes a remount would
 replace. The top bar, tabs and run status stay, so a carve in flight is still
@@ -466,8 +470,10 @@ fitted view and keeps a zoomed one (`viewport.ts`).
   both layouts: at ≤900px it moves under the board as a row spanning the rail
   as well (`grid-column: 1 / -1`) with a capped height, and the board keeps
   its own minimum except below 700px of height, where `shell.css:185-189`
-  releases it. The cap is measured at 860×900 in the plan, against the rule
-  that at least one row of knobs stays visible below the stage.
+  releases it. The cap is chosen by measuring at 860×900 and kept by a browser
+  test asserting that at least one row of knobs stays visible below the stage
+  and that the board is not squeezed below its minimum — a `minmax(0, …)` board
+  row does not guarantee the second on its own.
 - The mock's run column ends in two ghost buttons without handlers, *Export
   SVG* and *Download board file* (`.fw-ghost`). In the application
   `.fw-ghost` already holds the `auto` and `help` switches and is absent in the
@@ -526,16 +532,19 @@ Notes the first draft got wrong or left out:
   screen apart from the run's (`:828-830`); the skeleton's `run.started()`
   cleared the board, which left the stage empty for a whole carve. The product
   therefore has its own slice. `result.shown` is one field holding the board,
-  its file, report and parameters, and `result.show()` is its only writer;
+  its file, report and parameters, and `result.show()` is its only writer in
+  the application — the slice also has a `reset()`, as `run.reset()` does
+  (`run.slice.ts:62`), for the tests' resets, which call both;
   `started`, `aborted` and `failed` never touch the slice, and the report, both
   exports, the annotation and the store save read it. A finished run is
-  committed by one store-level action, `completeRun(done)` in `store.ts` — the
-  only code that sees both slices — which applies the run slice's `done`
+  committed by one store-level action, `completeRun(done)` in `store.ts`, taking what
+  `run.finished` takes today (`useGenerator.ts:67`) — the only code that sees
+  both slices — which applies the run slice's `done`
   transition and the result slice's `show` transition, each exported as a pure
   function of its own slice state, in one `set`; the slices keep their narrowed
   `SetStore`, no render sees `phase: 'done'` beside the previous board, and
-  `run.finished` with the run slice's `board`, `file`, `report` and `saved`
-  fields is deleted. `RunStatusBar` and `useStoreSave` (which subscribes to
+  `run.finished`, `run.stored` and the run slice's `board`, `file`, `report` and
+  `saved` fields are deleted, `stored` moving to the result slice. `RunStatusBar` and `useStoreSave` (which subscribes to
   `run.file` today, `App.tsx:31`) move their reads to `result`. `show()` also sets the store's answer back to
   null — `started()` used to, and without it the next board would read "closed
   — saved" until its own POST answered — and `stored(file, outcome)` is dropped
@@ -543,9 +552,14 @@ Notes the first draft got wrong or left out:
   today. In 4b only a finished run calls `show()`: PR 5's *load into lab*
   sets the knobs and the view without generating (`lab-page.ts:1191-1215`:
   "Loading sets the knobs and the view but does NOT generate"), leaving the
-  shown result where it was, so the first writer that is not a run is PR 7's
-  reload from the store. That writer
-  must carry a source which the run status and the store save read, or the
+  shown result where it was, but *load into lab* is not the
+  only library path to the board: the library's detail draws a stored board
+  into the one shared element (`openBoard`, `lab-page.ts:1144-1186`, through
+  `showLibBoard` at `:1237-1238`) and the old lab restores the lab's board on
+  return (`:1053-1054`). Whether PR 5's preview passes through `result.shown`
+  with a `library` source beside a kept lab result, or the `/boards` route
+  holds its own, is PR 5's plan to decide. Whichever non-run writer comes
+  first — PR 5's preview or PR 7's reload from the store — must carry a source which the run status and the store save read, or the
   status would call a stored board "closed — saved" and the save would re-POST
   it (the structured-status note below). Keeping the parameters beside the board also retires an old-lab
   defect: a language switch during a run re-rendered the report with the new
@@ -693,7 +707,9 @@ as §5.4 describes rather than displayed and then ignored.
   by a language switch; `reportDelta` in the engine's own tests, its `null`
   cases included; the result slice — a baseline without `board`, moved only by
   a result with metrics, the store's answer cleared by `show()` and dropped for
-  a file no longer shown, `completeRun` writing both slices in one update; the command string against `buildCommand` for a table of
+  a file no longer shown, `completeRun` writing both slices in one update; the
+  run slice's case that a new run clears the board (`run.slice.test.ts:72-82`)
+  inverted, and `result.reset()` beside `run.reset()` wherever a test resets; the command string against `buildCommand` for a table of
   parameter sets; the trigger table of §2.2, trigger by trigger.
 - **Browser (Vitest browser mode, Playwright Chromium):** the slider's keyboard
   path; the palette's focus trap and return; tab arrow navigation; a full run
@@ -706,7 +722,9 @@ as §5.4 describes rather than displayed and then ignored.
   canvas and the run column kept by node identity; `f` ignored with a modifier,
   in a field and off the lab route; the computed colours of the delta, the
   annotation and the export buttons; the ≤900px command box measured before
-  and after its fix.
+  and after its fix; a focus inside what solo hides moved to the toggle, key
+  repeat ignored, Escape leaving solo on; at 860×900 a knob row visible under
+  the report row and the board at its minimum.
 - **Fingerprint parity — the successor to `lab-bundle.test.ts`.** That test
   runs the bundled worker and compares the board's fingerprint against
   in-process `generate()` (`lab-bundle.test.ts:61-88`). Zero console errors does
