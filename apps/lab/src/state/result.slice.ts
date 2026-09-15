@@ -26,7 +26,11 @@ export interface ResultState {
   baseline: Baseline | null
   /** The store's answer for `shown.file`, and for no other file. */
   saved: SaveOutcome | null
-  /** The only writer of `shown` in the application; in PR 4b only `completeRun` reaches it. */
+  /**
+   * `showResult` as a single-slice action, kept for PR 5's load into lab. In
+   * PR 4b nothing calls it: the only writer of `shown` is `completeRun`, which
+   * applies `showResult` itself.
+   */
   show(next: ShownResult): void
   stored(file: BoardFile, outcome: SaveOutcome): void
   /** For the tests' resets, beside `run.reset()`. */

@@ -225,7 +225,7 @@ test('f typed into a field or an editable region is text, not a toggle', async (
   document.body.append(editable)
   try {
     for (const target of [select, editable]) {
-      if (target === null) throw new Error('no select on the board group')
+      if (target === null) throw new Error('no select on the difficulty group')
       press(target, { key: 'f' })
       expect(solo(), target.nodeName).toBe(false)
     }

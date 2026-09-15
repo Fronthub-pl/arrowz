@@ -235,7 +235,7 @@ test('a run in flight keeps the last result on screen', async () => {
     if (!(button instanceof HTMLButtonElement)) throw new Error(`${name} is not a button`)
     expect(button.disabled, name).toBe(false)
   }
-  // Kept through the carve as well (Tasks 4 and 5 add their lines here).
+  // Kept through the carve as well.
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(element?.board?.W).toBe(600)
 }, 40_000)
@@ -361,7 +361,7 @@ test('the lab route shows the console under the stage', async () => {
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
 // and `RunColumn` are each tested against a host of their own making, so both
 // suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:151` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
+// `RunColumn.tsx:168` or `abortRef={abortRef}` from `LabRoute.tsx:38` and the
 // feature is dead on the real page while every other case passes. The same was
 // true of `goRef`, so this case covers both — they are the same two lines.
 //

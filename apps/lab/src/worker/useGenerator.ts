@@ -60,7 +60,10 @@ export function useGenerator(): GeneratorHandle {
           // (lab-page.ts:794-806). Unguarded, the throw would escape this
           // handler with `busy` already cleared: the slice would sit in
           // `running` with no message, `abort()` would return early, and the
-          // page would have no way out but a reload.
+          // page would have no way out but a reload. `completeRun` below can
+          // throw as well, for a run that was never started (PR 4b, Ruling 6),
+          // and stays outside this `try` on purpose: that throw is a bug in the
+          // caller, and must not be turned into an ordinary run failure.
           actions().failed(err instanceof Error ? err.message : String(err))
           return
         }

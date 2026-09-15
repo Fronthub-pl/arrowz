@@ -173,7 +173,7 @@ Deno.test('a signed row is always a comparable row, or its arrow can never be dr
 })
 
 Deno.test('a run with no metrics reports no rows, as the page has always done', () => {
-  // The page clears both tables when metrics are null (lab-page.ts:1570-1573);
+  // The page clears both tables when metrics are null (lab-page.ts:1425-1429);
   // every row below that point reads metrics.*, so there is nothing to show.
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   assertEquals(reportRows({ ...run(20, 20, 3), metrics: null }, params, dictionary('en')), [])
@@ -194,7 +194,7 @@ Deno.test('genSeconds shows two decimals under ten seconds and one above, and a 
 })
 
 // The delta column's arithmetic, moved out of the old lab's `report()`
-// (lab-page.ts:1441-1449) so both labs print the same cell. The numbers are
+// (formerly lab-page.ts:1439-1449, at 1ffb0d6) so both labs print the same cell. The numbers are
 // chosen to be exact in binary, so no case depends on how `toFixed` rounds a
 // tie.
 Deno.test('reportDelta is null when either number is missing or the two are equal', () => {
