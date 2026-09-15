@@ -45,7 +45,7 @@ import {
 } from '@arrowz/engine/command'
 import { dictionary, EN, escapeHtml, type Lang, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
-import { genSeconds, pct, reportRows } from '@arrowz/engine/report'
+import { genSeconds, pct, reportDelta, reportRows } from '@arrowz/engine/report'
 import {
   defaultChoice,
   exportCell,
@@ -1436,19 +1436,12 @@ function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
   el('stats').innerHTML = rows
     .map(({ kind, label, value, num, better }, i) => {
       if (kind === 'separator') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
-      let delta = ''
-      const prev = prevStats.get(i)
-      if (num !== undefined && prev !== undefined && Math.abs(num - prev) > 1e-9) {
-        const diff = num - prev
-        const abs = Math.abs(diff)
-        const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
-        // "Better" depends on the metric: coiling should fall, span should
-        // rise, the piece count is neutral.
-        const cls = better === 0 ? '' : (diff > 0) === (better > 0) ? ' up' : ' down'
-        delta = `<td class="delta${cls}">${diff > 0 ? '+' : '−'}${shown}</td>`
-      }
+      // The arithmetic is the engine's (`reportDelta`), shared with apps/lab.
+      const change = reportDelta(num, prevStats.get(i), better)
+      const cls = change === null || change.trend === 'neutral' ? '' : change.trend === 'better' ? ' up' : ' down'
+      const delta = change === null ? '<td></td>' : `<td class="delta${cls}">${change.text}</td>`
       if (num !== undefined) prevStatsNext.set(i, num)
-      return `<tr><td>${label}</td><td class="num">${value}</td>${delta || '<td></td>'}</tr>`
+      return `<tr><td>${label}</td><td class="num">${value}</td>${delta}</tr>`
     })
     .join('')
 

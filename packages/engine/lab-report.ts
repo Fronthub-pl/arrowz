@@ -33,6 +33,29 @@ export interface StatRow {
   readonly better: number
 }
 
+/** How one row moved against the baseline: the text of the delta cell and which way is better. */
+export interface ReportDelta {
+  /** The change with its sign — `+` or `−` (U+2212) — at the old lab's precision. */
+  readonly text: string
+  readonly trend: 'better' | 'worse' | 'neutral'
+}
+
+/**
+ * The delta column: `num` against `prev`, the same row of the baseline. Null
+ * when either is missing or the two differ by no more than 1e-9, where a
+ * surface prints an empty cell. `better` is the row's own field: +1 when a
+ * larger number is better, -1 when a smaller one is, 0 when neither — coiling
+ * should fall, span should rise, the piece count is neutral.
+ */
+export function reportDelta(num: number | undefined, prev: number | undefined, better: number): ReportDelta | null {
+  if (num === undefined || prev === undefined || Math.abs(num - prev) <= 1e-9) return null
+  const diff = num - prev
+  const abs = Math.abs(diff)
+  const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
+  const trend = better === 0 ? 'neutral' : (diff > 0) === (better > 0) ? 'better' : 'worse'
+  return { text: `${diff > 0 ? '+' : '−'}${shown}`, trend }
+}
+
 /** The run the report describes: what the worker reports back when a board is done. */
 export interface ReportInput {
   readonly ok: boolean

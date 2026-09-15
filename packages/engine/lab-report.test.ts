@@ -1,7 +1,7 @@
 import { assert, assertEquals } from '@std/assert'
 import { defaultParams, generate } from './mod.ts'
 import { dictionary } from './lab-i18n.ts'
-import { genSeconds, type ReportInput, reportRows, type StatRow } from './lab-report.ts'
+import { genSeconds, reportDelta, type ReportInput, reportRows, type StatRow } from './lab-report.ts'
 import type { CarverStats, Metrics } from './types.ts'
 
 function run(W: number, H: number, seed: number) {
@@ -191,4 +191,35 @@ Deno.test('genSeconds shows two decimals under ten seconds and one above, and a 
   assertEquals(genSeconds({ genMs: 4800 } as never, '—'), '4.80')
   assertEquals(genSeconds({ genMs: 16000 } as never, '—'), '16.0')
   assertEquals(genSeconds({ genMs: null } as never, '—'), '—')
+})
+
+// The delta column's arithmetic, moved out of the old lab's `report()`
+// (lab-page.ts:1441-1449) so both labs print the same cell. The numbers are
+// chosen to be exact in binary, so no case depends on how `toFixed` rounds a
+// tie.
+Deno.test('reportDelta is null when either number is missing or the two are equal', () => {
+  assertEquals(reportDelta(undefined, 3, 1), null)
+  assertEquals(reportDelta(3, undefined, 1), null)
+  assertEquals(reportDelta(3, 3, 1), null)
+  // The old lab's tolerance: a float that moved by less than 1e-9 did not move.
+  assertEquals(reportDelta(3 + 1e-10, 3, 1), null)
+})
+
+Deno.test('reportDelta prints a plus or a true minus, at the precision of the size of the change', () => {
+  assertEquals(reportDelta(250, 100, 0)?.text, '+150')
+  assertEquals(reportDelta(100, 0, 0)?.text, '+100')
+  assertEquals(reportDelta(3.5, 1, 0)?.text, '+2.5')
+  assertEquals(reportDelta(2, 1, 0)?.text, '+1.0')
+  assertEquals(reportDelta(0.75, 0.5, 0)?.text, '+0.25')
+  // U+2212, not a hyphen: the old lab's glyph, and the one a screen reader says "minus" for.
+  assertEquals(reportDelta(1, 3.5, 0)?.text, '−2.5')
+})
+
+Deno.test('reportDelta says which way is better from the row, not from the sign alone', () => {
+  assertEquals(reportDelta(2, 1, 1)?.trend, 'better')
+  assertEquals(reportDelta(1, 2, 1)?.trend, 'worse')
+  assertEquals(reportDelta(1, 2, -1)?.trend, 'better')
+  assertEquals(reportDelta(2, 1, -1)?.trend, 'worse')
+  assertEquals(reportDelta(2, 1, 0)?.trend, 'neutral')
+  assertEquals(reportDelta(1, 2, 0)?.trend, 'neutral')
 })
