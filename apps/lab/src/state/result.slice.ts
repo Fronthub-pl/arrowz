@@ -26,6 +26,8 @@ export interface ResultState {
   baseline: Baseline | null
   /** The store's answer for `shown.file`, and for no other file. */
   saved: SaveOutcome | null
+  /** Why the last SVG export of `shown.file` failed, and of no other file. */
+  exportError: string | null
   /**
    * `showResult` as a single-slice action, kept for PR 5's load into lab. In
    * PR 4b nothing calls it: the only writer of `shown` is `completeRun`, which
@@ -33,6 +35,8 @@ export interface ResultState {
    */
   show(next: ShownResult): void
   stored(file: BoardFile, outcome: SaveOutcome): void
+  /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
+  exported(file: BoardFile, error: string | null): void
   /** For the tests' resets, beside `run.reset()`. */
   reset(): void
 }
@@ -74,6 +78,7 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
         ? { report: before.report, params: before.params }
         : state.baseline,
     saved: null,
+    exportError: null,
   }
 }
 
@@ -84,11 +89,15 @@ export function createResultSlice(set: SetStore): ResultState {
     shown: null,
     baseline: null,
     saved: null,
+    exportError: null,
     show: (next) => set((state) => ({ result: showResult(state.result, next) })),
     // Returning the state unchanged is zustand's no-op: `setState` skips an
     // update whose result is the state object itself.
     stored: (file, saved) =>
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, saved } } : state)),
-    reset: () => set((state) => ({ result: { ...state.result, shown: null, baseline: null, saved: null } })),
+    exported: (file, exportError) =>
+      set((state) => (state.result.shown?.file === file ? { result: { ...state.result, exportError } } : state)),
+    reset: () =>
+      set((state) => ({ result: { ...state.result, shown: null, baseline: null, saved: null, exportError: null } })),
   }
 }

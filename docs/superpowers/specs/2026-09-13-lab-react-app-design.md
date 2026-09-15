@@ -555,8 +555,9 @@ Notes the first draft got wrong or left out:
   parameters in flight, progress, the last message and whether the idle phase
   follows an abort (`RunState`, `run.slice.ts:12-30`). `result.shown` is one
   field holding the board, its file, report and parameters (`ShownResult`,
-  `result.slice.ts:10-16`); beside it the slice holds the delta baseline and
-  the store's answer for that file, and a `reset()`, as the run slice has, for
+  `result.slice.ts:10-16`); beside it the slice holds the delta baseline, the
+  store's answer for that file and why that file's last SVG export failed
+  (`exportError`), and a `reset()`, as the run slice has, for
   the tests' resets, which call both. `started`, `aborted` and `failed` never
   touch the result slice, and the report, both exports, the annotation, the run
   status and the store save read it. A finished run is committed by one
@@ -570,10 +571,12 @@ Notes the first draft got wrong or left out:
   run's own parameters, `run.params`; a `done` for a run that was never started
   has none, and `completeRun` throws rather than invent them (plan
   `2026-09-15-lab-report-export.md`, Ruling 6). `showResult` sets the store's
-  answer back to null — without it the next board would read "closed — saved"
-  until its own POST answered — and `result.stored(file, outcome)` is dropped
-  unless `file` is still `shown.file`, an identity guard inside the slice
-  (`result.slice.ts:90-91`). `useStoreSave` (`App.tsx:33-61`) therefore
+  answer and the export error back to null — without that the next board would
+  read "closed — saved" until its own POST answered, and an export error would
+  describe a board no longer on screen — and `result.stored(file, outcome)` and
+  `result.exported(file, error)` are dropped unless `file` is still
+  `shown.file`, an identity guard inside the slice (`stored` and `exported` in
+  `createResultSlice`). `useStoreSave` (`App.tsx:33-61`) therefore
   subscribes to `result.shown` and compares nothing when the answer arrives;
   its posted-once ref, which StrictMode's double-invoked mount effect needs,
   keys on the file object. `result.show()` is `showResult` as a single-slice

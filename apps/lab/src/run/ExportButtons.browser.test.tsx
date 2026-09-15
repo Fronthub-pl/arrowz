@@ -142,6 +142,32 @@ test('an export error goes away when the board on screen changes', async () => {
   await expect.poll(() => screen.getByRole('alert').query()).toBeNull()
 })
 
+// The other order: the board is replaced while its SVG is still being drawn,
+// and the failure lands on a board that never failed. The worker answers only
+// when the case says so.
+test('an export that fails after its board was replaced says nothing', async () => {
+  class HeldWorker {
+    onmessage: ((event: MessageEvent<WorkerOut>) => void) | null = null
+    onerror: ((event: ErrorEvent) => void) | null = null
+    postMessage() {
+      drawn.push(this)
+    }
+    terminate() {}
+  }
+  const drawn: HeldWorker[] = []
+  vi.stubGlobal('Worker', HeldWorker)
+  const screen = await mountButtons()
+  await act(async () => finish(ONE))
+  const button = screen.getByRole('button', { name: 'Download SVG' })
+  await button.click()
+  await act(async () => finish(finishedRun(2)))
+  const data: WorkerOut = { type: 'error', message: 'the codec refused it' }
+  await act(async () => drawn[0]?.onmessage?.(new MessageEvent('message', { data })))
+  expect(drawn).toHaveLength(1)
+  expect(screen.getByRole('alert').query()).toBeNull()
+  await expect.element(button).toBeEnabled()
+})
+
 // §7.1, PR 4b: the mock's ghost buttons, `--ash` on `--graphite`.
 test('the export buttons read at AA', async () => {
   const screen = await mountButtons()

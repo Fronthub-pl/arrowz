@@ -11,10 +11,11 @@ beforeEach(() => {
   useStore.getState().result.reset()
 })
 
-test('a fresh store shows nothing, compares with nothing and has no answer', () => {
+test('a fresh store shows nothing, compares with nothing and has no answer or export error', () => {
   expect(result().shown).toBeNull()
   expect(result().baseline).toBeNull()
   expect(result().saved).toBeNull()
+  expect(result().exportError).toBeNull()
 })
 
 // The worker's `done` message satisfies `ReportInput` structurally while
@@ -63,6 +64,16 @@ test('show clears the store answer of the board before', () => {
   expect(result().saved).toBeNull()
 })
 
+// An export error used to live in `ExportButtons`, holding the whole replaced
+// result so a render could tell it was stale. The next board has failed nothing.
+test('show clears the export error of the board before', () => {
+  finish(ONE)
+  result().exported(ONE.file, 'the codec refused it')
+  expect(result().exportError).toBe('the codec refused it')
+  finish(TWO)
+  expect(result().exportError).toBeNull()
+})
+
 // The identity guard App.tsx used to keep, now in the slice: a slow POST for
 // the board before must not describe the board on screen.
 test('an answer for a file no longer shown is dropped', () => {
@@ -72,6 +83,18 @@ test('an answer for a file no longer shown is dropped', () => {
   expect(result().saved).toBeNull()
   result().stored(TWO.file, { ok: false, error: 'on time' })
   expect(result().saved).toEqual({ ok: false, error: 'on time' })
+})
+
+// The same guard for an SVG worker still drawing the board before.
+test('an export error for a file no longer shown is dropped, and null clears one that is', () => {
+  finish(ONE)
+  finish(TWO)
+  result().exported(ONE.file, 'late')
+  expect(result().exportError).toBeNull()
+  result().exported(TWO.file, 'on time')
+  expect(result().exportError).toBe('on time')
+  result().exported(TWO.file, null)
+  expect(result().exportError).toBeNull()
 })
 
 // By identity, not by value: two presses of Generate with the same seed carve
@@ -86,8 +109,10 @@ test('reset forgets everything', () => {
   finish(ONE)
   finish(TWO)
   result().stored(TWO.file, { ok: false, error: 'x' })
+  result().exported(TWO.file, 'y')
   result().reset()
   expect(result().shown).toBeNull()
   expect(result().baseline).toBeNull()
   expect(result().saved).toBeNull()
+  expect(result().exportError).toBeNull()
 })
