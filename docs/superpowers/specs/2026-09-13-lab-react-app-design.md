@@ -221,6 +221,13 @@ these fragments has a test today, PR 1 proves compilation and unchanged
 fingerprints, not behaviour — so it **adds** unit tests for each moved
 fragment, which is half its value.
 
+*Amended in PR 4b.* The first row promised the delta signs and formatting as
+well, and they did not move: PR 1 took the rows, and the delta stayed inline in
+the page's `report()` (`lab-page.ts:1439-1449` at `1ffb0d6`). PR 4b moves it as
+`reportDelta(num, prev, better)` beside `reportRows` — the text with its sign
+and precision, and whether the change is better, worse or neutral — adds its
+unit tests, and switches the old lab over.
+
 ### 4.2 Why the server's validation is not a duplicate
 
 The first draft of this document claimed the page's readers could replace
@@ -290,9 +297,10 @@ apps/lab/src/
     SavedBoardsRoute.tsx      /boards      list, detail, load into lab
     DocsRoute.tsx             /docs/:what  element | cli
   stage/
-    Stage.tsx                 70px + 1fr layout
+    Stage.tsx                 70px + 1fr + the report column
     BoardCanvas.tsx           createComponent(<arrowz-board>) — the only @lit/react site
-    BoardFrame.tsx            paper frame, annotation, solo toggle (button and `f`)
+    BoardFrame.tsx            paper frame, annotation of the board on screen, solo
+                              toggle (button and `f`)
     RunRail.tsx               filmstrip, aria-current, focus mirrors hover
     RunStatusBar.tsx          ready / carving / failed / saved, aria-live="polite"
     RunDiffStrip.tsx          differences against the peeked run
@@ -326,9 +334,12 @@ apps/lab/src/
     useRun.ts                 the one funnel every trigger of §2.2 starts through
     useAutoRun.ts             the one debounce: a typed knob behind auto, a
                               recipe edit without it — mounted once, in App
+    ExportButtons.tsx         SVG and board-file downloads of the board on screen
+    download.ts               a Blob to a named file, shared by both exports
   report/
-    StatsTable.tsx            23 rows, 4 separators, delta keyed by metric name
-    LongestTable.tsx          longest pieces
+    ReportPanel.tsx           the stage's third column: both tables of the result on screen
+    StatsTable.tsx            23 rows in five groups, delta against the baseline by row index
+    LongestTable.tsx          longest pieces, gone when the highlight is off
   library/
     BoardList.tsx             size chips, rows, refresh
     BoardDetail.tsx           command, view fields, load into lab, two-click delete
@@ -338,7 +349,9 @@ apps/lab/src/
     store.ts                  one store, the slices below
     params.slice.ts           28 knobs, clamping, per-key violation and inactive indexes
     view.slice.ts             the nine preview fields as typed values
-    run.slice.ts              the state machine of §5.3, history, triggers of §2.2
+    run.slice.ts              the process: phase, the parameters in flight, progress, history
+    result.slice.ts           the product: the board on screen, its file, report and
+                              parameters, the store's answer, the delta baseline
     library.slice.ts          sizes, list cache, selection, the stored board's own view
     ui.slice.ts               tab, selected group, palette, mode, solo, help, clamp notice
     lang.slice.ts             PL/EN, localStorage `labLang`
@@ -389,6 +402,21 @@ tracks — the rail becomes nothing and the panel becomes `SimplePanel` — and
 keeps `children` in the third position in both views, which
 `LabRoute.browser.test.tsx` checks by node identity.
 
+*Amended in PR 4b.* The stage gains a third column, `ReportPanel`, and
+`BoardFrame` comes out of `Stage` carrying the element, the annotation and the
+solo toggle. Solo hides by a class on `.fw-lab` — presets, run rail, report
+column, console, violations and clamp notice — and unmounts nothing, for the
+reason every earlier swap in this tree keeps a node: the GL context, the run
+column's focus and a draft being typed all live in nodes a remount would
+replace. The top bar, tabs and run status stay, so a carve in flight is still
+reported. The `f` key is the application's first global hotkey: it ignores
+Ctrl, ⌘ and Alt (the old lab toggled on ⌘F and opened the browser's find as
+well), key repeat, `input`, `textarea`, `select` and `contenteditable`, and any
+route but the lab; a focus inside what solo hides moves to the toggle. Escape
+does not leave solo — the old lab has no such key, and the palette of PR 7
+owns Escape. The element needs no change for any of this: `resize()` refits a
+fitted view and keeps a zoomed one (`viewport.ts`).
+
 ### 5.2 Reconciling the mock with the lab
 
 - The mock's rail has two sections, *generator* and *element*. The element
@@ -410,8 +438,26 @@ keeps `children` in the third position in both views, which
   two incompatible event vocabularies, and the real names are
   `piece-click`, `piece-removed`, `life-lost`, `finished`, `viewport-change`
   (`mod.ts:45-51`).
-- The mock has no report. The statistics and longest-pieces tables keep the
-  lab's content in the mock's `.fw-tbl` treatment, below the console.
+- The mock has no report. *Amended in PR 4b:* the first draft placed the
+  tables below the console in the mock's `.fw-tbl` treatment, but `.fw-tbl` is
+  the element documentation's span grid, not a table, and nothing in the mock
+  sits below the console — the shell has a fixed height and does not scroll.
+  The report is the stage's third column instead, beside the board, as the old
+  lab's `#side` column is (`lab.html:280-282`): real `<table>`s, the four
+  separators as the boundaries of five `<tbody>` groups, visible in both views,
+  moving under the board at ≤900px.
+- The mock's run column ends in two ghost buttons without handlers, *Export
+  SVG* and *Download board file* (`.fw-ghost`). Both are built, in both views.
+  The board file goes beyond parity — the old lab only downloads the SVG — and
+  is kept because it costs no worker: the text and the name are exactly what
+  the store writes (`JSON.stringify(file)` as `<boardId>.board.json`,
+  `store.ts:94,118`). The SVG is drawn in a throw-away worker, as today; an
+  export error is shown beside the buttons, not in the run status (§5.3).
+- The mock's ⤢ is the third button of its zoom triplet — *fit*, which the
+  element's own bar already has — and the mock has no solo. The solo toggle is
+  a separate glyph in the frame's top-right corner, named by `fullView`. The
+  frame's annotation carries the size and seed of the board on screen, which
+  during a run is the previous one.
 
 ### 5.3 State slices
 
@@ -419,7 +465,8 @@ keeps `children` in the third position in both views, which
 |---|---|---|
 | `params` | 28 knobs, per-key violation and inactive indexes | URL hash |
 | `view` | the nine preview fields as typed values | URL hash |
-| `run` | `idle \| running \| done \| error`, progress, retries, metrics, the current board, history entries (params, seed, metrics, thumbnail) | no |
+| `run` | `idle \| running \| done \| error`, the parameters in flight, progress, history entries (params, seed, metrics, thumbnail) | no |
+| `result` | the board on screen, its file, report and the parameters it was made from; the store's answer for that file; the delta baseline | no |
 | `library` | sizes, list cache, selected board, that board's own view fields | no |
 | `ui` | tab, selected group, palette, simple/advanced, solo, `auto`, `help`, clamp notice, flash | `labView` |
 | `lang` | `pl \| en` | `labLang` |
@@ -443,11 +490,31 @@ Notes the first draft got wrong or left out:
   persisted; a hash carrying `tab: 'library'` redirects to `/boards`.
 - **Three parameter sets exist for a reason** (`:950-953`): the knobs on screen,
   the parameters the current board was made from, and the parameters the export
-  names. The board on screen always belongs to `run.current`; the filmstrip
+  names. The board on screen always belongs to `result.shown`; the filmstrip
   selects into it.
-- **Two delta baselines:** the report compares against the previous completed
-  run (`prevStats`, `:956`), the diff strip against the peeked run. They are
-  different fields and both are keyed by metric name.
+- **A run in flight does not clear the result** (*amended in PR 4b*). The old
+  lab replaces its board and report only when a run is done
+  (`lab-page.ts:811-816` at `1ffb0d6`) and keeps the parameters of the board on
+  screen apart from the run's (`:828-830`); the skeleton's `run.started()`
+  cleared the board, which left the stage empty for a whole carve. The product
+  therefore has its own slice: `result.show()` is the only writer of the board,
+  file, report and their parameters, `started`, `aborted` and `failed` never
+  touch it, and the report, both exports, the annotation and the store save
+  read it. Keeping the parameters beside the board also retires an old-lab
+  defect: a language switch during a run re-rendered the report with the new
+  run's parameters beside the old board's metrics.
+- **One metric baseline, and a parameter diff** (*amended in PR 4b*). The
+  report compares against the previous shown result that had metrics
+  (`prevStats`, `lab-page.ts:833`), kept as its `ReportInput` and parameters —
+  the type has no board file, so the baseline holds no second copy of a
+  multi-megabyte string. Both reports' rows are built at render in the current
+  language and compared by row index, which a language switch does not move;
+  the old lab's `keepPrev` flag has nothing left to guard, because rendering no
+  longer moves the baseline — only `show()` does. A result without metrics
+  shows an empty table and leaves the baseline where it was, as the old lab
+  returns before its swap (`:1425-1429`). The diff strip of PR 7 compares
+  *parameters* against the peeked run; it is not a second metric baseline, as
+  the first draft had it.
 - **Status is structured data** carrying a source (`run` / `store` / `library`),
   so a library message cannot silently overwrite a run's outcome.
 
@@ -527,6 +594,17 @@ and never used, and are dropped. `--error` (the failed run) and
 `--border-strong` (the palette frame) are used but absent from the design
 system's own token list — flagged for the design system, not resolved here.
 
+*Amended in PR 4b.* The report's delta is coloured `--ink` when better,
+`--error` when worse and `--ash` when neutral, and always prints its sign, so
+colour is never the only carrier; a screen reader hears a visually hidden
+*better* or *worse*. `--signal` was the obvious colour for *better* and is not
+used: `--void` on `--signal` measured 4.08:1 in PR 4a, under AA for 12px text,
+and the pair is this section's open token question rather than something a
+report should settle. For the same reason the frame's annotation inverts the
+mock's `--void` on `--signal` to `--ink` on `--void`. Each of these pairs, and
+the export buttons' `--ash` on `--graphite`, is asserted by a browser test that
+reads the computed colours, not by arithmetic in a comment.
+
 ### 7.2 Fixed, because the mock does not have it
 
 | Gap in the mock | Correction |
@@ -562,8 +640,8 @@ as §5.4 describes rather than displayed and then ignored.
 - **Unit (Vitest, node):** every store slice; the hash codec, including a
   legacy hash whose numbers are strings, and a hash whose values need clamping
   (which must raise the notice); `clampParam` at bounds and steps; the rule
-  bound published per key; the report's delta keyed by metric name across a
-  language switch; the command string against `buildCommand` for a table of
+  bound published per key; the report's delta, compared by row index, unmoved
+  by a language switch; the command string against `buildCommand` for a table of
   parameter sets; the trigger table of §2.2, trigger by trigger.
 - **Browser (Vitest browser mode, Playwright Chromium):** the slider's keyboard
   path; the palette's focus trap and return; tab arrow navigation; a full run
@@ -606,7 +684,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 2 | `apps/lab` skeleton: Vite, React, ESLint/Prettier, `project.json`, the proxy **with the `Origin` rewrite**, tokens, shell, `App`-level `useGenerator` and the single `BoardCanvas`, and one end-to-end path — generate, draw, save |
 | 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
 | 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
-| 4b | Report with both delta baselines, SVG export, and the `f` hotkey with the solo view — stage chrome rather than a trigger, so §5.1 places them in `BoardFrame.tsx` |
+| 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command field that paints under Generate at ≤900px, inherited from 4a because the exports lengthen the same column — plan `2026-09-15-lab-report-export.md` |
 | 5 | The library: list, size chips, refresh, detail, its own view fields, copy, **load into lab**, two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |
