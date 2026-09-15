@@ -29,6 +29,28 @@ async function mountFrame() {
 
 const annotation = (container: HTMLElement) => container.querySelector('.fw-anno')
 
+// Colours are a permission the element grants only to a host that asks
+// (`enableColors`, arrowz-board.ts); without it `view.colored` is ignored and
+// every piece is drawn in ink. The old lab asks (`enable-colors` in lab.html).
+// `element.view.colored` alone cannot catch the gap — it is the input, not what
+// is drawn — so this reads the element's own colours button, whose
+// `aria-pressed` is the colour the board is actually drawn in.
+test('the colored flag colours the board', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const element = screen.container.querySelector('arrowz-board')
+  const colours = () => element?.shadowRoot?.querySelector('button.colors')
+  const was = useStore.getState().view.colored
+  try {
+    await act(async () => useStore.getState().view.setFlag('colored', true))
+    await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('true')
+    await act(async () => useStore.getState().view.setFlag('colored', false))
+    await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('false')
+  } finally {
+    useStore.getState().view.setFlag('colored', was)
+  }
+})
+
 test('the frame names nothing before there is a board', async () => {
   const screen = await mountFrame()
   expect(screen.container.querySelector('arrowz-board')).not.toBeNull()
