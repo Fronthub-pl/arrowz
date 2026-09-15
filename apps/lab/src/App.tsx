@@ -61,6 +61,36 @@ function useStoreSave() {
 }
 
 /**
+ * The `f` hotkey, the application's first global one (spec §5.1): `f` and `F`
+ * alike, as the old lab reads both (lab-page.ts:944) — Shift is not a modifier
+ * here — and nothing with Ctrl, ⌘ or Alt (the old lab toggled on ⌘F and opened
+ * the browser's find as well), no key repeat, nothing typed into a field or an
+ * editable region, and nothing off the lab route: the listener exists only
+ * while the lab is on screen. A focused button is not a field, so `f` on
+ * Generate toggles, as it does in the old lab (PR 4b, Ruling 9). Escape is not
+ * handled: the palette of PR 7 owns it.
+ */
+function useSoloKey(onLab: boolean) {
+  useEffect(() => {
+    if (!onLab) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'f' && event.key !== 'F') return
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest('input, textarea, select') !== null)
+      ) {
+        return
+      }
+      useStore.getState().ui.toggleSolo()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onLab])
+}
+
+/**
  * Everything above the routes, and nothing a caller configures: what a run is
  * started with is the params slice, which a test drives the way a user does.
  */
@@ -104,6 +134,7 @@ function Shell() {
   }, [control, hash])
   const onLab = selectedIndex(useLocation().pathname) === 0
   useStoreSave()
+  useSoloKey(onLab)
   useDocumentLang()
   return (
     <div className="fw">

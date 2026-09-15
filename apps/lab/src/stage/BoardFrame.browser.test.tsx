@@ -14,6 +14,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.lang.setLang('en')
+  state.ui.setSolo(false)
 })
 
 /** The frame in a box with a size, as the stage gives it one. */
@@ -89,4 +90,20 @@ test('the annotation reads at AA', async () => {
   if (label === null) throw new Error('no annotation')
   const { front, back } = shown(label)
   expect(contrast(front, back)).toBeGreaterThanOrEqual(4.5)
+})
+
+// Spec §5.2 and PR 4b, Ruling 3: a glyph of its own — `⤢` is the element's fit
+// button — named by `fullView`, and a toggle, so it says whether it is on.
+test('the solo toggle is a named toggle in the frame, after the element', async () => {
+  const screen = await mountFrame()
+  const toggle = screen.getByRole('button', { name: 'Full view (key F)' })
+  await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
+  const element = screen.container.querySelector('arrowz-board')
+  if (element === null) throw new Error('no board element')
+  expect(element.compareDocumentPosition(toggle.element()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  await toggle.click()
+  expect(useStore.getState().ui.solo).toBe(true)
+  await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
+  await toggle.click()
+  expect(useStore.getState().ui.solo).toBe(false)
 })

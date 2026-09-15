@@ -1,6 +1,6 @@
 import { act } from 'react'
 import { expect, test } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { loadRunDone, mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
@@ -115,3 +115,150 @@ test.each(COMMAND_BOX_SIZES)(
   },
   40_000,
 )
+
+function twoFrames(): Promise<void> {
+  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+}
+
+const SOLO_SIZES = [
+  [1400, 900, 'advanced'],
+  [1400, 900, 'simple'],
+  [860, 900, 'advanced'],
+  [860, 900, 'simple'],
+] as const
+
+// Spec §5.1: the board box fills the lab, not merely "the rest is hidden". The
+// 34px are the wrap's 16px padding and the board's 1px border on each side,
+// measured at every one of these sizes. And nothing is remounted: the GL
+// canvas and the run column are the same nodes before, during and after.
+test.each(SOLO_SIZES)(
+  'at %i×%i (%s) solo gives the board the whole lab and remounts nothing',
+  async (width, height, mode) => {
+    await page.viewport(width, height)
+    const screen = await mountApp(mode)
+    await loadRunDone()
+    const element = screen.container.querySelector('arrowz-board')
+    const canvas = element?.shadowRoot?.querySelector('canvas')
+    const column = screen.getByRole('region', { name: 'Run' }).element()
+    expect(canvas).toBeTruthy()
+    // Named before it is clicked, so a missing toggle reports in 5 s rather
+    // than after `click()`'s 40 s actionability wait.
+    await expect
+      .element(screen.getByRole('button', { name: 'Full view (key F)' }), { timeout: 5_000 })
+      .toBeInTheDocument()
+
+    await screen.getByRole('button', { name: 'Full view (key F)' }).click()
+    await twoFrames()
+    const lab = rect(screen.container, '.fw-lab')
+    const wrap = rect(screen.container, '.fw-boardwrap')
+    const board = rect(screen.container, 'arrowz-board')
+    for (const side of ['top', 'left', 'width', 'height'] as const) expect(wrap[side]).toBeCloseTo(lab[side], 0)
+    expect(board.width).toBeCloseTo(lab.width - 34, 0)
+    expect(board.height).toBeCloseTo(lab.height - 34, 0)
+    expect(rect(screen.container, '.fw-report').height).toBe(0)
+    expect(rect(screen.container, '.fw-console').height).toBe(0)
+    // The status line stays, so a carve in flight is still reported.
+    await expect.element(screen.getByRole('status', { name: 'Run status' })).toBeVisible()
+
+    expect(element?.shadowRoot?.querySelector('canvas')).toBe(canvas)
+    // `includeHidden`: a role locator skips a `display: none` region, and the
+    // column is exactly that while solo is on.
+    expect(screen.getByRole('region', { name: 'Run', includeHidden: true }).element()).toBe(column)
+    await screen.getByRole('button', { name: 'Full view (key F)' }).click()
+    await expect.element(screen.getByRole('region', { name: 'Run' })).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
+    expect(element?.shadowRoot?.querySelector('canvas')).toBe(canvas)
+  },
+  40_000,
+)
+
+/** A key the way a listener on the document receives it, for the cases a real keyboard cannot type. */
+function press(target: EventTarget, init: KeyboardEventInit): void {
+  target.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
+}
+
+const solo = () => useStore.getState().ui.solo
+
+// Spec §5.1: `f` and `F`, and nothing else. Every refusal is followed by the
+// same event without the thing refused, so a listener that ignored synthetic
+// events altogether could not pass the refusals.
+test('f toggles solo, and a modifier, a repeat or Escape does nothing', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(true)
+  await userEvent.keyboard('F')
+  expect(solo()).toBe(false)
+
+  for (const modifier of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+    press(document.body, { key: 'f', ...modifier })
+    expect(solo(), JSON.stringify(modifier)).toBe(false)
+  }
+  press(document.body, { key: 'f' })
+  expect(solo()).toBe(true)
+
+  // The palette of PR 7 owns Escape; the old lab has no such key.
+  await userEvent.keyboard('{Escape}')
+  expect(solo()).toBe(true)
+  await screen.getByRole('button', { name: 'Full view (key F)' }).click()
+  expect(solo()).toBe(false)
+}, 40_000)
+
+test('f typed into a field or an editable region is text, not a toggle', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'board', exact: true }).click()
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+  await userEvent.keyboard('{Escape}')
+
+  // The board group has no `<select>`; `difficulty` holds `trapBias`'s
+  // ChoiceKnob and the start control, both selects (engine.ts:2517-2519).
+  await screen.getByRole('tab', { name: 'difficulty', exact: true }).click()
+  await expect.element(screen.getByRole('tabpanel', { name: 'difficulty' })).toBeVisible()
+  const select = screen.container.querySelector('select')
+  const editable = document.createElement('div')
+  editable.contentEditable = 'true'
+  document.body.append(editable)
+  try {
+    for (const target of [select, editable]) {
+      if (target === null) throw new Error('no select on the board group')
+      press(target, { key: 'f' })
+      expect(solo(), target.nodeName).toBe(false)
+    }
+    press(document.body, { key: 'f' })
+    expect(solo()).toBe(true)
+  } finally {
+    editable.remove()
+  }
+}, 40_000)
+
+test('f does nothing off the lab route', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Saved boards' }).click()
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+}, 40_000)
+
+// Spec §5.1: a focus inside what solo hides would fall to <body> at the next
+// rendering step; it goes to the toggle instead, which is where solo is undone.
+test('a focus inside what solo hides moves to the toggle', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const generate = screen.getByRole('button', { name: 'Generate' }).element()
+  if (!(generate instanceof HTMLButtonElement)) throw new Error('Generate is not a button')
+  generate.focus()
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(true)
+  await twoFrames()
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Full view (key F)' }).element())
+}, 40_000)

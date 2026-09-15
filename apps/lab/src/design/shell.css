@@ -199,6 +199,36 @@ body {
   pointer-events: none;
 }
 
+/* The solo toggle (spec §5.2): the frame's top-right corner, after the element
+   in DOM order for the reason `.fw-anno` gives. The ring sits inside the
+   button, because `.fw-board` clips (`overflow: hidden`) and the global 2px
+   offset would draw it outside the frame; `--signal` on `--void` is 4.08:1,
+   above the 3:1 a focus indicator needs. */
+.fw .fw-solo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: var(--void);
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw .fw-solo:hover {
+  background: var(--surface);
+}
+.fw .fw-solo:focus-visible {
+  outline-offset: -2px;
+}
+@media (pointer: coarse) {
+  .fw .fw-solo {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
 @media (max-height: 700px) {
