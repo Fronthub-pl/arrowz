@@ -213,6 +213,9 @@ test('a run in flight keeps the last result on screen', async () => {
   const element = screen.container.querySelector('arrowz-board')
   const board = element?.board
   expect(board?.W).toBe(25)
+  const report = () => screen.getByRole('region', { name: 'Report' }).element().querySelector('table.fw-stats')
+  const statsBefore = report()?.textContent
+  expect(statsBefore).toMatch(/25 × 50/)
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   // The status line, not the store: the commit that renders `running` is the
@@ -221,6 +224,7 @@ test('a run in flight keeps the last result on screen', async () => {
     .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
     .toMatchTextContent(/^(Generating|[\d.]+%)/)
   expect(element?.board).toBe(board)
+  expect(report()?.textContent).toBe(statsBefore)
   // Kept through the carve as well (Tasks 4 and 5 add their lines here).
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(element?.board?.W).toBe(600)
