@@ -1,18 +1,33 @@
 // Store of generated boards: packages/cli/boards/<W>x<H>/<id>.board.json + <id>.json,
-// plus <id>.svg when a preview was asked for. Shared by the CLI (carve.ts) and
-// the lab server. The directory is gitignored — a 1000×1000 board file is about
-// a megabyte, and the command in the meta reproduces any board.
+// plus <id>.svg when a preview was asked for. The id is the board's layout hash
+// (`sha256-<64 hex>`): one arrangement of arrows has one set of files, whatever
+// seeds and parameters carved it, and its meta lists them as recipes (design:
+// docs/superpowers/specs/2026-09-15-layout-hash-design.md). Shared by the CLI
+// (carve.ts) and the lab server. The directory is gitignored — a 1000×1000
+// board file is about a megabyte, and the commands in the meta reproduce it.
 import { dirname, fromFileUrl, join } from '@std/path'
-import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
+import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@arrowz/engine'
+import { decodeBoard, defaultParams, layoutHash } from '@arrowz/engine'
 import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
-import { defaultParams } from '@arrowz/engine'
 
 /** The wire contract plus the two fields only the CLI sends. */
 export interface SaveInput extends StoreRequest {
-  /** The SVG preview. Without it no preview is kept: one left by an earlier save of this id is removed. */
+  /** The SVG preview. Without it no preview is kept: one left by an earlier save of this layout is removed. */
   svg?: string
   metrics?: StoreRequest['metrics'] & { aborted?: boolean }
 }
+
+/** What a save wrote, and what it found. */
+export interface SaveResult {
+  meta: BoardMeta
+  /** A meta for this layout was already on disk. */
+  layoutExisted: boolean
+  /** One of its recipes had these parameters, and this save replaced it. */
+  recipeExisted: boolean
+}
+
+/** The only file names the store lists or deletes. */
+const LAYOUT_ID = /^sha256-[0-9a-f]{64}$/
 
 export function boardsDir(): string {
   return Deno.env.get('ARROWZ_BOARDS_DIR') || join(dirname(fromFileUrl(import.meta.url)), 'boards')
@@ -28,35 +43,45 @@ function exists(path: string): boolean {
 }
 
 /**
- * The JSON of a stored board, or null when the file is missing, broken or not
+ * A stored view with the fields a later knob added filled in.
+ *
+ * A stored headHeight of 0 meant "automatic", a mode that no longer exists:
+ * read it as unset. Every board written before this change carries it, and
+ * taken literally they would draw no arrowhead at all.
+ *
+ * That is no longer the only way a 0 can get here: `--headheight=0` is now
+ * accepted literally and on purpose, so a board CAN be saved headless
+ * deliberately. The migration cannot tell the two apart and has no expiry
+ * date, which costs exactly this: such a board is shown in the library with a
+ * head of the default height, while the command stored next to it still says
+ * `--headheight=0` and reproduces it headless.
+ */
+function fillView(view: View): View {
+  return {
+    ...DEFAULT_VIEW,
+    ...view,
+    ...(view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
+  }
+}
+
+/**
+ * The JSON of a stored layout, or null when the file is missing, broken or not
  * an object. A board saved before a knob existed lacks it in params and view:
  * the missing fields take the engine defaults here, at the boundary, so every
- * reader — the page, buildCommand — sees a complete Params and View. A board
- * saved before the closing report existed gets its empty values the same way.
+ * reader — the page, buildCommand — sees a complete Params and View, in the
+ * top level and in every recipe. A meta without the closing report or without
+ * recipes gets its empty values the same way.
  */
 function readMeta(file: string): BoardMeta | null {
   try {
     const parsed: unknown = JSON.parse(Deno.readTextFileSync(file))
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
+    const sources: Recipe[] = Array.isArray(meta.sources) ? meta.sources : []
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      // A stored headHeight of 0 meant "automatic", a mode that no longer
-      // exists: read it as unset. Every board written before this change
-      // carries it, and taken literally they would draw no arrowhead at all.
-      //
-      // That is no longer the only way a 0 can get here: `--headheight=0` is
-      // now accepted literally and on purpose, so a board CAN be saved
-      // headless deliberately. The migration cannot tell the two apart and has
-      // no expiry date, which costs exactly this: such a board is shown in the
-      // library with a head of the default height, while the command stored
-      // next to it still says `--headheight=0` and reproduces it headless.
-      view: {
-        ...DEFAULT_VIEW,
-        ...meta.view,
-        ...(meta.view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
-      },
+      view: fillView(meta.view),
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,
@@ -64,34 +89,61 @@ function readMeta(file: string): BoardMeta | null {
       fingerprint: meta.fingerprint ?? null,
       boardBytes: meta.boardBytes ?? null,
       svg: meta.svg ?? false,
+      sources: sources.map((r) => ({ ...r, params: { ...defaultParams(), ...r.params }, view: fillView(r.view) })),
     }
   } catch {
     return null
   }
 }
 
-export function saveBoard(
+/**
+ * Saves one board under its layout's name. The layout's recipe for these
+ * parameters is replaced, or a recipe is added; the board file is written only
+ * when the layout is new, so a name keeps one byte sequence and one fingerprint
+ * for as long as it is stored (a saved game checks that fingerprint).
+ *
+ * A figure absent or null in `metrics` is not carried and keeps the stored
+ * value — the lab server's checkMetrics drops a null as it drops an absent
+ * field, and the old lab's view edit posts only four figures.
+ */
+export async function saveBoard(
   { board, svg, params, view, command, metrics = {}, source }: SaveInput,
-): BoardMeta {
+): Promise<SaveResult> {
   if (board.W !== params.W || board.H !== params.H) {
     throw new Error(`board file is ${board.W}x${board.H}, the params ask for ${params.W}x${params.H}`)
   }
-  const id = boardId(params)
-  // The id names three files. The server validates params before this point;
-  // this is the last line should an unchecked caller reach it. The hash is
-  // fnv1a zero-padded to eight lowercase hex digits.
-  if (!/^seed\d+-[0-9a-f]{8}$/.test(id)) throw new Error(`invalid board id ${id}`)
-  const size = `${params.W}x${params.H}`
-  const dir = join(boardsDir(), size)
+  // The name is worked out here, from the decoded board: no caller's word for
+  // it is taken. Nothing a caller sends reaches a path: the size comes from
+  // params equal to the decoded board's checked W and H.
+  const id = await layoutHash(decodeBoard(board))
+  const dir = join(boardsDir(), `${params.W}x${params.H}`)
   Deno.mkdirSync(dir, { recursive: true })
-  // The same id means the same board (the id hashes the parameters). An
-  // overwrite — recolouring in the lab, regenerating from the CLI — keeps the
-  // original createdAt, so the board stays in its place in the list, and
-  // records the write in updatedAt.
   const now = new Date().toISOString()
   const metaFile = join(dir, `${id}.json`)
-  const createdAt = readMeta(metaFile)?.createdAt ?? now
+  const before = readMeta(metaFile)
+  const recipeId = boardId(params)
+  const replaced = before?.sources.find((r) => r.id === recipeId) ?? null
+  const recipe: Recipe = {
+    id: recipeId,
+    params,
+    view,
+    command,
+    source,
+    createdAt: replaced?.createdAt ?? now,
+    updatedAt: now,
+    genMs: metrics.genMs ?? replaced?.genMs ?? null,
+    restarts: metrics.restarts ?? replaced?.restarts ?? null,
+    backtracks: metrics.backtracks ?? replaced?.backtracks ?? null,
+    aborted: metrics.aborted ?? false,
+  }
+  const kept = before?.sources ?? []
+  const sources = replaced ? kept.map((r) => (r.id === recipeId ? recipe : r)) : kept.concat(recipe)
   const boardText = JSON.stringify(board)
+  // A meta that is missing or unreadable means the file beside it, if any, is
+  // not vouched for: it is written again, with this save's numbering.
+  const file = before === null
+    ? { fingerprint: board.fingerprint, boardBytes: new TextEncoder().encode(boardText).byteLength }
+    : { fingerprint: before.fingerprint, boardBytes: before.boardBytes }
   const meta: BoardMeta = {
     id,
     W: params.W,
@@ -101,35 +153,38 @@ export function saveBoard(
     view,
     command,
     source,
-    createdAt,
+    createdAt: before?.createdAt ?? now,
     updatedAt: now,
-    ok: metrics.ok ?? null,
-    pieces: metrics.pieces ?? null,
-    maxLen: metrics.maxLen ?? null,
-    genMs: metrics.genMs ?? null,
-    fingerprint: board.fingerprint,
-    boardBytes: new TextEncoder().encode(boardText).byteLength,
+    ok: metrics.ok ?? before?.ok ?? null,
+    pieces: metrics.pieces ?? before?.pieces ?? null,
+    maxLen: metrics.maxLen ?? before?.maxLen ?? null,
+    genMs: recipe.genMs,
+    fingerprint: file.fingerprint,
+    boardBytes: file.boardBytes,
     svg: svg !== undefined,
-    restarts: metrics.restarts ?? null,
-    backtracks: metrics.backtracks ?? null,
-    aborted: metrics.aborted ?? false,
-    stuck: metrics.stuck ?? null,
+    restarts: recipe.restarts,
+    backtracks: recipe.backtracks,
+    aborted: recipe.aborted,
+    stuck: metrics.stuck ?? before?.stuck ?? null,
+    sources,
   }
-  Deno.writeTextFileSync(join(dir, `${id}.board.json`), boardText)
+  if (before === null) Deno.writeTextFileSync(join(dir, `${id}.board.json`), boardText)
   const svgFile = join(dir, `${id}.svg`)
   if (svg !== undefined) Deno.writeTextFileSync(svgFile, svg)
   else if (exists(svgFile)) Deno.removeSync(svgFile)
   Deno.writeTextFileSync(metaFile, JSON.stringify(meta, null, 2))
-  return meta
+  return { meta, layoutExisted: before !== null, recipeExisted: replaced !== null }
 }
 
 /**
- * Removes one board (board file, meta and preview). Returns false when there was nothing to
- * remove. A size directory left empty is removed too, so the list does not
- * keep an empty size. Names are validated: they come straight from a URL.
+ * Removes one layout (board file, meta and preview) with every recipe in it.
+ * Returns false when there was nothing to remove. A size directory left empty
+ * is removed too, so the list does not keep an empty size. Names are
+ * validated: they come straight from a URL, and a name that is not a layout
+ * hash — a board stored under the old seed names included — is refused.
  */
 export function deleteBoard(size: string, id: string): boolean {
-  if (!/^\d+x\d+$/.test(size) || !/^[\w-]+$/.test(id)) throw new Error(`invalid board name ${size}/${id}`)
+  if (!/^\d+x\d+$/.test(size) || !LAYOUT_ID.test(id)) throw new Error(`invalid board name ${size}/${id}`)
   const dir = join(boardsDir(), size)
   let removed = false
   for (const ext of ['.board.json', '.json', '.svg']) {
@@ -143,7 +198,7 @@ export function deleteBoard(size: string, id: string): boolean {
   return removed
 }
 
-/** Sizes ascending by cell count, boards newest first within a size. */
+/** Sizes ascending by cell count, layouts newest first within a size. Only layout-hash names are read. */
 export function listBoards(): BoardSize[] {
   const root = boardsDir()
   if (!exists(root)) return []
@@ -155,7 +210,8 @@ export function listBoards(): BoardSize[] {
     const boards: BoardMeta[] = []
     for (const f of Deno.readDirSync(dir)) {
       if (!f.name.endsWith('.json') || f.name.endsWith('.board.json')) continue
-      if (!exists(join(dir, f.name.slice(0, -'.json'.length) + '.board.json'))) continue
+      const id = f.name.slice(0, -'.json'.length)
+      if (!LAYOUT_ID.test(id) || !exists(join(dir, `${id}.board.json`))) continue
       const meta = readMeta(join(dir, f.name))
       if (meta) boards.push(meta)
     }

@@ -92,7 +92,8 @@ type Metrics = NonNullable<SaveInput['metrics']>
  * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: a key the
  * engine does not know is dropped, and the result must pass the engine's
  * envelope, so the store holds only boards the engine would generate. The
- * seed goes into file names; a string or a fraction never gets that far.
+ * seed reaches the command and the meta; a string or a fraction never gets
+ * that far.
  */
 function checkParams(v: unknown): Checked<Params> {
   if (!isRec(v)) return { error: 'params are required' }
@@ -273,7 +274,7 @@ export function createLabServer(): (req: Request) => Promise<Response> {
         }
         const checked = checkPost(json)
         if ('error' in checked) return send(400, JSON.stringify({ error: checked.error }))
-        return send(201, JSON.stringify(saveBoard(checked.ok)))
+        return send(201, JSON.stringify((await saveBoard(checked.ok)).meta))
       }
       // Segments are matched on the raw path and decoded one by one, so an
       // encoded slash cannot smuggle a directory step into a name.

@@ -42,7 +42,7 @@ Deno.test('POST /api/boards saves, GET lists, the board file is served from the 
     const resp = await post(base, body)
     assertEquals(resp.status, 201)
     const meta: BoardMeta = await resp.json()
-    assertMatch(meta.id, /^seed7-/)
+    assertMatch(meta.id, /^sha256-[0-9a-f]{64}$/)
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()
     assertEquals(list[0]?.size, '25x50')
     assertEquals(list[0]?.boards[0]?.id, meta.id)
@@ -53,7 +53,7 @@ Deno.test('POST /api/boards saves, GET lists, the board file is served from the 
 
 Deno.test('a preview saved by the CLI is served from the store as SVG', () =>
   withServer(async (base) => {
-    const meta = saveBoard({
+    const { meta } = await saveBoard({
       board: emptyFile(10, 10),
       svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 10, H: 10, seed: 5 },
@@ -235,7 +235,7 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
     if (dist.status === 200) await dist.body?.cancel()
   }))
 
-Deno.test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives 404', () =>
+Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one gives 404, an old name 400', () =>
   withServer(async (base) => {
     const body = {
       board: emptyFile(10, 10),
@@ -259,6 +259,10 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the board; a missing one gives
     const bad = await fetch(`${base}/api/boards/..%2F25x50/seed7-x`, { method: 'DELETE' })
     assertEquals(bad.status, 400)
     await bad.body?.cancel()
+    // A board stored under the old seed names is not a layout name: refused, not "missing".
+    const old = await fetch(`${base}/api/boards/10x10/seed3-00000000`, { method: 'DELETE' })
+    assertEquals(old.status, 400)
+    await old.body?.cancel()
   }))
 
 Deno.test('requests for another host, and writes from another origin, are refused', async () => {
@@ -314,7 +318,7 @@ Deno.test('only the page, its bundle and the store are served, with security hea
     assertEquals(html.headers.get('referrer-policy'), 'no-referrer')
     assertEquals(html.headers.get('cross-origin-resource-policy'), 'same-origin')
     await html.body?.cancel()
-    const meta = saveBoard({
+    const { meta } = await saveBoard({
       board: emptyFile(10, 10),
       svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 10, H: 10, seed: 6 },

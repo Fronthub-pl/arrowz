@@ -370,7 +370,7 @@ if (count !== null) {
     const m = result.metrics
     if (!m) throw new Error('unreachable: ok without metrics')
     const svg = svgFlag ? toSvg(result.board, svgOptions(view)) : undefined
-    const meta = saveBoard({
+    const { meta } = await saveBoard({
       board: encodeBoard(result.board),
       ...(svg !== undefined ? { svg } : {}),
       params: seedParams,
@@ -439,7 +439,7 @@ if (!result.ok) {
   )
   if (!dryRun) {
     const svg = svgFlag ? toSvg(c, { ...svgView, voids: true }) : undefined
-    const meta = saveBoard({
+    const { meta } = await saveBoard({
       board: file,
       ...(svg !== undefined ? { svg } : {}),
       params,
@@ -499,7 +499,7 @@ if (dryRun) {
   Deno.exit(0)
 }
 const svg = svgFlag ? toSvg(c, svgView) : undefined
-const meta = saveBoard({
+const { meta } = await saveBoard({
   board: file,
   ...(svg !== undefined ? { svg } : {}),
   params,
