@@ -120,6 +120,7 @@ export async function saveBoard(
   Deno.mkdirSync(dir, { recursive: true })
   const now = new Date().toISOString()
   const metaFile = join(dir, `${id}.json`)
+  const boardPath = join(dir, `${id}.board.json`)
   const before = readMeta(metaFile)
   const recipeId = boardId(params)
   const replaced = before?.sources.find((r) => r.id === recipeId) ?? null
@@ -140,10 +141,19 @@ export async function saveBoard(
   const sources = replaced ? kept.map((r) => (r.id === recipeId ? recipe : r)) : kept.concat(recipe)
   const boardText = JSON.stringify(board)
   // A meta that is missing or unreadable means the file beside it, if any, is
-  // not vouched for: it is written again, with this save's numbering.
-  const file = before === null
+  // not vouched for: it is written again, with this save's numbering. A board
+  // file that is not there counts as new for the bytes in the same way — the
+  // meta has to describe the file that is actually on disk, and listBoards
+  // pairs a meta with its board file, so a save that skipped the write would
+  // leave a layout nothing lists. `layoutExisted` is unmoved by either: it
+  // reports what it documents, that a meta for this layout was already stored.
+  const writesFile = before === null || !exists(boardPath)
+  // The stored meta whose board file this save leaves alone, if any: its
+  // fingerprint and size still describe that file.
+  const vouched = writesFile ? null : before
+  const file = vouched === null
     ? { fingerprint: board.fingerprint, boardBytes: new TextEncoder().encode(boardText).byteLength }
-    : { fingerprint: before.fingerprint, boardBytes: before.boardBytes }
+    : { fingerprint: vouched.fingerprint, boardBytes: vouched.boardBytes }
   const meta: BoardMeta = {
     id,
     W: params.W,
@@ -168,7 +178,7 @@ export async function saveBoard(
     stuck: metrics.stuck ?? before?.stuck ?? null,
     sources,
   }
-  if (before === null) Deno.writeTextFileSync(join(dir, `${id}.board.json`), boardText)
+  if (writesFile) Deno.writeTextFileSync(boardPath, boardText)
   const svgFile = join(dir, `${id}.svg`)
   if (svg !== undefined) Deno.writeTextFileSync(svgFile, svg)
   else if (exists(svgFile)) Deno.removeSync(svgFile)

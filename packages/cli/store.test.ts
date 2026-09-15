@@ -178,6 +178,25 @@ Deno.test('a second recipe numbered differently leaves the board file as the fir
   assertEquals([second.meta.fingerprint, second.meta.boardBytes], [first.meta.fingerprint, first.meta.boardBytes])
 })
 
+// A meta alone is not a layout: listBoards pairs it with <id>.board.json. So a
+// save that finds the board file gone writes it again, rather than reporting a
+// stored board that nothing lists, and the meta describes the bytes now there.
+Deno.test('a save whose board file went missing writes it again and describes what is on disk', async () => {
+  const dir = freshDir()
+  const first = (await saveBoard(entry({ params: { seed: 1 } }))).meta
+  const boardPath = join(dir, '25x50', `${first.id}.board.json`)
+  Deno.removeSync(boardPath)
+  assertEquals(listBoards(), [], 'a meta without its board file is not listed')
+  const again = await saveBoard(entry({ params: { seed: 1 } }))
+  assert(exists(boardPath), 'the save put the board file back')
+  assertEquals(listBoards()[0]?.boards.map((b) => b.id), [first.id], 'the layout is listed again')
+  const file = entry({ params: { seed: 1 } }).board
+  assertEquals(Deno.readTextFileSync(boardPath), JSON.stringify(file))
+  assertEquals(again.meta.fingerprint, file.fingerprint)
+  assertEquals(again.meta.boardBytes, JSON.stringify(file).length)
+  assertEquals(again.layoutExisted, true, 'the meta was on disk, so the layout existed')
+})
+
 Deno.test('a save that does not carry a figure keeps the stored one', async () => {
   freshDir()
   const stuck = { remaining: 7, sizes: [4, 3], heads: 2 }
