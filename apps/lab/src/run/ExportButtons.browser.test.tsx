@@ -1,5 +1,5 @@
 import type { WorkerOut } from '@arrowz/engine'
-import { boardId } from '@arrowz/engine/command'
+import { layoutHash } from '@arrowz/engine'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -54,6 +54,7 @@ beforeEach(() => {
 afterEach(() => {
   downloads.stop()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 async function mountButtons() {
@@ -73,16 +74,66 @@ test('there is nothing to export before there is a board', async () => {
   await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeDisabled()
 })
 
-// Spec §5.2: the same text under the same name the store server writes
-// (packages/cli/store.ts:94, :118).
-test('the board file is the file on screen, under its board id', async () => {
+// Spec §5: the name the store gives the same arrows (store.ts `saveBoard`).
+test('the board file is the file on screen, under its layout hash', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
-  await screen.getByRole('button', { name: 'Download board file' }).click()
-  expect(downloads.names).toEqual([`${boardId(ONE.params)}.board.json`])
+  const button = screen.getByRole('button', { name: 'Download board file' })
+  await expect.element(button).toBeEnabled()
+  await button.click()
+  expect(downloads.names).toEqual([`${await layoutHash(ONE.board)}.board.json`])
   const blob = downloads.blobs[0]
   expect(blob?.type).toBe('application/json')
   expect(await blob?.text()).toBe(JSON.stringify(ONE.file))
+})
+
+// The hash is asynchronous and a download has to start in its click, so the
+// button waits for the hash; one that lands after its board was replaced is
+// dropped. Every digest is held until the case lets it through.
+test('the board file waits for the hash of the board on screen, and a replaced board’s hash is not used', async () => {
+  // Worked out before any digest is held: the test's own call would be held too, and never let through.
+  const TWO = finishedRun(2)
+  const THREE = finishedRun(3)
+  const threeName = `${await layoutHash(THREE.board)}.board.json`
+  const held: (() => void)[] = []
+  const real = crypto.subtle.digest.bind(crypto.subtle)
+  vi.spyOn(crypto.subtle, 'digest').mockImplementation(
+    (algorithm, data) =>
+      new Promise<ArrayBuffer>((resolve, reject) => {
+        held.push(() => void real(algorithm, data).then(resolve, reject))
+      }),
+  )
+  const screen = await mountButtons()
+  const button = screen.getByRole('button', { name: 'Download board file' })
+  await act(async () => finish(ONE))
+  await expect.poll(() => held.length).toBe(1)
+  await expect.element(button).toBeDisabled()
+  await act(async () => held[0]?.())
+  await expect.element(button).toBeEnabled()
+  // A new board: the last board's hash must not name it while its own is held.
+  await act(async () => finish(TWO))
+  await expect.poll(() => held.length).toBe(2)
+  await expect.element(button).toBeDisabled()
+  // Replaced again before its hash lands: that hash is dropped when it does.
+  await act(async () => finish(THREE))
+  await expect.poll(() => held.length).toBe(3)
+  await act(async () => held[1]?.())
+  await expect.element(button).toBeDisabled()
+  await act(async () => held[2]?.())
+  await expect.element(button).toBeEnabled()
+  await button.click()
+  expect(downloads.names).toEqual([threeName])
+})
+
+// Outside a secure context there is no crypto.subtle; the reason is shown under
+// its own words, and the SVG export is not touched by it.
+test('a board file that cannot be named says why, and the SVG export stays', async () => {
+  vi.spyOn(crypto.subtle, 'digest').mockRejectedValue(new Error('no secure context'))
+  const screen = await mountButtons()
+  await act(async () => finish(ONE))
+  await expect.element(screen.getByRole('alert')).toHaveTextContent('Cannot name the board file: no secure context')
+  await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeDisabled()
+  await expect.element(screen.getByRole('button', { name: 'Download SVG' })).toBeEnabled()
 })
 
 // The old lab's name (lab-page.ts:962), drawn by a real throw-away worker.
@@ -172,6 +223,8 @@ test('an export that fails after its board was replaced says nothing', async () 
 test('the export buttons read at AA', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
+  // A disabled button is drawn at half opacity; measure the one a user clicks.
+  await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeEnabled()
   for (const name of ['Download SVG', 'Download board file']) {
     const { front, back } = shown(screen.getByRole('button', { name }).element())
     expect(contrast(front, back), name).toBeGreaterThanOrEqual(4.5)

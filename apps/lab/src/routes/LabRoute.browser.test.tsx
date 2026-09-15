@@ -216,6 +216,9 @@ test('a run in flight keeps the last result on screen', async () => {
   const report = () => screen.getByRole('region', { name: 'Report' }).element().querySelector('table.fw-stats')
   const statsBefore = report()?.textContent
   expect(statsBefore).toMatch(/25 × 50/)
+  // The board-file button waits for the layout hash of the board on screen;
+  // the synchronous read below is about the run, not about that wait.
+  await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeEnabled()
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   // The status line, not the store: the commit that renders `running` is the

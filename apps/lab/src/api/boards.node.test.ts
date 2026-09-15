@@ -93,7 +93,7 @@ test('a POST through the proxy is accepted, Origin and all', async () => {
 
   expect(r.status).toBe(201)
   const meta = (await r.json()) as { id: string }
-  expect(meta.id).toMatch(/^seed3-[0-9a-f]{8}$/)
+  expect(meta.id).toMatch(/^sha256-[0-9a-f]{64}$/)
 })
 
 test('the saved board comes back in the listing', async () => {

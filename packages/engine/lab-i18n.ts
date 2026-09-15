@@ -237,6 +237,10 @@ export const EN = {
     exportsGroup: 'Export',
     downloadBoardFile: 'Download board file',
     exportError: 'Export failed:',
+    // The board-file download is named by the layout hash, which Web Crypto
+    // computes only in a secure context: said beside the exports, not as an
+    // export failure.
+    layoutHashError: 'Cannot name the board file:',
   },
 } as const
 
@@ -608,6 +612,7 @@ export const PL: Translation = {
     exportsGroup: 'Eksport',
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',
+    layoutHashError: 'Nie da się nazwać pliku planszy:',
   },
 }
 
