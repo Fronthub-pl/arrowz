@@ -58,7 +58,7 @@ describe('the view a page opens in', () => {
     return store
   }
 
-  // `lab-page.ts:1479`: only a stored `advanced` opens the advanced view.
+  // `lab-page.ts:1472`: only a stored `advanced` opens the advanced view.
   it('is the simple view unless the advanced one was chosen last time', () => {
     expect(modeOf(null)).toBe('simple')
     expect(modeOf('simple')).toBe('simple')

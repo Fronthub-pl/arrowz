@@ -232,7 +232,7 @@ the page's `report()` (`lab-page.ts:1439-1449` at `1ffb0d6`). PR 4b moves it as
 `reportDelta(num, prev, better)` beside `reportRows` — the text with its sign
 and precision, and whether the change is better, worse or neutral, or `null`
 when either number is missing or they differ by no more than 1e-9, where the
-old lab prints an empty cell (`lab-page.ts:1441`, `:1451`) — adds its unit tests, and
+old lab printed an empty cell (`lab-page.ts:1441`, `:1451` at `1ffb0d6`) — adds its unit tests, and
 switches the old lab over.
 
 ### 4.2 Why the server's validation is not a duplicate
@@ -437,7 +437,7 @@ that `<arrowz-board>`'s box is 34px narrower and 34px shorter (16px padding and
 1px border on each side), not merely that nodes are hidden; the 34px hold
 whenever `.fw-lab` is at least 292px tall (the board's 260px minimum, its
 border included under `border-box`, plus the wrap's 32px padding) and at any
-height below 700px, where `shell.css:185-189` releases the minimum. It unmounts nothing, for the
+height below 700px, where `shell.css:234-238` releases the minimum. It unmounts nothing, for the
 reason every earlier swap in this tree keeps a node: the GL context, the run
 column's focus and a draft being typed all live in nodes a remount would
 replace. The top bar, tabs and run status stay, so a carve in flight is still
@@ -487,7 +487,7 @@ fitted view and keeps a zoomed one (`viewport.ts`).
   `2026-09-15-lab-report-export.md`, Ruling 2), where a fixed `max-height`
   clipped the board at every height below 900 and a bare 292px minimum pushed
   the board over the console — and the board keeps its own minimum except below
-  700px of height, where `shell.css:185-189` releases it and the row's 292px
+  700px of height, where `shell.css:234-238` releases it and the row's 292px
   with it. The layout is kept by a browser test asserting that at least one row
   of knobs stays visible below the stage and that `.fw-board`'s box is at least
   260px tall and lies inside `.fw-boardwrap`'s content box — its rect less 16px
@@ -497,7 +497,7 @@ fitted view and keeps a zoomed one (`viewport.ts`).
 - The mock's run column ends in two ghost buttons without handlers, *Export
   SVG* and *Download board file* (`.fw-ghost`). In the application
   `.fw-ghost` already holds the `auto` and `help` switches and is absent in the
-  simple view (`RunColumn.tsx:172-176`), so the exports are a second
+  simple view (`RunColumn.tsx:173-177`), so the exports are a second
   `.fw-ghost` group after it, rendered in both views. The board file goes
   beyond parity — the old lab only downloads the SVG — and is kept because it
   costs no worker: it is the same `JSON.stringify` of the file under the same
@@ -551,46 +551,54 @@ Notes the first draft got wrong or left out:
   (`lab-page.ts:811-816` at `1ffb0d6`) and keeps the parameters of the board on
   screen apart from the run's (`:828-830`); the skeleton's `run.started()`
   cleared the board, which left the stage empty for a whole carve. The product
-  therefore has its own slice. `result.shown` is one field holding the board,
-  its file, report and parameters, and `result.show()` is its only writer in
-  the application — the slice also has a `reset()`, as `run.reset()` does
-  (`run.slice.ts:62`), for the tests' resets, which call both;
-  `started`, `aborted` and `failed` never touch the slice, and the report, both
-  exports, the annotation and the store save read it. A finished run is
-  committed by one store-level action, `completeRun(done)` in `store.ts`, taking what
-  `run.finished` takes today (`run.slice.ts:29`, called at
-  `useGenerator.ts:67`) — the only writer that sees
-  both slices — which applies the run slice's `done`
-  transition and the result slice's `show` transition, each exported as a pure
-  function of its own slice state, in one `set`; the slices keep their narrowed
-  `SetStore`, no render sees `phase: 'done'` beside the previous board, and
-  `run.finished`, `run.stored` and the run slice's `board`, `file`, `report` and
-  `saved` fields are deleted, `stored` moving to the result slice. `RunStatusBar` and `useStoreSave` (which subscribes to
-  `run.file` today, `App.tsx:31`) move their reads to `result`. `show()` also sets the store's answer back to
-  null — `started()` used to, and without it the next board would read "closed
-  — saved" until its own POST answered — and `stored(file, outcome)` is dropped
-  unless `file` is still `shown.file`, the identity guard `App.tsx:62-63` keeps
-  today, which moves into the slice, so `useStoreSave` no longer compares the
-  file when the answer arrives; its posted-once ref (`App.tsx:32-37`), which
-  StrictMode's double-invoked mount effect needs, stays. In 4b only a finished run calls `show()`: PR 5's *load into lab*
-  sets the knobs and the view without generating (`lab-page.ts:1191-1215`:
-  "Loading sets the knobs and the view but does NOT generate"), leaving the
-  shown result where it was, but *load into lab* is not the
-  only library path to the board: the library's detail draws a stored board
+  therefore has its own slice, and `run` holds only the process: the phase, the
+  parameters in flight, progress, the last message and whether the idle phase
+  follows an abort (`RunState`, `run.slice.ts:12-30`). `result.shown` is one
+  field holding the board, its file, report and parameters (`ShownResult`,
+  `result.slice.ts:10-16`); beside it the slice holds the delta baseline and
+  the store's answer for that file, and a `reset()`, as the run slice has, for
+  the tests' resets, which call both. `started`, `aborted` and `failed` never
+  touch the result slice, and the report, both exports, the annotation, the run
+  status and the store save read it. A finished run is committed by one
+  store-level action, `completeRun(done)` (`store.ts:48-55`), the only writer
+  that sees both slices, which the worker's `done` handler calls with the
+  decoded board, its file and the report (`useGenerator.ts:72`). It applies the
+  run slice's done transition (`runDone`) and the result slice's show
+  transition (`showResult`), each exported as a pure function of its own slice
+  state, in one `set`: the slices keep their narrowed `SetStore`, and no render
+  sees `phase: 'done'` beside the previous board. The board is shown under the
+  run's own parameters, `run.params`; a `done` for a run that was never started
+  has none, and `completeRun` throws rather than invent them (plan
+  `2026-09-15-lab-report-export.md`, Ruling 6). `showResult` sets the store's
+  answer back to null — without it the next board would read "closed — saved"
+  until its own POST answered — and `result.stored(file, outcome)` is dropped
+  unless `file` is still `shown.file`, an identity guard inside the slice
+  (`result.slice.ts:90-91`). `useStoreSave` (`App.tsx:33-61`) therefore
+  subscribes to `result.shown` and compares nothing when the answer arrives;
+  its posted-once ref, which StrictMode's double-invoked mount effect needs,
+  keys on the file object. `result.show()` is `showResult` as a single-slice
+  action, kept for a writer that is not a run; in 4b nothing calls it, and a
+  finished run is the only way a board reaches the screen. PR 5's *load into
+  lab* is not such a writer: it sets the knobs and the view without generating
+  (`lab-page.ts:1191-1215`: "Loading sets the knobs and the view but does NOT
+  generate"), leaving the shown result where it was, but *load into lab* is not
+  the only library path to the board: the library's detail draws a stored board
   into the one shared element (`openBoard`, `lab-page.ts:1144-1186`, through
   `showLibBoard` at `:1237-1238`) and the old lab restores the lab's board on
   return (`:1053-1054`). Whether PR 5's preview passes through `result.shown`
   with a `library` source beside a kept lab result, or the `/boards` route
   holds its own, is PR 5's plan to decide — against this tree, not the old
   lab's: here the element lives inside `LabRoute`'s hidden `<main>`
-  (`LabRoute.tsx:28-35`, `Stage.tsx:25-27`), so the first option lifts it out
-  of the lab route and the second is a second `<arrowz-board>` and GL context
-  beside PR 2's single `BoardCanvas`. Whichever non-run writer comes
-  first — PR 5's preview or PR 7's reload from the store — passes `show()` a source which the run status and the store save read, or the
+  (`LabRoute.tsx:29-36`, and within it `BoardFrame.tsx:49-51`), so the first
+  option lifts it out of the lab route and the second is a second
+  `<arrowz-board>` and GL context beside PR 2's single `BoardCanvas`. Whichever
+  non-run writer comes first — PR 5's preview or PR 7's reload from the store —
+  passes `show()` a source which the run status and the store save read, or the
   status would call a stored board "closed — saved" and the save would re-POST
-  it (the structured-status note below). Keeping the parameters beside the board also retires an old-lab
-  defect: a language switch during a run re-rendered the report with the new
-  run's parameters beside the old board's metrics.
+  it (the structured-status note below). Keeping the parameters beside the
+  board also retires an old-lab defect: a language switch during a run
+  re-rendered the report with the new run's parameters beside the old board's
+  metrics.
 - **One metric baseline, and a parameter diff** (*amended in PR 4b*). The report
   compares against the previous shown result that had metrics (`prevStats`,
   `lab-page.ts:833`), kept as its `ReportInput` and parameters. The type has no
@@ -739,7 +747,7 @@ as §5.4 describes rather than displayed and then ignored.
   slice — a baseline without `board`, moved only by a result with metrics, the
   store's answer cleared by `show()` and dropped for a file no longer shown,
   `completeRun` writing both slices in one update; the run slice's case that a
-  new run clears the board (`run.slice.test.ts:72-82`) replaced by a store-level
+  new run clears the board (`run.slice.test.ts:72-82` at `1ffb0d6`) replaced by a store-level
   case — `completeRun`, then `run.started()`, leaves `result.shown` — and
   `result.reset()` beside `run.reset()` wherever a test resets; the command
   string against `buildCommand` for a table of parameter sets; the trigger table
@@ -795,7 +803,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 2 | `apps/lab` skeleton: Vite, React, ESLint/Prettier, `project.json`, the proxy **with the `Origin` rewrite**, tokens, shell, `App`-level `useGenerator` and the single `BoardCanvas`, and one end-to-end path — generate, draw, save |
 | 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
 | 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
-| 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:104-115`: the box scrolls, and Generate does not move as the command grows — plan `2026-09-15-lab-report-export.md` |
+| 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:147-158`: the box scrolls, and Generate does not move as the command grows — plan `2026-09-15-lab-report-export.md` |
 | 5 | The library: list, size chips, refresh, detail, its own view fields, copy, **load into lab**, two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |

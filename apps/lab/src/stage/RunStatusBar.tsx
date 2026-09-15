@@ -73,9 +73,9 @@ export function RunStatusBar() {
   } else if (run.phase === 'error') {
     // Both failure paths land here: the worker's `error` message (a thrown
     // InvalidParamsError) and its `onerror` both call the slice's `failed()`
-    // (useGenerator.ts:59, :65-68, :70-73), so the phase no longer says which
+    // (useGenerator.ts:67, :77, :82), so the phase no longer says which
     // happened and this component always prints `generationError`. The old lab
-    // keeps the two words apart; `workerError` (lab-i18n.ts:122-123) is
+    // keeps the two words apart; `workerError` (lab-i18n.ts:125) is
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || report === null) {

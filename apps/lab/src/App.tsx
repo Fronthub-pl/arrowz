@@ -102,7 +102,7 @@ function Shell() {
   useAutoRun(control)
   const hash = useUrlHash(control)
   // Spec §2.2's last row: the lab opens on a board rather than on an empty
-  // stage, as the old lab does at `lab-page.ts:1475-1483` — it reads the URL,
+  // stage, as the old lab does at `lab-page.ts:1468-1476` — it reads the URL,
   // then calls `run()`. This effect is declared after the hash hook's, and
   // React runs mount effects in declaration order, so a pasted link has
   // already been written into the store and this run uses the link's knobs
@@ -112,11 +112,11 @@ function Shell() {
   // a ref that survived StrictMode's simulated unmount would leave this page
   // with no run at all. StrictMode invokes a mount effect, then its cleanup,
   // then the effect again, and `useGenerator`'s own cleanup terminates the
-  // worker (useGenerator.ts:84) — so the carve the first pass starts is killed
+  // worker (useGenerator.ts:89) — so the carve the first pass starts is killed
   // and, with a guard in place, never started again. Measured: the StrictMode
   // case in LabRoute.browser.test.tsx sits in `running` until its poll times
   // out. Starting twice is what `start()` is built for instead: it kills a
-  // busy worker to make room for the next run (useGenerator.ts:89).
+  // busy worker to make room for the next run (useGenerator.ts:94).
   //
   // `control` is stable — `useRun` memoises it and `useGenerator`'s handle has
   // no changing dependency — so this runs at mount and at no other time.
@@ -125,7 +125,7 @@ function Shell() {
   // page opened on a link — the hash hook's read effect has already run and
   // knows.
   useEffect(() => {
-    // The old lab's order (`lab-page.ts:1479-1480`): in the simple view, a
+    // The old lab's order (`lab-page.ts:1472-1473`): in the simple view, a
     // page that did not open on a link opens on the board its recipe
     // describes. Without the draw, so the second pass StrictMode gives this
     // effect writes the very knobs the first one wrote.

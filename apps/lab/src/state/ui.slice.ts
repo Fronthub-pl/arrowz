@@ -15,7 +15,7 @@ export type ViewMode = 'simple' | 'advanced'
 /** The old lab's key and values (`lab-page.ts:655`). */
 export const MODE_KEY = 'labView'
 
-/** Only a stored `advanced` opens the advanced view (Ruling 2, `lab-page.ts:1479`). */
+/** Only a stored `advanced` opens the advanced view (Ruling 2, `lab-page.ts:1472`). */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
 }
