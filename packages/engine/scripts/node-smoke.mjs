@@ -4,7 +4,7 @@
 // board file.
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
-import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate } from '../dist/mod.js'
+import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, layoutHash } from '../dist/mod.js'
 import { parseArgs } from '../dist/command.js'
 import { genSeconds } from '../dist/lab-report.js'
 
@@ -32,11 +32,13 @@ for (const c of golden.cases) {
   // A Cloud Function will read these files: the file must round-trip in Node too.
   const back = decodeBoard(JSON.parse(JSON.stringify(encodeBoard(r.board))))
   const fileOk = fingerprint(back) === c.fingerprint
-  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk
+  // Web Crypto under Node names the layout exactly as Deno does.
+  const hashOk = (await layoutHash(r.board)) === c.layoutHash && (await layoutHash(back)) === c.layoutHash
+  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk && hashOk
   console.log(
     `${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen}, file ${
       fileOk ? 'ok' : 'FAIL'
-    })`,
+    }, layout ${hashOk ? 'ok' : 'FAIL'})`,
   )
   if (!ok) failures++
 }

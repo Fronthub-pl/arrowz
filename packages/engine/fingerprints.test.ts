@@ -4,13 +4,14 @@ import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { defaultParams, fingerprint, generate } from './engine.ts'
 import { parseArgs } from './command.ts'
-import { decodeBoard, encodeBoard } from './board-file.ts'
+import { decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 import type { GenerateOptions, Params } from './types.ts'
 
 interface GoldenCase {
   name: string
   argv: string[] | null
   fingerprint: string
+  layoutHash: string
   pieces: number
   maxLen: number | null
 }
@@ -38,22 +39,38 @@ function optsOf(c: GoldenCase): GenerateOptions {
 const BIG500_FILE_BYTES = 221956
 
 for (const c of golden.cases) {
-  Deno.test(`golden board ${c.name} reproduces the fingerprint recorded on Node and survives the board file`, () => {
+  Deno.test(`golden board ${c.name} reproduces the fingerprint recorded on Node and survives the board file`, async () => {
     const r = generate(paramsOf(c), optsOf(c))
     assertEquals(fingerprint(r.board), c.fingerprint)
     assertEquals(r.board.pieces.length, c.pieces)
     // The unchecked case records no maxLen — it has no metrics.
     if (c.maxLen !== null) assertEquals(r.metrics?.maxLen, c.maxLen)
+    // The layout hash is frozen beside the fingerprint: a change to the
+    // generator moves both, a change to the canonical form moves only this.
+    assertEquals(await layoutHash(r.board), c.layoutHash)
     // The file keeps the fingerprint, and the ids the fingerprint cannot see.
     const text = JSON.stringify(encodeBoard(r.board))
     const back = decodeBoard(JSON.parse(text))
     assertEquals(fingerprint(back), c.fingerprint)
+    assertEquals(await layoutHash(back), c.layoutHash)
     assertEquals(back.pieces.map((p) => p.id), r.board.pieces.map((p) => p.id))
     if (c.name === 'big500') {
       assert(text.length <= BIG500_FILE_BYTES, `big500 file grew to ${text.length} bytes`)
     }
   })
 }
+
+Deno.test('a golden board has one layout hash per fingerprint, and the other way round', () => {
+  const hashOf = new Map<string, string>()
+  const fingerprintOf = new Map<string, string>()
+  for (const c of golden.cases) {
+    assertEquals(hashOf.get(c.fingerprint) ?? c.layoutHash, c.layoutHash, c.name)
+    assertEquals(fingerprintOf.get(c.layoutHash) ?? c.fingerprint, c.fingerprint, c.name)
+    hashOf.set(c.fingerprint, c.layoutHash)
+    fingerprintOf.set(c.layoutHash, c.fingerprint)
+  }
+  assertEquals(fingerprintOf.size, 12, 'fifteen cases, twelve distinct boards')
+})
 
 Deno.test("the trap lever at 0 is today's board, cell for cell", () => {
   // The other half of the pair. `trap-off` is `tunnels` with the lever spelled
