@@ -24,7 +24,7 @@
 - **The engine and the dictionaries know neither Deno nor the DOM** (`neutral.test.ts`). Never spread an array proportional to cells or pieces into a call.
 - **No attribution lines in commit messages.**
 - **Do not delete or modify anything under `packages/cli/boards/`, any `dist/` by hand, or any `node_modules/`.**
-- Commit after every task. Run `pnpm --dir apps/lab exec prettier --write <touched paths>` before each `apps/lab` commit and `deno fmt <touched paths>` before each `packages/` commit; both are gates.
+- Commit after every task. Run `pnpm --dir apps/lab exec prettier --write <touched paths>` before each `apps/lab` commit and `deno fmt <touched paths>` before each `packages/` commit; both are gates. Prettier reflows a few long lines of this plan's code blocks (in `result.slice.ts`, `StatsTable.tsx`, `ExportButtons.tsx`, `App.tsx`, `LabLayout.browser.test.tsx`); a committed file differing from the plan only in wrapping is expected.
 
 ### Harness facts, each measured
 
@@ -58,9 +58,9 @@ New in this plan, measured on 2026-09-15 with a throw-away probe mounting the wh
   | none (today, no report) | board 334/353, inside | board 260 **clipped** by the wrap in the advanced view up to 740 | board 209, inside |
   | `minmax(0, 1fr) auto` + report `max-height: 73px` | board 260/279, inside; report 73 | board **clipped** at every height below 900 | report 73, board 135 |
   | `minmax(292px, 2fr) minmax(0, 1fr)` | board 260, report 73/92 | wrap **overflows the stage** by up to 25.4px into the console | report 80 |
-  | **`minmax(min(292px, 100%), 2fr) minmax(0, 1fr)`**, and `minmax(0, 2fr) minmax(0, 1fr)` below 700px of height | board 260, inside; report 73/92 | report track 0; board clipped exactly where it is clipped today | report 80/86, board 128/141, inside |
+  | **`minmax(min(292px, 100%), 2fr) minmax(0, 1fr)`**, and `minmax(0, 2fr) minmax(0, 1fr)` below 700px of height | board 260, inside; report 73/92 | report track 0 (advanced; 2px in the simple view at 720); board clipped exactly where it is clipped today | report 80/86, board 128/141, inside |
 
-  At 860×1100 the chosen rule gives the report 155/161px and the board 278/291px. *Corrected by review:* the probe's stand-in report had no padding. The real `.fw-report` keeps its 24px of padding when its track is 0, and that box overflows the stage by up to 25px (860×720, advanced) under the console, whose opaque background, later in tree order, paints over it — nothing of it shows. At least one line of report content appears from 860×850 (advanced) and 860×800 (simple); at 860×800 (advanced) and 860×760 (simple) the row is padding only. At 901px and above the report is the third column, 352px wide (22rem), and the board 445px wide at 901.
+  At 860×1100 the chosen rule gives the report 155/161px and the board 278/291px. *Corrected by review:* the probe's stand-in report had no padding. The real `.fw-report` keeps its 24px of padding when its track is 0, and that box overflows the stage by up to 25px (860×720, advanced) under the console, whose opaque background, later in tree order, paints over it — nothing of it shows. At least one whole line of report content appears from 860×850 in both views; at 860×800 the advanced view is padding only (24px) while the simple view shows 18px of a 22px row; from 860×760 both views are padding only. At 901px and above the report is the third column, 352px wide (22rem), and the board 445px wide at 901.
 - **Contrast of the new pairs**, by WCAG arithmetic on the token hex values: `--ink` on `--graphite` 15.45:1, `--error` on `--graphite` 4.90:1, `--ash` on `--graphite` 5.52:1, `--ink` on `--void` 16.53:1. Each is asserted again by a browser test reading computed colours.
 - **Fixture boards** (`generate({ ...defaultParams(), W: 8, H: 8, seed })`): seed 1 closes with 8 pieces, longest 18; seed 2 closes with 13 pieces, longest 17. The report cases rely on both numbers.
 
@@ -98,11 +98,17 @@ Decisions this plan takes that the spec left open or states differently. An exec
 
 ## Revision 2: what the first round of review changed
 
-Three independent reviews ran on revision 1 (`41e1cff`), each applying Tasks 1–7 in its own worktree: facts and compilation; whether each test can fail; seams, CSS and spec coverage. None found a defect in the application code: every step compiled, lint and Prettier stayed clean, `deno task verify` passed, and the chromium project ran 267 of 268.
+Three independent reviews ran on revision 1 (`41e1cff`), each applying Tasks 1–7 in its own worktree: facts and compilation; whether each test can fail; seams, CSS and spec coverage. None found a defect in the application code: every step of revision 1 compiled, lint and Prettier stayed clean, `deno task verify` passed, and the chromium project ran 267 of 268.
 
 **Fixed.** Two test defects, each found by all three reviewers or two of them: the annotation's hit test could never pass, because `document.elementFromPoint` skips a `pointer-events: none` box (Ruling 10) — the case now asserts the rule and lifts it for the one read; and the four solo cases looked the run column up by role while it was `display: none`, which a role locator skips — that lookup now passes `includeHidden: true`. One case could not fail for its reason: the exports' `toBeEnabled` during a run retried past the end of the carve, so a button disabled while running passed; it now reads `disabled` once, while `running`. The delta colour case now asserts each cell wears its own token, not only that it reads at AA. Task 2's and Task 7's expected failures name what actually fails; a missing solo toggle reports in 5 s instead of after a 40 s click wait. The ≤900px report text claimed a 0px report below 850px of height: the real column keeps its 24px of padding, covered by the console — the harness table, Ruling 2, the shell.css comment and the browser pass now say so. The exports are asserted in the simple view as well. The frame's test box has one row. Task 8 amends §5.3's "empty table" and §8's unit list. Stale figures (64.8px with the exports, run.css line numbers after Task 5), two find targets that span a line break, and an import order `deno fmt` would rewrite were corrected.
 
 **Confirmed, not to be re-litigated.** Every file:line citation and find target; Task 2's reset list and grep; the plan's three "prove it can fail" mutations, each red for the stated reason (Task 7's for a different mechanism, now recorded); twelve further mutations red for the right reason; the solo geometry at all four sizes; the command box red before its floor and green after; the report and export cases with the real worker.
+
+## Revision 3: what the second round changed
+
+Two reviews ran on revision 2 (`280594d`): one on its diff, measuring every fix with six mutations; one executing Tasks 1–7 as written, with their commits, then Task 8's spec edits and both gates. All six mutations went red for the stated reason; the chromium project ran 270 of 270 and the node project 93 of 93; `deno task verify` and `pnpm nx run-many -t verify` both passed.
+
+**Fixed.** Revision 2's hit-test lines did not type-check (`querySelector` returns `Element`, which has no `style`), so Task 3's `lab:check` failed while its tests passed — both reviewers found it; the case now narrows with `instanceof HTMLElement`. The ≤900px report text was wrong once more for the simple view at 860×800, which shows 18px of a first line; the harness note and the browser pass now give the measured thresholds per view. Task 1's, Task 7's two expected failures now name what fails, including the off-route `f` case that passes before the feature exists, as a refusal should. The three "prove it can fail" mutations say to undo by hand, because `git checkout` on a file with the task's uncommitted edits discarded them in the walk. Task 2 no longer edits a `Stage.tsx` comment that Task 3 replaces. Task 6 runs `lab:check` and `lab:lint`. The Global Constraints note that Prettier reflows a few of the plan's long lines.
 
 ---
 
@@ -233,7 +239,7 @@ Deno.test('both ui dictionaries carry the report, export and annotation words', 
 - [ ] **Step 2: Run them to verify they fail**
 
 Run (repository root): `deno test --allow-read packages/engine/lab-report.test.ts packages/engine/lab-i18n.test.ts`
-Expected: FAIL — a type error naming `reportDelta` (not exported) and the eight `UiKey` literals. Not `deno task test`: that runs `packages/cli` too, including a bundle test this task never builds.
+Expected: FAIL — nine type errors: `reportDelta` not exported, the seven `UiKey` literals, and `boardAnnotation` missing from `d.ui`. Not `deno task test`: that runs `packages/cli` too, including a bundle test this task never builds.
 
 - [ ] **Step 3: Add `reportDelta`**
 
@@ -947,7 +953,7 @@ function useStoreSave() {
   const board = useStore((state) => state.result.shown?.board ?? null)
 ```
 
-and in the doc comment replace "`run.progressed()` replaces `state.run` and leaves `state.view` alone" (it spans a line break before "alone") with "`run.progressed()` replaces `state.run` and leaves `state.view` and `state.result` alone".
+and leave the doc comment as it is: Task 3 replaces `Stage.tsx` and moves that comment into `BoardFrame.tsx`, naming `state.result` there.
 
 `apps/lab/src/stage/RunStatusBar.tsx`:
 
@@ -1170,7 +1176,7 @@ Expected: PASS.
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage src/run src/worker src/routes src/console/KnobPanel src/state/useUrlHash`
 Expected: PASS.
 
-Then prove the new whole-app case can fail, by putting the old behaviour back for one run: in `useGenerator.ts`'s `start`, add `useStore.getState().result.reset()` on the line after `actions().started(params)`, and run `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabRoute.browser.test.tsx -t "keeps the last result"`. Expected: FAIL on `expect(element?.board).toBe(board)` (received `null`). Remove the line and rerun: PASS.
+Then prove the new whole-app case can fail, by putting the old behaviour back for one run: in `useGenerator.ts`'s `start`, add `useStore.getState().result.reset()` on the line after `actions().started(params)`, and run `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabRoute.browser.test.tsx -t "keeps the last result"`. Expected: FAIL on `expect(element?.board).toBe(board)` (received `null`). Remove the line by hand — not with `git checkout`, which would discard this task's uncommitted edits to the file — and rerun: PASS.
 
 - [ ] **Step 11: Commit**
 
@@ -1282,7 +1288,9 @@ test('the annotation comes after the element and is what paints at its corner', 
   await act(async () => finish(finishedRun(1)))
   const element = screen.container.querySelector('arrowz-board')
   const label = annotation(screen.container)
-  if (element === null || label === null) throw new Error('the frame is not on the page')
+  // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
+  // which has no `style` for the hit test below.
+  if (element === null || !(label instanceof HTMLElement)) throw new Error('the frame is not on the page')
   expect(element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   // Ruling 10 takes the annotation out of hit testing, and `elementFromPoint`
   // honours that (measured: the hit is the `arrowz-board` host). The rule is
@@ -1991,7 +1999,7 @@ The file imports no report stylesheet and needs none: this case reads text, not 
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/report src/routes src/stage`
 Expected: PASS.
 
-Prove the row minimum is what holds the board: temporarily change `minmax(min(292px, 100%), 2fr)` to `minmax(0, 2fr)` and run `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "860"`. Expected: FAIL in both views on `board.bottom` — the probe measured a two-thirds row at 243px in the advanced view and 256px in the simple view, under the 292px the board and its padding need, so the wrap clips the board. Restore the line: PASS.
+Prove the row minimum is what holds the board: temporarily change `minmax(min(292px, 100%), 2fr)` to `minmax(0, 2fr)` and run `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "860"`. Expected: FAIL in both views on `board.bottom` — the probe measured a two-thirds row at 243px in the advanced view and 256px in the simple view, under the 292px the board and its padding need, so the wrap clips the board. Restore the line by hand — not with `git checkout`, which would discard this task's uncommitted edits to `shell.css` — and rerun: PASS.
 
 Run: `pnpm nx run lab:check && pnpm nx run lab:lint`
 Expected: PASS.
@@ -2466,6 +2474,9 @@ In `apps/lab/src/design/run.css`, replace the `.fw-cmdfig` rule and its comment 
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx src/run/RunColumn.browser.test.tsx`
 Expected: PASS — the three new cases, and `RunColumn`'s "leaves the whole command reachable, without moving Generate" unchanged.
 
+Run: `pnpm nx run lab:check && pnpm nx run lab:lint`
+Expected: PASS.
+
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -2516,7 +2527,7 @@ describe('solo', () => {
 ```
 
 Run: `pnpm --dir apps/lab exec vitest run --project node src/state/ui.slice.test.ts`
-Expected: FAIL — `toggleSolo is not a function`.
+Expected: FAIL, both cases — "starts off" on `expected undefined to be false`, the other on `toggleSolo is not a function`.
 
 - [ ] **Step 2: Add solo to the slice**
 
@@ -2722,7 +2733,7 @@ test('a focus inside what solo hides moves to the toggle', async () => {
 - [ ] **Step 4: Run them to verify they fail**
 
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage/BoardFrame.browser.test.tsx src/routes/LabLayout.browser.test.tsx`
-Expected: FAIL — the solo cases on the missing "Full view (key F)" button (after 5 s each), the `f` cases on `expected false to be true`, the focus case on `<body>`; the earlier report and command-box cases still pass.
+Expected: FAIL, 8 cases — the four solo cases and the BoardFrame toggle case on the missing "Full view (key F)" button (the solo cases after 5 s each); "f toggles solo", "f typed into a field" and the focus case on `expected false to be true` (the focus case stops at `expect(solo()).toBe(true)`, before its focus read). "f does nothing off the lab route" passes, as a refusal should before the feature exists; the report and command-box cases still pass.
 
 - [ ] **Step 5: Add the toggle, the class and the key**
 
@@ -2880,7 +2891,7 @@ In `apps/lab/src/design/console.css`, after the `.fw-lab.simple` rule, insert:
 Run: `pnpm --dir apps/lab exec vitest run --project chromium src/stage src/routes`
 Expected: PASS.
 
-Prove the grid redefinition is load-bearing: temporarily delete the `.fw-lab.solo .fw-stage` rule and rerun `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "whole lab"`. Expected: FAIL on `wrap.width` — measured `expected 70 to be close to 1400` (and 860): with the rail hidden, the wrap is the stage's first visible item and auto-places into the 70px rail track. Restore it: PASS.
+Prove the grid redefinition is load-bearing: temporarily delete the `.fw-lab.solo .fw-stage` rule and rerun `pnpm --dir apps/lab exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "whole lab"`. Expected: FAIL on `wrap.width` — measured `expected 70 to be close to 1400` (and 860): with the rail hidden, the wrap is the stage's first visible item and auto-places into the 70px rail track. Restore the rule by hand — not with `git checkout`, which would discard this task's uncommitted edits to `console.css` — and rerun: PASS.
 
 Run: `pnpm nx run lab:check && pnpm nx run lab:lint`
 Expected: PASS.
@@ -2907,7 +2918,7 @@ Run `sh packages/cli/lab.sh` (it builds the old lab and serves the board store o
 1. After the load run, set 600×600 and press Generate: while it carves, the board, the report, the annotation (naming the 25×50 board) and both export buttons stay; when it finishes, all four describe the 600×600 board.
 2. The second board's report shows deltas, `+` or `−`, coloured by direction; switching to Polish keeps every delta and translates every label.
 3. Download SVG saves `arrowz-600x600-seed9.svg`, which opens as an SVG; Download board file saves `<boardId>.board.json`, byte-identical to the file the store wrote under `packages/cli/boards/600x600/` (compare with `cmp`; read the store, do not modify it). A slow SVG export at 600×600 disables only its own button.
-4. At 860×900 and 860×850 the report is a row under the board with at least one line of content, scrolling inside itself, and the board is whole; at 860×800 and 860×760 the row is padding only and nothing of it shows over the console; at 860×650 the report is a row again under a board with no minimum.
+4. At 860×900 and 860×850 the report is a row under the board with at least one line of content, scrolling inside itself, and the board is whole; at 860×760 in both views and at 860×800 in the advanced view the row is padding only and nothing of it shows over the console (at 860×800 the simple view still shows a clipped first line); at 860×650 the report is a row again under a board with no minimum.
 5. The command box paints nothing over Generate at 860×900 (both views) and at 1400×900 (advanced); a long command scrolls inside the box.
 6. Solo from the corner button and from `f` gives the board the whole panel in both views; ⌘F opens the browser's find and leaves solo alone; Escape leaves solo on; a keyboard focus on Generate lands on the toggle; the element's zoom and pan still work in solo, and fit refits it on the way in and out.
 7. The console shows no errors; list what it does show, against PR #67's browser pass (Vite's debug lines, React DevTools, "Lit is in dev mode", the `willReadFrequently` warning from `gl-color.ts:45`).
