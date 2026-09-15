@@ -72,5 +72,10 @@ test('takes its name from a visible label when it is given one', async () => {
       <Segmented label="Letters" labelledBy="letters-label" options={OPTIONS} value="a" onChange={() => {}} />
     </div>,
   )
-  await expect.element(screen.getByRole('radiogroup', { name: 'Letters shown' })).toBeVisible()
+  const group = screen.getByRole('radiogroup', { name: 'Letters shown' })
+  await expect.element(group).toBeVisible()
+  // `aria-labelledby` wins name computation over `aria-label`, so the name
+  // assertion above would pass even if `aria-label` stayed set. This is what
+  // discriminates the branch: `labelledBy` given means no `aria-label`.
+  await expect.element(group).not.toHaveAttribute('aria-label')
 })

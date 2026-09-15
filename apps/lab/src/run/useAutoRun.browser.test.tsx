@@ -22,6 +22,7 @@ beforeEach(() => {
   state.run.reset()
   state.ui.setAuto(false)
   state.recipe.reset()
+  state.recipe.setRandom(false)
 })
 afterEach(() => vi.useRealTimers())
 

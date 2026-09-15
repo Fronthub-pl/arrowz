@@ -13,6 +13,16 @@ test('opens on the number, commits what was typed on Enter, and hands the focus 
   await expect.element(screen.getByRole('button', { name: 'width: 25' })).toHaveFocus()
 })
 
+// Spec §5.5 and Ruling 4 name "Enter or blur"; the case above covers Enter.
+test('commits what was typed on blur too', async () => {
+  const onCommit = vi.fn()
+  const screen = await render(<DraftNumber label="width" value={25} onCommit={onCommit} />)
+  await screen.getByRole('button', { name: 'width: 25' }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'width' }), '40')
+  await userEvent.tab()
+  expect(onCommit).toHaveBeenCalledExactlyOnceWith(40)
+})
+
 // No clamp here: a caller with narrower bounds than the knob's (the mix row)
 // has to see the number that was typed.
 test('hands over a number outside any range untouched', async () => {
