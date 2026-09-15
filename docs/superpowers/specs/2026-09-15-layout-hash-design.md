@@ -25,9 +25,12 @@ on one.
 
 Measured on 2026-09-15 with a probe outside the repository (1500 seeds × 3
 parameter variants per size): 4×4 gave 1116 distinct layouts, 5×5 gave 1427,
-6×6 gave 1499. Different parameters give the same layout routinely (`wShort`
-0.2 against the default on 6×6: 200 of 200 seeds identical, review probe);
-different seeds often on 4×4, now and then on 6×6. Nothing detects it:
+6×6 gave 1499. Different parameters give the same layout routinely (measured
+over seeds 1–200 against the defaults: `restarts` 0 instead of 3 gives the same
+layout for 200 of 200 seeds on 4×4 and on 6×6, because a first attempt that
+closes uses no restart; `wShort` 0.4 instead of the default 0.2 for 126 of 200
+on 4×4 and 81 of 200 on 6×6); different seeds often on 4×4, now and then on
+6×6. Nothing detects it:
 
 - `boardId(params)` (`command.ts`) hashes the **parameters**, not the result.
   The store names files by it, so two recipes of one layout are two entries.

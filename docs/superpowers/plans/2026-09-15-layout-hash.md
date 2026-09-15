@@ -71,14 +71,7 @@ In `packages/engine/board-file.test.ts`, extend the imports:
 ```ts
 import { assert, assertEquals, assertMatch, assertNotEquals, assertRejects, assertThrows } from '@std/assert'
 import { defaultParams, fingerprint, generate } from './engine.ts'
-import {
-  BOARD_FILE_VERSION,
-  BOARD_FORMAT,
-  BoardFileError,
-  decodeBoard,
-  encodeBoard,
-  layoutHash,
-} from './board-file.ts'
+import { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 ```
 
 Append at the end of the file:
@@ -355,6 +348,10 @@ for (const c of golden.cases) {
   const params = c.argv === null
     ? { ...defaultParams(), W: 40, H: 40, seed: 1 }
     : parseArgs(c.argv.filter((a: string) => a !== "--dry-run")).params
+  if (c.argv !== null) {
+    const { errors } = parseArgs(c.argv.filter((a: string) => a !== "--dry-run"))
+    if (errors.length) throw new Error(`${c.name}: ${errors.join("; ")}`)
+  }
   const opts = c.argv === null ? { unchecked: true, voidFrac: 0.1 } : {}
   const hash = await layoutHash(generate(params, opts).board)
   console.log(c.name, hash)
@@ -640,15 +637,19 @@ Deno.test('two parameter sets that carve one layout share its files and list bot
   const dir = freshDir()
   const a = await saveBoard(entry({ params: { seed: 1 } }))
   await sleep(5)
+  // 0.4, not 0.2: the default share is 0.2, and the same parameters are the same recipe.
   const b = await saveBoard(entry({
-    params: { seed: 1, wShort: 0.2 },
+    params: { seed: 1, wShort: 0.4 },
     view: { ...entry().view, colored: true },
   }))
   assertEquals(b.meta.id, a.meta.id)
   assertEquals([b.layoutExisted, b.recipeExisted], [true, false])
   assertEquals([...Deno.readDirSync(join(dir, '25x50'))].length, 2, 'one board file and one meta')
-  assertEquals(b.meta.sources.map((r) => r.id), [boardId(params({ seed: 1 })), boardId(params({ seed: 1, wShort: 0.2 }))])
-  assertEquals([b.meta.params.wShort, b.meta.view.colored], [0.2, true], 'the top level is the latest recipe')
+  assertEquals(
+    b.meta.sources.map((r) => r.id),
+    [boardId(params({ seed: 1 })), boardId(params({ seed: 1, wShort: 0.4 }))],
+  )
+  assertEquals([b.meta.params.wShort, b.meta.view.colored], [0.4, true], 'the top level is the latest recipe')
   assertEquals(b.meta.createdAt, a.meta.createdAt)
   assertEquals(listBoards()[0]?.boards.length, 1)
 })
@@ -678,12 +679,15 @@ Deno.test('a save that does not carry a figure keeps the stored one', async () =
   // exactly as it drops an absent one.
   const edit = await saveBoard(entry({
     view: { ...entry().view, stroke: 0.3 },
-    metrics: { ok: false, pieces: 10, maxLen: 5, genMs: null, restarts: null },
+    metrics: { ok: false, pieces: 10, maxLen: 5, genMs: null, restarts: null, backtracks: null, stuck: null },
   }))
   assertEquals([edit.meta.genMs, edit.meta.restarts, edit.meta.backtracks], [3, 1, 42])
   assertEquals(edit.meta.stuck, stuck)
   assertEquals(edit.meta.view.stroke, 0.3)
   assertEquals(edit.meta.sources[0]?.backtracks, 42)
+  // And a save that carries nothing at all keeps the layout's figures too.
+  const bare = await saveBoard(entry({ metrics: {} }))
+  assertEquals([bare.meta.ok, bare.meta.pieces, bare.meta.maxLen, bare.meta.stuck], [false, 10, 5, stuck])
 })
 
 Deno.test('listBoards skips junk: foreign directories, json without a board file, broken json, JSON scalars', async () => {
@@ -905,7 +909,7 @@ Deno.test('deleteBoard returns false for a missing layout and rejects bad names'
 - [ ] **Step 3: Run to verify they fail**
 
 Run: `deno test --allow-read --allow-write --allow-env packages/cli/store.test.ts`
-Expected: FAIL at type-check — `saveBoard` returns `BoardMeta`, not a promise of `{ meta, … }`; `sources` does not exist on the meta returned today.
+Expected: FAIL at type-check — `saveBoard` still returns `BoardMeta`, so `.meta`, `.layoutExisted` and `.recipeExisted` do not exist (TS2339), and `assertRejects` refuses a function that returns no promise (TS2741).
 
 - [ ] **Step 4: Rewrite the store**
 
@@ -1315,7 +1319,7 @@ Deno.test('carve.ts --count counts new layouts only: a second batch over the sam
 - [ ] **Step 2: Run to verify they fail**
 
 Run: `deno test --allow-read --allow-write --allow-env --allow-run packages/cli/carve.test.ts`
-Expected: FAIL — the dry-run `id` is still `seed1-…`; the second run prints no `layout already stored`; the second batch prints `batch: 3/3 boards written, 3 seeds tried`.
+Expected: FAIL in four tests — the closed dry-run's `id` is still `seed1-…`; the dry-run under `CARVE_TIMEOUT_S` prints `seed7-…`, which fails the `^sha256-` match; the second run prints no `layout already stored`; the second batch prints `batch: 3/3 boards written, 3 seeds tried`.
 
 - [ ] **Step 3: Implement the reports**
 
@@ -1488,7 +1492,11 @@ test('the board file is the file on screen, under its layout hash', async () => 
 // The hash is asynchronous and a download has to start in its click, so the
 // button waits for the hash; one that lands after its board was replaced is
 // dropped. Every digest is held until the case lets it through.
-test('the board file waits for its hash, and a hash for a replaced board is not used', async () => {
+test('the board file waits for the hash of the board on screen, and a replaced board’s hash is not used', async () => {
+  // Worked out before any digest is held: the test's own call would be held too, and never let through.
+  const TWO = finishedRun(2)
+  const THREE = finishedRun(3)
+  const threeName = `${await layoutHash(THREE.board)}.board.json`
   const held: (() => void)[] = []
   const real = crypto.subtle.digest.bind(crypto.subtle)
   vi.spyOn(crypto.subtle, 'digest').mockImplementation(
@@ -1502,15 +1510,21 @@ test('the board file waits for its hash, and a hash for a replaced board is not 
   await act(async () => finish(ONE))
   await expect.poll(() => held.length).toBe(1)
   await expect.element(button).toBeDisabled()
-  const TWO = finishedRun(2)
+  await act(async () => held[0]?.())
+  await expect.element(button).toBeEnabled()
+  // A new board: the last board's hash must not name it while its own is held.
   await act(async () => finish(TWO))
   await expect.poll(() => held.length).toBe(2)
-  await act(async () => held[0]?.())
   await expect.element(button).toBeDisabled()
+  // Replaced again before its hash lands: that hash is dropped when it does.
+  await act(async () => finish(THREE))
+  await expect.poll(() => held.length).toBe(3)
   await act(async () => held[1]?.())
+  await expect.element(button).toBeDisabled()
+  await act(async () => held[2]?.())
   await expect.element(button).toBeEnabled()
   await button.click()
-  expect(downloads.names).toEqual([`${await layoutHash(TWO.board)}.board.json`])
+  expect(downloads.names).toEqual([threeName])
 })
 
 // Outside a secure context there is no crypto.subtle; the reason is shown under
@@ -1534,8 +1548,9 @@ test('a board file that cannot be named says why, and the SVG export stays', asy
 
 - [ ] **Step 3: Run to verify they fail**
 
-Run: `pnpm nx build engine && pnpm --dir apps/lab exec vitest run src/run/ExportButtons.browser.test.tsx`
-Expected: FAIL — the download is named `seed1-….board.json`; the button is enabled while the digest is held; no alert on a rejected digest.
+Run: `pnpm nx run-many -t build -p engine board-element && pnpm --dir apps/lab exec vitest run src/run/ExportButtons.browser.test.tsx`
+(The lab imports `@arrowz/board-element` from its `dist/` as well; without that build the file does not even load.)
+Expected: FAIL in three cases — the download is named `seed1-….board.json`; the held-digest case stops at `expect.poll(() => held.length).toBe(1)` with 0, since today's component calls no digest; the rejected-digest case times out waiting for its alert.
 
 - [ ] **Step 4: Implement it in the component**
 
@@ -1608,6 +1623,9 @@ export function ExportButtons(): ReactElement {
       ignore = true
     }
   }, [result])
+  // `named` keeps the last board's hash until the new board's arrives: without
+  // the file comparison the button would offer the old name for the new board
+  // for that whole time. `ignore` only spares a pointless state write.
   const current = result !== null && named !== null && named.file === result.file ? named : null
   const hash = current?.hash ?? null
 
@@ -1677,11 +1695,11 @@ export function ExportButtons(): ReactElement {
 - [ ] **Step 5: Run the component tests**
 
 Run: `pnpm --dir apps/lab exec vitest run src/run/ExportButtons.browser.test.tsx`
-Expected: PASS (9 tests).
+Expected: PASS (9 tests). A stderr warning "The current testing environment is not configured to support act(...)" may appear a few times — the hash resolves outside `act`; it is not a failure.
 
 - [ ] **Step 6: The route test and the store client test**
 
-In `apps/lab/src/routes/LabRoute.browser.test.tsx`, in the case with the comment "Both exports stay live for the board on screen while the next one carves", insert immediately before `useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })`:
+In `apps/lab/src/routes/LabRoute.browser.test.tsx`, in the case with the comment "Both exports stay live for the board on screen while the next one carves", insert immediately after `expect(statsBefore).toMatch(/25 × 50/)` (the `setMany({ W: 600, … })` line that follows it occurs four times in the file, so it is not the anchor):
 
 ```tsx
   // The board-file button waits for the layout hash of the board on screen;
@@ -1929,7 +1947,7 @@ In one terminal `sh packages/cli/lab.sh` (store server on 8777), in another `pnp
 
 1. Wait for the first board; click "Download board file". The downloaded file is named `sha256-<64 hex>.board.json`.
 2. Press Generate with the same seed; the store status still says saved. In the store directory for that size there is one layout for that board, and its `.json` lists one recipe.
-3. In the advanced view set 6×6, Generate, then set `wShort` to 0.2 and Generate again. On 6×6 that change left the layout the same for 200 of 200 seeds in the spec review's probe, so expect the same `sha256-` file with two recipes in its `.json`; if a new file appears instead, report the seed and both hashes — it is an observation about the probe, not a defect in the store.
+3. In the advanced view set 6×6, Generate, then set `restarts` from 3 to 0 and Generate again. On 6×6 that change left the layout the same for 200 of 200 seeds (seeds 1–200, measured 2026-09-15: a first attempt that closes uses no restart), so expect the same `sha256-` file with two recipes in its `.json`. A new file instead is a finding: report the seed and both hashes.
 4. Open the old lab at `http://localhost:8777/lab.html`, tab "Saved boards": the row shows a clipped `sha256-…` id, the board opens, and dragging the stroke slider saves without adding a recipe (the `.json` still lists the same number).
 
 Report each observation; a step that does not behave as written is a finding, not something to explain away.
