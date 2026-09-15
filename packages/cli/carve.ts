@@ -356,7 +356,7 @@ function storedNames(meta: BoardMeta, svgOut: string | null): string {
   return `${base}.board.json${meta.svg ? `  + ${base}.svg` : ''}${svgOut ? `  + ${svgOut}` : ''}`
 }
 
-/** What a save found: nothing for a new layout; otherwise that it was stored, and what became of the recipe. */
+/** Whether this save's recipe was added or updated. */
 function recipeNote(saved: SaveResult): string {
   return `recipe ${saved.recipeExisted ? 'updated' : 'added'}`
 }
