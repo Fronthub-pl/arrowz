@@ -291,9 +291,11 @@ without touching the workflow.
 ```
 apps/lab/src/
   main.tsx                    mount, <BrowserRouter>
-  App.tsx                     routes, shell, global hotkeys, and the two things
-                              that must outlive a route change: useGenerator
-                              and the single <arrowz-board>
+  App.tsx                     routes, shell, global hotkeys (the solo `f`
+                              listener), and the two things that must outlive a
+                              route change: useGenerator, and LabRoute mounted
+                              on every route and hidden off it, which holds the
+                              single <arrowz-board>
   shell/
     TopBar.tsx                mark, preset name, dims, ⌘K, language, simple/advanced
     TabRow.tsx                role="tablist", arrow keys, aria-controls
@@ -307,7 +309,7 @@ apps/lab/src/
     Stage.tsx                 70px + 1fr + the report column
     BoardCanvas.tsx           createComponent(<arrowz-board>) — the only @lit/react site
     BoardFrame.tsx            paper frame, annotation of the board on screen, solo
-                              toggle (button and `f`)
+                              toggle button (the `f` listener is App's)
     RunRail.tsx               filmstrip, aria-current, focus mirrors hover
     RunStatusBar.tsx          ready / carving / failed / saved, aria-live="polite"
     RunDiffStrip.tsx          differences against the peeked run
@@ -421,13 +423,21 @@ follows the simple variant, which has the same specificity), and `.fw-stage`'s
 columns — and its ≤900px rows — become the one board track, as the old lab's
 `body.solo .cols` does (`lab.html:140`). The annotation and the toggle are absolutely positioned inside `.fw-board`,
 which is already `position: relative` (`shell.css:171`), so they take no height
-from the element; the old lab's `#solo` is fixed to the viewport
-(`lab.html:141`) and is not the model. The browser test sets its viewport — no
+from the element, and they come after the element in DOM order: the element's
+host is itself `position: relative` with an opaque background and
+`z-index: auto` (`arrowz-board.ts:129-135`), so tree order decides what paints
+on top, and a colour test would pass on an annotation hidden under the paper.
+The toggle takes the top-right corner and the annotation the top-left; the
+bottom edge belongs to the element's own bar (`arrowz-board.ts:178-185`). The
+old lab's `#solo` is fixed to the viewport (`lab.html:141`) and is not the
+model. The browser test sets its viewport — no
 test does today, so Vitest's default would apply — and asserts, at 1400px and
 860px wide and in both views, that `.fw-boardwrap`'s box equals `.fw-lab`'s and
 that `<arrowz-board>`'s box is 34px narrower and 34px shorter (16px padding and
-1px border on each side), not merely that nodes are hidden; the equality holds
-while `.fw-lab` is taller than the board's 260px minimum plus that frame. It unmounts nothing, for the
+1px border on each side), not merely that nodes are hidden; the 34px hold
+whenever `.fw-lab` is at least 292px tall (the board's 260px minimum, its
+border included under `border-box`, plus the wrap's 32px padding) and at any
+height below 700px, where `shell.css:185-189` releases the minimum. It unmounts nothing, for the
 reason every earlier swap in this tree keeps a node: the GL context, the run
 column's focus and a draft being typed all live in nodes a remount would
 replace. The top bar, tabs and run status stay, so a carve in flight is still
@@ -476,7 +486,9 @@ fitted view and keeps a zoomed one (`viewport.ts`).
   releases it. The cap is chosen by measuring at 860×900 and kept by a browser
   test asserting that at least one row of knobs stays visible below the stage
   and that `.fw-board`'s box is at least 260px tall and lies inside
-  `.fw-boardwrap`'s padding box — the wrap clips (`shell.css:167`), so the
+  `.fw-boardwrap`'s content box — its rect less 16px on each side, which the
+  rect gives directly because the wrap has no border (`shell.css:163-169`); the
+  wrap clips (`shell.css:167`), so the
   board's rect alone proves nothing, and a `minmax(0, …)` board row does not
   guarantee it.
 - The mock's run column ends in two ghost buttons without handlers, *Export
@@ -544,7 +556,7 @@ Notes the first draft got wrong or left out:
   exports, the annotation and the store save read it. A finished run is
   committed by one store-level action, `completeRun(done)` in `store.ts`, taking what
   `run.finished` takes today (`run.slice.ts:29`, called at
-  `useGenerator.ts:67`) — the only code that sees
+  `useGenerator.ts:67`) — the only writer that sees
   both slices — which applies the run slice's `done`
   transition and the result slice's `show` transition, each exported as a pure
   function of its own slice state, in one `set`; the slices keep their narrowed
@@ -555,7 +567,9 @@ Notes the first draft got wrong or left out:
   null — `started()` used to, and without it the next board would read "closed
   — saved" until its own POST answered — and `stored(file, outcome)` is dropped
   unless `file` is still `shown.file`, the identity guard `App.tsx:62-63` keeps
-  today, which moves into the slice: `App.tsx` keeps no check of its own. In 4b only a finished run calls `show()`: PR 5's *load into lab*
+  today, which moves into the slice, so `useStoreSave` no longer compares the
+  file when the answer arrives; its posted-once ref (`App.tsx:32-37`), which
+  StrictMode's double-invoked mount effect needs, stays. In 4b only a finished run calls `show()`: PR 5's *load into lab*
   sets the knobs and the view without generating (`lab-page.ts:1191-1215`:
   "Loading sets the knobs and the view but does NOT generate"), leaving the
   shown result where it was, but *load into lab* is not the
