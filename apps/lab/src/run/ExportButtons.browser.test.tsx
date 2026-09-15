@@ -95,12 +95,15 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   const TWO = finishedRun(2)
   const THREE = finishedRun(3)
   const threeName = `${await layoutHash(THREE.board)}.board.json`
-  const held: (() => void)[] = []
+  // A release returns the digest it starts, so the case can await the state it
+  // lets through: a release that returned nothing would only flush `act`, and
+  // the suppressed write could land after the next assertion had already run.
+  const held: (() => Promise<void>)[] = []
   const real = crypto.subtle.digest.bind(crypto.subtle)
   vi.spyOn(crypto.subtle, 'digest').mockImplementation(
     (algorithm, data) =>
       new Promise<ArrayBuffer>((resolve, reject) => {
-        held.push(() => void real(algorithm, data).then(resolve, reject))
+        held.push(() => real(algorithm, data).then(resolve, reject))
       }),
   )
   const screen = await mountButtons()
@@ -117,7 +120,9 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   // Replaced again before its hash lands: that hash is dropped when it does.
   await act(async () => finish(THREE))
   await expect.poll(() => held.length).toBe(3)
-  await act(async () => held[1]?.())
+  await act(async () => {
+    await held[1]?.()
+  })
   await expect.element(button).toBeDisabled()
   await act(async () => held[2]?.())
   await expect.element(button).toBeEnabled()
@@ -133,10 +138,18 @@ test('a board file that cannot be named says why, and the SVG export stays', asy
   await act(async () => finish(ONE))
   await expect.element(screen.getByRole('alert')).toHaveTextContent('Cannot name the board file: no secure context')
   await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeDisabled()
-  await expect.element(screen.getByRole('button', { name: 'Download SVG' })).toBeEnabled()
+  const svg = screen.getByRole('button', { name: 'Download SVG' })
+  await expect.element(svg).toBeEnabled()
+  // Spec §5: why the reason is not the result slice's `exportError` — that line
+  // is cleared when an SVG export starts, and the board-file button would then
+  // stay disabled with nothing on screen saying why.
+  await svg.click()
+  await expect.poll(() => downloads.names, { timeout: 10_000 }).toEqual(['arrowz-8x8-seed1.svg'])
+  await expect.element(screen.getByRole('alert')).toHaveTextContent('Cannot name the board file: no secure context')
 })
 
-// The old lab's name (lab-page.ts:962), drawn by a real throw-away worker.
+// The old lab's name (the `download` handler in lab-page.ts), drawn by a real
+// throw-away worker.
 test('the SVG is drawn off the page and saved under the board it shows', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
