@@ -23,7 +23,7 @@
 - Commit messages: one plain sentence, no attribution lines, no `feat:` prefixes (the repository's style: "Keep the export error in the result slice, so no replaced board outlives it").
 - Cite code by symbol in comments, never by `file:line` — this branch moves lines.
 - The branch is `store/layout-hash`, based on `lab/report-export`. Commit by path (`git add <paths>`), never `git add -A`.
-- Before every commit, format what the task touched: `deno fmt <files>` under `packages/` and for `README*.md`-free Deno files, `pnpm --dir apps/lab exec prettier --write <files>` under `apps/lab`. The code blocks in this plan are correct but not guaranteed to sit inside the 120-column width, and both `fmt --check` gates fail on that.
+- Before every commit, format what the task touched: `deno fmt <files>` for files under `packages/`; `pnpm --dir apps/lab exec prettier --write <files>` for files under `apps/lab`. The code blocks in this plan are correct but not guaranteed to sit inside the 120-column width, and both `fmt --check` gates fail on that.
 
 ## File map
 
@@ -909,7 +909,7 @@ Deno.test('deleteBoard returns false for a missing layout and rejects bad names'
 - [ ] **Step 3: Run to verify they fail**
 
 Run: `deno test --allow-read --allow-write --allow-env packages/cli/store.test.ts`
-Expected: FAIL at type-check — `saveBoard` still returns `BoardMeta`, so `.meta`, `.layoutExisted` and `.recipeExisted` do not exist (TS2339), and `assertRejects` refuses a function that returns no promise (TS2741).
+Expected: FAIL at type-check — `saveBoard` still returns `BoardMeta`, so `.meta`, `.layoutExisted` and `.recipeExisted` do not exist (TS2339), and `assertRejects` refuses a function that returns no promise (TS2741) — and `store.ts` itself no longer type-checks (`TS2741`: `sources` is missing in the meta it builds), which Step 4 resolves.
 
 - [ ] **Step 4: Rewrite the store**
 
@@ -1214,7 +1214,7 @@ In `packages/cli/carve.test.ts`:
 const layoutIdOf = (params: Params): Promise<string> => layoutHash(generate(params).board)
 ```
 
-2. In each of these tests make the callback `async` and replace the `boardId(...)` expression that names the stored files with `await layoutIdOf(...)` of the same params:
+2. In each of these five tests (one site is indented inside a `for` loop) make the callback `async` and replace the `boardId(...)` expression that names the stored files with `await layoutIdOf(...)` of the same params:
    - 'carve.ts --svg reproduces the generate() board byte for byte': `const id = await layoutIdOf(params)`
    - 'carve.ts writes the board file and the meta, and no SVG unless asked': `const id = await layoutIdOf(params)`
    - 'carve.ts --svg=path also writes a copy at the path': `const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))`
@@ -1947,7 +1947,7 @@ In one terminal `sh packages/cli/lab.sh` (store server on 8777), in another `pnp
 
 1. Wait for the first board; click "Download board file". The downloaded file is named `sha256-<64 hex>.board.json`.
 2. Press Generate with the same seed; the store status still says saved. In the store directory for that size there is one layout for that board, and its `.json` lists one recipe.
-3. In the advanced view set 6×6, Generate, then set `restarts` from 3 to 0 and Generate again. On 6×6 that change left the layout the same for 200 of 200 seeds (seeds 1–200, measured 2026-09-15: a first attempt that closes uses no restart), so expect the same `sha256-` file with two recipes in its `.json`. A new file instead is a finding: report the seed and both hashes.
+3. Switch to the advanced view (the view switch in the top bar), set W and H to 6 and the seed to one in 1–200, Generate, then set `restarts` (group "closing") from 3 to 0 and Generate again. On 6×6 that change left the layout the same for 200 of 200 seeds (seeds 1–200, measured 2026-09-15: a first attempt that closes uses no restart), so expect the same `sha256-` file with two recipes in its `.json`. A new file instead is a finding: report the seed and both hashes.
 4. Open the old lab at `http://localhost:8777/lab.html`, tab "Saved boards": the row shows a clipped `sha256-…` id, the board opens, and dragging the stroke slider saves without adding a recipe (the `.json` still lists the same number).
 
 Report each observation; a step that does not behave as written is a finding, not something to explain away.
