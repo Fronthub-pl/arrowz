@@ -180,6 +180,25 @@ body {
   height: 100%;
 }
 
+/* The annotation of the board on screen (spec §5.2). After the element in DOM
+   order — the element's host is positioned and opaque with `z-index: auto`
+   (arrowz-board.ts:129-135), so tree order is what paints this on top — and in
+   the top-left corner, because the bottom edge belongs to the element's own
+   bar. `--ink` on `--void` (16.53:1), inverting the mock's `--void` on
+   `--signal` (4.08:1, the open §7.1 pair). No caps: they would print `SEED`,
+   and the numbers are the content (PR 4b, Ruling 10). No pointer events, so a
+   drag that starts on it still pans the board. */
+.fw-anno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 8px;
+  background: var(--void);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
 @media (max-height: 700px) {
