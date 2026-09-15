@@ -480,17 +480,20 @@ fitted view and keeps a zoomed one (`viewport.ts`).
   separators as the boundaries of five `<tbody>` groups, visible in both views.
   The column is 22rem wide on `--graphite`, never on `--paper`, and scrolls
   inside itself (`overflow-y: auto`, as `.fw-runs` and `.fw-run-col` do) in
-  both layouts: at ≤900px it moves under the board as a row spanning the rail
-  as well (`grid-column: 1 / -1`) with a capped height, and the board keeps
-  its own minimum except below 700px of height, where `shell.css:185-189`
-  releases it. The cap is chosen by measuring at 860×900 and kept by a browser
-  test asserting that at least one row of knobs stays visible below the stage
-  and that `.fw-board`'s box is at least 260px tall and lies inside
-  `.fw-boardwrap`'s content box — its rect less 16px on each side, which the
-  rect gives directly because the wrap has no border (`shell.css:163-169`); the
-  wrap clips (`shell.css:167`), so the
-  board's rect alone proves nothing, and a `minmax(0, …)` board row does not
-  guarantee it.
+  both layouts: at ≤900px it moves under the board as a row spanning the rail as
+  well (`grid-column: 1 / -1`) in a row sized by the stage itself —
+  `minmax(0, 1fr)` under the board's `minmax(min(292px, 100%), 2fr)`, chosen by
+  measuring at 860 wide from 650 to 1100 high (plan
+  `2026-09-15-lab-report-export.md`, Ruling 2), where a fixed `max-height`
+  clipped the board at every height below 900 and a bare 292px minimum pushed
+  the board over the console — and the board keeps its own minimum except below
+  700px of height, where `shell.css:185-189` releases it and the row's 292px
+  with it. The layout is kept by a browser test asserting that at least one row
+  of knobs stays visible below the stage and that `.fw-board`'s box is at least
+  260px tall and lies inside `.fw-boardwrap`'s content box — its rect less 16px
+  on each side, which the rect gives directly because the wrap has no border
+  (`shell.css:163-169`); the wrap clips (`shell.css:167`), so the board's rect
+  alone proves nothing, and a `minmax(0, …)` board row does not guarantee it.
 - The mock's run column ends in two ghost buttons without handlers, *Export
   SVG* and *Download board file* (`.fw-ghost`). In the application
   `.fw-ghost` already holds the `auto` and `help` switches and is absent in the
@@ -505,8 +508,8 @@ fitted view and keeps a zoomed one (`viewport.ts`).
   the board-file button, the export error, the hidden *better* and *worse*, the
   annotation — goes into `lab-i18n.ts` in both languages.
 - The mock's ⤢ is the third button of its zoom triplet — *fit*, which the
-  element's own bar already has — and the mock has no solo. The solo toggle is
-  a separate glyph in the frame's top-right corner, named by `fullView`. The
+  element's own bar already has — and the mock has no solo. The solo toggle is a
+  separate glyph, `⛶`, in the frame's top-right corner, named by `fullView`. The
   frame's annotation carries the size and seed of the board on screen, which
   during a run is the previous one.
 
@@ -588,17 +591,19 @@ Notes the first draft got wrong or left out:
   it (the structured-status note below). Keeping the parameters beside the board also retires an old-lab
   defect: a language switch during a run re-rendered the report with the new
   run's parameters beside the old board's metrics.
-- **One metric baseline, and a parameter diff** (*amended in PR 4b*). The
-  report compares against the previous shown result that had metrics
-  (`prevStats`, `lab-page.ts:833`), kept as its `ReportInput` and parameters.
-  The type has no board file, but the worker's `done` message satisfies it
-  structurally while carrying one, so `show()` copies the `ReportInput` fields
-  rather than keeping the message — otherwise the baseline would hold a second
-  multi-megabyte string — and a unit test asserts the baseline has no `board`. Both reports' rows are built at render in the current
-  language and compared by row index, which a language switch does not move;
-  the old lab's `keepPrev` flag has nothing left to guard, because rendering no
-  longer moves the baseline — only `show()` does. A result without metrics
-  shows an empty table and leaves the baseline where it was, as the old lab
+- **One metric baseline, and a parameter diff** (*amended in PR 4b*). The report
+  compares against the previous shown result that had metrics (`prevStats`,
+  `lab-page.ts:833`), kept as its `ReportInput` and parameters. The type has no
+  board file, but the worker's `done` message satisfies it structurally while
+  carrying one, so `show()` copies the `ReportInput` fields rather than keeping
+  the message — otherwise the baseline would hold a second multi-megabyte string
+  — and a unit test asserts the baseline has no `board`. Both reports' rows are
+  built at render in the current language and compared by row index, which a
+  language switch does not move; the old lab's `keepPrev` flag has nothing left
+  to guard, because rendering no longer moves the baseline — only `show()` does.
+  A result without metrics shows no statistics table, keeps the longest-pieces
+  table (the old lab's `showLabBoard()` redraws it after `report()` clears both,
+  `lab-page.ts:814-816`), and leaves the baseline where it was, as the old lab
   returns before its swap (`:1425-1429`). The diff strip of PR 7 compares
   *parameters* against the peeked run; it is not a second metric baseline, as
   the first draft had it.
@@ -724,32 +729,36 @@ as §5.4 describes rather than displayed and then ignored.
 
 ## 8. Testing
 
-- **Unit (Vitest, node):** every store slice; the hash codec, including a
-  legacy hash whose numbers are strings, and a hash whose values need clamping
-  (which must raise the notice); `clampParam` at bounds and steps; the rule
-  bound published per key; the report's delta, compared by row index, unmoved
-  by a language switch; `reportDelta` in the engine's own tests, its `null`
-  cases included; the result slice — a baseline without `board`, moved only by
-  a result with metrics, the store's answer cleared by `show()` and dropped for
-  a file no longer shown, `completeRun` writing both slices in one update; the
-  run slice's case that a new run clears the board (`run.slice.test.ts:72-82`)
-  replaced by a store-level case — `completeRun`, then `run.started()`, leaves
-  `result.shown` — and `result.reset()` beside `run.reset()` wherever a test resets; the command string against `buildCommand` for a table of
-  parameter sets; the trigger table of §2.2, trigger by trigger.
+- **Unit (Vitest, node):** every store slice; the hash codec, including a legacy
+  hash whose numbers are strings, and a hash whose values need clamping (which
+  must raise the notice); `clampParam` at bounds and steps; the rule bound
+  published per key; the report's delta compared by row index — `reportDelta` in
+  the engine, and the row alignment unmoved by a language switch in
+  `ReportPanel.browser.test.tsx`, where the dictionary switch is real;
+  `reportDelta` in the engine's own tests, its `null` cases included; the result
+  slice — a baseline without `board`, moved only by a result with metrics, the
+  store's answer cleared by `show()` and dropped for a file no longer shown,
+  `completeRun` writing both slices in one update; the run slice's case that a
+  new run clears the board (`run.slice.test.ts:72-82`) replaced by a store-level
+  case — `completeRun`, then `run.started()`, leaves `result.shown` — and
+  `result.reset()` beside `run.reset()` wherever a test resets; the command
+  string against `buildCommand` for a table of parameter sets; the trigger table
+  of §2.2, trigger by trigger.
 - **Browser (Vitest browser mode, Playwright Chromium):** the slider's keyboard
   path; the palette's focus trap and return; tab arrow navigation; a full run
   from Generate to a drawn board with **zero console errors**; a route change
   during a run that neither kills it nor disposes the GL context; the element
   receiving object properties through the `@lit/react` wrapper; *from PR 4b:*
-  the board, report and exports of the last result kept through a run in
-  flight; the SVG download's name and type and the board file's text; solo's
-  board box filling the lab in both views and at both widths, with the GL
-  canvas and the run column kept by node identity; `f` ignored with a modifier,
-  in a field and off the lab route; the computed colours of the delta, the
-  annotation and the export buttons; the ≤900px command box measured before
-  and after its fix; a focus inside what solo hides moved to the toggle, key
-  repeat ignored, Escape not leaving solo; at 860×900 a knob row visible under
-  the report row and the board unclipped at no less than its minimum (§5.2).
+  the board, report and exports of the last result kept through a run in flight;
+  the SVG download's name and type and the board file's text; solo's board box
+  filling the lab in both views and at both widths, with the GL canvas and the
+  run column kept by node identity; `f` ignored with a modifier, in a field and
+  off the lab route; the computed colours of the delta, the annotation and the
+  export buttons; the command box at 860×900 in both views and at 1400×900 in
+  the advanced view, measured before and after its fix; a focus inside what solo
+  hides moved to the toggle, key repeat ignored, Escape not leaving solo; at
+  860×900 a knob row visible under the report row and the board unclipped at no
+  less than its minimum (§5.2).
 - **Fingerprint parity — the successor to `lab-bundle.test.ts`.** That test
   runs the bundled worker and compares the board's fingerprint against
   in-process `generate()` (`lab-bundle.test.ts:61-88`). Zero console errors does
@@ -786,7 +795,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 2 | `apps/lab` skeleton: Vite, React, ESLint/Prettier, `project.json`, the proxy **with the `Origin` rewrite**, tokens, shell, `App`-level `useGenerator` and the single `BoardCanvas`, and one end-to-end path — generate, draw, save |
 | 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
 | 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
-| 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; the fix applies at ≤900px only, after the cause is measured, and leaves the above-900px ruling of `run.css:104-115` (the box scrolls, the column does not grow) intact — plan `2026-09-15-lab-report-export.md` |
+| 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:104-115`: the box scrolls, and Generate does not move as the command grows — plan `2026-09-15-lab-report-export.md` |
 | 5 | The library: list, size chips, refresh, detail, its own view fields, copy, **load into lab**, two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |
