@@ -228,6 +228,31 @@ Deno.test('the tab strip has a name of its own, distinct from every tab', () => 
   }
 })
 
+// PR 4b's words. The key-set test above already fails for a key present in one
+// language only; this one fails for a key missing from both, which that test
+// cannot see.
+Deno.test('both ui dictionaries carry the report, export and annotation words', () => {
+  const dictionaries: Dictionary[] = [EN, PL]
+  const words: UiKey[] = [
+    'reportPanel',
+    'statsTable',
+    'deltaBetter',
+    'deltaWorse',
+    'exportsGroup',
+    'downloadBoardFile',
+    'exportError',
+  ]
+  for (const d of dictionaries) {
+    for (const k of words) {
+      assertEquals(typeof d.ui[k], 'string', k)
+      assert(String(d.ui[k]).length > 0, k)
+    }
+    const annotation = d.ui.boardAnnotation(25, 50, 7)
+    assertStringIncludes(annotation, '25×50')
+    assertStringIncludes(annotation, '7')
+  }
+})
+
 Deno.test('the console rail names itself and its two sections in both languages', () => {
   for (const lang of ['en', 'pl'] as const) {
     const dict = dictionary(lang)

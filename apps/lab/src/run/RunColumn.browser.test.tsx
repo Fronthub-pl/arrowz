@@ -21,7 +21,7 @@ function stub() {
 }
 
 // A real finished run, so the focus case below can end a carve the way a carve
-// ends — `finished()`, and not the `aborted()` that would also flip `running`
+// ends — `completeRun()`, and not the `aborted()` that would also flip `running`
 // but is the user's own doing. 8×8 because nothing here reads the report; `ok`
 // and `deadlock` are stated rather than taken from the result for the same
 // reason `RunStatusBar.browser.test.tsx` states them.
@@ -73,6 +73,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
   state.ui.setAuto(false)
   state.ui.setHelp(true)
   state.ui.setMode('advanced')
@@ -142,7 +143,7 @@ describe('RunColumn', () => {
     // pass by the focus having been on Generate all along.
     expect(document.activeElement).toBe(abort)
 
-    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).not.toBe(document.body)
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
@@ -209,7 +210,7 @@ describe('RunColumn', () => {
     // only indirectly, by the end branch then moving it on to Generate.
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
-    await act(async () => useStore.getState().run.finished({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
+    await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
   })
@@ -323,5 +324,15 @@ describe('the alternative actions', () => {
     // figure: `LiveCommand` is the column's first child, so a figure that grew
     // with the command would walk the primary action down the column.
     expect(generateTop()).toBe(before)
+  })
+})
+
+// Spec §5.2: the exports belong to the board, not to the knobs, so the simple
+// view keeps them — unlike `auto` and `help` (PR 4a, Ruling 9).
+describe('the exports', () => {
+  it.each(['advanced', 'simple'] as const)('are in the column in the %s view', async (mode) => {
+    useStore.getState().ui.setMode(mode)
+    const screen = await render(<RunColumn control={stub().control} />)
+    await expect.element(screen.getByRole('group', { name: 'Export' })).toBeInTheDocument()
   })
 })

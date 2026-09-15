@@ -58,7 +58,7 @@ describe('the view a page opens in', () => {
     return store
   }
 
-  // `lab-page.ts:1479`: only a stored `advanced` opens the advanced view.
+  // `lab-page.ts:1472`: only a stored `advanced` opens the advanced view.
   it('is the simple view unless the advanced one was chosen last time', () => {
     expect(modeOf(null)).toBe('simple')
     expect(modeOf('simple')).toBe('simple')
@@ -70,5 +70,29 @@ describe('the view a page opens in', () => {
     const store = slice()
     store.ui.setMode('advanced')
     expect(store.ui.mode).toBe('advanced')
+  })
+})
+
+// Spec §5.3 lists solo in `ui`, and nothing remembers it: the old lab's
+// `body.solo` is gone on reload too.
+describe('solo', () => {
+  function slice() {
+    const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
+    return store
+  }
+
+  it('starts off', () => {
+    expect(slice().ui.solo).toBe(false)
+  })
+
+  it('toggles, and is set to what it is given', () => {
+    const store = slice()
+    store.ui.toggleSolo()
+    expect(store.ui.solo).toBe(true)
+    store.ui.toggleSolo()
+    expect(store.ui.solo).toBe(false)
+    store.ui.setSolo(true)
+    store.ui.setSolo(true)
+    expect(store.ui.solo).toBe(true)
   })
 })

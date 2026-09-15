@@ -6,8 +6,8 @@ import { useStore } from '../state/store'
  * A preset or a link moved a value into range — the old lab's `showClamped`
  * as a component (`lab-page.ts:701-704`). The region is mounted from the
  * start and only its content moves: a live region inserted already-populated
- * is not announced by most screen readers, and `RunStatusBar.tsx:105-109`
- * already sets the pattern this follows.
+ * is not announced by most screen readers, and `RunStatusBar`'s
+ * `<output aria-live="polite">` already sets the pattern this follows.
  *
  * `--warn` and not `--error`: nothing is refused, a value moved, and §7.1
  * reserves warn for exactly that.
@@ -39,12 +39,12 @@ export function ClampNotice({
   //
   // Unless that action is refused: this notice appears exactly when a preset
   // has just started a run, and Generate is disabled while one is in flight
-  // (`RunColumn.tsx:139`) — and `focus()` on a disabled button is a no-op, so
-  // dismissing during a long carve dropped the keyboard user on <body> after
-  // all. In exactly that state Abort is live: it is out on `!running`
-  // (`RunColumn.tsx:151`) while Generate is out on `running || blocked`
-  // (`:139`), so a carve in flight with the rules kept is precisely the state
-  // that refuses the one and offers the other — and Abort is then a visible,
+  // (`disabled={running || blocked}` in `RunColumn`) — and `focus()` on a
+  // disabled button is a no-op, so dismissing during a long carve dropped the
+  // keyboard user on <body> after all. In exactly that state Abort is live: it
+  // is out on `!running` while Generate is out on `running || blocked`, so a
+  // carve in flight with the rules kept is precisely the state that refuses the
+  // one and offers the other — and Abort is then a visible,
   // named control inside the run column, a better landing spot than the region
   // below. The two conditions are not complements, though: a link that clamped
   // a value and also broke a rule leaves both disabled, and in that state

@@ -28,6 +28,7 @@ async function mountApp() {
   window.history.pushState({}, '', '/')
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   useStore.getState().params.reset()
   // The whole `ui` slice, not a selection of it, and the load run makes it
   // matter: a case that turned `auto` on would otherwise carve on the next
@@ -40,6 +41,16 @@ async function mountApp() {
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
   return render(<App />)
+}
+
+/**
+ * Whether the store has answered for a board other than `before`. `saved` alone
+ * cannot say it: a run in flight keeps the last result and its answer (PR 4b),
+ * so right after a press `saved` still describes the board before it.
+ */
+function savedAfter(before: unknown): boolean {
+  const { shown, saved } = useStore.getState().result
+  return shown !== null && shown.file !== before && saved !== null
 }
 
 // `getByRole('status', { name: 'Run status' })` and not the bare role: the lab
@@ -90,16 +101,15 @@ test('Generate carves a board, draws it, and says so', async () => {
     // when the click lands, so every assertion after it would be satisfied by
     // the load board — delete `onClick={control.start}` from `RunColumn` and
     // this case would stay green, which is the one failure a gate must never
-    // have. `started()` clears `file` (run.slice.ts:54) and `finished()` sets
-    // it with the phase (`:56`), so a `file` that is new and not null is also
-    // proof the run passed through `running`.
-    const onLoad = useStore.getState().run.file
+    // have. `completeRun` gives `result.shown` the new run's own file object, so
+    // a file that is new is proof a run finished after the press.
+    const onLoad = useStore.getState().result.shown?.file
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect
       .poll(
         () => {
-          const { file } = useStore.getState().run
-          return file !== null && file !== onLoad
+          const file = useStore.getState().result.shown?.file
+          return file !== undefined && file !== onLoad
         },
         { timeout: 30_000 },
       )
@@ -186,12 +196,49 @@ test('a run in flight survives a route change, and finishes into the same elemen
   expect(useStore.getState().run.phase).toBe('running')
 
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
-  expect(useStore.getState().run.board?.W).toBe(600)
+  expect(useStore.getState().result.shown?.board.W).toBe(600)
   // Still on /boards, and the board the worker just finished reached the same
   // element the run started with.
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
   expect(before?.board?.W).toBe(600)
 }, 60_000)
+
+// Spec §5.3, PR 4b: the old lab replaces its board only when a run is done
+// (lab-page.ts:811-816), and so does this lab. Before the result slice,
+// `run.started()` cleared the board and the stage sat empty for a whole carve.
+// 600×600 and seed 9 for the reason the case above gives.
+test('a run in flight keeps the last result on screen', async () => {
+  const screen = await mountApp()
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  const element = screen.container.querySelector('arrowz-board')
+  const board = element?.board
+  expect(board?.W).toBe(25)
+  const report = () => screen.getByRole('region', { name: 'Report' }).element().querySelector('table.fw-stats')
+  const statsBefore = report()?.textContent
+  expect(statsBefore).toMatch(/25 × 50/)
+  useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
+  await screen.getByRole('button', { name: 'Generate' }).click()
+  // The status line, not the store: the commit that renders `running` is the
+  // one that would have taken the board off the element.
+  await expect
+    .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
+    .toMatchTextContent(/^(Generating|[\d.]+%)/)
+  expect(element?.board).toBe(board)
+  expect(report()?.textContent).toBe(statsBefore)
+  // Both exports stay live for the board on screen while the next one carves.
+  // Read at once, not retried: a retrying `toBeEnabled` outlasts the carve and
+  // passes on the finished run, so a button disabled while running would pass
+  // it (measured in review).
+  expect(useStore.getState().run.phase).toBe('running')
+  for (const name of ['Download SVG', 'Download board file']) {
+    const button = screen.getByRole('button', { name }).element()
+    if (!(button instanceof HTMLButtonElement)) throw new Error(`${name} is not a button`)
+    expect(button.disabled, name).toBe(false)
+  }
+  // Kept through the carve as well.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(element?.board?.W).toBe(600)
+}, 40_000)
 
 test('the lab panel is hidden off-route and shown on it', async () => {
   const screen = await mountApp()
@@ -233,6 +280,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   window.history.pushState({}, '', '/')
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
+  useStore.getState().result.reset()
   // Not through `mountApp`, which renders `App` bare: the defaults have to be
   // put back here too, or this test carves whatever the last one left behind.
   useStore.getState().params.reset()
@@ -253,7 +301,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   // spy's window — the very race the comment in the last test of this file
   // fights. With the save already in, the spy is installed on a quiet page and
   // the counts below are this test's own presses, exactly as before.
-  await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+  await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
   // The method is part of the predicate: `listBoards()` GETs this same address
   // (api/boards.ts), and PR 5's saved-boards route is what starts calling it —
@@ -263,8 +311,9 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
   try {
     const generate = screen.getByRole('button', { name: 'Generate' })
+    const loaded = useStore.getState().result.shown?.file
     await generate.click()
-    await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+    await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
     // No store server answers in the browser test, so the outcome is a failure —
     // and the run's own outcome must survive beside it. The whole line is
     // asserted, not just the store's half: a status bar that *substituted* the
@@ -279,8 +328,9 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     // touches a knob between the two presses, so the second carves a board
     // equal to the first in every field, fingerprint included — a guard that
     // compared values would post once and swallow the second run.
+    const first = useStore.getState().result.shown?.file
     await generate.click()
-    await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 20_000 }).toBe(true)
+    await expect.poll(() => savedAfter(first), { timeout: 20_000 }).toBe(true)
     expect(posts()).toHaveLength(2)
   } finally {
     fetchSpy.mockRestore()
@@ -311,7 +361,7 @@ test('the lab route shows the console under the stage', async () => {
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
 // and `RunColumn` are each tested against a host of their own making, so both
 // suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:151` or `abortRef={abortRef}` from `LabRoute.tsx:35` and the
+// `RunColumn.tsx:168` or `abortRef={abortRef}` from `LabRoute.tsx:38` and the
 // feature is dead on the real page while every other case passes. The same was
 // true of `goRef`, so this case covers both — they are the same two lines.
 //
@@ -413,7 +463,7 @@ test('the knobs on screen are the knobs the run used', async () => {
 // The picture a saved board carries is the one the board was drawn with, and
 // `DEFAULT_VIEW` sits close enough to the lab's own starting view that only a
 // field the user moved tells the two apart — so this test moves one. Read off
-// the POST body rather than off `run.saved`, which says only that the store
+// the POST body rather than off `result.saved`, which says only that the store
 // answered: the same reason the StrictMode test above counts the client's own
 // calls.
 test('the saved board carries the view on screen', async () => {
@@ -427,7 +477,7 @@ test('the saved board carries the view on screen', async () => {
   // may or may not be inside the window, and `posts[0]` might be its body
   // rather than this test's. The spy therefore starts after it, and the length
   // assertion below still says which POST this is.
-  await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+  await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
   try {
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
@@ -435,8 +485,9 @@ test('the saved board carries the view on screen', async () => {
     // A second field, and a number rather than a flag: one boolean surviving
     // the trip says less than "the view the user was looking at survived it".
     useStore.getState().view.setNumber('stroke', '0.8')
+    const loaded = useStore.getState().result.shown?.file
     await screen.getByRole('button', { name: 'Generate' }).click()
-    await expect.poll(() => useStore.getState().run.saved !== null, { timeout: 30_000 }).toBe(true)
+    await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
 
     // Filtered, not `find`: the tests above poll only to `run.phase === 'done'`
     // and never await their own save, so a POST of theirs can still land inside

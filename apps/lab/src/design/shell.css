@@ -147,7 +147,7 @@ body {
 
 .fw-stage {
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
+  grid-template-columns: 70px minmax(0, 1fr) 22rem;
   gap: 1px;
   background: var(--border);
   min-height: 0;
@@ -180,11 +180,88 @@ body {
   height: 100%;
 }
 
+/* The annotation of the board on screen (spec §5.2). After the element in DOM
+   order — the element's host is positioned and opaque with `z-index: auto`
+   (arrowz-board.ts:129-135), so tree order is what paints this on top — and in
+   the top-left corner, because the bottom edge belongs to the element's own
+   bar. `--ink` on `--void` (16.53:1), inverting the mock's `--void` on
+   `--signal` (4.08:1, the open §7.1 pair). No caps: they would print `SEED`,
+   and the numbers are the content (PR 4b, Ruling 10). No pointer events, so a
+   drag that starts on it still pans the board. */
+.fw-anno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 8px;
+  background: var(--void);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* The solo toggle (spec §5.2): the frame's top-right corner, after the element
+   in DOM order for the reason `.fw-anno` gives. The ring sits inside the
+   button, because `.fw-board` clips (`overflow: hidden`) and the global 2px
+   offset would draw it outside the frame; `--signal` on `--void` is 4.08:1,
+   above the 3:1 a focus indicator needs. */
+.fw .fw-solo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: var(--void);
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw .fw-solo:hover {
+  background: var(--surface);
+}
+.fw .fw-solo:focus-visible {
+  outline-offset: -2px;
+}
+@media (pointer: coarse) {
+  .fw .fw-solo {
+    width: 44px;
+    height: 44px;
+  }
+}
+
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
 @media (max-height: 700px) {
   .fw-board {
     min-height: 0;
+  }
+}
+
+/* The report at 900px and below: a row under the rail and the board (spec
+   §5.2; PR 4b, Ruling 2). The board's row keeps 292px — the board's 260px
+   minimum, its border inside it, plus the wrap's 32px of padding — whenever the
+   stage is that tall, and the report takes a third of what is left. Measured at
+   860 wide: 73px of report at 900 high in the advanced view, 155px at 1100.
+   `min(292px, 100%)` and not a bare 292px: in a stage shorter than that, a bare
+   minimum pushed the wrap 25px out of the stage and over the console, where
+   this rule leaves the board exactly as it is today and the report at its 24px
+   of padding, which the console's opaque background covers (review measured up
+   to 25px of it past the stage at 860×720). A fixed `max-height` on the report
+   instead clipped the board at every height below 900. */
+@media (max-width: 900px) {
+  .fw-stage {
+    grid-template-columns: 70px minmax(0, 1fr);
+    grid-template-rows: minmax(min(292px, 100%), 2fr) minmax(0, 1fr);
+  }
+  .fw-stage > .fw-report {
+    grid-column: 1 / -1;
+  }
+}
+/* Below 700px of height `.fw-board` gives up its minimum (the `max-height:
+   700px` query above), so its row gives up the 292px too. */
+@media (max-width: 900px) and (max-height: 700px) {
+  .fw-stage {
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
 

@@ -15,7 +15,7 @@ export type ViewMode = 'simple' | 'advanced'
 /** The old lab's key and values (`lab-page.ts:655`). */
 export const MODE_KEY = 'labView'
 
-/** Only a stored `advanced` opens the advanced view (Ruling 2, `lab-page.ts:1479`). */
+/** Only a stored `advanced` opens the advanced view (Ruling 2, `lab-page.ts:1472`). */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
 }
@@ -30,11 +30,15 @@ export interface UiState {
   clamped: boolean
   /** Which console is on screen. Remembered, never in the hash — the old lab keeps it out too. */
   mode: ViewMode
+  /** The board takes the whole lab panel (spec §5.1). Never remembered, never in the hash. */
+  solo: boolean
   select(entry: RailEntry): void
   setAuto(on: boolean): void
   setHelp(on: boolean): void
   raiseClamped(on: boolean): void
   setMode(mode: ViewMode): void
+  setSolo(on: boolean): void
+  toggleSolo(): void
 }
 
 type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
@@ -49,6 +53,7 @@ export function createUiSlice(set: SetStore): UiState {
     help: true,
     clamped: false,
     mode: modeOf(readStored(MODE_KEY)),
+    solo: false,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
     setHelp: (help) => patch({ help }),
@@ -57,5 +62,9 @@ export function createUiSlice(set: SetStore): UiState {
       writeStored(MODE_KEY, mode)
       patch({ mode })
     },
+    setSolo: (solo) => patch({ solo }),
+    // Read inside the update, not from a closure: the toggle and the `f` key
+    // can both fire before a render.
+    toggleSolo: () => set((state) => ({ ui: { ...state.ui, solo: !state.ui.solo } })),
   }
 }

@@ -1,0 +1,131 @@
+import { act } from 'react'
+import { beforeEach, expect, test } from 'vitest'
+import { render } from 'vitest-browser-react'
+import { contrast, shown } from '../design/contrast'
+import { finish, finishedRun } from '../state/result.fixtures'
+import { useStore } from '../state/store'
+import { BoardFrame } from './BoardFrame'
+import '../design/tokens.css'
+import '../design/shell.css'
+import '../design/console.css'
+
+beforeEach(() => {
+  const state = useStore.getState()
+  state.run.reset()
+  state.result.reset()
+  state.lang.setLang('en')
+  state.ui.setSolo(false)
+})
+
+/** The frame in a box with a size, as the stage gives it one. */
+async function mountFrame() {
+  return render(
+    // One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px.
+    <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
+      <BoardFrame />
+    </div>,
+  )
+}
+
+const annotation = (container: HTMLElement) => container.querySelector('.fw-anno')
+
+// Colours are a permission the element grants only to a host that asks
+// (`enableColors`, arrowz-board.ts); without it `view.colored` is ignored and
+// every piece is drawn in ink. The old lab asks (`enable-colors` in lab.html).
+// `element.view.colored` alone cannot catch the gap — it is the input, not what
+// is drawn — so this reads the element's own colours button, whose
+// `aria-pressed` is the colour the board is actually drawn in.
+test('the colored flag colours the board', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const element = screen.container.querySelector('arrowz-board')
+  const colours = () => element?.shadowRoot?.querySelector('button.colors')
+  const was = useStore.getState().view.colored
+  try {
+    await act(async () => useStore.getState().view.setFlag('colored', true))
+    await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('true')
+    await act(async () => useStore.getState().view.setFlag('colored', false))
+    await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('false')
+  } finally {
+    useStore.getState().view.setFlag('colored', was)
+  }
+})
+
+test('the frame names nothing before there is a board', async () => {
+  const screen = await mountFrame()
+  expect(screen.container.querySelector('arrowz-board')).not.toBeNull()
+  expect(annotation(screen.container)).toBeNull()
+})
+
+test('the annotation carries the size and seed of the board on screen', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
+  expect(screen.container.querySelector('arrowz-board')?.board?.W).toBe(8)
+})
+
+// Spec §5.2: during a run the board on screen is the previous one, and so is
+// what the frame says about it.
+test('during a run the annotation still names the previous board', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().run.started({ ...finishedRun(2).params }))
+  expect(annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
+})
+
+test('the annotation follows the language', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · ziarno 1')
+})
+
+// The element's host is `position: relative`, opaque and `z-index: auto`
+// (arrowz-board.ts:129-135), so tree order decides what paints on top: an
+// annotation before the element would be under the paper, and a colour test
+// alone would pass on it (spec §5.1).
+test('the annotation comes after the element and is what paints at its corner', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const element = screen.container.querySelector('arrowz-board')
+  const label = annotation(screen.container)
+  // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
+  // which has no `style` for the hit test below.
+  if (element === null || !(label instanceof HTMLElement)) throw new Error('the frame is not on the page')
+  expect(element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  // Ruling 10 takes the annotation out of hit testing, and `elementFromPoint`
+  // honours that (measured: the hit is the `arrowz-board` host). The rule is
+  // asserted, then lifted for this one read, which asks what paints there.
+  expect(getComputedStyle(label).pointerEvents).toBe('none')
+  const box = label.getBoundingClientRect()
+  label.style.pointerEvents = 'auto'
+  const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+  label.style.pointerEvents = ''
+  expect(hit === label || (hit !== null && label.contains(hit))).toBe(true)
+})
+
+// §7.1, PR 4b: the mock's `--void` on `--signal` is 4.08:1; the frame inverts it.
+test('the annotation reads at AA', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const label = annotation(screen.container)
+  if (label === null) throw new Error('no annotation')
+  const { front, back } = shown(label)
+  expect(contrast(front, back)).toBeGreaterThanOrEqual(4.5)
+})
+
+// Spec §5.2 and PR 4b, Ruling 3: a glyph of its own — `⤢` is the element's fit
+// button — named by `fullView`, and a toggle, so it says whether it is on.
+test('the solo toggle is a named toggle in the frame, after the element', async () => {
+  const screen = await mountFrame()
+  const toggle = screen.getByRole('button', { name: 'Full view (key F)' })
+  await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
+  const element = screen.container.querySelector('arrowz-board')
+  if (element === null) throw new Error('no board element')
+  expect(element.compareDocumentPosition(toggle.element()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  await toggle.click()
+  expect(useStore.getState().ui.solo).toBe(true)
+  await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
+  await toggle.click()
+  expect(useStore.getState().ui.solo).toBe(false)
+})

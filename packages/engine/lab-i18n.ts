@@ -226,6 +226,17 @@ export const EN = {
     langEn: 'EN',
     // The simple view's region; its visible heading is only the view's name.
     simplePanel: 'Simple settings',
+    // PR 4b: the report column and its delta, the frame's annotation, and the
+    // run column's two exports. The two delta words are never visible: the
+    // cell's colour and sign say it on screen, and a screen reader hears these.
+    reportPanel: 'Report',
+    statsTable: 'Statistics',
+    deltaBetter: 'better',
+    deltaWorse: 'worse',
+    boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
+    exportsGroup: 'Export',
+    downloadBoardFile: 'Download board file',
+    exportError: 'Export failed:',
   },
 } as const
 
@@ -589,6 +600,14 @@ export const PL: Translation = {
     langPl: 'PL',
     langEn: 'EN',
     simplePanel: 'Proste ustawienia',
+    reportPanel: 'Raport',
+    statsTable: 'Statystyki',
+    deltaBetter: 'lepiej',
+    deltaWorse: 'gorzej',
+    boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
+    exportsGroup: 'Eksport',
+    downloadBoardFile: 'Pobierz plik planszy',
+    exportError: 'Eksport nie powiódł się:',
   },
 }
 

@@ -20,6 +20,7 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
   const goRef = useRef<HTMLButtonElement>(null)
   const abortRef = useRef<HTMLButtonElement>(null)
   const simple = useStore((state) => state.ui.mode === 'simple')
+  const solo = useStore((state) => state.ui.solo)
   return (
     // `hidden` stays on the <main>: it is what keeps the document from having
     // two visible `main` landmarks. The id belongs on the tabpanel itself,
@@ -30,7 +31,7 @@ export function LabRoute({ control, hidden }: { control: RunControl; hidden: boo
         <div className="fw-bar">
           <RunStatusBar />
         </div>
-        <div className={simple ? 'fw-lab simple' : 'fw-lab'}>
+        <div className={`fw-lab${simple ? ' simple' : ''}${solo ? ' solo' : ''}`}>
           {simple ? null : <PresetStrip control={control} />}
           <Stage />
           <Console control={control}>

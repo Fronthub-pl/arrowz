@@ -20,6 +20,7 @@ beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
   state.run.reset()
+  state.result.reset()
   state.ui.setAuto(false)
   state.recipe.reset()
   state.recipe.setRandom(false)
