@@ -17,13 +17,14 @@ import { BoardCanvas } from './BoardCanvas'
 export function Stage() {
   const board = useStore((state) => state.run.board)
   const view = useStore((state) => state.view)
+  const lang = useStore((state) => state.lang.lang)
   const elementView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
   return (
     <div className="fw-stage">
       <div className="fw-runs" />
       <div className="fw-boardwrap">
         <div className="fw-board">
-          <BoardCanvas board={board} view={elementView} interactive={false} />
+          <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} />
         </div>
       </div>
     </div>

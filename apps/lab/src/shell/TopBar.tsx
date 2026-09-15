@@ -1,14 +1,19 @@
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { Segmented } from './Segmented'
 
 /**
  * The one large Signal plane of the mock: the mark, the preset's name and the
- * size (spec §5.1). The preset only becomes knowable in this PR, which is why
- * the name arrives with the strip.
+ * size (spec §5.1), and the right group where the view and the language are
+ * chosen.
  */
 export function TopBar() {
   const dict = useDictionary()
+  const mode = useStore((state) => state.ui.mode)
+  const setMode = useStore((state) => state.ui.setMode)
+  const lang = useStore((state) => state.lang.lang)
+  const setLang = useStore((state) => state.lang.setLang)
   // One selector on the whole `values` object, and no longer two primitive
   // ones: the bar names the preset as well as the size, and the presets are
   // spelled between them by six knobs — W, H, headBias, giants, giantStep and
@@ -44,10 +49,27 @@ export function TopBar() {
       )}
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
-      {/* The right group is where ⌘K (still to come), the language switch
-          and the simple/advanced switch (PR 4) go. It stays empty rather
-          than carrying a placeholder nobody would remember to remove. */}
-      <div className="right" />
+      {/* ⌘K joins this group in PR 7. */}
+      <div className="right">
+        <Segmented
+          label={dict.t('modeLabel')}
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'simple', label: dict.d.simple.viewSimple },
+            { value: 'advanced', label: dict.d.simple.viewAdvanced },
+          ]}
+        />
+        <Segmented
+          label={dict.t('languageLabel')}
+          value={lang}
+          onChange={setLang}
+          options={[
+            { value: 'pl', label: dict.t('langPl') },
+            { value: 'en', label: dict.t('langEn') },
+          ]}
+        />
+      </div>
     </header>
   )
 }

@@ -1,5 +1,6 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { drawIfRandom, resetRecipeIfSimple } from '../simple/applyRecipe'
 import { useStore } from '../state/store'
 import { LiveCommand } from './LiveCommand'
 import { OptionSwitch } from './OptionSwitch'
@@ -7,8 +8,10 @@ import type { RunControl } from './useRun'
 
 /**
  * The mock's third console track (`.fw-run-col`). It is a child of `Console`
- * rather than a sibling, so PR 4's simple console places the very same element
- * and cannot fork it (Ruling 2).
+ * rather than a sibling: `Console` keeps `children` at the third position of
+ * its own grid in both views and swaps only the first two — the rail's slot
+ * becomes `null` and the panel becomes `SimplePanel` — so the same node
+ * reaches both interiors (`Console.tsx`'s own comment; PR 4a, Ruling 7).
  *
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a
@@ -40,6 +43,7 @@ export function RunColumn({
   const help = useStore((state) => state.ui.help)
   const setAuto = useStore((state) => state.ui.setAuto)
   const setHelp = useStore((state) => state.ui.setHelp)
+  const simple = useStore((state) => state.ui.mode === 'simple')
 
   // Both of these buttons are a landing spot with an expiry date, because each
   // is disabled by one of the two transitions of `running`, and HTML's focus
@@ -115,16 +119,28 @@ export function RunColumn({
     wasRunning.current = running
   }, [running, goRef, abortRef])
 
+  // Generate and New seed in the simple view with randomising on draw the
+  // knobs afresh before the run reads them; in every other state they keep
+  // them (`lab-page.ts:912-921`). New seed moves the seed first, as the old
+  // lab does; the draw does not read the seed, it only carries it along.
+  const generate = () => {
+    drawIfRandom()
+    control.start()
+  }
   // `setMany` and not `set`: a seed the machine drew is not a knob a person
   // typed, and only the typed path may wake `auto` (Ruling 3). The range is
   // the old lab's own (`lab-page.ts:919`), and `clampParam` holds it inside
   // PARAM_SPEC's bounds regardless.
   const reseed = () => {
     setMany({ seed: Math.floor(Math.random() * 999999) })
+    drawIfRandom()
     control.start()
   }
+  // The knobs first, then the recipe written over them: its seed is the
+  // default the reset just put back (`lab-page.ts:923-930`).
   const defaults = () => {
     resetParams()
+    resetRecipeIfSimple()
     control.start()
   }
 
@@ -135,7 +151,7 @@ export function RunColumn({
         type="button"
         className="fw-go"
         ref={goRef}
-        onClick={control.start}
+        onClick={generate}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}
       >
@@ -152,10 +168,13 @@ export function RunColumn({
           {dict.t('abort')}
         </button>
       </div>
-      <div className="fw-ghost">
-        <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
-        <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
-      </div>
+      {/* The knobs' own switches, and the simple view shows no knobs (PR 4a, Ruling 9). */}
+      {simple ? null : (
+        <div className="fw-ghost">
+          <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
+          <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
+        </div>
+      )}
     </section>
   )
 }

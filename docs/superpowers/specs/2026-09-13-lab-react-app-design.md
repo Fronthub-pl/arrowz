@@ -77,7 +77,7 @@ Measured from the source. This table is the lab's contract; it decides
 | New seed | immediate, after a random seed | as above | `:1041-1045` |
 | Defaults | immediate | `defaultParams()`; in simple view the recipe resets, keeping `random` | `:1046-1054` |
 | External `hashchange` | immediate, after re-reading the hash and the language | no | `:1526-1532` |
-| Page load | immediate | `applySimple()` first, unless the hash carried knobs | `:1660-1668` |
+| Page load | immediate | `applySimple()` first in the simple view, unless the page opened on a link (the hash decoded) | `:1660-1668` |
 
 Two rules cut across the table:
 
@@ -283,6 +283,8 @@ apps/lab/src/
   shell/
     TopBar.tsx                mark, preset name, dims, ⌘K, language, simple/advanced
     TabRow.tsx                role="tablist", arrow keys, aria-controls
+    Segmented.tsx             one of a few as a radio group: view, language, skeleton
+    useDocumentLang.ts        <html lang> follows the store
   routes/
     LabRoute.tsx              /            stage + console
     SavedBoardsRoute.tsx      /boards      list, detail, load into lab
@@ -301,23 +303,29 @@ apps/lab/src/
     KnobPanel.tsx             group header + grid
     Knob.tsx                  dispatch by spec: value | choice | start
     ValueKnob.tsx             number, word, inline entry, local draft
+    DraftNumber.tsx           the §5.5 draft entry, shared by ValueKnob and the simple view
     KnobSlider.tsx            role="slider", keyboard, rule marker (not a clamp)
     ChoiceKnob.tsx            trapBias, giantSpacing — a labelled select
     StartKnob.tsx             the composite --start control; shows mix only when mixing
     ViewPanel.tsx             the nine preview/export fields
   simple/
-    SimpleConsole.tsx         sizes, sliders, segmented choices
+    SimplePanel.tsx           sizes, sliders, skeleton, seed, randomise, the
+                              preview subset — tracks 1–2 of the one Console
+    PositionSlider.tsx        a 0–100 recipe slider with its two end words
+    applyRecipe.ts            the recipe into the knobs; the simple halves of
+                              Generate, New seed and Defaults
   run/
     RunColumn.tsx             command, Generate, New seed, Defaults, auto, help,
                               abort, exports — built by the route and handed to
-                              whichever console is on screen, so both share one
-                              instance
+                              Console as its third child, which keeps one
+                              instance in both views
     LiveCommand.tsx           the CLI line for the knobs on screen, and its copy
     PresetStrip.tsx           seven levels, twenty-six chips; a chip clamps and runs
     ClampNotice.tsx           role="status"; dismiss hands focus back to the column
     OptionSwitch.tsx          the switch `auto` and `help` share with ViewPanel's four
     useRun.ts                 the one funnel every trigger of §2.2 starts through
-    useAutoRun.ts             the debounce behind `auto` — mounted once, in App
+    useAutoRun.ts             the one debounce: a typed knob behind auto, a
+                              recipe edit without it — mounted once, in App
   report/
     StatsTable.tsx            23 rows, 4 separators, delta keyed by metric name
     LongestTable.tsx          longest pieces
@@ -335,6 +343,7 @@ apps/lab/src/
     ui.slice.ts               tab, selected group, palette, mode, solo, help, clamp notice
     lang.slice.ts             PL/EN, localStorage `labLang`
     recipe.slice.ts           the simple view's recipe, localStorage `labSimple`
+    storage.ts                localStorage that never throws
     url.ts                    hash codec and tolerant reader — a pure module
     useUrlHash.ts             read once, debounced write, hashchange → store → run
   worker/
@@ -352,9 +361,8 @@ no knob is boolean. `ChoiceKnob` and `StartKnob` exist, because two knobs are
 choices and two share the composite start control; the traversal rule is
 Knob-level, not global: the panel builds the start control where the first
 `surface: 'start'` spec would have stood and skips the second (`:418-430`).
-`RunColumn` is built by the route and passed to `Console` as a child, so
-swapping in `SimpleConsole` cannot fork it; `Console` is therefore the mock's
-three-track grid and the column is its third track.
+`RunColumn` is built by the route and passed to `Console` as a child; `Console`
+is the mock's three-track grid and the column is its third track.
 
 *Amended after PR 3.* The first draft lifted the column out of the console and
 placed it as the console's sibling. What it was protecting is the single
@@ -371,6 +379,16 @@ tree that shipped is
 clamp notice hands focus back to — Generate, and Abort for the state in which
 Generate is refused.
 
+*Amended in PR 4a.* The paragraph above holds only while one component places
+the column. React keeps a node by its type and its position among its siblings,
+not by the identity of the element object: handing the same `<RunColumn>` to a
+second console component is a new parent, and the column remounts — losing a
+focus a keyboard user left on Generate and the column's own transition ref. The
+simple view is therefore not a second console. `Console` swaps its first two
+tracks — the rail becomes nothing and the panel becomes `SimplePanel` — and
+keeps `children` in the third position in both views, which
+`LabRoute.browser.test.tsx` checks by node identity.
+
 ### 5.2 Reconciling the mock with the lab
 
 - The mock's rail has two sections, *generator* and *element*. The element
@@ -380,10 +398,10 @@ Generate is refused.
   `board` and `skeleton` open (`:208`). The mock's model is kept, and the group
   rail shows a per-group violation count so nothing hides behind a closed
   group. This is a deliberate UX change, recorded as one.
-- The mock has no simple view. It swaps `Console` for `SimpleConsole`; the
-  stage, filmstrip, status bar and the run column the route hands in are
-  untouched. In simple mode `cell`, `voids`, `top`, `auto` and `help` are
-  hidden, as `.advonly` does today (`lab.html:52`).
+- The mock has no simple view. `Console` swaps its rail and panel for
+  `SimplePanel`; the stage, filmstrip, status bar and the run column the route
+  hands in are untouched. In simple mode `cell`, `voids`, `top`, `auto` and
+  `help` are hidden, as `.advonly` does today (`lab.html:52`).
 - The mock's `element` tab becomes `docs` with two sections: the element's API,
   and the CLI's help generated at build time from `helpText()`
   (`command.ts:397`) by a prebuild script importing `@arrowz/engine/command`
@@ -587,7 +605,8 @@ as §5.4 describes rather than displayed and then ignored.
 | 1 | Move ten pure fragments (nine engine, one board element) plus `startChoiceOf` and `short(n, locale)` in their corrected shapes; extract the shared "finite number under a `PARAM_SPEC` key" predicate and leave both reactions alone; add the sixth engine export and its tsconfig and smoke entries; add unit tests for every moved fragment; the old lab switches over |
 | 2 | `apps/lab` skeleton: Vite, React, ESLint/Prettier, `project.json`, the proxy **with the `Origin` rewrite**, tokens, shell, `App`-level `useGenerator` and the single `BoardCanvas`, and one end-to-end path — generate, draw, save |
 | 3 | The console: group rail with violation counts, knob grid with `ValueKnob`, `ChoiceKnob`, `StartKnob`, the keyboard slider with the rule marker, `ViewPanel`, the run column with `auto`, `help` and abort, live command, presets, the violations panel, the clamp notice, and the hash codec with `hashchange` → run |
-| 4 | Simple view, language switch, report with both delta baselines, SVG export, and the `f` hotkey with the solo view — stage chrome rather than a trigger, so §5.1 places them in `BoardFrame.tsx` |
+| 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
+| 4b | Report with both delta baselines, SVG export, and the `f` hotkey with the solo view — stage chrome rather than a trigger, so §5.1 places them in `BoardFrame.tsx` |
 | 5 | The library: list, size chips, refresh, detail, its own view fields, copy, **load into lab**, two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |

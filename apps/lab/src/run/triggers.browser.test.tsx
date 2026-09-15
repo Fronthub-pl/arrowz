@@ -1,11 +1,13 @@
 import { defaultParams, type Params } from '@arrowz/engine'
 import { PRESETS } from '@arrowz/engine/presets'
-import { exportCell } from '@arrowz/engine/simple'
+import { defaultChoice, exportCell, recipeOf, simpleParams } from '@arrowz/engine/simple'
 import { act } from 'react'
 import { BrowserRouter } from 'react-router'
 import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
+import { applyRecipe } from '../simple/applyRecipe'
+import { SimplePanel } from '../simple/SimplePanel'
 import { useStore } from '../state/store'
 import { encodeHash } from '../state/url'
 import { VIEW } from '../state/url.fixtures'
@@ -17,8 +19,8 @@ import type { RunControl } from './useRun'
 
 /**
  * Spec §2.2's table, stated as cases: one per row this PR owns. Every trigger
- * it names is already built — Tasks 1 to 13 — so this file is a statement of
- * the contract rather than a discovery about it.
+ * it names is already built, so this file is a statement of the contract
+ * rather than a discovery about it.
  *
  * Each case asserts the two things the table states, and the second half is
  * the one worth the file. **When** the run starts is only half a contract;
@@ -29,24 +31,22 @@ import type { RunControl } from './useRun'
  * the knobs *at the call*, and the cases read that snapshot rather than the
  * store afterwards, where the two orders are indistinguishable.
  *
- * Seven rows are here. Three are not, and are PR 4's, because the view they
- * belong to does not exist under `apps/lab` yet: the simple size field, the
- * simple slider and the simple segmented button. PR 4 also owns the missing
- * half of four rows that *are* here:
+ * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–18 are
+ * the simple view's three rows of its own, and the simple halves of four rows
+ * the advanced view shares — Generate and New seed draw the knobs afresh first
+ * when randomising (`lab-page.ts:912-921`), Defaults resets the recipe
+ * (`:923-930`), and the page opens on the recipe unless it opened on a link
+ * (`:1479-1480`).
  *
- * - page load — the old lab applies the simple recipe before running when
- *   that view is active and the link carried no knobs (`applySimple()`, which
- *   lives in `packages/cli/lab-page.ts:1480` and has no counterpart in this
- *   application);
- * - Generate, New seed and Defaults — in simple view with randomising on,
- *   `lab-page.ts:915` and `:920` redraw the knobs from the recipe first, so
- *   case 4's "rewrites nothing" and case 5's "moves the seed and nothing
- *   else" are true of the advanced view alone, and case 6's `defaultParams()`
- *   becomes "the defaults, with the recipe reset and `random` kept".
+ * Cases 9 and 10 drive the store the way the size card and the slider do —
+ * `setSide`/`setSlider`, then `applyRecipe(false)` — rather than the inputs:
+ * fake timers and Playwright's pointer do not mix, and the cards' own wiring is
+ * `SimplePanel.browser.test.tsx`'s subject.
  *
- * The control is a stub everywhere but case 8: what a trigger does to the
- * worker is `useGenerator.browser.test.tsx`'s subject, and what it does to the
- * knobs is this one's.
+ * The control is a stub everywhere but cases 8 and 16–18, which mount `App`
+ * with the real one: what a trigger does to the worker is
+ * `useGenerator.browser.test.tsx`'s subject, and what it does to the knobs is
+ * this one's.
  */
 function recorder() {
   const seen: Params[] = []
@@ -75,9 +75,13 @@ beforeEach(() => {
   state.ui.setAuto(false)
   state.ui.setHelp(true)
   state.ui.raiseClamped(false)
+  state.ui.setMode('advanced')
+  state.recipe.reset()
+  state.recipe.setRandom(false)
 })
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
   history.replaceState(null, '', location.pathname)
 })
 
@@ -199,11 +203,153 @@ describe('what starts a run (spec §2.2)', () => {
   // in milliseconds, so a phase read is a race the carve can win. `params` is
   // set by `started()` and survives `finished()`, so it answers whichever side
   // of the carve the poll lands on.
-  it('8 · page load: a run without a click, on the knobs the page opened with', async () => {
+  it('8 · page load, advanced view: a run without a click, on the knobs the page opened with', async () => {
     await render(<App />)
     await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
     // No hash was pasted, so the knobs the load run used are the page's own.
-    // The `applySimple()` half of this row is PR 4's, as the head comment says.
+    // The simple view's half is case 16.
+    expect(useStore.getState().run.params).toEqual(defaultParams())
+  }, 40_000)
+
+  // Row 3, simple view. Auto stays off, from `beforeEach`: the row's whole
+  // point is that the simple view's debounce does not ask the switch.
+  it('9 · a simple size field: once, 350 ms later, with auto off, on the knobs the recipe gives', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    await renderHook(() => useAutoRun(r.control))
+    vi.useFakeTimers()
+    await act(async () => {
+      useStore.getState().recipe.setSide('W', 120)
+      applyRecipe(false)
+    })
+    await vi.advanceTimersByTimeAsync(AUTO_DELAY_MS - 1)
+    expect(r.seen).toHaveLength(0)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(r.seen).toHaveLength(1)
+    expect(r.seen[0]?.W).toBe(120)
+    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
+  })
+
+  // Row 4. `shape` at 0.9 moves `pStraight` off its default, so a run on
+  // stale knobs cannot satisfy the equality.
+  it('10 · a simple slider: once, 350 ms later, with auto off, on the knobs the recipe gives', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    await renderHook(() => useAutoRun(r.control))
+    vi.useFakeTimers()
+    await act(async () => {
+      useStore.getState().recipe.setSlider('shape', 0.9)
+      applyRecipe(false)
+    })
+    await vi.advanceTimersByTimeAsync(AUTO_DELAY_MS - 1)
+    expect(r.seen).toHaveLength(0)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(r.seen).toHaveLength(1)
+    expect(r.seen[0]?.pStraight).not.toBe(defaultParams().pStraight)
+    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
+  })
+
+  // Row 5: immediate, and the knobs rewritten before the run reads them.
+  it('11 · the simple segmented button: at once, on the knobs the new skeleton gives', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    const screen = await render(<SimplePanel control={r.control} />)
+    await screen.getByRole('radio', { name: 'with a skeleton' }).click()
+    expect(r.seen).toHaveLength(1)
+    expect(r.seen[0]?.giants).not.toBe(defaultParams().giants)
+    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
+  })
+
+  // Row 6, simple view with randomising on. `Math.random` pinned, so the draw
+  // is reproducible: the snapshot must be the pinned draw, not the canonical
+  // knobs the recipe gives without one.
+  it('12 · Generate in the simple view with randomising: at once, on a fresh draw', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setRandom(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const screen = await render(<RunColumn control={r.control} />)
+    await screen.getByRole('button', { name: 'Generate' }).click()
+    expect(r.seen).toHaveLength(1)
+    const recipe = useStore.getState().recipe.value
+    expect(r.seen[0]).toEqual(simpleParams({ ...recipe, seed: defaultParams().seed }, () => 0.99))
+    expect(r.seen[0]).not.toEqual(simpleParams({ ...recipe, seed: defaultParams().seed }, null))
+  })
+
+  // The same row without randomising: the simple view alone rewrites nothing.
+  it('13 · Generate in the simple view without randomising: at once, rewriting nothing', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().params.setMany({ W: 33, H: 66, seed: 7 })
+    const before = { ...useStore.getState().params.values }
+    const screen = await render(<RunColumn control={r.control} />)
+    await screen.getByRole('button', { name: 'Generate' }).click()
+    expect(r.seen).toEqual([before])
+  })
+
+  // Row 7, simple view with randomising on. One pinned value feeds both the
+  // seed (`Math.floor(0.5 * 999999)`) and the draw. The order of the two is not
+  // claimed: `simpleParams` draws without reading the seed and only writes it
+  // back, so either order gives this snapshot (verified in review).
+  it('14 · New seed in the simple view with randomising: at once, on the new seed and a fresh draw', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setRandom(true)
+    vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    const screen = await render(<RunColumn control={r.control} />)
+    await screen.getByRole('button', { name: 'New seed' }).click()
+    expect(r.seen).toHaveLength(1)
+    expect(r.seen[0]?.seed).toBe(499999)
+    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: 499999 }, () => 0.5))
+  })
+
+  // Row 8, simple view: the recipe goes back too, keeping `random`, and is
+  // written without a draw — the default recipe gives the engine defaults.
+  it('15 · Defaults in the simple view: at once, on the defaults, with the recipe reset and random kept', async () => {
+    const r = recorder()
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().params.setMany({ W: 77, seed: 5 })
+    useStore.getState().recipe.setSlider('lengths', 0.1)
+    useStore.getState().recipe.setRandom(true)
+    const random = vi.spyOn(Math, 'random')
+    const screen = await render(<RunColumn control={r.control} />)
+    await screen.getByRole('button', { name: 'Defaults' }).click()
+    expect(r.seen).toEqual([defaultParams()])
+    expect(useStore.getState().recipe.value).toEqual(recipeOf({ ...defaultChoice(), random: true }))
+    expect(random).not.toHaveBeenCalled()
+  })
+
+  // Row 10, simple view, the real control. The recipe is moved before the
+  // mount, so a load run on the defaults cannot pass.
+  it('16 · page load in the simple view: a run on the knobs the recipe gives', async () => {
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setSlider('lengths', 0.2)
+    await render(<App />)
+    await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
+    const recipe = useStore.getState().recipe.value
+    expect(useStore.getState().run.params).toEqual(simpleParams({ ...recipe, seed: defaultParams().seed }, null))
+    expect(useStore.getState().run.params).not.toEqual(defaultParams())
+  }, 40_000)
+
+  // Ruling 11: a page that opened on a link keeps the link's knobs, and the
+  // recipe — moved here so that applying it would show — is not applied.
+  it('17 · page load in the simple view from a link: a run on the link’s knobs, not the recipe’s', async () => {
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setSlider('lengths', 0.2)
+    history.replaceState(null, '', encodeHash({ params: { ...defaultParams(), W: 61 }, view: VIEW, carried: {} }))
+    await render(<App />)
+    await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
+    expect(useStore.getState().run.params).toEqual({ ...defaultParams(), W: 61 })
+  }, 40_000)
+  // Ruling 11's other half: a hash that decodes and names no knob is still a
+  // link — `loadFromUrl` returns true once the JSON parses. An
+  // `openedFromLink` meaning "named a knob" would apply the moved recipe here.
+  it('18 · page load in the simple view from a link naming nothing: a run on the defaults, not the recipe’s', async () => {
+    useStore.getState().ui.setMode('simple')
+    useStore.getState().recipe.setSlider('lengths', 0.2)
+    history.replaceState(null, '', '#' + encodeURIComponent('{}'))
+    await render(<App />)
+    await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
     expect(useStore.getState().run.params).toEqual(defaultParams())
   }, 40_000)
 })

@@ -51,12 +51,23 @@ describe('the hash codec', () => {
     expect(bare?.view.colored).toBe(false)
   })
 
-  it('carries the language and the tab it does not own', () => {
+  // Ruling 6 of PR 4a: the language is the page's own now, and only the tab
+  // (PR 5's) is carried through untouched.
+  it('reads the language as the page’s own, and carries only the tab', () => {
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { lang: 'pl', tab: 'library' } }))
     const back = decodeHash(link)
-    expect(back?.carried).toEqual({ lang: 'pl', tab: 'library' })
-    const round = decodeHash(encodeHash({ params: defaultParams(), view: VIEW, carried: back?.carried ?? {} }))
-    expect(round?.carried).toEqual({ lang: 'pl', tab: 'library' })
+    expect(back?.view.lang).toBe('pl')
+    expect(back?.carried).toEqual({ tab: 'library' })
+    const round = decodeHash(
+      encodeHash({ params: defaultParams(), view: back?.view ?? VIEW, carried: back?.carried ?? {} }),
+    )
+    expect(round?.view.lang).toBe('pl')
+    expect(round?.carried).toEqual({ tab: 'library' })
+  })
+
+  it('drops a language the dictionary does not have', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { lang: 'de' } }))
+    expect(decodeHash(link)?.view.lang).toBeUndefined()
   })
 
   it('answers null for an empty or unreadable hash rather than throwing', () => {

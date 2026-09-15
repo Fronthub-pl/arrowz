@@ -1,4 +1,6 @@
+import type { Lang } from '@arrowz/engine/i18n'
 import { type ParamKey, type Params, readParams } from '@arrowz/engine'
+import { isLang } from './lang.slice'
 
 export interface HashView {
   cell?: number | undefined
@@ -10,11 +12,12 @@ export interface HashView {
   colored: boolean
   hilite: boolean
   help: boolean
+  /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
+  lang?: Lang | undefined
 }
 
-/** The two keys this PR does not own, kept so a round trip cannot drop them. */
+/** The one key the page does not own yet — the tab, PR 5's — kept so a round trip cannot drop it. */
 export interface Carried {
-  lang?: unknown
   tab?: unknown
 }
 
@@ -82,10 +85,8 @@ export function decodeHash(hash: string): HashPayload | null {
       colored: raw.colored === true,
       hilite: raw.hilite !== false,
       help: raw.help !== false,
+      lang: isLang(raw.lang) ? raw.lang : undefined,
     },
-    carried: {
-      ...(raw.lang === undefined ? {} : { lang: raw.lang }),
-      ...(raw.tab === undefined ? {} : { tab: raw.tab }),
-    },
+    carried: raw.tab === undefined ? {} : { tab: raw.tab },
   }
 }

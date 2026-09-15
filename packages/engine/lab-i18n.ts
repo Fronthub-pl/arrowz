@@ -216,6 +216,16 @@ export const EN = {
     presetsLabel: 'Presets',
     presetsDirty: 'edited',
     dismiss: 'Dismiss',
+    // The top bar's two choices, each a radio group named by what it chooses.
+    // The language codes are the visible text and so the accessible name: a
+    // name that does not contain what is on screen fails WCAG 2.5.3 for speech
+    // input (PR 4a, Ruling 8).
+    modeLabel: 'View',
+    languageLabel: 'Language',
+    langPl: 'PL',
+    langEn: 'EN',
+    // The simple view's region; its visible heading is only the view's name.
+    simplePanel: 'Simple settings',
   },
 } as const
 
@@ -574,6 +584,11 @@ export const PL: Translation = {
     presetsLabel: 'Presety',
     presetsDirty: 'zmienione',
     dismiss: 'Zamknij',
+    modeLabel: 'Widok',
+    languageLabel: 'Język',
+    langPl: 'PL',
+    langEn: 'EN',
+    simplePanel: 'Proste ustawienia',
   },
 }
 

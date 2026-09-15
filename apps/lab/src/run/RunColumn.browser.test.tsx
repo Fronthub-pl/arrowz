@@ -75,6 +75,7 @@ beforeEach(() => {
   state.run.reset()
   state.ui.setAuto(false)
   state.ui.setHelp(true)
+  state.ui.setMode('advanced')
 })
 
 describe('RunColumn', () => {

@@ -1,5 +1,6 @@
 import type { ViewNumber } from '@arrowz/engine'
 import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
+import type { ViewFlag } from '../state/view.slice'
 
 /**
  * A dictionary key whose entry is a plain string. `dict.t` is generic over
@@ -34,3 +35,11 @@ export const VIEW_FIELDS: readonly ViewField[] = [
   { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', step: 0.05 },
   { field: 'top', label: 'topLabel', step: 1 },
 ]
+
+/**
+ * What the simple view keeps of the preview (PR 4a, Ruling 9): `lab.html`
+ * marks `cell`, `top` and `voids` `advonly` (lines 221, 259, 260), and the
+ * other six stay on screen in both views.
+ */
+export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
+export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hilite']

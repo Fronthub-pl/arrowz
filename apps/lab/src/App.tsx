@@ -10,6 +10,8 @@ import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
+import { useDocumentLang } from './shell/useDocumentLang'
+import { applyRecipe } from './simple/applyRecipe'
 import { useStore } from './state/store'
 import { useUrlHash } from './state/useUrlHash'
 import { viewOf } from './state/view.slice'
@@ -73,7 +75,7 @@ function Shell() {
   const generator = useGenerator()
   const control = useRun(generator)
   useAutoRun(control)
-  useUrlHash(control)
+  const hash = useUrlHash(control)
   // Spec §2.2's last row: the lab opens on a board rather than on an empty
   // stage, as the old lab does at `lab-page.ts:1475-1483` — it reads the URL,
   // then calls `run()`. This effect is declared after the hash hook's, and
@@ -94,14 +96,20 @@ function Shell() {
   // `control` is stable — `useRun` memoises it and `useGenerator`'s handle has
   // no changing dependency — so this runs at mount and at no other time.
   //
-  // The old lab also applies the simple view's recipe before running, when
-  // that view is active and the link carried no knobs. `apps/lab` has no
-  // simple view yet, so that half of the row is still missing.
+  // In the simple view the recipe is written into the knobs first, unless the
+  // page opened on a link — the hash hook's read effect has already run and
+  // knows.
   useEffect(() => {
+    // The old lab's order (`lab-page.ts:1479-1480`): in the simple view, a
+    // page that did not open on a link opens on the board its recipe
+    // describes. Without the draw, so the second pass StrictMode gives this
+    // effect writes the very knobs the first one wrote.
+    if (useStore.getState().ui.mode === 'simple' && !hash.openedFromLink()) applyRecipe(false)
     control.start()
-  }, [control])
+  }, [control, hash])
   const onLab = selectedIndex(useLocation().pathname) === 0
   useStoreSave()
+  useDocumentLang()
   return (
     <div className="fw">
       <TopBar />

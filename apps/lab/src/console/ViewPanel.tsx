@@ -7,7 +7,7 @@ import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
 /** The four flags, in the order the old lab lists them. */
-const FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' | 'voids' }[] = [
+export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' | 'voids' }[] = [
   { flag: 'rounded', label: 'rounded' },
   { flag: 'colored', label: 'colored' },
   { flag: 'hilite', label: 'hilite' },
@@ -29,7 +29,7 @@ const FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' 
  * with lab.html in PR 8, so the library's three have to come through this
  * component — reusing it is what keeps them measured once carve.test.ts is gone.
  */
-function ViewNumberField({ field }: { field: ViewField }) {
+export function ViewNumberField({ field }: { field: ViewField }) {
   const dict = useDictionary()
   const value = useStore((state) => state.view[field.field])
   const setNumber = useStore((state) => state.view.setNumber)
@@ -78,6 +78,30 @@ function ViewNumberField({ field }: { field: ViewField }) {
   )
 }
 
+/** One preview flag as the mock's switch, labelled by its visible text. */
+export function ViewFlagSwitch({ flag, label }: { flag: ViewFlag; label: (typeof VIEW_FLAGS)[number]['label'] }) {
+  const dict = useDictionary()
+  const on = useStore((state) => state.view[flag])
+  const toggle = useStore((state) => state.view.toggle)
+  return (
+    <div className="fw-k">
+      <div className="row">
+        <span className="lab" id={`view-${flag}-label`}>
+          {dict.t(label)}
+        </span>
+        <button
+          type="button"
+          className="fw-sw"
+          role="switch"
+          aria-checked={on}
+          aria-labelledby={`view-${flag}-label`}
+          onClick={() => toggle(flag)}
+        />
+      </div>
+    </div>
+  )
+}
+
 /**
  * The mock's *element* section: the nine preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
@@ -89,7 +113,6 @@ function ViewNumberField({ field }: { field: ViewField }) {
  */
 export function ViewPanel() {
   const dict = useDictionary()
-  const view = useStore((state) => state.view)
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
@@ -99,22 +122,8 @@ export function ViewPanel() {
         {VIEW_FIELDS.map((field) => (
           <ViewNumberField key={field.field} field={field} />
         ))}
-        {FLAGS.map(({ flag, label }) => (
-          <div className="fw-k" key={flag}>
-            <div className="row">
-              <span className="lab" id={`view-${flag}-label`}>
-                {dict.t(label)}
-              </span>
-              <button
-                type="button"
-                className="fw-sw"
-                role="switch"
-                aria-checked={view[flag]}
-                aria-labelledby={`view-${flag}-label`}
-                onClick={() => view.toggle(flag)}
-              />
-            </div>
-          </div>
+        {VIEW_FLAGS.map(({ flag, label }) => (
+          <ViewFlagSwitch key={flag} flag={flag} label={label} />
         ))}
       </div>
     </div>
