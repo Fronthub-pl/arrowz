@@ -33,11 +33,28 @@ test('a failed listing keeps the sizes it already had', () => {
 })
 
 // Two failures, two sentences: one is about the store, the other about one
-// board's file, and neither may overwrite the other.
-test('a board failure and a list failure are separate', () => {
+// board's file, and neither may overwrite the other. Starting from a
+// non-null `listError` (rather than the `null` `reset()` leaves) is what
+// tells "boardFailed leaves listError alone" apart from "boardFailed nulls
+// listError" — both looked the same from `null`.
+test('a board failure does not touch a list error already set', () => {
+  reset()
+  const library = () => useStore.getState().library
+  library().listFailed('no store server')
+  library().boardFailed('Board 8x8/sha256-0 cannot be read: HTTP 404')
+  expect(library().listError).toBe('no store server')
+  expect(library().boardError).toContain('404')
+})
+
+// The reverse direction, which the case above cannot cover: a listing leaves
+// a board's own error alone. `listed` does clear `listError`, by design — a
+// successful listing has nothing left to report — but that is not the same
+// claim as clearing errors in general, and it does not touch `boardError`.
+test('a listing does not touch a board error already set', () => {
   reset()
   const library = () => useStore.getState().library
   library().boardFailed('Board 8x8/sha256-0 cannot be read: HTTP 404')
+  library().listed([])
   expect(library().boardError).toContain('404')
   expect(library().listError).toBeNull()
   library().boardFailed(null)

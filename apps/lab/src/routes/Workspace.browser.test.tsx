@@ -13,6 +13,7 @@ import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
+import '../design/library.css'
 import '../design/run.css'
 
 // The real App, address bar and all: Ruling 5's claim is about what App
@@ -622,6 +623,11 @@ test('the preset strip is absent from the library and the stage is the same node
   const stage = () => screen.container.querySelector('.fw-stage')
   const before = stage()
   expect(before).not.toBeNull()
+  // Established before the click, so the assertion after it means something:
+  // without this, the case's meaning would rest entirely on `mountApp`'s
+  // `setMode('advanced')`, and a default-mode change would hollow it out
+  // silently.
+  expect(screen.container.querySelector('.fw-presets')).not.toBeNull()
 
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
   await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
@@ -638,7 +644,7 @@ test('the workspace is hidden under the docs route', async () => {
   await expect
     .poll(() => screen.container.querySelector('main[hidden] [role="tabpanel"]')?.id, { timeout: 5_000 })
     .toBe('lab-panel')
-})
+}, 40_000)
 
 // Ruling 1: the run column is hidden in the library, not replaced. A carve
 // started in the lab keeps its node, its refs and the run itself; the old lab

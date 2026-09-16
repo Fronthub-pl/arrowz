@@ -46,9 +46,19 @@ export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; fi
   }
 }
 
-/** One size holding two boards, newest first, as the store lists them. */
+/**
+ * Two sizes, the first holding two boards (newest first, as the store lists
+ * them) and the second holding one. A single size cannot discriminate
+ * `SizeChips`' `open.size ?? sizes?.[0]?.size` fallback from a plain
+ * `sizes?.[0]?.size`, because the address's size and the first listed size
+ * always coincide when there is only one — hence the second size here.
+ */
 export function sizesFixture(): BoardSize[] {
   const first = storedFixture(1)
   const second = storedFixture(2)
-  return [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [second.meta, first.meta] }]
+  const third = storedFixture(3, 6, 6)
+  return [
+    { size: '8x8', W: 8, H: 8, cells: 64, boards: [second.meta, first.meta] },
+    { size: '6x6', W: 6, H: 6, cells: 36, boards: [third.meta] },
+  ]
 }

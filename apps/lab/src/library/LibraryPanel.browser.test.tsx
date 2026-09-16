@@ -73,12 +73,19 @@ test('a chip per size carries its count, and the rows carry what the store knows
 
 test('clicking a row navigates to that board', async () => {
   const screen = await mountPanel()
-  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  const sizes = sizesFixture()
+  await act(async () => useStore.getState().library.listed(sizes))
   const row = screen.container.querySelector('.fw-lib-row')
   if (!(row instanceof HTMLElement)) throw new Error('no row to click')
-  const id = row.querySelector('.id')?.textContent ?? ''
+  // The id from the fixture, not read back out of the row the component
+  // itself rendered: reading it from the DOM would let a display-and-navigate
+  // pair that were wrong in the same way agree with each other. The full
+  // pathname, compared with `toBe` rather than a substring match, so a
+  // trailing extra segment cannot pass.
+  const id = sizes[0]?.boards[0]?.id
+  if (id === undefined) throw new Error('the fixture has no board to expect')
   await userEvent.click(row)
-  await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${id}`)
+  await expect.poll(() => screen.getByTestId('address').element().textContent).toBe(`/boards/8x8/${id}`)
 })
 
 // Ruling 7: a chip opens the first board of its size, as `selectSize` does.
@@ -89,6 +96,43 @@ test('a size chip opens the first board of that size', async () => {
   await userEvent.click(screen.getByRole('button', { name: /8x8/ }))
   const first = sizes[0]?.boards[0]?.id ?? ''
   await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${first}`)
+})
+
+// Ruling 7's other leg: a chip keeps the board already open when that board
+// belongs to the chip's own size, rather than jumping to the first board of
+// that size — the case above only covers the "nothing open yet" half.
+// Mutation, measured in isolation: delete
+// `entry.boards.find((board) => board.id === open.id) ??` from
+// `SizeChips.tsx:32` and this case alone goes red — the chip would jump to
+// the first board's id and abandon the one that was open.
+test('a size chip keeps the board already open when it belongs to that size', async () => {
+  const sizes = sizesFixture()
+  const id = sizes[0]?.boards[1]?.id ?? ''
+  const screen = await mountPanel(`/boards/8x8/${id}`)
+  await act(async () => useStore.getState().library.listed(sizes))
+  await userEvent.click(screen.getByRole('button', { name: /8x8/ }))
+  await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${id}`)
+})
+
+// Ruling 7's read leg: a chip is pressed when the address names its size,
+// even when that size is not the one the store listed first. This needs a
+// second size in the fixture — with only one, the address's size and the
+// first listed size always coincide, so no case built on a one-size fixture
+// can tell `open.size ?? sizes?.[0]?.size` apart from a plain
+// `sizes?.[0]?.size` fallback. Mutation, measured in isolation: delete
+// `open.size ??` from `SizeChips.tsx:18` and this case alone goes red — the
+// first chip would stay pressed no matter which size the address names.
+test('a chip for a size other than the first is pressed when the address names it', async () => {
+  const sizes = sizesFixture()
+  const second = sizes[1]
+  if (second === undefined) throw new Error('the fixture needs a second size')
+  const id = second.boards[0]?.id ?? ''
+  const screen = await mountPanel(`/boards/${second.size}/${id}`)
+  await act(async () => useStore.getState().library.listed(sizes))
+  await expect
+    .element(screen.getByRole('button', { name: new RegExp(second.size) }))
+    .toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: /8x8/ }).element().getAttribute('aria-pressed')).toBe('false')
 })
 
 // The row the address names is the current one, for a screen reader as well as
