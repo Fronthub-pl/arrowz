@@ -11,6 +11,7 @@ import '@fontsource-variable/jetbrains-mono'
 import './design/tokens.css'
 import './design/shell.css'
 import './design/console.css'
+import './design/library.css'
 import './design/run.css'
 import './design/report.css'
 

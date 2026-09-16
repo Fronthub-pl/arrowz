@@ -2,7 +2,7 @@ import type { StoreRequest } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
 import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { useStore } from '../state/store'
@@ -629,4 +629,57 @@ test('the workspace is hidden under the docs route', async () => {
   await expect
     .poll(() => screen.container.querySelector('main[hidden] [role="tabpanel"]')?.id, { timeout: 5_000 })
     .toBe('lab-panel')
+})
+
+// Ruling 1: the run column is hidden in the library, not replaced. A carve
+// started in the lab keeps its node, its refs and the run itself; the old lab
+// hides the same controls by class. Read through `querySelector`, not a role
+// locator, precisely because a locator skips `display: none` — the state
+// under test.
+//
+// The viewport is set first and deliberately: at the runner's default
+// 414×896 the ≤900px query already gives `.fw-console` two tracks, so the
+// track assertion below would pass with the library rule deleted. Review
+// round 1 measured exactly that.
+test('the run column stays mounted, and hidden, in the library', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  const column = () => screen.container.querySelector('.fw-run-col')
+  const before = column()
+  expect(before).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  const after = column()
+  expect(after).toBe(before)
+  if (!(after instanceof HTMLElement)) throw new Error('the run column is not an HTML element')
+  expect(getComputedStyle(after).display).toBe('none')
+  // And the console gives its width to the two tracks that are left: a hidden
+  // grid item takes no track.
+  const consoleBox = screen.container.querySelector('.fw-console')
+  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')).toHaveLength(2)
+})
+
+// The library has no preset strip, and the lab grid's first row is `auto`:
+// without `.fw-lab.library` the stage takes 590px and the console is left with
+// its 180px minimum on every viewport (measured, review round 1). This is the
+// same trap `.fw-lab.simple` exists to avoid, so it is asserted the same way:
+// by the two rows being the halves they are in the lab, not by a class name.
+test('the library gives the console its share of the panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  const box = (selector: string) => {
+    const found = screen.container.querySelector(selector)
+    if (found === null) throw new Error(`${selector} is not on the page`)
+    return found.getBoundingClientRect()
+  }
+  const stage = box('.fw-stage')
+  const consoleBox = box('.fw-console')
+  expect(consoleBox.height).toBeGreaterThan(300)
+  expect(Math.abs(stage.height - consoleBox.height)).toBeLessThan(2)
 })

@@ -1,4 +1,7 @@
 import type { ReactNode } from 'react'
+import { BoardList } from '../library/BoardList'
+import { SizeChips } from '../library/SizeChips'
+import type { WorkspaceTab } from '../routes/Workspace'
 import type { RunControl } from '../run/useRun'
 import { SimplePanel } from '../simple/SimplePanel'
 import { useStore } from '../state/store'
@@ -7,20 +10,35 @@ import { KnobPanel } from './KnobPanel'
 import { ViewPanel } from './ViewPanel'
 
 /**
- * The mock's three-track console: the group rail, one panel, and the run
- * column. The column comes in as a child, and it stays the third child in both
- * views — the rail's slot is `null` in the simple one — because React keeps a
- * node by its type and its position among its siblings. Handing the same
- * element to a second console component would be a new parent, and the column
- * would remount (PR 4a, Ruling 7, which corrects spec §5.1).
+ * The mock's three-track console: a rail, one panel, and the run column. The
+ * column comes in as a child and stays the third child in every face — the
+ * rail's slot is `null` in the simple view — because React keeps a node by its
+ * type and its position among its siblings. Handing the same element to a
+ * second console component would be a new parent, and the column would remount
+ * (PR 4a, Ruling 7, which corrects spec §5.1).
+ *
+ * The library is the third face (PR 5a): the size chips take the rail and the
+ * list takes the panel, while the column stays mounted and is hidden by class,
+ * as the old lab hides its lab-only controls (Ruling 1). Its detail is PR 5b's,
+ * under the list in the panel — not in the column's track, which would replace
+ * the column instead of hiding it.
  */
-export function Console({ control, children }: { control: RunControl; children: ReactNode }) {
+export function Console({ control, children, face }: { control: RunControl; children: ReactNode; face: WorkspaceTab }) {
   const entry = useStore((state) => state.ui.entry)
   const simple = useStore((state) => state.ui.mode === 'simple')
+  const library = face === 'library'
   return (
-    <div className="fw-console">
-      {simple ? null : <GroupRail />}
-      {simple ? <SimplePanel control={control} /> : entry === 'preview' ? <ViewPanel /> : <KnobPanel group={entry} />}
+    <div className={`fw-console${library ? ' library' : ''}`}>
+      {library ? <SizeChips /> : simple ? null : <GroupRail />}
+      {library ? (
+        <BoardList />
+      ) : simple ? (
+        <SimplePanel control={control} />
+      ) : entry === 'preview' ? (
+        <ViewPanel />
+      ) : (
+        <KnobPanel group={entry} />
+      )}
       {children}
     </div>
   )

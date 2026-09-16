@@ -1,0 +1,84 @@
+/* The saved-boards face of the console. Its own file, as `console.css` and
+   `run.css` are: one file per surface keeps a specificity collision inside the
+   surface that caused it (PR 2's lesson).
+
+   The chips live in the rail's box, so they inherit its scrolling and its
+   `--graphite`; they are a list of sizes, not the mock's preset strip, and they
+   take the rail's own button treatment rather than the strip's chip treatment —
+   the strip's pair is the open §7.1 contrast item and the library is not to
+   inherit it. */
+.fw-lib-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 0;
+  background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw .fw-lib-chips button {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 16px;
+  border: 0;
+  text-align: left;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+}
+.fw .fw-lib-chips button:hover {
+  color: var(--ink);
+}
+.fw .fw-lib-chips button[aria-pressed='true'] {
+  background: var(--void);
+  color: var(--ink);
+}
+
+.fw-lib-list {
+  padding: 12px 16px;
+  background: var(--void);
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-lib-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+/* Either empty state: no store, or a store with nothing in it. */
+.fw-lib-empty {
+  margin: 8px 0;
+  color: var(--ash);
+}
+.fw-lib-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  margin-bottom: 4px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.fw .fw-lib-row[aria-current='true'] {
+  border-color: var(--signal);
+}
+/* A layout id is 71 characters: the row clips it and keeps it whole, so it can
+   still be selected and copied (spec §5.6). */
+.fw-lib-row .id {
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fw-lib-row .meta {
+  grid-column: 1 / -1;
+  color: var(--ash);
+}
