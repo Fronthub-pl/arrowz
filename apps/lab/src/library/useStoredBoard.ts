@@ -41,6 +41,11 @@ export function useStoredBoard(): void {
       return
     }
     let cancelled = false
+    // The preview of the board before this one is deliberately left on the
+    // stage until this fetch resolves: clearing it here would flash the stage
+    // empty between two rows of the same list. It is the one path where the
+    // stage shows a board the address does not name, and it lasts exactly as
+    // long as the fetch does — every outcome below replaces or clears it.
     useStore.getState().library.boardFailed(null)
     void (async () => {
       const outcome = await readStoredBoard(size, id)

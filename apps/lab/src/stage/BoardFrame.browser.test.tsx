@@ -166,9 +166,14 @@ test('a preview takes the stage and names itself, leaving the run result alone',
 // behind `enableColors`, so this reads the element's own colours button —
 // the input alone would prove nothing (harness fact 20).
 test('a stored board is drawn under its own saved view, not the lab’s', async () => {
-  const screen = await mountFrame()
+  // Mounted on the library tab, which is the only place a preview is drawn at
+  // all: at `/` the frame puts no board on the stage (it asks the route), and
+  // the colour assertion below would then be read off an *empty* element — it
+  // would prove `elementView` follows the preview, but not this case's own
+  // title, that a stored board is drawn under its own view.
   const { meta, file } = storedFixture(2)
   const stored = { ...meta, view: { ...meta.view, colored: true } }
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
   await act(async () => useStore.getState().view.setFlag('colored', false))
   await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta: stored }))
 
@@ -176,6 +181,30 @@ test('a stored board is drawn under its own saved view, not the lab’s', async 
   await expect
     .poll(() => element?.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed'))
     .toBe('true')
+  // There is a board under those colours: the board and the view reach the
+  // element in one commit, so this is the same frame the poll settled on.
+  expect(element?.board?.W).toBe(8)
+})
+
+// Ruling O: the view is gated on the tab, not on the preview alone.
+// `useInLibrary` flips with the location render while `useStoredBoard` clears
+// the preview in an effect after commit, so there is one committed frame on the
+// way back to `/` where a preview is still set. The lab's board must wear the
+// lab's view in it — this is the case the tightened gate is for.
+test('a preview left over on the lab tab lends the lab neither its board nor its view', async () => {
+  const screen = await mountFrame()
+  const { meta, file } = storedFixture(2, 6, 6)
+  const stored = { ...meta, view: { ...meta.view, colored: true } }
+  await act(async () => useStore.getState().view.setFlag('colored', false))
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta: stored }))
+
+  const element = screen.container.querySelector('arrowz-board')
+  // The run's own 8×8, not the stored 6×6, and the lab's colours, not the
+  // stored board's.
+  await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
+  expect(element?.board?.W).toBe(8)
+  expect(element?.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed')).toBe('false')
 })
 
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage

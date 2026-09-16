@@ -1,11 +1,26 @@
-import { defaultParams, encodeBoard, generate } from '@arrowz/engine'
+import { decodeBoard, defaultParams, encodeBoard, generate } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
+import { genSeconds } from '@arrowz/engine/report'
 import { act } from 'react'
+import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { storedFixture } from '../state/library.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { RunStatusBar } from './RunStatusBar'
+
+/**
+ * The bar asks the route now (`useInLibrary`), so it needs a router. `/` is the
+ * lab, which is what every case written before the saved boards existed means.
+ */
+async function mountBar(path = '/') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <RunStatusBar />
+    </MemoryRouter>,
+  )
+}
 
 const EN = dictionary('en')
 
@@ -36,6 +51,10 @@ beforeEach(() => {
   state.params.reset()
   state.run.reset()
   state.result.reset()
+  // `boardError` is the chain's first branch now, outranking even the refusal
+  // the first case is named for, so a case that sets it would otherwise decide
+  // every case after it in this file.
+  state.library.reset()
 })
 
 describe('RunStatusBar', () => {
@@ -43,13 +62,13 @@ describe('RunStatusBar', () => {
   // and on /boards there is no Violations panel either.
   it('says the run is refused while a rule is broken', async () => {
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
   })
 
   it('goes back to the prompt when the rule is satisfied again', async () => {
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     useStore.getState().params.setMany({ wShort: 0.3, wMid: 0.3 })
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
   })
@@ -60,7 +79,7 @@ describe('RunStatusBar', () => {
     const state = useStore.getState()
     state.params.setMany({ W: 600, H: 600 })
     state.run.started(useStore.getState().params.values)
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(/600×600/)
   })
 
@@ -68,7 +87,7 @@ describe('RunStatusBar', () => {
     const state = useStore.getState()
     state.params.setMany({ W: 600, H: 600 })
     state.run.started(useStore.getState().params.values)
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     // The console's own knobs move to a small size while the run is still in
     // flight. A component that (wrongly) read the live knobs instead of
     // `run.params` would now print the plain `generating` text; this must
@@ -90,7 +109,7 @@ describe('RunStatusBar', () => {
     const state = useStore.getState()
     state.run.started(state.params.values)
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     // The precondition, so the case cannot pass by the refusal being printed
     // everywhere: with no violation this is the closed board.
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('closed'))
@@ -113,7 +132,7 @@ describe('RunStatusBar', () => {
     state.run.started(state.params.values)
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     // The precondition: beside a line that is reporting a run, the outcome is
     // still appended — §5.3's rule is not being deleted, only scoped.
     await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
@@ -127,7 +146,7 @@ describe('RunStatusBar', () => {
   it('still reports a run in flight while the knobs on screen are refused', async () => {
     const state = useStore.getState()
     state.run.started(state.params.values)
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generating'))
   })
@@ -136,7 +155,7 @@ describe('RunStatusBar', () => {
     const state = useStore.getState()
     state.params.setMany({ W: 25, H: 25 })
     state.run.started(useStore.getState().params.values)
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generating'))
   })
 
@@ -149,7 +168,7 @@ describe('RunStatusBar', () => {
     state.run.started(state.params.values)
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
-    const screen = await render(<RunStatusBar />)
+    const screen = await mountBar()
     await expect.element(screen.getByRole('status')).toMatchTextContent(`${EN.t('closed')} — ${EN.t('notSaved')}`)
     const next = { ...CLOSED, board: { ...CLOSED.board } }
     await act(async () => {
@@ -157,5 +176,52 @@ describe('RunStatusBar', () => {
       useStore.getState().completeRun({ board: RESULT.board, file: next.board, report: next })
     })
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(EN.t('closed'))
+  })
+
+  // Ruling 8, guarded here for the first time. The line speaks for the board
+  // the library has on screen, and the store's answer is not appended to it:
+  // `saved` is a fact about the run's result, and a stored board is not a run.
+  // The run below is finished *and* answered for, so an appended answer would
+  // show — the whole text is compared, because `toMatchTextContent` is
+  // satisfied by a substring and would pass on the very line this forbids.
+  it('speaks for the stored board on the library tab, without the run answer', async () => {
+    const { meta, file } = storedFixture(2)
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
+    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    const screen = await mountBar(`/boards/8x8/${meta.id}`)
+    const line = EN.t('savedBoard', `8x8/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+    await expect.poll(() => screen.getByRole('status').element().textContent).toBe(line)
+  })
+
+  // Ruling P: the reassembly, not merely the branch. `boardFailed` writes
+  // `<size>/<id>: <reason>` and the bar splits it at the first `: `, so a reason
+  // carrying a `: ` of its own is what proves the halves are rejoined rather
+  // than truncated at the second colon.
+  it('reports a board that could not be read, keeping a colon inside the reason', async () => {
+    useStore.getState().library.boardFailed('8x8/sha256-ab: HTTP 500: gateway down')
+    const screen = await mountBar('/boards/8x8/sha256-ab')
+    await expect
+      .poll(() => screen.getByRole('status').element().textContent)
+      .toBe(EN.t('boardFileError', '8x8/sha256-ab', 'HTTP 500: gateway down'))
+  })
+
+  // Ruling O: both library branches ask the tab, not the preview alone.
+  // `useInLibrary` flips with the location render while `useStoredBoard` clears
+  // these two in an effect after commit, so on the way back to `/` the lab
+  // would otherwise announce a stored board — over a carve of its own — for one
+  // committed frame. Both branches are set here, so this case fails if either
+  // loses its gate.
+  it('says nothing about a stored board once the tab is the lab again', async () => {
+    const { meta, file } = storedFixture(2)
+    const state = useStore.getState()
+    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    state.library.boardFailed('8x8/sha256-ab: HTTP 404')
+    const screen = await mountBar()
+    // Read once and synchronously: the state is set before the mount, so the
+    // first render already answers, and a poll would only wait out a wrong one.
+    expect(screen.getByRole('status').element().textContent).toBe(EN.t('pressGenerate'))
   })
 })

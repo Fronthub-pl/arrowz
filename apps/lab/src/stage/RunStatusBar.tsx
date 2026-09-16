@@ -1,5 +1,6 @@
 import { genSeconds } from '@arrowz/engine/report'
 import { useDictionary } from '../i18n'
+import { useInLibrary } from '../library/useInLibrary'
 import { useStore } from '../state/store'
 
 /**
@@ -18,6 +19,7 @@ export function RunStatusBar() {
   const blocked = useStore((state) => state.params.violations.length > 0)
   const preview = useStore((state) => state.result.preview)
   const boardError = useStore((state) => state.library.boardError)
+  const inLibrary = useInLibrary()
 
   let text: string
   // Whether this line is speaking for a run at all. `saved` is a fact about the
@@ -30,10 +32,18 @@ export function RunStatusBar() {
   // board. A stored board is not a run: the store's answer (`saved`) is a fact
   // about the run's result and is never appended here, and a carve in flight
   // still reports itself in the lab, where the user can see it.
-  if (boardError !== null) {
+  //
+  // Both branches ask the tab and not the preview alone (Ruling O): the route
+  // changes a render before the hook's effect clears these two, so on the way
+  // back to `/` the lab would otherwise announce a stored board for one frame.
+  if (inLibrary && boardError !== null) {
+    // `boardFailed` writes `<size>/<id>: <reason>` (useStoredBoard.ts) and this
+    // splits it back at the first `: `, so the words around the two halves stay
+    // the dictionary's. That shape is a contract between the two modules: a
+    // reason containing `: ` of its own must survive being rejoined.
     const [name = '', ...rest] = boardError.split(': ')
     text = dict.t('boardFileError', name, rest.join(': '))
-  } else if (preview !== null) {
+  } else if (inLibrary && preview !== null) {
     const meta = preview.meta
     text = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
   } else if (run.phase === 'running') {

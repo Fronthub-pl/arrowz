@@ -30,10 +30,17 @@ export function BoardFrame(): ReactElement {
   // A stored board is drawn under its own stored view, never under the lab's
   // (Ruling 3): `meta.view` is what was saved with it, and `voids` shows the
   // holes of a board that did not close, as `showLibBoard` does.
+  //
+  // Gated on the tab as well as on the preview (Ruling O), for the same reason
+  // the board below is: `useInLibrary` flips with the location render, while
+  // `useStoredBoard` clears the preview in an effect after commit, so there is
+  // one committed frame on the way back to `/` where a preview is still set.
+  // Without `inLibrary` the lab's own board is drawn in that frame under the
+  // stored board's flags — spec §5.3 asks the route, not "is there a preview".
   const labView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
   const elementView = useMemo(
-    () => (preview === null ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
-    [preview, labView],
+    () => (preview === null || !inLibrary ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
+    [preview, labView, inLibrary],
   )
   // The tab decides, not the presence of a preview: in the library a board
   // that could not be read leaves the stage empty (spec §5.6), and the lab's
