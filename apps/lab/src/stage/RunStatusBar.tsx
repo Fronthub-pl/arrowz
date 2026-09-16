@@ -1,3 +1,4 @@
+import { genSeconds } from '@arrowz/engine/report'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 
@@ -15,6 +16,8 @@ export function RunStatusBar() {
   const report = useStore((state) => state.result.shown?.report ?? null)
   const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
+  const preview = useStore((state) => state.result.preview)
+  const boardError = useStore((state) => state.library.boardError)
 
   let text: string
   // Whether this line is speaking for a run at all. `saved` is a fact about the
@@ -23,7 +26,17 @@ export function RunStatusBar() {
   // it read `Fix the settings marked in red to generate — saved`: a sentence
   // about a board nobody is looking at, glued to a sentence about the knobs.
   let reportsRun = false
-  if (run.phase === 'running') {
+  // Ruling 8: while the library has a board on screen, the line is about that
+  // board. A stored board is not a run: the store's answer (`saved`) is a fact
+  // about the run's result and is never appended here, and a carve in flight
+  // still reports itself in the lab, where the user can see it.
+  if (boardError !== null) {
+    const [name = '', ...rest] = boardError.split(': ')
+    text = dict.t('boardFileError', name, rest.join(': '))
+  } else if (preview !== null) {
+    const meta = preview.meta
+    text = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+  } else if (run.phase === 'running') {
     const p = run.progress
     // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
     // measured in cells left, not pieces made, and the two counts are

@@ -1,6 +1,7 @@
 import { type ReactElement, useRef } from 'react'
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
+import { useStoredBoard } from '../library/useStoredBoard'
 import { ClampNotice } from '../run/ClampNotice'
 import { PresetStrip } from '../run/PresetStrip'
 import { RunColumn } from '../run/RunColumn'
@@ -38,6 +39,14 @@ export function Workspace({
   const abortRef = useRef<HTMLButtonElement>(null)
   const simple = useStore((state) => state.ui.mode === 'simple')
   const solo = useStore((state) => state.ui.solo)
+  // Mounted here and not in the library panel: `Console` unmounts the panel on
+  // the lab face, so a hook living there could never run its "the address names
+  // no board — clear the preview" branch, and the stored board would still be
+  // on the stage, in the status line and in place of the report after a return
+  // to the lab. Review round 1 measured exactly that: back on `/`, the
+  // annotation still read `8×8 · seed 1` over a 25×50 run, and the status line
+  // announced a stored board while a carve was going.
+  useStoredBoard()
   const lab = tab === 'lab'
   const panel = lab ? 'lab-panel' : 'boards-panel'
   return (

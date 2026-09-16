@@ -1,7 +1,10 @@
+import { decodeBoard } from '@arrowz/engine'
 import { act } from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
+import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
@@ -13,17 +16,24 @@ beforeEach(() => {
   const state = useStore.getState()
   state.run.reset()
   state.result.reset()
+  state.library.reset()
   state.lang.setLang('en')
   state.ui.setSolo(false)
 })
 
-/** The frame in a box with a size, as the stage gives it one. */
-async function mountFrame() {
+/**
+ * The frame in a box with a size, as the stage gives it one. The frame asks the
+ * route now (`useInLibrary`), so it needs a router; every case that names no
+ * address gets `/`, which is the lab.
+ */
+async function mountFrame(path = '/') {
   return render(
-    // One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px.
-    <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
-      <BoardFrame />
-    </div>,
+    <MemoryRouter initialEntries={[path]}>
+      {/* One row: `.fw`'s own `48px auto 1fr` rows would give the frame 48px. */}
+      <div className="fw" style={{ display: 'grid', gridTemplateRows: '1fr', width: '480px', height: '360px' }}>
+        <BoardFrame />
+      </div>
+    </MemoryRouter>,
   )
 }
 
@@ -128,4 +138,56 @@ test('the solo toggle is a named toggle in the frame, after the element', async 
   await expect.element(toggle).toHaveAttribute('aria-pressed', 'true')
   await toggle.click()
   expect(useStore.getState().ui.solo).toBe(false)
+})
+
+// Spec §5.3: the preview is what the stage shows while the library has one,
+// and the run's own board is still there underneath, untouched.
+test('a preview takes the stage and names itself, leaving the run result alone', async () => {
+  // Mounted on the library tab, because that is where a preview is shown at
+  // all: the frame asks the route first (`useInLibrary`), so this case on `/`
+  // would watch the lab's own board and ignore the preview entirely. Review
+  // round 3 measured exactly that failure.
+  const { meta, file } = storedFixture(2, 6, 6)
+  const screen = await mountFrame(`/boards/6x6/${meta.id}`)
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+
+  await expect.poll(() => annotation(screen.container)?.textContent).toBe('6×6 · seed 2')
+  expect(screen.container.querySelector('arrowz-board')?.board?.W).toBe(6)
+  expect(useStore.getState().result.shown).not.toBeNull()
+
+  // And clearing it empties the stage rather than falling back to the run's
+  // board: on this tab the lab's board is not a substitute (spec §5.6).
+  await act(async () => useStore.getState().result.clearPreview())
+  await expect.poll(() => annotation(screen.container)).toBeNull()
+})
+
+// Ruling 3: a stored board carries its own view. The element gates colour
+// behind `enableColors`, so this reads the element's own colours button —
+// the input alone would prove nothing (harness fact 20).
+test('a stored board is drawn under its own saved view, not the lab’s', async () => {
+  const screen = await mountFrame()
+  const { meta, file } = storedFixture(2)
+  const stored = { ...meta, view: { ...meta.view, colored: true } }
+  await act(async () => useStore.getState().view.setFlag('colored', false))
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta: stored }))
+
+  const element = screen.container.querySelector('arrowz-board')
+  await expect
+    .poll(() => element?.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed'))
+    .toBe('true')
+})
+
+// Spec §5.6: a link to a board that is no longer on disk leaves the stage
+// empty and says why. Measured by review round 2 before the tab gate existed:
+// the frame fell through to the lab's own board, so a 25×50 carve stood under
+// the words "cannot be read" about an 8×8 one. The run's result is deliberately
+// present here — that is the board that must NOT appear.
+test('on the library tab a board that could not be read leaves the stage empty', async () => {
+  const screen = await mountFrame('/boards/8x8/sha256-0')
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().library.boardFailed('8x8/sha256-0: not in the store'))
+
+  await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
+  expect(annotation(screen.container)).toBeNull()
 })
