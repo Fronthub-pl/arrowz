@@ -47,7 +47,8 @@ export function ExportButtons(): ReactElement {
   useEffect(() => () => drawing.current?.terminate(), [])
 
   // One hash per shown board. The cleanup drops an answer for a board that is
-  // no longer shown — and the first of StrictMode's two mount runs.
+  // no longer shown — and the first of StrictMode's two mount runs. Dropping it
+  // is what keeps a slow hash from landing on top of a newer one.
   useEffect(() => {
     if (result === null) return
     let ignore = false
@@ -64,9 +65,12 @@ export function ExportButtons(): ReactElement {
       ignore = true
     }
   }, [result])
-  // `named` keeps the last board's hash until the new board's arrives: without
-  // the file comparison the button would offer the old name for the new board
-  // for that whole time. `ignore` only spares a pointless state write.
+  // `named` keeps the last board's hash until the new board's arrives, and the
+  // two guards cover the two orders a hash can arrive in. The file comparison
+  // covers the early window: without it the button would offer the old board's
+  // name for the new one until the new hash lands. The effect's `ignore` covers
+  // the late one: an old hash landing after the new one would overwrite
+  // `named`, fail this comparison, and leave the button dead until the next run.
   const current = result !== null && named !== null && named.file === result.file ? named : null
   const hash = current?.hash ?? null
 

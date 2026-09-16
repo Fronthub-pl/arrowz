@@ -94,7 +94,10 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   // Worked out before any digest is held: the test's own call would be held too, and never let through.
   const TWO = finishedRun(2)
   const THREE = finishedRun(3)
+  const FOUR = finishedRun(4)
+  const FIVE = finishedRun(5)
   const threeName = `${await layoutHash(THREE.board)}.board.json`
+  const fiveName = `${await layoutHash(FIVE.board)}.board.json`
   // A release returns the digest it starts, so the case can await the state it
   // lets through: a release that returned nothing would only flush `act`, and
   // the suppressed write could land after the next assertion had already run.
@@ -111,7 +114,9 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   await act(async () => finish(ONE))
   await expect.poll(() => held.length).toBe(1)
   await expect.element(button).toBeDisabled()
-  await act(async () => held[0]?.())
+  await act(async () => {
+    await held[0]?.()
+  })
   await expect.element(button).toBeEnabled()
   // A new board: the last board's hash must not name it while its own is held.
   await act(async () => finish(TWO))
@@ -124,10 +129,30 @@ test('the board file waits for the hash of the board on screen, and a replaced b
     await held[1]?.()
   })
   await expect.element(button).toBeDisabled()
-  await act(async () => held[2]?.())
+  await act(async () => {
+    await held[2]?.()
+  })
   await expect.element(button).toBeEnabled()
   await button.click()
-  expect(downloads.names).toEqual([threeName])
+  // The other order, and the one only the effect's cleanup survives: the board
+  // on screen answers first, the board it replaced answers after. A late hash
+  // written on top would fail the file comparison and leave the button dead
+  // until the next run — the window is an Insane board's digest still in
+  // flight when a small board replaces it.
+  await act(async () => finish(FOUR))
+  await expect.poll(() => held.length).toBe(4)
+  await act(async () => finish(FIVE))
+  await expect.poll(() => held.length).toBe(5)
+  await act(async () => {
+    await held[4]?.()
+  })
+  await expect.element(button).toBeEnabled()
+  await act(async () => {
+    await held[3]?.()
+  })
+  await expect.element(button).toBeEnabled()
+  await button.click()
+  expect(downloads.names).toEqual([threeName, fiveName])
 })
 
 // Outside a secure context there is no crypto.subtle; the reason is shown under
