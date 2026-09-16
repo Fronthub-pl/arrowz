@@ -135,6 +135,34 @@ test('a chip for a size other than the first is pressed when the address names i
   expect(screen.getByRole('button', { name: /8x8/ }).element().getAttribute('aria-pressed')).toBe('false')
 })
 
+// The fetch path end to end: a store that is not listening has to reach the
+// slice as a failure rather than as a successful empty listing, and the rows
+// already listed have to survive it.
+//
+// This cannot be a slice case. One that drives `listFailed` by hand never sees
+// which of the two outcomes `listBoards` hands over, and the difference is the
+// whole of it. Measured by mutation: `if (!response.ok) return { ok: true,
+// sizes: [] }` in `api/boards.ts` turns this case red — the rail empties and
+// the sentence becomes "the store is empty" — while all four cases in
+// `state/library.slice.test.ts` stay green.
+//
+// The 502 with a zero-length body is not an invented failure: it is what
+// Vite's proxy answers for a store that is not listening, measured through the
+// dev server rather than assumed.
+test('a refresh that finds no store keeps the rows it already listed', async () => {
+  const sizes = sizesFixture()
+  let answer = () => Promise.resolve(Response.json(sizes))
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => answer())
+  const screen = await mountPanel()
+  await expect.element(screen.getByRole('button', { name: /8x8/ })).toBeVisible()
+
+  answer = () => Promise.resolve(new Response(null, { status: 502 }))
+  await userEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+  await expect.element(screen.getByText(/No store server/)).toBeVisible()
+  expect(screen.container.querySelectorAll('.fw-lib-chips button')).toHaveLength(2)
+  expect(screen.container.querySelectorAll('.fw-lib-row')).toHaveLength(2)
+})
+
 // The row the address names is the current one, for a screen reader as well as
 // for the eye.
 test('the row of the open board is marked current', async () => {
