@@ -31,13 +31,22 @@
 
 | What | Command |
 |---|---|
-| Engine build (before lab tests) | `pnpm nx build engine` |
+| Builds before any lab test | `pnpm nx build engine && pnpm nx build board-element` |
 | Lab types | `pnpm --dir apps/lab run check` |
 | Lab tests, one file | `pnpm --dir apps/lab exec vitest run src/<path>` |
 | Lab tests, all | `pnpm nx test lab` |
 | CLI/engine tests | `deno task test` |
 | One Deno test file | `deno test -A packages/cli/lab-server.test.ts` |
 | Both gates | `deno task verify` && `pnpm nx run-many -t verify` |
+
+**Both builds, not just the engine.** `apps/lab`'s browser tests import the
+board element, and `tsc` fails to resolve `@arrowz/board-element` until it is
+built — measured by review round 1 on a fresh worktree, where the plan's
+original one-build setup left `check` red before a line of it had been applied.
+
+**A known flake on a cold install:** the first full `pnpm nx test lab` after
+`pnpm install` has been seen to abort with `The iframe ".../src/run/triggers.browser.test.tsx" did not become ready within 60000ms`
+— a file no task here touches. Re-run; it passes. Do not debug it.
 
 ### Harness facts, each measured
 
@@ -177,7 +186,7 @@ Leave every `/api/boards…` exactly as it is: the API did not move.
 - [ ] **Step 2: Run the server tests to verify they fail**
 
 Run: `deno test -A packages/cli/lab-server.test.ts`
-Expected: FAIL — the stored-file fetches answer 404 (the area is still `/boards/`), and the escape case gets 404 instead of 403.
+Expected: FAIL, measured as `9 passed | 5 failed` — the stored-file fetches answer 404 (the area is still `/boards/`) and the escape case gets 404 instead of 403. Five, not six: `:251` asserts a board is *gone* after a DELETE, and a missing file answers 404 under either path, so that line cannot tell the move happened. It moves with the others for consistency, not for evidence.
 
 - [ ] **Step 3: Move the area in the server**
 
@@ -527,8 +536,10 @@ import { DEFAULT_VIEW } from '@arrowz/engine/command'
  * fetched, because these tests must not need a server — `boards.node.test.ts`
  * is where a real store is exercised.
  *
- * The id is a plausible layout hash: 71 characters, `sha256-` and 64 hex
- * digits, so a row that clips it is being clipped for the real reason.
+ * The id is a plausible layout hash for a one- or two-digit seed: `sha256-`
+ * and 64 hex digits, 71 characters in all, so a row that clips it is being
+ * clipped for the real reason. A seed of 100 or more would overrun that,
+ * and every caller here passes a small one.
  */
 export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; file: unknown } {
   const params = { ...defaultParams(), W, H, seed }
@@ -891,34 +902,36 @@ test('the board element survives the trip to the library and back', async () => 
   expect(element()).toBe(before)
 })
 
-// Ruling 6: a sibling that disappears from the list shifts `Stage` among its
-// siblings and remounts the element. Each keeps its slot as `null`.
-test('the preset strip is absent from the library but the stage stays put', async () => {
+// Ruling 6: the preset strip goes, the stage stays — the same node, not merely
+// a node in the same place. Measured by review round 1: a React `null` slot
+// renders no DOM node, so the stage's *index* among `.fw-lab.children`
+// legitimately drops from 1 to 0 while its identity holds. The index was the
+// wrong instrument; identity is the claim.
+test('the preset strip is absent from the library and the stage is the same node', async () => {
   const screen = await mountApp()
-  const stageIndex = () => {
-    const lab = screen.container.querySelector('.fw-lab')
-    const stage = screen.container.querySelector('.fw-stage')
-    return lab === null || stage === null ? -1 : [...lab.children].indexOf(stage)
-  }
-  const before = stageIndex()
+  const stage = () => screen.container.querySelector('.fw-stage')
+  const before = stage()
+  expect(before).not.toBeNull()
+
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
   await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
   expect(screen.container.querySelector('.fw-presets')).toBeNull()
-  expect(stageIndex()).toBe(before)
+  expect(stage()).toBe(before)
 })
 
 // The docs are not the workspace: there the panel is hidden, as it was before
 // this PR for every route but `/`.
 test('the workspace is hidden under the docs route', async () => {
   const screen = await mountApp()
-  await userEvent.click(screen.getByRole('tab', { name: 'Documentation', exact: true }))
+  await userEvent.click(screen.getByRole('tab', { name: 'Docs', exact: true }))
   await expect
     .poll(() => screen.container.querySelector('main[hidden] [role="tabpanel"]')?.id, { timeout: 5_000 })
     .toBe('lab-panel')
 })
 ```
 
-> The tab names come from the dictionary: `tabLab` is "Lab", `tabLibrary` "Saved boards", `tabDocs` "Documentation". `{ exact: true }` on every one of them: "Lab" is a substring of nothing here, but "Saved boards" collides with the `board` knob group's tab in the rail.
+> The tab names come from the dictionary and are exactly `tabLab: 'Lab'`, `tabLibrary: 'Saved boards'`, `tabDocs: 'Docs'` (`packages/engine/lab-i18n.ts:113-115` — read them, do not guess: the plan's first draft said "Documentation" and the case timed out clicking a tab that does not exist). `{ exact: true }` because the collision runs the other way: a locator named `board` matches *Saved boards* as well as the `board` knob group, so every whole-app case in this repository spells its tab names exactly.
 
 - [ ] **Step 3: Run it to verify it fails**
 
@@ -964,7 +977,10 @@ export function Workspace({
         <div className="fw-bar">
           <RunStatusBar />
         </div>
-        <div className={`fw-lab${simple ? ' simple' : ''}${solo ? ' solo' : ''}`}>
+        {/* `library` earns its own row template for the same reason `simple`
+            has one: with no preset strip, the stage would auto-place into the
+            `auto` row and squeeze the console to its 180px minimum (Task 6). */}
+        <div className={`fw-lab${lab ? '' : ' library'}${simple ? ' simple' : ''}${solo ? ' solo' : ''}`}>
           {/* Every one of these keeps its slot as `null` rather than leaving
               the child list: React keeps a node by type and position among its
               siblings, and a sibling that vanishes shifts `Stage` — remounting
@@ -1044,7 +1060,13 @@ Update the import:
 import { Workspace } from './routes/Workspace'
 ```
 
-And the comment on `useSoloKey`, whose last sentence says the listener exists only on the lab route — it now covers both board-bearing tabs, which is what the old lab does (`lab-page.ts:1027-1029`: "full view works for both"):
+Then rename `useSoloKey`'s parameter in **all three places it appears**, or the file will not compile. Review round 1 measured a literal executor leaving `App.tsx(90,7): TS2552 Cannot find name 'onWorkspace'`, because the plan's first draft showed the docstring and the signature as one block and the dependency array as prose:
+
+1. the signature — `function useSoloKey(onLab: boolean) {` becomes `function useSoloKey(onWorkspace: boolean) {`
+2. the first line of its effect — `if (!onLab) return` becomes `if (!onWorkspace) return`
+3. the dependency array at the end of that effect — `}, [onLab])` becomes `}, [onWorkspace])`
+
+The body between them does not change. Its docstring's last sentence says the listener exists only on the lab route; it now covers both board-bearing tabs, which is what the old lab does (`lab-page.ts:1027-1029`: "full view works for both"). Replace that sentence with:
 
 ```tsx
  * A focused button is not a field, so `f` on Generate toggles, as it does in
@@ -1052,12 +1074,7 @@ And the comment on `useSoloKey`, whose last sentence says the listener exists on
  * the lab tab and the saved boards — and nowhere else. Escape is not handled:
  * the palette of PR 7 owns it.
  */
-function useSoloKey(onWorkspace: boolean) {
-  useEffect(() => {
-    if (!onWorkspace) return
 ```
-
-(the body is unchanged; only the parameter's name and the dependency `[onWorkspace]`).
 
 - [ ] **Step 7: Follow the rename through the route tests**
 
@@ -1095,6 +1112,26 @@ test('each panel keeps the main landmark around it', async () => {
 
 In `apps/lab/src/routes/Workspace.browser.test.tsx` and `apps/lab/src/routes/LabLayout.browser.test.tsx`, replace any `LabRoute` identifier in a comment or import with `Workspace`. Run `grep -rn "LabRoute\|SavedBoardsRoute" apps/lab/src` and leave no hit.
 
+**And repair the one existing case this PR invalidates.** `LabLayout.browser.test.tsx:239`, "f does nothing off the lab route", clicks *Saved boards* and then polls for `#lab-panel`'s `<main>` to be `hidden` — under `/boards` the panel is now `boards-panel` and is not hidden, and solo is supposed to work there (Ruling: solo follows the stage). Review round 1 measured it failing. The case is still worth having, about the one route that has no stage:
+
+```ts
+// Solo belongs to the stage, and the docs route has none. (Until PR 5a the
+// saved boards had none either, which is what this case used to assert.)
+test('f does nothing on the docs route', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+}, 40_000)
+```
+
+That solo *does* work in the library is Task 9's case, in the other file.
+
 - [ ] **Step 8: Run the tests to verify they pass**
 
 Run: `pnpm --dir apps/lab exec vitest run src/routes/Workspace.browser.test.tsx src/AppRoutes.browser.test.tsx` then `pnpm --dir apps/lab run check`
@@ -1131,10 +1168,17 @@ Append to `apps/lab/src/routes/Workspace.browser.test.tsx`:
 
 ```ts
 // Ruling 1: the run column is hidden in the library, not replaced. A carve
-// started in the lab keeps its column, its focus and its transition ref; the
-// old lab hides the same controls by class. `includeHidden` because a locator
-// skips `display: none` — which is exactly the state under test.
+// started in the lab keeps its node, its refs and the run itself; the old lab
+// hides the same controls by class. Read through `querySelector`, not a role
+// locator, precisely because a locator skips `display: none` — the state
+// under test.
+//
+// The viewport is set first and deliberately: at the runner's default
+// 414×896 the ≤900px query already gives `.fw-console` two tracks, so the
+// track assertion below would pass with the library rule deleted. Review
+// round 1 measured exactly that.
 test('the run column stays mounted, and hidden, in the library', async () => {
+  await page.viewport(1400, 900)
   const screen = await mountApp()
   const column = () => screen.container.querySelector('.fw-run-col')
   const before = column()
@@ -1153,12 +1197,36 @@ test('the run column stays mounted, and hidden, in the library', async () => {
   if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
   expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')).toHaveLength(2)
 })
+
+// The library has no preset strip, and the lab grid's first row is `auto`:
+// without `.fw-lab.library` the stage takes 590px and the console is left with
+// its 180px minimum on every viewport (measured, review round 1). This is the
+// same trap `.fw-lab.simple` exists to avoid, so it is asserted the same way:
+// by the two rows being the halves they are in the lab, not by a class name.
+test('the library gives the console its share of the panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  const box = (selector: string) => {
+    const found = screen.container.querySelector(selector)
+    if (found === null) throw new Error(`${selector} is not on the page`)
+    return found.getBoundingClientRect()
+  }
+  const stage = box('.fw-stage')
+  const consoleBox = box('.fw-console')
+  expect(consoleBox.height).toBeGreaterThan(300)
+  expect(Math.abs(stage.height - consoleBox.height)).toBeLessThan(2)
+})
 ```
+
+> `page` comes from `vitest/browser`. The file already imports `userEvent` from there; add `page` to that import, or both new cases fail on an undefined name.
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `pnpm --dir apps/lab exec vitest run src/routes/Workspace.browser.test.tsx`
-Expected: FAIL — the column is visible and the console still has three tracks.
+Expected: FAIL — the column is visible, the console still has three tracks at 1400px, and the console is 180px tall in the library.
 
 - [ ] **Step 3: Give the console its third face**
 
@@ -1227,17 +1295,53 @@ Append to `apps/lab/src/design/console.css`:
 ```css
 /* The library face (spec §5.1, PR 5a). The run column keeps its node and is
    hidden, as the old lab hides its lab-only controls (`body.tab-library
-   .labonly`), so a carve in flight keeps its focus and its transition ref. A
-   hidden grid item takes no track, so the console drops to the two tracks the
-   library uses — unlike solo's hidden items, which sit in tracks that have to
-   be redefined because `display: none` on the *only* item of a track leaves
-   the track behind. */
+   .labonly`), so a carve in flight keeps its node, its refs and the run
+   itself. A hidden grid item takes no track, so the console drops to the two
+   tracks the library uses — unlike solo's hidden items, which sit in tracks
+   that have to be redefined because `display: none` on the *only* item of a
+   track leaves the track behind. */
 .fw-console.library {
   grid-template-columns: 168px minmax(0, 1fr);
 }
 .fw-console.library > .fw-run-col {
   display: none;
 }
+```
+
+Two more rules, both measured by review round 1 rather than reasoned:
+
+```css
+/* The library has no preset strip either, so it needs `.fw-lab.simple`'s
+   correction for the same reason (PR 4a, Ruling 10): with the first child
+   absent, the stage auto-places into the `auto` row and the console is left
+   with its 180px minimum. Measured before this rule at 1400×900 and 860×900:
+   rows `590.219px 180px 0px`, the console at 180px on every viewport; after
+   it, `385.109px 385.109px`. */
+.fw-lab.library {
+  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+}
+```
+
+and, in the rule that gives solo its single row, a third selector beside the two that are there:
+
+```css
+.fw-lab.solo,
+.fw-lab.simple.solo,
+.fw-lab.library.solo {
+  grid-template-rows: minmax(0, 1fr);
+}
+```
+
+> Without that third selector solo breaks in the library and nowhere else: `.fw-lab.library` and `.fw-lab.solo` have the same specificity (0,2,0), and the library rule comes later in the file, so it wins on order. Measured with it: `.fw-boardwrap` equals `.fw-lab` (1400×770) and the element is 34px smaller on both axes, exactly as in the lab.
+
+Finally, let the narrow-width query know about the library face, or its rail will be 18px wider than the lab's below 900px — `.fw-console.library` is (0,2,0) and the query's `.fw-console` is (0,1,0), so the library keeps 168px where the lab has 150px (measured at 860: lab `150px 709px`, library `168px 691px`):
+
+```css
+@media (max-width: 900px) {
+  .fw-console,
+  .fw-console.library {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
 ```
 
 - [ ] **Step 5: Create the library's stylesheet**
@@ -1371,7 +1475,7 @@ Create `apps/lab/src/library/LibraryPanel.browser.test.tsx`:
 
 ```tsx
 import { act } from 'react'
-import { beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { MemoryRouter, useLocation } from 'react-router'
@@ -1387,6 +1491,18 @@ beforeEach(() => {
   state.library.reset()
   state.result.reset()
   state.lang.setLang('en')
+  // The panel fetches on mount, and so does the preview hook. Unstubbed, those
+  // requests reach the vitest server, which answers its own index for
+  // `/api/boards` and `/store/…`; the listing that comes back then lands on top
+  // of whatever state the case has just set, and the case asserts against the
+  // server's answer instead of its own fixture. Measured by review round 1: two
+  // of these cases failed on exactly that race. A promise that never settles is
+  // the smallest stub that removes it.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
 })
 
 /** The address the panel navigated to, printed where a test can read it. */
@@ -1541,8 +1657,13 @@ export function SizeChips(): ReactElement {
           type="button"
           aria-pressed={entry.size === current}
           onClick={() => {
-            const first = entry.boards[0]
-            if (first) void navigate(`/boards/${entry.size}/${first.id}`)
+            // Parity with `selectSize` (`lab-page.ts:1085-1094`): a size keeps
+            // the board already open when that board belongs to it, and opens
+            // its first board otherwise. A chip that always jumped to the first
+            // would throw away the board being looked at whenever its own size
+            // chip was pressed.
+            const target = entry.boards.find((board) => board.id === open.id) ?? entry.boards[0]
+            if (target) void navigate(`/boards/${entry.size}/${target.id}`)
           }}
         >
           {`${entry.size} (${entry.boards.length})`}
@@ -1627,7 +1748,7 @@ export function BoardList(): ReactElement {
           {dict.t('refresh')}
         </button>
       </div>
-      {listError !== null && sizes === null ? <p className="fw-lib-empty">{dict.t('noStoreServer')}</p> : null}
+      {listError !== null ? <p className="fw-lib-empty">{dict.t('noStoreServer')}</p> : null}
       {listError === null && sizes !== null && entry === null ? (
         <p className="fw-lib-empty">{dict.t('storeEmpty')}</p>
       ) : null}
@@ -1677,7 +1798,7 @@ git commit -m "List the stored layouts, with a chip per size and a row that is a
 **Files:**
 - Create: `apps/lab/src/library/useStoredBoard.ts`, `apps/lab/src/library/useStoredBoard.browser.test.tsx`
 - Modify: `apps/lab/src/stage/BoardFrame.tsx`, `apps/lab/src/stage/RunStatusBar.tsx`, `apps/lab/src/report/ReportPanel.tsx`
-- Modify: `apps/lab/src/library/BoardList.tsx` (mount the hook)
+- Modify: `apps/lab/src/routes/Workspace.tsx` (mount the hook — see Step 4 for why it is not the library panel)
 - Test: `apps/lab/src/stage/BoardFrame.browser.test.tsx` (two cases)
 
 **Interfaces:**
@@ -1689,6 +1810,7 @@ git commit -m "List the stored layouts, with a chip per size and a row that is a
 Create `apps/lab/src/library/useStoredBoard.browser.test.tsx`:
 
 ```tsx
+import type { ReactNode } from 'react'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
 import { MemoryRouter } from 'react-router'
@@ -1750,7 +1872,11 @@ test('a board that cannot be read clears the stage and reports the reason', asyn
 // Ruling 4: the effect's own guard. A slow answer for a board the address no
 // longer names must not land on the stage.
 test('an answer for a board no longer open is dropped', async () => {
-  let release: (() => void) | null = null
+  // Written as an assertion and not as `let release: (() => void) | null = null`:
+  // TypeScript narrows that declaration to `null`, does not see the assignment
+  // inside the executor, and `release?.()` then fails to compile as `never`
+  // (review round 1 hit it; `vitest run` would not have).
+  let release = null as (() => void) | null
   const held = new Promise<void>((done) => {
     release = done
   })
@@ -1816,7 +1942,18 @@ export function useStoredBoard(): void {
       return
     }
     const meta = metas?.find((entry) => entry.size === size)?.boards.find((board) => board.id === id) ?? null
-    if (meta === null) return
+    if (meta === null) {
+      // Before the listing arrives there is nothing to look the id up in, so
+      // this waits. Once it has arrived, an id that is not in it is a stale
+      // link, and spec §5.6 says the stage is left empty and the reason is
+      // shown — not left silent under the previous board (review round 1
+      // measured the silence).
+      if (metas !== null) {
+        useStore.getState().result.clearPreview()
+        useStore.getState().library.boardFailed(`${size}/${id}: not in the store`)
+      }
+      return
+    }
     let cancelled = false
     useStore.getState().library.boardFailed(null)
     void (async () => {
@@ -1848,16 +1985,22 @@ export function useStoredBoard(): void {
 
 > The message is assembled as `<size>/<id>: <reason>` because the status line splits it again at the first `: ` and renders the halves through `boardFileError(name, reason)`, which is bilingual (Step 6). Keeping the two halves joined in the slice means the slice holds one failure, not two fields that could disagree; splitting in the component means the words around them stay the dictionary's.
 
-- [ ] **Step 4: Mount the hook where the library lives**
+- [ ] **Step 4: Mount the hook where it can also stop**
 
-In `apps/lab/src/library/BoardList.tsx`, call it beside the list hook:
+In `apps/lab/src/routes/Workspace.tsx`, beside the other hooks:
 
 ```tsx
-  const { refresh } = useLibraryList()
+  // Mounted here and not in the library panel: `Console` unmounts the panel on
+  // the lab face, so a hook living there could never run its "the address names
+  // no board — clear the preview" branch, and the stored board would still be
+  // on the stage, in the status line and in place of the report after a return
+  // to the lab. Review round 1 measured exactly that: back on `/`, the
+  // annotation still read `8×8 · seed 1` over a 25×50 run, and the status line
+  // announced a stored board while a carve was going.
   useStoredBoard()
 ```
 
-with the import added. The list is the library's only always-rendered piece, and the hook needs the metas the list already waits for.
+with the import added. `Workspace` is mounted on every route, so the hook sees the address change to `/` and can act on it.
 
 - [ ] **Step 5: Draw the preview on the stage**
 
@@ -2033,6 +2176,28 @@ test('the report column empties while a stored board is on screen', async () => 
 
   await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBe(0)
 })
+
+// The defect review round 1 found, and the reason `useStoredBoard` is mounted
+// in `Workspace`: with the hook inside the library panel, `Console` unmounted
+// it on the way out, nothing ever cleared the preview, and the lab tab went on
+// drawing, announcing and reporting a board read off the disk — over a run of
+// a different size, and masking a carve in flight.
+test('leaving the library takes the stored board off the stage', async () => {
+  const screen = await mountApp()
+  await loadRunDone()
+  const runAnnotation = screen.container.querySelector('.fw-anno')?.textContent
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  const { meta, file } = storedFixture(4)
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+  await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => useStore.getState().result.preview).toBeNull()
+  expect(screen.container.querySelector('.fw-anno')?.textContent).toBe(runAnnotation)
+  await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBeGreaterThan(0)
+})
 ```
 
 with `decodeBoard`, `storedFixture`, `act` and `loadRunDone` imported as needed.
@@ -2043,6 +2208,8 @@ Run: `pnpm nx test lab`
 Expected: PASS, every project (node, node-integration, chromium).
 
 - [ ] **Step 3: Amend the spec for Ruling 1**
+
+Two other spec corrections review round 1 asked for are **already on the branch** (§5.3's slice table, which still credited `library` with a selection and view fields, and §9.1's sentence about the proxy covering `/boards/`); this step is only §5.1 and §10.
 
 In `docs/superpowers/specs/2026-09-13-lab-react-app-design.md`, §5.1's PR 5a amendment, replace the sentence mapping the library onto three tracks:
 
@@ -2080,5 +2247,32 @@ git commit -m "Cover solo and the report column on the library tab, and correct 
    - `f` goes solo on both tabs;
    - the back button walks the boards that were opened;
    - a reload on `/boards/<size>/<id>` opens that board;
+   - going back to the Lab tab restores the lab's own board, its annotation and its report — nothing of the stored board is left on the stage or in the status line;
+   - a link to a board that has been deleted says so and leaves the stage empty;
    - stopping the store server and pressing Refresh says "No store server", and the rows already on screen stay.
 3. **The old lab still works**: `deno task lab`, open `/lab.html`, open the Saved boards tab, confirm a board draws — the path it fetches moved in Task 1.
+
+---
+
+## What review round 1 changed
+
+Three reviewers applied this plan in their own worktrees and ran it. Every item below is a measurement, not an opinion, and each is folded into the task it belongs to; they are listed here so a second reviewer can see what has already been attacked.
+
+**Five defects that would have shipped or stalled execution:**
+
+1. **The preview outlived the library.** `useStoredBoard` was mounted in `BoardList`, which `Console` unmounts on the lab face — so its "no address, clear the preview" branch could never run. Measured: back on `/`, the stage, the annotation, the status line and the empty report column all still described the stored board, over a run of a different size. The hook moved to `Workspace`, and Task 9 gained a case for it.
+2. **The library squeezed the console to 180px on every viewport.** `.fw-lab`'s first row is `auto` and the library has no preset strip, so the stage auto-placed into it — the same trap `.fw-lab.simple` exists to avoid (PR 4a, Ruling 10), which this plan had not carried over. Measured `590.219px 180px 0px`; with `.fw-lab.library` it is `385.109px 385.109px`. Solo needed a third selector in the same breath, or the later library rule beat it on order.
+3. **Two Task 5 cases could not pass**: one clicked a tab named "Documentation" (the dictionary says `Docs`), the other measured the stage's DOM index, which a React `null` slot legitimately changes while node identity — the actual claim — holds.
+4. **One Task 7 case could not pass**: the panel's own mount-time fetch answered after the case had set its state, so neither empty-state sentence rendered. The file now stubs `fetch`.
+5. **Three type errors in the plan's own test code** (`vi` unused, `ReactNode` never imported, a `let` narrowed to `null` making `release?.()` a `never` call). `vitest run` would have stayed green; `tsc` would not.
+
+**Four things that were silently wrong:**
+
+6. An existing case, `LabLayout.browser.test.tsx`'s "f does nothing off the lab route", asserts the old world and now fails; it moves to the docs route.
+7. Task 6's track-count assertion was vacuous at the runner's default 414px viewport, where the ≤900px query already yields two tracks.
+8. `.fw-console.library` outranked the narrow-width rule, leaving the library's rail 18px wider than the lab's below 900px.
+9. A failed Refresh with rows on screen said nothing, because the empty-state condition also required `sizes === null` — which `listFailed` deliberately does not produce. The plan's own by-hand checklist would have caught it at the very end.
+
+**Three parity gaps against the old lab:** a size chip threw away the board being looked at instead of keeping it when it belongs to that size (`selectSize`); a stale id was silent where spec §5.6 asks for `boardFileError`; and the setup instructions built only the engine, leaving `tsc` unable to resolve the board element on a fresh worktree.
+
+**Confirmed by measurement, and left alone:** `<arrowz-board>` survives both tab changes as the same node with its WebGL2 context unlost (a MutationObserver recorded zero removals); `aria-controls` never dangles across six tab transitions; the late-answer guard really is load-bearing (removing the three `cancelled` checks turns its case red); the status line never appends the store's answer to a stored board, and the `': '` split survives reasons that themselves contain colons; `library.css`'s tokens all exist and its class names collide with nothing.

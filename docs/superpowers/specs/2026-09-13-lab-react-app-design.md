@@ -548,7 +548,7 @@ against a collision that the swap makes impossible.
 | `view` | the nine preview fields as typed values | URL hash |
 | `run` | `idle \| running \| done \| error`, the parameters in flight, progress, history entries (params, seed, metrics, thumbnail) | no |
 | `result` | the board on screen, its file, report and the parameters it was made from; the store's answer for that file; the delta baseline | no |
-| `library` | sizes, list cache, selected board, that board's own view fields | no |
+| `library` | sizes, the list cache, and the two failure kinds (*amended in PR 5a*: the selection is the address, §5.6, and a stored board's view fields belong to PR 5b's detail) | no |
 | `ui` | tab, selected group, palette, simple/advanced, solo, `auto`, `help`, clamp notice, flash | `labView` |
 | `lang` | `pl \| en` | `labLang` |
 | `recipe` | the simple view's recipe | `labSimple` |
@@ -732,6 +732,12 @@ read, while the list beside it still loads. The row shows the whole
 (`lab.html`, `.boardrow .id`), so the hash can still be selected and copied; a
 hash shortened in code could not.
 
+Older design documents describe the path as it was before this move —
+`2026-09-07-lab-board-store-design.md`, `2026-09-11-board-data-model-design.md`
+and `2026-09-11-security-hardening-design.md` all say `/boards/`, the last of
+them about the sandbox CSP. They are records of what was decided when, and are
+left as written; `/store/` is the path from PR 5a on.
+
 ## 6. The worker boundary
 
 **The protocol does not change.** `WorkerIn`/`WorkerOut` (`types.ts:330-354`)
@@ -868,10 +874,15 @@ as §5.4 describes rather than displayed and then ignored.
 1. **The Vite proxy must rewrite `Origin`, not merely `changeOrigin`.**
    `changeOrigin` rewrites `Host`; the browser still sends `Origin:
    http://localhost:<vite-port>`, and `lab-server.ts:69` compares it against
-   its own origin, so every POST would 403. PR 2 needs a `proxyReq` hook
-   rewriting or stripping `Origin`, and the proxy must cover `/boards/` (the
-   static board files, `:1303`) as well as `/api`. This is a prerequisite, not a
-   verification.
+   its own origin, so every POST would 403. **Both halves of this were wrong,
+   and both were corrected by measurement.** PR 2 measured that `changeOrigin`
+   is the cause of the 403 and not the cure — forwarding the browser's own
+   `Host` keeps `Host` and `Origin` consistent by construction, so the proxy is
+   a target and nothing else, and no `proxyReq` hook is needed
+   (`vite.proxy.ts`, and `boards.node.test.ts` holds the line). PR 5a moved the
+   static board files to `/store/` (§5.6), so that is the second key the proxy
+   carries; `/boards` is the application's own route and no proxy key may begin
+   with it.
 2. **`lab-report.ts` is unreachable until PR 1 adds three things** (§4.3): the
    sixth subpath export, the `tsconfig.build.json` entry and the
    `node-smoke.mjs` line. Without them PR 2 does not build.
