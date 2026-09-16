@@ -5,6 +5,8 @@ import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { loadRunDone } from '../harness/mountApp'
+import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 // The stage-height case measures the lab grid, which needs the real cascade,
 // in the order `main.tsx` loads it.
@@ -41,6 +43,13 @@ async function mountApp() {
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
+  // Solo is reset here for the same reason `auto` is, and the harness's own
+  // `resetApp` already does it: the two cases at the foot of this file press
+  // `f`, and the store outlives a case, so a solo left on would hide the
+  // console from whatever ran next — `.fw-lab.solo` takes it out of the layout
+  // entirely (console.css), and a later case reading `.fw-console` would then
+  // be measuring a `display: none` box.
+  useStore.getState().ui.setSolo(false)
   return render(<App />)
 }
 
@@ -683,3 +692,115 @@ test('the library gives the console its share of the panel', async () => {
   expect(consoleBox.height).toBeGreaterThan(300)
   expect(Math.abs(stage.height - consoleBox.height)).toBeLessThan(2)
 })
+
+// Solo is the stage's, not the lab tab's: the old lab's full view works on
+// both tabs (`lab-page.ts:1027-1029`). The `f` key is the application's, so
+// this presses it rather than clicking the toggle.
+//
+// The viewport is stated rather than inherited. `page.viewport` outlives the
+// case that sets it, and the case above leaves 1400×900 behind, so without
+// this line the width here would be whatever the file happens to end on — a
+// dependency on test order in a case that has no business having one. 1400×900
+// and not the runner's default because that is what the cases around it use,
+// and because at that width the console is genuinely on screen for solo to
+// take away; the assertions themselves hold at either width.
+test('solo works on the saved boards tab too', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(true)
+  const lab = screen.container.querySelector('.fw-lab')
+  expect(lab?.classList.contains('solo')).toBe(true)
+
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(false)
+}, 40_000)
+
+// The defect review round 1 found, and the reason `useStoredBoard` is mounted
+// in `Workspace`: with the hook inside the library panel, `Console` unmounted
+// it on the way out, nothing ever cleared the preview, and the lab tab went on
+// drawing, announcing and reporting a board read off the disk.
+//
+// The board MUST be opened through the address, not by calling `showPreview`.
+// Review round 2 measured the shortcut version staying red in both worlds: the
+// clearing effect keys on the address, and a preview put there by hand is a
+// state the hook never produced, so the case discriminated nothing. Written
+// this way it is green with the hook in `Workspace` and red with it back in
+// `BoardList` — which is what a regression test for this defect has to do.
+test('leaving the library takes the stored board off the stage', async () => {
+  const { meta, file } = storedFixture(4)
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]))
+    }
+    if (url.includes(meta.id)) return Promise.resolve(Response.json(file))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    // 1400×900 on purpose: at the runner's 414×896 the stage overlaps the row
+    // this case has to click, and Playwright refuses the click as intercepted
+    // by `<arrowz-board>`. Review round 3 measured it — the case would then be
+    // failing about a layout overlap while claiming to be about the hook.
+    await page.viewport(1400, 900)
+    const screen = await mountApp()
+    await loadRunDone()
+    const runAnnotation = screen.container.querySelector('.fw-anno')?.textContent
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    await expect.element(screen.getByText(meta.id)).toBeVisible()
+    await userEvent.click(screen.getByText(meta.id))
+    await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
+    expect(screen.container.querySelectorAll('.fw-report table')).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+    await expect.poll(() => useStore.getState().result.preview).toBeNull()
+    expect(screen.container.querySelector('.fw-anno')?.textContent).toBe(runAnnotation)
+    await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBeGreaterThan(0)
+  } finally {
+    vi.restoreAllMocks()
+  }
+}, 40_000)
+
+// `.fw-lab.library.solo` is load-bearing and nothing above measures it: the
+// solo case reads `ui.solo` and a class name, both of which survive the rule's
+// deletion. Geometry does not — review round 2 deleted the selector and this
+// went red at 1400 and at 860, because `.fw-lab.library` would otherwise beat
+// `.fw-lab.solo` on order.
+test('solo in the library fills the panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(true)
+
+  const box = (selector: string) => {
+    const found = screen.container.querySelector(selector)
+    if (found === null) throw new Error(`${selector} is not on the page`)
+    return found.getBoundingClientRect()
+  }
+  const lab = box('.fw-lab')
+  const wrap = box('.fw-boardwrap')
+  const element = box('arrowz-board')
+  expect(wrap.width).toBeCloseTo(lab.width, 0)
+  expect(wrap.height).toBeCloseTo(lab.height, 0)
+  expect(element.width).toBeCloseTo(lab.width - 34, 0)
+  expect(element.height).toBeCloseTo(lab.height - 34, 0)
+}, 40_000)
+
+// Fix 8's own case: the library face must not keep its 168px rail below 900px,
+// where the lab's is 150px. This is what tells the executor that the two
+// `.fw-console.library` rules went in *above* the media query (Task 6 Step 4).
+test('below 900px the library rail is the lab rail', async () => {
+  await page.viewport(860, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  const consoleBox = screen.container.querySelector('.fw-console')
+  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
+}, 40_000)

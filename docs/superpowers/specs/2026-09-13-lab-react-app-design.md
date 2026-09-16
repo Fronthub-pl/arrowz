@@ -353,9 +353,11 @@ apps/lab/src/
     LongestTable.tsx          longest pieces, memoised on (board, top); gone when the
                               highlight is off
   library/
-    LibraryPanel.tsx          the console's third face: chips, list, detail
-    BoardList.tsx             size chips, rows, refresh
+    SizeChips.tsx             the console's rail in the library: a chip per size
+    BoardList.tsx             the console's panel in the library: rows, refresh
     BoardDetail.tsx           command, view fields, load into lab, two-click delete
+    useOpenBoard.ts           which board the address names
+    useInLibrary.ts           which of the two tabs is on screen
     useStoredBoard.ts         the board an address names: fetch, decode, show
   palette/
     CommandPalette.tsx        role="dialog" + combobox, focus trap
@@ -459,23 +461,32 @@ fitted view and keeps a zoomed one (`viewport.ts`).
 `Workspace`: one panel, mounted under `/` and `/boards` alike and hidden only
 under `/docs`, whose `.fw-lab` rows stay what they are — the preset strip (the
 lab's, `null` in the library), the one `Stage`, and `Console`. `Console` gains a
-third face, `LibraryPanel`, the way PR 4a gave it a second and for the same
-reason: the stage above it must keep its node, and with it the
-`<arrowz-board>` a remount would dispose. The library's three parts fall onto
-the console's own three tracks (`.fw-console`, `console.css`): the size chips
-take the rail, the list the panel, and the detail the track the run column
-holds in the lab. `AppRoutes` therefore renders `null` for `/boards` as it does
-for `/`, and `SavedBoardsRoute` is gone. One `<section role="tabpanel">` serves
-both tabs and renames itself with the route — `lab-panel` under `/`,
-`boards-panel` under `/boards` — because `TabRow` resolves `aria-controls` to
-that id; two parallel sections could not both hold the one stage. Solo follows
-the panel rather than the lab, because the old lab's full view works on both
-tabs (`lab-page.ts:1027-1029`): `f` and the toggle are live wherever the stage
-is, and the class still lands on `.fw-lab`. The console's view fields and the
-detail's are never mounted at once, so the duplicate `view-*` ids PR 4a's
-follow-ups predicted do not arise; a browser test asserting a single
-`#view-stroke` in the document holds that line, rather than an id prefix added
-against a collision that the swap makes impossible.
+third face — `SizeChips` in the rail and `BoardList` in the panel, not one
+`LibraryPanel` component — the way PR 4a gave it a second and for the same
+reason: the stage above it must keep its node, and with it the `<arrowz-board>`
+a remount would dispose. The library takes two of the console's three tracks
+(`.fw-console`, `console.css`): the size chips the rail, the list the panel. The
+third is not reused — handing that position a different child replaces
+`RunColumn`, and a remount there is what PR 4a's Ruling 7 forbids: the column
+holds a keyboard focus on Generate and its own transition ref, and a carve
+started in the lab can still be running when the library is opened. The column
+therefore stays mounted and is hidden by class, as the old lab hides its
+lab-only controls (`lab.html`: `body.tab-library .labonly`), and
+`.fw-console.library` drops to two tracks, a hidden grid item taking none. PR
+5b's detail goes under the list, in the panel (plan
+`2026-09-16-lab-board-library.md`, Ruling 1). `AppRoutes` therefore renders
+`null` for `/boards` as it does for `/`, and `SavedBoardsRoute` is gone. One
+`<section role="tabpanel">` serves both tabs and renames itself with the
+route — `lab-panel` under `/`, `boards-panel` under `/boards` — because
+`TabRow` resolves `aria-controls` to that id; two parallel sections could not
+both hold the one stage. Solo follows the panel rather than the lab, because
+the old lab's full view works on both tabs (`lab-page.ts:1027-1029`): `f` and
+the toggle are live wherever the stage is, and the class still lands on
+`.fw-lab`. The console's view fields and the detail's are never mounted at
+once, so the duplicate `view-*` ids PR 4a's follow-ups predicted do not arise;
+a browser test asserting a single `#view-stroke` in the document holds that
+line, rather than an id prefix added against a collision that the swap makes
+impossible.
 
 ### 5.2 Reconciling the mock with the lab
 
@@ -726,8 +737,11 @@ opens one layout. `selectedIndex` already reads the whole prefix as the library
 tab (`TabRow.tsx`), so the strip needs nothing. The chosen board is the route
 and not a second copy of the selection — the rule `TabRow` set for the tabs
 themselves. An id no longer on disk leaves the stage empty and says so in the
-detail with `boardFileError`, the words the old lab uses for a file it cannot
-read, while the list beside it still loads. The row shows the whole
+status line, in the words the old lab uses for a file it cannot read
+(`boardFileError`) — the status line is the one live region on the page, and a
+message about the board on the stage belongs beside the stage, while the detail
+is PR 5b's and does not exist yet (plan `2026-09-16-lab-board-library.md`,
+Ruling 8). The list beside it still loads. The row shows the whole
 71-character id, clipped by `text-overflow` as the old lab clips it
 (`lab.html`, `.boardrow .id`), so the hash can still be selected and copied; a
 hash shortened in code could not.
@@ -903,7 +917,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
 | 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:147-158`: the box scrolls, and Generate does not move as the command grows — plan `2026-09-15-lab-report-export.md` |
 | 5a | The workspace and the list: `LabRoute` becomes `Workspace` over `/` and `/boards`, `Console` gains its third face and solo works on both tabs (§5.1); `result.preview` beside `shown`, and `library.slice` (§5.3); the store's HTTP path moves to `/store/` and `/boards/:size/:id` becomes a board's address (§5.6); size chips, the list, refresh, and the preview itself — fetch, `decodeBoard`, and the stored board's status line |
-| 5b | The detail: the stored command with copy, the three view fields **through `ViewNumberField` rather than a second set of number inputs** — the commitment recorded in PR #65, which is also how their ranges come from `VIEW_RANGE` — their 350ms write back to the store, **load into lab** (`setMany`, and no run: `lab-page.ts:1191-1192`), and the two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
+| 5b | The detail under the list: the stored command with copy, the three view fields **through `ViewNumberField` rather than a second set of number inputs** — the commitment recorded in PR #65, which is also how their ranges come from `VIEW_RANGE` — their 350ms write back to the store, **load into lab** (`setMany`, and no run: `lab-page.ts:1191-1192`), and the two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |
 | 8 | Retire the old lab. Prerequisites the first draft omitted: `carve.test.ts:456-480` reads `lab.html` and checks its number fields against `VIEW_RANGE`; `packages/cli/deno.json`'s `bundle` task names `lab-page.ts` and `lab-worker.ts`, and both gates plus CI depend on that target; `lab-server.ts:292-297` serves `/lab.html` as its root and `lab-server.test.ts:214,310` fetch it; `neutral.test.ts:3` and `CLAUDE.md:25` state the "dom lib only in `lab-page.ts`" rule; `CLAUDE.md:11,36`, `README.md:819,930,968` and `README.pl.md:820,938,976` name the files. `lab-worker.ts` goes with them; the fingerprint test of §8 must already exist |
