@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import { labProxy } from '../../vite.proxy'
-import { listBoards } from './boards'
+import { listBoards, readStoredBoard } from './boards'
 
 const STORE_PORT = 8790
 const VITE_PORT = 8791
@@ -131,18 +131,50 @@ test('the library route and a board address are not proxied', async () => {
 // Nothing listens here.
 const DEAD_ORIGIN = 'http://127.0.0.1:8792'
 
-// The store is optional, so an unreachable one must resolve to an empty list
-// rather than reject. `listBoards` fetches a relative path, which Node cannot
-// resolve on its own, so the stub supplies only the origin and forwards the
-// call: the rejection under test is a real ECONNREFUSED from a real socket. A
-// second Vite server pointed at a dead target would instead exercise the
-// proxy's own error response, which is the `!response.ok` branch and not the
-// rejection branch this covers.
-test('listBoards answers with an empty list when the store is unreachable', async () => {
+// The store is optional, so an unreachable one must resolve rather than
+// reject — but the library has two different sentences for the two failures
+// ("no store server" and "the store is empty"), so the outcome has to say
+// which happened (Ruling 2). `listBoards` fetches a relative path, which Node
+// cannot resolve on its own, so the stub supplies only the origin and forwards
+// the call: the rejection under test is a real ECONNREFUSED from a real socket.
+test('listBoards reports failure when the store is unreachable', async () => {
   const original = globalThis.fetch
   globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), DEAD_ORIGIN), args[1])
   try {
-    await expect(listBoards()).resolves.toEqual([])
+    const outcome = await listBoards()
+    expect(outcome.ok).toBe(false)
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+test('listBoards answers with the sizes when the store is up', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
+  try {
+    const outcome = await listBoards()
+    expect(outcome.ok).toBe(true)
+    if (outcome.ok) expect(outcome.sizes[0]?.size).toBe('12x12')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+// What the preview reads. The file is handed on as `unknown`: `decodeBoard`
+// takes `unknown` and is the only thing that may decide the shape is a board.
+test('readStoredBoard fetches a stored file, and reports a missing one', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
+  try {
+    const list = await listBoards()
+    const id = list.ok ? list.sizes[0]?.boards[0]?.id : undefined
+    if (id === undefined) throw new Error('the store has no board to read')
+    const found = await readStoredBoard('12x12', id)
+    expect(found.ok).toBe(true)
+
+    const missing = await readStoredBoard('12x12', 'sha256-0')
+    expect(missing.ok).toBe(false)
+    if (!missing.ok) expect(missing.error).toContain('404')
   } finally {
     globalThis.fetch = original
   }

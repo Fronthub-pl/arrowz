@@ -2,25 +2,47 @@ import type { BoardMeta, BoardSize, StoreRequest } from '@arrowz/engine'
 
 export type SaveOutcome = { ok: true; meta: BoardMeta } | { ok: false; error: string }
 
+/** The listing, or why it could not be had — the library says different things about the two. */
+export type ListOutcome = { ok: true; sizes: BoardSize[] } | { ok: false; error: string }
+
+/** A stored board file as the store holds it, undecoded. */
+export type FileOutcome = { ok: true; file: unknown } | { ok: false; error: string }
+
 /**
  * The store is optional: the lab runs from any static host, and a missing
- * server must cost the run nothing. Both calls therefore report failure as a
+ * server must cost the run nothing. Every call therefore reports failure as a
  * value. A rejected `fetch` and an answer that is not OK are treated alike —
  * a store that refuses the connection and a store that returns 500 are the
  * same thing to a caller with a list to render.
  *
- * Nothing in production calls `listBoards` yet: it is the client of the saved
- * boards route, which PR 5 builds, and it ships here with the rest of the
- * store client rather than splitting one module across two PRs. Its own tests
- * exercise it (boards.node.test.ts).
+ * The listing says which failure happened, because the library has two
+ * sentences for them: "no store server" for an unreachable store and "the
+ * store is empty" for a store that answers with nothing (Ruling 2). An empty
+ * list is a success.
  */
-export async function listBoards(): Promise<BoardSize[]> {
+export async function listBoards(): Promise<ListOutcome> {
   try {
     const response = await fetch('/api/boards')
-    if (!response.ok) return []
-    return (await response.json()) as BoardSize[]
-  } catch {
-    return []
+    if (!response.ok) return { ok: false, error: `the store answered ${response.status}` }
+    return { ok: true, sizes: (await response.json()) as BoardSize[] }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * One stored board file, by its size folder and its layout hash. The file is
+ * returned as `unknown`: `decodeBoard` takes `unknown` and is the only thing
+ * entitled to decide the shape is a board, exactly as the old lab hands over
+ * what it fetched (`lab-page.ts:1166-1183`).
+ */
+export async function readStoredBoard(size: string, id: string): Promise<FileOutcome> {
+  try {
+    const response = await fetch(`/store/${size}/${id}.board.json`)
+    if (!response.ok) return { ok: false, error: `HTTP ${response.status}` }
+    return { ok: true, file: await response.json() }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
