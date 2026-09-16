@@ -29,6 +29,7 @@ async function mountApp() {
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   useStore.getState().result.reset()
+  useStore.getState().library.reset()
   useStore.getState().params.reset()
   // The whole `ui` slice, not a selection of it, and the load run makes it
   // matter: a case that turned `auto` on would otherwise carve on the next
@@ -134,7 +135,7 @@ test('Generate carves a board, draws it, and says so', async () => {
 // remounted element is a disposed GL context, whatever the run's phase says.
 // This half needs no run at all, so it is fast and never races.
 //
-// Probed, not assumed: with `/` changed to `element={<LabRoute …/>}` this test
+// Probed, not assumed: with `/` changed to `element={<Workspace …/>}` this test
 // fails on the line below with `Received: null`, and it is the only test in the
 // suite that does — see the note on the in-flight test.
 test('a route change keeps the very same board element', async () => {
@@ -165,7 +166,7 @@ test('a route change keeps the very same board element', async () => {
 // What this test does *not* guard, established by probe rather than by argument:
 // the panel's placement. `useGenerator()` is mounted in `Shell`, above
 // <Routes>, so the worker outlives a route change whether or not the panel is a
-// route element — with `/` turned into `element={<LabRoute …/>}` this test still
+// route element — with `/` turned into `element={<Workspace …/>}` this test still
 // passes, unchanged, in 2 827 ms. The node-identity test above is the only one
 // that catches that regression. What the two assertions at the end add is a
 // claim that one makes on its own: a run that finishes while the user is
@@ -197,10 +198,15 @@ test('a run in flight survives a route change, and finishes into the same elemen
 
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(useStore.getState().result.shown?.board.W).toBe(600)
-  // Still on /boards, and the board the worker just finished reached the same
-  // element the run started with.
+  // Still on /boards: the element the run started with is still the one on the
+  // page, not an equal-looking replacement.
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
-  expect(before?.board?.W).toBe(600)
+  // Back to the lab before reading the element: on the library tab the frame
+  // shows the preview or nothing, so the run's board is deliberately not there
+  // (spec §5.3). What this case is about — the run surviving the trip and
+  // finishing into the same element — is unchanged.
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => before?.board?.W).toBe(600)
 }, 60_000)
 
 // Spec §5.3, PR 4b: the old lab replaces its board only when a run is done
@@ -364,7 +370,8 @@ test('the lab route shows the console under the stage', async () => {
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
 // and `RunColumn` are each tested against a host of their own making, so both
 // suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:168` or `abortRef={abortRef}` from `LabRoute.tsx:38` and the
+// `RunColumn.tsx:168` or `abortRef={abortRef}` from `Workspace.tsx`'s own
+// `<RunColumn …/>` and the
 // feature is dead on the real page while every other case passes. The same was
 // true of `goRef`, so this case covers both — they are the same two lines.
 //
@@ -563,3 +570,63 @@ test('the stage keeps its height when the preset strip goes', async () => {
   // only grow.
   await expect.poll(stage).toBeGreaterThanOrEqual(before)
 }, 40_000)
+
+// Spec §5.1, PR 5a: one panel serves both tabs and renames itself with the
+// route, because the tab strip resolves `aria-controls` to that id. Two
+// parallel panels could not both hold the one stage.
+test('the panel takes the identity of the tab that is open', async () => {
+  const screen = await mountApp()
+  const panel = () => screen.container.querySelector('[role="tabpanel"]')
+  expect(panel()?.id).toBe('lab-panel')
+  expect(panel()?.getAttribute('aria-labelledby')).toBe('tab-lab-panel')
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+
+  await expect.poll(() => panel()?.id).toBe('boards-panel')
+  expect(panel()?.getAttribute('aria-labelledby')).toBe('tab-boards-panel')
+})
+
+// The whole point of the workspace: the element is never unmounted, so its GL
+// context is never disposed. Node identity, not a count.
+test('the board element survives the trip to the library and back', async () => {
+  const screen = await mountApp()
+  const element = () => screen.container.querySelector('arrowz-board')
+  const before = element()
+  expect(before).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  expect(element()).toBe(before)
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('lab-panel')
+  expect(element()).toBe(before)
+})
+
+// Ruling 6: the preset strip goes, the stage stays — the same node, not merely
+// a node in the same place. Measured by review round 1: a React `null` slot
+// renders no DOM node, so the stage's *index* among `.fw-lab.children`
+// legitimately drops from 1 to 0 while its identity holds. The index was the
+// wrong instrument; identity is the claim.
+test('the preset strip is absent from the library and the stage is the same node', async () => {
+  const screen = await mountApp()
+  const stage = () => screen.container.querySelector('.fw-stage')
+  const before = stage()
+  expect(before).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  expect(screen.container.querySelector('.fw-presets')).toBeNull()
+  expect(stage()).toBe(before)
+})
+
+// The docs are not the workspace: there the panel is hidden, as it was before
+// this PR for every route but `/`.
+test('the workspace is hidden under the docs route', async () => {
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Docs', exact: true }))
+  await expect
+    .poll(() => screen.container.querySelector('main[hidden] [role="tabpanel"]')?.id, { timeout: 5_000 })
+    .toBe('lab-panel')
+})

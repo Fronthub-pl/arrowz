@@ -236,11 +236,13 @@ test('f typed into a field or an editable region is text, not a toggle', async (
   }
 }, 40_000)
 
-test('f does nothing off the lab route', async () => {
+// Solo belongs to the stage, and the docs route has none. (Until PR 5a the
+// saved boards had none either, which is what this case used to assert.)
+test('f does nothing on the docs route', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
-  await screen.getByRole('tab', { name: 'Saved boards' }).click()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
   await expect
     .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
     .toBe(true)
