@@ -44,9 +44,23 @@ board element, and `tsc` fails to resolve `@arrowz/board-element` until it is
 built — measured by review round 1 on a fresh worktree, where the plan's
 original one-build setup left `check` red before a line of it had been applied.
 
-**A known flake on a cold install:** the first full `pnpm nx test lab` after
-`pnpm install` has been seen to abort with `The iframe ".../src/run/triggers.browser.test.tsx" did not become ready within 60000ms`
-— a file no task here touches. Re-run; it passes. Do not debug it.
+**Not a flake, a cold optimizer cache** (measured 2026-09-17; this paragraph
+first called it a flake and told the reader not to debug it, which cost this
+branch two red CI runs). A full `pnpm nx test lab` with no optimizer cache —
+the state after `pnpm install`, and the state of every CI runner — aborts with
+`The iframe ".../src/run/triggers.browser.test.tsx" did not become ready within 60000ms`,
+naming a file no task here touches. The cause: only `src/main.tsx` imports
+`react-dom/client` and no test reaches it, so Vite's first-pass scan never sees
+the module and the browser run meets it mid-run, when the first file renders.
+The optimizer re-bundles, reloads the tester page, and the iframe of the file
+*after* that one never reports ready. Re-running appeared to clear it only
+because the second run found the cache warm. Fixed by naming the module to the
+optimizer — `optimizeDeps: { include: ['react-dom/client'] }` in
+`apps/lab/vitest.config.ts`, commit `f9df57b` — and it reproduces on demand with
+`rm -rf apps/lab/node_modules/.vite`. The 2026-09-14 run once cited as the same
+failure (`34891181090`) was a different one: `AssertionError: expected false to
+be true` in `LabRoute.browser.test.tsx > the lab panel is hidden off-route and
+shown on it`, with no iframe timeout and no optimizer reload in it.
 
 ### Harness facts, each measured
 
