@@ -36,6 +36,11 @@ export interface LibraryState {
   listing(): void
   listed(sizes: BoardSize[]): void
   listFailed(error: string): void
+  /**
+   * The answer came back for a panel that had gone. There is nothing to show
+   * and nothing to report — only the wait the call started has to end.
+   */
+  listDropped(): void
   boardFailed(error: BoardError | null): void
   reset(): void
 }
@@ -54,6 +59,10 @@ export function createLibrarySlice(set: SetStore): LibraryState {
     // The sizes are left where they are: a refresh that fails must not take
     // the rows away from under the board on screen.
     listFailed: (listError) => patch({ loading: false, listError }),
+    // A dropped answer is neither a listing nor a failure: the sizes stay as
+    // they were and no error is invented for a panel nobody is looking at. Only
+    // `loading` comes back down, because the call that set it is over.
+    listDropped: () => patch({ loading: false }),
     boardFailed: (boardError) => patch({ boardError }),
     reset: () => patch({ sizes: null, loading: false, listError: null, boardError: null }),
   }

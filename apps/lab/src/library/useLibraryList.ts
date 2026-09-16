@@ -20,7 +20,14 @@ export function useLibraryList(): { refresh(): void } {
     if (!force && library.sizes !== null) return
     library.listing()
     const outcome = await listBoards()
-    if (dropped?.() === true) return
+    // The answer is still dropped — it must not land on a panel that has gone —
+    // but the wait it belongs to ends here all the same. Returning outright left
+    // the `loading` this call had just set true for good: latent while nothing
+    // renders it, and inherited by the first thing that does.
+    if (dropped?.() === true) {
+      useStore.getState().library.listDropped()
+      return
+    }
     const slice = useStore.getState().library
     if (outcome.ok) slice.listed(outcome.sizes)
     else slice.listFailed(outcome.error)
