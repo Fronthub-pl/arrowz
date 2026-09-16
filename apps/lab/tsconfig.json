@@ -5,6 +5,11 @@
     "exactOptionalPropertyTypes": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // `vite.config.ts` names `./vite.proxy.ts` with its extension, which Vite's
+    // coming native config loader requires and warns about without. Under
+    // `bundler` resolution that spelling needs this flag, and the flag needs
+    // `noEmit`, which is set: nothing here is compiled, only checked.
+    "allowImportingTsExtensions": true,
     "target": "es2022",
     "lib": ["es2022", "dom", "dom.iterable"],
     "types": [],
