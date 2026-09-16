@@ -685,6 +685,8 @@ Update the interface's own comment, which says PR 5 adds this slice:
 
 The same line goes into `Workspace.browser.test.tsx`'s own `mountApp` helper, which resets by hand rather than through the harness (Task 5 renames that file; if you are doing these in order, add it there when you get to it).
 
+> This one is **prophylaxis, and no case covers it**: review round 3 removed both lines and nothing went red, because no two cases in one file currently leave a listing that the next one would misread. It goes in anyway, for the same reason every other slice is in `resetApp` — the first case that does leave one would fail somewhere else entirely, and this plan adds the first slice a test can fill from the network.
+
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `pnpm --dir apps/lab exec vitest run src/state/library.slice.test.ts` then `pnpm --dir apps/lab run check`
@@ -1150,6 +1152,17 @@ test('f does nothing on the docs route', async () => {
 
 That solo *does* work in the library is Task 9's case, in the other file.
 
+**And one more existing case, which the tab gate invalidates** (Task 8 adds that gate; review round 3 measured this failing): `Workspace.browser.test.tsx`'s "a run in flight survives a route change, and finishes into the same element" lets the run finish while the library is the tab on screen, then reads the element's board — which is now `null` there by design, because the frame draws the preview or nothing on that tab. Assert it from the tab where the run's board lives:
+
+```ts
+  // Back to the lab before reading the element: on the library tab the frame
+  // shows the preview or nothing, so the run's board is deliberately not there
+  // (spec §5.3). What this case is about — the run surviving the trip and
+  // finishing into the same element — is unchanged.
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => before?.board?.W).toBe(600)
+```
+
 - [ ] **Step 8: Run the tests to verify they pass**
 
 Run: `pnpm --dir apps/lab exec vitest run src/routes/Workspace.browser.test.tsx src/AppRoutes.browser.test.tsx` then `pnpm --dir apps/lab run check`
@@ -1326,7 +1339,7 @@ export function Console({
 }
 ```
 
-Two more rules, both measured by review round 1 rather than reasoned:
+Two more rules, both measured rather than reasoned. **Put the first one immediately after `.fw-lab.simple` and before the solo rule** — the position is part of the instruction, not a matter of taste (see the note below):
 
 ```css
 /* The library has no preset strip either, so it needs `.fw-lab.simple`'s
@@ -1345,12 +1358,19 @@ and, in the rule that gives solo its single row, a third selector beside the two
 ```css
 .fw-lab.solo,
 .fw-lab.simple.solo,
+/* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a
+   variant's row template whatever order the file ends up in. With
+   `.fw-lab.library` placed above, `.fw-lab.solo` alone would already do it —
+   this selector is the same insurance the simple view carries, not a fix for a
+   live defect. Review round 3 deleted it and no test moved; it also measured
+   that with the variant rule placed *below* the solo rule instead, deleting it
+   turns the library solo case red. Hence the pinned position above. */
 .fw-lab.library.solo {
   grid-template-rows: minmax(0, 1fr);
 }
 ```
 
-> Without that third selector solo breaks in the library and nowhere else: `.fw-lab.library` and `.fw-lab.solo` have the same specificity (0,2,0), and the library rule comes later in the file, so it wins on order. Measured with it: `.fw-boardwrap` equals `.fw-lab` (1400×770) and the element is 34px smaller on both axes, exactly as in the lab.
+> The geometry case in Task 9 ("solo in the library fills the panel") therefore guards the **behaviour** — solo filling the panel on that tab — and not this selector, which at the pinned position is redundant by construction. Said plainly here because review round 2 was burned by the opposite: a fix that looked guarded and was not.
 
 Finally, let the narrow-width query know about the library face, or its rail will be 18px wider than the lab's below 900px — `.fw-console.library` is (0,2,0) and the query's `.fw-console` is (0,1,0), so the library keeps 168px where the lab has 150px (measured at 860: lab `150px 709px`, library `168px 691px`):
 
@@ -1559,6 +1579,10 @@ test('a chip per size carries its count, and the rows carry what the store knows
   await act(async () => useStore.getState().library.listed(sizesFixture()))
   await expect.element(screen.getByRole('button', { name: /8x8/ })).toBeVisible()
   await expect.element(screen.getByRole('button', { name: /8x8/ })).toHaveTextContent('8x8 (2)')
+  // With no board in the address the list falls back to the first size's rows,
+  // so that chip is the pressed one — otherwise every chip reads unpressed
+  // beside a list of rows.
+  expect(screen.container.querySelector('.fw-lib-chips button')?.getAttribute('aria-pressed')).toBe('true')
   const rows = screen.container.querySelectorAll('.fw-lib-row')
   expect(rows).toHaveLength(2)
   expect(rows[0]?.textContent).toContain('pieces')
@@ -1928,6 +1952,22 @@ test('an answer for a board no longer open is dropped', async () => {
   await new Promise((done) => setTimeout(done, 20))
   expect(useStore.getState().result.preview).toBeNull()
 })
+
+// Spec §5.6's stale link, at the hook rather than at the frame: the listing has
+// arrived and does not hold this id, so there is nothing to fetch and the
+// reason has to be said out loud. A preview of another board is on screen
+// first, so the case also proves the clearing half. Review round 3 deleted this
+// branch from the hook and nothing went red — this is that missing case.
+test('an id the listing does not hold is reported, and clears what was shown', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  useStore.getState().result.showPreview({ board: decodeBoard(first.file), file: first.file, meta: first.meta })
+
+  await renderHook(() => useStoredBoard(), at('/boards/8x8/sha256-0'))
+
+  await expect.poll(() => useStore.getState().library.boardError).toContain('not in the store')
+  expect(useStore.getState().result.preview).toBeNull()
+})
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -2163,17 +2203,23 @@ Then append to `apps/lab/src/stage/BoardFrame.browser.test.tsx`:
 // Spec §5.3: the preview is what the stage shows while the library has one,
 // and the run's own board is still there underneath, untouched.
 test('a preview takes the stage and names itself, leaving the run result alone', async () => {
-  const screen = await mountFrame()
-  await act(async () => finish(finishedRun(1)))
+  // Mounted on the library tab, because that is where a preview is shown at
+  // all: the frame asks the route first (`useInLibrary`), so this case on `/`
+  // would watch the lab's own board and ignore the preview entirely. Review
+  // round 3 measured exactly that failure.
   const { meta, file } = storedFixture(2, 6, 6)
+  const screen = await mountFrame(`/boards/6x6/${meta.id}`)
+  await act(async () => finish(finishedRun(1)))
   await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
 
   await expect.poll(() => annotation(screen.container)?.textContent).toBe('6×6 · seed 2')
   expect(screen.container.querySelector('arrowz-board')?.board?.W).toBe(6)
   expect(useStore.getState().result.shown).not.toBeNull()
 
+  // And clearing it empties the stage rather than falling back to the run's
+  // board: on this tab the lab's board is not a substitute (spec §5.6).
   await act(async () => useStore.getState().result.clearPreview())
-  await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
+  await expect.poll(() => annotation(screen.container)).toBeNull()
 })
 
 // Ruling 3: a stored board carries its own view. The element gates colour
@@ -2254,19 +2300,6 @@ test('solo works on the saved boards tab too', async () => {
   await expect.poll(() => useStore.getState().ui.solo).toBe(false)
 })
 
-// The report column belongs to a run. Opening the library must not leave the
-// last run's statistics standing beside a stored board (spec §5.3).
-test('the report column empties while a stored board is on screen', async () => {
-  const screen = await mountApp()
-  await loadRunDone()
-  await expect.element(screen.getByRole('table').first()).toBeVisible()
-
-  const { meta, file } = storedFixture(3)
-  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
-
-  await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBe(0)
-}, 40_000)
-
 // The defect review round 1 found, and the reason `useStoredBoard` is mounted
 // in `Workspace`: with the hook inside the library panel, `Console` unmounted
 // it on the way out, nothing ever cleared the preview, and the lab tab went on
@@ -2289,6 +2322,11 @@ test('leaving the library takes the stored board off the stage', async () => {
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
   try {
+    // 1400×900 on purpose: at the runner's 414×896 the stage overlaps the row
+    // this case has to click, and Playwright refuses the click as intercepted
+    // by `<arrowz-board>`. Review round 3 measured it — the case would then be
+    // failing about a layout overlap while claiming to be about the hook.
+    await page.viewport(1400, 900)
     const screen = await mountApp()
     await loadRunDone()
     const runAnnotation = screen.container.querySelector('.fw-anno')?.textContent
@@ -2445,3 +2483,24 @@ One reviewer applied the revised plan end to end and attacked round 1's fixes **
 **Smaller things round 2 caught:** the whole-app cases had no timeout, so they ran under Vitest's 5-second default while awaiting a 30-second poll (fine here, a flake on a two-core runner); `resetApp` never reset the new slice, leaking a listing between cases; three more spec sentences still described a `LibraryPanel` component that does not exist and a detail that PR 5b will build; `storedFixture`'s declared return type listed a field it does not return; and `BoardFrame`'s and `ReportPanel`'s test files needed a router once their components started reading the location.
 
 **Verified by mutation and holding:** `.fw-lab.library`'s rows (delete the rule, the layout case goes red), the `fetch` stub in Task 7 (delete it, the empty-state case goes red), and every round 1 fix that the gate itself covers. Gates at the end of round 2: `check`, `lint`, `deno task test` (365) all pass, `nx test lab` 404 of 405 — the single failure being finding 1 above, now rewritten.
+
+## What review round 3 changed
+
+Round 3 had one job: delete each of round 2's fixes in turn and check that its test goes red. Seven mutations, and **two came back green** — plus three cases that were red in the plan's own world, which is what a plan gets for changing semantics in one place and leaving its tests in another.
+
+**Red, as they should be — these fixes are real and guarded:** the tab gate (revert `BoardFrame` to `preview?.board ?? result?.board` and the stale-link case fails), the CSS rules' position (move them below the media query and the rail case fails), the hook's home (move `useStoredBoard` into `BoardList` and the rewritten address-driven case fails — round 2's version could not tell those worlds apart, this one can), and `.fw-lab.library`'s rows.
+
+**Green, and each for its own reason:**
+
+1. **`.fw-lab.library.solo` is dead weight at the position anyone would naturally choose.** Placed beside `.fw-lab.simple`, above the solo rule, `.fw-lab.solo` already wins on order and deleting the third selector moves nothing. Placed *below* the solo rule it becomes load-bearing and its deletion turns the library solo case red. The plan never said where the rule goes, so both worlds were "as written". It now pins the position, keeps the selector as the same insurance `.fw-lab.simple.solo` is, and says outright that the geometry case guards the behaviour rather than the selector — rather than leaving a fix that looks guarded and is not.
+2. **The stale-id branch had no cover at all.** Deleting it from `useStoredBoard` moved nothing, because the only case about a stale link calls `boardFailed` by hand at the frame and never reaches the hook. The hook case now exists.
+
+**And `library.reset()` in the harness** turned out to be prophylaxis: removing it broke nothing today. Kept, and labelled as such.
+
+**Three cases red in the plan's own world**, all from the tab gate the previous revision added:
+
+- the existing "a run in flight survives a route change" reads the element's board while the library is on screen, where the frame now draws nothing by design — it returns to the lab before reading;
+- Task 8's "a preview takes the stage" mounted the frame at `/`, where the preview is ignored on purpose — it mounts at the board's address, and its tail now expects an empty stage rather than a fallback to the run's board;
+- Task 9's "the report column empties" called `showPreview` on `/` — deleted, because "leaving the library takes the stored board off the stage" already asserts the report column on the library tab, through the address.
+
+**Two smaller measurements:** the whole-app library case needs `page.viewport(1400, 900)` or the stage overlaps the row it clicks and Playwright refuses the click as intercepted — a failure that would have looked like the hook's; and `SizeChips`' fallback to the first size's chip was covered by nothing, which is now one assertion in the chips case.
