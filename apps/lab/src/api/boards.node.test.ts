@@ -106,21 +106,26 @@ test('the saved board comes back in the listing', async () => {
   expect(sizes[0]?.boards).toHaveLength(1)
 })
 
-// PR 5 reads the stored files from /boards/, so the proxy covers that path.
+// The library reads stored files from /store/ (spec §5.6), so the proxy covers
+// that path and not /boards/.
 test('the stored board file is reachable through the proxy', async () => {
   const sizes = (await (await fetch(`${VITE_ORIGIN}/api/boards`)).json()) as { boards: { id: string }[] }[]
   const id = sizes[0]?.boards[0]?.id
-  const r = await fetch(`${VITE_ORIGIN}/boards/12x12/${id}.board.json`)
+  const r = await fetch(`${VITE_ORIGIN}/store/12x12/${id}.board.json`)
   expect(r.status).toBe(200)
+  await r.body?.cancel()
 })
 
-// The SPA owns /boards; only /boards/ is the store's. A prefix key without the
-// slash would proxy the Saved boards route itself, and a reload or a deep link
-// would land on the store's 404 instead of the application.
-test('the /boards route itself is not proxied', async () => {
-  const r = await fetch(`${VITE_ORIGIN}/boards`)
-  expect(r.status).toBe(200)
-  expect(r.headers.get('content-type')).toMatch(/text\/html/)
+// /boards is the application's own route, all the way down: a board's address
+// is /boards/<size>/<id>, and the store must not answer it. No proxy key
+// begins with /boards, so both the tab and a board's address reach the SPA.
+test('the library route and a board address are not proxied', async () => {
+  for (const path of ['/boards', '/boards/12x12/sha256-0']) {
+    const r = await fetch(VITE_ORIGIN + path)
+    expect(r.status).toBe(200)
+    expect(r.headers.get('content-type')).toMatch(/text\/html/)
+    await r.body?.cancel()
+  }
 })
 
 // Nothing listens here.

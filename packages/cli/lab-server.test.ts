@@ -46,7 +46,7 @@ Deno.test('POST /api/boards saves, GET lists, the board file is served from the 
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()
     assertEquals(list[0]?.size, '25x50')
     assertEquals(list[0]?.boards[0]?.id, meta.id)
-    const file = await fetch(`${base}/boards/25x50/${meta.id}.board.json`)
+    const file = await fetch(`${base}/store/25x50/${meta.id}.board.json`)
     assertEquals(file.headers.get('content-type'), 'application/json')
     assertEquals(await file.json(), board)
   }))
@@ -61,7 +61,7 @@ Deno.test('a preview saved by the CLI is served from the store as SVG', () =>
       command: 'x',
       source: 'cli',
     })
-    const svg = await fetch(`${base}/boards/10x10/${meta.id}.svg`)
+    const svg = await fetch(`${base}/store/10x10/${meta.id}.svg`)
     assertEquals(svg.headers.get('content-type'), 'image/svg+xml')
     assertEquals(await svg.text(), '<svg>x</svg>')
   }))
@@ -187,7 +187,7 @@ Deno.test('POST stores the board file as the engine writes it, without keys it d
     const resp = await post(base, body)
     assertEquals(resp.status, 201)
     const meta: BoardMeta = await resp.json()
-    const stored = await (await fetch(`${base}/boards/10x10/${meta.id}.board.json`)).json()
+    const stored = await (await fetch(`${base}/store/10x10/${meta.id}.board.json`)).json()
     assert(!('junk' in stored), 'the junk key reached the file')
     assertEquals(stored, emptyFile(10, 10))
   }))
@@ -221,7 +221,7 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
     const missing = await fetch(base + '/missing.txt')
     assertEquals(missing.status, 404)
     await missing.body?.cancel()
-    const escape = await fetch(base + '/boards/..%2F..%2Fengine.ts')
+    const escape = await fetch(base + '/store/..%2F..%2Fengine.ts')
     assertEquals(escape.status, 403)
     await escape.body?.cancel()
     const malformed = await fetch(base + '/%E0')
@@ -248,7 +248,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one give
     const del = await fetch(`${base}/api/boards/10x10/${meta.id}`, { method: 'DELETE' })
     assertEquals(del.status, 200)
     assertEquals(await del.json(), { deleted: true })
-    const gone = await fetch(`${base}/boards/10x10/${meta.id}.board.json`)
+    const gone = await fetch(`${base}/store/10x10/${meta.id}.board.json`)
     assertEquals(gone.status, 404)
     await gone.body?.cancel()
     const list: BoardSize[] = await (await fetch(base + '/api/boards')).json()
@@ -326,7 +326,7 @@ Deno.test('only the page, its bundle and the store are served, with security hea
       command: 'x',
       source: 'cli',
     })
-    const svg = await fetch(`${base}/boards/10x10/${meta.id}.svg`)
+    const svg = await fetch(`${base}/store/10x10/${meta.id}.svg`)
     assertEquals(svg.headers.get('content-security-policy'), STORE_CSP)
     assert(STORE_CSP.includes('sandbox'))
     await svg.body?.cancel()

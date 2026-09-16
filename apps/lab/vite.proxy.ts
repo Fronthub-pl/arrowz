@@ -16,9 +16,11 @@ export const LAB_SERVER = 'http://127.0.0.1:8777'
  * server's LOCAL_HOSTS. Measured against Vite 8.2.2; `boards.node.test.ts`
  * holds the line.
  *
- * Both keys end in a slash. Vite matches string keys by prefix, so `/boards`
- * would also capture the application's own Saved boards route.
+ * Both keys end in a slash, because Vite matches string keys by prefix. The
+ * stored files answer to `/store/` rather than `/boards/`: `/boards` is this
+ * application's library route and `/boards/<size>/<id>` is a board's own
+ * address (spec §5.6), so no proxy key may begin with it.
  */
 export function labProxy(target: string = LAB_SERVER): Record<string, ProxyOptions> {
-  return { '/api/': { target }, '/boards/': { target } }
+  return { '/api/': { target }, '/store/': { target } }
 }
