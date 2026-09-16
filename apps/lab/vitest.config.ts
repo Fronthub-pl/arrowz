@@ -28,6 +28,15 @@ export default defineConfig({
       },
       {
         plugins: [react()],
+        // Only `src/main.tsx` imports `react-dom/client`, and no test reaches
+        // it: the browser run meets the module for the first time when the
+        // first file renders. A cold optimizer therefore discovers it mid-run,
+        // re-bundles and reloads the tester page, and the iframe of the file
+        // after that never reports ready — the run dies on the 60s iframe
+        // timeout (measured 2026-09-17: reproduced on demand by deleting
+        // `node_modules/.vite`, which is why only CI, always cold, ever saw
+        // it). Naming the module keeps its discovery in the first pass.
+        optimizeDeps: { include: ['react-dom/client'] },
         test: {
           name: 'chromium',
           include: ['src/**/*.browser.test.ts', 'src/**/*.browser.test.tsx'],
