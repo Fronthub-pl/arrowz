@@ -50,7 +50,10 @@ test('a board that cannot be read clears the stage and reports the reason', asyn
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
   await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
   await expect.poll(() => useStore.getState().library.boardError).not.toBeNull()
-  expect(useStore.getState().library.boardError).toContain('404')
+  // The two halves the hook writes: the address it fetched for, and the failure
+  // as it came — not one sentence for the reader to take apart again.
+  expect(useStore.getState().library.boardError?.name).toBe(`8x8/${first.meta.id}`)
+  expect(useStore.getState().library.boardError?.reason).toContain('404')
   expect(useStore.getState().result.preview).toBeNull()
 })
 
@@ -96,6 +99,6 @@ test('an id the listing does not hold is reported, and clears what was shown', a
 
   await renderHook(() => useStoredBoard(), at('/boards/8x8/sha256-0'))
 
-  await expect.poll(() => useStore.getState().library.boardError).toContain('not in the store')
+  await expect.poll(() => useStore.getState().library.boardError?.reason).toBe('not in the store')
   expect(useStore.getState().result.preview).toBeNull()
 })

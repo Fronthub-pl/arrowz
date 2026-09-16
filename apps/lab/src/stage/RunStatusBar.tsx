@@ -37,12 +37,12 @@ export function RunStatusBar() {
   // changes a render before the hook's effect clears these two, so on the way
   // back to `/` the lab would otherwise announce a stored board for one frame.
   if (inLibrary && boardError !== null) {
-    // `boardFailed` writes `<size>/<id>: <reason>` (useStoredBoard.ts) and this
-    // splits it back at the first `: `, so the words around the two halves stay
-    // the dictionary's. That shape is a contract between the two modules: a
-    // reason containing `: ` of its own must survive being rejoined.
-    const [name = '', ...rest] = boardError.split(': ')
-    text = dict.t('boardFileError', name, rest.join(': '))
+    // The address and the failure arrive as two fields (`BoardError` in
+    // library.slice.ts), so the words around them stay the dictionary's and a
+    // reason carrying a `: ` of its own reaches it whole. They used to arrive
+    // joined by `: `, which this line split back apart — a contract between two
+    // modules about a separator that also occurs inside a reason.
+    text = dict.t('boardFileError', boardError.name, boardError.reason)
   } else if (inLibrary && preview !== null) {
     const meta = preview.meta
     text = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)

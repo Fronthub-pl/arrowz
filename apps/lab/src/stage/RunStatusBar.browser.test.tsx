@@ -196,12 +196,14 @@ describe('RunStatusBar', () => {
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(line)
   })
 
-  // Ruling P: the reassembly, not merely the branch. `boardFailed` writes
-  // `<size>/<id>: <reason>` and the bar splits it at the first `: `, so a reason
-  // carrying a `: ` of its own is what proves the halves are rejoined rather
-  // than truncated at the second colon.
+  // Ruling P: the whole reason reaches the dictionary, not merely the branch.
+  // `boardError` carries the address and the failure as two fields, so a reason
+  // with a `: ` of its own arrives intact — which is the property this case has
+  // always been for. It was written when the two travelled joined by `: ` and
+  // the bar split them back apart, where the second colon could truncate the
+  // reason; the typed field makes it true by construction, and this still says so.
   it('reports a board that could not be read, keeping a colon inside the reason', async () => {
-    useStore.getState().library.boardFailed('8x8/sha256-ab: HTTP 500: gateway down')
+    useStore.getState().library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 500: gateway down' })
     const screen = await mountBar('/boards/8x8/sha256-ab')
     await expect
       .poll(() => screen.getByRole('status').element().textContent)
@@ -218,7 +220,7 @@ describe('RunStatusBar', () => {
     const { meta, file } = storedFixture(2)
     const state = useStore.getState()
     state.result.showPreview({ board: decodeBoard(file), file, meta })
-    state.library.boardFailed('8x8/sha256-ab: HTTP 404')
+    state.library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 404' })
     const screen = await mountBar()
     // Read once and synchronously: the state is set before the mount, so the
     // first render already answers, and a poll would only wait out a wrong one.

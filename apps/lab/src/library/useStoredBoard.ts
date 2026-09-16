@@ -36,7 +36,7 @@ export function useStoredBoard(): void {
       // measured the silence).
       if (metas !== null) {
         useStore.getState().result.clearPreview()
-        useStore.getState().library.boardFailed(`${size}/${id}: not in the store`)
+        useStore.getState().library.boardFailed({ name: `${size}/${id}`, reason: 'not in the store' })
       }
       return
     }
@@ -54,7 +54,7 @@ export function useStoredBoard(): void {
       const name = `${size}/${id}`
       if (!outcome.ok) {
         state.result.clearPreview()
-        state.library.boardFailed(`${name}: ${outcome.error}`)
+        state.library.boardFailed({ name, reason: outcome.error })
         return
       }
       try {
@@ -64,7 +64,7 @@ export function useStoredBoard(): void {
       } catch (err) {
         if (cancelled) return
         state.result.clearPreview()
-        state.library.boardFailed(`${name}: ${err instanceof Error ? err.message : String(err)}`)
+        state.library.boardFailed({ name, reason: err instanceof Error ? err.message : String(err) })
       }
     })()
     return () => {

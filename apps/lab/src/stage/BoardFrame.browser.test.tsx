@@ -215,7 +215,7 @@ test('a preview left over on the lab tab lends the lab neither its board nor its
 test('on the library tab a board that could not be read leaves the stage empty', async () => {
   const screen = await mountFrame('/boards/8x8/sha256-0')
   await act(async () => finish(finishedRun(1)))
-  await act(async () => useStore.getState().library.boardFailed('8x8/sha256-0: not in the store'))
+  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'not in the store' }))
 
   await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
   expect(annotation(screen.container)).toBeNull()

@@ -41,9 +41,10 @@ test('a board failure does not touch a list error already set', () => {
   reset()
   const library = () => useStore.getState().library
   library().listFailed('no store server')
-  library().boardFailed('Board 8x8/sha256-0 cannot be read: HTTP 404')
+  library().boardFailed({ name: '8x8/sha256-0', reason: 'HTTP 404' })
   expect(library().listError).toBe('no store server')
-  expect(library().boardError).toContain('404')
+  expect(library().boardError?.name).toBe('8x8/sha256-0')
+  expect(library().boardError?.reason).toBe('HTTP 404')
 })
 
 // The reverse direction, which the case above cannot cover: a listing leaves
@@ -53,9 +54,9 @@ test('a board failure does not touch a list error already set', () => {
 test('a listing does not touch a board error already set', () => {
   reset()
   const library = () => useStore.getState().library
-  library().boardFailed('Board 8x8/sha256-0 cannot be read: HTTP 404')
+  library().boardFailed({ name: '8x8/sha256-0', reason: 'HTTP 404' })
   library().listed([])
-  expect(library().boardError).toContain('404')
+  expect(library().boardError?.reason).toBe('HTTP 404')
   expect(library().listError).toBeNull()
   library().boardFailed(null)
   expect(library().boardError).toBeNull()
