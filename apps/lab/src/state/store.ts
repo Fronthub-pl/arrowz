@@ -1,6 +1,7 @@
 import type { BoardData, BoardFile } from '@arrowz/engine'
 import { create } from 'zustand'
 import { createLangSlice, type LangState } from './lang.slice'
+import { createLibrarySlice, type LibraryState } from './library.slice'
 import { createParamsSlice, type ParamsState } from './params.slice'
 import { createRecipeSlice, type RecipeState } from './recipe.slice'
 import { createResultSlice, type ResultState, showResult } from './result.slice'
@@ -17,12 +18,13 @@ export interface FinishedRun {
 
 /**
  * One store, one named field per slice, so a per-knob selector reaches exactly
- * its own entry. PR 4b adds `result` and the one action that spans two slices;
- * PR 5 adds `library`.
+ * its own entry. PR 4b added `result` and the one action that spans two slices;
+ * PR 5a adds `library`.
  */
 export interface Store {
   run: RunState
   result: ResultState
+  library: LibraryState
   params: ParamsState
   view: ViewState
   ui: UiState
@@ -40,6 +42,7 @@ export interface Store {
 export const useStore = create<Store>()((set) => ({
   run: createRunSlice(set),
   result: createResultSlice(set),
+  library: createLibrarySlice(set),
   params: createParamsSlice(set),
   view: createViewSlice(set),
   ui: createUiSlice(set),

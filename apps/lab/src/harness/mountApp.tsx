@@ -17,6 +17,7 @@ export function resetApp(mode: ViewMode): void {
   const state = useStore.getState()
   state.run.reset()
   state.result.reset()
+  state.library.reset()
   state.params.reset()
   state.ui.select('board')
   state.ui.setAuto(false)
