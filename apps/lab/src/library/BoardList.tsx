@@ -52,25 +52,34 @@ export function BoardList(): ReactElement {
       {listError === null && sizes !== null && entry === null ? (
         <p className="fw-lib-empty">{dict.t('storeEmpty')}</p>
       ) : null}
-      {(entry?.boards ?? []).map((meta) => {
-        const { when, text } = line(meta)
-        return (
-          <button
-            key={meta.id}
-            type="button"
-            className="fw-lib-row"
-            {...(meta.id === open.id ? { 'aria-current': true } : {})}
-            onClick={() => void navigate(`/boards/${entry?.size ?? ''}/${meta.id}`)}
-          >
-            <span className="id">{meta.id}</span>
-            <span>{when}</span>
-            <span className="meta">
-              {text}
-              {meta.ok === false ? ` · ${dict.t('notClosed')}` : ''}
-            </span>
-          </button>
-        )
-      })}
+      {/*
+        The rows hang off `entry` being there, rather than off an empty array
+        standing in for it: inside the map `entry` was non-null by construction,
+        so the `?? ''` its size once needed was unreachable — and had anything
+        ever reached it, the row would have navigated to `/boards//<id>`. The
+        repo's rule against a fallback that changes a value is exactly this.
+      */}
+      {entry === null
+        ? null
+        : entry.boards.map((meta) => {
+            const { when, text } = line(meta)
+            return (
+              <button
+                key={meta.id}
+                type="button"
+                className="fw-lib-row"
+                {...(meta.id === open.id ? { 'aria-current': true } : {})}
+                onClick={() => void navigate(`/boards/${entry.size}/${meta.id}`)}
+              >
+                <span className="id">{meta.id}</span>
+                <span>{when}</span>
+                <span className="meta">
+                  {text}
+                  {meta.ok === false ? ` · ${dict.t('notClosed')}` : ''}
+                </span>
+              </button>
+            )
+          })}
     </section>
   )
 }
