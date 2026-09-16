@@ -356,6 +356,7 @@ apps/lab/src/
     SizeChips.tsx             the console's rail in the library: a chip per size
     BoardList.tsx             the console's panel in the library: rows, refresh
     BoardDetail.tsx           command, view fields, load into lab, two-click delete
+    useLibraryList.ts         the store's listing, fetched on entry and on Refresh
     useOpenBoard.ts           which board the address names
     useInLibrary.ts           which of the two tabs is on screen
     useStoredBoard.ts         the board an address names: fetch, decode, show
