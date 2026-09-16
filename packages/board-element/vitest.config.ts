@@ -20,6 +20,18 @@ export default defineConfig({
         // ARROWZ_* reaches the browser too, so perf.browser.test.ts can read
         // ARROWZ_MEASURE from import.meta.env (Vite only forwards VITE_* by default).
         envPrefix: ['VITE_', 'ARROWZ_'],
+        // No `optimizeDeps` here, unlike apps/lab's browser project, and that is
+        // measured rather than assumed (2026-09-17). The lab's trap needs a
+        // dependency no source names: `react-dom/client` is imported by
+        // `vitest-browser-react` at render time, so a cold optimizer meets it
+        // mid-run, re-bundles, reloads the tester page and strands the next
+        // file's iframe. Every bare module these tests reach is named by source
+        // the first pass scans instead — `lit`, by arrowz-board.ts and by
+        // lit.browser.test.ts, and the engine, which is a workspace link — and
+        // they drive the DOM themselves, with no wrapper importing anything on
+        // their behalf. Two cold runs (`rm -rf node_modules/.vite`) passed, 17
+        // files and 270 tests, with nothing discovered late; the cache they left
+        // holds `lit` and vitest's own internals. Nothing to pre-bundle.
         test: {
           name: 'chromium',
           include: ['src/**/*.browser.test.ts'],
