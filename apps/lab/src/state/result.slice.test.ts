@@ -1,5 +1,7 @@
 import { beforeEach, expect, test } from 'vitest'
+import { decodeBoard } from '@arrowz/engine'
 import { finish, finishedRun } from './result.fixtures'
+import { storedFixture } from './library.fixtures'
 import { useStore } from './store'
 
 const result = () => useStore.getState().result
@@ -115,4 +117,55 @@ test('reset forgets everything', () => {
   expect(result().baseline).toBeNull()
   expect(result().saved).toBeNull()
   expect(result().exportError).toBeNull()
+})
+
+// Spec §5.3: the stored board is a second field, not a second source. A meta
+// cannot fill a ReportInput, and the run's own product must survive a trip to
+// the library — that is what makes coming back free.
+test('a preview leaves the run result, its answer and its baseline alone', () => {
+  const state = useStore.getState()
+  state.result.reset()
+  finish(finishedRun(1))
+  const shownBefore = useStore.getState().result.shown
+  const { meta, file } = storedFixture(3)
+
+  useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta })
+
+  const after = useStore.getState().result
+  expect(after.preview?.meta.id).toBe(meta.id)
+  expect(after.shown).toBe(shownBefore)
+})
+
+test('clearing the preview leaves the run result where it was', () => {
+  const state = useStore.getState()
+  state.result.reset()
+  finish(finishedRun(1))
+  const { meta, file } = storedFixture(3)
+  useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta })
+
+  useStore.getState().result.clearPreview()
+
+  expect(useStore.getState().result.preview).toBeNull()
+  expect(useStore.getState().result.shown).not.toBeNull()
+})
+
+// A finished run must not silently take a preview's place on the stage: the
+// stage picks by route, and the two fields are independent.
+test('a finished run does not clear a preview', () => {
+  const state = useStore.getState()
+  state.result.reset()
+  const { meta, file } = storedFixture(3)
+  state.result.showPreview({ board: decodeBoard(file), file, meta })
+  finish(finishedRun(2))
+  expect(useStore.getState().result.preview?.meta.id).toBe(meta.id)
+})
+
+test('reset clears both the result and the preview', () => {
+  const state = useStore.getState()
+  const { meta, file } = storedFixture(3)
+  state.result.showPreview({ board: decodeBoard(file), file, meta })
+  finish(finishedRun(1))
+  useStore.getState().result.reset()
+  expect(useStore.getState().result.shown).toBeNull()
+  expect(useStore.getState().result.preview).toBeNull()
 })

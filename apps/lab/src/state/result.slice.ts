@@ -1,4 +1,4 @@
-import type { BoardData, BoardFile, Params } from '@arrowz/engine'
+import type { BoardData, BoardFile, BoardMeta, Params } from '@arrowz/engine'
 import type { ReportInput } from '@arrowz/engine/report'
 import type { SaveOutcome } from '../api/boards'
 
@@ -21,6 +21,18 @@ export interface Baseline {
   readonly params: Params
 }
 
+/**
+ * A board read out of the store: what it is, the file it came as, and the meta
+ * the store holds beside it. Deliberately not a `ShownResult`: a stored board
+ * has no `stats: CarverStats` and none of the run's counters, so a
+ * `ReportInput` could only be invented for it (spec §5.3).
+ */
+export interface StoredBoard {
+  readonly board: BoardData
+  readonly file: unknown
+  readonly meta: BoardMeta
+}
+
 export interface ResultState {
   shown: ShownResult | null
   baseline: Baseline | null
@@ -28,6 +40,8 @@ export interface ResultState {
   saved: SaveOutcome | null
   /** Why the last SVG export of `shown.file` failed, and of no other file. */
   exportError: string | null
+  /** The board the library shows, beside the run's own and never instead of it. */
+  preview: StoredBoard | null
   /**
    * `showResult` as a single-slice action, kept for PR 5's load into lab. In
    * PR 4b nothing calls it: the only writer of `shown` is `completeRun`, which
@@ -37,6 +51,10 @@ export interface ResultState {
   stored(file: BoardFile, outcome: SaveOutcome): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
+  /** The library draws a stored board. The run's result is untouched. */
+  showPreview(next: StoredBoard): void
+  /** Leaving the library, or a board that could not be read. */
+  clearPreview(): void
   /** For the tests' resets, beside `run.reset()`. */
   reset(): void
 }
@@ -90,6 +108,7 @@ export function createResultSlice(set: SetStore): ResultState {
     baseline: null,
     saved: null,
     exportError: null,
+    preview: null,
     show: (next) => set((state) => ({ result: showResult(state.result, next) })),
     // Returning the state unchanged is zustand's no-op: `setState` skips an
     // update whose result is the state object itself.
@@ -97,7 +116,12 @@ export function createResultSlice(set: SetStore): ResultState {
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, saved } } : state)),
     exported: (file, exportError) =>
       set((state) => (state.result.shown?.file === file ? { result: { ...state.result, exportError } } : state)),
+    showPreview: (preview) => set((state) => ({ result: { ...state.result, preview } })),
+    clearPreview: () =>
+      set((state) => (state.result.preview === null ? state : { result: { ...state.result, preview: null } })),
     reset: () =>
-      set((state) => ({ result: { ...state.result, shown: null, baseline: null, saved: null, exportError: null } })),
+      set((state) => ({
+        result: { ...state.result, shown: null, preview: null, baseline: null, saved: null, exportError: null },
+      })),
   }
 }
