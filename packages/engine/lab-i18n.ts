@@ -1,6 +1,8 @@
 // English is the source language and lives in PARAM_SPEC / lab.html / EN;
 // PL only holds the translation, checked against EN's shape by the compiler.
-import type { InactiveKey, ParamKey, RuleKey } from './types.ts'
+import type { StartChoice } from './command.ts'
+import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
+import type { InactiveKey, ParamKey, ParamSpec, RuleKey, Violation } from './types.ts'
 
 const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
@@ -87,6 +89,9 @@ export const EN = {
     reset: 'Defaults',
     downloadSvg: 'Download SVG',
     abort: 'Abort',
+    cliLabel: 'CLI',
+    runColumn: 'Run',
+    runStatus: 'Run status',
     commandHead: 'CLI command (matches the current settings)',
     copy: 'Copy',
     copied: 'Copied',
@@ -107,6 +112,9 @@ export const EN = {
     showHelp: 'show parameter descriptions',
     tabLab: 'Lab',
     tabLibrary: 'Saved boards',
+    tabDocs: 'Docs',
+    /** The accessible name of the tab strip itself, not of any one tab. */
+    tabsLabel: 'Sections',
     fullView: 'Full view (key F)',
     pressGenerate: 'Press "Generate".',
     generating: 'Generating…',
@@ -183,6 +191,17 @@ export const EN = {
     inactivePrefix: 'No effect: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Settings outside the safe range',
+    // The parameter console (apps/lab). The rail is a landmark of its own, so
+    // it needs a name the tab strip does not already use.
+    railLabel: 'Parameter groups',
+    railGenerator: 'generator',
+    railElement: 'element',
+    // The floor a cross-knob rule puts on a knob: drawn on the slider's track,
+    // and named here because a mark is not a message.
+    ruleBound: (need: number) => `Rule bound: ${need}`,
+    // A rail entry that carries a count names what the count is.
+    violationsInGroup: (group: string, count: number) =>
+      `${group}, ${count} setting${count === 1 ? '' : 's'} outside the safe range`,
     rangeViolation: (label: string, value: unknown, min: number, max: number) =>
       `${label}: ${value} is outside ${min}..${max}`,
     stepViolation: (label: string, value: number, below: number, above: number) =>
@@ -191,6 +210,37 @@ export const EN = {
     needViolation: (reason: string, need: number) => `${reason}; this board needs at least ${need}`,
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
+    // The preset strip: its accessible name (it carries no visible caption),
+    // the mark for a knob moved since a preset was chosen, and the button
+    // that puts the clamp notice away.
+    presetsLabel: 'Presets',
+    presetsDirty: 'edited',
+    dismiss: 'Dismiss',
+    // The top bar's two choices, each a radio group named by what it chooses.
+    // The language codes are the visible text and so the accessible name: a
+    // name that does not contain what is on screen fails WCAG 2.5.3 for speech
+    // input (PR 4a, Ruling 8).
+    modeLabel: 'View',
+    languageLabel: 'Language',
+    langPl: 'PL',
+    langEn: 'EN',
+    // The simple view's region; its visible heading is only the view's name.
+    simplePanel: 'Simple settings',
+    // PR 4b: the report column and its delta, the frame's annotation, and the
+    // run column's two exports. The two delta words are never visible: the
+    // cell's colour and sign say it on screen, and a screen reader hears these.
+    reportPanel: 'Report',
+    statsTable: 'Statistics',
+    deltaBetter: 'better',
+    deltaWorse: 'worse',
+    boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
+    exportsGroup: 'Export',
+    downloadBoardFile: 'Download board file',
+    exportError: 'Export failed:',
+    // The board-file download is named by the layout hash, which Web Crypto
+    // computes only in a secure context: said beside the exports, not as an
+    // export failure.
+    layoutHashError: 'Cannot name the board file:',
   },
 } as const
 
@@ -436,6 +486,9 @@ export const PL: Translation = {
     reset: 'Domyślne',
     downloadSvg: 'Pobierz SVG',
     abort: 'Przerwij',
+    cliLabel: 'CLI',
+    runColumn: 'Generowanie',
+    runStatus: 'Stan generowania',
     commandHead: 'Komenda CLI (odpowiada bieżącym ustawieniom)',
     copy: 'Kopiuj',
     copied: 'Skopiowano',
@@ -456,6 +509,8 @@ export const PL: Translation = {
     showHelp: 'pokazuj opisy parametrów',
     tabLab: 'Laboratorium',
     tabLibrary: 'Zapisane plansze',
+    tabDocs: 'Dokumentacja',
+    tabsLabel: 'Sekcje',
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',
@@ -531,10 +586,117 @@ export const PL: Translation = {
     inactivePrefix: 'Bez wpływu: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Ustawienia poza bezpiecznym zakresem',
+    railLabel: 'Grupy parametrów',
+    railGenerator: 'generator',
+    railElement: 'element',
+    ruleBound: (need: number) => `Granica reguły: ${need.toLocaleString('pl')}`,
+    violationsInGroup: (group: string, count: number) => `${group}, ustawienia poza zakresem: ${count}`,
     rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
     stepViolation: (label, value, below, above) => `${label}: ${value} leży między ustawieniami ${below} i ${above}`,
     needViolation: (reason, need) => `${reason}; ta plansza wymaga co najmniej ${need}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
+    presetsLabel: 'Presety',
+    presetsDirty: 'zmienione',
+    dismiss: 'Zamknij',
+    modeLabel: 'Widok',
+    languageLabel: 'Język',
+    langPl: 'PL',
+    langEn: 'EN',
+    simplePanel: 'Proste ustawienia',
+    reportPanel: 'Raport',
+    statsTable: 'Statystyki',
+    deltaBetter: 'lepiej',
+    deltaWorse: 'gorzej',
+    boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
+    exportsGroup: 'Eksport',
+    downloadBoardFile: 'Pobierz plik planszy',
+    exportError: 'Eksport nie powiódł się:',
+    layoutHashError: 'Nie da się nazwać pliku planszy:',
   },
+}
+
+// The CLI owns the four start choices; a dictionary missing one must not compile.
+EN.start.options satisfies Record<StartChoice, string>
+PL.start.options satisfies Record<StartChoice, string>
+
+// --- one dictionary per language --------------------------------------------
+
+export type Lang = 'en' | 'pl'
+
+export interface Dict {
+  readonly lang: Lang
+  /** The raw sections the page reads directly: start, groups, groupHelp, presets, simple. */
+  readonly d: Dictionary
+  t<K extends UiKey>(key: K, ...args: UiArgs<K>): string
+  paramText(spec: ParamSpec): { label: string; help: string }
+  choiceText(key: ParamKey, word: string): string
+  reason(key: InactiveKey | RuleKey): string
+  fmt(n: number): string
+  short(n: number): string
+  violation(v: Violation): string
+}
+
+/** A string field of a dictionary section looked up by a key typed by hand (a choice word). */
+function stringAt(rec: Record<string, unknown>, key: string): string | undefined {
+  const v = rec[key]
+  return typeof v === 'string' ? v : undefined
+}
+
+/**
+ * The surface's text in one language. Every helper here reads the language
+ * from this closure instead of a module-level variable, so a surface can hold
+ * two of them and a test can hold one.
+ */
+export function dictionary(lang: Lang): Dict {
+  const d = lang === 'pl' ? PL : EN
+  const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
+  const fmt = (n: number) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
+  // English is the source language: PARAM_SPEC, INACTIVE_REASONS/RULE_REASONS
+  // and EN.ui. PL.ui is checked against EN.ui's keys by lab-i18n.test.ts, but
+  // `t` still falls back to EN.ui[key] for a key a stale PL table is missing.
+  // The call site is typed by UiArgs<K>; the cast only dispatches the call over
+  // the union of function-valued entries, which TypeScript cannot resolve generically.
+  const t = <K extends UiKey>(key: K, ...args: UiArgs<K>): string => {
+    const v = d.ui[key] ?? EN.ui[key]
+    return typeof v === 'function' ? (v as (...a: unknown[]) => string)(...args) : v
+  }
+  // Reason keys come from two engine tables: INACTIVE_REASONS (a knob with no
+  // effect) and RULE_REASONS (a cross-knob rule broken). PL.reasons covers both.
+  const reason = (key: InactiveKey | RuleKey): string => {
+    if (lang === 'pl') return PL.reasons[key]
+    return Object.hasOwn(INACTIVE_REASONS, key) ? INACTIVE_REASONS[key as InactiveKey] : RULE_REASONS[key as RuleKey]
+  }
+  const paramText = (spec: ParamSpec) => {
+    const pl = lang === 'pl' ? PL.params[spec.key] : null
+    return { label: pl?.label ?? spec.label, help: pl?.help ?? spec.help }
+  }
+  const labelOf = (key: ParamKey) => {
+    const spec = specByKey.get(key)
+    return spec ? paramText(spec).label : key
+  }
+  return {
+    lang,
+    d,
+    t,
+    paramText,
+    // A choice is stored as a number and written on the command line as the word
+    // PARAM_SPEC gives it (--giantspacing=off), which is also its English text;
+    // Polish translates that word, and the command box keeps showing the CLI's.
+    choiceText: (key, word) => (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word,
+    reason,
+    fmt,
+    // The progress line counts pieces on boards of up to 10^6 cells; past ten
+    // thousand the exact figure changes faster than it can be read.
+    short: (n) => (n >= 10000 ? `${Math.round(n / 1000)}k` : fmt(n)),
+    violation: (v) => {
+      if (v.kind === 'range') return t('rangeViolation', labelOf(v.key), v.value, v.min, v.max)
+      if (v.kind === 'step') {
+        const [below, above] = stepsAround(v.value, v.step, v.min)
+        return t('stepViolation', labelOf(v.key), v.value, below, above)
+      }
+      const text = reason(v.key)
+      return v.need === undefined ? text : t('needViolation', text, v.need)
+    },
+  }
 }

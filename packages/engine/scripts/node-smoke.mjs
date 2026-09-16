@@ -4,8 +4,9 @@
 // board file.
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
-import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate } from '../dist/mod.js'
+import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, layoutHash } from '../dist/mod.js'
 import { parseArgs } from '../dist/command.js'
+import { genSeconds } from '../dist/lab-report.js'
 
 const golden = JSON.parse(readFileSync(new URL('../fingerprints.json', import.meta.url), 'utf8'))
 
@@ -31,16 +32,22 @@ for (const c of golden.cases) {
   // A Cloud Function will read these files: the file must round-trip in Node too.
   const back = decodeBoard(JSON.parse(JSON.stringify(encodeBoard(r.board))))
   const fileOk = fingerprint(back) === c.fingerprint
-  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk
+  // Web Crypto under Node names the layout exactly as Deno does.
+  const hashOk = (await layoutHash(r.board)) === c.layoutHash && (await layoutHash(back)) === c.layoutHash
+  const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk && hashOk
   console.log(
     `${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen}, file ${
       fileOk ? 'ok' : 'FAIL'
-    })`,
+    }, layout ${hashOk ? 'ok' : 'FAIL'})`,
   )
   if (!ok) failures++
 }
 if (failures > 0) {
   console.error(`${failures} golden board(s) differ under Node`)
+  process.exit(1)
+}
+if (genSeconds({ genMs: 4800 }, '—') !== '4.80' || genSeconds({ genMs: null }, '—') !== '—') {
+  console.error('lab-report is not emitted correctly into dist/')
   process.exit(1)
 }
 console.log('all golden boards reproduce under Node')

@@ -57,7 +57,12 @@ class ByteWriter {
     this.byte(rest)
   }
 
-  bytes(): Uint8Array {
+  /**
+   * The written bytes. Typed on ArrayBuffer, which the buffer is: Web Crypto's
+   * digest takes a BufferSource, and both `deno check` and the Node build
+   * refuse a Uint8Array<ArrayBufferLike> there (TS2345).
+   */
+  bytes(): Uint8Array<ArrayBuffer> {
     return this.buf.subarray(0, this.len)
   }
 }
@@ -195,6 +200,71 @@ export function encodeBoard(board: BoardData): BoardFile {
     fingerprint: fingerprint(board),
     body: toBase64(out.bytes()),
   }
+}
+
+// ------------------------------------------------------------ layout hash
+
+/** The first bytes of the canonical form; a new form gets a new tag, and every stored name moves with it. */
+const LAYOUT_TAG = 'arrowz-layout/1'
+
+/**
+ * The name of a board's arrangement of arrows: `sha256-` and the 64 lowercase
+ * hex digits of SHA-256 over a canonical form that leaves out piece ids and
+ * carving order (design: docs/superpowers/specs/2026-09-15-layout-hash-design.md, §1).
+ * Two recipes that carve the same arrows get the same name; `fingerprint`
+ * tells them apart.
+ *
+ * The canonical bytes: the ASCII tag; varints W, H and the piece count; per
+ * piece in ascending order of its head cell index, varint head index, varint
+ * length * 4 + dir, then its steps as 2-bit DIRS indices, low bits first,
+ * padded with zero bits to a whole byte per piece; varint void count, then
+ * each void's cell index ascending as an absolute varint. Uncarved cells are
+ * what is left. The order of cells within a piece stays: it draws the shape.
+ *
+ * Like encodeBoard it checks that every piece is a path, and nothing else —
+ * overlaps are ruled out by decodeBoard and by the generator before a board
+ * gets here.
+ */
+export async function layoutHash(board: BoardData): Promise<string> {
+  const { W, H, owner, pieces } = board
+  const out = new ByteWriter()
+  for (let i = 0; i < LAYOUT_TAG.length; i++) out.byte(LAYOUT_TAG.charCodeAt(i))
+  out.varint(W)
+  out.varint(H)
+  out.varint(pieces.length)
+  // A copy is sorted, never the board's own list, and no ties are possible:
+  // a cell belongs to at most one piece, so no two heads share an index.
+  const byHead = pieces.map((pc) => {
+    const head = at(pc.cells, 0)
+    return { head: head.y * W + head.x, pc }
+  })
+  byHead.sort((a, b) => a.head - b.head)
+  for (const { head, pc } of byHead) {
+    out.varint(head)
+    out.varint(pc.cells.length * 4 + pc.dir)
+    let acc = 0, filled = 0
+    for (let i = 1; i < pc.cells.length; i++) {
+      const a = at(pc.cells, i - 1), b = at(pc.cells, i)
+      const code = stepCode(b.x - a.x, b.y - a.y)
+      if (code < 0) throw new BoardFileError(`piece ${pc.id} is not a path: cell ${i} is not next to cell ${i - 1}`)
+      acc |= code << filled
+      filled += 2
+      if (filled === 8) {
+        out.byte(acc)
+        acc = 0
+        filled = 0
+      }
+    }
+    if (filled > 0) out.byte(acc)
+  }
+  let voids = 0
+  for (let i = 0; i < owner.length; i++) if (at(owner, i) === -2) voids++
+  out.varint(voids)
+  for (let i = 0; i < owner.length; i++) if (at(owner, i) === -2) out.varint(i)
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', out.bytes()))
+  let hex = ''
+  for (const byte of digest) hex += byte.toString(16).padStart(2, '0')
+  return `sha256-${hex}`
 }
 
 // ----------------------------------------------------------------- decode

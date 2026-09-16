@@ -3,7 +3,15 @@
 // (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab (lab.sh scopes the
 // permissions: net on 127.0.0.1, read of packages/cli/ and the store, write of the store, one env var).
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
-import { decodeBoard, defaultParams, encodeBoard, formatViolation, PARAM_SPEC, validateParams } from '@arrowz/engine'
+import {
+  decodeBoard,
+  defaultParams,
+  encodeBoard,
+  formatViolation,
+  isFiniteNumber,
+  PARAM_SPEC,
+  validateParams,
+} from '@arrowz/engine'
 import type { Params, View, ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { boardsDir, deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
@@ -76,7 +84,6 @@ function refusal(req: Request, url: URL): { status: number; error: string } | nu
 
 type Rec = Record<string, unknown>
 const isRec = (v: unknown): v is Rec => typeof v === 'object' && v !== null && !Array.isArray(v)
-const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const isText = (v: unknown): v is string => typeof v === 'string' && v.length <= MAX_TEXT
 type Checked<T> = { ok: T } | { error: string }
 type Metrics = NonNullable<SaveInput['metrics']>
@@ -85,14 +92,15 @@ type Metrics = NonNullable<SaveInput['metrics']>
  * The params of a POST, rebuilt from the knobs of PARAM_SPEC only: a key the
  * engine does not know is dropped, and the result must pass the engine's
  * envelope, so the store holds only boards the engine would generate. The
- * seed goes into file names; a string or a fraction never gets that far.
+ * seed reaches the command and the meta; a string or a fraction never gets
+ * that far.
  */
 function checkParams(v: unknown): Checked<Params> {
   if (!isRec(v)) return { error: 'params are required' }
   const params = defaultParams()
   for (const s of PARAM_SPEC) {
     const value = v[s.key]
-    if (!isNum(value)) return { error: `params.${s.key} must be a number` }
+    if (!isFiniteNumber(value)) return { error: `params.${s.key} must be a number` }
     params[s.key] = value
   }
   const violations = validateParams(params)
@@ -111,7 +119,7 @@ function checkView(v: unknown): Checked<View> {
     const r = VIEW_RANGE[k]
     // The CLI's own range for the flag that writes this field, so a stored
     // view is a picture carve.ts could have drawn.
-    if (!isNum(value) || value < r.min || value > r.max || (r.whole && !Number.isInteger(value))) {
+    if (!isFiniteNumber(value) || value < r.min || value > r.max || (r.whole && !Number.isInteger(value))) {
       return { error: `view.${k} must be ${r.whole ? 'a whole number' : 'a number'} in ${r.min}..${r.max}` }
     }
     view[k] = value
@@ -142,7 +150,7 @@ function checkMetrics(v: unknown, params: Params): Checked<Metrics> {
   for (const k of METRIC_NUMBERS) {
     const value = v[k]
     if (value === undefined || value === null) continue
-    if (!isNum(value) || value < 0) return { error: `metrics.${k} must be a number of at least 0` }
+    if (!isFiniteNumber(value) || value < 0) return { error: `metrics.${k} must be a number of at least 0` }
     metrics[k] = value
   }
   for (const k of METRIC_FLAGS) {
@@ -156,7 +164,7 @@ function checkMetrics(v: unknown, params: Params): Checked<Metrics> {
     const sizes = isRec(stuck) ? stuck.sizes : undefined
     const heads = isRec(stuck) ? stuck.heads : undefined
     const remaining = isRec(stuck) ? stuck.remaining : undefined
-    if (!isNum(remaining) || !Array.isArray(sizes) || !(heads === null || isNum(heads))) {
+    if (!isFiniteNumber(remaining) || !Array.isArray(sizes) || !(heads === null || isFiniteNumber(heads))) {
       return { error: 'metrics.stuck is not a closing report' }
     }
     const cells = params.W * params.H
@@ -167,7 +175,7 @@ function checkMetrics(v: unknown, params: Params): Checked<Metrics> {
       return { error: `metrics.stuck.heads must be between 0 and ${cells}` }
     }
     // Filtered rather than asserted: a length that changes is an entry that was not a number.
-    const numbers = sizes.filter(isNum)
+    const numbers = sizes.filter(isFiniteNumber)
     if (numbers.length !== sizes.length) return { error: 'metrics.stuck is not a closing report' }
     // An island (one entry of sizes) cannot exceed the stuck cells it is carved from.
     if (numbers.length > remaining) {
@@ -266,7 +274,7 @@ export function createLabServer(): (req: Request) => Promise<Response> {
         }
         const checked = checkPost(json)
         if ('error' in checked) return send(400, JSON.stringify({ error: checked.error }))
-        return send(201, JSON.stringify(saveBoard(checked.ok)))
+        return send(201, JSON.stringify((await saveBoard(checked.ok)).meta))
       }
       // Segments are matched on the raw path and decoded one by one, so an
       // encoded slash cannot smuggle a directory step into a name.

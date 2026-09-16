@@ -10,12 +10,21 @@
 // heading nor the column names need to be in English.
 import { assert, assertEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { formatViolation, PARAM_SPEC, validateParams } from '@arrowz/engine'
+import { formatViolation, generate, layoutHash, PARAM_SPEC, validateParams } from '@arrowz/engine'
 import { COMMAND_PREFIX, flagViolation, KNOB_ROWS, parseArgs, RULE_ROWS } from '@arrowz/engine/command'
-import { BUNDLES } from '@arrowz/engine/simple'
+import { BUNDLES, defaultChoice, simpleParams } from '@arrowz/engine/simple'
 
 const root = join(dirname(fromFileUrl(import.meta.url)), '..', '..')
 const READMES = ['README.md', 'README.pl.md'] as const
+
+/**
+ * The boards whose stored file names both READMEs print: `deno task carve
+ * --width=40 --height=40 --seed=7` (and its `--svg` twin), and the 25×25 of the
+ * store tree, `deno task carve --width=25 --height=25` at the default seed 7.
+ * The first names were copied by hand and went stale when the settings hash
+ * changed; these are checked.
+ */
+const DOCUMENTED_BOARDS = [{ W: 40, H: 40, seed: 7 }, { W: 25, H: 25, seed: 7 }] as const
 
 /** The cells of one markdown table row: the leading and trailing pipe go, an escaped `\|` stays. */
 function cellsOf(line: string): string[] {
@@ -156,6 +165,16 @@ for (const file of READMES) {
       checked++
     }
     assert(checked >= 1, `${file} shows no refusal`)
+  })
+
+  Deno.test(`${file}: the stored file names are the layout hashes of the boards shown`, async () => {
+    const expected = new Set<string>()
+    for (const board of DOCUMENTED_BOARDS) {
+      expected.add(await layoutHash(generate(simpleParams({ ...defaultChoice(), ...board })).board))
+    }
+    const documented = new Set(text.match(/sha256-[0-9a-f]{64}/g) ?? [])
+    assertEquals(Array.from(documented).sort(), Array.from(expected).sort())
+    assertEquals(/seed\d+-[0-9a-f]{8}/.test(text), false, 'no store name under the old seed scheme is left')
   })
 }
 

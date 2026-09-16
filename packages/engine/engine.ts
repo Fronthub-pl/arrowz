@@ -13,6 +13,7 @@ import type {
   GenerateResult,
   HistBucket,
   InactiveKey,
+  LongestSummary,
   Metrics,
   ParamKey,
   Params,
@@ -2197,6 +2198,39 @@ function analyse(board: BoardData, ruleB = true): Metrics {
   }
 }
 
+/** The table of the N longest pieces: their box, how far they reach and how much they coil. */
+function longestSummary(board: BoardData, n: number): LongestSummary[] {
+  const W = board.W
+  // slice(), not a spread into a call: the piece count reaches ~90 000.
+  const longest = board.pieces.slice().sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
+  return longest.map((pc) => {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+    const own = new Set(pc.cells.map((c) => c.y * W + c.x))
+    let coil = 0
+    for (const c of pc.cells) {
+      if (c.x < minX) minX = c.x
+      if (c.x > maxX) maxX = c.x
+      if (c.y < minY) minY = c.y
+      if (c.y > maxY) maxY = c.y
+      let touch = 0
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
+        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
+      }
+      if (touch >= 3) coil++
+    }
+    const sx = maxX - minX + 1
+    const sy = maxY - minY + 1
+    return {
+      len: pc.cells.length,
+      sx,
+      sy,
+      span: Math.max(sx / board.W, sy / board.H),
+      density: pc.cells.length / (sx * sy),
+      coil: coil / pc.cells.length,
+    }
+  })
+}
+
 // ---------------------------------------------------------------- render
 
 function render(board: BoardData): string {
@@ -2846,6 +2880,33 @@ export function validateParams(params: Params): Violation[] {
   return out
 }
 
+/**
+ * A value that can be used as a knob: a number, and not NaN or an infinity.
+ * The board server and the lab both need this test and must not disagree on
+ * it; what they do with a failure is deliberately different — the page shows
+ * a default, the server refuses the request.
+ */
+export function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * The knob values of an object loaded from outside — storage, a URL, a board
+ * file: finite numbers under PARAM_SPEC keys only. Tolerant on purpose. It
+ * does not check the envelope, so a caller that persists the result must run
+ * validateParams itself.
+ */
+export function readParams(raw: unknown): Partial<Record<ParamKey, number>> {
+  const out: Partial<Record<ParamKey, number>> = {}
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return out
+  const rec = raw as Record<string, unknown>
+  for (const spec of PARAM_SPEC) {
+    const v = rec[spec.key]
+    if (isFiniteNumber(v)) out[spec.key] = v
+  }
+  return out
+}
+
 const LABEL_BY_KEY = new Map<ParamKey, string>(PARAM_SPEC.map((s) => [s.key, s.label]))
 
 /** One English line for a violation from validateParams(). */
@@ -2880,6 +2941,20 @@ export function stepsAround(value: number, step: number, min: number): [number, 
  */
 export function snapToStep(value: number, step: number, min: number): number {
   return Number((min + Math.round((value - min) / step) * step).toFixed(6))
+}
+
+// Pulls a value loaded from outside (URL, preset, stored board) into the
+// knob's range and onto its grid; anything that is not a finite number (an
+// emptied field) falls back to the default. Both halves matter: a value
+// between two stops is a step violation, which would leave the panel red
+// with no control able to fix it. Pure, so it can be tested without the page.
+// This is the range and the step of one knob only. A cross-knob rule — a
+// straightness floor that depends on the board's size — is never clamped:
+// the surface shows it and the run refuses, so no value moves unrecorded.
+export function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
+  if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
+  const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)
+  return { value: v, clamped: v !== value }
 }
 
 /** What generate() throws for parameters outside the safe envelope. */
@@ -3010,4 +3085,4 @@ function fingerprint(board: BoardData): string {
   return h.toString(16)
 }
 
-export { analyse, Carver, DIRS, fingerprint, mulberry32, render, toSvg }
+export { analyse, Carver, DIRS, fingerprint, longestSummary, mulberry32, render, toSvg }

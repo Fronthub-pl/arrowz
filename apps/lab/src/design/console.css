@@ -1,0 +1,498 @@
+/* The console of the workshop mock (fronthub-workshop-v2.css, "console"
+   section). Its own file rather than more lines in shell.css: PR 2 shipped a
+   specificity collision between two rules written in different tasks, and one
+   file per surface keeps such a collision inside the surface that caused it.
+
+   The mock's three tracks: the group rail, one panel, and the run column. */
+.fw-console {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr) 216px;
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
+  min-height: 0;
+}
+.fw-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 0;
+  background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-rail .sec {
+  flex: none;
+  padding: 8px 16px 3px;
+  color: var(--ash);
+}
+.fw-rail .sec + .sec {
+  margin-top: 4px;
+}
+.fw-rail button {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 16px;
+  border: 0;
+  text-align: left;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  transition:
+    background 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-rail button .n {
+  flex: none;
+  color: var(--warn);
+}
+.fw-rail button:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+/* The mock keys this off `aria-current`; the rail is a tablist, so the state
+   lives on `aria-selected` (Ruling 13). */
+.fw-rail button[aria-selected='true'] {
+  color: var(--void);
+  background: var(--signal);
+}
+.fw-rail button[aria-selected='true'] .n {
+  color: var(--void);
+}
+/* The mock draws the bar as a div with a pointer handler and no keyboard.
+   This is the same 2px bar over a native range input, so arrow keys, Home,
+   End, PageUp/PageDown and touch come from the platform (Ruling 3). */
+.fw-k .bar {
+  position: relative;
+  margin-top: 10px;
+  height: 12px;
+}
+.fw-k .bar input[type='range'] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 12px;
+  margin: 0;
+  padding: 0;
+  /* `border: 0` is load-bearing: `.fw-k input` in Task 7 styles the inline
+     entry with a 1px signal border, and both selectors reach this input. */
+  border: 0;
+  background: none;
+  cursor: ew-resize;
+}
+.fw-k .bar input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  margin-top: 5px;
+  background: linear-gradient(to right, var(--signal) 0 var(--pct), var(--border) var(--pct) 100%);
+}
+.fw-k .bar input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 2px;
+  height: 12px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--signal);
+}
+.fw-k .bar input[type='range']::-moz-range-track {
+  height: 2px;
+  background: var(--border);
+}
+.fw-k .bar input[type='range']::-moz-range-progress {
+  height: 2px;
+  background: var(--signal);
+}
+.fw-k .bar input[type='range']::-moz-range-thumb {
+  width: 2px;
+  height: 12px;
+  border: 0;
+  border-radius: 0;
+  background: var(--signal);
+}
+/* The rule floor: a mark with a reason, never a limit (spec §5.4). `--warn`
+   is the token reserved for exactly this and for a clamped value. */
+.fw-k .bar u {
+  position: absolute;
+  top: 5px;
+  height: 2px;
+  width: 0;
+  border-left: 1px solid var(--warn);
+  text-decoration: none;
+  /* No `pointer-events: none`: the mock's marker is decoration, this one
+     carries a `title`, and suppressing pointer events suppresses the tooltip
+     that is its only surface for a mouse user. The knob's own `.why` states
+     the bound in text, for everyone else. */
+}
+.fw-k .bar u::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: -3px;
+  width: 1px;
+  height: 8px;
+  background: var(--warn);
+}
+.fw-k {
+  padding: 8px 0;
+  min-width: 0;
+}
+.fw-k .top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fw-k .lab {
+  color: var(--mist);
+  min-width: 0;
+}
+/* The mock's number is a span with `cursor: ew-resize` and a pointer scrub.
+   Here it is a button that opens the inline entry: the scrub is a mouse-only
+   gesture with no keyboard equivalent (Ruling 4). */
+.fw-k .num {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+  cursor: text;
+}
+/* `button.num` and not `.num`: the preview field below is an
+   `input[type='number']` carrying the same class, and an unscoped selector
+   reached it too — underlining a field's digits with the click affordance of a
+   control it is not. */
+.fw-k button.num:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fw-k .num em {
+  font-style: normal;
+  color: var(--mist);
+  margin-right: 8px;
+}
+.fw-k input {
+  width: 72px;
+  padding: 0 4px;
+  border: 1px solid var(--signal);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+.fw-k .why {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ash);
+}
+/* Out of sight, in the accessibility tree. Ruling 9: the help switch is
+   labelled "show parameter descriptions", and showing is what a screen reader
+   does not do — `display: none` or `visibility: hidden` would take the text
+   out of the tree and dangle every `aria-describedby` pointing at it, so
+   neither is touched here. What each line does:
+   - `position: absolute` pulls the box out of layout, so it reserves no
+     visible line even at its own size.
+   - `width`/`height: 1px` (not 0): some assistive tech treats a zero-size box
+     as hidden the same way it treats `display: none`, which is exactly the
+     failure this rule exists to avoid.
+   - `margin: -1px` pulls the box up and left by its own size, and
+     `overflow: hidden` clips the `white-space: nowrap` text to it, so a long
+     description cannot paint past the 1px box. Neither cancels the box "out
+     of the page": an absolutely positioned box is already out of flow and
+     has nothing next to it to nudge.
+   - `clip-path: inset(50%)` is the line that actually stops the 1px box from
+     painting: without it the box would be a visible 1px square. */
+.fw-vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+/* A paragraph holding only a hidden description must not reserve a line. */
+.fw-k .why:not(:has(> :not(.fw-vh))) {
+  margin: 0;
+}
+/* A knob the engine would refuse. The mock has no such state — its only knob
+   state is `.hold` in warn — and `--warn` belongs to the rule bound, so a
+   refusal gets `--error` and the two cannot be confused. */
+.fw-k.bad .num,
+.fw-k.bad .why {
+  color: var(--error);
+}
+.fw-k.bad .bar input[type='range']::-webkit-slider-thumb {
+  background: var(--error);
+}
+.fw-k.bad .bar input[type='range']::-moz-range-thumb {
+  background: var(--error);
+}
+/* A knob that does nothing at these settings. The *control* is dimmed; the
+   sentence explaining why is not. The mock dims the whole card at `.4`, and
+   the old lab does the same (lab.html:160) — which puts the one line that
+   says "No effect: needs skeleton elements > 0" at about 2.3:1.
+
+   `.7` and not `.55`: the exemption AA grants a dimmed control is for a
+   *disabled* one, and this knob is not disabled — it takes focus, it takes a
+   value, and it keeps it. `--mist` over `--void` composites to 4.73:1 at .7
+   and to 3.35:1 at .55; console.test.ts computes the number rather than
+   trusting this comment. The dim still reads as a dim: `--mist` lands at about
+   #7b7e86, not back at its own #a9aeb8. */
+.fw-k.off .lab,
+.fw-k.off .num,
+.fw-k.off select,
+.fw-k.off .bar {
+  opacity: 0.7;
+}
+.fw-k.off .num {
+  color: var(--mist);
+}
+/* The mock has no choice knob; this is its number treatment applied to a
+   select, so the two kinds of knob sit on one grid without a seam. */
+.fw-k select {
+  flex: none;
+  max-width: 50%;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--void);
+  color: var(--signal);
+  font: inherit;
+}
+.fw-k.off select {
+  color: var(--mist);
+}
+.fw-k.bad select {
+  color: var(--error);
+  border-color: var(--error);
+}
+.fw-knobs {
+  background: var(--void);
+  padding: 14px 20px 18px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.fw-khd {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-bottom: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.fw-khd b {
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.fw-khd span {
+  color: var(--ash);
+}
+.fw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0 24px;
+  align-content: start;
+}
+.fw-k .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fw-sw {
+  justify-self: end;
+  position: relative;
+  flex: none;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--ash);
+  border-radius: 999px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.fw-sw::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--ash);
+  transition:
+    transform 120ms cubic-bezier(0.2, 0, 0, 1),
+    background 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-sw[aria-checked='true'] {
+  background: var(--signal);
+  border-color: transparent;
+}
+.fw-sw[aria-checked='true']::after {
+  background: var(--void);
+  transform: translateX(18px);
+}
+/* A preview number is a plain field, not the knob's scrubbable value: it keeps
+   the knob's colour and takes a border of its own, and the hover underline
+   above is scoped to `button.num` so this field does not claim the affordance
+   of a button. */
+.fw-k input[type='number'].num {
+  width: 72px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--void);
+  color: var(--signal);
+  font: inherit;
+  text-align: right;
+}
+
+/* A finger needs more than a 12px track and a text-height number. `shell.css`
+   raises the tabs and Generate the same way (spec §7.2). */
+@media (pointer: coarse) {
+  .fw-k .bar,
+  .fw-k .bar input[type='range'] {
+    height: 24px;
+  }
+  .fw-k .bar input[type='range']::-webkit-slider-runnable-track {
+    margin-top: 11px;
+  }
+  .fw-k .bar input[type='range']::-webkit-slider-thumb {
+    width: 4px;
+    height: 24px;
+    margin-top: -11px;
+  }
+  .fw-k .bar u {
+    top: 11px;
+  }
+  .fw-k .num,
+  .fw-k select {
+    min-height: 32px;
+  }
+}
+
+/* The preset strip is the first row and takes its own height; the stage then
+   takes what it needs, the console the rest, and the board never collapses
+   below the height at which it is a picture rather than a strip. */
+.fw-lab {
+  display: grid;
+  grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr);
+  min-height: 0;
+}
+/* The simple view has no preset strip (lab.html:52), and an absent first child
+   would auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
+.fw-lab.simple {
+  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+}
+/* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
+   in the lab but the stage — the preset strip, the console, the violations,
+   the clamp notice, and whatever a later PR puts beside them — and, inside the
+   stage, the run rail and the report. Both grids are redefined, because a
+   track keeps its size when its only item is `display: none`: the lab's rows
+   become the one stage track (`.fw-lab.simple.solo` outranks `.fw-lab.simple`
+   rather than tying with it), and the stage's columns and rows — including its
+   ≤900px rows (shell.css) — become the one board track, as the old lab's
+   `body.solo .cols` does (lab.html:140). Nothing unmounts: the GL context, the
+   run column's focus and a draft being typed all live in the hidden nodes.
+   Measured: `.fw-boardwrap` equals `.fw-lab` and the element is 34px smaller
+   on both axes at 1400×900, 860×900 and 860×650, in both views. */
+.fw-lab.solo,
+.fw-lab.simple.solo {
+  grid-template-rows: minmax(0, 1fr);
+}
+.fw-lab.solo > :not(.fw-stage),
+.fw-lab.solo .fw-runs,
+.fw-lab.solo .fw-report {
+  display: none;
+}
+.fw-lab.solo .fw-stage {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+@media (max-width: 900px) {
+  .fw-console {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+  /* A full-width row under the two tracks, which is the mock's own query. */
+  .fw-run-col {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The mock's note is bordered in `--warn`; this one is `--error` (Task 7): warn
+   is the rule bound, error is a refusal, and the two colours must not collapse
+   into one. */
+.fw-note {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--error);
+  background: var(--graphite);
+  color: var(--mist);
+}
+.fw-note b {
+  font-weight: 400;
+  color: var(--error);
+}
+.fw-note ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+/* The clamp notice: a value moved, nothing was refused. `--warn` is reserved
+   for exactly this and for a rule bound (§7.1); the refusal note keeps
+   `--error`. The empty region has no class at all, so it draws nothing. */
+.fw-note.hold {
+  border-left-color: var(--warn);
+}
+.fw-note.hold b {
+  color: var(--warn);
+}
+/* `--mist` for the same reason as the copy button: `--signal` is 3.81:1 here
+   and is reserved for state and data. */
+.fw .fw-note.hold button {
+  margin-left: 12px;
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  padding: 0;
+}
+.fw .fw-note.hold button:hover {
+  color: var(--ink);
+}
+@media (pointer: coarse) {
+  .fw .fw-note.hold button {
+    min-height: 44px;
+  }
+}
+
+/* The simple view takes the rail's track and the panel's (PR 4a, Ruling 7),
+   and at 900px the same two columns the query leaves. */
+.fw-simple {
+  grid-column: 1 / 3;
+}
+.fw-simple .fw-grid + .fw-khd {
+  margin-top: 18px;
+}
+/* A recipe slider's two end words, under the track at either edge. */
+.fw-k .fw-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* A recipe slider's percent is read, not edited: `.fw-k .num`'s text cursor
+   is the knob button's affordance. */
+.fw-k span.num {
+  cursor: default;
+}

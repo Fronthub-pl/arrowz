@@ -212,6 +212,16 @@ export function normalizeChoice(raw: unknown): SimpleChoice {
   }
 }
 
+/** The stored recipe: a choice without its seed (the seed lives in the knobs) and with the randomise flag settled. */
+export type Recipe = Omit<SimpleChoice, 'seed' | 'random'> & { random: boolean }
+
+// The stored recipe goes through normalizeChoice as is (old size ids and
+// category names, junk, clamping); defaults fill only what is missing.
+export function recipeOf(raw: unknown): Recipe {
+  const { seed: _seed, random, ...rest } = normalizeChoice(raw)
+  return { ...rest, random: random === true }
+}
+
 // Interpolates the ranges of two neighbouring anchors, knob by knob.
 function lerpRanges(anchors: readonly Anchor[], t: number): Anchor {
   const pos = Math.min(1, Math.max(0, t)) * (anchors.length - 1)

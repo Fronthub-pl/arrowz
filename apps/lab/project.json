@@ -1,0 +1,33 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "lab",
+  "projectType": "application",
+  "sourceRoot": "apps/lab/src",
+  "targets": {
+    "check": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": { "cwd": "apps/lab", "command": "pnpm run check" }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "parallelism": false,
+      "options": { "cwd": "apps/lab", "command": "pnpm run test" }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["^build"],
+      "options": { "cwd": "apps/lab", "command": "pnpm run build" }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["^build"],
+      "options": { "cwd": "apps/lab", "command": "pnpm run serve" }
+    },
+    "lint": { "executor": "nx:run-commands", "options": { "cwd": "apps/lab", "command": "pnpm run lint" } },
+    "fmt": { "executor": "nx:run-commands", "options": { "cwd": "apps/lab", "command": "pnpm run fmt" } },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build"] }
+  }
+}

@@ -281,12 +281,14 @@ deno task carve --width=40 --height=40 --seed=7
 
 Writes two files into `packages/cli/boards/40x40/`:
 
-* `seed7-f48ddb0f.board.json` — the board: every arrow, cell by cell, packed
+* `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.board.json` — the board: every arrow, cell by cell, packed
   small. This is the file a game loads.
-* `seed7-f48ddb0f.json` — a small text file recording what was asked for.
+* `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.json` — a small text file recording how it was made.
 
-The name is the seed number plus a short code worked out from the settings. Two
-boards made with different settings therefore never overwrite each other.
+The name is worked out from the arrows on the board, not from the settings.
+Another seed or other settings that happen to carve the very same arrows land in
+the same files, and the small file lists every command that made them — so
+"has this board been made before?" is "is its file there?".
 
 ### Getting a picture as well
 
@@ -295,7 +297,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=my-board.svg
 ```
 
-`--svg` adds `seed7-f48ddb0f.svg` next to the board. `--svg=my-board.svg` does
+`--svg` adds `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.svg` next to the board. `--svg=my-board.svg` does
 the same and also drops a copy at `my-board.svg`.
 
 ### Making many boards at once
@@ -304,11 +306,13 @@ the same and also drops a copy at `my-board.svg`.
 deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
-Makes 50 boards on the seeds 1, 2, 3 and so on. A seed whose board does not
-close is skipped (and not saved), and the next seed is tried, until there are
-50. After twice as many seeds as boards it gives up; `--max-seeds=200` moves
-that limit. The last line says how many boards were written and which seeds
-were skipped. The same command always makes the same boards.
+Makes 50 different boards on the seeds 1, 2, 3 and so on. A seed whose board
+does not close is skipped (and not saved), and so is a seed that carves a board
+already in the store — its command is added to that board's file — and the next
+seed is tried, until there are 50. After twice as many seeds as boards it gives
+up; `--max-seeds=200` moves that limit. The last line says how many boards were
+written and which seeds were skipped, and why. The same command always makes the
+same boards.
 
 ### Describing a board without saving it
 
@@ -837,6 +841,15 @@ If you set a knob outside its safe range, the offending row turns red, the
 reason appears next to it, and the Generate button stops working until you fix
 it. The command stays on screen, so you can still copy rejected settings.
 
+A second lab is being built at `apps/lab`, this one a React application
+served by Vite instead of a bundled script. Run it with `pnpm nx serve lab`
+alongside `deno task lab`, which serves the board store on port 8777 that the
+new lab saves to; the application itself listens on port 8779. It does not
+replace the page above yet — that happens in a later step. Its advanced
+console — twenty-eight knobs across six groups, plus the preview fields —
+now lives there; the run column, the presets and the URL hash are still
+only in the page above.
+
 ---
 
 ## Where boards are saved
@@ -846,17 +859,18 @@ By default, boards go into `packages/cli/boards/`, sorted into a folder per size
 ```
 packages/cli/boards/
   25x25/
-    seed7-8796a4f9.board.json   the board
-    seed7-8796a4f9.json         what it was made from
-    seed7-8796a4f9.svg          the picture, only with --svg
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.board.json   the board
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.json         what it was made from
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.svg          the picture, only with --svg
   40x40/
     ...
 ```
 
-The file name is the seed followed by a short code derived from the settings.
-Change a setting and you get a different code, so nothing is overwritten by
-accident. (Colours and line thickness are not part of the code, so changing
-only those writes to the same file name and replaces the old files.)
+The file name is worked out from the arrows on the board. The same arrows from
+another seed or other settings share one set of files, and the `.json` file
+lists every command that made them. (Colours and line thickness are not part of
+the name, so changing only those writes to the same file name and replaces the
+picture.)
 
 Point it somewhere else with the `ARROWZ_BOARDS_DIR` variable:
 
@@ -972,6 +986,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
 | `packages/cli/` | The command-line tool, the board store and the lab page. |
+| `apps/lab/` | The new React lab, built next to the page above; not yet its replacement. |
 
 Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
 `.claude/settings.json` (at the start and end of a session), and `.mcp.json`

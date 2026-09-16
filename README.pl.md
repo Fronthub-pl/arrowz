@@ -280,12 +280,14 @@ deno task carve --width=40 --height=40 --seed=7
 
 Zapisuje dwa pliki w `packages/cli/boards/40x40/`:
 
-* `seed7-f48ddb0f.board.json` — plansza: każda strzałka, komórka po komórce,
+* `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.board.json` — plansza: każda strzałka, komórka po komórce,
   ciasno spakowana. Ten plik wczytuje gra.
-* `seed7-f48ddb0f.json` — mały plik tekstowy z zapisem tego, o co poproszono.
+* `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.json` — mały plik tekstowy z zapisem tego, jak powstała.
 
-Nazwa to numer ziarna plus krótki kod wyliczony z ustawień. Dwie plansze
-zrobione przy różnych ustawieniach nigdy się więc nawzajem nie nadpiszą.
+Nazwa jest wyliczana ze strzałek na planszy, a nie z ustawień. Inne ziarno albo
+inne ustawienia, które przypadkiem wytną dokładnie te same strzałki, trafiają do
+tych samych plików, a mały plik wymienia każde polecenie, które je zrobiło — więc
+„czy taka plansza już była?” to „czy jej plik istnieje?”.
 
 ### Obrazek w dodatku
 
@@ -294,7 +296,7 @@ deno task carve --width=40 --height=40 --svg
 deno task carve --width=40 --height=40 --svg=moja-plansza.svg
 ```
 
-`--svg` dokłada `seed7-f48ddb0f.svg` obok planszy. `--svg=moja-plansza.svg`
+`--svg` dokłada `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.svg` obok planszy. `--svg=moja-plansza.svg`
 robi to samo i dodatkowo zostawia kopię w `moja-plansza.svg`.
 
 ### Wiele plansz naraz
@@ -303,11 +305,13 @@ robi to samo i dodatkowo zostawia kopię w `moja-plansza.svg`.
 deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
-Robi 50 plansz na ziarnach 1, 2, 3 i dalej. Ziarno, którego plansza się nie
-domyka, jest pomijane (i nie zapisywane), a próbowane jest następne, aż będzie
-50. Po dwa razy większej liczbie ziaren niż plansz poddaje się; `--max-seeds=200`
-przesuwa tę granicę. Ostatnia linia mówi, ile plansz zapisano i które ziarna
-pominięto. To samo polecenie zawsze robi te same plansze.
+Robi 50 różnych plansz na ziarnach 1, 2, 3 i dalej. Ziarno, którego plansza się
+nie domyka, jest pomijane (i nie zapisywane), tak samo ziarno, które wytnie
+planszę już leżącą w magazynie — jego polecenie dopisuje się do pliku tej
+planszy — a próbowane jest następne, aż będzie 50. Po dwa razy większej liczbie
+ziaren niż plansz poddaje się; `--max-seeds=200` przesuwa tę granicę. Ostatnia
+linia mówi, ile plansz zapisano i które ziarna pominięto, i dlaczego. To samo
+polecenie zawsze robi te same plansze.
 
 ### Podgląd bez zapisywania
 
@@ -841,6 +845,15 @@ czerwony, obok pojawia się powód, a przycisk generowania przestaje działać,
 dopóki tego nie poprawisz. Polecenie zostaje na ekranie, więc odrzucone
 ustawienia i tak możesz skopiować.
 
+Powstaje drugie laboratorium, w `apps/lab` — tym razem aplikacja w Reakcie,
+serwowana przez Vite zamiast złożonego skryptu. Uruchamiasz je poleceniem
+`pnpm nx serve lab` obok `deno task lab`, które serwuje na porcie 8777
+magazyn plansz, do którego nowe laboratorium zapisuje; sama aplikacja
+nasłuchuje na porcie 8779. Nie zastępuje jeszcze strony opisanej wyżej — to
+stanie się w kolejnym kroku. Zaawansowana konsola — dwadzieścia osiem
+pokręteł w sześciu grupach, plus pola podglądu — mieszka już tutaj; kolumna
+uruchamiania, presety i skrót URL wciąż istnieją tylko na starej stronie.
+
 ---
 
 ## Gdzie lądują plansze
@@ -851,17 +864,17 @@ rozmiar:
 ```
 packages/cli/boards/
   25x25/
-    seed7-8796a4f9.board.json   plansza
-    seed7-8796a4f9.json         z czego powstała
-    seed7-8796a4f9.svg          obrazek, tylko z --svg
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.board.json   plansza
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.json         z czego powstała
+    sha256-0dc74eeff4ad01590a81f3aa79727f673dad073976f7a37df4bd8a4af4d7b978.svg          obrazek, tylko z --svg
   40x40/
     ...
 ```
 
-Nazwa pliku to ziarno, a po nim krótki kod wyliczony z ustawień. Zmień
-ustawienie, a dostaniesz inny kod, więc nic nie nadpisze się przypadkiem.
-(Kolory i grubość linii nie wchodzą do kodu, więc zmiana tylko ich zapisuje pod
-tą samą nazwą i zastępuje poprzednie pliki.)
+Nazwa pliku jest wyliczana ze strzałek na planszy. Te same strzałki z innego
+ziarna albo innych ustawień dzielą jeden komplet plików, a plik `.json` wymienia
+każde polecenie, które je zrobiło. (Kolory i grubość linii nie wchodzą do nazwy,
+więc zmiana tylko ich zapisuje pod tą samą nazwą i zastępuje obrazek.)
 
 Wskaż inne miejsce zmienną `ARROWZ_BOARDS_DIR`:
 
@@ -980,6 +993,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
 | `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
+| `apps/lab/` | Nowe laboratorium w Reakcie, budowane obok strony wyżej; jeszcze jej nie zastępuje. |
 
 Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
 `.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`

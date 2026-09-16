@@ -275,8 +275,33 @@ export interface PresetLevel {
   options: Preset[]
 }
 
-/** One stored board: the meta JSON next to the board file in packages/cli/boards/<WxH>/. */
+/**
+ * One way of producing a stored layout: a seed and parameters, and the run that
+ * used them. Its command reproduces the layout unless the run was aborted.
+ */
+export interface Recipe {
+  /** boardId(params): unique within its layout; a save with the same parameters replaces it. */
+  id: string
+  params: Params
+  view: View
+  command: string
+  source: string
+  createdAt: string
+  updatedAt: string
+  genMs: number | null
+  restarts: number | null
+  backtracks: number | null
+  aborted: boolean
+}
+
+/**
+ * One stored layout: the meta JSON next to the board file in
+ * packages/cli/boards/<WxH>/. The recipe fields at the top level (seed, params,
+ * view, command, source, genMs, restarts, backtracks, aborted) copy the recipe
+ * the latest save wrote; `sources` lists them all.
+ */
 export interface BoardMeta {
+  /** layoutHash() of the stored board: `sha256-<64 hex>`. */
   id: string
   W: number
   H: number
@@ -296,9 +321,9 @@ export interface BoardMeta {
   pieces: number | null
   maxLen: number | null
   genMs: number | null
-  /** fingerprint() of the stored board; null for a meta written before board files. */
+  /** fingerprint() of the stored board file, which the save that created the layout wrote. */
   fingerprint: string | null
-  /** Size of <id>.board.json in bytes; null for a meta written before board files. */
+  /** Size of <id>.board.json in bytes. */
   boardBytes: number | null
   /** Whether an SVG preview (<id>.svg) sits next to the board file. */
   svg: boolean
@@ -308,6 +333,32 @@ export interface BoardMeta {
   backtracks: number | null
   aborted: boolean
   stuck: Stuck | null
+  /** Every recipe that produced this layout, in the order they were first saved. */
+  sources: Recipe[]
+}
+
+/**
+ * The body of a board-store write. Mutable and nullable on purpose:
+ * `lab-server.ts`'s checkMetrics builds one field by field, and a `BoardMeta`
+ * read back out of the store carries `null` where a run had no figure (see
+ * `ok`, `pieces`, `maxLen` and `genMs` above). Making these readonly or
+ * non-nullable breaks both callers.
+ */
+export interface StoreRequest {
+  board: BoardFile
+  params: Params
+  view: View
+  command: string
+  source: string
+  metrics?: {
+    ok?: boolean | null
+    pieces?: number | null
+    maxLen?: number | null
+    genMs?: number | null
+    restarts?: number | null
+    backtracks?: number | null
+    stuck?: Stuck | null
+  }
 }
 
 export interface BoardSize {

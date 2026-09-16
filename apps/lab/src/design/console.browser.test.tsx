@@ -1,0 +1,40 @@
+import { PARAM_SPEC } from '@arrowz/engine'
+import { expect, test } from 'vitest'
+import { render } from 'vitest-browser-react'
+import { ValueKnob } from '../console/ValueKnob'
+import { useStore } from '../state/store'
+import { contrast, shown } from './contrast'
+import './tokens.css'
+import './shell.css'
+import './console.css'
+
+/**
+ * This console argues, on purpose, that a knob which does nothing is *not*
+ * disabled — it is focusable, operable and it keeps its value — so it cannot
+ * claim the exemption WCAG grants disabled controls, and every run of text in
+ * it has to clear AA like any other text (spec §7.1, Finding D).
+ */
+test('no text in an inactive knob is dimmed further than AA allows', async () => {
+  useStore.getState().params.reset()
+  // giants is 0, so the serpentine knobs do nothing: the same knob
+  // ValueKnob.browser.test.tsx uses to assert the `off` class is applied.
+  const spec = PARAM_SPEC.find((s) => s.key === 'giantSpan')
+  if (!spec) throw new Error('no spec for giantSpan')
+  const screen = await render(<ValueKnob spec={spec} />)
+  const knob = screen.container.querySelector('.fw-k.off')
+  if (!knob) throw new Error('the knob under test is not in the inactive state')
+
+  // Every element holding text of its own, not a hand-written list of class
+  // names: a run this console adds later is measured the day it is added.
+  const runs = [...knob.querySelectorAll('*')].filter((node) =>
+    [...node.childNodes].some((child) => child.nodeType === Node.TEXT_NODE && child.textContent?.trim()),
+  )
+  expect(runs.length).toBeGreaterThan(2)
+  for (const run of runs) {
+    const { front, back } = shown(run)
+    expect(
+      contrast(front, back),
+      `${run.className || run.nodeName} reads ${run.textContent?.slice(0, 24)}`,
+    ).toBeGreaterThanOrEqual(4.5)
+  }
+})

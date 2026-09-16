@@ -8,14 +8,12 @@ import type {
   BoardFile,
   BoardMeta,
   BoardSize,
-  InactiveKey,
   LongestSummary,
   ParamGroup,
   ParamKey,
   Params,
   ParamSpec,
   Preset,
-  RuleKey,
   SimpleChoice,
   View,
   ViewNumber,
@@ -24,22 +22,35 @@ import type {
   WorkerOut,
 } from '@arrowz/engine'
 import {
+  clampParam,
   decodeBoard,
   defaultParams,
-  INACTIVE_REASONS,
+  longestSummary,
   PARAM_SPEC,
-  RULE_REASONS,
-  snapToStep,
-  stepsAround,
+  readParams,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, DEFAULT_VIEW, START, svgOptions, VIEW_RANGE, wordFor } from '@arrowz/engine/command'
-import { type Dictionary, EN, escapeHtml, PL, type UiArgs, type UiKey } from '@arrowz/engine/i18n'
+import {
+  buildCommand,
+  isStartChoice,
+  MIX_START,
+  START,
+  START_CHOICES,
+  type StartChoice,
+  startChoiceOf,
+  storeRequest,
+  svgOptions,
+  viewNumberOf,
+  wordFor,
+} from '@arrowz/engine/command'
+import { dictionary, EN, escapeHtml, type Lang, type UiKey } from '@arrowz/engine/i18n'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
+import { genSeconds, pct, reportDelta, reportRows } from '@arrowz/engine/report'
 import {
   defaultChoice,
   exportCell,
-  normalizeChoice,
+  type Recipe,
+  recipeOf,
   SIMPLE_CHOICES,
   SIMPLE_SLIDERS,
   simpleParams,
@@ -48,7 +59,7 @@ import {
 // resolve the Node package name, and a value import (ArrowzBoard, used in the
 // instanceof below), because a bare side-effect import is dropped by the
 // bundler — the package's sideEffects names only its dist/.
-import { ArrowzBoard, type BoardView } from '../board-element/src/mod.ts'
+import { ArrowzBoard, type BoardView, boardViewOf } from '../board-element/src/mod.ts'
 
 /** An element by id; the ids are fixed in lab.html, so a miss is a bug, not a state. */
 function el<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -65,19 +76,6 @@ const boardNode = el('board')
 if (!(boardNode instanceof ArrowzBoard)) throw new Error('#board is not an <arrowz-board>')
 const boardEl: ArrowzBoard = boardNode
 
-/** The lab's view as the element takes it; `cell` is a size in the exported SVG and does not apply. */
-function boardView(v: View, voids: boolean): Partial<BoardView> {
-  return {
-    stroke: v.stroke,
-    headWidth: v.headWidth,
-    headHeight: v.headHeight,
-    rounded: v.rounded,
-    colored: v.colored,
-    top: v.top,
-    voids,
-  }
-}
-
 /** Puts a board on screen with a view; null clears the board. */
 function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
   // The lab's checkboxes own the colour; the element's own colour button is a peek until the next redraw.
@@ -86,38 +84,6 @@ function showBoard(board: BoardData | null, view: Partial<BoardView>): void {
   boardEl.view = view
 }
 
-/** The table of the N longest pieces: their box, how far they reach and how much they coil. */
-function longestSummary(board: BoardData, n: number): LongestSummary[] {
-  const W = board.W
-  // slice(), not a spread into a call: the piece count reaches ~90 000.
-  const longest = board.pieces.slice().sort((a, b) => b.cells.length - a.cells.length).slice(0, n)
-  return longest.map((pc) => {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-    const own = new Set(pc.cells.map((c) => c.y * W + c.x))
-    let coil = 0
-    for (const c of pc.cells) {
-      if (c.x < minX) minX = c.x
-      if (c.x > maxX) maxX = c.x
-      if (c.y < minY) minY = c.y
-      if (c.y > maxY) maxY = c.y
-      let touch = 0
-      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]] as const) {
-        if (own.has((c.y + dy) * W + (c.x + dx))) touch++
-      }
-      if (touch >= 3) coil++
-    }
-    const sx = maxX - minX + 1
-    const sy = maxY - minY + 1
-    return {
-      len: pc.cells.length,
-      sx,
-      sy,
-      span: Math.max(sx / board.W, sy / board.H),
-      density: pc.cells.length / (sx * sy),
-      coil: coil / pc.cells.length,
-    }
-  })
-}
 const state: Params = { ...defaultParams() }
 
 /** Something parsed from JSON that is an object: its fields are still unknown. */
@@ -138,55 +104,17 @@ function readJson(text: string | null): unknown {
     return null
   }
 }
-/** The knob values of an object loaded from outside: finite numbers under known keys only. */
-function readParams(raw: unknown): Partial<Record<ParamKey, number>> {
-  const out: Partial<Record<ParamKey, number>> = {}
-  if (!isRecord(raw)) return out
-  for (const spec of PARAM_SPEC) {
-    const v = raw[spec.key]
-    if (typeof v === 'number' && Number.isFinite(v)) out[spec.key] = v
-  }
-  return out
-}
-
 // --- language ---------------------------------------------------------------
-// English is the source language (PARAM_SPEC, INACTIVE_REASONS, EN.ui);
-// Polish is a translation looked up by key, falling back to English.
-type Lang = 'en' | 'pl'
-const DICT: Record<Lang, Dictionary> = { en: EN, pl: PL }
 let lang: Lang = localStorage.getItem('labLang') === 'pl' ||
     (localStorage.getItem('labLang') === null && navigator.language.toLowerCase().startsWith('pl'))
   ? 'pl'
   : 'en'
-// The call site is typed by UiArgs<K>; the cast only dispatches the call over
-// the union of function-valued entries, which TypeScript cannot resolve generically.
-function t<K extends UiKey>(key: K, ...args: UiArgs<K>): string {
-  const v = DICT[lang].ui[key] ?? EN.ui[key]
-  return typeof v === 'function' ? (v as (...a: unknown[]) => string)(...args) : v
-}
+// Every text the page writes comes from here; applyLanguage builds a new one
+// when the language changes, so no helper has to read `lang` itself.
+let dict = dictionary(lang)
 function isUiKey(key: string): key is UiKey {
   return Object.hasOwn(EN.ui, key)
 }
-function isInactiveKey(key: InactiveKey | RuleKey): key is InactiveKey {
-  return Object.hasOwn(INACTIVE_REASONS, key)
-}
-function paramText(spec: ParamSpec): { label: string; help: string } {
-  const pl = lang === 'pl' ? PL.params[spec.key] : null
-  return { label: pl?.label ?? spec.label, help: pl?.help ?? spec.help }
-}
-// A choice is stored as a number and written on the command line as the word
-// PARAM_SPEC gives it (--giantspacing=off), which is also its English text;
-// Polish translates that word, and the command box keeps showing the CLI's.
-function choiceText(key: ParamKey, word: string): string {
-  return (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word
-}
-// Reason keys come from two engine tables: INACTIVE_REASONS (a knob with no
-// effect) and RULE_REASONS (a cross-knob rule broken). PL.reasons covers both.
-function reasonText(key: InactiveKey | RuleKey): string {
-  if (lang === 'pl') return PL.reasons[key]
-  return isInactiveKey(key) ? INACTIVE_REASONS[key] : RULE_REASONS[key]
-}
-const fmt = (n: number) => n.toLocaleString(lang === 'pl' ? 'pl' : 'en')
 
 // --- parameter panel built from PARAM_SPEC so it cannot drift from the engine
 const specByKey = new Map<ParamKey, ParamSpec>(PARAM_SPEC.map((s) => [s.key, s]))
@@ -327,13 +255,6 @@ function choiceRow(spec: ParamSpec, choices: readonly { value: number; word: str
 // the CLI takes, plus `mixing`, which reveals the share as a row of its own.
 // Both knobs stay in PARAM_SPEC — they are stored in the board file and hashed
 // into the board id — and the row loop below builds no row for either.
-type StartChoice = keyof Dictionary['start']['options']
-const START_CHOICES = Object.keys(EN.start.options) as StartChoice[]
-/** The share `mixing` starts from when the stored value is no share at all: the middle of the range. */
-const MIX_START = (START.mix.min + START.mix.max) / 2
-function isStartChoice(v: string): v is StartChoice {
-  return Object.hasOwn(EN.start.options, v)
-}
 const startRow = document.createElement('div')
 startRow.className = 'row choice'
 const startLabel = document.createElement('label')
@@ -351,7 +272,7 @@ const mixRow = numberRow(specOf('mix'), START.mix)
 paramRows.set('mix', mixRow)
 startSelect.addEventListener('change', () => {
   const v = startSelect.value
-  // The options are built from the dictionary, so anything else is a bug here.
+  // The options are built from the CLI's own vocabulary, so anything else is a bug here.
   if (!isStartChoice(v)) throw new Error(`unknown start choice ${v}`)
   setStart(v)
   if (el<HTMLInputElement>('auto').checked) schedule()
@@ -364,7 +285,8 @@ mixRow.num.addEventListener('change', () => {
 
 /** Writes the two knobs behind the control: a word stores its pair, `mixing` keeps a share in range. */
 function setStart(choice: StartChoice): void {
-  const pair = START.words[choice]
+  // 'mixing' is not a word in the table: it is the share, handled below.
+  const pair = choice === 'mixing' ? undefined : START.words[choice]
   if (pair) {
     setParam('headBias', pair.headBias)
     setParam('mix', pair.mix)
@@ -375,25 +297,16 @@ function setStart(choice: StartChoice): void {
   setParam('mix', share)
 }
 
-/** Which of the four the stored pair stands for: a share is `mixing`, mixing off is what headBias says. */
-function startChoiceOfState(): StartChoice {
-  if (state.mix >= 0) return 'mixing'
-  for (const [word, pair] of Object.entries(START.words)) {
-    if (pair.headBias === state.headBias && isStartChoice(word)) return word
-  }
-  return 'random'
-}
-
 /** The control follows the two stored knobs; the share row appears with `mixing`. */
 function syncStart(): void {
-  const choice = startChoiceOfState()
+  const choice = startChoiceOf(state)
   startSelect.value = choice
   mixRow.row.hidden = choice !== 'mixing'
 }
 
 /** The start control's own texts; every knob row takes its label and help from PARAM_SPEC. */
 function startLabels(): void {
-  const d = DICT[lang].start
+  const d = dict.d.start
   startLabel.textContent = d.label
   startHelp.textContent = d.help
   for (const { choice, option } of startOptions) option.textContent = d.options[choice]
@@ -441,37 +354,24 @@ syncStart()
 // violations are listed under the presets and Generate is blocked, so a
 // configuration the engine would refuse cannot be started from the lab.
 let violations: Violation[] = []
-function violationText(v: Violation): string {
-  if (v.kind === 'range') {
-    const spec = specByKey.get(v.key)
-    return t('rangeViolation', spec ? paramText(spec).label : v.key, v.value, v.min, v.max)
-  }
-  if (v.kind === 'step') {
-    const spec = specByKey.get(v.key)
-    const [below, above] = stepsAround(v.value, v.step, v.min)
-    return t('stepViolation', spec ? paramText(spec).label : v.key, v.value, below, above)
-  }
-  const reason = reasonText(v.key)
-  return v.need === undefined ? reason : t('needViolation', reason, v.need)
-}
 function refreshActive() {
   violations = validateParams(state)
   const broken = new Map<ParamKey, string[]>() // knob key -> texts of the violations naming it
   for (const v of violations) {
     for (const k of v.kind === 'rule' ? v.keys : [v.key]) {
       const list = broken.get(k)
-      if (list) list.push(violationText(v))
-      else broken.set(k, [violationText(v)])
+      if (list) list.push(dict.violation(v))
+      else broken.set(k, [dict.violation(v)])
     }
   }
   for (const { row, spec, label, help } of paramRows.values()) {
     const bad = broken.get(spec.key)
     const key = !bad && spec.inactive ? spec.inactive(state) : null
-    const why = bad ? bad.join('; ') : key ? `${t('inactivePrefix')}${reasonText(key)}` : null
+    const why = bad ? bad.join('; ') : key ? `${dict.t('inactivePrefix')}${dict.reason(key)}` : null
     row.classList.toggle('violation', !!bad)
     row.classList.toggle('inactive', !!key)
     if (help) help.dataset.why = why ? `${why}. ` : ''
-    const tx = paramText(spec)
+    const tx = dict.paramText(spec)
     label.title = why ? `${why}. ${tx.help}` : tx.help // tooltip works with hidden help too
   }
   const box = el('violations')
@@ -481,7 +381,7 @@ function refreshActive() {
   list.textContent = ''
   for (const v of violations) {
     const li = document.createElement('li')
-    li.textContent = violationText(v)
+    li.textContent = dict.violation(v)
     list.append(li)
   }
   refreshRunButton()
@@ -494,10 +394,11 @@ function refreshRunButton() {
   const blocked = violations.length > 0
   const run = el<HTMLButtonElement>('run')
   run.disabled = busy || blocked
-  run.title = blocked ? t('generateBlocked') : ''
+  run.title = blocked ? dict.t('generateBlocked') : ''
 }
 
 function applyLanguage() {
+  dict = dictionary(lang)
   document.documentElement.lang = lang
   boardEl.lang = lang
   localStorage.setItem('labLang', lang)
@@ -507,22 +408,22 @@ function applyLanguage() {
     const key = e.dataset.i18n
     // The markup names ui keys by hand; an unknown one is a typo in lab.html.
     if (key === undefined || !isUiKey(key)) throw new Error(`unknown ui key ${key}`)
-    e.textContent = t(key)
+    e.textContent = dict.t(key)
   }
-  el('solo').title = t('fullView')
+  el('solo').title = dict.t('fullView')
   presetLabels()
   simpleLabels()
   disarmDelete()
   for (const [group, { sum, help }] of groupBoxes) {
-    sum.textContent = DICT[lang].groups[group]
-    if (help) help.textContent = stringAt(DICT[lang].groupHelp, group) ?? stringAt(EN.groupHelp, group) ?? ''
+    sum.textContent = dict.d.groups[group]
+    if (help) help.textContent = stringAt(dict.d.groupHelp, group) ?? stringAt(EN.groupHelp, group) ?? ''
   }
   for (const entry of paramRows.values()) {
-    const tx = paramText(entry.spec)
+    const tx = dict.paramText(entry.spec)
     entry.label.textContent = tx.label
     if (entry.help) entry.help.textContent = tx.help
     if (entry.kind === 'choice') {
-      for (const { word, option } of entry.options) option.textContent = choiceText(entry.spec.key, word)
+      for (const { word, option } of entry.options) option.textContent = dict.choiceText(entry.spec.key, word)
     }
   }
   startLabels()
@@ -532,7 +433,7 @@ function applyLanguage() {
   if (activeTab === 'library') {
     renderLibrary()
     if (libBoard) showBoardStatus(libBoard)
-  } else if (!lastDone && !busy) setStatus(t('pressGenerate'))
+  } else if (!lastDone && !busy) setStatus(dict.t('pressGenerate'))
   saveToUrl()
 }
 el('langPl').addEventListener('click', () => {
@@ -565,7 +466,7 @@ for (const level of PRESETS) {
 const presetPlaceholder = new Option('', '', true, true)
 el<HTMLSelectElement>('presets').prepend(presetPlaceholder)
 function presetLabels() {
-  const d = DICT[lang].presets, en = EN.presets
+  const d = dict.d.presets, en = EN.presets
   presetPlaceholder.textContent = d.placeholder
   for (const { group, level } of presetGroups) {
     group.label = stringAt(d.levels, level) ?? stringAt(en.levels, level) ?? level
@@ -598,14 +499,6 @@ el<HTMLSelectElement>('presets').addEventListener('change', () => {
 // setParam like a preset, so the command, the advanced view and the URL show
 // exactly what was generated — the values drawn in random mode included.
 const SIMPLE_KEY = 'labSimple'
-/** The stored recipe: a choice without its seed (the seed lives in the knobs) and with the randomise flag settled. */
-type Recipe = Omit<SimpleChoice, 'seed' | 'random'> & { random: boolean }
-// The stored recipe goes through normalizeChoice as is (old size ids and
-// category names, junk, clamping); defaults fill only what is missing.
-function recipeOf(raw: unknown): Recipe {
-  const { seed: _seed, random, ...rest } = normalizeChoice(raw)
-  return { ...rest, random: random === true }
-}
 let simpleChoice: Recipe = recipeOf(readJson(localStorage.getItem(SIMPLE_KEY)))
 
 // The size is edited like in the advanced view: a number and a slider per
@@ -705,7 +598,7 @@ for (const group of Object.keys(SIMPLE_CHOICES).filter(isChoiceGroup)) {
   segLabels.set(group, label)
 }
 function simpleLabels() {
-  const d = DICT[lang].simple, en = EN.simple
+  const d = dict.d.simple, en = EN.simple
   for (const [key, label] of sliderLabels) label.textContent = d[key]
   for (const { e, key, i } of sliderEnds) e.textContent = d.ends[key][i]
   for (const [group, label] of segLabels) label.textContent = d[group]
@@ -718,10 +611,10 @@ function simpleLabels() {
     if (text === undefined) throw new Error(`unknown simple key ${key}`)
     e.textContent = text
   }
-  for (const { label, key } of sizeLabels) label.textContent = paramText(specOf(key)).label
+  for (const { label, key } of sizeLabels) label.textContent = dict.paramText(specOf(key)).label
   el('viewSimple').textContent = d.viewSimple
   el('viewAdvanced').textContent = d.viewAdvanced
-  el('sSeedLabel').textContent = paramText(specOf('seed')).label
+  el('sSeedLabel').textContent = dict.paramText(specOf('seed')).label
 }
 function syncSimpleForm() {
   for (const [key, { num, range }] of sizeInputs) {
@@ -769,17 +662,6 @@ el('sRandom').addEventListener('change', () => {
   simpleChoice.random = el<HTMLInputElement>('sRandom').checked
   localStorage.setItem(SIMPLE_KEY, JSON.stringify(simpleChoice))
 })
-
-// Pulls a value loaded from outside (URL, preset, stored board) into the
-// knob's range and onto its grid; anything that is not a finite number (an
-// emptied field) falls back to the default. Both halves matter: a value
-// between two stops is a step violation, which would leave the panel red
-// with no control able to fix it. Pure, so it can be tested without the page.
-function clampParam(spec: ParamSpec, value: number): { value: number; clamped: boolean } {
-  if (!Number.isFinite(value)) return { value: spec.def, clamped: true }
-  const v = snapToStep(Math.min(spec.max, Math.max(spec.min, value)), spec.step, spec.min)
-  return { value: v, clamped: v !== value }
-}
 
 // Every path that sets a knob from outside goes through here. Returns whether
 // the value had to be clamped, so a load can show the notice once.
@@ -835,12 +717,7 @@ el('clampDismiss').addEventListener('click', () => showClamped(false))
  * unreadable field falls back to the default, as it always did.
  */
 function viewNumber(id: string, field: ViewNumber): number {
-  const raw = el<HTMLInputElement>(id).value.trim()
-  const n = Number(raw)
-  if (raw === '' || !Number.isFinite(n)) return DEFAULT_VIEW[field]
-  const r = VIEW_RANGE[field]
-  const v = Math.min(r.max, Math.max(r.min, n))
-  return r.whole ? Math.round(v) : v
+  return viewNumberOf(el<HTMLInputElement>(id).value, field)
 }
 
 function viewOptions(): View {
@@ -872,9 +749,9 @@ el('copyCommand').addEventListener('click', async () => {
 })
 // Brief confirmation on a copy button; the label comes back through the dictionary.
 function flashCopied(btn: HTMLButtonElement) {
-  btn.textContent = t('copied')
+  btn.textContent = dict.t('copied')
   setTimeout(() => {
-    btn.textContent = t('copy')
+    btn.textContent = dict.t('copy')
   }, 1200)
 }
 
@@ -890,7 +767,7 @@ function newWorker(): Worker {
   const w = new Worker(new URL('./lab-worker.js', import.meta.url), { type: 'module' })
   w.onmessage = (e: MessageEvent<WorkerOut>) => onWorkerMessage(e.data)
   w.onerror = (e) => {
-    setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(e.message)}`)
+    setStatus(`<span class="bad">${dict.t('workerError')}</span> ${escapeHtml(e.message)}`)
     finish()
   }
   return w
@@ -906,13 +783,13 @@ function onWorkerMessage(msg: WorkerOut) {
     case 'progress': {
       const { pieces, remaining, backtracks, ms, total } = msg.info
       const done = 100 * (1 - remaining / total)
-      const short = (n: number) => (n >= 10000 ? (n / 1000).toFixed(0) + 'k' : fmt(n))
-      setStatus(t('progress', done.toFixed(1), short(pieces), short(remaining), backtracks, (ms / 1000).toFixed(1)))
+      const s = (ms / 1000).toFixed(1)
+      setStatus(dict.t('progress', done.toFixed(1), dict.short(pieces), dict.short(remaining), backtracks, s))
       el('bar').style.width = done.toFixed(1) + '%'
       return
     }
     case 'error':
-      setStatus(`<span class="bad">${t('generationError')}</span> ${escapeHtml(msg.message)}`)
+      setStatus(`<span class="bad">${dict.t('generationError')}</span> ${escapeHtml(msg.message)}`)
       finish()
       return
     case 'svg':
@@ -924,7 +801,7 @@ function onWorkerMessage(msg: WorkerOut) {
       } catch (err) {
         // The worker encoded this file a moment ago: a failure is a codec bug, shown rather than hidden.
         setStatus(
-          `<span class="bad">${t('generationError')}</span> ${
+          `<span class="bad">${dict.t('generationError')}</span> ${
             escapeHtml(err instanceof Error ? err.message : String(err))
           }`,
         )
@@ -985,7 +862,7 @@ function killWorker() {
 el('abort').addEventListener('click', () => {
   if (!busy) return
   killWorker()
-  setStatus(`<span class="bad">${t('aborted')}</span>`)
+  setStatus(`<span class="bad">${dict.t('aborted')}</span>`)
   finish()
 })
 
@@ -993,7 +870,7 @@ function run() {
   // Every way of starting a run (button, auto-generate, preset, URL, reseed)
   // ends here, so this is the one place the envelope is enforced.
   if (violations.length) {
-    setStatus(`<span class="bad">${t('generateBlocked')}</span>`)
+    setStatus(`<span class="bad">${dict.t('generateBlocked')}</span>`)
     return
   }
   // A new request interrupts the previous one. Without this, changing a
@@ -1002,7 +879,7 @@ function run() {
   if (busy) killWorker()
   const cells = state.W * state.H
   start()
-  setStatus(cells > 200000 ? t('generatingBig', state.W, state.H, fmt(cells)) : t('generating'))
+  setStatus(cells > 200000 ? dict.t('generatingBig', state.W, state.H, dict.fmt(cells)) : dict.t('generating'))
   // The report describes the board that WAS PRODUCED, not the current form
   // fields — the user may have changed them after generating.
   runParams = { ...state }
@@ -1013,7 +890,7 @@ function run() {
 /** The lab tab's board with the lab's view, and the table of its longest pieces. */
 function showLabBoard(): void {
   const view = viewOptions()
-  showBoard(labBoard, boardView(view, voidsOn()))
+  showBoard(labBoard, boardViewOf(view, voidsOn()))
   lastLongest = labBoard ? longestSummary(labBoard, view.top) : null
   renderLongest(lastLongest ?? [])
 }
@@ -1098,12 +975,12 @@ el('download').addEventListener('click', () => {
       a.click()
       URL.revokeObjectURL(url)
     } else if (msg.type === 'error') {
-      setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(msg.message)}`)
+      setStatus(`<span class="bad">${dict.t('workerError')}</span> ${escapeHtml(msg.message)}`)
     }
     done()
   }
   w.onerror = (e) => {
-    setStatus(`<span class="bad">${t('workerError')}</span> ${escapeHtml(e.message)}`)
+    setStatus(`<span class="bad">${dict.t('workerError')}</span> ${escapeHtml(e.message)}`)
     done()
   }
   btn.disabled = true
@@ -1120,22 +997,15 @@ function storeView(): View {
 }
 async function saveBoardToStore(board: BoardFile, done: Done) {
   const view = storeView()
-  const body = {
-    board,
-    params: runParams,
-    view,
-    command: buildCommand(runParams, view),
-    source: 'lab',
-    metrics: {
-      ok: done.ok,
-      pieces: done.pieces,
-      maxLen: done.metrics?.maxLen ?? null,
-      genMs: done.genMs,
-      restarts: done.restartsUsed,
-      backtracks: done.backtracks,
-      stuck: done.stuck,
-    },
-  }
+  const body = storeRequest(board, runParams, view, 'lab', {
+    ok: done.ok,
+    pieces: done.pieces,
+    maxLen: done.metrics?.maxLen ?? null,
+    genMs: done.genMs,
+    restarts: done.restartsUsed,
+    backtracks: done.backtracks,
+    stuck: done.stuck,
+  })
   try {
     const r = await fetch('/api/boards', {
       method: 'POST',
@@ -1146,11 +1016,11 @@ async function saveBoardToStore(board: BoardFile, done: Done) {
     const meta: BoardMeta = await r.json()
     el('status').insertAdjacentHTML(
       'beforeend',
-      ` · ${t('saved')} <code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
+      ` · ${dict.t('saved')} <code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
     )
     boardsCache = null // the store tab list is stale
   } catch {
-    el('status').insertAdjacentHTML('beforeend', ` · <span class="bad">${t('notSaved')}</span>`)
+    el('status').insertAdjacentHTML('beforeend', ` · <span class="bad">${dict.t('notSaved')}</span>`)
   }
 }
 
@@ -1199,7 +1069,7 @@ async function loadLibrary({ force = false, open = false }: { force?: boolean; o
       cache = list
     } catch {
       boardsCache = []
-      el('libList').innerHTML = `<p class="grouphelp">${t('noStoreServer')}</p>`
+      el('libList').innerHTML = `<p class="grouphelp">${dict.t('noStoreServer')}</p>`
       return
     }
     boardsCache = cache
@@ -1235,7 +1105,7 @@ function renderLibrary() {
   }
   const size = boardsCache.find((s) => s.size === libSize)
   if (!size) {
-    el('libList').innerHTML = `<p class="grouphelp">${t('storeEmpty')}</p>`
+    el('libList').innerHTML = `<p class="grouphelp">${dict.t('storeEmpty')}</p>`
     return
   }
   el('libList').innerHTML = ''
@@ -1244,28 +1114,23 @@ function renderLibrary() {
     row.className = 'boardrow' + (libBoard?.id === meta.id ? ' on' : '')
     const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
     row.innerHTML = `<span class="id">${escapeHtml(meta.id)}</span><span>${escapeHtml(when)}</span>` +
-      `<span class="meta">${t('piecesShort', escapeHtml(meta.pieces ?? '?'))} · ${
-        t('longestShort', escapeHtml(meta.maxLen ?? '?'))
-      } · ${t('genShort', genSeconds(meta))} · ${escapeHtml(meta.source)}` +
-      `${meta.ok === false ? ` · <b class="bad">${t('notClosed')}</b>` : ''}</span>`
+      `<span class="meta">${dict.t('piecesShort', escapeHtml(meta.pieces ?? '?'))} · ${
+        dict.t('longestShort', escapeHtml(meta.maxLen ?? '?'))
+      } · ${dict.t('genShort', genSeconds(meta, '—'))} · ${escapeHtml(meta.source)}` +
+      `${meta.ok === false ? ` · <b class="bad">${dict.t('notClosed')}</b>` : ''}</span>`
     row.addEventListener('click', () => openBoard(meta))
     el('libList').append(row)
   }
 }
 
-// Generation time from the meta, as seconds; boards saved before the field
-// existed show a dash.
-function genSeconds(meta: BoardMeta): string {
-  return meta.genMs === null ? '—' : (meta.genMs / 1000).toFixed(meta.genMs < 10000 ? 2 : 1)
-}
 function showBoardStatus(meta: BoardMeta) {
   setStatus(
-    t(
+    dict.t(
       'savedBoard',
       `<code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`,
       escapeHtml(meta.seed),
       escapeHtml(meta.source),
-      `${genSeconds(meta)} s`,
+      `${genSeconds(meta, '—')} s`,
     ),
   )
 }
@@ -1290,13 +1155,13 @@ async function openBoard(meta: BoardMeta) {
   el<HTMLInputElement>('libRounded').checked = meta.view.rounded !== false
   el<HTMLInputElement>('libColored').checked = meta.view.colored
   const name = `<code>${escapeHtml(`${meta.W}x${meta.H}/${meta.id}`)}</code>`
-  setStatus(t('loadingBoard', name))
+  setStatus(dict.t('loadingBoard', name))
   // A board that cannot be read leaves the board area empty, so no other board
   // stands under its error. The reason may quote the file, so it is escaped.
   const refuse = (err: unknown) => {
     showBoard(null, {})
     const reason = escapeHtml(err instanceof Error ? err.message : String(err))
-    setStatus(`<span class="bad">${t('boardFileError', name, reason)}</span>`)
+    setStatus(`<span class="bad">${dict.t('boardFileError', name, reason)}</span>`)
   }
   let file: unknown
   try {
@@ -1370,7 +1235,7 @@ function libView(meta: BoardMeta): View {
 }
 /** The chosen stored board on screen; its holes show only when it did not close. */
 function showLibBoard(meta: BoardMeta): void {
-  showBoard(libData, boardView(libView(meta), meta.ok === false))
+  showBoard(libData, boardViewOf(libView(meta), meta.ok === false))
 }
 function onLibViewInput() {
   if (!libBoard || !libData) return
@@ -1382,14 +1247,15 @@ async function saveLibView() {
   const meta = libBoard
   if (!meta || libFile === null) return
   const view = libView(meta)
-  const body = {
-    board: libFile,
-    params: meta.params,
-    view,
-    command: buildCommand(meta.params, view),
-    source: meta.source,
-    metrics: { ok: meta.ok, pieces: meta.pieces, maxLen: meta.maxLen, genMs: meta.genMs },
-  }
+  // The page holds the file as unknown because it reads nothing in it, but
+  // decodeBoard accepted it when it loaded and it goes back to the store
+  // untouched, so the contract's BoardFile is what it is.
+  const body = storeRequest(libFile as BoardFile, meta.params, view, meta.source, {
+    ok: meta.ok,
+    pieces: meta.pieces,
+    maxLen: meta.maxLen,
+    genMs: meta.genMs,
+  })
   try {
     const r = await fetch('/api/boards', {
       method: 'POST',
@@ -1403,13 +1269,13 @@ async function saveLibView() {
     if (activeTab === 'library' && libBoard === meta) {
       libBoard = saved
       el('libCommand').textContent = saved.command
-      setStatus(t('viewSaved', `<code>${escapeHtml(`${saved.W}x${saved.H}/${saved.id}`)}</code>`))
+      setStatus(dict.t('viewSaved', `<code>${escapeHtml(`${saved.W}x${saved.H}/${saved.id}`)}</code>`))
     }
     // The store keeps createdAt on an overwrite, so the row stays in place;
     // the list is refreshed for the new meta only.
     await loadLibrary({ force: true })
   } catch {
-    setStatus(`<span class="bad">${t('notSaved')}</span>`)
+    setStatus(`<span class="bad">${dict.t('notSaved')}</span>`)
   }
 }
 for (const id of ['libStroke', 'libHeadWidth', 'libHeadHeight']) el(id).addEventListener('input', onLibViewInput)
@@ -1420,13 +1286,13 @@ el('libColored').addEventListener('change', onLibViewInput)
 // removes the files. Selecting another board or switching language disarms.
 function disarmDelete() {
   el('libDelete').classList.remove('armed')
-  el('libDelete').textContent = t('deleteBoard')
+  el('libDelete').textContent = dict.t('deleteBoard')
 }
 el('libDelete').addEventListener('click', async () => {
   if (!libBoard) return
   if (!el('libDelete').classList.contains('armed')) {
     el('libDelete').classList.add('armed')
-    el('libDelete').textContent = t('confirmDelete')
+    el('libDelete').textContent = dict.t('confirmDelete')
     return
   }
   const meta = libBoard
@@ -1436,7 +1302,7 @@ el('libDelete').addEventListener('click', async () => {
     const r = await fetch(`/api/boards/${meta.W}x${meta.H}/${meta.id}`, { method: 'DELETE' })
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
   } catch {
-    setStatus(`<span class="bad">${t('deleteFailed')}</span>`)
+    setStatus(`<span class="bad">${dict.t('deleteFailed')}</span>`)
     return
   }
   libBoard = null
@@ -1444,7 +1310,7 @@ el('libDelete').addEventListener('click', async () => {
   libData = null
   showLibDetail(false)
   showBoard(null, {})
-  setStatus(t('deletedBoard', `<code>${escapeHtml(name)}</code>`))
+  setStatus(dict.t('deletedBoard', `<code>${escapeHtml(name)}</code>`))
   await loadLibrary({ force: true })
 })
 
@@ -1532,19 +1398,8 @@ globalThis.addEventListener('hashchange', () => {
 })
 
 // --- report -----------------------------------------------------------------
-function pct(v: number): string {
-  return (100 * v).toFixed(0) + '%'
-}
-
-/** One line of the stats table: label, shown value, the number compared with the previous run, and whether an increase is an improvement. */
-type StatRow = { k: string; v: string | number; num: number | undefined; better: number }
-const stat = (k: string, v: string | number, num?: number, better = 0): StatRow => ({ k, v, num, better })
-const SEP: StatRow = { k: '—', v: '', num: undefined, better: 0 }
-
 function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
-  const { metrics, ok, genMs, metricsMs, backtracks, restartsUsed, stuck, deadlock, stats } = msg
-  const rp = runParams
-  const cells = rp.W * rp.H
+  const { metrics, ok, stuck, deadlock } = msg
 
   if (!ok) {
     // A deadlocked board is closed, so it has no leftover to report: the run
@@ -1552,14 +1407,14 @@ function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
     setStatus(
       `<span class="bad">${
         deadlock
-          ? t('unsolvable')
-          : t('notClosedStatus', fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
+          ? dict.t('unsolvable')
+          : dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
       }</span>`,
     )
   } else if (metrics) {
     setStatus(
-      `<span class="good">${t('closed')}</span> ${
-        metrics.solvable ? t('solvable') : `<span class="bad">${t('unsolvable')}</span>`
+      `<span class="good">${dict.t('closed')}</span> ${
+        metrics.solvable ? dict.t('solvable') : `<span class="bad">${dict.t('unsolvable')}</span>`
       }`,
     )
   } else {
@@ -1573,67 +1428,20 @@ function report(msg: Done, { keepPrev = false }: { keepPrev?: boolean } = {}) {
     return
   }
 
-  // Third item: the numeric value compared with the previous run; fourth says
-  // whether an increase is an improvement (delta colour).
-  const rows: StatRow[] = [
-    stat(t('stat_board'), t('stat_boardVal', rp.W, rp.H, fmt(cells), rp.seed)),
-    stat(t('stat_pieces'), fmt(metrics.N), metrics.N, 0),
-    stat(t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N, 0),
-    stat(t('stat_longest'), t('stat_longestVal', metrics.maxLen, pct(metrics.maxLen / cells)), metrics.maxLen, 1),
-    stat(
-      t('stat_lengths'),
-      `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${
-        pct(metrics.hist['16-49'] / metrics.N)
-      } · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`,
-    ),
-    SEP,
-    stat(t('stat_f0'), metrics.f0.toFixed(3), metrics.f0, 0),
-    stat(t('stat_almost'), `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0),
-    stat(t('stat_D'), metrics.D, metrics.D, 0),
-    stat(t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0),
-    SEP,
-    stat(t('stat_span'), pct(metrics.span), 100 * metrics.span, 1),
-    stat(t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10, 1),
-    stat(t('stat_spanMax'), pct(metrics.spanMax), 100 * metrics.spanMax, 1),
-    stat(t('stat_outDeg'), `${metrics.outDeg.toFixed(1)} ${t('piecesUnit')}`, metrics.outDeg, 1),
-    stat(t('stat_maxOut'), `${metrics.maxOut} ${t('piecesUnit')}`, metrics.maxOut, 1),
-    stat(t('stat_blockDist'), `${pct(metrics.blockDist)} ${t('perimeterUnit')}`, 100 * metrics.blockDist, 1),
-    SEP,
-    stat(t('stat_bends'), metrics.bends.toFixed(2), metrics.bends, 1),
-    stat(t('stat_coil'), pct(metrics.coil), 100 * metrics.coil, -1),
-    stat(t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1),
-    stat(t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine, 1),
-    SEP,
-    // Stalling explains short lines better than the length distribution: a
-    // path dies in a frontier pocket long before the ordered length.
-    stat(
-      t('stat_stall'),
-      stats.n ? t('stat_stallVal', pct(stats.stall / stats.n), pct(stats.got / stats.want)) : '—',
-      stats.n ? 100 * stats.stall / stats.n : undefined,
-      -1,
-    ),
-    stat(t('stat_absorbed'), t('stat_absorbedVal', stats.absorbs ?? 0, stats.absorbed ?? 0), stats.absorbs ?? 0, -1),
-    stat(t('stat_backtracks'), `${backtracks} / ${restartsUsed}`, backtracks, -1),
-    stat(t('stat_time'), t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)), genMs, -1),
-  ]
+  // The rows are the engine's: a pure mapping from the metrics, the same in
+  // both languages. What stays here is the delta against the previous run.
+  const rows = reportRows(msg, runParams, dict)
 
   // Deltas are keyed by row index, not label, so a language switch keeps them.
   el('stats').innerHTML = rows
-    .map(({ k, v, num, better }, i) => {
-      if (k === '—') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
-      let delta = ''
-      const prev = prevStats.get(i)
-      if (num !== undefined && prev !== undefined && Math.abs(num - prev) > 1e-9) {
-        const diff = num - prev
-        const abs = Math.abs(diff)
-        const shown = abs >= 100 ? abs.toFixed(0) : abs >= 1 ? abs.toFixed(1) : abs.toFixed(2)
-        // "Better" depends on the metric: coiling should fall, span should
-        // rise, the piece count is neutral.
-        const cls = better === 0 ? '' : (diff > 0) === (better > 0) ? ' up' : ' down'
-        delta = `<td class="delta${cls}">${diff > 0 ? '+' : '−'}${shown}</td>`
-      }
+    .map(({ kind, label, value, num, better }, i) => {
+      if (kind === 'separator') return '<tr><td colspan="3" style="height:.5rem"></td></tr>'
+      // The arithmetic is the engine's (`reportDelta`), shared with apps/lab.
+      const change = reportDelta(num, prevStats.get(i), better)
+      const cls = change === null || change.trend === 'neutral' ? '' : change.trend === 'better' ? ' up' : ' down'
+      const delta = change === null ? '<td></td>' : `<td class="delta${cls}">${change.text}</td>`
       if (num !== undefined) prevStatsNext.set(i, num)
-      return `<tr><td>${k}</td><td class="num">${v}</td>${delta || '<td></td>'}</tr>`
+      return `<tr><td>${label}</td><td class="num">${value}</td>${delta}</tr>`
     })
     .join('')
 
@@ -1651,10 +1459,10 @@ function renderLongest(longest: LongestSummary[]) {
     `<tr><td>${p.len}</td><td>${p.sx}×${p.sy}</td><td>${pct(p.span)}</td>` +
     `<td>${pct(p.density)}</td><td>${pct(p.coil)}</td></tr>`
   ).join('')
-  el('topTable').innerHTML = `<h2 style="border:0;padding:0">${t('longestHead', longest.length)}</h2>` +
-    `<p class="grouphelp">${t('longestHelp')}</p>` +
-    `<table class="top"><tr><th>${t('th_len')}</th><th>${t('th_box')}</th><th>${t('th_span')}</th>` +
-    `<th>${t('th_density')}</th><th>${t('th_coil')}</th></tr>${body}</table>`
+  el('topTable').innerHTML = `<h2 style="border:0;padding:0">${dict.t('longestHead', longest.length)}</h2>` +
+    `<p class="grouphelp">${dict.t('longestHelp')}</p>` +
+    `<table class="top"><tr><th>${dict.t('th_len')}</th><th>${dict.t('th_box')}</th><th>${dict.t('th_span')}</th>` +
+    `<th>${dict.t('th_density')}</th><th>${dict.t('th_coil')}</th></tr>${body}</table>`
 }
 
 const fromUrl = loadFromUrl()

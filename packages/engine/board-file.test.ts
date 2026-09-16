@@ -1,9 +1,9 @@
 // The board file: a round trip keeps the board bit for bit (ids included,
 // which the fingerprint does not see), and a file that is not a board this
 // engine can read is refused with the reason, never drawn wrong.
-import { assert, assertEquals, assertThrows } from '@std/assert'
+import { assert, assertEquals, assertMatch, assertNotEquals, assertRejects, assertThrows } from '@std/assert'
 import { defaultParams, fingerprint, generate } from './engine.ts'
-import { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard } from './board-file.ts'
+import { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 import type { BoardData, BoardFile, Piece } from './types.ts'
 
 /** Same size, same owner grid, same pieces in the same order with the same ids, directions and cells. */
@@ -163,4 +163,61 @@ Deno.test('decodeBoard refuses a header that disagrees with the body', () => {
   const good = encodeBoard(tiny())
   refuse({ ...good, unfilled: 0 }, 'the header counts 1 voids and 0 unfilled cells, the body 1 and 9')
   refuse({ ...good, fingerprint: 'x' }, 'the header says x')
+})
+
+// --- the layout hash ----------------------------------------------------------
+// The name of an arrangement of arrows: ids and carving order are not part of
+// it, so a layout carved by two recipes has one name (spec §1).
+
+const LAYOUT_ID = /^sha256-[0-9a-f]{64}$/
+
+/** The same board with its pieces in reverse order and renumbered from 100, the owner grid to match. */
+function renumbered(board: BoardData): BoardData {
+  const pieces = board.pieces.slice().reverse().map((pc, i) => ({ id: 100 + i, dir: pc.dir, cells: pc.cells }))
+  const owner = new Int32Array(board.owner)
+  for (const pc of pieces) for (const c of pc.cells) owner[c.y * board.W + c.x] = pc.id
+  return { W: board.W, H: board.H, owner, pieces }
+}
+
+Deno.test('layoutHash names the layout, not its ids or its carving order', async () => {
+  const board = generate({ ...defaultParams(), W: 25, H: 50, seed: 7 }).board
+  const other = renumbered(board)
+  // The pair is the point: the fingerprint sees the numbering, the layout hash does not.
+  assertNotEquals(fingerprint(other), fingerprint(board))
+  const hash = await layoutHash(board)
+  assertMatch(hash, LAYOUT_ID)
+  assertEquals(await layoutHash(other), hash)
+  assertEquals(await layoutHash(renumbered(tiny())), await layoutHash(tiny()))
+})
+
+Deno.test('layoutHash tells apart one step, one dir, one void and the size', async () => {
+  const base = await layoutHash(tiny())
+  const turned = tiny()
+  const first = turned.pieces[0]
+  assert(first)
+  first.dir = 1
+  assertNotEquals(await layoutHash(turned), base, 'one dir')
+  const bent = handBoard(4, 4, [
+    { id: 0, dir: 3, cells: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }] },
+    { id: 5, dir: 2, cells: [{ x: 3, y: 3 }, { x: 3, y: 2 }, { x: 3, y: 1 }] },
+  ], [5])
+  assertNotEquals(await layoutHash(bent), base, 'one step')
+  const holed = handBoard(4, 4, tiny().pieces, [5, 6])
+  assertNotEquals(await layoutHash(holed), base, 'one void')
+  assertNotEquals(await layoutHash(handBoard(4, 4, [])), await layoutHash(handBoard(5, 4, [])), 'the size')
+  // A one-cell piece: the file format allows it, and its dir is all it says.
+  const up = handBoard(4, 4, [{ id: 0, dir: 0, cells: [{ x: 1, y: 1 }] }])
+  const left = handBoard(4, 4, [{ id: 0, dir: 3, cells: [{ x: 1, y: 1 }] }])
+  assertNotEquals(await layoutHash(up), await layoutHash(left), 'a one-cell piece by its dir')
+})
+
+Deno.test('layoutHash survives the board file', async () => {
+  assertEquals(await layoutHash(decodeBoard(encodeBoard(tiny()))), await layoutHash(tiny()))
+  const holes = generate({ ...defaultParams(), W: 40, H: 40, seed: 1 }, { unchecked: true, voidFrac: 0.1 }).board
+  assertEquals(await layoutHash(decodeBoard(encodeBoard(holes))), await layoutHash(holes))
+})
+
+Deno.test('layoutHash refuses a piece whose cells are not neighbours', async () => {
+  const broken = handBoard(4, 4, [{ id: 0, dir: 1, cells: [{ x: 0, y: 0 }, { x: 2, y: 0 }] }])
+  await assertRejects(() => layoutHash(broken), BoardFileError, 'piece 0 is not a path')
 })

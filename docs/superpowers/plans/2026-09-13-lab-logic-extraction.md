@@ -1370,7 +1370,7 @@ Expected: both green.
 - [ ] **Step 4: Count what left the page**
 
 Run: `wc -l packages/cli/lab-page.ts`
-Run: `deno test packages/engine/ | tail -3`
+Run: `deno test -A packages/engine/ | tail -3`
 Expected: a smaller page, and a larger test count to quote beside it. The line count alone proves only that something was deleted; the pair — lines gone from the page, tests gained in the engine — is what this PR is for. Record both in the PR description.
 
 - [ ] **Step 5: Drive the lab by hand**

@@ -1,0 +1,389 @@
+/* The document itself, which the shell cannot reach from inside its own div:
+   the user agent's `body { margin: 8px }` frames a `--void` page in white on
+   all four sides, and those 16px on top of `.fw`'s `height: 100vh` put a
+   scrollbar in every viewport. `color-scheme: dark` is what paints that
+   scrollbar — and any other user agent surface — dark rather than light.
+   The tokens are on `:root` (tokens.css) so `var(--void)` resolves here. */
+html {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--void);
+}
+
+/* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
+   everything else.
+
+   `height` and not `min-height`: `minmax(0, 1fr)` has to resolve against a
+   definite height, and a grid whose only sizing is a minimum has none — so the
+   third row grew with its content instead of scrolling inside itself, and a
+   couple of broken rules pushed the note that explains them off the bottom of
+   the viewport (measured at 1280x800: 30px of overflow with two violations).
+   `height` fills a viewport the content underfills as well, so the
+   `min-height` that used to sit here was a second copy of the same number with
+   nothing left to do. */
+.fw {
+  display: grid;
+  height: 100vh;
+  grid-template-rows: 48px auto minmax(0, 1fr);
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  font-synthesis: none;
+  text-wrap: pretty;
+}
+.fw *,
+.fw *::before,
+.fw *::after {
+  box-sizing: border-box;
+}
+.fw button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+.fw .caps {
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw :focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+/* Row three of that grid is a route's <main>, and `.fw-view` below asks it for
+   `height: 100%`. A <main> is a block box with `height: auto`, so without this
+   the percentage resolves to `auto` and the chain breaks one level above the
+   panel. Every route's <main> takes the rule, not only the lab's: each of them
+   is row three while its own route is the one on screen. */
+.fw > main {
+  height: 100%;
+  min-height: 0;
+}
+
+.fw-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--signal);
+  color: var(--void);
+}
+.fw-top .mark {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.fw-top .name {
+  font-size: 13px;
+}
+.fw-top .sep {
+  opacity: 0.5;
+}
+/* The only untuned span in a bar where every sibling is tuned: a browser pass
+   measured it at 12px full strength beside `.name` at 13px and `.sep` at half,
+   which made the preset's name the loudest thing in the bar after the mark and
+   louder than the size it qualifies. `.dims`' own value, not a third level —
+   the two say the same kind of thing (what the board on screen is) and belong
+   at one weight. Measured on `--signal`: --void is 4.08:1 at full strength and
+   3.35:1 here, which is exactly what `.dims` has shipped at since the bar
+   existed; the pairing itself is the open §7.1 item, decided once for the
+   whole design system rather than per span. */
+.fw-top .preset {
+  opacity: 0.8;
+}
+/* §7.1: tabular-nums on every number, so a changing size does not jitter. */
+.fw-top .dims {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+.fw-top .right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.fw-tabrow {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  background: var(--void);
+  border-bottom: 1px solid var(--border);
+}
+.fw-tabrow button {
+  padding: 10px 0 8px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ash);
+  cursor: pointer;
+  transition: color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-tabrow button:hover {
+  color: var(--ink);
+}
+.fw-tabrow button[aria-selected='true'] {
+  color: var(--ink);
+  border-bottom-color: var(--signal);
+}
+
+/* §7.2: the design system asks for 44px targets where there is no hover. */
+@media (pointer: coarse) {
+  .fw-tabrow button {
+    padding: 15px 0 13px;
+  }
+}
+
+.fw-stage {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 22rem;
+  gap: 1px;
+  background: var(--border);
+  min-height: 0;
+}
+.fw-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px;
+  background: var(--void);
+  overflow-y: auto;
+}
+.fw-boardwrap {
+  position: relative;
+  min-height: 0;
+  padding: 16px;
+  overflow: hidden;
+  background: var(--void);
+}
+.fw-board {
+  position: relative;
+  height: 100%;
+  min-height: 260px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.fw-board arrowz-board {
+  display: block;
+  height: 100%;
+}
+
+/* The annotation of the board on screen (spec §5.2). After the element in DOM
+   order — the element's host is positioned and opaque with `z-index: auto`
+   (arrowz-board.ts:129-135), so tree order is what paints this on top — and in
+   the top-left corner, because the bottom edge belongs to the element's own
+   bar. `--ink` on `--void` (16.53:1), inverting the mock's `--void` on
+   `--signal` (4.08:1, the open §7.1 pair). No caps: they would print `SEED`,
+   and the numbers are the content (PR 4b, Ruling 10). No pointer events, so a
+   drag that starts on it still pans the board. */
+.fw-anno {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 3px 8px;
+  background: var(--void);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+/* The solo toggle (spec §5.2): the frame's top-right corner, after the element
+   in DOM order for the reason `.fw-anno` gives. The ring sits inside the
+   button, because `.fw-board` clips (`overflow: hidden`) and the global 2px
+   offset would draw it outside the frame; `--signal` on `--void` is 4.08:1,
+   above the 3:1 a focus indicator needs. */
+.fw .fw-solo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: var(--void);
+  color: var(--ink);
+  cursor: pointer;
+}
+.fw .fw-solo:hover {
+  background: var(--surface);
+}
+.fw .fw-solo:focus-visible {
+  outline-offset: -2px;
+}
+@media (pointer: coarse) {
+  .fw .fw-solo {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* The mock's second breakpoint: below this height the board gives up its
+   minimum rather than pushing the console off the screen. */
+@media (max-height: 700px) {
+  .fw-board {
+    min-height: 0;
+  }
+}
+
+/* The report at 900px and below: a row under the rail and the board (spec
+   §5.2; PR 4b, Ruling 2). The board's row keeps 292px — the board's 260px
+   minimum, its border inside it, plus the wrap's 32px of padding — whenever the
+   stage is that tall, and the report takes a third of what is left. Measured at
+   860 wide: 73px of report at 900 high in the advanced view, 155px at 1100.
+   `min(292px, 100%)` and not a bare 292px: in a stage shorter than that, a bare
+   minimum pushed the wrap 25px out of the stage and over the console, where
+   this rule leaves the board exactly as it is today and the report at its 24px
+   of padding, which the console's opaque background covers (review measured up
+   to 25px of it past the stage at 860×720). A fixed `max-height` on the report
+   instead clipped the board at every height below 900. */
+@media (max-width: 900px) {
+  .fw-stage {
+    grid-template-columns: 70px minmax(0, 1fr);
+    grid-template-rows: minmax(min(292px, 100%), 2fr) minmax(0, 1fr);
+  }
+  .fw-stage > .fw-report {
+    grid-column: 1 / -1;
+  }
+}
+/* Below 700px of height `.fw-board` gives up its minimum (the `max-height:
+   700px` query above), so its row gives up the 292px too. */
+@media (max-width: 900px) and (max-height: 700px) {
+  .fw-stage {
+    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* `height: 100%` and not `display: grid` on the panel's <main>: the shell
+   stretches that <main> to row 3, but it is a block box with no height of its
+   own, so without this the run bar and the stage each take an auto row, the
+   board falls back to its `min-height`, and under the `max-height: 700px` rule
+   below — where that minimum becomes 0 — the board collapses to nothing.
+   Giving `#lab-panel`'s <main> a `display` would fix the chain and silently
+   defeat `hidden`: an author `display` declaration beats the UA's
+   `[hidden] { display: none }`, and the off-route panel would stay on screen. */
+.fw-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--void);
+}
+.fw-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ash);
+  flex-wrap: wrap;
+}
+.fw-bar output {
+  font-variant-numeric: tabular-nums;
+}
+/* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
+   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`, leaving
+   the button `--ash` on `--signal` (contrast 1.45:1 against the 4.03:1 §7.1
+   asks for) in the mono stack. The `.fw` prefix makes it (0,2,0). Every rule
+   of the component carries it, and PR 3 adds many more controls into the same
+   cascade. */
+.fw .fw-go {
+  height: 40px;
+  min-height: 40px;
+  margin-top: 10px;
+  padding: 0 16px;
+  border: 0;
+  background: var(--signal);
+  color: var(--void);
+  font-family: var(--ui);
+  cursor: pointer;
+  transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-go:hover:not(:disabled) {
+  background: var(--signal-hover);
+}
+.fw .fw-go:active:not(:disabled) {
+  background: var(--signal-press);
+}
+.fw .fw-go:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (pointer: coarse) {
+  .fw .fw-go {
+    height: 44px;
+  }
+}
+/* One of a few (Segmented.tsx): the preset strip's chip (run.css) with the
+   group rail's selected state, so the lab has one chip and one "chosen". The
+   `.fw` prefix for the reason `.fw .fw-go` gives above. */
+.fw-seg {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+.fw .fw-seg button {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-seg button:not([aria-checked='true']):hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+.fw .fw-seg button[aria-checked='true'] {
+  color: var(--void);
+  background: var(--signal);
+  border-color: transparent;
+}
+@media (pointer: coarse) {
+  .fw .fw-seg button {
+    height: 44px;
+  }
+}
+
+/* The top bar is the Signal plane, where the chip's own colours would vanish:
+   `--signal` on `--signal` for the chosen option, and the global focus ring is
+   `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on
+   `--signal`, the pairing `.name` and `.dims` already ship (4.08:1, the open
+   §7.1 item); the chosen option is `--ink` on `--void`. The base rule ties with
+   the chip's checked rule and wins by following it; the checked rule here is
+   (0,4,1). */
+.fw .fw-top .fw-seg button {
+  border-color: var(--void);
+  color: var(--void);
+}
+.fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
+  background: none;
+  color: var(--void);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fw .fw-top .fw-seg button[aria-checked='true'] {
+  background: var(--void);
+  color: var(--ink);
+  border-color: var(--void);
+}
+.fw .fw-top :focus-visible {
+  outline-color: var(--void);
+}

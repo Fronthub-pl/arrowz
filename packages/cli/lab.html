@@ -114,7 +114,9 @@
               border: 1px solid var(--line); border-radius: 5px; margin-bottom: .3rem; cursor: pointer; font-size: 12px; }
   .boardrow:hover { border-color: var(--ink); }
   .boardrow.on { border-color: var(--accent); background: #fff5f8; }
-  .boardrow .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  /* A layout id is 71 characters; overflow: hidden is what lets the 1fr track shrink below it. */
+  .boardrow .id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .boardrow .meta { color: #6a6b86; grid-column: 1 / -1; }
 
   /* The bar stays in the layout and only toggles visibility — hiding it

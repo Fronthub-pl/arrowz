@@ -1,6 +1,7 @@
 // What a board looks like, and the diagnostic hue of a piece. No renderer and
 // no DOM: mod.ts exports these, so they must not move when the layer does.
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
+import type { View } from '@arrowz/engine'
 
 export interface BoardView {
   /** Stroke width as a fraction of a cell. */
@@ -35,6 +36,19 @@ export const DEFAULT_VIEW: BoardView = {
   ink: '#232447',
   paper: '#f6f6fa',
   highlight: '#e8467c',
+}
+
+/** The lab's view as the element takes it; `cell` is a size in the exported SVG and does not apply. */
+export function boardViewOf(view: View, voids: boolean): Partial<BoardView> {
+  return {
+    stroke: view.stroke,
+    headWidth: view.headWidth,
+    headHeight: view.headHeight,
+    rounded: view.rounded,
+    colored: view.colored,
+    top: view.top,
+    voids,
+  }
 }
 
 export const SHAKE_MS = 230

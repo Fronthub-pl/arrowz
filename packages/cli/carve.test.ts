@@ -15,12 +15,13 @@ import {
   fingerprint,
   generate,
   INACTIVE_REASONS,
+  layoutHash,
   PARAM_SPEC,
   RULE_REASONS,
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
+import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, VIEW_RANGE } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View, ViewNumber } from '@arrowz/engine'
 
@@ -40,6 +41,8 @@ const entries = (dir: string): number => [...Deno.readDirSync(dir)].length
 const readMeta = (file: string): BoardMeta => JSON.parse(Deno.readTextFileSync(file)) as BoardMeta
 /** The fingerprint of a stored board file, read back through the decoder. */
 const storedFingerprint = (file: string): string => fingerprint(decodeBoard(JSON.parse(Deno.readTextFileSync(file))))
+/** The store's name for the board these parameters carve: its layout hash. */
+const layoutIdOf = (params: Params): Promise<string> => layoutHash(generate(params).board)
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 /** A command text as argv: everything after the prefix. */
@@ -93,7 +96,7 @@ function dryRun(args: readonly string[], dir: string, env: Record<string, string
   return { ...r, json }
 }
 
-Deno.test('carve.ts --svg reproduces the generate() board byte for byte', () => {
+Deno.test('carve.ts --svg reproduces the generate() board byte for byte', async () => {
   const dir = tmp()
   const params = { ...defaultParams(), W: 25, H: 50, seed: 7, anticoil: 3, giants: 2 }
   const view = { cell: 10, stroke: 0.5, colored: true, top: 3 }
@@ -102,7 +105,7 @@ Deno.test('carve.ts --svg reproduces the generate() board byte for byte', () => 
   const cmd = buildCommand(params, view)
   const r = runCarve([...argvOf(cmd), '--svg'], dir)
   assertEquals(r.status, 0, r.stderr)
-  const id = boardId(params)
+  const id = await layoutIdOf(params)
   assertMatch(r.stdout, new RegExp(`25x50/${id}\\.board\\.json {2}\\+ 25x50/${id}\\.svg`))
   assertEquals(Deno.readTextFileSync(join(dir, '25x50', `${id}.svg`)), expected)
   assertEquals(storedFingerprint(join(dir, '25x50', `${id}.board.json`)), fingerprint(generate(params).board))
@@ -113,24 +116,24 @@ Deno.test('carve.ts --svg reproduces the generate() board byte for byte', () => 
   assertEquals('simpleCommand' in meta, false, 'there is one dialect, so one command')
 })
 
-Deno.test('carve.ts writes the board file and the meta, and no SVG unless asked', () => {
+Deno.test('carve.ts writes the board file and the meta, and no SVG unless asked', async () => {
   const dir = tmp()
   const r = runCarve(['--width=10', '--height=10', '--seed=3'], dir)
   assertEquals(r.status, 0, r.stderr)
   const params = simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 })
-  const id = boardId(params)
+  const id = await layoutIdOf(params)
   assertMatch(r.stdout, new RegExp(`^10x10/${id}\\.board\\.json {2}pieces=`))
   assertEquals(storedFingerprint(join(dir, '10x10', `${id}.board.json`)), fingerprint(generate(params).board))
   assertEquals(exists(join(dir, '10x10', `${id}.svg`)), false)
   assertEquals(readMeta(join(dir, '10x10', `${id}.json`)).svg, false)
 })
 
-Deno.test('carve.ts --svg=path also writes a copy at the path', () => {
+Deno.test('carve.ts --svg=path also writes a copy at the path', async () => {
   const dir = tmp()
   const copy = join(dir, 'copy.svg')
   const r = runCarve([`--svg=${copy}`, '--width=10', '--height=10', '--seed=3'], dir)
   assertEquals(r.status, 0, r.stderr)
-  const id = boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))
+  const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))
   assertEquals(Deno.readTextFileSync(copy), Deno.readTextFileSync(join(dir, '10x10', `${id}.svg`)))
 })
 
@@ -161,7 +164,7 @@ Deno.test('carve.ts --sharp writes a sharp SVG, and without it a round one', () 
 
 // --- --dry-run ---------------------------------------------------------------
 
-Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one JSON line', () => {
+Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one JSON line', async () => {
   const dir = tmp()
   const out = join(dir, 'out.svg')
   const r = dryRun(['--dry-run', '--svg=' + out, '--width=10', '--height=10', '--seed=1'], dir)
@@ -173,7 +176,7 @@ Deno.test('carve.ts --dry-run computes the board, writes nothing and prints one 
   assertEquals(r.json.dryRun, true)
   assertEquals(r.json.ok, true)
   assertEquals([r.json.W, r.json.H, r.json.seed], [10, 10, 1])
-  assertEquals(r.json.id, boardId(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 })))
+  assertEquals(r.json.id, await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 1 })))
   assertEquals(typeof r.json.pieces, 'number')
   assertEquals(typeof r.json.maxLen, 'number')
   assertEquals(typeof r.json.genMs, 'number')
@@ -607,7 +610,6 @@ Deno.test('carve.ts refuses an unknown value of --help by name, exit code 2', ()
 // 400×400 takes seconds, a zero budget stops it at the first progress tick.
 
 const LONG = ['--width=400', '--height=400', '--seed=7']
-const longId = boardId(simpleParams({ ...defaultChoice(), W: 400, H: 400, seed: 7 }))
 
 Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved so far, holes drawn', () => {
   const dir = tmp()
@@ -615,14 +617,17 @@ Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved s
   const r = runCarve([...LONG, `--svg=${copy}`], join(dir, 'boards'), { CARVE_TIMEOUT_S: '0' })
   assertEquals(r.status, 1, r.stderr)
   assertMatch(r.stderr, /aborted after \d+\.\d s: board 400x400 \(seed 7\) has \d+ cells left/)
+  // What an abort carved depends on when the deadline hit: the name is read, not recomputed.
+  const partialId = /400x400\/(sha256-[0-9a-f]{64})\.board\.json/.exec(r.stdout)?.[1]
+  assert(partialId, r.stdout)
   assertMatch(
     r.stdout,
     new RegExp(
-      `400x400/${longId}\\.board\\.json {2}\\+ 400x400/${longId}\\.svg {2}\\+ .*copy\\.svg {2}not closed: \\d+ cells left in \\d+ fragments`,
+      `400x400/${partialId}\\.board\\.json {2}\\+ 400x400/${partialId}\\.svg {2}\\+ .*copy\\.svg {2}not closed: \\d+ cells left in \\d+ fragments`,
     ),
   )
-  assert(exists(join(dir, 'boards', '400x400', `${longId}.board.json`)), 'the partial board is stored as a file')
-  const meta = readMeta(join(dir, 'boards', '400x400', `${longId}.json`))
+  assert(exists(join(dir, 'boards', '400x400', `${partialId}.board.json`)), 'the partial board is stored as a file')
+  const meta = readMeta(join(dir, 'boards', '400x400', `${partialId}.json`))
   assertEquals(meta.ok, false)
   assertEquals(meta.aborted, true)
   assertEquals(meta.restarts, 0, 'an aborted attempt is not restarted')
@@ -630,7 +635,7 @@ Deno.test('CARVE_TIMEOUT_S aborts a long generation and stores what was carved s
   assert(meta.pieces !== null && meta.pieces > 0, 'the partial board has pieces')
   assert(meta.stuck && meta.stuck.remaining > 0 && meta.stuck.sizes.length > 0, JSON.stringify(meta.stuck))
   assert(meta.genMs !== null && meta.genMs < 3000, `aborted early, not after the full run: ${meta.genMs} ms`)
-  const svg = Deno.readTextFileSync(join(dir, 'boards', '400x400', `${longId}.svg`))
+  const svg = Deno.readTextFileSync(join(dir, 'boards', '400x400', `${partialId}.svg`))
   assertMatch(svg, /<rect /, 'the holes are drawn')
   assertEquals(Deno.readTextFileSync(copy), svg, 'the --svg=path copy is written too')
   assertEquals(meta.source, 'cli')
@@ -643,7 +648,8 @@ Deno.test('carve.ts --dry-run under CARVE_TIMEOUT_S reports the abort in its JSO
   assertEquals(r.status, 1, r.stderr)
   assert(r.json, `no JSON line in:\n${r.stdout}`)
   assertEquals([r.json.dryRun, r.json.ok, r.json.aborted, r.json.restarts], [true, false, true, 0])
-  assertEquals(r.json.id, longId)
+  // An aborted board is whatever the deadline left, so only the shape of its name is known.
+  assertMatch(r.json.id ?? '', /^sha256-[0-9a-f]{64}$/)
   assert(r.json.stuck && r.json.stuck.remaining > 0)
   assertEquals(typeof r.json.backtracks, 'number')
   assertEquals(entries(dir), 0, 'nothing is written')
@@ -664,7 +670,7 @@ Deno.test('carve.ts --dry-run of a board that does not close still prints the pi
 
 // --- the everyday flags make the board the lab's simple view makes -------------
 
-Deno.test('carve.ts turns the everyday flags into the board of the simple lab view', () => {
+Deno.test('carve.ts turns the everyday flags into the board of the simple lab view', async () => {
   const dir = tmp()
   const choice: SimpleChoice = {
     ...defaultChoice(),
@@ -690,7 +696,7 @@ Deno.test('carve.ts turns the everyday flags into the board of the simple lab vi
     '--colored',
   ], dir)
   assertEquals(r.status, 0, r.stderr)
-  const id = boardId(params)
+  const id = await layoutIdOf(params)
   assertMatch(r.stdout, new RegExp(`^25x50/${id}\\.board\\.json {2}pieces=`))
   assertEquals(storedFingerprint(join(dir, '25x50', `${id}.board.json`)), fingerprint(generate(params).board))
   assertEquals(exists(join(dir, '25x50', `${id}.svg`)), false, 'no preview without --svg')
@@ -741,13 +747,13 @@ Deno.test('carve.ts --randomized draws every knob inside the slider ranges', () 
 // after --max-seeds seeds (default 2·N). Closing is deterministic, so the
 // same command always writes the same files.
 
-Deno.test('carve.ts --count=3 writes three closed boards on consecutive seeds and exits 0', () => {
+Deno.test('carve.ts --count=3 writes three closed boards on consecutive seeds and exits 0', async () => {
   const dir = tmp()
   const r = runCarve(['--width=10', '--height=10', '--seed=1', '--count=3'], dir)
   assertEquals(r.status, 0, r.stderr)
   for (const seed of [1, 2, 3]) {
     const params = simpleParams({ ...defaultChoice(), W: 10, H: 10, seed })
-    const id = boardId(params)
+    const id = await layoutIdOf(params)
     assertEquals(storedFingerprint(join(dir, '10x10', `${id}.board.json`)), fingerprint(generate(params).board))
     assertMatch(readMeta(join(dir, '10x10', `${id}.json`)).command, new RegExp(` --seed=${seed}$`))
   }
@@ -770,6 +776,42 @@ Deno.test('carve.ts --count skips seeds that do not close, stores none of them, 
   assertMatch(r.stderr, /seed 8: not closed \(\d+ cells left\), skipped\n/)
   assertMatch(r.stdout, /batch: 0\/2 boards written, 2 seeds tried, not closed: 7 8\n$/)
   assertEquals(exists(join(dir, 'boards')), false, 'nothing is stored')
+})
+
+Deno.test('carve.ts run twice says the layout is stored and its recipe updated', async () => {
+  const dir = tmp()
+  const args = ['--width=10', '--height=10', '--seed=3']
+  const first = runCarve(args, dir)
+  assertEquals(first.status, 0, first.stderr)
+  assertEquals(first.stdout.includes('already stored'), false, 'a new layout says nothing about it')
+  const second = runCarve(args, dir)
+  assertEquals(second.status, 0, second.stderr)
+  const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed: 3 }))
+  assertMatch(
+    second.stdout,
+    new RegExp(`^10x10/${id}\\.board\\.json {2}layout already stored, recipe updated {2}pieces=`),
+  )
+  assertEquals(readMeta(join(dir, '10x10', `${id}.json`)).sources.length, 1)
+})
+
+// Goal 4 of the spec, as behaviour: a batch writes N different layouts. The
+// second run over the same seeds finds the first three stored, saves their
+// recipes again and carves on; with the seed limit at 3 it has nothing new.
+Deno.test('carve.ts --count counts new layouts only: a second batch over the same seeds moves past them', async () => {
+  const dir = tmp()
+  const args = ['--width=10', '--height=10', '--seed=1', '--count=3']
+  assertEquals(runCarve(args, dir).status, 0)
+  const again = runCarve(args, dir)
+  assertEquals(again.status, 0, again.stderr)
+  for (const seed of [1, 2, 3]) {
+    const id = await layoutIdOf(simpleParams({ ...defaultChoice(), W: 10, H: 10, seed }))
+    assertStringIncludes(again.stderr, `seed ${seed}: layout already stored as 10x10/${id}, recipe updated\n`)
+  }
+  assertMatch(again.stdout, /batch: 3\/3 boards written, 6 seeds tried, already stored: 1 2 3\n$/)
+  assertEquals(entries(join(dir, '10x10')), 12, 'six layouts, a board file and a meta each')
+  const capped = runCarve([...args, '--max-seeds=3'], dir)
+  assertEquals(capped.status, 1, capped.stderr)
+  assertMatch(capped.stdout, /batch: 0\/3 boards written, 3 seeds tried, already stored: 1 2 3\n$/)
 })
 
 Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exit 2, nothing written', () => {
