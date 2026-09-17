@@ -1291,7 +1291,7 @@ git commit -m "Show a stored board's command and view, and load it back into the
 Create `apps/lab/src/library/useViewSave.browser.test.tsx`:
 
 ```tsx
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, type View } from '@arrowz/engine'
 import { act, useState, type ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { userEvent } from 'vitest/browser'
@@ -1299,9 +1299,12 @@ import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
+import { cancelNoticeFade, raiseNotice } from './notices'
 import { cancelPendingSave, useViewSave } from './useViewSave'
 
 const stored = storedFixture(1)
+/** A second board, for the cases about an edit finished on a different one. */
+const other = storedFixture(2)
 const at = ({ children }: { children: ReactNode }) => <MemoryRouter initialEntries={['/boards']}>{children}</MemoryRouter>
 
 beforeEach(() => {
@@ -1311,6 +1314,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Both module timers, so a case cannot leave one ticking into the next: the
+  // save's, and the fade's — `notices.ts` and `useViewSave.ts` each own one.
+  cancelPendingSave()
+  cancelNoticeFade()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -1425,6 +1432,73 @@ test('a failed save keeps saying so, because the picture still disagrees with th
   expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
 })
 
+// The Critical this task's review found, and the reason `write` is handed the
+// board it was given rather than the one on the stage. One click on another
+// row does two things at once: it blurs the field, which commits the edit and
+// arms the timer, and it changes the address — and a local store answers well
+// inside the 350 ms pause. Reading the board at write time therefore posted A's
+// view onto B's file: A's edit lost, B's stored view overwritten, the message
+// naming B, and nothing on screen to show for any of it.
+test('an edit finished by clicking another board is written to the board that was edited', async () => {
+  const posts = [] as { board: unknown; view: View }[]
+  vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+    if (init?.method !== 'POST') return new Promise(() => {})
+    posts.push(JSON.parse(String(init.body)) as { board: unknown; view: View })
+    return Promise.resolve(new Response(JSON.stringify(stored.meta), { status: 201 }))
+  })
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.9 }))
+  // The stage moves to the other board inside the pause, as the click does.
+  await act(async () => {
+    useStore
+      .getState()
+      .result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta })
+  })
+  await expect.poll(() => posts.length).toBe(1)
+
+  // The request carries the edited board's file and the edited view — not
+  // whichever board happens to be on the stage when the timer fires.
+  expect(posts[0]?.board).toEqual(stored.file)
+  expect(posts[0]?.view.stroke).toBe(0.9)
+  // And the board that replaced it is left exactly as it was.
+  expect(useStore.getState().result.preview?.meta.id).toBe(other.meta.id)
+  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(other.meta.view.stroke)
+})
+
+// `notices.ts` exists to take an event notice back, and nothing measured that:
+// this task's review found that deleting its whole `setTimeout` block, or
+// inverting its identity guard, left every other case green. Task 8's `deleted`
+// notice leans on this same branch — and the `deleted` fade is the one the
+// plan's own history records as broken once already.
+test('an event notice fades after 1200 ms, and a kept one never does', async () => {
+  vi.useFakeTimers()
+
+  await act(async () => raiseNotice({ kind: 'deleted', name: '8x8/x' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(1199))
+  expect(useStore.getState().library.notice?.kind).toBe('deleted')
+  await act(async () => await vi.advanceTimersByTimeAsync(1))
+  expect(useStore.getState().library.notice).toBeNull()
+
+  // `saveFailed` describes a state, so no clock takes it away (Ruling 5).
+  await act(async () => raiseNotice({ kind: 'saveFailed' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(3000))
+  expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
+})
+
+// The identity guard inside the fade: a newer notice owns the line, and the
+// timer of the one it replaced must not take it away.
+test('a notice that superseded another is not cleared by the older one’s timer', async () => {
+  vi.useFakeTimers()
+
+  await act(async () => raiseNotice({ kind: 'deleted', name: '8x8/a' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(1100))
+  await act(async () => raiseNotice({ kind: 'viewSaved', name: '8x8/b' }))
+  // Past the moment the first one's timer would have fired.
+  await act(async () => await vi.advanceTimersByTimeAsync(200))
+  expect(useStore.getState().library.notice?.kind).toBe('viewSaved')
+})
+
 test('a burst of edits writes once', async () => {
   const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
@@ -1531,6 +1605,7 @@ Create `apps/lab/src/library/useViewSave.ts`:
 import type { BoardFile, View } from '@arrowz/engine'
 import { storeRequest } from '@arrowz/engine/command'
 import { saveBoard } from '../api/boards'
+import type { StoredBoard } from '../state/result.slice'
 import { useStore } from '../state/store'
 import { raiseNotice } from './notices'
 
@@ -1569,22 +1644,28 @@ export function cancelPendingSave(): void {
 export function useViewSave(refresh: () => void): (view: View) => void {
   return (view) => {
     useStore.getState().result.previewView(view)
+    // The board this edit belongs to, captured now — with the edit already in
+    // its meta. The timer fires 350 ms later, and by then the stage may be
+    // showing a different board: a single click on another row both blurs the
+    // field (which commits) and changes the address, and a local store answers
+    // well inside the pause. Reading the board at write time therefore sent one
+    // board's view to another board's file (measured in this task's review).
+    const edited = useStore.getState().result.preview
+    if (edited === null) return
     clearTimeout(timer)
     timer = setTimeout(() => {
       timer = undefined
-      void write(refresh, view)
+      void write(refresh, edited, view)
     }, SETTLE_MS)
   }
 }
 
-async function write(refresh: () => void, posted: View): Promise<void> {
-  // The board, the file and the meta's other fields are read now — the timer
-  // has just fired and they are what the store should be told about. The view
-  // is the caller's, so the write describes the edit rather than whatever the
-  // store has moved on to.
-  const preview = useStore.getState().result.preview
-  if (preview === null) return
-  const { meta, file, board } = preview
+async function write(refresh: () => void, edited: StoredBoard, posted: View): Promise<void> {
+  // Everything comes from the board that was edited, captured when the edit was
+  // committed — never from the stage as it stands now. The stage is a moving
+  // target between the keystroke and the timer, and the file this request names
+  // decides which board the store overwrites.
+  const { meta, file, board } = edited
   const name = `${meta.W}x${meta.H}/${meta.id}`
   // The page holds the file as `unknown` because it reads nothing in it;
   // `decodeBoard` accepted it when it loaded and it goes back untouched, so
@@ -1600,18 +1681,19 @@ async function write(refresh: () => void, posted: View): Promise<void> {
     raiseNotice({ kind: 'saveFailed' })
     return
   }
-  // Only the *stage* is gated on identity, and only against putting an older
-  // view back on it. Comparing `meta.id` cannot do that job: `layoutHash` reads
-  // the layout, not the view, so every save of one board answers with the same
-  // id, and round 1 measured an older answer taking a newer edit off the stage
-  // and out of the next write. `previewView` stores the caller's object, so a
-  // newer edit is a different object.
+  // Only the *stage* is gated, and on two things: that it is still this board,
+  // and that it still carries this edit. The board check keeps an answer for A
+  // from redrawing B; the view check keeps an older answer from putting its
+  // view back over a newer edit — `previewView` stores the caller's object, so
+  // a newer edit is a different object, and `layoutHash` is view-blind, so
+  // `meta.id` alone cannot tell two saves of one board apart.
   //
   // The message and the refresh are NOT gated. Round 2 measured that mistake:
   // a save whose answer arrived after the board changed said nothing at all —
-  // no `viewSaved`, no `notSaved` on failure, and a row left showing the
+  // no `viewSaved`, no `saveFailed` on failure, and a row left showing the
   // command of a view the store no longer holds.
-  if (useStore.getState().result.preview?.meta.view === posted) {
+  const current = useStore.getState().result.preview
+  if (current !== null && current.meta.id === meta.id && current.meta.view === posted) {
     useStore.getState().result.showPreview({ board, file, meta: outcome.meta })
   }
   raiseNotice({ kind: 'viewSaved', name })
