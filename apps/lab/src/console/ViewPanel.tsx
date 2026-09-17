@@ -6,7 +6,7 @@ import type { ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
-/** The four flags, in the order the old lab lists them. */
+/** The four flags, in the order the previous lab lists them. */
 export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' | 'voids' }[] = [
   { flag: 'rounded', label: 'rounded' },
   { flag: 'colored', label: 'colored' },
@@ -15,13 +15,12 @@ export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored'
 ]
 
 /**
- * One preview number. Uncontrolled on purpose, and it is the same reason the
- * old lab is: a controlled `type="number"` rewrites its own value, and a
- * half-typed `0.` reads back as the empty string — so React would put the
- * default into the box under the cursor. The field owns its text while it is
- * being typed into; the store owns it the rest of the time, which is exactly
- * the `document.activeElement` guard the old lab uses for its second seed
- * field (`lab-page.ts:679-681`), kept where it is actually needed.
+ * One preview number. Uncontrolled on purpose: a controlled `type="number"`
+ * rewrites its own value, and a half-typed `0.` reads back as the empty string
+ * — so React would put the default into the box under the cursor. The field
+ * owns its text while it is being typed into; the store owns it the rest of
+ * the time — a `document.activeElement` guard, kept where it is actually
+ * needed.
  *
  * The library's preview shows three of these fields (stroke, head width and
  * head height) through this same component, which is what keeps their bounds

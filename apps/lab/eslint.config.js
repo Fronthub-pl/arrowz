@@ -19,8 +19,9 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'error',
       // tsc exempts `_`-prefixed bindings; this rule does not unless told to.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-      // Node belongs in the integration test that spawns the lab server, and
-      // nowhere else: this application runs in a browser.
+      // This application runs in a browser. The two exemptions below are the
+      // only places Node belongs: the build-output smoke and the integration
+      // test that spawns the store server.
       'no-restricted-imports': ['error', { patterns: ['node:*'] }],
     },
   },

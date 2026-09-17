@@ -173,8 +173,8 @@ Deno.test('a signed row is always a comparable row, or its arrow can never be dr
 })
 
 Deno.test('a run with no metrics reports no rows, as the page has always done', () => {
-  // The page clears both tables when metrics are null (lab-page.ts:1425-1429);
-  // every row below that point reads metrics.*, so there is nothing to show.
+  // The page clears both tables when metrics are null; every row below that
+  // point reads metrics.*, so there is nothing to show.
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   assertEquals(reportRows({ ...run(20, 20, 3), metrics: null }, params, dictionary('en')), [])
 })
@@ -193,15 +193,13 @@ Deno.test('genSeconds shows two decimals under ten seconds and one above, and a 
   assertEquals(genSeconds({ genMs: null } as never, '—'), '—')
 })
 
-// The delta column's arithmetic, moved out of the old lab's `report()`
-// (formerly lab-page.ts:1439-1449, at 1ffb0d6) so both labs print the same cell. The numbers are
-// chosen to be exact in binary, so no case depends on how `toFixed` rounds a
-// tie.
+// The delta column's arithmetic. The numbers are chosen to be exact in binary,
+// so no case depends on how `toFixed` rounds a tie.
 Deno.test('reportDelta is null when either number is missing or the two are equal', () => {
   assertEquals(reportDelta(undefined, 3, 1), null)
   assertEquals(reportDelta(3, undefined, 1), null)
   assertEquals(reportDelta(3, 3, 1), null)
-  // The old lab's tolerance: a float that moved by less than 1e-9 did not move.
+  // The tolerance: a float that moved by less than 1e-9 did not move.
   assertEquals(reportDelta(3 + 1e-10, 3, 1), null)
 })
 
@@ -211,7 +209,7 @@ Deno.test('reportDelta prints a plus or a true minus, at the precision of the si
   assertEquals(reportDelta(3.5, 1, 0)?.text, '+2.5')
   assertEquals(reportDelta(2, 1, 0)?.text, '+1.0')
   assertEquals(reportDelta(0.75, 0.5, 0)?.text, '+0.25')
-  // U+2212, not a hyphen: the old lab's glyph, and the one a screen reader says "minus" for.
+  // U+2212, not a hyphen: the glyph a screen reader says "minus" for.
   assertEquals(reportDelta(1, 3.5, 0)?.text, '−2.5')
 })
 

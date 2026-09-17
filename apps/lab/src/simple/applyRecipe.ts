@@ -2,10 +2,9 @@ import { exportCell, simpleParams } from '@arrowz/engine/simple'
 import { useStore } from '../state/store'
 
 /**
- * Writes the recipe into the knobs — the old lab's `applySimple`
- * (`lab-page.ts:631-639`). Every knob, through `setMany`: the machine path, so
- * `auto` does not carve behind it (Ruling 4). The seed is the one on screen,
- * because the recipe does not own one.
+ * Writes the recipe into the knobs. Every knob, through `setMany`: the machine
+ * path, so `auto` does not carve behind it (Ruling 4). The seed is the one on
+ * screen, because the recipe does not own one.
  *
  * With `random` each ranged knob is drawn afresh inside the recipe's ranges,
  * so the same seed gives a different board. Without it the canonical values
@@ -21,15 +20,14 @@ export function applyRecipe(random: boolean): void {
   // Only when it moves. `setNumber` always replaces the view slice, `Stage`
   // memoises the element's view on that object, and the element redraws the
   // whole board for a new view (`arrowz-board.ts:422-428`) — which a slider
-  // drag would pay sixty times a second for a cell that did not change. The
-  // old lab assigned an input's value and redrew nothing.
+  // drag would pay sixty times a second for a cell that did not change.
   const cell = exportCell(drawn.W, drawn.H)
   if (view.cell !== cell) view.setNumber('cell', String(cell))
 }
 
 /**
  * Generate and New seed in the simple view with randomising on draw the knobs
- * afresh first; every other trigger keeps them (`lab-page.ts:912-921`).
+ * afresh first; every other trigger keeps them.
  */
 export function drawIfRandom(): void {
   const { ui, recipe } = useStore.getState()
@@ -38,8 +36,8 @@ export function drawIfRandom(): void {
 
 /**
  * Defaults in the simple view also puts the recipe back, keeping `random`, and
- * writes it into the knobs the reset just set (`lab-page.ts:926-929`). The
- * caller resets the knobs first, so the seed the recipe keeps is the default.
+ * writes it into the knobs the reset just set. The caller resets the knobs
+ * first, so the seed the recipe keeps is the default.
  */
 export function resetRecipeIfSimple(): void {
   const { ui, recipe } = useStore.getState()

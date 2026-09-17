@@ -22,7 +22,7 @@
   text-align: left;
   vertical-align: baseline;
 }
-/* The gap the old lab drew as a separator row, now the boundary of a group. */
+/* The gap once drawn as a separator row, now the boundary of a group. */
 .fw-report tbody + tbody tr:first-child > * {
   padding-top: 9px;
 }

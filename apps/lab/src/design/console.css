@@ -236,9 +236,9 @@
   background: var(--error);
 }
 /* A knob that does nothing at these settings. The *control* is dimmed; the
-   sentence explaining why is not. The mock dims the whole card at `.4`, and
-   the old lab does the same (lab.html:160) — which puts the one line that
-   says "No effect: needs skeleton elements > 0" at about 2.3:1.
+   sentence explaining why is not. The mock dims the whole card at `.4` — which
+   puts the one line that says "No effect: needs skeleton elements > 0" at
+   about 2.3:1.
 
    `.7` and not `.55`: the exemption AA grants a dimmed control is for a
    *disabled* one, and this knob is not disabled — it takes focus, it takes a
@@ -390,8 +390,8 @@
   grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr);
   min-height: 0;
 }
-/* The simple view has no preset strip (lab.html:52), and an absent first child
-   would auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
+/* The simple view has no preset strip, and an absent first child would
+   auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
 .fw-lab.simple {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
 }
@@ -411,8 +411,8 @@
    track keeps its size when its only item is `display: none`: the lab's rows
    become the one stage track (`.fw-lab.simple.solo` outranks `.fw-lab.simple`
    rather than tying with it), and the stage's columns and rows — including its
-   ≤900px rows (shell.css) — become the one board track, as the old lab's
-   `body.solo .cols` does (lab.html:140). Nothing unmounts: the GL context, the
+   ≤900px rows (shell.css) — become the one board track. Nothing unmounts: the
+   GL context, the
    run column's focus and a draft being typed all live in the hidden nodes.
    Measured: `.fw-boardwrap` equals `.fw-lab` and the element is 34px smaller
    on both axes at 1400×900, 860×900 and 860×650, in both views. */
@@ -438,8 +438,7 @@
   grid-template-rows: minmax(0, 1fr);
 }
 /* The library face (spec §5.1, PR 5a). The run column keeps its node and is
-   hidden, as the old lab hides its lab-only controls (`body.tab-library
-   .labonly`), so a carve in flight keeps its node, its refs and the run
+   hidden, so a carve in flight keeps its node, its refs and the run
    itself. A hidden grid item takes no track, so the console drops to the two
    tracks the library uses — unlike solo's hidden items, which sit in tracks
    that have to be redefined because `display: none` on the *only* item of a
