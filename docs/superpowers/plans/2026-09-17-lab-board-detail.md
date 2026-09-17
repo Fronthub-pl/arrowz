@@ -1026,9 +1026,14 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
       </div>
     </MemoryRouter>,
   )
+  // Numbered from 02, and that is not arbitrary: `storedFixture(1)` builds its
+  // id as `sha256-` + `01` repeated, so it ends in `01` — and a row generated
+  // with that suffix *is* the board this case also shows. The task review of
+  // this plan measured the first version: 41 entries of which two shared an id,
+  // a duplicate React key, and two rows both carrying `aria-current`.
   const many = Array.from({ length: 40 }, (_, i) => ({
     ...stored.meta,
-    id: `${stored.meta.id.slice(0, -2)}${String(i).padStart(2, '0')}`,
+    id: `${stored.meta.id.slice(0, -2)}${String(i + 2).padStart(2, '0')}`,
   }))
   await act(async () => {
     useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
