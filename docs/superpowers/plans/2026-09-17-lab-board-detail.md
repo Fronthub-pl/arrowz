@@ -86,9 +86,15 @@ New in this plan, read from the source on 2026-09-17 (verify, do not trust):
 
 Decisions this plan takes that the spec left open or states differently. An executor must not relitigate them; a reviewer should attack them.
 
-**Ruling 1 — `LibraryPanel` is a container, and the panel's scrolling moves onto its list row.** Spec §5.1 (PR 5b) puts the detail under the list in a two-row grid. `.fw-lib-list` owns `overflow-y: auto` today; if it kept it, the detail would sit below a scrolled region and the panel as a whole would grow past its track. The grid gets `minmax(0, 1fr)` and `auto`, and `min-height: 0` on the list row, because a grid item's automatic minimum size is its content and without it the row refuses to shrink and nothing scrolls.
+**Ruling 1 — `LibraryPanel` is a container, and **both** its rows are bounded.** Spec §5.1 (PR 5b) puts the detail under the list in a two-row grid. `.fw-lib-list` owns `overflow-y: auto` today; if it kept it, the detail would sit below a scrolled region and the panel as a whole would grow past its track.
 
-**Ruling 2 — the two shared fields become controlled by their caller, and `ViewPanel` is converted in the same task.** `ViewNumberField` and `ViewFlagSwitch` read the `view` slice directly today. Reusing them from the detail means one of two things: a prop pair, or a context. The prop pair wins because the field's test then needs no provider and the component becomes pure; the commitment recorded in PR #65 and in `ViewPanel.tsx`'s own comment is satisfied either way, but only the prop pair leaves the component readable on its own. `viewNumberOf` moves *into* the field, so a caller receives an already-clamped number and no caller can forget to clamp — which also removes the `useStore.getState()` re-read the component uses today to show what the store kept.
+The obvious grid — `minmax(0, 1fr)` and `auto` — is wrong, and review round 1 measured how wrong. An `auto` row is content-sized with no ceiling, and the detail's content is taller than half a 385 px console: at 1400×900 the list came out **30 px** tall (no row fully visible, of forty), and at 860×900 it came out **0 px** while the detail overflowed the console *and the document* by 75 px. "The list scrolls under a detail that stays" was true only in the sense that there was no list left to scroll.
+
+So the list row gets a floor and the detail row gets a ceiling: `grid-template-rows: minmax(min(140px, 50%), 1fr) minmax(0, auto)`, with `min-height: 0; overflow-y: auto` on the detail itself. `minmax(0, auto)` lets the detail shrink below its content and scroll on its own; `min(140px, 50%)` keeps about two rows of list at every width without taking the panel over on a short viewport. Measured with that pair: 1400×900 → 140 px of list, two rows visible, detail inside the console, no document overflow; 860×900 → the same.
+
+`min-height: 0` on the list row matters for the usual reason — a grid item's automatic minimum size is its content, so without it the row refuses to shrink and nothing scrolls.
+
+**Ruling 2 — the two shared fields become controlled by their caller, and **all three** owners are converted in the same task.** There are three, not two: `ViewPanel`, `SimplePanel` (the simple view renders the very same components) and the library's new `BoardDetail`. Review round 1 applied the first draft of this task and measured what leaving `SimplePanel` out costs — `tsc` red with two `TS2739`s, and at run time a simple-view field that opens empty and throws `onCommit is not a function` on blur. Its own test suite stayed green through all of it, because no case there commits a view field; this task adds one. `ViewNumberField` and `ViewFlagSwitch` read the `view` slice directly today. Reusing them from the detail means one of two things: a prop pair, or a context. The prop pair wins because the field's test then needs no provider and the component becomes pure; the commitment recorded in PR #65 and in `ViewPanel.tsx`'s own comment is satisfied either way, but only the prop pair leaves the component readable on its own. `viewNumberOf` moves *into* the field, so a caller receives an already-clamped number and no caller can forget to clamp — which also removes the `useStore.getState()` re-read the component uses today to show what the store kept.
 
 **Ruling 3 — the library's field list is its own constant, not `SIMPLE_VIEW_FIELDS`.** Both are `stroke`, `headWidth`, `headHeight`, and the coincidence is exactly the trap: the simple view holds that trio because `cell` and `top` are advanced, the library holds it because a stored board has no highlight and its `cell` belongs to the export it was saved with. Sharing the constant would mean a change to the simple view silently changed the library.
 
@@ -103,6 +109,16 @@ Decisions this plan takes that the spec left open or states differently. An exec
 **Ruling 8 — a failed view save does not revert the board on screen.** The view is already in `preview.meta` and on the stage; a save that fails says `notSaved` and leaves the picture alone, as the old lab does (`saveLibView`'s `catch` sets the status and nothing else). Reverting would throw away the user's edit because a server is down.
 
 **Ruling 9 — *load into lab* copies the view as well as the knobs, and `hilite` comes from `view.top > 0`.** Parity with `lab-page.ts`'s `libLoad` handler, which sets `cell`, `stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, and `hilite` from `v.top > 0`. A stored board's `top` is 0, so `hilite` lands off; that is the old lab's behaviour and not an oversight.
+
+**Ruling 12 — a pending view save is flushed when the detail goes away, not dropped.** Added by review round 1, which measured the loss: an edit, 200 ms, then another board chosen — `BoardDetail` is keyed on the address (Ruling 10), so it unmounts, `useViewSave`'s cleanup clears the timer, and the store never hears. The old lab has no such hole: its `libTimer` is module-level and fires after the switch. So the cleanup writes instead of cancelling, and it writes **the view it was given**, from the closure, never `useStore.getState()` — by then the store describes another board. Parity, and the smaller surprise: an edit you watched happen is an edit that survives.
+
+**Ruling 13 — after a failed save the command box goes on showing the store's command, and that is the honest thing.** `meta.command` is built from the params and the view the store holds, so after `notSaved` it disagrees with the picture on the stage — Copy hands over a command that does not reproduce what is drawn. Leaving it is right: the box is labelled "Command of this board", and the board is what the store has. The picture is the user's unsaved edit (Ruling 8), and the status line is what says so.
+
+**Ruling 14 — a new listing does not re-fetch the board already on the stage.** Two reviewers reached this from opposite sides. `useStoredBoard`'s effect depends on `metas`, and `listed()` always stores a fresh array, so every refresh — including the one `write()` makes after a successful save — fetched the open board's file again. One reviewer measured what came back: the *listing's* view, overwriting an edit made while that fetch was in flight. The other measured what it did to the line: `loading` raised over `viewSaved`, so against a local store the "saved" message was never readable at all.
+
+So the effect returns early when the board the address names is the board `result.preview` already holds: no second `GET`, no `loading`, and nothing to overwrite the view with. This narrows PR 5a's Ruling 4a, which accepted the refetch to guarantee "the preview never describes a meta the listing has replaced". That guarantee is worth less than it looked: the only thing that rewrites a meta is a save, and `write()` already hands the store's own answer to `showPreview`. A meta changed by *another* window is the remaining gap, and it is worth one stale command line rather than a fetch per keystroke-settle and a message nobody can read.
+
+**Ruling 15 — the detail shows the board the address names, or nothing.** `useStoredBoard` deliberately leaves the previous board on the stage until the next file arrives, so between the click and the picture the address names B while `preview.meta` is still A. The stage may live with that — it is one board replacing another — but the detail must not: keyed on the address (Ruling 10) it would put A's command and A's view fields under B's heading, and a two-click delete finished inside that window would remove the board the user had just clicked away from. So `BoardDetail` renders `null` unless `preview.meta` is the board the address names, which is Ruling 6's reasoning applied to a case Ruling 6 did not see.
 
 **Ruling 11 — a 404 from the delete is an outcome, not an error.** The server answers 200 `{"deleted":true}` when it removed the files and 404 `{"deleted":false}` when there was nothing to remove. To someone who has just pressed Delete twice, or who is looking at a listing another process has emptied, both mean *the board is not there any more*: the detail navigates away and says `deletedBoard` either way. So `DeleteOutcome` is `{ ok: true; deleted: boolean } | { ok: false; error: string }`, and only a refused connection or a 5xx is `ok: false` — the shape `listBoards` and `saveBoard` already use, where `ok` means "the store answered", not "the answer was yes".
 
@@ -138,6 +154,8 @@ Decisions this plan takes that the spec left open or states differently. An exec
 | `apps/lab/src/state/result.slice.test.ts` | It moves the meta's view, leaves `board` and `file`, and is a no-op without a preview. |
 | `apps/lab/src/console/ViewPanel.tsx` | `ViewNumberField` and `ViewFlagSwitch` take a value and a callback (Ruling 2); `ViewPanel` supplies the lab's. |
 | `apps/lab/src/console/ViewPanel.browser.test.tsx` | Follows the new signatures. |
+| `apps/lab/src/simple/SimplePanel.tsx` | The third owner of the shared fields; same pair of props (Ruling 2). |
+| `apps/lab/src/simple/SimplePanel.browser.test.tsx` | One case that actually commits a view field, which this suite never had. |
 | `apps/lab/src/console/Console.tsx` | The library face renders `LibraryPanel`. |
 | `apps/lab/src/library/BoardList.tsx` | Takes `refresh` as a prop; asks `openEntry` which size it is showing. |
 | `apps/lab/src/library/SizeChips.tsx` | Asks `openEntry` too, so the chips and the list cannot disagree (Ruling 7). |
@@ -475,8 +493,8 @@ git commit -m "Let a stored board's view change, in the meta the stage draws fro
 ## Task 4: One view field, two owners
 
 **Files:**
-- Modify: `apps/lab/src/console/ViewPanel.tsx`
-- Test: `apps/lab/src/console/ViewPanel.browser.test.tsx` (its existing cases must go on passing unchanged wherever possible; only the two that mount a field directly change)
+- Modify: `apps/lab/src/console/ViewPanel.tsx`, `apps/lab/src/simple/SimplePanel.tsx`
+- Test: `apps/lab/src/console/ViewPanel.browser.test.tsx` (append two cases; every existing case must go on passing unchanged), `apps/lab/src/simple/SimplePanel.browser.test.tsx` (append one)
 
 **Interfaces:**
 - Consumes: `VIEW_RANGE`, `viewNumberOf` from `@arrowz/engine/command`.
@@ -632,7 +650,48 @@ export function ViewPanel() {
 }
 ```
 
-`setNumber` takes the typed string and runs `viewNumberOf` itself; passing it an already-clamped number as a string is idempotent, so the slice keeps its tolerant entry point and the panel needs no second one.
+`setNumber` takes the typed string and runs `viewNumberOf` itself; passing it an already-clamped number as a string is idempotent, so the slice keeps its tolerant entry point and the panel needs no second one. Review round 1 proved that rather than assuming it: `viewNumberOf(String(viewNumberOf(raw, f)), f)` against the built engine, over 36 hand-picked edge strings and 200 000 random ones per field in decimal, exponential and fixed forms — zero differences under `Object.is`, `cell` and `top`'s `whole: true` included.
+
+- [ ] **Step 3b: Convert the third owner, `SimplePanel`**
+
+`apps/lab/src/simple/SimplePanel.tsx` renders the same two components and must change with them (Ruling 2), or `verify` goes red on `tsc` while the simple view's own tests stay green over a field that opens empty and throws on blur. It already selects `setMany`; add the view slice beside it:
+
+```tsx
+  const view = useStore((state) => state.view)
+```
+
+and pass the same pair through its two `map` bodies, leaving the surrounding JSX alone:
+
+```tsx
+        {fields.map((field) => (
+          <ViewNumberField
+            key={field.field}
+            field={field}
+            value={view[field.field]}
+            onCommit={(value) => view.setNumber(field.field, String(value))}
+          />
+        ))}
+        {flags.map(({ flag, label }) => (
+          <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
+        ))}
+```
+
+Then give that owner the case it never had, appended to `apps/lab/src/simple/SimplePanel.browser.test.tsx`:
+
+```ts
+// The third owner of the shared field (Ruling 2). No case here committed a view
+// field before, which is why `tsc` was the only thing between this panel and a
+// field that opens empty and throws `onCommit is not a function` on blur.
+test('a view field in the simple panel still writes the lab’s view', async () => {
+  const screen = await render(<SimplePanel control={/* the control this file already builds */} />)
+  const stroke = screen.getByRole('spinbutton', { name: /stroke/i })
+  await userEvent.fill(stroke, '0.8')
+  await userEvent.tab()
+  expect(useStore.getState().view.stroke).toBe(0.8)
+})
+```
+
+Copy the `control` expression from the cases already in that file rather than inventing a helper.
 
 - [ ] **Step 4: Run the whole console suite**
 
@@ -647,9 +706,9 @@ Expected: clean. `vitest run` does not catch a locator typed as `HTMLElement` wh
 - [ ] **Step 6: Commit**
 
 ```bash
-pnpm --dir apps/lab exec prettier --write src/console/ViewPanel.tsx src/console/ViewPanel.browser.test.tsx
-git add apps/lab/src/console/ViewPanel.tsx apps/lab/src/console/ViewPanel.browser.test.tsx
-git commit -m "Hand the view field its value, so the library can own three of them"
+pnpm --dir apps/lab exec prettier --write src/console/ViewPanel.tsx src/console/ViewPanel.browser.test.tsx src/simple/SimplePanel.tsx src/simple/SimplePanel.browser.test.tsx
+git add apps/lab/src/console apps/lab/src/simple
+git commit -m "Hand the view field its value, so a third owner can have one too"
 ```
 
 ---
@@ -672,10 +731,16 @@ git commit -m "Hand the view field its value, so the library can own three of th
 In `apps/lab/src/library/LibraryPanel.browser.test.tsx`, replace the `mountPanel` helper so it mounts the panel rather than the list directly:
 
 ```tsx
-async function mountPanel(path = '/boards') {
+async function mountPanel(path = '/boards', box?: { height: number }) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <div className="fw">
+      {/*
+        The height is optional and the geometry case is the only caller that
+        passes one. Without it the panel is content-sized and nothing is ever
+        asked to scroll — which is how the first draft of that case came out
+        green over a 30px list and then over no list at all (review round 1).
+      */}
+      <div className="fw" style={box === undefined ? undefined : { height: `${box.height}px`, display: 'grid' }}>
         <SizeChips />
         <LibraryPanel />
         <Address />
@@ -692,20 +757,37 @@ Import `LibraryPanel` and drop the now-unused `BoardList` import — `noUnusedLo
 // itself rather than by scrolling, because the point is which row owns the
 // overflow: `.fw-lib-list` used to, and a detail below a scrolling region
 // would ride down with it.
-test('the panel gives the list a scrolling row and keeps a row beneath it', async () => {
+test('the list scrolls inside a panel of a fixed height, and the detail stays on screen', async () => {
   await page.viewport(1400, 900)
-  const screen = await mountPanel()
+  // The height is the whole point. Review round 1 measured the first version of
+  // this case, which mounted the panel in a bare `<div className="fw">`: with no
+  // height above it the panel is content-sized, nothing is ever asked to
+  // scroll, and the assertions came out true of the stylesheet whatever the
+  // geometry — green at 1400 with a 30px list, green at 860 with no list at
+  // all. A panel in a 380px box is the smallest thing that can go red.
+  const screen = await mountPanel(undefined, { height: 380 })
   await act(async () => useStore.getState().library.listed(sizesFixture()))
-  const panel = screen.container.querySelector<HTMLElement>('.fw-lib-panel')
-  if (panel === null) throw new Error('no panel')
-  expect(getComputedStyle(panel).gridTemplateRows.split(' ')).toHaveLength(2)
   const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
-  expect(list === null ? '' : getComputedStyle(list).overflowY).toBe('auto')
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  if (list === null || detail === null) throw new Error('the panel is missing a row')
+  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+  // A floor of about two rows, so there is something to scroll (Ruling 1).
+  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
+  // And the detail is inside the box, not hanging out of the bottom of it.
+  expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+    (screen.container.querySelector('.fw-lib-panel')?.getBoundingClientRect().bottom ?? 0) + 1,
+  )
 })
 
 // The hook's guard only stops a second fetch once an answer is in, so two
 // callers against an empty cache would both fetch (spec §5.1, PR 5b).
-test('the listing is fetched once, however many children want refreshing', async () => {
+// One caller, one fetch per mount. Not "exactly one ever": under StrictMode the
+// mount effect runs twice and `useLibraryList`'s guard sees `sizes === null`
+// both times, because the first answer has not landed — so the application
+// fetches twice and drops the first answer (`listDropped`). That is the hook's
+// own behaviour, unchanged by this plan, and `vitest-browser-react` renders
+// without StrictMode, so this case measures the panel and not that.
+test('the listing is fetched once per mount, however many children want refreshing', async () => {
   const calls = vi.spyOn(globalThis, 'fetch')
   await mountPanel()
   await expect.poll(() => calls.mock.calls.filter(([url]) => String(url).includes('/api/boards')).length).toBe(1)
@@ -765,13 +847,15 @@ In `Console.tsx`, the library face renders the panel: replace `<BoardList />` wi
 In `apps/lab/src/design/library.css`, add **above** any media query in the file:
 
 ```css
-/* The panel's two rows (spec §5.1, PR 5b): the rows scroll, the detail stays.
-   `minmax(0, 1fr)` and `min-height: 0` on the child both matter — a grid item's
-   automatic minimum size is its content, so without them the list row refuses
-   to shrink and nothing scrolls. */
+/* The panel's two rows (spec §5.1, PR 5b). Both are bounded, and Ruling 1 says
+   why: an `auto` detail row is content-sized with no ceiling, and measured at
+   1400x900 it left 30px of list — none of forty rows fully visible — while at
+   860x900 it left none at all and overflowed the console by 75px. The floor
+   keeps about two rows of list at every width; `minmax(0, auto)` lets the
+   detail shrink below its content and scroll on its own. */
 .fw-lib-panel {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(min(140px, 50%), 1fr) minmax(0, auto);
   min-height: 0;
   background: var(--void);
 }
@@ -933,7 +1017,13 @@ import type { ViewFlag } from '../state/view.slice'
 export const LIBRARY_VIEW_FIELDS: readonly ViewField[] = [
   { field: 'stroke', label: 'strokeLabel', step: 0.05 },
   { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
-  { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', step: 0.05 },
+  // No `help` on `headHeight`, though the console's copy of this field has one:
+  // the old lab's library does not show it either (`lab.html`'s `libView`), and
+  // review round 1 measured what it costs here — a nine-line paragraph in a
+  // 190px column makes every cell of the row as tall as itself, and the detail
+  // grew by 120px at 1400 and 138px at 860, which is what left no list to
+  // scroll (Ruling 1).
+  { field: 'headHeight', label: 'headHeightLabel', step: 0.05 },
 ]
 
 export const LIBRARY_VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' }[] = [
@@ -954,6 +1044,7 @@ import { ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
+import { useOpenBoard } from './useOpenBoard'
 
 /**
  * One stored board's detail, under the list (spec §5.1, §10 row 5b). It is the
@@ -968,6 +1059,7 @@ import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
 export function BoardDetail(): ReactElement | null {
   const dict = useDictionary()
   const preview = useStore((state) => state.result.preview)
+  const open = useOpenBoard()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -976,7 +1068,11 @@ export function BoardDetail(): ReactElement | null {
   // afterwards; StrictMode makes that happen in tests.
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  if (preview === null) return null
+  // Ruling 15: not merely "is there a preview", but "is it this address's".
+  // The hook leaves the board before this one on the stage until the next file
+  // lands, and in that window the detail would describe — and offer to delete —
+  // the board the user has just clicked away from.
+  if (preview === null || preview.meta.id !== open.id || `${preview.meta.W}x${preview.meta.H}` !== open.size) return null
   const meta = preview.meta
 
   const copy = () => {
@@ -1241,6 +1337,7 @@ import type { BoardFile, View } from '@arrowz/engine'
 import { storeRequest } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { saveBoard } from '../api/boards'
+import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
 import { useFadingNotice } from './useFadingNotice'
 
@@ -1255,19 +1352,40 @@ const SETTLE_MS = 350
  */
 export function useViewSave(refresh: () => void): (view: View) => void {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // What is waiting to be written, so the cleanup can write it rather than
+  // throw it away (Ruling 12). Cleared by `write` and by the flush itself.
+  const pending = useRef<View | null>(null)
   const notify = useFadingNotice()
-  useEffect(() => () => clearTimeout(timer.current), [])
+
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      // Choosing another board unmounts this detail (it is keyed on the
+      // address), and the old lab's module-level timer fires anyway. The view
+      // comes from the ref, not from the store: by now the store describes
+      // whichever board was chosen instead.
+      const waiting = pending.current
+      if (waiting !== null) void write(notify, refresh, waiting)
+    },
+    [notify, refresh],
+  )
 
   return (view) => {
     useStore.getState().result.previewView(view)
+    pending.current = view
     clearTimeout(timer.current)
-    timer.current = setTimeout(() => void write(notify, refresh), SETTLE_MS)
+    timer.current = setTimeout(() => {
+      pending.current = null
+      void write(notify, refresh, view)
+    }, SETTLE_MS)
   }
 }
 
-async function write(notify: (notice: LibraryNotice) => void, refresh: () => void): Promise<void> {
-  // Read at the moment of writing, never from the closure: the board on screen
-  // may have changed between the last keystroke and this timer.
+async function write(notify: (notice: LibraryNotice) => void, refresh: () => void, posted: View): Promise<void> {
+  // The board, the file and the meta's other fields are read now — the timer
+  // has just fired and they are what the store should be told about. The view
+  // is the caller's (Ruling 12), so a flush on unmount writes what was edited
+  // rather than whatever board the store has moved on to.
   const preview = useStore.getState().result.preview
   if (preview === null) return
   const { meta, file, board } = preview
@@ -1275,16 +1393,21 @@ async function write(notify: (notice: LibraryNotice) => void, refresh: () => voi
   // The page holds the file as `unknown` because it reads nothing in it;
   // `decodeBoard` accepted it when it loaded and it goes back untouched, so
   // the contract's `BoardFile` is what it is — the old lab says the same.
-  const request = storeRequest(file as BoardFile, meta.params, meta.view, meta.source, {
+  const request = storeRequest(file as BoardFile, meta.params, posted, meta.source, {
     ok: meta.ok,
     pieces: meta.pieces,
     maxLen: meta.maxLen,
     genMs: meta.genMs,
   })
   const outcome = await saveBoard(request)
-  // Another board may have been chosen while this one saved: the new meta must
-  // not take the place of the board now shown.
-  if (useStore.getState().result.preview?.meta.id !== meta.id) return
+  // The answer is dropped unless the view it was for is still the view on the
+  // stage. Comparing `meta.id` cannot do this: `layoutHash` reads the layout,
+  // not the view, so every save of one board answers with the same id — and
+  // review round 1 measured an older save's answer putting its view back on
+  // the stage and into the next write, losing the newer edit twice over.
+  // `previewView` stores the caller's object, so a newer edit is a different
+  // object, and a different board fails this test as well.
+  if (useStore.getState().result.preview?.meta.view !== posted) return
   if (!outcome.ok) {
     notify({ kind: 'saveFailed' })
     return
@@ -1528,7 +1651,7 @@ Append to `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside the `descri
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
   })
 
-  it('names each of the library’s five messages', async () => {
+  it('names the library’s four remaining messages', async () => {
     const screen = await mountBar('/boards')
     for (const [notice, words] of [
       [{ kind: 'loading', name: '8x8/x' }, /Loading 8x8\/x/],
@@ -1549,7 +1672,9 @@ Append to `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside the `descri
   it('says nothing of the library while the lab is the tab', async () => {
     const screen = await mountBar('/')
     await act(async () => useStore.getState().library.notify({ kind: 'deleted', name: '8x8/x' }))
-    await expect.element(screen.getByRole('status')).toMatchTextContent(/Press Generate/)
+    // From the dictionary, not a regex: the string is `Press "Generate".`, and
+    // review round 1 measured `/Press Generate/` failing on the quotation marks.
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
   })
 ```
 
@@ -1611,14 +1736,40 @@ and put its branch first, above the `boardError` branch:
 
 - [ ] **Step 4: Implement the loading notice**
 
-In `useStoredBoard.ts`, raise it where the fetch starts — beside the existing `boardFailed(null)` — and clear it on both outcomes:
+`useStoredBoard.ts` changes in three places, and review round 1 measured a defect in each of them before they were written this way.
+
+**First, the effect returns early for the board already on the stage (Ruling 14).** Immediately after the meta lookup succeeds, before anything is raised or cleared:
+
+```ts
+    // A new listing is not a reason to fetch a board that is already drawn:
+    // `listed()` stores a fresh array on every refresh, including the one a
+    // view save makes, and re-fetching brought back the listing's view over an
+    // edit in flight and flashed `loading` over `viewSaved` (Ruling 14).
+    if (useStore.getState().result.preview?.meta.id === id) return
+```
+
+**Second, the notice is raised where the fetch starts** — beside the existing `boardFailed(null)`:
 
 ```ts
     useStore.getState().library.boardFailed(null)
     useStore.getState().library.notify({ kind: 'loading', name: `${size}/${id}` })
 ```
 
-In the resolution, before `showPreview` and before each `boardFailed({ … })`, call `state.library.clearNotice()`. A cancelled fetch leaves it alone: the effect that replaces it raises its own, and the one that ran because the address emptied clears the preview anyway — add `useStore.getState().library.clearNotice()` to that early branch too, so leaving the tab mid-fetch does not strand the word.
+**Third, every exit clears it, and there are four, not two.** Call `clearNotice()` before `showPreview`, before the `boardFailed` of a failed read, before the `boardFailed` of a failed decode, **and before the `boardFailed({ reason: 'not in the store' })` that sits outside the async block** — a board dropped from the listing while its file was in flight otherwise leaves "Loading …" on screen for good, over the very error the line should be printing. Refresh does not clear it either, because it takes the same branch.
+
+**And the early "no board named" branch clears only a `loading` notice:**
+
+```ts
+    if (size === null || id === null) {
+      useStore.getState().result.clearPreview()
+      useStore.getState().library.boardFailed(null)
+      // Only the word about a fetch. The delete navigates to `/boards` and this
+      // branch runs immediately after it — an unconditional clear here erased
+      // the `deleted` notice within one commit, measured by review round 1.
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
+      return
+    }
+```
 
 - [ ] **Step 5: Run and commit**
 
@@ -1848,6 +1999,47 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
 
 Add `storedFixture` and `useStore` to the file's imports if they are not there.
 
+- [ ] **Step 1b: Measure the panel where it is actually squeezed**
+
+Task 5's case measures a panel in a fixed box; this one measures the real console at the width where review round 1 found it broken. Append to the same file:
+
+```ts
+// Ruling 1, at the size that exposed it: at 860x900 the first version of this
+// layout left no list at all and hung the detail 75px below the console.
+test('at 860x900 the list still scrolls and the detail stays inside the console', async () => {
+  await page.viewport(860, 900)
+  const { meta, file } = storedFixture(1)
+  const many = Array.from({ length: 40 }, (_, i) => ({ ...meta, id: `${meta.id.slice(0, -2)}${String(i).padStart(2, '0')}` }))
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(new Response(JSON.stringify([{ size: '8x8', W: 8, H: 8, cells: 64, boards: many }]), { status: 200 }))
+    }
+    if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  const screen = await mountApp()
+  await loadRunDone()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+  if (row === null) throw new Error('the listing showed no row')
+  await userEvent.click(row)
+  await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
+
+  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
+  if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
+  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
+  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+  expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
+  // And nothing pushed the document itself out of shape.
+  expect(document.scrollingElement === null ? 0 : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight).toBe(0)
+}, 40_000)
+```
+
+The viewport outlives the case that set it, so the case after this one sets its own.
+
 - [ ] **Step 2: Run the whole lab suite**
 
 Run: `pnpm nx test lab`
@@ -1887,4 +2079,25 @@ git commit -m "Prove the detail through the whole application, and correct §7.2
    - opening a board on a slow store shows *Loading …* rather than silence.
 3. **The old lab still works**: `deno task lab`, open `/lab.html`, open the Saved boards tab, edit a stored board's stroke and confirm it saves — this PR does not touch it, and that is the claim being checked.
 4. **The stack's bases.** This branch's PR is based on `lab/library-debt`. If #71 or #72 merges first, rebase before asking for review and say so in the PR body.
+
+---
+
+## What review round 1 changed
+
+Three reviewers applied this plan in their own worktrees and measured it. Every item below is a measurement, not an opinion, and each is folded into the task it belongs to; they are listed here so a second reviewer can see what has already been attacked.
+
+**Eight claims went red.**
+
+1. **`SimplePanel` is a third owner of the shared view field**, and Task 4 did not mention it. Applied as first written, `pnpm --dir apps/lab run check` came out with two `TS2739`s, and at run time the simple view's stroke field opened empty and threw `onCommit is not a function` on blur — while its own suite stayed green, because no case there ever committed a view field. Task 4 gains Step 3b and that case; Ruling 2 says three owners.
+2. **The panel's `auto` detail row ate the list.** Measured in the whole application: at 1400×900 the list was 30px tall with none of forty rows fully visible; at 860×900 it was 0px and the detail hung 75px below the console *and* the document. The rows become `minmax(min(140px, 50%), 1fr) minmax(0, auto)` with the detail scrolling itself (Ruling 1, rewritten around the measurement).
+3. **The library's `headHeight` carried a help paragraph the old lab does not show there**, and in a 190px column it made every cell of the row as tall as itself — 120px of the height that left no list at 1400, 138px at 860. Dropped from `LIBRARY_VIEW_FIELDS`, which is also the parity the field list claims.
+4. **Task 5's layout case could not fail.** It mounted the panel in a bare `<div className="fw">`, so the panel was content-sized, nothing scrolled, and the assertions read the stylesheet rather than the geometry — green in all three layouts measured, the broken one included. Replaced by a case in a fixed box, and Task 11 gains a whole-app case at 860×900.
+5. **The late-answer guard could not tell two saves of one board apart.** `layoutHash` reads the layout, not the view, so every save of a board answers with the same `id`. Measured: an older save's answer put its view back on the stage and into the next write, so the newer edit was lost from the screen *and* from the store. The guard now compares the posted view's identity (Ruling 12's neighbourhood; the code is in Task 7).
+6. **Every refresh re-fetched the open board's file**, because `useStoredBoard` depends on `metas` and `listed()` always stores a new array. Two reviewers found it from opposite ends: one measured the listing's view overwriting an edit in flight, the other measured `loading` flashing over `viewSaved` so the "saved" message was never readable. Ruling 14: the effect returns early for the board already on the stage.
+7. **`clearNotice()` in the "no board named" branch erased the `deleted` notice** the delete had just raised — the navigation to `/boards` runs that branch immediately after. And the `not in the store` branch cleared nothing, so a board dropped from the listing mid-fetch left "Loading …" up for good, over the error the line should have printed. Task 9 now names all four exits and clears only a `loading` notice in the early branch.
+8. **`toMatchTextContent(/Press Generate/)` cannot match `Press "Generate".`** — the dictionary string carries quotation marks. It reads from the dictionary now, as every other case in that file does.
+
+**Two risks became rulings.** A pending view save was dropped when the detail unmounted, which is what choosing another board does (Ruling 12: the cleanup writes rather than cancels, from the closure). And the detail, keyed on the address but rendering `preview.meta`, showed the previous board's command and view — and would have deleted *that* board — in the window before the next file lands (Ruling 15: it renders nothing unless the preview is the address's board).
+
+**What held.** The free redraw from `preview.meta` (measured on the element's own `button.colors`, and `element.board` unchanged); the clamp's idempotence through `String` (200 000 random values per field, zero differences); `#view-stroke` never duplicated across the three faces; `deleteBoard` against the real store, including a DELETE with no `Origin` accepted and one with a foreign `Origin` refused 403; the three new dictionary keys against every case in `lab-i18n.test.ts`; and the `group`/`region` roles the a11y case asks for, in both languages.
 
