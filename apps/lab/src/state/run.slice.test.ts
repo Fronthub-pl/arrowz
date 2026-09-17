@@ -48,7 +48,7 @@ test('aborting a run returns to idle without an error', () => {
 })
 
 // An abort and a fresh page are both idle, and the status line has to tell
-// them apart: the old lab prints `aborted`, not `pressGenerate`.
+// them apart: it prints `aborted`, not `pressGenerate`.
 test('aborting records that it happened, and the next run forgets it', () => {
   run().started(params)
   run().aborted()

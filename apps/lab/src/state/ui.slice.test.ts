@@ -3,7 +3,7 @@ import { describe, expect, it, test } from 'vitest'
 import { createUiSlice, modeOf, RAIL_GROUPS, type UiState } from './ui.slice'
 import { useStore } from './store'
 
-test('the rail opens on the board group, as the old lab does', () => {
+test('the rail opens on the board group, as the previous lab does', () => {
   expect(useStore.getState().ui.entry).toBe('board')
 })
 
@@ -26,7 +26,7 @@ describe('the switches the run column owns', () => {
     return store
   }
 
-  it('starts with auto off and help on, as the old lab does', () => {
+  it('starts with auto off and help on, as the previous lab does', () => {
     const store = slice()
     expect(store.ui.auto).toBe(false)
     expect(store.ui.help).toBe(true)
@@ -58,7 +58,7 @@ describe('the view a page opens in', () => {
     return store
   }
 
-  // `lab-page.ts:1472`: only a stored `advanced` opens the advanced view.
+  // Only a stored `advanced` opens the advanced view.
   it('is the simple view unless the advanced one was chosen last time', () => {
     expect(modeOf(null)).toBe('simple')
     expect(modeOf('simple')).toBe('simple')
@@ -73,8 +73,8 @@ describe('the view a page opens in', () => {
   })
 })
 
-// Spec §5.3 lists solo in `ui`, and nothing remembers it: the old lab's
-// `body.solo` is gone on reload too.
+// Spec §5.3 lists solo in `ui`, and nothing remembers it: solo is gone on
+// reload.
 describe('solo', () => {
   function slice() {
     const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }

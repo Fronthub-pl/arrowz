@@ -43,17 +43,15 @@ function applyPayload(payload: HashPayload): void {
   view.setFlag('colored', payload.view.colored)
   view.setFlag('hilite', payload.view.hilite)
   ui.setHelp(payload.view.help)
-  // Through `setLang`, so a link's language is remembered as well as shown —
-  // the old lab persists it in `applyLanguage` (`lab-page.ts:404`).
+  // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
 }
 
 export interface UrlHash {
   /**
    * Whether the page opened on a link: the hash decoded at mount, whether or
-   * not it named a knob — the old `loadFromUrl` returns true once the JSON
-   * parses (`lab-page.ts:1355-1358`). Read after the mount effects, never
-   * during render.
+   * not it named a knob — true once the JSON parses. Read after the mount
+   * effects, never during render.
    */
   openedFromLink(): boolean
 }

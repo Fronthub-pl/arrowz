@@ -40,9 +40,8 @@ export interface BoardError {
  * (`/boards/:size/:id`, spec §5.6), and a second copy of it would be a second
  * thing to keep in step with the URL.
  *
- * The cache is the old lab's `boardsCache` (`lab-page.ts:826`): entering the
- * tab uses what is there, and only Refresh, a save or a delete forces a new
- * listing.
+ * The cache: entering the tab uses what is there, and only Refresh, a save or
+ * a delete forces a new listing.
  */
 export interface LibraryState {
   /** null until the first listing answers; an empty array is "the store is empty". */

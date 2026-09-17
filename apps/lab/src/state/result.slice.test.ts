@@ -43,9 +43,8 @@ test('the baseline is the result shown before, without its board', () => {
   expect(baseline === null ? true : 'board' in baseline.report).toBe(false)
 })
 
-// The old lab returns before its swap when a run has no metrics
-// (lab-page.ts:1425-1429), so the next run is compared with the last run that
-// had some.
+// A run with no metrics does not move the baseline, so the next run is
+// compared with the last run that had some.
 test('a result without metrics leaves the baseline where it was', () => {
   finish(ONE)
   finish(TWO)

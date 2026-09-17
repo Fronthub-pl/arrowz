@@ -267,8 +267,8 @@ describe('useUrlHash', () => {
     expect(localStorage.getItem('labLang')).toBe('pl')
   })
 
-  // The old `saveToUrl` writes `lang` every time (`lab-page.ts:1349`), so a
-  // link copied from either lab opens the other in the same language.
+  // `lang` goes into the link every time, so a copied link opens in the
+  // language it was copied in.
   it('writes the language on screen into the link', async () => {
     await mount(stub().control)
     useStore.getState().lang.setLang('pl')

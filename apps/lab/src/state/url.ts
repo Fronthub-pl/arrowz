@@ -33,7 +33,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * A view number the old lab may have written as a string. `undefined` means
+ * A view number a link may have written as a string. `undefined` means
  * the link did not name it and the page keeps its own value, which is why
  * this is not `Number(raw) || fallback`: a link naming 0 for a field where 0
  * is legal must not read as absent.
@@ -45,9 +45,9 @@ function num(raw: unknown): number | undefined {
 }
 
 /**
- * The wire format is the deployed Deno lab's, unchanged, so links pass
- * between the two labs in both directions (Ruling 7): the knobs at the top
- * level and everything else under `__view`.
+ * The wire format is the deployed one, unchanged, so links already in
+ * circulation still open (Ruling 7): the knobs at the top level and everything
+ * else under `__view`.
  */
 export function encodeHash(input: { params: Params; view: HashView; carried: Carried }): string {
   const payload = { ...input.params, __view: { ...input.view, ...input.carried } }

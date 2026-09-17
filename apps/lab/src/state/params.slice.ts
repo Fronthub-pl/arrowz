@@ -55,8 +55,7 @@ export function indexesOf(values: Params): Indexes {
   }
   const inactive: Partial<Record<ParamKey, InactiveKey>> = {}
   for (const spec of PARAM_SPEC) {
-    // A broken knob shows its violation, not its inactive reason: the old lab
-    // makes the same choice (`!bad && spec.inactive` in lab-page.ts:369).
+    // A broken knob shows its violation, not its inactive reason.
     if (broken[spec.key] || !spec.inactive) continue
     const reason = spec.inactive(values)
     if (reason) inactive[spec.key] = reason
