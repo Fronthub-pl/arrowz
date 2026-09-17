@@ -38,7 +38,7 @@ async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: Re
   return render(
     <MemoryRouter initialEntries={[path]}>
       <div className="fw">
-        <BoardDetail />
+        <BoardDetail refresh={() => {}} />
         <Address />
         {children}
       </div>

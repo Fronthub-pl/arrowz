@@ -20,7 +20,7 @@ export function LibraryPanel(): ReactElement {
   return (
     <section className="fw-lib-panel" aria-label={dict.t('tabLibrary')}>
       <BoardList refresh={refresh} />
-      <BoardDetail />
+      <BoardDetail refresh={refresh} />
     </section>
   )
 }

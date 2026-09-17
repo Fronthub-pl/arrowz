@@ -6,6 +6,7 @@ import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
 import { useOpenBoard } from './useOpenBoard'
+import { useViewSave } from './useViewSave'
 
 /**
  * One stored board's detail, under the list (spec §5.1, §10 row 5b). It is the
@@ -17,13 +18,14 @@ import { useOpenBoard } from './useOpenBoard'
  * empty command box and a Delete button with nothing to delete are worse than
  * nothing at all.
  */
-export function BoardDetail(): ReactElement | null {
+export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | null {
   const dict = useDictionary()
   const preview = useStore((state) => state.result.preview)
   const open = useOpenBoard()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const commitView = useViewSave(refresh)
 
   // A component unmounted inside the confirmation window must not write state
   // afterwards; StrictMode makes that happen in tests.
@@ -88,10 +90,14 @@ export function BoardDetail(): ReactElement | null {
         </figcaption>
         <pre className="fw-cmd">{meta.command}</pre>
       </figure>
-      {/* Task 7 gives these a sink. */}
       <div className="fw-grid">
         {LIBRARY_VIEW_FIELDS.map((field) => (
-          <ViewNumberField key={field.field} field={field} value={meta.view[field.field]} onCommit={() => {}} />
+          <ViewNumberField
+            key={field.field}
+            field={field}
+            value={meta.view[field.field]}
+            onCommit={(value) => commitView({ ...meta.view, [field.field]: value })}
+          />
         ))}
         {LIBRARY_VIEW_FLAGS.map(({ flag, label }) => (
           <ViewFlagSwitch
@@ -99,7 +105,13 @@ export function BoardDetail(): ReactElement | null {
             flag={flag}
             label={label}
             on={flag === 'rounded' ? meta.view.rounded !== false : meta.view.colored}
-            onToggle={() => {}}
+            onToggle={() =>
+              commitView(
+                flag === 'rounded'
+                  ? { ...meta.view, rounded: meta.view.rounded === false }
+                  : { ...meta.view, colored: !meta.view.colored },
+              )
+            }
           />
         ))}
       </div>
