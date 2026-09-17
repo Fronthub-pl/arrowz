@@ -462,8 +462,8 @@ fitted view and keeps a zoomed one (`viewport.ts`).
 `Workspace`: one panel, mounted under `/` and `/boards` alike and hidden only
 under `/docs`, whose `.fw-lab` rows stay what they are — the preset strip (the
 lab's, `null` in the library), the one `Stage`, and `Console`. `Console` gains a
-third face — `SizeChips` in the rail and `BoardList` in the panel, not one
-`LibraryPanel` component — the way PR 4a gave it a second and for the same
+third face — `SizeChips` in the rail and `BoardList` in the panel, which in PR
+5a is all the panel holds — the way PR 4a gave it a second and for the same
 reason: the stage above it must keep its node, and with it the `<arrowz-board>`
 a remount would dispose. The library takes two of the console's three tracks
 (`.fw-console`, `console.css`): the size chips the rail, the list the panel. The
@@ -475,7 +475,22 @@ therefore stays mounted and is hidden by class, as the old lab hides its
 lab-only controls (`lab.html`: `body.tab-library .labonly`), and
 `.fw-console.library` drops to two tracks, a hidden grid item taking none. PR
 5b's detail goes under the list, in the panel (plan
-`2026-09-16-lab-board-library.md`, Ruling 1). `AppRoutes` therefore renders
+`2026-09-16-lab-board-library.md`, Ruling 1).
+
+*Amended in PR 5b.* The panel's track becomes a `LibraryPanel` of two grid
+rows — `minmax(0, 1fr)` for the list, `auto` for `BoardDetail` — and the
+scrolling moves off `.fw-lib-list` onto the list row, so the detail stays on
+screen while the rows scroll under it. This is a deliberate departure from the
+old lab, which scatters the detail across three places: the command box and the
+view fields sit in the aside (`lab.html`'s `libCommandBox` and `libView`, both
+`libonly`) while Load and Delete sit beside the list (`libDetail`). One block
+under the list is what Ruling 1 left room for, and a detail that scrolled away
+below twenty rows would be worse than either. `LibraryPanel` is a container, not
+a fourth face: the rail is still `SizeChips` and the list is still `BoardList`.
+It is also where `useLibraryList` is called — once, with `refresh` handed down
+to both children. The hook's guard only stops a second fetch *after* an answer
+has arrived, so two components calling it against an empty cache would both
+fetch. `AppRoutes` therefore renders
 `null` for `/boards` as it does for `/`, and `SavedBoardsRoute` is gone. One
 `<section role="tabpanel">` serves both tabs and renames itself with the
 route — `lab-panel` under `/`, `boards-panel` under `/boards` — because
@@ -560,7 +575,7 @@ impossible.
 | `view` | the nine preview fields as typed values | URL hash |
 | `run` | `idle \| running \| done \| error`, the parameters in flight, progress, history entries (params, seed, metrics, thumbnail) | no |
 | `result` | the board on screen, its file, report and the parameters it was made from; the store's answer for that file; the delta baseline | no |
-| `library` | sizes, the list cache, and the two failure kinds (*amended in PR 5a*: the selection is the address, §5.6, and a stored board's view fields belong to PR 5b's detail) | no |
+| `library` | sizes, the list cache, the two failure kinds, and (*PR 5b*) the notice a library action leaves in the status line (*amended in PR 5a*: the selection is the address, §5.6, and a stored board's view fields are its meta's, not a field here) | no |
 | `ui` | tab, selected group, palette, simple/advanced, solo, `auto`, `help`, clamp notice, flash | `labView` |
 | `lang` | `pl \| en` | `labLang` |
 | `recipe` | the simple view's recipe | `labSimple` |
@@ -578,7 +593,14 @@ Notes the first draft got wrong or left out:
   storage key.
 - **The library keeps its own view fields.** The stored board is previewed with
   the view saved beside it, edited independently of the lab's, and re-POSTed
-  after a 350 ms debounce (`:1359-1417`).
+  after a 350 ms debounce (`saveLibView` in `lab-page.ts`). *Settled in PR 5b:*
+  they are not a slice of their own. `BoardFrame` already draws a stored board
+  from `preview.meta.view`, so that meta is what an edit has to move, and
+  `result` grows one action — `previewView(view)` — which replaces the view
+  inside `preview.meta` and leaves the board and its file alone. A second slice
+  would be a second truth beside the one the stage already reads. The lab's own
+  `view` slice is untouched, which is why returning to the lab needs no
+  restoring.
 - **`lang` and `tab` precedence:** the hash wins on load, then `lang` is
   persisted; a hash carrying `tab: 'library'` redirects to `/boards`.
 - **Three parameter sets exist for a reason** (`:950-953`): the knobs on screen,
@@ -689,6 +711,18 @@ Notes the first draft got wrong or left out:
   `preview` first and the run's own state otherwise, so which of the two the
   line is speaking for is a question about the route and the slice, not a tag
   a writer could set wrongly; the store's answer stays welded to `shown`.
+  *Amended in PR 5b:* a source tag is still not needed, but a **notice** is.
+  `savedBoard` describes a state — the board the address names — while
+  `loadingBoard`, `viewSaved`, `deletedBoard` and `deleteFailed` report
+  *events*, and a line computed from state alone has nowhere to put an event.
+  The old lab needed no such distinction because `setStatus` overwrites. So
+  `library` grows `notice`, read by `RunStatusBar` ahead of the `preview`
+  branch, and an event notice clears itself after about 1.2 s — the timer
+  `LiveCommand` already uses for "Copied" — so the line goes back to describing
+  the board on screen rather than keeping a sentence about something that has
+  finished happening. `loadingBoard` is the one notice cleared by its own
+  outcome instead of by a timer, and it is what fills the silence PR 5a left
+  deliberately when a board file is in flight.
 
 ### 5.4 The range ceiling and the rule floor are different things
 
@@ -741,11 +775,23 @@ themselves. An id no longer on disk leaves the stage empty and says so in the
 status line, in the words the old lab uses for a file it cannot read
 (`boardFileError`) — the status line is the one live region on the page, and a
 message about the board on the stage belongs beside the stage, while the detail
-is PR 5b's and does not exist yet (plan `2026-09-16-lab-board-library.md`,
-Ruling 8). The list beside it still loads. The row shows the whole
-71-character id, clipped by `text-overflow` as the old lab clips it
-(`lab.html`, `.boardrow .id`), so the hash can still be selected and copied; a
-hash shortened in code could not.
+is PR 5b's and did not exist when PR 5a shipped (plan
+`2026-09-16-lab-board-library.md`, Ruling 8). The list beside it still loads.
+The row shows the whole 71-character id, clipped by `text-overflow` as the old
+lab clips it (`lab.html`, `.boardrow .id`), so the hash can still be selected
+and copied; a hash shortened in code could not.
+
+*Added in PR 5b.* Two consequences of "the address is the selection" that PR 5a
+left open are settled here. **A size the store does not list**
+(`/boards/10x10/<id>` against a store holding only `8x8`) must not be read one
+way by the chips and another by the list: they answer through one function, so
+either both fall back to the first size or neither does, rather than the list
+falling back while no chip is pressed. And **a deleted board leaves the address
+by replacing it** — `navigate('/boards', { replace: true })` — because the row
+it named is gone from disk: keeping it in history would make Back a trap that
+answers "not in the store". This is the one place the address is written rather
+than followed, and it is written because the thing it addressed no longer
+exists.
 
 Older design documents describe the path as it was before this move —
 `2026-09-07-lab-board-store-design.md`, `2026-09-11-board-data-model-design.md`
@@ -826,6 +872,7 @@ reads the computed colours, not by arithmetic in a comment.
 | Inactive knobs are communicated by `opacity: .4` alone | `aria-disabled` plus the reason via `aria-describedby`, from `INACTIVE_REASONS` |
 | Glyph-only buttons (⌘K, +, −, ⤢) have no accessible name | `aria-label` from the dictionary |
 | Controls are 24-32px where the design system asks for 44px on touch | sizes kept for pointers, `@media (pointer: coarse)` raises them |
+| Three regions of the library answer to one name, "Saved boards": the size chips, the list, and the tab (PR 5a used `tabLibrary` for all three) | each is named for what it is, from two new dictionary entries; PR 5b adds them, being the PR that already writes to both `ui` tables |
 
 ### 7.3 What the mock only pretends to do
 
@@ -918,7 +965,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 4a | Language switch and simple view: `lang` and `recipe` slices, `ui.mode`, the view and language radio groups in the top bar, `<html lang>` and the board's `lang`, the language in the hash, `SimplePanel` in the one `Console`, the simple halves of §2.2 — plan `2026-09-14-lab-simple-view.md` |
 | 4b | The `result` slice, so a run in flight keeps the board, report and exports of the last result (§5.3); the report as the stage's third column — statistics with the delta against the baseline, longest pieces — and `reportDelta` into `lab-report.ts` (§4.1); the SVG export through a throw-away worker and the board-file download in the run column; `BoardFrame` with the annotation and the solo toggle, button and `f` (§5.1); and the command box that collapses at ≤900px — PR #67's browser pass at 860px measured `.fw-cmdfig` (`flex: 0 1 auto`) shrinking to 8px while its `<pre>` keeps `min-height: 58px` and paints behind Generate, in both views — taken into 4b because the exports lengthen the same column; measured, the same collapse appears above 900px once the exports join the column (66.9px over Generate at 1400×900 in the advanced view), so the fix — a floor on the figure — applies at every width and keeps the ruling of `run.css:147-158`: the box scrolls, and Generate does not move as the command grows — plan `2026-09-15-lab-report-export.md` |
 | 5a | The workspace and the list: `LabRoute` becomes `Workspace` over `/` and `/boards`, `Console` gains its third face and solo works on both tabs (§5.1); `result.preview` beside `shown`, and `library.slice` (§5.3); the store's HTTP path moves to `/store/` and `/boards/:size/:id` becomes a board's address (§5.6); size chips, the list, refresh, and the preview itself — fetch, `decodeBoard`, and the stored board's status line |
-| 5b | The detail under the list: the stored command with copy, the three view fields **through `ViewNumberField` rather than a second set of number inputs** — the commitment recorded in PR #65, which is also how their ranges come from `VIEW_RANGE` — their 350ms write back to the store, **load into lab** (`setMany`, and no run: `lab-page.ts:1191-1192`), and the two-click delete. **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
+| 5b | The detail under the list, in a `LibraryPanel` of two rows (§5.1): the stored command with copy, the three view fields **through `ViewNumberField` rather than a second set of number inputs** — the commitment recorded in PR #65, which is also how their ranges come from `VIEW_RANGE` — and the two flags through `ViewFlagSwitch` beside them, because the old lab stores `libRounded` and `libColored` with the numbers and a parity that could not colour a saved board would not be one; both components lose their store reads and take a value and a callback, which is what lets one field serve two owners. Then their 350ms write back to the store through `previewView` and the meta (§5.3), **load into lab** (`setMany`, and no run: `lab-page.ts`'s `libLoad` handler says so in as many words), and the two-click delete, with `deleteBoard` joining the store client and the address replaced rather than pushed (§5.6). It also clears what PR 5a's review recorded against it: the `loadingBoard` silence, the chips and list disagreeing about an unlisted size, and the three regions sharing one accessible name (§7.2). **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |
 | 8 | Retire the old lab. Prerequisites the first draft omitted: `carve.test.ts:456-480` reads `lab.html` and checks its number fields against `VIEW_RANGE`; `packages/cli/deno.json`'s `bundle` task names `lab-page.ts` and `lab-worker.ts`, and both gates plus CI depend on that target; `lab-server.ts:292-297` serves `/lab.html` as its root and `lab-server.test.ts:214,310` fetch it; `neutral.test.ts:3` and `CLAUDE.md:25` state the "dom lib only in `lab-page.ts`" rule; `CLAUDE.md:11,36`, `README.md:819,930,968` and `README.pl.md:820,938,976` name the files. `lab-worker.ts` goes with them; the fingerprint test of §8 must already exist |
