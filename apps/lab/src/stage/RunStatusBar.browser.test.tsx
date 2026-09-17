@@ -242,6 +242,19 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
   })
 
+  // Pins the branch order itself: the notice check has to run ahead of
+  // `boardError`'s, not merely produce the same text as every other case here
+  // happens to. Both are set on the same board so the two branches disagree
+  // about what the line should say, and only the notice going first is right.
+  it('lets a notice speak over the board error at the same address', async () => {
+    const screen = await mountBar('/boards/8x8/sha256-ab')
+    await act(async () => {
+      useStore.getState().library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 404' })
+      useStore.getState().library.notify({ kind: 'deleted', name: '8x8/x' })
+    })
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Deleted/)
+  })
+
   it('names the library’s four remaining messages', async () => {
     const screen = await mountBar('/boards')
     for (const [notice, words] of [

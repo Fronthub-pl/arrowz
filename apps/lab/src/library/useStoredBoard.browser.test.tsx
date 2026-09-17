@@ -21,23 +21,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/**
- * A store that answers `/store/<size>/<id>.board.json` from the fixtures. A
- * 404 (an id `answers` does not carry) is delayed rather than immediate: a
- * `userEvent.click` in this project's browser runner does not return until
- * the page is idle, which an instantly-settling mock reaches inside the same
- * click — a poll placed after the `await` then never observes the fetch in
- * flight (measured writing the walking case below: notify and its own clear
- * both land before `userEvent.click` resolves, every run). 400 ms clears that
- * window and stays well under `expect.poll`'s 1 s default, so every existing
- * 404 case, which only polls for the eventual failure, still passes.
- */
+/** A store that answers `/store/<size>/<id>.board.json` from the fixtures. */
 function stubStore(answers: Record<string, unknown>, status = 200) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = String(input)
     const body = Object.entries(answers).find(([id]) => url.includes(id))?.[1]
-    if (body === undefined)
-      return new Promise((resolve) => setTimeout(() => resolve(new Response('{}', { status: 404 })), 400))
+    if (body === undefined) return Promise.resolve(new Response('{}', { status: 404 }))
     return Promise.resolve(new Response(JSON.stringify(body), { status }))
   })
 }
@@ -157,8 +146,13 @@ test('walking away from a board still loading, and back, leaves no loading notic
   )
   await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
 
-  // B's file never answers; then straight back to A, which is on the stage.
-  stubStore({})
+  // B's file must stay in flight across both clicks: a mock that settles (even
+  // a delayed one) races `userEvent.click`, which in this project's browser
+  // runner does not return until the page is idle — an instantly- or
+  // eventually-settling mock reaches idle inside the very click that starts
+  // it, and a poll placed after the `await` never observes the fetch in
+  // flight. A promise that never resolves has no such deadline.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   await userEvent.click(screen.getByRole('button', { name: 'B' }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
   await userEvent.click(screen.getByRole('button', { name: 'A' }))
