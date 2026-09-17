@@ -91,10 +91,9 @@ export function RunStatusBar() {
     // the text of an `aria-live` region, so the tags would show up literally —
     // a visible defect in the page's primary status line, not a wart worth
     // preserving — and they are stripped here rather than in the dictionary,
-    // which stays the source of truth. PR 4
-    // replaces this line with the report's own markup and takes the tags back.
-    // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
-    // region has to be text.
+    // which stays the source of truth. PR 4 replaces this line with the
+    // report's own markup and takes the tags back. Stripping is not a licence
+    // for `dangerouslySetInnerHTML`: an `aria-live` region has to be text.
     if (p === null) {
       // The size is the run's, not the console's: it is read at the moment
       // `run()` fires, and a knob edited during a carve must not rewrite the

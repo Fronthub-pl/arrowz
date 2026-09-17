@@ -67,9 +67,9 @@ function useStoreSave() {
  * or an editable region.
  *
  * A focused button is not a field, so `f` on Generate toggles (PR 4b,
- * Ruling 9). The listener lives wherever the stage does —
- * the lab tab and the saved boards — and nowhere else. Escape is not handled:
- * the palette of PR 7 owns it.
+ * Ruling 9). The listener lives wherever the stage does — the lab tab and the
+ * saved boards — and nowhere else. Escape is not handled: the palette of PR 7
+ * owns it.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {

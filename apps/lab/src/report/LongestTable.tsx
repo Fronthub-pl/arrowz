@@ -7,9 +7,8 @@ import { useStore } from '../state/store'
 /**
  * The longest pieces of the board on screen. The count is the highlight's own
  * — `viewOf` folds the flag into `top` — so turning the highlight off leaves
- * nothing to list.
- * Memoised on the board and the count: `longestSummary` sorts every piece,
- * about 90 000 at Insane, and a preview field edit re-renders this.
+ * nothing to list. Memoised on the board and the count: `longestSummary` sorts
+ * every piece, about 90 000 at Insane, and a preview field edit re-renders this.
  */
 export function LongestTable({ board }: { board: BoardData }): ReactElement | null {
   const dict = useDictionary()

@@ -20,9 +20,9 @@ import { ViewPanel } from './ViewPanel'
  * The library is the third face (PR 5a): the size chips take the rail and the
  * list takes the panel, while the column stays mounted and is hidden by class
  * (Ruling 1). Its detail is PR 5b's, under the list in the panel — not in the
- * column's track, which would replace
- * the column instead of hiding it — so the detail now lives inside that panel,
- * as `LibraryPanel`'s own second row, rather than in the console.
+ * column's track, which would replace the column instead of hiding it — so the
+ * detail now lives inside that panel, as `LibraryPanel`'s own second row,
+ * rather than in the console.
  */
 export function Console({ control, children, face }: { control: RunControl; children: ReactNode; face: WorkspaceTab }) {
   const entry = useStore((state) => state.ui.entry)

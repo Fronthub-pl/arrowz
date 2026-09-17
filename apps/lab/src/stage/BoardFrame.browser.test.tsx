@@ -41,10 +41,10 @@ const annotation = (container: HTMLElement) => container.querySelector('.fw-anno
 
 // Colours are a permission the element grants only to a host that asks
 // (`enableColors`, arrowz-board.ts); without it `view.colored` is ignored and
-// every piece is drawn in ink.
-// `element.view.colored` alone cannot catch the gap — it is the input, not what
-// is drawn — so this reads the element's own colours button, whose
-// `aria-pressed` is the colour the board is actually drawn in.
+// every piece is drawn in ink. `element.view.colored` alone cannot catch the
+// gap — it is the input, not what is drawn — so this reads the element's own
+// colours button, whose `aria-pressed` is the colour the board is actually
+// drawn in.
 test('the colored flag colours the board', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))

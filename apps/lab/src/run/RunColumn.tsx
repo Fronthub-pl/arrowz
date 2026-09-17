@@ -129,9 +129,9 @@ export function RunColumn({
     control.start()
   }
   // `setMany` and not `set`: a seed the machine drew is not a knob a person
-  // typed, and only the typed path may wake `auto` (Ruling 3). The range is
-  // the one already in use, and `clampParam` holds it inside PARAM_SPEC's
-  // bounds regardless.
+  // typed, and only the typed path may wake `auto` (Ruling 3). The 999999
+  // ceiling is arbitrary rather than derived, and `clampParam` holds whatever
+  // is drawn inside PARAM_SPEC's bounds regardless.
   const reseed = () => {
     setMany({ seed: Math.floor(Math.random() * 999999) })
     drawIfRandom()

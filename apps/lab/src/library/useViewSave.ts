@@ -11,11 +11,10 @@ const SETTLE_MS = 350
 /**
  * Module scope (Ruling 12). Not a ref inside the component: the detail is
  * keyed on the address, so choosing another board unmounts it, and a timer
- * owned by that instance would die with the edit. And
- * not an effect either — review round 2 measured a cleanup written to flush
- * such a timer running on *every render*, because its dependencies were fresh
- * functions: the debounce never fired, one edit posted twice, and every later
- * re-render posted again.
+ * owned by that instance would die with the edit. And not an effect either —
+ * review round 2 measured a cleanup written to flush such a timer running on
+ * *every render*, because its dependencies were fresh functions: the debounce
+ * never fired, one edit posted twice, and every later re-render posted again.
  */
 let timer: ReturnType<typeof setTimeout> | undefined
 

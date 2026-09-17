@@ -413,9 +413,8 @@
    rather than tying with it), and the stage's columns and rows — including its
    ≤900px rows (shell.css) — become the one board track. Nothing unmounts: the
    GL context, the run column's focus and a draft being typed all live in the
-   hidden nodes.
-   Measured: `.fw-boardwrap` equals `.fw-lab` and the element is 34px smaller
-   on both axes at 1400×900, 860×900 and 860×650, in both views. */
+   hidden nodes. Measured: `.fw-boardwrap` equals `.fw-lab` and the element is
+   34px smaller on both axes at 1400×900, 860×900 and 860×650, in both views. */
 .fw-lab.solo,
 .fw-lab.simple.solo,
 /* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a
@@ -438,11 +437,11 @@
   grid-template-rows: minmax(0, 1fr);
 }
 /* The library face (spec §5.1, PR 5a). The run column keeps its node and is
-   hidden, so a carve in flight keeps its node, its refs and the run
-   itself. A hidden grid item takes no track, so the console drops to the two
-   tracks the library uses — unlike solo's hidden items, which sit in tracks
-   that have to be redefined because `display: none` on the *only* item of a
-   track leaves the track behind. */
+   hidden, so a carve in flight keeps its node, its refs and the run itself. A
+   hidden grid item takes no track, so the console drops to the two tracks the
+   library uses — unlike solo's hidden items, which sit in tracks that have to
+   be redefined because `display: none` on the *only* item of a track leaves
+   the track behind. */
 .fw-console.library {
   grid-template-columns: 168px minmax(0, 1fr);
 }

@@ -47,12 +47,12 @@ test('parameters outside the envelope end in error with the engine message', asy
 }, 30_000)
 
 // A board file the codec cannot read is a codec bug, and it is shown rather
-// than hidden. What makes it worth a test is
-// the failure mode of the unguarded version: decodeBoard throws out of
-// `onmessage` after `busy` is already cleared, so the slice stays in `running`
-// with no message, Generate stays disabled and abort() returns early — the
-// page has no way out but a reload. A stub worker stands in for the real one
-// because a genuinely corrupt file cannot be carved to order.
+// than hidden. What makes it worth a test is the failure mode of the unguarded
+// version: decodeBoard throws out of `onmessage` after `busy` is already
+// cleared, so the slice stays in `running` with no message, Generate stays
+// disabled and abort() returns early — the page has no way out but a reload. A
+// stub worker stands in for the real one because a genuinely corrupt file
+// cannot be carved to order.
 test('a board file the codec rejects ends in error, not in a stuck run', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()

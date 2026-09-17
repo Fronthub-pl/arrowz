@@ -90,7 +90,7 @@ export function reportInputOf(report: ReportInput): ReportInput {
 /**
  * The show transition as a pure function, so `completeRun` can apply it in the
  * same `set` as the run's. The baseline moves only past a result with metrics;
- * rendering never moves it, which is why `keepPrev` has no counterpart here.
+ * rendering never moves it.
  */
 export function showResult(state: ResultState, next: ShownResult): ResultState {
   const before = state.shown

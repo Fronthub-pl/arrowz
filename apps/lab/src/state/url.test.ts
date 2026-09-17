@@ -12,8 +12,9 @@ describe('the hash codec', () => {
     expect(back?.view).toEqual(VIEW)
   })
 
-  // The format is the deployed one, which writes the view numbers as the raw
-  // strings of the input fields they came from (Ruling 7).
+  // The format is the deployed one, and some links in circulation carry the
+  // view numbers as raw strings, the way an input field's value comes out
+  // (Ruling 7).
   it('reads a link the previous lab wrote, whose numbers are strings', () => {
     const legacy =
       '#' +
