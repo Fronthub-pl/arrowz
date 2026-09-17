@@ -931,8 +931,32 @@ as §5.4 describes rather than displayed and then ignored.
   runs the bundled worker and compares the board's fingerprint against
   in-process `generate()` (`lab-bundle.test.ts:61-88`). Zero console errors does
   not prove that the Vite-bundled engine carves the same board, so `apps/lab`
-  gets its own fingerprint test over the Vite-built worker, in place before PR 7
+  gets its own fingerprint test over the Vite-built worker, in place before PR 8
   removes the Deno one.
+
+  *Settled in PR 8, by measurement.* Two tests are needed, not one, and only
+  the second is new. `parity.browser.test.ts` already asks the worker for both
+  messages and compares the answers with the engine in the same process — but
+  it does so over the engine **as Vitest transforms it**, which is not the
+  artefact anyone runs. That artefact is a chunk of its own: `vite build` emits
+  `dist/assets/generate.worker-<hash>.js`, 43 kB, and measuring it on
+  2026-09-17 settled how to reach it. The chunk touches no DOM and no network —
+  three references to `self.` and one to `performance.now()`, nothing else — so
+  it loads in plain Node once `globalThis.self` is `globalThis` and
+  `globalThis.postMessage` collects the answers; after the import
+  `globalThis.onmessage` is a function, and both messages answer as the engine
+  does: the board's fingerprint, the fingerprint carried inside the board file,
+  the piece count, and the SVG byte for byte. The successor is therefore a Node
+  script under `apps/lab/scripts/`, shaped like
+  `packages/engine/scripts/node-smoke.mjs` and run by a `smoke` target — not a
+  browser test over `vite preview`, which is what this section implied before
+  anyone tried. Two consequences for whoever writes it. The chunk's name
+  carries a content hash, so it is found by its `generate.worker` prefix and
+  the script must assert that **exactly one** file matches: a second worker and
+  a silent pick would leave the test passing over the wrong artefact. And
+  `apps/lab/eslint.config.js` forbids `node:*` imports outside
+  `**/*.node.test.ts`, so the script needs an exemption of its own or `lint`
+  refuses it before it ever runs.
 - **Integration:** the board store client against a live `lab-server.ts` —
   list, save, delete, the view-editing re-POST, and load-into-lab.
 
@@ -959,6 +983,15 @@ as §5.4 describes rather than displayed and then ignored.
 4. **The engine's `dist/` is gitignored**, so a fresh clone builds the engine
    before `vite dev` resolves anything; `serve` carries `dependsOn: ["^build"]`
    for that reason.
+5. **Retiring the old lab has exactly one prerequisite, and §8 now measures
+   it**: the build-output smoke. The rest of what the first draft feared is
+   bookkeeping. `nx` exits 0 with "No tasks were run" when no project owns the
+   target it is asked for (measured 2026-09-17), so removing `cli`'s `bundle`
+   cannot redden CI even in the moment before `ci.yml` stops naming it; and
+   `nx.json` already carries `targetDefaults.smoke` with `dependsOn: ["build"]`
+   and `production` inputs, so the new target needs a `project.json` entry, a
+   `package.json` script and a place in the lab's explicit `verify` list — and
+   no new wiring.
 
 ## 10. Delivery
 
@@ -973,7 +1006,7 @@ as §5.4 describes rather than displayed and then ignored.
 | 5b | The detail under the list, in a `LibraryPanel` of two rows (§5.1): the stored command with copy, the three view fields **through `ViewNumberField` rather than a second set of number inputs** — the commitment recorded in PR #65, which is also how their ranges come from `VIEW_RANGE` — and the two flags through `ViewFlagSwitch` beside them, because the old lab stores `libRounded` and `libColored` with the numbers and a parity that could not colour a saved board would not be one; both components lose their store reads and take a value and a callback, which is what lets one field serve two owners. Then their 350ms write back to the store through `previewView` and the meta (§5.3), **load into lab** (`setMany`, and no run: `lab-page.ts`'s `libLoad` handler says so in as many words), and the two-click delete, with `deleteBoard` joining the store client and the address replaced rather than pushed (§5.6). It also clears what PR 5a's review recorded against it: the `loadingBoard` silence, the chips and list disagreeing about an unlisted size, and the three regions sharing one accessible name (§7.2). **Parity with today's lab is reached here, not at PR 4** — units 11 and 12 are what the monorepo spec means by parity |
 | 6 | The docs route: the element's API guarded by a test against `mod.ts`, and the CLI help generated from `helpText()` at build time |
 | 7 | v2 additions: run filmstrip (parameters, metrics, thumbnail; selection reloads), parameter diff with focus parity, ⌘K palette |
-| 8 | Retire the old lab. Prerequisites the first draft omitted: `carve.test.ts:456-480` reads `lab.html` and checks its number fields against `VIEW_RANGE`; `packages/cli/deno.json`'s `bundle` task names `lab-page.ts` and `lab-worker.ts`, and both gates plus CI depend on that target; `lab-server.ts:292-297` serves `/lab.html` as its root and `lab-server.test.ts:214,310` fetch it; `neutral.test.ts:3` and `CLAUDE.md:25` state the "dom lib only in `lab-page.ts`" rule; `CLAUDE.md:11,36`, `README.md:819,930,968` and `README.pl.md:820,938,976` name the files. `lab-worker.ts` goes with them; the fingerprint test of §8 must already exist |
+| 8 | Retire the old lab, which PR 5b made possible by reaching parity. **Deleted:** `lab.html`, `lab-page.ts`, `lab-worker.ts` and `lab-bundle.test.ts`; the `bundle` task in `packages/cli/deno.json` and in the root `deno.json`, together with the `&& deno task bundle` of the root `verify`; the `bundle` target in `packages/cli/project.json` and its place in that project's `verify`, plus `bundle` in `ci.yml`'s target list; `packages/cli/lab.html` in the root `fmt.exclude`; and `carve.test.ts`'s "every picture field of the lab stays inside the CLI range". That last deletion costs no coverage: it parsed `min`/`max` out of HTML with a regular expression, while `apps/lab/src/console/viewFields.ts` reads each bound from `VIEW_RANGE` at the point of use and `viewFields.test.ts` holds that against the table's own keys — the guard by construction that the regex only imitated. **Kept, and renamed for what it becomes:** `lab-server.ts` → `store-server.ts`, with its test file, the `lab` task → `store`, `lab.sh` → `store.sh` and the comment in `vite.proxy.ts`. It serves `/api/` and `/store/` and nothing else: the page and `/dist/` areas of the router go, and with them `LAB_CSP` (what remains answers JSON and static store files, so it gets a policy that says so) and the MIME entries no stored file can have. The script loses the bundle, the `--watch`, the `open` and the Lit check; what is left starts the server, and its read permission can narrow from the package directory to the store. **Added:** the build-output smoke of §8. **The rule that loses its exception:** with `lab-page.ts` gone, no file in `packages/cli` knows the DOM, so `neutral.test.ts` gains a second, DOM-only pattern set applied to `packages/cli/*.ts` — `Deno.` cannot be among those patterns, the CLI being Deno — and `CLAUDE.md` states the rule without naming a file that no longer exists. **Documentation:** README's "The web page" section and its Polish twin come to describe the one lab; the "a second lab is being built beside it" paragraph goes, as do the `lab.html`/`lab-page.ts` rows of both file tables. Out of scope, each with its own brainstorming when its turn comes: narrowing `VIEW_RANGE`, and moving the store into the Node world so the lab needs no Deno process at all |
 
 Nothing in today's lab is dropped. The features the first draft lost and this
 one restores: `auto`, `help`, the clamp notice, `libLoad` ("load into lab"),
