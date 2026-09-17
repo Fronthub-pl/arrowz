@@ -1,7 +1,36 @@
 import { genSeconds } from '@arrowz/engine/report'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
+import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
+
+/**
+ * A compile-time trap, not a runtime one: called only from a `switch`'s
+ * `default` after every named `LibraryNotice.kind` has its own case, so the
+ * parameter's type is `never` if the union and this function still agree. A
+ * sixth kind added to the union without a case here stops compiling right
+ * here, instead of silently falling through to `deleteFailed`'s sentence.
+ */
+function assertNever(value: never): never {
+  throw new Error(`unreachable notice kind: ${JSON.stringify(value)}`)
+}
+
+function noticeText(dict: ReturnType<typeof useDictionary>, notice: LibraryNotice): string {
+  switch (notice.kind) {
+    case 'loading':
+      return dict.t('loadingBoard', notice.name)
+    case 'viewSaved':
+      return dict.t('viewSaved', notice.name)
+    case 'deleted':
+      return dict.t('deletedBoard', notice.name)
+    case 'saveFailed':
+      return dict.t('notSaved')
+    case 'deleteFailed':
+      return dict.t('deleteFailed')
+    default:
+      return assertNever(notice)
+  }
+}
 
 /**
  * The live region. The mock's run state has no `aria-live`, so a screen reader
@@ -42,16 +71,7 @@ export function RunStatusBar() {
   // way on its own, 1200 ms later (`notices.ts`), except for `loading` and
   // `saveFailed`, which describe a state and are cleared by their outcome.
   if (inLibrary && notice !== null) {
-    text =
-      notice.kind === 'loading'
-        ? dict.t('loadingBoard', notice.name)
-        : notice.kind === 'viewSaved'
-          ? dict.t('viewSaved', notice.name)
-          : notice.kind === 'deleted'
-            ? dict.t('deletedBoard', notice.name)
-            : notice.kind === 'saveFailed'
-              ? dict.t('notSaved')
-              : dict.t('deleteFailed')
+    text = noticeText(dict, notice)
   } else if (inLibrary && boardError !== null) {
     // The address and the failure arrive as two fields (`BoardError` in
     // library.slice.ts), so the words around them stay the dictionary's and a

@@ -43,8 +43,17 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
   // while the address's size is a directory name: review round 2 measured a
   // folder called `08x08` listing boards whose `W` is 8, where a `WxH`
   // comparison hid the detail of a board the stage and the line both described.
-  if (preview === null || preview.meta.id !== open.id) return null
+  // `open.size` is narrowed here as well, and not because the gate needs it:
+  // the delete below addresses the board by the directory the store listed,
+  // and narrowing at the gate is what lets it do that without inventing a
+  // fallback (the repository's rule against a fallback that changes a value).
+  if (preview === null || open.size === null || preview.meta.id !== open.id) return null
   const meta = preview.meta
+  // Captured here, narrowed, for `remove` below: the gate's `open.size === null`
+  // check does not survive into a function expression defined after it — the
+  // compiler cannot see that `open` is never reassigned across a closure
+  // boundary — so this is the one place the narrowing is real.
+  const size = open.size
 
   const copy = () => {
     const clipboard = navigator.clipboard
@@ -95,8 +104,17 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
     // would otherwise land after the delete and write the board back to disk,
     // which review round 2 measured against a real store (Rulings 11 and 12).
     cancelPendingSave()
-    const name = `${meta.W}x${meta.H}/${meta.id}`
-    void deleteBoard(`${meta.W}x${meta.H}`, meta.id).then((outcome) => {
+    // The address, not `${meta.W}x${meta.H}`. The store finds a board by the
+    // directory it listed (`store.ts`: `join(boardsDir(), size)`), and Ruling 15
+    // exists precisely because that name and the board's own dimensions can
+    // differ — a folder called `08x08` lists boards whose `W` is 8, and this
+    // branch ships a case for reading one. Reconstructing the size sent the
+    // DELETE to `/api/boards/8x8/<id>`, the server found nothing, answered 404,
+    // and Ruling 11 turned that into "deleted": the line said so, the listing
+    // refreshed, and the board was still on disk. The whole-branch review found
+    // it; the read path had used the address all along.
+    const name = `${size}/${meta.id}`
+    void deleteBoard(size, meta.id).then((outcome) => {
       if (!outcome.ok) {
         raiseNotice({ kind: 'deleteFailed' })
         return

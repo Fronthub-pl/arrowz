@@ -8,6 +8,8 @@ import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardDetail } from './BoardDetail'
 import { LibraryPanel } from './LibraryPanel'
+import { cancelNoticeFade } from './notices'
+import { cancelPendingSave } from './useViewSave'
 // The geometry case measures the real cascade, so it needs the real
 // stylesheets — without them `.fw-lib-list` never scrolls and the case passes
 // on a layout that does not exist (review round 3).
@@ -16,6 +18,7 @@ import '../design/console.css'
 import '../design/library.css'
 
 const stored = storedFixture(1)
+const other = storedFixture(2)
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -27,6 +30,13 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Both module timers, so a case cannot leave one ticking into the next: the
+  // save's, and the fade's — `notices.ts` and `useViewSave.ts` each own one.
+  // Safe today without this only because the fade's identity guard makes a
+  // leaked timer a no-op after `library.reset()` — accidental from this
+  // file's point of view (`useViewSave.browser.test.tsx` cancels both).
+  cancelPendingSave()
+  cancelNoticeFade()
   vi.restoreAllMocks()
 })
 
@@ -68,6 +78,17 @@ test('there is no detail until the address’s board is on the stage', async () 
 // forbids — the plan asserted the opposite of its own ruling.
 test('a preview the address does not name shows no detail', async () => {
   const screen = await mountDetail('/boards')
+  await show()
+  expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
+})
+
+// Ruling 15's actual window: the address names one board while `preview.meta`
+// still holds another — the click has landed, the picture has not. A two-click
+// delete finished here would remove the board the user clicked away from, so
+// the gate must reject this case and not merely the "no preview at all" one
+// above.
+test('a preview naming a different board than the address shows no detail', async () => {
+  const screen = await mountDetail(`/boards/8x8/${other.meta.id}`)
   await show()
   expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
 })
@@ -179,6 +200,25 @@ test('the first click arms delete, and the second removes the board', async () =
   // board that is no longer on disk.
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/boards')
   expect(useStore.getState().library.notice?.kind).toBe('deleted')
+})
+
+// Whole-branch review, finding 1: the delete used to reconstruct the size from
+// `meta.W`/`meta.H`, which disagrees with a folder like `08x08` exactly the way
+// Ruling 15 describes — so the DELETE went to `/api/boards/8x8/<id>`, the store
+// found nothing there, and a 404 was read back as a successful delete of a
+// board still on disk. This pins the request itself, not just the notice.
+test('a size the directory spells differently still gets its delete', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
+  const screen = await mountDetail(`/boards/08x08/${stored.meta.id}`)
+  await show()
+
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  await expect.poll(() => calls.mock.calls.filter(([, init]) => init?.method === 'DELETE').length).toBe(1)
+  expect(String(calls.mock.calls.find(([, init]) => init?.method === 'DELETE')?.[0])).toContain(
+    `/api/boards/08x08/${stored.meta.id}`,
+  )
 })
 
 // Ruling 11: pressing Delete on a board another window already removed means

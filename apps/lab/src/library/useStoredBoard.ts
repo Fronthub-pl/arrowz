@@ -25,10 +25,16 @@ export function useStoredBoard(): void {
     if (size === null || id === null) {
       useStore.getState().result.clearPreview()
       useStore.getState().library.boardFailed(null)
-      // Only the word about a fetch. The delete navigates to `/boards` and this
-      // branch runs immediately after it — an unconditional clear here erased
-      // the `deleted` notice within one commit, measured by review round 1.
-      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
+      // Only a word about the board that just left the stage. The delete
+      // navigates to `/boards` and this branch runs immediately after it — an
+      // unconditional clear here erased the `deleted` notice within one
+      // commit, measured by review round 1. `saveFailed` names no board and
+      // does not fade (Ruling 13), so leaving would strand it on an empty
+      // stage after the tab is simply left and returned to: spec §5.3 says
+      // that sentence holds until a save lands or another board is opened,
+      // and closing this one is neither, but it is no longer on screen either.
+      const kind = useStore.getState().library.notice?.kind
+      if (kind === 'loading' || kind === 'saveFailed') useStore.getState().library.clearNotice()
       return
     }
     const meta = metas?.find((entry) => entry.size === size)?.boards.find((board) => board.id === id) ?? null

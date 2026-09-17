@@ -106,7 +106,7 @@ test('an id the listing does not hold is reported, and clears what was shown', a
 
 // The silence PR 5a left on purpose: between the click and the picture the line
 // said nothing about the board being fetched.
-test('a board being fetched says so, and stops saying it when it arrives', async () => {
+test('a board that has arrived leaves no loading notice behind', async () => {
   stubStore({ [first.meta.id]: first.file })
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
   await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
@@ -166,5 +166,18 @@ test('a board that fails to load leaves no loading notice behind', async () => {
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
   await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
   await expect.poll(() => useStore.getState().library.boardError).not.toBeNull()
+  expect(useStore.getState().library.notice).toBeNull()
+})
+
+// Whole-branch review finding 2: `saveFailed` names no board, so it does not
+// fade (Ruling 13) and nothing but this branch ever clears it. Left alone, it
+// survives the board being closed — a picture no longer on screen, still
+// captioned "not saved". Spec §5.3 says the sentence holds until a save lands
+// or another board is opened; closing the board is neither, but it is gone.
+test('closing the board clears a failed-save notice that outlived it', async () => {
+  useStore.getState().library.notify({ kind: 'saveFailed' })
+
+  await renderHook(() => useStoredBoard(), at('/boards'))
+
   expect(useStore.getState().library.notice).toBeNull()
 })

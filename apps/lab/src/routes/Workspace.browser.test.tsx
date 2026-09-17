@@ -6,6 +6,7 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { loadRunDone } from '../harness/mountApp'
+import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 // The stage-height case measures the lab grid, which needs the real cascade,
@@ -829,44 +830,52 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
-  const screen = await mountApp()
-  await loadRunDone()
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
 
-  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-  // Wait for the rows before reading them: the tab click navigates, and a
-  // navigation commits inside `startTransition` (harness facts). Review round 3
-  // measured both of this file's new cases failing on a synchronous read here.
-  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
-  const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
-  if (row === null) throw new Error('the listing showed no row')
-  await userEvent.click(row)
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    // Wait for the rows before reading them: the tab click navigates, and a
+    // navigation commits inside `startTransition` (harness facts). Review round 3
+    // measured both of this file's new cases failing on a synchronous read here.
+    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    if (row === null) throw new Error('the listing showed no row')
+    await userEvent.click(row)
 
-  // The detail describes the board the address names.
-  await expect.element(screen.getByText(meta.command)).toBeVisible()
-  await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+    // The detail describes the board the address names.
+    await expect.element(screen.getByText(meta.command)).toBeVisible()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
 
-  // An edited field redraws the stored board without generating anything.
-  const phase = useStore.getState().run.phase
-  const stroke = screen.container.querySelector<HTMLInputElement>('.fw-lib-detail #view-stroke')
-  if (stroke === null) throw new Error('the detail offered no stroke field')
-  await userEvent.fill(stroke, '0.9')
-  await userEvent.tab()
-  await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
-  expect(useStore.getState().run.phase).toBe(phase)
+    // An edited field redraws the stored board without generating anything.
+    const phase = useStore.getState().run.phase
+    const stroke = screen.container.querySelector<HTMLInputElement>('.fw-lib-detail #view-stroke')
+    if (stroke === null) throw new Error('the detail offered no stroke field')
+    await userEvent.fill(stroke, '0.9')
+    await userEvent.tab()
+    await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+    expect(useStore.getState().run.phase).toBe(phase)
 
-  // And the lab's own board is waiting where it was left — *this* board, not
-  // merely some board. `shown` is written in exactly three places
-  // (`result.slice.ts`: the show transition, the initial value, `reset`), none
-  // of which this path touches, so it is already non-null here and stays
-  // non-null however Load into lab behaves. Asserting "not null" therefore
-  // proves nothing, which is what this task's review measured. Identity against
-  // the value captured first is what goes red if Load into lab ever overwrote
-  // the lab's own result with the stored board's.
-  const labBoard = useStore.getState().result.shown
-  expect(labBoard).not.toBeNull()
-  await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
-  await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
-  expect(useStore.getState().result.shown).toBe(labBoard)
+    // And the lab's own board is waiting where it was left — *this* board, not
+    // merely some board. `shown` is written in exactly three places
+    // (`result.slice.ts`: the show transition, the initial value, `reset`), none
+    // of which this path touches, so it is already non-null here and stays
+    // non-null however Load into lab behaves. Asserting "not null" therefore
+    // proves nothing, which is what this task's review measured. Identity against
+    // the value captured first is what goes red if Load into lab ever overwrote
+    // the lab's own result with the stored board's.
+    const labBoard = useStore.getState().result.shown
+    expect(labBoard).not.toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
+    expect(useStore.getState().result.shown).toBe(labBoard)
+  } finally {
+    // The stroke edit above leaves a 350ms save timer running; the field's
+    // fixture is not on screen by the time it would fire, but the module-scope
+    // timer does not know that (Ruling 12) and its `.then` calls `refresh()`.
+    cancelPendingSave()
+    vi.restoreAllMocks()
+  }
 }, 40_000)
 
 // Ruling 1, at the size that exposed it: at 860x900 the first version of this
@@ -888,35 +897,39 @@ test('at 860x900 the list still scrolls and the detail stays inside the console'
     if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
-  const screen = await mountApp()
-  await loadRunDone()
-  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-  // Wait for the rows before reading them: the tab click navigates, and a
-  // navigation commits inside `startTransition` (harness facts). Review round 3
-  // measured both of this file's new cases failing on a synchronous read here.
-  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
-  const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
-  if (row === null) throw new Error('the listing showed no row')
-  await userEvent.click(row)
-  await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    // Wait for the rows before reading them: the tab click navigates, and a
+    // navigation commits inside `startTransition` (harness facts). Review round 3
+    // measured both of this file's new cases failing on a synchronous read here.
+    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    if (row === null) throw new Error('the listing showed no row')
+    await userEvent.click(row)
+    await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 
-  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
-  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
-  const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
-  if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
-  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
-  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
-  expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
-  // The buttons, not the box that contains them (Ruling 16): the box was inside
-  // the console at every size measured while `Load into lab` sat below the
-  // window, and `toBeVisible()` says nothing about that.
-  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
-  if (buttons === null) throw new Error('the detail showed no buttons')
-  expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
-  // And nothing pushed the document itself out of shape.
-  expect(
-    document.scrollingElement === null
-      ? 0
-      : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight,
-  ).toBe(0)
+    const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
+    const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+    const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
+    if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
+    expect(list.clientHeight).toBeGreaterThanOrEqual(120)
+    expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+    expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
+    // The buttons, not the box that contains them (Ruling 16): the box was inside
+    // the console at every size measured while `Load into lab` sat below the
+    // window, and `toBeVisible()` says nothing about that.
+    const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+    if (buttons === null) throw new Error('the detail showed no buttons')
+    expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    // And nothing pushed the document itself out of shape.
+    expect(
+      document.scrollingElement === null
+        ? 0
+        : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight,
+    ).toBe(0)
+  } finally {
+    vi.restoreAllMocks()
+  }
 }, 40_000)

@@ -24,7 +24,10 @@ let timer: ReturnType<typeof setTimeout> | undefined
  * the store to remove the board: measured against a real store, a pending save
  * that survived a delete re-POSTed the board, and `store.ts`'s `saveBoard`
  * treats a board it cannot find as a new one — so the deleted board came back
- * to the disk and to the listing (Rulings 11 and 12).
+ * to the disk and to the listing (Rulings 11 and 12). `harness/mountApp.tsx`'s
+ * `resetApp` also calls it, between whole-app test cases, for the same reason
+ * `useViewSave.browser.test.tsx`'s `afterEach` does: module scope means no
+ * component's unmount stops this timer on its own.
  */
 export function cancelPendingSave(): void {
   clearTimeout(timer)
