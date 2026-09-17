@@ -4,8 +4,9 @@ import type { BoardSize } from '@arrowz/engine'
  * Something the library did, as opposed to something it is. The status line
  * computes a stored board's own description from `result.preview`; these five
  * report an event, and a line computed from state alone has nowhere to put one
- * (spec §5.3, PR 5b). `loading` is the only one cleared by its own outcome
- * rather than by a timer — it describes a fetch that is still going.
+ * (spec §5.3, PR 5b). `loading` and `saveFailed` are cleared by their own
+ * outcome rather than by a timer — they describe a fetch, or a disagreement
+ * with the store, that is still going.
  *
  * `name` is the `<size>/<id>` the dictionary's formatter puts inside its
  * sentence, carried as data for the same reason `BoardError` carries its two

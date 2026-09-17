@@ -1,4 +1,4 @@
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, type View } from '@arrowz/engine'
 import { act, useState, type ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { userEvent } from 'vitest/browser'
@@ -6,9 +6,12 @@ import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
+import { cancelNoticeFade, raiseNotice } from './notices'
 import { cancelPendingSave, useViewSave } from './useViewSave'
 
 const stored = storedFixture(1)
+/** A second board, for the cases about an edit finished on a different one. */
+const other = storedFixture(2)
 const at = ({ children }: { children: ReactNode }) => (
   <MemoryRouter initialEntries={['/boards']}>{children}</MemoryRouter>
 )
@@ -20,6 +23,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Both module timers, so a case cannot leave one ticking into the next: the
+  // save's, and the fade's — `notices.ts` and `useViewSave.ts` each own one.
+  cancelPendingSave()
+  cancelNoticeFade()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -132,6 +139,71 @@ test('a failed save keeps saying so, because the picture still disagrees with th
   // Past the 1200 ms fade the other three notices take.
   await new Promise((done) => setTimeout(done, 1500))
   expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
+})
+
+// The Critical this task's review found, and the reason `write` is handed the
+// board it was given rather than the one on the stage. One click on another
+// row does two things at once: it blurs the field, which commits the edit and
+// arms the timer, and it changes the address — and a local store answers well
+// inside the 350 ms pause. Reading the board at write time therefore posted A's
+// view onto B's file: A's edit lost, B's stored view overwritten, the message
+// naming B, and nothing on screen to show for any of it.
+test('an edit finished by clicking another board is written to the board that was edited', async () => {
+  const posts = [] as { board: unknown; view: View }[]
+  vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+    if (init?.method !== 'POST') return new Promise(() => {})
+    posts.push(JSON.parse(String(init.body)) as { board: unknown; view: View })
+    return Promise.resolve(new Response(JSON.stringify(stored.meta), { status: 201 }))
+  })
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.9 }))
+  // The stage moves to the other board inside the pause, as the click does.
+  await act(async () => {
+    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta })
+  })
+  await expect.poll(() => posts.length).toBe(1)
+
+  // The request carries the edited board's file and the edited view — not
+  // whichever board happens to be on the stage when the timer fires.
+  expect(posts[0]?.board).toEqual(stored.file)
+  expect(posts[0]?.view.stroke).toBe(0.9)
+  // And the board that replaced it is left exactly as it was.
+  expect(useStore.getState().result.preview?.meta.id).toBe(other.meta.id)
+  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(other.meta.view.stroke)
+})
+
+// `notices.ts` exists to take an event notice back, and nothing measured that:
+// this task's review found that deleting its whole `setTimeout` block, or
+// inverting its identity guard, left every other case green. Task 8's `deleted`
+// notice leans on this same branch — and the `deleted` fade is the one the
+// plan's own history records as broken once already.
+test('an event notice fades after 1200 ms, and a kept one never does', async () => {
+  vi.useFakeTimers()
+
+  await act(async () => raiseNotice({ kind: 'deleted', name: '8x8/x' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(1199))
+  expect(useStore.getState().library.notice?.kind).toBe('deleted')
+  await act(async () => await vi.advanceTimersByTimeAsync(1))
+  expect(useStore.getState().library.notice).toBeNull()
+
+  // `saveFailed` describes a state, so no clock takes it away (Ruling 5).
+  await act(async () => raiseNotice({ kind: 'saveFailed' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(3000))
+  expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
+})
+
+// The identity guard inside the fade: a newer notice owns the line, and the
+// timer of the one it replaced must not take it away.
+test('a notice that superseded another is not cleared by the older one’s timer', async () => {
+  vi.useFakeTimers()
+
+  await act(async () => raiseNotice({ kind: 'deleted', name: '8x8/a' }))
+  await act(async () => await vi.advanceTimersByTimeAsync(1100))
+  await act(async () => raiseNotice({ kind: 'viewSaved', name: '8x8/b' }))
+  // Past the moment the first one's timer would have fired.
+  await act(async () => await vi.advanceTimersByTimeAsync(200))
+  expect(useStore.getState().library.notice?.kind).toBe('viewSaved')
 })
 
 test('a burst of edits writes once', async () => {
