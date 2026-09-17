@@ -198,7 +198,7 @@ test('f toggles solo, and a modifier, a repeat or Escape does nothing', async ()
   press(document.body, { key: 'f' })
   expect(solo()).toBe(true)
 
-  // The palette of PR 7 owns Escape; the old lab has no such key.
+  // The palette of PR 7 owns Escape; nothing else binds it.
   await userEvent.keyboard('{Escape}')
   expect(solo()).toBe(true)
   await screen.getByRole('button', { name: 'Full view (key F)' }).click()

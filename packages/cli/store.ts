@@ -3,7 +3,7 @@
 // (`sha256-<64 hex>`): one arrangement of arrows has one set of files, whatever
 // seeds and parameters carved it, and its meta lists them as recipes (design:
 // docs/superpowers/specs/2026-09-15-layout-hash-design.md). Shared by the CLI
-// (carve.ts) and the lab server. The directory is gitignored — a 1000×1000
+// (carve.ts) and the store server. The directory is gitignored — a 1000×1000
 // board file is about a megabyte, and the commands in the meta reproduce it.
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@arrowz/engine'
@@ -103,8 +103,8 @@ function readMeta(file: string): BoardMeta | null {
  * for as long as it is stored (a saved game checks that fingerprint).
  *
  * A figure absent or null in `metrics` is not carried and keeps the stored
- * value — the lab server's checkMetrics drops a null as it drops an absent
- * field, and the old lab's view edit posts only four figures.
+ * value — the store server's checkMetrics drops a null as it drops an absent
+ * field, and a view edit posts only four figures.
  */
 export async function saveBoard(
   { board, svg, params, view, command, metrics = {}, source }: SaveInput,

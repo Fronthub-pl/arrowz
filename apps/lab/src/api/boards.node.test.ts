@@ -52,7 +52,7 @@ beforeAll(async () => {
       await new Promise((done) => setTimeout(done, 100))
     }
   }
-  if (!up) throw new Error(`the lab server never answered on ${STORE_ORIGIN}`)
+  if (!up) throw new Error(`the store server never answered on ${STORE_ORIGIN}`)
 
   vite = await createServer({
     root: APP,

@@ -1,4 +1,4 @@
-// English is the source language and lives in PARAM_SPEC / lab.html / EN;
+// English is the source language and lives in PARAM_SPEC / EN;
 // PL only holds the translation, checked against EN's shape by the compiler.
 import type { StartChoice } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'

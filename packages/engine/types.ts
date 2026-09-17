@@ -1,5 +1,5 @@
 // Shared domain types of the prototype. Nothing here depends on a runtime
-// value: the engine, the CLI, the store, the lab page and the worker all
+// value: the engine, the CLI, the store and the lab all
 // import from this file, so a misspelt key anywhere fails to compile.
 
 /** The knob keys of PARAM_SPEC. Listed once; engine.ts asserts its table has exactly these keys. */
