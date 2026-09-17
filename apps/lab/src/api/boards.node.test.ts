@@ -29,7 +29,10 @@ beforeAll(async () => {
     [
       'run',
       `--allow-net=127.0.0.1:${STORE_PORT}`,
-      '--allow-read',
+      // The grant `store.sh` gives, so that this test is what holds it: Deno
+      // loads local modules and its own cache without a read grant, and every
+      // run-time read the server makes is inside the store.
+      `--allow-read=${boardsDir}`,
       `--allow-write=${boardsDir}`,
       '--allow-env=ARROWZ_BOARDS_DIR',
       'packages/cli/store-server.ts',

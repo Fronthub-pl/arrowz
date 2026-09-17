@@ -7,9 +7,14 @@
 set -e
 cd "$(dirname "$0")"
 PORT=${1:-8777}
-# The server gets what it serves and nothing more: the network on this
-# machine, and the store, which it reads and writes.
+# The server gets what it serves and nothing more: this machine's network on
+# the one port it binds, and the store, which it reads and writes. A relative
+# ARROWZ_BOARDS_DIR is made absolute before it is granted, so that the grant
+# and the path the server opens are spelled the same way: the server resolves
+# its own base, and a grant that names the same directory by another path is
+# read access the store's own files do not have.
 BOARDS=${ARROWZ_BOARDS_DIR:-$PWD/boards}
 mkdir -p "$BOARDS"
-exec deno run --allow-net=127.0.0.1 --allow-read="$BOARDS" --allow-write="$BOARDS" --allow-env=ARROWZ_BOARDS_DIR \
+BOARDS=$(cd "$BOARDS" && pwd)
+exec deno run --allow-net="127.0.0.1:$PORT" --allow-read="$BOARDS" --allow-write="$BOARDS" --allow-env=ARROWZ_BOARDS_DIR \
   store-server.ts "$PORT"

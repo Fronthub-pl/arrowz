@@ -651,8 +651,8 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 
 Przypiąć można też pokrętło, które przy pozostałych ustawieniach nie zmienia
 niczego: pokrętło szkieletu bez szkieletu, długość sondy przy udziale sond
-równym 0. Lab przygasza taki wiersz; CLI mówi to osobną linią, tymi samymi
-słowami.
+równym 0. Laboratorium przygasza taki wiersz; CLI mówi to osobną linią,
+tymi samymi słowami.
 
 ```sh
 deno task carve --width=30 --height=30 --probelen=30 --dry-run
@@ -815,7 +815,7 @@ pokrętło spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę
 Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku.
 Rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
 uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
-katalogu repozytorium. Laboratorium trzyma plansze w magazynie, który serwuje
+katalogu repozytorium. Laboratorium trzyma plansze w magazynie serwowanym przez
 mały program w Deno, więc obok siebie działają dwa polecenia:
 
 ```sh
@@ -825,9 +825,9 @@ pnpm nx serve lab      # samo laboratorium, port 8779
 
 Otwórz `http://localhost:8779`. Każde z poleceń zatrzymasz klawiszami Ctrl+C.
 Laboratorium spodziewa się magazynu na porcie 8777; jeśli ten port jest u
-ciebie zajęty, obie strony trzeba nauczyć nowego numeru — magazyn bierze go po
-poleceniu (`deno task store 9000`), a laboratorium czyta go z jednej linii
-w `apps/lab/vite.proxy.ts`.
+ciebie zajęty, obie połówki trzeba nauczyć nowego numeru — magazyn bierze go
+jako argument polecenia (`deno task store 9000`), a laboratorium czyta go
+z jednej linii w `apps/lab/vite.proxy.ts`.
 
 Laboratorium ma dwa tryby i przełącznik polski/angielski.
 
