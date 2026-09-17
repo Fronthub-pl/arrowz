@@ -16,7 +16,6 @@
     "lineWidth": 120,
     "exclude": [
       "**/*.md",
-      "packages/cli/lab.html",
       "packages/board-element/demo/index.html",
       "packages/cli/boards/",
       "**/dist/",
@@ -50,12 +49,11 @@
     "check": "deno check packages/engine/*.ts packages/engine/scripts/*.ts packages/cli/*.ts packages/cli/scripts/*.ts",
     "lint": "deno lint",
     "fmt": "deno fmt --check",
-    "verify": "deno task check && deno task lint && deno task fmt && deno task test && deno task bundle",
+    "verify": "deno task check && deno task lint && deno task fmt && deno task test",
     "carve": "deno task --cwd=packages/cli carve",
     "report": "deno task --cwd=packages/cli report",
     "docs": "deno run --allow-read --allow-write --allow-run --allow-env packages/cli/scripts/record-doc-images.ts",
     "store": "deno task --cwd=packages/cli store",
-    "bundle": "deno task --cwd=packages/cli bundle",
     "compile": "deno task --cwd=packages/cli compile"
   }
 }

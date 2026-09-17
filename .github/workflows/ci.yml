@@ -54,4 +54,4 @@ jobs:
 
       - uses: nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1 # v5
 
-      - run: pnpm nx affected -t check lint fmt test build smoke bundle
+      - run: pnpm nx affected -t check lint fmt test build smoke
