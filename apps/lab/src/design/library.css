@@ -95,3 +95,32 @@
   grid-column: 1 / -1;
   color: var(--ash);
 }
+
+/* The detail's own block: the row the panel keeps (Ruling 1). `min-height: 0`
+   and `overflow-y: auto` are what let the bounded row actually bound it — the
+   pair Ruling 1 stands on, and review round 2 measured what their absence
+   costs: at 860x900 the content ran 64px past the box, unreachable, and the
+   document itself overflowed by 65px. */
+.fw-lib-detail {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
+}
+/* Pinned to the bottom of that scrolling box (Ruling 16). Below about 1046px of
+   panel width the field grid wraps to two rows and the buttons were pushed off
+   the viewport at every size review round 2 measured but 1400x900 and wider —
+   a detail whose two actions cannot be reached is not a detail. Sticky keeps
+   them on screen while the fields scroll under them; the background is the
+   detail's own, so the fields do not show through. */
+.fw-lib-buttons {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  background: var(--graphite);
+}

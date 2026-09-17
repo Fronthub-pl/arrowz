@@ -1,5 +1,6 @@
 import { type ReactElement } from 'react'
 import { useDictionary } from '../i18n'
+import { BoardDetail } from './BoardDetail'
 import { BoardList } from './BoardList'
 import { useLibraryList } from './useLibraryList'
 
@@ -19,6 +20,7 @@ export function LibraryPanel(): ReactElement {
   return (
     <section className="fw-lib-panel" aria-label={dict.t('tabLibrary')}>
       <BoardList refresh={refresh} />
+      <BoardDetail />
     </section>
   )
 }
