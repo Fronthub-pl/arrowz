@@ -93,8 +93,8 @@ test('the second result is compared with the first, row by row', async () => {
   expect(longest?.querySelector('.fw-vh')?.textContent).toBe(' worse')
 })
 
-// The old lab needed `keepPrev` for this; here rendering never moves the
-// baseline, so a language switch rebuilds both reports and the rows still line up.
+// Rendering never moves the baseline, so a language switch rebuilds both
+// reports and the rows still line up.
 test('a language switch keeps every delta', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))

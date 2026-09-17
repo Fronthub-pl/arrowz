@@ -23,8 +23,7 @@ const actions = () => useStore.getState().run
  * One worker for the whole session, reused while idle and terminated to
  * abort. `generate()` is synchronous, so the worker's event loop is blocked
  * for a whole run and a second message would queue behind the first;
- * replacing a run means terminating the worker and building a new one, as the
- * Deno lab does (lab-page.ts:856, :879).
+ * replacing a run means terminating the worker and building a new one.
  *
  * Mounted once, in App: a route change must neither kill a run in flight nor
  * unmount <arrowz-board>, whose disposal releases the GL context.
@@ -56,8 +55,7 @@ export function useGenerator(): GeneratorHandle {
           board = decodeBoard(message.board)
         } catch (err) {
           // The worker encoded this file a moment ago, so a failure is a codec
-          // bug — shown rather than hidden, as the Deno lab shows it
-          // (lab-page.ts:794-806). Unguarded, the throw would escape this
+          // bug — shown rather than hidden. Unguarded, the throw would escape this
           // handler with `busy` already cleared: the slice would sit in
           // `running` with no message, `abort()` would return early, and the
           // page would have no way out but a reload. `completeRun` below can

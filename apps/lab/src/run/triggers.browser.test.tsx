@@ -34,9 +34,8 @@ import type { RunControl } from './useRun'
  * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–18 are
  * the simple view's three rows of its own, and the simple halves of four rows
  * the advanced view shares — Generate and New seed draw the knobs afresh first
- * when randomising (`lab-page.ts:912-921`), Defaults resets the recipe
- * (`:923-930`), and the page opens on the recipe unless it opened on a link
- * (`:1479-1480`).
+ * when randomising, Defaults resets the recipe, and the page opens on the
+ * recipe unless it opened on a link.
  *
  * Cases 9 and 10 drive the store the way the size card and the slider do —
  * `setSide`/`setSlider`, then `applyRecipe(false)` — rather than the inputs:

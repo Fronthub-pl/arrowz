@@ -122,23 +122,23 @@ export function RunColumn({
 
   // Generate and New seed in the simple view with randomising on draw the
   // knobs afresh before the run reads them; in every other state they keep
-  // them (`lab-page.ts:912-921`). New seed moves the seed first, as the old
-  // lab does; the draw does not read the seed, it only carries it along.
+  // them. New seed moves the seed first; the draw does not read the seed, it
+  // only carries it along.
   const generate = () => {
     drawIfRandom()
     control.start()
   }
   // `setMany` and not `set`: a seed the machine drew is not a knob a person
   // typed, and only the typed path may wake `auto` (Ruling 3). The range is
-  // the old lab's own (`lab-page.ts:919`), and `clampParam` holds it inside
-  // PARAM_SPEC's bounds regardless.
+  // the one already in use, and `clampParam` holds it inside PARAM_SPEC's
+  // bounds regardless.
   const reseed = () => {
     setMany({ seed: Math.floor(Math.random() * 999999) })
     drawIfRandom()
     control.start()
   }
   // The knobs first, then the recipe written over them: its seed is the
-  // default the reset just put back (`lab-page.ts:923-930`).
+  // default the reset just put back.
   const defaults = () => {
     resetParams()
     resetRecipeIfSimple()

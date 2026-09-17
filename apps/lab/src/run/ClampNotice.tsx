@@ -3,8 +3,7 @@ import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 
 /**
- * A preset or a link moved a value into range — the old lab's `showClamped`
- * as a component (`lab-page.ts:701-704`). The region is mounted from the
+ * A preset or a link moved a value into range. The region is mounted from the
  * start and only its content moves: a live region inserted already-populated
  * is not announced by most screen readers, and `RunStatusBar`'s
  * `<output aria-live="polite">` already sets the pattern this follows.

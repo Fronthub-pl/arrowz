@@ -1,9 +1,9 @@
 import { decodeBoard, encodeBoard, generate, toSvg } from '@arrowz/engine'
 import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
-// The same two messages the Deno lab worker answers
-// (packages/cli/lab-worker.ts), against the same engine: the protocol is
-// shared, so §6 leaves it untouched. The finished board crosses as its board
+// Two messages, against the same engine the CLI carves with: the protocol is
+// the engine's own, so §6 leaves it untouched. The finished board crosses as
+// its board
 // file — one packed record instead of ~90 000 piece objects — and it is the
 // very file that goes to the store.
 const post = (message: WorkerOut) => self.postMessage(message)

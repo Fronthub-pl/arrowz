@@ -36,9 +36,9 @@ export function PresetStrip({ control }: { control: RunControl }) {
     // a value can arrive out of range and be pulled in. The notice is how the
     // move stops being silent (spec §5.3).
     raiseClamped(setMany(full))
-    // §2.2 row 2: the export cell size follows the preset's size, as the old
-    // lab does at `lab-page.ts:491`. It is a view field, so it goes through
-    // the view slice's tolerant reader rather than into the knobs.
+    // §2.2 row 2: the export cell size follows the preset's size. It is a view
+    // field, so it goes through the view slice's tolerant reader rather than
+    // into the knobs.
     const W = params.W ?? 0
     const H = params.H ?? 0
     setNumber('cell', String(exportCell(W, H)))

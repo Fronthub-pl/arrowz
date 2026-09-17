@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 
-/** The old lab's own wait (`lab-page.ts:907-910`), named in one place. */
+/** The wait between the last edit and the run, named in one place. */
 export const AUTO_DELAY_MS = 350
 
 /**
@@ -25,8 +25,8 @@ export const AUTO_DELAY_MS = 350
  * wait cancels the run rather than merely stopping the next one.
  *
  * It also watches `recipe.edits`, and that one ignores the switch: the simple
- * view has no `auto`, and the old lab's size fields and sliders schedule a run
- * unconditionally (`lab-page.ts:527-529`, `:559-561`). One hook owns both
+ * view has no `auto`, and its size fields and sliders schedule a run
+ * unconditionally. One hook owns both
  * because `RunControl.hold` keeps one cancel; two timers would overwrite each
  * other's slot and Generate would leave the other one to fire (Ruling 3 of
  * PR 4a). A recipe edit leaves a debt: a later knob edit restarts the wait but

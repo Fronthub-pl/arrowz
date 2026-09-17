@@ -173,8 +173,7 @@ test('a board file that cannot be named says why, and the SVG export stays', asy
   await expect.element(screen.getByRole('alert')).toHaveTextContent('Cannot name the board file: no secure context')
 })
 
-// The old lab's name (the `download` handler in lab-page.ts), drawn by a real
-// throw-away worker.
+// The board's own name, drawn by a real throw-away worker.
 test('the SVG is drawn off the page and saved under the board it shows', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))

@@ -19,10 +19,9 @@ interface Named {
  * as an SVG and as its board file. Both read the result slice, so a run in
  * flight exports the board beside it, not the one being carved.
  *
- * The SVG is drawn in a worker of its own, as the old lab draws it (the
- * `download` handler in lab-page.ts): tens of megabytes of text at Insane, off
- * the page's thread, and not in the generation worker, which a new run
- * terminates. One at a time (Ruling 7). The board file costs no worker: it is
+ * The SVG is drawn in a worker of its own: tens of megabytes of text at
+ * Insane, off the page's thread, and not in the generation worker, which a new
+ * run terminates. One at a time (Ruling 7). The board file costs no worker: it is
  * the file itself, named by its layout hash, the name the store gives the same
  * arrows (layout hash spec §5). The hash is asynchronous and a download has to
  * start in its click, so it is worked out when the board arrives and the

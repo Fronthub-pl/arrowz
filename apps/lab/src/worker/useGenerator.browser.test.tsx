@@ -46,8 +46,8 @@ test('parameters outside the envelope end in error with the engine message', asy
   expect(useStore.getState().run.message ?? '').not.toBe('')
 }, 30_000)
 
-// A board file the codec cannot read is a codec bug, and the reference shows it
-// rather than hiding it (lab-page.ts:794-806). What makes it worth a test is
+// A board file the codec cannot read is a codec bug, and it is shown rather
+// than hidden. What makes it worth a test is
 // the failure mode of the unguarded version: decodeBoard throws out of
 // `onmessage` after `busy` is already cleared, so the slice stays in `running`
 // with no message, Generate stays disabled and abort() returns early — the
