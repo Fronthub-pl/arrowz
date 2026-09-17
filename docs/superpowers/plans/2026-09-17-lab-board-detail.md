@@ -1530,9 +1530,7 @@ Create `apps/lab/src/library/useViewSave.ts`:
 ```ts
 import type { BoardFile, View } from '@arrowz/engine'
 import { storeRequest } from '@arrowz/engine/command'
-import { useEffect, useRef } from 'react'
 import { saveBoard } from '../api/boards'
-import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
 import { raiseNotice } from './notices'
 
