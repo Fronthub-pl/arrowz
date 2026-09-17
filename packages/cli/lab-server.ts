@@ -1,12 +1,10 @@
-// Lab server: static files from packages/cli/ without caching (a rebuilt bundle
-// must reach the browser immediately) plus the board store under /api/boards
-// (GET list, POST save a board file, DELETE one) and the stored files under
+// The board store over HTTP: the store's own API under /api/boards (GET list,
+// POST save a board file, DELETE one) and the stored files themselves under
 // /store/. The files answer to /store/ and not to /boards/ because /boards is
 // the lab application's library route and /boards/<size>/<id> is a board's own
-// address there (spec §5.6); the directory on disk is unchanged. Run: deno task
-// lab (lab.sh scopes the permissions: net on 127.0.0.1, read of packages/cli/
-// and the store, write of the store, one env var).
-import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
+// address there (spec §5.6); the directory on disk is unchanged. Nothing else
+// is served: this process has no page of its own.
+import { extname, join, normalize, resolve, SEPARATOR } from '@std/path'
 import {
   decodeBoard,
   defaultParams,
@@ -26,27 +24,20 @@ export const MAX_BODY = 16 * 1024 * 1024
 const MAX_TEXT = 4096
 const SOURCES: readonly string[] = ['lab', 'cli']
 
-const ROOT = dirname(fromFileUrl(import.meta.url))
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript',
-  '.map': 'application/json',
-  '.svg': 'image/svg+xml',
   '.json': 'application/json',
-  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
 }
 
 /**
- * The lab page may load its own script, bundle, workers and API only. Inline
- * style attributes stay allowed: the page builds table rows with them.
+ * What this server answers is JSON and stored files, never a page: nothing may
+ * be loaded, framed or connected to from a response of its own accord.
  */
-export const LAB_CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
-  "img-src 'self' data: blob:; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; " +
-  "form-action 'none'; frame-ancestors 'none'"
+export const API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 /** Stored files are data, never a page: an SVG opened on its own runs no script and reaches nothing. */
 export const STORE_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox"
 
-function send(status: number, body: BodyInit, type = 'application/json', csp = LAB_CSP): Response {
+function send(status: number, body: BodyInit, type = 'application/json', csp = API_CSP): Response {
   return new Response(body, {
     status,
     headers: {
@@ -295,24 +286,17 @@ export function createLabServer(): (req: Request) => Promise<Response> {
       }
       if (req.method !== 'GET') return send(405, '{"error":"GET only"}')
 
-      // Three areas are served: the page, its bundle and the store, each from
-      // its own base directory (the store may live outside packages/cli/, see
-      // ARROWZ_BOARDS_DIR). The sources next to the page are not. The
-      // normalised path must stay inside its area.
+      // One area is served: the store, which may live outside packages/cli/
+      // (see ARROWZ_BOARDS_DIR). The sources beside this file are not served,
+      // and neither is a page: the lab is `apps/lab` and Vite serves it.
       let rel: string
       try {
-        rel = decodeURIComponent(url.pathname === '/' ? '/lab.html' : url.pathname)
+        rel = decodeURIComponent(url.pathname)
       } catch {
         return send(400, '{"error":"malformed path"}')
       }
-      const area = rel === '/lab.html'
-        ? { base: ROOT, name: 'lab.html', csp: LAB_CSP }
-        : rel.startsWith('/dist/')
-        ? { base: join(ROOT, 'dist'), name: rel.slice('/dist/'.length), csp: LAB_CSP }
-        : rel.startsWith('/store/')
-        ? { base: boardsDir(), name: rel.slice('/store/'.length), csp: STORE_CSP }
-        : null
-      if (!area) return send(404, '{"error":"not found"}')
+      if (!rel.startsWith('/store/')) return send(404, '{"error":"not found"}')
+      const area = { base: boardsDir(), name: rel.slice('/store/'.length), csp: STORE_CSP }
       const baseDir = resolve(area.base)
       const file = normalize(join(baseDir, area.name))
       if (!file.startsWith(baseDir + SEPARATOR)) return send(403, '{"error":"outside base directory"}')
@@ -323,8 +307,7 @@ export function createLabServer(): (req: Request) => Promise<Response> {
         // Only a missing file is a 404; a permission error or a broken disk is
         // a server fault and goes to the outer catch as a 500.
         if (!(err instanceof Deno.errors.NotFound)) throw err
-        const hint = rel.startsWith('/dist/') ? ' (run: deno task bundle)' : ''
-        return send(404, JSON.stringify({ error: `not found${hint}` }))
+        return send(404, '{"error":"not found"}')
       }
       if (!info.isFile) return send(404, '{"error":"not found"}')
       const data = await Deno.readFile(file)
@@ -341,7 +324,7 @@ if (import.meta.main) {
     {
       port,
       hostname: '127.0.0.1',
-      onListen: () => console.log(`Lab: http://localhost:${port}/lab.html   (Ctrl+C stops)`),
+      onListen: () => console.log(`Board store: http://localhost:${port}/api/boards   (Ctrl+C stops)`),
     },
     createLabServer(),
   )
