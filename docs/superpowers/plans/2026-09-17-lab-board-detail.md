@@ -2018,6 +2018,18 @@ Append to `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside the `descri
     // review round 1 measured `/Press Generate/` failing on the quotation marks.
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
   })
+
+  // The ordering itself, which nothing else pins: with both a notice and a
+  // board failure set, the notice wins. Swapping the two branches leaves every
+  // other case in this file green, which is why this one exists.
+  it('says what just happened even while a board failure is standing', async () => {
+    const screen = await mountBar('/boards/8x8/sha256-0')
+    await act(async () => {
+      useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'HTTP 404' })
+      useStore.getState().library.notify({ kind: 'deleted', name: '8x8/sha256-0' })
+    })
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Deleted/)
+  })
 ```
 
 Append to `apps/lab/src/library/useStoredBoard.browser.test.tsx`, adding `render` and `userEvent` to its imports and `useNavigate` to its `react-router` import — the walk case below navigates for real, because `renderHook`'s `rerender` cannot:
@@ -2067,8 +2079,13 @@ test('walking away from a board still loading, and back, leaves no loading notic
   )
   await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
 
-  // B's file never answers; then straight back to A, which is on the stage.
-  stubStore({})
+  // B's file must stay in flight across both clicks, so hold it on a promise
+  // that never settles rather than letting a 404 come back. Not a timer: the
+  // task review measured what a delayed fallback costs — the case then depends
+  // on A's navigation committing inside that window on a loaded CI runner, and
+  // a slip lands B's answer uncancelled, clearing both the notice and the
+  // preview. This is the idiom the rest of these files use.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   await userEvent.click(screen.getByRole('button', { name: 'B' }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
   await userEvent.click(screen.getByRole('button', { name: 'A' }))
