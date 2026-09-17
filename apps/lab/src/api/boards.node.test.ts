@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer, type ViteDevServer } from 'vite'
 import { afterAll, beforeAll, expect, test } from 'vitest'
 import { labProxy } from '../../vite.proxy'
-import { listBoards, readStoredBoard } from './boards'
+import { deleteBoard, listBoards, readStoredBoard, saveBoard } from './boards'
 
 const STORE_PORT = 8790
 const VITE_PORT = 8791
@@ -175,6 +175,30 @@ test('readStoredBoard fetches a stored file, and reports a missing one', async (
     const missing = await readStoredBoard('12x12', 'sha256-0')
     expect(missing.ok).toBe(false)
     if (!missing.ok) expect(missing.error).toContain('404')
+  } finally {
+    globalThis.fetch = original
+  }
+})
+
+// What the detail's second click does (PR 5b). The board is created and
+// removed inside the case, in a size of its own, so the counts asserted above
+// stay true however this file grows.
+test('deleteBoard removes a board, and a second delete says it was not there', async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
+  try {
+    const params = { ...defaultParams(), W: 16, H: 16, seed: 5 }
+    const made = generate(params)
+    const saved = await saveBoard(storeRequest(encodeBoard(made.board), params, DEFAULT_VIEW, 'lab'))
+    if (!saved.ok) throw new Error(`the store refused the board this case needs: ${saved.error}`)
+
+    expect(await deleteBoard('16x16', saved.meta.id)).toEqual({ ok: true, deleted: true })
+    // Ruling 11: the second press is not an error. The store says 404 and the
+    // caller learns the same thing it learned the first time — it is gone.
+    expect(await deleteBoard('16x16', saved.meta.id)).toEqual({ ok: true, deleted: false })
+
+    const list = await listBoards()
+    expect(list.ok && list.sizes.some((entry) => entry.size === '16x16')).toBe(false)
   } finally {
     globalThis.fetch = original
   }

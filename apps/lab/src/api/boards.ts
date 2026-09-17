@@ -74,3 +74,29 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
   const body = (await response.json().catch(() => ({}))) as { error?: string }
   return { ok: false, error: body.error ?? `the store answered ${response.status}` }
 }
+
+/** Whether the store still holds the board, or why it could not be asked. */
+export type DeleteOutcome = { ok: true; deleted: boolean } | { ok: false; error: string }
+
+/**
+ * Removes one stored board. A 404 is an outcome, not a failure (Ruling 11):
+ * pressing Delete on a board another window has already removed means the same
+ * thing to the caller as removing it here — it is not there. `ok: false` is
+ * kept for a store that could not be reached or answered with a fault, which
+ * is the distinction every other call in this module makes.
+ *
+ * Both segments are encoded: an id is a hash and a size is `WxH`, so neither
+ * carries a slash today, and a path built by concatenation that stops being
+ * true later is the kind of thing this file should not leave lying around.
+ */
+export async function deleteBoard(size: string, id: string): Promise<DeleteOutcome> {
+  let response: Response
+  try {
+    response = await fetch(`/api/boards/${encodeURIComponent(size)}/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+  if (response.status === 404) return { ok: true, deleted: false }
+  if (!response.ok) return { ok: false, error: `the store answered ${response.status}` }
+  return { ok: true, deleted: true }
+}
