@@ -2438,10 +2438,19 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
   await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
   expect(useStore.getState().run.phase).toBe(phase)
 
-  // And the lab's own board is waiting where it was left.
+  // And the lab's own board is waiting where it was left — *this* board, not
+  // merely some board. `shown` is written in exactly three places
+  // (`result.slice.ts`: the show transition, the initial value, `reset`), none
+  // of which this path touches, so it is already non-null here and stays
+  // non-null however Load into lab behaves. Asserting "not null" therefore
+  // proves nothing, which is what this task's review measured. Identity against
+  // the value captured first is what goes red if Load into lab ever overwrote
+  // the lab's own result with the stored board's.
+  const labBoard = useStore.getState().result.shown
+  expect(labBoard).not.toBeNull()
   await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
   await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
-  expect(useStore.getState().result.shown).not.toBeNull()
+  expect(useStore.getState().result.shown).toBe(labBoard)
 }, 40_000)
 ```
 
