@@ -877,7 +877,7 @@ reads the computed colours, not by arithmetic in a comment.
 | Inactive knobs are communicated by `opacity: .4` alone | `aria-disabled` plus the reason via `aria-describedby`, from `INACTIVE_REASONS` |
 | Glyph-only buttons (⌘K, +, −, ⤢) have no accessible name | `aria-label` from the dictionary |
 | Controls are 24-32px where the design system asks for 44px on touch | sizes kept for pointers, `@media (pointer: coarse)` raises them |
-| Three regions of the library answer to one name, "Saved boards": the size chips, the list, and the tab (PR 5a used `tabLibrary` for all three) | each is named for what it is, from two new dictionary entries; PR 5b adds them, being the PR that already writes to both `ui` tables |
+| Three regions of the library answer to one name, "Saved boards": the size chips, the list, and the tab (PR 5a used `tabLibrary` for all three) | each is named for what it is, from three new dictionary entries — the size group, the rows, and the open board's detail; PR 5b adds them, being the PR that already writes to both `ui` tables |
 
 ### 7.3 What the mock only pretends to do
 

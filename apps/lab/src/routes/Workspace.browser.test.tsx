@@ -810,3 +810,104 @@ test('below 900px the library rail is the lab rail', async () => {
   if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
   expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
 }, 40_000)
+
+// The detail through the real application: a row opens a board, the detail
+// describes it, an edited field redraws it and reaches the store, and the
+// address survives all of it. The store is stubbed — `boards.node.test.ts` is
+// where a real one is exercised.
+test('a stored board can be opened, restyled and loaded back into the lab', async () => {
+  // Its own viewport, because the one before it outlives its case: without this
+  // the case inherits 860×900 from a neighbour, and at 414×896 PR 5a recorded
+  // Playwright refusing row clicks as intercepted by `<arrowz-board>`.
+  await page.viewport(1400, 900)
+  const { meta, file } = storedFixture(1)
+  const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    const url = String(input)
+    if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify(meta), { status: 201 }))
+    if (url.includes('/api/boards')) return Promise.resolve(new Response(JSON.stringify(sizes), { status: 200 }))
+    if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  const screen = await mountApp()
+  await loadRunDone()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  // Wait for the rows before reading them: the tab click navigates, and a
+  // navigation commits inside `startTransition` (harness facts). Review round 3
+  // measured both of this file's new cases failing on a synchronous read here.
+  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+  const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+  if (row === null) throw new Error('the listing showed no row')
+  await userEvent.click(row)
+
+  // The detail describes the board the address names.
+  await expect.element(screen.getByText(meta.command)).toBeVisible()
+  await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+
+  // An edited field redraws the stored board without generating anything.
+  const phase = useStore.getState().run.phase
+  const stroke = screen.container.querySelector<HTMLInputElement>('.fw-lib-detail #view-stroke')
+  if (stroke === null) throw new Error('the detail offered no stroke field')
+  await userEvent.fill(stroke, '0.9')
+  await userEvent.tab()
+  await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+  expect(useStore.getState().run.phase).toBe(phase)
+
+  // And the lab's own board is waiting where it was left.
+  await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+  await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
+  expect(useStore.getState().result.shown).not.toBeNull()
+}, 40_000)
+
+// Ruling 1, at the size that exposed it: at 860x900 the first version of this
+// layout left no list at all and hung the detail 75px below the console.
+test('at 860x900 the list still scrolls and the detail stays inside the console', async () => {
+  await page.viewport(860, 900)
+  const { meta, file } = storedFixture(1)
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    ...meta,
+    id: `${meta.id.slice(0, -2)}${String(i).padStart(2, '0')}`,
+  }))
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ size: '8x8', W: 8, H: 8, cells: 64, boards: many }]), { status: 200 }),
+      )
+    }
+    if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  const screen = await mountApp()
+  await loadRunDone()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  // Wait for the rows before reading them: the tab click navigates, and a
+  // navigation commits inside `startTransition` (harness facts). Review round 3
+  // measured both of this file's new cases failing on a synchronous read here.
+  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+  const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+  if (row === null) throw new Error('the listing showed no row')
+  await userEvent.click(row)
+  await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
+
+  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
+  if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
+  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
+  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+  expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
+  // The buttons, not the box that contains them (Ruling 16): the box was inside
+  // the console at every size measured while `Load into lab` sat below the
+  // window, and `toBeVisible()` says nothing about that.
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (buttons === null) throw new Error('the detail showed no buttons')
+  expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+  // And nothing pushed the document itself out of shape.
+  expect(
+    document.scrollingElement === null
+      ? 0
+      : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight,
+  ).toBe(0)
+}, 40_000)
