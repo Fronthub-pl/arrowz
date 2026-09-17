@@ -1,6 +1,24 @@
 import type { BoardSize } from '@arrowz/engine'
 
 /**
+ * Something the library did, as opposed to something it is. The status line
+ * computes a stored board's own description from `result.preview`; these five
+ * report an event, and a line computed from state alone has nowhere to put one
+ * (spec §5.3, PR 5b). `loading` is the only one cleared by its own outcome
+ * rather than by a timer — it describes a fetch that is still going.
+ *
+ * `name` is the `<size>/<id>` the dictionary's formatter puts inside its
+ * sentence, carried as data for the same reason `BoardError` carries its two
+ * halves apart: the words belong to the dictionary.
+ */
+export type LibraryNotice =
+  | { kind: 'loading'; name: string }
+  | { kind: 'viewSaved'; name: string }
+  | { kind: 'deleted'; name: string }
+  | { kind: 'saveFailed' }
+  | { kind: 'deleteFailed' }
+
+/**
  * A board file that could not be drawn. The two halves are kept apart rather
  * than joined into one sentence: whoever prints this hands them to the
  * dictionary, whose words go around them (`boardFileError`), and a reason that
@@ -33,6 +51,8 @@ export interface LibraryState {
   listError: string | null
   /** Why the board the address names could not be drawn. */
   boardError: BoardError | null
+  /** What the library has just done, which the status line says once. */
+  notice: LibraryNotice | null
   listing(): void
   listed(sizes: BoardSize[]): void
   listFailed(error: string): void
@@ -42,6 +62,8 @@ export interface LibraryState {
    */
   listDropped(): void
   boardFailed(error: BoardError | null): void
+  notify(notice: LibraryNotice): void
+  clearNotice(): void
   reset(): void
 }
 
@@ -54,6 +76,7 @@ export function createLibrarySlice(set: SetStore): LibraryState {
     loading: false,
     listError: null,
     boardError: null,
+    notice: null,
     listing: () => patch({ loading: true }),
     listed: (sizes) => patch({ sizes, loading: false, listError: null }),
     // The sizes are left where they are: a refresh that fails must not take
@@ -64,6 +87,8 @@ export function createLibrarySlice(set: SetStore): LibraryState {
     // `loading` comes back down, because the call that set it is over.
     listDropped: () => patch({ loading: false }),
     boardFailed: (boardError) => patch({ boardError }),
-    reset: () => patch({ sizes: null, loading: false, listError: null, boardError: null }),
+    notify: (notice) => patch({ notice }),
+    clearNotice: () => patch({ notice: null }),
+    reset: () => patch({ sizes: null, loading: false, listError: null, boardError: null, notice: null }),
   }
 }
