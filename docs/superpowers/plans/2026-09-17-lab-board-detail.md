@@ -60,12 +60,14 @@ Carried from PR 3a, 3b, 4a, 4b and 5a. Every one of these broke a plan written f
 - **A component that starts fetching on mount races the case's own state.** Stub it: `vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))` in `beforeEach`, `vi.restoreAllMocks()` in `afterEach`.
 - **A store write from outside a React event reaches the DOM on a microtask at the earliest.** Wrap it in `await act(async () => …)` before reading the DOM, or poll.
 - **Fake timers need a recipe:** install them *after* `renderHook`, without `shouldAdvanceTime`; wrap every write in `await act(...)`; advance with `await vi.advanceTimersByTimeAsync(...)`; assert with bare `expect`, never `expect.element` — it stands on `expect.poll` and hangs on a frozen clock.
+- **`renderHook` cannot see a defect that needs a re-render.** Its host component subscribes to nothing, so a store change never re-renders it — and an effect whose cleanup runs per render therefore never runs at all. Review round 2 measured a hook that posted twice per edit in the application while its `renderHook` suite stayed green. When the claim is about effects, cleanups or dependency arrays, mount an owner that selects the state the hook writes, as `BoardDetail` selects `result.preview`.
 - **`locator.click()` waits for actionability**: clicking a disabled button stalls to the timeout instead of failing.
 - **`locator.element()` returns `HTMLElement | SVGElement`** and `querySelector('.x')` returns `Element`, which has no `style` or `.value`: narrow with `querySelector<HTMLInputElement>(...)`. `pnpm --dir apps/lab run check` catches this; `vitest run` does not.
 - **`let x: T | null = null` assigned inside a closure narrows to `null`.** Write `let x = null as T | null`.
 - **`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess` and `noUnusedLocals` are on**, and ESLint's `no-unused-vars` is an error: an unused import in a test file fails `verify`.
 - **React 19 has no global `JSX` namespace**: type a component's return as `ReactElement`.
 - **A property reaching `<arrowz-board>` does not prove the board looks like that.** Assert the element's own effect: `element.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed')`, as `BoardFrame.browser.test.tsx` does.
+- **`toBeVisible()` does not mean on screen.** An element scrolled out of an `overflow: auto` box passes it, and so does one below the viewport's bottom edge. Review round 2 measured the detail's two buttons 39 px off-screen at 860×900 with every assertion green. When the claim is "a person can reach this", read `getBoundingClientRect().bottom` against the container's and against `window.innerHeight`.
 - **A `null` slot does not keep its index in the DOM.** Assert "did not remount" by node identity (`expect(node()).toBe(before)`), never by position.
 - **Whole-app tests run at 414×896 by default**, where `@media (max-width: 900px)` already applies. Every geometry case calls `await page.viewport(w, h)` first, and the viewport outlives the case that set it.
 - **A variant rule appended after the media-query block loses on order** at equal specificity. `.fw-lib-panel`'s rules go *before* the `@media (max-width: 900px)` block in `console.css`, and any new `.fw-lab` variant must be added to the solo rule.
@@ -90,7 +92,13 @@ Decisions this plan takes that the spec left open or states differently. An exec
 
 The obvious grid — `minmax(0, 1fr)` and `auto` — is wrong, and review round 1 measured how wrong. An `auto` row is content-sized with no ceiling, and the detail's content is taller than half a 385 px console: at 1400×900 the list came out **30 px** tall (no row fully visible, of forty), and at 860×900 it came out **0 px** while the detail overflowed the console *and the document* by 75 px. "The list scrolls under a detail that stays" was true only in the sense that there was no list left to scroll.
 
-So the list row gets a floor and the detail row gets a ceiling: `grid-template-rows: minmax(min(140px, 50%), 1fr) minmax(0, auto)`, with `min-height: 0; overflow-y: auto` on the detail itself. `minmax(0, auto)` lets the detail shrink below its content and scroll on its own; `min(140px, 50%)` keeps about two rows of list at every width without taking the panel over on a short viewport. Measured with that pair: 1400×900 → 140 px of list, two rows visible, detail inside the console, no document overflow; 860×900 → the same.
+So the list row gets a floor and the detail row gets a ceiling: `grid-template-rows: minmax(min(200px, 45%), 1fr) minmax(0, auto)`, with `min-height: 0; overflow-y: auto` on the detail itself. `minmax(0, auto)` lets the detail shrink below its content and scroll on its own; the floor keeps two rows of list wherever the panel is tall enough, and gives way to 45% of a short one rather than taking the panel over.
+
+Two corrections from review round 2, both measured. **The floor is 200 px, not 140:** the list's own Refresh head takes 34 px and its padding 24, and a row is about 62, so 140 px showed *one* row, not the two the first draft claimed. And **the `auto` row was not the whole story at 1400×900** — with the help paragraph dropped, the old grid and the new one both gave 150 px of list there, so at that width the entire 120 px came from the paragraph. The grid change earns its keep where the field grid wraps: at 860×900 the old grid gave 63 px against the new one's floor, and below about 1046 px of panel width it is the only thing standing between the list and zero.
+
+**Ruling 16 — the detail's two buttons are pinned to the bottom of its scrolling box.** Bounding the row is not enough. Review round 2 measured the buttons at every viewport but 1400×900 and wider sitting *below the window*: at 860×900 `Load into lab` and `Delete from disk` were 39 px past the bottom edge, reachable only by scrolling inside the detail, and no assertion saw it — Playwright's `toBeVisible()` passes for an element scrolled out of an `overflow: auto` box, and the plan's other assertion reads the detail's box rather than its content. So `.fw-lib-buttons` is `position: sticky; bottom: 0` on the detail's own background: the fields scroll under them, the two actions never leave the screen, and Task 11 asserts their rectangle rather than the box's.
+
+**Ruling 17 — the library's `headHeight` shows no help paragraph, and that is a trade, not parity.** The first draft of this ruling said the old lab does not show one there either. **That is false**: `lab.html`'s `libView` carries `<p class="help" data-i18n="headHelp">` beside `libHeadHeight`, and `help` is checked by default, so the old lab does show it. Review round 1 asserted the opposite and this plan repeated it without opening the file — exactly the failure this repository has a rule against. What is true is the measurement: that paragraph is nine lines in a 190 px column, every cell of a grid row is as tall as the tallest, and it adds 120 px to the detail at 1400 and 138 at 860 — in a panel that is half a 385 px console. It is dropped deliberately, for room, in a surface where the same explanation already sits one tab away in the lab's own preview panel. Restoring it is a one-line change to `LIBRARY_VIEW_FIELDS` if the trade is judged wrong.
 
 `min-height: 0` on the list row matters for the usual reason — a grid item's automatic minimum size is its content, so without it the row refuses to shrink and nothing scrolls.
 
@@ -100,25 +108,36 @@ So the list row gets a floor and the detail row gets a ceiling: `grid-template-r
 
 **Ruling 4 — an edited view moves `preview.meta.view`, and nothing else.** `BoardFrame` draws a stored board from `preview.meta.view`, so that is the value the stage reads; a second slice would be a second truth. `result` gains `previewView(view: View)`, which replaces the view inside `preview.meta` and leaves `board` and `file` untouched. It is a no-op when there is no preview, for the same reason `stored` and `exported` are no-ops for a file that is no longer shown.
 
-**Ruling 5 — `library.notice` carries events, and the component that raises one also clears it.** `savedBoard` is a *state* (the board the address names) and the status line computes it. `loadingBoard`, `viewSaved`, `deletedBoard`, `deleteFailed` and a failed view save are *events*. The slice holds `notice` and `RunStatusBar` reads it ahead of the preview branch; the timer that clears an event notice after 1200 ms lives in the component that raised it, next to its own `clearTimeout` on unmount — the pattern `LiveCommand` already uses for "Copied". `loading` is the exception: it is cleared by its own outcome, not by a clock, because it describes a fetch that is still going.
+**Ruling 5 — `library.notice` carries what the library did, and only what is *over* fades.** `savedBoard` is a state (the board the address names) and the status line computes it. The slice holds `notice`, and `RunStatusBar` reads it ahead of the preview branch.
+
+Three notices report something finished and fade after 1200 ms: `viewSaved`, `deletedBoard`, `deleteFailed`. Two describe a state and are cleared by their own outcome: `loading`, because a fetch is still going, and `saveFailed`, because the picture on the stage is not what the store holds and stays that way until a save lands or another board is opened.
+
+Review round 2 measured both halves of the first draft being wrong. The fade's `clearTimeout` on unmount killed the `deleted` notice's own timer — the detail raises it and then navigates, which unmounts the detail — so the line said "Deleted …" indefinitely. And `saveFailed` faded after 1.2 s, leaving the stage showing an edit, the command box showing the store's command, and nothing on screen explaining the difference. So the timer has **no unmount cleanup**: it writes only the store and only takes back the object it put up, which makes an unmounted raiser harmless.
 
 **Ruling 6 — the detail is absent, not disabled, when the address names no board.** The old lab hides three boxes with `hidden` (`showLibDetail`). Rendering the detail with empty fields would offer a Delete button with nothing to delete and a command box with no command.
 
-**Ruling 7 — one function answers "which listed size is this address about", and both the chips and the list call it.** Spec §5.6 (PR 5b). It lives in `apps/lab/src/library/openEntry.ts` and returns the entry *and* whether it is a fallback, so the chips can press nothing when the address names a size the store does not list while the list still shows rows.
+**Ruling 7 — one function answers "which listed size is this address about", and both the chips and the list call it.** Spec §5.6 (PR 5b). It lives in `apps/lab/src/library/openEntry.ts` and returns the entry plus `mismatch`: whether the address *named* a size the store does not list. **Two fallbacks, not one**, and round 2 caught the first draft collapsing them: an address with no size at all (`/boards`) is not a disagreement — PR 5a's own case asserts the first chip is pressed there, because the list is showing that size's rows and something has to say so. A disagreement is only `/boards/10x10/<id>` against a store holding `8x8`, and that is the case where no chip may be pressed while the rows still show. `mismatch` is therefore true only when `size !== null` and the listing has no such entry.
 
 **Ruling 8 — a failed view save does not revert the board on screen.** The view is already in `preview.meta` and on the stage; a save that fails says `notSaved` and leaves the picture alone, as the old lab does (`saveLibView`'s `catch` sets the status and nothing else). Reverting would throw away the user's edit because a server is down.
 
 **Ruling 9 — *load into lab* copies the view as well as the knobs, and `hilite` comes from `view.top > 0`.** Parity with `lab-page.ts`'s `libLoad` handler, which sets `cell`, `stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, and `hilite` from `v.top > 0`. A stored board's `top` is 0, so `hilite` lands off; that is the old lab's behaviour and not an oversight.
 
-**Ruling 12 — a pending view save is flushed when the detail goes away, not dropped.** Added by review round 1, which measured the loss: an edit, 200 ms, then another board chosen — `BoardDetail` is keyed on the address (Ruling 10), so it unmounts, `useViewSave`'s cleanup clears the timer, and the store never hears. The old lab has no such hole: its `libTimer` is module-level and fires after the switch. So the cleanup writes instead of cancelling, and it writes **the view it was given**, from the closure, never `useStore.getState()` — by then the store describes another board. Parity, and the smaller surprise: an edit you watched happen is an edit that survives.
+**Ruling 12 — the debounce timer lives in the module, not in the component, and the delete cancels it.** Round 1 measured the loss this repairs: an edit, 200 ms, then another board chosen — `BoardDetail` is keyed on the address (Ruling 10), so it unmounts and a timer owned by its effect dies with it. Round 1's repair was a flush in the cleanup, and **round 2 measured that repair doing far worse than the bug**:
 
-**Ruling 13 — after a failed save the command box goes on showing the store's command, and that is the honest thing.** `meta.command` is built from the params and the view the store holds, so after `notSaved` it disagrees with the picture on the stage — Copy hands over a command that does not reproduce what is drawn. Leaving it is right: the box is labelled "Command of this board", and the board is what the store has. The picture is the user's unsaved edit (Ruling 8), and the status line is what says so.
+- The effect's dependencies were `notify` and `refresh`, both fresh functions on every render, so React ran the cleanup *on every render*. The 350 ms debounce therefore never fired at all: one edit posted twice within 2 ms, and every later re-render — `setCopied`, `setArmed`, a language switch — posted again.
+- And the flush ran after the delete, because the delete navigates and the key changes. Measured against a real store: `DELETE` removed the board, the flush re-POSTed it, and `packages/cli/store.ts`'s `saveBoard` treats a board it cannot find as a new one and **writes the file back**. The board returned to the disk and to the very listing the delete refreshed.
+
+So the timer goes where the old lab keeps it: module scope in `useViewSave.ts`, with `schedule(view, …)` and `cancelPending()`. Unmounting a component cannot cancel it, which is the behaviour Ruling 12 wanted in the first place; no effect, no dependency array, nothing to run per render. Task 8's delete calls `cancelPending()` before it asks the store to delete, so the one sequence where a write must not survive is the one sequence that stops it.
+
+**Ruling 13 — after a failed save the command box goes on showing the store's command, and the status line keeps saying so.** `meta.command` is built from the params and the view the store holds, so after `notSaved` it disagrees with the picture on the stage — Copy hands over a command that does not reproduce what is drawn. Leaving it is right: the box is labelled "Command of this board", and the board is what the store has. The picture is the user's unsaved edit (Ruling 8). What makes the disagreement legible is the line, and that is why `saveFailed` does not fade (Ruling 5, as round 2 amended it): the one sentence explaining why the box and the picture differ must not disappear while both are still on screen.
 
 **Ruling 14 — a new listing does not re-fetch the board already on the stage.** Two reviewers reached this from opposite sides. `useStoredBoard`'s effect depends on `metas`, and `listed()` always stores a fresh array, so every refresh — including the one `write()` makes after a successful save — fetched the open board's file again. One reviewer measured what came back: the *listing's* view, overwriting an edit made while that fetch was in flight. The other measured what it did to the line: `loading` raised over `viewSaved`, so against a local store the "saved" message was never readable at all.
 
-So the effect returns early when the board the address names is the board `result.preview` already holds: no second `GET`, no `loading`, and nothing to overwrite the view with. This narrows PR 5a's Ruling 4a, which accepted the refetch to guarantee "the preview never describes a meta the listing has replaced". That guarantee is worth less than it looked: the only thing that rewrites a meta is a save, and `write()` already hands the store's own answer to `showPreview`. A meta changed by *another* window is the remaining gap, and it is worth one stale command line rather than a fetch per keystroke-settle and a message nobody can read.
+So the effect returns early when the board the address names is the board `result.preview` already holds: no second `GET`, no `loading`, and nothing to overwrite the view with. **That early return clears a `loading` notice on its way out** — round 2 measured the fifth exit the first draft missed: open A, click B, click back to A while B's file is still in flight, and the line said "Loading B…" for ever, because the cancelled fetch cleared nothing and the new effect returned before reaching a clear. When the address's board is already drawn, no fetch of it is outstanding, so clearing that one word is always right; nothing else is touched, or the `viewSaved` a save's own refresh lands on would go with it.
 
-**Ruling 15 — the detail shows the board the address names, or nothing.** `useStoredBoard` deliberately leaves the previous board on the stage until the next file arrives, so between the click and the picture the address names B while `preview.meta` is still A. The stage may live with that — it is one board replacing another — but the detail must not: keyed on the address (Ruling 10) it would put A's command and A's view fields under B's heading, and a two-click delete finished inside that window would remove the board the user had just clicked away from. So `BoardDetail` renders `null` unless `preview.meta` is the board the address names, which is Ruling 6's reasoning applied to a case Ruling 6 did not see.
+This narrows PR 5a's Ruling 4a, which accepted the refetch to guarantee "the preview never describes a meta the listing has replaced". That guarantee is worth less than it looked: the only thing that rewrites a meta is a save, and `write()` already hands the store's own answer to `showPreview`. The remaining gap is a meta changed by *another* window, and round 2 measured how it shows: the row is built from the listing and the detail from `preview.meta`, so the command box, the three fields and the row disagree on screen until the board is reopened. That is the accepted cost, named here rather than discovered later.
+
+**Ruling 15 — the detail shows the board the address names, or nothing.** `useStoredBoard` deliberately leaves the previous board on the stage until the next file arrives, so between the click and the picture the address names B while `preview.meta` is still A. The stage may live with that — it is one board replacing another — but the detail must not: keyed on the address (Ruling 10) it would put A's command and A's view fields under B's heading, and a two-click delete finished inside that window would remove the board the user had just clicked away from. So `BoardDetail` renders `null` unless `preview.meta` is the board the address names, which is Ruling 6's reasoning applied to a case Ruling 6 did not see. **The comparison is the id alone.** Round 2 measured the size half rejecting a board the store really lists: `listBoards` names a size after its directory, so a folder called `08x08` lists boards whose `W` is 8, and `${meta.W}x${meta.H} !== open.size` then hid the detail of a board the stage and the status line were both describing. A layout hash already binds the board to its dimensions; comparing the id says everything the size half was trying to say, and says it about the board rather than about a folder's name.
 
 **Ruling 11 — a 404 from the delete is an outcome, not an error.** The server answers 200 `{"deleted":true}` when it removed the files and 404 `{"deleted":false}` when there was nothing to remove. To someone who has just pressed Delete twice, or who is looking at a listing another process has emptied, both mean *the board is not there any more*: the detail navigates away and says `deletedBoard` either way. So `DeleteOutcome` is `{ ok: true; deleted: boolean } | { ok: false; error: string }`, and only a refused connection or a 5xx is `ok: false` — the shape `listBoards` and `saveBoard` already use, where `ok` means "the store answered", not "the answer was yes".
 
@@ -135,7 +154,7 @@ So the effect returns early when the board the address names is the board `resul
 | `apps/lab/src/library/LibraryPanel.tsx` | The panel's two rows: the list that scrolls, the detail that stays. Calls `useLibraryList` once and hands `refresh` down (§5.1). |
 | `apps/lab/src/library/BoardDetail.tsx` | One stored board's detail: command and copy, three numbers, two flags, load into lab, two-click delete. |
 | `apps/lab/src/library/BoardDetail.browser.test.tsx` | What the detail shows, what it copies, what it loads, and what two clicks delete. |
-| `apps/lab/src/library/useFadingNotice.ts` | Raises a library notice and takes it back 1200 ms later (Ruling 5), so the line goes back to describing the board. |
+| `apps/lab/src/library/notices.ts` | Raises a library notice and, when what it reports is over, takes it back 1200 ms later (Ruling 5). A module, not a hook: it owns nothing a component owns. |
 | `apps/lab/src/library/useViewSave.ts` | The 350 ms debounce from an edited view to the store, and the notice either way. |
 | `apps/lab/src/library/useViewSave.browser.test.tsx` | The debounce boundary, the late answer, and the failure that keeps the picture. |
 | `apps/lab/src/library/libraryFields.ts` | The library's own three fields and two flags (Ruling 3). |
@@ -731,16 +750,10 @@ git commit -m "Hand the view field its value, so a third owner can have one too"
 In `apps/lab/src/library/LibraryPanel.browser.test.tsx`, replace the `mountPanel` helper so it mounts the panel rather than the list directly:
 
 ```tsx
-async function mountPanel(path = '/boards', box?: { height: number }) {
+async function mountPanel(path = '/boards') {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      {/*
-        The height is optional and the geometry case is the only caller that
-        passes one. Without it the panel is content-sized and nothing is ever
-        asked to scroll — which is how the first draft of that case came out
-        green over a 30px list and then over no list at all (review round 1).
-      */}
-      <div className="fw" style={box === undefined ? undefined : { height: `${box.height}px`, display: 'grid' }}>
+      <div className="fw">
         <SizeChips />
         <LibraryPanel />
         <Address />
@@ -753,31 +766,12 @@ async function mountPanel(path = '/boards', box?: { height: number }) {
 Import `LibraryPanel` and drop the now-unused `BoardList` import — `noUnusedLocals` is a gate. Then append:
 
 ```ts
-// Ruling 1: the rows scroll, the row under them does not. Asserted on the grid
-// itself rather than by scrolling, because the point is which row owns the
-// overflow: `.fw-lib-list` used to, and a detail below a scrolling region
-// would ride down with it.
-test('the list scrolls inside a panel of a fixed height, and the detail stays on screen', async () => {
-  await page.viewport(1400, 900)
-  // The height is the whole point. Review round 1 measured the first version of
-  // this case, which mounted the panel in a bare `<div className="fw">`: with no
-  // height above it the panel is content-sized, nothing is ever asked to
-  // scroll, and the assertions came out true of the stylesheet whatever the
-  // geometry — green at 1400 with a 30px list, green at 860 with no list at
-  // all. A panel in a 380px box is the smallest thing that can go red.
-  const screen = await mountPanel(undefined, { height: 380 })
-  await act(async () => useStore.getState().library.listed(sizesFixture()))
-  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
-  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
-  if (list === null || detail === null) throw new Error('the panel is missing a row')
-  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
-  // A floor of about two rows, so there is something to scroll (Ruling 1).
-  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
-  // And the detail is inside the box, not hanging out of the bottom of it.
-  expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(
-    (screen.container.querySelector('.fw-lib-panel')?.getBoundingClientRect().bottom ?? 0) + 1,
-  )
-})
+// No geometry case here. The panel's second row is empty until Task 6 builds
+// the detail, so a case written at this commit can only measure a grid with one
+// occupied track — which is how the first two attempts at it passed over a
+// 30px list and then over no list at all (review rounds 1 and 2). Ruling 1 is
+// measured where the detail exists: Task 6, and again in the real console at
+// 860x900 in Task 11.
 
 // The hook's guard only stops a second fetch once an answer is in, so two
 // callers against an empty cache would both fetch (spec §5.1, PR 5b).
@@ -849,13 +843,13 @@ In `apps/lab/src/design/library.css`, add **above** any media query in the file:
 ```css
 /* The panel's two rows (spec §5.1, PR 5b). Both are bounded, and Ruling 1 says
    why: an `auto` detail row is content-sized with no ceiling, and measured at
-   1400x900 it left 30px of list — none of forty rows fully visible — while at
-   860x900 it left none at all and overflowed the console by 75px. The floor
-   keeps about two rows of list at every width; `minmax(0, auto)` lets the
-   detail shrink below its content and scroll on its own. */
+   860x900 it left no list at all and overflowed the console by 75px. The floor
+   is 200px because the list's Refresh head takes 34 and its padding 24, so
+   140 showed one row where two were claimed; 45% gives way on a short panel.
+   `minmax(0, auto)` lets the detail shrink below its content and scroll. */
 .fw-lib-panel {
   display: grid;
-  grid-template-rows: minmax(min(140px, 50%), 1fr) minmax(0, auto);
+  grid-template-rows: minmax(min(200px, 45%), 1fr) minmax(0, auto);
   min-height: 0;
   background: var(--void);
 }
@@ -945,11 +939,21 @@ async function show() {
 
 // Ruling 6: nothing to describe, nothing to show — and no Delete button
 // pointing at no board.
-test('there is no detail until a board is open', async () => {
-  const screen = await mountDetail('/boards')
+test('there is no detail until the address’s board is on the stage', async () => {
+  const screen = await mountDetail()
   expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
   await show()
   await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
+})
+
+// Ruling 15, and the reason the case above mounts at the board's address: a
+// preview alone is not enough. Review round 2 measured the first version of
+// that case waiting fifteen seconds at `/boards` for a detail that Ruling 15
+// forbids — the plan asserted the opposite of its own ruling.
+test('a preview the address does not name shows no detail', async () => {
+  const screen = await mountDetail('/boards')
+  await show()
+  expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
 })
 
 test('the detail prints the command the store holds for this board', async () => {
@@ -988,6 +992,37 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   expect(useStore.getState().params.edits).toBe(edits)
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })
+
+// Ruling 1, measured where the detail exists. Two earlier versions of this
+// case passed over a broken layout — one mounted the panel with no height at
+// all, the other measured the detail's box while its buttons sat below the
+// window. This one asks the only question that matters: can the two actions be
+// reached? `toBeVisible()` cannot answer it (harness facts).
+test('the detail keeps its buttons on screen while the list scrolls', async () => {
+  await page.viewport(860, 900)
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ height: '380px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    ...stored.meta,
+    id: `${stored.meta.id.slice(0, -2)}${String(i).padStart(2, '0')}`,
+  }))
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
+  })
+  await show()
+
+  const panel = screen.container.querySelector<HTMLElement>('.fw-lib-panel')
+  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (panel === null || list === null || buttons === null) throw new Error('the panel is missing a row')
+  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+  expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
+})
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1017,12 +1052,12 @@ import type { ViewFlag } from '../state/view.slice'
 export const LIBRARY_VIEW_FIELDS: readonly ViewField[] = [
   { field: 'stroke', label: 'strokeLabel', step: 0.05 },
   { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
-  // No `help` on `headHeight`, though the console's copy of this field has one:
-  // the old lab's library does not show it either (`lab.html`'s `libView`), and
-  // review round 1 measured what it costs here — a nine-line paragraph in a
-  // 190px column makes every cell of the row as tall as itself, and the detail
-  // grew by 120px at 1400 and 138px at 860, which is what left no list to
-  // scroll (Ruling 1).
+  // No `help` on `headHeight`, and this is a trade rather than parity
+  // (Ruling 17): the old lab's library *does* show that paragraph
+  // (`lab.html`'s `libView`), with `help` checked by default. It is nine lines
+  // in a 190px column, a grid row is as tall as its tallest cell, and it adds
+  // 120px to the detail at 1400 and 138px at 860 — in a panel that is half a
+  // 385px console. The same explanation is one tab away in the lab's preview.
   { field: 'headHeight', label: 'headHeightLabel', step: 0.05 },
 ]
 
@@ -1072,7 +1107,12 @@ export function BoardDetail(): ReactElement | null {
   // The hook leaves the board before this one on the stage until the next file
   // lands, and in that window the detail would describe — and offer to delete —
   // the board the user has just clicked away from.
-  if (preview === null || preview.meta.id !== open.id || `${preview.meta.W}x${preview.meta.H}` !== open.size) return null
+  //
+  // The id alone. A layout hash already binds the board to its dimensions,
+  // while the address's size is a directory name: review round 2 measured a
+  // folder called `08x08` listing boards whose `W` is 8, where a `WxH`
+  // comparison hid the detail of a board the stage and the line both described.
+  if (preview === null || preview.meta.id !== open.id) return null
   const meta = preview.meta
 
   const copy = () => {
@@ -1160,17 +1200,33 @@ Render it from `LibraryPanel`, under the list:
 Append to `library.css`, still above any media query:
 
 ```css
-/* The detail's own block: the row the panel keeps (Ruling 1). */
+/* The detail's own block: the row the panel keeps (Ruling 1). `min-height: 0`
+   and `overflow-y: auto` are what let the bounded row actually bound it — the
+   pair Ruling 1 stands on, and review round 2 measured what their absence
+   costs: at 860x900 the content ran 64px past the box, unreachable, and the
+   document itself overflowed by 65px. */
 .fw-lib-detail {
   display: grid;
   gap: 10px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   background: var(--graphite);
+  min-height: 0;
+  overflow-y: auto;
 }
+/* Pinned to the bottom of that scrolling box (Ruling 16). Below about 1046px of
+   panel width the field grid wraps to two rows and the buttons were pushed off
+   the viewport at every size review round 2 measured but 1400x900 and wider —
+   a detail whose two actions cannot be reached is not a detail. Sticky keeps
+   them on screen while the fields scroll under them; the background is the
+   detail's own, so the fields do not show through. */
 .fw-lib-buttons {
+  position: sticky;
+  bottom: 0;
   display: flex;
   gap: 8px;
+  padding-top: 8px;
+  background: var(--graphite);
 }
 ```
 
@@ -1190,13 +1246,14 @@ git commit -m "Show a stored board's command and view, and load it back into the
 ## Task 7: An edited view redraws now and reaches the store later
 
 **Files:**
-- Create: `apps/lab/src/library/useFadingNotice.ts`, `apps/lab/src/library/useViewSave.ts`, `apps/lab/src/library/useViewSave.browser.test.tsx`
+- Create: `apps/lab/src/library/notices.ts`, `apps/lab/src/library/useViewSave.ts`, `apps/lab/src/library/useViewSave.browser.test.tsx`
 - Modify: `apps/lab/src/library/BoardDetail.tsx`, `apps/lab/src/library/LibraryPanel.tsx`
 
 **Interfaces:**
 - Consumes: `result.previewView` (Task 3), `library.notify`/`clearNotice` (Task 2), `saveBoard`, `storeRequest`.
 - Produces:
-  - `useFadingNotice(): (notice: LibraryNotice) => void` — raises a notice and takes it back 1200 ms later (Ruling 5). Task 8 uses it too.
+  - `raiseNotice(notice: LibraryNotice): void` and `cancelNoticeFade(): void` in `notices.ts` — raise a notice, and fade it 1200 ms later unless it describes a state (Ruling 5). Task 8 raises notices too.
+  - `cancelPendingSave(): void` — drops a write that has not happened yet. Task 8 calls it before deleting (Ruling 12).
   - `useViewSave(refresh: () => void): (view: View) => void` — redraw now, store 350 ms later.
 
 **The sequence, which is the old lab's `onLibViewInput` and `saveLibView`:** an edit moves `preview.meta.view` (the stage redraws from it), a 350 ms timer restarts, and when it fires the same file goes back to the store with the new view in its meta. Nothing is regenerated. A save that fails says so and **leaves the picture alone** (Ruling 8).
@@ -1246,6 +1303,72 @@ test('the store is written 350 ms after the last edit, not before', async () => 
   expect(posts.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
 })
 
+// Review round 2, and the reason this case cannot use `renderHook`: that host
+// subscribes to nothing, so it never re-renders, and the defect this pins —
+// an effect whose cleanup ran per render, killing the debounce and posting on
+// every later render — was invisible to every other case in this file.
+test('an edit posts once, whatever the owner re-renders in between', async () => {
+  const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  function Owner() {
+    // Selecting the state the hook writes is the whole point: this is what
+    // `BoardDetail` does, and what makes the re-renders real.
+    const stroke = useStore((state) => state.result.preview?.meta.view.stroke)
+    const commit = useViewSave(() => {})
+    const [bumps, bump] = useState(0)
+    return (
+      <div>
+        <button type="button" onClick={() => commit({ ...stored.meta.view, stroke: 0.8 })}>
+          edit
+        </button>
+        <button type="button" onClick={() => bump(bumps + 1)}>
+          bump
+        </button>
+        <span>{`${String(stroke)} ${bumps}`}</span>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/boards']}>
+      <Owner />
+    </MemoryRouter>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'edit' }))
+  await userEvent.click(screen.getByRole('button', { name: 'bump' }))
+  await userEvent.click(screen.getByRole('button', { name: 'bump' }))
+  // Real timers, and a wait long enough for the debounce twice over: polling
+  // for "exactly one" would pass the moment the first arrived.
+  await new Promise((done) => setTimeout(done, 800))
+  expect(posts.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+})
+
+// Ruling 12: the timer is the module's, so it survives the detail being
+// unmounted — and `cancelPendingSave` is the one thing that stops it.
+test('a cancelled save never reaches the store', async () => {
+  const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
+  cancelPendingSave()
+  await new Promise((done) => setTimeout(done, 600))
+  expect(posts.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
+})
+
+// Round 2: the identity guard used to swallow the message as well as the
+// stage write, so a save that landed after the board changed said nothing at
+// all — and the row kept the command of a view the store no longer held.
+test('a save that lands after the board changed still reports itself', async () => {
+  const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 } }
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(saved), { status: 201 }))
+  let refreshed = 0
+  const { result } = await renderHook(() => useViewSave(() => (refreshed += 1)), { wrapper: at })
+
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
+  // The stage moves on while the POST is in flight, exactly as choosing another
+  // board does.
+  await act(async () => useStore.getState().result.clearPreview())
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
+  expect(refreshed).toBe(1)
+})
+
 test('a burst of edits writes once', async () => {
   const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
@@ -1292,10 +1415,9 @@ Expected: FAIL — no `useViewSave` module.
 
 - [ ] **Step 3: Implement the fading notice**
 
-Create `apps/lab/src/library/useFadingNotice.ts`:
+Create `apps/lab/src/library/notices.ts`:
 
 ```ts
-import { useEffect, useRef } from 'react'
 import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
 
@@ -1303,30 +1425,47 @@ import { useStore } from '../state/store'
 const LINGER_MS = 1200
 
 /**
- * Raises a library notice and takes it back, so the status line goes back to
- * describing the board on screen (Ruling 5). The timer lives here rather than
- * in the slice: a slice that scheduled its own erasure would need a clock, and
- * this is the same shape `LiveCommand` uses for "Copied".
- *
- * `loading` is passed through without a timer — it is cleared by its own
- * outcome, because it describes a fetch that is still going.
+ * The two notices that describe a state rather than an event (Ruling 5). Their
+ * own outcome clears them: a fetch that lands, a save that succeeds, a board
+ * that is closed.
  */
-export function useFadingNotice(): (notice: LibraryNotice) => void {
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
-  return (notice) => {
-    useStore.getState().library.notify(notice)
-    clearTimeout(timer.current)
-    if (notice.kind === 'loading') return
-    timer.current = setTimeout(() => {
-      const current = useStore.getState().library.notice
-      // Only take back the message this call put up: a newer one is someone
-      // else's, and its own timer will see to it.
-      if (current === notice) useStore.getState().library.clearNotice()
-    }, LINGER_MS)
-  }
+const KEPT: readonly LibraryNotice['kind'][] = ['loading', 'saveFailed']
+
+/**
+ * Module scope, not a ref, and there is deliberately no effect and no cleanup.
+ * Review round 2 measured the alternative: a `clearTimeout` on unmount killed
+ * the `deleted` notice's own timer, because the detail raises that notice and
+ * then navigates — which unmounts the detail — so the line said "Deleted …"
+ * for ever. This timer touches only the store and only takes back the object it
+ * put up, so an unmounted raiser costs nothing at all.
+ */
+let timer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Raises a library notice, and takes it back 1200 ms later when what it reports
+ * is over (Ruling 5), so the status line goes back to describing the board on
+ * screen rather than keeping a sentence about something that has finished.
+ */
+export function raiseNotice(notice: LibraryNotice): void {
+  useStore.getState().library.notify(notice)
+  clearTimeout(timer)
+  timer = undefined
+  if (KEPT.includes(notice.kind)) return
+  timer = setTimeout(() => {
+    // Only take back the message this call put up: a newer one is someone
+    // else's, and its own timer will see to it.
+    if (useStore.getState().library.notice === notice) useStore.getState().library.clearNotice()
+  }, LINGER_MS)
+}
+
+/** For tests, which must not leak a pending fade into the case after them. */
+export function cancelNoticeFade(): void {
+  clearTimeout(timer)
+  timer = undefined
 }
 ```
+
+A module and not a hook, because it holds nothing a component owns — and because a hook invited the effect whose cleanup caused the defect above.
 
 - [ ] **Step 4: Implement the save**
 
@@ -1339,7 +1478,7 @@ import { useEffect, useRef } from 'react'
 import { saveBoard } from '../api/boards'
 import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
-import { useFadingNotice } from './useFadingNotice'
+import { raiseNotice } from './notices'
 
 /** The old lab's own pause between the last keystroke and the write. */
 const SETTLE_MS = 350
@@ -1350,42 +1489,45 @@ const SETTLE_MS = 350
  * meta (`onLibViewInput` and `saveLibView` in `lab-page.ts`). Nothing is
  * regenerated, and the command in the meta still reproduces the board.
  */
+/**
+ * Module scope, as the old lab keeps `libTimer` (Ruling 12). Not a ref inside
+ * the component: the detail is keyed on the address, so choosing another board
+ * unmounts it, and a timer owned by that instance would die with the edit. And
+ * not an effect either — review round 2 measured a cleanup written to flush
+ * such a timer running on *every render*, because its dependencies were fresh
+ * functions: the debounce never fired, one edit posted twice, and every later
+ * re-render posted again.
+ */
+let timer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Drops a write that has not happened yet. The delete calls this before asking
+ * the store to remove the board: measured against a real store, a pending save
+ * that survived a delete re-POSTed the board, and `store.ts`'s `saveBoard`
+ * treats a board it cannot find as a new one — so the deleted board came back
+ * to the disk and to the listing (Rulings 11 and 12).
+ */
+export function cancelPendingSave(): void {
+  clearTimeout(timer)
+  timer = undefined
+}
+
 export function useViewSave(refresh: () => void): (view: View) => void {
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // What is waiting to be written, so the cleanup can write it rather than
-  // throw it away (Ruling 12). Cleared by `write` and by the flush itself.
-  const pending = useRef<View | null>(null)
-  const notify = useFadingNotice()
-
-  useEffect(
-    () => () => {
-      clearTimeout(timer.current)
-      // Choosing another board unmounts this detail (it is keyed on the
-      // address), and the old lab's module-level timer fires anyway. The view
-      // comes from the ref, not from the store: by now the store describes
-      // whichever board was chosen instead.
-      const waiting = pending.current
-      if (waiting !== null) void write(notify, refresh, waiting)
-    },
-    [notify, refresh],
-  )
-
   return (view) => {
     useStore.getState().result.previewView(view)
-    pending.current = view
-    clearTimeout(timer.current)
-    timer.current = setTimeout(() => {
-      pending.current = null
-      void write(notify, refresh, view)
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = undefined
+      void write(refresh, view)
     }, SETTLE_MS)
   }
 }
 
-async function write(notify: (notice: LibraryNotice) => void, refresh: () => void, posted: View): Promise<void> {
+async function write(refresh: () => void, posted: View): Promise<void> {
   // The board, the file and the meta's other fields are read now — the timer
   // has just fired and they are what the store should be told about. The view
-  // is the caller's (Ruling 12), so a flush on unmount writes what was edited
-  // rather than whatever board the store has moved on to.
+  // is the caller's, so the write describes the edit rather than whatever the
+  // store has moved on to.
   const preview = useStore.getState().result.preview
   if (preview === null) return
   const { meta, file, board } = preview
@@ -1400,20 +1542,25 @@ async function write(notify: (notice: LibraryNotice) => void, refresh: () => voi
     genMs: meta.genMs,
   })
   const outcome = await saveBoard(request)
-  // The answer is dropped unless the view it was for is still the view on the
-  // stage. Comparing `meta.id` cannot do this: `layoutHash` reads the layout,
-  // not the view, so every save of one board answers with the same id — and
-  // review round 1 measured an older save's answer putting its view back on
-  // the stage and into the next write, losing the newer edit twice over.
-  // `previewView` stores the caller's object, so a newer edit is a different
-  // object, and a different board fails this test as well.
-  if (useStore.getState().result.preview?.meta.view !== posted) return
   if (!outcome.ok) {
-    notify({ kind: 'saveFailed' })
+    raiseNotice({ kind: 'saveFailed' })
     return
   }
-  useStore.getState().result.showPreview({ board, file, meta: outcome.meta })
-  notify({ kind: 'viewSaved', name })
+  // Only the *stage* is gated on identity, and only against putting an older
+  // view back on it. Comparing `meta.id` cannot do that job: `layoutHash` reads
+  // the layout, not the view, so every save of one board answers with the same
+  // id, and round 1 measured an older answer taking a newer edit off the stage
+  // and out of the next write. `previewView` stores the caller's object, so a
+  // newer edit is a different object.
+  //
+  // The message and the refresh are NOT gated. Round 2 measured that mistake:
+  // a save whose answer arrived after the board changed said nothing at all —
+  // no `viewSaved`, no `notSaved` on failure, and a row left showing the
+  // command of a view the store no longer holds.
+  if (useStore.getState().result.preview?.meta.view === posted) {
+    useStore.getState().result.showPreview({ board, file, meta: outcome.meta })
+  }
+  raiseNotice({ kind: 'viewSaved', name })
   // The store keeps `createdAt` on an overwrite, so the row stays in place; the
   // listing is refreshed for the new meta alone.
   refresh()
@@ -1479,7 +1626,7 @@ git commit -m "Write an edited view back to the store, 350 ms after the last cha
 - Test: `apps/lab/src/library/BoardDetail.browser.test.tsx` (append)
 
 **Interfaces:**
-- Consumes: `deleteBoard` (Task 1), `useFadingNotice` (Task 7).
+- Consumes: `deleteBoard` (Task 1), `raiseNotice` and `cancelPendingSave` (Task 7).
 - Produces: nothing new for later tasks.
 
 **The behaviour, from the old lab's `disarmDelete` and its click handler:** the first click arms the button and changes its label to `confirmDelete`; the second removes the files. A different board disarms it — here by being a different component instance (Ruling 10). A 404 counts as gone (Ruling 11).
@@ -1531,6 +1678,31 @@ test('a store that cannot be reached says so and keeps the board', async () => {
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleteFailed')
   expect(useStore.getState().result.preview).not.toBeNull()
 })
+
+// Rulings 11 and 12 together, and the worst defect review round 2 found: a view
+// edit still on its timer used to be written *after* the delete, and the store
+// takes a board it cannot find for a new one — so the deleted board came back
+// to the disk. Measured there against a real store; pinned here by the order
+// of the requests.
+test('deleting cancels a view edit that has not been written yet', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
+  const screen = await mountDetail()
+  await show()
+
+  const stroke = screen.container.querySelector<HTMLInputElement>('#view-stroke')
+  if (stroke === null) throw new Error('the detail offered no stroke field')
+  await userEvent.fill(stroke, '0.9')
+  await userEvent.tab()
+
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  // Past the debounce, so a surviving timer would have fired by now.
+  await new Promise((done) => setTimeout(done, 600))
+  const methods = calls.mock.calls.map(([, init]) => init?.method ?? 'GET')
+  expect(methods).toContain('DELETE')
+  expect(methods).not.toContain('POST')
+})
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1544,7 +1716,6 @@ In `BoardDetail.tsx`, add the arming state beside `copied`:
 
 ```tsx
   const [armed, setArmed] = useState(false)
-  const notify = useFadingNotice()
 ```
 
 and the handler, above the `return`:
@@ -1559,16 +1730,20 @@ and the handler, above the `return`:
       return
     }
     setArmed(false)
+    // Before anything reaches the store: a view save still waiting on its timer
+    // would otherwise land after the delete and write the board back to disk,
+    // which review round 2 measured against a real store (Rulings 11 and 12).
+    cancelPendingSave()
     const name = `${meta.W}x${meta.H}/${meta.id}`
     void deleteBoard(`${meta.W}x${meta.H}`, meta.id).then((outcome) => {
       if (!outcome.ok) {
-        notify({ kind: 'deleteFailed' })
+        raiseNotice({ kind: 'deleteFailed' })
         return
       }
       // Whether the store had it or not, it is gone now (Ruling 11). The
       // address is replaced rather than pushed: the board it names is off the
       // disk, and Back must not offer it again (spec §5.6).
-      notify({ kind: 'deleted', name })
+      raiseNotice({ kind: 'deleted', name })
       void navigate('/boards', { replace: true })
       refresh()
     })
@@ -1583,7 +1758,7 @@ and the button, beside *Load into lab*:
         </button>
 ```
 
-Import `deleteBoard` from `../api/boards` and `useFadingNotice` from `./useFadingNotice`.
+Import `deleteBoard` from `../api/boards`, `raiseNotice` from `./notices`, and `cancelPendingSave` from `./useViewSave`.
 
 In `LibraryPanel.tsx`, give the detail its identity so a different board is a different instance:
 
@@ -1691,6 +1866,27 @@ test('a board being fetched says so, and stops saying it when it arrives', async
   expect(useStore.getState().library.notice).toBeNull()
 })
 
+// The fifth exit (Ruling 14). Review round 2 measured "Loading B…" left on the
+// line for ever: B's fetch is cancelled by the walk back to A, and the effect
+// that runs for A returns early because A is already drawn.
+test('walking away from a board still loading, and back, leaves no loading notice', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore
+    .getState()
+    .library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta, second.meta] }])
+  const path = { current: `/boards/8x8/${first.meta.id}` }
+  const { rerender } = await renderHook(() => useStoredBoard(), at(path.current))
+  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+
+  // B's file never answers; then straight back to A, which is on the stage.
+  stubStore({})
+  await rerender(at(`/boards/8x8/${second.meta.id}`))
+  await rerender(at(`/boards/8x8/${first.meta.id}`))
+
+  await expect.poll(() => useStore.getState().library.notice).toBeNull()
+  expect(useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+})
+
 test('a board that fails to load leaves no loading notice behind', async () => {
   stubStore({})
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
@@ -1718,8 +1914,8 @@ and put its branch first, above the `boardError` branch:
 ```tsx
   // Ruling 5: an event outranks the description of a state, because it is the
   // thing that just happened and the line is the one place to say it. It gives
-  // way on its own, 1200 ms later (`useFadingNotice`), except for `loading`,
-  // which its own outcome clears.
+  // way on its own, 1200 ms later (`notices.ts`), except for `loading` and
+  // `saveFailed`, which describe a state and are cleared by their outcome.
   if (inLibrary && notice !== null) {
     text =
       notice.kind === 'loading'
@@ -1745,7 +1941,16 @@ and put its branch first, above the `boardError` branch:
     // `listed()` stores a fresh array on every refresh, including the one a
     // view save makes, and re-fetching brought back the listing's view over an
     // edit in flight and flashed `loading` over `viewSaved` (Ruling 14).
-    if (useStore.getState().result.preview?.meta.id === id) return
+    if (useStore.getState().result.preview?.meta.id === id) {
+      // The fifth exit, and the one review round 2 measured stranding a word:
+      // open A, click B, click back to A while B's file is still in flight —
+      // B's cancelled fetch clears nothing and this return used to happen
+      // before any clear, so the line said "Loading B…" for ever over a drawn
+      // board A. Nothing else is touched: an unconditional clear here would
+      // erase the `viewSaved` that a save's own refresh lands on.
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
+      return
+    }
 ```
 
 **Second, the notice is raised where the fetch starts** — beside the existing `boardFailed(null)`:
@@ -1791,7 +1996,7 @@ git commit -m "Let the status line say what the library just did, and what it is
 - Test: `apps/lab/src/library/LibraryPanel.browser.test.tsx` (append)
 
 **Interfaces:**
-- Produces: `openEntry(sizes: BoardSize[] | null, size: string | null): { entry: BoardSize | null; exact: boolean }`.
+- Produces: `openEntry(sizes: BoardSize[] | null, size: string | null): { entry: BoardSize | null; mismatch: boolean }`.
 
 **The two debts (spec §5.6 and §7.2), both recorded by PR 5a's review of itself.**
 
@@ -1809,27 +2014,30 @@ import { openEntry } from './openEntry'
 const SIZES = sizesFixture()
 
 test('the address names a listed size', () => {
-  expect(openEntry(SIZES, '6x6')).toEqual({ entry: SIZES[1], exact: true })
+  expect(openEntry(SIZES, '6x6')).toEqual({ entry: SIZES[1], mismatch: false })
 })
 
 test('no size in the address falls back to the first, and says it is a fallback', () => {
   const found = openEntry(SIZES, null)
   expect(found.entry?.size).toBe('8x8')
-  expect(found.exact).toBe(false)
+  // Not a mismatch: nothing was asked for, so the first size's chip is the one
+  // that describes the rows being shown. PR 5a's own case asserts it is pressed,
+  // and review round 2 caught the first draft of this function breaking that.
+  expect(found.mismatch).toBe(false)
 })
 
 // The disagreement PR 5a's review found: the list fell back to the first size's
 // rows while no chip was pressed, so the two halves of the panel described
 // different sizes. One function, one answer (spec §5.6).
-test('a size the store does not list falls back, and is not exact either', () => {
-  const found = openEntry(sizesFixture(), '10x10')
+test('a size the store does not list falls back, and says so', () => {
+  const found = openEntry(SIZES, '10x10')
   expect(found.entry?.size).toBe('8x8')
-  expect(found.exact).toBe(false)
+  expect(found.mismatch).toBe(true)
 })
 
 test('an empty store has no entry at all', () => {
-  expect(openEntry([], '8x8')).toEqual({ entry: null, exact: false })
-  expect(openEntry(null, '8x8')).toEqual({ entry: null, exact: false })
+  expect(openEntry([], '8x8')).toEqual({ entry: null, mismatch: false })
+  expect(openEntry(null, '8x8')).toEqual({ entry: null, mismatch: false })
 })
 ```
 
@@ -1856,21 +2064,28 @@ import type { BoardSize } from '@arrowz/engine'
  * to look at — and no chip is pressed, because none of them is what the address
  * asked for.
  */
-export function openEntry(sizes: BoardSize[] | null, size: string | null): { entry: BoardSize | null; exact: boolean } {
-  if (sizes === null || sizes.length === 0) return { entry: null, exact: false }
+export function openEntry(
+  sizes: BoardSize[] | null,
+  size: string | null,
+): { entry: BoardSize | null; mismatch: boolean } {
+  if (sizes === null || sizes.length === 0) return { entry: null, mismatch: false }
   const named = size === null ? undefined : sizes.find((entry) => entry.size === size)
-  if (named !== undefined) return { entry: named, exact: true }
-  return { entry: sizes[0] ?? null, exact: false }
+  if (named !== undefined) return { entry: named, mismatch: false }
+  // A `mismatch` only when the address *named* a size the listing has not got.
+  // An address with no size is not a disagreement: the list shows the first
+  // size's rows and its chip says so, which is what PR 5a's own case asserts.
+  return { entry: sizes[0] ?? null, mismatch: size !== null }
 }
 ```
 
 In `BoardList.tsx`, replace the inline fallback with `const { entry } = openEntry(sizes, open.size)`, keeping the rest as it is. In `SizeChips.tsx`, replace `const current = open.size ?? sizes?.[0]?.size ?? null` with:
 
 ```tsx
-  const { entry, exact } = openEntry(sizes, open.size)
-  // Pressed only when the address really named this size: a fallback is what
-  // the list is showing, not what was asked for (spec §5.6).
-  const current = exact ? entry?.size ?? null : null
+  const { entry, mismatch } = openEntry(sizes, open.size)
+  // The chip of the size whose rows are showing — unless the address asked for
+  // a size the store has not got, in which case no chip is what was asked for
+  // and none is pressed (spec §5.6).
+  const current = mismatch ? null : entry?.size ?? null
 ```
 
 - [ ] **Step 4: Add the three names**
@@ -2100,4 +2315,30 @@ Three reviewers applied this plan in their own worktrees and measured it. Every 
 **Two risks became rulings.** A pending view save was dropped when the detail unmounted, which is what choosing another board does (Ruling 12: the cleanup writes rather than cancels, from the closure). And the detail, keyed on the address but rendering `preview.meta`, showed the previous board's command and view — and would have deleted *that* board — in the window before the next file lands (Ruling 15: it renders nothing unless the preview is the address's board).
 
 **What held.** The free redraw from `preview.meta` (measured on the element's own `button.colors`, and `element.board` unchanged); the clamp's idempotence through `String` (200 000 random values per field, zero differences); `#view-stroke` never duplicated across the three faces; `deleteBoard` against the real store, including a DELETE with no `Origin` accepted and one with a foreign `Origin` refused 403; the three new dictionary keys against every case in `lab-i18n.test.ts`; and the `group`/`region` roles the a11y case asks for, in both languages.
+
+---
+
+## What review round 2 changed
+
+Three reviewers attacked **the repairs above**, by measurement and by mutation. Round 2 was worth more than round 1: it found that five of the repairs were wrong, one of them destructively, and that the plan's tests pinned almost none of them.
+
+**The repair that was worse than the bug it fixed.** Round 1's flush-on-unmount (Ruling 12, first form) was an effect whose dependencies — `notify` and `refresh` — are fresh functions on every render. React therefore ran its cleanup *per render*, so:
+
+- the 350 ms debounce never fired; one edit posted twice within 2 ms, and every later re-render (`setCopied`, `setArmed`, a language switch) posted again;
+- and after a delete, the flush re-POSTed the board. Measured against a real store: `store.ts`'s `saveBoard` treats a board it cannot find as new and **writes the file back**, so the deleted board returned to the disk and to the listing the delete had just refreshed.
+
+The timer now lives in module scope, as the old lab's `libTimer` does, and the delete calls `cancelPendingSave()` first. No effect, no dependency array, nothing per render.
+
+**Four more repairs went red.**
+
+1. **The identity guard silenced the messages it was not meant to touch.** A save whose answer arrived after the board changed said nothing — no `viewSaved`, no `notSaved`, and no refresh, so the row kept the command of a view the store no longer held. Only `showPreview` is gated now.
+2. **The `deleted` notice never faded**, because `useFadingNotice`'s unmount cleanup killed its timer — the detail raises that notice and then navigates, which unmounts the detail. The fade is a module (`notices.ts`) with no cleanup, and `saveFailed` joins `loading` as a notice that does not fade at all: it describes a state, and round 2 measured the line going back to "Saved board …" 1.2 s after a refusal, over an edit the store had rejected.
+3. **Ruling 14's early return stranded `loading`** on an A → B → A walk — the fifth exit. It clears a `loading` notice on its way out.
+4. **Ruling 15's size half hid a real board.** `listBoards` names a size after its directory, so a folder called `08x08` lists boards whose `W` is 8; the comparison is the id alone now.
+
+**And two claims about the plan's own machinery.** `openEntry` treated "no size in the address" as a disagreement and broke a PR 5a case that asserts the first chip is pressed on `/boards` — `mismatch` is now true only for a size the listing has not got. And the parity sentence behind dropping `headHelp` was **false**: `lab.html`'s `libView` does carry that paragraph, with `help` checked by default. Round 1 asserted otherwise and this plan repeated it without opening the file. The drop stands as a measured trade (Ruling 17), not as parity.
+
+**The mutation results are the reason to trust the tests now and not before.** Reverting each round-1 repair left the plan's suites green in five cases out of seven: the flush, the identity guard, the early return, the unconditional `clearNotice`, and the detail's gate — which was worse than green, because weakening the gate made the whole suite pass, so an executor following TDD would have removed it. Only the two exits Task 9 names by hand were pinned. Every repair above therefore ships with a case that goes red when it is reverted.
+
+**What held.** The identity guard itself against two saves of one board, in both orders (the stage ends on the newer view); a save landing after `showPreview` replaced the meta with an equal-contents object (no legitimate save is dropped); Ruling 14 across leaving and re-entering the tab; `deleteBoard` against the real store; the three dictionary keys and the two region names in both languages; the field components' conversion, including a red case when `SimplePanel` is left unwired; and the panel grid at 900×600, 1400×500, 2560×1400, in the simple view, and in solo.
 

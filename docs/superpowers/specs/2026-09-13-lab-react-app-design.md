@@ -717,12 +717,17 @@ Notes the first draft got wrong or left out:
   *events*, and a line computed from state alone has nowhere to put an event.
   The old lab needed no such distinction because `setStatus` overwrites. So
   `library` grows `notice`, read by `RunStatusBar` ahead of the `preview`
-  branch, and an event notice clears itself after about 1.2 s — the timer
-  `LiveCommand` already uses for "Copied" — so the line goes back to describing
-  the board on screen rather than keeping a sentence about something that has
-  finished happening. `loadingBoard` is the one notice cleared by its own
-  outcome instead of by a timer, and it is what fills the silence PR 5a left
-  deliberately when a board file is in flight.
+  branch. Three of the five fade after about 1.2 s, because what they report is
+  over: `viewSaved`, `deletedBoard` and `deleteFailed`. The timer lives beside
+  the raiser but writes only the store, and it takes back only the notice it
+  put up — it must not be cancelled when its raiser unmounts, since the raiser
+  of `deletedBoard` is the detail, which the navigation it performs unmounts.
+  The other two describe a **state** and are cleared by their outcome instead:
+  `loadingBoard` while a board file is in flight, which fills the silence PR 5a
+  left deliberately, and the failed save, which says the picture on the stage
+  is not what the store holds — true until a save lands or another board is
+  opened, and a sentence that faded would leave the stage and the command box
+  disagreeing with nothing to explain them.
 
 ### 5.4 The range ceiling and the rule floor are different things
 
