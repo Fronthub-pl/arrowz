@@ -33,8 +33,10 @@ Vitest 5 (`apps/lab`), Nx targets over both.
 - **Both gates must pass before the PR:** `deno task verify` at the repository
   root and `pnpm nx run-many -t verify`. After Task 5 the root `verify` no
   longer ends in `deno task bundle` — that is intended, not a regression.
-- **The branch is `lab/retire-old-lab`**, the fifth on the stack, based on
-  `lab/board-detail` (PR #73). The PR's base is `lab/board-detail`.
+- **The branch is `lab/retire-old-lab`, and it sits directly on `main`.** The
+  stack it was planned on top of (#71, #72, #73) was merged on 2026-09-17, so
+  `main` is `d893734` and this branch was rebased onto it. **The PR's base is
+  `main`** — the first in this series that is not stacked on another PR.
 - **Cite symbols, not line numbers,** in comments and documents this branch
   writes: this branch moves and deletes code, and `file:line` citations written
   against its own intermediate states go stale within the same PR.
@@ -1459,7 +1461,7 @@ Automated tests do not open a browser at the address a person types. Start
 generate a board, save it, and open the library. This is the check that the
 proxy still reaches a store whose server was renamed underneath it.
 
-- [ ] **Open the PR against `lab/board-detail`**
+- [ ] **Open the PR against `main`**
 
 The description must say two things the diff does not. First, that **Task 11 is
 not in the spec**: §10 row 8 covers everything else, but the 68-file comment
