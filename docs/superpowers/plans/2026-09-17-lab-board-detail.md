@@ -2266,10 +2266,12 @@ import type { BoardSize } from '@arrowz/engine'
  * the chips, reading the address alone, pressed nothing — the disagreement
  * spec §5.6 settles.
  *
- * `exact` is false both when the address names no size and when it names one
- * the store does not list. The rows are shown either way — there is something
- * to look at — and no chip is pressed, because none of them is what the address
- * asked for.
+ * `mismatch` distinguishes the two fallbacks, and the distinction is the whole
+ * point. An address with **no** size is not a disagreement: the list shows the
+ * first size's rows and that size's chip says so, which is what PR 5a's own
+ * case asserts. A `mismatch` is an address that *named* a size the listing has
+ * not got — there the rows still show, because there is something to look at,
+ * but no chip is pressed, because none of them is what was asked for.
  */
 export function openEntry(
   sizes: BoardSize[] | null,
@@ -2344,11 +2346,27 @@ test('an address naming a size the store has not got presses no chip, and still 
   expect(pressed).toHaveLength(0)
 })
 
-test('the three regions of the library have three different names', async () => {
-  const screen = await mountPanel()
-  await act(async () => useStore.getState().library.listed(sizesFixture()))
+test('the library names three regions, and nothing is called "Saved boards" any more', async () => {
+  // The detail is one of the three, so this case opens a board — and the panel
+  // must be mounted with that address for the detail's own gate to let it in.
+  const stored = storedFixture(1)
+  const screen = await mountPanel(`/boards/8x8/${stored.meta.id}`)
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
+    useStore
+      .getState()
+      .result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta })
+  })
+
   await expect.element(screen.getByRole('group', { name: 'Board sizes' })).toBeInTheDocument()
   await expect.element(screen.getByRole('region', { name: 'Boards of this size' })).toBeInTheDocument()
+  await expect.element(screen.getByRole('region', { name: 'The open board' })).toBeInTheDocument()
+
+  // And the half that matters more: the name that used to be on all three is
+  // now on none of them. Asserting only the three new names would pass just as
+  // well with the panel's old label still in place — four regions, three of
+  // them correct — which is the regression this task exists to prevent.
+  expect(screen.container.querySelectorAll('[aria-label="Saved boards"]')).toHaveLength(0)
 })
 ```
 
