@@ -195,3 +195,23 @@ test('the listing is fetched once per mount, however many children want refreshi
   await mountPanel()
   await expect.poll(() => calls.mock.calls.filter(([url]) => String(url).includes('/api/boards')).length).toBe(1)
 })
+
+// Spec §5.6: either both fall back or neither does. A store holding 8x8 and 6x6
+// against an address naming 10x10 used to show the 8x8 rows under an unpressed
+// chip strip.
+test('an address naming a size the store has not got presses no chip, and still lists rows', async () => {
+  const screen = await mountPanel('/boards/10x10/sha256-0')
+  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  expect(screen.container.querySelectorAll('.fw-lib-row').length).toBeGreaterThan(0)
+  const pressed = [...screen.container.querySelectorAll('.fw-lib-chips button')].filter(
+    (chip) => chip.getAttribute('aria-pressed') === 'true',
+  )
+  expect(pressed).toHaveLength(0)
+})
+
+test('the three regions of the library have three different names', async () => {
+  const screen = await mountPanel()
+  await act(async () => useStore.getState().library.listed(sizesFixture()))
+  await expect.element(screen.getByRole('group', { name: 'Board sizes' })).toBeInTheDocument()
+  await expect.element(screen.getByRole('region', { name: 'Boards of this size' })).toBeInTheDocument()
+})

@@ -111,7 +111,7 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
   }
 
   return (
-    <div className="fw-lib-detail">
+    <section className="fw-lib-detail" aria-label={dict.t('boardDetail')}>
       <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
         <figcaption className="fw-cmdhd">
           <span className="caps">{dict.t('boardCommand')}</span>
@@ -154,6 +154,6 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
-    </div>
+    </section>
   )
 }

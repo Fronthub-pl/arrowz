@@ -4,6 +4,7 @@ import { type ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { openEntry } from './openEntry'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
@@ -26,7 +27,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
 
   // The size the address names, or the first the store listed: entering the
   // tab without an address still has rows to show.
-  const entry = (sizes ?? []).find((s) => s.size === open.size) ?? sizes?.[0] ?? null
+  const { entry } = openEntry(sizes, open.size)
 
   const line = (meta: BoardMeta) => {
     const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
@@ -40,7 +41,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   }
 
   return (
-    <section className="fw-lib-list" aria-label={dict.t('tabLibrary')}>
+    <section className="fw-lib-list" aria-label={dict.t('boardRows')}>
       <div className="fw-lib-head">
         <button type="button" onClick={refresh}>
           {dict.t('refresh')}

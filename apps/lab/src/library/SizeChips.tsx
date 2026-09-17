@@ -2,6 +2,7 @@ import { type ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { openEntry } from './openEntry'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
@@ -15,12 +16,13 @@ export function SizeChips(): ReactElement {
   const sizes = useStore((state) => state.library.sizes)
   const open = useOpenBoard()
   const navigate = useNavigate()
-  // On `/boards` with no board named, the list shows the first size's rows
-  // (`BoardList`'s own fallback), so that is the chip that is pressed. Reading
-  // the address alone would leave every chip unpressed beside a list of rows.
-  const current = open.size ?? sizes?.[0]?.size ?? null
+  const { entry, mismatch } = openEntry(sizes, open.size)
+  // The chip of the size whose rows are showing — unless the address asked for
+  // a size the store has not got, in which case no chip is what was asked for
+  // and none is pressed (spec §5.6).
+  const current = mismatch ? null : (entry?.size ?? null)
   return (
-    <div className="fw-lib-chips" role="group" aria-label={dict.t('tabLibrary')}>
+    <div className="fw-lib-chips" role="group" aria-label={dict.t('sizeGroup')}>
       {(sizes ?? []).map((entry) => (
         <button
           key={entry.size}

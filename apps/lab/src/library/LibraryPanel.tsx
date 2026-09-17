@@ -1,5 +1,4 @@
 import { type ReactElement } from 'react'
-import { useDictionary } from '../i18n'
 import { BoardDetail } from './BoardDetail'
 import { BoardList } from './BoardList'
 import { useLibraryList } from './useLibraryList'
@@ -16,11 +15,10 @@ import { useOpenBoard } from './useOpenBoard'
  * an empty cache would both fetch; `refresh` goes down instead.
  */
 export function LibraryPanel(): ReactElement {
-  const dict = useDictionary()
   const { refresh } = useLibraryList()
   const open = useOpenBoard()
   return (
-    <section className="fw-lib-panel" aria-label={dict.t('tabLibrary')}>
+    <section className="fw-lib-panel">
       <BoardList refresh={refresh} />
       <BoardDetail key={`${open.size ?? ''}/${open.id ?? ''}`} refresh={refresh} />
     </section>
