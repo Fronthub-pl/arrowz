@@ -81,8 +81,9 @@ before Task 5 deletes `lab-bundle.test.ts`.
 - [ ] **Step 1: Give the script room in ESLint**
 
 Without this the script cannot even be linted. Measured against the script as
-Step 2 writes it: **four** errors — `node:fs` and `node:process` both
-`no-restricted-imports`, and `console` **and `URL`** both `no-undef` (the
+Step 2 writes it: **four names, nine reported problems** — ESLint counts
+occurrences, so you will see two `no-restricted-imports` (`node:fs`,
+`node:process`), five `console` and two `URL`, the last two both `no-undef` (the
 `.mjs` file is not TypeScript, so typescript-eslint does not silence `no-undef`
 for it, and `globals` is not a dependency of this project, so the globals are
 listed by hand). An earlier measurement of this plan said three, because the
@@ -626,7 +627,11 @@ source and running `vitest` directly tests the **old** string — measured: the
 two tests passed against `lab.sh` after the source already said `store.sh`. The
 command below is safe because Nx rebuilds the engine first (`test` carries
 `dependsOn: ["^build"]` and `lab-i18n.ts` is in the engine's `production`
-inputs); a bare `pnpm --filter @arrowz/lab exec vitest run` is not.
+inputs); a bare `pnpm --filter @arrowz/lab exec vitest run` is not. (If you do
+run the bare form to see this for yourself, **run it twice**: a cold Vite
+optimizer cache makes the first single-file run fail during collection, the
+same flake that reddened CI in PR #71. A first-run failure there is the cache,
+not the dictionary.)
 
 ```sh
 cd /Users/tomek/dev/arrowz && pnpm nx test lab && pnpm nx test engine
@@ -651,12 +656,15 @@ ARROWZ_BOARDS_DIR=$(mktemp -d) sh packages/cli/store.sh 8791 &
 sleep 2
 curl -s -o /dev/null -w 'api %{http_code}\n' http://localhost:8791/api/boards
 curl -s -o /dev/null -w 'root %{http_code}\n' http://localhost:8791/
-kill %1 2>/dev/null || pkill -f 'store.sh 8791'
+kill %1 2>/dev/null || pkill -f 'server.ts 8791'
 ```
 
 (`kill %1` needs interactive job control; in a non-interactive shell it does
-nothing, which is why the fallback is there. Leaving a server on port 8791
-behind will make the next run of this step look like a success it is not.)
+nothing, which is why the fallback is there. The fallback matches the **module
+and port**, not the script: `store.sh` ends in `exec`, so the process's command
+line is `deno run … lab-server.ts 8791` — and `store-server.ts 8791` once Task 6
+has run. A pattern naming `store.sh` finds nothing. Leaving a server on port
+8791 behind will make the next run of this step look like a success it is not.)
 
 Expected: `api 200` and `root 404`. Use a temporary store: this must not touch
 `packages/cli/boards/`.
@@ -733,9 +741,10 @@ grep -rn "lab\.html\|lab-page\|lab-worker\|task bundle\|cli:bundle" --include="*
 ```
 
 Expected: **around seventy hits, and every one of them a comment** — measured,
-72 at this point in the plan: roughly sixty comment citations across
-`apps/lab/src` and six in `packages/engine` (`engine.ts`, `command.ts`,
-`geometry.ts`, `lab-i18n.ts`, `neutral.test.ts`, `lab-report.test.ts`). Those
+72 at this point in the plan: 65 comment citations across `apps/lab/src` and
+seven more across six files in `packages/engine` (`engine.ts`, `command.ts`,
+`geometry.ts`, `lab-i18n.ts`, `neutral.test.ts`, and `lab-report.test.ts`,
+which has two). Those
 are Tasks 10 and 11's work and are expected here, so a count in that region
 means the sweep is going as planned. (The documentation files are **not**
 among them: this command's `--include` list admits no `.md`, which is also why
@@ -799,15 +808,21 @@ In `store-server.test.ts`, change the import to:
 import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 ```
 
-and the one call inside `withServer` to `createStoreServer()`.
+and **all four calls** to `createStoreServer()`: the one inside `withServer`,
+and three more that build a handler directly (`const handle = createLabServer()`)
+in the body-size and origin tests. A missed call is a `TS2304` from
+`deno check`, which runs before the tests — so run `deno check` first and let it
+find them, rather than trusting a count from this plan.
 
 In `store.sh`, change the last line's module name to `store-server.ts`.
 
-In `apps/lab/vite.proxy.ts`, update the two places that name the old world: the
-doc comment on `LAB_SERVER` (`deno task lab` → `deno task store`) and the
-reference to the origin comparison, which must now cite the symbol rather than
-a line number — `store-server.ts`'s `refusal()` — because this branch has
-already moved that code once.
+In `apps/lab/vite.proxy.ts`, update the doc comment on `LAB_SERVER`
+(`deno task lab` → `deno task store`) and **both** line citations in the
+paragraph below it — it carries two, not one: `` `lab-server.ts:73-83` `` and,
+a few words later, "the comparison itself on line 77". Replace them with the
+symbol, `store-server.ts`'s `refusal()`, because this branch has already moved
+that code once. A grep for `lab-server` finds the first citation and is blind
+to the second, so read the whole paragraph.
 
 - [ ] **Step 3: Prove no reader was missed**
 
