@@ -61,6 +61,8 @@ Carried from PR 3a, 3b, 4a, 4b and 5a. Every one of these broke a plan written f
 - **A store write from outside a React event reaches the DOM on a microtask at the earliest.** Wrap it in `await act(async () => …)` before reading the DOM, or poll.
 - **Fake timers need a recipe:** install them *after* `renderHook`, without `shouldAdvanceTime`; wrap every write in `await act(...)`; advance with `await vi.advanceTimersByTimeAsync(...)`; assert with bare `expect`, never `expect.element` — it stands on `expect.poll` and hangs on a frozen clock.
 - **`renderHook` cannot see a defect that needs a re-render.** Its host component subscribes to nothing, so a store change never re-renders it — and an effect whose cleanup runs per render therefore never runs at all. Review round 2 measured a hook that posted twice per edit in the application while its `renderHook` suite stayed green. When the claim is about effects, cleanups or dependency arrays, mount an owner that selects the state the hook writes, as `BoardDetail` selects `result.preview`.
+- **`renderHook(...).rerender` takes the hook's props, not a new wrapper** — its signature is `(props?: Props) => Promise<void>`. A `MemoryRouter` passed as `wrapper` fixes the address at mount, so "walking" between routes by re-rendering with a different wrapper changes nothing and the case is vacuous. Review round 3 measured exactly that passing with its repair reverted. Navigate for real: a host component that calls `useNavigate()`.
+- **A component that returns `null` has not unmounted.** `BoardDetail`'s own gate renders nothing when the address names another board, but the instance lives on — only `LibraryPanel`'s `key` replaces it. Any claim about unmount behaviour (a timer cancelled, state thrown away) must be measured through the parent that re-keys, never through the component alone.
 - **`locator.click()` waits for actionability**: clicking a disabled button stalls to the timeout instead of failing.
 - **`locator.element()` returns `HTMLElement | SVGElement`** and `querySelector('.x')` returns `Element`, which has no `style` or `.value`: narrow with `querySelector<HTMLInputElement>(...)`. `pnpm --dir apps/lab run check` catches this; `vitest run` does not.
 - **`let x: T | null = null` assigned inside a closure narrows to `null`.** Write `let x = null as T | null`.
@@ -788,7 +790,7 @@ test('the listing is fetched once per mount, however many children want refreshi
 })
 ```
 
-Add `page` to the `vitest/browser` import and `'../design/console.css'` to the stylesheet imports, because the grid is sized in the panel's own file and the surrounding console rules decide its track.
+Add nothing else to this file's imports. The geometry case moved to Task 6, so `page` is not used here, and an unused import fails `tsc` under `noUnusedLocals` — review round 3 hit exactly that at the next task's type check.
 
 - [ ] **Step 2: Run it and watch it fail**
 
@@ -892,12 +894,19 @@ Create `apps/lab/src/library/BoardDetail.browser.test.tsx`:
 import { decodeBoard } from '@arrowz/engine'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardDetail } from './BoardDetail'
+import { LibraryPanel } from './LibraryPanel'
+// The geometry case measures the real cascade, so it needs the real
+// stylesheets — without them `.fw-lib-list` never scrolls and the case passes
+// on a layout that does not exist (review round 3).
+import '../design/tokens.css'
+import '../design/console.css'
+import '../design/library.css'
 
 const stored = storedFixture(1)
 
@@ -954,6 +963,16 @@ test('a preview the address does not name shows no detail', async () => {
   const screen = await mountDetail('/boards')
   await show()
   expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
+})
+
+// Ruling 15 compares the id and nothing else. The store names a size after its
+// directory, so a folder called `08x08` lists boards whose `W` is 8 — and a
+// `WxH` comparison would hide the detail of a board the stage and the status
+// line are both describing. No other fixture exercises this (review round 3).
+test('a size the directory spells differently still gets its detail', async () => {
+  const screen = await mountDetail(`/boards/08x08/${stored.meta.id}`)
+  await show()
+  await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 })
 
 test('the detail prints the command the store holds for this board', async () => {
@@ -1021,6 +1040,10 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
   const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
   if (panel === null || list === null || buttons === null) throw new Error('the panel is missing a row')
   expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+  // The floor, so there is a list at all: without it this case cannot see the
+  // grid change, only the sticky buttons (measured by review round 3's
+  // mutations 9 and 10, which each tripped one case and not the other).
+  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
   expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
 })
 ```
@@ -1264,13 +1287,14 @@ Create `apps/lab/src/library/useViewSave.browser.test.tsx`:
 
 ```tsx
 import { decodeBoard } from '@arrowz/engine'
-import { act, type ReactNode } from 'react'
+import { act, useState, type ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
-import { renderHook } from 'vitest-browser-react'
+import { userEvent } from 'vitest/browser'
+import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
-import { useViewSave } from './useViewSave'
+import { cancelPendingSave, useViewSave } from './useViewSave'
 
 const stored = storedFixture(1)
 const at = ({ children }: { children: ReactNode }) => <MemoryRouter initialEntries={['/boards']}>{children}</MemoryRouter>
@@ -1357,16 +1381,43 @@ test('a cancelled save never reaches the store', async () => {
 // all — and the row kept the command of a view the store no longer held.
 test('a save that lands after the board changed still reports itself', async () => {
   const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 } }
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(saved), { status: 201 }))
+  // The POST is held open, and that is the whole point: clearing the preview
+  // *before* the timer fires would make `write()` return on `preview === null`
+  // and nothing would ever be posted — review round 3 measured the first
+  // version of this case failing that way against correct code, which means it
+  // pinned nothing.
+  let release = (_: Response) => {}
+  const held = new Promise<Response>((resolve) => (release = resolve))
+  const posts = vi.spyOn(globalThis, 'fetch').mockReturnValue(held)
   let refreshed = 0
   const { result } = await renderHook(() => useViewSave(() => (refreshed += 1)), { wrapper: at })
 
   await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
-  // The stage moves on while the POST is in flight, exactly as choosing another
-  // board does.
+  await expect.poll(() => posts.mock.calls.filter(([, init]) => init?.method === 'POST').length).toBe(1)
+
+  // Now the stage moves on, exactly as choosing another board does — while the
+  // answer is still in flight.
   await act(async () => useStore.getState().result.clearPreview())
+  await act(async () => release(new Response(JSON.stringify(saved), { status: 201 })))
+
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
   expect(refreshed).toBe(1)
+  // And the board that replaced it is not overwritten by the answer.
+  expect(useStore.getState().result.preview).toBeNull()
+})
+
+// Ruling 5, the half no timer takes back: a refusal describes the state of the
+// stage against the store, so it stays until a save lands or another board is
+// opened. Round 3 found nothing pinning it.
+test('a failed save keeps saying so, because the picture still disagrees with the store', async () => {
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('connect ECONNREFUSED'))
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('saveFailed')
+  // Past the 1200 ms fade the other three notices take.
+  await new Promise((done) => setTimeout(done, 1500))
+  expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
 })
 
 test('a burst of edits writes once', async () => {
@@ -1703,6 +1754,37 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   expect(methods).toContain('DELETE')
   expect(methods).not.toContain('POST')
 })
+
+// Ruling 5's fade, through the one mount that can see it. The detail raises
+// `deleted` and then navigates; only `LibraryPanel`'s `key` unmounts it, and a
+// bare `BoardDetail` merely renders `null` — so a case mounted the usual way
+// stays green whether or not the fade survives its raiser (review round 3).
+test('the deleted notice fades even though the detail that raised it is gone', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    if (init?.method === 'DELETE') return Promise.resolve(new Response('{"deleted":true}', { status: 200 }))
+    return new Promise(() => {})
+  })
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw">
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
+  })
+  await show()
+
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleted')
+  await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).toBeNull()
+
+  // Past the fade: the raiser is unmounted, and the notice must still go.
+  await new Promise((done) => setTimeout(done, 1500))
+  expect(useStore.getState().library.notice).toBeNull()
+})
 ```
 
 - [ ] **Step 2: Run it and watch it fail**
@@ -1853,7 +1935,7 @@ Append to `apps/lab/src/stage/RunStatusBar.browser.test.tsx`, inside the `descri
   })
 ```
 
-Append to `apps/lab/src/library/useStoredBoard.browser.test.tsx`:
+Append to `apps/lab/src/library/useStoredBoard.browser.test.tsx`, adding `render` and `userEvent` to its imports and `useNavigate` to its `react-router` import — the walk case below navigates for real, because `renderHook`'s `rerender` cannot:
 
 ```ts
 // The silence PR 5a left on purpose: between the click and the picture the line
@@ -1874,14 +1956,37 @@ test('walking away from a board still loading, and back, leaves no loading notic
   useStore
     .getState()
     .library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta, second.meta] }])
-  const path = { current: `/boards/8x8/${first.meta.id}` }
-  const { rerender } = await renderHook(() => useStoredBoard(), at(path.current))
+  // A host that really navigates. `renderHook(...).rerender` takes the hook's
+  // *props* — its signature is `(props?: Props) => Promise<void>` — so handing
+  // it a fresh `MemoryRouter` wrapper changes nothing and the address never
+  // moves: review round 3 measured the first version of this case staying
+  // green with the repair reverted, which makes it no case at all.
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${first.meta.id}`)}>
+          A
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${second.meta.id}`)}>
+          B
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${first.meta.id}`]}>
+      <Walk />
+    </MemoryRouter>,
+  )
   await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
 
   // B's file never answers; then straight back to A, which is on the stage.
   stubStore({})
-  await rerender(at(`/boards/8x8/${second.meta.id}`))
-  await rerender(at(`/boards/8x8/${first.meta.id}`))
+  await userEvent.click(screen.getByRole('button', { name: 'B' }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
+  await userEvent.click(screen.getByRole('button', { name: 'A' }))
 
   await expect.poll(() => useStore.getState().library.notice).toBeNull()
   expect(useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
@@ -2175,6 +2280,10 @@ Append to `apps/lab/src/routes/Workspace.browser.test.tsx`:
 // address survives all of it. The store is stubbed — `boards.node.test.ts` is
 // where a real one is exercised.
 test('a stored board can be opened, restyled and loaded back into the lab', async () => {
+  // Its own viewport, because the one before it outlives its case: without this
+  // the case inherits 860×900 from a neighbour, and at 414×896 PR 5a recorded
+  // Playwright refusing row clicks as intercepted by `<arrowz-board>`.
+  await page.viewport(1400, 900)
   const { meta, file } = storedFixture(1)
   const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
   vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
@@ -2188,6 +2297,10 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
   await loadRunDone()
 
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  // Wait for the rows before reading them: the tab click navigates, and a
+  // navigation commits inside `startTransition` (harness facts). Review round 3
+  // measured both of this file's new cases failing on a synchronous read here.
+  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
   const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
   if (row === null) throw new Error('the listing showed no row')
   await userEvent.click(row)
@@ -2236,6 +2349,10 @@ test('at 860x900 the list still scrolls and the detail stays inside the console'
   const screen = await mountApp()
   await loadRunDone()
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  // Wait for the rows before reading them: the tab click navigates, and a
+  // navigation commits inside `startTransition` (harness facts). Review round 3
+  // measured both of this file's new cases failing on a synchronous read here.
+  await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
   const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
   if (row === null) throw new Error('the listing showed no row')
   await userEvent.click(row)
@@ -2248,6 +2365,12 @@ test('at 860x900 the list still scrolls and the detail stays inside the console'
   expect(list.clientHeight).toBeGreaterThanOrEqual(120)
   expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
   expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
+  // The buttons, not the box that contains them (Ruling 16): the box was inside
+  // the console at every size measured while `Load into lab` sat below the
+  // window, and `toBeVisible()` says nothing about that.
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (buttons === null) throw new Error('the detail showed no buttons')
+  expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
   // And nothing pushed the document itself out of shape.
   expect(document.scrollingElement === null ? 0 : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight).toBe(0)
 }, 40_000)
@@ -2341,4 +2464,24 @@ The timer now lives in module scope, as the old lab's `libTimer` does, and the d
 **The mutation results are the reason to trust the tests now and not before.** Reverting each round-1 repair left the plan's suites green in five cases out of seven: the flush, the identity guard, the early return, the unconditional `clearNotice`, and the detail's gate — which was worse than green, because weakening the gate made the whole suite pass, so an executor following TDD would have removed it. Only the two exits Task 9 names by hand were pinned. Every repair above therefore ships with a case that goes red when it is reverted.
 
 **What held.** The identity guard itself against two saves of one board, in both orders (the stage ends on the newer view); a save landing after `showPreview` replaced the meta with an equal-contents object (no legitimate save is dropped); Ruling 14 across leaving and re-entering the tab; `deleteBoard` against the real store; the three dictionary keys and the two region names in both languages; the field components' conversion, including a red case when `SimplePanel` is left unwired; and the panel grid at 900×600, 1400×500, 2560×1400, in the simple view, and in solo.
+
+---
+
+## What review round 3 changed
+
+One reviewer, one mandate: apply all eleven tasks, then revert each round-2 repair and see whether anything goes red. **Eight of twelve mutations were caught, four survived**, and applying the plan turned up five defects that would have stopped an executor before any of that mattered.
+
+**Five things that did not apply as written.** Each is fixed in the task it belongs to.
+
+1. Task 5 told the executor to import `page`, which nothing in that file uses once the geometry case moved to Task 6 — `tsc` red under `noUnusedLocals`.
+2. Task 6's test header omitted `page`, `LibraryPanel` and every stylesheet. Without `library.css` the list never scrolls, so the geometry case passed on a layout that does not exist.
+3. Task 7's test header omitted `useState`, `render`, `userEvent` and `cancelPendingSave`.
+4. Task 7's "a save that lands after the board changed" was **red against correct code**: it cleared the preview before the timer fired, so `write()` returned on `preview === null` and no POST was ever made. It holds the answer on a deferred now, and only in that form does it pin anything.
+5. Task 11's two cases read `.fw-lib-row` synchronously after a tab click — against the plan's own harness fact about `startTransition`. Both now poll first, and the first also sets its own viewport instead of inheriting a neighbour's.
+
+**Four repairs had no test, and now have one.** `saveFailed` not fading; the `deleted` notice fading even though its raiser unmounts itself (measurable only through `LibraryPanel`, because a bare `BoardDetail` returns `null` without unmounting); Ruling 14's `loading` clear, whose case was *vacuous* — `renderHook`'s `rerender` takes hook props, so re-rendering with a different `MemoryRouter` never moved the address; and the gate's id-only comparison, which no fixture exercised because every fixture spells its size `8x8`.
+
+**Two repairs were only half-pinned:** the grid's floor was caught by Task 11's case alone and the sticky buttons by Task 6's alone. Each case gained the other's assertion.
+
+**What this round proves about the ones that held.** Reverting the module-scope timer goes red in three separate cases; removing `cancelPendingSave` from the delete goes red in the case written for it; `openEntry`'s `mismatch` is pinned by PR 5a's own chip case *and* the new unit case; and weakening the detail's gate — the mutation that made the whole suite pass in round 2 — is now caught.
 
