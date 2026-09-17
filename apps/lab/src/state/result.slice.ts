@@ -1,4 +1,4 @@
-import type { BoardData, BoardFile, BoardMeta, Params } from '@arrowz/engine'
+import type { BoardData, BoardFile, BoardMeta, Params, View } from '@arrowz/engine'
 import type { ReportInput } from '@arrowz/engine/report'
 import type { SaveOutcome } from '../api/boards'
 
@@ -55,6 +55,13 @@ export interface ResultState {
   showPreview(next: StoredBoard): void
   /** Leaving the library, or a board that could not be read. */
   clearPreview(): void
+  /**
+   * A new view for the stored board on screen. The board and its file are
+   * untouched: nothing is regenerated, and the same file goes back to the
+   * store with the new view in its meta (Ruling 4). A no-op with no preview,
+   * as `stored` and `exported` are for a file no longer shown.
+   */
+  previewView(view: View): void
   /** For the tests' resets, beside `run.reset()`. */
   reset(): void
 }
@@ -119,6 +126,17 @@ export function createResultSlice(set: SetStore): ResultState {
     showPreview: (preview) => set((state) => ({ result: { ...state.result, preview } })),
     clearPreview: () =>
       set((state) => (state.result.preview === null ? state : { result: { ...state.result, preview: null } })),
+    previewView: (view) =>
+      set((state) =>
+        state.result.preview === null
+          ? state
+          : {
+              result: {
+                ...state.result,
+                preview: { ...state.result.preview, meta: { ...state.result.preview.meta, view } },
+              },
+            },
+      ),
     reset: () =>
       set((state) => ({
         result: { ...state.result, shown: null, preview: null, baseline: null, saved: null, exportError: null },

@@ -169,3 +169,33 @@ test('reset clears both the result and the preview', () => {
   expect(useStore.getState().result.shown).toBeNull()
   expect(useStore.getState().result.preview).toBeNull()
 })
+
+// Ruling 4: the stage draws a stored board from `preview.meta.view`, so that is
+// what an edited field moves. The board and the file are untouched — nothing
+// was regenerated, and the very same file goes back to the store.
+test('a new preview view moves the meta, and leaves the board and the file', () => {
+  const { meta, file } = storedFixture(3)
+  const board = decodeBoard(file)
+  result().showPreview({ board, file, meta })
+
+  result().previewView({ ...meta.view, stroke: 0.9, colored: true })
+
+  const after = useStore.getState().result.preview
+  expect(after?.meta.view.stroke).toBe(0.9)
+  expect(after?.meta.view.colored).toBe(true)
+  expect(after?.board).toBe(board)
+  expect(after?.file).toBe(file)
+  // Everything else the meta knows is still the meta's: this is an edit to one
+  // field of it, not a new meta built from a view.
+  expect(after?.meta.id).toBe(meta.id)
+  expect(after?.meta.command).toBe(meta.command)
+})
+
+// The same guard `stored` and `exported` have: an answer for a board nobody is
+// looking at changes nothing.
+test('a new preview view without a preview does nothing', () => {
+  useStore.getState().result.reset()
+  const before = useStore.getState().result
+  result().previewView({ ...storedFixture(3).meta.view, stroke: 0.9 })
+  expect(useStore.getState().result).toBe(before)
+})
