@@ -1,4 +1,5 @@
 import { act } from 'react'
+import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
@@ -23,11 +24,18 @@ beforeEach(() => {
   state.view.setNumber('top', '5')
 })
 
+/**
+ * The panel asks the route now (`useInLibrary`), so it needs a router. No
+ * address of its own: every case here is the lab, which is `/`, and the
+ * library tab's empty report column is the whole application's case (Task 9).
+ */
 async function mountReport() {
   return render(
-    <div className="fw" style={{ display: 'grid', width: '352px', height: '600px' }}>
-      <ReportPanel />
-    </div>,
+    <MemoryRouter>
+      <div className="fw" style={{ display: 'grid', width: '352px', height: '600px' }}>
+        <ReportPanel />
+      </div>
+    </MemoryRouter>,
   )
 }
 

@@ -1165,7 +1165,7 @@ async function openBoard(meta: BoardMeta) {
   }
   let file: unknown
   try {
-    const r = await fetch(`/boards/${meta.W}x${meta.H}/${meta.id}.board.json`)
+    const r = await fetch(`/store/${meta.W}x${meta.H}/${meta.id}.board.json`)
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
     file = await r.json()
   } catch (err) {

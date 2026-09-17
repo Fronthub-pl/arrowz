@@ -2,15 +2,19 @@ import type { StoreRequest } from '@arrowz/engine'
 import { exportCell } from '@arrowz/engine/simple'
 import { act, StrictMode } from 'react'
 import { expect, test, vi } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { loadRunDone } from '../harness/mountApp'
+import { cancelPendingSave } from '../library/useViewSave'
+import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 // The stage-height case measures the lab grid, which needs the real cascade,
 // in the order `main.tsx` loads it.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
+import '../design/library.css'
 import '../design/run.css'
 
 // The real App, address bar and all: Ruling 5's claim is about what App
@@ -29,6 +33,7 @@ async function mountApp() {
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   useStore.getState().result.reset()
+  useStore.getState().library.reset()
   useStore.getState().params.reset()
   // The whole `ui` slice, not a selection of it, and the load run makes it
   // matter: a case that turned `auto` on would otherwise carve on the next
@@ -40,6 +45,13 @@ async function mountApp() {
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
+  // Solo is reset here for the same reason `auto` is, and the harness's own
+  // `resetApp` already does it: the two cases at the foot of this file press
+  // `f`, and the store outlives a case, so a solo left on would hide the
+  // console from whatever ran next — `.fw-lab.solo` takes it out of the layout
+  // entirely (console.css), and a later case reading `.fw-console` would then
+  // be measuring a `display: none` box.
+  useStore.getState().ui.setSolo(false)
   return render(<App />)
 }
 
@@ -134,7 +146,7 @@ test('Generate carves a board, draws it, and says so', async () => {
 // remounted element is a disposed GL context, whatever the run's phase says.
 // This half needs no run at all, so it is fast and never races.
 //
-// Probed, not assumed: with `/` changed to `element={<LabRoute …/>}` this test
+// Probed, not assumed: with `/` changed to `element={<Workspace …/>}` this test
 // fails on the line below with `Received: null`, and it is the only test in the
 // suite that does — see the note on the in-flight test.
 test('a route change keeps the very same board element', async () => {
@@ -165,7 +177,7 @@ test('a route change keeps the very same board element', async () => {
 // What this test does *not* guard, established by probe rather than by argument:
 // the panel's placement. `useGenerator()` is mounted in `Shell`, above
 // <Routes>, so the worker outlives a route change whether or not the panel is a
-// route element — with `/` turned into `element={<LabRoute …/>}` this test still
+// route element — with `/` turned into `element={<Workspace …/>}` this test still
 // passes, unchanged, in 2 827 ms. The node-identity test above is the only one
 // that catches that regression. What the two assertions at the end add is a
 // claim that one makes on its own: a run that finishes while the user is
@@ -197,10 +209,15 @@ test('a run in flight survives a route change, and finishes into the same elemen
 
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(useStore.getState().result.shown?.board.W).toBe(600)
-  // Still on /boards, and the board the worker just finished reached the same
-  // element the run started with.
+  // Still on /boards: the element the run started with is still the one on the
+  // page, not an equal-looking replacement.
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
-  expect(before?.board?.W).toBe(600)
+  // Back to the lab before reading the element: on the library tab the frame
+  // shows the preview or nothing, so the run's board is deliberately not there
+  // (spec §5.3). What this case is about — the run surviving the trip and
+  // finishing into the same element — is unchanged.
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => before?.board?.W).toBe(600)
 }, 60_000)
 
 // Spec §5.3, PR 4b: the old lab replaces its board only when a run is done
@@ -364,7 +381,8 @@ test('the lab route shows the console under the stage', async () => {
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
 // and `RunColumn` are each tested against a host of their own making, so both
 // suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:168` or `abortRef={abortRef}` from `LabRoute.tsx:38` and the
+// `RunColumn.tsx:168` or `abortRef={abortRef}` from `Workspace.tsx`'s own
+// `<RunColumn …/>` and the
 // feature is dead on the real page while every other case passes. The same was
 // true of `goRef`, so this case covers both — they are the same two lines.
 //
@@ -562,4 +580,356 @@ test('the stage keeps its height when the preset strip goes', async () => {
   // not fail. The strip's row goes to the two remaining rows, so the stage can
   // only grow.
   await expect.poll(stage).toBeGreaterThanOrEqual(before)
+}, 40_000)
+
+// Spec §5.1, PR 5a: one panel serves both tabs and renames itself with the
+// route, because the tab strip resolves `aria-controls` to that id. Two
+// parallel panels could not both hold the one stage.
+test('the panel takes the identity of the tab that is open', async () => {
+  const screen = await mountApp()
+  const panel = () => screen.container.querySelector('[role="tabpanel"]')
+  expect(panel()?.id).toBe('lab-panel')
+  expect(panel()?.getAttribute('aria-labelledby')).toBe('tab-lab-panel')
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+
+  await expect.poll(() => panel()?.id).toBe('boards-panel')
+  expect(panel()?.getAttribute('aria-labelledby')).toBe('tab-boards-panel')
+})
+
+// The whole point of the workspace: the element is never unmounted, so its GL
+// context is never disposed. Node identity, not a count.
+test('the board element survives the trip to the library and back', async () => {
+  const screen = await mountApp()
+  const element = () => screen.container.querySelector('arrowz-board')
+  const before = element()
+  expect(before).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  expect(element()).toBe(before)
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('lab-panel')
+  expect(element()).toBe(before)
+})
+
+// Ruling 6: the preset strip goes, the stage stays — the same node, not merely
+// a node in the same place. Measured by review round 1: a React `null` slot
+// renders no DOM node, so the stage's *index* among `.fw-lab.children`
+// legitimately drops from 1 to 0 while its identity holds. The index was the
+// wrong instrument; identity is the claim.
+test('the preset strip is absent from the library and the stage is the same node', async () => {
+  const screen = await mountApp()
+  const stage = () => screen.container.querySelector('.fw-stage')
+  const before = stage()
+  expect(before).not.toBeNull()
+  // Established before the click, so the assertion after it means something:
+  // without this, the case's meaning would rest entirely on `mountApp`'s
+  // `setMode('advanced')`, and a default-mode change would hollow it out
+  // silently.
+  expect(screen.container.querySelector('.fw-presets')).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  expect(screen.container.querySelector('.fw-presets')).toBeNull()
+  expect(stage()).toBe(before)
+})
+
+// The docs are not the workspace: there the panel is hidden, as it was before
+// this PR for every route but `/`.
+test('the workspace is hidden under the docs route', async () => {
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Docs', exact: true }))
+  await expect
+    .poll(() => screen.container.querySelector('main[hidden] [role="tabpanel"]')?.id, { timeout: 5_000 })
+    .toBe('lab-panel')
+}, 40_000)
+
+// Ruling 1: the run column is hidden in the library, not replaced. A carve
+// started in the lab keeps its node, its refs and the run itself; the old lab
+// hides the same controls by class. Read through `querySelector`, not a role
+// locator, precisely because a locator skips `display: none` — the state
+// under test.
+//
+// The viewport is set first and deliberately: at the runner's default
+// 414×896 the ≤900px query already gives `.fw-console` two tracks, so the
+// track assertion below would pass with the library rule deleted. Review
+// round 1 measured exactly that.
+test('the run column stays mounted, and hidden, in the library', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  const column = () => screen.container.querySelector('.fw-run-col')
+  const before = column()
+  expect(before).not.toBeNull()
+
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  const after = column()
+  expect(after).toBe(before)
+  if (!(after instanceof HTMLElement)) throw new Error('the run column is not an HTML element')
+  expect(getComputedStyle(after).display).toBe('none')
+  // And the console gives its width to the two tracks that are left: a hidden
+  // grid item takes no track.
+  const consoleBox = screen.container.querySelector('.fw-console')
+  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')).toHaveLength(2)
+})
+
+// The library has no preset strip, and the lab grid's first row is `auto`:
+// without `.fw-lab.library` the stage takes 590px and the console is left with
+// its 180px minimum on every viewport (measured, review round 1). This is the
+// same trap `.fw-lab.simple` exists to avoid, so it is asserted the same way:
+// by the two rows being the halves they are in the lab, not by a class name.
+test('the library gives the console its share of the panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  const box = (selector: string) => {
+    const found = screen.container.querySelector(selector)
+    if (found === null) throw new Error(`${selector} is not on the page`)
+    return found.getBoundingClientRect()
+  }
+  const stage = box('.fw-stage')
+  const consoleBox = box('.fw-console')
+  expect(consoleBox.height).toBeGreaterThan(300)
+  expect(Math.abs(stage.height - consoleBox.height)).toBeLessThan(2)
+})
+
+// Solo is the stage's, not the lab tab's: the old lab's full view works on
+// both tabs (`lab-page.ts:1027-1029`). The `f` key is the application's, so
+// this presses it rather than clicking the toggle.
+//
+// The viewport is stated rather than inherited. `page.viewport` outlives the
+// case that sets it, and the case above leaves 1400×900 behind, so without
+// this line the width here would be whatever the file happens to end on — a
+// dependency on test order in a case that has no business having one. 1400×900
+// and not the runner's default because that is what the cases around it use,
+// and because at that width the console is genuinely on screen for solo to
+// take away; the assertions themselves hold at either width.
+test('solo works on the saved boards tab too', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(true)
+  const lab = screen.container.querySelector('.fw-lab')
+  expect(lab?.classList.contains('solo')).toBe(true)
+
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(false)
+}, 40_000)
+
+// The defect review round 1 found, and the reason `useStoredBoard` is mounted
+// in `Workspace`: with the hook inside the library panel, `Console` unmounted
+// it on the way out, nothing ever cleared the preview, and the lab tab went on
+// drawing, announcing and reporting a board read off the disk.
+//
+// The board MUST be opened through the address, not by calling `showPreview`.
+// Review round 2 measured the shortcut version staying red in both worlds: the
+// clearing effect keys on the address, and a preview put there by hand is a
+// state the hook never produced, so the case discriminated nothing. Written
+// this way it is green with the hook in `Workspace` and red with it back in
+// `BoardList` — which is what a regression test for this defect has to do.
+test('leaving the library takes the stored board off the stage', async () => {
+  const { meta, file } = storedFixture(4)
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]))
+    }
+    if (url.includes(meta.id)) return Promise.resolve(Response.json(file))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    // 1400×900 on purpose: at the runner's 414×896 the stage overlaps the row
+    // this case has to click, and Playwright refuses the click as intercepted
+    // by `<arrowz-board>`. Review round 3 measured it — the case would then be
+    // failing about a layout overlap while claiming to be about the hook.
+    await page.viewport(1400, 900)
+    const screen = await mountApp()
+    await loadRunDone()
+    const runAnnotation = screen.container.querySelector('.fw-anno')?.textContent
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    await expect.element(screen.getByText(meta.id)).toBeVisible()
+    await userEvent.click(screen.getByText(meta.id))
+    await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
+    expect(screen.container.querySelectorAll('.fw-report table')).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
+    await expect.poll(() => useStore.getState().result.preview).toBeNull()
+    expect(screen.container.querySelector('.fw-anno')?.textContent).toBe(runAnnotation)
+    await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBeGreaterThan(0)
+  } finally {
+    vi.restoreAllMocks()
+  }
+}, 40_000)
+
+// `.fw-lab.library.solo` is load-bearing and nothing above measures it: the
+// solo case reads `ui.solo` and a class name, both of which survive the rule's
+// deletion. Geometry does not — review round 2 deleted the selector and this
+// went red at 1400 and at 860, because `.fw-lab.library` would otherwise beat
+// `.fw-lab.solo` on order.
+test('solo in the library fills the panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  await userEvent.keyboard('f')
+  await expect.poll(() => useStore.getState().ui.solo).toBe(true)
+
+  const box = (selector: string) => {
+    const found = screen.container.querySelector(selector)
+    if (found === null) throw new Error(`${selector} is not on the page`)
+    return found.getBoundingClientRect()
+  }
+  const lab = box('.fw-lab')
+  const wrap = box('.fw-boardwrap')
+  const element = box('arrowz-board')
+  expect(wrap.width).toBeCloseTo(lab.width, 0)
+  expect(wrap.height).toBeCloseTo(lab.height, 0)
+  expect(element.width).toBeCloseTo(lab.width - 34, 0)
+  expect(element.height).toBeCloseTo(lab.height - 34, 0)
+}, 40_000)
+
+// Fix 8's own case: the library face must not keep its 168px rail below 900px,
+// where the lab's is 150px. This is what tells the executor that the two
+// `.fw-console.library` rules went in *above* the media query (Task 6 Step 4).
+test('below 900px the library rail is the lab rail', async () => {
+  await page.viewport(860, 900)
+  const screen = await mountApp()
+  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+  const consoleBox = screen.container.querySelector('.fw-console')
+  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
+}, 40_000)
+
+// The detail through the real application: a row opens a board, the detail
+// describes it, an edited field redraws it and reaches the store, and the
+// address survives all of it. The store is stubbed — `boards.node.test.ts` is
+// where a real one is exercised.
+test('a stored board can be opened, restyled and loaded back into the lab', async () => {
+  // Its own viewport, because the one before it outlives its case: without this
+  // the case inherits 860×900 from a neighbour, and at 414×896 PR 5a recorded
+  // Playwright refusing row clicks as intercepted by `<arrowz-board>`.
+  await page.viewport(1400, 900)
+  const { meta, file } = storedFixture(1)
+  const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+    const url = String(input)
+    if (init?.method === 'POST') return Promise.resolve(new Response(JSON.stringify(meta), { status: 201 }))
+    if (url.includes('/api/boards')) return Promise.resolve(new Response(JSON.stringify(sizes), { status: 200 }))
+    if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    // Wait for the rows before reading them: the tab click navigates, and a
+    // navigation commits inside `startTransition` (harness facts). Review round 3
+    // measured both of this file's new cases failing on a synchronous read here.
+    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    if (row === null) throw new Error('the listing showed no row')
+    await userEvent.click(row)
+
+    // The detail describes the board the address names.
+    await expect.element(screen.getByText(meta.command)).toBeVisible()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+
+    // An edited field redraws the stored board without generating anything.
+    const phase = useStore.getState().run.phase
+    const stroke = screen.container.querySelector<HTMLInputElement>('.fw-lib-detail #view-stroke')
+    if (stroke === null) throw new Error('the detail offered no stroke field')
+    await userEvent.fill(stroke, '0.9')
+    await userEvent.tab()
+    await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+    expect(useStore.getState().run.phase).toBe(phase)
+
+    // And the lab's own board is waiting where it was left — *this* board, not
+    // merely some board. `shown` is written in exactly three places
+    // (`result.slice.ts`: the show transition, the initial value, `reset`), none
+    // of which this path touches, so it is already non-null here and stays
+    // non-null however Load into lab behaves. Asserting "not null" therefore
+    // proves nothing, which is what this task's review measured. Identity against
+    // the value captured first is what goes red if Load into lab ever overwrote
+    // the lab's own result with the stored board's.
+    const labBoard = useStore.getState().result.shown
+    expect(labBoard).not.toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
+    expect(useStore.getState().result.shown).toBe(labBoard)
+  } finally {
+    // The stroke edit above leaves a 350ms save timer running; the field's
+    // fixture is not on screen by the time it would fire, but the module-scope
+    // timer does not know that (Ruling 12) and its `.then` calls `refresh()`.
+    cancelPendingSave()
+    vi.restoreAllMocks()
+  }
+}, 40_000)
+
+// Ruling 1, at the size that exposed it: at 860x900 the first version of this
+// layout left no list at all and hung the detail 75px below the console.
+test('at 860x900 the list still scrolls and the detail stays inside the console', async () => {
+  await page.viewport(860, 900)
+  const { meta, file } = storedFixture(1)
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    ...meta,
+    id: `${meta.id.slice(0, -2)}${String(i).padStart(2, '0')}`,
+  }))
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(
+        new Response(JSON.stringify([{ size: '8x8', W: 8, H: 8, cells: 64, boards: many }]), { status: 200 }),
+      )
+    }
+    if (url.includes('/store/')) return Promise.resolve(new Response(JSON.stringify(file), { status: 200 }))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    const screen = await mountApp()
+    await loadRunDone()
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    // Wait for the rows before reading them: the tab click navigates, and a
+    // navigation commits inside `startTransition` (harness facts). Review round 3
+    // measured both of this file's new cases failing on a synchronous read here.
+    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    if (row === null) throw new Error('the listing showed no row')
+    await userEvent.click(row)
+    await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
+
+    const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
+    const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+    const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
+    if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
+    expect(list.clientHeight).toBeGreaterThanOrEqual(120)
+    expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
+    expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
+    // The buttons, not the box that contains them (Ruling 16): the box was inside
+    // the console at every size measured while `Load into lab` sat below the
+    // window, and `toBeVisible()` says nothing about that.
+    const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+    if (buttons === null) throw new Error('the detail showed no buttons')
+    expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    // And nothing pushed the document itself out of shape.
+    expect(
+      document.scrollingElement === null
+        ? 0
+        : document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight,
+    ).toBe(0)
+  } finally {
+    vi.restoreAllMocks()
+  }
 }, 40_000)

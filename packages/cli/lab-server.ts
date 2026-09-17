@@ -1,7 +1,11 @@
 // Lab server: static files from packages/cli/ without caching (a rebuilt bundle
 // must reach the browser immediately) plus the board store under /api/boards
-// (GET list, POST save a board file, DELETE one) and /boards/. Run: deno task lab (lab.sh scopes the
-// permissions: net on 127.0.0.1, read of packages/cli/ and the store, write of the store, one env var).
+// (GET list, POST save a board file, DELETE one) and the stored files under
+// /store/. The files answer to /store/ and not to /boards/ because /boards is
+// the lab application's library route and /boards/<size>/<id> is a board's own
+// address there (spec §5.6); the directory on disk is unchanged. Run: deno task
+// lab (lab.sh scopes the permissions: net on 127.0.0.1, read of packages/cli/
+// and the store, write of the store, one env var).
 import { dirname, extname, fromFileUrl, join, normalize, resolve, SEPARATOR } from '@std/path'
 import {
   decodeBoard,
@@ -305,8 +309,8 @@ export function createLabServer(): (req: Request) => Promise<Response> {
         ? { base: ROOT, name: 'lab.html', csp: LAB_CSP }
         : rel.startsWith('/dist/')
         ? { base: join(ROOT, 'dist'), name: rel.slice('/dist/'.length), csp: LAB_CSP }
-        : rel.startsWith('/boards/')
-        ? { base: boardsDir(), name: rel.slice('/boards/'.length), csp: STORE_CSP }
+        : rel.startsWith('/store/')
+        ? { base: boardsDir(), name: rel.slice('/store/'.length), csp: STORE_CSP }
         : null
       if (!area) return send(404, '{"error":"not found"}')
       const baseDir = resolve(area.base)

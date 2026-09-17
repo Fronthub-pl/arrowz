@@ -1,4 +1,4 @@
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
@@ -29,14 +29,20 @@ export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored'
  * with lab.html in PR 8, so the library's three have to come through this
  * component — reusing it is what keeps them measured once carve.test.ts is gone.
  */
-export function ViewNumberField({ field }: { field: ViewField }) {
+export function ViewNumberField({
+  field,
+  value,
+  onCommit,
+}: {
+  field: ViewField
+  value: number
+  onCommit(value: number): void
+}) {
   const dict = useDictionary()
-  const value = useStore((state) => state.view[field.field])
-  const setNumber = useStore((state) => state.view.setNumber)
   const ref = useRef<HTMLInputElement>(null)
-  // The engine's own bounds, not a copy of them: `commit` below clamps through
-  // the store, which clamps through `VIEW_RANGE`, so any other pair of numbers
-  // here would be a field disagreeing with what it is about to store.
+  // The engine's own bounds, not a copy of them: `commit` clamps through
+  // `viewNumberOf`, which reads the same table, so the box cannot declare a
+  // ceiling different from the one it enforces.
   const range = VIEW_RANGE[field.field]
 
   useEffect(() => {
@@ -44,12 +50,16 @@ export function ViewNumberField({ field }: { field: ViewField }) {
     if (node && document.activeElement !== node) node.value = String(value)
   }, [value])
 
+  // The clamp lives here rather than in each owner: the lab's slice clamps in
+  // `setNumber` and the library's detail has no slice to clamp in, so a field
+  // that handed on what was typed would leave one of its two owners to
+  // remember. The box then shows what was actually kept.
   const commit = () => {
     const node = ref.current
     if (!node) return
-    setNumber(field.field, node.value)
-    // The store may have clamped; show what it stored, not what was typed.
-    node.value = String(useStore.getState().view[field.field])
+    const kept = viewNumberOf(node.value, field.field)
+    onCommit(kept)
+    node.value = String(kept)
   }
 
   return (
@@ -79,10 +89,18 @@ export function ViewNumberField({ field }: { field: ViewField }) {
 }
 
 /** One preview flag as the mock's switch, labelled by its visible text. */
-export function ViewFlagSwitch({ flag, label }: { flag: ViewFlag; label: (typeof VIEW_FLAGS)[number]['label'] }) {
+export function ViewFlagSwitch({
+  flag,
+  label,
+  on,
+  onToggle,
+}: {
+  flag: ViewFlag
+  label: (typeof VIEW_FLAGS)[number]['label']
+  on: boolean
+  onToggle(): void
+}) {
   const dict = useDictionary()
-  const on = useStore((state) => state.view[flag])
-  const toggle = useStore((state) => state.view.toggle)
   return (
     <div className="fw-k">
       <div className="row">
@@ -95,7 +113,7 @@ export function ViewFlagSwitch({ flag, label }: { flag: ViewFlag; label: (typeof
           role="switch"
           aria-checked={on}
           aria-labelledby={`view-${flag}-label`}
-          onClick={() => toggle(flag)}
+          onClick={onToggle}
         />
       </div>
     </div>
@@ -113,6 +131,7 @@ export function ViewFlagSwitch({ flag, label }: { flag: ViewFlag; label: (typeof
  */
 export function ViewPanel() {
   const dict = useDictionary()
+  const view = useStore((state) => state.view)
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
@@ -120,10 +139,15 @@ export function ViewPanel() {
       </div>
       <div className="fw-grid">
         {VIEW_FIELDS.map((field) => (
-          <ViewNumberField key={field.field} field={field} />
+          <ViewNumberField
+            key={field.field}
+            field={field}
+            value={view[field.field]}
+            onCommit={(value) => view.setNumber(field.field, String(value))}
+          />
         ))}
         {VIEW_FLAGS.map(({ flag, label }) => (
-          <ViewFlagSwitch key={flag} flag={flag} label={label} />
+          <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
       </div>
     </div>

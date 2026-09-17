@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { labProxy } from './vite.proxy'
+import { labProxy } from './vite.proxy.ts'
 
 export default defineConfig({
   plugins: [react()],

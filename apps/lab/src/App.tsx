@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
-import { LabRoute } from './routes/LabRoute'
+import { Workspace } from './routes/Workspace'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
@@ -24,7 +24,7 @@ import { useGenerator } from './worker/useGenerator'
  * carve the same board, so pressing Generate twice with the same seed still
  * reports a save both times. The ref survives StrictMode's double-invoked mount
  * effect, which is why the guard is a ref and not a piece of state;
- * LabRoute.browser.test.tsx mounts under StrictMode and counts the POSTs.
+ * Workspace.browser.test.tsx mounts under StrictMode and counts the POSTs.
  *
  * A late answer for a board no longer on screen is the result slice's to drop
  * (`stored` compares the file), so this hook no longer compares anything when
@@ -65,14 +65,16 @@ function useStoreSave() {
  * alike, as the old lab reads both (lab-page.ts:944) — Shift is not a modifier
  * here — and nothing with Ctrl, ⌘ or Alt (the old lab toggled on ⌘F and opened
  * the browser's find as well), no key repeat, nothing typed into a field or an
- * editable region, and nothing off the lab route: the listener exists only
- * while the lab is on screen. A focused button is not a field, so `f` on
- * Generate toggles, as it does in the old lab (PR 4b, Ruling 9). Escape is not
- * handled: the palette of PR 7 owns it.
+ * editable region.
+ *
+ * A focused button is not a field, so `f` on Generate toggles, as it does in
+ * the old lab (PR 4b, Ruling 9). The listener lives wherever the stage does —
+ * the lab tab and the saved boards — and nowhere else. Escape is not handled:
+ * the palette of PR 7 owns it.
  */
-function useSoloKey(onLab: boolean) {
+function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
-    if (!onLab) return
+    if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'f' && event.key !== 'F') return
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
@@ -87,7 +89,7 @@ function useSoloKey(onLab: boolean) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onLab])
+  }, [onWorkspace])
 }
 
 /**
@@ -114,7 +116,7 @@ function Shell() {
   // then the effect again, and `useGenerator`'s own cleanup terminates the
   // worker (useGenerator.ts:89) — so the carve the first pass starts is killed
   // and, with a guard in place, never started again. Measured: the StrictMode
-  // case in LabRoute.browser.test.tsx sits in `running` until its poll times
+  // case in Workspace.browser.test.tsx sits in `running` until its poll times
   // out. Starting twice is what `start()` is built for instead: it kills a
   // busy worker to make room for the next run (useGenerator.ts:94).
   //
@@ -132,15 +134,18 @@ function Shell() {
     if (useStore.getState().ui.mode === 'simple' && !hash.openedFromLink()) applyRecipe(false)
     control.start()
   }, [control, hash])
-  const onLab = selectedIndex(useLocation().pathname) === 0
+  // 0 is the lab, 1 the saved boards, 2 the docs (`TabRow`). The first two are
+  // the workspace: one panel, one stage, two faces (spec §5.1).
+  const tabIndex = selectedIndex(useLocation().pathname)
+  const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
-  useSoloKey(onLab)
+  useSoloKey(onWorkspace)
   useDocumentLang()
   return (
     <div className="fw">
       <TopBar />
       <TabRow />
-      <LabRoute control={control} hidden={!onLab} />
+      <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
       <AppRoutes />
     </div>
   )

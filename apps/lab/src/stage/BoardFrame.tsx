@@ -1,6 +1,7 @@
 import { boardViewOf } from '@arrowz/board-element'
 import { type ReactElement, useLayoutEffect, useMemo, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { useInLibrary } from '../library/useInLibrary'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { BoardCanvas } from './BoardCanvas'
@@ -22,9 +23,38 @@ import { BoardCanvas } from './BoardCanvas'
 export function BoardFrame(): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
+  const preview = useStore((state) => state.result.preview)
+  const inLibrary = useInLibrary()
   const view = useStore((state) => state.view)
   const lang = useStore((state) => state.lang.lang)
-  const elementView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
+  // A stored board is drawn under its own stored view, never under the lab's
+  // (Ruling 3): `meta.view` is what was saved with it, and `voids` shows the
+  // holes of a board that did not close, as `showLibBoard` does.
+  //
+  // Gated on the tab as well as on the preview (Ruling O), for the same reason
+  // the board below is: `useInLibrary` flips with the location render, while
+  // `useStoredBoard` clears the preview in an effect after commit, so there is
+  // one committed frame on the way back to `/` where a preview is still set.
+  // Without `inLibrary` the lab's own board is drawn in that frame under the
+  // stored board's flags — spec §5.3 asks the route, not "is there a preview".
+  const labView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
+  const elementView = useMemo(
+    () => (preview === null || !inLibrary ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
+    [preview, labView, inLibrary],
+  )
+  // The tab decides, not the presence of a preview: in the library a board
+  // that could not be read leaves the stage empty (spec §5.6), and the lab's
+  // own board must not stand in for it.
+  const shown = inLibrary ? preview : result
+  const board = inLibrary ? (preview?.board ?? null) : (result?.board ?? null)
+  const named =
+    shown === null
+      ? null
+      : inLibrary && preview !== null
+        ? { W: preview.meta.W, H: preview.meta.H, seed: preview.meta.seed }
+        : result === null
+          ? null
+          : { W: result.params.W, H: result.params.H, seed: result.params.seed }
   const solo = useStore((state) => state.ui.solo)
   const toggleSolo = useStore((state) => state.ui.toggleSolo)
   const toggle = useRef<HTMLButtonElement>(null)
@@ -52,11 +82,9 @@ export function BoardFrame(): ReactElement {
             colours, and the lab does, as the old lab's `enable-colors` does
             (lab.html) — without it the `colored` flag reaches the element and
             changes nothing on screen. */}
-        <BoardCanvas board={result?.board ?? null} view={elementView} interactive={false} lang={lang} enableColors />
-        {result === null ? null : (
-          <span className="fw-anno">
-            {dict.t('boardAnnotation', result.params.W, result.params.H, result.params.seed)}
-          </span>
+        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors />
+        {named === null ? null : (
+          <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}
         {/* Its own glyph: `⤢` is the element's fit button (PR 4b, Ruling 3). */}
         <button

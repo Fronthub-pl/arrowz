@@ -110,6 +110,7 @@ function RandomCard(): ReactElement {
  */
 export function SimplePanel({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
+  const view = useStore((state) => state.view)
   const fields = VIEW_FIELDS.filter((field) => SIMPLE_VIEW_FIELDS.includes(field.field))
   const flags = VIEW_FLAGS.filter(({ flag }) => SIMPLE_VIEW_FLAGS.includes(flag))
   return (
@@ -131,10 +132,15 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
       </div>
       <div className="fw-grid">
         {fields.map((field) => (
-          <ViewNumberField key={field.field} field={field} />
+          <ViewNumberField
+            key={field.field}
+            field={field}
+            value={view[field.field]}
+            onCommit={(value) => view.setNumber(field.field, String(value))}
+          />
         ))}
         {flags.map(({ flag, label }) => (
-          <ViewFlagSwitch key={flag} flag={flag} label={label} />
+          <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
       </div>
     </section>

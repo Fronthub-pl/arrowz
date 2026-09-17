@@ -120,4 +120,15 @@ describe('SimplePanel', () => {
     expect(screen.container.querySelector('#view-top')).toBeNull()
     expect(screen.getByRole('switch', { name: /show jammed cells/ }).query()).toBeNull()
   })
+
+  // The third owner of the shared field (Ruling 2). No case here committed a view
+  // field before, which is why `tsc` was the only thing between this panel and a
+  // field that opens empty and throws `onCommit is not a function` on blur.
+  it('a view field in the simple panel still writes the lab’s view', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const stroke = screen.getByRole('spinbutton', { name: /stroke/i })
+    await userEvent.fill(stroke, '0.8')
+    await userEvent.tab()
+    expect(useStore.getState().view.stroke).toBe(0.8)
+  })
 })

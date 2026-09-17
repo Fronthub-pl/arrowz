@@ -1,5 +1,36 @@
+import { genSeconds } from '@arrowz/engine/report'
 import { useDictionary } from '../i18n'
+import { useInLibrary } from '../library/useInLibrary'
+import type { LibraryNotice } from '../state/library.slice'
 import { useStore } from '../state/store'
+
+/**
+ * A compile-time trap, not a runtime one: called only from a `switch`'s
+ * `default` after every named `LibraryNotice.kind` has its own case, so the
+ * parameter's type is `never` if the union and this function still agree. A
+ * sixth kind added to the union without a case here stops compiling right
+ * here, instead of silently falling through to `deleteFailed`'s sentence.
+ */
+function assertNever(value: never): never {
+  throw new Error(`unreachable notice kind: ${JSON.stringify(value)}`)
+}
+
+function noticeText(dict: ReturnType<typeof useDictionary>, notice: LibraryNotice): string {
+  switch (notice.kind) {
+    case 'loading':
+      return dict.t('loadingBoard', notice.name)
+    case 'viewSaved':
+      return dict.t('viewSaved', notice.name)
+    case 'deleted':
+      return dict.t('deletedBoard', notice.name)
+    case 'saveFailed':
+      return dict.t('notSaved')
+    case 'deleteFailed':
+      return dict.t('deleteFailed')
+    default:
+      return assertNever(notice)
+  }
+}
 
 /**
  * The live region. The mock's run state has no `aria-live`, so a screen reader
@@ -15,6 +46,10 @@ export function RunStatusBar() {
   const report = useStore((state) => state.result.shown?.report ?? null)
   const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
+  const preview = useStore((state) => state.result.preview)
+  const boardError = useStore((state) => state.library.boardError)
+  const notice = useStore((state) => state.library.notice)
+  const inLibrary = useInLibrary()
 
   let text: string
   // Whether this line is speaking for a run at all. `saved` is a fact about the
@@ -23,7 +58,31 @@ export function RunStatusBar() {
   // it read `Fix the settings marked in red to generate — saved`: a sentence
   // about a board nobody is looking at, glued to a sentence about the knobs.
   let reportsRun = false
-  if (run.phase === 'running') {
+  // Ruling 8: while the library has a board on screen, the line is about that
+  // board. A stored board is not a run: the store's answer (`saved`) is a fact
+  // about the run's result and is never appended here, and a carve in flight
+  // still reports itself in the lab, where the user can see it.
+  //
+  // Both branches ask the tab and not the preview alone (Ruling O): the route
+  // changes a render before the hook's effect clears these two, so on the way
+  // back to `/` the lab would otherwise announce a stored board for one frame.
+  // Ruling 5: an event outranks the description of a state, because it is the
+  // thing that just happened and the line is the one place to say it. It gives
+  // way on its own, 1200 ms later (`notices.ts`), except for `loading` and
+  // `saveFailed`, which describe a state and are cleared by their outcome.
+  if (inLibrary && notice !== null) {
+    text = noticeText(dict, notice)
+  } else if (inLibrary && boardError !== null) {
+    // The address and the failure arrive as two fields (`BoardError` in
+    // library.slice.ts), so the words around them stay the dictionary's and a
+    // reason carrying a `: ` of its own reaches it whole. They used to arrive
+    // joined by `: `, which this line split back apart — a contract between two
+    // modules about a separator that also occurs inside a reason.
+    text = dict.t('boardFileError', boardError.name, boardError.reason)
+  } else if (inLibrary && preview !== null) {
+    const meta = preview.meta
+    text = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+  } else if (run.phase === 'running') {
     const p = run.progress
     // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
     // measured in cells left, not pieces made, and the two counts are

@@ -395,6 +395,15 @@
 .fw-lab.simple {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
 }
+/* The library has no preset strip either, so it needs `.fw-lab.simple`'s
+   correction for the same reason (PR 4a, Ruling 10): with the first child
+   absent, the stage auto-places into the `auto` row and the console is left
+   with its 180px minimum. Measured before this rule at 1400×900 and 860×900:
+   rows `590.219px 180px 0px`, the console at 180px on every viewport; after
+   it, `385.109px 385.109px`. */
+.fw-lab.library {
+  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+}
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the console, the violations,
    the clamp notice, and whatever a later PR puts beside them — and, inside the
@@ -408,7 +417,15 @@
    Measured: `.fw-boardwrap` equals `.fw-lab` and the element is 34px smaller
    on both axes at 1400×900, 860×900 and 860×650, in both views. */
 .fw-lab.solo,
-.fw-lab.simple.solo {
+.fw-lab.simple.solo,
+/* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a
+   variant's row template whatever order the file ends up in. With
+   `.fw-lab.library` placed above, `.fw-lab.solo` alone would already do it —
+   this selector is the same insurance the simple view carries, not a fix for a
+   live defect. Review round 3 deleted it and no test moved; it also measured
+   that with the variant rule placed *below* the solo rule instead, deleting it
+   turns the library solo case red. Hence the pinned position above. */
+.fw-lab.library.solo {
   grid-template-rows: minmax(0, 1fr);
 }
 .fw-lab.solo > :not(.fw-stage),
@@ -420,8 +437,22 @@
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
+/* The library face (spec §5.1, PR 5a). The run column keeps its node and is
+   hidden, as the old lab hides its lab-only controls (`body.tab-library
+   .labonly`), so a carve in flight keeps its node, its refs and the run
+   itself. A hidden grid item takes no track, so the console drops to the two
+   tracks the library uses — unlike solo's hidden items, which sit in tracks
+   that have to be redefined because `display: none` on the *only* item of a
+   track leaves the track behind. */
+.fw-console.library {
+  grid-template-columns: 168px minmax(0, 1fr);
+}
+.fw-console.library > .fw-run-col {
+  display: none;
+}
 @media (max-width: 900px) {
-  .fw-console {
+  .fw-console,
+  .fw-console.library {
     grid-template-columns: 150px minmax(0, 1fr);
   }
   /* A full-width row under the two tracks, which is the mock's own query. */

@@ -1,4 +1,5 @@
 import { defaultParams } from '@arrowz/engine'
+import { MemoryRouter } from 'react-router'
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
@@ -8,11 +9,20 @@ import { Stage } from './Stage'
  * A parent that rerenders on every run message. Without it the second test
  * cannot fail: `Stage` alone has nothing above it to rerender, so the memo is
  * never asked the question the test is about.
+ *
+ * The router is the frame's and the report column's: both ask which tab is on
+ * screen (`useInLibrary`). It sits inside the probe rather than around each
+ * mount so that a rerender still goes through one router, and it names no
+ * address — every case here is the lab.
  */
 function Probe() {
   useStore((state) => state.run.phase)
   useStore((state) => state.run.progress)
-  return <Stage />
+  return (
+    <MemoryRouter>
+      <Stage />
+    </MemoryRouter>
+  )
 }
 
 const boardEl = (container: HTMLElement) => container.querySelector('arrowz-board')
