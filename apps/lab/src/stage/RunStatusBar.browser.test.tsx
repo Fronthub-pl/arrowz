@@ -226,4 +226,45 @@ describe('RunStatusBar', () => {
     // first render already answers, and a poll would only wait out a wrong one.
     expect(screen.getByRole('status').element().textContent).toBe(EN.t('pressGenerate'))
   })
+
+  // Ruling 5: the newest thing the library did outranks the description of the
+  // board on screen, and gives way again when its own timer takes it back.
+  it('says what the library has just done, ahead of the board it is showing', async () => {
+    const { meta, file } = storedFixture(1)
+    const screen = await mountBar(`/boards/8x8/${meta.id}`)
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+
+    await act(async () => useStore.getState().library.notify({ kind: 'viewSaved', name: `8x8/${meta.id}` }))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved the new view/)
+
+    await act(async () => useStore.getState().library.clearNotice())
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+  })
+
+  it('names the library’s four remaining messages', async () => {
+    const screen = await mountBar('/boards')
+    for (const [notice, words] of [
+      [{ kind: 'loading', name: '8x8/x' }, /Loading 8x8\/x/],
+      [{ kind: 'deleted', name: '8x8/x' }, /Deleted 8x8\/x/],
+      // Not `new RegExp(EN.ui.notSaved)`: that string is `not saved (no store
+      // server)`, whose brackets a regular expression reads as a group, so it
+      // would match a sentence the dictionary does not contain.
+      [{ kind: 'saveFailed' }, /not saved/],
+      [{ kind: 'deleteFailed' }, /Could not delete/],
+    ] as const) {
+      await act(async () => useStore.getState().library.notify(notice))
+      await expect.element(screen.getByRole('status')).toMatchTextContent(words)
+    }
+  })
+
+  // The library's messages belong to the library. A notice left behind must not
+  // speak over a carve on the lab tab.
+  it('says nothing of the library while the lab is the tab', async () => {
+    const screen = await mountBar('/')
+    await act(async () => useStore.getState().library.notify({ kind: 'deleted', name: '8x8/x' }))
+    // From the dictionary, not a regex: the string is `Press "Generate".`, and
+    // review round 1 measured `/Press Generate/` failing on the quotation marks.
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
+  })
 })

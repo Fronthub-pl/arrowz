@@ -19,6 +19,7 @@ export function RunStatusBar() {
   const blocked = useStore((state) => state.params.violations.length > 0)
   const preview = useStore((state) => state.result.preview)
   const boardError = useStore((state) => state.library.boardError)
+  const notice = useStore((state) => state.library.notice)
   const inLibrary = useInLibrary()
 
   let text: string
@@ -36,7 +37,22 @@ export function RunStatusBar() {
   // Both branches ask the tab and not the preview alone (Ruling O): the route
   // changes a render before the hook's effect clears these two, so on the way
   // back to `/` the lab would otherwise announce a stored board for one frame.
-  if (inLibrary && boardError !== null) {
+  // Ruling 5: an event outranks the description of a state, because it is the
+  // thing that just happened and the line is the one place to say it. It gives
+  // way on its own, 1200 ms later (`notices.ts`), except for `loading` and
+  // `saveFailed`, which describe a state and are cleared by their outcome.
+  if (inLibrary && notice !== null) {
+    text =
+      notice.kind === 'loading'
+        ? dict.t('loadingBoard', notice.name)
+        : notice.kind === 'viewSaved'
+          ? dict.t('viewSaved', notice.name)
+          : notice.kind === 'deleted'
+            ? dict.t('deletedBoard', notice.name)
+            : notice.kind === 'saveFailed'
+              ? dict.t('notSaved')
+              : dict.t('deleteFailed')
+  } else if (inLibrary && boardError !== null) {
     // The address and the failure arrive as two fields (`BoardError` in
     // library.slice.ts), so the words around them stay the dictionary's and a
     // reason carrying a `: ` of its own reaches it whole. They used to arrive

@@ -1,8 +1,9 @@
 import { decodeBoard } from '@arrowz/engine'
 import type { ReactNode } from 'react'
 import { expect, test, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook } from 'vitest-browser-react'
-import { MemoryRouter } from 'react-router'
+import { render, renderHook } from 'vitest-browser-react'
+import { userEvent } from 'vitest/browser'
+import { MemoryRouter, useNavigate } from 'react-router'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { useStoredBoard } from './useStoredBoard'
@@ -20,12 +21,23 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-/** A store that answers `/store/<size>/<id>.board.json` from the fixtures. */
+/**
+ * A store that answers `/store/<size>/<id>.board.json` from the fixtures. A
+ * 404 (an id `answers` does not carry) is delayed rather than immediate: a
+ * `userEvent.click` in this project's browser runner does not return until
+ * the page is idle, which an instantly-settling mock reaches inside the same
+ * click — a poll placed after the `await` then never observes the fetch in
+ * flight (measured writing the walking case below: notify and its own clear
+ * both land before `userEvent.click` resolves, every run). 400 ms clears that
+ * window and stays well under `expect.poll`'s 1 s default, so every existing
+ * 404 case, which only polls for the eventual failure, still passes.
+ */
 function stubStore(answers: Record<string, unknown>, status = 200) {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
     const url = String(input)
     const body = Object.entries(answers).find(([id]) => url.includes(id))?.[1]
-    if (body === undefined) return Promise.resolve(new Response('{}', { status: 404 }))
+    if (body === undefined)
+      return new Promise((resolve) => setTimeout(() => resolve(new Response('{}', { status: 404 })), 400))
     return Promise.resolve(new Response(JSON.stringify(body), { status }))
   })
 }
@@ -101,4 +113,64 @@ test('an id the listing does not hold is reported, and clears what was shown', a
 
   await expect.poll(() => useStore.getState().library.boardError?.reason).toBe('not in the store')
   expect(useStore.getState().result.preview).toBeNull()
+})
+
+// The silence PR 5a left on purpose: between the click and the picture the line
+// said nothing about the board being fetched.
+test('a board being fetched says so, and stops saying it when it arrives', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
+  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+  expect(useStore.getState().library.notice).toBeNull()
+})
+
+// The fifth exit (Ruling 14). Review round 2 measured "Loading B…" left on the
+// line for ever: B's fetch is cancelled by the walk back to A, and the effect
+// that runs for A returns early because A is already drawn.
+test('walking away from a board still loading, and back, leaves no loading notice', async () => {
+  stubStore({ [first.meta.id]: first.file })
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta, second.meta] }])
+  // A host that really navigates. `renderHook(...).rerender` takes the hook's
+  // *props* — its signature is `(props?: Props) => Promise<void>` — so handing
+  // it a fresh `MemoryRouter` wrapper changes nothing and the address never
+  // moves: review round 3 measured the first version of this case staying
+  // green with the repair reverted, which makes it no case at all.
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${first.meta.id}`)}>
+          A
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${second.meta.id}`)}>
+          B
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${first.meta.id}`]}>
+      <Walk />
+    </MemoryRouter>,
+  )
+  await expect.poll(() => useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+
+  // B's file never answers; then straight back to A, which is on the stage.
+  stubStore({})
+  await userEvent.click(screen.getByRole('button', { name: 'B' }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
+  await userEvent.click(screen.getByRole('button', { name: 'A' }))
+
+  await expect.poll(() => useStore.getState().library.notice).toBeNull()
+  expect(useStore.getState().result.preview?.meta.id).toBe(first.meta.id)
+})
+
+test('a board that fails to load leaves no loading notice behind', async () => {
+  stubStore({})
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])
+  await renderHook(() => useStoredBoard(), at(`/boards/8x8/${first.meta.id}`))
+  await expect.poll(() => useStore.getState().library.boardError).not.toBeNull()
+  expect(useStore.getState().library.notice).toBeNull()
 })

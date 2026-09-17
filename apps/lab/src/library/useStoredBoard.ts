@@ -25,6 +25,10 @@ export function useStoredBoard(): void {
     if (size === null || id === null) {
       useStore.getState().result.clearPreview()
       useStore.getState().library.boardFailed(null)
+      // Only the word about a fetch. The delete navigates to `/boards` and this
+      // branch runs immediately after it — an unconditional clear here erased
+      // the `deleted` notice within one commit, measured by review round 1.
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
       return
     }
     const meta = metas?.find((entry) => entry.size === size)?.boards.find((board) => board.id === id) ?? null
@@ -37,7 +41,26 @@ export function useStoredBoard(): void {
       if (metas !== null) {
         useStore.getState().result.clearPreview()
         useStore.getState().library.boardFailed({ name: `${size}/${id}`, reason: 'not in the store' })
+        // The fourth of the four exits that must clear `loading`: a board
+        // dropped from the listing while its file was in flight otherwise
+        // leaves "Loading …" on screen for good, over the very error this
+        // line should be printing.
+        useStore.getState().library.clearNotice()
       }
+      return
+    }
+    // A new listing is not a reason to fetch a board that is already drawn:
+    // `listed()` stores a fresh array on every refresh, including the one a
+    // view save makes, and re-fetching brought back the listing's view over an
+    // edit in flight and flashed `loading` over `viewSaved` (Ruling 14).
+    if (useStore.getState().result.preview?.meta.id === id) {
+      // The fifth exit, and the one review round 2 measured stranding a word:
+      // open A, click B, click back to A while B's file is still in flight —
+      // B's cancelled fetch clears nothing and this return used to happen
+      // before any clear, so the line said "Loading B…" for ever over a drawn
+      // board A. Nothing else is touched: an unconditional clear here would
+      // erase the `viewSaved` that a save's own refresh lands on.
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
       return
     }
     let cancelled = false
@@ -47,12 +70,14 @@ export function useStoredBoard(): void {
     // stage shows a board the address does not name, and it lasts exactly as
     // long as the fetch does — every outcome below replaces or clears it.
     useStore.getState().library.boardFailed(null)
+    useStore.getState().library.notify({ kind: 'loading', name: `${size}/${id}` })
     void (async () => {
       const outcome = await readStoredBoard(size, id)
       if (cancelled) return
       const state = useStore.getState()
       const name = `${size}/${id}`
       if (!outcome.ok) {
+        state.library.clearNotice()
         state.result.clearPreview()
         state.library.boardFailed({ name, reason: outcome.error })
         return
@@ -60,9 +85,11 @@ export function useStoredBoard(): void {
       try {
         const board = decodeBoard(outcome.file)
         if (cancelled) return
+        state.library.clearNotice()
         state.result.showPreview({ board, file: outcome.file, meta })
       } catch (err) {
         if (cancelled) return
+        state.library.clearNotice()
         state.result.clearPreview()
         state.library.boardFailed({ name, reason: err instanceof Error ? err.message : String(err) })
       }
