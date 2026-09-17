@@ -284,13 +284,19 @@ from `VIEW_RANGE` at the point of use. Record that where the claim lives.
 
 `apps/lab/src/console/viewFields.test.ts` has **no comment block at the top** —
 four imports and one note about where the types come from. The paragraph that
-talks about the deleted CLI test sits *inside the first test body*, and it
-opens with "What is left of the successor to `carve.test.ts:456-480`". Replace
-that opening clause so it cites nothing that was deleted:
+cites the deleted CLI test sits *inside the first test body*, the one named
+"a step is a step a whole-number field can land on". **That test guards steps,
+not bounds** — do not relabel it as a bounds guard; the bounds are guarded by
+`ViewPanel.browser.test.tsx`, which Task 10 handles.
+
+Replace the whole paragraph with this, which drops the citation and keeps every
+reason the original carried:
 
 ```ts
-  // The only guard that the lab's picture fields stay inside the engine's own
-  // table, now that nothing parses those bounds out of markup.
+  // Once the bounds are read from `VIEW_RANGE` rather than restated, they can
+  // no longer disagree with the CLI, but the step still can — a fractional step
+  // on a field the store rounds would make every arrow press either a no-op or
+  // a jump of one, depending on where the value already sat.
 ```
 
 **Word it exactly as given.** Later tasks sweep this repository for the names
@@ -726,13 +732,14 @@ cd /Users/tomek/dev/arrowz
 grep -rn "lab\.html\|lab-page\|lab-worker\|task bundle\|cli:bundle" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.sh" --include="*.yml" . | grep -v node_modules | grep -v "^\./docs/superpowers" | grep -v "packages/cli/dist"
 ```
 
-Expected: **around seventy hits, and every one of them a comment or a document**
-— roughly sixty comment citations across `apps/lab/src`, six in
-`packages/engine` (`engine.ts`, `command.ts`, `geometry.ts`, `lab-i18n.ts`,
-`neutral.test.ts`, `lab-report.test.ts`), plus `README.md`, `README.pl.md`,
-`CLAUDE.md` and `docs/superpowers/`. Those are Tasks 8 through 11's work and
-are expected here; measured on the branch tip, so a count in that region means
-the sweep is going as planned.
+Expected: **around seventy hits, and every one of them a comment** — measured,
+72 at this point in the plan: roughly sixty comment citations across
+`apps/lab/src` and six in `packages/engine` (`engine.ts`, `command.ts`,
+`geometry.ts`, `lab-i18n.ts`, `neutral.test.ts`, `lab-report.test.ts`). Those
+are Tasks 10 and 11's work and are expected here, so a count in that region
+means the sweep is going as planned. (The documentation files are **not**
+among them: this command's `--include` list admits no `.md`, which is also why
+the `docs/superpowers` filter on it never matches anything.)
 
 **What must NOT appear is a hit on an executable line**: an import, a path
 passed to a function, a task name in a configuration file, a `<script src>`.
@@ -985,7 +992,9 @@ would otherwise still describe the deleted page. Each is a single line:
   it" becomes "and a small application for using it".
 - **`README.md:699`**, in the explanation of *step* — "a value neither the
   slider on the web page nor the printed command could reach again" becomes
-  "neither the slider in the lab nor the printed command".
+  "neither the slider in the lab nor the printed command". **The sentence wraps
+  across two lines in the file**, so a single-line search for it finds nothing;
+  open the line by number.
 - **the word list, `README.md:964`** — "The code and the English web page call
   it a *piece*; the Polish page calls it an *element*" becomes "The code and the
   English text call it a *piece*; the Polish text calls it an *element*".
@@ -1012,17 +1021,18 @@ Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku
 Rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
 uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
 katalogu repozytorium. Laboratorium trzyma plansze w magazynie, który serwuje
-mały program w Deno, więc obok siebie działają dwie komendy:
+mały program w Deno, więc obok siebie działają dwa polecenia:
 
 ```sh
 deno task store        # magazyn plansz, port 8777
 pnpm nx serve lab      # samo laboratorium, port 8779
 ```
 
-Otwórz `http://localhost:8779`. Każdą z komend zatrzymasz klawiszami Ctrl+C.
-Jeśli port 8777 jest już zajęty na twoim komputerze, dopisz inny numer do
-pierwszej komendy: `deno task store 9000` — i powiedz o tym laboratorium,
-zmieniając `LAB_SERVER` w `apps/lab/vite.proxy.ts`.
+Otwórz `http://localhost:8779`. Każde z poleceń zatrzymasz klawiszami Ctrl+C.
+Laboratorium spodziewa się magazynu na porcie 8777; jeśli ten port jest u
+ciebie zajęty, obie strony trzeba nauczyć nowego numeru — magazyn bierze go po
+poleceniu (`deno task store 9000`), a laboratorium czyta go z jednej linii
+w `apps/lab/vite.proxy.ts`.
 ````
 
 As in the English file, the closing paragraph — "Powstaje drugie laboratorium,
@@ -1056,7 +1066,8 @@ And the same four places outside the section as in the English file:
   polecenie".
 - **`README.pl.md:971`**, the word list — "W kodzie i na angielskiej stronie
   nazywa się *piece*; polska strona mówi „element”" becomes "W kodzie i w
-  tekście angielskim nazywa się *piece*; po polsku mówimy „element”".
+  tekście angielskim nazywa się *piece*; po polsku to „element”" (not "mówimy":
+  the file addresses the reader in the second person throughout).
 
 And the table rows:
 
@@ -1290,9 +1301,10 @@ before: // The old lab's own starting values (lab.html:223-262), not DEFAULT_VIE
 after:  // The lab's own starting values, not DEFAULT_VIEW's:
 ```
 
-**Do not invent a citation to replace the one you remove.** The middle example
-above must not gain a "Ruling 7" that the file never carried; if the reason is
-not already written there, you do not have it.
+**Do not invent a citation to replace the one you remove.** In the middle
+example, "Ruling 7" may be carried over only because the same file's header
+already names it eleven lines up; if a reason is not already written in that
+file, you do not have it and must not supply one from memory.
 
 **The five exemptions.** In these places the pointer *is* the reason — the value
 exists only because the retired page wrote it, and a sentence without that fact
@@ -1319,12 +1331,23 @@ carries a reason.** When in doubt, keep the words and drop only the file name.
   branch tip) and these under `packages/`: `engine/lab-report.ts`,
   `engine/lab-report.test.ts`, `engine/lab-i18n.ts` (its first line only — the
   `noStoreServer` entries were Task 4's), `cli/store.ts`, `cli/store.test.ts`
+- **Stylesheets, which the `.ts`/`.tsx` sweep does not reach**:
+  `apps/lab/src/design/console.css` (five citations of `lab.html`, plus "the old
+  lab's `body.solo .cols`" and "the old lab hides its lab-only controls") and
+  `apps/lab/src/design/report.css` ("The gap the old lab drew")
 - Also, because no other task owns them: `apps/lab/eslint.config.js` (the
   comment "Node belongs in the integration test that spawns the lab server, and
   nowhere else", which Task 1 made untrue by adding a second exemption and Task
-  6 renamed the server of), `apps/lab/vite.config.ts` (the comment "8777 is the
-  lab server"), and `apps/lab/src/console/viewFields.test.ts` (a `carve.test.ts`
-  line-range citation in the *first* test, which Task 2 does not reach)
+  6 renamed the server of) and `apps/lab/vite.config.ts` (the comment "8777 is
+  the lab server")
+- **Names of the old world that the main pattern does not match**, and which
+  are wrong in the present tense once Task 6 has run: "the Deno lab"
+  (`state/url.ts`, `state/url.test.ts`, `worker/useGenerator.ts`,
+  `worker/generate.worker.ts`), "the lab server" (`packages/cli/store.ts`,
+  `packages/cli/store.test.ts`, `apps/lab/vite.proxy.ts`, and the failure
+  message `'the lab server never answered'` in
+  `apps/lab/src/api/boards.node.test.ts` — a string, so allowed under this
+  task's rule), and "the lab page and the worker" (`packages/engine/types.ts`)
 - **Do not touch** `docs/superpowers/**` (Ruling 10), and do not rename the
   engine's own modules: `lab-report.ts`, `lab-i18n.ts`, `lab-simple.ts` and
   `lab-presets.ts` are living files whose names have nothing to do with the
@@ -1343,15 +1366,18 @@ carries a reason.** When in doubt, keep the words and drop only the file name.
 
 ```sh
 cd /Users/tomek/dev/arrowz
-grep -rnE "lab-page|lab\.html|lab\.sh|lab-worker|old lab" apps/lab/src packages/engine packages/cli --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v dist/
+grep -rnE "lab-page|lab\.html|lab\.sh|lab-worker|old lab|Deno lab|lab server|lab page" apps/lab/src packages/engine packages/cli --include="*.ts" --include="*.tsx" --include="*.css" | grep -v node_modules | grep -v dist/
 ```
 
-Work the list file by file, highest count first: `App.tsx` (7),
-`ViewPanel.tsx` (6), `ui.slice.ts`, `applyRecipe.ts`,
-`Workspace.browser.test.tsx`. The grep also returns the comments Tasks 2, 3 and
-7 wrote in this same PR — those were worded to survive it; if one of them names
-a deleted file, the earlier task was executed off-script and the fix belongs
-there.
+Note the three additions to the pattern and the `.css` include: the first
+draft's pattern matched neither the stylesheets nor the phrases that name the
+old world without naming its files. Work the list file by file, highest count
+first: `App.tsx` (7), `ViewPanel.tsx` (6), `ui.slice.ts`, `applyRecipe.ts`,
+`Workspace.browser.test.tsx`, `design/console.css`.
+
+The comments Tasks 2, 3 and 7 wrote earlier in this PR do **not** appear here —
+measured. They were worded for exactly that reason. If one of them does appear,
+the earlier task was executed off-script and the fix belongs there, not here.
 
 - [ ] **Step 2: Rewrite, file by file, committing in batches**
 
@@ -1461,9 +1487,11 @@ losing the retirement itself.
 9. **The Polish README keeps its own voice.** Task 8 does not translate the
    English text; it edits the Polish section in place, changing only what
    stopped being true.
-10. **`docs/superpowers/` is left untouched.** Old plans and specs describe the
-    repository as it was when they were written; rewriting history there would
-    destroy the record that explains why things are as they are.
+10. **`docs/superpowers/` and `packages/engine/HISTORY.md` are left untouched.**
+    Old plans, specs and the engineering log describe the repository as it was
+    when they were written — `HISTORY.md` still says `sh prototype/lab.sh`,
+    from before the monorepo — and rewriting history there would destroy the
+    record that explains why things are as they are.
 11. **A false comment is a defect, a stale pointer is a decision.** Task 10 is
     not optional tidying: `command.ts` states that `carve.test.ts` reads
     `lab.html`, and after Task 2 that is untrue. Task 11, by contrast, exists
