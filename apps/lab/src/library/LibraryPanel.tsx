@@ -6,9 +6,8 @@ import { useOpenBoard } from './useOpenBoard'
 
 /**
  * The console's panel track in the library face: the rows in a row that
- * scrolls, and the detail in one that does not (spec §5.1, PR 5b). The old lab
- * scatters the same controls across the aside and the list; one block under the
- * list is what Ruling 1 of the previous plan left room for.
+ * scrolls, and the detail in one that does not (spec §5.1, PR 5b). One block
+ * under the list is what Ruling 1 of the previous plan left room for.
  *
  * `useLibraryList` is called here and nowhere else. Its guard only stops a
  * second fetch after an answer has arrived, so two children calling it against

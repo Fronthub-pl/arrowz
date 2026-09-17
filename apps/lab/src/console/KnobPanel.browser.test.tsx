@@ -113,9 +113,8 @@ describe('the help switch', () => {
     expect(style.visibility).not.toBe('hidden')
   })
 
-  // The whole point of splitting the paragraph. The old lab kept the reason
-  // only by accident: `body.nohelp .help { display: none }` hid the element
-  // and left its `::before` behind.
+  // The whole point of splitting the paragraph: turning the descriptions off
+  // must not take the reason a run is refused off with them.
   it('keeps a violation visible with the descriptions off', async () => {
     useStore.getState().ui.setHelp(false)
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })

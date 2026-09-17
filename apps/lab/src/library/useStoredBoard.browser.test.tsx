@@ -44,8 +44,7 @@ test('the board the address names is decoded and shown', async () => {
   expect(useStore.getState().library.boardError).toBeNull()
 })
 
-// Ruling 8: a file that cannot be read leaves the stage empty and says why, as
-// the old lab's `refuse` does.
+// Ruling 8: a file that cannot be read leaves the stage empty and says why.
 test('a board that cannot be read clears the stage and reports the reason', async () => {
   stubStore({})
   useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta] }])

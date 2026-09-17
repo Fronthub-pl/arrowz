@@ -7,9 +7,8 @@ import { useOpenBoard } from './useOpenBoard'
 
 /**
  * The rail's face in the library: one chip per size, with how many layouts it
- * holds. Choosing a size opens the first board of that size, as the old lab's
- * `selectSize` does (`lab-page.ts:1085-1094`, Ruling 7) — a size with no board
- * cannot be listed, so there is always one to open.
+ * holds. Choosing a size opens the first board of that size (Ruling 7) — a
+ * size with no board cannot be listed, so there is always one to open.
  */
 export function SizeChips(): ReactElement {
   const dict = useDictionary()
@@ -29,8 +28,8 @@ export function SizeChips(): ReactElement {
           type="button"
           aria-pressed={entry.size === current}
           onClick={() => {
-            // Parity with `selectSize` (`lab-page.ts:1085-1094`): a size keeps
-            // the board already open when that board belongs to it, and opens
+            // A size keeps the board already open when that board belongs to
+            // it, and opens
             // its first board otherwise. A chip that always jumped to the first
             // would throw away the board being looked at whenever its own size
             // chip was pressed.

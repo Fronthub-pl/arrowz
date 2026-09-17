@@ -4,9 +4,8 @@ import { useStore } from '../state/store'
 
 /**
  * The listing, fetched when the tab is opened and again on demand. The cache is
- * the slice's, as the old lab's `boardsCache` is (`lab-page.ts:826`): coming
- * back to the tab shows what was there, and only a refresh pays for a new
- * listing (Ruling 7).
+ * the slice's: coming back to the tab shows what was there, and only a refresh
+ * pays for a new listing (Ruling 7).
  *
  * The effect cannot leave a stale answer behind: a `cancelled` flag in its
  * cleanup drops an answer that arrives after the panel is gone, which is also
