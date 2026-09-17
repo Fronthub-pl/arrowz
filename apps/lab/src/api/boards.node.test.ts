@@ -32,7 +32,7 @@ beforeAll(async () => {
       '--allow-read',
       `--allow-write=${boardsDir}`,
       '--allow-env=ARROWZ_BOARDS_DIR',
-      'packages/cli/lab-server.ts',
+      'packages/cli/store-server.ts',
       String(STORE_PORT),
     ],
     { cwd: REPO, env: { ...process.env, ARROWZ_BOARDS_DIR: boardsDir } },
@@ -78,8 +78,8 @@ test('a GET through the proxy reaches the store', async () => {
 })
 
 // The whole point of the task. The server refuses a write whose Origin is not
-// its own (lab-server.ts:77); this proves the proxy leaves the pair
-// consistent, and it is what would go red if changeOrigin were ever added.
+// its own (store-server.ts's refusal()); this proves the proxy leaves the
+// pair consistent, and it is what would go red if changeOrigin were ever added.
 test('a POST through the proxy is accepted, Origin and all', async () => {
   const params = { ...defaultParams(), W: 12, H: 12, seed: 3 }
   const result = generate(params)

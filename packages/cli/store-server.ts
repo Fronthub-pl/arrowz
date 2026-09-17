@@ -253,7 +253,7 @@ async function readBody(req: Request, limit: number): Promise<string | null> {
   return new TextDecoder().decode(all)
 }
 
-export function createLabServer(): (req: Request) => Promise<Response> {
+export function createStoreServer(): (req: Request) => Promise<Response> {
   return async (req) => {
     const url = new URL(req.url)
     const refused = refusal(req, url)
@@ -328,6 +328,6 @@ if (import.meta.main) {
       hostname: '127.0.0.1',
       onListen: () => console.log(`Board store: http://localhost:${port}/api/boards   (Ctrl+C stops)`),
     },
-    createLabServer(),
+    createStoreServer(),
   )
 }

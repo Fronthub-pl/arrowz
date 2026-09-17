@@ -2,14 +2,14 @@ import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname } from '@std/path'
 import { defaultParams, encodeBoard } from '@arrowz/engine'
 import { COMMAND_PREFIX } from '@arrowz/engine/command'
-import { API_CSP, createLabServer, MAX_BODY, STORE_CSP } from './lab-server.ts'
+import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 import { saveBoard } from './store.ts'
 import type { BoardMeta, BoardSize } from '@arrowz/engine'
 
 /** One server per test on a fresh, empty store; shut down before the sanitizers look. */
 async function withServer(fn: (base: string) => Promise<void>) {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const server = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, createLabServer())
+  const server = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, createStoreServer())
   try {
     await fn(`http://127.0.0.1:${server.addr.port}`)
   } finally {
@@ -148,7 +148,7 @@ Deno.test('POST refuses a body that is not JSON (400)', () =>
 // adds one when the request goes out), so this covers the streamed cap only.
 Deno.test('POST refuses a body larger than the cap, read as a stream (413)', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   const big = await handle(
     new Request('http://localhost:8777/api/boards', {
       method: 'POST',
@@ -164,7 +164,7 @@ Deno.test('POST refuses a body larger than the cap, read as a stream (413)', asy
 // read, which the streamed case above cannot reach (it sends no such header).
 Deno.test('POST refuses a body whose declared Content-Length exceeds the cap (413)', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   const big = await handle(
     new Request('http://localhost:8777/api/boards', {
       method: 'POST',
@@ -272,7 +272,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one give
 
 Deno.test('requests for another host, and writes from another origin, are refused', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   // DNS rebinding: a hostile domain resolved to 127.0.0.1 arrives with its own Host.
   const rebound = await handle(new Request('http://evil.example:8777/api/boards'))
   assertEquals(rebound.status, 403)

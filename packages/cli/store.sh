@@ -12,4 +12,4 @@ PORT=${1:-8777}
 BOARDS=${ARROWZ_BOARDS_DIR:-$PWD/boards}
 mkdir -p "$BOARDS"
 exec deno run --allow-net=127.0.0.1 --allow-read="$BOARDS" --allow-write="$BOARDS" --allow-env=ARROWZ_BOARDS_DIR \
-  lab-server.ts "$PORT"
+  store-server.ts "$PORT"
