@@ -80,11 +80,13 @@ before Task 5 deletes `lab-bundle.test.ts`.
 
 - [ ] **Step 1: Give the script room in ESLint**
 
-Without this the script cannot even be linted. Measured on 2026-09-17 against a
-throw-away file with these exact imports: three errors — `node:fs` and
-`node:process` both `no-restricted-imports`, and `console` `no-undef` (the
-`.mjs` file is not TypeScript, so typescript-eslint does not silence
-`no-undef` for it).
+Without this the script cannot even be linted. Measured against the script as
+Step 2 writes it: **four** errors — `node:fs` and `node:process` both
+`no-restricted-imports`, and `console` **and `URL`** both `no-undef` (the
+`.mjs` file is not TypeScript, so typescript-eslint does not silence `no-undef`
+for it, and `globals` is not a dependency of this project, so the globals are
+listed by hand). An earlier measurement of this plan said three, because the
+file it measured did not call `new URL(...)`; the script calls it twice.
 
 In `apps/lab/eslint.config.js`, add this block immediately **before** the
 existing `{ files: ['**/*.node.test.ts'], ... }` block:
@@ -94,7 +96,7 @@ existing `{ files: ['**/*.node.test.ts'], ... }` block:
   // an exit code. The application itself still may not import node: modules.
   {
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { console: 'readonly' } },
+    languageOptions: { globals: { console: 'readonly', URL: 'readonly' } },
     rules: { 'no-restricted-imports': 'off' },
   },
 ```
@@ -153,7 +155,10 @@ const mine = generate(params)
 globalThis.onmessage({ data: { type: 'generate', params } })
 const done = messages.find((m) => m.type === 'done')
 check(done !== undefined && done.ok === true, 'the built worker closes a 20x20 board')
-check(done !== undefined && fingerprint(decodeBoard(done.board)) === fingerprint(mine.board), 'its board is the engine’s board')
+check(
+  done !== undefined && fingerprint(decodeBoard(done.board)) === fingerprint(mine.board),
+  'its board is the engine’s board',
+)
 check(done?.board?.fingerprint === fingerprint(mine.board), 'the board file it hands over carries that fingerprint')
 check(done?.pieces === mine.board.pieces.length, 'it counts the pieces the engine counts')
 
@@ -213,8 +218,13 @@ sed -i '' 's/generate(message.params, {/generate({ ...message.params, seed: mess
 pnpm nx build lab --skip-nx-cache && pnpm nx smoke lab --skip-nx-cache
 ```
 
-Expected: `FAIL its board is the engine's board`, `FAIL the board file it hands
-over carries that fingerprint`, and a non-zero exit. Then restore it:
+Expected: **three** FAIL lines and a non-zero exit — `its board is the engine's
+board`, `the board file it hands over carries that fingerprint`, and `it counts
+the pieces the engine counts`, because a board of seed 8 has a different number
+of pieces than one of seed 7. The two `ok` lines that remain are the ones this
+mutation does not touch: the board still closes, and the SVG message still
+draws from the board it is handed. (The script prints a curly apostrophe in
+`engine's`; a grep for the straight one finds nothing.) Then restore it:
 
 ```sh
 git checkout apps/lab/src/worker/generate.worker.ts
@@ -270,14 +280,23 @@ it. That is why the next step runs both.
 - [ ] **Step 3: Record where the guard lives now**
 
 The coverage is not lost: `apps/lab/src/console/viewFields.ts` reads each bound
-from `VIEW_RANGE` at the point of use. Extend the comment at the top of
-`apps/lab/src/console/viewFields.test.ts` with one sentence:
+from `VIEW_RANGE` at the point of use. Record that where the claim lives.
+
+`apps/lab/src/console/viewFields.test.ts` has **no comment block at the top** —
+four imports and one note about where the types come from. The paragraph that
+talks about the deleted CLI test sits *inside the first test body*, and it
+opens with "What is left of the successor to `carve.test.ts:456-480`". Replace
+that opening clause so it cites nothing that was deleted:
 
 ```ts
-// Since PR 8 retired the old lab, this file is the only guard that the lab's
-// picture fields stay inside the engine's own table: `carve.test.ts` used to
-// parse `min`/`max` out of `lab.html` and compare them with `VIEW_RANGE`.
+  // The only guard that the lab's picture fields stay inside the engine's own
+  // table, now that nothing parses those bounds out of markup.
 ```
+
+**Word it exactly as given.** Later tasks sweep this repository for the names
+of the deleted files and for the phrase that dates this work; a comment written
+here containing either would be swept away by a task that does not know why it
+was written.
 
 - [ ] **Step 4: Run both sides**
 
@@ -327,7 +346,10 @@ Deno.test('stored files are served without cache; paths escaping the store are r
     const { meta } = await saveBoard({
       board: emptyFile(10, 10),
       params: { ...defaultParams(), W: 10, H: 10, seed: 11 },
-      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0 },
+      // `rounded` is required by `View` (`types.ts`). The POST-body tests in
+      // this file omit it because their body crosses as `unknown`; a typed
+      // `saveBoard` call does not get that licence and fails `deno check`.
+      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: false },
       command: 'x',
       source: 'cli',
     })
@@ -357,9 +379,9 @@ headers" with:
 ```ts
 Deno.test('only the store is served, with security headers', () =>
   withServer(async (base) => {
-    // Sources, configuration and the bundle path the old lab used all answer
-    // the same way now: there is nothing here but the API and the store.
-    for (const path of ['/carve.ts', '/store.ts', '/deno.json', '/dist/lab-page.js', '/store/..%2Fcarve.ts']) {
+    // Sources, configuration and a bundle path all answer the same way now:
+    // there is nothing here but the API and the store.
+    for (const path of ['/carve.ts', '/store.ts', '/deno.json', '/dist/anything.js', '/store/..%2Fcarve.ts']) {
       const r = await fetch(base + path)
       assert(r.status === 404 || r.status === 403, `${path} gave ${r.status}`)
       await r.body?.cancel()
@@ -389,7 +411,9 @@ Deno.test('only the store is served, with security headers', () =>
 Change the import at the top of the file from `LAB_CSP` to `API_CSP`.
 
 Run: `cd packages/cli && deno test --allow-read --allow-write --allow-env --allow-run --allow-net lab-server.test.ts`
-Expected: FAIL — `API_CSP` does not exist yet, and `/` still answers 200.
+Expected: FAIL **at type-check, before a single test runs** — `TS2305`, the
+module has no export `API_CSP`. Deno type-checks the file first, so nothing is
+yet observable about what `/` answers; that only becomes measurable in Step 3.
 
 - [ ] **Step 2: Empty the router**
 
@@ -436,12 +460,26 @@ Replace the path handling in `createLabServer` — the `rel` assignment and the
 Delete the `hint` that pointed at `deno task bundle` in the 404 branch below,
 leaving `return send(404, '{"error":"not found"}')`.
 
-Then remove what has become unused: the `ROOT` constant, and `dirname`,
-`fromFileUrl` and `join` from the `@std/path` import if nothing else in the
-file uses them (check with `grep -n "ROOT\|dirname\|fromFileUrl\|join(" lab-server.ts`).
+Then remove what has become unused. `deno lint` is the arbiter, and it reports
+them in waves: `ROOT` first, then `dirname` and `fromFileUrl` once `ROOT` is
+gone. **`join` stays** — `normalize(join(baseDir, area.name))` still uses it.
+Run `deno lint` after each removal rather than deleting by eye.
 
-Update the module comment at the top so it describes a store server, and the
-`onListen` line so it prints what there is to open:
+Replace the module comment at the top with one that describes what is left.
+Do **not** name the task or the script here: they are still called `lab` and
+`lab.sh` at this point in the plan, and Task 4 renames them. Task 4 adds the
+sentence that names them.
+
+```ts
+// The board store over HTTP: the store's own API under /api/boards (GET list,
+// POST save a board file, DELETE one) and the stored files themselves under
+// /store/. The files answer to /store/ and not to /boards/ because /boards is
+// the lab application's library route and /boards/<size>/<id> is a board's own
+// address there (spec §5.6); the directory on disk is unchanged. Nothing else
+// is served: this process has no page of its own.
+```
+
+And the `onListen` line, so it prints what there is to open:
 
 ```ts
       onListen: () => console.log(`Board store: http://localhost:${port}/api/boards   (Ctrl+C stops)`),
@@ -452,11 +490,26 @@ Update the module comment at the top so it describes a store server, and the
 Run: `cd packages/cli && deno test --allow-read --allow-write --allow-env --allow-run --allow-net lab-server.test.ts`
 Expected: PASS, all tests in the file.
 
-- [ ] **Step 4: Prove the guard still guards**
+- [ ] **Step 4: Prove both guards still guard**
 
-The path check is security code; a rewrite must not weaken it. Temporarily
-change `if (!rel.startsWith('/store/'))` to `if (false)` and run the tests
-again: the escaping-path case must go red. Restore the line by hand and rerun.
+There are **two** path checks here, and they catch different things. Mutate
+each one separately, and watch the assertion named below go red — if a
+different one reddens, the guard is not doing what this step claims.
+
+1. **The area check.** Change `if (!rel.startsWith('/store/'))` to
+   `if (false)` and rerun. Red: `assertEquals(root.status, 404)` in "stored
+   files are served without cache" — `/` becomes an empty name inside the store
+   and answers 403 instead of 404. It is **not** the escaping-path case that
+   reddens: `/store/..%2F..%2Fengine.ts` is still caught by the second guard,
+   and the five-path loop in the other test still passes, because those paths
+   merely become junk names that are missing from the store.
+2. **The containment check.** Restore the first, then change
+   `if (!file.startsWith(baseDir + SEPARATOR))` to `if (false)` and rerun.
+   Red: `assertEquals(escape.status, 403)`. This is the one that keeps a
+   request inside the store directory.
+
+Restore both lines by hand and rerun: all tests in the file pass. **A mutation
+left in the tree is a defect shipped.**
 
 - [ ] **Step 5: Commit**
 
@@ -509,8 +562,19 @@ exec deno run --allow-net=127.0.0.1 --allow-read="$BOARDS" --allow-write="$BOARD
 ```
 
 Note the permission narrowing: `--allow-read=.` becomes `--allow-read="$BOARDS"`,
-because nothing outside the store is served any more. The module is still named
-`lab-server.ts` here; Task 6 renames it and this line with it.
+because nothing outside the store is served any more. Measured: Deno loads local
+modules and its JSR cache without read permission, and the module reads only the
+store at run time, so nothing breaks. The module is still named `lab-server.ts`
+here; Task 6 renames it and this line with it.
+
+Then finish the module comment Task 3 left deliberately incomplete — it could
+not name a task and a script that did not exist yet. Append one sentence to the
+comment block at the top of `packages/cli/lab-server.ts`:
+
+```ts
+// Run: deno task store (store.sh scopes the permissions: net on 127.0.0.1,
+// read and write of the store, one env var).
+```
 
 - [ ] **Step 2: Rename the tasks**
 
@@ -545,13 +609,30 @@ and the Polish one to:
 
 Two browser tests match this text, both in
 `apps/lab/src/library/LibraryPanel.browser.test.tsx`, with the regular
-expression `/No store server/` — the part that does not change. Measured on
-2026-09-17: no test edit is needed, but run them rather than trusting this
-sentence:
+expression `/No store server/` — the part that does not change. So no test edit
+is needed, and **no test can tell you whether you made this edit correctly**;
+that was measured, not assumed. Know why before you rely on the run below:
+
+**The lab reads the dictionary from the engine's built `dist/`.**
+`packages/engine/package.json` maps `./i18n` to `./dist/lab-i18n.js`, and
+`apps/lab/node_modules/@arrowz/engine` is a symlink to the package. Editing the
+source and running `vitest` directly tests the **old** string — measured: the
+two tests passed against `lab.sh` after the source already said `store.sh`. The
+command below is safe because Nx rebuilds the engine first (`test` carries
+`dependsOn: ["^build"]` and `lab-i18n.ts` is in the engine's `production`
+inputs); a bare `pnpm --filter @arrowz/lab exec vitest run` is not.
 
 ```sh
 cd /Users/tomek/dev/arrowz && pnpm nx test lab && pnpm nx test engine
 ```
+
+Then confirm the edit reached the artefact, because the tests will not:
+
+```sh
+grep -o "noStoreServer: '[^']*'" packages/engine/dist/lab-i18n.js
+```
+
+Expected: both lines name `store.sh`.
 
 Then correct the comment in `apps/lab/src/library/BoardList.tsx` that says an
 unreachable store "asks for `lab.sh`": it asks for `store.sh` now.
@@ -564,8 +645,12 @@ ARROWZ_BOARDS_DIR=$(mktemp -d) sh packages/cli/store.sh 8791 &
 sleep 2
 curl -s -o /dev/null -w 'api %{http_code}\n' http://localhost:8791/api/boards
 curl -s -o /dev/null -w 'root %{http_code}\n' http://localhost:8791/
-kill %1
+kill %1 2>/dev/null || pkill -f 'store.sh 8791'
 ```
+
+(`kill %1` needs interactive job control; in a non-interactive shell it does
+nothing, which is why the fallback is there. Leaving a server on port 8791
+behind will make the next run of this step look like a success it is not.)
 
 Expected: `api 200` and `root 404`. Use a temporary store: this must not touch
 `packages/cli/boards/`.
@@ -628,6 +713,12 @@ Measured on 2026-09-17: `nx` exits 0 with "No tasks were run" when no project
 owns a named target, so leaving `bundle` there would not redden CI — it is
 removed because it names something that no longer exists.
 
+While in `packages/cli/project.json`, drop `board-element` from
+`implicitDependencies`, leaving `["engine"]`. That edge existed because the
+bundle imported the board element through `lab-page.ts`, which this task
+deletes; left in place it keeps invalidating the CLI's Nx cache and widening
+`affected` on every board-element change, for nothing.
+
 - [ ] **Step 3: Prove nothing still points at the deleted files**
 
 ```sh
@@ -635,10 +726,18 @@ cd /Users/tomek/dev/arrowz
 grep -rn "lab\.html\|lab-page\|lab-worker\|task bundle\|cli:bundle" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.sh" --include="*.yml" . | grep -v node_modules | grep -v "^\./docs/superpowers" | grep -v "packages/cli/dist"
 ```
 
-Expected: no hits outside `docs/superpowers/` (old plans and specs describe
-history and are left as written) and outside `README`/`CLAUDE.md`, which Tasks
-8 and 9 rewrite. If anything else appears, it is a reader nobody accounted for
-— stop and report it rather than deleting around it.
+Expected: **around seventy hits, and every one of them a comment or a document**
+— roughly sixty comment citations across `apps/lab/src`, six in
+`packages/engine` (`engine.ts`, `command.ts`, `geometry.ts`, `lab-i18n.ts`,
+`neutral.test.ts`, `lab-report.test.ts`), plus `README.md`, `README.pl.md`,
+`CLAUDE.md` and `docs/superpowers/`. Those are Tasks 8 through 11's work and
+are expected here; measured on the branch tip, so a count in that region means
+the sweep is going as planned.
+
+**What must NOT appear is a hit on an executable line**: an import, a path
+passed to a function, a task name in a configuration file, a `<script src>`.
+That is the reader nobody accounted for. Read every hit and classify it; if one
+is executable, stop and report it rather than deleting around it.
 
 - [ ] **Step 4: Run the Deno gate whole**
 
@@ -666,7 +765,8 @@ git commit -m "Delete the old lab page, its worker and the bundle that built the
   `apps/lab/vite.proxy.ts` (the comment naming the task and the server),
   `apps/lab/src/api/boards.node.test.ts` (**it spawns the module by path** —
   `'packages/cli/lab-server.ts'` in the `spawn` arguments, and a comment citing
-  `lab-server.ts:77`)
+  `lab-server.ts:77`), `packages/engine/types.ts` (a doc comment naming
+  `lab-server.ts`'s `checkMetrics`)
 
 **Interfaces:**
 - Consumes: Task 3's `API_CSP`, Task 4's `store.sh`.
@@ -723,7 +823,7 @@ if the rename missed a path, it fails here.
 - [ ] **Step 5: Commit**
 
 ```sh
-git add -A packages/cli apps/lab/vite.proxy.ts
+git add -A packages/cli apps/lab/vite.proxy.ts apps/lab/src/api/boards.node.test.ts packages/engine/types.ts
 git commit -m "Name the store server for what it serves"
 ```
 
@@ -747,11 +847,10 @@ DOM-only set. Add to `packages/engine/neutral.test.ts`, after the existing
 test:
 
 ```ts
-// Until PR 8 the rule "the dom lib is referenced only in lab-page.ts" was a
-// sentence in CLAUDE.md with one file as its exception. The exception is gone
-// with the old lab, so the rule can be a test: nothing in the CLI package may
-// reach for a browser. `Deno.` is deliberately not among the patterns — that
-// package is a Deno program.
+// The rule "the dom lib belongs to no file here" used to carry an exception,
+// and an exception cannot be tested. It has none now, so the rule becomes a
+// test: nothing in the CLI package may reach for a browser. `Deno.` is
+// deliberately not among the patterns — that package is a Deno program.
 const DOM_ONLY = [/\bdocument\./, /\bwindow\./, /\blocalStorage\b/, /\bHTMLElement\b/, /\bnavigator\./]
 
 Deno.test('no file in packages/cli reaches for the DOM', () => {
@@ -767,12 +866,25 @@ Deno.test('no file in packages/cli reaches for the DOM', () => {
 })
 ```
 
-- [ ] **Step 2: Run it and see it pass**
+- [ ] **Step 2: Fix the file's own header, which states the exception**
+
+The third line of `neutral.test.ts` still carries the rule in its old form —
+"The compiler keeps DOM out (no dom lib outside lab-page.ts); this test keeps
+the rest out." Replace that parenthesis:
+
+```ts
+// The runtime-neutral modules must stay importable from a browser and from
+// Angular: no Deno, DOM, Node or process API. The compiler keeps DOM out of
+// them; this test keeps the rest out, and the test below keeps the DOM out of
+// the CLI package too.
+```
+
+- [ ] **Step 3: Run it and see it pass**
 
 Run: `cd packages/engine && deno test --allow-read neutral.test.ts`
 Expected: PASS.
 
-- [ ] **Step 3: Prove it can fail**
+- [ ] **Step 4: Prove it can fail**
 
 A test written after the fact must be shown to bite. Append a line to a CLI
 file and watch it go red:
@@ -788,7 +900,7 @@ Expected: FAIL naming `packages/cli/store.ts`. Then remove the line by hand
 proves the pattern matches comments too, which is intended — a browser API
 named in a comment in this package is already a mistake.**
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```sh
 git add packages/engine/neutral.test.ts
@@ -812,8 +924,11 @@ git commit -m "Guard the rule the old lab used to be the exception to"
 
 - [ ] **Step 1: Rewrite the English section**
 
-Replace the whole `## The web page` section — from the heading down to the
-paragraph beginning "A second lab is being built at `apps/lab`" — with:
+Replace the whole `## The web page` section — the heading, every paragraph
+under it, **and the closing paragraph beginning "A second lab is being built at
+`apps/lab`" itself** (it is replaced, not kept: the sentence "It does not
+replace the page above yet" would otherwise contradict everything above it) —
+with:
 
 ````markdown
 ## The lab
@@ -829,10 +944,10 @@ deno task store        # the board store, port 8777
 pnpm nx serve lab      # the lab itself, port 8779
 ```
 
-Open `http://localhost:8779`. Stop each with Ctrl+C. If 8777 is already in use
-on your computer, put another number after the first command: `deno task store
-9000` — and tell the lab about it by changing `LAB_SERVER` in
-`apps/lab/vite.proxy.ts`.
+Open `http://localhost:8779`. Stop each with Ctrl+C. The lab expects the store
+on 8777; if that port is taken on your computer, both sides have to be told the
+new number — the store takes it after the command (`deno task store 9000`), and
+the lab reads it from one line in `apps/lab/vite.proxy.ts`.
 
 The lab has two modes, and a Polish/English switch.
 
@@ -854,11 +969,26 @@ it. The command stays on screen, so you can still copy rejected settings.
 Then replace the troubleshooting entry:
 
 ```markdown
-**The lab shows nothing** — the lab is a Vite application: `pnpm nx serve lab`
-serves it on port 8779, and opening a file from your file manager does not
-work. If the board library is empty or refuses to save, the store is not
-running: start `deno task store` beside it.
+**The lab shows nothing** — the lab is served, not opened: it needs `pnpm nx
+serve lab` running, and lives at `http://localhost:8779`. If the board library
+is empty or refuses to save, the other half is missing: start `deno task store`
+beside it.
 ```
+
+Then four places outside the section, which a reader meets before it and which
+would otherwise still describe the deleted page. Each is a single line:
+
+- **the table of contents, `README.md:28`** — `7. [The web page](#the-web-page)`
+  becomes `7. [The lab](#the-lab)`. The anchor is derived from the heading, so
+  renaming the heading breaks this link silently.
+- **the opening description, `README.md:8`** — "and a small web page for using
+  it" becomes "and a small application for using it".
+- **`README.md:699`**, in the explanation of *step* — "a value neither the
+  slider on the web page nor the printed command could reach again" becomes
+  "neither the slider in the lab nor the printed command".
+- **the word list, `README.md:964`** — "The code and the English web page call
+  it a *piece*; the Polish page calls it an *element*" becomes "The code and the
+  English text call it a *piece*; the Polish text calls it an *element*".
 
 And in the "Where things live" table, delete the `lab.html`, `lab-page.ts` row,
 and change the last two rows to:
@@ -895,19 +1025,38 @@ pierwszej komendy: `deno task store 9000` — i powiedz o tym laboratorium,
 zmieniając `LAB_SERVER` w `apps/lab/vite.proxy.ts`.
 ````
 
+As in the English file, the closing paragraph — "Powstaje drugie laboratorium,
+w `apps/lab`…" — **is deleted**, not kept.
+
 The remaining paragraphs of the Polish section (two modes, the two things the
 lab does, the red row) stay as they are: they describe behaviour that did not
-change. Replace only the word "Strona" with "Laboratorium" where it is the
-subject.
+change. Replace the word "strona" with "laboratorium" where it is the subject —
+**both where it is capitalised at the start of a sentence and where it is not**
+("Dwie rzeczy, które **strona** robi" → "które **laboratorium** robi"), keeping
+the verb agreement neuter ("Strona ma dwa tryby" → "Laboratorium ma dwa tryby").
 
 The troubleshooting entry becomes:
 
 ```markdown
-**Laboratorium nic nie pokazuje** — laboratorium to aplikacja Vite: `pnpm nx
-serve lab` serwuje je na porcie 8779, a otwarcie pliku z menedżera plików nie
-zadziała. Jeśli biblioteka plansz jest pusta albo zapis się nie udaje, nie
-działa magazyn: uruchom obok `deno task store`.
+**Laboratorium nic nie pokazuje** — laboratorium jest serwowane, a nie
+otwierane: musi działać `pnpm nx serve lab`, a adres to
+`http://localhost:8779`. Jeśli biblioteka plansz jest pusta albo zapis się nie
+udaje, brakuje drugiej połowy: uruchom obok `deno task store`.
 ```
+
+And the same four places outside the section as in the English file:
+
+- **`README.pl.md:28`** — `7. [Strona internetowa](#strona-internetowa)` becomes
+  `7. [Laboratorium](#laboratorium)`.
+- **`README.pl.md:8`** — "narzędzie wiersza poleceń i mała strona internetowa do
+  sterowania nim" becomes "narzędzie wiersza poleceń i mała aplikacja do
+  sterowania nim".
+- **`README.pl.md:700`** — "takiej wartości nie sięgnie ani suwak na stronie,
+  ani wypisane polecenie" becomes "ani suwak w laboratorium, ani wypisane
+  polecenie".
+- **`README.pl.md:971`**, the word list — "W kodzie i na angielskiej stronie
+  nazywa się *piece*; polska strona mówi „element”" becomes "W kodzie i w
+  tekście angielskim nazywa się *piece*; po polsku mówimy „element”".
 
 And the table rows:
 
@@ -987,9 +1136,20 @@ In the `## Packages` section:
   exist:
 
 ```markdown
-- `deno task check`, `deno task verify` and `pnpm nx serve lab` need
-  `corepack enable pnpm && pnpm install` once: the lab imports the board
-  element, whose Lit resolves only from `packages/board-element/node_modules`.
+- `pnpm nx serve lab` and the rest of the Nx targets need
+  `corepack enable pnpm && pnpm install` once. The Deno gates no longer do:
+  the only file under `packages/` that imported the board element was the lab
+  page, so `deno task check` and `deno task lint` pass with no `node_modules`
+  at all (measured after the deletion by moving
+  `packages/board-element/node_modules` aside).
+```
+
+- the bullet in the Packages section that spells out what the Deno gate runs —
+  "`deno task verify` (check, lint, fmt, test, bundle)" — loses its last word:
+
+```markdown
+  (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
+  every change, and `deno task verify` (check, lint, fmt, test) before a PR.
 ```
 
 - [ ] **Step 2: Read the file back against the repository**
@@ -1089,14 +1249,18 @@ becomes a statement about what is, not what will be:
  * measured against `VIEW_RANGE` in one place rather than two.
 ```
 
-- [ ] **Step 3: Prove nothing still promises PR 8**
+- [ ] **Step 3: Prove nothing still promises this PR as the future**
 
 ```sh
 cd /Users/tomek/dev/arrowz
 grep -rnE "PR 8|survive the deletion|a file PR|dies with lab\.html" apps/lab/src packages/engine --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v dist/
 ```
 
-Expected: no hits.
+Expected: no hits — **and this is only true because Tasks 2 and 7 were told to
+word their new comments without naming this PR.** If a hit appears in
+`viewFields.test.ts` or `neutral.test.ts`, it is not a leftover: an earlier
+task was executed with different wording than the plan gave, and the fix
+belongs there, not here.
 
 - [ ] **Step 4: Run both gates' fast halves and commit**
 
@@ -1119,22 +1283,48 @@ this series produced; only the citation of a deleted file goes.
 before: // Two clicks, as the old lab asks: the first arms, the second removes.
 after:  // Two clicks: the first arms, the second removes.
 
-before: // Parity with `selectSize` (`lab-page.ts:1085-1094`, Ruling 7): a size keeps
-after:  // Ruling 7: a size keeps
+before: // Parity with `selectSize` (`lab-page.ts:1085-1094`): a size keeps
+after:  // A size keeps
 
 before: // The old lab's own starting values (lab.html:223-262), not DEFAULT_VIEW's:
 after:  // The lab's own starting values, not DEFAULT_VIEW's:
 ```
+
+**Do not invent a citation to replace the one you remove.** The middle example
+above must not gain a "Ruling 7" that the file never carried; if the reason is
+not already written there, you do not have it.
+
+**The five exemptions.** In these places the pointer *is* the reason — the value
+exists only because the retired page wrote it, and a sentence without that fact
+records nothing. Here, and only here, keep the reference in the form **"the
+previous lab"**, with no file name and no line number:
+
+| Where | Why it is exempt |
+|---|---|
+| `state/ui.slice.ts`, `MODE_KEY = 'labView'` and its neighbours | the key exists because the retired page wrote it into people's browsers |
+| `library/useViewSave.ts`, `SETTLE_MS = 350` | without the provenance, nothing explains why 350 |
+| `console/ViewPanel.tsx`, "the order the old lab lists them" | there is no other source for that order |
+| `stage/RunStatusBar.tsx`, the two-words divergence | it records a deliberate difference from the retired page |
+| the test titles in `state/preferences.browser.test.ts`, `state/url.test.ts`, `state/view.slice.test.ts`, `state/ui.slice.test.ts`, `simple/applyRecipe.test.ts` | they name the artefacts users still have: keys and links the retired page produced |
+
+These are the only hits the final grep may return, and it returns them as
+"previous lab", never as `lab-page.ts` or `lab.html`.
 
 If removing the pointer would leave a sentence that no longer says anything,
 rewrite it to state the rule the code follows. **Never delete a sentence that
 carries a reason.** When in doubt, keep the words and drop only the file name.
 
 **Files:**
-- Modify: 68 files under `apps/lab/src` (134 references) and these under
-  `packages/`: `engine/lab-report.ts`, `engine/lab-report.test.ts`,
-  `engine/lab-i18n.ts` (its first line only — the `noStoreServer` entries were
-  Task 4's), `cli/store.ts`, `cli/store.test.ts`
+- Modify: 68 files under `apps/lab/src` (**129** references, measured on the
+  branch tip) and these under `packages/`: `engine/lab-report.ts`,
+  `engine/lab-report.test.ts`, `engine/lab-i18n.ts` (its first line only — the
+  `noStoreServer` entries were Task 4's), `cli/store.ts`, `cli/store.test.ts`
+- Also, because no other task owns them: `apps/lab/eslint.config.js` (the
+  comment "Node belongs in the integration test that spawns the lab server, and
+  nowhere else", which Task 1 made untrue by adding a second exemption and Task
+  6 renamed the server of), `apps/lab/vite.config.ts` (the comment "8777 is the
+  lab server"), and `apps/lab/src/console/viewFields.test.ts` (a `carve.test.ts`
+  line-range citation in the *first* test, which Task 2 does not reach)
 - **Do not touch** `docs/superpowers/**` (Ruling 10), and do not rename the
   engine's own modules: `lab-report.ts`, `lab-i18n.ts`, `lab-simple.ts` and
   `lab-presets.ts` are living files whose names have nothing to do with the
@@ -1142,9 +1332,12 @@ carries a reason.** When in doubt, keep the words and drop only the file name.
 
 **Interfaces:**
 - Consumes: every earlier task.
-- Produces: nothing. This task changes comments only — **not one line of
-  executable code**. That is also how it is reviewed: a diff with a behavioural
-  change in it has a bug in it.
+- Produces: nothing. The rule for this diff is **no change of behaviour** —
+  comments and test titles may change, logic may not. (Test titles are on
+  executable lines but describe rather than compute; nine of them name the
+  retired page. An earlier draft of this plan forbade touching any executable
+  line, which made the sweep impossible to finish.) The proof is that the same
+  tests pass, in the same number, before and after.
 
 - [ ] **Step 1: List the work**
 
@@ -1153,8 +1346,12 @@ cd /Users/tomek/dev/arrowz
 grep -rnE "lab-page|lab\.html|lab\.sh|lab-worker|old lab" apps/lab/src packages/engine packages/cli --include="*.ts" --include="*.tsx" | grep -v node_modules | grep -v dist/
 ```
 
-Work the list file by file, highest count first: `ViewPanel.tsx` (8), `App.tsx`
-(7), `ui.slice.ts`, `applyRecipe.ts`, `Workspace.browser.test.tsx` (5 each).
+Work the list file by file, highest count first: `App.tsx` (7),
+`ViewPanel.tsx` (6), `ui.slice.ts`, `applyRecipe.ts`,
+`Workspace.browser.test.tsx`. The grep also returns the comments Tasks 2, 3 and
+7 wrote in this same PR — those were worded to survive it; if one of them names
+a deleted file, the earlier task was executed off-script and the fix belongs
+there.
 
 - [ ] **Step 2: Rewrite, file by file, committing in batches**
 
@@ -1175,9 +1372,23 @@ git diff --stat <first commit of this task>~1
 git diff -U0 <first commit of this task>~1 | grep -E "^[+-]" | grep -vE "^[+-]{3}" | grep -vE "^[+-]\s*(//|\*|/\*)" | head
 ```
 
-Expected: the first command prints nothing; the third prints nothing either —
-every changed line is a comment line. **If the third command prints anything,
-a behavioural change slipped in: revert it before continuing.**
+Expected from the first: **only the five exemptions above**, each phrased as
+"the previous lab", and nothing naming `lab-page.ts`, `lab.html`, `lab.sh` or
+`lab-worker`. Anything else is unfinished work.
+
+The third command is a **reading aid, not a gate**: it lists changed lines that
+do not begin with a comment marker, which legitimately includes test titles and
+the continuation lines of JSX `{/* */}` blocks (`stage/BoardFrame.tsx` has
+one). Read what it prints and satisfy yourself that every line is a title or a
+comment. The real proof that behaviour did not move is the count:
+
+```sh
+pnpm nx test lab && deno task test
+```
+
+Expected: the same number of passing tests as before this task — 468 in the
+lab's 58 files, and the Deno suite whole. **A test that disappeared is a title
+edit that ate its own `it(`.**
 
 - [ ] **Step 4: Both gates**
 
@@ -1208,6 +1419,13 @@ generate a board, save it, and open the library. This is the check that the
 proxy still reaches a store whose server was renamed underneath it.
 
 - [ ] **Open the PR against `lab/board-detail`**
+
+The description must say two things the diff does not. First, that **Task 11 is
+not in the spec**: §10 row 8 covers everything else, but the 68-file comment
+sweep is a decision taken during planning, and a reviewer is entitled to know
+it was chosen rather than required. Second, that the sweep's commits are
+**behaviour-free by construction** and can be read last, or skipped, without
+losing the retirement itself.
 
 ---
 
@@ -1261,3 +1479,22 @@ proxy still reaches a store whose server was renamed underneath it.
 14. **The engine's `lab-*.ts` modules keep their names.** `lab-report.ts`,
     `lab-i18n.ts`, `lab-simple.ts` and `lab-presets.ts` are the living lab's
     own dependencies; only the deleted page's name comes out of comments.
+15. **Five comments keep the reference, as "the previous lab"** (user's
+    decision after review). Review measured that in those places the pointer is
+    the reason: `MODE_KEY = 'labView'` exists because the retired page wrote
+    that key into people's browsers, and `SETTLE_MS = 350` without provenance
+    explains nothing. The citation goes; the fact stays.
+16. **Test titles may change; logic may not** (user's decision after review).
+    Nine titles name the retired page, and they are executable lines — the
+    first draft's "comment-only diff" rule made the sweep unfinishable. The
+    proof of no behavioural change is the count of passing tests, not a grep
+    for `//`.
+17. **New comments this PR writes are worded to survive its own sweeps.**
+    Tasks 2, 3 and 7 originally wrote "PR 8" and "old lab" into files that
+    Tasks 10 and 11 then grep for an empty result — three reviewers found the
+    contradiction independently. The wording in those tasks is now load-bearing
+    and must be copied exactly.
+18. **"The grep prints nothing" is a fragile gate, and is used only where it
+    can hold.** Task 5's sweep expects ~70 hits and asks the executor to
+    classify them instead; what must be empty there is the set of hits on
+    executable lines.
