@@ -3,7 +3,8 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { sizesFixture } from '../state/library.fixtures'
+import { decodeBoard } from '@arrowz/engine'
+import { sizesFixture, storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { LibraryPanel } from './LibraryPanel'
 import { SizeChips } from './SizeChips'
@@ -209,9 +210,19 @@ test('an address naming a size the store has not got presses no chip, and still 
   expect(pressed).toHaveLength(0)
 })
 
-test('the three regions of the library have three different names', async () => {
-  const screen = await mountPanel()
+// All three names, and the fourth that must be gone: PR 5a gave the chips, the
+// list and the panel itself the same name, "Saved boards". This task leaves
+// only the tab carrying that name, and gives the chips, the list and the
+// detail one each — a case that stopped at two of the three regions would
+// pass unchanged if the panel had kept its label, since `getByRole` with an
+// exact name only matches that name.
+test('the three regions of the library have three different names, and none is still "Saved boards"', async () => {
+  const { meta, file } = storedFixture(1)
+  const screen = await mountPanel(`/boards/8x8/${meta.id}`)
   await act(async () => useStore.getState().library.listed(sizesFixture()))
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
   await expect.element(screen.getByRole('group', { name: 'Board sizes' })).toBeInTheDocument()
   await expect.element(screen.getByRole('region', { name: 'Boards of this size' })).toBeInTheDocument()
+  await expect.element(screen.getByRole('region', { name: 'The open board' })).toBeInTheDocument()
+  expect(screen.container.querySelectorAll('[aria-label="Saved boards"]')).toHaveLength(0)
 })

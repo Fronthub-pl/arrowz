@@ -7,10 +7,12 @@ import type { BoardSize } from '@arrowz/engine'
  * the chips, reading the address alone, pressed nothing — the disagreement
  * spec §5.6 settles.
  *
- * `exact` is false both when the address names no size and when it names one
- * the store does not list. The rows are shown either way — there is something
- * to look at — and no chip is pressed, because none of them is what the address
- * asked for.
+ * `mismatch` is false when the address names no size at all: the rows shown
+ * are the first size's, and that size's chip is pressed, because the first
+ * size is what is being looked at — nothing was asked for, so there is no
+ * disagreement. `mismatch` is true only when the address *names* a size the
+ * listing has not got: the rows shown are still the first size's, but no chip
+ * is pressed, because none of them is what the address asked for.
  */
 export function openEntry(
   sizes: BoardSize[] | null,
