@@ -23,11 +23,9 @@ export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored'
  * the `document.activeElement` guard the old lab uses for its second seed
  * field (`lab-page.ts:679-681`), kept where it is actually needed.
  *
- * For PR 5: the library's preview carries a second copy of three of these
- * fields (`libStroke`, `libHeadWidth`, `libHeadHeight` in lab.html), and
- * carve.test.ts checks all eight ids against `VIEW_RANGE` today. That test dies
- * with lab.html in PR 8, so the library's three have to come through this
- * component — reusing it is what keeps them measured once carve.test.ts is gone.
+ * The library's preview shows three of these fields (stroke, head width and
+ * head height) through this same component, which is what keeps their bounds
+ * measured against `VIEW_RANGE` in one place rather than two.
  */
 export function ViewNumberField({
   field,

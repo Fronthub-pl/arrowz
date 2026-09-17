@@ -598,8 +598,8 @@ export const VIEW_FLAG: Readonly<Record<ViewNumber, string>> = {
  * of 0.2..0.9), while the CLI also draws the pictures README shows, an
  * arrowhead of 2 squares and a tip of no height among them. What has to hold
  * is the direction that matters for the mirror — every value the lab can
- * reach is a value the CLI takes — and `carve.test.ts` reads `lab.html` to
- * check exactly that.
+ * reach is a value the CLI takes — and the lab reads these bounds from this
+ * table at the point of use (`viewFields.ts`), so the two cannot drift apart.
  *
  * `whole` marks the two flags the help spells `N`: a picture measured in
  * pixels or in pieces cannot have a fraction. The other three are ratios of a
