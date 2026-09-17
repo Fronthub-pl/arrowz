@@ -24,6 +24,13 @@ export default tseslint.config(
       'no-restricted-imports': ['error', { patterns: ['node:*'] }],
     },
   },
+  // The build-output smoke is a Node script by nature: it reads dist/ and sets
+  // an exit code. The application itself still may not import node: modules.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', URL: 'readonly' } },
+    rules: { 'no-restricted-imports': 'off' },
+  },
   {
     files: ['**/*.node.test.ts'],
     rules: { 'no-restricted-imports': 'off' },

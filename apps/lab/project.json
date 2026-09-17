@@ -28,6 +28,10 @@
     },
     "lint": { "executor": "nx:run-commands", "options": { "cwd": "apps/lab", "command": "pnpm run lint" } },
     "fmt": { "executor": "nx:run-commands", "options": { "cwd": "apps/lab", "command": "pnpm run fmt" } },
-    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build"] }
+    "smoke": {
+      "executor": "nx:run-commands",
+      "options": { "cwd": "apps/lab", "command": "pnpm run smoke" }
+    },
+    "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test", "build", "smoke"] }
   }
 }
