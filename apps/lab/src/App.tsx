@@ -104,10 +104,9 @@ function Shell() {
   const hash = useUrlHash(control)
   // Spec §2.2's last row: the lab opens on a board rather than on an empty
   // stage — it reads the URL, then calls `run()`. This effect is declared
-  // after the hash hook's, and
-  // React runs mount effects in declaration order, so a pasted link has
-  // already been written into the store and this run uses the link's knobs
-  // rather than the defaults.
+  // after the hash hook's, and React runs mount effects in declaration order,
+  // so a pasted link has already been written into the store and this run uses
+  // the link's knobs rather than the defaults.
   //
   // Deliberately unguarded, unlike the hash hook's read effect one line above:
   // a ref that survived StrictMode's simulated unmount would leave this page

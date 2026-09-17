@@ -89,9 +89,9 @@ export function RunStatusBar() {
     //
     // The dictionary's `progress` string carries `<b>` markup. This line is
     // the text of an `aria-live` region, so the tags would show up literally —
-    // a visible defect in the page's primary
-    // status line, not a wart worth preserving — and they are stripped here
-    // rather than in the dictionary, which stays the source of truth. PR 4
+    // a visible defect in the page's primary status line, not a wart worth
+    // preserving — and they are stripped here rather than in the dictionary,
+    // which stays the source of truth. PR 4
     // replaces this line with the report's own markup and takes the tags back.
     // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
     // region has to be text.

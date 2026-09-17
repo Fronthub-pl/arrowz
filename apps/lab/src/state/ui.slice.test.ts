@@ -73,8 +73,7 @@ describe('the view a page opens in', () => {
   })
 })
 
-// Spec §5.3 lists solo in `ui`, and nothing remembers it: solo is gone on
-// reload.
+// Spec §5.3 lists solo in `ui`, and nothing remembers it: solo is gone on reload.
 describe('solo', () => {
   function slice() {
     const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }

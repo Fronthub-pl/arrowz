@@ -19,8 +19,7 @@ export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored'
  * rewrites its own value, and a half-typed `0.` reads back as the empty string
  * — so React would put the default into the box under the cursor. The field
  * owns its text while it is being typed into; the store owns it the rest of
- * the time — a `document.activeElement` guard, kept where it is actually
- * needed.
+ * the time — a `document.activeElement` guard, kept where it is needed.
  *
  * The library's preview shows three of these fields (stroke, head width and
  * head height) through this same component, which is what keeps their bounds

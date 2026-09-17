@@ -221,8 +221,8 @@ test('a run in flight survives a route change, and finishes into the same elemen
 }, 60_000)
 
 // Spec §5.3, PR 4b: the board is replaced only when a run is done. Before the
-// result slice,
-// `run.started()` cleared the board and the stage sat empty for a whole carve.
+// result slice, `run.started()` cleared the board and the stage sat empty for
+// a whole carve.
 // 600×600 and seed 9 for the reason the case above gives.
 test('a run in flight keeps the last result on screen', async () => {
   const screen = await mountApp()

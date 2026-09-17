@@ -13,9 +13,8 @@ import { useOpenBoard } from './useOpenBoard'
  *
  * A board that cannot be read leaves the stage empty rather than under the
  * previous board's picture, and says why. Decoding failures and fetch failures
- * are reported
- * alike: to someone looking at a list, a file that is missing and a file that
- * is unreadable are one thing.
+ * are reported alike: to someone looking at a list, a file that is missing and
+ * a file that is unreadable are one thing.
  */
 export function useStoredBoard(): void {
   const { size, id } = useOpenBoard()

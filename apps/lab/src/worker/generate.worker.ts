@@ -3,9 +3,8 @@ import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 
 // Two messages, against the same engine the CLI carves with: the protocol is
 // the engine's own, so §6 leaves it untouched. The finished board crosses as
-// its board
-// file — one packed record instead of ~90 000 piece objects — and it is the
-// very file that goes to the store.
+// its board file — one packed record instead of ~90 000 piece objects — and it
+// is the very file that goes to the store.
 const post = (message: WorkerOut) => self.postMessage(message)
 
 self.onmessage = (event: MessageEvent<WorkerIn>) => {

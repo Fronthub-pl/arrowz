@@ -29,10 +29,9 @@ export function SizeChips(): ReactElement {
           aria-pressed={entry.size === current}
           onClick={() => {
             // A size keeps the board already open when that board belongs to
-            // it, and opens
-            // its first board otherwise. A chip that always jumped to the first
-            // would throw away the board being looked at whenever its own size
-            // chip was pressed.
+            // it, and opens its first board otherwise. A chip that always
+            // jumped to the first would throw away the board being looked at
+            // whenever its own size chip was pressed.
             const target = entry.boards.find((board) => board.id === open.id) ?? entry.boards[0]
             if (target) void navigate(`/boards/${entry.size}/${target.id}`)
           }}

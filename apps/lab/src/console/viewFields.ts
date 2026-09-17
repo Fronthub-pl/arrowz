@@ -22,11 +22,12 @@ export interface ViewField {
  *
  * No bounds here on purpose. A bound written here is a copy, and a copy drifts
  * from `VIEW_RANGE` — `cell` was once offered 1..40 where the CLI takes 1..200
- * — and a field that declares a ceiling its own store legally passes is a field that
- * goes `:invalid` on a legal value and reports `aria-valuemax=40` beside
- * `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the point of
- * render instead, so the contradiction cannot be written down. Only `step`
- * lives here: it is a keyboard convenience, not a claim about what is allowed.
+ * — and a field that declares a ceiling its own store legally passes is a
+ * field that goes `:invalid` on a legal value and reports `aria-valuemax=40`
+ * beside `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the
+ * point of render instead, so the contradiction cannot be written down. Only
+ * `step` lives here: it is a keyboard convenience, not a claim about what is
+ * allowed.
  */
 export const VIEW_FIELDS: readonly ViewField[] = [
   { field: 'cell', label: 'cellLabel', help: 'cellHelp', step: 1 },

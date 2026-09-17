@@ -72,8 +72,8 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
   }
 
   // Ruling 9: the knobs, then the view, then the lab — and no run. `setMany`
-  // is the machine path and does not move
-  // `edits`, which is the only thing `useAutoRun` watches.
+  // is the machine path and does not move `edits`, which is the only thing
+  // `useAutoRun` watches.
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
@@ -91,9 +91,9 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
     void navigate('/')
   }
 
-  // Two clicks: the first arms, the second removes. A
-  // different board is a different instance of this component (Ruling 10), so
-  // there is no armed flag to carry across boards and nothing to disarm.
+  // Two clicks: the first arms, the second removes. A different board is a
+  // different instance of this component (Ruling 10), so there is no armed
+  // flag to carry across boards and nothing to disarm.
   const remove = () => {
     if (!armed) {
       setArmed(true)

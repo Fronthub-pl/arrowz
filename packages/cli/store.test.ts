@@ -203,8 +203,8 @@ Deno.test('a save that does not carry a figure keeps the stored one', async () =
   await saveBoard(entry({
     metrics: { ok: false, pieces: 10, maxLen: 5, genMs: 3, restarts: 1, backtracks: 42, stuck },
   }))
-  // A view edit posts four figures, and the store server drops a null
-  // exactly as it drops an absent one.
+  // A view edit posts four figures, and the store server drops a null exactly
+  // as it drops an absent one.
   const edit = await saveBoard(entry({
     view: { ...entry().view, stroke: 0.3 },
     metrics: { ok: false, pieces: 10, maxLen: 5, genMs: null, restarts: null, backtracks: null, stuck: null },

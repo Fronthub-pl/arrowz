@@ -20,8 +20,8 @@ test('a listing replaces the sizes and clears the failure', () => {
   expect(library().listError).toBeNull()
 })
 
-// The list is kept until a refresh succeeds; a failed refresh that
-// blanked the list would take the rows away from under the board on screen.
+// The list is kept until a refresh succeeds; a failed refresh that blanked the
+// list would take the rows away from under the board on screen.
 test('a failed listing keeps the sizes it already had', () => {
   reset()
   const library = () => useStore.getState().library

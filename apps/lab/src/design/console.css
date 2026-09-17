@@ -412,8 +412,8 @@
    become the one stage track (`.fw-lab.simple.solo` outranks `.fw-lab.simple`
    rather than tying with it), and the stage's columns and rows — including its
    ≤900px rows (shell.css) — become the one board track. Nothing unmounts: the
-   GL context, the
-   run column's focus and a draft being typed all live in the hidden nodes.
+   GL context, the run column's focus and a draft being typed all live in the
+   hidden nodes.
    Measured: `.fw-boardwrap` equals `.fw-lab` and the element is 34px smaller
    on both axes at 1400×900, 860×900 and 860×650, in both views. */
 .fw-lab.solo,

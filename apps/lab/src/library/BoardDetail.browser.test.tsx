@@ -122,8 +122,8 @@ test('the stored view is offered as three numbers and two switches', async () =>
 })
 
 // Ruling 9: loading sets the knobs and the view but does NOT generate.
-// `setMany` leaves `edits` alone, which is the only
-// thing `useAutoRun` watches, so no run can start from this.
+// `setMany` leaves `edits` alone, which is the only thing `useAutoRun`
+// watches, so no run can start from this.
 test('load into lab sets the knobs and the view, goes to the lab, and starts nothing', async () => {
   const screen = await mountDetail()
   await show()
