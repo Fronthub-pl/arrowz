@@ -1,12 +1,14 @@
 import { readParams } from '@arrowz/engine'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { deleteBoard } from '../api/boards'
 import { ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
+import { raiseNotice } from './notices'
 import { useOpenBoard } from './useOpenBoard'
-import { useViewSave } from './useViewSave'
+import { cancelPendingSave, useViewSave } from './useViewSave'
 
 /**
  * One stored board's detail, under the list (spec §5.1, §10 row 5b). It is the
@@ -24,6 +26,7 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
   const open = useOpenBoard()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
+  const [armed, setArmed] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const commitView = useViewSave(refresh)
 
@@ -79,6 +82,34 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
     void navigate('/')
   }
 
+  // Two clicks, as the old lab asks: the first arms, the second removes. A
+  // different board is a different instance of this component (Ruling 10), so
+  // there is no armed flag to carry across boards and nothing to disarm.
+  const remove = () => {
+    if (!armed) {
+      setArmed(true)
+      return
+    }
+    setArmed(false)
+    // Before anything reaches the store: a view save still waiting on its timer
+    // would otherwise land after the delete and write the board back to disk,
+    // which review round 2 measured against a real store (Rulings 11 and 12).
+    cancelPendingSave()
+    const name = `${meta.W}x${meta.H}/${meta.id}`
+    void deleteBoard(`${meta.W}x${meta.H}`, meta.id).then((outcome) => {
+      if (!outcome.ok) {
+        raiseNotice({ kind: 'deleteFailed' })
+        return
+      }
+      // Whether the store had it or not, it is gone now (Ruling 11). The
+      // address is replaced rather than pushed: the board it names is off the
+      // disk, and Back must not offer it again (spec §5.6).
+      raiseNotice({ kind: 'deleted', name })
+      void navigate('/boards', { replace: true })
+      refresh()
+    })
+  }
+
   return (
     <div className="fw-lib-detail">
       <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
@@ -118,6 +149,9 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
       <div className="fw-lib-buttons">
         <button type="button" onClick={loadIntoLab}>
           {dict.t('loadIntoLab')}
+        </button>
+        <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
+          {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
     </div>

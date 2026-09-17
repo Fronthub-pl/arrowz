@@ -158,3 +158,102 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
   expect(list.clientHeight).toBeGreaterThanOrEqual(120)
   expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
 })
+
+test('the first click arms delete, and the second removes the board', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
+  const screen = await mountDetail()
+  await show()
+
+  const button = screen.getByRole('button', { name: /delete from disk/i })
+  await userEvent.click(button)
+  // Armed: the label asks, and nothing has been sent.
+  await expect.element(screen.getByRole('button', { name: /really delete/i })).toBeVisible()
+  expect(calls.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(0)
+
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(() => calls.mock.calls.filter(([, init]) => init?.method === 'DELETE').length).toBe(1)
+  expect(String(calls.mock.calls.find(([, init]) => init?.method === 'DELETE')?.[0])).toContain(
+    `/api/boards/8x8/${stored.meta.id}`,
+  )
+  // Spec §5.6: the address is replaced, not pushed — Back must not walk into a
+  // board that is no longer on disk.
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/boards')
+  expect(useStore.getState().library.notice?.kind).toBe('deleted')
+})
+
+// Ruling 11: pressing Delete on a board another window already removed means
+// the same thing to the person looking at it — it is not there.
+test('a board that was already gone still counts as deleted', async () => {
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":false}', { status: 404 }))
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleted')
+})
+
+test('a store that cannot be reached says so and keeps the board', async () => {
+  vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('connect ECONNREFUSED'))
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleteFailed')
+  expect(useStore.getState().result.preview).not.toBeNull()
+})
+
+// Rulings 11 and 12 together, and the worst defect review round 2 found: a view
+// edit still on its timer used to be written *after* the delete, and the store
+// takes a board it cannot find for a new one — so the deleted board came back
+// to the disk. Measured there against a real store; pinned here by the order
+// of the requests.
+test('deleting cancels a view edit that has not been written yet', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
+  const screen = await mountDetail()
+  await show()
+
+  const stroke = screen.container.querySelector<HTMLInputElement>('#view-stroke')
+  if (stroke === null) throw new Error('the detail offered no stroke field')
+  await userEvent.fill(stroke, '0.9')
+  await userEvent.tab()
+
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  // Past the debounce, so a surviving timer would have fired by now.
+  await new Promise((done) => setTimeout(done, 600))
+  const methods = calls.mock.calls.map(([, init]) => init?.method ?? 'GET')
+  expect(methods).toContain('DELETE')
+  expect(methods).not.toContain('POST')
+})
+
+// Ruling 5's fade, through the one mount that can see it. The detail raises
+// `deleted` and then navigates; only `LibraryPanel`'s `key` unmounts it, and a
+// bare `BoardDetail` merely renders `null` — so a case mounted the usual way
+// stays green whether or not the fade survives its raiser (review round 3).
+test('the deleted notice fades even though the detail that raised it is gone', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+    if (init?.method === 'DELETE') return Promise.resolve(new Response('{"deleted":true}', { status: 200 }))
+    return new Promise(() => {})
+  })
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw">
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
+  })
+  await show()
+
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleted')
+  await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).toBeNull()
+
+  // Past the fade: the raiser is unmounted, and the notice must still go.
+  await new Promise((done) => setTimeout(done, 1500))
+  expect(useStore.getState().library.notice).toBeNull()
+})

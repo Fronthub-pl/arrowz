@@ -3,6 +3,7 @@ import { useDictionary } from '../i18n'
 import { BoardDetail } from './BoardDetail'
 import { BoardList } from './BoardList'
 import { useLibraryList } from './useLibraryList'
+import { useOpenBoard } from './useOpenBoard'
 
 /**
  * The console's panel track in the library face: the rows in a row that
@@ -17,10 +18,11 @@ import { useLibraryList } from './useLibraryList'
 export function LibraryPanel(): ReactElement {
   const dict = useDictionary()
   const { refresh } = useLibraryList()
+  const open = useOpenBoard()
   return (
     <section className="fw-lib-panel" aria-label={dict.t('tabLibrary')}>
       <BoardList refresh={refresh} />
-      <BoardDetail refresh={refresh} />
+      <BoardDetail key={`${open.size ?? ''}/${open.id ?? ''}`} refresh={refresh} />
     </section>
   )
 }
