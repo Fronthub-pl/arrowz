@@ -7,6 +7,19 @@
    take the rail's own button treatment rather than the strip's chip treatment —
    the strip's pair is the open §7.1 contrast item and the library is not to
    inherit it. */
+
+/* The panel's two rows (spec §5.1, PR 5b). Both are bounded, and Ruling 1 says
+   why: an `auto` detail row is content-sized with no ceiling, and measured at
+   860x900 it left no list at all and overflowed the console by 75px. The floor
+   is 200px because the list's Refresh head takes 34 and its padding 24, so
+   140 showed one row where two were claimed; 45% gives way on a short panel.
+   `minmax(0, auto)` lets the detail shrink below its content and scroll. */
+.fw-lib-panel {
+  display: grid;
+  grid-template-rows: minmax(min(200px, 45%), 1fr) minmax(0, auto);
+  min-height: 0;
+  background: var(--void);
+}
 .fw-lib-chips {
   display: flex;
   flex-direction: column;

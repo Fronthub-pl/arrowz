@@ -4,7 +4,6 @@ import { type ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import { useLibraryList } from './useLibraryList'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
@@ -17,9 +16,8 @@ import { useOpenBoard } from './useOpenBoard'
  * for `lab.sh`, an empty one asks for a board (Ruling 2). The row shows the
  * whole 71-character id, clipped by CSS, so it can be selected and copied.
  */
-export function BoardList(): ReactElement {
+export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const dict = useDictionary()
-  const { refresh } = useLibraryList()
   const sizes = useStore((state) => state.library.sizes)
   const listError = useStore((state) => state.library.listError)
   const lang = useStore((state) => state.lang.lang)

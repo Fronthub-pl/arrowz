@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BoardList } from '../library/BoardList'
+import { LibraryPanel } from '../library/LibraryPanel'
 import { SizeChips } from '../library/SizeChips'
 import type { WorkspaceTab } from '../routes/Workspace'
 import type { RunControl } from '../run/useRun'
@@ -21,7 +21,8 @@ import { ViewPanel } from './ViewPanel'
  * list takes the panel, while the column stays mounted and is hidden by class,
  * as the old lab hides its lab-only controls (Ruling 1). Its detail is PR 5b's,
  * under the list in the panel — not in the column's track, which would replace
- * the column instead of hiding it.
+ * the column instead of hiding it — so the detail now lives inside that panel,
+ * as `LibraryPanel`'s own second row, rather than in the console.
  */
 export function Console({ control, children, face }: { control: RunControl; children: ReactNode; face: WorkspaceTab }) {
   const entry = useStore((state) => state.ui.entry)
@@ -31,7 +32,7 @@ export function Console({ control, children, face }: { control: RunControl; chil
     <div className={`fw-console${library ? ' library' : ''}`}>
       {library ? <SizeChips /> : simple ? null : <GroupRail />}
       {library ? (
-        <BoardList />
+        <LibraryPanel />
       ) : simple ? (
         <SimplePanel control={control} />
       ) : entry === 'preview' ? (

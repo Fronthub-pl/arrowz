@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { sizesFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
-import { BoardList } from './BoardList'
+import { LibraryPanel } from './LibraryPanel'
 import { SizeChips } from './SizeChips'
 import '../design/tokens.css'
 import '../design/library.css'
@@ -39,7 +39,7 @@ async function mountPanel(path = '/boards') {
     <MemoryRouter initialEntries={[path]}>
       <div className="fw">
         <SizeChips />
-        <BoardList />
+        <LibraryPanel />
         <Address />
       </div>
     </MemoryRouter>,
@@ -173,4 +173,25 @@ test('the row of the open board is marked current', async () => {
   const rows = screen.container.querySelectorAll('.fw-lib-row')
   expect(rows[1]?.getAttribute('aria-current')).toBe('true')
   expect(rows[0]?.getAttribute('aria-current')).toBeNull()
+})
+
+// No geometry case here. The panel's second row is empty until Task 6 builds
+// the detail, so a case written at this commit can only measure a grid with one
+// occupied track — which is how the first two attempts at it passed over a
+// 30px list and then over no list at all (review rounds 1 and 2). Ruling 1 is
+// measured where the detail exists: Task 6, and again in the real console at
+// 860x900 in Task 11.
+
+// The hook's guard only stops a second fetch once an answer is in, so two
+// callers against an empty cache would both fetch (spec §5.1, PR 5b).
+// One caller, one fetch per mount. Not "exactly one ever": under StrictMode the
+// mount effect runs twice and `useLibraryList`'s guard sees `sizes === null`
+// both times, because the first answer has not landed — so the application
+// fetches twice and drops the first answer (`listDropped`). That is the hook's
+// own behaviour, unchanged by this plan, and `vitest-browser-react` renders
+// without StrictMode, so this case measures the panel and not that.
+test('the listing is fetched once per mount, however many children want refreshing', async () => {
+  const calls = vi.spyOn(globalThis, 'fetch')
+  await mountPanel()
+  await expect.poll(() => calls.mock.calls.filter(([url]) => String(url).includes('/api/boards')).length).toBe(1)
 })
