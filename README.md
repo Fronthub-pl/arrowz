@@ -5,7 +5,7 @@
 Arrowz is a puzzle. You get a rectangle packed with arrows, and you have to
 clear it — one arrow at a time, in the right order. This repository holds the
 part that makes the puzzles: a **board generator**, plus a command-line tool
-and a small web page for using it.
+and a small application for using it.
 
 This page is written for someone who has never seen the project. No programming
 knowledge is assumed. If a word needs explaining, it is explained where it
@@ -25,7 +25,7 @@ first appears.
 4. [The commands](#the-commands)
 5. [The everyday settings](#the-everyday-settings)
 6. [The full set of settings](#the-full-set-of-settings)
-7. [The web page](#the-web-page)
+7. [The lab](#the-lab)
 8. [Where boards are saved](#where-boards-are-saved)
 9. [When something goes wrong](#when-something-goes-wrong)
 10. [Word list](#word-list)
@@ -696,8 +696,8 @@ All 27, grouped the way `deno task carve --help=knobs` groups them. Ranges
 spell their word forms where one exists; `auto`, `random` and `off` are
 explained where they appear. **Step** is the distance between the settings a
 knob has: a value that lands between two of them is refused, the same as one
-outside the range, because it is a value neither the slider on the web page
-nor the printed command could reach again.
+outside the range, because it is a value neither the slider in the lab nor the
+printed command could reach again.
 
 This table is not copied by hand — `readme.test.ts` compares its flag, range,
 step and default against the ones the CLI prints, in both languages, so a
@@ -809,30 +809,32 @@ flag"](#when-a-knob-meets-an-everyday-flag) above for what pinning one costs.
 
 ---
 
-## The web page
+## The lab
 
-There is a small page for playing with the settings and seeing the result
-immediately. The page draws the board with the board element, which needs Lit:
+There is a small application for playing with the settings and seeing the
+result immediately. It draws the board with the board element, which needs Lit:
 run `corepack enable pnpm && pnpm install` once at the top of the repository
-before the first start. Then:
+before the first start. The lab keeps its boards in the store, which is served
+by a small Deno program, so two commands run side by side:
 
 ```sh
-sh packages/cli/lab.sh
+deno task store        # the board store, port 8777
+pnpm nx serve lab      # the lab itself, port 8779
 ```
 
-It builds the page, opens `http://localhost:8777/lab.html`, and keeps
-rebuilding whenever a source file changes. Stop it with Ctrl+C. If 8777 is
-already in use on your computer, put another number after the command: `sh
-packages/cli/lab.sh 9000`.
+Open `http://localhost:8779`. Stop each with Ctrl+C. The lab expects the store
+on 8777; if that port is taken on your computer, both sides have to be told the
+new number — the store takes it after the command (`deno task store 9000`), and
+the lab reads it from one line in `apps/lab/vite.proxy.ts`.
 
-The page has two modes, and a Polish/English switch.
+The lab has two modes, and a Polish/English switch.
 
 **Simple** is the default: board size, two sliders (arrow length, line shape),
 a backbone switch and the seed — the same choices as the plain command line.
 **Advanced** shows every knob from the previous section, with a description of
 each and a list of ready-made settings, from Easy 25×25 up to Insane 1000×1000.
 
-Two things the page does that the command line does not. It shows you the exact
+Two things the lab does that the command line does not. It shows you the exact
 command that would reproduce whatever you are looking at, so you can copy it.
 And it keeps a library of saved boards, so you can put one aside and come back
 to it.
@@ -840,15 +842,6 @@ to it.
 If you set a knob outside its safe range, the offending row turns red, the
 reason appears next to it, and the Generate button stops working until you fix
 it. The command stays on screen, so you can still copy rejected settings.
-
-A second lab is being built at `apps/lab`, this one a React application
-served by Vite instead of a bundled script. Run it with `pnpm nx serve lab`
-alongside `deno task lab`, which serves the board store on port 8777 that the
-new lab saves to; the application itself listens on port 8779. It does not
-replace the page above yet — that happens in a later step. Its advanced
-console — twenty-eight knobs across six groups, plus the preview fields —
-now lives there; the run column, the presets and the URL hash are still
-only in the page above.
 
 ---
 
@@ -940,9 +933,10 @@ every difficulty level up to 1000×1000, three times each. Add `--only=easy
 --square --runs=1`. Note that `--only=easy` on its own matches nothing: it
 needs `--square` or `--portrait` alongside it.
 
-**The web page shows nothing** — the page needs building first. `sh
-packages/cli/lab.sh` does it for you; opening `lab.html` straight from your file
-manager does not work.
+**The lab shows nothing** — the lab is served, not opened: it needs `pnpm nx
+serve lab` running, and lives at `http://localhost:8779`. If the board library
+is empty or refuses to save, the other half is missing: start `deno task store`
+beside it.
 
 **Wondering what it is doing** — set `CARVE_TRACE=1` and it reports progress as
 it goes:
@@ -961,7 +955,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Word used here | What it means |
 |---|---|
-| **arrow** | One line on the board, from two to several hundred squares long, with a pointed tip at one end. The code and the English web page call it a *piece*; the Polish page calls it an *element*. |
+| **arrow** | One line on the board, from two to several hundred squares long, with a pointed tip at one end. The code and the English text call it a *piece*; the Polish text calls it an *element*. |
 | **tip** | The pointed end of an arrow. It shows which way the arrow travels. The code calls it the *head*. |
 | **lane** | The straight strip of squares from an arrow's tip to the edge of the board. If it is clear, the arrow can leave. The code calls it the *corridor*. |
 | **free** | An arrow with a clear lane, which can be removed right now. |
@@ -979,14 +973,13 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 |---|---|
 | `packages/engine/engine.ts` | The generator itself. Knows nothing about files or web pages. |
 | `packages/cli/carve.ts` | The command-line tool. |
-| `packages/cli/lab.html`, `lab-page.ts` | The web page. |
 | `packages/*/*.test.ts` | The tests. |
 | `docs/images/manifest.json` | The command behind every picture on this page; `deno task docs` draws them all again. |
 | `packages/engine/HISTORY.md` | The engineering log: every measurement, every dead end, every decision, in detail. |
 | `docs/superpowers/specs/` | The design documents, including the full rules of the game. |
 | `packages/engine/` | The engine package (`@arrowz/engine`): generator, parameters, command parser, presets, dictionaries. |
-| `packages/cli/` | The command-line tool, the board store and the lab page. |
-| `apps/lab/` | The new React lab, built next to the page above; not yet its replacement. |
+| `packages/cli/` | The command-line tool and the board store. |
+| `apps/lab/` | The lab: a React application served by Vite. |
 
 Opening the repository in Claude Code runs `jbcontext index --silent` through the hooks in
 `.claude/settings.json` (at the start and end of a session), and `.mcp.json`

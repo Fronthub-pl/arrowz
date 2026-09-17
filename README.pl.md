@@ -5,7 +5,7 @@
 Arrowz to łamigłówka. Masz przed sobą prostokąt wypełniony strzałkami i trzeba
 go opróżnić — po jednej strzałce, we właściwej kolejności. W tym repozytorium
 znajduje się ta część, która te łamigłówki wytwarza: **generator plansz**,
-narzędzie wiersza poleceń i mała strona internetowa do sterowania nim.
+narzędzie wiersza poleceń i mała aplikacja do sterowania nim.
 
 Ta strona jest napisana dla kogoś, kto widzi projekt pierwszy raz. Nie zakłada
 żadnej wiedzy programistycznej. Jeśli jakieś słowo wymaga wyjaśnienia, jest
@@ -25,7 +25,7 @@ wyjaśnione tam, gdzie pojawia się po raz pierwszy.
 4. [Polecenia](#polecenia)
 5. [Ustawienia na co dzień](#ustawienia-na-co-dzień)
 6. [Pełny zestaw ustawień](#pełny-zestaw-ustawień)
-7. [Strona internetowa](#strona-internetowa)
+7. [Laboratorium](#laboratorium)
 8. [Gdzie lądują plansze](#gdzie-lądują-plansze)
 9. [Kiedy coś nie działa](#kiedy-coś-nie-działa)
 10. [Słowniczek](#słowniczek)
@@ -697,7 +697,7 @@ Zakresy zapisują swoje słowne formy tam, gdzie istnieją; `auto`, `random` i
 `off` są objaśnione tam, gdzie się pojawiają. **Krok** to odstęp między
 ustawieniami, jakie pokrętło ma do zaoferowania: wartość, która wyląduje
 między dwoma z nich, jest odrzucana tak samo jak ta poza zakresem — bo do
-takiej wartości nie sięgnie ani suwak na stronie, ani wypisane polecenie.
+takiej wartości nie sięgnie ani suwak w laboratorium, ani wypisane polecenie.
 
 Tej tabeli nikt nie przepisuje ręcznie — `readme.test.ts` porównuje flagę,
 zakres, krok i wartość domyślną z tym, co drukuje CLI, w obu językach, więc
@@ -810,24 +810,26 @@ pokrętło spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę
 
 ---
 
-## Strona internetowa
+## Laboratorium
 
-Jest mała strona do zabawy ustawieniami i natychmiastowego oglądania wyniku.
-Strona rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
+Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku.
+Rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
 uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
-katalogu repozytorium. Potem:
+katalogu repozytorium. Laboratorium trzyma plansze w magazynie, który serwuje
+mały program w Deno, więc obok siebie działają dwa polecenia:
 
 ```sh
-sh packages/cli/lab.sh
+deno task store        # magazyn plansz, port 8777
+pnpm nx serve lab      # samo laboratorium, port 8779
 ```
 
-Polecenie buduje stronę, otwiera `http://localhost:8777/lab.html`
-i przebudowuje ją za każdym razem, gdy zmieni się plik źródłowy. Zatrzymasz je
-klawiszami Ctrl+C.
-Jeśli port 8777 jest już zajęty na twoim komputerze, dopisz inny numer: `sh
-packages/cli/lab.sh 9000`.
+Otwórz `http://localhost:8779`. Każde z poleceń zatrzymasz klawiszami Ctrl+C.
+Laboratorium spodziewa się magazynu na porcie 8777; jeśli ten port jest u
+ciebie zajęty, obie strony trzeba nauczyć nowego numeru — magazyn bierze go po
+poleceniu (`deno task store 9000`), a laboratorium czyta go z jednej linii
+w `apps/lab/vite.proxy.ts`.
 
-Strona ma dwa tryby i przełącznik polski/angielski.
+Laboratorium ma dwa tryby i przełącznik polski/angielski.
 
 **Prosty** jest domyślny: rozmiar planszy, dwa suwaki (długość strzałek,
 kształt linii), przełącznik szkieletu i ziarno — te same wybory, co w zwykłym
@@ -835,7 +837,7 @@ trybie wiersza poleceń. **Zaawansowany** pokazuje wszystkie pokrętła z
 poprzedniej sekcji, z opisem każdego i listą gotowych ustawień, od poziomu
 „Łatwy 25×25” po „Obłęd 1000×1000”.
 
-Dwie rzeczy, które strona robi, a wiersz poleceń nie. Pokazuje dokładne
+Dwie rzeczy, które laboratorium robi, a wiersz poleceń nie. Pokazuje dokładne
 polecenie odtwarzające to, na co właśnie patrzysz, więc możesz je skopiować. I
 przechowuje zapisane plansze, więc możesz jedną odłożyć i wrócić do niej
 później.
@@ -844,15 +846,6 @@ Jeśli ustawisz pokrętło poza bezpiecznym zakresem, ten wiersz tabeli robi si�
 czerwony, obok pojawia się powód, a przycisk generowania przestaje działać,
 dopóki tego nie poprawisz. Polecenie zostaje na ekranie, więc odrzucone
 ustawienia i tak możesz skopiować.
-
-Powstaje drugie laboratorium, w `apps/lab` — tym razem aplikacja w Reakcie,
-serwowana przez Vite zamiast złożonego skryptu. Uruchamiasz je poleceniem
-`pnpm nx serve lab` obok `deno task lab`, które serwuje na porcie 8777
-magazyn plansz, do którego nowe laboratorium zapisuje; sama aplikacja
-nasłuchuje na porcie 8779. Nie zastępuje jeszcze strony opisanej wyżej — to
-stanie się w kolejnym kroku. Zaawansowana konsola — dwadzieścia osiem
-pokręteł w sześciu grupach, plus pola podglądu — mieszka już tutaj; kolumna
-uruchamiania, presety i skrót URL wciąż istnieją tylko na starej stronie.
 
 ---
 
@@ -947,9 +940,10 @@ przez wszystkie poziomy trudności do 1000×1000, po trzy razy każdy. Dodaj
 `--only=easy --square --runs=1`. Uwaga: samo `--only=easy` nie pasuje do
 niczego — potrzebuje obok `--square` albo `--portrait`.
 
-**Strona nic nie pokazuje** — stronę trzeba najpierw zbudować. `sh
-packages/cli/lab.sh` robi to za ciebie; otwarcie `lab.html` prosto z menedżera
-plików nie zadziała.
+**Laboratorium nic nie pokazuje** — laboratorium jest serwowane, a nie
+otwierane: musi działać `pnpm nx serve lab`, a adres to
+`http://localhost:8779`. Jeśli biblioteka plansz jest pusta albo zapis się nie
+udaje, brakuje drugiej połowy: uruchom obok `deno task store`.
 
 **Ciekawi cię, co się dzieje** — ustaw `CARVE_TRACE=1`, a będzie meldować
 postępy na bieżąco:
@@ -968,7 +962,7 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Słowo używane tutaj | Co znaczy |
 |---|---|
-| **strzałka** | Jedna linia na planszy, długa od dwóch do kilkuset kwadratów, z ostrym grotem na jednym końcu. W kodzie i na angielskiej stronie nazywa się *piece*; polska strona mówi „element”. |
+| **strzałka** | Jedna linia na planszy, długa od dwóch do kilkuset kwadratów, z ostrym grotem na jednym końcu. W kodzie i w tekście angielskim nazywa się *piece*; po polsku to „element”. |
 | **grot** | Ostry koniec strzałki. Pokazuje, w którą stronę strzałka jedzie. W kodzie *head*. |
 | **pas** | Prosty pasek kwadratów od grotu strzałki do krawędzi planszy. Jeśli jest wolny, strzałka może wyjechać. W kodzie *corridor*, korytarz. |
 | **wolna** | Strzałka z wolnym pasem, którą można zdjąć od razu. |
@@ -986,14 +980,13 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 |---|---|
 | `packages/engine/engine.ts` | Sam generator. Nie wie nic o plikach ani o stronach internetowych. |
 | `packages/cli/carve.ts` | Narzędzie wiersza poleceń. |
-| `packages/cli/lab.html`, `lab-page.ts` | Strona internetowa. |
 | `packages/*/*.test.ts` | Testy. |
 | `docs/images/manifest.json` | Komenda, która stworzyła każdy obrazek na tej stronie; `deno task docs` rysuje je wszystkie od nowa. |
 | `packages/engine/HISTORY.md` | Dziennik inżynierski: każdy pomiar, każda ślepa uliczka, każda decyzja, ze szczegółami. |
 | `docs/superpowers/specs/` | Dokumenty projektowe, w tym pełne reguły gry. |
 | `packages/engine/` | Pakiet silnika (`@arrowz/engine`): generator, parametry, parser komendy, presety, słowniki. |
-| `packages/cli/` | Narzędzie wiersza poleceń, magazyn plansz i strona laboratorium. |
-| `apps/lab/` | Nowe laboratorium w Reakcie, budowane obok strony wyżej; jeszcze jej nie zastępuje. |
+| `packages/cli/` | Narzędzie wiersza poleceń i magazyn plansz. |
+| `apps/lab/` | Laboratorium: aplikacja w Reakcie serwowana przez Vite. |
 
 Otwarcie repozytorium w Claude Code uruchamia `jbcontext index --silent` przez hooki w
 `.claude/settings.json` (na początku i na końcu sesji), a `.mcp.json`
