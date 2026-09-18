@@ -101,8 +101,11 @@ test('a field hands its owner an already-clamped number', async () => {
   const stroke = screen.getByRole('spinbutton', { name: /stroke/i })
   await userEvent.fill(stroke, '9')
   await userEvent.tab()
-  // 2 is `VIEW_RANGE.stroke.max`; the owner never sees the 9 that was typed.
-  expect(got).toBe(2)
+  // The ceiling is read from the table rather than spelled out: what the case
+  // is about is that the owner never sees the 9 that was typed, whatever the
+  // bound happens to be. It was a literal `2` until the view bounds were
+  // narrowed to what stays readable, and then it was a literal about nothing.
+  expect(got).toBe(VIEW_RANGE.stroke.max)
   // And the lab's own slice was not touched by a field nobody pointed at it.
   expect(view().stroke).toBe(0.5)
 })

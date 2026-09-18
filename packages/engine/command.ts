@@ -609,12 +609,20 @@ export const VIEW_RANGE: Readonly<Record<ViewNumber, Readonly<{ min: number; max
   // A square smaller than a pixel is not a picture; 200 px on a 1000-square
   // side is a 200 000 px drawing, past what a viewer opens.
   cell: { min: 1, max: 200, whole: true },
-  // A line of no width draws nothing; past 2 it is twice its own square.
-  stroke: { min: 0.05, max: 2, whole: false },
-  // 0 is the automatic width, from the line; README's biggest head is 2.
-  headWidth: { min: 0, max: 3, whole: false },
-  // 0 is a tip of no height at all, which README shows on purpose.
-  headHeight: { min: 0, max: 3, whole: false },
+  // Readability rather than possibility, which is what these bounds are for.
+  // Below 0.2 of a square the line thins into the paper; at 0.9 it already
+  // fills its own square and leaves the tip no room. Both numbers are the
+  // element demo's, where a person watches the effect while dragging, and the
+  // pictures in the READMEs sit exactly on them (`--line=0.2`, `--line=0.9`).
+  stroke: { min: 0.2, max: 0.9, whole: false },
+  // 0 is the automatic width, from the line. The ceiling is the biggest head
+  // the READMEs draw (`--arrow-width=2`); past that the tip is wider than two
+  // squares and stops reading as a tip. The demo stops at 0.9, but taking that
+  // as the bound would refuse a picture this repository documents and rebuilds.
+  headWidth: { min: 0, max: 2, whole: false },
+  // 0 is a tip of no height at all, which README shows on purpose, and 2 is the
+  // tallest one it draws (`--arrow-height=2`). Same reasoning as the width.
+  headHeight: { min: 0, max: 2, whole: false },
   // 0 is no highlight; the list prints one line per piece, so it stays short.
   top: { min: 0, max: 1000, whole: true },
 }
