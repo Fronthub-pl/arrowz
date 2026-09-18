@@ -73,3 +73,20 @@
   font-size: 11px;
   line-height: 1.5;
 }
+
+/* The help is a table aligned with spaces, so the layout IS the content:
+   `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
+   characters, about 2317px at this size — from scrolling the whole page.
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
+.fw-docs-term {
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--graphite);
+  color: var(--mist);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
