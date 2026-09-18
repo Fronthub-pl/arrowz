@@ -3,7 +3,8 @@
 // stray one TS2353. This file therefore asserts only what a type cannot — that
 // a description exists as text and was actually translated. A test that
 // re-checks the compiler is a test that cannot fail (the lesson of PR 3b).
-import { assert, assertNotEquals } from '@std/assert'
+import { assert, assertEquals, assertNotEquals } from '@std/assert'
+import { dirname, fromFileUrl, join } from '@std/path'
 import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from './lab-docs.ts'
 
 Deno.test('every row has a description in both languages, and none is empty', () => {
@@ -55,9 +56,6 @@ Deno.test('the frame around the tables is translated too', () => {
     assertNotEquals(plText, enText, `${key} is still English in the Polish docs`)
   }
 })
-
-import { assertEquals } from '@std/assert'
-import { dirname, fromFileUrl, join } from '@std/path'
 
 // Reading a sibling package from an engine test is established: neutral.test.ts
 // walks ../cli the same way, and this package's test target runs with an
