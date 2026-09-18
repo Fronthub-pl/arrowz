@@ -30,7 +30,7 @@ export type {
 export type { GestureMode } from './gestures.ts'
 export { GameHost, MIN_SHAKE_CELLS } from './game-host.ts'
 export type { GameEvent, GameTarget } from './game-host.ts'
-export type { Session, SessionSnapshot } from '@arrowz/engine'
+export type { BoardData, Session, SessionSnapshot } from '@arrowz/engine'
 export { boardViewOf, DEFAULT_VIEW, hueBytes, hueDegrees, hueOf, SHAKE_MS } from './view.ts'
 export type { BoardView } from './view.ts'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'
