@@ -2,6 +2,7 @@ import { MemoryRouter, useLocation } from 'react-router'
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { AppRoutes } from './AppRoutes'
+import { TabRow } from './shell/TabRow'
 
 const at = (path: string) =>
   render(
@@ -44,15 +45,26 @@ test("a board's address renders no panel of its own, and is not the wildcard", a
 // The tabpanel has no accessible name here: it takes "name from author" only
 // (no "name from content"), and its aria-labelledby points at the tab strip's
 // id, which `AppRoutes` on its own does not render. So this case locates the
-// panel by role and checks the wiring instead of the name, and that the route
-// segment reaches the page; the whole-app test with the real tab strip is
-// where the accessible name is asserted.
-test('/docs/element is the docs, and the segment reaches the page', async () => {
+// panel by role and checks the wiring instead of the name; the whole-app test
+// with the real tab strip is where the accessible name is asserted.
+//
+// It used to assert `getByText('element')` against the raw route segment the
+// route echoed into a <p>. That <p> is gone, and the assertion was never worth
+// keeping: `getByText` matches a node's whole text, so it was answering a
+// question about the segment, not about the page.
+test('/docs/element renders the docs panel, wired to its tab', async () => {
   const screen = await at('/docs/element')
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
-  await expect.element(screen.getByText('element')).toBeVisible()
+  await expect.element(screen.getByRole('navigation')).toBeVisible()
+})
+
+test('/docs/cli is the same panel, on its own page', async () => {
+  const screen = await at('/docs/cli')
+  const panel = screen.container.querySelector('[role="tabpanel"]')
+  expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
+  await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('aria-current', 'page')
 })
 
 // The lab is not a route element (Ruling 5): App mounts it beside <Routes> and
@@ -76,4 +88,72 @@ test('each panel keeps the main landmark around it', async () => {
   expect(panel?.closest('main')).not.toBeNull()
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
   expect(panel?.getAttribute('tabindex')).toBe('0')
+})
+
+// `/docs` alone fell to the wildcard and landed the reader in the lab, which is
+// a surprising answer to a documentation link. An unknown page name lands on
+// the element's page too — including an upper-case one, since react-router
+// matches paths case-insensitively and `:what` happily captures `CLI`.
+test.each(['/docs', '/docs/nowhere', '/DOCS/CLI'])('%s lands on the element page', async (path) => {
+  const screen = await render(
+    <MemoryRouter initialEntries={[path]}>
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+})
+
+// Two segments under /docs is not a documentation page; it is a stale link.
+test('a deeper docs path is a stale link and goes to the lab', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli/extra']}>
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
+})
+
+// The spec promises the tab, not only the address: the strip must mark Docs as
+// the open section on the CLI page as well, since `selectedIndex` keys on the
+// `/docs` prefix rather than on the tab's own path. `TabRow` is mounted here
+// rather than the whole shell, because the claim is about the strip.
+test('the Docs tab is the selected one on the CLI page', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli']}>
+      <TabRow />
+    </MemoryRouter>,
+  )
+  await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-selected', 'true')
+  await expect.element(screen.getByRole('tab', { name: 'Lab' })).toHaveAttribute('aria-selected', 'false')
+})
+
+// §7's other two promises need the strip and the routes together. After the
+// upper-case redirect the tab must agree with the address — `selectedIndex` is
+// case-sensitive, so for one frame before the redirect it says Lab. And the
+// tab's own path is `/docs/element`, so clicking it from the CLI page goes back
+// to the element's page rather than staying put.
+test('after the upper-case redirect the address and the tab agree', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/DOCS/CLI']}>
+      <TabRow />
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+  await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('clicking the Docs tab from the CLI page returns to the element page', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli']}>
+      <TabRow />
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await screen.getByRole('tab', { name: 'Docs' }).click()
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
 })

@@ -115,6 +115,10 @@ export const EN = {
     tabDocs: 'Docs',
     /** The accessible name of the tab strip itself, not of any one tab. */
     tabsLabel: 'Sections',
+    /** The accessible name of the documentation's own two-page navigation. */
+    docsNavLabel: 'Documentation pages',
+    docsElement: 'Element',
+    docsCli: 'Command line',
     fullView: 'Full view (key F)',
     pressGenerate: 'Press "Generate".',
     generating: 'Generating…',
@@ -514,6 +518,9 @@ export const PL: Translation = {
     tabLibrary: 'Zapisane plansze',
     tabDocs: 'Dokumentacja',
     tabsLabel: 'Sekcje',
+    docsNavLabel: 'Strony dokumentacji',
+    docsElement: 'Element',
+    docsCli: 'Wiersz poleceń',
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',
