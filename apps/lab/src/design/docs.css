@@ -76,9 +76,13 @@
   font-family: var(--mono);
   white-space: nowrap;
 }
-.fw-docs-code {
+/* Both blocks of the documentation pages are one box, and the bottom margin is
+   all that ever differed between them. The two names stay, and each `pre` wears
+   this class and its own: the tests of the docs routes tell the element page and
+   the CLI page apart by `pre.fw-docs-code` against `pre.fw-docs-term`, so one
+   merged name would cost the routes their marker to save eight declarations. */
+.fw-docs-pre {
   max-width: 100%;
-  margin: 0 0 8px;
   padding: 10px 12px;
   overflow-x: auto;
   background: var(--graphite);
@@ -87,20 +91,17 @@
   font-size: 11px;
   line-height: 1.5;
 }
+.fw-docs-code {
+  margin: 0 0 8px;
+}
 
 /* The help is a table aligned with spaces, so the layout IS the content:
    `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
    characters, about 2317px at this size — from scrolling the whole page.
-   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows.
+   Here rather than in the shared class: `pre` carries this value from the
+   browser's own sheet, and this is the block whose measurement leans on it. */
 .fw-docs-term {
-  max-width: 100%;
   margin: 0 0 12px;
-  padding: 10px 12px;
-  overflow-x: auto;
   white-space: pre;
-  background: var(--graphite);
-  color: var(--mist);
-  font-family: var(--mono);
-  font-size: 11px;
-  line-height: 1.5;
 }

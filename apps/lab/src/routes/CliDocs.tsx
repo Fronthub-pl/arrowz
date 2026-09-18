@@ -20,10 +20,10 @@ export function CliDocs(): ReactElement {
       <p>{docs.cliEnglishNote}</p>
 
       <h3>{docs.cliShortHead}</h3>
-      <pre className="fw-docs-term">{helpText()}</pre>
+      <pre className="fw-docs-pre fw-docs-term">{helpText()}</pre>
 
       <h3>{docs.cliKnobsHead}</h3>
-      <pre className="fw-docs-term">{helpText({ knobs: true })}</pre>
+      <pre className="fw-docs-pre fw-docs-term">{helpText({ knobs: true })}</pre>
     </>
   )
 }

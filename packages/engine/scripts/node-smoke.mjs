@@ -25,7 +25,7 @@ function optsOf(c) {
 
 let failures = 0
 
-/** One more line in the golden-board format: a check that fails counts like a board that differs. */
+/** Every check reports in one format and counts once, so the summary at the end reads the only counter there is. */
 function check(ok, what) {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`)
   if (!ok) failures++
@@ -43,23 +43,26 @@ for (const c of golden.cases) {
   // Web Crypto under Node names the layout exactly as Deno does.
   const hashOk = (await layoutHash(r.board)) === c.layoutHash && (await layoutHash(back)) === c.layoutHash
   const ok = got === c.fingerprint && r.board.pieces.length === c.pieces && maxLenOk && fileOk && hashOk
-  console.log(
-    `${ok ? 'ok  ' : 'FAIL'} ${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen}, file ${
+  check(
+    ok,
+    `${c.name} ${got} (${r.board.pieces.length} pieces, maxLen ${r.metrics?.maxLen}, file ${
       fileOk ? 'ok' : 'FAIL'
     }, layout ${hashOk ? 'ok' : 'FAIL'})`,
   )
-  if (!ok) failures++
 }
 // The module has to be in dist/ and it has to evaluate under Node. tsc alone
 // proves neither: tsconfig.build.json carries `lib: dom`, so a stray DOM
 // reference type-checks and only fails here, on import.
 check(docsFor('pl').props.board !== docsFor('en').props.board, 'lab-docs is translated in dist')
+check(
+  genSeconds({ genMs: 4800 }, '—') === '4.80' && genSeconds({ genMs: null }, '—') === '—',
+  'lab-report is emitted correctly into dist/',
+)
+// Every failure above is named on its own line, so the summary counts rather
+// than diagnoses: it used to say "golden board(s) differ" about a failing
+// documentation check, which named the wrong file to go and look at.
 if (failures > 0) {
-  console.error(`${failures} golden board(s) differ under Node`)
+  console.error(`${failures} check(s) failed under Node`)
   process.exit(1)
 }
-if (genSeconds({ genMs: 4800 }, '—') !== '4.80' || genSeconds({ genMs: null }, '—') !== '—') {
-  console.error('lab-report is not emitted correctly into dist/')
-  process.exit(1)
-}
-console.log('all golden boards reproduce under Node')
+console.log('all checks pass under Node')
