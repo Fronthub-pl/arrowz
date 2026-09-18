@@ -52,6 +52,18 @@ function row(container: HTMLElement, at: number): HTMLTableRowElement {
   return found
 }
 
+/**
+ * The longest-pieces heading, or a failure — like `stats` and `row` above. A
+ * substitute node would be measured instead: the case below reads a computed
+ * style, and `<body>` has one too, so a heading that stopped rendering would
+ * leave the assertions measuring the document rather than going red.
+ */
+function longestHead(container: HTMLElement): HTMLHeadingElement {
+  const head = container.querySelector('#longest-head')
+  if (!(head instanceof HTMLHeadingElement)) throw new Error('the longest-pieces heading is not on the page')
+  return head
+}
+
 test('the report is a named region, empty until there is a result', async () => {
   const screen = await mountReport()
   await expect.element(screen.getByRole('region', { name: 'Report' })).toBeInTheDocument()
@@ -132,9 +144,9 @@ test('the longest pieces follow the highlight count, and go with the highlight',
 test('the longest-pieces heading keeps the report voice after the level change', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
-  const head = screen.container.querySelector('#longest-head')
-  expect(head?.tagName).toBe('H2')
-  const style = getComputedStyle(head instanceof HTMLElement ? head : document.body)
+  const head = longestHead(screen.container)
+  expect(head.tagName).toBe('H2')
+  const style = getComputedStyle(head)
   expect(style.fontSize).toBe('11px')
   expect(style.textTransform).toBe('uppercase')
 })
