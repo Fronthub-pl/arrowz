@@ -26,9 +26,7 @@ test('every documented property is declared on the element', () => {
 // table that swaps `show-points` and `point-color` between two rows: the set is
 // unchanged while the mapping lies. The spec's own second review measured that
 // (§10, round two, item 3), which is the reason this test reads the declaration
-// rather than only the observed list. `observedAttributes` stays as a second,
-// weaker net that catches an attribute the element answers to and the page
-// never mentions.
+// rather than only the observed list.
 test('every documented attribute is the one its property declares', () => {
   for (const row of ELEMENT_PROPS) {
     const decl = declared[row.key]
@@ -39,6 +37,13 @@ test('every documented attribute is the one its property declares', () => {
     const actual = attr === false ? null : typeof attr === 'string' ? attr : row.key.toLowerCase()
     expect(actual, `attribute of ${row.key}`).toBe(row.attribute)
   }
+})
+
+// The second, weaker net, and a case of its own rather than a tail of the loop
+// above: a loop stops at the first row it dislikes, so one wrong mapping used to
+// leave this comparison unreached. It answers the other direction — an attribute
+// the element answers to and the page never mentions.
+test('the element observes exactly the documented attributes', () => {
   const observed = [...ArrowzBoard.observedAttributes].sort()
   const documented = ELEMENT_PROPS.map((row) => row.attribute).filter((a) => a !== null).sort()
   expect(observed, 'observedAttributes against the documented attributes').toEqual(documented)
