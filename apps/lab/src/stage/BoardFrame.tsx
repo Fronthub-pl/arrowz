@@ -79,9 +79,8 @@ export function BoardFrame(): ReactElement {
     <div className="fw-boardwrap">
       <div className="fw-board">
         {/* `enableColors`: the element draws in ink unless its host grants
-            colours, and the lab does, as the old lab's `enable-colors` does
-            (lab.html) — without it the `colored` flag reaches the element and
-            changes nothing on screen. */}
+            colours, and the lab does — without it the `colored` flag reaches
+            the element and changes nothing on screen. */}
         <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
@@ -94,6 +93,7 @@ export function BoardFrame(): ReactElement {
           aria-label={dict.t('fullView')}
           title={dict.t('fullView')}
           aria-pressed={solo}
+          aria-keyshortcuts="f"
           onClick={toggleSolo}
         >
           ⛶

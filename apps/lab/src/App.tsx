@@ -36,9 +36,9 @@ function useStoreSave() {
   useEffect(() => {
     if (shown === null || posted.current === shown.file) return
     posted.current = shown.file
-    // The stored view is the lab's view with top zeroed, as the old lab stores
-    // it (`storeView()` in lab-page.ts): a saved board is a picture, and the
-    // highlight is a reading aid for the run that just finished.
+    // The stored view is the lab's view with top zeroed: a saved board is a
+    // picture, and the highlight is a reading aid for the run that just
+    // finished.
     //
     // `cell` is the run's own, computed here and not held in the slice: it is
     // the square a viewer opens the file at, which `carve` derives from the
@@ -62,15 +62,14 @@ function useStoreSave() {
 
 /**
  * The `f` hotkey, the application's first global one (spec §5.1): `f` and `F`
- * alike, as the old lab reads both (lab-page.ts:944) — Shift is not a modifier
- * here — and nothing with Ctrl, ⌘ or Alt (the old lab toggled on ⌘F and opened
- * the browser's find as well), no key repeat, nothing typed into a field or an
- * editable region.
+ * alike — Shift is not a modifier here — and nothing with Ctrl, ⌘ or Alt (⌘F
+ * opens the browser's find as well), no key repeat, nothing typed into a field
+ * or an editable region.
  *
- * A focused button is not a field, so `f` on Generate toggles, as it does in
- * the old lab (PR 4b, Ruling 9). The listener lives wherever the stage does —
- * the lab tab and the saved boards — and nowhere else. Escape is not handled:
- * the palette of PR 7 owns it.
+ * A focused button is not a field, so `f` on Generate toggles (PR 4b,
+ * Ruling 9). The listener lives wherever the stage does — the lab tab and the
+ * saved boards — and nowhere else. Escape is not handled: the palette of PR 7
+ * owns it.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
@@ -104,11 +103,10 @@ function Shell() {
   useAutoRun(control)
   const hash = useUrlHash(control)
   // Spec §2.2's last row: the lab opens on a board rather than on an empty
-  // stage, as the old lab does at `lab-page.ts:1468-1476` — it reads the URL,
-  // then calls `run()`. This effect is declared after the hash hook's, and
-  // React runs mount effects in declaration order, so a pasted link has
-  // already been written into the store and this run uses the link's knobs
-  // rather than the defaults.
+  // stage — it reads the URL, then calls `run()`. This effect is declared
+  // after the hash hook's, and React runs mount effects in declaration order,
+  // so a pasted link has already been written into the store and this run uses
+  // the link's knobs rather than the defaults.
   //
   // Deliberately unguarded, unlike the hash hook's read effect one line above:
   // a ref that survived StrictMode's simulated unmount would leave this page
@@ -127,10 +125,9 @@ function Shell() {
   // page opened on a link — the hash hook's read effect has already run and
   // knows.
   useEffect(() => {
-    // The old lab's order (`lab-page.ts:1472-1473`): in the simple view, a
-    // page that did not open on a link opens on the board its recipe
-    // describes. Without the draw, so the second pass StrictMode gives this
-    // effect writes the very knobs the first one wrote.
+    // In the simple view, a page that did not open on a link opens on the
+    // board its recipe describes. Without the draw, so the second pass
+    // StrictMode gives this effect writes the very knobs the first one wrote.
     if (useStore.getState().ui.mode === 'simple' && !hash.openedFromLink()) applyRecipe(false)
     control.start()
   }, [control, hash])

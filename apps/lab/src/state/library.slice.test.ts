@@ -20,8 +20,8 @@ test('a listing replaces the sizes and clears the failure', () => {
   expect(library().listError).toBeNull()
 })
 
-// The old lab keeps its list until a refresh succeeds; a failed refresh that
-// blanked the list would take the rows away from under the board on screen.
+// The list is kept until a refresh succeeds; a failed refresh that blanked the
+// list would take the rows away from under the board on screen.
 test('a failed listing keeps the sizes it already had', () => {
   reset()
   const library = () => useStore.getState().library
@@ -64,7 +64,7 @@ test('a listing does not touch a board error already set', () => {
 
 // Ruling 5: an event has nowhere to live in a line computed from state, so the
 // slice carries one. It is deliberately not a stack — the newest message is the
-// only one worth saying, exactly as the old lab's `setStatus` overwrites.
+// only one worth saying, so a new notice overwrites the last.
 test('a notice replaces the one before it, and can be taken back', () => {
   reset()
   const library = () => useStore.getState().library

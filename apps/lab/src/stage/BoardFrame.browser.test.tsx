@@ -41,10 +41,10 @@ const annotation = (container: HTMLElement) => container.querySelector('.fw-anno
 
 // Colours are a permission the element grants only to a host that asks
 // (`enableColors`, arrowz-board.ts); without it `view.colored` is ignored and
-// every piece is drawn in ink. The old lab asks (`enable-colors` in lab.html).
-// `element.view.colored` alone cannot catch the gap — it is the input, not what
-// is drawn — so this reads the element's own colours button, whose
-// `aria-pressed` is the colour the board is actually drawn in.
+// every piece is drawn in ink. `element.view.colored` alone cannot catch the
+// gap — it is the input, not what is drawn — so this reads the element's own
+// colours button, whose `aria-pressed` is the colour the board is actually
+// drawn in.
 test('the colored flag colours the board', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -129,6 +129,9 @@ test('the annotation reads at AA', async () => {
 test('the solo toggle is a named toggle in the frame, after the element', async () => {
   const screen = await mountFrame()
   const toggle = screen.getByRole('button', { name: 'Full view (key F)' })
+  // The name says "key F" in prose; this says it to a machine. Both stay: six
+  // assertions in this file and LabLayout find the button by that whole name.
+  await expect.element(toggle).toHaveAttribute('aria-keyshortcuts', 'f')
   await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
   const element = screen.container.querySelector('arrowz-board')
   if (element === null) throw new Error('no board element')

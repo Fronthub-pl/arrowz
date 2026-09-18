@@ -43,8 +43,8 @@ test('a number field commits on blur, clamped to what the CLI takes', async () =
 })
 
 test('every number field declares the bounds the engine actually takes', async () => {
-  // The successor to carve.test.ts:456-480, which reads lab.html — a file PR 8
-  // deletes. It checks the rendered attributes rather than the `VIEW_FIELDS`
+  // The only guard that the lab's number fields stay inside the engine's
+  // table. It checks the rendered attributes rather than the `VIEW_FIELDS`
   // table, because the table no longer carries bounds: what a person and a
   // screen reader are told is what the DOM says, and that is what has to agree
   // with `VIEW_RANGE`.

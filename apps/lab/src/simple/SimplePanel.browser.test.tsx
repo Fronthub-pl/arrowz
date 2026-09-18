@@ -110,7 +110,7 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // Ruling 9: the old lab's `advonly` marks cell, voids and top.
+  // Ruling 9: cell, voids and top are advanced-only.
   it('shows the preview fields the old simple view shows, and only those', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     await expect.element(screen.getByLabelText('stroke width (grid units)')).toBeVisible()

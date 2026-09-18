@@ -3,10 +3,10 @@ import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 import { DEFAULT_VIEW, svgOptions } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 
-// The counterpart of packages/cli/lab-bundle.test.ts, which proves the
-// Deno-bundled worker carves the board the engine carves and which PR 8
-// deletes with the old lab. This proves it for the engine as Vite transforms
-// it; the build-output test is PR 8's prerequisite (Ruling 9).
+// The counterpart of the build-output smoke (`scripts/worker-smoke.mjs`),
+// which runs the worker `vite build` emits. This one proves the same protocol
+// over the engine as Vitest transforms it, which is what the application's own
+// tests run against; the smoke covers the artefact a browser loads.
 function ask(message: WorkerIn): Promise<WorkerOut> {
   const worker = new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' })
   const answer = new Promise<WorkerOut>((resolve, reject) => {

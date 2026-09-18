@@ -121,9 +121,9 @@ test('the stored view is offered as three numbers and two switches', async () =>
   expect(screen.container.querySelectorAll('.fw-lib-detail [role="switch"]')).toHaveLength(2)
 })
 
-// Ruling 9, and the old lab's own comment: "Loading sets the knobs and the view
-// but does NOT generate". `setMany` leaves `edits` alone, which is the only
-// thing `useAutoRun` watches, so no run can start from this.
+// Ruling 9: loading sets the knobs and the view but does NOT generate.
+// `setMany` leaves `edits` alone, which is the only thing `useAutoRun`
+// watches, so no run can start from this.
 test('load into lab sets the knobs and the view, goes to the lab, and starts nothing', async () => {
   const screen = await mountDetail()
   await show()
@@ -133,8 +133,8 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
 
   expect(useStore.getState().params.values.seed).toBe(stored.meta.params.seed)
   expect(useStore.getState().view.stroke).toBe(stored.meta.view.stroke)
-  // A stored view's `top` is 0, so the highlight lands off — the old lab's
-  // behaviour, not an oversight.
+  // A stored view's `top` is 0, so the highlight lands off — deliberate, not
+  // an oversight.
   expect(useStore.getState().view.hilite).toBe(false)
   expect(useStore.getState().params.edits).toBe(edits)
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')

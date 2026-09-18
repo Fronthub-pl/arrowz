@@ -84,22 +84,20 @@ export function RunStatusBar() {
     text = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
   } else if (run.phase === 'running') {
     const p = run.progress
-    // The old lab's own arithmetic (`lab-page.ts:785-787`): the share done is
-    // measured in cells left, not pieces made, and the two counts are
-    // abbreviated with `short`, not `fmt`.
+    // The share done is measured in cells left, not pieces made, and the two
+    // counts are abbreviated with `short`, not `fmt`.
     //
-    // The dictionary's `progress` string carries `<b>` markup, which the old
-    // lab writes as HTML. This line is the text of an `aria-live` region, so the
-    // tags would show up literally — a visible defect in the page's primary
-    // status line, not a wart worth preserving — and they are stripped here
-    // rather than in the dictionary, which stays the source of truth. PR 4
-    // replaces this line with the report's own markup and takes the tags back.
-    // Stripping is not a licence for `dangerouslySetInnerHTML`: an `aria-live`
-    // region has to be text.
+    // The dictionary's `progress` string carries `<b>` markup. This line is
+    // the text of an `aria-live` region, so the tags would show up literally —
+    // a visible defect in the page's primary status line, not a wart worth
+    // preserving — and they are stripped here rather than in the dictionary,
+    // which stays the source of truth. PR 4 replaces this line with the
+    // report's own markup and takes the tags back. Stripping is not a licence
+    // for `dangerouslySetInnerHTML`: an `aria-live` region has to be text.
     if (p === null) {
-      // The size is the run's, not the console's: the old lab reads `state`
-      // at the moment `run()` fires, and a knob edited during a carve must
-      // not rewrite the warning about the carve already going.
+      // The size is the run's, not the console's: it is read at the moment
+      // `run()` fires, and a knob edited during a carve must not rewrite the
+      // warning about the carve already going.
       const started = run.params
       const cells = started === null ? 0 : started.W * started.H
       text =
@@ -133,8 +131,8 @@ export function RunStatusBar() {
     // Both failure paths land here: the worker's `error` message (a thrown
     // InvalidParamsError) and its `onerror` both call the slice's `failed()`
     // (useGenerator.ts:67, :77, :82), so the phase no longer says which
-    // happened and this component always prints `generationError`. The old lab
-    // keeps the two words apart; `workerError` (lab-i18n.ts:125) is
+    // happened and this component always prints `generationError`. The
+    // previous lab keeps the two words apart; `workerError` (lab-i18n.ts:125) is
     // unreachable from here until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
   } else if (run.phase !== 'done' || report === null) {

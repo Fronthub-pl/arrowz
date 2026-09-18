@@ -12,6 +12,9 @@ export function AppRoutes() {
       <Route path="/" element={null} />
       <Route path="/boards" element={null} />
       <Route path="/boards/:size/:id" element={null} />
+      {/* The bare path is a documentation link too. Route order does not
+          matter — react-router ranks matches — but it reads better here. */}
+      <Route path="/docs" element={<Navigate to="/docs/element" replace />} />
       <Route path="/docs/:what" element={<DocsRoute />} />
       {/* A stale deep link is the lab, not a blank page. */}
       <Route path="*" element={<Navigate to="/" replace />} />

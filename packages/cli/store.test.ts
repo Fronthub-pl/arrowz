@@ -203,8 +203,8 @@ Deno.test('a save that does not carry a figure keeps the stored one', async () =
   await saveBoard(entry({
     metrics: { ok: false, pieces: 10, maxLen: 5, genMs: 3, restarts: 1, backtracks: 42, stuck },
   }))
-  // The old lab's view edit posts four figures, and the lab server drops a null
-  // exactly as it drops an absent one.
+  // A view edit posts four figures, and the store server drops a null exactly
+  // as it drops an absent one.
   const edit = await saveBoard(entry({
     view: { ...entry().view, stroke: 0.3 },
     metrics: { ok: false, pieces: 10, maxLen: 5, genMs: null, restarts: null, backtracks: null, stuck: null },
@@ -251,8 +251,7 @@ Deno.test('a board under an old seed name is neither listed nor deleted', async 
 })
 
 // Boards saved before the arrowhead knobs (or rounded) existed carry a view
-// without them; the store fills them with the defaults, as the old lab page
-// did.
+// without them; the store fills them with the defaults.
 Deno.test('listBoards fills a legacy view without arrowhead fields with the defaults', () => {
   const dir = freshDir()
   Deno.mkdirSync(join(dir, '25x50'))

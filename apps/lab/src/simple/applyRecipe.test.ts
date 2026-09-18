@@ -72,10 +72,9 @@ describe('applyRecipe', () => {
     expect(state().params.values).toEqual(simpleParams({ ...state().recipe.value, seed }, () => 0.99))
   })
 
-  // The old `applySimple` calls `showClamped(clamped)` with whatever this
-  // application found (`lab-page.ts:636`): a notice a link raised goes down
-  // when the recipe writes values that needed no clamp.
-  it('lowers a clamp notice nothing in the recipe moved, as the old lab does', () => {
+  // `applyRecipe` raises the clamp notice with whatever it found: a notice a
+  // link raised goes down when the recipe writes values that needed no clamp.
+  it('lowers a clamp notice nothing in the recipe moved, as the previous lab does', () => {
     state().ui.raiseClamped(true)
     applyRecipe(false)
     expect(state().ui.clamped).toBe(false)

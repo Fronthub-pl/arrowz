@@ -73,8 +73,8 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
   })
 
-  // The old lab warns before a carve that will take a while (lab-page.ts:882);
-  // spec §10 lists it among the features the port must restore.
+  // A carve that will take a while is warned about before it starts; spec §10
+  // lists it among the features the port must restore.
   it('warns for a board over 200 000 cells, and not for a small one', async () => {
     const state = useStore.getState()
     state.params.setMany({ W: 600, H: 600 })

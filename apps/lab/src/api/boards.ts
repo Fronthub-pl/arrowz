@@ -33,8 +33,7 @@ export async function listBoards(): Promise<ListOutcome> {
 /**
  * One stored board file, by its size folder and its layout hash. The file is
  * returned as `unknown`: `decodeBoard` takes `unknown` and is the only thing
- * entitled to decide the shape is a board, exactly as the old lab hands over
- * what it fetched (`lab-page.ts:1166-1183`).
+ * entitled to decide the shape is a board.
  */
 export async function readStoredBoard(size: string, id: string): Promise<FileOutcome> {
   try {

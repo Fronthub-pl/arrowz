@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { createLangSlice, initialLang, isLang, type LangState } from './lang.slice'
 
 describe('the language a page opens in', () => {
-  // The old lab's rule, `lab-page.ts:108-109`: a stored `pl` wins; with
-  // nothing stored a Polish browser gets Polish; anything else is English —
-  // including a stored value that is not a language at all.
+  // The rule: a stored `pl` wins; with nothing stored a Polish browser gets
+  // Polish; anything else is English — including a stored value that is not a
+  // language at all.
   it.each([
     ['pl', 'en-US', 'pl'],
     ['en', 'pl-PL', 'en'],

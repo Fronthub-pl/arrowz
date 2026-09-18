@@ -220,10 +220,9 @@ test('a run in flight survives a route change, and finishes into the same elemen
   await expect.poll(() => before?.board?.W).toBe(600)
 }, 60_000)
 
-// Spec §5.3, PR 4b: the old lab replaces its board only when a run is done
-// (lab-page.ts:811-816), and so does this lab. Before the result slice,
-// `run.started()` cleared the board and the stage sat empty for a whole carve.
-// 600×600 and seed 9 for the reason the case above gives.
+// Spec §5.3, PR 4b: the board is replaced only when a run is done. Before the
+// result slice, `run.started()` cleared the board and the stage sat empty for a
+// whole carve. 600×600 and seed 9 for the reason the case above gives.
 test('a run in flight keeps the last result on screen', async () => {
   const screen = await mountApp()
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
@@ -648,8 +647,8 @@ test('the workspace is hidden under the docs route', async () => {
 }, 40_000)
 
 // Ruling 1: the run column is hidden in the library, not replaced. A carve
-// started in the lab keeps its node, its refs and the run itself; the old lab
-// hides the same controls by class. Read through `querySelector`, not a role
+// started in the lab keeps its node, its refs and the run itself, because it
+// is hidden by class. Read through `querySelector`, not a role
 // locator, precisely because a locator skips `display: none` — the state
 // under test.
 //
@@ -700,9 +699,9 @@ test('the library gives the console its share of the panel', async () => {
   expect(Math.abs(stage.height - consoleBox.height)).toBeLessThan(2)
 })
 
-// Solo is the stage's, not the lab tab's: the old lab's full view works on
-// both tabs (`lab-page.ts:1027-1029`). The `f` key is the application's, so
-// this presses it rather than clicking the toggle.
+// Solo is the stage's, not the lab tab's: the full view works on both tabs.
+// The `f` key is the application's, so this presses it rather than clicking
+// the toggle.
 //
 // The viewport is stated rather than inherited. `page.viewport` outlives the
 // case that sets it, and the case above leaves 1400×900 behind, so without

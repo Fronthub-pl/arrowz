@@ -593,13 +593,13 @@ export const VIEW_FLAG: Readonly<Record<ViewNumber, string>> = {
 }
 
 /**
- * What each picture number may be. The bounds are the drawing's own, not the
- * lab's: the lab's fields are deliberately narrower (a cell of 1..40, a line
- * of 0.2..0.9), while the CLI also draws the pictures README shows, an
- * arrowhead of 2 squares and a tip of no height among them. What has to hold
- * is the direction that matters for the mirror — every value the lab can
- * reach is a value the CLI takes — and `carve.test.ts` reads `lab.html` to
- * check exactly that.
+ * What each picture number may be. The bounds are the drawing's own: they are
+ * what the CLI takes, wide enough for the pictures README shows, an arrowhead
+ * of 2 squares and a tip of no height among them. The lab renders every one of
+ * its fields from this table (`ViewNumberField` reads it where it draws the
+ * box), so the direction that matters for the mirror holds by construction —
+ * every value the lab can reach is a value the CLI takes — and the two cannot
+ * drift apart.
  *
  * `whole` marks the two flags the help spells `N`: a picture measured in
  * pixels or in pieces cannot have a fraction. The other three are ratios of a

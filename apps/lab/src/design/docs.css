@@ -1,0 +1,106 @@
+/* The documentation pages (spec §2.4). Its own file, as report.css explains for
+   its own: one file per surface keeps a specificity collision inside the
+   surface that caused it. The panel scrolls inside itself, like the report
+   column, because the shell has a fixed height and does not scroll.
+
+   `height: 100%` is what makes that true, and the rule shipped without it: the
+   panel is a block child of a block <main>, so it grew to its content and
+   `overflow-y` had nothing to overflow — measured at 1280×800, a 2370px section
+   inside a 712px <main>, scrolling the whole document 2458px and taking the top
+   bar and the tab strip off the screen. The `min-height: 0` that used to sit
+   here was the report column's rule copied to a box that is not a grid item,
+   where it is both inert and the initial value. The sideways half of the same
+   defect is `.fw > main`'s business (shell.css).
+
+   `box-sizing` because the padding is inside that 100%: `.fw *` already says so
+   for everything in the shell, and this repeats it so the panel is right in a
+   test that mounts it without the shell around it. */
+.fw-docs {
+  height: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.fw-docs h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.fw-docs h3 {
+  margin: 20px 0 6px;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.fw-docs p {
+  max-width: 74ch;
+  margin: 0 0 8px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.fw-docs-nav {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.fw-docs-nav a {
+  font-size: 12px;
+  color: var(--ash);
+  text-decoration: none;
+}
+/* `page`, not `true`: a link says which page you are on, and the lab's chips
+   and library rows say `true` about a choice. The two never meet. */
+.fw-docs-nav a[aria-current='page'] {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.fw-docs-table {
+  width: 100%;
+  margin-bottom: 4px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.fw-docs-table th,
+.fw-docs-table td {
+  padding: 3px 10px 3px 0;
+  text-align: left;
+  vertical-align: top;
+}
+.fw-docs-table th {
+  font-weight: 400;
+  color: var(--ash);
+}
+.fw-docs-table .mono {
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.fw-docs-code {
+  max-width: 100%;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  background: var(--graphite);
+  color: var(--mist);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* The help is a table aligned with spaces, so the layout IS the content:
+   `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
+   characters, about 2317px at this size — from scrolling the whole page.
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
+.fw-docs-term {
+  max-width: 100%;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--graphite);
+  color: var(--mist);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+}

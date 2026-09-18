@@ -42,7 +42,7 @@ export function viewOf(state: ViewState): View {
 export function createViewSlice(set: SetStore): ViewState {
   const patch = (next: Partial<ViewState>) => set((state) => ({ view: { ...state.view, ...next } }))
   return {
-    // The old lab's own starting values (lab.html:223-262), not DEFAULT_VIEW's:
+    // The lab's own starting values, not DEFAULT_VIEW's:
     // `cell` and `top` are the page's, the rest the CLI's.
     cell: 12,
     stroke: DEFAULT_VIEW.stroke,

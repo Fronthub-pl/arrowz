@@ -35,7 +35,7 @@ export interface StatRow {
 
 /** How one row moved against the baseline: the text of the delta cell and which way is better. */
 export interface ReportDelta {
-  /** The change with its sign — `+` or `−` (U+2212) — at the old lab's precision. */
+  /** The change with its sign — `+` or `−` (U+2212) — at the precision of the size of the change. */
   readonly text: string
   readonly trend: 'better' | 'worse' | 'neutral'
 }

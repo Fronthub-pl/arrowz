@@ -12,10 +12,9 @@ export interface RunControl {
 }
 
 /**
- * The one place a run begins. The old lab says it plainly at `lab-page.ts:869`
- * — "Every way of starting a run (button, auto-generate, preset, URL, reseed)
- * ends here, so this is the one place the envelope is enforced" — and this is
- * the port of that sentence. Seven triggers call `start()`; none of them has
+ * The one place a run begins: every way of starting one (button,
+ * auto-generate, preset, URL, reseed) ends here, so this is the one place the
+ * envelope is enforced. Seven triggers call `start()`; none of them has
  * to remember to check the rules or to cancel a pending debounce.
  *
  * The knobs are read with `getState()` at the call rather than through a

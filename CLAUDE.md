@@ -7,9 +7,9 @@
   pull request titles and descriptions.
 - **Conversation with the user is in Polish.** Only the chat is Polish; nothing
   Polish goes into files, except translation dictionaries of user-facing text.
-- **User-facing tools ship bilingual UI (Polish and English).** The generator
-  lab (`packages/cli/lab.html`) has a language switch; every visible string,
-  parameter label, help text and "inactive" reason lives in the dictionary
+- **User-facing tools ship bilingual UI (Polish and English).** The lab
+  (`apps/lab`) has a language switch; every visible string, parameter label,
+  help text and "inactive" reason lives in the dictionary
   (`packages/engine/lab-i18n.ts`), with English as the source language in code
   (`PARAM_SPEC`) and Polish as the translation.
 
@@ -17,27 +17,30 @@
 
 - The engine and the CLI are TypeScript on Deno 2.9 in `packages/engine`
   (`@arrowz/engine`) and `packages/cli`: `deno task test` must pass after
-  every change, and `deno task verify` (check, lint, fmt, test, bundle) before a PR.
+  every change, and `deno task verify` (check, lint, fmt, test) before a PR.
   The whole repository, Node projects included, is verified with
   `pnpm nx run-many -t verify`; pnpm comes through corepack (`corepack enable pnpm`).
 - The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and
-  so do `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`: the DOM
-  lib is referenced only in `packages/cli/lab-page.ts`, and `neutral.test.ts`
-  greps the rest. Never spread arrays proportional to the number of cells or
+  so do `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`,
+  `lab-report.ts`, `lab-docs.ts`: no file
+  in `packages/cli` reaches for the DOM either, and `neutral.test.ts` greps
+  both rules. Never spread arrays proportional to the number of cells or
   pieces (`Math.min(...arr)`) — it overflows the worker stack in Chrome.
 - No `any`, no non-null assertions; a type fix must never add a value-changing
   fallback in the engine (`fingerprints.test.ts` guards the boards, and
   `packages/engine/scripts/node-smoke.mjs` guards the Node build of them).
 - Node consumers get the engine from `packages/engine/dist/`, emitted by
   `pnpm nx build engine`; never import the engine's `.ts` sources from `apps/`.
-- The lab page and worker are bundled by `deno task bundle` into
-  `packages/cli/dist/` (gitignored); `sh packages/cli/lab.sh` builds, watches and serves.
-  Both gates bundle, and `lab-bundle.test.ts` runs the bundled worker and checks
-  the page's fixed lookups against `lab.html`: the lab is built by the gates, so
-  what it does at run time has to be checked by something.
-- `deno task check`, `deno task bundle`, `deno task verify` and `lab.sh` need
-  `corepack enable pnpm && pnpm install` once: the lab imports the board element,
-  whose Lit resolves only from `packages/board-element/node_modules`.
+- The lab is `apps/lab` (`pnpm nx serve lab`, port 8779) and keeps its boards
+  in the store served by `deno task store` (port 8777). `worker-smoke.mjs`
+  runs the worker `vite build` emits and checks its board against the engine's,
+  so what the browser loads is gated, not merely compiled.
+- `pnpm nx serve lab` and the rest of the Nx targets need
+  `corepack enable pnpm && pnpm install` once. The Deno gates no longer do:
+  the only file under `packages/` that imported the board element was the lab
+  page, so `deno task check` and `deno task lint` pass with no `node_modules`
+  at all (measured after the deletion by moving
+  `packages/board-element/node_modules` aside).
 - No attribution lines in commit messages or PR descriptions.
 
 <!-- jbcontext-instructions-start -->

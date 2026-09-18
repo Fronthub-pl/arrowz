@@ -46,7 +46,7 @@ describe('the recipe slice', () => {
     expect(store.recipe.edits).toBe(2)
   })
 
-  // `lab-page.ts:927`: Defaults resets the recipe and keeps randomising.
+  // Defaults resets the recipe and keeps randomising.
   it('puts the default recipe back, keeping random', () => {
     const store = slice()
     store.recipe.setRandom(true)

@@ -1,7 +1,7 @@
 import type { Lang } from '@arrowz/engine/i18n'
 import { readStored, writeStored } from './storage'
 
-/** The old lab's key, so a preference set in one lab opens the other in the same language. */
+/** The key already in people's browsers, so a language chosen before is still honoured. */
 export const LANG_KEY = 'labLang'
 
 export function isLang(value: unknown): value is Lang {
@@ -9,7 +9,7 @@ export function isLang(value: unknown): value is Lang {
 }
 
 /**
- * The language a page opens in before any link is read — `lab-page.ts:108-109`.
+ * The language a page opens in before any link is read.
  * A link's language is not an input here: `useUrlHash` applies it on top, the
  * way it applies the link's knobs (Ruling 6).
  */

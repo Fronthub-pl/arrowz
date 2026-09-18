@@ -14,6 +14,7 @@ import './design/console.css'
 import './design/library.css'
 import './design/run.css'
 import './design/report.css'
+import './design/docs.css'
 
 const root = document.getElementById('root')
 // A missing mount point is a broken index.html, not a runtime condition to

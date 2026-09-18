@@ -7,7 +7,8 @@
     "./simple": "./lab-simple.ts",
     "./presets": "./lab-presets.ts",
     "./i18n": "./lab-i18n.ts",
-    "./report": "./lab-report.ts"
+    "./report": "./lab-report.ts",
+    "./docs": "./lab-docs.ts"
   },
   "compilerOptions": {
     "strict": true,

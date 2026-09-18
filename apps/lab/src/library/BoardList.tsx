@@ -14,7 +14,7 @@ import { useOpenBoard } from './useOpenBoard'
  * that were looked at.
  *
  * Two empty states, and they say different things: an unreachable store asks
- * for `lab.sh`, an empty one asks for a board (Ruling 2). The row shows the
+ * for `store.sh`, an empty one asks for a board (Ruling 2). The row shows the
  * whole 71-character id, clipped by CSS, so it can be selected and copied.
  */
 export function BoardList({ refresh }: { refresh(): void }): ReactElement {

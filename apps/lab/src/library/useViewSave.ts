@@ -5,17 +5,16 @@ import type { StoredBoard } from '../state/result.slice'
 import { useStore } from '../state/store'
 import { raiseNotice } from './notices'
 
-/** The old lab's own pause between the last keystroke and the write. */
+/** The previous lab's own pause between the last keystroke and the write. */
 const SETTLE_MS = 350
 
 /**
- * Module scope, as the old lab keeps `libTimer` (Ruling 12). Not a ref inside
- * the component: the detail is keyed on the address, so choosing another board
- * unmounts it, and a timer owned by that instance would die with the edit. And
- * not an effect either — review round 2 measured a cleanup written to flush
- * such a timer running on *every render*, because its dependencies were fresh
- * functions: the debounce never fired, one edit posted twice, and every later
- * re-render posted again.
+ * Module scope (Ruling 12). Not a ref inside the component: the detail is
+ * keyed on the address, so choosing another board unmounts it, and a timer
+ * owned by that instance would die with the edit. And not an effect either —
+ * review round 2 measured a cleanup written to flush such a timer running on
+ * *every render*, because its dependencies were fresh functions: the debounce
+ * never fired, one edit posted twice, and every later re-render posted again.
  */
 let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -37,8 +36,8 @@ export function cancelPendingSave(): void {
 /**
  * An edited view of a stored board: the element redraws at once, and after a
  * pause the same board file goes back to the store with the new view in its
- * meta (`onLibViewInput` and `saveLibView` in `lab-page.ts`). Nothing is
- * regenerated, and the command in the meta still reproduces the board.
+ * meta. Nothing is regenerated, and the command in the meta still reproduces
+ * the board.
  */
 export function useViewSave(refresh: () => void): (view: View) => void {
   return (view) => {
@@ -68,7 +67,7 @@ async function write(refresh: () => void, edited: StoredBoard, posted: View): Pr
   const name = `${meta.W}x${meta.H}/${meta.id}`
   // The page holds the file as `unknown` because it reads nothing in it;
   // `decodeBoard` accepted it when it loaded and it goes back untouched, so
-  // the contract's `BoardFile` is what it is — the old lab says the same.
+  // the contract's `BoardFile` is what it is.
   const request = storeRequest(file as BoardFile, meta.params, posted, meta.source, {
     ok: meta.ok,
     pieces: meta.pieces,

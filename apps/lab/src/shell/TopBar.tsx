@@ -40,7 +40,7 @@ export function TopBar() {
       <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <path d="M3 17 L10 3 L17 17 L10 13 Z" fill="currentColor" />
       </svg>
-      <span className="name">Arrowz</span>
+      <h1 className="name">Arrowz</h1>
       {name === null ? null : (
         <>
           <span className="sep">/</span>

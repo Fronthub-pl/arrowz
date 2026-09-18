@@ -11,9 +11,9 @@ import { useOpenBoard } from './useOpenBoard'
 import { cancelPendingSave, useViewSave } from './useViewSave'
 
 /**
- * One stored board's detail, under the list (spec §5.1, §10 row 5b). It is the
- * old lab's three boxes — `libCommandBox`, `libView` and `libDetail` — gathered
- * into one, because here they are one thing: what this board is and what can be
+ * One stored board's detail, under the list (spec §5.1, §10 row 5b). The
+ * command box, the view fields and the board's own figures are gathered into
+ * one, because here they are one thing: what this board is and what can be
  * done with it.
  *
  * Absent rather than disabled when the address names no board (Ruling 6): an
@@ -71,9 +71,9 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
       .catch(() => {})
   }
 
-  // Ruling 9, parity with the old lab's `libLoad`: the knobs, then the view,
-  // then the lab — and no run. `setMany` is the machine path and does not move
-  // `edits`, which is the only thing `useAutoRun` watches.
+  // Ruling 9: the knobs, then the view, then the lab — and no run. `setMany`
+  // is the machine path and does not move `edits`, which is the only thing
+  // `useAutoRun` watches.
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
@@ -85,15 +85,15 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
     view.setFlag('rounded', stored.rounded !== false)
     view.setFlag('colored', stored.colored)
     // A stored board carries no highlight, so this lands off; when one somehow
-    // does, its count comes with it, as the old lab copies it.
+    // does, its count comes with it.
     view.setFlag('hilite', stored.top > 0)
     if (stored.top > 0) view.setNumber('top', String(stored.top))
     void navigate('/')
   }
 
-  // Two clicks, as the old lab asks: the first arms, the second removes. A
-  // different board is a different instance of this component (Ruling 10), so
-  // there is no armed flag to carry across boards and nothing to disarm.
+  // Two clicks: the first arms, the second removes. A different board is a
+  // different instance of this component (Ruling 10), so there is no armed
+  // flag to carry across boards and nothing to disarm.
   const remove = () => {
     if (!armed) {
       setArmed(true)

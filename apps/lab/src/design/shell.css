@@ -62,10 +62,20 @@ body {
    `height: 100%`. A <main> is a block box with `height: auto`, so without this
    the percentage resolves to `auto` and the chain breaks one level above the
    panel. Every route's <main> takes the rule, not only the lab's: each of them
-   is row three while its own route is the one on screen. */
+   is row three while its own route is the one on screen.
+
+   `min-width: 0` is the sideways half of the same chain, and it was missing.
+   The grid's only column is implicit, so it is `auto`, whose minimum is the
+   min-content of what sits in it — and the CLI help is a `white-space: pre`
+   block whose longest line is about 2317px, which a percentage `max-width`
+   does not cap during intrinsic sizing. Measured at 1280×800 on `/docs/cli`:
+   the column resolved to 2017.57px and the whole lab scrolled sideways, top
+   bar included. The stage escapes this because its own columns are
+   `minmax(0, 1fr)`; a route's <main> has no such parent, so it says it here. */
 .fw > main {
   height: 100%;
   min-height: 0;
+  min-width: 0;
 }
 
 .fw-top {
@@ -81,8 +91,14 @@ body {
   height: 20px;
   flex: none;
 }
+/* An h1, so the document has a title above the panels' headings. The size was
+   already this rule's — a (0,2,0) selector beats the browser's — but the
+   weight and the block margins were not, and a bar 48px tall should not depend
+   on absorbing them. */
 .fw-top .name {
+  margin: 0;
   font-size: 13px;
+  font-weight: 500;
 }
 .fw-top .sep {
   opacity: 0.5;

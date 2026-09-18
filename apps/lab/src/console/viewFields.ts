@@ -20,13 +20,14 @@ export interface ViewField {
 /**
  * The four (five, with `top`) number fields of the preview.
  *
- * No bounds here on purpose. The old lab wrote its own, narrower than
- * `VIEW_RANGE` — `cell` was offered 1..40 where the CLI takes 1..200 — and a
- * field that declares a ceiling its own store legally passes is a field that
- * goes `:invalid` on a legal value and reports `aria-valuemax=40` beside
- * `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the point of
- * render instead, so the contradiction cannot be written down. Only `step`
- * lives here: it is a keyboard convenience, not a claim about what is allowed.
+ * No bounds here on purpose. A bound written here is a copy, and a copy drifts
+ * from `VIEW_RANGE` — `cell` was once offered 1..40 where the CLI takes 1..200
+ * — and a field that declares a ceiling its own store legally passes is a
+ * field that goes `:invalid` on a legal value and reports `aria-valuemax=40`
+ * beside `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the
+ * point of render instead, so the contradiction cannot be written down. Only
+ * `step` lives here: it is a keyboard convenience, not a claim about what is
+ * allowed.
  */
 export const VIEW_FIELDS: readonly ViewField[] = [
   { field: 'cell', label: 'cellLabel', help: 'cellHelp', step: 1 },
@@ -37,9 +38,9 @@ export const VIEW_FIELDS: readonly ViewField[] = [
 ]
 
 /**
- * What the simple view keeps of the preview (PR 4a, Ruling 9): `lab.html`
- * marks `cell`, `top` and `voids` `advonly` (lines 221, 259, 260), and the
- * other six stay on screen in both views.
+ * What the simple view keeps of the preview (PR 4a, Ruling 9): `cell`, `top`
+ * and `voids` are advanced-only, and the other six stay on screen in both
+ * views.
  */
 export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
 export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hilite']

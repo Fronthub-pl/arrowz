@@ -17,9 +17,8 @@ export interface RunState {
   message: string | null
   /**
    * Why the slice is idle. An abort and a fresh page are both `idle`, and the
-   * old lab tells them apart (`dict.t('aborted')`, lab-page.ts:863-868);
-   * without this the status line forgets the abort happened and prints
-   * `pressGenerate`.
+   * status line tells them apart (`dict.t('aborted')`); without this it
+   * forgets the abort happened and prints `pressGenerate`.
    */
   wasAborted: boolean
   started(params: Params): void

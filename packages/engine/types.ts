@@ -1,6 +1,6 @@
 // Shared domain types of the prototype. Nothing here depends on a runtime
-// value: the engine, the CLI, the store, the lab page and the worker all
-// import from this file, so a misspelt key anywhere fails to compile.
+// value: the engine, the CLI, the store and the lab all import from this file,
+// so a misspelt key anywhere fails to compile.
 
 /** The knob keys of PARAM_SPEC. Listed once; engine.ts asserts its table has exactly these keys. */
 export type ParamKey =
@@ -339,7 +339,7 @@ export interface BoardMeta {
 
 /**
  * The body of a board-store write. Mutable and nullable on purpose:
- * `lab-server.ts`'s checkMetrics builds one field by field, and a `BoardMeta`
+ * `store-server.ts`'s checkMetrics builds one field by field, and a `BoardMeta`
  * read back out of the store carries `null` where a run had no figure (see
  * `ok`, `pieces`, `maxLen` and `genMs` above). Making these readonly or
  * non-nullable breaks both callers.

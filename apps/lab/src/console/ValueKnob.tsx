@@ -38,7 +38,7 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
         ? null
         : dict.t('ruleBound', bound)
   // The description is always present; the state, when there is one, goes in
-  // front of it — the shape the old lab builds with `help.dataset.why`.
+  // front of it.
   //
   // Two spans, not one string. The state must survive the switch: it is the
   // reason the run is refused, and the switch is about descriptions (Ruling

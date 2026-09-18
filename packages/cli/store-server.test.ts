@@ -2,14 +2,14 @@ import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname } from '@std/path'
 import { defaultParams, encodeBoard } from '@arrowz/engine'
 import { COMMAND_PREFIX } from '@arrowz/engine/command'
-import { createLabServer, LAB_CSP, MAX_BODY, STORE_CSP } from './lab-server.ts'
+import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 import { saveBoard } from './store.ts'
 import type { BoardMeta, BoardSize } from '@arrowz/engine'
 
 /** One server per test on a fresh, empty store; shut down before the sanitizers look. */
 async function withServer(fn: (base: string) => Promise<void>) {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const server = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, createLabServer())
+  const server = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, createStoreServer())
   try {
     await fn(`http://127.0.0.1:${server.addr.port}`)
   } finally {
@@ -148,7 +148,7 @@ Deno.test('POST refuses a body that is not JSON (400)', () =>
 // adds one when the request goes out), so this covers the streamed cap only.
 Deno.test('POST refuses a body larger than the cap, read as a stream (413)', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   const big = await handle(
     new Request('http://localhost:8777/api/boards', {
       method: 'POST',
@@ -164,7 +164,7 @@ Deno.test('POST refuses a body larger than the cap, read as a stream (413)', asy
 // read, which the streamed case above cannot reach (it sends no such header).
 Deno.test('POST refuses a body whose declared Content-Length exceeds the cap (413)', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   const big = await handle(
     new Request('http://localhost:8777/api/boards', {
       method: 'POST',
@@ -209,16 +209,27 @@ Deno.test('POST without params, without a readable board file or with a board of
     }
   }))
 
-Deno.test('static lab files without cache; paths escaping the directory are rejected', () =>
+Deno.test('stored files are served without cache; paths escaping the store are rejected', () =>
   withServer(async (base) => {
-    const html = await fetch(base + '/lab.html')
-    assertEquals(html.status, 200)
-    assertEquals(html.headers.get('cache-control'), 'no-store, must-revalidate')
-    await html.body?.cancel()
+    const { meta } = await saveBoard({
+      board: emptyFile(10, 10),
+      params: { ...defaultParams(), W: 10, H: 10, seed: 11 },
+      // `rounded` is required by `View` (`types.ts`). The POST-body tests in
+      // this file omit it because their body crosses as `unknown`; a typed
+      // `saveBoard` call does not get that licence and fails `deno check`.
+      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: false },
+      command: 'x',
+      source: 'cli',
+    })
+    const file = await fetch(`${base}/store/10x10/${meta.id}.board.json`)
+    assertEquals(file.status, 200)
+    assertEquals(file.headers.get('cache-control'), 'no-store, must-revalidate')
+    await file.body?.cancel()
+    // The server has no page of its own to serve any more.
     const root = await fetch(base + '/')
-    assertEquals(root.status, 200)
+    assertEquals(root.status, 404)
     await root.body?.cancel()
-    const missing = await fetch(base + '/missing.txt')
+    const missing = await fetch(base + '/store/10x10/missing.board.json')
     assertEquals(missing.status, 404)
     await missing.body?.cancel()
     const escape = await fetch(base + '/store/..%2F..%2Fengine.ts')
@@ -227,12 +238,6 @@ Deno.test('static lab files without cache; paths escaping the directory are reje
     const malformed = await fetch(base + '/%E0')
     assertEquals(malformed.status, 400)
     assertEquals(await malformed.json(), { error: 'malformed path' })
-    const dist = await fetch(base + '/dist/lab-page.js')
-    assert(
-      dist.status === 200 || (await dist.text()).includes('deno task bundle'),
-      'a missing bundle must say how to build it',
-    )
-    if (dist.status === 200) await dist.body?.cancel()
   }))
 
 Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one gives 404, an old name 400', () =>
@@ -267,7 +272,7 @@ Deno.test('DELETE /api/boards/<size>/<id> removes the layout; a missing one give
 
 Deno.test('requests for another host, and writes from another origin, are refused', async () => {
   Deno.env.set('ARROWZ_BOARDS_DIR', Deno.makeTempDirSync({ prefix: 'arrowz-srv-' }))
-  const handle = createLabServer()
+  const handle = createStoreServer()
   // DNS rebinding: a hostile domain resolved to 127.0.0.1 arrives with its own Host.
   const rebound = await handle(new Request('http://evil.example:8777/api/boards'))
   assertEquals(rebound.status, 403)
@@ -304,20 +309,22 @@ Deno.test('requests for another host, and writes from another origin, are refuse
   assertEquals(same.status, 400) // past the guard; refused by checkPost for its content
 })
 
-Deno.test('only the page, its bundle and the store are served, with security headers', () =>
+Deno.test('only the store is served, with security headers', () =>
   withServer(async (base) => {
-    for (const path of ['/carve.ts', '/store.ts', '/deno.json', '/dist/..%2Fcarve.ts']) {
+    // Sources, configuration and a bundle path all answer the same way now:
+    // there is nothing here but the API and the store.
+    for (const path of ['/carve.ts', '/store.ts', '/deno.json', '/dist/anything.js', '/store/..%2Fcarve.ts']) {
       const r = await fetch(base + path)
       assert(r.status === 404 || r.status === 403, `${path} gave ${r.status}`)
       await r.body?.cancel()
     }
-    const html = await fetch(base + '/lab.html')
-    assertEquals(html.headers.get('content-security-policy'), LAB_CSP)
-    assertEquals(html.headers.get('x-content-type-options'), 'nosniff')
-    assertEquals(html.headers.get('x-frame-options'), 'DENY')
-    assertEquals(html.headers.get('referrer-policy'), 'no-referrer')
-    assertEquals(html.headers.get('cross-origin-resource-policy'), 'same-origin')
-    await html.body?.cancel()
+    const list = await fetch(base + '/api/boards')
+    assertEquals(list.headers.get('content-security-policy'), API_CSP)
+    assertEquals(list.headers.get('x-content-type-options'), 'nosniff')
+    assertEquals(list.headers.get('x-frame-options'), 'DENY')
+    assertEquals(list.headers.get('referrer-policy'), 'no-referrer')
+    assertEquals(list.headers.get('cross-origin-resource-policy'), 'same-origin')
+    await list.body?.cancel()
     const { meta } = await saveBoard({
       board: emptyFile(10, 10),
       svg: '<svg>x</svg>',

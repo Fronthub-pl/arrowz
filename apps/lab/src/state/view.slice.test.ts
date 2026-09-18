@@ -5,7 +5,7 @@ import { viewOf } from './view.slice'
 
 const view = () => useStore.getState().view
 
-test('the fields start where the old lab starts them', () => {
+test('the fields start where the previous lab starts them', () => {
   expect(view().cell).toBe(12)
   expect(view().stroke).toBe(DEFAULT_VIEW.stroke)
   expect(view().rounded).toBe(true)

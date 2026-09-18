@@ -12,10 +12,9 @@ import { useOpenBoard } from './useOpenBoard'
  * double-invoked mount effect produces.
  *
  * A board that cannot be read leaves the stage empty rather than under the
- * previous board's picture, and says why, as the old lab's `refuse` does
- * (`lab-page.ts:1159-1165`). Decoding failures and fetch failures are reported
- * alike: to someone looking at a list, a file that is missing and a file that
- * is unreadable are one thing.
+ * previous board's picture, and says why. Decoding failures and fetch failures
+ * are reported alike: to someone looking at a list, a file that is missing and
+ * a file that is unreadable are one thing.
  */
 export function useStoredBoard(): void {
   const { size, id } = useOpenBoard()

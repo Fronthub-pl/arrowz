@@ -12,9 +12,10 @@ describe('the hash codec', () => {
     expect(back?.view).toEqual(VIEW)
   })
 
-  // The format is shared with the deployed Deno lab, which writes the view
-  // numbers as the raw strings of its input fields (Ruling 7).
-  it('reads a link the old lab wrote, whose numbers are strings', () => {
+  // The format is the deployed one, and some links in circulation carry the
+  // view numbers as raw strings, the way an input field's value comes out
+  // (Ruling 7).
+  it('reads a link the previous lab wrote, whose numbers are strings', () => {
     const legacy =
       '#' +
       encodeURIComponent(
@@ -43,7 +44,7 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.headWidth).toBe(0)
   })
 
-  it('defaults the four flags the way the old lab does', () => {
+  it('defaults the four flags the way the previous lab does', () => {
     const bare = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: {} })))
     expect(bare?.view.rounded).toBe(true)
     expect(bare?.view.hilite).toBe(true)

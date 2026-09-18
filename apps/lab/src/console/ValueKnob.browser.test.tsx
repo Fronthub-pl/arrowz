@@ -18,7 +18,7 @@ test('the knob shows its label, its value and what it does', async () => {
   await expect.element(screen.getByText('closing off nooks')).toBeVisible()
   await expect.element(screen.getByRole('button', { name: /closing off nooks/ })).toMatchTextContent(/4/)
   // The description is not decoration: it is the only thing that says what a
-  // knob called "closing off nooks" does, and the old lab prints it (lab-page.ts:165-173).
+  // knob called "closing off nooks" does.
   await expect.element(screen.getByText(/fills nooks with few exits first/)).toBeVisible()
 })
 
@@ -105,7 +105,7 @@ test('a value outside the passed bounds is held inside them', async () => {
   await userEvent.fill(screen.getByRole('textbox'), '0.1')
   await userEvent.keyboard('{Enter}')
   // The knob's own range starts at -1, so `clampParam` alone would store 0.1 —
-  // a share `--start` cannot spell (lab-page.ts:280-284).
+  // a share `--start` cannot spell.
   expect(params().values.mix).toBe(0.3)
 })
 

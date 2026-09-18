@@ -1,6 +1,6 @@
 // THROWAWAY PROTOTYPE — probe engine, not production code.
 //
-// This file is shared by the CLI (carve.ts) and the browser lab (lab.html)
+// This file is shared by the CLI (carve.ts) and the lab (apps/lab)
 // so that two copies of the algorithm never come into existence and drift apart.
 // It must not touch `process` or the DOM — everything comes in as parameters.
 

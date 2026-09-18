@@ -1,4 +1,4 @@
-// English is the source language and lives in PARAM_SPEC / lab.html / EN;
+// English is the source language and lives in PARAM_SPEC / EN;
 // PL only holds the translation, checked against EN's shape by the compiler.
 import type { StartChoice } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
@@ -115,6 +115,10 @@ export const EN = {
     tabDocs: 'Docs',
     /** The accessible name of the tab strip itself, not of any one tab. */
     tabsLabel: 'Sections',
+    /** The accessible name of the documentation's own two-page navigation. */
+    docsNavLabel: 'Documentation pages',
+    docsElement: 'Element',
+    docsCli: 'Command line',
     fullView: 'Full view (key F)',
     pressGenerate: 'Press "Generate".',
     generating: 'Generating…',
@@ -176,7 +180,7 @@ export const EN = {
     boardRows: 'Boards of this size',
     boardDetail: 'The open board',
     loadIntoLab: 'Load into lab',
-    noStoreServer: 'No store server — run sh packages/cli/lab.sh.',
+    noStoreServer: 'No store server — run sh packages/cli/store.sh.',
     storeEmpty: 'The store is empty. Generate a board in the lab or with deno task carve.',
     notClosed: 'not closed',
     piecesShort: (n: number | string) => `${n} pieces`,
@@ -514,6 +518,9 @@ export const PL: Translation = {
     tabLibrary: 'Zapisane plansze',
     tabDocs: 'Dokumentacja',
     tabsLabel: 'Sekcje',
+    docsNavLabel: 'Strony dokumentacji',
+    docsElement: 'Element',
+    docsCli: 'Wiersz poleceń',
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',
@@ -574,7 +581,7 @@ export const PL: Translation = {
     boardRows: 'Plansze tego rozmiaru',
     boardDetail: 'Otwarta plansza',
     loadIntoLab: 'Wczytaj do laboratorium',
-    noStoreServer: 'Brak serwera magazynu — uruchom sh packages/cli/lab.sh.',
+    noStoreServer: 'Brak serwera magazynu — uruchom sh packages/cli/store.sh.',
     storeEmpty: 'Magazyn jest pusty. Wygeneruj planszę w laboratorium albo przez deno task carve.',
     notClosed: 'niedomknięta',
     piecesShort: (n) => `${n} elem.`,

@@ -16,10 +16,9 @@ export function ReportPanel(): ReactElement {
   const result = useStore((state) => state.result.shown)
   const inLibrary = useInLibrary()
   const baseline = useStore((state) => state.result.baseline)
-  // The old lab hides both tables on the library tab (`lab.html`'s
-  // `body.tab-library #stats, body.tab-library #topTable`) — on the tab, not
-  // merely when a board is chosen there, which is why this asks the route and
-  // not the preview. A stored board has no run to report, and `longestSummary`
+  // Both tables are hidden on the library tab — on the tab, not merely when a
+  // board is chosen there, which is why this asks the route and not the
+  // preview. A stored board has no run to report, and `longestSummary`
   // sorts every piece, about 90 000 at Insane (spec §5.3).
   const shown = inLibrary ? null : result
   return (

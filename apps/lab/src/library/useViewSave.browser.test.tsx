@@ -231,7 +231,7 @@ test('a failed save keeps the picture and says so', async () => {
 })
 
 // The store answers with the meta it wrote, and the list has to hear about it:
-// the old lab reloads with `force` so the row shows the new view's command.
+// the list is reloaded so the row shows the new view's command.
 test('a save that lands takes the store’s meta and refreshes the list', async () => {
   const saved = { ...stored.meta, view: { ...stored.meta.view, stroke: 0.8 }, command: 'deno task carve --stroke=0.8' }
   vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(saved), { status: 201 }))

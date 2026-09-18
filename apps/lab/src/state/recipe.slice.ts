@@ -1,7 +1,7 @@
 import { defaultChoice, type Recipe, recipeOf } from '@arrowz/engine/simple'
 import { readStored, writeStored } from './storage'
 
-/** The old lab's key and format, so a recipe survives the move between labs. */
+/** The key and format already in people's browsers, so a stored recipe still opens. */
 export const RECIPE_KEY = 'labSimple'
 
 export type RecipeSide = 'W' | 'H'
@@ -20,7 +20,7 @@ export interface RecipeState {
   setSlider(slider: RecipeSlider, position: number): void
   setSkeleton(skeleton: Recipe['skeleton']): void
   setRandom(on: boolean): void
-  /** The default recipe, keeping `random` — the old lab's Defaults (`lab-page.ts:927`). */
+  /** The default recipe, keeping `random` — what Defaults puts back. */
   reset(): void
 }
 
