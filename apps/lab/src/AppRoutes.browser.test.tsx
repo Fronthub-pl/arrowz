@@ -57,7 +57,10 @@ test('/docs/element renders the docs panel, wired to its tab', async () => {
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
-  await expect.element(screen.getByRole('navigation')).toBeVisible()
+  // Named, though it is the only navigation landmark here today: the docs page
+  // is where a second one would land, and an unnamed role locator turns that
+  // day's addition into a strict-mode throw in a case about something else.
+  await expect.element(screen.getByRole('navigation', { name: 'Documentation pages' })).toBeVisible()
 })
 
 test('/docs/cli is the same panel, on its own page', async () => {
@@ -74,9 +77,28 @@ test('the root path renders no panel of its own', async () => {
   expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
 })
 
+// The missing panel cannot carry this name either (the board case above says
+// why at length): `/` renders no panel, and neither does a path that matched
+// nothing at all, so the address is the only witness to a redirect.
+//
+// The address is compared whole, and `toHaveTextContent` cannot do it. It
+// matches a SUBSTRING, and every path in this file contains a slash, so
+// `toHaveTextContent('/')` passes on `/nowhere` itself — the exact failure this
+// case exists to catch. Nor does a regex rescue it: measured here, the matcher
+// stringifies its argument and looks for that text, reporting `Expected element
+// to have text content: /^\/$/` against a received `/`. So the case reads the
+// node's own text and compares it, polling because the redirect lands in a
+// later frame. The two cases below were written with a bare `'/'`; their paths
+// are not this one's business and they are left as they are.
 test('an unknown path redirects to the root', async () => {
-  const screen = await at('/nowhere')
+  const screen = await render(
+    <MemoryRouter initialEntries={['/nowhere']}>
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
   expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
+  await expect.poll(() => screen.getByTestId('address').element().textContent).toBe('/')
 })
 
 // Each panel is inside a <main>, not instead of it: role="tabpanel" on <main>
