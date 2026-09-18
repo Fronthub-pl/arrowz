@@ -236,6 +236,34 @@ test('f typed into a field or an editable region is text, not a toggle', async (
   }
 }, 40_000)
 
+// Two refusals the modifier loop above cannot express. `isComposing` is a field
+// of `KeyboardEventInit`, so it goes in directly; `defaultPrevented` is not a
+// field at all — it is the result of `preventDefault()` on a cancelable event,
+// so a capture listener one step earlier has to produce it, which is also how a
+// real handler that already used the key would.
+test('f being composed, or already handled by someone else, is not a toggle', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  // An IME composing a character sends the keystrokes of the character being
+  // composed: `f` on the way to something else is text, like `f` in a field.
+  press(document.body, { key: 'f', isComposing: true })
+  expect(solo(), 'isComposing').toBe(false)
+
+  const cancel = (event: KeyboardEvent) => event.preventDefault()
+  document.addEventListener('keydown', cancel, { capture: true })
+  try {
+    press(document.body, { key: 'f', cancelable: true })
+    expect(solo(), 'defaultPrevented').toBe(false)
+  } finally {
+    document.removeEventListener('keydown', cancel, { capture: true })
+  }
+  // The same event without the thing refused, so a listener deaf to synthetic
+  // events altogether could not pass either refusal above.
+  press(document.body, { key: 'f' })
+  expect(solo()).toBe(true)
+}, 40_000)
+
 // Solo belongs to the stage, and the docs route has none. (Until PR 5a the
 // saved boards had none either, which is what this case used to assert.)
 test('f does nothing on the docs route', async () => {

@@ -77,6 +77,15 @@ function useSoloKey(onWorkspace: boolean) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'f' && event.key !== 'F') return
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      // An IME sends the keystrokes of the character being composed, so `f` on
+      // its way into a character is text — the same reason a field is refused
+      // below, arriving through a different door.
+      if (event.isComposing) return
+      // Already used by someone closer to the keystroke. A listener on the
+      // document sees the event whatever anyone else did with it, so refusing a
+      // cancelled one is what keeps this hotkey the last in line rather than an
+      // extra one.
+      if (event.defaultPrevented) return
       const target = event.target
       if (
         target instanceof HTMLElement &&
