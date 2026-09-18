@@ -24,7 +24,7 @@ export function ElementDocs(): ReactElement {
       <p>{docs.elementLead}</p>
 
       <h3>{docs.headExample}</h3>
-      <pre className="fw-docs-code">
+      <pre className="fw-docs-pre fw-docs-code">
         {`<arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
 <script type="module">
   import '@arrowz/board-element'
