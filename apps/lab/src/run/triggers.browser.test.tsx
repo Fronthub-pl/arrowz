@@ -57,6 +57,22 @@ function recorder() {
   return { control, seen }
 }
 
+/**
+ * A seed pinned for the cases that have to know which one was drawn. The value
+ * is past the old 999999 ceiling on purpose: under the narrower range it would
+ * have been clamped on its way into the knob, so a case that asserts it also
+ * says the widening reached the lab.
+ */
+const PINNED_SEED = 3_000_000_000
+
+/** `getRandomValues` fills the array it is handed and returns that same array; the stub does both. */
+function pinSeed(value: number): void {
+  vi.spyOn(crypto, 'getRandomValues').mockImplementation((array) => {
+    if (array instanceof Uint32Array) array[0] = value
+    return array
+  })
+}
+
 /** Case 7's host: `useUrlHash` calls `useLocation()`, so it needs a router. */
 function HashHost({ control }: { control: RunControl }) {
   useUrlHash(control)
@@ -287,20 +303,27 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen).toEqual([before])
   })
 
-  // Row 7, simple view with randomising on. One pinned value feeds both the
-  // seed (`Math.floor(0.5 * 999999)`) and the draw. The order of the two is not
-  // claimed: `simpleParams` draws without reading the seed and only writes it
-  // back, so either order gives this snapshot (verified in review).
+  // Row 7, simple view with randomising on. TWO sources now, pinned
+  // separately: the seed comes from `getRandomValues`, the draw from
+  // `Math.random`. Before the seed widened to 32 bits a single pinned value fed
+  // both. The order of the two is not claimed: `simpleParams` draws without
+  // reading the seed and only writes it back, so either order gives this
+  // snapshot (verified in review).
+  //
+  // The pinned seed is deliberately past the old 999999 ceiling: under the
+  // narrower range it would have been clamped, so this value also says the
+  // widening reached the lab.
   it('14 · New seed in the simple view with randomising: at once, on the new seed and a fresh draw', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
     useStore.getState().recipe.setRandom(true)
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
+    pinSeed(PINNED_SEED)
     const screen = await render(<RunColumn control={r.control} />)
     await screen.getByRole('button', { name: 'New seed' }).click()
     expect(r.seen).toHaveLength(1)
-    expect(r.seen[0]?.seed).toBe(499999)
-    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: 499999 }, () => 0.5))
+    expect(r.seen[0]?.seed).toBe(PINNED_SEED)
+    expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: PINNED_SEED }, () => 0.5))
   })
 
   // Row 8, simple view: the recipe goes back too, keeping `random`, and is

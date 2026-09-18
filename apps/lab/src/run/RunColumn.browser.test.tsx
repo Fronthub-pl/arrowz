@@ -237,7 +237,7 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  // Ruling 3: the seed came from Math.random, not from a hand, so it must not
+  // Ruling 3: the seed came from the machine, not from a hand, so it must not
   // look like an edit — otherwise `auto` starts a second run behind it.
   it('draws that seed through the machine path, leaving the edit count alone', async () => {
     const before = useStore.getState().params.edits
@@ -255,12 +255,13 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  // This does not exercise clamping: the draw's range is a subset of the
-  // knob's, so nothing here would fail if the clamp were removed. It guards
-  // the literal in `reseed` from drifting past the spec; clamping itself is
-  // covered where clamping lives (params.slice.test.ts, "a committed value
-  // is clamped to the knob range and reported").
-  it('never draws a seed the literal could put outside the knob', async () => {
+  // This does not exercise clamping: the draw now spans exactly the knob's
+  // range — `getRandomValues` fills the same 32 bits PARAM_SPEC allows — so
+  // nothing here would fail if the clamp were removed. It guards the draw in
+  // `reseed` from drifting past the spec; clamping itself is covered where
+  // clamping lives (params.slice.test.ts, "a committed value is clamped to
+  // the knob range and reported").
+  it('never draws a seed outside the knob', async () => {
     const spec = PARAM_SPEC.find((s) => s.key === 'seed')
     if (spec === undefined) throw new Error('PARAM_SPEC has no seed')
     const screen = await render(<RunColumn control={stub().control} />)

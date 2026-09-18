@@ -129,11 +129,15 @@ export function RunColumn({
     control.start()
   }
   // `setMany` and not `set`: a seed the machine drew is not a knob a person
-  // typed, and only the typed path may wake `auto` (Ruling 3). The 999999
-  // ceiling is arbitrary rather than derived, and `clampParam` holds whatever
-  // is drawn inside PARAM_SPEC's bounds regardless.
+  // typed, and only the typed path may wake `auto` (Ruling 3). The draw now
+  // covers the knob's whole range: `getRandomValues` fills 32 bits, which is
+  // exactly PARAM_SPEC's ceiling, where `Math.random() * 999999` could not
+  // reach the top even of the narrower range it was written for.
   const reseed = () => {
-    setMany({ seed: Math.floor(Math.random() * 999999) })
+    // `?? 0` is unreachable — the call fills the array it is handed — and is
+    // here because an index into a typed array is `number | undefined` under
+    // `noUncheckedIndexedAccess`.
+    setMany({ seed: crypto.getRandomValues(new Uint32Array(1))[0] ?? 0 })
     drawIfRandom()
     control.start()
   }
