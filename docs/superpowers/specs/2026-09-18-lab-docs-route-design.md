@@ -366,6 +366,36 @@ on the instance (invisible to §3.2) and is not a signature (invisible to §3.1)
 None exists today — every `readonly … = (` in the class is `private` — and the
 plan records that a future one needs a rule rather than assuming it never comes.
 
+**A modifier the parser did not allow.** `public` is legal on every member of
+this class and the class writes it nowhere, so the signature pattern shipped
+without it and dropped `  public foo(` and `  public async foo(` in silence —
+a hole in the one direction §3.1 exists for, "nothing public is undocumented",
+failing open. Whole-branch review found it; the pattern now takes an optional
+`public`, and the parser has a test of its own against a fixture rather than
+against the class, because a class that happens not to use a modifier cannot
+report the modifier it cannot see.
+
+**What neither guard reads: the machine columns themselves.** Both guards
+compare **names** — plus, since that same review, a member row's `kind`, which
+the parser had in hand as `m[1]` and threw away. The rest of the machine data of
+§2.3 is checked by nothing at all:
+
+- a property row's `type` and `def`. `DEFAULT_PAD` is `4`
+  (`arrowz-board.ts:40`); make it 6 and the page goes on printing `4` with both
+  guards green.
+- a member row's `signature`. An added optional parameter or a changed return
+  type does not move a name: `zoomBy(factor: number): void` is a string about
+  types that no parser here reads.
+- an event row's `detail`. A field added to the payload leaves
+  `{ pieceId, left }` behind, unnoticed.
+
+This is a limit of the split in §3, not an oversight of it: the element's
+declarations are read as text, and a text parser that went on to compare types
+and signatures would be a type checker. It is written down because §3.1 and §3.2
+otherwise read as though the whole row were guarded, and a reference page's
+defaults and signatures are exactly what a reader takes literally. The element's
+README (§6) is a second, wholly unguarded copy of the same columns.
+
 ### 3.4 What is documented
 
 `packages/board-element/README.md` describes nine of the eleven and mentions

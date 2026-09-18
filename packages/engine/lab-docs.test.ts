@@ -128,29 +128,87 @@ Deno.test('the property table is the element declaration, both ways', () => {
   }
 })
 
+/** What a parsed member is: its name, and which of the three shapes it has. */
+interface ParsedMember {
+  name: string
+  kind: 'method' | 'getter' | 'setter'
+}
+
 /**
- * Public methods and getters, read as SIGNATURES — a name followed by `(`, or a
- * `get`/`set` accessor. Not "declarations": the class has eleven `declare board:
- * …` lines at the same indentation, and a rule that says "declaration" matches
- * them, along with braces and comments (109 candidates, measured).
+ * Public methods, getters and setters, read as SIGNATURES — a name followed by
+ * `(`, or a `get`/`set` accessor. Not "declarations": the class has eleven
+ * `declare board: …` lines at the same indentation, and a rule that says
+ * "declaration" matches them, along with braces and comments (109 candidates,
+ * measured).
  *
  * `private` and `override` are excluded by name. TypeScript erases `private`,
  * so those members are ordinary prototype properties at runtime — which is why
  * this direction has to be read here rather than off the prototype.
+ *
+ * `public` is optional and explicit. The class writes none today, which is why
+ * the pattern shipped without it and dropped `  public foo(` in silence — the
+ * one direction this guard exists for, failing open.
+ *
+ * It takes the text instead of reading the file, so the rules above can be
+ * asserted against a fixture. What this parser cannot see it drops in silence —
+ * a member it misses is a member it cannot report as undocumented — so the
+ * parser needs a test of its own, and the test below is where a missing
+ * modifier shows up as a failure rather than as a green guard.
  */
-function publicSignatures(): string[] {
-  const names: string[] = []
-  for (const line of classText.split('\n')) {
-    const m = /^ {2}(?!private\b|override\b|static\b|constructor\b)(?:async\s+)?(?:(get|set)\s+)?(\w+)\s*\(/.exec(line)
+function publicMembers(text: string): ParsedMember[] {
+  const members: ParsedMember[] = []
+  for (const line of text.split('\n')) {
+    const m =
+      /^ {2}(?!private\b|override\b|static\b|constructor\b)(?:public\s+)?(?:async\s+)?(?:(get|set)\s+)?(\w+)\s*\(/
+        .exec(line)
     if (!m) continue
     const name = m[2]
-    if (name !== undefined) names.push(name)
+    if (name === undefined) continue
+    members.push({ name, kind: m[1] === 'get' ? 'getter' : m[1] === 'set' ? 'setter' : 'method' })
   }
-  return names
+  return members
 }
 
+// The parser's own rules, against a fixture rather than against the class: the
+// class is one sample, and every modifier it happens not to use today is a hole
+// nothing would report. `public` is exactly that hole — whole-branch review
+// found it — and it is legal TypeScript on every member here.
+Deno.test('the member parser reads every modifier a public member may carry', () => {
+  const fixture = [
+    '  fit(): void {',
+    '  public foo(): void {',
+    '  public async bar(): Promise<void> {',
+    '  async baz(): Promise<void> {',
+    '  get viewport(): BoardViewport | null {',
+    '  public get qux(): number {',
+    '  set width(v: number) {',
+    '  private hidden(): void {',
+    '  private get playable(): boolean {',
+    '  override render() {',
+    '  static override get observedAttributes(): string[] {',
+    '  constructor() {',
+    '  declare board: BoardData | null',
+  ].join('\n')
+  const found = publicMembers(fixture)
+  assertEquals(sorted(found.map((member) => member.name)), ['bar', 'baz', 'fit', 'foo', 'qux', 'viewport', 'width'])
+  assertEquals(found.find((member) => member.name === 'viewport')?.kind, 'getter')
+  assertEquals(found.find((member) => member.name === 'width')?.kind, 'setter')
+  assertEquals(found.find((member) => member.name === 'fit')?.kind, 'method')
+})
+
 Deno.test('the member table is the element public surface, both ways', () => {
-  const found = publicSignatures()
+  const found = publicMembers(classText)
   assert(found.length > 0, 'the class parsed to no signatures')
-  assertEquals(sorted(found), sorted(ELEMENT_MEMBERS.map((row) => row.key)))
+  assertEquals(sorted(found.map((member) => member.name)), sorted(ELEMENT_MEMBERS.map((row) => row.key)))
+  // The `kind` column against the `get` the parser had in hand all along and
+  // then threw away. It is the one machine column of this table a text parser
+  // can reach — `signature` spells out parameter and return types, which
+  // nothing here reads (§3.3) — so a getter turned method is caught, and a
+  // public setter reddens rather than passing as a method, because the table
+  // has no notation for one.
+  for (const row of ELEMENT_MEMBERS) {
+    const member = found.find((found) => found.name === row.key)
+    assert(member, `no signature for ${row.key}`)
+    assertEquals(member.kind, row.kind, `kind of ${row.key}`)
+  }
 })
