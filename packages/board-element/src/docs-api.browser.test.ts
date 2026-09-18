@@ -56,8 +56,36 @@ test('every documented method and getter is on the element prototype', () => {
   }
 })
 
-// Where this file stops. Both loops walk the documentation, so a row DELETED
-// from the tables is invisible here — measured: dropping `view`, which has no
-// attribute, leaves all three tests green. That direction belongs to the engine
-// test of Task 2, which walks the element's declarations instead. Rows with an
-// attribute are caught anyway, by the `observedAttributes` comparison above.
+/** A value spelled the way the tables spell it: strings quoted, objects as JSON, everything else as it prints. */
+function spell(value: unknown): string {
+  if (typeof value === 'string') return `'${value}'`
+  if (value === null) return 'null'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
+}
+
+/**
+ * The `default` column, and the reason it is guarded HERE rather than in the
+ * engine's text test with the other three: a default is a VALUE, not a
+ * declaration. A parser would confirm that the constructor says
+ * `this.pad = DEFAULT_PAD` and that the constant reads 4, and would walk past
+ * the day the default starts being computed. A fresh element cannot: it holds
+ * whatever it really holds.
+ *
+ * Until now `DEFAULT_PAD` could have changed to 6 with both gates green — the
+ * example §3.3 of the PR 6 spec gives for this blind spot.
+ */
+test('every documented default is what a fresh element holds', () => {
+  const el = document.createElement('arrowz-board')
+  expect(el).toBeInstanceOf(ArrowzBoard)
+  const held = el as unknown as Record<string, unknown>
+  for (const row of ELEMENT_PROPS) {
+    expect(spell(held[row.key]), `default of ${row.key}`).toBe(row.def)
+  }
+})
+
+// Where this file stops. Every loop here walks the documentation, so a row
+// DELETED from the tables is invisible — measured: dropping `view`, which has
+// no attribute, left all three tests of the time green. That direction belongs
+// to the engine test, which walks the element's declarations instead. Rows with
+// an attribute are caught anyway, by the `observedAttributes` comparison above.
