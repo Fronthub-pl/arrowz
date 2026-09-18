@@ -94,8 +94,8 @@ Create `packages/engine/lab-docs.test.ts`:
 // stray one TS2353. This file therefore asserts only what a type cannot — that
 // a description exists as text and was actually translated. A test that
 // re-checks the compiler is a test that cannot fail (the lesson of PR 3b).
-import { assert } from '@std/assert'
-import { docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from './lab-docs.ts'
+import { assert, assertNotEquals } from '@std/assert'
+import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from './lab-docs.ts'
 
 Deno.test('every row has a description in both languages, and none is empty', () => {
   const en = docsFor('en')
@@ -124,12 +124,26 @@ Deno.test('no Polish description is a copy of its English source', () => {
   for (const row of ELEMENT_EVENTS) assert(pl.events[row.key] !== en.events[row.key], `event ${row.key}`)
 })
 
-// The lead paragraphs of both pages, in both languages: the page has prose
-// around its tables, and an empty lead is a page that starts mid-sentence.
-Deno.test('both pages carry a lead paragraph in both languages', () => {
-  for (const d of [docsFor('en'), docsFor('pl')]) {
-    assert(d.elementLead.trim().length > 0, 'element lead')
-    assert(d.cliLead.trim().length > 0, 'cli lead')
+// The frame around the tables — the leads, the section headings, the column
+// labels, the README pointer — is text too, and the three tests above do not
+// touch it: they walk rows. Measured during review, every one of those strings
+// could have stayed English in the Polish docs with nothing going red.
+//
+// The key list is derived from the object rather than written out, so a field
+// added to `Docs` later cannot slip past this test the way the whole frame
+// slipped past the ones above.
+Deno.test('the frame around the tables is translated too', () => {
+  const en = docsFor('en')
+  const pl = docsFor('pl')
+  const frame = (Object.keys(en) as (keyof Docs)[]).filter((key) => typeof en[key] === 'string')
+  assert(frame.length > 10, `only ${frame.length} frame strings found — the filter is wrong`)
+  for (const key of frame) {
+    const enText = en[key]
+    const plText = pl[key]
+    if (typeof enText !== 'string' || typeof plText !== 'string') continue
+    assert(enText.trim().length > 0, `EN ${key}`)
+    assert(plText.trim().length > 0, `PL ${key}`)
+    assertNotEquals(plText, enText, `${key} is still English in the Polish docs`)
   }
 })
 ```
@@ -460,7 +474,10 @@ Expected: PASS. `neutral.test.ts` now covers `lab-docs.ts`; if it fails on
 constraint, not a bug.
 
 Then: `pnpm nx build engine && pnpm nx smoke engine`
-Expected: PASS, with the new `ok  lab-docs is translated in dist` line.
+Expected: PASS, with a new line reading `ok` and ending
+`lab-docs is translated in dist`. (The helper prints `'ok  '` and the script
+adds a separator, so there are three spaces, not two — do not grep for the
+two-space form.)
 
 - [ ] **Step 8: Grep the module against all seven neutrality patterns**
 
@@ -570,11 +587,14 @@ Deno.test('the event table is the element event map, both ways', () => {
  */
 function declaredProps(): { key: string; attribute: string | null }[] {
   const body = classText.slice(classText.indexOf('static override properties = {'))
-  const end = body.indexOf('\n  }')
+  const block = body.slice(0, body.indexOf('\n  }'))
   const rows: { key: string; attribute: string | null }[] = []
-  for (const line of body.slice(0, end).split('\n')) {
-    const m = /^\s{4}(\w+):\s*\{(.*)\},\s*$/.exec(line)
-    if (!m) continue
+  // Entry by entry rather than line by line. `deno fmt` breaks any entry past
+  // 120 columns across several lines, and a line-based reader would then stop
+  // seeing that property — silently, since a property it cannot see is a
+  // property it cannot report as undocumented. Measured during review:
+  // `pointRadius` is already at 92 columns.
+  for (const m of block.matchAll(/^\s{4}(\w+):\s*\{([\s\S]*?)\},\s*$/gm)) {
     const [, key, opts] = m
     if (key === undefined || opts === undefined) continue
     if (/\bstate:\s*true\b/.test(opts)) continue
@@ -631,26 +651,43 @@ Expected: PASS, 6 tests. If the member test fails listing names like
 `watchForRevival` or `redraw`, the regular expression lost its `private`
 exclusion; if it lists `board` or `view`, it is matching `declare` lines.
 
-**Three limits of these parsers, measured and green today.** They are written
-down because each is a shape the element does not have yet, and the guard would
-answer wrongly the day it does:
+**Each parser sees exactly one shape, and the element happens to be written in
+it.** That is not a flaw to fix here — a full TypeScript parse for three tables
+would cost more than it buys — but it is a set of assumptions, so they are
+written down. Every case below was constructed and measured during review.
 
-- `publicSignatures` scans the whole file, not the class body. A helper function
-  outside the class with `  if (` or `  for (` at two-space indent would be
-  reported as a public member. Today none exists (the file's two `  try {` lines
-  carry no parenthesis).
-- It matches neither `public foo()`, `protected foo()`, nor a public
-  arrow-function field (`toggle = (): void => {}`). The first two would be
-  invisible to the "nothing public is undocumented" direction; an arrow field is
-  invisible to both guards, being on the instance rather than the prototype
-  (spec §3.3). The class has no `public`, no `protected` and no non-private
-  arrow field today.
-- `interfaceBody` ends at the first `}`, so an event typed as an object literal
-  (`'x': { pieceId: number }`) would silently truncate the list after it. Every
-  event today is a named class.
+The shapes they see:
 
-If any of those shapes appears, the rule changes with it; the sanity assertion
-on a non-empty parse is what keeps a broken parser from passing quietly.
+- **A property entry** — `key: { … },` inside `static override properties`,
+  read entry by entry so a multi-line entry still counts.
+- **An event key** — `'name':` in single quotes, letters and hyphens only.
+- **A member** — a signature `name(`, at two-space indent, with no `private`,
+  `override` or `static` before it and no `<` in the name.
+
+Shapes that produce a **false green** — an undocumented member no one notices:
+an event key without quotes (`ready: FinishedEvent`, which is valid TypeScript
+and which `deno fmt` will not quote for you); an event key with a digit; a
+generic method (`pick<T>(x: T): T`); a public **static** method, excluded by the
+same `static` that keeps `properties` and `styles` out; a property entry with a
+trailing comment.
+
+Two shapes produce a **false red** instead, which is louder but no more correct:
+a helper function outside the class with `  if (` or `  for (` at two-space
+indent is reported as a member named `if`; and a method written `public foo()`
+cannot be documented at all — measured, documenting it turns the test red, so
+the word `public`, which changes nothing in TypeScript, changes the guard's
+answer.
+
+An event typed as an object literal truncates the parse, but **loudly**: the
+set comparison reddens and names every event after it. There is no arrangement
+in which an object literal yields a false green.
+
+**What the sanity assertion does and does not do.** Measured: with the parser
+broken so that it matches nothing, the set comparison reddens on its own with a
+five-name diff — the assertion adds no redness. What it adds is the cause:
+`the event map parsed to nothing` instead of a diff that blames the
+documentation. It does not help at all in the dangerous case, a parser that
+matches *part* of the list.
 
 - [ ] **Step 3: Mutate the table to prove each direction reddens**
 
@@ -659,7 +696,9 @@ Run each mutation, confirm the named failure, then `git checkout --` the file.
 **Each mutation has two stages, and skipping the first proves nothing.**
 Measured: mutations 1, 2 and 4 taken as a row edit alone never reach a test —
 `deno test` type-checks first, and the row tables drive `Docs`, so adding a row
-without its descriptions is `TS2741` and removing one leaves `TS2353`. That is
+without its descriptions is `TS2741` (and, because `docsFor` returns `Docs`, two
+`TS2322` errors follow it — `Found 4 errors`, not one), while removing a row
+leaves `TS2353` twice. That is
 the compiler doing its half (spec §2.3), and it is worth seeing once. But to
 learn whether the *runtime* guard works you must then satisfy the compiler —
 add or delete the matching EN and PL descriptions — and run again. Only
@@ -695,6 +734,11 @@ Mutation 3 is the one revision 2 of the spec would have passed: comparing the
 Run: `cd packages/engine && git checkout -- lab-docs.ts && deno test --allow-read lab-docs.test.ts`
 Expected: PASS, 6 tests. This is the negative control for all four mutations.
 
+`git checkout` works here because Task 1 committed the file in its step 10. If
+you are mutating before that commit — a reviewer executing the plan without
+committing, say — the file is untracked and `git checkout` answers
+`pathspec … did not match`; keep a copy and restore from it instead.
+
 - [ ] **Step 5: Commit**
 
 ```bash
@@ -719,15 +763,34 @@ table that swaps two attributes between rows."
 
 **Files:**
 - Create: `packages/board-element/src/docs-api.browser.test.ts`
+- Modify: `packages/board-element/src/mod.ts` (re-export `BoardData`)
 
 **Interfaces:**
 - Consumes: `ELEMENT_PROPS`, `ELEMENT_MEMBERS` from `@arrowz/engine/docs`;
-  `ArrowzBoard` from `./mod.ts`.
-- Produces: nothing.
+  `ArrowzBoard` from `./mod.ts`; `PropertyDeclaration` from `lit`, which this
+  package depends on and the lab does not.
+- Produces: `BoardData` re-exported from `packages/board-element/src/mod.ts`.
+
+**Rebuild the engine before running anything here, and again after every
+edit to `lab-docs.ts`.** This test reads the tables from `dist/lab-docs.js`, not
+from the source, so without `pnpm nx build engine` an edit is invisible to it
+and a mutation "passes" while proving nothing. The engine test of Task 2 reads
+the source and needs no rebuild — the two halves of the guard differ here.
 
 - [ ] **Step 1: Write the failing test**
 
-Create `packages/board-element/src/docs-api.browser.test.ts`:
+First make the documented type findable. The docs page's `board` row says
+`BoardData | null`, and `BoardData` is exported by `@arrowz/engine` — but
+`packages/board-element/src/mod.ts` re-exports only `Session` and
+`SessionSnapshot` from the engine, so a reader of the element's page would meet
+a type name that is not in the public surface of the package they are reading.
+Add it beside them:
+
+```ts
+export type { BoardData, Session, SessionSnapshot } from '@arrowz/engine'
+```
+
+Then create `packages/board-element/src/docs-api.browser.test.ts`:
 
 ```ts
 // The other half of the documentation guard. Its twin in the engine
@@ -773,7 +836,7 @@ test('every documented attribute is the one its property declares', () => {
   }
   const observed = [...ArrowzBoard.observedAttributes].sort()
   const documented = ELEMENT_PROPS.map((row) => row.attribute).filter((a) => a !== null).sort()
-  expect(observed).toEqual(documented)
+  expect(observed, 'observedAttributes against the documented attributes').toEqual(documented)
 })
 
 test('every documented method and getter is on the element prototype', () => {
@@ -782,6 +845,12 @@ test('every documented method and getter is on the element prototype', () => {
     expect(own.has(row.key), `member ${row.key}`).toBe(true)
   }
 })
+
+// Where this file stops. Both loops walk the documentation, so a row DELETED
+// from the tables is invisible here — measured: dropping `view`, which has no
+// attribute, leaves all three tests green. That direction belongs to the engine
+// test of Task 2, which walks the element's declarations instead. Rows with an
+// attribute are caught anyway, by the `observedAttributes` comparison above.
 ```
 
 - [ ] **Step 2: Run it**
@@ -806,15 +875,19 @@ semicolons, single quotes, 120 columns.
 
 ```bash
 git add packages/board-element/src/docs-api.browser.test.ts
-git commit -m "Check the documented names against the runtime element
+git commit -m "Check the documented API against the runtime element
 
 The guard lives here rather than in the lab because this package has lit,
 so the declaration type needs no cast, and because a test here reads its
 own package's class instead of reaching across a boundary.
 
-It asks only whether a documented name exists. Which names ought to
-exist is the engine test's question, and it reads the declarations,
-where state and private still mean something."
+Attributes are compared per key, not as sets: a table that swaps two
+attributes between rows leaves the set untouched while the mapping lies.
+Which names ought to exist at all is still the engine test's question,
+since it reads the declarations, where state and private mean something.
+
+BoardData joins the package's re-exports, so the type the board row
+names is in the surface of the package that row documents."
 ```
 
 ---
@@ -1038,15 +1111,51 @@ test('the Docs tab is the selected one on the CLI page', async () => {
   await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-selected', 'true')
   await expect.element(screen.getByRole('tab', { name: 'Lab' })).toHaveAttribute('aria-selected', 'false')
 })
+
+// §7's other two promises need the strip and the routes together. After the
+// upper-case redirect the tab must agree with the address — `selectedIndex` is
+// case-sensitive, so for one frame before the redirect it says Lab. And the
+// tab's own path is `/docs/element`, so clicking it from the CLI page goes back
+// to the element's page rather than staying put.
+test('after the upper-case redirect the address and the tab agree', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/DOCS/CLI']}>
+      <TabRow />
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+  await expect.element(screen.getByRole('tab', { name: 'Docs' })).toHaveAttribute('aria-selected', 'true')
+})
+
+test('clicking the Docs tab from the CLI page returns to the element page', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={['/docs/cli']}>
+      <TabRow />
+      <AppRoutes />
+      <Address />
+    </MemoryRouter>,
+  )
+  await screen.getByRole('tab', { name: 'Docs' }).click()
+  await expect.element(screen.getByTestId('address')).toHaveTextContent('/docs/element')
+})
 ```
 
 - [ ] **Step 8: Run the route tests to verify they fail**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium AppRoutes`
-Expected: **5 failed | 6 passed (11)**. The three redirect cases fail because
-`/docs`, `/docs/nowhere` and `/DOCS/CLI` all land on `/`, and both rewritten
-cases fail because no navigation is rendered yet. (Measured; an earlier draft of
-this step said three.)
+Expected: **six failed of fourteen**. Count the names rather than the number, in
+case a later edit adds a case: the two rewritten `/docs/element` and `/docs/cli`
+cases fail because no navigation is rendered yet; the three `test.each` redirect
+cases fail because `/docs`, `/docs/nowhere` and `/DOCS/CLI` all still land on
+`/`; and "after the upper-case redirect" fails for the same reason.
+
+Three cases **pass from the start** and are here to document behaviour this task
+does not change: the deeper-path case, the Docs tab on `/docs/cli`, and the
+click that returns to the element page. `selectedIndex` already keys on the
+`/docs` prefix and the tab's path is already `/docs/element`. Step 12 mutates
+`TabRow` to show they are not vacuous.
 
 - [ ] **Step 9: Add the bare route and the branch**
 
@@ -1120,9 +1229,17 @@ export function CliDocs(): ReactElement {
 - [ ] **Step 11: Run the route tests to verify they pass**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium AppRoutes DocsNav`
-Expected: PASS.
+Expected: PASS, 14 + 3 cases.
 
-- [ ] **Step 12: Commit**
+- [ ] **Step 12: Mutate `TabRow` to show the three green-from-the-start cases are not vacuous**
+
+In `apps/lab/src/shell/TabRow.tsx:15`, replace `pathname.startsWith('/docs')`
+with `pathname === '/docs/element'`, run the same command, and confirm exactly
+one failure: `the Docs tab is the selected one on the CLI page`, with
+`Expected aria-selected="true"` against `Received aria-selected="false"`
+(measured). Then restore the line and re-run: 14 + 3 pass again.
+
+- [ ] **Step 13: Commit**
 
 ```bash
 git add apps/lab/src/routes/DocsNav.tsx apps/lab/src/routes/DocsNav.browser.test.tsx \
@@ -1178,9 +1295,7 @@ beforeEach(() => useStore.getState().lang.setLang('en'))
 // `check` gate catches that (TS2339) while vitest does not, so the generic
 // argument is not decoration. Same trap as `querySelector` and `.style`.
 const rowFor = (container: HTMLElement, key: string) =>
-  [...container.querySelectorAll<HTMLTableRowElement>('tbody tr')].find(
-    (tr) => tr.cells[0]?.textContent === key,
-  )
+  [...container.querySelectorAll<HTMLTableRowElement>('tbody tr')].find((tr) => tr.cells[0]?.textContent === key)
 
 test('every documented row reaches the page', async () => {
   const screen = await render(<ElementDocs />)
@@ -1491,7 +1606,10 @@ import { CliDocs } from './CliDocs'
 // A component test loads no stylesheet of its own — `main.tsx` is not in the
 // picture — so a test that measures computed style has to import the sheets,
 // exactly as `ReportPanel.browser.test.tsx` and `BoardFrame.browser.test.tsx`
-// do. Without these two imports the overflow assertion below reads `visible`.
+// do. `docs.css` is the one the overflow assertion below needs; without it that
+// assertion reads `visible` (measured). `tokens.css` carries the custom
+// properties the rest of the sheet uses and is imported for the same reason the
+// neighbouring test files import it, not because this assertion needs it.
 import '../design/tokens.css'
 import '../design/docs.css'
 
@@ -1622,9 +1740,10 @@ git add apps/lab/src/routes/CliDocs.tsx apps/lab/src/routes/CliDocs.browser.test
 git commit -m "Print the CLI's help by calling it
 
 The component calls helpText() at render. The alternative the lab spec
-named — a prebuild script writing a file — would be the repository's
-first generated source, and four of the lab's six targets would go red
-without it while two more would inspect it.
+named — a prebuild script writing a file — would put four of the lab's
+six targets on a file that has to exist, and two more would inspect it,
+though only in some of its shapes: a generated .ts is caught by eslint
+and prettier, a .json by prettier alone, a .txt by neither.
 
 Two markers assert that both forms are shown: a single assertion about a
 line only the knob table prints is passed by a page that shows only the
@@ -1769,8 +1888,9 @@ browser's 18px bold with every gate still green."
 ## Task 8: The spec amendments and the whole-branch gate
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-09-13-lab-react-app-design.md:520-526`
-  (the docs bullet of §5.2) and `:1007` (row 6 of §10)
+- Modify: `docs/superpowers/specs/2026-09-13-lab-react-app-design.md:520-527`
+  (the docs bullet of §5.2 — the sentence to replace is at `:521-523`) and
+  `:1007` (row 6 of §10)
 
 **Interfaces:** none.
 
@@ -1859,20 +1979,32 @@ it, then:
 (module, four wiring points, node-smoke, CLAUDE.md, the neutrality constraint).
 §2.3 → Task 1 (`as const satisfies`, the row/description split) and Task 1 step
 1 (parity asserting what the compiler cannot). §2.4 → Task 4 (routes, redirect,
-`NavLink`, the shell, the selected tab). §3.1 → Task 2. §3.2 → Task 3,
-**per key** and not per set. §3.3 → Task 2's parser rules, Task 1's eleven member
-rows, and Task 2 step 2's note on the three shapes the parsers would answer
-wrongly — including the public arrow-function field the spec asks to be recorded
-rather than assumed away. §3.4 → Task 1's rows. §4.1 → Task 7. §4.2 → Task 7.
-§5 → the file table above. §7 → tests in Tasks 1-7, the manual pass, and Task 8's
-gate run.
+`NavLink`, the shell, the selected tab on `/docs/cli`, the tab after the
+upper-case redirect, and the click that returns to the element page). §3.1 →
+Task 2. §3.2 → Task 3, **per key** and not per set. §3.3 → Task 2's parser
+rules, Task 1's eleven member rows, and Task 2 step 2's account of the one shape
+each parser sees — including the public arrow-function field the spec asks to be
+recorded rather than assumed away. §3.4 → Task 1's rows. §4.1 → Task 7. §4.2 →
+Task 7. §5 → the file table above. §7 → tests in Tasks 1-7, the manual pass, and
+Task 8's gate run.
 
-**What a review round changed here.** Five reviewers executed this plan in
-separate worktrees; the three parsers of Task 2 returned exactly what Task 2
-claims, and Tasks 4-6 reached 482 green tests. Fourteen defects were corrected
-above. The one worth naming: Task 3 had regressed to comparing attribute *sets*,
-which the spec's own §10 records as overturned, and the `lit` import it kept was
-the fingerprint of the check it no longer performed.
+**What two review rounds changed here.** Round one: five reviewers executed the
+plan in separate worktrees. Tasks 1, 2 and 4-6 were run end to end (Tasks 4-6
+reaching 482 green tests); Task 3 and Task 7 were read rather than run in that
+round, and Task 7 was executed in a round of its own. The three parsers of
+Task 2 returned exactly what Task 2 claims. Roughly twenty separate corrections
+followed, of which the one worth naming is that Task 3 had regressed to
+comparing attribute *sets* — which the spec's own §10 records as overturned —
+while keeping the `lit` import that was the fingerprint of the check it no
+longer performed.
+
+Round two attacked those corrections. One did not survive: the `rowFor` helper
+was broken across three lines, and Prettier wants it on one. Five held under
+named negative controls, and the round added what neither had: the frame around
+the tables — headings, column labels, leads — had no translation guard at all,
+`declaredProps` could not see a property entry that `deno fmt` had wrapped, and
+the note on parser limits claimed a protection the sanity assertion does not
+provide.
 
 **Placeholders.** One defect found and fixed: Task 5's tables reused
 `colDetail` as the heading of two different columns, and the step said so in a
@@ -1884,6 +2016,9 @@ placeholder patterns remain: every code step carries the code, and no step says
 
 **Type consistency.** `docsFor` returns `Docs` in Task 1 and is consumed as
 `Docs` in Task 5. `ELEMENT_PROPS`/`ELEMENT_MEMBERS`/`ELEMENT_EVENTS` keep their
-names in Tasks 1, 2, 3 and 5. `PropRow.attribute` is `string | null` in Task 1,
-compared against `string | null` in Task 2 and skipped when null in Task 3.
-`useDocs` is declared in Task 5 and used in Tasks 5 and 6.
+names in Tasks 1, 2, 3 and 5. `PropRow.attribute` is `string | null` in Task 1
+and is compared as `string | null` in both guards: Task 2 reads it from the
+declaration's text, Task 3 from Lit's own declaration object, mapping `false` to
+`null` rather than skipping it. `Docs` gains `colDescription` in Task 1 and is
+consumed in Tasks 5 and 6. `useDocs` is declared in Task 5 and used in Tasks 5
+and 6. `BoardData` is named by Task 1's table and re-exported by Task 3.
