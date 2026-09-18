@@ -2394,7 +2394,12 @@ const PARAM_TABLE = [
     label: 'seed',
     group: 'board',
     min: 0,
-    max: 999999,
+    // The ceiling the generator actually has: `mulberry32` keeps 32 bits of
+    // state (`seed >>> 0`), so 2**32 wraps back to 0. The old 999999 was the
+    // first lab field's arbitrary limit, justified by no commit or spec, and a
+    // million is thin for randomly drawn seeds: a repeat becomes likelier than
+    // not after roughly 1200 draws, against roughly 77 000 here.
+    max: 2 ** 32 - 1,
     step: 1,
     def: 7,
     help: 'The same seed with the same settings always gives the same board.',

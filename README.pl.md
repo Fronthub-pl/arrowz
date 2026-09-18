@@ -462,7 +462,8 @@ deno task carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
 
 ### Ziarno — `--seed`
 
-Liczba od 0 do 999999, która wybiera, jaką planszę dostaniesz. Przy reszcie
+<!-- seed-range -->
+Liczba od 0 do 4294967295, która wybiera, jaką planszę dostaniesz. Przy reszcie
 ustawień bez zmian to samo ziarno zawsze daje tę samą planszę. Inne ziarno daje
 inną planszę o tym samym charakterze. Domyślnie 7.
 
@@ -709,7 +710,7 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 |---|---|---|---|---|---|
 | Plansza | `--width` | 4–1000 | 1 | `25` | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu sekund przy 1000×1000. |
 | Plansza | `--height` | 4–1000 | 1 | `50` | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
-| Plansza | `--seed` | 0–999999 | 1 | `7` | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
+| Plansza | `--seed` | 0–4294967295 | 1 | `7` | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
 | Długości | `--wshort` | 0–0.9 | 0.01 | `0.2` | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
 | Długości | `--wmid` | 0–0.9 | 0.01 | `0.08` | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
 | Długości | `--lmax` | `auto`\|17–5000 | 1 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** poniżej 17 limit pochłania i kubełek średnich, i długich, więc udział między nimi przestaje zmieniać planszę. Używaj `auto` albo 17 wzwyż. |

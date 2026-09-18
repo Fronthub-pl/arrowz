@@ -464,9 +464,10 @@ deno task carve --width=1000 --height=1000 --seed=7 --svg=huge.svg
 
 ### Seed — `--seed`
 
-A number from 0 to 999999 that picks which board you get. With everything else
-unchanged, the same seed always gives the same board. A different seed gives a
-different board of the same character. Default: 7.
+<!-- seed-range -->
+A number from 0 to 4294967295 that picks which board you get. With everything
+else unchanged, the same seed always gives the same board. A different seed
+gives a different board of the same character. Default: 7.
 
 | `--seed=7` | `--seed=42` |
 |---|---|
@@ -709,7 +710,7 @@ knob that moves has to move here too.
 |---|---|---|---|---|---|
 | Board | `--width` | 4–1000 | 1 | `25` | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
 | Board | `--height` | 4–1000 | 1 | `50` | Rows. A tall board is harder to play than a square one with the same number of squares. |
-| Board | `--seed` | 0–999999 | 1 | `7` | Picks the board. Same seed and same knobs, same board. |
+| Board | `--seed` | 0–4294967295 | 1 | `7` | Picks the board. Same seed and same knobs, same board. |
 | Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
 | Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
 | Lengths | `--lmax` | `auto`\|17–5000 | 1 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** below 17 the cap swallows both the medium and the long bucket, so the share between them stops changing the board. Use `auto`, or 17 and up. |

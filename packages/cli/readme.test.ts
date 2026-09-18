@@ -167,6 +167,33 @@ for (const file of READMES) {
     assert(checked >= 1, `${file} shows no refusal`)
   })
 
+  // The range in the prose is a THIRD copy of the seed bounds, beside the knob
+  // table above and the CLI's own help, and the only one nothing read: widening
+  // the ceiling to 2**32-1 left both pages saying "0 to 999999" two screens
+  // above a table that said otherwise. Found by an anchor rather than by its
+  // heading, for the same reason the tables are — the headings are translated.
+  Deno.test(`${file}: the seed paragraph states the range PARAM_SPEC gives`, () => {
+    const spec = PARAM_SPEC.find((s) => s.key === 'seed')
+    assert(spec, 'PARAM_SPEC has no seed')
+    const lines = text.split('\n')
+    const start = lines.findIndex((l) => l.trim() === '<!-- seed-range -->')
+    assert(start >= 0, `${file} has no seed-range anchor`)
+    const para: string[] = []
+    for (let i = start + 1; i < lines.length; i++) {
+      const line = (lines[i] ?? '').trim()
+      if (!line) {
+        if (para.length) break
+        continue
+      }
+      para.push(line)
+    }
+    assert(para.length, `${file}: nothing under the seed-range anchor`)
+    const numbers = [...para.join(' ').matchAll(/\d+/g)].map((m) => Number(m[0]))
+    // Order and all: the paragraph reads "from MIN to MAX … default DEF" in
+    // both languages, so a number added or moved is a sentence to re-read.
+    assertEquals(numbers, [spec.min, spec.max, spec.def], 'the numbers of the seed paragraph')
+  })
+
   Deno.test(`${file}: the stored file names are the layout hashes of the boards shown`, async () => {
     const expected = new Set<string>()
     for (const board of DOCUMENTED_BOARDS) {
