@@ -33,13 +33,26 @@ function box(container: HTMLElement, selector: string): Element {
   return found
 }
 
-/** The docs tab, then the page's own link: the two navigations a reader makes. */
+/**
+ * The docs tab, then the page's own link: the two navigations a reader makes.
+ *
+ * The last wait is on the page, not on the panel. Both pages render the same
+ * tabpanel, so `toBeVisible()` on it is already satisfied by the element page
+ * while the CLI page is still on its way — react-router navigates inside
+ * `startTransition`, and the DOM of the route is what has to be polled (harness
+ * facts). Measured: the CLI case passed run on its own and failed in the full
+ * suite at `toHaveLength(2)`, having measured the element page.
+ */
 async function openDocs(which: 'element' | 'cli') {
   const screen = await mountApp('advanced')
   await loadRunDone()
   await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
   if (which === 'cli') await screen.getByRole('link', { name: 'Command line' }).click()
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  // Each page's own marker: the CLI page has the two terminal blocks, the
+  // element page the one code example.
+  const marker = which === 'cli' ? 'pre.fw-docs-term' : 'pre.fw-docs-code'
+  await expect.poll(() => screen.container.querySelectorAll(marker).length).toBe(which === 'cli' ? 2 : 1)
   return screen
 }
 
