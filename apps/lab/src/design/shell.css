@@ -81,8 +81,14 @@ body {
   height: 20px;
   flex: none;
 }
+/* An h1, so the document has a title above the panels' headings. The size was
+   already this rule's — a (0,2,0) selector beats the browser's — but the
+   weight and the block margins were not, and a bar 48px tall should not depend
+   on absorbing them. */
 .fw-top .name {
+  margin: 0;
   font-size: 13px;
+  font-weight: 500;
 }
 .fw-top .sep {
   opacity: 0.5;

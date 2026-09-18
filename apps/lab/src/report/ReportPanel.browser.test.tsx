@@ -126,6 +126,19 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   expect(longest()).toBeNull()
 })
 
+// The heading moved from h3 to h2 so the document has no level gap, and
+// report.css had to follow it. Nothing else in this file would have noticed:
+// eight tests pass over a heading rendered at 18px and bold.
+test('the longest-pieces heading keeps the report voice after the level change', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const head = screen.container.querySelector('#longest-head')
+  expect(head?.tagName).toBe('H2')
+  const style = getComputedStyle(head instanceof HTMLElement ? head : document.body)
+  expect(style.fontSize).toBe('11px')
+  expect(style.textTransform).toBe('uppercase')
+})
+
 const TOKEN = { better: '--ink', worse: '--error', neutral: '--ash' } as const
 
 /** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */

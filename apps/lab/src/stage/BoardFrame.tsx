@@ -93,6 +93,7 @@ export function BoardFrame(): ReactElement {
           aria-label={dict.t('fullView')}
           title={dict.t('fullView')}
           aria-pressed={solo}
+          aria-keyshortcuts="f"
           onClick={toggleSolo}
         >
           ⛶

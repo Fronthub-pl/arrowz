@@ -17,7 +17,7 @@ export function LongestTable({ board }: { board: BoardData }): ReactElement | nu
   if (longest.length === 0) return null
   return (
     <>
-      <h3 id="longest-head">{dict.t('longestHead', longest.length)}</h3>
+      <h2 id="longest-head">{dict.t('longestHead', longest.length)}</h2>
       <p>{dict.t('longestHelp')}</p>
       <table className="fw-longest" aria-labelledby="longest-head">
         <thead>

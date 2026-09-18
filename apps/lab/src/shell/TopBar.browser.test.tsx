@@ -53,4 +53,11 @@ describe('TopBar', () => {
     await expect.element(screen.getByRole('radiogroup', { name: 'Widok' })).toBeVisible()
     await expect.element(screen.getByRole('radio', { name: 'Zaawansowany' })).toBeVisible()
   })
+
+  // The lab had no h1 at all, so the report's h3 sat under nothing. The
+  // product's name is the document's title, because it is.
+  it('names the document once, at the top level', async () => {
+    const screen = await render(<TopBar />)
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Arrowz' })).toBeVisible()
+  })
 })

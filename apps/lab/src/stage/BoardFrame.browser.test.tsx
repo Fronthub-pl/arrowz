@@ -129,6 +129,9 @@ test('the annotation reads at AA', async () => {
 test('the solo toggle is a named toggle in the frame, after the element', async () => {
   const screen = await mountFrame()
   const toggle = screen.getByRole('button', { name: 'Full view (key F)' })
+  // The name says "key F" in prose; this says it to a machine. Both stay: six
+  // assertions in this file and LabLayout find the button by that whole name.
+  await expect.element(toggle).toHaveAttribute('aria-keyshortcuts', 'f')
   await expect.element(toggle).toHaveAttribute('aria-pressed', 'false')
   const element = screen.container.querySelector('arrowz-board')
   if (element === null) throw new Error('no board element')
