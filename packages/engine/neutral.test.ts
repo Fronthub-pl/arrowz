@@ -15,6 +15,7 @@ const NEUTRAL = [
   'lab-presets.ts',
   'lab-i18n.ts',
   'lab-report.ts',
+  'lab-docs.ts',
   'game.ts',
   'board-file.ts',
 ]

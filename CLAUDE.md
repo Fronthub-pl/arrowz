@@ -21,7 +21,8 @@
   The whole repository, Node projects included, is verified with
   `pnpm nx run-many -t verify`; pnpm comes through corepack (`corepack enable pnpm`).
 - The engine (`packages/engine/engine.ts`) knows neither Deno nor the DOM, and
-  so do `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`: no file
+  so do `command.ts`, `lab-simple.ts`, `lab-presets.ts`, `lab-i18n.ts`,
+  `lab-report.ts`, `lab-docs.ts`: no file
   in `packages/cli` reaches for the DOM either, and `neutral.test.ts` greps
   both rules. Never spread arrays proportional to the number of cells or
   pieces (`Math.min(...arr)`) — it overflows the worker stack in Chrome.

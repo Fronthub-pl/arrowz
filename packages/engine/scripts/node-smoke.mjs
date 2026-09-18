@@ -7,6 +7,7 @@ import process from 'node:process'
 import { decodeBoard, defaultParams, encodeBoard, fingerprint, generate, layoutHash } from '../dist/mod.js'
 import { parseArgs } from '../dist/command.js'
 import { genSeconds } from '../dist/lab-report.js'
+import { docsFor } from '../dist/lab-docs.js'
 
 const golden = JSON.parse(readFileSync(new URL('../fingerprints.json', import.meta.url), 'utf8'))
 
@@ -23,6 +24,13 @@ function optsOf(c) {
 }
 
 let failures = 0
+
+/** One more line in the golden-board format: a check that fails counts like a board that differs. */
+function check(ok, what) {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`)
+  if (!ok) failures++
+}
+
 for (const c of golden.cases) {
   if (c.name === 'big500') continue
   const r = generate(paramsOf(c), optsOf(c))
@@ -42,6 +50,10 @@ for (const c of golden.cases) {
   )
   if (!ok) failures++
 }
+// The module has to be in dist/ and it has to evaluate under Node. tsc alone
+// proves neither: tsconfig.build.json carries `lib: dom`, so a stray DOM
+// reference type-checks and only fails here, on import.
+check(docsFor('pl').props.board !== docsFor('en').props.board, 'lab-docs is translated in dist')
 if (failures > 0) {
   console.error(`${failures} golden board(s) differ under Node`)
   process.exit(1)
