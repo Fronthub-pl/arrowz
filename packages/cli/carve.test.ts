@@ -789,8 +789,9 @@ Deno.test('carve.ts refuses --count and --max-seeds where they cannot apply: exi
     [['--width=10', '--height=10', '--count=two'], '--count=two is not a positive integer'],
     [['--width=10', '--height=10', '--max-seeds=3'], '--max-seeds needs --count'],
     [['--width=10', '--height=10', '--svg=one.svg', '--count=2'], '--svg=path names one file'],
-    // --count=1 may reach two seeds (2·N): 999999 and 1000000, one past the envelope.
-    [['--width=10', '--height=10', '--seed=999999', '--count=1'], '--seed=1000000 is outside 0..999999'],
+    // --count=1 may reach two seeds (2·N): the ceiling and the one past it.
+    // Both numbers follow PARAM_SPEC's seed range, so widening it moves them.
+    [['--width=10', '--height=10', '--seed=4294967295', '--count=1'], '--seed=4294967296 is outside 0..4294967295'],
   ]
   for (const [argv, message] of cases) {
     const r = runCarve(argv, dir)
