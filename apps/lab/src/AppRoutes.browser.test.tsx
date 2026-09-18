@@ -81,15 +81,19 @@ test('the root path renders no panel of its own', async () => {
 // why at length): `/` renders no panel, and neither does a path that matched
 // nothing at all, so the address is the only witness to a redirect.
 //
-// The address is compared whole, and `toHaveTextContent` cannot do it. It
-// matches a SUBSTRING, and every path in this file contains a slash, so
-// `toHaveTextContent('/')` passes on `/nowhere` itself — the exact failure this
-// case exists to catch. Nor does a regex rescue it: measured here, the matcher
-// stringifies its argument and looks for that text, reporting `Expected element
-// to have text content: /^\/$/` against a received `/`. So the case reads the
-// node's own text and compares it, polling because the redirect lands in a
-// later frame. The two cases below were written with a bare `'/'`; their paths
-// are not this one's business and they are left as they are.
+// The address is compared whole. `toHaveTextContent` does that by strict
+// equality — it normalizes the element's text and compares it against
+// `String(t)`, so `toHaveTextContent('/')` genuinely fails on `/nowhere`; it
+// does not pass just because the path contains a slash. (The substring form
+// is a different matcher, `toMatchTextContent`, registered beside it in the
+// same map — presumably where the two get confused.) What `toHaveTextContent`
+// cannot take is a regular expression: because it stringifies its argument
+// first, `toHaveTextContent(/^\/$/)` compares against the literal text
+// `/^\/$/`, not a pattern — measured here, it reports `Expected element to
+// have text content: /^\/$/` against a received `/`. So this case reads the
+// node's own text and compares it with `expect.poll`/`toBe` instead, polling
+// because the redirect lands in a later frame than the one that renders
+// `<Address />`.
 test('an unknown path redirects to the root', async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/nowhere']}>
