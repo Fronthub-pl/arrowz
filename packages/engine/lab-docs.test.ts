@@ -55,3 +55,104 @@ Deno.test('the frame around the tables is translated too', () => {
     assertNotEquals(plText, enText, `${key} is still English in the Polish docs`)
   }
 })
+
+import { assertEquals } from '@std/assert'
+import { dirname, fromFileUrl, join } from '@std/path'
+
+// Reading a sibling package from an engine test is established: neutral.test.ts
+// walks ../cli the same way, and this package's test target runs with an
+// unrestricted --allow-read.
+const elementSrc = join(dirname(fromFileUrl(import.meta.url)), '..', 'board-element', 'src')
+const modText = Deno.readTextFileSync(join(elementSrc, 'mod.ts'))
+const classText = Deno.readTextFileSync(join(elementSrc, 'arrowz-board.ts'))
+
+const sorted = (names: Iterable<string>): string[] => [...names].sort()
+
+/**
+ * The body of one `interface X { … }` block. The end is the first closing brace
+ * after the header, NOT a brace at some indentation: `mod.ts` declares two
+ * interfaces inside one `declare global`, and an indentation rule breaks the
+ * moment either of them moves. An unbounded search is worse still — it would
+ * swallow `'arrowz-board': ArrowzBoard` from HTMLElementTagNameMap next door.
+ */
+function interfaceBody(text: string, name: string): string {
+  const head = text.indexOf(`interface ${name} {`)
+  assert(head >= 0, `no interface ${name}`)
+  const open = text.indexOf('{', head)
+  const close = text.indexOf('}', open)
+  assert(close > open, `interface ${name} is not closed`)
+  return text.slice(open + 1, close)
+}
+
+Deno.test('the event table is the element event map, both ways', () => {
+  const body = interfaceBody(modText, 'HTMLElementEventMap')
+  const found = [...body.matchAll(/^\s*'([a-z-]+)'\s*:/gm)].map((m) => m[1] ?? '')
+  // A parser that silently matches nothing would compare two empty sets against
+  // a documented table and only half of this test would notice.
+  assert(found.length > 0, 'the event map parsed to nothing')
+  assertEquals(sorted(found), sorted(ELEMENT_EVENTS.map((row) => row.key)))
+})
+
+/**
+ * The keys of `static properties` that are not internal reactive state. Read
+ * from the declaration and not from the class at runtime: Lit rewrites these
+ * objects in place when it finalises the class, adding `attribute: false` to
+ * every `state` entry, so the runtime shape is not what the author wrote.
+ */
+function declaredProps(): { key: string; attribute: string | null }[] {
+  const body = classText.slice(classText.indexOf('static override properties = {'))
+  const block = body.slice(0, body.indexOf('\n  }'))
+  const rows: { key: string; attribute: string | null }[] = []
+  // Entry by entry rather than line by line. `deno fmt` breaks any entry past
+  // 120 columns across several lines, and a line-based reader would then stop
+  // seeing that property — silently, since a property it cannot see is a
+  // property it cannot report as undocumented. Measured during review:
+  // `pointRadius` is already at 94 columns.
+  for (const m of block.matchAll(/^\s{4}(\w+):\s*\{([\s\S]*?)\},\s*$/gm)) {
+    const [, key, opts] = m
+    if (key === undefined || opts === undefined) continue
+    if (/\bstate:\s*true\b/.test(opts)) continue
+    const named = /attribute:\s*'([a-z-]+)'/.exec(opts)
+    const off = /attribute:\s*false/.test(opts)
+    rows.push({ key, attribute: off ? null : (named?.[1] ?? key.toLowerCase()) })
+  }
+  return rows
+}
+
+Deno.test('the property table is the element declaration, both ways', () => {
+  const declared = declaredProps()
+  assert(declared.length > 0, 'the property block parsed to nothing')
+  assertEquals(sorted(declared.map((r) => r.key)), sorted(ELEMENT_PROPS.map((r) => r.key)))
+  for (const row of ELEMENT_PROPS) {
+    const found = declared.find((r) => r.key === row.key)
+    assert(found, `no declaration for ${row.key}`)
+    assertEquals(row.attribute, found.attribute, `attribute of ${row.key}`)
+  }
+})
+
+/**
+ * Public methods and getters, read as SIGNATURES — a name followed by `(`, or a
+ * `get`/`set` accessor. Not "declarations": the class has eleven `declare board:
+ * …` lines at the same indentation, and a rule that says "declaration" matches
+ * them, along with braces and comments (109 candidates, measured).
+ *
+ * `private` and `override` are excluded by name. TypeScript erases `private`,
+ * so those members are ordinary prototype properties at runtime — which is why
+ * this direction has to be read here rather than off the prototype.
+ */
+function publicSignatures(): string[] {
+  const names: string[] = []
+  for (const line of classText.split('\n')) {
+    const m = /^ {2}(?!private\b|override\b|static\b|constructor\b)(?:async\s+)?(?:(get|set)\s+)?(\w+)\s*\(/.exec(line)
+    if (!m) continue
+    const name = m[2]
+    if (name !== undefined) names.push(name)
+  }
+  return names
+}
+
+Deno.test('the member table is the element public surface, both ways', () => {
+  const found = publicSignatures()
+  assert(found.length > 0, 'the class parsed to no signatures')
+  assertEquals(sorted(found), sorted(ELEMENT_MEMBERS.map((row) => row.key)))
+})
