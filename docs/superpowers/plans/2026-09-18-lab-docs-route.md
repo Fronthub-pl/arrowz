@@ -46,6 +46,18 @@ Playwright/Chromium (lab and element tests), React 19 + react-router 8
 - **Formatting:** Deno files — no semicolons, single quotes, 120 columns
   (`deno fmt`). `apps/lab` — Prettier (`pnpm --filter @arrowz/lab run fmt`).
   `packages/board-element` lints and formats with **Deno**, not ESLint.
+- **Run the lab's type-check through Nx**, as `pnpm nx run lab:check`, or build
+  `board-element` first. Measured in a fresh worktree: a bare `pnpm run check`
+  prints **33** errors, thirty of them `Cannot find module
+  '@arrowz/board-element'` and `Property 'board' does not exist on type
+  'Element'`, purely because `packages/board-element/dist` does not exist yet.
+  The Nx target carries `dependsOn: ["^build"]`; the npm script does not.
+- **The first `vitest run` in a fresh worktree can die** with `Vitest failed to
+  find the runner` — a cold Vite optimizer, the same trap CI hit in PR #71. Run
+  it again before believing it. And `pnpm nx build engine` can answer
+  `Cache: 1/1 hit` from another worktree with identical inputs: after editing
+  `lab-i18n.ts` or `lab-docs.ts`, grep `dist/` for the new key rather than
+  trusting the log.
 - **No attribution lines** in commit messages.
 
 ---
@@ -151,8 +163,11 @@ Deno.test('the frame around the tables is translated too', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cd packages/engine && deno test --allow-read lab-docs.test.ts`
-Expected: FAIL — `TS2307 [ERROR]: Cannot find module 'file:///…/lab-docs.ts'`.
-(Deno type-checks before it runs, so this is a compile error, not a missing
+Expected: FAIL with **`Found 4 errors`** — `TS2307 [ERROR]: Cannot find module
+'file:///…/lab-docs.ts'`, and three `TS2731 Implicit conversion of a 'symbol' to
+a 'string'` on the frame test's `${key}` templates, because `keyof` an
+unresolved `Docs` still includes `symbol`. All four go once the module exists.
+(Deno type-checks before it runs, so these are compile errors, not a missing
 module at run time.)
 
 - [ ] **Step 3: Write the module**
@@ -593,7 +608,7 @@ function declaredProps(): { key: string; attribute: string | null }[] {
   // 120 columns across several lines, and a line-based reader would then stop
   // seeing that property — silently, since a property it cannot see is a
   // property it cannot report as undocumented. Measured during review:
-  // `pointRadius` is already at 92 columns.
+  // `pointRadius` is already at 94 columns.
   for (const m of block.matchAll(/^\s{4}(\w+):\s*\{([\s\S]*?)\},\s*$/gm)) {
     const [, key, opts] = m
     if (key === undefined || opts === undefined) continue
@@ -671,12 +686,21 @@ generic method (`pick<T>(x: T): T`); a public **static** method, excluded by the
 same `static` that keeps `properties` and `styles` out; a property entry with a
 trailing comment.
 
-Two shapes produce a **false red** instead, which is louder but no more correct:
-a helper function outside the class with `  if (` or `  for (` at two-space
-indent is reported as a member named `if`; and a method written `public foo()`
-cannot be documented at all — measured, documenting it turns the test red, so
-the word `public`, which changes nothing in TypeScript, changes the guard's
-answer.
+One more shape is invisible to **both** guards, which is why the spec asks for it
+to be written down rather than assumed away (§3.3): a **public arrow-function
+field** (`toggle = (): void => {}`). It lives on the instance, so the prototype
+guard never sees it, and it is not a signature, so the source parser never sees
+it either. The class has none today; every `readonly … = (` in it is `private`.
+
+Three shapes produce a **false red** instead, which is louder but no more
+correct: a helper function outside the class with `  if (` or `  for (` at
+two-space indent is reported as a member named `if`; a method written
+`public foo()` cannot be documented at all — measured, documenting it turns the
+test red, so the word `public`, which changes nothing in TypeScript, changes the
+guard's answer; and a property entry whose nested option object `deno fmt` has
+put on its own line ending in `},` before `attribute:` is counted, but the
+options after that nested object are not read, so the attribute comparison
+reddens (measured on a `converter: { fromAttribute, toAttribute }` entry).
 
 An event typed as an object literal truncates the parse, but **loudly**: the
 set comparison reddens and names every event after it. There is no arrangement
@@ -696,9 +720,9 @@ Run each mutation, confirm the named failure, then `git checkout --` the file.
 **Each mutation has two stages, and skipping the first proves nothing.**
 Measured: mutations 1, 2 and 4 taken as a row edit alone never reach a test —
 `deno test` type-checks first, and the row tables drive `Docs`, so adding a row
-without its descriptions is `TS2741` (and, because `docsFor` returns `Docs`, two
-`TS2322` errors follow it — `Found 4 errors`, not one), while removing a row
-leaves `TS2353` twice. That is
+without its descriptions is `TS2741` **twice** — once per language's description
+object — with two `TS2322` behind it, because `docsFor` returns `Docs`:
+`Found 4 errors`, not one. Removing a row leaves `TS2353` twice. That is
 the compiler doing its half (spec §2.3), and it is worth seeing once. But to
 learn whether the *runtime* guard works you must then satisfy the compiler —
 add or delete the matching EN and PL descriptions — and run again. Only
@@ -874,7 +898,7 @@ semicolons, single quotes, 120 columns.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add packages/board-element/src/docs-api.browser.test.ts
+git add packages/board-element/src/docs-api.browser.test.ts packages/board-element/src/mod.ts
 git commit -m "Check the documented API against the runtime element
 
 The guard lives here rather than in the lab because this package has lit,
@@ -935,10 +959,13 @@ pnpm nx build engine
 ```
 
 Measured what skipping it costs: `dict.t('docsNavLabel')` returns `undefined`,
-the `<nav>` has no accessible name and neither link has one, so step 5's
-`getByRole('link', { name: 'Element' })` fails three cases after a
-fifteen-second timeout each — and `pnpm run check` fails too, on the unknown
-`UiKey`.
+so the `<nav>` has no accessible name and neither link has one. All three cases
+of step 5 then fail on **their own** locator — `link 'Element'`,
+`link 'Command line'` and `navigation 'Documentation pages'` — each after about
+fifteen seconds of polling. The type-check fails too, with three
+`TS2345: Argument of type '"docsNavLabel"' is not assignable to parameter of
+type '"viewSaved" | … 115 more …'` at `DocsNav.tsx(24,53)`, `(25,43)` and
+`(26,39)`.
 
 - [ ] **Step 2: Write the failing navigation test**
 
@@ -1145,11 +1172,14 @@ test('clicking the Docs tab from the CLI page returns to the element page', asyn
 - [ ] **Step 8: Run the route tests to verify they fail**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium AppRoutes`
-Expected: **six failed of fourteen**. Count the names rather than the number, in
-case a later edit adds a case: the two rewritten `/docs/element` and `/docs/cli`
-cases fail because no navigation is rendered yet; the three `test.each` redirect
-cases fail because `/docs`, `/docs/nowhere` and `/DOCS/CLI` all still land on
-`/`; and "after the upper-case redirect" fails for the same reason.
+Expected: **six failed of fourteen** (measured). Count the names rather than the
+number, in case a later edit adds a case. The two rewritten `/docs/element` and
+`/docs/cli` cases fail because no navigation is rendered yet. The other four
+fail for **two different reasons**, and the difference matters because step 9
+fixes them differently: `/docs` falls to the wildcard and lands on `/`, while
+`/docs/nowhere`, `/DOCS/CLI` and the upper-case redirect case **stay at their
+own address** — `/docs/:what` already matches them, so the wildcard never sees
+them and nothing redirects them yet.
 
 Three cases **pass from the start** and are here to document behaviour this task
 does not change: the deeper-path case, the Docs tab on `/docs/cli`, and the
@@ -1231,13 +1261,32 @@ export function CliDocs(): ReactElement {
 Run: `cd apps/lab && pnpm exec vitest run --project chromium AppRoutes DocsNav`
 Expected: PASS, 14 + 3 cases.
 
-- [ ] **Step 12: Mutate `TabRow` to show the three green-from-the-start cases are not vacuous**
+- [ ] **Step 12: Mutate the three cases that were green from the start**
 
-In `apps/lab/src/shell/TabRow.tsx:15`, replace `pathname.startsWith('/docs')`
-with `pathname === '/docs/element'`, run the same command, and confirm exactly
-one failure: `the Docs tab is the selected one on the CLI page`, with
-`Expected aria-selected="true"` against `Received aria-selected="false"`
-(measured). Then restore the line and re-run: 14 + 3 pass again.
+Each of the three needs its own mutation — one mutation does not cover them, and
+an earlier draft of this step claimed it did. All three were measured; each
+produces exactly one failure, and each is restored before the next.
+
+1. `apps/lab/src/shell/TabRow.tsx:15`: `pathname.startsWith('/docs')` →
+   `pathname === '/docs/element'`. Fails `the Docs tab is the selected one on
+   the CLI page`, `Expected aria-selected="true"` against
+   `Received aria-selected="false"`.
+2. `apps/lab/src/shell/TabRow.tsx:10`: the Docs tab's `path` →
+   `'/docs/cli'`. Fails `clicking the Docs tab from the CLI page returns to the
+   element page`, `Expected /docs/element`, `Received /docs/cli`.
+3. `apps/lab/src/AppRoutes.tsx`: the wildcard's `<Navigate to="/" replace />` →
+   `null`. Fails `a deeper docs path is a stale link and goes to the lab`,
+   `Expected /`, `Received /docs/cli/extra` — which also shows that
+   `toHaveTextContent('/')` is an equality here, not a substring match.
+
+   Worth noticing while that mutation is in place: the file's older case
+   `an unknown path redirects to the root` (`:65`) stays **green** under it. It
+   asserts only that no tabpanel is rendered, which is true whether the path
+   redirected or simply matched nothing — so it does not test the redirect its
+   name promises. Not this PR's to fix; recorded because this mutation is the
+   moment anyone would notice.
+
+After restoring all three: 14 + 3 pass again.
 
 - [ ] **Step 13: Commit**
 
@@ -1897,9 +1946,14 @@ browser's 18px bold with every gate still green."
 - [ ] **Step 1: Amend §5.2 of the lab spec**
 
 In `docs/superpowers/specs/2026-09-13-lab-react-app-design.md`, the docs bullet
-of §5.2 currently reads "the CLI's help generated at build time from
-`helpText()` (`command.ts:397`) by a prebuild script importing
-`@arrowz/engine/command` from `dist/`". Replace that clause with:
+of §5.2 runs from `:520` to `:527`. **Replace exactly the span that begins with
+`and the CLI's help generated` and ends with the full stop after
+`` from `dist/` `` — the leading `and` and that final full stop included.**
+The sentence after it, which begins `A test parses …`, stays. Getting the span
+wrong in either direction produces `and and the CLI's help` or
+`Amended in PR 6.. A test parses`.
+
+The replacement, which supplies its own `and` and its own closing full stop:
 
 ```
   and the CLI's help, called from `helpText()` (`command.ts:424`) at render
@@ -1988,7 +2042,10 @@ recorded rather than assumed away. §3.4 → Task 1's rows. §4.1 → Task 7. §
 Task 7. §5 → the file table above. §7 → tests in Tasks 1-7, the manual pass, and
 Task 8's gate run.
 
-**What two review rounds changed here.** Round one: five reviewers executed the
+**What three review rounds changed here.** The figures below come from the
+rounds' own reports, not from anything a reader can check in this file.
+
+Round one: five reviewers executed the
 plan in separate worktrees. Tasks 1, 2 and 4-6 were run end to end (Tasks 4-6
 reaching 482 green tests); Task 3 and Task 7 were read rather than run in that
 round, and Task 7 was executed in a round of its own. The three parsers of
@@ -2005,6 +2062,16 @@ the tables — headings, column labels, leads — had no translation guard at al
 `declaredProps` could not see a property entry that `deno fmt` had wrapped, and
 the note on parser limits claimed a protection the sanity assertion does not
 provide.
+
+Round three ran everything round two had added. **No code defect survived it** —
+all six new fragments passed on first execution, and the whole lab suite reached
+479. Its ten findings were all in the prose: a `git add` that omitted the file
+step 1 of Task 3 edits, a spec amendment that was not a drop-in, and eight
+numbers or diagnoses that had been reasoned out rather than measured. The
+recurring shape across all three rounds is worth naming for whoever revises this
+next: **the expected result is usually right and the explanation of it is
+usually wrong.** Step 8 of Task 4 contradicted step 9 of the same task for two
+revisions running.
 
 **Placeholders.** One defect found and fixed: Task 5's tables reused
 `colDetail` as the heading of two different columns, and the step said so in a
