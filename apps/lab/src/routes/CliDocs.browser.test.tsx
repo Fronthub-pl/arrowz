@@ -32,6 +32,15 @@ test('both help forms are on the page', async () => {
 // spaces collapse and the columns are gone. `overflow-x: auto` belongs with it
 // — the longest line is 296 characters, about 2317px, which would otherwise
 // scroll the whole page sideways.
+//
+// The block is measured as well as read. `overflow-x: auto` was true of both
+// blocks on a page where neither could ever scroll (whole-branch review,
+// measured: `clientWidth === scrollWidth === 1978`), so the declaration alone
+// passes vacuously against the very thing this case is named for. Here the
+// block's width comes from the test container rather than from the shell, so
+// this pair says "the content is wider than the box and the box can move";
+// DocsLayout.browser.test.tsx asserts the same thing where the shell is real
+// and the panel constrains it.
 test('the terminal blocks keep their spacing and scroll by themselves', async () => {
   const screen = await render(<CliDocs />)
   const blocks = screen.container.querySelectorAll('pre.fw-docs-term')
@@ -45,6 +54,11 @@ test('the terminal blocks keep their spacing and scroll by themselves', async ()
     expect(style.whiteSpace).toBe('pre')
     expect(style.overflowX).toBe('auto')
   }
+  // The knob table is the block that overflows — the everyday form fits at
+  // these widths — so it is the one that can say the box actually moves.
+  const knobs = blocks.item(1)
+  if (knobs === null) throw new Error('the knob block is not on the page')
+  expect(knobs.scrollWidth).toBeGreaterThan(knobs.clientWidth)
 })
 
 // The frame is translated; the help itself is the terminal's own English. The
