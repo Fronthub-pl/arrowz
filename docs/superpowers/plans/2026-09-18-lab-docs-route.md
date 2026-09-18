@@ -53,11 +53,14 @@ Playwright/Chromium (lab and element tests), React 19 + react-router 8
   'Element'`, purely because `packages/board-element/dist` does not exist yet.
   The Nx target carries `dependsOn: ["^build"]`; the npm script does not.
 - **The first `vitest run` in a fresh worktree can die** with `Vitest failed to
-  find the runner` — a cold Vite optimizer, the same trap CI hit in PR #71. Run
-  it again before believing it. And `pnpm nx build engine` can answer
-  `Cache: 1/1 hit` from another worktree with identical inputs: after editing
-  `lab-i18n.ts` or `lab-docs.ts`, grep `dist/` for the new key rather than
-  trusting the log.
+  find the runner`. Observed, not diagnosed — most likely the cold Vite
+  optimizer that bit CI in PR #71 (`f9df57b`), but nobody established that here.
+  Run it again before believing it.
+- **`pnpm nx build engine` has been seen answering `Cache: 1/1 hit`** from
+  another worktree. When that hit is legitimate the restored `dist/` already
+  carries the new key, so the log is not lying; what was not established is
+  whether it can hit when it should not. Cheap insurance after editing
+  `lab-i18n.ts` or `lab-docs.ts`: grep `dist/` for the key you just added.
 - **No attribution lines** in commit messages.
 
 ---
@@ -1185,7 +1188,8 @@ Three cases **pass from the start** and are here to document behaviour this task
 does not change: the deeper-path case, the Docs tab on `/docs/cli`, and the
 click that returns to the element page. `selectedIndex` already keys on the
 `/docs` prefix and the tab's path is already `/docs/element`. Step 12 mutates
-`TabRow` to show they are not vacuous.
+`TabRow` twice and the wildcard route once — one mutation per case — to show
+none of the three is vacuous.
 
 - [ ] **Step 9: Add the bare route and the branch**
 
@@ -2056,7 +2060,8 @@ while keeping the `lit` import that was the fingerprint of the check it no
 longer performed.
 
 Round two attacked those corrections. One did not survive: the `rowFor` helper
-was broken across three lines, and Prettier wants it on one. Five held under
+was broken across three lines, and Prettier wants it on two — the whole
+expression on a single line would run to 168 characters. Five held under
 named negative controls, and the round added what neither had: the frame around
 the tables — headings, column labels, leads — had no translation guard at all,
 `declaredProps` could not see a property entry that `deno fmt` had wrapped, and
@@ -2064,8 +2069,10 @@ the note on parser limits claimed a protection the sanity assertion does not
 provide.
 
 Round three ran everything round two had added. **No code defect survived it** —
-all six new fragments passed on first execution, and the whole lab suite reached
-479. Its ten findings were all in the prose: a `git add` that omitted the file
+all six new fragments passed on first execution, and the whole lab suite was
+green. (The suite totals the rounds report are not comparable with each other:
+each round ran a different revision of this plan, so a larger number is not a
+better one.) Its ten findings were all in the prose: a `git add` that omitted the file
 step 1 of Task 3 edits, a spec amendment that was not a drop-in, and eight
 numbers or diagnoses that had been reasoned out rather than measured. The
 recurring shape across all three rounds is worth naming for whoever revises this
