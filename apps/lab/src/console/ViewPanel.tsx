@@ -148,7 +148,9 @@ export function ViewPanel() {
         ))}
         <div className="fw-k">
           <div className="row">
-            <label htmlFor="view-theme">{dict.t('themeLabel')}</label>
+            <label className="lab" htmlFor="view-theme">
+              {dict.t('themeLabel')}
+            </label>
             <select id="view-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
               <option value="">{dict.t('themeNone')}</option>
               {Object.keys(THEMES).map((name) => (

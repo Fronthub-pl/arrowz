@@ -1,3 +1,4 @@
+import { THEMES } from '@arrowz/board-element'
 import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
@@ -142,6 +143,21 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
         {flags.map(({ flag, label }) => (
           <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
+        <div className="fw-k">
+          <div className="row">
+            <label className="lab" htmlFor="simple-theme">
+              {dict.t('themeLabel')}
+            </label>
+            <select id="simple-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
+              <option value="">{dict.t('themeNone')}</option>
+              {Object.keys(THEMES).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
     </section>
   )
