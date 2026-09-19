@@ -107,6 +107,32 @@ test('changing only the theme repaints without re-tesselating', async () => {
   el.remove()
 })
 
+// Fix round 1: `geometryKeyOf` must include `colored`, not only the six
+// fields the brief's Step 3 named. `strokeOf` (tesselate.ts) draws a
+// `top`-highlighted piece at 1.5x its stroke when `colored` is on and 1.15x
+// when it is off — a `view.top`-nonzero board whose colour permission flips
+// therefore needs new geometry, not merely new colours, and `updated()` must
+// take the full `redraw()` path (scenesBuiltForTest moves) rather than the
+// cheap `setColors` one.
+test('toggling colour with pieces highlighted rebuilds the geometry, not just the colours', async () => {
+  const el = await mount()
+  el.view = { top: 2, colored: true }
+  el.board = board
+  await el.updateComplete
+  await raf()
+  const layer = layerOf(el)
+  const built = layer.scenesBuiltForTest
+  // `this.colored` (the element's private getter) is `enableColors &&
+  // (coloredOverride ?? view.colored ?? false)`: with enableColors still
+  // false here it read false despite `view.colored: true`, so flipping
+  // enableColors now is what actually moves the drawn `colored` value.
+  el.enableColors = true
+  await el.updateComplete
+  await raf()
+  expect(layer.scenesBuiltForTest).toBeGreaterThan(built)
+  el.remove()
+})
+
 // Ruling 2: spec §3.1 governs over §8's test list (see the plan's design
 // note). Without enableColors a theme still supplies paper, ink and
 // highlight — the surface, not "colours of pieces" — but the palette must

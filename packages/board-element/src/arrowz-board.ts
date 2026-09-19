@@ -81,9 +81,18 @@ function sameViewport(a: Viewport, b: Viewport): boolean {
     a.hostWidth === b.hostWidth && a.hostHeight === b.hostHeight && a.fitted === b.fitted
 }
 
-/** Everything about a view that moves a vertex. Two views with the same key need no new geometry. */
+/**
+ * Everything about a view that moves a vertex. Two views with the same key
+ * need no new geometry. `colored` belongs here, not with the colour fields:
+ * `strokeOf` (tesselate.ts) draws a `top`-highlighted piece 1.5x its stroke
+ * when `colored` is on and 1.15x when it is off, so toggling the colour
+ * permission changes the width of every highlighted piece's triangles, not
+ * merely their colour — unconditionally, because `top` may be zero on the
+ * view that is changing and nonzero on the next one this key is compared
+ * against.
+ */
 function geometryKeyOf(view: BoardView): string {
-  return [view.stroke, view.headWidth, view.headHeight, view.rounded, view.top, view.voids].join('|')
+  return [view.stroke, view.headWidth, view.headHeight, view.rounded, view.top, view.voids, view.colored].join('|')
 }
 
 export class ArrowzBoard extends LitElement implements GameTarget {

@@ -337,14 +337,19 @@ export class GlLayer {
    * New colours over the scene already tesselated. The element calls this
    * instead of `setBoard` when only colours moved: ink, paper, highlight and
    * the palette. It never re-tesselates, so it is unsafe for any view whose
-   * geometry fields (stroke, head, rounding, voids, or the board itself)
-   * differ from the scene currently drawn — the caller must ensure only
-   * colour-affecting fields changed before reaching for this instead of
-   * `setBoard`. `resolvePalette` reuses the assignment when the board and the
-   * palette's length have not moved, so a theme swap of the same size — the
-   * case this exists for — pays only for new bytes and a re-upload: measured
-   * on the 1000x1000 board, 23.3 ms against 184.5. A palette whose length
-   * changed pays extra, on top, to rebuild the assignment.
+   * geometry fields (stroke, head, rounding, voids, `top`, `colored`, or the
+   * board itself) differ from the scene currently drawn — the caller must
+   * ensure only colour-affecting fields changed before reaching for this
+   * instead of `setBoard`. `colored` belongs to that geometry set, not the
+   * colour one: `strokeOf` (tesselate.ts) draws a `top`-highlighted piece at
+   * 1.5x its stroke when `colored` is on and 1.15x when it is off, so this
+   * method must never be reached for a `colored` change either, on pain of
+   * every highlighted piece staying tesselated at the wrong width.
+   * `resolvePalette` reuses the assignment when the board and the palette's
+   * length have not moved, so a theme swap of the same size — the case this
+   * exists for — pays only for new bytes and a re-upload: measured on the
+   * 1000x1000 board, 23.3 ms against 184.5. A palette whose length changed
+   * pays extra, on top, to rebuild the assignment.
    */
   setColors(view: BoardView): void {
     this.view = view
