@@ -77,10 +77,20 @@ export class GlLayer {
   private assign: Int32Array = new Int32Array(0)
   /** `view.palette` as bytes, resolved once per palette rather than per piece. */
   private paletteBytes: [number, number, number][] = []
+  /**
+   * The board and palette length `assign` was last built for; null whenever
+   * there is nothing to reuse it against (no board, or no palette). Checked
+   * by reference, not by equality of contents: `assignPalette` only ever
+   * reads from the board its caller passed it, so the same reference means
+   * the same adjacency graph without walking it again to be sure.
+   */
+  private assignedFor: { board: BoardData; n: number } | null = null
   /** Frames actually drawn; exposed read-only via `drawsForTest`, which the browser tests assert on coalescing with. */
   private frameCount = 0
   /** How many scenes `setBoard` has tesselated; `setColors` must never move it. */
   private scenesBuilt = 0
+  /** How many times `resolvePalette` has actually rebuilt `assign`, as opposed to reusing it. */
+  private assignmentsBuilt = 0
   /**
    * The resolution the canvas is currently sized for, held as a media query
    * that stops matching the moment `devicePixelRatio` moves. Nothing else the
@@ -264,6 +274,10 @@ export class GlLayer {
     return this.scenesBuilt
   }
 
+  get assignmentsBuiltForTest(): number {
+    return this.assignmentsBuilt
+  }
+
   /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
   get hasColorsForTest(): boolean {
     return this.res?.hasColors ?? false
@@ -326,7 +340,11 @@ export class GlLayer {
    * geometry fields (stroke, head, rounding, voids, or the board itself)
    * differ from the scene currently drawn — the caller must ensure only
    * colour-affecting fields changed before reaching for this instead of
-   * `setBoard`. Measured on the 1000x1000 board, 23.3 ms against 184.5.
+   * `setBoard`. `resolvePalette` reuses the assignment when the board and the
+   * palette's length have not moved, so a theme swap of the same size — the
+   * case this exists for — pays only for new bytes and a re-upload: measured
+   * on the 1000x1000 board, 23.3 ms against 184.5. A palette whose length
+   * changed pays extra, on top, to rebuild the assignment.
    */
   setColors(view: BoardView): void {
     this.view = view
@@ -409,19 +427,33 @@ export class GlLayer {
   }
 
   /**
-   * Resolves `view.palette` into bytes and, when it is non-empty, the
-   * assignment over the whole board (not just the drawn subset — a game
+   * Resolves `view.palette` into bytes, cheaply, on every call. The
+   * assignment behind it is not: `assignPalette` walks the whole board's
+   * adjacency graph, over every piece (not just the drawn subset — a game
    * removes pieces, and an assignment over the drawn subset would repaint the
-   * whole board after every move). Cheap to call: it walks the pieces once.
+   * whole board after every move), so it is rebuilt only when the board or
+   * the palette's length has actually moved since `assign` was last built —
+   * never merely because the colours did. A same-size theme swap through
+   * `setColors` reuses `assign` as a result, which is the difference between
+   * the colour-only path costing what it is measured to and costing what a
+   * full re-tesselation does.
    */
   private resolvePalette(): void {
     this.paletteBytes = this.view.palette.map((c) => {
       const [r, g, b] = rgbaOf(c)
       return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]
     })
-    this.assign = this.current && this.paletteBytes.length > 0
-      ? assignPalette(this.current, this.paletteBytes.length)
-      : new Int32Array(0)
+    const n = this.paletteBytes.length
+    const board = this.current
+    if (n === 0 || !board) {
+      this.assign = new Int32Array(0)
+      this.assignedFor = null
+      return
+    }
+    if (this.assignedFor && this.assignedFor.board === board && this.assignedFor.n === n) return
+    this.assign = assignPalette(board, n)
+    this.assignedFor = { board, n }
+    this.assignmentsBuilt++
   }
 
   /**

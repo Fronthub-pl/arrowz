@@ -44,3 +44,21 @@ test('a rider takes its palette colour, not the golden angle', () => {
   expect(wanted).toContain(asHex)
   layer.dispose()
 })
+
+test('setColors reuses the assignment for a same-length theme swap', () => {
+  const layer = mounted()
+  layer.setBoard(board, coloured)
+  const built = layer.assignmentsBuiltForTest
+  layer.setColors({ ...coloured, palette: ['#111111', '#222222', '#333333'] })
+  expect(layer.assignmentsBuiltForTest).toBe(built)
+  layer.dispose()
+})
+
+test('setColors rebuilds the assignment when the palette length changes', () => {
+  const layer = mounted()
+  layer.setBoard(board, coloured)
+  const built = layer.assignmentsBuiltForTest
+  layer.setColors({ ...coloured, palette: ['#111111', '#222222'] })
+  expect(layer.assignmentsBuiltForTest).toBeGreaterThan(built)
+  layer.dispose()
+})
