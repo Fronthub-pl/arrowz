@@ -20,6 +20,7 @@
     "engine.ts",
     "types.ts",
     "geometry.ts",
+    "colors.ts",
     "board-file.ts",
     "command.ts",
     "lab-simple.ts",
