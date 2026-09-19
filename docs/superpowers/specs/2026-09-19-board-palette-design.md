@@ -9,12 +9,10 @@ The deliverable is a **mechanism**: a board can be told which colours to draw it
 pieces in, either by handing it an array or by naming a theme that ships with the
 element, and it can be re-coloured without rebuilding its geometry.
 
-The **twenty themes are provisional data**. They were drawn from Color Hunt by a
-reproducible method (§5) and they are expected to be replaced once someone looks
-at them on a screen. Nothing in the design depends on their values: a theme is a
-row in a table, and the table can be rewritten without touching a line of the
-mechanism. This distinction is the whole point of writing it down — a later
-reader must not mistake the seed data for a decision.
+The **twelve themes are data**, ported from open-source editor themes (§4). They
+can be replaced, extended or dropped by editing one file; nothing in the
+mechanism depends on their values. Two of them are knowingly weak, and §5 records
+why rather than hiding it.
 
 ## 2. What the colour surface looks like today
 
@@ -46,7 +44,7 @@ re-tesselates the whole board. Changing one colour on the 1000×1000 board costs
 `BoardView` gains one field:
 
 ```ts
-/** Colours the pieces are drawn in, cycled by the assignment of §3.2; empty = the golden angle. */
+/** Colours the pieces are drawn in, assigned by §3.2; empty = the golden angle. */
 palette: string[]
 ```
 
@@ -74,7 +72,7 @@ interface BoardTheme {
 ```
 
 **Precedence, from strongest:** an explicit field in `view` → the named `theme` →
-the element's own defaults. So `<arrowz-board theme="crimson-day">` draws the
+the element's own defaults. So `<arrowz-board theme="gruvbox-dark">` draws the
 whole theme, and a host that also sets `view = { paper: '#fff' }` keeps its own
 paper and takes the rest from the theme. The rule is applied once, where
 `redraw()` already merges (`arrowz-board.ts:540`), so no other code learns about
@@ -97,8 +95,8 @@ Not by position and not at random. The rule, in order:
 
 Three properties this buys, all measured (§10):
 
-- **Neighbours differ.** With four colours, 2.8% of touching pairs share one;
-  with five, 0.2%. Any rule that ignores adjacency lands on the random baseline —
+- **Neighbours differ.** With five colours, 0.2% of touching pairs share one;
+  with four, 2.8%. Any rule that ignores adjacency lands on the random baseline —
   `id % n` and a golden-angle scramble both measured ≈100/n%.
 - **The palette stays even.** Plain greedy colouring over-uses the first colours:
   on a 300×300 board one colour took 34.4% and, with 24 colours, some took none
@@ -108,6 +106,9 @@ Three properties this buys, all measured (§10):
   filters by `omit`); an assignment over the drawn subset would repaint the board
   after every move — the very failure the id-based hue was introduced to avoid
   (`colors.ts`, and the board-game design of 2026-09-10).
+
+A palette of one colour is legal and paints every piece that colour; two of the
+shipped themes are in that state deliberately (§5).
 
 It is recomputed when the board changes or the palette's **length** changes —
 not when its colours change. Swapping a theme for another of the same size reuses
@@ -155,78 +156,97 @@ ignored with no throw — the same forgiving rule the other view fields follow.
 
 ## 4. What ships as data
 
-Twenty themes in `packages/board-element/src/themes.ts`, exported as `THEMES`.
-Ten **day** themes (dark strokes on a light paper) and ten **night** themes (pale
-strokes on a dark paper).
+Twelve themes in `packages/board-element/src/themes.ts`, exported as `THEMES`.
+Six dark and six light, each a pair from one upstream project, so the light and
+dark halves are the authors' own and nothing is invented.
 
 | id | paper | ink | highlight | palette |
 |---|---|---|---|---|
-| `crimson-day` | `#f6f6fa` | `#232447` | `#e8467c` | `#280905 #740a03 #c3110c #e6501b` |
-| `crimson-day-2` | `#f6f6fa` | `#232447` | `#2f7bff` | `#2d132c #801336 #c72c41 #ee4540` |
-| `violet-day` | `#f6f6fa` | `#232447` | `#e8467c` | `#04879c #0c3c78 #090030 #f30a49` |
-| `magenta-day` | `#f6f6fa` | `#232447` | `#e8467c` | `#4b5d67 #322f3d #59405c #87556f` |
-| `violet-day-2` | `#f6f6fa` | `#232447` | `#2f7bff` | `#0e1555 #4e1184 #932b77 #fd367e` |
-| `violet-day-3` | `#f6f6fa` | `#232447` | `#2f7bff` | `#22092c #872341 #be3144 #f05941` |
-| `crimson-day-3` | `#f6f6fa` | `#232447` | `#e8467c` | `#f7374f #88304e #522546 #2c2c2c` |
-| `violet-day-4` | `#f6f6fa` | `#232447` | `#e8467c` | `#202040 #202060 #602080 #b030b0` |
-| `magenta-day-2` | `#f6f6fa` | `#232447` | `#e8467c` | `#1a1a1d #3b1c32 #6a1e55 #a64d79` |
-| `violet-day-5` | `#f6f6fa` | `#232447` | `#2f7bff` | `#000000 #150050 #3f0071 #fb2576` |
-| `teal-night` | `#16171b` | `#e8e8ea` | `#e8467c` | `#40dfef #b9f8d3 #fffbe7 #e78ea9` |
-| `azure-night` | `#16171b` | `#e8e8ea` | `#e8467c` | `#edd2f3 #fffcdc #84dfff #516beb` |
-| `azure-night-2` | `#16171b` | `#e8e8ea` | `#e8467c` | `#f7c8e0 #dfffd8 #b4e4ff #95bdff` |
-| `amber-night` | `#16171b` | `#e8e8ea` | `#e8467c` | `#c4e1f6 #feee91 #ffbd73 #ff9d3d` |
-| `amber-night-2` | `#16171b` | `#e8e8ea` | `#e8467c` | `#faf8f1 #faeab1 #e5ba73 #c58940` |
-| `azure-night-3` | `#16171b` | `#e8e8ea` | `#e8467c` | `#8f87f1 #c68efd #e9a5f1 #fed2e2` |
-| `magenta-night` | `#16171b` | `#e8e8ea` | `#e8467c` | `#ff80c7 #ffbda3 #ffe1bb #faffc4` |
-| `meadow-night` | `#16171b` | `#e8e8ea` | `#e8467c` | `#9eb23b #c7d36f #fcf9c6 #e0deca` |
-| `teal-night-2` | `#16171b` | `#e8e8ea` | `#e8467c` | `#f9ceee #f9f3ee #ccf3ee #97c4b8` |
-| `amber-night-3` | `#16171b` | `#e8e8ea` | `#e8467c` | `#a4b885 #d46d25 #fdc086 #fff6a1` |
+| `catppuccin-mocha` | `#1e1e2e` | `#cdd6f4` | `#a6e3a1` | `#f5e0dc` `#cba6f7` `#f38ba8` `#89dceb` `#fab387` |
+| `gruvbox-dark` | `#282828` | `#ebdbb2` | `#d3869b` | `#fabd2f` `#83a598` `#fb4934` `#fe8019` `#8ec07c` |
+| `tokyonight-storm` | `#24283b` | `#c0caf5` | `#1abc9c` | `#7dcfff` `#ff9e64` `#9ece6a` `#9d7cd8` `#f7768e` |
+| `everforest-dark` | `#2d353b` | `#d3c6aa` | `#d699b6` | `#dbbc7f` `#7fbbb3` `#e67e80` `#a7c080` `#e69875` |
+| `rose-pine-moon` | `#232136` | `#e0def4` | `#c4a7e7` | `#f6c177` `#3e8fb0` `#eb6f92` `#9ccfd8` `#ea9a97` |
+| `ayu-dark` | `#10141c` | `#bfbdb6` | `#aad94c` | `#95e6cb` `#ff8f40` `#d2a6ff` `#59c2ff` `#f07178` |
+| `catppuccin-latte` | `#eff1f5` | `#4c4f69` | `#179299` | `#d20f39` `#1e66f5` `#8839ef` `#e64553` |
+| `gruvbox-light` | `#fbf1c7` | `#3c3836` | `#8f3f71` | `#9d0006` `#076678` `#79740e` `#427b58` `#b57614` |
+| `tokyonight-day` | `#e1e2e7` | `#3760bf` | `#f52a65` | `#7847bd` `#b15c00` `#118c74` `#007197` `#8c6c3e` |
+| `everforest-light` | `#fdf6e3` | `#5c6a72` | `#3a94c5` | `#f85552` |
+| `rose-pine-dawn` | `#faf4ed` | `#464261` | `#b4637a` | `#286983` `#907aa9` `#56949f` |
+| `ayu-light` | `#fcfcfc` | `#5c6166` | `#5c6166` | `#a37acc` |
 
-The ids name the most saturated colour's family plus the paper's side of the
-day; they are not Color Hunt's, which has no names.
+Measured against each theme's own paper: every arrow colour clears 3:1 (the
+lowest is 3.0), every ink clears 4.5:1 (the lowest is 4.5), and every highlight
+clears 3:1 and stands at least ΔE 27 from that theme's arrows — except
+`ayu-light`, whose highlight **is** its ink, because the theme has no spare
+accent; it stands ΔE 50 from the one arrow colour, so the longest pieces still
+read as marked.
 
-## 5. How those twenty were chosen, and why it is repeatable
+## 5. Where the data comes from, and what it costs
 
-1. Pull the `dark` and `light` feeds of Color Hunt (`POST /php/feed.php`, steps
-   0–7, `sort=new`): 249 and 320 distinct palettes of four colours each.
-2. **Pair each tag with the opposite paper.** Measured: palettes tagged `dark`
-   pass a 3:1 contrast on all four colours against a light paper in 24% of cases
-   and against a dark one in **0%**; palettes tagged `light` pass against a dark
-   paper in **100%** and against a light one in 0%. A palette of dark colours
-   needs a light page, and the tag describes the colours, not the page.
-3. Keep palettes where every colour reaches **3:1** against that paper — the
-   WCAG 1.4.11 floor for graphical objects, which is what an arrow is. Body-text
-   4.5:1 was measured too and leaves too little to choose from.
-4. Keep palettes whose four colours are **ΔE ≥ 15** apart from each other
-   (CIE76). Contrast against the paper says nothing about telling two arrows
-   apart: `#f8fafc #d9eafd #bcccdc #9aa6b2` clears the paper gate and is four
-   near-identical greys.
-5. Draw ten from each survivor set (33 day, 125 night) with a seeded shuffle,
-   seeds `20260919` and `20260920`, so the draw can be reproduced and is nobody's
-   taste.
-6. Give each theme the highlight `#e8467c` unless it lands within ΔE 25 of one of
-   the palette's own colours, in which case `#2f7bff`. Four day themes needed it —
-   `violet-day-2` sat at ΔE 11 from the default pink, which would have made the
-   marker for the longest pieces indistinguishable from an ordinary arrow.
+**The licence audit.** superfile's theme list (`superfile.dev/list/theme-list/`)
+names 21 themes with their authors, which made it a directory of what is open.
+Checked through the GitHub API: catppuccin, gruvbox, dracula, nord, everforest,
+ayu, poimandres, rose-pine and sugarplum are **MIT**, one-dark is **ISC**, Tokyo
+Night's maintained port (`folke/tokyonight.nvim`) is **Apache-2.0**. Two are
+excluded: **kaolin** is GPL-3.0 (copyleft), and **Monokai Pro** is proprietary —
+its licence forbids redistribution, and the request to open the palette
+(`Monokai/monokai-pro-vscode` issue 186) is unanswered.
 
-Steps 3, 4 and 6 become **tests over the table**, not a one-off script: a future
-palette that breaks a floor fails the suite instead of shipping.
+Of the open ones, six ship a light and a dark variant from the same author:
+catppuccin (latte/mocha), gruvbox, Tokyo Night (day/storm), everforest,
+rose-pine (dawn/moon) and ayu. Those six are §4. The rest are dark-only, so
+taking them would have meant inventing light halves.
 
-**Why the palettes are not taken whole.** A Color Hunt palette is four colours
-meant to sit as adjacent blocks; using one as paper and the rest as strokes was
-measured and fails — 2 of 249 dark palettes and **0 of 320** light ones pass 3:1
-on all three remaining colours. Taking the paper from outside the palette also
-leaves four arrow colours rather than three, which halves neighbour collisions
-(2.8% against 14%).
+**superfile's own theme files are not the source.** They are terminal-UI configs
+(`file_panel_fg`, `gradient_color`, borders), not palettes. The values come from
+each upstream project's published palette.
 
-**Provenance.** Color Hunt states: "Each palette is a public property and not
-owned by a specific creator, nor by Color Hunt" (`colorhunt.co/about`). Its terms
-of service say nothing about ownership of palettes. The table records where the
-numbers came from; no file is copied.
+**How each theme was turned into a board theme**, by measurement rather than
+taste:
+
+1. Paper and ink are the theme's own background and foreground.
+2. An accent may become an arrow colour only if it clears **3:1** against that
+   paper — the WCAG 1.4.11 floor for graphical objects, which is what a stroke
+   half a cell wide is.
+3. The highlight is **reserved first**: the surviving accent that stands farthest
+   from the others. Reserving it before the arrows are chosen is what stops the
+   marker for the longest pieces from being one of the ordinary colours.
+4. The arrows are then chosen greedily from the rest — start with the highest
+   contrast, then always add the colour whose nearest already-chosen neighbour is
+   farthest away — capped at five, which is where neighbour collisions reach
+   0.2% (§10).
+
+**The price, measured and accepted.** Light editor themes are built for thin
+glyphs on near-white paper, where 2–2.5:1 is normal; a board stroke needs 3:1.
+Counting accents that clear 3:1 on their own paper: gruvbox-light 7 of 7,
+tokyonight-day 9 of 9, catppuccin-latte 5 of 12, rose-pine-dawn 4 of 6,
+everforest-light 2 of 7, **ayu-light 1 of 10**. So `everforest-light` and
+`ayu-light` ship with a single arrow colour and draw a monochrome board until a
+host passes its own palette. Dark themes have the opposite property — their
+accents must glow on a dark background — and every one of them reached five.
+
+Two rules were tried and **disproved by measurement** before this text was
+written, and are recorded so nobody retries them:
+
+- *Take a darker tone of the theme's own background to lift contrast.* Backwards
+  for light themes: their accents are darker than the paper, so moving the paper
+  toward them lowers the ratio. Applied, it took everforest-light and ayu-light
+  from 2 and 1 usable accents to **zero**.
+- *Pick the highlight as the colour farthest from the palette, out of a fixed
+  list of markers.* It collapses: nine of ten themes got the same blue, which
+  strips the theme of its character. Taking the marker from the theme's own
+  accents keeps it in family and still clears ΔE 27.
+
+**Attribution.** These projects are MIT, ISC and Apache-2.0; the repository today
+has **no `LICENSE` and no `NOTICE`** (measured). `themes.ts` therefore carries,
+per theme, the upstream project, its licence and its URL, and the package README
+repeats the list. Apache-2.0 in particular asks for the notice to travel with the
+work.
 
 ## 6. The lab
 
-The console gains a theme picker: the twenty names with a swatch strip, plus a
+The console gains a theme picker: the twelve names with a swatch strip, plus a
 custom palette — a list of colours the user edits, which maps to `view.palette`
 with no theme. The choice joins the URL hash beside the other view fields
 (`state/url.ts`), lives in `view.slice.ts`, and is named in both languages in
@@ -256,10 +276,11 @@ and the golden hashes are untouched.
 
 - The assignment: neighbours differ where the palette allows it; every colour is
   used within one piece of the even share; the result is identical for the same
-  board and length; removing a piece from the drawn set changes nothing.
-- The table: every theme's colours clear 3:1 against its paper; every pair within
-  a palette clears ΔE 15; every highlight clears ΔE 25 against its own palette
-  and 3:1 against its paper; every ink clears 4.5:1.
+  board and length; removing a piece from the drawn set changes nothing; a
+  one-colour palette paints every piece and throws nothing.
+- The table, as guards over `THEMES`: every arrow colour clears 3:1 against its
+  own paper; every ink clears 4.5:1; every highlight clears 3:1 and is not one of
+  the arrows; every theme names its upstream project and licence.
 - `drawableView` with a palette of rubbish, of partial rubbish, and empty.
 
 **Chromium, in the element package**
@@ -283,11 +304,13 @@ and the golden hashes are untouched.
 - **Reading CSS custom properties.** The element takes colours as input, the way
   it takes every other design decision; it reads the environment only for facts
   about the device (`prefers-reduced-motion`, device pixel ratio).
-- **`prefers-color-scheme`.** Choosing day or night is the host's call in this
+- **`prefers-color-scheme`.** Choosing light or dark is the host's call in this
   round.
 - **Palettes for colour-vision deficiency**, and a contrast gate measured in the
   browser rather than computed from sRGB.
-- **Replacing the twenty.** They are seed data; swapping them touches one file.
+- **Rescuing the two thin light themes.** `everforest-light` and `ayu-light` stay
+  as they are; relaxing their floor, or deriving darker steps of their hues, is a
+  later decision with its own measurement.
 
 ## 10. Measurements this design rests on
 
@@ -317,3 +340,6 @@ Neighbour collisions on that board, by rule and palette size:
 
 Palette spread on the same board, five colours: `id % n` 20.0% each, plain greedy
 4.4%–34.4%, balanced greedy 20.0% each.
+
+Contrast of the shipped themes against their own paper: arrows 3.0–12.9, inks
+4.5–11.9, highlights 3.0–11.2.
