@@ -1053,6 +1053,36 @@ Deno.test('sharp corners mitre and the tail squares off', () => {
   assert(/<rect [^>]*width="[\d.]+" height="[\d.]+"\/>/.test(svg), 'a square tail')
 })
 
+// A board file keeps the ids it was written with, and decodeBoard accepts gaps
+// in them (board-file.ts: an id is checked for being non-negative, unique and
+// below the cell count, and for nothing else). A piece's colour must therefore
+// come from its id — the number the board element paints from — and not from
+// its place in board.pieces, or one board would be drawn in one set of colours
+// on screen and exported in another.
+//
+// The two expected strings are the golden angle over the ids 5 and 7, the same
+// values the element's own hueOf pins for those ids. They are written out
+// rather than computed, so this test fails if the formula moves as well.
+Deno.test('toSvg colours a piece by its id, not by its place in the array', () => {
+  const { toSvg } = engineExports
+  const board: BoardData = {
+    W: 4,
+    H: 2,
+    owner: new Int32Array([5, 5, -1, -1, 7, 7, -1, -1]),
+    pieces: [
+      { id: 5, cells: [{ x: 1, y: 0 }, { x: 0, y: 0 }], dir: 3 },
+      { id: 7, cells: [{ x: 1, y: 1 }, { x: 0, y: 1 }], dir: 3 },
+    ],
+  }
+  const svg = toSvg(board, { colored: true, cell: 10 })
+  const used = [...new Set(svg.match(/hsl\([^)]*\)/g) ?? [])].sort()
+  assertEquals(used, ['hsl(242.55600000000004 62% 42%)', 'hsl(327.5400000000001 62% 42%)'].sort())
+  // The negative control: the colours of the positions 0 and 1, which is what
+  // an index-based hue would print for this board.
+  assertFalse(svg.includes('hsl(0 62% 42%)'), 'the hue of index 0 must not appear')
+  assertFalse(svg.includes('hsl(137.508 62% 42%)'), 'the hue of index 1 must not appear')
+})
+
 // The head size can be set by hand (view options, in cells). Only the width
 // still has an automatic rule, which 0 selects; the height is always taken
 // literally, so 0 there is a head of no height. A head narrower than the line
