@@ -11,9 +11,10 @@
 // is rides.ts.
 import { voidStrips } from '@arrowz/engine'
 import type { BoardData } from '@arrowz/engine'
-import { hueRgba, type Rgba, rgbaOf } from './gl-color.ts'
+import { type Rgba, rgbaOf } from './gl-color.ts'
 import { drawDots, drawPaper, drawPieces, drawRiders, drawVoids, setView } from './gl-passes.ts'
 import { GlResources } from './gl-resources.ts'
+import { assignPalette } from './palette.ts'
 import { Rides } from './rides.ts'
 import { type PieceRanges, type Scene, tesselateBoard, voidQuads } from './tesselate.ts'
 import { type BoardView, DEFAULT_VIEW, hueBytes } from './view.ts'
@@ -72,8 +73,14 @@ export class GlLayer {
   private inkRgba: Rgba = [0, 0, 0, 1]
   private paperRgba: Rgba = [0, 0, 0, 1]
   private highlightRgba: Rgba = [0, 0, 0, 1]
+  /** Colour index per piece id for the current board and palette length; empty when there is no palette. */
+  private assign: Int32Array = new Int32Array(0)
+  /** `view.palette` as bytes, resolved once per palette rather than per piece. */
+  private paletteBytes: [number, number, number][] = []
   /** Frames actually drawn; exposed read-only via `drawsForTest`, which the browser tests assert on coalescing with. */
   private frameCount = 0
+  /** How many scenes `setBoard` has tesselated; `setColors` must never move it. */
+  private scenesBuilt = 0
   /**
    * The resolution the canvas is currently sized for, held as a media query
    * that stops matching the moment `devicePixelRatio` moves. Nothing else the
@@ -253,6 +260,10 @@ export class GlLayer {
     return this.frameCount
   }
 
+  get scenesBuiltForTest(): number {
+    return this.scenesBuilt
+  }
+
   /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
   get hasColorsForTest(): boolean {
     return this.res?.hasColors ?? false
@@ -292,10 +303,12 @@ export class GlLayer {
     this.current = board
     this.dropped.clear()
     this.scene = board === null ? null : tesselateBoard(board, view, omit)
+    this.scenesBuilt++
     this.pieceTotal = this.scene?.drawnIds().length ?? 0
     this.inkRgba = rgbaOf(view.ink)
     this.paperRgba = rgbaOf(view.paper)
     this.highlightRgba = rgbaOf(view.highlight)
+    this.resolvePalette()
     this.upload()
     this.uploadVoids(board)
     this.schedule()
@@ -303,6 +316,26 @@ export class GlLayer {
 
   setViewport(v: Viewport): void {
     this.vp = v
+    this.schedule()
+  }
+
+  /**
+   * New colours over the scene already tesselated. The element calls this
+   * instead of `setBoard` when only colours moved: ink, paper, highlight and
+   * the palette. It never re-tesselates, so it is unsafe for any view whose
+   * geometry fields (stroke, head, rounding, voids, or the board itself)
+   * differ from the scene currently drawn — the caller must ensure only
+   * colour-affecting fields changed before reaching for this instead of
+   * `setBoard`. Measured on the 1000x1000 board, 23.3 ms against 184.5.
+   */
+  setColors(view: BoardView): void {
+    this.view = view
+    this.inkRgba = rgbaOf(view.ink)
+    this.paperRgba = rgbaOf(view.paper)
+    this.highlightRgba = rgbaOf(view.highlight)
+    this.resolvePalette()
+    const res = this.res
+    if (res && this.scene) res.uploadColors(this.scene, view.colored, (id) => this.pieceBytes(id))
     this.schedule()
   }
 
@@ -358,7 +391,37 @@ export class GlLayer {
   /** The colour a rider takes: the rule of the static passes, for one piece. */
   private riderColor(id: number, top: boolean): Rgba {
     if (top) return this.highlightRgba
-    return this.view.colored ? hueRgba(id) : this.inkRgba
+    if (!this.view.colored) return this.inkRgba
+    const [r, g, b] = this.pieceBytes(id)
+    return [r / 255, g / 255, b / 255, 1]
+  }
+
+  /** The rider rule, for the browser test; the private one stays private. */
+  riderColorForTest(id: number, top: boolean): Rgba {
+    return this.riderColor(id, top)
+  }
+
+  /** A piece's colour as bytes: its palette entry, or the golden angle when there is no palette. */
+  private pieceBytes(id: number): readonly [number, number, number] {
+    if (this.paletteBytes.length === 0) return hueBytes(id)
+    const i = this.assign[id] ?? -1
+    return this.paletteBytes[i < 0 ? 0 : i % this.paletteBytes.length] ?? hueBytes(id)
+  }
+
+  /**
+   * Resolves `view.palette` into bytes and, when it is non-empty, the
+   * assignment over the whole board (not just the drawn subset — a game
+   * removes pieces, and an assignment over the drawn subset would repaint the
+   * whole board after every move). Cheap to call: it walks the pieces once.
+   */
+  private resolvePalette(): void {
+    this.paletteBytes = this.view.palette.map((c) => {
+      const [r, g, b] = rgbaOf(c)
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)]
+    })
+    this.assign = this.current && this.paletteBytes.length > 0
+      ? assignPalette(this.current, this.paletteBytes.length)
+      : new Int32Array(0)
   }
 
   /**
@@ -385,9 +448,7 @@ export class GlLayer {
 
   /** The scene into the static buffers; see `GlResources.upload`. */
   private upload(): void {
-    // `hueBytes` is the placeholder colour source until Task 5 wires in the
-    // palette-aware `(id) => this.pieceBytes(id)`.
-    this.res?.upload(this.scene, this.view.colored, hueBytes)
+    this.res?.upload(this.scene, this.view.colored, (id) => this.pieceBytes(id))
   }
 
   /**
