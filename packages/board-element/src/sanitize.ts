@@ -30,8 +30,10 @@ export function drawableView(view: BoardView, isColor: IsColor): BoardView {
     paper: drawableColor(view.paper, DEFAULT_VIEW.paper, isColor),
     highlight: drawableColor(view.highlight, DEFAULT_VIEW.highlight, isColor),
     // Entry by entry: one unusable colour must not cost the others, and an
-    // empty result is the same thing as no palette.
-    palette: view.palette.filter((c) => typeof c === 'string' && isColor(c)),
+    // empty result is the same thing as no palette. Something that is not a
+    // list at all is no palette either, and never a throw: a fresh array, so
+    // no caller holds the shared default.
+    palette: Array.isArray(view.palette) ? view.palette.filter((c) => typeof c === 'string' && isColor(c)) : [],
   }
 }
 
