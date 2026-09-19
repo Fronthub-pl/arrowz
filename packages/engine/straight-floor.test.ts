@@ -30,13 +30,13 @@ const CAMPAIGN: readonly Cell[] = [
   [500, 0.65, 2, 6, 1, 9],
   [500, 0.65, 2, 10, 0, 4],
   [500, 0.65, 3, 6, 4, 4],
-  [500, 0.65, 3, 10, 4, 4],
+  [500, 0.65, 3, 10, 6, 7],
   [500, 0.65, 4, 6, 9, 9],
   [500, 0.65, 4, 8, 4, 4],
   [500, 0.65, 4, 9, 5, 5],
   [500, 0.65, 4, 10, 9, 9],
   [500, 0.7, 2, 6, 9, 9],
-  [500, 0.7, 2, 10, 4, 4],
+  [500, 0.7, 2, 10, 4, 5],
   [500, 0.7, 3, 6, 4, 4],
   [500, 0.7, 3, 10, 4, 4],
   [500, 0.7, 4, 6, 4, 4],
@@ -74,7 +74,7 @@ const CAMPAIGN: readonly Cell[] = [
   [600, 0.7, 4, 8, 4, 4],
   [600, 0.7, 4, 10, 9, 9],
   [600, 0.75, 2, 6, 9, 9],
-  [600, 0.75, 2, 10, 4, 4],
+  [600, 0.75, 2, 10, 13, 14],
   [600, 0.75, 3, 6, 4, 4],
   [600, 0.75, 3, 10, 4, 4],
   [600, 0.75, 4, 6, 4, 4],
@@ -90,7 +90,7 @@ const CAMPAIGN: readonly Cell[] = [
   [600, 0.85, 2, 6, 5, 5],
   [600, 0.85, 3, 6, 5, 5],
   [600, 0.85, 4, 10, 5, 5],
-  [700, 0.65, 4, 6, 3, 3],
+  [700, 0.65, 4, 6, 6, 7],
   [800, 0.65, 2, 6, 0, 3],
   [800, 0.65, 4, 6, 0, 3],
   [800, 0.65, 8, 6, 3, 3],
@@ -106,7 +106,7 @@ const CAMPAIGN: readonly Cell[] = [
   [1000, 0.7, 6, 4, 3, 3],
   [1000, 0.7, 6, 6, 2, 3],
   [1000, 0.7, 8, 2, 3, 3],
-  [1000, 0.7, 8, 6, 3, 3],
+  [1000, 0.7, 8, 6, 15, 15],
   [1000, 0.72, 5, 4, 3, 3],
   [1000, 0.75, 2, 6, 0, 3],
   [1000, 0.75, 4, 6, 2, 3],
@@ -114,24 +114,31 @@ const CAMPAIGN: readonly Cell[] = [
   [1000, 0.8, 2, 6, 2, 3],
   [1000, 0.8, 3, 8, 1, 2],
   [1000, 0.8, 4, 6, 3, 3],
-  [1000, 0.8, 4, 8, 3, 3],
-  [1000, 0.8, 4, 10, 3, 3],
-  [1000, 0.85, 2, 6, 3, 3],
+  [1000, 0.8, 4, 8, 15, 15],
+  [1000, 0.8, 4, 10, 15, 15],
+  [1000, 0.85, 2, 6, 15, 15],
   [1000, 0.85, 3, 6, 3, 3],
-  [1000, 0.85, 3, 8, 3, 3],
+  [1000, 0.85, 3, 8, 15, 15],
   [1000, 0.85, 4, 6, 3, 3],
   [1000, 0.85, 4, 10, 3, 3],
 ]
 
-// The price of a floor that is a step function over three knobs: nine of the
-// hundred settings closed every board they were given and are refused anyway.
-// They are listed rather than tolerated, so that a change to the floor has to
-// say which of them it buys back and which it adds.
+// The price of a floor that is a step function over three knobs: five settings
+// closed every board they were given and are refused anyway. They are listed
+// rather than tolerated, so that a change to the floor has to say which of them
+// it buys back and which it adds.
+//
+// It was NINE until 2026-09-19. Four of them stood on three or four runs, and a
+// setting that really closes eight boards in ten shows a clean sweep of three
+// about half the time — so "always closed" was an artefact of the sample, not a
+// property of the setting. Run to fifteen seeds each, all four jammed
+// (500/0.65/3/10 on seed 7, 500/0.7/2/10 on seed 5, 600/0.75/2/10 on seed 14,
+// 700/0.65/4/6 on seed 7). They are ordinary jams now, and CAMPAIGN carries the
+// runs that found them.
+//
+// The five below survived fifteen seeds each, and every one of them is 1000 a
+// side — the opposite of where the thin grid was suspected to be.
 const CONSERVATIVE = new Set([
-  '500/0.65/3/10',
-  '500/0.7/2/10',
-  '600/0.75/2/10',
-  '700/0.65/4/6',
   '1000/0.7/8/6',
   '1000/0.8/4/8',
   '1000/0.8/4/10',

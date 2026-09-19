@@ -2757,8 +2757,10 @@ export function defaultParams(): Params {
  * their own ranges are untouched and the coupling lives here.
  *
  * The factors are fitted to the campaign, not derived: they refuse every one
- * of the 100 settings that jammed even once, and nine that never did
- * (straight-floor.test.ts lists those nine by name).
+ * of the settings that jammed even once, and five that never did
+ * (straight-floor.test.ts lists those five by name). It was nine until deeper
+ * seeding in 2026-09-19 turned four of them into ordinary jams: they had been
+ * standing on three or four runs each.
  *
  * Which size, though? Round 14 measured squares only, and on a square every
  * candidate agrees. Round 15 (2026-09-13, rectangles; see the measurements
@@ -2771,7 +2773,7 @@ export function defaultParams(): Params {
  * corridors, so fewer arrows are free at once. The carver does not care.
  *
  * On a square the mean is the side, so every number round 14 measured, and
- * every one of the nine it costs, is exactly as it was.
+ * every one of the settings it costs, is exactly as it was.
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
