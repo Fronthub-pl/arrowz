@@ -10,6 +10,7 @@ import { GestureMachine, type GestureMode, type Intent, type PointerSample } fro
 import { GlLayer } from './gl-layer.ts'
 import { type BoardLabels, labelsFor } from './i18n.ts'
 import { drawableColor, drawablePad, drawablePointRadius, drawableView } from './sanitize.ts'
+import { themeOf } from './themes.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
 
@@ -80,6 +81,11 @@ function sameViewport(a: Viewport, b: Viewport): boolean {
     a.hostWidth === b.hostWidth && a.hostHeight === b.hostHeight && a.fitted === b.fitted
 }
 
+/** Everything about a view that moves a vertex. Two views with the same key need no new geometry. */
+function geometryKeyOf(view: BoardView): string {
+  return [view.stroke, view.headWidth, view.headHeight, view.rounded, view.top, view.voids].join('|')
+}
+
 export class ArrowzBoard extends LitElement implements GameTarget {
   static override properties = {
     board: { attribute: false },
@@ -102,6 +108,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // re-render that the missing accessor would have asked for.
     lang: { type: String, noAccessor: true },
     enableColors: { type: Boolean, reflect: true, attribute: 'enable-colors' },
+    theme: { type: String, reflect: true },
     coloredOverride: { state: true },
     chosenMode: { state: true },
   }
@@ -121,6 +128,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   declare pointRadius: number
   /** Permission to colour the board. Without it the element is monochrome and shows no button. */
   declare enableColors: boolean
+  /** Name of a built-in theme (see THEMES); '' selects none. */
+  declare theme: string
   /** The button's choice; null while the board still follows `view.colored`. */
   declare coloredOverride: boolean | null
   /** The player's gesture choice, from storage on connect and from the switch after. */
@@ -240,6 +249,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private hostWidth = 0
   private hostHeight = 0
   private changeQueued = false
+  /** The colours string `updated()` last drew, to tell a colour-only change from a repeat. */
+  private lastColors = ''
+  /** The geometry key `updated()` last drew, to tell a colour-only change from one that moves a vertex. */
+  private geometryKey = ''
 
   constructor() {
     super()
@@ -252,6 +265,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.pointColor = DEFAULT_POINT_COLOR
     this.pointRadius = DEFAULT_POINT_RADIUS
     this.enableColors = false
+    this.theme = ''
     this.coloredOverride = null
     this.chosenMode = 'drag'
     const canvas = this.layer.canvas
@@ -421,8 +435,21 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     if (changed.has('showPoints') || changed.has('pointColor') || changed.has('pointRadius')) this.updatePoints()
     if (
       !changed.has('board') && !changed.has('view') && !changed.has('pad') &&
-      !changed.has('coloredOverride') && !changed.has('enableColors')
+      !changed.has('coloredOverride') && !changed.has('enableColors') && !changed.has('theme')
     ) return
+    // Colours alone never move a vertex, and re-tesselating for them costs
+    // 184.5 ms on the largest board where a repaint costs 23.3.
+    const view = this.drawView()
+    const colors = [view.ink, view.paper, view.highlight, view.palette.join(','), String(view.colored)].join('|')
+    const onlyColors = !changed.has('board') && !changed.has('pad') &&
+      this.layer.board === this.board && this.geometryKey === geometryKeyOf(view)
+    if (onlyColors && colors !== this.lastColors) {
+      this.lastColors = colors
+      this.layer.setColors(view)
+      return
+    }
+    this.lastColors = colors
+    this.geometryKey = geometryKeyOf(view)
     const previous = this.layer.board
     this.syncSession()
     this.redraw()
@@ -535,10 +562,20 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /** Draws the board as the session now stands. */
   private redraw(): void {
-    this.layer.setBoard(
-      this.board,
-      drawableView({ ...DEFAULT_VIEW, ...this.view, colored: this.colored }, isCssColor),
-      this.game.goneIds,
+    this.layer.setBoard(this.board, this.drawView(), this.game.goneIds)
+  }
+
+  /**
+   * The view the layer draws from: the element's defaults, then the named
+   * theme, then whatever the host stated explicitly. Stated beats named beats
+   * default, and nothing else in the file has to know themes exist.
+   */
+  private drawView(): BoardView {
+    const t = themeOf(this.theme)
+    const named = t === null ? {} : { paper: t.paper, ink: t.ink, highlight: t.highlight, palette: t.palette }
+    return drawableView(
+      { ...DEFAULT_VIEW, ...named, ...this.view, colored: this.colored },
+      isCssColor,
     )
   }
 
