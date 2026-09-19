@@ -48,7 +48,7 @@ test('the highlight is readable and is never one of the arrow colours', () => {
 test('every theme names where it came from and under what licence', () => {
   for (const [name, t] of Object.entries(THEMES)) {
     expect(t.source, name).not.toBe('')
-    expect(t.licence, name).toMatch(/MIT|ISC|Apache-2\.0/)
+    expect(t.licence, name).toMatch(/^(MIT|ISC|Apache-2\.0)$/)
     expect(t.url, name).toMatch(/^https:\/\//)
   }
 })
@@ -57,4 +57,15 @@ test('themeOf takes a name and refuses anything else', () => {
   expect(themeOf('gruvbox-dark')?.paper).toBe('#282828')
   expect(themeOf('no-such-theme')).toBeNull()
   expect(themeOf('')).toBeNull()
+})
+
+// The `Object.hasOwn` guard is load-bearing. Without it, a prototype
+// property name reads through and returns `Object.prototype.toString`, whose
+// `.paper`/`.ink`/`.highlight` are `undefined` — `drawView()` would then
+// spread those over `DEFAULT_VIEW`, silently defaulting the colours instead
+// of ignoring the unknown name.
+test('themeOf refuses a name that only Object.prototype owns', () => {
+  expect(themeOf('toString')).toBeNull()
+  expect(themeOf('constructor')).toBeNull()
+  expect(themeOf('hasOwnProperty')).toBeNull()
 })

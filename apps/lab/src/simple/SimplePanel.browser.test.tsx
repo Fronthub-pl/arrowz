@@ -132,7 +132,7 @@ describe('SimplePanel', () => {
     expect(useStore.getState().view.stroke).toBe(0.8)
   })
 
-  // I3: spec §6, "the simple view gets the picker and not the custom editor."
+  // Spec §6: "the simple view gets the picker and not the custom editor."
   it('offers the theme picker, and writes a choice into the lab’s view', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const picker = screen.getByRole('combobox')

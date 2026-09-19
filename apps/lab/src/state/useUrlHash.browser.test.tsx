@@ -284,7 +284,7 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 1)
   })
 
-  // C1: the theme picked in the lab must join the URL hash beside the other
+  // The theme picked in the lab must join the URL hash beside the other
   // view fields (spec §6), the way `lang` above already does. `url.test.ts`
   // only exercises `encodeHash`/`decodeHash` directly and cannot see a defect
   // in `viewFor`, which builds the object those functions are handed.

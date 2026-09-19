@@ -33,7 +33,7 @@ test('five colours leave almost no touching pair sharing one', () => {
   const pairs = neighbours(board)
   const same = pairs.filter(([a, b]) => assign[a] === assign[b]).length
   // Measured on 300x300: 0.2%. The floor is the graph, not the rule, so this
-  // asserts the rule is adjacency-aware at all — `id % n` gives 20% here.
+  // asserts the rule is adjacency-aware at all — `id % n` gives 24.4% here.
   expect(same / pairs.length).toBeLessThan(0.05)
 })
 
@@ -56,6 +56,15 @@ test('the same board and length give the same assignment', () => {
 test('a palette of one paints every piece with it', () => {
   const assign = assignPalette(board, 1)
   for (const pc of board.pieces) expect(assign[pc.id]).toBe(0)
+})
+
+// `n <= 0` is public API now that `assignPalette` is exported: the caller
+// may hand this a theme with an empty palette, or an explicit 0.
+test('n <= 0 leaves every piece unassigned, not thrown on', () => {
+  for (const n of [0, -1]) {
+    const assign = assignPalette(board, n)
+    for (const pc of board.pieces) expect(assign[pc.id]).toBe(-1)
+  }
 })
 
 test('ids a board file skipped are addressable and untouched', () => {

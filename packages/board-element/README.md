@@ -26,7 +26,8 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | Property | Type | Default |
 |---|---|---|
 | `board` | `Board \| null` | `null` |
-| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
+| `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`, `palette`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
+| `theme` | `string` (attribute, reflected): name of a built-in theme (see [Themes and attribution](#themes-and-attribution)); `''` selects none | `''` |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
 | `pad` | `number` (attribute, reflected, default not shown until set — removing the attribute restores it): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
@@ -60,6 +61,29 @@ follow now.
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
 | `finished` | `{ pieces }`, after the ride of the last piece |
+
+### Themes and attribution
+
+`theme` names one of twelve built-in themes, exported as `THEMES` (a
+`Record<string, BoardTheme>`) and looked up with `themeOf(name)`. Each supplies
+`paper`, `ink`, `highlight` and a `palette` of arrow colours; an explicit field
+on `view` always wins over the theme's, which in turn wins over the element's
+own default. A theme paints `paper`, `ink` and `highlight` regardless of
+`enableColors` — only the per-piece `palette` needs that permission, since it
+colours pieces rather than the board's surface.
+
+The twelve themes are light and dark ports of six open-source editor themes,
+each MIT or Apache-2.0. This repository ships no `LICENSE` or `NOTICE` file, so
+the notice travels with the work here and in `themes.ts`:
+
+| Theme | Licence | Source |
+|---|---|---|
+| Catppuccin | MIT | <https://github.com/catppuccin/catppuccin> |
+| gruvbox | MIT | <https://github.com/morhetz/gruvbox> |
+| Tokyo Night | Apache-2.0 | <https://github.com/folke/tokyonight.nvim> |
+| Everforest | MIT | <https://github.com/sainnhe/everforest> |
+| Rosé Pine | MIT | <https://github.com/rose-pine/rose-pine-theme> |
+| Ayu | MIT | <https://github.com/ayu-theme/ayu-colors> |
 
 Controls, mouse and pen: a plain drag pans, and a click with ⌘ (Ctrl elsewhere)
 plays. A plain click does nothing, so a hand that twitches while panning never
