@@ -99,7 +99,7 @@
     },
     {
       "out": "head-big",
-      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=2", "--arrow-height=2"],
+      "flags": ["--width=20", "--height=20", "--seed=7", "--arrow-width=0.9", "--arrow-height=1.2"],
       "width": 420
     },
     {
