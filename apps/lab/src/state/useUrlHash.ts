@@ -22,6 +22,7 @@ function viewFor(view: ViewState, help: boolean, lang: Lang) {
     hilite: view.hilite,
     help,
     lang,
+    theme: view.theme,
   }
 }
 
@@ -45,6 +46,9 @@ function applyPayload(payload: HashPayload): void {
   ui.setHelp(payload.view.help)
   // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
+  // Absent when the link predates themes or names none: the page keeps its
+  // own value, the same tolerance `cell`..`top` get above.
+  if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
 }
 
 export interface UrlHash {

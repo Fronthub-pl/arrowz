@@ -283,4 +283,29 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().lang.lang).toBe('pl'))
     expect(g.started()).toBe(started + 1)
   })
+
+  // C1: the theme picked in the lab must join the URL hash beside the other
+  // view fields (spec §6), the way `lang` above already does. `url.test.ts`
+  // only exercises `encodeHash`/`decodeHash` directly and cannot see a defect
+  // in `viewFor`, which builds the object those functions are handed.
+  it('writes the theme on screen into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setTheme('gruvbox-dark')
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.view.theme).toBe('gruvbox-dark'))
+  })
+
+  // The other half: a link naming a theme restores it into the store, the way
+  // a pasted `lang` does above.
+  it('opens on the theme the link names, and a later link moves it', async () => {
+    history.replaceState(
+      null,
+      '',
+      encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'gruvbox-dark' }, carried: {} }),
+    )
+    await mount(stub().control)
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+
+    location.hash = encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'ayu-light' }, carried: {} }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.theme).toBe('ayu-light'))
+  })
 })
