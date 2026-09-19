@@ -87,6 +87,12 @@
   color: var(--error);
   overflow-wrap: anywhere;
 }
+/* A caveat, not a failure: the same shape as `.fw-export-error`, muted. */
+.fw-export-note {
+  margin: 4px 0 0;
+  color: var(--ash);
+  overflow-wrap: anywhere;
+}
 @media (pointer: coarse) {
   .fw .fw-alt button {
     height: 44px;

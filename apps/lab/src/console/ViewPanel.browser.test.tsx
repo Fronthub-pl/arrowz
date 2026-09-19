@@ -14,6 +14,7 @@ beforeEach(() => {
   view().setNumber('top', '5')
   if (!view().rounded) view().toggle('rounded')
   if (view().colored) view().toggle('colored')
+  view().setTheme('')
 })
 
 test('the panel draws all nine preview controls', async () => {
@@ -118,4 +119,12 @@ test('a flag switch reports a press without writing any store', async () => {
   await screen.getByRole('switch', { name: /colour the arrows/i }).click()
   expect(presses).toBe(1)
   expect(view().colored).toBe(false)
+})
+
+test('the theme picker lists every theme and writes the store', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await expect.element(picker).toBeInTheDocument()
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(useStore.getState().view.theme).toBe('gruvbox-dark')
 })

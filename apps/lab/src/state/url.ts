@@ -14,6 +14,8 @@ export interface HashView {
   help: boolean
   /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
   lang?: Lang | undefined
+  /** The board theme by name. Absent when the link predates themes. */
+  theme?: string | undefined
 }
 
 /** The one key the page does not own yet — the tab, PR 5's — kept so a round trip cannot drop it. */
@@ -86,6 +88,7 @@ export function decodeHash(hash: string): HashPayload | null {
       hilite: raw.hilite !== false,
       help: raw.help !== false,
       lang: isLang(raw.lang) ? raw.lang : undefined,
+      theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
     },
     carried: raw.tab === undefined ? {} : { tab: raw.tab },
   }

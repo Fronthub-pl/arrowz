@@ -12,4 +12,5 @@ export const VIEW: HashView = {
   hilite: true,
   help: true,
   lang: 'en',
+  theme: undefined,
 }

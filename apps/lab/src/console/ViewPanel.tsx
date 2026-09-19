@@ -1,3 +1,4 @@
+import { THEMES } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
@@ -145,6 +146,19 @@ export function ViewPanel() {
         {VIEW_FLAGS.map(({ flag, label }) => (
           <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
+        <div className="fw-k">
+          <div className="row">
+            <label htmlFor="view-theme">{dict.t('themeLabel')}</label>
+            <select id="view-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
+              <option value="">{dict.t('themeNone')}</option>
+              {Object.keys(THEMES).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
     </div>
   )

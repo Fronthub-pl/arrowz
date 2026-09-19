@@ -241,6 +241,9 @@ Deno.test('both ui dictionaries carry the report, export and annotation words', 
     'exportsGroup',
     'downloadBoardFile',
     'exportError',
+    'themeLabel',
+    'themeNone',
+    'svgThemeNote',
   ]
   for (const d of dictionaries) {
     for (const k of words) {

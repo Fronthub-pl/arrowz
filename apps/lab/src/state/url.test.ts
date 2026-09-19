@@ -83,4 +83,14 @@ describe('the hash codec', () => {
     expect(back?.params.W).toBe(40)
     expect(back?.params.H).toBeUndefined()
   })
+
+  it('carries the chosen theme through a round trip', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'gruvbox-dark' }, carried: {} })
+    expect(decodeHash(hash)?.view.theme).toBe('gruvbox-dark')
+  })
+
+  it('leaves the page on its own theme when a link names none', () => {
+    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
+    expect(decodeHash(hash)?.view.theme).toBeUndefined()
+  })
 })

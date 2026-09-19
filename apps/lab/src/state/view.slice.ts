@@ -13,11 +13,14 @@ export interface ViewState {
   rounded: boolean
   hilite: boolean
   voids: boolean
+  /** Name of a built-in board theme; '' draws the element's own colours. */
+  theme: string
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
   setNumber(field: ViewNumber, raw: string): void
   toggle(flag: ViewFlag): void
   /** Sets a flag to what it is given. `toggle` flips; a link states. */
   setFlag(flag: ViewFlag, on: boolean): void
+  setTheme(name: string): void
 }
 
 type SetStore = (fn: (state: { view: ViewState }) => { view: ViewState }) => void
@@ -53,8 +56,10 @@ export function createViewSlice(set: SetStore): ViewState {
     rounded: true,
     hilite: true,
     voids: true,
+    theme: '',
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
     setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
+    setTheme: (name) => patch({ theme: name }),
   }
 }

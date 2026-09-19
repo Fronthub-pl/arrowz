@@ -38,6 +38,7 @@ export function ExportButtons(): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
   const error = useStore((state) => state.result.exportError)
+  const theme = useStore((state) => state.view.theme)
   const drawing = useRef<Worker | null>(null)
   const [busy, setBusy] = useState(false)
   const [named, setNamed] = useState<Named | null>(null)
@@ -119,6 +120,10 @@ export function ExportButtons(): ReactElement {
       <button type="button" onClick={exportFile} disabled={hash === null}>
         {dict.t('downloadBoardFile')}
       </button>
+      {/* The engine's `toSvg` never learns a theme's colours (spec §9), so a
+          chosen theme silently would not survive an export — said here, next
+          to the button, only while it would otherwise go unnoticed. */}
+      {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
       {error === null ? null : (
         <p className="fw-export-error" role="alert">
           {`${dict.t('exportError')} ${error}`}

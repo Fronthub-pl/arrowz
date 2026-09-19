@@ -81,7 +81,7 @@ export function BoardFrame(): ReactElement {
         {/* `enableColors`: the element draws in ink unless its host grants
             colours, and the lab does — without it the `colored` flag reaches
             the element and changes nothing on screen. */}
-        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors />
+        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors theme={view.theme} />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}
