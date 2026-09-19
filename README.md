@@ -575,7 +575,7 @@ squares. They behave differently. `--arrow-width` defaults to `auto`, meaning
 it defaults to `1`, one whole square. Ask for `--arrow-height=0` and you get a
 tip of no height at all.
 
-| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=2 --arrow-height=2` |
+| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=0.9 --arrow-height=1.2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 

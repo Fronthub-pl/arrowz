@@ -575,7 +575,7 @@ znaczy „wylicz z grubości linii”; podana liczba to szerokość w kwadratach
 domyślnie wynosi `1`, czyli cały kwadrat. Po `--arrow-height=0` grot nie ma
 żadnej wysokości.
 
-| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=2 --arrow-height=2` |
+| `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=0.9 --arrow-height=1.2` |
 |---|---|
 | <img src="docs/images/head-small.png" width="260"> | <img src="docs/images/head-big.png" width="260"> |
 

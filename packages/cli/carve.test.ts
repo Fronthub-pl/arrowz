@@ -446,10 +446,14 @@ Deno.test('a picture number outside its range is refused, and no board is writte
     assertStringIncludes(r.stderr, flag)
     assertEquals(entries(dir), 0, 'nothing is written')
   }
-  // Every picture README shows still draws: the big head and the tip of no height.
+  // Every picture README shows still draws, and so does each end of the head
+  // bounds: the big head the page prints is exactly the ceiling of both fields
+  // (0.9 by 1.2), and the tip of no height is the floor the prose documents.
   const dir = tmp()
-  const ok = dryRun(['--dry-run', '--width=10', '--height=10', '--arrow-width=2', '--arrow-height=0'], dir)
-  assertEquals(ok.status, 0, ok.stderr)
+  const big = dryRun(['--dry-run', '--width=10', '--height=10', '--arrow-width=0.9', '--arrow-height=1.2'], dir)
+  assertEquals(big.status, 0, big.stderr)
+  const flat = dryRun(['--dry-run', '--width=10', '--height=10', '--arrow-width=0.9', '--arrow-height=0'], dir)
+  assertEquals(flat.status, 0, flat.stderr)
 })
 
 // --- refusals -----------------------------------------------------------------
