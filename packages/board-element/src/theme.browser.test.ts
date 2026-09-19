@@ -107,6 +107,30 @@ test('changing only the theme repaints without re-tesselating', async () => {
   el.remove()
 })
 
+// A `view` object the caller replaced with an equal one — standing in for
+// the lab's `BoardFrame`, whose `useMemo` yields a fresh `elementView`
+// whenever the view slice moves at all, `cell` included, though `boardViewOf`
+// drops `cell` before this object is built — must cost nothing. Before this
+// fix, `onlyColors` was true but the (unchanged) colour string fell through
+// the `if` and every branch below ran `syncSession()` + `redraw()`, moving
+// `scenesBuiltForTest` for a change that altered neither a vertex nor a colour.
+test('a view update with the same colours and geometry repaints nothing', async () => {
+  const el = await mount()
+  el.enableColors = true
+  el.theme = 'gruvbox-dark'
+  el.view = { stroke: 0.5 }
+  el.board = board
+  await el.updateComplete
+  await raf()
+  const layer = layerOf(el)
+  const built = layer.scenesBuiltForTest
+  el.view = { stroke: 0.5 } // same values, new object identity
+  await el.updateComplete
+  await raf()
+  expect(layer.scenesBuiltForTest).toBe(built)
+  el.remove()
+})
+
 // Fix round 1: `geometryKeyOf` must include `colored`, not only the six
 // fields the brief's Step 3 named. `strokeOf` (tesselate.ts) draws a
 // `top`-highlighted piece at 1.5x its stroke when `colored` is on and 1.15x

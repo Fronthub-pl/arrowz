@@ -452,9 +452,14 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const colors = [view.ink, view.paper, view.highlight, view.palette.join(','), String(view.colored)].join('|')
     const onlyColors = !changed.has('board') && !changed.has('pad') &&
       this.layer.board === this.board && this.geometryKey === geometryKeyOf(view)
-    if (onlyColors && colors !== this.lastColors) {
-      this.lastColors = colors
-      this.layer.setColors(view)
+    if (onlyColors) {
+      // A field the geometry key ignores — `cell`, dropped before this view is
+      // built — can still move `changed` without moving a vertex or a colour.
+      // The board is already correct on screen, so there is nothing to do.
+      if (colors !== this.lastColors) {
+        this.lastColors = colors
+        this.layer.setColors(view)
+      }
       return
     }
     this.lastColors = colors
