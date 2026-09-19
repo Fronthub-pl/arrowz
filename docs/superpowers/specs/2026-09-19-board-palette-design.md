@@ -253,13 +253,26 @@ with no theme. The choice joins the URL hash beside the other view fields
 `packages/engine/lab-i18n.ts`. The simple view gets the picker and not the custom
 editor.
 
-`boardViewOf` (`view.ts:43-53`) stops dropping colours: it passes the chosen
-theme's four fields through to the element.
+**What shipped instead of what this section originally proposed.** `boardViewOf`
+(`view.ts:43-53`) keeps dropping colours: the lab passes only the chosen theme's
+*name*, through the element's own `theme` attribute, and the element resolves
+paper, ink, highlight and palette itself, the same way any other host would. The
+lab never reads `THEMES[name]` to build a `view` patch. This is pinned by
+`view.test.ts:60` ("boardViewOf still carries no palette: the lab sets it
+separately") and is the design §3.1 already states: one place merges theme and
+view, and nothing else learns themes exist.
 
 **The exported SVG keeps the golden angle.** The engine's `toSvg` learns no
 colours (§9), so a board exported from the lab will not match the screen once a
 theme is chosen. This is a consequence of a deliberate decision, and the lab says
 so where the export lives rather than leaving it to be discovered.
+
+**Status, as of the round that shipped this design.** The console picker and the
+simple-view picker both shipped, mirroring each other, along with the export
+caveat above. Not shipped, and not planned for this round: the swatch strip
+beside the twelve names, and the custom palette editor that would map a
+user-edited colour list onto `view.palette` with no theme selected. Both remain
+designed above and unbuilt; picking them up is a later round's decision.
 
 ## 7. The one row in the engine
 
@@ -290,7 +303,9 @@ and the golden hashes are untouched.
 - Changing only the palette does not re-tesselate (asserted through a spy on the
   tesselation, not through timing, which is not a gate on a runner without a GPU).
 - The riding piece keeps its colour across the start of a ride.
-- `enableColors` off: a theme changes nothing on the canvas.
+- `enableColors` off: a theme still paints `paper`, `ink` and `highlight` — §3.1
+  governs here, not the line this bullet used to carry — but its `palette` does
+  not apply to any piece.
 
 **In the lab**
 

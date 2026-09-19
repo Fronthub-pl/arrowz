@@ -81,7 +81,10 @@ test('every colour carries its share, within one piece', () => {
   const n = 5
   const assign = assignPalette(board, n)
   const tally = new Array<number>(n).fill(0)
-  for (const pc of board.pieces) tally[assign[pc.id] ?? 0] += 1
+  for (const pc of board.pieces) {
+    const c = assign[pc.id] ?? 0
+    tally[c] = (tally[c] ?? 0) + 1
+  }
   const share = board.pieces.length / n
   for (const count of tally) expect(Math.abs(count - share)).toBeLessThanOrEqual(1)
 })
@@ -111,6 +114,13 @@ test('ids a board file skipped are addressable and untouched', () => {
   expect(assign[0]).toBe(-1)
 })
 ```
+
+Execution note: `'every colour carries its share, within one piece'` above
+originally read `tally[assign[pc.id] ?? 0] += 1`, which is TS2532 under this
+repository's `noUncheckedIndexedAccess` — a read and a write through the same
+computed index, with only the read guarded. It had to be rewritten to read
+`tally[c]` once into a local before writing it back, which is the form shown
+above and the one that shipped in `palette.test.ts`.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -201,7 +211,7 @@ Expected: PASS, 5 tests.
 
 - [ ] **Step 5: Prove the adjacency assertion can fail**
 
-Temporarily replace the body of the `pick` search with `pick = pc.id % n`, re-run, and confirm **only** the first test reddens ("five colours leave almost no touching pair"). Restore the code.
+Temporarily replace the body of the `pick` search with `pick = pc.id % n`, re-run, and confirm **two** tests redden, not one: "five colours leave almost no touching pair" (the assertion this step names) and "ids a board file skipped are addressable and untouched" — that test's fixture assigns with `n = 2`, and ids 5 and 7 are both odd, so `id % 2` collides them and `assign[5]` no longer differs from `assign[7]`. Restore the code.
 
 - [ ] **Step 6: Commit**
 
@@ -557,8 +567,9 @@ test('the colour buffer carries whatever colour the caller gives a piece', () =>
 
 `BENT` (line 34), `NONE` (line 26) and `onlyPiece` (line 42) are the file's own
 fixtures — reuse them rather than making new ones. The file's existing colour
-tests at lines 302 and 457 call `tesselateColors(scene)`; they gain a second
-argument, `hueBytes`, which keeps them asserting exactly what they assert today.
+tests at lines 306 and 459 (not 302 and 457, as an earlier draft of this plan
+had it) call `tesselateColors(scene)`; they gain a second argument, `hueBytes`,
+which keeps them asserting exactly what they assert today.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -637,12 +648,16 @@ In `gl-resources.ts`, thread the function through and split the colour upload so
   }
 ```
 
-In `gl-layer.ts:299`, pass the function the layer already has: `this.upload()` becomes `res.upload(this.scene, this.view.colored, (id) => this.pieceBytes(id))` — `pieceBytes` arrives in Task 5; until then use `hueBytes`.
+Execution note: there is no call at `gl-layer.ts:299` to edit — the real site
+is the private `upload()` helper, which calls `this.res?.upload(...)`. There,
+pass the function the layer already has: `this.res?.upload(this.scene, this.view.colored)`
+becomes `this.res?.upload(this.scene, this.view.colored, (id) => this.pieceBytes(id))`
+— `pieceBytes` arrives in Task 5; until then use `hueBytes`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd packages/board-element && pnpm exec vitest run --project node src/tesselate.test.ts`
-Expected: PASS, including the file's existing colour tests at lines 302 and 457, which now pass `hueBytes` explicitly.
+Expected: PASS, including the file's existing colour tests at lines 306 and 459, which now pass `hueBytes` explicitly.
 
 - [ ] **Step 5: Commit**
 
@@ -1302,3 +1317,16 @@ before this plan was committed:
 
 The lesson is the repository's own: a plan quotes from the file, not from
 recollection of it.
+
+**What execution caught that this self-review did not.** Four more defects,
+found only once the tasks were run rather than read: Task 1's balance test
+had a `noUncheckedIndexedAccess` violation this plan's own snippet did not
+catch (see the execution note after Task 1's test code); Task 1 Step 5's
+mutation reddens two tests, not the one predicted, for a reason involving the
+specific ids in the unused-ids fixture rather than the rule the step is
+demonstrating; Task 4 Step 3 named a call site (`gl-layer.ts:299`) that does
+not exist, the real one being the private `upload()` helper; and Task 4's two
+line references to `tesselate.test.ts` were off by four lines. None of these
+were the kind of error "quote from the file" alone prevents — they are about
+what a test proves and where code moved between the plan being written and
+the file it names, not about whether a snippet was copied correctly.
