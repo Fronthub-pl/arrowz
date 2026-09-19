@@ -58,6 +58,17 @@ describe('drawableView', () => {
     const v = drawableView({ ...DEFAULT_VIEW, rounded: false, colored: true, voids: true }, isColor)
     expect([v.rounded, v.colored, v.voids]).toEqual([false, true, true])
   })
+
+  test('the palette keeps the colours a browser accepts and drops the rest', () => {
+    const isColor = (css: string) => css === 'red' || css.startsWith('#')
+    const v = drawableView({ ...DEFAULT_VIEW, palette: ['red', 'garbage', '#123456', ''] }, isColor)
+    expect(v.palette).toEqual(['red', '#123456'])
+  })
+
+  test('a palette of nothing usable behaves as no palette at all', () => {
+    const isColor = () => false
+    expect(drawableView({ ...DEFAULT_VIEW, palette: ['nonsense'] }, isColor).palette).toEqual([])
+  })
 })
 
 describe('the attributes', () => {

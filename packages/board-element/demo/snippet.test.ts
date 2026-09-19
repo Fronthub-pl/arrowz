@@ -1,10 +1,11 @@
 import { expect, test } from 'vitest'
 import { DEFAULT_VIEW } from '../src/mod.ts'
+import { viewRecord } from './controls.ts'
 import { snippet, type SnippetState } from './snippet.ts'
 
 const state = (over: Partial<SnippetState> = {}): SnippetState => ({
   attrs: [],
-  view: { ...DEFAULT_VIEW },
+  view: viewRecord(DEFAULT_VIEW),
   board: null,
   ...over,
 })
@@ -40,17 +41,17 @@ test('the tag follows the table order, not the order the DOM happens to hold', (
 })
 
 test('view prints only the fields that differ from the defaults', () => {
-  const text = snippet(state({ view: { ...DEFAULT_VIEW, stroke: 0.8, colored: true } }))
+  const text = snippet(state({ view: viewRecord({ ...DEFAULT_VIEW, stroke: 0.8, colored: true }) }))
   expect(text).toContain('el.view = { stroke: 0.8, colored: true }')
 })
 
 test('a colour prints as a quoted string', () => {
-  const text = snippet(state({ view: { ...DEFAULT_VIEW, ink: '#000000' } }))
+  const text = snippet(state({ view: viewRecord({ ...DEFAULT_VIEW, ink: '#000000' }) }))
   expect(text).toContain("el.view = { ink: '#000000' }")
 })
 
 test("a number carrying a step's rounding error prints short", () => {
-  const text = snippet(state({ view: { ...DEFAULT_VIEW, stroke: 0.30000000000000004 } }))
+  const text = snippet(state({ view: viewRecord({ ...DEFAULT_VIEW, stroke: 0.30000000000000004 }) }))
   expect(text).toContain('el.view = { stroke: 0.3 }')
 })
 

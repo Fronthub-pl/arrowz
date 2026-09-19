@@ -52,3 +52,11 @@ test('boardViewOf carries the seven look fields and the voids flag', () => {
 test('boardViewOf drops cell, because the element scales itself', () => {
   expect('cell' in boardViewOf(CLI_VIEW, false)).toBe(false)
 })
+
+test('a board starts with no palette, which is the golden angle', () => {
+  expect(DEFAULT_VIEW.palette).toEqual([])
+})
+
+test('boardViewOf still carries no palette: the lab sets it separately', () => {
+  expect('palette' in boardViewOf(CLI_VIEW, false)).toBe(false)
+})

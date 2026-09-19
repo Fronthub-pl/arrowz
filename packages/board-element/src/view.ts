@@ -22,6 +22,12 @@ export interface BoardView {
   ink: string
   paper: string
   highlight: string
+  /**
+   * Colours the pieces are drawn in when `colored` is on, one per piece by the
+   * assignment of palette.ts. Empty keeps the golden angle over the piece id,
+   * which is what every board drew before themes existed.
+   */
+  palette: string[]
 }
 
 export const DEFAULT_VIEW: BoardView = {
@@ -37,6 +43,7 @@ export const DEFAULT_VIEW: BoardView = {
   ink: '#232447',
   paper: '#f6f6fa',
   highlight: '#e8467c',
+  palette: [],
 }
 
 /** The lab's view as the element takes it; `cell` is a size in the exported SVG and does not apply. */
