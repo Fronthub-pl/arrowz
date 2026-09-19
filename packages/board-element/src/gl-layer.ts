@@ -16,7 +16,7 @@ import { drawDots, drawPaper, drawPieces, drawRiders, drawVoids, setView } from 
 import { GlResources } from './gl-resources.ts'
 import { Rides } from './rides.ts'
 import { type PieceRanges, type Scene, tesselateBoard, voidQuads } from './tesselate.ts'
-import { type BoardView, DEFAULT_VIEW } from './view.ts'
+import { type BoardView, DEFAULT_VIEW, hueBytes } from './view.ts'
 import type { Viewport } from './viewport.ts'
 
 export class GlLayer {
@@ -385,7 +385,9 @@ export class GlLayer {
 
   /** The scene into the static buffers; see `GlResources.upload`. */
   private upload(): void {
-    this.res?.upload(this.scene, this.view.colored)
+    // `hueBytes` is the placeholder colour source until Task 5 wires in the
+    // palette-aware `(id) => this.pieceBytes(id)`.
+    this.res?.upload(this.scene, this.view.colored, hueBytes)
   }
 
   /**

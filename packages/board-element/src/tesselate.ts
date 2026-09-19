@@ -6,7 +6,7 @@
 import { DIRS, pieceShape } from '@arrowz/engine'
 import type { BoardData, Piece } from '@arrowz/engine'
 import { trackLine, trackPoint } from './track.ts'
-import { type BoardView, hueBytes } from './view.ts'
+import type { BoardView } from './view.ts'
 
 /** The most points a head polygon can have: tip, two sides and a two-point collar. */
 const MAX_HEAD_POINTS = 5
@@ -435,17 +435,20 @@ function paint(bytes: Uint8Array, ranges: readonly Range[], rgb: readonly [numbe
 }
 
 /**
- * The colour of every vertex and every disc, for the diagnostic mode. Built
- * only when colours are switched on (see `GlResources.upload`), so a
- * monochrome board never allocates it.
+ * The colour of every vertex and every disc, for the diagnostic mode. The
+ * colour per piece comes in as a function: the layer decides whether that is a
+ * palette entry or the golden angle, and this file stays about geometry.
  */
-export function tesselateColors(scene: Scene): SceneColors {
+export function tesselateColors(
+  scene: Scene,
+  colorOf: (id: number) => readonly [number, number, number],
+): SceneColors {
   const vertices = new Uint8Array((scene.positions.length / 2) * 4)
   const discs = new Uint8Array((scene.discs.length / FLOATS_PER_DISC) * 4)
   for (const id of scene.drawnIds()) {
     const r = scene.rangeOf(id)
     if (!r) continue
-    const rgb = hueBytes(id)
+    const rgb = colorOf(id)
     paint(vertices, [r.line, r.head], rgb)
     paint(discs, [r.corners, r.tail], rgb)
   }
