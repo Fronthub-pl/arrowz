@@ -50,11 +50,10 @@ function applyPayload(payload: HashPayload): void {
   // Absent when the link predates themes or names none: the page keeps its
   // own value, the same tolerance `cell`..`top` get above.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
-  // After the theme, not before: a hand-edited link naming both must resolve
-  // deterministically, and `setPalette` clearing the theme it just set (the
-  // slice's own exclusivity, `paletteUpdate`) is what makes the palette win —
-  // the same precedence the element gives an explicit `view` over a named
-  // theme.
+  // A link naming both keeps both: Ruling 6 repealed the slice's own
+  // exclusivity (`paletteUpdate`), so neither `setTheme` nor `setPalette`
+  // touches the other field any more. The order below still matches the
+  // order the fields are read above, but it no longer decides a winner.
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
 }
 

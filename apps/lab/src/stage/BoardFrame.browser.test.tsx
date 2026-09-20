@@ -230,11 +230,11 @@ test('a custom palette reaches the element', async () => {
   })
   const element = screen.container.querySelector('arrowz-board')
   expect(element?.view.palette).toEqual(['#ff00ff'])
-  // And clearing it back to empty must not leave a stale `palette` key on the
-  // element's view stated over a theme chosen afterwards (the guard in
-  // `BoardFrame.tsx`, not merely the store's own exclusion).
+  // Ruling 6 repealed the exclusion that used to clear the palette here: a
+  // theme chosen afterwards no longer wipes it, and the element's own
+  // `.view.palette` still reads the override `BoardFrame.tsx` builds.
   await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
-  expect(element === null || !('palette' in (element.view ?? {}))).toBe(true)
+  expect(element?.view.palette).toEqual(['#ff00ff'])
   useStore.getState().view.setTheme('')
 })
 

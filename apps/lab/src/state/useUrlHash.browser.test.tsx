@@ -322,11 +322,12 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(decodeHash(location.hash)?.view.palette).toEqual(['#112233', '#aabbcc']))
   })
 
-  // The consumer side: a link naming a palette restores it into the store and
-  // clears any theme that was set, the way Ruling B keeps the two exclusive
-  // everywhere else. Dropping the restore line from `applyPayload` would pass
-  // every other test in this file and redden only this one.
-  it('opens on the palette the link names, and clears a theme already on screen', async () => {
+  // The consumer side: a link naming a palette restores it into the store,
+  // the way Ruling 5 and 6 (paper/ink and palette) now let it coexist with a
+  // theme already on screen rather than clearing it. Dropping the restore
+  // line from `applyPayload` would pass every other test in this file and
+  // redden only this one.
+  it('opens on the palette the link names, and keeps a theme already on screen', async () => {
     await mount(stub().control)
     useStore.getState().view.setTheme('gruvbox-dark')
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
@@ -337,7 +338,7 @@ describe('useUrlHash', () => {
       carried: {},
     }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233', '#aabbcc']))
-    expect(useStore.getState().view.theme).toBe('')
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
 
   // Finding 2 (final whole-addendum review, human decision): the palette's
@@ -365,10 +366,11 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.colored).toBe(false)
   })
 
-  // Ruling: a hand-edited link naming both a theme and a palette applies the
-  // theme first and the palette second, so the palette wins — deterministic
-  // regardless of which setter a naive implementation might run last.
-  it('takes the palette over the theme when a link names both', async () => {
+  // Ruling 6: a hand-edited link naming both a theme and a palette now keeps
+  // both — `applyPayload` applies the theme first and the palette second,
+  // but that order no longer decides a winner, since neither setter touches
+  // the other field any more.
+  it('keeps both the theme and the palette when a link names both', async () => {
     await mount(stub().control)
     location.hash = encodeHash({
       params: defaultParams(),
@@ -376,6 +378,6 @@ describe('useUrlHash', () => {
       carried: {},
     }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
-    expect(useStore.getState().view.theme).toBe('')
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
 })

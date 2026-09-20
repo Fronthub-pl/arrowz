@@ -14,10 +14,10 @@ const declared = createViewSlice(() => {})
 
 // The store outlives a test (view.slice.ts's own singleton): a theme or a
 // palette chosen by one test must not leak into the next. Reset both fields
-// directly rather than through `setTheme` — `setTheme` is exactly what
-// Ruling B's mutation below targets, and a `beforeEach` built on the action
-// under test would make every later test fail alongside it instead of
-// pinning only the two that assert the exclusion itself.
+// directly rather than through `setTheme` — `setTheme` is exactly what the
+// mutation check below targets (Ruling 6: it no longer clears the palette),
+// and a `beforeEach` built on the action under test would make every later
+// test fail alongside it instead of pinning only the case that asserts it.
 beforeEach(() => {
   useStore.setState((state) => ({
     view: {
@@ -40,6 +40,11 @@ test('the fields start where the previous lab starts them', () => {
   expect(view().voids).toBe(true)
   expect(declared.colored).toBe(false)
   expect(view().top).toBe(5)
+})
+
+test('paper and ink start unset, so a theme decides them', () => {
+  expect(declared.paper).toBe('')
+  expect(declared.ink).toBe('')
 })
 
 test('an empty field falls back to the default rather than to zero', () => {
@@ -86,15 +91,24 @@ test('a flag set to the value a link states stays there, however often it is sta
 })
 
 // Palette round-2 addendum, task 2: the lab's editable custom palette.
-// Ruling B (mutual exclusion) and Ruling C (the cap) both live in the
-// slice, exercised here rather than through the editor, so the store's own
-// invariant is what is pinned — not merely a component that happens to obey it.
+// Ruling C (the cap) lives in the slice, exercised here rather than through
+// the editor, so the store's own invariant is what is pinned — not merely a
+// component that happens to obey it. Ruling 6 repealed the mutual exclusion
+// this comment used to name alongside it (Ruling B): a theme and a palette
+// now coexist, each colour field overriding the theme's own.
 
-test('adding a colour appends it and clears any chosen theme', () => {
+test('a custom colour no longer clears the chosen theme (Ruling 6)', () => {
+  view().setTheme('gruvbox-dark')
+  view().setPaper('#010203')
+  expect(view().theme).toBe('gruvbox-dark')
+  expect(view().paper).toBe('#010203')
+})
+
+test('adding a colour no longer clears the chosen theme (Ruling 6)', () => {
   view().setTheme('gruvbox-dark')
   view().addPaletteColor()
   expect(view().palette).toHaveLength(1)
-  expect(view().theme).toBe('')
+  expect(view().theme).toBe('gruvbox-dark')
 })
 
 test('editing a colour changes only the entry at that index', () => {
@@ -120,18 +134,24 @@ test(`the palette refuses a colour past the cap of ${PALETTE_CAP}`, () => {
   expect(view().palette).toHaveLength(PALETTE_CAP)
 })
 
-test('choosing a theme clears a custom palette (Ruling B)', () => {
+test('the cap survives the repeal', () => {
+  view().setPalette(Array.from({ length: 12 }, (_, i) => `#${String(i % 10).repeat(6)}`))
+  expect(view().palette).toHaveLength(PALETTE_CAP)
+})
+
+test('choosing a theme no longer discards a custom palette (Ruling 6)', () => {
   view().addPaletteColor()
-  expect(view().palette.length).toBeGreaterThan(0)
+  const before = view().palette
+  expect(before.length).toBeGreaterThan(0)
   view().setTheme('gruvbox-dark')
-  expect(view().palette).toEqual([])
+  expect(view().palette).toEqual(before)
   expect(view().theme).toBe('gruvbox-dark')
 })
 
-test('setting a non-empty palette clears the chosen theme (Ruling B)', () => {
+test('a custom palette no longer clears the chosen theme either (Ruling 6)', () => {
   view().setTheme('gruvbox-dark')
   view().setPalette(['#111111', '#222222'])
-  expect(view().theme).toBe('')
+  expect(view().theme).toBe('gruvbox-dark')
   expect(view().palette).toEqual(['#111111', '#222222'])
 })
 
@@ -166,9 +186,9 @@ test('removing every colour never turns colouring back off', () => {
 })
 
 test('setting an empty palette leaves an already-absent theme alone', () => {
-  // Nothing to clear: the invariant already holds `theme === ''` whenever
-  // the palette is non-empty, so an empty `setPalette` call touching `theme`
-  // would be a needless write, not a needed one.
+  // `setPalette` never touches `theme` at all (Ruling 6 repealed the old
+  // exclusion that used to clear it), so an empty call is exactly as inert
+  // on the theme as any other.
   view().setPalette([])
   expect(view().theme).toBe('')
   expect(view().palette).toEqual([])
