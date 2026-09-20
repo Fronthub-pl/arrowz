@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { drawableColor, drawablePad, drawablePointRadius, drawableView } from './sanitize.ts'
+import { drawableColor, drawablePad, drawablePointRadius, drawableView, POINT_RADIUS_RANGE } from './sanitize.ts'
 import { DEFAULT_VIEW } from './view.ts'
 
 /** A stand-in for CSS.supports('color', …): hex and one name are colours, nothing else is. */
@@ -103,5 +103,15 @@ describe('the attributes', () => {
   test('point colour: not a colour is the fallback', () => {
     expect(drawableColor('garbage', '#c9c9d6', isColor)).toBe('#c9c9d6')
     expect(drawableColor('#abc', '#c9c9d6', isColor)).toBe('#abc')
+  })
+})
+
+describe('POINT_RADIUS_RANGE', () => {
+  test('the published bounds are the ones the clamp enforces', () => {
+    // 0.5 and 0 are named literally on one side: an assertion reading the
+    // constant on both sides would hold for any value it was given.
+    expect(drawablePointRadius(1.5, 0.06)).toBe(0.5)
+    expect(drawablePointRadius(-1, 0.06)).toBe(0)
+    expect(POINT_RADIUS_RANGE).toEqual({ min: 0, max: 0.5 })
   })
 })

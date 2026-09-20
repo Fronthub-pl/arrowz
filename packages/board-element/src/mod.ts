@@ -40,6 +40,7 @@ export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
 export { EXIT_MAX_MS, EXIT_MIN_MS, EXIT_SPEED } from './track.ts'
 export { MAX_CELL_PX, MIN_PAD_PX, MIN_POINT_CELL_PX } from './viewport.ts'
+export { POINT_RADIUS_RANGE } from './sanitize.ts'
 
 declare global {
   interface HTMLElementTagNameMap {

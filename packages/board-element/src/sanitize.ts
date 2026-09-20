@@ -42,7 +42,13 @@ export function drawablePad(pad: number, fallback: number): number {
   return Math.max(0, finite(pad, fallback))
 }
 
-/** A dot's radius in cells: above half a cell the dots merge into a flood of colour. */
+/**
+ * The radius a dot may be given, in cells. Published because the lab draws a
+ * field for it and must declare the bounds it is actually held to: the engine's
+ * `VIEW_RANGE` covers the CLI's numbers, and the point grid is none of them.
+ */
+export const POINT_RADIUS_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 0.5 }
+
 export function drawablePointRadius(radius: number, fallback: number): number {
-  return Math.min(Math.max(finite(radius, fallback), 0), 0.5)
+  return Math.min(Math.max(finite(radius, fallback), POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max)
 }

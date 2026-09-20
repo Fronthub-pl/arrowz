@@ -138,7 +138,7 @@ is not a finite positive number, leaving the viewport as it was.
 - `stroke` is at most one cell, and zero or less becomes the default.
 - Head sizes and `pad` are never negative.
 - `top` is a whole count.
-- `point-radius` stays within [0, 0.5].
+- `point-radius` stays within `POINT_RADIUS_RANGE` (0 to 0.5): above half a cell the dots merge.
 - A colour the browser cannot parse becomes the default of its field.
 
 ### The margin
