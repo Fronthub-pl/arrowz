@@ -168,7 +168,16 @@ export function PaletteEditor() {
         <span className="lab" id="view-palette-label">
           {dict.t('paletteLabel')}
         </span>
-        <button type="button" onClick={addPaletteColor} disabled={palette.length >= PALETTE_CAP}>
+        {/* Finding 9 (final whole-addendum review): `disabled` alone leaves a
+            screen reader saying only "add colour, dimmed" at the cap, with no
+            reason. `aria-describedby` names the help paragraph below, which
+            already states the cap in words, so the refusal is audible too. */}
+        <button
+          type="button"
+          onClick={addPaletteColor}
+          disabled={palette.length >= PALETTE_CAP}
+          aria-describedby="view-palette-help"
+        >
           {dict.t('paletteAdd')}
         </button>
       </div>
@@ -200,7 +209,9 @@ export function PaletteEditor() {
           ))}
         </ul>
       )}
-      <p className="why">{dict.t('paletteHelp', PALETTE_CAP)}</p>
+      <p className="why" id="view-palette-help">
+        {dict.t('paletteHelp', PALETTE_CAP)}
+      </p>
     </div>
   )
 }

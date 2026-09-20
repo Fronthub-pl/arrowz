@@ -174,6 +174,14 @@ describe('SimplePanel', () => {
     expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
     const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
     expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+    // Finding 4 (final whole-addendum review): this file loads no stylesheet,
+    // so the computed-style reads above read React's inline `backgroundColor`
+    // and would pass with no CSS at all. `.fw-k .fw-swatch` (console.css)
+    // needs a `.fw-k` ancestor to apply; this pins the DOM shape it depends on.
+    expect(strip.closest('.fw-k')).not.toBeNull()
+    // Finding 9 (final whole-addendum review): pin the strip's `aria-hidden`,
+    // which was load-bearing and unasserted before this.
+    expect(strip.getAttribute('aria-hidden')).toBe('true')
     await userEvent.selectOptions(picker, '')
     expect(screen.container.querySelector('.fw-swatches')).toBeNull()
   })

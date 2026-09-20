@@ -161,6 +161,17 @@ test('choosing a theme shows a strip of its arrow colours, in order, on its pape
   expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
   const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
   expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+  // Finding 4 (final whole-addendum review): this file loads no stylesheet
+  // (unlike `BoardFrame.browser.test.tsx`), so the two assertions above read
+  // React's inline `backgroundColor` and would pass even with no CSS at all.
+  // What no computed-style read here can see is that `.fw-k .fw-swatch`
+  // (console.css) needs a `.fw-k` ancestor to apply — this pins the DOM shape
+  // that selector actually depends on.
+  expect(strip.closest('.fw-k')).not.toBeNull()
+  // Finding 9 (final whole-addendum review): the strip's `aria-hidden` is
+  // load-bearing (the `<select>` beside it already names the theme), and
+  // until now no test asserted it — a future edit could drop it silently.
+  expect(strip.getAttribute('aria-hidden')).toBe('true')
 })
 
 test('clearing the theme removes the strip', async () => {
@@ -240,6 +251,18 @@ test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async (
   for (let i = 0; i < PALETTE_CAP; i++) await add.click()
   expect(view().palette).toHaveLength(PALETTE_CAP)
   await expect.element(add).toBeDisabled()
+})
+
+// Finding 9 (final whole-addendum review): `disabled` alone gives a screen
+// reader no reason for the refusal at the cap; `aria-describedby` names the
+// help paragraph, which already states the cap in words.
+test('the add button names the cap help text as its accessible description', async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  const describedBy = add.element().getAttribute('aria-describedby')
+  expect(describedBy).not.toBeNull()
+  const help = describedBy === null ? null : screen.container.querySelector(`#${describedBy}`)
+  expect(help?.textContent).toContain(`Up to ${PALETTE_CAP} colours`)
 })
 
 // Ruling B the other way: the store test covers the slice directly, this
