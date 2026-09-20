@@ -58,6 +58,30 @@ describe('drawableView', () => {
     const v = drawableView({ ...DEFAULT_VIEW, rounded: false, colored: true, voids: true }, isColor)
     expect([v.rounded, v.colored, v.voids]).toEqual([false, true, true])
   })
+
+  test('the palette keeps the colours a browser accepts and drops the rest', () => {
+    const isColor = (css: string) => css === 'red' || css.startsWith('#')
+    const v = drawableView({ ...DEFAULT_VIEW, palette: ['red', 'garbage', '#123456', ''] }, isColor)
+    expect(v.palette).toEqual(['red', '#123456'])
+  })
+
+  test('a palette of nothing usable behaves as no palette at all', () => {
+    const isColor = () => false
+    expect(drawableView({ ...DEFAULT_VIEW, palette: ['nonsense'] }, isColor).palette).toEqual([])
+  })
+
+  test('a palette that is not a list at all is no palette, and does not throw', () => {
+    // `el.view = { palette: 'red' }` from a plain JavaScript host: the same forgiving rule as stroke.
+    for (const bad of ['red', null, 42, { 0: 'red' }]) {
+      const v = drawableView({ ...DEFAULT_VIEW, palette: bad as unknown as string[] }, isColor)
+      expect(v.palette).toEqual([])
+    }
+  })
+
+  test('an entry that is not a string is dropped, the strings around it kept', () => {
+    const palette = [123, 'red', null, undefined, '#abc', {}] as unknown as string[]
+    expect(drawableView({ ...DEFAULT_VIEW, palette }, isColor).palette).toEqual(['red', '#abc'])
+  })
 })
 
 describe('the attributes', () => {

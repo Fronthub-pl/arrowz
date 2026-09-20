@@ -241,6 +241,9 @@ Deno.test('both ui dictionaries carry the report, export and annotation words', 
     'exportsGroup',
     'downloadBoardFile',
     'exportError',
+    'themeLabel',
+    'themeNone',
+    'svgThemeNote',
   ]
   for (const d of dictionaries) {
     for (const k of words) {
@@ -274,4 +277,14 @@ Deno.test('the console rail names itself and its two sections in both languages'
 Deno.test('the rule marker states the bound it marks', () => {
   assertEquals(dictionary('en').t('ruleBound', 0.75), 'Rule bound: 0.75')
   assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Granica reguły: 0,75')
+})
+
+// `paletteHelp` takes the cap as an argument, the way `paletteColorLabel`
+// already does, so the number it states cannot drift from the caller's
+// `PALETTE_CAP` the way a hardcoded "8" once could.
+Deno.test('paletteHelp states whatever cap it is passed, in both languages', () => {
+  assertStringIncludes(dictionary('en').t('paletteHelp', 8), '8')
+  assertStringIncludes(dictionary('pl').t('paletteHelp', 8), '8')
+  assertStringIncludes(dictionary('en').t('paletteHelp', 12), '12')
+  assertStringIncludes(dictionary('pl').t('paletteHelp', 12), '12')
 })

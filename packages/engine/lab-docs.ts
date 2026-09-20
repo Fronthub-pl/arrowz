@@ -55,6 +55,7 @@ export const ELEMENT_PROPS = [
   { key: 'pointRadius', type: 'number', attribute: 'point-radius', def: '0.06' },
   { key: 'lang', type: 'string', attribute: 'lang', def: "''" },
   { key: 'enableColors', type: 'boolean', attribute: 'enable-colors', def: 'false' },
+  { key: 'theme', type: 'string', attribute: 'theme', def: "''" },
 ] as const satisfies readonly PropRow[]
 
 export const ELEMENT_MEMBERS = [
@@ -129,6 +130,8 @@ const EN = {
     pointRadius: 'Radius of the point grid dots, in cells.',
     lang: 'The standard global language attribute; `pl` selects Polish labels, anything else English.',
     enableColors: 'Permission to colour the board. Without it the element stays monochrome and shows no colour button.',
+    theme:
+      'Name of a built-in theme — paper, ink, highlight and the colours of the pieces. An empty name selects none, and anything stated in `view` wins over it.',
   },
   members: {
     viewport: 'The view on screen, or null before a board and a host size are both known.',
@@ -187,6 +190,8 @@ const PL = {
     lang: 'Standardowy atrybut języka; `pl` wybiera polskie etykiety, cokolwiek innego angielskie.',
     enableColors:
       'Zgoda na kolorowanie planszy. Bez niej element zostaje monochromatyczny i nie pokazuje przycisku koloru.',
+    theme:
+      'Nazwa wbudowanego motywu — papier, tusz, podświetlenie i kolory elementów. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
   },
   members: {
     viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar kontenera.',

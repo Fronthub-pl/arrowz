@@ -32,6 +32,9 @@ export {
 // vocabulary. The lab keeps using simpleParams through @arrowz/engine/simple.
 export { presetParams } from './lab-simple.ts'
 export { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, pieceShape, voidStrips } from './geometry.ts'
+// The diagnostic palette, published for the same reason the shapes are: the
+// board element draws from it, and a consumer colours a legend with it.
+export { hueBytes, hueDegrees, hueOf } from './colors.ts'
 export type { Dir, PieceShape, ShapeOptions } from './geometry.ts'
 export { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 export { goneIds, loadSession, newSession, play, saveSession } from './game.ts'

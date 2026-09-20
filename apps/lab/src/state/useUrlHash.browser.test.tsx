@@ -283,4 +283,99 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().lang.lang).toBe('pl'))
     expect(g.started()).toBe(started + 1)
   })
+
+  // The theme picked in the lab must join the URL hash beside the other
+  // view fields (spec §6), the way `lang` above already does. `url.test.ts`
+  // only exercises `encodeHash`/`decodeHash` directly and cannot see a defect
+  // in `viewFor`, which builds the object those functions are handed.
+  it('writes the theme on screen into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setTheme('gruvbox-dark')
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.view.theme).toBe('gruvbox-dark'))
+  })
+
+  // The other half: a link naming a theme restores it into the store, the way
+  // a pasted `lang` does above.
+  it('opens on the theme the link names, and a later link moves it', async () => {
+    history.replaceState(
+      null,
+      '',
+      encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'gruvbox-dark' }, carried: {} }),
+    )
+    await mount(stub().control)
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+
+    location.hash = encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'ayu-light' }, carried: {} }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.theme).toBe('ayu-light'))
+  })
+
+  // The producer side (Task 3 of the palette round-2 addendum): the custom
+  // palette picked on screen must join the link beside the theme, the way
+  // `lang` and `theme` above already do. `url.test.ts` only exercises
+  // `encodeHash`/`decodeHash` directly and cannot see a defect in `viewFor`,
+  // which builds the object those functions are handed — dropping `palette`
+  // from `viewFor`'s return would pass every other test in this file and
+  // redden only this one.
+  it('writes the custom palette on screen into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPalette(['#112233', '#aabbcc'])
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.view.palette).toEqual(['#112233', '#aabbcc']))
+  })
+
+  // The consumer side: a link naming a palette restores it into the store and
+  // clears any theme that was set, the way Ruling B keeps the two exclusive
+  // everywhere else. Dropping the restore line from `applyPayload` would pass
+  // every other test in this file and redden only this one.
+  it('opens on the palette the link names, and clears a theme already on screen', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setTheme('gruvbox-dark')
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, palette: ['#112233', '#aabbcc'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233', '#aabbcc']))
+    expect(useStore.getState().view.theme).toBe('')
+  })
+
+  // Finding 2 (final whole-addendum review, human decision): the palette's
+  // auto-enable of `colored` lives in `addPaletteColor` alone, not in
+  // `setPalette` — the action `applyPayload` calls below to restore a link.
+  // A link stating `colored: false` names it explicitly, so restoring one
+  // that also names a palette must leave colouring off, not silently turn it
+  // back on the way the console's own editor does for a first colour typed
+  // by hand.
+  it('restores a link stating colored: false and a palette with colouring still off', async () => {
+    await mount(stub().control)
+    // The store outlives a test, and an earlier case in this file can leave
+    // `palette` non-empty: reset it directly (not through `setPalette`,
+    // which is exactly what is under test here) so the link below always
+    // restores from an empty palette, the one transition a misplaced
+    // auto-enable could hide behind if a leftover palette masked it.
+    useStore.setState((state) => ({ view: { ...state.view, palette: [] } }))
+    useStore.getState().view.setFlag('colored', true)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, colored: false, palette: ['#112233'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
+    expect(useStore.getState().view.colored).toBe(false)
+  })
+
+  // Ruling: a hand-edited link naming both a theme and a palette applies the
+  // theme first and the palette second, so the palette wins — deterministic
+  // regardless of which setter a naive implementation might run last.
+  it('takes the palette over the theme when a link names both', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, theme: 'gruvbox-dark', palette: ['#112233'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
+    expect(useStore.getState().view.theme).toBe('')
+  })
 })

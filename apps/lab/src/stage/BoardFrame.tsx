@@ -37,10 +37,37 @@ export function BoardFrame(): ReactElement {
   // one committed frame on the way back to `/` where a preview is still set.
   // Without `inLibrary` the lab's own board is drawn in that frame under the
   // stored board's flags — spec §5.3 asks the route, not "is there a preview".
-  const labView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
+  // `boardViewOf` carries no colour fields at all (view.ts:50-60) — the lab
+  // passes the theme by name through the element's `theme` prop below. The
+  // custom palette is added here, and only when it is non-empty: the
+  // element's own precedence is "stated beats named beats default"
+  // (arrowz-board.ts:582-594), so an *empty* `palette` key here would still
+  // count as "stated" and blank out a chosen theme's colours. Ruling B
+  // already keeps `view.palette` and `view.theme` mutually exclusive in the
+  // store, so this guard never fights that invariant — it exists so a named
+  // theme's own palette is free to fall through when there is no custom one.
+  //
+  // A colour choice is a viewing preference, the same way the theme already
+  // is: `theme={view.theme}` below applies unconditionally to whatever board
+  // is on screen, lab or library preview, so the palette override is built
+  // once and spread into both `labView` and the preview's view rather than
+  // into `labView` alone — a review finding once left the preview branch
+  // discarding it, so a theme repainted a stored preview and a custom
+  // palette did not, for two states the design calls equivalent.
+  const paletteOverride = useMemo(() => (view.palette.length > 0 ? { palette: view.palette } : {}), [view.palette])
+  const labView = useMemo(
+    () => ({
+      ...boardViewOf(viewOf(view), view.voids),
+      ...paletteOverride,
+    }),
+    [view, paletteOverride],
+  )
   const elementView = useMemo(
-    () => (preview === null || !inLibrary ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
-    [preview, labView, inLibrary],
+    () =>
+      preview === null || !inLibrary
+        ? labView
+        : { ...boardViewOf(preview.meta.view, preview.meta.ok === false), ...paletteOverride },
+    [preview, labView, inLibrary, paletteOverride],
   )
   // The tab decides, not the presence of a preview: in the library a board
   // that could not be read leaves the stage empty (spec §5.6), and the lab's
@@ -81,7 +108,7 @@ export function BoardFrame(): ReactElement {
         {/* `enableColors`: the element draws in ink unless its host grants
             colours, and the lab does — without it the `colored` flag reaches
             the element and changes nothing on screen. */}
-        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors />
+        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors theme={view.theme} />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}

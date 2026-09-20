@@ -48,6 +48,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.lang.setLang('en')
+  state.view.setTheme('')
   downloads = watchDownloads()
 })
 
@@ -254,6 +255,19 @@ test('an export that fails after its board was replaced says nothing', async () 
   expect(drawn).toHaveLength(1)
   expect(screen.getByRole('alert').query()).toBeNull()
   await expect.element(button).toBeEnabled()
+})
+
+// Spec §9 stays untouched: `toSvg` learns no colours, so a theme chosen on
+// screen would not survive an export. The note about it is a caveat, not
+// documentation — quiet until it would matter.
+test('the SVG-export note appears only while a theme is chosen', async () => {
+  const screen = await mountButtons()
+  await act(async () => finish(ONE))
+  expect(screen.getByText(/not the chosen theme/i).query()).toBeNull()
+  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
+  await expect.element(screen.getByText(/not the chosen theme/i)).toBeInTheDocument()
+  await act(async () => useStore.getState().view.setTheme(''))
+  expect(screen.getByText(/not the chosen theme/i).query()).toBeNull()
 })
 
 // §7.1, PR 4b: the mock's ghost buttons, `--ash` on `--graphite`.

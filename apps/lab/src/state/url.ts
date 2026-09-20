@@ -1,6 +1,7 @@
 import type { Lang } from '@arrowz/engine/i18n'
 import { type ParamKey, type Params, readParams } from '@arrowz/engine'
 import { isLang } from './lang.slice'
+import { PALETTE_CAP } from './view.slice'
 
 export interface HashView {
   cell?: number | undefined
@@ -14,6 +15,18 @@ export interface HashView {
   help: boolean
   /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
   lang?: Lang | undefined
+  /** The board theme by name. Absent when the link predates themes. */
+  theme?: string | undefined
+  /**
+   * The lab's custom palette. Absent (not `[]`) when the link predates
+   * custom palettes or names none, so it reads the same as `theme`'s
+   * absence: the page keeps its own value rather than being told to clear
+   * it. `BoardFrame` already treats a stated `[]` as "no palette", which is
+   * why an empty array here would be indistinguishable from a link that
+   * explicitly wants the theme's own colours — `undefined` is the only
+   * spelling of "the link did not say."
+   */
+  palette?: string[] | undefined
 }
 
 /** The one key the page does not own yet — the tab, PR 5's — kept so a round trip cannot drop it. */
@@ -50,8 +63,36 @@ function num(raw: unknown): number | undefined {
  * else under `__view`.
  */
 export function encodeHash(input: { params: Params; view: HashView; carried: Carried }): string {
-  const payload = { ...input.params, __view: { ...input.view, ...input.carried } }
+  const { palette: chosenPalette, ...rest } = input.view
+  // An empty palette is the common case — most links carry no custom
+  // colours — so it is left out entirely rather than written as `[]`.
+  const view = chosenPalette !== undefined && chosenPalette.length > 0 ? { ...rest, palette: chosenPalette } : rest
+  const payload = { ...input.params, __view: { ...view, ...input.carried } }
   return '#' + encodeURIComponent(JSON.stringify(payload))
+}
+
+/** The lab editor's `<input type="color">` can only ever display this shape. */
+const HEX_COLOR = /^#[0-9a-f]{6}$/i
+
+/**
+ * A palette a link may have written by hand. Unlike the element's own
+ * validation (any CSS colour a browser accepts), the lab editor's colour
+ * inputs can only show `#rrggbb`, so anything else is worse than absent — it
+ * would silently show black — and is dropped rather than passed through.
+ * Filtered before the cap is applied rather than after: clamping first would
+ * let a garbage entry near the front of a hand-edited list burn a slot that a
+ * valid colour further down could otherwise have filled. Lower-cased after
+ * the filter: `HEX_COLOR` accepts uppercase, but the native colour input only
+ * ever reports lowercase, so a hand-edited `#AABBCC` would otherwise make the
+ * hash this page rewrites differ in case from the one that was pasted in.
+ */
+function palette(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const colors = raw
+    .filter((c): c is string => typeof c === 'string' && HEX_COLOR.test(c))
+    .map((c) => c.toLowerCase())
+    .slice(0, PALETTE_CAP)
+  return colors.length > 0 ? colors : undefined
 }
 
 export function decodeHash(hash: string): HashPayload | null {
@@ -86,6 +127,8 @@ export function decodeHash(hash: string): HashPayload | null {
       hilite: raw.hilite !== false,
       help: raw.help !== false,
       lang: isLang(raw.lang) ? raw.lang : undefined,
+      theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
+      palette: palette(raw.palette),
     },
     carried: raw.tab === undefined ? {} : { tab: raw.tab },
   }

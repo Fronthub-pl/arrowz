@@ -1,3 +1,4 @@
+import { themeOf } from '@arrowz/board-element'
 import { simpleParams } from '@arrowz/engine/simple'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -5,6 +6,19 @@ import { render } from 'vitest-browser-react'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { SimplePanel } from './SimplePanel'
+
+/** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
+function rgbOf(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+/** A theme the fixture files must actually carry, or the test itself is broken. */
+function themeFixture(name: string) {
+  const theme = themeOf(name)
+  if (!theme) throw new Error(`no such theme: ${name}`)
+  return theme
+}
 
 function stub() {
   const calls = { start: 0 }
@@ -33,6 +47,12 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
+  // The store outlives a test; a theme chosen by one test must not leak into
+  // the next one's assumption that no theme is chosen yet. Reset directly
+  // rather than through `setTheme`, whose clearing of the palette is Ruling
+  // B — the very invariant a mutation test targets — so a reset built on it
+  // would not isolate that mutation's failures to the cases that assert it.
+  useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [] } }))
 })
 
 describe('SimplePanel', () => {
@@ -130,5 +150,50 @@ describe('SimplePanel', () => {
     await userEvent.fill(stroke, '0.8')
     await userEvent.tab()
     expect(useStore.getState().view.stroke).toBe(0.8)
+  })
+
+  // Spec §6: "the simple view gets the picker and not the custom editor."
+  it('offers the theme picker, and writes a choice into the lab’s view', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const picker = screen.getByRole('combobox')
+    await expect.element(picker).toBeInTheDocument()
+    await userEvent.selectOptions(picker, 'gruvbox-dark')
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+  })
+
+  // Task 1 of the palette round-2 addendum: the twelve names with a swatch
+  // strip beside the picker, showing the *chosen* theme's arrow colours.
+  it('shows the chosen theme’s arrow colours, in order, on its own paper, and clears with the theme', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+    const picker = screen.getByRole('combobox')
+    await userEvent.selectOptions(picker, 'gruvbox-dark')
+    const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+    if (!strip) throw new Error('no swatch strip after choosing a theme')
+    const theme = themeFixture('gruvbox-dark')
+    expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
+    const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+    expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+    // Finding 4 (final whole-addendum review): this file loads no stylesheet,
+    // so the computed-style reads above read React's inline `backgroundColor`
+    // and would pass with no CSS at all. `.fw-k .fw-swatch` (console.css)
+    // needs a `.fw-k` ancestor to apply; this pins the DOM shape it depends on.
+    expect(strip.closest('.fw-k')).not.toBeNull()
+    // Finding 9 (final whole-addendum review): pin the strip's `aria-hidden`,
+    // which was load-bearing and unasserted before this.
+    expect(strip.getAttribute('aria-hidden')).toBe('true')
+    await userEvent.selectOptions(picker, '')
+    expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+  })
+
+  // Spec §6: "the simple view gets the picker and not the custom editor."
+  // Pinned by absence, not merely by not calling it: sharing `ViewPanel.tsx`'s
+  // exports between the two panels (as `ThemeSwatchStrip` already is) is
+  // exactly how a future edit could hand the simple view the editor by accident.
+  it('has no custom-palette editor — no add-colour button and no colour input', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
+    expect(screen.container.querySelector('input[type="color"]')).toBeNull()
+    expect(screen.container.querySelector('.fw-palette')).toBeNull()
   })
 })

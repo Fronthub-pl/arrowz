@@ -1,11 +1,26 @@
+import { themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
+
+/** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
+function rgbOf(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+/** A theme the fixture files must actually carry, or the test itself is broken. */
+function themeFixture(name: string) {
+  const theme = themeOf(name)
+  if (!theme) throw new Error(`no such theme: ${name}`)
+  return theme
+}
 
 // The store outlives a test; every file that writes it puts it back.
 beforeEach(() => {
@@ -14,6 +29,11 @@ beforeEach(() => {
   view().setNumber('top', '5')
   if (!view().rounded) view().toggle('rounded')
   if (view().colored) view().toggle('colored')
+  // Reset directly rather than through `setTheme`: `setTheme` clearing the
+  // palette is Ruling B, the very thing under test below, and a reset built
+  // on it would make an unrelated later test fail alongside a broken Ruling B
+  // instead of pinning only the cases that assert it.
+  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
 })
 
 test('the panel draws all nine preview controls', async () => {
@@ -118,4 +138,163 @@ test('a flag switch reports a press without writing any store', async () => {
   await screen.getByRole('switch', { name: /colour the arrows/i }).click()
   expect(presses).toBe(1)
   expect(view().colored).toBe(false)
+})
+
+test('the theme picker lists every theme and writes the store', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await expect.element(picker).toBeInTheDocument()
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+})
+
+// Design doc §6: "the twelve names with a swatch strip." The strip shows the
+// *chosen* theme's arrow colours, in order, on that theme's own paper.
+test('choosing a theme shows a strip of its arrow colours, in order, on its paper', async () => {
+  const screen = await render(<ViewPanel />)
+  expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+  if (!strip) throw new Error('no swatch strip after choosing a theme')
+  const theme = themeFixture('gruvbox-dark')
+  expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
+  const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+  expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+  // Finding 4 (final whole-addendum review): this file loads no stylesheet
+  // (unlike `BoardFrame.browser.test.tsx`), so the two assertions above read
+  // React's inline `backgroundColor` and would pass even with no CSS at all.
+  // What no computed-style read here can see is that `.fw-k .fw-swatch`
+  // (console.css) needs a `.fw-k` ancestor to apply — this pins the DOM shape
+  // that selector actually depends on.
+  expect(strip.closest('.fw-k')).not.toBeNull()
+  // Finding 9 (final whole-addendum review): the strip's `aria-hidden` is
+  // load-bearing (the `<select>` beside it already names the theme), and
+  // until now no test asserted it — a future edit could drop it silently.
+  expect(strip.getAttribute('aria-hidden')).toBe('true')
+})
+
+test('clearing the theme removes the strip', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(screen.container.querySelector('.fw-swatches')).not.toBeNull()
+  await userEvent.selectOptions(picker, '')
+  expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+})
+
+// One of the two single-colour themes (everforest-light, ayu-light): the strip
+// must still look deliberate with one swatch, not like a broken multi-swatch strip.
+test('a single-colour theme still shows one swatch, not a broken strip', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'ayu-light')
+  const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+  if (!strip) throw new Error('no swatch strip for a single-colour theme')
+  const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+  expect(swatches).toHaveLength(1)
+  const [swatch] = swatches
+  if (!swatch) throw new Error('no swatch element')
+  const theme = themeFixture('ayu-light')
+  const [color] = theme.palette
+  if (!color) throw new Error('ayu-light has no palette colour')
+  expect(getComputedStyle(swatch).backgroundColor).toBe(rgbOf(color))
+})
+
+// The lab's editable custom palette (design doc §6, palette round-2
+// addendum, task 2). `userEvent.fill` drives `input[type="color"]` in this
+// harness the same as it drives a number field — checked empirically before
+// writing this file, rather than assumed: a probe component confirmed
+// `userEvent.fill(colorInput, '#ff00ff')` both sets the input's `.value` and
+// fires the `change` React listens to, so this exercises the real control
+// rather than writing the store directly.
+test('adding a colour appends a swatch, clears any chosen theme, and edits write the store', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(view().theme).toBe('gruvbox-dark')
+
+  const add = screen.getByRole('button', { name: 'add colour' })
+  await add.click()
+  expect(view().palette).toEqual(['#000000'])
+  // Ruling B, exercised through the UI: adding a colour cleared the theme
+  // the picker had just set, not merely what the slice does when called directly.
+  expect(view().theme).toBe('')
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  expect(inputs).toHaveLength(1)
+
+  const swatch = inputs[0]
+  if (!swatch) throw new Error('no colour input')
+  await userEvent.fill(swatch, '#ff00ff')
+  expect(view().palette).toEqual(['#ff00ff'])
+})
+
+test('the remove button drops one colour and leaves the rest', async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  await add.click()
+  await add.click()
+  const inputs = () => screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  const second = inputs()[1]
+  if (!second) throw new Error('no second colour input')
+  await userEvent.fill(second, '#123456')
+  expect(view().palette).toEqual(['#000000', '#123456'])
+
+  await screen.getByRole('button', { name: 'remove colour 1' }).click()
+  expect(view().palette).toEqual(['#123456'])
+  expect(inputs()).toHaveLength(1)
+})
+
+test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  for (let i = 0; i < PALETTE_CAP; i++) await add.click()
+  expect(view().palette).toHaveLength(PALETTE_CAP)
+  await expect.element(add).toBeDisabled()
+})
+
+// Finding 9 (final whole-addendum review): `disabled` alone gives a screen
+// reader no reason for the refusal at the cap; `aria-describedby` names the
+// help paragraph, which already states the cap in words.
+test('the add button names the cap help text as its accessible description', async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  const describedBy = add.element().getAttribute('aria-describedby')
+  expect(describedBy).not.toBeNull()
+  const help = describedBy === null ? null : screen.container.querySelector(`#${describedBy}`)
+  expect(help?.textContent).toContain(`Up to ${PALETTE_CAP} colours`)
+})
+
+// Ruling B the other way: the store test covers the slice directly, this
+// covers it reached from the UI, so a caller that goes through `PaletteEditor`
+// and one that goes through the picker are both pinned.
+test('choosing a theme clears a custom palette built in the editor', async () => {
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  expect(view().palette).toEqual(['#000000'])
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(view().palette).toEqual([])
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+})
+
+test('the editor never mutates a theme’s own palette array', async () => {
+  const theme = themeFixture('gruvbox-dark')
+  const before = [...theme.palette]
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  const swatch = inputs[0]
+  if (!swatch) throw new Error('no colour input')
+  await userEvent.fill(swatch, '#abcdef')
+  expect(themeFixture('gruvbox-dark').palette).toEqual(before)
+})
+
+test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
+  const screen = await render(<PaletteEditor />)
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(1)
 })

@@ -107,6 +107,19 @@ export const EN = {
     colored: 'colour the arrows (each piece a different colour)',
     hilite: 'highlight the longest pieces',
     voids: 'show jammed cells',
+    themeLabel: 'theme',
+    themeNone: 'none (default colours)',
+    // The console's editable custom palette (palette round-2 addendum, task
+    // 2): a theme and this palette never both apply (Ruling B), so choosing
+    // one clears the other.
+    paletteLabel: 'custom palette',
+    paletteAdd: 'add colour',
+    paletteColorLabel: (n: number) => `colour ${n}`,
+    paletteRemove: (n: number) => `remove colour ${n}`,
+    // A function of the cap, like `paletteColorLabel` above, so the caller's
+    // `PALETTE_CAP` and this text cannot drift apart silently the way a
+    // hardcoded "8" once could.
+    paletteHelp: (cap: number) => `Up to ${cap} colours. Setting one clears the chosen theme.`,
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     showHelp: 'show parameter descriptions',
@@ -248,6 +261,10 @@ export const EN = {
     // computes only in a secure context: said beside the exports, not as an
     // export failure.
     layoutHashError: 'Cannot name the board file:',
+    // The engine's `toSvg` learns no colours (spec §9), so a theme chosen on
+    // screen never reaches the exported file; shown only while a theme is
+    // active, beside the SVG button, since it has nothing to say otherwise.
+    svgThemeNote: 'The downloaded SVG keeps the golden-angle colours, not the chosen theme.',
   },
 } as const
 
@@ -511,6 +528,13 @@ export const PL: Translation = {
     colored: 'koloruj strzałki (każdy element inny kolor)',
     hilite: 'wyróżnij najdłuższe elementy',
     voids: 'pokaż komórki zaklinowania',
+    themeLabel: 'motyw',
+    themeNone: 'brak (kolory domyślne)',
+    paletteLabel: 'własna paleta',
+    paletteAdd: 'dodaj kolor',
+    paletteColorLabel: (n) => `kolor ${n}`,
+    paletteRemove: (n) => `usuń kolor ${n}`,
+    paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Ustawienie choćby jednego czyści wybrany motyw.`,
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     showHelp: 'pokazuj opisy parametrów',
@@ -626,6 +650,7 @@ export const PL: Translation = {
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',
     layoutHashError: 'Nie da się nazwać pliku planszy:',
+    svgThemeNote: 'Pobrany SVG zachowuje kolory ze złotego kąta, a nie wybrany motyw.',
   },
 }
 

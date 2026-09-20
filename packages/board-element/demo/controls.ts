@@ -230,7 +230,12 @@ export function withField(view: BoardView, id: string, value: ControlValue): Boa
   }
 }
 
-/** The same view as a bag the snippet can walk by control id. */
+/**
+ * The same view as a bag the snippet can walk by control id. The palette is a
+ * list, not a flag, a number or a string, and no control in the table drives
+ * it, so it stays out of the bag.
+ */
 export function viewRecord(view: BoardView): Record<string, ControlValue> {
-  return { ...view }
+  const { palette: _palette, ...scalars } = view
+  return scalars
 }

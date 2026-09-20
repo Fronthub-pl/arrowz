@@ -27,6 +27,9 @@ import type {
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
 import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
+// The diagnostic palette lives in colors.ts for the same reason: an exported
+// SVG and the interactive board colour a piece from one formula, over its id.
+import { hueOf } from './colors.ts'
 
 // Retired knobs, kept as the constants their defaults always were. Each was
 // inert at that value: HUG gates its own rule on `> 1`, EDGE_HUG only feeds
@@ -2318,9 +2321,9 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   // for: the height has no automatic mode to fall back to.
   const headWidth = opts.headWidth ?? 0, headHeight = opts.headHeight ?? DEFAULT_HEAD_HEIGHT
   const pt = ([x, y]: [number, number]): string => `${x},${y}`
-  pieces.forEach((pc, i) => {
+  pieces.forEach((pc) => {
     const isLong = longest.has(pc.id)
-    const col = isLong ? '#e8467c' : colored ? `hsl(${(i * 137.508) % 360} 62% 42%)` : INK
+    const col = isLong ? '#e8467c' : colored ? hueOf(pc.id) : INK
     const width = isLong ? hiWidth : sw
     const s = pieceShape(pc, { cell, pad, width, headWidth, headHeight })
     const fill = col === INK ? '' : ` fill="${col}"`

@@ -303,7 +303,7 @@ test('the colour buffer carries hueBytes for every vertex of a piece', () => {
   const b = board(7, { pieces: [BENT] })
   const view = { ...DEFAULT_VIEW, colored: true }
   const scene = tesselateBoard(b, view, NONE)
-  const colors = tesselateColors(scene).vertices
+  const colors = tesselateColors(scene, hueBytes).vertices
   expect(colors.length).toBe(scene.positions.length / 2 * 4)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('no range')
@@ -456,7 +456,7 @@ test("zeroing one piece's discs leaves its neighbours' discs byte for byte", () 
 
 test('the colour streams carry hueBytes for every disc of a piece too', () => {
   const scene = tesselateBoard(board(7, { pieces: [BENT] }), { ...DEFAULT_VIEW, colored: true }, NONE)
-  const colors = tesselateColors(scene)
+  const colors = tesselateColors(scene, hueBytes)
   expect(colors.discs.length).toBe((scene.discs.length / FLOATS_PER_DISC) * 4)
   const r = scene.rangeOf(BENT.id)
   if (!r) throw new Error('no range')
@@ -500,4 +500,13 @@ test('voidQuads puts strips back to back, twelve floats each', () => {
   const q = voidQuads([{ x: 0, y: 0, len: 1 }, { x: 4, y: 2, len: 2 }])
   expect(q.length).toBe(24)
   expect(Array.from(q.subarray(12))).toEqual([4, 2, 6, 2, 6, 3, 4, 2, 6, 3, 4, 3])
+})
+
+test('the colour buffer carries whatever colour the caller gives a piece', () => {
+  const scene = tesselateBoard(onlyPiece(BENT), DEFAULT_VIEW, NONE)
+  const colors = tesselateColors(scene, () => [1, 2, 3])
+  const r = scene.rangeOf(BENT.id)
+  expect(r).not.toBeNull()
+  const i = (r?.line.start ?? 0) * 4
+  expect([colors.vertices[i], colors.vertices[i + 1], colors.vertices[i + 2]]).toEqual([1, 2, 3])
 })

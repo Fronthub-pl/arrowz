@@ -1,8 +1,9 @@
+import { THEMES, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import type { ViewFlag } from '../state/view.slice'
+import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
@@ -117,6 +118,105 @@ export function ViewFlagSwitch({
 }
 
 /**
+ * The chosen theme's arrow colours, in order, on the theme's own paper
+ * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
+ * surface the arrows draw against without spending a swatch on `paper` or
+ * `ink` separately, and a colour that would vanish against its own paper is
+ * exactly what this is for showing. Renders nothing for `''` (no theme).
+ *
+ * `aria-hidden`: the `<select>` beside it already names the theme, so this
+ * strip repeats no information a screen reader user needs read out — it is
+ * not interactive, and there is no useful text a hex value could be given
+ * ("swatch one: hash f5 e0 dc" names nothing anyone would ask for).
+ */
+export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
+  const theme = themeOf(themeName)
+  if (!theme) return null
+  return (
+    <div className="fw-swatches" aria-hidden="true" style={{ backgroundColor: theme.paper }}>
+      {theme.palette.map((color, index) => (
+        // The palette can repeat a colour or, for the two single-arrow
+        // themes, hold just one: the index is the only stable key a static,
+        // never-reordered array offers.
+        <span key={index} className="fw-swatch" style={{ backgroundColor: color }} />
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The console's editable custom palette (design doc §6, palette round-2
+ * addendum, task 2): a list of `<input type="color">` fields, one per
+ * colour, capped at `PALETTE_CAP`. Console-only by construction — it is
+ * defined here and imported by `ViewPanel` alone; `SimplePanel` imports
+ * `ThemeSwatchStrip` from this file but never this component
+ * (ViewPanel.browser.test.tsx and SimplePanel.browser.test.tsx both pin it).
+ *
+ * Ruling B lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
+ * every handler below just forwards to a store action, so there is nowhere
+ * in this component for the exclusion or the cap to be bypassed.
+ */
+export function PaletteEditor() {
+  const dict = useDictionary()
+  const palette = useStore((state) => state.view.palette)
+  const addPaletteColor = useStore((state) => state.view.addPaletteColor)
+  const setPaletteColor = useStore((state) => state.view.setPaletteColor)
+  const removePaletteColor = useStore((state) => state.view.removePaletteColor)
+  return (
+    <div className="fw-k fw-palette">
+      <div className="top">
+        <span className="lab" id="view-palette-label">
+          {dict.t('paletteLabel')}
+        </span>
+        {/* Finding 9 (final whole-addendum review): `disabled` alone leaves a
+            screen reader saying only "add colour, dimmed" at the cap, with no
+            reason. `aria-describedby` names the help paragraph below, which
+            already states the cap in words, so the refusal is audible too. */}
+        <button
+          type="button"
+          onClick={addPaletteColor}
+          disabled={palette.length >= PALETTE_CAP}
+          aria-describedby="view-palette-help"
+        >
+          {dict.t('paletteAdd')}
+        </button>
+      </div>
+      {palette.length === 0 ? null : (
+        <ul className="fw-palette-list" aria-labelledby="view-palette-label">
+          {palette.map((color, index) => (
+            // No stable id per colour — a value can repeat, and only its
+            // position in the list is unique (as ThemeSwatchStrip's own
+            // index key above).
+            <li key={index} className="fw-palette-row">
+              <label className="fw-vh" htmlFor={`view-palette-${index}`}>
+                {dict.t('paletteColorLabel', index + 1)}
+              </label>
+              <input
+                id={`view-palette-${index}`}
+                type="color"
+                value={color}
+                onChange={(e) => setPaletteColor(index, e.target.value)}
+              />
+              <button
+                type="button"
+                className="fw-palette-remove"
+                aria-label={dict.t('paletteRemove', index + 1)}
+                onClick={() => removePaletteColor(index)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="why" id="view-palette-help">
+        {dict.t('paletteHelp', PALETTE_CAP)}
+      </p>
+    </div>
+  )
+}
+
+/**
  * The mock's *element* section: the nine preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
  * reason, and editing one redraws the board without generating (§2.2).
@@ -145,6 +245,23 @@ export function ViewPanel() {
         {VIEW_FLAGS.map(({ flag, label }) => (
           <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
+        <div className="fw-k">
+          <div className="row">
+            <label className="lab" htmlFor="view-theme">
+              {dict.t('themeLabel')}
+            </label>
+            <select id="view-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
+              <option value="">{dict.t('themeNone')}</option>
+              {Object.keys(THEMES).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ThemeSwatchStrip themeName={view.theme} />
+        </div>
+        <PaletteEditor />
       </div>
     </div>
   )

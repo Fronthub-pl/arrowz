@@ -19,6 +19,12 @@ beforeEach(() => {
   state.library.reset()
   state.lang.setLang('en')
   state.ui.setSolo(false)
+  // The view too: cases below turn colouring on and build a palette. Reset
+  // directly rather than through `setTheme`/`setPalette`/`setFlag`, as
+  // `view.slice.test.ts` and `ViewPanel.browser.test.tsx` do — a fixture
+  // built on an action under test cannot survive a mutation of that action,
+  // and would fail every case in the file alongside the one that pins it.
+  useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [], colored: false } }))
 })
 
 /**
@@ -208,6 +214,55 @@ test('a preview left over on the lab tab lends the lab neither its board nor its
   await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · seed 1')
   expect(element?.board?.W).toBe(8)
   expect(element?.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed')).toBe('false')
+})
+
+// Palette round-2 addendum, task 2: the custom palette is added to what
+// `BoardFrame` hands the element explicitly, since `boardViewOf` carries no
+// colour fields at all (view.ts:50-60, `view.test.ts` pins that). Read off
+// the element's own `.view.palette` — the input the frame passed it, and
+// exactly what `gl-layer.ts`'s `resolvePalette` draws from.
+test('a custom palette reaches the element', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => {
+    useStore.getState().view.addPaletteColor()
+    useStore.getState().view.setPaletteColor(0, '#ff00ff')
+  })
+  const element = screen.container.querySelector('arrowz-board')
+  expect(element?.view.palette).toEqual(['#ff00ff'])
+  // And clearing it back to empty must not leave a stale `palette` key on the
+  // element's view stated over a theme chosen afterwards (the guard in
+  // `BoardFrame.tsx`, not merely the store's own exclusion).
+  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
+  expect(element === null || !('palette' in (element.view ?? {}))).toBe(true)
+  useStore.getState().view.setTheme('')
+})
+
+// Finding 1 (final whole-addendum review): the palette is a viewing
+// preference like the theme, and `theme={view.theme}` above already applies
+// unconditionally to whatever board is on screen — the preview branch used to
+// discard the custom palette instead of folding it in the same way, so a
+// theme repainted a stored preview and a custom palette did not, for two
+// states the design calls equivalent and mutually exclusive.
+test('a custom palette reaches a library preview too, the same way the theme already does', async () => {
+  const { meta, file } = storedFixture(2)
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
+  const wasColored = useStore.getState().view.colored
+  try {
+    await act(async () => {
+      useStore.getState().view.addPaletteColor()
+      useStore.getState().view.setPaletteColor(0, '#ff00ff')
+    })
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    const element = screen.container.querySelector('arrowz-board')
+    expect(element?.view.palette).toEqual(['#ff00ff'])
+    // There is a board under that palette: `labView` carries the palette
+    // too, so a preview that never landed would leave this green on its own.
+    expect(element?.board?.W).toBe(8)
+  } finally {
+    useStore.getState().view.setPalette([])
+    useStore.getState().view.setFlag('colored', wasColored)
+  }
 })
 
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage
