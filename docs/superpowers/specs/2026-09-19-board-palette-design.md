@@ -27,7 +27,7 @@ Measured, not remembered (2026-09-19):
 |---|---|---|
 | ink, paper, highlight | `view.ts:22-24` | CSS strings from the host, part of `BoardView` |
 | their defaults | `view.ts:43-45` | `#232447`, `#f6f6fa`, `#e8467c` |
-| validation | `sanitize.ts:29-31` | `drawableColor` falls back when a string is not a colour |
+| validation | `sanitize.ts:29-31` | `drawableColor` falls back when a string is not a colour; now `drawableView` also filters `palette` entry by entry the same way, dropping the ones `isCssColor` rejects rather than falling back for the whole array (`sanitize.ts:36`) |
 | resolution to floats | `gl-layer.ts:322-324` | once per `setBoard`, never in the draw loop; since §3 also once per `setColors` (`gl-layer.ts:356-358`) |
 | how they are drawn | `gl-passes.ts:157,231` | uniforms; changing one touches no buffer |
 | the per-piece hue | `colors.ts` (engine) → `tesselate.ts:442-456` | was the golden angle over the piece id, baked into a **static vertex colour buffer**; now `tesselateColors` takes a `colorOf` callback, the layer picks a palette entry or the golden angle, and `setColors` re-uploads the bytes without re-tesselating (§3) |
@@ -40,7 +40,7 @@ light board (`#f6f6fa`) inside a dark shell (`tokens.css:14-23`), because nobody
 ever passes the element a colour. And `redraw()` (`arrowz-board.ts:578-580`) had
 no short circuit: **any** change to `view` went through `layer.setBoard`, which
 re-tesselates the whole board, so changing one colour on the 1000×1000 board
-cost **184.5 ms** (§10). That was the state before §3: `update()` now routes a
+cost **184.5 ms** (§10). That was the state before §3: `updated()` now routes a
 colour-only change to `layer.setColors` (`arrowz-board.ts:453-461`) at 23.3 ms.
 
 ## 3. The design
@@ -141,7 +141,7 @@ of `redraw()` when the only fields that changed are colours — `ink`, `paper`,
 This is worth its own entry rather than an optimisation inside `setBoard`,
 because the decision needs the *previous* view, which the layer does not keep for
 that purpose, and because the point grid already sets the precedent
-(`gl-layer.ts:309-324`).
+(`gl-layer.ts:381-387`).
 
 Measured on the 1000×1000 board: **23.3 ms** (21.2 building the bytes, 2.1
 uploading 13.2 MB) against **184.5 ms** through `setBoard`. It also repairs a
@@ -260,13 +260,17 @@ with no theme. The choice joins the URL hash beside the other view fields
 editor.
 
 **What shipped instead of what this section originally proposed.** `boardViewOf`
-(`view.ts:50-60`) keeps dropping colours: the lab passes only the chosen theme's
+(`view.ts:50-60`) keeps dropping colours: the lab passes the chosen theme by
 *name*, through the element's own `theme` attribute, and the element resolves
 paper, ink, highlight and palette itself, the same way any other host would. The
-lab never reads `THEMES[name]` to build a `view` patch. This is pinned by
-`view.test.ts:60` ("boardViewOf still carries no palette: the lab sets it
-separately") and is the design §3.1 already states: one place merges theme and
-view, and nothing else learns themes exist.
+lab never reads `THEMES[name]` to build a `view` patch. The custom palette is
+not one of `boardViewOf`'s seven fields either — it never goes near that
+function at all. `BoardFrame` spreads a non-empty `view.palette` straight into
+the element's `view` prop itself (`BoardFrame.tsx:57-70`), the one colour field
+`boardViewOf` still does not carry. This is pinned by `view.test.ts:60`
+("boardViewOf still carries no palette: the lab sets it separately") and is the
+design §3.1 already states: one place merges theme and view, and nothing else
+learns themes exist.
 
 **The exported SVG keeps the golden angle.** The engine's `toSvg` learns no
 colours (§9), so a board exported from the lab will not match the screen once a
@@ -298,6 +302,29 @@ reproduces the look; on decode the lab keeps only `#rrggbb` entries and clamps
 to the cap. That is deliberately narrower than the element's own validation,
 which accepts any CSS colour the browser accepts, because the editor's native
 colour inputs can display nothing else.
+
+**The palette applies wherever a board is drawn, including a library
+preview.** A colour choice is a viewing preference, the same as the theme:
+`theme={view.theme}` is passed unconditionally to whatever board is on
+screen, the lab's own or a stored preview, so the custom palette follows the
+same rule rather than a narrower one — it is folded into the preview's view
+exactly as it is into the lab's. Clearing the theme in a library preview was
+considered and rejected: that is the behaviour that already shipped and that
+users have already seen, and this addendum is not the place to change it.
+
+**Colouring turns on the moment the palette stops being empty.** The lab
+starts with `colored: false`, and the element gates every piece colour on
+that flag; a theme needs no such gate, because paper and ink apply
+regardless of it. Left alone, a user who builds a palette without ever
+finding the switch would see nothing change. The editor's `addPaletteColor`
+therefore turns `colored` on the instant the palette goes from empty to one
+colour, and only then: the second colour onward leaves it alone, and
+removing colours never turns it back off, so the switch stays visible and
+stays off once a user chooses that. This lives in the editor's own action,
+not in the exclusion rule the whole palette API shares (`paletteUpdate`) —
+`applyPayload` restores a link's palette through `setPalette`, and a link
+states its own `colored` explicitly, which a shared auto-enable would
+silently override.
 
 ## 7. The one row in the engine
 
