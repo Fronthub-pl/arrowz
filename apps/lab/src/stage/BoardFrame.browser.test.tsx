@@ -19,6 +19,12 @@ beforeEach(() => {
   state.library.reset()
   state.lang.setLang('en')
   state.ui.setSolo(false)
+  // The view too: cases below turn colouring on and build a palette. Reset
+  // directly rather than through `setTheme`/`setPalette`/`setFlag`, as
+  // `view.slice.test.ts` and `ViewPanel.browser.test.tsx` do — a fixture
+  // built on an action under test cannot survive a mutation of that action,
+  // and would fail every case in the file alongside the one that pins it.
+  useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [], colored: false } }))
 })
 
 /**
@@ -250,6 +256,9 @@ test('a custom palette reaches a library preview too, the same way the theme alr
     await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.view.palette).toEqual(['#ff00ff'])
+    // There is a board under that palette: `labView` carries the palette
+    // too, so a preview that never landed would leave this green on its own.
+    expect(element?.board?.W).toBe(8)
   } finally {
     useStore.getState().view.setPalette([])
     useStore.getState().view.setFlag('colored', wasColored)

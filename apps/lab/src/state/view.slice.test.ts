@@ -1,9 +1,15 @@
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
-import { PALETTE_CAP, viewOf } from './view.slice'
+import { createViewSlice, PALETTE_CAP, viewOf } from './view.slice'
 
 const view = () => useStore.getState().view
+
+// The slice as declared, untouched by the `beforeEach` below. `colored` is
+// among the fields that reset writes, so the live store cannot say where the
+// lab starts it — reading it back would only echo the reset. A throwaway
+// `set` is enough: the starting values are plain fields, no action runs.
+const declared = createViewSlice(() => {})
 
 // The store outlives a test (view.slice.ts's own singleton): a theme or a
 // palette chosen by one test must not leak into the next. Reset both fields
@@ -21,7 +27,7 @@ test('the fields start where the previous lab starts them', () => {
   expect(view().rounded).toBe(true)
   expect(view().hilite).toBe(true)
   expect(view().voids).toBe(true)
-  expect(view().colored).toBe(false)
+  expect(declared.colored).toBe(false)
   expect(view().top).toBe(5)
 })
 
