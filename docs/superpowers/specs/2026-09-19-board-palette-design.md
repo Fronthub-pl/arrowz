@@ -16,6 +16,11 @@ why rather than hiding it.
 
 ## 2. What the colour surface looks like today
 
+This is the before-picture: the colour surface as it stood before the palette
+work. Its line numbers were refreshed once the work landed, so they still point
+at the right code; its descriptions deliberately record what that code did then,
+and a row says so where the code does something else now.
+
 Measured, not remembered (2026-09-19):
 
 | what | where | state |
@@ -23,19 +28,20 @@ Measured, not remembered (2026-09-19):
 | ink, paper, highlight | `view.ts:22-24` | CSS strings from the host, part of `BoardView` |
 | their defaults | `view.ts:43-45` | `#232447`, `#f6f6fa`, `#e8467c` |
 | validation | `sanitize.ts:29-31` | `drawableColor` falls back when a string is not a colour |
-| resolution to floats | `gl-layer.ts:322-324` | once per `setBoard`, never in the draw loop |
+| resolution to floats | `gl-layer.ts:322-324` | once per `setBoard`, never in the draw loop; since §3 also once per `setColors` (`gl-layer.ts:356-358`) |
 | how they are drawn | `gl-passes.ts:157,231` | uniforms; changing one touches no buffer |
-| the per-piece hue | `colors.ts` (engine) → `tesselate.ts:442-456` | golden angle over the piece id, baked into a **static vertex colour buffer** |
+| the per-piece hue | `colors.ts` (engine) → `tesselate.ts:442-456` | was the golden angle over the piece id, baked into a **static vertex colour buffer**; now `tesselateColors` takes a `colorOf` callback, the layer picks a palette entry or the golden angle, and `setColors` re-uploads the bytes without re-tesselating (§3) |
 | the point grid | `gl-layer.ts:381-387` | its own cheap entry, no rebuild |
 | the permission | `arrowz-board.ts:574` | `enableColors` gates every colour |
 | what the lab sets | `view.ts:50-60` (`boardViewOf`) | seven fields; **ink, paper and highlight are dropped** |
 
 Two consequences of that last row are worth stating plainly. The lab draws a
 light board (`#f6f6fa`) inside a dark shell (`tokens.css:14-23`), because nobody
-ever passes the element a colour. And `redraw()` (`arrowz-board.ts:537-543`) has
-no short circuit: **any** change to `view` goes through `layer.setBoard`, which
-re-tesselates the whole board. Changing one colour on the 1000×1000 board costs
-**184.5 ms** (§10).
+ever passes the element a colour. And `redraw()` (`arrowz-board.ts:578-580`) had
+no short circuit: **any** change to `view` went through `layer.setBoard`, which
+re-tesselates the whole board, so changing one colour on the 1000×1000 board
+cost **184.5 ms** (§10). That was the state before §3: `update()` now routes a
+colour-only change to `layer.setColors` (`arrowz-board.ts:453-461`) at 23.3 ms.
 
 ## 3. The design
 
@@ -75,8 +81,8 @@ interface BoardTheme {
 the element's own defaults. So `<arrowz-board theme="gruvbox-dark">` draws the
 whole theme, and a host that also sets `view = { paper: '#fff' }` keeps its own
 paper and takes the rest from the theme. The rule is applied once, where
-`redraw()` already merges (`arrowz-board.ts:540`), so no other code learns about
-themes.
+`redraw()` already merges (now in `drawView()`, `arrowz-board.ts:591`), so no
+other code learns about themes.
 
 `enableColors` is untouched: without it the board is monochrome and no palette
 applies. A theme still supplies `paper` and `ink` in that case, because those are
