@@ -1,9 +1,19 @@
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
-import { expect, test } from 'vitest'
+import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
-import { viewOf } from './view.slice'
+import { PALETTE_CAP, viewOf } from './view.slice'
 
 const view = () => useStore.getState().view
+
+// The store outlives a test (view.slice.ts's own singleton): a theme or a
+// palette chosen by one test must not leak into the next. Reset both fields
+// directly rather than through `setTheme` — `setTheme` is exactly what
+// Ruling B's mutation below targets, and a `beforeEach` built on the action
+// under test would make every later test fail alongside it instead of
+// pinning only the two that assert the exclusion itself.
+beforeEach(() => {
+  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
+})
 
 test('the fields start where the previous lab starts them', () => {
   expect(view().cell).toBe(12)
@@ -56,4 +66,63 @@ test('a flag set to the value a link states stays there, however often it is sta
   expect(view().colored).toBe(true)
   view().setFlag('colored', false)
   expect(view().colored).toBe(false)
+})
+
+// Palette round-2 addendum, task 2: the lab's editable custom palette.
+// Ruling B (mutual exclusion) and Ruling C (the cap) both live in the
+// slice, exercised here rather than through the editor, so the store's own
+// invariant is what is pinned — not merely a component that happens to obey it.
+
+test('adding a colour appends it and clears any chosen theme', () => {
+  view().setTheme('gruvbox-dark')
+  view().addPaletteColor()
+  expect(view().palette).toHaveLength(1)
+  expect(view().theme).toBe('')
+})
+
+test('editing a colour changes only the entry at that index', () => {
+  view().addPaletteColor()
+  view().addPaletteColor()
+  view().setPaletteColor(1, '#ff00ff')
+  expect(view().palette).toEqual(['#000000', '#ff00ff'])
+})
+
+test('removing a colour drops only the entry at that index', () => {
+  view().addPaletteColor()
+  view().addPaletteColor()
+  view().addPaletteColor()
+  view().setPaletteColor(1, '#ff00ff')
+  view().removePaletteColor(0)
+  expect(view().palette).toEqual(['#ff00ff', '#000000'])
+})
+
+test(`the palette refuses a colour past the cap of ${PALETTE_CAP}`, () => {
+  for (let i = 0; i < PALETTE_CAP; i++) view().addPaletteColor()
+  expect(view().palette).toHaveLength(PALETTE_CAP)
+  view().addPaletteColor()
+  expect(view().palette).toHaveLength(PALETTE_CAP)
+})
+
+test('choosing a theme clears a custom palette (Ruling B)', () => {
+  view().addPaletteColor()
+  expect(view().palette.length).toBeGreaterThan(0)
+  view().setTheme('gruvbox-dark')
+  expect(view().palette).toEqual([])
+  expect(view().theme).toBe('gruvbox-dark')
+})
+
+test('setting a non-empty palette clears the chosen theme (Ruling B)', () => {
+  view().setTheme('gruvbox-dark')
+  view().setPalette(['#111111', '#222222'])
+  expect(view().theme).toBe('')
+  expect(view().palette).toEqual(['#111111', '#222222'])
+})
+
+test('setting an empty palette leaves an already-absent theme alone', () => {
+  // Nothing to clear: the invariant already holds `theme === ''` whenever
+  // the palette is non-empty, so an empty `setPalette` call touching `theme`
+  // would be a needless write, not a needed one.
+  view().setPalette([])
+  expect(view().theme).toBe('')
+  expect(view().palette).toEqual([])
 })

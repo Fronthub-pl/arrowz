@@ -48,8 +48,11 @@ beforeEach(() => {
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
   // The store outlives a test; a theme chosen by one test must not leak into
-  // the next one's assumption that no theme is chosen yet.
-  state().view.setTheme('')
+  // the next one's assumption that no theme is chosen yet. Reset directly
+  // rather than through `setTheme`, whose clearing of the palette is Ruling
+  // B — the very invariant a mutation test targets — so a reset built on it
+  // would not isolate that mutation's failures to the cases that assert it.
+  useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [] } }))
 })
 
 describe('SimplePanel', () => {
@@ -173,5 +176,16 @@ describe('SimplePanel', () => {
     expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
     await userEvent.selectOptions(picker, '')
     expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+  })
+
+  // Spec §6: "the simple view gets the picker and not the custom editor."
+  // Pinned by absence, not merely by not calling it: sharing `ViewPanel.tsx`'s
+  // exports between the two panels (as `ThemeSwatchStrip` already is) is
+  // exactly how a future edit could hand the simple view the editor by accident.
+  it('has no custom-palette editor — no add-colour button and no colour input', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
+    expect(screen.container.querySelector('input[type="color"]')).toBeNull()
+    expect(screen.container.querySelector('.fw-palette')).toBeNull()
   })
 })

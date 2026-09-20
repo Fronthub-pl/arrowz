@@ -109,6 +109,14 @@ export const EN = {
     voids: 'show jammed cells',
     themeLabel: 'theme',
     themeNone: 'none (default colours)',
+    // The console's editable custom palette (palette round-2 addendum, task
+    // 2): a theme and this palette never both apply (Ruling B), so choosing
+    // one clears the other.
+    paletteLabel: 'custom palette',
+    paletteAdd: 'add colour',
+    paletteColorLabel: (n: number) => `colour ${n}`,
+    paletteRemove: (n: number) => `remove colour ${n}`,
+    paletteHelp: 'Up to 8 colours. Setting one clears the chosen theme.',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     showHelp: 'show parameter descriptions',
@@ -519,6 +527,11 @@ export const PL: Translation = {
     voids: 'pokaż komórki zaklinowania',
     themeLabel: 'motyw',
     themeNone: 'brak (kolory domyślne)',
+    paletteLabel: 'własna paleta',
+    paletteAdd: 'dodaj kolor',
+    paletteColorLabel: (n) => `kolor ${n}`,
+    paletteRemove: (n) => `usuń kolor ${n}`,
+    paletteHelp: 'Maksymalnie 8 kolorów. Ustawienie choćby jednego czyści wybrany motyw.',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     showHelp: 'pokazuj opisy parametrów',

@@ -3,7 +3,7 @@ import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import type { ViewFlag } from '../state/view.slice'
+import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
@@ -145,6 +145,67 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 }
 
 /**
+ * The console's editable custom palette (design doc §6, palette round-2
+ * addendum, task 2): a list of `<input type="color">` fields, one per
+ * colour, capped at `PALETTE_CAP`. Console-only by construction — it is
+ * defined here and imported by `ViewPanel` alone; `SimplePanel` imports
+ * `ThemeSwatchStrip` from this file but never this component
+ * (ViewPanel.browser.test.tsx and SimplePanel.browser.test.tsx both pin it).
+ *
+ * Ruling B lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
+ * every handler below just forwards to a store action, so there is nowhere
+ * in this component for the exclusion or the cap to be bypassed.
+ */
+export function PaletteEditor() {
+  const dict = useDictionary()
+  const palette = useStore((state) => state.view.palette)
+  const addPaletteColor = useStore((state) => state.view.addPaletteColor)
+  const setPaletteColor = useStore((state) => state.view.setPaletteColor)
+  const removePaletteColor = useStore((state) => state.view.removePaletteColor)
+  return (
+    <div className="fw-k fw-palette">
+      <div className="top">
+        <span className="lab" id="view-palette-label">
+          {dict.t('paletteLabel')}
+        </span>
+        <button type="button" onClick={addPaletteColor} disabled={palette.length >= PALETTE_CAP}>
+          {dict.t('paletteAdd')}
+        </button>
+      </div>
+      {palette.length === 0 ? null : (
+        <ul className="fw-palette-list" aria-labelledby="view-palette-label">
+          {palette.map((color, index) => (
+            // No stable id per colour — a value can repeat, and only its
+            // position in the list is unique (as ThemeSwatchStrip's own
+            // index key above).
+            <li key={index} className="fw-palette-row">
+              <label className="fw-vh" htmlFor={`view-palette-${index}`}>
+                {dict.t('paletteColorLabel', index + 1)}
+              </label>
+              <input
+                id={`view-palette-${index}`}
+                type="color"
+                value={color}
+                onChange={(e) => setPaletteColor(index, e.target.value)}
+              />
+              <button
+                type="button"
+                className="fw-palette-remove"
+                aria-label={dict.t('paletteRemove', index + 1)}
+                onClick={() => removePaletteColor(index)}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="why">{dict.t('paletteHelp')}</p>
+    </div>
+  )
+}
+
+/**
  * The mock's *element* section: the nine preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
  * reason, and editing one redraws the board without generating (§2.2).
@@ -189,6 +250,7 @@ export function ViewPanel() {
           </div>
           <ThemeSwatchStrip themeName={view.theme} />
         </div>
+        <PaletteEditor />
       </div>
     </div>
   )

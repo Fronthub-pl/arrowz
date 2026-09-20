@@ -3,8 +3,9 @@ import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
+import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
 
@@ -28,7 +29,11 @@ beforeEach(() => {
   view().setNumber('top', '5')
   if (!view().rounded) view().toggle('rounded')
   if (view().colored) view().toggle('colored')
-  view().setTheme('')
+  // Reset directly rather than through `setTheme`: `setTheme` clearing the
+  // palette is Ruling B, the very thing under test below, and a reset built
+  // on it would make an unrelated later test fail alongside a broken Ruling B
+  // instead of pinning only the cases that assert it.
+  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
 })
 
 test('the panel draws all nine preview controls', async () => {
@@ -183,4 +188,90 @@ test('a single-colour theme still shows one swatch, not a broken strip', async (
   const [color] = theme.palette
   if (!color) throw new Error('ayu-light has no palette colour')
   expect(getComputedStyle(swatch).backgroundColor).toBe(rgbOf(color))
+})
+
+// The lab's editable custom palette (design doc §6, palette round-2
+// addendum, task 2). `userEvent.fill` drives `input[type="color"]` in this
+// harness the same as it drives a number field — checked empirically before
+// writing this file, rather than assumed: a probe component confirmed
+// `userEvent.fill(colorInput, '#ff00ff')` both sets the input's `.value` and
+// fires the `change` React listens to, so this exercises the real control
+// rather than writing the store directly.
+test('adding a colour appends a swatch, clears any chosen theme, and edits write the store', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(view().theme).toBe('gruvbox-dark')
+
+  const add = screen.getByRole('button', { name: 'add colour' })
+  await add.click()
+  expect(view().palette).toEqual(['#000000'])
+  // Ruling B, exercised through the UI: adding a colour cleared the theme
+  // the picker had just set, not merely what the slice does when called directly.
+  expect(view().theme).toBe('')
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  expect(inputs).toHaveLength(1)
+
+  const swatch = inputs[0]
+  if (!swatch) throw new Error('no colour input')
+  await userEvent.fill(swatch, '#ff00ff')
+  expect(view().palette).toEqual(['#ff00ff'])
+})
+
+test('the remove button drops one colour and leaves the rest', async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  await add.click()
+  await add.click()
+  const inputs = () => screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  const second = inputs()[1]
+  if (!second) throw new Error('no second colour input')
+  await userEvent.fill(second, '#123456')
+  expect(view().palette).toEqual(['#000000', '#123456'])
+
+  await screen.getByRole('button', { name: 'remove colour 1' }).click()
+  expect(view().palette).toEqual(['#123456'])
+  expect(inputs()).toHaveLength(1)
+})
+
+test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async () => {
+  const screen = await render(<ViewPanel />)
+  const add = screen.getByRole('button', { name: 'add colour' })
+  for (let i = 0; i < PALETTE_CAP; i++) await add.click()
+  expect(view().palette).toHaveLength(PALETTE_CAP)
+  await expect.element(add).toBeDisabled()
+})
+
+// Ruling B the other way: the store test covers the slice directly, this
+// covers it reached from the UI, so a caller that goes through `PaletteEditor`
+// and one that goes through the picker are both pinned.
+test('choosing a theme clears a custom palette built in the editor', async () => {
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  expect(view().palette).toEqual(['#000000'])
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(view().palette).toEqual([])
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+})
+
+test('the editor never mutates a theme’s own palette array', async () => {
+  const theme = themeFixture('gruvbox-dark')
+  const before = [...theme.palette]
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  const swatch = inputs[0]
+  if (!swatch) throw new Error('no colour input')
+  await userEvent.fill(swatch, '#abcdef')
+  expect(themeFixture('gruvbox-dark').palette).toEqual(before)
+})
+
+test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
+  const screen = await render(<PaletteEditor />)
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  await screen.getByRole('button', { name: 'add colour' }).click()
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(1)
 })

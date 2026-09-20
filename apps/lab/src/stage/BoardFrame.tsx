@@ -37,7 +37,22 @@ export function BoardFrame(): ReactElement {
   // one committed frame on the way back to `/` where a preview is still set.
   // Without `inLibrary` the lab's own board is drawn in that frame under the
   // stored board's flags — spec §5.3 asks the route, not "is there a preview".
-  const labView = useMemo(() => boardViewOf(viewOf(view), view.voids), [view])
+  // `boardViewOf` carries no colour fields at all (view.ts:50-60) — the lab
+  // passes the theme by name through the element's `theme` prop below. The
+  // custom palette is added here, and only when it is non-empty: the
+  // element's own precedence is "stated beats named beats default"
+  // (arrowz-board.ts:582-594), so an *empty* `palette` key here would still
+  // count as "stated" and blank out a chosen theme's colours. Ruling B
+  // already keeps `view.palette` and `view.theme` mutually exclusive in the
+  // store, so this guard never fights that invariant — it exists so a named
+  // theme's own palette is free to fall through when there is no custom one.
+  const labView = useMemo(
+    () => ({
+      ...boardViewOf(viewOf(view), view.voids),
+      ...(view.palette.length > 0 ? { palette: view.palette } : {}),
+    }),
+    [view],
+  )
   const elementView = useMemo(
     () => (preview === null || !inLibrary ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
     [preview, labView, inLibrary],
