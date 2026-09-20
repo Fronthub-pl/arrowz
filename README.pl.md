@@ -817,18 +817,21 @@ Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku
 Rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
 uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
 katalogu repozytorium. Laboratorium trzyma plansze w magazynie serwowanym przez
-mały program w Deno, więc obok siebie działają dwa polecenia:
+mały program w Deno, więc jedno polecenie uruchamia oba naraz:
 
 ```sh
-deno task store        # magazyn plansz, port 8777
-pnpm nx serve lab      # samo laboratorium, port 8779
+pnpm nx serve lab      # laboratorium (8779), a obok niego magazyn plansz (8777)
 ```
 
-Otwórz `http://localhost:8779`. Każde z poleceń zatrzymasz klawiszami Ctrl+C.
-Laboratorium spodziewa się magazynu na porcie 8777; jeśli ten port jest u
-ciebie zajęty, obie połówki trzeba nauczyć nowego numeru — magazyn bierze go
-jako argument polecenia (`deno task store 9000`), a laboratorium czyta go
-z jednej linii w `apps/lab/vite.proxy.ts`.
+Otwórz `http://localhost:8779`. Zatrzymasz je klawiszami Ctrl+C, co zatrzymuje
+też magazyn. Żeby uruchomić sam magazyn — CLI zapisuje plansze bezpośrednio i
+nigdy go nie potrzebuje — użyj `deno task store`. Laboratorium spodziewa się
+magazynu na porcie 8777; jeśli ten port jest u ciebie zajęty, obie połówki
+trzeba nauczyć nowego numeru — magazyn bierze go jako argument polecenia
+(`deno task store 9000`), a laboratorium czyta go z jednej linii w
+`apps/lab/vite.proxy.ts`. Drugie `pnpm nx serve lab` nie uruchamia drugiego
+magazynu: Nx zauważa, że ciągły target już działa, i na niego czeka, a Vite
+przenosi drugie laboratorium na kolejny wolny port (8780).
 
 Laboratorium ma dwa tryby i przełącznik polski/angielski.
 
@@ -943,8 +946,11 @@ niczego — potrzebuje obok `--square` albo `--portrait`.
 
 **Laboratorium nic nie pokazuje** — laboratorium jest serwowane, a nie
 otwierane: musi działać `pnpm nx serve lab`, a adres to
-`http://localhost:8779`. Jeśli biblioteka plansz jest pusta albo zapis się nie
-udaje, brakuje drugiej połowy: uruchom obok `deno task store`.
+`http://localhost:8779`. To polecenie uruchamia też magazyn, ale magazyn
+zostaje opcjonalny — laboratorium serwowane w inny sposób (choćby ze
+statycznego hostingu) działa i bez niego. Jeśli biblioteka plansz jest wtedy
+pusta albo zapis się nie udaje, brakuje drugiej połowy: uruchom obok
+`deno task store`.
 
 **Ciekawi cię, co się dzieje** — ustaw `CARVE_TRACE=1`, a będzie meldować
 postępy na bieżąco:

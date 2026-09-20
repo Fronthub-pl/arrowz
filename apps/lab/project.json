@@ -23,7 +23,7 @@
     "serve": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "cli:store"],
       "options": { "cwd": "apps/lab", "command": "pnpm run serve" }
     },
     "lint": { "executor": "nx:run-commands", "options": { "cwd": "apps/lab", "command": "pnpm run lint" } },
