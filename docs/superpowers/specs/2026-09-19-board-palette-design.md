@@ -254,7 +254,7 @@ with no theme. The choice joins the URL hash beside the other view fields
 editor.
 
 **What shipped instead of what this section originally proposed.** `boardViewOf`
-(`view.ts:43-53`) keeps dropping colours: the lab passes only the chosen theme's
+(`view.ts:50-60`) keeps dropping colours: the lab passes only the chosen theme's
 *name*, through the element's own `theme` attribute, and the element resolves
 paper, ink, highlight and palette itself, the same way any other host would. The
 lab never reads `THEMES[name]` to build a `view` patch. This is pinned by
