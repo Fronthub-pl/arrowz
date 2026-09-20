@@ -21,14 +21,14 @@ Measured, not remembered (2026-09-19):
 | what | where | state |
 |---|---|---|
 | ink, paper, highlight | `view.ts:22-24` | CSS strings from the host, part of `BoardView` |
-| their defaults | `view.ts:37-39` | `#232447`, `#f6f6fa`, `#e8467c` |
+| their defaults | `view.ts:43-45` | `#232447`, `#f6f6fa`, `#e8467c` |
 | validation | `sanitize.ts:29-31` | `drawableColor` falls back when a string is not a colour |
-| resolution to floats | `gl-layer.ts:296-298` | once per `setBoard`, never in the draw loop |
+| resolution to floats | `gl-layer.ts:322-324` | once per `setBoard`, never in the draw loop |
 | how they are drawn | `gl-passes.ts:157,231` | uniforms; changing one touches no buffer |
-| the per-piece hue | `colors.ts` (engine) → `tesselate.ts:442-453` | golden angle over the piece id, baked into a **static vertex colour buffer** |
-| the point grid | `gl-layer.ts:325-331` | its own cheap entry, no rebuild |
-| the permission | `arrowz-board.ts:533` | `enableColors` gates every colour |
-| what the lab sets | `view.ts:43-53` (`boardViewOf`) | seven fields; **ink, paper and highlight are dropped** |
+| the per-piece hue | `colors.ts` (engine) → `tesselate.ts:442-456` | golden angle over the piece id, baked into a **static vertex colour buffer** |
+| the point grid | `gl-layer.ts:381-387` | its own cheap entry, no rebuild |
+| the permission | `arrowz-board.ts:574` | `enableColors` gates every colour |
+| what the lab sets | `view.ts:50-60` (`boardViewOf`) | seven fields; **ink, paper and highlight are dropped** |
 
 Two consequences of that last row are worth stating plainly. The lab draws a
 light board (`#f6f6fa`) inside a dark shell (`tokens.css:14-23`), because nobody
@@ -267,12 +267,31 @@ colours (§9), so a board exported from the lab will not match the screen once a
 theme is chosen. This is a consequence of a deliberate decision, and the lab says
 so where the export lives rather than leaving it to be discovered.
 
-**Status, as of the round that shipped this design.** The console picker and the
-simple-view picker both shipped, mirroring each other, along with the export
-caveat above. Not shipped, and not planned for this round: the swatch strip
-beside the twelve names, and the custom palette editor that would map a
-user-edited colour list onto `view.palette` with no theme selected. Both remain
-designed above and unbuilt; picking them up is a later round's decision.
+**Status, after the two rounds that shipped this design.** The first round
+shipped the console picker and the simple-view picker, mirroring each other,
+along with the export caveat above. The second round shipped the two items the
+first had left designed and unbuilt.
+
+The swatch strip shipped in both panels. It keeps the native `<select>` and
+shows the *currently selected* theme's arrow colours, drawn on that theme's own
+`paper` as the strip's background, so a colour that vanishes against its own
+paper is visible as such before the user chooses. It is not a strip per option:
+an `<option>` cannot carry swatches, and a hand-built listbox would have brought
+its own keyboard and ARIA burden for a preview the strip already gives.
+
+The custom palette editor shipped in the console panel only; the simple view
+keeps the picker and gets no editor, as this section asks. It is a list of
+native `<input type="color">` fields with an add button and a per-colour remove
+button, capped at eight colours. A custom palette and a named theme are
+mutually exclusive, and the lab's store slice enforces it: setting a non-empty
+palette clears the theme, and choosing a theme clears the palette. That matches
+the element's own precedence, where an explicit `view` field beats a named
+theme, so the lab never holds a state the element would resolve differently.
+The palette travels in the URL hash beside the other view fields, so a link
+reproduces the look; on decode the lab keeps only `#rrggbb` entries and clamps
+to the cap. That is deliberately narrower than the element's own validation,
+which accepts any CSS colour the browser accepts, because the editor's native
+colour inputs can display nothing else.
 
 ## 7. The one row in the engine
 
