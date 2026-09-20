@@ -191,3 +191,8 @@ test('an unreadable point radius falls back to the default, not to zero', () => 
   view().setPointRadius('')
   expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
 })
+
+test('a non-empty unparsable point radius falls back to the default, not to NaN', () => {
+  view().setPointRadius('abc')
+  expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
+})
