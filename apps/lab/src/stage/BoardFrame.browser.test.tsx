@@ -278,3 +278,14 @@ test('on the library tab a board that could not be read leaves the stage empty',
   await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
   expect(annotation(screen.container)).toBeNull()
 })
+
+test('the frame around the board takes the paper the element announces', async () => {
+  const screen = await mountFrame()
+  const frame = screen.container.querySelector('.fw-board')
+  expect(frame).not.toBeNull()
+  if (frame === null) return
+  // Before any element has drawn, the token is what shows: the fallback.
+  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
+  frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
+  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(40, 40, 40)')
+})

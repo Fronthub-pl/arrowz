@@ -187,7 +187,11 @@ body {
   position: relative;
   height: 100%;
   min-height: 260px;
-  background: var(--paper);
+  /* The paper `<arrowz-board>` announces, so the letterbox around a board that
+     does not fill the frame is the board's own colour rather than a second,
+     unrelated light grey. The fallback is the lab's token, for the frames that
+     hold no element yet. */
+  background: var(--arrowz-paper, var(--paper));
   border: 1px solid var(--border);
   overflow: hidden;
 }
