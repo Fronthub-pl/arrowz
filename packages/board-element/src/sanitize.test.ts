@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { drawableColor, drawablePad, drawablePointRadius, drawableView, POINT_RADIUS_RANGE } from './sanitize.ts'
 import { DEFAULT_VIEW } from './view.ts'
 
@@ -113,5 +116,18 @@ describe('POINT_RADIUS_RANGE', () => {
     expect(drawablePointRadius(1.5, 0.06)).toBe(0.5)
     expect(drawablePointRadius(-1, 0.06)).toBe(0)
     expect(POINT_RADIUS_RANGE).toEqual({ min: 0, max: 0.5 })
+  })
+
+  test('the README prose bounds match the constant', () => {
+    const currentDir = dirname(fileURLToPath(import.meta.url))
+    const packageDir = dirname(currentDir)
+    const readmePath = join(packageDir, 'README.md')
+    const readmeText = readFileSync(readmePath, 'utf-8')
+
+    // Derive the expected bounds prose from the constant instead of hard-coding.
+    // This way the test fails if either the constant OR the README changes alone.
+    const expectedBounds = `(${POINT_RADIUS_RANGE.min} to ${POINT_RADIUS_RANGE.max})`
+
+    expect(readmeText).toContain(expectedBounds)
   })
 })
