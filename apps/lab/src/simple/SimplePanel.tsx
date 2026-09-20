@@ -4,7 +4,7 @@ import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { DraftNumber } from '../console/DraftNumber'
 import { KnobSlider } from '../console/KnobSlider'
-import { VIEW_FLAGS, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
+import { ThemeSwatchStrip, VIEW_FLAGS, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
 import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS, VIEW_FIELDS } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import { OptionSwitch } from '../run/OptionSwitch'
@@ -157,6 +157,7 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
               ))}
             </select>
           </div>
+          <ThemeSwatchStrip themeName={view.theme} />
         </div>
       </div>
     </section>

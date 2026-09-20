@@ -1,3 +1,4 @@
+import { themeOf } from '@arrowz/board-element'
 import { simpleParams } from '@arrowz/engine/simple'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -5,6 +6,19 @@ import { render } from 'vitest-browser-react'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { SimplePanel } from './SimplePanel'
+
+/** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
+function rgbOf(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+/** A theme the fixture files must actually carry, or the test itself is broken. */
+function themeFixture(name: string) {
+  const theme = themeOf(name)
+  if (!theme) throw new Error(`no such theme: ${name}`)
+  return theme
+}
 
 function stub() {
   const calls = { start: 0 }
@@ -33,6 +47,9 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
+  // The store outlives a test; a theme chosen by one test must not leak into
+  // the next one's assumption that no theme is chosen yet.
+  state().view.setTheme('')
 })
 
 describe('SimplePanel', () => {
@@ -139,5 +156,22 @@ describe('SimplePanel', () => {
     await expect.element(picker).toBeInTheDocument()
     await userEvent.selectOptions(picker, 'gruvbox-dark')
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+  })
+
+  // Task 1 of the palette round-2 addendum: the twelve names with a swatch
+  // strip beside the picker, showing the *chosen* theme's arrow colours.
+  it('shows the chosen theme’s arrow colours, in order, on its own paper, and clears with the theme', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+    const picker = screen.getByRole('combobox')
+    await userEvent.selectOptions(picker, 'gruvbox-dark')
+    const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+    if (!strip) throw new Error('no swatch strip after choosing a theme')
+    const theme = themeFixture('gruvbox-dark')
+    expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
+    const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+    expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+    await userEvent.selectOptions(picker, '')
+    expect(screen.container.querySelector('.fw-swatches')).toBeNull()
   })
 })

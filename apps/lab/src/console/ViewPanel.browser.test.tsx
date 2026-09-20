@@ -1,3 +1,4 @@
+import { themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -6,6 +7,19 @@ import { useStore } from '../state/store'
 import { ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
+
+/** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
+function rgbOf(hex: string): string {
+  const n = Number.parseInt(hex.slice(1), 16)
+  return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
+}
+
+/** A theme the fixture files must actually carry, or the test itself is broken. */
+function themeFixture(name: string) {
+  const theme = themeOf(name)
+  if (!theme) throw new Error(`no such theme: ${name}`)
+  return theme
+}
 
 // The store outlives a test; every file that writes it puts it back.
 beforeEach(() => {
@@ -127,4 +141,46 @@ test('the theme picker lists every theme and writes the store', async () => {
   await expect.element(picker).toBeInTheDocument()
   await userEvent.selectOptions(picker, 'gruvbox-dark')
   expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+})
+
+// Design doc §6: "the twelve names with a swatch strip." The strip shows the
+// *chosen* theme's arrow colours, in order, on that theme's own paper.
+test('choosing a theme shows a strip of its arrow colours, in order, on its paper', async () => {
+  const screen = await render(<ViewPanel />)
+  expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+  if (!strip) throw new Error('no swatch strip after choosing a theme')
+  const theme = themeFixture('gruvbox-dark')
+  expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
+  const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+  expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
+})
+
+test('clearing the theme removes the strip', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'gruvbox-dark')
+  expect(screen.container.querySelector('.fw-swatches')).not.toBeNull()
+  await userEvent.selectOptions(picker, '')
+  expect(screen.container.querySelector('.fw-swatches')).toBeNull()
+})
+
+// One of the two single-colour themes (everforest-light, ayu-light): the strip
+// must still look deliberate with one swatch, not like a broken multi-swatch strip.
+test('a single-colour theme still shows one swatch, not a broken strip', async () => {
+  const screen = await render(<ViewPanel />)
+  const picker = screen.getByRole('combobox')
+  await userEvent.selectOptions(picker, 'ayu-light')
+  const strip = screen.container.querySelector<HTMLElement>('.fw-swatches')
+  if (!strip) throw new Error('no swatch strip for a single-colour theme')
+  const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
+  expect(swatches).toHaveLength(1)
+  const [swatch] = swatches
+  if (!swatch) throw new Error('no swatch element')
+  const theme = themeFixture('ayu-light')
+  const [color] = theme.palette
+  if (!color) throw new Error('ayu-light has no palette colour')
+  expect(getComputedStyle(swatch).backgroundColor).toBe(rgbOf(color))
 })

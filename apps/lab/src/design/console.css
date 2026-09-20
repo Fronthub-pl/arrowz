@@ -274,6 +274,22 @@
   color: var(--error);
   border-color: var(--error);
 }
+/* The chosen theme's arrow colours, on its own paper (Task 1, palette
+   round-2 addendum). Fixed-size swatches rather than `flex: 1`: a
+   single-colour theme (`everforest-light`, `ayu-light`) then reads as one
+   deliberate chip, not a bar stretched to fill the row. */
+.fw-k .fw-swatches {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px solid var(--border);
+}
+.fw-k .fw-swatch {
+  flex: none;
+  width: 20px;
+  height: 16px;
+}
 .fw-knobs {
   background: var(--void);
   padding: 14px 20px 18px;

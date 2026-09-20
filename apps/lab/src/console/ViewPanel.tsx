@@ -1,4 +1,4 @@
-import { THEMES } from '@arrowz/board-element'
+import { THEMES, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
@@ -118,6 +118,33 @@ export function ViewFlagSwitch({
 }
 
 /**
+ * The chosen theme's arrow colours, in order, on the theme's own paper
+ * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
+ * surface the arrows draw against without spending a swatch on `paper` or
+ * `ink` separately, and a colour that would vanish against its own paper is
+ * exactly what this is for showing. Renders nothing for `''` (no theme).
+ *
+ * `aria-hidden`: the `<select>` beside it already names the theme, so this
+ * strip repeats no information a screen reader user needs read out — it is
+ * not interactive, and there is no useful text a hex value could be given
+ * ("swatch one: hash f5 e0 dc" names nothing anyone would ask for).
+ */
+export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
+  const theme = themeOf(themeName)
+  if (!theme) return null
+  return (
+    <div className="fw-swatches" aria-hidden="true" style={{ backgroundColor: theme.paper }}>
+      {theme.palette.map((color, index) => (
+        // The palette can repeat a colour or, for the two single-arrow
+        // themes, hold just one: the index is the only stable key a static,
+        // never-reordered array offers.
+        <span key={index} className="fw-swatch" style={{ backgroundColor: color }} />
+      ))}
+    </div>
+  )
+}
+
+/**
  * The mock's *element* section: the nine preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
  * reason, and editing one redraws the board without generating (§2.2).
@@ -160,6 +187,7 @@ export function ViewPanel() {
               ))}
             </select>
           </div>
+          <ThemeSwatchStrip themeName={view.theme} />
         </div>
       </div>
     </div>
