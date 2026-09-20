@@ -24,6 +24,8 @@ beforeEach(() => {
       ...state.view,
       theme: '',
       palette: [],
+      paper: '',
+      ink: '',
       colored: false,
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
@@ -194,7 +196,7 @@ test('setting an empty palette leaves an already-absent theme alone', () => {
   expect(view().palette).toEqual([])
 })
 
-test('the point grid starts off, in the element\'s own colour and radius', () => {
+test("the point grid starts off, in the element's own colour and radius", () => {
   expect(declared.showPoints).toBe(false)
   expect(declared.pointColor).toBe(DEFAULT_POINT_COLOR)
   expect(declared.pointRadius).toBe(DEFAULT_POINT_RADIUS)
