@@ -282,8 +282,9 @@ test('on the library tab a board that could not be read leaves the stage empty',
 test('the frame around the board takes the paper the element announces', async () => {
   const screen = await mountFrame()
   const frame = screen.container.querySelector('.fw-board')
-  expect(frame).not.toBeNull()
-  if (frame === null) return
+  // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
+  // which has no `style` for the property set below.
+  if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
   // Before any element has drawn, the token is what shows: the fallback.
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
