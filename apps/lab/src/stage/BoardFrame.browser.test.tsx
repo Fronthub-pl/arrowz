@@ -232,6 +232,30 @@ test('a custom palette reaches the element', async () => {
   useStore.getState().view.setTheme('')
 })
 
+// Finding 1 (final whole-addendum review): the palette is a viewing
+// preference like the theme, and `theme={view.theme}` above already applies
+// unconditionally to whatever board is on screen — the preview branch used to
+// discard the custom palette instead of folding it in the same way, so a
+// theme repainted a stored preview and a custom palette did not, for two
+// states the design calls equivalent and mutually exclusive.
+test('a custom palette reaches a library preview too, the same way the theme already does', async () => {
+  const { meta, file } = storedFixture(2)
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
+  const wasColored = useStore.getState().view.colored
+  try {
+    await act(async () => {
+      useStore.getState().view.addPaletteColor()
+      useStore.getState().view.setPaletteColor(0, '#ff00ff')
+    })
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    const element = screen.container.querySelector('arrowz-board')
+    expect(element?.view.palette).toEqual(['#ff00ff'])
+  } finally {
+    useStore.getState().view.setPalette([])
+    useStore.getState().view.setFlag('colored', wasColored)
+  }
+})
+
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage
 // empty and says why. Measured by review round 2 before the tab gate existed:
 // the frame fell through to the lab's own board, so a 25×50 carve stood under

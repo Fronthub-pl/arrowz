@@ -46,16 +46,28 @@ export function BoardFrame(): ReactElement {
   // already keeps `view.palette` and `view.theme` mutually exclusive in the
   // store, so this guard never fights that invariant — it exists so a named
   // theme's own palette is free to fall through when there is no custom one.
+  //
+  // A colour choice is a viewing preference, the same way the theme already
+  // is: `theme={view.theme}` below applies unconditionally to whatever board
+  // is on screen, lab or library preview, so the palette override is built
+  // once and spread into both `labView` and the preview's view rather than
+  // into `labView` alone — a review finding once left the preview branch
+  // discarding it, so a theme repainted a stored preview and a custom
+  // palette did not, for two states the design calls equivalent.
+  const paletteOverride = useMemo(() => (view.palette.length > 0 ? { palette: view.palette } : {}), [view.palette])
   const labView = useMemo(
     () => ({
       ...boardViewOf(viewOf(view), view.voids),
-      ...(view.palette.length > 0 ? { palette: view.palette } : {}),
+      ...paletteOverride,
     }),
-    [view],
+    [view, paletteOverride],
   )
   const elementView = useMemo(
-    () => (preview === null || !inLibrary ? labView : boardViewOf(preview.meta.view, preview.meta.ok === false)),
-    [preview, labView, inLibrary],
+    () =>
+      preview === null || !inLibrary
+        ? labView
+        : { ...boardViewOf(preview.meta.view, preview.meta.ok === false), ...paletteOverride },
+    [preview, labView, inLibrary, paletteOverride],
   )
   // The tab decides, not the presence of a preview: in the library a board
   // that could not be read leaves the stage empty (spec §5.6), and the lab's
