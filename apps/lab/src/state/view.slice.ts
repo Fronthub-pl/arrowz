@@ -48,7 +48,19 @@ export interface ViewState {
    * can leave the store over the cap or holding both a theme and a palette.
    */
   setPalette(colors: string[]): void
-  /** Appends one colour (`NEW_PALETTE_COLOR`), refused silently at the cap. */
+  /**
+   * Appends one colour (`NEW_PALETTE_COLOR`), refused silently at the cap.
+   * Going from an empty palette to one colour also turns `colored` on
+   * (a human decision, not Ruling B or C): the element gates every piece
+   * colour behind that flag, so a palette built while it is off would draw
+   * nothing until the user finds the switch, unlike a theme, whose paper and
+   * ink apply regardless. The second colour onward leaves `colored` alone,
+   * and removing colours never turns it back off — the switch stays visible
+   * and off stays off once chosen. The auto-enable lives here and nowhere
+   * shared: `setPalette`, which goes through `paletteUpdate` like this does,
+   * is also what `applyPayload` calls to restore a link, and a link states
+   * its own `colored` explicitly, which a shared auto-enable would override.
+   */
   addPaletteColor(): void
   /** Edits the colour at `index`, e.g. from a `<input type="color">`'s value. */
   setPaletteColor(index: number, color: string): void
@@ -114,8 +126,14 @@ export function createViewSlice(set: SetStore): ViewState {
         // The cap refuses silently: `paletteUpdate` would clamp the ninth
         // colour away again anyway, but returning early skips the no-op write.
         if (state.view.palette.length >= PALETTE_CAP) return { view: state.view }
+        // See the interface doc above: only the empty-to-one transition turns `colored` on.
+        const turnColoredOn = state.view.palette.length === 0
         return {
-          view: { ...state.view, ...paletteUpdate(state.view, [...state.view.palette, NEW_PALETTE_COLOR]) },
+          view: {
+            ...state.view,
+            ...paletteUpdate(state.view, [...state.view.palette, NEW_PALETTE_COLOR]),
+            ...(turnColoredOn ? { colored: true } : {}),
+          },
         }
       }),
     setPaletteColor: (index, color) =>

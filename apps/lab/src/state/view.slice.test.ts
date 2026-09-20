@@ -12,7 +12,7 @@ const view = () => useStore.getState().view
 // under test would make every later test fail alongside it instead of
 // pinning only the two that assert the exclusion itself.
 beforeEach(() => {
-  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
+  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [], colored: false } }))
 })
 
 test('the fields start where the previous lab starts them', () => {
@@ -116,6 +116,36 @@ test('setting a non-empty palette clears the chosen theme (Ruling B)', () => {
   view().setPalette(['#111111', '#222222'])
   expect(view().theme).toBe('')
   expect(view().palette).toEqual(['#111111', '#222222'])
+})
+
+// Finding 2 (final whole-addendum review, human decision): the first colour
+// added to an empty palette turns colouring on, because the element gates
+// every piece colour behind `colored` and a theme has no such gate (paper
+// and ink apply regardless). The three cases below pin the boundary exactly:
+// the empty-to-one transition and nothing either side of it.
+
+test('adding the first colour to an empty palette turns colouring on', () => {
+  expect(view().colored).toBe(false)
+  view().addPaletteColor()
+  expect(view().colored).toBe(true)
+})
+
+test('adding a second colour does not move colouring either way', () => {
+  view().addPaletteColor()
+  expect(view().colored).toBe(true)
+  // Turned back off by hand; a second colour must respect that, not fight it.
+  view().setFlag('colored', false)
+  view().addPaletteColor()
+  expect(view().palette).toHaveLength(2)
+  expect(view().colored).toBe(false)
+})
+
+test('removing every colour never turns colouring back off', () => {
+  view().addPaletteColor()
+  expect(view().colored).toBe(true)
+  view().removePaletteColor(0)
+  expect(view().palette).toEqual([])
+  expect(view().colored).toBe(true)
 })
 
 test('setting an empty palette leaves an already-absent theme alone', () => {

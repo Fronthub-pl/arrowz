@@ -340,6 +340,31 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.theme).toBe('')
   })
 
+  // Finding 2 (final whole-addendum review, human decision): the palette's
+  // auto-enable of `colored` lives in `addPaletteColor` alone, not in
+  // `setPalette` — the action `applyPayload` calls below to restore a link.
+  // A link stating `colored: false` names it explicitly, so restoring one
+  // that also names a palette must leave colouring off, not silently turn it
+  // back on the way the console's own editor does for a first colour typed
+  // by hand.
+  it('restores a link stating colored: false and a palette with colouring still off', async () => {
+    await mount(stub().control)
+    // The store outlives a test, and an earlier case in this file can leave
+    // `palette` non-empty: reset it directly (not through `setPalette`,
+    // which is exactly what is under test here) so the link below always
+    // restores from an empty palette, the one transition a misplaced
+    // auto-enable could hide behind if a leftover palette masked it.
+    useStore.setState((state) => ({ view: { ...state.view, palette: [] } }))
+    useStore.getState().view.setFlag('colored', true)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, colored: false, palette: ['#112233'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
+    expect(useStore.getState().view.colored).toBe(false)
+  })
+
   // Ruling: a hand-edited link naming both a theme and a palette applies the
   // theme first and the palette second, so the palette wins — deterministic
   // regardless of which setter a naive implementation might run last.
