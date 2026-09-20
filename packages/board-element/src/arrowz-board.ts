@@ -151,9 +151,9 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       overflow: hidden;
       outline: none;
       /* The paper the element actually painted, announced by updated(). The
-         canvas clears to transparent and the paper quad covers only the board
-         plus its margin, so this fills the rest of the frame; the fallback is
-         DEFAULT_VIEW.paper, so an element that never draws looks unchanged. */
+        canvas clears to transparent and the paper quad covers only the board
+        plus its margin, so this fills the rest of the frame; the fallback is
+        DEFAULT_VIEW.paper, so an element that never draws looks unchanged. */
       background: var(--arrowz-paper, #f6f6fa);
     }
     :host(:focus-visible) {

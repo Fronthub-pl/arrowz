@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { drawableColor, drawablePad, drawablePointRadius, drawableView, POINT_RADIUS_RANGE } from './sanitize.ts'
 import { DEFAULT_VIEW } from './view.ts'
