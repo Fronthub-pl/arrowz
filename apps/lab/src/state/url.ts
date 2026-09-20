@@ -81,11 +81,17 @@ const HEX_COLOR = /^#[0-9a-f]{6}$/i
  * would silently show black — and is dropped rather than passed through.
  * Filtered before the cap is applied rather than after: clamping first would
  * let a garbage entry near the front of a hand-edited list burn a slot that a
- * valid colour further down could otherwise have filled.
+ * valid colour further down could otherwise have filled. Lower-cased after
+ * the filter: `HEX_COLOR` accepts uppercase, but the native colour input only
+ * ever reports lowercase, so a hand-edited `#AABBCC` would otherwise make the
+ * hash this page rewrites differ in case from the one that was pasted in.
  */
 function palette(raw: unknown): string[] | undefined {
   if (!Array.isArray(raw)) return undefined
-  const colors = raw.filter((c): c is string => typeof c === 'string' && HEX_COLOR.test(c)).slice(0, PALETTE_CAP)
+  const colors = raw
+    .filter((c): c is string => typeof c === 'string' && HEX_COLOR.test(c))
+    .map((c) => c.toLowerCase())
+    .slice(0, PALETTE_CAP)
   return colors.length > 0 ? colors : undefined
 }
 

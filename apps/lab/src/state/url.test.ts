@@ -132,4 +132,13 @@ describe('the hash codec', () => {
       '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['red', '#112233', 'not-a-color', '#ZZZZZZ'] } }))
     expect(decodeHash(link)?.view.palette).toEqual(['#112233'])
   })
+
+  // Finding 8 (final whole-addendum review): `HEX_COLOR` accepts uppercase,
+  // but the native colour input always reports lowercase, so a hand-edited
+  // `#AABBCC` must normalise on decode or the hash this page rewrites would
+  // differ in case from the one that was pasted in.
+  it('normalises a hand-edited uppercase hex to lowercase', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['#AABBCC', '#DeF012'] } }))
+    expect(decodeHash(link)?.view.palette).toEqual(['#aabbcc', '#def012'])
+  })
 })
