@@ -313,6 +313,20 @@
   border: 1px solid var(--border);
   background: var(--void);
 }
+/* A single colour field, as `ColorField` draws it: a label and one swatch on
+   its own row, unlike the palette's list of many. */
+.fw-colour-cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.fw-colour-cell input[type='color'] {
+  width: 28px;
+  height: 22px;
+  padding: 1px;
+  border: 1px solid var(--border);
+  background: var(--void);
+}
 .fw-palette-remove {
   flex: none;
   width: 18px;

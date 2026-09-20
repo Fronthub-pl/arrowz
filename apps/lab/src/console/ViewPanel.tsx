@@ -1,4 +1,4 @@
-import { THEMES, themeOf } from '@arrowz/board-element'
+import { POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
@@ -7,12 +7,16 @@ import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
-/** The four flags, in the order the previous lab lists them. */
-export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' | 'voids' }[] = [
+/** The five flags, in the order the previous lab lists them, plus the point grid. */
+export const VIEW_FLAGS: readonly {
+  flag: ViewFlag
+  label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
+}[] = [
   { flag: 'rounded', label: 'rounded' },
   { flag: 'colored', label: 'colored' },
   { flag: 'hilite', label: 'hilite' },
   { flag: 'voids', label: 'voids' },
+  { flag: 'showPoints', label: 'showPoints' },
 ]
 
 /**
@@ -118,6 +122,48 @@ export function ViewFlagSwitch({
 }
 
 /**
+ * One colour, as the palette rows already draw one: a visible label (so the
+ * row reads on its own, unlike a palette swatch that sits beside "colour 1"
+ * in a list already labelled by the editor around it) and a controlled
+ * native colour input. `onClear` is offered where the empty value means
+ * something -- paper and ink use it to hand the field back to the theme,
+ * which a colour input has no way to express on its own.
+ */
+export function ColorField({
+  id,
+  label,
+  value,
+  onChange,
+  onClear,
+  clearLabel,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange(color: string): void
+  onClear?: (() => void) | undefined
+  clearLabel?: string | undefined
+}) {
+  return (
+    <div className="fw-k">
+      <div className="row">
+        <label className="lab" htmlFor={id}>
+          {label}
+        </label>
+        <span className="fw-colour-cell">
+          <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+          {onClear === undefined ? null : (
+            <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
+              ×
+            </button>
+          )}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * The chosen theme's arrow colours, in order, on the theme's own paper
  * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
  * surface the arrows draw against without spending a swatch on `paper` or
@@ -217,7 +263,7 @@ export function PaletteEditor() {
 }
 
 /**
- * The mock's *element* section: the nine preview fields. They are not knobs —
+ * The mock's *element* section: the eleven preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
  * reason, and editing one redraws the board without generating (§2.2).
  *
@@ -245,6 +291,35 @@ export function ViewPanel() {
         {VIEW_FLAGS.map(({ flag, label }) => (
           <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
+        <ColorField
+          id="view-point-color"
+          label={dict.t('pointColorLabel')}
+          value={view.pointColor}
+          onChange={view.setPointColor}
+        />
+        <div className="fw-k">
+          <div className="top">
+            <label className="lab" htmlFor="view-point-radius">
+              {dict.t('pointRadiusLabel')}
+            </label>
+            <input
+              type="number"
+              id="view-point-radius"
+              className="num"
+              min={POINT_RADIUS_RANGE.min}
+              max={POINT_RADIUS_RANGE.max}
+              // A keyboard convenience, not a claim about what is allowed --
+              // the same role `step` plays in `viewFields.ts`.
+              step={0.01}
+              defaultValue={String(view.pointRadius)}
+              onBlur={(e) => view.setPointRadius(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') view.setPointRadius(e.currentTarget.value)
+              }}
+            />
+          </div>
+          <p className="why">{dict.t('pointRadiusHelp')}</p>
+        </div>
         <div className="fw-k">
           <div className="row">
             <label className="lab" htmlFor="view-theme">

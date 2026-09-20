@@ -1,4 +1,4 @@
-import { themeOf } from '@arrowz/board-element'
+import { POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -8,6 +8,12 @@ import { useStore } from '../state/store'
 import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
+
+// Colour inputs that exist on the panel independently of the palette editor:
+// today just the point grid's dot colour field. Task 7 adds paper and ink
+// here, so the palette-counting tests below compute against this rather than
+// a bare number.
+const STANDALONE_COLOR_INPUTS = 1
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
 function rgbOf(hex: string): string {
@@ -36,10 +42,26 @@ beforeEach(() => {
   useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
 })
 
-test('the panel draws all nine preview controls', async () => {
+test('the panel draws all eleven preview controls', async () => {
   const screen = await render(<ViewPanel />)
-  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(5)
-  expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(4)
+  // Six numbers now: the five the engine's table covers plus the point radius,
+  // whose bounds come from the element instead (spec §4.3).
+  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(6)
+  expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(5)
+})
+
+test('the panel draws the point grid controls', async () => {
+  const screen = await render(<ViewPanel />)
+  const grid = screen.getByRole('switch', { name: /show the point grid/i })
+  await expect.element(grid).toHaveAttribute('aria-checked', 'false')
+  await grid.click()
+  expect(view().showPoints).toBe(true)
+
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  expect(radius).not.toBeNull()
+  expect(Number(radius?.min)).toBe(POINT_RADIUS_RANGE.min)
+  expect(Number(radius?.max)).toBe(POINT_RADIUS_RANGE.max)
+  expect(radius?.checkValidity()).toBe(true)
 })
 
 test('a switch is a switch, not a checkbox pretending to be one', async () => {
@@ -69,7 +91,9 @@ test('every number field declares the bounds the engine actually takes', async (
   // screen reader are told is what the DOM says, and that is what has to agree
   // with `VIEW_RANGE`.
   const screen = await render(<ViewPanel />)
-  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')]
+  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')].filter(
+    (input) => input.id !== 'view-point-radius',
+  )
   expect(fields).toHaveLength(Object.keys(VIEW_RANGE).length)
   for (const input of fields) {
     const key = input.id.replace(/^view-/, '') as keyof typeof VIEW_RANGE
@@ -220,10 +244,15 @@ test('adding a colour appends a swatch, clears any chosen theme, and edits write
   // Ruling B, exercised through the UI: adding a colour cleared the theme
   // the picker had just set, not merely what the slice does when called directly.
   expect(view().theme).toBe('')
+  // The panel now also carries the point grid's own colour input, so the
+  // total is that plus one palette swatch, not one on its own.
   const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
-  expect(inputs).toHaveLength(1)
+  expect(inputs).toHaveLength(STANDALONE_COLOR_INPUTS + view().palette.length)
 
-  const swatch = inputs[0]
+  // Scoped to the palette row, not the panel's other colour inputs, so this
+  // picks up the swatch just added rather than whichever input happens to
+  // sit first in the DOM.
+  const swatch = screen.container.querySelector<HTMLInputElement>('.fw-palette-row input[type="color"]')
   if (!swatch) throw new Error('no colour input')
   await userEvent.fill(swatch, '#ff00ff')
   expect(view().palette).toEqual(['#ff00ff'])
@@ -234,15 +263,19 @@ test('the remove button drops one colour and leaves the rest', async () => {
   const add = screen.getByRole('button', { name: 'add colour' })
   await add.click()
   await add.click()
-  const inputs = () => screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
-  const second = inputs()[1]
+  // Scoped to the palette rows: the panel's other colour inputs (the point
+  // grid's) must not shift which "second" input this grabs.
+  const paletteInputs = () => screen.container.querySelectorAll<HTMLInputElement>('.fw-palette-row input[type="color"]')
+  const second = paletteInputs()[1]
   if (!second) throw new Error('no second colour input')
   await userEvent.fill(second, '#123456')
   expect(view().palette).toEqual(['#000000', '#123456'])
 
   await screen.getByRole('button', { name: 'remove colour 1' }).click()
   expect(view().palette).toEqual(['#123456'])
-  expect(inputs()).toHaveLength(1)
+  expect(screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')).toHaveLength(
+    STANDALONE_COLOR_INPUTS + view().palette.length,
+  )
 })
 
 test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async () => {
@@ -275,7 +308,9 @@ test('choosing a theme clears a custom palette built in the editor', async () =>
   const picker = screen.getByRole('combobox')
   await userEvent.selectOptions(picker, 'gruvbox-dark')
   expect(view().palette).toEqual([])
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  // The panel's own colour input (the point grid's) is unaffected by the
+  // palette clearing, so what should be gone is the palette's swatch alone.
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(STANDALONE_COLOR_INPUTS)
 })
 
 test('the editor never mutates a theme’s own palette array', async () => {
@@ -285,7 +320,9 @@ test('the editor never mutates a theme’s own palette array', async () => {
   const picker = screen.getByRole('combobox')
   await userEvent.selectOptions(picker, 'gruvbox-dark')
   await screen.getByRole('button', { name: 'add colour' }).click()
-  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  // Scoped to the palette row: the panel's other colour input (the point
+  // grid's) must not be the one this test edits.
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('.fw-palette-row input[type="color"]')
   const swatch = inputs[0]
   if (!swatch) throw new Error('no colour input')
   await userEvent.fill(swatch, '#abcdef')
