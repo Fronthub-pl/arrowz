@@ -1,7 +1,8 @@
+import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
 import type { View, ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
-export type ViewFlag = 'colored' | 'rounded' | 'hilite' | 'voids'
+export type ViewFlag = 'colored' | 'rounded' | 'hilite' | 'voids' | 'showPoints'
 
 /**
  * Ruling C (palette round-2 addendum, task 2): the cap is a lab choice, not
@@ -24,6 +25,18 @@ export interface ViewState {
   rounded: boolean
   hilite: boolean
   voids: boolean
+  /**
+   * The point grid. Like `voids`, these are the element's settings and not the
+   * engine's: `viewOf` does not carry them, and the CLI has no flag for any of
+   * them. The bounds come from the element (`POINT_RADIUS_RANGE`), read at the
+   * point of render, never copied.
+   */
+  showPoints: boolean
+  pointColor: string
+  pointRadius: number
+  setPointColor(color: string): void
+  /** Commits the radius from what was typed, tolerant as `setNumber` is. */
+  setPointRadius(raw: string): void
   /** Name of a built-in board theme; '' draws the element's own colours. */
   theme: string
   /**
@@ -113,11 +126,23 @@ export function createViewSlice(set: SetStore): ViewState {
     rounded: true,
     hilite: true,
     voids: true,
+    showPoints: false,
+    pointColor: DEFAULT_POINT_COLOR,
+    pointRadius: DEFAULT_POINT_RADIUS,
     theme: '',
     palette: [],
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
     setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
+    setPointColor: (color) => patch({ pointColor: color }),
+    setPointRadius: (raw) => {
+      const n = Number(raw)
+      // An empty or unreadable box is the default, not 0 -- a grid of dots with
+      // no radius is a real setting nobody asks for by clearing a field, the
+      // same reasoning `viewNumberOf` applies to the engine's numbers.
+      const kept = raw.trim() === '' || !Number.isFinite(n) ? DEFAULT_POINT_RADIUS : n
+      patch({ pointRadius: Math.min(Math.max(kept, POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max) })
+    },
     // Ruling B: a theme is a name the palette never accompanies.
     setTheme: (name) => patch({ theme: name, palette: [] }),
     setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),

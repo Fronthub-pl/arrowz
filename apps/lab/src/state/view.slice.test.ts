@@ -1,3 +1,4 @@
+import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
@@ -18,7 +19,17 @@ const declared = createViewSlice(() => {})
 // under test would make every later test fail alongside it instead of
 // pinning only the two that assert the exclusion itself.
 beforeEach(() => {
-  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [], colored: false } }))
+  useStore.setState((state) => ({
+    view: {
+      ...state.view,
+      theme: '',
+      palette: [],
+      colored: false,
+      showPoints: false,
+      pointColor: DEFAULT_POINT_COLOR,
+      pointRadius: DEFAULT_POINT_RADIUS,
+    },
+  }))
 })
 
 test('the fields start where the previous lab starts them', () => {
@@ -161,4 +172,22 @@ test('setting an empty palette leaves an already-absent theme alone', () => {
   view().setPalette([])
   expect(view().theme).toBe('')
   expect(view().palette).toEqual([])
+})
+
+test('the point grid starts off, in the element\'s own colour and radius', () => {
+  expect(declared.showPoints).toBe(false)
+  expect(declared.pointColor).toBe(DEFAULT_POINT_COLOR)
+  expect(declared.pointRadius).toBe(DEFAULT_POINT_RADIUS)
+})
+
+test('the point radius is clamped to what the element draws', () => {
+  view().setPointRadius('9')
+  expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.max)
+  view().setPointRadius('-1')
+  expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.min)
+})
+
+test('an unreadable point radius falls back to the default, not to zero', () => {
+  view().setPointRadius('')
+  expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
 })
