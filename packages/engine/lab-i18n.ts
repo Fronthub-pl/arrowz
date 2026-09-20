@@ -116,7 +116,10 @@ export const EN = {
     paletteAdd: 'add colour',
     paletteColorLabel: (n: number) => `colour ${n}`,
     paletteRemove: (n: number) => `remove colour ${n}`,
-    paletteHelp: 'Up to 8 colours. Setting one clears the chosen theme.',
+    // A function of the cap, like `paletteColorLabel` above, so the caller's
+    // `PALETTE_CAP` and this text cannot drift apart silently the way a
+    // hardcoded "8" once could.
+    paletteHelp: (cap: number) => `Up to ${cap} colours. Setting one clears the chosen theme.`,
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     showHelp: 'show parameter descriptions',
@@ -531,7 +534,7 @@ export const PL: Translation = {
     paletteAdd: 'dodaj kolor',
     paletteColorLabel: (n) => `kolor ${n}`,
     paletteRemove: (n) => `usuń kolor ${n}`,
-    paletteHelp: 'Maksymalnie 8 kolorów. Ustawienie choćby jednego czyści wybrany motyw.',
+    paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Ustawienie choćby jednego czyści wybrany motyw.`,
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     showHelp: 'pokazuj opisy parametrów',

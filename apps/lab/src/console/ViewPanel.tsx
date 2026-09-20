@@ -200,7 +200,7 @@ export function PaletteEditor() {
           ))}
         </ul>
       )}
-      <p className="why">{dict.t('paletteHelp')}</p>
+      <p className="why">{dict.t('paletteHelp', PALETTE_CAP)}</p>
     </div>
   )
 }

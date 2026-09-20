@@ -308,4 +308,49 @@ describe('useUrlHash', () => {
     location.hash = encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'ayu-light' }, carried: {} }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().view.theme).toBe('ayu-light'))
   })
+
+  // The producer side (Task 3 of the palette round-2 addendum): the custom
+  // palette picked on screen must join the link beside the theme, the way
+  // `lang` and `theme` above already do. `url.test.ts` only exercises
+  // `encodeHash`/`decodeHash` directly and cannot see a defect in `viewFor`,
+  // which builds the object those functions are handed — dropping `palette`
+  // from `viewFor`'s return would pass every other test in this file and
+  // redden only this one.
+  it('writes the custom palette on screen into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPalette(['#112233', '#aabbcc'])
+    await vi.waitFor(() => expect(decodeHash(location.hash)?.view.palette).toEqual(['#112233', '#aabbcc']))
+  })
+
+  // The consumer side: a link naming a palette restores it into the store and
+  // clears any theme that was set, the way Ruling B keeps the two exclusive
+  // everywhere else. Dropping the restore line from `applyPayload` would pass
+  // every other test in this file and redden only this one.
+  it('opens on the palette the link names, and clears a theme already on screen', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setTheme('gruvbox-dark')
+    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, palette: ['#112233', '#aabbcc'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233', '#aabbcc']))
+    expect(useStore.getState().view.theme).toBe('')
+  })
+
+  // Ruling: a hand-edited link naming both a theme and a palette applies the
+  // theme first and the palette second, so the palette wins — deterministic
+  // regardless of which setter a naive implementation might run last.
+  it('takes the palette over the theme when a link names both', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, theme: 'gruvbox-dark', palette: ['#112233'] },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
+    expect(useStore.getState().view.theme).toBe('')
+  })
 })

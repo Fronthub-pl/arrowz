@@ -93,4 +93,43 @@ describe('the hash codec', () => {
     const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
     expect(decodeHash(hash)?.view.theme).toBeUndefined()
   })
+
+  it('carries a custom palette through a round trip', () => {
+    const hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, palette: ['#112233', '#aabbcc'] },
+      carried: {},
+    })
+    expect(decodeHash(hash)?.view.palette).toEqual(['#112233', '#aabbcc'])
+  })
+
+  // A link that predates custom palettes carries no `palette` key at all —
+  // not even an empty one — so this must read as "the page keeps its own",
+  // the same absence `theme` reads above.
+  it('reads a link that predates custom palettes as naming no palette', () => {
+    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
+    expect(decodeHash(hash)?.view.palette).toBeUndefined()
+  })
+
+  it('does not write an empty palette into the link', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, palette: [] }, carried: {} })
+    expect(hash).not.toContain('palette')
+  })
+
+  // Ruling: decode clamps to PALETTE_CAP (8), so a hand-edited link cannot
+  // hand the editor more colour fields than it can manage.
+  it('clamps a hand-edited palette to the cap', () => {
+    const nine = Array.from({ length: 9 }, (_, i) => `#${String(i).repeat(6)}`)
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { palette: nine } }))
+    expect(decodeHash(link)?.view.palette).toHaveLength(8)
+    expect(decodeHash(link)?.view.palette).toEqual(nine.slice(0, 8))
+  })
+
+  // Ruling: only `#rrggbb` survives — the lab editor's `<input type="color">`
+  // can show nothing else, and showing black for "red" is worse than dropping it.
+  it('drops palette entries the colour input cannot display', () => {
+    const link =
+      '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['red', '#112233', 'not-a-color', '#ZZZZZZ'] } }))
+    expect(decodeHash(link)?.view.palette).toEqual(['#112233'])
+  })
 })

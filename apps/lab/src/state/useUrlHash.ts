@@ -23,6 +23,7 @@ function viewFor(view: ViewState, help: boolean, lang: Lang) {
     help,
     lang,
     theme: view.theme,
+    palette: view.palette,
   }
 }
 
@@ -49,6 +50,12 @@ function applyPayload(payload: HashPayload): void {
   // Absent when the link predates themes or names none: the page keeps its
   // own value, the same tolerance `cell`..`top` get above.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
+  // After the theme, not before: a hand-edited link naming both must resolve
+  // deterministically, and `setPalette` clearing the theme it just set (the
+  // slice's own exclusivity, `paletteUpdate`) is what makes the palette win —
+  // the same precedence the element gives an explicit `view` over a named
+  // theme.
+  if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
 }
 
 export interface UrlHash {
