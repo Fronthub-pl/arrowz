@@ -107,4 +107,31 @@ describe('the matcher', () => {
     const rows = buildCommands(deps(), useStore.getState())
     expect(rows.length).toBeGreaterThan(60)
   })
+
+  // The defect this guards: `run-reseed`'s name is "New seed" and its hay is
+  // "seed", so before ranking it beat `knob-seed` (whose name simply is
+  // "seed") on section order alone. Enter then ran the wrong row. The knob
+  // must lead, and the action must still be reachable right behind it.
+  it('puts a name that starts with the query ahead of a section that merely contains it', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const matches = matchCommands(rows, 'seed')
+    expect(matches[0]?.id).toBe('knob-seed')
+    expect(matches.map((row) => row.id)).toContain('run-reseed')
+  })
+
+  // Query 'run': it matches note ('run', shared by all five run-section rows)
+  // and, incidentally, `knob-giantJitter`'s label ("cutting serpentine runs
+  // short"). None of those six names *starts* with "run", so every match
+  // lands in the same rank and the ranking must not reshuffle them — the
+  // result must read in exactly the catalogue's own order.
+  it('keeps the catalogue order among rows that tie in rank', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const catalogueOrder = rows.map((row) => row.id)
+    const matches = matchCommands(rows, 'run').map((row) => row.id)
+    expect(matches).toEqual(
+      ['run-generate', 'run-reseed', 'run-defaults', 'run-abort', 'run-solo', 'knob-giantJitter'],
+    )
+    // Same order as in the unfiltered catalogue, just filtered down.
+    expect(matches).toEqual(catalogueOrder.filter((id) => matches.includes(id)))
+  })
 })

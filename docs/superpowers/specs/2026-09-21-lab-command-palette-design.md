@@ -136,7 +136,12 @@ The sections, in list order, and the existing code each one calls:
 — for a knob — its CLI flag from `flagOf` (`packages/engine/command.ts:153`),
 so `--seed`, `seed` and `board` all find the seed. The mock matches name and
 group only; the flag is added because the lab's whole vocabulary is the CLI's,
-and the live command line beside the palette spells knobs that way.
+and the live command line beside the palette spells knobs that way. Within
+that filtered set, a row whose name starts with the query is ranked ahead of
+a row that only contains it elsewhere, with the section order (`run`, `go`,
+`knob`, `preset`) still deciding ties within each of those two groups — a
+query that names a knob has to surface the knob rather than an action whose
+name happens to contain the same word.
 
 **The two exports are deliberately absent from that table** (settled while
 planning, 2026-09-21). Every other row calls a function that already exists as

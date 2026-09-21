@@ -264,11 +264,21 @@ function goRow(deps: CommandDeps, id: string, name: string, path: string): Comma
  * mock searches the label and the group; the flag joins them because the lab's
  * whole vocabulary is the CLI's, and the live command line is on the same
  * screen.
+ *
+ * Rows whose name *starts with* the query are ranked ahead of rows that only
+ * *contain* it elsewhere — otherwise the pinned section order (`run`, `go`,
+ * `knob`, `preset`) decides, and a knob named exactly for the query (e.g.
+ * "seed") loses to an action whose name merely mentions it (e.g. "New seed"),
+ * because `run` is listed first. The partition is stable: within each of the
+ * two groups, rows keep the relative order they already had.
  */
 export function matchCommands(commands: readonly Command[], query: string): Command[] {
   const q = query.trim().toLowerCase()
   if (q === '') return [...commands]
-  return commands.filter((command) =>
+  const matches = commands.filter((command) =>
     `${command.name} ${command.note} ${command.hay}`.toLowerCase().includes(q),
   )
+  const startsWithQuery = matches.filter((command) => command.name.toLowerCase().startsWith(q))
+  const rest = matches.filter((command) => !command.name.toLowerCase().startsWith(q))
+  return [...startsWithQuery, ...rest]
 }
