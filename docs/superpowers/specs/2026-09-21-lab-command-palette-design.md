@@ -127,9 +127,9 @@ The sections, in list order, and the existing code each one calls:
 
 | Section | Rows | Calls |
 |---|---|---|
-| `run` | Generate, New seed, Defaults, Abort, Download SVG, Download board file, full view | `run/actions.ts` (§5), `ui.toggleSolo` |
+| `run` | Generate, New seed, Defaults, Abort, full view | `run/actions.ts` (§5), `ui.toggleSolo` |
 | `go` | Lab, Saved boards, Docs — element, Docs — command line; simple/advanced; Polish/English | `navigate()`, `ui.setMode`, `lang.setLang` |
-| `knob` | 28 generator knobs (the `--start` pair as one row, as `KnobPanel` draws it) and the 9 preview fields | §6 |
+| `knob` | 28 generator knobs (the `--start` pair as one row, as `KnobPanel` draws it) and the preview section's own fields — five numbers and five flags, both tables in `apps/lab/src/console/viewFields.ts` | §6 |
 | `preset` | 26 options under their seven levels | `PresetStrip`'s `apply`, extracted with it (D6) |
 
 **Filtering** is a case-insensitive substring over the row's name, its note and
@@ -137,6 +137,15 @@ The sections, in list order, and the existing code each one calls:
 so `--seed`, `seed` and `board` all find the seed. The mock matches name and
 group only; the flag is added because the lab's whole vocabulary is the CLI's,
 and the live command line beside the palette spells knobs that way.
+
+**The two exports are deliberately absent from that table** (settled while
+planning, 2026-09-21). Every other row calls a function that already exists as
+a function; the SVG export is a closure inside `ExportButtons` holding a worker
+and a busy flag, and the board file needs the layout hash that component works
+out per board. A palette row could only reach them by clicking their button
+through the DOM — a second path to the same action, guarded by no test — or by
+a refactor of the export's worker lifecycle that this design did not scope.
+They stay one click away in the run column, which is where they live.
 
 Because this module is pure, the repertoire is tested in the cheap `node`
 project: which rows exist, in what order, what each one's `disabled` says
@@ -180,7 +189,10 @@ request, so a second render cannot re-steal the focus.
 The target ids already exist and need no new markup:
 `#knob-<key>` on the slider (`ValueKnob.tsx:71`), on the select
 (`ChoiceKnob.tsx:42`), `#knob-start` for the composite (`StartKnob.tsx:44`),
-and `#view-<field>` in the preview section (`ViewPanel.tsx:75`).
+and `#view-<field>` in the preview section (`ViewPanel.tsx:75`). The preview's
+flag switches are the one exception: they carry `aria-labelledby` and no id of
+their own (`ViewPanel.tsx:108-117`), so each gains `id="view-<flag>"` — a line
+of markup, no behaviour, and the label id it already publishes stays as it is.
 
 The flash is a class on the knob's own box for 1200 ms, the mock's figure and
 its rule (`outline: 1px solid var(--signal); outline-offset: 4px`). Its timer
