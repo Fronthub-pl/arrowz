@@ -22,9 +22,7 @@ describe('TopBar', () => {
   // with no separators, because the gaps between them are `gap` too.
   it('names the preset the knobs spell, beside the size', async () => {
     const screen = await render(<TopBar />)
-    await expect
-      .element(screen.getByRole('banner'))
-      .toHaveTextContent('Arrowz/Easy portrait/25×50⌘KSimpleAdvancedPLEN')
+    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/Easy portrait/25×50⌘KSimpleAdvancedPLEN')
   })
 
   // The other branch: one knob off a preset and the bar has nothing to name,

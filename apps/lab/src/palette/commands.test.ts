@@ -133,9 +133,7 @@ describe('the matcher', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
     const matches = matchCommands(rows, 'run').map((row) => row.id)
-    expect(matches).toEqual(
-      ['run-generate', 'run-reseed', 'run-defaults', 'run-abort', 'run-solo', 'knob-giantJitter'],
-    )
+    expect(matches).toEqual(['run-generate', 'run-reseed', 'run-defaults', 'run-abort', 'run-solo', 'knob-giantJitter'])
     // Same order as in the unfiltered catalogue, just filtered down.
     expect(matches).toEqual(catalogueOrder.filter((id) => matches.includes(id)))
   })
