@@ -1,0 +1,124 @@
+import { beforeEach, describe, expect, it } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
+import { render } from 'vitest-browser-react'
+import { MemoryRouter } from 'react-router'
+import type { RunControl } from '../run/useRun'
+import { useStore } from '../state/store'
+import { CommandPalette } from './CommandPalette'
+import '../design/tokens.css'
+import '../design/palette.css'
+
+const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
+
+function mount() {
+  return render(
+    <MemoryRouter>
+      <CommandPalette control={control} />
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  useStore.setState((state) => ({
+    ui: { ...state.ui, palette: true, mode: 'advanced', entry: 'board', focusTarget: null },
+    lang: { ...state.lang, lang: 'en' },
+  }))
+  useStore.getState().params.reset()
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+})
+
+describe('the palette dialog', () => {
+  it('is a modal dialog over a combobox and a listbox', async () => {
+    const screen = await mount()
+    await expect.element(screen.getByRole('dialog', { name: 'Commands' })).toBeVisible()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    expect(input?.getAttribute('role')).toBe('combobox')
+    expect(input?.getAttribute('aria-expanded')).toBe('true')
+    await expect.element(screen.getByRole('listbox', { name: 'Commands' })).toBeVisible()
+  })
+
+  it('renders nothing at all while it is closed', async () => {
+    useStore.setState((state) => ({ ui: { ...state.ui, palette: false } }))
+    const screen = await mount()
+    expect(screen.container.querySelector('.fw-pal')).toBe(null)
+  })
+
+  it('takes the focus into the input when it opens', async () => {
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    await expect.poll(() => document.activeElement === input).toBe(true)
+  })
+
+  // Spec §7: the arrows move the active option, and the focus never leaves the
+  // input — that is what lets a screen reader read the row while typing goes on.
+  it('moves the active option with the arrows without moving the focus', async () => {
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    await expect.poll(() => document.activeElement === input).toBe(true)
+    const first = input?.getAttribute('aria-activedescendant')
+    await userEvent.keyboard('{ArrowDown}')
+    const second = input?.getAttribute('aria-activedescendant')
+    expect(second).not.toBe(first)
+    expect(document.activeElement).toBe(input)
+    const active = screen.container.querySelector(`#${CSS.escape(second ?? '')}`)
+    expect(active?.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('filters as it is typed, and says so when nothing matches', async () => {
+    const screen = await mount()
+    const before = screen.container.querySelectorAll('[role="option"]').length
+    expect(before).toBeGreaterThan(60)
+    await userEvent.keyboard('seed')
+    const after = screen.container.querySelectorAll('[role="option"]').length
+    expect(after).toBeLessThan(before)
+    expect(after).toBeGreaterThan(0)
+    await userEvent.keyboard('zzzz')
+    expect(screen.container.querySelectorAll('[role="option"]')).toHaveLength(0)
+    await expect.element(screen.getByText('nothing matches seedzzzz')).toBeVisible()
+  })
+
+  // Spec D4: the mock caps the list at 40 rows; that cap is dropped, and the
+  // list scrolls instead. Measured as an effect, not as a declared property
+  // (harness fact 36): `overflow-y: auto` on a box nothing constrains scrolls
+  // nothing.
+  it('scrolls its list rather than cutting it off', async () => {
+    await page.viewport(1280, 800)
+    const screen = await mount()
+    const list = screen.container.querySelector<HTMLElement>('.fw-pal .list')
+    expect(list).not.toBe(null)
+    expect(list?.scrollHeight ?? 0).toBeGreaterThan(list?.clientHeight ?? 0)
+  })
+
+  it('runs the active command on Enter and closes', async () => {
+    await mount()
+    await userEvent.keyboard('Saved boards')
+    await userEvent.keyboard('{Enter}')
+    await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  })
+
+  it('closes on Escape', async () => {
+    await mount()
+    await userEvent.keyboard('{Escape}')
+    await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  })
+
+  // D7: unavailable commands stay in the list, carry their reason, and do
+  // nothing when chosen.
+  it('lists an unavailable command with its reason and refuses to run it', async () => {
+    const screen = await mount()
+    await userEvent.keyboard('Abort')
+    const row = screen.container.querySelector('[role="option"]')
+    expect(row?.getAttribute('aria-disabled')).toBe('true')
+    expect(row?.textContent).toContain('nothing running')
+    await userEvent.keyboard('{Enter}')
+    expect(useStore.getState().ui.palette).toBe(true)
+  })
+
+  it('keeps Tab inside itself', async () => {
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    await userEvent.keyboard('{Tab}')
+    expect(document.activeElement).toBe(input)
+  })
+})
