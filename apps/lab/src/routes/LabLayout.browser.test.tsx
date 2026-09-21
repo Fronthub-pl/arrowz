@@ -265,6 +265,25 @@ test('f typed into the palette is text, not a toggle', async () => {
   expect(solo()).toBe(false)
 }, 40_000)
 
+// Spec D5: the same field the case above exercises for `f` silences `g`, `[`
+// and `]` too — `isHotkeyRefused` refuses the palette's search box like any
+// other input, so it never starts a run or moves the seed while typed into.
+test('g, [ and ] typed into the palette are text, not hotkeys', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  const seed = useStore.getState().params.values.seed
+  const phase = useStore.getState().run.phase
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  // `[` and `]` are userEvent's own key-descriptor delimiters, so a literal
+  // one is each character doubled (testing-library/user-event's escape rule).
+  await userEvent.keyboard('g[[]]')
+  expect(useStore.getState().params.values.seed).toBe(seed)
+  expect(useStore.getState().run.phase).toBe(phase)
+  expect(useStore.getState().ui.palette).toBe(true)
+}, 40_000)
+
 test('f typed into a field or an editable region is text, not a toggle', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -403,7 +422,7 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
-  await screen.getByRole('tab', { name: 'Docs' }).click()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
   // `window.location.pathname` flips synchronously inside react-router's own
   // history push, ahead of the `startTransition`-wrapped render that commits
   // `onWorkspace`; polling it raced `useRunKeys`'s guard under load (measured:
