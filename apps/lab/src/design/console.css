@@ -274,6 +274,12 @@
   color: var(--error);
   border-color: var(--error);
 }
+/* A knob the palette jumped to, for 1200 ms (flash.ts). The outline is the
+   mock's, and it sits outside the box so it cannot move the layout. */
+.fw-k.flash {
+  outline: 1px solid var(--signal);
+  outline-offset: 4px;
+}
 /* The chosen theme's arrow colours, on its own paper (Task 1, palette
    round-2 addendum). Fixed-size swatches rather than `flex: 1`: a
    single-colour theme (`everforest-light`, `ayu-light`) then reads as one

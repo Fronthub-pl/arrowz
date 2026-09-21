@@ -1,6 +1,7 @@
 import { expect } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { cancelFlash } from '../console/flash'
 import { cancelNoticeFade } from '../library/notices'
 import { cancelPendingSave } from '../library/useViewSave'
 import { useStore } from '../state/store'
@@ -23,6 +24,7 @@ export function resetApp(mode: ViewMode): void {
   history.replaceState(null, '', location.pathname)
   cancelPendingSave()
   cancelNoticeFade()
+  cancelFlash()
   const state = useStore.getState()
   state.run.reset()
   state.result.reset()

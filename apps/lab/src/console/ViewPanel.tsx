@@ -98,6 +98,7 @@ export function ViewFlagSwitch({
         </span>
         <button
           type="button"
+          id={`view-${flag}`}
           className="fw-sw"
           role="switch"
           aria-checked={on}
