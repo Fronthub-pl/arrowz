@@ -296,3 +296,41 @@ Deno.test('paletteHelp states whatever cap it is passed, in both languages', () 
   assertStringIncludes(dictionary('en').t('paletteHelp', 12), '12')
   assertStringIncludes(dictionary('pl').t('paletteHelp', 12), '12')
 })
+
+// The command palette's own words. The key-set test above fails for a key
+// present in one language only; this one fails for a key missing from both,
+// which that test cannot see. The `cmd` prefix is deliberate: `palette*` keys
+// belong to the editable colour palette and must not be extended here.
+Deno.test('both ui dictionaries carry the command palette words', () => {
+  const dictionaries: Dictionary[] = [EN, PL]
+  const words: UiKey[] = [
+    'cmdOpen',
+    'cmdTitle',
+    'cmdPlaceholder',
+    'cmdSecRun',
+    'cmdSecGo',
+    'cmdSecPreset',
+    'cmdHintMove',
+    'cmdHintChoose',
+    'cmdHintClose',
+    'cmdHintGenerate',
+    'cmdHintSeed',
+    'cmdNoRun',
+    'cmdBroken',
+    'cmdViewSimple',
+    'cmdViewAdvanced',
+    'cmdLangToPl',
+    'cmdLangToEn',
+  ]
+  for (const d of dictionaries) {
+    for (const k of words) {
+      assertEquals(typeof d.ui[k], 'string', k)
+      assert(String(d.ui[k]).length > 0, k)
+    }
+    // The empty note repeats what was typed, so a reader knows which query found nothing.
+    assertStringIncludes(d.ui.cmdEmpty('zzz'), 'zzz')
+  }
+  // The trigger's accessible name names the shortcut, because the button shows
+  // a glyph and nothing else.
+  for (const lang of ['en', 'pl'] as const) assertStringIncludes(dictionary(lang).t('cmdOpen'), '⌘K')
+})
