@@ -10,13 +10,16 @@ import '../design/palette.css'
 
 const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
 
-function mount() {
+function mount(path = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <CommandPalette control={control} />
     </MemoryRouter>,
   )
 }
+
+const footer = (screen: { container: HTMLElement }) =>
+  screen.container.querySelector('.fw-pal .foot')?.textContent ?? ''
 
 beforeEach(() => {
   useStore.setState((state) => ({
@@ -137,6 +140,25 @@ describe('the palette dialog', () => {
     expect(row?.textContent).toContain('nothing running')
     await userEvent.keyboard('{Enter}')
     expect(useStore.getState().ui.palette).toBe(true)
+  })
+
+  it('names all five hotkeys on the workspace, where every one of them is bound', async () => {
+    const screen = await mount()
+    expect(footer(screen)).toContain('generate')
+    expect(footer(screen)).toContain('seed')
+    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(5)
+  })
+
+  // Spec D5 and §7: `useRunKeys` is gated on the workspace, so on `/docs/*`
+  // neither `g` nor `[`/`]` is bound — while ⌘K still opens the palette there
+  // by design. Printing the two hints anyway is the exact promise "the
+  // application cannot keep" that D5 exists to forbid.
+  it('drops the two run hints on the documentation route, where those keys are not bound', async () => {
+    const screen = await mount('/docs/element')
+    expect(footer(screen)).toContain('close')
+    expect(footer(screen)).not.toContain('generate')
+    expect(footer(screen)).not.toContain('seed')
+    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(3)
   })
 
   it('keeps Tab inside itself', async () => {

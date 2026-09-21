@@ -2,6 +2,7 @@ import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useS
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
+import { selectedIndex } from '../shell/TabRow'
 import { useStore } from '../state/store'
 import { buildCommands, type Command, matchCommands } from './commands'
 
@@ -30,6 +31,11 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  // 0 is the lab, 1 the saved boards, 2 the docs — `App.tsx`'s own reckoning,
+  // read from the same function, because the footer has to agree with the
+  // hooks that bind the keys it advertises.
+  const tab = selectedIndex(pathname)
+  const onWorkspace = tab === 0 || tab === 1
   // Named selectors rather than the whole store: a progress message during a
   // carve must not rebuild seventy rows.
   const values = useStore((state) => state.params.values)
@@ -208,12 +214,21 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
           <span>
             <b>esc</b> {dict.t('cmdHintClose')}
           </span>
-          <span>
-            <b>g</b> {dict.t('cmdHintGenerate')}
-          </span>
-          <span>
-            <b>[ ]</b> {dict.t('cmdHintSeed')}
-          </span>
+          {/* The footer follows the keys, not the dialog (spec §7). ⌘K opens
+              the palette on every route, but `useRunKeys` is gated on the
+              workspace, so under `/docs/*` these two are bound to nothing —
+              and a hint for a key that does nothing is the promise D5 exists
+              to forbid the mock for printing. */}
+          {onWorkspace ? (
+            <>
+              <span>
+                <b>g</b> {dict.t('cmdHintGenerate')}
+              </span>
+              <span>
+                <b>[ ]</b> {dict.t('cmdHintSeed')}
+              </span>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
