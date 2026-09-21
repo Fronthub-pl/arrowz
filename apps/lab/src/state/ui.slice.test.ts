@@ -95,3 +95,50 @@ describe('solo', () => {
     expect(store.ui.solo).toBe(true)
   })
 })
+
+// Spec §8: neither field is ever remembered — no localStorage, no hash — so
+// each is asserted against a freshly built slice rather than the live store,
+// which a reset could have written (harness fact 41).
+describe('the command palette', () => {
+  function slice() {
+    const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
+    return store
+  }
+
+  it('starts closed, with no jump waiting', () => {
+    const store = slice()
+    expect(store.ui.palette).toBe(false)
+    expect(store.ui.focusTarget).toBe(null)
+  })
+
+  it('opens, closes, and toggles from whatever it is', () => {
+    const store = slice()
+    store.ui.openPalette()
+    store.ui.openPalette()
+    expect(store.ui.palette).toBe(true)
+    store.ui.closePalette()
+    expect(store.ui.palette).toBe(false)
+    store.ui.togglePalette()
+    expect(store.ui.palette).toBe(true)
+    store.ui.togglePalette()
+    expect(store.ui.palette).toBe(false)
+  })
+
+  it('carries a jump request until its consumer clears it', () => {
+    const store = slice()
+    store.ui.requestFocus('knob-seed')
+    expect(store.ui.focusTarget).toBe('knob-seed')
+    store.ui.requestFocus('view-stroke')
+    expect(store.ui.focusTarget).toBe('view-stroke')
+    store.ui.clearFocusRequest()
+    expect(store.ui.focusTarget).toBe(null)
+  })
+
+  it('writes nothing to storage, unlike the view mode', () => {
+    localStorage.clear()
+    const store = slice()
+    store.ui.openPalette()
+    store.ui.requestFocus('knob-seed')
+    expect(localStorage.length).toBe(0)
+  })
+})

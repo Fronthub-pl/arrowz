@@ -35,6 +35,8 @@ export function resetApp(mode: ViewMode): void {
   state.lang.setLang('en')
   state.ui.setMode(mode)
   state.ui.setSolo(false)
+  state.ui.closePalette()
+  state.ui.clearFocusRequest()
 }
 
 /** The real `App`, address bar and all. */
