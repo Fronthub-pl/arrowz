@@ -114,16 +114,25 @@ export const EN = {
     themeLabel: 'theme',
     themeNone: 'none (default colours)',
     // The console's editable custom palette (palette round-2 addendum, task
-    // 2): a theme and this palette never both apply (Ruling B), so choosing
-    // one clears the other.
+    // 2): Ruling 6 repealed the old exclusion with `theme`, so a chosen theme
+    // and this palette now coexist, the palette overriding the theme's
+    // colours field by field.
     paletteLabel: 'custom palette',
     paletteAdd: 'add colour',
     paletteColorLabel: (n: number) => `colour ${n}`,
     paletteRemove: (n: number) => `remove colour ${n}`,
     // A function of the cap, like `paletteColorLabel` above, so the caller's
     // `PALETTE_CAP` and this text cannot drift apart silently the way a
-    // hardcoded "8" once could.
-    paletteHelp: (cap: number) => `Up to ${cap} colours. Setting one clears the chosen theme.`,
+    // hardcoded "8" once could. Ruling 6 repealed the sentence this used to
+    // end on ("Setting one clears the chosen theme"): a theme still supplies
+    // whatever the palette, paper or ink leave unset.
+    paletteHelp: (cap: number) => `Up to ${cap} colours. A chosen theme still supplies everything you do not set.`,
+    // The board's own surface colours (Task 6): '' means "not set", which lets
+    // a chosen theme supply them.
+    paperLabel: 'background',
+    inkLabel: 'drawing colour',
+    paperClear: 'clear the paper, back to the theme',
+    inkClear: 'clear the drawing colour, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     showHelp: 'show parameter descriptions',
@@ -542,7 +551,11 @@ export const PL: Translation = {
     paletteAdd: 'dodaj kolor',
     paletteColorLabel: (n) => `kolor ${n}`,
     paletteRemove: (n) => `usuń kolor ${n}`,
-    paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Ustawienie choćby jednego czyści wybrany motyw.`,
+    paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
+    paperLabel: 'tło',
+    inkLabel: 'kolor rysunku',
+    paperClear: 'wyczyść tło, z powrotem do motywu',
+    inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     showHelp: 'pokazuj opisy parametrów',

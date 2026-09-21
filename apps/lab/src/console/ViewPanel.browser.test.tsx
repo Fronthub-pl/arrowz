@@ -9,11 +9,12 @@ import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './Vie
 
 const view = () => useStore.getState().view
 
-// Colour inputs that exist on the panel independently of the palette editor:
-// today just the point grid's dot colour field. Task 7 adds paper and ink
-// here, so the palette-counting tests below compute against this rather than
-// a bare number.
-const STANDALONE_COLOR_INPUTS = 1
+// Colour inputs that exist on the panel before the user adds anything to the
+// palette: the point grid's dot colour (Task 5), the paper and the ink
+// (Task 7). Palette rows are added on top of these three, so the
+// palette-counting tests below compute against this rather than a bare
+// number.
+const ALWAYS_PRESENT_COLOR_INPUTS = 3
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
 function rgbOf(hex: string): string {
@@ -247,7 +248,7 @@ test('adding a colour appends a swatch, keeps a chosen theme, and edits write th
   // The panel now also carries the point grid's own colour input, so the
   // total is that plus one palette swatch, not one on its own.
   const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
-  expect(inputs).toHaveLength(STANDALONE_COLOR_INPUTS + view().palette.length)
+  expect(inputs).toHaveLength(ALWAYS_PRESENT_COLOR_INPUTS + view().palette.length)
 
   // Scoped to the palette row, not the panel's other colour inputs, so this
   // picks up the swatch just added rather than whichever input happens to
@@ -274,7 +275,7 @@ test('the remove button drops one colour and leaves the rest', async () => {
   await screen.getByRole('button', { name: 'remove colour 1' }).click()
   expect(view().palette).toEqual(['#123456'])
   expect(screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')).toHaveLength(
-    STANDALONE_COLOR_INPUTS + view().palette.length,
+    ALWAYS_PRESENT_COLOR_INPUTS + view().palette.length,
   )
 })
 
@@ -310,7 +311,7 @@ test('choosing a theme keeps a custom palette built in the editor', async () => 
   expect(view().palette).toEqual(['#000000'])
   // The palette's own swatch survives the theme choice alongside the panel's
   // other colour input (the point grid's).
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(STANDALONE_COLOR_INPUTS + 1)
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(ALWAYS_PRESENT_COLOR_INPUTS + 1)
 })
 
 test('the editor never mutates a theme’s own palette array', async () => {
@@ -331,7 +332,29 @@ test('the editor never mutates a theme’s own palette array', async () => {
 
 test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
   const screen = await render(<PaletteEditor />)
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  // Rendered alone, the editor carries paper and ink but not the point grid's
+  // dot colour -- that one lives in `ViewPanel` itself (`ALWAYS_PRESENT_COLOR_INPUTS`
+  // above counts all three, so one is subtracted here).
+  const beforeAnyPaletteColor = ALWAYS_PRESENT_COLOR_INPUTS - 1
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor)
   await screen.getByRole('button', { name: 'add colour' }).click()
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(1)
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor + 1)
+})
+
+test('the editor offers paper and ink, and hands them back to the theme when cleared', async () => {
+  const screen = await render(<ViewPanel />)
+  const paper = screen.container.querySelector<HTMLInputElement>('#view-paper')
+  expect(paper).not.toBeNull()
+  if (paper === null) return
+  // The native setter, not a plain assignment: React patches `.value` to keep
+  // its own change-tracker in step, so a plain assignment would update that
+  // tracker too and the dispatched `input` event would then look like a
+  // no-op change (`slide` in SimplePanel.browser.test.tsx hits the same seam).
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(paper, '#010203')
+  paper.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(view().paper).toBe('#010203')
+
+  await screen.getByRole('button', { name: /clear the paper/i }).click()
+  // Back to "not set", which is what lets a theme supply it again.
+  expect(view().paper).toBe('')
 })

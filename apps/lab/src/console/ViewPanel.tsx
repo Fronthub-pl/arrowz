@@ -1,4 +1,4 @@
-import { POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
+import { DEFAULT_VIEW, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
@@ -198,9 +198,9 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
  * `ThemeSwatchStrip` from this file but never this component
  * (ViewPanel.browser.test.tsx and SimplePanel.browser.test.tsx both pin it).
  *
- * Ruling B lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
+ * The cap lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
  * every handler below just forwards to a store action, so there is nowhere
- * in this component for the exclusion or the cap to be bypassed.
+ * in this component for the cap to be bypassed.
  */
 export function PaletteEditor() {
   const dict = useDictionary()
@@ -208,6 +208,10 @@ export function PaletteEditor() {
   const addPaletteColor = useStore((state) => state.view.addPaletteColor)
   const setPaletteColor = useStore((state) => state.view.setPaletteColor)
   const removePaletteColor = useStore((state) => state.view.removePaletteColor)
+  const paper = useStore((state) => state.view.paper)
+  const ink = useStore((state) => state.view.ink)
+  const setPaper = useStore((state) => state.view.setPaper)
+  const setInk = useStore((state) => state.view.setInk)
   return (
     <div className="fw-k fw-palette">
       <div className="top">
@@ -227,6 +231,25 @@ export function PaletteEditor() {
           {dict.t('paletteAdd')}
         </button>
       </div>
+      {/* The board's own surface colours (Task 6): `''` means "not set", which
+          a native colour input has no way to show, so the field shows the
+          element's own default while unset and the clear button -- present
+          only once there is something to clear -- is what expresses "not
+          set" and hands the field back to a chosen theme. */}
+      <ColorField
+        id="view-paper"
+        label={dict.t('paperLabel')}
+        value={paper === '' ? DEFAULT_VIEW.paper : paper}
+        onChange={setPaper}
+        {...(paper === '' ? {} : { onClear: () => setPaper(''), clearLabel: dict.t('paperClear') })}
+      />
+      <ColorField
+        id="view-ink"
+        label={dict.t('inkLabel')}
+        value={ink === '' ? DEFAULT_VIEW.ink : ink}
+        onChange={setInk}
+        {...(ink === '' ? {} : { onClear: () => setInk(''), clearLabel: dict.t('inkClear') })}
+      />
       {palette.length === 0 ? null : (
         <ul className="fw-palette-list" aria-labelledby="view-palette-label">
           {palette.map((color, index) => (
