@@ -315,6 +315,7 @@ Deno.test('both ui dictionaries carry the command palette words', () => {
     'cmdHintGenerate',
     'cmdHintSeed',
     'cmdNoRun',
+    'cmdRunning',
     'cmdBroken',
     'cmdViewSimple',
     'cmdViewAdvanced',

@@ -149,7 +149,9 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('generate'),
       note: dict.t('cmdSecRun'),
-      value: broken ? dict.t('cmdBroken') : 'g',
+      // The broken rule first: it is the state a person has to do something
+      // about, and it is still true while a carve is going.
+      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : 'g',
       hay: 'generate',
       disabled: running || broken,
       run: () => {
@@ -162,7 +164,9 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('reseed'),
       note: dict.t('cmdSecRun'),
-      value: '[ ]',
+      // The hotkey while the row can be used, the reason while it cannot: the
+      // value column is one column, and D7 gives the reason the right of way.
+      value: running ? dict.t('cmdRunning') : '[ ]',
       hay: 'seed',
       disabled: running,
       run: () => {
@@ -175,7 +179,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('reset'),
       note: dict.t('cmdSecRun'),
-      value: '',
+      value: running ? dict.t('cmdRunning') : '',
       hay: 'defaults reset',
       disabled: running,
       run: () => {

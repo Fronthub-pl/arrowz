@@ -68,6 +68,43 @@ describe('the catalogue', () => {
     expect(go?.value).toBe('rule broken')
   })
 
+  // D7 is unconditional, and it was applied to one of the four states a row
+  // can be unavailable in: while a carve was going, Generate still advertised
+  // its hotkey `g`, New seed still advertised `[ ]` and Defaults said nothing
+  // at all — three greyed rows with no word about why. The assertion is over
+  // the whole catalogue rather than over the three rows, so a row added later
+  // cannot be disabled in silence, and it compares against the dictionary's
+  // reasons rather than against "not empty": `[ ]` is a hotkey, not a reason,
+  // and a looser test would have passed on the very defect it exists for.
+  it('never disables a row without giving one of D7’s reasons', () => {
+    const dict = dictionary('en')
+    const reasons = [dict.t('cmdNoRun'), dict.t('cmdRunning'), dict.t('cmdBroken')]
+    const broken = () => useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
+    const running = () => useStore.getState().run.started(useStore.getState().params.values)
+    const states: [string, () => void][] = [
+      ['idle', () => {}],
+      ['a carve going', running],
+      ['a broken rule', broken],
+      [
+        'a carve going against a broken rule',
+        () => {
+          broken()
+          running()
+        },
+      ],
+    ]
+    for (const [name, arrange] of states) {
+      useStore.getState().params.reset()
+      useStore.getState().run.reset()
+      arrange()
+      const off = buildCommands(deps(), useStore.getState()).filter((row) => row.disabled)
+      // Each of these states disables something; a state that disabled nothing
+      // would make the loop below vacuous.
+      expect(off.length, name).toBeGreaterThan(0)
+      for (const row of off) expect(reasons, `${name}: ${row.id}`).toContain(row.value)
+    }
+  })
+
   it('navigates through the deps it was handed, not through the address bar', () => {
     const handed = deps()
     const rows = buildCommands(handed, useStore.getState())
