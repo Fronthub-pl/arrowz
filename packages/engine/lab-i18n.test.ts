@@ -309,7 +309,6 @@ Deno.test('both ui dictionaries carry the command palette words', () => {
     'cmdPlaceholder',
     'cmdSecRun',
     'cmdSecGo',
-    'cmdSecPreset',
     'cmdHintMove',
     'cmdHintChoose',
     'cmdHintClose',
