@@ -253,6 +253,28 @@ test('⌘K opens the palette on the docs route too', async () => {
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
+// The trigger and the dialog have to be on the page together for this, which
+// only the whole application gives. The defect: the dialog closes on a press
+// outside its frame, and the trigger is outside its frame — so the press shut
+// the palette and the click that followed opened it again. The button could
+// never close what it opened, and the dialog remounted on every such click.
+test('the ⌘K button closes the palette it opened, rather than reopening it', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  // And a press anywhere else outside the frame still closes it, so the
+  // exception above is the trigger's alone.
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await screen.getByRole('heading', { level: 1, name: 'Arrowz' }).click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+}, 40_000)
+
 // The palette's search box is a field, and the `f` guard refuses fields — so
 // typing `f` into the palette must not take the board full screen.
 test('f typed into the palette is text, not a toggle', async () => {

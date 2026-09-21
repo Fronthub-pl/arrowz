@@ -9,6 +9,10 @@ beforeEach(() => {
   state.params.reset()
   state.lang.setLang('en')
   state.ui.setMode('simple')
+  // The trigger toggles, so a case that left the palette open would make the
+  // next one's click close it instead (harness fact 40's reasoning, applied
+  // to a field this file's own last case moves).
+  state.ui.closePalette()
 })
 
 describe('TopBar', () => {

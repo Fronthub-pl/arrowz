@@ -86,9 +86,16 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   useEffect(() => {
     const onDown = (event: MouseEvent) => {
       const frame = frameRef.current
-      if (frame !== null && event.target instanceof Node && !frame.contains(event.target)) {
-        useStore.getState().ui.closePalette()
-      }
+      if (frame === null || !(event.target instanceof Node)) return
+      if (frame.contains(event.target)) return
+      // The trigger is the one press outside the frame that must not close the
+      // dialog here. It toggles (`TopBar.tsx`), and the toggle reads the store
+      // as it stands when the *click* arrives — so a close on `mousedown`
+      // would leave that click to find the palette shut and open it again.
+      // The button could never close what it opened, and the dialog remounted
+      // on every such press.
+      if (document.getElementById(TRIGGER_ID)?.contains(event.target) === true) return
+      useStore.getState().ui.closePalette()
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)

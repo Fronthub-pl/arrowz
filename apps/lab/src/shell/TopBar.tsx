@@ -55,7 +55,10 @@ export function TopBar() {
           type="button"
           id={TRIGGER_ID}
           aria-label={dict.t('cmdOpen')}
-          onClick={() => useStore.getState().ui.openPalette()}
+          // Toggles, like ⌘K itself: a button that only ever opened would be a
+          // button that cannot close what it opened. The dialog's own
+          // outside-press listener leaves this element alone for that reason.
+          onClick={() => useStore.getState().ui.togglePalette()}
         >
           ⌘K
         </button>
