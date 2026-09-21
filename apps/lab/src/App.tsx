@@ -95,8 +95,8 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
  *
  * A focused button is not a field, so `f` on Generate toggles (PR 4b,
  * Ruling 9). The listener lives wherever the stage does — the lab tab and the
- * saved boards — and nowhere else. Escape is not handled: the palette of PR 7
- * owns it.
+ * saved boards — and nowhere else. Escape is not handled here: the command
+ * palette owns it, closing on it in its own key handler (`CommandPalette.tsx`).
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
