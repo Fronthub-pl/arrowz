@@ -29,6 +29,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const phase = useStore((state) => state.run.phase)
   const mode = useStore((state) => state.ui.mode)
   const lang = useStore((state) => state.lang.lang)
+  const view = useStore((state) => state.view)
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -36,9 +37,14 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
 
   const commands = useMemo(
     () => buildCommands({ control, navigate: (path) => void navigate(path), dict }, useStore.getState()),
-    // The snapshot is read inside, but these are what make it stale: every
-    // field a row shows or is disabled by.
-    [control, navigate, dict, values, violations, phase, mode, lang],
+    // The snapshot is read inside through `getState()`, so `exhaustive-deps`
+    // cannot check this list: it only flags a listed dependency the closure
+    // never reads, never a field read through `getState()` that was never
+    // listed. This array is therefore checked by hand — it is every slice a
+    // row shows or is disabled by (`knobRows`, `presetRows`, the run and go
+    // rows in `buildCommands`) — and anyone adding a field to a row must add
+    // its slice here.
+    [control, navigate, dict, values, violations, phase, mode, lang, view],
   )
   const hits = useMemo(() => matchCommands(commands, query), [commands, query])
   const current = hits[Math.min(active, hits.length - 1)]
