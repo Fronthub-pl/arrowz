@@ -7,12 +7,18 @@
    rest of the bar: the two move together, and a bar that never gained a
    palette would want neither.
 
-   The child combinator is not decoration. `.fw-top .right` also holds the two
-   `Segmented` groups, and `.fw .fw-seg button` is (0,2,1) exactly as
-   `.fw-top .right button` would be — with `palette.css` imported after
-   `shell.css` in `main.tsx`, a descendant selector here would win the tie on
-   order and re-dress the view and language chips. The trigger is `.right`'s
-   only direct button child; the chips are wrapped in `.fw-seg`.
+   The child combinator is not decoration, though what it prevents is narrower
+   than it first looks. `.fw-top .right` also holds the two `Segmented` groups,
+   and `.fw .fw-seg button` is (0,2,1) exactly as `.fw-top .right button` would
+   be — with `palette.css` imported after `shell.css` in `main.tsx`, a
+   descendant selector here would win that tie on order and reach the chips.
+   Most of it would change nothing: the height, the background and the cursor
+   are already what the chips carry, and their colour and border colour are
+   pinned one file over by `.fw .fw-top .fw-seg button` at (0,3,1), which
+   outranks it. The padding is the one declaration that would land, squeezing
+   the chips from 10px to 8px. Keeping the trigger's rule off them altogether
+   is still worth more than arguing over which half survives. The trigger is
+   `.right`'s only direct button child; the chips are wrapped in `.fw-seg`.
 
    The border and the hover are `--void` at low alpha, because the bar is the
    Signal plane: the chips make the same choice one file over. */

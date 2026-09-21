@@ -348,12 +348,18 @@ native browser chrome on the Signal plane.
 .fw-top .right > button:hover { background: rgba(14,15,18,.12); }
 ```
 
-The child combinator is load-bearing. `.fw-top .right` also holds the two
-`Segmented` groups, and `.fw .fw-seg button` is (0,2,1) exactly as
-`.fw-top .right button` would be — with `palette.css` imported after
-`shell.css` in `main.tsx`, a descendant selector here would win that tie on
-source order and re-dress the view and language chips. The trigger is the
-container's only direct button child.
+The child combinator is load-bearing, and what it holds off is smaller than it
+looks. `.fw-top .right` also holds the two `Segmented` groups, and
+`.fw .fw-seg button` is (0,2,1) exactly as `.fw-top .right button` would be —
+with `palette.css` imported after `shell.css` in `main.tsx`, a descendant
+selector here would win that tie on source order and reach the chips. Most of
+the rule would then change nothing about them: the height, the background and
+the cursor are already what they carry, and their colour and border colour are
+pinned by `.fw .fw-top .fw-seg button` at (0,3,1), which outranks it. The
+padding is the one declaration that would land, squeezing the chips from 10px
+to 8px. That is a small consequence for a rule that is easy to write the other
+way, which is why the combinator is stated here rather than left to a reader's
+arithmetic. The trigger is the container's only direct button child.
 
 The three columns are what makes the wider repertoire fit the mock's row
 without inventing a layout: the name, then the note (a knob's group, a preset's
