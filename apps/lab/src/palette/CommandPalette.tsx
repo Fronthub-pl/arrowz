@@ -1,5 +1,5 @@
 import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
@@ -22,6 +22,7 @@ export function CommandPalette({ control }: { control: RunControl }): ReactEleme
 function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   // Named selectors rather than the whole store: a progress message during a
   // carve must not rebuild seventy rows.
   const values = useStore((state) => state.params.values)
@@ -36,7 +37,22 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const frameRef = useRef<HTMLDivElement>(null)
 
   const commands = useMemo(
-    () => buildCommands({ control, navigate: (path) => void navigate(path), dict }, useStore.getState()),
+    () =>
+      buildCommands(
+        {
+          control,
+          // A jump to a knob asks for the lab face first (spec §6), and every
+          // `go` row names a route: neither should stack a history entry for
+          // the route already on screen, or Back would walk through the jumps
+          // instead of leaving the lab. Written inside the memo rather than
+          // beside it, so it is not a fresh dependency on every render.
+          navigate: (path) => {
+            if (path !== pathname) void navigate(path)
+          },
+          dict,
+        },
+        useStore.getState(),
+      ),
     // The snapshot is read inside through `getState()`, so `exhaustive-deps`
     // cannot check this list: it only flags a listed dependency the closure
     // never reads, never a field read through `getState()` that was never
@@ -44,7 +60,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     // row shows or is disabled by (`knobRows`, `presetRows`, the run and go
     // rows in `buildCommands`) — and anyone adding a field to a row must add
     // its slice here.
-    [control, navigate, dict, values, violations, phase, mode, lang, view],
+    [control, navigate, pathname, dict, values, violations, phase, mode, lang, view],
   )
   const hits = useMemo(() => matchCommands(commands, query), [commands, query])
   const current = hits[Math.min(active, hits.length - 1)]

@@ -35,12 +35,17 @@ export interface CommandDeps {
   readonly dict: Dict
 }
 
-/** A jump: the panel that holds the control, then the control itself (spec §6). */
-function jumpTo(entry: Parameters<Store['ui']['select']>[0], id: string): void {
+/** A jump: the face, then the panel that holds the control, then the control itself (spec §6). */
+function jumpTo(deps: CommandDeps, entry: Parameters<Store['ui']['select']>[0], id: string): void {
   const ui = useStore.getState().ui
-  // The knobs do not exist in the simple view, so the jump has to bring the
-  // console that has them.
-  if (useStore.getState().ui.mode === 'simple') ui.setMode('advanced')
+  // ⌘K is bound on every route, so a jump can be asked for from anywhere — but
+  // the knobs are the lab face's alone: `/boards` puts the library in the
+  // console's panel slot and `/docs/*` hides the whole workspace. The lab face
+  // comes first, because a person who asked for a knob asked for that knob.
+  deps.navigate('/')
+  // The knobs do not exist in the simple view either, so the jump has to bring
+  // the console that has them.
+  if (ui.mode === 'simple') ui.setMode('advanced')
   ui.select(entry)
   ui.requestFocus(id)
   ui.closePalette()
@@ -62,7 +67,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
         value: '--start',
         hay: '--start',
         disabled: false,
-        run: () => jumpTo(spec.group, 'knob-start'),
+        run: () => jumpTo(deps, spec.group, 'knob-start'),
       })
       continue
     }
@@ -78,7 +83,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: wordFor(spec.key, value) ?? String(value),
       hay: flagOf(spec.key),
       disabled: false,
-      run: () => jumpTo(spec.group, `knob-${spec.key}`),
+      run: () => jumpTo(deps, spec.group, `knob-${spec.key}`),
     })
   }
   for (const field of VIEW_FIELDS) {
@@ -90,7 +95,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: String(state.view[field.field]),
       hay: field.field,
       disabled: false,
-      run: () => jumpTo('preview', `view-${field.field}`),
+      run: () => jumpTo(deps, 'preview', `view-${field.field}`),
     })
   }
   for (const flag of VIEW_FLAGS) {
@@ -102,7 +107,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       value: state.view[flag.flag] ? 'on' : 'off',
       hay: flag.flag,
       disabled: false,
-      run: () => jumpTo('preview', `view-${flag.flag}`),
+      run: () => jumpTo(deps, 'preview', `view-${flag.flag}`),
     })
   }
   return rows

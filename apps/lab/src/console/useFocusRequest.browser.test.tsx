@@ -41,6 +41,42 @@ describe('a jump from the palette', () => {
     await expect.poll(() => document.activeElement?.id).toBe('knob-seed')
   }, 40_000)
 
+  // Spec §6: ⌘K is bound on every route, and the knobs are the lab face's
+  // alone — `/boards` puts the library where the knob panel goes, so before
+  // the jump navigated, the request was spent against a panel that has no
+  // `#knob-seed` and the palette closed on nothing at all.
+  it('comes back from the saved boards to the lab face, and still lands on the knob', async () => {
+    await page.viewport(1400, 900)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await screen.getByRole('tab', { name: 'Saved boards', exact: true }).click()
+    await expect.poll(() => screen.container.querySelector('#boards-panel') !== null).toBe(true)
+    await userEvent.keyboard('{Meta>}k{/Meta}')
+    await userEvent.keyboard('--seed')
+    await userEvent.keyboard('{Enter}')
+    await expect.poll(() => screen.container.querySelector('#lab-panel') !== null).toBe(true)
+    await expect.poll(() => document.activeElement?.id).toBe('knob-seed')
+  }, 40_000)
+
+  // The other face with no knobs: under `/docs/*` the whole workspace is a
+  // `<main hidden>`, so `focus()` on a node inside it is a no-op.
+  it('comes back from the documentation to the lab face, and still lands on the knob', async () => {
+    await page.viewport(1400, 900)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+    await expect
+      .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+      .toBe(true)
+    await userEvent.keyboard('{Meta>}k{/Meta}')
+    await userEvent.keyboard('--seed')
+    await userEvent.keyboard('{Enter}')
+    await expect
+      .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+      .toBe(false)
+    await expect.poll(() => document.activeElement?.id).toBe('knob-seed')
+  }, 40_000)
+
   it('reaches a preview field and a preview switch, which live in the other panel', async () => {
     await page.viewport(1400, 900)
     await mountApp('advanced')
