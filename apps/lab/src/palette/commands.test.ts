@@ -3,7 +3,7 @@ import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
 import type { RunControl } from '../run/useRun'
-import { buildCommands, type CommandDeps, matchCommands } from './commands'
+import { buildCommands, type CommandDeps, type CommandSection, matchCommands } from './commands'
 
 const control: RunControl = { start: () => {}, abort: () => {}, hold: () => {} }
 
@@ -20,10 +20,22 @@ beforeEach(() => {
 })
 
 describe('the catalogue', () => {
-  it('opens with the run actions, then navigation, then knobs, then presets', () => {
+  it('opens with the run actions, then navigation, then knobs, then presets, and never turns back', () => {
+    const order: CommandSection[] = ['run', 'go', 'knob', 'preset']
     const rows = buildCommands(deps(), useStore.getState())
-    const sections = [...new Set(rows.map((row) => row.section))]
-    expect(sections).toEqual(['run', 'go', 'knob', 'preset'])
+    expect([...new Set(rows.map((row) => row.section))]).toEqual(order)
+    // First occurrences alone say less than the name of this case promises: a
+    // preset row dropped among the knobs would leave the four first sightings
+    // in exactly this order and pass. The sequence has to be non-decreasing
+    // row by row, which is what "in sections" actually means.
+    for (let i = 1; i < rows.length; i += 1) {
+      const before = rows[i - 1]
+      const row = rows[i]
+      if (before === undefined || row === undefined) throw new Error('the catalogue is shorter than it says')
+      expect(order.indexOf(row.section), `${before.id} then ${row.id}`).toBeGreaterThanOrEqual(
+        order.indexOf(before.section),
+      )
+    }
   })
 
   it('carries every knob the engine has, the start pair as one row', () => {
