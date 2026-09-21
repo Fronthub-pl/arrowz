@@ -1,5 +1,5 @@
 import { PARAM_SPEC } from '@arrowz/engine'
-import { describe, expect, it, test } from 'vitest'
+import { afterEach, describe, expect, it, test, vi } from 'vitest'
 import { createUiSlice, modeOf, RAIL_GROUPS, type UiState } from './ui.slice'
 import { useStore } from './store'
 
@@ -105,6 +105,15 @@ describe('the command palette', () => {
     return store
   }
 
+  // storage.ts documents that the node project has no dependable Web Storage,
+  // so this stub supplies localStorage for only this test to verify the palette
+  // never writes to it. The stub is removed after the test (afterEach below) to
+  // preserve the node environment's contract: future tests exercise the "no
+  // storage" branch without the safety net of a polyfill.
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('starts closed, with no jump waiting', () => {
     const store = slice()
     expect(store.ui.palette).toBe(false)
@@ -135,10 +144,26 @@ describe('the command palette', () => {
   })
 
   it('writes nothing to storage, unlike the view mode', () => {
+    // Stub localStorage only for this test. See comment above.
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => store.set(key, value),
+      removeItem: (key: string) => store.delete(key),
+      clear: () => store.clear(),
+      key: (index: number) => {
+        const keys = [...store.keys()]
+        return keys[index] ?? null
+      },
+      get length() {
+        return store.size
+      },
+    } satisfies Storage)
+
     localStorage.clear()
-    const store = slice()
-    store.ui.openPalette()
-    store.ui.requestFocus('knob-seed')
+    const uiStore = slice()
+    uiStore.ui.openPalette()
+    uiStore.ui.requestFocus('knob-seed')
     expect(localStorage.length).toBe(0)
   })
 })

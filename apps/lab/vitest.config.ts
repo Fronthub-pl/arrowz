@@ -12,7 +12,6 @@ export default defineConfig({
           // Vitest mocks CSS imports by default (an empty module); tokens.test.ts
           // reads the actual declarations through `?raw`, so CSS must be processed.
           css: true,
-          setupFiles: ['./vitest.setup.node.ts'],
           include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
           exclude: ['src/**/*.browser.test.ts', 'src/**/*.browser.test.tsx', 'src/**/*.node.test.ts'],
         },
