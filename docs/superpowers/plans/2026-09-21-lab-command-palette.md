@@ -681,8 +681,11 @@ describe('the catalogue', () => {
   })
 
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
-    // wShort + wMed above 0.9 breaks `sharesSum`, the rule the envelope states.
-    useStore.getState().params.setMany({ wShort: 0.9, wMed: 0.9 })
+    // wShort + wMid above 0.9 breaks `sharesSum`, the rule the envelope states
+    // (`engine.ts:2810`). The key is `wMid`, not `wMed`: Vitest transpiles
+    // without type-checking, so a wrong key here would pass the transform and
+    // fail at runtime inside `specOf`.
+    useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
     expect(useStore.getState().params.violations.length).toBeGreaterThan(0)
     const go = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-generate')
     expect(go?.disabled).toBe(true)
