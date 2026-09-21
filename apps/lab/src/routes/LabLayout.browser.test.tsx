@@ -181,8 +181,9 @@ const solo = () => useStore.getState().ui.solo
 
 // Spec §5.1: `f` and `F`, and nothing else. Every refusal is followed by the
 // same event without the thing refused, so a listener that ignored synthetic
-// events altogether could not pass the refusals.
-test('f toggles solo, and a modifier, a repeat or Escape does nothing', async () => {
+// events altogether could not pass the refusals. Escape used to be asserted
+// here too, before the palette gave it an owner (see the two cases below).
+test('f toggles solo, and a modifier or a repeat does nothing', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
@@ -228,6 +229,28 @@ test('⌘K opens the palette anywhere, Escape closes it, and solo is untouched e
   await userEvent.keyboard('{Escape}')
   await expect.poll(() => useStore.getState().ui.palette).toBe(false)
   expect(solo()).toBe(false)
+  // Uppercase `K`, the way a real keyboard sends it with Shift held or Caps
+  // Lock on: `App.tsx`'s guard checks both `'k'` and `'K'`, and this half of
+  // it has no other case exercising it.
+  await userEvent.keyboard('{Meta>}K{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+}, 40_000)
+
+// Spec §7: ⌘K is bound on every route, the docs included, because navigation
+// is half of what the palette is for — unlike `f` (solo, workspace-only),
+// this listener is not gated by `onWorkspace`. `BrowserRouter` commits
+// navigation inside `startTransition`, so the route change is polled before
+// ⌘K is asserted on it.
+test('⌘K opens the palette on the docs route too', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
 // The palette's search box is a field, and the `f` guard refuses fields — so
