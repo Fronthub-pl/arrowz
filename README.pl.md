@@ -948,8 +948,8 @@ niczego — potrzebuje obok `--square` albo `--portrait`.
 otwierane: musi działać `pnpm nx serve lab`, a adres to
 `http://localhost:8779`. To polecenie uruchamia też magazyn, ale magazyn
 zostaje opcjonalny — laboratorium serwowane w inny sposób (choćby ze
-statycznego hostingu) działa i bez niego. Jeśli biblioteka plansz jest wtedy
-pusta albo zapis się nie udaje, brakuje drugiej połowy: uruchom obok
+statycznego hostingu) działa i bez niego. Jeśli biblioteka plansz jest pusta
+albo zapis się nie udaje, brakuje drugiej połowy: uruchom obok
 `deno task store`.
 
 **Ciekawi cię, co się dzieje** — ustaw `CARVE_TRACE=1`, a będzie meldować

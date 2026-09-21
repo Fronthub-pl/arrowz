@@ -62,6 +62,13 @@ follow now.
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
 | `finished` | `{ pieces }`, after the ride of the last piece |
 
+The element also announces the paper it actually painted as the CSS custom
+property `--arrowz-paper`, set inline on its own host. Because it is set
+there, a consumer cannot style the element *with* it from an ancestor and
+cannot override it from above; it is readable by the element's own
+descendants (through ordinary inheritance), or from any element with
+`getComputedStyle(el).getPropertyValue('--arrowz-paper')`.
+
 ### Themes and attribution
 
 `theme` names one of twelve built-in themes, exported as `THEMES` (a

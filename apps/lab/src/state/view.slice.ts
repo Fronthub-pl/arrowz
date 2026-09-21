@@ -29,7 +29,7 @@ export interface ViewState {
    * The point grid. Like `voids`, these are the element's settings and not the
    * engine's: `viewOf` does not carry them, and the CLI has no flag for any of
    * them. The bounds come from the element (`POINT_RADIUS_RANGE`), read at the
-   * point of render, never copied.
+   * point of the action, never copied.
    */
   showPoints: boolean
   pointColor: string

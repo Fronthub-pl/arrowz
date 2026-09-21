@@ -1,4 +1,4 @@
-import { POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
+import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -39,7 +39,26 @@ beforeEach(() => {
   // Reset both directly: `setTheme` no longer touches the palette (Ruling 6
   // repealed that), so resetting the theme alone would leave a palette built
   // by an earlier test on screen for the next one.
-  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
+  //
+  // The five new fields go through the same direct `setState`, never through
+  // `setPaper`/`setInk`/`setFlag`: a reset built on the actions under test
+  // would fail alongside a broken action instead of pinning the one test
+  // that exercises it. `showPoints` is the one field here with a real leak —
+  // "the panel draws the point grid controls" below clicks it on and never
+  // clicks it back off, so every later test in this file ran with the grid on
+  // until this reset covered it.
+  useStore.setState((state) => ({
+    view: {
+      ...state.view,
+      theme: '',
+      palette: [],
+      paper: '',
+      ink: '',
+      showPoints: false,
+      pointColor: DEFAULT_POINT_COLOR,
+      pointRadius: DEFAULT_POINT_RADIUS,
+    },
+  }))
 })
 
 test('the panel draws all eleven preview controls', async () => {
@@ -62,6 +81,34 @@ test('the panel draws the point grid controls', async () => {
   expect(Number(radius?.min)).toBe(POINT_RADIUS_RANGE.min)
   expect(Number(radius?.max)).toBe(POINT_RADIUS_RANGE.max)
   expect(radius?.checkValidity()).toBe(true)
+})
+
+// Finding 1 (fix wave after the whole-branch review): unlike its sibling
+// number fields, this box was uncontrolled with neither of `ViewNumberField`'s
+// two mechanisms — it never wrote the clamped value back on commit, and never
+// re-synced from the store when something external changed it. Typing past
+// the ceiling and blurring used to leave the store clamped but the box still
+// showing the out-of-range number it was never told to give up (and
+// `:invalid` against its own `max`).
+test('the point radius box shows the clamped value after commit, not what was typed', async () => {
+  const screen = await render(<ViewPanel />)
+  const radius = screen.getByRole('spinbutton', { name: /dot radius/i })
+  await userEvent.fill(radius, String(POINT_RADIUS_RANGE.max + 9))
+  await userEvent.tab()
+  expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.max)
+  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.max)
+  expect(screen.container.querySelector<HTMLInputElement>('#view-point-radius')?.checkValidity()).toBe(true)
+})
+
+// An external change (a link naming a different radius, or any other write to
+// the store) must reach the box too — the same sync `ViewNumberField` runs
+// while the field is not focused.
+test('the point radius box follows an external store change while unfocused', async () => {
+  const screen = await render(<ViewPanel />)
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  if (!radius) throw new Error('no point radius input')
+  view().setPointRadius(String(POINT_RADIUS_RANGE.min))
+  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.min)
 })
 
 test('a switch is a switch, not a checkbox pretending to be one', async () => {

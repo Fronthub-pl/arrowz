@@ -297,6 +297,25 @@ export function PaletteEditor() {
 export function ViewPanel() {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
+  const pointRadiusRef = useRef<HTMLInputElement>(null)
+
+  // Same two mechanisms as `ViewNumberField` above, kept separate because this
+  // field's bound comes from the element (`POINT_RADIUS_RANGE`) and its commit
+  // goes through the slice's own clamp (`setPointRadius`) rather than
+  // `viewNumberOf`: the store is the only place that knows the kept value, so
+  // the commit reads it back from there instead of computing it locally.
+  useEffect(() => {
+    const node = pointRadiusRef.current
+    if (node && document.activeElement !== node) node.value = String(view.pointRadius)
+  }, [view.pointRadius])
+
+  const commitPointRadius = () => {
+    const node = pointRadiusRef.current
+    if (!node) return
+    view.setPointRadius(node.value)
+    node.value = String(useStore.getState().view.pointRadius)
+  }
+
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
@@ -326,6 +345,7 @@ export function ViewPanel() {
               {dict.t('pointRadiusLabel')}
             </label>
             <input
+              ref={pointRadiusRef}
               type="number"
               id="view-point-radius"
               className="num"
@@ -335,9 +355,9 @@ export function ViewPanel() {
               // the same role `step` plays in `viewFields.ts`.
               step={0.01}
               defaultValue={String(view.pointRadius)}
-              onBlur={(e) => view.setPointRadius(e.target.value)}
+              onBlur={commitPointRadius}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') view.setPointRadius(e.currentTarget.value)
+                if (e.key === 'Enter') commitPointRadius()
               }}
             />
           </div>

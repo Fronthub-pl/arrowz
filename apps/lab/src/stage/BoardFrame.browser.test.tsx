@@ -331,14 +331,27 @@ test('on the library tab a board that could not be read leaves the stage empty',
   expect(annotation(screen.container)).toBeNull()
 })
 
-test('the frame around the board takes the paper the element announces', async () => {
+// Renamed from "the frame around the board takes the paper the element
+// announces" (fix wave after the whole-branch review): `<arrowz-board>` sets
+// `--arrowz-paper` on its own host, and a custom property inherits downward
+// only, so `.fw-board` -- an ancestor of the element it nests -- can never
+// see it. Nothing in the app ever sets the property on `.fw-board` itself;
+// the letterbox a person actually sees is painted by the element's own
+// `:host`, which does receive it. What this test still pins for real:
+test('the frame paints the lab’s token by default, and would follow --arrowz-paper if a composition set it there', async () => {
   const screen = await mountFrame()
   const frame = screen.container.querySelector('.fw-board')
   // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
   // which has no `style` for the property set below.
   if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
-  // Before any element has drawn, the token is what shows: the fallback.
+  // Production, exactly: `.fw-board` never receives `--arrowz-paper` (the
+  // element covers it and sets the property on its own host instead), so this
+  // is what the frame paints, always -- the fallback, the lab's own token.
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
+  // Not production -- nothing in the app sets the property on `.fw-board`
+  // itself -- but this half still guards that the `var(--arrowz-paper,
+  // var(--paper))` wiring works, for the day some other composition (a frame
+  // larger than the element it holds) provides the property here.
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(40, 40, 40)')
 })

@@ -152,11 +152,8 @@ export function decodeHash(hash: string): HashPayload | null {
       palette: palette(raw.palette),
       paper: colour(raw.paper),
       ink: colour(raw.ink),
-      // Unlike `colored`/`rounded`/`hilite`, absence here must decode to
-      // `undefined` rather than `false`: this field is new, so a link with no
-      // `showPoints` key at all (any link written before this task, or the
-      // round-trip fixture, which has no need to carry it) must not be
-      // indistinguishable from one explicitly naming `false`.
+      // Decodes to `undefined` rather than `false` on absence so the
+      // round-trip fixture need not carry the key.
       showPoints: raw.showPoints === true ? true : undefined,
       pointColor: colour(raw.pointColor),
       pointRadius: num(raw.pointRadius),

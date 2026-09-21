@@ -187,10 +187,16 @@ body {
   position: relative;
   height: 100%;
   min-height: 260px;
-  /* The paper `<arrowz-board>` announces, so the letterbox around a board that
-     does not fill the frame is the board's own colour rather than a second,
-     unrelated light grey. The fallback is the lab's token, for the frames that
-     hold no element yet. */
+  /* `<arrowz-board>` sets `--arrowz-paper` on its own host, and a custom
+     property inherits downward only, so in this composition -- the element
+     nested inside `.fw-board` (below), covering it -- this rule can never
+     see it and always falls back to `var(--paper)`, the lab's own token. That
+     is not a gap: the `.fw-board arrowz-board` rule below, giving the element
+     a full-height display, means the element covers the frame's padding box,
+     so the letterbox a person sees is painted by the element's own `:host`,
+     which is what carries the board's colour. This declaration would read
+     the property only in a composition that set it at or above this element
+     -- worth keeping for the day a frame is larger than the board it holds. */
   background: var(--arrowz-paper, var(--paper));
   border: 1px solid var(--border);
   overflow: hidden;

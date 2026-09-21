@@ -941,8 +941,7 @@ needs `--square` or `--portrait` alongside it.
 serve lab` running, and lives at `http://localhost:8779`. That command also
 starts the store, but the store stays optional — a lab served some other way
 (a static host, say) still runs without one. If the board library is empty or
-refuses to save there, the other half is missing: start `deno task store`
-beside it.
+refuses to save, the other half is missing: start `deno task store` beside it.
 
 **Wondering what it is doing** — set `CARVE_TRACE=1` and it reports progress as
 it goes:
