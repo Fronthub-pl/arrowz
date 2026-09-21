@@ -24,6 +24,11 @@ function viewFor(view: ViewState, help: boolean, lang: Lang) {
     lang,
     theme: view.theme,
     palette: view.palette,
+    paper: view.paper,
+    ink: view.ink,
+    showPoints: view.showPoints,
+    pointColor: view.pointColor,
+    pointRadius: view.pointRadius,
   }
 }
 
@@ -50,12 +55,19 @@ function applyPayload(payload: HashPayload): void {
   // Absent when the link predates themes or names none: the page keeps its
   // own value, the same tolerance `cell`..`top` get above.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
-  // After the theme, not before: a hand-edited link naming both must resolve
-  // deterministically, and `setPalette` clearing the theme it just set (the
-  // slice's own exclusivity, `paletteUpdate`) is what makes the palette win —
-  // the same precedence the element gives an explicit `view` over a named
-  // theme.
+  // A link naming both keeps both: Ruling 6 repealed the slice's own
+  // exclusivity (`paletteUpdate`), so neither `setTheme` nor `setPalette`
+  // touches the other field any more. The order below still matches the
+  // order the fields are read above, but it no longer decides a winner.
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
+  // The board colours and the point grid, the same tolerance as `cell`..`top`:
+  // absent means the link did not say, and `showPoints` is a plain flag like
+  // `rounded`, `colored` and `hilite` above rather than a tri-state.
+  if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
+  if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
+  view.setFlag('showPoints', payload.view.showPoints === true)
+  if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
+  if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
 }
 
 export interface UrlHash {

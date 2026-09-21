@@ -150,7 +150,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       position: relative;
       overflow: hidden;
       outline: none;
-      background: #f6f6fa;
+      /* The paper the element actually painted, announced by updated(). The
+        canvas clears to transparent and the paper quad covers only the board
+        plus its margin, so this fills the rest of the frame; the fallback is
+        DEFAULT_VIEW.paper, so an element that never draws looks unchanged. */
+      background: var(--arrowz-paper, #f6f6fa);
     }
     :host(:focus-visible) {
       outline: 2px solid #4a7cff;
@@ -449,6 +453,11 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Colours alone never move a vertex, and re-tesselating for them costs
     // 184.5 ms on the largest board where a repaint costs 23.3.
     const view = this.drawView()
+    // Announced, not painted here: the consumer's own frame (the lab's
+    // `.fw-board`) reads the same property, so the colour is resolved once.
+    // `drawView()` is the only point where precedence and sanitising have both
+    // run, which is why this sits here and not in `render()`.
+    this.style.setProperty('--arrowz-paper', view.paper)
     const colors = [view.ink, view.paper, view.highlight, view.palette.join(','), String(view.colored)].join('|')
     const onlyColors = !changed.has('board') && !changed.has('pad') &&
       this.layer.board === this.board && this.geometryKey === geometryKeyOf(view)

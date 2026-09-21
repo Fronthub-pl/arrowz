@@ -244,6 +244,14 @@ Deno.test('both ui dictionaries carry the report, export and annotation words', 
     'themeLabel',
     'themeNone',
     'svgThemeNote',
+    'showPoints',
+    'pointColorLabel',
+    'pointRadiusLabel',
+    'pointRadiusHelp',
+    'paperLabel',
+    'inkLabel',
+    'paperClear',
+    'inkClear',
   ]
   for (const d of dictionaries) {
     for (const k of words) {

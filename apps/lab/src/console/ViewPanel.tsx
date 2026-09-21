@@ -1,4 +1,4 @@
-import { THEMES, themeOf } from '@arrowz/board-element'
+import { DEFAULT_VIEW, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
 import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
@@ -7,12 +7,16 @@ import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
 import { VIEW_FIELDS, type ViewField } from './viewFields'
 
-/** The four flags, in the order the previous lab lists them. */
-export const VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' | 'hilite' | 'voids' }[] = [
+/** The five flags, in the order the previous lab lists them, plus the point grid. */
+export const VIEW_FLAGS: readonly {
+  flag: ViewFlag
+  label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
+}[] = [
   { flag: 'rounded', label: 'rounded' },
   { flag: 'colored', label: 'colored' },
   { flag: 'hilite', label: 'hilite' },
   { flag: 'voids', label: 'voids' },
+  { flag: 'showPoints', label: 'showPoints' },
 ]
 
 /**
@@ -118,6 +122,48 @@ export function ViewFlagSwitch({
 }
 
 /**
+ * One colour, as the palette rows already draw one: a visible label (so the
+ * row reads on its own, unlike a palette swatch that sits beside "colour 1"
+ * in a list already labelled by the editor around it) and a controlled
+ * native colour input. `onClear` is offered where the empty value means
+ * something -- paper and ink use it to hand the field back to the theme,
+ * which a colour input has no way to express on its own.
+ */
+export function ColorField({
+  id,
+  label,
+  value,
+  onChange,
+  onClear,
+  clearLabel,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange(color: string): void
+  onClear?: (() => void) | undefined
+  clearLabel?: string | undefined
+}) {
+  return (
+    <div className="fw-k">
+      <div className="row">
+        <label className="lab" htmlFor={id}>
+          {label}
+        </label>
+        <span className="fw-colour-cell">
+          <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+          {onClear === undefined ? null : (
+            <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
+              ×
+            </button>
+          )}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * The chosen theme's arrow colours, in order, on the theme's own paper
  * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
  * surface the arrows draw against without spending a swatch on `paper` or
@@ -152,9 +198,9 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
  * `ThemeSwatchStrip` from this file but never this component
  * (ViewPanel.browser.test.tsx and SimplePanel.browser.test.tsx both pin it).
  *
- * Ruling B lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
+ * The cap lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
  * every handler below just forwards to a store action, so there is nowhere
- * in this component for the exclusion or the cap to be bypassed.
+ * in this component for the cap to be bypassed.
  */
 export function PaletteEditor() {
   const dict = useDictionary()
@@ -162,6 +208,10 @@ export function PaletteEditor() {
   const addPaletteColor = useStore((state) => state.view.addPaletteColor)
   const setPaletteColor = useStore((state) => state.view.setPaletteColor)
   const removePaletteColor = useStore((state) => state.view.removePaletteColor)
+  const paper = useStore((state) => state.view.paper)
+  const ink = useStore((state) => state.view.ink)
+  const setPaper = useStore((state) => state.view.setPaper)
+  const setInk = useStore((state) => state.view.setInk)
   return (
     <div className="fw-k fw-palette">
       <div className="top">
@@ -181,6 +231,25 @@ export function PaletteEditor() {
           {dict.t('paletteAdd')}
         </button>
       </div>
+      {/* The board's own surface colours (Task 6): `''` means "not set", which
+          a native colour input has no way to show, so the field shows the
+          element's own default while unset and the clear button -- present
+          only once there is something to clear -- is what expresses "not
+          set" and hands the field back to a chosen theme. */}
+      <ColorField
+        id="view-paper"
+        label={dict.t('paperLabel')}
+        value={paper === '' ? DEFAULT_VIEW.paper : paper}
+        onChange={setPaper}
+        {...(paper === '' ? {} : { onClear: () => setPaper(''), clearLabel: dict.t('paperClear') })}
+      />
+      <ColorField
+        id="view-ink"
+        label={dict.t('inkLabel')}
+        value={ink === '' ? DEFAULT_VIEW.ink : ink}
+        onChange={setInk}
+        {...(ink === '' ? {} : { onClear: () => setInk(''), clearLabel: dict.t('inkClear') })}
+      />
       {palette.length === 0 ? null : (
         <ul className="fw-palette-list" aria-labelledby="view-palette-label">
           {palette.map((color, index) => (
@@ -217,7 +286,7 @@ export function PaletteEditor() {
 }
 
 /**
- * The mock's *element* section: the nine preview fields. They are not knobs —
+ * The mock's *element* section: the eleven preview fields. They are not knobs —
  * the engine never sees them — so they carry no violation and no inactive
  * reason, and editing one redraws the board without generating (§2.2).
  *
@@ -228,6 +297,25 @@ export function PaletteEditor() {
 export function ViewPanel() {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
+  const pointRadiusRef = useRef<HTMLInputElement>(null)
+
+  // Same two mechanisms as `ViewNumberField` above, kept separate because this
+  // field's bound comes from the element (`POINT_RADIUS_RANGE`) and its commit
+  // goes through the slice's own clamp (`setPointRadius`) rather than
+  // `viewNumberOf`: the store is the only place that knows the kept value, so
+  // the commit reads it back from there instead of computing it locally.
+  useEffect(() => {
+    const node = pointRadiusRef.current
+    if (node && document.activeElement !== node) node.value = String(view.pointRadius)
+  }, [view.pointRadius])
+
+  const commitPointRadius = () => {
+    const node = pointRadiusRef.current
+    if (!node) return
+    view.setPointRadius(node.value)
+    node.value = String(useStore.getState().view.pointRadius)
+  }
+
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
@@ -245,6 +333,36 @@ export function ViewPanel() {
         {VIEW_FLAGS.map(({ flag, label }) => (
           <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
         ))}
+        <ColorField
+          id="view-point-color"
+          label={dict.t('pointColorLabel')}
+          value={view.pointColor}
+          onChange={view.setPointColor}
+        />
+        <div className="fw-k">
+          <div className="top">
+            <label className="lab" htmlFor="view-point-radius">
+              {dict.t('pointRadiusLabel')}
+            </label>
+            <input
+              ref={pointRadiusRef}
+              type="number"
+              id="view-point-radius"
+              className="num"
+              min={POINT_RADIUS_RANGE.min}
+              max={POINT_RADIUS_RANGE.max}
+              // A keyboard convenience, not a claim about what is allowed --
+              // the same role `step` plays in `viewFields.ts`.
+              step={0.01}
+              defaultValue={String(view.pointRadius)}
+              onBlur={commitPointRadius}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitPointRadius()
+              }}
+            />
+          </div>
+          <p className="why">{dict.t('pointRadiusHelp')}</p>
+        </div>
         <div className="fw-k">
           <div className="row">
             <label className="lab" htmlFor="view-theme">

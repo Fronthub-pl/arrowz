@@ -1,4 +1,4 @@
-import { themeOf } from '@arrowz/board-element'
+import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -8,6 +8,13 @@ import { useStore } from '../state/store'
 import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
+
+// Colour inputs that exist on the panel before the user adds anything to the
+// palette: the point grid's dot colour (Task 5), the paper and the ink
+// (Task 7). Palette rows are added on top of these three, so the
+// palette-counting tests below compute against this rather than a bare
+// number.
+const ALWAYS_PRESENT_COLOR_INPUTS = 3
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
 function rgbOf(hex: string): string {
@@ -29,17 +36,79 @@ beforeEach(() => {
   view().setNumber('top', '5')
   if (!view().rounded) view().toggle('rounded')
   if (view().colored) view().toggle('colored')
-  // Reset directly rather than through `setTheme`: `setTheme` clearing the
-  // palette is Ruling B, the very thing under test below, and a reset built
-  // on it would make an unrelated later test fail alongside a broken Ruling B
-  // instead of pinning only the cases that assert it.
-  useStore.setState((state) => ({ view: { ...state.view, theme: '', palette: [] } }))
+  // Reset both directly: `setTheme` no longer touches the palette (Ruling 6
+  // repealed that), so resetting the theme alone would leave a palette built
+  // by an earlier test on screen for the next one.
+  //
+  // The five new fields go through the same direct `setState`, never through
+  // `setPaper`/`setInk`/`setFlag`: a reset built on the actions under test
+  // would fail alongside a broken action instead of pinning the one test
+  // that exercises it. `showPoints` is the one field here with a real leak —
+  // "the panel draws the point grid controls" below clicks it on and never
+  // clicks it back off, so every later test in this file ran with the grid on
+  // until this reset covered it.
+  useStore.setState((state) => ({
+    view: {
+      ...state.view,
+      theme: '',
+      palette: [],
+      paper: '',
+      ink: '',
+      showPoints: false,
+      pointColor: DEFAULT_POINT_COLOR,
+      pointRadius: DEFAULT_POINT_RADIUS,
+    },
+  }))
 })
 
-test('the panel draws all nine preview controls', async () => {
+test('the panel draws all eleven preview controls', async () => {
   const screen = await render(<ViewPanel />)
-  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(5)
-  expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(4)
+  // Six numbers now: the five the engine's table covers plus the point radius,
+  // whose bounds come from the element instead (spec §4.3).
+  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(6)
+  expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(5)
+})
+
+test('the panel draws the point grid controls', async () => {
+  const screen = await render(<ViewPanel />)
+  const grid = screen.getByRole('switch', { name: /show the point grid/i })
+  await expect.element(grid).toHaveAttribute('aria-checked', 'false')
+  await grid.click()
+  expect(view().showPoints).toBe(true)
+
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  expect(radius).not.toBeNull()
+  expect(Number(radius?.min)).toBe(POINT_RADIUS_RANGE.min)
+  expect(Number(radius?.max)).toBe(POINT_RADIUS_RANGE.max)
+  expect(radius?.checkValidity()).toBe(true)
+})
+
+// Finding 1 (fix wave after the whole-branch review): unlike its sibling
+// number fields, this box was uncontrolled with neither of `ViewNumberField`'s
+// two mechanisms — it never wrote the clamped value back on commit, and never
+// re-synced from the store when something external changed it. Typing past
+// the ceiling and blurring used to leave the store clamped but the box still
+// showing the out-of-range number it was never told to give up (and
+// `:invalid` against its own `max`).
+test('the point radius box shows the clamped value after commit, not what was typed', async () => {
+  const screen = await render(<ViewPanel />)
+  const radius = screen.getByRole('spinbutton', { name: /dot radius/i })
+  await userEvent.fill(radius, String(POINT_RADIUS_RANGE.max + 9))
+  await userEvent.tab()
+  expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.max)
+  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.max)
+  expect(screen.container.querySelector<HTMLInputElement>('#view-point-radius')?.checkValidity()).toBe(true)
+})
+
+// An external change (a link naming a different radius, or any other write to
+// the store) must reach the box too — the same sync `ViewNumberField` runs
+// while the field is not focused.
+test('the point radius box follows an external store change while unfocused', async () => {
+  const screen = await render(<ViewPanel />)
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  if (!radius) throw new Error('no point radius input')
+  view().setPointRadius(String(POINT_RADIUS_RANGE.min))
+  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.min)
 })
 
 test('a switch is a switch, not a checkbox pretending to be one', async () => {
@@ -69,7 +138,9 @@ test('every number field declares the bounds the engine actually takes', async (
   // screen reader are told is what the DOM says, and that is what has to agree
   // with `VIEW_RANGE`.
   const screen = await render(<ViewPanel />)
-  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')]
+  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')].filter(
+    (input) => input.id !== 'view-point-radius',
+  )
   expect(fields).toHaveLength(Object.keys(VIEW_RANGE).length)
   for (const input of fields) {
     const key = input.id.replace(/^view-/, '') as keyof typeof VIEW_RANGE
@@ -208,7 +279,7 @@ test('a single-colour theme still shows one swatch, not a broken strip', async (
 // `userEvent.fill(colorInput, '#ff00ff')` both sets the input's `.value` and
 // fires the `change` React listens to, so this exercises the real control
 // rather than writing the store directly.
-test('adding a colour appends a swatch, clears any chosen theme, and edits write the store', async () => {
+test('adding a colour appends a swatch, keeps a chosen theme, and edits write the store', async () => {
   const screen = await render(<ViewPanel />)
   const picker = screen.getByRole('combobox')
   await userEvent.selectOptions(picker, 'gruvbox-dark')
@@ -217,13 +288,19 @@ test('adding a colour appends a swatch, clears any chosen theme, and edits write
   const add = screen.getByRole('button', { name: 'add colour' })
   await add.click()
   expect(view().palette).toEqual(['#000000'])
-  // Ruling B, exercised through the UI: adding a colour cleared the theme
-  // the picker had just set, not merely what the slice does when called directly.
-  expect(view().theme).toBe('')
+  // Ruling 6, exercised through the UI: adding a colour left the theme the
+  // picker had just set untouched, not merely what the slice does when
+  // called directly.
+  expect(view().theme).toBe('gruvbox-dark')
+  // The panel now also carries the point grid's own colour input, so the
+  // total is that plus one palette swatch, not one on its own.
   const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
-  expect(inputs).toHaveLength(1)
+  expect(inputs).toHaveLength(ALWAYS_PRESENT_COLOR_INPUTS + view().palette.length)
 
-  const swatch = inputs[0]
+  // Scoped to the palette row, not the panel's other colour inputs, so this
+  // picks up the swatch just added rather than whichever input happens to
+  // sit first in the DOM.
+  const swatch = screen.container.querySelector<HTMLInputElement>('.fw-palette-row input[type="color"]')
   if (!swatch) throw new Error('no colour input')
   await userEvent.fill(swatch, '#ff00ff')
   expect(view().palette).toEqual(['#ff00ff'])
@@ -234,15 +311,19 @@ test('the remove button drops one colour and leaves the rest', async () => {
   const add = screen.getByRole('button', { name: 'add colour' })
   await add.click()
   await add.click()
-  const inputs = () => screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
-  const second = inputs()[1]
+  // Scoped to the palette rows: the panel's other colour inputs (the point
+  // grid's) must not shift which "second" input this grabs.
+  const paletteInputs = () => screen.container.querySelectorAll<HTMLInputElement>('.fw-palette-row input[type="color"]')
+  const second = paletteInputs()[1]
   if (!second) throw new Error('no second colour input')
   await userEvent.fill(second, '#123456')
   expect(view().palette).toEqual(['#000000', '#123456'])
 
   await screen.getByRole('button', { name: 'remove colour 1' }).click()
   expect(view().palette).toEqual(['#123456'])
-  expect(inputs()).toHaveLength(1)
+  expect(screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')).toHaveLength(
+    ALWAYS_PRESENT_COLOR_INPUTS + view().palette.length,
+  )
 })
 
 test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async () => {
@@ -265,17 +346,19 @@ test('the add button names the cap help text as its accessible description', asy
   expect(help?.textContent).toContain(`Up to ${PALETTE_CAP} colours`)
 })
 
-// Ruling B the other way: the store test covers the slice directly, this
+// Ruling 6 the other way: the store test covers the slice directly, this
 // covers it reached from the UI, so a caller that goes through `PaletteEditor`
 // and one that goes through the picker are both pinned.
-test('choosing a theme clears a custom palette built in the editor', async () => {
+test('choosing a theme keeps a custom palette built in the editor', async () => {
   const screen = await render(<ViewPanel />)
   await screen.getByRole('button', { name: 'add colour' }).click()
   expect(view().palette).toEqual(['#000000'])
   const picker = screen.getByRole('combobox')
   await userEvent.selectOptions(picker, 'gruvbox-dark')
-  expect(view().palette).toEqual([])
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  expect(view().palette).toEqual(['#000000'])
+  // The palette's own swatch survives the theme choice alongside the panel's
+  // other colour input (the point grid's).
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(ALWAYS_PRESENT_COLOR_INPUTS + 1)
 })
 
 test('the editor never mutates a theme’s own palette array', async () => {
@@ -285,7 +368,9 @@ test('the editor never mutates a theme’s own palette array', async () => {
   const picker = screen.getByRole('combobox')
   await userEvent.selectOptions(picker, 'gruvbox-dark')
   await screen.getByRole('button', { name: 'add colour' }).click()
-  const inputs = screen.container.querySelectorAll<HTMLInputElement>('input[type="color"]')
+  // Scoped to the palette row: the panel's other colour input (the point
+  // grid's) must not be the one this test edits.
+  const inputs = screen.container.querySelectorAll<HTMLInputElement>('.fw-palette-row input[type="color"]')
   const swatch = inputs[0]
   if (!swatch) throw new Error('no colour input')
   await userEvent.fill(swatch, '#abcdef')
@@ -294,7 +379,29 @@ test('the editor never mutates a theme’s own palette array', async () => {
 
 test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
   const screen = await render(<PaletteEditor />)
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(0)
+  // Rendered alone, the editor carries paper and ink but not the point grid's
+  // dot colour -- that one lives in `ViewPanel` itself (`ALWAYS_PRESENT_COLOR_INPUTS`
+  // above counts all three, so one is subtracted here).
+  const beforeAnyPaletteColor = ALWAYS_PRESENT_COLOR_INPUTS - 1
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor)
   await screen.getByRole('button', { name: 'add colour' }).click()
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(1)
+  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor + 1)
+})
+
+test('the editor offers paper and ink, and hands them back to the theme when cleared', async () => {
+  const screen = await render(<ViewPanel />)
+  const paper = screen.container.querySelector<HTMLInputElement>('#view-paper')
+  expect(paper).not.toBeNull()
+  if (paper === null) return
+  // The native setter, not a plain assignment: React patches `.value` to keep
+  // its own change-tracker in step, so a plain assignment would update that
+  // tracker too and the dispatched `input` event would then look like a
+  // no-op change (`slide` in SimplePanel.browser.test.tsx hits the same seam).
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(paper, '#010203')
+  paper.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(view().paper).toBe('#010203')
+
+  await screen.getByRole('button', { name: /clear the paper/i }).click()
+  // Back to "not set", which is what lets a theme supply it again.
+  expect(view().paper).toBe('')
 })

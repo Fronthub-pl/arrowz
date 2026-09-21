@@ -230,11 +230,11 @@ test('a custom palette reaches the element', async () => {
   })
   const element = screen.container.querySelector('arrowz-board')
   expect(element?.view.palette).toEqual(['#ff00ff'])
-  // And clearing it back to empty must not leave a stale `palette` key on the
-  // element's view stated over a theme chosen afterwards (the guard in
-  // `BoardFrame.tsx`, not merely the store's own exclusion).
+  // Ruling 6 repealed the exclusion that used to clear the palette here: a
+  // theme chosen afterwards no longer wipes it, and the element's own
+  // `.view.palette` still reads the override `BoardFrame.tsx` builds.
   await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
-  expect(element === null || !('palette' in (element.view ?? {}))).toBe(true)
+  expect(element?.view.palette).toEqual(['#ff00ff'])
   useStore.getState().view.setTheme('')
 })
 
@@ -265,6 +265,58 @@ test('a custom palette reaches a library preview too, the same way the theme alr
   }
 })
 
+test('an unset paper leaves the theme its own, and a set one overrides it', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
+  const element = screen.container.querySelector('arrowz-board')
+  // Absent, not empty: the element sanitises *after* precedence, so a stated
+  // '' would beat the theme and then fall to the element's own default,
+  // turning a dark theme light (spec §4.4).
+  expect(element === null || !('paper' in (element.view ?? {}))).toBe(true)
+
+  await act(async () => useStore.getState().view.setPaper('#010203'))
+  expect(element?.view.paper).toBe('#010203')
+  // The theme is still supplying what the user did not override (Ruling 6).
+  expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+  useStore.getState().view.setTheme('')
+  useStore.getState().view.setPaper('')
+})
+
+// The same seam as the palette's preview case above: a colour that reaches the
+// lab branch and not the library's, for two states the design calls equivalent.
+test('the library preview gets the custom colours too', async () => {
+  const { meta, file } = storedFixture(2)
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
+  try {
+    await act(async () => useStore.getState().view.setPaper('#040506'))
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    const element = screen.container.querySelector('arrowz-board')
+    expect(element?.view.paper).toBe('#040506')
+    // There is a board under that paper: `labView` carries it too, so a
+    // preview that never landed would leave this green on its own.
+    expect(element?.board?.W).toBe(8)
+  } finally {
+    useStore.getState().view.setPaper('')
+  }
+})
+
+test('the point grid reaches the element', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => {
+    const view = useStore.getState().view
+    view.setFlag('showPoints', true)
+    view.setPointColor('#0a0b0c')
+    view.setPointRadius('0.2')
+  })
+  const element = screen.container.querySelector('arrowz-board')
+  expect(element?.showPoints).toBe(true)
+  expect(element?.pointColor).toBe('#0a0b0c')
+  expect(element?.pointRadius).toBe(0.2)
+  useStore.getState().view.setFlag('showPoints', false)
+})
+
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage
 // empty and says why. Measured by review round 2 before the tab gate existed:
 // the frame fell through to the lab's own board, so a 25×50 carve stood under
@@ -277,4 +329,29 @@ test('on the library tab a board that could not be read leaves the stage empty',
 
   await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
   expect(annotation(screen.container)).toBeNull()
+})
+
+// Renamed from "the frame around the board takes the paper the element
+// announces" (fix wave after the whole-branch review): `<arrowz-board>` sets
+// `--arrowz-paper` on its own host, and a custom property inherits downward
+// only, so `.fw-board` -- an ancestor of the element it nests -- can never
+// see it. Nothing in the app ever sets the property on `.fw-board` itself;
+// the letterbox a person actually sees is painted by the element's own
+// `:host`, which does receive it. What this test still pins for real:
+test('the frame paints the lab’s token by default, and would follow --arrowz-paper if a composition set it there', async () => {
+  const screen = await mountFrame()
+  const frame = screen.container.querySelector('.fw-board')
+  // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
+  // which has no `style` for the property set below.
+  if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
+  // Production, exactly: `.fw-board` never receives `--arrowz-paper` (the
+  // element covers it and sets the property on its own host instead), so this
+  // is what the frame paints, always -- the fallback, the lab's own token.
+  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
+  // Not production -- nothing in the app sets the property on `.fw-board`
+  // itself -- but this half still guards that the `var(--arrowz-paper,
+  // var(--paper))` wiring works, for the day some other composition (a frame
+  // larger than the element it holds) provides the property here.
+  frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
+  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(40, 40, 40)')
 })

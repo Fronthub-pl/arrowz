@@ -38,36 +38,48 @@ export function BoardFrame(): ReactElement {
   // Without `inLibrary` the lab's own board is drawn in that frame under the
   // stored board's flags — spec §5.3 asks the route, not "is there a preview".
   // `boardViewOf` carries no colour fields at all (view.ts:50-60) — the lab
-  // passes the theme by name through the element's `theme` prop below. The
-  // custom palette is added here, and only when it is non-empty: the
+  // passes the theme by name through the element's `theme` prop below. One
+  // rule covers the palette and both surface colours here: each is added
+  // only when the user actually set it, never as an empty value. The
   // element's own precedence is "stated beats named beats default"
-  // (arrowz-board.ts:582-594), so an *empty* `palette` key here would still
-  // count as "stated" and blank out a chosen theme's colours. Ruling B
-  // already keeps `view.palette` and `view.theme` mutually exclusive in the
-  // store, so this guard never fights that invariant — it exists so a named
-  // theme's own palette is free to fall through when there is no custom one.
+  // (arrowz-board.ts:582-594), and its sanitising runs *after* that merge, so
+  // a stated but empty field would still count as "stated", beat a chosen
+  // theme, and then fall through to the element's own default — turning a
+  // dark theme light, silently. While the store kept `view.palette` and
+  // `view.theme` mutually exclusive, a live theme and a custom palette could
+  // never coexist, so this guard was mostly belt-and-braces; Ruling 6
+  // repealed that exclusion, and now that the two DO coexist, this guard is
+  // the only thing standing between an empty field and a blanked-out theme.
   //
   // A colour choice is a viewing preference, the same way the theme already
   // is: `theme={view.theme}` below applies unconditionally to whatever board
-  // is on screen, lab or library preview, so the palette override is built
-  // once and spread into both `labView` and the preview's view rather than
-  // into `labView` alone — a review finding once left the preview branch
-  // discarding it, so a theme repainted a stored preview and a custom
-  // palette did not, for two states the design calls equivalent.
+  // is on screen, lab or library preview, so both overrides are built once
+  // and spread into both `labView` and the preview's view rather than into
+  // `labView` alone — a review finding once left the preview branch
+  // discarding the palette, so a theme repainted a stored preview and a
+  // custom palette did not, for two states the design calls equivalent.
   const paletteOverride = useMemo(() => (view.palette.length > 0 ? { palette: view.palette } : {}), [view.palette])
+  const colourOverride = useMemo(
+    () => ({
+      ...(view.paper === '' ? {} : { paper: view.paper }),
+      ...(view.ink === '' ? {} : { ink: view.ink }),
+    }),
+    [view.paper, view.ink],
+  )
   const labView = useMemo(
     () => ({
       ...boardViewOf(viewOf(view), view.voids),
       ...paletteOverride,
+      ...colourOverride,
     }),
-    [view, paletteOverride],
+    [view, paletteOverride, colourOverride],
   )
   const elementView = useMemo(
     () =>
       preview === null || !inLibrary
         ? labView
-        : { ...boardViewOf(preview.meta.view, preview.meta.ok === false), ...paletteOverride },
-    [preview, labView, inLibrary, paletteOverride],
+        : { ...boardViewOf(preview.meta.view, preview.meta.ok === false), ...paletteOverride, ...colourOverride },
+    [preview, labView, inLibrary, paletteOverride, colourOverride],
   )
   // The tab decides, not the presence of a preview: in the library a board
   // that could not be read leaves the stage empty (spec §5.6), and the lab's
@@ -108,7 +120,17 @@ export function BoardFrame(): ReactElement {
         {/* `enableColors`: the element draws in ink unless its host grants
             colours, and the lab does — without it the `colored` flag reaches
             the element and changes nothing on screen. */}
-        <BoardCanvas board={board} view={elementView} interactive={false} lang={lang} enableColors theme={view.theme} />
+        <BoardCanvas
+          board={board}
+          view={elementView}
+          interactive={false}
+          lang={lang}
+          enableColors
+          theme={view.theme}
+          showPoints={view.showPoints}
+          pointColor={view.pointColor}
+          pointRadius={view.pointRadius}
+        />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}

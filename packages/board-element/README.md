@@ -62,6 +62,13 @@ follow now.
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
 | `finished` | `{ pieces }`, after the ride of the last piece |
 
+The element also announces the paper it actually painted as the CSS custom
+property `--arrowz-paper`, set inline on its own host. Because it is set
+there, a consumer cannot style the element *with* it from an ancestor and
+cannot override it from above; it is readable by the element's own
+descendants (through ordinary inheritance), or from any element with
+`getComputedStyle(el).getPropertyValue('--arrowz-paper')`.
+
 ### Themes and attribution
 
 `theme` names one of twelve built-in themes, exported as `THEMES` (a
@@ -138,7 +145,7 @@ is not a finite positive number, leaving the viewport as it was.
 - `stroke` is at most one cell, and zero or less becomes the default.
 - Head sizes and `pad` are never negative.
 - `top` is a whole count.
-- `point-radius` stays within [0, 0.5].
+- `point-radius` stays within `POINT_RADIUS_RANGE` (0 to 0.5): above half a cell the dots merge.
 - A colour the browser cannot parse becomes the default of its field.
 
 ### The margin

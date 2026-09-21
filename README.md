@@ -816,17 +816,20 @@ There is a small application for playing with the settings and seeing the
 result immediately. It draws the board with the board element, which needs Lit:
 run `corepack enable pnpm && pnpm install` once at the top of the repository
 before the first start. The lab keeps its boards in the store, which is served
-by a small Deno program, so two commands run side by side:
+by a small Deno program, so one command starts both:
 
 ```sh
-deno task store        # the board store, port 8777
-pnpm nx serve lab      # the lab itself, port 8779
+pnpm nx serve lab      # the lab (8779) and, alongside it, the board store (8777)
 ```
 
-Open `http://localhost:8779`. Stop each with Ctrl+C. The lab expects the store
-on 8777; if that port is taken on your computer, both sides have to be told the
-new number — the store takes it after the command (`deno task store 9000`), and
-the lab reads it from one line in `apps/lab/vite.proxy.ts`.
+Open `http://localhost:8779`. Stop it with Ctrl+C, which stops the store too.
+To run the store on its own — the CLI writes boards directly and never needs
+it — use `deno task store`. The lab expects the store on 8777; if that port is
+taken on your computer, both sides have to be told the new number — the store
+takes it after the command (`deno task store 9000`), and the lab reads it from
+one line in `apps/lab/vite.proxy.ts`. A second `pnpm nx serve lab` does not
+start a second store: Nx notices the continuous target is already running and
+waits on it, while Vite moves the second lab to the next free port (8780).
 
 The lab has two modes, and a Polish/English switch.
 
@@ -935,9 +938,10 @@ every difficulty level up to 1000×1000, three times each. Add `--only=easy
 needs `--square` or `--portrait` alongside it.
 
 **The lab shows nothing** — the lab is served, not opened: it needs `pnpm nx
-serve lab` running, and lives at `http://localhost:8779`. If the board library
-is empty or refuses to save, the other half is missing: start `deno task store`
-beside it.
+serve lab` running, and lives at `http://localhost:8779`. That command also
+starts the store, but the store stays optional — a lab served some other way
+(a static host, say) still runs without one. If the board library is empty or
+refuses to save, the other half is missing: start `deno task store` beside it.
 
 **Wondering what it is doing** — set `CARVE_TRACE=1` and it reports progress as
 it goes:

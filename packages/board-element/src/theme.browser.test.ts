@@ -207,3 +207,34 @@ test('with enableColors off, a theme still paints paper and ink but never the pa
   }
   el.remove()
 })
+
+test('the host announces the paper it painted, and its own background follows', async () => {
+  const el = await mount()
+  el.board = board
+  await el.updateComplete
+  await raf()
+  // No theme: the announced value is the element's own default, and the host
+  // paints it -- the literal that used to be hard-coded in `:host`.
+  expect(el.style.getPropertyValue('--arrowz-paper')).toBe('#f6f6fa')
+  expect(getComputedStyle(el).backgroundColor).toBe('rgb(246, 246, 250)')
+
+  el.theme = 'gruvbox-dark'
+  await el.updateComplete
+  await raf()
+  // #282828 is gruvbox-dark's paper, the same value theme.browser.test.ts
+  // already reads out of the canvas with readPixels.
+  expect(el.style.getPropertyValue('--arrowz-paper')).toBe('#282828')
+  expect(getComputedStyle(el).backgroundColor).toBe('rgb(40, 40, 40)')
+  el.remove()
+})
+
+test('a stated paper beats the theme in what the host announces', async () => {
+  const el = await mount()
+  el.board = board
+  el.theme = 'gruvbox-dark'
+  el.view = { ...el.view, paper: '#010203' }
+  await el.updateComplete
+  await raf()
+  expect(el.style.getPropertyValue('--arrowz-paper')).toBe('#010203')
+  el.remove()
+})

@@ -15,6 +15,12 @@
         "command": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net"
       }
     },
+    "store": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "cache": false,
+      "options": { "cwd": "packages/cli", "command": "sh store.sh" }
+    },
     "verify": { "executor": "nx:noop", "dependsOn": ["check", "lint", "fmt", "test"] }
   }
 }

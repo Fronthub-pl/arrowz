@@ -141,4 +141,50 @@ describe('the hash codec', () => {
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['#AABBCC', '#DeF012'] } }))
     expect(decodeHash(link)?.view.palette).toEqual(['#aabbcc', '#def012'])
   })
+
+  it('carries the board colours and the point grid through a round trip', () => {
+    const hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, paper: '#010203', ink: '#040506', showPoints: true, pointColor: '#070809', pointRadius: 0.2 },
+      carried: {},
+    })
+    const back = decodeHash(hash)?.view
+    expect(back?.paper).toBe('#010203')
+    expect(back?.ink).toBe('#040506')
+    expect(back?.showPoints).toBe(true)
+    expect(back?.pointColor).toBe('#070809')
+    expect(back?.pointRadius).toBe(0.2)
+  })
+
+  it('reads a link that predates the board colours as naming none', () => {
+    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
+    expect(decodeHash(hash)?.view.paper).toBeUndefined()
+    expect(decodeHash(hash)?.view.ink).toBeUndefined()
+  })
+
+  // The same guard the palette's own case above pins for `[]`: `''` is the
+  // slice's own "not set" for `paper`/`ink` (`viewFor` hands it over on every
+  // fresh page load), so a link must not grow keys naming nothing.
+  it('does not write empty board colours into the link', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, paper: '', ink: '' }, carried: {} })
+    expect(hash).not.toContain('paper')
+    expect(hash).not.toContain('ink')
+  })
+
+  it('drops a hand-edited colour the editor could not show', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { paper: 'rebeccapurple' } }))
+    expect(decodeHash(link)?.view.paper).toBeUndefined()
+  })
+
+  it('carries a theme and custom colours together (Ruling 6)', () => {
+    const hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, theme: 'gruvbox-dark', palette: ['#112233'], paper: '#010203' },
+      carried: {},
+    })
+    const back = decodeHash(hash)?.view
+    expect(back?.theme).toBe('gruvbox-dark')
+    expect(back?.palette).toEqual(['#112233'])
+    expect(back?.paper).toBe('#010203')
+  })
 })
