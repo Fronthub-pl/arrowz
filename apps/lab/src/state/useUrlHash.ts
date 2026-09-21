@@ -24,6 +24,11 @@ function viewFor(view: ViewState, help: boolean, lang: Lang) {
     lang,
     theme: view.theme,
     palette: view.palette,
+    paper: view.paper,
+    ink: view.ink,
+    showPoints: view.showPoints,
+    pointColor: view.pointColor,
+    pointRadius: view.pointRadius,
   }
 }
 
@@ -55,6 +60,14 @@ function applyPayload(payload: HashPayload): void {
   // touches the other field any more. The order below still matches the
   // order the fields are read above, but it no longer decides a winner.
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
+  // The board colours and the point grid, the same tolerance as `cell`..`top`:
+  // absent means the link did not say, and `showPoints` is a plain flag like
+  // `rounded`, `colored` and `hilite` above rather than a tri-state.
+  if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
+  if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
+  view.setFlag('showPoints', payload.view.showPoints === true)
+  if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
+  if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
 }
 
 export interface UrlHash {

@@ -27,6 +27,13 @@ export interface HashView {
    * spelling of "the link did not say."
    */
   palette?: string[] | undefined
+  /** The board's own surface colours. Absent when the link predates them or names none. */
+  paper?: string | undefined
+  ink?: string | undefined
+  /** The point grid. Absent when the link predates it. */
+  showPoints?: boolean | undefined
+  pointColor?: string | undefined
+  pointRadius?: number | undefined
 }
 
 /** The one key the page does not own yet — the tab, PR 5's — kept so a round trip cannot drop it. */
@@ -63,11 +70,16 @@ function num(raw: unknown): number | undefined {
  * else under `__view`.
  */
 export function encodeHash(input: { params: Params; view: HashView; carried: Carried }): string {
-  const { palette: chosenPalette, ...rest } = input.view
+  const { palette: chosenPalette, paper: chosenPaper, ink: chosenInk, ...rest } = input.view
   // An empty palette is the common case — most links carry no custom
   // colours — so it is left out entirely rather than written as `[]`.
   const view = chosenPalette !== undefined && chosenPalette.length > 0 ? { ...rest, palette: chosenPalette } : rest
-  const payload = { ...input.params, __view: { ...view, ...input.carried } }
+  // `''` is the slice's own "not set", the same as an empty palette above: a
+  // link that never had the board colours touched should not grow `paper`
+  // and `ink` keys naming nothing.
+  const withPaper = chosenPaper !== undefined && chosenPaper !== '' ? { ...view, paper: chosenPaper } : view
+  const withInk = chosenInk !== undefined && chosenInk !== '' ? { ...withPaper, ink: chosenInk } : withPaper
+  const payload = { ...input.params, __view: { ...withInk, ...input.carried } }
   return '#' + encodeURIComponent(JSON.stringify(payload))
 }
 
@@ -93,6 +105,15 @@ function palette(raw: unknown): string[] | undefined {
     .map((c) => c.toLowerCase())
     .slice(0, PALETTE_CAP)
   return colors.length > 0 ? colors : undefined
+}
+
+/**
+ * One hand-written colour. Same rule as `palette`: the lab's colour inputs can
+ * only show `#rrggbb`, so anything else is worse than absent, and a valid value
+ * is lower-cased so the hash this page rewrites matches the one pasted in.
+ */
+function colour(raw: unknown): string | undefined {
+  return typeof raw === 'string' && HEX_COLOR.test(raw) ? raw.toLowerCase() : undefined
 }
 
 export function decodeHash(hash: string): HashPayload | null {
@@ -129,6 +150,16 @@ export function decodeHash(hash: string): HashPayload | null {
       lang: isLang(raw.lang) ? raw.lang : undefined,
       theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
       palette: palette(raw.palette),
+      paper: colour(raw.paper),
+      ink: colour(raw.ink),
+      // Unlike `colored`/`rounded`/`hilite`, absence here must decode to
+      // `undefined` rather than `false`: this field is new, so a link with no
+      // `showPoints` key at all (any link written before this task, or the
+      // round-trip fixture, which has no need to carry it) must not be
+      // indistinguishable from one explicitly naming `false`.
+      showPoints: raw.showPoints === true ? true : undefined,
+      pointColor: colour(raw.pointColor),
+      pointRadius: num(raw.pointRadius),
     },
     carried: raw.tab === undefined ? {} : { tab: raw.tab },
   }

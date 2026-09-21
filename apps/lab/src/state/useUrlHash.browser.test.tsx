@@ -380,4 +380,35 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233']))
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
+
+  // The producer side, the same gap as the palette's own case above:
+  // `url.test.ts` builds its `HashView` by hand and cannot see a defect in
+  // `viewFor`, which builds the object from the store that `encodeHash` is
+  // handed. Dropping the `paper` line from `viewFor` would pass every
+  // `url.test.ts` case and redden only this one.
+  it('writes the board colours and the point grid into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setPointColor('#070809')
+    await vi.waitFor(() => {
+      expect(decodeHash(location.hash)?.view.paper).toBe('#010203')
+      expect(decodeHash(location.hash)?.view.pointColor).toBe('#070809')
+    })
+    useStore.getState().view.setPaper('')
+  })
+
+  // The consumer side: a link naming the board colours and the point grid
+  // restores them into the store, the way `theme` and `palette` do above.
+  it('opens on the board colours and the point grid the link names', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, paper: '#010203', ink: '#040506', showPoints: true, pointRadius: 0.2 },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.paper).toBe('#010203'))
+    expect(useStore.getState().view.ink).toBe('#040506')
+    expect(useStore.getState().view.showPoints).toBe(true)
+    expect(useStore.getState().view.pointRadius).toBe(0.2)
+  })
 })
