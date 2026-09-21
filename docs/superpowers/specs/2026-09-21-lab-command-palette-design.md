@@ -104,6 +104,12 @@ is kept.
   be. A command that vanishes when unavailable is a command nobody can find and
   nobody can be told about. This follows the lab's own correction of the mock
   for inactive knobs (§7.2: "communicated by `opacity: .4` alone" → a reason).
+  The reasons are three, and the list is closed: nothing is running (Abort), a
+  carve is already going (Generate, New seed, Defaults), and the rule is broken
+  (Generate, which keeps that reason even mid-carve, being the one a person has
+  to do something about). "Unconditional" is meant literally — a row disabled
+  by a carve in flight shows the reason in place of its hotkey, because `[ ]`
+  is a hotkey and says nothing about why the row is grey.
 
 ## 4. The repertoire, and where each command already lives
 
@@ -207,6 +213,27 @@ the component that armed it is exactly what Ruling 12 was written for, and a
 case that jumps and ends before the timer fires would otherwise post into the
 next case.
 
+**A jump asked for from a face that has no knobs brings the lab face with it.**
+⌘K is bound on every route (§7), while the knobs belong to the lab tab alone:
+`/boards` gives the console's panel slot to the library, and `/docs/*` hides
+the whole workspace behind `<main hidden>`. The jump therefore navigates to
+`/` before it selects the group — a person who asked for a knob asked for that
+knob, not for a message about which tab they were standing on. A `go` row and
+a jump both skip the navigation when the route is already the one asked for,
+so neither stacks a history entry Back would have to walk through.
+
+The navigation alone does not carry the request, and the reason is worth
+stating because it is invisible in the code: react-router commits a navigation
+inside a transition, one render *behind* the store write that made the
+request. Measured — with the consumer ungated, a jump from `/boards` was spent
+while `LibraryPanel` still held the panel slot and `#knob-seed` did not exist,
+and a jump from `/docs/*` found the node inside `<main hidden>`, where
+`focus()` is a no-op. `useFocusRequest` is therefore gated on the lab tab
+(`selectedIndex(pathname) === 0`, the tab strip's own notion of the face), and
+the request survives that one render to the commit that has the panel. On the
+lab tab it is still spent whether or not the node was found: a target that
+does not exist there will not exist later either.
+
 `jsx-a11y/no-autofocus` is a gate here, so the focus is a ref in an effect —
 never the attribute.
 
@@ -250,6 +277,15 @@ reader re-derives wrongly:
   The palette's search box is an `<input>`, and the field guard already refuses
   anything whose target is one (`App.tsx:89-93`). `f` typed into the palette does
   not toggle solo for the same reason.
+
+**Not every decision here is global, and which is which is the table above.**
+⌘K is bound on every route. The run keys are the workspace's, exactly as `f`
+is. The footer follows the *keys*, not the dialog: the two run hints (D5) are
+drawn only where the keys they name are bound, because a hint printed on the
+documentation route would be the very promise "the application cannot keep"
+that D5 exists to forbid. A jump is global only in the sense that it can be
+asked for anywhere; it brings the lab face with it rather than working where
+it stands (§6).
 
 A refused `g` says nothing, like every other non-button trigger of a run: the
 funnel refuses a broken rule silently and `RunStatusBar` is the one voice
@@ -297,8 +333,27 @@ top border, and the footer's glyphs in `--mist` at weight 400. No transition
 and no blur touches any of these selectors, which is the mock's state and the
 design system's rule.
 
-The ⌘K trigger is the mock's plain top-bar button carrying the glyph "⌘K"
-(`.fw-top .right button`, 24px tall), given the accessible name §7.2 asks for.
+The ⌘K trigger is the mock's plain top-bar button carrying the glyph "⌘K",
+given the accessible name §7.2 asks for, and it is dressed in this file rather
+than in `shell.css` with the rest of the bar: the button is the palette's, and
+the two arrive and would leave together. Every other button family in the lab
+has a rule of its own (`.fw-tabrow button`, `.fw .fw-seg button`,
+`.fw .fw-alt button`, `.fw .fw-presets button`); with none, this one paints as
+native browser chrome on the Signal plane.
+
+```css
+.fw-top .right > button { height: 24px; padding: 0 8px;
+                          border: 1px solid rgba(14,15,18,.3); background: none;
+                          color: var(--void); cursor: pointer; }
+.fw-top .right > button:hover { background: rgba(14,15,18,.12); }
+```
+
+The child combinator is load-bearing. `.fw-top .right` also holds the two
+`Segmented` groups, and `.fw .fw-seg button` is (0,2,1) exactly as
+`.fw-top .right button` would be — with `palette.css` imported after
+`shell.css` in `main.tsx`, a descendant selector here would win that tie on
+source order and re-dress the view and language chips. The trigger is the
+container's only direct button child.
 
 The three columns are what makes the wider repertoire fit the mock's row
 without inventing a layout: the name, then the note (a knob's group, a preset's
@@ -311,6 +366,10 @@ style and passes with the CSS missing entirely (harness fact 38). The layout
 rules are therefore pinned in the `node` project from `palette.css?raw`, the
 way `design/console.test.ts` and `design/shell.test.ts` already do it, and the
 browser tests assert structure (`closest('.fw-pal')`) rather than appearance.
+The trigger's rule is pinned there with them, and so is the *absence* of the
+descendant form of its selector: a stylesheet no test loads cannot be caught
+missing a rule by any browser case, which is how the trigger shipped with no
+rule at all until the whole-branch review looked at it.
 
 ## 10. Testing
 
