@@ -162,6 +162,15 @@ describe('the hash codec', () => {
     expect(decodeHash(hash)?.view.ink).toBeUndefined()
   })
 
+  // The same guard the palette's own case above pins for `[]`: `''` is the
+  // slice's own "not set" for `paper`/`ink` (`viewFor` hands it over on every
+  // fresh page load), so a link must not grow keys naming nothing.
+  it('does not write empty board colours into the link', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, paper: '', ink: '' }, carried: {} })
+    expect(hash).not.toContain('paper')
+    expect(hash).not.toContain('ink')
+  })
+
   it('drops a hand-edited colour the editor could not show', () => {
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { paper: 'rebeccapurple' } }))
     expect(decodeHash(link)?.view.paper).toBeUndefined()

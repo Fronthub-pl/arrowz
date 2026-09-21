@@ -45,6 +45,16 @@ function stub() {
   return { control, started: () => calls.start }
 }
 
+/**
+ * The view slice as the module loaded it, before any test has run — captured
+ * once, here, rather than reconstructed from the slice's own defaults, so
+ * this file does not have to know or duplicate them. Restored wholesale (not
+ * through `setPaper`, `setTheme` or any other action under test) because the
+ * store outlives every test and, unlike `params`/`run`/`result`/`ui`/`lang`
+ * above, the view slice has no `reset()` of its own.
+ */
+const initialView = useStore.getState().view
+
 beforeEach(() => {
   history.replaceState(null, '', location.pathname)
   const state = useStore.getState()
@@ -53,6 +63,7 @@ beforeEach(() => {
   state.result.reset()
   state.ui.raiseClamped(false)
   state.lang.setLang('en')
+  useStore.setState({ view: initialView })
 })
 afterEach(() => history.replaceState(null, '', location.pathname))
 
@@ -384,31 +395,41 @@ describe('useUrlHash', () => {
   // The producer side, the same gap as the palette's own case above:
   // `url.test.ts` builds its `HashView` by hand and cannot see a defect in
   // `viewFor`, which builds the object from the store that `encodeHash` is
-  // handed. Dropping the `paper` line from `viewFor` would pass every
-  // `url.test.ts` case and redden only this one.
+  // handed. All five fields are set and asserted here — dropping any one of
+  // them from `viewFor` would pass every `url.test.ts` case and redden only
+  // this one.
   it('writes the board colours and the point grid into the link', async () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setInk('#040506')
+    useStore.getState().view.setFlag('showPoints', true)
     useStore.getState().view.setPointColor('#070809')
+    useStore.getState().view.setPointRadius('0.2')
     await vi.waitFor(() => {
       expect(decodeHash(location.hash)?.view.paper).toBe('#010203')
+      expect(decodeHash(location.hash)?.view.ink).toBe('#040506')
+      expect(decodeHash(location.hash)?.view.showPoints).toBe(true)
       expect(decodeHash(location.hash)?.view.pointColor).toBe('#070809')
+      expect(decodeHash(location.hash)?.view.pointRadius).toBe(0.2)
     })
-    useStore.getState().view.setPaper('')
   })
 
   // The consumer side: a link naming the board colours and the point grid
   // restores them into the store, the way `theme` and `palette` do above.
+  // All five fields are asserted — dropping any one of the five restore
+  // lines from `applyPayload` would pass every other case in this file and
+  // redden only this one.
   it('opens on the board colours and the point grid the link names', async () => {
     await mount(stub().control)
     location.hash = encodeHash({
       params: defaultParams(),
-      view: { ...VIEW, paper: '#010203', ink: '#040506', showPoints: true, pointRadius: 0.2 },
+      view: { ...VIEW, paper: '#010203', ink: '#040506', showPoints: true, pointColor: '#070809', pointRadius: 0.2 },
       carried: {},
     }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().view.paper).toBe('#010203'))
     expect(useStore.getState().view.ink).toBe('#040506')
     expect(useStore.getState().view.showPoints).toBe(true)
+    expect(useStore.getState().view.pointColor).toBe('#070809')
     expect(useStore.getState().view.pointRadius).toBe(0.2)
   })
 })
