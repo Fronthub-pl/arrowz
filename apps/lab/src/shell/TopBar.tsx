@@ -1,5 +1,6 @@
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { useDictionary } from '../i18n'
+import { TRIGGER_ID } from '../palette/CommandPalette'
 import { useStore } from '../state/store'
 import { Segmented } from './Segmented'
 
@@ -49,8 +50,15 @@ export function TopBar() {
       )}
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
-      {/* ⌘K joins this group in PR 7. */}
       <div className="right">
+        <button
+          type="button"
+          id={TRIGGER_ID}
+          aria-label={dict.t('cmdOpen')}
+          onClick={() => useStore.getState().ui.openPalette()}
+        >
+          ⌘K
+        </button>
         <Segmented
           label={dict.t('modeLabel')}
           value={mode}

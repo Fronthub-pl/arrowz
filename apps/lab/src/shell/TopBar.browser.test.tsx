@@ -22,7 +22,9 @@ describe('TopBar', () => {
   // with no separators, because the gaps between them are `gap` too.
   it('names the preset the knobs spell, beside the size', async () => {
     const screen = await render(<TopBar />)
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/Easy portrait/25×50SimpleAdvancedPLEN')
+    await expect
+      .element(screen.getByRole('banner'))
+      .toHaveTextContent('Arrowz/Easy portrait/25×50⌘KSimpleAdvancedPLEN')
   })
 
   // The other branch: one knob off a preset and the bar has nothing to name,
@@ -32,7 +34,7 @@ describe('TopBar', () => {
   it('drops the name, and its separator with it, when no preset spells the knobs', async () => {
     const screen = await render(<TopBar />)
     await act(async () => useStore.getState().params.set('W', 26))
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/26×50SimpleAdvancedPLEN')
+    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/26×50⌘KSimpleAdvancedPLEN')
   })
 
   it('switches the view and remembers the choice', async () => {
@@ -59,5 +61,15 @@ describe('TopBar', () => {
   it('names the document once, at the top level', async () => {
     const screen = await render(<TopBar />)
     await expect.element(screen.getByRole('heading', { level: 1, name: 'Arrowz' })).toBeVisible()
+  })
+
+  // Spec §9: the mock's trigger is a glyph and nothing else, so its name comes
+  // from the dictionary and says what the glyph means.
+  it('offers the palette under an accessible name that states the shortcut', async () => {
+    const screen = await render(<TopBar />)
+    const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
+    await expect.element(trigger).toBeVisible()
+    await trigger.click()
+    expect(useStore.getState().ui.palette).toBe(true)
   })
 })

@@ -198,10 +198,47 @@ test('f toggles solo, and a modifier, a repeat or Escape does nothing', async ()
   press(document.body, { key: 'f' })
   expect(solo()).toBe(true)
 
-  // The palette of PR 7 owns Escape; nothing else binds it.
+  await screen.getByRole('button', { name: 'Full view (key F)' }).click()
+  expect(solo()).toBe(false)
+}, 40_000)
+
+// The reservation this splits was written when nothing owned Escape
+// ("The palette of PR 7 owns Escape; nothing else binds it"). Both halves
+// still matter: solo must not answer Escape, and the palette must.
+test('Escape with the palette closed still leaves solo alone', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(true)
   await userEvent.keyboard('{Escape}')
   expect(solo()).toBe(true)
-  await screen.getByRole('button', { name: 'Full view (key F)' }).click()
+  expect(useStore.getState().ui.palette).toBe(false)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+}, 40_000)
+
+test('⌘K opens the palette anywhere, Escape closes it, and solo is untouched either way', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  expect(solo()).toBe(false)
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  expect(solo()).toBe(false)
+}, 40_000)
+
+// The palette's search box is a field, and the `f` guard refuses fields — so
+// typing `f` into the palette must not take the board full screen.
+test('f typed into the palette is text, not a toggle', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await userEvent.keyboard('f')
   expect(solo()).toBe(false)
 }, 40_000)
 

@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
+import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
@@ -101,6 +102,30 @@ function useSoloKey(onWorkspace: boolean) {
 }
 
 /**
+ * ⌘K, the application's one global shortcut in the literal sense: every route,
+ * the documentation included, because navigation is half of what the palette
+ * is for (spec §7). It differs from `f` in refusing nothing but a missing
+ * modifier — it has to open while a knob is being typed into — and the
+ * modifier is what keeps it from colliding with any typing at all.
+ *
+ * `<arrowz-board>` cannot swallow it: its own key handler returns at once on
+ * `metaKey || ctrlKey || altKey` (arrowz-board.ts:832).
+ */
+function usePaletteKey() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'k' && event.key !== 'K') return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (event.altKey || event.repeat || event.defaultPrevented) return
+      event.preventDefault()
+      useStore.getState().ui.togglePalette()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+}
+
+/**
  * Everything above the routes, and nothing a caller configures: what a run is
  * started with is the params slice, which a test drives the way a user does.
  */
@@ -146,6 +171,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
+  usePaletteKey()
   useDocumentLang()
   return (
     <div className="fw">
@@ -153,6 +179,7 @@ function Shell() {
       <TabRow />
       <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
       <AppRoutes />
+      <CommandPalette control={control} />
     </div>
   )
 }
