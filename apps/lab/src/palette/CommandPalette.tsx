@@ -9,6 +9,13 @@ import { buildCommands, type Command, matchCommands } from './commands'
 export const TRIGGER_ID = 'cmdk'
 
 /**
+ * A row's DOM id, which `aria-activedescendant` names and the scroll effect
+ * looks up. At module scope because it closes over nothing: a helper declared
+ * in the component would be a fresh dependency for that effect every render.
+ */
+const rowId = (command: Command) => `cmd-${command.id}`
+
+/**
  * The palette (spec §7). Closed, it renders nothing and holds no state, so
  * every opening starts on an empty query — the mock's behaviour, and the one
  * a reader expects from a palette.
@@ -87,6 +94,18 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  // The list is bounded by design (D4) — 46vh, about fifteen rows at 800px —
+  // over a catalogue of some seventy. Without this, the arrows walk the
+  // highlight and `aria-activedescendant` off the bottom of the box: the
+  // active row and the row Enter would fire become invisible, which is the
+  // combobox contract §7 spells out broken in the plainest way. `nearest`
+  // scrolls only when the row is outside the box, so hovering with the mouse
+  // does not jerk the list under the pointer.
+  useEffect(() => {
+    if (current === undefined) return
+    document.getElementById(rowId(current))?.scrollIntoView({ block: 'nearest' })
+  }, [current])
+
   const choose = (command: Command | undefined) => {
     if (command === undefined || command.disabled) return
     command.run()
@@ -125,7 +144,6 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     setActive(Math.max(0, next))
   }
 
-  const rowId = (command: Command) => `cmd-${command.id}`
   const title = dict.t('cmdTitle')
   return (
     <div className="fw-scrim">

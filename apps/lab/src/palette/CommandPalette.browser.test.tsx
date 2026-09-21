@@ -90,6 +90,30 @@ describe('the palette dialog', () => {
     expect(list?.scrollHeight ?? 0).toBeGreaterThan(list?.clientHeight ?? 0)
   })
 
+  // The case above proves the list is scrollable; this one walks far enough
+  // for that to matter. Past the fold the highlight and `aria-activedescendant`
+  // used to move invisibly, and Enter fired a row nobody could see.
+  it('keeps the active option inside the list as the arrows walk past the fold', async () => {
+    await page.viewport(1280, 800)
+    const screen = await mount()
+    const list = screen.container.querySelector<HTMLElement>('.fw-pal .list')
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    if (list === null || input === null) throw new Error('the palette is not on the page')
+    await expect.poll(() => document.activeElement === input).toBe(true)
+    // Thirty rows: the box holds roughly fifteen at this height.
+    await userEvent.keyboard('{ArrowDown>30/}')
+    const activeId = input.getAttribute('aria-activedescendant')
+    const row = activeId === null ? null : screen.container.querySelector<HTMLElement>(`#${CSS.escape(activeId)}`)
+    if (row === null) throw new Error('no active option after thirty presses')
+    const box = list.getBoundingClientRect()
+    const seat = row.getBoundingClientRect()
+    expect(seat.top).toBeGreaterThanOrEqual(box.top - 0.5)
+    expect(seat.bottom).toBeLessThanOrEqual(box.bottom + 0.5)
+    // And the list really moved, so the two assertions above are not passing
+    // because the thirtieth row happened to be on screen from the start.
+    expect(list.scrollTop).toBeGreaterThan(0)
+  })
+
   it('runs the active command on Enter and closes', async () => {
     await mount()
     await userEvent.keyboard('Saved boards')
