@@ -352,3 +352,68 @@ test('a focus inside what solo hides moves to the toggle', async () => {
   await twoFrames()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Full view (key F)' }).element())
 }, 40_000)
+
+// Spec D5. The same guard set as `f`, and each refusal is followed by the very
+// same event without the thing refused, so a listener ignoring synthetic
+// events could not pass.
+test('g generates, and refuses a modifier, a repeat, a cancelled event and a field', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const seedBefore = useStore.getState().params.values.seed
+
+  for (const refused of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+    press(document.body, { key: 'g', ...refused })
+  }
+  expect(useStore.getState().run.phase).toBe('done')
+
+  press(document.body, { key: 'g' })
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(useStore.getState().params.values.seed).toBe(seedBefore)
+
+  // Typed into a knob's own entry, `g` is text.
+  await screen.getByRole('tab', { name: 'board', exact: true }).click()
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  const runs = useStore.getState().run.phase
+  await userEvent.keyboard('g')
+  expect(useStore.getState().run.phase).toBe(runs)
+}, 60_000)
+
+test('] and [ step the seed by one and carve it', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  const before = useStore.getState().params.values.seed
+
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.values.seed).toBe(before + 1)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  press(document.body, { key: '[' })
+  expect(useStore.getState().params.values.seed).toBe(before)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  // Ruling 3: the machine path must not also wake auto-generate.
+  const edits = useStore.getState().params.edits
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.edits).toBe(edits)
+}, 60_000)
+
+test('the run keys are the workspace’s, like f: the documentation route has none of them', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs' }).click()
+  // `window.location.pathname` flips synchronously inside react-router's own
+  // history push, ahead of the `startTransition`-wrapped render that commits
+  // `onWorkspace`; polling it raced `useRunKeys`'s guard under load (measured:
+  // deterministic failure once other cases ran first). The hidden attribute
+  // below is driven by that same committed render — the pattern the `f` case
+  // above already uses for this exact route — so it does not race.
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  const seed = useStore.getState().params.values.seed
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.values.seed).toBe(seed)
+}, 40_000)

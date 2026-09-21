@@ -7,8 +7,10 @@ import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
 import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
+import { generate, stepSeed } from './run/actions'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
+import type { RunControl } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useDocumentLang } from './shell/useDocumentLang'
@@ -126,6 +128,42 @@ function usePaletteKey() {
 }
 
 /**
+ * The two hotkeys the palette's footer advertises (spec D5): `g` generates and
+ * `[` / `]` step the seed and carve it — the experimenter's loop of flipping
+ * through boards from one setting.
+ *
+ * Every guard `f` carries, for the same reasons: no Ctrl/⌘/Alt (those belong
+ * to the platform), no key repeat, nothing mid-composition in an IME, nothing
+ * already handled by someone closer to the keystroke, and nothing typed into a
+ * field — which is also what silences these keys while the palette is open,
+ * its search box being an `<input>`.
+ *
+ * A refused run says nothing here: `useRun` refuses a broken rule silently and
+ * `RunStatusBar` is the one voice (Ruling 13).
+ */
+function useRunKeys(onWorkspace: boolean, control: RunControl) {
+  useEffect(() => {
+    if (!onWorkspace) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      if (event.isComposing || event.defaultPrevented) return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable || target.closest('input, textarea, select') !== null)
+      ) {
+        return
+      }
+      if (event.key === 'g' || event.key === 'G') generate(control)
+      else if (event.key === ']') stepSeed(control, 1)
+      else if (event.key === '[') stepSeed(control, -1)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onWorkspace, control])
+}
+
+/**
  * Everything above the routes, and nothing a caller configures: what a run is
  * started with is the params slice, which a test drives the way a user does.
  */
@@ -171,6 +209,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
+  useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()
   return (
