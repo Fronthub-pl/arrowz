@@ -265,6 +265,58 @@ test('a custom palette reaches a library preview too, the same way the theme alr
   }
 })
 
+test('an unset paper leaves the theme its own, and a set one overrides it', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
+  const element = screen.container.querySelector('arrowz-board')
+  // Absent, not empty: the element sanitises *after* precedence, so a stated
+  // '' would beat the theme and then fall to the element's own default,
+  // turning a dark theme light (spec §4.4).
+  expect(element === null || !('paper' in (element.view ?? {}))).toBe(true)
+
+  await act(async () => useStore.getState().view.setPaper('#010203'))
+  expect(element?.view.paper).toBe('#010203')
+  // The theme is still supplying what the user did not override (Ruling 6).
+  expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+  useStore.getState().view.setTheme('')
+  useStore.getState().view.setPaper('')
+})
+
+// The same seam as the palette's preview case above: a colour that reaches the
+// lab branch and not the library's, for two states the design calls equivalent.
+test('the library preview gets the custom colours too', async () => {
+  const { meta, file } = storedFixture(2)
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
+  try {
+    await act(async () => useStore.getState().view.setPaper('#040506'))
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    const element = screen.container.querySelector('arrowz-board')
+    expect(element?.view.paper).toBe('#040506')
+    // There is a board under that paper: `labView` carries it too, so a
+    // preview that never landed would leave this green on its own.
+    expect(element?.board?.W).toBe(8)
+  } finally {
+    useStore.getState().view.setPaper('')
+  }
+})
+
+test('the point grid reaches the element', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => {
+    const view = useStore.getState().view
+    view.setFlag('showPoints', true)
+    view.setPointColor('#0a0b0c')
+    view.setPointRadius('0.2')
+  })
+  const element = screen.container.querySelector('arrowz-board')
+  expect(element?.showPoints).toBe(true)
+  expect(element?.pointColor).toBe('#0a0b0c')
+  expect(element?.pointRadius).toBe(0.2)
+  useStore.getState().view.setFlag('showPoints', false)
+})
+
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage
 // empty and says why. Measured by review round 2 before the tab gate existed:
 // the frame fell through to the lab's own board, so a 25×50 carve stood under
