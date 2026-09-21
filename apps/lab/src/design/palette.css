@@ -1,6 +1,32 @@
 /* The command palette, with the mock's own figures (spec §9). No transition
    and no blur touches any of these selectors: that is the design system's
    rule, not an omission. */
+
+/* The ⌘K trigger. It sits in the top bar but it is the palette's, so it is
+   dressed here beside the dialog it opens rather than in `shell.css` with the
+   rest of the bar: the two move together, and a bar that never gained a
+   palette would want neither.
+
+   The child combinator is not decoration. `.fw-top .right` also holds the two
+   `Segmented` groups, and `.fw .fw-seg button` is (0,2,1) exactly as
+   `.fw-top .right button` would be — with `palette.css` imported after
+   `shell.css` in `main.tsx`, a descendant selector here would win the tie on
+   order and re-dress the view and language chips. The trigger is `.right`'s
+   only direct button child; the chips are wrapped in `.fw-seg`.
+
+   The border and the hover are `--void` at low alpha, because the bar is the
+   Signal plane: the chips make the same choice one file over. */
+.fw-top .right > button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(14, 15, 18, 0.3);
+  background: none;
+  color: var(--void);
+  cursor: pointer;
+}
+.fw-top .right > button:hover {
+  background: rgba(14, 15, 18, 0.12);
+}
 .fw-scrim {
   position: fixed;
   inset: 0;
