@@ -85,8 +85,13 @@ describe('the catalogue', () => {
 describe('the matcher', () => {
   it('returns everything for an empty query, which is what the palette opens on', () => {
     const rows = buildCommands(deps(), useStore.getState())
+    const catalogueIds = rows.map((row) => row.id)
     expect(matchCommands(rows, '')).toHaveLength(rows.length)
     expect(matchCommands(rows, '   ')).toHaveLength(rows.length)
+    // Length alone would pass even if the ranking silently reordered rows;
+    // this pins the empty query to the catalogue's own order too.
+    expect(matchCommands(rows, '').map((row) => row.id)).toEqual(catalogueIds)
+    expect(matchCommands(rows, '   ').map((row) => row.id)).toEqual(catalogueIds)
   })
 
   it('matches a name, a note and a CLI flag, ignoring case', () => {
@@ -133,5 +138,18 @@ describe('the matcher', () => {
     )
     // Same order as in the unfiltered catalogue, just filtered down.
     expect(matches).toEqual(catalogueOrder.filter((id) => matches.includes(id)))
+  })
+
+  // Query 'docs': both `go-docs-element` ("Docs — Element") and `go-docs-cli`
+  // ("Docs — Command line") start with it, and nothing else matches — so both
+  // land in the *promoted* rank, the one the previous stability case does not
+  // reach. Their relative order must still be the catalogue's.
+  it('keeps the catalogue order between two rows that both get promoted', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const catalogueOrder = rows.map((row) => row.id)
+    const matches = matchCommands(rows, 'docs').map((row) => row.id)
+    expect(matches).toEqual(['go-docs-element', 'go-docs-cli'])
+    expect(matches.indexOf('go-docs-element')).toBeLessThan(matches.indexOf('go-docs-cli'))
+    expect(catalogueOrder.indexOf('go-docs-element')).toBeLessThan(catalogueOrder.indexOf('go-docs-cli'))
   })
 })
