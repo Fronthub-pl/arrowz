@@ -437,6 +437,18 @@
   gap: 10px;
   min-width: 0;
 }
+/* The simple view's skeleton choice (`SimplePanel.tsx`): two segmented chips,
+   "no skeleton" and "with a skeleton", do not fit `.fw-grid`'s
+   `minmax(190px, 1fr)` floor at every width (live pass, simple view,
+   1400×900, pre-existing at the branch's base 7167248: `.fw-seg` 3.84px past
+   its own card, `.fw-knobs.fw-simple` scrollWidth 1187 vs clientWidth 1183).
+   Full row, the same shape `.fw-k.fw-flags` and `.fw-k.fw-colours` already
+   use for a control the standard column does not fit — not a shrink or a
+   wrap on `Segmented` itself, which every other user of it (the top bar, the
+   language switch) still draws at its own width. */
+.fw-k.fw-skeleton {
+  grid-column: 1 / -1;
+}
 .fw-k.fw-colours .fw-swatches,
 .fw-k.fw-colours .fw-palette-list {
   margin: 0;

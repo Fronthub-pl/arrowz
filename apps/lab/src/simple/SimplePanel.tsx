@@ -60,7 +60,7 @@ function SkeletonCard({ control }: { control: RunControl }): ReactElement {
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
   return (
-    <div className="fw-k">
+    <div className="fw-k fw-skeleton">
       <div className="top">
         <span className="lab" id="simple-skeleton-label">
           {dict.d.simple.skeleton}
