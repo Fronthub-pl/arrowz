@@ -30,6 +30,7 @@
 }
 .fw-report td.num {
   color: var(--ink);
+  text-align: right;
 }
 .fw-report thead th {
   color: var(--ash);
@@ -38,6 +39,7 @@
    neutral `--ash` (5.52:1), each measured by ReportPanel.browser.test.tsx.
    `--signal` would have been the obvious better, and it is the open §7.1 pair. */
 .fw-report .fw-delta {
+  width: 1%;
   white-space: nowrap;
   color: var(--ash);
 }

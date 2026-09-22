@@ -149,7 +149,7 @@ body {
 
 .fw-stage {
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) 22rem;
+  grid-template-columns: 70px minmax(0, 1fr) clamp(22rem, 24vw, 32rem);
   gap: 1px;
   background: var(--border);
   min-height: 0;
