@@ -107,24 +107,26 @@
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
-   the flex column depends on it.
-
-   The floor is the caption's line, its 6px margin and the box's own 58px
-   (PR 4b, Ruling 1). Without it the column shrank the figure below its content
-   — to 0px at 860×900, and to 5.5px at 1400×900 once the exports joined the
-   column — while `.fw-cmd` kept its 58px and painted behind Generate. With it
-   the figure is 84.4px wherever the column is short; the box still scrolls
-   inside itself and Generate does not move as the command grows (measured 0px
-   at 860 in both views and at 1400 in the advanced view), which is the ruling
-   below. What gives instead is the column, which scrolls, as it already does
-   in the simple view. `flex: none` at ≤900px was measured as the alternative
-   and fixed only 860, moving Generate 4.8px for a long command. */
+   the flex column depends on it. The floor is the caption's line, its 6px
+   margin and the box's own 58px (PR 4b, Ruling 1): below it the box would
+   shrink under its own content and paint behind Generate. */
 .fw-cmdfig {
   flex: 0 1 auto;
   min-height: calc(1lh + 6px + 58px);
   margin: 0;
   display: flex;
   flex-direction: column;
+}
+/* In the run column the figure takes every pixel the column has left (spec
+   §5.2): Generate then moves with the column's height and never with the
+   command's length, because the figure's size is the column less the fixed
+   controls, whatever the command holds. The library's detail places the
+   figure in an `auto` grid row instead (library.css) and is left alone. */
+.fw-run-col > .fw-cmdfig {
+  flex: 1 1 auto;
+}
+.fw-run-col .fw-cmd {
+  flex: 1 1 auto;
 }
 .fw-cmdhd {
   flex: none;

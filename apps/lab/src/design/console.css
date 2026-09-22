@@ -6,7 +6,7 @@
    The mock's three tracks: the group rail, one panel, and the run column. */
 .fw-console {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr) 216px;
+  grid-template-columns: 168px minmax(0, 1fr) clamp(20rem, 22vw, 28rem);
   gap: 1px;
   background: var(--border);
   border-top: 1px solid var(--border);

@@ -476,3 +476,35 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   press(document.body, { key: ']' })
   expect(useStore.getState().params.values.seed).toBe(seed)
 }, 40_000)
+
+// Spec §5.1: the run column is about as wide as the report drawer, so the
+// lab's right edge reads as one column. 22vw at 1400 is 308, under the 20rem
+// floor; at 1920 it is 422.4; at 2560 the 28rem cap holds.
+test.each([
+  [1400, 900, 320],
+  [1920, 1080, 422.4],
+  [2560, 1200, 448],
+] as const)(
+  'at %d×%d the run column is %dpx wide',
+  async (w, h, px) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    expect(rect(screen.container, '.fw-run-col').width).toBeCloseTo(px, 0)
+  },
+  40_000,
+)
+
+// Spec §5.3: the primary action in the UI's own face, heavier than the
+// buttons under it, and a full touch target at every pointer.
+test('Generate is set in JetBrains Mono, 500, 13px, 44px high', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const go = screen.getByRole('button', { name: 'Generate' }).element()
+  const style = getComputedStyle(go)
+  expect(style.fontFamily).toContain('JetBrains Mono')
+  expect(style.fontWeight).toBe('500')
+  expect(style.fontSize).toBe('13px')
+  expect(go.getBoundingClientRect().height).toBeCloseTo(44, 0)
+}, 40_000)
