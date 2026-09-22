@@ -434,8 +434,18 @@ body {
   color: var(--ink);
   background: var(--surface);
 }
+/* Disabled looks disabled (live pass: "add colour" at the palette cap read
+   identically to an enabled button, same colour and same opacity). `--ash`
+   text stays legible on its own — disabled controls are exempt from the
+   4.5:1 the matrix's contrast invariant reads for everything else, so this
+   is not that exemption spent on illegible text, just a dimmer one. The
+   border weakens the same way: `--graphite`, a background token, sits much
+   closer to `.fw-knobs`'s own `--void` than `--border` (the enabled state's
+   already-subtle border) does. */
 .fw .fw-btn:disabled {
   cursor: default;
+  color: var(--ash);
+  border-color: var(--graphite);
 }
 @media (pointer: coarse) {
   .fw .fw-btn {

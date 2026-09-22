@@ -7,6 +7,12 @@ import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
 import { ColoursCard, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+// The disabled-button case below reads `.fw .fw-btn:disabled`'s actual computed
+// colour (shell.css), which needs both the stylesheet and the tokens it reads
+// through `var(...)` — no other case in this file reads real CSS at all
+// (harness fact: `getComputedStyle` above reads React's own inline styles).
+import '../design/tokens.css'
+import '../design/shell.css'
 
 const view = () => useStore.getState().view
 const EN = dictionary('en')
@@ -335,6 +341,27 @@ test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async (
   for (let i = 0; i < PALETTE_CAP; i++) await add.click()
   expect(view().palette).toHaveLength(PALETTE_CAP)
   await expect.element(add).toBeDisabled()
+})
+
+// Live pass: `.fw .fw-btn:disabled` set only `cursor: default`, so "add
+// colour" at the cap read exactly like an enabled button — same colour, same
+// opacity, nothing a person looking at it could tell apart from an enabled
+// control they simply had not clicked yet. `.fw` is the ancestor `shell.css`
+// dresses the button through (`.fw .fw-btn`), so the render below wraps it.
+test('a disabled console button reads as disabled, not merely inert', async () => {
+  const screen = await render(
+    <div className="fw">
+      <ViewPanel />
+    </div>,
+  )
+  const add = screen.getByRole('button', { name: 'add colour' })
+  const enabledColor = getComputedStyle(add.element()).color
+
+  for (let i = 0; i < PALETTE_CAP; i++) await add.click()
+  await expect.element(add).toBeDisabled()
+  const disabledColor = getComputedStyle(add.element()).color
+
+  expect(disabledColor).not.toBe(enabledColor)
 })
 
 // Finding 9 (final whole-addendum review): `disabled` alone gives a screen
