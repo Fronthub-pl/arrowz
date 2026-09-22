@@ -2,7 +2,10 @@ import { readParams } from '@arrowz/engine'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deleteBoard } from '../api/boards'
+import { FieldHelp } from '../console/FieldHelp'
 import { ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
+import type { PlainUiKey } from '../console/viewFields'
+import { viewHelpEntries } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
@@ -23,6 +26,7 @@ import { cancelPendingSave, useViewSave } from './useViewSave'
 export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | null {
   const dict = useDictionary()
   const preview = useStore((state) => state.result.preview)
+  const showHelp = useStore((state) => state.ui.help)
   const open = useOpenBoard()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
@@ -140,6 +144,17 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
         <pre className="fw-cmd">{meta.command}</pre>
       </figure>
       <div className="fw-grid">
+        {/* The detail keeps no heading of its own to carry this list (spec R7
+            puts it under the panel heading elsewhere), and `.fw-lib-detail`'s
+            three row tracks (library.css) have no room for a fourth child. The
+            list sits inside the scrolling `.fw-grid` instead — the wrapper the
+            fields already sit in — spanning the row (`grid-column: 1 / -1`,
+            library.css) so it reads as one line above the cards rather than a
+            card of its own. */}
+        <FieldHelp
+          entries={viewHelpEntries(LIBRARY_VIEW_FIELDS, (key: PlainUiKey) => dict.t(key))}
+          hidden={!showHelp}
+        />
         {LIBRARY_VIEW_FIELDS.map((field) => (
           <ViewNumberField
             key={field.field}

@@ -1,5 +1,6 @@
 import { decodeBoard, defaultParams } from '@arrowz/engine'
 import { buildCommand } from '@arrowz/engine/command'
+import { dictionary } from '@arrowz/engine/i18n'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
@@ -25,6 +26,7 @@ import '../design/run.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)
+const EN = dictionary('en')
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -127,18 +129,43 @@ test('the stored view is offered as three numbers and two switches', async () =>
   expect(screen.container.querySelectorAll('.fw-lib-detail [role="switch"]')).toHaveLength(2)
 })
 
-// The help left `ViewNumberField`'s card for the panel headings (spec R7). The
-// library's head height carries no help on purpose (Ruling 17,
-// `libraryFields.ts`), so the detail must point at nothing it does not draw.
-test('every description the detail names is on the page, and head height names none', async () => {
+// The help left `ViewNumberField`'s card for the panel headings (spec R7).
+// Ruling 17 traded head height's help away for the card's height; that cost
+// is gone now that the list lives under a heading rather than in the card, so
+// the field gets its help back (`libraryFields.ts`).
+test('every description the detail names is on the page, and head height names its own', async () => {
   const screen = await mountDetail()
   await show()
-  expect(screen.container.querySelector('#view-headHeight')?.hasAttribute('aria-describedby')).toBe(false)
+  expect(screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby')).toBe(
+    'view-headHeight-help',
+  )
+  const help = document.getElementById('view-headHeight-help')
+  expect(help?.textContent).toBe(EN.t('headHelp'))
   for (const el of screen.container.querySelectorAll('.fw-lib-detail [aria-describedby]')) {
     for (const id of (el.getAttribute('aria-describedby') ?? '').split(/\s+/)) {
       expect(document.getElementById(id), `${el.id} names ${id}`).not.toBeNull()
     }
   }
+})
+
+// The list has no `.fw-khd` heading to sit under here (Task 8's row template
+// leaves `.fw-lib-detail` no room for a fourth child), so it is a heading-ish
+// container of its own instead: a `dl.fw-kdesc` — the same element every
+// panel heading uses to carry this list — sitting first in the fields grid,
+// ahead of the cards it describes.
+test('the head-height help sits in its own list, ahead of the fields it describes', async () => {
+  const screen = await mountDetail()
+  await show()
+  const list = screen.container.querySelector('.fw-lib-detail .fw-kdesc')
+  expect(list?.tagName).toBe('DL')
+  expect(list?.querySelector('#view-headHeight-help')).not.toBeNull()
+  const grid = screen.container.querySelector('.fw-lib-detail > .fw-grid')
+  if (grid === null || list === null) throw new Error('the detail is missing a part')
+  const kids = [...grid.children]
+  expect(kids.indexOf(list)).toBe(0)
+  expect(kids.indexOf(screen.container.querySelector('#view-headHeight')?.closest('.fw-k') as Element)).toBeGreaterThan(
+    kids.indexOf(list),
+  )
 })
 
 // Ruling 9: loading sets the knobs and the view but does NOT generate.

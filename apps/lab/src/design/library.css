@@ -125,6 +125,14 @@
   min-height: 0;
   overflow-y: auto;
 }
+/* The head-height help (spec R7, Ruling 17 reversed) has no heading of its own
+   to sit under here — `.fw-lib-detail`'s three rows have no room for a fourth
+   — so it is the fields grid's own first child instead, spanning every column
+   `.fw-grid`'s `repeat(auto-fill, minmax(190px, 1fr))` (console.css) would
+   otherwise squeeze it into. */
+.fw-lib-detail > .fw-grid > .fw-kdesc {
+  grid-column: 1 / -1;
+}
 .fw-lib-buttons {
   display: flex;
   gap: 8px;
