@@ -5,6 +5,7 @@ import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { audit, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
+import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
@@ -18,7 +19,15 @@ import '../design/palette.css'
 // Spec R1: the review's four measurements plus two of its findings, over
 // every state it found a defect in. The same import order as `main.tsx`.
 
-type State = 'board' | 'preview-palette' | 'lengths-help-off' | 'violations' | 'simple' | 'library-empty' | 'docs'
+type State =
+  | 'board'
+  | 'preview-palette'
+  | 'lengths-help-off'
+  | 'violations'
+  | 'simple'
+  | 'library-empty'
+  | 'library-detail'
+  | 'docs'
 const STATES: readonly State[] = [
   'board',
   'preview-palette',
@@ -26,6 +35,7 @@ const STATES: readonly State[] = [
   'violations',
   'simple',
   'library-empty',
+  'library-detail',
   'docs',
 ]
 const SIZES: readonly (readonly [number, number])[] = [
@@ -65,9 +75,28 @@ async function arrange(state: State) {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('no store'))
     window.history.pushState({}, '', '/boards')
   }
+  if (state === 'library-detail') {
+    // The one board this fixture builds, listed under its own size: enough
+    // for `useStoredBoard` (Workspace.tsx) to find the address's board in the
+    // listing and fetch its file, the same round trip
+    // `Workspace.browser.test.tsx`'s "a stored board can be opened…" case
+    // drives through the real store URLs rather than by calling `showPreview`
+    // directly — this is `.fw-lib-detail` reached the way a person reaches
+    // it, not summoned by hand.
+    const stored = storedFixture(1)
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+      const url = String(input)
+      if (url.includes('/api/boards')) {
+        return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+      }
+      if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
+      return Promise.resolve(new Response('{}', { status: 404 }))
+    })
+    window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
+  }
   if (state === 'docs') window.history.pushState({}, '', '/docs/cli')
   const screen = await render(<App />)
-  if (state !== 'library-empty' && state !== 'docs') await loadRunDone()
+  if (state !== 'library-empty' && state !== 'library-detail' && state !== 'docs') await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
     if (state === 'preview-palette') {
@@ -83,6 +112,14 @@ async function arrange(state: State) {
       s.ui.raiseClamped(true)
     }
   })
+  if (state === 'library-detail') {
+    // `useStoredBoard`'s fetch of the board file is asynchronous, so the
+    // detail is not there the instant `render` returns — this is the wait
+    // the task calls for, in place of `loadRunDone` (skipped above: this
+    // state cares about the board the address opened, not the lab's own
+    // load run).
+    await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).not.toBeNull()
+  }
   return screen
 }
 
@@ -105,6 +142,13 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
     await page.viewport(w, h)
     const screen = await arrange(state)
     await settle()
+    // `library-detail` keeps `board: true` (the default this excludes only
+    // 'library-empty' and 'docs' from): `BoardFrame.tsx` draws `.fw-board`
+    // on both tabs, and on this one it is the stored board `useStoredBoard`
+    // just fetched (`inLibrary ? preview : result`) — a real picture inside
+    // `.fw-boardwrap`, worth clipping the same way the lab's own board is.
+    // 'library-empty' and 'docs' have no board to check: the empty store
+    // never gets a preview, and the docs route hides the whole workspace.
     const board = state !== 'library-empty' && state !== 'docs'
     const findings = audit(screen.container, { board })
     const failing = [...new Set(findings.map((f) => f.invariant))].sort()
