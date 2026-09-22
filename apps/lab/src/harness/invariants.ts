@@ -5,7 +5,7 @@ import { contrast, shown } from '../design/contrast'
 // that declares `overflow: auto` and never scrolls passes a declaration test
 // (harness fact 36).
 
-export type Invariant = 'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast'
+export type Invariant = 'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast' | 'bar-clip'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -67,6 +67,32 @@ function overlap(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * Every control in the top bar stays inside it. `.fw-top` clips
+ * (`overflow: hidden`, shell.css), so a control pushed past its edge by a
+ * wider label (review P8: a Polish "Zaawansowany" widens the mode switch and
+ * shoves the language switch off the right) is invisible to the `scroll`
+ * invariant above — the document never grows, the bar's own content does.
+ */
+function barClip(root: HTMLElement): Finding[] {
+  const bar = root.querySelector('.fw-top')
+  if (bar === null) return []
+  const barRect = bar.getBoundingClientRect()
+  const out: Finding[] = []
+  for (const node of bar.querySelectorAll('button, a, select, input, [role="switch"], [role="radio"]')) {
+    if (!rendered(node)) continue
+    const r = node.getBoundingClientRect()
+    if (
+      r.left < barRect.left - EPS ||
+      r.right > barRect.right + EPS ||
+      r.top < barRect.top - EPS ||
+      r.bottom > barRect.bottom + EPS
+    )
+      out.push({ invariant: 'bar-clip' as const, detail: `${label(node)} "${node.textContent?.trim() ?? ''}"` })
+  }
+  return out
+}
+
 /** No button keeps the user agent's look (review P9: `2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
@@ -113,6 +139,7 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...scroll(),
     ...(board ? boardClip(root) : []),
     ...overlap(root),
+    ...barClip(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

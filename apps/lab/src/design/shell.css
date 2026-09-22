@@ -144,6 +144,15 @@ body {
   .fw-top {
     padding: 0 8px;
   }
+  /* A W×H readout, not a control (R2 forbids hiding one of those): the first
+     thing to give, below the size the size and preset already gave up
+     theirs. A Polish "Zaawansowany" widens the mode switch enough to push
+     the language switch's own chip past `.fw-top`'s `overflow: hidden`
+     (review P8) — invisible to it in English, where the bar still fits by
+     1px at 420 wide. */
+  .fw-top .dims {
+    display: none;
+  }
 }
 
 .fw-tabrow {

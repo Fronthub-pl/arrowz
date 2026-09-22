@@ -52,6 +52,10 @@ afterEach(() => {
   // The view slice has no reset (mountApp.tsx); put back what a case moved,
   // through `setState` and not through a slice action (harness fact 40).
   useStore.setState((s) => ({ view: { ...s.view, palette: [] } }))
+  // The Polish pass below leaves the page in `pl`; `resetApp`'s own
+  // `setLang('en')` runs at the start of the next case's `arrange`, but a
+  // case that throws before that point must not leave `pl` behind either.
+  useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
   vi.restoreAllMocks()
 })
 
@@ -82,26 +86,57 @@ async function arrange(state: State) {
   return screen
 }
 
+/** One frame for the layout that followed the last store write, then the
+ * settled layout: a rail tab selected in `arrange` is still mid-way through
+ * its 120ms background transition one frame later. */
+async function settle(): Promise<void> {
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  await Promise.all(
+    document
+      .getAnimations()
+      .filter((a) => a instanceof CSSTransition)
+      .map((a) => a.finished.catch(() => undefined)),
+  )
+}
+
 test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const)))(
   'the %s state at %d×%d keeps every layout invariant',
   async (state, w, h) => {
     await page.viewport(w, h)
     const screen = await arrange(state)
-    // One frame for the layout that followed the last store write.
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-    // Measure the settled layout: a rail tab selected in `arrange` is still
-    // mid-way through its 120ms background transition one frame later.
-    await Promise.all(
-      document
-        .getAnimations()
-        .filter((a) => a instanceof CSSTransition)
-        .map((a) => a.finished.catch(() => undefined)),
-    )
+    await settle()
     const board = state !== 'library-empty' && state !== 'docs'
     const findings = audit(screen.container, { board })
     const failing = [...new Set(findings.map((f) => f.invariant))].sort()
     const expected = [...(KNOWN_RED[`${state}@${w}x${h}`] ?? [])].sort()
     expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual(expected)
+  },
+  40_000,
+)
+
+// Review P8: the reconstruction's matrix above runs only in English, where
+// the bar fits by 1px at 420 wide; the language switch's own chip is what a
+// Polish "Zaawansowany" (spec §2, review P8) pushes past `.fw-top`'s
+// `overflow: hidden`. Two sizes, not the whole matrix crossed with `lang`,
+// to keep this file's runtime reasonable: 420×900 is R2's narrowest
+// supported width (where the defect shows), 1280×800 is a size the matrix
+// already covers in English, as a sanity check that Polish keeps every
+// invariant there too.
+const LANG_CASES: readonly (readonly [State, number, number])[] = [
+  ['board', 420, 900],
+  ['board', 1280, 800],
+]
+
+test.each(LANG_CASES)(
+  'the %s state at %d×%d keeps every layout invariant in Polish',
+  async (state, w, h) => {
+    await page.viewport(w, h)
+    const screen = await arrange(state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    const findings = audit(screen.container, { board: true })
+    const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+    expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
   },
   40_000,
 )
