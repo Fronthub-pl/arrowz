@@ -5,7 +5,8 @@ import { contrast, shown } from '../design/contrast'
 // that declares `overflow: auto` and never scrolls passes a declaration test
 // (harness fact 36).
 
-export type Invariant = 'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast' | 'bar-clip'
+export type Invariant =
+  'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast' | 'bar-clip' | 'panel-overflow'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -93,6 +94,26 @@ function barClip(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * A rendered `.fw-knobs` or `.fw-report` never scrolls sideways. `scroll`
+ * above only sees the document's own scrolling element; a panel that clips
+ * (`overflow-y: auto`) can grow past its own width without the document ever
+ * growing past its (live pass, 420×900: `.fw-knobs` scrollWidth 271 >
+ * clientWidth 254).
+ */
+function panelOverflow(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const panel of root.querySelectorAll('.fw-knobs, .fw-report')) {
+    if (!rendered(panel)) continue
+    if (panel.scrollWidth > panel.clientWidth + EPS)
+      out.push({
+        invariant: 'panel-overflow',
+        detail: `${label(panel)} ${panel.scrollWidth} > ${panel.clientWidth}`,
+      })
+  }
+  return out
+}
+
 /** No button keeps the user agent's look (review P9: `2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
@@ -140,6 +161,7 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...(board ? boardClip(root) : []),
     ...overlap(root),
     ...barClip(root),
+    ...panelOverflow(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

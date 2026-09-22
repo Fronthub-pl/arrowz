@@ -41,7 +41,19 @@ const SIZES: readonly (readonly [number, number])[] = [
  * deletes its entries here *first*, watches the case go red, then fixes it.
  * The comparison is exact, so an entry left behind after its fix is red too.
  */
-const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
+  // Not part of the 2026-09-22 lab-visual-fixes livepass defects (A: `.fw-kdesc`
+  // starving `dd`; B: the top bar's orphaned separator). `panel-overflow`
+  // (this task's new invariant) also catches `SimplePanel`'s `SkeletonCard`:
+  // its `Segmented` sits in a `.fw-grid` card whose `minmax(190px, 1fr)`
+  // column is narrower than the "no skeleton"/"with a skeleton" chips need at
+  // this width (measured: `.fw-knobs.fw-simple` scrollWidth 1187 vs
+  // clientWidth 1183, worst descendant `.fw-seg` 3.84px past the panel's
+  // right edge). Neither fix above touches `Segmented` or `.fw-grid`'s track
+  // sizing, so this is flagged rather than widened into: needs its own
+  // defect id and task.
+  'simple@1400x900': ['panel-overflow'], // P11 (new, unassigned — out of scope)
+}
 // Later regressions are listed here, keyed by `${state}@${w}x${h}`, with a trailing comment naming a defect id.
 
 beforeEach(() => {

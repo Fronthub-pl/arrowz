@@ -184,4 +184,23 @@ describe('the help switch', () => {
     const screen = await render(<KnobPanel group="lengths" />)
     expect(screen.container.textContent).not.toContain(EN.d.groupHelp.lengths)
   })
+
+  // Live pass, 420×900, board group: `.fw-kdesc`'s two fixed columns gave
+  // `dt` its full 16em (176px) before `dd` saw anything, so a 214px list left
+  // `dd` 22px wide — one word per line, and the sideways scroll `panel-overflow`
+  // now catches. `.fw-knobs` is `.fw-kdesc`'s query container (console.css);
+  // 300px is well under the 408px floor the container query stacks below, so
+  // `dd` should read as the full row rather than the narrow second column.
+  // `>= 150`: not the panel's whole width, just enough that a short sentence
+  // does not wrap one word per line the way 22px did.
+  it('gives a narrow panel enough width for a description to read, not one word a line', async () => {
+    const screen = await render(
+      <div style={{ width: '300px' }}>
+        <KnobPanel group="board" />
+      </div>,
+    )
+    const dd = screen.container.querySelector('.fw-kdesc dd')
+    if (dd === null) throw new Error('no description')
+    expect(dd.getBoundingClientRect().width).toBeGreaterThanOrEqual(150)
+  })
 })

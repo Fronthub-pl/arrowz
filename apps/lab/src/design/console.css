@@ -219,6 +219,27 @@
   margin: 0;
   color: var(--ash);
 }
+/* Below N the two-column form starves `dd`: the grid gives `dt` its full
+   16em (176px at this 11px font) before the flexible track sees anything, so
+   a panel narrower than 176 (dt) + 16 (gap) + 176 (dd's own floor, the same
+   16em) + 40 (`.fw-knobs`'s 20px+20px padding) = 408px left `dd` a sliver
+   that a single unbroken word (a number, a range) overflowed sideways — the
+   live pass measured a 214px list giving `dd` 22px at 420×900 (board
+   group), and `.fw-knobs` scrolled sideways because of it. N is 407, one
+   below that floor, so the two-column form still holds at exactly 408 where
+   `dd` clears its own 16em. */
+@container (max-width: 407px) {
+  .fw-kdesc {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The label sits with its own value (the row-gap above, 2px) and apart
+     from the entry before it: every label but the first gets the extra
+     margin, so the rhythm reads as label-value pairs rather than one even
+     column of lines. */
+  .fw-kdesc > div + div > dt {
+    margin-top: 8px;
+  }
+}
 /* Out of sight, in the accessibility tree. Ruling 9: the help switch is
    labelled "show parameter descriptions", and showing is what a screen reader
    does not do — `display: none` or `visibility: hidden` would take the text
@@ -441,8 +462,18 @@
   /* `position: relative` makes the panel the containing block of every `.fw-vh`
      inside it (spec R3). Without it the 1px box resolved against the initial
      containing block, at its static position far below the fold, and grew the
-     document: 1077px at 1280×800 in the review's measurement (P1). */
+     document: 1077px at 1280×800 in the review's measurement (P1).
+     `container-type: inline-size` is independent of that: a containing block
+     for absolute positioning comes from `position: relative` alone, and
+     `container-type` does not take it away, so `.fw-vh` keeps the same
+     containing block with both declarations present. This is `.fw-kdesc`'s
+     query container (below), for the panel's own width rather than the
+     viewport's — a group's card grid can be narrower than the viewport at
+     900px and below (`.fw-console`'s rail column), and a viewport query
+     would stack `dd` where the panel had room, or leave it starved where it
+     did not. */
   position: relative;
+  container-type: inline-size;
   background: var(--void);
   padding: 14px 20px 18px;
   min-height: 0;
