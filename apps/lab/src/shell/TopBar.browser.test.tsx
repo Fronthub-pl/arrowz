@@ -1,19 +1,11 @@
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
 import { TopBar } from './TopBar'
 
-/** The bar reads the route now (Task 3): every case below is the lab route
- * unless it says otherwise, the route the preset strip itself lives on
- * (`Workspace.tsx`: `lab && !simple`). */
-function renderBar(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <TopBar />
-    </MemoryRouter>,
-  )
+function renderBar() {
+  return render(<TopBar />)
 }
 
 beforeEach(() => {
