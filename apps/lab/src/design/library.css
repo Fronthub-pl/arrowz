@@ -127,8 +127,21 @@
    is the closest one around the list, the same way `.fw-knobs` is `.fw-kdesc`'s
    container in the console panels. Single-axis containment in the inline
    dimension only, so it does not touch the block-axis scrolling `overflow-y`
-   sets on this same element. */
+   sets on this same element.
+   `position: relative` is fix round 2, spec R3 a third time: it makes this
+   grid the containing block for every `.fw-vh` inside it (the head-height
+   help, hidden with the help switch off). Without it the 1px box resolves
+   against the initial containing block instead and grows the document (P1).
+   This element and not `.fw-lib-detail`: it is the box that actually scrolls
+   and clips the list, and R3's rule is that the positioned ancestor sits
+   inside the scroller that clips, not outside it — `.fw-knobs` is its own
+   scroller for the same reason. A guard, not a fix for an observed break:
+   the matrix's `library-detail` state (help off) measures no scroll defect
+   at any of its five sizes either way, same as `.fw-knobs` before this
+   pattern had a name — the box happens to fall inside the viewport at every
+   size tried, not because the containing block was already correct. */
 .fw-lib-detail > .fw-grid {
+  position: relative;
   min-height: 0;
   overflow-y: auto;
   container-type: inline-size;
