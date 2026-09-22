@@ -537,7 +537,24 @@
   }
   .fw-k .num,
   .fw-k select {
-    min-height: 32px;
+    min-height: 44px;
+  }
+  .fw .fw-palette-remove {
+    width: 44px;
+    height: 44px;
+  }
+  /* 32px and not 44: the row the switch sits in is the target (run.css keeps
+     the same reasoning for its own switches); this lifts the track itself. */
+  .fw-sw {
+    height: 32px;
+    width: 52px;
+  }
+  .fw-sw::after {
+    width: 26px;
+    height: 26px;
+  }
+  .fw-sw[aria-checked='true']::after {
+    transform: translateX(20px);
   }
 }
 

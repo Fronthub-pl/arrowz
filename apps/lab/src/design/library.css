@@ -138,3 +138,11 @@
   background: var(--error);
   color: var(--void);
 }
+
+/* §7.2: the saved-boards face had no coarse rule at all (review, touch). */
+@media (pointer: coarse) {
+  .fw .fw-lib-chips button,
+  .fw-lib-row {
+    min-height: 44px;
+  }
+}

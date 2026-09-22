@@ -100,9 +100,8 @@
   .fw .fw-exports button {
     height: 44px;
   }
-  /* The mock's switch is 44×26; the row, not the track, carries the touch
-     target, because raising `.fw-sw` itself would move ViewPanel's four as
-     well and that belongs in one PR about all six. */
+  /* The track is raised in console.css's coarse block (2026-09-22 spec §6);
+     the row still carries the rest of the 44px. */
   .fw-opt {
     min-height: 44px;
   }
