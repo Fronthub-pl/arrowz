@@ -29,14 +29,13 @@ describe('TopBar', () => {
     await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/Easy portrait/25×50⌘KSimpleAdvancedPLEN')
   })
 
-  // The other branch: one knob off a preset and the bar has nothing to name,
-  // so the name and its separator both go and the size stays. `act` wraps the
-  // write, as `useAutoRun.browser.test.tsx` wraps its own — a store write from
-  // outside a React event reaches the DOM on a microtask at the earliest.
-  it('drops the name, and its separator with it, when no preset spells the knobs', async () => {
+  // The other branch: one knob off a preset and no preset spells the knobs,
+  // so the bar says so where the name stood (spec R5). The preset strip used
+  // to carry this word as a sticky chip that covered its last chips (review P4).
+  it('says the values are edited, where the name stood, when no preset spells the knobs', async () => {
     const screen = await render(<TopBar />)
     await act(async () => useStore.getState().params.set('W', 26))
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/26×50⌘KSimpleAdvancedPLEN')
+    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/edited/26×50⌘KSimpleAdvancedPLEN')
   })
 
   it('switches the view and remembers the choice', async () => {

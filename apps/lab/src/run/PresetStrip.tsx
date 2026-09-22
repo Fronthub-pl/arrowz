@@ -55,7 +55,6 @@ export function PresetStrip({ control }: { control: RunControl }) {
           </Fragment>
         )
       })}
-      {current === null ? <span className="dirty">{dict.t('presetsDirty')}</span> : null}
     </div>
   )
 }

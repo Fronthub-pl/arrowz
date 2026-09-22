@@ -42,12 +42,8 @@ export function TopBar() {
         <path d="M3 17 L10 3 L17 17 L10 13 Z" fill="currentColor" />
       </svg>
       <h1 className="name">Arrowz</h1>
-      {name === null ? null : (
-        <>
-          <span className="sep">/</span>
-          <span className="preset">{name}</span>
-        </>
-      )}
+      <span className="sep">/</span>
+      <span className={name === null ? 'preset edited' : 'preset'}>{name ?? dict.t('presetsDirty')}</span>
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
       <div className="right">

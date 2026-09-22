@@ -228,24 +228,6 @@
   background: var(--signal-fill);
   border-color: transparent;
 }
-/* The mock paints this `--warn`, which §7.1 reserves for a clamped value or a
-   rule bound; "edited" is neither. `--mist` measures 8.61:1 on `--void`.
-
-   Sticky, and not merely the last item of the row: the strip scrolls, the
-   marker is the last of thirty-three children, and a browser pass measured it
-   at x=2555 in a strip 1385 wide — the one element that says why the highlight
-   went and why the top bar dropped the preset's name, parked past every chip
-   where nobody would see it. Pinned to the visible right edge, on the strip's
-   own `--void` so the chips sliding underneath do not read through it, and the
-   inset is padding rather than margin so that background reaches the edge. */
-.fw-presets .dirty {
-  position: sticky;
-  right: 0;
-  flex: none;
-  padding: 0 16px 0 10px;
-  background: var(--void);
-  color: var(--mist);
-}
 @media (pointer: coarse) {
   .fw-presets {
     height: auto;
