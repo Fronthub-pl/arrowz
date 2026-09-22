@@ -5,7 +5,15 @@ import type { ReactElement } from 'react'
 import { DraftNumber } from '../console/DraftNumber'
 import { KnobSlider } from '../console/KnobSlider'
 import { ThemeSwatchStrip, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
-import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS, VIEW_FIELDS, VIEW_FLAGS } from '../console/viewFields'
+import { FieldHelp } from '../console/FieldHelp'
+import {
+  type PlainUiKey,
+  SIMPLE_VIEW_FIELDS,
+  SIMPLE_VIEW_FLAGS,
+  VIEW_FIELDS,
+  VIEW_FLAGS,
+  viewHelpEntries,
+} from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import { OptionSwitch } from '../run/OptionSwitch'
 import type { RunControl } from '../run/useRun'
@@ -112,6 +120,7 @@ function RandomCard(): ReactElement {
 export function SimplePanel({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
+  const showHelp = useStore((state) => state.ui.help)
   const fields = VIEW_FIELDS.filter((field) => SIMPLE_VIEW_FIELDS.includes(field.field))
   const flags = VIEW_FLAGS.filter(({ flag }) => SIMPLE_VIEW_FLAGS.includes(flag))
   return (
@@ -130,6 +139,7 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
       </div>
       <div className="fw-khd">
         <b>{dict.t('preview')}</b>
+        <FieldHelp entries={viewHelpEntries(fields, (key: PlainUiKey) => dict.t(key))} hidden={!showHelp} />
       </div>
       <div className="fw-grid">
         {fields.map((field) => (

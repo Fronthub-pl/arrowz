@@ -334,3 +334,13 @@ Deno.test('both ui dictionaries carry the command palette words', () => {
   // a glyph and nothing else.
   for (const lang of ['en', 'pl'] as const) assertStringIncludes(dictionary(lang).t('cmdOpen'), '⌘K')
 })
+
+// The preview's four section titles (2026-09-22 spec R8).
+Deno.test('both ui dictionaries carry the preview section titles', () => {
+  for (const d of [EN, PL]) {
+    for (const k of ['previewGeometry', 'previewDrawing', 'previewPoints', 'previewColours'] as const) {
+      assertEquals(typeof d.ui[k], 'string', k)
+      assert(d.ui[k].length > 0, k)
+    }
+  }
+})

@@ -194,6 +194,16 @@ describe('SimplePanel', () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
     expect(screen.container.querySelector('input[type="color"]')).toBeNull()
-    expect(screen.container.querySelector('.fw-palette')).toBeNull()
+    // The palette lives in the console's colours card now (spec R8).
+    expect(screen.container.querySelector('.fw-colours')).toBeNull()
+  })
+
+  // Spec R7: the help paragraph left the card for the preview heading's list.
+  it('head height points at its help under the preview heading', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby')).toBe(
+      'view-headHeight-help',
+    )
+    expect(document.getElementById('view-headHeight-help')).not.toBeNull()
   })
 })

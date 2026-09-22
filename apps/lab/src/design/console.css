@@ -316,11 +316,15 @@
 /* The chosen theme's arrow colours, on its own paper (Task 1, palette
    round-2 addendum). Fixed-size swatches rather than `flex: 1`: a
    single-colour theme (`everforest-light`, `ayu-light`) then reads as one
-   deliberate chip, not a bar stretched to fill the row. */
+   deliberate chip, not a bar stretched to fill the row. Outside the colours
+   card (the simple view) the strip belongs to the select above it, on its
+   right edge. */
 .fw-k .fw-swatches {
   display: flex;
   gap: 4px;
+  width: max-content;
   margin-top: 6px;
+  margin-left: auto;
   padding: 4px;
   border: 1px solid var(--border);
 }
@@ -371,8 +375,8 @@
    class and the mist never applied. */
 .fw .fw-palette-remove {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid var(--border);
   background: var(--void);
@@ -380,6 +384,54 @@
   line-height: 1;
 }
 .fw .fw-palette-remove:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+/* The four drawing flags as one card (review change 6). */
+.fw-k.fw-flags {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 24px;
+}
+/* The colours card (review change 7): five colour objects sat on five
+   different x in four cards. One card, a label column and a control column,
+   everything starting on one x and growing right. */
+.fw-k.fw-colours {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 24px;
+}
+.fw-k.fw-colours > .val {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.fw-k.fw-colours .fw-swatches,
+.fw-k.fw-colours .fw-palette-list {
+  margin: 0;
+}
+.fw-k.fw-colours select {
+  justify-self: start;
+}
+/* The remove cross weighed as much as the swatch it removes (review change 8):
+   no border, `--ash`, until hover or focus makes it a button. */
+.fw .fw-palette-row .fw-palette-remove {
+  border-color: transparent;
+  color: var(--ash);
+}
+.fw .fw-palette-row:hover .fw-palette-remove,
+.fw .fw-palette-row .fw-palette-remove:focus-visible {
+  border-color: var(--border);
+  color: var(--mist);
+}
+/* The cross's own hover keeps the red it had before the rules above: at
+   (0,4,0) the row's hover would otherwise outrank `.fw .fw-palette-remove:hover`. */
+.fw .fw-palette-row .fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }

@@ -1,13 +1,15 @@
 import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
+import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { ColoursCard, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 
 const view = () => useStore.getState().view
+const EN = dictionary('en')
 
 // Colour inputs that exist on the panel before the user adds anything to the
 // palette: the point grid's dot colour (Task 5), the paper and the ink
@@ -347,7 +349,7 @@ test('the add button names the cap help text as its accessible description', asy
 })
 
 // Ruling 6 the other way: the store test covers the slice directly, this
-// covers it reached from the UI, so a caller that goes through `PaletteEditor`
+// covers it reached from the UI, so a caller that goes through `ColoursCard`
 // and one that goes through the picker are both pinned.
 test('choosing a theme keeps a custom palette built in the editor', async () => {
   const screen = await render(<ViewPanel />)
@@ -378,8 +380,8 @@ test('the editor never mutates a theme’s own palette array', async () => {
 })
 
 test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
-  const screen = await render(<PaletteEditor />)
-  // Rendered alone, the editor carries paper and ink but not the point grid's
+  const screen = await render(<ColoursCard />)
+  // Rendered alone, the colours card carries paper and ink but not the point grid's
   // dot colour -- that one lives in `ViewPanel` itself (`ALWAYS_PRESENT_COLOR_INPUTS`
   // above counts all three, so one is subtracted here).
   const beforeAnyPaletteColor = ALWAYS_PRESENT_COLOR_INPUTS - 1
@@ -404,4 +406,40 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
   await screen.getByRole('button', { name: /clear the paper/i }).click()
   // Back to "not set", which is what lets a theme supply it again.
   expect(view().paper).toBe('')
+})
+
+// Spec R8: four sections instead of one grid of fourteen cards.
+test('the preview is four titled sections, in order', async () => {
+  const screen = await render(<ViewPanel />)
+  const titles = [...screen.container.querySelectorAll('.fw-khd b')].map((b) => b.textContent)
+  expect(titles).toEqual(['geometry', 'drawing', 'points', 'colours'])
+})
+
+test('no card sits inside another card', async () => {
+  useStore.getState().view.addPaletteColor()
+  const screen = await render(<ViewPanel />)
+  expect(screen.container.querySelectorAll('.fw-k .fw-k')).toHaveLength(0)
+})
+
+test('the four drawing flags are one card, the point grid is with the points', async () => {
+  const screen = await render(<ViewPanel />)
+  const flags = screen.container.querySelector('.fw-k.fw-flags')
+  expect(flags?.querySelectorAll('[role="switch"]')).toHaveLength(4)
+  expect(flags?.querySelector('#view-showPoints')).toBeNull()
+})
+
+test('the colours card holds the theme, both surface colours and the palette', async () => {
+  const screen = await render(<ViewPanel />)
+  const card = screen.container.querySelector('.fw-k.fw-colours')
+  if (card === null) throw new Error('no colours card')
+  for (const id of ['#view-theme', '#view-paper', '#view-ink']) expect(card.querySelector(id)).not.toBeNull()
+  expect(card.querySelector('button.fw-btn')?.getAttribute('aria-describedby')).toBe('view-palette-help')
+})
+
+test('a field with help points at it under its section heading', async () => {
+  const screen = await render(<ViewPanel />)
+  const cell = screen.container.querySelector('#view-cell')
+  expect(cell?.getAttribute('aria-describedby')).toBe('view-cell-help')
+  expect(screen.container.querySelector('.fw-khd #view-cell-help')?.textContent).toBe(EN.t('cellHelp'))
+  expect(screen.container.querySelectorAll('.fw-k .why')).toHaveLength(0)
 })
