@@ -528,3 +528,76 @@ test('Generate is set in JetBrains Mono, 500, 13px, 44px high', async () => {
   expect(style.fontSize).toBe('13px')
   expect(go.getBoundingClientRect().height).toBeCloseTo(44, 0)
 }, 40_000)
+
+const report = () => useStore.getState().ui.report
+
+// Spec §4.3: `r` and `R` toggle the drawer under the same guard as `f`; each
+// refusal is followed by the same event without the thing refused.
+test('r toggles the report, and a modifier, a repeat or a field does nothing', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('r')
+  expect(report()).toBe(true)
+  await userEvent.keyboard('R')
+  expect(report()).toBe(false)
+  for (const modifier of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+    press(document.body, { key: 'r', ...modifier })
+    expect(report(), JSON.stringify(modifier)).toBe(false)
+  }
+  press(document.body, { key: 'r' })
+  expect(report()).toBe(true)
+  await screen.getByRole('tab', { name: 'board', exact: true }).click()
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  await userEvent.keyboard('r')
+  expect(report()).toBe(true)
+}, 40_000)
+
+test('Escape closes the report, but not while the palette or the preset panel has it', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('r')
+  await userEvent.keyboard('{Escape}')
+  expect(report()).toBe(false)
+
+  await userEvent.keyboard('r')
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  expect(report()).toBe(true)
+
+  await screen.getByRole('button', { name: /^preset/ }).click()
+  await userEvent.keyboard('{Escape}')
+  await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveAttribute('aria-expanded', 'false')
+  expect(report()).toBe(true)
+  await userEvent.keyboard('{Escape}')
+  expect(report()).toBe(false)
+}, 40_000)
+
+test('r does nothing on the docs route', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  await userEvent.keyboard('r')
+  expect(report()).toBe(false)
+}, 40_000)
+
+test('closing the report with the focus inside it moves the focus to the handle', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('button', { name: 'report' }).click()
+  const inside = document.getElementById('lab-report')
+  if (inside === null) throw new Error('no report')
+  inside.tabIndex = -1
+  inside.focus()
+  await userEvent.keyboard('{Escape}')
+  expect(report()).toBe(false)
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'report' }).element())
+}, 40_000)

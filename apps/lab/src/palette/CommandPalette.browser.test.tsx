@@ -142,11 +142,12 @@ describe('the palette dialog', () => {
     expect(useStore.getState().ui.palette).toBe(true)
   })
 
-  it('names all five hotkeys on the workspace, where every one of them is bound', async () => {
+  it('names all six hotkeys on the workspace, where every one of them is bound', async () => {
     const screen = await mount()
     expect(footer(screen)).toContain('generate')
     expect(footer(screen)).toContain('seed')
-    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(5)
+    expect(footer(screen)).toContain('report')
+    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(6)
   })
 
   // Spec D5 and §7: `useRunKeys` is gated on the workspace, so on `/docs/*`
@@ -158,6 +159,7 @@ describe('the palette dialog', () => {
     expect(footer(screen)).toContain('close')
     expect(footer(screen)).not.toContain('generate')
     expect(footer(screen)).not.toContain('seed')
+    expect(footer(screen)).not.toContain('report')
     expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(3)
   })
 

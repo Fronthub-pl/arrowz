@@ -138,6 +138,30 @@ function usePaletteKey() {
 }
 
 /**
+ * The report drawer's keys (spec §4.3): `r` / `R` toggles it, Escape closes it,
+ * both refused by `isHotkeyRefused` like `f`, and bound wherever the stage is.
+ * Escape reaches this listener last: the palette consumes its own Escape in
+ * its React handler and the preset panel in a capture-phase listener, and a
+ * consumed event is refused here as `defaultPrevented`.
+ */
+function useReportKey(onWorkspace: boolean) {
+  useEffect(() => {
+    if (!onWorkspace) return
+    const onKey = (event: KeyboardEvent) => {
+      if (isHotkeyRefused(event)) return
+      const ui = useStore.getState().ui
+      if (event.key === 'Escape') {
+        if (ui.report) ui.setReport(false)
+      } else if (event.key === 'r' || event.key === 'R') {
+        ui.toggleReport()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onWorkspace])
+}
+
+/**
  * The two hotkeys the palette's footer advertises (spec D5): `g` generates and
  * `[` / `]` step the seed and carve it — the experimenter's loop of flipping
  * through boards from one setting. `isHotkeyRefused` is what silences these
@@ -206,6 +230,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
+  useReportKey(onWorkspace)
   useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()
