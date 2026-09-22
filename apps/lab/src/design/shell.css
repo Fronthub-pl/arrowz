@@ -7,6 +7,42 @@
 html {
   color-scheme: dark;
 }
+
+/* Scrollbars (spec §6): thin, square, on the surface they scroll — the thumb
+   `--border-strong` at rest and `--ash` under the pointer, no track, no
+   arrows. Firefox and current Chromium read `scrollbar-*`; WebKit and older
+   Chromium the pseudo-elements. Full width where there is no hover. */
+.fw,
+.fw * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.fw ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fw ::-webkit-scrollbar-track,
+.fw ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.fw ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.fw ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ash);
+}
+.fw ::-webkit-scrollbar-button {
+  display: none;
+}
+@media (pointer: coarse) {
+  .fw,
+  .fw * {
+    scrollbar-width: auto;
+  }
+}
+
 body {
   margin: 0;
   background: var(--void);
@@ -535,11 +571,12 @@ body {
   border-color: var(--ink);
   color: var(--ink);
 }
+/* The same hover as every other chip in the lab — a fill, no underline — in
+   the bar's own terms (spec §6). `--signal-fill-hover`, not the handoff's 12%
+   `--ink` over the plane: that blend measured about 4.2:1 under `--ink`. */
 .fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
-  background: none;
+  background: var(--signal-fill-hover);
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .fw .fw-top .fw-seg button[aria-checked='true'] {
   background: var(--void);
