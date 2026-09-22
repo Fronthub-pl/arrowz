@@ -35,7 +35,10 @@ test('a panel draws every knob of its group', async () => {
   const screen = await render(<KnobPanel group="shape" />)
   // Four knobs in shape: pStraight, wLateral, warns, anticoil.
   expect(screen.container.querySelectorAll('.fw-k')).toHaveLength(4)
-  await expect.element(screen.getByText('coiling penalty')).toBeVisible()
+  // Scoped to the labels, not the heading's `FieldHelp` list (spec R7): the
+  // panel now also carries a `<dt>` with the same text.
+  const labels = [...screen.container.querySelectorAll('.fw-grid .lab')].map((el) => el.textContent)
+  expect(labels).toContain('coiling penalty')
 })
 
 test('the panel names its group and is the tabpanel the rail points at', async () => {
@@ -80,9 +83,11 @@ describe('the help switch', () => {
   it('shows every description while it is on', async () => {
     useStore.getState().ui.setHelp(true)
     const screen = await render(<KnobPanel group="board" />)
-    const desc = screen.getByText(helpFor('W')).element()
-    // The switch is on: nothing clips the description away.
-    expect(getComputedStyle(desc).clipPath).toBe('none')
+    // `fw-vh` sits on the whole list (spec R7), not on each `dd`.
+    const list = screen.container.querySelector('.fw-kdesc')
+    if (list === null) throw new Error('no description list')
+    // The switch is on: nothing clips the list away.
+    expect(getComputedStyle(list).clipPath).toBe('none')
   })
 
   // Measured, not `toBeVisible()`: that matcher reads the bounding rect, which
@@ -92,8 +97,10 @@ describe('the help switch', () => {
   it('hides the descriptions from the eye when it is off', async () => {
     useStore.getState().ui.setHelp(false)
     const screen = await render(<KnobPanel group="board" />)
-    const desc = screen.getByText(helpFor('W')).element()
-    const style = getComputedStyle(desc)
+    // `fw-vh` sits on the whole list (spec R7), not on each `dd`.
+    const list = screen.container.querySelector('.fw-kdesc')
+    if (list === null) throw new Error('no description list')
+    const style = getComputedStyle(list)
     expect(style.clipPath).toBe('inset(50%)')
     expect(style.position).toBe('absolute')
   })
@@ -101,7 +108,7 @@ describe('the help switch', () => {
   it('keeps the description in the accessibility tree when it is off', async () => {
     useStore.getState().ui.setHelp(false)
     const screen = await render(<KnobPanel group="board" />)
-    const described = screen.container.querySelector('#knob-W-why')
+    const described = screen.container.querySelector('#knob-W-desc')
     expect(described?.textContent).toContain(helpFor('W'))
     // `textContent` alone would stay unchanged under `display: none` too —
     // that gap is what let a `display: none` "simplification" through with a
@@ -113,29 +120,35 @@ describe('the help switch', () => {
     expect(style.visibility).not.toBe('hidden')
   })
 
-  // The whole point of splitting the paragraph: turning the descriptions off
-  // must not take the reason a run is refused off with them.
-  it('keeps a violation visible with the descriptions off', async () => {
+  // Ruling 9 of 2026-09-13 survives the move (spec R7): turning descriptions
+  // off never takes the reason a run is refused off with them, and the card's
+  // paragraph now holds the reason alone.
+  it('keeps a violation in the card, visible, with the descriptions off', async () => {
     useStore.getState().ui.setHelp(false)
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     const screen = await render(<KnobPanel group="lengths" />)
     const why = screen.getByTestId('knob-wShort-why')
     await expect.element(why).toBeVisible()
-    // `sharesSum` names both wShort and wMid, so wMid's own paragraph carries
-    // the identical reason text too — scoped to wShort's paragraph, not the
-    // whole panel, so the lookup stays unique rather than merely lenient.
     const violation = useStore.getState().params.violations[0]
     if (violation === undefined) throw new Error('expected a violation')
     await expect.element(why.getByText(EN.violation(violation))).toBeVisible()
-    // The brief calls this ordering a behaviour worth keeping: the split
-    // would currently survive a reversal (description before reason)
-    // unnoticed by every other assertion in this file.
-    const paragraph = why.element()
-    const stateSpan = paragraph.querySelector('.state')
-    const descSpan = paragraph.querySelector('.desc')
-    if (stateSpan === null || descSpan === null) throw new Error('expected both spans')
-    const children = [...paragraph.children]
-    expect(children.indexOf(stateSpan)).toBeLessThan(children.indexOf(descSpan))
+    expect(why.element().querySelector('.desc')).toBeNull()
+  })
+
+  it('lists each knob description once, under the heading, named by its knob', async () => {
+    const screen = await render(<KnobPanel group="board" />)
+    const list = screen.container.querySelector('.fw-khd .fw-kdesc')
+    if (list === null) throw new Error('no description list under the heading')
+    expect(list.querySelector('#knob-W-desc')?.textContent).toBe(helpFor('W'))
+    expect(screen.container.querySelectorAll('.fw-k .desc')).toHaveLength(0)
+  })
+
+  it('points each control at its reason and its description', async () => {
+    const screen = await render(<KnobPanel group="board" />)
+    await expect.element(screen.getByRole('slider', { name: /width/i })).toHaveAttribute(
+      'aria-describedby',
+      'knob-W-why knob-W-desc',
+    )
   })
 
   it('hides the group description too', async () => {

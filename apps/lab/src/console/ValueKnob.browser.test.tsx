@@ -12,14 +12,14 @@ const specOf = (key: string) => {
 }
 const params = () => useStore.getState().params
 
-test('the knob shows its label, its value and what it does', async () => {
+test('the knob shows its label and its value', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
   await expect.element(screen.getByText('closing off nooks')).toBeVisible()
   await expect.element(screen.getByRole('button', { name: /closing off nooks/ })).toMatchTextContent(/4/)
-  // The description is not decoration: it is the only thing that says what a
-  // knob called "closing off nooks" does.
-  await expect.element(screen.getByText(/fills nooks with few exits first/)).toBeVisible()
+  // The description moved to the panel heading (spec R7, `FieldHelp`); the
+  // card on its own no longer draws it.
+  expect(screen.container.querySelector('.desc')).toBeNull()
 })
 
 test('a value with a word shows the word beside the number', async () => {
@@ -131,13 +131,12 @@ test('a violated knob says why, in error colour, and the slider points at the re
   params().reset()
   params().setMany({ wShort: 0.8, wMid: 0.8 })
   const screen = await render(<ValueKnob spec={specOf('wShort')} />)
-  // Split across the two spans (Task 9): the reason lives in `.state` now,
-  // ahead of the description in `.desc`, and the split must not lose the
-  // "reason first" ordering the combined paragraph used to guarantee.
+  // The card's paragraph holds only the reason now (spec R7); the
+  // description moved to the panel heading.
   const reason = screen.container.querySelector('.state')
   expect(reason?.textContent ?? '').toContain('0.9')
   expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
-  await expect.element(screen.getByRole('slider')).toHaveAttribute('aria-describedby', 'knob-wShort-why')
+  await expect.element(screen.getByRole('slider')).toHaveAttribute('aria-describedby', 'knob-wShort-why knob-wShort-desc')
 })
 
 test('an inactive knob says what would make it do something', async () => {
@@ -160,9 +159,11 @@ test('the reason reaches the number and the inline entry, not only the slider', 
   const number = screen.getByRole('button', { name: /skeleton length/ })
   // Tabbing to the number used to announce "skeleton length: 30, button" and
   // nothing about why the knob is dead.
-  await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why')
+  await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
   await number.click()
-  await expect.element(screen.getByRole('textbox')).toHaveAttribute('aria-describedby', 'knob-giantSpan-why')
+  await expect
+    .element(screen.getByRole('textbox'))
+    .toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
 })
 
 test('a knob under a rule floor states the bound in words, not only as a mark', async () => {

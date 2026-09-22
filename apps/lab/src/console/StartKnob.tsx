@@ -2,14 +2,18 @@ import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { isStartChoice, START, START_CHOICES, startChoiceOf } from '@arrowz/engine/command'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { descId } from './FieldHelp'
 import { ValueKnob } from './ValueKnob'
 
 /**
  * Read once, at module load. A `const` narrowed by a module-level `if` does not
  * stay narrowed inside a function declaration, so the check and the binding are
  * one expression.
+ *
+ * Exported: `KnobPanel` reads its label and help text for the mix row's own
+ * entry in `FieldHelp` (spec R7), the same spec `ValueKnob` renders below.
  */
-const MIX_SPEC: ParamSpec = (() => {
+export const MIX_SPEC: ParamSpec = (() => {
   const spec = PARAM_SPEC.find((s) => s.key === 'mix')
   if (!spec) throw new Error('PARAM_SPEC has no mix')
   return spec
@@ -25,7 +29,6 @@ const MIX_SPEC: ParamSpec = (() => {
  */
 export function StartKnob() {
   const dict = useDictionary()
-  const showHelp = useStore((state) => state.ui.help)
   // The *word*, not the values object. `values` is rebuilt on every commit, so
   // subscribing to it would rerender this control — and the share row under it
   // — on every tick of every slider in the group, which is the one thing the
@@ -43,7 +46,7 @@ export function StartKnob() {
           <select
             id="knob-start"
             value={choice}
-            aria-describedby="knob-start-why"
+            aria-describedby={descId('start')}
             onChange={(event) => {
               const word = event.currentTarget.value
               // The options are built from the CLI's own vocabulary, so
@@ -59,9 +62,6 @@ export function StartKnob() {
             ))}
           </select>
         </div>
-        <p className="why" id="knob-start-why" data-testid="knob-start-why">
-          <span className={showHelp ? 'desc' : 'desc fw-vh'}>{start.help}</span>
-        </p>
       </div>
       {choice === 'mixing' ? <ValueKnob spec={MIX_SPEC} bounds={START.mix} /> : null}
     </>

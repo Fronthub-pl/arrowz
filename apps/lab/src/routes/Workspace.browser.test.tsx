@@ -428,7 +428,13 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()
   await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
-  await expect.element(screen.getByText('number of skeleton pieces (0 = no skeleton)')).toBeVisible()
+  // Scoped to the label, not the panel heading's `FieldHelp` list (spec R7):
+  // the panel now also carries a `<dt>` with the same text.
+  const label = [...screen.container.querySelectorAll<HTMLElement>('.lab')].find(
+    (el) => el.textContent === 'number of skeleton pieces (0 = no skeleton)',
+  )
+  if (label === undefined) throw new Error('label not found')
+  await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
 })

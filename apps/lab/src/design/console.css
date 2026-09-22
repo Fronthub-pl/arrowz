@@ -199,6 +199,26 @@
   line-height: 1.6;
   color: var(--ash);
 }
+/* A panel's control descriptions, under its heading (spec R7): the control's
+   name, then what it does. */
+.fw-kdesc {
+  display: grid;
+  grid-template-columns: minmax(0, 16em) minmax(0, 1fr);
+  gap: 2px 16px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.fw-kdesc > div {
+  display: contents;
+}
+.fw-kdesc dt {
+  color: var(--mist);
+}
+.fw-kdesc dd {
+  margin: 0;
+  color: var(--ash);
+}
 /* Out of sight, in the accessibility tree. Ruling 9: the help switch is
    labelled "show parameter descriptions", and showing is what a screen reader
    does not do — `display: none` or `visibility: hidden` would take the text
@@ -229,8 +249,8 @@
   white-space: nowrap;
   border: 0;
 }
-/* A paragraph holding only a hidden description must not reserve a line. */
-.fw-k .why:not(:has(> :not(.fw-vh))) {
+/* A card with nothing wrong reserves no line. */
+.fw-k .why:empty {
   margin: 0;
 }
 /* A knob the engine would refuse. The mock has no such state — its only knob

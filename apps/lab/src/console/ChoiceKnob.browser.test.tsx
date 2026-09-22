@@ -34,11 +34,12 @@ test('an inactive choice knob says why', async () => {
   expect(screen.container.querySelector('.why')?.textContent).toContain('No effect:')
 })
 
-test('a choice knob still says what it does', async () => {
+test('a choice knob no longer says what it does in its own card', async () => {
   useStore.getState().params.reset()
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-  // There is no slider here, so this paragraph is the knob's only description.
-  expect(screen.container.querySelector('.why')?.textContent).toContain(trapBias.help.slice(0, 24))
+  // The description moved to the panel heading (spec R7, `FieldHelp`); the
+  // card's paragraph holds only the state.
+  expect(screen.container.querySelector('.desc')).toBeNull()
 })
 
 test('a violated choice knob says why, in error colour, and the select points at the reason', async () => {
@@ -60,7 +61,9 @@ test('a violated choice knob says why, in error colour, and the select points at
     const why = screen.container.querySelector('.why')
     expect(why?.textContent ?? '').toContain('5 is outside -1..1')
     expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
-    await expect.element(screen.getByRole('combobox')).toHaveAttribute('aria-describedby', 'knob-trapBias-why')
+    await expect
+      .element(screen.getByRole('combobox'))
+      .toHaveAttribute('aria-describedby', 'knob-trapBias-why knob-trapBias-desc')
   } finally {
     useStore.getState().params.reset()
   }
