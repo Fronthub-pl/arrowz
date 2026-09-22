@@ -52,6 +52,7 @@ async function mountApp() {
   // entirely (console.css), and a later case reading `.fw-console` would then
   // be measuring a `display: none` box.
   useStore.getState().ui.setSolo(false)
+  useStore.getState().ui.setReport(false)
   return render(<App />)
 }
 
@@ -229,7 +230,12 @@ test('a run in flight keeps the last result on screen', async () => {
   const element = screen.container.querySelector('arrowz-board')
   const board = element?.board
   expect(board?.W).toBe(25)
-  const report = () => screen.getByRole('region', { name: 'Report' }).element().querySelector('table.fw-stats')
+  // `includeHidden`: the report drawer starts closed and its report is then
+  // `visibility: hidden` (shell.css), which a role locator skips. The claim
+  // here is what the report holds while a run is in flight, not whether the
+  // drawer is open.
+  const report = () =>
+    screen.getByRole('region', { name: 'Report', includeHidden: true }).element().querySelector('table.fw-stats')
   const statsBefore = report()?.textContent
   expect(statsBefore).toMatch(/25 × 50/)
   // The board-file button waits for the layout hash of the board on screen;

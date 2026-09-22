@@ -188,11 +188,88 @@ body {
 }
 
 .fw-stage {
+  position: relative;
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) clamp(22rem, 24vw, 32rem);
+  grid-template-columns: 70px minmax(0, 1fr) 28px;
   gap: 1px;
   background: var(--border);
   min-height: 0;
+  overflow: hidden;
+}
+/* The report as a drawer on the stage's right edge (spec §4.1). Closed, only
+   its 28px handle shows, in the stage's third track, so the board takes the
+   width the report column used to hold; open, it slides over the board. Below
+   900px the same: the report no longer drops to a row under the board. */
+.fw-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: calc(clamp(22rem, 24vw, 32rem) + 28px);
+  max-width: calc(100% - 70px);
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  transform: translateX(calc(100% - 28px));
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-drawer.open {
+  transform: none;
+  box-shadow: -1px 0 0 var(--border);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-drawer {
+    transition: none;
+  }
+}
+.fw .fw-drawer-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--void);
+  color: var(--mist);
+  cursor: pointer;
+}
+.fw .fw-drawer-handle:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.fw .fw-drawer-handle:focus-visible {
+  outline-offset: -2px;
+}
+.fw-drawer-handle .t {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw-drawer-handle .c {
+  font-size: 10px;
+  color: var(--ash);
+}
+.fw-drawer > .fw-report {
+  min-width: 0;
+}
+/* Hidden, not merely off screen: out of the tab order and the accessibility
+   tree while closed. */
+.fw-drawer:not(.open) > .fw-report {
+  visibility: hidden;
+}
+@media (pointer: coarse) {
+  .fw-stage {
+    grid-template-columns: 70px minmax(0, 1fr) 44px;
+  }
+  .fw-drawer {
+    grid-template-columns: 44px minmax(0, 1fr);
+    width: calc(clamp(22rem, 24vw, 32rem) + 44px);
+    transform: translateX(calc(100% - 44px));
+  }
 }
 .fw-runs {
   display: flex;
@@ -278,34 +355,6 @@ body {
 @media (max-height: 700px) {
   .fw-board {
     min-height: 0;
-  }
-}
-
-/* The report at 900px and below: a row under the rail and the board (spec
-   §5.2; PR 4b, Ruling 2). The board's row keeps 292px — the board's 260px
-   minimum, its border inside it, plus the wrap's 32px of padding — whenever the
-   stage is that tall, and the report takes a third of what is left. Measured at
-   860 wide: 73px of report at 900 high in the advanced view, 155px at 1100.
-   `min(292px, 100%)` and not a bare 292px: in a stage shorter than that, a bare
-   minimum pushed the wrap 25px out of the stage and over the console, where
-   this rule leaves the board exactly as it is today and the report at its 24px
-   of padding, which the console's opaque background covers (review measured up
-   to 25px of it past the stage at 860×720). A fixed `max-height` on the report
-   instead clipped the board at every height below 900. */
-@media (max-width: 900px) {
-  .fw-stage {
-    grid-template-columns: 70px minmax(0, 1fr);
-    grid-template-rows: minmax(min(292px, 100%), 2fr) minmax(0, 1fr);
-  }
-  .fw-stage > .fw-report {
-    grid-column: 1 / -1;
-  }
-}
-/* Below 700px of height `.fw-board` gives up its minimum (the `max-height:
-   700px` query above), so its row gives up the 292px too. */
-@media (max-width: 900px) and (max-height: 700px) {
-  .fw-stage {
-    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
 

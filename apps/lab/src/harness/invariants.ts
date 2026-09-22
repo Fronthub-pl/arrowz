@@ -15,6 +15,7 @@ export type Invariant =
   | 'bar-clip'
   | 'panel-overflow'
   | 'popover-fit'
+  | 'drawer-fit'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -145,6 +146,35 @@ function popoverFit(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * An open drawer lies over the board (spec §4.1): inside its stage, and right
+ * of the run rail, which `max-width: calc(100% - 70px)` keeps uncovered — never
+ * past the stage's edge onto the console. The stage's own box alone would not
+ * see that rule go: at 420×900 the stage is 420px and the drawer without it
+ * 380px, inside the stage and 30px over the rail (measured). Open only:
+ * closed, the drawer is translated all but its handle past the stage's right
+ * edge by design, and the stage clips it (`overflow: hidden`, shell.css).
+ */
+function drawerFit(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const drawer of root.querySelectorAll('.fw-drawer.open')) {
+    const stage = drawer.closest('.fw-stage')
+    if (stage === null || !rendered(drawer)) continue
+    const d = drawer.getBoundingClientRect()
+    const s = stage.getBoundingClientRect()
+    const rail = stage.querySelector(':scope > .fw-runs')
+    const left = rail !== null && rendered(rail) ? rail.getBoundingClientRect().right : s.left
+    if (d.left < left - EPS || d.right > s.right + EPS || d.top < s.top - EPS || d.bottom > s.bottom + EPS) {
+      const [l, t, r, b] = [d.left, d.top, d.right, d.bottom].map((v) => v.toFixed(0))
+      out.push({
+        invariant: 'drawer-fit',
+        detail: `${label(drawer)} ${l},${t} to ${r},${b} outside ${label(stage)} right of x=${left.toFixed(0)}`,
+      })
+    }
+  }
+  return out
+}
+
 /** No button keeps the user agent's look (review P9: `2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
@@ -194,6 +224,7 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...barClip(root),
     ...panelOverflow(root),
     ...popoverFit(root),
+    ...drawerFit(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

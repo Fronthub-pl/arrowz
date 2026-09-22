@@ -18,72 +18,70 @@ function rect(container: HTMLElement, selector: string): DOMRect {
   return found.getBoundingClientRect()
 }
 
-// Spec §5.2 and PR 4b, Ruling 2. At 860×900 the stage is 366px (advanced) and
-// 385px (simple); the board keeps its 260px minimum and the report takes what
-// is left, 73px and 92px measured. The wrap clips (`shell.css`'s
-// `.fw-boardwrap { overflow: hidden }`), so the board's rect alone would prove
-// nothing: it has to lie inside the wrap's content box, which is the wrap's
-// rect less its 16px padding, because the wrap has no border.
-test.each(['advanced', 'simple'] as const)(
-  'at 860×900 the report is a row under the board and takes nothing the board needs (%s)',
-  async (mode) => {
-    await page.viewport(860, 900)
+async function settleTransitions(): Promise<void> {
+  await new Promise((resolve) => requestAnimationFrame(resolve))
+  await Promise.all(
+    document
+      .getAnimations()
+      .filter((a) => a instanceof CSSTransition)
+      .map((a) => a.finished.catch(() => undefined)),
+  )
+}
+
+// Spec §4.1: closed, the report is its 28px handle in the stage's third track
+// and nothing more — at 860 as at 1400, where it used to take a row under the
+// board or a third of the stage beside it. The report itself is hidden, out of
+// the tab order and the accessibility tree.
+test.each([
+  [860, 900, 'advanced'],
+  [860, 900, 'simple'],
+  [1400, 900, 'advanced'],
+] as const)(
+  'at %i×%i (%s) the closed report leaves only its handle beside the board',
+  async (w, h, mode) => {
+    await page.viewport(w, h)
     const screen = await mountApp(mode)
     await loadRunDone()
     const stage = rect(screen.container, '.fw-stage')
     const wrap = rect(screen.container, '.fw-boardwrap')
-    const board = rect(screen.container, '.fw-board')
-    const report = rect(screen.container, '.fw-report')
-    expect(report.width).toBeCloseTo(stage.width, 0)
-    expect(report.top).toBeGreaterThanOrEqual(wrap.bottom)
-    expect(report.height).toBeGreaterThan(0)
-    expect(board.height).toBeGreaterThanOrEqual(259.5)
-    expect(board.top).toBeGreaterThanOrEqual(wrap.top + 15.5)
-    expect(board.bottom).toBeLessThanOrEqual(wrap.bottom - 15.5)
-    expect(board.left).toBeGreaterThanOrEqual(wrap.left + 15.5)
-    expect(board.right).toBeLessThanOrEqual(wrap.right - 15.5)
-    // A row of knobs under the stage, whole. The report lives inside the
-    // stage, so this holds as long as it stays there: a report placed in the
-    // lab grid instead would push the console down and cut this row.
-    const panel = rect(screen.container, '.fw-console .fw-knobs')
-    const knobRow = rect(screen.container, '.fw-console .fw-k .top')
-    expect(knobRow.top).toBeGreaterThanOrEqual(Math.max(panel.top, stage.bottom))
-    expect(knobRow.bottom).toBeLessThanOrEqual(panel.bottom)
+    const handle = rect(screen.container, '.fw-drawer-handle')
+    expect(handle.width).toBeCloseTo(28, 0)
+    expect(handle.right).toBeCloseTo(stage.right, 0)
+    expect(handle.height).toBeCloseTo(stage.height, 0)
+    // The board's track ends at the handle's track: 28px plus the 1px gap.
+    expect(stage.right - wrap.right).toBeCloseTo(29, 0)
+    expect(wrap.height).toBeCloseTo(stage.height, 0)
+    const report = screen.container.querySelector('.fw-report')
+    expect(report?.checkVisibility({ visibilityProperty: true })).toBe(false)
   },
   40_000,
 )
 
-test.each(['advanced', 'simple'] as const)(
-  'above 900px the report is the third column beside the board (%s)',
-  async (mode) => {
-    await page.viewport(1400, 900)
-    const screen = await mountApp(mode)
-    await loadRunDone()
-    const wrap = rect(screen.container, '.fw-boardwrap')
-    const report = rect(screen.container, '.fw-report')
-    // 22rem at the document's 16px.
-    expect(report.width).toBeCloseTo(352, 0)
-    expect(report.left).toBeGreaterThanOrEqual(wrap.right)
-    expect(report.top).toBeCloseTo(wrap.top, 0)
-    expect(report.height).toBeCloseTo(wrap.height, 0)
-  },
-  40_000,
-)
-
-// Review P3: the report was a fixed 22rem at every width, so three of its
-// first five rows wrapped at 2560px as at 1024. It keeps 22rem as a floor and
-// grows to 24vw, up to 32rem.
+// Open, the report is as wide as the column it used to be, clamp(22rem, 24vw,
+// 32rem), and it lies over the board rather than moving it (P3 kept).
 test.each([
   [1280, 800, 352],
   [1920, 1080, 460.8],
   [2560, 1200, 512],
 ] as const)(
-  'at %d×%d the report column is %dpx wide',
+  'at %d×%d the open report is %dpx wide, over a board that does not move',
   async (w, h, px) => {
     await page.viewport(w, h)
     const screen = await mountApp('advanced')
     await loadRunDone()
-    expect(rect(screen.container, '.fw-report').width).toBeCloseTo(px, 0)
+    const before = rect(screen.container, '.fw-boardwrap')
+    await screen.getByRole('button', { name: 'report' }).click()
+    await settleTransitions()
+    const report = rect(screen.container, '.fw-report')
+    const stage = rect(screen.container, '.fw-stage')
+    expect(report.width).toBeCloseTo(px, 0)
+    expect(report.right).toBeCloseTo(stage.right, 0)
+    // Field by field: a DOMRect's fields are prototype getters, so
+    // `toEqual` on two rects compares no own properties and always passes.
+    const after = rect(screen.container, '.fw-boardwrap')
+    for (const side of ['left', 'top', 'width', 'height'] as const)
+      expect(after[side], side).toBeCloseTo(before[side], 1)
+    await expect.element(screen.getByRole('region', { name: 'Report' })).toBeVisible()
   },
   40_000,
 )

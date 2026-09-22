@@ -651,13 +651,13 @@
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the console, the violations,
    the clamp notice, and whatever a later PR puts beside them — and, inside the
-   stage, the run rail and the report. Both grids are redefined, because a
-   track keeps its size when its only item is `display: none`: the lab's rows
-   become the one stage track (`.fw-lab.simple.solo` outranks `.fw-lab.simple`
-   rather than tying with it), and the stage's columns and rows — including its
-   ≤900px rows (shell.css) — become the one board track. Nothing unmounts: the
-   GL context, the run column's focus and a draft being typed all live in the
-   hidden nodes. Measured: `.fw-boardwrap` equals `.fw-lab` and the element is
+   stage, the run rail and the report drawer. Both grids are redefined,
+   because a track keeps its size when its only item is `display: none`: the
+   lab's rows become the one stage track (`.fw-lab.simple.solo` outranks
+   `.fw-lab.simple` rather than tying with it), and the stage's three columns —
+   the rail's, the board's and the drawer handle's (shell.css) — become the one
+   board track. Nothing unmounts: the GL context, the run column's focus and a
+   draft being typed all live in the hidden nodes. Measured: `.fw-boardwrap` equals `.fw-lab` and the element is
    34px smaller on both axes at 1400×900, 860×900 and 860×650, in both views. */
 .fw-lab.solo,
 .fw-lab.simple.solo,
@@ -673,7 +673,7 @@
 }
 .fw-lab.solo > :not(.fw-stage),
 .fw-lab.solo .fw-runs,
-.fw-lab.solo .fw-report {
+.fw-lab.solo .fw-drawer {
   display: none;
 }
 .fw-lab.solo .fw-stage {

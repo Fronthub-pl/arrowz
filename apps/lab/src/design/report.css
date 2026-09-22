@@ -1,6 +1,7 @@
-/* The report column (spec §5.2). Its own file, as console.css explains for its
-   own: one file per surface keeps a specificity collision inside the surface
-   that caused it. On `--graphite`, never on `--paper`, scrolling inside itself
+/* The report, the content of the stage's drawer (spec §4.1 of the presets and
+   drawer spec). Its own file, as console.css explains for its own: one file
+   per surface keeps a specificity collision inside the surface that caused
+   it. On `--graphite`, never on `--paper`, scrolling inside itself
    as `.fw-runs` and `.fw-run-col` do. Where it sits is the stage's business
    (shell.css). */
 .fw-report {

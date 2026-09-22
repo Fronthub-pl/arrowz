@@ -22,6 +22,7 @@ import '../design/palette.css'
 type State =
   | 'board'
   | 'presets-open'
+  | 'report-open'
   | 'preview-palette'
   | 'lengths-help-off'
   | 'violations'
@@ -32,6 +33,7 @@ type State =
 const STATES: readonly State[] = [
   'board',
   'presets-open',
+  'report-open',
   'preview-palette',
   'lengths-help-off',
   'violations',
@@ -68,6 +70,7 @@ afterEach(() => {
   // `setLang('en')` runs at the start of the next case's `arrange`, but a
   // case that throws before that point must not leave `pl` behind either.
   useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
+  useStore.setState((s) => ({ ui: { ...s.ui, report: false } }))
   vi.restoreAllMocks()
 })
 
@@ -101,6 +104,7 @@ async function arrange(state: State) {
   if (state !== 'library-empty' && state !== 'library-detail' && state !== 'docs') await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
+    if (state === 'report-open') s.ui.setReport(true)
     if (state === 'preview-palette') {
       s.ui.select('preview')
       for (let i = 0; i < 8; i++) s.view.addPaletteColor()
