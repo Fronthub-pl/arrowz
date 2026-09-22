@@ -148,8 +148,8 @@ test('a violated knob says why, in error colour, and the slider points at the re
 test('an inactive knob says what would make it do something', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
-  // giants is 0, so the serpentine knobs do nothing. Split across the two
-  // spans (Task 9): the reason lives in `.state`, not in the combined `.why`.
+  // giants is 0, so the serpentine knobs do nothing. The reason lives in
+  // `.state`, a span of its own and not part of the combined `.why`.
   expect(screen.container.querySelector('.state')?.textContent).toContain('No effect:')
   // The one place this console knowingly departs from the spec's table: a knob
   // that does nothing is dimmed, but it is not disabled — it is focusable,
@@ -177,8 +177,8 @@ test('a knob under a rule floor states the bound in words, not only as a mark', 
   params().setMany({ W: 900, H: 900 })
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
   // 0.85 is above the floor here, so there is no violation — and the marker on
-  // the track is the only other place this number appears. Split across the
-  // two spans (Task 9): the bound is the reason, in `.state`.
+  // the track is the only other place this number appears. The bound is the
+  // reason, in `.state`, a span of its own.
   expect(screen.container.querySelector('.state')?.textContent).toContain('Rule bound')
 })
 
@@ -191,6 +191,6 @@ test('a floor sitting on the knob maximum is stated too, not left to the marker 
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
   // The marker's only surface is a mouse-hover title; the sentence is the one
   // everyone reads, screen readers included, through `aria-describedby`.
-  // Split across the two spans (Task 9): the bound is the reason, in `.state`.
+  // The bound is the reason, in `.state`, a span of its own.
   expect(screen.container.querySelector('.state')?.textContent).toContain('Rule bound: 1')
 })

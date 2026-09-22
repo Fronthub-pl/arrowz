@@ -219,8 +219,8 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 
 /**
  * The console's colours card (spec R8): the theme, the board's two surface
- * colours and the editable custom palette (design doc §6, palette round-2
- * addendum, task 2), one card with a label column and a control column.
+ * colours and the editable custom palette (design doc §6), one card with a
+ * label column and a control column.
  * Console-only by construction — it is defined here and imported by
  * `ViewPanel` alone; `SimplePanel` imports `ThemeSwatchStrip` from this file
  * but never this component (ViewPanel.browser.test.tsx and

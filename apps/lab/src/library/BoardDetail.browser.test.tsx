@@ -238,7 +238,7 @@ test('rows keep the buttons off the scroll instead of pinning them over it', asy
   expect(getComputedStyle(buttons).position).toBe('static')
 })
 
-// Review P6, fix round 1: `.fw-cmdfig` (run.css) carries its own floor —
+// Review P6: `.fw-cmdfig` (run.css) carries its own floor —
 // `min-height: calc(1lh + 6px + 58px)` — and a command with several pinned
 // knobs wraps past it. `storedFixture` cannot carry a custom command itself
 // (its `command` field is a fixed template of width/height/seed alone), so
@@ -246,7 +246,8 @@ test('rows keep the buttons off the scroll instead of pinning them over it', asy
 // `buildCommand`, and overrides `meta.command` with it — the same override
 // technique the case above uses for `id`. Below the floor the fields row has
 // nothing left to give, so the whole detail must scroll as one box to reach
-// the buttons; `overflow: hidden` on `.fw-lib-detail` left no path there.
+// the buttons: the command's fixed floor and the buttons' own fixed row are
+// what `overflow-y: auto` on `.fw-lib-detail` exists to reach past.
 //
 // `overflow-y` and not `scrollTop`: `overflow: hidden` is still
 // programmatically scrollable in Chromium — measured here setting

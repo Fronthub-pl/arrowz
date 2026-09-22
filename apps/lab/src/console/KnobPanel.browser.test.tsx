@@ -166,7 +166,7 @@ describe('the help switch', () => {
       .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-desc')
   })
 
-  // `difficulty` holds the `--start` pair (Task 11 test above, "the difficulty
+  // `difficulty` holds the `--start` pair (the test above, "the difficulty
   // group shows one start control"): the mix row is one control of its own,
   // and its `FieldHelp` entry must join and leave the list with it.
   it('lists the mix row only while the start choice is mixing, and points the share at it', async () => {

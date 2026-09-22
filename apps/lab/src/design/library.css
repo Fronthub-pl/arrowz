@@ -101,8 +101,8 @@
    costs: at 860x900 the content ran 64px past the box, unreachable, and the
    document itself overflowed by 65px. Three explicit rows (spec §2 P6): the
    command, the fields, then the buttons, so only the middle row scrolls and
-   nothing is pinned over it. `overflow-y: auto` here too, as a safety net
-   (fix round 1): at ordinary heights the fields row absorbs any squeeze and
+   nothing is pinned over it. `overflow-y: auto` here too, as a safety net:
+   at ordinary heights the fields row absorbs any squeeze and
    this box never scrolls, but a command below the two auto rows' own fixed
    floor — `.fw-cmdfig`'s `min-height` plus the buttons — has nowhere else to
    give, and with the buttons no longer sticky, scrolling the whole box here

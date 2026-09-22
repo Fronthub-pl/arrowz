@@ -663,8 +663,8 @@ test('the workspace is hidden under the docs route', async () => {
 // track assertion below would pass with the library rule deleted. Review
 // round 1 measured exactly that.
 //
-// Fix round 2: this case mounted the real `App` with `fetch` unmocked, so
-// `/api/boards` hit whatever this environment answers with — here, the dev
+// This case mounts the real `App`, so `fetch` needs a mock: unmocked,
+// `/api/boards` hits whatever this environment answers with — here, the dev
 // server's own `index.html` fallback, 200 and not JSON, which `listBoards`
 // turns into a caught parse error. Whether that error lands on the store
 // before or after the read below is a race, and losing it sets R10's
@@ -831,11 +831,11 @@ test('solo in the library fills the panel', async () => {
 // where the lab's is 150px. This is what tells the executor that the two
 // `.fw-console.library` rules went in *above* the media query (Task 6 Step 4).
 //
-// Fix round 2: this reads `.fw-console`'s first track the same way the case
-// above does, so it races the same unmocked `/api/boards` — a listing that
-// settles as an error before this read drops the console to R10's one-column
-// `empty` face, whose only track is not `150px`. The same deterministic,
-// one-size listing removes the race here too.
+// This reads `.fw-console`'s first track the same way the case above does,
+// so it needs the same mocked, deterministic listing: unmocked, it races
+// the same `/api/boards` fetch, and a listing that settles as an error
+// before this read drops the console to R10's one-column `empty` face,
+// whose only track is not `150px`.
 test('below 900px the library rail is the lab rail', async () => {
   await page.viewport(860, 900)
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
