@@ -85,6 +85,8 @@ body {
   padding: 0 16px;
   background: var(--signal-fill);
   color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
 }
 .fw-top .mark {
   width: 20px;
@@ -112,6 +114,36 @@ body {
   align-items: center;
   gap: 14px;
   min-width: 0;
+}
+/* The bar gives way before the document does (spec R2: 420px is the narrowest
+   width the lab supports). Review P8 measured the shell at 472px minimum —
+   572 with a preset named — because every child of this flex row kept its
+   width. The name of the preset goes first, then the gaps. */
+.fw-top .name,
+.fw-top .sep {
+  flex: none;
+}
+.fw-top .preset,
+.fw-top .dims {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 560px) {
+  .fw-top .preset,
+  .fw-top .sep:has(+ .preset) {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .fw-top,
+  .fw-top .right {
+    gap: 8px;
+  }
+  .fw-top {
+    padding: 0 8px;
+  }
 }
 
 .fw-tabrow {
@@ -173,17 +205,9 @@ body {
   position: relative;
   height: 100%;
   min-height: 260px;
-  /* `<arrowz-board>` sets `--arrowz-paper` on its own host, and a custom
-     property inherits downward only, so in this composition -- the element
-     nested inside `.fw-board` (below), covering it -- this rule can never
-     see it and always falls back to `var(--paper)`, the lab's own token. That
-     is not a gap: the `.fw-board arrowz-board` rule below, giving the element
-     a full-height display, means the element covers the frame's padding box,
-     so the letterbox a person sees is painted by the element's own `:host`,
-     which is what carries the board's colour. This declaration would read
-     the property only in a composition that set it at or above this element
-     -- worth keeping for the day a frame is larger than the board it holds. */
-  background: var(--arrowz-paper, var(--paper));
+  /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
+     only shows through before it upgrades. */
+  background: var(--paper);
   border: 1px solid var(--border);
   overflow: hidden;
 }

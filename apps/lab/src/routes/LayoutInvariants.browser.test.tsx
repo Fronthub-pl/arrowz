@@ -41,15 +41,7 @@ const SIZES: readonly (readonly [number, number])[] = [
  * deletes its entries here *first*, watches the case go red, then fixes it.
  * The comparison is exact, so an entry left behind after its fix is red too.
  */
-const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
-  'board@420x900': ['scroll'], // P8
-  'preview-palette@420x900': ['scroll'], // P8
-  'lengths-help-off@420x900': ['scroll'], // P8
-  'violations@420x900': ['scroll'], // P8
-  'simple@420x900': ['scroll'], // P8
-  'library-empty@420x900': ['scroll'], // P8
-  'docs@420x900': ['scroll'], // P8
-}
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
 
 beforeEach(() => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
