@@ -50,9 +50,7 @@ describe('TopBar', () => {
     useStore.getState().ui.setMode('advanced')
     const screen = await renderBar()
     await act(async () => useStore.getState().params.set('W', 26))
-    await expect
-      .element(screen.getByRole('banner'))
-      .toHaveTextContent('Arrowz/edited/26×50⌘KSimpleAdvancedPLEN')
+    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/edited/26×50⌘KSimpleAdvancedPLEN')
   })
 
   // The simple view has no preset strip at all (`Workspace.tsx`: `lab &&

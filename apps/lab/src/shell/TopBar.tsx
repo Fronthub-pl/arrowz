@@ -22,7 +22,8 @@ export function TopBar() {
   // on every face — the saved boards, the docs, the simple view — where there
   // is none. `tabIndex === 0` is `Workspace`'s own "lab" test (`TabRow.tsx`'s
   // `selectedIndex`), read here rather than duplicated as a path check.
-  const advancedLab = mode === 'advanced' && selectedIndex(useLocation().pathname) === 0
+  const isLabRoute = selectedIndex(useLocation().pathname) === 0
+  const advancedLab = mode === 'advanced' && isLabRoute
   // One selector on the whole `values` object, and no longer two primitive
   // ones: the bar names the preset as well as the size, and the presets are
   // spelled between them by six knobs — W, H, headBias, giants, giantStep and
