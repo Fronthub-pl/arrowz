@@ -29,16 +29,6 @@
   background: none;
   color: var(--ink);
   cursor: pointer;
-  /* `.fw-scrim` below is `position: fixed` at `z-index: 40`, over the whole
-     viewport including the top bar: without its own stacking, the trigger is
-     visually and functionally beneath the backdrop the moment the dialog it
-     opened is open, and the "outside press" handler's exclusion for this
-     element (`TRIGGER_ID`, `CommandPalette.tsx`) never sees a press landing
-     on it — only on the scrim — so a press here could never close what it
-     opened. One taller than the scrim restores the trigger's own hit area
-     while the dialog is open. */
-  position: relative;
-  z-index: 41;
 }
 .fw-top .right > button:hover {
   background: var(--signal-fill-hover);

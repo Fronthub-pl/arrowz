@@ -1,8 +1,9 @@
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { contrast, shown } from '../design/contrast'
 import { audit, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
 import { storedFixture } from '../state/library.fixtures'
@@ -241,4 +242,37 @@ test('an unreachable store drops the saved-boards console to one column', async 
   if (chips === null || list === null || console_ === null) throw new Error('library face missing')
   expect(chips.checkVisibility()).toBe(false)
   expect(list.getBoundingClientRect().width).toBeCloseTo(console_.getBoundingClientRect().width, 0)
+}, 40_000)
+
+// Spec §6: the bar's hover is a fill, like every other chip in the lab.
+// `backgroundColor` equality is what pins the exact token, `--signal-fill-hover`,
+// against the handoff's `rgba(237, 238, 242, 0.12)`; the contrast check
+// guards that the shipped, opaque fill actually clears AA under `--ink` —
+// this file, not `LabLayout.browser.test.tsx`, is where the ⌘K trigger's
+// hover can be measured, because it is the one that already loads the full
+// cascade `main.tsx` does, `palette.css` included (spec R1).
+test('a hovered choice in the top bar is filled, not underlined, and still reads at AA', async () => {
+  await page.viewport(1400, 900)
+  const screen = await arrange('board')
+  await settle()
+  // Two locators written out: `getByRole` takes the ARIA role union, so a
+  // role held in a `string` variable fails `lab:check`.
+  const controls = [
+    ['Simple', screen.getByRole('radio', { name: 'Simple' })],
+    ['⌘K', screen.getByRole('button', { name: 'Command palette (⌘K)' })],
+  ] as const
+  for (const [name, control] of controls) {
+    await userEvent.hover(control)
+    // The segmented buttons carry the shared chip's 120ms background
+    // transition (`.fw .fw-seg button`); reading the computed style right
+    // after the pointer event catches it mid-animation, still `rgba(0, 0, 0,
+    // 0)`. `settle` (above) waits it out.
+    await settle()
+    const el = control.element()
+    const style = getComputedStyle(el)
+    expect(style.textDecorationLine, name).toBe('none')
+    expect(style.backgroundColor, name).toBe('rgb(85, 97, 200)')
+    const { front, back } = shown(el)
+    expect(contrast(front, back), name).toBeGreaterThanOrEqual(4.5)
+  }
 }, 40_000)

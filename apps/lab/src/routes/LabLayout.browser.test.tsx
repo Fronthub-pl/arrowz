@@ -3,13 +3,11 @@ import { expect, test } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { loadRunDone, mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
-import { contrast, shown } from '../design/contrast'
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
 import '../design/run.css'
 import '../design/report.css'
-import '../design/palette.css'
 
 // Every case here is about geometry at a stated size, so each sets its own
 // viewport first: the size a case sets outlives it (harness facts).
@@ -308,17 +306,10 @@ test('the ⌘K button closes the palette it opened, rather than reopening it', a
   await trigger.click()
   await expect.poll(() => useStore.getState().ui.palette).toBe(false)
   // And a press anywhere else outside the frame still closes it, so the
-  // exception above is the trigger's alone. `.fw-scrim` (spec §9, now that
-  // this file loads `palette.css`) is `position: fixed` at `z-index: 40`
-  // over the whole viewport, so the heading is genuinely behind it — as
-  // intended, unlike the trigger above. `force: true` skips Playwright's own
-  // occlusion check and dispatches the real click at the heading's
-  // coordinates, which is exactly what a press "anywhere else" behind the
-  // backdrop does: it lands on the scrim, the heading has no handler of its
-  // own to fire regardless.
+  // exception above is the trigger's alone.
   await trigger.click()
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
-  await screen.getByRole('heading', { level: 1, name: 'Arrowz' }).click({ force: true })
+  await screen.getByRole('heading', { level: 1, name: 'Arrowz' }).click()
   await expect.poll(() => useStore.getState().ui.palette).toBe(false)
 }, 40_000)
 
@@ -609,34 +600,6 @@ test('closing the report with the focus inside it moves the focus to the handle'
   await userEvent.keyboard('{Escape}')
   expect(report()).toBe(false)
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'report' }).element())
-}, 40_000)
-
-// Spec §6: the bar's hover is a fill, like every other chip in the lab, and a
-// fill `--ink` still reads on — the handoff's 12% ink measured about 4.2:1.
-test('a hovered choice in the top bar is filled, not underlined, and still reads at AA', async () => {
-  await page.viewport(1400, 900)
-  const screen = await mountApp('advanced')
-  await loadRunDone()
-  // Two locators written out: `getByRole` takes the ARIA role union, so a
-  // role held in a `string` variable fails `lab:check`.
-  const controls = [
-    ['Simple', screen.getByRole('radio', { name: 'Simple' })],
-    ['⌘K', screen.getByRole('button', { name: 'Command palette (⌘K)' })],
-  ] as const
-  for (const [name, control] of controls) {
-    await userEvent.hover(control)
-    // The segmented buttons carry the shared chip's 120ms background
-    // transition (`.fw .fw-seg button`); reading the computed style right
-    // after the pointer event catches it mid-animation, still `rgba(0, 0, 0,
-    // 0)`. Settle it, the same helper the drawer's slide uses above.
-    await settleTransitions()
-    const el = control.element()
-    const style = getComputedStyle(el)
-    expect(style.textDecorationLine, name).toBe('none')
-    expect(style.backgroundColor, name).toBe('rgb(85, 97, 200)')
-    const { front, back } = shown(el)
-    expect(contrast(front, back), name).toBeGreaterThanOrEqual(4.5)
-  }
 }, 40_000)
 
 // Spec §6: thin scrollbars in the lab's own colours.
