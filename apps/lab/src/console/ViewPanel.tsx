@@ -213,6 +213,7 @@ export function PaletteEditor() {
             already states the cap in words, so the refusal is audible too. */}
         <button
           type="button"
+          className="fw-btn"
           onClick={addPaletteColor}
           disabled={palette.length >= PALETTE_CAP}
           aria-describedby="view-palette-help"

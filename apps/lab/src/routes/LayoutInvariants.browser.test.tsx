@@ -48,11 +48,11 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'board@860x900': ['contrast'], // Signal
   'board@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
-  'preview-palette@1400x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'preview-palette@1280x800': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'preview-palette@1024x768': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'preview-palette@860x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'preview-palette@420x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P8, ua-button P9
+  'preview-palette@1400x900': ['contrast'], // Signal
+  'preview-palette@1280x800': ['contrast'], // Signal
+  'preview-palette@1024x768': ['contrast'], // Signal
+  'preview-palette@860x900': ['contrast'], // Signal
+  'preview-palette@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
   'lengths-help-off@1400x900': ['contrast'], // Signal
   'lengths-help-off@1280x800': ['contrast'], // Signal
@@ -72,11 +72,11 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'simple@860x900': ['contrast'], // Signal
   'simple@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
-  'library-empty@1400x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'library-empty@1280x800': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'library-empty@1024x768': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'library-empty@860x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
-  'library-empty@420x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P8, ua-button P9
+  'library-empty@1400x900': ['contrast'], // Signal
+  'library-empty@1280x800': ['contrast'], // Signal
+  'library-empty@1024x768': ['contrast'], // Signal
+  'library-empty@860x900': ['contrast'], // Signal
+  'library-empty@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
   'docs@1400x900': ['contrast'], // Signal
   'docs@1280x800': ['contrast'], // Signal

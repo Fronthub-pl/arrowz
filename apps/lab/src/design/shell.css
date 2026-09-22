@@ -388,6 +388,36 @@ body {
   }
 }
 
+/* The console's plain button (spec R6): Refresh, Load into lab, Delete, add
+   colour. `.fw button` above normalises type and never paints, so a button
+   with no class of its own kept the browser's grey `2px outset` look (review
+   P9). A class, not a context selector, because "add colour" moves between
+   cards. (0,2,0) outranks `.fw button`. */
+.fw .fw-btn {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-btn:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface);
+}
+.fw .fw-btn:disabled {
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .fw .fw-btn {
+    height: 44px;
+  }
+}
+
 /* The top bar is the Signal plane, where the chip's own colours would vanish:
    `--signal` on `--signal` for the chosen option, and the global focus ring is
    `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on

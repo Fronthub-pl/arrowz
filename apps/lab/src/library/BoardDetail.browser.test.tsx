@@ -14,6 +14,7 @@ import { cancelPendingSave } from './useViewSave'
 // stylesheets — without them `.fw-lib-list` never scrolls and the case passes
 // on a layout that does not exist (review round 3).
 import '../design/tokens.css'
+import '../design/shell.css'
 import '../design/console.css'
 import '../design/library.css'
 
@@ -178,6 +179,25 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
   // mutations 9 and 10, which each tripped one case and not the other).
   expect(list.clientHeight).toBeGreaterThanOrEqual(120)
   expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
+})
+
+// Review P9: neither detail button was dressed, so both kept the browser's
+// `2px outset` border. Delete was dressed only once armed, and even then only
+// its border *colour*, on a border with no width or style.
+test('both detail buttons wear the console button, armed or not', async () => {
+  await show()
+  const screen = await mountDetail()
+  const buttons = [...screen.container.querySelectorAll<HTMLButtonElement>('.fw-lib-buttons button')]
+  expect(buttons).toHaveLength(2)
+  for (const b of buttons) {
+    expect(getComputedStyle(b).borderTopStyle).toBe('solid')
+    expect(getComputedStyle(b).borderTopWidth).toBe('1px')
+  }
+  const del = buttons[1]
+  if (del === undefined) throw new Error('no delete button')
+  await userEvent.click(del)
+  expect(del.className).toContain('armed')
+  expect(getComputedStyle(del).borderTopStyle).toBe('solid')
 })
 
 test('the first click arms delete, and the second removes the board', async () => {

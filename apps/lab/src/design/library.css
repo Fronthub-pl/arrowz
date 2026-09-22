@@ -127,7 +127,7 @@
 
 /* Armed: the second press is the destructive one, and it says so in `--error`
    rather than in `--warn`, which §7.1 reserves for a value that moved. */
-.fw .fw-lib-buttons .danger.armed {
+.fw .fw-lib-buttons .fw-btn.danger.armed {
   border-color: var(--error);
   background: var(--error);
   color: var(--void);

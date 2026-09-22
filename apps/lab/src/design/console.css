@@ -335,7 +335,9 @@
   border: 1px solid var(--border);
   background: var(--void);
 }
-.fw-palette-remove {
+/* `.fw` because `.fw button`'s `color: inherit` (0,1,1) outranked the bare
+   class and the mist never applied. */
+.fw .fw-palette-remove {
   flex: none;
   width: 18px;
   height: 18px;
@@ -345,7 +347,7 @@
   color: var(--mist);
   line-height: 1;
 }
-.fw-palette-remove:hover {
+.fw .fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }

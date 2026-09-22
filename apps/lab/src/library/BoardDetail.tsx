@@ -165,10 +165,10 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
         ))}
       </div>
       <div className="fw-lib-buttons">
-        <button type="button" onClick={loadIntoLab}>
+        <button type="button" className="fw-btn" onClick={loadIntoLab}>
           {dict.t('loadIntoLab')}
         </button>
-        <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
+        <button type="button" className={armed ? 'fw-btn danger armed' : 'fw-btn danger'} onClick={remove}>
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
