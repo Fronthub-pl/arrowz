@@ -459,4 +459,9 @@ body {
 }
 .fw .fw-top :focus-visible {
   outline-color: var(--ink);
+  /* The global ring sits outside the element by 2px (shell.css's `:root`
+     rule); `.fw-top` clips (`overflow: hidden`) at 48px tall, and the
+     segmented buttons run y 2–46 in it on a coarse pointer, so that ring
+     drew half-cut at the bar's own edge. Draw it inside instead. */
+  outline-offset: -2px;
 }
