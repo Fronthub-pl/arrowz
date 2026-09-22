@@ -657,8 +657,9 @@
    `.fw-lab.simple` rather than tying with it), and the stage's three columns —
    the rail's, the board's and the drawer handle's (shell.css) — become the one
    board track. Nothing unmounts: the GL context, the run column's focus and a
-   draft being typed all live in the hidden nodes. Measured: `.fw-boardwrap` equals `.fw-lab` and the element is
-   34px smaller on both axes at 1400×900, 860×900 and 860×650, in both views. */
+   draft being typed all live in the hidden nodes. Measured: `.fw-boardwrap`
+   equals `.fw-lab` and the element is 34px smaller on both axes at 1400×900,
+   860×900 and 860×650, in both views. */
 .fw-lab.solo,
 .fw-lab.simple.solo,
 /* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a

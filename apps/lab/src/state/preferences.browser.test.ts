@@ -11,21 +11,21 @@ test('a fresh page opens in the simple view, in English', () => {
   expect(useStore.getState().lang.lang).toBe('en')
 })
 
-test('a chosen language is remembered under the previous lab\'s key', () => {
+test("a chosen language is remembered under the previous lab's key", () => {
   useStore.getState().lang.setLang('pl')
   expect(localStorage.getItem('labLang')).toBe('pl')
   useStore.getState().lang.setLang('en')
   expect(localStorage.getItem('labLang')).toBe('en')
 })
 
-test('a chosen view is remembered under the previous lab\'s key', () => {
+test("a chosen view is remembered under the previous lab's key", () => {
   useStore.getState().ui.setMode('advanced')
   expect(localStorage.getItem('labView')).toBe('advanced')
   useStore.getState().ui.setMode('simple')
   expect(localStorage.getItem('labView')).toBe('simple')
 })
 
-test('the recipe is remembered under the previous lab\'s key, in a form its reader takes back', () => {
+test("the recipe is remembered under the previous lab's key, in a form its reader takes back", () => {
   useStore.getState().recipe.setSlider('lengths', 0.3)
   useStore.getState().recipe.setRandom(true)
   const stored = localStorage.getItem('labSimple')

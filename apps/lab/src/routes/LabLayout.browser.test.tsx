@@ -86,6 +86,28 @@ test.each([
   40_000,
 )
 
+// Spec §4.1: closing slides the whole drawer out, report and all. The report
+// turns hidden only once the 180ms slide is over (`transition: visibility 0s
+// linear 180ms`, shell.css); hidden at once, only the bare 28px handle would
+// cross the board. Read on the node itself, right after the click, and again
+// once the transitions have finished.
+test('closing the drawer keeps the report on screen for the slide, then hides it', async () => {
+  await page.viewport(1280, 800)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const handle = screen.getByRole('button', { name: 'report' })
+  await handle.click()
+  await settleTransitions()
+  const report = screen.container.querySelector('.fw-report')
+  if (report === null) throw new Error('.fw-report is not on the page')
+  expect(report.checkVisibility({ visibilityProperty: true })).toBe(true)
+  await handle.click()
+  expect(useStore.getState().ui.report).toBe(false)
+  expect(report.checkVisibility({ visibilityProperty: true }), 'right after the click').toBe(true)
+  await settleTransitions()
+  expect(report.checkVisibility({ visibilityProperty: true }), 'after the slide').toBe(false)
+}, 40_000)
+
 // The ≤900px defect PR #67's browser pass found, and the same defect above
 // 900px once the exports are in the column (PR 4b, Ruling 1). `.fw-cmdfig` is
 // `flex: 0 1 auto` with `min-height: 0`, so the column shrinks the figure below

@@ -27,7 +27,7 @@ beforeEach(() => {
 /**
  * The panel asks the route now (`useInLibrary`), so it needs a router. No
  * address of its own: every case here is the lab, which is `/`, and the
- * library tab's empty report column is the whole application's case (Task 9).
+ * library tab's empty report drawer is the whole application's case (Task 9).
  */
 async function mountReport() {
   return render(

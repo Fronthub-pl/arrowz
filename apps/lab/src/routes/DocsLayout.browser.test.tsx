@@ -10,7 +10,7 @@ import '../design/docs.css'
 
 // The documentation panel's geometry, measured in the shell rather than in a
 // component: the claim `docs.css` makes — "the panel scrolls inside itself,
-// like the report column, because the shell has a fixed height and does not
+// like the report drawer, because the shell has a fixed height and does not
 // scroll" — is about the chain from `.fw`'s grid down to the panel, and a
 // component test mounts none of it. Whole-branch review measured the claim
 // false at 1280×800: the document scrolled 2017×2458 inside a 1280×800

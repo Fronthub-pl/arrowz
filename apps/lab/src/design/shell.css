@@ -198,8 +198,8 @@ body {
 }
 /* The report as a drawer on the stage's right edge (spec §4.1). Closed, only
    its 28px handle shows, in the stage's third track, so the board takes the
-   width the report column used to hold; open, it slides over the board. Below
-   900px the same: the report no longer drops to a row under the board. */
+   width a report beside it used to hold; open, it slides over the board.
+   Below 900px the same: the report does not drop under the board. */
 .fw-drawer {
   position: absolute;
   top: 0;
@@ -216,11 +216,6 @@ body {
 .fw-drawer.open {
   transform: none;
   box-shadow: -1px 0 0 var(--border);
-}
-@media (prefers-reduced-motion: reduce) {
-  .fw-drawer {
-    transition: none;
-  }
 }
 .fw .fw-drawer-handle {
   display: flex;
@@ -257,9 +252,22 @@ body {
   min-width: 0;
 }
 /* Hidden, not merely off screen: out of the tab order and the accessibility
-   tree while closed. */
+   tree while closed. The hide waits out the 180ms slide, so the report leaves
+   with the drawer rather than vanishing and letting the bare handle cross the
+   board; opening shows it at once. A transition takes the timing of the style
+   it goes to, hence one on each side. */
 .fw-drawer:not(.open) > .fw-report {
   visibility: hidden;
+  transition: visibility 0s linear 180ms;
+}
+.fw-drawer.open > .fw-report {
+  transition: visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-drawer,
+  .fw-drawer:not(.open) > .fw-report {
+    transition: none;
+  }
 }
 @media (pointer: coarse) {
   .fw-stage {

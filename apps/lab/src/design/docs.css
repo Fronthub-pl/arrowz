@@ -1,14 +1,14 @@
 /* The documentation pages (spec §2.4). Its own file, as report.css explains for
    its own: one file per surface keeps a specificity collision inside the
    surface that caused it. The panel scrolls inside itself, like the report
-   column, because the shell has a fixed height and does not scroll.
+   drawer, because the shell has a fixed height and does not scroll.
 
    `height: 100%` is what makes that true, and the rule shipped without it: the
    panel is a block child of a block <main>, so it grew to its content and
    `overflow-y` had nothing to overflow — measured at 1280×800, a 2370px section
    inside a 712px <main>, scrolling the whole document 2458px and taking the top
    bar and the tab strip off the screen. The `min-height: 0` that used to sit
-   here was the report column's rule copied to a box that is not a grid item,
+   here was the report's rule copied to a box that is not a grid item,
    where it is both inert and the initial value. The sideways half of the same
    defect is `.fw > main`'s business (shell.css).
 
