@@ -15,6 +15,9 @@ export type ViewMode = 'simple' | 'advanced'
 /** The previous lab's key and values. */
 export const MODE_KEY = 'labView'
 
+/** Where the report drawer's state is remembered (spec §4.2). */
+export const REPORT_KEY = 'labReport'
+
 /** Only a stored `advanced` opens the advanced view (Ruling 2). */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
@@ -34,6 +37,8 @@ export interface UiState {
   solo: boolean
   /** The command palette is on screen (spec §8). Never remembered, never in the hash. */
   palette: boolean
+  /** The report drawer is open (spec §4.2). Remembered, never in the hash. */
+  report: boolean
   /**
    * The DOM id of a control a palette jump asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
@@ -51,6 +56,8 @@ export interface UiState {
   openPalette(): void
   closePalette(): void
   togglePalette(): void
+  setReport(on: boolean): void
+  toggleReport(): void
   requestFocus(id: string): void
   clearFocusRequest(): void
 }
@@ -69,6 +76,7 @@ export function createUiSlice(set: SetStore): UiState {
     mode: modeOf(readStored(MODE_KEY)),
     solo: false,
     palette: false,
+    report: readStored(REPORT_KEY) === 'open',
     focusTarget: null,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
@@ -87,6 +95,18 @@ export function createUiSlice(set: SetStore): UiState {
     // Read inside the update, like `toggleSolo`: the hotkey and the trigger
     // can both fire before a render.
     togglePalette: () => set((state) => ({ ui: { ...state.ui, palette: !state.ui.palette } })),
+    setReport: (report) => {
+      writeStored(REPORT_KEY, report ? 'open' : 'closed')
+      patch({ report })
+    },
+    // Read inside the update, like `toggleSolo`: the key and the handle can
+    // both fire before a render.
+    toggleReport: () =>
+      set((state) => {
+        const report = !state.ui.report
+        writeStored(REPORT_KEY, report ? 'open' : 'closed')
+        return { ui: { ...state.ui, report } }
+      }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
   }
