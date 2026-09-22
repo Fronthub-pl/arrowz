@@ -3,9 +3,9 @@ import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { DraftNumber } from '../console/DraftNumber'
+import { FieldHelp } from '../console/FieldHelp'
 import { KnobSlider } from '../console/KnobSlider'
 import { ThemeSwatchStrip, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
-import { FieldHelp } from '../console/FieldHelp'
 import {
   type PlainUiKey,
   SIMPLE_VIEW_FIELDS,
@@ -97,14 +97,23 @@ function SeedCard(): ReactElement {
   )
 }
 
+/** The id `RandomCard`'s help entry carries under the panel heading, and the
+ * switch below points at (spec R7). */
+const RANDOM_HELP_ID = 'simple-random-help'
+
 function RandomCard(): ReactElement {
   const dict = useDictionary()
   const random = useStore((state) => state.recipe.value.random)
   const setRandom = useStore((state) => state.recipe.setRandom)
   return (
     <div className="fw-k">
-      <OptionSwitch id="simple-random" label={dict.d.simple.randomize} on={random} onChange={setRandom} />
-      <p className="why">{dict.d.simple.randomizeHelp}</p>
+      <OptionSwitch
+        id="simple-random"
+        label={dict.d.simple.randomize}
+        on={random}
+        onChange={setRandom}
+        describedBy={RANDOM_HELP_ID}
+      />
     </div>
   )
 }
@@ -127,6 +136,10 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
     <section className="fw-knobs fw-simple" aria-label={dict.t('simplePanel')}>
       <div className="fw-khd">
         <b>{dict.d.simple.viewSimple}</b>
+        <FieldHelp
+          entries={[{ id: RANDOM_HELP_ID, label: dict.d.simple.randomize, text: dict.d.simple.randomizeHelp }]}
+          hidden={!showHelp}
+        />
       </div>
       <div className="fw-grid">
         <SizeCard side="W" />

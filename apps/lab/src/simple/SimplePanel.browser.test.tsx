@@ -133,6 +133,24 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
+  // Spec R7, applied to the one card `RandomCard` still kept its own
+  // paragraph for: the switch below now points at the panel heading's list,
+  // the way `ValueKnob` points at `descId` rather than carrying its own
+  // description in the card, and `p.why` is left for state alone (there is
+  // none here, so the card has no `.why` left to carry it in).
+  it('points the randomise switch at the panel heading, not at its own card', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const random = screen.getByRole('switch', { name: /randomise the settings/ })
+    const describedBy = random.element().getAttribute('aria-describedby')
+    expect(describedBy).not.toBeNull()
+    const help = describedBy === null ? null : document.getElementById(describedBy)
+    expect(help?.textContent).toBe(EN.d.simple.randomizeHelp)
+    expect(help?.closest('.fw-khd')).not.toBeNull()
+    for (const why of screen.container.querySelectorAll('.fw-k .why')) {
+      expect(why.textContent).not.toContain(EN.d.simple.randomizeHelp)
+    }
+  })
+
   // Ruling 9: cell, voids and top are advanced-only.
   it('shows the preview fields the old simple view shows, and only those', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
