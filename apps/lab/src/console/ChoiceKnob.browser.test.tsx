@@ -1,4 +1,5 @@
 import { PARAM_SPEC, type Violation } from '@arrowz/engine'
+import { dictionary } from '@arrowz/engine/i18n'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -8,6 +9,7 @@ import { ChoiceKnob } from './ChoiceKnob'
 const trapBias = PARAM_SPEC.find((s) => s.key === 'trapBias')
 if (!trapBias || trapBias.control?.kind !== 'choice') throw new Error('trapBias is no longer a choice knob')
 const choices = trapBias.control.choices
+const EN = dictionary('en')
 
 test('the knob offers exactly the words the flag takes', async () => {
   useStore.getState().params.reset()
@@ -38,8 +40,10 @@ test('a choice knob no longer says what it does in its own card', async () => {
   useStore.getState().params.reset()
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
   // The description moved to the panel heading (spec R7, `FieldHelp`); the
-  // card's paragraph holds only the state.
-  expect(screen.container.querySelector('.desc')).toBeNull()
+  // card's paragraph holds only the state. `.desc` no longer exists anywhere
+  // in the code, so a check for its absence would pass by construction — the
+  // text itself is what a reversal would bring back.
+  expect(screen.container.textContent).not.toContain(EN.paramText(trapBias).help)
 })
 
 test('a violated choice knob says why, in error colour, and the select points at the reason', async () => {

@@ -37,8 +37,11 @@ test('a panel draws every knob of its group', async () => {
   expect(screen.container.querySelectorAll('.fw-k')).toHaveLength(4)
   // Scoped to the labels, not the heading's `FieldHelp` list (spec R7): the
   // panel now also carries a `<dt>` with the same text.
-  const labels = [...screen.container.querySelectorAll('.fw-grid .lab')].map((el) => el.textContent)
-  expect(labels).toContain('coiling penalty')
+  const label = [...screen.container.querySelectorAll<HTMLElement>('.fw-grid .lab')].find(
+    (el) => el.textContent === 'coiling penalty',
+  )
+  if (label === undefined) throw new Error('label not found')
+  await expect.element(label).toBeVisible()
 })
 
 test('the panel names its group and is the tabpanel the rail points at', async () => {
@@ -113,9 +116,14 @@ describe('the help switch', () => {
     // `textContent` alone would stay unchanged under `display: none` too —
     // that gap is what let a `display: none` "simplification" through with a
     // green suite. `display`/`visibility` are what actually govern whether an
-    // element leaves the accessibility tree.
-    const desc = screen.getByText(helpFor('W')).element()
-    const style = getComputedStyle(desc)
+    // element leaves the accessibility tree. `fw-vh` sits on the whole list
+    // (spec R7), not on each `dd`, and `display` does not inherit: checking
+    // the `dd` itself would stay green even if `.fw-kdesc` (or `.fw-vh`)
+    // switched to `display: none`, because the `dd`'s own computed `display`
+    // never changes. The list is what must be checked.
+    const list = screen.container.querySelector('.fw-kdesc')
+    if (list === null) throw new Error('no description list')
+    const style = getComputedStyle(list)
     expect(style.display).not.toBe('none')
     expect(style.visibility).not.toBe('hidden')
   })
@@ -132,7 +140,10 @@ describe('the help switch', () => {
     const violation = useStore.getState().params.violations[0]
     if (violation === undefined) throw new Error('expected a violation')
     await expect.element(why.getByText(EN.violation(violation))).toBeVisible()
-    expect(why.element().querySelector('.desc')).toBeNull()
+    // `.desc` no longer exists anywhere in the code, so a check for its
+    // absence would pass by construction — the description text itself is
+    // what a reversal (putting it back in the card) would bring back.
+    expect(why.element().textContent).not.toContain(helpFor('wShort'))
   })
 
   it('lists each knob description once, under the heading, named by its knob', async () => {
@@ -140,7 +151,12 @@ describe('the help switch', () => {
     const list = screen.container.querySelector('.fw-khd .fw-kdesc')
     if (list === null) throw new Error('no description list under the heading')
     expect(list.querySelector('#knob-W-desc')?.textContent).toBe(helpFor('W'))
-    expect(screen.container.querySelectorAll('.fw-k .desc')).toHaveLength(0)
+    // `.desc` no longer exists anywhere in the code, so a check for its
+    // absence would pass by construction — the description text itself is
+    // what a reversal (putting it back in the card) would bring back.
+    for (const card of screen.container.querySelectorAll('.fw-k')) {
+      expect(card.textContent).not.toContain(helpFor('W'))
+    }
   })
 
   it('points each control at its reason and its description', async () => {
@@ -148,6 +164,20 @@ describe('the help switch', () => {
     await expect.element(screen.getByRole('slider', { name: /width/i })).toHaveAttribute(
       'aria-describedby',
       'knob-W-why knob-W-desc',
+    )
+  })
+
+  // `difficulty` holds the `--start` pair (Task 11 test above, "the difficulty
+  // group shows one start control"): the mix row is one control of its own,
+  // and its `FieldHelp` entry must join and leave the list with it.
+  it('lists the mix row only while the start choice is mixing, and points the share at it', async () => {
+    const screen = await render(<KnobPanel group="difficulty" />)
+    expect(screen.container.querySelector('#knob-mix-desc')).toBeNull()
+    useStore.getState().params.setStart('mixing')
+    await expect.poll(() => screen.container.querySelector('.fw-khd .fw-kdesc #knob-mix-desc')).not.toBeNull()
+    await expect.element(screen.getByRole('slider', { name: /mixing/i })).toHaveAttribute(
+      'aria-describedby',
+      'knob-mix-why knob-mix-desc',
     )
   })
 

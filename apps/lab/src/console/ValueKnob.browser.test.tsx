@@ -1,4 +1,5 @@
 import { PARAM_SPEC } from '@arrowz/engine'
+import { dictionary } from '@arrowz/engine/i18n'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -11,6 +12,7 @@ const specOf = (key: string) => {
   return spec
 }
 const params = () => useStore.getState().params
+const EN = dictionary('en')
 
 test('the knob shows its label and its value', async () => {
   params().reset()
@@ -18,8 +20,10 @@ test('the knob shows its label and its value', async () => {
   await expect.element(screen.getByText('closing off nooks')).toBeVisible()
   await expect.element(screen.getByRole('button', { name: /closing off nooks/ })).toMatchTextContent(/4/)
   // The description moved to the panel heading (spec R7, `FieldHelp`); the
-  // card on its own no longer draws it.
-  expect(screen.container.querySelector('.desc')).toBeNull()
+  // card on its own no longer draws it. `.desc` no longer exists anywhere in
+  // the code, so a check for its absence would pass by construction — the
+  // text itself is what a reversal would bring back.
+  expect(screen.container.textContent).not.toContain(EN.paramText(specOf('warns')).help)
 })
 
 test('a value with a word shows the word beside the number', async () => {
