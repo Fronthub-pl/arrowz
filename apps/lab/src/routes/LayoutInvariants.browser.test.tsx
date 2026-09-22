@@ -48,11 +48,11 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'board@860x900': ['contrast'], // Signal
   'board@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
-  'preview-palette@1400x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P1, ua-button P9
-  'preview-palette@1280x800': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P1, ua-button P9
-  'preview-palette@1024x768': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P1, ua-button P9
-  'preview-palette@860x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P1, ua-button P9
-  'preview-palette@420x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P1 and P8, ua-button P9
+  'preview-palette@1400x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
+  'preview-palette@1280x800': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
+  'preview-palette@1024x768': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
+  'preview-palette@860x900': ['contrast', 'ua-button'], // contrast Signal, ua-button P9
+  'preview-palette@420x900': ['contrast', 'scroll', 'ua-button'], // contrast Signal, scroll P8, ua-button P9
 
   'lengths-help-off@1400x900': ['contrast'], // Signal
   'lengths-help-off@1280x800': ['contrast'], // Signal

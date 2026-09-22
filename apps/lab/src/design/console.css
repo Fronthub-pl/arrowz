@@ -197,6 +197,8 @@
    neither is touched here. What each line does:
    - `position: absolute` pulls the box out of layout, so it reserves no
      visible line even at its own size.
+     It needs a positioned ancestor inside the scroller: `.fw-knobs` and
+     `.fw-report` are that ancestor (P1).
    - `width`/`height: 1px` (not 0): some assistive tech treats a zero-size box
      as hidden the same way it treats `display: none`, which is exactly the
      failure this rule exists to avoid.
@@ -348,6 +350,11 @@
   border-color: var(--error);
 }
 .fw-knobs {
+  /* `position: relative` makes the panel the containing block of every `.fw-vh`
+     inside it (spec R3). Without it the 1px box resolved against the initial
+     containing block, at its static position far below the fold, and grew the
+     document: 1077px at 1280×800 in the review's measurement (P1). */
+  position: relative;
   background: var(--void);
   padding: 14px 20px 18px;
   min-height: 0;
