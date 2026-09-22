@@ -97,7 +97,7 @@ describe('PresetStrip', () => {
   // cannot break the match and `W` can. The strip itself no longer says so
   // (spec R5, review P4): the top bar carries the word now, in the slot the
   // preset's name leaves.
-  it('drops the preset\'s current mark, but says nothing itself, when a knob the preset names has moved', async () => {
+  it("drops the preset's current mark, but says nothing itself, when a knob the preset names has moved", async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await screen.getByRole('button', { name: /Easy.*square/ }).click()
     useStore.getState().params.set('W', 26)

@@ -140,7 +140,9 @@ test('a violated knob says why, in error colour, and the slider points at the re
   const reason = screen.container.querySelector('.state')
   expect(reason?.textContent ?? '').toContain('0.9')
   expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
-  await expect.element(screen.getByRole('slider')).toHaveAttribute('aria-describedby', 'knob-wShort-why knob-wShort-desc')
+  await expect
+    .element(screen.getByRole('slider'))
+    .toHaveAttribute('aria-describedby', 'knob-wShort-why knob-wShort-desc')
 })
 
 test('an inactive knob says what would make it do something', async () => {

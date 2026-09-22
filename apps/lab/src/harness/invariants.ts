@@ -14,7 +14,8 @@ export interface Finding {
 const EPS = 0.5
 
 function label(node: Element): string {
-  const cls = typeof node.className === 'string' && node.className !== '' ? `.${node.className.split(' ').join('.')}` : ''
+  const cls =
+    typeof node.className === 'string' && node.className !== '' ? `.${node.className.split(' ').join('.')}` : ''
   return `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}${cls}`
 }
 
@@ -99,7 +100,10 @@ function lowContrast(root: HTMLElement): Finding[] {
     const { front, back } = shown(node)
     const ratio = contrast(front, back)
     if (ratio < 4.5)
-      out.push({ invariant: 'contrast', detail: `${label(node)} "${node.textContent?.trim().slice(0, 20)}" ${ratio.toFixed(2)}` })
+      out.push({
+        invariant: 'contrast',
+        detail: `${label(node)} "${node.textContent?.trim().slice(0, 20)}" ${ratio.toFixed(2)}`,
+      })
   }
   return out
 }

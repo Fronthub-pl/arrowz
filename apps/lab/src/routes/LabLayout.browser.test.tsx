@@ -77,12 +77,16 @@ test.each([
   [1280, 800, 352],
   [1920, 1080, 460.8],
   [2560, 1200, 512],
-] as const)('at %d×%d the report column is %dpx wide', async (w, h, px) => {
-  await page.viewport(w, h)
-  const screen = await mountApp('advanced')
-  await loadRunDone()
-  expect(rect(screen.container, '.fw-report').width).toBeCloseTo(px, 0)
-}, 40_000)
+] as const)(
+  'at %d×%d the report column is %dpx wide',
+  async (w, h, px) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    expect(rect(screen.container, '.fw-report').width).toBeCloseTo(px, 0)
+  },
+  40_000,
+)
 
 // The ≤900px defect PR #67's browser pass found, and the same defect above
 // 900px once the exports are in the column (PR 4b, Ruling 1). `.fw-cmdfig` is

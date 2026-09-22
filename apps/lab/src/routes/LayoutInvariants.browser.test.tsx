@@ -42,6 +42,7 @@ const SIZES: readonly (readonly [number, number])[] = [
  * The comparison is exact, so an entry left behind after its fix is red too.
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
+// Later regressions are listed here, keyed by `${state}@${w}x${h}`, with a trailing comment naming a defect id.
 
 beforeEach(() => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))

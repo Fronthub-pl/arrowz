@@ -161,10 +161,9 @@ describe('the help switch', () => {
 
   it('points each control at its reason and its description', async () => {
     const screen = await render(<KnobPanel group="board" />)
-    await expect.element(screen.getByRole('slider', { name: /width/i })).toHaveAttribute(
-      'aria-describedby',
-      'knob-W-why knob-W-desc',
-    )
+    await expect
+      .element(screen.getByRole('slider', { name: /width/i }))
+      .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-desc')
   })
 
   // `difficulty` holds the `--start` pair (Task 11 test above, "the difficulty
@@ -175,10 +174,9 @@ describe('the help switch', () => {
     expect(screen.container.querySelector('#knob-mix-desc')).toBeNull()
     useStore.getState().params.setStart('mixing')
     await expect.poll(() => screen.container.querySelector('.fw-khd .fw-kdesc #knob-mix-desc')).not.toBeNull()
-    await expect.element(screen.getByRole('slider', { name: /mixing/i })).toHaveAttribute(
-      'aria-describedby',
-      'knob-mix-why knob-mix-desc',
-    )
+    await expect
+      .element(screen.getByRole('slider', { name: /mixing/i }))
+      .toHaveAttribute('aria-describedby', 'knob-mix-why knob-mix-desc')
   })
 
   it('hides the group description too', async () => {
