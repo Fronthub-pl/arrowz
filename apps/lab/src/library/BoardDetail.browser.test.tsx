@@ -1,4 +1,5 @@
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, defaultParams } from '@arrowz/engine'
+import { buildCommand } from '@arrowz/engine/command'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
@@ -10,13 +11,17 @@ import { BoardDetail } from './BoardDetail'
 import { LibraryPanel } from './LibraryPanel'
 import { cancelNoticeFade } from './notices'
 import { cancelPendingSave } from './useViewSave'
-// The geometry case measures the real cascade, so it needs the real
-// stylesheets — without them `.fw-lib-list` never scrolls and the case passes
-// on a layout that does not exist (review round 3).
+// The geometry cases measure the real cascade, so they need the real
+// stylesheets — without them `.fw-lib-list` never scrolls and a case passes
+// on a layout that does not exist (review round 3). `run.css` joins them for
+// the fix-round-1 case below: it is where `.fw-cmdfig`'s own floor
+// (`min-height: calc(1lh + 6px + 58px)`) lives, and that floor is exactly
+// what the case is squeezed against.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
 import '../design/library.css'
+import '../design/run.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)
@@ -217,6 +222,78 @@ test('rows keep the buttons off the scroll instead of pinning them over it', asy
   expect(fields.getBoundingClientRect().top).toBeGreaterThanOrEqual(cmd.getBoundingClientRect().bottom - 0.5)
   expect(b.bottom).toBeLessThanOrEqual(detail.getBoundingClientRect().bottom + 0.5)
   expect(getComputedStyle(buttons).position).toBe('static')
+})
+
+// Review P6, fix round 1: `.fw-cmdfig` (run.css) carries its own floor —
+// `min-height: calc(1lh + 6px + 58px)` — and a command with several pinned
+// knobs wraps past it. `storedFixture` cannot carry a custom command itself
+// (its `command` field is a fixed template of width/height/seed alone), so
+// this builds one the way the CLI would print it, through the engine's own
+// `buildCommand`, and overrides `meta.command` with it — the same override
+// technique the case above uses for `id`. Below the floor the fields row has
+// nothing left to give, so the whole detail must scroll as one box to reach
+// the buttons; `overflow: hidden` on `.fw-lib-detail` left no path there.
+//
+// `overflow-y` and not `scrollTop`: `overflow: hidden` is still
+// programmatically scrollable in Chromium — measured here setting
+// `detail.scrollTop = detail.scrollHeight` under `overflow: hidden` moved the
+// clip window and put the buttons back inside the box's rect, passing the
+// very case this fix exists to fail. `RunColumn.browser.test.tsx` already
+// carries this same harness fact for `.fw-cmd`. The computed style is what
+// actually decides whether a person — mouse wheel, keyboard, touch — can
+// reach the rest.
+test('a command past the floor still lets the detail scroll down to the buttons', async () => {
+  await page.viewport(860, 900)
+  const longCommand = buildCommand({
+    ...defaultParams(),
+    W: 8,
+    H: 8,
+    seed: stored.meta.seed,
+    wShort: 0.4,
+    wMid: 0.3,
+    Lmax: 40,
+    backbite: 3,
+    pStraight: 0.95,
+    wLateral: 8,
+    warns: 7,
+    anticoil: 3,
+    headBias: 1,
+    trapBias: 1,
+    probe: 0.5,
+    giants: 10,
+  })
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ height: '150px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
+  })
+  await act(async () =>
+    useStore.getState().result.showPreview({
+      board: decodeBoard(stored.file),
+      file: stored.file,
+      meta: { ...stored.meta, command: longCommand },
+    }),
+  )
+
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (detail === null || buttons === null) throw new Error('the detail is missing a part')
+  // A command that already fits below the floor leaves nothing out of sight,
+  // and this case would pass without asserting anything.
+  expect(detail.scrollHeight).toBeGreaterThan(detail.clientHeight)
+  expect(getComputedStyle(detail).overflowY).not.toBe('hidden')
+  // With the fix, scrolling the box (a real user's wheel, keyboard or touch,
+  // not merely a script) does put the buttons inside its rect.
+  detail.scrollTop = detail.scrollHeight
+  const d = detail.getBoundingClientRect()
+  const b = buttons.getBoundingClientRect()
+  expect(b.bottom).toBeLessThanOrEqual(d.bottom + 0.5)
+  expect(b.top).toBeGreaterThanOrEqual(d.top - 0.5)
 })
 
 // Review P9: neither detail button was dressed, so both kept the browser's
