@@ -112,3 +112,16 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
   },
   40_000,
 )
+
+// Review P7: an unreachable store left the chips' 168px track standing empty.
+test('an unreachable store drops the saved-boards console to one column', async () => {
+  await page.viewport(1280, 800)
+  const screen = await arrange('library-empty')
+  await expect.poll(() => useStore.getState().library.listError).not.toBeNull()
+  const chips = screen.container.querySelector('.fw-lib-chips')
+  const list = screen.container.querySelector('.fw-lib-list')
+  const console_ = screen.container.querySelector('.fw-console')
+  if (chips === null || list === null || console_ === null) throw new Error('library face missing')
+  expect(chips.checkVisibility()).toBe(false)
+  expect(list.getBoundingClientRect().width).toBeCloseTo(console_.getBoundingClientRect().width, 0)
+}, 40_000)

@@ -550,6 +550,15 @@
 .fw-console.library > .fw-run-col {
   display: none;
 }
+/* Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
+   track would stand empty beside one sentence (review P7). (0,3,0), so it
+   outranks the ≤900px media rule's `.fw-console.library` below. */
+.fw-console.library.empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fw-console.library.empty > .fw-lib-chips {
+  display: none;
+}
 @media (max-width: 900px) {
   .fw-console,
   .fw-console.library {

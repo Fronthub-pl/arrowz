@@ -29,11 +29,16 @@ export function Console({ control, children, face }: { control: RunControl; chil
   const entry = useStore((state) => state.ui.entry)
   const simple = useStore((state) => state.ui.mode === 'simple')
   const library = face === 'library'
+  // Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
+  // track would stand empty beside one sentence (review P7).
+  const emptyStore = useStore((state) =>
+    state.library.sizes === null ? state.library.listError !== null : state.library.sizes.length === 0,
+  )
   // The jump's consumer sits here rather than in a panel: the panels swap, and
   // a hook in the outgoing one would never see the request (spec §6).
   useFocusRequest()
   return (
-    <div className={`fw-console${library ? ' library' : ''}`}>
+    <div className={`fw-console${library ? ' library' : ''}${library && emptyStore ? ' empty' : ''}`}>
       {library ? <SizeChips /> : simple ? null : <GroupRail />}
       {library ? (
         <LibraryPanel />

@@ -181,6 +181,44 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
   expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
 })
 
+// Review P6, same mount and fixture as the case above, at a height that
+// forces the fields to scroll under the buttons. Ruling 16 pinned the buttons
+// with `sticky`, which kept them on screen but laid them over whatever
+// scrolled beneath — this case asks whether anything still overlaps.
+test('rows keep the buttons off the scroll instead of pinning them over it', async () => {
+  await page.viewport(860, 900)
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ height: '300px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    ...stored.meta,
+    id: `${stored.meta.id.slice(0, -2)}${String(i + 2).padStart(2, '0')}`,
+  }))
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
+  })
+  await show()
+
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (buttons === null) throw new Error('the panel is missing the buttons row')
+  // Review P6: the buttons were sticky over the scrolling detail and lay on
+  // whatever scrolled under them. With explicit rows nothing needs to stick,
+  // and nothing overlaps.
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const fields = screen.container.querySelector<HTMLElement>('.fw-lib-detail > .fw-grid')
+  const cmd = screen.container.querySelector<HTMLElement>('.fw-cmdfig')
+  if (detail === null || fields === null || cmd === null) throw new Error('the detail is missing a part')
+  const b = buttons.getBoundingClientRect()
+  expect(b.top).toBeGreaterThanOrEqual(fields.getBoundingClientRect().bottom - 0.5)
+  expect(fields.getBoundingClientRect().top).toBeGreaterThanOrEqual(cmd.getBoundingClientRect().bottom - 0.5)
+  expect(b.bottom).toBeLessThanOrEqual(detail.getBoundingClientRect().bottom + 0.5)
+  expect(getComputedStyle(buttons).position).toBe('static')
+})
+
 // Review P9: neither detail button was dressed, so both kept the browser's
 // `2px outset` border. Delete was dressed only once armed, and even then only
 // its border *colour*, on a border with no width or style.
