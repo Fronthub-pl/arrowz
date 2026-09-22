@@ -394,6 +394,11 @@
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 12px 24px;
 }
+/* A switch needs no 88px track (`.fw-k .row`'s default): the label keeps the
+   width, the switch sits at its own. */
+.fw-k.fw-flags .row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
 /* The colours card (review change 7): five colour objects sat on five
    different x in four cards. One card, a label column and a control column,
    everything starting on one x and growing right. */
