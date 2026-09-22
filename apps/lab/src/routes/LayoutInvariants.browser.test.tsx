@@ -149,6 +149,19 @@ test.each(LANG_CASES)(
     const findings = audit(screen.container, { board: true })
     const failing = [...new Set(findings.map((f) => f.invariant))].sort()
     expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+    // Live pass, ≤480px: `.dims` gives way (shell.css), and its own `.sep`
+    // used to stay rendered with nothing left to separate — an orphaned "/"
+    // ahead of the right group's `margin-left: auto` gap. `TopBar.browser.
+    // test.tsx` renders no stylesheet and sets no viewport, so this asserts
+    // here instead, on the bar's own left cluster (mark, name, seps, preset,
+    // dims), which is where the defect showed.
+    const bar = screen.container.querySelector('.fw-top')
+    if (bar === null) throw new Error('top bar missing')
+    const clusterText = [...bar.querySelectorAll('.name, .sep, .preset, .dims')]
+      .filter((el) => el.checkVisibility({ visibilityProperty: true, opacityProperty: false }))
+      .map((el) => el.textContent ?? '')
+      .join('')
+    expect(clusterText.endsWith('/')).toBe(false)
   },
   40_000,
 )

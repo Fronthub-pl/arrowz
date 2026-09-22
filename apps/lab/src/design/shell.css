@@ -153,6 +153,13 @@ body {
   .fw-top .dims {
     display: none;
   }
+  /* Live pass, ≤480px: `.dims` above is hidden, but its own `.sep` was not —
+     the same `:has(+ .preset)` shape the preset's own sep already uses above,
+     read as an orphaned "/" ahead of the flex row's `margin-left: auto`
+     right group, with nothing of the size readout left for it to separate. */
+  .fw-top .sep:has(+ .dims) {
+    display: none;
+  }
 }
 
 .fw-tabrow {
