@@ -66,7 +66,7 @@
    End, PageUp/PageDown and touch come from the platform (Ruling 3). */
 .fw-k .bar {
   position: relative;
-  margin-top: 10px;
+  margin-top: 12px;
   height: 12px;
 }
 .fw-k .bar input[type='range'] {
@@ -137,7 +137,7 @@
   background: var(--warn);
 }
 .fw-k {
-  padding: 8px 0;
+  padding: 0;
   min-width: 0;
 }
 /* One regime for both shapes of card (review changes 2 and 3): a label column
