@@ -415,9 +415,6 @@
 .fw-k.fw-colours .fw-palette-list {
   margin: 0;
 }
-.fw-k.fw-colours select {
-  justify-self: start;
-}
 /* The remove cross weighed as much as the swatch it removes (review change 8):
    no border, `--ash`, until hover or focus makes it a button. */
 .fw .fw-palette-row .fw-palette-remove {

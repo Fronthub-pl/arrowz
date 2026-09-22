@@ -118,7 +118,7 @@ export function ViewFlagSwitch({
 }
 
 /** A colour input and, where the empty value means something, its clear button. */
-export function ColorCell({
+function ColorCell({
   id,
   value,
   onChange,

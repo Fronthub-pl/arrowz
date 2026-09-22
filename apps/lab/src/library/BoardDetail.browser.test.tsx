@@ -127,6 +127,20 @@ test('the stored view is offered as three numbers and two switches', async () =>
   expect(screen.container.querySelectorAll('.fw-lib-detail [role="switch"]')).toHaveLength(2)
 })
 
+// The help left `ViewNumberField`'s card for the panel headings (spec R7). The
+// library's head height carries no help on purpose (Ruling 17,
+// `libraryFields.ts`), so the detail must point at nothing it does not draw.
+test('every description the detail names is on the page, and head height names none', async () => {
+  const screen = await mountDetail()
+  await show()
+  expect(screen.container.querySelector('#view-headHeight')?.hasAttribute('aria-describedby')).toBe(false)
+  for (const el of screen.container.querySelectorAll('.fw-lib-detail [aria-describedby]')) {
+    for (const id of (el.getAttribute('aria-describedby') ?? '').split(/\s+/)) {
+      expect(document.getElementById(id), `${el.id} names ${id}`).not.toBeNull()
+    }
+  }
+})
+
 // Ruling 9: loading sets the knobs and the view but does NOT generate.
 // `setMany` leaves `edits` alone, which is the only thing `useAutoRun`
 // watches, so no run can start from this.

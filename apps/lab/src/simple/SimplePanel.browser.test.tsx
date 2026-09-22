@@ -1,4 +1,5 @@
 import { themeOf } from '@arrowz/board-element'
+import { dictionary } from '@arrowz/engine/i18n'
 import { simpleParams } from '@arrowz/engine/simple'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
@@ -27,6 +28,7 @@ function stub() {
 }
 
 const state = () => useStore.getState()
+const EN = dictionary('en')
 
 /** The knobs the recipe on screen gives with the seed on screen — what every write below must leave. */
 const drawn = () => simpleParams({ ...state().recipe.value, seed: state().params.values.seed }, null)
@@ -47,6 +49,7 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
+  state().ui.setHelp(true)
   // The store outlives a test; a theme chosen by one test must not leak into
   // the next one's assumption that no theme is chosen yet. Reset directly
   // rather than through `setTheme`, whose clearing of the palette is Ruling
@@ -204,6 +207,24 @@ describe('SimplePanel', () => {
     expect(screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby')).toBe(
       'view-headHeight-help',
     )
-    expect(document.getElementById('view-headHeight-help')).not.toBeNull()
+    const help = document.getElementById('view-headHeight-help')
+    expect(help?.textContent).toBe(EN.t('headHelp'))
+    expect(help?.closest('.fw-khd')).not.toBeNull()
+  })
+
+  // The help switch hides the list from the eye only (spec R7).
+  it('with help off the preview help is out of sight but still named', async () => {
+    state().ui.setHelp(false)
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const list = screen.container.querySelector('.fw-khd .fw-kdesc')
+    expect(list?.classList.contains('fw-vh')).toBe(true)
+    expect(list === null ? 'none' : getComputedStyle(list).display).not.toBe('none')
+    const described = screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby') ?? ''
+    expect(document.getElementById(described)).not.toBeNull()
+  })
+
+  it('with help on the preview help is in sight', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    expect(screen.container.querySelector('.fw-khd .fw-kdesc')?.classList.contains('fw-vh')).toBe(false)
   })
 })
