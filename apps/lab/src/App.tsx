@@ -64,7 +64,7 @@ function useStoreSave() {
 }
 
 /**
- * The guard `f`, `g`, `[` and `]` all share: nothing with Ctrl, ⌘ or Alt
+ * The guard `f`, `g`, `[`, `]` and `r` all share (and the drawer's Escape): nothing with Ctrl, ⌘ or Alt
  * (those belong to the platform), no key repeat, nothing typed into a field
  * or an editable region.
  *
@@ -96,7 +96,8 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
  * A focused button is not a field, so `f` on Generate toggles (PR 4b,
  * Ruling 9). The listener lives wherever the stage does — the lab tab and the
  * saved boards — and nowhere else. Escape is not handled here: the command
- * palette owns it, closing on it in its own key handler (`CommandPalette.tsx`).
+ * palette owns its own, closing on it in its own key handler
+ * (`CommandPalette.tsx`), and `useReportKey` owns the drawer's.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
@@ -139,14 +140,17 @@ function usePaletteKey() {
 
 /**
  * The report drawer's keys (spec §4.3): `r` / `R` toggles it, Escape closes it,
- * both refused by `isHotkeyRefused` like `f`, and bound wherever the stage is.
+ * both refused by `isHotkeyRefused` like `f`. Bound on the lab tab only, not
+ * wherever the stage is: the saved boards have no drawer (console.css,
+ * `.fw-lab.library .fw-drawer`), and a key there would flip a drawer nobody
+ * sees — `ui.report` is left alone, so the lab shows it as it was left.
  * Escape reaches this listener last: the palette consumes its own Escape in
  * its React handler and the preset panel in a capture-phase listener, and a
  * consumed event is refused here as `defaultPrevented`.
  */
-function useReportKey(onWorkspace: boolean) {
+function useReportKey(onLab: boolean) {
   useEffect(() => {
-    if (!onWorkspace) return
+    if (!onLab) return
     const onKey = (event: KeyboardEvent) => {
       if (isHotkeyRefused(event)) return
       const ui = useStore.getState().ui
@@ -158,7 +162,7 @@ function useReportKey(onWorkspace: boolean) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onWorkspace])
+  }, [onLab])
 }
 
 /**
@@ -230,7 +234,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
-  useReportKey(onWorkspace)
+  useReportKey(tabIndex === 0)
   useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()

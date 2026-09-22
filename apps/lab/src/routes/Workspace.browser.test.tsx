@@ -556,6 +556,9 @@ test('the saved board carries the view on screen', async () => {
 test('the simple view replaces the rail and the presets, and keeps the very same run column', async () => {
   const screen = await mountApp()
   const column = screen.getByRole('region', { name: 'Run' }).element()
+  // Present in the advanced view first, so the null check below cannot pass
+  // on a trigger that the locator never matched at all.
+  await expect.element(screen.getByRole('button', { name: /^preset/ })).toBeInTheDocument()
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   expect(screen.getByRole('tablist', { name: 'Parameter groups' }).query()).toBeNull()

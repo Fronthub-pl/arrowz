@@ -1,7 +1,8 @@
 import { act } from 'react'
-import { expect, test } from 'vitest'
+import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { loadRunDone, mountApp } from '../harness/mountApp'
+import { settleTransitions } from '../harness/settle'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
@@ -16,16 +17,6 @@ function rect(container: HTMLElement, selector: string): DOMRect {
   const found = container.querySelector(selector)
   if (found === null) throw new Error(`${selector} is not on the page`)
   return found.getBoundingClientRect()
-}
-
-async function settleTransitions(): Promise<void> {
-  await new Promise((resolve) => requestAnimationFrame(resolve))
-  await Promise.all(
-    document
-      .getAnimations()
-      .filter((a) => a instanceof CSSTransition)
-      .map((a) => a.finished.catch(() => undefined)),
-  )
 }
 
 // Spec §4.1: closed, the report is its 28px handle in the stage's third track
@@ -108,13 +99,13 @@ test('closing the drawer keeps the report on screen for the slide, then hides it
   expect(report.checkVisibility({ visibilityProperty: true }), 'after the slide').toBe(false)
 }, 40_000)
 
-// The ≤900px defect PR #67's browser pass found, and the same defect above
-// 900px once the exports are in the column (PR 4b, Ruling 1). `.fw-cmdfig` is
-// `flex: 0 1 auto` with `min-height: 0`, so the column shrinks the figure below
-// its content while `.fw-cmd` keeps its 58px floor and paints behind Generate:
-// measured 72.4px at 860×900 in both views and 66.9px at 1400×900 advanced,
-// all with the exports in the column. What must hold is the run.css ruling as well:
-// the box scrolls, and Generate does not move as the command grows.
+// The defect PR #67's browser pass found (PR 4b, Ruling 1): a figure shrunk
+// below its content let `.fw-cmd` paint behind Generate. Today the run
+// column's figure grows, `flex: 1 1 auto` (spec §5.2, run.css), taking every
+// pixel the column has left, and keeps its floor (`min-height: calc(1lh + 6px
+// + 58px)`); a longer command scrolls inside the box instead of growing it.
+// So the box stays above Generate, and Generate moves with the column's height,
+// never with the command's length.
 const COMMAND_BOX_SIZES = [
   [860, 900, 'advanced'],
   [860, 900, 'simple'],
@@ -586,6 +577,68 @@ test('r does nothing on the docs route', async () => {
     .toBe(true)
   await userEvent.keyboard('r')
   expect(report()).toBe(false)
+}, 40_000)
+
+// The saved-boards face has no report to show (ReportPanel.tsx empties it
+// there), so it has no drawer either: an open drawer left over from the lab
+// would cover the stored board with a blank panel. The board takes the
+// handle's track, `r` is not bound, and `ui.report` is left as it was, so the
+// lab shows the drawer again on the way back. The route changes inside a
+// transition (harness facts), hence the polls after each tab click.
+test('the saved boards have no drawer and no r, and the lab gets its drawer back', async () => {
+  await page.viewport(1400, 900)
+  // The listing's fetch never answers: this case is about the face, not the store.
+  const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  try {
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await userEvent.keyboard('r')
+    expect(report()).toBe(true)
+
+    await screen.getByRole('tab', { name: 'Saved boards', exact: true }).click()
+    await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
+    await settleTransitions()
+    const drawer = screen.container.querySelector('.fw-drawer')
+    expect(drawer?.checkVisibility(), 'the drawer on the saved boards').toBe(false)
+    const stage = rect(screen.container, '.fw-stage')
+    const wrap = rect(screen.container, '.fw-boardwrap')
+    // Two tracks, the rail's and the board's: the board ends at the stage's edge.
+    expect(stage.right - wrap.right).toBeCloseTo(0, 0)
+    expect(wrap.left - stage.left).toBeCloseTo(71, 0)
+    await userEvent.keyboard('r')
+    expect(report(), 'r on the saved boards').toBe(true)
+
+    await screen.getByRole('tab', { name: 'Lab', exact: true }).click()
+    await expect.poll(() => screen.container.querySelector('.fw-lab.library')).toBeNull()
+    await settleTransitions()
+    expect(report()).toBe(true)
+    expect(drawer?.classList.contains('open')).toBe(true)
+    expect(drawer?.checkVisibility(), 'the drawer back in the lab').toBe(true)
+    await expect.element(screen.getByRole('region', { name: 'Report' })).toBeVisible()
+  } finally {
+    fetchSpy.mockRestore()
+  }
+}, 40_000)
+
+// Solo hides the preset strip; an open panel must not be waiting behind it
+// when solo turns off again. `f` is pressed with the focus inside the panel,
+// on a preset button, which is not a field. What closes the panel is the
+// strip's focusout: BoardFrame moves the focus to the solo toggle (outside the
+// strip) before the strip is hidden. That holds on every path that opens the
+// panel — a press anywhere else in the strip moves the focus to the tab panel
+// and closes it the same way — so the panel needs no solo rule of its own.
+test('turning solo on closes an open preset panel', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const trigger = screen.getByRole('button', { name: /^preset/ })
+  await trigger.click()
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'true')
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(true)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
 }, 40_000)
 
 test('closing the report with the focus inside it moves the focus to the handle', async () => {

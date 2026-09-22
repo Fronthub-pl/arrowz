@@ -632,6 +632,19 @@
 .fw-lab.library {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
 }
+/* No report drawer on the saved boards (spec §4): the report is empty there
+   (ReportPanel.tsx), so an open drawer left over from the lab would cover the
+   stored board with a blank panel. `ui.report` stays as it was, and the lab
+   shows the drawer again. The stage drops the handle's track, 28px or the
+   coarse pointer's 44px (shell.css) alike, as solo does below — (0,3,0), so
+   it outranks both, and it sits above the solo rules so that solo's one track
+   wins on the library face too. */
+.fw-lab.library .fw-stage {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
+.fw-lab.library .fw-drawer {
+  display: none;
+}
 /* Below 700px of height the board gives up its minimum (shell.css), so its row
    gives up the 292px too. */
 @media (max-height: 700px) {

@@ -485,9 +485,10 @@ body {
   outline: 2px solid var(--ink);
   outline-offset: -4px;
 }
-/* One of a few (Segmented.tsx): the preset strip's chip (run.css) with the
-   group rail's selected state, so the lab has one chip and one "chosen". The
-   `.fw` prefix for the reason `.fw .fw-go` gives above. */
+/* One of a few (Segmented.tsx): a 24px bordered chip with the group rail's
+   selected state, so the lab has one "chosen". The preset strip's chips it
+   was first modelled on are gone (the picker, run.css). The `.fw` prefix for
+   the reason `.fw .fw-go` gives above. */
 .fw-seg {
   display: inline-flex;
   flex: none;

@@ -1,3 +1,5 @@
+import { PARAM_SPEC, type Params } from '@arrowz/engine'
+import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
@@ -6,6 +8,7 @@ import { App } from '../App'
 import { contrast, shown } from '../design/contrast'
 import { audit, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
+import { settleTransitions as settle } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
@@ -143,19 +146,6 @@ async function arrange(state: State) {
   return screen
 }
 
-/** One frame for the layout that followed the last store write, then the
- * settled layout: a rail tab selected in `arrange` is still mid-way through
- * its 120ms background transition one frame later. */
-async function settle(): Promise<void> {
-  await new Promise((resolve) => requestAnimationFrame(resolve))
-  await Promise.all(
-    document
-      .getAnimations()
-      .filter((a) => a instanceof CSSTransition)
-      .map((a) => a.finished.catch(() => undefined)),
-  )
-}
-
 test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const)))(
   'the %s state at %d×%d keeps every layout invariant',
   async (state, w, h) => {
@@ -231,6 +221,33 @@ test.each(LANG_CASES)(
   40_000,
 )
 
+// The longest trigger the picker can print: Huge's "winding skeleton" in
+// Polish, "Ogromny szkielet z serpentynami 400×400", at the narrowest width
+// the lab supports. The knobs are written the way `applyPreset` writes them
+// (every knob, the preset's over the defaults) but without its run, which at
+// 400×400 would only slow the case down: the trigger reads the knobs.
+test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every layout invariant', async () => {
+  await page.viewport(420, 900)
+  const screen = await arrange('board')
+  const option = PRESETS.flatMap((level) => level.options).find((o) => o.id === 'huge-400-serpentine')
+  if (option === undefined) throw new Error('no huge-400-serpentine preset')
+  await act(async () => {
+    const s = useStore.getState()
+    s.lang.setLang('pl')
+    const full: Partial<Params> = {}
+    for (const spec of PARAM_SPEC) full[spec.key] = option.params[spec.key] ?? spec.def
+    s.params.setMany(full)
+  })
+  await settle()
+  expect(findPreset(useStore.getState().params.values)?.id).toBe('huge-400-serpentine')
+  const trigger = screen.getByRole('button', { name: /^preset/i })
+  await expect.element(trigger).toMatchTextContent(/Ogromny szkielet z serpentynami/)
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
+  const findings = audit(screen.container, { board: true })
+  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+}, 40_000)
+
 // Review P7: an unreachable store left the chips' 168px track standing empty.
 test('an unreachable store drops the saved-boards console to one column', async () => {
   await page.viewport(1280, 800)
@@ -266,7 +283,7 @@ test('a hovered choice in the top bar is filled, not underlined, and still reads
     // The segmented buttons carry the shared chip's 120ms background
     // transition (`.fw .fw-seg button`); reading the computed style right
     // after the pointer event catches it mid-animation, still `rgba(0, 0, 0,
-    // 0)`. `settle` (above) waits it out.
+    // 0)`. `settle` (harness/settle.ts) waits it out.
     await settle()
     const el = control.element()
     const style = getComputedStyle(el)
