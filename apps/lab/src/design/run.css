@@ -149,18 +149,16 @@
 .fw .fw-cmdhd button:hover {
   color: var(--ink);
 }
-/* `overflow: auto` and not the mock's `hidden`: the box is the first item of a
-   216px column, it is the only item allowed to shrink, and a browser pass
-   measured it showing `deno task carve --widt` / `h=26 --height=50 --see` and
-   clipping the rest — about a third of a five-flag command, in a box whose
-   stated job (LiveCommand.tsx:8-11) is to show exactly what would be run.
+/* `overflow: auto` and not the mock's `hidden`: the box scrolls inside itself
+   rather than clipping what would be run (LiveCommand.tsx), and rather than
+   growing and walking the controls under it down the column.
 
-   The alternative was `flex: none` on `.fw-cmdfig`, letting the column itself
-   scroll. Rejected: `LiveCommand` is the FIRST child of `.fw-run-col`, so the
-   figure growing with the command would push Generate, the three alternates
-   and the two switches down the column — the primary action moving under the
-   pointer as a slider is dragged. Scrolling inside the box leaves every other
-   control exactly where it was. */
+   Wrapping (spec §5.2): the box is ordinary inline text and every flag is a
+   `nowrap` `.ln` (CommandText.tsx), so a line breaks only at the real spaces
+   between flags — never inside `--height=250`, which `word-break: break-all`
+   used to do. Not the handoff's flex-wrap box: white space between flex items
+   is not rendered, so a selection of the command read back with its flags
+   glued together. */
 .fw-cmd {
   flex: 0 1 auto;
   min-height: 58px;
@@ -170,9 +168,13 @@
   background: var(--void);
   border: 1px solid var(--border);
   color: var(--ash);
-  white-space: pre-wrap;
-  word-break: break-all;
   font: inherit;
+  line-height: 1.6;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+.fw-cmd .ln {
+  white-space: nowrap;
 }
 .fw-cmd b {
   font-weight: 400;

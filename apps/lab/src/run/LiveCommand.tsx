@@ -1,8 +1,9 @@
-import { buildCommand, COMMAND_PREFIX } from '@arrowz/engine/command'
+import { buildCommand } from '@arrowz/engine/command'
 import { useEffect, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
+import { CommandText } from './CommandText'
 
 /**
  * The command that would reproduce what is configured — not what is drawn.
@@ -24,11 +25,6 @@ export function LiveCommand() {
   useEffect(() => () => clearTimeout(timer.current), [])
 
   const command = buildCommand(values, viewOf(view))
-  // The mock draws the flags in `--ink` and the program name in `--ash`. The
-  // split is on the prefix the engine exports, so a change to the command's
-  // shape cannot leave this cutting in the middle of a word.
-  const flags = command.startsWith(COMMAND_PREFIX) ? command.slice(COMMAND_PREFIX.length) : ''
-  const head = flags === '' ? command : COMMAND_PREFIX
 
   const copy = () => {
     const clipboard = navigator.clipboard
@@ -59,8 +55,7 @@ export function LiveCommand() {
         </button>
       </figcaption>
       <pre className="fw-cmd">
-        {head}
-        <b>{flags}</b>
+        <CommandText command={command} />
       </pre>
     </figure>
   )
