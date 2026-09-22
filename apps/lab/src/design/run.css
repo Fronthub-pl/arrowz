@@ -189,11 +189,11 @@
 }
 
 /* The preset picker (spec §3): one trigger in the 38px row, a panel of level
-   columns under it. Replaces the scrolling strip of 26 chips. `overflow:
-   visible` and a z-index so the panel lies over the stage. */
+   columns under it. Replaces the scrolling strip of 26 chips. The row is
+   the panel's containing block; the panel's own z-index lays it over the
+   stage. */
 .fw-presets {
   position: relative;
-  z-index: 20;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -249,6 +249,7 @@
    without it. None of the matrix's five sizes is that short. */
 .fw-pp-panel {
   position: absolute;
+  z-index: 20;
   top: 100%;
   left: 16px;
   margin-top: 4px;

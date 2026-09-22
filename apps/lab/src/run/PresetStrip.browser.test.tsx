@@ -166,6 +166,18 @@ describe('PresetStrip', () => {
     expect(at()).toMatch(/^Easy.*square/)
     await userEvent.keyboard('{ArrowLeft}')
     expect(at()).toMatch(/^Easy.*square/)
+    // Into a shorter column: Extreme's last row is row 3, Huge has three
+    // rows, so ArrowRight clamps to its row 2, the winding skeleton.
+    await userEvent.keyboard('{End}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}')
+    expect(at()).toMatch(/^Extreme.*skeleton/)
+    await userEvent.keyboard('{ArrowRight}')
+    expect(at()).toBe('Huge 400×400 winding skeleton')
+    await userEvent.keyboard('{ArrowDown}')
+    expect(at()).toBe('Huge 400×400 winding skeleton')
+    await userEvent.keyboard('{ArrowRight}')
+    expect(at()).toMatch(/^Insane.*skeleton/)
+    await userEvent.keyboard('{ArrowRight}')
+    expect(at()).toMatch(/^Insane.*skeleton/)
   })
 
   it('closes on Escape with the focus back on the trigger, and on a press outside without taking the focus', async () => {
@@ -185,6 +197,64 @@ describe('PresetStrip', () => {
     await screen.getByRole('button', { name: 'elsewhere' }).click()
     await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveAttribute('aria-expanded', 'false')
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'elsewhere' }).element())
+  })
+
+  // A press on a button hides a focus steal: the button's own mousedown
+  // focus follows the pointerdown that closed the panel. So does a press on
+  // plain text, whose mousedown blurs to the body (measured: a trigger
+  // focused on pointerdown passed a bare `<p>`). A surface that keeps the
+  // focus where it is on mousedown, as a drag surface does, is the one where
+  // a steal would stick, so this one does.
+  it('does not take the focus on a press outside that moves no focus itself', async () => {
+    const screen = await render(
+      <>
+        <p>nothing to focus</p>
+        <PresetStrip control={stub().control} />
+      </>,
+    )
+    const surface = screen.getByText('nothing to focus').element()
+    surface.addEventListener('mousedown', (event) => event.preventDefault())
+    await open(screen)
+    await screen.getByText('nothing to focus').click()
+    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveAttribute('aria-expanded', 'false')
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: /^preset/ }).element())
+  })
+
+  it('closes when the focus tabs out of the strip', async () => {
+    const screen = await render(
+      <>
+        <PresetStrip control={stub().control} />
+        <button type="button">after</button>
+      </>,
+    )
+    await open(screen)
+    const strip = screen.container.querySelector('.fw-presets')
+    for (let i = 0; i < 40 && (strip?.contains(document.activeElement) ?? false); i++) await userEvent.keyboard('{Tab}')
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'after' }).element())
+    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  // A knob entry discards its draft on Escape (`DraftNumber.tsx`); the
+  // picker taking that Escape would move the focus, blur the entry and
+  // commit the draft instead. The focus move and the key are one task here,
+  // before the close that the focus leaving the strip schedules has
+  // committed: the window in which the picker's key listener is still
+  // installed, which only its own check of where the key was pressed guards.
+  it('leaves alone an Escape pressed outside the strip', async () => {
+    const screen = await render(
+      <>
+        <PresetStrip control={stub().control} />
+        <input aria-label="entry" />
+      </>,
+    )
+    await open(screen)
+    const entry = screen.getByRole('textbox', { name: 'entry' }).element()
+    if (!(entry instanceof HTMLInputElement)) throw new Error('no entry')
+    entry.focus()
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    entry.dispatchEvent(escape)
+    expect(escape.defaultPrevented).toBe(false)
+    expect(document.activeElement).toBe(entry)
   })
 
   // Spec §3.2: the drawer's Escape (Task 8) must not also fire.

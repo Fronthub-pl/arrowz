@@ -134,13 +134,13 @@ function popoverFit(root: HTMLElement): Finding[] {
   for (const panel of root.querySelectorAll('.fw-pp-panel')) {
     if (!rendered(panel)) continue
     const r = panel.getBoundingClientRect()
-    if (r.left < -EPS || r.top < -EPS || r.right > window.innerWidth + EPS || r.bottom > window.innerHeight + EPS)
+    if (r.left < -EPS || r.top < -EPS || r.right > window.innerWidth + EPS || r.bottom > window.innerHeight + EPS) {
+      const [l, t, rt, b] = [r.left, r.top, r.right, r.bottom].map((v) => v.toFixed(0))
       out.push({
         invariant: 'popover-fit',
-        detail: `${label(panel)} ${r.left.toFixed(0)},${r.top.toFixed(0)} to ${r.right.toFixed(0)},${r.bottom.toFixed(
-          0,
-        )} in ${window.innerWidth}×${window.innerHeight}`,
+        detail: `${label(panel)} ${l},${t} to ${rt},${b} in ${window.innerWidth}×${window.innerHeight}`,
       })
+    }
   }
   return out
 }

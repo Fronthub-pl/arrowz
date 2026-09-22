@@ -21,7 +21,8 @@ function lastRow(col: number): number {
  * The panel is always mounted and `hidden` while closed, so `aria-controls`
  * always names an element in the document. Its keys are a capture-phase
  * listener on the document, installed only while it is open: capture so it
- * runs before the drawer's Escape (App.tsx), which it consumes.
+ * runs before the drawer's Escape (App.tsx), which it consumes. It acts only
+ * on keys pressed inside the strip, and focus leaving the strip closes it.
  */
 export function PresetStrip({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
@@ -53,7 +54,18 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
       if (event.target instanceof Node && root.current?.contains(event.target)) return
       setOpen(false)
     }
+    // Focus that has left the strip (Tab onwards, a click into a knob entry)
+    // takes the panel with it. A `null` `relatedTarget` is focus to nowhere,
+    // a press on the page's body, which the pointerdown rule above handles.
+    const onFocusOut = (event: FocusEvent) => {
+      const next = event.relatedTarget
+      if (next instanceof Node && !(root.current?.contains(next) ?? false)) setOpen(false)
+    }
     const onKey = (event: KeyboardEvent) => {
+      // Only keys pressed inside the strip are the picker's: an Escape in a
+      // knob entry discards its draft, and stealing the focus to the trigger
+      // would blur the entry and commit the draft instead.
+      if (!(event.target instanceof Node) || !(root.current?.contains(event.target) ?? false)) return
       if (event.key === 'Escape') {
         event.preventDefault()
         setOpen(false)
@@ -61,7 +73,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
         return
       }
       const at = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-col]') : null
-      if (at === null || !(root.current?.contains(at) ?? false)) return
+      if (at === null) return
       const col = Number(at.dataset.col)
       const row = Number(at.dataset.row)
       let c = col
@@ -77,11 +89,14 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
       r = Math.min(r, lastRow(c))
       root.current?.querySelector<HTMLButtonElement>(`[data-col="${c}"][data-row="${r}"]`)?.focus()
     }
+    const strip = root.current
     document.addEventListener('pointerdown', onPress)
     document.addEventListener('keydown', onKey, true)
+    strip?.addEventListener('focusout', onFocusOut)
     return () => {
       document.removeEventListener('pointerdown', onPress)
       document.removeEventListener('keydown', onKey, true)
+      strip?.removeEventListener('focusout', onFocusOut)
     }
   }, [open])
 

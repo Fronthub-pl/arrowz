@@ -173,6 +173,19 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
   40_000,
 )
 
+// The matrix above does not pin the panel's `max-height`: at 420×900 its
+// seven levels in two columns (650px under a 171px top) fit without it. A
+// window 700px tall is where they run past the bottom (measured: 16,171 to
+// 404,821 in 420×700 with the rule removed), so this one case pins the rule.
+test('the presets-open state at 420×700 keeps every layout invariant', async () => {
+  await page.viewport(420, 700)
+  const screen = await arrange('presets-open')
+  await settle()
+  const findings = audit(screen.container, { board: true })
+  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+}, 40_000)
+
 // Review P8: the reconstruction's matrix above runs only in English, where
 // the bar fits by 1px at 420 wide; the language switch's own chip is what a
 // Polish "Zaawansowany" (spec §2, review P8) pushes past `.fw-top`'s

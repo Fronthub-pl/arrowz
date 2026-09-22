@@ -553,7 +553,9 @@ test('the simple view replaces the rail and the presets, and keeps the very same
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   expect(screen.getByRole('tablist', { name: 'Parameter groups' }).query()).toBeNull()
-  expect(screen.getByRole('group', { name: 'Presets' }).query()).toBeNull()
+  // The trigger, not the `Presets` group: that group is the picker's panel,
+  // hidden while closed, so it is absent from the role tree either way.
+  expect(screen.getByRole('button', { name: /^preset/ }).query()).toBeNull()
   expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
   await screen.getByRole('radio', { name: 'Advanced' }).click()
   await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
