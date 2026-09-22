@@ -60,6 +60,9 @@ Row buttons keep today's accessible name `${levelName} ${W}×${H} ${mode}` and t
 exactly as today (`run/actions.ts`), then closes the panel.
 
 Open state is local `useState` in `PresetStrip`: it is never remembered and never in the hash.
+The panel is always mounted and `hidden` while closed, so `aria-controls` always names an
+element in the document; `.fw-pp-panel[hidden] { display: none }` is required, because the
+panel's own `display: grid` would otherwise beat the user agent's `[hidden]` rule.
 
 ### 3.2 Keyboard and dismissal
 
@@ -68,8 +71,10 @@ Open state is local `useState` in `PresetStrip`: it is never remembered and neve
   column, clamped to that column's last row; Home/End go to the column's first/last row.
 - Escape, a pointer press outside `.fw-presets`, and choosing a row close the panel. Escape and
   choosing return focus to the trigger; an outside press does not steal focus.
-- Escape pressed while the panel is open is consumed (`preventDefault`), so the drawer's Escape
-  (§4.3) does not also fire.
+- The panel's keys are a `keydown` listener on `document` in the **capture** phase, installed
+  only while open: it runs before the drawer's bubbling listener (§4.3), and Escape is consumed
+  (`preventDefault`) so the drawer does not also close. A listener on the row's own element
+  would need an interactive role on a `div`, which `jsx-a11y` refuses.
 
 ### 3.3 The "edited" marker leaves the top bar
 
@@ -91,11 +96,18 @@ The handoff's block replaces `run.css:187-238`, minus `.fw-pp-col h3 .size`. Col
 ("winding skeleton 400×400") and is recorded in a comment with the instruction to recompute it
 when mode names or the font change. `pointer: coarse` raises the trigger and rows to 44px.
 
+Not in the handoff: at 420×900 seven levels in two columns are four rows of about 235px, which
+runs past the bottom of the window. The panel gets `max-height: calc(100dvh - 12rem)` and
+`overflow-y: auto`; the `popover-fit` invariant (§7) is what pins it, so the value may be
+tuned against that test, never the test against the value. The column header is the level name
+alone, styled on the `h3` itself (the handoff's `.lvl` / `.size` spans are dropped).
+
 ### 3.5 Dictionary
 
 New keys, English source and Polish translation, in `packages/engine/lab-i18n.ts`:
-`preset` (trigger caps label), `customSettings`, `editedSinceLastPreset`. Polish:
-`preset`, `własne ustawienia`, `zmienione od ostatniego presetu`.
+`preset` (trigger caps label), `customSettings`, `editedSinceLastPreset`, `reportHandle`
+(the drawer handle's visible name) and `cmdHintReport` (the palette footer). Polish:
+`preset`, `własne ustawienia`, `zmienione od ostatniego presetu`, `raport`, `raport`.
 
 ## 4. Report drawer
 
@@ -104,8 +116,11 @@ New keys, English source and Polish translation, in `packages/engine/lab-i18n.ts
 `.fw-stage` becomes `70px minmax(0, 1fr) 28px` at every width (44px under `pointer: coarse`)
 and `position: relative; overflow: hidden`. `Stage.tsx` wraps `ReportPanel` in
 `div.fw-drawer` (class `open` when open) whose first child is the handle button
-`.fw-drawer-handle` — vertical `report` label and ◀/▶ — with `aria-expanded` and
-`aria-controls` on the `section.fw-report`. The drawer is absolutely placed on the stage's
+`.fw-drawer-handle` — vertical `report` label and ◀/▶ (the arrow `aria-hidden`) — with
+`aria-expanded`, `aria-controls` on the `section.fw-report` (id `REPORT_ID`, exported from
+`ReportPanel.tsx`) and `aria-keyshortcuts="R"`. Closing the drawer while the focus is inside
+the report moves the focus to the handle in a layout effect, the pattern `BoardFrame.tsx`
+uses for solo; otherwise the focus would fall to `<body>` when the report turns hidden. The drawer is absolutely placed on the stage's
 right edge, `width: calc(clamp(22rem, 24vw, 32rem) + 28px)`, `max-width: calc(100% - 70px)`,
 translated to show only the handle when closed; the closed report is `visibility: hidden`, so
 it leaves the tab order and the accessibility tree. The toggle is the class, never a remount.
@@ -148,8 +163,14 @@ New `run/CommandText.tsx`: given a command string, renders the program prefix
 The split is on the space before `--`; a string without `COMMAND_PREFIX` renders unsplit.
 `LiveCommand` and `BoardDetail` both render `<pre className="fw-cmd"><CommandText … /></pre>`.
 
-`.fw-cmd` becomes the handoff's flex-wrap box (break only between flags), `.fw-cmdfig` and
-`.fw-cmd` take `flex: 1 1 auto`. The run.css comments on the old floor and on "Ruling 1" are
+`.fw-cmd` wraps only between flags by **inline** layout, not the handoff's flex-wrap: the box
+is `white-space: normal` and each `.ln` is `white-space: nowrap`, so a line can break only at
+the real spaces between flags. The handoff's flex box would not render those spaces at all
+(white space between flex items is dropped), so a selection of the command would glue the flags
+together — contrary to its own claim. A flag without a value (`--colored`, `--sharp`) is one
+`b`. In the run column only, `.fw-run-col > .fw-cmdfig` and `.fw-run-col .fw-cmd` take
+`flex: 1 1 auto`; the library's detail lays the figure out in an `auto` grid row and is left
+alone. The run.css comments on the old floor and on "Ruling 1" are
 rewritten to the new layout after re-measuring at 860×900 and 1400×900 that Generate does not
 move with the command's length. The library's detail keeps its own sizing (`library.css:107`
 area) and is checked at the matrix's `library-detail` sizes.
@@ -162,8 +183,11 @@ area) and is checked at the matrix's `library-detail` sizes.
 
 ## 6. Small changes (`shell.css`)
 
-- `.fw .fw-top .fw-seg button:not([aria-checked='true']):hover`: background
-  `rgba(237, 238, 242, 0.12)`, no underline.
+- `.fw .fw-top .fw-seg button:not([aria-checked='true']):hover`: a fill, no underline. Not the
+  handoff's `rgba(237, 238, 242, 0.12)`: over `--signal-fill` that blends to about #5f69c3, on
+  which `--ink` measures about 4.2:1, under AA. The fill is `var(--signal-fill-hover)` (4.61:1,
+  tokens.css), which reads the same. The ⌘K trigger's hover (`palette.css:33-35`) carries the
+  same 12% fill and the same shortfall, and moves to the same token, so the bar keeps one hover.
 - Scrollbars on `.fw` and descendants: thin, square, thumb `--border-strong`, `--ash` on hover,
   no track or buttons; `scrollbar-width: auto` under `pointer: coarse`. Placed next to the
   `color-scheme: dark` rule.
@@ -173,10 +197,14 @@ area) and is checked at the matrix's `library-detail` sizes.
 Red first, as in the previous series:
 
 - `routes/LayoutInvariants.browser.test.tsx`: new states `presets-open` and `report-open` over
-  the five sizes. Invariants: the preset panel lies inside the viewport horizontally; the open
-  drawer does not overlap the console; Generate is not covered at any state; the board's width
-  with the drawer closed is at least its old width plus the old report column (measured, not
-  assumed).
+  the five sizes, and two new invariants in `harness/invariants.ts`: `popover-fit` (a rendered
+  `.fw-pp-panel` lies inside the viewport on both axes) and `drawer-fit` (a rendered
+  `.fw-drawer` lies inside `.fw-stage`). The existing `scroll`, `contrast`, `ua-button` and
+  `panel-overflow` invariants cover the rest of both states.
+- `routes/LabLayout.browser.test.tsx`: the three report-column cases become drawer cases
+  (closed: only the handle's 28px beside the board, at 860 as at 1400; open: the report's width
+  is the old column's `clamp(22rem, 24vw, 32rem)`), the console's third track measures
+  `clamp(20rem, 22vw, 28rem)`, and Generate is JetBrains Mono, 500, 44px high.
 - `run/PresetStrip.browser.test.tsx`: trigger text for preset and custom states, open/close by
   click, Escape, outside press and choice; focus on open and return; arrow/Home/End movement;
   choosing applies the preset and runs (the existing assertions kept).
