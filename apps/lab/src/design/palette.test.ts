@@ -36,7 +36,11 @@ test('the trigger is dressed to the mock, and only the trigger', () => {
   expect(rule?.[1]).toContain('cursor: pointer')
   const hover = /\.fw-top \.right > button:hover\s*\{([^}]*)\}/.exec(css)
   expect(hover, '.fw-top .right > button:hover rule not found').not.toBeNull()
-  expect(hover?.[1]).toContain('background: rgba(237, 238, 242, 0.12)')
+  // Spec §6: the hover is the lab's shared fill, `--signal-fill-hover`, not the
+  // handoff's `rgba(237, 238, 242, 0.12)` — that 12% blend of `--ink` over the
+  // bar measured about 4.2:1 under `--ink`, below AA. LayoutInvariants measures
+  // the contrast in the browser; this pins the token.
+  expect(hover?.[1]).toContain('background: var(--signal-fill-hover)')
   // The child combinator is load-bearing: a descendant selector would tie with
   // `.fw .fw-seg button` on specificity and win on import order, re-dressing
   // the view and language chips that share this container.

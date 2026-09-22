@@ -36,6 +36,10 @@ describe('LiveCommand', () => {
     useStore.getState().params.setMany({ W: 30, H: 60, seed: 7 })
     const screen = await render(<LiveCommand />)
     await expect.poll(() => screen.container.querySelector('.fw-cmd')?.textContent).toBe(commandNow())
+    // Spec §7: the box renders through CommandText, one span per flag and the
+    // value in bold — not the command as one plain string.
+    expect(screen.container.querySelectorAll('.fw-cmd > .ln').length).toBeGreaterThan(1)
+    expect([...screen.container.querySelectorAll('.fw-cmd b')].map((b) => b.textContent)).toContain('30')
   })
 
   it('follows a preview field, which changes the command without generating', async () => {

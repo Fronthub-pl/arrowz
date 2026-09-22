@@ -115,6 +115,12 @@ test('the detail prints the command the store holds for this board', async () =>
   const screen = await mountDetail()
   await show()
   await expect.element(screen.getByText(stored.meta.command)).toBeVisible()
+  // Spec §7: through CommandText, one span per flag and the value in bold —
+  // not the stored string printed plain.
+  expect(screen.container.querySelectorAll('.fw-cmd > .ln').length).toBeGreaterThan(1)
+  expect([...screen.container.querySelectorAll('.fw-cmd b')].map((b) => b.textContent)).toContain(
+    String(stored.meta.seed),
+  )
 })
 
 // Parity: the library's three numbers and two flags, and no more. `cell` and
