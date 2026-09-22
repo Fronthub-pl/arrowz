@@ -6,7 +6,15 @@ import { contrast, shown } from '../design/contrast'
 // (harness fact 36).
 
 export type Invariant =
-  'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast' | 'bar-clip' | 'panel-overflow'
+  | 'scroll'
+  | 'board-clip'
+  | 'overlap'
+  | 'ua-button'
+  | 'describedby'
+  | 'contrast'
+  | 'bar-clip'
+  | 'panel-overflow'
+  | 'popover-fit'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -114,6 +122,29 @@ function panelOverflow(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * A rendered popover lies inside the viewport on both axes (spec §3.4). The
+ * preset panel is absolutely positioned under its 38px row, so whether the
+ * document grows with it depends on which ancestor clips: `scroll` sees it
+ * only when none does (measured at 420×700 with no `max-height`: both went
+ * red). This reads the panel's own box instead.
+ */
+function popoverFit(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const panel of root.querySelectorAll('.fw-pp-panel')) {
+    if (!rendered(panel)) continue
+    const r = panel.getBoundingClientRect()
+    if (r.left < -EPS || r.top < -EPS || r.right > window.innerWidth + EPS || r.bottom > window.innerHeight + EPS)
+      out.push({
+        invariant: 'popover-fit',
+        detail: `${label(panel)} ${r.left.toFixed(0)},${r.top.toFixed(0)} to ${r.right.toFixed(0)},${r.bottom.toFixed(
+          0,
+        )} in ${window.innerWidth}×${window.innerHeight}`,
+      })
+  }
+  return out
+}
+
 /** No button keeps the user agent's look (review P9: `2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
@@ -162,6 +193,7 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...overlap(root),
     ...barClip(root),
     ...panelOverflow(root),
+    ...popoverFit(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

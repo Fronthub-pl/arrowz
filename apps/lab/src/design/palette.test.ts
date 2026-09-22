@@ -22,7 +22,7 @@ test('the list is bounded, which is what makes it scroll', () => {
 
 // Spec §9. Every other button family in the lab has an explicit rule
 // (`.fw-tabrow button`, `.fw .fw-seg button`, `.fw .fw-alt button`,
-// `.fw .fw-presets button`); without one the trigger inherits the UA's own
+// `.fw .fw-pp-col button`); without one the trigger inherits the UA's own
 // chrome — a grey native button on the Signal plane. Nothing in the browser
 // project can see that, which is why the rule is pinned here.
 test('the trigger is dressed to the mock, and only the trigger', () => {

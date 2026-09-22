@@ -21,6 +21,7 @@ import '../design/palette.css'
 
 type State =
   | 'board'
+  | 'presets-open'
   | 'preview-palette'
   | 'lengths-help-off'
   | 'violations'
@@ -30,6 +31,7 @@ type State =
   | 'docs'
 const STATES: readonly State[] = [
   'board',
+  'presets-open',
   'preview-palette',
   'lengths-help-off',
   'violations',
@@ -128,6 +130,10 @@ async function arrange(state: State) {
     // state cares about the board the address opened, not the lab's own
     // load run).
     await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).not.toBeNull()
+  }
+  if (state === 'presets-open') {
+    await screen.getByRole('button', { name: /^preset/ }).click()
+    await expect.poll(() => screen.container.querySelector('.fw-pp-panel:not([hidden])')).not.toBeNull()
   }
   return screen
 }

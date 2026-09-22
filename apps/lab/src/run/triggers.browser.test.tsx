@@ -142,6 +142,7 @@ describe('what starts a run (spec §2.2)', () => {
     const option = PRESETS.flatMap((level) => level.options).find((o) => o.id === 'hard-portrait')
     if (option === undefined) throw new Error('PRESETS has no hard-portrait')
     const screen = await render(<PresetStrip control={r.control} />)
+    await screen.getByRole('button', { name: /^preset/ }).click()
     await screen.getByRole('button', { name: /Hard.*portrait/ }).click()
     expect(r.seen).toHaveLength(1)
     expect(r.seen[0]?.W).toBe(option.params.W)

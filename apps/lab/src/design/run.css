@@ -188,55 +188,161 @@
   }
 }
 
-/* presets, from the mock's `.fw-presets` — a flat flex row of labels and
-   chips, which is exactly the mock's own structure. */
+/* The preset picker (spec §3): one trigger in the 38px row, a panel of level
+   columns under it. Replaces the scrolling strip of 26 chips. `overflow:
+   visible` and a z-index so the panel lies over the stage. */
 .fw-presets {
+  position: relative;
+  z-index: 20;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 12px;
   padding: 0 16px;
   height: 38px;
   background: var(--void);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
 }
-.fw-presets .lbl {
-  flex: none;
-  margin: 0 10px 0 14px;
-  color: var(--ash);
-  white-space: nowrap;
-}
-.fw-presets .lbl:first-child {
-  margin-left: 0;
-}
-.fw .fw-presets button {
-  flex: none;
-  height: 24px;
+.fw .fw-presets .fw-pp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 26px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  background: none;
-  color: var(--mist);
+  background: var(--void);
+  color: var(--ink);
   cursor: pointer;
   white-space: nowrap;
 }
-.fw .fw-presets button:hover {
-  color: var(--ink);
+.fw .fw-presets .fw-pp-trigger:hover,
+.fw .fw-presets .fw-pp-trigger[aria-expanded='true'] {
   background: var(--surface);
+  border-color: var(--mist);
 }
-/* The mock keys this off `aria-pressed`; twenty-six toggle buttons of which
-   one never un-presses is the wrong state, so the strip uses `aria-current`
-   as the group rail does. */
-.fw .fw-presets button[aria-current='true'] {
+.fw-pp-trigger .k {
+  color: var(--ash);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.fw-pp-trigger .d,
+.fw-pp-trigger .none {
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+.fw-pp-trigger .caret {
+  color: var(--ash);
+  font-size: 10px;
+}
+.fw-pp-edited {
+  min-width: 0;
+  color: var(--mist);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The panel's own `display: grid` would beat the user agent's `[hidden] {
+   display: none }`, so the closed state is stated here. `max-height` is not in
+   the handoff: at 420 wide seven levels in two columns are 650px tall under a
+   top at 171px (measured), which runs past any window shorter than about
+   830px — at 420×700 the `popover-fit` invariant (LayoutInvariants) goes red
+   without it. None of the matrix's five sizes is that short. */
+.fw-pp-panel {
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  margin-top: 4px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  max-height: calc(100dvh - 12rem);
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding: 1px;
+  background: var(--graphite);
+}
+.fw-pp-panel[hidden] {
+  display: none;
+}
+/* 7 × 201px (the widest row, "winding skeleton 400×400", plus padding) +
+   gaps + 32px of margin ≈ 1447px. Recompute when a mode's name or the font
+   changes. */
+@media (max-width: 1479px) {
+  .fw-pp-panel {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .fw-pp-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Lines as a shadow on the columns, not the panel's background showing
+   through: an empty grid cell would paint as a grey block. */
+.fw-pp-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px 10px;
+  background: var(--graphite);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.fw-pp-col h3 {
+  margin: 0 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ash);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw .fw-pp-col button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--mist);
+  text-align: left;
+  cursor: pointer;
+}
+.fw .fw-pp-col button:hover {
+  background: var(--surface);
   color: var(--ink);
+}
+.fw .fw-pp-col button[aria-current='true'] {
   background: var(--signal-fill);
-  border-color: transparent;
+  color: var(--ink);
+}
+/* The size never shrinks or wraps; the mode gives way with an ellipsis if a
+   column is ever narrower than its content. */
+.fw-pp-col button > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fw-pp-col button .d {
+  flex: none;
+  white-space: nowrap;
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.fw-pp-col button[aria-current='true'] .d {
+  color: var(--ink);
 }
 @media (pointer: coarse) {
   .fw-presets {
     height: auto;
     padding: 6px 16px;
   }
-  .fw .fw-presets button {
+  .fw .fw-pp-col button,
+  .fw .fw-presets .fw-pp-trigger {
     height: 44px;
   }
 }
