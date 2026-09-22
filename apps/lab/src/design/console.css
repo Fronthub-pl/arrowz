@@ -462,18 +462,22 @@
   }
 }
 
-/* The preset strip is the first row and takes its own height; the stage then
-   takes what it needs, the console the rest, and the board never collapses
-   below the height at which it is a picture rather than a strip. */
+/* Five rows, one per child Workspace.tsx can mount (spec R4): the preset
+   strip, the stage, the console, the clamp region (always mounted, empty when
+   nothing was clamped) and the violations (mounted only when there are some).
+   Before, the last two fell into implicit rows and took their height from the
+   two 1fr rows, and the board — 260px plus 32px of padding — was cut at the
+   bottom: 33px at 1280×800 with two violations (review P2). The stage row's
+   floor is that 292px now; the notes are capped and scroll inside themselves. */
 .fw-lab {
   display: grid;
-  grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(292px, 1fr) minmax(0, 1fr) auto auto;
   min-height: 0;
 }
 /* The simple view has no preset strip, and an absent first child would
    auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
 .fw-lab.simple {
-  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(292px, 1fr) minmax(0, 1fr) auto auto;
 }
 /* The library has no preset strip either, so it needs `.fw-lab.simple`'s
    correction for the same reason (PR 4a, Ruling 10): with the first child
@@ -483,6 +487,22 @@
    it, `385.109px 385.109px`. */
 .fw-lab.library {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+}
+/* Below 700px of height the board gives up its minimum (shell.css), so its row
+   gives up the 292px too. */
+@media (max-height: 700px) {
+  .fw-lab {
+    grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+  }
+  .fw-lab.simple {
+    grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+  }
+}
+/* Two violations are 90px already, and six knobs out of range grow the list
+   past any row the console could spare (review P2). */
+.fw-lab > .fw-note {
+  max-height: 96px;
+  overflow-y: auto;
 }
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the console, the violations,

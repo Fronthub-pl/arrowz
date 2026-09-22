@@ -61,8 +61,8 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'lengths-help-off@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
   'violations@1400x900': ['contrast'], // Signal
-  'violations@1280x800': ['board-clip', 'contrast'], // board-clip P2, contrast Signal
-  'violations@1024x768': ['board-clip', 'contrast'], // board-clip P2, contrast Signal
+  'violations@1280x800': ['contrast'], // Signal
+  'violations@1024x768': ['contrast'], // Signal
   'violations@860x900': ['contrast'], // Signal
   'violations@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
 
