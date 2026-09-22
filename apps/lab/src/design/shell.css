@@ -341,8 +341,26 @@ body {
   color: var(--ash);
   flex-wrap: wrap;
 }
+/* `.fw-bar` wraps its flex items (above), but a single item's own text does
+   not wrap on its own: a flex item's default `min-width: auto` is its
+   content's min-content size, which for an unbroken run of characters is
+   that whole run's width. `savedBoard` (lab-i18n.ts) names the board by its
+   layout hash, a 71-character token with no spaces to break at, and that is
+   what proved it: opening a stored board's detail at 420 wide (the matrix's
+   `library-detail` state) put "Saved board 8x8/sha256-…" on this line, and
+   the hash alone held the bar — and with it the whole document — to 500px.
+   `overflow-wrap: anywhere` is what shrinks the min-content size itself, by
+   letting a break fall inside the hash: `overflow-wrap: break-word` reads the
+   same in a browser but is explicitly excluded from min-content sizing by
+   spec, so it would have left this exact bug standing. `word-break:
+   break-all` (`.fw-cmd`, run.css) is `.fw-cmd`'s own fix for the same defect
+   in its own command string, and would have worked here too; `anywhere` is
+   kept for this line because the sentence around the hash should still break
+   at its own words first. */
 .fw-bar output {
   font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 /* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
    is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`,
