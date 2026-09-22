@@ -130,6 +130,12 @@ Removed: the ≤900px second-row rule, the `min(292px, 100%)` floor, the
 `(max-width: 900px) and (max-height: 700px)` companion, and their comments. In solo
 (`console.css:674-682`) the drawer is hidden as the report is today.
 
+On the saved-boards face the drawer is not shown at all and the stage keeps two tracks
+(`70px minmax(0, 1fr)`): `ReportPanel` is empty there by design, and a remembered open drawer
+would otherwise lay a blank panel over the stored board's preview, which the old report column
+never covered. `ui.report` is untouched by the tab switch, so the lab shows the drawer as it
+was left. (Decided during the final review of the branch.)
+
 ### 4.2 State
 
 `ui.report: boolean` with `setReport` and `toggleReport` (read inside the update, like
@@ -138,15 +144,15 @@ like `mode`; never in the hash. Default closed.
 
 ### 4.3 Keys
 
-A `useReportKey(onWorkspace)` hook in `App.tsx`, bound wherever the stage is (same gate as
-`useSoloKey`):
+A `useReportKey` hook in `App.tsx`, bound on the lab tab only (not on the saved boards, where
+the drawer does not exist — §4.1):
 
 - `r`/`R` toggles, refused by `isHotkeyRefused`;
 - Escape closes an open drawer when not refused and not already `defaultPrevented` (the
   palette and the preset panel consume their own Escape first).
 
-The palette footer gains `R` with a new `cmdHintReport` key (EN + PL), inside the same
-`onWorkspace` branch as `g` and `[ ]`.
+The palette footer gains `R` with a new `cmdHintReport` key (EN + PL), shown on the lab tab
+only, while `g` and `[ ]` keep their workspace-wide gate.
 
 ## 5. Run column
 
