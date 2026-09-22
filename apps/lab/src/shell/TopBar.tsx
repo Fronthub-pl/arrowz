@@ -18,10 +18,17 @@ export function TopBar() {
   const lang = useStore((state) => state.lang.lang)
   const setLang = useStore((state) => state.lang.setLang)
   // "edited" only means something where a preset strip is on screen to be
-  // edited from (`Workspace.tsx`: `lab && !simple`), and the bar is mounted
-  // on every face — the saved boards, the docs, the simple view — where there
-  // is none. `tabIndex === 0` is `Workspace`'s own "lab" test (`TabRow.tsx`'s
-  // `selectedIndex`), read here rather than duplicated as a path check.
+  // edited from, and the bar is mounted on every face — the saved boards,
+  // the docs, the simple view — where there mostly is none. This is not the
+  // same test `Workspace.tsx` uses for rendering the strip (`lab &&
+  // !simple`, where its own `tab` reads 'lab' on the docs route too —
+  // `App.tsx`'s `tab={tabIndex === 1 ? 'library' : 'lab'}` gives docs that
+  // same fallback rather than a route of its own, and the whole workspace is
+  // hidden there instead): `selectedIndex(...) === 0` checks the lab route by
+  // itself, stricter than that flag. It still matches what a person sees —
+  // the strip and the knobs it names are only ever both visible on the lab
+  // route, so that is the one face where naming the knobs "edited" answers a
+  // question anyone on screen could be asking.
   const isLabRoute = selectedIndex(useLocation().pathname) === 0
   const advancedLab = mode === 'advanced' && isLabRoute
   // One selector on the whole `values` object, and no longer two primitive

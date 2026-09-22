@@ -168,6 +168,27 @@ test('the head-height help sits in its own list, ahead of the fields it describe
   )
 })
 
+// Fix round 1, finding 1: `.fw-kdesc`'s `@container (max-width: 407px)`
+// single-column fallback (console.css) needs a container-type ancestor in
+// scope, and the fields grid this list now sits in had none — wave B's
+// `library-detail` matrix state measured the detail's fields at ~428px
+// against a 420px box. `.fw-lib-detail > .fw-grid` is the container
+// (library.css); 300px is well under the 407px floor the query stacks
+// below. Mirrors `KnobPanel.browser.test.tsx`'s own `dd >= 150` case.
+test('a narrow detail gives the head-height help room to read, not one word a line', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ width: '300px' }}>
+        <BoardDetail refresh={() => {}} />
+      </div>
+    </MemoryRouter>,
+  )
+  await show()
+  const dd = screen.container.querySelector('.fw-lib-detail .fw-kdesc dd')
+  if (dd === null) throw new Error('no description')
+  expect(dd.getBoundingClientRect().width).toBeGreaterThanOrEqual(150)
+})
+
 // Ruling 9: loading sets the knobs and the view but does NOT generate.
 // `setMany` leaves `edits` alone, which is the only thing `useAutoRun`
 // watches, so no run can start from this.
