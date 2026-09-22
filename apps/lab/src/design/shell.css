@@ -83,8 +83,8 @@ body {
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: var(--signal);
-  color: var(--void);
+  background: var(--signal-fill);
+  color: var(--ink);
 }
 .fw-top .mark {
   width: 20px;
@@ -100,24 +100,10 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
-.fw-top .sep {
-  opacity: 0.5;
-}
-/* The only untuned span in a bar where every sibling is tuned: a browser pass
-   measured it at 12px full strength beside `.name` at 13px and `.sep` at half,
-   which made the preset's name the loudest thing in the bar after the mark and
-   louder than the size it qualifies. `.dims`' own value, not a third level —
-   the two say the same kind of thing (what the board on screen is) and belong
-   at one weight. Measured on `--signal`: --void is 4.08:1 at full strength and
-   3.35:1 here, which is exactly what `.dims` has shipped at since the bar
-   existed; the pairing itself is the open §7.1 item, decided once for the
-   whole design system rather than per span. */
-.fw-top .preset {
-  opacity: 0.8;
-}
+/* Full strength: the bar's dimming was what put .dims and .preset at 3.35:1
+   (review, spec §5). */
 /* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
-  opacity: 0.8;
   font-variant-numeric: tabular-nums;
 }
 .fw-top .right {
@@ -319,28 +305,27 @@ body {
   font-variant-numeric: tabular-nums;
 }
 /* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
-   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`, leaving
-   the button `--ash` on `--signal` (contrast 1.45:1 against the 4.03:1 §7.1
-   asks for) in the mono stack. The `.fw` prefix makes it (0,2,0). Every rule
-   of the component carries it, and PR 3 adds many more controls into the same
-   cascade. */
+   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`,
+   leaving the button `--ash` on the fill. The `.fw` prefix makes it (0,2,0).
+   Every rule of the component carries it, and PR 3 adds many more controls
+   into the same cascade. */
 .fw .fw-go {
   height: 40px;
   min-height: 40px;
   margin-top: 10px;
   padding: 0 16px;
   border: 0;
-  background: var(--signal);
-  color: var(--void);
+  background: var(--signal-fill);
+  color: var(--ink);
   font-family: var(--ui);
   cursor: pointer;
   transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
 .fw .fw-go:hover:not(:disabled) {
-  background: var(--signal-hover);
+  background: var(--signal-fill-hover);
 }
 .fw .fw-go:active:not(:disabled) {
-  background: var(--signal-press);
+  background: var(--signal-fill-press);
 }
 .fw .fw-go:disabled {
   opacity: 0.5;
@@ -378,8 +363,8 @@ body {
   background: var(--surface);
 }
 .fw .fw-seg button[aria-checked='true'] {
-  color: var(--void);
-  background: var(--signal);
+  color: var(--ink);
+  background: var(--signal-fill);
   border-color: transparent;
 }
 @media (pointer: coarse) {
@@ -420,18 +405,17 @@ body {
 
 /* The top bar is the Signal plane, where the chip's own colours would vanish:
    `--signal` on `--signal` for the chosen option, and the global focus ring is
-   `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on
-   `--signal`, the pairing `.name` and `.dims` already ship (4.08:1, the open
-   §7.1 item); the chosen option is `--ink` on `--void`. The base rule ties with
-   the chip's checked rule and wins by following it; the checked rule here is
-   (0,4,1). */
+   `--signal` too (PR 4a, Ruling 13). The unselected text is now `--ink` on
+   `--signal-fill` (5.31:1); the chosen option is `--ink` on `--void`. The base
+   rule ties with the chip's checked rule and wins by following it; the
+   checked rule here is (0,4,1). */
 .fw .fw-top .fw-seg button {
-  border-color: var(--void);
-  color: var(--void);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
   background: none;
-  color: var(--void);
+  color: var(--ink);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -441,5 +425,5 @@ body {
   border-color: var(--void);
 }
 .fw .fw-top :focus-visible {
-  outline-color: var(--void);
+  outline-color: var(--ink);
 }

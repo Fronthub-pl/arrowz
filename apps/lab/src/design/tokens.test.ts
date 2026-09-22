@@ -3,9 +3,10 @@ import tokens from './tokens.css?raw'
 
 const declared = [...tokens.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1])
 
-// The mock declares eighteen custom properties. Spec §7.1 keeps sixteen:
-// fourteen colours and two fonts, in the mock's order.
-test('tokens.css declares the sixteen tokens the spec keeps, in order', () => {
+// The mock declares eighteen custom properties. Spec §7.1 kept sixteen; the
+// Signal-plane decision (2026-09-22 spec §5) swaps `--signal-hover` and
+// `--signal-press` for three fills that carry `--ink` text at AA.
+test('tokens.css declares the seventeen tokens the spec keeps, in order', () => {
   expect(declared).toEqual([
     '--void',
     '--graphite',
@@ -17,8 +18,9 @@ test('tokens.css declares the sixteen tokens the spec keeps, in order', () => {
     '--ink',
     '--paper',
     '--signal',
-    '--signal-hover',
-    '--signal-press',
+    '--signal-fill',
+    '--signal-fill-hover',
+    '--signal-fill-press',
     '--warn',
     '--error',
     '--ui',

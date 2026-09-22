@@ -224,8 +224,8 @@
    one never un-presses is the wrong state, so the strip uses `aria-current`
    as the group rail does. */
 .fw .fw-presets button[aria-current='true'] {
-  color: var(--void);
-  background: var(--signal);
+  color: var(--ink);
+  background: var(--signal-fill);
   border-color: transparent;
 }
 /* The mock paints this `--warn`, which §7.1 reserves for a clamped value or a

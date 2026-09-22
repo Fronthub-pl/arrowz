@@ -42,47 +42,13 @@ const SIZES: readonly (readonly [number, number])[] = [
  * The comparison is exact, so an entry left behind after its fix is red too.
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
-  'board@1400x900': ['contrast'], // Signal
-  'board@1280x800': ['contrast'], // Signal
-  'board@1024x768': ['contrast'], // Signal
-  'board@860x900': ['contrast'], // Signal
-  'board@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'preview-palette@1400x900': ['contrast'], // Signal
-  'preview-palette@1280x800': ['contrast'], // Signal
-  'preview-palette@1024x768': ['contrast'], // Signal
-  'preview-palette@860x900': ['contrast'], // Signal
-  'preview-palette@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'lengths-help-off@1400x900': ['contrast'], // Signal
-  'lengths-help-off@1280x800': ['contrast'], // Signal
-  'lengths-help-off@1024x768': ['contrast'], // Signal
-  'lengths-help-off@860x900': ['contrast'], // Signal
-  'lengths-help-off@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'violations@1400x900': ['contrast'], // Signal
-  'violations@1280x800': ['contrast'], // Signal
-  'violations@1024x768': ['contrast'], // Signal
-  'violations@860x900': ['contrast'], // Signal
-  'violations@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'simple@1400x900': ['contrast'], // Signal
-  'simple@1280x800': ['contrast'], // Signal
-  'simple@1024x768': ['contrast'], // Signal
-  'simple@860x900': ['contrast'], // Signal
-  'simple@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'library-empty@1400x900': ['contrast'], // Signal
-  'library-empty@1280x800': ['contrast'], // Signal
-  'library-empty@1024x768': ['contrast'], // Signal
-  'library-empty@860x900': ['contrast'], // Signal
-  'library-empty@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
-
-  'docs@1400x900': ['contrast'], // Signal
-  'docs@1280x800': ['contrast'], // Signal
-  'docs@1024x768': ['contrast'], // Signal
-  'docs@860x900': ['contrast'], // Signal
-  'docs@420x900': ['contrast', 'scroll'], // contrast Signal, scroll P8
+  'board@420x900': ['scroll'], // P8
+  'preview-palette@420x900': ['scroll'], // P8
+  'lengths-help-off@420x900': ['scroll'], // P8
+  'violations@420x900': ['scroll'], // P8
+  'simple@420x900': ['scroll'], // P8
+  'library-empty@420x900': ['scroll'], // P8
+  'docs@420x900': ['scroll'], // P8
 }
 
 beforeEach(() => {
@@ -130,6 +96,14 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
     const screen = await arrange(state)
     // One frame for the layout that followed the last store write.
     await new Promise((resolve) => requestAnimationFrame(resolve))
+    // Measure the settled layout: a rail tab selected in `arrange` is still
+    // mid-way through its 120ms background transition one frame later.
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a instanceof CSSTransition)
+        .map((a) => a.finished.catch(() => undefined)),
+    )
     const board = state !== 'library-empty' && state !== 'docs'
     const findings = audit(screen.container, { board })
     const failing = [...new Set(findings.map((f) => f.invariant))].sort()

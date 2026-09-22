@@ -5,8 +5,9 @@
    than resolved here (spec §7.1).
 
    Dark is the only theme, radius is zero everywhere except the switch and the
-   ready dot, `--signal` carries state and data only, and `--warn` is reserved
-   for a clamped value or a rule bound.
+   ready dot, `--signal` carries state without text; a plane with text on it
+   is `--signal-fill`, and `--warn` is reserved for a clamped value or a rule
+   bound.
 
    On `:root` and not on `.fw`: anything rendered outside the shell's own div —
    the document reset in shell.css — would otherwise resolve every `var(--…)`
@@ -26,8 +27,12 @@
   --ink: #edeef2;
   --paper: #f4f5f8;
   --signal: #5e6ad2;
-  --signal-hover: #6f7adb;
-  --signal-press: #4c57be;
+  /* Planes that carry text (spec 2026-09-22 §5): `--ink` on them is 5.31,
+     4.61 and 6.13:1, where neither `--ink` (4.05) nor `--void` (4.08) clears
+     AA on `--signal` itself. `--signal` stays for what carries no text. */
+  --signal-fill: #4c57be;
+  --signal-fill-hover: #5561c8;
+  --signal-fill-press: #434eb0;
   --warn: #d9a038;
   --error: #de5c4e;
   --ui: 'Archivo Variable', Archivo, Helvetica, Arial, sans-serif;
