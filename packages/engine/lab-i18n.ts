@@ -270,10 +270,8 @@ export const EN = {
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
     // The preset strip: its accessible name (it carries no visible caption),
-    // the mark for a knob moved since a preset was chosen, and the button
-    // that puts the clamp notice away.
+    // and the button that puts the clamp notice away.
     presetsLabel: 'Presets',
-    presetsDirty: 'edited',
     // The preset picker (spec §3): the trigger's caps label, what it says when
     // no preset spells the knobs, and the note beside it in that state.
     preset: 'preset',
@@ -711,7 +709,6 @@ export const PL: Translation = {
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
     presetsLabel: 'Presety',
-    presetsDirty: 'zmienione',
     preset: 'preset',
     customSettings: 'własne ustawienia',
     editedSinceLastPreset: 'zmienione od ostatniego presetu',

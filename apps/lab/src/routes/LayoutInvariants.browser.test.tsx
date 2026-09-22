@@ -213,11 +213,11 @@ test.each(LANG_CASES)(
     // used to stay rendered with nothing left to separate — an orphaned "/"
     // ahead of the right group's `margin-left: auto` gap. `TopBar.browser.
     // test.tsx` renders no stylesheet and sets no viewport, so this asserts
-    // here instead, on the bar's own left cluster (mark, name, seps, preset,
-    // dims), which is where the defect showed.
+    // here instead, on the bar's own left cluster (mark, name, seps, dims),
+    // which is where the defect showed.
     const bar = screen.container.querySelector('.fw-top')
     if (bar === null) throw new Error('top bar missing')
-    const clusterText = [...bar.querySelectorAll('.name, .sep, .preset, .dims')]
+    const clusterText = [...bar.querySelectorAll('.name, .sep, .dims')]
       .filter((el) => el.checkVisibility({ visibilityProperty: true, opacityProperty: false }))
       .map((el) => el.textContent ?? '')
       .join('')

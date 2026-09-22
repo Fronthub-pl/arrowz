@@ -102,7 +102,7 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
-/* Full strength: the bar's dimming was what put .dims and .preset at 3.35:1
+/* Full strength: the bar's dimming was what put .dims at 3.35:1
    (review, spec §5). */
 /* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
@@ -116,25 +116,18 @@ body {
   min-width: 0;
 }
 /* The bar gives way before the document does (spec R2: 420px is the narrowest
-   width the lab supports). Review P8 measured the shell at 472px minimum —
-   572 with a preset named — because every child of this flex row kept its
-   width. The name of the preset goes first, then the gaps. */
+   width the lab supports). Review P8 measured the shell at 472px minimum,
+   because every child of this flex row kept its width. The size is the text
+   that gives way. */
 .fw-top .name,
 .fw-top .sep {
   flex: none;
 }
-.fw-top .preset,
 .fw-top .dims {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-@media (max-width: 560px) {
-  .fw-top .preset,
-  .fw-top .sep:has(+ .preset) {
-    display: none;
-  }
 }
 @media (max-width: 480px) {
   .fw-top,
@@ -145,18 +138,17 @@ body {
     padding: 0 8px;
   }
   /* A W×H readout, not a control (R2 forbids hiding one of those): the first
-     thing to give, below the size the size and preset already gave up
-     theirs. A Polish "Zaawansowany" widens the mode switch enough to push
-     the language switch's own chip past `.fw-top`'s `overflow: hidden`
+     thing to give. A Polish "Zaawansowany" widens the mode switch enough to
+     push the language switch's own chip past `.fw-top`'s `overflow: hidden`
      (review P8) — invisible to it in English, where the bar still fits by
      1px at 420 wide. */
   .fw-top .dims {
     display: none;
   }
   /* Live pass, ≤480px: `.dims` above is hidden, but its own `.sep` was not —
-     the same `:has(+ .preset)` shape the preset's own sep already uses above,
-     read as an orphaned "/" ahead of the flex row's `margin-left: auto`
-     right group, with nothing of the size readout left for it to separate. */
+     the same `:has(+ …)` shape, read as an orphaned "/" ahead of the flex
+     row's `margin-left: auto` right group, with nothing of the size readout
+     left for it to separate. */
   .fw-top .sep:has(+ .dims) {
     display: none;
   }
