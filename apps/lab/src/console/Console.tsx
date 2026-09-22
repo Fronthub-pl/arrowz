@@ -7,6 +7,7 @@ import { SimplePanel } from '../simple/SimplePanel'
 import { useStore } from '../state/store'
 import { GroupRail } from './GroupRail'
 import { KnobPanel } from './KnobPanel'
+import { useFocusRequest } from './useFocusRequest'
 import { ViewPanel } from './ViewPanel'
 
 /**
@@ -28,6 +29,9 @@ export function Console({ control, children, face }: { control: RunControl; chil
   const entry = useStore((state) => state.ui.entry)
   const simple = useStore((state) => state.ui.mode === 'simple')
   const library = face === 'library'
+  // The jump's consumer sits here rather than in a panel: the panels swap, and
+  // a hook in the outgoing one would never see the request (spec §6).
+  useFocusRequest()
   return (
     <div className={`fw-console${library ? ' library' : ''}`}>
       {library ? <SizeChips /> : simple ? null : <GroupRail />}

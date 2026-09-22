@@ -1,0 +1,106 @@
+/* The command palette, with the mock's own figures (spec §9). No transition
+   and no blur touches any of these selectors: that is the design system's
+   rule, not an omission. */
+
+/* The ⌘K trigger. It sits in the top bar but it is the palette's, so it is
+   dressed here beside the dialog it opens rather than in `shell.css` with the
+   rest of the bar: the two move together, and a bar that never gained a
+   palette would want neither.
+
+   The child combinator is not decoration, though what it prevents is narrower
+   than it first looks. `.fw-top .right` also holds the two `Segmented` groups,
+   and `.fw .fw-seg button` is (0,2,1) exactly as `.fw-top .right button` would
+   be — with `palette.css` imported after `shell.css` in `main.tsx`, a
+   descendant selector here would win that tie on order and reach the chips.
+   Most of it would change nothing: the height, the background and the cursor
+   are already what the chips carry, and their colour and border colour are
+   pinned one file over by `.fw .fw-top .fw-seg button` at (0,3,1), which
+   outranks it. The padding is the one declaration that would land, squeezing
+   the chips from 10px to 8px. Keeping the trigger's rule off them altogether
+   is still worth more than arguing over which half survives. The trigger is
+   `.right`'s only direct button child; the chips are wrapped in `.fw-seg`.
+
+   The border and the hover are `--void` at low alpha, because the bar is the
+   Signal plane: the chips make the same choice one file over. */
+.fw-top .right > button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(14, 15, 18, 0.3);
+  background: none;
+  color: var(--void);
+  cursor: pointer;
+}
+.fw-top .right > button:hover {
+  background: rgba(14, 15, 18, 0.12);
+}
+.fw-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(14, 15, 18, 0.72);
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  padding-top: 12vh;
+}
+.fw-pal {
+  width: min(560px, calc(100vw - 32px));
+  background: var(--graphite);
+  border: 1px solid var(--border-strong);
+}
+.fw-pal input {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+}
+.fw-pal input::placeholder {
+  color: var(--ash);
+}
+.fw-pal .list {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+.fw-pal .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.fw-pal .row .g {
+  color: var(--ash);
+}
+.fw-pal .row .v {
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+}
+.fw-pal .row[aria-selected='true'] {
+  background: var(--surface);
+}
+.fw-pal .row[aria-selected='true'] .lab {
+  color: var(--ink);
+}
+.fw-pal .row[aria-disabled='true'] .lab {
+  color: var(--ash);
+}
+.fw-pal .empty {
+  padding: 14px;
+  color: var(--ash);
+}
+.fw-pal .foot {
+  display: flex;
+  gap: 16px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--ash);
+}
+.fw-pal .foot b {
+  font-weight: 400;
+  color: var(--mist);
+}

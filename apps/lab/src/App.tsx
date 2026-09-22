@@ -5,9 +5,12 @@ import { useEffect, useRef } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { saveBoard } from './api/boards'
 import { AppRoutes } from './AppRoutes'
+import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
+import { generate, stepSeed } from './run/actions'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
+import type { RunControl } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useDocumentLang } from './shell/useDocumentLang'
@@ -61,43 +64,100 @@ function useStoreSave() {
 }
 
 /**
- * The `f` hotkey, the application's first global one (spec §5.1): `f` and `F`
- * alike — Shift is not a modifier here — and nothing with Ctrl, ⌘ or Alt (⌘F
- * opens the browser's find as well), no key repeat, nothing typed into a field
+ * The guard `f`, `g`, `[` and `]` all share: nothing with Ctrl, ⌘ or Alt
+ * (those belong to the platform), no key repeat, nothing typed into a field
  * or an editable region.
+ *
+ * An IME sends the keystrokes of the character being composed, so a key on
+ * its way into a character is text — the same reason a field is refused
+ * below, arriving through a different door.
+ *
+ * Already used by someone closer to the keystroke: a listener on the document
+ * sees the event whatever anyone else did with it, so refusing a cancelled
+ * one is what keeps these hotkeys last in line rather than an extra one.
+ *
+ * `usePaletteKey` does not call this — resist tidying it in there. ⌘K's
+ * contract is the opposite one: it refuses nothing but a missing modifier,
+ * because it has to open while a knob is being typed into.
+ */
+function isHotkeyRefused(event: KeyboardEvent): boolean {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return true
+  if (event.isComposing || event.defaultPrevented) return true
+  const target = event.target
+  return (
+    target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select') !== null)
+  )
+}
+
+/**
+ * The `f` hotkey, the application's first global one (spec §5.1): `f` and `F`
+ * alike — Shift is not a modifier here.
  *
  * A focused button is not a field, so `f` on Generate toggles (PR 4b,
  * Ruling 9). The listener lives wherever the stage does — the lab tab and the
- * saved boards — and nowhere else. Escape is not handled: the palette of PR 7
- * owns it.
+ * saved boards — and nowhere else. Escape is not handled here: the command
+ * palette owns it, closing on it in its own key handler (`CommandPalette.tsx`).
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
     if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'f' && event.key !== 'F') return
-      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
-      // An IME sends the keystrokes of the character being composed, so `f` on
-      // its way into a character is text — the same reason a field is refused
-      // below, arriving through a different door.
-      if (event.isComposing) return
-      // Already used by someone closer to the keystroke. A listener on the
-      // document sees the event whatever anyone else did with it, so refusing a
-      // cancelled one is what keeps this hotkey the last in line rather than an
-      // extra one.
-      if (event.defaultPrevented) return
-      const target = event.target
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest('input, textarea, select') !== null)
-      ) {
-        return
-      }
+      if (isHotkeyRefused(event)) return
       useStore.getState().ui.toggleSolo()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onWorkspace])
+}
+
+/**
+ * ⌘K, the application's one global shortcut in the literal sense: every route,
+ * the documentation included, because navigation is half of what the palette
+ * is for (spec §7). It differs from `f`, `g`, `[` and `]` in refusing nothing
+ * but a missing modifier — it has to open while a knob is being typed into —
+ * and the modifier is what keeps it from colliding with any typing at all.
+ * That is why it does not share `isHotkeyRefused`: the two contracts are
+ * opposites, not variants of one rule.
+ *
+ * `<arrowz-board>` cannot swallow it: its own key handler returns at once on
+ * `metaKey || ctrlKey || altKey` (arrowz-board.ts:832).
+ */
+function usePaletteKey() {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'k' && event.key !== 'K') return
+      if (!event.metaKey && !event.ctrlKey) return
+      if (event.altKey || event.repeat || event.defaultPrevented) return
+      event.preventDefault()
+      useStore.getState().ui.togglePalette()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+}
+
+/**
+ * The two hotkeys the palette's footer advertises (spec D5): `g` generates and
+ * `[` / `]` step the seed and carve it — the experimenter's loop of flipping
+ * through boards from one setting. `isHotkeyRefused` is what silences these
+ * while the palette is open too, its search box being an `<input>`.
+ *
+ * A refused run says nothing here: `useRun` refuses a broken rule silently and
+ * `RunStatusBar` is the one voice (Ruling 13).
+ */
+function useRunKeys(onWorkspace: boolean, control: RunControl) {
+  useEffect(() => {
+    if (!onWorkspace) return
+    const onKey = (event: KeyboardEvent) => {
+      if (isHotkeyRefused(event)) return
+      if (event.key === 'g' || event.key === 'G') generate(control)
+      else if (event.key === ']') stepSeed(control, 1)
+      else if (event.key === '[') stepSeed(control, -1)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onWorkspace, control])
 }
 
 /**
@@ -146,6 +206,8 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
+  useRunKeys(onWorkspace, control)
+  usePaletteKey()
   useDocumentLang()
   return (
     <div className="fw">
@@ -153,6 +215,7 @@ function Shell() {
       <TabRow />
       <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
       <AppRoutes />
+      <CommandPalette control={control} />
     </div>
   )
 }

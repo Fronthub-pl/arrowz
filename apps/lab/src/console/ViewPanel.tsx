@@ -5,19 +5,7 @@ import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { panelId, tabId } from './GroupRail'
-import { VIEW_FIELDS, type ViewField } from './viewFields'
-
-/** The five flags, in the order the previous lab lists them, plus the point grid. */
-export const VIEW_FLAGS: readonly {
-  flag: ViewFlag
-  label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
-}[] = [
-  { flag: 'rounded', label: 'rounded' },
-  { flag: 'colored', label: 'colored' },
-  { flag: 'hilite', label: 'hilite' },
-  { flag: 'voids', label: 'voids' },
-  { flag: 'showPoints', label: 'showPoints' },
-]
+import { VIEW_FIELDS, VIEW_FLAGS, type ViewField } from './viewFields'
 
 /**
  * One preview number. Uncontrolled on purpose: a controlled `type="number"`
@@ -110,6 +98,7 @@ export function ViewFlagSwitch({
         </span>
         <button
           type="button"
+          id={`view-${flag}`}
           className="fw-sw"
           role="switch"
           aria-checked={on}

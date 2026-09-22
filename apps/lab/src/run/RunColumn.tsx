@@ -1,7 +1,7 @@
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
-import { drawIfRandom, resetRecipeIfSimple } from '../simple/applyRecipe'
 import { useStore } from '../state/store'
+import { defaults, generate, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
 import { OptionSwitch } from './OptionSwitch'
@@ -38,8 +38,6 @@ export function RunColumn({
   const dict = useDictionary()
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
-  const setMany = useStore((state) => state.params.setMany)
-  const resetParams = useStore((state) => state.params.reset)
   const auto = useStore((state) => state.ui.auto)
   const help = useStore((state) => state.ui.help)
   const setAuto = useStore((state) => state.ui.setAuto)
@@ -120,34 +118,12 @@ export function RunColumn({
     wasRunning.current = running
   }, [running, goRef, abortRef])
 
-  // Generate and New seed in the simple view with randomising on draw the
-  // knobs afresh before the run reads them; in every other state they keep
-  // them. New seed moves the seed first; the draw does not read the seed, it
-  // only carries it along.
-  const generate = () => {
-    drawIfRandom()
-    control.start()
-  }
-  // `setMany` and not `set`: a seed the machine drew is not a knob a person
-  // typed, and only the typed path may wake `auto` (Ruling 3). The draw now
-  // covers the knob's whole range: `getRandomValues` fills 32 bits, which is
-  // exactly PARAM_SPEC's ceiling, where `Math.random() * 999999` could not
-  // reach the top even of the narrower range it was written for.
-  const reseed = () => {
-    // `?? 0` is unreachable — the call fills the array it is handed — and is
-    // here because an index into a typed array is `number | undefined` under
-    // `noUncheckedIndexedAccess`.
-    setMany({ seed: crypto.getRandomValues(new Uint32Array(1))[0] ?? 0 })
-    drawIfRandom()
-    control.start()
-  }
-  // The knobs first, then the recipe written over them: its seed is the
-  // default the reset just put back.
-  const defaults = () => {
-    resetParams()
-    resetRecipeIfSimple()
-    control.start()
-  }
+  // Generate, New seed and Defaults live in `./actions` now: the palette
+  // (a later task) calls the same functions, so the column and the palette
+  // cannot drift.
+  const onGenerate = () => generate(control)
+  const onReseed = () => reseed(control)
+  const onDefaults = () => defaults(control)
 
   return (
     <section className="fw-run-col" aria-label={dict.t('runColumn')}>
@@ -156,17 +132,17 @@ export function RunColumn({
         type="button"
         className="fw-go"
         ref={goRef}
-        onClick={generate}
+        onClick={onGenerate}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}
       >
         {dict.t('generate')}
       </button>
       <div className="fw-alt">
-        <button type="button" onClick={reseed}>
+        <button type="button" onClick={onReseed}>
           {dict.t('reseed')}
         </button>
-        <button type="button" onClick={defaults}>
+        <button type="button" onClick={onDefaults}>
           {dict.t('reset')}
         </button>
         <button type="button" ref={abortRef} onClick={control.abort} disabled={!running}>

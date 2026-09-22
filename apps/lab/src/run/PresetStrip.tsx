@@ -1,9 +1,9 @@
-import { PARAM_SPEC, type Params } from '@arrowz/engine'
-import { exportCell } from '@arrowz/engine/simple'
+import type { Params } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { Fragment } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { applyPreset } from './actions'
 import type { RunControl } from './useRun'
 
 /**
@@ -16,34 +16,16 @@ import type { RunControl } from './useRun'
 export function PresetStrip({ control }: { control: RunControl }) {
   const dict = useDictionary()
   const values = useStore((state) => state.params.values)
-  const setMany = useStore((state) => state.params.setMany)
-  const setNumber = useStore((state) => state.view.setNumber)
-  const raiseClamped = useStore((state) => state.ui.raiseClamped)
   const current = findPreset(values)
   // `PresetLevel.id` is a `string` and the dictionary's `levels` is a
   // fixed-key object, so the index needs narrowing — the same shape
   // `KnobPanel.tsx:24` uses for `groupHelp`.
   const levels = dict.d.presets.levels as Partial<Record<string, string>>
 
-  const apply = (params: Partial<Params>) => {
-    // Every knob, not only the ones the preset names: `lab-presets.ts` calls
-    // an option "engine defaults + these overrides, so choosing one never
-    // inherits knobs left over from the previous experiment". Seed included,
-    // which is why two presets cannot be compared on one seed (Ruling 10).
-    const full: Partial<Params> = {}
-    for (const spec of PARAM_SPEC) full[spec.key] = params[spec.key] ?? spec.def
-    // A preset is written for the engine's envelope, not for this board's, so
-    // a value can arrive out of range and be pulled in. The notice is how the
-    // move stops being silent (spec §5.3).
-    raiseClamped(setMany(full))
-    // §2.2 row 2: the export cell size follows the preset's size. It is a view
-    // field, so it goes through the view slice's tolerant reader rather than
-    // into the knobs.
-    const W = params.W ?? 0
-    const H = params.H ?? 0
-    setNumber('cell', String(exportCell(W, H)))
-    control.start()
-  }
+  // The chip and the palette row are the same action (spec D6): `applyPreset`
+  // in `./actions` writes every knob, follows it with the export cell size,
+  // and starts the run.
+  const apply = (params: Partial<Params>) => applyPreset(control, params)
 
   return (
     <div className="fw-presets" role="group" aria-label={dict.t('presetsLabel')}>

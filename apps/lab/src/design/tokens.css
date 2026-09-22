@@ -9,8 +9,12 @@
    for a clamped value or a rule bound.
 
    On `:root` and not on `.fw`: anything rendered outside the shell's own div —
-   the document reset in shell.css, a `<dialog>` or a toast on `document.body`,
-   the palette of PR 7 — would otherwise resolve every `var(--…)` to nothing. */
+   the document reset in shell.css — would otherwise resolve every `var(--…)`
+   to nothing. The command palette looks like that case and is not one: it is
+   an in-tree child of `.fw` (App.tsx), and its scrim reaches the whole
+   viewport through `position: fixed`, which moves nothing in the DOM. The
+   rule stands for what would actually leave the tree — a toast or a
+   `<dialog>` mounted straight on `document.body`. */
 :root {
   --void: #0e0f12;
   --graphite: #16171b;

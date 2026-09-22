@@ -181,8 +181,9 @@ const solo = () => useStore.getState().ui.solo
 
 // Spec §5.1: `f` and `F`, and nothing else. Every refusal is followed by the
 // same event without the thing refused, so a listener that ignored synthetic
-// events altogether could not pass the refusals.
-test('f toggles solo, and a modifier, a repeat or Escape does nothing', async () => {
+// events altogether could not pass the refusals. Escape used to be asserted
+// here too, before the palette gave it an owner (see the two cases below).
+test('f toggles solo, and a modifier or a repeat does nothing', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
   await loadRunDone()
@@ -198,11 +199,111 @@ test('f toggles solo, and a modifier, a repeat or Escape does nothing', async ()
   press(document.body, { key: 'f' })
   expect(solo()).toBe(true)
 
-  // The palette of PR 7 owns Escape; nothing else binds it.
-  await userEvent.keyboard('{Escape}')
-  expect(solo()).toBe(true)
   await screen.getByRole('button', { name: 'Full view (key F)' }).click()
   expect(solo()).toBe(false)
+}, 40_000)
+
+// The reservation this splits was written when nothing owned Escape
+// ("The palette of PR 7 owns Escape; nothing else binds it"). Both halves
+// still matter: solo must not answer Escape, and the palette must.
+test('Escape with the palette closed still leaves solo alone', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(true)
+  await userEvent.keyboard('{Escape}')
+  expect(solo()).toBe(true)
+  expect(useStore.getState().ui.palette).toBe(false)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+}, 40_000)
+
+test('⌘K opens the palette anywhere, Escape closes it, and solo is untouched either way', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  expect(solo()).toBe(false)
+  await userEvent.keyboard('{Escape}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  expect(solo()).toBe(false)
+  // Uppercase `K`, the way a real keyboard sends it with Shift held or Caps
+  // Lock on: `App.tsx`'s guard checks both `'k'` and `'K'`, and this half of
+  // it has no other case exercising it.
+  await userEvent.keyboard('{Meta>}K{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+}, 40_000)
+
+// Spec §7: ⌘K is bound on every route, the docs included, because navigation
+// is half of what the palette is for — unlike `f` (solo, workspace-only),
+// this listener is not gated by `onWorkspace`. `BrowserRouter` commits
+// navigation inside `startTransition`, so the route change is polled before
+// ⌘K is asserted on it.
+test('⌘K opens the palette on the docs route too', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+}, 40_000)
+
+// The trigger and the dialog have to be on the page together for this, which
+// only the whole application gives. The defect: the dialog closes on a press
+// outside its frame, and the trigger is outside its frame — so the press shut
+// the palette and the click that followed opened it again. The button could
+// never close what it opened, and the dialog remounted on every such click.
+test('the ⌘K button closes the palette it opened, rather than reopening it', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+  // And a press anywhere else outside the frame still closes it, so the
+  // exception above is the trigger's alone.
+  await trigger.click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await screen.getByRole('heading', { level: 1, name: 'Arrowz' }).click()
+  await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+}, 40_000)
+
+// The palette's search box is a field, and the `f` guard refuses fields — so
+// typing `f` into the palette must not take the board full screen.
+test('f typed into the palette is text, not a toggle', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  await userEvent.keyboard('f')
+  expect(solo()).toBe(false)
+}, 40_000)
+
+// Spec D5: the same field the case above exercises for `f` silences `g`, `[`
+// and `]` too — `isHotkeyRefused` refuses the palette's search box like any
+// other input, so it never starts a run or moves the seed while typed into.
+test('g, [ and ] typed into the palette are text, not hotkeys', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  const seed = useStore.getState().params.values.seed
+  const phase = useStore.getState().run.phase
+  await userEvent.keyboard('{Meta>}k{/Meta}')
+  await expect.poll(() => useStore.getState().ui.palette).toBe(true)
+  // `[` and `]` are userEvent's own key-descriptor delimiters, so a literal
+  // one is each character doubled (testing-library/user-event's escape rule).
+  await userEvent.keyboard('g[[]]')
+  expect(useStore.getState().params.values.seed).toBe(seed)
+  expect(useStore.getState().run.phase).toBe(phase)
+  expect(useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
 test('f typed into a field or an editable region is text, not a toggle', async () => {
@@ -291,4 +392,69 @@ test('a focus inside what solo hides moves to the toggle', async () => {
   expect(solo()).toBe(true)
   await twoFrames()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Full view (key F)' }).element())
+}, 40_000)
+
+// Spec D5. The same guard set as `f`, and each refusal is followed by the very
+// same event without the thing refused, so a listener ignoring synthetic
+// events could not pass.
+test('g generates, and refuses a modifier, a repeat, a cancelled event and a field', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  const seedBefore = useStore.getState().params.values.seed
+
+  for (const refused of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+    press(document.body, { key: 'g', ...refused })
+  }
+  expect(useStore.getState().run.phase).toBe('done')
+
+  press(document.body, { key: 'g' })
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  expect(useStore.getState().params.values.seed).toBe(seedBefore)
+
+  // Typed into a knob's own entry, `g` is text.
+  await screen.getByRole('tab', { name: 'board', exact: true }).click()
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  const runs = useStore.getState().run.phase
+  await userEvent.keyboard('g')
+  expect(useStore.getState().run.phase).toBe(runs)
+}, 60_000)
+
+test('] and [ step the seed by one and carve it', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  const before = useStore.getState().params.values.seed
+
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.values.seed).toBe(before + 1)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  press(document.body, { key: '[' })
+  expect(useStore.getState().params.values.seed).toBe(before)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+
+  // Ruling 3: the machine path must not also wake auto-generate.
+  const edits = useStore.getState().params.edits
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.edits).toBe(edits)
+}, 60_000)
+
+test('the run keys are the workspace’s, like f: the documentation route has none of them', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+  // `window.location.pathname` flips synchronously inside react-router's own
+  // history push, ahead of the `startTransition`-wrapped render that commits
+  // `onWorkspace`; polling it raced `useRunKeys`'s guard under load (measured:
+  // deterministic failure once other cases ran first). The hidden attribute
+  // below is driven by that same committed render — the pattern the `f` case
+  // above already uses for this exact route — so it does not race.
+  await expect
+    .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+    .toBe(true)
+  const seed = useStore.getState().params.values.seed
+  press(document.body, { key: ']' })
+  expect(useStore.getState().params.values.seed).toBe(seed)
 }, 40_000)

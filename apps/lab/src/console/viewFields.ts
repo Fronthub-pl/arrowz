@@ -44,3 +44,15 @@ export const VIEW_FIELDS: readonly ViewField[] = [
  */
 export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
 export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hilite']
+
+/** The five flags, in the order the previous lab lists them, plus the point grid. */
+export const VIEW_FLAGS: readonly {
+  flag: ViewFlag
+  label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
+}[] = [
+  { flag: 'rounded', label: 'rounded' },
+  { flag: 'colored', label: 'colored' },
+  { flag: 'hilite', label: 'hilite' },
+  { flag: 'voids', label: 'voids' },
+  { flag: 'showPoints', label: 'showPoints' },
+]

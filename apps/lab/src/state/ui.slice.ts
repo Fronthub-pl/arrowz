@@ -32,6 +32,15 @@ export interface UiState {
   mode: ViewMode
   /** The board takes the whole lab panel (spec §5.1). Never remembered, never in the hash. */
   solo: boolean
+  /** The command palette is on screen (spec §8). Never remembered, never in the hash. */
+  palette: boolean
+  /**
+   * The DOM id of a control a palette jump asked for — `knob-<key>` or
+   * `view-<field>` — waiting for the render that puts it in the tree. The
+   * console's `useFocusRequest` consumes it and clears it, so a later render
+   * cannot steal the focus a second time (spec §6).
+   */
+  focusTarget: string | null
   select(entry: RailEntry): void
   setAuto(on: boolean): void
   setHelp(on: boolean): void
@@ -39,6 +48,11 @@ export interface UiState {
   setMode(mode: ViewMode): void
   setSolo(on: boolean): void
   toggleSolo(): void
+  openPalette(): void
+  closePalette(): void
+  togglePalette(): void
+  requestFocus(id: string): void
+  clearFocusRequest(): void
 }
 
 type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
@@ -54,6 +68,8 @@ export function createUiSlice(set: SetStore): UiState {
     clamped: false,
     mode: modeOf(readStored(MODE_KEY)),
     solo: false,
+    palette: false,
+    focusTarget: null,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
     setHelp: (help) => patch({ help }),
@@ -66,5 +82,12 @@ export function createUiSlice(set: SetStore): UiState {
     // Read inside the update, not from a closure: the toggle and the `f` key
     // can both fire before a render.
     toggleSolo: () => set((state) => ({ ui: { ...state.ui, solo: !state.ui.solo } })),
+    openPalette: () => patch({ palette: true }),
+    closePalette: () => patch({ palette: false }),
+    // Read inside the update, like `toggleSolo`: the hotkey and the trigger
+    // can both fire before a render.
+    togglePalette: () => set((state) => ({ ui: { ...state.ui, palette: !state.ui.palette } })),
+    requestFocus: (focusTarget) => patch({ focusTarget }),
+    clearFocusRequest: () => patch({ focusTarget: null }),
   }
 }
