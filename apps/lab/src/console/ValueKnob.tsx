@@ -3,12 +3,14 @@ import { wordFor } from '@arrowz/engine/command'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { DraftNumber } from './DraftNumber'
+import { descId } from './FieldHelp'
 import { boundOn, KnobSlider } from './KnobSlider'
 
 /**
- * One knob: a label, the value with the word the CLI spells it with, a slider,
- * and one paragraph that always says something — the knob's own description,
- * prefixed by whatever is wrong with it right now.
+ * One knob: a label, the value with the word the CLI spells it with, a
+ * slider, and one paragraph for the state alone — what is wrong with it right
+ * now, if anything (spec R7; the description itself is drawn once, under the
+ * panel heading, by `FieldHelp`).
  *
  * Four subscriptions, all by this knob's key. Dragging another knob changes
  * none of them, so this component does not render: that is what the sparse
@@ -18,14 +20,13 @@ import { boundOn, KnobSlider } from './KnobSlider'
  */
 export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: { min: number; max: number } }) {
   const dict = useDictionary()
-  const showHelp = useStore((state) => state.ui.help)
   const value = useStore((state) => state.params.values[spec.key])
   const broken = useStore((state) => state.params.broken[spec.key])
   const inactive = useStore((state) => state.params.inactive[spec.key])
   const floor = useStore((state) => state.params.floor[spec.key])
   const set = useStore((state) => state.params.set)
 
-  const { label, help: description } = dict.paramText(spec)
+  const { label } = dict.paramText(spec)
   const word = wordFor(spec.key, value)
   // The same answer the marker draws, from the same predicate: a bound stated
   // only as a mark is a bound only a mouse can read.
@@ -37,14 +38,11 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
       : bound === undefined
         ? null
         : dict.t('ruleBound', bound)
-  // The description is always present; the state, when there is one, goes in
-  // front of it.
-  //
-  // Two spans, not one string. The state must survive the switch: it is the
-  // reason the run is refused, and the switch is about descriptions (Ruling
-  // 9). The description stays in the tree, visually hidden, so
-  // `aria-describedby` never dangles and a link carrying `help:false` does
-  // not strip the descriptions from someone else's screen reader.
+  // The description lives in the panel heading now (`FieldHelp`, spec R7),
+  // one list for the whole group rather than one paragraph per card. This
+  // paragraph holds only the state — what is wrong with the knob right now —
+  // which the help switch never hides: turning descriptions off must not
+  // turn a refusal off with them.
   const whyId = `knob-${spec.key}-why`
 
   return (
@@ -57,10 +55,11 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
           label={label}
           value={value}
           word={word}
-          // The same paragraph the slider points at. Both surfaces of the
-          // value carry it: a knob's reason reaching only one of them is a
-          // reason a keyboard user meets half the time.
-          describedBy={whyId}
+          // The same paragraph the slider points at, plus the panel's own
+          // description of this knob: a knob's reason or its description
+          // reaching only one of them is a reason a keyboard user meets half
+          // the time.
+          describedBy={`${whyId} ${descId(spec.key)}`}
           // Held inside the *passed* bounds first: the mix row's own range is
           // narrower than the knob's, and only it knows that.
           onCommit={(typed) => set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))}
@@ -73,19 +72,11 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
         bounds={bounds}
         floor={floor}
         label={label}
-        describedBy={whyId}
+        describedBy={`${whyId} ${descId(spec.key)}`}
         onCommit={(next) => set(spec.key, next)}
       />
       <p className="why" id={whyId} data-testid={whyId}>
-        {/* The separator lives outside `.state`: an exact-text lookup for the
-            reason alone (rather than "reason. ") must still find it. */}
-        {state === null ? null : (
-          <>
-            <span className="state">{state}</span>
-            {'. '}
-          </>
-        )}
-        <span className={showHelp ? 'desc' : 'desc fw-vh'}>{description}</span>
+        {state === null ? null : <span className="state">{state}</span>}
       </p>
     </div>
   )

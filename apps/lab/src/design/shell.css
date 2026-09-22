@@ -83,8 +83,10 @@ body {
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  background: var(--signal);
-  color: var(--void);
+  background: var(--signal-fill);
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
 }
 .fw-top .mark {
   width: 20px;
@@ -100,24 +102,10 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
-.fw-top .sep {
-  opacity: 0.5;
-}
-/* The only untuned span in a bar where every sibling is tuned: a browser pass
-   measured it at 12px full strength beside `.name` at 13px and `.sep` at half,
-   which made the preset's name the loudest thing in the bar after the mark and
-   louder than the size it qualifies. `.dims`' own value, not a third level —
-   the two say the same kind of thing (what the board on screen is) and belong
-   at one weight. Measured on `--signal`: --void is 4.08:1 at full strength and
-   3.35:1 here, which is exactly what `.dims` has shipped at since the bar
-   existed; the pairing itself is the open §7.1 item, decided once for the
-   whole design system rather than per span. */
-.fw-top .preset {
-  opacity: 0.8;
-}
+/* Full strength: the bar's dimming was what put .dims and .preset at 3.35:1
+   (review, spec §5). */
 /* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
-  opacity: 0.8;
   font-variant-numeric: tabular-nums;
 }
 .fw-top .right {
@@ -126,6 +114,52 @@ body {
   align-items: center;
   gap: 14px;
   min-width: 0;
+}
+/* The bar gives way before the document does (spec R2: 420px is the narrowest
+   width the lab supports). Review P8 measured the shell at 472px minimum —
+   572 with a preset named — because every child of this flex row kept its
+   width. The name of the preset goes first, then the gaps. */
+.fw-top .name,
+.fw-top .sep {
+  flex: none;
+}
+.fw-top .preset,
+.fw-top .dims {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 560px) {
+  .fw-top .preset,
+  .fw-top .sep:has(+ .preset) {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  .fw-top,
+  .fw-top .right {
+    gap: 8px;
+  }
+  .fw-top {
+    padding: 0 8px;
+  }
+  /* A W×H readout, not a control (R2 forbids hiding one of those): the first
+     thing to give, below the size the size and preset already gave up
+     theirs. A Polish "Zaawansowany" widens the mode switch enough to push
+     the language switch's own chip past `.fw-top`'s `overflow: hidden`
+     (review P8) — invisible to it in English, where the bar still fits by
+     1px at 420 wide. */
+  .fw-top .dims {
+    display: none;
+  }
+  /* Live pass, ≤480px: `.dims` above is hidden, but its own `.sep` was not —
+     the same `:has(+ .preset)` shape the preset's own sep already uses above,
+     read as an orphaned "/" ahead of the flex row's `margin-left: auto`
+     right group, with nothing of the size readout left for it to separate. */
+  .fw-top .sep:has(+ .dims) {
+    display: none;
+  }
 }
 
 .fw-tabrow {
@@ -163,7 +197,7 @@ body {
 
 .fw-stage {
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) 22rem;
+  grid-template-columns: 70px minmax(0, 1fr) clamp(22rem, 24vw, 32rem);
   gap: 1px;
   background: var(--border);
   min-height: 0;
@@ -187,17 +221,9 @@ body {
   position: relative;
   height: 100%;
   min-height: 260px;
-  /* `<arrowz-board>` sets `--arrowz-paper` on its own host, and a custom
-     property inherits downward only, so in this composition -- the element
-     nested inside `.fw-board` (below), covering it -- this rule can never
-     see it and always falls back to `var(--paper)`, the lab's own token. That
-     is not a gap: the `.fw-board arrowz-board` rule below, giving the element
-     a full-height display, means the element covers the frame's padding box,
-     so the letterbox a person sees is painted by the element's own `:host`,
-     which is what carries the board's colour. This declaration would read
-     the property only in a composition that set it at or above this element
-     -- worth keeping for the day a frame is larger than the board it holds. */
-  background: var(--arrowz-paper, var(--paper));
+  /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
+     only shows through before it upgrades. */
+  background: var(--paper);
   border: 1px solid var(--border);
   overflow: hidden;
 }
@@ -315,32 +341,49 @@ body {
   color: var(--ash);
   flex-wrap: wrap;
 }
+/* `.fw-bar` wraps its flex items (above), but a single item's own text does
+   not wrap on its own: a flex item's default `min-width: auto` is its
+   content's min-content size, which for an unbroken run of characters is
+   that whole run's width. `savedBoard` (lab-i18n.ts) names the board by its
+   layout hash, a 71-character token with no spaces to break at, and that is
+   what proved it: opening a stored board's detail at 420 wide (the matrix's
+   `library-detail` state) put "Saved board 8x8/sha256-…" on this line, and
+   the hash alone held the bar — and with it the whole document — to 500px.
+   `overflow-wrap: anywhere` is what shrinks the min-content size itself, by
+   letting a break fall inside the hash: `overflow-wrap: break-word` reads the
+   same in a browser but is explicitly excluded from min-content sizing by
+   spec, so it would have left this exact bug standing. `word-break:
+   break-all` (`.fw-cmd`, run.css) is `.fw-cmd`'s own fix for the same defect
+   in its own command string, and would have worked here too; `anywhere` is
+   kept for this line because the sentence around the hash should still break
+   at its own words first. */
 .fw-bar output {
   font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 /* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
-   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`, leaving
-   the button `--ash` on `--signal` (contrast 1.45:1 against the 4.03:1 §7.1
-   asks for) in the mono stack. The `.fw` prefix makes it (0,2,0). Every rule
-   of the component carries it, and PR 3 adds many more controls into the same
-   cascade. */
+   is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`,
+   leaving the button `--ash` on the fill. The `.fw` prefix makes it (0,2,0).
+   Every rule of the component carries it, and PR 3 adds many more controls
+   into the same cascade. */
 .fw .fw-go {
   height: 40px;
   min-height: 40px;
   margin-top: 10px;
   padding: 0 16px;
   border: 0;
-  background: var(--signal);
-  color: var(--void);
+  background: var(--signal-fill);
+  color: var(--ink);
   font-family: var(--ui);
   cursor: pointer;
   transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
 .fw .fw-go:hover:not(:disabled) {
-  background: var(--signal-hover);
+  background: var(--signal-fill-hover);
 }
 .fw .fw-go:active:not(:disabled) {
-  background: var(--signal-press);
+  background: var(--signal-fill-press);
 }
 .fw .fw-go:disabled {
   opacity: 0.5;
@@ -378,8 +421,8 @@ body {
   background: var(--surface);
 }
 .fw .fw-seg button[aria-checked='true'] {
-  color: var(--void);
-  background: var(--signal);
+  color: var(--ink);
+  background: var(--signal-fill);
   border-color: transparent;
 }
 @media (pointer: coarse) {
@@ -388,20 +431,59 @@ body {
   }
 }
 
+/* The console's plain button (spec R6): Refresh, Load into lab, Delete, add
+   colour. `.fw button` above normalises type and never paints, so a button
+   with no class of its own kept the browser's grey `2px outset` look (review
+   P9). A class, not a context selector, because "add colour" moves between
+   cards. (0,2,0) outranks `.fw button`. */
+.fw .fw-btn {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms cubic-bezier(0.2, 0, 0, 1),
+    color 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw .fw-btn:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--surface);
+}
+/* Disabled looks disabled (live pass: "add colour" at the palette cap read
+   identically to an enabled button, same colour and same opacity). `--ash`
+   text stays legible on its own — disabled controls are exempt from the
+   4.5:1 the matrix's contrast invariant reads for everything else, so this
+   is not that exemption spent on illegible text, just a dimmer one.
+   Fix round 1, finding 2: an earlier version also dropped the border to
+   `--graphite`, measured here at ~1.07:1 against the panel — invisible, and
+   `--graphite` is a surface token everywhere else it appears. `--ash` text
+   alone is the disabled signal; the border stays `--border`, unchanged. */
+.fw .fw-btn:disabled {
+  cursor: default;
+  color: var(--ash);
+}
+@media (pointer: coarse) {
+  .fw .fw-btn {
+    height: 44px;
+  }
+}
+
 /* The top bar is the Signal plane, where the chip's own colours would vanish:
    `--signal` on `--signal` for the chosen option, and the global focus ring is
-   `--signal` too (PR 4a, Ruling 13). The unselected text is `--void` on
-   `--signal`, the pairing `.name` and `.dims` already ship (4.08:1, the open
-   §7.1 item); the chosen option is `--ink` on `--void`. The base rule ties with
-   the chip's checked rule and wins by following it; the checked rule here is
-   (0,4,1). */
+   `--signal` too (PR 4a, Ruling 13). The unselected text is now `--ink` on
+   `--signal-fill` (5.31:1); the chosen option is `--ink` on `--void`. The base
+   rule ties with the chip's checked rule and wins by following it; the
+   checked rule here is (0,4,1). */
 .fw .fw-top .fw-seg button {
-  border-color: var(--void);
-  color: var(--void);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
   background: none;
-  color: var(--void);
+  color: var(--ink);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -411,5 +493,10 @@ body {
   border-color: var(--void);
 }
 .fw .fw-top :focus-visible {
-  outline-color: var(--void);
+  outline-color: var(--ink);
+  /* The global ring sits outside the element by 2px (shell.css's `:root`
+     rule); `.fw-top` clips (`overflow: hidden`) at 48px tall, and the
+     segmented buttons run y 2–46 in it on a coarse pointer, so that ring
+     drew half-cut at the bar's own edge. Draw it inside instead. */
+  outline-offset: -2px;
 }

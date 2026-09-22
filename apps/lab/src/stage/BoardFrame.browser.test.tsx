@@ -337,8 +337,11 @@ test('on the library tab a board that could not be read leaves the stage empty',
 // only, so `.fw-board` -- an ancestor of the element it nests -- can never
 // see it. Nothing in the app ever sets the property on `.fw-board` itself;
 // the letterbox a person actually sees is painted by the element's own
-// `:host`, which does receive it. What this test still pins for real:
-test('the frame paints the lab’s token by default, and would follow --arrowz-paper if a composition set it there', async () => {
+// `:host`, which does receive it. P10 dropped the dead `var(--arrowz-paper,
+// var(--paper))` fallback that used to read a property `.fw-board` can never
+// receive -- `.fw-board` now paints `var(--paper)` outright, and does not
+// follow `--arrowz-paper` set on itself.
+test('the frame paints the lab’s token, not --arrowz-paper set on itself', async () => {
   const screen = await mountFrame()
   const frame = screen.container.querySelector('.fw-board')
   // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
@@ -346,12 +349,11 @@ test('the frame paints the lab’s token by default, and would follow --arrowz-p
   if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
   // Production, exactly: `.fw-board` never receives `--arrowz-paper` (the
   // element covers it and sets the property on its own host instead), so this
-  // is what the frame paints, always -- the fallback, the lab's own token.
+  // is what the frame paints, always -- the lab's own token.
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
   // Not production -- nothing in the app sets the property on `.fw-board`
-  // itself -- but this half still guards that the `var(--arrowz-paper,
-  // var(--paper))` wiring works, for the day some other composition (a frame
-  // larger than the element it holds) provides the property here.
+  // itself -- but this still guards that the declaration is a plain
+  // `var(--paper)`, not a fallback that would read the property here.
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
-  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(40, 40, 40)')
+  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
 })

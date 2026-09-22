@@ -12,11 +12,13 @@ export function OptionSwitch({
   label,
   on,
   onChange,
+  describedBy,
 }: {
   id: string
   label: string
   on: boolean
   onChange(next: boolean): void
+  describedBy?: string | undefined
 }): ReactElement {
   return (
     <div className="fw-opt">
@@ -29,6 +31,7 @@ export function OptionSwitch({
         role="switch"
         aria-checked={on}
         aria-labelledby={`${id}-label`}
+        aria-describedby={describedBy}
         onClick={() => onChange(!on)}
       />
     </div>

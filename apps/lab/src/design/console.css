@@ -55,18 +55,18 @@
 /* The mock keys this off `aria-current`; the rail is a tablist, so the state
    lives on `aria-selected` (Ruling 13). */
 .fw-rail button[aria-selected='true'] {
-  color: var(--void);
-  background: var(--signal);
+  color: var(--ink);
+  background: var(--signal-fill);
 }
 .fw-rail button[aria-selected='true'] .n {
-  color: var(--void);
+  color: var(--ink);
 }
 /* The mock draws the bar as a div with a pointer handler and no keyboard.
    This is the same 2px bar over a native range input, so arrow keys, Home,
    End, PageUp/PageDown and touch come from the platform (Ruling 3). */
 .fw-k .bar {
   position: relative;
-  margin-top: 10px;
+  margin-top: 12px;
   height: 12px;
 }
 .fw-k .bar input[type='range'] {
@@ -137,14 +137,19 @@
   background: var(--warn);
 }
 .fw-k {
-  padding: 8px 0;
+  padding: 0;
   min-width: 0;
 }
-.fw-k .top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+/* One regime for both shapes of card (review changes 2 and 3): a label column
+   and a control column whose floor is the 88px number box, centred, so a
+   wrapped label keeps its value beside its middle (P5) and every control in a
+   grid column ends on one x. */
+.fw-k .top,
+.fw-k .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
+  align-items: center;
+  gap: 12px;
 }
 .fw-k .lab {
   color: var(--mist);
@@ -154,11 +159,11 @@
    Here it is a button that opens the inline entry: the scrub is a mouse-only
    gesture with no keyboard equivalent (Ruling 4). */
 .fw-k .num {
-  flex: none;
+  justify-self: end;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--signal);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
   cursor: text;
 }
@@ -170,13 +175,17 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.fw-k button.num {
+  width: 88px;
+  text-align: right;
+}
 .fw-k .num em {
   font-style: normal;
   color: var(--mist);
   margin-right: 8px;
 }
 .fw-k input {
-  width: 72px;
+  width: 88px;
   padding: 0 4px;
   border: 1px solid var(--signal);
   background: var(--void);
@@ -185,10 +194,51 @@
   text-align: right;
 }
 .fw-k .why {
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   font-size: 11px;
   line-height: 1.6;
   color: var(--ash);
+}
+/* A panel's control descriptions, under its heading (spec R7): the control's
+   name, then what it does. */
+.fw-kdesc {
+  display: grid;
+  grid-template-columns: minmax(0, 16em) minmax(0, 1fr);
+  gap: 2px 16px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.fw-kdesc > div {
+  display: contents;
+}
+.fw-kdesc dt {
+  color: var(--mist);
+}
+.fw-kdesc dd {
+  margin: 0;
+  color: var(--ash);
+}
+/* Below N the two-column form starves `dd`: the grid gives `dt` its full
+   16em (176px at this 11px font) before the flexible track sees anything, so
+   a panel narrower than 176 (dt) + 16 (gap) + 176 (dd's own floor, the same
+   16em) + 40 (`.fw-knobs`'s 20px+20px padding) = 408px left `dd` a sliver
+   that a single unbroken word (a number, a range) overflowed sideways — the
+   live pass measured a 214px list giving `dd` 22px at 420×900 (board
+   group), and `.fw-knobs` scrolled sideways because of it. N is 407, one
+   below that floor, so the two-column form still holds at exactly 408 where
+   `dd` clears its own 16em. */
+@container (max-width: 407px) {
+  .fw-kdesc {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The label sits with its own value (the row-gap above, 2px) and apart
+     from the entry before it: every label but the first gets the extra
+     margin, so the rhythm reads as label-value pairs rather than one even
+     column of lines. */
+  .fw-kdesc > div + div > dt {
+    margin-top: 8px;
+  }
 }
 /* Out of sight, in the accessibility tree. Ruling 9: the help switch is
    labelled "show parameter descriptions", and showing is what a screen reader
@@ -197,6 +247,8 @@
    neither is touched here. What each line does:
    - `position: absolute` pulls the box out of layout, so it reserves no
      visible line even at its own size.
+     It needs a positioned ancestor inside the scroller: `.fw-knobs` and
+     `.fw-report` are that ancestor (P1).
    - `width`/`height: 1px` (not 0): some assistive tech treats a zero-size box
      as hidden the same way it treats `display: none`, which is exactly the
      failure this rule exists to avoid.
@@ -218,8 +270,8 @@
   white-space: nowrap;
   border: 0;
 }
-/* A paragraph holding only a hidden description must not reserve a line. */
-.fw-k .why:not(:has(> :not(.fw-vh))) {
+/* A card with nothing wrong reserves no line. */
+.fw-k .why:empty {
   margin: 0;
 }
 /* A knob the engine would refuse. The mock has no such state — its only knob
@@ -258,13 +310,15 @@
 /* The mock has no choice knob; this is its number treatment applied to a
    select, so the two kinds of knob sit on one grid without a seam. */
 .fw-k select {
-  flex: none;
-  max-width: 50%;
+  justify-self: end;
+  width: auto;
+  min-width: 88px;
+  max-width: 100%;
   height: 22px;
   padding: 0 4px;
   border: 1px solid var(--border);
   background: var(--void);
-  color: var(--signal);
+  color: var(--ink);
   font: inherit;
 }
 .fw-k.off select {
@@ -283,11 +337,15 @@
 /* The chosen theme's arrow colours, on its own paper (Task 1, palette
    round-2 addendum). Fixed-size swatches rather than `flex: 1`: a
    single-colour theme (`everforest-light`, `ayu-light`) then reads as one
-   deliberate chip, not a bar stretched to fill the row. */
+   deliberate chip, not a bar stretched to fill the row. Outside the colours
+   card (the simple view) the strip belongs to the select above it, on its
+   right edge. */
 .fw-k .fw-swatches {
   display: flex;
   gap: 4px;
+  width: max-content;
   margin-top: 6px;
+  margin-left: auto;
   padding: 4px;
   border: 1px solid var(--border);
 }
@@ -324,6 +382,7 @@
 .fw-colour-cell {
   display: flex;
   align-items: center;
+  justify-self: end;
   gap: 2px;
 }
 .fw-colour-cell input[type='color'] {
@@ -333,34 +392,112 @@
   border: 1px solid var(--border);
   background: var(--void);
 }
-.fw-palette-remove {
+/* `.fw` because `.fw button`'s `color: inherit` (0,1,1) outranked the bare
+   class and the mist never applied. */
+.fw .fw-palette-remove {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 1px solid var(--border);
   background: var(--void);
   color: var(--mist);
   line-height: 1;
 }
-.fw-palette-remove:hover {
+.fw .fw-palette-remove:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+/* The four drawing flags as one card (review change 6). */
+.fw-k.fw-flags {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px 24px;
+}
+/* A switch needs no 88px track (`.fw-k .row`'s default): the label keeps the
+   width, the switch sits at its own. */
+.fw-k.fw-flags .row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+/* The colours card (review change 7): five colour objects sat on five
+   different x in four cards. One card, a label column and a control column,
+   everything starting on one x and growing right. */
+.fw-k.fw-colours {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 12px 24px;
+}
+.fw-k.fw-colours > .val {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+/* The simple view's skeleton choice (`SimplePanel.tsx`): two segmented chips,
+   "no skeleton" and "with a skeleton", do not fit `.fw-grid`'s
+   `minmax(190px, 1fr)` floor at every width (live pass, simple view,
+   1400×900, pre-existing at the branch's base 7167248: `.fw-seg` 3.84px past
+   its own card, `.fw-knobs.fw-simple` scrollWidth 1187 vs clientWidth 1183).
+   Full row, the same shape `.fw-k.fw-flags` and `.fw-k.fw-colours` already
+   use for a control the standard column does not fit — not a shrink or a
+   wrap on `Segmented` itself, which every other user of it (the top bar, the
+   language switch) still draws at its own width. */
+.fw-k.fw-skeleton {
+  grid-column: 1 / -1;
+}
+.fw-k.fw-colours .fw-swatches,
+.fw-k.fw-colours .fw-palette-list {
+  margin: 0;
+}
+/* The remove cross weighed as much as the swatch it removes (review change 8):
+   no border, `--ash`, until hover or focus makes it a button. */
+.fw .fw-palette-row .fw-palette-remove {
+  border-color: transparent;
+  color: var(--ash);
+}
+.fw .fw-palette-row:hover .fw-palette-remove,
+.fw .fw-palette-row .fw-palette-remove:focus-visible {
+  border-color: var(--border);
+  color: var(--mist);
+}
+/* The cross's own hover keeps the red it had before the rules above: at
+   (0,4,0) the row's hover would otherwise outrank `.fw .fw-palette-remove:hover`. */
+.fw .fw-palette-row .fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }
 .fw-knobs {
+  /* `position: relative` makes the panel the containing block of every `.fw-vh`
+     inside it (spec R3). Without it the 1px box resolved against the initial
+     containing block, at its static position far below the fold, and grew the
+     document: 1077px at 1280×800 in the review's measurement (P1).
+     `container-type: inline-size` is independent of that: a containing block
+     for absolute positioning comes from `position: relative` alone, and
+     `container-type` does not take it away, so `.fw-vh` keeps the same
+     containing block with both declarations present. This is `.fw-kdesc`'s
+     query container (below), for the panel's own width rather than the
+     viewport's — a group's card grid can be narrower than the viewport at
+     900px and below (`.fw-console`'s rail column), and a viewport query
+     would stack `dd` where the panel had room, or leave it starved where it
+     did not. */
+  position: relative;
+  container-type: inline-size;
   background: var(--void);
   padding: 14px 20px 18px;
   min-height: 0;
   overflow-y: auto;
 }
 .fw-khd {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  padding-bottom: 10px;
-  margin-bottom: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
-  flex-wrap: wrap;
 }
 .fw-khd b {
   font-weight: 400;
@@ -370,19 +507,15 @@
   color: var(--ink);
 }
 .fw-khd span {
+  max-width: 74ch;
   color: var(--ash);
 }
 .fw-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 0 24px;
+  gap: 18px 24px;
+  align-items: start;
   align-content: start;
-}
-.fw-k .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 .fw-sw {
   justify-self: end;
@@ -422,11 +555,12 @@
    above is scoped to `button.num` so this field does not claim the affordance
    of a button. */
 .fw-k input[type='number'].num {
-  width: 72px;
+  width: 88px;
+  justify-self: end;
   padding: 0 4px;
   border: 1px solid var(--border);
   background: var(--void);
-  color: var(--signal);
+  color: var(--ink);
   font: inherit;
   text-align: right;
 }
@@ -451,22 +585,43 @@
   }
   .fw-k .num,
   .fw-k select {
-    min-height: 32px;
+    min-height: 44px;
+  }
+  .fw .fw-palette-remove {
+    width: 44px;
+    height: 44px;
+  }
+  /* 32px and not 44: the row the switch sits in is the target (run.css keeps
+     the same reasoning for its own switches); this lifts the track itself. */
+  .fw-sw {
+    height: 32px;
+    width: 52px;
+  }
+  .fw-sw::after {
+    width: 26px;
+    height: 26px;
+  }
+  .fw-sw[aria-checked='true']::after {
+    transform: translateX(20px);
   }
 }
 
-/* The preset strip is the first row and takes its own height; the stage then
-   takes what it needs, the console the rest, and the board never collapses
-   below the height at which it is a picture rather than a strip. */
+/* Five rows, one per child Workspace.tsx can mount (spec R4): the preset
+   strip, the stage, the console, the clamp region (always mounted, empty when
+   nothing was clamped) and the violations (mounted only when there are some).
+   Before, the last two fell into implicit rows and took their height from the
+   two 1fr rows, and the board — 260px plus 32px of padding — was cut at the
+   bottom: 33px at 1280×800 with two violations (review P2). The stage row's
+   floor is that 292px now; the notes are capped and scroll inside themselves. */
 .fw-lab {
   display: grid;
-  grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(292px, 1fr) minmax(0, 1fr) auto auto;
   min-height: 0;
 }
 /* The simple view has no preset strip, and an absent first child would
    auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
 .fw-lab.simple {
-  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(292px, 1fr) minmax(0, 1fr) auto auto;
 }
 /* The library has no preset strip either, so it needs `.fw-lab.simple`'s
    correction for the same reason (PR 4a, Ruling 10): with the first child
@@ -476,6 +631,22 @@
    it, `385.109px 385.109px`. */
 .fw-lab.library {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+}
+/* Below 700px of height the board gives up its minimum (shell.css), so its row
+   gives up the 292px too. */
+@media (max-height: 700px) {
+  .fw-lab {
+    grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+  }
+  .fw-lab.simple {
+    grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+  }
+}
+/* Two violations are 90px already, and six knobs out of range grow the list
+   past any row the console could spare (review P2). */
+.fw-lab > .fw-note {
+  max-height: 96px;
+  overflow-y: auto;
 }
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the console, the violations,
@@ -519,6 +690,15 @@
   grid-template-columns: 168px minmax(0, 1fr);
 }
 .fw-console.library > .fw-run-col {
+  display: none;
+}
+/* Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
+   track would stand empty beside one sentence (review P7). (0,3,0), so it
+   outranks the ≤900px media rule's `.fw-console.library` below. */
+.fw-console.library.empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fw-console.library.empty > .fw-lib-chips {
   display: none;
 }
 @media (max-width: 900px) {
@@ -584,8 +764,9 @@
 .fw-simple {
   grid-column: 1 / 3;
 }
-.fw-simple .fw-grid + .fw-khd {
-  margin-top: 18px;
+/* 12 in a card, 18 between cards, 28 between sections (review change 1). */
+.fw-knobs .fw-grid + .fw-khd {
+  margin-top: 28px;
 }
 /* A recipe slider's two end words, under the track at either edge. */
 .fw-k .fw-ends {

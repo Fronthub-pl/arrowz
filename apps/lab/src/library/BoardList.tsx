@@ -43,7 +43,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   return (
     <section className="fw-lib-list" aria-label={dict.t('boardRows')}>
       <div className="fw-lib-head">
-        <button type="button" onClick={refresh}>
+        <button type="button" className="fw-btn" onClick={refresh}>
           {dict.t('refresh')}
         </button>
       </div>

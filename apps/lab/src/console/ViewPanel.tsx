@@ -4,8 +4,9 @@ import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
+import { FieldHelp } from './FieldHelp'
 import { panelId, tabId } from './GroupRail'
-import { VIEW_FIELDS, VIEW_FLAGS, type ViewField } from './viewFields'
+import { DRAWING_FLAGS, VIEW_FIELDS, VIEW_FLAGS, type PlainUiKey, type ViewField, viewHelpEntries } from './viewFields'
 
 /**
  * One preview number. Uncontrolled on purpose: a controlled `type="number"`
@@ -66,48 +67,89 @@ export function ViewNumberField({
           max={range.max}
           step={field.step}
           defaultValue={String(value)}
+          // The help sits under the section heading (spec R7), not in the card.
+          aria-describedby={field.help === undefined ? undefined : `view-${field.field}-help`}
           onBlur={commit}
           onKeyDown={(event) => {
             if (event.key === 'Enter') commit()
           }}
         />
       </div>
-      {field.help === undefined ? null : <p className="why">{dict.t(field.help)}</p>}
     </div>
   )
 }
 
-/** One preview flag as the mock's switch, labelled by its visible text. */
+/**
+ * One preview flag as the mock's switch, labelled by its visible text.
+ * `bare` drops the card around it, for a row inside a card that holds several
+ * (the drawing flags, spec R8): a card inside a card doubles the frame.
+ */
 export function ViewFlagSwitch({
   flag,
   label,
   on,
   onToggle,
+  bare,
 }: {
   flag: ViewFlag
   label: (typeof VIEW_FLAGS)[number]['label']
   on: boolean
   onToggle(): void
+  bare?: boolean | undefined
 }) {
   const dict = useDictionary()
-  return (
-    <div className="fw-k">
-      <div className="row">
-        <span className="lab" id={`view-${flag}-label`}>
-          {dict.t(label)}
-        </span>
-        <button
-          type="button"
-          id={`view-${flag}`}
-          className="fw-sw"
-          role="switch"
-          aria-checked={on}
-          aria-labelledby={`view-${flag}-label`}
-          onClick={onToggle}
-        />
-      </div>
+  const row = (
+    <div className="row">
+      <span className="lab" id={`view-${flag}-label`}>
+        {dict.t(label)}
+      </span>
+      <button
+        type="button"
+        id={`view-${flag}`}
+        className="fw-sw"
+        role="switch"
+        aria-checked={on}
+        aria-labelledby={`view-${flag}-label`}
+        onClick={onToggle}
+      />
     </div>
   )
+  return bare === true ? row : <div className="fw-k">{row}</div>
+}
+
+/** A colour input and, where the empty value means something, its clear button. */
+function ColorCell({
+  id,
+  value,
+  onChange,
+  onClear,
+  clearLabel,
+}: {
+  id: string
+  value: string
+  onChange(color: string): void
+  onClear?: (() => void) | undefined
+  clearLabel?: string | undefined
+}) {
+  return (
+    <span className="fw-colour-cell">
+      <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+      {onClear === undefined ? null : (
+        <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
+          ×
+        </button>
+      )}
+    </span>
+  )
+}
+
+interface ColorProps {
+  id: string
+  label: string
+  value: string
+  onChange(color: string): void
+  onClear?: (() => void) | undefined
+  clearLabel?: string | undefined
 }
 
 /**
@@ -118,37 +160,33 @@ export function ViewFlagSwitch({
  * something -- paper and ink use it to hand the field back to the theme,
  * which a colour input has no way to express on its own.
  */
-export function ColorField({
-  id,
-  label,
-  value,
-  onChange,
-  onClear,
-  clearLabel,
-}: {
-  id: string
-  label: string
-  value: string
-  onChange(color: string): void
-  onClear?: (() => void) | undefined
-  clearLabel?: string | undefined
-}) {
+export function ColorField({ label, ...cell }: ColorProps) {
   return (
     <div className="fw-k">
       <div className="row">
-        <label className="lab" htmlFor={id}>
+        <label className="lab" htmlFor={cell.id}>
           {label}
         </label>
-        <span className="fw-colour-cell">
-          <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} />
-          {onClear === undefined ? null : (
-            <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
-              ×
-            </button>
-          )}
-        </span>
+        <ColorCell {...cell} />
       </div>
     </div>
+  )
+}
+
+/**
+ * The same colour as one row of the colours card: the label in the card's
+ * label column, the cell in its control column (spec R8).
+ */
+function ColorRow({ label, ...cell }: ColorProps) {
+  return (
+    <>
+      <label className="lab" htmlFor={cell.id}>
+        {label}
+      </label>
+      <div className="val">
+        <ColorCell {...cell} />
+      </div>
+    </>
   )
 }
 
@@ -180,19 +218,22 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 }
 
 /**
- * The console's editable custom palette (design doc §6, palette round-2
- * addendum, task 2): a list of `<input type="color">` fields, one per
- * colour, capped at `PALETTE_CAP`. Console-only by construction — it is
- * defined here and imported by `ViewPanel` alone; `SimplePanel` imports
- * `ThemeSwatchStrip` from this file but never this component
- * (ViewPanel.browser.test.tsx and SimplePanel.browser.test.tsx both pin it).
+ * The console's colours card (spec R8): the theme, the board's two surface
+ * colours and the editable custom palette (design doc §6), one card with a
+ * label column and a control column.
+ * Console-only by construction — it is defined here and imported by
+ * `ViewPanel` alone; `SimplePanel` imports `ThemeSwatchStrip` from this file
+ * but never this component (ViewPanel.browser.test.tsx and
+ * SimplePanel.browser.test.tsx both pin it).
  *
- * The cap lives in the store (`view.slice.ts`'s `paletteUpdate`), not here:
- * every handler below just forwards to a store action, so there is nowhere
- * in this component for the cap to be bypassed.
+ * The palette's cap lives in the store (`view.slice.ts`'s `paletteUpdate`),
+ * not here: every handler below just forwards to a store action, so there is
+ * nowhere in this component for the cap to be bypassed.
  */
-export function PaletteEditor() {
+export function ColoursCard() {
   const dict = useDictionary()
+  const theme = useStore((state) => state.view.theme)
+  const setTheme = useStore((state) => state.view.setTheme)
   const palette = useStore((state) => state.view.palette)
   const addPaletteColor = useStore((state) => state.view.addPaletteColor)
   const setPaletteColor = useStore((state) => state.view.setPaletteColor)
@@ -202,17 +243,80 @@ export function PaletteEditor() {
   const setPaper = useStore((state) => state.view.setPaper)
   const setInk = useStore((state) => state.view.setInk)
   return (
-    <div className="fw-k fw-palette">
-      <div className="top">
-        <span className="lab" id="view-palette-label">
-          {dict.t('paletteLabel')}
-        </span>
+    <div className="fw-k fw-colours">
+      <label className="lab" htmlFor="view-theme">
+        {dict.t('themeLabel')}
+      </label>
+      <div className="val">
+        <select id="view-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
+          <option value="">{dict.t('themeNone')}</option>
+          {Object.keys(THEMES).map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <ThemeSwatchStrip themeName={theme} />
+      </div>
+      {/* The board's own surface colours (Task 6): `''` means "not set", which
+          a native colour input has no way to show, so the field shows the
+          element's own default while unset and the clear button -- present
+          only once there is something to clear -- is what expresses "not
+          set" and hands the field back to a chosen theme. */}
+      <ColorRow
+        id="view-paper"
+        label={dict.t('paperLabel')}
+        value={paper === '' ? DEFAULT_VIEW.paper : paper}
+        onChange={setPaper}
+        {...(paper === '' ? {} : { onClear: () => setPaper(''), clearLabel: dict.t('paperClear') })}
+      />
+      <ColorRow
+        id="view-ink"
+        label={dict.t('inkLabel')}
+        value={ink === '' ? DEFAULT_VIEW.ink : ink}
+        onChange={setInk}
+        {...(ink === '' ? {} : { onClear: () => setInk(''), clearLabel: dict.t('inkClear') })}
+      />
+      <span className="lab" id="view-palette-label">
+        {dict.t('paletteLabel')}
+      </span>
+      <div className="val">
+        {palette.length === 0 ? null : (
+          <ul className="fw-palette-list" aria-labelledby="view-palette-label">
+            {palette.map((color, index) => (
+              // No stable id per colour — a value can repeat, and only its
+              // position in the list is unique (as ThemeSwatchStrip's own
+              // index key above).
+              <li key={index} className="fw-palette-row">
+                <label className="fw-vh" htmlFor={`view-palette-${index}`}>
+                  {dict.t('paletteColorLabel', index + 1)}
+                </label>
+                <input
+                  id={`view-palette-${index}`}
+                  type="color"
+                  value={color}
+                  onChange={(e) => setPaletteColor(index, e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="fw-palette-remove"
+                  aria-label={dict.t('paletteRemove', index + 1)}
+                  onClick={() => removePaletteColor(index)}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         {/* Finding 9 (final whole-addendum review): `disabled` alone leaves a
             screen reader saying only "add colour, dimmed" at the cap, with no
-            reason. `aria-describedby` names the help paragraph below, which
-            already states the cap in words, so the refusal is audible too. */}
+            reason. `aria-describedby` names the help entry under the section
+            heading, which already states the cap in words, so the refusal is
+            audible too. */}
         <button
           type="button"
+          className="fw-btn"
           onClick={addPaletteColor}
           disabled={palette.length >= PALETTE_CAP}
           aria-describedby="view-palette-help"
@@ -220,72 +324,28 @@ export function PaletteEditor() {
           {dict.t('paletteAdd')}
         </button>
       </div>
-      {/* The board's own surface colours (Task 6): `''` means "not set", which
-          a native colour input has no way to show, so the field shows the
-          element's own default while unset and the clear button -- present
-          only once there is something to clear -- is what expresses "not
-          set" and hands the field back to a chosen theme. */}
-      <ColorField
-        id="view-paper"
-        label={dict.t('paperLabel')}
-        value={paper === '' ? DEFAULT_VIEW.paper : paper}
-        onChange={setPaper}
-        {...(paper === '' ? {} : { onClear: () => setPaper(''), clearLabel: dict.t('paperClear') })}
-      />
-      <ColorField
-        id="view-ink"
-        label={dict.t('inkLabel')}
-        value={ink === '' ? DEFAULT_VIEW.ink : ink}
-        onChange={setInk}
-        {...(ink === '' ? {} : { onClear: () => setInk(''), clearLabel: dict.t('inkClear') })}
-      />
-      {palette.length === 0 ? null : (
-        <ul className="fw-palette-list" aria-labelledby="view-palette-label">
-          {palette.map((color, index) => (
-            // No stable id per colour — a value can repeat, and only its
-            // position in the list is unique (as ThemeSwatchStrip's own
-            // index key above).
-            <li key={index} className="fw-palette-row">
-              <label className="fw-vh" htmlFor={`view-palette-${index}`}>
-                {dict.t('paletteColorLabel', index + 1)}
-              </label>
-              <input
-                id={`view-palette-${index}`}
-                type="color"
-                value={color}
-                onChange={(e) => setPaletteColor(index, e.target.value)}
-              />
-              <button
-                type="button"
-                className="fw-palette-remove"
-                aria-label={dict.t('paletteRemove', index + 1)}
-                onClick={() => removePaletteColor(index)}
-              >
-                ×
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <p className="why" id="view-palette-help">
-        {dict.t('paletteHelp', PALETTE_CAP)}
-      </p>
     </div>
   )
 }
 
 /**
- * The mock's *element* section: the eleven preview fields. They are not knobs —
- * the engine never sees them — so they carry no violation and no inactive
- * reason, and editing one redraws the board without generating (§2.2).
+ * The mock's *element* section: the preview's controls, in four sections —
+ * geometry, drawing, points and colours (spec R8). They are not knobs — the
+ * engine never sees them — so they carry no violation and no inactive reason,
+ * and editing one redraws the board without generating (§2.2).
  *
  * A field commits on blur and on Enter, through `viewNumberOf`: an empty or
  * unreadable field is the default, and anything past what the CLI takes is
  * clamped in.
+ *
+ * The help under each heading follows the help switch the way the knob
+ * panels' does (spec R7): hidden from the eye, never from the accessibility
+ * tree, so every `aria-describedby` still resolves.
  */
 export function ViewPanel() {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
+  const showHelp = useStore((state) => state.ui.help)
   const pointRadiusRef = useRef<HTMLInputElement>(null)
 
   // Same two mechanisms as `ViewNumberField` above, kept separate because this
@@ -305,12 +365,16 @@ export function ViewPanel() {
     node.value = String(useStore.getState().view.pointRadius)
   }
 
+  // `dict.t` is generic over formatter keys too; the helper takes plain ones.
+  const t = (key: PlainUiKey) => dict.t(key)
+
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
-        <b>{dict.t('preview')}</b>
+        <b id="view-sec-geometry">{dict.t('previewGeometry')}</b>
+        <FieldHelp entries={viewHelpEntries(VIEW_FIELDS, t)} hidden={!showHelp} />
       </div>
-      <div className="fw-grid">
+      <div className="fw-grid" role="group" aria-labelledby="view-sec-geometry">
         {VIEW_FIELDS.map((field) => (
           <ViewNumberField
             key={field.field}
@@ -319,9 +383,40 @@ export function ViewPanel() {
             onCommit={(value) => view.setNumber(field.field, String(value))}
           />
         ))}
-        {VIEW_FLAGS.map(({ flag, label }) => (
-          <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
-        ))}
+      </div>
+      <div className="fw-khd">
+        <b id="view-sec-drawing">{dict.t('previewDrawing')}</b>
+      </div>
+      <div className="fw-grid" role="group" aria-labelledby="view-sec-drawing">
+        <div className="fw-k fw-flags">
+          {DRAWING_FLAGS.map(({ flag, label }) => (
+            <ViewFlagSwitch
+              key={flag}
+              bare
+              flag={flag}
+              label={label}
+              on={view[flag]}
+              onToggle={() => view.toggle(flag)}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="fw-khd">
+        <b id="view-sec-points">{dict.t('previewPoints')}</b>
+        <FieldHelp
+          entries={[
+            { id: 'view-point-radius-help', label: dict.t('pointRadiusLabel'), text: dict.t('pointRadiusHelp') },
+          ]}
+          hidden={!showHelp}
+        />
+      </div>
+      <div className="fw-grid" role="group" aria-labelledby="view-sec-points">
+        <ViewFlagSwitch
+          flag="showPoints"
+          label="showPoints"
+          on={view.showPoints}
+          onToggle={() => view.toggle('showPoints')}
+        />
         <ColorField
           id="view-point-color"
           label={dict.t('pointColorLabel')}
@@ -344,31 +439,26 @@ export function ViewPanel() {
               // the same role `step` plays in `viewFields.ts`.
               step={0.01}
               defaultValue={String(view.pointRadius)}
+              aria-describedby="view-point-radius-help"
               onBlur={commitPointRadius}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') commitPointRadius()
               }}
             />
           </div>
-          <p className="why">{dict.t('pointRadiusHelp')}</p>
         </div>
-        <div className="fw-k">
-          <div className="row">
-            <label className="lab" htmlFor="view-theme">
-              {dict.t('themeLabel')}
-            </label>
-            <select id="view-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
-              <option value="">{dict.t('themeNone')}</option>
-              {Object.keys(THEMES).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ThemeSwatchStrip themeName={view.theme} />
-        </div>
-        <PaletteEditor />
+      </div>
+      <div className="fw-khd">
+        <b id="view-sec-colours">{dict.t('previewColours')}</b>
+        <FieldHelp
+          entries={[
+            { id: 'view-palette-help', label: dict.t('paletteLabel'), text: dict.t('paletteHelp', PALETTE_CAP) },
+          ]}
+          hidden={!showHelp}
+        />
+      </div>
+      <div className="fw-grid" role="group" aria-labelledby="view-sec-colours">
+        <ColoursCard />
       </div>
     </div>
   )

@@ -428,7 +428,13 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()
   await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
-  await expect.element(screen.getByText('number of skeleton pieces (0 = no skeleton)')).toBeVisible()
+  // Scoped to the label, not the panel heading's `FieldHelp` list (spec R7):
+  // the panel now also carries a `<dt>` with the same text.
+  const label = [...screen.container.querySelectorAll<HTMLElement>('.lab')].find(
+    (el) => el.textContent === 'number of skeleton pieces (0 = no skeleton)',
+  )
+  if (label === undefined) throw new Error('label not found')
+  await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
 })
@@ -656,25 +662,48 @@ test('the workspace is hidden under the docs route', async () => {
 // 414×896 the ≤900px query already gives `.fw-console` two tracks, so the
 // track assertion below would pass with the library rule deleted. Review
 // round 1 measured exactly that.
+//
+// This case mounts the real `App`, so `fetch` needs a mock: unmocked,
+// `/api/boards` hits whatever this environment answers with — here, the dev
+// server's own `index.html` fallback, 200 and not JSON, which `listBoards`
+// turns into a caught parse error. Whether that error lands on the store
+// before or after the read below is a race, and losing it sets R10's
+// `library.listError`, which drops `.fw-console` to its one-column `empty`
+// face — flaking the very assertion this case makes about a *listed*
+// library's two tracks (chips + list). A mocked, deterministic listing with
+// one size removes the race and lets the case assert what its comment
+// claims.
 test('the run column stays mounted, and hidden, in the library', async () => {
   await page.viewport(1400, 900)
-  const screen = await mountApp()
-  const column = () => screen.container.querySelector('.fw-run-col')
-  const before = column()
-  expect(before).not.toBeNull()
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [] }]))
+    }
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    const screen = await mountApp()
+    const column = () => screen.container.querySelector('.fw-run-col')
+    const before = column()
+    expect(before).not.toBeNull()
 
-  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+    await expect.poll(() => useStore.getState().library.sizes?.length).toBe(1)
 
-  const after = column()
-  expect(after).toBe(before)
-  if (!(after instanceof HTMLElement)) throw new Error('the run column is not an HTML element')
-  expect(getComputedStyle(after).display).toBe('none')
-  // And the console gives its width to the two tracks that are left: a hidden
-  // grid item takes no track.
-  const consoleBox = screen.container.querySelector('.fw-console')
-  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
-  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')).toHaveLength(2)
+    const after = column()
+    expect(after).toBe(before)
+    if (!(after instanceof HTMLElement)) throw new Error('the run column is not an HTML element')
+    expect(getComputedStyle(after).display).toBe('none')
+    // And the console gives its width to the two tracks that are left: a hidden
+    // grid item takes no track.
+    const consoleBox = screen.container.querySelector('.fw-console')
+    if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')).toHaveLength(2)
+  } finally {
+    vi.restoreAllMocks()
+  }
 })
 
 // The library has no preset strip, and the lab grid's first row is `auto`:
@@ -801,14 +830,32 @@ test('solo in the library fills the panel', async () => {
 // Fix 8's own case: the library face must not keep its 168px rail below 900px,
 // where the lab's is 150px. This is what tells the executor that the two
 // `.fw-console.library` rules went in *above* the media query (Task 6 Step 4).
+//
+// This reads `.fw-console`'s first track the same way the case above does,
+// so it needs the same mocked, deterministic listing: unmocked, it races
+// the same `/api/boards` fetch, and a listing that settles as an error
+// before this read drops the console to R10's one-column `empty` face,
+// whose only track is not `150px`.
 test('below 900px the library rail is the lab rail', async () => {
   await page.viewport(860, 900)
-  const screen = await mountApp()
-  await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-  await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
-  const consoleBox = screen.container.querySelector('.fw-console')
-  if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
-  expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [] }]))
+    }
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  try {
+    const screen = await mountApp()
+    await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
+    await expect.poll(() => screen.container.querySelector('[role="tabpanel"]')?.id).toBe('boards-panel')
+    await expect.poll(() => useStore.getState().library.sizes?.length).toBe(1)
+    const consoleBox = screen.container.querySelector('.fw-console')
+    if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
+    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
+  } finally {
+    vi.restoreAllMocks()
+  }
 }, 40_000)
 
 // The detail through the real application: a row opens a board, the detail

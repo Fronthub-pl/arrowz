@@ -3,9 +3,17 @@ import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { DraftNumber } from '../console/DraftNumber'
+import { FieldHelp } from '../console/FieldHelp'
 import { KnobSlider } from '../console/KnobSlider'
 import { ThemeSwatchStrip, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
-import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS, VIEW_FIELDS, VIEW_FLAGS } from '../console/viewFields'
+import {
+  type PlainUiKey,
+  SIMPLE_VIEW_FIELDS,
+  SIMPLE_VIEW_FLAGS,
+  VIEW_FIELDS,
+  VIEW_FLAGS,
+  viewHelpEntries,
+} from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import { OptionSwitch } from '../run/OptionSwitch'
 import type { RunControl } from '../run/useRun'
@@ -52,7 +60,7 @@ function SkeletonCard({ control }: { control: RunControl }): ReactElement {
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
   return (
-    <div className="fw-k">
+    <div className="fw-k fw-skeleton">
       <div className="top">
         <span className="lab" id="simple-skeleton-label">
           {dict.d.simple.skeleton}
@@ -89,14 +97,23 @@ function SeedCard(): ReactElement {
   )
 }
 
+/** The id `RandomCard`'s help entry carries under the panel heading, and the
+ * switch below points at (spec R7). */
+const RANDOM_HELP_ID = 'simple-random-help'
+
 function RandomCard(): ReactElement {
   const dict = useDictionary()
   const random = useStore((state) => state.recipe.value.random)
   const setRandom = useStore((state) => state.recipe.setRandom)
   return (
     <div className="fw-k">
-      <OptionSwitch id="simple-random" label={dict.d.simple.randomize} on={random} onChange={setRandom} />
-      <p className="why">{dict.d.simple.randomizeHelp}</p>
+      <OptionSwitch
+        id="simple-random"
+        label={dict.d.simple.randomize}
+        on={random}
+        onChange={setRandom}
+        describedBy={RANDOM_HELP_ID}
+      />
     </div>
   )
 }
@@ -112,12 +129,17 @@ function RandomCard(): ReactElement {
 export function SimplePanel({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
+  const showHelp = useStore((state) => state.ui.help)
   const fields = VIEW_FIELDS.filter((field) => SIMPLE_VIEW_FIELDS.includes(field.field))
   const flags = VIEW_FLAGS.filter(({ flag }) => SIMPLE_VIEW_FLAGS.includes(flag))
   return (
     <section className="fw-knobs fw-simple" aria-label={dict.t('simplePanel')}>
       <div className="fw-khd">
         <b>{dict.d.simple.viewSimple}</b>
+        <FieldHelp
+          entries={[{ id: RANDOM_HELP_ID, label: dict.d.simple.randomize, text: dict.d.simple.randomizeHelp }]}
+          hidden={!showHelp}
+        />
       </div>
       <div className="fw-grid">
         <SizeCard side="W" />
@@ -130,6 +152,7 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
       </div>
       <div className="fw-khd">
         <b>{dict.t('preview')}</b>
+        <FieldHelp entries={viewHelpEntries(fields, (key: PlainUiKey) => dict.t(key))} hidden={!showHelp} />
       </div>
       <div className="fw-grid">
         {fields.map((field) => (

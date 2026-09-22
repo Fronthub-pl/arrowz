@@ -94,12 +94,15 @@ describe('PresetStrip', () => {
   })
 
   // Ruling 10: `findPreset` compares only the preset's own keys, so `seed`
-  // cannot break the match and `W` can.
-  it('says so when a knob the preset names has moved', async () => {
+  // cannot break the match and `W` can. The strip itself no longer says so
+  // (spec R5, review P4): the top bar carries the word now, in the slot the
+  // preset's name leaves.
+  it("drops the preset's current mark, but says nothing itself, when a knob the preset names has moved", async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await screen.getByRole('button', { name: /Easy.*square/ }).click()
     useStore.getState().params.set('W', 26)
-    await expect.element(screen.getByText('edited')).toBeInTheDocument()
+    await expect.element(screen.getByRole('button', { name: /Easy.*square/ })).not.toHaveAttribute('aria-current')
+    expect(screen.container.textContent).not.toContain('edited')
   })
 
   // `act`, as `useAutoRun.browser.test.tsx` wraps its own store writes: a write
@@ -111,30 +114,5 @@ describe('PresetStrip', () => {
     await screen.getByRole('button', { name: /Easy.*square/ }).click()
     await act(async () => useStore.getState().params.set('seed', 12))
     expect(screen.container.textContent).not.toContain('edited')
-  })
-
-  // Geometry, because no text lookup can fail for this: `getByText('edited')`
-  // and `container.textContent` both resolve at any scroll offset, and the
-  // browser pass found the marker parked 1170px past the visible right edge of
-  // the strip — the one element that says why the highlight went, where nobody
-  // would ever see it, with the suite green. Rendered inside the app's own
-  // `.fw` root so the strip scrolls here as it scrolls there.
-  it('keeps the marker inside the part of the strip a reader can see', async () => {
-    const screen = await render(
-      <div className="fw">
-        <PresetStrip control={stub().control} />
-      </div>,
-    )
-    await screen.getByRole('button', { name: /Easy.*square/ }).click()
-    await act(async () => useStore.getState().params.set('W', 26))
-    const strip = screen.container.querySelector('.fw-presets')
-    if (strip === null) throw new Error('the strip is not on the page')
-    // A strip wide enough for all twenty-six chips has no edge to fall off,
-    // and this case would pass without asserting anything.
-    expect(strip.scrollWidth).toBeGreaterThan(strip.clientWidth)
-    const row = strip.getBoundingClientRect()
-    const marker = screen.getByText('edited').element().getBoundingClientRect()
-    expect(marker.left).toBeGreaterThanOrEqual(row.left)
-    expect(marker.right).toBeLessThanOrEqual(row.right)
   })
 })

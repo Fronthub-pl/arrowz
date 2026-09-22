@@ -20,18 +20,18 @@
    is still worth more than arguing over which half survives. The trigger is
    `.right`'s only direct button child; the chips are wrapped in `.fw-seg`.
 
-   The border and the hover are `--void` at low alpha, because the bar is the
-   Signal plane: the chips make the same choice one file over. */
+   The border and the hover are `--ink` at low alpha, the bar's text colour:
+   the chips make the same choice one file over. */
 .fw-top .right > button {
   height: 24px;
   padding: 0 8px;
-  border: 1px solid rgba(14, 15, 18, 0.3);
+  border: 1px solid rgba(237, 238, 242, 0.4);
   background: none;
-  color: var(--void);
+  color: var(--ink);
   cursor: pointer;
 }
 .fw-top .right > button:hover {
-  background: rgba(14, 15, 18, 0.12);
+  background: rgba(237, 238, 242, 0.12);
 }
 .fw-scrim {
   position: fixed;
@@ -77,7 +77,7 @@
   color: var(--ash);
 }
 .fw-pal .row .v {
-  color: var(--signal);
+  color: var(--mist);
   font-variant-numeric: tabular-nums;
 }
 .fw-pal .row[aria-selected='true'] {

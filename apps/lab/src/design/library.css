@@ -74,7 +74,6 @@
   width: 100%;
   padding: 6px 8px;
   border: 1px solid var(--border);
-  border-radius: 5px;
   margin-bottom: 4px;
   background: none;
   text-align: left;
@@ -100,9 +99,17 @@
    and `overflow-y: auto` are what let the bounded row actually bound it — the
    pair Ruling 1 stands on, and review round 2 measured what their absence
    costs: at 860x900 the content ran 64px past the box, unreachable, and the
-   document itself overflowed by 65px. */
+   document itself overflowed by 65px. Three explicit rows (spec §2 P6): the
+   command, the fields, then the buttons, so only the middle row scrolls and
+   nothing is pinned over it. `overflow-y: auto` here too, as a safety net:
+   at ordinary heights the fields row absorbs any squeeze and
+   this box never scrolls, but a command below the two auto rows' own fixed
+   floor — `.fw-cmdfig`'s `min-height` plus the buttons — has nowhere else to
+   give, and with the buttons no longer sticky, scrolling the whole box here
+   overlaps nothing. */
 .fw-lib-detail {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -110,25 +117,61 @@
   min-height: 0;
   overflow-y: auto;
 }
-/* Pinned to the bottom of that scrolling box (Ruling 16). Below about 1046px of
-   panel width the field grid wraps to two rows and the buttons were pushed off
-   the viewport at every size review round 2 measured but 1400x900 and wider —
-   a detail whose two actions cannot be reached is not a detail. Sticky keeps
-   them on screen while the fields scroll under them; the background is the
-   detail's own, so the fields do not show through. */
+/* The fields scroll, the command and the buttons stay (spec §2 P6). Ruling 16
+   pinned the buttons with `sticky`, which kept them on screen and laid them
+   over whatever scrolled beneath; explicit rows keep them on screen and over
+   nothing. `container-type: inline-size` is this element's own addition
+   (fix round 1, finding 1): `.fw-kdesc`'s `@container (max-width: 407px)`
+   fallback (console.css) needs a container-type ancestor in scope, and this
+   grid — not `.fw-lib-detail` itself, whose own box Task 8 already tuned —
+   is the closest one around the list, the same way `.fw-knobs` is `.fw-kdesc`'s
+   container in the console panels. Single-axis containment in the inline
+   dimension only, so it does not touch the block-axis scrolling `overflow-y`
+   sets on this same element.
+   `position: relative` is fix round 2, spec R3 a third time: it makes this
+   grid the containing block for every `.fw-vh` inside it (the head-height
+   help, hidden with the help switch off). Without it the 1px box resolves
+   against the initial containing block instead and grows the document (P1).
+   This element and not `.fw-lib-detail`: it is the box that actually scrolls
+   and clips the list, and R3's rule is that the positioned ancestor sits
+   inside the scroller that clips, not outside it — `.fw-knobs` is its own
+   scroller for the same reason. A guard, not a fix for an observed break:
+   the matrix's `library-detail` state (help off) measures no scroll defect
+   at any of its five sizes either way, same as `.fw-knobs` before this
+   pattern had a name — the box happens to fall inside the viewport at every
+   size tried, not because the containing block was already correct. */
+.fw-lib-detail > .fw-grid {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  container-type: inline-size;
+}
+/* The head-height help (spec R7, Ruling 17 reversed) has no heading of its own
+   to sit under here — `.fw-lib-detail`'s three rows have no room for a fourth
+   — so it is the fields grid's own first child instead, spanning every column
+   `.fw-grid`'s `repeat(auto-fill, minmax(190px, 1fr))` (console.css) would
+   otherwise squeeze it into. */
+.fw-lib-detail > .fw-grid > .fw-kdesc {
+  grid-column: 1 / -1;
+}
 .fw-lib-buttons {
-  position: sticky;
-  bottom: 0;
   display: flex;
   gap: 8px;
   padding-top: 8px;
-  background: var(--graphite);
 }
 
 /* Armed: the second press is the destructive one, and it says so in `--error`
    rather than in `--warn`, which §7.1 reserves for a value that moved. */
-.fw .fw-lib-buttons .danger.armed {
+.fw .fw-lib-buttons .fw-btn.danger.armed {
   border-color: var(--error);
   background: var(--error);
   color: var(--void);
+}
+
+/* §7.2: the saved-boards face had no coarse rule at all (review, touch). */
+@media (pointer: coarse) {
+  .fw .fw-lib-chips button,
+  .fw-lib-row {
+    min-height: 44px;
+  }
 }

@@ -1,13 +1,21 @@
 import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
+import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { PaletteEditor, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { ColoursCard, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+// The disabled-button case below reads `.fw .fw-btn:disabled`'s actual computed
+// colour (shell.css), which needs both the stylesheet and the tokens it reads
+// through `var(...)` — no other case in this file reads real CSS at all
+// (harness fact: `getComputedStyle` above reads React's own inline styles).
+import '../design/tokens.css'
+import '../design/shell.css'
 
 const view = () => useStore.getState().view
+const EN = dictionary('en')
 
 // Colour inputs that exist on the panel before the user adds anything to the
 // palette: the point grid's dot colour (Task 5), the paper and the ink
@@ -47,6 +55,7 @@ beforeEach(() => {
   // "the panel draws the point grid controls" below clicks it on and never
   // clicks it back off, so every later test in this file ran with the grid on
   // until this reset covered it.
+  useStore.getState().ui.setHelp(true)
   useStore.setState((state) => ({
     view: {
       ...state.view,
@@ -334,6 +343,27 @@ test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async (
   await expect.element(add).toBeDisabled()
 })
 
+// Live pass: `.fw .fw-btn:disabled` set only `cursor: default`, so "add
+// colour" at the cap read exactly like an enabled button — same colour, same
+// opacity, nothing a person looking at it could tell apart from an enabled
+// control they simply had not clicked yet. `.fw` is the ancestor `shell.css`
+// dresses the button through (`.fw .fw-btn`), so the render below wraps it.
+test('a disabled console button reads as disabled, not merely inert', async () => {
+  const screen = await render(
+    <div className="fw">
+      <ViewPanel />
+    </div>,
+  )
+  const add = screen.getByRole('button', { name: 'add colour' })
+  const enabledColor = getComputedStyle(add.element()).color
+
+  for (let i = 0; i < PALETTE_CAP; i++) await add.click()
+  await expect.element(add).toBeDisabled()
+  const disabledColor = getComputedStyle(add.element()).color
+
+  expect(disabledColor).not.toBe(enabledColor)
+})
+
 // Finding 9 (final whole-addendum review): `disabled` alone gives a screen
 // reader no reason for the refusal at the cap; `aria-describedby` names the
 // help paragraph, which already states the cap in words.
@@ -347,7 +377,7 @@ test('the add button names the cap help text as its accessible description', asy
 })
 
 // Ruling 6 the other way: the store test covers the slice directly, this
-// covers it reached from the UI, so a caller that goes through `PaletteEditor`
+// covers it reached from the UI, so a caller that goes through `ColoursCard`
 // and one that goes through the picker are both pinned.
 test('choosing a theme keeps a custom palette built in the editor', async () => {
   const screen = await render(<ViewPanel />)
@@ -378,8 +408,8 @@ test('the editor never mutates a theme’s own palette array', async () => {
 })
 
 test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
-  const screen = await render(<PaletteEditor />)
-  // Rendered alone, the editor carries paper and ink but not the point grid's
+  const screen = await render(<ColoursCard />)
+  // Rendered alone, the colours card carries paper and ink but not the point grid's
   // dot colour -- that one lives in `ViewPanel` itself (`ALWAYS_PRESENT_COLOR_INPUTS`
   // above counts all three, so one is subtracted here).
   const beforeAnyPaletteColor = ALWAYS_PRESENT_COLOR_INPUTS - 1
@@ -404,4 +434,66 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
   await screen.getByRole('button', { name: /clear the paper/i }).click()
   // Back to "not set", which is what lets a theme supply it again.
   expect(view().paper).toBe('')
+})
+
+// Spec R8: four sections instead of one grid of fourteen cards.
+test('the preview is four titled sections, in order', async () => {
+  const screen = await render(<ViewPanel />)
+  const titles = [...screen.container.querySelectorAll('.fw-khd b')].map((b) => b.textContent)
+  expect(titles).toEqual(['geometry', 'drawing', 'points', 'colours'])
+})
+
+test('no card sits inside another card', async () => {
+  useStore.getState().view.addPaletteColor()
+  const screen = await render(<ViewPanel />)
+  expect(screen.container.querySelectorAll('.fw-k .fw-k')).toHaveLength(0)
+})
+
+test('the four drawing flags are one card, the point grid is with the points', async () => {
+  const screen = await render(<ViewPanel />)
+  const flags = screen.container.querySelector('.fw-k.fw-flags')
+  expect(flags?.querySelectorAll('[role="switch"]')).toHaveLength(4)
+  expect(flags?.querySelector('#view-showPoints')).toBeNull()
+})
+
+test('the colours card holds the theme, both surface colours and the palette', async () => {
+  const screen = await render(<ViewPanel />)
+  const card = screen.container.querySelector('.fw-k.fw-colours')
+  if (card === null) throw new Error('no colours card')
+  for (const id of ['#view-theme', '#view-paper', '#view-ink']) expect(card.querySelector(id)).not.toBeNull()
+  expect(card.querySelector('button.fw-btn')?.getAttribute('aria-describedby')).toBe('view-palette-help')
+})
+
+test('a field with help points at it under its section heading', async () => {
+  const screen = await render(<ViewPanel />)
+  const cell = screen.container.querySelector('#view-cell')
+  expect(cell?.getAttribute('aria-describedby')).toBe('view-cell-help')
+  expect(screen.container.querySelector('.fw-khd #view-cell-help')?.textContent).toBe(EN.t('cellHelp'))
+  expect(screen.container.querySelectorAll('.fw-k .why')).toHaveLength(0)
+})
+
+// The preview's help follows the help switch like the knob panels' (spec R7,
+// Ruling 9 of 2026-09-13-lab-run-triggers): out of sight, never out of the tree.
+test('the help switch hides the preview help from the eye, not from the tree', async () => {
+  useStore.getState().ui.setHelp(false)
+  const screen = await render(<ViewPanel />)
+  const lists = [...screen.container.querySelectorAll('.fw-khd .fw-kdesc')]
+  expect(lists.length).toBeGreaterThan(0)
+  for (const list of lists) {
+    expect(list.classList.contains('fw-vh')).toBe(true)
+    expect(getComputedStyle(list).display).not.toBe('none')
+  }
+  for (const id of ['#view-cell', '#view-headHeight', '#view-point-radius']) {
+    const described = screen.container.querySelector(id)?.getAttribute('aria-describedby') ?? ''
+    expect(document.getElementById(described), id).not.toBeNull()
+  }
+  const add = screen.container.querySelector('.fw-colours button.fw-btn')?.getAttribute('aria-describedby') ?? ''
+  expect(document.getElementById(add)).not.toBeNull()
+})
+
+test('with help on, the preview help is in sight', async () => {
+  const screen = await render(<ViewPanel />)
+  const lists = [...screen.container.querySelectorAll('.fw-khd .fw-kdesc')]
+  expect(lists).toHaveLength(3)
+  for (const list of lists) expect(list.classList.contains('fw-vh')).toBe(false)
 })

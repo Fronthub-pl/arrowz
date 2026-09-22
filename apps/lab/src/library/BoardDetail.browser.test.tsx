@@ -1,4 +1,6 @@
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, defaultParams } from '@arrowz/engine'
+import { buildCommand } from '@arrowz/engine/command'
+import { dictionary } from '@arrowz/engine/i18n'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
@@ -10,15 +12,21 @@ import { BoardDetail } from './BoardDetail'
 import { LibraryPanel } from './LibraryPanel'
 import { cancelNoticeFade } from './notices'
 import { cancelPendingSave } from './useViewSave'
-// The geometry case measures the real cascade, so it needs the real
-// stylesheets — without them `.fw-lib-list` never scrolls and the case passes
-// on a layout that does not exist (review round 3).
+// The geometry cases measure the real cascade, so they need the real
+// stylesheets — without them `.fw-lib-list` never scrolls and a case passes
+// on a layout that does not exist (review round 3). `run.css` joins them for
+// the fix-round-1 case below: it is where `.fw-cmdfig`'s own floor
+// (`min-height: calc(1lh + 6px + 58px)`) lives, and that floor is exactly
+// what the case is squeezed against.
 import '../design/tokens.css'
+import '../design/shell.css'
 import '../design/console.css'
 import '../design/library.css'
+import '../design/run.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)
+const EN = dictionary('en')
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -121,6 +129,66 @@ test('the stored view is offered as three numbers and two switches', async () =>
   expect(screen.container.querySelectorAll('.fw-lib-detail [role="switch"]')).toHaveLength(2)
 })
 
+// The help left `ViewNumberField`'s card for the panel headings (spec R7).
+// Ruling 17 traded head height's help away for the card's height; that cost
+// is gone now that the list lives under a heading rather than in the card, so
+// the field gets its help back (`libraryFields.ts`).
+test('every description the detail names is on the page, and head height names its own', async () => {
+  const screen = await mountDetail()
+  await show()
+  expect(screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby')).toBe(
+    'view-headHeight-help',
+  )
+  const help = document.getElementById('view-headHeight-help')
+  expect(help?.textContent).toBe(EN.t('headHelp'))
+  for (const el of screen.container.querySelectorAll('.fw-lib-detail [aria-describedby]')) {
+    for (const id of (el.getAttribute('aria-describedby') ?? '').split(/\s+/)) {
+      expect(document.getElementById(id), `${el.id} names ${id}`).not.toBeNull()
+    }
+  }
+})
+
+// The list has no `.fw-khd` heading to sit under here (Task 8's row template
+// leaves `.fw-lib-detail` no room for a fourth child), so it is a heading-ish
+// container of its own instead: a `dl.fw-kdesc` — the same element every
+// panel heading uses to carry this list — sitting first in the fields grid,
+// ahead of the cards it describes.
+test('the head-height help sits in its own list, ahead of the fields it describes', async () => {
+  const screen = await mountDetail()
+  await show()
+  const list = screen.container.querySelector('.fw-lib-detail .fw-kdesc')
+  expect(list?.tagName).toBe('DL')
+  expect(list?.querySelector('#view-headHeight-help')).not.toBeNull()
+  const grid = screen.container.querySelector('.fw-lib-detail > .fw-grid')
+  if (grid === null || list === null) throw new Error('the detail is missing a part')
+  const kids = [...grid.children]
+  expect(kids.indexOf(list)).toBe(0)
+  expect(kids.indexOf(screen.container.querySelector('#view-headHeight')?.closest('.fw-k') as Element)).toBeGreaterThan(
+    kids.indexOf(list),
+  )
+})
+
+// Fix round 1, finding 1: `.fw-kdesc`'s `@container (max-width: 407px)`
+// single-column fallback (console.css) needs a container-type ancestor in
+// scope, and the fields grid this list now sits in had none — wave B's
+// `library-detail` matrix state measured the detail's fields at ~428px
+// against a 420px box. `.fw-lib-detail > .fw-grid` is the container
+// (library.css); 300px is well under the 407px floor the query stacks
+// below. Mirrors `KnobPanel.browser.test.tsx`'s own `dd >= 150` case.
+test('a narrow detail gives the head-height help room to read, not one word a line', async () => {
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ width: '300px' }}>
+        <BoardDetail refresh={() => {}} />
+      </div>
+    </MemoryRouter>,
+  )
+  await show()
+  const dd = screen.container.querySelector('.fw-lib-detail .fw-kdesc dd')
+  if (dd === null) throw new Error('no description')
+  expect(dd.getBoundingClientRect().width).toBeGreaterThanOrEqual(150)
+})
+
 // Ruling 9: loading sets the knobs and the view but does NOT generate.
 // `setMany` leaves `edits` alone, which is the only thing `useAutoRun`
 // watches, so no run can start from this.
@@ -178,6 +246,136 @@ test('the detail keeps its buttons on screen while the list scrolls', async () =
   // mutations 9 and 10, which each tripped one case and not the other).
   expect(list.clientHeight).toBeGreaterThanOrEqual(120)
   expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
+})
+
+// Review P6, same mount and fixture as the case above, at a height that
+// forces the fields to scroll under the buttons. Ruling 16 pinned the buttons
+// with `sticky`, which kept them on screen but laid them over whatever
+// scrolled beneath — this case asks whether anything still overlaps.
+test('rows keep the buttons off the scroll instead of pinning them over it', async () => {
+  await page.viewport(860, 900)
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ height: '300px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  const many = Array.from({ length: 40 }, (_, i) => ({
+    ...stored.meta,
+    id: `${stored.meta.id.slice(0, -2)}${String(i + 2).padStart(2, '0')}`,
+  }))
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
+  })
+  await show()
+
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (buttons === null) throw new Error('the panel is missing the buttons row')
+  // Review P6: the buttons were sticky over the scrolling detail and lay on
+  // whatever scrolled under them. With explicit rows nothing needs to stick,
+  // and nothing overlaps.
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const fields = screen.container.querySelector<HTMLElement>('.fw-lib-detail > .fw-grid')
+  const cmd = screen.container.querySelector<HTMLElement>('.fw-cmdfig')
+  if (detail === null || fields === null || cmd === null) throw new Error('the detail is missing a part')
+  const b = buttons.getBoundingClientRect()
+  expect(b.top).toBeGreaterThanOrEqual(fields.getBoundingClientRect().bottom - 0.5)
+  expect(fields.getBoundingClientRect().top).toBeGreaterThanOrEqual(cmd.getBoundingClientRect().bottom - 0.5)
+  expect(b.bottom).toBeLessThanOrEqual(detail.getBoundingClientRect().bottom + 0.5)
+  expect(getComputedStyle(buttons).position).toBe('static')
+})
+
+// Review P6: `.fw-cmdfig` (run.css) carries its own floor —
+// `min-height: calc(1lh + 6px + 58px)` — and a command with several pinned
+// knobs wraps past it. `storedFixture` cannot carry a custom command itself
+// (its `command` field is a fixed template of width/height/seed alone), so
+// this builds one the way the CLI would print it, through the engine's own
+// `buildCommand`, and overrides `meta.command` with it — the same override
+// technique the case above uses for `id`. Below the floor the fields row has
+// nothing left to give, so the whole detail must scroll as one box to reach
+// the buttons: the command's fixed floor and the buttons' own fixed row are
+// what `overflow-y: auto` on `.fw-lib-detail` exists to reach past.
+//
+// `overflow-y` and not `scrollTop`: `overflow: hidden` is still
+// programmatically scrollable in Chromium — measured here setting
+// `detail.scrollTop = detail.scrollHeight` under `overflow: hidden` moved the
+// clip window and put the buttons back inside the box's rect, passing the
+// very case this fix exists to fail. `RunColumn.browser.test.tsx` already
+// carries this same harness fact for `.fw-cmd`. The computed style is what
+// actually decides whether a person — mouse wheel, keyboard, touch — can
+// reach the rest.
+test('a command past the floor still lets the detail scroll down to the buttons', async () => {
+  await page.viewport(860, 900)
+  const longCommand = buildCommand({
+    ...defaultParams(),
+    W: 8,
+    H: 8,
+    seed: stored.meta.seed,
+    wShort: 0.4,
+    wMid: 0.3,
+    Lmax: 40,
+    backbite: 3,
+    pStraight: 0.95,
+    wLateral: 8,
+    warns: 7,
+    anticoil: 3,
+    headBias: 1,
+    trapBias: 1,
+    probe: 0.5,
+    giants: 10,
+  })
+  const screen = await render(
+    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
+      <div className="fw" style={{ height: '150px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
+        <LibraryPanel />
+      </div>
+    </MemoryRouter>,
+  )
+  await act(async () => {
+    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
+  })
+  await act(async () =>
+    useStore.getState().result.showPreview({
+      board: decodeBoard(stored.file),
+      file: stored.file,
+      meta: { ...stored.meta, command: longCommand },
+    }),
+  )
+
+  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
+  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
+  if (detail === null || buttons === null) throw new Error('the detail is missing a part')
+  // A command that already fits below the floor leaves nothing out of sight,
+  // and this case would pass without asserting anything.
+  expect(detail.scrollHeight).toBeGreaterThan(detail.clientHeight)
+  expect(getComputedStyle(detail).overflowY).not.toBe('hidden')
+  // With the fix, scrolling the box (a real user's wheel, keyboard or touch,
+  // not merely a script) does put the buttons inside its rect.
+  detail.scrollTop = detail.scrollHeight
+  const d = detail.getBoundingClientRect()
+  const b = buttons.getBoundingClientRect()
+  expect(b.bottom).toBeLessThanOrEqual(d.bottom + 0.5)
+  expect(b.top).toBeGreaterThanOrEqual(d.top - 0.5)
+})
+
+// Review P9: neither detail button was dressed, so both kept the browser's
+// `2px outset` border. Delete was dressed only once armed, and even then only
+// its border *colour*, on a border with no width or style.
+test('both detail buttons wear the console button, armed or not', async () => {
+  await show()
+  const screen = await mountDetail()
+  const buttons = [...screen.container.querySelectorAll<HTMLButtonElement>('.fw-lib-buttons button')]
+  expect(buttons).toHaveLength(2)
+  for (const b of buttons) {
+    expect(getComputedStyle(b).borderTopStyle).toBe('solid')
+    expect(getComputedStyle(b).borderTopWidth).toBe('1px')
+  }
+  const del = buttons[1]
+  if (del === undefined) throw new Error('no delete button')
+  await userEvent.click(del)
+  expect(del.className).toContain('armed')
+  expect(getComputedStyle(del).borderTopStyle).toBe('solid')
 })
 
 test('the first click arms delete, and the second removes the board', async () => {

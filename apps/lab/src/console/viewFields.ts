@@ -1,13 +1,14 @@
 import type { ViewNumber } from '@arrowz/engine'
 import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
 import type { ViewFlag } from '../state/view.slice'
+import type { HelpEntry } from './FieldHelp'
 
 /**
  * A dictionary key whose entry is a plain string. `dict.t` is generic over
  * every key, and some entries are formatters taking arguments, so a field
  * typed as plain `UiKey` would not type-check at the call site.
  */
-type PlainUiKey = { [K in UiKey]: Dictionary['ui'][K] extends string ? K : never }[UiKey]
+export type PlainUiKey = { [K in UiKey]: Dictionary['ui'][K] extends string ? K : never }[UiKey]
 
 export interface ViewField {
   field: ViewNumber
@@ -56,3 +57,13 @@ export const VIEW_FLAGS: readonly {
   { flag: 'voids', label: 'voids' },
   { flag: 'showPoints', label: 'showPoints' },
 ]
+
+/** The drawing flags, one card in the preview (spec R8); `showPoints` belongs to the points. */
+export const DRAWING_FLAGS = VIEW_FLAGS.filter(({ flag }) => flag !== 'showPoints')
+
+/** The heading's entries for the fields that have help (spec R7). */
+export function viewHelpEntries(fields: readonly ViewField[], t: (key: PlainUiKey) => string): HelpEntry[] {
+  return fields.flatMap((field) =>
+    field.help === undefined ? [] : [{ id: `view-${field.field}-help`, label: t(field.label), text: t(field.help) }],
+  )
+}

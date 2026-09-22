@@ -70,6 +70,24 @@ test.each(['advanced', 'simple'] as const)(
   40_000,
 )
 
+// Review P3: the report was a fixed 22rem at every width, so three of its
+// first five rows wrapped at 2560px as at 1024. It keeps 22rem as a floor and
+// grows to 24vw, up to 32rem.
+test.each([
+  [1280, 800, 352],
+  [1920, 1080, 460.8],
+  [2560, 1200, 512],
+] as const)(
+  'at %d×%d the report column is %dpx wide',
+  async (w, h, px) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    expect(rect(screen.container, '.fw-report').width).toBeCloseTo(px, 0)
+  },
+  40_000,
+)
+
 // The ≤900px defect PR #67's browser pass found, and the same defect above
 // 900px once the exports are in the column (PR 4b, Ruling 1). `.fw-cmdfig` is
 // `flex: 0 1 auto` with `min-height: 0`, so the column shrinks the figure below

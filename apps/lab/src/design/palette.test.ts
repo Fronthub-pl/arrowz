@@ -30,13 +30,13 @@ test('the trigger is dressed to the mock, and only the trigger', () => {
   expect(rule, '.fw-top .right > button rule not found').not.toBeNull()
   expect(rule?.[1]).toContain('height: 24px')
   expect(rule?.[1]).toContain('padding: 0 8px')
-  expect(rule?.[1]).toContain('border: 1px solid rgba(14, 15, 18, 0.3)')
+  expect(rule?.[1]).toContain('border: 1px solid rgba(237, 238, 242, 0.4)')
   expect(rule?.[1]).toContain('background: none')
-  expect(rule?.[1]).toContain('color: var(--void)')
+  expect(rule?.[1]).toContain('color: var(--ink)')
   expect(rule?.[1]).toContain('cursor: pointer')
   const hover = /\.fw-top \.right > button:hover\s*\{([^}]*)\}/.exec(css)
   expect(hover, '.fw-top .right > button:hover rule not found').not.toBeNull()
-  expect(hover?.[1]).toContain('background: rgba(14, 15, 18, 0.12)')
+  expect(hover?.[1]).toContain('background: rgba(237, 238, 242, 0.12)')
   // The child combinator is load-bearing: a descendant selector would tie with
   // `.fw .fw-seg button` on specificity and win on import order, re-dressing
   // the view and language chips that share this container.

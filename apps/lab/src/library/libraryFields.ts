@@ -15,12 +15,10 @@ import type { ViewFlag } from '../state/view.slice'
 export const LIBRARY_VIEW_FIELDS: readonly ViewField[] = [
   { field: 'stroke', label: 'strokeLabel', step: 0.05 },
   { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
-  // No `help` on `headHeight`, and this is a trade rather than an oversight
-  // (Ruling 17). The help paragraph is nine lines in a 190px column, a grid row
-  // is as tall as its tallest cell, and it adds 120px to the detail at 1400 and
-  // 138px at 860 — in a panel that is half a 385px console. The same
-  // explanation is one tab away in the lab's preview.
-  { field: 'headHeight', label: 'headHeightLabel', step: 0.05 },
+  // Ruling 17 traded this help away because the paragraph used to live in the
+  // card; now that it lives under the panel heading (spec R7) that cost is
+  // gone, and the detail gets it back.
+  { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', step: 0.05 },
 ]
 
 export const LIBRARY_VIEW_FLAGS: readonly { flag: ViewFlag; label: 'rounded' | 'colored' }[] = [
