@@ -296,6 +296,13 @@ export const EN = {
       `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
     progress: (pct: string, pieces: string, remaining: string, backtracks: number, s: string) =>
       `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+    // Round 3 (3h): while a carve runs, Generate is the meter and carries the
+    // percent; the line under it says the rest of `progress`, and the hidden
+    // progressbar beside it is named `runProgress`.
+    generatingPct: (pct: string) => `Generating ${pct}%`,
+    progressRest: (pieces: string, remaining: string, backtracks: number, s: string) =>
+      `${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+    runProgress: 'Run progress',
     workerError: 'Worker error:',
     generationError: 'Generation error:',
     aborted: 'Aborted.',
@@ -871,6 +878,10 @@ export const PL: Translation = {
     generatingBig: (W, H, cells) => `Generuję ${W}×${H} (${cells} komórek) — to potrwa…`,
     progress: (pct, pieces, remaining, backtracks, s) =>
       `<b>${pct}%</b> · ${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+    generatingPct: (pct) => `Generuję ${pct}%`,
+    progressRest: (pieces, remaining, backtracks, s) =>
+      `${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+    runProgress: 'Postęp generowania',
     workerError: 'Błąd workera:',
     generationError: 'Błąd generacji:',
     aborted: 'Przerwano.',

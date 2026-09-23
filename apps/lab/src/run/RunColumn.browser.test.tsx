@@ -339,3 +339,134 @@ describe('the exports', () => {
     await expect.element(screen.getByRole('group', { name: 'Export' })).toBeInTheDocument()
   })
 })
+
+// Round 3 (3h): the run's state lives in the column. The numbers are the
+// handoff's reconstruction: 1 − 734/1250 is 41.28%, shown as 41.3.
+const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
+
+/** The line under Generate: the column's one `p.fw-runstate`. */
+function stateLine(container: HTMLElement): HTMLElement {
+  const line = container.querySelector<HTMLElement>('.fw-run-col > p.fw-runstate')
+  if (line === null) throw new Error('the column has no state line')
+  return line
+}
+
+describe('Generate as the meter', () => {
+  // Inside `.fw`, where the shell's rules live: both the fill and the
+  // `:disabled` dimming it overrides are scoped to it (run.css).
+  it('carries the share done in its label and its fill while a carve runs', async () => {
+    const screen = await render(
+      <div className="fw">
+        <RunColumn control={stub().control} />
+      </div>,
+    )
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const go = screen.getByRole('button', { name: 'Generating 41.3%' })
+    await expect.element(go).toBeDisabled()
+    await expect.element(go).toHaveClass('busy')
+    expect(go.element().getAttribute('style')).toContain('--p: 41.3%')
+    // Not dimmed like a refused Generate: it is working, not unavailable.
+    expect(getComputedStyle(go.element()).opacity).toBe('1')
+    expect(getComputedStyle(go.element()).backgroundImage).toContain('linear-gradient')
+  })
+
+  it('points at a progressbar that says the same to assistive technology', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const bar = screen.getByRole('progressbar', { name: 'Run progress' })
+    await expect.element(bar).toHaveAttribute('aria-valuenow', '41.3')
+    await expect.element(bar).toHaveAttribute('aria-valuemin', '0')
+    await expect.element(bar).toHaveAttribute('aria-valuemax', '100')
+    await expect.element(bar).toHaveAttribute('aria-valuetext', '41.3%')
+    const go = screen.getByRole('button', { name: 'Generating 41.3%' })
+    await expect.element(go).toHaveAttribute('aria-describedby', bar.element().id)
+  })
+
+  // Before the worker's first report the share is unknown: no number is
+  // invented, and the progressbar is indeterminate — it has no value.
+  it('is indeterminate before the first report', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    await expect.element(screen.getByRole('button', { name: 'Generating…' })).toBeDisabled()
+    const bar = screen.getByRole('progressbar', { name: 'Run progress' })
+    expect(bar.element().hasAttribute('aria-valuenow')).toBe(false)
+  })
+
+  it('speaks Polish, with a decimal comma', async () => {
+    useStore.getState().lang.setLang('pl')
+    try {
+      const screen = await render(<RunColumn control={stub().control} />)
+      await act(async () => {
+        useStore.getState().run.started(useStore.getState().params.values)
+        useStore.getState().run.progressed(PROGRESS)
+      })
+      await expect.element(screen.getByRole('button', { name: 'Generuję 41,3%' })).toBeInTheDocument()
+      await expect
+        .element(screen.getByRole('progressbar', { name: 'Postęp generowania' }))
+        .toHaveAttribute('aria-valuetext', '41,3%')
+      expect(stateLine(screen.container).textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+    } finally {
+      useStore.getState().lang.setLang('en')
+    }
+  })
+
+  it('is Generate again, with no progressbar, once the run ends', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    await act(async () => useStore.getState().run.aborted())
+    const go = screen.getByRole('button', { name: 'Generate', exact: true })
+    await expect.element(go).not.toHaveClass('busy')
+    expect(go.element().hasAttribute('aria-describedby')).toBe(false)
+    expect(screen.container.querySelector('[role="progressbar"]')).toBeNull()
+  })
+})
+
+describe('the state line under Generate', () => {
+  // The percent is on Generate, so the line says the rest of the progress.
+  it('says the rest of the progress while a carve runs', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const line = stateLine(screen.container)
+    expect(line.textContent).toBe('52 pieces · 734 left · backtracks 18 · 1.4 s')
+    // Hidden from assistive technology: the live output says it (RunStatusBar).
+    expect(line.getAttribute('aria-hidden')).toBe('true')
+    // It sits between Generate and the alternatives.
+    expect(line.previousElementSibling?.getAttribute('role')).toBe('progressbar')
+    expect(line.nextElementSibling?.className).toBe('fw-alt')
+  })
+
+  it('says the last outcome once a run is done', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    })
+    await expect.poll(() => stateLine(screen.container).textContent).toMatch(/^Board closed 100%\./)
+    expect(stateLine(screen.container).classList.contains('bad')).toBe(false)
+  })
+
+  // The refusal is drawn in --error: it is the one line that asks for action.
+  it('says the refusal in the error colour while a rule is broken', async () => {
+    useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
+    const screen = await render(<RunColumn control={stub().control} />)
+    const line = stateLine(screen.container)
+    expect(line.textContent).toBe(screen.getByRole('button', { name: 'Generate' }).element().getAttribute('title'))
+    expect(line.classList.contains('bad')).toBe(true)
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--error)'
+    screen.container.append(probe)
+    expect(getComputedStyle(line).color).toBe(getComputedStyle(probe).color)
+  })
+})

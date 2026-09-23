@@ -10,6 +10,7 @@ import { CommandText } from '../run/CommandText'
 import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
 import { MoreMenu } from '../run/MoreMenu'
+import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { shortId } from './BoardList'
 import { raiseNotice } from './notices'
@@ -32,6 +33,21 @@ import { cancelPendingSave } from './useViewSave'
 /** The board column's id, which the phone's Board sheet button controls (handoff 2, PR 7). */
 export const BOARD_COLUMN_ID = 'board-column'
 
+/**
+ * The library's events and failures in words (round 3, 3h), `aria-hidden`
+ * because the live `<output>` says the same. From 768 up that output is out of
+ * sight (shell.css), so this is where a person reads them — also with no board
+ * open, which is where Delete lands and where a board that failed to load
+ * leaves the page.
+ */
+function LibraryLine({ line }: { line: StateLine | null }): ReactElement {
+  return (
+    <p className={line?.bad === true ? 'fw-runstate bad' : 'fw-runstate'} aria-hidden="true">
+      {line?.text ?? ''}
+    </p>
+  )
+}
+
 export function BoardColumn(): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
@@ -44,6 +60,7 @@ export function BoardColumn(): ReactElement {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const drawing = useRef<Worker | null>(null)
   const [busy, setBusy] = useState(false)
+  const { library } = useRunState()
 
   // A component unmounted inside the confirmation window must not write state
   // afterwards; StrictMode makes that happen in tests. Leaving the page takes a
@@ -59,6 +76,7 @@ export function BoardColumn(): ReactElement {
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
         <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+        <LibraryLine line={library} />
       </section>
     )
   }
@@ -179,6 +197,7 @@ export function BoardColumn(): ReactElement {
       <button type="button" className="fw-go" onClick={loadIntoLab}>
         {dict.t('loadIntoLab')}
       </button>
+      <LibraryLine line={library} />
       <div className="fw-alt">
         <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}

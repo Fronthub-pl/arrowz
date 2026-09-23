@@ -295,7 +295,10 @@ function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
   return w + EPS < floor ? [{ invariant: 'board-width', detail: `board ${w.toFixed(0)}px < ${floor}` }] : []
 }
 
-/** At M and S the right column is a bar under the board, one or two lines tall. */
+/**
+ * At M and S the right column is a bar under the board: one or two rows of
+ * controls, and the run's state as one more row of one line (round 3, 3h).
+ */
 function barRow(root: HTMLElement, solo: boolean): Finding[] {
   if (solo || window.innerWidth < 768 || window.innerWidth >= 1280) return []
   const wrap = root.querySelector('.fw-stage > .fw-boardwrap')
@@ -307,7 +310,20 @@ function barRow(root: HTMLElement, solo: boolean): Finding[] {
     const r = bar.getBoundingClientRect()
     if (r.top < bottom - EPS)
       out.push({ invariant: 'bar-row', detail: `${label(bar)} top ${r.top.toFixed(0)} < board ${bottom.toFixed(0)}` })
-    if (r.height > 104 + EPS) out.push({ invariant: 'bar-row', detail: `${label(bar)} ${r.height.toFixed(0)}px tall` })
+    // Round 3 (3h): the run's state is the bar's last row, one line, under
+    // the one or two rows of controls — so the controls are measured without
+    // it, and the line is held to one line of its own.
+    const state = bar.querySelector(':scope > .fw-runstate')
+    let controls = r.height
+    if (state !== null && rendered(state)) {
+      const line = state.getBoundingClientRect().height
+      const one = Number.parseFloat(getComputedStyle(state).lineHeight)
+      if (line > one + EPS)
+        out.push({ invariant: 'bar-row', detail: `${label(bar)} state line ${line.toFixed(0)}px, over one line` })
+      controls -= line + Number.parseFloat(getComputedStyle(bar).rowGap)
+    }
+    if (controls > 104 + EPS)
+      out.push({ invariant: 'bar-row', detail: `${label(bar)} controls ${controls.toFixed(0)}px tall` })
     // M: an open drawer pushes the bar's content as it pushes the board, so
     // nothing in the bar lies under the drawer. S lets the drawer cover both.
     const drawer = root.querySelector('.fw-ldrawer.open')

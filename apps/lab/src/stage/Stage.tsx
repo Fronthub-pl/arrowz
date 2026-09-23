@@ -40,7 +40,18 @@ function useFocusBackToHandle(open: boolean, panelId: string) {
  * `BoardFrame` ever changes type, so it keeps its node — that is what keeps
  * `<arrowz-board>`'s GL context alive across the tabs.
  */
-export function Stage({ settings, run, side }: { settings: ReactNode; run: ReactNode; side: ReactNode }): ReactElement {
+export function Stage({
+  settings,
+  run,
+  side,
+  busy = false,
+}: {
+  settings: ReactNode
+  run: ReactNode
+  side: ReactNode
+  /** A carve in flight on the lab: the board is about to change (round 3, 3h). */
+  busy?: boolean
+}): ReactElement {
   const dict = useDictionary()
   const reportOpen = useStore((state) => state.ui.report)
   const toggleReport = useStore((state) => state.ui.toggleReport)
@@ -50,7 +61,7 @@ export function Stage({ settings, run, side }: { settings: ReactNode; run: React
   const settingsHandle = useFocusBackToHandle(settingsOpen, SETTINGS_ID)
 
   return (
-    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'}>
+    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'} aria-busy={busy ? true : undefined}>
       <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
         {settings}
         <button

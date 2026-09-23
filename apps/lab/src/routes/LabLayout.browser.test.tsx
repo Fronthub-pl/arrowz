@@ -774,3 +774,145 @@ test.each([
   },
   40_000,
 )
+
+// Round 3 (3h): the run's state moved into the run column. The numbers are the
+// handoff's reconstruction; 1 − 734/1250 prints as 41.3.
+const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
+
+/** A carve in flight, as the worker's first report leaves the store. */
+async function carving(): Promise<void> {
+  await act(async () => {
+    useStore.getState().run.started(useStore.getState().params.values)
+    useStore.getState().run.progressed(PROGRESS)
+  })
+}
+
+function one(container: HTMLElement, selector: string): HTMLElement {
+  const found = container.querySelector<HTMLElement>(selector)
+  if (found === null) throw new Error(`${selector} is not on the page`)
+  return found
+}
+
+// From 768 up the bar leaves the layout — the view has one row and the lab
+// starts at its top — while its live output stays in the document, speaking.
+test.each([
+  [1920, 1080],
+  [1440, 900],
+  [1024, 768],
+  [768, 1024],
+] as const)(
+  'at %i×%i the status bar is out of sight and the lab takes its row',
+  async (w, h) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    const bar = rect(screen.container, '.fw-bar')
+    expect(bar.width).toBe(1)
+    expect(bar.height).toBe(1)
+    const output = screen.getByRole('status', { name: 'Run status' })
+    await expect.element(output).toMatchTextContent(/Board closed/)
+    const view = rect(screen.container, '.fw-view')
+    const lab = rect(screen.container, '.fw-lab')
+    expect(lab.top).toBeCloseTo(view.top, 0)
+    expect(lab.height).toBeCloseTo(view.height, 0)
+  },
+  40_000,
+)
+
+// Under 768 the run column is a sheet that may be `display: none`, so the bar
+// stays where it was, over the preset strip: 41px, one line at 600.
+test.each([
+  [600, 900],
+  [375, 812],
+] as const)(
+  'at %i×%i the status bar stays on screen over the lab',
+  async (w, h) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    const bar = rect(screen.container, '.fw-bar')
+    expect(bar.width).toBeCloseTo(w, 0)
+    expect(bar.height).toBeGreaterThanOrEqual(41)
+    if (w === 600) expect(bar.height).toBeCloseTo(41, 0)
+    expect(bar.bottom).toBeLessThanOrEqual(rect(screen.container, '.fw-lab').top + 0.5)
+  },
+  40_000,
+)
+
+// The handoff's checkpoint at 1440×900 in Polish: Generate is the meter, 260px
+// wide, the stage says it is busy, and the line under Generate is the rest of
+// the progress, two lines tall with its 6 + 8px padding.
+test('at 1440×900 in Polish Generate is the meter and the line under it wraps in two', async () => {
+  await page.viewport(1440, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  useStore.getState().lang.setLang('pl')
+  await carving()
+  const go = screen.getByRole('button', { name: 'Generuję 41,3%' })
+  await expect.element(go).toBeDisabled()
+  expect(go.element().getBoundingClientRect().width).toBeCloseTo(260, 0)
+  await expect
+    .element(screen.getByRole('progressbar', { name: 'Postęp generowania' }))
+    .toHaveAttribute('aria-valuenow', '41.3')
+  expect(one(screen.container, '.fw-stage').getAttribute('aria-busy')).toBe('true')
+  const line = one(screen.container, '#run-column > .fw-runstate')
+  expect(line.textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+  const lineHeight = Number.parseFloat(getComputedStyle(line).lineHeight)
+  expect(line.getBoundingClientRect().height).toBeCloseTo(2 * lineHeight + 6 + 8, 0)
+  // The full sentence, percent included, is still the live region's.
+  await expect.element(screen.getByRole('status', { name: 'Stan generowania' })).toMatchTextContent(/41,3%/)
+  await act(async () => useStore.getState().run.aborted())
+  expect(one(screen.container, '.fw-stage').hasAttribute('aria-busy')).toBe(false)
+  useStore.getState().lang.setLang('en')
+}, 40_000)
+
+// At 1024 the run column is the bar under the board: Generate is 149px and the
+// line is the bar's own last row, one line, clipped with an ellipsis.
+test('at 1024×768 the line is the bar’s last row, one line', async () => {
+  await page.viewport(1024, 768)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  useStore.getState().lang.setLang('pl')
+  await carving()
+  const go = screen.getByRole('button', { name: 'Generuję 41,3%' })
+  expect(go.element().getBoundingClientRect().width).toBeCloseTo(149, 0)
+  const line = one(screen.container, '#run-column > .fw-runstate')
+  const box = line.getBoundingClientRect()
+  expect(box.height).toBeCloseTo(Number.parseFloat(getComputedStyle(line).lineHeight), 0)
+  for (const item of one(screen.container, '#run-column').children) {
+    if (item === line || item.getClientRects().length === 0) continue
+    expect(box.top, item.className).toBeGreaterThanOrEqual(item.getBoundingClientRect().bottom - 0.5)
+  }
+  // A whole row of the bar: its content box, which an open settings drawer
+  // pushes right as it pushes the board.
+  const bar = one(screen.container, '#run-column')
+  const style = getComputedStyle(bar)
+  const content = bar.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight)
+  expect(box.width).toBeCloseTo(content, 0)
+  // The line's words fit at every band as the dictionary stands; a worker's
+  // error message has no such bound, and stays one line, cut with an ellipsis.
+  await act(async () =>
+    useStore
+      .getState()
+      .run.failed('the carve could not place the next piece after every restart the envelope allows, at seed 7'),
+  )
+  expect(line.getBoundingClientRect().height).toBeCloseTo(Number.parseFloat(getComputedStyle(line).lineHeight), 0)
+  expect(line.scrollWidth).toBeGreaterThan(line.clientWidth)
+  expect(getComputedStyle(line).textOverflow).toBe('ellipsis')
+  useStore.getState().lang.setLang('en')
+}, 40_000)
+
+// The saved boards' events have their own line in the board column: with the
+// status bar out of sight from 768 up, this is where a person reads them.
+test('at 1440×900 a library event is read under the board column', async () => {
+  await page.viewport(1440, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await screen.getByRole('tab', { name: 'Saved boards' }).click()
+  await act(async () => useStore.getState().library.notify({ kind: 'deleteFailed' }))
+  const line = one(screen.container, '#board-column .fw-runstate')
+  await expect.poll(() => line.textContent).toMatch(/Could not delete/)
+  expect(line.checkVisibility()).toBe(true)
+  expect(line.classList.contains('bad')).toBe(true)
+  expect(line.getAttribute('aria-hidden')).toBe('true')
+}, 40_000)

@@ -1,5 +1,6 @@
-import { type RefObject, useLayoutEffect, useRef } from 'react'
+import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
@@ -30,6 +31,9 @@ import type { RunControl } from './useRun'
 /** The run column's id, which the phone's CLI sheet button controls (handoff 2, PR 7). */
 export const RUN_COLUMN_ID = 'run-column'
 
+/** The hidden progressbar's id, which Generate points at while a carve runs. */
+const PROGRESS_ID = 'run-progress'
+
 export function RunColumn({
   control,
   goRef,
@@ -45,6 +49,10 @@ export function RunColumn({
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
   const simple = useStore((state) => state.ui.mode === 'simple')
+  const { run: line, percent } = useRunLine()
+  // One decimal everywhere the share shows: the label, the fill and the
+  // progressbar's value say the same number.
+  const share = percent === null ? null : Math.round(percent * 10) / 10
 
   // Both of these buttons are a landing spot with an expiry date, because each
   // is disabled by one of the two transitions of `running`, and HTML's focus
@@ -130,16 +138,44 @@ export function RunColumn({
   return (
     <section id={RUN_COLUMN_ID} className="fw-run-col" aria-label={dict.t('runColumn')}>
       <LiveCommand />
+      {/* Round 3 (3h): while a carve runs, Generate is the meter — filled to
+          the share done (`--p`, run.css), the percent in its label, still
+          disabled. Before the worker's first report the share is unknown: the
+          label says so, and the progressbar has no value, which is how ARIA
+          spells "indeterminate". The progressbar is for assistive technology
+          only (`fw-vh`); the button points at it. */}
       <button
         type="button"
-        className="fw-go"
+        className={running ? 'fw-go busy' : 'fw-go'}
         ref={goRef}
         onClick={onGenerate}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}
+        style={running ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
+        aria-describedby={running ? PROGRESS_ID : undefined}
       >
-        {dict.t('generate')}
+        {!running
+          ? dict.t('generate')
+          : share === null
+            ? dict.t('generating')
+            : dict.t('generatingPct', oneDecimal(dict, share))}
       </button>
+      {running ? (
+        <div
+          id={PROGRESS_ID}
+          className="fw-vh"
+          role="progressbar"
+          aria-label={dict.t('runProgress')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          {...(share === null ? {} : { 'aria-valuenow': share, 'aria-valuetext': `${oneDecimal(dict, share)}%` })}
+        />
+      ) : null}
+      {/* The state in words under Generate, `aria-hidden` because the live
+          `<output>` (RunStatusBar.tsx) says the same and is the one voice. */}
+      <p className={line.bad ? 'fw-runstate bad' : 'fw-runstate'} aria-hidden="true">
+        {line.text}
+      </p>
       <div className="fw-alt">
         <button type="button" onClick={onReseed}>
           {dict.t('reseed')}

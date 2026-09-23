@@ -536,3 +536,45 @@
     box-shadow: 0 1px 0 var(--border);
   }
 }
+
+/* Round 3 (3h): the run's state lives in the run column. Generate is the
+   meter while a carve runs — filled from the left, the percent in its label,
+   `role="progressbar"` beside it for assistive technology — and the line
+   under it says the rest (pieces, left, backtracks, time) or the last
+   outcome. The live `<output>` stays in `.fw-bar`, mounted at every band,
+   so announcements do not depend on a column a sheet may hide (shell.css). */
+.fw .fw-go.busy {
+  opacity: 1;
+  background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fw-runstate {
+  /* Its own band between Generate and the alternatives: the column's gap
+     alone let it read as Generate's caption and the buttons' label. */
+  margin: 0;
+  padding: 6px 0 8px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fw-runstate.bad {
+  color: var(--error);
+}
+.fw-runstate:empty {
+  display: none;
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  /* The bar under the board: the state is the bar's last line, one line. */
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col > .fw-runstate {
+    order: 10;
+    flex: 1 0 100%;
+    padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

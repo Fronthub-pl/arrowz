@@ -785,3 +785,24 @@ body {
     display: none;
   }
 }
+
+/* Round 3 (3h): from 768 up the status line is read in the run column
+   (run.css); the live `<output>` stays here, out of sight, and the view
+   loses the row. Under 768 the run column is a sheet, and the line keeps its
+   place over the preset strip. */
+@media (min-width: 768px) {
+  .fw-view {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .fw-bar {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}

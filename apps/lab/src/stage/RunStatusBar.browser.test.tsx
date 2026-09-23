@@ -9,6 +9,7 @@ import { storedFixture } from '../state/library.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { RunStatusBar } from './RunStatusBar'
+import { useRunState } from './useRunState'
 
 /**
  * The bar asks the route now (`useInLibrary`), so it needs a router. `/` is the
@@ -279,5 +280,145 @@ describe('RunStatusBar', () => {
     // From the dictionary, not a regex: the string is `Press "Generate".`, and
     // review round 1 measured `/Press Generate/` failing on the quotation marks.
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('pressGenerate'))
+  })
+})
+
+// Round 3 (3h): the numbers the handoff's reconstruction shows. 1 − 734/1250
+// is 41.28%, which every surface prints as 41.3.
+const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
+
+describe('RunStatusBar while a carve reports', () => {
+  it('says the whole progress, percent included', async () => {
+    const screen = await mountBar()
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    await expect
+      .element(screen.getByRole('status'))
+      .toHaveTextContent('41.3% · 52 pieces · 734 left · backtracks 18 · 1.4 s')
+  })
+
+  // The decimals follow the language, as Generate's label and the line do.
+  it('writes the decimals the Polish way', async () => {
+    useStore.getState().lang.setLang('pl')
+    try {
+      const screen = await mountBar()
+      await act(async () => {
+        useStore.getState().run.started(useStore.getState().params.values)
+        useStore.getState().run.progressed(PROGRESS)
+      })
+      await expect
+        .element(screen.getByRole('status'))
+        .toHaveTextContent('41,3% · 52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+    } finally {
+      useStore.getState().lang.setLang('en')
+    }
+  })
+})
+
+/** The two visible lines `useRunState` gives the columns, printed for reading. */
+function Lines() {
+  const { run, library } = useRunState()
+  return (
+    <>
+      <p data-line="run" data-bad={String(run.bad)}>
+        {run.text}
+      </p>
+      {library === null ? null : (
+        <p data-line="library" data-bad={String(library.bad)}>
+          {library.text}
+        </p>
+      )}
+    </>
+  )
+}
+
+async function mountLines(path = '/') {
+  const screen = await render(
+    <MemoryRouter initialEntries={[path]}>
+      <RunStatusBar />
+      <Lines />
+    </MemoryRouter>,
+  )
+  const line = (which: 'run' | 'library') => screen.container.querySelector(`[data-line="${which}"]`)
+  return { screen, line }
+}
+
+// One function says the state three times (useRunState.ts); these pin where
+// the three agree and the two places they differ.
+describe('the lines the columns show', () => {
+  it('say what the live region says, when no carve runs', async () => {
+    const { screen, line } = await mountLines()
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    })
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/^Board closed 100%\./)
+    expect(line('run')?.textContent).toBe(screen.getByRole('status').element().textContent)
+    expect(line('run')?.getAttribute('data-bad')).toBe('false')
+    expect(line('library')).toBeNull()
+  })
+
+  it('drop the percent, which Generate carries, while a carve runs', async () => {
+    const { line } = await mountLines()
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    expect(line('run')?.textContent).toBe('52 pieces · 734 left · backtracks 18 · 1.4 s')
+  })
+
+  it('mark the refusal and a failed run as bad', async () => {
+    const { line } = await mountLines()
+    await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
+    expect(line('run')?.textContent).toBe(EN.t('generateBlocked'))
+    expect(line('run')?.getAttribute('data-bad')).toBe('true')
+    await act(async () => {
+      useStore.getState().params.reset()
+      useStore.getState().run.failed('boom')
+    })
+    expect(line('run')?.textContent).toBe(`${EN.t('generationError')} boom`)
+    expect(line('run')?.getAttribute('data-bad')).toBe('true')
+  })
+
+  // On the saved boards the board column has its own line for the library's
+  // events and failures; the run column keeps talking about the run.
+  it('give the library its own line on the saved boards, and only there', async () => {
+    const { screen, line } = await mountLines('/boards')
+    for (const [notice, bad] of [
+      [{ kind: 'loading', name: '8x8/x' }, 'false'],
+      [{ kind: 'viewSaved', name: '8x8/x' }, 'false'],
+      [{ kind: 'deleted', name: '8x8/x' }, 'false'],
+      [{ kind: 'saveFailed' }, 'true'],
+      [{ kind: 'deleteFailed' }, 'true'],
+    ] as const) {
+      await act(async () => useStore.getState().library.notify(notice))
+      expect(line('library')?.textContent, notice.kind).toBe(screen.getByRole('status').element().textContent)
+      expect(line('library')?.getAttribute('data-bad'), notice.kind).toBe(bad)
+      expect(line('run')?.textContent, notice.kind).toBe(EN.t('pressGenerate'))
+    }
+    await act(async () => {
+      useStore.getState().library.clearNotice()
+      useStore.getState().library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 404' })
+    })
+    expect(line('library')?.textContent).toBe(screen.getByRole('status').element().textContent)
+    expect(line('library')?.getAttribute('data-bad')).toBe('true')
+  })
+
+  // A stored board's description is the live region's alone: its facts are in
+  // the board column already.
+  it('leave a stored board to the live region', async () => {
+    const { meta, file } = storedFixture(1)
+    const { screen, line } = await mountLines(`/boards/8x8/${meta.id}`)
+    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
+    expect(line('library')).toBeNull()
+  })
+
+  it('say nothing of the library while the lab is the tab', async () => {
+    const { line } = await mountLines('/')
+    await act(async () => useStore.getState().library.notify({ kind: 'deleted', name: '8x8/x' }))
+    expect(line('library')).toBeNull()
   })
 })

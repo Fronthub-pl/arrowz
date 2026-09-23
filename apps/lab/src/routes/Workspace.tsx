@@ -45,6 +45,7 @@ export function Workspace({
   const simple = useStore((state) => state.ui.mode === 'simple')
   const solo = useStore((state) => state.ui.solo)
   const sheet = useStore((state) => state.ui.sheet)
+  const running = useStore((state) => state.run.phase === 'running')
   // Mounted here and not in the library panel: `Console` unmounts the panel on
   // the lab face, so a hook living there could never run its "the address names
   // no board — clear the preview" branch, and the stored board would still be
@@ -66,6 +67,12 @@ export function Workspace({
     // <section> rather than on the <main> the whole workspace hides behind.
     <main hidden={hidden}>
       <section id={panel} role="tabpanel" aria-labelledby={`tab-${panel}`} tabIndex={0} className="fw-view">
+        {/* The live region, at every band. From 768 up the bar is out of
+            sight and out of the grid (shell.css, round 3 3h): the columns'
+            lines under Generate and Load into lab are what a person reads, and
+            this is what a screen reader hears. Under 768 the run column is a
+            sheet that may be `display: none`, where a live region would be
+            silent, so the announcement cannot live in it. */}
         <div className="fw-bar">
           <RunStatusBar />
         </div>
@@ -91,12 +98,15 @@ export function Workspace({
             settings={<Console control={control} face={tab} />}
             run={<RunColumn control={control} goRef={goRef} abortRef={abortRef} />}
             side={lab ? null : <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />}
+            // Only on the lab: the saved boards' stage shows a stored board,
+            // which a carve in flight does not touch.
+            busy={lab && running}
           />
           {lab ? <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} /> : null}
           {lab ? <Violations /> : null}
         </div>
         {/* After `.fw-lab`, not in it: the lab's children keep their slots
-            (Ruling 6), and the bar is shown only at XS (shell.css). */}
+            (Ruling 6), and the sheet bar is shown only at XS (shell.css). */}
         <SheetBar tab={tab} />
       </section>
     </main>
