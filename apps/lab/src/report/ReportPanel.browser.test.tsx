@@ -286,9 +286,10 @@ test('the summary puts four figures over the table, term before number in the ma
   expect(figure(screen.container, 1).value.textContent).toBe('18')
   expect(figure(screen.container, 2).value.textContent).toBe(row(screen.container, 7).cells[1]?.textContent)
   expect(figure(screen.container, 3).value.textContent).toMatch(/^\d+\.\d\d s$/)
-  // The number sits over its term on screen, whatever the markup's order.
-  const { term, value } = figure(screen.container, 0)
+  // Number, term, change, top to bottom on screen, whatever the markup's order.
+  const { term, value, change } = figure(screen.container, 0)
   expect(value.getBoundingClientRect().bottom).toBeLessThanOrEqual(term.getBoundingClientRect().top)
+  expect(term.getBoundingClientRect().bottom).toBeLessThanOrEqual(change.getBoundingClientRect().top)
   // Nothing to compare with yet: every change is a placeholder the eye skips.
   for (const at of [0, 1, 2, 3]) {
     const { change } = figure(screen.container, at)
@@ -377,6 +378,17 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
       const value = box.querySelector('dd .v')
       if (!(value instanceof HTMLElement)) throw new Error('no value')
       expect(value.scrollWidth, `${lang}: ${value.textContent}`).toBeLessThanOrEqual(value.clientWidth)
+    }
+    // No cell runs past its own track either: a value that would not wrap
+    // overflows its cell, not its row.
+    for (const cell of stats(screen.container).querySelectorAll('th, td'))
+      expect(cell.scrollWidth, `${lang}: ${cell.textContent}`).toBeLessThanOrEqual(cell.clientWidth)
+    // A wide row's label keeps its one line; it is the value that wraps.
+    for (const tr of stats(screen.container).querySelectorAll('tr.long')) {
+      const label = tr.querySelector('th')
+      if (!(label instanceof HTMLElement)) throw new Error('a wide row has no label')
+      const line = Number.parseFloat(getComputedStyle(label).lineHeight)
+      expect(label.getBoundingClientRect().height, `${lang}: ${label.textContent}`).toBeLessThan(1.5 * line)
     }
     // The board's size stays on its label's line.
     const board = row(screen.container, 0)
