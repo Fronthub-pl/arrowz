@@ -492,6 +492,13 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   await expect
     .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
     .toBe(true)
+  // The attribute is the commit's; the listener leaves in that commit's
+  // passive-effect cleanup, which React runs after it — a window no hand can
+  // press into, but a synchronous `press` right after the poll can, and did
+  // in two whole-suite runs of handoff 2's PR 6. Two
+  // frames let the cleanup run; the `f` case above gets the same wait from
+  // `userEvent.keyboard`'s round trip.
+  await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
   const seed = useStore.getState().params.values.seed
   press(document.body, { key: ']' })
   expect(useStore.getState().params.values.seed).toBe(seed)
