@@ -867,9 +867,13 @@
 .kv-g > .kv-sect:first-child > .kv-sub {
   padding-top: 0;
 }
-/* A narrow panel drops the bound tracks; the range stays in the row's title,
-   and the special value's chip goes with its track. */
-@container (max-width: 359px) {
+/* A panel narrower than the five tracks' floor drops the bound tracks; the
+   range stays in the row's title, and the special value's chip goes with its
+   track. The floor is `.kv-g .ln`'s: calc(12ch + 36px), calc(5ch + 48px),
+   36px, 13ch, 36px and four 8px gaps, 30ch + 188px (404px at 12px). At 359px
+   the bands' 1280–1599 drawer (360–400px of panel) cut the maximum's track
+   off the row (live pass, 2026-09-23). */
+@container (width < calc(30ch + 188px)) {
   .kv-g .ln {
     grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
   }
@@ -1407,11 +1411,24 @@
     height: 44px;
     padding: 0 16px;
   }
+  /* The range ends go with their tracks, as in a narrow panel's container
+     query: hidden on five tracks, they left the slider auto-placed in the
+     36px minimum's track (live pass at 600×900, 2026-09-23). */
   .kv-g .ln {
     font-size: 14px;
+    grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .kv-dep .ln {
+    grid-template-columns: calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
   }
   .kv-g .mn,
   .kv-g .mx {
     display: none;
+  }
+  .kv-g .cc.wide {
+    grid-column: auto;
+  }
+  .kv-g .fw-swatches {
+    margin-right: 0;
   }
 }

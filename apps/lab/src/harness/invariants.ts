@@ -24,6 +24,7 @@ export type Invariant =
   | 'touch-target'
   | 'top-scroll'
   | 'hidden-box'
+  | 'knob-row'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -386,6 +387,34 @@ function hiddenBox(root: HTMLElement): Finding[] {
     .map((el) => ({ invariant: 'hidden-box' as const, detail: label(el) }))
 }
 
+/**
+ * A knob row keeps its cells in its own tracks (live pass, 2026-09-23).
+ * `panel-overflow` cannot see this: `.kv` clips the row (`overflow: hidden`)
+ * before `.fw-knobs` grows. Two readings: no rendered cell ends past the row
+ * (at 1280×800 the five tracks needed 404px of a 360px row and the bound
+ * track fell off the edge), and the last rendered cell ends inside the last
+ * track (at 600×900 the bounds were `display: none` on a five-track grid, so
+ * the slider auto-placed into a 36px bound track and 234px stood empty).
+ */
+function knobRows(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const row of root.querySelectorAll('.kv-g .ln')) {
+    if (!rendered(row)) continue
+    const cells = [...row.children].filter(rendered)
+    if (cells.length === 0) continue
+    const style = getComputedStyle(row)
+    const edge = row.getBoundingClientRect().right - Number.parseFloat(style.paddingRight)
+    const end = Math.max(...cells.map((cell) => cell.getBoundingClientRect().right))
+    const tracks = style.gridTemplateColumns.split(' ').map(Number.parseFloat)
+    const last = (tracks[tracks.length - 1] ?? 0) + (Number.parseFloat(style.columnGap) || 0)
+    if (end > edge + EPS)
+      out.push({ invariant: 'knob-row', detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)} > ${edge.toFixed(0)}` })
+    else if (end < edge - last - EPS)
+      out.push({ invariant: 'knob-row', detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)}, ${(edge - end).toFixed(0)}px short of ${edge.toFixed(0)}` })
+  }
+  return out
+}
+
 /** Opening a popover in the top bar never scrolls it (the low window's presets). */
 function topScroll(root: HTMLElement): Finding[] {
   const bar = root.querySelector('.fw-top')
@@ -411,5 +440,6 @@ export function audit(root: HTMLElement, { board, solo = false }: { board: boole
     ...touchTargets(root),
     ...topScroll(root),
     ...hiddenBox(root),
+    ...knobRows(root),
   ]
 }
