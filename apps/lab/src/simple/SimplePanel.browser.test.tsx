@@ -214,8 +214,8 @@ describe('SimplePanel', () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
     expect(screen.container.querySelector('input[type="color"]')).toBeNull()
-    // The palette lives in the console's colours card now (spec R8).
-    expect(screen.container.querySelector('.fw-colours')).toBeNull()
+    // The palette is the console's preview row (handoff 2, PR 3), never here.
+    expect(screen.container.querySelector('#view-palette-label')).toBeNull()
   })
 
   // Spec R7: the help paragraph left the card for the preview heading's list.

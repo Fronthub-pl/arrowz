@@ -1,9 +1,10 @@
 import { type ParamGroup, type ParamKey, PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
-import { type ReactElement, useState } from 'react'
+import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { panelId, tabId } from './GroupRail'
 import { Knob } from './Knob'
+import { CollapsibleBlock } from './KnobRow'
 import { BLOCKS, blockKeys, type KnobBlock } from './knobLayout'
 import { StartKnob } from './StartKnob'
 
@@ -57,17 +58,9 @@ function LengthMix(): ReactElement {
 }
 
 /**
- * A dependency block (handoff 2, PR 2; `knobLayout.ts`): the knobs that do
- * nothing until a parent does. Collapsed while every parent is 0, with a
- * header saying what it needs; open once one is on, with the block's name.
- * The header toggles it either way, and a parent crossing 0 resets it to that
- * default. It stays open while a knob in it is refused, or while the palette
- * has asked for one of its knobs, so neither a refusal nor a jump can land on
- * a closed block.
- *
- * The body is always mounted and `hidden` when closed — the header's
- * `aria-controls` must resolve, and the rows keep their subscriptions and
- * drafts. No `display` rule on it: an author `display` would defeat `hidden`.
+ * A group's dependency block (`knobLayout.ts`): the knobs that do nothing
+ * until a parent does, on while any parent is above 0, held open while one of
+ * them is refused or asked for by the palette (`CollapsibleBlock`).
  */
 function DependencyBlock({ block }: { block: KnobBlock }): ReactElement {
   const dict = useDictionary()
@@ -78,38 +71,24 @@ function DependencyBlock({ block }: { block: KnobBlock }): ReactElement {
     const target = state.ui.focusTarget
     return target !== null && keys.some((key) => target === `knob-${key}`)
   })
-  // The header's choice, reset whenever the parents cross 0 (React's
-  // "adjust state while rendering" pattern, not an effect: an effect would
-  // paint the stale state for a frame).
-  const [choice, setChoice] = useState({ on, open: on })
-  if (choice.on !== on) setChoice({ on, open: on })
-  const open = choice.open || refused || wanted
-  const bodyId = `dep-${block.id}`
   return (
-    <div className={on ? 'kv-dep' : 'kv-dep off'}>
-      <button
-        type="button"
-        className="kv-dephd"
-        aria-expanded={open}
-        aria-controls={bodyId}
-        onClick={() => setChoice({ on, open: !open })}
-      >
-        <span>{dict.t(on ? block.title : block.needs)}</span>
-        <span aria-hidden="true">
-          {keys.length} {open ? '▴' : '▾'}
-        </span>
-      </button>
-      <div id={bodyId} hidden={!open}>
-        {block.subs.map((sub) => (
-          <div key={sub.keys.join()} className="kv-subs">
-            {sub.title === null ? null : <div className="kv-sub">{dict.t(sub.title)}</div>}
-            {sub.keys.map((key) => (
-              <Knob key={key} spec={specOf(key)} blockReason={block.reason} />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+    <CollapsibleBlock
+      id={`dep-${block.id}`}
+      on={on}
+      forced={refused || wanted}
+      needs={dict.t(block.needs)}
+      title={dict.t(block.title)}
+      count={keys.length}
+    >
+      {block.subs.map((sub) => (
+        <div key={sub.keys.join()} className="kv-subs">
+          {sub.title === null ? null : <div className="kv-sub">{dict.t(sub.title)}</div>}
+          {sub.keys.map((key) => (
+            <Knob key={key} spec={specOf(key)} blockReason={block.reason} />
+          ))}
+        </div>
+      ))}
+    </CollapsibleBlock>
   )
 }
 

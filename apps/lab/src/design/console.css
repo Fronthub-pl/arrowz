@@ -333,21 +333,6 @@
   border: 1px solid var(--border);
   background: var(--void);
 }
-/* A single colour field, as `ColorField` draws it: a label and one swatch on
-   its own row, unlike the palette's list of many. */
-.fw-colour-cell {
-  display: flex;
-  align-items: center;
-  justify-self: end;
-  gap: 2px;
-}
-.fw-colour-cell input[type='color'] {
-  width: 28px;
-  height: 22px;
-  padding: 1px;
-  border: 1px solid var(--border);
-  background: var(--void);
-}
 /* `.fw` because `.fw button`'s `color: inherit` (0,1,1) outranked the bare
    class and the mist never applied. */
 .fw .fw-palette-remove {
@@ -364,50 +349,16 @@
   color: var(--error);
   border-color: var(--error);
 }
-/* The four drawing flags as one card (review change 6). */
-.fw-k.fw-flags {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px 24px;
-}
-/* A switch needs no 88px track (`.fw-k .row`'s default): the label keeps the
-   width, the switch sits at its own. */
-.fw-k.fw-flags .row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-/* The colours card (review change 7): five colour objects sat on five
-   different x in four cards. One card, a label column and a control column,
-   everything starting on one x and growing right. */
-.fw-k.fw-colours {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: 12px 24px;
-}
-.fw-k.fw-colours > .val {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
-}
 /* The simple view's skeleton choice (`SimplePanel.tsx`): two segmented chips,
    "no skeleton" and "with a skeleton", do not fit `.fw-grid`'s
    `minmax(190px, 1fr)` floor at every width (live pass, simple view,
    1400×900, pre-existing at the branch's base 7167248: `.fw-seg` 3.84px past
    its own card, `.fw-knobs.fw-simple` scrollWidth 1187 vs clientWidth 1183).
-   Full row, the same shape `.fw-k.fw-flags` and `.fw-k.fw-colours` already
-   use for a control the standard column does not fit — not a shrink or a
-   wrap on `Segmented` itself, which every other user of it (the top bar, the
+   Full row, for a control the standard column does not fit — not a shrink or
+   a wrap on `Segmented` itself, which every other user of it (the top bar, the
    language switch) still draws at its own width. */
 .fw-k.fw-skeleton {
   grid-column: 1 / -1;
-}
-.fw-k.fw-colours .fw-swatches,
-.fw-k.fw-colours .fw-palette-list {
-  margin: 0;
 }
 /* The remove cross weighed as much as the swatch it removes (review change 8):
    no border, `--ash`, until hover or focus makes it a button. */
@@ -628,9 +579,16 @@
   border-color: var(--signal-fill);
   color: var(--ink);
 }
-.fw .kv-chip:hover {
+.fw .kv-chip:not(:disabled):hover {
   border-color: var(--mist);
   color: var(--ink);
+}
+/* A refused chip — the palette's add at its cap — reads as refused, not
+   merely inert: a disabled control is exempt from the text contrast rule, and
+   its reason is in its description. */
+.fw .kv-chip:disabled {
+  color: var(--border-strong);
+  cursor: default;
 }
 .kv-g .cc {
   display: flex;
@@ -856,6 +814,59 @@
 .kv-mix .leg .bad b {
   color: var(--error);
 }
+/* The preview's rows (handoff 2, PR 3). A value with no number — `on`/`off`,
+   a hex, the palette's `n / 8` — is still the value: it ends on the numbers'
+   x, in the numbers' colour and size. */
+.kv-g .vc > .kv-unit:only-child {
+  width: auto;
+  overflow: visible;
+  padding-right: calc(4px + var(--val-u));
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: inherit;
+}
+/* The palette takes the minimum's track and the control's. */
+.kv-g .cc.wide {
+  grid-column: 3 / 5;
+}
+.kv-colour {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.kv-colour input[type='color'] {
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+}
+.kv-colour .fw-palette-list {
+  margin: 0;
+}
+/* The chosen theme's strip, under its row, ending where the controls end. */
+.kv-g .fw-swatches {
+  display: flex;
+  gap: 4px;
+  width: max-content;
+  margin: 0 var(--end) 8px auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+}
+.kv-g .fw-swatch {
+  flex: none;
+  width: 20px;
+  height: 16px;
+}
+/* A section's heading opens the panel without the gap the others keep. */
+.kv-g > .kv-sect:first-child > .kv-sub {
+  padding-top: 0;
+}
 /* A narrow panel drops the bound tracks; the range stays in the row's title,
    and the special value's chip goes with its track. */
 @container (max-width: 359px) {
@@ -868,6 +879,12 @@
   .kv-g .mn,
   .kv-g .mx {
     display: none;
+  }
+  .kv-g .cc.wide {
+    grid-column: auto;
+  }
+  .kv-g .fw-swatches {
+    margin-right: 0;
   }
 }
 /* A finger: the handoff's touch sizes (§7), for any coarse pointer. */

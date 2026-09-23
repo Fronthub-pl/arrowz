@@ -61,7 +61,7 @@ export function ValueKnob({
   const whyId = `knob-${spec.key}-why`
   const describedBy = `${whyId} ${descId(spec.key)}`
   const unit = UNIT_OF[spec.key]
-  const { button, paragraph } = useKnobHelp(spec.key, name, help)
+  const { button, paragraph } = useKnobHelp(descId(spec.key), name, help)
 
   return (
     <div className={`kv-row${broken ? ' bad' : ''}${off ? ' off' : ''}`} title={rowTitle(dict, label, bounds)}>
@@ -108,10 +108,10 @@ export function ValueKnob({
         }
         control={
           <KnobTrack
-            spec={spec}
             id={`knob-${spec.key}`}
             value={value}
             bounds={bounds}
+            step={spec.step}
             floor={floor}
             word={word}
             describedBy={describedBy}

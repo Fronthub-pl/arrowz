@@ -116,9 +116,10 @@ describe('the drawn track of a knob row', () => {
   const track = (floor?: number, onCommit: (v: number) => void = () => {}) => (
     <div className="fw" style={{ width: '200px' }}>
       <KnobTrack
-        spec={specOf('pStraight')}
         id="t"
         value={0.8}
+        bounds={specOf('pStraight')}
+        step={specOf('pStraight').step}
         floor={floor}
         word={null}
         describedBy="why desc"

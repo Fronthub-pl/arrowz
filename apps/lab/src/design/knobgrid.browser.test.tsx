@@ -61,9 +61,9 @@ test('rows are 34px, ruled, one under the next', async () => {
   expect(b.getBoundingClientRect().top).toBeCloseTo(a.getBoundingClientRect().bottom, 0)
 })
 
-// Handoff 2, PR 2 (§2): one grid for the whole console. Walked through the
-// real lab, every group in turn, both languages, at the two widths the
-// handoff names: at 1440 the panel keeps its bound tracks, at 924 it is
+// Handoff 2, PR 2 (§2) and PR 3: one grid for the whole console, the
+// preview's rows included. Walked through the real lab, every group and the
+// preview in turn, both languages, at the two widths the handoff names: at 1440 the panel keeps its bound tracks, at 924 it is
 // under 360px and drops them. In each, every value ends on one x and every
 // control starts on one x — across groups, not only within one — and no
 // short label is cut.
@@ -73,7 +73,7 @@ test.each([
   [924, 768, 'en'],
   [924, 768, 'pl'],
 ] as const)(
-  'at %i×%i (%s) every group puts its values and controls on one x, and cuts no label',
+  'at %i×%i (%s) every group and the preview put values and controls on one x, and cut no label',
   async (w, h, lang) => {
     await page.viewport(w, h)
     const screen = await mountApp('advanced')
@@ -81,10 +81,12 @@ test.each([
     // The skeleton's and the probe's blocks open, so their rows are measured
     // too — the indent must come out of the label track alone.
     await act(async () => useStore.getState().params.setMany({ giants: 4, probe: 0.3 }))
+    // The preview's two blocks open too.
+    await act(async () => useStore.setState((s) => ({ view: { ...s.view, hilite: true, showPoints: true } })))
     const valueEnds = new Set<number>()
     const controlStarts = new Set<number>()
     let rows = 0
-    for (const group of RAIL_GROUPS) {
+    for (const group of [...RAIL_GROUPS, 'preview' as const]) {
       await act(async () => useStore.getState().ui.select(group))
       for (const line of screen.container.querySelectorAll('.kv-row > .ln')) {
         rows++
@@ -95,7 +97,8 @@ test.each([
         const control = line.querySelector('.cc')
         if (value === null || control === null) throw new Error('a row without its tracks')
         valueEnds.add(Math.round(value.getBoundingClientRect().right))
-        controlStarts.add(Math.round(control.getBoundingClientRect().left))
+        // The palette's list takes the minimum's track as well, on purpose.
+        if (!control.classList.contains('wide')) controlStarts.add(Math.round(control.getBoundingClientRect().left))
       }
     }
     expect(rows).toBeGreaterThan(20)

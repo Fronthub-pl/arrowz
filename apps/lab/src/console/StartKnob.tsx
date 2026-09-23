@@ -40,7 +40,7 @@ export function StartKnob() {
   const setStart = useStore((state) => state.params.setStart)
   const start = dict.d.start
   const name = dict.d.short.headBias
-  const { button, paragraph } = useKnobHelp('start', name, start.help)
+  const { button, paragraph } = useKnobHelp(descId('start'), name, start.help)
   return (
     <>
       <div className="kv-row choice" title={rowTitle(dict, start.label)}>

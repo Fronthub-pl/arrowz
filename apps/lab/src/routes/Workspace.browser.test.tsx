@@ -459,7 +459,7 @@ test('picking a rail entry replaces the panel', async () => {
   expect(label.textContent).toBe('giants')
   await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
-  await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
+  await expect.element(screen.getByRole('switch', { name: 'rounded' })).toBeVisible()
 })
 
 test('Generate is refused while a rule is broken, and the reasons are on screen', async () => {
@@ -533,7 +533,8 @@ test('the saved board carries the view on screen', async () => {
   const fetchSpy = vi.spyOn(window, 'fetch')
   try {
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
-    await screen.getByRole('switch', { name: /colour the arrows/i }).click()
+    // The preview's rows name their switches by the short term (handoff 2, PR 3).
+    await screen.getByRole('switch', { name: 'multicolour' }).click()
     // A second field, and a number rather than a flag: one boolean surviving
     // the trip says less than "the view the user was looking at survived it".
     useStore.getState().view.setNumber('stroke', '0.8')

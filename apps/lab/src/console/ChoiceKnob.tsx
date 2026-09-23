@@ -28,7 +28,7 @@ export function ChoiceKnob({
   const name = dict.d.short[spec.key]
   const { text, off } = rowState(dict, { broken, inactive, blockReason })
   const whyId = `knob-${spec.key}-why`
-  const { button, paragraph } = useKnobHelp(spec.key, name, help)
+  const { button, paragraph } = useKnobHelp(descId(spec.key), name, help)
   return (
     <div className={`kv-row choice${broken ? ' bad' : ''}${off ? ' off' : ''}`} title={rowTitle(dict, label)}>
       <KnobLine

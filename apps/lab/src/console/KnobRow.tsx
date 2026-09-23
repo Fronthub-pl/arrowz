@@ -1,8 +1,7 @@
-import type { InactiveKey, ParamSpec, Violation } from '@arrowz/engine'
+import type { InactiveKey, Violation } from '@arrowz/engine'
 import type { Dict } from '@arrowz/engine/i18n'
 import { type ReactElement, type ReactNode, useState } from 'react'
 import { useDictionary } from '../i18n'
-import { descId } from './FieldHelp'
 import { boundOn, percent } from './KnobSlider'
 
 /**
@@ -18,6 +17,7 @@ export function KnobLine({
   min = null,
   control,
   max = null,
+  wide = false,
 }: {
   label: ReactNode
   help: ReactNode
@@ -25,6 +25,8 @@ export function KnobLine({
   min?: ReactNode
   control: ReactNode
   max?: ReactNode
+  /** The control takes the minimum's track too: the palette's list of colours. */
+  wide?: boolean | undefined
 }): ReactElement {
   return (
     <div className="ln">
@@ -33,8 +35,8 @@ export function KnobLine({
         {help}
       </span>
       <span className="vc">{value}</span>
-      <span className="mn">{min}</span>
-      <span className="cc">{control}</span>
+      {wide ? null : <span className="mn">{min}</span>}
+      <span className={wide ? 'cc wide' : 'cc'}>{control}</span>
       <span className="mx">{max}</span>
     </div>
   )
@@ -47,10 +49,9 @@ export function KnobLine({
  * in `aria-describedby` — a closed description must not dangle a reference
  * (Ruling 9 of 2026-09-13-lab-run-triggers).
  */
-export function useKnobHelp(key: string, name: string, text: string) {
+export function useKnobHelp(id: string, name: string, text: string) {
   const dict = useDictionary()
   const [open, setOpen] = useState(false)
-  const id = descId(key)
   const button = (
     <button
       type="button"
@@ -121,22 +122,24 @@ export function rowTitle(dict: Dict, label: string, range?: { min: number; max: 
  * the rule floor, with the native range input over them, transparent and
  * covering the whole box — so the keyboard, the touch and the value come from
  * the platform, and the look does not depend on the browser's slider parts.
- * The simple view keeps `KnobSlider`, which the handoff does not touch.
+ * The simple view keeps `KnobSlider`, which the handoff does not touch. A
+ * knob and a preview number (PR 3) both draw it: it knows a range and a step,
+ * not where they come from.
  */
 export function KnobTrack({
-  spec,
   id,
   value,
-  bounds = spec,
+  bounds,
+  step,
   floor,
   word,
   describedBy,
   onCommit,
 }: {
-  spec: ParamSpec
   id: string
   value: number
-  bounds?: { min: number; max: number }
+  bounds: { min: number; max: number }
+  step: number
   floor?: number | undefined
   word: string | null
   describedBy: string
@@ -162,7 +165,7 @@ export function KnobTrack({
         id={id}
         min={bounds.min}
         max={bounds.max}
-        step={spec.step}
+        step={step}
         value={value}
         // The CLI's word for the value, where it has one: a slider announcing
         // "0" for --lmax=auto announces a maximum length of nothing.
@@ -170,6 +173,63 @@ export function KnobTrack({
         aria-describedby={describedBy}
         onChange={(event) => onCommit(Number(event.currentTarget.value))}
       />
+    </div>
+  )
+}
+
+/**
+ * A dependency block (handoff 2, PR 2 and PR 3): rows that do nothing until a
+ * parent does, under a header that toggles them. Closed while the parent is
+ * off, with a header saying what it needs; open once it is on, with the
+ * block's name. The header toggles it either way, and the parent turning on
+ * or off resets it to that default. `forced` keeps it open whatever the
+ * header says — a refusal in it, or a palette jump to one of its rows — so
+ * neither can land on a closed block.
+ *
+ * The body is always mounted and `hidden` when closed: the header's
+ * `aria-controls` must resolve, and the rows keep their subscriptions and
+ * drafts. No `display` rule on it: an author `display` would defeat `hidden`.
+ */
+export function CollapsibleBlock({
+  id,
+  on,
+  forced,
+  needs,
+  title,
+  count,
+  children,
+}: {
+  id: string
+  on: boolean
+  forced: boolean
+  needs: string
+  title: string
+  count: number
+  children: ReactNode
+}): ReactElement {
+  // The header's choice, reset whenever the parent crosses on/off (React's
+  // "adjust state while rendering" pattern, not an effect: an effect would
+  // paint the stale state for a frame).
+  const [choice, setChoice] = useState({ on, open: on })
+  if (choice.on !== on) setChoice({ on, open: on })
+  const open = choice.open || forced
+  return (
+    <div className={on ? 'kv-dep' : 'kv-dep off'}>
+      <button
+        type="button"
+        className="kv-dephd"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setChoice({ on, open: !open })}
+      >
+        <span>{on ? title : needs}</span>
+        <span aria-hidden="true">
+          {count} {open ? '▴' : '▾'}
+        </span>
+      </button>
+      <div id={id} hidden={!open}>
+        {children}
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import type { ViewNumber } from '@arrowz/engine'
 import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
 import type { ViewFlag } from '../state/view.slice'
 import type { HelpEntry } from './FieldHelp'
+import type { UnitKey } from './knobLayout'
 
 /**
  * A dictionary key whose entry is a plain string. `dict.t` is generic over
@@ -58,12 +59,55 @@ export const VIEW_FLAGS: readonly {
   { flag: 'showPoints', label: 'showPoints' },
 ]
 
-/** The drawing flags, one card in the preview (spec R8); `showPoints` belongs to the points. */
-export const DRAWING_FLAGS = VIEW_FLAGS.filter(({ flag }) => flag !== 'showPoints')
 
 /** The heading's entries for the fields that have help (spec R7). */
 export function viewHelpEntries(fields: readonly ViewField[], t: (key: PlainUiKey) => string): HelpEntry[] {
   return fields.flatMap((field) =>
     field.help === undefined ? [] : [{ id: `view-${field.field}-help`, label: t(field.label), text: t(field.help) }],
   )
+}
+
+/**
+ * A preview number as a knob row (handoff 2, PR 3): its short label, its
+ * description, its unit, and — for `headWidth` — the special value 0, which
+ * the element draws as the automatic width. Keyed by the number, so a sixth
+ * view number cannot be drawn without a row (`viewFields.test.ts`).
+ */
+export interface ViewRow {
+  short: PlainUiKey
+  help: PlainUiKey
+  unit?: UnitKey
+  /** 0 is the automatic value, drawn as a chip in the minimum's track. */
+  auto?: true
+}
+
+export const VIEW_ROWS: Readonly<Record<ViewNumber, ViewRow>> = {
+  cell: { short: 'viewShortCell', help: 'cellHelp', unit: 'px' },
+  stroke: { short: 'viewShortStroke', help: 'strokeHelp', unit: 'units' },
+  headWidth: { short: 'viewShortHeadWidth', help: 'headHelp', unit: 'units', auto: true },
+  headHeight: { short: 'viewShortHeadHeight', help: 'headHelp', unit: 'units' },
+  top: { short: 'viewShortTop', help: 'topHelp', unit: 'pieces' },
+}
+
+/** A preview flag as a knob row: its short label and its description. */
+export const FLAG_ROWS: Readonly<Record<ViewFlag, { short: PlainUiKey; help: PlainUiKey }>> = {
+  rounded: { short: 'viewShortRounded', help: 'roundedHelp' },
+  colored: { short: 'viewShortColored', help: 'coloredHelp' },
+  hilite: { short: 'viewShortHilite', help: 'hiliteHelp' },
+  voids: { short: 'viewShortVoids', help: 'voidsHelp' },
+  showPoints: { short: 'viewShortShowPoints', help: 'showPointsHelp' },
+}
+
+/**
+ * Where the automatic head width's chip lands when it is released and the row
+ * held no width before: the width the element draws at 0 for this stroke, so
+ * the head does not jump. The rule is the engine's (`pieceShape`,
+ * geometry.ts: a stroke of 0.5 or more draws a stick as wide as the line,
+ * a thinner one 0.4 + 0.9 × stroke), snapped to the field's step and held in
+ * its range; `viewFields.test.ts` checks two strokes against it.
+ */
+export function autoHeadWidth(stroke: number, step: number, max: number): number {
+  const width = stroke >= 0.5 ? stroke : 0.4 + 0.9 * stroke
+  // `toFixed` against the float tail a multiple of 0.05 picks up (12 × 0.05).
+  return Math.min(max, Number((Math.round(width / step) * step).toFixed(6)))
 }
