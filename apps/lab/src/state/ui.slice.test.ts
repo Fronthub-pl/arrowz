@@ -74,6 +74,16 @@ describe('the switches the run column owns', () => {
     store.ui.toggleSettings()
     expect(store.ui.settings).toBe(true)
   })
+
+  // Handoff 2, PR 6: the saved boards' drawer opens on the list of boards.
+  it('opens the saved boards on their list and switches to the preview and back', () => {
+    const store = slice()
+    expect(store.ui.boards).toBe('list')
+    store.ui.showBoards('preview')
+    expect(store.ui.boards).toBe('preview')
+    store.ui.showBoards('list')
+    expect(store.ui.boards).toBe('list')
+  })
 })
 
 describe('the view a page opens in', () => {

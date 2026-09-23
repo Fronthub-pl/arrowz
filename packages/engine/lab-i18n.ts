@@ -349,6 +349,22 @@ export const EN = {
     viewSaved: (id: string) => `Saved the new view of board ${id}.`,
     deletedBoard: (id: string) => `Deleted ${id}.`,
     deleteFailed: 'Could not delete the board.',
+    // The saved boards in the lab's layout (handoff 2, PR 6): the drawer's
+    // rail, its list's header, the right column and the report's figures.
+    boardsRailLabel: 'Board sizes and preview',
+    railSizes: 'sizes',
+    sizeTab: (size: string, n: number) => `${size}, ${n} board${n === 1 ? '' : 's'}`,
+    boardsCount: (n: number) => `${n} board${n === 1 ? '' : 's'}`,
+    cliThisBoard: 'CLI · this board',
+    openBoardHint: 'Open a board from the list.',
+    boardFacts: 'About this board',
+    factLayout: 'layout',
+    factSeed: 'seed',
+    factSource: 'source',
+    factGenerated: 'generated',
+    secStoredArrows: 'arrows · saved with the board',
+    stat_genVal: (g: string) => `generation ${g} s`,
+    storedReportNote: 'A saved board keeps these figures only. Load it into the lab and generate for the full report.',
     inactivePrefix: 'No effect: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Settings outside the safe range',
@@ -433,6 +449,14 @@ export type Translation = Dictionary & {
   params: Record<ParamKey, { label: string; help: string }>
   /** Each value of a fixed-choice knob, keyed by the English word PARAM_SPEC gives it — the word the flag takes. */
   choices: Partial<Record<ParamKey, Record<string, string>>>
+}
+
+/** "plansza" after a count: 1 plansza, 2–4 plansze (but 12–14 plansz), 5+ plansz. */
+function plBoards(n: number): string {
+  if (n === 1) return 'plansza'
+  const tens = n % 100
+  const ones = n % 10
+  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? 'plansze' : 'plansz'
 }
 
 // Polish: the translation of the lab, plus the parameter and reason texts the
@@ -881,6 +905,21 @@ export const PL: Translation = {
     viewSaved: (id) => `Zapisano nowy widok planszy ${id}.`,
     deletedBoard: (id) => `Usunięto ${id}.`,
     deleteFailed: 'Nie udało się usunąć planszy.',
+    boardsRailLabel: 'Rozmiary plansz i podgląd',
+    railSizes: 'rozmiary',
+    sizeTab: (size, n) => `${size}, plansz: ${n}`,
+    boardsCount: (n) => `${n} ${plBoards(n)}`,
+    cliThisBoard: 'CLI · ta plansza',
+    openBoardHint: 'Otwórz planszę z listy.',
+    boardFacts: 'O tej planszy',
+    factLayout: 'układ',
+    factSeed: 'ziarno',
+    factSource: 'źródło',
+    factGenerated: 'wygenerowano',
+    secStoredArrows: 'strzałki · zapisane z planszą',
+    stat_genVal: (g) => `generacja ${g} s`,
+    storedReportNote:
+      'Zapisana plansza przechowuje tylko te liczby. Wczytaj ją do laboratorium i wygeneruj, żeby zobaczyć pełny raport.',
     inactivePrefix: 'Bez wpływu: ',
     // Safe envelope: settings the engine refuses to generate with.
     violationsTitle: 'Ustawienia poza bezpiecznym zakresem',

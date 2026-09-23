@@ -388,3 +388,22 @@ Deno.test('every preview short label has at most 12 characters, in both language
     }
   }
 })
+
+Deno.test('the saved boards count a board in both languages, Polish in its three forms', () => {
+  assertEquals([1, 2, 5].map((n) => EN.ui.boardsCount(n)), ['1 board', '2 boards', '5 boards'])
+  assertEquals(
+    [1, 2, 4, 5, 12, 14, 21, 22, 112, 122].map((n) => PL.ui.boardsCount(n)),
+    [
+      '1 plansza',
+      '2 plansze',
+      '4 plansze',
+      '5 plansz',
+      '12 plansz',
+      '14 plansz',
+      '21 plansz',
+      '22 plansze',
+      '112 plansz',
+      '122 plansze',
+    ],
+  )
+})

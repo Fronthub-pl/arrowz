@@ -12,6 +12,14 @@ export type RailEntry = ParamGroup | 'preview'
 
 export type ViewMode = 'simple' | 'advanced'
 
+/**
+ * What the saved boards' drawer panel shows (handoff 2, PR 6): the boards of
+ * the chosen size, or the open board's preview fields — the rail's SIZES and
+ * ELEMENT sections, as `entry` is the lab's. Never remembered, never in the
+ * hash: the address already names the size.
+ */
+export type BoardsPanel = 'list' | 'preview'
+
 /** The previous lab's key and values. */
 export const MODE_KEY = 'labView'
 
@@ -46,6 +54,8 @@ export interface UiState {
    * cover the board. Remembered, never in the hash.
    */
   settings: boolean
+  /** The saved boards' drawer panel. */
+  boards: BoardsPanel
   /**
    * The DOM id of a control a palette jump asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
@@ -66,6 +76,7 @@ export interface UiState {
   toggleReport(): void
   setSettings(on: boolean): void
   toggleSettings(): void
+  showBoards(panel: BoardsPanel): void
   requestFocus(id: string): void
   clearFocusRequest(): void
 }
@@ -85,6 +96,7 @@ export function createUiSlice(set: SetStore): UiState {
     palette: false,
     report: readStored(REPORT_KEY) === 'open',
     settings: readStored(SETTINGS_KEY) !== 'closed',
+    boards: 'list',
     focusTarget: null,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
@@ -125,6 +137,7 @@ export function createUiSlice(set: SetStore): UiState {
         writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
         return { ui: { ...state.ui, settings } }
       }),
+    showBoards: (boards) => patch({ boards }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
   }
