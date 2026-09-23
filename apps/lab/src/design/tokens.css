@@ -1,5 +1,7 @@
 /* The Fronthub design system's tokens as the workshop mock declares them,
-   minus `--ok` and `--signal-soft`, which the mock declares and never uses.
+   minus `--signal-soft`, which the mock declares and never uses. `--ok` was
+   the other such token until round 3 of the handoff gave it a use: a better
+   change in the report.
    `--error` and `--border-strong` are the opposite case: used by the mock,
    absent from the design system's own token list, and flagged there rather
    than resolved here (spec §7.1).
@@ -33,6 +35,8 @@
   --signal-fill: #4c57be;
   --signal-fill-hover: #5561c8;
   --signal-fill-press: #434eb0;
+  /* Round 3: a better change in the report (report.css); the mock's own value. */
+  --ok: #3fb27f;
   --warn: #d9a038;
   --error: #de5c4e;
   --ui: 'Archivo Variable', Archivo, Helvetica, Arial, sans-serif;

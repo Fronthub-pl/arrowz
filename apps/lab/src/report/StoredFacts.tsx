@@ -1,7 +1,8 @@
-import { genSeconds, pct } from '@arrowz/engine/report'
+import { genSeconds, pct, type StatKey } from '@arrowz/engine/report'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import type { StoredBoard } from '../state/result.slice'
+import { rowClass } from './StatsTable'
 
 /**
  * The report of a stored board (handoff 2, PR 6): what the store keeps beside
@@ -16,24 +17,31 @@ export function StoredFacts({ stored }: { stored: StoredBoard }): ReactElement {
   const { meta } = stored
   const cells = meta.W * meta.H
   const dash = '—'
-  const rows: [string, string][] = [
-    [dict.t('stat_board'), dict.t('stat_boardVal', meta.W, meta.H, dict.fmt(cells), meta.seed)],
-    [dict.t('stat_pieces'), meta.pieces === null ? dash : dict.fmt(meta.pieces)],
-    [dict.t('stat_avgLen'), meta.pieces === null || meta.pieces === 0 ? dash : (cells / meta.pieces).toFixed(1)],
+  const rows: [StatKey, string, string][] = [
+    ['board', dict.t('stat_board'), dict.t('stat_boardVal', meta.W, meta.H, dict.fmt(cells), meta.seed)],
+    ['pieces', dict.t('stat_pieces'), meta.pieces === null ? dash : dict.fmt(meta.pieces)],
     [
+      'avgLen',
+      dict.t('stat_avgLen'),
+      meta.pieces === null || meta.pieces === 0 ? dash : (cells / meta.pieces).toFixed(1),
+    ],
+    [
+      'longest',
       dict.t('stat_longest'),
       meta.maxLen === null ? dash : dict.t('stat_longestVal', meta.maxLen, pct(meta.maxLen / cells)),
     ],
-    [dict.t('stat_backtracks'), `${meta.backtracks ?? dash} / ${meta.restarts ?? dash}`],
-    [dict.t('stat_time'), dict.t('stat_genVal', genSeconds(meta, dash))],
+    ['backtracks', dict.t('stat_backtracks'), `${meta.backtracks ?? dash} / ${meta.restarts ?? dash}`],
+    ['time', dict.t('stat_time'), dict.t('stat_genVal', genSeconds(meta, dash))],
   ]
   return (
     <>
       {meta.ok === null ? null : <p>{meta.ok ? dict.t('closed') : dict.t('notClosedShort')}</p>}
       <table className="fw-stats" aria-label={dict.t('statsTable')}>
         <tbody>
-          {rows.map(([label, value]) => (
-            <tr key={label}>
+          {/* The run's grid (round 3), with no summary to hide rows under and
+              no change to report: a wide value takes the change's track. */}
+          {rows.map(([key, label, value]) => (
+            <tr key={key} className={rowClass(key, false)}>
               <th scope="row">{label}</th>
               <td className="num">{value}</td>
               <td className="fw-delta" />

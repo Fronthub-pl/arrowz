@@ -4,6 +4,7 @@ import { useInLibrary } from '../library/useInLibrary'
 import { useOpenPreview } from '../library/useOpenPreview'
 import { useStore } from '../state/store'
 import { LongestTable } from './LongestTable'
+import { ReportSummary } from './ReportSummary'
 import { StatsTable } from './StatsTable'
 import { StoredFacts } from './StoredFacts'
 
@@ -35,6 +36,7 @@ export function ReportPanel(): ReactElement {
         )
       ) : result === null ? null : (
         <>
+          <ReportSummary result={result} baseline={baseline} />
           <StatsTable result={result} baseline={baseline} />
           <LongestTable board={result.board} />
         </>

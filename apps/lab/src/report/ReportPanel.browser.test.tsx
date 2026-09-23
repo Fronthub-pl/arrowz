@@ -47,11 +47,39 @@ function stats(container: HTMLElement): HTMLTableElement {
   return table
 }
 
-/** The cells of one row of the first group: label, value, delta. Rows 1 and 3 are pieces and longest. */
+/** The statistics' own rows, in order, without the groups' headings (round 3). */
+function dataRows(container: HTMLElement): HTMLTableRowElement[] {
+  return [...stats(container).rows].filter((tr) => !tr.classList.contains('grp'))
+}
+
+/**
+ * The cells of one statistic: label, value, delta. Counted over the whole
+ * table without the group headings, so rows 1 and 3 are still pieces and
+ * longest — a heading row counted in would shift every index by one and
+ * leave each case below reading its neighbour.
+ */
 function row(container: HTMLElement, at: number): HTMLTableRowElement {
-  const found = stats(container).tBodies[0]?.rows[at]
+  const found = dataRows(container)[at]
   if (found === undefined) throw new Error(`no row ${at}`)
   return found
+}
+
+/** The summary over the table (round 3, 3b), or a failure. */
+function summary(container: HTMLElement): HTMLDListElement {
+  const found = container.querySelector('dl.fw-rsum')
+  if (!(found instanceof HTMLDListElement)) throw new Error('the summary is not on the page')
+  return found
+}
+
+/** One figure of the summary: its term, its number and its change. */
+function figure(container: HTMLElement, at: number) {
+  const box = summary(container).children[at]
+  const term = box?.querySelector('dt')
+  const value = box?.querySelector('dd .v')
+  const change = box?.querySelector('dd small')
+  if (!(term instanceof HTMLElement) || !(value instanceof HTMLElement) || !(change instanceof HTMLElement))
+    throw new Error(`no figure ${at}`)
+  return { box, term, value, change }
 }
 
 /**
@@ -72,18 +100,54 @@ test('the report is a named region, empty until there is a result', async () => 
   expect(screen.container.querySelector('table')).toBeNull()
 })
 
-// Spec §5.2: the four separators become the boundaries of five groups.
-test('twenty-three rows in five groups, labelled by row headers', async () => {
+// Spec §5.2: the four separators become the boundaries of five groups, and
+// round 3 (3b) names each group in a heading row that spans the table.
+test('twenty-three rows in five named groups, labelled by row headers', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   const table = stats(screen.container)
   expect(table.tBodies).toHaveLength(5)
-  expect([...table.tBodies].reduce((sum, body) => sum + body.rows.length, 0)).toBe(23)
+  expect(dataRows(screen.container)).toHaveLength(23)
   expect(table.getAttribute('aria-label')).toBe('Statistics')
+  const heads = [...table.tBodies].map((body) => body.rows[0])
+  for (const head of heads) {
+    expect(head?.className).toBe('grp')
+    expect(head?.cells).toHaveLength(1)
+    expect(head?.cells[0]?.tagName).toBe('TH')
+    expect(head?.cells[0]?.getAttribute('scope')).toBe('rowgroup')
+    expect(head?.cells[0]?.getAttribute('colspan')).toBe('3')
+  }
+  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'blocking', 'reach', 'shape', 'run'])
   const first = row(screen.container, 0)
   expect(first.cells[0]?.tagName).toBe('TH')
   expect(first.cells[0]?.getAttribute('scope')).toBe('row')
   expect(first.cells[1]?.textContent).toBe('8 × 8 = 64 cells, seed 1')
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect([...table.tBodies].map((body) => body.rows[0]?.textContent)).toEqual([
+    'rozmiar',
+    'blokowanie',
+    'zasięg',
+    'kształt',
+    'przebieg',
+  ])
+})
+
+// A group heading reads as `.kv-sub` does in the Preview panel: caps at 11px
+// with its rule under it, and a row as `.kv-row`: 34px with its own rule.
+test('the groups and rows keep the rhythm of the Preview panel', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const head = stats(screen.container).tBodies[1]?.rows[0]?.cells[0]
+  if (head === undefined) throw new Error('no group heading')
+  const style = getComputedStyle(head)
+  expect(style.fontSize).toBe('11px')
+  expect(style.textTransform).toBe('uppercase')
+  expect(style.paddingTop).toBe('22px')
+  // Row 5 is f0: short label, short value, no summary to hide it.
+  const f0 = row(screen.container, 5)
+  expect(getComputedStyle(f0).display).toBe('grid')
+  expect(f0.getBoundingClientRect().height).toBe(34)
+  expect(getComputedStyle(f0.cells[0] as HTMLElement).color).toBe(tokenColour('--mist'))
 })
 
 test('the first result has nothing to compare with', async () => {
@@ -153,7 +217,7 @@ test('the longest-pieces heading keeps the report voice after the level change',
   expect(style.textTransform).toBe('uppercase')
 })
 
-const TOKEN = { better: '--ink', worse: '--error', neutral: '--ash' } as const
+const TOKEN = { better: '--ok', worse: '--error', neutral: '--ash' } as const
 
 /** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */
 function tokenColour(token: string): string {
@@ -177,17 +241,156 @@ function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'wor
   expect(contrast(front, back), kind).toBeGreaterThanOrEqual(4.5)
 }
 
-// §7.1, PR 4b: better `--ink`, worse `--error`, neutral `--ash`, on `--graphite`.
-// Measured at the moment each class is on the cell: React keeps the `<td>`
+/** The first delta cell of a kind the eye can see: summary rows leave the table (round 3). */
+function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'): HTMLTableCellElement {
+  const found = dataRows(container)
+    .filter((tr) => getComputedStyle(tr).display !== 'none')
+    .map((tr) => tr.cells[2])
+    .find((cell) => cell?.classList.contains(kind))
+  if (found === undefined) throw new Error(`no ${kind} delta on screen`)
+  return found
+}
+
+// §7.1, PR 4b: worse `--error`, neutral `--ash`, on `--graphite`; round 3
+// makes better `--ok` (6.6:1), where it was `--ink`. Measured on rows still
+// on screen, at the moment each class is on the cell: React keeps the `<td>`
 // across results, so a cell read earlier carries whatever class it has now.
 test('every kind of delta reads at AA', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
-  readsAtAA(row(screen.container, 3).cells[2], 'worse')
-  readsAtAA(row(screen.container, 1).cells[2], 'neutral')
+  readsAtAA(shownDelta(screen.container, 'worse'), 'worse')
+  readsAtAA(shownDelta(screen.container, 'neutral'), 'neutral')
   await act(async () => finish(ONE))
-  readsAtAA(row(screen.container, 3).cells[2], 'better')
+  readsAtAA(shownDelta(screen.container, 'better'), 'better')
+})
+
+// Round 3 (3b): four figures over the table — pieces, longest, D, time — each
+// its number, its term, then its change, and the caption says against what.
+test('the summary puts four figures over the table, term before number in the markup', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const list = summary(screen.container)
+  const cap = screen.container.querySelector('p.fw-rsum-cap')
+  expect(cap?.textContent).toBe('change against the previous run')
+  expect(list.getAttribute('aria-describedby')).toBe(cap?.id)
+  expect(cap?.id).not.toBe('')
+  expect([...list.children].map((box) => box.firstElementChild?.tagName)).toEqual(['DT', 'DT', 'DT', 'DT'])
+  expect([0, 1, 2, 3].map((at) => figure(screen.container, at).term.textContent)).toEqual([
+    'pieces',
+    'longest',
+    'D',
+    'time',
+  ])
+  expect(figure(screen.container, 0).value.textContent).toBe(row(screen.container, 1).cells[1]?.textContent)
+  expect(figure(screen.container, 1).value.textContent).toBe('18')
+  expect(figure(screen.container, 2).value.textContent).toBe(row(screen.container, 7).cells[1]?.textContent)
+  expect(figure(screen.container, 3).value.textContent).toMatch(/^\d+\.\d\d s$/)
+  // The number sits over its term on screen, whatever the markup's order.
+  const { term, value } = figure(screen.container, 0)
+  expect(value.getBoundingClientRect().bottom).toBeLessThanOrEqual(term.getBoundingClientRect().top)
+  // Nothing to compare with yet: every change is a placeholder the eye skips.
+  for (const at of [0, 1, 2, 3]) {
+    const { change } = figure(screen.container, at)
+    expect(change.className).toBe('none')
+    expect(getComputedStyle(change).visibility).toBe('hidden')
+  }
+})
+
+// What the hidden rows said stays reachable (user ruling, round 3): the full
+// name of D and the whole value of longest and time, in their titles.
+test('the summary keeps what the rows it hides used to say', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const abbr = figure(screen.container, 2).term.querySelector('abbr')
+  expect(abbr?.textContent).toBe('D')
+  expect(abbr?.getAttribute('title')).toBe('D (blocking depth)')
+  expect(figure(screen.container, 1).value.title).toBe(row(screen.container, 3).cells[1]?.textContent)
+  expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 22).cells[1]?.textContent)
+  expect(figure(screen.container, 0).value.title).toBe('')
+})
+
+// The same `reportDelta` as the table, so the colour follows the row's
+// `better`, never the sign; time reports no change at all.
+test('the summary compares with the previous run as the table does', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(TWO))
+  const pieces = figure(screen.container, 0).change
+  const longest = figure(screen.container, 1).change
+  expect(pieces.textContent).toBe('+5.0')
+  expect(pieces.className).toBe('neutral')
+  expect(longest.textContent).toBe('−1.0 worse')
+  expect(longest.className).toBe('worse')
+  expect(getComputedStyle(longest).color).toBe(tokenColour('--error'))
+  expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
+  expect(figure(screen.container, 3).change.className).toBe('none')
+  await act(async () => finish(ONE))
+  expect(longest.className).toBe('better')
+  expect(getComputedStyle(longest).color).toBe(tokenColour('--ok'))
+  expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
+})
+
+// One number, one place: the rows the summary repeats leave the table.
+test('the rows the summary repeats leave the table, and only those', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const hidden = dataRows(screen.container)
+    .map((tr, at) => [at, getComputedStyle(tr).display] as const)
+    .filter(([, display]) => display === 'none')
+    .map(([at]) => at)
+  // pieces, longest, D, time
+  expect(hidden).toEqual([1, 3, 7, 22])
+})
+
+// A value wider than a number stays on its label's line, and a row with no
+// change gives its value the change's track (`nodelta`, not `:has()`).
+test('wide values are chosen by the row, and a row without a change widens its value', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const long = dataRows(screen.container)
+    .map((tr, at) => [at, tr.classList.contains('long')] as const)
+    .filter(([, is]) => is)
+    .map(([at]) => at)
+  // board, longest, length distribution, stalls, absorbed leftovers, time
+  expect(long).toEqual([0, 3, 4, 19, 20, 22])
+  expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
+  expect(getComputedStyle(row(screen.container, 0).cells[2] as HTMLElement).display).toBe('none')
+  await act(async () => finish(TWO))
+  // The board never has a change; pieces moved by five.
+  expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
+  expect(row(screen.container, 1).classList.contains('nodelta')).toBe(false)
+})
+
+// At the L drawer's 352px, in both languages, no row is wider than the table
+// and the summary's four columns are each at least 80px.
+test('at 352px nothing in the report runs past its row, in English or Polish', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  await act(async () => finish(TWO))
+  for (const lang of ['en', 'pl'] as const) {
+    await act(async () => useStore.getState().lang.setLang(lang))
+    for (const tr of stats(screen.container).rows)
+      expect(tr.scrollWidth, `${lang}: ${tr.textContent}`).toBeLessThanOrEqual(tr.clientWidth)
+    for (const box of summary(screen.container).children) {
+      expect(box.getBoundingClientRect().width, lang).toBeGreaterThanOrEqual(80)
+      const value = box.querySelector('dd .v')
+      if (!(value instanceof HTMLElement)) throw new Error('no value')
+      expect(value.scrollWidth, `${lang}: ${value.textContent}`).toBeLessThanOrEqual(value.clientWidth)
+    }
+    // The board's size stays on its label's line.
+    const board = row(screen.container, 0)
+    const top = (cell: Element | undefined) => cell?.getBoundingClientRect().top
+    expect(top(board.cells[1]), lang).toBe(top(board.cells[0]))
+  }
+})
+
+// Round 3: the longest pieces' headings stand over their right-aligned numbers.
+test("the longest pieces' column headings are right-aligned over their numbers", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  for (const th of screen.container.querySelectorAll('table.fw-longest thead th'))
+    expect(getComputedStyle(th).textAlign).toBe('right')
 })
 
 // Handoff 2, PR 6: on the saved boards the drawer reports the open board —
@@ -216,6 +419,12 @@ test('on the saved boards the report describes the open board from its stored fi
   expect(rows[1]?.[1]).toBe(String(meta.pieces))
   // The 23 rows of a run are not invented for a board that has no run.
   expect(stats(screen.container).rows).toHaveLength(6)
+  // Round 3: the same grid as a run's table, without its summary or groups.
+  expect(screen.container.querySelector('.fw-rsum')).toBeNull()
+  expect(stats(screen.container).querySelector('tr.grp')).toBeNull()
+  const board = stats(screen.container).rows[0]
+  expect(board?.className).toBe('long nodelta')
+  for (const tr of stats(screen.container).rows) expect(getComputedStyle(tr).display).toBe('grid')
   await expect.element(screen.getByText(/keeps these figures only/)).toBeVisible()
   // The longest pieces are read off the board itself.
   expect(longestHead(screen.container).textContent).toMatch(/longest$/)
