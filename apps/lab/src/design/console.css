@@ -1460,8 +1460,10 @@
   margin-left: auto;
   text-align: right;
 }
-/* The two conditions that drop the bound tracks (the narrow panel's
-   container query and XS) leave the control in the third column. */
+/* A panel too narrow for the bound tracks leaves the control in the third
+   column. At XS the track is about 97px, too narrow for the words even
+   wrapped, so they take the whole row, as the reconstruction has them
+   (user ruling, round 3). */
 @container (width < calc(30ch + 188px)) {
   .kv-g .ln > .kv-ends {
     grid-column: 3;
@@ -1469,7 +1471,7 @@
 }
 @media (max-width: 767px) {
   .kv-g .ln > .kv-ends {
-    grid-column: 3;
+    grid-column: 1 / -1;
   }
 }
 .fw-simple .kv-row .fw-seg {

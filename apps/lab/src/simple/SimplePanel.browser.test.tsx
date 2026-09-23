@@ -153,13 +153,10 @@ describe('SimplePanel', () => {
 
   // HANDOFF-3, known differences: the end words stand under the track, not
   // across the whole row as the reconstruction has them.
-  it.each([
-    [1440, 900],
-    [375, 812],
-  ])('puts a recipe slider’s end words under its track, one at each end, at %i px', async (w, h) => {
-    await page.viewport(w, h)
+  it('puts a recipe slider’s end words under its track, one at each end', async () => {
+    await page.viewport(1440, 900)
     const screen = await render(
-      <div style={{ width: `${Math.min(w, 720)}px`, containerType: 'inline-size' }}>
+      <div style={{ width: '720px', containerType: 'inline-size' }}>
         <SimplePanel control={stub().control} />
       </div>,
     )
@@ -173,10 +170,37 @@ describe('SimplePanel', () => {
     expect(low?.top ?? 0).toBeGreaterThanOrEqual(lane.bottom - 1)
   })
 
-  // At XS the track is about 97px, narrower than two end words side by side:
-  // they wrap inside it rather than run past it, where `.kv` clips them.
-  it('keeps the end words inside a narrow track, in English and Polish', async () => {
+  // At XS the track is about 97px: the words take the whole row, one line
+  // (user ruling, round 3), as the reconstruction has them there.
+  it('gives the end words the whole row at XS, on one line, in English and Polish', async () => {
     await page.viewport(375, 812)
+    const screen = await render(
+      <div style={{ width: '340px', containerType: 'inline-size' }}>
+        <SimplePanel control={stub().control} />
+      </div>,
+    )
+    for (const lang of ['en', 'pl'] as const) {
+      await act(async () => state().lang.setLang(lang))
+      for (const slider of ['lengths', 'shape']) {
+        const ends = screen.container.querySelector(`#simple-${slider}-ends`)
+        const line = ends?.closest('.ln')
+        if (!(ends instanceof HTMLElement) || !(line instanceof HTMLElement)) throw new Error(`no ${slider} row`)
+        const row = line.getBoundingClientRect()
+        const [low, high] = [...ends.children].map((word) => word.getBoundingClientRect())
+        expect(Math.abs((low?.left ?? 0) - row.left), `${lang}: ${slider}`).toBeLessThanOrEqual(1)
+        expect(Math.abs((high?.right ?? 0) - row.right), `${lang}: ${slider}`).toBeLessThanOrEqual(1)
+        expect(low?.height, `${lang}: ${slider}`).toBe(high?.height)
+        expect(Math.round(low?.top ?? 0), `${lang}: ${slider}`).toBe(Math.round(high?.top ?? -1))
+        expect(ends.getBoundingClientRect().height, `${lang}: ${slider}`).toBeLessThan(20)
+      }
+    }
+  })
+
+  // A panel too narrow for the bound tracks (the container query, not XS)
+  // leaves a track narrower than two end words side by side: they wrap inside
+  // it rather than run past it, where `.kv` clips them.
+  it('keeps the end words inside a narrow track, in English and Polish', async () => {
+    await page.viewport(1440, 900)
     const screen = await render(
       <div style={{ width: '340px', containerType: 'inline-size' }}>
         <SimplePanel control={stub().control} />
