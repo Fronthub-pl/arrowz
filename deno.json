@@ -42,6 +42,7 @@
     "**/dist/",
     "packages/cli/boards/",
     ".claude/",
+    ".agents/",
     ".mcp.json"
   ],
   "tasks": {
