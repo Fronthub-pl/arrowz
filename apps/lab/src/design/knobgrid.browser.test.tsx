@@ -15,8 +15,12 @@ beforeEach(() => {
   useStore.getState().params.reset()
 })
 
-/** At 924 the drawer's panel is under 360px, and the bound tracks go. */
-const expectBoundsAt = (width: number) => width >= 1280
+/**
+ * The bound tracks need a panel of 30ch + 188px (404px). Only XL's drawer
+ * gives one: L's is capped at 34rem (360–400px of panel, PR 7), and at 924
+ * the panel is narrower still.
+ */
+const expectBoundsAt = (width: number) => width >= 1600
 
 const centre = (el: Element) => {
   const r = el.getBoundingClientRect()
@@ -66,11 +70,13 @@ test('rows are 34px, ruled, one under the next', async () => {
 
 // Handoff 2, PR 2 (§2) and PR 3: one grid for the whole console, the
 // preview's rows included. Walked through the real lab, every group and the
-// preview in turn, both languages, at the two widths the handoff names: at 1440 the panel keeps its bound tracks, at 924 it is
-// under 360px and drops them. In each, every value ends on one x and every
+// preview in turn, both languages, at the two widths the handoff names —
+// 1440 and 924, where the panel is under the bound tracks' floor and drops
+// them — and at 1920, where it keeps them. In each, every value ends on one x and every
 // control starts on one x — across groups, not only within one — and no
 // short label is cut.
 test.each([
+  [1920, 1080, 'en'],
   [1440, 900, 'en'],
   [1440, 900, 'pl'],
   [924, 768, 'en'],
@@ -114,7 +120,7 @@ test.each([
     expect([...wideStarts]).toHaveLength(1)
     // Where the bound tracks show, the wide control starts where the
     // minimum's track does: one bound track and one column gap before the
-    // control's. Under 360px, where they do not, on the control's own x. The
+    // control's. Under the floor, where they do not, on the control's own x. The
     // minimum's own box cannot say it: it is right-aligned in its track.
     const line = screen.container.querySelector('.kv-row > .ln')
     if (line === null) throw new Error('no row')
