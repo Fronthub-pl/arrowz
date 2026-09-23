@@ -8,6 +8,7 @@ import { AppRoutes } from './AppRoutes'
 import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
 import { generate, stepSeed } from './run/actions'
+import { PresetStrip } from './run/PresetStrip'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import type { RunControl } from './run/useRun'
@@ -279,6 +280,12 @@ function Shell() {
   // the workspace: one panel, one stage, two faces (spec §5.1).
   const tabIndex = selectedIndex(useLocation().pathname)
   const onWorkspace = tabIndex === 0 || tabIndex === 1
+  // Spec D2: a low window gives the board the preset row's height by standing
+  // the strip in the top bar — the lab tab's advanced view only, where the
+  // strip exists at all. One instance: the top bar holds it or the lab does.
+  const low = useLowWindow()
+  const advanced = useStore((state) => state.ui.mode === 'advanced')
+  const presetsInTop = low && advanced && tabIndex === 0
   useStoreSave()
   useSoloKey(onWorkspace)
   useDrawerKeys(onWorkspace)
@@ -289,9 +296,14 @@ function Shell() {
   const menu = useStore((state) => state.ui.menu)
   return (
     <div className={menu ? 'fw menu-open' : 'fw'}>
-      <TopBar presets={null} />
+      <TopBar presets={presetsInTop ? <PresetStrip control={control} /> : null} />
       <TabRow />
-      <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
+      <Workspace
+        control={control}
+        hidden={!onWorkspace}
+        tab={tabIndex === 1 ? 'library' : 'lab'}
+        presetsInTop={presetsInTop}
+      />
       <AppRoutes />
       <CommandPalette control={control} />
     </div>

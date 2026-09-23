@@ -3,8 +3,9 @@ import { exportCell } from '@arrowz/engine/simple'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { render } from 'vitest-browser-react'
-import { userEvent } from 'vitest/browser'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { PresetStrip } from './PresetStrip'
@@ -301,4 +302,41 @@ describe('PresetStrip', () => {
     }
     expect(prevented).toBe(true)
   })
+})
+
+const strips = () => document.querySelectorAll('.fw-presets')
+
+// Spec D2: one strip, in the top bar of a low window, in the lab otherwise.
+test.each([
+  [924, 540, 'advanced', '.fw-top'],
+  [924, 900, 'advanced', '.fw-lab'],
+  [600, 500, 'advanced', '.fw-lab'],
+] as const)('at %d×%d in the %s view the strip stands in %s', async (w, h, mode, parent) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(w, h)
+  await mountApp(mode)
+  expect(strips()).toHaveLength(1)
+  expect(strips()[0]?.parentElement?.closest('.fw-top, .fw-lab')?.matches(parent)).toBe(true)
+  expect(document.querySelector('.fw-lab')?.classList.contains('presets-top')).toBe(parent === '.fw-top')
+  vi.restoreAllMocks()
+})
+
+test('the simple view has no strip in the top bar of a low window', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(924, 540)
+  await mountApp('simple')
+  expect(strips()).toHaveLength(0)
+  expect(document.querySelector('.fw-lab')?.classList.contains('presets-top')).toBe(false)
+  vi.restoreAllMocks()
+})
+
+test('opening the panel focuses its row without scrolling anything', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(924, 540)
+  const screen = await mountApp('advanced')
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+  await screen.getByRole('button', { name: /^preset/ }).click()
+  await expect.poll(() => focus.mock.calls.length).toBeGreaterThan(0)
+  expect(focus.mock.calls[0]?.[0]).toEqual({ preventScroll: true })
+  vi.restoreAllMocks()
 })

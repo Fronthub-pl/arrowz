@@ -30,10 +30,12 @@ export function Workspace({
   control,
   hidden,
   tab,
+  presetsInTop,
 }: {
   control: RunControl
   hidden: boolean
   tab: WorkspaceTab
+  presetsInTop: boolean
 }): ReactElement {
   // Owned here rather than in the column, because the notice is the column's
   // sibling: the dismiss button hands the focus back to Generate, or to
@@ -69,15 +71,17 @@ export function Workspace({
         </div>
         {/* `library` earns its own row template for the same reason `simple`
             has one: with no preset strip, the stage would auto-place into the
-            first `auto` row (console.css). */}
+            first `auto` row (console.css). `presets-top` (handoff 2, PR 7) is
+            the lab with its strip in the top bar, and takes the simple view's
+            rows for the same reason. */}
         <div
-          className={`fw-lab${lab ? '' : ' library'}${simple ? ' simple' : ''}${solo ? ' solo' : ''}${sheet === null ? '' : ` sheet-${sheet}`}`}
+          className={`fw-lab${lab ? '' : ' library'}${simple ? ' simple' : ''}${lab && !simple && presetsInTop ? ' presets-top' : ''}${solo ? ' solo' : ''}${sheet === null ? '' : ` sheet-${sheet}`}`}
         >
           {/* Every one of these keeps its slot as `null` rather than leaving
               the child list: React keeps a node by type and position among its
               siblings, and a sibling that vanishes shifts `Stage` — remounting
               the element this whole arrangement exists to keep (Ruling 6). */}
-          {lab && !simple ? <PresetStrip control={control} /> : null}
+          {lab && !simple && !presetsInTop ? <PresetStrip control={control} /> : null}
           {/* The console is the settings drawer's on both tabs, and the run
               column the stage's, hidden by class on the saved boards so a carve
               in flight keeps its node and refs (Ruling 1). The open board's
