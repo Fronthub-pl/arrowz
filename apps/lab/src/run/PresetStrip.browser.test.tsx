@@ -96,6 +96,11 @@ describe('PresetStrip', () => {
     for (const row of rows) {
       for (const span of row.querySelectorAll(':scope > span')) {
         expect(Math.abs(middle(span) - middle(row)), row.getAttribute('aria-label') ?? '').toBeLessThan(1)
+        // `line-height: 1`: each span's box is its own font size tall, so the
+        // two boxes' shared middle is also where the two glyph runs sit — a
+        // taller line box would centre the box and leave the 11px size
+        // floating above the 13px mode's middle.
+        expect(span.getBoundingClientRect().height).toBeCloseTo(Number.parseFloat(getComputedStyle(span).fontSize), 0)
       }
     }
   })
