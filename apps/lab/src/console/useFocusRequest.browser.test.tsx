@@ -1,8 +1,20 @@
+import { act } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { loadRunDone, mountApp } from '../harness/mountApp'
+import { settleTransitions } from '../harness/settle'
 import { useStore } from '../state/store'
 import { cancelFlash } from './flash'
+// The cascade `main.tsx` loads, in its order: the S and XS cases below read
+// whether the knob is on screen, and with no stylesheet every node is.
+import '../design/tokens.css'
+import '../design/shell.css'
+import '../design/console.css'
+import '../design/library.css'
+import '../design/run.css'
+import '../design/report.css'
+import '../design/docs.css'
+import '../design/palette.css'
 
 beforeEach(() => {
   cancelFlash()
@@ -90,4 +102,44 @@ describe('a jump from the palette', () => {
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => document.activeElement?.id).toBe('view-colored')
   }, 40_000)
+
+  // Final review F1: below 1024 the settings drawer starts closed (spec D3),
+  // and at XS the console is not rendered until its sheet opens, so a jump
+  // that only selected the group focused nothing a person could see.
+  it.each([
+    [900, 900],
+    [375, 812],
+  ] as const)(
+    'opens what holds the knob at %d×%d, so the knob is on screen and focused',
+    async (w, h) => {
+      await page.viewport(w, h)
+      const screen = await mountApp('advanced')
+      await loadRunDone()
+      await act(async () => useStore.getState().ui.setSettings(false))
+      // Wait out the drawer's slide: until it ends the console is still
+      // visible and a focus lands in the drawer that is on its way out.
+      await settleTransitions()
+      await userEvent.keyboard('{Meta>}k{/Meta}')
+      await userEvent.keyboard('seed')
+      await userEvent.keyboard('{Enter}')
+      await expect.poll(() => useStore.getState().ui.palette).toBe(false)
+      const knob = () => screen.container.querySelector('#knob-seed')
+      await expect.poll(() => knob()?.checkVisibility({ visibilityProperty: true })).toBe(true)
+      // Rendered is not enough at S: the closed drawer keeps the knob a box,
+      // translated off the stage and covered by the board (measured at 900
+      // before the fix: rendered, focused, and under the board). What is at
+      // the knob's centre must be the knob's own row.
+      await expect
+        .poll(() => {
+          const node = knob()
+          if (node === null) return false
+          const r = node.getBoundingClientRect()
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+          return hit !== null && node.closest('.kv-row')?.contains(hit) === true
+        })
+        .toBe(true)
+      await expect.poll(() => document.activeElement === knob()).toBe(true)
+    },
+    40_000,
+  )
 })

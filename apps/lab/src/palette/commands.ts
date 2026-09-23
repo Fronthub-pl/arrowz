@@ -5,6 +5,7 @@ import { PRESETS } from '@arrowz/engine/presets'
 import { VIEW_FIELDS, VIEW_FLAGS } from '../console/viewFields'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
+import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
 
 export type CommandSection = 'run' | 'go' | 'knob' | 'preset'
@@ -47,6 +48,13 @@ function jumpTo(deps: CommandDeps, entry: Parameters<Store['ui']['select']>[0], 
   // the console that has them.
   if (ui.mode === 'simple') ui.setMode('advanced')
   ui.select(entry)
+  // The control has to be on screen, not merely in the tree: below 1024 the
+  // settings drawer starts closed (spec D3), and at XS the console is not
+  // rendered at all until its sheet opens, so focusing the control alone
+  // lands nowhere a person can see. At XS the sheet opens; elsewhere the
+  // drawer opens, and is remembered open, exactly as pressing `s` would.
+  if (readBand() === 'xs') ui.setSheet('settings')
+  else if (!ui.settings) ui.setSettings(true)
   ui.requestFocus(id)
   ui.closePalette()
 }
