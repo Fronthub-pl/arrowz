@@ -350,21 +350,24 @@ function sheets(root: HTMLElement, solo: boolean): Finding[] {
 }
 
 /**
- * At XS every control a thumb reaches in the shell is 44px tall to the
- * finger: its box, or its `::before` where the drawing is smaller (the
- * switch, the menu chip). The knob rows' `?` and chips are 32 by the handoff
- * and are pinned in touch.browser.test.tsx instead.
+ * At XS every control a thumb reaches in the shell and in the open sheets
+ * (spec §7) is 44px tall to the finger: its box, or its `::before` where the
+ * drawing is smaller (the switch, the menu chip). Inside a knob row the
+ * handoff draws smaller on purpose, and touch.browser.test.tsx pins those
+ * sizes: the `?` and the chips are 32 (skipped here), a select is 40.
  */
 function touchTargets(root: HTMLElement): Finding[] {
   if (window.innerWidth >= 768) return []
   const out: Finding[] = []
-  const scope = '.fw-sheetbar, .fw-top, .fw-tabrow, .fw-presets, .fw-stage > .fw-run-col'
+  const scope = '.fw-sheetbar, .fw-top, .fw-tabrow, .fw-presets, .fw-stage > .fw-run-col, .fw-ldrawer, .fw-drawer'
   for (const node of root.querySelectorAll('button, select, a[href], [role="switch"]')) {
     if (node.closest(scope) === null || !rendered(node)) continue
+    if (node.matches('.kv-g .q, .kv-chip')) continue
+    const floor = node.matches('.kv-g select') ? 40 : 44
     const own = node.getBoundingClientRect().height
     const before = Number.parseFloat(getComputedStyle(node, '::before').height)
     const hit = Math.max(own, Number.isFinite(before) ? before : 0)
-    if (hit + EPS < 44)
+    if (hit + EPS < floor)
       out.push({
         invariant: 'touch-target',
         detail: `${label(node)} "${node.textContent?.trim() ?? ''}" ${hit.toFixed(0)}px`,
