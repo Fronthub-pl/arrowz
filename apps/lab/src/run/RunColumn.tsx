@@ -4,6 +4,7 @@ import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
+import { MoreMenu } from './MoreMenu'
 import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
 
@@ -150,16 +151,18 @@ export function RunColumn({
           {dict.t('abort')}
         </button>
       </div>
-      {/* The knobs' own switch, and the simple view shows no knobs (PR 4a,
-          Ruling 9). The descriptions switch is gone: every knob row opens its
-          own description with its `?` (handoff 2, PR 2). */}
-      {simple ? null : (
-        <div className="fw-ghost">
-          <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
-        </div>
-      )}
-      {/* In both views: the exports belong to the board, not to the knobs. */}
-      <ExportButtons />
+      <MoreMenu>
+        {/* The knobs' own switch, and the simple view shows no knobs (PR 4a,
+            Ruling 9). The descriptions switch is gone: every knob row opens
+            its own description with its `?` (handoff 2, PR 2). */}
+        {simple ? null : (
+          <div className="fw-ghost">
+            <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
+          </div>
+        )}
+        {/* In both views: the exports belong to the board, not to the knobs. */}
+        <ExportButtons />
+      </MoreMenu>
     </section>
   )
 }

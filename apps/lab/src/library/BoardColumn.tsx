@@ -9,6 +9,7 @@ import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
 import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
+import { MoreMenu } from '../run/MoreMenu'
 import { useStore } from '../state/store'
 import { shortId } from './BoardList'
 import { raiseNotice } from './notices'
@@ -183,21 +184,23 @@ export function BoardColumn(): ReactElement {
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
-      <div className="fw-ghost fw-exports" role="group" aria-label={dict.t('exportsGroup')}>
-        <button type="button" onClick={exportSvg} disabled={busy}>
-          {dict.t('downloadSvg')}
-        </button>
-        <button type="button" onClick={exportFile}>
-          {dict.t('downloadBoardFile')}
-        </button>
-        {/* The engine's `toSvg` never learns a theme's colours (spec §9). */}
-        {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
-        {drawError === null ? null : (
-          <p className="fw-export-error" role="alert">
-            {`${dict.t('exportError')} ${drawError}`}
-          </p>
-        )}
-      </div>
+      <MoreMenu>
+        <div className="fw-ghost fw-exports" role="group" aria-label={dict.t('exportsGroup')}>
+          <button type="button" onClick={exportSvg} disabled={busy}>
+            {dict.t('downloadSvg')}
+          </button>
+          <button type="button" onClick={exportFile}>
+            {dict.t('downloadBoardFile')}
+          </button>
+          {/* The engine's `toSvg` never learns a theme's colours (spec §9). */}
+          {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
+          {drawError === null ? null : (
+            <p className="fw-export-error" role="alert">
+              {`${dict.t('exportError')} ${drawError}`}
+            </p>
+          )}
+        </div>
+      </MoreMenu>
       <dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>
         {facts.map(([term, value, full]) => (
           <div key={term}>

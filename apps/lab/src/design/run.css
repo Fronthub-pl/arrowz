@@ -352,3 +352,12 @@
     height: 44px;
   }
 }
+
+/* The `…` and its popover (MoreMenu.tsx) exist only in the M/S bar; outside
+   it the button is gone and the container is not a box at all. */
+.fw .fw-more {
+  display: none;
+}
+.fw-more-pop {
+  display: contents;
+}
