@@ -408,9 +408,15 @@ function knobRows(root: HTMLElement): Finding[] {
     const tracks = style.gridTemplateColumns.split(' ').map(Number.parseFloat)
     const last = (tracks[tracks.length - 1] ?? 0) + (Number.parseFloat(style.columnGap) || 0)
     if (end > edge + EPS)
-      out.push({ invariant: 'knob-row', detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)} > ${edge.toFixed(0)}` })
+      out.push({
+        invariant: 'knob-row',
+        detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)} > ${edge.toFixed(0)}`,
+      })
     else if (end < edge - last - EPS)
-      out.push({ invariant: 'knob-row', detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)}, ${(edge - end).toFixed(0)}px short of ${edge.toFixed(0)}` })
+      out.push({
+        invariant: 'knob-row',
+        detail: `${label(row)} "${row.textContent?.trim().slice(0, 24) ?? ''}" ends at ${end.toFixed(0)}, ${(edge - end).toFixed(0)}px short of ${edge.toFixed(0)}`,
+      })
   }
   return out
 }
