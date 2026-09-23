@@ -774,9 +774,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   width: 100%;
   min-height: var(--row-h);
-  padding: 0;
+  padding: 6px 0;
   border: 0;
   background: none;
   box-shadow: 0 1px 0 var(--border);
@@ -790,6 +791,12 @@
 }
 .fw .kv-g .kv-dephd:hover {
   color: var(--ink);
+}
+/* The count keeps its place at the right when a long header (the Polish one
+   at 924px) wraps to a second line. */
+.fw .kv-g .kv-dephd > span:last-child {
+  flex: none;
+  align-self: flex-start;
 }
 .kv-sub {
   padding: 22px 0 6px;
