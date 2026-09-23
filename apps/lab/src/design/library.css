@@ -110,16 +110,21 @@
   background: var(--error);
   color: var(--void);
 }
+/* One term track for every fact, as wide as the longest term: the handoff's
+   9ch held its English words and not the Polish "wygenerowano" (measured in
+   Chrome). Each row keeps its own box for the rule under it and lays its two
+   cells on the list's tracks. */
 .fw-bmeta {
   display: grid;
-  gap: 0;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 12px;
   margin: 12px 0 0;
   font-size: 11px;
 }
 .fw-bmeta > div {
   display: grid;
-  grid-template-columns: 9ch minmax(0, 1fr);
-  gap: 12px;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   padding: 6px 0;
   box-shadow: 0 1px 0 var(--border);
 }

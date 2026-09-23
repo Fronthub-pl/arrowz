@@ -315,3 +315,21 @@ test('the board file downloads the stored file under its id', async () => {
     document.removeEventListener('click', onClick, true)
   }
 })
+
+// Measured in Chrome (handoff 2, PR 6): the Polish "wygenerowano" is twelve
+// characters and ran into its value from the handoff's 9ch term track. The
+// terms take one track as wide as the longest, in either language.
+test.each(['en', 'pl'] as const)('in %s every fact’s term ends before its value begins', async (lang) => {
+  useStore.getState().lang.setLang(lang)
+  const screen = await mountDetail()
+  await show()
+  const rows = [...screen.container.querySelectorAll('.fw-bmeta > div')]
+  expect(rows).toHaveLength(4)
+  for (const row of rows) {
+    const dt = row.querySelector('dt')
+    const dd = row.querySelector('dd')
+    if (dt === null || dd === null) throw new Error('a fact without its term or value')
+    expect(dt.scrollWidth, dt.textContent ?? '').toBeLessThanOrEqual(dt.clientWidth)
+    expect(dd.getBoundingClientRect().left).toBeGreaterThanOrEqual(dt.getBoundingClientRect().right)
+  }
+})
