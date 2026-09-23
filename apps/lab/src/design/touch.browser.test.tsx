@@ -53,7 +53,6 @@ test.each([
     'button',
     44,
   ],
-  ['a switch', '<button class="fw-sw" role="switch"></button>', 'button', 32],
   ['a size chip', '<div class="fw-lib-chips"><button>8x8</button></div>', 'button', 44],
   ['a board row', '<button class="fw-lib-row">row</button>', 'button', 44],
   ['a plain button', '<button class="fw-btn">Refresh</button>', 'button', 44],
@@ -63,4 +62,40 @@ test.each([
   const el = screen.container.querySelector(tag)
   if (el === null) throw new Error(`no ${tag}`)
   expect(coarseHeight(el)).toBeGreaterThanOrEqual(px)
+})
+
+/** Of the coarse-pointer rules that match `el`'s `::before`, the largest value each declares for `prop`. */
+function coarseBefore(el: Element, prop: 'height' | 'width'): number {
+  let best = 0
+  for (const sheet of document.styleSheets) {
+    for (const rule of sheet.cssRules) {
+      if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes('pointer: coarse')) continue
+      for (const inner of rule.cssRules) {
+        if (!(inner instanceof CSSStyleRule) || !inner.selectorText.endsWith('::before')) continue
+        let hit: boolean
+        try {
+          hit = el.matches(inner.selectorText.slice(0, -'::before'.length))
+        } catch {
+          hit = false
+        }
+        const px = Number.parseFloat(inner.style.getPropertyValue(prop))
+        if (hit && Number.isFinite(px)) best = Math.max(best, px)
+      }
+    }
+  }
+  return best
+}
+
+// Handoff 2, PR 4: the switch is drawn 36×18 for a finger, lighter than the
+// 52×32 track it replaces; the target a finger meets is its `::before`, 44×44
+// around the drawing (§7.2), so the lighter look costs no target size.
+test('a switch is drawn small for a finger and raised to a 44px target around it', async () => {
+  const screen = await render(
+    <div className="fw" dangerouslySetInnerHTML={{ __html: '<button class="fw-sw" role="switch"></button>' }} />,
+  )
+  const el = screen.container.querySelector('button')
+  if (el === null) throw new Error('no switch')
+  expect(coarseHeight(el)).toBe(18)
+  expect(coarseBefore(el, 'height')).toBeGreaterThanOrEqual(44)
+  expect(coarseBefore(el, 'width')).toBeGreaterThanOrEqual(44)
 })

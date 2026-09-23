@@ -926,38 +926,52 @@
     min-height: 48px;
   }
 }
-.fw-sw {
+/* The switch, lighter (handoff 2, PR 4; `css/knob-atoms.css`): a 28×14
+   square track — zero radii, as the rest of the lab — with a 1px line and an
+   8px square knob. On: line and knob in `--signal`, no fill, so a column of
+   switches reads as marks rather than blocks. Off: the line stays `--ash`
+   (5.9:1 on `--void`), not the reconstruction's `--border-strong` (1.79:1,
+   under the 3:1 a control's boundary needs, WCAG 1.4.11), and the knob is
+   `--mist`. Every switch of the lab: the preview's rows and the run column's. */
+.fw .fw-sw {
   justify-self: end;
   position: relative;
   flex: none;
-  width: 44px;
-  height: 26px;
+  width: 28px;
+  height: 14px;
   padding: 0;
   border: 1px solid var(--ash);
-  border-radius: 999px;
-  background: var(--surface);
+  border-radius: 0;
+  background: none;
   cursor: pointer;
 }
-.fw-sw::after {
+.fw .fw-sw::after {
   content: '';
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--ash);
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--mist);
   transition:
     transform 120ms cubic-bezier(0.2, 0, 0, 1),
     background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw-sw[aria-checked='true'] {
-  background: var(--signal);
-  border-color: transparent;
+.fw .fw-sw:hover {
+  border-color: var(--mist);
 }
-.fw-sw[aria-checked='true']::after {
-  background: var(--void);
-  transform: translateX(18px);
+.fw .fw-sw[aria-checked='true'] {
+  border-color: var(--signal);
+  background: none;
+}
+.fw .fw-sw[aria-checked='true']::after {
+  background: var(--signal);
+  transform: translateX(14px);
+}
+.fw .fw-sw:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
 }
 /* A preview number is a plain field, not the knob's scrubbable value: it keeps
    the knob's colour and takes a border of its own, and the hover underline
@@ -1000,18 +1014,27 @@
     width: 44px;
     height: 44px;
   }
-  /* 32px and not 44: the row the switch sits in is the target (run.css keeps
-     the same reasoning for its own switches); this lifts the track itself. */
-  .fw-sw {
-    height: 32px;
-    width: 52px;
+  /* A finger (handoff 2, PR 4): a 36×18 track and a 12px knob, and a 44×44
+     target around it through `::before` — the drawing grows a little, the
+     target to the full size the design system asks for (§7.2). */
+  .fw .fw-sw {
+    width: 36px;
+    height: 18px;
   }
-  .fw-sw::after {
-    width: 26px;
-    height: 26px;
+  .fw .fw-sw::after {
+    width: 12px;
+    height: 12px;
   }
-  .fw-sw[aria-checked='true']::after {
-    transform: translateX(20px);
+  .fw .fw-sw[aria-checked='true']::after {
+    transform: translateX(18px);
+  }
+  .fw .fw-sw::before {
+    content: '';
+    position: absolute;
+    top: -14px;
+    left: -5px;
+    width: 44px;
+    height: 44px;
   }
 }
 

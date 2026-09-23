@@ -2,8 +2,9 @@ import { PARAM_SPEC } from '@arrowz/engine'
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { ValueKnob } from '../console/ValueKnob'
+import { OptionSwitch } from '../run/OptionSwitch'
 import { useStore } from '../state/store'
-import { contrast, shown } from './contrast'
+import { contrast, parse, shown } from './contrast'
 import './tokens.css'
 import './shell.css'
 import './console.css'
@@ -43,4 +44,30 @@ test('no text in an inactive knob is dimmed further than AA allows', async () =>
       `${run.className || run.nodeName} reads ${run.textContent?.slice(0, 24)}`,
     ).toBeGreaterThanOrEqual(4.5)
   }
+})
+
+// Handoff 2, PR 4: a lighter switch — a 28×14 square track with no fill, the
+// knob and the line in `--signal` when on. Off, the line keeps a boundary a
+// person can see: at least 3:1 against the panel (WCAG 1.4.11), which the
+// reconstruction's `--border-strong` (1.79:1) was not.
+test('a switch is a light square track, and its off line still clears 3:1', async () => {
+  const screen = await render(
+    <div className="fw" style={{ background: 'var(--void)' }}>
+      <OptionSwitch id="probe" label="probe" on={false} onChange={() => {}} />
+      <OptionSwitch id="probe-on" label="probe on" on onChange={() => {}} />
+    </div>,
+  )
+  const [off, on] = [...screen.container.querySelectorAll<HTMLElement>('.fw-sw')]
+  if (off === undefined || on === undefined) throw new Error('no switches')
+  const box = off.getBoundingClientRect()
+  expect([box.width, box.height]).toEqual([28, 14])
+  const style = getComputedStyle(off)
+  expect(style.borderTopLeftRadius).toBe('0px')
+  expect(style.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  const line = parse(style.borderTopColor)
+  const back = parse(getComputedStyle(screen.container.firstElementChild ?? off).backgroundColor)
+  expect(contrast(line.rgb, back.rgb)).toBeGreaterThanOrEqual(3)
+  const onStyle = getComputedStyle(on)
+  expect(onStyle.backgroundColor).toBe('rgba(0, 0, 0, 0)')
+  expect(onStyle.borderTopColor).toBe(getComputedStyle(on, '::after').backgroundColor)
 })
