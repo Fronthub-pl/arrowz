@@ -116,6 +116,15 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
+  // The row is the recipe's, as the size card was: a knob moved in the
+  // advanced view leaves the recipe where it was, and this view shows the recipe.
+  it('shows the recipe’s size, not a knob moved behind its back', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const recipe = state().recipe.value.W
+    await act(async () => void state().params.set('W', recipe + 7))
+    await expect.element(screen.getByRole('button', { name: `width: ${recipe}` })).toBeVisible()
+  })
+
   it('moves the recipe and the knobs with a slider, and starts nothing', async () => {
     const g = stub()
     const screen = await render(<SimplePanel control={g.control} />)
