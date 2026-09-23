@@ -22,7 +22,8 @@
 - A rule that sets `display` on an element carrying `hidden` goes through `:not([hidden])` or is paired with `[hidden] { display: none }`.
 - The switch stays 36×18 with a 44×44 `::before` target under a finger (PR 4); the package's 48×26 is not ported.
 - ⌘K's touch label is "command palette" / "paleta poleceń" (contained in its accessible name, WCAG 2.5.3).
-- Browser tests do not load stylesheets unless they import them (harness fact 38); only `LayoutInvariants.browser.test.tsx`, `LabLayout`, `DocsLayout`, `Workspace`, `knobgrid` and `touch` import CSS.
+- Browser tests do not load stylesheets unless they import them (harness fact 38). Seventeen browser files import some of `design/*.css` (grep `design/.*\.css'\|'\./.*\.css'` in `src/**/*.browser.test.tsx`): the whole-app ones (`LayoutInvariants`, `LabLayout`, `DocsLayout`, `Workspace`, `knobgrid`) and component ones (`PresetStrip`, `RunColumn`, `ExportButtons`, `BoardColumn`, `CommandPalette`, `ReportPanel`, `KnobPanel`, `ViewPanel`, `KnobSlider`, `LibraryFace`, `BoardFrame`, `CommandText`, `CliDocs`, `touch`). A component test that loads `run.css` or `library.css` at the default 414×896 is at XS: the XS rules reach it.
+- Every new element ships with the rule that hides it outside its band **in the task that creates it** (Tasks 4, 5, 7), so the layout audit's `ua-button` invariant never sees a user-agent button and every task's `lab:test` gate is green (review round 1).
 - The default test viewport is 414×896 — the XS band after this PR (harness fact 23); `page.viewport` outlives the case that set it (fact 18). Every geometry case sets its own viewport.
 - The store is created at import (`vitest.setup.ts` comment), so `createUiSlice`'s start value is read at the iframe's size at import.
 - `lab:fmt` only checks (fact 50). Format with `pnpm -C apps/lab exec prettier --write <files>`.
@@ -34,7 +35,7 @@
 
 1. **Resizing across 1024 with the drawer open, then back.** A person narrowing a desktop window expects the drawer to get out of the board's way, and on widening again to find it as they left it on the desktop. Pinned in Task 3 (`the drawer comes back on widening`), both directions, with storage read afterwards.
 2. **A remembered `report: true` on a phone.** Invisible at XS; Escape must not silently flip it, and widening must show it again. Pinned in Task 3 (`Escape at XS closes a sheet and nothing else`).
-3. **Solo (`f`) at every band, with a sheet open.** Solo must win: no sheet, no sheet bar, board fills the panel. Pinned in Task 10 (`solo at XS hides the sheet and the sheet bar`) and in the matrix's `solo` state (Task 8).
+3. **Solo (`f`) at every band, with a sheet open.** Solo must win: no sheet, no sheet bar, board fills the panel. Pinned in Task 10 (`solo at XS hides the sheet and the sheet bar`), in the matrix's `solo` state (no sheet bar in solo, Task 8) and in `BANDED`'s `solo-sheet` state (solo over an open settings sheet at XS, Task 8).
 4. **Polish at 768 and 924×540.** Polish labels are longer than the package assumes (the PR 6 live pass). The M/S bar and the top bar with presets must hold in Polish. Pinned in Task 8 (`LANG_CASES` gains 1024×768, 768×1024, 924×540, 375×812).
 5. **Tabbing into a closed `…` popover or a hidden sheet.** A closed popover's switches and exports and a closed sheet's knobs must not take focus at M/S/XS. Pinned in Task 10 (`closed sheets and a closed popover hold no focusable box`).
 
@@ -426,14 +427,20 @@ In `apps/lab/src/harness/mountApp.tsx`, after `state.ui.setSettings(true)` add:
   state.ui.setMenu(false)
 ```
 
-(Fact 51: `Workspace.browser.test.tsx` has its own local reset; grep it for `setSettings(true)` and add the same two lines beside it.)
+`Workspace.browser.test.tsx` has its own local `mountApp` (lines 5–57, fact 51) that never calls `setSettings(true)`; the store is created at 414 (XS), so after this task its drawer starts closed and ten cases there fail (`Cannot find … tablist 'Parameter groups'`, measured in review). Add after its `useStore.getState().ui.setReport(false)` (line 57):
+
+```ts
+  useStore.getState().ui.setSettings(true)
+  useStore.getState().ui.setSheet(null)
+  useStore.getState().ui.setMenu(false)
+```
 
 - [ ] **Step 7: Run the browser preference test and the whole suite**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/state/preferences.browser.test.ts`
 Expected: PASS.
 Run: `pnpm nx run lab:test`
-Expected: PASS. A case that now fails because it read `ui.settings` from the store's start value at 414 (not through `resetApp`) is fixed by setting `ui.setSettings(true)` or the viewport in that case, never by changing the slice. List every such case in the commit message.
+Expected: PASS (795 before this PR plus this task's cases). `Workspace.browser.test.tsx` is the file this step's fix is for; any other case that read `ui.settings` from the store's start value at 414 is fixed by setting `ui.setSettings(true)` or the viewport in that case, never by changing the slice. List every such case in the commit message.
 
 - [ ] **Step 8: Commit**
 
@@ -578,7 +585,7 @@ Expected: FAIL — the first case polls `settings` to `false` and times out; the
 
 - [ ] **Step 3: Implement the keys**
 
-In `App.tsx` add imports: `import { narrow, readBand } from './state/band'` and `import { useBand, useLowWindow } from './shell/useLayoutBand'`, and `useRef` beside `useEffect` from `react`.
+In `App.tsx` add imports: `import { narrow, readBand } from './state/band'` and `import { useBand, useLowWindow } from './shell/useLayoutBand'` (`useRef` is already imported, `App.tsx:4`).
 
 Replace the body of `useDrawerKeys`'s `onKey` (from `const ui = useStore.getState().ui` to the end of the `else if` chain) with:
 
@@ -642,19 +649,22 @@ In `Shell`, call `useBandReset()` after `useDocumentLang()`, subscribe `const me
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/shell/bands.browser.test.tsx`
 Expected: PASS (6 tests).
+
+Delete `routes/LabLayout.browser.test.tsx`'s case `at 414×896 the open settings lie over the run column, and closing them uncovers Generate` (about line 787, with its comment): its own comment calls it "the stopgap below 1024px … until PR 7", and at 414 (XS) `s` now opens the settings sheet, so it fails (measured in review: `elementFromPoint` at Generate returns the seed row). XS is covered by this task's key case and Task 10's sheets.
+
 Run: `pnpm nx run lab:test`
 Expected: PASS. (Fact 52: if a key case elsewhere reads state synchronously after a render, keep the existing idiom of that file.)
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add apps/lab/src/App.tsx apps/lab/src/shell/bands.browser.test.tsx
+git add apps/lab/src/App.tsx apps/lab/src/shell/bands.browser.test.tsx apps/lab/src/routes/LabLayout.browser.test.tsx
 git commit -m "Reset the sheet, the menu and the drawer on a band change, and give the keys to the sheets at XS"
 ```
 
 - [ ] **Step 7: Mutations**
 
-1. In `useBandReset` replace the compare with a `first` ref that skips only the first run. `mounting under StrictMode is not a band change` turns red on `expect(ui().sheet).toBe('report')`. Revert.
+1. In `useBandReset` replace the compare with a `first` ref that skips only the first run. `mounting under StrictMode is not a band change` turns red on `expect(ui().settings).toBe(true)` (the second pass reads as an entry into S from the ref's stale band and closes the drawer). Revert.
 2. Delete `else if (phone) return`. The XS key case turns red on `expect(ui().report).toBe(true)`. Revert.
 3. Delete the `restoreSettings()` branch. The first case turns red on the last poll. Revert, `git diff` empty.
 
@@ -781,7 +791,9 @@ test('the docs route has no sheet bar in view', async () => {
   resetApp('advanced')
   window.history.pushState({}, '', '/docs/cli')
   await render(<App />)
-  expect(bar()?.closest('main')?.hidden ?? true).toBe(true)
+  const nav = bar()
+  if (nav === null) throw new Error('no sheet bar')
+  expect(nav.closest('main')?.hidden).toBe(true)
 })
 ```
 
@@ -891,7 +903,23 @@ In `routes/Workspace.tsx` import `SheetBar`, subscribe `const sheet = useStore((
 
 and render `<SheetBar tab={tab} />` after the closing `</div>` of `.fw-lab`, inside the `<section>`. Add a comment: "After `.fw-lab`, not in it: the lab's children keep their slots (Ruling 6), and the bar is shown only at XS (shell.css)."
 
-- [ ] **Step 7: Run the new tests**
+- [ ] **Step 7: Hide it until XS, and run the new tests**
+
+The bar's own look arrives with the XS layout (Task 10); what it needs now is to be no box at all, or the layout audit's `ua-button` invariant reads its user-agent buttons in every case (measured in review). Append to `design/shell.css`:
+
+```css
+/* The phone's sheet bar (SheetBar.tsx): shown only at XS, below (handoff 2,
+   PR 7). Its buttons drop the user agent's look wherever they are. */
+.fw-sheetbar {
+  display: none;
+}
+.fw .fw-sheetbar button {
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+}
+```
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/shell/SheetBar.browser.test.tsx`
 Expected: PASS (5 tests).
@@ -906,7 +934,7 @@ Expected: PASS. Any other strict-mode violation ("resolved to 2 elements") gets 
 - [ ] **Step 9: Commit**
 
 ```bash
-pnpm -C apps/lab exec prettier --write src/shell/SheetBar.tsx src/shell/SheetBar.browser.test.tsx src/routes/Workspace.tsx src/run/RunColumn.tsx src/library/BoardColumn.tsx src/routes/LabLayout.browser.test.tsx
+pnpm -C apps/lab exec prettier --write src/shell/SheetBar.tsx src/shell/SheetBar.browser.test.tsx src/routes/Workspace.tsx src/run/RunColumn.tsx src/library/BoardColumn.tsx src/routes/LabLayout.browser.test.tsx src/design/shell.css
 git add packages/engine/lab-i18n.ts apps/lab/src
 git commit -m "Add the phone's sheet bar: Settings, CLI and Report on the lab, Boards, Board and Report on the saved boards"
 ```
@@ -954,10 +982,17 @@ Run: `pnpm nx build engine`.
 
 - [ ] **Step 2: Write the failing tests**
 
-Append to `apps/lab/src/shell/TopBar.browser.test.tsx` (read its head first and reuse its render helper and imports; the cases below assume a `renderBar()` that renders `<TopBar presets={null} />` with the store reset — if the file renders differently, follow the file):
+Edit `apps/lab/src/shell/TopBar.browser.test.tsx` first:
+
+- `renderBar()` (line 7–9) renders `<TopBar presets={null} />` (the prop is required after Step 4, or `tsc` fails).
+- Its `beforeEach` (lines 11–20) gains `state.ui.setMenu(false)`: the cases below leave the menu open, and the next one's click would close it instead (measured in review: the Escape case fails without it).
+- Imports: add `userEvent` from `vitest/browser`. The file uses `describe`/`it`; put the cases below inside its `describe('TopBar', …)` as `it(...)`.
+- The two banner pins at lines 29 and 36 read the whole text (`toHaveTextContent` is whole-string, measured in review). Change them to `'Arrowz/25×50menu▼⌘Kcommand paletteSimpleAdvancedPLEN'` and `'Arrowz/26×50menu▼⌘Kcommand paletteSimpleAdvancedPLEN'` — the chip and both ⌘K labels are in the DOM, and this file loads no stylesheet.
+
+Then add:
 
 ```tsx
-test('the menu chip controls the right group and toggles the menu', async () => {
+it('the menu chip controls the right group and toggles the menu', async () => {
   const screen = await renderBar()
   const chip = screen.getByRole('button', { name: 'menu', exact: true })
   await expect.element(chip).toHaveAttribute('aria-controls', 'top-menu')
@@ -968,7 +1003,7 @@ test('the menu chip controls the right group and toggles the menu', async () => 
   await expect.element(chip).toHaveAttribute('aria-expanded', 'true')
 })
 
-test('Escape inside the open menu closes it and returns the focus to the chip', async () => {
+it('Escape inside the open menu closes it and returns the focus to the chip', async () => {
   const screen = await renderBar()
   const chip = screen.getByRole('button', { name: 'menu', exact: true })
   await chip.click()
@@ -978,14 +1013,14 @@ test('Escape inside the open menu closes it and returns the focus to the chip', 
   expect(document.activeElement).toBe(chip.element())
 })
 
-test('a press outside the open menu closes it', async () => {
+it('a press outside the open menu closes it', async () => {
   const screen = await renderBar()
   await screen.getByRole('button', { name: 'menu', exact: true }).click()
   document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
   await expect.poll(() => useStore.getState().ui.menu).toBe(false)
 })
 
-test('⌘K carries a word for touch inside its accessible name, and closes the menu', async () => {
+it('⌘K carries a word for touch inside its accessible name, and closes the menu', async () => {
   const screen = await renderBar()
   await act(async () => useStore.getState().ui.setMenu(true))
   const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
@@ -1075,25 +1110,35 @@ Give the right group `id={TOP_MENU_ID}`. Replace the ⌘K button's `onClick` and
 
 In `App.tsx` change `<TopBar />` to `<TopBar presets={null} />`.
 
+Append to `design/shell.css`, beside Task 4's sheet-bar rule (the XS rules that show them come in Task 10; until then they must be no box, or the layout audit reads a user-agent button — measured in review):
+
+```css
+/* The top bar's menu chip and ⌘K's word for touch exist only at XS. */
+.fw .fw-top .fw-menu-btn,
+#cmdk .k-touch {
+  display: none;
+}
+```
+
 - [ ] **Step 5: Run the tests and the suite**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/shell/TopBar.browser.test.tsx`
 Expected: PASS.
 Run: `pnpm nx run lab:test`
-Expected: PASS. A case pinning the ⌘K button's exact `textContent` to `⌘K` now reads `⌘Kcommand palette` without CSS: read `.k-key` instead, and list it in the commit.
+Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-pnpm -C apps/lab exec prettier --write src/shell/TopBar.tsx src/shell/TopBar.browser.test.tsx src/App.tsx
+pnpm -C apps/lab exec prettier --write src/shell/TopBar.tsx src/shell/TopBar.browser.test.tsx src/App.tsx src/design/shell.css
 git add packages/engine/lab-i18n.ts apps/lab/src
 git commit -m "Fold the top bar's right group into a menu chip and give ⌘K a word for touch"
 ```
 
 - [ ] **Step 7: Mutations**
 
-1. Delete `ui.setMenu(false)` in the menu's `onKey`. `Escape inside the open menu…` turns red on `menu`. Revert. (That the menu *consumes* its Escape, so a sheet does not close on the same press, is pinned in Task 10, `Escape in the open menu closes the menu only` — a sheet needs the stylesheets to be anything.)
-2. Delete `ui.setMenu(false)` in the ⌘K handler. `⌘K carries a word…` turns red on `menu` being `true`. Revert, `git diff` empty.
+1. In the menu effect's `onKey`, delete the `setMenu(false)` call. `Escape inside the open menu…` turns red on `menu`. Revert. (That the menu *consumes* its Escape, so a sheet does not close on the same press, is pinned in Task 10, `Escape in the open menu closes the menu only` — a sheet needs the stylesheets to be anything.)
+2. Delete `ui.setMenu(false)` in the ⌘K button's `onClick`. `⌘K carries a word…` turns red on `menu` being `true`. Revert, `git diff` empty.
 
 ---
 
@@ -1113,7 +1158,7 @@ Model: Sonnet.
 
 - [ ] **Step 1: Write the failing tests**
 
-Append to `apps/lab/src/run/PresetStrip.browser.test.tsx` (add imports `mountApp` from `../harness/mountApp`, `page` from `vitest/browser`, `act` from `react`, `useStore` if missing, and a `fetch` stub as in Task 4's `beforeEach` if the file has none):
+Append to `apps/lab/src/run/PresetStrip.browser.test.tsx`. It imports only `beforeEach, describe, expect, it` from `vitest` today: add `test` and `vi` there, `page` from `vitest/browser`, `mountApp` from `../harness/mountApp`, and a `fetch` stub for these cases (`vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))` at the top of each, `vi.restoreAllMocks()` at the end). The file loads `tokens.css`, `shell.css` and `run.css`, so from Task 10 on the low band's rules apply here at 924×540 — the assertions below read the DOM parent, not geometry, and hold either way.
 
 ```tsx
 const strips = () => document.querySelectorAll('.fw-presets')
@@ -1155,7 +1200,7 @@ Expected: FAIL — at 924×540 the strip's parent is `.fw-lab`.
 
 - [ ] **Step 3: Implement**
 
-`PresetStrip.tsx` line 48: `first?.focus({ preventScroll: true })`, with a comment: "No scroll: in a low window the panel is `position: fixed` under the top bar, and a focus that scrolled `.fw-top` would shift the bar (handoff 2, PR 7)."
+`PresetStrip.tsx` line 51: `first?.focus({ preventScroll: true })`, with a comment: "No scroll: in a low window the panel is `position: fixed` under the top bar, and a focus that scrolled `.fw-top` would shift the bar (handoff 2, PR 7)."
 
 `App.tsx`, in `Shell`: import `PresetStrip` from `./run/PresetStrip`; add
 
@@ -1189,7 +1234,7 @@ git commit -m "Stand the preset strip in the top bar of a low window"
 
 - [ ] **Step 6: Mutations**
 
-1. Drop `&& advanced` from `presetsInTop`. `the simple view has no strip…` turns red on `presets-top`. Revert.
+1. Drop `&& advanced` from `presetsInTop`. `the simple view has no strip…` turns red on `expect(strips()).toHaveLength(0)` (the top bar renders a strip; `presets-top` stays off because Workspace's class also needs `!simple`). Revert.
 2. Drop `{ preventScroll: true }`. The focus case turns red. Revert, `git diff` empty.
 
 ---
@@ -1366,17 +1411,32 @@ export function MoreMenu({ children }: { children: ReactNode }): ReactElement {
 
 `RunColumn.tsx`: wrap the `{simple ? null : (<div className="fw-ghost">…</div>)}` block and `<ExportButtons />` in `<MoreMenu>…</MoreMenu>`, keeping both comments inside. `BoardColumn.tsx`: wrap the `<div className="fw-ghost fw-exports" …>…</div>` in `<MoreMenu>…</MoreMenu>`.
 
+Append to `design/run.css` (the M/S rules that show them come in Task 9; until then the button is no box and the container none, so the column reads as it always has and the layout audit sees no user-agent button):
+
+```css
+/* The `…` and its popover (MoreMenu.tsx) exist only in the M/S bar; outside
+   it the button is gone and the container is not a box at all. */
+.fw .fw-more {
+  display: none;
+}
+.fw-more-pop {
+  display: contents;
+}
+```
+
+On `/boards` two `More options` buttons exist (the lab's run column stays mounted, hidden by class): any later locator by that name on the saved boards is scoped to `.fw-bcol`.
+
 - [ ] **Step 6: Run the tests and the suite**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/run/MoreMenu.browser.test.tsx`
 Expected: PASS (4 tests).
 Run: `pnpm nx run lab:test`
-Expected: PASS. Without CSS the popover's content is in the DOM and visible as before, so the export and switch cases do not move; a strict-mode collision on `name: /more/i` gets `exact: true`.
+Expected: PASS. `display: contents` keeps the popover's content where it was, with or without a stylesheet, so the export and switch cases do not move (`RunColumn`, `ExportButtons` and `BoardColumn` tests load `run.css`/`library.css` at 414, which has no rule for the popover until Task 10).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-pnpm -C apps/lab exec prettier --write src/run/MoreMenu.tsx src/run/MoreMenu.browser.test.tsx src/run/RunColumn.tsx src/library/BoardColumn.tsx
+pnpm -C apps/lab exec prettier --write src/run/MoreMenu.tsx src/run/MoreMenu.browser.test.tsx src/run/RunColumn.tsx src/library/BoardColumn.tsx src/design/run.css
 git add packages/engine/lab-i18n.ts apps/lab/src
 git commit -m "Put the right column's switches and exports behind a … popover for the bar"
 ```
@@ -1396,11 +1456,12 @@ Model: Opus. No CSS in this task: it teaches the audit the new invariants, widen
 - Modify: `apps/lab/src/routes/LayoutInvariants.browser.test.tsx`
 
 **Interfaces:**
-- Produces: new `Invariant` members `'board-width' | 'bar-row' | 'sheet-fit' | 'sheet-bar' | 'touch-target' | 'top-scroll'`; `audit(root, { board, solo })` (new optional `solo?: boolean`, default `false`).
+- Produces: new `Invariant` members `'board-width' | 'bar-row' | 'sheet-fit' | 'sheet-bar' | 'touch-target' | 'top-scroll' | 'hidden-box'`; `audit(root, { board, solo })` (new optional `solo?: boolean`, default `false`).
+- `KNOWN_RED` becomes **per invariant**: each key lists the invariants still red there, each with a trailing comment naming the task that fixes it. A task removes *its* invariants from every list and drops a key when its list is empty (review round 1: one case can be red for three tasks at once, and an exact whole-set comparison cannot be half-deleted).
 
 - [ ] **Step 1: Extend `invariants.ts`**
 
-Add to the `Invariant` union: `'board-width' | 'bar-row' | 'sheet-fit' | 'sheet-bar' | 'touch-target' | 'top-scroll'`. Add these functions before `audit`:
+Add to the `Invariant` union: `'board-width' | 'bar-row' | 'sheet-fit' | 'sheet-bar' | 'touch-target' | 'top-scroll' | 'hidden-box'`. Add these functions before `audit`:
 
 ```ts
 /**
@@ -1484,6 +1545,16 @@ function touchTargets(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * An element carrying `hidden` has no box: a `display` rule on it would undo
+ * the attribute (the package's own XS preset panel did). Spec §3.
+ */
+function hiddenBox(root: HTMLElement): Finding[] {
+  return [...root.querySelectorAll('[hidden]')]
+    .filter((el) => el.closest('main[hidden]') === null && rendered(el))
+    .map((el) => ({ invariant: 'hidden-box' as const, detail: label(el) }))
+}
+
 /** Opening a popover in the top bar never scrolls it (the low window's presets). */
 function topScroll(root: HTMLElement): Finding[] {
   const bar = root.querySelector('.fw-top')
@@ -1494,9 +1565,15 @@ function topScroll(root: HTMLElement): Finding[] {
 Change existing functions:
 
 - `barClip`: skip a node inside a popover — first line of the loop: `if (node.closest('.fw-pp-panel') !== null || (node.closest('.right') !== null && root.querySelector('.fw.menu-open') !== null)) continue` (the panel and the open menu lie outside the bar by design; `popoverFit` reads them).
-- `popoverFit`: select `'.fw-pp-panel, .fw-more-pop.open, .fw.menu-open .fw-top .right'`.
+- `popoverFit`: select `'.fw-pp-panel, .fw-more-pop.open, .fw.menu-open .fw-top .right'`; and at XS, where the sheet bar is rendered, a popover's bottom must not pass the bar's top (the preset list ran 32px under it, measured in review): after the viewport check add
+
+```ts
+    const sheetbar = root.querySelector('.fw-sheetbar')
+    if (sheetbar !== null && rendered(sheetbar) && r.bottom > sheetbar.getBoundingClientRect().top + EPS)
+      out.push({ invariant: 'popover-fit', detail: `${label(panel)} bottom ${r.bottom.toFixed(0)} under the sheet bar` })
+```
 - `drawerFit` and `settingsFit`: first line `if (window.innerWidth < 768) return []` with the comment "At XS the drawers are sheets over the viewport (`sheet-fit`)." Rewrite `settingsFit`'s doc comment's last sentences: "Below 1024 it lies over the board (S), and only the stage bound is read."
-- `audit`: signature `audit(root: HTMLElement, { board, solo = false }: { board: boolean; solo?: boolean })`, and append `...boardWidth(root, solo), ...barRow(root, solo), ...sheets(root, solo), ...touchTargets(root), ...topScroll(root)` to the list.
+- `audit`: signature `audit(root: HTMLElement, { board, solo = false }: { board: boolean; solo?: boolean })`, and append `...boardWidth(root, solo), ...barRow(root, solo), ...sheets(root, solo), ...touchTargets(root), ...topScroll(root), ...hiddenBox(root)` to the list.
 
 - [ ] **Step 2: Widen the matrix**
 
@@ -1517,37 +1594,54 @@ const SIZES: readonly (readonly [number, number])[] = [
 ]
 ```
 
-- Add states `'solo'`, `'sheet-settings'`, `'sheet-cli'`, `'sheet-report'`, `'library-sheet-cli'`, `'menu-open'`, `'more-open'` to `State`. `STATES` (the full matrix) gains `'solo'` only. Add after it:
+- Add states `'solo'`, `'solo-sheet'`, `'sheet-settings'`, `'sheet-cli'`, `'sheet-report'`, `'library-sheet-cli'`, `'menu-open'`, `'more-open'` to `State`. `STATES` (the full matrix) gains `'solo'` only. Add after it:
 
 ```ts
 /** States that exist only in some bands, each run at its own sizes. */
 const BANDED: readonly (readonly [State, number, number])[] = [
-  ...(['sheet-settings', 'sheet-cli', 'sheet-report', 'library-sheet-cli', 'menu-open'] as const).flatMap((s) =>
+  ...(['sheet-settings', 'sheet-cli', 'sheet-report', 'library-sheet-cli', 'menu-open', 'solo-sheet'] as const).flatMap((s) =>
     ([[600, 900], [375, 812]] as const).map(([w, h]) => [s, w, h] as const),
   ),
   ...([[1024, 768], [924, 540], [768, 1024]] as const).map(([w, h]) => ['more-open', w, h] as const),
 ]
 ```
 
-- In `arrange`: `'library-sheet-cli'` pushes `/boards/8x8/<id>` with the same fetch stub as `'library-detail'` (extract that stub into a local `stubStoredBoard()` used by both), waits for `.fw-bcol .fw-cmdfig` like `'library-detail'`, then sets the sheet. Inside the existing `act`: `'solo'` → `s.ui.setSolo(true)`; `'sheet-settings' | 'sheet-cli' | 'sheet-report'` → `s.ui.setSheet(state.slice(6) as Sheet)` (import `type Sheet`); `'library-sheet-cli'` → `s.ui.setSheet('cli')`; `'menu-open'` → `s.ui.setMenu(true)`. After the `presets-open` block: `'more-open'` → `await screen.getByRole('button', { name: 'More options' }).click()` and poll `.fw-more-pop.open` not null. Skip `loadRunDone` for `library-sheet-cli` as for `library-detail`.
-- In both test bodies pass `solo: state === 'solo'` to `audit`, and add a second `test.each(BANDED)` with the same body as the matrix case.
-- `LANG_CASES` becomes `[['board', 420, 900], ['board', 1280, 800], ['board', 1024, 768], ['board', 768, 1024], ['presets-open', 924, 540], ['board', 375, 812], ['more-open', 1024, 768]]` (Review Focus 4). Its `arrange` must run with `lang` set before the click for `more-open`; keep the file's order: arrange, then `setLang('pl')`, then settle — the popover stays open across the language change.
+- In `arrange`: `'library-sheet-cli'` pushes `/boards/8x8/<id>` with the same fetch stub as `'library-detail'` (extract that stub into a local `stubStoredBoard()` used by both), waits for `.fw-bcol .fw-cmdfig` like `'library-detail'`, then sets the sheet. Inside the existing `act`: `'solo'` → `s.ui.setSolo(true)`; `'solo-sheet'` → `s.ui.setSolo(true)` and `s.ui.setSheet('settings')` (Review Focus 3); `'sheet-settings' | 'sheet-cli' | 'sheet-report'` → `s.ui.setSheet(state.slice(6) as Sheet)` (import `type Sheet`); `'library-sheet-cli'` → `s.ui.setSheet('cli')`; `'menu-open'` → `s.ui.setMenu(true)`. After the `presets-open` block: `'more-open'` → `await screen.getByRole('button', { name: 'More options' }).click()` and poll `.fw-more-pop.open` not null. Skip `loadRunDone` for `library-sheet-cli` as for `library-detail`.
+- In both test bodies pass `solo: state === 'solo' || state === 'solo-sheet'` to `audit`, and add a second `test.each(BANDED)` with the same body as the matrix case.
+- `LANG_CASES` becomes `[['board', 420, 900], ['board', 1280, 800], ['board', 1024, 768], ['board', 768, 1024], ['presets-open', 924, 540], ['board', 375, 812], ['more-open', 1024, 768]]` (Review Focus 4). Keep the file's order: arrange, then `setLang('pl')`, then settle — the popover stays open across the language change. Key the Polish cases `${state}@${w}x${h}:pl` in `KNOWN_RED`: they share `state@size` with English cases and may differ from them (review round 1).
 
 - [ ] **Step 3: Run, and record today's reds**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/routes/LayoutInvariants.browser.test.tsx`
-Expected: FAIL in many cases (no band CSS exists yet). For each failing case, add its exact set to `KNOWN_RED` under `${state}@${w}x${h}`, with a trailing comment naming the task that fixes it (`// Task 9` for 768–1599 wide, `// Task 10` for XS and 924×540). Extend `KNOWN_RED` to every other test in the file that calls `audit` — `BANDED`, `LANG_CASES`, `the presets-open state at 420×700` and `the Polish trigger naming Huge…` — by making their bodies compare against it the same way the matrix does (they compare against `[]` today); key the two single cases as `presets-open@420x700` and `huge-pl@420x900`. Re-run until the file is green with the recorded reds.
+Expected: FAIL in many cases (no band CSS exists yet). For each failing case, record its invariants in `KNOWN_RED` under `${state}@${w}x${h}` (per invariant, see Interfaces), each labelled by **invariant**, not by size:
+
+```ts
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
+  'board@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'board@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  // …
+}
+```
+
+Labels: `bar-row`, and `board-width` at ≥768 → Task 9; `sheet-bar`, `sheet-fit`, `board-width` below 768, `hidden-box`, `top-scroll`, `panel-overflow` and `popover-fit` at XS → Task 10; `touch-target` → Task 11. Anything else red here (`ua-button`, `bar-clip`, `overlap`, `contrast`) is a defect of Tasks 4–7 — stop and fix it there, do not record it. Extend `KNOWN_RED` to every other test in the file that calls `audit` — `BANDED`, `LANG_CASES`, `the presets-open state at 420×700` and `the Polish trigger naming Huge…` — by making their bodies compare against it the same way the matrix does (they compare against `[]` today); key the two single cases as `presets-open@420x700` and `huge-pl@420x900`. Re-run until the file is green with the recorded reds.
 
 - [ ] **Step 4: Mutations of the new invariants**
 
-Commit first (Step 5), then, one at a time, each reverted by hand with `git diff` empty after:
+Commit first (Step 5). A mutation can only turn red a case where its invariant is not already recorded red (the comparison is on names), so each runs where it can bite; the others are listed in the task that turns their invariant green. Here, one at a time, each reverted by hand with `git diff` empty after:
 
-1. `boardWidth`: change `320` to `3200`. Every ≥768 case that is not solo turns red with `board-width`.
-2. `barRow`: change `104` to `4`. Every M/S case that has a bar turns red with `bar-row`. Then, separately, change `start < edge - EPS` to `start < edge + 9999`: every M case with the drawer open turns red with the "under the drawer" detail (the two checks are two conditions, two runs).
-3. `sheets`: invert `shown !== (phone && !solo)` to `===`. Every workspace case turns red with `sheet-bar`.
-4. `touchTargets`: change `44` to `440`. Every XS case turns red with `touch-target`.
+1. `boardWidth`: change `320` to `3200`. The ≥1280 cases and the 924×540 and 768×1024 cases not already recording `board-width` turn red with it (1024×768 already records it).
+3. `sheets`: invert `shown !== (phone && !solo)` to `===`. Every ≥768 workspace case turns red with a new `sheet-bar` finding; the XS cases, which record `sheet-bar`, turn red because the recorded one is now missing (the comparison is exact both ways). Either way the case is red — the second kind is not a misfire.
 5. `topScroll`: change `!== 0` to `=== 0`. Every case turns red with `top-scroll`.
-6. `barClip`'s skip: delete it. `presets-open@924x540` stays as recorded now (the strip is not in the bar until Task 10) — so this mutation is run again at the end of Task 10, where it must turn `presets-open@924x540` red with `bar-clip`.
+7. `hiddenBox`: change `rendered(el)` to `!rendered(el)`. Every case with a closed preset panel (`board@1440x900`, …) turns red with `hidden-box`.
+
+Run later: mutation 2 (`barRow`, two conditions → two runs) at the end of Task 9, mutation 4 (`touchTargets`) at the end of Task 11, mutation 6 (`barClip`'s skip, two conditions → two runs) at the end of Task 10.
 
 - [ ] **Step 5: Commit**
 
@@ -1567,15 +1661,15 @@ Model: Opus.
 - Modify: `apps/lab/src/design/console.css:1074-1076, 1126-1144`
 - Modify: `apps/lab/src/design/run.css`
 - Modify: `apps/lab/src/design/library.css`
-- Modify: `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (delete `// Task 9` entries)
+- Modify: `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (remove the `// Task 9` invariants)
 - Modify: `apps/lab/src/design/touch.browser.test.tsx`
 
 **Interfaces:**
 - Consumes: `.fw-more`, `.fw-more-pop(.open)` (Task 7); the `KNOWN_RED` entries marked `// Task 9` (Task 8).
 
-- [ ] **Step 1: Delete this task's `KNOWN_RED` entries and watch them go red**
+- [ ] **Step 1: Remove this task's invariants from `KNOWN_RED` and watch them go red**
 
-Delete every entry marked `// Task 9`. Run the layout file; the deleted cases fail. Keep the output for the commit message.
+Remove every invariant marked `// Task 9` from every list, and drop a key whose list is now empty. Run the layout file; those cases fail on exactly the removed invariants. Keep the output for the commit message.
 
 - [ ] **Step 2: The handle track as a property, and the stopgaps out**
 
@@ -1601,7 +1695,7 @@ Replace the coarse block at 1139–1143 with:
 }
 ```
 
-Delete the `@media (max-width: 1279px)` block (1126–1130) and the `@media (max-width: 900px)` block (1131–1138) that follows it — both are PR 1's stopgaps; the bands below replace them. Leave the `(min-width: 1024px)` push block, the `(max-height: 700px)` rows and the later `(max-width: 900px) .fw-console` rule (it is outranked in the drawer and untouched here).
+Delete the `@media (max-width: 1279px)` block (1126–1130) and the `@media (max-width: 900px)` block (1131–1138) that follows it — both are PR 1's stopgaps; the bands below replace them. The second one also narrowed the drawer's rail to 112px; at S it is back to 126 (measured in review: the 448px drawer at 768 still gives the knob panel 322px, knobs fit, no panel overflow). Leave the `(min-width: 1024px)` push block, the `(max-height: 700px)` rows and the later `(max-width: 900px) .fw-console` rule (it is outranked in the drawer and untouched here).
 
 - [ ] **Step 3: L, M and S stage rules**
 
@@ -1660,14 +1754,6 @@ Append to `console.css`, after the solo rules (so a later reader finds them toge
 Append to `run.css`:
 
 ```css
-/* The `…` and its popover (MoreMenu.tsx) exist only in the M/S bar; outside
-   it the button is gone and the container is not a box at all. */
-.fw .fw-more {
-  display: none;
-}
-.fw-more-pop {
-  display: contents;
-}
 /* M and S (handoff 2, PR 7): the right column is one line under the board —
    CLI [Copy] | the command, one line scrolled sideways | Generate | the three
    alternatives | … — two when the open drawer pushes it. */
@@ -1766,14 +1852,18 @@ Append to `run.css`:
 }
 /* The bar under a finger: 44px controls, not 32 (spec §5). */
 @media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
-  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more) {
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
     height: 44px;
     min-height: 44px;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd {
+    max-height: 44px;
+    line-height: 42px;
   }
 }
 ```
 
-(Specificity against what the bar overrides: `.fw .fw-alt button` is `(0,2,1)` and the coarse `height: 44px` on it is `(0,2,1)`; the bar's rules are `(0,5,1)`. `.fw .fw-go` is `(0,2,0)` in shell.css.)
+(Specificity against what the bar overrides: `.fw .fw-alt button` is `(0,2,1)` and the coarse `height: 44px` on it is `(0,2,1)`; the bar's `.fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt > button` is `(0,6,1)`. `.fw .fw-go` is `(0,2,0)` in shell.css. None of the M/S stage rules sets `display`, so the library's `display: none` on the lab's run column never competes with them.)
 
 - [ ] **Step 5: The saved boards' column in the bar**
 
@@ -1787,16 +1877,15 @@ Append to `library.css`:
   .fw-lab:not(.solo) .fw-bcol .fw-bmeta {
     display: none;
   }
-  .fw .fw-lab:not(.solo) .fw-bcol .fw-alt > .danger {
-    flex: none;
-  }
 }
 ```
+
+And change `library.css:101`'s `.fw .fw-bcol .fw-alt > .danger { flex: 1; }` to `flex: none;`. In the column (`.fw-alt` is `flex-direction: column`, run.css:16) `flex: 1` sets a 0 basis that beats the button's height, so under a finger — and at XS after Task 11 — Delete collapses to its 32px `min-height` (measured in review: "Delete from disk" 32 in the XS sheet while every other control is 44). Add to Task 11's touch rows a Delete row (`'<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>'`, 44) — it reads declared heights, so also assert in `library-sheet-cli@375x812` (the layout matrix) that `touch-target` stays green, which measures the box.
 
 - [ ] **Step 6: Run the layout file**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/routes/LayoutInvariants.browser.test.tsx`
-Expected: every case green except the entries still marked `// Task 10`. A new red that is not in `KNOWN_RED` is fixed in the CSS, never recorded. Two likely ones, measured before guessing: `bar-row` height over 104 in Polish at 768 (the alternatives wrap; shorten `gap` or let `.fw-alt` wrap onto the command's line) and `board-width` at 1024 with the drawer open (read `--ls-w` there: `clamp(25rem, calc(33vw + 172px), 47rem)` is ~510px at 1024 — if the board falls under 320, give M its own `--ls-w`, and record the measurement in the commit).
+Expected: every case green except the invariants still marked `// Task 10` and `// Task 11`. A new red that is not in `KNOWN_RED` is fixed in the CSS, never recorded. Review round 1 applied this task's CSS and measured, drawer open: board 533 at 1440, 395 at 1280, 440 at 1024, 678 at 768; the bar 48px tall, 88 at 1024 with the drawer pushing it, in English and Polish; its content starts at x=551, past the drawer's edge at 538.
 
 - [ ] **Step 7: Pin the coarse bar in the touch test**
 
@@ -1830,7 +1919,8 @@ git commit -m "Lay the stage out in the L, M and S bands, with the right column 
 - [ ] **Step 10: Mutations**
 
 1. Delete `grid-row: 2;` from the M/S run column rule. `board@1024x768` turns red with `bar-row` (the column falls into row 1 beside the board). Revert.
-2. Delete the M push block (`(min-width: 1024px) and (max-width: 1279px)`). `board@1024x768` (the drawer is open in `resetApp`) turns red with `bar-row` "content … under the drawer". Revert, `git diff` empty.
+2. Delete the M push block (`(min-width: 1024px) and (max-width: 1279px)`). `board@1024x768` (the drawer is open in `resetApp`) turns red with `bar-row` "content … under the drawer". Revert.
+3. Task 8's mutation 2, now that `bar-row` is green: (a) in `barRow` change `104` to `4` — `board@1024x768` and `board@768x1024` turn red with `bar-row`; revert. (b) change `start < edge - EPS` to `start < edge + 9999` — `board@1024x768` turns red, `board@768x1024` does not (S has no push check); revert, `git diff` empty.
 
 ---
 
@@ -1840,23 +1930,20 @@ Model: Opus.
 
 **Files:**
 - Modify: `apps/lab/src/design/shell.css`, `console.css`, `run.css`, `library.css`
-- Modify: `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (delete `// Task 10` entries)
+- Modify: `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (remove the `// Task 10` invariants)
 - Modify: `apps/lab/src/shell/bands.browser.test.tsx`
 
-- [ ] **Step 1: Delete this task's `KNOWN_RED` entries and watch them go red**
+- [ ] **Step 1: Remove this task's invariants from `KNOWN_RED` and watch them go red**
 
 - [ ] **Step 2: Top bar, menu and sheet bar (`shell.css`)**
 
 Append:
 
 ```css
-/* The top bar's menu chip, ⌘K's word for touch and the sheet bar exist only
-   at XS (handoff 2, PR 7). */
-.fw .fw-top .fw-menu-btn,
-.fw-sheetbar,
-#cmdk .k-touch {
-  display: none;
-}
+/* XS (handoff 2, PR 7). Outside it the chip, ⌘K's word and the sheet bar are
+   no box (Tasks 4 and 5). Stacking: the top bar is 30 and the menu lives
+   inside it, so the sheets are 25 and the sheet bar 35 — above the board,
+   under an open menu, and under the palette's scrim (40, palette.css). */
 @media (max-width: 767px) {
   .fw-top {
     position: relative;
@@ -1880,10 +1967,13 @@ Append:
     background: none;
     cursor: pointer;
   }
+  /* The chip is 28px border-box with a 1px border, so its padding box is 26
+     and `inset` counts from that: -9px gives 44 (review round 1 measured 42
+     with -8px). */
   .fw .fw-top .fw-menu-btn::before {
     content: '';
     position: absolute;
-    inset: -8px -4px;
+    inset: -9px -4px;
   }
   .fw .fw-top .fw-menu-btn:hover {
     background: var(--signal-fill-hover);
@@ -1935,18 +2025,12 @@ Append:
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 50;
+    z-index: 35;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     height: 56px;
     background: var(--void);
     box-shadow: 0 -1px 0 var(--border);
-  }
-  .fw .fw-sheetbar button {
-    border: 0;
-    background: none;
-    color: var(--mist);
-    cursor: pointer;
   }
   .fw .fw-sheetbar button:hover {
     background: var(--surface);
@@ -1965,8 +2049,10 @@ Append:
     z-index: 30;
     overflow: visible;
   }
+  /* `auto`, not 32: under a finger the trigger is 44 (run.css) and would
+     overflow a 32px strip. */
   .fw-top .fw-presets {
-    height: 32px;
+    height: auto;
     padding: 0 0 0 16px;
     border: 0;
     background: none;
@@ -2033,7 +2119,7 @@ Next to `.fw-lab.simple { grid-template-rows: … }` add `.fw-lab.presets-top` t
     right: 0;
     top: auto;
     bottom: 56px;
-    z-index: 40;
+    z-index: 25;
     width: auto;
     max-width: none;
     height: 70vh;
@@ -2133,7 +2219,10 @@ Delete the `@media (max-width: 600px) { .fw-pp-panel { … } }` block. Append:
     width: auto;
     max-width: none;
     margin-top: 0;
-    max-height: calc(100vh - 220px);
+    /* 220 for what is above the list, 56 for the sheet bar under it: the
+       list's last row must end above the bar (review round 1 measured it
+       32px under with 220). */
+    max-height: calc(100vh - 276px);
     padding: 0;
     box-shadow: 0 0 0 1px var(--border-strong);
   }
@@ -2171,7 +2260,9 @@ Delete the `@media (max-width: 600px) { .fw-pp-panel { … } }` block. Append:
 - [ ] **Step 5: Run the layout file**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/routes/LayoutInvariants.browser.test.tsx`
-Expected: all green, `KNOWN_RED` empty. The `touch-target` findings at XS are expected until Task 11 extends the coarse sizes: if any remain, move them to `KNOWN_RED` marked `// Task 11` rather than fixing them here.
+Expected: green; `KNOWN_RED` holds only `touch-target` (`// Task 11`). The menu chip is 44 to the finger after this task (the `-9px` inset), so a `touch-target` naming `button.fw-menu-btn` is this task's defect, not Task 11's.
+
+Then run the whole suite (`pnpm nx run lab:test`): the component tests that load `run.css`/`library.css` at 414 (see Global Constraints) are now at XS with the sheet rules. The sheet rules are all scoped under `.fw-lab`, which a component test does not render, so none should move; a case that does is fixed by giving it `page.viewport(1400, 900)`, listed in the commit.
 
 - [ ] **Step 6: Behaviour cases that need the stylesheets**
 
@@ -2199,6 +2290,8 @@ test('closed sheets and a closed popover hold no focusable box', async () => {
     await loadRunDone()
     const hidden = [...document.querySelectorAll<HTMLElement>('.fw-ldrawer button, .fw-more-pop button, .fw-more-pop [role="switch"]')]
       .filter((el) => !el.checkVisibility({ visibilityProperty: true }))
+    // At 375 the drawer is no sheet (none open); at 1024 the popover is closed.
+    expect(hidden.length, `${w}`).toBeGreaterThan(0)
     for (const el of hidden) {
       el.focus()
       expect(document.activeElement, `${w}: ${el.textContent ?? ''}`).not.toBe(el)
@@ -2206,13 +2299,18 @@ test('closed sheets and a closed popover hold no focusable box', async () => {
   }
 })
 
-// Task 5's gap: the menu consumes its own Escape, so a drawer does not close
-// on the same press.
-test('Escape in the open menu closes the menu only', async () => {
+// Task 5's gap: the menu consumes its own Escape, so a sheet does not close
+// on the same press. And the open menu paints over the open sheet.
+test('Escape in the open menu closes the menu only, and the menu lies over the sheet', async () => {
   await page.viewport(375, 812)
   const screen = await mountApp('advanced')
+  await loadRunDone()
   await act(async () => ui().setSheet('report'))
   await screen.getByRole('button', { name: 'menu', exact: true }).click()
+  const menu = document.getElementById('top-menu')
+  if (menu === null) throw new Error('no menu')
+  const r = menu.getBoundingClientRect()
+  expect(document.elementFromPoint(r.right - 4, r.bottom - 4)?.closest('#top-menu')).toBe(menu)
   await userEvent.keyboard('{Escape}')
   expect(ui().menu).toBe(false)
   expect(ui().sheet).toBe('report')
@@ -2230,10 +2328,12 @@ git add apps/lab/src
 git commit -m "Lay the lab out on a phone with bottom sheets, a menu chip and a grouped preset list, and stand the presets in a low window's top bar"
 ```
 
-1. Replace `.fw-lab .fw-pp-panel:not([hidden])` with `.fw-lab .fw-pp-panel`. `board@375x812` turns red (`popover-fit` or `overlap`: the closed panel shows). Revert.
-2. Drop `:not(.solo)` from `.fw-lab:not(.solo) + .fw-sheetbar`. `solo at XS hides…` turns red on the sheet bar. Revert.
-3. Delete `event.preventDefault()` in `TopBar`'s menu `onKey`. `Escape in the open menu closes the menu only` turns red on `sheet`. Revert.
-4. Task 8's pending mutation 6 (delete `barClip`'s skip): `presets-open@924x540` turns red with `bar-clip`. Revert, `git diff` empty.
+1. Replace `.fw-lab .fw-pp-panel:not([hidden])` with `.fw-lab .fw-pp-panel`. `board@375x812` turns red with `hidden-box` (the closed panel shows; review round 1 measured that `popover-fit` and `overlap` stay silent). Revert.
+2. Drop `:not(.solo)` from `.fw-lab:not(.solo) + .fw-sheetbar`. `solo at XS hides…` turns red on the sheet bar, and `solo@375x812` with `sheet-bar`. Revert.
+3. Delete `event.preventDefault()` in `TopBar`'s menu `onKey`. `Escape in the open menu closes the menu only…` turns red on `sheet`. Revert.
+4. Set the sheets' `z-index` back to 40. The same case turns red on `elementFromPoint`. Revert.
+5. Task 8's mutation 6, two conditions, two runs: (a) delete only the `.fw-pp-panel` half of `barClip`'s skip — `presets-open@924x540` turns red with `bar-clip`; revert. (b) delete only the menu half — `menu-open@600x900` and `menu-open@375x812` turn red with `bar-clip`; revert, `git diff` empty.
+6. Change `calc(100vh - 276px)` back to `calc(100vh - 220px)`. `presets-open@375x812` turns red with `popover-fit` "under the sheet bar". Revert.
 
 ---
 
@@ -2242,9 +2342,7 @@ git commit -m "Lay the lab out on a phone with bottom sheets, a menu chip and a 
 Model: Sonnet.
 
 **Files:**
-- Modify: `apps/lab/src/design/shell.css` (coarse blocks at lines 220, 434, 563, 603 before this PR's edits)
-- Modify: `apps/lab/src/design/console.css` (coarse blocks at 891, 993, 1251)
-- Modify: `apps/lab/src/design/run.css` (coarse blocks at 96, 184, 345), `library.css` (148), `docs.css` (59)
+- Modify: the `@media (pointer: coarse)` blocks named in Step 2 by their first selector (line numbers there are as of `lab/saved-boards`, before this PR's edits moved them)
 - Modify: `apps/lab/src/design/touch.browser.test.tsx`
 
 - [ ] **Step 1: Write the failing touch rows**
@@ -2287,7 +2385,7 @@ test.each([
   ['a preset row', '<div class="fw-pp-col"><button>x</button></div>', 'button', 44],
   ['a tab', '<div class="fw-tabrow"><button>Lab</button></div>', 'button', 0],
   ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
-  ['Generate', '<section class="fw-run-col"><button class="fw-go">Generate</button></section>', 'button', 44],
+  ['Delete from disk', '<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>', 'button', 44],
 ] as const)('%s is raised at XS', async (_, html, tag, px) => {
   const screen = await render(<div className="fw" dangerouslySetInnerHTML={{ __html: html }} />)
   const el = screen.container.querySelector(tag)
@@ -2305,7 +2403,7 @@ Expected: FAIL — `phoneHeight` returns 0.
 
 - [ ] **Step 2: Join XS to the size blocks**
 
-Change `@media (pointer: coarse) {` to `@media (pointer: coarse), (max-width: 767px) {` at exactly these blocks: `shell.css` tab row (220), solo button (434), segmented (563), `.fw-btn` (603); `console.css` knob rows (891), knob/palette/switch (993), clamp notice button (1251); `run.css` alternatives/exports/option (96), copy button (184), presets (345); `library.css` (148); `docs.css` (59). Leave alone: `shell.css:39` (scrollbars), `shell.css:308` and `:360` (handle widths — the handles are hidden at XS), and the `--hd` block in `console.css`.
+Change `@media (pointer: coarse) {` to `@media (pointer: coarse), (max-width: 767px) {` at exactly the blocks whose first selector is: in `shell.css` `.fw-tabrow button` (was 220), `.fw .fw-solo` (434), `.fw .fw-seg button` (563), `.fw .fw-btn` (603); in `console.css` `.kv-g` (891), `.fw-k .bar` (993), `.fw .fw-note.hold button` (1251); in `run.css` `.fw .fw-alt button` (96), `.fw .fw-cmdhd button` (184), `.fw-presets` (345); in `library.css` `.fw .fw-console.library .fw-rail button` (148); in `docs.css` `.fw-docs-nav a` (59). Review round 1 inspected every one: each holds sizes only, nothing layout-bearing leaks into XS on a mouse. Leave alone: `shell.css`'s `.fw, .fw *` scrollbar block, the `.fw-stage` / `.fw-drawer` and `.fw-ldrawer` handle-width blocks (the handles are hidden at XS), and the `--hd` block in `console.css`.
 
 Add to the `console.css` XS block from Task 10 the XS-only rules (spec §5):
 
@@ -2317,12 +2415,9 @@ Add to the `console.css` XS block from Task 10 the XS-only rules (spec §5):
   .kv-g .mx {
     display: none;
   }
-  .fw .fw-run-col .fw-go {
-    min-height: 44px;
-  }
 ```
 
-Before adding the `.ln`/`.mn`/`.mx` rules, grep `console.css` for `.kv-g .ln`, `.mn` and `.mx` and confirm the class names exist (PR 2's knob rows); if they differ, use the file's names and say so in the commit.
+(`.ln`, `.mn`, `.mx` are `KnobRow.tsx:32,38,40`. Generate needs no rule: `.fw .fw-go` is already 44px, shell.css:499, and the 32px override is bounded to 768–1279.)
 
 - [ ] **Step 3: Run the touch test, the layout file and the node pins**
 
@@ -2339,7 +2434,11 @@ git add apps/lab/src/design
 git commit -m "Give a phone a finger's sizes by naming the XS width in the coarse blocks"
 ```
 
-Mutation: revert the query list on the `run.css` alternatives block only. `a run alternative is raised at XS` turns red, and so does `sheet-cli@375x812` in the layout file, with `touch-target` on New seed / Defaults / Abort (the CLI sheet is the only XS state where they are rendered). Revert, `git diff` empty.
+Mutations (commit first):
+
+1. Task 8's mutation 4, now that `touch-target` is green: in `touchTargets` change `44` to `440` — every XS case turns red with `touch-target`. Revert.
+2. Revert the query list on the `run.css` alternatives block only. `a run alternative is raised at XS` turns red, and so does `sheet-cli@375x812` in the layout file, with `touch-target` on New seed / Defaults / Abort (the CLI sheet is the only XS state where they are rendered). Revert.
+3. Change `library.css`'s `.danger { flex: none }` back to `flex: 1`. `library-sheet-cli@375x812` turns red with `touch-target` on "Delete from disk". Revert, `git diff` empty.
 
 ---
 
