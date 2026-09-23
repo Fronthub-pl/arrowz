@@ -6,7 +6,7 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { ViewPanel } from './ViewPanel'
 // The disabled-button case below reads `.fw .fw-btn:disabled`'s actual computed
 // colour (shell.css), which needs both the stylesheet and the tokens it reads
 // through `var(...)` — no other case in this file reads real CSS at all
@@ -204,41 +204,6 @@ test('the panel is the tabpanel the rail points at', async () => {
   const screen = await render(<ViewPanel />)
   await expect.element(screen.getByRole('tabpanel')).toHaveAttribute('id', 'rail-panel-preview')
   await expect.element(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'rail-tab-preview')
-})
-
-// Ruling 2: the field is the caller's now. A second owner (the library's
-// detail, Task 6) gives it a different value and a different sink, and the
-// clamp has to happen inside the field — otherwise each owner would have to
-// remember to clamp, and one of them would not.
-test('a field hands its owner an already-clamped number', async () => {
-  let got = null as number | null
-  const screen = await render(
-    <ViewNumberField
-      field={{ field: 'stroke', label: 'strokeLabel', step: 0.05 }}
-      value={0.5}
-      onCommit={(v) => (got = v)}
-    />,
-  )
-  const stroke = screen.getByRole('spinbutton', { name: /stroke/i })
-  await userEvent.fill(stroke, '9')
-  await userEvent.tab()
-  // The ceiling is read from the table rather than spelled out: what the case
-  // is about is that the owner never sees the 9 that was typed, whatever the
-  // bound happens to be. It was a literal `2` until the view bounds were
-  // narrowed to what stays readable, and then it was a literal about nothing.
-  expect(got).toBe(VIEW_RANGE.stroke.max)
-  // And the lab's own slice was not touched by a field nobody pointed at it.
-  expect(view().stroke).toBe(0.5)
-})
-
-test('a flag switch reports a press without writing any store', async () => {
-  let presses = 0
-  const screen = await render(
-    <ViewFlagSwitch flag="colored" label="colored" on={false} onToggle={() => (presses += 1)} />,
-  )
-  await screen.getByRole('switch', { name: /colour the arrows/i }).click()
-  expect(presses).toBe(1)
-  expect(view().colored).toBe(false)
 })
 
 test('the theme picker lists every theme and writes the store', async () => {

@@ -38,8 +38,26 @@ function declaredHeight(el: Element, condition: string): number {
 }
 
 test.each([
-  ['a knob value', '<div class="fw-k"><div class="top"><button class="num">1</button></div></div>', 'button', 44],
-  ['a knob choice', '<div class="fw-k"><div class="top"><select></select></div></div>', 'select', 44],
+  // The simple view (round 3, 3c) is the knob rows' grid: the same 44px value
+  // and track as the advanced view, and its skeleton choice a 44px segment.
+  [
+    'a simple view value',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><button class="kv-num">1</button></div></section>',
+    'button',
+    44,
+  ],
+  [
+    'a simple view track',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><div class="kv-track"></div></div></section>',
+    'div.kv-track',
+    44,
+  ],
+  [
+    'a simple view choice',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><div class="fw-seg"><button>x</button></div></div></section>',
+    'button',
+    44,
+  ],
   // Knob rows (handoff 2, PR 2): the handoff's touch sizes — a 44px value and
   // track, a 40px select, a 32px `?` and chip in a 52px row.
   ['a knob row value', '<div class="kv-g"><button class="kv-num">1</button></div>', 'button', 44],

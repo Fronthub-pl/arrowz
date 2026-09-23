@@ -18,6 +18,7 @@ export function KnobLine({
   control,
   max = null,
   wide = false,
+  under = null,
 }: {
   label: ReactNode
   help: ReactNode
@@ -27,6 +28,12 @@ export function KnobLine({
   max?: ReactNode
   /** The control takes the minimum's track too: the palette's list of colours. */
   wide?: boolean | undefined
+  /**
+   * A line under the control, in the control's own track (round 3, 3c): a
+   * recipe slider's end words. On the row's grid, not under it, so it takes
+   * the track's x and width whatever tracks the panel's width leaves.
+   */
+  under?: ReactNode
 }): ReactElement {
   return (
     <div className="ln">
@@ -38,6 +45,7 @@ export function KnobLine({
       {wide ? null : <span className="mn">{min}</span>}
       <span className={wide ? 'cc wide' : 'cc'}>{control}</span>
       <span className="mx">{max}</span>
+      {under}
     </div>
   )
 }

@@ -25,17 +25,28 @@ export function ValueKnob({
   spec,
   bounds = spec,
   blockReason,
+  value: shown,
+  onSet,
 }: {
   spec: ParamSpec
   bounds?: { min: number; max: number }
   blockReason?: InactiveKey | undefined
+  /**
+   * Another owner of the row (round 3, 3c): the simple view shows a size from
+   * the recipe and writes it there, and writes the seed by the machine path.
+   * Without them the row is the knob's, and a write is a knob edit.
+   */
+  value?: number | undefined
+  onSet?: ((next: number) => void) | undefined
 }) {
   const dict = useDictionary()
-  const value = useStore((state) => state.params.values[spec.key])
+  const knob = useStore((state) => state.params.values[spec.key])
+  const value = shown ?? knob
   const broken = useStore((state) => state.params.broken[spec.key])
   const inactive = useStore((state) => state.params.inactive[spec.key])
   const floor = useStore((state) => state.params.floor[spec.key])
-  const set = useStore((state) => state.params.set)
+  const setKnob = useStore((state) => state.params.set)
+  const write = (next: number) => (onSet === undefined ? setKnob(spec.key, next) : onSet(next))
 
   const { label, help } = dict.paramText(spec)
   const name = dict.d.short[spec.key]
@@ -54,7 +65,7 @@ export function ValueKnob({
   }, [value, isSpecial])
   const release = () => {
     const fallback = spec.def !== bounds.min ? spec.def : (RELEASE_TO[spec.key] ?? bounds.min + spec.step)
-    set(spec.key, last.current ?? fallback)
+    write(last.current ?? fallback)
   }
   const bound = boundOn(floor, bounds)
   const { text, off } = rowState(dict, { broken, inactive, bound, blockReason })
@@ -83,7 +94,7 @@ export function ValueKnob({
               describedBy={describedBy}
               // Held inside the *passed* bounds first: the mix row's own range
               // is narrower than the knob's, and only it knows that.
-              onCommit={(typed) => set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))}
+              onCommit={(typed) => write(Math.min(bounds.max, Math.max(bounds.min, typed)))}
             />
             <span className="kv-unit">{isSpecial || unit === undefined ? '' : dict.d.units[unit]}</span>
           </span>
@@ -100,7 +111,7 @@ export function ValueKnob({
               // while the knob holds the special value, and two buttons of
               // one name are one button to a screen reader.
               aria-label={`${special} (${name})`}
-              onClick={() => (isSpecial ? release() : set(spec.key, bounds.min))}
+              onClick={() => (isSpecial ? release() : write(bounds.min))}
             >
               {special}
             </button>
@@ -115,7 +126,7 @@ export function ValueKnob({
             floor={floor}
             word={word}
             describedBy={describedBy}
-            onCommit={(next) => set(spec.key, next)}
+            onCommit={(next) => write(next)}
           />
         }
         max={<span className="kv-end">{endText(dict, bounds.max)}</span>}

@@ -69,6 +69,8 @@ export const EN = {
       shape: ['straightest lines', 'most winding'],
     },
     randomize: 'randomise the settings on every generate',
+    // Round 3 (3c): the row's short label; the sentence above is its title.
+    randomizeShort: 'randomise',
     randomizeHelp:
       'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
   },
@@ -688,6 +690,7 @@ export const PL: Translation = {
       shape: ['jak najprostsze linie', 'najbardziej pokręcone'],
     },
     randomize: 'losuj ustawienia przy każdym generowaniu',
+    randomizeShort: 'losuj',
     randomizeHelp:
       'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
   },

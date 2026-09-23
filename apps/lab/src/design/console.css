@@ -1432,3 +1432,35 @@
     margin-right: 0;
   }
 }
+
+/* Round 3 (3c): the simple view on the knob rows' grid. A recipe slider has
+   no number to type, so its value is text, and its two end words sit under
+   the track as the row's description (`aria-describedby`). */
+.kv-ends {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 11px;
+  color: var(--ash);
+}
+/* Under the track itself, not across the row (HANDOFF-3's known
+   differences): a second line of the row's own grid, in the control's
+   column, so it keeps the track's x and width at every panel width. */
+.kv-g .ln > .kv-ends {
+  grid-column: 4;
+}
+/* The two conditions that drop the bound tracks (the narrow panel's
+   container query and XS) leave the control in the third column. */
+@container (width < calc(30ch + 188px)) {
+  .kv-g .ln > .kv-ends {
+    grid-column: 3;
+  }
+}
+@media (max-width: 767px) {
+  .kv-g .ln > .kv-ends {
+    grid-column: 3;
+  }
+}
+.fw-simple .kv-row .fw-seg {
+  justify-self: end;
+}
