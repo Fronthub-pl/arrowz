@@ -25,6 +25,10 @@ import type { RunControl } from './useRun'
  * well, to carry the focus between the two whenever the one holding it is
  * about to be disabled.
  */
+
+/** The run column's id, which the phone's CLI sheet button controls (handoff 2, PR 7). */
+export const RUN_COLUMN_ID = 'run-column'
+
 export function RunColumn({
   control,
   goRef,
@@ -123,7 +127,7 @@ export function RunColumn({
   const onDefaults = () => defaults(control)
 
   return (
-    <section className="fw-run-col" aria-label={dict.t('runColumn')}>
+    <section id={RUN_COLUMN_ID} className="fw-run-col" aria-label={dict.t('runColumn')}>
       <LiveCommand />
       <button
         type="button"

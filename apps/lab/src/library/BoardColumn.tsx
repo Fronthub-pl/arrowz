@@ -27,6 +27,10 @@ import { cancelPendingSave } from './useViewSave'
  * (Ruling 10): an armed Delete, a Copied label and a drawing's error are all
  * about the board they were raised on, and a new board is a new instance.
  */
+
+/** The board column's id, which the phone's Board sheet button controls (handoff 2, PR 7). */
+export const BOARD_COLUMN_ID = 'board-column'
+
 export function BoardColumn(): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
@@ -52,7 +56,7 @@ export function BoardColumn(): ReactElement {
   )
   if (open === null) {
     return (
-      <section className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
+      <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
         <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
       </section>
     )
@@ -159,7 +163,7 @@ export function BoardColumn(): ReactElement {
   ]
 
   return (
-    <section className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
+    <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
       <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
         <figcaption className="fw-cmdhd">
           <span className="caps">{dict.t('cliThisBoard')}</span>

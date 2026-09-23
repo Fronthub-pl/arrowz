@@ -636,3 +636,15 @@ body {
      drew half-cut at the bar's own edge. Draw it inside instead. */
   outline-offset: -2px;
 }
+
+/* The phone's sheet bar (SheetBar.tsx): shown only at XS, below (handoff 2,
+   PR 7). Its buttons drop the user agent's look wherever they are. */
+.fw-sheetbar {
+  display: none;
+}
+.fw .fw-sheetbar button {
+  border: 0;
+  background: none;
+  color: var(--mist);
+  cursor: pointer;
+}
