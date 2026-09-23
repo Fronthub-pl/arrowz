@@ -1,7 +1,7 @@
 import { type ParamKey, PARAM_SPEC } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
 import { act } from 'react'
-import { beforeEach, describe, expect, it, test } from 'vitest'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
 import { KnobPanel } from './KnobPanel'
@@ -234,6 +234,17 @@ describe('the dependency blocks', () => {
     const anticoil = screen.getByTestId('knob-giantAnticoil-why').element()
     expect(anticoil.textContent).toBe(`${EN.t('inactivePrefix')}${EN.reason('anticoilWins')}`)
     expect(screen.getByTestId('knob-giantSpan-why').element().textContent).toBe('')
+  })
+
+  // Live pass, 2026-09-23: the difficulty block's id is `probe`, and so is
+  // its parent knob's key; as siblings in one list React warned and may drop
+  // or duplicate a row on an update.
+  it('keys the block apart from the knob that is its parent', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await render(<KnobPanel group="difficulty" />)
+    const duplicate = error.mock.calls.filter((call) => String(call[0]).includes('same key'))
+    error.mockRestore()
+    expect(duplicate.map((call) => call.map(String).join(' '))).toEqual([])
   })
 
   it('opens itself for a knob the palette asked for', async () => {

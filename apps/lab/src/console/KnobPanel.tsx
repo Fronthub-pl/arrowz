@@ -120,7 +120,7 @@ export function KnobPanel({ group }: { group: ParamGroup }) {
     } else if (!inBlock.has(spec.key)) {
       out.push(<Knob key={spec.key} spec={spec} />)
     }
-    if (block !== undefined && at === lastParent) out.push(<DependencyBlock key={block.id} block={block} />)
+    if (block !== undefined && at === lastParent) out.push(<DependencyBlock key={`block-${block.id}`} block={block} />)
     return out
   })
   // No `tabIndex={0}` on the panel: APG gives a tabpanel a tab stop only when
