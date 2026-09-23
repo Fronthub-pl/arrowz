@@ -8,15 +8,16 @@ import './run.css'
 import './docs.css'
 
 // Spec §6 / §7.2: 44px where there is no hover. The runner cannot emulate a
-// coarse pointer, so this asks the cascade instead: of the rules inside
-// `(pointer: coarse)` that *match* each element, the tallest height or
-// min-height it declares. Matching elements rather than selector strings keeps
-// the test indifferent to how a rule is spelled.
-function coarseHeight(el: Element): number {
+// coarse pointer (nor a phone's width at every size), so this asks the
+// cascade instead: of the rules inside a media condition naming `condition`
+// that *match* each element, the tallest height or min-height it declares.
+// Matching elements rather than selector strings keeps the test indifferent
+// to how a rule is spelled.
+function declaredHeight(el: Element, condition: string): number {
   let best = 0
   for (const sheet of document.styleSheets) {
     for (const rule of sheet.cssRules) {
-      if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes('pointer: coarse')) continue
+      if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes(condition)) continue
       for (const inner of rule.cssRules) {
         if (!(inner instanceof CSSStyleRule)) continue
         let hit: boolean
@@ -70,33 +71,8 @@ test.each([
   const screen = await render(<div className="fw" dangerouslySetInnerHTML={{ __html: html }} />)
   const el = screen.container.querySelector(tag)
   if (el === null) throw new Error(`no ${tag}`)
-  expect(coarseHeight(el)).toBeGreaterThanOrEqual(px)
+  expect(declaredHeight(el, 'pointer: coarse')).toBeGreaterThanOrEqual(px)
 })
-
-/** As `coarseHeight`, for the rules inside a condition that names `max-width: 767px`. */
-function phoneHeight(el: Element): number {
-  let best = 0
-  for (const sheet of document.styleSheets) {
-    for (const rule of sheet.cssRules) {
-      if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes('max-width: 767px')) continue
-      for (const inner of rule.cssRules) {
-        if (!(inner instanceof CSSStyleRule)) continue
-        let hit: boolean
-        try {
-          hit = el.matches(inner.selectorText)
-        } catch {
-          hit = false
-        }
-        if (!hit) continue
-        for (const prop of ['height', 'min-height'] as const) {
-          const px = Number.parseFloat(inner.style.getPropertyValue(prop))
-          if (Number.isFinite(px)) best = Math.max(best, px)
-        }
-      }
-    }
-  }
-  return best
-}
 
 // Handoff 2, PR 7: a phone gets a finger's sizes whatever its pointer reports
 // — the coarse blocks name the XS width too (spec §5).
@@ -118,7 +94,7 @@ test.each([
   const screen = await render(<div className="fw" dangerouslySetInnerHTML={{ __html: html }} />)
   const el = screen.container.querySelector(tag)
   if (el === null) throw new Error(`no ${tag}`)
-  expect(phoneHeight(el)).toBeGreaterThanOrEqual(px)
+  expect(declaredHeight(el, 'max-width: 767px')).toBeGreaterThanOrEqual(px)
 })
 
 /** Of the coarse-pointer rules that match `el`'s `::before`, the largest value each declares for `prop`. */
@@ -152,8 +128,8 @@ test('a switch is drawn small for a finger and raised to a 44px target around it
   )
   const el = screen.container.querySelector('button')
   if (el === null) throw new Error('no switch')
-  expect(coarseHeight(el)).toBe(18)
+  expect(declaredHeight(el, 'pointer: coarse')).toBe(18)
   expect(coarseBefore(el, 'height')).toBeGreaterThanOrEqual(44)
   expect(coarseBefore(el, 'width')).toBeGreaterThanOrEqual(44)
-  expect(phoneHeight(el)).toBe(18)
+  expect(declaredHeight(el, 'max-width: 767px')).toBe(18)
 })
