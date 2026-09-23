@@ -2,17 +2,18 @@ import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf 
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
-import { ColoursCard, ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
+import { ViewFlagSwitch, ViewNumberField, ViewPanel } from './ViewPanel'
 // The disabled-button case below reads `.fw .fw-btn:disabled`'s actual computed
 // colour (shell.css), which needs both the stylesheet and the tokens it reads
 // through `var(...)` — no other case in this file reads real CSS at all
 // (harness fact: `getComputedStyle` above reads React's own inline styles).
 import '../design/tokens.css'
 import '../design/shell.css'
+import '../design/console.css'
 
 const view = () => useStore.getState().view
 const EN = dictionary('en')
@@ -55,7 +56,6 @@ beforeEach(() => {
   // "the panel draws the point grid controls" below clicks it on and never
   // clicks it back off, so every later test in this file ran with the grid on
   // until this reset covered it.
-  useStore.getState().ui.setHelp(true)
   useStore.setState((state) => ({
     view: {
       ...state.view,
@@ -70,20 +70,24 @@ beforeEach(() => {
   }))
 })
 
-test('the panel draws all eleven preview controls', async () => {
+test('the panel draws all eleven preview controls, as rows', async () => {
   const screen = await render(<ViewPanel />)
-  // Six numbers now: the five the engine's table covers plus the point radius,
-  // whose bounds come from the element instead (spec §4.3).
-  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(6)
+  // Six numbers: the five the engine's table covers plus the point radius,
+  // whose bounds come from the element instead — each a drawn track now
+  // (handoff 2, PR 3) — and five switches.
+  expect(screen.container.querySelectorAll('.kv-row input[type="range"]')).toHaveLength(6)
   expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(5)
+  expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(0)
 })
 
-test('the panel draws the point grid controls', async () => {
+test('the panel draws the point grid controls, in a block that opens with the grid', async () => {
   const screen = await render(<ViewPanel />)
-  const grid = screen.getByRole('switch', { name: /show the point grid/i })
+  const grid = screen.getByRole('switch', { name: 'point grid' })
   await expect.element(grid).toHaveAttribute('aria-checked', 'false')
+  expect(document.getElementById('dep-points')?.hidden).toBe(true)
   await grid.click()
   expect(view().showPoints).toBe(true)
+  expect(document.getElementById('dep-points')?.hidden).toBe(false)
 
   const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
   expect(radius).not.toBeNull()
@@ -92,91 +96,108 @@ test('the panel draws the point grid controls', async () => {
   expect(radius?.checkValidity()).toBe(true)
 })
 
-// Finding 1 (fix wave after the whole-branch review): unlike its sibling
-// number fields, this box was uncontrolled with neither of `ViewNumberField`'s
-// two mechanisms — it never wrote the clamped value back on commit, and never
-// re-synced from the store when something external changed it. Typing past
-// the ceiling and blurring used to leave the store clamped but the box still
-// showing the out-of-range number it was never told to give up (and
-// `:invalid` against its own `max`).
-test('the point radius box shows the clamped value after commit, not what was typed', async () => {
+// Finding 1 of the palette round, kept for the row: a typed radius past the
+// ceiling lands clamped in the store, and the row shows what was kept, not
+// what was typed.
+test('the point radius row shows the clamped value after commit, not what was typed', async () => {
+  useStore.setState((state) => ({ view: { ...state.view, showPoints: true } }))
   const screen = await render(<ViewPanel />)
-  const radius = screen.getByRole('spinbutton', { name: /dot radius/i })
-  await userEvent.fill(radius, String(POINT_RADIUS_RANGE.max + 9))
-  await userEvent.tab()
+  await screen.getByRole('button', { name: /^dot radius:/ }).click()
+  await userEvent.fill(
+    screen.getByRole('textbox', { name: 'dot radius', exact: true }),
+    String(POINT_RADIUS_RANGE.max + 9),
+  )
+  await userEvent.keyboard('{Enter}')
   expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.max)
-  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.max)
-  expect(screen.container.querySelector<HTMLInputElement>('#view-point-radius')?.checkValidity()).toBe(true)
+  await expect
+    .element(screen.getByRole('button', { name: /^dot radius:/ }))
+    .toHaveTextContent(String(POINT_RADIUS_RANGE.max))
+  await expect.element(screen.getByRole('slider', { name: 'dot radius' })).toHaveValue(String(POINT_RADIUS_RANGE.max))
 })
 
 // An external change (a link naming a different radius, or any other write to
-// the store) must reach the box too — the same sync `ViewNumberField` runs
-// while the field is not focused.
-test('the point radius box follows an external store change while unfocused', async () => {
+// the store) reaches the row too.
+test('the point radius row follows an external store change', async () => {
   const screen = await render(<ViewPanel />)
   const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
   if (!radius) throw new Error('no point radius input')
   view().setPointRadius(String(POINT_RADIUS_RANGE.min))
-  await expect.element(radius).toHaveValue(POINT_RADIUS_RANGE.min)
+  await expect.element(radius).toHaveValue(String(POINT_RADIUS_RANGE.min))
 })
 
-test('a switch is a switch, not a checkbox pretending to be one', async () => {
+test('a switch is a switch, not a checkbox pretending to be one, and says its state', async () => {
   const screen = await render(<ViewPanel />)
-  const rounded = screen.getByRole('switch', { name: /round the corners/i })
+  const rounded = screen.getByRole('switch', { name: 'rounded' })
   await expect.element(rounded).toHaveAttribute('aria-checked', 'true')
+  const value = () => rounded.element().closest('.kv-row')?.querySelector('.vc')?.textContent
+  expect(value()).toBe('on')
   await rounded.click()
   expect(view().rounded).toBe(false)
+  expect(value()).toBe('off')
 })
 
-test('a number field commits on blur, clamped to what the CLI takes', async () => {
+test('a number row commits a typed value, clamped to what the CLI takes', async () => {
   const screen = await render(<ViewPanel />)
-  const cell = screen.getByRole('spinbutton', { name: /cell size/i })
-  await userEvent.fill(cell, '300')
-  await userEvent.tab()
-  // 200 is the CLI's ceiling, and now the field's own as well, so the box that
-  // shows the clamped value is not `:invalid` for showing it.
+  await screen.getByRole('button', { name: /^export cell:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'export cell', exact: true }), '300')
+  await userEvent.keyboard('{Enter}')
+  // 200 is the CLI's ceiling, and the track's own as well.
   expect(view().cell).toBe(200)
-  expect(screen.container.querySelector<HTMLInputElement>('#view-cell')?.checkValidity()).toBe(true)
-  await expect.element(cell).toHaveValue(200)
+  await expect.element(screen.getByRole('slider', { name: 'export cell' })).toHaveValue('200')
 })
 
-test('every number field declares the bounds the engine actually takes', async () => {
-  // The only guard that the lab's number fields stay inside the engine's
-  // table. It checks the rendered attributes rather than the `VIEW_FIELDS`
-  // table, because the table no longer carries bounds: what a person and a
-  // screen reader are told is what the DOM says, and that is what has to agree
-  // with `VIEW_RANGE`.
+test('every number row declares the bounds the engine actually takes', async () => {
+  // The only guard that the lab's preview numbers stay inside the engine's
+  // table: what a person and a screen reader are told is what the DOM says,
+  // and that is what has to agree with `VIEW_RANGE`.
   const screen = await render(<ViewPanel />)
-  const fields = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="number"]')].filter(
+  const tracks = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="range"]')].filter(
     (input) => input.id !== 'view-point-radius',
   )
-  expect(fields).toHaveLength(Object.keys(VIEW_RANGE).length)
-  for (const input of fields) {
+  expect(tracks).toHaveLength(Object.keys(VIEW_RANGE).length)
+  for (const input of tracks) {
     const key = input.id.replace(/^view-/, '') as keyof typeof VIEW_RANGE
     const range = VIEW_RANGE[key]
     expect(range, `no VIEW_RANGE entry for ${input.id}`).toBeDefined()
     expect(Number(input.min)).toBe(range.min)
     expect(Number(input.max)).toBe(range.max)
-    // Not just "in range": a field is `:invalid` on a value off its own step
-    // too, and the default it opens with must not be one.
     expect(input.checkValidity(), `${input.id} opens invalid at ${input.value}`).toBe(true)
   }
 })
 
-test('a field being typed into is not rewritten under the cursor', async () => {
+test('a value being typed is not written until it is committed', async () => {
   const screen = await render(<ViewPanel />)
-  const stroke = screen.getByRole('spinbutton', { name: /stroke/i })
-  await stroke.click()
-  // Digit by digit, the way a person types: after `0.` a controlled number
-  // input reads back the empty string, and React would put the default in the
-  // box mid-word. The store must not have moved yet either.
-  // ControlOrMeta, not Control: on macOS Ctrl+A moves the caret to the line
-  // start, so the field would read `080.5` and this test would pass on CI and
-  // fail on the machine it was written on.
-  await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}0.')
+  await screen.getByRole('button', { name: /^stroke:/ }).click()
+  // By name: a colour input is a textbox to the accessibility tree too.
+  const entry = screen.getByRole('textbox', { name: 'stroke', exact: true })
+  await userEvent.fill(entry, '0.')
+  // A half-typed `0.` must not reach the store: clamped per keystroke it
+  // would be the floor, and the next digit would be typed into a value that
+  // moved.
   expect(view().stroke).toBe(0.5)
-  await userEvent.keyboard('8{Enter}')
+  await userEvent.fill(entry, '0.8')
+  await userEvent.keyboard('{Enter}')
   expect(view().stroke).toBe(0.8)
+})
+
+// Handoff 2, PR 3: the head width's 0 is the automatic width, a chip in the
+// minimum's track; released with no earlier width, it lands on the width the
+// automatic head draws at this stroke (`autoHeadWidth`), so the head does not
+// jump.
+test('the head width’s auto chip toggles 0, and releases to the width auto draws', async () => {
+  // The XS `.kv-g .mx` rule (console.css, Task 11) hides the range end's
+  // chip; this pins the desktop look, where the chip is visible to click.
+  await page.viewport(1400, 900)
+  view().setNumber('headWidth', '0')
+  view().setNumber('stroke', '0.2')
+  const screen = await render(<ViewPanel />)
+  const chip = screen.getByRole('button', { name: 'auto (head width)' })
+  await expect.element(chip).toHaveAttribute('aria-pressed', 'true')
+  await expect.element(screen.getByRole('button', { name: /^head width:/ })).toHaveTextContent('auto')
+  await chip.click()
+  expect(view().headWidth).toBe(0.6)
+  await chip.click()
+  expect(view().headWidth).toBe(0)
 })
 
 test('the panel is the tabpanel the rail points at', async () => {
@@ -241,13 +262,10 @@ test('choosing a theme shows a strip of its arrow colours, in order, on its pape
   expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
   const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
   expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
-  // Finding 4 (final whole-addendum review): this file loads no stylesheet
-  // (unlike `BoardFrame.browser.test.tsx`), so the two assertions above read
-  // React's inline `backgroundColor` and would pass even with no CSS at all.
-  // What no computed-style read here can see is that `.fw-k .fw-swatch`
-  // (console.css) needs a `.fw-k` ancestor to apply — this pins the DOM shape
-  // that selector actually depends on.
-  expect(strip.closest('.fw-k')).not.toBeNull()
+  // The inline colours above would pass with no CSS at all; what they cannot
+  // see is that the row's strip rule (`.kv-g .fw-swatches`, console.css)
+  // needs a `.kv-g` ancestor — this pins the DOM shape it depends on.
+  expect(strip.closest('.kv-g')).not.toBeNull()
   // Finding 9 (final whole-addendum review): the strip's `aria-hidden` is
   // load-bearing (the `<select>` beside it already names the theme), and
   // until now no test asserted it — a future edit could drop it silently.
@@ -343,11 +361,9 @@ test(`the add button is refused past the cap of ${PALETTE_CAP} colours`, async (
   await expect.element(add).toBeDisabled()
 })
 
-// Live pass: `.fw .fw-btn:disabled` set only `cursor: default`, so "add
-// colour" at the cap read exactly like an enabled button — same colour, same
-// opacity, nothing a person looking at it could tell apart from an enabled
-// control they simply had not clicked yet. `.fw` is the ancestor `shell.css`
-// dresses the button through (`.fw .fw-btn`), so the render below wraps it.
+// Live pass: a disabled button that set only `cursor: default` read exactly
+// like an enabled one at the cap. The add is a chip in its row now (handoff 2,
+// PR 3), dressed through `.fw .kv-chip`, so the render below wraps it in `.fw`.
 test('a disabled console button reads as disabled, not merely inert', async () => {
   const screen = await render(
     <div className="fw">
@@ -377,7 +393,7 @@ test('the add button names the cap help text as its accessible description', asy
 })
 
 // Ruling 6 the other way: the store test covers the slice directly, this
-// covers it reached from the UI, so a caller that goes through `ColoursCard`
+// covers it reached from the UI, so a caller that goes through the palette row
 // and one that goes through the picker are both pinned.
 test('choosing a theme keeps a custom palette built in the editor', async () => {
   const screen = await render(<ViewPanel />)
@@ -408,14 +424,18 @@ test('the editor never mutates a theme’s own palette array', async () => {
 })
 
 test('the palette editor stays out of the accessibility tree when empty and shows up once a colour is added', async () => {
-  const screen = await render(<ColoursCard />)
-  // Rendered alone, the colours card carries paper and ink but not the point grid's
-  // dot colour -- that one lives in `ViewPanel` itself (`ALWAYS_PRESENT_COLOR_INPUTS`
-  // above counts all three, so one is subtracted here).
-  const beforeAnyPaletteColor = ALWAYS_PRESENT_COLOR_INPUTS - 1
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor)
+  const screen = await render(<ViewPanel />)
+  // No list at all while there is no colour: an empty list would be read as
+  // one.
+  expect(screen.container.querySelector('.fw-palette-list')).toBeNull()
+  expect(
+    screen.getByRole('button', { name: 'add colour' }).element().closest('.kv-row')?.querySelector('.vc')?.textContent,
+  ).toBe(`0 / ${PALETTE_CAP}`)
   await screen.getByRole('button', { name: 'add colour' }).click()
-  expect(screen.container.querySelectorAll('input[type="color"]')).toHaveLength(beforeAnyPaletteColor + 1)
+  expect(screen.container.querySelectorAll('.fw-palette-list input[type="color"]')).toHaveLength(1)
+  expect(
+    screen.container.querySelector('#view-palette-label')?.closest('.kv-row')?.querySelector('.vc')?.textContent,
+  ).toBe(`1 / ${PALETTE_CAP}`)
 })
 
 test('the editor offers paper and ink, and hands them back to the theme when cleared', async () => {
@@ -436,64 +456,85 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
   expect(view().paper).toBe('')
 })
 
-// Spec R8: four sections instead of one grid of fourteen cards.
-test('the preview is four titled sections, in order', async () => {
+// Handoff 2, PR 3: five titled sections, each a group named by its heading.
+test('the preview is five titled sections, in order, each a named group', async () => {
   const screen = await render(<ViewPanel />)
-  const titles = [...screen.container.querySelectorAll('.fw-khd b')].map((b) => b.textContent)
-  expect(titles).toEqual(['geometry', 'drawing', 'points', 'colours'])
+  const groups = [...screen.container.querySelectorAll('.kv-sect[role="group"]')]
+  const titles = groups.map((g) => document.getElementById(g.getAttribute('aria-labelledby') ?? '')?.textContent)
+  expect(titles).toEqual(['arrows', 'highlight', 'grid', 'colours', 'export'])
 })
 
-test('no card sits inside another card', async () => {
+test('no row sits inside another row', async () => {
   useStore.getState().view.addPaletteColor()
   const screen = await render(<ViewPanel />)
-  expect(screen.container.querySelectorAll('.fw-k .fw-k')).toHaveLength(0)
+  expect(screen.container.querySelectorAll('.kv-row .kv-row')).toHaveLength(0)
 })
 
-test('the four drawing flags are one card, the point grid is with the points', async () => {
+// The top count does nothing while the highlight is off (the link and the
+// CLI write it as 0 then), so it sits in a block under the switch.
+test('the top count sits under longest, in a block that closes with it', async () => {
   const screen = await render(<ViewPanel />)
-  const flags = screen.container.querySelector('.fw-k.fw-flags')
-  expect(flags?.querySelectorAll('[role="switch"]')).toHaveLength(4)
-  expect(flags?.querySelector('#view-showPoints')).toBeNull()
+  const block = () => document.getElementById('dep-hilite')
+  expect(block()?.querySelector('#view-top')).not.toBeNull()
+  const hilite = screen.getByRole('switch', { name: 'longest' })
+  if (hilite.element().getAttribute('aria-checked') !== 'true') await hilite.click()
+  expect(block()?.hidden).toBe(false)
+  await hilite.click()
+  expect(block()?.hidden).toBe(true)
+  const header = screen.container.querySelector('[aria-controls="dep-hilite"]')
+  expect(header?.textContent).toContain(EN.t('needsHilite'))
+  await hilite.click()
 })
 
-test('the colours card holds the theme, both surface colours and the palette', async () => {
+test('the colours section holds the theme, both surface colours and the palette', async () => {
   const screen = await render(<ViewPanel />)
-  const card = screen.container.querySelector('.fw-k.fw-colours')
-  if (card === null) throw new Error('no colours card')
-  for (const id of ['#view-theme', '#view-paper', '#view-ink']) expect(card.querySelector(id)).not.toBeNull()
-  expect(card.querySelector('button.fw-btn')?.getAttribute('aria-describedby')).toBe('view-palette-help')
+  const section = screen.container.querySelector('#view-sec-colours')?.closest('.kv-sect')
+  if (!section) throw new Error('no colours section')
+  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-palette-label']) {
+    expect(section.querySelector(id), id).not.toBeNull()
+  }
+  expect(section.querySelector('button.kv-chip')?.getAttribute('aria-describedby')).toBe('view-palette-help')
 })
 
-test('a field with help points at it under its section heading', async () => {
+// Every row's description is its own, on demand (handoff 2, PR 3): named by
+// the row's control, closed until its `?` opens it, never under a heading.
+test('a row’s control points at its own description, which its ? opens', async () => {
   const screen = await render(<ViewPanel />)
   const cell = screen.container.querySelector('#view-cell')
   expect(cell?.getAttribute('aria-describedby')).toBe('view-cell-help')
-  expect(screen.container.querySelector('.fw-khd #view-cell-help')?.textContent).toBe(EN.t('cellHelp'))
-  expect(screen.container.querySelectorAll('.fw-k .why')).toHaveLength(0)
+  const help = document.getElementById('view-cell-help')
+  expect(help?.textContent).toBe(EN.t('cellHelp'))
+  expect(help?.closest('.kv-row')?.contains(cell ?? null)).toBe(true)
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await screen.getByRole('button', { name: 'About export cell' }).click()
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(screen.container.querySelector('.fw-khd .fw-kdesc')).toBeNull()
 })
 
-// The preview's help follows the help switch like the knob panels' (spec R7,
-// Ruling 9 of 2026-09-13-lab-run-triggers): out of sight, never out of the tree.
-test('the help switch hides the preview help from the eye, not from the tree', async () => {
-  useStore.getState().ui.setHelp(false)
+test('every preview control names a description that exists', async () => {
   const screen = await render(<ViewPanel />)
-  const lists = [...screen.container.querySelectorAll('.fw-khd .fw-kdesc')]
-  expect(lists.length).toBeGreaterThan(0)
-  for (const list of lists) {
-    expect(list.classList.contains('fw-vh')).toBe(true)
-    expect(getComputedStyle(list).display).not.toBe('none')
-  }
-  for (const id of ['#view-cell', '#view-headHeight', '#view-point-radius']) {
+  const ids = [
+    '#view-cell',
+    '#view-stroke',
+    '#view-headWidth',
+    '#view-headHeight',
+    '#view-top',
+    '#view-point-radius',
+    '#view-point-color',
+    '#view-theme',
+    '#view-paper',
+    '#view-ink',
+    '#view-rounded',
+    '#view-colored',
+    '#view-hilite',
+    '#view-voids',
+    '#view-showPoints',
+  ]
+  for (const id of ids) {
     const described = screen.container.querySelector(id)?.getAttribute('aria-describedby') ?? ''
-    expect(document.getElementById(described), id).not.toBeNull()
+    expect(described, id).not.toBe('')
+    expect(document.getElementById(described)?.textContent, id).toBeTruthy()
   }
-  const add = screen.container.querySelector('.fw-colours button.fw-btn')?.getAttribute('aria-describedby') ?? ''
+  const add = screen.getByRole('button', { name: 'add colour' }).element().getAttribute('aria-describedby') ?? ''
   expect(document.getElementById(add)).not.toBeNull()
-})
-
-test('with help on, the preview help is in sight', async () => {
-  const screen = await render(<ViewPanel />)
-  const lists = [...screen.container.querySelectorAll('.fw-khd .fw-kdesc')]
-  expect(lists).toHaveLength(3)
-  for (const list of lists) expect(list.classList.contains('fw-vh')).toBe(false)
 })

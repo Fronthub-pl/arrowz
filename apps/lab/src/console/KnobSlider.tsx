@@ -4,7 +4,7 @@ import type React from 'react'
 import { useDictionary } from '../i18n'
 
 /** Where a value sits on a track, as a percentage. */
-function percent(value: number, min: number, max: number): number {
+export function percent(value: number, min: number, max: number): number {
   if (max <= min) return 0
   return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
 }

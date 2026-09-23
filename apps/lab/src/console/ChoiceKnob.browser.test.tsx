@@ -33,17 +33,28 @@ test('an inactive choice knob says why', async () => {
   const spacing = PARAM_SPEC.find((s) => s.key === 'giantSpacing')
   if (!spacing || spacing.control?.kind !== 'choice') throw new Error('giantSpacing is no longer a choice knob')
   const screen = await render(<ChoiceKnob spec={spacing} choices={spacing.control.choices} />)
-  expect(screen.container.querySelector('.why')?.textContent).toContain('No effect:')
+  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('No effect:')
 })
 
-test('a choice knob no longer says what it does in its own card', async () => {
+// Handoff 2, PR 2: the description is the row's own paragraph, closed until
+// its `?` opens it, and never in the state line.
+test('a choice knob keeps its description in its row, closed, apart from its state', async () => {
   useStore.getState().params.reset()
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-  // The description moved to the panel heading (spec R7, `FieldHelp`); the
-  // card's paragraph holds only the state. `.desc` no longer exists anywhere
-  // in the code, so a check for its absence would pass by construction — the
-  // text itself is what a reversal would bring back.
-  expect(screen.container.textContent).not.toContain(EN.paramText(trapBias).help)
+  const help = screen.container.querySelector('#knob-trapBias-desc')
+  expect(help?.textContent).toBe(EN.paramText(trapBias).help)
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  expect(screen.container.querySelector('.kv-why')?.textContent).not.toContain(EN.paramText(trapBias).help)
+  await screen.getByRole('button', { name: 'About trap bias' }).click()
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+})
+
+// The select stands in the control's track, labelled by the short term.
+test('the select is in the control track, named by the short term', async () => {
+  useStore.getState().params.reset()
+  const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
+  const select = screen.getByRole('combobox', { name: 'trap bias' })
+  expect(select.element().closest('.cc')).not.toBeNull()
 })
 
 test('a violated choice knob says why, in error colour, and the select points at the reason', async () => {
@@ -62,9 +73,9 @@ test('a violated choice knob says why, in error colour, and the select points at
   // test declared after this one.
   try {
     const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-    const why = screen.container.querySelector('.why')
+    const why = screen.container.querySelector('.kv-why')
     expect(why?.textContent ?? '').toContain('5 is outside -1..1')
-    expect(screen.container.querySelector('.fw-k')?.className).toContain('bad')
+    expect(screen.container.querySelector('.kv-row')?.className).toContain('bad')
     await expect
       .element(screen.getByRole('combobox'))
       .toHaveAttribute('aria-describedby', 'knob-trapBias-why knob-trapBias-desc')

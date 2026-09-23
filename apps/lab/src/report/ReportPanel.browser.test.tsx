@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
+import { decodeBoard } from '@arrowz/engine'
+import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { ReportPanel } from './ReportPanel'
@@ -29,9 +31,9 @@ beforeEach(() => {
  * address of its own: every case here is the lab, which is `/`, and the
  * library tab's empty report drawer is the whole application's case (Task 9).
  */
-async function mountReport() {
+async function mountReport(path = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <div className="fw" style={{ display: 'grid', width: '352px', height: '600px' }}>
         <ReportPanel />
       </div>
@@ -186,4 +188,47 @@ test('every kind of delta reads at AA', async () => {
   readsAtAA(row(screen.container, 1).cells[2], 'neutral')
   await act(async () => finish(ONE))
   readsAtAA(row(screen.container, 3).cells[2], 'better')
+})
+
+// Handoff 2, PR 6: on the saved boards the drawer reports the open board —
+// what the store keeps about it, and its longest pieces — and not the run's
+// result, which is still in the slice beside it.
+test('on the saved boards the report describes the open board from its stored figures', async () => {
+  const stored = storedFixture(1)
+  await act(async () => finish(ONE))
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  // No board the address names is drawn yet: nothing, not the run's report.
+  expect(screen.container.querySelector('table.fw-stats')).toBeNull()
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  const rows = [...stats(screen.container).rows].map((tr) => [tr.cells[0]?.textContent, tr.cells[1]?.textContent])
+  const { meta } = stored
+  expect(rows.map(([label]) => label)).toEqual([
+    'board',
+    'pieces',
+    'average length',
+    'longest',
+    'backtracks / restarts',
+    'time',
+  ])
+  expect(rows[0]?.[1]).toBe(`${meta.W} × ${meta.H} = 64 cells, seed ${meta.seed}`)
+  expect(rows[1]?.[1]).toBe(String(meta.pieces))
+  // The 23 rows of a run are not invented for a board that has no run.
+  expect(stats(screen.container).rows).toHaveLength(6)
+  await expect.element(screen.getByText(/keeps these figures only/)).toBeVisible()
+  // The longest pieces are read off the board itself.
+  expect(longestHead(screen.container).textContent).toMatch(/longest$/)
+})
+
+// A stored board carries no highlight, so the list takes the lab's count
+// whatever its switch says — with the switch off the lab lists nothing.
+test('the stored board lists its longest pieces with the highlight off', async () => {
+  const stored = storedFixture(1)
+  useStore.getState().view.setFlag('hilite', false)
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  expect(longestHead(screen.container).textContent).toBe('5 longest')
 })

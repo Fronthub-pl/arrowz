@@ -1,11 +1,12 @@
 import { act } from 'react'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { useStore } from '../state/store'
 import { TopBar } from './TopBar'
 
 function renderBar() {
-  return render(<TopBar />)
+  return render(<TopBar presets={null} />)
 }
 
 beforeEach(() => {
@@ -17,6 +18,9 @@ beforeEach(() => {
   // next one's click close it instead (harness fact 40's reasoning, applied
   // to a field this file's own last case moves).
   state.ui.closePalette()
+  // The cases below leave the menu open; the next one's click would close it
+  // instead (measured in review: the Escape case fails without it).
+  state.ui.setMenu(false)
 })
 
 describe('TopBar', () => {
@@ -26,14 +30,18 @@ describe('TopBar', () => {
   // are `gap`, not characters.
   it('names the product and the size, and no preset', async () => {
     const screen = await renderBar()
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/25×50⌘KSimpleAdvancedPLEN')
+    await expect
+      .element(screen.getByRole('banner'))
+      .toHaveTextContent('Arrowz/25×50menu▼⌘Kcommand paletteSimpleAdvancedPLEN')
   })
 
   it('says nothing of an edit on the advanced lab face', async () => {
     useStore.getState().ui.setMode('advanced')
     const screen = await renderBar()
     await act(async () => useStore.getState().params.set('W', 26))
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/26×50⌘KSimpleAdvancedPLEN')
+    await expect
+      .element(screen.getByRole('banner'))
+      .toHaveTextContent('Arrowz/26×50menu▼⌘Kcommand paletteSimpleAdvancedPLEN')
     expect(screen.container.querySelector('.preset')).toBeNull()
   })
 
@@ -71,5 +79,48 @@ describe('TopBar', () => {
     await expect.element(trigger).toBeVisible()
     await trigger.click()
     expect(useStore.getState().ui.palette).toBe(true)
+  })
+
+  it('the menu chip controls the right group and toggles the menu', async () => {
+    const screen = await renderBar()
+    const chip = screen.getByRole('button', { name: 'menu', exact: true })
+    await expect.element(chip).toHaveAttribute('aria-controls', 'top-menu')
+    await expect.element(chip).toHaveAttribute('aria-expanded', 'false')
+    expect(document.getElementById('top-menu')?.classList.contains('right')).toBe(true)
+    await chip.click()
+    expect(useStore.getState().ui.menu).toBe(true)
+    await expect.element(chip).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('Escape inside the open menu closes it and returns the focus to the chip', async () => {
+    const screen = await renderBar()
+    const chip = screen.getByRole('button', { name: 'menu', exact: true })
+    await chip.click()
+    screen.getByRole('radio', { name: 'PL' }).element().focus()
+    await userEvent.keyboard('{Escape}')
+    expect(useStore.getState().ui.menu).toBe(false)
+    expect(document.activeElement).toBe(chip.element())
+  })
+
+  it('a press outside the open menu closes it', async () => {
+    const screen = await renderBar()
+    await screen.getByRole('button', { name: 'menu', exact: true }).click()
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    await expect.poll(() => useStore.getState().ui.menu).toBe(false)
+  })
+
+  it('⌘K carries a word for touch inside its accessible name, and closes the menu', async () => {
+    const screen = await renderBar()
+    await act(async () => useStore.getState().ui.setMenu(true))
+    const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })
+    const el = trigger.element()
+    expect(el.querySelector('.k-key')?.textContent).toBe('⌘K')
+    const word = el.querySelector('.k-touch')?.textContent ?? ''
+    expect(word).toBe('command palette')
+    expect((el.getAttribute('aria-label') ?? '').toLowerCase()).toContain(word)
+    await trigger.click()
+    expect(useStore.getState().ui.menu).toBe(false)
+    expect(useStore.getState().ui.palette).toBe(true)
+    await act(async () => useStore.getState().ui.closePalette())
   })
 })

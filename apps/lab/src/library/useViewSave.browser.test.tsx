@@ -56,7 +56,7 @@ test('an edit posts once, whatever the owner re-renders in between', async () =>
   const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   function Owner() {
     // Selecting the state the hook writes is the whole point: this is what
-    // `BoardDetail` does, and what makes the re-renders real.
+    // `BoardPreview` does, and what makes the re-renders real.
     const stroke = useStore((state) => state.result.preview?.meta.view.stroke)
     const commit = useViewSave(() => {})
     const [bumps, bump] = useState(0)

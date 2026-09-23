@@ -10,7 +10,6 @@ export const VIEW: HashView = {
   rounded: true,
   colored: false,
   hilite: true,
-  help: true,
   lang: 'en',
   theme: undefined,
   // `palette` is left out rather than added as `palette: undefined`: an

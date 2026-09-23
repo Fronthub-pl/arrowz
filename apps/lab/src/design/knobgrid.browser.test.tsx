@@ -1,87 +1,137 @@
-import { PARAM_SPEC } from '@arrowz/engine'
+import { act } from 'react'
 import { beforeEach, expect, test } from 'vitest'
 import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { KnobPanel } from '../console/KnobPanel'
+import { mountApp } from '../harness/mountApp'
+import { RAIL_GROUPS } from '../state/ui.slice'
 import { useStore } from '../state/store'
 import './tokens.css'
 import './shell.css'
 import './console.css'
+import './run.css'
 
 beforeEach(() => {
-  const state = useStore.getState()
-  state.params.reset()
-  state.ui.setHelp(true)
+  useStore.getState().params.reset()
 })
+
+/**
+ * The bound tracks need a panel of 30ch + 188px (404px). Only XL's drawer
+ * gives one: L's is capped at 34rem (360–400px of panel, PR 7), and at 924
+ * the panel is narrower still.
+ */
+const expectBoundsAt = (width: number) => width >= 1600
 
 const centre = (el: Element) => {
   const r = el.getBoundingClientRect()
   return r.top + r.height / 2
 }
 
-// Review P5: `.top` was flex on `baseline`, so a label wrapping to three lines
-// kept its value beside the first. One grid, centred, keeps the pair together.
-test('a knob value sits level with the middle of its label, however it wraps', async () => {
+// Review P5, kept for the rows (handoff 2, PR 2): a label, its value and its
+// control share one line, level with each other.
+test('a knob value and its control sit level with the middle of its label', async () => {
   await page.viewport(1024, 768)
   const screen = await render(
     <div className="fw" style={{ width: '520px' }}>
       <KnobPanel group="lengths" />
     </div>,
   )
-  const tops = [...screen.container.querySelectorAll('.fw-k .top')]
-  expect(tops.length).toBeGreaterThan(2)
-  for (const top of tops) {
-    const lab = top.querySelector('.lab')
-    const num = top.querySelector('.num, select')
-    if (lab === null || num === null) throw new Error('a knob without a label or a value')
-    expect(Math.abs(centre(lab) - centre(num))).toBeLessThan(1)
+  const lines = [...screen.container.querySelectorAll('.kv-row > .ln')]
+  expect(lines.length).toBeGreaterThan(2)
+  for (const line of lines) {
+    const lab = line.querySelector('.kv-lab')
+    const value = line.querySelector('.kv-num')
+    const control = line.querySelector('.kv-track, select')
+    if (lab === null || value === null || control === null) throw new Error('a row without its three parts')
+    expect(Math.abs(centre(lab) - centre(value))).toBeLessThan(1)
+    expect(Math.abs(centre(lab) - centre(control))).toBeLessThan(1)
   }
 })
 
-// Review change 3: every value ends on one axis per column.
-test('values in one grid column end on one x', async () => {
+// The ruled rhythm: every row is 34px, a 1px rule under it, and the next row
+// starts right under that rule.
+test('rows are 34px, ruled, one under the next', async () => {
   await page.viewport(1024, 768)
   const screen = await render(
     <div className="fw" style={{ width: '520px' }}>
-      <KnobPanel group="lengths" />
+      <KnobPanel group="shape" />
     </div>,
   )
-  const cards = [...screen.container.querySelectorAll<HTMLElement>('.fw-grid > .fw-k')]
-  const left = Math.min(...cards.slice(0, 1).map((c) => c.getBoundingClientRect().left))
-  const firstColumn = cards.filter((c) => Math.abs(c.getBoundingClientRect().left - left) < 1)
-  const ends = firstColumn.map((c) => c.querySelector('.num, select')?.getBoundingClientRect().right ?? Number.NaN)
-  expect(ends.length).toBeGreaterThan(1)
-  for (const end of ends) expect(end).toBeCloseTo(ends[0] ?? Number.NaN, 0)
+  const rows = [...screen.container.querySelectorAll<HTMLElement>('.kv-g > .kv-row')]
+  expect(rows).toHaveLength(4)
+  for (const row of rows) {
+    expect(row.querySelector('.ln')?.getBoundingClientRect().height).toBeCloseTo(34, 0)
+    expect(getComputedStyle(row).boxShadow).toContain('0px 1px 0px')
+  }
+  const [a, b] = rows
+  if (a === undefined || b === undefined) throw new Error('need two rows')
+  expect(b.getBoundingClientRect().top).toBeCloseTo(a.getBoundingClientRect().bottom, 0)
 })
 
-// Review change 1: 18px between rows of cards, from one declaration. Measured
-// as the rendered distance between visible content, not the declared
-// `rowGap` and not `.fw-k`'s own box: a card has no border or background, so
-// `.fw-k`'s own padding is invisible and reads as extra whitespace stacked on
-// the grid gap — a box-to-box measurement cannot see that, because padding
-// sits inside the border box on both sides of the gap. The panel is narrowed
-// to one grid column so two stacked cards are strictly adjacent rows.
-test('rows of cards are 18px apart', async () => {
-  await page.viewport(1024, 768)
-  const screen = await render(
-    <div className="fw" style={{ width: '300px' }}>
-      <KnobPanel group="lengths" />
-    </div>,
-  )
-  const grid = screen.container.querySelector('.fw-grid')
-  if (grid === null) throw new Error('no grid')
-  expect(getComputedStyle(grid).rowGap).toBe('18px')
-  const cards = [...screen.container.querySelectorAll<HTMLElement>('.fw-grid > .fw-k')].sort(
-    (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
-  )
-  expect(cards.length).toBeGreaterThan(2)
-  const [prev, next] = cards
-  if (prev === undefined || next === undefined) throw new Error('need two cards')
-  expect(prev.getBoundingClientRect().left).toBeCloseTo(next.getBoundingClientRect().left, 0)
-  const prevContent = prev.querySelector(':scope > .why')
-  const nextContent = next.querySelector(':scope > .top')
-  if (prevContent === null || nextContent === null) throw new Error('a card without its content ends')
-  const gap = nextContent.getBoundingClientRect().top - prevContent.getBoundingClientRect().bottom
-  expect(gap).toBeCloseTo(18, 0)
-  expect(PARAM_SPEC.filter((s) => s.group === 'lengths').length).toBeGreaterThan(2)
-})
+// Handoff 2, PR 2 (§2) and PR 3: one grid for the whole console, the
+// preview's rows included. Walked through the real lab, every group and the
+// preview in turn, both languages, at the two widths the handoff names —
+// 1440 and 924, where the panel is under the bound tracks' floor and drops
+// them — and at 1920, where it keeps them. In each, every value ends on one x and every
+// control starts on one x — across groups, not only within one — and no
+// short label is cut.
+test.each([
+  [1920, 1080, 'en'],
+  [1440, 900, 'en'],
+  [1440, 900, 'pl'],
+  [924, 768, 'en'],
+  [924, 768, 'pl'],
+] as const)(
+  'at %i×%i (%s) every group and the preview put values and controls on one x, and cut no label',
+  async (w, h, lang) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await act(async () => useStore.getState().lang.setLang(lang))
+    // The skeleton's and the probe's blocks open, so their rows are measured
+    // too — the indent must come out of the label track alone.
+    await act(async () => useStore.getState().params.setMany({ giants: 4, probe: 0.3 }))
+    // The preview's two blocks open too.
+    await act(async () => useStore.setState((s) => ({ view: { ...s.view, hilite: true, showPoints: true } })))
+    const valueEnds = new Set<number>()
+    const controlStarts = new Set<number>()
+    const wideStarts = new Set<number>()
+    let rows = 0
+    for (const group of [...RAIL_GROUPS, 'preview' as const]) {
+      await act(async () => useStore.getState().ui.select(group))
+      for (const line of screen.container.querySelectorAll('.kv-row > .ln')) {
+        rows++
+        const lab = line.querySelector<HTMLElement>('.kv-lab')
+        if (lab === null) throw new Error('a row without a label')
+        expect(lab.scrollWidth, `${group}: "${lab.textContent}" is cut`).toBeLessThanOrEqual(lab.clientWidth)
+        const value = line.querySelector('.vc')
+        const control = line.querySelector('.cc')
+        if (value === null || control === null) throw new Error('a row without its tracks')
+        valueEnds.add(Math.round(value.getBoundingClientRect().right))
+        // The palette's list takes the minimum's track as well, on purpose:
+        // it starts where the minimum's track starts in every other row.
+        const left = Math.round(control.getBoundingClientRect().left)
+        if (control.classList.contains('wide')) wideStarts.add(left)
+        else controlStarts.add(left)
+      }
+    }
+    expect(rows).toBeGreaterThan(20)
+    expect([...valueEnds]).toHaveLength(1)
+    expect([...controlStarts]).toHaveLength(1)
+    expect([...wideStarts]).toHaveLength(1)
+    // Where the bound tracks show, the wide control starts where the
+    // minimum's track does: one bound track and one column gap before the
+    // control's. Under the floor, where they do not, on the control's own x. The
+    // minimum's own box cannot say it: it is right-aligned in its track.
+    const line = screen.container.querySelector('.kv-row > .ln')
+    if (line === null) throw new Error('no row')
+    const style = getComputedStyle(line)
+    const lead = Number.parseFloat(style.columnGap) + Number.parseFloat(style.getPropertyValue('--end'))
+    const [control] = [...controlStarts]
+    if (control === undefined) throw new Error('no control x')
+    expect([...wideStarts]).toEqual([expectBoundsAt(w) ? Math.round(control - lead) : control])
+    const bounds = screen.container.querySelector('.kv-row .mx')
+    const expectBounds = expectBoundsAt(w)
+    expect(bounds === null ? false : getComputedStyle(bounds).display !== 'none').toBe(expectBounds)
+  },
+  60_000,
+)

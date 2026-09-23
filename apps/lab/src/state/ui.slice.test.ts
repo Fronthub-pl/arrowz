@@ -26,11 +26,14 @@ describe('the switches the run column owns', () => {
     return store
   }
 
-  it('starts with auto off and help on, as the previous lab does', () => {
+  // The descriptions switch is gone (handoff 2, PR 2): the slice keeps no
+  // `help` at all, and a knob row opens its own description.
+  it('starts with auto off, and has no descriptions switch', () => {
     const store = slice()
     expect(store.ui.auto).toBe(false)
-    expect(store.ui.help).toBe(true)
     expect(store.ui.clamped).toBe(false)
+    expect(store.ui).not.toHaveProperty('help')
+    expect(store.ui).not.toHaveProperty('setHelp')
   })
 
   it('sets each switch to what it is given, rather than toggling', () => {
@@ -38,9 +41,8 @@ describe('the switches the run column owns', () => {
     store.ui.setAuto(true)
     store.ui.setAuto(true)
     expect(store.ui.auto).toBe(true)
-    store.ui.setHelp(false)
-    expect(store.ui.help).toBe(false)
-    expect(store.ui.auto).toBe(true)
+    store.ui.setAuto(false)
+    expect(store.ui.auto).toBe(false)
   })
 
   it('raises and lowers the clamp notice', () => {
@@ -59,6 +61,63 @@ describe('the switches the run column owns', () => {
     expect(store.ui.report).toBe(true)
     store.ui.toggleReport()
     expect(store.ui.report).toBe(false)
+  })
+
+  // Handoff 2, PR 1: the settings drawer opens by default, unlike the report,
+  // because it does not cover the board.
+  it('keeps the settings drawer open at first, sets it as given, and toggles it', () => {
+    const store = slice()
+    expect(store.ui.settings).toBe(true)
+    store.ui.setSettings(false)
+    store.ui.setSettings(false)
+    expect(store.ui.settings).toBe(false)
+    store.ui.toggleSettings()
+    expect(store.ui.settings).toBe(true)
+  })
+
+  // Handoff 2, PR 6: the saved boards' drawer opens on the list of boards.
+  it('opens the saved boards on their list and switches to the preview and back', () => {
+    const store = slice()
+    expect(store.ui.boards).toBe('list')
+    store.ui.showBoards('preview')
+    expect(store.ui.boards).toBe('preview')
+    store.ui.showBoards('list')
+    expect(store.ui.boards).toBe('list')
+  })
+
+  // Handoff 2, PR 7: the phone's bottom sheets and the top bar's menu. One
+  // sheet at a time; the same sheet pressed again closes it.
+  it('opens one sheet at a time and closes it on a second press', () => {
+    const store = slice()
+    expect(store.ui.sheet).toBeNull()
+    store.ui.toggleSheet('cli')
+    expect(store.ui.sheet).toBe('cli')
+    store.ui.toggleSheet('report')
+    expect(store.ui.sheet).toBe('report')
+    store.ui.toggleSheet('report')
+    expect(store.ui.sheet).toBeNull()
+    store.ui.setSheet('settings')
+    expect(store.ui.sheet).toBe('settings')
+  })
+
+  it('opens and closes the top bar menu', () => {
+    const store = slice()
+    expect(store.ui.menu).toBe(false)
+    store.ui.toggleMenu()
+    expect(store.ui.menu).toBe(true)
+    store.ui.setMenu(false)
+    expect(store.ui.menu).toBe(false)
+  })
+
+  it('closes the settings drawer for a narrow window and restores it', () => {
+    const store = slice()
+    expect(store.ui.settings).toBe(true)
+    store.ui.closeSettingsForNarrow()
+    expect(store.ui.settings).toBe(false)
+    // No storage in the node project (`readStored` returns null): the
+    // remembered value is the default, open.
+    store.ui.restoreSettings()
+    expect(store.ui.settings).toBe(true)
   })
 })
 

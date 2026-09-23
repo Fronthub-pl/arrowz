@@ -1,16 +1,19 @@
-import type { ParamSpec } from '@arrowz/engine'
+import type { InactiveKey, ParamSpec } from '@arrowz/engine'
 import { wordFor } from '@arrowz/engine/command'
+import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { DraftNumber } from './DraftNumber'
 import { descId } from './FieldHelp'
-import { boundOn, KnobSlider } from './KnobSlider'
+import { endText, KnobLine, KnobTrack, rowState, rowTitle, useKnobHelp } from './KnobRow'
+import { boundOn } from './KnobSlider'
+import { RELEASE_TO, UNIT_OF } from './knobLayout'
 
 /**
- * One knob: a label, the value with the word the CLI spells it with, a
- * slider, and one paragraph for the state alone — what is wrong with it right
- * now, if anything (spec R7; the description itself is drawn once, under the
- * panel heading, by `FieldHelp`).
+ * One number knob as a row (handoff 2, PR 2): the short label and its `?`,
+ * the value with its unit, the minimum — or the special value's chip, which is
+ * that minimum — the drawn track and the maximum; under it, the state line and
+ * the description on demand.
  *
  * Four subscriptions, all by this knob's key. Dragging another knob changes
  * none of them, so this component does not render: that is what the sparse
@@ -18,7 +21,15 @@ import { boundOn, KnobSlider } from './KnobSlider'
  *
  * The inline entry is `DraftNumber` (spec §5.5); the knob only knows its bounds.
  */
-export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: { min: number; max: number } }) {
+export function ValueKnob({
+  spec,
+  bounds = spec,
+  blockReason,
+}: {
+  spec: ParamSpec
+  bounds?: { min: number; max: number }
+  blockReason?: InactiveKey | undefined
+}) {
   const dict = useDictionary()
   const value = useStore((state) => state.params.values[spec.key])
   const broken = useStore((state) => state.params.broken[spec.key])
@@ -26,58 +37,93 @@ export function ValueKnob({ spec, bounds = spec }: { spec: ParamSpec; bounds?: {
   const floor = useStore((state) => state.params.floor[spec.key])
   const set = useStore((state) => state.params.set)
 
-  const { label } = dict.paramText(spec)
+  const { label, help } = dict.paramText(spec)
+  const name = dict.d.short[spec.key]
   const word = wordFor(spec.key, value)
-  // The same answer the marker draws, from the same predicate: a bound stated
-  // only as a mark is a bound only a mouse can read.
+  // A special value is the word the CLI spells the track's minimum with —
+  // `--lmax=auto`, `--giantstep=random` — so it gets the minimum's track as a
+  // chip. `maxBack`'s `auto` is 200, mid-track, and stays a number.
+  const special = wordFor(spec.key, bounds.min)
+  const isSpecial = special !== null && value === bounds.min
+  // Where a released chip goes: the last value this row held, else the
+  // default, else the smallest legal value (`knobLayout.ts`). Recorded after
+  // the render, not during it.
+  const last = useRef<number | null>(null)
+  useEffect(() => {
+    if (!isSpecial) last.current = value
+  }, [value, isSpecial])
+  const release = () => {
+    const fallback = spec.def !== bounds.min ? spec.def : (RELEASE_TO[spec.key] ?? bounds.min + spec.step)
+    set(spec.key, last.current ?? fallback)
+  }
   const bound = boundOn(floor, bounds)
-  const state = broken
-    ? broken.map((v) => dict.violation(v)).join('; ')
-    : inactive
-      ? `${dict.t('inactivePrefix')}${dict.reason(inactive)}`
-      : bound === undefined
-        ? null
-        : dict.t('ruleBound', bound)
-  // The description lives in the panel heading now (`FieldHelp`, spec R7),
-  // one list for the whole group rather than one paragraph per card. This
-  // paragraph holds only the state — what is wrong with the knob right now —
-  // which the help switch never hides: turning descriptions off must not
-  // turn a refusal off with them.
+  const { text, off } = rowState(dict, { broken, inactive, bound, blockReason })
   const whyId = `knob-${spec.key}-why`
+  const describedBy = `${whyId} ${descId(spec.key)}`
+  const unit = UNIT_OF[spec.key]
+  const { button, paragraph } = useKnobHelp(descId(spec.key), name, help)
 
   return (
-    <div className={`fw-k${broken ? ' bad' : ''}${inactive ? ' off' : ''}`}>
-      <div className="top">
-        <label className="lab" htmlFor={`knob-${spec.key}`}>
-          {label}
-        </label>
-        <DraftNumber
-          label={label}
-          value={value}
-          word={word}
-          // The same paragraph the slider points at, plus the panel's own
-          // description of this knob: a knob's reason or its description
-          // reaching only one of them is a reason a keyboard user meets half
-          // the time.
-          describedBy={`${whyId} ${descId(spec.key)}`}
-          // Held inside the *passed* bounds first: the mix row's own range is
-          // narrower than the knob's, and only it knows that.
-          onCommit={(typed) => set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))}
-        />
-      </div>
-      <KnobSlider
-        spec={spec}
-        id={`knob-${spec.key}`}
-        value={value}
-        bounds={bounds}
-        floor={floor}
-        label={label}
-        describedBy={`${whyId} ${descId(spec.key)}`}
-        onCommit={(next) => set(spec.key, next)}
+    <div className={`kv-row${broken ? ' bad' : ''}${off ? ' off' : ''}`} title={rowTitle(dict, label, bounds)}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor={`knob-${spec.key}`}>
+            {name}
+          </label>
+        }
+        help={button}
+        value={
+          <span className="kv-val">
+            <DraftNumber
+              label={name}
+              value={value}
+              word={isSpecial ? special : null}
+              wordOnly
+              className="kv-num"
+              describedBy={describedBy}
+              // Held inside the *passed* bounds first: the mix row's own range
+              // is narrower than the knob's, and only it knows that.
+              onCommit={(typed) => set(spec.key, Math.min(bounds.max, Math.max(bounds.min, typed)))}
+            />
+            <span className="kv-unit">{isSpecial || unit === undefined ? '' : dict.d.units[unit]}</span>
+          </span>
+        }
+        min={
+          special === null ? (
+            <span className="kv-end">{endText(dict, bounds.min)}</span>
+          ) : (
+            <button
+              type="button"
+              className="kv-chip"
+              aria-pressed={isSpecial}
+              // Not `${name}: ${special}`: that is the value button's name
+              // while the knob holds the special value, and two buttons of
+              // one name are one button to a screen reader.
+              aria-label={`${special} (${name})`}
+              onClick={() => (isSpecial ? release() : set(spec.key, bounds.min))}
+            >
+              {special}
+            </button>
+          )
+        }
+        control={
+          <KnobTrack
+            id={`knob-${spec.key}`}
+            value={value}
+            bounds={bounds}
+            step={spec.step}
+            floor={floor}
+            word={word}
+            describedBy={describedBy}
+            onCommit={(next) => set(spec.key, next)}
+          />
+        }
+        max={<span className="kv-end">{endText(dict, bounds.max)}</span>}
       />
-      <p className="why" id={whyId} data-testid={whyId}>
-        {state === null ? null : <span className="state">{state}</span>}
+      <p className="kv-why" id={whyId} data-testid={whyId}>
+        {text}
       </p>
+      {paragraph}
     </div>
   )
 }

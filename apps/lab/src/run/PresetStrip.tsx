@@ -48,7 +48,10 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
     const first =
       panel?.querySelector<HTMLButtonElement>('button[aria-current="true"]') ??
       panel?.querySelector<HTMLButtonElement>('button')
-    first?.focus()
+    // No scroll: in a low window the panel is `position: fixed` under the top
+    // bar, and a focus that scrolled `.fw-top` would shift the bar (handoff 2,
+    // PR 7).
+    first?.focus({ preventScroll: true })
 
     const onPress = (event: PointerEvent) => {
       if (event.target instanceof Node && root.current?.contains(event.target)) return

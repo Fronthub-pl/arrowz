@@ -75,7 +75,6 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.ui.setAuto(false)
-  state.ui.setHelp(true)
   state.ui.setMode('advanced')
 })
 
@@ -216,14 +215,14 @@ describe('RunColumn', () => {
   })
 
   // The hook behind `auto` is tested on its own; what is only visible here is
-  // that the column's two switches are the store's two fields and not local
-  // state of their own.
-  it('flips the store from either switch', async () => {
+  // that the column's switch is the store's field and not local state of its
+  // own. The descriptions switch is gone (handoff 2, PR 2): a knob row opens
+  // its own description with its `?`.
+  it('flips the store from its switch, and has no descriptions switch', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
     await screen.getByRole('switch', { name: 'generate right after a change' }).click()
     expect(useStore.getState().ui.auto).toBe(true)
-    await screen.getByRole('switch', { name: 'show parameter descriptions' }).click()
-    expect(useStore.getState().ui.help).toBe(false)
+    expect(screen.getByRole('switch').elements()).toHaveLength(1)
   })
 })
 
@@ -285,19 +284,23 @@ describe('the alternative actions', () => {
 
   // Geometry and computed style, because no text lookup can fail for this:
   // `.fw-cmd`'s text is in the DOM whether or not the box paints it, so the
-  // suite stayed green while a browser pass measured the column showing about
-  // a third of the command. Rendered inside a `.fw` root at the console's own
-  // third-track width, with the real cascade, and short enough that the box is
-  // already at its 58px floor — which is the only state in which it clips, and
-  // so the only state in which this rule does anything.
-  it('leaves the whole command reachable, without moving Generate', async () => {
+  // suite once stayed green while a browser pass measured the column showing
+  // about a third of the command. Rendered inside a `.fw` root at about the
+  // stage's narrowest run track, with the real cascade, and short enough that
+  // the long command overflows the column.
+  //
+  // Handoff 2, PR 1 turned the contract around: the box shows the whole
+  // command (`flex: none`, run.css) and the column scrolls instead, so
+  // Generate now moves down with a longer command — spec §5.2's growing
+  // figure, which held Generate still, is gone.
+  it('shows the whole command in its box, and the column scrolls to Generate', async () => {
     const screen = await render(
       <div className="fw" style={{ display: 'flex', width: '216px', height: '300px' }}>
         <RunColumn control={stub().control} />
       </div>,
     )
-    const generateTop = () => screen.getByRole('button', { name: 'Generate' }).element().getBoundingClientRect().top
-    const before = generateTop()
+    const go = () => screen.getByRole('button', { name: 'Generate' }).element().getBoundingClientRect()
+    const before = go().top
     await act(async () =>
       useStore.getState().params.setMany({
         W: 137,
@@ -312,19 +315,18 @@ describe('the alternative actions', () => {
       }),
     )
     const pre = screen.container.querySelector('.fw-cmd')
-    if (pre === null) throw new Error('the command box is not on the page')
-    // A command that already fits has nothing out of sight, and this case
-    // would pass without asserting anything.
-    expect(pre.scrollHeight).toBeGreaterThan(pre.clientHeight)
-    // `overflow-y` and not `scrollTop`: an `overflow: hidden` box is still
-    // programmatically scrollable, so setting `scrollTop` would succeed under
-    // the very rule this case exists to forbid. The computed value is what
-    // decides whether a person can reach the rest.
-    expect(getComputedStyle(pre).overflowY).not.toBe('hidden')
-    // The reason the fix is inside the box rather than `flex: none` on the
-    // figure: `LiveCommand` is the column's first child, so a figure that grew
-    // with the command would walk the primary action down the column.
-    expect(generateTop()).toBe(before)
+    const column = screen.container.querySelector('.fw-run-col')
+    if (pre === null || column === null) throw new Error('the command box or the column is not on the page')
+    // Nothing of the command is out of the box's sight…
+    expect(pre.scrollHeight).toBeLessThanOrEqual(pre.clientHeight + 1)
+    // …and the column is what overflows, so a column that fits would make this
+    // case assert nothing; `overflow-y` and not `scrollTop`, because an
+    // `overflow: hidden` box is still programmatically scrollable.
+    expect(column.scrollHeight).toBeGreaterThan(column.clientHeight)
+    expect(getComputedStyle(column).overflowY).toBe('auto')
+    // The box never paints over Generate, which followed the command down.
+    expect(pre.getBoundingClientRect().bottom).toBeLessThanOrEqual(go().top)
+    expect(go().top).toBeGreaterThan(before)
   })
 })
 

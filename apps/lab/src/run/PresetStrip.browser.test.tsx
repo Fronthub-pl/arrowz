@@ -3,8 +3,9 @@ import { exportCell } from '@arrowz/engine/simple'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { render } from 'vitest-browser-react'
-import { userEvent } from 'vitest/browser'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
+import { beforeEach, describe, expect, it, test, vi } from 'vitest'
+import { mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { PresetStrip } from './PresetStrip'
@@ -77,6 +78,34 @@ describe('PresetStrip', () => {
   // A row's visible text is the mode and the size; four rows read `square`,
   // so the accessible name carries the level too — the same name the strip's
   // chips had, so every case that chooses a preset by name still finds it.
+  // Handoff 2, PR 5: a row's two spans sit on its vertical middle, not at its
+  // top edge where `align-items: baseline` put them. Inside `.fw`, which the
+  // row's rules are written against.
+  it('centres a row’s mode and size on the row, not on its top edge', async () => {
+    const screen = await render(
+      <div className="fw">
+        <PresetStrip control={stub().control} />
+      </div>,
+    )
+    await screen.getByRole('button', { name: /^preset/ }).click()
+    const rows = [...screen.container.querySelectorAll<HTMLElement>('.fw-pp-col button')]
+    expect(rows.length).toBeGreaterThan(20)
+    const middle = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return r.top + r.height / 2
+    }
+    for (const row of rows) {
+      for (const span of row.querySelectorAll(':scope > span')) {
+        expect(Math.abs(middle(span) - middle(row)), row.getAttribute('aria-label') ?? '').toBeLessThan(1)
+        // `line-height: 1`: each span's box is its own font size tall, so the
+        // two boxes' shared middle is also where the two glyph runs sit — a
+        // taller line box would centre the box and leave the 11px size
+        // floating above the 13px mode's middle.
+        expect(span.getBoundingClientRect().height).toBeCloseTo(Number.parseFloat(getComputedStyle(span).fontSize), 0)
+      }
+    }
+  })
+
   it('names each row in full, twenty-six names and no two the same', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await open(screen)
@@ -273,4 +302,41 @@ describe('PresetStrip', () => {
     }
     expect(prevented).toBe(true)
   })
+})
+
+const strips = () => document.querySelectorAll('.fw-presets')
+
+// Spec D2: one strip, in the top bar of a low window, in the lab otherwise.
+test.each([
+  [924, 540, 'advanced', '.fw-top'],
+  [924, 900, 'advanced', '.fw-lab'],
+  [600, 500, 'advanced', '.fw-lab'],
+] as const)('at %d×%d in the %s view the strip stands in %s', async (w, h, mode, parent) => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(w, h)
+  await mountApp(mode)
+  expect(strips()).toHaveLength(1)
+  expect(strips()[0]?.parentElement?.closest('.fw-top, .fw-lab')?.matches(parent)).toBe(true)
+  expect(document.querySelector('.fw-lab')?.classList.contains('presets-top')).toBe(parent === '.fw-top')
+  vi.restoreAllMocks()
+})
+
+test('the simple view has no strip in the top bar of a low window', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(924, 540)
+  await mountApp('simple')
+  expect(strips()).toHaveLength(0)
+  expect(document.querySelector('.fw-lab')?.classList.contains('presets-top')).toBe(false)
+  vi.restoreAllMocks()
+})
+
+test('opening the panel focuses its row without scrolling anything', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await page.viewport(924, 540)
+  const screen = await mountApp('advanced')
+  const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+  await screen.getByRole('button', { name: /^preset/ }).click()
+  await expect.poll(() => focus.mock.calls.length).toBeGreaterThan(0)
+  expect(focus.mock.calls[0]?.[0]).toEqual({ preventScroll: true })
+  vi.restoreAllMocks()
 })

@@ -1,4 +1,4 @@
-import type { BoardFile, WorkerIn, WorkerOut } from '@arrowz/engine'
+import type { BoardFile } from '@arrowz/engine'
 import { layoutHash } from '@arrowz/engine'
 import { svgOptions } from '@arrowz/engine/command'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
@@ -6,6 +6,7 @@ import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
+import { drawSvg } from './drawSvg'
 
 /** The layout hash of one board file, or why it could not be worked out. */
 interface Named {
@@ -81,30 +82,18 @@ export function ExportButtons(): ReactElement {
     const name = `arrowz-${W}x${H}-seed${seed}.svg`
     // The view of the moment, cell included: the export field is what `cell` is for.
     const view = useStore.getState().view
-    const worker = new Worker(new URL('../worker/generate.worker.ts', import.meta.url), { type: 'module' })
-    const end = () => {
-      worker.terminate()
-      drawing.current = null
-      setBusy(false)
-    }
-    worker.onmessage = (event: MessageEvent<WorkerOut>) => {
-      const message = event.data
-      if (message.type === 'svg') downloadBlob(new Blob([message.svg], { type: 'image/svg+xml' }), name)
-      else if (message.type === 'error') useStore.getState().result.exported(about, message.message)
-      end()
-    }
-    worker.onerror = (event) => {
-      useStore.getState().result.exported(about, event.message)
-      end()
-    }
-    drawing.current = worker
     setBusy(true)
     useStore.getState().result.exported(about, null)
-    worker.postMessage({
-      type: 'svg',
-      board: result.file,
-      options: { ...svgOptions(viewOf(view)), voids: view.voids },
-    } satisfies WorkerIn)
+    drawing.current = drawSvg(
+      result.file,
+      { ...svgOptions(viewOf(view)), voids: view.voids },
+      name,
+      (reason) => useStore.getState().result.exported(about, reason),
+      () => {
+        drawing.current = null
+        setBusy(false)
+      },
+    )
   }
 
   const exportFile = () => {

@@ -8,18 +8,26 @@ import { type ReactElement, useEffect, useRef, useState } from 'react'
  * rather than a second copy of it.
  *
  * No clamp and no store: the caller knows the bounds and where the number goes.
+ *
+ * A knob row (handoff 2, PR 2) passes its own class and shows only the word
+ * when there is one — `auto` in the value track, where the numbers stand —
+ * while the simple view keeps the word beside the number.
  */
 export function DraftNumber({
   label,
   value,
   word = null,
   describedBy,
+  className = 'num',
+  wordOnly = false,
   onCommit,
 }: {
   label: string
   value: number
   word?: string | null | undefined
   describedBy?: string | undefined
+  className?: string | undefined
+  wordOnly?: boolean | undefined
   onCommit(typed: number): void
 }): ReactElement {
   const [draft, setDraft] = useState<string | null>(null)
@@ -56,13 +64,19 @@ export function DraftNumber({
     <button
       ref={numRef}
       type="button"
-      className="num"
+      className={className}
       aria-label={`${label}: ${word ?? value}`}
       aria-describedby={describedBy}
       onClick={() => setDraft(String(value))}
     >
-      {word === null ? null : <em>{word}</em>}
-      {value}
+      {word !== null && wordOnly ? (
+        word
+      ) : (
+        <>
+          {word === null ? null : <em>{word}</em>}
+          {value}
+        </>
+      )}
     </button>
   ) : (
     <input

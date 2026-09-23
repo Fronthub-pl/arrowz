@@ -345,7 +345,7 @@ Deno.test('both ui dictionaries carry the preview section titles', () => {
   }
 })
 
-Deno.test('the preset picker and the report drawer speak both languages', () => {
+Deno.test('the preset picker and the two drawers speak both languages', () => {
   const en = dictionary('en')
   const pl = dictionary('pl')
   const want: Record<string, [string, string]> = {
@@ -354,9 +354,56 @@ Deno.test('the preset picker and the report drawer speak both languages', () => 
     editedSinceLastPreset: ['edited since the last preset', 'zmienione od ostatniego presetu'],
     reportHandle: ['report', 'raport'],
     cmdHintReport: ['report', 'raport'],
+    settingsHandle: ['settings', 'ustawienia'],
+    cmdHintSettings: ['settings', 'ustawienia'],
   }
   for (const [key, [e, p]] of Object.entries(want)) {
     assertEquals(en.t(key as UiKey), e, key)
     assertEquals(pl.t(key as UiKey), p, key)
   }
+})
+
+// Handoff 2, PR 2: the label track is 12ch wide in every group, so a short
+// label over 12 characters would be cut in the lab.
+Deno.test('every knob has a short label of at most 12 characters, in both languages', () => {
+  for (const d of [EN, PL]) {
+    for (const s of PARAM_SPEC) {
+      const short = d.short[s.key]
+      assert(short, `short ${s.key}`)
+      assert([...short].length <= 12, `short ${s.key}: "${short}" is ${[...short].length} characters`)
+    }
+    for (const unit of Object.values(d.units)) assert([...unit].length <= 6, `unit "${unit}"`)
+  }
+})
+
+// Handoff 2, PR 3: the preview's rows share the knobs' 12-character label track.
+Deno.test('every preview short label has at most 12 characters, in both languages', () => {
+  for (const d of [EN, PL]) {
+    const keys = Object.keys(d.ui).filter((k) => k.startsWith('viewShort')) as UiKey[]
+    assert(keys.length >= 16, `${keys.length} preview short labels`)
+    for (const key of keys) {
+      const text = d.ui[key]
+      assert(typeof text === 'string', key)
+      assert([...text].length <= 12, `${key}: "${text}" is ${[...text].length} characters`)
+    }
+  }
+})
+
+Deno.test('the saved boards count a board in both languages, Polish in its three forms', () => {
+  assertEquals([1, 2, 5].map((n) => EN.ui.boardsCount(n)), ['1 board', '2 boards', '5 boards'])
+  assertEquals(
+    [1, 2, 4, 5, 12, 14, 21, 22, 112, 122].map((n) => PL.ui.boardsCount(n)),
+    [
+      '1 plansza',
+      '2 plansze',
+      '4 plansze',
+      '5 plansz',
+      '12 plansz',
+      '14 plansz',
+      '21 plansz',
+      '22 plansze',
+      '112 plansz',
+      '122 plansze',
+    ],
+  )
 })

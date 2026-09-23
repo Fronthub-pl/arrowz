@@ -4,15 +4,15 @@ import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
 import { LiveCommand } from './LiveCommand'
+import { MoreMenu } from './MoreMenu'
 import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
 
 /**
- * The mock's third console track (`.fw-run-col`). It is a child of `Console`
- * rather than a sibling: `Console` keeps `children` at the third position of
- * its own grid in both views and swaps only the first two — the rail's slot
- * becomes `null` and the panel becomes `SimplePanel` — so the same node
- * reaches both interiors (`Console.tsx`'s own comment; PR 4a, Ruling 7).
+ * The stage's third track (`.fw-run-col`), right of the board (handoff 2,
+ * PR 1). It used to be the console's third child; it is the stage's now, in
+ * the same slot on every face and in both views, so the simple view and the
+ * saved boards swap what is around it and never its node (PR 4a, Ruling 7).
  *
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a
@@ -26,6 +26,10 @@ import type { RunControl } from './useRun'
  * well, to carry the focus between the two whenever the one holding it is
  * about to be disabled.
  */
+
+/** The run column's id, which the phone's CLI sheet button controls (handoff 2, PR 7). */
+export const RUN_COLUMN_ID = 'run-column'
+
 export function RunColumn({
   control,
   goRef,
@@ -39,9 +43,7 @@ export function RunColumn({
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
-  const help = useStore((state) => state.ui.help)
   const setAuto = useStore((state) => state.ui.setAuto)
-  const setHelp = useStore((state) => state.ui.setHelp)
   const simple = useStore((state) => state.ui.mode === 'simple')
 
   // Both of these buttons are a landing spot with an expiry date, because each
@@ -126,7 +128,7 @@ export function RunColumn({
   const onDefaults = () => defaults(control)
 
   return (
-    <section className="fw-run-col" aria-label={dict.t('runColumn')}>
+    <section id={RUN_COLUMN_ID} className="fw-run-col" aria-label={dict.t('runColumn')}>
       <LiveCommand />
       <button
         type="button"
@@ -149,15 +151,18 @@ export function RunColumn({
           {dict.t('abort')}
         </button>
       </div>
-      {/* The knobs' own switches, and the simple view shows no knobs (PR 4a, Ruling 9). */}
-      {simple ? null : (
-        <div className="fw-ghost">
-          <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
-          <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
-        </div>
-      )}
-      {/* In both views: the exports belong to the board, not to the knobs. */}
-      <ExportButtons />
+      <MoreMenu>
+        {/* The knobs' own switch, and the simple view shows no knobs (PR 4a,
+            Ruling 9). The descriptions switch is gone: every knob row opens
+            its own description with its `?` (handoff 2, PR 2). */}
+        {simple ? null : (
+          <div className="fw-ghost">
+            <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
+          </div>
+        )}
+        {/* In both views: the exports belong to the board, not to the knobs. */}
+        <ExportButtons />
+      </MoreMenu>
     </section>
   )
 }

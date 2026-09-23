@@ -8,13 +8,16 @@ import { AppRoutes } from './AppRoutes'
 import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
 import { generate, stepSeed } from './run/actions'
+import { PresetStrip } from './run/PresetStrip'
 import { useAutoRun } from './run/useAutoRun'
 import { useRun } from './run/useRun'
 import type { RunControl } from './run/useRun'
 import { selectedIndex, TabRow } from './shell/TabRow'
 import { TopBar } from './shell/TopBar'
 import { useDocumentLang } from './shell/useDocumentLang'
+import { useBand, useLowWindow } from './shell/useLayoutBand'
 import { applyRecipe } from './simple/applyRecipe'
+import { narrow, readBand } from './state/band'
 import { useStore } from './state/store'
 import { useUrlHash } from './state/useUrlHash'
 import { viewOf } from './state/view.slice'
@@ -64,7 +67,7 @@ function useStoreSave() {
 }
 
 /**
- * The guard `f`, `g`, `[`, `]` and `r` all share (and the drawer's Escape): nothing with Ctrl, ⌘ or Alt
+ * The guard `f`, `g`, `[`, `]`, `r` and `s` all share (and the drawers' Escape): nothing with Ctrl, ⌘ or Alt
  * (those belong to the platform), no key repeat, nothing typed into a field
  * or an editable region.
  *
@@ -97,7 +100,7 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
  * Ruling 9). The listener lives wherever the stage does — the lab tab and the
  * saved boards — and nowhere else. Escape is not handled here: the command
  * palette owns its own, closing on it in its own key handler
- * (`CommandPalette.tsx`), and `useReportKey` owns the drawer's.
+ * (`CommandPalette.tsx`), and `useDrawerKeys` owns the drawers'.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
@@ -139,30 +142,49 @@ function usePaletteKey() {
 }
 
 /**
- * The report drawer's keys (spec §4.3): `r` / `R` toggles it, Escape closes it,
- * both refused by `isHotkeyRefused` like `f`. Bound on the lab tab only, not
- * wherever the stage is: the saved boards have no drawer (console.css,
- * `.fw-lab.library .fw-drawer`), and a key there would flip a drawer nobody
- * sees — `ui.report` is left alone, so the lab shows it as it was left.
- * Escape reaches this listener last: the palette consumes its own Escape in
- * its React handler and the preset panel in a capture-phase listener, and a
- * consumed event is refused here as `defaultPrevented`.
+ * The two drawers' keys (spec §4.3, handoff 2 PR 1): `r` / `R` toggles the
+ * report and `s` / `S` the settings, all refused by `isHotkeyRefused` like `f`.
+ * Bound wherever the stage is: the saved boards have both drawers too
+ * (handoff 2, PR 6) — the sizes and the preview on the left, the open board's
+ * report on the right — and the two tabs share each drawer's state.
+ *
+ * Escape closes one layer per press, the report before the settings: the
+ * report lies over the board, the settings drawer beside it. One listener
+ * decides both, so a single press cannot close the two. Escape reaches this
+ * listener last: the palette consumes its own Escape in its React handler and
+ * the preset panel in a capture-phase listener, and a consumed event is
+ * refused here as `defaultPrevented`.
+ *
+ * An open sheet is the first layer Escape closes (handoff 2, PR 7); the menu
+ * and the `…` popover consume their own Escape in capture listeners, as the
+ * preset panel does.
  */
-function useReportKey(onLab: boolean) {
+function useDrawerKeys(onWorkspace: boolean) {
   useEffect(() => {
-    if (!onLab) return
+    if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
       if (isHotkeyRefused(event)) return
       const ui = useStore.getState().ui
+      // At XS the drawers are shown only as sheets (handoff 2, PR 7): the
+      // keys open the sheets, and a drawer's state is invisible there, so
+      // Escape must not change it (Review Focus 2).
+      const phone = readBand() === 'xs'
       if (event.key === 'Escape') {
-        if (ui.report) ui.setReport(false)
+        if (ui.sheet !== null) ui.setSheet(null)
+        else if (phone) return
+        else if (ui.report) ui.setReport(false)
+        else if (ui.settings) ui.setSettings(false)
       } else if (event.key === 'r' || event.key === 'R') {
-        ui.toggleReport()
+        if (phone) ui.toggleSheet('report')
+        else ui.toggleReport()
+      } else if (event.key === 's' || event.key === 'S') {
+        if (phone) ui.toggleSheet('settings')
+        else ui.toggleSettings()
       }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onLab])
+  }, [onWorkspace])
 }
 
 /**
@@ -186,6 +208,32 @@ function useRunKeys(onWorkspace: boolean, control: RunControl) {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onWorkspace, control])
+}
+
+/**
+ * What a band change resets (handoff 2, PR 7, spec §4): the sheet and the
+ * menu, which belong to the band they were opened in; and the settings
+ * drawer, which below 1024px would lie over the board — closed without being
+ * remembered, and put back from what was remembered on the way up (D3).
+ *
+ * Compared with the last band seen rather than skipped on the first run:
+ * StrictMode runs a mount effect twice, and a "first run" flag would read the
+ * second pass as a change.
+ */
+function useBandReset() {
+  const band = useBand()
+  const low = useLowWindow()
+  const seen = useRef({ band, low })
+  useEffect(() => {
+    const was = seen.current
+    if (was.band === band && was.low === low) return
+    seen.current = { band, low }
+    const ui = useStore.getState().ui
+    ui.setSheet(null)
+    ui.setMenu(false)
+    if (narrow(band) && !narrow(was.band)) ui.closeSettingsForNarrow()
+    else if (!narrow(band) && narrow(was.band)) ui.restoreSettings()
+  }, [band, low])
 }
 
 /**
@@ -232,17 +280,30 @@ function Shell() {
   // the workspace: one panel, one stage, two faces (spec §5.1).
   const tabIndex = selectedIndex(useLocation().pathname)
   const onWorkspace = tabIndex === 0 || tabIndex === 1
+  // Spec D2: a low window gives the board the preset row's height by standing
+  // the strip in the top bar — the lab tab's advanced view only, where the
+  // strip exists at all. One instance: the top bar holds it or the lab does.
+  const low = useLowWindow()
+  const advanced = useStore((state) => state.ui.mode === 'advanced')
+  const presetsInTop = low && advanced && tabIndex === 0
   useStoreSave()
   useSoloKey(onWorkspace)
-  useReportKey(tabIndex === 0)
+  useDrawerKeys(onWorkspace)
   useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()
+  useBandReset()
+  const menu = useStore((state) => state.ui.menu)
   return (
-    <div className="fw">
-      <TopBar />
+    <div className={menu ? 'fw menu-open' : 'fw'}>
+      <TopBar presets={presetsInTop ? <PresetStrip control={control} /> : null} />
       <TabRow />
-      <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
+      <Workspace
+        control={control}
+        hidden={!onWorkspace}
+        tab={tabIndex === 1 ? 'library' : 'lab'}
+        presetsInTop={presetsInTop}
+      />
       <AppRoutes />
       <CommandPalette control={control} />
     </div>

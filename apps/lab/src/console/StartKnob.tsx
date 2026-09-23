@@ -3,6 +3,7 @@ import { isStartChoice, START, START_CHOICES, startChoiceOf } from '@arrowz/engi
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { descId } from './FieldHelp'
+import { KnobLine, rowTitle, useKnobHelp } from './KnobRow'
 import { ValueKnob } from './ValueKnob'
 
 /**
@@ -10,8 +11,8 @@ import { ValueKnob } from './ValueKnob'
  * stay narrowed inside a function declaration, so the check and the binding are
  * one expression.
  *
- * Exported: `KnobPanel` reads its label and help text for the mix row's own
- * entry in `FieldHelp` (spec R7), the same spec `ValueKnob` renders below.
+ * Exported for the tests, which read the mix row's texts from the same spec
+ * `ValueKnob` renders below.
  */
 export const MIX_SPEC: ParamSpec = (() => {
   const spec = PARAM_SPEC.find((s) => s.key === 'mix')
@@ -26,6 +27,8 @@ export const MIX_SPEC: ParamSpec = (() => {
  *
  * The share row is bounded by `START.mix`, not by the knob's own range: the
  * knob runs from −1 (a word, not a share) while only 0.3..0.7 is spellable.
+ * Both are rows of the knob grid (handoff 2, PR 2); the select stands in the
+ * control's track, as a choice knob's does.
  */
 export function StartKnob() {
   const dict = useDictionary()
@@ -36,32 +39,40 @@ export function StartKnob() {
   const choice = useStore((state) => startChoiceOf(state.params.values))
   const setStart = useStore((state) => state.params.setStart)
   const start = dict.d.start
+  const name = dict.d.short.headBias
+  const { button, paragraph } = useKnobHelp(descId('start'), name, start.help)
   return (
     <>
-      <div className="fw-k choice">
-        <div className="top">
-          <label className="lab" htmlFor="knob-start">
-            {start.label}
-          </label>
-          <select
-            id="knob-start"
-            value={choice}
-            aria-describedby={descId('start')}
-            onChange={(event) => {
-              const word = event.currentTarget.value
-              // The options are built from the CLI's own vocabulary, so
-              // anything else is a bug in this file.
-              if (!isStartChoice(word)) throw new Error(`unknown start choice ${word}`)
-              setStart(word)
-            }}
-          >
-            {START_CHOICES.map((word) => (
-              <option key={word} value={word}>
-                {start.options[word]}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="kv-row choice" title={rowTitle(dict, start.label)}>
+        <KnobLine
+          label={
+            <label className="kv-lab" htmlFor="knob-start">
+              {name}
+            </label>
+          }
+          help={button}
+          control={
+            <select
+              id="knob-start"
+              value={choice}
+              aria-describedby={descId('start')}
+              onChange={(event) => {
+                const word = event.currentTarget.value
+                // The options are built from the CLI's own vocabulary, so
+                // anything else is a bug in this file.
+                if (!isStartChoice(word)) throw new Error(`unknown start choice ${word}`)
+                setStart(word)
+              }}
+            >
+              {START_CHOICES.map((word) => (
+                <option key={word} value={word}>
+                  {start.options[word]}
+                </option>
+              ))}
+            </select>
+          }
+        />
+        {paragraph}
       </div>
       {choice === 'mixing' ? <ValueKnob spec={MIX_SPEC} bounds={START.mix} /> : null}
     </>

@@ -1,12 +1,14 @@
 import { DEFAULT_VIEW, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
+import type { ViewNumber } from '@arrowz/engine'
 import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
-import { useEffect, useRef } from 'react'
+import { type ReactElement, type ReactNode, useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
-import { FieldHelp } from './FieldHelp'
+import { DraftNumber } from './DraftNumber'
 import { panelId, tabId } from './GroupRail'
-import { DRAWING_FLAGS, VIEW_FIELDS, VIEW_FLAGS, type PlainUiKey, type ViewField, viewHelpEntries } from './viewFields'
+import { CollapsibleBlock, endText, KnobLine, KnobTrack, rowTitle, useKnobHelp } from './KnobRow'
+import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type ViewField } from './viewFields'
 
 /**
  * One preview number. Uncontrolled on purpose: a controlled `type="number"`
@@ -15,9 +17,8 @@ import { DRAWING_FLAGS, VIEW_FIELDS, VIEW_FLAGS, type PlainUiKey, type ViewField
  * owns its text while it is being typed into; the store owns it the rest of
  * the time — a `document.activeElement` guard, kept where it is needed.
  *
- * The library's preview shows three of these fields (stroke, head width and
- * head height) through this same component, which is what keeps their bounds
- * measured against `VIEW_RANGE` in one place rather than two.
+ * The simple view shows its three numbers through this component; the
+ * saved boards' preview uses the knob rows (`NumberRow`) since handoff 2, PR 6.
  */
 export function ViewNumberField({
   field,
@@ -40,10 +41,8 @@ export function ViewNumberField({
     if (node && document.activeElement !== node) node.value = String(value)
   }, [value])
 
-  // The clamp lives here rather than in each owner: the lab's slice clamps in
-  // `setNumber` and the library's detail has no slice to clamp in, so a field
-  // that handed on what was typed would leave one of its two owners to
-  // remember. The box then shows what was actually kept.
+  // The clamp lives here rather than in the owner, so the box shows what was
+  // actually kept.
   const commit = () => {
     const node = ref.current
     if (!node) return
@@ -117,79 +116,6 @@ export function ViewFlagSwitch({
   return bare === true ? row : <div className="fw-k">{row}</div>
 }
 
-/** A colour input and, where the empty value means something, its clear button. */
-function ColorCell({
-  id,
-  value,
-  onChange,
-  onClear,
-  clearLabel,
-}: {
-  id: string
-  value: string
-  onChange(color: string): void
-  onClear?: (() => void) | undefined
-  clearLabel?: string | undefined
-}) {
-  return (
-    <span className="fw-colour-cell">
-      <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} />
-      {onClear === undefined ? null : (
-        <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
-          ×
-        </button>
-      )}
-    </span>
-  )
-}
-
-interface ColorProps {
-  id: string
-  label: string
-  value: string
-  onChange(color: string): void
-  onClear?: (() => void) | undefined
-  clearLabel?: string | undefined
-}
-
-/**
- * One colour, as the palette rows already draw one: a visible label (so the
- * row reads on its own, unlike a palette swatch that sits beside "colour 1"
- * in a list already labelled by the editor around it) and a controlled
- * native colour input. `onClear` is offered where the empty value means
- * something -- paper and ink use it to hand the field back to the theme,
- * which a colour input has no way to express on its own.
- */
-export function ColorField({ label, ...cell }: ColorProps) {
-  return (
-    <div className="fw-k">
-      <div className="row">
-        <label className="lab" htmlFor={cell.id}>
-          {label}
-        </label>
-        <ColorCell {...cell} />
-      </div>
-    </div>
-  )
-}
-
-/**
- * The same colour as one row of the colours card: the label in the card's
- * label column, the cell in its control column (spec R8).
- */
-function ColorRow({ label, ...cell }: ColorProps) {
-  return (
-    <>
-      <label className="lab" htmlFor={cell.id}>
-        {label}
-      </label>
-      <div className="val">
-        <ColorCell {...cell} />
-      </div>
-    </>
-  )
-}
-
 /**
  * The chosen theme's arrow colours, in order, on the theme's own paper
  * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
@@ -218,247 +144,494 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 }
 
 /**
- * The console's colours card (spec R8): the theme, the board's two surface
- * colours and the editable custom palette (design doc §6), one card with a
- * label column and a control column.
- * Console-only by construction — it is defined here and imported by
- * `ViewPanel` alone; `SimplePanel` imports `ThemeSwatchStrip` from this file
- * but never this component (ViewPanel.browser.test.tsx and
- * SimplePanel.browser.test.tsx both pin it).
- *
- * The palette's cap lives in the store (`view.slice.ts`'s `paletteUpdate`),
- * not here: every handler below just forwards to a store action, so there is
- * nowhere in this component for the cap to be bypassed.
+ * One preview number as a knob row (handoff 2, PR 3): the value, the bounds
+ * `VIEW_RANGE` states (read here, never copied), the drawn track, and the
+ * description on demand. A preview number is not a knob — the engine never
+ * sees it — so it has no state line: nothing refuses it, it is clamped.
+ * `headWidth`'s 0 is the automatic width: a chip in the minimum's track.
  */
-export function ColoursCard() {
-  const dict = useDictionary()
-  const theme = useStore((state) => state.view.theme)
-  const setTheme = useStore((state) => state.view.setTheme)
-  const palette = useStore((state) => state.view.palette)
-  const addPaletteColor = useStore((state) => state.view.addPaletteColor)
-  const setPaletteColor = useStore((state) => state.view.setPaletteColor)
-  const removePaletteColor = useStore((state) => state.view.removePaletteColor)
-  const paper = useStore((state) => state.view.paper)
-  const ink = useStore((state) => state.view.ink)
-  const setPaper = useStore((state) => state.view.setPaper)
-  const setInk = useStore((state) => state.view.setInk)
+function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
+  const value = useStore((state) => state.view[field.field])
+  const stroke = useStore((state) => state.view.stroke)
+  const setNumber = useStore((state) => state.view.setNumber)
+  // Through the slice's own reader, which clamps to `VIEW_RANGE`.
   return (
-    <div className="fw-k fw-colours">
-      <label className="lab" htmlFor="view-theme">
-        {dict.t('themeLabel')}
-      </label>
-      <div className="val">
-        <select id="view-theme" value={theme} onChange={(e) => setTheme(e.target.value)}>
-          <option value="">{dict.t('themeNone')}</option>
-          {Object.keys(THEMES).map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <ThemeSwatchStrip themeName={theme} />
-      </div>
-      {/* The board's own surface colours (Task 6): `''` means "not set", which
-          a native colour input has no way to show, so the field shows the
-          element's own default while unset and the clear button -- present
-          only once there is something to clear -- is what expresses "not
-          set" and hands the field back to a chosen theme. */}
-      <ColorRow
-        id="view-paper"
-        label={dict.t('paperLabel')}
-        value={paper === '' ? DEFAULT_VIEW.paper : paper}
-        onChange={setPaper}
-        {...(paper === '' ? {} : { onClear: () => setPaper(''), clearLabel: dict.t('paperClear') })}
+    <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field.field, String(next))} />
+  )
+}
+
+/**
+ * The row itself, for any owner of a view: the lab's slice above, or a stored
+ * board's meta on the saved boards (handoff 2, PR 6). `onSet` is handed what
+ * was typed or dragged; clamping is the owner's, as it is the slice's here.
+ */
+export function NumberRow({
+  field,
+  value,
+  stroke,
+  onSet,
+}: {
+  field: ViewField
+  value: number
+  /** The stroke the automatic head width is worked out from. */
+  stroke: number
+  onSet(next: number): void
+}): ReactElement {
+  const dict = useDictionary()
+  const row = VIEW_ROWS[field.field]
+  const range = VIEW_RANGE[field.field]
+  const name = dict.t(row.short)
+  const helpId = `view-${field.field}-help`
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
+  const set = onSet
+  const isAuto = row.auto === true && value === 0
+  // Where a released chip goes: the width this row held before, else the
+  // width the automatic head draws now (`autoHeadWidth`). Recorded after the
+  // render, not during it.
+  const last = useRef<number | null>(null)
+  useEffect(() => {
+    if (!isAuto) last.current = value
+  }, [value, isAuto])
+  const release = () => set(last.current ?? autoHeadWidth(stroke, field.step, range.max))
+  return (
+    <div className="kv-row" title={rowTitle(dict, dict.t(field.label), range)}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor={`view-${field.field}`}>
+            {name}
+          </label>
+        }
+        help={button}
+        value={
+          <span className="kv-val">
+            <DraftNumber
+              label={name}
+              value={value}
+              word={isAuto ? 'auto' : null}
+              wordOnly
+              className="kv-num"
+              describedBy={helpId}
+              onCommit={set}
+            />
+            <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
+          </span>
+        }
+        min={
+          row.auto === true ? (
+            <button
+              type="button"
+              className="kv-chip"
+              aria-pressed={isAuto}
+              aria-label={`auto (${name})`}
+              onClick={() => (isAuto ? release() : set(0))}
+            >
+              auto
+            </button>
+          ) : (
+            <span className="kv-end">{endText(dict, range.min)}</span>
+          )
+        }
+        control={
+          <KnobTrack
+            id={`view-${field.field}`}
+            value={value}
+            bounds={range}
+            step={field.step}
+            word={isAuto ? 'auto' : null}
+            describedBy={helpId}
+            onCommit={set}
+          />
+        }
+        max={<span className="kv-end">{endText(dict, range.max)}</span>}
       />
-      <ColorRow
-        id="view-ink"
-        label={dict.t('inkLabel')}
-        value={ink === '' ? DEFAULT_VIEW.ink : ink}
-        onChange={setInk}
-        {...(ink === '' ? {} : { onClear: () => setInk(''), clearLabel: dict.t('inkClear') })}
-      />
-      <span className="lab" id="view-palette-label">
-        {dict.t('paletteLabel')}
-      </span>
-      <div className="val">
-        {palette.length === 0 ? null : (
-          <ul className="fw-palette-list" aria-labelledby="view-palette-label">
-            {palette.map((color, index) => (
-              // No stable id per colour — a value can repeat, and only its
-              // position in the list is unique (as ThemeSwatchStrip's own
-              // index key above).
-              <li key={index} className="fw-palette-row">
-                <label className="fw-vh" htmlFor={`view-palette-${index}`}>
-                  {dict.t('paletteColorLabel', index + 1)}
-                </label>
-                <input
-                  id={`view-palette-${index}`}
-                  type="color"
-                  value={color}
-                  onChange={(e) => setPaletteColor(index, e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="fw-palette-remove"
-                  aria-label={dict.t('paletteRemove', index + 1)}
-                  onClick={() => removePaletteColor(index)}
-                >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {/* Finding 9 (final whole-addendum review): `disabled` alone leaves a
-            screen reader saying only "add colour, dimmed" at the cap, with no
-            reason. `aria-describedby` names the help entry under the section
-            heading, which already states the cap in words, so the refusal is
-            audible too. */}
-        <button
-          type="button"
-          className="fw-btn"
-          onClick={addPaletteColor}
-          disabled={palette.length >= PALETTE_CAP}
-          aria-describedby="view-palette-help"
-        >
-          {dict.t('paletteAdd')}
-        </button>
-      </div>
+      {paragraph}
     </div>
   )
 }
 
 /**
- * The mock's *element* section: the preview's controls, in four sections —
- * geometry, drawing, points and colours (spec R8). They are not knobs — the
- * engine never sees them — so they carry no violation and no inactive reason,
- * and editing one redraws the board without generating (§2.2).
- *
- * A field commits on blur and on Enter, through `viewNumberOf`: an empty or
- * unreadable field is the default, and anything past what the CLI takes is
- * clamped in.
- *
- * The help under each heading follows the help switch the way the knob
- * panels' does (spec R7): hidden from the eye, never from the accessibility
- * tree, so every `aria-describedby` still resolves.
+ * The point grid's dot radius: a number row like the others, bounded by the
+ * element (`POINT_RADIUS_RANGE`) and clamped by the slice's own reader.
+ */
+function PointRadiusRow(): ReactElement {
+  const dict = useDictionary()
+  const value = useStore((state) => state.view.pointRadius)
+  const setPointRadius = useStore((state) => state.view.setPointRadius)
+  const name = dict.t('viewShortPointRadius')
+  const helpId = 'view-point-radius-help'
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('pointRadiusHelp'))
+  const set = (next: number) => setPointRadius(String(next))
+  return (
+    <div className="kv-row" title={rowTitle(dict, dict.t('pointRadiusLabel'), POINT_RADIUS_RANGE)}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor="view-point-radius">
+            {name}
+          </label>
+        }
+        help={button}
+        value={
+          <span className="kv-val">
+            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={set} />
+            <span className="kv-unit">{dict.d.units.cells}</span>
+          </span>
+        }
+        min={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.min)}</span>}
+        control={
+          <KnobTrack
+            id="view-point-radius"
+            value={value}
+            bounds={POINT_RADIUS_RANGE}
+            // A keyboard convenience, not a claim about what is allowed.
+            step={0.01}
+            word={null}
+            describedBy={helpId}
+            onCommit={set}
+          />
+        }
+        max={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.max)}</span>}
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
+ * A preview flag as a knob row: its value (`on` / `off`) in the value track,
+ * in the numbers' colour, and the switch at the control track's right edge.
+ */
+function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
+  const on = useStore((state) => state.view[flag])
+  const toggle = useStore((state) => state.view.toggle)
+  return <FlagRow flag={flag} on={on} onToggle={() => toggle(flag)} />
+}
+
+/** The switch row itself, for any owner of a view, as `NumberRow` is. */
+export function FlagRow({ flag, on, onToggle }: { flag: ViewFlag; on: boolean; onToggle(): void }): ReactElement {
+  const dict = useDictionary()
+  const row = FLAG_ROWS[flag]
+  const name = dict.t(row.short)
+  const helpId = `view-${flag}-help`
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
+  const full = VIEW_FLAGS.find((f) => f.flag === flag)?.label
+  return (
+    <div className="kv-row" title={full === undefined ? name : dict.t(full)}>
+      <KnobLine
+        label={
+          <span className="kv-lab" id={`view-${flag}-label`}>
+            {name}
+          </span>
+        }
+        help={button}
+        value={<span className="kv-unit">{dict.t(on ? 'valueOn' : 'valueOff')}</span>}
+        control={
+          <button
+            type="button"
+            id={`view-${flag}`}
+            className="fw-sw"
+            role="switch"
+            aria-checked={on}
+            aria-labelledby={`view-${flag}-label`}
+            aria-describedby={helpId}
+            onClick={onToggle}
+          />
+        }
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
+ * One colour as a row: its hex in the value track, the colour input at the
+ * control track's right edge, and — where the empty value means something —
+ * the clear button before it: paper and ink use it to hand the field back to
+ * the theme, which a colour input has no way to express on its own.
+ */
+function ColourRow({
+  id,
+  short,
+  help,
+  title,
+  value,
+  onChange,
+  onClear,
+  clearLabel,
+}: {
+  id: string
+  short: string
+  help: string
+  title: string
+  value: string
+  onChange(color: string): void
+  onClear?: (() => void) | undefined
+  clearLabel?: string | undefined
+}): ReactElement {
+  const helpId = `${id}-help`
+  const { button, paragraph } = useKnobHelp(helpId, short, help)
+  return (
+    <div className="kv-row" title={title}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor={id}>
+            {short}
+          </label>
+        }
+        help={button}
+        value={<span className="kv-unit">{value}</span>}
+        control={
+          <span className="kv-colour">
+            {onClear === undefined ? null : (
+              <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
+                ×
+              </button>
+            )}
+            <input
+              id={id}
+              type="color"
+              value={value}
+              aria-describedby={helpId}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          </span>
+        }
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/** The theme as a row: the select in the control track, the chosen theme's strip under it. */
+function ThemeRow(): ReactElement {
+  const dict = useDictionary()
+  const theme = useStore((state) => state.view.theme)
+  const setTheme = useStore((state) => state.view.setTheme)
+  const name = dict.t('viewShortTheme')
+  const helpId = 'view-theme-help'
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('themeHelp'))
+  return (
+    <div className="kv-row" title={dict.t('themeLabel')}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor="view-theme">
+            {name}
+          </label>
+        }
+        help={button}
+        control={
+          <select id="view-theme" value={theme} aria-describedby={helpId} onChange={(e) => setTheme(e.target.value)}>
+            <option value="">{dict.t('viewThemeNone')}</option>
+            {Object.keys(THEMES).map((themeName) => (
+              <option key={themeName} value={themeName}>
+                {themeName}
+              </option>
+            ))}
+          </select>
+        }
+      />
+      <ThemeSwatchStrip themeName={theme} />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
+ * The editable custom palette as a row (design doc §6): its count against the
+ * cap in the value track, its colours and the add button across the minimum's
+ * and the control's tracks. The cap lives in the store (`view.slice.ts`'s
+ * `paletteUpdate`), so nothing here can bypass it.
+ */
+function PaletteRow(): ReactElement {
+  const dict = useDictionary()
+  const palette = useStore((state) => state.view.palette)
+  const addPaletteColor = useStore((state) => state.view.addPaletteColor)
+  const setPaletteColor = useStore((state) => state.view.setPaletteColor)
+  const removePaletteColor = useStore((state) => state.view.removePaletteColor)
+  const name = dict.t('viewShortPalette')
+  const helpId = 'view-palette-help'
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('paletteHelp', PALETTE_CAP))
+  return (
+    <div className="kv-row" title={dict.t('paletteLabel')}>
+      <KnobLine
+        wide
+        label={
+          <span className="kv-lab" id="view-palette-label">
+            {name}
+          </span>
+        }
+        help={button}
+        value={<span className="kv-unit">{dict.t('paletteCount', palette.length, PALETTE_CAP)}</span>}
+        control={
+          <span className="kv-colour">
+            {palette.length === 0 ? null : (
+              <ul className="fw-palette-list" aria-labelledby="view-palette-label">
+                {palette.map((color, index) => (
+                  // No stable id per colour — a value can repeat, and only its
+                  // position in the list is unique.
+                  <li key={index} className="fw-palette-row">
+                    <label className="fw-vh" htmlFor={`view-palette-${index}`}>
+                      {dict.t('paletteColorLabel', index + 1)}
+                    </label>
+                    <input
+                      id={`view-palette-${index}`}
+                      type="color"
+                      value={color}
+                      onChange={(e) => setPaletteColor(index, e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="fw-palette-remove"
+                      aria-label={dict.t('paletteRemove', index + 1)}
+                      onClick={() => removePaletteColor(index)}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/* `disabled` alone leaves a screen reader saying only "add colour,
+                dimmed" at the cap; the description states the cap in words,
+                so the refusal is audible too. */}
+            <button
+              type="button"
+              className="kv-chip"
+              onClick={addPaletteColor}
+              disabled={palette.length >= PALETTE_CAP}
+              aria-describedby={helpId}
+            >
+              {dict.t('paletteAdd')}
+            </button>
+          </span>
+        }
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/** A titled run of rows, a group named by its heading. */
+export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }): ReactElement {
+  return (
+    <div className="kv-sect" role="group" aria-labelledby={id}>
+      <div className="kv-sub" id={id}>
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * The colours the stage paints any board with: the lab's own, and on the saved
+ * boards the stored board's too — `BoardFrame` spreads the theme, the palette,
+ * the paper and the ink over a stored board's view (handoff 2, PR 6). So this
+ * section belongs to both faces, and it is always the lab's slice it edits.
+ */
+export function ColoursSection(): ReactElement {
+  const dict = useDictionary()
+  const view = useStore((state) => state.view)
+  return (
+    <Section id="view-sec-colours" title={dict.t('previewColours')}>
+      <ThemeRow />
+      {/* The board's own surface colours: `''` means "not set", which a
+          colour input cannot show, so the row shows the element's own
+          default while unset, and the clear button — present only once
+          there is something to clear — hands the field back to a theme. */}
+      <ColourRow
+        id="view-paper"
+        short={dict.t('viewShortPaper')}
+        help={dict.t('paperHelp')}
+        title={dict.t('paperLabel')}
+        value={view.paper === '' ? DEFAULT_VIEW.paper : view.paper}
+        onChange={view.setPaper}
+        {...(view.paper === '' ? {} : { onClear: () => view.setPaper(''), clearLabel: dict.t('paperClear') })}
+      />
+      <ColourRow
+        id="view-ink"
+        short={dict.t('viewShortInk')}
+        help={dict.t('inkHelp')}
+        title={dict.t('inkLabel')}
+        value={view.ink === '' ? DEFAULT_VIEW.ink : view.ink}
+        onChange={view.setInk}
+        {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
+      />
+      <PaletteRow />
+    </Section>
+  )
+}
+
+export const fieldOf = (key: ViewNumber): ViewField => {
+  const field = VIEW_FIELDS.find((f) => f.field === key)
+  if (field === undefined) throw new Error(`no preview field ${key}`)
+  return field
+}
+
+/**
+ * The mock's *element* section as knob rows (handoff 2, PR 3), on the knobs'
+ * grid: arrows, highlight, grid, colours and export. The top count lives
+ * under the highlight switch and the dot colour and radius under the point
+ * grid's, in blocks that open with their switch — or for a palette jump to
+ * one of their rows. They are not knobs — the engine never sees them — so
+ * they carry no violation and no inactive reason, and editing one redraws the
+ * board without generating (§2.2).
  */
 export function ViewPanel() {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
-  const showHelp = useStore((state) => state.ui.help)
-  const pointRadiusRef = useRef<HTMLInputElement>(null)
-
-  // Same two mechanisms as `ViewNumberField` above, kept separate because this
-  // field's bound comes from the element (`POINT_RADIUS_RANGE`) and its commit
-  // goes through the slice's own clamp (`setPointRadius`) rather than
-  // `viewNumberOf`: the store is the only place that knows the kept value, so
-  // the commit reads it back from there instead of computing it locally.
-  useEffect(() => {
-    const node = pointRadiusRef.current
-    if (node && document.activeElement !== node) node.value = String(view.pointRadius)
-  }, [view.pointRadius])
-
-  const commitPointRadius = () => {
-    const node = pointRadiusRef.current
-    if (!node) return
-    view.setPointRadius(node.value)
-    node.value = String(useStore.getState().view.pointRadius)
-  }
-
-  // `dict.t` is generic over formatter keys too; the helper takes plain ones.
-  const t = (key: PlainUiKey) => dict.t(key)
-
+  const wanted = useStore((state) => state.ui.focusTarget)
   return (
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
-        <b id="view-sec-geometry">{dict.t('previewGeometry')}</b>
-        <FieldHelp entries={viewHelpEntries(VIEW_FIELDS, t)} hidden={!showHelp} />
+        <b>{dict.t('preview')}</b>
       </div>
-      <div className="fw-grid" role="group" aria-labelledby="view-sec-geometry">
-        {VIEW_FIELDS.map((field) => (
-          <ViewNumberField
-            key={field.field}
-            field={field}
-            value={view[field.field]}
-            onCommit={(value) => view.setNumber(field.field, String(value))}
-          />
-        ))}
-      </div>
-      <div className="fw-khd">
-        <b id="view-sec-drawing">{dict.t('previewDrawing')}</b>
-      </div>
-      <div className="fw-grid" role="group" aria-labelledby="view-sec-drawing">
-        <div className="fw-k fw-flags">
-          {DRAWING_FLAGS.map(({ flag, label }) => (
-            <ViewFlagSwitch
-              key={flag}
-              bare
-              flag={flag}
-              label={label}
-              on={view[flag]}
-              onToggle={() => view.toggle(flag)}
+      <div className="kv kv-g">
+        <Section id="view-sec-arrows" title={dict.t('secArrows')}>
+          <ViewNumberRow field={fieldOf('stroke')} />
+          <ViewNumberRow field={fieldOf('headWidth')} />
+          <ViewNumberRow field={fieldOf('headHeight')} />
+          <SwitchRow flag="rounded" />
+          <SwitchRow flag="colored" />
+        </Section>
+        <Section id="view-sec-highlight" title={dict.t('secHighlight')}>
+          <SwitchRow flag="hilite" />
+          <CollapsibleBlock
+            id="dep-hilite"
+            on={view.hilite}
+            forced={wanted === 'view-top'}
+            needs={dict.t('needsHilite')}
+            title={dict.t('viewShortHilite')}
+            count={1}
+          >
+            <ViewNumberRow field={fieldOf('top')} />
+          </CollapsibleBlock>
+        </Section>
+        <Section id="view-sec-grid" title={dict.t('secGrid')}>
+          <SwitchRow flag="voids" />
+          <SwitchRow flag="showPoints" />
+          <CollapsibleBlock
+            id="dep-points"
+            on={view.showPoints}
+            forced={wanted === 'view-point-color' || wanted === 'view-point-radius'}
+            needs={dict.t('needsPoints')}
+            title={dict.t('viewShortShowPoints')}
+            count={2}
+          >
+            <ColourRow
+              id="view-point-color"
+              short={dict.t('viewShortPointColor')}
+              help={dict.t('pointColorHelp')}
+              title={dict.t('pointColorLabel')}
+              value={view.pointColor}
+              onChange={view.setPointColor}
             />
-          ))}
-        </div>
-      </div>
-      <div className="fw-khd">
-        <b id="view-sec-points">{dict.t('previewPoints')}</b>
-        <FieldHelp
-          entries={[
-            { id: 'view-point-radius-help', label: dict.t('pointRadiusLabel'), text: dict.t('pointRadiusHelp') },
-          ]}
-          hidden={!showHelp}
-        />
-      </div>
-      <div className="fw-grid" role="group" aria-labelledby="view-sec-points">
-        <ViewFlagSwitch
-          flag="showPoints"
-          label="showPoints"
-          on={view.showPoints}
-          onToggle={() => view.toggle('showPoints')}
-        />
-        <ColorField
-          id="view-point-color"
-          label={dict.t('pointColorLabel')}
-          value={view.pointColor}
-          onChange={view.setPointColor}
-        />
-        <div className="fw-k">
-          <div className="top">
-            <label className="lab" htmlFor="view-point-radius">
-              {dict.t('pointRadiusLabel')}
-            </label>
-            <input
-              ref={pointRadiusRef}
-              type="number"
-              id="view-point-radius"
-              className="num"
-              min={POINT_RADIUS_RANGE.min}
-              max={POINT_RADIUS_RANGE.max}
-              // A keyboard convenience, not a claim about what is allowed --
-              // the same role `step` plays in `viewFields.ts`.
-              step={0.01}
-              defaultValue={String(view.pointRadius)}
-              aria-describedby="view-point-radius-help"
-              onBlur={commitPointRadius}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitPointRadius()
-              }}
-            />
-          </div>
-        </div>
-      </div>
-      <div className="fw-khd">
-        <b id="view-sec-colours">{dict.t('previewColours')}</b>
-        <FieldHelp
-          entries={[
-            { id: 'view-palette-help', label: dict.t('paletteLabel'), text: dict.t('paletteHelp', PALETTE_CAP) },
-          ]}
-          hidden={!showHelp}
-        />
-      </div>
-      <div className="fw-grid" role="group" aria-labelledby="view-sec-colours">
-        <ColoursCard />
+            <PointRadiusRow />
+          </CollapsibleBlock>
+        </Section>
+        <ColoursSection />
+        <Section id="view-sec-export" title={dict.t('secExport')}>
+          <ViewNumberRow field={fieldOf('cell')} />
+        </Section>
       </div>
     </div>
   )

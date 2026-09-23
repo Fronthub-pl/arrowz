@@ -129,7 +129,6 @@ function RandomCard(): ReactElement {
 export function SimplePanel({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
-  const showHelp = useStore((state) => state.ui.help)
   const fields = VIEW_FIELDS.filter((field) => SIMPLE_VIEW_FIELDS.includes(field.field))
   const flags = VIEW_FLAGS.filter(({ flag }) => SIMPLE_VIEW_FLAGS.includes(flag))
   return (
@@ -138,7 +137,6 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
         <b>{dict.d.simple.viewSimple}</b>
         <FieldHelp
           entries={[{ id: RANDOM_HELP_ID, label: dict.d.simple.randomize, text: dict.d.simple.randomizeHelp }]}
-          hidden={!showHelp}
         />
       </div>
       <div className="fw-grid">
@@ -152,7 +150,7 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
       </div>
       <div className="fw-khd">
         <b>{dict.t('preview')}</b>
-        <FieldHelp entries={viewHelpEntries(fields, (key: PlainUiKey) => dict.t(key))} hidden={!showHelp} />
+        <FieldHelp entries={viewHelpEntries(fields, (key: PlainUiKey) => dict.t(key))} />
       </div>
       <div className="fw-grid">
         {fields.map((field) => (

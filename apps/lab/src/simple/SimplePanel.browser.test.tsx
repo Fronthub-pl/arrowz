@@ -49,7 +49,6 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
-  state().ui.setHelp(true)
   // The store outlives a test; a theme chosen by one test must not leak into
   // the next one's assumption that no theme is chosen yet. Reset directly
   // rather than through `setTheme`, whose clearing of the palette is Ruling
@@ -215,8 +214,8 @@ describe('SimplePanel', () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
     expect(screen.container.querySelector('input[type="color"]')).toBeNull()
-    // The palette lives in the console's colours card now (spec R8).
-    expect(screen.container.querySelector('.fw-colours')).toBeNull()
+    // The palette is the console's preview row (handoff 2, PR 3), never here.
+    expect(screen.container.querySelector('#view-palette-label')).toBeNull()
   })
 
   // Spec R7: the help paragraph left the card for the preview heading's list.
@@ -230,13 +229,12 @@ describe('SimplePanel', () => {
     expect(help?.closest('.fw-khd')).not.toBeNull()
   })
 
-  // The help switch hides the list from the eye only (spec R7).
-  it('with help off the preview help is out of sight but still named', async () => {
-    state().ui.setHelp(false)
+  // The descriptions switch is gone (handoff 2, PR 2): the simple view's list
+  // is always in sight, and the field still names it.
+  it('the preview help is named by its field, with no switch to hide it', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const list = screen.container.querySelector('.fw-khd .fw-kdesc')
-    expect(list?.classList.contains('fw-vh')).toBe(true)
-    expect(list === null ? 'none' : getComputedStyle(list).display).not.toBe('none')
+    expect(list?.classList.contains('fw-vh')).toBe(false)
     const described = screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby') ?? ''
     expect(document.getElementById(described)).not.toBeNull()
   })

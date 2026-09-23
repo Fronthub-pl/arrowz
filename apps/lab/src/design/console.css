@@ -3,10 +3,11 @@
    specificity collision between two rules written in different tasks, and one
    file per surface keeps such a collision inside the surface that caused it.
 
-   The mock's three tracks: the group rail, one panel, and the run column. */
+   Two tracks: the group rail and one panel. The run column is the stage's
+   (handoff 2, PR 1); on the lab the console is the settings drawer's. */
 .fw-console {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr) clamp(20rem, 22vw, 28rem);
+  grid-template-columns: 168px minmax(0, 1fr);
   gap: 1px;
   background: var(--border);
   border-top: 1px solid var(--border);
@@ -179,11 +180,6 @@
   width: 88px;
   text-align: right;
 }
-.fw-k .num em {
-  font-style: normal;
-  color: var(--mist);
-  margin-right: 8px;
-}
 .fw-k input {
   width: 88px;
   padding: 0 4px;
@@ -240,11 +236,11 @@
     margin-top: 8px;
   }
 }
-/* Out of sight, in the accessibility tree. Ruling 9: the help switch is
-   labelled "show parameter descriptions", and showing is what a screen reader
-   does not do — `display: none` or `visibility: hidden` would take the text
-   out of the tree and dangle every `aria-describedby` pointing at it, so
-   neither is touched here. What each line does:
+/* Out of sight, in the accessibility tree. Ruling 9: a closed description
+   (a knob row's `?`, handoff 2 PR 2) is hidden from the eye, and hiding is
+   what a screen reader does not do — `display: none` or `visibility: hidden`
+   would take the text out of the tree and dangle every `aria-describedby`
+   pointing at it, so neither is touched here. What each line does:
    - `position: absolute` pulls the box out of layout, so it reserves no
      visible line even at its own size.
      It needs a positioned ancestor inside the scroller: `.fw-knobs` and
@@ -274,39 +270,6 @@
 .fw-k .why:empty {
   margin: 0;
 }
-/* A knob the engine would refuse. The mock has no such state — its only knob
-   state is `.hold` in warn — and `--warn` belongs to the rule bound, so a
-   refusal gets `--error` and the two cannot be confused. */
-.fw-k.bad .num,
-.fw-k.bad .why {
-  color: var(--error);
-}
-.fw-k.bad .bar input[type='range']::-webkit-slider-thumb {
-  background: var(--error);
-}
-.fw-k.bad .bar input[type='range']::-moz-range-thumb {
-  background: var(--error);
-}
-/* A knob that does nothing at these settings. The *control* is dimmed; the
-   sentence explaining why is not. The mock dims the whole card at `.4` — which
-   puts the one line that says "No effect: needs skeleton elements > 0" at
-   about 2.3:1.
-
-   `.7` and not `.55`: the exemption AA grants a dimmed control is for a
-   *disabled* one, and this knob is not disabled — it takes focus, it takes a
-   value, and it keeps it. `--mist` over `--void` composites to 4.73:1 at .7
-   and to 3.35:1 at .55; console.test.ts computes the number rather than
-   trusting this comment. The dim still reads as a dim: `--mist` lands at about
-   #7b7e86, not back at its own #a9aeb8. */
-.fw-k.off .lab,
-.fw-k.off .num,
-.fw-k.off select,
-.fw-k.off .bar {
-  opacity: 0.7;
-}
-.fw-k.off .num {
-  color: var(--mist);
-}
 /* The mock has no choice knob; this is its number treatment applied to a
    select, so the two kinds of knob sit on one grid without a seam. */
 .fw-k select {
@@ -320,13 +283,6 @@
   background: var(--void);
   color: var(--ink);
   font: inherit;
-}
-.fw-k.off select {
-  color: var(--mist);
-}
-.fw-k.bad select {
-  color: var(--error);
-  border-color: var(--error);
 }
 /* A knob the palette jumped to, for 1200 ms (flash.ts). The outline is the
    mock's, and it sits outside the box so it cannot move the layout. */
@@ -377,21 +333,6 @@
   border: 1px solid var(--border);
   background: var(--void);
 }
-/* A single colour field, as `ColorField` draws it: a label and one swatch on
-   its own row, unlike the palette's list of many. */
-.fw-colour-cell {
-  display: flex;
-  align-items: center;
-  justify-self: end;
-  gap: 2px;
-}
-.fw-colour-cell input[type='color'] {
-  width: 28px;
-  height: 22px;
-  padding: 1px;
-  border: 1px solid var(--border);
-  background: var(--void);
-}
 /* `.fw` because `.fw button`'s `color: inherit` (0,1,1) outranked the bare
    class and the mist never applied. */
 .fw .fw-palette-remove {
@@ -408,50 +349,16 @@
   color: var(--error);
   border-color: var(--error);
 }
-/* The four drawing flags as one card (review change 6). */
-.fw-k.fw-flags {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 12px 24px;
-}
-/* A switch needs no 88px track (`.fw-k .row`'s default): the label keeps the
-   width, the switch sits at its own. */
-.fw-k.fw-flags .row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-/* The colours card (review change 7): five colour objects sat on five
-   different x in four cards. One card, a label column and a control column,
-   everything starting on one x and growing right. */
-.fw-k.fw-colours {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  align-items: center;
-  gap: 12px 24px;
-}
-.fw-k.fw-colours > .val {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  min-width: 0;
-}
 /* The simple view's skeleton choice (`SimplePanel.tsx`): two segmented chips,
    "no skeleton" and "with a skeleton", do not fit `.fw-grid`'s
    `minmax(190px, 1fr)` floor at every width (live pass, simple view,
    1400×900, pre-existing at the branch's base 7167248: `.fw-seg` 3.84px past
    its own card, `.fw-knobs.fw-simple` scrollWidth 1187 vs clientWidth 1183).
-   Full row, the same shape `.fw-k.fw-flags` and `.fw-k.fw-colours` already
-   use for a control the standard column does not fit — not a shrink or a
-   wrap on `Segmented` itself, which every other user of it (the top bar, the
+   Full row, for a control the standard column does not fit — not a shrink or
+   a wrap on `Segmented` itself, which every other user of it (the top bar, the
    language switch) still draws at its own width. */
 .fw-k.fw-skeleton {
   grid-column: 1 / -1;
-}
-.fw-k.fw-colours .fw-swatches,
-.fw-k.fw-colours .fw-palette-list {
-  margin: 0;
 }
 /* The remove cross weighed as much as the swatch it removes (review change 8):
    no border, `--ash`, until hover or focus makes it a button. */
@@ -517,38 +424,558 @@
   align-items: start;
   align-content: start;
 }
-.fw-sw {
+
+/* Knob rows (handoff 2, PR 2; `css/knob-atoms.css` and `css/knob-grid.css`,
+   the ruled variant folded in). One row per control, and every row of every
+   group on one grid of five tracks — label (+?) | value | min | control | max
+   — so values, tracks, selects and bounds sit on one x down the panel. Only
+   the control track flexes; the label track is fixed at the longest short
+   label (12 characters, lab-i18n.test.ts) plus the `?` and the dependency
+   indent, so a label is never cut. The generator panels only: the preview,
+   the simple view keeps `.fw-k` above. */
+.fw-ldrawer .fw-knobs {
+  padding-left: 12px;
+  padding-right: 12px;
+  scrollbar-gutter: stable;
+}
+.kv {
+  display: grid;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.kv-g {
+  --val-n: 5ch;
+  --val-u: 44px;
+  --end: 36px;
+  --trk: 13ch;
+  --row-h: 34px;
+}
+.kv-row {
+  min-width: 0;
+  box-shadow: 0 1px 0 var(--border);
+}
+.kv-g .ln {
+  display: grid;
+  grid-template-columns:
+    calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) var(--end) minmax(var(--trk), 1fr)
+    var(--end);
+  column-gap: 8px;
+  align-items: center;
+  min-height: var(--row-h);
+}
+/* In a dependency block the 12px indent comes out of the label track alone,
+   so every other track stays on the panel's x. */
+.kv-g .kv-dep .ln {
+  grid-template-columns:
+    calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) var(--end) minmax(var(--trk), 1fr)
+    var(--end);
+}
+.kv-g .lc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.kv-lab {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mist);
+}
+.fw .kv-g .q {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fw .kv-g .q:hover,
+.fw .kv-g .q[aria-expanded='true'] {
+  border-color: var(--border);
+  color: var(--ink);
+}
+.kv-g .vc {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.kv-val {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* The value is a button that opens the inline entry (Ruling 4); a special
+   value shows its word here, in the numbers' colour and alignment. */
+.fw .kv-num {
+  min-width: var(--val-n);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  cursor: text;
+}
+.fw .kv-num:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.kv-val input {
+  width: calc(var(--val-n) + 12px);
+  padding: 0 4px;
+  border: 1px solid var(--signal);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+.kv-unit {
+  width: var(--val-u);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  color: var(--ash);
+  font-size: 11px;
+}
+.kv-g .mn {
+  justify-self: end;
+  text-align: right;
+}
+.kv-g .mx {
+  justify-self: start;
+}
+.kv-end {
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The special value's chip: the minimum's track, pressed while the knob holds
+   that value. */
+.fw .kv-chip {
+  height: 18px;
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.fw .kv-chip[aria-pressed='true'] {
+  background: var(--signal-fill);
+  border-color: var(--signal-fill);
+  color: var(--ink);
+}
+.fw .kv-chip:not(:disabled):hover {
+  border-color: var(--mist);
+  color: var(--ink);
+}
+/* A refused chip — the palette's add at its cap — reads as refused, not
+   merely inert: a disabled control is exempt from the text contrast rule, and
+   its reason is in its description. */
+.fw .kv-chip:disabled {
+  color: var(--border-strong);
+  cursor: default;
+}
+.kv-g .cc {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+/* A select is exactly as long as a slider's track: the bounds are not part of
+   either. */
+.kv-g .cc > .kv-track,
+.kv-g .cc > select {
+  width: 100%;
+}
+.kv-g .cc > select {
+  min-width: 0;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+/* The drawn track: the native range input lies over it, transparent and
+   covering the box, so keyboard and touch come from the platform (Ruling 3)
+   and the look does not depend on the browser's slider parts. */
+.kv-track {
+  position: relative;
+  height: 16px;
+  min-width: 40px;
+}
+.kv-track .rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7px;
+  height: 2px;
+  background: var(--border-strong);
+}
+.kv-track .fill {
+  position: absolute;
+  left: 0;
+  top: 7px;
+  height: 2px;
+  background: var(--signal);
+}
+.kv-track .thumb {
+  position: absolute;
+  top: 2px;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  background: var(--signal);
+}
+/* The rule floor: a mark with a reason, never a limit (spec §5.4). The row's
+   own line states the bound in text. */
+.kv-track .floor {
+  position: absolute;
+  top: 3px;
+  width: 1px;
+  height: 10px;
+  background: var(--warn);
+}
+.kv-track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.kv-track:focus-within .thumb {
+  width: 4px;
+  margin-left: -2px;
+  box-shadow:
+    0 0 0 2px var(--void),
+    0 0 0 3px var(--ink);
+}
+/* Under a row: its state (`.kv-why`) and its description on demand
+   (`.kv-help`, out of sight but in the tree while closed). */
+.kv-why,
+.kv-help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.kv-why {
+  padding-bottom: 8px;
+  color: var(--warn);
+}
+.kv-why:empty {
+  padding: 0;
+}
+.kv-help {
+  max-width: 60ch;
+  color: var(--ash);
+  text-wrap: pretty;
+}
+.kv-help:not(.fw-vh) {
+  padding-bottom: 8px;
+}
+/* A knob with no effect at these settings: dimmed by colour, not by opacity,
+   and its reason in `--ash` rather than the bound's `--warn`. */
+.kv-row.off .kv-lab,
+.kv-row.off .kv-num,
+.kv-row.off .kv-why,
+.kv-row.off .cc > select {
+  color: var(--ash);
+}
+.kv-row.off .kv-track .fill,
+.kv-row.off .kv-track .thumb {
+  background: var(--ash);
+}
+/* A knob the engine would refuse: `--error`, never the bound's `--warn`. */
+.kv-row.bad .kv-num,
+.kv-row.bad .kv-why,
+.kv-row.bad .cc > select {
+  color: var(--error);
+}
+.kv-row.bad .cc > select {
+  border-color: var(--error);
+}
+.kv-row.bad .kv-track .fill,
+.kv-row.bad .kv-track .thumb {
+  background: var(--error);
+}
+/* A row the palette jumped to, for 1200 ms (flash.ts), inside the row: `.kv`
+   clips sideways. */
+.kv-row.flash {
+  outline: 1px solid var(--signal);
+  outline-offset: -1px;
+}
+/* A dependency block: indented from the left only, its header a ruled row of
+   its own. The body is `hidden` while closed, and carries no `display` rule
+   that would defeat it. */
+.kv-dep {
+  padding-left: 12px;
+}
+.fw .kv-g .kv-dephd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--row-h);
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  box-shadow: 0 1px 0 var(--border);
+  color: var(--ash);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.fw .kv-g .kv-dephd:hover {
+  color: var(--ink);
+}
+/* The count keeps its place at the right when a long header (the Polish one
+   at 924px) wraps to a second line. */
+.fw .kv-g .kv-dephd > span:last-child {
+  flex: none;
+  align-self: flex-start;
+}
+.kv-sub {
+  padding: 22px 0 6px;
+  box-shadow: 0 1px 0 var(--border-strong);
+  color: var(--ash);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* The lengths mix: short, medium and the long rest as one bar, with the
+   short + medium cap at 90% in the rule floor's `--warn`. */
+.kv-mix {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+.kv-mix .bar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 18px;
+}
+.kv-mix .bar > span {
+  min-width: 2px;
+  background: var(--signal-fill);
+}
+.kv-mix .bar > .m {
+  background: var(--signal);
+}
+.kv-mix .bar > .l {
+  background: var(--border-strong);
+}
+.kv-mix .bar > .l.bad {
+  background: var(--error);
+}
+.kv-mix .bar > .cap {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 90%;
+  width: 1px;
+  min-width: 0;
+  background: var(--warn);
+}
+.kv-mix .leg {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.kv-mix .leg b {
+  font-weight: 400;
+  color: var(--ink);
+}
+.kv-mix .leg .bad b {
+  color: var(--error);
+}
+/* The preview's rows (handoff 2, PR 3). A value with no number — `on`/`off`,
+   a hex, the palette's `n / 8` — is still the value: it ends on the numbers'
+   x, in the numbers' colour and size. */
+.kv-g .vc > .kv-unit:only-child {
+  width: auto;
+  overflow: visible;
+  padding-right: calc(4px + var(--val-u));
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: inherit;
+}
+/* The palette takes the minimum's track and the control's. */
+.kv-g .cc.wide {
+  grid-column: 3 / 5;
+}
+.kv-colour {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.kv-colour input[type='color'] {
+  width: 24px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+}
+.kv-colour .fw-palette-list {
+  margin: 0;
+}
+/* The chosen theme's strip, under its row, ending where the controls end. */
+.kv-g .fw-swatches {
+  display: flex;
+  gap: 4px;
+  width: max-content;
+  margin: 0 var(--end) 8px auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+}
+.kv-g .fw-swatch {
+  flex: none;
+  width: 20px;
+  height: 16px;
+}
+/* A section's heading opens the panel without the gap the others keep. */
+.kv-g > .kv-sect:first-child > .kv-sub {
+  padding-top: 0;
+}
+/* A panel narrower than the five tracks' floor drops the bound tracks; the
+   range stays in the row's title, and the special value's chip goes with its
+   track. The floor is `.kv-g .ln`'s: calc(12ch + 36px), calc(5ch + 48px),
+   36px, 13ch, 36px and four 8px gaps, 30ch + 188px (404px at 12px). At 359px
+   the bands' 1280–1599 drawer (360–400px of panel) cut the maximum's track
+   off the row (live pass, 2026-09-23). */
+@container (width < calc(30ch + 188px)) {
+  .kv-g .ln {
+    grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .kv-dep .ln {
+    grid-template-columns: calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .mn,
+  .kv-g .mx {
+    display: none;
+  }
+  .kv-g .cc.wide {
+    grid-column: auto;
+  }
+  .kv-g .fw-swatches {
+    margin-right: 0;
+  }
+}
+/* A finger: the handoff's touch sizes (§7), for any coarse pointer. */
+@media (pointer: coarse), (max-width: 767px) {
+  .kv-g {
+    --row-h: 52px;
+  }
+  .kv-track {
+    height: 44px;
+  }
+  .kv-track .rail,
+  .kv-track .fill {
+    top: 20px;
+    height: 4px;
+  }
+  .kv-track .thumb {
+    top: 10px;
+    width: 6px;
+    height: 24px;
+    margin-left: -3px;
+  }
+  .kv-track .floor {
+    top: 14px;
+    height: 16px;
+  }
+  .fw .kv-num {
+    min-height: 44px;
+  }
+  .kv-g .cc > select {
+    height: 40px;
+    padding: 0 8px;
+  }
+  .fw .kv-g .q,
+  .fw .kv-chip {
+    min-width: 32px;
+    height: 32px;
+  }
+  .fw .kv-g .kv-dephd {
+    min-height: 48px;
+  }
+}
+/* The switch, lighter (handoff 2, PR 4; `css/knob-atoms.css`): a 28×14
+   square track — zero radii, as the rest of the lab — with a 1px line and an
+   8px square knob. On: line and knob in `--signal`, no fill, so a column of
+   switches reads as marks rather than blocks. Off: the line stays `--ash`
+   (5.9:1 on `--void`), not the reconstruction's `--border-strong` (1.79:1,
+   under the 3:1 a control's boundary needs, WCAG 1.4.11), and the knob is
+   `--mist`. Every switch of the lab: the preview's rows and the run column's. */
+.fw .fw-sw {
   justify-self: end;
   position: relative;
   flex: none;
-  width: 44px;
-  height: 26px;
+  width: 28px;
+  height: 14px;
   padding: 0;
   border: 1px solid var(--ash);
-  border-radius: 999px;
-  background: var(--surface);
+  border-radius: 0;
+  background: none;
   cursor: pointer;
 }
-.fw-sw::after {
+.fw .fw-sw::after {
   content: '';
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--ash);
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  background: var(--mist);
   transition:
     transform 120ms cubic-bezier(0.2, 0, 0, 1),
     background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
-.fw-sw[aria-checked='true'] {
-  background: var(--signal);
-  border-color: transparent;
+.fw .fw-sw:hover {
+  border-color: var(--mist);
 }
-.fw-sw[aria-checked='true']::after {
-  background: var(--void);
-  transform: translateX(18px);
+.fw .fw-sw[aria-checked='true'] {
+  border-color: var(--signal);
+  background: none;
+}
+.fw .fw-sw[aria-checked='true']::after {
+  background: var(--signal);
+  transform: translateX(14px);
+}
+.fw .fw-sw:focus-visible {
+  outline: 1px solid var(--ink);
+  outline-offset: 2px;
 }
 /* A preview number is a plain field, not the knob's scrubbable value: it keeps
    the knob's colour and takes a border of its own, and the hover underline
@@ -567,7 +994,7 @@
 
 /* A finger needs more than a 12px track and a text-height number. `shell.css`
    raises the tabs and Generate the same way (spec §7.2). */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw-k .bar,
   .fw-k .bar input[type='range'] {
     height: 24px;
@@ -591,68 +1018,134 @@
     width: 44px;
     height: 44px;
   }
-  /* 32px and not 44: the row the switch sits in is the target (run.css keeps
-     the same reasoning for its own switches); this lifts the track itself. */
-  .fw-sw {
-    height: 32px;
-    width: 52px;
+  /* A finger (handoff 2, PR 4): a 36×18 track and a 12px knob, and a 44×44
+     target around it through `::before` — the drawing grows a little, the
+     target to the full size the design system asks for (§7.2). */
+  .fw .fw-sw {
+    width: 36px;
+    height: 18px;
   }
-  .fw-sw::after {
-    width: 26px;
-    height: 26px;
+  .fw .fw-sw::after {
+    width: 12px;
+    height: 12px;
   }
-  .fw-sw[aria-checked='true']::after {
-    transform: translateX(20px);
+  .fw .fw-sw[aria-checked='true']::after {
+    transform: translateX(18px);
+  }
+  .fw .fw-sw::before {
+    content: '';
+    position: absolute;
+    top: -14px;
+    left: -5px;
+    width: 44px;
+    height: 44px;
   }
 }
 
-/* Five rows, one per child Workspace.tsx can mount (spec R4): the preset
-   strip, the stage, the console, the clamp region (always mounted, empty when
-   nothing was clamped) and the violations (mounted only when there are some).
-   Before, the last two fell into implicit rows and took their height from the
-   two 1fr rows, and the board — 260px plus 32px of padding — was cut at the
-   bottom: 33px at 1280×800 with two violations (review P2). The stage row's
-   floor is that 292px now; the notes are capped and scroll inside themselves. */
+/* Four rows, one per child Workspace.tsx mounts on the lab (spec R4, handoff
+   2 PR 1): the preset strip, the stage — which holds the console now, in its
+   settings drawer — the clamp region (always mounted, empty when nothing was
+   clamped) and the violations (mounted only when there are some). The last
+   two once fell into implicit rows and the board — 260px plus 32px of padding
+   — was cut at the bottom (review P2). The stage row's floor is that 292px;
+   the notes are capped and scroll inside themselves. */
 .fw-lab {
   display: grid;
-  grid-template-rows: auto minmax(292px, 1fr) minmax(0, 1fr) auto auto;
+  grid-template-rows: auto minmax(292px, 1fr) auto auto;
   min-height: 0;
 }
 /* The simple view has no preset strip, and an absent first child would
    auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
-.fw-lab.simple {
-  grid-template-rows: minmax(292px, 1fr) minmax(0, 1fr) auto auto;
+.fw-lab.simple,
+.fw-lab.presets-top {
+  grid-template-rows: minmax(292px, 1fr) auto auto;
 }
-/* The library has no preset strip either, so it needs `.fw-lab.simple`'s
-   correction for the same reason (PR 4a, Ruling 10): with the first child
-   absent, the stage auto-places into the `auto` row and the console is left
-   with its 180px minimum. Measured before this rule at 1400×900 and 860×900:
-   rows `590.219px 180px 0px`, the console at 180px on every viewport; after
-   it, `385.109px 385.109px`. */
+/* The saved boards have no preset strip either (handoff 2, PR 6), and the
+   stage is all they put in the lab panel. (0,2,0) after `.fw-lab.simple`, so a
+   simple-view user's saved boards take this template and not that one. */
 .fw-lab.library {
-  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(292px, 1fr);
 }
-/* No report drawer on the saved boards (spec §4): the report is empty there
-   (ReportPanel.tsx), so an open drawer left over from the lab would cover the
-   stored board with a blank panel. `ui.report` stays as it was, and the lab
-   shows the drawer again. The stage drops the handle's track, 28px or the
-   coarse pointer's 44px (shell.css) alike, as solo does below — (0,3,0), so
-   it outranks both, and it sits above the solo rules so that solo's one track
-   wins on the library face too. */
-.fw-lab.library .fw-stage {
-  grid-template-columns: 70px minmax(0, 1fr);
-}
-.fw-lab.library .fw-drawer {
+/* The run column keeps its node on the saved boards and is hidden (Ruling 1),
+   so a carve in flight keeps its node, its refs and the run itself; the open
+   board's column (`.fw-bcol`) takes its track. A hidden grid item takes none. */
+.fw-lab.library .fw-stage > .fw-run-col:not(.fw-bcol) {
   display: none;
+}
+/* The stage on both tabs (handoff 2, PR 1 and PR 6): the settings drawer's
+   handle, the board, the right column and the report's handle. The drawer lies over the first
+   track, and `::before` paints that track under its handle. The run column
+   scrolls itself, so the whole command shows (run.css). */
+/* `--hd` is the drawers' handle track: 28px, 44px under a finger (below), so
+   every band's template keeps a finger's handle on a touch tablet without
+   restating the coarse one (handoff 2, PR 7). */
+.fw-lab .fw-stage {
+  --hd: 28px;
+  grid-template-columns: var(--hd) minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) var(--hd);
+}
+.fw-lab .fw-stage > .fw-boardwrap {
+  grid-column: 2;
+  grid-row: 1;
+}
+.fw-lab .fw-stage > .fw-run-col {
+  grid-column: 3;
+  grid-row: 1;
+}
+.fw-lab .fw-stage::before {
+  content: '';
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--void);
+}
+/* The board gives way by the drawer's width, from 1024px up: below that there
+   is no room to give — the board would be 44px wide at 768 and nothing at 414
+   — so the open drawer lies over the board as the report does, a stopgap
+   until the responsive layout (handoff 2, PR 7) replaces it. Never in solo,
+   which has no drawer: `:not(.solo)` rather than an override back to 0,
+   because 0 would also take the board's own 16px padding, and on the
+   transition as well, so turning solo on does not animate the board's size. */
+@media (min-width: 1024px) {
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
+    transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
+    padding-left: var(--ls-w);
+  }
+}
+/* In the drawer the rail is 126px (168 before), and the console drops its
+   top rule, which doubled the line under the preset strip. */
+.fw-lab .fw-ldrawer > .fw-console {
+  grid-template-columns: 126px minmax(0, 1fr);
+  border-top: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.fw-lab.simple:not(.library) .fw-ldrawer > .fw-console {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fw-lab .fw-ldrawer > .fw-console > * {
+  min-height: 0;
+  overflow-y: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
+    transition: none;
+  }
+}
+@media (pointer: coarse) {
+  .fw-lab .fw-stage {
+    --hd: 44px;
+  }
 }
 /* Below 700px of height the board gives up its minimum (shell.css), so its row
    gives up the 292px too. */
 @media (max-height: 700px) {
   .fw-lab {
-    grid-template-rows: auto minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+    grid-template-rows: auto minmax(180px, 1fr) auto auto;
   }
-  .fw-lab.simple {
-    grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr) auto auto;
+  .fw-lab.simple,
+  .fw-lab.presets-top {
+    grid-template-rows: minmax(180px, 1fr) auto auto;
   }
 }
 /* Two violations are 90px already, and six knobs out of range grow the list
@@ -662,9 +1155,9 @@
   overflow-y: auto;
 }
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
-   in the lab but the stage — the preset strip, the console, the violations,
-   the clamp notice, and whatever a later PR puts beside them — and, inside the
-   stage, the run rail and the report drawer. Both grids are redefined,
+   in the lab but the stage — the preset strip, the violations, the clamp
+   notice, and whatever a later PR puts beside them — and, inside the stage,
+   the settings drawer, the right column (either one) and the report drawer. Both grids are redefined,
    because a track keeps its size when its only item is `display: none`: the
    lab's rows become the one stage track (`.fw-lab.simple.solo` outranks
    `.fw-lab.simple` rather than tying with it), and the stage's three columns —
@@ -686,43 +1179,73 @@
   grid-template-rows: minmax(0, 1fr);
 }
 .fw-lab.solo > :not(.fw-stage),
-.fw-lab.solo .fw-runs,
+.fw-lab.solo .fw-ldrawer,
+.fw-lab.solo .fw-stage > .fw-run-col,
 .fw-lab.solo .fw-drawer {
   display: none;
 }
+/* The stage's placement is (0,3,0) and solo restates it a class above, as it
+   does the one track, so solo keeps winning whatever order the file ends up
+   in, as `.fw-lab.library.solo` does for the rows. The drawer's padding needs
+   nothing here: it is `:not(.solo)` already. */
 .fw-lab.solo .fw-stage {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
-/* The library face (spec §5.1, PR 5a). The run column keeps its node and is
-   hidden, so a carve in flight keeps its node, its refs and the run itself. A
-   hidden grid item takes no track, so the console drops to the two tracks the
-   library uses — unlike solo's hidden items, which sit in tracks that have to
-   be redefined because `display: none` on the *only* item of a track leaves
-   the track behind. */
-.fw-console.library {
-  grid-template-columns: 168px minmax(0, 1fr);
+.fw-lab.solo .fw-stage > .fw-boardwrap {
+  grid-column: 1;
 }
-.fw-console.library > .fw-run-col {
+.fw-lab.solo .fw-stage::before {
   display: none;
 }
-/* Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
-   track would stand empty beside one sentence (review P7). (0,3,0), so it
-   outranks the ≤900px media rule's `.fw-console.library` below. */
-.fw-console.library.empty {
-  grid-template-columns: minmax(0, 1fr);
+/* The bands (handoff 2, PR 7; spec §2). XL ≥1600 is the stage above. Every
+   selector carries `:not(.solo)`, so solo keeps its one track in every band,
+   and none carries `:not(.library)`: the saved boards' column
+   (`.fw-run-col.fw-bcol`) takes the same bar (D4) — the lab's own run column
+   stays hidden there, `(0,5,0)` above against these `(0,4,0)`. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .fw-lab:not(.solo) .fw-stage {
+    --ls-w: clamp(24rem, calc(33vw + 100px), 34rem);
+    grid-template-columns: var(--hd) minmax(160px, 1fr) 18rem var(--hd);
+  }
 }
-.fw-console.library.empty > .fw-lib-chips {
-  display: none;
+/* M and S: the right column becomes a bar under the board. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-stage {
+    grid-template-columns: var(--hd) minmax(0, 1fr) var(--hd);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .fw-lab:not(.solo) .fw-stage::before {
+    grid-row: 1 / -1;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+/* M: the open drawer pushes the bar as it pushes the board (the push above). */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-run-col {
+    padding-left: calc(var(--ls-w) + 12px);
+  }
+}
+/* S: no room to push; the open drawer lies over the board and the bar, and is
+   closed at start (spec D3, `ui.slice.ts`). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fw-lab:not(.solo) .fw-stage {
+    --ls-w: min(calc(100vw - 112px), 28rem);
+  }
+  .fw-lab .fw-ldrawer.open {
+    box-shadow: 1px 0 0 var(--border-strong);
+  }
 }
 @media (max-width: 900px) {
-  .fw-console,
-  .fw-console.library {
+  .fw-console {
     grid-template-columns: 150px minmax(0, 1fr);
-  }
-  /* A full-width row under the two tracks, which is the mock's own query. */
-  .fw-run-col {
-    grid-column: 1 / -1;
   }
 }
 
@@ -767,16 +1290,16 @@
 .fw .fw-note.hold button:hover {
   color: var(--ink);
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-note.hold button {
     min-height: 44px;
   }
 }
 
-/* The simple view takes the rail's track and the panel's (PR 4a, Ruling 7),
-   and at 900px the same two columns the query leaves. */
+/* The simple view takes every track the console has: in the settings drawer
+   that is one (PR 4a, Ruling 7; handoff 2, PR 1). */
 .fw-simple {
-  grid-column: 1 / 3;
+  grid-column: 1 / -1;
 }
 /* 12 in a card, 18 between cards, 28 between sections (review change 1). */
 .fw-knobs .fw-grid + .fw-khd {
@@ -792,4 +1315,120 @@
    is the knob button's affordance. */
 .fw-k span.num {
   cursor: default;
+}
+
+/* XS (handoff 2, PR 7): one column; the board edge to edge; the settings
+   drawer, the right column and the report as sheets over the board, above
+   the sheet bar. The sheet rules carry `:not(.solo)` so solo's
+   `display: none` keeps winning (Review Focus 3). */
+@media (max-width: 767px) {
+  .fw-lab:not(.solo) {
+    padding-bottom: 56px;
+  }
+  .fw-lab .fw-pp-edited {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage,
+  .fw-lab:not(.solo) .fw-stage.ls-open {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .fw-lab:not(.solo) .fw-stage::before {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap,
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0;
+  }
+  .fw-lab .fw-board {
+    border-left: 0;
+    border-right: 0;
+  }
+  .fw-lab .fw-drawer-handle {
+    display: none;
+  }
+  .fw-lab .fw-ldrawer,
+  .fw-lab .fw-drawer,
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 56px;
+    z-index: 25;
+    width: auto;
+    max-width: none;
+    height: 70vh;
+    transform: none;
+    transition: none;
+    display: none;
+    background: var(--void);
+    box-shadow: 0 -1px 0 var(--border-strong);
+  }
+  .fw-lab.sheet-settings:not(.solo) .fw-ldrawer,
+  .fw-lab.sheet-report:not(.solo) .fw-drawer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fw-lab.sheet-settings:not(.solo) .fw-ldrawer > .fw-console,
+  .fw-lab.sheet-report:not(.solo) .fw-drawer > .fw-report {
+    visibility: visible;
+  }
+  .fw-lab.sheet-report:not(.solo) .fw-drawer > .fw-report {
+    overflow-y: auto;
+  }
+  /* The lab's run column and the saved boards' column, each on its own tab:
+     the lab's is hidden on the saved boards at (0,5,0), which a plain
+     `.sheet-cli` rule would tie. */
+  .fw-lab.sheet-cli:not(.solo):not(.library) .fw-stage > .fw-run-col,
+  .fw-lab.library.sheet-cli:not(.solo) .fw-stage > .fw-bcol {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  /* The settings sheet: the rail as a row of chips over the knobs. */
+  .fw-lab .fw-ldrawer > .fw-console,
+  .fw-lab.simple:not(.library) .fw-ldrawer > .fw-console {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .fw-lab .fw-ldrawer .fw-rail {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .fw-lab .fw-ldrawer .fw-rail .sec {
+    display: none;
+  }
+  .fw .fw-lab .fw-ldrawer .fw-rail button {
+    flex: none;
+    height: 44px;
+    padding: 0 16px;
+  }
+  /* The range ends go with their tracks, as in a narrow panel's container
+     query: hidden on five tracks, they left the slider auto-placed in the
+     36px minimum's track (live pass at 600×900, 2026-09-23). */
+  .kv-g .ln {
+    font-size: 14px;
+    grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .kv-dep .ln {
+    grid-template-columns: calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .mn,
+  .kv-g .mx {
+    display: none;
+  }
+  .kv-g .cc.wide {
+    grid-column: auto;
+  }
+  .kv-g .fw-swatches {
+    margin-right: 0;
+  }
 }

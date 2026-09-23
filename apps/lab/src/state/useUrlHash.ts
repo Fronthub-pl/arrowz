@@ -10,7 +10,7 @@ import type { ViewState } from './view.slice'
 const WRITE_DELAY_MS = 250
 
 /** The view as the link states it, from the slice. */
-function viewFor(view: ViewState, help: boolean, lang: Lang) {
+function viewFor(view: ViewState, lang: Lang) {
   return {
     cell: view.cell,
     stroke: view.stroke,
@@ -20,7 +20,6 @@ function viewFor(view: ViewState, help: boolean, lang: Lang) {
     rounded: view.rounded,
     colored: view.colored,
     hilite: view.hilite,
-    help,
     lang,
     theme: view.theme,
     palette: view.palette,
@@ -49,7 +48,6 @@ function applyPayload(payload: HashPayload): void {
   view.setFlag('rounded', payload.view.rounded)
   view.setFlag('colored', payload.view.colored)
   view.setFlag('hilite', payload.view.hilite)
-  ui.setHelp(payload.view.help)
   // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
   // Absent when the link predates themes or names none: the page keeps its
@@ -137,10 +135,10 @@ export function useUrlHash(control: RunControl): UrlHash {
       // and kept because it is what pins that order: a hash written before the
       // link is read would be the page's defaults overwriting the link.
       if (!readDone.current) return
-      const { params, view, ui, lang } = useStore.getState()
+      const { params, view, lang } = useStore.getState()
       const next = encodeHash({
         params: params.values,
-        view: viewFor(view, ui.help, lang.lang),
+        view: viewFor(view, lang.lang),
         carried: carried.current,
       })
       if (next === location.hash) return
@@ -173,10 +171,10 @@ export function useUrlHash(control: RunControl): UrlHash {
       // describing itself, and applying it would be a no-op followed by a run
       // that terminates whatever is in flight. Anything else — a pasted link,
       // a traversal onto a different entry — is a trigger.
-      const { params, view, ui, lang } = useStore.getState()
+      const { params, view, lang } = useStore.getState()
       const here = encodeHash({
         params: params.values,
-        view: viewFor(view, ui.help, lang.lang),
+        view: viewFor(view, lang.lang),
         carried: carried.current,
       })
       if (location.hash === here) return

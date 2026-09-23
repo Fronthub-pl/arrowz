@@ -1,177 +1,164 @@
-/* The saved-boards face of the console. Its own file, as `console.css` and
-   `run.css` are: one file per surface keeps a specificity collision inside the
-   surface that caused it (PR 2's lesson).
+/* The saved boards in the lab's layout (handoff 2, PR 6): the same stage as the
+   lab — settings drawer, board, right column, report drawer. The drawer holds
+   a rail — SIZES, then ELEMENT / Preview, as the lab's GENERATOR + ELEMENT —
+   and its panel: the boards of the chosen size as ruled rows, or the preview
+   rows. The right column is the open board: its command, Load into lab
+   (primary), Delete, the exports, and what it is. Its own file, as
+   `console.css` and `run.css` are: one file per surface keeps a specificity
+   collision inside the surface that caused it (PR 2's lesson). The stage's
+   tracks are `console.css`'s, shared with the lab. */
 
-   The chips live in the rail's box, so they inherit its scrolling and its
-   `--graphite`; they are a list of sizes, not the mock's preset strip, and they
-   take the rail's own button treatment rather than the strip's chip treatment —
-   the strip's pair is the open §7.1 contrast item and the library is not to
-   inherit it. */
-
-/* The panel's two rows (spec §5.1, PR 5b). Both are bounded, and Ruling 1 says
-   why: an `auto` detail row is content-sized with no ceiling, and measured at
-   860x900 it left no list at all and overflowed the console by 75px. The floor
-   is 200px because the list's Refresh head takes 34 and its padding 24, so
-   140 showed one row where two were claimed; 45% gives way on a short panel.
-   `minmax(0, auto)` lets the detail shrink below its content and scroll. */
-.fw-lib-panel {
-  display: grid;
-  grid-template-rows: minmax(min(200px, 45%), 1fr) minmax(0, auto);
-  min-height: 0;
-  background: var(--void);
-}
-.fw-lib-chips {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 8px 0;
-  background: var(--graphite);
-  min-height: 0;
-  overflow-y: auto;
-}
-.fw .fw-lib-chips button {
+/* The rail: a size's count sits where the lab's violation count sits, in
+   `--ash`, and reads `--ink` on the selected size. */
+.fw-rail button .cnt {
   flex: none;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 16px;
-  border: 0;
-  text-align: left;
-  background: none;
-  color: var(--mist);
-  cursor: pointer;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
 }
-.fw .fw-lib-chips button:hover {
-  color: var(--ink);
-}
-.fw .fw-lib-chips button[aria-pressed='true'] {
-  background: var(--void);
+.fw-rail button[aria-selected='true'] .cnt {
   color: var(--ink);
 }
 
-.fw-lib-list {
-  padding: 12px 16px;
-  background: var(--void);
-  min-height: 0;
-  overflow-y: auto;
-}
-.fw-lib-head {
+/* The list panel: a header row (size · count · refresh), then ruled rows. */
+.fw-blist-hd {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 12px;
-  margin-bottom: 8px;
 }
-/* Either empty state: no store, or a store with nothing in it. */
+.fw-blist-hd > .kv-unit {
+  flex: 1;
+}
+.fw .fw-blist-hd .kv-chip {
+  height: 22px;
+}
+.fw-blist-rows {
+  display: grid;
+}
+.fw .fw-brow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 12px;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  box-shadow: 0 1px 0 var(--border);
+  background: none;
+  color: var(--mist);
+  text-align: left;
+  cursor: pointer;
+}
+.fw .fw-brow:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.fw .fw-brow[aria-current='true'] {
+  background: var(--signal-fill);
+  color: var(--ink);
+  border: 0;
+}
+.fw-brow .id {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fw-brow .when,
+.fw-brow .meta,
+.fw-brow .src {
+  color: var(--ash);
+  font-size: 11px;
+}
+.fw-brow .when {
+  font-variant-numeric: tabular-nums;
+}
+.fw-brow .src {
+  justify-self: end;
+}
+.fw-brow .src.bad {
+  color: var(--warn);
+}
+.fw-brow[aria-current='true'] .when,
+.fw-brow[aria-current='true'] .meta,
+.fw-brow[aria-current='true'] .src {
+  color: var(--ink);
+}
+
+/* Either empty state — no store, or a store with nothing in it — and the
+   column's and the preview's "open a board" line. */
 .fw-lib-empty {
   margin: 8px 0;
   color: var(--ash);
 }
-.fw-lib-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2px 12px;
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  margin-bottom: 4px;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-.fw .fw-lib-row[aria-current='true'] {
-  border-color: var(--signal);
-}
-/* A layout id is 71 characters: the row clips it and keeps it whole, so it can
-   still be selected and copied (spec §5.6). */
-.fw-lib-row .id {
-  font-family: var(--mono);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.fw-lib-row .meta {
-  grid-column: 1 / -1;
-  color: var(--ash);
-}
 
-/* The detail's own block: the row the panel keeps (Ruling 1). `min-height: 0`
-   and `overflow-y: auto` are what let the bounded row actually bound it — the
-   pair Ruling 1 stands on, and review round 2 measured what their absence
-   costs: at 860x900 the content ran 64px past the box, unreachable, and the
-   document itself overflowed by 65px. Three explicit rows (spec §2 P6): the
-   command, the fields, then the buttons, so only the middle row scrolls and
-   nothing is pinned over it. `overflow-y: auto` here too, as a safety net:
-   at ordinary heights the fields row absorbs any squeeze and
-   this box never scrolls, but a command below the two auto rows' own fixed
-   floor — `.fw-cmdfig`'s `min-height` plus the buttons — has nowhere else to
-   give, and with the buttons no longer sticky, scrolling the whole box here
-   overlaps nothing. */
-.fw-lib-detail {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 10px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--graphite);
-  min-height: 0;
-  overflow-y: auto;
-}
-/* The fields scroll, the command and the buttons stay (spec §2 P6). Ruling 16
-   pinned the buttons with `sticky`, which kept them on screen and laid them
-   over whatever scrolled beneath; explicit rows keep them on screen and over
-   nothing. `container-type: inline-size` is this element's own addition
-   (fix round 1, finding 1): `.fw-kdesc`'s `@container (max-width: 407px)`
-   fallback (console.css) needs a container-type ancestor in scope, and this
-   grid — not `.fw-lib-detail` itself, whose own box Task 8 already tuned —
-   is the closest one around the list, the same way `.fw-knobs` is `.fw-kdesc`'s
-   container in the console panels. Single-axis containment in the inline
-   dimension only, so it does not touch the block-axis scrolling `overflow-y`
-   sets on this same element.
-   `position: relative` is fix round 2, spec R3 a third time: it makes this
-   grid the containing block for every `.fw-vh` inside it (the head-height
-   help, hidden with the help switch off). Without it the 1px box resolves
-   against the initial containing block instead and grows the document (P1).
-   This element and not `.fw-lib-detail`: it is the box that actually scrolls
-   and clips the list, and R3's rule is that the positioned ancestor sits
-   inside the scroller that clips, not outside it — `.fw-knobs` is its own
-   scroller for the same reason. A guard, not a fix for an observed break:
-   the matrix's `library-detail` state (help off) measures no scroll defect
-   at any of its five sizes either way, same as `.fw-knobs` before this
-   pattern had a name — the box happens to fall inside the viewport at every
-   size tried, not because the containing block was already correct. */
-.fw-lib-detail > .fw-grid {
-  position: relative;
-  min-height: 0;
-  overflow-y: auto;
-  container-type: inline-size;
-}
-/* The head-height help (spec R7, Ruling 17 reversed) has no heading of its own
-   to sit under here — `.fw-lib-detail`'s three rows have no room for a fourth
-   — so it is the fields grid's own first child instead, spanning every column
-   `.fw-grid`'s `repeat(auto-fill, minmax(190px, 1fr))` (console.css) would
-   otherwise squeeze it into. */
-.fw-lib-detail > .fw-grid > .fw-kdesc {
-  grid-column: 1 / -1;
-}
-.fw-lib-buttons {
+/* The right column: Delete reads as destructive only on hover, and armed —
+   the second press is the destructive one — it says so in `--error` rather
+   than in `--warn`, which §7.1 reserves for a value that moved. */
+.fw .fw-bcol .fw-alt {
   display: flex;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 2px;
 }
-
-/* Armed: the second press is the destructive one, and it says so in `--error`
-   rather than in `--warn`, which §7.1 reserves for a value that moved. */
-.fw .fw-lib-buttons .fw-btn.danger.armed {
+.fw .fw-bcol .fw-alt > .danger {
+  flex: none;
+}
+.fw .fw-bcol .fw-alt > .danger:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+.fw .fw-bcol .fw-alt > .danger.armed {
   border-color: var(--error);
   background: var(--error);
   color: var(--void);
 }
+/* One term track for every fact, as wide as the longest term: the handoff's
+   9ch held its English words and not the Polish "wygenerowano" (measured in
+   Chrome). Each row keeps its own box for the rule under it and lays its two
+   cells on the list's tracks. */
+.fw-bmeta {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 12px;
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+.fw-bmeta > div {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  padding: 6px 0;
+  box-shadow: 0 1px 0 var(--border);
+}
+.fw-bmeta dt {
+  color: var(--ash);
+}
+.fw-bmeta dd {
+  margin: 0;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.fw-bcol > .fw-lib-empty {
+  margin: 0;
+}
 
-/* §7.2: the saved-boards face had no coarse rule at all (review, touch). */
-@media (pointer: coarse) {
-  .fw .fw-lib-chips button,
-  .fw-lib-row {
+/* §7.2: a finger's target — the size tabs, as the old size chips had it, the
+   rows at their 52px, and Refresh. */
+@media (pointer: coarse), (max-width: 767px) {
+  .fw .fw-console.library .fw-rail button,
+  .fw .fw-blist-hd .kv-chip {
     min-height: 44px;
+  }
+  .fw .fw-brow {
+    min-height: 52px;
+  }
+}
+/* M and S (handoff 2, PR 7): the open board's column is the bar the lab's run
+   column is (run.css), and its facts stay out of it — the XS sheet shows them
+   again, being the column's own layout. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-bcol .fw-bmeta {
+    display: none;
   }
 }

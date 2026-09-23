@@ -1,9 +1,8 @@
-import type { ReactNode } from 'react'
-import { LibraryPanel } from '../library/LibraryPanel'
-import { SizeChips } from '../library/SizeChips'
+import { LibraryFace } from '../library/LibraryFace'
 import type { WorkspaceTab } from '../routes/Workspace'
 import type { RunControl } from '../run/useRun'
 import { SimplePanel } from '../simple/SimplePanel'
+import { SETTINGS_ID } from '../stage/Stage'
 import { useStore } from '../state/store'
 import { GroupRail } from './GroupRail'
 import { KnobPanel } from './KnobPanel'
@@ -11,45 +10,30 @@ import { useFocusRequest } from './useFocusRequest'
 import { ViewPanel } from './ViewPanel'
 
 /**
- * The mock's three-track console: a rail, one panel, and the run column. The
- * column comes in as a child and stays the third child in every face — the
- * rail's slot is `null` in the simple view — because React keeps a node by its
- * type and its position among its siblings. Handing the same element to a
- * second console component would be a new parent, and the column would remount
- * (PR 4a, Ruling 7, which corrects spec §5.1).
- *
- * The library is the third face (PR 5a): the size chips take the rail and the
- * list takes the panel, while the column stays mounted and is hidden by class
- * (Ruling 1). Its detail is PR 5b's, under the list in the panel — not in the
- * column's track, which would replace the column instead of hiding it — so the
- * detail now lives inside that panel, as `LibraryPanel`'s own second row,
- * rather than in the console.
+ * The mock's console: a rail and one panel, the settings drawer's content on
+ * both faces (handoff 2, PR 1 and PR 6), named by the drawer's handle. On the
+ * lab the rail is the generator's groups and the element's preview; on the
+ * saved boards it is the store's sizes and the same preview entry.
  */
-export function Console({ control, children, face }: { control: RunControl; children: ReactNode; face: WorkspaceTab }) {
+export function Console({ control, face }: { control: RunControl; face: WorkspaceTab }) {
   const entry = useStore((state) => state.ui.entry)
   const simple = useStore((state) => state.ui.mode === 'simple')
   const library = face === 'library'
-  // Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
-  // track would stand empty beside one sentence (review P7).
-  const emptyStore = useStore((state) =>
-    state.library.sizes === null ? state.library.listError !== null : state.library.sizes.length === 0,
-  )
   // The jump's consumer sits here rather than in a panel: the panels swap, and
   // a hook in the outgoing one would never see the request (spec §6).
   useFocusRequest()
   return (
-    <div className={`fw-console${library ? ' library' : ''}${library && emptyStore ? ' empty' : ''}`}>
-      {library ? <SizeChips /> : simple ? null : <GroupRail />}
+    <div id={SETTINGS_ID} className={`fw-console${library ? ' library' : ''}`}>
       {library ? (
-        <LibraryPanel />
+        <LibraryFace />
       ) : simple ? (
         <SimplePanel control={control} />
-      ) : entry === 'preview' ? (
-        <ViewPanel />
       ) : (
-        <KnobPanel group={entry} />
+        <>
+          <GroupRail />
+          {entry === 'preview' ? <ViewPanel /> : <KnobPanel group={entry} />}
+        </>
       )}
-      {children}
     </div>
   )
 }
