@@ -274,15 +274,23 @@ function lowContrast(root: HTMLElement): Finding[] {
 }
 
 /**
- * The board keeps a usable width (handoff 2, PR 7): at least 320px from 768
- * up, whatever the drawer does, and edge to edge on a phone (the package
- * measured 359 at 375). Solo is its own case: the board takes the panel.
+ * Spec §2's floors, measured with the drawer open: the widths the handoff's
+ * sizes give the board today, held so a push that eats into it goes red.
+ * Any other width from 768 up keeps the usable minimum.
+ */
+const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 440, 768: 678 }
+
+/**
+ * The board keeps a usable width (handoff 2, PR 7): spec §2's floor at the
+ * handoff's sizes, at least 320px at any other width from 768 up, whatever
+ * the drawer does, and edge to edge on a phone (the package measured 359 at
+ * 375). Solo is its own case: the board takes the panel.
  */
 function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
   const board = root.querySelector('.fw-board')
   if (board === null || !rendered(board) || solo) return []
   const w = board.getBoundingClientRect().width
-  const floor = window.innerWidth >= 768 ? 320 : window.innerWidth - 16
+  const floor = window.innerWidth < 768 ? window.innerWidth - 16 : (BOARD_FLOORS[window.innerWidth] ?? 320)
   return w + EPS < floor ? [{ invariant: 'board-width', detail: `board ${w.toFixed(0)}px < ${floor}` }] : []
 }
 
