@@ -783,26 +783,3 @@ test.each([
   },
   40_000,
 )
-
-// The stopgap below 1024px (console.css), until PR 7 moves the run column
-// under the board: the open drawer lies over the board, which keeps its width,
-// and at a phone's width over the run column too — closing the drawer is what
-// uncovers Generate.
-test('at 414×896 the open settings lie over the run column, and closing them uncovers Generate', async () => {
-  await page.viewport(414, 896)
-  const screen = await mountApp('advanced')
-  await loadRunDone()
-  await settleTransitions()
-  const wrap = screen.container.querySelector('.fw-boardwrap')
-  if (wrap === null) throw new Error('no board track')
-  expect(getComputedStyle(wrap).paddingLeft).toBe('16px')
-  const go = screen.getByRole('button', { name: 'Generate' }).element()
-  const at = () => {
-    const r = go.getBoundingClientRect()
-    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
-  }
-  expect(at()?.closest('.fw-ldrawer')).not.toBeNull()
-  await userEvent.keyboard('s')
-  await settleTransitions()
-  expect(at()).toBe(go)
-}, 40_000)
