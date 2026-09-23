@@ -277,9 +277,11 @@ function lowContrast(root: HTMLElement): Finding[] {
 /**
  * Spec §2's floors, measured with the drawer open: the widths the handoff's
  * sizes give the board today, held so a push that eats into it goes red.
- * Any other width from 768 up keeps the usable minimum.
+ * Any other width from 768 up keeps the usable minimum. 1024 gave up 16px in
+ * round 3, PR 5, when the open drawer stopped taking the board's own padding
+ * (440 → 424, the handoff's checkpoint); 1440's 517 stays above its floor.
  */
-const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 440, 768: 678 }
+const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 424, 768: 678 }
 
 /**
  * The board keeps a usable width (handoff 2, PR 7): spec §2's floor at the

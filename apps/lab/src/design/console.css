@@ -1103,13 +1103,15 @@
    until the responsive layout (handoff 2, PR 7) replaces it. Never in solo,
    which has no drawer: `:not(.solo)` rather than an override back to 0,
    because 0 would also take the board's own 16px padding, and on the
-   transition as well, so turning solo on does not animate the board's size. */
+   transition as well, so turning solo on does not animate the board's size.
+   The drawer's width plus the board's own 16px (round 3, PR 5): the width
+   alone replaced that padding and left the board flush against the drawer. */
 @media (min-width: 1024px) {
   .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
     transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
   }
   .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
-    padding-left: var(--ls-w);
+    padding-left: calc(var(--ls-w) + 16px);
   }
 }
 /* In the drawer the rail is 126px (168 before), and the console drops its

@@ -775,6 +775,38 @@ test.each([
   40_000,
 )
 
+// Round 3, PR 5: the board keeps its 16px on the left whatever the settings
+// drawer does. The open drawer used to replace the board's own padding with
+// its width, so the board's frame stood one pixel — the stage's 1px column
+// gap — from the drawer; now it gives way by the drawer's width plus those
+// 16px. So the gap is the same open and closed: the wrap's 16px plus the
+// stage's 1px, measured on the board's frame against the drawer's edge when
+// open and its handle's when closed. The frame widths are the handoff's
+// checkpoint, 16px narrower than the flush 671 / 533 / 395 / 440.
+test.each([
+  [1920, 1080, 655],
+  [1440, 900, 517],
+  [1280, 800, 379],
+  [1024, 768, 424],
+] as const)(
+  'at %i×%i the board keeps 16px from the settings drawer, open or closed, and is %ipx wide open',
+  async (w, h, px) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await settleTransitions()
+    const board = rect(screen.container, '.fw-board')
+    expect(board.left - rect(screen.container, '.fw-ldrawer').right, 'open').toBeCloseTo(16 + 1, 0)
+    expect(board.width, 'the frame, open').toBeCloseTo(px, 0)
+
+    await screen.getByRole('button', { name: 'settings', exact: true }).click()
+    await settleTransitions()
+    const handle = rect(screen.container, '.fw-ldrawer > .fw-drawer-handle')
+    expect(rect(screen.container, '.fw-board').left - handle.right, 'closed').toBeCloseTo(16 + 1, 0)
+  },
+  40_000,
+)
+
 // Round 3 (3h): the run's state moved into the run column. The numbers are the
 // handoff's reconstruction; 1 − 734/1250 prints as 41.3.
 const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
