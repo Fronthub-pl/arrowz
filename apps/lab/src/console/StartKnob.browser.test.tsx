@@ -50,3 +50,16 @@ test('switching away and back keeps a share the flag can still spell', async () 
   // layers wrote mix = -1, which is not a share, so mixing takes the middle
   // again rather than printing a command the CLI refuses.
 })
+
+// Handoff 2, PR 2: the start control is a knob row like the others — a short
+// label, a `?` with its description, and the select in the control's track.
+test('the start control is a knob row with its own description', async () => {
+  params().reset()
+  const screen = await render(<StartKnob />)
+  const select = screen.getByRole('combobox', { name: 'piece start' })
+  expect(select.element().closest('.kv-row .cc')).not.toBeNull()
+  await expect.element(select).toHaveAttribute('aria-describedby', 'knob-start-desc')
+  const q = screen.getByRole('button', { name: 'About piece start' })
+  await expect.element(q).toHaveAttribute('aria-controls', 'knob-start-desc')
+  expect(document.getElementById('knob-start-desc')?.closest('.kv-row')).not.toBeNull()
+})

@@ -41,7 +41,6 @@ async function mountApp() {
   // are — the case that picks a rail entry leaves it on 'preview'.
   useStore.getState().ui.select('board')
   useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
@@ -326,7 +325,6 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   useStore.getState().params.reset()
   useStore.getState().ui.select('board')
   useStore.getState().ui.setAuto(false)
-  useStore.getState().ui.setHelp(true)
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
@@ -455,12 +453,10 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()
   await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
-  // Scoped to the label, not the panel heading's `FieldHelp` list (spec R7):
-  // the panel now also carries a `<dt>` with the same text.
-  const label = [...screen.container.querySelectorAll<HTMLElement>('.lab')].find(
-    (el) => el.textContent === 'number of skeleton pieces (0 = no skeleton)',
-  )
-  if (label === undefined) throw new Error('label not found')
+  // The knob row's label is the short term (handoff 2, PR 2).
+  const label = screen.container.querySelector<HTMLElement>('label[for="knob-giants"]')
+  if (label === null) throw new Error('label not found')
+  expect(label.textContent).toBe('giants')
   await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: /round the corners/i })).toBeVisible()
@@ -595,13 +591,14 @@ test('the simple view replaces the rail and the presets, and keeps the very same
   expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
 }, 40_000)
 
-// Ruling 9: `auto` and `help` belong to the knobs, and the knobs are not on screen.
-test('the simple view hides the two switches only the advanced view has', async () => {
+// Ruling 9: `auto` belongs to the knobs, and the knobs are not on screen. The
+// descriptions switch, its old partner, is gone from both views (handoff 2, PR 2).
+test('the simple view hides the switch only the advanced view has', async () => {
   const screen = await mountApp()
+  await expect.element(screen.getByRole('switch', { name: 'generate right after a change' })).toBeInTheDocument()
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   expect(screen.getByRole('switch', { name: 'generate right after a change' }).query()).toBeNull()
-  expect(screen.getByRole('switch', { name: 'show parameter descriptions' }).query()).toBeNull()
   await expect.element(screen.getByRole('button', { name: 'Generate' })).toBeInTheDocument()
 }, 40_000)
 

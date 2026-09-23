@@ -39,6 +39,14 @@ function coarseHeight(el: Element): number {
 test.each([
   ['a knob value', '<div class="fw-k"><div class="top"><button class="num">1</button></div></div>', 'button', 44],
   ['a knob choice', '<div class="fw-k"><div class="top"><select></select></div></div>', 'select', 44],
+  // Knob rows (handoff 2, PR 2): the handoff's touch sizes — a 44px value and
+  // track, a 40px select, a 32px `?` and chip in a 52px row.
+  ['a knob row value', '<div class="kv-g"><button class="kv-num">1</button></div>', 'button', 44],
+  ['a knob row track', '<div class="kv-g"><div class="kv-track"></div></div>', 'div.kv-track', 44],
+  ['a knob row select', '<div class="kv-g"><span class="cc"><select></select></span></div>', 'select', 40],
+  ['a knob row ?', '<div class="kv-g"><button class="q">?</button></div>', 'button', 32],
+  ['a special-value chip', '<div class="kv-g"><button class="kv-chip">auto</button></div>', 'button', 32],
+  ['a dependency header', '<div class="kv-g"><button class="kv-dephd">x</button></div>', 'button', 48],
   [
     'a palette remove',
     '<ul><li class="fw-palette-row"><button class="fw-palette-remove">x</button></li></ul>',

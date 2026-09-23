@@ -25,7 +25,7 @@ describe('a jump from the palette', () => {
     await expect.poll(() => document.activeElement?.id).toBe('knob-seed')
     // The request is consumed, so a later render cannot steal the focus again.
     expect(useStore.getState().ui.focusTarget).toBe(null)
-    const knob = screen.container.querySelector('#knob-seed')?.closest('.fw-k')
+    const knob = screen.container.querySelector('#knob-seed')?.closest('.kv-row')
     expect(knob?.classList.contains('flash')).toBe(true)
   }, 40_000)
 

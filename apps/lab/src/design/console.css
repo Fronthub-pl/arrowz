@@ -180,11 +180,6 @@
   width: 88px;
   text-align: right;
 }
-.fw-k .num em {
-  font-style: normal;
-  color: var(--mist);
-  margin-right: 8px;
-}
 .fw-k input {
   width: 88px;
   padding: 0 4px;
@@ -241,11 +236,11 @@
     margin-top: 8px;
   }
 }
-/* Out of sight, in the accessibility tree. Ruling 9: the help switch is
-   labelled "show parameter descriptions", and showing is what a screen reader
-   does not do — `display: none` or `visibility: hidden` would take the text
-   out of the tree and dangle every `aria-describedby` pointing at it, so
-   neither is touched here. What each line does:
+/* Out of sight, in the accessibility tree. Ruling 9: a closed description
+   (a knob row's `?`, handoff 2 PR 2) is hidden from the eye, and hiding is
+   what a screen reader does not do — `display: none` or `visibility: hidden`
+   would take the text out of the tree and dangle every `aria-describedby`
+   pointing at it, so neither is touched here. What each line does:
    - `position: absolute` pulls the box out of layout, so it reserves no
      visible line even at its own size.
      It needs a positioned ancestor inside the scroller: `.fw-knobs` and
@@ -275,39 +270,6 @@
 .fw-k .why:empty {
   margin: 0;
 }
-/* A knob the engine would refuse. The mock has no such state — its only knob
-   state is `.hold` in warn — and `--warn` belongs to the rule bound, so a
-   refusal gets `--error` and the two cannot be confused. */
-.fw-k.bad .num,
-.fw-k.bad .why {
-  color: var(--error);
-}
-.fw-k.bad .bar input[type='range']::-webkit-slider-thumb {
-  background: var(--error);
-}
-.fw-k.bad .bar input[type='range']::-moz-range-thumb {
-  background: var(--error);
-}
-/* A knob that does nothing at these settings. The *control* is dimmed; the
-   sentence explaining why is not. The mock dims the whole card at `.4` — which
-   puts the one line that says "No effect: needs skeleton elements > 0" at
-   about 2.3:1.
-
-   `.7` and not `.55`: the exemption AA grants a dimmed control is for a
-   *disabled* one, and this knob is not disabled — it takes focus, it takes a
-   value, and it keeps it. `--mist` over `--void` composites to 4.73:1 at .7
-   and to 3.35:1 at .55; console.test.ts computes the number rather than
-   trusting this comment. The dim still reads as a dim: `--mist` lands at about
-   #7b7e86, not back at its own #a9aeb8. */
-.fw-k.off .lab,
-.fw-k.off .num,
-.fw-k.off select,
-.fw-k.off .bar {
-  opacity: 0.7;
-}
-.fw-k.off .num {
-  color: var(--mist);
-}
 /* The mock has no choice knob; this is its number treatment applied to a
    select, so the two kinds of knob sit on one grid without a seam. */
 .fw-k select {
@@ -321,13 +283,6 @@
   background: var(--void);
   color: var(--ink);
   font: inherit;
-}
-.fw-k.off select {
-  color: var(--mist);
-}
-.fw-k.bad select {
-  color: var(--error);
-  border-color: var(--error);
 }
 /* A knob the palette jumped to, for 1200 ms (flash.ts). The outline is the
    mock's, and it sits outside the box so it cannot move the layout. */
@@ -517,6 +472,435 @@
   gap: 18px 24px;
   align-items: start;
   align-content: start;
+}
+
+/* Knob rows (handoff 2, PR 2; `css/knob-atoms.css` and `css/knob-grid.css`,
+   the ruled variant folded in). One row per control, and every row of every
+   group on one grid of five tracks — label (+?) | value | min | control | max
+   — so values, tracks, selects and bounds sit on one x down the panel. Only
+   the control track flexes; the label track is fixed at the longest short
+   label (12 characters, lab-i18n.test.ts) plus the `?` and the dependency
+   indent, so a label is never cut. The generator panels only: the preview,
+   the simple view and the library's detail keep `.fw-k` above. */
+.fw-ldrawer .fw-knobs {
+  padding-left: 12px;
+  padding-right: 12px;
+  scrollbar-gutter: stable;
+}
+.kv {
+  display: grid;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.kv-g {
+  --val-n: 5ch;
+  --val-u: 44px;
+  --end: 36px;
+  --trk: 13ch;
+  --row-h: 34px;
+}
+.kv-row {
+  min-width: 0;
+  box-shadow: 0 1px 0 var(--border);
+}
+.kv-g .ln {
+  display: grid;
+  grid-template-columns:
+    calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) var(--end) minmax(var(--trk), 1fr)
+    var(--end);
+  column-gap: 8px;
+  align-items: center;
+  min-height: var(--row-h);
+}
+/* In a dependency block the 12px indent comes out of the label track alone,
+   so every other track stays on the panel's x. */
+.kv-g .kv-dep .ln {
+  grid-template-columns:
+    calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) var(--end) minmax(var(--trk), 1fr)
+    var(--end);
+}
+.kv-g .lc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.kv-lab {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mist);
+}
+.fw .kv-g .q {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fw .kv-g .q:hover,
+.fw .kv-g .q[aria-expanded='true'] {
+  border-color: var(--border);
+  color: var(--ink);
+}
+.kv-g .vc {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.kv-val {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* The value is a button that opens the inline entry (Ruling 4); a special
+   value shows its word here, in the numbers' colour and alignment. */
+.fw .kv-num {
+  min-width: var(--val-n);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  cursor: text;
+}
+.fw .kv-num:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.kv-val input {
+  width: calc(var(--val-n) + 12px);
+  padding: 0 4px;
+  border: 1px solid var(--signal);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+}
+.kv-unit {
+  width: var(--val-u);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  color: var(--ash);
+  font-size: 11px;
+}
+.kv-g .mn {
+  justify-self: end;
+  text-align: right;
+}
+.kv-g .mx {
+  justify-self: start;
+}
+.kv-end {
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* The special value's chip: the minimum's track, pressed while the knob holds
+   that value. */
+.fw .kv-chip {
+  height: 18px;
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+.fw .kv-chip[aria-pressed='true'] {
+  background: var(--signal-fill);
+  border-color: var(--signal-fill);
+  color: var(--ink);
+}
+.fw .kv-chip:hover {
+  border-color: var(--mist);
+  color: var(--ink);
+}
+.kv-g .cc {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+}
+/* A select is exactly as long as a slider's track: the bounds are not part of
+   either. */
+.kv-g .cc > .kv-track,
+.kv-g .cc > select {
+  width: 100%;
+}
+.kv-g .cc > select {
+  min-width: 0;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  background: var(--void);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+/* The drawn track: the native range input lies over it, transparent and
+   covering the box, so keyboard and touch come from the platform (Ruling 3)
+   and the look does not depend on the browser's slider parts. */
+.kv-track {
+  position: relative;
+  height: 16px;
+  min-width: 40px;
+}
+.kv-track .rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 7px;
+  height: 2px;
+  background: var(--border-strong);
+}
+.kv-track .fill {
+  position: absolute;
+  left: 0;
+  top: 7px;
+  height: 2px;
+  background: var(--signal);
+}
+.kv-track .thumb {
+  position: absolute;
+  top: 2px;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  background: var(--signal);
+}
+/* The rule floor: a mark with a reason, never a limit (spec §5.4). The row's
+   own line states the bound in text. */
+.kv-track .floor {
+  position: absolute;
+  top: 3px;
+  width: 1px;
+  height: 10px;
+  background: var(--warn);
+}
+.kv-track input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+.kv-track:focus-within .thumb {
+  width: 4px;
+  margin-left: -2px;
+  box-shadow:
+    0 0 0 2px var(--void),
+    0 0 0 3px var(--ink);
+}
+/* Under a row: its state (`.kv-why`) and its description on demand
+   (`.kv-help`, out of sight but in the tree while closed). */
+.kv-why,
+.kv-help {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.kv-why {
+  padding-bottom: 8px;
+  color: var(--warn);
+}
+.kv-why:empty {
+  padding: 0;
+}
+.kv-help {
+  max-width: 60ch;
+  color: var(--ash);
+  text-wrap: pretty;
+}
+.kv-help:not(.fw-vh) {
+  padding-bottom: 8px;
+}
+/* A knob with no effect at these settings: dimmed by colour, not by opacity,
+   and its reason in `--ash` rather than the bound's `--warn`. */
+.kv-row.off .kv-lab,
+.kv-row.off .kv-num,
+.kv-row.off .kv-why,
+.kv-row.off .cc > select {
+  color: var(--ash);
+}
+.kv-row.off .kv-track .fill,
+.kv-row.off .kv-track .thumb {
+  background: var(--ash);
+}
+/* A knob the engine would refuse: `--error`, never the bound's `--warn`. */
+.kv-row.bad .kv-num,
+.kv-row.bad .kv-why,
+.kv-row.bad .cc > select {
+  color: var(--error);
+}
+.kv-row.bad .cc > select {
+  border-color: var(--error);
+}
+.kv-row.bad .kv-track .fill,
+.kv-row.bad .kv-track .thumb {
+  background: var(--error);
+}
+/* A row the palette jumped to, for 1200 ms (flash.ts), inside the row: `.kv`
+   clips sideways. */
+.kv-row.flash {
+  outline: 1px solid var(--signal);
+  outline-offset: -1px;
+}
+/* A dependency block: indented from the left only, its header a ruled row of
+   its own. The body is `hidden` while closed, and carries no `display` rule
+   that would defeat it. */
+.kv-dep {
+  padding-left: 12px;
+}
+.fw .kv-g .kv-dephd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--row-h);
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: 0 1px 0 var(--border);
+  color: var(--ash);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+}
+.fw .kv-g .kv-dephd:hover {
+  color: var(--ink);
+}
+.kv-sub {
+  padding: 22px 0 6px;
+  box-shadow: 0 1px 0 var(--border-strong);
+  color: var(--ash);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* The lengths mix: short, medium and the long rest as one bar, with the
+   short + medium cap at 90% in the rule floor's `--warn`. */
+.kv-mix {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+.kv-mix .bar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 18px;
+}
+.kv-mix .bar > span {
+  min-width: 2px;
+  background: var(--signal-fill);
+}
+.kv-mix .bar > .m {
+  background: var(--signal);
+}
+.kv-mix .bar > .l {
+  background: var(--border-strong);
+}
+.kv-mix .bar > .l.bad {
+  background: var(--error);
+}
+.kv-mix .bar > .cap {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 90%;
+  width: 1px;
+  min-width: 0;
+  background: var(--warn);
+}
+.kv-mix .leg {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.kv-mix .leg b {
+  font-weight: 400;
+  color: var(--ink);
+}
+.kv-mix .leg .bad b {
+  color: var(--error);
+}
+/* A narrow panel drops the bound tracks; the range stays in the row's title,
+   and the special value's chip goes with its track. */
+@container (max-width: 359px) {
+  .kv-g .ln {
+    grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .kv-dep .ln {
+    grid-template-columns: calc(12ch + 24px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
+  }
+  .kv-g .mn,
+  .kv-g .mx {
+    display: none;
+  }
+}
+/* A finger: the handoff's touch sizes (§7), for any coarse pointer. */
+@media (pointer: coarse) {
+  .kv-g {
+    --row-h: 52px;
+  }
+  .kv-track {
+    height: 44px;
+  }
+  .kv-track .rail,
+  .kv-track .fill {
+    top: 20px;
+    height: 4px;
+  }
+  .kv-track .thumb {
+    top: 10px;
+    width: 6px;
+    height: 24px;
+    margin-left: -3px;
+  }
+  .kv-track .floor {
+    top: 14px;
+    height: 16px;
+  }
+  .fw .kv-num {
+    min-height: 44px;
+  }
+  .kv-g .cc > select {
+    height: 40px;
+    padding: 0 8px;
+  }
+  .fw .kv-g .q,
+  .fw .kv-chip {
+    min-width: 32px;
+    height: 32px;
+  }
+  .fw .kv-g .kv-dephd {
+    min-height: 48px;
+  }
 }
 .fw-sw {
   justify-self: end;

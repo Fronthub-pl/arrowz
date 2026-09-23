@@ -1,47 +1,148 @@
-import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
-import { startChoiceOf } from '@arrowz/engine/command'
+import { type ParamGroup, type ParamKey, PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
+import { type ReactElement, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import { FieldHelp, type HelpEntry, descId } from './FieldHelp'
 import { panelId, tabId } from './GroupRail'
 import { Knob } from './Knob'
-import { MIX_SPEC, StartKnob } from './StartKnob'
+import { BLOCKS, blockKeys, type KnobBlock } from './knobLayout'
+import { StartKnob } from './StartKnob'
 
 /** A group's knobs, in table order. */
 function specsOf(group: ParamGroup) {
   return PARAM_SPEC.filter((spec) => spec.group === group)
 }
 
+function specOf(key: ParamKey): ParamSpec {
+  const spec = PARAM_SPEC.find((s) => s.key === key)
+  if (spec === undefined) throw new Error(`PARAM_SPEC has no ${key}`)
+  return spec
+}
+
 /**
- * One group of knobs. The two knobs behind `--start` share one control, built
- * where the first of them would have stood and skipped for the second — the
- * rule is per knob, so a group with a surface flag in the middle still lays
- * out in table order.
+ * The lengths group's mix (handoff 2, PR 2): short, medium and the long rest
+ * as one bar, sized by their shares, with a legend in percent. The rule that
+ * short and medium together stay at or under 0.9 is a `--warn` mark at 90%
+ * of the bar, the rule floor's colour on a track; past it the long share
+ * turns `--error`, as a refusal does. The bar repeats the rows under it, so
+ * it is hidden from assistive technology; the legend is text.
+ */
+function LengthMix(): ReactElement {
+  const dict = useDictionary()
+  const short = useStore((state) => state.params.values.wShort)
+  const medium = useStore((state) => state.params.values.wMid)
+  const long = Math.max(0, 1 - short - medium)
+  const over = short + medium > 0.9 + 1e-9
+  const pct = (share: number) => `${Math.round(share * 100)}%`
+  return (
+    <div className="kv-mix">
+      <div className="bar" aria-hidden="true">
+        <span className="s" style={{ flex: short }} />
+        <span className="m" style={{ flex: medium }} />
+        <span className={over ? 'l bad' : 'l'} style={{ flex: long }} />
+        <span className="cap" title={dict.t('mixCap')} />
+      </div>
+      <div className="leg">
+        <span>
+          {dict.t('mixShort')} <b>{pct(short)}</b>
+        </span>
+        <span>
+          {dict.t('mixMedium')} <b>{pct(medium)}</b>
+        </span>
+        <span className={over ? 'bad' : undefined}>
+          {dict.t('mixLong')} <b>{pct(long)}</b>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * A dependency block (handoff 2, PR 2; `knobLayout.ts`): the knobs that do
+ * nothing until a parent does. Collapsed while every parent is 0, with a
+ * header saying what it needs; open once one is on, with the block's name.
+ * The header toggles it either way, and a parent crossing 0 resets it to that
+ * default. It stays open while a knob in it is refused, or while the palette
+ * has asked for one of its knobs, so neither a refusal nor a jump can land on
+ * a closed block.
+ *
+ * The body is always mounted and `hidden` when closed — the header's
+ * `aria-controls` must resolve, and the rows keep their subscriptions and
+ * drafts. No `display` rule on it: an author `display` would defeat `hidden`.
+ */
+function DependencyBlock({ block }: { block: KnobBlock }): ReactElement {
+  const dict = useDictionary()
+  const keys = blockKeys(block)
+  const on = useStore((state) => block.parents.some((key) => state.params.values[key] > 0))
+  const refused = useStore((state) => keys.some((key) => state.params.broken[key] !== undefined))
+  const wanted = useStore((state) => {
+    const target = state.ui.focusTarget
+    return target !== null && keys.some((key) => target === `knob-${key}`)
+  })
+  // The header's choice, reset whenever the parents cross 0 (React's
+  // "adjust state while rendering" pattern, not an effect: an effect would
+  // paint the stale state for a frame).
+  const [choice, setChoice] = useState({ on, open: on })
+  if (choice.on !== on) setChoice({ on, open: on })
+  const open = choice.open || refused || wanted
+  const bodyId = `dep-${block.id}`
+  return (
+    <div className={on ? 'kv-dep' : 'kv-dep off'}>
+      <button
+        type="button"
+        className="kv-dephd"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        onClick={() => setChoice({ on, open: !open })}
+      >
+        <span>{dict.t(on ? block.title : block.needs)}</span>
+        <span aria-hidden="true">
+          {keys.length} {open ? '▴' : '▾'}
+        </span>
+      </button>
+      <div id={bodyId} hidden={!open}>
+        {block.subs.map((sub) => (
+          <div key={sub.keys.join()} className="kv-subs">
+            {sub.title === null ? null : <div className="kv-sub">{dict.t(sub.title)}</div>}
+            {sub.keys.map((key) => (
+              <Knob key={key} spec={specOf(key)} blockReason={block.reason} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * One group of knobs as rows on one five-track grid (handoff 2, PR 2). Table
+ * order, with two exceptions: the two knobs behind `--start` share one row,
+ * built where the first of them would have stood; and a dependency block's
+ * knobs leave their places for the block, which stands right after its last
+ * parent — so `later share`, the skeleton's second parent, moves up beside
+ * `giants`.
  */
 export function KnobPanel({ group }: { group: ParamGroup }) {
   const dict = useDictionary()
-  const showHelp = useStore((state) => state.ui.help)
   // Five of the six groups have help; `board` has none, and the section is
   // typed by its own keys rather than by ParamGroup.
   const help = (dict.d.groupHelp as Partial<Record<ParamGroup, string>>)[group]
   const specs = specsOf(group)
+  const block = BLOCKS[group]
+  const inBlock = new Set<ParamKey>(block === undefined ? [] : blockKeys(block))
+  const lastParent =
+    block === undefined ? -1 : Math.max(...block.parents.map((key) => specs.findIndex((s) => s.key === key)))
   // Computed before the JSX, not tracked with a `let` the map mutates:
-  // `react-hooks/immutability` rejects reassigning a variable during render,
-  // and it is right to — the map is not guaranteed to run once per render.
+  // `react-hooks/immutability` rejects reassigning a variable during render.
   const firstStart = specs.findIndex((spec) => spec.surface === 'start')
-  const mixing = useStore((state) => startChoiceOf(state.params.values) === 'mixing')
-  // One entry per control drawn below, in the same order; the start pair is
-  // one control, and the share joins it only while it is on screen.
-  const entries: HelpEntry[] = specs.flatMap((spec, at) => {
-    if (spec.surface !== 'start') {
-      const text = dict.paramText(spec)
-      return [{ id: descId(spec.key), label: text.label, text: text.help }]
+  const rows = specs.flatMap((spec, at) => {
+    const out: ReactElement[] = []
+    if (spec.surface === 'start') {
+      if (at === firstStart) out.push(<StartKnob key="start" />)
+    } else if (!inBlock.has(spec.key)) {
+      out.push(<Knob key={spec.key} spec={spec} />)
     }
-    if (at !== firstStart) return []
-    const start = { id: descId('start'), label: dict.d.start.label, text: dict.d.start.help }
-    if (!mixing) return [start]
-    const mix = dict.paramText(MIX_SPEC)
-    return [start, { id: descId('mix'), label: mix.label, text: mix.help }]
+    if (block !== undefined && at === lastParent) out.push(<DependencyBlock key={block.id} block={block} />)
+    return out
   })
   // No `tabIndex={0}` on the panel: APG gives a tabpanel a tab stop only when
   // it has no focusable content, and this one is nothing but focusable content.
@@ -49,16 +150,11 @@ export function KnobPanel({ group }: { group: ParamGroup }) {
     <div className="fw-knobs" role="tabpanel" id={panelId(group)} aria-labelledby={tabId(group)}>
       <div className="fw-khd">
         <b>{dict.d.groups[group]}</b>
-        {help === undefined || !showHelp ? null : <span>{help}</span>}
-        <FieldHelp entries={entries} hidden={!showHelp} />
+        {help === undefined ? null : <span>{help}</span>}
       </div>
-      <div className="fw-grid">
-        {specs.map((spec, at) => {
-          if (spec.surface !== 'start') return <Knob key={spec.key} spec={spec} />
-          // The control stands where the first of the pair would have; the
-          // second spec draws nothing.
-          return at === firstStart ? <StartKnob key="start" /> : null
-        })}
+      <div className="kv kv-g">
+        {group === 'lengths' ? <LengthMix /> : null}
+        {rows}
       </div>
     </div>
   )

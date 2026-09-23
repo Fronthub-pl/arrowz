@@ -20,8 +20,14 @@ test('no text in an inactive knob is dimmed further than AA allows', async () =>
   // ValueKnob.browser.test.tsx uses to assert the `off` class is applied.
   const spec = PARAM_SPEC.find((s) => s.key === 'giantSpan')
   if (!spec) throw new Error('no spec for giantSpan')
-  const screen = await render(<ValueKnob spec={spec} />)
-  const knob = screen.container.querySelector('.fw-k.off')
+  // Inside `.fw`, as on the page: the row's buttons are styled through it,
+  // past the `.fw button` reset, and outside it they keep the platform's grey.
+  const screen = await render(
+    <div className="fw">
+      <ValueKnob spec={spec} />
+    </div>,
+  )
+  const knob = screen.container.querySelector('.kv-row.off')
   if (!knob) throw new Error('the knob under test is not in the inactive state')
 
   // Every element holding text of its own, not a hand-written list of class

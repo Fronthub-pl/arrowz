@@ -29,7 +29,7 @@ type State =
   | 'report-open'
   | 'settings-closed'
   | 'preview-palette'
-  | 'lengths-help-off'
+  | 'lengths-help-open'
   | 'violations'
   | 'simple'
   | 'library-empty'
@@ -41,7 +41,7 @@ const STATES: readonly State[] = [
   'report-open',
   'settings-closed',
   'preview-palette',
-  'lengths-help-off',
+  'lengths-help-open',
   'violations',
   'simple',
   'library-empty',
@@ -118,19 +118,10 @@ async function arrange(state: State) {
       s.ui.select('preview')
       for (let i = 0; i < 8; i++) s.view.addPaletteColor()
     }
-    if (state === 'lengths-help-off') {
-      s.ui.select('lengths')
-      s.ui.setHelp(false)
-    }
-    // Fix round 2: with help on, `BoardDetail`'s head-height help list never
-    // renders `.fw-vh` at all, so this state could not have caught the gap
-    // it exists to catch (no positioned ancestor for the hidden text inside
-    // `.fw-lib-detail`'s scroller). `resetApp` sets help back to `true` at
-    // the top of every case's own `arrange`, so this does not leak into the
-    // next state.
-    if (state === 'library-detail') {
-      s.ui.setHelp(false)
-    }
+    // Every row's description closed is the default (handoff 2, PR 2) and
+    // every other lab state reads it: out of sight, `.fw-vh`, which needs the
+    // panel as its positioned ancestor. This one opens them all below.
+    if (state === 'lengths-help-open') s.ui.select('lengths')
     if (state === 'violations') {
       s.params.setMany({ wShort: 0.8, wMid: 0.8 })
       s.ui.raiseClamped(true)
@@ -143,6 +134,11 @@ async function arrange(state: State) {
     // state cares about the board the address opened, not the lab's own
     // load run).
     await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).not.toBeNull()
+  }
+  if (state === 'lengths-help-open') {
+    await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
+    for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
+    await expect.poll(() => screen.container.querySelectorAll('.kv-help.fw-vh').length).toBe(0)
   }
   if (state === 'presets-open') {
     await screen.getByRole('button', { name: /^preset/ }).click()
