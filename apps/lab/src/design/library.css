@@ -99,7 +99,7 @@
   gap: 2px;
 }
 .fw .fw-bcol .fw-alt > .danger {
-  flex: 1;
+  flex: none;
 }
 .fw .fw-bcol .fw-alt > .danger:hover {
   border-color: var(--error);
@@ -152,5 +152,13 @@
   }
   .fw .fw-brow {
     min-height: 52px;
+  }
+}
+/* M and S (handoff 2, PR 7): the open board's column is the bar the lab's run
+   column is (run.css), and its facts stay out of it — the XS sheet shows them
+   again, being the column's own layout. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-bcol .fw-bmeta {
+    display: none;
   }
 }

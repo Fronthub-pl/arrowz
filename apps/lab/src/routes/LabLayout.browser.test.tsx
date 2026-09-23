@@ -20,16 +20,13 @@ function rect(container: HTMLElement, selector: string): DOMRect {
 }
 
 // Spec §4.1: closed, the report is its 28px handle in the stage's last track
-// and nothing more — at 860 as at 1400, where it used to take a row under the
-// board or a third of the stage beside it. The report itself is hidden, out of
+// and nothing more — at 1400, where it used to take a row under the board or a
+// third of the stage beside it (at 860 the run column is a bar under the board
+// since handoff 2, PR 7, pinned by the layout audit's `bar-row`). The report itself is hidden, out of
 // the tab order and the accessibility tree. Since handoff 2, PR 1, the run
 // column sits between the board and the handle, and the settings drawer's
 // handle is the stage's other `.fw-drawer-handle`, hence the child selector.
-test.each([
-  [860, 900, 'advanced'],
-  [860, 900, 'simple'],
-  [1400, 900, 'advanced'],
-] as const)(
+test.each([[1400, 900, 'advanced']] as const)(
   'at %i×%i (%s) the closed report leaves only its handle beside the board',
   async (w, h, mode) => {
     await page.viewport(w, h)
@@ -110,11 +107,7 @@ test('closing the drawer keeps the report on screen for the slide, then hides it
 // the box shows the whole command, a longer one pushes Generate down, and the
 // column scrolls rather than the box. So the box still never paints over
 // Generate, and nothing of the command is out of the box's sight.
-const COMMAND_BOX_SIZES = [
-  [860, 900, 'advanced'],
-  [860, 900, 'simple'],
-  [1400, 900, 'advanced'],
-] as const
+const COMMAND_BOX_SIZES = [[1400, 900, 'advanced']] as const
 
 test.each(COMMAND_BOX_SIZES)(
   'at %i×%i (%s) the command box paints nothing over Generate and shows the whole command',
@@ -505,13 +498,11 @@ test('the run keys are the workspace’s, like f: the documentation route has no
 }, 40_000)
 
 // Handoff 2, PR 1: the run column is the stage's third track, clamp(16rem,
-// 22vw, 28rem). 22vw at 1400 is 308, above the 16rem floor; at 1920 it is
-// 422.4; at 2560 the 28rem cap holds. Below 1280 it is 16rem, at 900 and
-// under 14rem.
+// 22vw, 28rem): at 1920 it is 422.4, at 2560 the 28rem cap holds. PR 7's L
+// band (1280–1599) sets it to 18rem, so 288 at 1400; M and S (below 1280)
+// have no column, only the bar under the board.
 test.each([
-  [860, 900, 224],
-  [1024, 768, 256],
-  [1400, 900, 308],
+  [1400, 900, 288],
   [1920, 1080, 422.4],
   [2560, 1200, 448],
 ] as const)(

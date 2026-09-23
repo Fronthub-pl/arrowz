@@ -873,7 +873,8 @@ test('solo in the library fills the panel', async () => {
 }, 40_000)
 
 // Fix 8's question, since handoff 2 PR 6: the saved boards' rail is the lab's
-// rail in the same drawer, so below 900px both are the drawer's 112px.
+// rail in the same drawer, so below 900px both are the drawer's 126px (the
+// 112px rail below 900px was PR 1's stopgap, deleted in PR 7).
 //
 // This reads `.fw-console`'s first track the same way the case above does,
 // so it needs the same mocked, deterministic listing: unmocked, it races
@@ -895,8 +896,8 @@ test('below 900px the library rail is the lab rail', async () => {
     await expect.poll(() => useStore.getState().library.sizes?.length).toBe(1)
     const consoleBox = screen.container.querySelector('.fw-console')
     if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
-    // The drawer's rail, the lab's own at this width (console.css, 112px).
-    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('112px')
+    // The drawer's rail, the lab's own at this width (console.css, 126px).
+    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('126px')
   } finally {
     vi.restoreAllMocks()
   }

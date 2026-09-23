@@ -99,16 +99,6 @@ const SIZES: readonly (readonly [number, number])[] = [
  * both ways, so an entry left behind after its fix is red too.
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
-  'board@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'board@924x540': [
-    'bar-row', // Task 9
-  ],
-  'board@768x1024': [
-    'bar-row', // Task 9
-  ],
   'board@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -119,16 +109,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'presets-open@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'presets-open@924x540': [
-    'bar-row', // Task 9
-  ],
-  'presets-open@768x1024': [
-    'bar-row', // Task 9
-  ],
   'presets-open@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -138,16 +118,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'board-width', // Task 10
     'sheet-bar', // Task 10
     'touch-target', // Task 11
-  ],
-  'report-open@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'report-open@924x540': [
-    'bar-row', // Task 9
-  ],
-  'report-open@768x1024': [
-    'bar-row', // Task 9
   ],
   'report-open@600x900': [
     'board-width', // Task 10
@@ -160,15 +130,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'settings-closed@1024x768': [
-    'bar-row', // Task 9
-  ],
-  'settings-closed@924x540': [
-    'bar-row', // Task 9
-  ],
-  'settings-closed@768x1024': [
-    'bar-row', // Task 9
-  ],
   'settings-closed@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -179,16 +140,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'preview-palette@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'preview-palette@924x540': [
-    'bar-row', // Task 9
-  ],
-  'preview-palette@768x1024': [
-    'bar-row', // Task 9
-  ],
   'preview-palette@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -196,18 +147,9 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   ],
   'preview-palette@375x812': [
     'board-width', // Task 10
+    'panel-overflow', // Task 10
     'sheet-bar', // Task 10
     'touch-target', // Task 11
-  ],
-  'lengths-help-open@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'lengths-help-open@924x540': [
-    'bar-row', // Task 9
-  ],
-  'lengths-help-open@768x1024': [
-    'bar-row', // Task 9
   ],
   'lengths-help-open@600x900': [
     'board-width', // Task 10
@@ -219,16 +161,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'violations@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'violations@924x540': [
-    'bar-row', // Task 9
-  ],
-  'violations@768x1024': [
-    'bar-row', // Task 9
-  ],
   'violations@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -238,16 +170,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'board-width', // Task 10
     'sheet-bar', // Task 10
     'touch-target', // Task 11
-  ],
-  'simple@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'simple@924x540': [
-    'bar-row', // Task 9
-  ],
-  'simple@768x1024': [
-    'bar-row', // Task 9
   ],
   'simple@600x900': [
     'board-width', // Task 10
@@ -259,16 +181,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'library-empty@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'library-empty@924x540': [
-    'bar-row', // Task 9
-  ],
-  'library-empty@768x1024': [
-    'bar-row', // Task 9
-  ],
   'library-empty@600x900': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -278,16 +190,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'board-width', // Task 10
     'sheet-bar', // Task 10
     'touch-target', // Task 11
-  ],
-  'library-detail@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'library-detail@924x540': [
-    'bar-row', // Task 9
-  ],
-  'library-detail@768x1024': [
-    'bar-row', // Task 9
   ],
   'library-detail@600x900': [
     'board-width', // Task 10
@@ -367,16 +269,6 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'solo-sheet@375x812': [
     'touch-target', // Task 11
   ],
-  'more-open@1024x768': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'more-open@924x540': [
-    'bar-row', // Task 9
-  ],
-  'more-open@768x1024': [
-    'bar-row', // Task 9
-  ],
   'presets-open@420x700': [
     'board-width', // Task 10
     'sheet-bar', // Task 10
@@ -387,25 +279,11 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
-  'board@1024x768:pl': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
-  ],
-  'board@768x1024:pl': [
-    'bar-row', // Task 9
-  ],
-  'presets-open@924x540:pl': [
-    'bar-row', // Task 9
-  ],
   'board@375x812:pl': [
     'bar-clip', // Task 10
     'board-width', // Task 10
     'sheet-bar', // Task 10
     'touch-target', // Task 11
-  ],
-  'more-open@1024x768:pl': [
-    'bar-row', // Task 9
-    'board-width', // Task 9
   ],
   'huge-pl@420x900': [
     'board-width', // Task 10

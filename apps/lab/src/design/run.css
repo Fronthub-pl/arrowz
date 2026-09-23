@@ -361,3 +361,110 @@
 .fw-more-pop {
   display: contents;
 }
+/* M and S (handoff 2, PR 7): the right column is one line under the board —
+   CLI [Copy] | the command, one line scrolled sideways | Generate | the three
+   alternatives | … — two when the open drawer pushes it. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col {
+    position: relative;
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 8px 12px;
+    height: auto;
+    overflow: visible;
+    background: var(--void);
+    transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col > .fw-cmdfig {
+    flex: 1 1 240px;
+    min-width: 0;
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmdhd {
+    align-items: center;
+    height: 32px;
+    margin: 0;
+  }
+  /* One line: the flags are `nowrap` spans in ordinary text (CommandText.tsx),
+     so `nowrap` on the box keeps them on it and the box scrolls sideways,
+     with no bar drawn. */
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    height: 32px;
+    padding: 0 8px;
+    line-height: 30px;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd::-webkit-scrollbar {
+    display: none;
+  }
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-go {
+    flex: none;
+    width: auto;
+    height: 32px;
+    min-height: 32px;
+    margin: 0;
+    padding: 0 18px;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt {
+    flex-direction: row;
+  }
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-alt > button {
+    width: auto;
+    padding: 0 10px;
+  }
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    min-width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more:hover,
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more[aria-expanded='true'] {
+    background: var(--surface);
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more-pop {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more-pop.open {
+    position: absolute;
+    right: 12px;
+    bottom: calc(100% + 4px);
+    z-index: 12;
+    display: grid;
+    gap: 12px;
+    width: 18rem;
+    padding: 12px;
+    background: var(--graphite);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-more-pop > * {
+    margin: 0;
+  }
+}
+/* The bar under a finger: 44px controls, not 32 (spec §5). */
+@media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
+  .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
+    height: 44px;
+    min-height: 44px;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd {
+    max-height: 44px;
+    line-height: 42px;
+  }
+}

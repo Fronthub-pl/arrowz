@@ -59,6 +59,13 @@ test.each([
   ['the list’s refresh', '<div class="fw-blist-hd"><button class="kv-chip">Refresh</button></div>', 'button', 44],
   ['a plain button', '<button class="fw-btn">Refresh</button>', 'button', 44],
   ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
+  // Handoff 2, PR 7: the M/S bar's controls under a finger.
+  [
+    'a bar control',
+    '<div class="fw-lab"><div class="fw-stage"><section class="fw-run-col"><button class="fw-go">Generate</button></section></div></div>',
+    'button',
+    44,
+  ],
 ] as const)('%s is raised for a finger', async (_, html, tag, px) => {
   const screen = await render(<div className="fw" dangerouslySetInnerHTML={{ __html: html }} />)
   const el = screen.container.querySelector(tag)

@@ -1071,8 +1071,12 @@
    handle, the board, the right column and the report's handle. The drawer lies over the first
    track, and `::before` paints that track under its handle. The run column
    scrolls itself, so the whole command shows (run.css). */
+/* `--hd` is the drawers' handle track: 28px, 44px under a finger (below), so
+   every band's template keeps a finger's handle on a touch tablet without
+   restating the coarse one (handoff 2, PR 7). */
 .fw-lab .fw-stage {
-  grid-template-columns: 28px minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) 28px;
+  --hd: 28px;
+  grid-template-columns: var(--hd) minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) var(--hd);
 }
 .fw-lab .fw-stage > .fw-boardwrap {
   grid-column: 2;
@@ -1123,22 +1127,9 @@
     transition: none;
   }
 }
-@media (max-width: 1279px) {
-  .fw-lab .fw-stage {
-    grid-template-columns: 28px minmax(160px, 1fr) 16rem 28px;
-  }
-}
-@media (max-width: 900px) {
-  .fw-lab .fw-stage {
-    grid-template-columns: 28px minmax(120px, 1fr) 14rem 28px;
-  }
-  .fw-lab .fw-ldrawer > .fw-console {
-    grid-template-columns: 112px minmax(0, 1fr);
-  }
-}
 @media (pointer: coarse) {
   .fw-lab .fw-stage {
-    grid-template-columns: 44px minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) 44px;
+    --hd: 44px;
   }
 }
 /* Below 700px of height the board gives up its minimum (shell.css), so its row
@@ -1200,6 +1191,51 @@
 }
 .fw-lab.solo .fw-stage::before {
   display: none;
+}
+/* The bands (handoff 2, PR 7; spec §2). XL ≥1600 is the stage above. Every
+   selector carries `:not(.solo)`, so solo keeps its one track in every band,
+   and none carries `:not(.library)`: the saved boards' column
+   (`.fw-run-col.fw-bcol`) takes the same bar (D4) — the lab's own run column
+   stays hidden there, `(0,5,0)` above against these `(0,4,0)`. */
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .fw-lab:not(.solo) .fw-stage {
+    --ls-w: clamp(24rem, calc(33vw + 100px), 34rem);
+    grid-template-columns: var(--hd) minmax(160px, 1fr) 18rem var(--hd);
+  }
+}
+/* M and S: the right column becomes a bar under the board. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-stage {
+    grid-template-columns: var(--hd) minmax(0, 1fr) var(--hd);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .fw-lab:not(.solo) .fw-stage::before {
+    grid-row: 1 / -1;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+/* M: the open drawer pushes the bar as it pushes the board (the push above). */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-run-col {
+    padding-left: calc(var(--ls-w) + 12px);
+  }
+}
+/* S: no room to push; the open drawer lies over the board and the bar, and is
+   closed at start (spec D3, `ui.slice.ts`). */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fw-lab:not(.solo) .fw-stage {
+    --ls-w: min(calc(100vw - 112px), 28rem);
+  }
+  .fw-lab .fw-ldrawer.open {
+    box-shadow: 1px 0 0 var(--border-strong);
+  }
 }
 @media (max-width: 900px) {
   .fw-console {
