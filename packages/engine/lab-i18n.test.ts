@@ -362,3 +362,16 @@ Deno.test('the preset picker and the two drawers speak both languages', () => {
     assertEquals(pl.t(key as UiKey), p, key)
   }
 })
+
+// Handoff 2, PR 2: the label track is 12ch wide in every group, so a short
+// label over 12 characters would be cut in the lab.
+Deno.test('every knob has a short label of at most 12 characters, in both languages', () => {
+  for (const d of [EN, PL]) {
+    for (const s of PARAM_SPEC) {
+      const short = d.short[s.key]
+      assert(short, `short ${s.key}`)
+      assert([...short].length <= 12, `short ${s.key}: "${short}" is ${[...short].length} characters`)
+    }
+    for (const unit of Object.values(d.units)) assert([...unit].length <= 6, `unit "${unit}"`)
+  }
+})
