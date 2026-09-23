@@ -34,7 +34,11 @@ test('every preview number has a row: a short label and a description', () => {
     expect(row.help.length).toBeGreaterThan(0)
   }
   // Only the head width has an automatic value, and only that one's 0 is it.
-  expect(Object.entries(VIEW_ROWS).filter(([, row]) => row.auto === true).map(([key]) => key)).toEqual(['headWidth'])
+  expect(
+    Object.entries(VIEW_ROWS)
+      .filter(([, row]) => row.auto === true)
+      .map(([key]) => key),
+  ).toEqual(['headWidth'])
 })
 
 // The released chip lands on the width the automatic head draws: checked
@@ -42,7 +46,15 @@ test('every preview number has a row: a short label and a description', () => {
 // not to round, a head drawn at that width is the automatic head, point for
 // point, on both sides of the stroke where the rule changes (0.5).
 test.each([0.2, 0.3, 0.45, 0.5, 0.8])('the automatic head width at stroke %d is the one the engine draws', (stroke) => {
-  const piece = { id: 0, dir: 0, cells: [{ x: 1, y: 1 }, { x: 1, y: 2 }, { x: 1, y: 3 }] }
+  const piece = {
+    id: 0,
+    dir: 0,
+    cells: [
+      { x: 1, y: 1 },
+      { x: 1, y: 2 },
+      { x: 1, y: 3 },
+    ],
+  }
   const base = { cell: 100, pad: 0, width: stroke * 100, headHeight: 1 }
   const auto = pieceShape(piece, { ...base, headWidth: 0 })
   const stated = pieceShape(piece, { ...base, headWidth: autoHeadWidth(stroke, 1e-9, 10) })

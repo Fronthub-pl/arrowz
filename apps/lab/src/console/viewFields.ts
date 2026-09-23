@@ -59,7 +59,6 @@ export const VIEW_FLAGS: readonly {
   { flag: 'showPoints', label: 'showPoints' },
 ]
 
-
 /** The heading's entries for the fields that have help (spec R7). */
 export function viewHelpEntries(fields: readonly ViewField[], t: (key: PlainUiKey) => string): HelpEntry[] {
   return fields.flatMap((field) =>

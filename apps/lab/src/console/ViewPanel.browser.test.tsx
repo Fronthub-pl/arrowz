@@ -103,7 +103,10 @@ test('the point radius row shows the clamped value after commit, not what was ty
   useStore.setState((state) => ({ view: { ...state.view, showPoints: true } }))
   const screen = await render(<ViewPanel />)
   await screen.getByRole('button', { name: /^dot radius:/ }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'dot radius', exact: true }), String(POINT_RADIUS_RANGE.max + 9))
+  await userEvent.fill(
+    screen.getByRole('textbox', { name: 'dot radius', exact: true }),
+    String(POINT_RADIUS_RANGE.max + 9),
+  )
   await userEvent.keyboard('{Enter}')
   expect(view().pointRadius).toBe(POINT_RADIUS_RANGE.max)
   await expect
