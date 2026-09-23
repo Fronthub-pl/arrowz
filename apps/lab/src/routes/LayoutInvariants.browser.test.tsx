@@ -10,6 +10,7 @@ import { audit, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
 import { settleTransitions as settle } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
+import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
@@ -35,6 +36,14 @@ type State =
   | 'library-empty'
   | 'library-detail'
   | 'docs'
+  | 'solo'
+  | 'solo-sheet'
+  | 'sheet-settings'
+  | 'sheet-cli'
+  | 'sheet-report'
+  | 'library-sheet-cli'
+  | 'menu-open'
+  | 'more-open'
 const STATES: readonly State[] = [
   'board',
   'presets-open',
@@ -47,22 +56,363 @@ const STATES: readonly State[] = [
   'library-empty',
   'library-detail',
   'docs',
+  'solo',
 ]
+
+/** States that exist only in some bands, each run at its own sizes. */
+const BANDED: readonly (readonly [State, number, number])[] = [
+  ...(['sheet-settings', 'sheet-cli', 'sheet-report', 'library-sheet-cli', 'menu-open', 'solo-sheet'] as const).flatMap(
+    (s) =>
+      (
+        [
+          [600, 900],
+          [375, 812],
+        ] as const
+      ).map(([w, h]) => [s, w, h] as const),
+  ),
+  ...(
+    [
+      [1024, 768],
+      [924, 540],
+      [768, 1024],
+    ] as const
+  ).map(([w, h]) => ['more-open', w, h] as const),
+]
+
 const SIZES: readonly (readonly [number, number])[] = [
-  [1400, 900],
+  [1920, 1080],
+  [1440, 900],
   [1280, 800],
   [1024, 768],
-  [860, 900],
-  [420, 900],
+  [924, 540],
+  [768, 1024],
+  [600, 900],
+  [375, 812],
 ]
 
 /**
- * What fails today, by defect id (spec §2). A task that fixes a defect
- * deletes its entries here *first*, watches the case go red, then fixes it.
- * The comparison is exact, so an entry left behind after its fix is red too.
+ * What fails today, per invariant, keyed by `${state}@${w}x${h}` (a Polish
+ * case adds `:pl`; the two single cases below have their own keys). Each
+ * invariant carries the task that fixes it (PR 7). A task deletes *its*
+ * invariants from every list here first, watches the cases go red, then
+ * fixes them, and drops a key whose list is empty. The comparison is exact
+ * both ways, so an entry left behind after its fix is red too.
  */
-const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
-// Later regressions are listed here, keyed by `${state}@${w}x${h}`, with a trailing comment naming a defect id.
+const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
+  'board@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'board@924x540': [
+    'bar-row', // Task 9
+  ],
+  'board@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'board@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'board@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'presets-open@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'presets-open@924x540': [
+    'bar-row', // Task 9
+  ],
+  'presets-open@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'presets-open@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'presets-open@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'report-open@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'report-open@924x540': [
+    'bar-row', // Task 9
+  ],
+  'report-open@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'report-open@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'report-open@375x812': [
+    'board-width', // Task 10
+    'panel-overflow', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'settings-closed@1024x768': [
+    'bar-row', // Task 9
+  ],
+  'settings-closed@924x540': [
+    'bar-row', // Task 9
+  ],
+  'settings-closed@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'settings-closed@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'settings-closed@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'preview-palette@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'preview-palette@924x540': [
+    'bar-row', // Task 9
+  ],
+  'preview-palette@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'preview-palette@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'preview-palette@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'lengths-help-open@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'lengths-help-open@924x540': [
+    'bar-row', // Task 9
+  ],
+  'lengths-help-open@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'lengths-help-open@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'lengths-help-open@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'violations@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'violations@924x540': [
+    'bar-row', // Task 9
+  ],
+  'violations@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'violations@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'violations@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'simple@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'simple@924x540': [
+    'bar-row', // Task 9
+  ],
+  'simple@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'simple@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'simple@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-empty@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'library-empty@924x540': [
+    'bar-row', // Task 9
+  ],
+  'library-empty@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'library-empty@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-empty@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-detail@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'library-detail@924x540': [
+    'bar-row', // Task 9
+  ],
+  'library-detail@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'library-detail@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-detail@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'docs@600x900': [
+    'touch-target', // Task 11
+  ],
+  'docs@375x812': [
+    'touch-target', // Task 11
+  ],
+  'solo@600x900': [
+    'touch-target', // Task 11
+  ],
+  'solo@375x812': [
+    'touch-target', // Task 11
+  ],
+  'sheet-settings@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'sheet-settings@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'sheet-cli@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'sheet-cli@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'sheet-report@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'sheet-report@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-sheet-cli@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'library-sheet-cli@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'menu-open@600x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'menu-open@375x812': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'solo-sheet@600x900': [
+    'touch-target', // Task 11
+  ],
+  'solo-sheet@375x812': [
+    'touch-target', // Task 11
+  ],
+  'more-open@1024x768': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'more-open@924x540': [
+    'bar-row', // Task 9
+  ],
+  'more-open@768x1024': [
+    'bar-row', // Task 9
+  ],
+  'presets-open@420x700': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'board@420x900:pl': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'board@1024x768:pl': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'board@768x1024:pl': [
+    'bar-row', // Task 9
+  ],
+  'presets-open@924x540:pl': [
+    'bar-row', // Task 9
+  ],
+  'board@375x812:pl': [
+    'bar-clip', // Task 10
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+  'more-open@1024x768:pl': [
+    'bar-row', // Task 9
+    'board-width', // Task 9
+  ],
+  'huge-pl@420x900': [
+    'board-width', // Task 10
+    'sheet-bar', // Task 10
+    'touch-target', // Task 11
+  ],
+}
 
 beforeEach(() => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
@@ -80,13 +430,27 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** The store lists one 8×8 board and serves its file (the `library-*` detail states). */
+function stubStoredBoard() {
+  const stored = storedFixture(1)
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+    }
+    if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  return stored
+}
+
 async function arrange(state: State) {
   resetApp(state === 'simple' ? 'simple' : 'advanced')
   if (state === 'library-empty') {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('no store'))
     window.history.pushState({}, '', '/boards')
   }
-  if (state === 'library-detail') {
+  if (state === 'library-detail' || state === 'library-sheet-cli') {
     // The one board this fixture builds, listed under its own size: enough
     // for `useStoredBoard` (Workspace.tsx) to find the address's board in the
     // listing and fetch its file, the same round trip
@@ -94,20 +458,13 @@ async function arrange(state: State) {
     // drives through the real store URLs rather than by calling `showPreview`
     // directly — this is the open board's column reached the way a person
     // reaches it, not summoned by hand.
-    const stored = storedFixture(1)
-    vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
-      const url = String(input)
-      if (url.includes('/api/boards')) {
-        return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
-      }
-      if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
-      return Promise.resolve(new Response('{}', { status: 404 }))
-    })
+    const stored = stubStoredBoard()
     window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
   }
   if (state === 'docs') window.history.pushState({}, '', '/docs/cli')
   const screen = await render(<App />)
-  if (state !== 'library-empty' && state !== 'library-detail' && state !== 'docs') await loadRunDone()
+  if (state !== 'library-empty' && state !== 'library-detail' && state !== 'library-sheet-cli' && state !== 'docs')
+    await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
     if (state === 'report-open') s.ui.setReport(true)
@@ -126,8 +483,16 @@ async function arrange(state: State) {
       s.params.setMany({ wShort: 0.8, wMid: 0.8 })
       s.ui.raiseClamped(true)
     }
+    if (state === 'solo') s.ui.setSolo(true)
+    if (state === 'solo-sheet') {
+      s.ui.setSolo(true)
+      s.ui.setSheet('settings')
+    }
+    if (state === 'sheet-settings' || state === 'sheet-cli' || state === 'sheet-report')
+      s.ui.setSheet(state.slice(6) as Sheet)
+    if (state === 'menu-open') s.ui.setMenu(true)
   })
-  if (state === 'library-detail') {
+  if (state === 'library-detail' || state === 'library-sheet-cli') {
     // `useStoredBoard`'s fetch of the board file is asynchronous, so the
     // detail is not there the instant `render` returns — this is the wait
     // the task calls for, in place of `loadRunDone` (skipped above: this
@@ -135,6 +500,7 @@ async function arrange(state: State) {
     // load run).
     await expect.poll(() => screen.container.querySelector('.fw-bcol .fw-cmdfig')).not.toBeNull()
   }
+  if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
@@ -144,30 +510,46 @@ async function arrange(state: State) {
     await screen.getByRole('button', { name: /^preset/ }).click()
     await expect.poll(() => screen.container.querySelector('.fw-pp-panel:not([hidden])')).not.toBeNull()
   }
+  if (state === 'more-open') {
+    // A DOM click, not the locator's: until Task 9 the button is
+    // `display: none` (Task 7), and a locator click waits 40s for a visible
+    // element (measured in review: all four cases timed out).
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-more')?.click())
+    await expect.poll(() => screen.container.querySelector('.fw-more-pop.open')).not.toBeNull()
+  }
   return screen
+}
+
+/** Asserts the audit's failing invariants are exactly those `KNOWN_RED` records under `key`. */
+function expectKnownRed(key: string, findings: readonly { invariant: Invariant; detail: string }[]) {
+  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+  const expected = [...(KNOWN_RED[key] ?? [])].sort()
+  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual(expected)
+}
+
+async function matrixCase(state: State, w: number, h: number) {
+  await page.viewport(w, h)
+  const screen = await arrange(state)
+  await settle()
+  // `library-detail` keeps `board: true` (the default this excludes only
+  // 'library-empty' and 'docs' from): `BoardFrame.tsx` draws `.fw-board`
+  // on both tabs, and on this one it is the stored board `useStoredBoard`
+  // just fetched (`inLibrary ? preview : result`) — a real picture inside
+  // `.fw-boardwrap`, worth clipping the same way the lab's own board is.
+  // 'library-empty' and 'docs' have no board to check: the empty store
+  // never gets a preview, and the docs route hides the whole workspace.
+  const board = state !== 'library-empty' && state !== 'docs'
+  const findings = audit(screen.container, { board, solo: state === 'solo' || state === 'solo-sheet' })
+  expectKnownRed(`${state}@${w}x${h}`, findings)
 }
 
 test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const)))(
   'the %s state at %d×%d keeps every layout invariant',
-  async (state, w, h) => {
-    await page.viewport(w, h)
-    const screen = await arrange(state)
-    await settle()
-    // `library-detail` keeps `board: true` (the default this excludes only
-    // 'library-empty' and 'docs' from): `BoardFrame.tsx` draws `.fw-board`
-    // on both tabs, and on this one it is the stored board `useStoredBoard`
-    // just fetched (`inLibrary ? preview : result`) — a real picture inside
-    // `.fw-boardwrap`, worth clipping the same way the lab's own board is.
-    // 'library-empty' and 'docs' have no board to check: the empty store
-    // never gets a preview, and the docs route hides the whole workspace.
-    const board = state !== 'library-empty' && state !== 'docs'
-    const findings = audit(screen.container, { board })
-    const failing = [...new Set(findings.map((f) => f.invariant))].sort()
-    const expected = [...(KNOWN_RED[`${state}@${w}x${h}`] ?? [])].sort()
-    expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual(expected)
-  },
+  matrixCase,
   40_000,
 )
+
+test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
 // The matrix above does not pin the panel's `max-height`: at 420×900 its
 // seven levels in two columns (650px under a 171px top) fit without it. A
@@ -177,9 +559,7 @@ test('the presets-open state at 420×700 keeps every layout invariant', async ()
   await page.viewport(420, 700)
   const screen = await arrange('presets-open')
   await settle()
-  const findings = audit(screen.container, { board: true })
-  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
-  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+  expectKnownRed('presets-open@420x700', audit(screen.container, { board: true }))
 }, 40_000)
 
 // Review P8: the reconstruction's matrix above runs only in English, where
@@ -193,6 +573,11 @@ test('the presets-open state at 420×700 keeps every layout invariant', async ()
 const LANG_CASES: readonly (readonly [State, number, number])[] = [
   ['board', 420, 900],
   ['board', 1280, 800],
+  ['board', 1024, 768],
+  ['board', 768, 1024],
+  ['presets-open', 924, 540],
+  ['board', 375, 812],
+  ['more-open', 1024, 768],
 ]
 
 test.each(LANG_CASES)(
@@ -202,9 +587,7 @@ test.each(LANG_CASES)(
     const screen = await arrange(state)
     await act(async () => useStore.getState().lang.setLang('pl'))
     await settle()
-    const findings = audit(screen.container, { board: true })
-    const failing = [...new Set(findings.map((f) => f.invariant))].sort()
-    expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+    expectKnownRed(`${state}@${w}x${h}:pl`, audit(screen.container, { board: true }))
     // Live pass, ≤480px: `.dims` gives way (shell.css), and its own `.sep`
     // used to stay rendered with nothing left to separate — an orphaned "/"
     // ahead of the right group's `margin-left: auto` gap. `TopBar.browser.
@@ -244,9 +627,7 @@ test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every la
   const trigger = screen.getByRole('button', { name: /^preset/i })
   await expect.element(trigger).toMatchTextContent(/Ogromny szkielet z serpentynami/)
   await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
-  const findings = audit(screen.container, { board: true })
-  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
-  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+  expectKnownRed('huge-pl@420x900', audit(screen.container, { board: true }))
 }, 40_000)
 
 // Review P7's question in the lab's layout (handoff 2, PR 6): an unreachable

@@ -17,6 +17,13 @@ export type Invariant =
   | 'popover-fit'
   | 'drawer-fit'
   | 'settings-fit'
+  | 'board-width'
+  | 'bar-row'
+  | 'sheet-fit'
+  | 'sheet-bar'
+  | 'touch-target'
+  | 'top-scroll'
+  | 'hidden-box'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -91,6 +98,13 @@ function barClip(root: HTMLElement): Finding[] {
   const barRect = bar.getBoundingClientRect()
   const out: Finding[] = []
   for (const node of bar.querySelectorAll('button, a, select, input, [role="switch"], [role="radio"]')) {
+    // The preset panel and the open menu lie outside the bar by design;
+    // `popoverFit` reads them.
+    if (
+      node.closest('.fw-pp-panel') !== null ||
+      (node.closest('.right') !== null && root.querySelector('.fw.menu-open') !== null)
+    )
+      continue
     if (!rendered(node)) continue
     const r = node.getBoundingClientRect()
     if (
@@ -133,7 +147,7 @@ function panelOverflow(root: HTMLElement): Finding[] {
  */
 function popoverFit(root: HTMLElement): Finding[] {
   const out: Finding[] = []
-  for (const panel of root.querySelectorAll('.fw-pp-panel')) {
+  for (const panel of root.querySelectorAll('.fw-pp-panel, .fw-more-pop.open, .fw.menu-open .fw-top .right')) {
     if (!rendered(panel)) continue
     const r = panel.getBoundingClientRect()
     if (r.left < -EPS || r.top < -EPS || r.right > window.innerWidth + EPS || r.bottom > window.innerHeight + EPS) {
@@ -143,6 +157,14 @@ function popoverFit(root: HTMLElement): Finding[] {
         detail: `${label(panel)} ${l},${t} to ${rt},${b} in ${window.innerWidth}×${window.innerHeight}`,
       })
     }
+    // At XS, where the sheet bar is rendered, a popover stops above it (the
+    // preset list ran 32px under it, measured in review).
+    const sheetbar = root.querySelector('.fw-sheetbar')
+    if (sheetbar !== null && rendered(sheetbar) && r.bottom > sheetbar.getBoundingClientRect().top + EPS)
+      out.push({
+        invariant: 'popover-fit',
+        detail: `${label(panel)} bottom ${r.bottom.toFixed(0)} under the sheet bar`,
+      })
   }
   return out
 }
@@ -156,6 +178,8 @@ function popoverFit(root: HTMLElement): Finding[] {
  * edge by design, and the stage clips it (`overflow: hidden`, shell.css).
  */
 function drawerFit(root: HTMLElement): Finding[] {
+  // At XS the drawers are sheets over the viewport (`sheet-fit`).
+  if (window.innerWidth < 768) return []
   const out: Finding[] = []
   for (const drawer of root.querySelectorAll('.fw-drawer.open')) {
     const stage = drawer.closest('.fw-stage')
@@ -178,11 +202,13 @@ function drawerFit(root: HTMLElement): Finding[] {
  * The open settings drawer (handoff 2, PR 1) lies inside its stage and, from
  * 1024px up, beside the board rather than over it: the board's track gives way
  * by the drawer's width, so a knob change is always in sight. Below 1024 it
- * covers the board by design until the responsive layout (PR 7), and only the
- * stage bound is read. Open only: closed, it is translated all but its handle
- * past the stage's left edge, which clips it.
+ * lies over the board (S), and only the stage bound is read. Open only:
+ * closed, it is translated all but its handle past the stage's left edge,
+ * which clips it.
  */
 function settingsFit(root: HTMLElement): Finding[] {
+  // At XS the drawers are sheets over the viewport (`sheet-fit`).
+  if (window.innerWidth < 768) return []
   const out: Finding[] = []
   for (const drawer of root.querySelectorAll('.fw-ldrawer.open')) {
     const stage = drawer.closest('.fw-stage')
@@ -247,7 +273,115 @@ function lowContrast(root: HTMLElement): Finding[] {
   return out
 }
 
-export function audit(root: HTMLElement, { board }: { board: boolean }): Finding[] {
+/**
+ * The board keeps a usable width (handoff 2, PR 7): at least 320px from 768
+ * up, whatever the drawer does, and edge to edge on a phone (the package
+ * measured 359 at 375). Solo is its own case: the board takes the panel.
+ */
+function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
+  const board = root.querySelector('.fw-board')
+  if (board === null || !rendered(board) || solo) return []
+  const w = board.getBoundingClientRect().width
+  const floor = window.innerWidth >= 768 ? 320 : window.innerWidth - 16
+  return w + EPS < floor ? [{ invariant: 'board-width', detail: `board ${w.toFixed(0)}px < ${floor}` }] : []
+}
+
+/** At M and S the right column is a bar under the board, one or two lines tall. */
+function barRow(root: HTMLElement, solo: boolean): Finding[] {
+  if (solo || window.innerWidth < 768 || window.innerWidth >= 1280) return []
+  const wrap = root.querySelector('.fw-stage > .fw-boardwrap')
+  const bars = [...root.querySelectorAll('.fw-stage > .fw-run-col')].filter(rendered)
+  if (wrap === null || bars.length === 0) return []
+  const out: Finding[] = []
+  const bottom = wrap.getBoundingClientRect().bottom
+  for (const bar of bars) {
+    const r = bar.getBoundingClientRect()
+    if (r.top < bottom - EPS)
+      out.push({ invariant: 'bar-row', detail: `${label(bar)} top ${r.top.toFixed(0)} < board ${bottom.toFixed(0)}` })
+    if (r.height > 104 + EPS) out.push({ invariant: 'bar-row', detail: `${label(bar)} ${r.height.toFixed(0)}px tall` })
+    // M: an open drawer pushes the bar's content as it pushes the board, so
+    // nothing in the bar lies under the drawer. S lets the drawer cover both.
+    const drawer = root.querySelector('.fw-ldrawer.open')
+    if (window.innerWidth >= 1024 && drawer !== null && rendered(drawer)) {
+      const start = r.left + Number.parseFloat(getComputedStyle(bar).paddingLeft)
+      const edge = drawer.getBoundingClientRect().right
+      if (start < edge - EPS)
+        out.push({
+          invariant: 'bar-row',
+          detail: `${label(bar)} content at x=${start.toFixed(0)}, under the drawer to x=${edge.toFixed(0)}`,
+        })
+    }
+  }
+  return out
+}
+
+/**
+ * At XS the sheet bar is on screen on the workspace (unless solo) and a sheet
+ * lies inside the viewport, above the bar; from 768 up there is no sheet bar.
+ */
+function sheets(root: HTMLElement, solo: boolean): Finding[] {
+  const out: Finding[] = []
+  const bar = root.querySelector('.fw-sheetbar')
+  const onWorkspace = bar !== null && bar.closest('main')?.hidden === false
+  const phone = window.innerWidth < 768
+  const shown = bar !== null && rendered(bar)
+  if (onWorkspace && shown !== (phone && !solo))
+    out.push({ invariant: 'sheet-bar', detail: `sheet bar ${shown ? 'shown' : 'hidden'} at ${window.innerWidth}` })
+  if (!phone || bar === null || !shown) return out
+  const top = bar.getBoundingClientRect().top
+  for (const sheet of root.querySelectorAll('.fw-ldrawer, .fw-drawer, .fw-stage > .fw-run-col')) {
+    if (!rendered(sheet)) continue
+    const r = sheet.getBoundingClientRect()
+    if (r.left < -EPS || r.right > window.innerWidth + EPS || r.top < -EPS || r.bottom > top + EPS)
+      out.push({
+        invariant: 'sheet-fit',
+        detail: `${label(sheet)} ${r.top.toFixed(0)}..${r.bottom.toFixed(0)} over bar ${top.toFixed(0)}`,
+      })
+  }
+  return out
+}
+
+/**
+ * At XS every control a thumb reaches in the shell is 44px tall to the
+ * finger: its box, or its `::before` where the drawing is smaller (the
+ * switch, the menu chip). The knob rows' `?` and chips are 32 by the handoff
+ * and are pinned in touch.browser.test.tsx instead.
+ */
+function touchTargets(root: HTMLElement): Finding[] {
+  if (window.innerWidth >= 768) return []
+  const out: Finding[] = []
+  const scope = '.fw-sheetbar, .fw-top, .fw-tabrow, .fw-presets, .fw-stage > .fw-run-col'
+  for (const node of root.querySelectorAll('button, select, a[href], [role="switch"]')) {
+    if (node.closest(scope) === null || !rendered(node)) continue
+    const own = node.getBoundingClientRect().height
+    const before = Number.parseFloat(getComputedStyle(node, '::before').height)
+    const hit = Math.max(own, Number.isFinite(before) ? before : 0)
+    if (hit + EPS < 44)
+      out.push({
+        invariant: 'touch-target',
+        detail: `${label(node)} "${node.textContent?.trim() ?? ''}" ${hit.toFixed(0)}px`,
+      })
+  }
+  return out
+}
+
+/**
+ * An element carrying `hidden` has no box: a `display` rule on it would undo
+ * the attribute (the package's own XS preset panel did). Spec §3.
+ */
+function hiddenBox(root: HTMLElement): Finding[] {
+  return [...root.querySelectorAll('[hidden]')]
+    .filter((el) => el.closest('main[hidden]') === null && rendered(el))
+    .map((el) => ({ invariant: 'hidden-box' as const, detail: label(el) }))
+}
+
+/** Opening a popover in the top bar never scrolls it (the low window's presets). */
+function topScroll(root: HTMLElement): Finding[] {
+  const bar = root.querySelector('.fw-top')
+  return bar !== null && bar.scrollTop !== 0 ? [{ invariant: 'top-scroll', detail: `scrollTop ${bar.scrollTop}` }] : []
+}
+
+export function audit(root: HTMLElement, { board, solo = false }: { board: boolean; solo?: boolean }): Finding[] {
   return [
     ...scroll(),
     ...(board ? boardClip(root) : []),
@@ -260,5 +394,11 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),
+    ...boardWidth(root, solo),
+    ...barRow(root, solo),
+    ...sheets(root, solo),
+    ...touchTargets(root),
+    ...topScroll(root),
+    ...hiddenBox(root),
   ]
 }
