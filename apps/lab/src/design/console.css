@@ -1448,6 +1448,17 @@
    column, so it keeps the track's x and width at every panel width. */
 .kv-g .ln > .kv-ends {
   grid-column: 4;
+  gap: 8px;
+}
+/* A track narrower than both words side by side (about 97px at XS) takes
+   the second word down a line, still at its own end, rather than letting the
+   pair run past the track into `.kv`'s clip. */
+.kv-ends {
+  flex-wrap: wrap;
+}
+.kv-ends > span:last-child {
+  margin-left: auto;
+  text-align: right;
 }
 /* The two conditions that drop the bound tracks (the narrow panel's
    container query and XS) leave the control in the third column. */

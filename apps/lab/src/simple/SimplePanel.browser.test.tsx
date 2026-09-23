@@ -173,6 +173,34 @@ describe('SimplePanel', () => {
     expect(low?.top ?? 0).toBeGreaterThanOrEqual(lane.bottom - 1)
   })
 
+  // At XS the track is about 97px, narrower than two end words side by side:
+  // they wrap inside it rather than run past it, where `.kv` clips them.
+  it('keeps the end words inside a narrow track, in English and Polish', async () => {
+    await page.viewport(375, 812)
+    const screen = await render(
+      <div style={{ width: '340px', containerType: 'inline-size' }}>
+        <SimplePanel control={stub().control} />
+      </div>,
+    )
+    for (const lang of ['en', 'pl'] as const) {
+      await act(async () => state().lang.setLang(lang))
+      for (const slider of ['lengths', 'shape']) {
+        const lane = screen.container.querySelector(`#simple-${slider}`)?.closest('.kv-track')?.getBoundingClientRect()
+        const ends = screen.container.querySelector(`#simple-${slider}-ends`)
+        if (lane === undefined || !(ends instanceof HTMLElement)) throw new Error(`no ${slider} row`)
+        expect(lane.width, 'the case needs a narrow track').toBeLessThan(120)
+        for (const word of ends.children) {
+          const box = word.getBoundingClientRect()
+          expect(box.left, `${lang}: ${word.textContent}`).toBeGreaterThanOrEqual(lane.left - 1)
+          expect(box.right, `${lang}: ${word.textContent}`).toBeLessThanOrEqual(lane.right + 1)
+        }
+        const row = ends.closest('.kv-row')
+        if (!(row instanceof HTMLElement)) throw new Error('no row')
+        expect(row.scrollWidth, `${lang}: ${slider}`).toBeLessThanOrEqual(row.clientWidth)
+      }
+    }
+  })
+
   // Spec §2.2: the segmented button is immediate, and the knobs are rewritten
   // before the run reads them.
   it('runs at once when the skeleton is switched, on the knobs it gives', async () => {
