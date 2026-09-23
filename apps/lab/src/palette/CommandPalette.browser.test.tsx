@@ -142,21 +142,23 @@ describe('the palette dialog', () => {
     expect(useStore.getState().ui.palette).toBe(true)
   })
 
-  it('names all six hotkeys on the lab, where every one of them is bound', async () => {
+  it('names all seven hotkeys on the lab, where every one of them is bound', async () => {
     const screen = await mount()
     expect(footer(screen)).toContain('generate')
     expect(footer(screen)).toContain('seed')
     expect(footer(screen)).toContain('report')
-    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(6)
+    expect(footer(screen)).toContain('settings')
+    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(7)
   })
 
-  // `useReportKey` is bound on the lab tab only — the saved boards have no
-  // drawer — so there the footer keeps `g` and `[ ]` and drops `r`.
-  it('drops the report hint on the saved boards, where r is not bound', async () => {
+  // `useDrawerKeys` is bound on the lab tab only — the saved boards have no
+  // drawers yet — so there the footer keeps `g` and `[ ]` and drops `r` and `s`.
+  it('drops the drawer hints on the saved boards, where r and s are not bound', async () => {
     const screen = await mount('/boards')
     expect(footer(screen)).toContain('generate')
     expect(footer(screen)).toContain('seed')
     expect(footer(screen)).not.toContain('report')
+    expect(footer(screen)).not.toContain('settings')
     expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(5)
   })
 
@@ -170,6 +172,7 @@ describe('the palette dialog', () => {
     expect(footer(screen)).not.toContain('generate')
     expect(footer(screen)).not.toContain('seed')
     expect(footer(screen)).not.toContain('report')
+    expect(footer(screen)).not.toContain('settings')
     expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(3)
   })
 

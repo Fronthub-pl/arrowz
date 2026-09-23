@@ -1,51 +1,100 @@
-import { type ReactElement, useLayoutEffect, useRef } from 'react'
+import { type ReactElement, type ReactNode, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { REPORT_ID, ReportPanel } from '../report/ReportPanel'
+import type { WorkspaceTab } from '../routes/Workspace'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
 
-/**
- * 70px + 1fr + the report's handle: the mock's run rail, the board, and the
- * report as a drawer on the stage's right edge (spec §4.1). The rail is empty
- * until the run filmstrip fills it — still undelivered, row 7 of the lab
- * spec's §10; the column stays, so the board's width does not move when it
- * arrives. The drawer is toggled by its class, never remounted, or the slide
- * would not animate; closed, the report is `visibility: hidden` (shell.css).
- */
-export function Stage(): ReactElement {
-  const dict = useDictionary()
-  const open = useStore((state) => state.ui.report)
-  const toggle = useStore((state) => state.ui.toggleReport)
-  const handle = useRef<HTMLButtonElement>(null)
+/** The console inside the settings drawer, which the drawer's handle controls. */
+export const SETTINGS_ID = 'settings-panel'
 
-  // A focus inside the report would fall to <body> once the report turns
-  // hidden; it moves to the handle, which is how the report comes back — the
-  // pattern BoardFrame.tsx uses for solo.
+/**
+ * A focus inside a drawer that is closing would fall to <body> once the drawer
+ * turns hidden; it moves to the handle, which is how the drawer comes back —
+ * the pattern BoardFrame.tsx uses for solo.
+ */
+function useFocusBackToHandle(open: boolean, panelId: string) {
+  const handle = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
     const button = handle.current
     if (open || button === null) return
-    const report = document.getElementById(REPORT_ID)
+    const panel = document.getElementById(panelId)
     const active = document.activeElement
-    if (report !== null && active !== null && report.contains(active)) button.focus()
-  }, [open])
+    if (panel !== null && active !== null && panel.contains(active)) button.focus()
+  }, [open, panelId])
+  return handle
+}
+
+/**
+ * Four tracks on the lab (handoff 2, PR 1): the settings drawer's handle, the
+ * board, the run column and the report's handle. Both drawers are toggled by
+ * their class, never remounted, or the slide would not animate; closed, their
+ * contents are `visibility: hidden` (shell.css). The settings drawer does not
+ * cover the board: open, it adds `ls-open`, which pads the board's track by
+ * the drawer's width, so a knob change is always in sight.
+ *
+ * The saved boards keep the old `.fw-runs` column until they move into the
+ * lab's layout (PR 6). It is the same `div` in the same first slot as the
+ * drawer, and the run column is the third child on both tabs (hidden on the
+ * saved boards by class), so `BoardFrame` keeps its node — that is what keeps
+ * `<arrowz-board>`'s GL context alive across the tabs.
+ */
+export function Stage({
+  face,
+  settings,
+  run,
+}: {
+  face: WorkspaceTab
+  settings: ReactNode
+  run: ReactNode
+}): ReactElement {
+  const dict = useDictionary()
+  const lab = face === 'lab'
+  const reportOpen = useStore((state) => state.ui.report)
+  const toggleReport = useStore((state) => state.ui.toggleReport)
+  const settingsOpen = useStore((state) => state.ui.settings)
+  const toggleSettings = useStore((state) => state.ui.toggleSettings)
+  const reportHandle = useFocusBackToHandle(reportOpen, REPORT_ID)
+  const settingsHandle = useFocusBackToHandle(settingsOpen, SETTINGS_ID)
 
   return (
-    <div className="fw-stage">
-      <div className="fw-runs" />
+    <div className={lab && settingsOpen ? 'fw-stage ls-open' : 'fw-stage'}>
+      {lab ? (
+        <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
+          {settings}
+          <button
+            ref={settingsHandle}
+            type="button"
+            className="fw-drawer-handle"
+            aria-expanded={settingsOpen}
+            aria-controls={SETTINGS_ID}
+            aria-keyshortcuts="S"
+            onClick={toggleSettings}
+          >
+            <span className="t">{dict.t('settingsHandle')}</span>
+            <span className="c" aria-hidden="true">
+              {settingsOpen ? '◀' : '▶'}
+            </span>
+          </button>
+        </div>
+      ) : (
+        <div className="fw-runs" />
+      )}
       <BoardFrame />
-      <div className={open ? 'fw-drawer open' : 'fw-drawer'}>
+      {run}
+      <div className={reportOpen ? 'fw-drawer open' : 'fw-drawer'}>
         <button
-          ref={handle}
+          ref={reportHandle}
           type="button"
           className="fw-drawer-handle"
-          aria-expanded={open}
+          aria-expanded={reportOpen}
           aria-controls={REPORT_ID}
           aria-keyshortcuts="R"
-          onClick={toggle}
+          onClick={toggleReport}
         >
           <span className="t">{dict.t('reportHandle')}</span>
           <span className="c" aria-hidden="true">
-            {open ? '▶' : '◀'}
+            {reportOpen ? '▶' : '◀'}
           </span>
         </button>
         <ReportPanel />

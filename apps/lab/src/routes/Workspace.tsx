@@ -71,10 +71,16 @@ export function Workspace({
               siblings, and a sibling that vanishes shifts `Stage` — remounting
               the element this whole arrangement exists to keep (Ruling 6). */}
           {lab && !simple ? <PresetStrip control={control} /> : null}
-          <Stage />
-          <Console control={control} face={tab}>
-            <RunColumn control={control} goRef={goRef} abortRef={abortRef} />
-          </Console>
+          {/* The run column is the stage's on both tabs, hidden by class on
+              the saved boards, so a carve in flight keeps its node and refs
+              (Ruling 1). The console is the settings drawer's on the lab and
+              stays under the stage on the saved boards until PR 6. */}
+          <Stage
+            face={tab}
+            settings={lab ? <Console control={control} face={tab} /> : null}
+            run={<RunColumn control={control} goRef={goRef} abortRef={abortRef} />}
+          />
+          {lab ? null : <Console control={control} face={tab} />}
           {lab ? <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} /> : null}
           {lab ? <Violations /> : null}
         </div>

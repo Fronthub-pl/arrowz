@@ -19,10 +19,12 @@ function rect(container: HTMLElement, selector: string): DOMRect {
   return found.getBoundingClientRect()
 }
 
-// Spec §4.1: closed, the report is its 28px handle in the stage's third track
+// Spec §4.1: closed, the report is its 28px handle in the stage's last track
 // and nothing more — at 860 as at 1400, where it used to take a row under the
 // board or a third of the stage beside it. The report itself is hidden, out of
-// the tab order and the accessibility tree.
+// the tab order and the accessibility tree. Since handoff 2, PR 1, the run
+// column sits between the board and the handle, and the settings drawer's
+// handle is the stage's other `.fw-drawer-handle`, hence the child selector.
 test.each([
   [860, 900, 'advanced'],
   [860, 900, 'simple'],
@@ -35,12 +37,15 @@ test.each([
     await loadRunDone()
     const stage = rect(screen.container, '.fw-stage')
     const wrap = rect(screen.container, '.fw-boardwrap')
-    const handle = rect(screen.container, '.fw-drawer-handle')
+    const handle = rect(screen.container, '.fw-drawer > .fw-drawer-handle')
+    const column = rect(screen.container, '.fw-stage > .fw-run-col')
     expect(handle.width).toBeCloseTo(28, 0)
     expect(handle.right).toBeCloseTo(stage.right, 0)
     expect(handle.height).toBeCloseTo(stage.height, 0)
-    // The board's track ends at the handle's track: 28px plus the 1px gap.
-    expect(stage.right - wrap.right).toBeCloseTo(29, 0)
+    // The run column's track ends at the handle's: 28px plus the 1px gap, and
+    // the board's ends at the column's, one gap before it.
+    expect(stage.right - column.right).toBeCloseTo(29, 0)
+    expect(column.left - wrap.right).toBeCloseTo(1, 0)
     expect(wrap.height).toBeCloseTo(stage.height, 0)
     const report = screen.container.querySelector('.fw-report')
     expect(report?.checkVisibility({ visibilityProperty: true })).toBe(false)
@@ -100,12 +105,11 @@ test('closing the drawer keeps the report on screen for the slide, then hides it
 }, 40_000)
 
 // The defect PR #67's browser pass found (PR 4b, Ruling 1): a figure shrunk
-// below its content let `.fw-cmd` paint behind Generate. Today the run
-// column's figure grows, `flex: 1 1 auto` (spec §5.2, run.css), taking every
-// pixel the column has left, and keeps its floor (`min-height: calc(1lh + 6px
-// + 58px)`); a longer command scrolls inside the box instead of growing it.
-// So the box stays above Generate, and Generate moves with the column's height,
-// never with the command's length.
+// below its content let `.fw-cmd` paint behind Generate. Beside the board
+// (handoff 2, PR 1) the figure and the command are `flex: none` (run.css):
+// the box shows the whole command, a longer one pushes Generate down, and the
+// column scrolls rather than the box. So the box still never paints over
+// Generate, and nothing of the command is out of the box's sight.
 const COMMAND_BOX_SIZES = [
   [860, 900, 'advanced'],
   [860, 900, 'simple'],
@@ -113,7 +117,7 @@ const COMMAND_BOX_SIZES = [
 ] as const
 
 test.each(COMMAND_BOX_SIZES)(
-  'at %i×%i (%s) the command box paints nothing over Generate, and Generate does not follow the command',
+  'at %i×%i (%s) the command box paints nothing over Generate and shows the whole command',
   async (width, height, mode) => {
     await page.viewport(width, height)
     const screen = await mountApp(mode)
@@ -137,10 +141,15 @@ test.each(COMMAND_BOX_SIZES)(
       }),
     )
     expect(box().bottom).toBeLessThanOrEqual(go().top)
-    expect(go().top).toBe(goTop)
+    // The longer command took more lines, so Generate went down with it — the
+    // proof the box grew rather than scrolled.
+    expect(go().top).toBeGreaterThan(goTop)
     const pre = screen.container.querySelector('.fw-cmd')
     if (pre === null) throw new Error('the command box is not on the page')
-    expect(getComputedStyle(pre).overflowY).not.toBe('hidden')
+    expect(pre.scrollHeight).toBeLessThanOrEqual(pre.clientHeight + 1)
+    const column = screen.container.querySelector('.fw-stage > .fw-run-col')
+    if (column === null) throw new Error('the run column is not in the stage')
+    expect(getComputedStyle(column).overflowY).toBe('auto')
   },
   40_000,
 )
@@ -488,11 +497,14 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   expect(useStore.getState().params.values.seed).toBe(seed)
 }, 40_000)
 
-// Spec §5.1: the run column is about as wide as the report drawer, so the
-// lab's right edge reads as one column. 22vw at 1400 is 308, under the 20rem
-// floor; at 1920 it is 422.4; at 2560 the 28rem cap holds.
+// Handoff 2, PR 1: the run column is the stage's third track, clamp(16rem,
+// 22vw, 28rem). 22vw at 1400 is 308, above the 16rem floor; at 1920 it is
+// 422.4; at 2560 the 28rem cap holds. Below 1280 it is 16rem, at 900 and
+// under 14rem.
 test.each([
-  [1400, 900, 320],
+  [860, 900, 224],
+  [1024, 768, 256],
+  [1400, 900, 308],
   [1920, 1080, 422.4],
   [2560, 1200, 448],
 ] as const)(
@@ -665,4 +677,131 @@ test('the lab scrolls with thin scrollbars in the border colour', async () => {
   const style = getComputedStyle(knobs)
   expect(style.scrollbarWidth).toBe('thin')
   expect(style.scrollbarColor).toBe('rgb(58, 62, 71) rgba(0, 0, 0, 0)')
+}, 40_000)
+
+const settings = () => useStore.getState().ui.settings
+
+// Handoff 2, PR 1: `s` and `S` toggle the settings drawer under the guard `r`
+// uses; each refusal is followed by the same event without the thing refused.
+test('s toggles the settings, and a modifier, a repeat or a field does nothing', async () => {
+  await page.viewport(1400, 900)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  expect(settings()).toBe(true)
+  await userEvent.keyboard('s')
+  expect(settings()).toBe(false)
+  await userEvent.keyboard('S')
+  expect(settings()).toBe(true)
+  for (const modifier of [{ ctrlKey: true }, { metaKey: true }, { altKey: true }, { repeat: true }]) {
+    press(document.body, { key: 's', ...modifier })
+    expect(settings(), JSON.stringify(modifier)).toBe(true)
+  }
+  press(document.body, { key: 's' })
+  expect(settings()).toBe(false)
+  press(document.body, { key: 's' })
+  expect(settings()).toBe(true)
+  await screen.getByRole('button', { name: /^seed:/ }).click()
+  await userEvent.keyboard('s')
+  expect(settings()).toBe(true)
+}, 40_000)
+
+// One layer per press, the report before the settings: the report lies over
+// the board, the settings drawer beside it. A third press has nothing left.
+test('Escape closes the report first, then the settings, one per press', async () => {
+  await page.viewport(1400, 900)
+  await mountApp('advanced')
+  await loadRunDone()
+  await userEvent.keyboard('r')
+  expect(report()).toBe(true)
+  expect(settings()).toBe(true)
+  await userEvent.keyboard('{Escape}')
+  expect(report()).toBe(false)
+  expect(settings(), 'the first press').toBe(true)
+  await userEvent.keyboard('{Escape}')
+  expect(settings(), 'the second press').toBe(false)
+  await userEvent.keyboard('{Escape}')
+  expect(report()).toBe(false)
+  expect(settings()).toBe(false)
+}, 40_000)
+
+// Bound where `r` is: the lab tab only. The saved boards keep their old
+// console under the stage until PR 6, so a key there would flip a drawer
+// nobody sees.
+test('s does nothing on the docs route or on the saved boards', async () => {
+  await page.viewport(1400, 900)
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  try {
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
+    await expect
+      .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
+      .toBe(true)
+    await userEvent.keyboard('s')
+    expect(settings(), 's on the docs').toBe(true)
+    await screen.getByRole('tab', { name: 'Saved boards', exact: true }).click()
+    await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
+    await userEvent.keyboard('s')
+    expect(settings(), 's on the saved boards').toBe(true)
+    expect(screen.container.querySelector('.fw-ldrawer')).toBeNull()
+  } finally {
+    vi.restoreAllMocks()
+  }
+}, 40_000)
+
+// Handoff 2, PR 1: unlike the report, the open settings drawer does not cover
+// the board — from 1024px up the board's track gives way by the drawer's width
+// — and closed it is its 28px handle on the stage's left edge, the console
+// hidden once the slide is over.
+test.each([
+  [1024, 768],
+  [1400, 900],
+  [1920, 1080],
+] as const)(
+  'at %i×%i the open settings push the board aside, and closed leave only their handle',
+  async (w, h) => {
+    await page.viewport(w, h)
+    const screen = await mountApp('advanced')
+    await loadRunDone()
+    await settleTransitions()
+    const drawer = rect(screen.container, '.fw-ldrawer')
+    const board = rect(screen.container, '.fw-board')
+    expect(board.left).toBeGreaterThanOrEqual(drawer.right)
+    expect(board.width).toBeGreaterThan(0)
+    const open = board.width
+
+    await screen.getByRole('button', { name: 'settings', exact: true }).click()
+    await settleTransitions()
+    const stage = rect(screen.container, '.fw-stage')
+    const handle = rect(screen.container, '.fw-ldrawer > .fw-drawer-handle')
+    expect(handle.left).toBeCloseTo(stage.left, 0)
+    expect(handle.width).toBeCloseTo(28, 0)
+    expect(rect(screen.container, '.fw-board').width).toBeGreaterThan(open)
+    const panel = screen.container.querySelector('.fw-ldrawer > .fw-console')
+    expect(panel?.checkVisibility({ visibilityProperty: true })).toBe(false)
+  },
+  40_000,
+)
+
+// The stopgap below 1024px (console.css), until PR 7 moves the run column
+// under the board: the open drawer lies over the board, which keeps its width,
+// and at a phone's width over the run column too — closing the drawer is what
+// uncovers Generate.
+test('at 414×896 the open settings lie over the run column, and closing them uncovers Generate', async () => {
+  await page.viewport(414, 896)
+  const screen = await mountApp('advanced')
+  await loadRunDone()
+  await settleTransitions()
+  const wrap = screen.container.querySelector('.fw-boardwrap')
+  if (wrap === null) throw new Error('no board track')
+  expect(getComputedStyle(wrap).paddingLeft).toBe('16px')
+  const go = screen.getByRole('button', { name: 'Generate' }).element()
+  const at = () => {
+    const r = go.getBoundingClientRect()
+    return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+  }
+  expect(at()?.closest('.fw-ldrawer')).not.toBeNull()
+  await userEvent.keyboard('s')
+  await settleTransitions()
+  expect(at()).toBe(go)
 }, 40_000)

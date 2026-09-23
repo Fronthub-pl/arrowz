@@ -8,11 +8,10 @@ import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
 
 /**
- * The mock's third console track (`.fw-run-col`). It is a child of `Console`
- * rather than a sibling: `Console` keeps `children` at the third position of
- * its own grid in both views and swaps only the first two — the rail's slot
- * becomes `null` and the panel becomes `SimplePanel` — so the same node
- * reaches both interiors (`Console.tsx`'s own comment; PR 4a, Ruling 7).
+ * The stage's third track (`.fw-run-col`), right of the board (handoff 2,
+ * PR 1). It used to be the console's third child; it is the stage's now, in
+ * the same slot on every face and in both views, so the simple view and the
+ * saved boards swap what is around it and never its node (PR 4a, Ruling 7).
  *
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a

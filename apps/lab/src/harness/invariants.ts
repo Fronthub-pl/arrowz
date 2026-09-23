@@ -16,6 +16,7 @@ export type Invariant =
   | 'panel-overflow'
   | 'popover-fit'
   | 'drawer-fit'
+  | 'settings-fit'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -148,7 +149,9 @@ function popoverFit(root: HTMLElement): Finding[] {
 
 /**
  * An open drawer lies over the board (spec §4.1): inside its stage, and right
- * of the run rail, which `max-width: calc(100% - 70px)` keeps uncovered — never
+ * of the saved boards' run rail, which `max-width: calc(100% - 70px)` keeps
+ * uncovered (the lab has no rail since handoff 2, PR 1: there the stage's own
+ * left edge is the bound) — never
  * past the stage's edge onto the console. The stage's own box alone would not
  * see that rule go: at 420×900 the stage is 420px and the drawer without it
  * 380px, inside the stage and 30px over the rail (measured). Open only:
@@ -170,6 +173,38 @@ function drawerFit(root: HTMLElement): Finding[] {
         invariant: 'drawer-fit',
         detail: `${label(drawer)} ${l},${t} to ${r},${b} outside ${label(stage)} right of x=${left.toFixed(0)}`,
       })
+    }
+  }
+  return out
+}
+
+/**
+ * The open settings drawer (handoff 2, PR 1) lies inside its stage and, from
+ * 1024px up, beside the board rather than over it: the board's track gives way
+ * by the drawer's width, so a knob change is always in sight. Below 1024 it
+ * covers the board by design until the responsive layout (PR 7), and only the
+ * stage bound is read. Open only: closed, it is translated all but its handle
+ * past the stage's left edge, which clips it.
+ */
+function settingsFit(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const drawer of root.querySelectorAll('.fw-ldrawer.open')) {
+    const stage = drawer.closest('.fw-stage')
+    if (stage === null || !rendered(drawer)) continue
+    const d = drawer.getBoundingClientRect()
+    const s = stage.getBoundingClientRect()
+    if (d.left < s.left - EPS || d.right > s.right + EPS || d.top < s.top - EPS || d.bottom > s.bottom + EPS) {
+      const [l, t, r, b] = [d.left, d.top, d.right, d.bottom].map((v) => v.toFixed(0))
+      out.push({ invariant: 'settings-fit', detail: `${label(drawer)} ${l},${t} to ${r},${b} outside ${label(stage)}` })
+    }
+    const board = stage.querySelector('.fw-board')
+    if (window.innerWidth >= 1024 && board !== null && rendered(board)) {
+      const left = board.getBoundingClientRect().left
+      if (left < d.right - EPS)
+        out.push({
+          invariant: 'settings-fit',
+          detail: `${label(board)} starts at x=${left.toFixed(0)}, under ${label(drawer)} to x=${d.right.toFixed(0)}`,
+        })
     }
   }
   return out
@@ -225,6 +260,7 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...panelOverflow(root),
     ...popoverFit(root),
     ...drawerFit(root),
+    ...settingsFit(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

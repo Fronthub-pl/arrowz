@@ -64,7 +64,7 @@ function useStoreSave() {
 }
 
 /**
- * The guard `f`, `g`, `[`, `]` and `r` all share (and the drawer's Escape): nothing with Ctrl, ⌘ or Alt
+ * The guard `f`, `g`, `[`, `]`, `r` and `s` all share (and the drawers' Escape): nothing with Ctrl, ⌘ or Alt
  * (those belong to the platform), no key repeat, nothing typed into a field
  * or an editable region.
  *
@@ -97,7 +97,7 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
  * Ruling 9). The listener lives wherever the stage does — the lab tab and the
  * saved boards — and nowhere else. Escape is not handled here: the command
  * palette owns its own, closing on it in its own key handler
- * (`CommandPalette.tsx`), and `useReportKey` owns the drawer's.
+ * (`CommandPalette.tsx`), and `useDrawerKeys` owns the drawers'.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
@@ -139,16 +139,21 @@ function usePaletteKey() {
 }
 
 /**
- * The report drawer's keys (spec §4.3): `r` / `R` toggles it, Escape closes it,
- * both refused by `isHotkeyRefused` like `f`. Bound on the lab tab only, not
- * wherever the stage is: the saved boards have no drawer (console.css,
- * `.fw-lab.library .fw-drawer`), and a key there would flip a drawer nobody
- * sees — `ui.report` is left alone, so the lab shows it as it was left.
- * Escape reaches this listener last: the palette consumes its own Escape in
- * its React handler and the preset panel in a capture-phase listener, and a
- * consumed event is refused here as `defaultPrevented`.
+ * The two drawers' keys (spec §4.3, handoff 2 PR 1): `r` / `R` toggles the
+ * report and `s` / `S` the settings, all refused by `isHotkeyRefused` like `f`.
+ * Bound on the lab tab only, not wherever the stage is: the saved boards have
+ * neither drawer yet (console.css, `.fw-lab.library .fw-drawer`), and a key
+ * there would flip a drawer nobody sees — the state is left alone, so the lab
+ * shows each drawer as it was left.
+ *
+ * Escape closes one layer per press, the report before the settings: the
+ * report lies over the board, the settings drawer beside it. One listener
+ * decides both, so a single press cannot close the two. Escape reaches this
+ * listener last: the palette consumes its own Escape in its React handler and
+ * the preset panel in a capture-phase listener, and a consumed event is
+ * refused here as `defaultPrevented`.
  */
-function useReportKey(onLab: boolean) {
+function useDrawerKeys(onLab: boolean) {
   useEffect(() => {
     if (!onLab) return
     const onKey = (event: KeyboardEvent) => {
@@ -156,8 +161,11 @@ function useReportKey(onLab: boolean) {
       const ui = useStore.getState().ui
       if (event.key === 'Escape') {
         if (ui.report) ui.setReport(false)
+        else if (ui.settings) ui.setSettings(false)
       } else if (event.key === 'r' || event.key === 'R') {
         ui.toggleReport()
+      } else if (event.key === 's' || event.key === 'S') {
+        ui.toggleSettings()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -234,7 +242,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
-  useReportKey(tabIndex === 0)
+  useDrawerKeys(tabIndex === 0)
   useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()

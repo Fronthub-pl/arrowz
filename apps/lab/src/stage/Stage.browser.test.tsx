@@ -1,9 +1,10 @@
 import { defaultParams } from '@arrowz/engine'
 import { MemoryRouter } from 'react-router'
+import { act } from 'react'
 import { expect, test } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
-import { Stage } from './Stage'
+import { SETTINGS_ID, Stage } from './Stage'
 
 /**
  * A parent that rerenders on every run message. Without it the second test
@@ -13,14 +14,23 @@ import { Stage } from './Stage'
  * The router is the frame's and the report drawer's: both ask which tab is on
  * screen (`useInLibrary`). It sits inside the probe rather than around each
  * mount so that a rerender still goes through one router, and it names no
- * address — every case here is the lab.
+ * address — every case here is the lab. The settings drawer's content is a
+ * stand-in carrying the id the handle names, with one control to hold a focus.
  */
 function Probe() {
   useStore((state) => state.run.phase)
   useStore((state) => state.run.progress)
   return (
     <MemoryRouter>
-      <Stage />
+      <Stage
+        face="lab"
+        settings={
+          <div id={SETTINGS_ID} className="fw-console">
+            <button type="button">inside</button>
+          </div>
+        }
+        run={null}
+      />
     </MemoryRouter>
   )
 }
@@ -67,4 +77,36 @@ test('a progress message does not reassign the element view', async () => {
   expect(element?.view).toBe(before)
   useStore.getState().run.reset()
   useStore.getState().result.reset()
+})
+
+// Handoff 2, PR 1: the settings handle mirrors the report's — it names the
+// panel it controls (an id that exists, not the drawer holding the handle, as
+// the reconstruction has it), says whether it is open, and advertises S.
+test('the settings handle names its panel, its state and its key', async () => {
+  useStore.getState().ui.setSettings(true)
+  const screen = await render(<Probe />)
+  const handle = screen.getByRole('button', { name: 'settings', exact: true })
+  await expect.element(handle).toHaveAttribute('aria-expanded', 'true')
+  await expect.element(handle).toHaveAttribute('aria-controls', SETTINGS_ID)
+  await expect.element(handle).toHaveAttribute('aria-keyshortcuts', 'S')
+  expect(document.getElementById(SETTINGS_ID)).not.toBeNull()
+  expect(screen.container.querySelector('.fw-stage')?.classList.contains('ls-open')).toBe(true)
+  await handle.click()
+  await expect.element(handle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.container.querySelector('.fw-stage')?.classList.contains('ls-open')).toBe(false)
+  useStore.getState().ui.setSettings(true)
+})
+
+// The report's pattern (spec §4.3): a focus left inside a drawer turning
+// hidden would fall to <body>, so it moves to the handle.
+test('closing the settings with the focus inside moves the focus to the handle', async () => {
+  useStore.getState().ui.setSettings(true)
+  const screen = await render(<Probe />)
+  const inside = screen.getByRole('button', { name: 'inside' }).element()
+  if (!(inside instanceof HTMLElement)) throw new Error('the stand-in control is missing')
+  inside.focus()
+  expect(document.activeElement).toBe(inside)
+  await act(async () => useStore.getState().ui.setSettings(false))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'settings', exact: true }).element())
+  useStore.getState().ui.setSettings(true)
 })

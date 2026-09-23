@@ -66,6 +66,17 @@ function savedAfter(before: unknown): boolean {
   return shown !== null && shown.file !== before && saved !== null
 }
 
+/**
+ * Every case that presses Generate or a run-column control opens at 1400×900.
+ * Below about 700px the open settings drawer lies over the run column — a
+ * stopgap until the responsive layout moves the column under the board
+ * (handoff 2, PR 7; console.css) — and the runner's default 414px is there.
+ * None of these cases is about the width; LabLayout pins the narrow one.
+ */
+async function clearOfTheDrawer(): Promise<void> {
+  await page.viewport(1400, 900)
+}
+
 // `getByRole('status', { name: 'Run status' })` and not the bare role: the lab
 // route holds two status regions — the run status bar and the clamp notice —
 // and only the name tells them apart.
@@ -88,6 +99,7 @@ function savedAfter(before: unknown): boolean {
 // (measured: 60 s apiece before this).
 
 test('Generate carves a board, draws it, and says so', async () => {
+  await clearOfTheDrawer()
   const errors: unknown[] = []
   const spy = vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args[0]))
   try {
@@ -184,6 +196,7 @@ test('a route change keeps the very same board element', async () => {
 // claim that one makes on its own: a run that finishes while the user is
 // off-route still lands on the same live element.
 test('a run in flight survives a route change, and finishes into the same element', async () => {
+  await clearOfTheDrawer()
   const screen = await mountApp()
   // The load run first, and not a longer timeout on the click below: Generate
   // is disabled while a run is carving, so `click()` would wait out the load
@@ -225,6 +238,7 @@ test('a run in flight survives a route change, and finishes into the same elemen
 // result slice, `run.started()` cleared the board and the stage sat empty for a
 // whole carve. 600×600 and seed 9 for the reason the case above gives.
 test('a run in flight keeps the last result on screen', async () => {
+  await clearOfTheDrawer()
   const screen = await mountApp()
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   const element = screen.container.querySelector('arrowz-board')
@@ -302,6 +316,7 @@ test('the lab panel is hidden off-route and shown on it', async () => {
 // a run posted twice. `fetch` is spied on rather than stubbed, so the POST still
 // goes out and still fails for real.
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
+  await clearOfTheDrawer()
   window.history.pushState({}, '', '/')
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
@@ -377,10 +392,15 @@ test('the language switch reaches the document, the board and every label', asyn
   await vi.waitFor(() => expect(document.documentElement.lang).toBe('en'))
 }, 40_000)
 
-test('the lab route shows the console under the stage', async () => {
+// Handoff 2, PR 1: the console is the settings drawer's content on the lab,
+// no longer a row under the stage.
+test('the lab route shows the console in the settings drawer', async () => {
   const screen = await mountApp()
   await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
   await expect.element(screen.getByRole('tabpanel', { name: 'board' })).toBeVisible()
+  expect(
+    screen.getByRole('tablist', { name: 'Parameter groups' }).element().closest('.fw-stage > .fw-ldrawer'),
+  ).not.toBeNull()
 })
 
 // The plumbing itself, which nothing else in this branch touches. `ClampNotice`
@@ -396,6 +416,7 @@ test('the lab route shows the console under the stage', async () => {
 // than by ref, so the assertion can only hold if the ref arrived at the button
 // the page renders.
 test('the clamp notice hands focus to the route’s own buttons', async () => {
+  await clearOfTheDrawer()
   const screen = await mountApp()
   // The load run first: Generate is disabled while it carves, and the idle
   // half below is about Generate being the live one.
@@ -464,6 +485,7 @@ test('Generate is refused while a rule is broken, and the reasons are on screen'
 }, 40_000)
 
 test('a board carved from the console reaches the element and the store', async () => {
+  await clearOfTheDrawer()
   const screen = await mountApp()
   // The load run first: Generate is disabled while it carves, and the click
   // below would spend its actionability wait on it.
@@ -478,6 +500,7 @@ test('a board carved from the console reaches the element and the store', async 
 }, 40_000)
 
 test('the knobs on screen are the knobs the run used', async () => {
+  await clearOfTheDrawer()
   const screen = await mountApp()
   // The load run first, for the reason the case above gives.
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
@@ -499,6 +522,7 @@ test('the knobs on screen are the knobs the run used', async () => {
 // answered: the same reason the StrictMode test above counts the client's own
 // calls.
 test('the saved board carries the view on screen', async () => {
+  await clearOfTheDrawer()
   // `mountApp` resets the run and the params; the view slice is nobody's to
   // reset, so this test puts back what it moved. Its own state, restored by
   // hand rather than by a slice action no page would ever call.

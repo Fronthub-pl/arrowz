@@ -315,6 +315,58 @@ body {
     transform: translateX(calc(100% - 44px));
   }
 }
+/* The settings drawer (handoff 2, PR 1): the report's, mirrored onto the
+   stage's left edge, holding the rail (126px) and the knob panel. Closed, only
+   its 28px handle keeps a column. Open by default; unlike the report it does
+   not cover the board — the stage adds `ls-open` and the board's track gives
+   way by the drawer's width (console.css), so a knob change is always in
+   sight. The console's hide waits out the slide, as the report's does. */
+.fw-stage {
+  --ls-w: clamp(25rem, calc(33vw + 172px), 47rem);
+}
+.fw-ldrawer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 5;
+  width: calc(var(--ls-w) + 28px);
+  max-width: calc(100% - 28px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  background: var(--border);
+  transform: translateX(calc(-100% + 28px));
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-ldrawer.open {
+  transform: none;
+}
+.fw-ldrawer > .fw-console {
+  min-width: 0;
+}
+.fw-ldrawer:not(.open) > .fw-console {
+  visibility: hidden;
+  transition: visibility 0s linear 180ms;
+}
+.fw-ldrawer.open > .fw-console {
+  transition: visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-ldrawer,
+  .fw-ldrawer:not(.open) > .fw-console {
+    transition: none;
+  }
+}
+@media (pointer: coarse) {
+  .fw-ldrawer {
+    width: calc(var(--ls-w) + 44px);
+    grid-template-columns: minmax(0, 1fr) 44px;
+    transform: translateX(calc(-100% + 44px));
+  }
+  .fw-ldrawer.open {
+    transform: none;
+  }
+}
 .fw-runs {
   display: flex;
   flex-direction: column;

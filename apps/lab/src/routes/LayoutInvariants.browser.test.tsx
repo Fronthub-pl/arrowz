@@ -27,6 +27,7 @@ type State =
   | 'board'
   | 'presets-open'
   | 'report-open'
+  | 'settings-closed'
   | 'preview-palette'
   | 'lengths-help-off'
   | 'violations'
@@ -38,6 +39,7 @@ const STATES: readonly State[] = [
   'board',
   'presets-open',
   'report-open',
+  'settings-closed',
   'preview-palette',
   'lengths-help-off',
   'violations',
@@ -109,6 +111,9 @@ async function arrange(state: State) {
   await act(async () => {
     const s = useStore.getState()
     if (state === 'report-open') s.ui.setReport(true)
+    // The settings drawer is open in every other state (`resetApp`), its
+    // default; this one reads the closed face (handoff 2, PR 1).
+    if (state === 'settings-closed') s.ui.setSettings(false)
     if (state === 'preview-palette') {
       s.ui.select('preview')
       for (let i = 0; i < 8; i++) s.view.addPaletteColor()
