@@ -6,7 +6,7 @@
    The mock's three tracks: the group rail, one panel, and the run column. */
 .fw-console {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr) 216px;
+  grid-template-columns: 168px minmax(0, 1fr) clamp(20rem, 22vw, 28rem);
   gap: 1px;
   background: var(--border);
   border-top: 1px solid var(--border);
@@ -632,6 +632,19 @@
 .fw-lab.library {
   grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
 }
+/* No report drawer on the saved boards (spec §4): the report is empty there
+   (ReportPanel.tsx), so an open drawer left over from the lab would cover the
+   stored board with a blank panel. `ui.report` stays as it was, and the lab
+   shows the drawer again. The stage drops the handle's track, 28px or the
+   coarse pointer's 44px (shell.css) alike, as solo does below — (0,3,0), so
+   it outranks both, and it sits above the solo rules so that solo's one track
+   wins on the library face too. */
+.fw-lab.library .fw-stage {
+  grid-template-columns: 70px minmax(0, 1fr);
+}
+.fw-lab.library .fw-drawer {
+  display: none;
+}
 /* Below 700px of height the board gives up its minimum (shell.css), so its row
    gives up the 292px too. */
 @media (max-height: 700px) {
@@ -651,14 +664,15 @@
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the console, the violations,
    the clamp notice, and whatever a later PR puts beside them — and, inside the
-   stage, the run rail and the report. Both grids are redefined, because a
-   track keeps its size when its only item is `display: none`: the lab's rows
-   become the one stage track (`.fw-lab.simple.solo` outranks `.fw-lab.simple`
-   rather than tying with it), and the stage's columns and rows — including its
-   ≤900px rows (shell.css) — become the one board track. Nothing unmounts: the
-   GL context, the run column's focus and a draft being typed all live in the
-   hidden nodes. Measured: `.fw-boardwrap` equals `.fw-lab` and the element is
-   34px smaller on both axes at 1400×900, 860×900 and 860×650, in both views. */
+   stage, the run rail and the report drawer. Both grids are redefined,
+   because a track keeps its size when its only item is `display: none`: the
+   lab's rows become the one stage track (`.fw-lab.simple.solo` outranks
+   `.fw-lab.simple` rather than tying with it), and the stage's three columns —
+   the rail's, the board's and the drawer handle's (shell.css) — become the one
+   board track. Nothing unmounts: the GL context, the run column's focus and a
+   draft being typed all live in the hidden nodes. Measured: `.fw-boardwrap`
+   equals `.fw-lab` and the element is 34px smaller on both axes at 1400×900,
+   860×900 and 860×650, in both views. */
 .fw-lab.solo,
 .fw-lab.simple.solo,
 /* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a
@@ -673,7 +687,7 @@
 }
 .fw-lab.solo > :not(.fw-stage),
 .fw-lab.solo .fw-runs,
-.fw-lab.solo .fw-report {
+.fw-lab.solo .fw-drawer {
   display: none;
 }
 .fw-lab.solo .fw-stage {

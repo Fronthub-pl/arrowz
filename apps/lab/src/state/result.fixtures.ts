@@ -7,7 +7,7 @@ export interface FinishedFixture extends FinishedRun {
 }
 
 /**
- * A real carve, not a hand-built report: the report column reads every field.
+ * A real carve, not a hand-built report: the report drawer reads every field.
  * 8×8 by default — seed 1 closes with 8 pieces and a longest of 18, seed 2 with
  * 13 and 17 (measured 2026-09-15), which the report cases rely on.
  */

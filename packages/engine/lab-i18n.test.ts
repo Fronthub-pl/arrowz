@@ -344,3 +344,19 @@ Deno.test('both ui dictionaries carry the preview section titles', () => {
     }
   }
 })
+
+Deno.test('the preset picker and the report drawer speak both languages', () => {
+  const en = dictionary('en')
+  const pl = dictionary('pl')
+  const want: Record<string, [string, string]> = {
+    preset: ['preset', 'preset'],
+    customSettings: ['custom settings', 'własne ustawienia'],
+    editedSinceLastPreset: ['edited since the last preset', 'zmienione od ostatniego presetu'],
+    reportHandle: ['report', 'raport'],
+    cmdHintReport: ['report', 'raport'],
+  }
+  for (const [key, [e, p]] of Object.entries(want)) {
+    assertEquals(en.t(key as UiKey), e, key)
+    assertEquals(pl.t(key as UiKey), p, key)
+  }
+})

@@ -7,6 +7,42 @@
 html {
   color-scheme: dark;
 }
+
+/* Scrollbars (spec §6): thin, square, on the surface they scroll — the thumb
+   `--border-strong` at rest and `--ash` under the pointer, no track, no
+   arrows. Firefox and current Chromium read `scrollbar-*`; WebKit and older
+   Chromium the pseudo-elements. Full width where there is no hover. */
+.fw,
+.fw * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.fw ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.fw ::-webkit-scrollbar-track,
+.fw ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.fw ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.fw ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ash);
+}
+.fw ::-webkit-scrollbar-button {
+  display: none;
+}
+@media (pointer: coarse) {
+  .fw,
+  .fw * {
+    scrollbar-width: auto;
+  }
+}
+
 body {
   margin: 0;
   background: var(--void);
@@ -102,7 +138,7 @@ body {
   font-size: 13px;
   font-weight: 500;
 }
-/* Full strength: the bar's dimming was what put .dims and .preset at 3.35:1
+/* Full strength: the bar's dimming was what put .dims at 3.35:1
    (review, spec §5). */
 /* §7.1: tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
@@ -116,25 +152,18 @@ body {
   min-width: 0;
 }
 /* The bar gives way before the document does (spec R2: 420px is the narrowest
-   width the lab supports). Review P8 measured the shell at 472px minimum —
-   572 with a preset named — because every child of this flex row kept its
-   width. The name of the preset goes first, then the gaps. */
+   width the lab supports). Review P8 measured the shell at 472px minimum,
+   because every child of this flex row kept its width. The size is the text
+   that gives way. */
 .fw-top .name,
 .fw-top .sep {
   flex: none;
 }
-.fw-top .preset,
 .fw-top .dims {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-@media (max-width: 560px) {
-  .fw-top .preset,
-  .fw-top .sep:has(+ .preset) {
-    display: none;
-  }
 }
 @media (max-width: 480px) {
   .fw-top,
@@ -145,18 +174,17 @@ body {
     padding: 0 8px;
   }
   /* A W×H readout, not a control (R2 forbids hiding one of those): the first
-     thing to give, below the size the size and preset already gave up
-     theirs. A Polish "Zaawansowany" widens the mode switch enough to push
-     the language switch's own chip past `.fw-top`'s `overflow: hidden`
+     thing to give. A Polish "Zaawansowany" widens the mode switch enough to
+     push the language switch's own chip past `.fw-top`'s `overflow: hidden`
      (review P8) — invisible to it in English, where the bar still fits by
      1px at 420 wide. */
   .fw-top .dims {
     display: none;
   }
   /* Live pass, ≤480px: `.dims` above is hidden, but its own `.sep` was not —
-     the same `:has(+ .preset)` shape the preset's own sep already uses above,
-     read as an orphaned "/" ahead of the flex row's `margin-left: auto`
-     right group, with nothing of the size readout left for it to separate. */
+     the same `:has(+ …)` shape, read as an orphaned "/" ahead of the flex
+     row's `margin-left: auto` right group, with nothing of the size readout
+     left for it to separate. */
   .fw-top .sep:has(+ .dims) {
     display: none;
   }
@@ -196,11 +224,96 @@ body {
 }
 
 .fw-stage {
+  position: relative;
   display: grid;
-  grid-template-columns: 70px minmax(0, 1fr) clamp(22rem, 24vw, 32rem);
+  grid-template-columns: 70px minmax(0, 1fr) 28px;
   gap: 1px;
   background: var(--border);
   min-height: 0;
+  overflow: hidden;
+}
+/* The report as a drawer on the stage's right edge (spec §4.1). Closed, only
+   its 28px handle shows, in the stage's third track, so the board takes the
+   width a report beside it used to hold; open, it slides over the board.
+   Below 900px the same: the report does not drop under the board. */
+.fw-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: calc(clamp(22rem, 24vw, 32rem) + 28px);
+  max-width: calc(100% - 70px);
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  transform: translateX(calc(100% - 28px));
+  transition: transform 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+.fw-drawer.open {
+  transform: none;
+  box-shadow: -1px 0 0 var(--border);
+}
+.fw .fw-drawer-handle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--void);
+  color: var(--mist);
+  cursor: pointer;
+}
+.fw .fw-drawer-handle:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+.fw .fw-drawer-handle:focus-visible {
+  outline-offset: -2px;
+}
+.fw-drawer-handle .t {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw-drawer-handle .c {
+  font-size: 10px;
+  color: var(--ash);
+}
+.fw-drawer > .fw-report {
+  min-width: 0;
+}
+/* Hidden, not merely off screen: out of the tab order and the accessibility
+   tree while closed. The hide waits out the 180ms slide, so the report leaves
+   with the drawer rather than vanishing and letting the bare handle cross the
+   board; opening shows it at once. A transition takes the timing of the style
+   it goes to, hence one on each side. */
+.fw-drawer:not(.open) > .fw-report {
+  visibility: hidden;
+  transition: visibility 0s linear 180ms;
+}
+.fw-drawer.open > .fw-report {
+  transition: visibility 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fw-drawer,
+  .fw-drawer:not(.open) > .fw-report {
+    transition: none;
+  }
+}
+@media (pointer: coarse) {
+  .fw-stage {
+    grid-template-columns: 70px minmax(0, 1fr) 44px;
+  }
+  .fw-drawer {
+    grid-template-columns: 44px minmax(0, 1fr);
+    width: calc(clamp(22rem, 24vw, 32rem) + 44px);
+    transform: translateX(calc(100% - 44px));
+  }
 }
 .fw-runs {
   display: flex;
@@ -289,34 +402,6 @@ body {
   }
 }
 
-/* The report at 900px and below: a row under the rail and the board (spec
-   §5.2; PR 4b, Ruling 2). The board's row keeps 292px — the board's 260px
-   minimum, its border inside it, plus the wrap's 32px of padding — whenever the
-   stage is that tall, and the report takes a third of what is left. Measured at
-   860 wide: 73px of report at 900 high in the advanced view, 155px at 1100.
-   `min(292px, 100%)` and not a bare 292px: in a stage shorter than that, a bare
-   minimum pushed the wrap 25px out of the stage and over the console, where
-   this rule leaves the board exactly as it is today and the report at its 24px
-   of padding, which the console's opaque background covers (review measured up
-   to 25px of it past the stage at 860×720). A fixed `max-height` on the report
-   instead clipped the board at every height below 900. */
-@media (max-width: 900px) {
-  .fw-stage {
-    grid-template-columns: 70px minmax(0, 1fr);
-    grid-template-rows: minmax(min(292px, 100%), 2fr) minmax(0, 1fr);
-  }
-  .fw-stage > .fw-report {
-    grid-column: 1 / -1;
-  }
-}
-/* Below 700px of height `.fw-board` gives up its minimum (the `max-height:
-   700px` query above), so its row gives up the 292px too. */
-@media (max-width: 900px) and (max-height: 700px) {
-  .fw-stage {
-    grid-template-rows: minmax(0, 2fr) minmax(0, 1fr);
-  }
-}
-
 /* `height: 100%` and not `display: grid` on the panel's <main>: the shell
    stretches that <main> to row 3, but it is a block box with no height of its
    own, so without this the run bar and the stage each take an auto row, the
@@ -368,14 +453,21 @@ body {
    Every rule of the component carries it, and PR 3 adds many more controls
    into the same cascade. */
 .fw .fw-go {
-  height: 40px;
-  min-height: 40px;
-  margin-top: 10px;
+  flex: none;
+  height: 44px;
+  min-height: 44px;
+  margin-top: 12px;
   padding: 0 16px;
   border: 0;
   background: var(--signal-fill);
   color: var(--ink);
-  font-family: var(--ui);
+  /* Mono like the rest of the UI (the design project's decision); 500 so it
+     outweighs the 400 buttons under it; `flex: none` so the growing command
+     box above never squeezes it (spec §5.3). */
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition: background 120ms cubic-bezier(0.2, 0, 0, 1);
 }
@@ -389,15 +481,14 @@ body {
   opacity: 0.5;
   cursor: default;
 }
-
-@media (pointer: coarse) {
-  .fw .fw-go {
-    height: 44px;
-  }
+.fw .fw-go:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -4px;
 }
-/* One of a few (Segmented.tsx): the preset strip's chip (run.css) with the
-   group rail's selected state, so the lab has one chip and one "chosen". The
-   `.fw` prefix for the reason `.fw .fw-go` gives above. */
+/* One of a few (Segmented.tsx): a 24px bordered chip with the group rail's
+   selected state, so the lab has one "chosen". The preset strip's chips it
+   was first modelled on are gone (the picker, run.css). The `.fw` prefix for
+   the reason `.fw .fw-go` gives above. */
 .fw-seg {
   display: inline-flex;
   flex: none;
@@ -481,11 +572,12 @@ body {
   border-color: var(--ink);
   color: var(--ink);
 }
+/* The same hover as every other chip in the lab — a fill, no underline — in
+   the bar's own terms (spec §6). `--signal-fill-hover`, not the handoff's 12%
+   `--ink` over the plane: that blend measured about 4.2:1 under `--ink`. */
 .fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
-  background: none;
+  background: var(--signal-fill-hover);
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .fw .fw-top .fw-seg button[aria-checked='true'] {
   background: var(--void);

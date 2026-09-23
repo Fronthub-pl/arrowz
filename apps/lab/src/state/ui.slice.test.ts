@@ -50,6 +50,16 @@ describe('the switches the run column owns', () => {
     store.ui.raiseClamped(false)
     expect(store.ui.clamped).toBe(false)
   })
+
+  it('keeps the report drawer closed at first, sets it as given, and toggles it', () => {
+    const store = slice()
+    expect(store.ui.report).toBe(false)
+    store.ui.setReport(true)
+    store.ui.setReport(true)
+    expect(store.ui.report).toBe(true)
+    store.ui.toggleReport()
+    expect(store.ui.report).toBe(false)
+  })
 })
 
 describe('the view a page opens in', () => {

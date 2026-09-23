@@ -1,19 +1,11 @@
 import { act } from 'react'
-import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
 import { TopBar } from './TopBar'
 
-/** The bar reads the route now (Task 3): every case below is the lab route
- * unless it says otherwise, the route the preset strip itself lives on
- * (`Workspace.tsx`: `lab && !simple`). */
-function renderBar(path = '/') {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <TopBar />
-    </MemoryRouter>,
-  )
+function renderBar() {
+  return render(<TopBar />)
 }
 
 beforeEach(() => {
@@ -28,36 +20,17 @@ beforeEach(() => {
 })
 
 describe('TopBar', () => {
-  // Spec §5.1 gives the bar "mark, preset name, dims", and the name is the one
-  // piece of derived logic in it. The store's defaults are 25×50, which
-  // `easy-portrait` spells exactly, so the bar has a preset to name on the
-  // first paint. The whole text is asserted, separators and all: the spaces a
-  // reader sees around them are `gap`, not characters, and a bar that lost the
-  // size or gained a stray label would pass a looser match. The right group's
-  // radios are part of the banner's text: `Simple`, `Advanced`, `PL`, `EN`,
-  // with no separators, because the gaps between them are `gap` too.
-  it('names the preset the knobs spell, beside the size', async () => {
+  // Spec §3.3: the preset's name and the "edited" mark live on the preset
+  // picker now; the bar keeps the mark, the name of the product and the size.
+  // The whole text is asserted, separators and all; the spaces a reader sees
+  // are `gap`, not characters.
+  it('names the product and the size, and no preset', async () => {
     const screen = await renderBar()
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/Easy portrait/25×50⌘KSimpleAdvancedPLEN')
+    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/25×50⌘KSimpleAdvancedPLEN')
   })
 
-  // The other branch: one knob off a preset and no preset spells the knobs,
-  // so the bar says so where the name stood (spec R5) — but only on the
-  // advanced lab face, the one face with a preset strip for the knobs to have
-  // wandered away from (Task 3). The preset strip used to carry this word as
-  // a sticky chip that covered its last chips (review P4).
-  it('says the values are edited, where the name stood, when no preset spells the knobs on the advanced lab face', async () => {
+  it('says nothing of an edit on the advanced lab face', async () => {
     useStore.getState().ui.setMode('advanced')
-    const screen = await renderBar()
-    await act(async () => useStore.getState().params.set('W', 26))
-    await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/edited/26×50⌘KSimpleAdvancedPLEN')
-  })
-
-  // The simple view has no preset strip at all (`Workspace.tsx`: `lab &&
-  // !simple`), so "edited" would answer a question nobody on this face is
-  // asking. The slot prints nothing, and its separator goes with it — the
-  // bar's text does not end in a dangling "/".
-  it('says nothing where the name stood, when no preset spells the knobs on the simple face', async () => {
     const screen = await renderBar()
     await act(async () => useStore.getState().params.set('W', 26))
     await expect.element(screen.getByRole('banner')).toHaveTextContent('Arrowz/26×50⌘KSimpleAdvancedPLEN')

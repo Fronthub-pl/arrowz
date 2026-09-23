@@ -1,10 +1,14 @@
+import { PARAM_SPEC, type Params } from '@arrowz/engine'
+import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
+import { contrast, shown } from '../design/contrast'
 import { audit, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
+import { settleTransitions as settle } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
@@ -21,6 +25,8 @@ import '../design/palette.css'
 
 type State =
   | 'board'
+  | 'presets-open'
+  | 'report-open'
   | 'preview-palette'
   | 'lengths-help-off'
   | 'violations'
@@ -30,6 +36,8 @@ type State =
   | 'docs'
 const STATES: readonly State[] = [
   'board',
+  'presets-open',
+  'report-open',
   'preview-palette',
   'lengths-help-off',
   'violations',
@@ -66,6 +74,7 @@ afterEach(() => {
   // `setLang('en')` runs at the start of the next case's `arrange`, but a
   // case that throws before that point must not leave `pl` behind either.
   useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
+  useStore.setState((s) => ({ ui: { ...s.ui, report: false } }))
   vi.restoreAllMocks()
 })
 
@@ -99,6 +108,7 @@ async function arrange(state: State) {
   if (state !== 'library-empty' && state !== 'library-detail' && state !== 'docs') await loadRunDone()
   await act(async () => {
     const s = useStore.getState()
+    if (state === 'report-open') s.ui.setReport(true)
     if (state === 'preview-palette') {
       s.ui.select('preview')
       for (let i = 0; i < 8; i++) s.view.addPaletteColor()
@@ -129,20 +139,11 @@ async function arrange(state: State) {
     // load run).
     await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).not.toBeNull()
   }
+  if (state === 'presets-open') {
+    await screen.getByRole('button', { name: /^preset/ }).click()
+    await expect.poll(() => screen.container.querySelector('.fw-pp-panel:not([hidden])')).not.toBeNull()
+  }
   return screen
-}
-
-/** One frame for the layout that followed the last store write, then the
- * settled layout: a rail tab selected in `arrange` is still mid-way through
- * its 120ms background transition one frame later. */
-async function settle(): Promise<void> {
-  await new Promise((resolve) => requestAnimationFrame(resolve))
-  await Promise.all(
-    document
-      .getAnimations()
-      .filter((a) => a instanceof CSSTransition)
-      .map((a) => a.finished.catch(() => undefined)),
-  )
 }
 
 test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const)))(
@@ -166,6 +167,19 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
   },
   40_000,
 )
+
+// The matrix above does not pin the panel's `max-height`: at 420×900 its
+// seven levels in two columns (650px under a 171px top) fit without it. A
+// window 700px tall is where they run past the bottom (measured: 16,171 to
+// 404,821 in 420×700 with the rule removed), so this one case pins the rule.
+test('the presets-open state at 420×700 keeps every layout invariant', async () => {
+  await page.viewport(420, 700)
+  const screen = await arrange('presets-open')
+  await settle()
+  const findings = audit(screen.container, { board: true })
+  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+}, 40_000)
 
 // Review P8: the reconstruction's matrix above runs only in English, where
 // the bar fits by 1px at 420 wide; the language switch's own chip is what a
@@ -194,11 +208,11 @@ test.each(LANG_CASES)(
     // used to stay rendered with nothing left to separate — an orphaned "/"
     // ahead of the right group's `margin-left: auto` gap. `TopBar.browser.
     // test.tsx` renders no stylesheet and sets no viewport, so this asserts
-    // here instead, on the bar's own left cluster (mark, name, seps, preset,
-    // dims), which is where the defect showed.
+    // here instead, on the bar's own left cluster (mark, name, seps, dims),
+    // which is where the defect showed.
     const bar = screen.container.querySelector('.fw-top')
     if (bar === null) throw new Error('top bar missing')
-    const clusterText = [...bar.querySelectorAll('.name, .sep, .preset, .dims')]
+    const clusterText = [...bar.querySelectorAll('.name, .sep, .dims')]
       .filter((el) => el.checkVisibility({ visibilityProperty: true, opacityProperty: false }))
       .map((el) => el.textContent ?? '')
       .join('')
@@ -206,6 +220,33 @@ test.each(LANG_CASES)(
   },
   40_000,
 )
+
+// The longest trigger the picker can print: Huge's "winding skeleton" in
+// Polish, "Ogromny szkielet z serpentynami 400×400", at the narrowest width
+// the lab supports. The knobs are written the way `applyPreset` writes them
+// (every knob, the preset's over the defaults) but without its run, which at
+// 400×400 would only slow the case down: the trigger reads the knobs.
+test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every layout invariant', async () => {
+  await page.viewport(420, 900)
+  const screen = await arrange('board')
+  const option = PRESETS.flatMap((level) => level.options).find((o) => o.id === 'huge-400-serpentine')
+  if (option === undefined) throw new Error('no huge-400-serpentine preset')
+  await act(async () => {
+    const s = useStore.getState()
+    s.lang.setLang('pl')
+    const full: Partial<Params> = {}
+    for (const spec of PARAM_SPEC) full[spec.key] = option.params[spec.key] ?? spec.def
+    s.params.setMany(full)
+  })
+  await settle()
+  expect(findPreset(useStore.getState().params.values)?.id).toBe('huge-400-serpentine')
+  const trigger = screen.getByRole('button', { name: /^preset/i })
+  await expect.element(trigger).toMatchTextContent(/Ogromny szkielet z serpentynami/)
+  await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
+  const findings = audit(screen.container, { board: true })
+  const failing = [...new Set(findings.map((f) => f.invariant))].sort()
+  expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
+}, 40_000)
 
 // Review P7: an unreachable store left the chips' 168px track standing empty.
 test('an unreachable store drops the saved-boards console to one column', async () => {
@@ -218,4 +259,37 @@ test('an unreachable store drops the saved-boards console to one column', async 
   if (chips === null || list === null || console_ === null) throw new Error('library face missing')
   expect(chips.checkVisibility()).toBe(false)
   expect(list.getBoundingClientRect().width).toBeCloseTo(console_.getBoundingClientRect().width, 0)
+}, 40_000)
+
+// Spec §6: the bar's hover is a fill, like every other chip in the lab.
+// `backgroundColor` equality is what pins the exact token, `--signal-fill-hover`,
+// against the handoff's `rgba(237, 238, 242, 0.12)`; the contrast check
+// guards that the shipped, opaque fill actually clears AA under `--ink` —
+// this file, not `LabLayout.browser.test.tsx`, is where the ⌘K trigger's
+// hover can be measured, because it is the one that already loads the full
+// cascade `main.tsx` does, `palette.css` included (spec R1).
+test('a hovered choice in the top bar is filled, not underlined, and still reads at AA', async () => {
+  await page.viewport(1400, 900)
+  const screen = await arrange('board')
+  await settle()
+  // Two locators written out: `getByRole` takes the ARIA role union, so a
+  // role held in a `string` variable fails `lab:check`.
+  const controls = [
+    ['Simple', screen.getByRole('radio', { name: 'Simple' })],
+    ['⌘K', screen.getByRole('button', { name: 'Command palette (⌘K)' })],
+  ] as const
+  for (const [name, control] of controls) {
+    await userEvent.hover(control)
+    // The segmented buttons carry the shared chip's 120ms background
+    // transition (`.fw .fw-seg button`); reading the computed style right
+    // after the pointer event catches it mid-animation, still `rgba(0, 0, 0,
+    // 0)`. `settle` (harness/settle.ts) waits it out.
+    await settle()
+    const el = control.element()
+    const style = getComputedStyle(el)
+    expect(style.textDecorationLine, name).toBe('none')
+    expect(style.backgroundColor, name).toBe('rgb(85, 97, 200)')
+    const { front, back } = shown(el)
+    expect(contrast(front, back), name).toBeGreaterThanOrEqual(4.5)
+  }
 }, 40_000)

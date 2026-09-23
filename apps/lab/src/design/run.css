@@ -107,24 +107,26 @@
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
-   the flex column depends on it.
-
-   The floor is the caption's line, its 6px margin and the box's own 58px
-   (PR 4b, Ruling 1). Without it the column shrank the figure below its content
-   — to 0px at 860×900, and to 5.5px at 1400×900 once the exports joined the
-   column — while `.fw-cmd` kept its 58px and painted behind Generate. With it
-   the figure is 84.4px wherever the column is short; the box still scrolls
-   inside itself and Generate does not move as the command grows (measured 0px
-   at 860 in both views and at 1400 in the advanced view), which is the ruling
-   below. What gives instead is the column, which scrolls, as it already does
-   in the simple view. `flex: none` at ≤900px was measured as the alternative
-   and fixed only 860, moving Generate 4.8px for a long command. */
+   the flex column depends on it. The floor is the caption's line, its 6px
+   margin and the box's own 58px (PR 4b, Ruling 1): below it the box would
+   shrink under its own content and paint behind Generate. */
 .fw-cmdfig {
   flex: 0 1 auto;
   min-height: calc(1lh + 6px + 58px);
   margin: 0;
   display: flex;
   flex-direction: column;
+}
+/* In the run column the figure takes every pixel the column has left (spec
+   §5.2): Generate then moves with the column's height and never with the
+   command's length, because the figure's size is the column less the fixed
+   controls, whatever the command holds. The library's detail places the
+   figure in an `auto` grid row instead (library.css) and is left alone. */
+.fw-run-col > .fw-cmdfig {
+  flex: 1 1 auto;
+}
+.fw-run-col .fw-cmd {
+  flex: 1 1 auto;
 }
 .fw-cmdhd {
   flex: none;
@@ -149,18 +151,16 @@
 .fw .fw-cmdhd button:hover {
   color: var(--ink);
 }
-/* `overflow: auto` and not the mock's `hidden`: the box is the first item of a
-   216px column, it is the only item allowed to shrink, and a browser pass
-   measured it showing `deno task carve --widt` / `h=26 --height=50 --see` and
-   clipping the rest — about a third of a five-flag command, in a box whose
-   stated job (LiveCommand.tsx:8-11) is to show exactly what would be run.
+/* `overflow: auto` and not the mock's `hidden`: the box scrolls inside itself
+   rather than clipping what would be run (LiveCommand.tsx), and rather than
+   growing and walking the controls under it down the column.
 
-   The alternative was `flex: none` on `.fw-cmdfig`, letting the column itself
-   scroll. Rejected: `LiveCommand` is the FIRST child of `.fw-run-col`, so the
-   figure growing with the command would push Generate, the three alternates
-   and the two switches down the column — the primary action moving under the
-   pointer as a slider is dragged. Scrolling inside the box leaves every other
-   control exactly where it was. */
+   Wrapping (spec §5.2): the box is ordinary inline text and every flag is a
+   `nowrap` `.ln` (CommandText.tsx), so a line breaks only at the real spaces
+   between flags — never inside `--height=250`, which `word-break: break-all`
+   used to do. Not the handoff's flex-wrap box: white space between flex items
+   is not rendered, so a selection of the command read back with its flags
+   glued together. */
 .fw-cmd {
   flex: 0 1 auto;
   min-height: 58px;
@@ -170,9 +170,13 @@
   background: var(--void);
   border: 1px solid var(--border);
   color: var(--ash);
-  white-space: pre-wrap;
-  word-break: break-all;
   font: inherit;
+  line-height: 1.6;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+.fw-cmd .ln {
+  white-space: nowrap;
 }
 .fw-cmd b {
   font-weight: 400;
@@ -184,55 +188,162 @@
   }
 }
 
-/* presets, from the mock's `.fw-presets` — a flat flex row of labels and
-   chips, which is exactly the mock's own structure. */
+/* The preset picker (spec §3): one trigger in the 38px row, a panel of level
+   columns under it. Replaces the scrolling strip of 26 chips. The row is
+   the panel's containing block; the panel's own z-index lays it over the
+   stage. */
 .fw-presets {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 12px;
   padding: 0 16px;
   height: 38px;
   background: var(--void);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
 }
-.fw-presets .lbl {
-  flex: none;
-  margin: 0 10px 0 14px;
-  color: var(--ash);
-  white-space: nowrap;
-}
-.fw-presets .lbl:first-child {
-  margin-left: 0;
-}
-.fw .fw-presets button {
-  flex: none;
-  height: 24px;
+.fw .fw-presets .fw-pp-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 26px;
   padding: 0 10px;
   border: 1px solid var(--border);
-  background: none;
-  color: var(--mist);
+  background: var(--void);
+  color: var(--ink);
   cursor: pointer;
   white-space: nowrap;
 }
-.fw .fw-presets button:hover {
-  color: var(--ink);
+.fw .fw-presets .fw-pp-trigger:hover,
+.fw .fw-presets .fw-pp-trigger[aria-expanded='true'] {
   background: var(--surface);
+  border-color: var(--mist);
 }
-/* The mock keys this off `aria-pressed`; twenty-six toggle buttons of which
-   one never un-presses is the wrong state, so the strip uses `aria-current`
-   as the group rail does. */
-.fw .fw-presets button[aria-current='true'] {
+.fw-pp-trigger .k {
+  color: var(--ash);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.fw-pp-trigger .d,
+.fw-pp-trigger .none {
+  color: var(--mist);
+  font-variant-numeric: tabular-nums;
+}
+.fw-pp-trigger .caret {
+  color: var(--ash);
+  font-size: 10px;
+}
+.fw-pp-edited {
+  min-width: 0;
+  color: var(--mist);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The panel's own `display: grid` would beat the user agent's `[hidden] {
+   display: none }`, so the closed state is stated here. `max-height` is not in
+   the handoff: at 420 wide seven levels in two columns are 650px tall under a
+   top at 171px (measured), which runs past any window shorter than about
+   830px — at 420×700 the `popover-fit` invariant (LayoutInvariants) goes red
+   without it. None of the matrix's five sizes is that short. */
+.fw-pp-panel {
+  position: absolute;
+  z-index: 20;
+  top: 100%;
+  left: 16px;
+  margin-top: 4px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  max-height: calc(100dvh - 12rem);
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  padding: 1px;
+  background: var(--graphite);
+}
+.fw-pp-panel[hidden] {
+  display: none;
+}
+/* 7 × 201px (the widest row, "winding skeleton 400×400", plus padding) +
+   gaps + 32px of margin ≈ 1447px. Recompute when a mode's name or the font
+   changes. */
+@media (max-width: 1479px) {
+  .fw-pp-panel {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .fw-pp-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+/* Lines as a shadow on the columns, not the panel's background showing
+   through: an empty grid cell would paint as a grey block. */
+.fw-pp-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 8px 10px;
+  background: var(--graphite);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.fw-pp-col h3 {
+  margin: 0 4px 8px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--ash);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.fw .fw-pp-col button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--mist);
+  text-align: left;
+  cursor: pointer;
+}
+.fw .fw-pp-col button:hover {
+  background: var(--surface);
   color: var(--ink);
+}
+.fw .fw-pp-col button[aria-current='true'] {
   background: var(--signal-fill);
-  border-color: transparent;
+  color: var(--ink);
+}
+/* The size never shrinks or wraps; the mode gives way with an ellipsis if a
+   column is ever narrower than its content. */
+.fw-pp-col button > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fw-pp-col button .d {
+  flex: none;
+  white-space: nowrap;
+  color: var(--ash);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.fw-pp-col button[aria-current='true'] .d {
+  color: var(--ink);
 }
 @media (pointer: coarse) {
   .fw-presets {
     height: auto;
     padding: 6px 16px;
   }
-  .fw .fw-presets button {
+  .fw .fw-pp-col button,
+  .fw .fw-presets .fw-pp-trigger {
     height: 44px;
   }
 }

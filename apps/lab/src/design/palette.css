@@ -31,7 +31,7 @@
   cursor: pointer;
 }
 .fw-top .right > button:hover {
-  background: rgba(237, 238, 242, 0.12);
+  background: var(--signal-fill-hover);
 }
 .fw-scrim {
   position: fixed;

@@ -10,7 +10,7 @@ import { Stage } from './Stage'
  * cannot fail: `Stage` alone has nothing above it to rerender, so the memo is
  * never asked the question the test is about.
  *
- * The router is the frame's and the report column's: both ask which tab is on
+ * The router is the frame's and the report drawer's: both ask which tab is on
  * screen (`useInLibrary`). It sits inside the probe rather than around each
  * mount so that a rerender still goes through one router, and it names no
  * address — every case here is the lab.

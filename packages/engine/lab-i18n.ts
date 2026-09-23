@@ -159,6 +159,7 @@ export const EN = {
     cmdHintClose: 'close',
     cmdHintGenerate: 'generate',
     cmdHintSeed: 'seed',
+    cmdHintReport: 'report',
     cmdNoRun: 'nothing running',
     cmdRunning: 'already running',
     cmdBroken: 'rule broken',
@@ -269,10 +270,15 @@ export const EN = {
     generateBlocked: 'Fix the settings marked in red to generate',
     clamped: 'Some loaded settings were pulled into the safe range',
     // The preset strip: its accessible name (it carries no visible caption),
-    // the mark for a knob moved since a preset was chosen, and the button
-    // that puts the clamp notice away.
+    // and the button that puts the clamp notice away.
     presetsLabel: 'Presets',
-    presetsDirty: 'edited',
+    // The preset picker (spec §3): the trigger's caps label, what it says when
+    // no preset spells the knobs, and the note beside it in that state.
+    preset: 'preset',
+    customSettings: 'custom settings',
+    editedSinceLastPreset: 'edited since the last preset',
+    // The report drawer's handle (spec §4.1), its visible and accessible name.
+    reportHandle: 'report',
     dismiss: 'Dismiss',
     // The top bar's two choices, each a radio group named by what it chooses.
     // The language codes are the visible text and so the accessible name: a
@@ -603,6 +609,7 @@ export const PL: Translation = {
     cmdHintClose: 'zamknij',
     cmdHintGenerate: 'generuj',
     cmdHintSeed: 'ziarno',
+    cmdHintReport: 'raport',
     cmdNoRun: 'nic się nie generuje',
     cmdRunning: 'już się generuje',
     cmdBroken: 'złamana reguła',
@@ -702,7 +709,10 @@ export const PL: Translation = {
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
     presetsLabel: 'Presety',
-    presetsDirty: 'zmienione',
+    preset: 'preset',
+    customSettings: 'własne ustawienia',
+    editedSinceLastPreset: 'zmienione od ostatniego presetu',
+    reportHandle: 'raport',
     dismiss: 'Zamknij',
     modeLabel: 'Widok',
     languageLabel: 'Język',

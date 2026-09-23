@@ -218,7 +218,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
               the palette on every route, but `useRunKeys` is gated on the
               workspace, so under `/docs/*` these two are bound to nothing —
               and a hint for a key that does nothing is the promise D5 exists
-              to forbid the mock for printing. */}
+              to forbid the mock for printing. `r` is bound by `useReportKey`
+              on the lab tab alone (index 0): the saved boards have no
+              drawer, so there the hint goes while `g` and `[ ]` stay. */}
           {onWorkspace ? (
             <>
               <span>
@@ -228,6 +230,11 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
                 <b>[ ]</b> {dict.t('cmdHintSeed')}
               </span>
             </>
+          ) : null}
+          {tab === 0 ? (
+            <span>
+              <b>r</b> {dict.t('cmdHintReport')}
+            </span>
           ) : null}
         </div>
       </div>

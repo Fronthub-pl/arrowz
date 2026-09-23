@@ -52,6 +52,7 @@ async function mountApp() {
   // entirely (console.css), and a later case reading `.fw-console` would then
   // be measuring a `display: none` box.
   useStore.getState().ui.setSolo(false)
+  useStore.getState().ui.setReport(false)
   return render(<App />)
 }
 
@@ -229,7 +230,12 @@ test('a run in flight keeps the last result on screen', async () => {
   const element = screen.container.querySelector('arrowz-board')
   const board = element?.board
   expect(board?.W).toBe(25)
-  const report = () => screen.getByRole('region', { name: 'Report' }).element().querySelector('table.fw-stats')
+  // `includeHidden`: the report drawer starts closed and its report is then
+  // `visibility: hidden` (shell.css), which a role locator skips. The claim
+  // here is what the report holds while a run is in flight, not whether the
+  // drawer is open.
+  const report = () =>
+    screen.getByRole('region', { name: 'Report', includeHidden: true }).element().querySelector('table.fw-stats')
   const statsBefore = report()?.textContent
   expect(statsBefore).toMatch(/25 × 50/)
   // The board-file button waits for the layout hash of the board on screen;
@@ -550,10 +556,15 @@ test('the saved board carries the view on screen', async () => {
 test('the simple view replaces the rail and the presets, and keeps the very same run column', async () => {
   const screen = await mountApp()
   const column = screen.getByRole('region', { name: 'Run' }).element()
+  // Present in the advanced view first, so the null check below cannot pass
+  // on a trigger that the locator never matched at all.
+  await expect.element(screen.getByRole('button', { name: /^preset/ })).toBeInTheDocument()
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   expect(screen.getByRole('tablist', { name: 'Parameter groups' }).query()).toBeNull()
-  expect(screen.getByRole('group', { name: 'Presets' }).query()).toBeNull()
+  // The trigger, not the `Presets` group: that group is the picker's panel,
+  // hidden while closed, so it is absent from the role tree either way.
+  expect(screen.getByRole('button', { name: /^preset/ }).query()).toBeNull()
   expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
   await screen.getByRole('radio', { name: 'Advanced' }).click()
   await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()

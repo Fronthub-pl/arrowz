@@ -1,15 +1,12 @@
-import { findPreset, PRESETS } from '@arrowz/engine/presets'
-import { useLocation } from 'react-router'
 import { useDictionary } from '../i18n'
 import { TRIGGER_ID } from '../palette/CommandPalette'
 import { useStore } from '../state/store'
 import { Segmented } from './Segmented'
-import { selectedIndex } from './TabRow'
 
 /**
- * The one large Signal plane of the mock: the mark, the preset's name and the
- * size (spec §5.1), and the right group where the view and the language are
- * chosen.
+ * The one large Signal plane of the mock: the mark and the size (spec §5.1;
+ * the preset's name moved to the picker, spec §3.3), and the right group
+ * where the view and the language are chosen.
  */
 export function TopBar() {
   const dict = useDictionary()
@@ -17,61 +14,14 @@ export function TopBar() {
   const setMode = useStore((state) => state.ui.setMode)
   const lang = useStore((state) => state.lang.lang)
   const setLang = useStore((state) => state.lang.setLang)
-  // "edited" only means something where a preset strip is on screen to be
-  // edited from, and the bar is mounted on every face — the saved boards,
-  // the docs, the simple view — where there mostly is none. This is not the
-  // same test `Workspace.tsx` uses for rendering the strip (`lab &&
-  // !simple`, where its own `tab` reads 'lab' on the docs route too —
-  // `App.tsx`'s `tab={tabIndex === 1 ? 'library' : 'lab'}` gives docs that
-  // same fallback rather than a route of its own, and the whole workspace is
-  // hidden there instead): `selectedIndex(...) === 0` checks the lab route by
-  // itself, stricter than that flag. It still matches what a person sees —
-  // the strip and the knobs it names are only ever both visible on the lab
-  // route, so that is the one face where naming the knobs "edited" answers a
-  // question anyone on screen could be asking.
-  const isLabRoute = selectedIndex(useLocation().pathname) === 0
-  const advancedLab = mode === 'advanced' && isLabRoute
-  // One selector on the whole `values` object, and no longer two primitive
-  // ones: the bar names the preset as well as the size, and the presets are
-  // spelled between them by six knobs — W, H, headBias, giants, giantStep and
-  // giantJitter — not by two. `findPreset` walks twenty-six options.
-  const values = useStore((state) => state.params.values)
-  const W = values.W
-  const H = values.H
-  const preset = findPreset(values)
-  // The level that *contains* the option, not the first segment of its id:
-  // `PRESETS` nests the options under their level already, so the containing
-  // level is exact, and a level id with a hyphen of its own (`very-hard`)
-  // cannot cut the name down to its mode. `findPreset` returns the very object
-  // the table holds, so identity is the right test.
-  const level = preset === null ? undefined : PRESETS.find((entry) => entry.options.includes(preset))
-  // Same narrowing as `PresetStrip`: a level id is a plain string, the
-  // dictionary's `levels` a fixed-key object.
-  const levels = dict.d.presets.levels as Partial<Record<string, string>>
-  const name =
-    preset === null || level === undefined
-      ? null
-      : `${levels[level.id] ?? level.id} ${dict.d.presets.modes[preset.mode]}`
-  // Off the advanced lab face, "no preset spells the knobs" is not "edited" —
-  // there is no preset strip in sight for the knobs to have wandered away
-  // from — so the slot prints nothing at all rather than a word that answers
-  // a question nobody on this face is asking. The separator goes with it,
-  // the way `.sep:has(+ .preset)` (shell.css) already drops it once its own
-  // `.preset` is gone: this element is absent here for the same reason that
-  // one is hidden there, and the bar's text never ends in a dangling "/".
-  const showPreset = name !== null || advancedLab
+  const W = useStore((state) => state.params.values.W)
+  const H = useStore((state) => state.params.values.H)
   return (
     <header className="fw-top">
       <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
         <path d="M3 17 L10 3 L17 17 L10 13 Z" fill="currentColor" />
       </svg>
       <h1 className="name">Arrowz</h1>
-      {showPreset ? (
-        <>
-          <span className="sep">/</span>
-          <span className={name === null ? 'preset edited' : 'preset'}>{name ?? dict.t('presetsDirty')}</span>
-        </>
-      ) : null}
       <span className="sep">/</span>
       <span className="dims">{`${W}×${H}`}</span>
       <div className="right">

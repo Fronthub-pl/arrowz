@@ -5,11 +5,14 @@ import { useStore } from '../state/store'
 import { LongestTable } from './LongestTable'
 import { StatsTable } from './StatsTable'
 
+/** The report's id, for the drawer handle's `aria-controls` (Stage.tsx). */
+export const REPORT_ID = 'lab-report'
+
 /**
- * The stage's third column (spec §5.2): the report of the result on screen, in
+ * The report drawer's content (spec §4.1): the report of the result on screen, in
  * both views, scrolling inside itself. It reads the result slice, so a run in
  * flight leaves it describing the board it sits beside — and the route, which
- * empties the column on the saved-boards tab.
+ * empties the report on the saved-boards tab.
  */
 export function ReportPanel(): ReactElement {
   const dict = useDictionary()
@@ -22,7 +25,7 @@ export function ReportPanel(): ReactElement {
   // sorts every piece, about 90 000 at Insane (spec §5.3).
   const shown = inLibrary ? null : result
   return (
-    <section className="fw-report" aria-label={dict.t('reportPanel')}>
+    <section id={REPORT_ID} className="fw-report" aria-label={dict.t('reportPanel')}>
       {shown === null ? null : (
         <>
           <StatsTable result={shown} baseline={baseline} />

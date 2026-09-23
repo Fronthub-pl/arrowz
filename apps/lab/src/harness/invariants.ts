@@ -6,7 +6,16 @@ import { contrast, shown } from '../design/contrast'
 // (harness fact 36).
 
 export type Invariant =
-  'scroll' | 'board-clip' | 'overlap' | 'ua-button' | 'describedby' | 'contrast' | 'bar-clip' | 'panel-overflow'
+  | 'scroll'
+  | 'board-clip'
+  | 'overlap'
+  | 'ua-button'
+  | 'describedby'
+  | 'contrast'
+  | 'bar-clip'
+  | 'panel-overflow'
+  | 'popover-fit'
+  | 'drawer-fit'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -114,6 +123,58 @@ function panelOverflow(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * A rendered popover lies inside the viewport on both axes (spec §3.4). The
+ * preset panel is absolutely positioned under its 38px row, so whether the
+ * document grows with it depends on which ancestor clips: `scroll` sees it
+ * only when none does (measured at 420×700 with no `max-height`: both went
+ * red). This reads the panel's own box instead.
+ */
+function popoverFit(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const panel of root.querySelectorAll('.fw-pp-panel')) {
+    if (!rendered(panel)) continue
+    const r = panel.getBoundingClientRect()
+    if (r.left < -EPS || r.top < -EPS || r.right > window.innerWidth + EPS || r.bottom > window.innerHeight + EPS) {
+      const [l, t, rt, b] = [r.left, r.top, r.right, r.bottom].map((v) => v.toFixed(0))
+      out.push({
+        invariant: 'popover-fit',
+        detail: `${label(panel)} ${l},${t} to ${rt},${b} in ${window.innerWidth}×${window.innerHeight}`,
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * An open drawer lies over the board (spec §4.1): inside its stage, and right
+ * of the run rail, which `max-width: calc(100% - 70px)` keeps uncovered — never
+ * past the stage's edge onto the console. The stage's own box alone would not
+ * see that rule go: at 420×900 the stage is 420px and the drawer without it
+ * 380px, inside the stage and 30px over the rail (measured). Open only:
+ * closed, the drawer is translated all but its handle past the stage's right
+ * edge by design, and the stage clips it (`overflow: hidden`, shell.css).
+ */
+function drawerFit(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const drawer of root.querySelectorAll('.fw-drawer.open')) {
+    const stage = drawer.closest('.fw-stage')
+    if (stage === null || !rendered(drawer)) continue
+    const d = drawer.getBoundingClientRect()
+    const s = stage.getBoundingClientRect()
+    const rail = stage.querySelector(':scope > .fw-runs')
+    const left = rail !== null && rendered(rail) ? rail.getBoundingClientRect().right : s.left
+    if (d.left < left - EPS || d.right > s.right + EPS || d.top < s.top - EPS || d.bottom > s.bottom + EPS) {
+      const [l, t, r, b] = [d.left, d.top, d.right, d.bottom].map((v) => v.toFixed(0))
+      out.push({
+        invariant: 'drawer-fit',
+        detail: `${label(drawer)} ${l},${t} to ${r},${b} outside ${label(stage)} right of x=${left.toFixed(0)}`,
+      })
+    }
+  }
+  return out
+}
+
 /** No button keeps the user agent's look (review P9: `2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
@@ -162,6 +223,8 @@ export function audit(root: HTMLElement, { board }: { board: boolean }): Finding
     ...overlap(root),
     ...barClip(root),
     ...panelOverflow(root),
+    ...popoverFit(root),
+    ...drawerFit(root),
     ...uaButtons(root),
     ...describedBy(root),
     ...lowContrast(root),

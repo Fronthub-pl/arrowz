@@ -7,6 +7,7 @@ import { ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
 import type { PlainUiKey } from '../console/viewFields'
 import { viewHelpEntries } from '../console/viewFields'
 import { useDictionary } from '../i18n'
+import { CommandText } from '../run/CommandText'
 import { useStore } from '../state/store'
 import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
 import { raiseNotice } from './notices'
@@ -141,7 +142,9 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
             {copied ? dict.t('copied') : dict.t('copy')}
           </button>
         </figcaption>
-        <pre className="fw-cmd">{meta.command}</pre>
+        <pre className="fw-cmd">
+          <CommandText command={meta.command} />
+        </pre>
       </figure>
       <div className="fw-grid">
         {/* The detail keeps no heading of its own to carry this list (spec R7
