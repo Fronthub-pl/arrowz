@@ -30,8 +30,6 @@ export interface UiState {
   entry: RailEntry
   /** Generate 350 ms after a knob is edited. Off at first. */
   auto: boolean
-  /** Show every parameter description. On at first; a link may turn it off. */
-  help: boolean
   /** A preset or a link moved a value into range and has not been dismissed. */
   clamped: boolean
   /** Which console is on screen. Remembered, never in the hash. */
@@ -57,7 +55,6 @@ export interface UiState {
   focusTarget: string | null
   select(entry: RailEntry): void
   setAuto(on: boolean): void
-  setHelp(on: boolean): void
   raiseClamped(on: boolean): void
   setMode(mode: ViewMode): void
   setSolo(on: boolean): void
@@ -82,7 +79,6 @@ export function createUiSlice(set: SetStore): UiState {
     // group at a time (spec §5.2).
     entry: 'board',
     auto: false,
-    help: true,
     clamped: false,
     mode: modeOf(readStored(MODE_KEY)),
     solo: false,
@@ -92,7 +88,6 @@ export function createUiSlice(set: SetStore): UiState {
     focusTarget: null,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
-    setHelp: (help) => patch({ help }),
     raiseClamped: (clamped) => patch({ clamped }),
     setMode: (mode) => {
       writeStored(MODE_KEY, mode)

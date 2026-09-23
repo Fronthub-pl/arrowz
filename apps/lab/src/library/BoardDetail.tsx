@@ -27,7 +27,6 @@ import { cancelPendingSave, useViewSave } from './useViewSave'
 export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | null {
   const dict = useDictionary()
   const preview = useStore((state) => state.result.preview)
-  const showHelp = useStore((state) => state.ui.help)
   const open = useOpenBoard()
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
@@ -154,10 +153,7 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
             fields already sit in — spanning the row (`grid-column: 1 / -1`,
             library.css) so it reads as one line above the cards rather than a
             card of its own. */}
-        <FieldHelp
-          entries={viewHelpEntries(LIBRARY_VIEW_FIELDS, (key: PlainUiKey) => dict.t(key))}
-          hidden={!showHelp}
-        />
+        <FieldHelp entries={viewHelpEntries(LIBRARY_VIEW_FIELDS, (key: PlainUiKey) => dict.t(key))} />
         {LIBRARY_VIEW_FIELDS.map((field) => (
           <ViewNumberField
             key={field.field}

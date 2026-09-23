@@ -345,7 +345,6 @@ export function ColoursCard() {
 export function ViewPanel() {
   const dict = useDictionary()
   const view = useStore((state) => state.view)
-  const showHelp = useStore((state) => state.ui.help)
   const pointRadiusRef = useRef<HTMLInputElement>(null)
 
   // Same two mechanisms as `ViewNumberField` above, kept separate because this
@@ -372,7 +371,7 @@ export function ViewPanel() {
     <div className="fw-knobs" role="tabpanel" id={panelId('preview')} aria-labelledby={tabId('preview')}>
       <div className="fw-khd">
         <b id="view-sec-geometry">{dict.t('previewGeometry')}</b>
-        <FieldHelp entries={viewHelpEntries(VIEW_FIELDS, t)} hidden={!showHelp} />
+        <FieldHelp entries={viewHelpEntries(VIEW_FIELDS, t)} />
       </div>
       <div className="fw-grid" role="group" aria-labelledby="view-sec-geometry">
         {VIEW_FIELDS.map((field) => (
@@ -407,7 +406,6 @@ export function ViewPanel() {
           entries={[
             { id: 'view-point-radius-help', label: dict.t('pointRadiusLabel'), text: dict.t('pointRadiusHelp') },
           ]}
-          hidden={!showHelp}
         />
       </div>
       <div className="fw-grid" role="group" aria-labelledby="view-sec-points">
@@ -454,7 +452,6 @@ export function ViewPanel() {
           entries={[
             { id: 'view-palette-help', label: dict.t('paletteLabel'), text: dict.t('paletteHelp', PALETTE_CAP) },
           ]}
-          hidden={!showHelp}
         />
       </div>
       <div className="fw-grid" role="group" aria-labelledby="view-sec-colours">

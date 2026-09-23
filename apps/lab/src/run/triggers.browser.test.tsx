@@ -89,7 +89,6 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.ui.setAuto(false)
-  state.ui.setHelp(true)
   state.ui.raiseClamped(false)
   state.ui.setMode('advanced')
   state.recipe.reset()

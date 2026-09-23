@@ -38,9 +38,7 @@ export function RunColumn({
   const running = useStore((state) => state.run.phase === 'running')
   const blocked = useStore((state) => state.params.violations.length > 0)
   const auto = useStore((state) => state.ui.auto)
-  const help = useStore((state) => state.ui.help)
   const setAuto = useStore((state) => state.ui.setAuto)
-  const setHelp = useStore((state) => state.ui.setHelp)
   const simple = useStore((state) => state.ui.mode === 'simple')
 
   // Both of these buttons are a landing spot with an expiry date, because each
@@ -148,11 +146,12 @@ export function RunColumn({
           {dict.t('abort')}
         </button>
       </div>
-      {/* The knobs' own switches, and the simple view shows no knobs (PR 4a, Ruling 9). */}
+      {/* The knobs' own switch, and the simple view shows no knobs (PR 4a,
+          Ruling 9). The descriptions switch is gone: every knob row opens its
+          own description with its `?` (handoff 2, PR 2). */}
       {simple ? null : (
         <div className="fw-ghost">
           <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />
-          <OptionSwitch id="opt-help" label={dict.t('showHelp')} on={help} onChange={setHelp} />
         </div>
       )}
       {/* In both views: the exports belong to the board, not to the knobs. */}

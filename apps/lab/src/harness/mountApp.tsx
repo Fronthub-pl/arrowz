@@ -32,7 +32,6 @@ export function resetApp(mode: ViewMode): void {
   state.params.reset()
   state.ui.select('board')
   state.ui.setAuto(false)
-  state.ui.setHelp(true)
   state.ui.raiseClamped(false)
   state.lang.setLang('en')
   state.ui.setMode(mode)

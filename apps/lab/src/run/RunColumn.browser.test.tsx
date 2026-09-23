@@ -75,7 +75,6 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.ui.setAuto(false)
-  state.ui.setHelp(true)
   state.ui.setMode('advanced')
 })
 
@@ -216,14 +215,14 @@ describe('RunColumn', () => {
   })
 
   // The hook behind `auto` is tested on its own; what is only visible here is
-  // that the column's two switches are the store's two fields and not local
-  // state of their own.
-  it('flips the store from either switch', async () => {
+  // that the column's switch is the store's field and not local state of its
+  // own. The descriptions switch is gone (handoff 2, PR 2): a knob row opens
+  // its own description with its `?`.
+  it('flips the store from its switch, and has no descriptions switch', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
     await screen.getByRole('switch', { name: 'generate right after a change' }).click()
     expect(useStore.getState().ui.auto).toBe(true)
-    await screen.getByRole('switch', { name: 'show parameter descriptions' }).click()
-    expect(useStore.getState().ui.help).toBe(false)
+    expect(screen.getByRole('switch').elements()).toHaveLength(1)
   })
 })
 

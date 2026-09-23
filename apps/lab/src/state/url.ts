@@ -12,7 +12,6 @@ export interface HashView {
   rounded: boolean
   colored: boolean
   hilite: boolean
-  help: boolean
   /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
   lang?: Lang | undefined
   /** The board theme by name. Absent when the link predates themes. */
@@ -146,7 +145,8 @@ export function decodeHash(hash: string): HashPayload | null {
       rounded: raw.rounded !== false,
       colored: raw.colored === true,
       hilite: raw.hilite !== false,
-      help: raw.help !== false,
+      // `help` is no longer read: the descriptions switch is gone (handoff 2,
+      // PR 2) and a link that still carries it loads as if it did not.
       lang: isLang(raw.lang) ? raw.lang : undefined,
       theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
       palette: palette(raw.palette),

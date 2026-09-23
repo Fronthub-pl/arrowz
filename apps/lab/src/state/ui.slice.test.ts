@@ -26,11 +26,14 @@ describe('the switches the run column owns', () => {
     return store
   }
 
-  it('starts with auto off and help on, as the previous lab does', () => {
+  // The descriptions switch is gone (handoff 2, PR 2): the slice keeps no
+  // `help` at all, and a knob row opens its own description.
+  it('starts with auto off, and has no descriptions switch', () => {
     const store = slice()
     expect(store.ui.auto).toBe(false)
-    expect(store.ui.help).toBe(true)
     expect(store.ui.clamped).toBe(false)
+    expect(store.ui).not.toHaveProperty('help')
+    expect(store.ui).not.toHaveProperty('setHelp')
   })
 
   it('sets each switch to what it is given, rather than toggling', () => {
@@ -38,9 +41,8 @@ describe('the switches the run column owns', () => {
     store.ui.setAuto(true)
     store.ui.setAuto(true)
     expect(store.ui.auto).toBe(true)
-    store.ui.setHelp(false)
-    expect(store.ui.help).toBe(false)
-    expect(store.ui.auto).toBe(true)
+    store.ui.setAuto(false)
+    expect(store.ui.auto).toBe(false)
   })
 
   it('raises and lowers the clamp notice', () => {

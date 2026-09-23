@@ -44,12 +44,20 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.headWidth).toBe(0)
   })
 
-  it('defaults the four flags the way the previous lab does', () => {
+  it('defaults the three flags the way the previous lab does', () => {
     const bare = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: {} })))
     expect(bare?.view.rounded).toBe(true)
     expect(bare?.view.hilite).toBe(true)
-    expect(bare?.view.help).toBe(true)
     expect(bare?.view.colored).toBe(false)
+  })
+
+  // Handoff 2, PR 2 removed the descriptions switch: a link from before still
+  // loads, and its `help` is simply not part of the view any more.
+  it('loads a link that still carries the old help flag, and drops it', () => {
+    const old = decodeHash('#' + encodeURIComponent(JSON.stringify({ W: 30, __view: { help: false, hilite: false } })))
+    expect(old?.params.W).toBe(30)
+    expect(old?.view.hilite).toBe(false)
+    expect(old?.view).not.toHaveProperty('help')
   })
 
   // Ruling 6 of PR 4a: the language is the page's own now, and only the tab

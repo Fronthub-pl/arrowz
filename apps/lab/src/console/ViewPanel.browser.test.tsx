@@ -55,7 +55,6 @@ beforeEach(() => {
   // "the panel draws the point grid controls" below clicks it on and never
   // clicks it back off, so every later test in this file ran with the grid on
   // until this reset covered it.
-  useStore.getState().ui.setHelp(true)
   useStore.setState((state) => ({
     view: {
       ...state.view,
@@ -472,17 +471,11 @@ test('a field with help points at it under its section heading', async () => {
   expect(screen.container.querySelectorAll('.fw-k .why')).toHaveLength(0)
 })
 
-// The preview's help follows the help switch like the knob panels' (spec R7,
-// Ruling 9 of 2026-09-13-lab-run-triggers): out of sight, never out of the tree.
-test('the help switch hides the preview help from the eye, not from the tree', async () => {
-  useStore.getState().ui.setHelp(false)
+// The descriptions switch is gone (handoff 2, PR 2), so the preview's help is
+// always in sight until the preview moves to rows with a `?` of their own
+// (PR 3); every control still names an element that exists.
+test('every preview control names a description that exists', async () => {
   const screen = await render(<ViewPanel />)
-  const lists = [...screen.container.querySelectorAll('.fw-khd .fw-kdesc')]
-  expect(lists.length).toBeGreaterThan(0)
-  for (const list of lists) {
-    expect(list.classList.contains('fw-vh')).toBe(true)
-    expect(getComputedStyle(list).display).not.toBe('none')
-  }
   for (const id of ['#view-cell', '#view-headHeight', '#view-point-radius']) {
     const described = screen.container.querySelector(id)?.getAttribute('aria-describedby') ?? ''
     expect(document.getElementById(described), id).not.toBeNull()
