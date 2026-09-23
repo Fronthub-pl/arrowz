@@ -6,7 +6,7 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { contrast, shown } from '../design/contrast'
-import { audit, type Invariant } from '../harness/invariants'
+import { audit, type Finding, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
 import { settleTransitions as settle } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
@@ -208,7 +208,7 @@ async function arrange(state: State) {
 }
 
 /** Asserts the audit's failing invariants are exactly those `KNOWN_RED` records under `key`. */
-function expectKnownRed(key: string, findings: readonly { invariant: Invariant; detail: string }[]) {
+function expectKnownRed(key: string, findings: readonly Finding[]) {
   const failing = [...new Set(findings.map((f) => f.invariant))].sort()
   const expected = [...(KNOWN_RED[key] ?? [])].sort()
   expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual(expected)
@@ -362,3 +362,17 @@ test('a hovered choice in the top bar is filled, not underlined, and still reads
     expect(contrast(front, back), name).toBeGreaterThanOrEqual(4.5)
   }
 }, 40_000)
+
+// A `KNOWN_RED` key nobody generates masks nothing and says nothing: a typo'd
+// key would leave its case red while the entry reads as recorded. Every key
+// must be one a case in this file asks for.
+test('every KNOWN_RED key names a case this file runs', () => {
+  const keys = new Set([
+    ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
+    ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
+    ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
+    'presets-open@420x700',
+    'huge-pl@420x900',
+  ])
+  expect(Object.keys(KNOWN_RED).filter((key) => !keys.has(key))).toEqual([])
+})
