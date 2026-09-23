@@ -141,10 +141,9 @@ function usePaletteKey() {
 /**
  * The two drawers' keys (spec §4.3, handoff 2 PR 1): `r` / `R` toggles the
  * report and `s` / `S` the settings, all refused by `isHotkeyRefused` like `f`.
- * Bound on the lab tab only, not wherever the stage is: the saved boards have
- * neither drawer yet (console.css, `.fw-lab.library .fw-drawer`), and a key
- * there would flip a drawer nobody sees — the state is left alone, so the lab
- * shows each drawer as it was left.
+ * Bound wherever the stage is: the saved boards have both drawers too
+ * (handoff 2, PR 6) — the sizes and the preview on the left, the open board's
+ * report on the right — and the two tabs share each drawer's state.
  *
  * Escape closes one layer per press, the report before the settings: the
  * report lies over the board, the settings drawer beside it. One listener
@@ -153,9 +152,9 @@ function usePaletteKey() {
  * the preset panel in a capture-phase listener, and a consumed event is
  * refused here as `defaultPrevented`.
  */
-function useDrawerKeys(onLab: boolean) {
+function useDrawerKeys(onWorkspace: boolean) {
   useEffect(() => {
-    if (!onLab) return
+    if (!onWorkspace) return
     const onKey = (event: KeyboardEvent) => {
       if (isHotkeyRefused(event)) return
       const ui = useStore.getState().ui
@@ -170,7 +169,7 @@ function useDrawerKeys(onLab: boolean) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onLab])
+  }, [onWorkspace])
 }
 
 /**
@@ -242,7 +241,7 @@ function Shell() {
   const onWorkspace = tabIndex === 0 || tabIndex === 1
   useStoreSave()
   useSoloKey(onWorkspace)
-  useDrawerKeys(tabIndex === 0)
+  useDrawerKeys(onWorkspace)
   useRunKeys(onWorkspace, control)
   usePaletteKey()
   useDocumentLang()

@@ -330,7 +330,6 @@ export const EN = {
     notSaved: 'not saved (no store server)',
     refresh: 'Refresh',
     boardCommand: 'Command of this board',
-    sizeGroup: 'Board sizes',
     boardRows: 'Boards of this size',
     boardDetail: 'The open board',
     loadIntoLab: 'Load into lab',
@@ -339,7 +338,6 @@ export const EN = {
     notClosed: 'not closed',
     piecesShort: (n: number | string) => `${n} pieces`,
     longestShort: (n: number | string) => `longest ${n}`,
-    genShort: (s: string) => `${s} s to generate`,
     loadingBoard: (id: string) => `Loading ${id}…`,
     boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
     savedBoard: (id: string, seed: number | string, source: string, gen: string) =>
@@ -364,6 +362,7 @@ export const EN = {
     factGenerated: 'generated',
     secStoredArrows: 'arrows · saved with the board',
     stat_genVal: (g: string) => `generation ${g} s`,
+    notClosedShort: 'Board not closed.',
     storedReportNote: 'A saved board keeps these figures only. Load it into the lab and generate for the full report.',
     inactivePrefix: 'No effect: ',
     // Safe envelope: settings the engine refuses to generate with.
@@ -886,7 +885,6 @@ export const PL: Translation = {
     notSaved: 'nie zapisano (brak serwera magazynu)',
     refresh: 'Odśwież',
     boardCommand: 'Komenda tej planszy',
-    sizeGroup: 'Rozmiary plansz',
     boardRows: 'Plansze tego rozmiaru',
     boardDetail: 'Otwarta plansza',
     loadIntoLab: 'Wczytaj do laboratorium',
@@ -895,7 +893,6 @@ export const PL: Translation = {
     notClosed: 'niedomknięta',
     piecesShort: (n) => `${n} elem.`,
     longestShort: (n) => `najdłuższy ${n}`,
-    genShort: (s) => `${s} s generacji`,
     loadingBoard: (id) => `Wczytuję ${id}…`,
     boardFileError: (id, reason) => `Nie da się odczytać planszy ${id}: ${reason}`,
     savedBoard: (id, seed, source, gen) =>
@@ -918,6 +915,7 @@ export const PL: Translation = {
     factGenerated: 'wygenerowano',
     secStoredArrows: 'strzałki · zapisane z planszą',
     stat_genVal: (g) => `generacja ${g} s`,
+    notClosedShort: 'Plansza niedomknięta.',
     storedReportNote:
       'Zapisana plansza przechowuje tylko te liczby. Wczytaj ją do laboratorium i wygeneruj, żeby zobaczyć pełny raport.',
     inactivePrefix: 'Bez wpływu: ',

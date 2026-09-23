@@ -61,7 +61,7 @@ function boardClip(root: HTMLElement): Finding[] {
 /** Rendered children of each grid named here do not intersect. */
 function overlap(root: HTMLElement): Finding[] {
   const out: Finding[] = []
-  for (const parent of root.querySelectorAll('.fw-lab, .fw-lib-detail')) {
+  for (const parent of root.querySelectorAll('.fw-lab')) {
     const kids = [...parent.children].filter(rendered).filter((k) => k.getBoundingClientRect().height > 0)
     for (let i = 0; i < kids.length; i++) {
       for (let j = i + 1; j < kids.length; j++) {
@@ -148,13 +148,10 @@ function popoverFit(root: HTMLElement): Finding[] {
 }
 
 /**
- * An open drawer lies over the board (spec §4.1): inside its stage, and right
- * of the saved boards' run rail, which `max-width: calc(100% - 70px)` keeps
- * uncovered (the lab has no rail since handoff 2, PR 1: there the stage's own
- * left edge is the bound) — never
- * past the stage's edge onto the console. The stage's own box alone would not
- * see that rule go: at 420×900 the stage is 420px and the drawer without it
- * 380px, inside the stage and 30px over the rail (measured). Open only:
+ * An open drawer lies over the board (spec §4.1): inside its stage — never
+ * past the stage's edge onto the console. Neither tab has a rail beside the
+ * board any more (handoff 2, PR 1 and PR 6), so the stage's own left edge is
+ * the bound. Open only:
  * closed, the drawer is translated all but its handle past the stage's right
  * edge by design, and the stage clips it (`overflow: hidden`, shell.css).
  */
@@ -165,8 +162,7 @@ function drawerFit(root: HTMLElement): Finding[] {
     if (stage === null || !rendered(drawer)) continue
     const d = drawer.getBoundingClientRect()
     const s = stage.getBoundingClientRect()
-    const rail = stage.querySelector(':scope > .fw-runs')
-    const left = rail !== null && rendered(rail) ? rail.getBoundingClientRect().right : s.left
+    const left = s.left
     if (d.left < left - EPS || d.right > s.right + EPS || d.top < s.top - EPS || d.bottom > s.bottom + EPS) {
       const [l, t, r, b] = [d.left, d.top, d.right, d.bottom].map((v) => v.toFixed(0))
       out.push({

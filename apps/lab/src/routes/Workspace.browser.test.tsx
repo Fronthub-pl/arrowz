@@ -40,6 +40,8 @@ async function mountApp() {
   // case's first keystroke. `entry` is reset for the same reason the others
   // are — the case that picks a rail entry leaves it on 'preview'.
   useStore.getState().ui.select('board')
+  // The saved boards' panel too: the restyle case leaves it on 'preview'.
+  useStore.getState().ui.showBoards('list')
   useStore.getState().ui.setAuto(false)
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
@@ -819,15 +821,20 @@ test('leaving the library takes the stored board off the stage', async () => {
     const runAnnotation = screen.container.querySelector('.fw-anno')?.textContent
 
     await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-    await expect.element(screen.getByText(meta.id)).toBeVisible()
-    await userEvent.click(screen.getByText(meta.id))
+    // A row prints a short id and carries the whole one in its title.
+    await expect.element(screen.getByTitle(meta.id)).toBeVisible()
+    await userEvent.click(screen.getByTitle(meta.id))
     await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
-    expect(screen.container.querySelectorAll('.fw-report table')).toHaveLength(0)
+    // The report is the stored board's now (handoff 2, PR 6): its six stored
+    // figures, not the run's 23 rows.
+    await expect.poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
+      .toBe(6)
 
     await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
     await expect.poll(() => useStore.getState().result.preview).toBeNull()
     expect(screen.container.querySelector('.fw-anno')?.textContent).toBe(runAnnotation)
-    await expect.poll(() => screen.container.querySelectorAll('.fw-report table').length).toBeGreaterThan(0)
+    await expect.poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
+      .toBeGreaterThan(6)
   } finally {
     vi.restoreAllMocks()
   }
@@ -860,15 +867,13 @@ test('solo in the library fills the panel', async () => {
   expect(element.height).toBeCloseTo(lab.height - 34, 0)
 }, 40_000)
 
-// Fix 8's own case: the library face must not keep its 168px rail below 900px,
-// where the lab's is 150px. This is what tells the executor that the two
-// `.fw-console.library` rules went in *above* the media query (Task 6 Step 4).
+// Fix 8's question, since handoff 2 PR 6: the saved boards' rail is the lab's
+// rail in the same drawer, so below 900px both are the drawer's 112px.
 //
 // This reads `.fw-console`'s first track the same way the case above does,
 // so it needs the same mocked, deterministic listing: unmocked, it races
 // the same `/api/boards` fetch, and a listing that settles as an error
-// before this read drops the console to R10's one-column `empty` face,
-// whose only track is not `150px`.
+// before this read would measure a different face.
 test('below 900px the library rail is the lab rail', async () => {
   await page.viewport(860, 900)
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -885,7 +890,8 @@ test('below 900px the library rail is the lab rail', async () => {
     await expect.poll(() => useStore.getState().library.sizes?.length).toBe(1)
     const consoleBox = screen.container.querySelector('.fw-console')
     if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
-    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('150px')
+    // The drawer's rail, the lab's own at this width (console.css, 112px).
+    expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('112px')
   } finally {
     vi.restoreAllMocks()
   }
@@ -917,8 +923,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     // Wait for the rows before reading them: the tab click navigates, and a
     // navigation commits inside `startTransition` (harness facts). Review round 3
     // measured both of this file's new cases failing on a synchronous read here.
-    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
-    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    await expect.poll(() => screen.container.querySelector('.fw-brow')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-brow')
     if (row === null) throw new Error('the listing showed no row')
     await userEvent.click(row)
 
@@ -927,11 +933,12 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
 
     // An edited field redraws the stored board without generating anything.
+    // The field is in the drawer's Preview panel (handoff 2, PR 6).
     const phase = useStore.getState().run.phase
-    const stroke = screen.container.querySelector<HTMLInputElement>('.fw-lib-detail #view-stroke')
-    if (stroke === null) throw new Error('the detail offered no stroke field')
-    await userEvent.fill(stroke, '0.9')
-    await userEvent.tab()
+    await userEvent.click(screen.getByRole('tab', { name: 'Preview', exact: true }))
+    await screen.getByRole('button', { name: /^stroke:/ }).click()
+    await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+    await userEvent.keyboard('{Enter}')
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
@@ -957,9 +964,10 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
   }
 }, 40_000)
 
-// Ruling 1, at the size that exposed it: at 860x900 the first version of this
-// layout left no list at all and hung the detail 75px below the console.
-test('at 860x900 the list still scrolls and the detail stays inside the console', async () => {
+// Ruling 1's question, in the lab's layout (handoff 2, PR 6): at 860x900 the
+// long list scrolls inside the drawer, and the open board's actions stay on
+// screen in the right column.
+test('at 860x900 the list scrolls in the drawer and the column keeps its actions on screen', async () => {
   await page.viewport(860, 900)
   const { meta, file } = storedFixture(1)
   const many = Array.from({ length: 40 }, (_, i) => ({
@@ -983,25 +991,23 @@ test('at 860x900 the list still scrolls and the detail stays inside the console'
     // Wait for the rows before reading them: the tab click navigates, and a
     // navigation commits inside `startTransition` (harness facts). Review round 3
     // measured both of this file's new cases failing on a synchronous read here.
-    await expect.poll(() => screen.container.querySelector('.fw-lib-row')).not.toBeNull()
-    const row = screen.container.querySelector<HTMLElement>('.fw-lib-row')
+    await expect.poll(() => screen.container.querySelector('.fw-brow')).not.toBeNull()
+    const row = screen.container.querySelector<HTMLElement>('.fw-brow')
     if (row === null) throw new Error('the listing showed no row')
     await userEvent.click(row)
     await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 
-    const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
-    const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
-    const console_ = screen.container.querySelector<HTMLElement>('.fw-console')
-    if (list === null || detail === null || console_ === null) throw new Error('the library face is incomplete')
+    const list = screen.container.querySelector<HTMLElement>('.fw-blist')
+    if (list === null) throw new Error('the library face is incomplete')
     expect(list.clientHeight).toBeGreaterThanOrEqual(120)
     expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
-    expect(detail.getBoundingClientRect().bottom).toBeLessThanOrEqual(console_.getBoundingClientRect().bottom + 1)
-    // The buttons, not the box that contains them (Ruling 16): the box was inside
-    // the console at every size measured while `Load into lab` sat below the
-    // window, and `toBeVisible()` says nothing about that.
-    const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
-    if (buttons === null) throw new Error('the detail showed no buttons')
-    expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    expect(getComputedStyle(list).overflowY).toBe('auto')
+    // The buttons themselves, not the box that contains them (Ruling 16):
+    // `toBeVisible()` says nothing about a button below the window.
+    for (const name of [/load into lab/i, /delete from disk/i]) {
+      const button = screen.getByRole('button', { name }).element()
+      expect(button.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)
+    }
     // And nothing pushed the document itself out of shape.
     expect(
       document.scrollingElement === null

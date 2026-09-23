@@ -92,8 +92,8 @@ async function arrange(state: State) {
     // listing and fetch its file, the same round trip
     // `Workspace.browser.test.tsx`'s "a stored board can be opened…" case
     // drives through the real store URLs rather than by calling `showPreview`
-    // directly — this is `.fw-lib-detail` reached the way a person reaches
-    // it, not summoned by hand.
+    // directly — this is the open board's column reached the way a person
+    // reaches it, not summoned by hand.
     const stored = storedFixture(1)
     vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
       const url = String(input)
@@ -133,7 +133,7 @@ async function arrange(state: State) {
     // the task calls for, in place of `loadRunDone` (skipped above: this
     // state cares about the board the address opened, not the lab's own
     // load run).
-    await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).not.toBeNull()
+    await expect.poll(() => screen.container.querySelector('.fw-bcol .fw-cmdfig')).not.toBeNull()
   }
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
@@ -249,17 +249,17 @@ test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every la
   expect(failing, findings.map((f) => `${f.invariant}: ${f.detail}`).join('\n')).toEqual([])
 }, 40_000)
 
-// Review P7: an unreachable store left the chips' 168px track standing empty.
-test('an unreachable store drops the saved-boards console to one column', async () => {
+// Review P7's question in the lab's layout (handoff 2, PR 6): an unreachable
+// store leaves SIZES with no tab, the rail keeps Preview, and the panel says
+// why rather than standing empty.
+test('an unreachable store keeps the rail to Preview and says why in the panel', async () => {
   await page.viewport(1280, 800)
   const screen = await arrange('library-empty')
   await expect.poll(() => useStore.getState().library.listError).not.toBeNull()
-  const chips = screen.container.querySelector('.fw-lib-chips')
-  const list = screen.container.querySelector('.fw-lib-list')
-  const console_ = screen.container.querySelector('.fw-console')
-  if (chips === null || list === null || console_ === null) throw new Error('library face missing')
-  expect(chips.checkVisibility()).toBe(false)
-  expect(list.getBoundingClientRect().width).toBeCloseTo(console_.getBoundingClientRect().width, 0)
+  await expect.element(screen.getByText(/No store server/)).toBeVisible()
+  expect(screen.getByRole('tab', { name: 'Preview' }).elements()).toHaveLength(1)
+  expect(screen.container.querySelectorAll('.fw-rail [role="tab"]')).toHaveLength(1)
+  await expect.element(screen.getByText('Open a board from the list.')).toBeVisible()
 }, 40_000)
 
 // Spec §6: the bar's hover is a fill, like every other chip in the lab.

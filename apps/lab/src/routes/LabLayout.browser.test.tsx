@@ -591,13 +591,11 @@ test('r does nothing on the docs route', async () => {
   expect(report()).toBe(false)
 }, 40_000)
 
-// The saved-boards face has no report to show (ReportPanel.tsx empties it
-// there), so it has no drawer either: an open drawer left over from the lab
-// would cover the stored board with a blank panel. The board takes the
-// handle's track, `r` is not bound, and `ui.report` is left as it was, so the
-// lab shows the drawer again on the way back. The route changes inside a
-// transition (harness facts), hence the polls after each tab click.
-test('the saved boards have no drawer and no r, and the lab gets its drawer back', async () => {
+// Handoff 2, PR 6: the saved boards take the lab's stage — the settings
+// drawer on the left, the open board's column on the right, the report drawer
+// — and `r` toggles the one report state both tabs share. The route changes
+// inside a transition (harness facts), hence the polls after each tab click.
+test('the saved boards share the lab’s drawers and their keys', async () => {
   await page.viewport(1400, 900)
   // The listing's fetch never answers: this case is about the face, not the store.
   const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
@@ -611,22 +609,25 @@ test('the saved boards have no drawer and no r, and the lab gets its drawer back
     await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
     await settleTransitions()
     const drawer = screen.container.querySelector('.fw-drawer')
-    expect(drawer?.checkVisibility(), 'the drawer on the saved boards').toBe(false)
-    const stage = rect(screen.container, '.fw-stage')
-    const wrap = rect(screen.container, '.fw-boardwrap')
-    // Two tracks, the rail's and the board's: the board ends at the stage's edge.
-    expect(stage.right - wrap.right).toBeCloseTo(0, 0)
-    expect(wrap.left - stage.left).toBeCloseTo(71, 0)
+    expect(drawer?.checkVisibility(), 'the report on the saved boards').toBe(true)
+    // The right track is the open board's column, and the run column is hidden.
+    await expect.element(screen.getByRole('region', { name: 'The open board' })).toBeVisible()
+    expect(screen.container.querySelector('.fw-run-col:not(.fw-bcol)')?.checkVisibility()).toBe(false)
+    const board = rect(screen.container, '.fw-board')
+    const settingsDrawer = rect(screen.container, '.fw-ldrawer')
+    expect(board.left).toBeGreaterThanOrEqual(settingsDrawer.right)
     await userEvent.keyboard('r')
-    expect(report(), 'r on the saved boards').toBe(true)
+    expect(report(), 'r on the saved boards').toBe(false)
+    await userEvent.keyboard('s')
+    expect(settings(), 's on the saved boards').toBe(false)
+    await userEvent.keyboard('s')
 
     await screen.getByRole('tab', { name: 'Lab', exact: true }).click()
     await expect.poll(() => screen.container.querySelector('.fw-lab.library')).toBeNull()
     await settleTransitions()
-    expect(report()).toBe(true)
-    expect(drawer?.classList.contains('open')).toBe(true)
-    expect(drawer?.checkVisibility(), 'the drawer back in the lab').toBe(true)
-    await expect.element(screen.getByRole('region', { name: 'Report' })).toBeVisible()
+    expect(report()).toBe(false)
+    expect(settings()).toBe(true)
+    await expect.element(screen.getByRole('region', { name: 'Run' })).toBeVisible()
   } finally {
     fetchSpy.mockRestore()
   }
@@ -724,10 +725,8 @@ test('Escape closes the report first, then the settings, one per press', async (
   expect(settings()).toBe(false)
 }, 40_000)
 
-// Bound where `r` is: the lab tab only. The saved boards keep their old
-// console under the stage until PR 6, so a key there would flip a drawer
-// nobody sees.
-test('s does nothing on the docs route or on the saved boards', async () => {
+// Bound where `r` is: the workspace, not the docs.
+test('s does nothing on the docs route', async () => {
   await page.viewport(1400, 900)
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
   try {
@@ -739,11 +738,6 @@ test('s does nothing on the docs route or on the saved boards', async () => {
       .toBe(true)
     await userEvent.keyboard('s')
     expect(settings(), 's on the docs').toBe(true)
-    await screen.getByRole('tab', { name: 'Saved boards', exact: true }).click()
-    await expect.poll(() => screen.container.querySelector('.fw-lab.library')).not.toBeNull()
-    await userEvent.keyboard('s')
-    expect(settings(), 's on the saved boards').toBe(true)
-    expect(screen.container.querySelector('.fw-ldrawer')).toBeNull()
   } finally {
     vi.restoreAllMocks()
   }

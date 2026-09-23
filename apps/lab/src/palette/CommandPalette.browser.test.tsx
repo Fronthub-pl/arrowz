@@ -151,15 +151,13 @@ describe('the palette dialog', () => {
     expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(7)
   })
 
-  // `useDrawerKeys` is bound on the lab tab only — the saved boards have no
-  // drawers yet — so there the footer keeps `g` and `[ ]` and drops `r` and `s`.
-  it('drops the drawer hints on the saved boards, where r and s are not bound', async () => {
+  // `useDrawerKeys` is bound on the whole workspace since the saved boards
+  // took the lab's drawers (handoff 2, PR 6), so their footer is the lab's.
+  it('names all seven hotkeys on the saved boards too, where the drawers are', async () => {
     const screen = await mount('/boards')
-    expect(footer(screen)).toContain('generate')
-    expect(footer(screen)).toContain('seed')
-    expect(footer(screen)).not.toContain('report')
-    expect(footer(screen)).not.toContain('settings')
-    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(5)
+    expect(footer(screen)).toContain('report')
+    expect(footer(screen)).toContain('settings')
+    expect(screen.container.querySelectorAll('.fw-pal .foot span')).toHaveLength(7)
   })
 
   // Spec D5 and §7: `useRunKeys` is gated on the workspace, so on `/docs/*`

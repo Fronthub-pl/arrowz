@@ -367,14 +367,6 @@ body {
     transform: none;
   }
 }
-.fw-runs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px 8px;
-  background: var(--void);
-  overflow-y: auto;
-}
 .fw-boardwrap {
   position: relative;
   min-height: 0;

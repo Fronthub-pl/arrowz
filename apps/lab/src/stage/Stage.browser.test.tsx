@@ -23,13 +23,13 @@ function Probe() {
   return (
     <MemoryRouter>
       <Stage
-        face="lab"
         settings={
           <div id={SETTINGS_ID} className="fw-console">
             <button type="button">inside</button>
           </div>
         }
         run={null}
+        side={null}
       />
     </MemoryRouter>
   )

@@ -53,8 +53,10 @@ test.each([
     'button',
     44,
   ],
-  ['a size chip', '<div class="fw-lib-chips"><button>8x8</button></div>', 'button', 44],
-  ['a board row', '<button class="fw-lib-row">row</button>', 'button', 44],
+  // The saved boards' rail and rows (handoff 2, PR 6).
+  ['a size tab', '<div class="fw-console library"><div class="fw-rail"><button>8×8</button></div></div>', 'button', 44],
+  ['a board row', '<button class="fw-brow">row</button>', 'button', 52],
+  ['the list’s refresh', '<div class="fw-blist-hd"><button class="kv-chip">Refresh</button></div>', 'button', 44],
   ['a plain button', '<button class="fw-btn">Refresh</button>', 'button', 44],
   ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
 ] as const)('%s is raised for a finger', async (_, html, tag, px) => {

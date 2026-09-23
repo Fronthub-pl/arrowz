@@ -2,7 +2,7 @@
    drawer spec). Its own file, as console.css explains for its own: one file
    per surface keeps a specificity collision inside the surface that caused
    it. On `--graphite`, never on `--paper`, scrolling inside itself
-   as `.fw-runs` and `.fw-run-col` do. Where it sits is the stage's business
+   as `.fw-run-col` does. Where it sits is the stage's business
    (shell.css). */
 .fw-report {
   /* The containing block of the delta's hidden word (StatsTable.tsx), for the reason .fw-knobs gives. */

@@ -432,7 +432,7 @@
    the control track flexes; the label track is fixed at the longest short
    label (12 characters, lab-i18n.test.ts) plus the `?` and the dependency
    indent, so a label is never cut. The generator panels only: the preview,
-   the simple view and the library's detail keep `.fw-k` above. */
+   the simple view keeps `.fw-k` above. */
 .fw-ldrawer .fw-knobs {
   padding-left: 12px;
   padding-right: 12px;
@@ -1055,49 +1055,34 @@
 .fw-lab.simple {
   grid-template-rows: minmax(292px, 1fr) auto auto;
 }
-/* The library has no preset strip either, so it needs `.fw-lab.simple`'s
-   correction for the same reason (PR 4a, Ruling 10): with the first child
-   absent, the stage auto-places into the `auto` row and the console is left
-   with its 180px minimum. Measured before this rule at 1400×900 and 860×900:
-   rows `590.219px 180px 0px`, the console at 180px on every viewport; after
-   it, `385.109px 385.109px`. */
+/* The saved boards have no preset strip either (handoff 2, PR 6), and the
+   stage is all they put in the lab panel. (0,2,0) after `.fw-lab.simple`, so a
+   simple-view user's saved boards take this template and not that one. */
 .fw-lab.library {
-  grid-template-rows: minmax(180px, 1fr) minmax(0, 1fr);
+  grid-template-rows: minmax(292px, 1fr);
 }
-/* No report drawer on the saved boards (spec §4): the report is empty there
-   (ReportPanel.tsx), so an open drawer left over from the lab would cover the
-   stored board with a blank panel. `ui.report` stays as it was, and the lab
-   shows the drawer again. The stage drops the handle's track, 28px or the
-   coarse pointer's 44px (shell.css) alike, as solo does below — (0,3,0), so
-   it outranks both, and it sits above the solo rules so that solo's one track
-   wins on the library face too.
-
-   The run column keeps its node there and is hidden (Ruling 1), so a carve in
-   flight keeps its node, its refs and the run itself; a hidden grid item
-   takes no track. */
-.fw-lab.library .fw-stage {
-  grid-template-columns: 70px minmax(0, 1fr);
-}
-.fw-lab.library .fw-drawer,
-.fw-lab.library .fw-stage > .fw-run-col {
+/* The run column keeps its node on the saved boards and is hidden (Ruling 1),
+   so a carve in flight keeps its node, its refs and the run itself; the open
+   board's column (`.fw-bcol`) takes its track. A hidden grid item takes none. */
+.fw-lab.library .fw-stage > .fw-run-col:not(.fw-bcol) {
   display: none;
 }
-/* The lab's stage (handoff 2, PR 1): the settings drawer's handle, the board,
-   the run column and the report's handle. The drawer lies over the first
+/* The stage on both tabs (handoff 2, PR 1 and PR 6): the settings drawer's
+   handle, the board, the right column and the report's handle. The drawer lies over the first
    track, and `::before` paints that track under its handle. The run column
    scrolls itself, so the whole command shows (run.css). */
-.fw-lab:not(.library) .fw-stage {
+.fw-lab .fw-stage {
   grid-template-columns: 28px minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) 28px;
 }
-.fw-lab:not(.library) .fw-stage > .fw-boardwrap {
+.fw-lab .fw-stage > .fw-boardwrap {
   grid-column: 2;
   grid-row: 1;
 }
-.fw-lab:not(.library) .fw-stage > .fw-run-col {
+.fw-lab .fw-stage > .fw-run-col {
   grid-column: 3;
   grid-row: 1;
 }
-.fw-lab:not(.library) .fw-stage::before {
+.fw-lab .fw-stage::before {
   content: '';
   grid-column: 1;
   grid-row: 1;
@@ -1111,16 +1096,16 @@
    because 0 would also take the board's own 16px padding, and on the
    transition as well, so turning solo on does not animate the board's size. */
 @media (min-width: 1024px) {
-  .fw-lab:not(.library):not(.solo) .fw-stage > .fw-boardwrap {
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
     transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
   }
-  .fw-lab:not(.library):not(.solo) .fw-stage.ls-open > .fw-boardwrap {
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
     padding-left: var(--ls-w);
   }
 }
 /* In the drawer the rail is 126px (168 before), and the console drops its
    top rule, which doubled the line under the preset strip. */
-.fw-lab:not(.library) .fw-ldrawer > .fw-console {
+.fw-lab .fw-ldrawer > .fw-console {
   grid-template-columns: 126px minmax(0, 1fr);
   border-top: 0;
   min-height: 0;
@@ -1129,30 +1114,30 @@
 .fw-lab.simple:not(.library) .fw-ldrawer > .fw-console {
   grid-template-columns: minmax(0, 1fr);
 }
-.fw-lab:not(.library) .fw-ldrawer > .fw-console > * {
+.fw-lab .fw-ldrawer > .fw-console > * {
   min-height: 0;
   overflow-y: auto;
 }
 @media (prefers-reduced-motion: reduce) {
-  .fw-lab:not(.library):not(.solo) .fw-stage > .fw-boardwrap {
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
     transition: none;
   }
 }
 @media (max-width: 1279px) {
-  .fw-lab:not(.library) .fw-stage {
+  .fw-lab .fw-stage {
     grid-template-columns: 28px minmax(160px, 1fr) 16rem 28px;
   }
 }
 @media (max-width: 900px) {
-  .fw-lab:not(.library) .fw-stage {
+  .fw-lab .fw-stage {
     grid-template-columns: 28px minmax(120px, 1fr) 14rem 28px;
   }
-  .fw-lab:not(.library) .fw-ldrawer > .fw-console {
+  .fw-lab .fw-ldrawer > .fw-console {
     grid-template-columns: 112px minmax(0, 1fr);
   }
 }
 @media (pointer: coarse) {
-  .fw-lab:not(.library) .fw-stage {
+  .fw-lab .fw-stage {
     grid-template-columns: 44px minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) 44px;
   }
 }
@@ -1174,9 +1159,8 @@
 }
 /* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
    in the lab but the stage — the preset strip, the violations, the clamp
-   notice, the saved boards' console, and whatever a later PR puts beside them
-   — and, inside the stage, the run rail, the settings drawer, the run column
-   and the report drawer. Both grids are redefined,
+   notice, and whatever a later PR puts beside them — and, inside the stage,
+   the settings drawer, the right column (either one) and the report drawer. Both grids are redefined,
    because a track keeps its size when its only item is `display: none`: the
    lab's rows become the one stage track (`.fw-lab.simple.solo` outranks
    `.fw-lab.simple` rather than tying with it), and the stage's three columns —
@@ -1198,42 +1182,27 @@
   grid-template-rows: minmax(0, 1fr);
 }
 .fw-lab.solo > :not(.fw-stage),
-.fw-lab.solo .fw-runs,
 .fw-lab.solo .fw-ldrawer,
 .fw-lab.solo .fw-stage > .fw-run-col,
 .fw-lab.solo .fw-drawer {
   display: none;
 }
+/* The stage's placement is (0,3,0) and solo restates it a class above, as it
+   does the one track, so solo keeps winning whatever order the file ends up
+   in, as `.fw-lab.library.solo` does for the rows. The drawer's padding needs
+   nothing here: it is `:not(.solo)` already. */
 .fw-lab.solo .fw-stage {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
-/* The lab's stage rules carry `:not(.library)`, so the board's placement is
-   (0,4,0) and solo restates it at a weight above, (0,5,0). Its one track is
-   restated at (0,4,0) too, so solo keeps winning whatever order the file ends
-   up in, as `.fw-lab.library.solo` does for the rows. The drawer's padding
-   needs nothing here: it is `:not(.solo)` already. */
-.fw-lab.solo:not(.library) .fw-stage {
-  grid-template-columns: minmax(0, 1fr);
-}
-.fw-lab.solo:not(.library) .fw-stage > .fw-boardwrap {
+.fw-lab.solo .fw-stage > .fw-boardwrap {
   grid-column: 1;
 }
-.fw-lab.solo:not(.library) .fw-stage::before {
-  display: none;
-}
-/* Spec R10: no sizes to list — none yet, or no store to ask — and the chips'
-   track would stand empty beside one sentence (review P7). (0,3,0), so it
-   outranks the ≤900px media rule's `.fw-console.library` below. */
-.fw-console.library.empty {
-  grid-template-columns: minmax(0, 1fr);
-}
-.fw-console.library.empty > .fw-lib-chips {
+.fw-lab.solo .fw-stage::before {
   display: none;
 }
 @media (max-width: 900px) {
-  .fw-console,
-  .fw-console.library {
+  .fw-console {
     grid-template-columns: 150px minmax(0, 1fr);
   }
 }

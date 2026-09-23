@@ -1,7 +1,6 @@
 import { type ReactElement, type ReactNode, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { REPORT_ID, ReportPanel } from '../report/ReportPanel'
-import type { WorkspaceTab } from '../routes/Workspace'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
 
@@ -26,30 +25,31 @@ function useFocusBackToHandle(open: boolean, panelId: string) {
 }
 
 /**
- * Four tracks on the lab (handoff 2, PR 1): the settings drawer's handle, the
- * board, the run column and the report's handle. Both drawers are toggled by
- * their class, never remounted, or the slide would not animate; closed, their
- * contents are `visibility: hidden` (shell.css). The settings drawer does not
- * cover the board: open, it adds `ls-open`, which pads the board's track by
- * the drawer's width, so a knob change is always in sight.
+ * Four tracks on both tabs (handoff 2, PR 1 and PR 6): the settings drawer's
+ * handle, the board, the right column and the report's handle. Both drawers
+ * are toggled by their class, never remounted, or the slide would not
+ * animate; closed, their contents are `visibility: hidden` (shell.css). The
+ * settings drawer does not cover the board: open, it adds `ls-open`, which
+ * pads the board's track by the drawer's width, so a knob change is always in
+ * sight.
  *
- * The saved boards keep the old `.fw-runs` column until they move into the
- * lab's layout (PR 6). It is the same `div` in the same first slot as the
- * drawer, and the run column is the third child on both tabs (hidden on the
- * saved boards by class), so `BoardFrame` keeps its node — that is what keeps
+ * The right column is the run column on the lab and the open board's column
+ * (`side`) on the saved boards. The run column stays mounted on both, hidden by
+ * class on the saved boards, so a carve in flight keeps its node and refs
+ * (Ruling 1); `side` holds its slot as `null` on the lab. Nothing before
+ * `BoardFrame` ever changes type, so it keeps its node — that is what keeps
  * `<arrowz-board>`'s GL context alive across the tabs.
  */
 export function Stage({
-  face,
   settings,
   run,
+  side,
 }: {
-  face: WorkspaceTab
   settings: ReactNode
   run: ReactNode
+  side: ReactNode
 }): ReactElement {
   const dict = useDictionary()
-  const lab = face === 'lab'
   const reportOpen = useStore((state) => state.ui.report)
   const toggleReport = useStore((state) => state.ui.toggleReport)
   const settingsOpen = useStore((state) => state.ui.settings)
@@ -58,30 +58,27 @@ export function Stage({
   const settingsHandle = useFocusBackToHandle(settingsOpen, SETTINGS_ID)
 
   return (
-    <div className={lab && settingsOpen ? 'fw-stage ls-open' : 'fw-stage'}>
-      {lab ? (
-        <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
-          {settings}
-          <button
-            ref={settingsHandle}
-            type="button"
-            className="fw-drawer-handle"
-            aria-expanded={settingsOpen}
-            aria-controls={SETTINGS_ID}
-            aria-keyshortcuts="S"
-            onClick={toggleSettings}
-          >
-            <span className="t">{dict.t('settingsHandle')}</span>
-            <span className="c" aria-hidden="true">
-              {settingsOpen ? '◀' : '▶'}
-            </span>
-          </button>
-        </div>
-      ) : (
-        <div className="fw-runs" />
-      )}
+    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'}>
+      <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
+        {settings}
+        <button
+          ref={settingsHandle}
+          type="button"
+          className="fw-drawer-handle"
+          aria-expanded={settingsOpen}
+          aria-controls={SETTINGS_ID}
+          aria-keyshortcuts="S"
+          onClick={toggleSettings}
+        >
+          <span className="t">{dict.t('settingsHandle')}</span>
+          <span className="c" aria-hidden="true">
+            {settingsOpen ? '◀' : '▶'}
+          </span>
+        </button>
+      </div>
       <BoardFrame />
       {run}
+      {side}
       <div className={reportOpen ? 'fw-drawer open' : 'fw-drawer'}>
         <button
           ref={reportHandle}

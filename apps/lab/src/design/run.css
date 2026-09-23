@@ -121,8 +121,8 @@
    content's height: the whole command is on screen, and the column scrolls
    (`overflow-y: auto` above), not the box. This replaces spec §5.2's growing
    figure, which kept Generate still by scrolling the command inside the box —
-   Generate now moves down with a longer command. The library's detail places
-   the figure in an `auto` grid row instead (library.css) and is left alone. */
+   Generate now moves down with a longer command. The saved boards' column
+   (`.fw-bcol`, handoff 2 PR 6) is a run column too, and takes the same rule. */
 .fw-run-col > .fw-cmdfig,
 .fw-run-col .fw-cmd {
   flex: none;

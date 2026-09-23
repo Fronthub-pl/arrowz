@@ -1,23 +1,18 @@
-import { decodeBoard, defaultParams } from '@arrowz/engine'
-import { buildCommand } from '@arrowz/engine/command'
-import { dictionary } from '@arrowz/engine/i18n'
+import { decodeBoard } from '@arrowz/engine'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { page, userEvent } from 'vitest/browser'
+import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
-import { BoardDetail } from './BoardDetail'
-import { LibraryPanel } from './LibraryPanel'
+import { BoardColumn } from './BoardColumn'
+import { BoardPreview } from './BoardPreview'
 import { cancelNoticeFade } from './notices'
+import { useOpenBoard } from './useOpenBoard'
 import { cancelPendingSave } from './useViewSave'
-// The geometry cases measure the real cascade, so they need the real
-// stylesheets — without them `.fw-lib-list` never scrolls and a case passes
-// on a layout that does not exist (review round 3). `run.css` joins them for
-// the fix-round-1 case below: it is where `.fw-cmdfig`'s own floor
-// (`min-height: calc(1lh + 6px + 58px)`) lives, and that floor is exactly
-// what the case is squeezed against.
+// The style cases read the real cascade: the Delete button's border is
+// `run.css`'s and its armed colour `library.css`'s.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
@@ -26,7 +21,6 @@ import '../design/run.css'
 
 const stored = storedFixture(1)
 const other = storedFixture(2)
-const EN = dictionary('en')
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -52,11 +46,17 @@ function Address() {
   return <p data-testid="address">{useLocation().pathname}</p>
 }
 
+/** The column as `Workspace` mounts it: keyed by the open board (Ruling 10). */
+function KeyedColumn() {
+  const open = useOpenBoard()
+  return <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />
+}
+
 async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: ReactNode) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <div className="fw">
-        <BoardDetail refresh={() => {}} />
+        <KeyedColumn />
         <Address />
         {children}
       </div>
@@ -72,10 +72,11 @@ async function show() {
 }
 
 // Ruling 6: nothing to describe, nothing to show — and no Delete button
-// pointing at no board.
-test('there is no detail until the address’s board is on the stage', async () => {
+// pointing at no board; the column says how to open one instead.
+test('there is no command until the address’s board is on the stage', async () => {
   const screen = await mountDetail()
-  expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
+  await expect.element(screen.getByText('Open a board from the list.')).toBeVisible()
+  expect(screen.container.querySelector('.fw-cmdfig')).toBeNull()
   await show()
   await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 })
@@ -87,7 +88,7 @@ test('there is no detail until the address’s board is on the stage', async () 
 test('a preview the address does not name shows no detail', async () => {
   const screen = await mountDetail('/boards')
   await show()
-  expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
+  expect(screen.container.querySelector('.fw-cmdfig')).toBeNull()
 })
 
 // Ruling 15's actual window: the address names one board while `preview.meta`
@@ -98,7 +99,7 @@ test('a preview the address does not name shows no detail', async () => {
 test('a preview naming a different board than the address shows no detail', async () => {
   const screen = await mountDetail(`/boards/8x8/${other.meta.id}`)
   await show()
-  expect(screen.container.querySelector('.fw-lib-detail')).toBeNull()
+  expect(screen.container.querySelector('.fw-cmdfig')).toBeNull()
 })
 
 // Ruling 15 compares the id and nothing else. The store names a size after its
@@ -111,9 +112,12 @@ test('a size the directory spells differently still gets its detail', async () =
   await expect.element(screen.getByRole('button', { name: /load into lab/i })).toBeVisible()
 })
 
-test('the detail prints the command the store holds for this board', async () => {
+test('the column prints the command the store holds for this board', async () => {
   const screen = await mountDetail()
   await show()
+  await expect.element(screen.getByRole('figure', { name: 'Command of this board' })).toMatchTextContent(
+    /^CLI · this board/,
+  )
   await expect.element(screen.getByText(stored.meta.command)).toBeVisible()
   // Spec §7: through CommandText, one span per flag and the value in bold —
   // not the stored string printed plain.
@@ -121,78 +125,6 @@ test('the detail prints the command the store holds for this board', async () =>
   expect([...screen.container.querySelectorAll('.fw-cmd b')].map((b) => b.textContent)).toContain(
     String(stored.meta.seed),
   )
-})
-
-// Parity: the library's three numbers and two flags, and no more. `cell` and
-// `top` are not here — a stored board carries no highlight, and its cell is the
-// export it was saved with (Ruling 3).
-test('the stored view is offered as three numbers and two switches', async () => {
-  const screen = await mountDetail()
-  await show()
-  const numbers = [...screen.container.querySelectorAll<HTMLInputElement>('.fw-lib-detail input[type="number"]')]
-  expect(numbers.map((input) => input.id)).toEqual(['view-stroke', 'view-headWidth', 'view-headHeight'])
-  expect(numbers[0]?.value).toBe(String(stored.meta.view.stroke))
-  expect(screen.container.querySelectorAll('.fw-lib-detail [role="switch"]')).toHaveLength(2)
-})
-
-// The help left `ViewNumberField`'s card for the panel headings (spec R7).
-// Ruling 17 traded head height's help away for the card's height; that cost
-// is gone now that the list lives under a heading rather than in the card, so
-// the field gets its help back (`libraryFields.ts`).
-test('every description the detail names is on the page, and head height names its own', async () => {
-  const screen = await mountDetail()
-  await show()
-  expect(screen.container.querySelector('#view-headHeight')?.getAttribute('aria-describedby')).toBe(
-    'view-headHeight-help',
-  )
-  const help = document.getElementById('view-headHeight-help')
-  expect(help?.textContent).toBe(EN.t('headHelp'))
-  for (const el of screen.container.querySelectorAll('.fw-lib-detail [aria-describedby]')) {
-    for (const id of (el.getAttribute('aria-describedby') ?? '').split(/\s+/)) {
-      expect(document.getElementById(id), `${el.id} names ${id}`).not.toBeNull()
-    }
-  }
-})
-
-// The list has no `.fw-khd` heading to sit under here (Task 8's row template
-// leaves `.fw-lib-detail` no room for a fourth child), so it is a heading-ish
-// container of its own instead: a `dl.fw-kdesc` — the same element every
-// panel heading uses to carry this list — sitting first in the fields grid,
-// ahead of the cards it describes.
-test('the head-height help sits in its own list, ahead of the fields it describes', async () => {
-  const screen = await mountDetail()
-  await show()
-  const list = screen.container.querySelector('.fw-lib-detail .fw-kdesc')
-  expect(list?.tagName).toBe('DL')
-  expect(list?.querySelector('#view-headHeight-help')).not.toBeNull()
-  const grid = screen.container.querySelector('.fw-lib-detail > .fw-grid')
-  if (grid === null || list === null) throw new Error('the detail is missing a part')
-  const kids = [...grid.children]
-  expect(kids.indexOf(list)).toBe(0)
-  expect(kids.indexOf(screen.container.querySelector('#view-headHeight')?.closest('.fw-k') as Element)).toBeGreaterThan(
-    kids.indexOf(list),
-  )
-})
-
-// Fix round 1, finding 1: `.fw-kdesc`'s `@container (max-width: 407px)`
-// single-column fallback (console.css) needs a container-type ancestor in
-// scope, and the fields grid this list now sits in had none — wave B's
-// `library-detail` matrix state measured the detail's fields at ~428px
-// against a 420px box. `.fw-lib-detail > .fw-grid` is the container
-// (library.css); 300px is well under the 407px floor the query stacks
-// below. Mirrors `KnobPanel.browser.test.tsx`'s own `dd >= 150` case.
-test('a narrow detail gives the head-height help room to read, not one word a line', async () => {
-  const screen = await render(
-    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
-      <div className="fw" style={{ width: '300px' }}>
-        <BoardDetail refresh={() => {}} />
-      </div>
-    </MemoryRouter>,
-  )
-  await show()
-  const dd = screen.container.querySelector('.fw-lib-detail .fw-kdesc dd')
-  if (dd === null) throw new Error('no description')
-  expect(dd.getBoundingClientRect().width).toBeGreaterThanOrEqual(150)
 })
 
 // Ruling 9: loading sets the knobs and the view but does NOT generate.
@@ -214,174 +146,18 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })
 
-// Ruling 1, measured where the detail exists. Two earlier versions of this
-// case passed over a broken layout — one mounted the panel with no height at
-// all, the other measured the detail's box while its buttons sat below the
-// window. This one asks the only question that matters: can the two actions be
-// reached? `toBeVisible()` cannot answer it (harness facts).
-test('the detail keeps its buttons on screen while the list scrolls', async () => {
-  await page.viewport(860, 900)
-  const screen = await render(
-    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
-      <div className="fw" style={{ height: '380px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
-        <LibraryPanel />
-      </div>
-    </MemoryRouter>,
-  )
-  // Numbered from 02, and that is not arbitrary: `storedFixture(1)` builds its
-  // id as `sha256-` + `01` repeated, so it ends in `01` — and a row generated
-  // with that suffix *is* the board this case also shows. The task review of
-  // this plan measured the first version: 41 entries of which two shared an id,
-  // a duplicate React key, and two rows both carrying `aria-current`.
-  const many = Array.from({ length: 40 }, (_, i) => ({
-    ...stored.meta,
-    id: `${stored.meta.id.slice(0, -2)}${String(i + 2).padStart(2, '0')}`,
-  }))
-  await act(async () => {
-    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
-  })
-  await show()
-
-  const panel = screen.container.querySelector<HTMLElement>('.fw-lib-panel')
-  const list = screen.container.querySelector<HTMLElement>('.fw-lib-list')
-  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
-  if (panel === null || list === null || buttons === null) throw new Error('the panel is missing a row')
-  expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
-  // The floor, so there is a list at all: without it this case cannot see the
-  // grid change, only the sticky buttons (measured by review round 3's
-  // mutations 9 and 10, which each tripped one case and not the other).
-  expect(list.clientHeight).toBeGreaterThanOrEqual(120)
-  expect(buttons.getBoundingClientRect().bottom).toBeLessThanOrEqual(panel.getBoundingClientRect().bottom + 1)
-})
-
-// Review P6, same mount and fixture as the case above, at a height that
-// forces the fields to scroll under the buttons. Ruling 16 pinned the buttons
-// with `sticky`, which kept them on screen but laid them over whatever
-// scrolled beneath — this case asks whether anything still overlaps.
-test('rows keep the buttons off the scroll instead of pinning them over it', async () => {
-  await page.viewport(860, 900)
-  const screen = await render(
-    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
-      <div className="fw" style={{ height: '300px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
-        <LibraryPanel />
-      </div>
-    </MemoryRouter>,
-  )
-  const many = Array.from({ length: 40 }, (_, i) => ({
-    ...stored.meta,
-    id: `${stored.meta.id.slice(0, -2)}${String(i + 2).padStart(2, '0')}`,
-  }))
-  await act(async () => {
-    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta, ...many] }])
-  })
-  await show()
-
-  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
-  if (buttons === null) throw new Error('the panel is missing the buttons row')
-  // Review P6: the buttons were sticky over the scrolling detail and lay on
-  // whatever scrolled under them. With explicit rows nothing needs to stick,
-  // and nothing overlaps.
-  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
-  const fields = screen.container.querySelector<HTMLElement>('.fw-lib-detail > .fw-grid')
-  const cmd = screen.container.querySelector<HTMLElement>('.fw-cmdfig')
-  if (detail === null || fields === null || cmd === null) throw new Error('the detail is missing a part')
-  const b = buttons.getBoundingClientRect()
-  expect(b.top).toBeGreaterThanOrEqual(fields.getBoundingClientRect().bottom - 0.5)
-  expect(fields.getBoundingClientRect().top).toBeGreaterThanOrEqual(cmd.getBoundingClientRect().bottom - 0.5)
-  expect(b.bottom).toBeLessThanOrEqual(detail.getBoundingClientRect().bottom + 0.5)
-  expect(getComputedStyle(buttons).position).toBe('static')
-})
-
-// Review P6: `.fw-cmdfig` (run.css) carries its own floor —
-// `min-height: calc(1lh + 6px + 58px)` — and a command with several pinned
-// knobs wraps past it. `storedFixture` cannot carry a custom command itself
-// (its `command` field is a fixed template of width/height/seed alone), so
-// this builds one the way the CLI would print it, through the engine's own
-// `buildCommand`, and overrides `meta.command` with it — the same override
-// technique the case above uses for `id`. Below the floor the fields row has
-// nothing left to give, so the whole detail must scroll as one box to reach
-// the buttons: the command's fixed floor and the buttons' own fixed row are
-// what `overflow-y: auto` on `.fw-lib-detail` exists to reach past.
-//
-// `overflow-y` and not `scrollTop`: `overflow: hidden` is still
-// programmatically scrollable in Chromium — measured here setting
-// `detail.scrollTop = detail.scrollHeight` under `overflow: hidden` moved the
-// clip window and put the buttons back inside the box's rect, passing the
-// very case this fix exists to fail. `RunColumn.browser.test.tsx` already
-// carries this same harness fact for `.fw-cmd`. The computed style is what
-// actually decides whether a person — mouse wheel, keyboard, touch — can
-// reach the rest.
-test('a command past the floor still lets the detail scroll down to the buttons', async () => {
-  await page.viewport(860, 900)
-  const longCommand = buildCommand({
-    ...defaultParams(),
-    W: 8,
-    H: 8,
-    seed: stored.meta.seed,
-    wShort: 0.4,
-    wMid: 0.3,
-    Lmax: 40,
-    backbite: 3,
-    pStraight: 0.95,
-    wLateral: 8,
-    warns: 7,
-    anticoil: 3,
-    headBias: 1,
-    trapBias: 1,
-    probe: 0.5,
-    giants: 10,
-  })
-  const screen = await render(
-    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
-      <div className="fw" style={{ height: '150px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr)' }}>
-        <LibraryPanel />
-      </div>
-    </MemoryRouter>,
-  )
-  await act(async () => {
-    useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
-  })
-  await act(async () =>
-    useStore.getState().result.showPreview({
-      board: decodeBoard(stored.file),
-      file: stored.file,
-      meta: { ...stored.meta, command: longCommand },
-    }),
-  )
-
-  const detail = screen.container.querySelector<HTMLElement>('.fw-lib-detail')
-  const buttons = screen.container.querySelector<HTMLElement>('.fw-lib-buttons')
-  if (detail === null || buttons === null) throw new Error('the detail is missing a part')
-  // A command that already fits below the floor leaves nothing out of sight,
-  // and this case would pass without asserting anything.
-  expect(detail.scrollHeight).toBeGreaterThan(detail.clientHeight)
-  expect(getComputedStyle(detail).overflowY).not.toBe('hidden')
-  // With the fix, scrolling the box (a real user's wheel, keyboard or touch,
-  // not merely a script) does put the buttons inside its rect.
-  detail.scrollTop = detail.scrollHeight
-  const d = detail.getBoundingClientRect()
-  const b = buttons.getBoundingClientRect()
-  expect(b.bottom).toBeLessThanOrEqual(d.bottom + 0.5)
-  expect(b.top).toBeGreaterThanOrEqual(d.top - 0.5)
-})
-
-// Review P9: neither detail button was dressed, so both kept the browser's
-// `2px outset` border. Delete was dressed only once armed, and even then only
-// its border *colour*, on a border with no width or style.
-test('both detail buttons wear the console button, armed or not', async () => {
-  await show()
+// The column's Delete wears the run column's alternate button, and armed it
+// turns `--error` (library.css): the second press is the destructive one.
+test('Delete wears the column’s button, and armed it reads as destructive', async () => {
   const screen = await mountDetail()
-  const buttons = [...screen.container.querySelectorAll<HTMLButtonElement>('.fw-lib-buttons button')]
-  expect(buttons).toHaveLength(2)
-  for (const b of buttons) {
-    expect(getComputedStyle(b).borderTopStyle).toBe('solid')
-    expect(getComputedStyle(b).borderTopWidth).toBe('1px')
-  }
-  const del = buttons[1]
-  if (del === undefined) throw new Error('no delete button')
+  await show()
+  const del = screen.getByRole('button', { name: 'Delete from disk' }).element()
+  expect(getComputedStyle(del).borderTopStyle).toBe('solid')
+  expect(getComputedStyle(del).borderTopWidth).toBe('1px')
+  const idle = getComputedStyle(del).backgroundColor
   await userEvent.click(del)
   expect(del.className).toContain('armed')
-  expect(getComputedStyle(del).borderTopStyle).toBe('solid')
+  expect(getComputedStyle(del).backgroundColor).not.toBe(idle)
 })
 
 test('the first click arms delete, and the second removes the board', async () => {
@@ -453,13 +229,15 @@ test('a store that cannot be reached says so and keeps the board', async () => {
 // of the requests.
 test('deleting cancels a view edit that has not been written yet', async () => {
   const calls = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"deleted":true}', { status: 200 }))
-  const screen = await mountDetail()
+  // The stroke row lives in the drawer's Preview panel now (handoff 2, PR 6),
+  // and the Delete in this column: the two are siblings, as on the page.
+  const screen = await mountDetail(undefined, <BoardPreview />)
   await show()
 
-  const stroke = screen.container.querySelector<HTMLInputElement>('#view-stroke')
-  if (stroke === null) throw new Error('the detail offered no stroke field')
-  await userEvent.fill(stroke, '0.9')
-  await userEvent.tab()
+  await screen.getByRole('button', { name: /^stroke:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+  await userEvent.keyboard('{Enter}')
+  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
 
   await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
   await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
@@ -471,22 +249,15 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   expect(methods).not.toContain('POST')
 })
 
-// Ruling 5's fade, through the one mount that can see it. The detail raises
-// `deleted` and then navigates; only `LibraryPanel`'s `key` unmounts it, and a
-// bare `BoardDetail` merely renders `null` — so a case mounted the usual way
-// stays green whether or not the fade survives its raiser (review round 3).
-test('the deleted notice fades even though the detail that raised it is gone', async () => {
+// Ruling 5's fade, through the mount that can see it. The column raises
+// `deleted` and then navigates, and its key — the board — unmounts it: the
+// fade must survive its raiser (review round 3).
+test('the deleted notice fades even though the column that raised it is gone', async () => {
   vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
     if (init?.method === 'DELETE') return Promise.resolve(new Response('{"deleted":true}', { status: 200 }))
     return new Promise(() => {})
   })
-  const screen = await render(
-    <MemoryRouter initialEntries={[`/boards/8x8/${stored.meta.id}`]}>
-      <div className="fw">
-        <LibraryPanel />
-      </div>
-    </MemoryRouter>,
-  )
+  const screen = await mountDetail()
   await act(async () => {
     useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }])
   })
@@ -495,9 +266,52 @@ test('the deleted notice fades even though the detail that raised it is gone', a
   await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
   await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('deleted')
-  await expect.poll(() => screen.container.querySelector('.fw-lib-detail')).toBeNull()
+  await expect.poll(() => screen.container.querySelector('.fw-cmdfig')).toBeNull()
 
   // Past the fade: the raiser is unmounted, and the notice must still go.
   await new Promise((done) => setTimeout(done, 1500))
   expect(useStore.getState().library.notice).toBeNull()
+})
+
+// Handoff 2, PR 6: the column ends on what the board is — the layout under its
+// short id with the whole id in the title, the seed, the source, and when and
+// how fast it was generated.
+test('the column lists the board’s layout, seed, source and generation', async () => {
+  const screen = await mountDetail()
+  await show()
+  const facts = screen.getByRole('definition').elements()
+  const hex = stored.meta.id.slice('sha256-'.length)
+  expect(facts.map((dd) => dd.textContent)).toEqual([
+    `8x8/${hex.slice(0, 8)}…${hex.slice(-4)}`,
+    String(stored.meta.seed),
+    stored.meta.source,
+    expect.stringMatching(/ s · /),
+  ])
+  expect(facts[0]?.getAttribute('title')).toBe(stored.meta.id)
+})
+
+// The board file goes out as the store holds it, named by its layout hash —
+// the id — as the run column names a run's file.
+test('the board file downloads the stored file under its id', async () => {
+  const names: string[] = []
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:stored-under-test'
+  })
+  const onClick = (event: MouseEvent) => {
+    if (!(event.target instanceof HTMLAnchorElement) || event.target.download === '') return
+    names.push(event.target.download)
+    event.preventDefault()
+  }
+  document.addEventListener('click', onClick, true)
+  try {
+    const screen = await mountDetail()
+    await show()
+    await userEvent.click(screen.getByRole('button', { name: 'Download board file' }))
+    expect(names).toEqual([`${stored.meta.id}.board.json`])
+    expect(JSON.parse(await blobs[0]?.text() ?? 'null')).toEqual(stored.file)
+  } finally {
+    document.removeEventListener('click', onClick, true)
+  }
 })

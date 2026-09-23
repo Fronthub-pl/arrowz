@@ -49,7 +49,7 @@ export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; fi
 /**
  * Two sizes, the first holding two boards (newest first, as the store lists
  * them) and the second holding one. A single size cannot discriminate
- * `SizeChips`' `open.size ?? sizes?.[0]?.size` fallback from a plain
+ * the rail's `open.size ?? sizes?.[0]?.size` fallback (`openEntry`) from a plain
  * `sizes?.[0]?.size`, because the address's size and the first listed size
  * always coincide when there is only one — hence the second size here.
  */

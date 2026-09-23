@@ -1,21 +1,30 @@
 import type { BoardMeta } from '@arrowz/engine'
-import { genSeconds } from '@arrowz/engine/report'
 import { type ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
+import { BOARDS_LIST_ID, boardsTabId, sizeName } from './BoardsRail'
 import { openEntry } from './openEntry'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
- * The panel's face in the library: the rows of the chosen size, and Refresh.
- * A row is a button, because clicking it navigates — the address is the
- * selection (spec §5.6), so the browser's own back button walks the boards
- * that were looked at.
+ * A layout id as a row prints it: the first eight and the last four digits of
+ * the hash, without the `sha256-` it always opens with (handoff 2, PR 6). The
+ * whole id stays in the row's `title`, and in the right column's facts.
+ */
+export function shortId(id: string): string {
+  const hex = id.slice(id.indexOf('-') + 1)
+  return hex.length > 12 ? `${hex.slice(0, 8)}…${hex.slice(-4)}` : hex
+}
+
+/**
+ * The drawer's list panel on the saved boards: a header — the size, how many
+ * boards it holds, Refresh — and the boards of that size as ruled rows. A row
+ * is a button, because clicking it navigates: the address is the selection
+ * (spec §5.6), so the browser's back button walks the boards looked at.
  *
  * Two empty states, and they say different things: an unreachable store asks
- * for `store.sh`, an empty one asks for a board (Ruling 2). The row shows the
- * whole 71-character id, clipped by CSS, so it can be selected and copied.
+ * for `store.sh`, an empty one asks for a board (Ruling 2).
  */
 export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const dict = useDictionary()
@@ -27,23 +36,33 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
 
   // The size the address names, or the first the store listed: entering the
   // tab without an address still has rows to show.
-  const { entry } = openEntry(sizes, open.size)
+  const { entry, mismatch } = openEntry(sizes, open.size)
 
-  const line = (meta: BoardMeta) => {
-    const when = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
-    const parts = [
-      dict.t('piecesShort', meta.pieces ?? '?'),
-      dict.t('longestShort', meta.maxLen ?? '?'),
-      dict.t('genShort', genSeconds(meta, '—')),
-      meta.source,
-    ]
-    return { when, text: parts.join(' · ') }
-  }
+  const when = (meta: BoardMeta) =>
+    meta.createdAt
+      ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+      : ''
 
   return (
-    <section className="fw-lib-list" aria-label={dict.t('boardRows')}>
-      <div className="fw-lib-head">
-        <button type="button" className="fw-btn" onClick={refresh}>
+    <div
+      className="fw-knobs fw-blist"
+      role="tabpanel"
+      id={BOARDS_LIST_ID}
+      // Named by its tab when one is selected; a size the store has not got
+      // selects none (spec §5.6), and the panel still needs a name.
+      {...(entry === null || mismatch
+        ? { 'aria-label': dict.t('boardRows') }
+        : { 'aria-labelledby': boardsTabId(entry.size) })}
+    >
+      <div className="fw-khd fw-blist-hd">
+        <b>{entry === null ? dict.t('tabLibrary') : sizeName(entry.size)}</b>
+        <span className="kv-unit">{entry === null ? '' : dict.t('boardsCount', entry.boards.length)}</span>
+        <button type="button" className="kv-chip" onClick={refresh}>
           {dict.t('refresh')}
         </button>
       </div>
@@ -53,32 +72,32 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
       ) : null}
       {/*
         The rows hang off `entry` being there, rather than off an empty array
-        standing in for it: inside the map `entry` was non-null by construction,
-        so the `?? ''` its size once needed was unreachable — and had anything
-        ever reached it, the row would have navigated to `/boards//<id>`. The
-        repo's rule against a fallback that changes a value is exactly this.
+        standing in for it: inside the map `entry` is non-null by construction,
+        so no fallback size could ever send a row to `/boards//<id>`.
       */}
-      {entry === null
-        ? null
-        : entry.boards.map((meta) => {
-            const { when, text } = line(meta)
-            return (
-              <button
-                key={meta.id}
-                type="button"
-                className="fw-lib-row"
-                {...(meta.id === open.id ? { 'aria-current': true } : {})}
-                onClick={() => void navigate(`/boards/${entry.size}/${meta.id}`)}
-              >
-                <span className="id">{meta.id}</span>
-                <span>{when}</span>
-                <span className="meta">
-                  {text}
-                  {meta.ok === false ? ` · ${dict.t('notClosed')}` : ''}
-                </span>
-              </button>
-            )
-          })}
-    </section>
+      {entry === null ? null : (
+        <div className="fw-blist-rows">
+          {entry.boards.map((meta) => (
+            <button
+              key={meta.id}
+              type="button"
+              className="fw-lib-row fw-brow"
+              title={meta.id}
+              {...(meta.id === open.id ? { 'aria-current': true } : {})}
+              onClick={() => void navigate(`/boards/${entry.size}/${meta.id}`)}
+            >
+              <span className="id">{shortId(meta.id)}</span>
+              <span className="when">{when(meta)}</span>
+              <span className="meta">
+                {`${dict.t('piecesShort', meta.pieces ?? '?')} · ${dict.t('longestShort', meta.maxLen ?? '?')}`}
+              </span>
+              {meta.ok === false
+                ? <span className="src bad">{dict.t('notClosed')}</span>
+                : <span className="src">{meta.source}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

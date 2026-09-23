@@ -1,63 +1,64 @@
+import type { BoardFile } from '@arrowz/engine'
 import { readParams } from '@arrowz/engine'
+import { svgOptions } from '@arrowz/engine/command'
+import { genSeconds } from '@arrowz/engine/report'
 import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { deleteBoard } from '../api/boards'
-import { FieldHelp } from '../console/FieldHelp'
-import { ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
-import type { PlainUiKey } from '../console/viewFields'
-import { viewHelpEntries } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
+import { downloadBlob } from '../run/download'
+import { drawSvg } from '../run/drawSvg'
 import { useStore } from '../state/store'
-import { LIBRARY_VIEW_FIELDS, LIBRARY_VIEW_FLAGS } from './libraryFields'
+import { shortId } from './BoardList'
 import { raiseNotice } from './notices'
-import { useOpenBoard } from './useOpenBoard'
-import { cancelPendingSave, useViewSave } from './useViewSave'
+import { refreshLibrary } from './useLibraryList'
+import { useOpenPreview } from './useOpenPreview'
+import { cancelPendingSave } from './useViewSave'
 
 /**
- * One stored board's detail, under the list (spec §5.1, §10 row 5b). The
- * command box, the view fields and the board's own figures are gathered into
- * one, because here they are one thing: what this board is and what can be
- * done with it.
+ * The stage's right column on the saved boards (handoff 2, PR 6), where the
+ * lab has its run column and in the same track: the open board's command,
+ * Load into lab as the primary action, Delete from disk, its two exports, and
+ * what it is. With no board open it says how to open one, rather than offering
+ * an empty command and a Delete with nothing to delete (Ruling 6 of PR 5b).
  *
- * Absent rather than disabled when the address names no board (Ruling 6): an
- * empty command box and a Delete button with nothing to delete are worse than
- * nothing at all.
+ * Mounted under the open board's key (Workspace.tsx), as the old detail was
+ * (Ruling 10): an armed Delete, a Copied label and a drawing's error are all
+ * about the board they were raised on, and a new board is a new instance.
  */
-export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | null {
+export function BoardColumn(): ReactElement {
   const dict = useDictionary()
-  const preview = useStore((state) => state.result.preview)
-  const open = useOpenBoard()
+  const open = useOpenPreview()
+  const lang = useStore((state) => state.lang.lang)
+  const theme = useStore((state) => state.view.theme)
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [armed, setArmed] = useState(false)
+  const [drawError, setDrawError] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const commitView = useViewSave(refresh)
+  const drawing = useRef<Worker | null>(null)
+  const [busy, setBusy] = useState(false)
 
   // A component unmounted inside the confirmation window must not write state
-  // afterwards; StrictMode makes that happen in tests.
-  useEffect(() => () => clearTimeout(timer.current), [])
-
-  // Ruling 15: not merely "is there a preview", but "is it this address's".
-  // The hook leaves the board before this one on the stage until the next file
-  // lands, and in that window the detail would describe — and offer to delete —
-  // the board the user has just clicked away from.
-  //
-  // The id alone. A layout hash already binds the board to its dimensions,
-  // while the address's size is a directory name: review round 2 measured a
-  // folder called `08x08` listing boards whose `W` is 8, where a `WxH`
-  // comparison hid the detail of a board the stage and the line both described.
-  // `open.size` is narrowed here as well, and not because the gate needs it:
-  // the delete below addresses the board by the directory the store listed,
-  // and narrowing at the gate is what lets it do that without inventing a
-  // fallback (the repository's rule against a fallback that changes a value).
-  if (preview === null || open.size === null || preview.meta.id !== open.id) return null
-  const meta = preview.meta
-  // Captured here, narrowed, for `remove` below: the gate's `open.size === null`
-  // check does not survive into a function expression defined after it — the
-  // compiler cannot see that `open` is never reassigned across a closure
-  // boundary — so this is the one place the narrowing is real.
-  const size = open.size
+  // afterwards; StrictMode makes that happen in tests. Leaving the page takes a
+  // drawing down with it.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current)
+      drawing.current?.terminate()
+    },
+    [],
+  )
+  if (open === null) {
+    return (
+      <section className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
+        <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+      </section>
+    )
+  }
+  const { stored, size } = open
+  const meta = stored.meta
 
   const copy = () => {
     const clipboard = navigator.clipboard
@@ -81,23 +82,21 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
-    const stored = meta.view
-    view.setNumber('cell', String(stored.cell))
-    view.setNumber('stroke', String(stored.stroke))
-    view.setNumber('headWidth', String(stored.headWidth))
-    view.setNumber('headHeight', String(stored.headHeight))
-    view.setFlag('rounded', stored.rounded !== false)
-    view.setFlag('colored', stored.colored)
+    const saved = meta.view
+    view.setNumber('cell', String(saved.cell))
+    view.setNumber('stroke', String(saved.stroke))
+    view.setNumber('headWidth', String(saved.headWidth))
+    view.setNumber('headHeight', String(saved.headHeight))
+    view.setFlag('rounded', saved.rounded !== false)
+    view.setFlag('colored', saved.colored)
     // A stored board carries no highlight, so this lands off; when one somehow
     // does, its count comes with it.
-    view.setFlag('hilite', stored.top > 0)
-    if (stored.top > 0) view.setNumber('top', String(stored.top))
+    view.setFlag('hilite', saved.top > 0)
+    if (saved.top > 0) view.setNumber('top', String(saved.top))
     void navigate('/')
   }
 
-  // Two clicks: the first arms, the second removes. A different board is a
-  // different instance of this component (Ruling 10), so there is no armed
-  // flag to carry across boards and nothing to disarm.
+  // Two clicks: the first arms, the second removes.
   const remove = () => {
     if (!armed) {
       setArmed(true)
@@ -108,15 +107,11 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
     // would otherwise land after the delete and write the board back to disk,
     // which review round 2 measured against a real store (Rulings 11 and 12).
     cancelPendingSave()
-    // The address, not `${meta.W}x${meta.H}`. The store finds a board by the
-    // directory it listed (`store.ts`: `join(boardsDir(), size)`), and Ruling 15
-    // exists precisely because that name and the board's own dimensions can
-    // differ — a folder called `08x08` lists boards whose `W` is 8, and this
-    // branch ships a case for reading one. Reconstructing the size sent the
-    // DELETE to `/api/boards/8x8/<id>`, the server found nothing, answered 404,
-    // and Ruling 11 turned that into "deleted": the line said so, the listing
-    // refreshed, and the board was still on disk. The whole-branch review found
-    // it; the read path had used the address all along.
+    // The address's directory, not `${meta.W}x${meta.H}`: the store finds a
+    // board by the directory it listed, and a folder called `08x08` lists
+    // boards whose `W` is 8. Reconstructing the size sent the DELETE to a
+    // directory the store has not got, and Ruling 11 turned its 404 into
+    // "deleted" while the board stayed on disk.
     const name = `${size}/${meta.id}`
     void deleteBoard(size, meta.id).then((outcome) => {
       if (!outcome.ok) {
@@ -128,15 +123,46 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
       // disk, and Back must not offer it again (spec §5.6).
       raiseNotice({ kind: 'deleted', name })
       void navigate('/boards', { replace: true })
-      refresh()
+      refreshLibrary()
     })
   }
 
+  // The file as the store holds it: `decodeBoard` accepted it when it loaded,
+  // and it goes out untouched, named by its layout hash — which is the id.
+  const exportFile = () =>
+    downloadBlob(new Blob([JSON.stringify(stored.file)], { type: 'application/json' }), `${meta.id}.board.json`)
+
+  // The board as it is drawn here: its own saved view, and its jammed cells
+  // when it did not close, as `BoardFrame` draws them.
+  const exportSvg = () => {
+    if (drawing.current !== null) return
+    setBusy(true)
+    setDrawError(null)
+    drawing.current = drawSvg(
+      stored.file as BoardFile,
+      { ...svgOptions(meta.view), voids: meta.ok === false },
+      `arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`,
+      setDrawError,
+      () => {
+        drawing.current = null
+        setBusy(false)
+      },
+    )
+  }
+
+  const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
+  const facts: [string, string, string?][] = [
+    [dict.t('factLayout'), `${size}/${shortId(meta.id)}`, meta.id],
+    [dict.t('factSeed'), String(meta.seed)],
+    [dict.t('factSource'), meta.source],
+    [dict.t('factGenerated'), [`${genSeconds(meta, '—')} s`, created].filter((part) => part !== '').join(' · ')],
+  ]
+
   return (
-    <section className="fw-lib-detail" aria-label={dict.t('boardDetail')}>
+    <section className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
       <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
         <figcaption className="fw-cmdhd">
-          <span className="caps">{dict.t('boardCommand')}</span>
+          <span className="caps">{dict.t('cliThisBoard')}</span>
           <button type="button" onClick={copy}>
             {copied ? dict.t('copied') : dict.t('copy')}
           </button>
@@ -145,47 +171,37 @@ export function BoardDetail({ refresh }: { refresh(): void }): ReactElement | nu
           <CommandText command={meta.command} />
         </pre>
       </figure>
-      <div className="fw-grid">
-        {/* The detail keeps no heading of its own to carry this list (spec R7
-            puts it under the panel heading elsewhere), and `.fw-lib-detail`'s
-            three row tracks (library.css) have no room for a fourth child. The
-            list sits inside the scrolling `.fw-grid` instead — the wrapper the
-            fields already sit in — spanning the row (`grid-column: 1 / -1`,
-            library.css) so it reads as one line above the cards rather than a
-            card of its own. */}
-        <FieldHelp entries={viewHelpEntries(LIBRARY_VIEW_FIELDS, (key: PlainUiKey) => dict.t(key))} />
-        {LIBRARY_VIEW_FIELDS.map((field) => (
-          <ViewNumberField
-            key={field.field}
-            field={field}
-            value={meta.view[field.field]}
-            onCommit={(value) => commitView({ ...meta.view, [field.field]: value })}
-          />
-        ))}
-        {LIBRARY_VIEW_FLAGS.map(({ flag, label }) => (
-          <ViewFlagSwitch
-            key={flag}
-            flag={flag}
-            label={label}
-            on={flag === 'rounded' ? meta.view.rounded !== false : meta.view.colored}
-            onToggle={() =>
-              commitView(
-                flag === 'rounded'
-                  ? { ...meta.view, rounded: meta.view.rounded === false }
-                  : { ...meta.view, colored: !meta.view.colored },
-              )
-            }
-          />
-        ))}
-      </div>
-      <div className="fw-lib-buttons">
-        <button type="button" className="fw-btn" onClick={loadIntoLab}>
-          {dict.t('loadIntoLab')}
-        </button>
-        <button type="button" className={armed ? 'fw-btn danger armed' : 'fw-btn danger'} onClick={remove}>
+      <button type="button" className="fw-go" onClick={loadIntoLab}>
+        {dict.t('loadIntoLab')}
+      </button>
+      <div className="fw-alt">
+        <button type="button" className={armed ? 'danger armed' : 'danger'} onClick={remove}>
           {armed ? dict.t('confirmDelete') : dict.t('deleteBoard')}
         </button>
       </div>
+      <div className="fw-ghost fw-exports" role="group" aria-label={dict.t('exportsGroup')}>
+        <button type="button" onClick={exportSvg} disabled={busy}>
+          {dict.t('downloadSvg')}
+        </button>
+        <button type="button" onClick={exportFile}>
+          {dict.t('downloadBoardFile')}
+        </button>
+        {/* The engine's `toSvg` never learns a theme's colours (spec §9). */}
+        {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
+        {drawError === null ? null : (
+          <p className="fw-export-error" role="alert">
+            {`${dict.t('exportError')} ${drawError}`}
+          </p>
+        )}
+      </div>
+      <dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>
+        {facts.map(([term, value, full]) => (
+          <div key={term}>
+            <dt>{term}</dt>
+            <dd {...(full === undefined ? {} : { title: full })}>{value}</dd>
+          </div>
+        ))}
+      </dl>
     </section>
   )
 }

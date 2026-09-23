@@ -1,6 +1,8 @@
 import { type ReactElement, useRef } from 'react'
 import { Console } from '../console/Console'
 import { Violations } from '../console/Violations'
+import { BoardColumn } from '../library/BoardColumn'
+import { useOpenBoard } from '../library/useOpenBoard'
 import { useStoredBoard } from '../library/useStoredBoard'
 import { ClampNotice } from '../run/ClampNotice'
 import { PresetStrip } from '../run/PresetStrip'
@@ -47,6 +49,7 @@ export function Workspace({
   // annotation still read `8×8 · seed 1` over a 25×50 run, and the status line
   // announced a stored board while a carve was going.
   useStoredBoard()
+  const open = useOpenBoard()
   const lab = tab === 'lab'
   const panel = lab ? 'lab-panel' : 'boards-panel'
   return (
@@ -64,23 +67,23 @@ export function Workspace({
         </div>
         {/* `library` earns its own row template for the same reason `simple`
             has one: with no preset strip, the stage would auto-place into the
-            `auto` row and squeeze the console to its 180px minimum (Task 6). */}
+            first `auto` row (console.css). */}
         <div className={`fw-lab${lab ? '' : ' library'}${simple ? ' simple' : ''}${solo ? ' solo' : ''}`}>
           {/* Every one of these keeps its slot as `null` rather than leaving
               the child list: React keeps a node by type and position among its
               siblings, and a sibling that vanishes shifts `Stage` — remounting
               the element this whole arrangement exists to keep (Ruling 6). */}
           {lab && !simple ? <PresetStrip control={control} /> : null}
-          {/* The run column is the stage's on both tabs, hidden by class on
-              the saved boards, so a carve in flight keeps its node and refs
-              (Ruling 1). The console is the settings drawer's on the lab and
-              stays under the stage on the saved boards until PR 6. */}
+          {/* The console is the settings drawer's on both tabs, and the run
+              column the stage's, hidden by class on the saved boards so a carve
+              in flight keeps its node and refs (Ruling 1). The open board's
+              column takes its track there (handoff 2, PR 6), keyed by the
+              board: an armed Delete belongs to the board it was armed on. */}
           <Stage
-            face={tab}
-            settings={lab ? <Console control={control} face={tab} /> : null}
+            settings={<Console control={control} face={tab} />}
             run={<RunColumn control={control} goRef={goRef} abortRef={abortRef} />}
+            side={lab ? null : <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />}
           />
-          {lab ? null : <Console control={control} face={tab} />}
           {lab ? <ClampNotice focusOnDismiss={goRef} focusOnAbort={abortRef} /> : null}
           {lab ? <Violations /> : null}
         </div>
