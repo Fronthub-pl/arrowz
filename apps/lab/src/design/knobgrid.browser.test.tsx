@@ -15,6 +15,9 @@ beforeEach(() => {
   useStore.getState().params.reset()
 })
 
+/** At 924 the drawer's panel is under 360px, and the bound tracks go. */
+const expectBoundsAt = (width: number) => width >= 1280
+
 const centre = (el: Element) => {
   const r = el.getBoundingClientRect()
   return r.top + r.height / 2
@@ -85,6 +88,7 @@ test.each([
     await act(async () => useStore.setState((s) => ({ view: { ...s.view, hilite: true, showPoints: true } })))
     const valueEnds = new Set<number>()
     const controlStarts = new Set<number>()
+    const wideStarts = new Set<number>()
     let rows = 0
     for (const group of [...RAIL_GROUPS, 'preview' as const]) {
       await act(async () => useStore.getState().ui.select(group))
@@ -97,15 +101,30 @@ test.each([
         const control = line.querySelector('.cc')
         if (value === null || control === null) throw new Error('a row without its tracks')
         valueEnds.add(Math.round(value.getBoundingClientRect().right))
-        // The palette's list takes the minimum's track as well, on purpose.
-        if (!control.classList.contains('wide')) controlStarts.add(Math.round(control.getBoundingClientRect().left))
+        // The palette's list takes the minimum's track as well, on purpose:
+        // it starts where the minimum's track starts in every other row.
+        const left = Math.round(control.getBoundingClientRect().left)
+        if (control.classList.contains('wide')) wideStarts.add(left)
+        else controlStarts.add(left)
       }
     }
     expect(rows).toBeGreaterThan(20)
     expect([...valueEnds]).toHaveLength(1)
     expect([...controlStarts]).toHaveLength(1)
+    expect([...wideStarts]).toHaveLength(1)
+    // Where the bound tracks show, the wide control starts where the
+    // minimum's track does: one bound track and one column gap before the
+    // control's. Under 360px, where they do not, on the control's own x. The
+    // minimum's own box cannot say it: it is right-aligned in its track.
+    const line = screen.container.querySelector('.kv-row > .ln')
+    if (line === null) throw new Error('no row')
+    const style = getComputedStyle(line)
+    const lead = Number.parseFloat(style.columnGap) + Number.parseFloat(style.getPropertyValue('--end'))
+    const [control] = [...controlStarts]
+    if (control === undefined) throw new Error('no control x')
+    expect([...wideStarts]).toEqual([expectBoundsAt(w) ? Math.round(control - lead) : control])
     const bounds = screen.container.querySelector('.kv-row .mx')
-    const expectBounds = w >= 1280
+    const expectBounds = expectBoundsAt(w)
     expect(bounds === null ? false : getComputedStyle(bounds).display !== 'none').toBe(expectBounds)
   },
   60_000,
