@@ -27,7 +27,9 @@
 - The default test viewport is 414×896 — the XS band after this PR (harness fact 23); `page.viewport` outlives the case that set it (fact 18). Every geometry case sets its own viewport.
 - The store is created at import (`vitest.setup.ts` comment), so `createUiSlice`'s start value is read at the iframe's size at import.
 - `lab:fmt` only checks (fact 50). Format with `pnpm -C apps/lab exec prettier --write <files>`.
-- Gates per task: `pnpm nx run lab:check`, `pnpm nx run lab:lint`, and the named tests; after any CSS change also `pnpm -C apps/lab exec vitest run --project node` (fact 49). In a fresh worktree run `pnpm nx run lab:check` first (it builds `^build`).
+- Never run prettier on `packages/engine/lab-i18n.ts` (it reformatted 1566 lines in review); the engine is `deno fmt` — check it with `cd packages/engine && deno fmt --check lab-i18n.ts`.
+- Edit test files by identifier, not by the literal text of an earlier step: prettier reflows the plan's one-line literals (e.g. `BANDED`) into blocks.
+- Gates per task: `pnpm nx run lab:check`, `pnpm nx run lab:lint` (0 errors; one warning predates this PR, `CommandPalette.tsx:76`), and the named tests; after any CSS change also `pnpm -C apps/lab exec vitest run --project node` (fact 49). In a fresh worktree run `pnpm nx run lab:check` first (it builds `^build`).
 - Commit before running a mutation; revert a mutation by hand and confirm `git diff` is empty ([[feedback-plan-cytuje-z-pliku]]). Every mutation names the assertion it turns red.
 - No attribution lines in commits.
 
@@ -445,6 +447,7 @@ Expected: PASS (795 before this PR plus this task's cases). `Workspace.browser.t
 - [ ] **Step 8: Commit**
 
 ```bash
+pnpm -C apps/lab exec prettier --write src/state/ui.slice.ts src/state/ui.slice.test.ts src/state/preferences.browser.test.ts src/harness/mountApp.tsx src/routes/Workspace.browser.test.tsx
 git add apps/lab/src/state apps/lab/src/harness/mountApp.tsx apps/lab/src/routes/Workspace.browser.test.tsx
 git commit -m "Hold the phone's sheet and menu in the ui slice, and start the drawer closed below 1024px"
 ```
@@ -650,7 +653,7 @@ In `Shell`, call `useBandReset()` after `useDocumentLang()`, subscribe `const me
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/shell/bands.browser.test.tsx`
 Expected: PASS (6 tests).
 
-Delete `routes/LabLayout.browser.test.tsx`'s case `at 414×896 the open settings lie over the run column, and closing them uncovers Generate` (about line 787, with its comment): its own comment calls it "the stopgap below 1024px … until PR 7", and at 414 (XS) `s` now opens the settings sheet, so it fails (measured in review: `elementFromPoint` at Generate returns the seed row). XS is covered by this task's key case and Task 10's sheets.
+Delete `routes/LabLayout.browser.test.tsx`'s case `at 414×896 the open settings lie over the run column, and closing them uncovers Generate` (line 791, with its comment above it): its own comment calls it "the stopgap below 1024px … until PR 7", and at 414 (XS) `s` now opens the settings sheet, so it fails (measured in review: `elementFromPoint` at Generate returns the seed row). XS is covered by this task's key case and Task 10's sheets.
 
 Run: `pnpm nx run lab:test`
 Expected: PASS. (Fact 52: if a key case elsewhere reads state synchronously after a render, keep the existing idiom of that file.)
@@ -664,7 +667,7 @@ git commit -m "Reset the sheet, the menu and the drawer on a band change, and gi
 
 - [ ] **Step 7: Mutations**
 
-1. In `useBandReset` replace the compare with a `first` ref that skips only the first run. `mounting under StrictMode is not a band change` turns red on `expect(ui().settings).toBe(true)` (the second pass reads as an entry into S from the ref's stale band and closes the drawer). Revert.
+1. In `useBandReset` replace the compare with a `first` ref that skips only the first run. `mounting under StrictMode is not a band change` turns red on `expect(ui().sheet).toBe('report')` (measured in review: the second pass reads as a change and clears the sheet; `settings` holds, because `seen` starts at the current band and no narrowing is seen). Revert.
 2. Delete `else if (phone) return`. The XS key case turns red on `expect(ui().report).toBe(true)`. Revert.
 3. Delete the `restoreSettings()` branch. The first case turns red on the last poll. Revert, `git diff` empty.
 
@@ -1606,7 +1609,17 @@ const BANDED: readonly (readonly [State, number, number])[] = [
 ]
 ```
 
-- In `arrange`: `'library-sheet-cli'` pushes `/boards/8x8/<id>` with the same fetch stub as `'library-detail'` (extract that stub into a local `stubStoredBoard()` used by both), waits for `.fw-bcol .fw-cmdfig` like `'library-detail'`, then sets the sheet. Inside the existing `act`: `'solo'` → `s.ui.setSolo(true)`; `'solo-sheet'` → `s.ui.setSolo(true)` and `s.ui.setSheet('settings')` (Review Focus 3); `'sheet-settings' | 'sheet-cli' | 'sheet-report'` → `s.ui.setSheet(state.slice(6) as Sheet)` (import `type Sheet`); `'library-sheet-cli'` → `s.ui.setSheet('cli')`; `'menu-open'` → `s.ui.setMenu(true)`. After the `presets-open` block: `'more-open'` → `await screen.getByRole('button', { name: 'More options' }).click()` and poll `.fw-more-pop.open` not null. Skip `loadRunDone` for `library-sheet-cli` as for `library-detail`.
+- In `arrange`: `'library-sheet-cli'` pushes `/boards/8x8/<id>` with the same fetch stub as `'library-detail'` (extract that stub into a local `stubStoredBoard()` used by both), waits for `.fw-bcol .fw-cmdfig` like `'library-detail'`, then sets the sheet. Inside the existing `act`: `'solo'` → `s.ui.setSolo(true)`; `'solo-sheet'` → `s.ui.setSolo(true)` and `s.ui.setSheet('settings')` (Review Focus 3); `'sheet-settings' | 'sheet-cli' | 'sheet-report'` → `s.ui.setSheet(state.slice(6) as Sheet)` (import `type Sheet`); `'library-sheet-cli'` → `s.ui.setSheet('cli')`; `'menu-open'` → `s.ui.setMenu(true)`. After the `presets-open` block:
+
+```ts
+  if (state === 'more-open') {
+    // A DOM click, not the locator's: until Task 9 the button is
+    // `display: none` (Task 7), and a locator click waits 40s for a visible
+    // element (measured in review: all four cases timed out).
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-more')?.click())
+    await expect.poll(() => screen.container.querySelector('.fw-more-pop.open')).not.toBeNull()
+  }
+``` Skip `loadRunDone` for `library-sheet-cli` as for `library-detail`.
 - In both test bodies pass `solo: state === 'solo' || state === 'solo-sheet'` to `audit`, and add a second `test.each(BANDED)` with the same body as the matrix case.
 - `LANG_CASES` becomes `[['board', 420, 900], ['board', 1280, 800], ['board', 1024, 768], ['board', 768, 1024], ['presets-open', 924, 540], ['board', 375, 812], ['more-open', 1024, 768]]` (Review Focus 4). Keep the file's order: arrange, then `setLang('pl')`, then settle — the popover stays open across the language change. Key the Polish cases `${state}@${w}x${h}:pl` in `KNOWN_RED`: they share `state@size` with English cases and may differ from them (review round 1).
 
@@ -1630,7 +1643,9 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
 }
 ```
 
-Labels: `bar-row`, and `board-width` at ≥768 → Task 9; `sheet-bar`, `sheet-fit`, `board-width` below 768, `hidden-box`, `top-scroll`, `panel-overflow` and `popover-fit` at XS → Task 10; `touch-target` → Task 11. Anything else red here (`ua-button`, `bar-clip`, `overlap`, `contrast`) is a defect of Tasks 4–7 — stop and fix it there, do not record it. Extend `KNOWN_RED` to every other test in the file that calls `audit` — `BANDED`, `LANG_CASES`, `the presets-open state at 420×700` and `the Polish trigger naming Huge…` — by making their bodies compare against it the same way the matrix does (they compare against `[]` today); key the two single cases as `presets-open@420x700` and `huge-pl@420x900`. Re-run until the file is green with the recorded reds.
+Labels: `bar-row`, and `board-width` at ≥768 → Task 9; `sheet-bar`, `sheet-fit`, `board-width` below 768, `hidden-box`, `top-scroll`, `panel-overflow` and `popover-fit` at XS, and `bar-clip` at XS in Polish (`board@375x812:pl`: the right group overflows a width never supported before and folds into the menu in Task 10) → Task 10; `touch-target` → Task 11. Anything else red here (`ua-button`, `overlap`, `contrast`, `bar-clip` at ≥768) is a defect of Tasks 4–7 — stop and fix it there, do not record it (review round 2 measured none after Tasks 4–7).
+
+Read each case's `invariant: detail` lines printed above `expected`, not the `expected [...]` array: Vitest elides it (`…(1)`). What review round 2 measured, as a check on the recording (77 keys): nearly every XS case records `touch-target`; `docs`, `solo` and `solo-sheet` at XS record **only** `touch-target` (top-bar radios 24px, tabs 40px); `report-open@375x812` also records `panel-overflow`; `library-empty` and `library-detail` at 1024 record `bar-row` and `board-width`; the four `more-open` cases record `bar-row` (plus `board-width` at 1024). Extend `KNOWN_RED` to every other test in the file that calls `audit` — `BANDED`, `LANG_CASES`, `the presets-open state at 420×700` and `the Polish trigger naming Huge…` — by making their bodies compare against it the same way the matrix does (they compare against `[]` today); key the two single cases as `presets-open@420x700` and `huge-pl@420x900`. Re-run until the file is green with the recorded reds.
 
 - [ ] **Step 4: Mutations of the new invariants**
 
@@ -1885,7 +1900,7 @@ And change `library.css:101`'s `.fw .fw-bcol .fw-alt > .danger { flex: 1; }` to 
 - [ ] **Step 6: Run the layout file**
 
 Run: `pnpm -C apps/lab exec vitest run --project chromium src/routes/LayoutInvariants.browser.test.tsx`
-Expected: every case green except the invariants still marked `// Task 10` and `// Task 11`. A new red that is not in `KNOWN_RED` is fixed in the CSS, never recorded. Review round 1 applied this task's CSS and measured, drawer open: board 533 at 1440, 395 at 1280, 440 at 1024, 678 at 768; the bar 48px tall, 88 at 1024 with the drawer pushing it, in English and Polish; its content starts at x=551, past the drawer's edge at 538.
+Expected: every case green except the invariants still marked `// Task 10` and `// Task 11`, plus one new red that is expected: `preview-palette@375x812` gains `panel-overflow` (`div#rail-panel-preview.fw-knobs 186 > 181`) — the deleted `(max-width: 900px)` block also narrowed the drawer's rail at XS, and Task 10's rail-as-a-row is the fix. Record it as `'panel-overflow', // Task 10`. Any other new red is fixed in this task's CSS, never recorded. Review round 1 applied this task's CSS and measured, drawer open: board 533 at 1440, 395 at 1280, 440 at 1024, 678 at 768; the bar 48px tall, 88 at 1024 with the drawer pushing it, in English and Polish; its content starts at x=551, past the drawer's edge at 538.
 
 - [ ] **Step 7: Pin the coarse bar in the touch test**
 
@@ -1903,22 +1918,27 @@ Add a row to the `test.each` in `design/touch.browser.test.tsx`:
 
 `coarseHeight` reads every rule whose condition names `pointer: coarse`, the M/S one included.
 
-- [ ] **Step 8: Node pins and the suite**
+- [ ] **Step 8: Retire the stopgap's geometry pins, then node pins and the suite**
+
+Eight existing cases pin PR 1's stopgap layout as geometry and fail once the bands replace it (measured in review round 2):
+
+- `routes/LabLayout.browser.test.tsx`: delete the `[860, 900, …]` rows from the two `test.each` lists at lines 29–32 and 113–117 (`… the closed report leaves only its handle beside the board`, `… the command box paints nothing over Generate`): at 860 the run column is a bar now, pinned by the audit's `bar-row`. In `the run column is %dpx wide`, delete the 860 and 1024 rows (M/S have no column) and change `[1400, 900, 308]` to `[1400, 900, 288]` (L's run column is 18rem).
+- `routes/Workspace.browser.test.tsx` near line 900, `below 900px the library rail is the lab rail`: change `'112px'` to `'126px'` and its comment (the 900px rail rule was a stopgap, deleted in Step 2).
 
 Run: `pnpm -C apps/lab exec vitest run --project node` then `pnpm nx run lab:test`
-Expected: PASS.
+Expected: PASS (review round 2: 899 after this task).
 
 - [ ] **Step 9: Commit**
 
 ```bash
-pnpm -C apps/lab exec prettier --write src/design/console.css src/design/run.css src/design/library.css src/design/touch.browser.test.tsx src/routes/LayoutInvariants.browser.test.tsx
+pnpm -C apps/lab exec prettier --write src/design/console.css src/design/run.css src/design/library.css src/design/touch.browser.test.tsx src/routes/LayoutInvariants.browser.test.tsx src/routes/LabLayout.browser.test.tsx src/routes/Workspace.browser.test.tsx
 git add apps/lab/src
 git commit -m "Lay the stage out in the L, M and S bands, with the right column as a bar under the board"
 ```
 
 - [ ] **Step 10: Mutations**
 
-1. Delete `grid-row: 2;` from the M/S run column rule. `board@1024x768` turns red with `bar-row` (the column falls into row 1 beside the board). Revert.
+1. Delete `grid-row: 2;` from the M/S run column rule. Every M/S case turns red with `bar-row` (the column falls into row 1 beside the board; review measured 37), `board@1024x768` among them, and `more-open@924x540` also with `popover-fit`. Revert.
 2. Delete the M push block (`(min-width: 1024px) and (max-width: 1279px)`). `board@1024x768` (the drawer is open in `resetApp`) turns red with `bar-row` "content … under the drawer". Revert.
 3. Task 8's mutation 2, now that `bar-row` is green: (a) in `barRow` change `104` to `4` — `board@1024x768` and `board@768x1024` turn red with `bar-row`; revert. (b) change `start < edge - EPS` to `start < edge + 9999` — `board@1024x768` turns red, `board@768x1024` does not (S has no push check); revert, `git diff` empty.
 
@@ -1934,6 +1954,8 @@ Model: Opus.
 - Modify: `apps/lab/src/shell/bands.browser.test.tsx`
 
 - [ ] **Step 1: Remove this task's invariants from `KNOWN_RED` and watch them go red**
+
+Remove every invariant marked `// Task 10` from every list, and drop a key whose list is now empty; run the layout file and watch those cases fail on exactly them. These include `bar-clip` on `board@375x812:pl` and the `panel-overflow` Task 9 recorded on `preview-palette@375x812`.
 
 - [ ] **Step 2: Top bar, menu and sheet bar (`shell.css`)**
 
@@ -2329,11 +2351,11 @@ git commit -m "Lay the lab out on a phone with bottom sheets, a menu chip and a 
 ```
 
 1. Replace `.fw-lab .fw-pp-panel:not([hidden])` with `.fw-lab .fw-pp-panel`. `board@375x812` turns red with `hidden-box` (the closed panel shows; review round 1 measured that `popover-fit` and `overlap` stay silent). Revert.
-2. Drop `:not(.solo)` from `.fw-lab:not(.solo) + .fw-sheetbar`. `solo at XS hides…` turns red on the sheet bar, and `solo@375x812` with `sheet-bar`. Revert.
+2. Drop `:not(.solo)` from `.fw-lab:not(.solo) + .fw-sheetbar`. `solo at XS hides…` turns red on the sheet bar's `checkVisibility`, and `solo@600x900`, `solo@375x812`, `solo-sheet@600x900`, `solo-sheet@375x812` with `sheet-bar`. Revert.
 3. Delete `event.preventDefault()` in `TopBar`'s menu `onKey`. `Escape in the open menu closes the menu only…` turns red on `sheet`. Revert.
 4. Set the sheets' `z-index` back to 40. The same case turns red on `elementFromPoint`. Revert.
 5. Task 8's mutation 6, two conditions, two runs: (a) delete only the `.fw-pp-panel` half of `barClip`'s skip — `presets-open@924x540` turns red with `bar-clip`; revert. (b) delete only the menu half — `menu-open@600x900` and `menu-open@375x812` turn red with `bar-clip`; revert, `git diff` empty.
-6. Change `calc(100vh - 276px)` back to `calc(100vh - 220px)`. `presets-open@375x812` turns red with `popover-fit` "under the sheet bar". Revert.
+6. Change `calc(100vh - 276px)` back to `calc(100vh - 220px)`. `presets-open@375x812`, `presets-open@600x900` and `presets-open@420x700` turn red with `popover-fit` "under the sheet bar". Revert.
 
 ---
 
@@ -2426,6 +2448,12 @@ Expected: PASS; delete any `// Task 11` entries in `KNOWN_RED` first and watch t
 Run: `pnpm -C apps/lab exec vitest run --project node`
 Expected: PASS.
 
+Then the whole suite, `pnpm nx run lab:test`. The joined blocks reach every component test that imports `console.css` at the default 414 (XS). Review round 2 measured three that move and must set `await page.viewport(1400, 900)` in the case (they pin the desktop look, which is what they are about):
+- `design/console.browser.test.tsx` › `a switch is a light square track…` (`[36, 18]` vs `[28, 14]`);
+- `console/KnobSlider.browser.test.tsx` › `draws the fill and the thumb at the value` (98 vs 100);
+- `console/ViewPanel.browser.test.tsx` › `the head width's auto chip toggles 0…` (the XS `.mn`/`.mx` rule hides the chip's range end).
+Expected after: PASS. List the three in the commit.
+
 - [ ] **Step 4: Commit and mutate**
 
 ```bash
@@ -2437,7 +2465,7 @@ git commit -m "Give a phone a finger's sizes by naming the XS width in the coars
 Mutations (commit first):
 
 1. Task 8's mutation 4, now that `touch-target` is green: in `touchTargets` change `44` to `440` — every XS case turns red with `touch-target`. Revert.
-2. Revert the query list on the `run.css` alternatives block only. `a run alternative is raised at XS` turns red, and so does `sheet-cli@375x812` in the layout file, with `touch-target` on New seed / Defaults / Abort (the CLI sheet is the only XS state where they are rendered). Revert.
+2. Revert the query list on the `run.css` alternatives block only. `a run alternative is raised at XS` turns red, and so do `Delete from disk is raised at XS`, `sheet-cli@600x900` and `sheet-cli@375x812` (`touch-target` on New seed / Defaults / Abort, 32px), and `library-sheet-cli@600x900` and `@375x812` (`touch-target` on Delete from disk). Revert.
 3. Change `library.css`'s `.danger { flex: none }` back to `flex: 1`. `library-sheet-cli@375x812` turns red with `touch-target` on "Delete from disk". Revert, `git diff` empty.
 
 ---
