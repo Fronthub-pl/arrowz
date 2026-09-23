@@ -212,10 +212,18 @@ test('an address naming a size the store has not got selects no tab, and still l
   const screen = await mountPanel('/boards/10x10/sha256-0')
   await act(async () => useStore.getState().library.listed(sizesFixture()))
   expect(screen.container.querySelectorAll('.fw-brow').length).toBeGreaterThan(0)
-  const selected = screen.getByRole('tab').elements().filter((tab) => tab.getAttribute('aria-selected') === 'true')
+  const selected = screen
+    .getByRole('tab')
+    .elements()
+    .filter((tab) => tab.getAttribute('aria-selected') === 'true')
   expect(selected).toHaveLength(0)
   // A tablist with none selected still keeps one tab in the tab order.
-  expect(screen.getByRole('tab').elements().filter((tab) => tab.tabIndex === 0)).toHaveLength(1)
+  expect(
+    screen
+      .getByRole('tab')
+      .elements()
+      .filter((tab) => tab.tabIndex === 0),
+  ).toHaveLength(1)
   await expect.element(screen.getByRole('tabpanel', { name: 'Boards of this size' })).toBeVisible()
 })
 
@@ -262,5 +270,10 @@ test('the arrow keys walk the rail, sizes then Preview, and the focus follows', 
 test('with no store the rail holds only Preview', async () => {
   const screen = await mountPanel()
   await act(async () => useStore.getState().library.listFailed('connect ECONNREFUSED'))
-  expect(screen.getByRole('tab').elements().map((tab) => tab.textContent)).toEqual(['Preview'])
+  expect(
+    screen
+      .getByRole('tab')
+      .elements()
+      .map((tab) => tab.textContent),
+  ).toEqual(['Preview'])
 })

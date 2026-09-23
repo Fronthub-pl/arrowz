@@ -26,21 +26,19 @@ export function ReportPanel(): ReactElement {
   const baseline = useStore((state) => state.result.baseline)
   return (
     <section id={REPORT_ID} className="fw-report" aria-label={dict.t('reportPanel')}>
-      {inLibrary
-        ? open === null ? null : (
+      {inLibrary ? (
+        open === null ? null : (
           <>
             <StoredFacts stored={open.stored} />
             <LongestTable board={open.stored.board} stored />
           </>
         )
-        : result === null
-        ? null
-        : (
-          <>
-            <StatsTable result={result} baseline={baseline} />
-            <LongestTable board={result.board} />
-          </>
-        )}
+      ) : result === null ? null : (
+        <>
+          <StatsTable result={result} baseline={baseline} />
+          <LongestTable board={result.board} />
+        </>
+      )}
     </section>
   )
 }

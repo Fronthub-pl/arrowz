@@ -40,15 +40,7 @@ function useFocusBackToHandle(open: boolean, panelId: string) {
  * `BoardFrame` ever changes type, so it keeps its node — that is what keeps
  * `<arrowz-board>`'s GL context alive across the tabs.
  */
-export function Stage({
-  settings,
-  run,
-  side,
-}: {
-  settings: ReactNode
-  run: ReactNode
-  side: ReactNode
-}): ReactElement {
+export function Stage({ settings, run, side }: { settings: ReactNode; run: ReactNode; side: ReactNode }): ReactElement {
   const dict = useDictionary()
   const reportOpen = useStore((state) => state.ui.report)
   const toggleReport = useStore((state) => state.ui.toggleReport)

@@ -827,13 +827,15 @@ test('leaving the library takes the stored board off the stage', async () => {
     await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
     // The report is the stored board's now (handoff 2, PR 6): its six stored
     // figures, not the run's 23 rows.
-    await expect.poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
+    await expect
+      .poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
       .toBe(6)
 
     await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
     await expect.poll(() => useStore.getState().result.preview).toBeNull()
     expect(screen.container.querySelector('.fw-anno')?.textContent).toBe(runAnnotation)
-    await expect.poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
+    await expect
+      .poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
       .toBeGreaterThan(6)
   } finally {
     vi.restoreAllMocks()

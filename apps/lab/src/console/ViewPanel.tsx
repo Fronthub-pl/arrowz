@@ -155,7 +155,9 @@ function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
   const stroke = useStore((state) => state.view.stroke)
   const setNumber = useStore((state) => state.view.setNumber)
   // Through the slice's own reader, which clamps to `VIEW_RANGE`.
-  return <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field.field, String(next))} />
+  return (
+    <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field.field, String(next))} />
+  )
 }
 
 /**

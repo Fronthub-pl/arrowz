@@ -117,7 +117,7 @@ export function BoardsRail() {
           </>,
           // A bare count announces "25×50 3"; the name says what the 3 is.
           dict.t('sizeTab', sizeName(size.size), size.boards.length),
-        )
+        ),
       )}
       <span className="sec caps" aria-hidden="true">
         {dict.t('railElement')}

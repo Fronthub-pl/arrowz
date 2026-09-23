@@ -39,7 +39,7 @@ async function mountPreview(path = `/boards/8x8/${stored.meta.id}`) {
 
 async function show() {
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta })
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
 }
 
@@ -50,15 +50,21 @@ test('the stored view is three number rows and two switches, from the board’s 
   await show()
   const arrows = screen.getByRole('group', { name: 'arrows · saved with the board' })
   await expect.element(arrows).toBeVisible()
-  expect(arrows.getByRole('slider').elements().map((slider) => slider.id)).toEqual([
-    'view-stroke',
-    'view-headWidth',
-    'view-headHeight',
-  ])
-  expect(arrows.getByRole('switch').elements().map((sw) => sw.id)).toEqual(['view-rounded', 'view-colored'])
-  await expect.element(screen.getByRole('button', { name: /^stroke:/ })).toHaveTextContent(
-    String(stored.meta.view.stroke),
-  )
+  expect(
+    arrows
+      .getByRole('slider')
+      .elements()
+      .map((slider) => slider.id),
+  ).toEqual(['view-stroke', 'view-headWidth', 'view-headHeight'])
+  expect(
+    arrows
+      .getByRole('switch')
+      .elements()
+      .map((sw) => sw.id),
+  ).toEqual(['view-rounded', 'view-colored'])
+  await expect
+    .element(screen.getByRole('button', { name: /^stroke:/ }))
+    .toHaveTextContent(String(stored.meta.view.stroke))
   expect(screen.container.querySelector('#view-top')).toBeNull()
   expect(screen.container.querySelector('#view-cell')).toBeNull()
 })

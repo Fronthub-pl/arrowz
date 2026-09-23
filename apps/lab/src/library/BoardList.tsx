@@ -41,11 +41,11 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const when = (meta: BoardMeta) =>
     meta.createdAt
       ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : ''
 
   return (
@@ -91,9 +91,11 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
               <span className="meta">
                 {`${dict.t('piecesShort', meta.pieces ?? '?')} · ${dict.t('longestShort', meta.maxLen ?? '?')}`}
               </span>
-              {meta.ok === false
-                ? <span className="src bad">{dict.t('notClosed')}</span>
-                : <span className="src">{meta.source}</span>}
+              {meta.ok === false ? (
+                <span className="src bad">{dict.t('notClosed')}</span>
+              ) : (
+                <span className="src">{meta.source}</span>
+              )}
             </button>
           ))}
         </div>

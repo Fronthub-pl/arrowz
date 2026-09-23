@@ -32,7 +32,9 @@ export function BoardPreview(): ReactElement {
       </div>
       <div className="kv kv-g">
         <Section id="boards-sec-arrows" title={dict.t('secStoredArrows')}>
-          {view === null ? <p className="fw-lib-empty">{dict.t('openBoardHint')}</p> : (
+          {view === null ? (
+            <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+          ) : (
             <>
               {STORED_NUMBERS.map((key) => (
                 <NumberRow
@@ -49,7 +51,11 @@ export function BoardPreview(): ReactElement {
                 on={view.rounded !== false}
                 onToggle={() => commitView({ ...view, rounded: view.rounded === false })}
               />
-              <FlagRow flag="colored" on={view.colored} onToggle={() => commitView({ ...view, colored: !view.colored })} />
+              <FlagRow
+                flag="colored"
+                on={view.colored}
+                onToggle={() => commitView({ ...view, colored: !view.colored })}
+              />
             </>
           )}
         </Section>

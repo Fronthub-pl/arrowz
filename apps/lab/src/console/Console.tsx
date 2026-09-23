@@ -24,7 +24,11 @@ export function Console({ control, face }: { control: RunControl; face: Workspac
   useFocusRequest()
   return (
     <div id={SETTINGS_ID} className={`fw-console${library ? ' library' : ''}`}>
-      {library ? <LibraryFace /> : simple ? <SimplePanel control={control} /> : (
+      {library ? (
+        <LibraryFace />
+      ) : simple ? (
+        <SimplePanel control={control} />
+      ) : (
         <>
           <GroupRail />
           {entry === 'preview' ? <ViewPanel /> : <KnobPanel group={entry} />}

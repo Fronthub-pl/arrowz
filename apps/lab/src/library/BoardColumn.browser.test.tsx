@@ -115,9 +115,9 @@ test('a size the directory spells differently still gets its detail', async () =
 test('the column prints the command the store holds for this board', async () => {
   const screen = await mountDetail()
   await show()
-  await expect.element(screen.getByRole('figure', { name: 'Command of this board' })).toMatchTextContent(
-    /^CLI · this board/,
-  )
+  await expect
+    .element(screen.getByRole('figure', { name: 'Command of this board' }))
+    .toMatchTextContent(/^CLI · this board/)
   await expect.element(screen.getByText(stored.meta.command)).toBeVisible()
   // Spec §7: through CommandText, one span per flag and the value in bold —
   // not the stored string printed plain.
@@ -310,7 +310,7 @@ test('the board file downloads the stored file under its id', async () => {
     await show()
     await userEvent.click(screen.getByRole('button', { name: 'Download board file' }))
     expect(names).toEqual([`${stored.meta.id}.board.json`])
-    expect(JSON.parse(await blobs[0]?.text() ?? 'null')).toEqual(stored.file)
+    expect(JSON.parse((await blobs[0]?.text()) ?? 'null')).toEqual(stored.file)
   } finally {
     document.removeEventListener('click', onClick, true)
   }
