@@ -375,3 +375,16 @@ Deno.test('every knob has a short label of at most 12 characters, in both langua
     for (const unit of Object.values(d.units)) assert([...unit].length <= 6, `unit "${unit}"`)
   }
 })
+
+// Handoff 2, PR 3: the preview's rows share the knobs' 12-character label track.
+Deno.test('every preview short label has at most 12 characters, in both languages', () => {
+  for (const d of [EN, PL]) {
+    const keys = Object.keys(d.ui).filter((k) => k.startsWith('viewShort')) as UiKey[]
+    assert(keys.length >= 16, `${keys.length} preview short labels`)
+    for (const key of keys) {
+      const text = d.ui[key]
+      assert(typeof text === 'string', key)
+      assert([...text].length <= 12, `${key}: "${text}" is ${[...text].length} characters`)
+    }
+  }
+})
