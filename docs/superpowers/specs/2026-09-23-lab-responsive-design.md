@@ -37,7 +37,7 @@ that appears or vanishes shifts `Stage` and remounts `<arrowz-board>`
 
 Measured in the package with the drawer open, board width before → after:
 1440: 401 → 501, 1024: 183 → 440, 768: 44 → 678, 375: 2 → 359. These are the
-floors the layout test holds (§6).
+floors the layout test holds (§7).
 
 ## 3. CSS
 
@@ -56,12 +56,17 @@ Adaptations while moving:
   (console.css) keeps the lab's run column hidden on the saved boards in every
   band.
 - At M/S the board's facts (`.fw-bmeta`) are hidden in the bar and shown again
-  in the XS sheet (`boards.css`).
-- The PR 1 stopgaps are deleted, not overridden: the `min-width: 1024px`
-  padding block and the `max-width: 1279px` / `max-width: 900px` stage
-  templates in `console.css`, and the `max-width: 1479px` / `max-width: 600px`
-  blocks in `run.css`, once each is confirmed to be superseded by a band rule.
-  The existing `max-height: 700px` rules are rewritten against the low band.
+  in the XS sheet (`library.css`, from the package's `boards.css`).
+- The PR 1 stopgaps are deleted, not overridden: the `max-width: 1279px` and
+  `max-width: 900px` stage templates in `console.css` (the bands replace them).
+  The `min-width: 1024px` block that pads the board by the open drawer stays:
+  it is the push of XL, L and M. In `run.css` the `max-width: 1479px` preset
+  panel columns stay, and the `max-width: 600px` two-column panel is deleted
+  (the XS list replaces it). The `max-height: 700px` rules stay: they lower
+  the board's floor, which is not a band.
+- The handle tracks read one custom property, `--hd` (28px, 44px under a
+  coarse pointer), so every band keeps a finger's handle on a touch tablet
+  instead of each band restating the coarse template.
 - Every rule that sets `display` on an element that carries the `hidden`
   attribute is paired with `[hidden] { display: none }` for the same selector
   (the package's preset panel broke on XS exactly that way).
@@ -90,10 +95,13 @@ Adaptations while moving:
 `{ band: 'xl' | 'l' | 'm' | 's' | 'xs', low: boolean }`. It knows neither the
 store nor the DOM beyond `window.matchMedia`.
 
-**Band change (`App.tsx`).** One effect keyed on `band` and `low`: on a change
-it clears `sheet` and `menu`, and, when the new band is below 1024px, closes
-the settings drawer with a patch that does not call `writeStored` (D3). The
-`…` popovers close themselves on the same change (their own effect).
+**Band change (`App.tsx`).** One effect keyed on `band` and `low`, comparing
+with the previous value it saw (so StrictMode's second mount pass is not a
+change): on a change it clears `sheet` and `menu`; entering a band below
+1024px closes the settings drawer with a patch that does not call
+`writeStored` (D3); entering 1024px or more from below restores the
+remembered value, so the desktop preference comes back. The `…` popovers
+remember the band they were opened in and read as closed in any other.
 
 **`shell/SheetBar.tsx` (new).** A `nav` labelled from the dictionary, three
 buttons with `aria-pressed` and `aria-controls` (the settings panel, the right
@@ -106,8 +114,10 @@ sheet is open; the drawer handles are hidden at XS by CSS.
 
 **`shell/TopBar.tsx`.** A `menu ▼` chip (`aria-expanded`, `aria-controls` on
 the right group) toggles `ui.menu`. The ⌘K button carries two labels: the key
-(`k-key`) and a word for touch (`k-touch`, "commands"); CSS shows the word at
-XS. In the low band, advanced view, lab tab, the top bar renders the preset
+(`k-key`) and a word for touch (`k-touch`); CSS shows the word at XS. The
+word is "command palette" / "paleta poleceń", not the package's "commands":
+the button's accessible name, "Command palette (⌘K)", must contain the
+visible text (WCAG 2.5.3, the rule PR 4a's Ruling 8 applies to the top bar). In the low band, advanced view, lab tab, the top bar renders the preset
 strip; `Workspace` renders it only when the top bar does not (D2). The strip's
 open panel is lost when it moves, as in the package.
 
@@ -122,7 +132,20 @@ Polish: the menu chip, the touch label for ⌘K, the sheet bar's name and its si
 labels, the `…` button's name. The lab reads the dictionary from `dist`, so
 the engine is rebuilt before any look at the page.
 
-## 5. Keys
+## 5. Touch sizes
+
+The repository already raises every control for a finger under
+`(pointer: coarse)` (PR 2, PR 4, PR 6), with the package's XS values almost
+everywhere (row 52, track 44, select 40, `?` and chip 32, dependent header
+48). XS joins those blocks through a media query list,
+`@media (pointer: coarse), (max-width: 767px)`, rather than repeating them.
+Where the package differs, the repository's ruling stands: the switch stays
+36×18 with a 44×44 `::before` target (PR 4), not the package's 48×26. Only
+what has no coarse counterpart is XS-only: 14px row text, the hidden range
+ends (`.mn`, `.mx`), the rail as a row of chips, Generate at 44px. At M/S
+under a coarse pointer the bar's controls are 44px tall, not 32.
+
+## 6. Keys
 
 `useDrawerKeys` (`App.tsx`) keeps one listener that closes one layer per
 Escape. The new layers come first:
@@ -138,7 +161,7 @@ and settings sheets instead of the drawers, and Escape with no sheet open
 changes nothing (a remembered `report: true` is invisible at XS and must not
 be closed by a key the user cannot see act).
 
-## 6. Tests
+## 7. Tests
 
 - `routes/LayoutInvariants.browser.test.tsx` (loads every sheet): a matrix of
   1920×1080, 1440×900, 1280×800, 1024×768, 924×540, 768×1024, 600×900,
@@ -148,9 +171,9 @@ be closed by a key the user cannot see act).
   `.fw-top.scrollTop === 0` after opening the presets; the board-width floors
   of §2; solo fills the lab panel in every band; the preset panel and every
   `[hidden]` element in the matrix have no box.
-- `design/touch.browser.test.tsx` (new): the XS touch sizes (row 52px, slider
-  hit 44px, select 40px, switch 48×26 with a 44px target, dependent block
-  header 48px, rail chips, preset rows, tabs, menu and sheet buttons ≥ 44px).
+- `design/touch.browser.test.tsx` (exists): its cascade reader asks for rules
+  whose condition names `pointer: coarse`, which the joined query list still
+  does; new rows pin the XS-only sizes and the M/S coarse bar.
 - Unit / component: the band hook against stubbed `matchMedia`; the slice's
   `sheet`, `menu` and start value of `settings`; the band-change effect (clears
   sheet and menu, closes settings below 1024 without writing storage, leaves a
@@ -163,7 +186,7 @@ be closed by a key the user cannot see act).
 - A live run in Chrome at all eight sizes, in both languages, before the PR:
   Polish text is longer than the package assumes.
 
-## 7. Out of scope
+## 8. Out of scope
 
 From the package's "after migration" list: the board annotation running under
 ⛶ on a narrow board, the `trap bias` select's "no change" reaching the arrow,
