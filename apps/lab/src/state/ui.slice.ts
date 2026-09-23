@@ -1,4 +1,5 @@
 import { type ParamGroup, PARAM_SPEC } from '@arrowz/engine'
+import { narrow, readBand } from './band'
 import { readStored, writeStored } from './storage'
 
 /**
@@ -19,6 +20,13 @@ export type ViewMode = 'simple' | 'advanced'
  * hash: the address already names the size.
  */
 export type BoardsPanel = 'list' | 'preview'
+
+/**
+ * The phone's bottom sheets (handoff 2, PR 7): the settings drawer, the right
+ * column and the report, one at a time over the board. Never remembered, never
+ * in the hash.
+ */
+export type Sheet = 'settings' | 'cli' | 'report'
 
 /** The previous lab's key and values. */
 export const MODE_KEY = 'labView'
@@ -54,6 +62,10 @@ export interface UiState {
    * cover the board. Remembered, never in the hash.
    */
   settings: boolean
+  /** The open bottom sheet at XS, or none. */
+  sheet: Sheet | null
+  /** The top bar's menu is open at XS. Never remembered, never in the hash. */
+  menu: boolean
   /** The saved boards' drawer panel. */
   boards: BoardsPanel
   /**
@@ -76,6 +88,14 @@ export interface UiState {
   toggleReport(): void
   setSettings(on: boolean): void
   toggleSettings(): void
+  setSheet(sheet: Sheet | null): void
+  toggleSheet(sheet: Sheet): void
+  setMenu(on: boolean): void
+  toggleMenu(): void
+  /** Closes the drawer for a window below 1024px without remembering it (spec D3). */
+  closeSettingsForNarrow(): void
+  /** Puts the remembered drawer back, for a window 1024px or wider again. */
+  restoreSettings(): void
   showBoards(panel: BoardsPanel): void
   requestFocus(id: string): void
   clearFocusRequest(): void
@@ -95,7 +115,12 @@ export function createUiSlice(set: SetStore): UiState {
     solo: false,
     palette: false,
     report: readStored(REPORT_KEY) === 'open',
-    settings: readStored(SETTINGS_KEY) !== 'closed',
+    // Below 1024px the open drawer lies over the board, so a narrow page
+    // starts with it closed whatever was remembered on a desktop (spec D3);
+    // with no window to ask (the node project) the remembered value decides.
+    settings: !narrow(readBand()) && readStored(SETTINGS_KEY) !== 'closed',
+    sheet: null,
+    menu: false,
     boards: 'list',
     focusTarget: null,
     select: (entry) => patch({ entry }),
@@ -137,6 +162,14 @@ export function createUiSlice(set: SetStore): UiState {
         writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
         return { ui: { ...state.ui, settings } }
       }),
+    setSheet: (sheet) => patch({ sheet }),
+    // Read inside the update, like `toggleReport`: a key and a press can both
+    // fire before a render.
+    toggleSheet: (sheet) => set((state) => ({ ui: { ...state.ui, sheet: state.ui.sheet === sheet ? null : sheet } })),
+    setMenu: (menu) => patch({ menu }),
+    toggleMenu: () => set((state) => ({ ui: { ...state.ui, menu: !state.ui.menu } })),
+    closeSettingsForNarrow: () => patch({ settings: false }),
+    restoreSettings: () => patch({ settings: readStored(SETTINGS_KEY) !== 'closed' }),
     showBoards: (boards) => patch({ boards }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),

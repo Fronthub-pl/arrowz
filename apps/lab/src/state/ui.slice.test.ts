@@ -84,6 +84,41 @@ describe('the switches the run column owns', () => {
     store.ui.showBoards('list')
     expect(store.ui.boards).toBe('list')
   })
+
+  // Handoff 2, PR 7: the phone's bottom sheets and the top bar's menu. One
+  // sheet at a time; the same sheet pressed again closes it.
+  it('opens one sheet at a time and closes it on a second press', () => {
+    const store = slice()
+    expect(store.ui.sheet).toBeNull()
+    store.ui.toggleSheet('cli')
+    expect(store.ui.sheet).toBe('cli')
+    store.ui.toggleSheet('report')
+    expect(store.ui.sheet).toBe('report')
+    store.ui.toggleSheet('report')
+    expect(store.ui.sheet).toBeNull()
+    store.ui.setSheet('settings')
+    expect(store.ui.sheet).toBe('settings')
+  })
+
+  it('opens and closes the top bar menu', () => {
+    const store = slice()
+    expect(store.ui.menu).toBe(false)
+    store.ui.toggleMenu()
+    expect(store.ui.menu).toBe(true)
+    store.ui.setMenu(false)
+    expect(store.ui.menu).toBe(false)
+  })
+
+  it('closes the settings drawer for a narrow window and restores it', () => {
+    const store = slice()
+    expect(store.ui.settings).toBe(true)
+    store.ui.closeSettingsForNarrow()
+    expect(store.ui.settings).toBe(false)
+    // No storage in the node project (`readStored` returns null): the
+    // remembered value is the default, open.
+    store.ui.restoreSettings()
+    expect(store.ui.settings).toBe(true)
+  })
 })
 
 describe('the view a page opens in', () => {

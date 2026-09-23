@@ -54,6 +54,9 @@ async function mountApp() {
   // be measuring a `display: none` box.
   useStore.getState().ui.setSolo(false)
   useStore.getState().ui.setReport(false)
+  useStore.getState().ui.setSettings(true)
+  useStore.getState().ui.setSheet(null)
+  useStore.getState().ui.setMenu(false)
   return render(<App />)
 }
 

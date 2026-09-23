@@ -1,5 +1,6 @@
 import { recipeOf } from '@arrowz/engine/simple'
 import { expect, test } from 'vitest'
+import { page } from 'vitest/browser'
 import { createUiSlice, type UiState } from './ui.slice'
 import { useStore } from './store'
 
@@ -51,7 +52,11 @@ test('the report drawer is remembered as open or closed, and read back', () => {
   localStorage.removeItem('labReport')
 })
 
-test('the settings drawer is remembered as open or closed, and opens unless closed was stored', () => {
+// The slices below are created after `page.viewport`, so `createUiSlice` reads
+// the band the case chose. The harness's default 414×896 is XS since handoff
+// 2, PR 7, where the drawer starts closed whatever is remembered (spec D3).
+test('the settings drawer is remembered as open or closed, and opens unless closed was stored', async () => {
+  await page.viewport(1400, 900)
   useStore.getState().ui.setSettings(false)
   expect(localStorage.getItem('labSettings')).toBe('closed')
   useStore.getState().ui.toggleSettings()
@@ -62,5 +67,21 @@ test('the settings drawer is remembered as open or closed, and opens unless clos
   localStorage.setItem('labSettings', 'nonsense')
   const other: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(other, fn(other))) }
   expect(other.ui.settings).toBe(true)
+  localStorage.removeItem('labSettings')
+})
+
+test('below 1024px the drawer starts closed and closing it there writes nothing', async () => {
+  localStorage.setItem('labSettings', 'open')
+  await page.viewport(900, 900)
+  const narrowPage: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(narrowPage, fn(narrowPage))) }
+  expect(narrowPage.ui.settings).toBe(false)
+  await page.viewport(1400, 900)
+  const wide: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(wide, fn(wide))) }
+  expect(wide.ui.settings).toBe(true)
+  wide.ui.closeSettingsForNarrow()
+  expect(wide.ui.settings).toBe(false)
+  expect(localStorage.getItem('labSettings')).toBe('open')
+  wide.ui.restoreSettings()
+  expect(wide.ui.settings).toBe(true)
   localStorage.removeItem('labSettings')
 })
