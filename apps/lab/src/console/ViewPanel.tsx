@@ -17,9 +17,8 @@ import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type View
  * owns its text while it is being typed into; the store owns it the rest of
  * the time — a `document.activeElement` guard, kept where it is needed.
  *
- * The library's preview shows three of these fields (stroke, head width and
- * head height) through this same component, which is what keeps their bounds
- * measured against `VIEW_RANGE` in one place rather than two.
+ * The simple view shows its three numbers through this component; the
+ * saved boards' preview uses the knob rows (`NumberRow`) since handoff 2, PR 6.
  */
 export function ViewNumberField({
   field,
@@ -42,10 +41,8 @@ export function ViewNumberField({
     if (node && document.activeElement !== node) node.value = String(value)
   }, [value])
 
-  // The clamp lives here rather than in each owner: the lab's slice clamps in
-  // `setNumber` and the library's detail has no slice to clamp in, so a field
-  // that handed on what was typed would leave one of its two owners to
-  // remember. The box then shows what was actually kept.
+  // The clamp lives here rather than in the owner, so the box shows what was
+  // actually kept.
   const commit = () => {
     const node = ref.current
     if (!node) return
@@ -154,16 +151,37 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
  * `headWidth`'s 0 is the automatic width: a chip in the minimum's track.
  */
 function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
-  const dict = useDictionary()
   const value = useStore((state) => state.view[field.field])
   const stroke = useStore((state) => state.view.stroke)
   const setNumber = useStore((state) => state.view.setNumber)
+  // Through the slice's own reader, which clamps to `VIEW_RANGE`.
+  return <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field.field, String(next))} />
+}
+
+/**
+ * The row itself, for any owner of a view: the lab's slice above, or a stored
+ * board's meta on the saved boards (handoff 2, PR 6). `onSet` is handed what
+ * was typed or dragged; clamping is the owner's, as it is the slice's here.
+ */
+export function NumberRow({
+  field,
+  value,
+  stroke,
+  onSet,
+}: {
+  field: ViewField
+  value: number
+  /** The stroke the automatic head width is worked out from. */
+  stroke: number
+  onSet(next: number): void
+}): ReactElement {
+  const dict = useDictionary()
   const row = VIEW_ROWS[field.field]
   const range = VIEW_RANGE[field.field]
   const name = dict.t(row.short)
   const helpId = `view-${field.field}-help`
   const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
-  const set = (next: number) => setNumber(field.field, String(next))
+  const set = onSet
   const isAuto = row.auto === true && value === 0
   // Where a released chip goes: the width this row held before, else the
   // width the automatic head draws now (`autoHeadWidth`). Recorded after the
@@ -191,7 +209,6 @@ function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
               wordOnly
               className="kv-num"
               describedBy={helpId}
-              // Through the slice's own reader, which clamps to `VIEW_RANGE`.
               onCommit={set}
             />
             <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
@@ -282,9 +299,14 @@ function PointRadiusRow(): ReactElement {
  * in the numbers' colour, and the switch at the control track's right edge.
  */
 function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
-  const dict = useDictionary()
   const on = useStore((state) => state.view[flag])
   const toggle = useStore((state) => state.view.toggle)
+  return <FlagRow flag={flag} on={on} onToggle={() => toggle(flag)} />
+}
+
+/** The switch row itself, for any owner of a view, as `NumberRow` is. */
+export function FlagRow({ flag, on, onToggle }: { flag: ViewFlag; on: boolean; onToggle(): void }): ReactElement {
+  const dict = useDictionary()
   const row = FLAG_ROWS[flag]
   const name = dict.t(row.short)
   const helpId = `view-${flag}-help`
@@ -309,7 +331,7 @@ function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
             aria-checked={on}
             aria-labelledby={`view-${flag}-label`}
             aria-describedby={helpId}
-            onClick={() => toggle(flag)}
+            onClick={onToggle}
           />
         }
       />
@@ -487,7 +509,7 @@ function PaletteRow(): ReactElement {
 }
 
 /** A titled run of rows, a group named by its heading. */
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }): ReactElement {
+export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }): ReactElement {
   return (
     <div className="kv-sect" role="group" aria-labelledby={id}>
       <div className="kv-sub" id={id}>
@@ -498,7 +520,46 @@ function Section({ id, title, children }: { id: string; title: string; children:
   )
 }
 
-const fieldOf = (key: ViewNumber): ViewField => {
+/**
+ * The colours the stage paints any board with: the lab's own, and on the saved
+ * boards the stored board's too — `BoardFrame` spreads the theme, the palette,
+ * the paper and the ink over a stored board's view (handoff 2, PR 6). So this
+ * section belongs to both faces, and it is always the lab's slice it edits.
+ */
+export function ColoursSection(): ReactElement {
+  const dict = useDictionary()
+  const view = useStore((state) => state.view)
+  return (
+    <Section id="view-sec-colours" title={dict.t('previewColours')}>
+      <ThemeRow />
+      {/* The board's own surface colours: `''` means "not set", which a
+          colour input cannot show, so the row shows the element's own
+          default while unset, and the clear button — present only once
+          there is something to clear — hands the field back to a theme. */}
+      <ColourRow
+        id="view-paper"
+        short={dict.t('viewShortPaper')}
+        help={dict.t('paperHelp')}
+        title={dict.t('paperLabel')}
+        value={view.paper === '' ? DEFAULT_VIEW.paper : view.paper}
+        onChange={view.setPaper}
+        {...(view.paper === '' ? {} : { onClear: () => view.setPaper(''), clearLabel: dict.t('paperClear') })}
+      />
+      <ColourRow
+        id="view-ink"
+        short={dict.t('viewShortInk')}
+        help={dict.t('inkHelp')}
+        title={dict.t('inkLabel')}
+        value={view.ink === '' ? DEFAULT_VIEW.ink : view.ink}
+        onChange={view.setInk}
+        {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
+      />
+      <PaletteRow />
+    </Section>
+  )
+}
+
+export const fieldOf = (key: ViewNumber): ViewField => {
   const field = VIEW_FIELDS.find((f) => f.field === key)
   if (field === undefined) throw new Error(`no preview field ${key}`)
   return field
@@ -565,32 +626,7 @@ export function ViewPanel() {
             <PointRadiusRow />
           </CollapsibleBlock>
         </Section>
-        <Section id="view-sec-colours" title={dict.t('previewColours')}>
-          <ThemeRow />
-          {/* The board's own surface colours: `''` means "not set", which a
-              colour input cannot show, so the row shows the element's own
-              default while unset, and the clear button — present only once
-              there is something to clear — hands the field back to a theme. */}
-          <ColourRow
-            id="view-paper"
-            short={dict.t('viewShortPaper')}
-            help={dict.t('paperHelp')}
-            title={dict.t('paperLabel')}
-            value={view.paper === '' ? DEFAULT_VIEW.paper : view.paper}
-            onChange={view.setPaper}
-            {...(view.paper === '' ? {} : { onClear: () => view.setPaper(''), clearLabel: dict.t('paperClear') })}
-          />
-          <ColourRow
-            id="view-ink"
-            short={dict.t('viewShortInk')}
-            help={dict.t('inkHelp')}
-            title={dict.t('inkLabel')}
-            value={view.ink === '' ? DEFAULT_VIEW.ink : view.ink}
-            onChange={view.setInk}
-            {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
-          />
-          <PaletteRow />
-        </Section>
+        <ColoursSection />
         <Section id="view-sec-export" title={dict.t('secExport')}>
           <ViewNumberRow field={fieldOf('cell')} />
         </Section>
