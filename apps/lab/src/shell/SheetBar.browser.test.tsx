@@ -94,7 +94,9 @@ test('picking a board in the Boards sheet opens it and closes the sheet', async 
   const screen = await render(<App />)
   // DOM clicks, not the locator's: the listing's fetch re-renders the rows
   // while the locator waits for a stable element (harness fact 54).
-  await act(async () => screen.getByRole('button', { name: 'Boards', exact: true }).element().click())
+  const boards = screen.getByRole('button', { name: 'Boards', exact: true }).element()
+  if (!(boards instanceof HTMLElement)) throw new Error('the Boards button is not an HTML element')
+  await act(async () => boards.click())
   expect(useStore.getState().ui.sheet).toBe('settings')
   await expect.poll(() => document.querySelector('.fw-brow')).not.toBeNull()
   await act(async () => document.querySelector<HTMLButtonElement>('.fw-brow')?.click())
