@@ -1,6 +1,9 @@
 import { expect, test } from 'vitest'
 import { page } from 'vitest/browser'
-import { loadRunDone, mountApp } from '../harness/mountApp'
+import { render } from 'vitest-browser-react'
+import { App } from '../App'
+import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
+import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
@@ -111,3 +114,181 @@ test('at 1280×800 the CLI help scrolls sideways inside its own block', async ()
   if (knobs === null) throw new Error('the knob block is not on the page')
   expect(knobs.scrollWidth).toBeGreaterThan(knobs.clientWidth)
 }, 40_000)
+
+/**
+ * The App opened straight on a documentation page, as a pasted address would:
+ * no tab click, so it works at XS too, where the tab strip is a menu.
+ */
+async function openAt(path: string) {
+  resetApp('advanced')
+  history.replaceState(null, '', path)
+  const screen = await render(<App />)
+  await expect.element(screen.getByRole('tabpanel')).toBeVisible()
+  return screen
+}
+
+const rect = (container: HTMLElement, selector: string) => box(container, selector).getBoundingClientRect()
+
+/** Where a heading stands in the panel, in pixels below the panel's top edge. */
+function below(container: HTMLElement, id: string): number {
+  return rect(container, `#${id}`).top - rect(container, '#docs-panel').top
+}
+
+/** The link of the section the navigation marks as in view, by its text. */
+function inView(container: HTMLElement): string[] {
+  return [...container.querySelectorAll('.fw-docs-toc [aria-current="true"]')].map((a) => a.textContent)
+}
+
+// Round 3 (3f): the navigation is a 200px column beside the page, 32px from
+// it, and the page is a reading column of at most 110ch — the handoff's
+// checkpoint measured 792px at 1280 and up. The width is read against the
+// sheet's own `110ch`, resolved by the browser, so a font change moves both.
+test('at 1280×800 the navigation is a 200px column beside a 110ch page', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  const nav = rect(screen.container, '.fw-docs-toc')
+  const body = rect(screen.container, '.fw-docs-body')
+  expect(nav.width).toBe(200)
+  expect(body.left - nav.right).toBe(32)
+  expect(nav.top).toBeCloseTo(body.top, 0)
+  const cap = Number.parseFloat(getComputedStyle(box(screen.container, '.fw-docs-body')).maxWidth)
+  expect(body.width).toBeCloseTo(cap, 0)
+}, 40_000)
+
+// A section of the other page is one click: the page changes and the panel —
+// not the document — scrolls its heading to the top, 8px under the edge.
+test('a section of the other page opens that page at its heading', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  await screen.getByRole('link', { name: 'Every knob' }).click()
+  await expect.poll(() => screen.container.querySelectorAll('pre.fw-docs-term').length).toBe(2)
+  await expect.poll(() => below(screen.container, 'docs-knobs')).toBeCloseTo(8, 0)
+  expect(box(screen.container, '#docs-panel').scrollTop).toBeGreaterThan(0)
+  expect(scroller().scrollTop).toBe(0)
+  expect(location.pathname).toBe('/docs/cli')
+  // The fragment is still the lab's knobs, not a section id.
+  expect(location.hash).toMatch(/^#%7B|^#\{/)
+  await expect.poll(() => inView(screen.container)).toEqual(['Every knob'])
+}, 40_000)
+
+// A second click on the same section scrolls again after the reader has
+// scrolled away: the scroll follows the navigation, not the address, which
+// the second click does not change.
+test('a second click on the same section scrolls back to it', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  await screen.getByRole('link', { name: 'Properties' }).click()
+  await expect.poll(() => below(screen.container, 'docs-props')).toBeCloseTo(8, 0)
+  box(screen.container, '#docs-panel').scrollTo({ top: 0 })
+  await expect.poll(() => below(screen.container, 'docs-props')).toBeGreaterThan(100)
+  await screen.getByRole('link', { name: 'Properties' }).click()
+  await expect.poll(() => below(screen.container, 'docs-props')).toBeCloseTo(8, 0)
+}, 40_000)
+
+// The IntersectionObserver the handoff asks for: scrolling the panel by hand
+// moves the mark to the section whose heading has come up past the line,
+// and scrolling back to the top returns it to the first.
+test('scrolling the panel moves the section in view', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+  const panel = box(screen.container, '#docs-panel')
+  panel.scrollTo({ top: panel.scrollTop + below(screen.container, 'docs-members') - 20 })
+  await expect.poll(() => inView(screen.container)).toEqual(['Methods and getters'])
+  panel.scrollTo({ top: 0 })
+  await expect.poll(() => inView(screen.container)).toEqual(['Using it'])
+}, 40_000)
+
+// The last section of the element page is too short to bring its heading up
+// to the line at the bottom of the scroll; jumping to it must still mark it,
+// not the section above.
+test('jumping to the last section marks it, though its heading cannot reach the top', async () => {
+  await page.viewport(1920, 1080)
+  const screen = await openAt('/docs/element')
+  await screen.getByRole('link', { name: 'Events' }).click()
+  const panel = box(screen.container, '#docs-panel')
+  await expect.poll(() => panel.scrollTop + panel.clientHeight).toBeCloseTo(panel.scrollHeight, 0)
+  // The premise: the heading really is below the line a fifth of the way down.
+  expect(below(screen.container, 'docs-events')).toBeGreaterThan(panel.clientHeight * 0.2)
+  await expect.poll(() => inView(screen.container)).toEqual(['Events'])
+}, 40_000)
+
+// The column is sticky in the panel, which is the box that scrolls.
+test('the navigation stays at the top of the panel while the page scrolls', async () => {
+  await page.viewport(1280, 800)
+  const screen = await openAt('/docs/element')
+  const before = rect(screen.container, '.fw-docs-toc').top
+  box(screen.container, '#docs-panel').scrollTo({ top: 600 })
+  await expect.poll(() => box(screen.container, '#docs-panel').scrollTop).toBe(600)
+  expect(rect(screen.container, '.fw-docs-toc').top).toBeCloseTo(before, 0)
+}, 40_000)
+
+// Under 768 the column stands over the page, not sticky, and lists the
+// sections of the page on screen only, every link a finger's 44px. The
+// handoff's checkpoint at 375×812: the page is 324px wide.
+test.each(['en', 'pl'] as const)(
+  'at 375×812 (%s) the column stands over the page',
+  async (lang) => {
+    await page.viewport(375, 812)
+    const screen = await openAt('/docs/element')
+    useStore.getState().lang.setLang(lang)
+    await expect
+      .poll(() => box(screen.container, '.fw-docs-toc').getAttribute('aria-label'))
+      .toBe(lang === 'pl' ? 'Strony dokumentacji' : 'Documentation pages')
+    const nav = rect(screen.container, '.fw-docs-toc')
+    const body = rect(screen.container, '.fw-docs-body')
+    expect(nav.bottom).toBeLessThanOrEqual(body.top)
+    // The handoff measured 324px with a classic 11px scrollbar; the headless
+    // runner's overlays take none, so the page is the panel's content box.
+    const panel = box(screen.container, '#docs-panel')
+    const pad = Number.parseFloat(getComputedStyle(panel).paddingLeft) * 2
+    expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
+    expect(body.width).toBeGreaterThanOrEqual(324)
+    const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
+    expect(shown).toHaveLength(2 + 4)
+    for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
+    expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
+    expect(scroller().scrollWidth).toBe(scroller().clientWidth)
+  },
+  40_000,
+)
+
+// The round's rule for every screen: the document never scrolls sideways, at
+// the eight widths the handoff lists, on both pages, in both languages.
+test.each([
+  [1920, 1080],
+  [1440, 900],
+  [1280, 800],
+  [1024, 768],
+  [924, 768],
+  [768, 1024],
+  [600, 900],
+  [375, 812],
+] as const)(
+  'at %i×%i neither page scrolls the document sideways, in either language',
+  async (w, h) => {
+    await page.viewport(w, h)
+    const screen = await openAt('/docs/element')
+    // By address rather than by link text: the links' names change with the
+    // language, and this loop changes the language under them.
+    for (const [which, link] of [
+      ['element', 'a[href="/docs/element"]'],
+      ['cli', 'a[href="/docs/cli"]'],
+    ] as const) {
+      const anchor = screen.container.querySelector<HTMLAnchorElement>(link)
+      if (anchor === null) throw new Error(`no ${link}`)
+      anchor.click()
+      const marker = which === 'cli' ? 'pre.fw-docs-term' : 'pre.fw-docs-code'
+      await expect.poll(() => screen.container.querySelectorAll(marker).length).toBeGreaterThan(0)
+      for (const lang of ['en', 'pl'] as const) {
+        useStore.getState().lang.setLang(lang)
+        await expect
+          .poll(() => box(screen.container, '.fw-docs-toc').getAttribute('aria-label'))
+          .toBe(lang === 'pl' ? 'Strony dokumentacji' : 'Documentation pages')
+        expect(scroller().clientWidth, `${which} ${lang}`).toBe(w)
+        expect(scroller().scrollWidth, `${which} ${lang}`).toBe(w)
+      }
+    }
+  },
+  60_000,
+)

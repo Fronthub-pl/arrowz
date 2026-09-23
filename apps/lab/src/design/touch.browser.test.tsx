@@ -77,7 +77,14 @@ test.each([
   ['a board row', '<button class="fw-brow">row</button>', 'button', 52],
   ['the list’s refresh', '<div class="fw-blist-hd"><button class="kv-chip">Refresh</button></div>', 'button', 44],
   ['a plain button', '<button class="fw-btn">Refresh</button>', 'button', 44],
-  ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
+  // The documentation's column (round 3, 3f): a page and a section of it.
+  ['a docs page link', '<nav class="fw-docs-toc"><ul><li class="pg on"><a href="#">CLI</a></li></ul></nav>', 'a', 44],
+  [
+    'a docs section link',
+    '<nav class="fw-docs-toc"><ul><li class="pg on"><ul><li><a href="#">Every knob</a></li></ul></li></ul></nav>',
+    'a',
+    44,
+  ],
   // Handoff 2, PR 7: the M/S bar's controls under a finger.
   [
     'a bar control',
@@ -101,7 +108,14 @@ test.each([
   ['a run alternative', '<div class="fw-alt"><button>New seed</button></div>', 'button', 44],
   ['a preset row', '<div class="fw-pp-col"><button>x</button></div>', 'button', 44],
   ['a tab', '<div class="fw-tabrow"><button>Lab</button></div>', 'button', 0],
-  ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
+  // The documentation's column (round 3, 3f): a page and a section of it.
+  ['a docs page link', '<nav class="fw-docs-toc"><ul><li class="pg on"><a href="#">CLI</a></li></ul></nav>', 'a', 44],
+  [
+    'a docs section link',
+    '<nav class="fw-docs-toc"><ul><li class="pg on"><ul><li><a href="#">Every knob</a></li></ul></li></ul></nav>',
+    'a',
+    44,
+  ],
   [
     'Delete from disk',
     '<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>',

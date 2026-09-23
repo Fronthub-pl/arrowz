@@ -1,20 +1,49 @@
 import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
 import type { ReactElement } from 'react'
+import { TokenSpans } from '../docs/TokenSpans'
+import { type CellRole, cellTokens, highlightHtml } from '../docs/codeTokens'
+import { ELEMENT_EXAMPLE } from '../docs/elementExample'
 import { useDocs } from '../docs/useDocs'
+import { DocsBlock } from './DocsBlock'
 
 /** The dash a table cell shows where a property has no attribute at all. */
 const NONE = '—'
 
+/** Scanned once: the example is fixed for the life of the page. */
+const EXAMPLE_TOKENS = highlightHtml(ELEMENT_EXAMPLE)
+
+/** A machine cell in the example's colours; the column says what its text is. */
+function Mono({ text, column }: { text: string; column: CellRole }): ReactElement {
+  return (
+    <td className="mono">
+      <TokenSpans tokens={cellTokens(text, column)} />
+    </td>
+  )
+}
+
+/**
+ * The note's mark: a line info glyph, drawn rather than a letter in a box
+ * (round 3 review). Decoration only — the note is named by its `aside`.
+ */
+function InfoIcon(): ReactElement {
+  return (
+    <svg className="i" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      <circle cx="8" cy="8" r="6.25" />
+      <path d="M8 7.25v4" />
+      <circle cx="8" cy="4.9" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 /**
  * The element's API as three reference tables. The machine columns come from
  * the shared rows and are not translated; only the last column is. The long
- * explanations stay in the package README, which the lead paragraph points at:
- * this page is a reference, and a second copy of the prose would be a second
- * thing to keep true.
+ * explanations stay in the package README, which the note under the lead
+ * points at: this page is a reference, and a second copy of the prose would be
+ * a second thing to keep true.
  *
- * The code example lives here rather than in the engine module: an example
- * naming the page's global objects would trip `neutral.test.ts`, which greps
- * the text of engine sources.
+ * Every `h3` has an id: the navigation column lists them (DocsNav.tsx) and
+ * scrolls the panel to them, and each table is named by its own.
  */
 export function ElementDocs(): ReactElement {
   const docs = useDocs()
@@ -22,18 +51,17 @@ export function ElementDocs(): ReactElement {
     <>
       <h2>&lt;arrowz-board&gt;</h2>
       <p>{docs.elementLead}</p>
+      <aside className="fw-docs-info" aria-label={docs.infoLabel}>
+        <InfoIcon />
+        <p>{docs.readmePointer}</p>
+      </aside>
 
-      <h3>{docs.headExample}</h3>
-      <pre className="fw-docs-pre fw-docs-code">
-        {`<arrowz-board id="board" interactive lang="pl" style="width: 100%; height: 80vh"></arrowz-board>
-<script type="module">
-  import '@arrowz/board-element'
-  import { defaultParams, generate } from '@arrowz/engine'
-  const el = document.getElementById('board')
-  el.board = generate({ ...defaultParams(), W: 50, H: 50, seed: 7 }).board
-  el.addEventListener('piece-click', (e) => console.log('piece', e.detail.pieceId))
-</script>`}
-      </pre>
+      <h3 id="docs-example">{docs.headExample}</h3>
+      <DocsBlock kind="code" section={docs.headExample} text={ELEMENT_EXAMPLE}>
+        <code>
+          <TokenSpans tokens={EXAMPLE_TOKENS} />
+        </code>
+      </DocsBlock>
 
       <h3 id="docs-props">{docs.headProps}</h3>
       <table className="fw-docs-table" aria-labelledby="docs-props">
@@ -49,10 +77,10 @@ export function ElementDocs(): ReactElement {
         <tbody>
           {ELEMENT_PROPS.map((row) => (
             <tr key={row.key}>
-              <td className="mono">{row.key}</td>
-              <td className="mono">{row.type}</td>
-              <td className="mono">{row.attribute ?? NONE}</td>
-              <td className="mono">{row.def}</td>
+              <Mono text={row.key} column="prop" />
+              <Mono text={row.type} column="type" />
+              <Mono text={row.attribute ?? NONE} column="attr" />
+              <Mono text={row.def} column="expr" />
               <td>{docs.props[row.key]}</td>
             </tr>
           ))}
@@ -71,8 +99,9 @@ export function ElementDocs(): ReactElement {
         <tbody>
           {ELEMENT_MEMBERS.map((row) => (
             <tr key={row.key}>
-              <td className="mono">{row.key}</td>
-              <td className="mono">{row.signature}</td>
+              {/* A getter's signature is its type; a method's names itself. */}
+              <Mono text={row.key} column={row.kind === 'getter' ? 'prop' : 'method'} />
+              <Mono text={row.signature} column={row.kind === 'getter' ? 'type' : 'sig'} />
               <td>{docs.members[row.key]}</td>
             </tr>
           ))}
@@ -91,15 +120,13 @@ export function ElementDocs(): ReactElement {
         <tbody>
           {ELEMENT_EVENTS.map((row) => (
             <tr key={row.key}>
-              <td className="mono">{row.key}</td>
-              <td className="mono">{row.detail}</td>
+              <Mono text={row.key} column="event" />
+              <Mono text={row.detail} column="expr" />
               <td>{docs.events[row.key]}</td>
             </tr>
           ))}
         </tbody>
       </table>
-
-      <p>{docs.readmePointer}</p>
     </>
   )
 }

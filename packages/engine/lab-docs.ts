@@ -114,6 +114,8 @@ export interface Docs {
   readonly headExample: string
   /** Where the long explanations live, since this page is a reference. */
   readonly readmePointer: string
+  /** The accessible name of the note bar that carries `readmePointer`. */
+  readonly infoLabel: string
 }
 
 const EN = {
@@ -173,6 +175,7 @@ const EN = {
   headExample: 'Using it',
   readmePointer:
     'The long explanations — zoom and pan, the point grid, riding the track, playing the board — live in the package README.',
+  infoLabel: 'Note',
 } as const satisfies Docs
 
 const PL = {
@@ -234,6 +237,7 @@ const PL = {
   headExample: 'Jak użyć',
   readmePointer:
     'Długie objaśnienia — powiększanie i przesuwanie, siatka punktów, jazda po torze, rozgrywka — są w pliku README pakietu.',
+  infoLabel: 'Uwaga',
 } as const satisfies Docs
 
 /** The documentation in one language. Built by the surface once per language, as the dictionary is. */
