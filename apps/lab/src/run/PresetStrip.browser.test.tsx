@@ -77,6 +77,29 @@ describe('PresetStrip', () => {
   // A row's visible text is the mode and the size; four rows read `square`,
   // so the accessible name carries the level too — the same name the strip's
   // chips had, so every case that chooses a preset by name still finds it.
+  // Handoff 2, PR 5: a row's two spans sit on its vertical middle, not at its
+  // top edge where `align-items: baseline` put them. Inside `.fw`, which the
+  // row's rules are written against.
+  it('centres a row’s mode and size on the row, not on its top edge', async () => {
+    const screen = await render(
+      <div className="fw">
+        <PresetStrip control={stub().control} />
+      </div>,
+    )
+    await screen.getByRole('button', { name: /^preset/ }).click()
+    const rows = [...screen.container.querySelectorAll<HTMLElement>('.fw-pp-col button')]
+    expect(rows.length).toBeGreaterThan(20)
+    const middle = (el: Element) => {
+      const r = el.getBoundingClientRect()
+      return r.top + r.height / 2
+    }
+    for (const row of rows) {
+      for (const span of row.querySelectorAll(':scope > span')) {
+        expect(Math.abs(middle(span) - middle(row)), row.getAttribute('aria-label') ?? '').toBeLessThan(1)
+      }
+    }
+  })
+
   it('names each row in full, twenty-six names and no two the same', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await open(screen)

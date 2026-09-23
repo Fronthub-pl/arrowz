@@ -297,9 +297,12 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
+/* Centred, not on the baseline (handoff 2, PR 5; `css/presets-centre.css`):
+   `baseline` in a 28px row put both spans at its top edge. The two spans
+   (13px mode, 11px size) share `line-height: 1`, so their centres meet. */
 .fw .fw-pp-col button {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
   height: 28px;
@@ -309,6 +312,9 @@
   color: var(--mist);
   text-align: left;
   cursor: pointer;
+}
+.fw .fw-pp-col button > span {
+  line-height: 1;
 }
 .fw .fw-pp-col button:hover {
   background: var(--surface);
