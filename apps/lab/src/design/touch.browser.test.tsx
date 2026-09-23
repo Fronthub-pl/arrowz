@@ -73,6 +73,54 @@ test.each([
   expect(coarseHeight(el)).toBeGreaterThanOrEqual(px)
 })
 
+/** As `coarseHeight`, for the rules inside a condition that names `max-width: 767px`. */
+function phoneHeight(el: Element): number {
+  let best = 0
+  for (const sheet of document.styleSheets) {
+    for (const rule of sheet.cssRules) {
+      if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes('max-width: 767px')) continue
+      for (const inner of rule.cssRules) {
+        if (!(inner instanceof CSSStyleRule)) continue
+        let hit: boolean
+        try {
+          hit = el.matches(inner.selectorText)
+        } catch {
+          hit = false
+        }
+        if (!hit) continue
+        for (const prop of ['height', 'min-height'] as const) {
+          const px = Number.parseFloat(inner.style.getPropertyValue(prop))
+          if (Number.isFinite(px)) best = Math.max(best, px)
+        }
+      }
+    }
+  }
+  return best
+}
+
+// Handoff 2, PR 7: a phone gets a finger's sizes whatever its pointer reports
+// — the coarse blocks name the XS width too (spec §5).
+test.each([
+  ['a knob row value', '<div class="kv-g"><button class="kv-num">1</button></div>', 'button', 44],
+  ['a knob row select', '<div class="kv-g"><span class="cc"><select></select></span></div>', 'select', 40],
+  ['a dependency header', '<div class="kv-g"><button class="kv-dephd">x</button></div>', 'button', 48],
+  ['a run alternative', '<div class="fw-alt"><button>New seed</button></div>', 'button', 44],
+  ['a preset row', '<div class="fw-pp-col"><button>x</button></div>', 'button', 44],
+  ['a tab', '<div class="fw-tabrow"><button>Lab</button></div>', 'button', 0],
+  ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
+  [
+    'Delete from disk',
+    '<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>',
+    'button',
+    44,
+  ],
+] as const)('%s is raised at XS', async (_, html, tag, px) => {
+  const screen = await render(<div className="fw" dangerouslySetInnerHTML={{ __html: html }} />)
+  const el = screen.container.querySelector(tag)
+  if (el === null) throw new Error(`no ${tag}`)
+  expect(phoneHeight(el)).toBeGreaterThanOrEqual(px)
+})
+
 /** Of the coarse-pointer rules that match `el`'s `::before`, the largest value each declares for `prop`. */
 function coarseBefore(el: Element, prop: 'height' | 'width'): number {
   let best = 0
@@ -107,4 +155,5 @@ test('a switch is drawn small for a finger and raised to a 44px target around it
   expect(coarseHeight(el)).toBe(18)
   expect(coarseBefore(el, 'height')).toBeGreaterThanOrEqual(44)
   expect(coarseBefore(el, 'width')).toBeGreaterThanOrEqual(44)
+  expect(phoneHeight(el)).toBe(18)
 })

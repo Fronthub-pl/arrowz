@@ -145,7 +145,7 @@
 
 /* §7.2: a finger's target — the size tabs, as the old size chips had it, the
    rows at their 52px, and Refresh. */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-console.library .fw-rail button,
   .fw .fw-blist-hd .kv-chip {
     min-height: 44px;

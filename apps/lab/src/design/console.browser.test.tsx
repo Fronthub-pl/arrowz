@@ -1,5 +1,6 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { expect, test } from 'vitest'
+import { page } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { ValueKnob } from '../console/ValueKnob'
 import { OptionSwitch } from '../run/OptionSwitch'
@@ -51,6 +52,9 @@ test('no text in an inactive knob is dimmed further than AA allows', async () =>
 // person can see: at least 3:1 against the panel (WCAG 1.4.11), which the
 // reconstruction's `--border-strong` (1.79:1) was not.
 test('a switch is a light square track, and its off line still clears 3:1', async () => {
+  // The joined coarse/XS block (`console.css:993`) redraws the switch at XS
+  // (spec §5); this pins the desktop 28×14 look, not the finger's 36×18.
+  await page.viewport(1400, 900)
   const screen = await render(
     <div className="fw" style={{ background: 'var(--void)' }}>
       <OptionSwitch id="probe" label="probe" on={false} onChange={() => {}} />

@@ -217,7 +217,7 @@ body {
 }
 
 /* §7.2: the design system asks for 44px targets where there is no hover. */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw-tabrow button {
     padding: 15px 0 13px;
   }
@@ -431,7 +431,7 @@ body {
 .fw .fw-solo:focus-visible {
   outline-offset: -2px;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-solo {
     width: 44px;
     height: 44px;
@@ -560,7 +560,7 @@ body {
   background: var(--signal-fill);
   border-color: transparent;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-seg button {
     height: 44px;
   }
@@ -600,7 +600,7 @@ body {
   cursor: default;
   color: var(--ash);
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-btn {
     height: 44px;
   }

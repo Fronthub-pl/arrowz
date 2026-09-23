@@ -1,6 +1,6 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { describe, expect, it, test, vi } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { KnobTrack } from './KnobRow'
 import { KnobSlider } from './KnobSlider'
@@ -129,6 +129,9 @@ describe('the drawn track of a knob row', () => {
   )
 
   it('draws the fill and the thumb at the value, over the whole rail', async () => {
+    // The joined coarse/XS block (`console.css:891`) widens `.kv-g` at XS
+    // (spec §5); this pins the desktop rail width, not the finger's.
+    await page.viewport(1400, 900)
     const screen = await render(track())
     const rail = screen.container.querySelector('.kv-track .rail')
     const fill = screen.container.querySelector('.kv-track .fill')

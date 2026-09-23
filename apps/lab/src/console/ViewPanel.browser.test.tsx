@@ -2,7 +2,7 @@ import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf 
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { PALETTE_CAP } from '../state/view.slice'
 import { useStore } from '../state/store'
@@ -185,6 +185,9 @@ test('a value being typed is not written until it is committed', async () => {
 // automatic head draws at this stroke (`autoHeadWidth`), so the head does not
 // jump.
 test('the head width’s auto chip toggles 0, and releases to the width auto draws', async () => {
+  // The XS `.kv-g .mx` rule (console.css, Task 11) hides the range end's
+  // chip; this pins the desktop look, where the chip is visible to click.
+  await page.viewport(1400, 900)
   view().setNumber('headWidth', '0')
   view().setNumber('stroke', '0.2')
   const screen = await render(<ViewPanel />)

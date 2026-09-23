@@ -888,7 +888,7 @@
   }
 }
 /* A finger: the handoff's touch sizes (§7), for any coarse pointer. */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .kv-g {
     --row-h: 52px;
   }
@@ -990,7 +990,7 @@
 
 /* A finger needs more than a 12px track and a text-height number. `shell.css`
    raises the tabs and Generate the same way (spec §7.2). */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw-k .bar,
   .fw-k .bar input[type='range'] {
     height: 24px;
@@ -1286,7 +1286,7 @@
 .fw .fw-note.hold button:hover {
   color: var(--ink);
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-note.hold button {
     min-height: 44px;
   }
@@ -1406,5 +1406,12 @@
     flex: none;
     height: 44px;
     padding: 0 16px;
+  }
+  .kv-g .ln {
+    font-size: 14px;
+  }
+  .kv-g .mn,
+  .kv-g .mx {
+    display: none;
   }
 }

@@ -93,7 +93,7 @@
   color: var(--ash);
   overflow-wrap: anywhere;
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-alt button {
     height: 44px;
   }
@@ -181,7 +181,7 @@
   font-weight: 400;
   color: var(--ink);
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw .fw-cmdhd button {
     min-height: 44px;
   }
@@ -337,7 +337,7 @@
 .fw-pp-col button[aria-current='true'] .d {
   color: var(--ink);
 }
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 767px) {
   .fw-presets {
     height: auto;
     padding: 6px 16px;
