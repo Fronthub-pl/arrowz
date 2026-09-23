@@ -289,7 +289,7 @@ function Shell() {
   const menu = useStore((state) => state.ui.menu)
   return (
     <div className={menu ? 'fw menu-open' : 'fw'}>
-      <TopBar />
+      <TopBar presets={null} />
       <TabRow />
       <Workspace control={control} hidden={!onWorkspace} tab={tabIndex === 1 ? 'library' : 'lab'} />
       <AppRoutes />

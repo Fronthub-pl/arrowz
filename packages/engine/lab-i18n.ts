@@ -258,6 +258,11 @@ export const EN = {
     // The command palette (spec 2026-09-21). `cmd…`, not `palette…`: the
     // `palette*` keys above belong to the editable colour palette.
     cmdOpen: 'Command palette (⌘K)',
+    // At XS (handoff 2, PR 7) the top bar's right group folds into a menu,
+    // and ⌘K reads as words there. The words must stay inside `cmdOpen`, the
+    // button's accessible name (WCAG 2.5.3).
+    menu: 'menu',
+    cmdTouch: 'command palette',
     cmdTitle: 'Commands',
     cmdPlaceholder: 'jump to a knob, an action or a preset',
     cmdEmpty: (query: string) => `nothing matches ${query}`,
@@ -821,6 +826,8 @@ export const PL: Translation = {
     tabDocs: 'Dokumentacja',
     tabsLabel: 'Sekcje',
     cmdOpen: 'Paleta poleceń (⌘K)',
+    menu: 'menu',
+    cmdTouch: 'paleta poleceń',
     cmdTitle: 'Polecenia',
     cmdPlaceholder: 'skocz do pokrętła, akcji albo presetu',
     cmdEmpty: (query: string) => `nic nie pasuje do ${query}`,

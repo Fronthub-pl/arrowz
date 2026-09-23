@@ -648,3 +648,9 @@ body {
   color: var(--mist);
   cursor: pointer;
 }
+
+/* The top bar's menu chip and ⌘K's word for touch exist only at XS. */
+.fw .fw-top .fw-menu-btn,
+#cmdk .k-touch {
+  display: none;
+}
