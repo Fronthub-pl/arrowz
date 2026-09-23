@@ -50,3 +50,17 @@ test('the report drawer is remembered as open or closed, and read back', () => {
   expect(other.ui.report).toBe(false)
   localStorage.removeItem('labReport')
 })
+
+test('the settings drawer is remembered as open or closed, and opens unless closed was stored', () => {
+  useStore.getState().ui.setSettings(false)
+  expect(localStorage.getItem('labSettings')).toBe('closed')
+  useStore.getState().ui.toggleSettings()
+  expect(localStorage.getItem('labSettings')).toBe('open')
+  localStorage.setItem('labSettings', 'closed')
+  const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
+  expect(store.ui.settings).toBe(false)
+  localStorage.setItem('labSettings', 'nonsense')
+  const other: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(other, fn(other))) }
+  expect(other.ui.settings).toBe(true)
+  localStorage.removeItem('labSettings')
+})

@@ -38,6 +38,7 @@ export function resetApp(mode: ViewMode): void {
   state.ui.setMode(mode)
   state.ui.setSolo(false)
   state.ui.setReport(false)
+  state.ui.setSettings(true)
   state.ui.closePalette()
   state.ui.clearFocusRequest()
 }

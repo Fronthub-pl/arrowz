@@ -18,6 +18,9 @@ export const MODE_KEY = 'labView'
 /** Where the report drawer's state is remembered (spec §4.2). */
 export const REPORT_KEY = 'labReport'
 
+/** Where the settings drawer's state is remembered, as the report's is. */
+export const SETTINGS_KEY = 'labSettings'
+
 /** Only a stored `advanced` opens the advanced view (Ruling 2). */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
@@ -40,6 +43,12 @@ export interface UiState {
   /** The report drawer is open (spec §4.2). Remembered, never in the hash. */
   report: boolean
   /**
+   * The settings drawer is open: the rail and the knob panel on the stage's
+   * left edge. Open unless a closed one was remembered, because it does not
+   * cover the board. Remembered, never in the hash.
+   */
+  settings: boolean
+  /**
    * The DOM id of a control a palette jump asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
    * console's `useFocusRequest` consumes it and clears it, so a later render
@@ -58,6 +67,8 @@ export interface UiState {
   togglePalette(): void
   setReport(on: boolean): void
   toggleReport(): void
+  setSettings(on: boolean): void
+  toggleSettings(): void
   requestFocus(id: string): void
   clearFocusRequest(): void
 }
@@ -77,6 +88,7 @@ export function createUiSlice(set: SetStore): UiState {
     solo: false,
     palette: false,
     report: readStored(REPORT_KEY) === 'open',
+    settings: readStored(SETTINGS_KEY) !== 'closed',
     focusTarget: null,
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
@@ -106,6 +118,17 @@ export function createUiSlice(set: SetStore): UiState {
         const report = !state.ui.report
         writeStored(REPORT_KEY, report ? 'open' : 'closed')
         return { ui: { ...state.ui, report } }
+      }),
+    setSettings: (settings) => {
+      writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
+      patch({ settings })
+    },
+    // Read inside the update, like `toggleReport`.
+    toggleSettings: () =>
+      set((state) => {
+        const settings = !state.ui.settings
+        writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
+        return { ui: { ...state.ui, settings } }
       }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),

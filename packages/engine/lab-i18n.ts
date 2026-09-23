@@ -160,6 +160,7 @@ export const EN = {
     cmdHintGenerate: 'generate',
     cmdHintSeed: 'seed',
     cmdHintReport: 'report',
+    cmdHintSettings: 'settings',
     cmdNoRun: 'nothing running',
     cmdRunning: 'already running',
     cmdBroken: 'rule broken',
@@ -279,6 +280,8 @@ export const EN = {
     editedSinceLastPreset: 'edited since the last preset',
     // The report drawer's handle (spec §4.1), its visible and accessible name.
     reportHandle: 'report',
+    // The settings drawer's handle, its mirror on the stage's left edge.
+    settingsHandle: 'settings',
     dismiss: 'Dismiss',
     // The top bar's two choices, each a radio group named by what it chooses.
     // The language codes are the visible text and so the accessible name: a
@@ -610,6 +613,7 @@ export const PL: Translation = {
     cmdHintGenerate: 'generuj',
     cmdHintSeed: 'ziarno',
     cmdHintReport: 'raport',
+    cmdHintSettings: 'ustawienia',
     cmdNoRun: 'nic się nie generuje',
     cmdRunning: 'już się generuje',
     cmdBroken: 'złamana reguła',
@@ -713,6 +717,7 @@ export const PL: Translation = {
     customSettings: 'własne ustawienia',
     editedSinceLastPreset: 'zmienione od ostatniego presetu',
     reportHandle: 'raport',
+    settingsHandle: 'ustawienia',
     dismiss: 'Zamknij',
     modeLabel: 'Widok',
     languageLabel: 'Język',

@@ -60,6 +60,18 @@ describe('the switches the run column owns', () => {
     store.ui.toggleReport()
     expect(store.ui.report).toBe(false)
   })
+
+  // Handoff 2, PR 1: the settings drawer opens by default, unlike the report,
+  // because it does not cover the board.
+  it('keeps the settings drawer open at first, sets it as given, and toggles it', () => {
+    const store = slice()
+    expect(store.ui.settings).toBe(true)
+    store.ui.setSettings(false)
+    store.ui.setSettings(false)
+    expect(store.ui.settings).toBe(false)
+    store.ui.toggleSettings()
+    expect(store.ui.settings).toBe(true)
+  })
 })
 
 describe('the view a page opens in', () => {
