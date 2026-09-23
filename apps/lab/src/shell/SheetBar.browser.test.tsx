@@ -1,8 +1,10 @@
+import { act } from 'react'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { loadRunDone, mountApp, resetApp } from '../harness/mountApp'
+import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 
 beforeEach(() => {
@@ -72,4 +74,30 @@ test('the docs route has no sheet bar in view', async () => {
   const nav = bar()
   if (nav === null) throw new Error('no sheet bar')
   expect(nav.closest('main')?.hidden).toBe(true)
+})
+
+// On a phone the Boards sheet lies over the board, so picking a board closes
+// it: the person picked the board to see it.
+test('picking a board in the Boards sheet opens it and closes the sheet', async () => {
+  await page.viewport(375, 812)
+  const stored = storedFixture(1)
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards')) {
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+    }
+    if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+  resetApp('advanced')
+  window.history.pushState({}, '', '/boards')
+  const screen = await render(<App />)
+  // DOM clicks, not the locator's: the listing's fetch re-renders the rows
+  // while the locator waits for a stable element (harness fact 54).
+  await act(async () => screen.getByRole('button', { name: 'Boards', exact: true }).element().click())
+  expect(useStore.getState().ui.sheet).toBe('settings')
+  await expect.poll(() => document.querySelector('.fw-brow')).not.toBeNull()
+  await act(async () => document.querySelector<HTMLButtonElement>('.fw-brow')?.click())
+  await expect.poll(() => location.pathname).toBe(`/boards/8x8/${stored.meta.id}`)
+  expect(useStore.getState().ui.sheet).toBeNull()
 })

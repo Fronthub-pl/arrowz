@@ -84,7 +84,13 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
               className="fw-lib-row fw-brow"
               title={meta.id}
               {...(meta.id === open.id ? { 'aria-current': true } : {})}
-              onClick={() => void navigate(`/boards/${entry.size}/${meta.id}`)}
+              onClick={() => {
+                // On a phone this list is a sheet over the board (handoff 2,
+                // PR 7): a board is picked to be seen, so the sheet closes. At
+                // every other width no sheet is open and this changes nothing.
+                useStore.getState().ui.setSheet(null)
+                void navigate(`/boards/${entry.size}/${meta.id}`)
+              }}
             >
               <span className="id">{shortId(meta.id)}</span>
               <span className="when">{when(meta)}</span>
