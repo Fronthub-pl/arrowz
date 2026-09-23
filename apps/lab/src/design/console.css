@@ -1052,7 +1052,8 @@
 }
 /* The simple view has no preset strip, and an absent first child would
    auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
-.fw-lab.simple {
+.fw-lab.simple,
+.fw-lab.presets-top {
   grid-template-rows: minmax(292px, 1fr) auto auto;
 }
 /* The saved boards have no preset strip either (handoff 2, PR 6), and the
@@ -1138,7 +1139,8 @@
   .fw-lab {
     grid-template-rows: auto minmax(180px, 1fr) auto auto;
   }
-  .fw-lab.simple {
+  .fw-lab.simple,
+  .fw-lab.presets-top {
     grid-template-rows: minmax(180px, 1fr) auto auto;
   }
 }
@@ -1309,4 +1311,100 @@
    is the knob button's affordance. */
 .fw-k span.num {
   cursor: default;
+}
+
+/* XS (handoff 2, PR 7): one column; the board edge to edge; the settings
+   drawer, the right column and the report as sheets over the board, above
+   the sheet bar. The sheet rules carry `:not(.solo)` so solo's
+   `display: none` keeps winning (Review Focus 3). */
+@media (max-width: 767px) {
+  .fw-lab:not(.solo) {
+    padding-bottom: 56px;
+  }
+  .fw-lab .fw-pp-edited {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage,
+  .fw-lab:not(.solo) .fw-stage.ls-open {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .fw-lab:not(.solo) .fw-stage::before {
+    display: none;
+  }
+  .fw-lab:not(.solo) .fw-stage > .fw-boardwrap,
+  .fw-lab:not(.solo) .fw-stage.ls-open > .fw-boardwrap {
+    grid-column: 1;
+    grid-row: 1;
+    padding: 0;
+  }
+  .fw-lab .fw-board {
+    border-left: 0;
+    border-right: 0;
+  }
+  .fw-lab .fw-drawer-handle {
+    display: none;
+  }
+  .fw-lab .fw-ldrawer,
+  .fw-lab .fw-drawer,
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col {
+    position: fixed;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 56px;
+    z-index: 25;
+    width: auto;
+    max-width: none;
+    height: 70vh;
+    transform: none;
+    transition: none;
+    display: none;
+    background: var(--void);
+    box-shadow: 0 -1px 0 var(--border-strong);
+  }
+  .fw-lab.sheet-settings:not(.solo) .fw-ldrawer,
+  .fw-lab.sheet-report:not(.solo) .fw-drawer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fw-lab.sheet-settings:not(.solo) .fw-ldrawer > .fw-console,
+  .fw-lab.sheet-report:not(.solo) .fw-drawer > .fw-report {
+    visibility: visible;
+  }
+  .fw-lab.sheet-report:not(.solo) .fw-drawer > .fw-report {
+    overflow-y: auto;
+  }
+  /* The lab's run column and the saved boards' column, each on its own tab:
+     the lab's is hidden on the saved boards at (0,5,0), which a plain
+     `.sheet-cli` rule would tie. */
+  .fw-lab.sheet-cli:not(.solo):not(.library) .fw-stage > .fw-run-col,
+  .fw-lab.library.sheet-cli:not(.solo) .fw-stage > .fw-bcol {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  /* The settings sheet: the rail as a row of chips over the knobs. */
+  .fw-lab .fw-ldrawer > .fw-console,
+  .fw-lab.simple:not(.library) .fw-ldrawer > .fw-console {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .fw-lab .fw-ldrawer .fw-rail {
+    display: flex;
+    flex-direction: row;
+    gap: 2px;
+    padding: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .fw-lab .fw-ldrawer .fw-rail .sec {
+    display: none;
+  }
+  .fw .fw-lab .fw-ldrawer .fw-rail button {
+    flex: none;
+    height: 44px;
+    padding: 0 16px;
+  }
 }

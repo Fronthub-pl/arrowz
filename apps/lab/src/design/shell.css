@@ -654,3 +654,134 @@ body {
 #cmdk .k-touch {
   display: none;
 }
+
+/* XS (handoff 2, PR 7). Outside it the chip, ⌘K's word and the sheet bar are
+   no box (Tasks 4 and 5). Stacking: the top bar is 30 and the menu lives
+   inside it, so the sheets are 25 and the sheet bar 35 — above the board,
+   under an open menu, and under the palette's scrim (40, palette.css). */
+@media (max-width: 767px) {
+  .fw-top {
+    position: relative;
+    z-index: 30;
+    overflow: visible;
+  }
+  .fw-top .right {
+    display: none;
+  }
+  /* A top-bar chip like View and Language: a 1px --ink line and no fill;
+     open, the chosen chip's --void. 28px drawn, 44 to the finger. */
+  .fw .fw-top .fw-menu-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--ink);
+    background: none;
+    cursor: pointer;
+  }
+  /* The chip is 28px border-box with a 1px border, so its padding box is 26
+     and `inset` counts from that: -9px gives 44 (review round 1 measured 42
+     with -8px). */
+  .fw .fw-top .fw-menu-btn::before {
+    content: '';
+    position: absolute;
+    inset: -9px -4px;
+  }
+  .fw .fw-top .fw-menu-btn:hover {
+    background: var(--signal-fill-hover);
+  }
+  .fw .fw-top .fw-menu-btn[aria-expanded='true'] {
+    background: var(--void);
+    border-color: var(--void);
+  }
+  /* The right group, out of the flow at all times, so the chip does not move
+     when it opens. */
+  .fw.menu-open .fw-top .right {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 60;
+    display: grid;
+    gap: 12px;
+    min-width: 12rem;
+    margin: 0;
+    padding: 12px;
+    background: var(--graphite);
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .fw.menu-open .fw-top .right > .fw-seg {
+    width: 100%;
+  }
+  .fw.menu-open .fw-top .right > .fw-seg button {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
+  .fw.menu-open .fw-top #cmdk {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+  }
+  #cmdk .k-key {
+    display: none;
+  }
+  #cmdk .k-touch {
+    display: inline;
+  }
+  /* The sheet bar: 56px, the three sheets' buttons, over the page's bottom.
+     Not in solo, where the board is all there is (Review Focus 3). */
+  .fw-lab:not(.solo) + .fw-sheetbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    height: 56px;
+    background: var(--void);
+    box-shadow: 0 -1px 0 var(--border);
+  }
+  .fw .fw-sheetbar button:hover {
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .fw .fw-sheetbar button[aria-pressed='true'] {
+    background: var(--signal-fill);
+    color: var(--ink);
+  }
+}
+/* A low window (handoff 2, PR 7): the preset strip stands in the top bar
+   (App.tsx), its panel fixed under the bar at its content's width. */
+@media (max-height: 699px) and (min-width: 768px) {
+  .fw-top {
+    position: relative;
+    z-index: 30;
+    overflow: visible;
+  }
+  /* `auto`, not 32: under a finger the trigger is 44 (run.css) and would
+     overflow a 32px strip. */
+  .fw-top .fw-presets {
+    height: auto;
+    padding: 0 0 0 16px;
+    border: 0;
+    background: none;
+  }
+  .fw-top .fw-pp-panel {
+    position: fixed;
+    top: 52px;
+    left: 16px;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 68px);
+    overflow-y: auto;
+  }
+  .fw-top .fw-pp-edited {
+    display: none;
+  }
+}

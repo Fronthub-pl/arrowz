@@ -273,11 +273,6 @@
     grid-template-columns: repeat(4, 1fr);
   }
 }
-@media (max-width: 600px) {
-  .fw-pp-panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 /* Lines as a shadow on the columns, not the panel's background showing
    through: an empty grid cell would paint as a grey block. */
 .fw-pp-col {
@@ -466,5 +461,78 @@
   .fw-lab:not(.solo) .fw-stage > .fw-run-col .fw-cmd {
     max-height: 44px;
     line-height: 42px;
+  }
+}
+
+/* XS (handoff 2, PR 7): the trigger is the row, full width, 44px; the panel
+   is a plain grouped list under it — the level as a sticky header, its modes
+   as 48px rows — scrolling inside itself. `:not([hidden])`, never a bare
+   `display`, or the closed panel shows (the package's own bug). */
+@media (max-width: 767px) {
+  .fw-lab .fw-presets {
+    height: auto;
+    min-width: 0;
+    padding: 6px 12px;
+    gap: 0;
+  }
+  .fw .fw-lab .fw-presets .fw-pp-trigger {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: 44px;
+    padding: 0 12px;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+  .fw-lab .fw-presets .fw-pp-trigger > span:not(.caret):not(.k) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .fw-lab .fw-presets .fw-pp-trigger .caret {
+    margin-left: auto;
+  }
+  .fw-lab .fw-pp-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    margin-top: 0;
+    /* 220 for what is above the list, 56 for the sheet bar under it: the
+       list's last row must end above the bar (review round 1 measured it
+       32px under with 220). */
+    max-height: calc(100vh - 276px);
+    padding: 0;
+    box-shadow: 0 0 0 1px var(--border-strong);
+  }
+  .fw-lab .fw-pp-panel:not([hidden]) {
+    display: block;
+  }
+  .fw-lab .fw-pp-col {
+    display: block;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+  .fw-lab .fw-pp-col h3 {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0;
+    padding: 14px 16px 6px;
+    background: var(--graphite);
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .fw-lab .fw-pp-col + .fw-pp-col h3 {
+    padding-top: 20px;
+  }
+  .fw .fw-lab .fw-pp-col button {
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    align-items: center;
+    box-shadow: 0 1px 0 var(--border);
   }
 }

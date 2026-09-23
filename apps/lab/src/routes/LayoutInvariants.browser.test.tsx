@@ -100,105 +100,63 @@ const SIZES: readonly (readonly [number, number])[] = [
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
   'board@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'board@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'presets-open@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'presets-open@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'report-open@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'report-open@375x812': [
-    'board-width', // Task 10
-    'panel-overflow', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'settings-closed@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'settings-closed@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'preview-palette@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'preview-palette@375x812': [
-    'board-width', // Task 10
-    'panel-overflow', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'lengths-help-open@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'lengths-help-open@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'violations@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'violations@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'simple@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'simple@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-empty@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-empty@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-detail@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-detail@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'docs@600x900': [
@@ -214,53 +172,33 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'touch-target', // Task 11
   ],
   'sheet-settings@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'sheet-settings@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'sheet-cli@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'sheet-cli@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'sheet-report@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'sheet-report@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-sheet-cli@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'library-sheet-cli@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'menu-open@600x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'menu-open@375x812': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'solo-sheet@600x900': [
@@ -270,24 +208,15 @@ const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {
     'touch-target', // Task 11
   ],
   'presets-open@420x700': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'board@420x900:pl': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'board@375x812:pl': [
-    'bar-clip', // Task 10
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
   'huge-pl@420x900': [
-    'board-width', // Task 10
-    'sheet-bar', // Task 10
     'touch-target', // Task 11
   ],
 }
@@ -389,9 +318,10 @@ async function arrange(state: State) {
     await expect.poll(() => screen.container.querySelector('.fw-pp-panel:not([hidden])')).not.toBeNull()
   }
   if (state === 'more-open') {
-    // A DOM click, not the locator's: until Task 9 the button is
-    // `display: none` (Task 7), and a locator click waits 40s for a visible
-    // element (measured in review: all four cases timed out).
+    // A DOM click, not the locator's: the button is `display: none` outside
+    // the bands that show the bar, and a DOM click keeps this arrange block
+    // independent of which band shows it (a locator click waits 40s for a
+    // visible element; measured in review: all four cases timed out).
     await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-more')?.click())
     await expect.poll(() => screen.container.querySelector('.fw-more-pop.open')).not.toBeNull()
   }
