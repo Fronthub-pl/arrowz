@@ -41,11 +41,6 @@ export interface ResultState {
   exportError: string | null
   /** The board the library shows, beside the run's own and never instead of it. */
   preview: StoredBoard | null
-  /**
-   * `showResult` as a single-slice action. Nothing calls it: the only writer of
-   * `shown` is `completeRun`, which applies `showResult` itself.
-   */
-  show(next: ShownResult): void
   stored(file: BoardFile, outcome: SaveOutcome): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
@@ -113,7 +108,6 @@ export function createResultSlice(set: SetStore): ResultState {
     saved: null,
     exportError: null,
     preview: null,
-    show: (next) => set((state) => ({ result: showResult(state.result, next) })),
     // Returning the state unchanged is zustand's no-op: `setState` skips an
     // update whose result is the state object itself.
     stored: (file, saved) =>

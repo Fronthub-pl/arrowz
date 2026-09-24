@@ -40,9 +40,6 @@
   white-space: nowrap;
   color: var(--ash);
 }
-.fw-report .fw-delta.better {
-  color: var(--ink);
-}
 .fw-report .fw-delta.worse {
   color: var(--error);
 }
