@@ -12,6 +12,7 @@ import {
 } from './arrowz-board.ts'
 import type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
 import './mod.ts'
+import { PAD_RANGE } from './sanitize.ts'
 import { fit, MIN_POINT_CELL_PX, type Viewport, zoomBy } from './viewport.ts'
 
 function makeBoard(seed = 7): Board {
@@ -765,6 +766,14 @@ describe('margin', () => {
     const kept = el.viewport?.originX ?? 0
     expect(kept).toBeLessThan(-1)
     expect(viewCells(el)).toBeCloseTo(30 - 2 * kept, 6)
+  })
+
+  test('a pad above PAD_RANGE.max is clamped, and the attribute keeps what was asked for', async () => {
+    await mount({ pad: '99' })
+    expect(el.pad).toBe(99)
+    expect(el.getAttribute('pad')).toBe('99')
+    expect(el.viewport?.originX).toBeCloseTo(-PAD_RANGE.max, 6)
+    expect(viewCells(el)).toBeCloseTo(30 + 2 * PAD_RANGE.max, 6)
   })
 
   test('removing the pad attribute restores the default margin', async () => {

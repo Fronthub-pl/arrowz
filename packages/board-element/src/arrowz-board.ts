@@ -28,6 +28,10 @@ export type ViewportChangeEvent = CustomEvent<BoardViewport>
 export type PieceRemovedEvent = CustomEvent<{ pieceId: number; left: number }>
 export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; distance: number }>
 export type FinishedEvent = CustomEvent<{ pieces: number }>
+export interface ColoredChangeDetail {
+  colored: boolean
+}
+export type ColoredChangeEvent = CustomEvent<ColoredChangeDetail>
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
@@ -407,7 +411,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
               title=${l.colors}
               aria-label=${l.colors}
               aria-pressed=${this.colored ? 'true' : 'false'}
-              @click=${() => this.coloredOverride = !this.colored}
+              @click=${this.toggleColors}
             >◑</button>
           `
           : ''}
@@ -436,6 +440,23 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private readonly toggleGestures = (): void => {
     this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
     storeMode(this.chosenMode)
+  }
+
+  /**
+   * Announces the colour choice before acting on it: a host may run its own
+   * storage under `colored-change` and call `preventDefault()` to keep the
+   * override from being set, so `view.colored` stays the one thing deciding
+   * the colour. A host that ignores the event sees today's behaviour.
+   */
+  private readonly toggleColors = (): void => {
+    const colored = !this.colored
+    const event = new CustomEvent<ColoredChangeDetail>('colored-change', {
+      detail: { colored },
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    })
+    if (this.dispatchEvent(event)) this.coloredOverride = colored
   }
 
   override updated(changed: PropertyValues<this>): void {

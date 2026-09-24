@@ -41,10 +41,8 @@ export interface EventRow {
 // const` and collapses the key type to `string`, which would let a description
 // go missing without the compiler noticing — measured while planning this PR.
 export const ELEMENT_PROPS = [
-  // `BoardData | null`, which is what the class declares (arrowz-board.ts:109).
-  // The element's README says `Board | null` — narrower than the property
-  // accepts, since `Board extends BoardData`. The README is the copy that
-  // drifted; bringing it under a guard is the element package's work (spec §6).
+  // `BoardData | null`, which is what the class declares: wider than `Board`,
+  // since `Board extends BoardData` and the property accepts either.
   { key: 'board', type: 'BoardData | null', attribute: null, def: 'null' },
   { key: 'view', type: 'Partial<BoardView>', attribute: null, def: '{}' },
   { key: 'interactive', type: 'boolean', attribute: 'interactive', def: 'false' },
@@ -74,6 +72,7 @@ export const ELEMENT_MEMBERS = [
 
 export const ELEMENT_EVENTS = [
   { key: 'piece-click', detail: '{ pieceId }' },
+  { key: 'colored-change', detail: 'ColoredChangeDetail' },
   { key: 'piece-removed', detail: '{ pieceId, left }' },
   { key: 'life-lost', detail: '{ pieceId, blockerId, distance }' },
   { key: 'finished', detail: '{ pieces }' },
@@ -126,7 +125,7 @@ const EN = {
     view: 'Drawing options merged over the CLI defaults: stroke, head size, rounding, colour, highlight and paper.',
     interactive: 'Reports clicks on pieces without playing them.',
     play: 'Runs the reducer: a free piece rides out, a blocked one bounces. Implies interactivity.',
-    pad: 'Margin around the board, in cells. Zero draws the cells edge to edge.',
+    pad: 'Margin around the board, in cells, clamped to PAD_RANGE (0 to 16). Zero draws the cells edge to edge.',
     showPoints: 'Draws one dot per cell under the pieces, like the ruling of a notebook page.',
     pointColor: 'Colour of the point grid dots.',
     pointRadius: 'Radius of the point grid dots, in cells.',
@@ -150,6 +149,7 @@ const EN = {
   },
   events: {
     'piece-click': 'A piece was clicked, while interactive or playing.',
+    'colored-change': 'The colour button was clicked; cancelable, and fired before the colour override takes effect.',
     'piece-removed': 'A free piece started its ride off the board.',
     'life-lost': 'A blocked piece started its bounce against the piece that stops it.',
     'finished': 'The last piece finished its ride.',
@@ -186,7 +186,8 @@ const PL = {
     view: 'Opcje rysowania nałożone na domyślne z CLI: grubość, rozmiar grotu, zaokrąglenie, kolor, wyróżnienie i tło.',
     interactive: 'Zgłasza kliknięcia w elementy, ale ich nie rozgrywa.',
     play: 'Uruchamia reduktor: wolny element wyjeżdża, zablokowany odbija się. Włącza też interaktywność.',
-    pad: 'Margines wokół planszy, w komórkach. Zero rysuje komórki od krawędzi do krawędzi.',
+    pad:
+      'Margines wokół planszy, w komórkach, w granicach PAD_RANGE (0 do 16). Zero rysuje komórki od krawędzi do krawędzi.',
     showPoints: 'Rysuje po kropce na komórkę pod elementami, jak linie w zeszycie.',
     pointColor: 'Kolor kropek siatki punktów.',
     pointRadius: 'Promień kropek siatki punktów, w komórkach.',
@@ -212,6 +213,7 @@ const PL = {
   },
   events: {
     'piece-click': 'Kliknięto element, w trybie interaktywnym albo w grze.',
+    'colored-change': 'Kliknięto przycisk koloru; można je anulować, leci przed zmianą nadpisania koloru.',
     'piece-removed': 'Wolny element ruszył w drogę poza planszę.',
     'life-lost': 'Zablokowany element odbił się od tego, który go zatrzymał.',
     'finished': 'Ostatni element zakończył przejazd.',

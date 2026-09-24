@@ -2,6 +2,7 @@ import { defaultParams, DIRS, generate } from '@arrowz/engine'
 import type { Board, BoardData, SessionSnapshot } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { ArrowzBoard } from './arrowz-board.ts'
+import type { ColoredChangeEvent } from './arrowz-board.ts'
 import { EXIT_MAX_MS } from './track.ts'
 import { hueBytes, SHAKE_MS } from './view.ts'
 import './mod.ts'
@@ -431,5 +432,41 @@ describe('colours', () => {
     if (snap) fresh.loadState({ ...snap, colored: true })
     await fresh.updateComplete
     expect(colourButton(fresh)?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test('the click announces colored-change with the value it is about to take, and a listener that does not cancel keeps the old behaviour', async () => {
+    await mount({ 'enable-colors': '', play: '' })
+    const seen: boolean[] = []
+    el.addEventListener('colored-change', (e) => seen.push((e as ColoredChangeEvent).detail.colored))
+    colourButton(el)?.click()
+    await el.updateComplete
+    expect(seen).toEqual([true])
+    expect(el.saveState()?.colored).toBe(true)
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
+    colourButton(el)?.click()
+    await el.updateComplete
+    expect(seen).toEqual([true, false])
+    expect(el.saveState()?.colored).toBe(false)
+  })
+
+  test('preventDefault on colored-change leaves the button and the drawn colour as they were, and the host still controls it through view.colored', async () => {
+    const board = makeBoard()
+    const first = board.pieces[0]
+    if (!first) throw new Error('need a piece')
+    await mount({ 'enable-colors': '', play: '' }, board)
+    el.addEventListener('colored-change', (e) => e.preventDefault())
+
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('false')
+    expect(hued(await painted(el), first.id)).toBe(0)
+    colourButton(el)?.click()
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('false')
+    expect(el.saveState()?.colored).toBe(false)
+    expect(hued(await painted(el), first.id)).toBe(0)
+
+    el.view = { ...el.view, colored: true }
+    await el.updateComplete
+    expect(el.saveState()?.colored).toBe(true)
+    expect(hued(await painted(el), first.id)).toBeGreaterThan(0)
   })
 })
