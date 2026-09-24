@@ -5,9 +5,9 @@ import type {
   PieceClickEvent,
   PieceRemovedEvent,
 } from '@arrowz/board-element'
-import { type BoardData, newSession, type Session } from '@arrowz/engine'
+import { type BoardData, newSession, play, type Session } from '@arrowz/engine'
 import type { Dict } from '@arrowz/engine/i18n'
-import { type ReactElement, type RefObject, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactElement, type RefObject, useMemo, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { Segmented } from '../shell/Segmented'
 import { useStore } from '../state/store'
@@ -18,18 +18,46 @@ import { pieceFacts } from './pieceFacts'
 const GLYPHS = ['↑', '→', '↓', '←'] as const
 const DIR_WORDS = ['dirUp', 'dirRight', 'dirDown', 'dirLeft'] as const
 
-/** What the frame's line knows about the board on stage, for one board in one mode. */
+/**
+ * The game on the board on stage, as the lab mirrors it, and the piece
+ * inspected in the current mode. The game outlives a change of mode; only
+ * Reset and a new board start it over.
+ */
 interface Tally {
   board: BoardData | null
   mode: BoardMode
   inspected: number | null
+  /** The element's game, advanced on each `piece-removed`; null while nothing has left. */
+  game: Session | null
   left: number
   mistakes: number
   cleared: boolean
 }
 
 function fresh(board: BoardData | null, mode: BoardMode): Tally {
-  return { board, mode, inspected: null, left: board?.pieces.length ?? 0, mistakes: 0, cleared: false }
+  return { board, mode, inspected: null, game: null, left: board?.pieces.length ?? 0, mistakes: 0, cleared: false }
+}
+
+/** Sessions never change once built, so one fresh session per board serves every game on it. */
+const FRESH = new WeakMap<BoardData, Session>()
+
+function freshSession(board: BoardData): Session {
+  let session = FRESH.get(board)
+  if (session === undefined) {
+    session = newSession(board)
+    FRESH.set(board, session)
+  }
+  return session
+}
+
+/** The board as it now stands, for the inspect card. */
+function gameOf(tally: Tally): Session | null {
+  return tally.game ?? (tally.board === null ? null : freshSession(tally.board))
+}
+
+/** A piece has left or a mistake was made: something for Reset to undo. */
+function progressed(tally: Tally): boolean {
+  return tally.left < (tally.board?.pieces.length ?? 0) || tally.mistakes > 0
 }
 
 export interface BoardSession {
@@ -38,16 +66,15 @@ export interface BoardSession {
   onPieceRemoved(event: PieceRemovedEvent): void
   onLifeLost(event: LifeLostEvent): void
   onFinished(event: FinishedEvent): void
-  restart(): void
+  reset(): void
 }
 
 /**
- * The counts and the inspected piece, keyed by the board on stage and the
- * mode: either changing starts them over, adjusted while rendering rather
- * than in an effect. Leaving Play also puts the element's pieces back, so
- * View and Inspect draw the whole board the inspect card describes; entering
- * it needs nothing, the element's game being whole already. `restart()`
- * only, never `loadState`, which would give the element a colour of its own.
+ * The game is keyed by the board on stage, the inspected piece by the board
+ * and the mode, both adjusted while rendering rather than in an effect. A
+ * mode switch leaves the element's game alone, so the pieces that left stay
+ * gone in View and Inspect. Reset uses `restart()` only, never `loadState`,
+ * which would give the element a colour of its own.
  */
 export function useBoardSession(
   board: BoardData | null,
@@ -56,26 +83,28 @@ export function useBoardSession(
 ): BoardSession {
   const [stored, setTally] = useState(() => fresh(board, mode))
   let tally = stored
-  if (stored.board !== board || stored.mode !== mode) {
-    tally = fresh(board, mode)
-    setTally(tally)
-  }
-  const played = useRef(mode === 'play')
-  useEffect(() => {
-    if (played.current && mode !== 'play') element.current?.restart()
-    played.current = mode === 'play'
-  }, [mode, element])
+  if (stored.board !== board) tally = fresh(board, mode)
+  else if (stored.mode !== mode) tally = { ...stored, mode, inspected: null }
+  if (tally !== stored) setTally(tally)
   return {
     tally,
     onPieceClick: (event) => {
       if (mode === 'inspect') setTally((t) => ({ ...t, inspected: event.detail.pieceId }))
     },
-    onPieceRemoved: (event) => setTally((t) => ({ ...t, left: event.detail.left })),
+    onPieceRemoved: (event) =>
+      setTally((t) => {
+        const game = gameOf(t)
+        return {
+          ...t,
+          left: event.detail.left,
+          game: game === null ? null : play(game, event.detail.pieceId).next,
+        }
+      }),
     onLifeLost: () => setTally((t) => ({ ...t, mistakes: t.mistakes + 1 })),
-    // `finished` trails the last exit animation, so a Restart or a new board
+    // `finished` trails the last exit animation, so a Reset or a new board
     // can land first; only a tally with nothing left may read as cleared.
     onFinished: () => setTally((t) => (t.left === 0 ? { ...t, cleared: true } : t)),
-    restart: () => {
+    reset: () => {
       element.current?.restart()
       setTally(fresh(board, mode))
     },
@@ -115,35 +144,27 @@ function inspectText(dict: Dict, session: Session | null, id: number | null): st
 
 /**
  * The line beside the mode control: the inspected piece's facts, or the
- * game's counts with Restart. Nothing in View.
+ * game's counts, and Reset in both. Nothing in View.
  */
 export function BoardModeLine({ session }: { session: BoardSession }): ReactElement | null {
   const dict = useDictionary()
   const { tally } = session
-  // Once per board, not per click, and only where the card reads it:
-  // `newSession` indexes every piece.
-  const inspected = tally.mode === 'inspect' ? tally.board : null
-  const game = useMemo(() => (inspected === null ? null : newSession(inspected)), [inspected])
   if (tally.mode === 'view' || tally.board === null) return null
+  const text =
+    tally.mode === 'inspect'
+      ? inspectText(dict, gameOf(tally), tally.inspected)
+      : tally.cleared
+        ? dict.t('playCleared', tally.mistakes)
+        : dict.t('playStatus', dict.fmt(tally.left), tally.mistakes)
   // The full text in `title`: the line is clamped to two lines (`.fw-modetext`).
-  if (tally.mode === 'inspect') {
-    const text = inspectText(dict, game, tally.inspected)
-    return (
-      <div className="fw-modeline" role="status" title={text}>
-        <span className="fw-modetext">{text}</span>
-      </div>
-    )
-  }
-  const counts = tally.cleared
-    ? dict.t('playCleared', tally.mistakes)
-    : dict.t('playStatus', dict.fmt(tally.left), tally.mistakes)
+  // Reset sits outside the status, so a count is announced without it.
   return (
-    <div className="fw-modeline" title={counts}>
+    <div className="fw-modeline" title={text}>
       <span className="fw-modetext" role="status">
-        {counts}
+        {text}
       </span>
-      <button type="button" className="fw-btn" onClick={session.restart}>
-        {dict.t('playRestart')}
+      <button type="button" className="fw-btn" disabled={!progressed(tally)} onClick={session.reset}>
+        {dict.t('boardReset')}
       </button>
     </div>
   )

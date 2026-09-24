@@ -9,9 +9,9 @@ export interface PieceFacts {
 }
 
 /**
- * The piece's facts on the full board, by the game's own rule: the move a
- * click would make from a fresh session. Takes the session rather than the
- * board so a caller builds it once per board, not once per click.
+ * The piece's facts by the game's own rule: the move a click would make in
+ * `session`, so pieces that have left block nothing, and a piece that has
+ * left has no facts.
  */
 export function pieceFacts(session: Session, id: number): PieceFacts | null {
   const piece = session.board.pieces.find((pc) => pc.id === id)

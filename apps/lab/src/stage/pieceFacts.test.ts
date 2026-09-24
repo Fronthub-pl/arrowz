@@ -1,4 +1,4 @@
-import { type BoardData, newSession } from '@arrowz/engine'
+import { type BoardData, newSession, play } from '@arrowz/engine'
 import { expect, test } from 'vitest'
 import { pieceFacts } from './pieceFacts'
 import { threeDominoes } from './pieces.fixtures'
@@ -34,4 +34,14 @@ test('the distance counts the empty cells before the blocker', () => {
 test('an id no piece carries has no facts', () => {
   expect(pieceFacts(newSession(threeDominoes()), 7)).toBeNull()
   expect(pieceFacts(newSession(threeDominoes()), -1)).toBeNull()
+})
+
+test('a piece whose only blocker has left is free', () => {
+  const { next } = play(newSession(threeDominoes()), 2)
+  expect(pieceFacts(next, 1)?.blocker).toBeNull()
+})
+
+test('a piece that has left has no facts', () => {
+  const { next } = play(newSession(threeDominoes()), 2)
+  expect(pieceFacts(next, 2)).toBeNull()
 })

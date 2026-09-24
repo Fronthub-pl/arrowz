@@ -474,7 +474,7 @@ export const EN = {
     playStatus: (left: string, mistakes: number) =>
       `${left} left · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
     playCleared: (mistakes: number) => `Cleared · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
-    playRestart: 'Restart',
+    boardReset: 'Reset',
     exportsGroup: 'Export',
     downloadBoardFile: 'Download board file',
     exportError: 'Export failed:',
@@ -1069,7 +1069,7 @@ export const PL: Translation = {
       `zablokowany przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
     playStatus: (left, mistakes) => `zostało: ${left} · ${mistakes} ${plMistakes(mistakes)}`,
     playCleared: (mistakes) => `Plansza wyczyszczona · ${mistakes} ${plMistakes(mistakes)}`,
-    playRestart: 'Od nowa',
+    boardReset: 'Resetuj',
     exportsGroup: 'Eksport',
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',

@@ -356,8 +356,9 @@ test.each(['inspect', 'play'] as const)(
   40_000,
 )
 
-// Every card and every count, so a line that sized itself to its text would
-// refit the board under the pointer between two clicks.
+// Every card and every count, with Reset off and on, so a line that sized
+// itself to its text or its button would refit the board under the pointer
+// between two clicks, or between Inspect and Play.
 test.each([
   [1440, 877, 'en'],
   [1440, 877, 'pl'],
@@ -388,8 +389,21 @@ test.each([
         screen.container.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect()
       const strip = rect('.fw-modebar')
       const host = rect('arrowz-board')
-      sizes.push(`strip ${strip.height.toFixed(1)} board ${host.width.toFixed(1)}×${host.height.toFixed(1)}`)
-      texts.push(screen.container.querySelector('.fw-modeline')?.textContent ?? '')
+      const line = rect('.fw-modeline')
+      const reset = rect('.fw-modeline button')
+      const fits =
+        reset.width > 0 &&
+        reset.left >= line.left - 0.5 &&
+        reset.right <= line.right + 0.5 &&
+        reset.top >= line.top - 0.5 &&
+        reset.bottom <= line.bottom + 0.5
+      sizes.push(
+        `strip ${strip.height.toFixed(1)} board ${host.width.toFixed(1)}×${host.height.toFixed(1)} reset ${fits ? 'fits' : 'spills'}`,
+      )
+      const button = screen.container.querySelector<HTMLButtonElement>('.fw-modeline button')
+      texts.push(
+        `${screen.container.querySelector('.fw-modeline')?.textContent ?? ''} ${button?.disabled ? 'off' : 'on'}`,
+      )
     }
     await act(async () => useStore.getState().ui.setBoardMode('inspect'))
     await take()
@@ -397,7 +411,6 @@ test.each([
     await take()
     await fire('piece-click', { pieceId: blocked.id })
     await take()
-    const inspect = sizes.splice(0)
     await act(async () => useStore.getState().ui.setBoardMode('play'))
     await take()
     const n = board.pieces.length
@@ -408,11 +421,13 @@ test.each([
     await fire('piece-removed', { pieceId: blocked.id, left: 0 })
     await fire('finished', { pieces: n })
     await take()
-    const played = sizes.splice(0)
+    // Back in Inspect with a game in progress: the hint, and Reset on.
+    await act(async () => useStore.getState().ui.setBoardMode('inspect'))
+    await take()
     // Every step showed a different line, or the heights compared nothing.
     expect(new Set(texts).size).toBe(texts.length)
-    expect(inspect).toEqual(inspect.map(() => inspect[0]))
-    expect(played).toEqual(played.map(() => played[0]))
+    expect(sizes[0]).toMatch(/reset fits$/)
+    expect(sizes).toEqual(sizes.map(() => sizes[0]))
   },
   40_000,
 )

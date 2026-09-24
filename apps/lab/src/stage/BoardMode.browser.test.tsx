@@ -56,8 +56,38 @@ async function fire(container: HTMLElement, type: string, detail: unknown) {
   })
 }
 
+/**
+ * A real ⌘/Ctrl-click on a piece's head cell, so the element's own game moves
+ * (the synthetic events above only tell the lab it did).
+ */
+function clickPiece(container: HTMLElement, pieceId: number) {
+  const element = elementOf(container)
+  const vp = element.viewport
+  const head = element.board?.pieces.find((p) => p.id === pieceId)?.cells[0]
+  const canvas = element.shadowRoot?.querySelector('canvas')
+  if (!vp || !head || !canvas) throw new Error('need a viewport, a canvas and a piece')
+  const r = canvas.getBoundingClientRect()
+  const init = {
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+    pointerId: 1,
+    pointerType: 'mouse',
+    isPrimary: true,
+    clientX: r.left + (head.x + 0.5 - vp.originX) * vp.cellPx,
+    clientY: r.top + (head.y + 0.5 - vp.originY) * vp.cellPx,
+    ctrlKey: true,
+    buttons: 1,
+  }
+  canvas.dispatchEvent(new PointerEvent('pointerdown', init))
+  canvas.dispatchEvent(new PointerEvent('pointerup', init))
+}
+
 const radios = (container: HTMLElement) => [...container.querySelectorAll<HTMLButtonElement>('.fw-mode [role="radio"]')]
 const line = (container: HTMLElement) => container.querySelector('.fw-modeline')
+/** The line's words without the Reset button beside them. */
+const said = (container: HTMLElement) => line(container)?.querySelector('[role="status"]')?.textContent
+const resetButton = (container: HTMLElement) => line(container)?.querySelector<HTMLButtonElement>('button') ?? null
 
 /** Picks a mode by position, so the same call works in either language. */
 async function pick(container: HTMLElement, index: number) {
@@ -105,24 +135,24 @@ test('the control sits in the strip under the frame, after the solo toggle and b
 })
 
 // The element builds sessions of its own for its game, so only the frame's
-// calls are counted, told apart by the component on the stack.
-test('only Inspect builds a game session: View and Play read none', async () => {
+// calls are counted, told apart by the file on the stack.
+test('View builds no game session, and the lab builds one per board, not per move or click', async () => {
   const { newSession: real } = await vi.importActual<typeof import('@arrowz/engine')>('@arrowz/engine')
   const built: string[] = []
   vi.mocked(newSession).mockImplementation((board) => {
     const stack = new Error().stack ?? ''
-    if (stack.includes('BoardModeLine')) built.push(stack)
+    if (stack.includes('/stage/BoardMode.tsx')) built.push(stack)
     return real(board)
   })
   const screen = await mountFrame()
   await showDominoes()
+  expect(built).toHaveLength(0)
   await pick(screen.container, 2)
   await fire(screen.container, 'piece-removed', { pieceId: 0, left: 2 })
-  await pick(screen.container, 0)
-  expect(built).toHaveLength(0)
+  await fire(screen.container, 'piece-removed', { pieceId: 2, left: 1 })
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  await fire(screen.container, 'piece-click', { pieceId: 2 })
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
   expect(built).toHaveLength(1)
 })
 
@@ -134,29 +164,31 @@ test('Inspect makes the element interactive and a clicked piece names its facts'
   const element = elementOf(screen.container)
   await expect.poll(() => element.hasAttribute('interactive')).toBe(true)
   expect(element.hasAttribute('play')).toBe(false)
-  expect(line(screen.container)?.textContent).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
 
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(line(screen.container)?.textContent).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
   await fire(screen.container, 'piece-click', { pieceId: 2 })
-  expect(line(screen.container)?.textContent).toBe('Piece #2 · 3 cells · ↑ up · free')
+  expect(said(screen.container)).toBe('Piece #2 · 3 cells · ↑ up · free')
 
   await pick(screen.container, 0)
   expect(line(screen.container)).toBeNull()
   await expect.poll(() => element.hasAttribute('interactive')).toBe(false)
   // Back in Inspect the old card is not brought back: the click was the last mode's.
   await pick(screen.container, 1)
-  expect(line(screen.container)?.textContent).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
 })
 
-test('Play counts pieces left and mistakes, and Restart puts the board and both counts back', async () => {
+test('Play counts pieces left and mistakes, and Reset puts the board and both counts back', async () => {
   const screen = await mountFrame()
   await showDominoes()
   await pick(screen.container, 2)
   const element = elementOf(screen.container)
   await expect.poll(() => element.hasAttribute('play')).toBe(true)
-  const status = () => line(screen.container)?.querySelector('[role="status"]')?.textContent
+  const status = () => said(screen.container)
   expect(status()).toBe('3 left · 0 mistakes')
+  expect(resetButton(screen.container)?.textContent).toBe('Reset')
+  expect(resetButton(screen.container)?.disabled).toBe(true)
 
   await fire(screen.container, 'piece-removed', { pieceId: 0, left: 2 })
   await fire(screen.container, 'life-lost', { pieceId: 1, blockerId: 2, distance: 0 })
@@ -167,9 +199,11 @@ test('Play counts pieces left and mistakes, and Restart puts the board and both 
   const restart = vi.spyOn(element, 'restart')
   const load = vi.spyOn(element, 'loadState')
   const save = vi.spyOn(element, 'saveState')
-  await act(async () => line(screen.container)?.querySelector<HTMLButtonElement>('button')?.click())
+  expect(resetButton(screen.container)?.disabled).toBe(false)
+  await act(async () => resetButton(screen.container)?.click())
   expect(restart).toHaveBeenCalledTimes(1)
   expect(status()).toBe('3 left · 0 mistakes')
+  expect(resetButton(screen.container)?.disabled).toBe(true)
 
   await fire(screen.container, 'piece-removed', { pieceId: 2, left: 2 })
   await fire(screen.container, 'piece-removed', { pieceId: 1, left: 1 })
@@ -184,14 +218,14 @@ test('Play counts pieces left and mistakes, and Restart puts the board and both 
 })
 
 // The element announces `finished` only after the last exit animation, so a
-// Restart or a new board inside that window must not read as cleared.
-test('a late finished after Restart leaves the fresh counts', async () => {
+// Reset or a new board inside that window must not read as cleared.
+test('a late finished after Reset leaves the fresh counts', async () => {
   const screen = await mountFrame()
   await showDominoes()
   await pick(screen.container, 2)
-  const status = () => line(screen.container)?.querySelector('[role="status"]')?.textContent
+  const status = () => said(screen.container)
   await fire(screen.container, 'piece-removed', { pieceId: 0, left: 0 })
-  await act(async () => line(screen.container)?.querySelector<HTMLButtonElement>('button')?.click())
+  await act(async () => resetButton(screen.container)?.click())
   await fire(screen.container, 'finished', { pieces: 3 })
   expect(status()).toBe('3 left · 0 mistakes')
 })
@@ -208,20 +242,80 @@ test('a late finished after a new board leaves the fresh counts', async () => {
   expect(status()).toBe(`${next.board.pieces.length} left · 0 mistakes`)
 })
 
-test('leaving Play puts every piece back, so View and Inspect show the board the card describes', async () => {
+// Real clicks, so the element's own game moves: the lab must neither restart
+// it on a mode switch nor describe pieces that have left.
+test('switching modes keeps the game: Inspect sees the board as it stands, Play keeps its counts', async () => {
   const screen = await mountFrame()
   await showDominoes()
   await pick(screen.container, 2)
   const element = elementOf(screen.container)
+  // No stylesheet here, so the host gets a size of its own to fit the board into.
+  element.style.display = 'block'
+  element.style.width = '300px'
+  element.style.height = '300px'
+  await expect.poll(() => element.hasAttribute('play') && (element.viewport?.cellPx ?? 0) > 0).toBe(true)
   const restart = vi.spyOn(element, 'restart')
-  await fire(screen.container, 'piece-removed', { pieceId: 2, left: 2 })
+  await act(async () => clickPiece(screen.container, 1))
+  await act(async () => clickPiece(screen.container, 2))
+  await act(async () => clickPiece(screen.container, 0))
+  expect(said(screen.container)).toBe('1 left · 1 mistake')
+
   await pick(screen.container, 1)
-  expect(restart).toHaveBeenCalledTimes(1)
-  // A fresh game when Play comes back, not the one left behind.
+  await expect.poll(() => element.hasAttribute('interactive')).toBe(true)
+  expect(restart).not.toHaveBeenCalled()
+  expect([...(element.saveState()?.removed ?? [])].sort()).toEqual([0, 2])
+  // Piece 1's only blocker has left.
+  await act(async () => clickPiece(screen.container, 1))
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+  // A piece that has left is no piece to inspect: the element sends no click
+  // for its empty cells, and one sent anyway brings no card for it.
+  await act(async () => clickPiece(screen.container, 2))
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+  await fire(screen.container, 'piece-click', { pieceId: 2 })
+  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
+  expect(resetButton(screen.container)?.disabled).toBe(false)
+
+  await pick(screen.container, 0)
   await pick(screen.container, 2)
-  expect(line(screen.container)?.querySelector('[role="status"]')?.textContent).toBe('3 left · 0 mistakes')
-  // Entering Play restarts nothing: the element's game is already whole.
+  expect(said(screen.container)).toBe('1 left · 1 mistake')
+  expect(restart).not.toHaveBeenCalled()
+})
+
+test('Reset in Inspect starts the game over: the element, the counts and the board the card reads', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 1)
+  expect(resetButton(screen.container)?.textContent).toBe('Reset')
+  expect(resetButton(screen.container)?.disabled).toBe(true)
+  await pick(screen.container, 2)
+  await fire(screen.container, 'piece-removed', { pieceId: 2, left: 2 })
+  await fire(screen.container, 'life-lost', { pieceId: 0, blockerId: 1, distance: 0 })
+  await pick(screen.container, 1)
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+
+  const element = elementOf(screen.container)
+  const restart = vi.spyOn(element, 'restart')
+  const load = vi.spyOn(element, 'loadState')
+  await act(async () => resetButton(screen.container)?.click())
   expect(restart).toHaveBeenCalledTimes(1)
+  expect(load).not.toHaveBeenCalled()
+  expect(resetButton(screen.container)?.disabled).toBe(true)
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  await pick(screen.container, 2)
+  expect(said(screen.container)).toBe('3 left · 0 mistakes')
+})
+
+test('Reset in Play starts over the board the card reads too', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 2)
+  await fire(screen.container, 'piece-removed', { pieceId: 2, left: 2 })
+  await act(async () => resetButton(screen.container)?.click())
+  await pick(screen.container, 1)
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
 })
 
 test('a new board on stage keeps Play and starts the counts over', async () => {
@@ -234,9 +328,22 @@ test('a new board on stage keeps Play and starts the counts over', async () => {
   await act(async () => finish(next))
   expect(useStore.getState().ui.boardMode).toBe('play')
   expect(elementOf(screen.container).hasAttribute('play')).toBe(true)
-  expect(line(screen.container)?.querySelector('[role="status"]')?.textContent).toBe(
-    `${next.board.pieces.length} left · 0 mistakes`,
-  )
+  expect(said(screen.container)).toBe(`${next.board.pieces.length} left · 0 mistakes`)
+  expect(resetButton(screen.container)?.disabled).toBe(true)
+})
+
+test('a new board on stage starts the game over for Inspect too, and keeps the mode', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 2)
+  await fire(screen.container, 'piece-removed', { pieceId: 2, left: 2 })
+  await pick(screen.container, 1)
+  // The same pieces as a new board: only the game on it may differ.
+  await showDominoes()
+  expect(useStore.getState().ui.boardMode).toBe('inspect')
+  expect(resetButton(screen.container)?.disabled).toBe(true)
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
+  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
 })
 
 test('a new board on stage drops the inspected piece', async () => {
@@ -245,7 +352,7 @@ test('a new board on stage drops the inspected piece', async () => {
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
   await act(async () => finish(finishedRun(2)))
-  expect(line(screen.container)?.textContent).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
 })
 
 test('the mode applies to a stored board previewed in the library', async () => {
@@ -255,16 +362,12 @@ test('the mode applies to a stored board previewed in the library', async () => 
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
   await act(async () => useStore.getState().result.showPreview({ board, file, meta }))
   await pick(screen.container, 2)
-  expect(line(screen.container)?.querySelector('[role="status"]')?.textContent).toBe(
-    `${board.pieces.length} left · 0 mistakes`,
-  )
+  expect(said(screen.container)).toBe(`${board.pieces.length} left · 0 mistakes`)
   await pick(screen.container, 1)
   const piece = board.pieces[0]
   if (piece === undefined) throw new Error('empty fixture board')
   await fire(screen.container, 'piece-click', { pieceId: piece.id })
-  expect(line(screen.container)?.textContent).toMatch(
-    new RegExp(`^Piece #${piece.id} · ${piece.cells.length} cells · `),
-  )
+  expect(said(screen.container)).toMatch(new RegExp(`^Piece #${piece.id} · ${piece.cells.length} cells · `))
 })
 
 // Every new string, in both languages. Modes are picked by position, never by
@@ -279,18 +382,21 @@ test('every word of the board mode is in both languages', async () => {
     const words = [
       screen.container.querySelector('.fw-mode [role="radiogroup"]')?.getAttribute('aria-label') ?? '',
       ...radios(screen.container).map((r) => r.textContent ?? ''),
-      line(screen.container)?.textContent ?? '',
+      said(screen.container) ?? '',
+      resetButton(screen.container)?.textContent ?? '',
     ]
     for (const id of [0, 1, 2]) {
       await fire(screen.container, 'piece-click', { pieceId: id })
-      words.push(line(screen.container)?.textContent ?? '')
+      words.push(said(screen.container) ?? '')
     }
     await pick(screen.container, 2)
     await fire(screen.container, 'life-lost', { pieceId: 1, blockerId: 2, distance: 0 })
-    words.push(line(screen.container)?.textContent ?? '')
+    words.push(said(screen.container) ?? '')
     await fire(screen.container, 'piece-removed', { pieceId: 2, left: 0 })
     await fire(screen.container, 'finished', { pieces: 3 })
-    words.push(line(screen.container)?.textContent ?? '')
+    words.push(said(screen.container) ?? '')
+    // The game outlives the mode, so the next language starts from a fresh one.
+    await act(async () => resetButton(screen.container)?.click())
     await pick(screen.container, 0)
     seen[lang] = words
   }
@@ -300,14 +406,15 @@ test('every word of the board mode is in both languages', async () => {
     'Inspekcja',
     'Gra',
     'Wskaż element, aby go zbadać.',
+    'Resetuj',
     'Element #0 · 2 komórki · ← w lewo · wolny',
     'Element #1 · 2 komórki · → w prawo · zablokowany przez #2 w odległości 0 komórek',
     'Element #2 · 3 komórki · ↑ w górę · wolny',
-    'zostało: 3 · 1 błądOd nowa',
-    'Plansza wyczyszczona · 1 błądOd nowa',
+    'zostało: 3 · 1 błąd',
+    'Plansza wyczyszczona · 1 błąd',
   ])
   // Each English word differs from its Polish one: none fell back to the source.
   const en = seen.en ?? []
-  expect(en).toHaveLength(10)
+  expect(en).toHaveLength(11)
   en.forEach((word, i) => expect(word).not.toBe(seen.pl?.[i]))
 })
