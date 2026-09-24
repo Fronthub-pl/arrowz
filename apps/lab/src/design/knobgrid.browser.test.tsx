@@ -86,7 +86,7 @@ test.each([
     // too — the indent must come out of the label track alone.
     await act(async () => useStore.getState().params.setMany({ giants: 4, probe: 0.3 }))
     // The preview's two blocks open too.
-    await act(async () => useStore.setState((s) => ({ view: { ...s.view, hilite: true, showPoints: true } })))
+    await act(async () => useStore.setState((s) => ({ view: { ...s.view, highlightLongest: true, showPoints: true } })))
     const valueEnds = new Set<number>()
     const controlStarts = new Set<number>()
     const wideStarts = new Set<number>()

@@ -26,7 +26,7 @@ beforeEach(() => {
       palette: [],
       paper: '',
       ink: '',
-      highlight: '',
+      highlightColor: '',
       colored: false,
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
@@ -48,19 +48,19 @@ test('the fields start where the previous lab starts them', () => {
 // The highlight is off by default: turning it on is the option, not the other
 // way round. `top` still starts at 5, ready for the moment the switch flips.
 test('the highlight starts off, so viewOf reports no top count either', () => {
-  expect(declared.hilite).toBe(false)
+  expect(declared.highlightLongest).toBe(false)
   expect(viewOf(declared).top).toBe(0)
 })
 
 test('paper, ink and highlight start unset, so a theme decides them', () => {
   expect(declared.paper).toBe('')
   expect(declared.ink).toBe('')
-  expect(declared.highlight).toBe('')
+  expect(declared.highlightColor).toBe('')
 })
 
-test('setHighlight sets the highlight colour', () => {
-  view().setHighlight('#010203')
-  expect(view().highlight).toBe('#010203')
+test('setHighlightColor sets the highlight colour', () => {
+  view().setHighlightColor('#010203')
+  expect(view().highlightColor).toBe('#010203')
 })
 
 test('an empty field falls back to the default rather than to zero', () => {
@@ -84,10 +84,10 @@ test('a whole field rounds', () => {
 
 test('the highlight flag is what zeroes top, because the CLI has no flag for it', () => {
   // Off by default, so this case (about the flag, not its default) states it on.
-  view().setFlag('hilite', true)
+  view().setFlag('highlightLongest', true)
   view().setNumber('top', '9')
   expect(viewOf(view()).top).toBe(9)
-  view().setFlag('hilite', false)
+  view().setFlag('highlightLongest', false)
   expect(viewOf(view()).top).toBe(0)
   // The number itself survives the flag, so switching back restores it.
   expect(view().top).toBe(9)

@@ -507,15 +507,15 @@ export function ColoursSection(): ReactElement {
         {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
       />
       <ColourRow
-        id="view-highlight"
-        short={dict.t('viewShortHighlight')}
-        help={dict.t('highlightHelp')}
-        title={dict.t('highlightLabel')}
-        value={view.highlight === '' ? DEFAULT_VIEW.highlight : view.highlight}
-        onChange={view.setHighlight}
-        {...(view.highlight === ''
+        id="view-highlight-color"
+        short={dict.t('viewShortHighlightColor')}
+        help={dict.t('highlightColorHelp')}
+        title={dict.t('highlightColorLabel')}
+        value={view.highlightColor === '' ? DEFAULT_VIEW.highlight : view.highlightColor}
+        onChange={view.setHighlightColor}
+        {...(view.highlightColor === ''
           ? {}
-          : { onClear: () => view.setHighlight(''), clearLabel: dict.t('highlightClear') })}
+          : { onClear: () => view.setHighlightColor(''), clearLabel: dict.t('highlightColorClear') })}
       />
       <PaletteRow />
     </Section>
@@ -554,13 +554,13 @@ export function ViewPanel() {
           <SwitchRow flag="colored" />
         </Section>
         <Section id="view-sec-highlight" title={dict.t('secHighlight')}>
-          <SwitchRow flag="hilite" />
+          <SwitchRow flag="highlightLongest" />
           <CollapsibleBlock
-            id="dep-hilite"
-            on={view.hilite}
+            id="dep-highlight-longest"
+            on={view.highlightLongest}
             forced={wanted === 'view-top'}
-            needs={dict.t('needsHilite')}
-            title={dict.t('viewShortHilite')}
+            needs={dict.t('needsHighlightLongest')}
+            title={dict.t('viewShortHighlightLongest')}
             count={1}
           >
             <ViewNumberRow field={fieldOf('top')} />

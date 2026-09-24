@@ -58,7 +58,7 @@ beforeEach(() => {
       palette: [],
       paper: '',
       ink: '',
-      highlight: '',
+      highlightColor: '',
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
       pointRadius: DEFAULT_POINT_RADIUS,
@@ -92,19 +92,24 @@ test('the panel draws the point grid controls, in a block that opens with the gr
   expect(radius?.checkValidity()).toBe(true)
 })
 
-// Nothing before this case in the file touches `hilite`, so the switch here
-// is the slice's own starting value, not one a prior case left behind.
+// Nothing before this case in the file touches `highlightLongest`, so the
+// switch here is the slice's own starting value, not one a prior case left
+// behind.
 test('a fresh preview starts with the highlight off, and switching it on shows the top count', async () => {
   const screen = await render(<ViewPanel />)
-  const hilite = screen.getByRole('switch', { name: 'longest' })
-  await expect.element(hilite).toHaveAttribute('aria-checked', 'false')
-  expect(document.getElementById('dep-hilite')?.hidden).toBe(true)
+  const highlightLongest = screen.getByRole('switch', { name: 'longest' })
+  await expect.element(highlightLongest).toHaveAttribute('aria-checked', 'false')
+  expect(document.getElementById('dep-highlight-longest')?.hidden).toBe(true)
   expect(buildCommand(useStore.getState().params.values, viewOf(view()))).not.toContain('--top')
 
-  await hilite.click()
-  await expect.element(hilite).toHaveAttribute('aria-checked', 'true')
-  expect(document.getElementById('dep-hilite')?.hidden).toBe(false)
-  expect(buildCommand(useStore.getState().params.values, viewOf(view()))).toContain('--top=5')
+  try {
+    await highlightLongest.click()
+    await expect.element(highlightLongest).toHaveAttribute('aria-checked', 'true')
+    expect(document.getElementById('dep-highlight-longest')?.hidden).toBe(false)
+    expect(buildCommand(useStore.getState().params.values, viewOf(view()))).toContain('--top=5')
+  } finally {
+    useStore.getState().view.setFlag('highlightLongest', false)
+  }
 })
 
 test('the point radius row shows the clamped value after commit, not what was typed', async () => {
@@ -416,15 +421,15 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
 
 test('the editor offers a highlight colour, and hands it back to the theme when cleared', async () => {
   const screen = await render(<ViewPanel />)
-  const highlight = screen.container.querySelector<HTMLInputElement>('#view-highlight')
+  const highlight = screen.container.querySelector<HTMLInputElement>('#view-highlight-color')
   expect(highlight).not.toBeNull()
   if (highlight === null) return
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(highlight, '#010203')
   highlight.dispatchEvent(new Event('input', { bubbles: true }))
-  expect(view().highlight).toBe('#010203')
+  expect(view().highlightColor).toBe('#010203')
 
   await screen.getByRole('button', { name: /clear the highlight/i }).click()
-  expect(view().highlight).toBe('')
+  expect(view().highlightColor).toBe('')
 })
 
 test('the preview is five titled sections, in order, each a named group', async () => {
@@ -444,23 +449,26 @@ test('no row sits inside another row', async () => {
 // CLI write it as 0 then), so it sits in a block under the switch.
 test('the top count sits under longest, in a block that closes with it', async () => {
   const screen = await render(<ViewPanel />)
-  const block = () => document.getElementById('dep-hilite')
+  const block = () => document.getElementById('dep-highlight-longest')
   expect(block()?.querySelector('#view-top')).not.toBeNull()
-  const hilite = screen.getByRole('switch', { name: 'longest' })
-  if (hilite.element().getAttribute('aria-checked') !== 'true') await hilite.click()
-  expect(block()?.hidden).toBe(false)
-  await hilite.click()
-  expect(block()?.hidden).toBe(true)
-  const header = screen.container.querySelector('[aria-controls="dep-hilite"]')
-  expect(header?.textContent).toContain(EN.t('needsHilite'))
-  await hilite.click()
+  const highlightLongest = screen.getByRole('switch', { name: 'longest' })
+  try {
+    if (highlightLongest.element().getAttribute('aria-checked') !== 'true') await highlightLongest.click()
+    expect(block()?.hidden).toBe(false)
+    await highlightLongest.click()
+    expect(block()?.hidden).toBe(true)
+    const header = screen.container.querySelector('[aria-controls="dep-highlight-longest"]')
+    expect(header?.textContent).toContain(EN.t('needsHighlightLongest'))
+  } finally {
+    useStore.getState().view.setFlag('highlightLongest', false)
+  }
 })
 
 test('the colours section holds the theme, both surface colours and the palette', async () => {
   const screen = await render(<ViewPanel />)
   const section = screen.container.querySelector('#view-sec-colours')?.closest('.kv-sect')
   if (!section) throw new Error('no colours section')
-  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-highlight', '#view-palette-label']) {
+  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-highlight-color', '#view-palette-label']) {
     expect(section.querySelector(id), id).not.toBeNull()
   }
   expect(section.querySelector('button.kv-chip')?.getAttribute('aria-describedby')).toBe('view-palette-help')
@@ -491,11 +499,11 @@ test('every preview control names a description that exists', async () => {
     '#view-theme',
     '#view-paper',
     '#view-ink',
-    '#view-highlight',
+    '#view-highlight-color',
     '#view-pad',
     '#view-rounded',
     '#view-colored',
-    '#view-hilite',
+    '#view-highlightLongest',
     '#view-voids',
     '#view-showPoints',
   ]

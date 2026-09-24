@@ -19,13 +19,13 @@ function viewFor(view: ViewState, lang: Lang) {
     top: view.top,
     rounded: view.rounded,
     colored: view.colored,
-    hilite: view.hilite,
+    highlightLongest: view.highlightLongest,
     lang,
     theme: view.theme,
     palette: view.palette,
     paper: view.paper,
     ink: view.ink,
-    highlight: view.highlight,
+    highlightColor: view.highlightColor,
     showPoints: view.showPoints,
     pointColor: view.pointColor,
     pointRadius: view.pointRadius,
@@ -48,7 +48,7 @@ function applyPayload(payload: HashPayload): void {
   if (payload.view.top !== undefined) view.setNumber('top', String(payload.view.top))
   view.setFlag('rounded', payload.view.rounded)
   view.setFlag('colored', payload.view.colored)
-  view.setFlag('hilite', payload.view.hilite)
+  view.setFlag('highlightLongest', payload.view.highlightLongest)
   // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
   // Absent keeps the page's own value, as for `cell`..`top`. A link naming a
@@ -58,7 +58,7 @@ function applyPayload(payload: HashPayload): void {
   // Absent keeps the page's own value, as for the numbers.
   if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
   if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
-  if (payload.view.highlight !== undefined) view.setHighlight(payload.view.highlight)
+  if (payload.view.highlightColor !== undefined) view.setHighlightColor(payload.view.highlightColor)
   // `showPoints` is a plain flag like `rounded`, not a tri-state.
   view.setFlag('showPoints', payload.view.showPoints === true)
   if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)

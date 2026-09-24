@@ -9,7 +9,7 @@ export const VIEW: HashView = {
   top: 5,
   rounded: true,
   colored: false,
-  hilite: true,
+  highlightLongest: true,
   lang: 'en',
   theme: undefined,
   // `palette` and later optional fields are left out: `toEqual` treats an

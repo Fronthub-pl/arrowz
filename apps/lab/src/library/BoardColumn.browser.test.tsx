@@ -123,7 +123,7 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   expect(useStore.getState().params.values.seed).toBe(stored.meta.params.seed)
   expect(useStore.getState().view.stroke).toBe(stored.meta.view.stroke)
   // A stored view's `top` is 0, so the highlight lands off.
-  expect(useStore.getState().view.hilite).toBe(false)
+  expect(useStore.getState().view.highlightLongest).toBe(false)
   expect(useStore.getState().params.edits).toBe(edits)
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })

@@ -8,7 +8,7 @@ import {
 import type { View, ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
-export type ViewFlag = 'colored' | 'rounded' | 'hilite' | 'voids' | 'showPoints'
+export type ViewFlag = 'colored' | 'rounded' | 'highlightLongest' | 'voids' | 'showPoints'
 
 /**
  * The cap is the lab's choice; the element and the engine take any number of
@@ -27,7 +27,7 @@ export interface ViewState {
   top: number
   colored: boolean
   rounded: boolean
-  hilite: boolean
+  highlightLongest: boolean
   voids: boolean
   /**
    * The point grid. Like `voids`, the element's settings, not the engine's:
@@ -57,10 +57,10 @@ export interface ViewState {
   paper: string
   ink: string
   /** The highlight colour of the longest pieces and the jammed cells; same "not set" rule as `paper`/`ink`. */
-  highlight: string
+  highlightColor: string
   setPaper(color: string): void
   setInk(color: string): void
-  setHighlight(color: string): void
+  setHighlightColor(color: string): void
   /**
    * The margin around the board, in cells: the element's `pad`, clamped to
    * `PAD_RANGE`. No "not set" state (0 is a real margin), so it is always
@@ -111,7 +111,7 @@ export function viewOf(state: ViewState): View {
     headHeight: state.headHeight,
     colored: state.colored,
     rounded: state.rounded,
-    top: state.hilite ? state.top : 0,
+    top: state.highlightLongest ? state.top : 0,
   }
 }
 
@@ -132,7 +132,7 @@ export function createViewSlice(set: SetStore): ViewState {
     top: 5,
     colored: false,
     rounded: true,
-    hilite: false,
+    highlightLongest: false,
     voids: true,
     showPoints: false,
     pointColor: DEFAULT_POINT_COLOR,
@@ -141,7 +141,7 @@ export function createViewSlice(set: SetStore): ViewState {
     palette: [],
     paper: '',
     ink: '',
-    highlight: '',
+    highlightColor: '',
     pad: DEFAULT_PAD,
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
@@ -157,7 +157,7 @@ export function createViewSlice(set: SetStore): ViewState {
     setTheme: (name) => patch({ theme: name }),
     setPaper: (color) => patch({ paper: color }),
     setInk: (color) => patch({ ink: color }),
-    setHighlight: (color) => patch({ highlight: color }),
+    setHighlightColor: (color) => patch({ highlightColor: color }),
     setPad: (n) =>
       patch({
         pad: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD,

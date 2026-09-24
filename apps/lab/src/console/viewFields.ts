@@ -36,16 +36,16 @@ export const VIEW_FIELDS: readonly ViewField[] = [
  * What the simple view keeps of the preview; the rest is advanced-only.
  */
 export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
-export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hilite']
+export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'highlightLongest']
 
 /** The preview's flags with their full labels, in the panel's order. */
 export const VIEW_FLAGS: readonly {
   flag: ViewFlag
-  label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
+  label: 'rounded' | 'colored' | 'highlightLongest' | 'voids' | 'showPoints'
 }[] = [
   { flag: 'rounded', label: 'rounded' },
   { flag: 'colored', label: 'colored' },
-  { flag: 'hilite', label: 'hilite' },
+  { flag: 'highlightLongest', label: 'highlightLongest' },
   { flag: 'voids', label: 'voids' },
   { flag: 'showPoints', label: 'showPoints' },
 ]
@@ -76,7 +76,7 @@ export const VIEW_ROWS: Readonly<Record<ViewNumber, ViewRow>> = {
 export const FLAG_ROWS: Readonly<Record<ViewFlag, { short: PlainUiKey; help: PlainUiKey }>> = {
   rounded: { short: 'viewShortRounded', help: 'roundedHelp' },
   colored: { short: 'viewShortColored', help: 'coloredHelp' },
-  hilite: { short: 'viewShortHilite', help: 'hiliteHelp' },
+  highlightLongest: { short: 'viewShortHighlightLongest', help: 'highlightLongestHelp' },
   voids: { short: 'viewShortVoids', help: 'voidsHelp' },
   showPoints: { short: 'viewShortShowPoints', help: 'showPointsHelp' },
 }

@@ -15,7 +15,7 @@ import { useStore } from '../state/store'
  */
 export function LongestTable({ board, stored = false }: { board: BoardData; stored?: boolean }): ReactElement | null {
   const dict = useDictionary()
-  const top = useStore((state) => (stored || state.view.hilite ? state.view.top : 0))
+  const top = useStore((state) => (stored || state.view.highlightLongest ? state.view.top : 0))
   const longest = useMemo(() => longestSummary(board, top), [board, top])
   if (longest.length === 0) return null
   return (

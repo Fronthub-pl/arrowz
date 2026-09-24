@@ -107,7 +107,7 @@ export function BoardColumn(): ReactElement {
     view.setFlag('colored', saved.colored)
     // A stored board carries no highlight, so this lands off; when one somehow
     // does, its count comes with it.
-    view.setFlag('hilite', saved.top > 0)
+    view.setFlag('highlightLongest', saved.top > 0)
     if (saved.top > 0) view.setNumber('top', String(saved.top))
     void navigate('/')
   }

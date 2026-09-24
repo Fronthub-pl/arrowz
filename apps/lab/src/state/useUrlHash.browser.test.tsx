@@ -350,9 +350,9 @@ describe('useUrlHash', () => {
 
   it('writes the highlight colour into the link', async () => {
     await mount(stub().control)
-    useStore.getState().view.setHighlight('#0a0b0c')
+    useStore.getState().view.setHighlightColor('#0a0b0c')
     await vi.waitFor(() => {
-      expect(decodeHash(location.hash)?.view.highlight).toBe('#0a0b0c')
+      expect(decodeHash(location.hash)?.view.highlightColor).toBe('#0a0b0c')
     })
   })
 
@@ -360,10 +360,10 @@ describe('useUrlHash', () => {
     await mount(stub().control)
     location.hash = encodeHash({
       params: defaultParams(),
-      view: { ...VIEW, highlight: '#0a0b0c' },
+      view: { ...VIEW, highlightColor: '#0a0b0c' },
       carried: {},
     }).slice(1)
-    await vi.waitFor(() => expect(useStore.getState().view.highlight).toBe('#0a0b0c'))
+    await vi.waitFor(() => expect(useStore.getState().view.highlightColor).toBe('#0a0b0c'))
   })
 
   it('writes the margin into the link', async () => {
@@ -388,14 +388,14 @@ describe('useUrlHash', () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')
     useStore.getState().view.setInk('#040506')
-    useStore.getState().view.setHighlight('#0a0b0c')
+    useStore.getState().view.setHighlightColor('#0a0b0c')
     useStore.getState().view.setPad(7)
 
     location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: VIEW, carried: {} }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
     expect(useStore.getState().view.paper).toBe('#010203')
     expect(useStore.getState().view.ink).toBe('#040506')
-    expect(useStore.getState().view.highlight).toBe('#0a0b0c')
+    expect(useStore.getState().view.highlightColor).toBe('#0a0b0c')
     expect(useStore.getState().view.pad).toBe(7)
   })
 })

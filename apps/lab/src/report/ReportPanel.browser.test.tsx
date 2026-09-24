@@ -22,7 +22,7 @@ beforeEach(() => {
   state.run.reset()
   state.result.reset()
   state.lang.setLang('en')
-  state.view.setFlag('hilite', true)
+  state.view.setFlag('highlightLongest', true)
   state.view.setNumber('top', '5')
 })
 
@@ -197,7 +197,7 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   expect(screen.container.querySelector('#longest-head')?.textContent).toBe('5 longest')
   await act(async () => useStore.getState().view.setNumber('top', '3'))
   expect(longest()?.querySelectorAll('tbody tr')).toHaveLength(3)
-  await act(async () => useStore.getState().view.setFlag('hilite', false))
+  await act(async () => useStore.getState().view.setFlag('highlightLongest', false))
   expect(longest()).toBeNull()
 })
 
@@ -440,7 +440,7 @@ test('on the saved boards the report describes the open board from its stored fi
 // whatever its switch says — with the switch off the lab lists nothing.
 test('the stored board lists its longest pieces with the highlight off', async () => {
   const stored = storedFixture(1)
-  useStore.getState().view.setFlag('hilite', false)
+  useStore.getState().view.setFlag('highlightLongest', false)
   const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),

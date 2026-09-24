@@ -48,20 +48,60 @@ describe('the hash codec', () => {
     expect(bare?.view.rounded).toBe(true)
     // Like `colored`: a link that predates the flag, or never named it, opens
     // with the highlight off. Turning it on is the option.
-    expect(bare?.view.hilite).toBe(false)
+    expect(bare?.view.highlightLongest).toBe(false)
     expect(bare?.view.colored).toBe(false)
   })
 
   it('reads a link that states the highlight on, and keeps it stated', () => {
-    const on = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: { hilite: true } })))
-    expect(on?.view.hilite).toBe(true)
+    const on = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: { highlightLongest: true } })))
+    expect(on?.view.highlightLongest).toBe(true)
+  })
+
+  // A link the previous lab wrote still carries the old key name; the reader
+  // falls back to it so every link in circulation still opens the same.
+  it('reads a legacy link naming the old flag and colour keys onto the new fields', () => {
+    const legacy = decodeHash(
+      '#' + encodeURIComponent(JSON.stringify({ __view: { hilite: true, highlight: '#ff0000' } })),
+    )
+    expect(legacy?.view.highlightLongest).toBe(true)
+    expect(legacy?.view.highlightColor).toBe('#ff0000')
+  })
+
+  // A link naming the new key wins over a stray old one, rather than the old
+  // key overriding what the link actually states.
+  it('prefers the new key over the old one when a link somehow carries both', () => {
+    const link = decodeHash(
+      '#' +
+        encodeURIComponent(
+          JSON.stringify({
+            __view: { hilite: true, highlightLongest: false, highlight: '#111111', highlightColor: '#222222' },
+          }),
+        ),
+    )
+    expect(link?.view.highlightLongest).toBe(false)
+    expect(link?.view.highlightColor).toBe('#222222')
+  })
+
+  it('writes only the new keys, never the old ones', () => {
+    const hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, highlightLongest: true, highlightColor: '#0a0b0c' },
+      carried: {},
+    })
+    const body = decodeURIComponent(hash.slice(1))
+    expect(body).toContain('"highlightLongest":true')
+    expect(body).toContain('"highlightColor":"#0a0b0c"')
+    expect(body).not.toContain('"hilite"')
+    expect(body).not.toMatch(/"highlight":/)
   })
 
   // An old link carrying `help` still loads, without it.
   it('loads a link that still carries the old help flag, and drops it', () => {
-    const old = decodeHash('#' + encodeURIComponent(JSON.stringify({ W: 30, __view: { help: false, hilite: false } })))
+    const old = decodeHash(
+      '#' + encodeURIComponent(JSON.stringify({ W: 30, __view: { help: false, highlightLongest: false } })),
+    )
     expect(old?.params.W).toBe(30)
-    expect(old?.view.hilite).toBe(false)
+    expect(old?.view.highlightLongest).toBe(false)
     expect(old?.view).not.toHaveProperty('help')
   })
 
@@ -181,23 +221,23 @@ describe('the hash codec', () => {
   })
 
   it('carries the highlight colour through a round trip', () => {
-    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlight: '#0a0b0c' }, carried: {} })
-    expect(decodeHash(hash)?.view.highlight).toBe('#0a0b0c')
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlightColor: '#0a0b0c' }, carried: {} })
+    expect(decodeHash(hash)?.view.highlightColor).toBe('#0a0b0c')
   })
 
   it('reads a link that predates the highlight colour as naming none', () => {
     const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
-    expect(decodeHash(hash)?.view.highlight).toBeUndefined()
+    expect(decodeHash(hash)?.view.highlightColor).toBeUndefined()
   })
 
   it('does not write an empty highlight colour into the link', () => {
-    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlight: '' }, carried: {} })
-    expect(hash).not.toContain('highlight')
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlightColor: '' }, carried: {} })
+    expect(hash).not.toContain('highlightColor')
   })
 
   it('drops a hand-edited highlight colour the editor could not show', () => {
-    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { highlight: 'rebeccapurple' } }))
-    expect(decodeHash(link)?.view.highlight).toBeUndefined()
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { highlightColor: 'rebeccapurple' } }))
+    expect(decodeHash(link)?.view.highlightColor).toBeUndefined()
   })
 
   // 0 is a legal margin, not "unset", so it must round-trip.

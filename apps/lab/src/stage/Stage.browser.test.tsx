@@ -49,21 +49,21 @@ test('editing a preview field redraws the board without generating', async () =>
 })
 
 // `boardViewOf(viewOf(view), view.voids)` takes the flag as a second argument,
-// so `view.hilite` would type-check in its place, and every other test here
-// toggles `colored`. Voids off and hilite on (set here, off by default) at the
-// end catch the swap.
+// so `view.highlightLongest` would type-check in its place, and every other
+// test here toggles `colored`. Voids off and the highlight on (set here, off
+// by default) at the end catch the swap.
 test('the voids flag reaches the element, and it is the voids flag', async () => {
   const screen = await render(<Probe />)
   const element = boardEl(screen.container)
   expect(element?.view?.voids).toBe(true)
-  useStore.getState().view.setFlag('hilite', true)
+  useStore.getState().view.setFlag('highlightLongest', true)
   try {
     useStore.getState().view.toggle('voids')
     await expect.poll(() => element?.view?.voids).toBe(false)
-    expect(useStore.getState().view.hilite).toBe(true)
+    expect(useStore.getState().view.highlightLongest).toBe(true)
   } finally {
     useStore.getState().view.toggle('voids')
-    useStore.getState().view.setFlag('hilite', false)
+    useStore.getState().view.setFlag('highlightLongest', false)
   }
 })
 

@@ -40,9 +40,9 @@ export function BoardFrame(): ReactElement {
     () => ({
       ...(view.paper === '' ? {} : { paper: view.paper }),
       ...(view.ink === '' ? {} : { ink: view.ink }),
-      ...(view.highlight === '' ? {} : { highlight: view.highlight }),
+      ...(view.highlightColor === '' ? {} : { highlight: view.highlightColor }),
     }),
-    [view.paper, view.ink, view.highlight],
+    [view.paper, view.ink, view.highlightColor],
   )
   const labView = useMemo(
     () => ({

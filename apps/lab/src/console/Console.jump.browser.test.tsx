@@ -27,8 +27,8 @@ describe('a palette jump into a closed dependency block', () => {
   })
 
   it('keeps the highlight block open and the field focused past the next render', async () => {
-    const hilite = useStore.getState().view.hilite
-    useStore.getState().view.setFlag('hilite', false)
+    const highlightLongest = useStore.getState().view.highlightLongest
+    useStore.getState().view.setFlag('highlightLongest', false)
     try {
       await mountApp()
       await loadRunDone()
@@ -37,17 +37,17 @@ describe('a palette jump into a closed dependency block', () => {
         useStore.getState().ui.requestFocus('view-top')
       })
       expect(document.activeElement?.id).toBe('view-top')
-      expect(document.getElementById('dep-hilite')?.hidden).toBe(false)
+      expect(document.getElementById('dep-highlight-longest')?.hidden).toBe(false)
       await act(async () => {
         useStore.getState().params.set('seed', 8)
       })
       await twoFrames()
       expect(document.activeElement?.id).toBe('view-top')
-      expect(document.getElementById('dep-hilite')?.hidden).toBe(false)
+      expect(document.getElementById('dep-highlight-longest')?.hidden).toBe(false)
     } finally {
       // `resetApp` does not reset the view slice: put the flag back for
       // whichever file runs next.
-      useStore.getState().view.setFlag('hilite', hilite)
+      useStore.getState().view.setFlag('highlightLongest', highlightLongest)
     }
   })
 })

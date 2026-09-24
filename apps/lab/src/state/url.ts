@@ -11,7 +11,7 @@ export interface HashView {
   top?: number | undefined
   rounded: boolean
   colored: boolean
-  hilite: boolean
+  highlightLongest: boolean
   /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
   lang?: Lang | undefined
   /** The board theme by name. Absent when the link predates themes. */
@@ -26,7 +26,7 @@ export interface HashView {
   paper?: string | undefined
   ink?: string | undefined
   /** The highlight colour, same "not set" rule as `paper`/`ink`. Absent when the link predates it or names none. */
-  highlight?: string | undefined
+  highlightColor?: string | undefined
   /** The point grid. Absent when the link predates it. */
   showPoints?: boolean | undefined
   pointColor?: string | undefined
@@ -68,15 +68,23 @@ function num(raw: unknown): number | undefined {
  * the top level and everything else under `__view`.
  */
 export function encodeHash(input: { params: Params; view: HashView; carried: Carried }): string {
-  const { palette: chosenPalette, paper: chosenPaper, ink: chosenInk, highlight: chosenHighlight, ...rest } = input.view
+  const {
+    palette: chosenPalette,
+    paper: chosenPaper,
+    ink: chosenInk,
+    highlightColor: chosenHighlightColor,
+    ...rest
+  } = input.view
   // An empty palette (the common case) is left out rather than written as `[]`.
   const view = chosenPalette !== undefined && chosenPalette.length > 0 ? { ...rest, palette: chosenPalette } : rest
   // `''` is the slice's "not set": such a colour is left out too.
   const withPaper = chosenPaper !== undefined && chosenPaper !== '' ? { ...view, paper: chosenPaper } : view
   const withInk = chosenInk !== undefined && chosenInk !== '' ? { ...withPaper, ink: chosenInk } : withPaper
-  const withHighlight =
-    chosenHighlight !== undefined && chosenHighlight !== '' ? { ...withInk, highlight: chosenHighlight } : withInk
-  const payload = { ...input.params, __view: { ...withHighlight, ...input.carried } }
+  const withHighlightColor =
+    chosenHighlightColor !== undefined && chosenHighlightColor !== ''
+      ? { ...withInk, highlightColor: chosenHighlightColor }
+      : withInk
+  const payload = { ...input.params, __view: { ...withHighlightColor, ...input.carried } }
   return '#' + encodeURIComponent(JSON.stringify(payload))
 }
 
@@ -131,15 +139,17 @@ export function decodeHash(hash: string): HashPayload | null {
       rounded: raw.rounded !== false,
       colored: raw.colored === true,
       // Off unless the link states it on, the same rule as `colored`: a link
-      // that predates the flag must not switch the highlight on for it.
-      hilite: raw.hilite === true,
+      // that predates the flag must not switch the highlight on for it. A
+      // link written before the rename carries the old key (`hilite`) instead.
+      highlightLongest: (raw.highlightLongest === undefined ? raw.hilite : raw.highlightLongest) === true,
       // An old link's `help` key is ignored.
       lang: isLang(raw.lang) ? raw.lang : undefined,
       theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
       palette: palette(raw.palette),
       paper: colour(raw.paper),
       ink: colour(raw.ink),
-      highlight: colour(raw.highlight),
+      // A link written before the rename carries the old key (`highlight`) instead.
+      highlightColor: colour(raw.highlightColor) ?? colour(raw.highlight),
       // Decodes to `undefined` rather than `false` on absence so the
       // round-trip fixture need not carry the key.
       showPoints: raw.showPoints === true ? true : undefined,

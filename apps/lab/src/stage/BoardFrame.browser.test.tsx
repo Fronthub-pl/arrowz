@@ -346,11 +346,11 @@ test('an unset highlight leaves the theme its own, and a set one overrides it', 
   // Absent, not empty: the same trap paper and ink guard above.
   expect(element === null || !('highlight' in (element.view ?? {}))).toBe(true)
 
-  await act(async () => useStore.getState().view.setHighlight('#010203'))
+  await act(async () => useStore.getState().view.setHighlightColor('#010203'))
   expect(element?.view.highlight).toBe('#010203')
   expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   useStore.getState().view.setTheme('')
-  useStore.getState().view.setHighlight('')
+  useStore.getState().view.setHighlightColor('')
 })
 
 // The same seam as the palette's preview case above: a colour that reaches the

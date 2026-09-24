@@ -165,7 +165,7 @@ export const EN = {
       'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
     rounded: 'round the corners (and the tail)',
     colored: 'colour the arrows (each piece a different colour)',
-    hilite: 'highlight the longest pieces',
+    highlightLongest: 'highlight the longest pieces',
     voids: 'show jammed cells',
     showPoints: 'show the point grid',
     pointColorLabel: 'dot colour',
@@ -189,7 +189,7 @@ export const EN = {
     // a chosen theme supply them.
     paperLabel: 'background',
     inkLabel: 'drawing colour',
-    highlightLabel: 'highlight',
+    highlightColorLabel: 'highlight',
     paperClear: 'clear the paper, back to the theme',
     // The preview as knob rows: short labels (at most 12
     // characters, like the knobs'), section headings, the two dependency
@@ -204,13 +204,13 @@ export const EN = {
     viewShortPointColor: 'dot colour',
     viewShortRounded: 'rounded',
     viewShortColored: 'multicolour',
-    viewShortHilite: 'longest',
+    viewShortHighlightLongest: 'longest',
     viewShortVoids: 'jammed cells',
     viewShortShowPoints: 'point grid',
     viewShortTheme: 'theme',
     viewShortPaper: 'background',
     viewShortInk: 'ink',
-    viewShortHighlight: 'highlight',
+    viewShortHighlightColor: 'highlight',
     viewShortPalette: 'palette',
     // The theme row's empty choice: its select is a slider's length, and
     // `themeNone` does not fit it (the simple view keeps that one).
@@ -219,7 +219,7 @@ export const EN = {
     secHighlight: 'highlight',
     secGrid: 'grid',
     secExport: 'export',
-    needsHilite: 'needs longest on',
+    needsHighlightLongest: 'needs longest on',
     needsPoints: 'needs point grid on',
     valueOn: 'on',
     valueOff: 'off',
@@ -232,7 +232,7 @@ export const EN = {
     roundedHelp: 'Rounds the corners a piece turns through, and caps its tail with a disc.',
     coloredHelp:
       'Draws each piece in a colour of its own: from the custom palette, else the theme, else a hue per piece.',
-    hiliteHelp: 'Draws the longest pieces in the highlight colour, on top of the rest.',
+    highlightLongestHelp: 'Draws the longest pieces in the highlight colour, on top of the rest.',
     voidsHelp: 'Marks the cells the generator failed to carve, where the board jammed.',
     themeHelp:
       'A built-in theme: paper, ink, highlight and the colours of the pieces. What you set below wins over it.',
@@ -241,9 +241,9 @@ export const EN = {
     inkHelp:
       'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     inkClear: 'clear the drawing colour, back to the theme',
-    highlightHelp:
+    highlightColorHelp:
       'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
-    highlightClear: 'clear the highlight, back to the theme',
+    highlightColorClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     // A knob row's `?`, its dependency blocks and the
@@ -814,7 +814,7 @@ export const PL: Translation = {
       'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
     rounded: 'zaokrąglaj rogi (i ogon)',
     colored: 'koloruj strzałki (każdy element inny kolor)',
-    hilite: 'wyróżnij najdłuższe elementy',
+    highlightLongest: 'wyróżnij najdłuższe elementy',
     voids: 'pokaż komórki zaklinowania',
     showPoints: 'pokaż siatkę punktów',
     pointColorLabel: 'kolor kropek',
@@ -831,7 +831,7 @@ export const PL: Translation = {
     paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
     paperLabel: 'tło',
     inkLabel: 'kolor rysunku',
-    highlightLabel: 'wyróżnienie',
+    highlightColorLabel: 'wyróżnienie',
     paperClear: 'wyczyść tło, z powrotem do motywu',
     viewShortStroke: 'grubość',
     viewShortHeadWidth: 'szer. grotu',
@@ -843,20 +843,20 @@ export const PL: Translation = {
     viewShortPointColor: 'kolor kropek',
     viewShortRounded: 'zaokrąglenie',
     viewShortColored: 'wielobarwne',
-    viewShortHilite: 'najdłuższe',
+    viewShortHighlightLongest: 'najdłuższe',
     viewShortVoids: 'zaklinowane',
     viewShortShowPoints: 'kropki',
     viewShortTheme: 'motyw',
     viewShortPaper: 'tło',
     viewShortInk: 'rysunek',
-    viewShortHighlight: 'wyróżnienie',
+    viewShortHighlightColor: 'wyróżnienie',
     viewShortPalette: 'paleta',
     viewThemeNone: 'brak',
     secArrows: 'strzałki',
     secHighlight: 'wyróżnienie',
     secGrid: 'siatka',
     secExport: 'eksport',
-    needsHilite: 'wymaga: najdłuższe wł.',
+    needsHighlightLongest: 'wymaga: najdłuższe wł.',
     needsPoints: 'wymaga: kropki wł.',
     valueOn: 'wł.',
     valueOff: 'wył.',
@@ -869,7 +869,7 @@ export const PL: Translation = {
     roundedHelp: 'Zaokrągla rogi, przez które skręca element, i zakańcza jego ogon kółkiem.',
     coloredHelp:
       'Rysuje każdy element własnym kolorem: z własnej palety, inaczej z motywu, inaczej odcieniem na element.',
-    hiliteHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
+    highlightLongestHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
     voidsHelp: 'Zaznacza komórki, których generator nie zdołał wyciąć, tam gdzie plansza się zaklinowała.',
     themeHelp:
       'Wbudowany motyw: papier, tusz, wyróżnienie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
@@ -878,9 +878,9 @@ export const PL: Translation = {
     inkHelp:
       'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
-    highlightHelp:
+    highlightColorHelp:
       'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
-    highlightClear: 'wyczyść wyróżnienie, z powrotem do motywu',
+    highlightColorClear: 'wyczyść wyróżnienie, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,
