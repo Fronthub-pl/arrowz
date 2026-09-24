@@ -16,21 +16,16 @@ function Address() {
   return <p data-testid="address">{useLocation().pathname}</p>
 }
 
-// The library panel is the workspace's, not a route's (Ruling 5): the route
-// renders nothing, exactly as `/` does, so that navigating to it cannot
-// unmount the board element. The whole-app test asserts the panel's identity.
+// The library panel is the workspace's, not a route's, so navigating to it
+// cannot unmount the board element. The whole-app test asserts its identity.
 test('/boards renders no panel of its own', async () => {
   const screen = await at('/boards')
   expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
 })
 
-// The absence of a panel cannot carry the second half of this name on its own:
-// delete the `/boards/:size/:id` route and the path falls to the wildcard,
-// which redirects to `/`, whose element is `null` as well — so the panel is
-// missing either way. The address is what tells a route that resolves from one
-// that was swallowed, so this case reads it. The probe is rendered here rather
-// than added to `at()`: every other case in this file shares that helper and
-// none of them asks where it landed.
+// No panel either way: without the `/boards/:size/:id` route the wildcard
+// redirects to `/`, which renders nothing too. Only the address tells a
+// resolved route from a swallowed one, so this case reads it.
 test("a board's address renders no panel of its own, and is not the wildcard", async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/boards/25x50/sha256-abc']}>
@@ -42,24 +37,16 @@ test("a board's address renders no panel of its own, and is not the wildcard", a
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/boards/25x50/sha256-abc')
 })
 
-// The tabpanel has no accessible name here: it takes "name from author" only
-// (no "name from content"), and its aria-labelledby points at the tab strip's
-// id, which `AppRoutes` on its own does not render. So this case locates the
-// panel by role and checks the wiring instead of the name; the whole-app test
-// with the real tab strip is where the accessible name is asserted.
-//
-// It used to assert `getByText('element')` against the raw route segment the
-// route echoed into a <p>. That <p> is gone, and the assertion was never worth
-// keeping: `getByText` matches a node's whole text, so it was answering a
-// question about the segment, not about the page.
+// The tabpanel is unnamed here: its aria-labelledby points at the tab strip,
+// which `AppRoutes` alone does not render. So this checks the wiring; the
+// whole-app test asserts the accessible name.
 test('/docs/element renders the docs panel, wired to its tab', async () => {
   const screen = await at('/docs/element')
   await expect.element(screen.getByRole('tabpanel')).toBeVisible()
   const panel = screen.container.querySelector('[role="tabpanel"]')
   expect(panel?.getAttribute('aria-labelledby')).toBe('tab-docs-panel')
-  // Named, though it is the only navigation landmark here today: the docs page
-  // is where a second one would land, and an unnamed role locator turns that
-  // day's addition into a strict-mode throw in a case about something else.
+  // Named, though it is the only navigation landmark today: a second one would
+  // turn an unnamed locator into a strict-mode throw.
   await expect.element(screen.getByRole('navigation', { name: 'Documentation pages' })).toBeVisible()
 })
 
@@ -70,30 +57,16 @@ test('/docs/cli is the same panel, on its own page', async () => {
   await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('aria-current', 'page')
 })
 
-// The lab is not a route element (Ruling 5): App mounts it beside <Routes> and
-// hides it off-route, so `/` renders nothing here.
+// The lab is not a route element: App mounts it beside <Routes>.
 test('the root path renders no panel of its own', async () => {
   const screen = await at('/')
   expect(screen.container.querySelector('[role="tabpanel"]')).toBeNull()
 })
 
-// The missing panel cannot carry this name either (the board case above says
-// why at length): `/` renders no panel, and neither does a path that matched
-// nothing at all, so the address is the only witness to a redirect.
-//
-// The address is compared whole. `toHaveTextContent` does that by strict
-// equality — it normalizes the element's text and compares it against
-// `String(t)`, so `toHaveTextContent('/')` genuinely fails on `/nowhere`; it
-// does not pass just because the path contains a slash. (The substring form
-// is a different matcher, `toMatchTextContent`, registered beside it in the
-// same map — presumably where the two get confused.) What `toHaveTextContent`
-// cannot take is a regular expression: because it stringifies its argument
-// first, `toHaveTextContent(/^\/$/)` compares against the literal text
-// `/^\/$/`, not a pattern — measured here, it reports `Expected element to
-// have text content: /^\/$/` against a received `/`. So this case reads the
-// node's own text and compares it with `expect.poll`/`toBe` instead, polling
-// because the redirect lands in a later frame than the one that renders
-// `<Address />`.
+// Only the address witnesses the redirect (see the board case above). Read as
+// text and compared with `toBe`: `toHaveTextContent` stringifies a RegExp
+// argument, so `/^\/$/` would be matched literally. Polled, because the
+// redirect lands a frame after `<Address />` first renders.
 test('an unknown path redirects to the root', async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/nowhere']}>
@@ -116,10 +89,8 @@ test('each panel keeps the main landmark around it', async () => {
   expect(panel?.getAttribute('tabindex')).toBe('0')
 })
 
-// `/docs` alone fell to the wildcard and landed the reader in the lab, which is
-// a surprising answer to a documentation link. An unknown page name lands on
-// the element's page too — including an upper-case one, since react-router
-// matches paths case-insensitively and `:what` happily captures `CLI`.
+// An unknown page name lands on the element's page too, including upper case:
+// react-router matches paths case-insensitively, so `:what` captures `CLI`.
 test.each(['/docs', '/docs/nowhere', '/DOCS/CLI'])('%s lands on the element page', async (path) => {
   const screen = await render(
     <MemoryRouter initialEntries={[path]}>
@@ -141,10 +112,7 @@ test('a deeper docs path is a stale link and goes to the lab', async () => {
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })
 
-// The spec promises the tab, not only the address: the strip must mark Docs as
-// the open section on the CLI page as well, since `selectedIndex` keys on the
-// `/docs` prefix rather than on the tab's own path. `TabRow` is mounted here
-// rather than the whole shell, because the claim is about the strip.
+// `selectedIndex` keys on the `/docs` prefix, not on the tab's own path.
 test('the Docs tab is the selected one on the CLI page', async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/docs/cli']}>
@@ -155,11 +123,8 @@ test('the Docs tab is the selected one on the CLI page', async () => {
   await expect.element(screen.getByRole('tab', { name: 'Lab' })).toHaveAttribute('aria-selected', 'false')
 })
 
-// §7's other two promises need the strip and the routes together. After the
-// upper-case redirect the tab must agree with the address — `selectedIndex` is
-// case-sensitive, so for one frame before the redirect it says Lab. And the
-// tab's own path is `/docs/element`, so clicking it from the CLI page goes back
-// to the element's page rather than staying put.
+// `selectedIndex` is case-sensitive, so for one frame before the redirect the
+// strip says Lab; the tab must agree with the address once it lands.
 test('after the upper-case redirect the address and the tab agree', async () => {
   const screen = await render(
     <MemoryRouter initialEntries={['/DOCS/CLI']}>

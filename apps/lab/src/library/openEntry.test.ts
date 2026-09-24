@@ -13,15 +13,10 @@ test('the address names a listed size', () => {
 test('no size in the address falls back to the first, and says it is a fallback', () => {
   const found = openEntry(SIZES, null)
   expect(found.entry?.size).toBe('8x8')
-  // Not a mismatch: nothing was asked for, so the first size's chip is the one
-  // that describes the rows being shown. PR 5a's own case asserts it is pressed,
-  // and review round 2 caught the first draft of this function breaking that.
+  // Not a mismatch: nothing was asked for, so the first size's tab stays selected.
   expect(found.mismatch).toBe(false)
 })
 
-// The disagreement PR 5a's review found: the list fell back to the first size's
-// rows while no chip was pressed, so the two halves of the panel described
-// different sizes. One function, one answer (spec §5.6).
 test('a size the store does not list falls back, and says so', () => {
   const found = openEntry(SIZES, '10x10')
   expect(found.entry?.size).toBe('8x8')

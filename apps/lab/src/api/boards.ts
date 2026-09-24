@@ -10,15 +10,10 @@ export type FileOutcome = { ok: true; file: unknown } | { ok: false; error: stri
 
 /**
  * The store is optional: the lab runs from any static host, and a missing
- * server must cost the run nothing. Every call therefore reports failure as a
- * value. A rejected `fetch` and an answer that is not OK are treated alike —
- * a store that refuses the connection and a store that returns 500 are the
- * same thing to a caller with a list to render.
- *
- * The listing says which failure happened, because the library has two
- * sentences for them: "no store server" for an unreachable store and "the
- * store is empty" for a store that answers with nothing (Ruling 2). An empty
- * list is a success.
+ * server must cost the run nothing, so every call reports failure as a value.
+ * A rejected `fetch` and a non-OK answer are alike to the caller. An empty list
+ * is a success: the library says "no store server" for a failure and "the store
+ * is empty" for that.
  */
 export async function listBoards(): Promise<ListOutcome> {
   try {
@@ -57,10 +52,8 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
   if (response.status === 201) {
-    // Guarded like the failure path below it: a 201 whose body will not parse
-    // is still a failure, and an unguarded `await` here would reject a promise
-    // this module promises never to reject — the caller in App.tsx has no
-    // `.catch`, so the run's status line would simply never learn the outcome.
+    // An unparseable 201 is a failure too; an unguarded `await` would reject,
+    // and `useStoreSave` has no `.catch`, so the status line would never learn.
     try {
       return { ok: true, meta: (await response.json()) as BoardMeta }
     } catch (err) {
@@ -78,15 +71,10 @@ export async function saveBoard(request: StoreRequest): Promise<SaveOutcome> {
 export type DeleteOutcome = { ok: true; deleted: boolean } | { ok: false; error: string }
 
 /**
- * Removes one stored board. A 404 is an outcome, not a failure (Ruling 11):
- * pressing Delete on a board another window has already removed means the same
- * thing to the caller as removing it here — it is not there. `ok: false` is
- * kept for a store that could not be reached or answered with a fault, which
- * is the distinction every other call in this module makes.
- *
- * Both segments are encoded: an id is a hash and a size is `WxH`, so neither
- * carries a slash today, and a path built by concatenation that stops being
- * true later is the kind of thing this file should not leave lying around.
+ * Removes one stored board. A 404 is an outcome, not a failure: a board
+ * another window already removed is just as gone. `ok: false` is for a store
+ * that could not be reached or answered with a fault. Both path segments are
+ * encoded, though neither a hash nor `WxH` carries a slash today.
  */
 export async function deleteBoard(size: string, id: string): Promise<DeleteOutcome> {
   let response: Response

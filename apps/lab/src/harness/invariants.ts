@@ -1,9 +1,8 @@
 import { contrast, shown } from '../design/contrast'
 
-// The review's measurements (2026-09-22) as assertions. Every one of them
-// reads an effect the browser computed, never a declared property: a panel
-// that declares `overflow: auto` and never scrolls passes a declaration test
-// (harness fact 36).
+// Layout invariants as assertions. Each reads an effect the browser computed,
+// never a declared property: a panel that declares `overflow: auto` and never
+// scrolls passes a declaration test.
 
 export type Invariant =
   | 'scroll'
@@ -88,11 +87,9 @@ function overlap(root: HTMLElement): Finding[] {
 }
 
 /**
- * Every control in the top bar stays inside it. `.fw-top` clips
- * (`overflow: hidden`, shell.css), so a control pushed past its edge by a
- * wider label (review P8: a Polish "Zaawansowany" widens the mode switch and
- * shoves the language switch off the right) is invisible to the `scroll`
- * invariant above — the document never grows, the bar's own content does.
+ * Every control in the top bar stays inside it. `.fw-top` clips, so a control
+ * pushed off its edge by a wider label (Polish "Zaawansowany") is invisible to
+ * `scroll`: the document never grows, the bar's content does.
  */
 function barClip(root: HTMLElement): Finding[] {
   const bar = root.querySelector('.fw-top')
@@ -121,11 +118,9 @@ function barClip(root: HTMLElement): Finding[] {
 }
 
 /**
- * A rendered `.fw-knobs` or `.fw-report` never scrolls sideways. `scroll`
- * above only sees the document's own scrolling element; a panel that clips
- * (`overflow-y: auto`) can grow past its own width without the document ever
- * growing past its (live pass, 420×900: `.fw-knobs` scrollWidth 271 >
- * clientWidth 254).
+ * A rendered `.fw-knobs` or `.fw-report` never scrolls sideways. A panel that
+ * clips (`overflow-y: auto`) can outgrow its width while the document does not,
+ * so `scroll` cannot see it.
  */
 function panelOverflow(root: HTMLElement): Finding[] {
   const out: Finding[] = []
@@ -141,11 +136,9 @@ function panelOverflow(root: HTMLElement): Finding[] {
 }
 
 /**
- * A rendered popover lies inside the viewport on both axes (spec §3.4). The
- * preset panel is absolutely positioned under its 38px row, so whether the
- * document grows with it depends on which ancestor clips: `scroll` sees it
- * only when none does (measured at 420×700 with no `max-height`: both went
- * red). This reads the panel's own box instead.
+ * A rendered popover lies inside the viewport on both axes. It is absolutely
+ * positioned, so `scroll` sees it only when no ancestor clips; this reads the
+ * panel's own box instead.
  */
 function popoverFit(root: HTMLElement): Finding[] {
   const out: Finding[] = []
@@ -159,8 +152,7 @@ function popoverFit(root: HTMLElement): Finding[] {
         detail: `${label(panel)} ${l},${t} to ${rt},${b} in ${window.innerWidth}×${window.innerHeight}`,
       })
     }
-    // At XS, where the sheet bar is rendered, a popover stops above it (the
-    // preset list ran 32px under it, measured in review).
+    // At XS, where the sheet bar is rendered, a popover stops above it.
     const sheetbar = root.querySelector('.fw-sheetbar')
     if (sheetbar !== null && rendered(sheetbar) && r.bottom > sheetbar.getBoundingClientRect().top + EPS)
       out.push({
@@ -172,12 +164,9 @@ function popoverFit(root: HTMLElement): Finding[] {
 }
 
 /**
- * An open drawer lies over the board (spec §4.1): inside its stage — never
- * past the stage's edge onto the console. Neither tab has a rail beside the
- * board any more (handoff 2, PR 1 and PR 6), so the stage's own left edge is
- * the bound. Open only:
- * closed, the drawer is translated all but its handle past the stage's right
- * edge by design, and the stage clips it (`overflow: hidden`, shell.css).
+ * An open drawer lies over the board, inside its stage, never past the stage's
+ * edge onto the console. Open only: closed, it is translated all but its handle
+ * past the stage's right edge by design, and the stage clips it.
  */
 function drawerFit(root: HTMLElement): Finding[] {
   // At XS the drawers are sheets over the viewport (`sheet-fit`).
@@ -201,12 +190,10 @@ function drawerFit(root: HTMLElement): Finding[] {
 }
 
 /**
- * The open settings drawer (handoff 2, PR 1) lies inside its stage and, from
- * 1024px up, beside the board rather than over it: the board's track gives way
- * by the drawer's width, so a knob change is always in sight. Below 1024 it
- * lies over the board (S), and only the stage bound is read. Open only:
- * closed, it is translated all but its handle past the stage's left edge,
- * which clips it.
+ * The open settings drawer lies inside its stage and, from 1024px up, beside
+ * the board rather than over it, so a knob change is always in sight. Below
+ * 1024 it lies over the board, and only the stage bound is read. Open only, as
+ * in `drawerFit`.
  */
 function settingsFit(root: HTMLElement): Finding[] {
   // At XS the drawers are sheets over the viewport (`sheet-fit`).
@@ -234,7 +221,7 @@ function settingsFit(root: HTMLElement): Finding[] {
   return out
 }
 
-/** No button keeps the user agent's look (review P9: `2px outset`). */
+/** No button keeps the user agent's look (`2px outset`). */
 function uaButtons(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('button')]
     .filter((b) => rendered(b) && getComputedStyle(b).borderTopStyle === 'outset')
@@ -276,19 +263,16 @@ function lowContrast(root: HTMLElement): Finding[] {
 }
 
 /**
- * Spec §2's floors, measured with the drawer open: the widths the handoff's
- * sizes give the board today, held so a push that eats into it goes red.
- * Any other width from 768 up keeps the usable minimum. 1024 gave up 16px in
- * round 3, PR 5, when the open drawer stopped taking the board's own padding
- * (440 → 424, the handoff's checkpoint); 1440's 517 stays above its floor.
+ * The board's width with the drawer open at the design's checkpoint sizes, held
+ * so a change that eats into it goes red. Any other width from 768 up keeps the
+ * usable minimum (`boardWidth`).
  */
 const BOARD_FLOORS: Readonly<Record<number, number>> = { 1440: 501, 1024: 424, 768: 678 }
 
 /**
- * The board keeps a usable width (handoff 2, PR 7): spec §2's floor at the
- * handoff's sizes, at least 320px at any other width from 768 up, whatever
- * the drawer does, and edge to edge on a phone (the package measured 359 at
- * 375). Solo is its own case: the board takes the panel.
+ * The board keeps a usable width: `BOARD_FLOORS` at the checkpoint sizes, at
+ * least 320px at any other width from 768 up whatever the drawer does, and edge
+ * to edge (less 16px) on a phone. Solo is exempt: the board takes the panel.
  */
 function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
   const board = root.querySelector('.fw-board')
@@ -300,7 +284,7 @@ function boardWidth(root: HTMLElement, solo: boolean): Finding[] {
 
 /**
  * At M and S the right column is a bar under the board: one or two rows of
- * controls, and the run's state as one more row of one line (round 3, 3h).
+ * controls, and the run's state as one more row of one line.
  */
 function barRow(root: HTMLElement, solo: boolean): Finding[] {
   if (solo || window.innerWidth < 768 || window.innerWidth >= 1280) return []
@@ -313,9 +297,7 @@ function barRow(root: HTMLElement, solo: boolean): Finding[] {
     const r = bar.getBoundingClientRect()
     if (r.top < bottom - EPS)
       out.push({ invariant: 'bar-row', detail: `${label(bar)} top ${r.top.toFixed(0)} < board ${bottom.toFixed(0)}` })
-    // Round 3 (3h): the run's state is the bar's last row, one line, under
-    // the one or two rows of controls — so the controls are measured without
-    // it, and the line is held to one line of its own.
+    // The controls are measured without the state row, which is held to one line.
     const state = bar.querySelector(':scope > .fw-runstate')
     let controls = r.height
     if (state !== null && rendered(state)) {
@@ -370,11 +352,10 @@ function sheets(root: HTMLElement, solo: boolean): Finding[] {
 }
 
 /**
- * At XS every control a thumb reaches in the shell and in the open sheets
- * (spec §7) is 44px tall to the finger: its box, or its `::before` where the
- * drawing is smaller (the switch, the menu chip). Inside a knob row the
- * handoff draws smaller on purpose, and touch.browser.test.tsx pins those
- * sizes: the `?` and the chips are 32 (skipped here), a select is 40.
+ * At XS every control a thumb reaches in the shell and the open sheets is 44px
+ * tall to the finger: its box, or its `::before` where the drawing is smaller.
+ * A knob row is smaller by design (pinned in touch.browser.test.tsx): the `?`
+ * and the chips are 32 (skipped here), a select is 40.
  */
 function touchTargets(root: HTMLElement): Finding[] {
   if (window.innerWidth >= 768) return []
@@ -396,10 +377,7 @@ function touchTargets(root: HTMLElement): Finding[] {
   return out
 }
 
-/**
- * An element carrying `hidden` has no box: a `display` rule on it would undo
- * the attribute (the package's own XS preset panel did). Spec §3.
- */
+/** An element carrying `hidden` has no box: a `display` rule would undo the attribute. */
 function hiddenBox(root: HTMLElement): Finding[] {
   return [...root.querySelectorAll('[hidden]')]
     .filter((el) => el.closest('main[hidden]') === null && rendered(el))
@@ -407,13 +385,10 @@ function hiddenBox(root: HTMLElement): Finding[] {
 }
 
 /**
- * A knob row keeps its cells in its own tracks (live pass, 2026-09-23).
- * `panel-overflow` cannot see this: `.kv` clips the row (`overflow: hidden`)
- * before `.fw-knobs` grows. Two readings: no rendered cell ends past the row
- * (at 1280×800 the five tracks needed 404px of a 360px row and the bound
- * track fell off the edge), and the last rendered cell ends inside the last
- * track (at 600×900 the bounds were `display: none` on a five-track grid, so
- * the slider auto-placed into a 36px bound track and 234px stood empty).
+ * A knob row keeps its cells in its own tracks. `.kv` clips the row before
+ * `.fw-knobs` grows, so `panel-overflow` cannot see this. No rendered cell ends
+ * past the row (tracks too wide for it), and the last one ends inside the last
+ * track (a hidden cell let the slider auto-place into a narrow track).
  */
 function knobRows(root: HTMLElement): Finding[] {
   const out: Finding[] = []

@@ -19,26 +19,22 @@ import { useOpenPreview } from './useOpenPreview'
 import { cancelPendingSave } from './useViewSave'
 
 /**
- * The stage's right column on the saved boards (handoff 2, PR 6), where the
- * lab has its run column and in the same track: the open board's command,
- * Load into lab as the primary action, Delete from disk, its two exports, and
- * what it is. With no board open it says how to open one, rather than offering
- * an empty command and a Delete with nothing to delete (Ruling 6 of PR 5b).
+ * The stage's right column on the saved boards, in the run column's track: the
+ * open board's command, Load into lab, Delete, two exports, and its facts. With
+ * no board open it says how to open one instead of offering an empty command.
  *
- * Mounted under the open board's key (Workspace.tsx), as the old detail was
- * (Ruling 10): an armed Delete, a Copied label and a drawing's error are all
- * about the board they were raised on, and a new board is a new instance.
+ * `Workspace` keys it by the open board: an armed Delete, a Copied label and a
+ * drawing's error belong to the board they were raised on.
  */
 
-/** The board column's id, which the phone's Board sheet button controls (handoff 2, PR 7). */
+/** The board column's id, which the phone's Board sheet button controls. */
 export const BOARD_COLUMN_ID = 'board-column'
 
 /**
- * The library's events and failures in words (round 3, 3h), `aria-hidden`
- * because the live `<output>` says the same. From 768 up that output is out of
- * sight (shell.css), so this is where a person reads them — also with no board
- * open, which is where Delete lands and where a board that failed to load
- * leaves the page.
+ * The library's events and failures in words, `aria-hidden` because the live
+ * `<output>` says the same. From 768 up that output is out of sight, so this is
+ * where a person reads them, also with no board open (where Delete and a failed
+ * load land).
  */
 function LibraryLine({ line }: { line: StateLine | null }): ReactElement {
   return (
@@ -85,9 +81,7 @@ export function BoardColumn(): ReactElement {
 
   const copy = () => {
     const clipboard = navigator.clipboard
-    // Undefined outside a secure context, where the interface is not exposed
-    // at all — the same guard `LiveCommand` carries, and for the same reason:
-    // the button staying on its normal label is the honest signal.
+    // Undefined outside a secure context; the label staying put is the honest signal.
     if (clipboard === undefined) return
     void clipboard
       .writeText(meta.command)
@@ -99,9 +93,8 @@ export function BoardColumn(): ReactElement {
       .catch(() => {})
   }
 
-  // Ruling 9: the knobs, then the view, then the lab — and no run. `setMany`
-  // is the machine path and does not move `edits`, which is the only thing
-  // `useAutoRun` watches.
+  // The knobs, then the view, then the lab, and no run: `setMany` does not
+  // move `edits`, the only thing `useAutoRun` watches.
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
@@ -126,24 +119,20 @@ export function BoardColumn(): ReactElement {
       return
     }
     setArmed(false)
-    // Before anything reaches the store: a view save still waiting on its timer
-    // would otherwise land after the delete and write the board back to disk,
-    // which review round 2 measured against a real store (Rulings 11 and 12).
+    // First: a view save still waiting on its timer would land after the
+    // delete and write the board back to disk.
     cancelPendingSave()
-    // The address's directory, not `${meta.W}x${meta.H}`: the store finds a
-    // board by the directory it listed, and a folder called `08x08` lists
-    // boards whose `W` is 8. Reconstructing the size sent the DELETE to a
-    // directory the store has not got, and Ruling 11 turned its 404 into
-    // "deleted" while the board stayed on disk.
+    // The address's directory, not `${meta.W}x${meta.H}`: a folder called
+    // `08x08` holds boards whose `W` is 8, and a DELETE to a missing directory
+    // answers 404, which reads as "deleted" while the board stays on disk.
     const name = `${size}/${meta.id}`
     void deleteBoard(size, meta.id).then((outcome) => {
       if (!outcome.ok) {
         raiseNotice({ kind: 'deleteFailed' })
         return
       }
-      // Whether the store had it or not, it is gone now (Ruling 11). The
-      // address is replaced rather than pushed: the board it names is off the
-      // disk, and Back must not offer it again (spec §5.6).
+      // Gone either way. Replaced, not pushed: Back must not offer a board
+      // that is off the disk.
       raiseNotice({ kind: 'deleted', name })
       void navigate('/boards', { replace: true })
       refreshLibrary()
@@ -211,7 +200,7 @@ export function BoardColumn(): ReactElement {
           <button type="button" onClick={exportFile}>
             {dict.t('downloadBoardFile')}
           </button>
-          {/* The engine's `toSvg` never learns a theme's colours (spec §9). */}
+          {/* The engine's `toSvg` never learns a theme's colours. */}
           {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
           {drawError === null ? null : (
             <p className="fw-export-error" role="alert">

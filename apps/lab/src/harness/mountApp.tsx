@@ -8,16 +8,12 @@ import { useStore } from '../state/store'
 import type { ViewMode } from '../state/ui.slice'
 
 /**
- * Puts back everything a whole-app case can move, for the files this PR adds
- * (PR 4b, Ruling 11). The address first: a case that navigated must not leave
- * the next on /boards, and a fragment left behind would be read as a pasted
- * link — `replaceState` also clears `history.state`, where react-router keeps
- * its record. The view slice has no reset; a case that moves it puts it back.
- *
- * The two library timers as well: both are module scope, outliving whatever
- * component armed them (Ruling 12), so a case that edits a stored view or
- * raises a notice and ends before either fires can post into the next case
- * otherwise — whole-branch review finding 8.
+ * Puts back everything a whole-app case can move. The address first: a case
+ * that navigated must not leave the next on /boards, and a leftover fragment
+ * would be read as a pasted link; `replaceState` also clears `history.state`,
+ * react-router's record. The view slice has no reset; a case that moves it puts
+ * it back. The library timers are module scope and outlive their component, so
+ * one left armed would post into the next case.
  */
 export function resetApp(mode: ViewMode): void {
   window.history.pushState({}, '', '/')
