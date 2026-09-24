@@ -11,7 +11,7 @@ const GROUP_NAMES = ['statGroupSize', 'statGroupBlocking', 'statGroupReach', 'st
  * Rows whose value is wider than a number (round 3, 3b): it stays on its
  * label's line and wraps in its own track. Chosen by the row, not measured.
  */
-export const WIDE_KEYS: readonly StatKey[] = ['board', 'longest', 'lengths', 'stall', 'absorbed', 'time']
+export const WIDE_KEYS: readonly StatKey[] = ['board', 'longest', 'lengths', 'stall', 'absorbed', 'time', 'blockDist']
 
 /** The classes of a row of the grid: `sum` leaves the table under the summary, `long` widens the value. */
 export function rowClass(key: StatKey | null, changed: boolean): string | undefined {

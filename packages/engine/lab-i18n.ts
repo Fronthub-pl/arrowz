@@ -30,7 +30,8 @@ export const EN = {
     lengths:
       'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
     shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
-    difficulty: 'How hard it is to find a piece with a free way out. Changes the blocking, not the look.',
+    difficulty:
+      'Where pieces start, how they are chosen, and how long they run. Changes how hard it is to find a piece with a free way out.',
     skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
     closing:
       'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
@@ -329,7 +330,7 @@ export const EN = {
     stat_maxOut: 'unblocks record',
     stat_blockDist: 'unblock distance',
     piecesUnit: 'pieces',
-    perimeterUnit: 'of perimeter',
+    sidesUnit: 'of width + height',
     stat_bends: 'bends per piece',
     stat_coil: 'coiling',
     stat_border: 'shared border',
@@ -658,7 +659,8 @@ export const PL: Translation = {
   groupHelp: {
     lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
     shape: 'Wagi wyboru kolejnej komórki linii. Mnożą się, więc jedna skrajna wartość zagłusza pozostałe.',
-    difficulty: 'Jak trudno znaleźć element z wolną drogą. Zmienia blokowanie, nie wygląd.',
+    difficulty:
+      'Skąd zaczynają się elementy, jak są wybierane i jak długo biegną. Zmienia to, jak trudno znaleźć element z wolną drogą.',
     skeleton: 'Pierwsze elementy prowadzone serpentyną przez całą planszę. Jedyny sposób na naprawdę długie linie.',
     closing:
       'Co robić, gdy nie ma legalnego wycięcia. Domyślne domykają plansze do 400×400; te pokrętła są do eksperymentów.',
@@ -908,7 +910,7 @@ export const PL: Translation = {
     stat_maxOut: 'odblokowania rekord',
     stat_blockDist: 'dystans odblokowań',
     piecesUnit: 'elem.',
-    perimeterUnit: 'obwodu',
+    sidesUnit: 'szerokości + wysokości',
     stat_bends: 'skrętów na element',
     stat_coil: 'zwinięcie',
     stat_border: 'wspólna granica',

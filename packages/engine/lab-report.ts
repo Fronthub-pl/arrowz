@@ -160,7 +160,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
     stat(
       'blockDist',
       dict.t('stat_blockDist'),
-      `${pct(metrics.blockDist)} ${dict.t('perimeterUnit')}`,
+      `${pct(metrics.blockDist)} ${dict.t('sidesUnit')}`,
       100 * metrics.blockDist,
       1,
     ),

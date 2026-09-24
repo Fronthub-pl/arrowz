@@ -353,8 +353,8 @@ test('wide values are chosen by the row, and a row without a change widens its v
     .map((tr, at) => [at, tr.classList.contains('long')] as const)
     .filter(([, is]) => is)
     .map(([at]) => at)
-  // board, longest, length distribution, stalls, absorbed leftovers, time
-  expect(long).toEqual([0, 3, 4, 19, 20, 22])
+  // board, longest, length distribution, unblock distance, stalls, absorbed leftovers, time
+  expect(long).toEqual([0, 3, 4, 14, 19, 20, 22])
   expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
   expect(getComputedStyle(row(screen.container, 0).cells[2] as HTMLElement).display).toBe('none')
   await act(async () => finish(TWO))
