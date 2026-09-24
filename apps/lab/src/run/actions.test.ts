@@ -19,8 +19,8 @@ function fakeControl(): RunControl & { started: number } {
 }
 
 beforeEach(() => {
-  // Through setState, never through the action under test: a fixture that
-  // cleans up by calling a slice method blinds the mutation test (fact 40).
+  // Reset via setState, not via a slice action: a reset that calls the action
+  // under test hides that action's bugs.
   useStore.setState((state) => ({ ui: { ...state.ui, mode: 'advanced', auto: false } }))
   useStore.getState().params.reset()
 })
@@ -68,8 +68,8 @@ describe('the run actions, which the column and the palette share', () => {
     expect(useStore.getState().params.values.seed).toBe(2 ** 32 - 1)
   })
 
-  // Spec D6: the chip and the palette row are the same action, so it is one
-  // function. Every knob is written, not only the ones the option names.
+  // The chip and the palette row are the same action, so it is one function.
+  // Every knob is written, not only the ones the option names.
   it('writes a whole preset, follows it with the export cell size, and runs', () => {
     const control = fakeControl()
     useStore.getState().params.set('giantStep', 3)
@@ -87,8 +87,8 @@ describe('the run actions, which the column and the palette share', () => {
     expect(control.started).toBe(1)
   })
 
-  // Ruling 3: the machine path must not also wake auto-generate, or one press
-  // would carve twice — once here, once 350 ms later.
+  // The machine path must not also wake auto-generate, or one press would
+  // carve twice: once here, once 350 ms later.
   it('leaves the edit counter alone, so auto-generate does not fire a second run', () => {
     const control = fakeControl()
     const before = useStore.getState().params.edits

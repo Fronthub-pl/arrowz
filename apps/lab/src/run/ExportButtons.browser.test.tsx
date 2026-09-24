@@ -16,7 +16,7 @@ const ONE = finishedRun(1)
 /**
  * Every download the page starts: the Blob handed to `createObjectURL` and the
  * name on the anchor that was clicked. The anchor's click is cancelled, so no
- * file is written and no navigation happens (Ruling 8).
+ * file is written and no navigation happens.
  */
 function watchDownloads() {
   const blobs: Blob[] = []
@@ -75,7 +75,7 @@ test('there is nothing to export before there is a board', async () => {
   await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeDisabled()
 })
 
-// Spec §5: the name the store gives the same arrows (store.ts `saveBoard`).
+// The name the store gives the same arrows (`saveBoard`).
 test('the board file is the file on screen, under its layout hash', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
@@ -99,9 +99,8 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   const FIVE = finishedRun(5)
   const threeName = `${await layoutHash(THREE.board)}.board.json`
   const fiveName = `${await layoutHash(FIVE.board)}.board.json`
-  // A release returns the digest it starts, so the case can await the state it
-  // lets through: a release that returned nothing would only flush `act`, and
-  // the suppressed write could land after the next assertion had already run.
+  // A release returns the digest it starts, so the case awaits the state it
+  // lets through rather than only flushing `act`.
   const held: (() => Promise<void>)[] = []
   const real = crypto.subtle.digest.bind(crypto.subtle)
   vi.spyOn(crypto.subtle, 'digest').mockImplementation(
@@ -135,11 +134,9 @@ test('the board file waits for the hash of the board on screen, and a replaced b
   })
   await expect.element(button).toBeEnabled()
   await button.click()
-  // The other order, and the one only the effect's cleanup survives: the board
-  // on screen answers first, the board it replaced answers after. A late hash
-  // written on top would fail the file comparison and leave the button dead
-  // until the next run — the window is an Insane board's digest still in
-  // flight when a small board replaces it.
+  // The other order, which only the effect's cleanup survives: the new board's
+  // hash answers first, the replaced board's after. A late hash written on top
+  // would leave the button dead until the next run.
   await act(async () => finish(FOUR))
   await expect.poll(() => held.length).toBe(4)
   await act(async () => finish(FIVE))
@@ -166,9 +163,8 @@ test('a board file that cannot be named says why, and the SVG export stays', asy
   await expect.element(screen.getByRole('button', { name: 'Download board file' })).toBeDisabled()
   const svg = screen.getByRole('button', { name: 'Download SVG' })
   await expect.element(svg).toBeEnabled()
-  // Spec §5: why the reason is not the result slice's `exportError` — that line
-  // is cleared when an SVG export starts, and the board-file button would then
-  // stay disabled with nothing on screen saying why.
+  // Not the result slice's `exportError`: that is cleared when an SVG export
+  // starts, and the board-file button would stay disabled with no reason shown.
   await svg.click()
   await expect.poll(() => downloads.names, { timeout: 10_000 }).toEqual(['arrowz-8x8-seed1.svg'])
   await expect.element(screen.getByRole('alert')).toHaveTextContent('Cannot name the board file: no secure context')
@@ -188,8 +184,8 @@ test('the SVG is drawn off the page and saved under the board it shows', async (
   expect(screen.getByRole('alert').query()).toBeNull()
 })
 
-// Beside the buttons, not in the run status (spec §5.2). A stub worker, because
-// a real one cannot be made to fail to order.
+// Beside the buttons, not in the run status. A stub worker, because a real one
+// cannot be made to fail to order.
 test('a failed SVG export says so under the buttons, and the button comes back', async () => {
   class FailingWorker {
     onmessage: ((event: MessageEvent<WorkerOut>) => void) | null = null
@@ -257,9 +253,8 @@ test('an export that fails after its board was replaced says nothing', async () 
   await expect.element(button).toBeEnabled()
 })
 
-// Spec §9 stays untouched: `toSvg` learns no colours, so a theme chosen on
-// screen would not survive an export. The note about it is a caveat, not
-// documentation — quiet until it would matter.
+// `toSvg` learns no colours, so a theme chosen on screen does not survive an
+// export. The note is quiet until it would matter.
 test('the SVG-export note appears only while a theme is chosen', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
@@ -270,7 +265,7 @@ test('the SVG-export note appears only while a theme is chosen', async () => {
   expect(screen.getByText(/not the chosen theme/i).query()).toBeNull()
 })
 
-// §7.1, PR 4b: the mock's ghost buttons, `--ash` on `--graphite`.
+// The mock's ghost buttons, `--ash` on `--graphite`.
 test('the export buttons read at AA', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))

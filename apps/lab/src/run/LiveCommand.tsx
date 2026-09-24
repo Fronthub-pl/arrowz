@@ -6,12 +6,11 @@ import { CommandText } from './CommandText'
 import { useCopy } from './useCopy'
 
 /**
- * The command that would reproduce what is configured — not what is drawn.
- * The rule: the command matches the CURRENT knobs, not the last board — the
+ * The command that would reproduce what is configured, not what is drawn: the
  * lab is a layer over the CLI and must show exactly what would be run.
  *
  * `<figure>` around the mock's `<pre>`: a `<pre>` has no role and cannot be
- * named, and an unlabelled block of preformatted text is one of the §7.2 gaps.
+ * named, and an unlabelled block of preformatted text is an accessibility gap.
  */
 export function LiveCommand() {
   const dict = useDictionary()

@@ -51,7 +51,7 @@ describe('useAutoRun', () => {
     expect(g.started()).toBe(1)
   })
 
-  // Ruling 3, from the other side: the machine path must be invisible here.
+  // The machine path (`setMany`, `reset`) must be invisible here.
   it('ignores what a preset, Defaults or a link applied', async () => {
     const g = stub()
     await renderHook(() => useAutoRun(g.control))
@@ -133,8 +133,8 @@ describe('the recipe, which does not ask the switch', () => {
     expect(g.started()).toBe(0)
   })
 
-  // Ruling 3's debt. With one timer for both kinds, a knob edit with auto off
-  // restarts the wait; it must not also forget the recipe run it restarted.
+  // With one timer for both kinds, a knob edit with auto off restarts the wait;
+  // it must not also forget the recipe run it restarted.
   it('keeps a recipe run it owes when a knob edit with auto off lands inside the wait', async () => {
     const g = stub()
     await renderHook(() => useAutoRun(g.control))

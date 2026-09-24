@@ -1,8 +1,7 @@
 /**
- * A Blob to a named file, the way a page with no server behind it saves one —
+ * A Blob to a named file, the way a page with no server behind it saves one;
  * shared by both exports. The anchor is in the document for the length of its
- * click, so the click is an ordinary event there (PR 4b, Ruling 8); the object
- * URL is revoked at once.
+ * click, so the click is an ordinary event there; the object URL is revoked at once.
  */
 export function downloadBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob)
