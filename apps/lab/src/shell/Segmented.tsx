@@ -8,13 +8,13 @@ export interface SegmentedOption<T extends string> {
 /**
  * One of a few, as chips: the language, the view, the skeleton. A radio group
  * and not a row of `aria-pressed` buttons, because the choices exclude each
- * other and a screen reader should say "1 of 2" (PR 4a, Ruling 8).
+ * other and a screen reader should say "1 of 2".
  *
- * The keyboard is the radio pattern `TabRow` already implements for tabs: the
- * arrows move the choice and wrap, Home and End jump, and only the checked
- * radio is a tab stop. Focus follows the choice only while the group holds the
- * focus, the same guard as `TabRow.tsx`, so a choice made elsewhere — a link
- * naming a language — does not pull the focus into the top bar.
+ * The keyboard is the radio pattern `TabRow` implements for tabs: the arrows
+ * move the choice and wrap, Home and End jump, and only the checked radio is a
+ * tab stop. Focus follows the choice only while the group holds the focus, the
+ * same guard as `TabRow`, so a choice made elsewhere (a link naming a
+ * language) does not pull the focus into the top bar.
  */
 export function Segmented<T extends string>({
   label,

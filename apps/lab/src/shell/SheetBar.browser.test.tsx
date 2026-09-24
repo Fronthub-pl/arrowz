@@ -27,8 +27,7 @@ test('the lab names its sheets Settings, CLI and Report, each controlling its pa
 
 test('the saved boards name them Boards, Board and Report', async () => {
   await page.viewport(375, 812)
-  // `arrange`'s idiom (LayoutInvariants.browser.test.tsx): `resetApp` pushes
-  // `/` (mountApp.tsx:23), so the route goes in after it and before `render`.
+  // `resetApp` pushes `/`, so the route goes in after it and before `render`.
   resetApp('advanced')
   window.history.pushState({}, '', '/boards')
   const screen = await render(<App />)
@@ -93,7 +92,7 @@ test('picking a board in the Boards sheet opens it and closes the sheet', async 
   window.history.pushState({}, '', '/boards')
   const screen = await render(<App />)
   // DOM clicks, not the locator's: the listing's fetch re-renders the rows
-  // while the locator waits for a stable element (harness fact 54).
+  // while the locator waits for a stable element.
   const boards = screen.getByRole('button', { name: 'Boards', exact: true }).element()
   if (!(boards instanceof HTMLElement)) throw new Error('the Boards button is not an HTML element')
   await act(async () => boards.click())

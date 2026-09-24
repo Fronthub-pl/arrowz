@@ -7,9 +7,9 @@ import { Segmented } from './Segmented'
 export const TOP_MENU_ID = 'top-menu'
 
 /**
- * The one large Signal plane of the mock: the mark and the size (spec §5.1;
- * the preset's name moved to the picker, spec §3.3), and the right group
- * where the view and the language are chosen.
+ * The one large Signal plane of the mock: the mark and the size (the preset's
+ * name is on the picker), and the right group where the view and the language
+ * are chosen.
  */
 export function TopBar({ presets }: { presets: ReactNode }) {
   const dict = useDictionary()
@@ -24,10 +24,9 @@ export function TopBar({ presets }: { presets: ReactNode }) {
   const toggleMenu = useStore((state) => state.ui.toggleMenu)
   const bar = useRef<HTMLElement>(null)
   const chip = useRef<HTMLButtonElement>(null)
-  // The menu's keys and presses, installed only while it is open, the way the
-  // preset panel installs its own (PresetStrip.tsx): Escape in a capture
-  // listener so it is consumed before the drawers' Escape (App.tsx), and only
-  // for keys pressed inside the bar.
+  // The menu's keys and presses, installed only while it is open, like the
+  // preset panel's: Escape in a capture listener so it is consumed before the
+  // drawers' Escape, and only for keys pressed inside the bar.
   useEffect(() => {
     if (!menu) return
     const onPress = (event: PointerEvent) => {

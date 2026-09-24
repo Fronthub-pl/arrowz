@@ -3,19 +3,19 @@ import { type ReactElement, useId } from 'react'
 import { useDictionary } from '../i18n'
 import type { Baseline, ShownResult } from '../state/result.slice'
 
-/** The rows the summary shows, in its order; StatsTable.tsx hides them while it does. */
+/** The rows the summary shows, in its order; `StatsTable` hides them while it does. */
 export const SUMMARY_KEYS: readonly StatKey[] = ['pieces', 'longest', 'D', 'time']
 
 /**
- * The four figures over the statistics (round 3 of the handoff, 3b): pieces,
- * longest, D and time, each its number, its term and its change against the
- * baseline. The change is the table's own `reportDelta`, so its colour is the
- * row's trend and never the sign. Time reports no change, and a first run has
- * nothing to compare with: both keep a hidden dash so the row keeps its height.
+ * The four figures over the statistics: pieces, longest, D and time, each its
+ * number, its term and its change against the baseline. The change is the
+ * table's own `reportDelta`, so its colour is the row's trend and never the
+ * sign. Time reports no change, and a first run has nothing to compare with:
+ * both keep a hidden dash so the row keeps its height.
  *
  * The rows it repeats leave the table, so what they said beyond the number
- * stays here (user ruling): D's full name as the title of its abbreviation,
- * and the whole value of longest and time as the title of the number.
+ * stays here: D's full name as the title of its abbreviation, and the whole
+ * value of longest and time as the title of the number.
  */
 export function ReportSummary({
   result,

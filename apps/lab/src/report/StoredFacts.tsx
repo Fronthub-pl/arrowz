@@ -5,12 +5,12 @@ import type { StoredBoard } from '../state/result.slice'
 import { rowClass } from './StatsTable'
 
 /**
- * The report of a stored board (handoff 2, PR 6): what the store keeps beside
- * it, in the statistics table's form and words. Not the 23 rows of a run: those
- * are read off the carver and its metrics, which a stored board does not carry
- * — `StoredBoard` is deliberately no `ShownResult` (spec §5.3) — and inventing
- * them is what that type exists to prevent. A figure the writer did not have
- * reads as a dash; the note under the table says where the rest comes from.
+ * The report of a stored board: what the store keeps beside it, in the
+ * statistics table's form and words. Not the 23 rows of a run: those are read
+ * off the carver and its metrics, which a stored board does not carry
+ * (`StoredBoard` is deliberately no `ShownResult`), and inventing them is what
+ * that type exists to prevent. A figure the writer did not have reads as a
+ * dash; the note under the table says where the rest comes from.
  */
 export function StoredFacts({ stored }: { stored: StoredBoard }): ReactElement {
   const dict = useDictionary()
@@ -38,8 +38,8 @@ export function StoredFacts({ stored }: { stored: StoredBoard }): ReactElement {
       {meta.ok === null ? null : <p>{meta.ok ? dict.t('closed') : dict.t('notClosedShort')}</p>}
       <table className="fw-stats" aria-label={dict.t('statsTable')}>
         <tbody>
-          {/* The run's grid (round 3), with no summary to hide rows under and
-              no change to report: a wide value takes the change's track. */}
+          {/* The run's grid, with no summary to hide rows under and no change
+              to report: a wide value takes the change's track. */}
           {rows.map(([key, label, value]) => (
             <tr key={key} className={rowClass(key, false)}>
               <th scope="row">{label}</th>

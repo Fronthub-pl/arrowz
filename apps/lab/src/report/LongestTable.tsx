@@ -11,7 +11,7 @@ import { useStore } from '../state/store'
  * every piece, about 90 000 at Insane, and a preview field edit re-renders this.
  *
  * A stored board has no highlight to fold, so the saved boards pass `stored`
- * and list the lab's count whatever its switch says (handoff 2, PR 6).
+ * and list the lab's count whatever its switch says.
  */
 export function LongestTable({ board, stored = false }: { board: BoardData; stored?: boolean }): ReactElement | null {
   const dict = useDictionary()

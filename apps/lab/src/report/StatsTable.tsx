@@ -8,8 +8,8 @@ import { SUMMARY_KEYS } from './ReportSummary'
 const GROUP_NAMES = ['statGroupSize', 'statGroupBlocking', 'statGroupReach', 'statGroupShape', 'statGroupRun'] as const
 
 /**
- * Rows whose value is wider than a number (round 3, 3b): it stays on its
- * label's line and wraps in its own track. Chosen by the row, not measured.
+ * Rows whose value is wider than a number: it stays on its label's line and
+ * wraps in its own track. Chosen by the row, not measured.
  */
 export const WIDE_KEYS: readonly StatKey[] = ['board', 'longest', 'lengths', 'stall', 'absorbed', 'time', 'blockDist']
 
@@ -35,10 +35,10 @@ function groupsOf(rows: readonly StatRow[]): { row: StatRow; at: number }[][] {
 
 /**
  * The 23 statistics of the board on screen, in the engine's order and words,
- * with the change against the baseline (spec §5.3). Both reports are built at
- * render in the current language and compared by row index, which a language
- * switch does not move; nothing here moves the baseline. Each group opens
- * with its name, a heading across the row (round 3, 3b).
+ * with the change against the baseline. Both reports are built at render in
+ * the current language and compared by row index, which a language switch does
+ * not move; nothing here moves the baseline. Each group opens with its name, a
+ * heading across the row.
  */
 export function StatsTable({
   result,
@@ -49,7 +49,7 @@ export function StatsTable({
 }): ReactElement | null {
   const dict = useDictionary()
   const rows = reportRows(result.report, result.params, dict)
-  // A run without metrics reports no rows (lab-report.ts), and the table goes.
+  // A run without metrics reports no rows, and the table goes.
   if (rows.length === 0) return null
   const before = baseline === null ? [] : reportRows(baseline.report, baseline.params, dict)
   return (
@@ -72,7 +72,7 @@ export function StatsTable({
                   <th scope="row">{row.label}</th>
                   <td className="num">{row.value}</td>
                   {/* The sign is always printed, so colour is never the only
-                    carrier; a screen reader hears better or worse (Ruling 4). */}
+                    carrier; a screen reader hears better or worse. */}
                   <td className={change === null ? 'fw-delta' : `fw-delta ${change.trend}`}>
                     {change?.text}
                     {change === null || change.trend === 'neutral' ? null : (

@@ -33,8 +33,7 @@ describe('the example', () => {
     expect(inColour(tokens, 'num')).toEqual(['50', '50', '7'])
   })
 
-  // The reconstruction coloured `W` and `H` as types for being capitals; an
-  // object key is a property whatever its case.
+  // An object key is a property whatever its case, not a type for being a capital.
   test('an object key is a property, and so is a member after a dot', () => {
     expect(inColour(tokens, 'prop')).toEqual(['board', 'W', 'H', 'seed', 'board', 'detail', 'pieceId'])
     expect(inColour(tokens, 'type')).toEqual([])

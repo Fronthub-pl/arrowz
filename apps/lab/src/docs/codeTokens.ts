@@ -1,17 +1,15 @@
 /**
- * Syntax colours for the documentation (round 3, 3f): the element page's one
- * example and the machine columns of its three tables, in GitHub Dark's
- * colours (`docs.css`, `--code-*`).
+ * Syntax colours for the documentation: the element page's one example and the
+ * machine columns of its three tables, in GitHub Dark's colours (`--code-*`).
  *
  * Tokens, not markup: each is a run of the source text with the class of its
  * colour, or none for plain text. Joining the texts gives back the input
- * exactly — Copy and a selection read the code as written, and
+ * exactly, so Copy and a selection read the code as written;
  * `codeTokens.test.ts` holds that for every input the page shows.
  *
  * No library: the example is one fixed snippet and the table cells are short
- * type expressions, so two small scanners cover them. They are ports of
- * `highlight()` and `tsTokens()` in the round's reconstruction
- * (`handoff/round3/lab-app.html`), with one correction noted where it is made.
+ * type expressions, so two small scanners cover them. They follow the design
+ * mock's `highlight()` and `tsTokens()`, with one correction noted where it is made.
  */
 
 /** A colour the stylesheet knows: `span.tk-<class>`. */
@@ -83,9 +81,8 @@ export function highlightHtml(code: string): CodeToken[] {
       else if (num !== undefined) push(out, 'num', all)
       else if (fn !== undefined) push(out, JS_KEYWORDS.has(fn) ? 'kw' : 'fn', all)
       else if (id !== undefined) {
-        // The one correction to the reconstruction: a name before `:` is an
-        // object key, so `W: 50` colours `W` as a property, not as a type
-        // because it happens to be a capital.
+        // The one correction to the mock: a name before `:` is an object key,
+        // so `W: 50` colours `W` as a property, not as a type for being a capital.
         const cls = JS_KEYWORDS.has(id)
           ? 'kw'
           : code.charAt(i - 1) === '.' || nextVisible(code, i + all.length) === ':'

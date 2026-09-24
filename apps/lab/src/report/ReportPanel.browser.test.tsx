@@ -27,9 +27,8 @@ beforeEach(() => {
 })
 
 /**
- * The panel asks the route now (`useInLibrary`), so it needs a router. No
- * address of its own: every case here is the lab, which is `/`, and the
- * library tab's empty report drawer is the whole application's case (Task 9).
+ * The panel asks the route (`useInLibrary`), so it needs a router. No address
+ * of its own: every case here is the lab, `/`.
  */
 async function mountReport(path = '/') {
   return render(
@@ -47,16 +46,15 @@ function stats(container: HTMLElement): HTMLTableElement {
   return table
 }
 
-/** The statistics' own rows, in order, without the groups' headings (round 3). */
+/** The statistics' own rows, in order, without the groups' headings. */
 function dataRows(container: HTMLElement): HTMLTableRowElement[] {
   return [...stats(container).rows].filter((tr) => !tr.classList.contains('grp'))
 }
 
 /**
- * The cells of one statistic: label, value, delta. Counted over the whole
- * table without the group headings, so rows 1 and 3 are still pieces and
- * longest — a heading row counted in would shift every index by one and
- * leave each case below reading its neighbour.
+ * The cells of one statistic: label, value, delta. Counted without the group
+ * headings, so rows 1 and 3 are still pieces and longest; a heading counted in
+ * would shift every index and leave each case reading its neighbour.
  */
 function row(container: HTMLElement, at: number): HTMLTableRowElement {
   const found = dataRows(container)[at]
@@ -64,7 +62,7 @@ function row(container: HTMLElement, at: number): HTMLTableRowElement {
   return found
 }
 
-/** The summary over the table (round 3, 3b), or a failure. */
+/** The summary over the table, or a failure. */
 function summary(container: HTMLElement): HTMLDListElement {
   const found = container.querySelector('dl.fw-rsum')
   if (!(found instanceof HTMLDListElement)) throw new Error('the summary is not on the page')
@@ -83,10 +81,9 @@ function figure(container: HTMLElement, at: number) {
 }
 
 /**
- * The longest-pieces heading, or a failure — like `stats` and `row` above. A
- * substitute node would be measured instead: the case below reads a computed
- * style, and `<body>` has one too, so a heading that stopped rendering would
- * leave the assertions measuring the document rather than going red.
+ * The longest-pieces heading, or a failure, like `stats` and `row` above. A
+ * substitute node would be measured instead: `<body>` has a computed style too,
+ * so a heading that stopped rendering would not go red.
  */
 function longestHead(container: HTMLElement): HTMLHeadingElement {
   const head = container.querySelector('#longest-head')
@@ -100,8 +97,8 @@ test('the report is a named region, empty until there is a result', async () => 
   expect(screen.container.querySelector('table')).toBeNull()
 })
 
-// Spec §5.2: the four separators become the boundaries of five groups, and
-// round 3 (3b) names each group in a heading row that spans the table.
+// The engine's four separators bound five groups, each named in a heading row
+// that spans the table.
 test('twenty-three rows in five named groups, labelled by row headers', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -156,8 +153,8 @@ test('the first result has nothing to compare with', async () => {
   for (const cell of stats(screen.container).querySelectorAll('.fw-delta')) expect(cell.textContent).toBe('')
 })
 
-// Compared by row index against the result shown before (spec §5.3). Pieces is
-// neutral: its sign and nothing else. Longest is `better: 1`, and it fell.
+// Compared by row index against the result shown before. Pieces is neutral:
+// its sign and nothing else. Longest is `better: 1`, and it fell.
 test('the second result is compared with the first, row by row', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -183,7 +180,7 @@ test('a language switch keeps every delta', async () => {
   expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
 })
 
-// Ruling 5: no statistics, but the longest pieces are the board's and stay.
+// No statistics, but the longest pieces are the board's and stay.
 test('a result without metrics shows no statistics and still shows its longest pieces', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -204,9 +201,8 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   expect(longest()).toBeNull()
 })
 
-// The heading moved from h3 to h2 so the document has no level gap, and
-// report.css had to follow it. Nothing else in this file would have noticed:
-// eight tests pass over a heading rendered at 18px and bold.
+// An h2, so the document has no level gap; the stylesheet must follow the
+// level, or the heading renders at 18px bold and nothing else notices.
 test('the longest-pieces heading keeps the report voice after the level change', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -230,8 +226,8 @@ function tokenColour(token: string): string {
 }
 
 /**
- * Checks a delta cell's kind, that it wears its own token (§7.1 — a contrast
- * check alone passes a worse cell left at `--ash`), and that it reads at AA.
+ * Checks a delta cell's kind, that it wears its own token (a contrast check
+ * alone passes a worse cell left at `--ash`), and that it reads at AA.
  */
 function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'worse' | 'neutral') {
   if (cell === undefined) throw new Error('a delta cell is missing')
@@ -241,7 +237,7 @@ function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'wor
   expect(contrast(front, back), kind).toBeGreaterThanOrEqual(4.5)
 }
 
-/** The first delta cell of a kind the eye can see: summary rows leave the table (round 3). */
+/** The first delta cell of a kind the eye can see: summary rows leave the table. */
 function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'): HTMLTableCellElement {
   const found = dataRows(container)
     .filter((tr) => getComputedStyle(tr).display !== 'none')
@@ -251,10 +247,9 @@ function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'
   return found
 }
 
-// §7.1, PR 4b: worse `--error`, neutral `--ash`, on `--graphite`; round 3
-// makes better `--ok` (6.6:1), where it was `--ink`. Measured on rows still
-// on screen, at the moment each class is on the cell: React keeps the `<td>`
-// across results, so a cell read earlier carries whatever class it has now.
+// Worse `--error`, neutral `--ash`, better `--ok` (6.6:1), on `--graphite`.
+// Measured on rows still on screen, at the moment each class is on the cell:
+// React keeps the `<td>` across results, so an earlier read would be stale.
 test('every kind of delta reads at AA', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -265,8 +260,8 @@ test('every kind of delta reads at AA', async () => {
   readsAtAA(shownDelta(screen.container, 'better'), 'better')
 })
 
-// Round 3 (3b): four figures over the table — pieces, longest, D, time — each
-// its number, its term, then its change, and the caption says against what.
+// Four figures over the table (pieces, longest, D, time): each its number, its
+// term, then its change, and the caption says against what.
 test('the summary puts four figures over the table, term before number in the markup', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -298,8 +293,8 @@ test('the summary puts four figures over the table, term before number in the ma
   }
 })
 
-// What the hidden rows said stays reachable (user ruling, round 3): the full
-// name of D and the whole value of longest and time, in their titles.
+// What the hidden rows said stays reachable: the full name of D and the whole
+// value of longest and time, in their titles.
 test('the summary keeps what the rows it hides used to say', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -397,7 +392,7 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
   }
 })
 
-// Round 3: the longest pieces' headings stand over their right-aligned numbers.
+// The longest pieces' headings stand over their right-aligned numbers.
 test("the longest pieces' column headings are right-aligned over their numbers", async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -405,9 +400,8 @@ test("the longest pieces' column headings are right-aligned over their numbers",
     expect(getComputedStyle(th).textAlign).toBe('right')
 })
 
-// Handoff 2, PR 6: on the saved boards the drawer reports the open board —
-// what the store keeps about it, and its longest pieces — and not the run's
-// result, which is still in the slice beside it.
+// On the saved boards the drawer reports the open board (what the store keeps
+// about it, and its longest pieces), not the run's result beside it in the slice.
 test('on the saved boards the report describes the open board from its stored figures', async () => {
   const stored = storedFixture(1)
   await act(async () => finish(ONE))
@@ -431,7 +425,7 @@ test('on the saved boards the report describes the open board from its stored fi
   expect(rows[1]?.[1]).toBe(String(meta.pieces))
   // The 23 rows of a run are not invented for a board that has no run.
   expect(stats(screen.container).rows).toHaveLength(6)
-  // Round 3: the same grid as a run's table, without its summary or groups.
+  // The same grid as a run's table, without its summary or groups.
   expect(screen.container.querySelector('.fw-rsum')).toBeNull()
   expect(stats(screen.container).querySelector('tr.grp')).toBeNull()
   const board = stats(screen.container).rows[0]

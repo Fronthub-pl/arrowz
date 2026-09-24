@@ -23,8 +23,8 @@ beforeEach(() => {
   return () => vi.restoreAllMocks()
 })
 
-// Review Focus 1: narrowing past 1024 takes the drawer out of the board's
-// way without forgetting the desktop's choice; widening puts it back.
+// Narrowing past 1024 takes the drawer out of the board's way without
+// forgetting the desktop's choice; widening puts it back.
 test('the drawer closes below 1024 and comes back on widening', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -68,7 +68,7 @@ test('mounting under StrictMode is not a band change', async () => {
   expect(ui().sheet).toBe('report')
 })
 
-// Review Focus 2: at XS the drawers exist only as sheets.
+// At XS the drawers exist only as sheets.
 test('at XS r and s toggle sheets, and Escape closes a sheet and nothing else', async () => {
   await page.viewport(375, 812)
   await mountApp('advanced')
@@ -112,7 +112,6 @@ test('the root carries menu-open while the menu is open', async () => {
   expect(screen.container.querySelector('.fw')?.classList.contains('menu-open')).toBe(false)
 })
 
-// Review Focus 3.
 test('solo at XS hides the sheet and the sheet bar', async () => {
   await page.viewport(375, 812)
   await mountApp('advanced')
@@ -125,7 +124,7 @@ test('solo at XS hides the sheet and the sheet bar', async () => {
   await userEvent.keyboard('f')
 })
 
-// Review Focus 5: nothing hidden takes the focus.
+// Nothing hidden takes the focus.
 test('closed sheets and a closed popover hold no focusable box', async () => {
   for (const [w, h] of [
     [375, 812],
@@ -148,8 +147,8 @@ test('closed sheets and a closed popover hold no focusable box', async () => {
   }
 })
 
-// Task 5's gap: the menu consumes its own Escape, so a sheet does not close
-// on the same press. And the open menu paints over the open sheet.
+// The menu consumes its own Escape, so a sheet does not close on the same
+// press. And the open menu paints over the open sheet.
 test('Escape in the open menu closes the menu only, and the menu lies over the sheet', async () => {
   await page.viewport(375, 812)
   const screen = await mountApp('advanced')

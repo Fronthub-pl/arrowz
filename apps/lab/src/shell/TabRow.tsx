@@ -22,11 +22,8 @@ export function TabRow() {
   const current = selectedIndex(useLocation().pathname)
 
   // Arrow keys move the selection and the focus together; the pattern wraps at
-  // both ends, and Home/End jump. A mouse user never meets this path, which is
-  // exactly why the mock has none of it. The listener sits on each tab, not on
-  // the tablist: the event still fires from the focused button either way, and
-  // the tablist container is then never a target of a handler or a click, so
-  // it needs no tabIndex of its own.
+  // both ends, and Home/End jump. The listener sits on each tab, not on the
+  // tablist, so the tablist is never a target and needs no tabIndex of its own.
   function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const last = TABS.length - 1
     const next =
