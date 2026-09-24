@@ -72,7 +72,7 @@ export const ELEMENT_MEMBERS = [
 
 export const ELEMENT_EVENTS = [
   { key: 'piece-click', detail: '{ pieceId }' },
-  { key: 'colored-change', detail: 'ColoredChangeDetail' },
+  { key: 'colored-change', detail: '{ colored }' },
   { key: 'piece-removed', detail: '{ pieceId, left }' },
   { key: 'life-lost', detail: '{ pieceId, blockerId, distance }' },
   { key: 'finished', detail: '{ pieces }' },

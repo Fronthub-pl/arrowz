@@ -28,10 +28,8 @@ export type ViewportChangeEvent = CustomEvent<BoardViewport>
 export type PieceRemovedEvent = CustomEvent<{ pieceId: number; left: number }>
 export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; distance: number }>
 export type FinishedEvent = CustomEvent<{ pieces: number }>
-export interface ColoredChangeDetail {
-  colored: boolean
-}
-export type ColoredChangeEvent = CustomEvent<ColoredChangeDetail>
+export type ColoredChangeEvent = CustomEvent<{ colored: boolean }>
+export type ColoredChangeDetail = ColoredChangeEvent['detail']
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
