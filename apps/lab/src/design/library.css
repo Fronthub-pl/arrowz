@@ -1,12 +1,8 @@
-/* The saved boards in the lab's layout (handoff 2, PR 6): the same stage as the
-   lab — settings drawer, board, right column, report drawer. The drawer holds
-   a rail — SIZES, then ELEMENT / Preview, as the lab's GENERATOR + ELEMENT —
-   and its panel: the boards of the chosen size as ruled rows, or the preview
-   rows. The right column is the open board: its command, Load into lab
-   (primary), Delete, the exports, and what it is. Its own file, as
-   `console.css` and `run.css` are: one file per surface keeps a specificity
-   collision inside the surface that caused it (PR 2's lesson). The stage's
-   tracks are `console.css`'s, shared with the lab. */
+/* The saved boards, on the lab's stage (tracks in `console.css`). The drawer
+   holds a rail — sizes, then the preview — and its panel: the chosen size's
+   boards as ruled rows, or the preview rows. The right column is the open
+   board: its command, Load into lab, Delete, the exports and its facts.
+   Its own file, like every surface. */
 
 /* The rail: a size's count sits where the lab's violation count sits, in
    `--ash`, and reads `--ink` on the selected size. */
@@ -93,7 +89,7 @@
 
 /* The right column: Delete reads as destructive only on hover, and armed —
    the second press is the destructive one — it says so in `--error` rather
-   than in `--warn`, which §7.1 reserves for a value that moved. */
+   than in `--warn`, which is reserved for a value that moved. */
 .fw .fw-bcol .fw-alt {
   display: flex;
   gap: 2px;
@@ -110,10 +106,9 @@
   background: var(--error);
   color: var(--void);
 }
-/* One term track for every fact, as wide as the longest term: the handoff's
-   9ch held its English words and not the Polish "wygenerowano" (measured in
-   Chrome). Each row keeps its own box for the rule under it and lays its two
-   cells on the list's tracks. */
+/* One term track for every fact, as wide as the longest term: 9ch would cut
+   the Polish "wygenerowano". Each row keeps its own box for the rule under it
+   and lays its two cells on the list's tracks. */
 .fw-bmeta {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
@@ -139,12 +134,26 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* The layout hash has no useful shortening: it wraps onto as many lines as
+   it needs instead of clipping, and stays selectable as plain text. */
+.fw-bmeta dd.wrap {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* The generated row wraps only between its duration and its date: no
+   overflow-wrap, so neither part breaks mid-word. */
+.fw-bmeta dd.wrap-text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
 .fw-bcol > .fw-lib-empty {
   margin: 0;
 }
 
-/* §7.2: a finger's target — the size tabs, as the old size chips had it, the
-   rows at their 52px, and Refresh. */
+/* A finger's target: the size tabs, the rows at their 52px, and Refresh. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw .fw-console.library .fw-rail button,
   .fw .fw-blist-hd .kv-chip {
@@ -154,7 +163,7 @@
     min-height: 52px;
   }
 }
-/* M and S (handoff 2, PR 7): the open board's column is the bar the lab's run
+/* M and S: the open board's column is the bar the lab's run
    column is (run.css), and its facts stay out of it — the XS sheet shows them
    again, being the column's own layout. */
 @media (min-width: 768px) and (max-width: 1279px) {

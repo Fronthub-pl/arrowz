@@ -10,11 +10,8 @@ import { ValueKnob } from './ValueKnob'
  * Read once, at module load. A `const` narrowed by a module-level `if` does not
  * stay narrowed inside a function declaration, so the check and the binding are
  * one expression.
- *
- * Exported for the tests, which read the mix row's texts from the same spec
- * `ValueKnob` renders below.
  */
-export const MIX_SPEC: ParamSpec = (() => {
+const MIX_SPEC: ParamSpec = (() => {
   const spec = PARAM_SPEC.find((s) => s.key === 'mix')
   if (!spec) throw new Error('PARAM_SPEC has no mix')
   return spec
@@ -27,8 +24,7 @@ export const MIX_SPEC: ParamSpec = (() => {
  *
  * The share row is bounded by `START.mix`, not by the knob's own range: the
  * knob runs from −1 (a word, not a share) while only 0.3..0.7 is spellable.
- * Both are rows of the knob grid (handoff 2, PR 2); the select stands in the
- * control's track, as a choice knob's does.
+ * The select stands in the control's track, as a choice knob's does.
  */
 export function StartKnob() {
   const dict = useDictionary()

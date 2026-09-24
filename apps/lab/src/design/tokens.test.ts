@@ -3,10 +3,10 @@ import tokens from './tokens.css?raw'
 
 const declared = [...tokens.matchAll(/^\s*(--[\w-]+):/gm)].map((m) => m[1])
 
-// The mock declares eighteen custom properties. Spec §7.1 kept sixteen; the
-// Signal-plane decision (2026-09-22 spec §5) swaps `--signal-hover` and
-// `--signal-press` for three fills that carry `--ink` text at AA.
-test('tokens.css declares the seventeen tokens the spec keeps, in order', () => {
+// The mock's eighteen custom properties, less `--signal-soft` (below) and
+// `--signal-hover`/`--signal-press`, replaced by three fills that carry
+// `--ink` text at AA.
+test('tokens.css declares the eighteen tokens the lab keeps, in order', () => {
   expect(declared).toEqual([
     '--void',
     '--graphite',
@@ -21,6 +21,7 @@ test('tokens.css declares the seventeen tokens the spec keeps, in order', () => 
     '--signal-fill',
     '--signal-fill-hover',
     '--signal-fill-press',
+    '--ok',
     '--warn',
     '--error',
     '--ui',
@@ -28,9 +29,7 @@ test('tokens.css declares the seventeen tokens the spec keeps, in order', () => 
   ])
 })
 
-// Declared by the mock and never used by it. Copying them would import two
-// dead names into a design system that is about to be extended.
-test('the two unused tokens of the mock are not ported', () => {
-  expect(declared).not.toContain('--ok')
+// Declared by the mock and never used by it: a dead name.
+test('the unused token of the mock is not ported', () => {
   expect(declared).not.toContain('--signal-soft')
 })

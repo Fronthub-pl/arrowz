@@ -61,8 +61,8 @@ function fitScale(v: ViewportInput): number {
  * The centre rule is what lets `zoomAt` mean what it says. A stricter one —
  * "the board must fill the view" — has to overrule the anchor as soon as the
  * cursor is near an edge, because holding the point there requires showing
- * blank beside the board; measured on a 100x100 board, eight wheel steps into a
- * corner dragged the point 583 px away from the cursor. Zooming towards a point
+ * blank beside the board (eight wheel steps into a corner of a 100x100 board
+ * dragged the point 583 px from the cursor). Zooming towards a point
  * pulls the view's centre towards it, so on the board this bound never binds
  * and the anchor is exact; it only stops a pan from leaving the board behind.
  */
@@ -91,9 +91,8 @@ function clamp(v: ViewportInput & { cellPx: number; originX: number; originY: nu
 }
 
 /**
- * The whole board in the middle of the host. `clamp` no longer centres anything
- * — it only bounds — so the middle is named here, which is also the one place
- * that has to know it: fitting is the gesture that asks for it.
+ * The whole board in the middle of the host. `clamp` only bounds, so the
+ * middle is named here: fitting is the gesture that asks for it.
  */
 export function fit(v: ViewportInput): Viewport {
   const cellPx = fitScale(v)

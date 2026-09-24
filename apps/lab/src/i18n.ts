@@ -9,10 +9,8 @@ import { useStore } from './state/store'
 const DICTS: Record<Lang, Dict> = { en: dictionary('en'), pl: dictionary('pl') }
 
 /**
- * The application's only dictionary access, as PR 3 left it: every component
- * already reads its text through here, so the switch changes this file and
- * nothing that calls it. A language change re-renders every component that
- * shows text, which is all of them — it is a rare, deliberate action.
+ * The application's only dictionary access. A language change re-renders every
+ * component that shows text, which is all of them: a rare, deliberate action.
  */
 export function useDictionary(): Dict {
   return DICTS[useStore((state) => state.lang.lang)]

@@ -7,7 +7,7 @@ import './library.css'
 import './run.css'
 import './docs.css'
 
-// Spec §6 / §7.2: 44px where there is no hover. The runner cannot emulate a
+// 44px where there is no hover. The runner cannot emulate a
 // coarse pointer (nor a phone's width at every size), so this asks the
 // cascade instead: of the rules inside a media condition naming `condition`
 // that *match* each element, the tallest height or min-height it declares.
@@ -38,9 +38,27 @@ function declaredHeight(el: Element, condition: string): number {
 }
 
 test.each([
-  ['a knob value', '<div class="fw-k"><div class="top"><button class="num">1</button></div></div>', 'button', 44],
-  ['a knob choice', '<div class="fw-k"><div class="top"><select></select></div></div>', 'select', 44],
-  // Knob rows (handoff 2, PR 2): the handoff's touch sizes — a 44px value and
+  // The simple view is the knob rows' grid: the same 44px value
+  // and track as the advanced view, and its skeleton choice a 44px segment.
+  [
+    'a simple view value',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><button class="kv-num">1</button></div></section>',
+    'button',
+    44,
+  ],
+  [
+    'a simple view track',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><div class="kv-track"></div></div></section>',
+    'div.kv-track',
+    44,
+  ],
+  [
+    'a simple view choice',
+    '<section class="fw-knobs fw-simple"><div class="kv kv-g"><div class="fw-seg"><button>x</button></div></div></section>',
+    'button',
+    44,
+  ],
+  // Knob rows: a 44px value and
   // track, a 40px select, a 32px `?` and chip in a 52px row.
   ['a knob row value', '<div class="kv-g"><button class="kv-num">1</button></div>', 'button', 44],
   ['a knob row track', '<div class="kv-g"><div class="kv-track"></div></div>', 'div.kv-track', 44],
@@ -54,13 +72,20 @@ test.each([
     'button',
     44,
   ],
-  // The saved boards' rail and rows (handoff 2, PR 6).
+  // The saved boards' rail and rows.
   ['a size tab', '<div class="fw-console library"><div class="fw-rail"><button>8×8</button></div></div>', 'button', 44],
   ['a board row', '<button class="fw-brow">row</button>', 'button', 52],
   ['the list’s refresh', '<div class="fw-blist-hd"><button class="kv-chip">Refresh</button></div>', 'button', 44],
   ['a plain button', '<button class="fw-btn">Refresh</button>', 'button', 44],
-  ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
-  // Handoff 2, PR 7: the M/S bar's controls under a finger.
+  // The documentation's column: a page and a section of it.
+  ['a docs page link', '<nav class="fw-docs-toc"><ul><li class="pg on"><a href="#">CLI</a></li></ul></nav>', 'a', 44],
+  [
+    'a docs section link',
+    '<nav class="fw-docs-toc"><ul><li class="pg on"><ul><li><a href="#">Every knob</a></li></ul></li></ul></nav>',
+    'a',
+    44,
+  ],
+  // The M/S bar's controls under a finger.
   [
     'a bar control',
     '<div class="fw-lab"><div class="fw-stage"><section class="fw-run-col"><button class="fw-go">Generate</button></section></div></div>',
@@ -74,8 +99,8 @@ test.each([
   expect(declaredHeight(el, 'pointer: coarse')).toBeGreaterThanOrEqual(px)
 })
 
-// Handoff 2, PR 7: a phone gets a finger's sizes whatever its pointer reports
-// — the coarse blocks name the XS width too (spec §5).
+// A phone gets a finger's sizes whatever its pointer reports: the coarse
+// blocks name the XS width too.
 test.each([
   ['a knob row value', '<div class="kv-g"><button class="kv-num">1</button></div>', 'button', 44],
   ['a knob row select', '<div class="kv-g"><span class="cc"><select></select></span></div>', 'select', 40],
@@ -83,7 +108,14 @@ test.each([
   ['a run alternative', '<div class="fw-alt"><button>New seed</button></div>', 'button', 44],
   ['a preset row', '<div class="fw-pp-col"><button>x</button></div>', 'button', 44],
   ['a tab', '<div class="fw-tabrow"><button>Lab</button></div>', 'button', 0],
-  ['a docs link', '<nav class="fw-docs-nav"><a href="#">CLI</a></nav>', 'a', 44],
+  // The documentation's column: a page and a section of it.
+  ['a docs page link', '<nav class="fw-docs-toc"><ul><li class="pg on"><a href="#">CLI</a></li></ul></nav>', 'a', 44],
+  [
+    'a docs section link',
+    '<nav class="fw-docs-toc"><ul><li class="pg on"><ul><li><a href="#">Every knob</a></li></ul></li></ul></nav>',
+    'a',
+    44,
+  ],
   [
     'Delete from disk',
     '<div class="fw-bcol"><div class="fw-alt"><button class="danger">Delete</button></div></div>',
@@ -119,9 +151,8 @@ function coarseBefore(el: Element, prop: 'height' | 'width'): number {
   return best
 }
 
-// Handoff 2, PR 4: the switch is drawn 36×18 for a finger, lighter than the
-// 52×32 track it replaces; the target a finger meets is its `::before`, 44×44
-// around the drawing (§7.2), so the lighter look costs no target size.
+// The switch is drawn 36×18 for a finger; the target a finger meets is its
+// `::before`, 44×44 around the drawing, so the light look costs no target size.
 test('a switch is drawn small for a finger and raised to a 44px target around it', async () => {
   const screen = await render(
     <div className="fw" dangerouslySetInnerHTML={{ __html: '<button class="fw-sw" role="switch"></button>' }} />,

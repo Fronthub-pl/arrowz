@@ -13,7 +13,7 @@ export const panelId = (entry: RailEntry) => `rail-panel-${entry}`
 /**
  * The console's left rail. A vertical tablist rather than the mock's plain
  * `<nav>`: picking an entry replaces the panel beside it, and that
- * relationship has to be in the markup, not only in the layout (Ruling 13).
+ * relationship has to be in the markup, not only in the layout.
  *
  * The violation count is in the tab's accessible name and says what it counts;
  * the colour only repeats it.
@@ -51,9 +51,9 @@ export function GroupRail() {
   }
 
   /**
-   * Focus follows the selection, but only while the rail already owns focus —
-   * the same guard `TabRow.tsx:65-69` uses, so that selecting a group from
-   * elsewhere does not steal focus out of whatever the user was in.
+   * Focus follows the selection, but only while the rail already owns focus
+   * (the same guard as `TabRow`'s tabs): selecting a group from elsewhere must
+   * not steal focus out of whatever the user was in.
    */
   const focusIfSelected = (selected: boolean) => (node: HTMLButtonElement | null) => {
     if (node && selected && node.parentElement?.contains(document.activeElement)) node.focus()

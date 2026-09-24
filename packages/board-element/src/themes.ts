@@ -7,7 +7,7 @@
 // reserved before the arrows are chosen, so the marker for the longest pieces
 // can never be an ordinary colour. `everforest-light` and `ayu-light` carry one
 // arrow colour: their accents are built for thin glyphs on near-white paper and
-// only one of each clears the floor. See the design doc, §5.
+// only one of each clears the floor.
 
 export interface BoardTheme {
   paper: string

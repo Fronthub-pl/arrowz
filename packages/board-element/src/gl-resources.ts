@@ -91,7 +91,7 @@ export class GlResources {
     )
   }
 
-  /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
+  /** Whether the diagnostic colour buffer exists at all; a monochrome board allocates none. */
   get hasColors(): boolean {
     return this.colorBuffer !== null
   }
@@ -120,7 +120,7 @@ export class GlResources {
   ): void {
     const gl = this.gl
     // The colour buffers are the diagnostic mode's alone: a monochrome board
-    // takes its colour from a uniform and allocates nothing (spec §8).
+    // takes its colour from a uniform and allocates nothing.
     if (!scene || !colored) return
     const colors = tesselateColors(scene, colorOf)
     this.colorBuffer ??= gl.createBuffer()

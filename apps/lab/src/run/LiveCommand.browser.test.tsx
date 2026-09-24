@@ -1,3 +1,4 @@
+import { DEFAULT_PAD } from '@arrowz/board-element'
 import { buildCommand } from '@arrowz/engine/command'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,6 +26,7 @@ beforeEach(() => useStore.getState().params.reset())
 afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
+  useStore.getState().view.setPad(DEFAULT_PAD)
   for (const cleanup of cleanupListeners) cleanup()
   cleanupListeners = []
 })
@@ -36,8 +38,7 @@ describe('LiveCommand', () => {
     useStore.getState().params.setMany({ W: 30, H: 60, seed: 7 })
     const screen = await render(<LiveCommand />)
     await expect.poll(() => screen.container.querySelector('.fw-cmd')?.textContent).toBe(commandNow())
-    // Spec §7: the box renders through CommandText, one span per flag and the
-    // value in bold — not the command as one plain string.
+    // One span per flag and the value in bold, not the command as one plain string.
     expect(screen.container.querySelectorAll('.fw-cmd > .ln').length).toBeGreaterThan(1)
     expect([...screen.container.querySelectorAll('.fw-cmd b')].map((b) => b.textContent)).toContain('30')
   })
@@ -46,6 +47,20 @@ describe('LiveCommand', () => {
     const screen = await render(<LiveCommand />)
     useStore.getState().view.setNumber('stroke', '0.4')
     await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
+  })
+
+  // The margin is a screen-only setting — `viewOf` never reads `view.pad` —
+  // so changing it must leave the command exactly as it was.
+  it('does not change when the margin changes, a screen-only setting', async () => {
+    useStore.getState().params.setMany({ W: 30, H: 60, seed: 7 })
+    const screen = await render(<LiveCommand />)
+    useStore.getState().view.setPad(9)
+    // A poll against the old text could pass before React re-renders. Changing
+    // a field the command does show, and waiting for it, forces a render that
+    // reflects both writes; only then is comparing with `commandNow()` meaningful.
+    useStore.getState().view.setNumber('stroke', '0.4')
+    await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
+    expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe(commandNow())
   })
 
   it('copies the whole command, prefix included', async () => {
@@ -79,9 +94,8 @@ describe('LiveCommand', () => {
   })
 
   it('stays on its normal label, and raises no uncaught error, outside a secure context', async () => {
-    // Outside a secure context the Clipboard interface is not exposed at
-    // all: `navigator.clipboard` is `undefined`, so `.writeText` would throw
-    // while being looked up, before any promise exists to reject or catch.
+    // Outside a secure context `navigator.clipboard` is `undefined`, so
+    // `.writeText` throws while being looked up, before any promise exists.
     const errors = watch('error')
     vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue(undefined as unknown as Clipboard)
     const screen = await render(<LiveCommand />)

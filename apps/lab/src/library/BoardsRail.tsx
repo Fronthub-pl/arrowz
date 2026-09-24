@@ -16,15 +16,14 @@ export const BOARDS_LIST_ID = 'boards-panel-list'
 export const BOARDS_PREVIEW_ID = 'boards-panel-preview'
 
 /**
- * The saved boards' rail, in the settings drawer as the lab's `GroupRail` is
- * (handoff 2, PR 6): SIZES — one tab per size with how many boards it holds —
- * then ELEMENT and its one tab, Preview. A vertical tablist for the lab rail's
- * reason: choosing an entry replaces the panel beside it.
+ * The saved boards' rail, in the settings drawer as the lab's `GroupRail` is:
+ * SIZES (one tab per size, with its board count), then ELEMENT and its one tab,
+ * Preview. A vertical tablist: choosing an entry replaces the panel beside it.
  *
- * Choosing a size opens a board of it (Ruling 7 of PR 5a): the one already
- * open when it belongs to that size, the first otherwise. A size with no board
- * cannot be listed, so there is always one to open. With no store, or an empty
- * one, SIZES holds no tab and the panel says why.
+ * Choosing a size opens a board of it: the one already open when it belongs to
+ * that size, the first otherwise. A size with no board cannot be listed, so
+ * there is always one to open. With no store, or an empty one, SIZES holds no
+ * tab and the panel says why.
  */
 export function BoardsRail() {
   const dict = useDictionary()
@@ -34,9 +33,8 @@ export function BoardsRail() {
   const open = useOpenBoard()
   const navigate = useNavigate()
   const { entry, mismatch } = openEntry(sizes, open.size)
-  // The size whose rows are listed — unless the address asked for a size the
-  // store has not got: then no size is what was asked for, and none is selected
-  // (spec §5.6).
+  // The size whose rows are listed, unless the address asked for a size the
+  // store has not got: then none is selected.
   const listed = mismatch ? null : (entry?.size ?? null)
   const selected = panel === 'preview' ? PREVIEW : listed
   const all = sizes ?? []

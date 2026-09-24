@@ -14,7 +14,7 @@ import './console.css'
  * This console argues, on purpose, that a knob which does nothing is *not*
  * disabled — it is focusable, operable and it keeps its value — so it cannot
  * claim the exemption WCAG grants disabled controls, and every run of text in
- * it has to clear AA like any other text (spec §7.1, Finding D).
+ * it has to clear AA like any other text.
  */
 test('no text in an inactive knob is dimmed further than AA allows', async () => {
   useStore.getState().params.reset()
@@ -47,13 +47,11 @@ test('no text in an inactive knob is dimmed further than AA allows', async () =>
   }
 })
 
-// Handoff 2, PR 4: a lighter switch — a 28×14 square track with no fill, the
-// knob and the line in `--signal` when on. Off, the line keeps a boundary a
-// person can see: at least 3:1 against the panel (WCAG 1.4.11), which the
-// reconstruction's `--border-strong` (1.79:1) was not.
+// Off, the switch's line keeps a boundary a person can see: at least 3:1
+// against the panel (WCAG 1.4.11), which `--border-strong` (1.79:1) is not.
 test('a switch is a light square track, and its off line still clears 3:1', async () => {
-  // The joined coarse/XS block (`console.css:993`) redraws the switch at XS
-  // (spec §5); this pins the desktop 28×14 look, not the finger's 36×18.
+  // console.css's joined coarse/XS block redraws the switch at XS; this pins
+  // the desktop 28×14 look, not the finger's 36×18.
   await page.viewport(1400, 900)
   const screen = await render(
     <div className="fw" style={{ background: 'var(--void)' }}>

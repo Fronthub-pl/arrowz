@@ -1,7 +1,5 @@
 // WCAG 2.1 contrast over what the browser computed, for the browser tests that
-// measure a colour pair (spec §7.1: "asserted by a browser test that reads the
-// computed colours, not by arithmetic in a comment"). Test-only: nothing in the
-// application imports it, so the bundle never carries it.
+// measure a colour pair. Test-only: the application never imports it.
 
 export type RGB = [number, number, number]
 
@@ -43,11 +41,9 @@ export function over(front: RGB, back: RGB, alpha: number): RGB {
  * composited over the nearest painted background above it, at the product of
  * every `opacity` in between.
  *
- * Measured rather than read out of the stylesheet. The rule that dims a knob is
- * not the only rule allowed to exist — dimming the slider alone and leaving the
- * text at full strength is an equally good answer to the same finding — and a
- * test that greps for one of them fails the other for no reason. The browser
- * does the cascade here; this file does only the arithmetic.
+ * Measured rather than read out of the stylesheet, so any rule that reaches
+ * the same colours passes. The browser does the cascade; this file does only
+ * the arithmetic.
  */
 export function shown(node: Element): { front: RGB; back: RGB } {
   const own = parse(getComputedStyle(node).color)

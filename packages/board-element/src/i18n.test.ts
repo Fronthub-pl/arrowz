@@ -48,3 +48,15 @@ test('the gesture hints and the switch are labelled in both languages', () => {
   expect(pl.gesturesMac).toBe('Klik gra bez ⌘')
   expect(pl.gesturesOther).toBe('Klik gra bez Ctrl')
 })
+
+test('the inspecting hints and the neutral switch are labelled in both languages', () => {
+  const en = labelsFor('en'), pl = labelsFor('pl')
+  expect(en.dragInspectHintMac).toBe('Drag to pan · ⌘-click a piece')
+  expect(en.dragInspectHintOther).toBe('Drag to pan · Ctrl-click a piece')
+  expect(en.gesturesInspectMac).toBe('Click without ⌘')
+  expect(en.gesturesInspectOther).toBe('Click without Ctrl')
+  expect(pl.dragInspectHintMac).toBe('Przeciągnij, aby przesunąć · ⌘ + klik na element')
+  expect(pl.dragInspectHintOther).toBe('Przeciągnij, aby przesunąć · Ctrl + klik na element')
+  expect(pl.gesturesInspectMac).toBe('Klik bez ⌘')
+  expect(pl.gesturesInspectOther).toBe('Klik bez Ctrl')
+})

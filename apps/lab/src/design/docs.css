@@ -1,20 +1,9 @@
-/* The documentation pages (spec §2.4). Its own file, as report.css explains for
-   its own: one file per surface keeps a specificity collision inside the
-   surface that caused it. The panel scrolls inside itself, like the report
-   drawer, because the shell has a fixed height and does not scroll.
-
-   `height: 100%` is what makes that true, and the rule shipped without it: the
-   panel is a block child of a block <main>, so it grew to its content and
-   `overflow-y` had nothing to overflow — measured at 1280×800, a 2370px section
-   inside a 712px <main>, scrolling the whole document 2458px and taking the top
-   bar and the tab strip off the screen. The `min-height: 0` that used to sit
-   here was the report's rule copied to a box that is not a grid item,
-   where it is both inert and the initial value. The sideways half of the same
-   defect is `.fw > main`'s business (shell.css).
-
-   `box-sizing` because the padding is inside that 100%: `.fw *` already says so
-   for everything in the shell, and this repeats it so the panel is right in a
-   test that mounts it without the shell around it. */
+/* The documentation pages, in their own file like every surface. The panel
+   scrolls inside itself, because the shell has a fixed height and does not.
+   `height: 100%` makes that true: as a block child of a block <main> it would
+   grow to its content and scroll the whole document, bars and all.
+   `box-sizing` repeats `.fw *` so a test that mounts the panel without the
+   shell sizes it the same. */
 .fw-docs {
   height: 100%;
   box-sizing: border-box;
@@ -40,29 +29,6 @@
   font-size: 12px;
   line-height: 1.6;
 }
-.fw-docs-nav {
-  display: flex;
-  gap: 14px;
-  margin-bottom: 12px;
-}
-.fw-docs-nav a {
-  font-size: 12px;
-  color: var(--ash);
-  text-decoration: none;
-}
-/* `page`, not `true`: a link says which page you are on, and the lab's chips
-   and library rows say `true` about a choice. The two never meet. */
-.fw-docs-nav a[aria-current='page'] {
-  color: var(--ink);
-  text-decoration: underline;
-}
-@media (pointer: coarse), (max-width: 767px) {
-  .fw-docs-nav a {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-  }
-}
 .fw-docs-table {
   width: 100%;
   margin-bottom: 4px;
@@ -83,11 +49,9 @@
   font-family: var(--mono);
   white-space: nowrap;
 }
-/* Both blocks of the documentation pages are one box, and the bottom margin is
-   all that ever differed between them. The two names stay, and each `pre` wears
-   this class and its own: the tests of the docs routes tell the element page and
-   the CLI page apart by `pre.fw-docs-code` against `pre.fw-docs-term`, so one
-   merged name would cost the routes their marker to save eight declarations. */
+/* Both blocks of the documentation pages are one box. Each `pre` still wears
+   its own class too: the docs routes' tests tell the element page from the
+   CLI page by `pre.fw-docs-code` against `pre.fw-docs-term`. */
 .fw-docs-pre {
   max-width: 100%;
   padding: 10px 12px;
@@ -105,10 +69,260 @@
 /* The help is a table aligned with spaces, so the layout IS the content:
    `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
    characters, about 2317px at this size — from scrolling the whole page.
-   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows.
-   Here rather than in the shared class: `pre` carries this value from the
-   browser's own sheet, and this is the block whose measurement leans on it. */
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
 .fw-docs-term {
   margin: 0 0 12px;
   white-space: pre;
+}
+
+/* One navigation column beside the page, two levels: each page a heading
+   with its sections under a 1px guide. The section in view turns the guide
+   into a 2px --signal bar. Under 768 the column stands over the page and
+   lists only the page on screen. */
+.fw-docs-grid {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.fw-docs-body {
+  min-width: 0;
+  max-width: 110ch;
+}
+/* Sticky inside the panel, which is the box that scrolls (the rule above). */
+.fw-docs-toc {
+  position: sticky;
+  top: 0;
+  padding-top: 2px;
+}
+.fw-docs-toc ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fw-docs-toc .pg + .pg {
+  margin-top: 18px;
+}
+.fw-docs-toc .pg > a {
+  display: block;
+  padding: 2px 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mist);
+  text-decoration: none;
+}
+/* `page`, not `true`: a link says which page you are on, and the lab's chips
+   and library rows say `true` about a choice. The section in view below is
+   `true` too, and every rule for it is scoped to this column. */
+.fw-docs-toc .pg > a:hover,
+.fw-docs-toc .pg > a[aria-current='page'] {
+  color: var(--ink);
+}
+.fw-docs-toc .pg > ul {
+  display: grid;
+  margin-left: 1px;
+  box-shadow: inset 1px 0 0 var(--border-strong);
+}
+.fw-docs-toc .pg > ul a {
+  display: block;
+  padding: 5px 8px 5px 16px;
+  font-size: 12px;
+  color: var(--ash);
+  text-decoration: none;
+}
+.fw-docs-toc .pg > ul a:hover {
+  color: var(--ink);
+}
+.fw-docs-toc .pg > ul a[aria-current='true'] {
+  color: var(--ink);
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+.fw-docs-table th {
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-strong);
+}
+.fw-docs-table td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.fw-docs-table td:last-child {
+  color: var(--mist);
+  text-wrap: pretty;
+}
+.fw-docs-block {
+  position: relative;
+}
+/* The button stands in a strip of its own over the first line, so it never
+   covers text: the example's first line and the help's are the longest. */
+.fw-docs-block > .fw-docs-pre {
+  padding-top: 34px;
+}
+.fw .fw-docs-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: inline-flex;
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--graphite);
+  color: var(--mist);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.fw .fw-docs-copy:hover {
+  color: var(--ink);
+  border-color: var(--ash);
+}
+@media (max-width: 767px) {
+  .fw-docs-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .fw-docs-toc {
+    position: static;
+  }
+  .fw-docs-toc .pg:not(.on) > ul {
+    display: none;
+  }
+  .fw-docs-toc .pg + .pg {
+    margin-top: 0;
+  }
+}
+/* A finger's 44px for every link of the column: at XS, and under a coarse
+   pointer at any width, so a tablet at 768 and up gets it too. */
+@media (pointer: coarse), (max-width: 767px) {
+  .fw-docs-toc .pg > a,
+  .fw-docs-toc .pg > ul a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+/* The element page's example in GitHub Dark's syntax colours; the CLI blocks
+   stay plain. Tokens are spans inside `code` and the text is untouched, so
+   Copy and a selection read the code as written (docs/codeTokens.ts). */
+/* The reference tables' machine columns in the example's colours; the
+   description column stays prose. Every value clears 4.5:1 on --graphite and
+   --void (lowest: the punctuation grey #8b949e, 5.9:1). */
+:root {
+  --code-text: #e6edf3;
+  --code-tag: #7ee787;
+  --code-attr: #79c0ff;
+  --code-str: #a5d6ff;
+  --code-kw: #ff7b72;
+  --code-fn: #d2a8ff;
+  --code-type: #ffa657;
+  --code-prop: #79c0ff;
+  --code-num: #79c0ff;
+  --code-param: #ffa657;
+  --code-pun: #8b949e;
+}
+.fw-docs-code,
+.fw-docs-table .mono {
+  color: var(--code-text);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-tag {
+  color: var(--code-tag);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-attr {
+  color: var(--code-attr);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-str {
+  color: var(--code-str);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-kw {
+  color: var(--code-kw);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-fn {
+  color: var(--code-fn);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-type {
+  color: var(--code-type);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-prop {
+  color: var(--code-prop);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-num {
+  color: var(--code-num);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-param {
+  color: var(--code-param);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-pun {
+  color: var(--code-pun);
+}
+:is(.fw-docs-code, .fw-docs-table) .tk-com {
+  color: var(--code-pun);
+  font-style: italic;
+}
+
+/* The README pointer: a note bar under the element page's lead, an `aside`
+   named "Note" with a 2px --signal bar; its info glyph is hidden from
+   assistive technology. */
+.fw-docs-info {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  max-width: 110ch;
+  margin: 12px 0 4px;
+  padding: 8px 12px;
+  background: var(--graphite);
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+.fw-docs-info .i {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  color: var(--signal);
+  transform: translateY(2px);
+}
+.fw-docs .fw-docs-info p {
+  margin: 0;
+  color: var(--mist);
+  text-wrap: pretty;
+}
+
+/* The tables must not run into one another: each h3 has 40px above its rule
+   (a table's last rule is never the next heading's), and each table sits on
+   its own framed --graphite plane. The first heading keeps 24px. */
+.fw-docs-body h3 {
+  margin: 40px 0 10px;
+  padding-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  border-bottom: 1px solid var(--border-strong);
+}
+.fw-docs-body :is(p, .fw-docs-info) + h3 {
+  margin-top: 24px;
+}
+.fw-docs-body .fw-docs-table {
+  margin-bottom: 0;
+  background: var(--graphite);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.fw-docs-body .fw-docs-table th,
+.fw-docs-body .fw-docs-table td {
+  padding-left: 12px;
+}
+.fw-docs-body .fw-docs-table th:last-child,
+.fw-docs-body .fw-docs-table td:last-child {
+  padding-right: 12px;
+}
+.fw-docs-body .fw-docs-table th {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: var(--surface);
+}
+.fw-docs-body .fw-docs-table tbody tr:last-child td {
+  border-bottom: 0;
 }

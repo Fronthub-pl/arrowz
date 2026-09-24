@@ -18,34 +18,14 @@ import { AUTO_DELAY_MS, useAutoRun } from './useAutoRun'
 import type { RunControl } from './useRun'
 
 /**
- * Spec §2.2's table, stated as cases: one per row this PR owns. Every trigger
- * it names is already built, so this file is a statement of the contract
- * rather than a discovery about it.
+ * Every run trigger: when it starts a run, and with which knobs. The recorder
+ * snapshots the knobs at the call to `start()`, because a trigger that rewrites
+ * them (preset, New seed, Defaults) must do so before it runs; read from the
+ * store afterwards, the two orders look the same.
  *
- * Each case asserts the two things the table states, and the second half is
- * the one worth the file. **When** the run starts is only half a contract;
- * three of these triggers rewrite the knobs on their way to `start()`, and a
- * run that fired before the rewrite would carve a board nobody asked for —
- * the preset's chip with the previous size, New seed with the old seed,
- * Defaults with the knobs it was pressed to escape. So the recorder snapshots
- * the knobs *at the call*, and the cases read that snapshot rather than the
- * store afterwards, where the two orders are indistinguishable.
- *
- * All ten rows are here. Cases 1–8 are the advanced view's; cases 9–18 are
- * the simple view's three rows of its own, and the simple halves of four rows
- * the advanced view shares — Generate and New seed draw the knobs afresh first
- * when randomising, Defaults resets the recipe, and the page opens on the
- * recipe unless it opened on a link.
- *
- * Cases 9 and 10 drive the store the way the size card and the slider do —
- * `setSide`/`setSlider`, then `applyRecipe(false)` — rather than the inputs:
- * fake timers and Playwright's pointer do not mix, and the cards' own wiring is
- * `SimplePanel.browser.test.tsx`'s subject.
- *
- * The control is a stub everywhere but cases 8 and 16–18, which mount `App`
- * with the real one: what a trigger does to the worker is
- * `useGenerator.browser.test.tsx`'s subject, and what it does to the knobs is
- * this one's.
+ * The simple-view size and slider cases drive the store (`setSide`/`setSlider`,
+ * then `applyRecipe(false)`), not the inputs: fake timers and Playwright's
+ * pointer do not mix. The page-load cases mount `App` with the real control.
  */
 function recorder() {
   const seen: Params[] = []
@@ -58,10 +38,8 @@ function recorder() {
 }
 
 /**
- * A seed pinned for the cases that have to know which one was drawn. The value
- * is past the old 999999 ceiling on purpose: under the narrower range it would
- * have been clamped on its way into the knob, so a case that asserts it also
- * says the widening reached the lab.
+ * A seed pinned for the cases that have to know which one was drawn. Above
+ * 999999 on purpose: it survives the knob only if the full 32-bit range does.
  */
 const PINNED_SEED = 3_000_000_000
 
@@ -80,9 +58,8 @@ function HashHost({ control }: { control: RunControl }) {
 }
 
 beforeEach(() => {
-  // The fragment first: `useUrlHash` reads it at mount, and a link one case
-  // left in the bar would be read by the next one as a pasted one — which
-  // case 8 would then carve.
+  // The fragment first: `useUrlHash` reads it at mount, and a link left by one
+  // case would be read by the next as a pasted one.
   history.replaceState(null, '', location.pathname)
   const state = useStore.getState()
   state.params.reset()
@@ -101,10 +78,9 @@ afterEach(() => {
 })
 
 describe('what starts a run (spec §2.2)', () => {
-  // Row 1. Fake timers go on *after* the render and without
-  // `shouldAdvanceTime`, every store write is inside `act`, and the
-  // assertions are plain `expect`: `expect.element` polls, and a poll against
-  // a frozen clock hangs rather than fails.
+  // Fake timers go on *after* the render and without `shouldAdvanceTime`, and
+  // the assertions are plain `expect`: `expect.element` polls, and a poll
+  // against a frozen clock hangs rather than fails.
   it('1 · a knob edit with auto on: once, 350 ms later, with the value typed', async () => {
     const r = recorder()
     await renderHook(() => useAutoRun(r.control))
@@ -115,13 +91,11 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen).toHaveLength(0)
     await vi.advanceTimersByTimeAsync(1)
     expect(r.seen).toHaveLength(1)
-    // The edit is the run's, not a value the debounce read from somewhere
-    // older: 31 is not the default 25.
+    // 31, not the default 25: the run carries the edit, not an older value.
     expect(r.seen[0]?.W).toBe(31)
   })
 
-  // Row 1's other half, which the table states as a condition rather than a
-  // row of its own: the switch is what makes the debounce exist at all.
+  // The switch is what makes the debounce exist at all.
   it('2 · a knob edit with auto off: never', async () => {
     const r = recorder()
     await renderHook(() => useAutoRun(r.control))
@@ -131,11 +105,9 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen).toHaveLength(0)
   })
 
-  // Row 2. Hard portrait and not a preset from the top of the table:
-  // `exportCell` saturates at 18 for every board up to 91 cells on its longer
-  // side, so a small preset would be satisfied by a stale 18 as readily as by
-  // the right answer. 75×150 gives 11, which is neither 18 nor the view
-  // slice's own starting 12.
+  // Hard portrait, not a small preset: `exportCell` saturates at 18 up to 91
+  // cells on the longer side, so a stale 18 would pass. 75×150 gives 11,
+  // neither 18 nor the view slice's starting 12.
   it('3 · a preset: at once, with every knob and the export cell rewritten first', async () => {
     const r = recorder()
     const option = PRESETS.flatMap((level) => level.options).find((o) => o.id === 'hard-portrait')
@@ -149,9 +121,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(useStore.getState().view.cell).toBe(exportCell(75, 150))
   })
 
-  // Row 6, advanced view. `before` is a size no default carries, so "every
-  // knob equal to what it was" is a claim about the console's own state and
-  // not about `defaultParams()` — which case 6 would satisfy too.
+  // `before` is a size no default carries, so "every knob unchanged" is a claim
+  // about the console's state, not about `defaultParams()`.
   it('4 · Generate: at once, rewriting nothing', async () => {
     const r = recorder()
     useStore.getState().params.setMany({ W: 33, H: 66, seed: 7 })
@@ -162,9 +133,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(before)
   })
 
-  // Row 7, advanced view. The second assertion is the order: with `start()`
-  // called before `setMany`, the snapshot would still read 1 while the store
-  // read the new seed, and only a test that looks at the snapshot can tell.
+  // The second assertion is the order: with `start()` called before `setMany`,
+  // only the snapshot would still read 1.
   it('5 · New seed: at once, after the seed has moved', async () => {
     const r = recorder()
     useStore.getState().params.setMany({ seed: 1 })
@@ -178,9 +148,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect({ ...r.seen[0], seed: 1 }).toEqual(before)
   })
 
-  // Row 8, advanced view. Three knobs are moved first, one of them into a
-  // broken rule, because Defaults is the way out of one: a Defaults that ran
-  // before resetting would be refused by `useRun` on the real control.
+  // One knob is moved into a broken rule, because Defaults is the way out of
+  // one: a Defaults that ran before resetting would be refused by `useRun`.
   it('6 · Defaults: at once, on defaultParams()', async () => {
     const r = recorder()
     useStore.getState().params.setMany({ W: 77, seed: 5, wShort: 0.8, wMid: 0.8 })
@@ -190,12 +159,9 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(defaultParams())
   })
 
-  // Row 9. An external `hashchange` — a link pasted into the bar — and not the
-  // page describing itself. There is no record of what the hook wrote: the
-  // listener re-encodes the store and returns when the fragment already says
-  // that (`useUrlHash.ts:134-136`), so a fragment matching what is on screen is
-  // never a trigger, whoever put it there. `useUrlHash.browser.test.tsx`
-  // exercises that comparison from the other side.
+  // An external `hashchange`, a link pasted into the bar. The listener in
+  // `useUrlHash` returns when the fragment already encodes the store, so a
+  // fragment matching the screen is never a trigger, whoever put it there.
   it('7 · an external hashchange: at once, on the knobs the link named', async () => {
     const r = recorder()
     await render(
@@ -205,30 +171,22 @@ describe('what starts a run (spec §2.2)', () => {
     )
     location.hash = encodeHash({ params: { ...defaultParams(), W: 61 }, view: VIEW, carried: {} }).slice(1)
     await vi.waitFor(() => expect(r.seen).toHaveLength(1))
-    // 61 and not the default 25: the link is applied before the run, not after
-    // it. The assertion is on the snapshot for that reason — the store holds
-    // 61 under either order.
+    // 61, not the default 25, and on the snapshot: the store holds 61 under
+    // either order, so only the snapshot shows the link applied before the run.
     expect(r.seen[0]?.W).toBe(61)
   })
 
-  // Row 10. The one case with the real control, because "a run started" is
-  // here a claim about `App` and the hooks it mounts, and a stub would only
-  // restate that the effect calls the prop it was given.
-  //
-  // `run.params` and not `run.phase === 'running'`: the 25×50 board finishes
-  // in milliseconds, so a phase read is a race the carve can win. `params` is
-  // set by `started()` and survives `completeRun()`, so it answers whichever side
-  // of the carve the poll lands on.
+  // The real control, because "a run started" is here a claim about `App` and
+  // its hooks. `run.params`, not `run.phase`: the 25×50 board finishes in
+  // milliseconds, and `params` survives `completeRun()`.
   it('8 · page load, advanced view: a run without a click, on the knobs the page opened with', async () => {
     await render(<App />)
     await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
-    // No hash was pasted, so the knobs the load run used are the page's own.
-    // The simple view's half is case 16.
+    // No hash was pasted, so the load run used the page's own knobs.
     expect(useStore.getState().run.params).toEqual(defaultParams())
   }, 40_000)
 
-  // Row 3, simple view. Auto stays off, from `beforeEach`: the row's whole
-  // point is that the simple view's debounce does not ask the switch.
+  // Auto stays off, from `beforeEach`: the simple view's debounce does not ask the switch.
   it('9 · a simple size field: once, 350 ms later, with auto off, on the knobs the recipe gives', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -246,8 +204,7 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
   })
 
-  // Row 4. `shape` at 0.9 moves `pStraight` off its default, so a run on
-  // stale knobs cannot satisfy the equality.
+  // `shape` at 0.9 moves `pStraight` off its default, so a run on stale knobs cannot pass.
   it('10 · a simple slider: once, 350 ms later, with auto off, on the knobs the recipe gives', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -265,7 +222,7 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
   })
 
-  // Row 5: immediate, and the knobs rewritten before the run reads them.
+  // Immediate, and the knobs rewritten before the run reads them.
   it('11 · the simple segmented button: at once, on the knobs the new skeleton gives', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -276,9 +233,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: defaultParams().seed }, null))
   })
 
-  // Row 6, simple view with randomising on. `Math.random` pinned, so the draw
-  // is reproducible: the snapshot must be the pinned draw, not the canonical
-  // knobs the recipe gives without one.
+  // `Math.random` pinned, so the snapshot must be the pinned draw, not the
+  // canonical knobs the recipe gives without one.
   it('12 · Generate in the simple view with randomising: at once, on a fresh draw', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -303,16 +259,9 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen).toEqual([before])
   })
 
-  // Row 7, simple view with randomising on. TWO sources now, pinned
-  // separately: the seed comes from `getRandomValues`, the draw from
-  // `Math.random`. Before the seed widened to 32 bits a single pinned value fed
-  // both. The order of the two is not claimed: `simpleParams` draws without
-  // reading the seed and only writes it back, so either order gives this
-  // snapshot (verified in review).
-  //
-  // The pinned seed is deliberately past the old 999999 ceiling: under the
-  // narrower range it would have been clamped, so this value also says the
-  // widening reached the lab.
+  // Two sources, pinned separately: the seed from `getRandomValues`, the draw
+  // from `Math.random`. Their order is not claimed: `simpleParams` draws
+  // without reading the seed, so either order gives this snapshot.
   it('14 · New seed in the simple view with randomising: at once, on the new seed and a fresh draw', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -326,8 +275,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(r.seen[0]).toEqual(simpleParams({ ...useStore.getState().recipe.value, seed: PINNED_SEED }, () => 0.5))
   })
 
-  // Row 8, simple view: the recipe goes back too, keeping `random`, and is
-  // written without a draw — the default recipe gives the engine defaults.
+  // The recipe goes back too, keeping `random`, and is written without a draw:
+  // the default recipe gives the engine defaults.
   it('15 · Defaults in the simple view: at once, on the defaults, with the recipe reset and random kept', async () => {
     const r = recorder()
     useStore.getState().ui.setMode('simple')
@@ -342,8 +291,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(random).not.toHaveBeenCalled()
   })
 
-  // Row 10, simple view, the real control. The recipe is moved before the
-  // mount, so a load run on the defaults cannot pass.
+  // The real control. The recipe is moved before the mount, so a load run on
+  // the defaults cannot pass.
   it('16 · page load in the simple view: a run on the knobs the recipe gives', async () => {
     useStore.getState().ui.setMode('simple')
     useStore.getState().recipe.setSlider('lengths', 0.2)
@@ -354,8 +303,8 @@ describe('what starts a run (spec §2.2)', () => {
     expect(useStore.getState().run.params).not.toEqual(defaultParams())
   }, 40_000)
 
-  // Ruling 11: a page that opened on a link keeps the link's knobs, and the
-  // recipe — moved here so that applying it would show — is not applied.
+  // A page that opened on a link keeps the link's knobs, and the recipe (moved
+  // here so that applying it would show) is not applied.
   it('17 · page load in the simple view from a link: a run on the link’s knobs, not the recipe’s', async () => {
     useStore.getState().ui.setMode('simple')
     useStore.getState().recipe.setSlider('lengths', 0.2)
@@ -364,9 +313,9 @@ describe('what starts a run (spec §2.2)', () => {
     await expect.poll(() => useStore.getState().run.params !== null, { timeout: 30_000 }).toBe(true)
     expect(useStore.getState().run.params).toEqual({ ...defaultParams(), W: 61 })
   }, 40_000)
-  // Ruling 11's other half: a hash that decodes and names no knob is still a
-  // link — `loadFromUrl` returns true once the JSON parses. An
-  // `openedFromLink` meaning "named a knob" would apply the moved recipe here.
+  // A hash that decodes and names no knob is still a link: `loadFromUrl` returns
+  // true once the JSON parses. An `openedFromLink` meaning "named a knob"
+  // would apply the moved recipe here.
   it('18 · page load in the simple view from a link naming nothing: a run on the defaults, not the recipe’s', async () => {
     useStore.getState().ui.setMode('simple')
     useStore.getState().recipe.setSlider('lengths', 0.2)

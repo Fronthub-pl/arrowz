@@ -4,16 +4,16 @@ import { useBand } from '../shell/useLayoutBand'
 import type { Band } from '../state/band'
 
 /**
- * The right column's `…` (handoff 2, PR 7): at M and S the column is a bar
- * under the board, and the switches and the exports move into a popover over
- * it. Outside M/S the button is `display: none` and the container
- * `display: contents` (run.css), so the column reads as it always has.
+ * The right column's `…`: at M and S the column is a bar under the board, and
+ * the switches and the exports move into a popover over it. Outside M/S the
+ * button is `display: none` and the container `display: contents`, so the
+ * column reads as it always has.
  *
  * Open is remembered as the band it was opened in, so a band change reads as
  * closed with no effect writing state; a later return to that band is closed
- * too, because the band change cleared it on the way (the next press sets it
- * again). A disclosure like the preset picker: `aria-expanded` and
- * `aria-controls`, Escape consumed in a capture listener while open.
+ * too, because the band change cleared it on the way. A disclosure like the
+ * preset picker: `aria-expanded` and `aria-controls`, Escape consumed in a
+ * capture listener while open.
  */
 export function MoreMenu({ children }: { children: ReactNode }): ReactElement {
   const dict = useDictionary()

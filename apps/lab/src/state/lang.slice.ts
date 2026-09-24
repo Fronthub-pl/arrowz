@@ -9,9 +9,8 @@ export function isLang(value: unknown): value is Lang {
 }
 
 /**
- * The language a page opens in before any link is read.
- * A link's language is not an input here: `useUrlHash` applies it on top, the
- * way it applies the link's knobs (Ruling 6).
+ * The language a page opens in before any link is read. `useUrlHash` applies a
+ * link's language on top, as it applies the link's knobs.
  */
 export function initialLang(stored: string | null, browser: string | undefined): Lang {
   if (isLang(stored)) return stored

@@ -9,6 +9,7 @@ import {
   DEFAULT_POINT_RADIUS,
   DEFAULT_SHOW_POINTS,
   DEFAULT_VIEW,
+  PAD_RANGE,
 } from '../src/mod.ts'
 
 /** What a control holds: a flag, a number, or a string (colour or language). */
@@ -86,8 +87,8 @@ export const ATTRIBUTES: readonly Control[] = [
     label: 'pad',
     hint: 'Margin around the board, in cells. 0 draws the cells edge to edge.',
     def: DEFAULT_PAD,
-    min: 0,
-    max: 20,
+    min: PAD_RANGE.min,
+    max: PAD_RANGE.max,
     step: 1,
   },
   {

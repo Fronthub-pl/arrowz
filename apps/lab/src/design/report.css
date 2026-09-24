@@ -1,9 +1,6 @@
-/* The report, the content of the stage's drawer (spec §4.1 of the presets and
-   drawer spec). Its own file, as console.css explains for its own: one file
-   per surface keeps a specificity collision inside the surface that caused
-   it. On `--graphite`, never on `--paper`, scrolling inside itself
-   as `.fw-run-col` does. Where it sits is the stage's business
-   (shell.css). */
+/* The report, the content of the stage's drawer, in its own file like every
+   surface. On `--graphite`, never on `--paper`, scrolling inside itself as
+   `.fw-run-col` does. Where it sits is the stage's business (shell.css). */
 .fw-report {
   /* The containing block of the delta's hidden word (StatsTable.tsx), for the reason .fw-knobs gives. */
   position: relative;
@@ -25,7 +22,7 @@
   text-align: left;
   vertical-align: baseline;
 }
-/* The gap once drawn as a separator row, now the boundary of a group. */
+/* The boundary of a group. */
 .fw-report tbody + tbody tr:first-child > * {
   padding-top: 9px;
 }
@@ -36,16 +33,12 @@
 .fw-report thead th {
   color: var(--ash);
 }
-/* §7.1, PR 4b: better `--ink` (15.45:1 here), worse `--error` (4.90:1),
-   neutral `--ash` (5.52:1), each measured by ReportPanel.browser.test.tsx.
-   `--signal` would have been the obvious better, and it is the open §7.1 pair. */
+/* Neutral `--ash` (5.52:1), worse `--error` (4.90:1), measured by
+   ReportPanel.browser.test.tsx. Not `--signal`: 3.81:1, under AA. */
 .fw-report .fw-delta {
   width: 1%;
   white-space: nowrap;
   color: var(--ash);
-}
-.fw-report .fw-delta.better {
-  color: var(--ink);
 }
 .fw-report .fw-delta.worse {
   color: var(--error);
@@ -65,4 +58,159 @@
   font-size: 11px;
   line-height: 1.6;
   color: var(--ash);
+}
+
+/* Four figures over the table, in one row: number, label, change. The rows a
+   figure repeats leave the table while it is shown: one number, one place.
+   Changes keep the sign, so the colour is never the only carrier. */
+.fw-rsum-wrap {
+  margin: 0 0 12px;
+}
+.fw-rsum-cap {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--ash);
+}
+.fw-rsum {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.fw-rsum > div {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  min-width: 0;
+  padding: 8px 8px 9px 0;
+}
+.fw-rsum > div + div {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+/* The number first on screen, the term first in the markup: `dd` is a
+   box of nothing (`display: contents`), so its two children place by row. */
+.fw-rsum dd {
+  display: contents;
+}
+.fw-rsum dd .v {
+  grid-row: 1;
+  font-size: 18px;
+  line-height: 1.25;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fw-rsum dt {
+  grid-row: 2;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--mist);
+}
+/* D's full name is its title (ReportSummary.tsx); no dotted underline, the
+   figure's term is a label, not a link. */
+.fw-rsum dt abbr {
+  text-decoration: none;
+}
+.fw-rsum dd small {
+  grid-row: 3;
+  font-size: 11px;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
+}
+.fw-rsum dd small.worse {
+  color: var(--error);
+}
+/* No change to report (the time, or a first run): the dash keeps the row's
+   height. */
+.fw-rsum dd small.none {
+  visibility: hidden;
+}
+.fw-report .fw-rsum-wrap ~ .fw-stats tr.sum {
+  display: none;
+}
+/* The table as rows of one grid (label | value | change), in the rhythm of
+   the Preview panel's `.kv-row`. A grid row inside a real table would sit in
+   an anonymous one-column cell, so the table and its bodies are blocks; the
+   supported browsers (Chrome, Firefox, Safari 16+) keep the table roles. */
+.fw-report .fw-stats,
+.fw-report .fw-stats tbody {
+  display: block;
+}
+.fw-report .fw-stats tr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 7ch;
+  column-gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  box-shadow: 0 1px 0 var(--border);
+}
+.fw-report .fw-stats th,
+.fw-report .fw-stats td {
+  padding: 0;
+}
+/* A group's heading: a `th scope="rowgroup"` across the row, as `.kv-sub`. */
+.fw-report .fw-stats tr.grp {
+  min-height: 0;
+  box-shadow: 0 1px 0 var(--border-strong);
+}
+.fw-report .fw-stats tr.grp th {
+  grid-column: 1 / -1;
+  padding: 22px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+.fw-report .fw-stats tbody:first-child tr.grp th {
+  padding-top: 4px;
+}
+.fw-report .fw-stats tbody + tbody tr:first-child > * {
+  padding-top: 22px;
+}
+.fw-report .fw-stats th[scope='row'] {
+  color: var(--mist);
+}
+.fw-report .fw-stats td.num {
+  white-space: nowrap;
+}
+.fw-report .fw-stats td.fw-delta {
+  width: auto;
+  text-align: right;
+}
+/* A value longer than a number stays on its label's line, right-aligned in
+   the value track, which takes what the label leaves: the label keeps its
+   one line and the value wraps inside its own track, balanced, when the
+   drawer is too narrow for it (the distribution at 352px). The rows this
+   applies to are `WIDE_KEYS` in StatsTable.tsx, not measured here. */
+.fw-report .fw-stats tr.long {
+  grid-template-columns: max-content minmax(0, 1fr) 7ch;
+  padding: 7px 0;
+}
+.fw-report .fw-stats tr.long td.num {
+  white-space: normal;
+  text-align: right;
+  text-wrap: balance;
+}
+/* With no change to report, the value takes the change's track too, so a
+   board size fits on its label's line at 352px. A class on the row and not
+   `:has(td:empty)`: the cell of a change also holds its hidden word. */
+.fw-report .fw-stats tr.long.nodelta td.fw-delta {
+  display: none;
+}
+.fw-report .fw-stats tr.long.nodelta td.num {
+  grid-column: 2 / -1;
+}
+/* A better change is `--ok` (6.6:1 on `--graphite`), as a worse one is
+   `--error`; the sign stays, so the colour is never the only carrier. */
+.fw-report .fw-delta.better,
+.fw-rsum dd small.better {
+  color: var(--ok);
+}
+
+/* The longest pieces' headings stand over their numbers, which
+   are right-aligned (`td.num`). */
+.fw-report .fw-longest thead th {
+  text-align: right;
 }

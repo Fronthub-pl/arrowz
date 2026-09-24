@@ -14,30 +14,35 @@ export type RailEntry = ParamGroup | 'preview'
 export type ViewMode = 'simple' | 'advanced'
 
 /**
- * What the saved boards' drawer panel shows (handoff 2, PR 6): the boards of
- * the chosen size, or the open board's preview fields — the rail's SIZES and
- * ELEMENT sections, as `entry` is the lab's. Never remembered, never in the
- * hash: the address already names the size.
+ * What the saved boards' drawer panel shows: the boards of the chosen size, or
+ * the open board's preview fields (the rail's SIZES and ELEMENT sections).
+ * Never remembered, never in the hash: the address already names the size.
  */
 export type BoardsPanel = 'list' | 'preview'
 
 /**
- * The phone's bottom sheets (handoff 2, PR 7): the settings drawer, the right
- * column and the report, one at a time over the board. Never remembered, never
- * in the hash.
+ * The phone's bottom sheets: the settings drawer, the right column and the
+ * report, one at a time over the board. Never remembered, never in the hash.
  */
 export type Sheet = 'settings' | 'cli' | 'report'
+
+/**
+ * What a click on the board does: nothing (`view`), shows the piece's facts
+ * (`inspect`), or plays it (`play`). Belongs to the session: never
+ * remembered, never in the hash.
+ */
+export type BoardMode = 'view' | 'inspect' | 'play'
 
 /** The previous lab's key and values. */
 export const MODE_KEY = 'labView'
 
-/** Where the report drawer's state is remembered (spec §4.2). */
+/** Where the report drawer's state is remembered. */
 export const REPORT_KEY = 'labReport'
 
 /** Where the settings drawer's state is remembered, as the report's is. */
 export const SETTINGS_KEY = 'labSettings'
 
-/** Only a stored `advanced` opens the advanced view (Ruling 2). */
+/** Only a stored `advanced` opens the advanced view. */
 export function modeOf(stored: string | null): ViewMode {
   return stored === 'advanced' ? 'advanced' : 'simple'
 }
@@ -50,11 +55,11 @@ export interface UiState {
   clamped: boolean
   /** Which console is on screen. Remembered, never in the hash. */
   mode: ViewMode
-  /** The board takes the whole lab panel (spec §5.1). Never remembered, never in the hash. */
+  /** The board takes the whole lab panel. Never remembered, never in the hash. */
   solo: boolean
-  /** The command palette is on screen (spec §8). Never remembered, never in the hash. */
+  /** The command palette is on screen. Never remembered, never in the hash. */
   palette: boolean
-  /** The report drawer is open (spec §4.2). Remembered, never in the hash. */
+  /** The report drawer is open. Remembered, never in the hash. */
   report: boolean
   /**
    * The settings drawer is open: the rail and the knob panel on the stage's
@@ -72,9 +77,10 @@ export interface UiState {
    * The DOM id of a control a palette jump asked for — `knob-<key>` or
    * `view-<field>` — waiting for the render that puts it in the tree. The
    * console's `useFocusRequest` consumes it and clears it, so a later render
-   * cannot steal the focus a second time (spec §6).
+   * cannot steal the focus a second time.
    */
   focusTarget: string | null
+  boardMode: BoardMode
   select(entry: RailEntry): void
   setAuto(on: boolean): void
   raiseClamped(on: boolean): void
@@ -92,13 +98,14 @@ export interface UiState {
   toggleSheet(sheet: Sheet): void
   setMenu(on: boolean): void
   toggleMenu(): void
-  /** Closes the drawer for a window below 1024px without remembering it (spec D3). */
+  /** Closes the drawer for a window below 1024px without remembering it. */
   closeSettingsForNarrow(): void
   /** Puts the remembered drawer back, for a window 1024px or wider again. */
   restoreSettings(): void
   showBoards(panel: BoardsPanel): void
   requestFocus(id: string): void
   clearFocusRequest(): void
+  setBoardMode(mode: BoardMode): void
 }
 
 type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
@@ -106,8 +113,7 @@ type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
 export function createUiSlice(set: SetStore): UiState {
   const patch = (next: Partial<UiState>) => set((state) => ({ ui: { ...state.ui, ...next } }))
   return {
-    // `board` first: the rail opens on the board group, and the mock shows one
-    // group at a time (spec §5.2).
+    // The rail opens on the board group, one group at a time.
     entry: 'board',
     auto: false,
     clamped: false,
@@ -115,14 +121,14 @@ export function createUiSlice(set: SetStore): UiState {
     solo: false,
     palette: false,
     report: readStored(REPORT_KEY) === 'open',
-    // Below 1024px the open drawer lies over the board, so a narrow page
-    // starts with it closed whatever was remembered on a desktop (spec D3);
-    // with no window to ask (the node project) the remembered value decides.
+    // Below 1024px the open drawer lies over the board, so a narrow page starts
+    // with it closed; with no window (the node project) the remembered value decides.
     settings: !narrow(readBand()) && readStored(SETTINGS_KEY) !== 'closed',
     sheet: null,
     menu: false,
     boards: 'list',
     focusTarget: null,
+    boardMode: 'view',
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
     raiseClamped: (clamped) => patch({ clamped }),
@@ -136,15 +142,13 @@ export function createUiSlice(set: SetStore): UiState {
     toggleSolo: () => set((state) => ({ ui: { ...state.ui, solo: !state.ui.solo } })),
     openPalette: () => patch({ palette: true }),
     closePalette: () => patch({ palette: false }),
-    // Read inside the update, like `toggleSolo`: the hotkey and the trigger
-    // can both fire before a render.
+    // Read inside the update, like `toggleSolo`.
     togglePalette: () => set((state) => ({ ui: { ...state.ui, palette: !state.ui.palette } })),
     setReport: (report) => {
       writeStored(REPORT_KEY, report ? 'open' : 'closed')
       patch({ report })
     },
-    // Read inside the update, like `toggleSolo`: the key and the handle can
-    // both fire before a render.
+    // Read inside the update, like `toggleSolo`.
     toggleReport: () =>
       set((state) => {
         const report = !state.ui.report
@@ -155,7 +159,7 @@ export function createUiSlice(set: SetStore): UiState {
       writeStored(SETTINGS_KEY, settings ? 'open' : 'closed')
       patch({ settings })
     },
-    // Read inside the update, like `toggleReport`.
+    // Read inside the update, like `toggleSolo`.
     toggleSettings: () =>
       set((state) => {
         const settings = !state.ui.settings
@@ -163,8 +167,7 @@ export function createUiSlice(set: SetStore): UiState {
         return { ui: { ...state.ui, settings } }
       }),
     setSheet: (sheet) => patch({ sheet }),
-    // Read inside the update, like `toggleReport`: a key and a press can both
-    // fire before a render.
+    // Read inside the update, like `toggleSolo`.
     toggleSheet: (sheet) => set((state) => ({ ui: { ...state.ui, sheet: state.ui.sheet === sheet ? null : sheet } })),
     setMenu: (menu) => patch({ menu }),
     toggleMenu: () => set((state) => ({ ui: { ...state.ui, menu: !state.ui.menu } })),
@@ -173,5 +176,6 @@ export function createUiSlice(set: SetStore): UiState {
     showBoards: (boards) => patch({ boards }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
+    setBoardMode: (boardMode) => patch({ boardMode }),
   }
 }

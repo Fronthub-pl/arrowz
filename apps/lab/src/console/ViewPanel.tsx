@@ -1,6 +1,6 @@
-import { DEFAULT_VIEW, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
+import { DEFAULT_VIEW, PAD_RANGE, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
 import type { ViewNumber } from '@arrowz/engine'
-import { VIEW_RANGE, viewNumberOf } from '@arrowz/engine/command'
+import { VIEW_RANGE } from '@arrowz/engine/command'
 import { type ReactElement, type ReactNode, useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
@@ -11,124 +11,12 @@ import { CollapsibleBlock, endText, KnobLine, KnobTrack, rowTitle, useKnobHelp }
 import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type ViewField } from './viewFields'
 
 /**
- * One preview number. Uncontrolled on purpose: a controlled `type="number"`
- * rewrites its own value, and a half-typed `0.` reads back as the empty string
- * — so React would put the default into the box under the cursor. The field
- * owns its text while it is being typed into; the store owns it the rest of
- * the time — a `document.activeElement` guard, kept where it is needed.
- *
- * The simple view shows its three numbers through this component; the
- * saved boards' preview uses the knob rows (`NumberRow`) since handoff 2, PR 6.
+ * The chosen theme's arrow colours, in order, on the theme's own paper, so a
+ * colour that would vanish against that paper shows it. Renders nothing for
+ * `''` (no theme). `aria-hidden`: the `<select>` beside it already names the
+ * theme, and a hex value read out names nothing anyone would ask for.
  */
-export function ViewNumberField({
-  field,
-  value,
-  onCommit,
-}: {
-  field: ViewField
-  value: number
-  onCommit(value: number): void
-}) {
-  const dict = useDictionary()
-  const ref = useRef<HTMLInputElement>(null)
-  // The engine's own bounds, not a copy of them: `commit` clamps through
-  // `viewNumberOf`, which reads the same table, so the box cannot declare a
-  // ceiling different from the one it enforces.
-  const range = VIEW_RANGE[field.field]
-
-  useEffect(() => {
-    const node = ref.current
-    if (node && document.activeElement !== node) node.value = String(value)
-  }, [value])
-
-  // The clamp lives here rather than in the owner, so the box shows what was
-  // actually kept.
-  const commit = () => {
-    const node = ref.current
-    if (!node) return
-    const kept = viewNumberOf(node.value, field.field)
-    onCommit(kept)
-    node.value = String(kept)
-  }
-
-  return (
-    <div className="fw-k">
-      <div className="top">
-        <label className="lab" htmlFor={`view-${field.field}`}>
-          {dict.t(field.label)}
-        </label>
-        <input
-          ref={ref}
-          type="number"
-          id={`view-${field.field}`}
-          className="num"
-          min={range.min}
-          max={range.max}
-          step={field.step}
-          defaultValue={String(value)}
-          // The help sits under the section heading (spec R7), not in the card.
-          aria-describedby={field.help === undefined ? undefined : `view-${field.field}-help`}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') commit()
-          }}
-        />
-      </div>
-    </div>
-  )
-}
-
-/**
- * One preview flag as the mock's switch, labelled by its visible text.
- * `bare` drops the card around it, for a row inside a card that holds several
- * (the drawing flags, spec R8): a card inside a card doubles the frame.
- */
-export function ViewFlagSwitch({
-  flag,
-  label,
-  on,
-  onToggle,
-  bare,
-}: {
-  flag: ViewFlag
-  label: (typeof VIEW_FLAGS)[number]['label']
-  on: boolean
-  onToggle(): void
-  bare?: boolean | undefined
-}) {
-  const dict = useDictionary()
-  const row = (
-    <div className="row">
-      <span className="lab" id={`view-${flag}-label`}>
-        {dict.t(label)}
-      </span>
-      <button
-        type="button"
-        id={`view-${flag}`}
-        className="fw-sw"
-        role="switch"
-        aria-checked={on}
-        aria-labelledby={`view-${flag}-label`}
-        onClick={onToggle}
-      />
-    </div>
-  )
-  return bare === true ? row : <div className="fw-k">{row}</div>
-}
-
-/**
- * The chosen theme's arrow colours, in order, on the theme's own paper
- * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
- * surface the arrows draw against without spending a swatch on `paper` or
- * `ink` separately, and a colour that would vanish against its own paper is
- * exactly what this is for showing. Renders nothing for `''` (no theme).
- *
- * `aria-hidden`: the `<select>` beside it already names the theme, so this
- * strip repeats no information a screen reader user needs read out — it is
- * not interactive, and there is no useful text a hex value could be given
- * ("swatch one: hash f5 e0 dc" names nothing anyone would ask for).
- */
-export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
+function ThemeSwatchStrip({ themeName }: { themeName: string }) {
   const theme = themeOf(themeName)
   if (!theme) return null
   return (
@@ -144,13 +32,13 @@ export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 }
 
 /**
- * One preview number as a knob row (handoff 2, PR 3): the value, the bounds
+ * One preview number as a knob row: the value, the bounds
  * `VIEW_RANGE` states (read here, never copied), the drawn track, and the
  * description on demand. A preview number is not a knob — the engine never
  * sees it — so it has no state line: nothing refuses it, it is clamped.
  * `headWidth`'s 0 is the automatic width: a chip in the minimum's track.
  */
-function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
+export function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
   const value = useStore((state) => state.view[field.field])
   const stroke = useStore((state) => state.view.stroke)
   const setNumber = useStore((state) => state.view.setNumber)
@@ -162,7 +50,7 @@ function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
 
 /**
  * The row itself, for any owner of a view: the lab's slice above, or a stored
- * board's meta on the saved boards (handoff 2, PR 6). `onSet` is handed what
+ * board's meta on the saved boards. `onSet` is handed what
  * was typed or dragged; clamping is the owner's, as it is the slice's here.
  */
 export function NumberRow({
@@ -183,7 +71,6 @@ export function NumberRow({
   const name = dict.t(row.short)
   const helpId = `view-${field.field}-help`
   const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
-  const set = onSet
   const isAuto = row.auto === true && value === 0
   // Where a released chip goes: the width this row held before, else the
   // width the automatic head draws now (`autoHeadWidth`). Recorded after the
@@ -192,7 +79,7 @@ export function NumberRow({
   useEffect(() => {
     if (!isAuto) last.current = value
   }, [value, isAuto])
-  const release = () => set(last.current ?? autoHeadWidth(stroke, field.step, range.max))
+  const release = () => onSet(last.current ?? autoHeadWidth(stroke, field.step, range.max))
   return (
     <div className="kv-row" title={rowTitle(dict, dict.t(field.label), range)}>
       <KnobLine
@@ -211,7 +98,7 @@ export function NumberRow({
               wordOnly
               className="kv-num"
               describedBy={helpId}
-              onCommit={set}
+              onCommit={onSet}
             />
             <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
           </span>
@@ -223,7 +110,7 @@ export function NumberRow({
               className="kv-chip"
               aria-pressed={isAuto}
               aria-label={`auto (${name})`}
-              onClick={() => (isAuto ? release() : set(0))}
+              onClick={() => (isAuto ? release() : onSet(0))}
             >
               auto
             </button>
@@ -239,7 +126,68 @@ export function NumberRow({
             step={field.step}
             word={isAuto ? 'auto' : null}
             describedBy={helpId}
-            onCommit={set}
+            onCommit={onSet}
+          />
+        }
+        max={<span className="kv-end">{endText(dict, range.max)}</span>}
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
+ * A number row bounded by the element rather than the engine: the point
+ * radius (`POINT_RADIUS_RANGE`) and the margin (`PAD_RANGE`) share this shape
+ * and differ only in id, wording, range and step.
+ */
+function ElementNumberRow({
+  id,
+  name,
+  help,
+  label,
+  value,
+  range,
+  step,
+  onSet,
+}: {
+  id: string
+  name: string
+  help: string
+  label: string
+  value: number
+  range: { min: number; max: number }
+  step: number
+  onSet(next: number): void
+}): ReactElement {
+  const dict = useDictionary()
+  const helpId = `${id}-help`
+  const { button, paragraph } = useKnobHelp(helpId, name, help)
+  return (
+    <div className="kv-row" title={rowTitle(dict, label, range)}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor={id}>
+            {name}
+          </label>
+        }
+        help={button}
+        value={
+          <span className="kv-val">
+            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={onSet} />
+            <span className="kv-unit">{dict.d.units.cells}</span>
+          </span>
+        }
+        min={<span className="kv-end">{endText(dict, range.min)}</span>}
+        control={
+          <KnobTrack
+            id={id}
+            value={value}
+            bounds={range}
+            step={step}
+            word={null}
+            describedBy={helpId}
+            onCommit={onSet}
           />
         }
         max={<span className="kv-end">{endText(dict, range.max)}</span>}
@@ -257,42 +205,41 @@ function PointRadiusRow(): ReactElement {
   const dict = useDictionary()
   const value = useStore((state) => state.view.pointRadius)
   const setPointRadius = useStore((state) => state.view.setPointRadius)
-  const name = dict.t('viewShortPointRadius')
-  const helpId = 'view-point-radius-help'
-  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('pointRadiusHelp'))
-  const set = (next: number) => setPointRadius(String(next))
   return (
-    <div className="kv-row" title={rowTitle(dict, dict.t('pointRadiusLabel'), POINT_RADIUS_RANGE)}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor="view-point-radius">
-            {name}
-          </label>
-        }
-        help={button}
-        value={
-          <span className="kv-val">
-            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={set} />
-            <span className="kv-unit">{dict.d.units.cells}</span>
-          </span>
-        }
-        min={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.min)}</span>}
-        control={
-          <KnobTrack
-            id="view-point-radius"
-            value={value}
-            bounds={POINT_RADIUS_RANGE}
-            // A keyboard convenience, not a claim about what is allowed.
-            step={0.01}
-            word={null}
-            describedBy={helpId}
-            onCommit={set}
-          />
-        }
-        max={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.max)}</span>}
-      />
-      {paragraph}
-    </div>
+    <ElementNumberRow
+      id="view-point-radius"
+      name={dict.t('viewShortPointRadius')}
+      help={dict.t('pointRadiusHelp')}
+      label={dict.t('pointRadiusLabel')}
+      value={value}
+      range={POINT_RADIUS_RANGE}
+      // A keyboard convenience, not a claim about what is allowed.
+      step={0.01}
+      onSet={(next) => setPointRadius(String(next))}
+    />
+  )
+}
+
+/**
+ * The margin around the board: a number row like the point radius, bounded
+ * by the element (`PAD_RANGE`) and clamped and rounded by the slice's own
+ * reader. Unlike the point radius it is a whole number of cells, step 1.
+ */
+function PadRow(): ReactElement {
+  const dict = useDictionary()
+  const value = useStore((state) => state.view.pad)
+  const setPad = useStore((state) => state.view.setPad)
+  return (
+    <ElementNumberRow
+      id="view-pad"
+      name={dict.t('viewShortPad')}
+      help={dict.t('padHelp')}
+      label={dict.t('padLabel')}
+      value={value}
+      range={PAD_RANGE}
+      step={1}
+      onSet={setPad}
+    />
   )
 }
 
@@ -300,7 +247,7 @@ function PointRadiusRow(): ReactElement {
  * A preview flag as a knob row: its value (`on` / `off`) in the value track,
  * in the numbers' colour, and the switch at the control track's right edge.
  */
-function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
+export function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
   const on = useStore((state) => state.view[flag])
   const toggle = useStore((state) => state.view.toggle)
   return <FlagRow flag={flag} on={on} onToggle={() => toggle(flag)} />
@@ -401,8 +348,11 @@ function ColourRow({
   )
 }
 
-/** The theme as a row: the select in the control track, the chosen theme's strip under it. */
-function ThemeRow(): ReactElement {
+/**
+ * The theme as a row: the select in the control track, the chosen theme's
+ * strip under it. The simple view's preview section shows it too.
+ */
+export function ThemeRow(): ReactElement {
   const dict = useDictionary()
   const theme = useStore((state) => state.view.theme)
   const setTheme = useStore((state) => state.view.setTheme)
@@ -436,10 +386,10 @@ function ThemeRow(): ReactElement {
 }
 
 /**
- * The editable custom palette as a row (design doc §6): its count against the
- * cap in the value track, its colours and the add button across the minimum's
- * and the control's tracks. The cap lives in the store (`view.slice.ts`'s
- * `paletteUpdate`), so nothing here can bypass it.
+ * The editable custom palette as a row: its count against the cap in the value
+ * track, its colours and the add button across the minimum's and the
+ * control's tracks. The cap lives in the store (`paletteUpdate`), so nothing
+ * here can bypass it.
  */
 function PaletteRow(): ReactElement {
   const dict = useDictionary()
@@ -525,7 +475,7 @@ export function Section({ id, title, children }: { id: string; title: string; ch
 /**
  * The colours the stage paints any board with: the lab's own, and on the saved
  * boards the stored board's too — `BoardFrame` spreads the theme, the palette,
- * the paper and the ink over a stored board's view (handoff 2, PR 6). So this
+ * the paper and the ink over a stored board's view. So this
  * section belongs to both faces, and it is always the lab's slice it edits.
  */
 export function ColoursSection(): ReactElement {
@@ -556,6 +506,17 @@ export function ColoursSection(): ReactElement {
         onChange={view.setInk}
         {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
       />
+      <ColourRow
+        id="view-highlight-color"
+        short={dict.t('viewShortHighlightColor')}
+        help={dict.t('highlightColorHelp')}
+        title={dict.t('highlightColorLabel')}
+        value={view.highlightColor === '' ? DEFAULT_VIEW.highlight : view.highlightColor}
+        onChange={view.setHighlightColor}
+        {...(view.highlightColor === ''
+          ? {}
+          : { onClear: () => view.setHighlightColor(''), clearLabel: dict.t('highlightColorClear') })}
+      />
       <PaletteRow />
     </Section>
   )
@@ -568,13 +529,12 @@ export const fieldOf = (key: ViewNumber): ViewField => {
 }
 
 /**
- * The mock's *element* section as knob rows (handoff 2, PR 3), on the knobs'
- * grid: arrows, highlight, grid, colours and export. The top count lives
- * under the highlight switch and the dot colour and radius under the point
- * grid's, in blocks that open with their switch — or for a palette jump to
- * one of their rows. They are not knobs — the engine never sees them — so
- * they carry no violation and no inactive reason, and editing one redraws the
- * board without generating (§2.2).
+ * The element's settings as knob rows, on the knobs' grid: arrows, highlight,
+ * grid, colours and export. The top count lives under the highlight switch
+ * and the dot colour and radius under the point grid's, in blocks that open
+ * with their switch or for a palette jump to one of their rows. The engine
+ * never sees them, so they carry no violation and no inactive reason, and
+ * editing one redraws the board without generating.
  */
 export function ViewPanel() {
   const dict = useDictionary()
@@ -594,13 +554,13 @@ export function ViewPanel() {
           <SwitchRow flag="colored" />
         </Section>
         <Section id="view-sec-highlight" title={dict.t('secHighlight')}>
-          <SwitchRow flag="hilite" />
+          <SwitchRow flag="highlightLongest" />
           <CollapsibleBlock
-            id="dep-hilite"
-            on={view.hilite}
+            id="dep-highlight-longest"
+            on={view.highlightLongest}
             forced={wanted === 'view-top'}
-            needs={dict.t('needsHilite')}
-            title={dict.t('viewShortHilite')}
+            needs={dict.t('needsHighlightLongest')}
+            title={dict.t('viewShortHighlightLongest')}
             count={1}
           >
             <ViewNumberRow field={fieldOf('top')} />
@@ -608,6 +568,7 @@ export function ViewPanel() {
         </Section>
         <Section id="view-sec-grid" title={dict.t('secGrid')}>
           <SwitchRow flag="voids" />
+          <PadRow />
           <SwitchRow flag="showPoints" />
           <CollapsibleBlock
             id="dep-points"

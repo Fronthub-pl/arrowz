@@ -3,13 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { defaultParams, encodeBoard, generate, PARAM_SPEC } from '@arrowz/engine'
+import { twoFrames } from '../harness/frames'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { RunColumn } from './RunColumn'
-// The last case measures where the command box clips, which needs the real
-// cascade: the tokens, `.fw`'s font, and the column's own rules, in the order
-// `main.tsx` loads them.
+// The real cascade, in `main.tsx`'s order: a case below measures where the command box clips.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/run.css'
@@ -20,11 +19,8 @@ function stub() {
   return { control, started: () => calls.start, aborted: () => calls.abort }
 }
 
-// A real finished run, so the focus case below can end a carve the way a carve
-// ends — `completeRun()`, and not the `aborted()` that would also flip `running`
-// but is the user's own doing. 8×8 because nothing here reads the report; `ok`
-// and `deadlock` are stated rather than taken from the result for the same
-// reason `RunStatusBar.browser.test.tsx` states them.
+// A real finished run, so the focus cases end a carve through `completeRun()`
+// rather than `aborted()`. 8×8 because nothing here reads the report.
 const RESULT = generate({ ...defaultParams(), W: 8, H: 8, seed: 1 })
 const CLOSED: DoneReport = {
   type: 'done',
@@ -48,21 +44,7 @@ function buttonOf(element: Element): HTMLButtonElement {
   return element
 }
 
-/**
- * Two frames, because HTML's focus fixup is the "update the rendering" step,
- * which runs after the animation-frame callbacks of the same frame. Two is the
- * floor, not a margin — see the measured distribution at the focus cases below
- * before shortening this.
- */
-function twoFrames(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-}
-
-/**
- * The route's two refs, which is the only shape in which the focus effect has
- * anything to aim at. Declared once here rather than four times inside the
- * cases, so that every focus case mounts the same column the page mounts.
- */
+/** The route's two refs: without them the focus effect has nothing to aim at. */
 function Host({ control }: { control: RunControl }) {
   const go = useRef<HTMLButtonElement>(null)
   const abort = useRef<HTMLButtonElement>(null)
@@ -110,36 +92,16 @@ describe('RunColumn', () => {
     expect(g.aborted()).toBe(1)
   })
 
-  // The clamp notice parks the focus on Abort when Generate is refused, which
-  // is exactly while a carve is in flight — so that focus has an expiry date.
-  // The commit that ends the carve renders Abort `disabled`, and HTML's focus
-  // fixup then takes the focus off it: the very drop the notice exists to
-  // prevent, deferred by the length of the carve.
-  //
-  // The timing is the whole case, and it was measured rather than assumed:
-  // batches of 20 samples in Chrome 153.0.8010.12 with the effect's `focus()`
-  // cut out put `document.activeElement` at `document.body` in 0/20
-  // synchronously after the `act` below, 0/20 on a microtask, 0–2/20 on
-  // `setTimeout 0`, 0–2/20 after one `requestAnimationFrame`, and 20/20 after
-  // two. The fixup is not a macrotask: it is the "update the rendering" step,
-  // which runs after the animation-frame callbacks of the same frame, so one
-  // rAF still sees the button, and the stray early samples are runs in which a
-  // frame's rendering step fell between the commit and the sampling call.
-  //
-  // So `twoFrames()` is exactly the minimum, not a margin over one. Of the two
-  // assertions, `toBe(Generate)` catches a deleted branch at any sampling
-  // point, because before the fixup the focus is still on Abort. It is
-  // `not.toBe(document.body)` — the line that says what a person would notice
-  // — that holds on broken code at every point short of two frames, in 18–20
-  // samples of 20. Shortening the wait turns that line into decoration.
+  // The clamp notice parks the focus on Abort during a carve, and the commit
+  // that ends it disables Abort. `toBe(Generate)` catches a deleted branch at
+  // any point; `not.toBe(document.body)` needs the full `twoFrames` wait.
   it('carries the focus off Abort when the run that made it live ends', async () => {
     const g = stub()
     const screen = await render(<Host control={g.control} />)
     await act(async () => useStore.getState().run.started(useStore.getState().params.values))
     const abort = buttonOf(screen.getByRole('button', { name: 'Abort' }).element())
     abort.focus()
-    // The precondition, so a case that never got the focus onto Abort cannot
-    // pass by the focus having been on Generate all along.
+    // The precondition, so the case cannot pass with the focus on Generate all along.
     expect(document.activeElement).toBe(abort)
 
     await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
@@ -148,20 +110,13 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
   })
 
-  // The mirror of the case above, and the reason it is not an edge case:
-  // Generate is `disabled={running || blocked}`, so starting a run is what
-  // disables Generate. The fixup follows the same schedule, measured here too
-  // in two batches of 20 with the branch cut out: the focus is still on
-  // Generate in 19–20 samples of 20 at every point short of two frames, and on
-  // `document.body` in 20/20 after two. Hence `twoFrames()` again, for the same
-  // reason and as the same floor.
+  // The mirror: starting a run is what disables Generate.
   it('carries the focus off Generate when starting a run is what disables it', async () => {
     const g = stub()
     const screen = await render(<Host control={g.control} />)
     const go = buttonOf(screen.getByRole('button', { name: 'Generate' }).element())
     go.focus()
-    // The precondition, so a case that never got the focus onto Generate
-    // cannot pass by the focus having been on Abort all along.
+    // The precondition, so the case cannot pass with the focus on Abort all along.
     expect(document.activeElement).toBe(go)
 
     await act(async () => useStore.getState().run.started(useStore.getState().params.values))
@@ -170,12 +125,8 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
   })
 
-  // The same transition reached the way a person reaches it, rather than
-  // through the store: a real Enter on a focused Generate. `control.start`
-  // writes `run.started` synchronously — `useGenerator.start` is
-  // `actions().started(params)` before anything asynchronous — so the commit
-  // that disables Generate is the one React flushes for this key press, which
-  // is exactly why the press loses its own focus without the branch.
+  // A real Enter: `control.start` writes `run.started` synchronously, so the
+  // commit that disables Generate is the one flushed for this key press.
   it('keeps the focus on a control when Generate is pressed from the keyboard', async () => {
     const live: RunControl = {
       start: () => useStore.getState().run.started(useStore.getState().params.values),
@@ -193,20 +144,15 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
   })
 
-  // The other half of the same guard, now in both directions: `running` is
-  // false on every idle render and true on every running one, so a fix that
-  // read the state rather than the transition would pull the focus out of
-  // whatever the user was using, on every commit. Defaults is the probe
-  // because it is live throughout — it carries no `disabled` at all.
+  // A fix that read `running` instead of its transition would pull the focus
+  // away on every commit. Defaults is the probe: it is never disabled.
   it('leaves a focus that is on neither button where the user put it', async () => {
     const g = stub()
     const screen = await render(<Host control={g.control} />)
     const defaults = buttonOf(screen.getByRole('button', { name: 'Defaults' }).element())
     defaults.focus()
     await act(async () => useStore.getState().run.started(useStore.getState().params.values))
-    // Asserted here as well as at the end, so the start branch is named:
-    // without this line a start branch that grabbed the focus would be caught
-    // only indirectly, by the end branch then moving it on to Generate.
+    // Asserted after the start too, so a start branch that grabbed the focus is caught directly.
     await twoFrames()
     expect(document.activeElement).toBe(defaults)
     await act(async () => useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED }))
@@ -214,10 +160,8 @@ describe('RunColumn', () => {
     expect(document.activeElement).toBe(defaults)
   })
 
-  // The hook behind `auto` is tested on its own; what is only visible here is
-  // that the column's switch is the store's field and not local state of its
-  // own. The descriptions switch is gone (handoff 2, PR 2): a knob row opens
-  // its own description with its `?`.
+  // Only visible here: the column's switch is the store's field, not local state.
+  // A knob row opens its own description with its `?`, so no descriptions switch.
   it('flips the store from its switch, and has no descriptions switch', async () => {
     const screen = await render(<RunColumn control={stub().control} />)
     await screen.getByRole('switch', { name: 'generate right after a change' }).click()
@@ -236,8 +180,8 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  // Ruling 3: the seed came from the machine, not from a hand, so it must not
-  // look like an edit — otherwise `auto` starts a second run behind it.
+  // The seed came from the machine, not from a hand, so it must not look like
+  // an edit; otherwise `auto` starts a second run behind it.
   it('draws that seed through the machine path, leaving the edit count alone', async () => {
     const before = useStore.getState().params.edits
     const screen = await render(<RunColumn control={stub().control} />)
@@ -254,12 +198,8 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  // This does not exercise clamping: the draw now spans exactly the knob's
-  // range — `getRandomValues` fills the same 32 bits PARAM_SPEC allows — so
-  // nothing here would fail if the clamp were removed. It guards the draw in
-  // `reseed` from drifting past the spec; clamping itself is covered where
-  // clamping lives (params.slice.test.ts, "a committed value is clamped to
-  // the knob range and reported").
+  // Guards the draw in `reseed` from drifting past the spec, not the clamp:
+  // the draw spans exactly the knob's 32 bits. Clamping is tested in the params slice.
   it('never draws a seed outside the knob', async () => {
     const spec = PARAM_SPEC.find((s) => s.key === 'seed')
     if (spec === undefined) throw new Error('PARAM_SPEC has no seed')
@@ -270,9 +210,8 @@ describe('the alternative actions', () => {
     expect(seed).toBeLessThanOrEqual(spec.max)
   })
 
-  // Neither button is disabled by a broken rule, and neither should be: the
-  // point of Defaults is to escape one. New seed cannot, and says so through
-  // the status line rather than through a dead button (Ruling 13).
+  // Neither button is disabled by a broken rule: the point of Defaults is to
+  // escape one. New seed cannot, and says so through the status line instead.
   it('leaves Defaults usable while a rule is broken, and it clears the rule', async () => {
     const g = stub()
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
@@ -282,17 +221,10 @@ describe('the alternative actions', () => {
     expect(g.started()).toBe(1)
   })
 
-  // Geometry and computed style, because no text lookup can fail for this:
-  // `.fw-cmd`'s text is in the DOM whether or not the box paints it, so the
-  // suite once stayed green while a browser pass measured the column showing
-  // about a third of the command. Rendered inside a `.fw` root at about the
-  // stage's narrowest run track, with the real cascade, and short enough that
-  // the long command overflows the column.
-  //
-  // Handoff 2, PR 1 turned the contract around: the box shows the whole
-  // command (`flex: none`, run.css) and the column scrolls instead, so
-  // Generate now moves down with a longer command — spec §5.2's growing
-  // figure, which held Generate still, is gone.
+  // Geometry, because `.fw-cmd`'s text is in the DOM whether or not the box
+  // paints it. The box shows the whole command and the column scrolls instead,
+  // so Generate moves down with a longer command. 216 px is narrower than any
+  // run track the stage draws, so the box has no slack to hide an overflow.
   it('shows the whole command in its box, and the column scrolls to Generate', async () => {
     const screen = await render(
       <div className="fw" style={{ display: 'flex', width: '216px', height: '300px' }}>
@@ -319,9 +251,8 @@ describe('the alternative actions', () => {
     if (pre === null || column === null) throw new Error('the command box or the column is not on the page')
     // Nothing of the command is out of the box's sight…
     expect(pre.scrollHeight).toBeLessThanOrEqual(pre.clientHeight + 1)
-    // …and the column is what overflows, so a column that fits would make this
-    // case assert nothing; `overflow-y` and not `scrollTop`, because an
-    // `overflow: hidden` box is still programmatically scrollable.
+    // …and the column is what overflows (else this case asserts nothing).
+    // `overflow-y`, not `scrollTop`: an `overflow: hidden` box still scrolls programmatically.
     expect(column.scrollHeight).toBeGreaterThan(column.clientHeight)
     expect(getComputedStyle(column).overflowY).toBe('auto')
     // The box never paints over Generate, which followed the command down.
@@ -330,12 +261,141 @@ describe('the alternative actions', () => {
   })
 })
 
-// Spec §5.2: the exports belong to the board, not to the knobs, so the simple
-// view keeps them — unlike `auto` and `help` (PR 4a, Ruling 9).
+// The exports belong to the board, not to the knobs, so the simple view keeps them.
 describe('the exports', () => {
   it.each(['advanced', 'simple'] as const)('are in the column in the %s view', async (mode) => {
     useStore.getState().ui.setMode(mode)
     const screen = await render(<RunColumn control={stub().control} />)
     await expect.element(screen.getByRole('group', { name: 'Export' })).toBeInTheDocument()
+  })
+})
+
+// 1 − 734/1250 is 41.28%, shown as 41.3.
+const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
+
+/** The line under Generate: the column's one `p.fw-runstate`. */
+function stateLine(container: HTMLElement): HTMLElement {
+  const line = container.querySelector<HTMLElement>('.fw-run-col > p.fw-runstate')
+  if (line === null) throw new Error('the column has no state line')
+  return line
+}
+
+describe('Generate as the meter', () => {
+  // Inside `.fw`, where the shell's rules live: both the fill and the
+  // `:disabled` dimming it overrides are scoped to it (run.css).
+  it('carries the share done in its label and its fill while a carve runs', async () => {
+    const screen = await render(
+      <div className="fw">
+        <RunColumn control={stub().control} />
+      </div>,
+    )
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const go = screen.getByRole('button', { name: 'Generating 41.3%' })
+    await expect.element(go).toBeDisabled()
+    await expect.element(go).toHaveClass('busy')
+    expect(go.element().getAttribute('style')).toContain('--p: 41.3%')
+    // Not dimmed like a refused Generate: it is working, not unavailable.
+    expect(getComputedStyle(go.element()).opacity).toBe('1')
+    expect(getComputedStyle(go.element()).backgroundImage).toContain('linear-gradient')
+  })
+
+  it('points at a progressbar that says the same to assistive technology', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const bar = screen.getByRole('progressbar', { name: 'Run progress' })
+    await expect.element(bar).toHaveAttribute('aria-valuenow', '41.3')
+    await expect.element(bar).toHaveAttribute('aria-valuemin', '0')
+    await expect.element(bar).toHaveAttribute('aria-valuemax', '100')
+    await expect.element(bar).toHaveAttribute('aria-valuetext', '41.3%')
+    const go = screen.getByRole('button', { name: 'Generating 41.3%' })
+    await expect.element(go).toHaveAttribute('aria-describedby', bar.element().id)
+  })
+
+  // Before the worker's first report the share is unknown: no number is
+  // invented, and the progressbar is indeterminate — it has no value.
+  it('is indeterminate before the first report', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => useStore.getState().run.started(useStore.getState().params.values))
+    await expect.element(screen.getByRole('button', { name: 'Generating…' })).toBeDisabled()
+    const bar = screen.getByRole('progressbar', { name: 'Run progress' })
+    expect(bar.element().hasAttribute('aria-valuenow')).toBe(false)
+  })
+
+  it('speaks Polish, with a decimal comma', async () => {
+    useStore.getState().lang.setLang('pl')
+    try {
+      const screen = await render(<RunColumn control={stub().control} />)
+      await act(async () => {
+        useStore.getState().run.started(useStore.getState().params.values)
+        useStore.getState().run.progressed(PROGRESS)
+      })
+      await expect.element(screen.getByRole('button', { name: 'Generuję 41,3%' })).toBeInTheDocument()
+      await expect
+        .element(screen.getByRole('progressbar', { name: 'Postęp generowania' }))
+        .toHaveAttribute('aria-valuetext', '41,3%')
+      expect(stateLine(screen.container).textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+    } finally {
+      useStore.getState().lang.setLang('en')
+    }
+  })
+
+  it('is Generate again, with no progressbar, once the run ends', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    await act(async () => useStore.getState().run.aborted())
+    const go = screen.getByRole('button', { name: 'Generate', exact: true })
+    await expect.element(go).not.toHaveClass('busy')
+    expect(go.element().hasAttribute('aria-describedby')).toBe(false)
+    expect(screen.container.querySelector('[role="progressbar"]')).toBeNull()
+  })
+})
+
+describe('the state line under Generate', () => {
+  // The percent is on Generate, so the line says the rest of the progress.
+  it('says the rest of the progress while a carve runs', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().run.progressed(PROGRESS)
+    })
+    const line = stateLine(screen.container)
+    expect(line.textContent).toBe('52 pieces · 734 left · backtracks 18 · 1.4 s')
+    // Hidden from assistive technology: the live output says it (RunStatusBar).
+    expect(line.getAttribute('aria-hidden')).toBe('true')
+    // It sits between Generate and the alternatives.
+    expect(line.previousElementSibling?.getAttribute('role')).toBe('progressbar')
+    expect(line.nextElementSibling?.className).toBe('fw-alt')
+  })
+
+  it('says the last outcome once a run is done', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    await act(async () => {
+      useStore.getState().run.started(useStore.getState().params.values)
+      useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
+    })
+    await expect.poll(() => stateLine(screen.container).textContent).toMatch(/^Board closed 100%\./)
+    expect(stateLine(screen.container).classList.contains('bad')).toBe(false)
+  })
+
+  // The refusal is drawn in --error: it is the one line that asks for action.
+  it('says the refusal in the error colour while a rule is broken', async () => {
+    useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
+    const screen = await render(<RunColumn control={stub().control} />)
+    const line = stateLine(screen.container)
+    expect(line.textContent).toBe(screen.getByRole('button', { name: 'Generate' }).element().getAttribute('title'))
+    expect(line.classList.contains('bad')).toBe(true)
+    const probe = document.createElement('span')
+    probe.style.color = 'var(--error)'
+    screen.container.append(probe)
+    expect(getComputedStyle(line).color).toBe(getComputedStyle(probe).color)
   })
 })

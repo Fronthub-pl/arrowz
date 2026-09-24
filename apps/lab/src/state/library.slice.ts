@@ -1,16 +1,10 @@
 import type { BoardSize } from '@arrowz/engine'
 
 /**
- * Something the library did, as opposed to something it is. The status line
- * computes a stored board's own description from `result.preview`; these five
- * report an event, and a line computed from state alone has nowhere to put one
- * (spec §5.3, PR 5b). `loading` and `saveFailed` are cleared by their own
- * outcome rather than by a timer — they describe a fetch, or a disagreement
- * with the store, that is still going.
- *
- * `name` is the `<size>/<id>` the dictionary's formatter puts inside its
- * sentence, carried as data for the same reason `BoardError` carries its two
- * halves apart: the words belong to the dictionary.
+ * Something the library did, as opposed to something it is: a line computed
+ * from state alone has nowhere to put an event. `loading` and `saveFailed` are
+ * cleared by their own outcome, not a timer (see `notices.ts`). `name` is data;
+ * the words around it belong to the dictionary.
  */
 export type LibraryNotice =
   | { kind: 'loading'; name: string }
@@ -20,12 +14,9 @@ export type LibraryNotice =
   | { kind: 'deleteFailed' }
 
 /**
- * A board file that could not be drawn. The two halves are kept apart rather
- * than joined into one sentence: whoever prints this hands them to the
- * dictionary, whose words go around them (`boardFileError`), and a reason that
- * carries a `: ` of its own then reaches it whole. Joined, the reader had to
- * split the string back at the first `: ` — a contract between two modules
- * about a separator that also occurs inside the data.
+ * A board file that could not be drawn. The two halves stay apart for the
+ * dictionary's `boardFileError` to word, so a reason containing `: ` arrives
+ * whole instead of being split back at a separator.
  */
 export interface BoardError {
   /** The `<size>/<id>` the address names. */
@@ -36,12 +27,8 @@ export interface BoardError {
 
 /**
  * What the saved-boards tab knows: the sizes the store listed, and why a fetch
- * failed. There is no selection here — the chosen board is the address
- * (`/boards/:size/:id`, spec §5.6), and a second copy of it would be a second
- * thing to keep in step with the URL.
- *
- * The cache: entering the tab uses what is there, and only Refresh, a save or
- * a delete forces a new listing.
+ * failed. No selection: the chosen board is the address (`/boards/:size/:id`).
+ * The listing is a cache; only Refresh, a save or a delete forces a new one.
  */
 export interface LibraryState {
   /** null until the first listing answers; an empty array is "the store is empty". */
@@ -82,9 +69,7 @@ export function createLibrarySlice(set: SetStore): LibraryState {
     // The sizes are left where they are: a refresh that fails must not take
     // the rows away from under the board on screen.
     listFailed: (listError) => patch({ loading: false, listError }),
-    // A dropped answer is neither a listing nor a failure: the sizes stay as
-    // they were and no error is invented for a panel nobody is looking at. Only
-    // `loading` comes back down, because the call that set it is over.
+    // Neither a listing nor a failure: only `loading` comes back down.
     listDropped: () => patch({ loading: false }),
     boardFailed: (boardError) => patch({ boardError }),
     notify: (notice) => patch({ notice }),

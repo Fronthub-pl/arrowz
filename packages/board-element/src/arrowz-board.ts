@@ -28,6 +28,8 @@ export type ViewportChangeEvent = CustomEvent<BoardViewport>
 export type PieceRemovedEvent = CustomEvent<{ pieceId: number; left: number }>
 export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; distance: number }>
 export type FinishedEvent = CustomEvent<{ pieces: number }>
+export type ColoredChangeEvent = CustomEvent<{ colored: boolean }>
+export type ColoredChangeDetail = ColoredChangeEvent['detail']
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
@@ -163,7 +165,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     canvas {
       /* Out of the flow: a canvas in it lends the host its intrinsic size, and
         since the canvas is sized to the host, the host's height would depend
-        on whatever size it had before (spec §9). The host is sized by its
+        on whatever size it had before. The host is sized by its
         consumer, like any <div>. */
       position: absolute;
       inset: 0;
@@ -171,8 +173,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       height: 100%;
       display: block;
       /* Without this the browser claims the touch for a scroll or a pinch
-        before the pointer events reach the gesture machine, exactly as it
-        would have on the <svg> these rules used to name. */
+        before the pointer events reach the gesture machine. */
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -372,7 +373,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * not give it back by itself. The board asks for it once someone can see
    * it: at once if it is on screen, when it is scrolled to otherwise. More
    * than about sixteen boards on screen at once will take each other's
-   * contexts in turn; that ceiling is the browser's (spec §5).
+   * contexts in turn; that ceiling is the browser's.
    */
   private watchForRevival(): void {
     if (!this.isConnected || this.revival) return
@@ -407,7 +408,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
               title=${l.colors}
               aria-label=${l.colors}
               aria-pressed=${this.colored ? 'true' : 'false'}
-              @click=${() => this.coloredOverride = !this.colored}
+              @click=${this.toggleColors}
             >◑</button>
           `
           : ''}
@@ -416,8 +417,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
             <button
               type="button"
               class="gestures"
-              title=${isMac ? l.gesturesMac : l.gesturesOther}
-              aria-label=${isMac ? l.gesturesMac : l.gesturesOther}
+              title=${this.gesturesLabel(l)}
+              aria-label=${this.gesturesLabel(l)}
               aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
               @click=${this.toggleGestures}
             >☝</button>
@@ -430,12 +431,44 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private hint(l: BoardLabels): string {
     if (this.gestureMode === 'click') return isMac ? l.clickHintMac : l.clickHintOther
     if (!this.playable) return l.dragHint
+    if (this.inspecting) return isMac ? l.dragInspectHintMac : l.dragInspectHintOther
     return isMac ? l.dragPlayHintMac : l.dragPlayHintOther
+  }
+
+  private gesturesLabel(l: BoardLabels): string {
+    if (this.inspecting) return isMac ? l.gesturesInspectMac : l.gesturesInspectOther
+    return isMac ? l.gesturesMac : l.gesturesOther
+  }
+
+  /** A click reaches the host as `piece-click` and plays nothing: `play` wins when both are set. */
+  private get inspecting(): boolean {
+    return this.interactive && !this.play
   }
 
   private readonly toggleGestures = (): void => {
     this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
     storeMode(this.chosenMode)
+  }
+
+  /**
+   * Announces the colour choice before acting on it: a host may run its own
+   * storage under `colored-change` and call `preventDefault()` to hand the
+   * decision to `view.colored` instead. Cancelling clears any override this
+   * button or `loadState` set earlier, not merely skips setting a new one —
+   * otherwise a cancelling host would only take charge starting from a board
+   * that had never been coloured, and every other one would still be stuck on
+   * whatever the override last was. A host that never cancels leaves the
+   * button to decide.
+   */
+  private readonly toggleColors = (): void => {
+    const colored = !this.colored
+    const event = new CustomEvent<ColoredChangeDetail>('colored-change', {
+      detail: { colored },
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    })
+    this.coloredOverride = this.dispatchEvent(event) ? colored : null
   }
 
   override updated(changed: PropertyValues<this>): void {
@@ -549,8 +582,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   loadState(snap: SessionSnapshot): void {
     this.syncSession()
     this.game.load(snap)
-    // Without the permission `saveState()` always records `colored: false`
-    // (§6): honouring it here would pin the override to false and outlive a
+    // Without the permission `saveState()` always records `colored: false`:
+    // honouring it here would pin the override to false and outlive a
     // later grant of the permission, so it only travels when it can be true.
     if (this.enableColors) this.coloredOverride = snap.colored
     this.redraw()
@@ -576,7 +609,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /**
    * Whether the pieces are drawn in their own hues. The permission wins over
-   * everything: monochrome is part of the task (design §11), so a host has to
+   * everything: monochrome is part of the task, so a host has to
    * ask for the exception before either the button or `view.colored` counts.
    */
   private get colored(): boolean {

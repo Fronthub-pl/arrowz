@@ -43,6 +43,23 @@
   `packages/board-element/node_modules` aside).
 - No attribution lines in commit messages or PR descriptions.
 
+## Comments
+
+**Comments say why, once, in the fewest lines.**
+- Comment non-obvious code only: a browser quirk, an ordering constraint, a number that was measured. One line is the default and three is normal. Anything over 6 lines must be a module or API header. Put longer rationale in `docs/` and link to it.
+- No history in code. Do not write PR, round, task, review, handoff, Ruling, "harness fact" or "used to / revision 1" references in comments; that belongs in commit messages and PRs. When a spec constraint matters, state the constraint itself.
+- Cite symbols, never `file.ts:NN`.
+- Say each explanation once, next to the code that enforces it. Other places point to the symbol ("see `twoFrames`").
+- In tests, the test name carries the *what*. A comment explains only setup that looks arbitrary (this viewport, this mock, this wait) or, in one sentence, what this case catches that a similar case cannot. The story of how the test was found (mutations run, review rounds) goes in the commit.
+- For a measured number, write the result and the consequence ("two frames is the floor, don't shorten"), not the protocol or the sample table.
+
+grep guard: `packages/engine/comments.test.ts`. The guard enforces: non-header
+blocks ≤ 6 lines, module/API headers ≤ 24 lines. A header is the file's first
+comment block, or a `/** */` block right above a declaration.
+The guard walks only `apps/lab/src`, `packages/board-element/src` and
+`packages/engine/lab-*.ts`; the engine's other files and `packages/cli` are not
+swept yet and still carry history markers and long blocks.
+
 <!-- jbcontext-instructions-start -->
 # Tools
 

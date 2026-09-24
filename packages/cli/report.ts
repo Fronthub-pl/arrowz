@@ -287,7 +287,7 @@ for (const pre of presets) {
   console.log(
     `  UNBLOCKING    mean ${avg((a) => a.outDeg).toFixed(1)} pieces/removal   record ${
       avg((a) => a.maxOut).toFixed(0)
-    }   mean distance ${(100 * avg((a) => a.blockDist)).toFixed(0)}% of perimeter`,
+    }   mean distance ${(100 * avg((a) => a.blockDist)).toFixed(0)}% of width + height`,
   )
   console.log(
     `  WRAPPING      bends/cell ${avg((a) => a.bendsPerCell).toFixed(3)}   own neighbours/cell ${

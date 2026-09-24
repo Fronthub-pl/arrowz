@@ -6,7 +6,7 @@ import { selectedIndex } from '../shell/TabRow'
 import { useStore } from '../state/store'
 import { buildCommands, type Command, matchCommands } from './commands'
 
-/** The id of the trigger, so closing can hand the focus back to it (spec §7). */
+/** The id of the trigger, so closing can hand the focus back to it. */
 export const TRIGGER_ID = 'cmdk'
 
 /**
@@ -17,9 +17,8 @@ export const TRIGGER_ID = 'cmdk'
 const rowId = (command: Command) => `cmd-${command.id}`
 
 /**
- * The palette (spec §7). Closed, it renders nothing and holds no state, so
- * every opening starts on an empty query — the mock's behaviour, and the one
- * a reader expects from a palette.
+ * The palette. Closed, it renders nothing and holds no state, so every
+ * opening starts on an empty query.
  */
 export function CommandPalette({ control }: { control: RunControl }): ReactElement | null {
   const open = useStore((state) => state.ui.palette)
@@ -31,9 +30,8 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  // 0 is the lab, 1 the saved boards, 2 the docs — `App.tsx`'s own reckoning,
-  // read from the same function, because the footer has to agree with the
-  // hooks that bind the keys it advertises.
+  // The same `selectedIndex` `App` gates its key hooks on, so the footer
+  // advertises only keys that are bound.
   const tab = selectedIndex(pathname)
   const onWorkspace = tab === 0 || tab === 1
   // Named selectors rather than the whole store: a progress message during a
@@ -54,11 +52,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
       buildCommands(
         {
           control,
-          // A jump to a knob asks for the lab face first (spec §6), and every
-          // `go` row names a route: neither should stack a history entry for
-          // the route already on screen, or Back would walk through the jumps
-          // instead of leaving the lab. Written inside the memo rather than
-          // beside it, so it is not a fresh dependency on every render.
+          // No history entry for the route already on screen, or Back would
+          // walk through the jumps instead of leaving the lab. Inside the memo,
+          // so it is not a fresh dependency on every render.
           navigate: (path) => {
             if (path !== pathname) void navigate(path)
           },
@@ -66,20 +62,16 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
         },
         useStore.getState(),
       ),
-    // The snapshot is read inside through `getState()`, so `exhaustive-deps`
-    // cannot check this list: it only flags a listed dependency the closure
-    // never reads, never a field read through `getState()` that was never
-    // listed. This array is therefore checked by hand — it is every slice a
-    // row shows or is disabled by (`knobRows`, `presetRows`, the run and go
-    // rows in `buildCommands`) — and anyone adding a field to a row must add
-    // its slice here.
+    // Read through `getState()`, so `exhaustive-deps` calls these slices
+    // unnecessary and cannot check the list: it is every slice a row shows or
+    // is disabled by, kept by hand. A new field on a row must add its slice.
     [control, navigate, pathname, dict, values, violations, phase, mode, lang, view],
   )
   const hits = useMemo(() => matchCommands(commands, query), [commands, query])
   const current = hits[Math.min(active, hits.length - 1)]
 
-  // The focus goes in on mount and comes back out on unmount. `jsx-a11y`
-  // forbids the `autoFocus` attribute, and the return is spec §7.2's row.
+  // The focus goes in on mount and back to the trigger on unmount; `jsx-a11y`
+  // forbids `autoFocus`.
   useEffect(() => {
     inputRef.current?.focus()
     return () => document.getElementById(TRIGGER_ID)?.focus()
@@ -94,12 +86,8 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
       const frame = frameRef.current
       if (frame === null || !(event.target instanceof Node)) return
       if (frame.contains(event.target)) return
-      // The trigger is the one press outside the frame that must not close the
-      // dialog here. It toggles (`TopBar.tsx`), and the toggle reads the store
-      // as it stands when the *click* arrives — so a close on `mousedown`
-      // would leave that click to find the palette shut and open it again.
-      // The button could never close what it opened, and the dialog remounted
-      // on every such press.
+      // Not the trigger: it toggles on *click*, so a close on `mousedown` would
+      // leave that click to find the palette shut and open it again.
       if (document.getElementById(TRIGGER_ID)?.contains(event.target) === true) return
       useStore.getState().ui.closePalette()
     }
@@ -107,13 +95,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
-  // The list is bounded by design (D4) — 46vh, about fifteen rows at 800px —
-  // over a catalogue of some seventy. Without this, the arrows walk the
-  // highlight and `aria-activedescendant` off the bottom of the box: the
-  // active row and the row Enter would fire become invisible, which is the
-  // combobox contract §7 spells out broken in the plainest way. `nearest`
-  // scrolls only when the row is outside the box, so hovering with the mouse
-  // does not jerk the list under the pointer.
+  // The list shows about fifteen of some seventy rows, so the arrows would walk
+  // the active row, the one Enter fires, out of sight. `nearest` scrolls only
+  // when the row is outside the box, so hovering does not jerk the list.
   useEffect(() => {
     if (current === undefined) return
     document.getElementById(rowId(current))?.scrollIntoView({ block: 'nearest' })
@@ -179,12 +163,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
         />
         <div className="list" id="cmd-list" role="listbox" aria-label={title}>
           {hits.map((command, at) => (
-            // `jsx-a11y/click-events-have-key-events` wants a keyboard listener
-            // beside the click, but the row is never focusable (spec §7): every
-            // keystroke is the input's, `aria-selected`/`aria-activedescendant`
-            // carry the active row to a screen reader, and `tabIndex={-1}` keeps
-            // it out of the tab order. A keyboard handler here would contradict
-            // that design, so this one rule is disabled for the row alone.
+            // The row is never focusable: every keystroke is the input's, and
+            // `aria-activedescendant` carries the active row, so a key handler
+            // here would contradict the design.
             // eslint-disable-next-line jsx-a11y/click-events-have-key-events
             <div
               key={command.id}
@@ -214,13 +195,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
           <span>
             <b>esc</b> {dict.t('cmdHintClose')}
           </span>
-          {/* The footer follows the keys, not the dialog (spec §7). ⌘K opens
-              the palette on every route, but `useRunKeys` is gated on the
-              workspace, so under `/docs/*` these two are bound to nothing —
-              and a hint for a key that does nothing is the promise D5 exists
-              to forbid the mock for printing. `r` and `s` are bound by
-              `useDrawerKeys` on the workspace too: the saved boards have both
-              drawers since handoff 2, PR 6. */}
+          {/* ⌘K opens the palette on every route, but `useRunKeys` and
+              `useDrawerKeys` are bound on the workspace only, so under
+              `/docs/*` these hints would promise keys that do nothing. */}
           {onWorkspace ? (
             <>
               <span>

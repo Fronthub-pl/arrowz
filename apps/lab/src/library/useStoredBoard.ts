@@ -5,16 +5,13 @@ import { useStore } from '../state/store'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
- * Draws the board the address names. The address is the selection, so this
- * effect needs no guard in the slice: it captures the size and the id it
- * fetched for, and its cleanup drops an answer that arrives after the address
- * moved or the panel went away (Ruling 4) — which is also what StrictMode's
- * double-invoked mount effect produces.
+ * Draws the board the address names. The address is the selection, so the
+ * slice needs no guard: the effect's cleanup drops an answer that arrives after
+ * the address moved or the panel went away (or after StrictMode's first pass).
  *
- * A board that cannot be read leaves the stage empty rather than under the
- * previous board's picture, and says why. Decoding failures and fetch failures
- * are reported alike: to someone looking at a list, a file that is missing and
- * a file that is unreadable are one thing.
+ * A board that cannot be read leaves the stage empty, not under the previous
+ * board, and says why. Fetch and decode failures read alike: to someone looking
+ * at a list, missing and unreadable are one thing.
  */
 export function useStoredBoard(): void {
   const { size, id } = useOpenBoard()
@@ -24,56 +21,41 @@ export function useStoredBoard(): void {
     if (size === null || id === null) {
       useStore.getState().result.clearPreview()
       useStore.getState().library.boardFailed(null)
-      // Only a word about the board that just left the stage. The delete
-      // navigates to `/boards` and this branch runs immediately after it — an
-      // unconditional clear here erased the `deleted` notice within one
-      // commit, measured by review round 1. `saveFailed` names no board and
-      // does not fade (Ruling 13), so leaving would strand it on an empty
-      // stage after the tab is simply left and returned to: spec §5.3 says
-      // that sentence holds until a save lands or another board is opened,
-      // and closing this one is neither, but it is no longer on screen either.
+      // Clear only a word about the board that just left: a delete navigates
+      // here, and an unconditional clear would erase its `deleted` notice.
+      // `saveFailed` does not fade, and with its board off screen it would be
+      // stranded on an empty stage.
       const kind = useStore.getState().library.notice?.kind
       if (kind === 'loading' || kind === 'saveFailed') useStore.getState().library.clearNotice()
       return
     }
     const meta = metas?.find((entry) => entry.size === size)?.boards.find((board) => board.id === id) ?? null
     if (meta === null) {
-      // Before the listing arrives there is nothing to look the id up in, so
-      // this waits. Once it has arrived, an id that is not in it is a stale
-      // link, and spec §5.6 says the stage is left empty and the reason is
-      // shown — not left silent under the previous board (review round 1
-      // measured the silence).
+      // Before the listing arrives this waits. After, an id not in it is a
+      // stale link: the stage is left empty and the reason is shown.
       if (metas !== null) {
         useStore.getState().result.clearPreview()
         useStore.getState().library.boardFailed({ name: `${size}/${id}`, reason: 'not in the store' })
-        // The fourth of the four exits that must clear `loading`: a board
-        // dropped from the listing while its file was in flight otherwise
-        // leaves "Loading …" on screen for good, over the very error this
-        // line should be printing.
+        // Every exit clears `loading`: a board dropped from the listing while
+        // its file was in flight would otherwise leave "Loading …" for good.
         useStore.getState().library.clearNotice()
       }
       return
     }
-    // A new listing is not a reason to fetch a board that is already drawn:
-    // `listed()` stores a fresh array on every refresh, including the one a
-    // view save makes, and re-fetching brought back the listing's view over an
-    // edit in flight and flashed `loading` over `viewSaved` (Ruling 14).
+    // Do not re-fetch a board already drawn: `listed()` stores a fresh array on
+    // every refresh (a view save makes one), and a re-fetch would bring back the
+    // listing's view over an edit in flight and flash `loading` over `viewSaved`.
     if (useStore.getState().result.preview?.meta.id === id) {
-      // The fifth exit, and the one review round 2 measured stranding a word:
-      // open A, click B, click back to A while B's file is still in flight —
-      // B's cancelled fetch clears nothing and this return used to happen
-      // before any clear, so the line said "Loading B…" for ever over a drawn
-      // board A. Nothing else is touched: an unconditional clear here would
-      // erase the `viewSaved` that a save's own refresh lands on.
+      // A, then B, then back to A while B is in flight: B's cancelled fetch
+      // clears nothing, so "Loading B…" is cleared here. Only `loading`: the
+      // `viewSaved` a save's refresh lands on must survive.
       if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
       return
     }
     let cancelled = false
-    // The preview of the board before this one is deliberately left on the
-    // stage until this fetch resolves: clearing it here would flash the stage
-    // empty between two rows of the same list. It is the one path where the
-    // stage shows a board the address does not name, and it lasts exactly as
-    // long as the fetch does — every outcome below replaces or clears it.
+    // The previous board stays on the stage until this fetch resolves, so the
+    // stage does not flash empty between two rows; every outcome below
+    // replaces or clears it (`useOpenPreview` guards against that window).
     useStore.getState().library.boardFailed(null)
     useStore.getState().library.notify({ kind: 'loading', name: `${size}/${id}` })
     void (async () => {

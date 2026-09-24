@@ -39,7 +39,7 @@ test('the arrow keys move the selection, move the focus with it, and wrap', asyn
   await userEvent.keyboard('{ArrowDown}')
   expect(useStore.getState().ui.entry).toBe('lengths')
   // Selection without focus is half the pattern: the panel changes and a
-  // screen reader is told nothing (Ruling 13).
+  // screen reader is told nothing.
   expect(document.activeElement?.getAttribute('id')).toBe('rail-tab-lengths')
   expect(document.activeElement?.getAttribute('aria-selected')).toBe('true')
   await userEvent.keyboard('{Home}')
@@ -69,7 +69,7 @@ test('a violated group carries a count that says what it counts', async () => {
   reset()
   useStore.getState().params.setMany({ W: 900, H: 900, pStraight: 0.6 })
   const screen = await render(<GroupRail />)
-  // straightFloor is a shape rule; board is not involved (engine.ts:2823).
+  // `straightFloor` names only shape knobs, so board carries no count.
   await expect.element(screen.getByRole('tab', { name: 'shape, 1 setting outside the safe range' })).toBeVisible()
   await expect.element(screen.getByRole('tab', { name: 'board', exact: true })).toBeVisible()
 })

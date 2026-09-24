@@ -6,7 +6,7 @@ import { KnobLine, rowState, rowTitle, useKnobHelp } from './KnobRow'
 
 /**
  * A knob whose values are a fixed list: the words its flag takes, in the
- * control's track of the row (handoff 2, PR 2), as long as a slider's track.
+ * row's control track, as long as a slider's track.
  * Two knobs are like this — `trapBias` and `giantSpacing` — and the words come
  * from `PARAM_SPEC`, so the console and the CLI cannot drift apart.
  */

@@ -13,7 +13,6 @@ test('opens on the number, commits what was typed on Enter, and hands the focus 
   await expect.element(screen.getByRole('button', { name: 'width: 25' })).toHaveFocus()
 })
 
-// Spec §5.5 and Ruling 4 name "Enter or blur"; the case above covers Enter.
 test('commits what was typed on blur too', async () => {
   const onCommit = vi.fn()
   const screen = await render(<DraftNumber label="width" value={25} onCommit={onCommit} />)

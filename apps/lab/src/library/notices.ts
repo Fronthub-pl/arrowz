@@ -5,26 +5,22 @@ import { useStore } from '../state/store'
 const LINGER_MS = 1200
 
 /**
- * The two notices that describe a state rather than an event (Ruling 5). Their
- * own outcome clears them: a fetch that lands, a save that succeeds, a board
- * that is closed.
+ * The two notices that describe a state rather than an event. Their own outcome
+ * clears them: a fetch that lands, a save that succeeds, a board that is closed.
  */
 const KEPT: readonly LibraryNotice['kind'][] = ['loading', 'saveFailed']
 
 /**
- * Module scope, not a ref, and there is deliberately no effect and no cleanup.
- * Review round 2 measured the alternative: a `clearTimeout` on unmount killed
- * the `deleted` notice's own timer, because the detail raises that notice and
- * then navigates — which unmounts the detail — so the line said "Deleted …"
- * for ever. This timer touches only the store and only takes back the object it
- * put up, so an unmounted raiser costs nothing at all.
+ * Module scope, deliberately with no effect and no cleanup: the board column
+ * raises `deleted` and then navigates, which unmounts it, so a `clearTimeout`
+ * on unmount would leave "Deleted …" up for ever. The timer touches only the
+ * store and only takes back its own notice.
  */
 let timer: ReturnType<typeof setTimeout> | undefined
 
 /**
- * Raises a library notice, and takes it back 1200 ms later when what it reports
- * is over (Ruling 5), so the status line goes back to describing the board on
- * screen rather than keeping a sentence about something that has finished.
+ * Raises a library notice and, for an event, takes it back after `LINGER_MS`,
+ * so the status line goes back to describing the board on screen.
  */
 export function raiseNotice(notice: LibraryNotice): void {
   useStore.getState().library.notify(notice)

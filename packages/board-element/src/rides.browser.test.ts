@@ -1,9 +1,9 @@
-// Pins the rule of spec §4.1 (docs/superpowers/specs/2026-09-11-split-gl-layer-design.md):
-// cancelling a ride uploads the riders that are left and writes the piece
+// Cancelling a ride uploads the riders that are left and writes the piece
 // back, but never asks for a frame. Merging `uploadRiders` and `schedule`
 // into one call would make every cancel draw a frame it does not draw today.
 // Every assertion before an `await` runs before any frame, so it holds under
-// `prefers-reduced-motion: reduce` too.
+// `prefers-reduced-motion: reduce` too. The call sequences are §4.1 of
+// docs/superpowers/specs/2026-09-11-split-gl-layer-design.md.
 import { defaultParams, generate } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { beforeEach, expect, test } from 'vitest'

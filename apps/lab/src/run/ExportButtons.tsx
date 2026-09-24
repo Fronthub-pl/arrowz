@@ -16,24 +16,20 @@ interface Named {
 }
 
 /**
- * The mock's two ghost buttons, with handlers (spec §5.2): the board on screen
- * as an SVG and as its board file. Both read the result slice, so a run in
- * flight exports the board beside it, not the one being carved.
+ * The mock's two ghost buttons: the board on screen as an SVG and as its board
+ * file. Both read the result slice, so a run in flight exports the board beside
+ * it, not the one being carved.
  *
- * The SVG is drawn in a worker of its own: tens of megabytes of text at
- * Insane, off the page's thread, and not in the generation worker, which a new
- * run terminates. One at a time (Ruling 7). The board file costs no worker: it is
- * the file itself, named by its layout hash, the name the store gives the same
- * arrows (layout hash spec §5). The hash is asynchronous and a download has to
- * start in its click, so it is worked out when the board arrives and the
- * button waits for it; it lives here because this component is its only reader.
+ * The SVG is drawn in a worker of its own, one at a time: tens of megabytes of
+ * text at Insane, off the page's thread, and not in the generation worker,
+ * which a new run terminates. The board file is the file itself, named by its
+ * layout hash like the store names it. The hash is asynchronous and a download
+ * has to start in its click, so it is worked out when the board arrives.
  *
- * An export error is about the board it failed to export, so it is the result
- * slice's, beside that board's store answer, and nothing here holds the board
- * it was about: the next SVG export clears it (Ruling 7), another board taking
- * its place clears it, and a failure that arrives after that is dropped (§5.3).
- * A hash that cannot be worked out is not an export error and is not written
- * there: it is shown under its own words and stays until the board changes.
+ * An export error belongs to the board it failed to export, so it is the result
+ * slice's: the next SVG export clears it, another board clears it, and a
+ * failure that arrives after that is dropped. A hash that cannot be worked out
+ * is not an export error: it is shown in its own words until the board changes.
  */
 export function ExportButtons(): ReactElement {
   const dict = useDictionary()
@@ -66,12 +62,10 @@ export function ExportButtons(): ReactElement {
       ignore = true
     }
   }, [result])
-  // `named` keeps the last board's hash until the new board's arrives, and the
-  // two guards cover the two orders a hash can arrive in. The file comparison
-  // covers the early window: without it the button would offer the old board's
-  // name for the new one until the new hash lands. The effect's `ignore` covers
-  // the late one: an old hash landing after the new one would overwrite
-  // `named`, fail this comparison, and leave the button dead until the next run.
+  // `named` keeps the last board's hash until the new one arrives. The file
+  // comparison covers the early window (the old name offered for the new
+  // board); the effect's `ignore` covers the late one (an old hash landing
+  // after the new one would overwrite `named` and leave the button dead).
   const current = result !== null && named !== null && named.file === result.file ? named : null
   const hash = current?.hash ?? null
 
@@ -109,9 +103,8 @@ export function ExportButtons(): ReactElement {
       <button type="button" onClick={exportFile} disabled={hash === null}>
         {dict.t('downloadBoardFile')}
       </button>
-      {/* The engine's `toSvg` never learns a theme's colours (spec §9), so a
-          chosen theme silently would not survive an export — said here, next
-          to the button, only while it would otherwise go unnoticed. */}
+      {/* `toSvg` never learns a theme's colours, so a chosen theme would silently
+          not survive an export; said only while a theme is chosen. */}
       {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
       {error === null ? null : (
         <p className="fw-export-error" role="alert">

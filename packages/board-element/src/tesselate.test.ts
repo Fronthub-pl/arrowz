@@ -271,14 +271,10 @@ test('a ridden piece follows trackLine, corners included', () => {
   expect(w.vertices).toBe(want)
   // One disc a corner, and the tail's.
   expect(w.discs).toBe(corners + 1)
-  // The corner survives the ride: trackLine emits every cell centre still
-  // between the two moving ends, so a bent piece never straightens. BENT has
-  // four cells; the head is one cell tall, so the line begins 0.52 of a cell
-  // behind the head centre, and at shift 0.5 the front end has not quite
-  // reached that centre — it stops 0.02 short of it. The two ends are 0.02
-  // behind cell 0's centre and between cells 2 and 3, leaving the centres of
-  // cells 1 and 2 between them: two ends plus two centres is four points, and
-  // the turn at cell 1 is one of them.
+  // The corner survives the ride: trackLine emits every cell centre between
+  // the two moving ends. At shift 0.5 the ends sit 0.02 short of cell 0's
+  // centre and between cells 2 and 3, so the line is two ends plus the
+  // centres of cells 1 and 2, and the turn at cell 1 is one of them.
   expect(expected.length).toBe(4)
   expect(corners).toBe(1)
 })

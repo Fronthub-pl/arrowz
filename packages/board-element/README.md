@@ -25,11 +25,11 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 
 | Property | Type | Default |
 |---|---|---|
-| `board` | `Board \| null` | `null` |
+| `board` | `BoardData \| null` | `null` |
 | `view` | `Partial<BoardView>` (`stroke`, `headWidth`, `headHeight`, `rounded`, `colored`, `top`, `voids`, `ink`, `paper`, `highlight`, `palette`) | `{}`, merged over the CLI defaults (stroke 0.5, heads one cell tall and as wide as the stroke asks, corners and tails rounded, monochrome) |
 | `theme` | `string` (attribute, reflected): name of a built-in theme (see [Themes and attribution](#themes-and-attribution)); `''` selects none | `''` |
 | `interactive` | `boolean` (attribute, reflected) | `false` |
-| `pad` | `number` (attribute, reflected, default not shown until set — removing the attribute restores it): margin around the board, in cells | `4`; `0` draws the cells edge to edge |
+| `pad` | `number` (attribute, reflected, default not shown until set — removing the attribute restores it): margin around the board, in cells, held to `PAD_RANGE` (0 to 16) | `4`; `0` draws the cells edge to edge |
 | `lang` | `string` (the standard global `lang` attribute) | `''`; `pl` (or any `pl-…` tag) selects Polish labels, anything else English |
 | `play` | `boolean` (attribute, reflected) | `false` |
 | `enableColors` | `boolean` (attribute `enable-colors`, reflected) | `false` |
@@ -51,12 +51,21 @@ Getter: `viewport` (read-only) returns
 `{ cellPx, originX, originY, fitted, hostWidth, hostHeight }`, or `null`
 before a board and a host size are both known.
 
+Getter: `pieceCount` (read-only): how many pieces the layer is drawing —
+the board's own count, not the number of DOM nodes.
+
 Getter: `gestureMode` (`'drag' | 'click'`, read-only): the rule mouse and pen
 follow now.
+
+The class also has an `emit(event)` method: it implements `GameTarget`, the
+seam the internal game host drives the element through. It is public only
+because a Lit element cannot narrow an interface member to `private`; a host
+that only renders a board has no reason to call it.
 
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
+| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button before it changes the colour override; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
@@ -93,10 +102,12 @@ the notice travels with the work here and in `themes.ts`:
 | Ayu | MIT | <https://github.com/ayu-theme/ayu-colors> |
 
 Controls, mouse and pen: a plain drag pans, and a click with ⌘ (Ctrl elsewhere)
-plays. A plain click does nothing, so a hand that twitches while panning never
-costs a life. A playable board (`play` or `interactive`) shows a ☝ switch in the
-corner. Pressed, it restores the rule from before: a plain click plays and a
-drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
+plays. With `interactive` alone (no `play`) that click does not play: it
+reports the piece as `piece-click`, and the host decides what to show. A plain
+click does nothing, so a hand that twitches while panning never costs a life.
+A board that takes clicks (`play` or `interactive`) shows a ☝ switch in the
+corner. Pressed, it swaps the two: a plain click plays or reports the piece,
+and a drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
 `localStorage` under `arrowz-board.gestures`, read by each board when it
 connects, and readable as the `gestureMode` property. There is no attribute for
 it. A board that only pans has no switch and always pans with a plain drag.
@@ -143,7 +154,7 @@ is not a finite positive number, leaving the viewport as it was.
 
 - A value that is not a finite number becomes its default.
 - `stroke` is at most one cell, and zero or less becomes the default.
-- Head sizes and `pad` are never negative.
+- Head sizes are never negative; `pad` stays within `PAD_RANGE` (0 to 16).
 - `top` is a whole count.
 - `point-radius` stays within `POINT_RADIUS_RANGE` (0 to 0.5): above half a cell the dots merge.
 - A colour the browser cannot parse becomes the default of its field.
@@ -159,7 +170,8 @@ an arrow vanishes at the paper's edge rather than floating beside it. Changing
 A margin measured in cells shrinks with them, so on a large board fitted into a
 small host it would come to a pixel or two. It is widened until it is worth
 `MIN_PAD_PX` on screen. A `pad` of `0` stays `0`: asking for no margin is not
-asking for a small one.
+asking for a small one. `pad` itself is clamped to `PAD_RANGE` before it
+reaches the viewport; the attribute and the property keep whatever was set.
 
 ### The point grid
 
@@ -212,7 +224,11 @@ it is kept is the host's business.
 Colours are off unless `enableColors` is set: monochrome is part of the puzzle,
 so telling the pieces apart without colour is the task. With the permission the
 board grows a fourth chrome button, and a board may arrive coloured through
-`view.colored` or through a loaded game.
+`view.colored` or through a loaded game. The button announces a cancelable
+`colored-change` event before it acts: a host that does nothing keeps today's
+behaviour (the button decides), and one that calls `preventDefault()` clears
+the button's own choice — including one made earlier, by a click or by
+`loadState` — so `view.colored` is back in charge from that click on.
 
 Assigning `board` always starts a new game and redraws the board in full: a
 fresh session owns a fresh "gone" set, and the layer compares that set by

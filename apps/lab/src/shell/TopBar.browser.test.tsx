@@ -15,19 +15,16 @@ beforeEach(() => {
   state.lang.setLang('en')
   state.ui.setMode('simple')
   // The trigger toggles, so a case that left the palette open would make the
-  // next one's click close it instead (harness fact 40's reasoning, applied
-  // to a field this file's own last case moves).
+  // next one's click close it instead.
   state.ui.closePalette()
-  // The cases below leave the menu open; the next one's click would close it
-  // instead (measured in review: the Escape case fails without it).
+  // The cases below leave the menu open; the next one's click would close it instead.
   state.ui.setMenu(false)
 })
 
 describe('TopBar', () => {
-  // Spec §3.3: the preset's name and the "edited" mark live on the preset
-  // picker now; the bar keeps the mark, the name of the product and the size.
-  // The whole text is asserted, separators and all; the spaces a reader sees
-  // are `gap`, not characters.
+  // The preset's name and the "edited" mark live on the preset picker; the bar
+  // keeps the mark, the product's name and the size. The whole text is
+  // asserted; the spaces a reader sees are `gap`, not characters.
   it('names the product and the size, and no preset', async () => {
     const screen = await renderBar()
     await expect
@@ -71,8 +68,8 @@ describe('TopBar', () => {
     await expect.element(screen.getByRole('heading', { level: 1, name: 'Arrowz' })).toBeVisible()
   })
 
-  // Spec §9: the mock's trigger is a glyph and nothing else, so its name comes
-  // from the dictionary and says what the glyph means.
+  // The mock's trigger is a glyph and nothing else, so its name comes from the
+  // dictionary and says what the glyph means.
   it('offers the palette under an accessible name that states the shortcut', async () => {
     const screen = await renderBar()
     const trigger = screen.getByRole('button', { name: 'Command palette (⌘K)' })

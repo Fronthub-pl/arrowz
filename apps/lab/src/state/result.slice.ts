@@ -4,8 +4,8 @@ import type { SaveOutcome } from '../api/boards'
 
 /**
  * The board on screen and what is read off it: the report, both exports, the
- * annotation and the store save (spec §5.3). A run in flight does not touch
- * it; only a finished run replaces it.
+ * annotation and the store save. A run in flight does not touch it; only a
+ * finished run replaces it.
  */
 export interface ShownResult {
   readonly board: BoardData
@@ -22,10 +22,9 @@ export interface Baseline {
 }
 
 /**
- * A board read out of the store: what it is, the file it came as, and the meta
- * the store holds beside it. Deliberately not a `ShownResult`: a stored board
- * has no `stats: CarverStats` and none of the run's counters, so a
- * `ReportInput` could only be invented for it (spec §5.3).
+ * A board read out of the store: the board, the file it came as, and its meta.
+ * Not a `ShownResult`: it has no `CarverStats` or run counters, so a
+ * `ReportInput` could only be invented for it.
  */
 export interface StoredBoard {
   readonly board: BoardData
@@ -42,12 +41,6 @@ export interface ResultState {
   exportError: string | null
   /** The board the library shows, beside the run's own and never instead of it. */
   preview: StoredBoard | null
-  /**
-   * `showResult` as a single-slice action, kept for PR 5's load into lab. In
-   * PR 4b nothing calls it: the only writer of `shown` is `completeRun`, which
-   * applies `showResult` itself.
-   */
-  show(next: ShownResult): void
   stored(file: BoardFile, outcome: SaveOutcome): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
@@ -58,8 +51,8 @@ export interface ResultState {
   /**
    * A new view for the stored board on screen. The board and its file are
    * untouched: nothing is regenerated, and the same file goes back to the
-   * store with the new view in its meta (Ruling 4). A no-op with no preview,
-   * as `stored` and `exported` are for a file no longer shown.
+   * store with the new view in its meta. A no-op with no preview, as `stored`
+   * and `exported` are for a file no longer shown.
    */
   previewView(view: View): void
   /** For the tests' resets, beside `run.reset()`. */
@@ -115,7 +108,6 @@ export function createResultSlice(set: SetStore): ResultState {
     saved: null,
     exportError: null,
     preview: null,
-    show: (next) => set((state) => ({ result: showResult(state.result, next) })),
     // Returning the state unchanged is zustand's no-op: `setState` skips an
     // update whose result is the state object itself.
     stored: (file, saved) =>

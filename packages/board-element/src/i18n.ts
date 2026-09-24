@@ -11,12 +11,18 @@ export interface BoardLabels {
   /** The hint on a playable board in `drag` mode. */
   dragPlayHintMac: string
   dragPlayHintOther: string
+  /** The hint on an inspecting board in `drag` mode: a click picks a piece, it plays nothing. */
+  dragInspectHintMac: string
+  dragInspectHintOther: string
   /** The hint in `click` mode, today's rule: the modifier pans. */
   clickHintMac: string
   clickHintOther: string
   /** The gesture switch: pressed means a plain click plays. */
   gesturesMac: string
   gesturesOther: string
+  /** The same switch on an inspecting board, where a click plays nothing. */
+  gesturesInspectMac: string
+  gesturesInspectOther: string
   colors: string
   /** Shown in place of the board when the browser gives no WebGL2 context. */
   noWebgl: string
@@ -30,10 +36,14 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     dragHint: 'Drag to pan',
     dragPlayHintMac: 'Drag to pan · ⌘-click to play',
     dragPlayHintOther: 'Drag to pan · Ctrl-click to play',
+    dragInspectHintMac: 'Drag to pan · ⌘-click a piece',
+    dragInspectHintOther: 'Drag to pan · Ctrl-click a piece',
     clickHintMac: 'Hold ⌘ and drag to pan',
     clickHintOther: 'Hold Ctrl and drag to pan',
     gesturesMac: 'Click plays without ⌘',
     gesturesOther: 'Click plays without Ctrl',
+    gesturesInspectMac: 'Click without ⌘',
+    gesturesInspectOther: 'Click without Ctrl',
     colors: 'Piece colours',
     noWebgl: 'This browser cannot draw the board: WebGL2 is unavailable.',
   },
@@ -44,10 +54,14 @@ export const BOARD_LABELS: Record<BoardLang, BoardLabels> = {
     dragHint: 'Przeciągnij, aby przesunąć',
     dragPlayHintMac: 'Przeciągnij, aby przesunąć · ⌘ + klik gra',
     dragPlayHintOther: 'Przeciągnij, aby przesunąć · Ctrl + klik gra',
+    dragInspectHintMac: 'Przeciągnij, aby przesunąć · ⌘ + klik na element',
+    dragInspectHintOther: 'Przeciągnij, aby przesunąć · Ctrl + klik na element',
     clickHintMac: 'Przytrzymaj ⌘ i przeciągnij, aby przesunąć',
     clickHintOther: 'Przytrzymaj Ctrl i przeciągnij, aby przesunąć',
     gesturesMac: 'Klik gra bez ⌘',
     gesturesOther: 'Klik gra bez Ctrl',
+    gesturesInspectMac: 'Klik bez ⌘',
+    gesturesInspectOther: 'Klik bez Ctrl',
     colors: 'Kolory figur',
     noWebgl: 'Ta przeglądarka nie narysuje planszy: WebGL2 jest niedostępny.',
   },

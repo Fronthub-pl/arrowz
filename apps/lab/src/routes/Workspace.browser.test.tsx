@@ -9,36 +9,30 @@ import { loadRunDone } from '../harness/mountApp'
 import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
-// The stage-height case measures the lab grid, which needs the real cascade,
-// in the order `main.tsx` loads it.
+// The stage-height case measures the lab grid, which needs the real cascade.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/console.css'
 import '../design/library.css'
 import '../design/run.css'
 
-// The real App, address bar and all: Ruling 5's claim is about what App
-// mounts, so a MemoryRouter harness would test the wrong thing. The params
-// slice is reset alongside the run: the store outlives a test, and the sizes
-// one test commits would otherwise be what the next one carves.
+// The real App, address bar and all: the claims here are about what App mounts,
+// so a MemoryRouter harness would test the wrong thing. The params slice is
+// reset too: the store outlives a test.
 async function mountApp() {
-  // `pushState` does two things: a case that navigated to /boards must not
-  // leave the next one there, and it drops the fragment — `useUrlHash` writes
-  // the knobs into it, and a link left behind by one case would be read as a
-  // pasted one by the next mount, which now carves a board on load. The
-  // `replaceState` on the line below adds one thing only: it clears
-  // `history.state`, where react-router keeps its own record, so each mount
-  // starts from the blank entry a real page load has.
+  // `pushState` leaves /boards behind and drops the fragment, which the next
+  // mount would read as a pasted link and carve. `replaceState` clears
+  // `history.state`, where react-router keeps its record, so each mount starts
+  // from the blank entry a real page load has.
   window.history.pushState({}, '', '/')
   history.replaceState(null, '', location.pathname)
   useStore.getState().run.reset()
   useStore.getState().result.reset()
   useStore.getState().library.reset()
   useStore.getState().params.reset()
-  // The whole `ui` slice, not a selection of it, and the load run makes it
-  // matter: a case that turned `auto` on would otherwise carve on the next
-  // case's first keystroke. `entry` is reset for the same reason the others
-  // are — the case that picks a rail entry leaves it on 'preview'.
+  // The whole `ui` slice: a case that turned `auto` on would otherwise carve on
+  // the next case's first keystroke, and one that picked a rail entry leaves it
+  // on 'preview'.
   useStore.getState().ui.select('board')
   // The saved boards' panel too: the restyle case leaves it on 'preview'.
   useStore.getState().ui.showBoards('list')
@@ -46,24 +40,21 @@ async function mountApp() {
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
-  // Solo is reset here for the same reason `auto` is, and the harness's own
-  // `resetApp` already does it: the two cases at the foot of this file press
-  // `f`, and the store outlives a case, so a solo left on would hide the
-  // console from whatever ran next — `.fw-lab.solo` takes it out of the layout
-  // entirely (console.css), and a later case reading `.fw-console` would then
-  // be measuring a `display: none` box.
+  // Solo too: two cases press `f`, and a solo left on takes `.fw-console` out
+  // of the layout, so a later case would measure a `display: none` box.
   useStore.getState().ui.setSolo(false)
   useStore.getState().ui.setReport(false)
   useStore.getState().ui.setSettings(true)
   useStore.getState().ui.setSheet(null)
   useStore.getState().ui.setMenu(false)
+  useStore.getState().ui.setBoardMode('view')
   return render(<App />)
 }
 
 /**
  * Whether the store has answered for a board other than `before`. `saved` alone
- * cannot say it: a run in flight keeps the last result and its answer (PR 4b),
- * so right after a press `saved` still describes the board before it.
+ * cannot say it: a run in flight keeps the last result and its answer, so right
+ * after a press `saved` still describes the board before it.
  */
 function savedAfter(before: unknown): boolean {
   const { shown, saved } = useStore.getState().result
@@ -71,36 +62,20 @@ function savedAfter(before: unknown): boolean {
 }
 
 /**
- * Every case that presses Generate or a run-column control opens at 1400×900.
- * Below about 700px the open settings drawer lies over the run column — a
- * stopgap until the responsive layout moves the column under the board
- * (handoff 2, PR 7; console.css) — and the runner's default 414px is there.
- * None of these cases is about the width; LabLayout pins the narrow one.
+ * Every case that presses Generate or a run-column control opens at 1400×900:
+ * at the runner's default 414px the run column is not beside the board. None of
+ * these cases is about the width; LabLayout pins the narrow ones.
  */
 async function clearOfTheDrawer(): Promise<void> {
   await page.viewport(1400, 900)
 }
 
-// `getByRole('status', { name: 'Run status' })` and not the bare role: the lab
-// route holds two status regions — the run status bar and the clamp notice —
-// and only the name tells them apart.
-//
-// Every test here states its own timeout, for the reason
-// useGenerator.browser.test.tsx records: the chromium project sets no
-// `testTimeout`, so Vitest's 5 s default would cut short polls that are budgeted
-// for far longer, and the failure would name a timeout rather than the
-// assertion. Each budget is the sum of that test's polls and fixed waits plus
-// 8 s of headroom for a two-core, software-rendered CI runner. No test carves
-// nothing any more — the page carves on load — so the two that start no run of
-// their own still pay for the default 25×50 board on top of mounting the shell
-// and its WebGL canvas, which is what dominates their budget.
-//
-// Every `expect.element` here states a 5 s timeout of its own, rather than
-// taking the default and retrying into the test's budget. Each one runs after a
-// poll has already settled the state it renders from, so it is waiting on one
-// React commit, not on a carve — and a genuine regression in one of these lines
-// then reports in seconds instead of burning the whole 40 s or 60 s first
-// (measured: 60 s apiece before this).
+// `getByRole('status', { name: 'Run status' })`: the clamp notice is a second
+// status region. Every test states its own timeout (the chromium project sets
+// no `testTimeout`): its polls and waits plus 8 s for a two-core, software-
+// rendered CI runner, and the load carve and WebGL canvas even with no run of
+// its own. Every `expect.element` states 5 s: it waits on one React commit
+// after a settled poll, so a regression reports in seconds, not after the budget.
 
 test('Generate carves a board, draws it, and says so', async () => {
   await clearOfTheDrawer()
@@ -108,30 +83,18 @@ test('Generate carves a board, draws it, and says so', async () => {
   const spy = vi.spyOn(console, 'error').mockImplementation((...args) => void errors.push(args[0]))
   try {
     const screen = await mountApp()
-    // §2.2's last row, proven in the real shell: the lab opens on a board
-    // without being asked. This is what the page says on load now, and it says
-    // more than the `Press "Generate".` it replaces — that line only claimed
-    // the page had not run, while this one claims a run finished and closed.
-    //
-    // Anchored at both ends, because `toMatchTextContent` matches anywhere in
-    // the content while the `toHaveTextContent` it replaces compared the whole
-    // of it (@vitest/browser 5: `pass: received === expected`). Nothing may
-    // precede the run's own report and nothing may follow it but the store's
-    // answer, which is optional and open-ended: it is appended asynchronously,
-    // so this line can run before or after it lands, and `notSaved` carries a
-    // parenthesis of its own (lab-i18n.ts:172).
+    // The lab opens on a board without being asked. Anchored at both ends,
+    // because `toMatchTextContent` matches anywhere; only the store's answer may
+    // follow, appended asynchronously, and `notSaved` has a parenthesis of its own.
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
       .toMatchTextContent(/^Board closed 100%\.(?: — (?:not )?saved.*)?$/)
 
-    // The board the load run left, held so the press below can be told from
-    // it. Polling the phase alone would not do it: the page is already `done`
-    // when the click lands, so every assertion after it would be satisfied by
-    // the load board — delete `onClick={control.start}` from `RunColumn` and
-    // this case would stay green, which is the one failure a gate must never
-    // have. `completeRun` gives `result.shown` the new run's own file object, so
-    // a file that is new is proof a run finished after the press.
+    // The board the load run left, held so the press below can be told from it:
+    // the page is already `done` when the click lands, so polling the phase
+    // would pass with Generate's `onClick` deleted. `completeRun` gives
+    // `result.shown` a new file object, so a new file proves a run after the press.
     const onLoad = useStore.getState().result.shown?.file
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect
@@ -151,21 +114,17 @@ test('Generate carves a board, draws it, and says so', async () => {
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
       .toMatchTextContent(/Board closed/)
 
-    // §8: a full run from Generate to a drawn board with zero console errors.
+    // A full run from Generate to a drawn board with zero console errors.
     expect(errors).toEqual([])
   } finally {
     spy.mockRestore()
   }
 }, 40_000)
 
-// The architectural claim of this PR, and the one §11.6 of the spec says was
-// got wrong once already. Node identity is the assertion that matters: a
-// remounted element is a disposed GL context, whatever the run's phase says.
-// This half needs no run at all, so it is fast and never races.
-//
-// Probed, not assumed: with `/` changed to `element={<Workspace …/>}` this test
-// fails on the line below with `Received: null`, and it is the only test in the
-// suite that does — see the note on the in-flight test.
+// Node identity is the assertion that matters: a remounted element is a
+// disposed GL context, whatever the run's phase says. This half needs no run at
+// all, so it is fast and never races. It is the only test that fails if `/`
+// renders the workspace as a route element.
 test('a route change keeps the very same board element', async () => {
   const screen = await mountApp()
   const before = screen.container.querySelector('arrowz-board')
@@ -180,32 +139,17 @@ test('a route change keeps the very same board element', async () => {
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
 }, 20_000)
 
-// The other half: a run in flight survives the same trip, and its result still
-// reaches the live element while the user is off-route. It needs a board big
-// enough to still be carving after a Playwright click round-trip, which costs
-// tens of milliseconds on its own; the defaults are 25×50 and finish in tens of
-// milliseconds, so the console commits a larger board before the run. 600×600 and
-// not 200×200: Task 8 measured 200×200 at 228 ms in Chromium — a race this test
-// would win while proving nothing — and settled on 600×600, at about 2.5 s, for
-// exactly this margin. That size also buys the progress line, which the
-// engine emits no sooner than 250 ms into a carve (Task 8 measured eight
-// messages at 600×600 and none at 200×200).
-//
-// What this test does *not* guard, established by probe rather than by argument:
-// the panel's placement. `useGenerator()` is mounted in `Shell`, above
-// <Routes>, so the worker outlives a route change whether or not the panel is a
-// route element — with `/` turned into `element={<Workspace …/>}` this test still
-// passes, unchanged, in 2 827 ms. The node-identity test above is the only one
-// that catches that regression. What the two assertions at the end add is a
-// claim that one makes on its own: a run that finishes while the user is
-// off-route still lands on the same live element.
+// A run in flight survives the same trip, and its result still reaches the live
+// element while the user is off-route. 600×600, about 2.5 s: 200×200 finishes
+// in about 228 ms, a race the click round-trip would win while proving
+// nothing, and the engine emits no progress before 250 ms. The worker lives in
+// `Shell`, above <Routes>, so this case alone does not guard the panel's
+// placement; the node-identity case above does.
 test('a run in flight survives a route change, and finishes into the same element', async () => {
   await clearOfTheDrawer()
   const screen = await mountApp()
-  // The load run first, and not a longer timeout on the click below: Generate
-  // is disabled while a run is carving, so `click()` would wait out the load
-  // run's own carve inside its actionability wait and report a timeout rather
-  // than a broken button.
+  // The load run first: Generate is disabled while a run carves, so `click()`
+  // would wait out the load run and report a timeout, not a broken button.
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
@@ -231,16 +175,13 @@ test('a run in flight survives a route change, and finishes into the same elemen
   // page, not an equal-looking replacement.
   expect(screen.container.querySelector('arrowz-board')).toBe(before)
   // Back to the lab before reading the element: on the library tab the frame
-  // shows the preview or nothing, so the run's board is deliberately not there
-  // (spec §5.3). What this case is about — the run surviving the trip and
-  // finishing into the same element — is unchanged.
+  // shows the preview or nothing, so the run's board is deliberately not there.
   await userEvent.click(screen.getByRole('tab', { name: 'Lab', exact: true }))
   await expect.poll(() => before?.board?.W).toBe(600)
 }, 60_000)
 
-// Spec §5.3, PR 4b: the board is replaced only when a run is done. Before the
-// result slice, `run.started()` cleared the board and the stage sat empty for a
-// whole carve. 600×600 and seed 9 for the reason the case above gives.
+// The board is replaced only when a run is done; the stage never sits empty
+// for a carve. 600×600 and seed 9 for the reason the case above gives.
 test('a run in flight keeps the last result on screen', async () => {
   await clearOfTheDrawer()
   const screen = await mountApp()
@@ -249,9 +190,8 @@ test('a run in flight keeps the last result on screen', async () => {
   const board = element?.board
   expect(board?.W).toBe(25)
   // `includeHidden`: the report drawer starts closed and its report is then
-  // `visibility: hidden` (shell.css), which a role locator skips. The claim
-  // here is what the report holds while a run is in flight, not whether the
-  // drawer is open.
+  // `visibility: hidden`, which a role locator skips. The claim is what the
+  // report holds while a run is in flight, not whether the drawer is open.
   const report = () =>
     screen.getByRole('region', { name: 'Report', includeHidden: true }).element().querySelector('table.fw-stats')
   const statsBefore = report()?.textContent
@@ -270,8 +210,7 @@ test('a run in flight keeps the last result on screen', async () => {
   expect(report()?.textContent).toBe(statsBefore)
   // Both exports stay live for the board on screen while the next one carves.
   // Read at once, not retried: a retrying `toBeEnabled` outlasts the carve and
-  // passes on the finished run, so a button disabled while running would pass
-  // it (measured in review).
+  // would pass a button disabled while running.
   expect(useStore.getState().run.phase).toBe('running')
   for (const name of ['Download SVG', 'Download board file']) {
     const button = screen.getByRole('button', { name }).element()
@@ -285,28 +224,19 @@ test('a run in flight keeps the last result on screen', async () => {
 
 test('the lab panel is hidden off-route and shown on it', async () => {
   const screen = await mountApp()
-  // `hidden` is on the <main> around the tabpanel, not on the panel itself:
-  // the id has to stay on what the tab strip's aria-controls points at, which
-  // is the tabpanel, as the other two panels have it. Moving the id back to
-  // the <main> is caught by the `role` assertion alone: `#lab-panel` would
-  // then be the <main>, whose role is not `tabpanel`. The `aria-controls`
-  // assertion cannot catch it — it reads a string TabRow hard-codes in `TABS`
-  // and passes wherever the id actually lives — but it is what pins the two
-  // halves of the pair together, so a rename of the id on one side without the
-  // other still fails here.
+  // `hidden` is on the <main> around the tabpanel; the id stays on the tabpanel,
+  // which the tab strip's aria-controls points at. The `role` assertion catches
+  // an id moved to the <main>; the `aria-controls` one pins the two halves of
+  // the pair together, so renaming one side alone still fails here.
   const panel = screen.container.querySelector('#lab-panel')
   expect(panel?.getAttribute('role')).toBe('tabpanel')
   expect(screen.container.querySelector('#tab-lab-panel')?.getAttribute('aria-controls')).toBe('lab-panel')
   expect(panel?.closest('main')).not.toBeNull()
   expect(panel?.closest('main')?.hasAttribute('hidden')).toBe(false)
   await userEvent.click(screen.getByRole('tab', { name: 'Docs' }))
-  // Polled, not read at once. `BrowserRouter` commits every location change
-  // inside `React.startTransition` unless it is given `useTransitions={false}`,
-  // which `App` does not, so `hidden` lands after the click has been dispatched
-  // rather than during it: a native `click()` followed by a synchronous read
-  // sees `false` every time. `userEvent.click`'s round-trip usually outlasts the
-  // transition, which is why a synchronous read passed locally and on earlier
-  // CI runs, and failed the one time a slow runner returned first.
+  // Polled: `BrowserRouter` commits every location change inside
+  // `startTransition` (App does not pass `useTransitions={false}`), so `hidden`
+  // lands after the click; a synchronous read passes only on a fast runner.
   await expect
     .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'), {
       timeout: 5_000,
@@ -314,11 +244,9 @@ test('the lab panel is hidden off-route and shown on it', async () => {
     .toBe(true)
 }, 20_000)
 
-// Mounted under StrictMode, whose double-invoked mount effect is what the save
-// guard's use of a ref rather than state is there to survive, and counting the
-// POSTs rather than asserting `saved !== null` — which would be equally true of
-// a run posted twice. `fetch` is spied on rather than stubbed, so the POST still
-// goes out and still fails for real.
+// Under StrictMode, whose double-invoked mount effect is what the save guard's
+// ref survives. Counting the POSTs, because `saved !== null` holds for a run
+// posted twice too. `fetch` is spied on, not stubbed, so the POST still fails for real.
 test('a finished run is offered to the store once per run, and the outcome is appended', async () => {
   await clearOfTheDrawer()
   window.history.pushState({}, '', '/')
@@ -333,23 +261,19 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
+  useStore.getState().ui.setBoardMode('view')
   const screen = await render(
     <StrictMode>
       <App />
     </StrictMode>,
   )
-  // The page carves on load now, and that run posts too. Its POST is awaited
-  // here rather than counted below: it is asynchronous, so raising the two
-  // counts to 2 and 3 would make them depend on whether it lands inside the
-  // spy's window — the very race the comment in the last test of this file
-  // fights. With the save already in, the spy is installed on a quiet page and
-  // the counts below are this test's own presses, exactly as before.
+  // The page carves on load, and that run posts too. Its POST is awaited here
+  // rather than counted, so the spy is installed on a quiet page and the counts
+  // below are this test's own presses, whenever the load save lands.
   await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
-  // The method is part of the predicate: `listBoards()` GETs this same address
-  // (api/boards.ts), and PR 5's saved-boards route is what starts calling it —
-  // an address-only filter would then count a GET as a save and fail this test
-  // for a reason that has nothing to do with what it guards.
+  // The method is part of the predicate: `listBoards()` GETs this same address,
+  // and an address-only filter would count that as a save.
   const posts = () =>
     fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
   try {
@@ -357,20 +281,18 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     const loaded = useStore.getState().result.shown?.file
     await generate.click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
-    // No store server answers in the browser test, so the outcome is a failure —
+    // No store server answers in the browser test, so the outcome is a failure,
     // and the run's own outcome must survive beside it. The whole line is
-    // asserted, not just the store's half: a status bar that *substituted* the
-    // store's answer for the run's would match a looser pattern.
+    // asserted: a bar that *substituted* the store's answer would match less.
     expect(useStore.getState().run.phase).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
       .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 
-    // The guard keys on the file object's identity, not on its value. Nothing
-    // touches a knob between the two presses, so the second carves a board
-    // equal to the first in every field, fingerprint included — a guard that
-    // compared values would post once and swallow the second run.
+    // The guard keys on the file object's identity, not its value: the second
+    // press carves a board equal to the first in every field, so a value guard
+    // would post once and swallow the second run.
     const first = useStore.getState().result.shown?.file
     await generate.click()
     await expect.poll(() => savedAfter(first), { timeout: 20_000 }).toBe(true)
@@ -395,8 +317,7 @@ test('the language switch reaches the document, the board and every label', asyn
   await vi.waitFor(() => expect(document.documentElement.lang).toBe('en'))
 }, 40_000)
 
-// Handoff 2, PR 1: the console is the settings drawer's content on the lab,
-// no longer a row under the stage.
+// The console is the settings drawer's content on the lab, not a row under the stage.
 test('the lab route shows the console in the settings drawer', async () => {
   const screen = await mountApp()
   await expect.element(screen.getByRole('tablist', { name: 'Parameter groups' })).toBeVisible()
@@ -406,18 +327,11 @@ test('the lab route shows the console in the settings drawer', async () => {
   ).not.toBeNull()
 })
 
-// The plumbing itself, which nothing else in this branch touches. `ClampNotice`
-// and `RunColumn` are each tested against a host of their own making, so both
-// suites stay green with the wiring cut: delete `ref={abortRef}` from
-// `RunColumn.tsx:168` or `abortRef={abortRef}` from `Workspace.tsx`'s own
-// `<RunColumn …/>` and the
-// feature is dead on the real page while every other case passes. The same was
-// true of `goRef`, so this case covers both — they are the same two lines.
-//
-// Both halves are focus reads, and focus is the one thing a component test
-// cannot fake: the buttons here are the route's own, reached by role rather
-// than by ref, so the assertion can only hold if the ref arrived at the button
-// the page renders.
+// The ref plumbing, on the real page: `ClampNotice` and `RunColumn` are each
+// tested against a host of their own, so both suites stay green with
+// `abortRef` or `goRef` cut between `Workspace` and `RunColumn`. Focus is the
+// one thing a component test cannot fake: the buttons here are reached by
+// role, so the assertion holds only if the ref arrived at the button the page renders.
 test('the clamp notice hands focus to the route’s own buttons', async () => {
   await clearOfTheDrawer()
   const screen = await mountApp()
@@ -431,10 +345,8 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
   await screen.getByRole('button', { name: 'Dismiss' }).click()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Generate' }).element())
 
-  // `abortRef`: with a carve in flight Generate is refused and Abort is the
-  // live one. 600×600 and seed 9 for the reason the in-flight case above
-  // gives — the defaults finish in tens of milliseconds, which is less than
-  // the click round-trip this case spends before it looks.
+  // `abortRef`: with a carve in flight Generate is refused and Abort is live.
+  // 600×600 and seed 9 for the reason the in-flight case gives.
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   await expect.poll(() => useStore.getState().run.phase).toBe('running')
@@ -442,12 +354,9 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
   await screen.getByRole('button', { name: 'Dismiss' }).click()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Abort' }).element())
 
-  // And the end of the run does not take that focus down with it: `RunColumn`
-  // moves it to Generate, which the same commit re-enables. This is the whole
-  // mechanism on the real page — the notice parks the focus on Abort, the run
-  // ends, and the focus is still on a control. `vi.waitFor` and not a bare
-  // read: the redirect is a layout effect of the commit the click flushes, and
-  // HTML's own focus fixup would otherwise be racing it.
+  // The end of the run does not take that focus down with it: `RunColumn`
+  // moves it to Generate, re-enabled in the same commit. `vi.waitFor`, not a
+  // bare read: the redirect is a layout effect racing HTML's own focus fixup.
   await screen.getByRole('button', { name: 'Abort' }).click()
   await expect.poll(() => useStore.getState().run.phase).toBe('idle')
   await vi.waitFor(() =>
@@ -458,7 +367,7 @@ test('the clamp notice hands focus to the route’s own buttons', async () => {
 test('picking a rail entry replaces the panel', async () => {
   const screen = await mountApp()
   await screen.getByRole('tab', { name: 'skeleton', exact: true }).click()
-  // The knob row's label is the short term (handoff 2, PR 2).
+  // The knob row's label is the short term.
   const label = screen.container.querySelector<HTMLElement>('label[for="knob-giants"]')
   if (label === null) throw new Error('label not found')
   expect(label.textContent).toBe('giants')
@@ -469,9 +378,8 @@ test('picking a rail entry replaces the panel', async () => {
 
 test('Generate is refused while a rule is broken, and the reasons are on screen', async () => {
   const screen = await mountApp()
-  // The load run has to be over before the rule is broken, or `toBeDisabled`
-  // below would pass on the run rather than on the rule — `RunColumn` disables
-  // Generate for either — and the assertion would stop guarding anything.
+  // The load run has to be over before the rule is broken: `RunColumn` disables
+  // Generate for either, so `toBeDisabled` would pass on the run.
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
   const generate = screen.getByRole('button', { name: 'Generate' })
@@ -480,9 +388,7 @@ test('Generate is refused while a rule is broken, and the reasons are on screen'
   await expect.element(screen.getByRole('region', { name: 'Settings outside the safe range' })).toBeVisible()
   useStore.getState().params.reset()
   await expect.element(generate).toBeEnabled()
-  // A budget of its own, like every other case here: this one holds a 30 s poll
-  // now, and Vitest's 5 s default would kill the test before the poll could
-  // report, so a slow carve would name a timeout rather than the assertion.
+  // A budget of its own, like every other case here: this one holds a 30 s poll.
 }, 40_000)
 
 test('a board carved from the console reaches the element and the store', async () => {
@@ -491,9 +397,7 @@ test('a board carved from the console reaches the element and the store', async 
   // The load run first: Generate is disabled while it carves, and the click
   // below would spend its actionability wait on it.
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
-  // The sizes this file already measured: 600×600, because PR 2 timed 200×200
-  // at 228 ms and the engine emits no progress before 250 ms (see the comment
-  // above the in-flight test). Migrating to the slice must not change them.
+  // 600×600 for the reason given above the in-flight test.
   useStore.getState().params.setMany({ W: 600, H: 600, seed: 9 })
   await screen.getByRole('button', { name: 'Generate' }).click()
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
@@ -516,29 +420,21 @@ test('the knobs on screen are the knobs the run used', async () => {
   expect(useStore.getState().run.params?.seed).toBe(42)
 }, 40_000)
 
-// The picture a saved board carries is the one the board was drawn with, and
-// `DEFAULT_VIEW` sits close enough to the lab's own starting view that only a
-// field the user moved tells the two apart — so this test moves one. Read off
-// the POST body rather than off `result.saved`, which says only that the store
-// answered: the same reason the StrictMode test above counts the client's own
-// calls.
+// The saved board carries the view it was drawn with. `DEFAULT_VIEW` is close
+// to the lab's starting view, so this test moves a field. Read off the POST
+// body, not `result.saved`, which says only that the store answered.
 test('the saved board carries the view on screen', async () => {
   await clearOfTheDrawer()
-  // `mountApp` resets the run and the params; the view slice is nobody's to
-  // reset, so this test puts back what it moved. Its own state, restored by
-  // hand rather than by a slice action no page would ever call.
+  // The view slice has no reset, so this test puts back what it moved.
   const was = { colored: useStore.getState().view.colored, stroke: useStore.getState().view.stroke }
   const screen = await mountApp()
-  // The load run's own save is awaited before the spy goes on, for the reason
-  // the StrictMode case above gives: counted instead, it would be a POST that
-  // may or may not be inside the window, and `posts[0]` might be its body
-  // rather than this test's. The spy therefore starts after it, and the length
-  // assertion below still says which POST this is.
+  // The load run's own save is awaited before the spy goes on, as in the
+  // StrictMode case; the length assertion below still says which POST this is.
   await expect.poll(() => useStore.getState().result.saved !== null, { timeout: 30_000 }).toBe(true)
   const fetchSpy = vi.spyOn(window, 'fetch')
   try {
     await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
-    // The preview's rows name their switches by the short term (handoff 2, PR 3).
+    // The preview's rows name their switches by the short term.
     await screen.getByRole('switch', { name: 'multicolour' }).click()
     // A second field, and a number rather than a flag: one boolean surviving
     // the trip says less than "the view the user was looking at survived it".
@@ -547,21 +443,18 @@ test('the saved board carries the view on screen', async () => {
     await screen.getByRole('button', { name: 'Generate' }).click()
     await expect.poll(() => savedAfter(loaded), { timeout: 30_000 }).toBe(true)
 
-    // Filtered, not `find`: the tests above poll only to `run.phase === 'done'`
-    // and never await their own save, so a POST of theirs can still land inside
-    // this spy's window — and `find` would then read that body instead of this
-    // one. The length assertion is what says which POST this is.
+    // Filtered, not `find`: earlier tests never await their own save, so a POST
+    // of theirs can land inside this spy's window.
     const posts = fetchSpy.mock.calls.filter((call) => String(call[0]) === '/api/boards' && call[1]?.method === 'POST')
     expect(posts).toHaveLength(1)
     const request = JSON.parse(String(posts[0]?.[1]?.body)) as StoreRequest
     expect(request.view.colored).toBe(true)
     expect(request.view.stroke).toBe(0.8)
-    // The zeroing that used to be a no-op, now that the view is the lab's: the
-    // highlight is on and set to 5 pieces, and a stored board keeps none of it.
+    // The highlight is on and set to 5 pieces, and a stored board keeps none of it.
     expect(useStore.getState().view.top).toBe(5)
     expect(request.view.top).toBe(0)
     // The cell a viewer opens the file at is the run's own, as `carve` computes
-    // it (command.ts:513) — not the slice's starting 12, which nothing moves.
+    // it (`exportCell`), not the slice's starting 12, which nothing moves.
     expect(request.view.cell).toBe(exportCell(25, 50))
     expect(request.view.cell).not.toBe(12)
   } finally {
@@ -571,19 +464,15 @@ test('the saved board carries the view on screen', async () => {
   }
 }, 40_000)
 
-// Ruling 7, on the real page. The column is looked up once, before the swap,
-// and compared by identity after it: a remount would leave an equal-looking
-// region that is a different node. What a remount costs is real — the focus a
-// keyboard user left on Generate, and the column's `wasRunning` ref.
-//
-// Mutation that must turn this red: in `Console.tsx`, return
-// `<div className="fw-console"><SimplePanel control={control} />{children}</div>`
-// for the simple mode, so `children` moves from the third position to the second.
+// The run column survives a switch to the simple view as the same node: a
+// remount would lose the focus a keyboard user left on Generate, and the
+// column's `wasRunning` ref. Looked up once before the swap, compared by
+// identity after it. `Console` moving `children` to another position turns it red.
 test('the simple view replaces the rail and the presets, and keeps the very same run column', async () => {
   const screen = await mountApp()
   const column = screen.getByRole('region', { name: 'Run' }).element()
-  // Present in the advanced view first, so the null check below cannot pass
-  // on a trigger that the locator never matched at all.
+  // Present in the advanced view first, so the null check below cannot pass on
+  // a trigger the locator never matched.
   await expect.element(screen.getByRole('button', { name: /^preset/ })).toBeInTheDocument()
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
@@ -597,8 +486,7 @@ test('the simple view replaces the rail and the presets, and keeps the very same
   expect(screen.getByRole('region', { name: 'Run' }).element()).toBe(column)
 }, 40_000)
 
-// Ruling 9: `auto` belongs to the knobs, and the knobs are not on screen. The
-// descriptions switch, its old partner, is gone from both views (handoff 2, PR 2).
+// `auto` belongs to the knobs, and the simple view shows no knobs.
 test('the simple view hides the switch only the advanced view has', async () => {
   const screen = await mountApp()
   await expect.element(screen.getByRole('switch', { name: 'generate right after a change' })).toBeInTheDocument()
@@ -608,8 +496,8 @@ test('the simple view hides the switch only the advanced view has', async () => 
   await expect.element(screen.getByRole('button', { name: 'Generate' })).toBeInTheDocument()
 }, 40_000)
 
-// Ruling 10: without its first row the lab grid would auto-place the stage
-// into the `auto` track. Measured on the element the grid actually sizes.
+// Without its first row the lab grid would auto-place the stage into the
+// `auto` track. Measured on the element the grid actually sizes.
 test('the stage keeps its height when the preset strip goes', async () => {
   const screen = await mountApp()
   const stage = () => screen.container.querySelector<HTMLElement>('.fw-stage')?.getBoundingClientRect().height ?? 0
@@ -618,16 +506,14 @@ test('the stage keeps its height when the preset strip goes', async () => {
   await screen.getByRole('radio', { name: 'Simple' }).click()
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   // Not a 180px floor: at the runner's 414×896 an auto-placed stage still
-  // measures 292px (measured in review: the board's 260px min-height plus its
-  // padding, which the max-height: 700px rule releases), so the floor could
-  // not fail. The strip's row goes to the two remaining rows, so the stage can
-  // only grow.
+  // measures 292px, so the floor could not fail. The strip's row goes to the
+  // two remaining rows, so the stage can only grow.
   await expect.poll(stage).toBeGreaterThanOrEqual(before)
 }, 40_000)
 
-// Spec §5.1, PR 5a: one panel serves both tabs and renames itself with the
-// route, because the tab strip resolves `aria-controls` to that id. Two
-// parallel panels could not both hold the one stage.
+// One panel serves both tabs and renames itself with the route, because the tab
+// strip resolves `aria-controls` to that id. Two parallel panels could not both
+// hold the one stage.
 test('the panel takes the identity of the tab that is open', async () => {
   const screen = await mountApp()
   const panel = () => screen.container.querySelector('[role="tabpanel"]')
@@ -657,20 +543,16 @@ test('the board element survives the trip to the library and back', async () => 
   expect(element()).toBe(before)
 })
 
-// Ruling 6: the preset strip goes, the stage stays — the same node, not merely
-// a node in the same place. Measured by review round 1: a React `null` slot
-// renders no DOM node, so the stage's *index* among `.fw-lab.children`
-// legitimately drops from 1 to 0 while its identity holds. The index was the
-// wrong instrument; identity is the claim.
+// The preset strip goes, the stage stays: the same node, not merely a node in
+// the same place. Not the index: a React `null` slot renders no DOM node, so
+// the stage's index among `.fw-lab.children` drops from 1 to 0 while it holds.
 test('the preset strip is absent from the library and the stage is the same node', async () => {
   const screen = await mountApp()
   const stage = () => screen.container.querySelector('.fw-stage')
   const before = stage()
   expect(before).not.toBeNull()
-  // Established before the click, so the assertion after it means something:
-  // without this, the case's meaning would rest entirely on `mountApp`'s
-  // `setMode('advanced')`, and a default-mode change would hollow it out
-  // silently.
+  // Established before the click, so the case does not rest on `mountApp`'s
+  // `setMode('advanced')` staying the default.
   expect(screen.container.querySelector('.fw-presets')).not.toBeNull()
 
   await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
@@ -680,8 +562,7 @@ test('the preset strip is absent from the library and the stage is the same node
   expect(stage()).toBe(before)
 })
 
-// The docs are not the workspace: there the panel is hidden, as it was before
-// this PR for every route but `/`.
+// The docs are not the workspace: there the panel is hidden.
 test('the workspace is hidden under the docs route', async () => {
   const screen = await mountApp()
   await userEvent.click(screen.getByRole('tab', { name: 'Docs', exact: true }))
@@ -690,27 +571,12 @@ test('the workspace is hidden under the docs route', async () => {
     .toBe('lab-panel')
 }, 40_000)
 
-// Ruling 1: the run column is hidden in the library, not replaced. A carve
-// started in the lab keeps its node, its refs and the run itself, because it
-// is hidden by class. Read through `querySelector`, not a role
-// locator, precisely because a locator skips `display: none` — the state
-// under test.
-//
-// The viewport is set first and deliberately: at the runner's default
-// 414×896 the ≤900px query already gives `.fw-console` two tracks, so the
-// track assertion below would pass with the library rule deleted. Review
-// round 1 measured exactly that.
-//
-// This case mounts the real `App`, so `fetch` needs a mock: unmocked,
-// `/api/boards` hits whatever this environment answers with — here, the dev
-// server's own `index.html` fallback, 200 and not JSON, which `listBoards`
-// turns into a caught parse error. Whether that error lands on the store
-// before or after the read below is a race, and losing it sets R10's
-// `library.listError`, which drops `.fw-console` to its one-column `empty`
-// face — flaking the very assertion this case makes about a *listed*
-// library's two tracks (chips + list). A mocked, deterministic listing with
-// one size removes the race and lets the case assert what its comment
-// claims.
+// The run column is hidden in the library, not replaced, so a carve started in
+// the lab keeps its node, its refs and the run. Read with `querySelector`: a
+// role locator skips `display: none`, the state under test. 1400 wide, because
+// at 414 the ≤900px rule already yields two tracks and the assertion would pass
+// without the library rule. `fetch` is mocked: unmocked, a race with
+// `listError` collapses the console to one track.
 test('the run column stays mounted, and hidden, in the library', async () => {
   await page.viewport(1400, 900)
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -746,9 +612,8 @@ test('the run column stays mounted, and hidden, in the library', async () => {
 
 // The library has no preset strip, and the lab grid's first row is `auto`:
 // without `.fw-lab.library` the stage takes 590px and the console is left with
-// its 180px minimum on every viewport (measured, review round 1). This is the
-// same trap `.fw-lab.simple` exists to avoid, so it is asserted the same way:
-// by the two rows being the halves they are in the lab, not by a class name.
+// its 180px minimum. The same trap `.fw-lab.simple` avoids, asserted the same
+// way: by the two rows being the halves they are in the lab.
 test('the library gives the console its share of the panel', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp()
@@ -767,16 +632,9 @@ test('the library gives the console its share of the panel', async () => {
 })
 
 // Solo is the stage's, not the lab tab's: the full view works on both tabs.
-// The `f` key is the application's, so this presses it rather than clicking
-// the toggle.
-//
-// The viewport is stated rather than inherited. `page.viewport` outlives the
-// case that sets it, and the case above leaves 1400×900 behind, so without
-// this line the width here would be whatever the file happens to end on — a
-// dependency on test order in a case that has no business having one. 1400×900
-// and not the runner's default because that is what the cases around it use,
-// and because at that width the console is genuinely on screen for solo to
-// take away; the assertions themselves hold at either width.
+// The `f` key is the application's, so this presses it. The viewport is stated,
+// because `page.viewport` outlives the case that sets it; 1400×900 puts the
+// console on screen for solo to take away.
 test('solo works on the saved boards tab too', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp()
@@ -792,17 +650,11 @@ test('solo works on the saved boards tab too', async () => {
   await expect.poll(() => useStore.getState().ui.solo).toBe(false)
 }, 40_000)
 
-// The defect review round 1 found, and the reason `useStoredBoard` is mounted
-// in `Workspace`: with the hook inside the library panel, `Console` unmounted
-// it on the way out, nothing ever cleared the preview, and the lab tab went on
-// drawing, announcing and reporting a board read off the disk.
-//
-// The board MUST be opened through the address, not by calling `showPreview`.
-// Review round 2 measured the shortcut version staying red in both worlds: the
-// clearing effect keys on the address, and a preview put there by hand is a
-// state the hook never produced, so the case discriminated nothing. Written
-// this way it is green with the hook in `Workspace` and red with it back in
-// `BoardList` — which is what a regression test for this defect has to do.
+// `useStoredBoard` is mounted in `Workspace` because `Console` unmounts the
+// library panel, so a hook there never cleared the preview and the lab went on
+// showing a board read off the disk. The board must be opened through the
+// address, not `showPreview`: the clearing effect keys on the address, so a
+// preview put there by hand would pass with the hook in the wrong place.
 test('leaving the library takes the stored board off the stage', async () => {
   const { meta, file } = storedFixture(4)
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -814,10 +666,8 @@ test('leaving the library takes the stored board off the stage', async () => {
     return Promise.resolve(new Response('{}', { status: 404 }))
   })
   try {
-    // 1400×900 on purpose: at the runner's 414×896 the stage overlaps the row
-    // this case has to click, and Playwright refuses the click as intercepted
-    // by `<arrowz-board>`. Review round 3 measured it — the case would then be
-    // failing about a layout overlap while claiming to be about the hook.
+    // 1400×900: at 414×896 the stage overlaps the row this case clicks, and
+    // Playwright refuses the click as intercepted by `<arrowz-board>`.
     await page.viewport(1400, 900)
     const screen = await mountApp()
     await loadRunDone()
@@ -828,8 +678,7 @@ test('leaving the library takes the stored board off the stage', async () => {
     await expect.element(screen.getByTitle(meta.id)).toBeVisible()
     await userEvent.click(screen.getByTitle(meta.id))
     await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
-    // The report is the stored board's now (handoff 2, PR 6): its six stored
-    // figures, not the run's 23 rows.
+    // The report is the stored board's: its six stored figures, not the run's 23 rows.
     await expect
       .poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
       .toBe(6)
@@ -845,11 +694,9 @@ test('leaving the library takes the stored board off the stage', async () => {
   }
 }, 40_000)
 
-// `.fw-lab.library.solo` is load-bearing and nothing above measures it: the
-// solo case reads `ui.solo` and a class name, both of which survive the rule's
-// deletion. Geometry does not — review round 2 deleted the selector and this
-// went red at 1400 and at 860, because `.fw-lab.library` would otherwise beat
-// `.fw-lab.solo` on order.
+// `.fw-lab.library.solo` is load-bearing and only geometry measures it: the
+// solo case reads `ui.solo` and a class name, which survive the rule's
+// deletion, and without it `.fw-lab.library` beats `.fw-lab.solo` on order.
 test('solo in the library fills the panel', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp()
@@ -872,14 +719,9 @@ test('solo in the library fills the panel', async () => {
   expect(element.height).toBeCloseTo(lab.height - 34, 0)
 }, 40_000)
 
-// Fix 8's question, since handoff 2 PR 6: the saved boards' rail is the lab's
-// rail in the same drawer, so below 900px both are the drawer's 126px (the
-// 112px rail below 900px was PR 1's stopgap, deleted in PR 7).
-//
-// This reads `.fw-console`'s first track the same way the case above does,
-// so it needs the same mocked, deterministic listing: unmocked, it races
-// the same `/api/boards` fetch, and a listing that settles as an error
-// before this read would measure a different face.
+// The saved boards' rail is the lab's rail in the same drawer, so below 900px
+// both are the drawer's 126px. It needs the same mocked listing as the case
+// above: a listing that settles as an error would measure a different face.
 test('below 900px the library rail is the lab rail', async () => {
   await page.viewport(860, 900)
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -896,7 +738,7 @@ test('below 900px the library rail is the lab rail', async () => {
     await expect.poll(() => useStore.getState().library.sizes?.length).toBe(1)
     const consoleBox = screen.container.querySelector('.fw-console')
     if (!(consoleBox instanceof HTMLElement)) throw new Error('the console is not on the page')
-    // The drawer's rail, the lab's own at this width (console.css, 126px).
+    // The drawer's rail, the lab's own at this width (126px).
     expect(getComputedStyle(consoleBox).gridTemplateColumns.split(' ')[0]).toBe('126px')
   } finally {
     vi.restoreAllMocks()
@@ -908,9 +750,8 @@ test('below 900px the library rail is the lab rail', async () => {
 // address survives all of it. The store is stubbed — `boards.node.test.ts` is
 // where a real one is exercised.
 test('a stored board can be opened, restyled and loaded back into the lab', async () => {
-  // Its own viewport, because the one before it outlives its case: without this
-  // the case inherits 860×900 from a neighbour, and at 414×896 PR 5a recorded
-  // Playwright refusing row clicks as intercepted by `<arrowz-board>`.
+  // Its own viewport, because the one before it outlives its case: at 414×896
+  // Playwright refuses row clicks as intercepted by `<arrowz-board>`.
   await page.viewport(1400, 900)
   const { meta, file } = storedFixture(1)
   const sizes = [{ size: '8x8', W: 8, H: 8, cells: 64, boards: [meta] }]
@@ -926,9 +767,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await loadRunDone()
 
     await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-    // Wait for the rows before reading them: the tab click navigates, and a
-    // navigation commits inside `startTransition` (harness facts). Review round 3
-    // measured both of this file's new cases failing on a synchronous read here.
+    // Wait for the rows: the tab click navigates, and a navigation commits
+    // inside `startTransition`, so a synchronous read fails.
     await expect.poll(() => screen.container.querySelector('.fw-brow')).not.toBeNull()
     const row = screen.container.querySelector<HTMLElement>('.fw-brow')
     if (row === null) throw new Error('the listing showed no row')
@@ -938,8 +778,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.element(screen.getByText(meta.command)).toBeVisible()
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
 
-    // An edited field redraws the stored board without generating anything.
-    // The field is in the drawer's Preview panel (handoff 2, PR 6).
+    // An edited field in the drawer's Preview panel redraws the stored board
+    // without generating anything.
     const phase = useStore.getState().run.phase
     await userEvent.click(screen.getByRole('tab', { name: 'Preview', exact: true }))
     await screen.getByRole('button', { name: /^stroke:/ }).click()
@@ -948,31 +788,25 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
-    // And the lab's own board is waiting where it was left — *this* board, not
-    // merely some board. `shown` is written in exactly three places
-    // (`result.slice.ts`: the show transition, the initial value, `reset`), none
-    // of which this path touches, so it is already non-null here and stays
-    // non-null however Load into lab behaves. Asserting "not null" therefore
-    // proves nothing, which is what this task's review measured. Identity against
-    // the value captured first is what goes red if Load into lab ever overwrote
-    // the lab's own result with the stored board's.
+    // The lab's own board is waiting where it was left: *this* board, not some
+    // board. `shown` is non-null here however Load into lab behaves, so only
+    // identity against the value captured first goes red if Load into lab
+    // overwrote the lab's result with the stored board's.
     const labBoard = useStore.getState().result.shown
     expect(labBoard).not.toBeNull()
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
     await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
     expect(useStore.getState().result.shown).toBe(labBoard)
   } finally {
-    // The stroke edit above leaves a 350ms save timer running; the field's
-    // fixture is not on screen by the time it would fire, but the module-scope
-    // timer does not know that (Ruling 12) and its `.then` calls `refresh()`.
+    // The stroke edit above leaves a 350ms module-scope save timer running, and
+    // its `.then` calls `refresh()` after the case is gone.
     cancelPendingSave()
     vi.restoreAllMocks()
   }
 }, 40_000)
 
-// Ruling 1's question, in the lab's layout (handoff 2, PR 6): at 860x900 the
-// long list scrolls inside the drawer, and the open board's actions stay on
-// screen in the right column.
+// At 860x900 the long list scrolls inside the drawer, and the open board's
+// actions stay on screen in the right column.
 test('at 860x900 the list scrolls in the drawer and the column keeps its actions on screen', async () => {
   await page.viewport(860, 900)
   const { meta, file } = storedFixture(1)
@@ -994,9 +828,8 @@ test('at 860x900 the list scrolls in the drawer and the column keeps its actions
     const screen = await mountApp()
     await loadRunDone()
     await userEvent.click(screen.getByRole('tab', { name: 'Saved boards', exact: true }))
-    // Wait for the rows before reading them: the tab click navigates, and a
-    // navigation commits inside `startTransition` (harness facts). Review round 3
-    // measured both of this file's new cases failing on a synchronous read here.
+    // Wait for the rows: the tab click navigates, and a navigation commits
+    // inside `startTransition`, so a synchronous read fails.
     await expect.poll(() => screen.container.querySelector('.fw-brow')).not.toBeNull()
     const row = screen.container.querySelector<HTMLElement>('.fw-brow')
     if (row === null) throw new Error('the listing showed no row')
@@ -1008,8 +841,8 @@ test('at 860x900 the list scrolls in the drawer and the column keeps its actions
     expect(list.clientHeight).toBeGreaterThanOrEqual(120)
     expect(list.scrollHeight).toBeGreaterThan(list.clientHeight)
     expect(getComputedStyle(list).overflowY).toBe('auto')
-    // The buttons themselves, not the box that contains them (Ruling 16):
-    // `toBeVisible()` says nothing about a button below the window.
+    // The buttons themselves, not the box that contains them: `toBeVisible()`
+    // says nothing about a button below the window.
     for (const name of [/load into lab/i, /delete from disk/i]) {
       const button = screen.getByRole('button', { name }).element()
       expect(button.getBoundingClientRect().bottom).toBeLessThanOrEqual(window.innerHeight)

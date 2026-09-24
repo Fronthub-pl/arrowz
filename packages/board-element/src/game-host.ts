@@ -22,7 +22,7 @@ export interface GameTarget {
 /**
  * The shortest bump, in cells. A blocker directly in front leaves a distance
  * of zero, and a ride of zero cells draws nothing — but the bounce is what
- * tells the player where the blocker is (design §2), so it must be visible.
+ * tells the player where the blocker is, so it must be visible.
  */
 export const MIN_SHAKE_CELLS = 0.35
 

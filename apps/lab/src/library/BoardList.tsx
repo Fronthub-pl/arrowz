@@ -9,8 +9,8 @@ import { useOpenBoard } from './useOpenBoard'
 
 /**
  * A layout id as a row prints it: the first eight and the last four digits of
- * the hash, without the `sha256-` it always opens with (handoff 2, PR 6). The
- * whole id stays in the row's `title`, and in the right column's facts.
+ * the hash, without the `sha256-` it always opens with. The whole id stays in
+ * the row's `title`.
  */
 export function shortId(id: string): string {
   const hex = id.slice(id.indexOf('-') + 1)
@@ -20,11 +20,9 @@ export function shortId(id: string): string {
 /**
  * The drawer's list panel on the saved boards: a header — the size, how many
  * boards it holds, Refresh — and the boards of that size as ruled rows. A row
- * is a button, because clicking it navigates: the address is the selection
- * (spec §5.6), so the browser's back button walks the boards looked at.
- *
- * Two empty states, and they say different things: an unreachable store asks
- * for `store.sh`, an empty one asks for a board (Ruling 2).
+ * is a button, because clicking it navigates: the address is the selection,
+ * so the browser's back button walks the boards looked at. An unreachable
+ * store asks for `store.sh`; an empty one asks for a board.
  */
 export function BoardList({ refresh }: { refresh(): void }): ReactElement {
   const dict = useDictionary()
@@ -54,7 +52,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
       role="tabpanel"
       id={BOARDS_LIST_ID}
       // Named by its tab when one is selected; a size the store has not got
-      // selects none (spec §5.6), and the panel still needs a name.
+      // selects none, and the panel still needs a name.
       {...(entry === null || mismatch
         ? { 'aria-label': dict.t('boardRows') }
         : { 'aria-labelledby': boardsTabId(entry.size) })}
@@ -85,9 +83,8 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
               title={meta.id}
               {...(meta.id === open.id ? { 'aria-current': true } : {})}
               onClick={() => {
-                // On a phone this list is a sheet over the board (handoff 2,
-                // PR 7): a board is picked to be seen, so the sheet closes. At
-                // every other width no sheet is open and this changes nothing.
+                // On a phone this list is a sheet over the board, which a
+                // picked board must not hide; elsewhere no sheet is open.
                 useStore.getState().ui.setSheet(null)
                 void navigate(`/boards/${entry.size}/${meta.id}`)
               }}

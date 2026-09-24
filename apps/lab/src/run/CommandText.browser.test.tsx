@@ -30,8 +30,7 @@ test('splits the command into the prefix and one span per flag', async () => {
   // A flag without a value is one bold run, not a name with an empty value.
   expect(lines[5]?.querySelector('.f')).toBeNull()
   expect(lines[5]?.querySelector('b')?.textContent).toBe('--colored')
-  // The DOM text is the command itself, spaces included (LiveCommand's own
-  // test compares textContent to buildCommand exactly).
+  // The DOM text is the command itself, spaces included.
   expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe(COMMAND)
 })
 
@@ -45,9 +44,9 @@ test('leaves a command without the program prefix whole', async () => {
   expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe('carve --width=8')
 })
 
-// Spec §5.2: wrapped lines break only between flags, and a selection of the
-// box reads back as the command with its spaces — the property a flex box
-// would lose, because white space between flex items is not rendered.
+// Wrapped lines break only between flags, and a selection of the box reads
+// back as the command with its spaces: the property a flex box would lose,
+// because white space between flex items is not rendered.
 test('breaks lines only between flags, and a selection keeps the spaces', async () => {
   const screen = await render(
     <div className="fw" style={{ width: '220px' }}>
@@ -59,12 +58,9 @@ test('breaks lines only between flags, and a selection keeps the spaces', async 
   const pre = screen.container.querySelector<HTMLElement>('.fw-cmd')
   if (pre === null) throw new Error('no command box')
   for (const line of pre.querySelectorAll('.ln')) {
-    // Measured (not assumed): `.ln`'s own getClientRects() already returns
-    // one rect per child run (the `.f` span and the `b` each get their own),
-    // even fully on one visual line — two adjacent rects at the same `top`.
-    // `toHaveLength(1)` is therefore not a valid proxy for "did not wrap"; a
-    // flag broken across two visual lines is the one that produces rects at
-    // two different `top`s, so that is what "one rendered line" asserts.
+    // `.ln`'s getClientRects() returns one rect per child run even on one
+    // visual line, so `toHaveLength(1)` is no proxy for "did not wrap"; a broken
+    // flag is one with rects at two different `top`s.
     const tops = new Set([...line.getClientRects()].map((r) => r.top))
     expect(tops.size, line.textContent ?? '').toBe(1)
   }

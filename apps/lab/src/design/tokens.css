@@ -1,21 +1,13 @@
-/* The Fronthub design system's tokens as the workshop mock declares them,
-   minus `--ok` and `--signal-soft`, which the mock declares and never uses.
-   `--error` and `--border-strong` are the opposite case: used by the mock,
-   absent from the design system's own token list, and flagged there rather
-   than resolved here (spec §7.1).
+/* Design-system tokens as the workshop mock declares them, minus the unused
+   `--signal-soft`. `--error` and `--border-strong` are not in the design
+   system's own list; that is flagged there, not resolved here.
 
-   Dark is the only theme, radius is zero everywhere except the switch and the
-   ready dot, `--signal` carries state without text; a plane with text on it
-   is `--signal-fill`, and `--warn` is reserved for a clamped value or a rule
-   bound.
+   Dark only; radius zero everywhere; `--signal` carries state without text,
+   a plane with text on it is `--signal-fill`, and `--warn` is only for a
+   clamped value or a rule bound.
 
-   On `:root` and not on `.fw`: anything rendered outside the shell's own div —
-   the document reset in shell.css — would otherwise resolve every `var(--…)`
-   to nothing. The command palette looks like that case and is not one: it is
-   an in-tree child of `.fw` (App.tsx), and its scrim reaches the whole
-   viewport through `position: fixed`, which moves nothing in the DOM. The
-   rule stands for what would actually leave the tree — a toast or a
-   `<dialog>` mounted straight on `document.body`. */
+   On `:root`, not `.fw`, so the document reset in shell.css and anything
+   mounted on `document.body` (a toast, a <dialog>) still resolve the tokens. */
 :root {
   --void: #0e0f12;
   --graphite: #16171b;
@@ -27,12 +19,14 @@
   --ink: #edeef2;
   --paper: #f4f5f8;
   --signal: #5e6ad2;
-  /* Planes that carry text (spec 2026-09-22 §5): `--ink` on them is 5.31,
+  /* Planes that carry text: `--ink` on them is 5.31,
      4.61 and 6.13:1, where neither `--ink` (4.05) nor `--void` (4.08) clears
      AA on `--signal` itself. `--signal` stays for what carries no text. */
   --signal-fill: #4c57be;
   --signal-fill-hover: #5561c8;
   --signal-fill-press: #434eb0;
+  /* A better change in the report (report.css); the mock's own value. */
+  --ok: #3fb27f;
   --warn: #d9a038;
   --error: #de5c4e;
   --ui: 'Archivo Variable', Archivo, Helvetica, Arial, sans-serif;

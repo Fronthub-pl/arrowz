@@ -30,7 +30,8 @@ export const EN = {
     lengths:
       'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
     shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
-    difficulty: 'How hard it is to find a piece with a free way out. Changes the blocking, not the look.',
+    difficulty:
+      'Where pieces start, how they are chosen, and how long they run. Changes how hard it is to find a piece with a free way out.',
     skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
     closing:
       'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
@@ -69,6 +70,8 @@ export const EN = {
       shape: ['straightest lines', 'most winding'],
     },
     randomize: 'randomise the settings on every generate',
+    // The row's short label; the sentence above is its title.
+    randomizeShort: 'randomise',
     randomizeHelp:
       'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
   },
@@ -81,7 +84,7 @@ export const EN = {
       'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Mixing starts that fraction of pieces as tunnels.',
     options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
   },
-  // A knob row's label (handoff 2, PR 2): the engine's term, one line of at
+  // A knob row's label: the engine's term, one line of at
   // most 12 characters, so the label track is one width in every group. The
   // full sentence stays in the row's title and in its description.
   short: {
@@ -134,7 +137,7 @@ export const EN = {
     abort: 'Abort',
     cliLabel: 'CLI',
     runColumn: 'Run',
-    // The phone's bar of bottom sheets (handoff 2, PR 7): its name and its
+    // The phone's bar of bottom sheets: its name and its
     // buttons, on the lab and on the saved boards.
     sheetBar: 'Panels',
     sheetSettings: 'Settings',
@@ -148,7 +151,7 @@ export const EN = {
     copy: 'Copy',
     copied: 'Copied',
     preview: 'Preview',
-    // The preview's sections (2026-09-22 spec R8); the heading prints them in caps.
+    // The preview's sections; the heading prints them in caps.
     previewGeometry: 'geometry',
     previewDrawing: 'drawing',
     previewPoints: 'points',
@@ -162,34 +165,33 @@ export const EN = {
       'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
     rounded: 'round the corners (and the tail)',
     colored: 'colour the arrows (each piece a different colour)',
-    hilite: 'highlight the longest pieces',
+    highlightLongest: 'highlight the longest pieces',
     voids: 'show jammed cells',
     showPoints: 'show the point grid',
     pointColorLabel: 'dot colour',
     pointRadiusLabel: 'dot radius (cells)',
     pointRadiusHelp: 'Half a cell is the most; above that the dots merge into a wash of colour.',
+    padLabel: 'margin (cells)',
+    padHelp:
+      'Empty space kept around the board, in cells. Changes the preview only, not the CLI command or the downloaded file.',
     themeLabel: 'theme',
     themeNone: 'none (default colours)',
-    // The console's editable custom palette (palette round-2 addendum, task
-    // 2): Ruling 6 repealed the old exclusion with `theme`, so a chosen theme
-    // and this palette now coexist, the palette overriding the theme's
-    // colours field by field.
+    // The console's editable custom palette. It coexists with a chosen theme,
+    // overriding the theme's colours field by field.
     paletteLabel: 'custom palette',
     paletteAdd: 'add colour',
     paletteColorLabel: (n: number) => `colour ${n}`,
     paletteRemove: (n: number) => `remove colour ${n}`,
-    // A function of the cap, like `paletteColorLabel` above, so the caller's
-    // `PALETTE_CAP` and this text cannot drift apart silently the way a
-    // hardcoded "8" once could. Ruling 6 repealed the sentence this used to
-    // end on ("Setting one clears the chosen theme"): a theme still supplies
-    // whatever the palette, paper or ink leave unset.
+    // A function of the cap, so the caller's `PALETTE_CAP` and this text
+    // cannot drift apart.
     paletteHelp: (cap: number) => `Up to ${cap} colours. A chosen theme still supplies everything you do not set.`,
-    // The board's own surface colours (Task 6): '' means "not set", which lets
+    // The board's own surface colours: '' means "not set", which lets
     // a chosen theme supply them.
     paperLabel: 'background',
     inkLabel: 'drawing colour',
+    highlightColorLabel: 'highlight',
     paperClear: 'clear the paper, back to the theme',
-    // The preview as knob rows (handoff 2, PR 3): short labels (at most 12
+    // The preview as knob rows: short labels (at most 12
     // characters, like the knobs'), section headings, the two dependency
     // blocks, a switch's value, and a description for every row.
     viewShortStroke: 'stroke',
@@ -198,15 +200,17 @@ export const EN = {
     viewShortTop: 'top count',
     viewShortCell: 'export cell',
     viewShortPointRadius: 'dot radius',
+    viewShortPad: 'margin',
     viewShortPointColor: 'dot colour',
     viewShortRounded: 'rounded',
     viewShortColored: 'multicolour',
-    viewShortHilite: 'longest',
+    viewShortHighlightLongest: 'longest',
     viewShortVoids: 'jammed cells',
     viewShortShowPoints: 'point grid',
     viewShortTheme: 'theme',
     viewShortPaper: 'background',
     viewShortInk: 'ink',
+    viewShortHighlightColor: 'highlight',
     viewShortPalette: 'palette',
     // The theme row's empty choice: its select is a slider's length, and
     // `themeNone` does not fit it (the simple view keeps that one).
@@ -215,7 +219,7 @@ export const EN = {
     secHighlight: 'highlight',
     secGrid: 'grid',
     secExport: 'export',
-    needsHilite: 'needs longest on',
+    needsHighlightLongest: 'needs longest on',
     needsPoints: 'needs point grid on',
     valueOn: 'on',
     valueOff: 'off',
@@ -228,17 +232,21 @@ export const EN = {
     roundedHelp: 'Rounds the corners a piece turns through, and caps its tail with a disc.',
     coloredHelp:
       'Draws each piece in a colour of its own: from the custom palette, else the theme, else a hue per piece.',
-    hiliteHelp: 'Draws the longest pieces in the highlight colour, on top of the rest.',
+    highlightLongestHelp: 'Draws the longest pieces in the highlight colour, on top of the rest.',
     voidsHelp: 'Marks the cells the generator failed to carve, where the board jammed.',
     themeHelp:
       'A built-in theme: paper, ink, highlight and the colours of the pieces. What you set below wins over it.',
-    paperHelp: 'The board’s paper. Set, it wins over the theme; cleared, the theme supplies it again.',
+    paperHelp:
+      'The board’s paper. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     inkHelp:
-      'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again.',
+      'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     inkClear: 'clear the drawing colour, back to the theme',
+    highlightColorHelp:
+      'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
+    highlightColorClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
-    // A knob row's `?` (handoff 2, PR 2), its dependency blocks and the
+    // A knob row's `?`, its dependency blocks and the
     // lengths mix bar.
     aboutKnob: (name: string) => `About ${name}`,
     needsSkeleton: 'needs giants or later share > 0',
@@ -256,10 +264,10 @@ export const EN = {
     tabDocs: 'Docs',
     /** The accessible name of the tab strip itself, not of any one tab. */
     tabsLabel: 'Sections',
-    // The command palette (spec 2026-09-21). `cmd…`, not `palette…`: the
+    // The command palette. `cmd…`, not `palette…`: the
     // `palette*` keys above belong to the editable colour palette.
     cmdOpen: 'Command palette (⌘K)',
-    // At XS (handoff 2, PR 7) the top bar's right group folds into a menu,
+    // At XS the top bar's right group folds into a menu,
     // and ⌘K reads as words there. The words must stay inside `cmdOpen`, the
     // button's accessible name (WCAG 2.5.3).
     menu: 'menu',
@@ -294,6 +302,13 @@ export const EN = {
       `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
     progress: (pct: string, pieces: string, remaining: string, backtracks: number, s: string) =>
       `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+    // While a carve runs, Generate is the meter and carries the
+    // percent; the line under it says the rest of `progress`, and the hidden
+    // progressbar beside it is named `runProgress`.
+    generatingPct: (pct: string) => `Generating ${pct}%`,
+    progressRest: (pieces: string, remaining: string, backtracks: number, s: string) =>
+      `${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+    runProgress: 'Run progress',
     workerError: 'Worker error:',
     generationError: 'Generation error:',
     aborted: 'Aborted.',
@@ -320,7 +335,7 @@ export const EN = {
     stat_maxOut: 'unblocks record',
     stat_blockDist: 'unblock distance',
     piecesUnit: 'pieces',
-    perimeterUnit: 'of perimeter',
+    sidesUnit: 'of width + height',
     stat_bends: 'bends per piece',
     stat_coil: 'coiling',
     stat_border: 'shared border',
@@ -361,7 +376,7 @@ export const EN = {
     viewSaved: (id: string) => `Saved the new view of board ${id}.`,
     deletedBoard: (id: string) => `Deleted ${id}.`,
     deleteFailed: 'Could not delete the board.',
-    // The saved boards in the lab's layout (handoff 2, PR 6): the drawer's
+    // The saved boards in the lab's layout: the drawer's
     // rail, its list's header, the right column and the report's figures.
     boardsRailLabel: 'Board sizes and preview',
     railSizes: 'sizes',
@@ -403,12 +418,12 @@ export const EN = {
     // The preset strip: its accessible name (it carries no visible caption),
     // and the button that puts the clamp notice away.
     presetsLabel: 'Presets',
-    // The preset picker (spec §3): the trigger's caps label, what it says when
+    // The preset picker: the trigger's caps label, what it says when
     // no preset spells the knobs, and the note beside it in that state.
     preset: 'preset',
     customSettings: 'custom settings',
     editedSinceLastPreset: 'edited since the last preset',
-    // The report drawer's handle (spec §4.1), its visible and accessible name.
+    // The report drawer's handle, its visible and accessible name.
     reportHandle: 'report',
     // The settings drawer's handle, its mirror on the stage's left edge.
     settingsHandle: 'settings',
@@ -416,21 +431,50 @@ export const EN = {
     // The top bar's two choices, each a radio group named by what it chooses.
     // The language codes are the visible text and so the accessible name: a
     // name that does not contain what is on screen fails WCAG 2.5.3 for speech
-    // input (PR 4a, Ruling 8).
+    // input.
     modeLabel: 'View',
     languageLabel: 'Language',
     langPl: 'PL',
     langEn: 'EN',
     // The simple view's region; its visible heading is only the view's name.
     simplePanel: 'Simple settings',
-    // PR 4b: the report column and its delta, the frame's annotation, and the
+    // The report column and its delta, the frame's annotation, and the
     // run column's two exports. The two delta words are never visible: the
     // cell's colour and sign say it on screen, and a screen reader hears these.
     reportPanel: 'Report',
     statsTable: 'Statistics',
     deltaBetter: 'better',
     deltaWorse: 'worse',
+    // The report's summary and the names of its
+    // groups, one per span between the engine's separators (lab-report.ts).
+    reportSummaryCap: 'change against the previous run',
+    statSumD: 'D',
+    statSumSeconds: (s: string) => `${s} s`,
+    statGroupSize: 'size',
+    statGroupBlocking: 'blocking',
+    statGroupReach: 'reach',
+    statGroupShape: 'shape',
+    statGroupRun: 'run',
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
+    // The board frame's mode: look, click a piece for its facts, or play it.
+    boardModeLabel: 'Board mode',
+    boardModeView: 'View',
+    boardModeInspect: 'Inspect',
+    boardModePlay: 'Play',
+    inspectHint: 'Choose a piece to inspect it.',
+    dirUp: 'up',
+    dirRight: 'right',
+    dirDown: 'down',
+    dirLeft: 'left',
+    pieceFacts: (id: number, length: number, dir: string) =>
+      `Piece #${id} · ${length} ${length === 1 ? 'cell' : 'cells'} · ${dir}`,
+    pieceFree: 'free',
+    pieceBlocked: (id: number, distance: number) =>
+      `blocked by #${id} at ${distance} ${distance === 1 ? 'cell' : 'cells'}`,
+    playStatus: (left: string, mistakes: number) =>
+      `${left} left · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
+    playCleared: (mistakes: number) => `Cleared · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
+    boardReset: 'Reset',
     exportsGroup: 'Export',
     downloadBoardFile: 'Download board file',
     exportError: 'Export failed:',
@@ -438,7 +482,7 @@ export const EN = {
     // computes only in a secure context: said beside the exports, not as an
     // export failure.
     layoutHashError: 'Cannot name the board file:',
-    // The engine's `toSvg` learns no colours (spec §9), so a theme chosen on
+    // The engine's `toSvg` takes no theme, so a theme chosen on
     // screen never reaches the exported file; shown only while a theme is
     // active, beside the SVG button, since it has nothing to say otherwise.
     svgThemeNote: 'The downloaded SVG keeps the golden-angle colours, not the chosen theme.',
@@ -464,12 +508,27 @@ export type Translation = Dictionary & {
   choices: Partial<Record<ParamKey, Record<string, string>>>
 }
 
-/** "plansza" after a count: 1 plansza, 2–4 plansze (but 12–14 plansz), 5+ plansz. */
-function plBoards(n: number): string {
-  if (n === 1) return 'plansza'
+/** The Polish count form after a number: 1, then 2–4 (but not 12–14), then the rest. */
+function plCount(n: number, one: string, few: string, many: string): string {
+  if (n === 1) return one
   const tens = n % 100
   const ones = n % 10
-  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? 'plansze' : 'plansz'
+  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? few : many
+}
+
+/** "plansza" after a count: 1 plansza, 2–4 plansze (but 12–14 plansz), 5+ plansz. */
+function plBoards(n: number): string {
+  return plCount(n, 'plansza', 'plansze', 'plansz')
+}
+
+/** "komórka" after a count: 1 komórka, 2 komórki, 5 komórek. */
+function plCells(n: number): string {
+  return plCount(n, 'komórka', 'komórki', 'komórek')
+}
+
+/** "błąd" after a count: 1 błąd, 2 błędy, 5 błędów (and 0 błędów). */
+function plMistakes(n: number): string {
+  return plCount(n, 'błąd', 'błędy', 'błędów')
 }
 
 // Polish: the translation of the lab, plus the parameter and reason texts the
@@ -639,7 +698,8 @@ export const PL: Translation = {
   groupHelp: {
     lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
     shape: 'Wagi wyboru kolejnej komórki linii. Mnożą się, więc jedna skrajna wartość zagłusza pozostałe.',
-    difficulty: 'Jak trudno znaleźć element z wolną drogą. Zmienia blokowanie, nie wygląd.',
+    difficulty:
+      'Gdzie zaczynają się elementy, jak są wybierane i jak są długie. Zmienia to, jak trudno znaleźć element z wolną drogą.',
     skeleton: 'Pierwsze elementy prowadzone serpentyną przez całą planszę. Jedyny sposób na naprawdę długie linie.',
     closing:
       'Co robić, gdy nie ma legalnego wycięcia. Domyślne domykają plansze do 400×400; te pokrętła są do eksperymentów.',
@@ -678,6 +738,7 @@ export const PL: Translation = {
       shape: ['jak najprostsze linie', 'najbardziej pokręcone'],
     },
     randomize: 'losuj ustawienia przy każdym generowaniu',
+    randomizeShort: 'losuj',
     randomizeHelp:
       'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
   },
@@ -753,12 +814,14 @@ export const PL: Translation = {
       'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
     rounded: 'zaokrąglaj rogi (i ogon)',
     colored: 'koloruj strzałki (każdy element inny kolor)',
-    hilite: 'wyróżnij najdłuższe elementy',
+    highlightLongest: 'wyróżnij najdłuższe elementy',
     voids: 'pokaż komórki zaklinowania',
     showPoints: 'pokaż siatkę punktów',
     pointColorLabel: 'kolor kropek',
     pointRadiusLabel: 'promień kropki (komórki)',
     pointRadiusHelp: 'Najwięcej pół komórki; powyżej kropki zlewają się w plamę koloru.',
+    padLabel: 'margines (komórki)',
+    padHelp: 'Pusty margines wokół planszy, w komórkach. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     themeLabel: 'motyw',
     themeNone: 'brak (kolory domyślne)',
     paletteLabel: 'własna paleta',
@@ -768,6 +831,7 @@ export const PL: Translation = {
     paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
     paperLabel: 'tło',
     inkLabel: 'kolor rysunku',
+    highlightColorLabel: 'wyróżnienie',
     paperClear: 'wyczyść tło, z powrotem do motywu',
     viewShortStroke: 'grubość',
     viewShortHeadWidth: 'szer. grotu',
@@ -775,41 +839,48 @@ export const PL: Translation = {
     viewShortTop: 'ile najdł.',
     viewShortCell: 'komórka SVG',
     viewShortPointRadius: 'promień',
+    viewShortPad: 'margines',
     viewShortPointColor: 'kolor kropek',
     viewShortRounded: 'zaokrąglenie',
     viewShortColored: 'wielobarwne',
-    viewShortHilite: 'najdłuższe',
+    viewShortHighlightLongest: 'najdłuższe',
     viewShortVoids: 'zaklinowane',
     viewShortShowPoints: 'kropki',
     viewShortTheme: 'motyw',
     viewShortPaper: 'tło',
     viewShortInk: 'rysunek',
+    viewShortHighlightColor: 'wyróżnienie',
     viewShortPalette: 'paleta',
     viewThemeNone: 'brak',
     secArrows: 'strzałki',
     secHighlight: 'wyróżnienie',
     secGrid: 'siatka',
     secExport: 'eksport',
-    needsHilite: 'wymaga: najdłuższe wł.',
+    needsHighlightLongest: 'wymaga: najdłuższe wł.',
     needsPoints: 'wymaga: kropki wł.',
     valueOn: 'wł.',
     valueOff: 'wył.',
     paletteCount: (n, cap) => `${n} / ${cap}`,
     strokeHelp:
       'Grubość linii w podziałkach. Poniżej 0,2 linia ginie w papierze; przy 0,9 wypełnia swoją kratkę i nie zostawia miejsca na grot.',
-    topHelp: 'Ile najdłuższych elementów wyróżnia podświetlenie. 0 nie wyróżnia żadnego.',
+    topHelp: 'Ile najdłuższych elementów zaznacza wyróżnienie. 0 nie zaznacza żadnego.',
     pointColorHelp: 'Kolor kropek siatki punktów.',
     showPointsHelp: 'Rysuje po kropce na komórkę pod elementami, jak linie w zeszycie.',
     roundedHelp: 'Zaokrągla rogi, przez które skręca element, i zakańcza jego ogon kółkiem.',
     coloredHelp:
       'Rysuje każdy element własnym kolorem: z własnej palety, inaczej z motywu, inaczej odcieniem na element.',
-    hiliteHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
+    highlightLongestHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
     voidsHelp: 'Zaznacza komórki, których generator nie zdołał wyciąć, tam gdzie plansza się zaklinowała.',
     themeHelp:
-      'Wbudowany motyw: papier, tusz, podświetlenie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
-    paperHelp: 'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
-    inkHelp: 'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
+      'Wbudowany motyw: papier, tusz, wyróżnienie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
+    paperHelp:
+      'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+    inkHelp:
+      'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
+    highlightColorHelp:
+      'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+    highlightColorClear: 'wyczyść wyróżnienie, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,
@@ -858,6 +929,10 @@ export const PL: Translation = {
     generatingBig: (W, H, cells) => `Generuję ${W}×${H} (${cells} komórek) — to potrwa…`,
     progress: (pct, pieces, remaining, backtracks, s) =>
       `<b>${pct}%</b> · ${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+    generatingPct: (pct) => `Generuję ${pct}%`,
+    progressRest: (pieces, remaining, backtracks, s) =>
+      `${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+    runProgress: 'Postęp generowania',
     workerError: 'Błąd workera:',
     generationError: 'Błąd generacji:',
     aborted: 'Przerwano.',
@@ -884,7 +959,7 @@ export const PL: Translation = {
     stat_maxOut: 'odblokowania rekord',
     stat_blockDist: 'dystans odblokowań',
     piecesUnit: 'elem.',
-    perimeterUnit: 'obwodu',
+    sidesUnit: 'szerokości + wysokości',
     stat_bends: 'skrętów na element',
     stat_coil: 'zwinięcie',
     stat_border: 'wspólna granica',
@@ -970,7 +1045,31 @@ export const PL: Translation = {
     statsTable: 'Statystyki',
     deltaBetter: 'lepiej',
     deltaWorse: 'gorzej',
+    reportSummaryCap: 'zmiana wobec poprzedniego przebiegu',
+    statSumD: 'D',
+    statSumSeconds: (s) => `${s} s`,
+    statGroupSize: 'rozmiar',
+    statGroupBlocking: 'blokowanie',
+    statGroupReach: 'zasięg',
+    statGroupShape: 'kształt',
+    statGroupRun: 'przebieg',
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
+    boardModeLabel: 'Tryb planszy',
+    boardModeView: 'Widok',
+    boardModeInspect: 'Inspekcja',
+    boardModePlay: 'Gra',
+    inspectHint: 'Wskaż element, aby go zbadać.',
+    dirUp: 'w górę',
+    dirRight: 'w prawo',
+    dirDown: 'w dół',
+    dirLeft: 'w lewo',
+    pieceFacts: (id, length, dir) => `Element #${id} · ${length} ${plCells(length)} · ${dir}`,
+    pieceFree: 'wolny',
+    pieceBlocked: (id, distance) =>
+      `zablokowany przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
+    playStatus: (left, mistakes) => `zostało: ${left} · ${mistakes} ${plMistakes(mistakes)}`,
+    playCleared: (mistakes) => `Plansza wyczyszczona · ${mistakes} ${plMistakes(mistakes)}`,
+    boardReset: 'Resetuj',
     exportsGroup: 'Eksport',
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',

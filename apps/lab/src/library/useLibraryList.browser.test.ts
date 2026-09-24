@@ -12,13 +12,9 @@ afterEach(() => {
 })
 
 /**
- * The effect's guard drops an answer that arrives after the panel has gone, and
- * it used to return while the `loading` the same call had set stayed true — a
- * wait that nothing could ever end. Nothing renders `loading` today, so the
- * store is the only place the defect is visible; the first spinner to read it
- * would have inherited it. The answer itself must still be dropped, which is
- * why the sizes are asserted beside it: ending the wait is not licence to let a
- * stale listing land.
+ * A dropped answer must still end its `loading`. Nothing renders `loading`
+ * today, so the store is the only place to see it. The sizes are asserted
+ * beside it: ending the wait must not let the stale listing land.
  */
 test('an answer that arrives after the panel has gone ends the wait it started', async () => {
   // `null as (() => void) | null`, not `= null`: TypeScript narrows the plain

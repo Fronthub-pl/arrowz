@@ -2,38 +2,21 @@ import { useEffect } from 'react'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 
-/**
- * 350 ms, inherited rather than derived: the wait people are already used to.
- * Named in one place.
- */
+/** 350 ms, inherited rather than derived: the wait people are already used to. */
 export const AUTO_DELAY_MS = 350
 
 /**
- * Generate a while after the last knob was typed, or the last recipe edit.
- * Mounted once, in `App`.
+ * Generate AUTO_DELAY_MS after the last knob or recipe edit. Mounted once, in `App`.
  *
- * The subscription is inside the effect and not a `useStore(selector)` in
- * render (Ruling 11): `KnobSlider` commits on the range input's `onChange`,
- * about sixty times a second during a drag, and a selector here would repaint
- * the whole shell that often — the cost `useGenerator.ts:16-19` exists to
- * avoid, with nothing in `apps/lab` memoised against it.
- *
- * It watches `params.edits` and not `params.values`, for the reason Ruling 3
- * gives: a preset writes every knob at once and runs immediately, and a
- * watcher on the values could not tell that apart from a hand on a slider.
- *
- * `ui.auto` is read twice, and both readings matter. At the edit, so that
- * turning the switch on arms the *next* edit rather than carving the board
- * already on screen; and inside the timer, so that turning it off during the
- * wait cancels the run rather than merely stopping the next one.
- *
- * It also watches `recipe.edits`, and that one ignores the switch: the simple
- * view has no `auto`, and its size fields and sliders schedule a run
- * unconditionally. One hook owns both because `RunControl.hold` keeps one
- * cancel; two timers would overwrite each other's slot and Generate would
- * leave the other one to fire (Ruling 3 of PR 4a). A recipe edit leaves a
- * debt: a later knob edit restarts the wait but keeps the run owed, and only a
- * cancel clears it.
+ * - Subscribes inside the effect: a render selector would repaint the whole
+ *   shell ~60×/s during a drag, and nothing in the shell is memoised against it.
+ * - Watches `params.edits`, not `values`: a preset writes every knob and runs at
+ *   once, and a watcher on the values could not tell it from a hand on a slider.
+ * - Reads `ui.auto` both at the edit (switching it on arms the next edit, not
+ *   the board on screen) and in the timer (switching it off cancels a pending run).
+ * - Recipe edits ignore `auto` (the simple view has none) and leave a run owed
+ *   until cancelled. One hook owns both, because `RunControl.hold` has a single
+ *   cancel slot: two timers would overwrite it and Generate would leave one to fire.
  */
 export function useAutoRun(control: RunControl): void {
   useEffect(() => {
@@ -57,10 +40,8 @@ export function useAutoRun(control: RunControl): void {
         owed = false
         if (run) control.start()
       }, AUTO_DELAY_MS)
-      // Every other trigger calls `control.start()`, which calls this first.
-      // That is what stops a preset chosen 100 ms after a keystroke from
-      // carving twice (Ruling 4 of PR #66) — and, with one timer for both
-      // kinds of edit, what stops Generate from leaving a recipe run behind.
+      // Every other trigger calls `control.start()`, which calls this first, so
+      // a preset chosen 100 ms after a keystroke does not carve twice.
       control.hold(cancel)
     })
     return () => {

@@ -18,8 +18,7 @@ export interface FinishedRun {
 
 /**
  * One store, one named field per slice, so a per-knob selector reaches exactly
- * its own entry. PR 4b added `result` and the one action that spans two slices;
- * PR 5a adds `library`.
+ * its own entry. `completeRun` is the one action that spans two slices.
  */
 export interface Store {
   run: RunState
@@ -33,7 +32,7 @@ export interface Store {
   /**
    * The only writer that sees both the run and the result: the run's done
    * transition and the result's show transition in one `set`, so no render
-   * sees `phase: 'done'` beside the previous board (spec §5.3). The slices
+   * sees `phase: 'done'` beside the previous board. The slices
    * keep their narrowed setters.
    */
   completeRun(done: FinishedRun): void
@@ -51,8 +50,7 @@ export const useStore = create<Store>()((set) => ({
   completeRun: (done) =>
     set((state) => {
       const params = state.run.params
-      // PR 4b, Ruling 6: without the run's own parameters there is nothing
-      // true to show the board under.
+      // Without the run's own parameters there is nothing true to show it under.
       if (params === null) throw new Error('a run finished that was never started')
       return { run: runDone(state.run), result: showResult(state.result, { ...done, params }) }
     }),

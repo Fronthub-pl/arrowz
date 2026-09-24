@@ -8,7 +8,7 @@ html {
   color-scheme: dark;
 }
 
-/* Scrollbars (spec §6): thin, square, on the surface they scroll — the thumb
+/* Scrollbars: thin, square, on the surface they scroll — the thumb
    `--border-strong` at rest and `--ash` under the pointer, no track, no
    arrows. Firefox and current Chromium read `scrollbar-*`; WebKit and older
    Chromium the pseudo-elements. Full width where there is no hover. */
@@ -51,14 +51,8 @@ body {
 /* The shell's grid and the two bars. 48px auto 1fr: top bar, tab strip,
    everything else.
 
-   `height` and not `min-height`: `minmax(0, 1fr)` has to resolve against a
-   definite height, and a grid whose only sizing is a minimum has none — so the
-   third row grew with its content instead of scrolling inside itself, and a
-   couple of broken rules pushed the note that explains them off the bottom of
-   the viewport (measured at 1280x800: 30px of overflow with two violations).
-   `height` fills a viewport the content underfills as well, so the
-   `min-height` that used to sit here was a second copy of the same number with
-   nothing left to do. */
+   `height`, not `min-height`: `minmax(0, 1fr)` needs a definite height, or the
+   third row grows with its content instead of scrolling inside itself. */
 .fw {
   display: grid;
   height: 100vh;
@@ -94,20 +88,11 @@ body {
   outline-offset: 2px;
 }
 
-/* Row three of that grid is a route's <main>, and `.fw-view` below asks it for
-   `height: 100%`. A <main> is a block box with `height: auto`, so without this
-   the percentage resolves to `auto` and the chain breaks one level above the
-   panel. Every route's <main> takes the rule, not only the lab's: each of them
-   is row three while its own route is the one on screen.
-
-   `min-width: 0` is the sideways half of the same chain, and it was missing.
-   The grid's only column is implicit, so it is `auto`, whose minimum is the
-   min-content of what sits in it — and the CLI help is a `white-space: pre`
-   block whose longest line is about 2317px, which a percentage `max-width`
-   does not cap during intrinsic sizing. Measured at 1280×800 on `/docs/cli`:
-   the column resolved to 2017.57px and the whole lab scrolled sideways, top
-   bar included. The stage escapes this because its own columns are
-   `minmax(0, 1fr)`; a route's <main> has no such parent, so it says it here. */
+/* Every route's <main> is row three, and `.fw-view` asks it for
+   `height: 100%`; without a height here that resolves to `auto`.
+   `min-width: 0` is the sideways half: the implicit column's minimum is its
+   min-content, and the CLI help's ~2300px `pre` line would scroll the whole
+   lab sideways. */
 .fw > main {
   height: 100%;
   min-height: 0;
@@ -129,18 +114,15 @@ body {
   height: 20px;
   flex: none;
 }
-/* An h1, so the document has a title above the panels' headings. The size was
-   already this rule's — a (0,2,0) selector beats the browser's — but the
-   weight and the block margins were not, and a bar 48px tall should not depend
-   on absorbing them. */
+/* An h1, so the document has a title above the panels' headings; the weight
+   and margins are reset so the 48px bar does not absorb the browser's. */
 .fw-top .name {
   margin: 0;
   font-size: 13px;
   font-weight: 500;
 }
-/* Full strength: the bar's dimming was what put .dims at 3.35:1
-   (review, spec §5). */
-/* §7.1: tabular-nums on every number, so a changing size does not jitter. */
+/* Full strength: the bar's dimming would put .dims at 3.35:1. */
+/* Tabular-nums on every number, so a changing size does not jitter. */
 .fw-top .dims {
   font-variant-numeric: tabular-nums;
 }
@@ -151,10 +133,9 @@ body {
   gap: 14px;
   min-width: 0;
 }
-/* The bar gives way before the document does (spec R2: 420px is the narrowest
-   width the lab supports). Review P8 measured the shell at 472px minimum,
-   because every child of this flex row kept its width. The size is the text
-   that gives way. */
+/* The bar gives way before the document does: 420px is the narrowest width
+   the lab supports, and without shrinking children the row holds 472px. The
+   size is the text that gives way. */
 .fw-top .name,
 .fw-top .sep {
   flex: none;
@@ -173,18 +154,14 @@ body {
   .fw-top {
     padding: 0 8px;
   }
-  /* A W×H readout, not a control (R2 forbids hiding one of those): the first
-     thing to give. A Polish "Zaawansowany" widens the mode switch enough to
-     push the language switch's own chip past `.fw-top`'s `overflow: hidden`
-     (review P8) — invisible to it in English, where the bar still fits by
-     1px at 420 wide. */
+  /* A W×H readout, not a control (no control may be hidden): the first thing
+     to give. The Polish "Zaawansowany" would push the language chip past
+     `.fw-top`'s `overflow: hidden`; English fits by 1px at 420. */
   .fw-top .dims {
     display: none;
   }
-  /* Live pass, ≤480px: `.dims` above is hidden, but its own `.sep` was not —
-     the same `:has(+ …)` shape, read as an orphaned "/" ahead of the flex
-     row's `margin-left: auto` right group, with nothing of the size readout
-     left for it to separate. */
+  /* The hidden `.dims`' own separator goes too, or it reads as an orphaned
+     "/" before the right group. */
   .fw-top .sep:has(+ .dims) {
     display: none;
   }
@@ -216,7 +193,7 @@ body {
   border-bottom-color: var(--signal);
 }
 
-/* §7.2: the design system asks for 44px targets where there is no hover. */
+/* The design system asks for 44px targets where there is no hover. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-tabrow button {
     padding: 15px 0 13px;
@@ -232,10 +209,9 @@ body {
   min-height: 0;
   overflow: hidden;
 }
-/* The report as a drawer on the stage's right edge (spec §4.1). Closed, only
-   its 28px handle shows, in the stage's third track, so the board takes the
-   width a report beside it used to hold; open, it slides over the board.
-   Below 900px the same: the report does not drop under the board. */
+/* The report as a drawer on the stage's right edge. Closed, only its 28px
+   handle shows, in the stage's last track; open, it slides over the board, at
+   every width. */
 .fw-drawer {
   position: absolute;
   top: 0;
@@ -315,12 +291,10 @@ body {
     transform: translateX(calc(100% - 44px));
   }
 }
-/* The settings drawer (handoff 2, PR 1): the report's, mirrored onto the
-   stage's left edge, holding the rail (126px) and the knob panel. Closed, only
-   its 28px handle keeps a column. Open by default; unlike the report it does
-   not cover the board — the stage adds `ls-open` and the board's track gives
-   way by the drawer's width (console.css), so a knob change is always in
-   sight. The console's hide waits out the slide, as the report's does. */
+/* The settings drawer: the report's, mirrored onto the stage's left edge.
+   Closed, only its 28px handle keeps a column. Open by default; unlike the
+   report it does not cover the board (the board gives way, console.css), so
+   a knob change is always in sight. Its hide waits out the slide too. */
 .fw-stage {
   --ls-w: clamp(25rem, calc(33vw + 172px), 47rem);
 }
@@ -367,8 +341,11 @@ body {
     transform: none;
   }
 }
+/* A column: the frame takes what the mode strip under it leaves. */
 .fw-boardwrap {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   padding: 16px;
   overflow: hidden;
@@ -376,7 +353,7 @@ body {
 }
 .fw-board {
   position: relative;
-  height: 100%;
+  flex: 1 1 0;
   min-height: 260px;
   /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
      only shows through before it upgrades. */
@@ -389,14 +366,11 @@ body {
   height: 100%;
 }
 
-/* The annotation of the board on screen (spec §5.2). After the element in DOM
-   order — the element's host is positioned and opaque with `z-index: auto`
-   (arrowz-board.ts:129-135), so tree order is what paints this on top — and in
-   the top-left corner, because the bottom edge belongs to the element's own
-   bar. `--ink` on `--void` (16.53:1), inverting the mock's `--void` on
-   `--signal` (4.08:1, the open §7.1 pair). No caps: they would print `SEED`,
-   and the numbers are the content (PR 4b, Ruling 10). No pointer events, so a
-   drag that starts on it still pans the board. */
+/* The board's annotation. After the element in DOM order, because the
+   element's `:host` is positioned and opaque with `z-index: auto`; top-left,
+   because the bottom edge is the element's own bar. `--ink` on `--void`, not
+   the mock's 4.08:1 pair. No caps: the numbers are the content. No pointer
+   events, so a drag that starts on it still pans the board. */
 .fw-anno {
   position: absolute;
   top: 0;
@@ -408,7 +382,7 @@ body {
   pointer-events: none;
 }
 
-/* The solo toggle (spec §5.2): the frame's top-right corner, after the element
+/* The solo toggle: the frame's top-right corner, after the element
    in DOM order for the reason `.fw-anno` gives. The ring sits inside the
    button, because `.fw-board` clips (`overflow: hidden`) and the global 2px
    offset would draw it outside the frame; `--signal` on `--void` is 4.08:1,
@@ -438,22 +412,63 @@ body {
   }
 }
 
+/* The board mode and its line: a strip under the frame, so the element is
+   fitted above it and neither covers a drawn row. */
+.fw-modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: 8px;
+}
+/* The inspect card or the game's counts: a row of its own, two lines high
+   whatever it says, so the strip, and the board fitted above it, keep one
+   size between clicks; only a change of mode refits the board. */
+.fw-modeline {
+  flex: 0 0 100%;
+  height: 2lh;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fw-modetext {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
+}
+/* The 44px Reset sets the row's height here, over two lines of text. */
+@media (pointer: coarse), (max-width: 767px) {
+  .fw-modeline {
+    height: max(2lh, 44px);
+  }
+  .fw .fw-modeline .fw-btn {
+    height: 44px;
+  }
+}
+/* At XS the wrap has no padding, so the strip keeps the text off the edge. */
+@media (max-width: 767px) {
+  .fw-modebar {
+    padding: 4px 8px;
+  }
+}
+
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
-@media (max-height: 700px) {
+@media (max-height: 699px) {
   .fw-board {
     min-height: 0;
   }
 }
 
-/* `height: 100%` and not `display: grid` on the panel's <main>: the shell
-   stretches that <main> to row 3, but it is a block box with no height of its
-   own, so without this the run bar and the stage each take an auto row, the
-   board falls back to its `min-height`, and under the `max-height: 700px` rule
-   below — where that minimum becomes 0 — the board collapses to nothing.
-   Giving `#lab-panel`'s <main> a `display` would fix the chain and silently
-   defeat `hidden`: an author `display` declaration beats the UA's
-   `[hidden] { display: none }`, and the off-route panel would stay on screen. */
+/* `height: 100%`, not `display: grid`, on the panel's <main>: without a height
+   the board collapses under the `max-height: 699px` rule, and an author
+   `display` would beat the UA's `[hidden] { display: none }`, leaving the
+   off-route panel on screen. */
 .fw-view {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -470,22 +485,10 @@ body {
   color: var(--ash);
   flex-wrap: wrap;
 }
-/* `.fw-bar` wraps its flex items (above), but a single item's own text does
-   not wrap on its own: a flex item's default `min-width: auto` is its
-   content's min-content size, which for an unbroken run of characters is
-   that whole run's width. `savedBoard` (lab-i18n.ts) names the board by its
-   layout hash, a 71-character token with no spaces to break at, and that is
-   what proved it: opening a stored board's detail at 420 wide (the matrix's
-   `library-detail` state) put "Saved board 8x8/sha256-…" on this line, and
-   the hash alone held the bar — and with it the whole document — to 500px.
-   `overflow-wrap: anywhere` is what shrinks the min-content size itself, by
-   letting a break fall inside the hash: `overflow-wrap: break-word` reads the
-   same in a browser but is explicitly excluded from min-content sizing by
-   spec, so it would have left this exact bug standing. `word-break:
-   break-all` (`.fw-cmd`, run.css) is `.fw-cmd`'s own fix for the same defect
-   in its own command string, and would have worked here too; `anywhere` is
-   kept for this line because the sentence around the hash should still break
-   at its own words first. */
+/* `savedBoard` puts a 71-character layout hash on this line, and an unbroken
+   run's min-content held the whole document to 500px at 420 wide.
+   `anywhere`, not `break-word`: only `anywhere` shrinks min-content, and
+   unlike `break-all` the sentence still breaks at its own words first. */
 .fw-bar output {
   font-variant-numeric: tabular-nums;
   min-width: 0;
@@ -493,9 +496,8 @@ body {
 }
 /* `.fw .fw-go` and not a bare `.fw-go`: the `.fw button` normalisation above
    is (0,1,1) and would outrank (0,1,0) on `color` and `font-family`,
-   leaving the button `--ash` on the fill. The `.fw` prefix makes it (0,2,0).
-   Every rule of the component carries it, and PR 3 adds many more controls
-   into the same cascade. */
+   leaving the button `--ash` on the fill. The `.fw` prefix makes it (0,2,0),
+   and every rule of the component carries it. */
 .fw .fw-go {
   flex: none;
   height: 44px;
@@ -507,7 +509,7 @@ body {
   color: var(--ink);
   /* Mono like the rest of the UI (the design project's decision); 500 so it
      outweighs the 400 buttons under it; `flex: none` so the growing command
-     box above never squeezes it (spec §5.3). */
+     box above never squeezes it. */
   font-family: var(--mono);
   font-weight: 500;
   font-size: 13px;
@@ -530,9 +532,8 @@ body {
   outline-offset: -4px;
 }
 /* One of a few (Segmented.tsx): a 24px bordered chip with the group rail's
-   selected state, so the lab has one "chosen". The preset strip's chips it
-   was first modelled on are gone (the picker, run.css). The `.fw` prefix for
-   the reason `.fw .fw-go` gives above. */
+   selected state, so the lab has one "chosen". The `.fw` prefix for the
+   reason `.fw .fw-go` gives above. */
 .fw-seg {
   display: inline-flex;
   flex: none;
@@ -566,11 +567,10 @@ body {
   }
 }
 
-/* The console's plain button (spec R6): Refresh, Load into lab, Delete, add
-   colour. `.fw button` above normalises type and never paints, so a button
-   with no class of its own kept the browser's grey `2px outset` look (review
-   P9). A class, not a context selector, because "add colour" moves between
-   cards. (0,2,0) outranks `.fw button`. */
+/* The console's plain button: Refresh, Load into lab, Delete, add colour.
+   `.fw button` never paints, so a classless button keeps the browser's grey
+   outset look. A class, not a context selector, because "add colour" moves
+   between cards. (0,2,0) outranks `.fw button`. */
 .fw .fw-btn {
   height: 24px;
   padding: 0 10px;
@@ -587,15 +587,8 @@ body {
   color: var(--ink);
   background: var(--surface);
 }
-/* Disabled looks disabled (live pass: "add colour" at the palette cap read
-   identically to an enabled button, same colour and same opacity). `--ash`
-   text stays legible on its own — disabled controls are exempt from the
-   4.5:1 the matrix's contrast invariant reads for everything else, so this
-   is not that exemption spent on illegible text, just a dimmer one.
-   Fix round 1, finding 2: an earlier version also dropped the border to
-   `--graphite`, measured here at ~1.07:1 against the panel — invisible, and
-   `--graphite` is a surface token everywhere else it appears. `--ash` text
-   alone is the disabled signal; the border stays `--border`, unchanged. */
+/* Disabled looks disabled: `--ash` text is the signal, dimmer but legible.
+   The border stays `--border`; `--graphite` would be ~1.07:1, invisible. */
 .fw .fw-btn:disabled {
   cursor: default;
   color: var(--ash);
@@ -608,7 +601,7 @@ body {
 
 /* The top bar is the Signal plane, where the chip's own colours would vanish:
    `--signal` on `--signal` for the chosen option, and the global focus ring is
-   `--signal` too (PR 4a, Ruling 13). The unselected text is now `--ink` on
+   `--signal` too. The unselected text is `--ink` on
    `--signal-fill` (5.31:1); the chosen option is `--ink` on `--void`. The base
    rule ties with the chip's checked rule and wins by following it; the
    checked rule here is (0,4,1). */
@@ -617,8 +610,8 @@ body {
   color: var(--ink);
 }
 /* The same hover as every other chip in the lab — a fill, no underline — in
-   the bar's own terms (spec §6). `--signal-fill-hover`, not the handoff's 12%
-   `--ink` over the plane: that blend measured about 4.2:1 under `--ink`. */
+   the bar's own terms. `--signal-fill-hover`, not a 12% `--ink` blend over the
+   plane: that measured about 4.2:1 under `--ink`. */
 .fw .fw-top .fw-seg button:not([aria-checked='true']):hover {
   background: var(--signal-fill-hover);
   color: var(--ink);
@@ -637,8 +630,8 @@ body {
   outline-offset: -2px;
 }
 
-/* The phone's sheet bar (SheetBar.tsx): shown only at XS, below (handoff 2,
-   PR 7). Its buttons drop the user agent's look wherever they are. */
+/* The phone's sheet bar (SheetBar.tsx): shown only at XS, below. Its buttons
+   drop the user agent's look wherever they are. */
 .fw-sheetbar {
   display: none;
 }
@@ -655,8 +648,8 @@ body {
   display: none;
 }
 
-/* XS (handoff 2, PR 7). Outside it the chip, ⌘K's word and the sheet bar are
-   no box (Tasks 4 and 5). Stacking: the top bar is 30 and the menu lives
+/* XS. Outside it the chip, ⌘K's word and the sheet bar are no box.
+   Stacking: the top bar is 30 and the menu lives
    inside it, so the sheets are 25 and the sheet bar 35 — above the board,
    under an open menu, and under the palette's scrim (40, palette.css). */
 @media (max-width: 767px) {
@@ -683,8 +676,7 @@ body {
     cursor: pointer;
   }
   /* The chip is 28px border-box with a 1px border, so its padding box is 26
-     and `inset` counts from that: -9px gives 44 (review round 1 measured 42
-     with -8px). */
+     and `inset` counts from that: -9px gives 44 (-8px gives 42). */
   .fw .fw-top .fw-menu-btn::before {
     content: '';
     position: absolute;
@@ -734,7 +726,7 @@ body {
     display: inline;
   }
   /* The sheet bar: 56px, the three sheets' buttons, over the page's bottom.
-     Not in solo, where the board is all there is (Review Focus 3). */
+     Not in solo, where the board is all there is. */
   .fw-lab:not(.solo) + .fw-sheetbar {
     position: fixed;
     left: 0;
@@ -756,7 +748,7 @@ body {
     color: var(--ink);
   }
 }
-/* A low window (handoff 2, PR 7): the preset strip stands in the top bar
+/* A low window: the preset strip stands in the top bar
    (App.tsx), its panel fixed under the bar at its content's width. */
 @media (max-height: 699px) and (min-width: 768px) {
   .fw-top {
@@ -783,5 +775,26 @@ body {
   }
   .fw-top .fw-pp-edited {
     display: none;
+  }
+}
+
+/* From 768 up the status line is read in the run column
+   (run.css); the live `<output>` stays here, out of sight, and the view
+   loses the row. Under 768 the run column is a sheet, and the line keeps its
+   place over the preset strip. */
+@media (min-width: 768px) {
+  .fw-view {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .fw-bar {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
   }
 }

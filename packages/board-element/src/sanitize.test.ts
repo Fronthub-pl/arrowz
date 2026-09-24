@@ -2,7 +2,14 @@ import { describe, expect, test } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { drawableColor, drawablePad, drawablePointRadius, drawableView, POINT_RADIUS_RANGE } from './sanitize.ts'
+import {
+  drawableColor,
+  drawablePad,
+  drawablePointRadius,
+  drawableView,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+} from './sanitize.ts'
 import { DEFAULT_VIEW } from './view.ts'
 
 /** A stand-in for CSS.supports('color', …): hex and one name are colours, nothing else is. */
@@ -88,12 +95,12 @@ describe('drawableView', () => {
 })
 
 describe('the attributes', () => {
-  test('pad: not finite is the fallback, negative is zero, large stays large', () => {
+  test('pad: not finite is the fallback, negative is zero, too large is clamped', () => {
     expect(drawablePad(NaN, 4)).toBe(4)
     expect(drawablePad(Infinity, 4)).toBe(4)
     expect(drawablePad(-5, 4)).toBe(0)
     expect(drawablePad(2.5, 4)).toBe(2.5)
-    expect(drawablePad(1e9, 4)).toBe(1e9)
+    expect(drawablePad(1e9, 4)).toBe(PAD_RANGE.max)
   })
 
   test('point radius: not finite is the fallback, otherwise within [0, 0.5]', () => {
@@ -127,6 +134,29 @@ describe('POINT_RADIUS_RANGE', () => {
     // Derive the expected bounds prose from the constant instead of hard-coding.
     // This way the test fails if either the constant OR the README changes alone.
     const expectedBounds = `(${POINT_RADIUS_RANGE.min} to ${POINT_RADIUS_RANGE.max})`
+
+    expect(readmeText).toContain(expectedBounds)
+  })
+})
+
+describe('PAD_RANGE', () => {
+  test('the published bounds are the ones the clamp enforces', () => {
+    // 16 and 0 are named literally on one side: an assertion reading the
+    // constant on both sides would hold for any value it was given.
+    expect(drawablePad(99, 4)).toBe(16)
+    expect(drawablePad(-1, 4)).toBe(0)
+    expect(PAD_RANGE).toEqual({ min: 0, max: 16 })
+  })
+
+  test('the README prose bounds match the constant', () => {
+    const currentDir = dirname(fileURLToPath(import.meta.url))
+    const packageDir = dirname(currentDir)
+    const readmePath = join(packageDir, 'README.md')
+    const readmeText = readFileSync(readmePath, 'utf-8')
+
+    // Derive the expected bounds prose from the constant instead of hard-coding.
+    // This way the test fails if either the constant OR the README changes alone.
+    const expectedBounds = `(${PAD_RANGE.min} to ${PAD_RANGE.max})`
 
     expect(readmeText).toContain(expectedBounds)
   })

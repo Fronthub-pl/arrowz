@@ -28,14 +28,26 @@ Deno.test('reportRows returns 23 rows and 4 separators', () => {
   assertEquals(rows.filter((r) => r.kind === 'separator').length, 4)
 })
 
+// A surface picks rows by what they are (the
+// report's summary, its wide values), not by where they stand, so every row
+// names itself — once, and after its dictionary key — and a separator names nothing.
+Deno.test('every row carries its own key, the suffix of its label key, and no two share one', () => {
+  const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
+  const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
+  const keys = rows.filter((r) => r.kind === 'row').map((r) => r.key)
+  assertEquals(new Set(keys).size, 23)
+  const en = dictionary('en')
+  for (const r of rows) {
+    if (r.kind === 'separator') assertEquals(r.key, null)
+    // Every `stat_<key>` label is a plain string, so any one of them stands
+    // for the type of the call.
+    else assertEquals(r.label, en.t(`stat_${r.key}` as 'stat_board'))
+  }
+})
+
 // A hand-built run, not a generated one: `generate()`'s genMs varies between
-// runs, and a pin that cannot be stable cannot be a pin. Every field below is
-// read by `reportRows`; the values were picked to avoid float-rounding
-// ambiguity (e.g. bends 1.5, not 1.45) and the expected array was produced by
-// running today's `reportRows` and checked by hand against the format string
-// each row uses (a `toFixed` width, `pct`, or a hand-rolled percentage) and
-// against the plan's count: 23 rows, 4 separators, two decimals under ten
-// seconds for `genSeconds`.
+// runs. The values avoid float-rounding ties (bends 1.5, not 1.45), and the
+// expected array was checked by hand against each row's format.
 const pinnedMetrics: Metrics = {
   N: 20,
   solvable: true,
@@ -93,45 +105,54 @@ Deno.test('reportRows pins the exact text of every row for a hand-built run', ()
   }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
   const expected: StatRow[] = [
-    { kind: 'row', label: 'board', value: '20 × 20 = 400 cells, seed 3', num: undefined, better: 0 },
-    { kind: 'row', label: 'pieces', value: '20', num: 20, better: 0 },
-    { kind: 'row', label: 'average length', value: '20.0', num: 20, better: 0 },
-    { kind: 'row', label: 'longest', value: '100 cells (25% of the board)', num: 100, better: 1 },
+    { kind: 'row', key: 'board', label: 'board', value: '20 × 20 = 400 cells, seed 3', num: undefined, better: 0 },
+    { kind: 'row', key: 'pieces', label: 'pieces', value: '20', num: 20, better: 0 },
+    { kind: 'row', key: 'avgLen', label: 'average length', value: '20.0', num: 20, better: 0 },
+    { kind: 'row', key: 'longest', label: 'longest', value: '100 cells (25% of the board)', num: 100, better: 1 },
     {
       kind: 'row',
+      key: 'lengths',
       label: 'length distribution',
       value: '2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%',
       num: undefined,
       better: 0,
     },
-    { kind: 'separator', label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', label: 'f0 (free at start)', value: '0.500', num: 0.5, better: 0 },
-    { kind: 'row', label: 'almost1 (one blocker)', value: '4 (20%)', num: 4, better: 0 },
-    { kind: 'row', label: 'D (blocking depth)', value: '3', num: 3, better: 0 },
-    { kind: 'row', label: 'mean corridor', value: '2.4', num: 2.4, better: 0 },
-    { kind: 'separator', label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', label: 'mean span', value: '40%', num: 40, better: 1 },
-    { kind: 'row', label: 'span of top 10%', value: '60%', num: 60, better: 1 },
-    { kind: 'row', label: 'span of the record holder', value: '80%', num: 80, better: 1 },
-    { kind: 'row', label: 'unblocks on average', value: '2.4 pieces', num: 2.4, better: 1 },
-    { kind: 'row', label: 'unblocks record', value: '5 pieces', num: 5, better: 1 },
-    { kind: 'row', label: 'unblock distance', value: '33% of perimeter', num: 33, better: 1 },
-    { kind: 'separator', label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', label: 'bends per piece', value: '1.50', num: 1.5, better: 1 },
-    { kind: 'row', label: 'coiling', value: '10%', num: 10, better: -1 },
-    { kind: 'row', label: 'shared border', value: '5%', num: 5, better: 1 },
-    { kind: 'row', label: 'multi-line', value: '20%', num: 20, better: 1 },
-    { kind: 'separator', label: '', value: '', num: undefined, better: 0 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
+    { kind: 'row', key: 'f0', label: 'f0 (free at start)', value: '0.500', num: 0.5, better: 0 },
+    { kind: 'row', key: 'almost', label: 'almost1 (one blocker)', value: '4 (20%)', num: 4, better: 0 },
+    { kind: 'row', key: 'D', label: 'D (blocking depth)', value: '3', num: 3, better: 0 },
+    { kind: 'row', key: 'corridor', label: 'mean corridor', value: '2.4', num: 2.4, better: 0 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
+    { kind: 'row', key: 'span', label: 'mean span', value: '40%', num: 40, better: 1 },
+    { kind: 'row', key: 'spanTop', label: 'span of top 10%', value: '60%', num: 60, better: 1 },
+    { kind: 'row', key: 'spanMax', label: 'span of the record holder', value: '80%', num: 80, better: 1 },
+    { kind: 'row', key: 'outDeg', label: 'unblocks on average', value: '2.4 pieces', num: 2.4, better: 1 },
+    { kind: 'row', key: 'maxOut', label: 'unblocks record', value: '5 pieces', num: 5, better: 1 },
     {
       kind: 'row',
+      key: 'blockDist',
+      label: 'unblock distance',
+      value: '33% of width + height',
+      num: 33,
+      better: 1,
+    },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
+    { kind: 'row', key: 'bends', label: 'bends per piece', value: '1.50', num: 1.5, better: 1 },
+    { kind: 'row', key: 'coil', label: 'coiling', value: '10%', num: 10, better: -1 },
+    { kind: 'row', key: 'border', label: 'shared border', value: '5%', num: 5, better: 1 },
+    { kind: 'row', key: 'multi', label: 'multi-line', value: '20%', num: 20, better: 1 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
+    {
+      kind: 'row',
+      key: 'stall',
       label: 'stalls before target',
       value: '20% of paths, reaching 90% of the ordered length',
       num: 20,
       better: -1,
     },
-    { kind: 'row', label: 'absorbed leftovers', value: '3 fragments (45 cells)', num: 3, better: -1 },
-    { kind: 'row', label: 'backtracks / restarts', value: '7 / 2', num: 7, better: -1 },
-    { kind: 'row', label: 'time', value: 'generation 3.46 s, metrics 0.12 s', num: 3456, better: -1 },
+    { kind: 'row', key: 'absorbed', label: 'absorbed leftovers', value: '3 fragments (45 cells)', num: 3, better: -1 },
+    { kind: 'row', key: 'backtracks', label: 'backtracks / restarts', value: '7 / 2', num: 7, better: -1 },
+    { kind: 'row', key: 'time', label: 'time', value: 'generation 3.46 s, metrics 0.12 s', num: 3456, better: -1 },
   ]
   assertEquals(rows.length, 27)
   assertEquals(rows, expected)
@@ -142,7 +163,14 @@ Deno.test("reportRows pins the stall row's dash when stats.n is 0", () => {
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
   const stallRow = rows.find((r) => r.label === 'stalls before target')
   assert(stallRow)
-  assertEquals(stallRow, { kind: 'row', label: 'stalls before target', value: '—', num: undefined, better: -1 })
+  assertEquals(stallRow, {
+    kind: 'row',
+    key: 'stall',
+    label: 'stalls before target',
+    value: '—',
+    num: undefined,
+    better: -1,
+  })
 })
 
 Deno.test('every row has a label and a value, and no row is empty', () => {

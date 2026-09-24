@@ -9,10 +9,8 @@ import { mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
 import { PresetStrip } from './PresetStrip'
-// The closed panel is hidden by `.fw-pp-panel[hidden]` in `run.css` (its own
-// `display: grid` beats the user agent's `[hidden]`), so every visibility
-// assertion here needs the real cascade, in the order `main.tsx` loads it.
-// `console.css` is not among them: nothing in this file renders a console.
+// The closed panel is hidden by `.fw-pp-panel[hidden]` (its own `display: grid`
+// beats the user agent's `[hidden]`), so visibility needs the real cascade.
 import '../design/tokens.css'
 import '../design/shell.css'
 import '../design/run.css'
@@ -75,12 +73,9 @@ describe('PresetStrip', () => {
     await expect.element(screen.getByRole('group', { name: 'Easy', exact: true })).toBeVisible()
   })
 
-  // A row's visible text is the mode and the size; four rows read `square`,
-  // so the accessible name carries the level too — the same name the strip's
-  // chips had, so every case that chooses a preset by name still finds it.
-  // Handoff 2, PR 5: a row's two spans sit on its vertical middle, not at its
-  // top edge where `align-items: baseline` put them. Inside `.fw`, which the
-  // row's rules are written against.
+  // Four rows read `square`, so the accessible name carries the level too, the
+  // same name the strip's chips had. A row's two spans sit on its vertical
+  // middle, not on the baseline; inside `.fw`, which the row's rules target.
   it('centres a row’s mode and size on the row, not on its top edge', async () => {
     const screen = await render(
       <div className="fw">
@@ -97,10 +92,8 @@ describe('PresetStrip', () => {
     for (const row of rows) {
       for (const span of row.querySelectorAll(':scope > span')) {
         expect(Math.abs(middle(span) - middle(row)), row.getAttribute('aria-label') ?? '').toBeLessThan(1)
-        // `line-height: 1`: each span's box is its own font size tall, so the
-        // two boxes' shared middle is also where the two glyph runs sit — a
-        // taller line box would centre the box and leave the 11px size
-        // floating above the 13px mode's middle.
+        // With `line-height: 1` each span's box is its font size tall, so the
+        // boxes' shared middle is where the glyphs sit too.
         expect(span.getBoundingClientRect().height).toBeCloseTo(Number.parseFloat(getComputedStyle(span).fontSize), 0)
       }
     }
@@ -160,8 +153,7 @@ describe('PresetStrip', () => {
     await expect.element(screen.getByRole('button', { name: /^Easy.*square/ })).not.toHaveAttribute('aria-current')
   })
 
-  // Ruling 10: `findPreset` compares only the preset's own keys, so `seed`
-  // cannot break the match.
+  // `findPreset` compares only the preset's own keys, so `seed` cannot break the match.
   it('does not call a seed change an edit', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await act(async () => useStore.getState().params.set('seed', 12))
@@ -228,12 +220,9 @@ describe('PresetStrip', () => {
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'elsewhere' }).element())
   })
 
-  // A press on a button hides a focus steal: the button's own mousedown
-  // focus follows the pointerdown that closed the panel. So does a press on
-  // plain text, whose mousedown blurs to the body (measured: a trigger
-  // focused on pointerdown passed a bare `<p>`). A surface that keeps the
-  // focus where it is on mousedown, as a drag surface does, is the one where
-  // a steal would stick, so this one does.
+  // A press on a button or on plain text moves the focus on mousedown, which
+  // would hide a focus steal by the closing panel. A drag surface keeps the
+  // focus where it is on mousedown, so a steal would stick there; hence this one.
   it('does not take the focus on a press outside that moves no focus itself', async () => {
     const screen = await render(
       <>
@@ -263,12 +252,9 @@ describe('PresetStrip', () => {
     await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveAttribute('aria-expanded', 'false')
   })
 
-  // A knob entry discards its draft on Escape (`DraftNumber.tsx`); the
-  // picker taking that Escape would move the focus, blur the entry and
-  // commit the draft instead. The focus move and the key are one task here,
-  // before the close that the focus leaving the strip schedules has
-  // committed: the window in which the picker's key listener is still
-  // installed, which only its own check of where the key was pressed guards.
+  // A knob entry discards its draft on Escape; the picker taking that Escape
+  // would blur the entry and commit the draft instead. Focus move and key in
+  // one task, so the picker's listener is still installed when the key lands.
   it('leaves alone an Escape pressed outside the strip', async () => {
     const screen = await render(
       <>
@@ -286,7 +272,7 @@ describe('PresetStrip', () => {
     expect(document.activeElement).toBe(entry)
   })
 
-  // Spec §3.2: the drawer's Escape (Task 8) must not also fire.
+  // The drawer's Escape must not also fire.
   it('consumes the Escape it closes on', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await open(screen)
@@ -306,7 +292,7 @@ describe('PresetStrip', () => {
 
 const strips = () => document.querySelectorAll('.fw-presets')
 
-// Spec D2: one strip, in the top bar of a low window, in the lab otherwise.
+// One strip: in the top bar of a low window, in the lab otherwise.
 test.each([
   [924, 540, 'advanced', '.fw-top'],
   [924, 900, 'advanced', '.fw-lab'],

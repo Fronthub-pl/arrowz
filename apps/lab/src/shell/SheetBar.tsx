@@ -11,14 +11,14 @@ import type { Sheet } from '../state/ui.slice'
 const SHEETS: readonly Sheet[] = ['settings', 'cli', 'report']
 
 /**
- * The phone's bar of bottom sheets (handoff 2, PR 7): three buttons under the
- * board, each opening its panel as a sheet over it. Always mounted and shown
- * only at XS by the stylesheet, so nothing appears among the stage's
- * siblings; it sits after `.fw-lab`, not inside it (Workspace.tsx).
+ * The phone's bar of bottom sheets: three buttons under the board, each opening
+ * its panel as a sheet over it. Always mounted and shown only at XS by the
+ * stylesheet, so nothing appears among the stage's siblings; it sits after
+ * `.fw-lab`, not inside it.
  *
  * A focus inside a sheet that closes would fall to <body> once the sheet is
  * `display: none`; it moves to the sheet's button, as the drawers hand theirs
- * to their handles (Stage.tsx).
+ * to their handles (`Stage`).
  */
 export function SheetBar({ tab }: { tab: WorkspaceTab }): ReactElement {
   const dict = useDictionary()

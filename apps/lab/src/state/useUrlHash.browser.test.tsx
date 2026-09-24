@@ -25,10 +25,9 @@ function Away() {
 }
 
 /**
- * A real `BrowserRouter`, not a `MemoryRouter`: the hook reads `useLocation`,
- * and these cases assert on the actual `location.pathname`, push and pop real
- * history entries and read `location.hash` — none of which a memory router
- * touches.
+ * A real `BrowserRouter`, not a `MemoryRouter`: these cases read the real
+ * `location` and push and pop real history entries, which a memory router
+ * never touches.
  */
 function mount(control: RunControl) {
   return render(
@@ -46,12 +45,9 @@ function stub() {
 }
 
 /**
- * The view slice as the module loaded it, before any test has run — captured
- * once, here, rather than reconstructed from the slice's own defaults, so
- * this file does not have to know or duplicate them. Restored wholesale (not
- * through `setPaper`, `setTheme` or any other action under test) because the
- * store outlives every test and, unlike `params`/`run`/`result`/`ui`/`lang`
- * above, the view slice has no `reset()` of its own.
+ * The view slice as the module loaded it, so this file need not duplicate its
+ * defaults. Restored wholesale, not through an action under test, because the
+ * view slice has no `reset()` of its own.
  */
 const initialView = useStore.getState().view
 
@@ -85,10 +81,8 @@ describe('useUrlHash', () => {
     expect(useStore.getState().ui.clamped).toBe(true)
   })
 
-  // The bug revision 1 shipped: under StrictMode the read effect runs twice,
-  // decodes the hash it wrote itself — already clamped — finds nothing to
-  // clamp, and lowers the notice the link had raised. Invisible to every
-  // other test in this file, because `render` does not use StrictMode.
+  // The only StrictMode case here: a second read would decode the already
+  // clamped hash and lower the notice.
   it('keeps that notice up when React mounts the effect twice', async () => {
     history.replaceState(null, '', '#' + encodeURIComponent(JSON.stringify({ W: 999999 })))
     await render(
@@ -102,8 +96,7 @@ describe('useUrlHash', () => {
     expect(useStore.getState().ui.clamped).toBe(true)
   })
 
-  // Ruling 6: the link follows the console, so it agrees with the command box
-  // beside it whether or not a board has been carved.
+  // The link follows the console, so it agrees with the command box beside it.
   it('writes the knobs on screen, without a run', async () => {
     const g = stub()
     await mount(g.control)
@@ -112,8 +105,8 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(0)
   })
 
-  // Ruling 5: three routes share this history, and a run per entry would stop
-  // Back from returning to /boards.
+  // Three routes share this history; an entry per edit would stop Back from
+  // returning to /boards.
   it('replaces the history entry rather than pushing one', async () => {
     await mount(stub().control)
     const before = history.length
@@ -123,22 +116,18 @@ describe('useUrlHash', () => {
     expect(history.length).toBe(before)
   })
 
-  // The fragment is not the only thing on the entry: react-router keeps its own
-  // record in `history.state`, the index it computes pop deltas from among it,
-  // and this hook rewrites the entry at mount and after every edit.
+  // react-router keeps its own record in `history.state`.
   it('leaves the entry the state another library put there', async () => {
     await mount(stub().control)
     const before: unknown = history.state
-    // Not an assertion about react-router so much as a guard on this case: if
-    // the router ever stops writing a record, there is nothing here to keep.
+    // A guard on the case: without a record there is nothing to keep.
     expect(before).not.toBe(null)
     useStore.getState().params.set('W', 58)
     await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(58))
     expect(history.state).toEqual(before)
   })
 
-  // Ruling 5's debounce: a slider drag commits about sixty times a second,
-  // and both Chromium and Safari rate-limit replaceState.
+  // The debounce (see `useUrlHash`).
   it('writes once for a burst of edits, not once per edit', async () => {
     await mount(stub().control)
     const spy = vi.spyOn(history, 'replaceState')
@@ -157,15 +146,9 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 1)
   })
 
-  // The other bug revision 1 shipped: Back from a route without a hash used to
-  // start a carve, and `useGenerator` would terminate the one in flight, which
-  // spec §8 forbids. The standard asks for a `hashchange` on this traversal;
-  // no engine shipping today sends one, Chromium included, so on this runner
-  // the case cannot fail for the event it is named after — but its `waitFor`
-  // proves the traversal happened, and it still fails a listener bound to
-  // `popstate`, which does fire here. The case after it holds the rule that
-  // would make this one true on a conformant engine too: the fragment Back
-  // lands on is the one already on screen, so it is not a trigger.
+  // A run here would kill the carve in flight. Chromium sends no `hashchange`
+  // on this traversal, so this fails only a listener bound to `popstate`; the
+  // next case holds the rule for an engine that does send one.
   it('does not start a run when the user navigates back into the lab', async () => {
     const g = stub()
     await mount(g.control)
@@ -178,20 +161,9 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started)
   })
 
-  // The rule the case above relies on, handed the event directly, because the
-  // standard has `hashchange` fire on any difference of fragment and an engine
-  // that follows it would deliver one here. Both halves in one case, because
-  // one without the other is satisfiable by a stub: an early return that never
-  // runs passes the first, and a listener with no early return at all passes
-  // the second.
-  //
-  // This replaces two earlier cases. One, named "does not run at itself",
-  // could not fail for its name on any engine: the hook writes with
-  // `replaceState`, which fires no `hashchange`, so it stayed green with the
-  // whole listener deleted. The other asserted that a *second* dispatch of the
-  // same fragment does start a run — the one-shot `written` ref's behaviour,
-  // and the bug: that ref was never spent by an echo that never came, so it
-  // went stale and swallowed the next genuine traversal instead.
+  // The event dispatched directly. Both halves in one case, because either
+  // alone is satisfiable by a stub: a listener that never runs passes the
+  // first, one with no early return passes the second.
   it('never runs at a fragment that states what is already on screen, and runs at one that does not', async () => {
     const g = stub()
     await mount(g.control)
@@ -202,9 +174,7 @@ describe('useUrlHash', () => {
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
     expect(g.started()).toBe(started)
-    // The complementary half. `replaceState` moves the bar without announcing
-    // it, which is exactly the shape of a traversal as far as this listener is
-    // concerned: the fragment on the bar is no longer the one on screen.
+    // `replaceState` moves the bar silently: to the listener, a traversal.
     history.replaceState(
       history.state,
       '',
@@ -215,12 +185,8 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 1)
   })
 
-  // The bug revision 2 shipped, as the sequence that produced it. A one-shot
-  // ref recording the last fragment written is never spent, because the write
-  // is a `replaceState` and that announces nothing; it goes stale and eats the
-  // next traversal that lands on it. Every fragment here is one the hook wrote
-  // itself, so it is canonical and the early return in `flush()` is reached —
-  // which is the step that leaves the stale ref in place.
+  // Catches a "did I write this" flag (see `useUrlHash`, property 3). Every
+  // fragment is one the hook wrote, so `flush()`'s early return is reached.
   it('takes the traversal back onto an entry it wrote before the link was pasted', async () => {
     const g = stub()
     await mount(g.control)
@@ -234,17 +200,13 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(location.hash).toBe(hashB))
     const started = g.started()
 
-    // The paste, as a new entry. `pushState` and a dispatched event rather
-    // than `location.hash =`, because the assignment lets the engine
-    // re-encode the fragment and this case depends on the two entries
-    // carrying exactly the strings the hook wrote.
+    // The paste, as a new entry. Not `location.hash =`: the engine may
+    // re-encode it, and the entries must carry exactly the hook's strings.
     history.pushState(history.state, '', hashC)
     globalThis.dispatchEvent(new HashChangeEvent('hashchange'))
     expect(useStore.getState().params.values.W).toBe(61)
     expect(g.started()).toBe(started + 1)
-    // The debounced write that follows finds the bar already correct and
-    // returns without touching it. Waited out rather than skipped: it is the
-    // step that used to leave the ref armed at the previous fragment.
+    // Wait out the debounced write, which finds the bar already correct.
     await new Promise((resolve) => setTimeout(resolve, 400))
     expect(location.hash).toBe(hashC)
 
@@ -253,18 +215,12 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 2)
   })
 
-  // The fragment belongs to the whole shell, not to the lab's route: `TabRow`
-  // navigates to bare paths, and a fragment dropped on the way to Boards would
-  // be gone on the way back. The listener is live on every route for the same
-  // reason — a link pasted while Boards is open runs the generator behind it.
   it('keeps the fragment when the user changes route', async () => {
     const screen = await mount(stub().control)
     useStore.getState().params.set('W', 57)
     await vi.waitFor(() => expect(decodeHash(location.hash)?.params.W).toBe(57))
     await screen.getByRole('button', { name: 'away' }).click()
-    // Both in one wait: the router drops the fragment as it pushes the bare
-    // path, and the rewrite lands an effect later, so a wait on the path alone
-    // would read the bar in the window between the two.
+    // One wait for both: the rewrite lands an effect after the bare path.
     await vi.waitFor(() => {
       expect(location.pathname).toBe('/boards')
       expect(decodeHash(location.hash)?.params.W).toBe(57)
@@ -278,8 +234,6 @@ describe('useUrlHash', () => {
     expect(localStorage.getItem('labLang')).toBe('pl')
   })
 
-  // `lang` goes into the link every time, so a copied link opens in the
-  // language it was copied in.
   it('writes the language on screen into the link', async () => {
     await mount(stub().control)
     useStore.getState().lang.setLang('pl')
@@ -295,18 +249,14 @@ describe('useUrlHash', () => {
     expect(g.started()).toBe(started + 1)
   })
 
-  // The theme picked in the lab must join the URL hash beside the other
-  // view fields (spec §6), the way `lang` above already does. `url.test.ts`
-  // only exercises `encodeHash`/`decodeHash` directly and cannot see a defect
-  // in `viewFor`, which builds the object those functions are handed.
+  // The "writes … into the link" cases cover `viewFor`, which `url.test.ts`
+  // cannot see: it hands `encodeHash` a view built by hand.
   it('writes the theme on screen into the link', async () => {
     await mount(stub().control)
     useStore.getState().view.setTheme('gruvbox-dark')
     await vi.waitFor(() => expect(decodeHash(location.hash)?.view.theme).toBe('gruvbox-dark'))
   })
 
-  // The other half: a link naming a theme restores it into the store, the way
-  // a pasted `lang` does above.
   it('opens on the theme the link names, and a later link moves it', async () => {
     history.replaceState(
       null,
@@ -320,24 +270,12 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().view.theme).toBe('ayu-light'))
   })
 
-  // The producer side (Task 3 of the palette round-2 addendum): the custom
-  // palette picked on screen must join the link beside the theme, the way
-  // `lang` and `theme` above already do. `url.test.ts` only exercises
-  // `encodeHash`/`decodeHash` directly and cannot see a defect in `viewFor`,
-  // which builds the object those functions are handed — dropping `palette`
-  // from `viewFor`'s return would pass every other test in this file and
-  // redden only this one.
   it('writes the custom palette on screen into the link', async () => {
     await mount(stub().control)
     useStore.getState().view.setPalette(['#112233', '#aabbcc'])
     await vi.waitFor(() => expect(decodeHash(location.hash)?.view.palette).toEqual(['#112233', '#aabbcc']))
   })
 
-  // The consumer side: a link naming a palette restores it into the store,
-  // the way Ruling 5 and 6 (paper/ink and palette) now let it coexist with a
-  // theme already on screen rather than clearing it. Dropping the restore
-  // line from `applyPayload` would pass every other test in this file and
-  // redden only this one.
   it('opens on the palette the link names, and keeps a theme already on screen', async () => {
     await mount(stub().control)
     useStore.getState().view.setTheme('gruvbox-dark')
@@ -352,20 +290,12 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
 
-  // Finding 2 (final whole-addendum review, human decision): the palette's
-  // auto-enable of `colored` lives in `addPaletteColor` alone, not in
-  // `setPalette` — the action `applyPayload` calls below to restore a link.
-  // A link stating `colored: false` names it explicitly, so restoring one
-  // that also names a palette must leave colouring off, not silently turn it
-  // back on the way the console's own editor does for a first colour typed
-  // by hand.
+  // Auto-enabling `colored` lives in `addPaletteColor` alone, not in
+  // `setPalette`, so a link's explicit `colored: false` survives its palette.
   it('restores a link stating colored: false and a palette with colouring still off', async () => {
     await mount(stub().control)
-    // The store outlives a test, and an earlier case in this file can leave
-    // `palette` non-empty: reset it directly (not through `setPalette`,
-    // which is exactly what is under test here) so the link below always
-    // restores from an empty palette, the one transition a misplaced
-    // auto-enable could hide behind if a leftover palette masked it.
+    // Start from an empty palette, set directly rather than via `setPalette`
+    // (under test): a leftover palette would mask a misplaced auto-enable.
     useStore.setState((state) => ({ view: { ...state.view, palette: [] } }))
     useStore.getState().view.setFlag('colored', true)
     location.hash = encodeHash({
@@ -377,10 +307,6 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.colored).toBe(false)
   })
 
-  // Ruling 6: a hand-edited link naming both a theme and a palette now keeps
-  // both — `applyPayload` applies the theme first and the palette second,
-  // but that order no longer decides a winner, since neither setter touches
-  // the other field any more.
   it('keeps both the theme and the palette when a link names both', async () => {
     await mount(stub().control)
     location.hash = encodeHash({
@@ -392,12 +318,6 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
 
-  // The producer side, the same gap as the palette's own case above:
-  // `url.test.ts` builds its `HashView` by hand and cannot see a defect in
-  // `viewFor`, which builds the object from the store that `encodeHash` is
-  // handed. All five fields are set and asserted here — dropping any one of
-  // them from `viewFor` would pass every `url.test.ts` case and redden only
-  // this one.
   it('writes the board colours and the point grid into the link', async () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')
@@ -414,11 +334,6 @@ describe('useUrlHash', () => {
     })
   })
 
-  // The consumer side: a link naming the board colours and the point grid
-  // restores them into the store, the way `theme` and `palette` do above.
-  // All five fields are asserted — dropping any one of the five restore
-  // lines from `applyPayload` would pass every other case in this file and
-  // redden only this one.
   it('opens on the board colours and the point grid the link names', async () => {
     await mount(stub().control)
     location.hash = encodeHash({
@@ -431,5 +346,56 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.showPoints).toBe(true)
     expect(useStore.getState().view.pointColor).toBe('#070809')
     expect(useStore.getState().view.pointRadius).toBe(0.2)
+  })
+
+  it('writes the highlight colour into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setHighlightColor('#0a0b0c')
+    await vi.waitFor(() => {
+      expect(decodeHash(location.hash)?.view.highlightColor).toBe('#0a0b0c')
+    })
+  })
+
+  it('opens on the highlight colour the link names', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, highlightColor: '#0a0b0c' },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.highlightColor).toBe('#0a0b0c'))
+  })
+
+  it('writes the margin into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPad(7)
+    await vi.waitFor(() => {
+      expect(decodeHash(location.hash)?.view.pad).toBe(7)
+    })
+  })
+
+  it('opens on the margin the link names', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, pad: 7 },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.pad).toBe(7))
+  })
+
+  it('keeps the board colours and the margin already on screen when a link names none of them', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setInk('#040506')
+    useStore.getState().view.setHighlightColor('#0a0b0c')
+    useStore.getState().view.setPad(7)
+
+    location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: VIEW, carried: {} }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
+    expect(useStore.getState().view.paper).toBe('#010203')
+    expect(useStore.getState().view.ink).toBe('#040506')
+    expect(useStore.getState().view.highlightColor).toBe('#0a0b0c')
+    expect(useStore.getState().view.pad).toBe(7)
   })
 })

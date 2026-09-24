@@ -24,17 +24,12 @@ import { viewOf } from './state/view.slice'
 import { useGenerator } from './worker/useGenerator'
 
 /**
- * Saves each shown result once. `App` subscribes to one field rather than to
- * the slice, so a progress message does not re-render the shell. The guard
- * keys on the file object's identity, which is fresh per run even when two runs
- * carve the same board, so pressing Generate twice with the same seed still
- * reports a save both times. The ref survives StrictMode's double-invoked mount
- * effect, which is why the guard is a ref and not a piece of state;
- * Workspace.browser.test.tsx mounts under StrictMode and counts the POSTs.
- *
- * A late answer for a board no longer on screen is the result slice's to drop
- * (`stored` compares the file), so this hook no longer compares anything when
- * the answer arrives.
+ * Saves each shown result once. Subscribes to one field, not the slice, so a
+ * progress message does not re-render the shell. The guard keys on the file
+ * object's identity, fresh per run even for the same board, so Generate twice
+ * with one seed saves twice. It is a ref so it survives StrictMode's
+ * double-invoked mount effect. A late answer for a board no longer on screen is
+ * dropped by the result slice (`stored` compares the file).
  */
 function useStoreSave() {
   const shown = useStore((state) => state.result.shown)
@@ -42,15 +37,10 @@ function useStoreSave() {
   useEffect(() => {
     if (shown === null || posted.current === shown.file) return
     posted.current = shown.file
-    // The stored view is the lab's view with top zeroed: a saved board is a
-    // picture, and the highlight is a reading aid for the run that just
-    // finished.
-    //
-    // `cell` is the run's own, computed here and not held in the slice: it is
-    // the square a viewer opens the file at, which `carve` derives from the
-    // size it carved (command.ts:513) rather than from anything typed. Writing
-    // it into the slice instead would overwrite the preview field under a user
-    // who had just set it.
+    // `top` zeroed: a saved board is a picture, and the highlight is a reading
+    // aid for this run. `cell` comes from the board's size (`exportCell`, as
+    // `buildCommand` does), not from the slice, so the preview field a user
+    // just set is not overwritten.
     const { file, params, report } = shown
     const view = { ...viewOf(useStore.getState().view), top: 0, cell: exportCell(params.W, params.H) }
     const request = storeRequest(file, params, view, 'lab', {
@@ -67,21 +57,11 @@ function useStoreSave() {
 }
 
 /**
- * The guard `f`, `g`, `[`, `]`, `r` and `s` all share (and the drawers' Escape): nothing with Ctrl, ⌘ or Alt
- * (those belong to the platform), no key repeat, nothing typed into a field
- * or an editable region.
- *
- * An IME sends the keystrokes of the character being composed, so a key on
- * its way into a character is text — the same reason a field is refused
- * below, arriving through a different door.
- *
- * Already used by someone closer to the keystroke: a listener on the document
- * sees the event whatever anyone else did with it, so refusing a cancelled
- * one is what keeps these hotkeys last in line rather than an extra one.
- *
- * `usePaletteKey` does not call this — resist tidying it in there. ⌘K's
- * contract is the opposite one: it refuses nothing but a missing modifier,
- * because it has to open while a knob is being typed into.
+ * The guard `f`, `g`, `[`, `]`, `r`, `s` and the drawers' Escape share: nothing
+ * with Ctrl, ⌘ or Alt (the platform's), no key repeat, nothing typed into a
+ * field or an editable region. A composing IME key is text too. A cancelled
+ * event was consumed closer to the target; refusing it keeps these hotkeys
+ * last in line. `usePaletteKey` deliberately does not use this guard.
  */
 function isHotkeyRefused(event: KeyboardEvent): boolean {
   if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return true
@@ -93,14 +73,9 @@ function isHotkeyRefused(event: KeyboardEvent): boolean {
 }
 
 /**
- * The `f` hotkey, the application's first global one (spec §5.1): `f` and `F`
- * alike — Shift is not a modifier here.
- *
- * A focused button is not a field, so `f` on Generate toggles (PR 4b,
- * Ruling 9). The listener lives wherever the stage does — the lab tab and the
- * saved boards — and nowhere else. Escape is not handled here: the command
- * palette owns its own, closing on it in its own key handler
- * (`CommandPalette.tsx`), and `useDrawerKeys` owns the drawers'.
+ * `f` / `F` toggles solo (Shift is not a modifier here), also with the focus on
+ * a button such as Generate. Bound wherever the stage is: the lab tab and the
+ * saved boards. Escape belongs to `CommandPalette` and `useDrawerKeys`.
  */
 function useSoloKey(onWorkspace: boolean) {
   useEffect(() => {
@@ -116,16 +91,10 @@ function useSoloKey(onWorkspace: boolean) {
 }
 
 /**
- * ⌘K, the application's one global shortcut in the literal sense: every route,
- * the documentation included, because navigation is half of what the palette
- * is for (spec §7). It differs from `f`, `g`, `[` and `]` in refusing nothing
- * but a missing modifier — it has to open while a knob is being typed into —
- * and the modifier is what keeps it from colliding with any typing at all.
- * That is why it does not share `isHotkeyRefused`: the two contracts are
- * opposites, not variants of one rule.
- *
- * `<arrowz-board>` cannot swallow it: its own key handler returns at once on
- * `metaKey || ctrlKey || altKey` (arrowz-board.ts:832).
+ * ⌘K on every route, docs included: navigation is half of what the palette is
+ * for. It refuses nothing but a missing modifier, because it must open while a
+ * knob is being typed into, so it does not share `isHotkeyRefused`.
+ * `<arrowz-board>`'s `onKeyDown` ignores modified keys, so it cannot swallow it.
  */
 function usePaletteKey() {
   useEffect(() => {
@@ -142,22 +111,13 @@ function usePaletteKey() {
 }
 
 /**
- * The two drawers' keys (spec §4.3, handoff 2 PR 1): `r` / `R` toggles the
- * report and `s` / `S` the settings, all refused by `isHotkeyRefused` like `f`.
- * Bound wherever the stage is: the saved boards have both drawers too
- * (handoff 2, PR 6) — the sizes and the preview on the left, the open board's
- * report on the right — and the two tabs share each drawer's state.
+ * `r` / `R` toggles the report and `s` / `S` the settings, wherever the stage
+ * is; the lab and saved-boards tabs share each drawer's state.
  *
- * Escape closes one layer per press, the report before the settings: the
- * report lies over the board, the settings drawer beside it. One listener
- * decides both, so a single press cannot close the two. Escape reaches this
- * listener last: the palette consumes its own Escape in its React handler and
- * the preset panel in a capture-phase listener, and a consumed event is
- * refused here as `defaultPrevented`.
- *
- * An open sheet is the first layer Escape closes (handoff 2, PR 7); the menu
- * and the `…` popover consume their own Escape in capture listeners, as the
- * preset panel does.
+ * Escape closes one layer per press, in one listener so a press cannot close
+ * two: an open sheet, then the report (it lies over the board), then the
+ * settings. It arrives here last: the palette, the preset panel, the menu and
+ * the `…` popover consume their own, and `isHotkeyRefused` drops a consumed one.
  */
 function useDrawerKeys(onWorkspace: boolean) {
   useEffect(() => {
@@ -165,9 +125,8 @@ function useDrawerKeys(onWorkspace: boolean) {
     const onKey = (event: KeyboardEvent) => {
       if (isHotkeyRefused(event)) return
       const ui = useStore.getState().ui
-      // At XS the drawers are shown only as sheets (handoff 2, PR 7): the
-      // keys open the sheets, and a drawer's state is invisible there, so
-      // Escape must not change it (Review Focus 2).
+      // At XS the drawers exist only as sheets: the keys open the sheets, and
+      // Escape must not change a drawer state that is invisible there.
       const phone = readBand() === 'xs'
       if (event.key === 'Escape') {
         if (ui.sheet !== null) ui.setSheet(null)
@@ -188,13 +147,10 @@ function useDrawerKeys(onWorkspace: boolean) {
 }
 
 /**
- * The two hotkeys the palette's footer advertises (spec D5): `g` generates and
- * `[` / `]` step the seed and carve it — the experimenter's loop of flipping
- * through boards from one setting. `isHotkeyRefused` is what silences these
- * while the palette is open too, its search box being an `<input>`.
- *
- * A refused run says nothing here: `useRun` refuses a broken rule silently and
- * `RunStatusBar` is the one voice (Ruling 13).
+ * `g` generates and `[` / `]` step the seed and carve it, as the palette's
+ * footer advertises. The palette's search box is an `<input>`, so these are
+ * silent while it is open. A refused run says nothing here: `RunStatusBar` is
+ * the one voice for a broken rule.
  */
 function useRunKeys(onWorkspace: boolean, control: RunControl) {
   useEffect(() => {
@@ -211,14 +167,11 @@ function useRunKeys(onWorkspace: boolean, control: RunControl) {
 }
 
 /**
- * What a band change resets (handoff 2, PR 7, spec §4): the sheet and the
- * menu, which belong to the band they were opened in; and the settings
- * drawer, which below 1024px would lie over the board — closed without being
- * remembered, and put back from what was remembered on the way up (D3).
- *
- * Compared with the last band seen rather than skipped on the first run:
- * StrictMode runs a mount effect twice, and a "first run" flag would read the
- * second pass as a change.
+ * A band change closes the sheet and the menu (they belong to the band they
+ * were opened in) and, going below 1024px, the settings drawer, which would lie
+ * over the board: closed without being remembered, restored on the way up.
+ * Compared with the last band seen, not skipped on a first run: StrictMode's
+ * second pass would read as a change.
  */
 function useBandReset() {
   const band = useBand()
@@ -241,48 +194,29 @@ function useBandReset() {
  * started with is the params slice, which a test drives the way a user does.
  */
 function Shell() {
-  // Above the routes on purpose: §6 and Ruling 5. A route change must not kill
-  // a run, nor unmount <arrowz-board> and dispose its GL context.
+  // Above the routes: a route change must not kill a run, nor unmount
+  // <arrowz-board> and dispose its GL context.
   const generator = useGenerator()
   const control = useRun(generator)
   useAutoRun(control)
   const hash = useUrlHash(control)
-  // Spec §2.2's last row: the lab opens on a board rather than on an empty
-  // stage — it reads the URL, then calls `run()`. This effect is declared
-  // after the hash hook's, and React runs mount effects in declaration order,
-  // so a pasted link has already been written into the store and this run uses
-  // the link's knobs rather than the defaults.
-  //
-  // Deliberately unguarded, unlike the hash hook's read effect one line above:
-  // a ref that survived StrictMode's simulated unmount would leave this page
-  // with no run at all. StrictMode invokes a mount effect, then its cleanup,
-  // then the effect again, and `useGenerator`'s own cleanup terminates the
-  // worker (useGenerator.ts:89) — so the carve the first pass starts is killed
-  // and, with a guard in place, never started again. Measured: the StrictMode
-  // case in Workspace.browser.test.tsx sits in `running` until its poll times
-  // out. Starting twice is what `start()` is built for instead: it kills a
-  // busy worker to make room for the next run (useGenerator.ts:94).
-  //
-  // `control` is stable — `useRun` memoises it and `useGenerator`'s handle has
-  // no changing dependency — so this runs at mount and at no other time.
-  //
-  // In the simple view the recipe is written into the knobs first, unless the
-  // page opened on a link — the hash hook's read effect has already run and
-  // knows.
+  // Open on a board: run once at mount, after `useUrlHash` has read the link
+  // (effects run in declaration order). Deliberately no run-once ref:
+  // StrictMode's cleanup kills the worker (`useGenerator`'s `kill`), so a
+  // guarded second pass would leave no run. Starting twice is safe, because
+  // `start()` kills a busy worker. `control` is stable, so this runs at mount only.
   useEffect(() => {
-    // In the simple view, a page that did not open on a link opens on the
-    // board its recipe describes. Without the draw, so the second pass
-    // StrictMode gives this effect writes the very knobs the first one wrote.
+    // In the simple view, unless the page opened on a link, apply the recipe
+    // first. Without the draw, so StrictMode's second pass writes the same knobs.
     if (useStore.getState().ui.mode === 'simple' && !hash.openedFromLink()) applyRecipe(false)
     control.start()
   }, [control, hash])
-  // 0 is the lab, 1 the saved boards, 2 the docs (`TabRow`). The first two are
-  // the workspace: one panel, one stage, two faces (spec §5.1).
+  // 0 is the lab, 1 the saved boards, 2 the docs (`TabRow`). The first two
+  // share one workspace: one panel, one stage, two faces.
   const tabIndex = selectedIndex(useLocation().pathname)
   const onWorkspace = tabIndex === 0 || tabIndex === 1
-  // Spec D2: a low window gives the board the preset row's height by standing
-  // the strip in the top bar — the lab tab's advanced view only, where the
-  // strip exists at all. One instance: the top bar holds it or the lab does.
+  // A low window gives the board the preset row's height by moving the strip
+  // (advanced lab tab only) into the top bar. One instance: the top bar or the lab.
   const low = useLowWindow()
   const advanced = useStore((state) => state.ui.mode === 'advanced')
   const presetsInTop = low && advanced && tabIndex === 0

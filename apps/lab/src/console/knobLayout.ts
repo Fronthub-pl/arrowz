@@ -5,7 +5,7 @@ import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
 export type UnitKey = keyof Dictionary['units']
 
 /**
- * The unit beside a knob's value (handoff 2, PR 2). A lab decision, not the
+ * The unit beside a knob's value. A lab decision, not the
  * engine's: the engine's sentences name the unit inside the label, and a row
  * drops the sentence for the short term. A knob with no entry is a bare number.
  */
@@ -27,9 +27,8 @@ export const UNIT_OF: Partial<Record<ParamKey, UnitKey>> = {
  * Where a special value's chip lands the knob when it is released and no
  * earlier value is known: the knob's default when that is not the special
  * value itself. `Lmax` defaults to its special value (0, `auto`), so its way
- * back is the smallest length the `lmaxHole` rule allows —
- * `knobLayout.test.ts` checks 17 against the engine's rule rather than
- * trusting this line.
+ * back is the smallest length the `lmaxHole` rule allows (the test checks 17
+ * against the engine's rule).
  */
 export const RELEASE_TO: Partial<Record<ParamKey, number>> = { Lmax: 17 }
 
@@ -40,17 +39,16 @@ export interface KnobSub {
 }
 
 /**
- * A group's dependency block (handoff 2, PR 2): knobs that have no effect
- * until a parent does, drawn in one block under their parents rather than each
- * saying "No effect" on its own. `reason` is the engine's inactive reason the
- * block stands for: a row whose knob reports exactly it says nothing itself —
- * the block's header says it once — while any other reason (`stepZero`,
- * `anticoilWins`) is still that row's own line.
+ * A group's dependency block: knobs that have no effect until a parent does,
+ * drawn in one block under their parents rather than each saying "No effect"
+ * on its own. `reason` is the engine's inactive reason the block stands for: a
+ * row whose knob reports exactly it says nothing itself (the header says it
+ * once), while any other reason (`stepZero`, `anticoilWins`) is still that
+ * row's own line.
  *
- * The skeleton has two parents because the engine has two ways to turn it on
- * (`skeletonOff` is `giants <= 0 && wGiant <= 0`, engine.ts): the handoff's
- * reconstruction had `later share` inside the block under `needs giants > 0`,
- * which hides a live control behind a false header.
+ * The skeleton has two parents because the engine's `skeletonOff` is
+ * `giants <= 0 && wGiant <= 0`: putting `wGiant` inside the block under
+ * "needs giants > 0" would hide a live control behind a false header.
  */
 export interface KnobBlock {
   id: string

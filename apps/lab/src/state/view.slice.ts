@@ -1,14 +1,18 @@
-import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
+import {
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+} from '@arrowz/board-element'
 import type { View, ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
-export type ViewFlag = 'colored' | 'rounded' | 'hilite' | 'voids' | 'showPoints'
+export type ViewFlag = 'colored' | 'rounded' | 'highlightLongest' | 'voids' | 'showPoints'
 
 /**
- * Ruling C (palette round-2 addendum, task 2): the cap is a lab choice, not
- * the element's or the engine's — they take any number of colours — so the
- * constant lives here, exported for the test that pins it rather than a
- * literal `8` retyped in two places.
+ * The cap is the lab's choice; the element and the engine take any number of
+ * colours. Exported for the test that pins it.
  */
 export const PALETTE_CAP = 8
 
@@ -23,13 +27,12 @@ export interface ViewState {
   top: number
   colored: boolean
   rounded: boolean
-  hilite: boolean
+  highlightLongest: boolean
   voids: boolean
   /**
-   * The point grid. Like `voids`, these are the element's settings and not the
-   * engine's: `viewOf` does not carry them, and the CLI has no flag for any of
-   * them. The bounds come from the element (`POINT_RADIUS_RANGE`), read at the
-   * point of the action, never copied.
+   * The point grid. Like `voids`, the element's settings, not the engine's:
+   * `viewOf` does not carry them and the CLI has no flag for them. The bounds
+   * are the element's `POINT_RADIUS_RANGE`, never copied.
    */
   showPoints: boolean
   pointColor: string
@@ -40,52 +43,51 @@ export interface ViewState {
   /** Name of a built-in board theme; '' draws the element's own colours. */
   theme: string
   /**
-   * The custom palette the lab's editor builds, capped at `PALETTE_CAP`
-   * colours. Ruling 6 repealed the old exclusion with `theme`: a theme and a
-   * custom palette now coexist, the palette overriding the theme's colours
-   * field by field, so setting one no longer clears the other. Empty here is
-   * the same "no palette" the element itself takes, which is what lets a
-   * chosen theme's own palette show through.
+   * The custom palette the lab's editor builds, capped at `PALETTE_CAP`. It
+   * coexists with `theme`, overriding the theme's colours; empty is the
+   * element's "no palette", which lets the theme's own palette show through.
    */
   palette: string[]
   /**
    * The board's own surface colours, or `''` for "the user has not said", which
-   * is the only value that lets a chosen theme supply them. Never handed to the
-   * element as `''`: the element sanitises *after* precedence, so a stated empty
-   * string would beat the theme and then fall to the element's default, turning
-   * a dark theme light (spec §4.4).
+   * lets a chosen theme supply them. Never handed to the element as `''`: it
+   * sanitises after precedence, so a stated empty string would beat the theme
+   * and fall to the element's default, turning a dark theme light.
    */
   paper: string
   ink: string
+  /** The highlight colour of the longest pieces and the jammed cells; same "not set" rule as `paper`/`ink`. */
+  highlightColor: string
   setPaper(color: string): void
   setInk(color: string): void
+  setHighlightColor(color: string): void
+  /**
+   * The margin around the board, in cells: the element's `pad`, clamped to
+   * `PAD_RANGE`. No "not set" state (0 is a real margin), so it is always
+   * handed to the element.
+   */
+  pad: number
+  /** Commits the margin from what was set, rounded to a whole cell; a non-finite value falls back to `DEFAULT_PAD`, as `setPointRadius` falls back for the radius. */
+  setPad(n: number): void
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
   setNumber(field: ViewNumber, raw: string): void
   toggle(flag: ViewFlag): void
   /** Sets a flag to what it is given. `toggle` flips; a link states. */
   setFlag(flag: ViewFlag, on: boolean): void
-  /** Ruling 6: no longer clears the custom palette — a theme and a palette now coexist, each colour field overriding the theme's own. */
+  /** Leaves the custom palette alone: each colour field overrides the theme's own. */
   setTheme(name: string): void
   /**
-   * Replaces the whole palette, clamped to `PALETTE_CAP`. The one place the
-   * cap is enforced — `addPaletteColor`, `setPaletteColor` and
-   * `removePaletteColor` all go through it, so no caller of any of the four
-   * can leave the store over the cap. Ruling 6 repealed the exclusion this
-   * used to also enforce: a chosen theme is left untouched by any of the four.
+   * Replaces the whole palette, clamped to `PALETTE_CAP`. All four palette
+   * actions write through `paletteUpdate`, so none can leave the store over the
+   * cap, and none touches the theme.
    */
   setPalette(colors: string[]): void
   /**
-   * Appends one colour (`NEW_PALETTE_COLOR`), refused silently at the cap.
-   * Going from an empty palette to one colour also turns `colored` on
-   * (a human decision, not the cap Ruling C enforces): the element gates every piece
-   * colour behind that flag, so a palette built while it is off would draw
-   * nothing until the user finds the switch, unlike a theme, whose paper and
-   * ink apply regardless. The second colour onward leaves `colored` alone,
-   * and removing colours never turns it back off — the switch stays visible
-   * and off stays off once chosen. The auto-enable lives here and nowhere
-   * shared: `setPalette`, which goes through `paletteUpdate` like this does,
-   * is also what `applyPayload` calls to restore a link, and a link states
-   * its own `colored` explicitly, which a shared auto-enable would override.
+   * Appends one colour (`NEW_PALETTE_COLOR`), refused silently at the cap. The
+   * first colour also turns `colored` on: the element gates piece colours
+   * behind it, so the palette would otherwise draw nothing. Later colours and
+   * removals leave the flag alone. Only here, not in `setPalette`: a restored
+   * link states its own `colored`, which a shared auto-enable would override.
    */
   addPaletteColor(): void
   /** Edits the colour at `index`, e.g. from a `<input type="color">`'s value. */
@@ -109,17 +111,12 @@ export function viewOf(state: ViewState): View {
     headHeight: state.headHeight,
     colored: state.colored,
     rounded: state.rounded,
-    top: state.hilite ? state.top : 0,
+    top: state.highlightLongest ? state.top : 0,
   }
 }
 
-/**
- * The cap, and only the cap. Ruling 6 repealed the exclusion this used to
- * enforce: a theme and custom colours now coexist, each field overriding the
- * theme's on its own. The picker keeps telling the truth because the theme is
- * still supplying everything the user did not override.
- */
-function paletteUpdate(_state: ViewState, colors: string[]): Pick<ViewState, 'palette'> {
+/** The cap, and only the cap: the theme supplies whatever the palette does not override. */
+function paletteUpdate(colors: string[]): Pick<ViewState, 'palette'> {
   return { palette: colors.slice(0, PALETTE_CAP) }
 }
 
@@ -135,7 +132,7 @@ export function createViewSlice(set: SetStore): ViewState {
     top: 5,
     colored: false,
     rounded: true,
-    hilite: true,
+    highlightLongest: false,
     voids: true,
     showPoints: false,
     pointColor: DEFAULT_POINT_COLOR,
@@ -144,23 +141,28 @@ export function createViewSlice(set: SetStore): ViewState {
     palette: [],
     paper: '',
     ink: '',
+    highlightColor: '',
+    pad: DEFAULT_PAD,
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
     setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
     setPointColor: (color) => patch({ pointColor: color }),
     setPointRadius: (raw) => {
       const n = Number(raw)
-      // An empty or unreadable box is the default, not 0 -- a grid of dots with
-      // no radius is a real setting nobody asks for by clearing a field, the
-      // same reasoning `viewNumberOf` applies to the engine's numbers.
+      // An empty or unreadable box is the default, not 0, as in `viewNumberOf`:
+      // a grid with no radius is not a setting anyone asks for by clearing the field.
       const kept = raw.trim() === '' || !Number.isFinite(n) ? DEFAULT_POINT_RADIUS : n
       patch({ pointRadius: Math.min(Math.max(kept, POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max) })
     },
-    // Ruling 6: no longer clears the palette — a theme and a palette now coexist.
     setTheme: (name) => patch({ theme: name }),
     setPaper: (color) => patch({ paper: color }),
     setInk: (color) => patch({ ink: color }),
-    setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),
+    setHighlightColor: (color) => patch({ highlightColor: color }),
+    setPad: (n) =>
+      patch({
+        pad: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD,
+      }),
+    setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(colors) } })),
     addPaletteColor: () =>
       set((state) => {
         // The cap refuses silently: `paletteUpdate` would clamp the ninth
@@ -171,7 +173,7 @@ export function createViewSlice(set: SetStore): ViewState {
         return {
           view: {
             ...state.view,
-            ...paletteUpdate(state.view, [...state.view.palette, NEW_PALETTE_COLOR]),
+            ...paletteUpdate([...state.view.palette, NEW_PALETTE_COLOR]),
             ...(turnColoredOn ? { colored: true } : {}),
           },
         }
@@ -180,20 +182,14 @@ export function createViewSlice(set: SetStore): ViewState {
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(
-            state.view,
-            state.view.palette.map((c, i) => (i === index ? color : c)),
-          ),
+          ...paletteUpdate(state.view.palette.map((c, i) => (i === index ? color : c))),
         },
       })),
     removePaletteColor: (index) =>
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(
-            state.view,
-            state.view.palette.filter((_, i) => i !== index),
-          ),
+          ...paletteUpdate(state.view.palette.filter((_, i) => i !== index)),
         },
       })),
   }

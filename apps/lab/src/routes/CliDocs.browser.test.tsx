@@ -1,23 +1,22 @@
-import { beforeEach, expect, test } from 'vitest'
+import { helpText } from '@arrowz/engine/command'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { useStore } from '../state/store'
 import { CliDocs } from './CliDocs'
-// A component test loads no stylesheet of its own — `main.tsx` is not in the
-// picture — so a test that measures computed style has to import the sheets,
-// exactly as `ReportPanel.browser.test.tsx` and `BoardFrame.browser.test.tsx`
-// do. `docs.css` is the one the overflow assertion below needs; without it that
-// assertion reads `visible` (measured). `tokens.css` carries the custom
-// properties the rest of the sheet uses and is imported for the same reason the
-// neighbouring test files import it, not because this assertion needs it.
+import { DOCS_SECTIONS } from './DocsNav'
+// A component test loads no stylesheet of its own, so a test that measures
+// computed style imports the sheets: `docs.css` for the overflow assertion
+// below (without it that reads `visible`), and `tokens.css` for the custom
+// properties the sheet uses.
 import '../design/tokens.css'
 import '../design/docs.css'
 
 beforeEach(() => useStore.getState().lang.setLang('en'))
+afterEach(() => vi.restoreAllMocks())
 
-// Two markers, not one. A page rendering only the long form contains every
-// line the short form has but two, so a single "a line only --help=knobs
-// prints" assertion passes an implementation that shows one block. These two
-// lines were measured: each appears in exactly one form.
+// Two markers, not one: the long form contains every line of the short form
+// but two, so one marker would pass a page showing a single block. Each of
+// these lines appears in exactly one form.
 const LONG_ONLY = 'Rules (checked together with the ranges):'
 const SHORT_ONLY = 'Knobs: --lmax='
 
@@ -29,42 +28,33 @@ test('both help forms are on the page', async () => {
 })
 
 // The long form is a table aligned with padEnd: without `pre` the runs of
-// spaces collapse and the columns are gone. `overflow-x: auto` belongs with it
-// — the longest line is 296 characters, about 2317px, which would otherwise
-// scroll the whole page sideways.
-//
-// The block is measured as well as read. `overflow-x: auto` was true of both
-// blocks on a page where neither could ever scroll (whole-branch review,
-// measured: `clientWidth === scrollWidth === 1978`), so the declaration alone
-// passes vacuously against the very thing this case is named for. Here the
-// block's width comes from the test container rather than from the shell, so
-// this pair says "the content is wider than the box and the box can move";
-// DocsLayout.browser.test.tsx asserts the same thing where the shell is real
-// and the panel constrains it.
+// spaces collapse. `overflow-x: auto` belongs with it: the longest line is
+// about 2317px. Measured, not only declared, because the declaration holds on
+// a block that can never scroll. Here the width comes from the test container;
+// `DocsLayout.browser.test.tsx` asserts the same where the shell is real.
 test('the terminal blocks keep their spacing and scroll by themselves', async () => {
   const screen = await render(<CliDocs />)
-  const blocks = screen.container.querySelectorAll('pre.fw-docs-term')
+  // Each block in its own frame with its Copy.
+  const blocks = screen.container.querySelectorAll('div.fw-docs-block > pre.fw-docs-term')
   expect(blocks).toHaveLength(2)
   for (const block of blocks) {
     const style = getComputedStyle(block)
-    // `white-space: pre` is also the browser's own default for `<pre>`, so this
-    // line alone would pass with no stylesheet at all. It stays because the
-    // rule declares it and a future `pre-wrap` would be a regression — but
-    // `overflow-x` is the one that proves `docs.css` is in force.
+    // `white-space: pre` is also the browser's default for `<pre>`, so this line
+    // alone passes with no stylesheet; `overflow-x` is the one that proves
+    // `docs.css` is in force.
     expect(style.whiteSpace).toBe('pre')
     expect(style.overflowX).toBe('auto')
   }
-  // The knob table is the block that overflows — the everyday form fits at
-  // these widths — so it is the one that can say the box actually moves.
+  // The knob table is the block that overflows (the everyday form fits at
+  // these widths), so it is the one that can say the box actually moves.
   const knobs = blocks.item(1)
   if (knobs === null) throw new Error('the knob block is not on the page')
   expect(knobs.scrollWidth).toBeGreaterThan(knobs.clientWidth)
 })
 
-// The frame is translated; the help itself is the terminal's own English. The
-// `h2` is NOT the thing to compare: `deno task carve` is a command name and is
-// the same in both languages. The translated frame is the section headings and
-// the lead paragraph.
+// The frame is translated; the help itself is the terminal's own English. Not
+// the `h2`: `deno task carve` is the same in both languages. The translated
+// frame is the section headings and the lead paragraph.
 test('the frame speaks the chosen language and the help does not', async () => {
   const screen = await render(<CliDocs />)
   const english = screen.container.querySelector('h3')?.textContent
@@ -73,4 +63,29 @@ test('the frame speaks the chosen language and the help does not', async () => {
   const polish = await render(<CliDocs />)
   expect(polish.container.querySelector('h3')?.textContent).toBe('Pomoc na co dzień')
   expect(polish.container.textContent ?? '').toContain(SHORT_ONLY)
+})
+
+// Each help block has a Copy that names its section and writes the block's
+// text exactly: the help is copied to be pasted in a terminal.
+test('each help block copies its own text', async () => {
+  const write = vi.fn(() => Promise.resolve())
+  vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
+  const screen = await render(<CliDocs />)
+  await screen.getByRole('button', { name: 'Copy: Every knob' }).click()
+  expect(write).toHaveBeenLastCalledWith(helpText({ knobs: true }))
+  await screen.getByRole('button', { name: 'Copy: Everyday help' }).click()
+  expect(write).toHaveBeenLastCalledWith(helpText())
+})
+
+// The terminal's text is plain: no colouring, unlike the element's example.
+test('the help blocks stay uncoloured', async () => {
+  const screen = await render(<CliDocs />)
+  expect(screen.container.querySelectorAll('pre.fw-docs-term [class^="tk-"]')).toHaveLength(0)
+})
+
+// The navigation column scrolls to these.
+test('both section headings carry the ids the navigation names', async () => {
+  const screen = await render(<CliDocs />)
+  const ids = [...screen.container.querySelectorAll('h3')].map((h) => h.id)
+  expect(ids).toEqual(DOCS_SECTIONS.cli.map((section) => section.id))
 })

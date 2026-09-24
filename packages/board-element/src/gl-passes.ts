@@ -206,9 +206,8 @@ export function drawVoids(res: GlResources, highlight: Rgba): void {
 /**
  * The four blocks of the static buffer, in `PASSES` order, each followed by
  * its own discs: the corners after the lines they join, the tails after the
- * heads. That is the order the fans used to be drawn in, block for block, so
- * the picture composites as it always has. `useAttr` is true when the board
- * is drawn in its diagnostic colours and the colour buffers exist.
+ * heads. `useAttr` is true when the board is drawn in its diagnostic colours
+ * and the colour buffers exist.
  */
 export function drawPieces(
   res: GlResources,

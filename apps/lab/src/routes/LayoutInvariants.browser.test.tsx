@@ -1,4 +1,5 @@
-import { PARAM_SPEC, type Params } from '@arrowz/engine'
+import { DEFAULT_PAD } from '@arrowz/board-element'
+import { newSession, PARAM_SPEC, type Params, play } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -6,9 +7,10 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { contrast, shown } from '../design/contrast'
+import { twoFrames } from '../harness/frames'
 import { audit, type Finding, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
-import { settleTransitions as settle } from '../harness/settle'
+import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
@@ -21,8 +23,8 @@ import '../design/report.css'
 import '../design/docs.css'
 import '../design/palette.css'
 
-// Spec R1: the review's four measurements plus two of its findings, over
-// every state it found a defect in. The same import order as `main.tsx`.
+// The layout audit's invariants over every lab state that once broke them.
+// The same import order as `main.tsx`.
 
 type State =
   | 'board'
@@ -44,6 +46,11 @@ type State =
   | 'library-sheet-cli'
   | 'menu-open'
   | 'more-open'
+  | 'inspect'
+  | 'play'
+  | 'solo-play'
+  | 'simple-inspect'
+  | 'simple-play'
 const STATES: readonly State[] = [
   'board',
   'presets-open',
@@ -92,22 +99,31 @@ const SIZES: readonly (readonly [number, number])[] = [
 
 /**
  * What fails today, per invariant, keyed by `${state}@${w}x${h}` (a Polish
- * case adds `:pl`; the two single cases below have their own keys). Each
- * invariant carries the task that fixes it (PR 7). A task deletes *its*
- * invariants from every list here first, watches the cases go red, then
- * fixes them, and drops a key whose list is empty. The comparison is exact
- * both ways, so an entry left behind after its fix is red too.
+ * case adds `:pl`; the two single cases below have their own keys). A fix
+ * deletes its invariants here first, watches the cases go red, then fixes
+ * them, and drops a key whose list is empty. The comparison is exact both
+ * ways, so an entry left behind after its fix is red too.
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
+
+/**
+ * The transitions played out, then two frames: the element takes its new size
+ * in a ResizeObserver, which runs in the rendering step after the frame's
+ * callbacks, and `board-cover` reads the viewport that size gives.
+ */
+async function settle() {
+  await settleTransitions()
+  await twoFrames()
+}
 
 beforeEach(() => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
 })
 
 afterEach(() => {
-  // The view slice has no reset (mountApp.tsx); put back what a case moved,
-  // through `setState` and not through a slice action (harness fact 40).
-  useStore.setState((s) => ({ view: { ...s.view, palette: [] } }))
+  // The view slice has no reset; put back what a case moved via setState, not
+  // via a slice action, so the reset cannot hide that action's bugs.
+  useStore.setState((s) => ({ view: { ...s.view, palette: [], pad: DEFAULT_PAD } }))
   // The Polish pass below leaves the page in `pl`; `resetApp`'s own
   // `setLang('en')` runs at the start of the next case's `arrange`, but a
   // case that throws before that point must not leave `pl` behind either.
@@ -131,19 +147,15 @@ function stubStoredBoard() {
 }
 
 async function arrange(state: State) {
-  resetApp(state === 'simple' ? 'simple' : 'advanced')
+  resetApp(state === 'simple' || state === 'simple-inspect' || state === 'simple-play' ? 'simple' : 'advanced')
   if (state === 'library-empty') {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('no store'))
     window.history.pushState({}, '', '/boards')
   }
   if (state === 'library-detail' || state === 'library-sheet-cli') {
-    // The one board this fixture builds, listed under its own size: enough
-    // for `useStoredBoard` (Workspace.tsx) to find the address's board in the
-    // listing and fetch its file, the same round trip
-    // `Workspace.browser.test.tsx`'s "a stored board can be opened…" case
-    // drives through the real store URLs rather than by calling `showPreview`
-    // directly — this is the open board's column reached the way a person
-    // reaches it, not summoned by hand.
+    // The one board this fixture builds, listed under its own size: enough for
+    // `useStoredBoard` to find the address's board and fetch its file, so the
+    // open board's column is reached the way a person reaches it.
     const stored = stubStoredBoard()
     window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
   }
@@ -154,22 +166,21 @@ async function arrange(state: State) {
   await act(async () => {
     const s = useStore.getState()
     if (state === 'report-open') s.ui.setReport(true)
-    // The settings drawer is open in every other state (`resetApp`), its
-    // default; this one reads the closed face (handoff 2, PR 1).
+    // The settings drawer is open in every other state (`resetApp`); this one
+    // reads the closed face.
     if (state === 'settings-closed') s.ui.setSettings(false)
     if (state === 'preview-palette') {
       s.ui.select('preview')
       for (let i = 0; i < 8; i++) s.view.addPaletteColor()
     }
-    // Every row's description closed is the default (handoff 2, PR 2) and
-    // every other lab state reads it: out of sight, `.fw-vh`, which needs the
-    // panel as its positioned ancestor. This one opens them all below.
+    // Every row's description is closed by default, out of sight in `.fw-vh`,
+    // which needs the panel as its positioned ancestor. This one opens them all.
     if (state === 'lengths-help-open') s.ui.select('lengths')
     if (state === 'violations') {
       s.params.setMany({ wShort: 0.8, wMid: 0.8 })
       s.ui.raiseClamped(true)
     }
-    if (state === 'solo') s.ui.setSolo(true)
+    if (state === 'solo' || state === 'solo-play') s.ui.setSolo(true)
     if (state === 'solo-sheet') {
       s.ui.setSolo(true)
       s.ui.setSheet('settings')
@@ -179,14 +190,16 @@ async function arrange(state: State) {
     if (state === 'menu-open') s.ui.setMenu(true)
   })
   if (state === 'library-detail' || state === 'library-sheet-cli') {
-    // `useStoredBoard`'s fetch of the board file is asynchronous, so the
-    // detail is not there the instant `render` returns — this is the wait
-    // the task calls for, in place of `loadRunDone` (skipped above: this
-    // state cares about the board the address opened, not the lab's own
-    // load run).
+    // `useStoredBoard`'s fetch of the board file is asynchronous, so wait for
+    // the detail; `loadRunDone` is skipped, because this state is about the
+    // board the address opened, not the lab's own load run.
     await expect.poll(() => screen.container.querySelector('.fw-bcol .fw-cmdfig')).not.toBeNull()
   }
   if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
+  if (state === 'inspect' || state === 'play') await showBoardMode(screen.container, state)
+  if (state === 'solo-play') await showBoardMode(screen.container, 'play')
+  if (state === 'simple-inspect' || state === 'simple-play')
+    await showBoardMode(screen.container, state.slice(7) as 'inspect' | 'play')
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
@@ -197,14 +210,33 @@ async function arrange(state: State) {
     await expect.poll(() => screen.container.querySelector('.fw-pp-panel:not([hidden])')).not.toBeNull()
   }
   if (state === 'more-open') {
-    // A DOM click, not the locator's: the button is `display: none` outside
-    // the bands that show the bar, and a DOM click keeps this arrange block
-    // independent of which band shows it (a locator click waits 40s for a
-    // visible element; measured in review: all four cases timed out).
+    // A DOM click, not the locator's: the button is `display: none` outside the
+    // bands that show the bar, and a locator click waits 40s for a visible element.
     await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-more')?.click())
     await expect.poll(() => screen.container.querySelector('.fw-more-pop.open')).not.toBeNull()
   }
   return screen
+}
+
+/**
+ * The board mode with its line on screen: in Inspect the card of a blocked
+ * piece, the longest the card gets; in Play the counts after one mistake.
+ */
+async function showBoardMode(container: HTMLElement, mode: 'inspect' | 'play') {
+  await act(async () => useStore.getState().ui.setBoardMode(mode))
+  const element = container.querySelector('arrowz-board')
+  const board = useStore.getState().result.shown?.board
+  if (element === null || board === undefined) throw new Error('no board on stage')
+  const session = newSession(board)
+  const blocked = board.pieces.find((pc) => play(session, pc.id).move.kind === 'bounce') ?? board.pieces[0]
+  if (blocked === undefined) throw new Error('an empty board')
+  const fire = (type: string, detail: unknown) =>
+    element.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }))
+  await act(async () => {
+    if (mode === 'inspect') fire('piece-click', { pieceId: blocked.id })
+    else fire('life-lost', { pieceId: blocked.id, blockerId: 0, distance: 0 })
+  })
+  await expect.poll(() => container.querySelector('.fw-modeline')).not.toBeNull()
 }
 
 /** Asserts the audit's failing invariants are exactly those `KNOWN_RED` records under `key`. */
@@ -218,15 +250,13 @@ async function matrixCase(state: State, w: number, h: number) {
   await page.viewport(w, h)
   const screen = await arrange(state)
   await settle()
-  // `library-detail` keeps `board: true` (the default this excludes only
-  // 'library-empty' and 'docs' from): `BoardFrame.tsx` draws `.fw-board`
-  // on both tabs, and on this one it is the stored board `useStoredBoard`
-  // just fetched (`inLibrary ? preview : result`) — a real picture inside
-  // `.fw-boardwrap`, worth clipping the same way the lab's own board is.
-  // 'library-empty' and 'docs' have no board to check: the empty store
-  // never gets a preview, and the docs route hides the whole workspace.
+  // `library-detail` keeps `board: true`: `BoardFrame` draws `.fw-board` on
+  // both tabs, here the stored board just fetched, worth clipping like the
+  // lab's own. 'library-empty' and 'docs' have no board: the empty store never
+  // gets a preview, and the docs route hides the whole workspace.
   const board = state !== 'library-empty' && state !== 'docs'
-  const findings = audit(screen.container, { board, solo: state === 'solo' || state === 'solo-sheet' })
+  const solo = state === 'solo' || state === 'solo-sheet' || state === 'solo-play'
+  const findings = audit(screen.container, { board, solo })
   expectKnownRed(`${state}@${w}x${h}`, findings)
 }
 
@@ -238,10 +268,182 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
 
 test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
-// The matrix above does not pin the panel's `max-height`: at 420×900 its
-// seven levels in two columns (650px under a 171px top) fit without it. A
-// window 700px tall is where they run past the bottom (measured: 16,171 to
-// 404,821 in 420×700 with the rule removed), so this one case pins the rule.
+// The board mode's line is on screen only in Inspect and Play, so the matrix
+// above sees the control but never the line: the lab's three widths and a
+// phone, and the two narrowest again in Polish, where the words are longer.
+// Solo on a phone is the one frame that also loses the lab around it.
+const MODE_CASES: readonly (readonly [State, number, number])[] = [
+  ...(['inspect', 'play'] as const).flatMap((s) =>
+    (
+      [
+        [860, 900],
+        [1280, 800],
+        [1400, 900],
+        [375, 812],
+        [924, 540],
+        [1280, 699],
+      ] as const
+    ).map(([w, h]) => [s, w, h] as const),
+  ),
+  ['solo-play', 375, 812],
+  // Simple at a laptop's height: the board runs down to the frame's bottom edge.
+  ['simple-inspect', 1440, 877],
+  ['simple-play', 1440, 877],
+]
+
+test.each(MODE_CASES)('the %s mode at %d×%d keeps every layout invariant', matrixCase, 40_000)
+
+const MODE_PL_CASES: readonly (readonly [State, number, number])[] = (['inspect', 'play'] as const).flatMap((s) =>
+  (
+    [
+      [860, 900],
+      [375, 812],
+    ] as const
+  ).map(([w, h]) => [s, w, h] as const),
+)
+
+test.each(MODE_PL_CASES)(
+  'the %s mode at %d×%d keeps every layout invariant in Polish',
+  async (state, w, h) => {
+    await page.viewport(w, h)
+    const screen = await arrange(state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expectKnownRed(`${state}@${w}x${h}:pl`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// The annotation grows with the seed and the language: a ten-digit seed in
+// Polish on a phone is the longest it gets beside the mode control. The seed
+// is carved, not written into the store, so the annotation is a run's.
+const LONG_SEED = 4_294_967_295
+test.each(['inspect', 'play'] as const)(
+  'the %s mode at 375×812 in Polish with a ten-digit seed keeps every layout invariant',
+  async (state) => {
+    await page.viewport(375, 812)
+    const screen = await arrange('board')
+    await act(async () => useStore.getState().params.setMany({ seed: LONG_SEED }))
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-go')?.click())
+    await expect.poll(() => useStore.getState().result.shown?.params.seed, { timeout: 30_000 }).toBe(LONG_SEED)
+    await showBoardMode(screen.container, state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expect(screen.container.querySelector('.fw-anno')?.textContent).toMatch(/ziarno 4294967295$/)
+    expectKnownRed(`${state}@375x812:pl:long-seed`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// A tall board on a phone runs from the frame's top to its bottom edge, and
+// the Polish counts wrap to two lines.
+test.each(['inspect', 'play'] as const)(
+  'the %s mode at 375×812 in Polish on a 25×50 board with an 8-cell margin keeps every layout invariant',
+  async (state) => {
+    await page.viewport(375, 812)
+    const screen = await arrange('board')
+    await act(async () => {
+      useStore.getState().params.setMany({ W: 25, H: 50, seed: LONG_SEED })
+      useStore.getState().view.setPad(8)
+    })
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-go')?.click())
+    await expect.poll(() => useStore.getState().result.shown?.params.H, { timeout: 30_000 }).toBe(50)
+    await showBoardMode(screen.container, state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expectKnownRed(`${state}@375x812:pl:tall`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// Every card and every count, with Reset off and on, so a line that sized
+// itself to its text or its button would refit the board under the pointer
+// between two clicks, or between Inspect and Play.
+test.each([
+  [1440, 877, 'en'],
+  [1440, 877, 'pl'],
+  [375, 812, 'en'],
+  [375, 812, 'pl'],
+] as const)(
+  'at %d×%d (%s) the mode strip and the board keep one size between clicks',
+  async (w, h, lang) => {
+    await page.viewport(w, h)
+    const screen = await arrange('board')
+    await act(async () => useStore.getState().lang.setLang(lang))
+    const element = screen.container.querySelector('arrowz-board')
+    const board = useStore.getState().result.shown?.board
+    if (element === null || board === undefined) throw new Error('no board on stage')
+    const session = newSession(board)
+    const free = board.pieces.find((pc) => play(session, pc.id).move.kind === 'exit')
+    const blocked = board.pieces.find((pc) => play(session, pc.id).move.kind === 'bounce')
+    if (free === undefined || blocked === undefined) throw new Error('no free or no blocked piece')
+    const fire = (type: string, detail: unknown) =>
+      act(async () => {
+        element.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }))
+      })
+    const sizes: string[] = []
+    const texts: string[] = []
+    const take = async () => {
+      await settle()
+      const rect = (selector: string) =>
+        screen.container.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect()
+      const strip = rect('.fw-modebar')
+      const host = rect('arrowz-board')
+      const line = rect('.fw-modeline')
+      const reset = rect('.fw-modeline button')
+      const fits =
+        reset.width > 0 &&
+        reset.left >= line.left - 0.5 &&
+        reset.right <= line.right + 0.5 &&
+        reset.top >= line.top - 0.5 &&
+        reset.bottom <= line.bottom + 0.5
+      sizes.push(
+        `strip ${strip.height.toFixed(1)} board ${host.width.toFixed(1)}×${host.height.toFixed(1)} reset ${fits ? 'fits' : 'spills'}`,
+      )
+      const button = screen.container.querySelector<HTMLButtonElement>('.fw-modeline button')
+      texts.push(
+        `${screen.container.querySelector('.fw-modeline')?.textContent ?? ''} ${button?.disabled ? 'off' : 'on'}`,
+      )
+    }
+    await act(async () => useStore.getState().ui.setBoardMode('inspect'))
+    await take()
+    await fire('piece-click', { pieceId: free.id })
+    await take()
+    await fire('piece-click', { pieceId: blocked.id })
+    await take()
+    await act(async () => useStore.getState().ui.setBoardMode('play'))
+    await take()
+    const n = board.pieces.length
+    await fire('piece-removed', { pieceId: free.id, left: n - 1 })
+    await take()
+    await fire('life-lost', { pieceId: blocked.id, blockerId: 0, distance: 0 })
+    await take()
+    await fire('piece-removed', { pieceId: blocked.id, left: 0 })
+    await fire('finished', { pieces: n })
+    await take()
+    // Back in Inspect with a game in progress: the hint, and Reset on.
+    await act(async () => useStore.getState().ui.setBoardMode('inspect'))
+    await take()
+    // Every step showed a different line, or the heights compared nothing.
+    expect(new Set(texts).size).toBe(texts.length)
+    expect(sizes[0]).toMatch(/reset fits$/)
+    expect(sizes).toEqual(sizes.map(() => sizes[0]))
+  },
+  40_000,
+)
+
+// The matrix above does not pin the panel's `max-height`: at 420×900 it fits
+// without it. At a short window the panel stays on screen by its own
+// `max-height: calc(100vh - 276px)` under `max-width: 767px`, gated on width,
+// not on band.ts's low-window height query. 699 and 700 straddle that query's
+// edge, so neither band may lose the rule.
+test('the presets-open state at 420×699 keeps every layout invariant', async () => {
+  await page.viewport(420, 699)
+  const screen = await arrange('presets-open')
+  await settle()
+  expectKnownRed('presets-open@420x699', audit(screen.container, { board: true }))
+}, 40_000)
+
 test('the presets-open state at 420×700 keeps every layout invariant', async () => {
   await page.viewport(420, 700)
   const screen = await arrange('presets-open')
@@ -249,14 +451,10 @@ test('the presets-open state at 420×700 keeps every layout invariant', async ()
   expectKnownRed('presets-open@420x700', audit(screen.container, { board: true }))
 }, 40_000)
 
-// Review P8: the reconstruction's matrix above runs only in English, where
-// the bar fits by 1px at 420 wide; the language switch's own chip is what a
-// Polish "Zaawansowany" (spec §2, review P8) pushes past `.fw-top`'s
-// `overflow: hidden`. Two sizes, not the whole matrix crossed with `lang`,
-// to keep this file's runtime reasonable: 420×900 is R2's narrowest
-// supported width (where the defect shows), 1280×800 is a size the matrix
-// already covers in English, as a sanity check that Polish keeps every
-// invariant there too.
+// The matrix above runs only in English, where the bar fits by 1px at 420 wide;
+// the language chip's Polish "Zaawansowany" pushes past `.fw-top`'s
+// `overflow: hidden`. Two sizes, not the whole matrix crossed with `lang`, for
+// runtime: 420×900, the narrowest supported width, and 1280×800 as a sanity check.
 const LANG_CASES: readonly (readonly [State, number, number])[] = [
   ['board', 420, 900],
   ['board', 1280, 800],
@@ -275,12 +473,9 @@ test.each(LANG_CASES)(
     await act(async () => useStore.getState().lang.setLang('pl'))
     await settle()
     expectKnownRed(`${state}@${w}x${h}:pl`, audit(screen.container, { board: true }))
-    // Live pass, ≤480px: `.dims` gives way (shell.css), and its own `.sep`
-    // used to stay rendered with nothing left to separate — an orphaned "/"
-    // ahead of the right group's `margin-left: auto` gap. `TopBar.browser.
-    // test.tsx` renders no stylesheet and sets no viewport, so this asserts
-    // here instead, on the bar's own left cluster (mark, name, seps, dims),
-    // which is where the defect showed.
+    // ≤480px: `.dims` gives way, and its own `.sep` must not stay rendered
+    // with nothing left to separate. `TopBar`'s own test loads no stylesheet
+    // and sets no viewport, so this asserts here, on the bar's left cluster.
     const bar = screen.container.querySelector('.fw-top')
     if (bar === null) throw new Error('top bar missing')
     const clusterText = [...bar.querySelectorAll('.name, .sep, .dims')]
@@ -293,10 +488,9 @@ test.each(LANG_CASES)(
 )
 
 // The longest trigger the picker can print: Huge's "winding skeleton" in
-// Polish, "Ogromny szkielet z serpentynami 400×400", at the narrowest width
-// the lab supports. The knobs are written the way `applyPreset` writes them
-// (every knob, the preset's over the defaults) but without its run, which at
-// 400×400 would only slow the case down: the trigger reads the knobs.
+// Polish, at the narrowest width the lab supports. The knobs are written as
+// `applyPreset` writes them but without its run, which at 400×400 would only
+// slow the case down: the trigger reads the knobs.
 test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every layout invariant', async () => {
   await page.viewport(420, 900)
   const screen = await arrange('board')
@@ -317,9 +511,8 @@ test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every la
   expectKnownRed('huge-pl@420x900', audit(screen.container, { board: true }))
 }, 40_000)
 
-// Review P7's question in the lab's layout (handoff 2, PR 6): an unreachable
-// store leaves SIZES with no tab, the rail keeps Preview, and the panel says
-// why rather than standing empty.
+// An unreachable store leaves SIZES with no tab, the rail keeps Preview, and
+// the panel says why rather than standing empty.
 test('an unreachable store keeps the rail to Preview and says why in the panel', async () => {
   await page.viewport(1280, 800)
   const screen = await arrange('library-empty')
@@ -330,13 +523,10 @@ test('an unreachable store keeps the rail to Preview and says why in the panel',
   await expect.element(screen.getByText('Open a board from the list.')).toBeVisible()
 }, 40_000)
 
-// Spec §6: the bar's hover is a fill, like every other chip in the lab.
-// `backgroundColor` equality is what pins the exact token, `--signal-fill-hover`,
-// against the handoff's `rgba(237, 238, 242, 0.12)`; the contrast check
-// guards that the shipped, opaque fill actually clears AA under `--ink` —
-// this file, not `LabLayout.browser.test.tsx`, is where the ⌘K trigger's
-// hover can be measured, because it is the one that already loads the full
-// cascade `main.tsx` does, `palette.css` included (spec R1).
+// The bar's hover is a fill, like every other chip in the lab: the exact token
+// `--signal-fill-hover`, which must clear AA under `--ink`. Measured here and
+// not in `LabLayout.browser.test.tsx`, because this file loads the full
+// cascade `main.tsx` does, `palette.css` included.
 test('a hovered choice in the top bar is filled, not underlined, and still reads at AA', async () => {
   await page.viewport(1400, 900)
   const screen = await arrange('board')
@@ -350,9 +540,8 @@ test('a hovered choice in the top bar is filled, not underlined, and still reads
   for (const [name, control] of controls) {
     await userEvent.hover(control)
     // The segmented buttons carry the shared chip's 120ms background
-    // transition (`.fw .fw-seg button`); reading the computed style right
-    // after the pointer event catches it mid-animation, still `rgba(0, 0, 0,
-    // 0)`. `settle` (harness/settle.ts) waits it out.
+    // transition; read right after the pointer event, the style is still
+    // mid-animation. `settle` waits it out.
     await settle()
     const el = control.element()
     const style = getComputedStyle(el)
@@ -371,6 +560,13 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
+    ...MODE_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
+    ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
+    'inspect@375x812:pl:long-seed',
+    'play@375x812:pl:long-seed',
+    'inspect@375x812:pl:tall',
+    'play@375x812:pl:tall',
+    'presets-open@420x699',
     'presets-open@420x700',
     'huge-pl@420x900',
   ])

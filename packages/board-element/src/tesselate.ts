@@ -349,7 +349,7 @@ export function tesselateBoard(board: BoardData, view: BoardView, omit: Readonly
     const line = lineVerticesOf(merged)
     const head = headVertices(s.head.length, view.rounded)
     // A corner disc belongs to its piece's line block and the tail disc to its
-    // head block: where the fans that drew them used to live.
+    // head block.
     const corners = view.rounded ? cornersIn(merged) : 0
     const tail = view.rounded ? 1 : 0
     counts.set(pc.id, { line, head, corners, tail })

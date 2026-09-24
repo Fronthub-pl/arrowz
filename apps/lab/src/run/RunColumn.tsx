@@ -1,5 +1,6 @@
-import { type RefObject, useLayoutEffect, useRef } from 'react'
+import { type CSSProperties, type RefObject, useLayoutEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
+import { oneDecimal, useRunLine } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { defaults, generate, reseed } from './actions'
 import { ExportButtons } from './ExportButtons'
@@ -9,26 +10,25 @@ import { OptionSwitch } from './OptionSwitch'
 import type { RunControl } from './useRun'
 
 /**
- * The stage's third track (`.fw-run-col`), right of the board (handoff 2,
- * PR 1). It used to be the console's third child; it is the stage's now, in
- * the same slot on every face and in both views, so the simple view and the
- * saved boards swap what is around it and never its node (PR 4a, Ruling 7).
+ * The stage's third track (`.fw-run-col`), right of the board. It belongs to
+ * the stage, in the same slot on every face and in both views, so the simple
+ * view and the saved boards swap what is around it and never its node.
  *
  * Generate carries the rule twice on purpose: `useRun` refuses silently for
  * the triggers that are not buttons, and the disabled attribute is what a
- * person sees. `RunStatusBar` speaks it (Task 5) and `Violations` spells it out.
+ * person sees. `RunStatusBar` speaks it and `Violations` spells it out.
  *
- * `goRef` and `abortRef` are the route's: the clamp notice dismisses itself
- * and hands focus to Generate, which is the action the preset that clamped
- * was chosen for, or to Abort when Generate is the one disabled. Both
- * optional, so that a caller with no notice beside it — this column's own
- * tests today — mounts the column unchanged. The column reads them back as
- * well, to carry the focus between the two whenever the one holding it is
- * about to be disabled.
+ * `goRef` and `abortRef` are the route's: the clamp notice hands focus to one
+ * of them when it dismisses itself. Both are optional, so a caller with no
+ * notice beside it mounts the column unchanged. The column also reads them to
+ * carry the focus between the two buttons (see the effect below).
  */
 
-/** The run column's id, which the phone's CLI sheet button controls (handoff 2, PR 7). */
+/** The run column's id, which the phone's CLI sheet button controls. */
 export const RUN_COLUMN_ID = 'run-column'
+
+/** The hidden progressbar's id, which Generate points at while a carve runs. */
+const PROGRESS_ID = 'run-progress'
 
 export function RunColumn({
   control,
@@ -45,68 +45,17 @@ export function RunColumn({
   const auto = useStore((state) => state.ui.auto)
   const setAuto = useStore((state) => state.ui.setAuto)
   const simple = useStore((state) => state.ui.mode === 'simple')
+  const { run: line, percent } = useRunLine()
+  // One decimal everywhere the share shows: the label, the fill and the
+  // progressbar's value say the same number.
+  const share = percent === null ? null : Math.round(percent * 10) / 10
 
-  // Both of these buttons are a landing spot with an expiry date, because each
-  // is disabled by one of the two transitions of `running`, and HTML's focus
-  // fixup then hands the focus to `document.body`. Ending a run: the clamp
-  // notice parks the focus on Abort while a carve is in flight, and the commit
-  // that ends the carve renders Abort `disabled`. Starting one: Generate is
-  // `disabled={running || blocked}`, so activating Generate is what disables
-  // Generate. Without this effect a keyboard user who tabs to Generate and
-  // presses Enter or Space loses the focus by pressing the button — measured
-  // with a real key press, both keys, `<body>` from the second frame on — which
-  // makes that the ordinary path and not an edge case. The drop is the same in
-  // both directions, so one effect watching the transition both ways closes
-  // both, and the two halves compose: pressing Generate carries the focus to
-  // Abort, and the end of the run carries it back.
-  //
-  // When the fixup runs was measured rather than assumed: batches of 20 samples
-  // per sampling point, both transitions, Chrome 153.0.8010.12, the matching
-  // branch cut out. The ranges span five batches, one of them a reviewer's:
-  //
-  //   sampling point                  `document.activeElement` is `<body>`
-  //   synchronously after the commit   0/20
-  //   microtask                        0/20
-  //   setTimeout 0                     0–2/20
-  //   1 × requestAnimationFrame        0–2/20
-  //   2 × requestAnimationFrame       20/20
-  //
-  // The fixup is not a macrotask. It is the "update the rendering" step, which
-  // runs *after* the animation-frame callbacks of the same frame — which is why
-  // one rAF still sees the button, and why an rAF registered from inside one
-  // sees the body. The stray early samples are runs in which a frame's
-  // rendering step happened to fall between the commit and the sampling call.
-  // So two frames is exactly the floor for observing the fixup, not a margin.
-  // Read any earlier, a focus that is about to be dropped still looks kept: an
-  // assertion that the focus is not on `<body>` holds against a deleted branch
-  // in 18–20 samples of 20 at every point short of two frames. Do not tighten
-  // the wait in this column's tests.
-  //
-  // `useLayoutEffect`, because that schedule leaves room: this runs
-  // synchronously after the DOM mutation that disabled the outgoing button and
-  // before any animation frame, so `document.activeElement` is still that
-  // button and its partner — re-rendered enabled in the same commit — can take
-  // the focus first.
-  //
-  // The transition is what is watched, not the state: `running` is false on
-  // every idle render and true on every running one, and acting on either
-  // would steal the focus from whatever the user had moved it to. The guard is
-  // doubled by an identity check, so only a focus that is actually sitting on
-  // the button being disabled is redirected. `wasRunning` is redundant against the dependency
-  // array as it stands — `goRef` and `abortRef` are stable, so the effect
-  // already runs only when `running` changes — and it stays because it is what
-  // makes "transition, not state" a rule of this effect rather than a property
-  // of its current dependency list, which a later dependency such as `blocked`
-  // would quietly end.
-  //
-  // Only the ending branch can miss. Abort is `disabled={!running}`, so on a
-  // start it is live by construction; on an end Generate is still out whenever
-  // a knob was dragged into a violation during the carve, `focus()` is then a
-  // no-op, and the focus is lost after all. New seed and Defaults are live in
-  // that state — neither carries `disabled` at all — but neither is what a
-  // person dismissing a notice or watching a run end asked for, so choosing a
-  // landing spot for that case is a design question and not a guard, and it is
-  // left open here deliberately rather than answered in passing.
+  // Starting a run disables Generate and ending one disables Abort; HTML's focus
+  // fixup (two frames later, see `twoFrames`) would drop the focus
+  // on <body>, so a layout effect hands it to the partner button first. Act on
+  // the transition of `running`, not its value (`wasRunning` keeps that if the
+  // deps grow), and only when the focus is on the button being disabled. Known
+  // gap: a rule broken during the run leaves Generate disabled and focus lost.
   const wasRunning = useRef(false)
   useLayoutEffect(() => {
     const abort = abortRef?.current ?? null
@@ -120,9 +69,7 @@ export function RunColumn({
     wasRunning.current = running
   }, [running, goRef, abortRef])
 
-  // Generate, New seed and Defaults live in `./actions` now: the palette
-  // (a later task) calls the same functions, so the column and the palette
-  // cannot drift.
+  // Shared with the command palette, so the column and the palette cannot drift.
   const onGenerate = () => generate(control)
   const onReseed = () => reseed(control)
   const onDefaults = () => defaults(control)
@@ -130,16 +77,41 @@ export function RunColumn({
   return (
     <section id={RUN_COLUMN_ID} className="fw-run-col" aria-label={dict.t('runColumn')}>
       <LiveCommand />
+      {/* While a carve runs, Generate is the meter: filled to the share done
+          (`--p`), the percent in its label. Before the first report the
+          progressbar has no value, which is how ARIA spells "indeterminate".
+          The progressbar is for assistive technology only (`fw-vh`). */}
       <button
         type="button"
-        className="fw-go"
+        className={running ? 'fw-go busy' : 'fw-go'}
         ref={goRef}
         onClick={onGenerate}
         disabled={running || blocked}
         title={blocked ? dict.t('generateBlocked') : undefined}
+        style={running ? ({ '--p': `${share ?? 0}%` } as CSSProperties) : undefined}
+        aria-describedby={running ? PROGRESS_ID : undefined}
       >
-        {dict.t('generate')}
+        {!running
+          ? dict.t('generate')
+          : share === null
+            ? dict.t('generating')
+            : dict.t('generatingPct', oneDecimal(dict, share))}
       </button>
+      {running ? (
+        <div
+          id={PROGRESS_ID}
+          className="fw-vh"
+          role="progressbar"
+          aria-label={dict.t('runProgress')}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          {...(share === null ? {} : { 'aria-valuenow': share, 'aria-valuetext': `${oneDecimal(dict, share)}%` })}
+        />
+      ) : null}
+      {/* `aria-hidden`: `RunStatusBar`'s live `<output>` says the same and is the one voice. */}
+      <p className={line.bad ? 'fw-runstate bad' : 'fw-runstate'} aria-hidden="true">
+        {line.text}
+      </p>
       <div className="fw-alt">
         <button type="button" onClick={onReseed}>
           {dict.t('reseed')}
@@ -152,9 +124,7 @@ export function RunColumn({
         </button>
       </div>
       <MoreMenu>
-        {/* The knobs' own switch, and the simple view shows no knobs (PR 4a,
-            Ruling 9). The descriptions switch is gone: every knob row opens
-            its own description with its `?` (handoff 2, PR 2). */}
+        {/* The knobs' own switch, so not in the simple view, which shows no knobs. */}
         {simple ? null : (
           <div className="fw-ghost">
             <OptionSwitch id="opt-auto" label={dict.t('autoRun')} on={auto} onChange={setAuto} />

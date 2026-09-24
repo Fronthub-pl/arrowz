@@ -12,24 +12,23 @@ function lastRow(col: number): number {
 }
 
 /**
- * The preset picker (spec §3): one trigger in the 38px row, naming the preset
- * the knobs spell and its size, and under it a panel with one column per level.
- * A disclosure, not a menu: the trigger carries `aria-expanded` and
- * `aria-controls`, and the panel is a group of buttons — `aria-haspopup="menu"`
- * would promise a `role="menu"` and menu keyboarding this panel does not have.
+ * The preset picker: one trigger in the 38px row, naming the preset the knobs
+ * spell and its size, and under it a panel with one column per level.
+ * A disclosure, not a menu: `aria-haspopup="menu"` would promise a `role="menu"`
+ * and menu keyboarding this panel does not have.
  *
  * The panel is always mounted and `hidden` while closed, so `aria-controls`
- * always names an element in the document. Its keys are a capture-phase
- * listener on the document, installed only while it is open: capture so it
- * runs before the drawer's Escape (App.tsx), which it consumes. It acts only
- * on keys pressed inside the strip, and focus leaving the strip closes it.
+ * always names an element. Its keys are a capture-phase document listener,
+ * installed only while open, so it runs before the drawer's Escape, which it
+ * consumes. It acts only on keys pressed inside the strip, and focus leaving
+ * the strip closes it.
  */
 export function PresetStrip({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const values = useStore((state) => state.params.values)
   const current = findPreset(values)
   // `PresetLevel.id` is a `string` and the dictionary's `levels` a fixed-key
-  // object, so the index needs narrowing (the same shape `KnobPanel.tsx` uses).
+  // object, so the index needs narrowing.
   const levels = dict.d.presets.levels as Partial<Record<string, string>>
   const level = current === null ? undefined : PRESETS.find((entry) => entry.options.includes(current))
   const [open, setOpen] = useState(false)
@@ -49,8 +48,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
       panel?.querySelector<HTMLButtonElement>('button[aria-current="true"]') ??
       panel?.querySelector<HTMLButtonElement>('button')
     // No scroll: in a low window the panel is `position: fixed` under the top
-    // bar, and a focus that scrolled `.fw-top` would shift the bar (handoff 2,
-    // PR 7).
+    // bar, and a focus that scrolled `.fw-top` would shift the bar.
     first?.focus({ preventScroll: true })
 
     const onPress = (event: PointerEvent) => {
@@ -103,8 +101,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
     }
   }, [open])
 
-  // The chip and the palette row are the same action (spec D6): `applyPreset`
-  // writes every knob, follows it with the export cell size, and starts the run.
+  // The same action as the palette row; see `applyPreset`.
   const choose = (params: Partial<Params>) => {
     applyPreset(control, params)
     close(true)

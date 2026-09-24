@@ -37,9 +37,17 @@ export function drawableView(view: BoardView, isColor: IsColor): BoardView {
   }
 }
 
-/** The margin asked for, in cells: never negative, and large is allowed (it is drawable). */
+/**
+ * The margin a host may ask for, in cells. Published because the lab draws a
+ * field for it and must declare the bounds it is actually held to: a slider
+ * needs an end, and this is a margin, not a board dimension — it has no
+ * reason to run anywhere near the sizes a board itself does.
+ */
+export const PAD_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 16 }
+
+/** The margin asked for, in cells: clamped to PAD_RANGE. */
 export function drawablePad(pad: number, fallback: number): number {
-  return Math.max(0, finite(pad, fallback))
+  return Math.min(Math.max(PAD_RANGE.min, finite(pad, fallback)), PAD_RANGE.max)
 }
 
 /**

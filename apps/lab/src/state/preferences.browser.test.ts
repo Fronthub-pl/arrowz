@@ -5,8 +5,8 @@ import { createUiSlice, type UiState } from './ui.slice'
 import { useStore } from './store'
 
 // First, before anything below writes: the setup file cleared storage before
-// this file's imports and the browser is pinned to en-US (Task 1), so the
-// store was created with nothing remembered.
+// this file's imports and the browser is pinned to en-US, so the store was
+// created with nothing remembered.
 test('a fresh page opens in the simple view, in English', () => {
   expect(useStore.getState().ui.mode).toBe('simple')
   expect(useStore.getState().lang.lang).toBe('en')
@@ -41,8 +41,7 @@ test('the report drawer is remembered as open or closed, and read back', () => {
   expect(localStorage.getItem('labReport')).toBe('open')
   useStore.getState().ui.toggleReport()
   expect(localStorage.getItem('labReport')).toBe('closed')
-  // A fresh slice reads what was stored (harness fact 41: the start value is
-  // asserted on a new slice, not on the live store a reset may have written).
+  // A fresh slice, not the live store, which a reset may have written.
   localStorage.setItem('labReport', 'open')
   const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
   expect(store.ui.report).toBe(true)
@@ -53,8 +52,8 @@ test('the report drawer is remembered as open or closed, and read back', () => {
 })
 
 // The slices below are created after `page.viewport`, so `createUiSlice` reads
-// the band the case chose. The harness's default 414×896 is XS since handoff
-// 2, PR 7, where the drawer starts closed whatever is remembered (spec D3).
+// the band the case chose. The harness's default 414×896 is XS, where the
+// drawer starts closed whatever is remembered.
 test('the settings drawer is remembered as open or closed, and opens unless closed was stored', async () => {
   await page.viewport(1400, 900)
   useStore.getState().ui.setSettings(false)

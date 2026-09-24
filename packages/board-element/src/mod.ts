@@ -2,6 +2,7 @@
 // <arrowz-board>; the types make the tag and its events known to TypeScript.
 import type {
   ArrowzBoard,
+  ColoredChangeEvent,
   FinishedEvent,
   LifeLostEvent,
   PieceClickEvent,
@@ -21,6 +22,8 @@ export {
 } from './arrowz-board.ts'
 export type {
   BoardViewport,
+  ColoredChangeDetail,
+  ColoredChangeEvent,
   FinishedEvent,
   LifeLostEvent,
   PieceClickEvent,
@@ -40,13 +43,14 @@ export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
 export { EXIT_MAX_MS, EXIT_MIN_MS, EXIT_SPEED } from './track.ts'
 export { MAX_CELL_PX, MIN_PAD_PX, MIN_POINT_CELL_PX } from './viewport.ts'
-export { POINT_RADIUS_RANGE } from './sanitize.ts'
+export { PAD_RANGE, POINT_RADIUS_RANGE } from './sanitize.ts'
 
 declare global {
   interface HTMLElementTagNameMap {
     'arrowz-board': ArrowzBoard
   }
   interface HTMLElementEventMap {
+    'colored-change': ColoredChangeEvent
     'piece-click': PieceClickEvent
     'piece-removed': PieceRemovedEvent
     'life-lost': LifeLostEvent

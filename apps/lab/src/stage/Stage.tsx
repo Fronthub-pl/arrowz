@@ -9,8 +9,8 @@ export const SETTINGS_ID = 'settings-panel'
 
 /**
  * A focus inside a drawer that is closing would fall to <body> once the drawer
- * turns hidden; it moves to the handle, which is how the drawer comes back —
- * the pattern BoardFrame.tsx uses for solo.
+ * turns hidden; it moves to the handle, which is how the drawer comes back
+ * (the pattern `BoardFrame` uses for solo).
  */
 function useFocusBackToHandle(open: boolean, panelId: string) {
   const handle = useRef<HTMLButtonElement>(null)
@@ -25,22 +25,32 @@ function useFocusBackToHandle(open: boolean, panelId: string) {
 }
 
 /**
- * Four tracks on both tabs (handoff 2, PR 1 and PR 6): the settings drawer's
- * handle, the board, the right column and the report's handle. Both drawers
- * are toggled by their class, never remounted, or the slide would not
- * animate; closed, their contents are `visibility: hidden` (shell.css). The
- * settings drawer does not cover the board: open, it adds `ls-open`, which
- * pads the board's track by the drawer's width, so a knob change is always in
- * sight.
+ * Four tracks on both tabs: the settings drawer's handle, the board, the right
+ * column and the report's handle. Both drawers are toggled by their class,
+ * never remounted, or the slide would not animate; closed, their contents are
+ * `visibility: hidden`. The settings drawer does not cover the board: open, it
+ * adds `ls-open`, which pads the board's track by the drawer's width, so a knob
+ * change is always in sight.
  *
  * The right column is the run column on the lab and the open board's column
  * (`side`) on the saved boards. The run column stays mounted on both, hidden by
- * class on the saved boards, so a carve in flight keeps its node and refs
- * (Ruling 1); `side` holds its slot as `null` on the lab. Nothing before
- * `BoardFrame` ever changes type, so it keeps its node — that is what keeps
- * `<arrowz-board>`'s GL context alive across the tabs.
+ * class on the saved boards, so a carve in flight keeps its node and refs;
+ * `side` holds its slot as `null` on the lab. Nothing before `BoardFrame` ever
+ * changes type, so it keeps its node, which keeps `<arrowz-board>`'s GL
+ * context alive across the tabs.
  */
-export function Stage({ settings, run, side }: { settings: ReactNode; run: ReactNode; side: ReactNode }): ReactElement {
+export function Stage({
+  settings,
+  run,
+  side,
+  busy = false,
+}: {
+  settings: ReactNode
+  run: ReactNode
+  side: ReactNode
+  /** A carve in flight on the lab: the board is about to change. */
+  busy?: boolean
+}): ReactElement {
   const dict = useDictionary()
   const reportOpen = useStore((state) => state.ui.report)
   const toggleReport = useStore((state) => state.ui.toggleReport)
@@ -50,7 +60,7 @@ export function Stage({ settings, run, side }: { settings: ReactNode; run: React
   const settingsHandle = useFocusBackToHandle(settingsOpen, SETTINGS_ID)
 
   return (
-    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'}>
+    <div className={settingsOpen ? 'fw-stage ls-open' : 'fw-stage'} aria-busy={busy ? true : undefined}>
       <div className={settingsOpen ? 'fw-ldrawer open' : 'fw-ldrawer'}>
         {settings}
         <button

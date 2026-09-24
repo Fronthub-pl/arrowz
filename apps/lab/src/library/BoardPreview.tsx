@@ -12,13 +12,11 @@ import { useViewSave } from './useViewSave'
 const STORED_NUMBERS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
 
 /**
- * The drawer's Preview panel on the saved boards (handoff 2, PR 6), in the
- * lab's knob rows. Two sections, because the stage draws a stored board from
- * two owners: its arrows come from the view saved with it — an edit redraws the
- * board and goes back to the store with the same file (`useViewSave`) — and
- * its colours from the lab, whose theme, palette, paper and ink `BoardFrame`
- * lays over any board. A stored board carries no highlight and its export cell
- * is the one it was saved with, so neither has a row here (Ruling 3 of PR 5b).
+ * The drawer's Preview panel on the saved boards, in the lab's knob rows. Two
+ * sections, because a stored board has two owners: its arrows come from the
+ * view saved with it (an edit goes back to the store, `useViewSave`), its
+ * colours from the lab (`BoardFrame` lays them over any board). No rows for the
+ * highlight (a stored board has none) or the export cell (fixed at save).
  */
 export function BoardPreview(): ReactElement {
   const dict = useDictionary()

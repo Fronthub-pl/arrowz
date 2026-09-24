@@ -7,7 +7,7 @@ export type RunPhase = 'idle' | 'running' | 'done' | 'error'
 
 /**
  * The process, not the product: the board a run makes lives in the result
- * slice, so a run in flight leaves the last one on screen (spec §5.3, PR 4b).
+ * slice, so a run in flight leaves the last one on screen.
  */
 export interface RunState {
   phase: RunPhase

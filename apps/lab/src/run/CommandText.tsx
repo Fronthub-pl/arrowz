@@ -2,12 +2,12 @@ import { COMMAND_PREFIX } from '@arrowz/engine/command'
 import { Fragment, type ReactElement } from 'react'
 
 /**
- * A `deno task carve` command as the lab shows it (spec §5.2): the program in
- * `--ash`, each flag in a `span.ln` that never breaks inside itself, the flag's
- * name in `--ash` and its value in `--ink`. The flags are separated by real
- * spaces in the DOM, so the box (run.css, `.fw-cmd`) can break a line only
- * there and a selection reads back as the one-line command. A string that is
- * not a carve command — a hand-edited store entry — is shown as it is.
+ * A `deno task carve` command as the lab shows it: the program in `--ash`,
+ * each flag in a `span.ln` that never breaks inside itself, the flag's name in
+ * `--ash` and its value in `--ink`. The flags are separated by real spaces in
+ * the DOM, so the box can break a line only there and a selection reads back
+ * as the one-line command. A string that is not a carve command (a hand-edited
+ * store entry) is shown as it is.
  */
 export function CommandText({ command }: { command: string }): ReactElement {
   if (!command.startsWith(`${COMMAND_PREFIX} `)) return <>{command}</>

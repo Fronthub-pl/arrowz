@@ -80,9 +80,8 @@ test('a GET through the proxy reaches the store', async () => {
   expect(await r.json()).toEqual([])
 })
 
-// The whole point of the task. The server refuses a write whose Origin is not
-// its own (store-server.ts's refusal()); this proves the proxy leaves the
-// pair consistent, and it is what would go red if changeOrigin were ever added.
+// The store server's `refusal` rejects a write whose Origin is not its own;
+// this goes red if the proxy ever gains `changeOrigin`.
 test('a POST through the proxy is accepted, Origin and all', async () => {
   const params = { ...defaultParams(), W: 12, H: 12, seed: 3 }
   const result = generate(params)
@@ -109,8 +108,7 @@ test('the saved board comes back in the listing', async () => {
   expect(sizes[0]?.boards).toHaveLength(1)
 })
 
-// The library reads stored files from /store/ (spec §5.6), so the proxy covers
-// that path and not /boards/.
+// The library reads stored files from /store/, so the proxy covers that path.
 test('the stored board file is reachable through the proxy', async () => {
   const sizes = (await (await fetch(`${VITE_ORIGIN}/api/boards`)).json()) as { boards: { id: string }[] }[]
   const id = sizes[0]?.boards[0]?.id
@@ -134,12 +132,9 @@ test('the library route and a board address are not proxied', async () => {
 // Nothing listens here.
 const DEAD_ORIGIN = 'http://127.0.0.1:8792'
 
-// The store is optional, so an unreachable one must resolve rather than
-// reject — but the library has two different sentences for the two failures
-// ("no store server" and "the store is empty"), so the outcome has to say
-// which happened (Ruling 2). `listBoards` fetches a relative path, which Node
-// cannot resolve on its own, so the stub supplies only the origin and forwards
-// the call: the rejection under test is a real ECONNREFUSED from a real socket.
+// An unreachable store must resolve, not reject, and say it failed. Node cannot
+// resolve `listBoards`'s relative path, so the stub supplies only the origin:
+// the rejection under test is a real ECONNREFUSED from a real socket.
 test('listBoards reports failure when the store is unreachable', async () => {
   const original = globalThis.fetch
   globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), DEAD_ORIGIN), args[1])
@@ -163,8 +158,7 @@ test('listBoards answers with the sizes when the store is up', async () => {
   }
 })
 
-// What the preview reads. The file is handed on as `unknown`: `decodeBoard`
-// takes `unknown` and is the only thing that may decide the shape is a board.
+// What the preview reads, handed on as `unknown` for `decodeBoard` to judge.
 test('readStoredBoard fetches a stored file, and reports a missing one', async () => {
   const original = globalThis.fetch
   globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
@@ -183,9 +177,7 @@ test('readStoredBoard fetches a stored file, and reports a missing one', async (
   }
 })
 
-// What the detail's second click does (PR 5b). The board is created and
-// removed inside the case, in a size of its own, so the counts asserted above
-// stay true however this file grows.
+// The board lives in a size of its own, so the counts asserted above stay true.
 test('deleteBoard removes a board, and a second delete says it was not there', async () => {
   const original = globalThis.fetch
   globalThis.fetch = (...args: Parameters<typeof fetch>) => original(new URL(String(args[0]), VITE_ORIGIN), args[1])
@@ -196,8 +188,7 @@ test('deleteBoard removes a board, and a second delete says it was not there', a
     if (!saved.ok) throw new Error(`the store refused the board this case needs: ${saved.error}`)
 
     expect(await deleteBoard('16x16', saved.meta.id)).toEqual({ ok: true, deleted: true })
-    // Ruling 11: the second press is not an error. The store says 404 and the
-    // caller learns the same thing it learned the first time — it is gone.
+    // The second press is not an error: a 404 means it is gone.
     expect(await deleteBoard('16x16', saved.meta.id)).toEqual({ ok: true, deleted: false })
 
     const list = await listBoards()

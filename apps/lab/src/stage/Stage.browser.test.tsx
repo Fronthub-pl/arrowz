@@ -11,11 +11,10 @@ import { SETTINGS_ID, Stage } from './Stage'
  * cannot fail: `Stage` alone has nothing above it to rerender, so the memo is
  * never asked the question the test is about.
  *
- * The router is the frame's and the report drawer's: both ask which tab is on
- * screen (`useInLibrary`). It sits inside the probe rather than around each
- * mount so that a rerender still goes through one router, and it names no
- * address — every case here is the lab. The settings drawer's content is a
- * stand-in carrying the id the handle names, with one control to hold a focus.
+ * The router is the frame's and the report drawer's (`useInLibrary`). It sits
+ * inside the probe so that a rerender still goes through one router. The
+ * settings drawer's content is a stand-in carrying the id the handle names,
+ * with one control to hold a focus.
  */
 function Probe() {
   useStore((state) => state.run.phase)
@@ -50,19 +49,21 @@ test('editing a preview field redraws the board without generating', async () =>
 })
 
 // `boardViewOf(viewOf(view), view.voids)` takes the flag as a second argument,
-// so `view.hilite` would type-check in its place and the whole suite would stay
-// green — every other test here toggles `colored`. Voids is off and hilite is
-// on by the end of this test, so the two cannot be swapped without it failing.
+// so `view.highlightLongest` would type-check in its place, and every other
+// test here toggles `colored`. Voids off and the highlight on (set here, off
+// by default) at the end catch the swap.
 test('the voids flag reaches the element, and it is the voids flag', async () => {
   const screen = await render(<Probe />)
   const element = boardEl(screen.container)
   expect(element?.view?.voids).toBe(true)
+  useStore.getState().view.setFlag('highlightLongest', true)
   try {
     useStore.getState().view.toggle('voids')
     await expect.poll(() => element?.view?.voids).toBe(false)
-    expect(useStore.getState().view.hilite).toBe(true)
+    expect(useStore.getState().view.highlightLongest).toBe(true)
   } finally {
     useStore.getState().view.toggle('voids')
+    useStore.getState().view.setFlag('highlightLongest', false)
   }
 })
 
@@ -79,9 +80,9 @@ test('a progress message does not reassign the element view', async () => {
   useStore.getState().result.reset()
 })
 
-// Handoff 2, PR 1: the settings handle mirrors the report's — it names the
-// panel it controls (an id that exists, not the drawer holding the handle, as
-// the reconstruction has it), says whether it is open, and advertises S.
+// The settings handle mirrors the report's: it names the panel it controls (an
+// id that exists, not the drawer holding the handle), says whether it is open,
+// and advertises S.
 test('the settings handle names its panel, its state and its key', async () => {
   useStore.getState().ui.setSettings(true)
   const screen = await render(<Probe />)
@@ -97,8 +98,8 @@ test('the settings handle names its panel, its state and its key', async () => {
   useStore.getState().ui.setSettings(true)
 })
 
-// The report's pattern (spec §4.3): a focus left inside a drawer turning
-// hidden would fall to <body>, so it moves to the handle.
+// The report's pattern: a focus left inside a drawer turning hidden would fall
+// to <body>, so it moves to the handle.
 test('closing the settings with the focus inside moves the focus to the handle', async () => {
   useStore.getState().ui.setSettings(true)
   const screen = await render(<Probe />)

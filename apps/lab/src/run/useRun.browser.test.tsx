@@ -30,7 +30,7 @@ describe('useRun', () => {
   })
 
   // The button is disabled too, but `auto` and a link arriving from another
-  // window are not buttons, so the refusal lives here (Ruling 4).
+  // window are not buttons, so the refusal lives here.
   it('refuses while a rule is broken, whoever asked', async () => {
     const g = stub()
     const { result } = await renderHook(() => useRun(g.generator))

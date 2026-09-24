@@ -32,9 +32,9 @@ describe('the recipe slice', () => {
     expect(store.recipe.value.lengths).toBe(0)
   })
 
-  // Spec §2.2: a size field and a slider run after a pause; the skeleton
-  // switch runs at once and randomising runs nothing. Only the first two may
-  // wake the debounce, or the switch would carve twice (Ruling 3).
+  // A size field and a slider run after a pause; the skeleton switch runs at
+  // once and randomising runs nothing. Only the first two may wake the
+  // debounce, or the switch would carve twice.
   it('counts a size or a slider as a debounced edit, and nothing else', () => {
     const store = slice()
     store.recipe.setSide('W', 30)

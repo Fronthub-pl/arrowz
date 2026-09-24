@@ -7,19 +7,19 @@ export interface RunControl {
   start(): void
   /** Terminates the worker if one is carving; does nothing otherwise. */
   abort(): void
-  /** Registers the cancel of a debounce that has not fired. Task 8 calls it. */
+  /** Registers the cancel of a debounce that has not fired. `useAutoRun` calls it. */
   hold(cancel: () => void): void
 }
 
 /**
  * The one place a run begins: every way of starting one (button,
  * auto-generate, preset, URL, reseed) ends here, so this is the one place the
- * envelope is enforced. Seven triggers call `start()`; none of them has
- * to remember to check the rules or to cancel a pending debounce.
+ * envelope is enforced; no trigger has to remember to check the rules or to
+ * cancel a pending debounce.
  *
  * The knobs are read with `getState()` at the call rather than through a
  * subscription: a run must use the values of the moment it started, and a
- * subscription here would rerender the shell on every drag (Ruling 11).
+ * subscription here would rerender the shell on every drag.
  */
 export function useRun(generator: GeneratorHandle): RunControl {
   const cancel = useRef<(() => void) | null>(null)
@@ -29,9 +29,8 @@ export function useRun(generator: GeneratorHandle): RunControl {
     // timer, or the debounce fires into the same refusal a moment later.
     cancel.current?.()
     const { params } = useStore.getState()
-    // Silent here, spoken by `RunStatusBar` (Ruling 13): a funnel that logged
-    // its own refusal would be a second voice for the rule `Violations`
-    // already states.
+    // Silent here: `RunStatusBar` speaks the refusal and `Violations` states
+    // the rule, so a log here would be a second voice.
     if (params.violations.length > 0) return
     generator.start(params.values)
   }, [generator])

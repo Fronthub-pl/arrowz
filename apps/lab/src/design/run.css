@@ -46,7 +46,7 @@
   gap: 2px;
   padding-top: 8px;
 }
-/* The mock's `.fw-k .row` shape, outside a knob. */
+/* The mock's labelled-row shape, outside a knob's own grid. */
 .fw-opt {
   display: flex;
   align-items: center;
@@ -100,16 +100,16 @@
   .fw .fw-exports button {
     height: 44px;
   }
-  /* The track is raised in console.css's coarse block (2026-09-22 spec §6);
-     the row still carries the rest of the 44px. */
+  /* The track is raised in console.css's coarse block; the row still carries
+     the rest of the 44px. */
   .fw-opt {
     min-height: 44px;
   }
 }
 /* `<figure>` carries a browser default margin; the mock's box has none, and
    the flex column depends on it. The floor is the caption's line, its 6px
-   margin and the box's own 58px (PR 4b, Ruling 1): below it the box would
-   shrink under its own content and paint behind Generate. */
+   margin and the box's own 58px: below it the box would shrink under its own
+   content and paint behind Generate. */
 .fw-cmdfig {
   flex: 0 1 auto;
   min-height: calc(1lh + 6px + 58px);
@@ -117,12 +117,10 @@
   display: flex;
   flex-direction: column;
 }
-/* Beside the board (handoff 2, PR 1) the figure and the command take their
-   content's height: the whole command is on screen, and the column scrolls
-   (`overflow-y: auto` above), not the box. This replaces spec §5.2's growing
-   figure, which kept Generate still by scrolling the command inside the box —
-   Generate now moves down with a longer command. The saved boards' column
-   (`.fw-bcol`, handoff 2 PR 6) is a run column too, and takes the same rule. */
+/* Beside the board the figure and the command take their content's height:
+   the whole command is on screen, and the column scrolls, not the box, so
+   Generate moves down with a longer command. The saved boards' column
+   (`.fw-bcol`) takes the same rule. */
 .fw-run-col > .fw-cmdfig,
 .fw-run-col .fw-cmd {
   flex: none;
@@ -137,8 +135,8 @@
   margin-bottom: 6px;
 }
 /* The mock paints this button `--signal`, which measures 3.81:1 on
-   `--graphite` — under AA at 12px — and spends a colour §7.1 reserves for
-   state and data on an action. `--mist` is 8.05:1 and moves to `--ink` on
+   `--graphite` — under AA at 12px — and spends a colour reserved for state
+   and data on an action. `--mist` is 8.05:1 and moves to `--ink` on
    hover, the same ash-to-ink move `.fw-tabrow button` already makes. */
 .fw .fw-cmdhd button {
   border: 0;
@@ -150,16 +148,11 @@
 .fw .fw-cmdhd button:hover {
   color: var(--ink);
 }
-/* `overflow: auto` and not the mock's `hidden`: the box scrolls inside itself
-   rather than clipping what would be run (LiveCommand.tsx), and rather than
-   growing and walking the controls under it down the column.
-
-   Wrapping (spec §5.2): the box is ordinary inline text and every flag is a
-   `nowrap` `.ln` (CommandText.tsx), so a line breaks only at the real spaces
-   between flags — never inside `--height=250`, which `word-break: break-all`
-   used to do. Not the handoff's flex-wrap box: white space between flex items
-   is not rendered, so a selection of the command read back with its flags
-   glued together. */
+/* `overflow: auto`, not the mock's `hidden`: clipping would hide what is run.
+   Every flag is a `nowrap` `.ln` in ordinary inline text (CommandText.tsx), so
+   a line breaks only between flags, never inside `--height=250`. Not a flex
+   box: white space between flex items is not rendered, so a selection would
+   read back with the flags glued together. */
 .fw-cmd {
   flex: 0 1 auto;
   min-height: 58px;
@@ -187,10 +180,9 @@
   }
 }
 
-/* The preset picker (spec §3): one trigger in the 38px row, a panel of level
-   columns under it. Replaces the scrolling strip of 26 chips. The row is
-   the panel's containing block; the panel's own z-index lays it over the
-   stage. */
+/* The preset picker: one trigger in the 38px row, a panel of level columns
+   under it. The row is the panel's containing block; the panel's own z-index
+   lays it over the stage. */
 .fw-presets {
   position: relative;
   display: flex;
@@ -241,11 +233,9 @@
   text-overflow: ellipsis;
 }
 /* The panel's own `display: grid` would beat the user agent's `[hidden] {
-   display: none }`, so the closed state is stated here. `max-height` is not in
-   the handoff: at 420 wide seven levels in two columns are 650px tall under a
-   top at 171px (measured), which runs past any window shorter than about
-   830px — at 420×700 the `popover-fit` invariant (LayoutInvariants) goes red
-   without it. None of the matrix's five sizes is that short. */
+   display: none }`, so the closed state is stated here. `max-height`: at 420
+   wide the panel is 650px tall under a 171px top, past any window shorter
+   than about 830px (the `popover-fit` invariant at 420×700). */
 .fw-pp-panel {
   position: absolute;
   z-index: 20;
@@ -292,8 +282,8 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-/* Centred, not on the baseline (handoff 2, PR 5; `css/presets-centre.css`):
-   `baseline` in a 28px row put both spans at its top edge. The two spans
+/* Centred, not on the baseline: `baseline` in a 28px row puts both spans at
+   its top edge. The two spans
    (13px mode, 11px size) share `line-height: 1`, so their centres meet. */
 .fw .fw-pp-col button {
   display: flex;
@@ -356,7 +346,7 @@
 .fw-more-pop {
   display: contents;
 }
-/* M and S (handoff 2, PR 7): the right column is one line under the board —
+/* M and S: the right column is one line under the board —
    CLI [Copy] | the command, one line scrolled sideways | Generate | the three
    alternatives | … — two when the open drawer pushes it. */
 @media (min-width: 768px) and (max-width: 1279px) {
@@ -452,7 +442,7 @@
     margin: 0;
   }
 }
-/* The bar under a finger: 44px controls, not 32 (spec §5). */
+/* The bar under a finger: 44px controls, not 32. */
 @media (min-width: 768px) and (max-width: 1279px) and (pointer: coarse) {
   .fw .fw-lab:not(.solo) .fw-stage > .fw-run-col :is(.fw-go, .fw-alt > button, .fw-more, .fw-cmdhd, .fw-cmd) {
     height: 44px;
@@ -464,10 +454,10 @@
   }
 }
 
-/* XS (handoff 2, PR 7): the trigger is the row, full width, 44px; the panel
-   is a plain grouped list under it — the level as a sticky header, its modes
-   as 48px rows — scrolling inside itself. `:not([hidden])`, never a bare
-   `display`, or the closed panel shows (the package's own bug). */
+/* XS: the trigger is the row, full width, 44px; the panel is a plain grouped
+   list under it — the level as a sticky header, its modes as 48px rows —
+   scrolling inside itself. `:not([hidden])`, never a bare `display`, or the
+   closed panel shows. */
 @media (max-width: 767px) {
   .fw-lab .fw-presets {
     height: auto;
@@ -501,8 +491,7 @@
     max-width: none;
     margin-top: 0;
     /* 220 for what is above the list, 56 for the sheet bar under it: the
-       list's last row must end above the bar (review round 1 measured it
-       32px under with 220). */
+       list's last row must end above the bar. */
     max-height: calc(100vh - 276px);
     padding: 0;
     box-shadow: 0 0 0 1px var(--border-strong);
@@ -534,5 +523,47 @@
     padding: 0 16px;
     align-items: center;
     box-shadow: 0 1px 0 var(--border);
+  }
+}
+
+/* The run's state lives in the run column. Generate is the
+   meter while a carve runs — filled from the left, the percent in its label,
+   `role="progressbar"` beside it for assistive technology — and the line
+   under it says the rest (pieces, left, backtracks, time) or the last
+   outcome. The live `<output>` stays in `.fw-bar`, mounted at every band,
+   so announcements do not depend on a column a sheet may hide (shell.css). */
+.fw .fw-go.busy {
+  opacity: 1;
+  background: linear-gradient(to right, var(--signal-fill) 0 var(--p), var(--surface) var(--p) 100%);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.fw-runstate {
+  /* Its own band between Generate and the alternatives: the column's gap
+     alone let it read as Generate's caption and the buttons' label. */
+  margin: 0;
+  padding: 6px 0 8px;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fw-runstate.bad {
+  color: var(--error);
+}
+.fw-runstate:empty {
+  display: none;
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  /* The bar under the board: the state is the bar's last line, one line. */
+  .fw-lab:not(.solo) .fw-stage > .fw-run-col > .fw-runstate {
+    order: 10;
+    flex: 1 0 100%;
+    padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

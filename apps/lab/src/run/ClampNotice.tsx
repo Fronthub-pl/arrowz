@@ -5,21 +5,13 @@ import { useStore } from '../state/store'
 /**
  * A preset or a link moved a value into range. The region is mounted from the
  * start and only its content moves: a live region inserted already-populated
- * is not announced by most screen readers, and `RunStatusBar`'s
- * `<output aria-live="polite">` already sets the pattern this follows.
+ * is not announced by most screen readers.
  *
- * `--warn` and not `--error`: nothing is refused, a value moved, and §7.1
- * reserves warn for exactly that.
+ * `--warn` and not `--error`: nothing is refused, a value moved.
  *
- * The region is deliberately unnamed, unlike `RunStatusBar`'s. `status` is not
- * a landmark, so the name is not something a reader navigates by, and what is
- * announced here is the whole message, which says what it is on its own — the
- * status bar's "Board closed 100%." does not, which is why that one carries a
- * name. The cost is that this region has no stable handle: a whole-page test
- * wanting it must reach for the message text or the class, because the run
- * status bar is the one `getByRole('status', { name: 'Run status' })` finds.
- * A dictionary key used by nothing but a test would buy the handle; that is
- * the trade, and it was taken on purpose rather than overlooked.
+ * Deliberately unnamed, unlike `RunStatusBar`: `status` is not a landmark, and
+ * the message says what it is on its own. The cost is that tests reach it by
+ * its text or its class, not by role and name.
  */
 export function ClampNotice({
   focusOnDismiss,
@@ -32,26 +24,10 @@ export function ClampNotice({
   const clamped = useStore((state) => state.ui.clamped)
   const raiseClamped = useStore((state) => state.ui.raiseClamped)
   const box = useRef<HTMLDivElement>(null)
-  // The button dismisses itself, so focus would land on <body> and a keyboard
-  // user would restart from the top of the document. It goes to the action
-  // most likely to come next, which is the run the preset was chosen for.
-  //
-  // Unless that action is refused: this notice appears exactly when a preset
-  // has just started a run, and Generate is disabled while one is in flight
-  // (`disabled={running || blocked}` in `RunColumn`) — and `focus()` on a
-  // disabled button is a no-op, so dismissing during a long carve dropped the
-  // keyboard user on <body> after all. In exactly that state Abort is live: it
-  // is out on `!running` while Generate is out on `running || blocked`, so a
-  // carve in flight with the rules kept is precisely the state that refuses the
-  // one and offers the other — and Abort is then a visible,
-  // named control inside the run column, a better landing spot than the region
-  // below. The two conditions are not complements, though: a link that clamped
-  // a value and also broke a rule leaves both disabled, and in that state
-  // focus falls back to this region itself, at `tabIndex={-1}`:
-  // programmatic focus only, never a tab stop, and the next Tab carries on
-  // from where the notice was rather than from the top of the document. The
-  // element outlives the dismissal — only its content moves — so it is still
-  // there to take the focus after `raiseClamped(false)`.
+  // Dismissing removes the focused button, so move the focus on: to Generate
+  // (the run the preset was for), or to Abort while a carve is in flight and
+  // Generate is disabled. If both are disabled (a clamped link that also broke
+  // a rule), focus this region (tabIndex -1), which outlives the dismissal.
   const dismiss = () => {
     raiseClamped(false)
     const go = focusOnDismiss.current

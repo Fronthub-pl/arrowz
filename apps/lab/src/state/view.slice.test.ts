@@ -1,4 +1,10 @@
-import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
+import {
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+} from '@arrowz/board-element'
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
@@ -6,18 +12,12 @@ import { createViewSlice, PALETTE_CAP, viewOf } from './view.slice'
 
 const view = () => useStore.getState().view
 
-// The slice as declared, untouched by the `beforeEach` below. `colored` is
-// among the fields that reset writes, so the live store cannot say where the
-// lab starts it — reading it back would only echo the reset. A throwaway
-// `set` is enough: the starting values are plain fields, no action runs.
+// The slice as declared: the `beforeEach` below writes `colored`, so the live
+// store would only echo the reset. No action runs, so a throwaway `set` does.
 const declared = createViewSlice(() => {})
 
-// The store outlives a test (view.slice.ts's own singleton): a theme or a
-// palette chosen by one test must not leak into the next. Reset both fields
-// directly rather than through `setTheme` — `setTheme` is exactly what the
-// mutation check below targets (Ruling 6: it no longer clears the palette),
-// and a `beforeEach` built on the action under test would make every later
-// test fail alongside it instead of pinning only the case that asserts it.
+// The store outlives a test. Reset directly, not through `setTheme` (under
+// test): a reset built on it would fail every case alongside the one that pins it.
 beforeEach(() => {
   useStore.setState((state) => ({
     view: {
@@ -26,10 +26,12 @@ beforeEach(() => {
       palette: [],
       paper: '',
       ink: '',
+      highlightColor: '',
       colored: false,
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
       pointRadius: DEFAULT_POINT_RADIUS,
+      pad: DEFAULT_PAD,
     },
   }))
 })
@@ -38,21 +40,33 @@ test('the fields start where the previous lab starts them', () => {
   expect(view().cell).toBe(12)
   expect(view().stroke).toBe(DEFAULT_VIEW.stroke)
   expect(view().rounded).toBe(true)
-  expect(view().hilite).toBe(true)
   expect(view().voids).toBe(true)
   expect(declared.colored).toBe(false)
   expect(view().top).toBe(5)
 })
 
-test('paper and ink start unset, so a theme decides them', () => {
+// The highlight is off by default: turning it on is the option, not the other
+// way round. `top` still starts at 5, ready for the moment the switch flips.
+test('the highlight starts off, so viewOf reports no top count either', () => {
+  expect(declared.highlightLongest).toBe(false)
+  expect(viewOf(declared).top).toBe(0)
+})
+
+test('paper, ink and highlight start unset, so a theme decides them', () => {
   expect(declared.paper).toBe('')
   expect(declared.ink).toBe('')
+  expect(declared.highlightColor).toBe('')
+})
+
+test('setHighlightColor sets the highlight colour', () => {
+  view().setHighlightColor('#010203')
+  expect(view().highlightColor).toBe('#010203')
 })
 
 test('an empty field falls back to the default rather than to zero', () => {
   view().setNumber('headHeight', '')
-  // Number('') is 0, and a head of no height is a real setting nobody asks
-  // for by clearing a box (command.ts, viewNumberOf).
+  // Number('') is 0, and nobody asks for a headless arrow by clearing a box
+  // (`viewNumberOf`).
   expect(view().headHeight).toBe(DEFAULT_VIEW.headHeight)
 })
 
@@ -69,13 +83,16 @@ test('a whole field rounds', () => {
 })
 
 test('the highlight flag is what zeroes top, because the CLI has no flag for it', () => {
+  // Off by default, so this case (about the flag, not its default) states it on.
+  view().setFlag('highlightLongest', true)
   view().setNumber('top', '9')
   expect(viewOf(view()).top).toBe(9)
-  view().toggle('hilite')
+  view().setFlag('highlightLongest', false)
   expect(viewOf(view()).top).toBe(0)
   // The number itself survives the flag, so switching back restores it.
   expect(view().top).toBe(9)
-  view().toggle('hilite')
+  // Left off, as the slice starts: nothing here states the highlight on for
+  // whichever case in this file runs next.
 })
 
 test('voids is not part of the view: the CLI has no such flag', () => {
@@ -92,12 +109,7 @@ test('a flag set to the value a link states stays there, however often it is sta
   expect(view().colored).toBe(false)
 })
 
-// Palette round-2 addendum, task 2: the lab's editable custom palette.
-// Ruling C (the cap) lives in the slice, exercised here rather than through
-// the editor, so the store's own invariant is what is pinned — not merely a
-// component that happens to obey it. Ruling 6 repealed the mutual exclusion
-// this comment used to name alongside it (Ruling B): a theme and a palette
-// now coexist, each colour field overriding the theme's own.
+// The cap is the slice's invariant, pinned here rather than through the editor.
 
 test('a custom colour no longer clears the chosen theme (Ruling 6)', () => {
   view().setTheme('gruvbox-dark')
@@ -157,11 +169,8 @@ test('a custom palette no longer clears the chosen theme either (Ruling 6)', () 
   expect(view().palette).toEqual(['#111111', '#222222'])
 })
 
-// Finding 2 (final whole-addendum review, human decision): the first colour
-// added to an empty palette turns colouring on, because the element gates
-// every piece colour behind `colored` and a theme has no such gate (paper
-// and ink apply regardless). The three cases below pin the boundary exactly:
-// the empty-to-one transition and nothing either side of it.
+// The first colour turns `colored` on (see `addPaletteColor`). The three cases
+// pin the empty-to-one transition and nothing either side of it.
 
 test('adding the first colour to an empty palette turns colouring on', () => {
   expect(view().colored).toBe(false)
@@ -188,9 +197,7 @@ test('removing every colour never turns colouring back off', () => {
 })
 
 test('setting an empty palette leaves an already-absent theme alone', () => {
-  // `setPalette` never touches `theme` at all (Ruling 6 repealed the old
-  // exclusion that used to clear it), so an empty call is exactly as inert
-  // on the theme as any other.
+  // `setPalette` never touches `theme`, an empty call included.
   view().setPalette([])
   expect(view().theme).toBe('')
   expect(view().palette).toEqual([])
@@ -217,4 +224,35 @@ test('an unreadable point radius falls back to the default, not to zero', () => 
 test('a non-empty unparsable point radius falls back to the default, not to NaN', () => {
   view().setPointRadius('abc')
   expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
+})
+
+// The margin is a plain number: unlike paper/ink/highlight it has no "not
+// set" state, so it starts at the element's own default rather than at ''.
+test("the margin starts at the element's own default", () => {
+  expect(declared.pad).toBe(DEFAULT_PAD)
+})
+
+test('the margin is clamped to what the element draws, including zero', () => {
+  view().setPad(99)
+  expect(view().pad).toBe(PAD_RANGE.max)
+  view().setPad(-1)
+  expect(view().pad).toBe(PAD_RANGE.min)
+  view().setPad(0)
+  expect(view().pad).toBe(0)
+})
+
+test('a non-finite margin falls back to the default, not to zero', () => {
+  view().setPad(Number.NaN)
+  expect(view().pad).toBe(DEFAULT_PAD)
+  view().setPad(Number.POSITIVE_INFINITY)
+  expect(view().pad).toBe(DEFAULT_PAD)
+})
+
+// The margin is a whole number of cells: the slider's own step is 1, and the
+// number box must agree with it rather than keep a typed fraction.
+test('the margin rounds to a whole cell', () => {
+  view().setPad(2.5)
+  expect(view().pad).toBe(3)
+  view().setPad(2.4)
+  expect(view().pad).toBe(2)
 })

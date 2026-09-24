@@ -3,16 +3,10 @@ import '@fontsource-variable/jetbrains-mono'
 import './tokens.css'
 import { expect, test } from 'vitest'
 
-// The two design-system faces shipped for a while as declarations with nothing
-// behind them: `--ui` and `--mono` named Archivo and JetBrains Mono, no
-// `@font-face` rule existed anywhere, and every surface quietly rendered its
-// fallback. Nothing caught it — a review reads the declared family, and a
-// declared family is exactly what a missing font still reports.
-//
-// `document.fonts.check()` does not catch it either: it answers "could this be
-// used", so it returns true for a family that will silently fall back. Width
-// does not lie. A family the browser does not have renders identically to a
-// name nobody ever defined, so that is the comparison.
+// A missing font still reports its declared family, and `document.fonts.check()`
+// answers "could this be used", true even for a family that silently falls
+// back. Width does not lie: a family the browser lacks renders identically to
+// a name nobody defined, so that is the comparison.
 
 function widthOf(family: string): number {
   const ctx = document.createElement('canvas').getContext('2d')
@@ -36,15 +30,10 @@ test('the mono face is loaded, not merely named', async () => {
   expect(widthOf("'JetBrains Mono Variable'")).not.toBe(widthOf(ABSENT))
 }, 20_000)
 
-// The tokens must resolve to the faces the packages declare. Both packages
-// call themselves "<name> Variable", so a token naming only the plain name
-// silently renders its next fallback instead.
-//
-// Comparing the stack against ABSENT is not enough, and the first draft of
-// this test made exactly that mistake: `--ui: Archivo, Helvetica, …` on a Mac
-// renders in Helvetica, which differs from an undefined family, so the check
-// passed while the intended face was nowhere. The assertion has to be that the
-// stack renders as the *intended* face, not merely as something.
+// Both packages call themselves "<name> Variable", so a token naming only the
+// plain name renders its next fallback. Differing from ABSENT is not enough:
+// on a Mac the Helvetica fallback differs too, so the stack must render as
+// the intended face.
 const INTENDED: ReadonlyArray<readonly [string, string]> = [
   ['--ui', "'Archivo Variable'"],
   ['--mono', "'JetBrains Mono Variable'"],

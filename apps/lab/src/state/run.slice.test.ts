@@ -25,7 +25,7 @@ test('started moves to running and pins the parameters the run uses', () => {
 
 test('progress is kept while running and dropped when the run ends', () => {
   run().started(params)
-  // TraceInfo, as types.ts:40-46 declares it.
+  // The engine's `TraceInfo`.
   run().progressed({ pieces: 3, remaining: 40, backtracks: 0, ms: 12, total: 64 })
   expect(run().progress?.remaining).toBe(40)
   useStore.getState().completeRun(finishedRun(1))

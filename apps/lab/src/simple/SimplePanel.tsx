@@ -1,21 +1,11 @@
-import { THEMES } from '@arrowz/board-element'
 import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
-import { DraftNumber } from '../console/DraftNumber'
-import { FieldHelp } from '../console/FieldHelp'
-import { KnobSlider } from '../console/KnobSlider'
-import { ThemeSwatchStrip, ViewFlagSwitch, ViewNumberField } from '../console/ViewPanel'
-import {
-  type PlainUiKey,
-  SIMPLE_VIEW_FIELDS,
-  SIMPLE_VIEW_FLAGS,
-  VIEW_FIELDS,
-  VIEW_FLAGS,
-  viewHelpEntries,
-} from '../console/viewFields'
+import { KnobLine, useKnobHelp } from '../console/KnobRow'
+import { ValueKnob } from '../console/ValueKnob'
+import { fieldOf, Section, SwitchRow, ThemeRow, ViewNumberRow } from '../console/ViewPanel'
+import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS } from '../console/viewFields'
 import { useDictionary } from '../i18n'
-import { OptionSwitch } from '../run/OptionSwitch'
 import type { RunControl } from '../run/useRun'
 import { Segmented } from '../shell/Segmented'
 import type { RecipeSide } from '../state/recipe.slice'
@@ -29,157 +19,139 @@ function specOf(key: 'W' | 'H' | 'seed'): ParamSpec {
   return spec
 }
 
-/** A side of the board: typed or dragged, with the engine's own bounds, into the recipe. */
-function SizeCard({ side }: { side: RecipeSide }): ReactElement {
-  const dict = useDictionary()
+/** A side of the board as a knob row, showing the recipe's value and writing it there. */
+function SizeRow({ side }: { side: RecipeSide }): ReactElement {
   const value = useStore((state) => state.recipe.value[side])
   const setSide = useStore((state) => state.recipe.setSide)
-  const spec = specOf(side)
-  const { label } = dict.paramText(spec)
-  const commit = (next: number) => {
-    // `recipeOf` clamps and rounds; the knobs follow; the debounce runs.
-    setSide(side, next)
-    applyRecipe(false)
-  }
   return (
-    <div className="fw-k">
-      <div className="top">
-        <label className="lab" htmlFor={`simple-${side}`}>
-          {label}
-        </label>
-        <DraftNumber label={label} value={value} onCommit={commit} />
-      </div>
-      <KnobSlider spec={spec} id={`simple-${side}`} value={value} label={label} onCommit={commit} />
-    </div>
+    <ValueKnob
+      spec={specOf(side)}
+      value={value}
+      onSet={(next) => {
+        // `recipeOf` clamps and rounds; the knobs follow; the debounce runs.
+        setSide(side, next)
+        applyRecipe(false)
+      }}
+    />
   )
 }
 
-/** Spec §2.2: the segmented button runs at once, after the knobs are rewritten. */
-function SkeletonCard({ control }: { control: RunControl }): ReactElement {
+/** The seed lives in the knobs, not in the recipe; written by the machine path, so no edit is counted. */
+function SeedRow(): ReactElement {
+  const setMany = useStore((state) => state.params.setMany)
+  return <ValueKnob spec={specOf('seed')} onSet={(seed) => setMany({ seed })} />
+}
+
+/** The segmented button runs at once, after the knobs are rewritten. */
+function SkeletonRow({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
   return (
-    <div className="fw-k fw-skeleton">
-      <div className="top">
-        <span className="lab" id="simple-skeleton-label">
-          {dict.d.simple.skeleton}
-        </span>
-      </div>
-      <Segmented
-        label={dict.d.simple.skeleton}
-        labelledBy="simple-skeleton-label"
-        value={skeleton}
-        options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
-        onChange={(next) => {
-          setSkeleton(next)
-          applyRecipe(false)
-          control.start()
-        }}
-      />
-    </div>
-  )
-}
-
-/** The seed lives in the knobs, not in the recipe; typed here through the machine path (Ruling 4). */
-function SeedCard(): ReactElement {
-  const dict = useDictionary()
-  const seed = useStore((state) => state.params.values.seed)
-  const setMany = useStore((state) => state.params.setMany)
-  const { label } = dict.paramText(specOf('seed'))
-  return (
-    <div className="fw-k">
-      <div className="top">
-        <span className="lab">{label}</span>
-        <DraftNumber label={label} value={seed} onCommit={(typed) => setMany({ seed: typed })} />
-      </div>
-    </div>
-  )
-}
-
-/** The id `RandomCard`'s help entry carries under the panel heading, and the
- * switch below points at (spec R7). */
-const RANDOM_HELP_ID = 'simple-random-help'
-
-function RandomCard(): ReactElement {
-  const dict = useDictionary()
-  const random = useStore((state) => state.recipe.value.random)
-  const setRandom = useStore((state) => state.recipe.setRandom)
-  return (
-    <div className="fw-k">
-      <OptionSwitch
-        id="simple-random"
-        label={dict.d.simple.randomize}
-        on={random}
-        onChange={setRandom}
-        describedBy={RANDOM_HELP_ID}
+    <div className="kv-row">
+      <KnobLine
+        label={
+          <span className="kv-lab" id="simple-skeleton-label">
+            {dict.d.simple.skeleton}
+          </span>
+        }
+        help={null}
+        wide
+        control={
+          <Segmented
+            label={dict.d.simple.skeleton}
+            labelledBy="simple-skeleton-label"
+            value={skeleton}
+            options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
+            onChange={(next) => {
+              setSkeleton(next)
+              applyRecipe(false)
+              control.start()
+            }}
+          />
+        }
       />
     </div>
   )
 }
 
 /**
- * The simple view (spec §2.1 unit 4): plain choices instead of twenty-eight
- * knobs, translated into a full parameter set by `lab-simple.ts`. It takes the
- * console's first two tracks (Ruling 7), so the run column beside it is the
- * same instance the advanced view shows.
+ * Randomising as a switch row, like a preview flag: the short label names it,
+ * the whole sentence is its title, and the help is under its `?`.
+ */
+function RandomRow(): ReactElement {
+  const dict = useDictionary()
+  const random = useStore((state) => state.recipe.value.random)
+  const setRandom = useStore((state) => state.recipe.setRandom)
+  const name = dict.d.simple.randomizeShort
+  const helpId = 'simple-random-help'
+  const { button, paragraph } = useKnobHelp(helpId, name, dict.d.simple.randomizeHelp)
+  return (
+    <div className="kv-row" title={dict.d.simple.randomize}>
+      <KnobLine
+        label={
+          <span className="kv-lab" id="simple-random-label">
+            {name}
+          </span>
+        }
+        help={button}
+        value={<span className="kv-unit">{dict.t(random ? 'valueOn' : 'valueOff')}</span>}
+        control={
+          <button
+            type="button"
+            id="simple-random"
+            className="fw-sw"
+            role="switch"
+            aria-checked={random}
+            aria-labelledby="simple-random-label"
+            aria-describedby={helpId}
+            title={dict.d.simple.randomize}
+            onClick={() => setRandom(!random)}
+          />
+        }
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
+ * The simple view: plain choices instead of the knobs, translated into a full
+ * parameter set by `lab-simple.ts`. It takes the console's first two tracks,
+ * so the run column beside it is the same instance the advanced view shows.
+ *
+ * The advanced view's grid, in two sections of knob rows: the board, then the
+ * preview rows the preview tab draws, the same components writing the same
+ * slice.
  *
  * Not a tabpanel: in this view there is no rail to label it.
  */
 export function SimplePanel({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
-  const view = useStore((state) => state.view)
-  const fields = VIEW_FIELDS.filter((field) => SIMPLE_VIEW_FIELDS.includes(field.field))
-  const flags = VIEW_FLAGS.filter(({ flag }) => SIMPLE_VIEW_FLAGS.includes(flag))
   return (
     <section className="fw-knobs fw-simple" aria-label={dict.t('simplePanel')}>
       <div className="fw-khd">
         <b>{dict.d.simple.viewSimple}</b>
-        <FieldHelp
-          entries={[{ id: RANDOM_HELP_ID, label: dict.d.simple.randomize, text: dict.d.simple.randomizeHelp }]}
-        />
       </div>
-      <div className="fw-grid">
-        <SizeCard side="W" />
-        <SizeCard side="H" />
-        <PositionSlider slider="lengths" />
-        <PositionSlider slider="shape" />
-        <SkeletonCard control={control} />
-        <SeedCard />
-        <RandomCard />
-      </div>
-      <div className="fw-khd">
-        <b>{dict.t('preview')}</b>
-        <FieldHelp entries={viewHelpEntries(fields, (key: PlainUiKey) => dict.t(key))} />
-      </div>
-      <div className="fw-grid">
-        {fields.map((field) => (
-          <ViewNumberField
-            key={field.field}
-            field={field}
-            value={view[field.field]}
-            onCommit={(value) => view.setNumber(field.field, String(value))}
-          />
-        ))}
-        {flags.map(({ flag, label }) => (
-          <ViewFlagSwitch key={flag} flag={flag} label={label} on={view[flag]} onToggle={() => view.toggle(flag)} />
-        ))}
-        <div className="fw-k">
-          <div className="row">
-            <label className="lab" htmlFor="simple-theme">
-              {dict.t('themeLabel')}
-            </label>
-            <select id="simple-theme" value={view.theme} onChange={(e) => view.setTheme(e.target.value)}>
-              <option value="">{dict.t('themeNone')}</option>
-              {Object.keys(THEMES).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ThemeSwatchStrip themeName={view.theme} />
-        </div>
+      <div className="kv kv-g">
+        <Section id="simple-sec-board" title={dict.d.groups.board}>
+          <SizeRow side="W" />
+          <SizeRow side="H" />
+          <PositionSlider slider="lengths" />
+          <PositionSlider slider="shape" />
+          <SkeletonRow control={control} />
+          <SeedRow />
+          <RandomRow />
+        </Section>
+        <Section id="simple-sec-preview" title={dict.t('preview')}>
+          {SIMPLE_VIEW_FIELDS.map((field) => (
+            <ViewNumberRow key={field} field={fieldOf(field)} />
+          ))}
+          {SIMPLE_VIEW_FLAGS.map((flag) => (
+            <SwitchRow key={flag} flag={flag} />
+          ))}
+          <ThemeRow />
+        </Section>
       </div>
     </section>
   )

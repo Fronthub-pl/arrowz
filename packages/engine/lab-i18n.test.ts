@@ -89,10 +89,8 @@ Deno.test('both ui dictionaries describe the safe envelope', () => {
 })
 
 // A number in a description is a bound, and a bound that drifts between the
-// two languages is a lie in one of them: the Polish rule reason kept saying
-// "at least 6" for a whole PR after the floor moved to 17. Polish writes the
-// decimal comma and the multiplication sign, so both sides are normalised
-// before the numbers are compared.
+// two languages is a lie in one of them. Polish writes the decimal comma and
+// the multiplication sign, so both sides are normalised before comparing.
 const numbersIn = (text: string): string[] =>
   (text.replace(/(\d),(\d)/g, '$1.$2').replace(/[x×]/g, ' ').match(/\d+(?:\.\d+)?/g) ?? []).sort()
 
@@ -228,9 +226,8 @@ Deno.test('the tab strip has a name of its own, distinct from every tab', () => 
   }
 })
 
-// PR 4b's words. The key-set test above already fails for a key present in one
-// language only; this one fails for a key missing from both, which that test
-// cannot see.
+// The key-set test above fails for a key present in one language only; this
+// one fails for a key missing from both, which that test cannot see.
 Deno.test('both ui dictionaries carry the report, export and annotation words', () => {
   const dictionaries: Dictionary[] = [EN, PL]
   const words: UiKey[] = [
@@ -287,9 +284,8 @@ Deno.test('the rule marker states the bound it marks', () => {
   assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Granica reguły: 0,75')
 })
 
-// `paletteHelp` takes the cap as an argument, the way `paletteColorLabel`
-// already does, so the number it states cannot drift from the caller's
-// `PALETTE_CAP` the way a hardcoded "8" once could.
+// `paletteHelp` takes the cap as an argument, so the number it states cannot
+// drift from the caller's `PALETTE_CAP`.
 Deno.test('paletteHelp states whatever cap it is passed, in both languages', () => {
   assertStringIncludes(dictionary('en').t('paletteHelp', 8), '8')
   assertStringIncludes(dictionary('pl').t('paletteHelp', 8), '8')
@@ -297,10 +293,8 @@ Deno.test('paletteHelp states whatever cap it is passed, in both languages', () 
   assertStringIncludes(dictionary('pl').t('paletteHelp', 12), '12')
 })
 
-// The command palette's own words. The key-set test above fails for a key
-// present in one language only; this one fails for a key missing from both,
-// which that test cannot see. The `cmd` prefix is deliberate: `palette*` keys
-// belong to the editable colour palette and must not be extended here.
+// The command palette's own words, missing from both languages (see the report
+// words' test). `palette*` keys belong to the editable colour palette.
 Deno.test('both ui dictionaries carry the command palette words', () => {
   const dictionaries: Dictionary[] = [EN, PL]
   const words: UiKey[] = [
@@ -335,7 +329,7 @@ Deno.test('both ui dictionaries carry the command palette words', () => {
   for (const lang of ['en', 'pl'] as const) assertStringIncludes(dictionary(lang).t('cmdOpen'), '⌘K')
 })
 
-// The preview's four section titles (2026-09-22 spec R8).
+// The preview's four section titles.
 Deno.test('both ui dictionaries carry the preview section titles', () => {
   for (const d of [EN, PL]) {
     for (const k of ['previewGeometry', 'previewDrawing', 'previewPoints', 'previewColours'] as const) {
@@ -363,7 +357,7 @@ Deno.test('the preset picker and the two drawers speak both languages', () => {
   }
 })
 
-// Handoff 2, PR 2: the label track is 12ch wide in every group, so a short
+// The label track is 12ch wide in every group, so a short
 // label over 12 characters would be cut in the lab.
 Deno.test('every knob has a short label of at most 12 characters, in both languages', () => {
   for (const d of [EN, PL]) {
@@ -376,7 +370,7 @@ Deno.test('every knob has a short label of at most 12 characters, in both langua
   }
 })
 
-// Handoff 2, PR 3: the preview's rows share the knobs' 12-character label track.
+// The preview's rows share the knobs' 12-character label track.
 Deno.test('every preview short label has at most 12 characters, in both languages', () => {
   for (const d of [EN, PL]) {
     const keys = Object.keys(d.ui).filter((k) => k.startsWith('viewShort')) as UiKey[]
@@ -406,4 +400,35 @@ Deno.test('the saved boards count a board in both languages, Polish in its three
       '122 plansze',
     ],
   )
+})
+
+Deno.test('the board mode counts cells and mistakes in both languages, Polish in its three forms', () => {
+  assertEquals([0, 1, 2, 5].map((n) => EN.ui.playStatus('3', n)), [
+    '3 left · 0 mistakes',
+    '3 left · 1 mistake',
+    '3 left · 2 mistakes',
+    '3 left · 5 mistakes',
+  ])
+  assertEquals([0, 1, 2, 4, 5, 12, 22].map((n) => PL.ui.playCleared(n)), [
+    'Plansza wyczyszczona · 0 błędów',
+    'Plansza wyczyszczona · 1 błąd',
+    'Plansza wyczyszczona · 2 błędy',
+    'Plansza wyczyszczona · 4 błędy',
+    'Plansza wyczyszczona · 5 błędów',
+    'Plansza wyczyszczona · 12 błędów',
+    'Plansza wyczyszczona · 22 błędy',
+  ])
+  assertEquals([1, 2, 5].map((n) => PL.ui.pieceFacts(3, n, '→ w prawo')), [
+    'Element #3 · 1 komórka · → w prawo',
+    'Element #3 · 2 komórki · → w prawo',
+    'Element #3 · 5 komórek · → w prawo',
+  ])
+  assertEquals([PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
+    'zablokowany przez #4 w odległości 1 komórki',
+    'zablokowany przez #4 w odległości 3 komórek',
+  ])
+  assertEquals([EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 0)], [
+    'blocked by #4 at 1 cell',
+    'blocked by #4 at 0 cells',
+  ])
 })

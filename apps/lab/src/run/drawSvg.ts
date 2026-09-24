@@ -10,9 +10,8 @@ type SvgRequest = Extract<WorkerIn, { type: 'svg' }>
  * failed; `ended` runs once whichever way it ends, after the worker is gone.
  * The worker is returned so that its owner can take it down on unmount.
  *
- * Shared by the run column's exports and the saved boards' right column
- * (handoff 2, PR 6), so the two cannot drift in how a drawing is started,
- * named or ended.
+ * Shared by the run column's exports and the saved boards' right column, so
+ * the two cannot drift in how a drawing is started, named or ended.
  */
 export function drawSvg(
   file: BoardFile,

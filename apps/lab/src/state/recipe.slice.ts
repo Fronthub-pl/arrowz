@@ -13,7 +13,7 @@ export interface RecipeState {
    * How many debounced edits — a size or a slider — the recipe has taken. The
    * skeleton switch runs at once and randomising starts nothing, so neither
    * moves it. `useAutoRun` watches this beside `params.edits`, without the
-   * `auto` gate (Ruling 3).
+   * `auto` gate.
    */
   edits: number
   setSide(side: RecipeSide, value: number): void

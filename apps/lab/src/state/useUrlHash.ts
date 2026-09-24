@@ -19,24 +19,25 @@ function viewFor(view: ViewState, lang: Lang) {
     top: view.top,
     rounded: view.rounded,
     colored: view.colored,
-    hilite: view.hilite,
+    highlightLongest: view.highlightLongest,
     lang,
     theme: view.theme,
     palette: view.palette,
     paper: view.paper,
     ink: view.ink,
+    highlightColor: view.highlightColor,
     showPoints: view.showPoints,
     pointColor: view.pointColor,
     pointRadius: view.pointRadius,
+    pad: view.pad,
   }
 }
 
 /** Writes a decoded link into the store. The caller decides whether to run. */
 function applyPayload(payload: HashPayload): void {
   const { params, view, ui, lang } = useStore.getState()
-  // One `setMany` for every knob the link named: one recompute, one render,
-  // and the machine path, so `auto` does not schedule a second run behind the
-  // immediate one this trigger owns (Ruling 3).
+  // One `setMany`: one recompute, one render, and the machine path, so `auto`
+  // does not schedule a second run behind the one this trigger starts.
   ui.raiseClamped(params.setMany(payload.params))
   // A number the link did not name keeps the page's own value; `setNumber` is
   // the tolerant reader, handed the value as text exactly as a field would.
@@ -47,25 +48,22 @@ function applyPayload(payload: HashPayload): void {
   if (payload.view.top !== undefined) view.setNumber('top', String(payload.view.top))
   view.setFlag('rounded', payload.view.rounded)
   view.setFlag('colored', payload.view.colored)
-  view.setFlag('hilite', payload.view.hilite)
+  view.setFlag('highlightLongest', payload.view.highlightLongest)
   // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
-  // Absent when the link predates themes or names none: the page keeps its
-  // own value, the same tolerance `cell`..`top` get above.
+  // Absent keeps the page's own value, as for `cell`..`top`. A link naming a
+  // theme and a palette keeps both: neither setter touches the other field.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
-  // A link naming both keeps both: Ruling 6 repealed the slice's own
-  // exclusivity (`paletteUpdate`), so neither `setTheme` nor `setPalette`
-  // touches the other field any more. The order below still matches the
-  // order the fields are read above, but it no longer decides a winner.
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
-  // The board colours and the point grid, the same tolerance as `cell`..`top`:
-  // absent means the link did not say, and `showPoints` is a plain flag like
-  // `rounded`, `colored` and `hilite` above rather than a tri-state.
+  // Absent keeps the page's own value, as for the numbers.
   if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
   if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
+  if (payload.view.highlightColor !== undefined) view.setHighlightColor(payload.view.highlightColor)
+  // `showPoints` is a plain flag like `rounded`, not a tri-state.
   view.setFlag('showPoints', payload.view.showPoints === true)
   if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
   if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
+  if (payload.view.pad !== undefined) view.setPad(payload.view.pad)
 }
 
 export interface UrlHash {
@@ -80,36 +78,17 @@ export interface UrlHash {
 /**
  * The URL hash, in both directions. Mounted once, in `App`.
  *
- * Three properties, each of which cost a review to find:
+ * 1. The link is read once, guarded by a ref (not by `[]`): StrictMode's second
+ *    run would decode the hash this hook just wrote, already clamped, and lower
+ *    the clamp notice the link raised.
+ * 2. Writes are debounced: a slider drag commits ~60×/s, and Chromium drops
+ *    `replaceState` past ~200 calls in 10 s while Safari throws past 100 in 30.
+ * 3. `hashchange` compares the fragment against the store, not against "did I
+ *    write this": `replaceState` fires no `hashchange`, so a "mine" flag is
+ *    never cleared and would swallow a later Back/Forward onto that fragment.
+ *    A fragment that already matches the store must not restart a carve.
  *
- * 1. **The link is read exactly once**, guarded by a ref rather than by an
- *    empty dependency list. StrictMode re-runs mount effects, and a second
- *    read decodes the hash this hook has just written — already clamped — so
- *    `setMany` finds nothing to move and lowers the notice the link raised.
- * 2. **The write is debounced.** `KnobSlider` commits on the range input's
- *    `onChange`, about sixty times a second during a drag; Chromium drops
- *    `replaceState` past roughly two hundred calls in ten seconds and Safari
- *    throws past a hundred in thirty, from inside a zustand `set`.
- * 3. **The listener compares against the store, not against history.** A
- *    fragment that already states what is on screen is not a trigger: it is
- *    the page describing itself. Revision 1 asked the opposite question —
- *    "did I write this?" — with a one-shot ref set on every write, and that
- *    could not be made to work here. `replaceState` fires no `hashchange` on
- *    any engine or per the standard's own sentence, so nothing ever spent the
- *    ref; it stayed armed at the last fragment written and swallowed the next
- *    genuine traversal that happened to land on it (edit to `#B`, paste `#C`,
- *    Back to `#B` → dropped: address bar B, page C, no run). The branch it was
- *    kept for cannot arise at all, because `flush()` runs on every route
- *    change and so leaves both entries carrying the same fragment, which no
- *    reading of `hashchange` fires on — neither the standard's (fires when the
- *    fragments differ) nor any shipping engine's (fires only when the two URLs
- *    are equal but for the fragment). A comparison with the current state
- *    cannot go stale, and it additionally keeps a traversal onto the fragment
- *    already on screen from starting a carve that would terminate the one in
- *    flight (§8).
- *
- * The subscription is in an effect and not a selector in render (Ruling 11),
- * for the same reason `useAutoRun`'s is.
+ * The subscription lives in an effect, not in a render selector (see `useAutoRun`).
  */
 export function useUrlHash(control: RunControl): UrlHash {
   const carried = useRef<Carried>({})
@@ -130,10 +109,8 @@ export function useUrlHash(control: RunControl): UrlHash {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     const flush = () => {
-      // Unreachable as the effects stand — React runs them in declaration
-      // order, so the read above has set the ref before this one is set up —
-      // and kept because it is what pins that order: a hash written before the
-      // link is read would be the page's defaults overwriting the link.
+      // Unreachable while the effects run in declaration order; it pins that
+      // order, since a write before the read would overwrite the link.
       if (!readDone.current) return
       const { params, view, lang } = useStore.getState()
       const next = encodeHash({
@@ -142,20 +119,17 @@ export function useUrlHash(control: RunControl): UrlHash {
         carried: carried.current,
       })
       if (next === location.hash) return
-      // `history.state` and not `null`: react-router keeps its own record
-      // there — `idx`, the index it computes pop deltas from, among them — and
-      // this hook replaces the entry at mount and after every edit.
+      // `history.state`, not `null`: react-router keeps its record there
+      // (`idx`, which pop deltas are computed from).
       history.replaceState(history.state, '', next)
     }
     const schedule = () => {
       clearTimeout(timer)
       timer = setTimeout(flush, WRITE_DELAY_MS)
     }
-    // The hash is written on every route, not only on the lab's: `TabRow`
-    // navigates to bare paths, so writing only on `/` would empty the address
-    // bar on the way to Boards and leave it empty on the way back. Writing
-    // everywhere also means Back between routes finds the same fragment on
-    // both entries, and fires no `hashchange` at all.
+    // Written on every route: `TabRow` navigates to bare paths, which would
+    // empty the fragment. It also leaves the same fragment on both entries, so
+    // Back between routes fires no `hashchange`.
     flush()
     const unsubscribe = useStore.subscribe(schedule)
     return () => {
@@ -166,11 +140,9 @@ export function useUrlHash(control: RunControl): UrlHash {
 
   useEffect(() => {
     const onChange = () => {
-      // Idempotent against the store rather than against history (property 3):
-      // a fragment that already encodes what the page holds is the page
-      // describing itself, and applying it would be a no-op followed by a run
-      // that terminates whatever is in flight. Anything else — a pasted link,
-      // a traversal onto a different entry — is a trigger.
+      // Property 3 above: a pasted link or a traversal onto a different
+      // fragment is a trigger; one matching the store is not. Bound on every
+      // route, because a link pasted while Boards is open runs the generator behind it.
       const { params, view, lang } = useStore.getState()
       const here = encodeHash({
         params: params.values,

@@ -26,11 +26,8 @@ describe('a jump from the palette', () => {
     const screen = await mountApp('advanced')
     await loadRunDone()
     await userEvent.keyboard('{Meta>}k{/Meta}')
-    // Bare "seed" also matches the run section's "New seed" row (its own hay
-    // is literally 'seed'), which sits first in the built list (pinned by
-    // commands.test.ts's "opens with the run actions..." case) and would
-    // steal Enter. The flag disambiguates, exactly as commands.ts's own `hay`
-    // doc comment says it does ("how `--seed` finds the seed knob").
+    // The flag reaches the knob through its hidden `hay`; the S/XS case below
+    // types bare "seed", which `matchCommands` ranks to the knob by name.
     await userEvent.keyboard('--seed')
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => useStore.getState().ui.palette).toBe(false)
@@ -46,17 +43,14 @@ describe('a jump from the palette', () => {
     await mountApp('simple')
     await loadRunDone()
     await userEvent.keyboard('{Meta>}k{/Meta}')
-    // Same disambiguation as above.
     await userEvent.keyboard('--seed')
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => useStore.getState().ui.mode).toBe('advanced')
     await expect.poll(() => document.activeElement?.id).toBe('knob-seed')
   }, 40_000)
 
-  // Spec §6: ⌘K is bound on every route, and the knobs are the lab face's
-  // alone — `/boards` puts the library where the knob panel goes, so before
-  // the jump navigated, the request was spent against a panel that has no
-  // `#knob-seed` and the palette closed on nothing at all.
+  // `/boards` puts the library where the knob panel goes, so the jump has to
+  // navigate first (see `useFocusRequest`).
   it('comes back from the saved boards to the lab face, and still lands on the knob', async () => {
     await page.viewport(1400, 900)
     const screen = await mountApp('advanced')
@@ -103,9 +97,8 @@ describe('a jump from the palette', () => {
     await expect.poll(() => document.activeElement?.id).toBe('view-colored')
   }, 40_000)
 
-  // Final review F1: below 1024 the settings drawer starts closed (spec D3),
-  // and at XS the console is not rendered until its sheet opens, so a jump
-  // that only selected the group focused nothing a person could see.
+  // Below 1024 the settings drawer starts closed, and at XS the console is not
+  // rendered until its sheet opens (see `jumpTo`).
   it.each([
     [900, 900],
     [375, 812],
@@ -125,10 +118,8 @@ describe('a jump from the palette', () => {
       await expect.poll(() => useStore.getState().ui.palette).toBe(false)
       const knob = () => screen.container.querySelector('#knob-seed')
       await expect.poll(() => knob()?.checkVisibility({ visibilityProperty: true })).toBe(true)
-      // Rendered is not enough at S: the closed drawer keeps the knob a box,
-      // translated off the stage and covered by the board (measured at 900
-      // before the fix: rendered, focused, and under the board). What is at
-      // the knob's centre must be the knob's own row.
+      // Rendered is not enough at S: the closed drawer keeps the knob a box
+      // under the board. What is at the knob's centre must be its own row.
       await expect
         .poll(() => {
           const node = knob()

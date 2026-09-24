@@ -4,7 +4,7 @@ import { useStore } from '../state/store'
 /**
  * Every reason the run would be refused, in one place under the console. Not
  * inside the knob panel: the console shows one group at a time, so a problem
- * in `lengths` has to stay readable while `shape` is open (Ruling 7).
+ * in `lengths` has to stay readable while `shape` is open.
  */
 export function Violations() {
   const dict = useDictionary()

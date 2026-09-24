@@ -12,6 +12,7 @@ import {
 } from './arrowz-board.ts'
 import type { BoardViewport, PieceClickEvent, ViewportChangeEvent } from './arrowz-board.ts'
 import './mod.ts'
+import { PAD_RANGE } from './sanitize.ts'
 import { fit, MIN_POINT_CELL_PX, type Viewport, zoomBy } from './viewport.ts'
 
 function makeBoard(seed = 7): Board {
@@ -292,14 +293,9 @@ describe('mount and viewport', () => {
   })
 
   test('a board that went through a board file draws exactly like the generated one', async () => {
-    // The very first WebGL2 context a browser process ever creates paints a
-    // couple of anti-aliased edge pixels differently from every context
-    // after it — a driver/shader warm-up cost, not anything this element or
-    // the board-file round trip controls (elsewhere in this suite there is
-    // always an earlier test's context ahead of this one; alone, there is
-    // not). A throwaway mount and paint, on its own context that is then
-    // discarded, absorbs that one-time cost before the comparison below, so
-    // this test passes the same way whether it runs alone or last.
+    // A process's first WebGL2 context paints a few anti-aliased edge pixels
+    // differently from every later one (driver warm-up). A throwaway mount
+    // absorbs that, so the test passes alone as well as in the suite.
     await mount()
     await painted(el)
     el.remove()
@@ -639,6 +635,36 @@ describe('the gesture switch', () => {
     expect(el.gestureMode).toBe('drag')
   })
 
+  // An inspecting board shows the host what was clicked; the element plays
+  // nothing, so neither its hint nor its switch may promise a move.
+  test('an inspecting board names a piece, not a move, in drag mode', async () => {
+    await mount({ interactive: '' })
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click a piece' : 'Drag to pan · Ctrl-click a piece')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+    expect(switchOf(el)?.getAttribute('title')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+  })
+
+  test('an inspecting board keeps the neutral switch in click mode', async () => {
+    await mountClickMode({ interactive: '' })
+    expect(el.gestureMode).toBe('click')
+    expect(hintOf(el)).toBe(mac ? 'Hold ⌘ and drag to pan' : 'Hold Ctrl and drag to pan')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+  })
+
+  test('play wins over interactive: a board that plays says so', async () => {
+    await mount({ interactive: '', play: '' })
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click to play' : 'Drag to pan · Ctrl-click to play')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click plays without ⌘' : 'Click plays without Ctrl')
+  })
+
+  test('lang="pl" words the inspecting hint and switch in Polish', async () => {
+    await mount({ interactive: '', lang: 'pl' })
+    expect(hintOf(el)).toBe(
+      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik na element' : 'Przeciągnij, aby przesunąć · Ctrl + klik na element',
+    )
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik bez ⌘' : 'Klik bez Ctrl')
+  })
+
   test('lang="pl" labels the switch and the hint in Polish', async () => {
     await mount({ play: '', lang: 'pl' })
     expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik gra bez ⌘' : 'Klik gra bez Ctrl')
@@ -765,6 +791,14 @@ describe('margin', () => {
     const kept = el.viewport?.originX ?? 0
     expect(kept).toBeLessThan(-1)
     expect(viewCells(el)).toBeCloseTo(30 - 2 * kept, 6)
+  })
+
+  test('a pad above PAD_RANGE.max is clamped, and the attribute keeps what was asked for', async () => {
+    await mount({ pad: '99' })
+    expect(el.pad).toBe(99)
+    expect(el.getAttribute('pad')).toBe('99')
+    expect(el.viewport?.originX).toBeCloseTo(-PAD_RANGE.max, 6)
+    expect(viewCells(el)).toBeCloseTo(30 + 2 * PAD_RANGE.max, 6)
   })
 
   test('removing the pad attribute restores the default margin', async () => {
