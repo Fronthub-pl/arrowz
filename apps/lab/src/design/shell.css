@@ -438,6 +438,44 @@ body {
   }
 }
 
+/* The board mode (BoardMode.tsx): on the top edge beside the solo toggle, a
+   30px strip like it; the ring inset for the reason `.fw-solo` gives. */
+.fw-mode {
+  position: absolute;
+  top: 0;
+  right: 30px;
+  padding: 3px;
+  background: var(--void);
+}
+.fw .fw-mode .fw-seg button:focus-visible {
+  outline-offset: -2px;
+}
+/* The inspect card or the game's counts: bottom-left, lifted over the
+   element's own bar (`.chrome`, 8px + 32px from the bottom), which a long
+   hint can stretch across most of a narrow board. */
+.fw-modeline {
+  position: absolute;
+  left: 0;
+  bottom: 48px;
+  max-width: calc(100% - 16px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  background: var(--void);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+@media (pointer: coarse), (max-width: 767px) {
+  .fw-mode {
+    right: 44px;
+    padding: 0;
+  }
+  .fw .fw-modeline .fw-btn {
+    height: 44px;
+  }
+}
+
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
 @media (max-height: 699px) {

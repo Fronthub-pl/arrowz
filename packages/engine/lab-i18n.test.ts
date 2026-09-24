@@ -407,3 +407,34 @@ Deno.test('the saved boards count a board in both languages, Polish in its three
     ],
   )
 })
+
+Deno.test('the board mode counts cells and mistakes in both languages, Polish in its three forms', () => {
+  assertEquals([0, 1, 2, 5].map((n) => EN.ui.playStatus('3', n)), [
+    '3 left · 0 mistakes',
+    '3 left · 1 mistake',
+    '3 left · 2 mistakes',
+    '3 left · 5 mistakes',
+  ])
+  assertEquals([0, 1, 2, 4, 5, 12, 22].map((n) => PL.ui.playCleared(n)), [
+    'Plansza wyczyszczona · 0 błędów',
+    'Plansza wyczyszczona · 1 błąd',
+    'Plansza wyczyszczona · 2 błędy',
+    'Plansza wyczyszczona · 4 błędy',
+    'Plansza wyczyszczona · 5 błędów',
+    'Plansza wyczyszczona · 12 błędów',
+    'Plansza wyczyszczona · 22 błędy',
+  ])
+  assertEquals([1, 2, 5].map((n) => PL.ui.pieceFacts(3, n, '→ w prawo')), [
+    'Element #3 · 1 komórka · → w prawo',
+    'Element #3 · 2 komórki · → w prawo',
+    'Element #3 · 5 komórek · → w prawo',
+  ])
+  assertEquals([PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
+    'zablokowany przez #4 w odległości 1 komórki',
+    'zablokowany przez #4 w odległości 3 komórek',
+  ])
+  assertEquals([EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 0)], [
+    'blocked by #4 at 1 cell',
+    'blocked by #4 at 0 cells',
+  ])
+})

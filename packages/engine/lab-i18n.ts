@@ -461,6 +461,25 @@ export const EN = {
     statGroupShape: 'shape',
     statGroupRun: 'run',
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
+    // The board frame's mode: look, click a piece for its facts, or play it.
+    boardModeLabel: 'Board mode',
+    boardModeView: 'View',
+    boardModeInspect: 'Inspect',
+    boardModePlay: 'Play',
+    inspectHint: 'Choose a piece to inspect it.',
+    dirUp: 'up',
+    dirRight: 'right',
+    dirDown: 'down',
+    dirLeft: 'left',
+    pieceFacts: (id: number, length: number, dir: string) =>
+      `Piece #${id} · ${length} ${length === 1 ? 'cell' : 'cells'} · ${dir}`,
+    pieceFree: 'free',
+    pieceBlocked: (id: number, distance: number) =>
+      `blocked by #${id} at ${distance} ${distance === 1 ? 'cell' : 'cells'}`,
+    playStatus: (left: string, mistakes: number) =>
+      `${left} left · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
+    playCleared: (mistakes: number) => `Cleared · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
+    playRestart: 'Restart',
     exportsGroup: 'Export',
     downloadBoardFile: 'Download board file',
     exportError: 'Export failed:',
@@ -494,12 +513,27 @@ export type Translation = Dictionary & {
   choices: Partial<Record<ParamKey, Record<string, string>>>
 }
 
-/** "plansza" after a count: 1 plansza, 2–4 plansze (but 12–14 plansz), 5+ plansz. */
-function plBoards(n: number): string {
-  if (n === 1) return 'plansza'
+/** The Polish count form after a number: 1, then 2–4 (but not 12–14), then the rest. */
+function plCount(n: number, one: string, few: string, many: string): string {
+  if (n === 1) return one
   const tens = n % 100
   const ones = n % 10
-  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? 'plansze' : 'plansz'
+  return ones >= 2 && ones <= 4 && (tens < 12 || tens > 14) ? few : many
+}
+
+/** "plansza" after a count: 1 plansza, 2–4 plansze (but 12–14 plansz), 5+ plansz. */
+function plBoards(n: number): string {
+  return plCount(n, 'plansza', 'plansze', 'plansz')
+}
+
+/** "komórka" after a count: 1 komórka, 2 komórki, 5 komórek. */
+function plCells(n: number): string {
+  return plCount(n, 'komórka', 'komórki', 'komórek')
+}
+
+/** "błąd" after a count: 1 błąd, 2 błędy, 5 błędów (and 0 błędów). */
+function plMistakes(n: number): string {
+  return plCount(n, 'błąd', 'błędy', 'błędów')
 }
 
 // Polish: the translation of the lab, plus the parameter and reason texts the
@@ -1025,6 +1059,22 @@ export const PL: Translation = {
     statGroupShape: 'kształt',
     statGroupRun: 'przebieg',
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
+    boardModeLabel: 'Tryb planszy',
+    boardModeView: 'Widok',
+    boardModeInspect: 'Inspekcja',
+    boardModePlay: 'Gra',
+    inspectHint: 'Wskaż element, aby go zbadać.',
+    dirUp: 'w górę',
+    dirRight: 'w prawo',
+    dirDown: 'w dół',
+    dirLeft: 'w lewo',
+    pieceFacts: (id, length, dir) => `Element #${id} · ${length} ${plCells(length)} · ${dir}`,
+    pieceFree: 'wolny',
+    pieceBlocked: (id, distance) =>
+      `zablokowany przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
+    playStatus: (left, mistakes) => `zostało: ${left} · ${mistakes} ${plMistakes(mistakes)}`,
+    playCleared: (mistakes) => `Plansza wyczyszczona · ${mistakes} ${plMistakes(mistakes)}`,
+    playRestart: 'Od nowa',
     exportsGroup: 'Eksport',
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',

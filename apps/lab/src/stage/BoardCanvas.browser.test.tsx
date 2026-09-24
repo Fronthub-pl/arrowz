@@ -42,14 +42,25 @@ test('a piece-click event on the element calls the onPieceClick prop', async () 
   expect(onPieceClick.mock.calls[0]?.[0]?.detail).toEqual({ pieceId: 3 })
 })
 
-test('a viewport-change event on the element calls the onViewportChange prop', async () => {
-  const onViewportChange = vi.fn()
+test('the three game events call their props', async () => {
+  const onPieceRemoved = vi.fn()
+  const onLifeLost = vi.fn()
+  const onFinished = vi.fn()
   const screen = await render(
-    <BoardCanvas board={board} view={view} interactive={false} onViewportChange={onViewportChange} />,
+    <BoardCanvas
+      board={board}
+      view={view}
+      interactive={false}
+      onPieceRemoved={onPieceRemoved}
+      onLifeLost={onLifeLost}
+      onFinished={onFinished}
+    />,
   )
   const element = screen.container.querySelector('arrowz-board')
-  const viewport = { cellPx: 24, originX: 0, originY: 0, fitted: true, hostWidth: 300, hostHeight: 150 }
-  element?.dispatchEvent(new CustomEvent('viewport-change', { detail: viewport }))
-  expect(onViewportChange).toHaveBeenCalledTimes(1)
-  expect(onViewportChange.mock.calls[0]?.[0]?.detail).toEqual(viewport)
+  element?.dispatchEvent(new CustomEvent('piece-removed', { detail: { pieceId: 3, left: 4 } }))
+  element?.dispatchEvent(new CustomEvent('life-lost', { detail: { pieceId: 3, blockerId: 5, distance: 2 } }))
+  element?.dispatchEvent(new CustomEvent('finished', { detail: { pieces: 9 } }))
+  expect(onPieceRemoved.mock.calls.map((c) => c[0]?.detail)).toEqual([{ pieceId: 3, left: 4 }])
+  expect(onLifeLost.mock.calls.map((c) => c[0]?.detail)).toEqual([{ pieceId: 3, blockerId: 5, distance: 2 }])
+  expect(onFinished.mock.calls.map((c) => c[0]?.detail)).toEqual([{ pieces: 9 }])
 })

@@ -236,3 +236,35 @@ describe('the command palette', () => {
     expect(localStorage.length).toBe(0)
   })
 })
+
+// The board mode belongs to the session: a reload opens on View, and the
+// hash never carries it (`encodeHash` takes no `ui` at all).
+describe('the board mode', () => {
+  function slice() {
+    const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
+    return store
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('starts on View and is set to what it is given, writing nothing to storage', () => {
+    const written: string[] = []
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: (key: string) => written.push(key),
+      removeItem: () => {},
+      clear: () => {},
+      key: () => null,
+      length: 0,
+    } satisfies Storage)
+    const store = slice()
+    expect(store.ui.boardMode).toBe('view')
+    store.ui.setBoardMode('play')
+    expect(store.ui.boardMode).toBe('play')
+    store.ui.setBoardMode('inspect')
+    expect(store.ui.boardMode).toBe('inspect')
+    expect(written).toEqual([])
+  })
+})

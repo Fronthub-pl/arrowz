@@ -25,6 +25,7 @@ export type Invariant =
   | 'top-scroll'
   | 'hidden-box'
   | 'knob-row'
+  | 'frame-overlap'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -439,6 +440,45 @@ function knobRows(root: HTMLElement): Finding[] {
   return out
 }
 
+/**
+ * What lies on the board frame keeps apart and inside it: the annotation,
+ * the board mode, the solo toggle, the mode's line, and the element's own
+ * bar (`.chrome`, in its shadow root). `.fw-board` clips, so a control
+ * pushed past its edge or under another is lost without any scroll.
+ */
+function frameOverlap(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const frame of root.querySelectorAll('.fw-board')) {
+    if (!rendered(frame)) continue
+    const f = frame.getBoundingClientRect()
+    const chrome = frame.querySelector('arrowz-board')?.shadowRoot?.querySelector('.chrome') ?? null
+    const parts = [
+      ...frame.querySelectorAll(':scope > .fw-anno, :scope > .fw-mode, :scope > .fw-solo, :scope > .fw-modeline'),
+      ...(chrome === null ? [] : [chrome]),
+    ].filter((node) => rendered(node) && node.getBoundingClientRect().width > 0)
+    for (const node of parts) {
+      const r = node.getBoundingClientRect()
+      if (r.left < f.left - EPS || r.right > f.right + EPS || r.top < f.top - EPS || r.bottom > f.bottom + EPS)
+        out.push({ invariant: 'frame-overlap', detail: `${label(node)} outside the frame` })
+    }
+    for (let i = 0; i < parts.length; i++) {
+      for (let j = i + 1; j < parts.length; j++) {
+        const a = parts[i]?.getBoundingClientRect()
+        const b = parts[j]?.getBoundingClientRect()
+        if (a === undefined || b === undefined) continue
+        const x = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+        const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        if (x > EPS && y > EPS)
+          out.push({
+            invariant: 'frame-overlap',
+            detail: `${label(parts[i] as Element)} × ${label(parts[j] as Element)}`,
+          })
+      }
+    }
+  }
+  return out
+}
+
 /** Opening a popover in the top bar never scrolls it (the low window's presets). */
 function topScroll(root: HTMLElement): Finding[] {
   const bar = root.querySelector('.fw-top')
@@ -465,5 +505,6 @@ export function audit(root: HTMLElement, { board, solo = false }: { board: boole
     ...topScroll(root),
     ...hiddenBox(root),
     ...knobRows(root),
+    ...frameOverlap(root),
   ]
 }

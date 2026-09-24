@@ -43,6 +43,7 @@ export function resetApp(mode: ViewMode): void {
   state.ui.showBoards('list')
   state.ui.closePalette()
   state.ui.clearFocusRequest()
+  state.ui.setBoardMode('view')
 }
 
 /** The real `App`, address bar and all. */

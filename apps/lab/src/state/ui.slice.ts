@@ -28,6 +28,13 @@ export type BoardsPanel = 'list' | 'preview'
  */
 export type Sheet = 'settings' | 'cli' | 'report'
 
+/**
+ * What a click on the board does: nothing (`view`), shows the piece's facts
+ * (`inspect`), or plays it (`play`). Belongs to the session: never
+ * remembered, never in the hash.
+ */
+export type BoardMode = 'view' | 'inspect' | 'play'
+
 /** The previous lab's key and values. */
 export const MODE_KEY = 'labView'
 
@@ -75,6 +82,7 @@ export interface UiState {
    * cannot steal the focus a second time (spec §6).
    */
   focusTarget: string | null
+  boardMode: BoardMode
   select(entry: RailEntry): void
   setAuto(on: boolean): void
   raiseClamped(on: boolean): void
@@ -99,6 +107,7 @@ export interface UiState {
   showBoards(panel: BoardsPanel): void
   requestFocus(id: string): void
   clearFocusRequest(): void
+  setBoardMode(mode: BoardMode): void
 }
 
 type SetStore = (fn: (state: { ui: UiState }) => { ui: UiState }) => void
@@ -123,6 +132,7 @@ export function createUiSlice(set: SetStore): UiState {
     menu: false,
     boards: 'list',
     focusTarget: null,
+    boardMode: 'view',
     select: (entry) => patch({ entry }),
     setAuto: (auto) => patch({ auto }),
     raiseClamped: (clamped) => patch({ clamped }),
@@ -173,5 +183,6 @@ export function createUiSlice(set: SetStore): UiState {
     showBoards: (boards) => patch({ boards }),
     requestFocus: (focusTarget) => patch({ focusTarget }),
     clearFocusRequest: () => patch({ focusTarget: null }),
+    setBoardMode: (boardMode) => patch({ boardMode }),
   }
 }

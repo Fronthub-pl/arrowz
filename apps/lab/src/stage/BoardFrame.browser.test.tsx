@@ -126,6 +126,26 @@ test('on a stored preview the colour button saves the stored view, not the labâ€
   expect(colours()?.getAttribute('aria-pressed')).toBe(String(!meta.view.colored))
 })
 
+// In the library with nothing on stage (a board that failed to load) the â—‘
+// button colours nothing, so it must not reach for the lab's own flag, which
+// would then colour the lab's board behind the user's back.
+test('in the library with an empty stage the colour button changes nothing', async () => {
+  const screen = await mountFrame('/boards/8x8/sha256-0')
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'not in the store' }))
+  const element = screen.container.querySelector('arrowz-board')
+  if (element === null) throw new Error('no element')
+  const event = new CustomEvent('colored-change', {
+    detail: { colored: true },
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+  })
+  await act(async () => element.dispatchEvent(event))
+  expect(event.defaultPrevented).toBe(true)
+  expect(useStore.getState().view.colored).toBe(false)
+})
+
 test('the frame names nothing before there is a board', async () => {
   const screen = await mountFrame()
   expect(screen.container.querySelector('arrowz-board')).not.toBeNull()

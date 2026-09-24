@@ -1,4 +1,4 @@
-import { boardViewOf, type ColoredChangeEvent } from '@arrowz/board-element'
+import { type ArrowzBoard, boardViewOf, type ColoredChangeEvent } from '@arrowz/board-element'
 import { type ReactElement, useLayoutEffect, useMemo, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
@@ -7,15 +7,16 @@ import { useViewSave } from '../library/useViewSave'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { BoardCanvas } from './BoardCanvas'
+import { BoardModeLine, BoardModeSwitch, useBoardSession } from './BoardMode'
 
 /**
  * The paper frame around the one `<arrowz-board>`, and what sits on it: the
- * annotation of the board on screen and the solo toggle (spec
- * §5.1). Both come after the element in DOM order, because the element's host
- * is opaque and positioned, so tree order is what puts them on top; both are
- * absolutely positioned in `.fw-board`, so they take no height from the
- * element, and both keep to the top edge, which the element's own bar leaves
- * free (arrowz-board.ts:178-185).
+ * annotation of the board on screen, the board mode and its line
+ * (`BoardMode.tsx`), and the solo toggle (spec §5.1). All come after the
+ * element in DOM order, because the element's host is opaque and positioned,
+ * so tree order is what puts them on top; all are absolutely positioned in
+ * `.fw-board`, so they take no height from the element, and all keep clear
+ * of the element's own bar at the bottom right.
  *
  * The element's view is memoised on the *slice's* identity, not rebuilt per
  * render: `run.progressed()` replaces `state.run` and leaves `state.view` and
@@ -107,12 +108,18 @@ export function BoardFrame(): ReactElement {
   // lab cancels it and writes the flag to whoever owns what is drawn, under
   // the same gate `elementView` uses: the stored view (saved like the Preview
   // panel's row) for a stored board, the lab's own view otherwise.
+  // In the library with nothing on stage the button colours nothing, so it
+  // is cancelled and writes nowhere.
   const onColoredChange = (event: ColoredChangeEvent) => {
     event.preventDefault()
     const { colored } = event.detail
-    if (preview !== null && inLibrary) commitView({ ...preview.meta.view, colored })
-    else useStore.getState().view.setFlag('colored', colored)
+    if (inLibrary) {
+      if (preview !== null) commitView({ ...preview.meta.view, colored })
+    } else useStore.getState().view.setFlag('colored', colored)
   }
+  const mode = useStore((state) => state.ui.boardMode)
+  const element = useRef<ArrowzBoard>(null)
+  const session = useBoardSession(board, mode, element)
 
   // Solo hides everything in the lab but the stage's board (console.css), and
   // HTML's focus fixup would drop a focus left in there onto <body> at the next
@@ -137,9 +144,11 @@ export function BoardFrame(): ReactElement {
             colours, and the lab does — without it the `colored` flag reaches
             the element and changes nothing on screen. */}
         <BoardCanvas
+          ref={element}
           board={board}
           view={elementView}
-          interactive={false}
+          interactive={mode === 'inspect'}
+          play={mode === 'play'}
           lang={lang}
           enableColors
           theme={view.theme}
@@ -148,10 +157,15 @@ export function BoardFrame(): ReactElement {
           pointRadius={view.pointRadius}
           pad={view.pad}
           onColoredChange={onColoredChange}
+          onPieceClick={session.onPieceClick}
+          onPieceRemoved={session.onPieceRemoved}
+          onLifeLost={session.onLifeLost}
+          onFinished={session.onFinished}
         />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}
+        <BoardModeSwitch />
         {/* Its own glyph: `⤢` is the element's fit button (PR 4b, Ruling 3). */}
         <button
           ref={toggle}
@@ -165,6 +179,7 @@ export function BoardFrame(): ReactElement {
         >
           ⛶
         </button>
+        <BoardModeLine session={session} />
       </div>
     </div>
   )

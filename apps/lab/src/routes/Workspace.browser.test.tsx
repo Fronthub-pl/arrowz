@@ -57,6 +57,7 @@ async function mountApp() {
   useStore.getState().ui.setSettings(true)
   useStore.getState().ui.setSheet(null)
   useStore.getState().ui.setMenu(false)
+  useStore.getState().ui.setBoardMode('view')
   return render(<App />)
 }
 
@@ -333,6 +334,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
   useStore.getState().ui.raiseClamped(false)
   useStore.getState().lang.setLang('en')
   useStore.getState().ui.setMode('advanced')
+  useStore.getState().ui.setBoardMode('view')
   const screen = await render(
     <StrictMode>
       <App />

@@ -1,4 +1,4 @@
-import { PARAM_SPEC, type Params } from '@arrowz/engine'
+import { newSession, PARAM_SPEC, type Params, play } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -44,6 +44,8 @@ type State =
   | 'library-sheet-cli'
   | 'menu-open'
   | 'more-open'
+  | 'inspect'
+  | 'play'
 const STATES: readonly State[] = [
   'board',
   'presets-open',
@@ -187,6 +189,7 @@ async function arrange(state: State) {
     await expect.poll(() => screen.container.querySelector('.fw-bcol .fw-cmdfig')).not.toBeNull()
   }
   if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
+  if (state === 'inspect' || state === 'play') await showBoardMode(screen.container, state)
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
@@ -205,6 +208,27 @@ async function arrange(state: State) {
     await expect.poll(() => screen.container.querySelector('.fw-more-pop.open')).not.toBeNull()
   }
   return screen
+}
+
+/**
+ * The board mode with its line on screen: in Inspect the card of a blocked
+ * piece, the longest the card gets; in Play the counts after one mistake.
+ */
+async function showBoardMode(container: HTMLElement, mode: 'inspect' | 'play') {
+  await act(async () => useStore.getState().ui.setBoardMode(mode))
+  const element = container.querySelector('arrowz-board')
+  const board = useStore.getState().result.shown?.board
+  if (element === null || board === undefined) throw new Error('no board on stage')
+  const session = newSession(board)
+  const blocked = board.pieces.find((pc) => play(session, pc.id).move.kind === 'bounce') ?? board.pieces[0]
+  if (blocked === undefined) throw new Error('an empty board')
+  const fire = (type: string, detail: unknown) =>
+    element.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }))
+  await act(async () => {
+    if (mode === 'inspect') fire('piece-click', { pieceId: blocked.id })
+    else fire('life-lost', { pieceId: blocked.id, blockerId: 0, distance: 0 })
+  })
+  await expect.poll(() => container.querySelector('.fw-modeline')).not.toBeNull()
 }
 
 /** Asserts the audit's failing invariants are exactly those `KNOWN_RED` records under `key`. */
@@ -237,6 +261,43 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
 )
 
 test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
+
+// The board mode's line is on screen only in Inspect and Play, so the matrix
+// above sees the control but never the line: the lab's three widths and a
+// phone, and the two narrowest again in Polish, where the words are longer.
+const MODE_CASES: readonly (readonly [State, number, number])[] = (['inspect', 'play'] as const).flatMap((s) =>
+  (
+    [
+      [860, 900],
+      [1280, 800],
+      [1400, 900],
+      [375, 812],
+    ] as const
+  ).map(([w, h]) => [s, w, h] as const),
+)
+
+test.each(MODE_CASES)('the %s mode at %d×%d keeps every layout invariant', matrixCase, 40_000)
+
+const MODE_PL_CASES: readonly (readonly [State, number, number])[] = (['inspect', 'play'] as const).flatMap((s) =>
+  (
+    [
+      [860, 900],
+      [375, 812],
+    ] as const
+  ).map(([w, h]) => [s, w, h] as const),
+)
+
+test.each(MODE_PL_CASES)(
+  'the %s mode at %d×%d keeps every layout invariant in Polish',
+  async (state, w, h) => {
+    await page.viewport(w, h)
+    const screen = await arrange(state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expectKnownRed(`${state}@${w}x${h}:pl`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
 
 // The matrix above does not pin the panel's `max-height`: at 420×900 its
 // seven levels in two columns (650px under a 171px top) fit without it. What
@@ -382,6 +443,8 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
+    ...MODE_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
+    ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     'presets-open@420x699',
     'presets-open@420x700',
     'huge-pl@420x900',

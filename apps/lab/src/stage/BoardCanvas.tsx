@@ -1,5 +1,11 @@
 import { ArrowzBoard } from '@arrowz/board-element'
-import type { ColoredChangeEvent, PieceClickEvent, ViewportChangeEvent } from '@arrowz/board-element'
+import type {
+  ColoredChangeEvent,
+  FinishedEvent,
+  LifeLostEvent,
+  PieceClickEvent,
+  PieceRemovedEvent,
+} from '@arrowz/board-element'
 import { createComponent, type EventName } from '@lit/react'
 import * as React from 'react'
 
@@ -15,7 +21,9 @@ export const BoardCanvas = createComponent({
   react: React,
   events: {
     onPieceClick: 'piece-click' as EventName<PieceClickEvent>,
-    onViewportChange: 'viewport-change' as EventName<ViewportChangeEvent>,
+    onPieceRemoved: 'piece-removed' as EventName<PieceRemovedEvent>,
+    onLifeLost: 'life-lost' as EventName<LifeLostEvent>,
+    onFinished: 'finished' as EventName<FinishedEvent>,
     onColoredChange: 'colored-change' as EventName<ColoredChangeEvent>,
   },
 })
