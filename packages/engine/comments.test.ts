@@ -284,7 +284,6 @@ Deno.test('the comment guard walks the lab, the board element and the engine lab
 
 Deno.test({
   name: 'comments carry no history markers',
-  ignore: Deno.env.get('COMMENT_GUARD') !== '1',
   fn: () => {
     const found = report('marker')
     assert(found.length === 0, `${found.length} comment markers:\n${found.join('\n')}`)
@@ -293,7 +292,6 @@ Deno.test({
 
 Deno.test({
   name: `comment blocks stay within ${MAX_BLOCK} lines, headers within ${MAX_HEADER}`,
-  ignore: Deno.env.get('COMMENT_GUARD') !== '1',
   fn: () => {
     const found = report('block')
     assert(found.length === 0, `${found.length} long comment blocks:\n${found.join('\n')}`)
