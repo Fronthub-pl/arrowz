@@ -16,7 +16,7 @@ const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 /**
  * The rides are real animations, so a test that looks at the board after one
  * has to outwait it. The waits are tied to the two durations plus 400 ms of
- * slack: 100 ms was eaten by a machine running the whole workspace's tests.
+ * slack (a flat wait left only 100 ms, which a loaded machine ate).
  */
 const exited = () => new Promise<void>((r) => setTimeout(r, EXIT_MAX_MS + 400))
 const bounced = () => new Promise<void>((r) => setTimeout(r, SHAKE_MS + 400))

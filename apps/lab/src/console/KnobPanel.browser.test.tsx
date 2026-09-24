@@ -239,7 +239,8 @@ describe('the dependency blocks', () => {
   })
 
   // No rule names a knob inside a block and both writers clamp, so the refusal
-  // is put in the store by hand.
+  // is put in the store by hand: this guards the rule that one day will, so a
+  // refusal never sits in a closed block unnoticed.
   it('opens itself for a knob the engine refuses', async () => {
     const screen = await render(<KnobPanel group="difficulty" />)
     expect(header(screen.container).getAttribute('aria-expanded')).toBe('false')

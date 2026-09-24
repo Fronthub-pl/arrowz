@@ -69,6 +69,7 @@ describe('the drawn track of a knob row', () => {
     expect(screen.container.querySelector('.kv-track .floor')).toBeNull()
   })
 
+  // `Lmax` 0 means `auto`; announcing the bare number would read as a maximum length of zero.
   it('states the value in words where the spec has one, not the number', async () => {
     const screen = await render(track(undefined, () => {}, 'auto'))
     const input = screen.getByRole('slider').element()

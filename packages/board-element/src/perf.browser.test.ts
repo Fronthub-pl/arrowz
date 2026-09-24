@@ -8,7 +8,9 @@
 //
 // Headless figures are a floor and a regression detector, never what a person
 // sees: only a foreground browser with a GPU rasterises and composites onto a
-// display, and a CI runner without a GPU rasterises WebGL2 on the CPU.
+// display, and a CI runner without a GPU rasterises WebGL2 on the CPU. The SVG
+// layer's Insane pan (seed 7, M1): 83 ms a frame in the headless shell, 104 ms
+// in the real engine headless at dpr 2, 1050 ms in a foreground Chrome.
 import { defaultParams, generate, newSession, play } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'

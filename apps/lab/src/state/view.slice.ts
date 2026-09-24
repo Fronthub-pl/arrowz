@@ -149,7 +149,8 @@ export function createViewSlice(set: SetStore): ViewState {
     setPointColor: (color) => patch({ pointColor: color }),
     setPointRadius: (raw) => {
       const n = Number(raw)
-      // An empty or unreadable box is the default, not 0, as in `viewNumberOf`.
+      // An empty or unreadable box is the default, not 0, as in `viewNumberOf`:
+      // a grid with no radius is not a setting anyone asks for by clearing the field.
       const kept = raw.trim() === '' || !Number.isFinite(n) ? DEFAULT_POINT_RADIUS : n
       patch({ pointRadius: Math.min(Math.max(kept, POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max) })
     },

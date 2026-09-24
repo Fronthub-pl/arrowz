@@ -233,8 +233,8 @@ describe('the alternative actions', () => {
 
   // Geometry, because `.fw-cmd`'s text is in the DOM whether or not the box
   // paints it. The box shows the whole command and the column scrolls instead,
-  // so Generate moves down with a longer command. 216 px is about the stage's
-  // narrowest run track.
+  // so Generate moves down with a longer command. 216 px is narrower than any
+  // run track the stage draws, so the box has no slack to hide an overflow.
   it('shows the whole command in its box, and the column scrolls to Generate', async () => {
     const screen = await render(
       <div className="fw" style={{ display: 'flex', width: '216px', height: '300px' }}>

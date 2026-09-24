@@ -153,6 +153,7 @@ test('an edit finished by clicking another board is written to the board that wa
   expect(useStore.getState().result.preview?.meta.view.stroke).toBe(other.meta.view.stroke)
 })
 
+// The only case here that fails if `raiseNotice` stopped clearing on timeout, or its identity guard were inverted.
 test('an event notice fades after 1200 ms, and a kept one never does', async () => {
   vi.useFakeTimers()
 
@@ -168,8 +169,9 @@ test('an event notice fades after 1200 ms, and a kept one never does', async () 
   expect(useStore.getState().library.notice?.kind).toBe('saveFailed')
 })
 
-// The identity guard inside the fade: a newer notice owns the line, and the
-// timer of the one it replaced must not take it away.
+// A newer notice owns the line. Two things keep it there, `raiseNotice`
+// cancelling the older timer and the fade's identity guard; this case fails
+// only when both are gone.
 test('a notice that superseded another is not cleared by the older one’s timer', async () => {
   vi.useFakeTimers()
 

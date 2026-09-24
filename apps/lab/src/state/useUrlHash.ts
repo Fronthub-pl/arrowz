@@ -55,10 +55,11 @@ function applyPayload(payload: HashPayload): void {
   // theme and a palette keeps both: neither setter touches the other field.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
-  // `showPoints` is a plain flag like `rounded`, not a tri-state.
+  // Absent keeps the page's own value, as for the numbers.
   if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
   if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
   if (payload.view.highlight !== undefined) view.setHighlight(payload.view.highlight)
+  // `showPoints` is a plain flag like `rounded`, not a tri-state.
   view.setFlag('showPoints', payload.view.showPoints === true)
   if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
   if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
@@ -140,7 +141,8 @@ export function useUrlHash(control: RunControl): UrlHash {
   useEffect(() => {
     const onChange = () => {
       // Property 3 above: a pasted link or a traversal onto a different
-      // fragment is a trigger; one matching the store is not.
+      // fragment is a trigger; one matching the store is not. Bound on every
+      // route, because a link pasted while Boards is open runs the generator behind it.
       const { params, view, lang } = useStore.getState()
       const here = encodeHash({
         params: params.values,

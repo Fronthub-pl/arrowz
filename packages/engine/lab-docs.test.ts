@@ -65,7 +65,8 @@ const sorted = (names: Iterable<string>): string[] => [...names].sort()
  * Every one-line `export type X = …` of the element package. A reference table
  * may spell what an alias stands for rather than its name — `gestureMode` is
  * exactly that: the class returns `GestureMode`, the row says `'drag' | 'click'`,
- * and a reader should not have to go and look the alias up.
+ * and a reader should not have to go and look the alias up. It is today the
+ * only row where the two texts differ.
  */
 function typeAliases(): Map<string, string> {
   const aliases = new Map<string, string>()
