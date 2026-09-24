@@ -4,6 +4,8 @@ import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { App } from '../App'
+import { resetApp } from '../harness/mountApp'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { BoardColumn } from './BoardColumn'
@@ -265,22 +267,79 @@ function lineCount(dd: Element): number {
   return range.getClientRects().length
 }
 
-test.each([
-  [860, 900],
-  [1280, 800],
-  [1400, 900],
-  [375, 812],
-] as const)('at %dx%d the layout hash wraps in full, and the seed stays one line', async (w, h) => {
+/** The store's list and file endpoints for the one fixture board, so `useStoredBoard` finds it the way a person's click would. */
+function stubStore() {
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/api/boards'))
+      return Promise.resolve(Response.json([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [stored.meta] }]))
+    if (url.includes('/store/')) return Promise.resolve(Response.json(stored.file))
+    return Promise.resolve(new Response('{}', { status: 404 }))
+  })
+}
+
+/**
+ * Opens the fixture board through the real `App`, the address bar and every
+ * grid ancestor that sizes the column — `mountDetail`'s bare `.fw` div has
+ * none of them, so a width case run against it never exercises the real
+ * track width. `sheet` opens the phone's Board sheet, the only way its facts
+ * reach the screen under 768px.
+ */
+async function openLibraryDetail(w: number, h: number, sheet = false) {
   await page.viewport(w, h)
-  const screen = await mountDetail()
-  await show()
-  const facts = screen.getByRole('definition').elements()
-  const [layout, seed] = facts
-  if (layout === undefined || seed === undefined) throw new Error('missing fact rows')
-  expect(layout.textContent).toBe(`8x8/${stored.meta.id}`)
-  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
-  expect(lineCount(seed)).toBe(1)
-})
+  resetApp('advanced')
+  stubStore()
+  window.history.pushState({}, '', `/boards/8x8/${stored.meta.id}`)
+  const screen = await render(<App />)
+  await expect.poll(() => screen.container.querySelector('#board-column .fw-cmdfig')).not.toBeNull()
+  if (sheet) await act(async () => useStore.getState().ui.setSheet('cli'))
+  return screen
+}
+
+// 1280 and 1400 are both the lab's "L" band (console.css: 18rem, fixed, not
+// the vw-scaled clamp — that clamp only reaches an untouched width at
+// 1600px and up), and 375 is the phone's Board sheet: three widths where
+// `.fw-bmeta` is actually on screen, each a different track width for the
+// same hash.
+test.each([
+  [1280, 800, false],
+  [1400, 900, false],
+  [375, 812, true],
+] as const)(
+  'at %dx%d the layout hash wraps in full, and the seed stays one line',
+  async (w, h, sheet) => {
+    try {
+      const screen = await openLibraryDetail(w, h, sheet)
+      const facts = screen.container.querySelectorAll('#board-column .fw-bmeta dd')
+      const [layout, seed] = facts
+      if (layout === undefined || seed === undefined) throw new Error('missing fact rows')
+      expect(layout.textContent).toBe(`8x8/${stored.meta.id}`)
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
+      expect(lineCount(layout)).toBeGreaterThan(1)
+      expect(lineCount(seed)).toBe(1)
+    } finally {
+      // The default a case in this file that sets no viewport of its own relies on.
+      await page.viewport(414, 896)
+    }
+  },
+  40_000,
+)
+
+// Measured, not assumed: at 768–1279 (the "S"/"M" bands) the column becomes a
+// bar under the board and library.css drops its facts outright, in every
+// state reachable from the UI — solo hides the whole column, and the bar
+// hides just the facts within it. 860 sits in that band, so the row this
+// task changed carries no clipping risk there: it is not on screen at all.
+test('at 860x900 the facts stay off screen, by the S/M band’s own rule', async () => {
+  try {
+    const screen = await openLibraryDetail(860, 900)
+    const bmeta = screen.container.querySelector('#board-column .fw-bmeta')
+    if (bmeta === null) throw new Error('no facts list in the DOM')
+    expect(getComputedStyle(bmeta).display).toBe('none')
+  } finally {
+    await page.viewport(414, 896)
+  }
+}, 40_000)
 
 test('the board file downloads the stored file under its id', async () => {
   const names: string[] = []
