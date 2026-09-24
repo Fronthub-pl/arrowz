@@ -619,7 +619,7 @@ test('the stage keeps its height when the preset strip goes', async () => {
   await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   // Not a 180px floor: at the runner's 414×896 an auto-placed stage still
   // measures 292px (measured in review: the board's 260px min-height plus its
-  // padding, which the max-height: 700px rule releases), so the floor could
+  // padding, which the max-height: 699px rule releases), so the floor could
   // not fail. The strip's row goes to the two remaining rows, so the stage can
   // only grow.
   await expect.poll(stage).toBeGreaterThanOrEqual(before)

@@ -1139,9 +1139,9 @@
     --hd: 44px;
   }
 }
-/* Below 700px of height the board gives up its minimum (shell.css), so its row
+/* Under 700px of height the board gives up its minimum (shell.css), so its row
    gives up the 292px too. */
-@media (max-height: 700px) {
+@media (max-height: 699px) {
   .fw-lab {
     grid-template-rows: auto minmax(180px, 1fr) auto auto;
   }

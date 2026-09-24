@@ -240,13 +240,17 @@ test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', 
 
 // The matrix above does not pin the panel's `max-height`: at 420×900 its
 // seven levels in two columns (650px under a 171px top) fit without it. A
-// window 700px tall is where they run past the bottom (measured: 16,171 to
-// 404,821 in 420×700 with the rule removed), so this one case pins the rule.
-test('the presets-open state at 420×700 keeps every layout invariant', async () => {
-  await page.viewport(420, 700)
+// short window is where they run past the bottom (measured: 16,171 to
+// 404,821 in 420×699 with `.fw-lab .fw-pp-panel`'s `max-height: calc(100vh -
+// 276px)` removed), so this one case pins that rule. That rule is gated on
+// width alone (`@media (max-width: 767px)`, run.css), not on band.ts's
+// low-window height query: removing each rule here in isolation shows only
+// this one turns the case red, and 699 fails the same way as 700 does.
+test('the presets-open state at 420×699 keeps every layout invariant', async () => {
+  await page.viewport(420, 699)
   const screen = await arrange('presets-open')
   await settle()
-  expectKnownRed('presets-open@420x700', audit(screen.container, { board: true }))
+  expectKnownRed('presets-open@420x699', audit(screen.container, { board: true }))
 }, 40_000)
 
 // Review P8: the reconstruction's matrix above runs only in English, where
@@ -371,7 +375,7 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...STATES.flatMap((state) => SIZES.map(([w, h]) => `${state}@${w}x${h}`)),
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
-    'presets-open@420x700',
+    'presets-open@420x699',
     'huge-pl@420x900',
   ])
   expect(Object.keys(KNOWN_RED).filter((key) => !keys.has(key))).toEqual([])

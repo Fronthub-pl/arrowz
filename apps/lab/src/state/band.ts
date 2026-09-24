@@ -15,7 +15,9 @@ const FLOORS: readonly (readonly [Exclude<Band, 'xs'>, string])[] = [
   ['m', '(min-width: 1024px)'],
   ['s', '(min-width: 768px)'],
 ]
-const LOW = '(max-height: 699px) and (min-width: 768px)'
+/** Every `max-height` query in `design/*.css` gates this same height. */
+export const LOW_MAX_HEIGHT = 699
+const LOW = `(max-height: ${LOW_MAX_HEIGHT}px) and (min-width: 768px)`
 
 function media(query: string): MediaQueryList | null {
   return typeof window === 'undefined' || typeof window.matchMedia !== 'function' ? null : window.matchMedia(query)

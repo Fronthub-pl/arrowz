@@ -440,7 +440,7 @@ body {
 
 /* The mock's second breakpoint: below this height the board gives up its
    minimum rather than pushing the console off the screen. */
-@media (max-height: 700px) {
+@media (max-height: 699px) {
   .fw-board {
     min-height: 0;
   }
@@ -449,7 +449,7 @@ body {
 /* `height: 100%` and not `display: grid` on the panel's <main>: the shell
    stretches that <main> to row 3, but it is a block box with no height of its
    own, so without this the run bar and the stage each take an auto row, the
-   board falls back to its `min-height`, and under the `max-height: 700px` rule
+   board falls back to its `min-height`, and under the `max-height: 699px` rule
    below — where that minimum becomes 0 — the board collapses to nothing.
    Giving `#lab-panel`'s <main> a `display` would fix the chain and silently
    defeat `hidden`: an author `display` declaration beats the UA's
