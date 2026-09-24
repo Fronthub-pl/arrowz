@@ -45,7 +45,7 @@ leaves open, the ruling is written in the task and repeated under "Rulings".
 - Gates for a task that touches `apps/lab`: `pnpm nx run lab:check --skip-nx-cache`,
   `pnpm nx run lab:lint --skip-nx-cache`, `pnpm nx run lab:fmt --skip-nx-cache`
   (this is `prettier --check`; format with `pnpm --dir apps/lab exec prettier --write <files>`),
-  and `pnpm nx run lab:test --skip-nx-cache` (both vitest projects, `node` and `chromium`).
+  and `pnpm nx run lab:test --skip-nx-cache` (all three vitest projects: `node`, `node-integration`, `chromium`).
   For `packages/board-element`: `pnpm nx run board-element:verify --skip-nx-cache`.
   For `packages/engine`: `cd packages/engine && deno task verify`.
   The final task runs `pnpm nx run-many -t verify --skip-nx-cache`.
@@ -81,7 +81,7 @@ not have to.
   "of width + height" / "szerokości + wysokości"; nothing in the engine changes.
 - **R4 (difficulty help).** The false clause ("not the look") is dropped. The
   new sentence is built from what the group's knobs actually do (read the
-  `PARAM_SPEC` help of `start`, `trapBias`, `probe`, `probeLen`), in both languages.
+  `PARAM_SPEC` help of `headBias`, `mix`, `trapBias`, `probe`, `probeLen`), in both languages.
 - **R5 (low window).** The low window is under 700 px tall: every
   height query in the lab CSS is written `max-height: 699px`, and each keeps the
   width condition it has now. A node test pins every `max-height` query in
@@ -141,17 +141,22 @@ not have to.
 
 **Interfaces:** Consumes nothing new. Produces no new API; `CollapsibleBlock` props are unchanged.
 
-- [ ] **Step 1: Write the failing test.** Mount the real `Console` (so
-  `useFocusRequest` runs and clears the request) on the lab route, inside a
-  `MemoryRouter` at `/` with a `.fw` wrapper, following an existing
-  Console/Workspace browser test for the mount. From the defaults (`probe`=0),
-  call `useStore.getState().ui` jump action the palette uses (read
-  `palette/commands.ts` for `jumpTo` / the `requestFocus` action name), targeting
-  `knob-probeLen`. Assert, after `await expect.poll(...)`, that
-  `document.activeElement.id === 'knob-probeLen'`, that `#dep-difficulty` is not `hidden`, and
+- [ ] **Step 1: Write the failing test.** Mount the real app with
+  `harness/mountApp.tsx`'s `mountApp()` (it renders `App`, so `useFocusRequest`
+  runs and clears the request; `resetApp` already sets advanced mode and opens
+  the settings drawer). `jumpTo` in `palette/commands.ts` is module-private, so
+  reproduce its prerequisites: `Console` renders only the selected rail entry,
+  and `useFocusRequest` spends the request even when the node is missing, so
+  call `useStore.getState().ui.select('difficulty')` BEFORE
+  `useStore.getState().ui.requestFocus('knob-probeLen')` (from the defaults, `probe`=0).
+  Assert, after `await expect.poll(...)`, that
+  `document.activeElement.id === 'knob-probeLen'`, that `#dep-probe` (block ids
+  come from `knobLayout.ts`: `probe`, `skeleton`) is not `hidden`, and
   that both still hold after a later unrelated store write (for example
   `useStore.getState().params.set('seed', 8)`) and two animation frames.
-  Add a second case for the view panel: jump to `view-top` with `hilite` off.
+  Add a second case for the view panel: `ui.select('preview')`, then
+  `requestFocus('view-top')` with `hilite` off. `resetApp` does NOT reset the
+  view slice, so set and restore `hilite` in the case itself.
 - [ ] **Step 2: Run it and see it fail** on the "not hidden after the next render" assertion:
   `pnpm --dir apps/lab exec vitest run --project chromium <file>`.
 - [ ] **Step 3: Implement R1.** In `CollapsibleBlock`, next to the existing
@@ -175,15 +180,22 @@ not have to.
 **Files:**
 - Modify: `packages/board-element/src/arrowz-board.ts` (colour button click, `colored-change`)
 - Modify: `packages/board-element/src/sanitize.ts` (`PAD_RANGE`, `drawablePad` clamps to it)
-- Modify: `packages/board-element/mod.ts` (export `PAD_RANGE`, the event detail type)
+- Modify: `packages/board-element/src/mod.ts` (export `PAD_RANGE`, `ColoredChangeDetail`,
+  `ColoredChangeEvent`; add `'colored-change': ColoredChangeEvent` to its `HTMLElementEventMap`
+  block — `packages/engine/lab-docs.test.ts` pins that map's keys to `ELEMENT_EVENTS` both ways)
 - Modify: `packages/board-element/README.md` (API tables: event, `PAD_RANGE`; also fix
   the drift the review lists: `pieceCount`, `emit`, `board: BoardData | null`)
-- Modify: `packages/engine/lab-docs.ts` (`ELEMENT_EVENTS` gains `colored-change`; `ELEMENT_PROPS`'s `pad` row mentions the range)
-- Test: the element's existing test files for the colour button and pad (find them with
-  `grep -ln "colors\|coloredOverride\|pad" packages/board-element/src/*.test.ts packages/board-element/test* 2>/dev/null`)
+- Modify: `packages/engine/lab-docs.ts` (`ELEMENT_EVENTS` gains `colored-change` with an EN and a
+  different PL description, as `lab-docs.test.ts` requires; `ELEMENT_PROPS`'s `pad` row mentions the range)
+- Test: colour button `packages/board-element/src/game.browser.test.ts` (the `colourButton(el)?.click()` cases);
+  pad: `src/sanitize.test.ts` (the `drawablePad(1e9, 4)` "large stays large" case must become the clamp,
+  plus a `PAD_RANGE` describe mirroring the `POINT_RADIUS_RANGE` one; update the `drawablePad` doc
+  and README's "never negative" line) and `src/arrowz-board.browser.test.ts`.
+  Run with `pnpm --dir packages/board-element run test` (vitest; `*.test.ts` node, `*.browser.test.ts` chromium).
 
 **Interfaces:**
-- Produces: `export interface ColoredChangeDetail { colored: boolean }`;
+- Produces: `export interface ColoredChangeDetail { colored: boolean }`,
+  `export type ColoredChangeEvent = CustomEvent<ColoredChangeDetail>` (pattern: `PieceClickEvent`);
   event name `'colored-change'`, `CustomEvent<ColoredChangeDetail>`, `cancelable: true, bubbles: true, composed: true`.
 - Produces: `export const PAD_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 16 }`.
 
@@ -191,9 +203,8 @@ not have to.
   `detail.colored` equal to the new value; (b) a listener that calls
   `preventDefault()` leaves `aria-pressed` and the drawn `colored` unchanged,
   and a later `view = { ...view, colored: true }` from the host still takes effect;
-  (c) without a listener the old behaviour holds (override set); (d) `pad = 99`
-  draws as 16 and `pad = -1` as 0 (use whatever the existing pad test reads:
-  `layer.pad` or the viewport margin).
+  (c) without a listener the old behaviour holds (override set); (d) `drawablePad(99, 4)` is 16,
+  `drawablePad(-1, 4)` is 0, `drawablePad(NaN, 4)` is 4 (the pure node test in `sanitize.test.ts`).
 - [ ] **Step 2: Run them red.** `pnpm --dir packages/board-element run test`.
 - [ ] **Step 3: Implement.** Replace the inline click handler with a method:
   ```ts
@@ -223,22 +234,23 @@ not have to.
 
 **Interfaces:**
 - Consumes: Task 2's `colored-change` / `ColoredChangeDetail` (import the type from `@arrowz/board-element`).
-- Consumes: `useViewSave` (`library/useViewSave.ts`) and `useOpenPreview` (`library/useOpenPreview.ts`) for the stored-board branch, exactly as `library/BoardPreview.tsx` calls them.
+- Consumes: `useViewSave(refreshLibrary)` (`library/useViewSave.ts`, `library/useLibraryList.ts`) as `library/BoardPreview.tsx` calls it; its debounce timer is module-scoped, so a second call site shares it.
+- The stored-board branch uses the SAME gate as `BoardFrame`'s drawing (`preview !== null && inLibrary`), not `useOpenPreview`, which is null in the window between the address changing and the file landing.
 
 - [ ] **Step 1: Failing tests.** (a) Lab tab: click ◑ in the element's shadow
   root → `useStore.getState().view.colored` flips, and then toggling the
   lab's `colored` switch (or `view.setFlag('colored', …)`) changes the element's
   `aria-pressed` again. That second half is the bug the review describes, so it must go red today.
-  (b) Library tab with a stored preview open (reuse the fixtures of
-  `library/*.browser.test.tsx` that open a preview with a stubbed store): click ◑ →
-  a POST with `view.colored` flipped goes to the store (`useViewSave` debounces, so wait for it),
-  and the lab's own `view.colored` is unchanged.
+  (b) Library tab with a stored preview open (fixtures: `storedFixture` from
+  `state/library.fixtures`, `MemoryRouter` at `/boards/8x8/<id>` as in `BoardPreview.browser.test.tsx`;
+  fetch stub + fake timers + `vi.advanceTimersByTimeAsync(350)` as in `useViewSave.browser.test.tsx`):
+  click ◑ → one POST whose body's `view.colored` is flipped, and the lab's own `view.colored` is unchanged.
+  The ◑ button is `element.shadowRoot.querySelector('button.colors')` (see `BoardFrame.browser.test.tsx`).
 - [ ] **Step 2: Run red.**
 - [ ] **Step 3: Implement R2.** In `BoardFrame`, `onColoredChange={(event) => { event.preventDefault(); … }}`:
   on the library route with a preview, `commitView({ ...preview.meta.view, colored: event.detail.colored })`;
   otherwise `useStore.getState().view.setFlag('colored', event.detail.colored)`.
-  Read `view.slice.ts` for the exact flag setter name. Delete the stale comment
-  claim that the lab never hears the button, if any.
+  The flag setter is `view.setFlag`.
 - [ ] **Step 4: Negative control:** drop `preventDefault()` and see (a)'s second half go red again.
 - [ ] **Step 5: Lab gates.**
 - [ ] **Step 6: Commit.** `git commit -m "Lab: the board's colour button writes the lab's own colour flag"`
@@ -255,7 +267,7 @@ not have to.
   Also rename the key to `sidesUnit` if no other consumer depends on the old name
   (`grep -rn perimeterUnit`); update every consumer.
 - [ ] **Step 3: R4.** Read the help of every knob in the difficulty group in
-  `PARAM_SPEC` (`packages/engine/engine.ts`, search `group: 'difficulty'`) and in
+  `PARAM_SPEC` (`packages/engine/engine.ts`, search `group: 'difficulty'`: `headBias`, `mix`, `trapBias`, `probe`, `probeLen`) and in
   `lab-i18n.ts`. Write one or two sentences that are true of all of them, in EN,
   then PL with the same meaning. Keep the first sentence's idea ("how hard it is to find a piece with a free way out") if it is still true.
 - [ ] **Step 4:** `deno task verify` in `packages/engine`; `pnpm nx build engine --skip-nx-cache`;
@@ -271,13 +283,18 @@ not have to.
 - Create: `apps/lab/src/design/breakpoints.test.ts` (node project, same style as `design/tokens.test.ts`)
 
 - [ ] **Step 1: Failing test.** Read every `design/*.css?raw`, collect each
-  `max-height: Npx` inside an `@media` prelude, and assert each N equals
+  `max-height: Npx` inside an `@media` prelude only (regex like
+  `/@media[^{]*\(max-height:\s*(\d+)px\)/g`; plain `max-height` properties exist and are not queries), and assert each N equals
   `LOW_MAX_HEIGHT`. Also build band.ts's `LOW` from `LOW_MAX_HEIGHT` so the two
   cannot drift. Red today on the two 700px queries.
 - [ ] **Step 2: R5.** Change both to `max-height: 699px`, keeping each rule's other conditions.
   Update the prose that quotes 700px (`shell.css`, `Workspace.browser.test.tsx`) to 699px or
   to "under 700px tall".
-- [ ] **Step 3:** At 1280×700 and 1280×699, the layout tests that probe the low window
+- [ ] **Step 3:** `LayoutInvariants.browser.test.tsx` pins the 700px rule with the case
+  `presets-open@420x700` (its comment: at 700 tall they run past the bottom with the rule removed),
+  also listed among its known-red keys. After R5 the rule is off at 700: move that case to
+  420×699 (rename the known-red key) and add a 420×700 sibling only if it proves something true.
+  `useLayoutBand.browser.test.tsx` already probes 699/700: leave it. Other layout tests that probe the low window
   (`grep -rln "700\|699" apps/lab/src --include=*.browser.test.tsx`) stay green; if one
   pinned the old off-by-one, update it and say why in the report.
 - [ ] **Step 4: Lab gates.**
@@ -291,7 +308,6 @@ not have to.
 - Modify: `apps/lab/src/state/useUrlHash.ts` (`viewFor`, `applyPayload`)
 - Modify: `apps/lab/src/stage/BoardFrame.tsx` (`colourOverride` gains `highlight`)
 - Modify: `apps/lab/src/console/ViewPanel.tsx` (`ColoursSection`: a `ColourRow` after Ink, id `view-highlight`)
-- Modify: `apps/lab/src/palette/commands.ts` only if the palette lists paper/ink rows (then it lists highlight too)
 - Modify: `packages/engine/lab-i18n.ts` (`viewShortHighlight`, `highlightHelp`, `highlightLabel`, `highlightClear`, EN+PL)
 - Modify: `apps/lab/src/harness/mountApp.tsx` if the view slice gains a reset there
 - Test: `state/url.test.ts`, `state/useUrlHash.browser.test.tsx`, `stage/BoardFrame.browser.test.tsx`, `console/ViewPanel.browser.test.tsx`
@@ -343,7 +359,7 @@ Produces `view.pad: number`, `view.setPad(n: number): void`, `HashView.pad?: num
 - Modify: `apps/lab/src/harness/mountApp.tsx` and the private `mountApp` in `routes/Workspace.browser.test.tsx` (reset `boardMode`)
 - Modify: `apps/lab/src/stage/BoardCanvas.tsx` (map `onPieceRemoved: 'piece-removed'`, `onLifeLost: 'life-lost'`, `onFinished: 'finished'`; keep `onPieceClick`; drop `onViewportChange` if nothing uses it)
 - Modify: `apps/lab/src/stage/BoardFrame.tsx` (pass `interactive`/`play` from the mode, a ref to the element for `restart()`, render `BoardMode`)
-- Modify: `apps/lab/src/design/shell.css` (placement on the frame's top edge next to the solo toggle; the card/status line along the bottom edge, like `.fw-anno`)
+- Modify: `apps/lab/src/design/shell.css` (the control on the frame's top edge, between `.fw-anno` (top-left) and `.fw-solo` (top-right); the card/status line bottom-left, clear of the element's own `.chrome`/`.hint` at the bottom-right; pin no overlap in `LayoutInvariants`)
 - Modify: `packages/engine/lab-i18n.ts` (mode names, aria label of the group, card and status sentences, direction words, Restart, cleared line; EN+PL)
 - Test: `apps/lab/src/stage/BoardMode.browser.test.tsx`
 
@@ -352,7 +368,7 @@ Produces `view.pad: number`, `view.setPad(n: number): void`, `HashView.pad?: num
   `restart()`, `play`, `interactive`, and the events `piece-click` (`{ pieceId }`),
   `piece-removed` (`{ pieceId, left }`), `life-lost` (`{ pieceId, blockerId, distance }`),
   `finished` (`{ pieces }`); `shell/Segmented.tsx` for the control.
-- Produces: `interface PieceFacts { id: number; length: number; dir: 0 | 1 | 2 | 3; blocker: { id: number; distance: number } | null }`.
+- Produces: `interface PieceFacts { id: number; length: number; dir: number; blocker: { id: number; distance: number } | null }` (`Piece.dir` is `number`: 0 up, 1 right, 2 down, 3 left). For glyphs use the engine's `DIRS` only if `@arrowz/engine` exports it; otherwise a local four-entry table.
 
 - [ ] **Step 1: `pieceFacts` test first** (node): a hand-built 3-piece `BoardData`
   (copy the shape of a fixture from `packages/engine/game.test.ts`), one free and one blocked
@@ -381,7 +397,8 @@ Produces `view.pad: number`, `view.setPad(n: number): void`, `HashView.pad?: num
 **Files:**
 - Modify: `apps/lab/src/console/KnobSlider.tsx` → keep only `percent` and `boundOn`; better, move them to
   `apps/lab/src/console/track.ts` and delete `KnobSlider.tsx`
-- Modify: `apps/lab/src/console/KnobSlider.browser.test.tsx` → delete the component's half; move the helpers' cases to `track.test.ts` (node)
+- Modify: `apps/lab/src/console/KnobSlider.browser.test.tsx` → delete the `KnobSlider` component's cases only; the `describe('the drawn track of a knob row')` block tests `KnobTrack` and moves to a KnobRow test; helper cases go to `track.test.ts` (node). `boundOn` is imported by both `KnobRow.tsx` and `ValueKnob.tsx`.
+- Modify: assertions that become vacuous once the classes are gone (`.fw-khd .fw-kdesc` is null in `ViewPanel.browser.test.tsx` and `KnobPanel.browser.test.tsx`): remove them.
 - Modify: `apps/lab/src/console/FieldHelp.tsx` → keep `descId` only (or move it next to its users)
 - Modify: `apps/lab/src/console/viewFields.ts` → delete `viewHelpEntries`, `ViewField.help` and the `help` values
 - Modify: `apps/lab/src/design/console.css` → delete the `.fw-k`, `.fw-kdesc`, `.fw-grid`, `.fw-skeleton`, `.fw-ends` rules
@@ -414,8 +431,10 @@ Produces `view.pad: number`, `view.setPad(n: number): void`, `HashView.pad?: num
   `/[Rr]eview round/`, `/\b[\w-]+\.(ts|tsx|css|mjs):\d+/`. Fail on a comment block (consecutive
   comment lines, a blank line ends it) over 12 lines unless it is the file's first block.
   Report every offence as `path:line pattern` so the sweep can use the output as a worklist.
+  `deno task test` is a root workspace task (cwd = repo root), while the commands below run from
+  `packages/engine`: resolve every path from `import.meta.url` (`new URL('../../apps/lab/src/', import.meta.url)`), never from cwd.
   Assert that the walk found more than 150 files, so a broken walk cannot pass.
-- [ ] **Step 2: Run it:** `cd packages/engine && deno test --allow-read comments.test.ts`. It is red,
+- [ ] **Step 2: Run it:** `cd packages/engine && COMMENT_GUARD=1 deno test --allow-read --allow-env comments.test.ts`. It is red,
   and the output is the worklist for Task 11. Save it as `/tmp/comment-worklist.txt`.
 - [ ] **Step 3: Add the rule to `CLAUDE.md`** (text from the review's "Proposed rule", with
   "grep guard: `packages/engine/comments.test.ts`" appended).
@@ -431,8 +450,8 @@ the tip of Task 10, merged back by the controller in order.
 
 - **A:** `apps/lab/src/console`, `apps/lab/src/simple`, `apps/lab/src/palette`
 - **B:** `apps/lab/src/run`, `apps/lab/src/stage`, `apps/lab/src/report`, `apps/lab/src/shell`, `apps/lab/src/routes`, `apps/lab/src/docs`
-- **C:** every other path under `apps/lab/src` (`state`, `library`, `worker`, `api`, `harness`, `design`, `i18n`, the root files)
-- **D:** `packages/board-element/src`, `packages/engine/lab-*.ts`
+- **C:** every other path under `apps/lab/src` except `design` (`state`, `library`, `worker`, `api`, `harness`, `i18n.ts`, the root files)
+- **D:** `apps/lab/src/design`, `packages/board-element/src`, `packages/engine/lab-*.ts`
 
 For each file owned:
 
@@ -441,7 +460,7 @@ For each file owned:
   measurement protocols (keep the result and the consequence). Replace every `file.ts:NN` citation
   with a symbol name, and check that the claim it makes is still true (the review lists seven stale ones).
 - [ ] **Step 2:** Change comments only. No code, no string literals, no test names, no blank-line changes inside code.
-- [ ] **Step 3:** `COMMENT_GUARD=1 deno test --allow-read packages/engine/comments.test.ts` shows no offence
+- [ ] **Step 3:** `COMMENT_GUARD=1 deno test --allow-read --allow-env packages/engine/comments.test.ts` shows no offence
   in the owned paths; lab gates (or `board-element:verify` + engine verify for D) green.
 - [ ] **Step 4: Commit** per executor: `git commit -m "Comments in <area>: the why, once, without history"`
 
