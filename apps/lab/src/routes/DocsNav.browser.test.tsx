@@ -36,10 +36,9 @@ test('the navigation carries its own name, beside the tab strip', async () => {
   await expect.element(screen.getByRole('navigation', { name: 'Documentation pages' })).toBeVisible()
 })
 
-// Round 3 (3f): one column in two levels. Under each page its sections, in
-// page order, each a link to its page — the section rides in the navigation's
-// state, since the fragment is the lab's (DocsNav.tsx) — so a section of the
-// other page is one click too.
+// One column in two levels. Under each page its sections, in page order, each
+// a link to its page (the section rides in the navigation's state, since the
+// fragment is the lab's), so a section of the other page is one click too.
 test('each page lists its sections, as links to that page', async () => {
   const screen = await at('/docs/element')
   const pages = [...screen.container.querySelectorAll('nav > ul > li')]
@@ -71,8 +70,8 @@ test('the section in view is current, and only on the page on screen', async () 
   expect(elsewhere.container.querySelectorAll('[aria-current="true"]')).toHaveLength(0)
 })
 
-// Under 768 only the page on screen lists its sections (docs.css); `on` is the
-// class that says which.
+// Under 768 only the page on screen lists its sections; `on` is the class that
+// says which.
 test('the page on screen is the one marked on', async () => {
   const screen = await at('/docs/cli')
   const on = [...screen.container.querySelectorAll('li.pg.on > a')].map((a) => a.textContent)

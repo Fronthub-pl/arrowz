@@ -4,33 +4,29 @@ import { DOCS_SECTIONS, type DocsPage, sectionOf } from './DocsNav'
 
 /** How far down the panel a heading must come before its section is the one in view. */
 const LINE = 0.2
-/** The gap left above a heading the panel is scrolled to, as in the reconstruction. */
+/** The gap left above a heading the panel is scrolled to. */
 const GAP = 8
 
 /**
- * The documentation panel's scrolling (round 3, 3f): it scrolls to the section
- * an address names, and it reports which section is in view for the
- * navigation column's `aria-current`.
+ * The documentation panel's scrolling: it scrolls to the section an address
+ * names, and it reports which section is in view for the navigation column's
+ * `aria-current`.
  *
- * Scrolling follows the location, keyed on `location.key`, so every click on
- * a section link scrolls — also a second click on the same one after the
- * reader has scrolled away. The navigation's state names a heading on the
- * page (`sectionOf`, which says why not the hash); none is the top of the
- * page. It is the panel that moves: the shell has a fixed height
- * and the document does not scroll (docs.css).
+ * Scrolling follows the location, keyed on `location.key`, so every click on a
+ * section link scrolls, also a second click on the same one after the reader
+ * has scrolled away. The navigation's state names a heading (`sectionOf` says
+ * why not the hash); none is the top of the page. It is the panel that moves:
+ * the shell has a fixed height and the document does not scroll.
  *
  * The section in view is the last one whose heading has passed a line a fifth
  * of the way down the panel, or the first when none has. An
- * `IntersectionObserver` rooted on the panel, with its bottom pulled up to that
- * line, calls when a heading crosses it — the only moment the answer can
- * change — and the callback reads the geometry rather than the entries, so the
- * answer never depends on which headings happened to be in one batch.
+ * `IntersectionObserver` rooted on the panel, its bottom pulled up to that
+ * line, calls when a heading crosses it, and the callback reads the geometry
+ * rather than the entries, so the answer never depends on one batch.
  *
- * Until the reader scrolls, the section in view is the one the navigation named:
- * a reading is kept only for the navigation it was taken in, and a reading
- * taken while the named heading is still on screen is not taken at all.
- * Without that, jumping to the last section of a page too short to bring its
- * heading up to the line would light the section above it.
+ * Until the reader scrolls, the section in view is the one the navigation
+ * named: otherwise jumping to the last section of a page too short to bring
+ * its heading up to the line would light the section above it.
  */
 export function useSectionInView(panel: RefObject<HTMLElement | null>, page: DocsPage): string {
   const location = useLocation()

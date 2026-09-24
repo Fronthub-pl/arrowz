@@ -8,7 +8,7 @@ import { useStore } from '../state/store'
 import { DOCS_SECTIONS } from './DocsNav'
 import { ElementDocs } from './ElementDocs'
 // The colour cases below read computed style, which a component test only has
-// with the sheets imported (CliDocs.browser.test.tsx says why).
+// with the sheets imported.
 import '../design/tokens.css'
 import '../design/docs.css'
 
@@ -41,16 +41,14 @@ test('a property with no attribute says it has none', async () => {
 })
 
 // `mono` is the class the machine columns wear and the description column does
-// not (ElementDocs.tsx), so these two read every machine cell and every
-// description of all three tables without naming a single column index.
+// not, so these two read every machine cell and every description of all three
+// tables without naming a column index.
 const machine = (container: HTMLElement) => [...container.querySelectorAll('tbody td.mono')].map((c) => c.textContent)
 const described = (container: HTMLElement) =>
   [...container.querySelectorAll('tbody td:not(.mono)')].map((c) => c.textContent)
 
-// The only assertion that the page is wired to the store at all: the machine
-// columns stay put, the descriptions change. Sampling one column of one row was
-// weaker than the claim in the name — a translated `def` or `signature` passed
-// it — so both directions now cover every row.
+// The only assertion that the page is wired to the dictionary at all: the
+// machine columns stay put, the descriptions change, across every row.
 test('a language switch changes every description and leaves every machine cell', async () => {
   const screen = await render(<ElementDocs />)
   const before = machine(screen.container)
@@ -65,9 +63,9 @@ test('a language switch changes every description and leaves every machine cell'
   for (const [i, text] of helpAfter.entries()) expect(text, `description ${i}`).not.toBe(helpBefore[i])
 })
 
-// Round 3 (3f): the example is a block with a Copy button of its own. The block
-// shows coloured spans; the clipboard must get the code as written, which is
-// the one thing a Copy that read the DOM's markup would get wrong.
+// The example is a block with a Copy button of its own. The block shows
+// coloured spans; the clipboard must get the code as written, which a Copy
+// that read the DOM's markup would get wrong.
 test('Copy on the example writes the code, not its colouring', async () => {
   const write = vi.fn(() => Promise.resolve())
   vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
@@ -90,9 +88,8 @@ test('Copy names its section in Polish too', async () => {
   await expect.element(button).toHaveTextContent('Kopiuj')
 })
 
-// The README pointer moved from under the last table to a named note under
-// the lead (round 3 review): before the first section, after the lead
-// paragraph, its glyph hidden from assistive technology.
+// The README pointer is a named note under the lead: before the first section,
+// after the lead paragraph, its glyph hidden from assistive technology.
 test('the README note stands under the lead, named, before the first section', async () => {
   const screen = await render(<ElementDocs />)
   const note = screen.getByRole('complementary', { name: 'Note' })
@@ -101,7 +98,7 @@ test('the README note stands under the lead, named, before the first section', a
   expect(aside.previousElementSibling?.tagName).toBe('P')
   expect(aside.nextElementSibling?.tagName).toBe('H3')
   expect(aside.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-  // Nothing trails the last table any more.
+  // Nothing trails the last table.
   expect(screen.container.lastElementChild?.tagName).toBe('TABLE')
 })
 
@@ -111,7 +108,7 @@ test('the note is named in Polish too', async () => {
   await expect.element(screen.getByRole('complementary', { name: 'Uwaga' })).toBeVisible()
 })
 
-// The navigation column scrolls to these, in this order (DocsNav.tsx).
+// The navigation column scrolls to these, in this order.
 test('every section heading carries the id the navigation names', async () => {
   const screen = await render(<ElementDocs />)
   const ids = [...screen.container.querySelectorAll('h3')].map((h) => h.id)
@@ -125,9 +122,9 @@ function token(row: HTMLTableRowElement | undefined, cell: number, cls: string) 
   return { text: span.textContent, color: getComputedStyle(span).color }
 }
 
-// The machine columns in the example's colours, by what each column holds
-// (round 3 review): the same word is a property in one column and a type in
-// the next, so these read the colour the page shows, cell by cell.
+// The machine columns in the example's colours, by what each column holds: the
+// same word is a property in one column and a type in the next, so these read
+// the colour the page shows, cell by cell.
 test('the machine columns wear the colour of what they hold', async () => {
   const screen = await render(<ElementDocs />)
   const at = (key: string) => rowFor(screen.container, key)
@@ -148,9 +145,9 @@ test('the machine columns wear the colour of what they hold', async () => {
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })
 
-// Every colour of the code clears 4.5:1 on both planes it can sit on, as the
-// handoff states: the block's and the tables' --graphite, and --void. Read
-// through a probe the browser resolves, not from the hex in the sheet.
+// Every colour of the code clears 4.5:1 on both planes it can sit on: the
+// block's and the tables' --graphite, and --void. Read through a probe the
+// browser resolves, not from the hex in the sheet.
 test('every code colour clears 4.5:1 on --graphite and --void', async () => {
   const screen = await render(<div className="fw" />)
   const probe = document.createElement('span')

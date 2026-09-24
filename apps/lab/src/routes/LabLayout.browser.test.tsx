@@ -11,7 +11,7 @@ import '../design/run.css'
 import '../design/report.css'
 
 // Every case here is about geometry at a stated size, so each sets its own
-// viewport first: the size a case sets outlives it (harness facts).
+// viewport first: the size a case sets outlives it.
 
 function rect(container: HTMLElement, selector: string): DOMRect {
   const found = container.querySelector(selector)
@@ -19,13 +19,10 @@ function rect(container: HTMLElement, selector: string): DOMRect {
   return found.getBoundingClientRect()
 }
 
-// Spec §4.1: closed, the report is its 28px handle in the stage's last track
-// and nothing more — at 1400, where it used to take a row under the board or a
-// third of the stage beside it (at 860 the run column is a bar under the board
-// since handoff 2, PR 7, pinned by the layout audit's `bar-row`). The report itself is hidden, out of
-// the tab order and the accessibility tree. Since handoff 2, PR 1, the run
-// column sits between the board and the handle, and the settings drawer's
-// handle is the stage's other `.fw-drawer-handle`, hence the child selector.
+// Closed, the report is its 28px handle in the stage's last track and nothing
+// more; the report itself is hidden, out of the tab order and the accessibility
+// tree. The run column sits between the board and the handle, and the settings
+// drawer's handle is the stage's other `.fw-drawer-handle`, hence the child selector.
 test.each([[1400, 900, 'advanced']] as const)(
   'at %i×%i (%s) the closed report leaves only its handle beside the board',
   async (w, h, mode) => {
@@ -50,8 +47,8 @@ test.each([[1400, 900, 'advanced']] as const)(
   40_000,
 )
 
-// Open, the report is as wide as the column it used to be, clamp(22rem, 24vw,
-// 32rem), and it lies over the board rather than moving it (P3 kept).
+// Open, the report is clamp(22rem, 24vw, 32rem) wide, and it lies over the
+// board rather than moving it.
 test.each([
   [1280, 800, 352],
   [1920, 1080, 460.8],
@@ -79,11 +76,10 @@ test.each([
   40_000,
 )
 
-// Spec §4.1: closing slides the whole drawer out, report and all. The report
-// turns hidden only once the 180ms slide is over (`transition: visibility 0s
-// linear 180ms`, shell.css); hidden at once, only the bare 28px handle would
-// cross the board. Read on the node itself, right after the click, and again
-// once the transitions have finished.
+// Closing slides the whole drawer out, report and all: the report turns hidden
+// only once the 180ms slide is over, or only the bare 28px handle would cross
+// the board. Read on the node right after the click, and again once the
+// transitions have finished.
 test('closing the drawer keeps the report on screen for the slide, then hides it', async () => {
   await page.viewport(1280, 800)
   const screen = await mountApp('advanced')
@@ -101,12 +97,9 @@ test('closing the drawer keeps the report on screen for the slide, then hides it
   expect(report.checkVisibility({ visibilityProperty: true }), 'after the slide').toBe(false)
 }, 40_000)
 
-// The defect PR #67's browser pass found (PR 4b, Ruling 1): a figure shrunk
-// below its content let `.fw-cmd` paint behind Generate. Beside the board
-// (handoff 2, PR 1) the figure and the command are `flex: none` (run.css):
-// the box shows the whole command, a longer one pushes Generate down, and the
-// column scrolls rather than the box. So the box still never paints over
-// Generate, and nothing of the command is out of the box's sight.
+// A figure shrunk below its content once let `.fw-cmd` paint behind Generate.
+// The figure and the command are `flex: none`: the box shows the whole command,
+// a longer one pushes Generate down, and the column scrolls rather than the box.
 const COMMAND_BOX_SIZES = [[1400, 900, 'advanced']] as const
 
 test.each(COMMAND_BOX_SIZES)(
@@ -119,7 +112,7 @@ test.each(COMMAND_BOX_SIZES)(
     const go = () => rect(screen.container, '.fw-go')
     expect(box().bottom).toBeLessThanOrEqual(go().top)
     const goTop = go().top
-    // The long command RunColumn.browser.test.tsx uses for the same question.
+    // The long command the run column's own test uses.
     await act(async () =>
       useStore.getState().params.setMany({
         W: 137,
@@ -134,8 +127,8 @@ test.each(COMMAND_BOX_SIZES)(
       }),
     )
     expect(box().bottom).toBeLessThanOrEqual(go().top)
-    // The longer command took more lines, so Generate went down with it — the
-    // proof the box grew rather than scrolled.
+    // The longer command took more lines, so Generate went down with it: the
+    // box grew rather than scrolled.
     expect(go().top).toBeGreaterThan(goTop)
     const pre = screen.container.querySelector('.fw-cmd')
     if (pre === null) throw new Error('the command box is not on the page')
@@ -147,6 +140,7 @@ test.each(COMMAND_BOX_SIZES)(
   40_000,
 )
 
+/** HTML's focus fixup lands after two frames; see `twoFrames` in the run column's tests. */
 function twoFrames(): Promise<void> {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
@@ -158,10 +152,9 @@ const SOLO_SIZES = [
   [860, 900, 'simple'],
 ] as const
 
-// Spec §5.1: the board box fills the lab, not merely "the rest is hidden". The
-// 34px are the wrap's 16px padding and the board's 1px border on each side,
-// measured at every one of these sizes. And nothing is remounted: the GL
-// canvas and the run column are the same nodes before, during and after.
+// The board box fills the lab, not merely "the rest is hidden". The 34px are
+// the wrap's 16px padding and the board's 1px border on each side. And nothing
+// is remounted: the GL canvas and the run column are the same nodes throughout.
 test.each(SOLO_SIZES)(
   'at %i×%i (%s) solo gives the board the whole lab and remounts nothing',
   async (width, height, mode) => {
@@ -210,10 +203,9 @@ function press(target: EventTarget, init: KeyboardEventInit): void {
 
 const solo = () => useStore.getState().ui.solo
 
-// Spec §5.1: `f` and `F`, and nothing else. Every refusal is followed by the
-// same event without the thing refused, so a listener that ignored synthetic
-// events altogether could not pass the refusals. Escape used to be asserted
-// here too, before the palette gave it an owner (see the two cases below).
+// `f` and `F`, and nothing else. Every refusal is followed by the same event
+// without the thing refused, so a listener that ignored synthetic events
+// altogether could not pass the refusals. Escape belongs to the palette (below).
 test('f toggles solo, and a modifier or a repeat does nothing', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -234,9 +226,7 @@ test('f toggles solo, and a modifier or a repeat does nothing', async () => {
   expect(solo()).toBe(false)
 }, 40_000)
 
-// The reservation this splits was written when nothing owned Escape
-// ("The palette of PR 7 owns Escape; nothing else binds it"). Both halves
-// still matter: solo must not answer Escape, and the palette must.
+// Solo must not answer Escape, and the palette must.
 test('Escape with the palette closed still leaves solo alone', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -260,18 +250,16 @@ test('⌘K opens the palette anywhere, Escape closes it, and solo is untouched e
   await userEvent.keyboard('{Escape}')
   await expect.poll(() => useStore.getState().ui.palette).toBe(false)
   expect(solo()).toBe(false)
-  // Uppercase `K`, the way a real keyboard sends it with Shift held or Caps
-  // Lock on: `App.tsx`'s guard checks both `'k'` and `'K'`, and this half of
-  // it has no other case exercising it.
+  // Uppercase `K`, as a real keyboard sends it with Shift or Caps Lock: the
+  // guard checks both `'k'` and `'K'`, and no other case exercises this half.
   await userEvent.keyboard('{Meta>}K{/Meta}')
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
-// Spec §7: ⌘K is bound on every route, the docs included, because navigation
-// is half of what the palette is for — unlike `f` (solo, workspace-only),
-// this listener is not gated by `onWorkspace`. `BrowserRouter` commits
-// navigation inside `startTransition`, so the route change is polled before
-// ⌘K is asserted on it.
+// ⌘K is bound on every route, the docs included, because navigation is half
+// of what the palette is for; unlike `f`, it is not gated by `onWorkspace`.
+// `BrowserRouter` commits navigation inside `startTransition`, so the route
+// change is polled before ⌘K is asserted on it.
 test('⌘K opens the palette on the docs route too', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -284,11 +272,10 @@ test('⌘K opens the palette on the docs route too', async () => {
   await expect.poll(() => useStore.getState().ui.palette).toBe(true)
 }, 40_000)
 
-// The trigger and the dialog have to be on the page together for this, which
-// only the whole application gives. The defect: the dialog closes on a press
-// outside its frame, and the trigger is outside its frame — so the press shut
-// the palette and the click that followed opened it again. The button could
-// never close what it opened, and the dialog remounted on every such click.
+// Needs the whole application: the trigger and the dialog on the page together.
+// The dialog closes on a press outside its frame, and the trigger is outside
+// it, so without the exception the press shut the palette and the click that
+// followed opened it again: the button could never close what it opened.
 test('the ⌘K button closes the palette it opened, rather than reopening it', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -318,9 +305,8 @@ test('f typed into the palette is text, not a toggle', async () => {
   expect(solo()).toBe(false)
 }, 40_000)
 
-// Spec D5: the same field the case above exercises for `f` silences `g`, `[`
-// and `]` too — `isHotkeyRefused` refuses the palette's search box like any
-// other input, so it never starts a run or moves the seed while typed into.
+// The same field silences `g`, `[` and `]` too: `isHotkeyRefused` refuses the
+// palette's search box like any other input.
 test('g, [ and ] typed into the palette are text, not hotkeys', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -348,7 +334,7 @@ test('f typed into a field or an editable region is text, not a toggle', async (
   await userEvent.keyboard('{Escape}')
 
   // The board group has no `<select>`; `difficulty` holds `trapBias`'s
-  // ChoiceKnob and the start control, both selects (engine.ts:2517-2519).
+  // ChoiceKnob and the start control, both selects.
   await screen.getByRole('tab', { name: 'difficulty', exact: true }).click()
   await expect.element(screen.getByRole('tabpanel', { name: 'difficulty' })).toBeVisible()
   const select = screen.container.querySelector('select')
@@ -369,10 +355,9 @@ test('f typed into a field or an editable region is text, not a toggle', async (
 }, 40_000)
 
 // Two refusals the modifier loop above cannot express. `isComposing` is a field
-// of `KeyboardEventInit`, so it goes in directly; `defaultPrevented` is not a
-// field at all — it is the result of `preventDefault()` on a cancelable event,
-// so a capture listener one step earlier has to produce it, which is also how a
-// real handler that already used the key would.
+// of `KeyboardEventInit`; `defaultPrevented` is the result of `preventDefault()`
+// on a cancelable event, so a capture listener one step earlier produces it, as
+// a real handler that already used the key would.
 test('f being composed, or already handled by someone else, is not a toggle', async () => {
   await page.viewport(1400, 900)
   await mountApp('advanced')
@@ -396,8 +381,7 @@ test('f being composed, or already handled by someone else, is not a toggle', as
   expect(solo()).toBe(true)
 }, 40_000)
 
-// Solo belongs to the stage, and the docs route has none. (Until PR 5a the
-// saved boards had none either, which is what this case used to assert.)
+// Solo belongs to the stage, and the docs route has none.
 test('f does nothing on the docs route', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -410,8 +394,8 @@ test('f does nothing on the docs route', async () => {
   expect(solo()).toBe(false)
 }, 40_000)
 
-// Spec §5.1: a focus inside what solo hides would fall to <body> at the next
-// rendering step; it goes to the toggle instead, which is where solo is undone.
+// A focus inside what solo hides would fall to <body> at the next rendering
+// step; it goes to the toggle instead, which is where solo is undone.
 test('a focus inside what solo hides moves to the toggle', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -425,9 +409,9 @@ test('a focus inside what solo hides moves to the toggle', async () => {
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Full view (key F)' }).element())
 }, 40_000)
 
-// Spec D5. The same guard set as `f`, and each refusal is followed by the very
-// same event without the thing refused, so a listener ignoring synthetic
-// events could not pass.
+// The same guard set as `f`, and each refusal is followed by the very same
+// event without the thing refused, so a listener ignoring synthetic events
+// could not pass.
 test('g generates, and refuses a modifier, a repeat, a cancelled event and a field', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -465,7 +449,7 @@ test('] and [ step the seed by one and carve it', async () => {
   expect(useStore.getState().params.values.seed).toBe(before)
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
 
-  // Ruling 3: the machine path must not also wake auto-generate.
+  // The machine path must not also wake auto-generate.
   const edits = useStore.getState().params.edits
   press(document.body, { key: ']' })
   expect(useStore.getState().params.edits).toBe(edits)
@@ -476,31 +460,25 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   const screen = await mountApp('advanced')
   await loadRunDone()
   await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
-  // `window.location.pathname` flips synchronously inside react-router's own
-  // history push, ahead of the `startTransition`-wrapped render that commits
-  // `onWorkspace`; polling it raced `useRunKeys`'s guard under load (measured:
-  // deterministic failure once other cases ran first). The hidden attribute
-  // below is driven by that same committed render — the pattern the `f` case
-  // above already uses for this exact route — so it does not race.
+  // `location.pathname` flips inside react-router's history push, ahead of the
+  // `startTransition` render that commits `onWorkspace`, so polling it races
+  // `useRunKeys`'s guard. The hidden attribute is set by that committed render.
   await expect
     .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
     .toBe(true)
-  // The attribute is the commit's; the listener leaves in that commit's
-  // passive-effect cleanup, which React runs after it — a window no hand can
-  // press into, but a synchronous `press` right after the poll can, and did
-  // in two whole-suite runs of handoff 2's PR 6. Two
-  // frames let the cleanup run; the `f` case above gets the same wait from
-  // `userEvent.keyboard`'s round trip.
+  // The listener leaves in the commit's passive-effect cleanup, which runs
+  // after the attribute is set; a synchronous `press` right after the poll can
+  // land in between. Two frames let the cleanup run (`twoFrames`); the `f` case
+  // gets the same wait from `userEvent.keyboard`'s round trip.
   await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
   const seed = useStore.getState().params.values.seed
   press(document.body, { key: ']' })
   expect(useStore.getState().params.values.seed).toBe(seed)
 }, 40_000)
 
-// Handoff 2, PR 1: the run column is the stage's third track, clamp(16rem,
-// 22vw, 28rem): at 1920 it is 422.4, at 2560 the 28rem cap holds. PR 7's L
-// band (1280–1599) sets it to 18rem, so 288 at 1400; M and S (below 1280)
-// have no column, only the bar under the board.
+// The run column is the stage's third track, clamp(16rem, 22vw, 28rem): at
+// 1920 it is 422.4, at 2560 the 28rem cap holds. The L band (1280–1599) sets it
+// to 18rem, so 288 at 1400; M and S (below 1280) have only the bar under the board.
 test.each([
   [1400, 900, 288],
   [1920, 1080, 422.4],
@@ -516,8 +494,8 @@ test.each([
   40_000,
 )
 
-// Spec §5.3: the primary action in the UI's own face, heavier than the
-// buttons under it, and a full touch target at every pointer.
+// The primary action in the UI's own face, heavier than the buttons under it,
+// and a full touch target at every pointer.
 test('Generate is set in JetBrains Mono, 500, 13px, 44px high', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -532,8 +510,8 @@ test('Generate is set in JetBrains Mono, 500, 13px, 44px high', async () => {
 
 const report = () => useStore.getState().ui.report
 
-// Spec §4.3: `r` and `R` toggle the drawer under the same guard as `f`; each
-// refusal is followed by the same event without the thing refused.
+// `r` and `R` toggle the drawer under the same guard as `f`; each refusal is
+// followed by the same event without the thing refused.
 test('r toggles the report, and a modifier, a repeat or a field does nothing', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -589,10 +567,10 @@ test('r does nothing on the docs route', async () => {
   expect(report()).toBe(false)
 }, 40_000)
 
-// Handoff 2, PR 6: the saved boards take the lab's stage — the settings
-// drawer on the left, the open board's column on the right, the report drawer
-// — and `r` toggles the one report state both tabs share. The route changes
-// inside a transition (harness facts), hence the polls after each tab click.
+// The saved boards take the lab's stage: the settings drawer on the left, the
+// open board's column on the right, the report drawer; and `r` toggles the one
+// report state both tabs share. The route changes inside a transition, hence
+// the polls after each tab click.
 test('the saved boards share the lab’s drawers and their keys', async () => {
   await page.viewport(1400, 900)
   // The listing's fetch never answers: this case is about the face, not the store.
@@ -631,13 +609,10 @@ test('the saved boards share the lab’s drawers and their keys', async () => {
   }
 }, 40_000)
 
-// Solo hides the preset strip; an open panel must not be waiting behind it
-// when solo turns off again. `f` is pressed with the focus inside the panel,
-// on a preset button, which is not a field. What closes the panel is the
-// strip's focusout: BoardFrame moves the focus to the solo toggle (outside the
-// strip) before the strip is hidden. That holds on every path that opens the
-// panel — a press anywhere else in the strip moves the focus to the tab panel
-// and closes it the same way — so the panel needs no solo rule of its own.
+// Solo hides the preset strip; an open panel must not be waiting behind it when
+// solo turns off. `f` is pressed with the focus on a preset button (not a
+// field). The strip's focusout closes the panel: `BoardFrame` moves the focus
+// to the solo toggle before the strip is hidden, so no solo rule is needed.
 test('turning solo on closes an open preset panel', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -666,7 +641,7 @@ test('closing the report with the focus inside it moves the focus to the handle'
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'report', exact: true }).element())
 }, 40_000)
 
-// Spec §6: thin scrollbars in the lab's own colours.
+// Thin scrollbars in the lab's own colours.
 test('the lab scrolls with thin scrollbars in the border colour', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -680,8 +655,8 @@ test('the lab scrolls with thin scrollbars in the border colour', async () => {
 
 const settings = () => useStore.getState().ui.settings
 
-// Handoff 2, PR 1: `s` and `S` toggle the settings drawer under the guard `r`
-// uses; each refusal is followed by the same event without the thing refused.
+// `s` and `S` toggle the settings drawer under the guard `r` uses; each
+// refusal is followed by the same event without the thing refused.
 test('s toggles the settings, and a modifier, a repeat or a field does nothing', async () => {
   await page.viewport(1400, 900)
   const screen = await mountApp('advanced')
@@ -741,10 +716,9 @@ test('s does nothing on the docs route', async () => {
   }
 }, 40_000)
 
-// Handoff 2, PR 1: unlike the report, the open settings drawer does not cover
-// the board — from 1024px up the board's track gives way by the drawer's width
-// — and closed it is its 28px handle on the stage's left edge, the console
-// hidden once the slide is over.
+// Unlike the report, the open settings drawer does not cover the board: from
+// 1024px up the board's track gives way by the drawer's width. Closed it is its
+// 28px handle on the stage's left edge, the console hidden once the slide is over.
 test.each([
   [1024, 768],
   [1400, 900],
@@ -775,14 +749,10 @@ test.each([
   40_000,
 )
 
-// Round 3, PR 5: the board keeps its 16px on the left whatever the settings
-// drawer does. The open drawer used to replace the board's own padding with
-// its width, so the board's frame stood one pixel — the stage's 1px column
-// gap — from the drawer; now it gives way by the drawer's width plus those
-// 16px. So the gap is the same open and closed: the wrap's 16px plus the
-// stage's 1px, measured on the board's frame against the drawer's edge when
-// open and its handle's when closed. The frame widths are the handoff's
-// checkpoint, 16px narrower than the flush 671 / 533 / 395 / 440.
+// The board keeps its 16px on the left whatever the settings drawer does: open,
+// the board's track gives way by the drawer's width plus 16px. So the gap is
+// the same open and closed, the wrap's 16px plus the stage's 1px column gap,
+// measured against the drawer's edge when open and its handle's when closed.
 test.each([
   [1920, 1080, 655],
   [1440, 900, 517],
@@ -807,8 +777,7 @@ test.each([
   40_000,
 )
 
-// Round 3 (3h): the run's state moved into the run column. The numbers are the
-// handoff's reconstruction; 1 − 734/1250 prints as 41.3.
+// The run's state lives in the run column. 1 − 734/1250 prints as 41.3.
 const PROGRESS = { pieces: 52, remaining: 734, backtracks: 18, ms: 1400, total: 1250 }
 
 /** A carve in flight, as the worker's first report leaves the store. */
@@ -871,9 +840,9 @@ test.each([
   40_000,
 )
 
-// The handoff's checkpoint at 1440×900 in Polish: Generate is the meter, 260px
-// wide, the stage says it is busy, and the line under Generate is the rest of
-// the progress, two lines tall with its 6 + 8px padding.
+// At 1440×900 in Polish: Generate is the meter, 260px wide, the stage says it
+// is busy, and the line under Generate is the rest of the progress, two lines
+// tall with its 6 + 8px padding.
 test('at 1440×900 in Polish Generate is the meter and the line under it wraps in two', async () => {
   await page.viewport(1440, 900)
   const screen = await mountApp('advanced')

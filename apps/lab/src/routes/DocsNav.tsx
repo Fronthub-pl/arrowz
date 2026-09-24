@@ -7,9 +7,8 @@ import { useDictionary } from '../i18n'
 export type DocsPage = 'element' | 'cli'
 
 /**
- * Each page's sections, in page order: the `id` of the section's `h3`
- * (ElementDocs.tsx, CliDocs.tsx) and the key of its heading, so the column and
- * the page read one string.
+ * Each page's sections, in page order: the `id` of the section's `h3` and the
+ * key of its heading, so the column and the page read one string.
  */
 export const DOCS_SECTIONS = {
   element: [
@@ -46,23 +45,19 @@ export function pageOf(pathname: string): DocsPage {
 }
 
 /**
- * The documentation's navigation, one column in two levels (round 3, 3f):
- * both pages, and under each the sections of that page. Links, not a radio
- * group and not a second tablist: a documentation page has an address worth
- * copying and opening in a new tab, and only a link gives one. A section's
- * link is its page's address, keeping the lab's fragment, with the section
- * in the navigation's state (`sectionOf`); useSectionInView.ts scrolls the
- * panel to it — the panel, not the document, which does not scroll.
+ * The documentation's navigation, one column in two levels: both pages, and
+ * under each the sections of that page. Links, not a radio group or a second
+ * tablist: a documentation page has an address worth copying, and only a link
+ * gives one. A section's link is its page's address, keeping the lab's
+ * fragment, with the section in the navigation's state (`sectionOf`);
+ * `useSectionInView` scrolls the panel to it.
  *
  * `NavLink` and `Link`, not a plain `<a href>`: an anchor would reload the
- * document, killing the run in flight and disposing the board's WebGL context,
- * which is the whole point of Ruling 5 and of the comment in AppRoutes.tsx.
+ * document, killing the run in flight and disposing the board's WebGL context.
  *
- * Two kinds of "current", two values. `aria-current="page"` is NavLink's own
- * default for the page on screen; `aria-current="true"` marks the section in
- * view, which `section` names (useSectionInView.ts) — only ever one of the
- * page on screen. Neither collides with the lab's `[aria-current='true']`
- * rules for preset chips and library rows: `docs.css` scopes its own.
+ * Two kinds of "current": `aria-current="page"` is NavLink's own default for
+ * the page on screen; `aria-current="true"` marks the section in view. Neither
+ * collides with the lab's `[aria-current='true']` rules: `docs.css` scopes its own.
  *
  * Under 768 the column stands over the page and lists the sections of the
  * page on screen only; `on` is the class that tells the sheet which.

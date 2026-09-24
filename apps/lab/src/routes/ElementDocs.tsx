@@ -21,10 +21,7 @@ function Mono({ text, column }: { text: string; column: CellRole }): ReactElemen
   )
 }
 
-/**
- * The note's mark: a line info glyph, drawn rather than a letter in a box
- * (round 3 review). Decoration only — the note is named by its `aside`.
- */
+/** The note's mark, a drawn info glyph. Decoration only: the note is named by its `aside`. */
 function InfoIcon(): ReactElement {
   return (
     <svg className="i" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -42,8 +39,8 @@ function InfoIcon(): ReactElement {
  * points at: this page is a reference, and a second copy of the prose would be
  * a second thing to keep true.
  *
- * Every `h3` has an id: the navigation column lists them (DocsNav.tsx) and
- * scrolls the panel to them, and each table is named by its own.
+ * Every `h3` has an id: the navigation column lists them and scrolls the panel
+ * to them, and each table is named by its own.
  */
 export function ElementDocs(): ReactElement {
   const docs = useDocs()

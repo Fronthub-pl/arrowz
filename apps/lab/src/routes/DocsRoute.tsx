@@ -8,11 +8,10 @@ import { useSectionInView } from './useSectionInView'
 /**
  * The documentation tab's two pages. The section keeps the id, role and
  * aria-labelledby the tab strip resolves against, and the tabIndex that makes a
- * panel with no focusable content reachable — AppRoutes.browser.test.tsx and
- * Workspace.browser.test.tsx both hold that shell in place.
+ * panel with no focusable content reachable.
  *
- * Inside it, the navigation column beside the page (round 3, 3f); under 768
- * the column stands over it (docs.css).
+ * Inside it, the navigation column beside the page; under 768 the column
+ * stands over it.
  *
  * An unknown page name redirects rather than rendering an empty panel: the
  * wildcard route cannot catch it, because `/docs/:what` has already matched.

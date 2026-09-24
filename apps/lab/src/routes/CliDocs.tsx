@@ -11,8 +11,7 @@ import { DocsBlock } from './DocsBlock'
  *
  * Both forms are shown: the everyday block and the full knob table. The text
  * itself stays the terminal's own English, uncoloured; the frame around it is
- * translated. The headings' ids are the navigation column's targets
- * (DocsNav.tsx).
+ * translated. The headings' ids are the navigation column's targets.
  */
 export function CliDocs(): ReactElement {
   const docs = useDocs()
