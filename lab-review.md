@@ -31,7 +31,8 @@ and a test pins it; "open" means the code still reads as the finding says.
 
 **Gates.** `pnpm nx run-many -t verify` green (4 projects, 21 tasks) in a clean
 worktree at `701e83a`; `lab:test` 1153 passed at `13ff72f` (1145 at `4e9d8eb`,
-before D1's fix). A live pass in Chrome at `4e9d8eb` passed all seven scenarios
+before D1's fix; 1168 at `b32ba70`, after the follow-ups below, the latest
+full run). A live pass in Chrome at `4e9d8eb` passed all seven scenarios
 (palette jump in EN and PL, ◑ against the lab switch and in the library,
 highlight and margin across a reload, Inspect and Play, report wording,
 1280×699 against 1280×700, a phone at 375×812 in PL). It found one new layout
@@ -53,6 +54,29 @@ non-header blocks of at most 6 lines and headers of at most 24, over
 The engine's other files and `packages/cli` were not swept: 25 marker lines in
 9 files there, 39 with `scripts/`. (The 22.9% in "Comment prose" below used a
 different counter over 237 files; the two numbers are not comparable.)
+
+**Follow-ups requested during the live pass.** After the browser pass at
+`4e9d8eb`, four more changes were asked for and committed:
+
+- `e395681` — the longest-pieces highlight was on by default; now off, and a
+  link without the key reads as off too, the same rule already used for
+  `colored`.
+- `9fb6540` — the lab's own names for the highlight fields are now readable:
+  `view.hilite` became `highlightLongest`, and the colour field became
+  `highlightColor`, across the store, the i18n keys, the DOM ids and the hash
+  keys. Old links still open, through a legacy fallback in the decoder. The
+  element's own `view.highlight` is unchanged; that rename is left for a
+  separate refinement of the component.
+- `4a34463`, `ba54d2f` — the saved board's layout hash in the library shows
+  in full now, wrapped onto as many lines as it needs, instead of being cut
+  with a `title` tooltip. The second commit re-measured the wrap through the
+  real app rather than an isolated column, after a review caught that the
+  first pass had not.
+- `b32ba70` — switching between View, Inspect and Play no longer restarts the
+  game: the lab mirrors the element's session (through `piece-removed` and
+  the engine's `play()`), so Inspect always describes the board as it now
+  stands. A separate Reset button, shown in both Inspect and Play, starts the
+  game over.
 
 ### The findings that matter most
 
@@ -246,6 +270,17 @@ section above).
 9. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
    covers the board's top-left cells; pre-existing, and no audited case uses
    pad 0, so no invariant catches it today.
+10. **D2, found in the follow-up live pass:** at phone width (375×812) the
+    board element's own control bar (+ − fit ◑, 44 px touch targets) covers
+    about one row of the board's bottom-right cells (measured overlap
+    59×8.5 px). It appeared once the mode strip moved under the frame
+    (`20d50cd`) and made the frame shorter; the `board-cover` invariant checks
+    the lab's own overlays only, not the element's own bar. Options: the lab
+    enlarges the margin on narrow screens by the bar's height, or the
+    element's fit reserves room for its own bar (a component refinement).
+    Deferred by the user's decision.
+11. **The saved board's "generated" fact truncates the time** (`21:50:…`) at
+    the column's width; only the layout row wraps.
 
 The five passes follow in full.
 
