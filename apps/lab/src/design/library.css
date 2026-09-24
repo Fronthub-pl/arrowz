@@ -142,6 +142,13 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+/* The generated row wraps only between its duration and its date: no
+   overflow-wrap, so neither part breaks mid-word. */
+.fw-bmeta dd.wrap-text {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
 .fw-bcol > .fw-lib-empty {
   margin: 0;
 }

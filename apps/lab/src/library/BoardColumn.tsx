@@ -162,14 +162,20 @@ export function BoardColumn(): ReactElement {
   }
 
   const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
-  // The layout row alone carries the full hash and wraps for it: a hash this
-  // long has no useful shortening, and a `title` nobody can select is worse
-  // than letting the row grow.
-  const facts: [string, string, boolean?][] = [
-    [dict.t('factLayout'), `${size}/${meta.id}`, true],
+  // The layout row alone carries the full hash and wraps anywhere: a hash
+  // this long has no useful shortening, and a `title` nobody can select is
+  // worse than letting the row grow. The generated row wraps only at the
+  // space its own join put between the duration and the date — breaking
+  // `21:50:45` itself would be as unreadable as cutting it.
+  const facts: [string, string, ('hash' | 'text')?][] = [
+    [dict.t('factLayout'), `${size}/${meta.id}`, 'hash'],
     [dict.t('factSeed'), String(meta.seed)],
     [dict.t('factSource'), meta.source],
-    [dict.t('factGenerated'), [`${genSeconds(meta, '—')} s`, created].filter((part) => part !== '').join(' · ')],
+    [
+      dict.t('factGenerated'),
+      [`${genSeconds(meta, '—')} s`, created].filter((part) => part !== '').join(' · '),
+      'text',
+    ],
   ]
 
   return (
@@ -215,7 +221,7 @@ export function BoardColumn(): ReactElement {
         {facts.map(([term, value, wrap]) => (
           <div key={term}>
             <dt>{term}</dt>
-            <dd className={wrap === true ? 'wrap' : undefined}>{value}</dd>
+            <dd className={wrap === 'hash' ? 'wrap' : wrap === 'text' ? 'wrap-text' : undefined}>{value}</dd>
           </div>
         ))}
       </dl>

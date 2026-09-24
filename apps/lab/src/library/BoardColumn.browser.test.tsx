@@ -1,4 +1,5 @@
 import { decodeBoard } from '@arrowz/engine'
+import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
@@ -267,6 +268,33 @@ function lineCount(dd: Element): number {
   return range.getClientRects().length
 }
 
+// A word (split on spaces) broken mid-word lays its own Range's client rects
+// on two different tops; a whole word keeps them all on one.
+function wordsStayWhole(dd: Element): boolean {
+  const node = dd.firstChild
+  const text = dd.textContent ?? ''
+  if (node === null) return text === ''
+  let offset = 0
+  for (const word of text.split(' ')) {
+    if (word !== '') {
+      const range = document.createRange()
+      range.setStart(node, offset)
+      range.setEnd(node, offset + word.length)
+      const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)))
+      if (tops.size > 1) return false
+    }
+    offset += word.length + 1
+  }
+  return true
+}
+
+// The exact text `BoardColumn` builds for the generated row, from the same
+// deterministic fixture fields the width cases read.
+function generatedText(): string {
+  const created = stored.meta.createdAt ? new Date(stored.meta.createdAt).toLocaleString('en-GB') : ''
+  return [`${genSeconds(stored.meta, '—')} s`, created].filter((part) => part !== '').join(' · ')
+}
+
 /** The store's list and file endpoints for the one fixture board, so `useStoredBoard` finds it the way a person's click would. */
 function stubStore() {
   vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
@@ -306,17 +334,20 @@ test.each([
   [1400, 900, false],
   [375, 812, true],
 ] as const)(
-  'at %dx%d the layout hash wraps in full, and the seed stays one line',
+  'at %dx%d the layout hash wraps in full, the generated fact wraps between its parts, and the seed stays one line',
   async (w, h, sheet) => {
     try {
       const screen = await openLibraryDetail(w, h, sheet)
       const facts = screen.container.querySelectorAll('#board-column .fw-bmeta dd')
-      const [layout, seed] = facts
-      if (layout === undefined || seed === undefined) throw new Error('missing fact rows')
+      const [layout, seed, , generated] = facts
+      if (layout === undefined || seed === undefined || generated === undefined) throw new Error('missing fact rows')
       expect(layout.textContent).toBe(`8x8/${stored.meta.id}`)
       expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
       expect(lineCount(layout)).toBeGreaterThan(1)
       expect(lineCount(seed)).toBe(1)
+      expect(generated.textContent).toBe(generatedText())
+      expect(generated.scrollWidth).toBeLessThanOrEqual(generated.clientWidth)
+      expect(wordsStayWhole(generated)).toBe(true)
     } finally {
       // The default a case in this file that sets no viewport of its own relies on.
       await page.viewport(414, 896)
