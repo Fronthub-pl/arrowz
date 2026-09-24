@@ -149,7 +149,8 @@ const EN = {
   },
   events: {
     'piece-click': 'A piece was clicked, while interactive or playing.',
-    'colored-change': 'The colour button was clicked; cancelable, and fired before the colour override takes effect.',
+    'colored-change':
+      'The colour button was clicked; cancelable, and fired before it changes the override. Cancelling clears the override instead, handing the colour back to `view.colored`.',
     'piece-removed': 'A free piece started its ride off the board.',
     'life-lost': 'A blocked piece started its bounce against the piece that stops it.',
     'finished': 'The last piece finished its ride.',
@@ -213,7 +214,8 @@ const PL = {
   },
   events: {
     'piece-click': 'Kliknięto element, w trybie interaktywnym albo w grze.',
-    'colored-change': 'Kliknięto przycisk koloru; można je anulować, leci przed zmianą nadpisania koloru.',
+    'colored-change':
+      'Kliknięto przycisk koloru; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
     'piece-removed': 'Wolny element ruszył w drogę poza planszę.',
     'life-lost': 'Zablokowany element odbił się od tego, który go zatrzymał.',
     'finished': 'Ostatni element zakończył przejazd.',

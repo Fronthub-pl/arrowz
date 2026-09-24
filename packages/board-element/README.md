@@ -65,7 +65,7 @@ that only renders a board has no reason to call it.
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
-| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button before the colour override is set; `preventDefault()` leaves `view.colored` in charge |
+| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button before it changes the colour override; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
@@ -224,8 +224,9 @@ so telling the pieces apart without colour is the task. With the permission the
 board grows a fourth chrome button, and a board may arrive coloured through
 `view.colored` or through a loaded game. The button announces a cancelable
 `colored-change` event before it acts: a host that does nothing keeps today's
-behaviour (the button decides), and one that calls `preventDefault()` keeps
-`view.colored` in charge instead.
+behaviour (the button decides), and one that calls `preventDefault()` clears
+the button's own choice — including one made earlier, by a click or by
+`loadState` — so `view.colored` is back in charge from that click on.
 
 Assigning `board` always starts a new game and redraws the board in full: a
 fresh session owns a fresh "gone" set, and the layer compares that set by

@@ -39,8 +39,9 @@ export function drawableView(view: BoardView, isColor: IsColor): BoardView {
 
 /**
  * The margin a host may ask for, in cells. Published because the lab draws a
- * field for it and must declare the bounds it is actually held to: past
- * sixteen cells the margin dwarfs boards the engine actually generates.
+ * field for it and must declare the bounds it is actually held to: a slider
+ * needs an end, and this is a margin, not a board dimension — it has no
+ * reason to run anywhere near the sizes a board itself does.
  */
 export const PAD_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 16 }
 

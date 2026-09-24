@@ -438,15 +438,21 @@ describe('colours', () => {
     await mount({ 'enable-colors': '', play: '' })
     const seen: boolean[] = []
     el.addEventListener('colored-change', (e) => seen.push((e as ColoredChangeEvent).detail.colored))
+    // Bubbles and is composed: an ancestor sees it too, not only the element itself.
+    const seenOnDocument: boolean[] = []
+    const onDocument = (e: Event) => seenOnDocument.push((e as ColoredChangeEvent).detail.colored)
+    document.addEventListener('colored-change', onDocument)
     colourButton(el)?.click()
     await el.updateComplete
     expect(seen).toEqual([true])
+    expect(seenOnDocument).toEqual([true])
     expect(el.saveState()?.colored).toBe(true)
     expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
     colourButton(el)?.click()
     await el.updateComplete
     expect(seen).toEqual([true, false])
     expect(el.saveState()?.colored).toBe(false)
+    document.removeEventListener('colored-change', onDocument)
   })
 
   test('preventDefault on colored-change leaves the button and the drawn colour as they were, and the host still controls it through view.colored', async () => {
@@ -468,5 +474,52 @@ describe('colours', () => {
     await el.updateComplete
     expect(el.saveState()?.colored).toBe(true)
     expect(hued(await painted(el), first.id)).toBeGreaterThan(0)
+  })
+
+  test('a cancelled click clears an override set by loadState, handing control back to view.colored', async () => {
+    const board = makeBoard()
+    const first = board.pieces[0]
+    if (!first) throw new Error('need a piece')
+    await mount({ 'enable-colors': '', play: '' }, board)
+    el.view = { colored: false }
+    await el.updateComplete
+    const snap = el.saveState()
+    if (!snap) throw new Error('need a snapshot')
+    el.loadState({ ...snap, colored: true })
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
+
+    el.addEventListener('colored-change', (e) => e.preventDefault())
+    colourButton(el)?.click()
+    await el.updateComplete
+    // The override loadState set is gone, not merely left unchanged: the
+    // button now follows view.colored (false), not the loaded true.
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('false')
+    expect(el.saveState()?.colored).toBe(false)
+    expect(hued(await painted(el), first.id)).toBe(0)
+
+    el.view = { ...el.view, colored: true }
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
+    expect(el.saveState()?.colored).toBe(true)
+    expect(hued(await painted(el), first.id)).toBeGreaterThan(0)
+  })
+
+  test('a cancelled click clears an override set by an earlier, uncancelled click', async () => {
+    await mount({ 'enable-colors': '', play: '' })
+    el.view = { colored: false }
+    colourButton(el)?.click() // uncancelled: the button takes charge, override true
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
+
+    el.addEventListener('colored-change', (e) => e.preventDefault())
+    colourButton(el)?.click() // cancelled: clears the override rather than leaving it at true
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('false')
+    expect(el.saveState()?.colored).toBe(false)
+
+    el.view = { ...el.view, colored: true }
+    await el.updateComplete
+    expect(colourButton(el)?.getAttribute('aria-pressed')).toBe('true')
   })
 })

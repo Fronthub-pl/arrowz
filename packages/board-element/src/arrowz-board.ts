@@ -444,9 +444,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /**
    * Announces the colour choice before acting on it: a host may run its own
-   * storage under `colored-change` and call `preventDefault()` to keep the
-   * override from being set, so `view.colored` stays the one thing deciding
-   * the colour. A host that ignores the event sees today's behaviour.
+   * storage under `colored-change` and call `preventDefault()` to hand the
+   * decision to `view.colored` instead. Cancelling clears any override this
+   * button or `loadState` set earlier, not merely skips setting a new one —
+   * otherwise a cancelling host would only take charge starting from a board
+   * that had never been coloured, and every other one would still be stuck on
+   * whatever the override last was. A host that never cancels sees today's
+   * behaviour: the button decides.
    */
   private readonly toggleColors = (): void => {
     const colored = !this.colored
@@ -456,7 +460,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       composed: true,
       cancelable: true,
     })
-    if (this.dispatchEvent(event)) this.coloredOverride = colored
+    this.coloredOverride = this.dispatchEvent(event) ? colored : null
   }
 
   override updated(changed: PropertyValues<this>): void {
