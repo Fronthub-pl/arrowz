@@ -6,11 +6,10 @@ const SHEETS = import.meta.glob<string>('./*.css', { query: '?raw', import: 'def
 /** Today's count of `max-height` media queries across `design/*.css`; a new one changes this. */
 const QUERY_COUNT = 3
 
-// band.ts reads the low window through one `matchMedia` height; every
-// `@media (max-height: …)` query must gate the same height, or JS and CSS
-// disagree about where "low" starts. Only `@media` preludes are scanned, so a
-// `max-height` property is not counted; the exact count catches a query
-// added or removed.
+// Every `@media (max-height: …)` query must use band.ts's height, or JS and CSS
+// disagree about where "low" starts. Only the height is pinned: band.ts `LOW`
+// also needs `min-width: 768px`, and two of the CSS queries do not. Only
+// `@media` preludes are scanned; the exact count catches a query added or removed.
 test('every max-height query in design/*.css matches band.ts LOW_MAX_HEIGHT', () => {
   const found: Array<readonly [string, number]> = []
   for (const [name, css] of Object.entries(SHEETS)) {

@@ -391,12 +391,13 @@ test('the point grid reaches the element', async () => {
 // never gated on being "set" — every value in range, including the default,
 // is a real margin.
 test('the margin reaches the element', async () => {
+  useStore.getState().view.setPad(7)
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
   const element = screen.container.querySelector('arrowz-board')
-  expect(element?.pad).toBe(DEFAULT_PAD)
-  await act(async () => useStore.getState().view.setPad(7))
   expect(element?.pad).toBe(7)
+  await act(async () => useStore.getState().view.setPad(2))
+  expect(element?.pad).toBe(2)
   useStore.getState().view.setPad(DEFAULT_PAD)
 })
 
