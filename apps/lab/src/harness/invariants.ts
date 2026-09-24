@@ -430,10 +430,12 @@ function frameOverlap(root: HTMLElement): Finding[] {
     const frame = wrap.querySelector(':scope > .fw-board')
     if (frame === null || !rendered(frame)) continue
     const chrome = frame.querySelector('arrowz-board')?.shadowRoot?.querySelector('.chrome') ?? null
-    const inside = (nodes: Iterable<Element>, box: Element) =>
-      [...nodes]
+    const inside = (nodes: Iterable<Element>, container: Element) => {
+      const box = container.getBoundingClientRect()
+      return [...nodes]
         .filter((node) => rendered(node) && node.getBoundingClientRect().width > 0)
-        .map((node) => ({ node, box: box.getBoundingClientRect() }))
+        .map((node) => ({ node, box }))
+    }
     const parts = [
       ...inside(
         [...frame.querySelectorAll(':scope > .fw-anno, :scope > .fw-solo'), ...(chrome === null ? [] : [chrome])],
@@ -477,6 +479,14 @@ function boardCover(root: HTMLElement): Finding[] {
     const wrap = element.closest('.fw-boardwrap')
     if (vp === null || board === null || wrap === null || !vp.fitted || !rendered(element)) continue
     const host = element.getBoundingClientRect()
+    // A viewport for another host size describes a board no longer drawn.
+    if (Math.abs(vp.hostWidth - host.width) > EPS || Math.abs(vp.hostHeight - host.height) > EPS) {
+      out.push({
+        invariant: 'board-cover',
+        detail: `viewport for ${vp.hostWidth}×${vp.hostHeight}, host ${host.width.toFixed(1)}×${host.height.toFixed(1)}`,
+      })
+      continue
+    }
     const left = Math.max(host.left, host.left - vp.originX * vp.cellPx)
     const top = Math.max(host.top, host.top - vp.originY * vp.cellPx)
     const right = Math.min(host.right, host.left + (board.W - vp.originX) * vp.cellPx)

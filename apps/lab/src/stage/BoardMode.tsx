@@ -125,19 +125,22 @@ export function BoardModeLine({ session }: { session: BoardSession }): ReactElem
   const inspected = tally.mode === 'inspect' ? tally.board : null
   const game = useMemo(() => (inspected === null ? null : newSession(inspected)), [inspected])
   if (tally.mode === 'view' || tally.board === null) return null
+  // The full text in `title`: the line is clamped to two lines (`.fw-modetext`).
   if (tally.mode === 'inspect') {
+    const text = inspectText(dict, game, tally.inspected)
     return (
-      <div className="fw-modeline" role="status">
-        {inspectText(dict, game, tally.inspected)}
+      <div className="fw-modeline" role="status" title={text}>
+        <span className="fw-modetext">{text}</span>
       </div>
     )
   }
+  const counts = tally.cleared
+    ? dict.t('playCleared', tally.mistakes)
+    : dict.t('playStatus', dict.fmt(tally.left), tally.mistakes)
   return (
-    <div className="fw-modeline">
-      <span role="status">
-        {tally.cleared
-          ? dict.t('playCleared', tally.mistakes)
-          : dict.t('playStatus', dict.fmt(tally.left), tally.mistakes)}
+    <div className="fw-modeline" title={counts}>
+      <span className="fw-modetext" role="status">
+        {counts}
       </span>
       <button type="button" className="fw-btn" onClick={session.restart}>
         {dict.t('playRestart')}

@@ -7,9 +7,10 @@ import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { App } from '../App'
 import { contrast, shown } from '../design/contrast'
+import { twoFrames } from '../harness/frames'
 import { audit, type Finding, type Invariant } from '../harness/invariants'
 import { loadRunDone, resetApp } from '../harness/mountApp'
-import { settleTransitions as settle } from '../harness/settle'
+import { settleTransitions } from '../harness/settle'
 import { storedFixture } from '../state/library.fixtures'
 import type { Sheet } from '../state/ui.slice'
 import { useStore } from '../state/store'
@@ -104,6 +105,16 @@ const SIZES: readonly (readonly [number, number])[] = [
  * ways, so an entry left behind after its fix is red too.
  */
 const KNOWN_RED: Partial<Record<string, readonly Invariant[]>> = {}
+
+/**
+ * The transitions played out, then two frames: the element takes its new size
+ * in a ResizeObserver, which runs in the rendering step after the frame's
+ * callbacks, and `board-cover` reads the viewport that size gives.
+ */
+async function settle() {
+  await settleTransitions()
+  await twoFrames()
+}
 
 beforeEach(() => {
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
@@ -341,6 +352,67 @@ test.each(['inspect', 'play'] as const)(
     await act(async () => useStore.getState().lang.setLang('pl'))
     await settle()
     expectKnownRed(`${state}@375x812:pl:tall`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// Every card and every count, so a line that sized itself to its text would
+// refit the board under the pointer between two clicks.
+test.each([
+  [1440, 877, 'en'],
+  [1440, 877, 'pl'],
+  [375, 812, 'en'],
+  [375, 812, 'pl'],
+] as const)(
+  'at %d×%d (%s) the mode strip and the board keep one size between clicks',
+  async (w, h, lang) => {
+    await page.viewport(w, h)
+    const screen = await arrange('board')
+    await act(async () => useStore.getState().lang.setLang(lang))
+    const element = screen.container.querySelector('arrowz-board')
+    const board = useStore.getState().result.shown?.board
+    if (element === null || board === undefined) throw new Error('no board on stage')
+    const session = newSession(board)
+    const free = board.pieces.find((pc) => play(session, pc.id).move.kind === 'exit')
+    const blocked = board.pieces.find((pc) => play(session, pc.id).move.kind === 'bounce')
+    if (free === undefined || blocked === undefined) throw new Error('no free or no blocked piece')
+    const fire = (type: string, detail: unknown) =>
+      act(async () => {
+        element.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }))
+      })
+    const sizes: string[] = []
+    const texts: string[] = []
+    const take = async () => {
+      await settle()
+      const rect = (selector: string) =>
+        screen.container.querySelector(selector)?.getBoundingClientRect() ?? new DOMRect()
+      const strip = rect('.fw-modebar')
+      const host = rect('arrowz-board')
+      sizes.push(`strip ${strip.height.toFixed(1)} board ${host.width.toFixed(1)}×${host.height.toFixed(1)}`)
+      texts.push(screen.container.querySelector('.fw-modeline')?.textContent ?? '')
+    }
+    await act(async () => useStore.getState().ui.setBoardMode('inspect'))
+    await take()
+    await fire('piece-click', { pieceId: free.id })
+    await take()
+    await fire('piece-click', { pieceId: blocked.id })
+    await take()
+    const inspect = sizes.splice(0)
+    await act(async () => useStore.getState().ui.setBoardMode('play'))
+    await take()
+    const n = board.pieces.length
+    await fire('piece-removed', { pieceId: free.id, left: n - 1 })
+    await take()
+    await fire('life-lost', { pieceId: blocked.id, blockerId: 0, distance: 0 })
+    await take()
+    await fire('piece-removed', { pieceId: blocked.id, left: 0 })
+    await fire('finished', { pieces: n })
+    await take()
+    const played = sizes.splice(0)
+    // Every step showed a different line, or the heights compared nothing.
+    expect(new Set(texts).size).toBe(texts.length)
+    expect(inspect).toEqual(inspect.map(() => inspect[0]))
+    expect(played).toEqual(played.map(() => played[0]))
   },
   40_000,
 )

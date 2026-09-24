@@ -174,9 +174,10 @@ test.each(SOLO_SIZES)(
     const board = rect(screen.container, 'arrowz-board')
     for (const side of ['top', 'left', 'width', 'height'] as const) expect(wrap[side]).toBeCloseTo(lab[side], 0)
     expect(board.width).toBeCloseTo(lab.width - 34, 0)
-    // The board mode's strip under the frame keeps its height in solo too.
+    // The board mode's strip under the frame keeps its height in solo too: in
+    // View it is the control alone, 8px above 24px chips at both widths here.
     const strip = rect(screen.container, '.fw-modebar')
-    expect(strip.height).toBeGreaterThan(0)
+    expect(strip.height).toBeCloseTo(32, 0)
     expect(board.height).toBeCloseTo(lab.height - 34 - strip.height, 0)
     expect(rect(screen.container, '.fw-report').height).toBe(0)
     expect(rect(screen.container, '.fw-console').height).toBe(0)
