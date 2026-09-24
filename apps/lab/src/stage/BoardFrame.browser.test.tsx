@@ -21,11 +21,9 @@ beforeEach(() => {
   state.library.reset()
   state.lang.setLang('en')
   state.ui.setSolo(false)
-  // The view too: cases below turn colouring on and build a palette. Reset
-  // directly rather than through `setTheme`/`setPalette`/`setFlag`, as
-  // `view.slice.test.ts` and `ViewPanel.browser.test.tsx` do — a fixture
-  // built on an action under test cannot survive a mutation of that action,
-  // and would fail every case in the file alongside the one that pins it.
+  // The view too: cases below turn colouring on and build a palette. Reset via
+  // setState, not via `setTheme`/`setPalette`/`setFlag`: a reset that calls the
+  // action under test hides that action's bugs.
   useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [], colored: false } }))
 })
 
@@ -38,8 +36,7 @@ afterEach(() => {
 
 /**
  * The frame in a box with a size, as the stage gives it one. The frame asks the
- * route now (`useInLibrary`), so it needs a router; every case that names no
- * address gets `/`, which is the lab.
+ * route (`useInLibrary`), so it needs a router; no address means `/`, the lab.
  */
 async function mountFrame(path = '/') {
   return render(
@@ -55,11 +52,9 @@ async function mountFrame(path = '/') {
 const annotation = (container: HTMLElement) => container.querySelector('.fw-anno')
 
 // Colours are a permission the element grants only to a host that asks
-// (`enableColors`, arrowz-board.ts); without it `view.colored` is ignored and
-// every piece is drawn in ink. `element.view.colored` alone cannot catch the
-// gap — it is the input, not what is drawn — so this reads the element's own
-// colours button, whose `aria-pressed` is the colour the board is actually
-// drawn in.
+// (`enableColors`). `element.view.colored` is the input, not what is drawn, so
+// this reads the element's own colours button, whose `aria-pressed` is the
+// colour the board is actually drawn in.
 test('the colored flag colours the board', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -76,11 +71,9 @@ test('the colored flag colours the board', async () => {
   }
 })
 
-// The element's ◑ button used to keep its own override of `view.colored`, so
-// after one click the lab's colour switch changed nothing on screen. The lab
-// now cancels the element's `colored-change` and writes its own flag, which
-// is what the element then draws from. Read off the button's `aria-pressed`,
-// the colour the board is drawn in, not off the input (harness fact 20).
+// The lab cancels the element's `colored-change` and writes its own flag, which
+// the element then draws from; otherwise the lab's colour switch would change
+// nothing after one click on ◑. Read off the button's `aria-pressed`.
 test('the board’s colour button writes the lab’s flag, and the flag still rules the board after it', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -92,7 +85,7 @@ test('the board’s colour button writes the lab’s flag, and the flag still ru
   expect(useStore.getState().view.colored).toBe(true)
   await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('true')
 
-  // The half that was broken: the lab's switch after a click on the button.
+  // The lab's switch after a click on the button.
   await act(async () => useStore.getState().view.setFlag('colored', false))
   await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('false')
   await act(async () => useStore.getState().view.setFlag('colored', true))
@@ -114,8 +107,7 @@ test('on a stored preview the colour button saves the stored view, not the lab�
   const element = screen.container.querySelector('arrowz-board')
   const colours = () => element?.shadowRoot?.querySelector<HTMLButtonElement>('button.colors')
   await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe(String(meta.view.colored))
-  // Fake timers only after the element settled: `expect.poll` would hang on a
-  // frozen clock (harness fact 11).
+  // Fake timers only after the element settled: `expect.poll` would hang on a frozen clock.
   vi.useFakeTimers()
 
   await act(async () => colours()?.click())
@@ -159,8 +151,8 @@ test('the annotation carries the size and seed of the board on screen', async ()
   expect(screen.container.querySelector('arrowz-board')?.board?.W).toBe(8)
 })
 
-// Spec §5.2: during a run the board on screen is the previous one, and so is
-// what the frame says about it.
+// During a run the board on screen is the previous one, and so is what the
+// frame says about it.
 test('during a run the annotation still names the previous board', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -175,10 +167,9 @@ test('the annotation follows the language', async () => {
   await expect.poll(() => annotation(screen.container)?.textContent).toBe('8×8 · ziarno 1')
 })
 
-// The element's host is `position: relative`, opaque and `z-index: auto`
-// (arrowz-board.ts:129-135), so tree order decides what paints on top: an
-// annotation before the element would be under the paper, and a colour test
-// alone would pass on it (spec §5.1).
+// The element's host is positioned, opaque and `z-index: auto`, so tree order
+// decides what paints on top: an annotation before the element would be under
+// the paper, and a colour test alone would pass on it.
 test('the annotation comes after the element and is what paints at its corner', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -188,9 +179,9 @@ test('the annotation comes after the element and is what paints at its corner', 
   // which has no `style` for the hit test below.
   if (element === null || !(label instanceof HTMLElement)) throw new Error('the frame is not on the page')
   expect(element.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  // Ruling 10 takes the annotation out of hit testing, and `elementFromPoint`
-  // honours that (measured: the hit is the `arrowz-board` host). The rule is
-  // asserted, then lifted for this one read, which asks what paints there.
+  // The annotation is out of hit testing, and `elementFromPoint` honours that
+  // (the hit is the `arrowz-board` host). The rule is asserted, then lifted for
+  // this one read, which asks what paints there.
   expect(getComputedStyle(label).pointerEvents).toBe('none')
   const box = label.getBoundingClientRect()
   label.style.pointerEvents = 'auto'
@@ -199,7 +190,7 @@ test('the annotation comes after the element and is what paints at its corner', 
   expect(hit === label || (hit !== null && label.contains(hit))).toBe(true)
 })
 
-// §7.1, PR 4b: the mock's `--void` on `--signal` is 4.08:1; the frame inverts it.
+// The mock's `--void` on `--signal` is 4.08:1; the frame inverts it.
 test('the annotation reads at AA', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -209,8 +200,8 @@ test('the annotation reads at AA', async () => {
   expect(contrast(front, back)).toBeGreaterThanOrEqual(4.5)
 })
 
-// Spec §5.2 and PR 4b, Ruling 3: a glyph of its own — `⤢` is the element's fit
-// button — named by `fullView`, and a toggle, so it says whether it is on.
+// A glyph of its own (`⤢` is the element's fit button), named by `fullView`,
+// and a toggle, so it says whether it is on.
 test('the solo toggle is a named toggle in the frame, after the element', async () => {
   const screen = await mountFrame()
   const toggle = screen.getByRole('button', { name: 'Full view (key F)' })
@@ -228,13 +219,11 @@ test('the solo toggle is a named toggle in the frame, after the element', async 
   expect(useStore.getState().ui.solo).toBe(false)
 })
 
-// Spec §5.3: the preview is what the stage shows while the library has one,
-// and the run's own board is still there underneath, untouched.
+// The preview is what the stage shows while the library has one, and the run's
+// own board is still there underneath, untouched.
 test('a preview takes the stage and names itself, leaving the run result alone', async () => {
-  // Mounted on the library tab, because that is where a preview is shown at
-  // all: the frame asks the route first (`useInLibrary`), so this case on `/`
-  // would watch the lab's own board and ignore the preview entirely. Review
-  // round 3 measured exactly that failure.
+  // On the library tab: the frame asks the route first, so on `/` this case
+  // would watch the lab's own board and ignore the preview.
   const { meta, file } = storedFixture(2, 6, 6)
   const screen = await mountFrame(`/boards/6x6/${meta.id}`)
   await act(async () => finish(finishedRun(1)))
@@ -245,20 +234,16 @@ test('a preview takes the stage and names itself, leaving the run result alone',
   expect(useStore.getState().result.shown).not.toBeNull()
 
   // And clearing it empties the stage rather than falling back to the run's
-  // board: on this tab the lab's board is not a substitute (spec §5.6).
+  // board: on this tab the lab's board is not a substitute.
   await act(async () => useStore.getState().result.clearPreview())
   await expect.poll(() => annotation(screen.container)).toBeNull()
 })
 
-// Ruling 3: a stored board carries its own view. The element gates colour
-// behind `enableColors`, so this reads the element's own colours button —
-// the input alone would prove nothing (harness fact 20).
+// A stored board carries its own view. Read off the element's own colours
+// button, because the element gates colour behind `enableColors`.
 test('a stored board is drawn under its own saved view, not the lab’s', async () => {
-  // Mounted on the library tab, which is the only place a preview is drawn at
-  // all: at `/` the frame puts no board on the stage (it asks the route), and
-  // the colour assertion below would then be read off an *empty* element — it
-  // would prove `elementView` follows the preview, but not this case's own
-  // title, that a stored board is drawn under its own view.
+  // On the library tab: at `/` the stage has no board, and the colour read
+  // below would come off an empty element.
   const { meta, file } = storedFixture(2)
   const stored = { ...meta, view: { ...meta.view, colored: true } }
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
@@ -274,11 +259,9 @@ test('a stored board is drawn under its own saved view, not the lab’s', async 
   expect(element?.board?.W).toBe(8)
 })
 
-// Ruling O: the view is gated on the tab, not on the preview alone.
-// `useInLibrary` flips with the location render while `useStoredBoard` clears
-// the preview in an effect after commit, so there is one committed frame on the
-// way back to `/` where a preview is still set. The lab's board must wear the
-// lab's view in it — this is the case the tightened gate is for.
+// The view is gated on the tab, not on the preview alone: `useStoredBoard`
+// clears the preview an effect after the route changes, so on the way back to
+// `/` there is one committed frame where a preview is still set.
 test('a preview left over on the lab tab lends the lab neither its board nor its view', async () => {
   const screen = await mountFrame()
   const { meta, file } = storedFixture(2, 6, 6)
@@ -295,11 +278,9 @@ test('a preview left over on the lab tab lends the lab neither its board nor its
   expect(element?.shadowRoot?.querySelector('button.colors')?.getAttribute('aria-pressed')).toBe('false')
 })
 
-// Palette round-2 addendum, task 2: the custom palette is added to what
-// `BoardFrame` hands the element explicitly, since `boardViewOf` carries no
-// colour fields at all (view.ts:50-60, `view.test.ts` pins that). Read off
-// the element's own `.view.palette` — the input the frame passed it, and
-// exactly what `gl-layer.ts`'s `resolvePalette` draws from.
+// `boardViewOf` carries no colour fields, so `BoardFrame` adds the custom
+// palette itself. Read off the element's `.view.palette`, the input the palette
+// is drawn from.
 test('a custom palette reaches the element', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))
@@ -309,20 +290,14 @@ test('a custom palette reaches the element', async () => {
   })
   const element = screen.container.querySelector('arrowz-board')
   expect(element?.view.palette).toEqual(['#ff00ff'])
-  // Ruling 6 repealed the exclusion that used to clear the palette here: a
-  // theme chosen afterwards no longer wipes it, and the element's own
-  // `.view.palette` still reads the override `BoardFrame.tsx` builds.
+  // A theme chosen afterwards does not wipe the custom palette.
   await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
   expect(element?.view.palette).toEqual(['#ff00ff'])
   useStore.getState().view.setTheme('')
 })
 
-// Finding 1 (final whole-addendum review): the palette is a viewing
-// preference like the theme, and `theme={view.theme}` above already applies
-// unconditionally to whatever board is on screen — the preview branch used to
-// discard the custom palette instead of folding it in the same way, so a
-// theme repainted a stored preview and a custom palette did not, for two
-// states the design calls equivalent and mutually exclusive.
+// The palette is a viewing preference like the theme, so it applies to a
+// library preview too, not only to the lab's own board.
 test('a custom palette reaches a library preview too, the same way the theme already does', async () => {
   const { meta, file } = storedFixture(2)
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
@@ -351,12 +326,12 @@ test('an unset paper leaves the theme its own, and a set one overrides it', asyn
   const element = screen.container.querySelector('arrowz-board')
   // Absent, not empty: the element sanitises *after* precedence, so a stated
   // '' would beat the theme and then fall to the element's own default,
-  // turning a dark theme light (spec §4.4).
+  // turning a dark theme light.
   expect(element === null || !('paper' in (element.view ?? {}))).toBe(true)
 
   await act(async () => useStore.getState().view.setPaper('#010203'))
   expect(element?.view.paper).toBe('#010203')
-  // The theme is still supplying what the user did not override (Ruling 6).
+  // The theme is still supplying what the user did not override.
   expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   useStore.getState().view.setTheme('')
   useStore.getState().view.setPaper('')
@@ -368,7 +343,7 @@ test('an unset highlight leaves the theme its own, and a set one overrides it', 
   await act(async () => finish(finishedRun(1)))
   await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
   const element = screen.container.querySelector('arrowz-board')
-  // Absent, not empty: same trap paper and ink guard above (spec §4.4).
+  // Absent, not empty: the same trap paper and ink guard above.
   expect(element === null || !('highlight' in (element.view ?? {}))).toBe(true)
 
   await act(async () => useStore.getState().view.setHighlight('#010203'))
@@ -425,11 +400,9 @@ test('the margin reaches the element', async () => {
   useStore.getState().view.setPad(DEFAULT_PAD)
 })
 
-// Spec §5.6: a link to a board that is no longer on disk leaves the stage
-// empty and says why. Measured by review round 2 before the tab gate existed:
-// the frame fell through to the lab's own board, so a 25×50 carve stood under
-// the words "cannot be read" about an 8×8 one. The run's result is deliberately
-// present here — that is the board that must NOT appear.
+// A link to a board that is no longer on disk leaves the stage empty and says
+// why. The run's result is deliberately present: that is the board that must
+// not appear under the words "cannot be read".
 test('on the library tab a board that could not be read leaves the stage empty', async () => {
   const screen = await mountFrame('/boards/8x8/sha256-0')
   await act(async () => finish(finishedRun(1)))
@@ -439,28 +412,19 @@ test('on the library tab a board that could not be read leaves the stage empty',
   expect(annotation(screen.container)).toBeNull()
 })
 
-// Renamed from "the frame around the board takes the paper the element
-// announces" (fix wave after the whole-branch review): `<arrowz-board>` sets
-// `--arrowz-paper` on its own host, and a custom property inherits downward
-// only, so `.fw-board` -- an ancestor of the element it nests -- can never
-// see it. Nothing in the app ever sets the property on `.fw-board` itself;
-// the letterbox a person actually sees is painted by the element's own
-// `:host`, which does receive it. P10 dropped the dead `var(--arrowz-paper,
-// var(--paper))` fallback that used to read a property `.fw-board` can never
-// receive -- `.fw-board` now paints `var(--paper)` outright, and does not
-// follow `--arrowz-paper` set on itself.
+// `<arrowz-board>` sets `--arrowz-paper` on its own host, and a custom property
+// inherits downward only, so `.fw-board`, an ancestor, can never see it; the
+// letterbox a person sees is the element's `:host`. So `.fw-board` paints
+// `var(--paper)` outright, with no fallback that reads `--arrowz-paper`.
 test('the frame paints the lab’s token, not --arrowz-paper set on itself', async () => {
   const screen = await mountFrame()
   const frame = screen.container.querySelector('.fw-board')
   // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
   // which has no `style` for the property set below.
   if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
-  // Production, exactly: `.fw-board` never receives `--arrowz-paper` (the
-  // element covers it and sets the property on its own host instead), so this
-  // is what the frame paints, always -- the lab's own token.
+  // What the frame paints in the app, always: the lab's own token.
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
-  // Not production -- nothing in the app sets the property on `.fw-board`
-  // itself -- but this still guards that the declaration is a plain
+  // Not a state the app produces, but it guards that the declaration is a plain
   // `var(--paper)`, not a fallback that would read the property here.
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
   expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')

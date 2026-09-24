@@ -29,10 +29,9 @@ test('a null board renders the element without drawing anything', async () => {
   expect(screen.container.querySelector('arrowz-board')?.board).toBeNull()
 })
 
-// The property assignment above is not what the wrapper buys — React 19 sets
-// properties on a registered custom element on its own. What only
-// `createComponent` provides is mapping these non-standard DOM events onto
-// props; a typo in the `events` map would otherwise fail silently.
+// React 19 sets properties on a registered custom element on its own; what only
+// `createComponent` provides is mapping these events onto props, and a typo in
+// the `events` map would otherwise fail silently.
 test('a piece-click event on the element calls the onPieceClick prop', async () => {
   const onPieceClick = vi.fn()
   const screen = await render(<BoardCanvas board={board} view={view} interactive={false} onPieceClick={onPieceClick} />)

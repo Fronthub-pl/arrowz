@@ -45,13 +45,13 @@ export interface StateLine {
 }
 
 export interface RunState {
-  /** The live region's sentence (RunStatusBar.tsx): the one voice of the page. */
+  /** The live region's sentence (`RunStatusBar`): the one voice of the page. */
   readonly live: string
-  /** The run column's line under Generate (RunColumn.tsx). */
+  /** The run column's line under Generate. */
   readonly run: StateLine
   /**
-   * The board column's line under Load into lab (BoardColumn.tsx): a library
-   * event or a board that failed to load, or null when there is neither.
+   * The board column's line under Load into lab: a library event or a board
+   * that failed to load, or null when there is neither.
    */
   readonly library: StateLine | null
   /** The share of the carve in flight done, 0–100, or null when none runs or it has not reported yet. */
@@ -59,10 +59,10 @@ export interface RunState {
 }
 
 /**
- * The page's state in words, for the three places that say it (round 3, 3h):
- * the live `<output>`, which is the only one a screen reader hears, and the two
- * visible lines under the columns' primary buttons, which are `aria-hidden`
- * because the output speaks for them. One function, so the three cannot drift.
+ * The page's state in words, for the three places that say it: the live
+ * `<output>`, which is the only one a screen reader hears, and the two visible
+ * lines under the columns' primary buttons, which are `aria-hidden` because the
+ * output speaks for them. One function, so the three cannot drift.
  *
  * The line and the live sentence differ in two places only. While a carve
  * runs, the percent is on Generate, so the line drops it (`progressRest`). And
@@ -77,20 +77,11 @@ export function useRunState(): RunState {
   const notice = useStore((state) => state.library.notice)
   const inLibrary = useInLibrary()
 
-  // The saved boards' own line: an event, or a board that did not load.
-  //
-  // Ruling 5: an event outranks the description of a state, because it is the
-  // thing that just happened and the line is the one place to say it. It gives
-  // way on its own, 1200 ms later (`notices.ts`), except for `loading` and
-  // `saveFailed`, which describe a state and are cleared by their outcome.
-  //
-  // The address and the failure arrive as two fields (`BoardError` in
-  // library.slice.ts), so the words around them stay the dictionary's and a
-  // reason carrying a `: ` of its own reaches it whole.
-  //
-  // Both ask the tab and not the slice alone (Ruling O): the route changes a
-  // render before the hook's effect clears these, so on the way back to `/` the
-  // lab would otherwise announce a stored board for one frame.
+  // The saved boards' own line. An event outranks the description of a state:
+  // it is what just happened. It gives way 1200 ms later (`notices.ts`), except
+  // `loading` and `saveFailed`, which are cleared by their outcome. Both ask
+  // the tab, not the slice alone: the route changes a render before the hook's
+  // effect clears these, so the lab would announce a stored board for a frame.
   const library: StateLine | null =
     inLibrary && notice !== null
       ? { text: noticeText(dict, notice), bad: notice.kind === 'saveFailed' || notice.kind === 'deleteFailed' }
@@ -98,11 +89,9 @@ export function useRunState(): RunState {
         ? { text: dict.t('boardFileError', boardError.name, boardError.reason), bad: true }
         : null
 
-  // Ruling 8: while the library has a board on screen, the live sentence is
-  // about that board. A stored board is not a run: the store's answer
-  // (`saved`) is a fact about the run's result and is never appended there,
-  // and a carve in flight still reports itself in the lab, where the user can
-  // see it. The board column needs no such line: its facts are beside it.
+  // While the library has a board on screen, the live sentence is about that
+  // board. A stored board is not a run, so the store's answer (`saved`) is
+  // never appended to it, and a carve in flight still reports itself in the lab.
   let live = runLive
   if (library !== null) live = library.text
   else if (inLibrary && preview !== null) {
@@ -122,7 +111,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
   const dict = useDictionary()
   const run = useStore((state) => state.run)
   // The board on screen and the store's answer for it: the result slice's,
-  // which a run in flight leaves where it was (spec §5.3).
+  // which a run in flight leaves where it was.
   const report = useStore((state) => state.result.shown?.report ?? null)
   const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
@@ -132,10 +121,8 @@ export function useRunLine(): Omit<RunState, 'library'> {
   let bad = false
   let percent: number | null = null
   // Whether this line is speaking for a run at all. `saved` is a fact about the
-  // board on screen — only the result slice's `show` and `reset` clear it — and
-  // not about whatever the line happens to be saying. Appended to the refusal,
-  // it read `Fix the settings marked in red to generate — saved`: a sentence
-  // about a board nobody is looking at, glued to a sentence about the knobs.
+  // board on screen, not about whatever the line is saying, so appending it to
+  // the refusal would glue a board nobody is looking at onto the knobs' error.
   let reportsRun = false
   if (run.phase === 'running') {
     const p = run.progress
@@ -154,42 +141,30 @@ export function useRunLine(): Omit<RunState, 'library'> {
       // counts are abbreviated with `short`, not `fmt`.
       percent = 100 * (1 - p.remaining / p.total)
       const seconds = oneDecimal(dict, p.ms / 1000)
-      // The dictionary's `progress` string carries `<b>` markup. This line is
-      // the text of an `aria-live` region, so the tags would show up literally,
-      // and they are stripped here rather than in the dictionary, which stays
-      // the source of truth. Stripping is not a licence for
-      // `dangerouslySetInnerHTML`: an `aria-live` region has to be text.
+      // The dictionary's `progress` carries `<b>` markup, and an `aria-live`
+      // region has to be text, so the tags are stripped here and the
+      // dictionary stays the source of truth.
       text = dict
         .t('progress', oneDecimal(dict, percent), dict.short(p.pieces), dict.short(p.remaining), p.backtracks, seconds)
         .replace(/<\/?b>/g, '')
       rest = dict.t('progressRest', dict.short(p.pieces), dict.short(p.remaining), p.backtracks, seconds)
     }
   } else if (blocked) {
-    // The refusal outranks every phase but `running`. It used to sit inside
-    // the idle branch, which was the whole story until the page started
-    // carving a board at load: the slice is `done` from the first second of
-    // every session and stays there, so a knob dragged into a violation with
-    // `auto` on refused silently while this line still reported the last
-    // board as closed — a page that is refusing, describing a board that did
-    // not answer the knobs on screen. `running` keeps its own line, because a
-    // carve in flight is the one thing that has more to say than the refusal
-    // and is entitled to report itself.
+    // The refusal outranks every phase but `running`: the slice is `done` from
+    // the first load on, so an idle-only refusal would report the last board as
+    // closed while `auto` refused silently. A carve in flight still reports itself.
     text = dict.t('generateBlocked')
     bad = true
   } else if (run.phase === 'error') {
-    // Both failure paths land here: the worker's `error` message (a thrown
-    // InvalidParamsError) and its `onerror` both call the slice's `failed()`
-    // (useGenerator.ts:67, :77, :82), so the phase no longer says which
-    // happened and this component always prints `generationError`. The
-    // previous lab keeps the two words apart; `workerError` (lab-i18n.ts:125) is
-    // unreachable from here until the slice carries the distinction.
+    // Both failure paths (the worker's `error` message and its `onerror`) call
+    // the slice's `failed()`, so the phase no longer says which happened and
+    // this always prints `generationError`; the dictionary's `workerError` is
+    // unreachable until the slice carries the distinction.
     text = `${dict.t('generationError')} ${run.message ?? ''}`
     bad = true
   } else if (run.phase !== 'done' || report === null) {
-    // Idle, and two idles are distinguishable here: aborted and fresh. The
-    // third, refused, is the branch above — a page that says "Press Generate"
-    // beside a Generate it has disabled is telling the user to do the
-    // impossible, whichever phase the last run left behind.
+    // Idle: aborted or fresh. Refused is the branch above, whatever phase the
+    // last run left: "Press Generate" beside a disabled Generate asks the impossible.
     text = run.wasAborted ? dict.t('aborted') : dict.t('pressGenerate')
   } else if (report.ok) {
     reportsRun = true
@@ -203,11 +178,9 @@ export function useRunLine(): Omit<RunState, 'library'> {
     text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
   }
 
-  // The store's answer is appended, never substituted: a missing store must
-  // not overwrite what the run itself reported (§5.3). It is appended only to
-  // the three branches above, the ones reporting a board this run produced —
-  // the flag is set where the text is, so the two cannot drift apart the way a
-  // second copy of the branch conditions would.
+  // The store's answer is appended, never substituted: a missing store must not
+  // overwrite what the run reported. Only the three branches that report a board
+  // this run produced set `reportsRun`, next to their text, so the two cannot drift.
   const answer = !reportsRun || saved === null ? '' : ` — ${saved.ok ? dict.t('saved') : dict.t('notSaved')}`
   const runLive = `${text}${answer}`
 
