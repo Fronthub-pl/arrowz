@@ -51,7 +51,7 @@ export function RunColumn({
   const share = percent === null ? null : Math.round(percent * 10) / 10
 
   // Starting a run disables Generate and ending one disables Abort; HTML's focus
-  // fixup (two frames later, see `twoFrames` in the tests) would drop the focus
+  // fixup (two frames later, see `twoFrames`) would drop the focus
   // on <body>, so a layout effect hands it to the partner button first. Act on
   // the transition of `running`, not its value (`wasRunning` keeps that if the
   // deps grow), and only when the focus is on the button being disabled. Known

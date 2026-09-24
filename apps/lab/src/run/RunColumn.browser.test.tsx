@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { defaultParams, encodeBoard, generate, PARAM_SPEC } from '@arrowz/engine'
+import { twoFrames } from '../harness/frames'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import type { RunControl } from './useRun'
@@ -41,17 +42,6 @@ const CLOSED: DoneReport = {
 function buttonOf(element: Element): HTMLButtonElement {
   if (!(element instanceof HTMLButtonElement)) throw new Error('that control is not a button')
   return element
-}
-
-/**
- * Two frames, because HTML's focus fixup is the "update the rendering" step,
- * which runs after the animation-frame callbacks of the same frame. Measured in
- * Chrome: with the fix removed, the focus is still off `<body>` in 18-20 of 20
- * samples at any point short of two frames, and on `<body>` in 20 of 20 after
- * two. Two is the floor, not a margin; do not shorten it.
- */
-function twoFrames(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
 
 /** The route's two refs: without them the focus effect has nothing to aim at. */

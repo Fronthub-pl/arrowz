@@ -1,12 +1,8 @@
 import { act } from 'react'
 import { describe, expect, it } from 'vitest'
 import { loadRunDone, mountApp } from '../harness/mountApp'
+import { twoFrames } from '../harness/frames'
 import { useStore } from '../state/store'
-
-// The shortest wait for "a later render happened"; see `twoFrames` in
-// `RunColumn.browser.test.tsx`.
-const twoFrames = () =>
-  new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 
 describe('a palette jump into a closed dependency block', () => {
   it('keeps the difficulty block open and the knob focused past the next render', async () => {

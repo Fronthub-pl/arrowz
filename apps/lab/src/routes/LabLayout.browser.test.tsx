@@ -3,6 +3,7 @@ import { expect, test, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { loadRunDone, mountApp } from '../harness/mountApp'
 import { settleTransitions } from '../harness/settle'
+import { twoFrames } from '../harness/frames'
 import { useStore } from '../state/store'
 import '../design/tokens.css'
 import '../design/shell.css'
@@ -139,11 +140,6 @@ test.each(COMMAND_BOX_SIZES)(
   },
   40_000,
 )
-
-/** HTML's focus fixup lands after two frames; see `twoFrames` in the run column's tests. */
-function twoFrames(): Promise<void> {
-  return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-}
 
 const SOLO_SIZES = [
   [1400, 900, 'advanced'],
