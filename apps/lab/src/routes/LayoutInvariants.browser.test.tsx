@@ -1,3 +1,4 @@
+import { DEFAULT_PAD } from '@arrowz/board-element'
 import { newSession, PARAM_SPEC, type Params, play } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { act } from 'react'
@@ -47,6 +48,8 @@ type State =
   | 'inspect'
   | 'play'
   | 'solo-play'
+  | 'simple-inspect'
+  | 'simple-play'
 const STATES: readonly State[] = [
   'board',
   'presets-open',
@@ -109,7 +112,7 @@ beforeEach(() => {
 afterEach(() => {
   // The view slice has no reset; put back what a case moved via setState, not
   // via a slice action, so the reset cannot hide that action's bugs.
-  useStore.setState((s) => ({ view: { ...s.view, palette: [] } }))
+  useStore.setState((s) => ({ view: { ...s.view, palette: [], pad: DEFAULT_PAD } }))
   // The Polish pass below leaves the page in `pl`; `resetApp`'s own
   // `setLang('en')` runs at the start of the next case's `arrange`, but a
   // case that throws before that point must not leave `pl` behind either.
@@ -133,7 +136,7 @@ function stubStoredBoard() {
 }
 
 async function arrange(state: State) {
-  resetApp(state === 'simple' ? 'simple' : 'advanced')
+  resetApp(state === 'simple' || state === 'simple-inspect' || state === 'simple-play' ? 'simple' : 'advanced')
   if (state === 'library-empty') {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('no store'))
     window.history.pushState({}, '', '/boards')
@@ -184,6 +187,8 @@ async function arrange(state: State) {
   if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
   if (state === 'inspect' || state === 'play') await showBoardMode(screen.container, state)
   if (state === 'solo-play') await showBoardMode(screen.container, 'play')
+  if (state === 'simple-inspect' || state === 'simple-play')
+    await showBoardMode(screen.container, state.slice(7) as 'inspect' | 'play')
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
@@ -270,6 +275,9 @@ const MODE_CASES: readonly (readonly [State, number, number])[] = [
     ).map(([w, h]) => [s, w, h] as const),
   ),
   ['solo-play', 375, 812],
+  // Simple at a laptop's height: the board runs down to the frame's bottom edge.
+  ['simple-inspect', 1440, 877],
+  ['simple-play', 1440, 877],
 ]
 
 test.each(MODE_CASES)('the %s mode at %d×%d keeps every layout invariant', matrixCase, 40_000)
@@ -312,6 +320,27 @@ test.each(['inspect', 'play'] as const)(
     await settle()
     expect(screen.container.querySelector('.fw-anno')?.textContent).toMatch(/ziarno 4294967295$/)
     expectKnownRed(`${state}@375x812:pl:long-seed`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// A tall board on a phone runs from the frame's top to its bottom edge, and
+// the Polish counts wrap to two lines.
+test.each(['inspect', 'play'] as const)(
+  'the %s mode at 375×812 in Polish on a 25×50 board with an 8-cell margin keeps every layout invariant',
+  async (state) => {
+    await page.viewport(375, 812)
+    const screen = await arrange('board')
+    await act(async () => {
+      useStore.getState().params.setMany({ W: 25, H: 50, seed: LONG_SEED })
+      useStore.getState().view.setPad(8)
+    })
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-go')?.click())
+    await expect.poll(() => useStore.getState().result.shown?.params.H, { timeout: 30_000 }).toBe(50)
+    await showBoardMode(screen.container, state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expectKnownRed(`${state}@375x812:pl:tall`, audit(screen.container, { board: true }))
   },
   40_000,
 )
@@ -448,6 +477,8 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     'inspect@375x812:pl:long-seed',
     'play@375x812:pl:long-seed',
+    'inspect@375x812:pl:tall',
+    'play@375x812:pl:tall',
     'presets-open@420x699',
     'presets-open@420x700',
     'huge-pl@420x900',

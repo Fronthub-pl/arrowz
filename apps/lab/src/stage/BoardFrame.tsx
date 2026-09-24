@@ -11,11 +11,11 @@ import { BoardModeLine, BoardModeSwitch, useBoardSession } from './BoardMode'
 
 /**
  * The paper frame around the one `<arrowz-board>`, and what sits on it: the
- * annotation of the board on screen, the board mode and its line, and the solo
- * toggle. All come after the element in DOM order, because the element's host
- * is opaque and positioned, so tree order is what puts them on top; all are
- * absolutely positioned in `.fw-board`, so they take no height from the
- * element, and all keep clear of the element's own bar at the bottom right.
+ * annotation of the board on screen and the solo toggle, in its top corners
+ * over the board's margin, after the element in DOM order because its host is
+ * opaque and positioned. The board mode and its line live in `.fw-modebar`
+ * under the frame, and the element is fitted above it, so neither covers a
+ * drawn row.
  *
  * The element's view is memoised on the *slice's* identity, not rebuilt per
  * render: `run.progressed()` replaces `state.run` and leaves `state.view` and
@@ -135,7 +135,6 @@ export function BoardFrame(): ReactElement {
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}
-        {board === null ? null : <BoardModeSwitch />}
         {/* Its own glyph: `⤢` is the element's fit button. */}
         <button
           ref={toggle}
@@ -149,8 +148,13 @@ export function BoardFrame(): ReactElement {
         >
           ⛶
         </button>
-        <BoardModeLine session={session} />
       </div>
+      {board === null ? null : (
+        <div className="fw-modebar">
+          <BoardModeSwitch />
+          <BoardModeLine session={session} />
+        </div>
+      )}
     </div>
   )
 }

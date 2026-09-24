@@ -1,3 +1,4 @@
+import type { ArrowzBoard } from '@arrowz/board-element'
 import { contrast, shown } from '../design/contrast'
 
 // Layout invariants as assertions. Each reads an effect the browser computed,
@@ -25,6 +26,7 @@ export type Invariant =
   | 'hidden-box'
   | 'knob-row'
   | 'frame-overlap'
+  | 'board-cover'
 export interface Finding {
   invariant: Invariant
   detail: string
@@ -416,39 +418,79 @@ function knobRows(root: HTMLElement): Finding[] {
 }
 
 /**
- * What lies on the board frame keeps apart and inside it: the annotation,
- * the board mode, the solo toggle, the mode's line, and the element's own
- * bar (`.chrome`, in its shadow root). `.fw-board` clips, so a control
- * pushed past its edge or under another is lost without any scroll.
+ * What lies on and under the board frame keeps apart and inside it: the
+ * annotation, the solo toggle and the element's own bar (`.chrome`, in its
+ * shadow root) inside `.fw-board`; the board mode and its line inside the
+ * wrap. Both clip, so a control pushed past an edge or under another is lost
+ * without any scroll.
  */
 function frameOverlap(root: HTMLElement): Finding[] {
   const out: Finding[] = []
-  for (const frame of root.querySelectorAll('.fw-board')) {
-    if (!rendered(frame)) continue
-    const f = frame.getBoundingClientRect()
+  for (const wrap of root.querySelectorAll('.fw-boardwrap')) {
+    const frame = wrap.querySelector(':scope > .fw-board')
+    if (frame === null || !rendered(frame)) continue
     const chrome = frame.querySelector('arrowz-board')?.shadowRoot?.querySelector('.chrome') ?? null
+    const inside = (nodes: Iterable<Element>, box: Element) =>
+      [...nodes]
+        .filter((node) => rendered(node) && node.getBoundingClientRect().width > 0)
+        .map((node) => ({ node, box: box.getBoundingClientRect() }))
     const parts = [
-      ...frame.querySelectorAll(':scope > .fw-anno, :scope > .fw-mode, :scope > .fw-solo, :scope > .fw-modeline'),
-      ...(chrome === null ? [] : [chrome]),
-    ].filter((node) => rendered(node) && node.getBoundingClientRect().width > 0)
-    for (const node of parts) {
+      ...inside(
+        [...frame.querySelectorAll(':scope > .fw-anno, :scope > .fw-solo'), ...(chrome === null ? [] : [chrome])],
+        frame,
+      ),
+      ...inside(wrap.querySelectorAll(':scope > .fw-modebar > .fw-mode, :scope > .fw-modebar > .fw-modeline'), wrap),
+    ]
+    for (const { node, box: f } of parts) {
       const r = node.getBoundingClientRect()
       if (r.left < f.left - EPS || r.right > f.right + EPS || r.top < f.top - EPS || r.bottom > f.bottom + EPS)
         out.push({ invariant: 'frame-overlap', detail: `${label(node)} outside the frame` })
     }
     for (let i = 0; i < parts.length; i++) {
       for (let j = i + 1; j < parts.length; j++) {
-        const a = parts[i]?.getBoundingClientRect()
-        const b = parts[j]?.getBoundingClientRect()
+        const a = parts[i]?.node.getBoundingClientRect()
+        const b = parts[j]?.node.getBoundingClientRect()
         if (a === undefined || b === undefined) continue
         const x = Math.min(a.right, b.right) - Math.max(a.left, b.left)
         const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
         if (x > EPS && y > EPS)
           out.push({
             invariant: 'frame-overlap',
-            detail: `${label(parts[i] as Element)} × ${label(parts[j] as Element)}`,
+            detail: `${label(parts[i]?.node as Element)} × ${label(parts[j]?.node as Element)}`,
           })
       }
+    }
+  }
+  return out
+}
+
+/**
+ * The lab's controls around the board leave the drawn board clear at fit: a
+ * piece under one is reachable only by panning. The drawn rectangle is the
+ * board's W×H through the element's `viewport`, from the host's top-left.
+ */
+function boardCover(root: HTMLElement): Finding[] {
+  const out: Finding[] = []
+  for (const element of root.querySelectorAll<ArrowzBoard>('arrowz-board')) {
+    const vp = element.viewport
+    const board = element.board
+    const wrap = element.closest('.fw-boardwrap')
+    if (vp === null || board === null || wrap === null || !vp.fitted || !rendered(element)) continue
+    const host = element.getBoundingClientRect()
+    const left = Math.max(host.left, host.left - vp.originX * vp.cellPx)
+    const top = Math.max(host.top, host.top - vp.originY * vp.cellPx)
+    const right = Math.min(host.right, host.left + (board.W - vp.originX) * vp.cellPx)
+    const bottom = Math.min(host.bottom, host.top + (board.H - vp.originY) * vp.cellPx)
+    for (const node of wrap.querySelectorAll('.fw-anno, .fw-mode, .fw-solo, .fw-modeline')) {
+      if (!rendered(node)) continue
+      const r = node.getBoundingClientRect()
+      const x = Math.min(r.right, right) - Math.max(r.left, left)
+      const y = Math.min(r.bottom, bottom) - Math.max(r.top, top)
+      if (x > EPS && y > EPS)
+        out.push({
+          invariant: 'board-cover',
+          detail: `${label(node)} [${r.left.toFixed(0)},${r.top.toFixed(0)} ${r.right.toFixed(0)},${r.bottom.toFixed(0)}] × board [${left.toFixed(0)},${top.toFixed(0)} ${right.toFixed(0)},${bottom.toFixed(0)}]`,
+        })
     }
   }
   return out
@@ -481,5 +523,6 @@ export function audit(root: HTMLElement, { board, solo = false }: { board: boole
     ...hiddenBox(root),
     ...knobRows(root),
     ...frameOverlap(root),
+    ...boardCover(root),
   ]
 }

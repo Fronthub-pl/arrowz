@@ -82,7 +82,7 @@ export function useBoardSession(
   }
 }
 
-/** The View / Inspect / Play choice, on the frame's top edge. */
+/** The View / Inspect / Play choice, in the strip under the frame. */
 export function BoardModeSwitch(): ReactElement {
   const dict = useDictionary()
   const mode = useStore((state) => state.ui.boardMode)
@@ -114,8 +114,8 @@ function inspectText(dict: Dict, session: Session | null, id: number | null): st
 }
 
 /**
- * The frame's bottom-left line: the inspected piece's facts, or the game's
- * counts with Restart. Nothing in View.
+ * The line beside the mode control: the inspected piece's facts, or the
+ * game's counts with Restart. Nothing in View.
  */
 export function BoardModeLine({ session }: { session: BoardSession }): ReactElement | null {
   const dict = useDictionary()

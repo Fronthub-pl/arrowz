@@ -341,8 +341,11 @@ body {
     transform: none;
   }
 }
+/* A column: the frame takes what the mode strip under it leaves. */
 .fw-boardwrap {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   padding: 16px;
   overflow: hidden;
@@ -350,7 +353,7 @@ body {
 }
 .fw-board {
   position: relative;
-  height: 100%;
+  flex: 1 1 0;
   min-height: 260px;
   /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
      only shows through before it upgrades. */
@@ -409,45 +412,38 @@ body {
   }
 }
 
-/* The board mode (BoardMode.tsx): on the top edge beside the solo toggle, a
-   30px strip like it; the ring inset for the reason `.fw-solo` gives. */
-.fw-mode {
-  position: absolute;
-  top: 0;
-  right: 30px;
-  padding: 3px;
-  background: var(--void);
+/* The board mode and its line: a strip under the frame, so the element is
+   fitted above it and neither covers a drawn row. The line wraps under the
+   control when the two do not fit on one row. The ring is inset for the
+   reason `.fw-solo` gives: the wrap clips too, and has no padding at XS. */
+.fw-modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: 8px;
 }
 .fw .fw-mode .fw-seg button:focus-visible {
   outline-offset: -2px;
 }
-/* The inspect card or the game's counts: bottom-left, lifted over the
-   element's own bar (`.chrome`, 8px + 32px from the bottom), which a long
-   hint can stretch across most of a narrow board. */
+/* The inspect card or the game's counts. */
 .fw-modeline {
-  position: absolute;
-  left: 0;
-  bottom: 48px;
-  max-width: calc(100% - 16px);
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 3px 8px;
-  background: var(--void);
+  min-width: 0;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
-/* With 44px chips the strip is too wide to share the top edge with the
-   annotation on a narrow board (a Polish ten-digit seed reaches it at 375px),
-   so it takes its own row under the solo toggle. */
 @media (pointer: coarse), (max-width: 767px) {
-  .fw-mode {
-    top: 44px;
-    right: 0;
-    padding: 0;
-  }
   .fw .fw-modeline .fw-btn {
     height: 44px;
+  }
+}
+/* At XS the wrap has no padding, so the strip keeps the text off the edge. */
+@media (max-width: 767px) {
+  .fw-modebar {
+    padding: 4px 8px;
   }
 }
 

@@ -93,13 +93,15 @@ test('on the library tab a board that could not be read leaves no mode to choose
   expect(screen.container.querySelector('.fw-mode')).toBeNull()
 })
 
-test('the control sits on the frame, after the element and before the solo toggle', async () => {
+test('the control sits in the strip under the frame, after the solo toggle and before the line', async () => {
   const screen = await mountFrame()
   await showDominoes()
-  const frame = screen.container.querySelector('.fw-board')
-  const kids = [...(frame?.children ?? [])].map((k) => k.tagName.toLowerCase() + (k.className ? `.${k.className}` : ''))
-  expect(kids.indexOf('div.fw-mode')).toBeGreaterThan(kids.indexOf('arrowz-board'))
-  expect(kids.indexOf('div.fw-mode')).toBeLessThan(kids.indexOf('button.fw-solo'))
+  await act(async () => useStore.getState().ui.setBoardMode('play'))
+  const tags = (parent: Element | null) =>
+    [...(parent?.children ?? [])].map((k) => k.tagName.toLowerCase() + (k.className ? `.${k.className}` : ''))
+  expect(tags(screen.container.querySelector('.fw-boardwrap'))).toEqual(['div.fw-board', 'div.fw-modebar'])
+  expect(tags(screen.container.querySelector('.fw-board')).includes('button.fw-solo')).toBe(true)
+  expect(tags(screen.container.querySelector('.fw-modebar'))).toEqual(['div.fw-mode', 'div.fw-modeline'])
 })
 
 // The element builds sessions of its own for its game, so only the frame's
