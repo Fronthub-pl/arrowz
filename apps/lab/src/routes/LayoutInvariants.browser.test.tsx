@@ -46,6 +46,7 @@ type State =
   | 'more-open'
   | 'inspect'
   | 'play'
+  | 'solo-play'
 const STATES: readonly State[] = [
   'board',
   'presets-open',
@@ -165,7 +166,7 @@ async function arrange(state: State) {
       s.params.setMany({ wShort: 0.8, wMid: 0.8 })
       s.ui.raiseClamped(true)
     }
-    if (state === 'solo') s.ui.setSolo(true)
+    if (state === 'solo' || state === 'solo-play') s.ui.setSolo(true)
     if (state === 'solo-sheet') {
       s.ui.setSolo(true)
       s.ui.setSheet('settings')
@@ -182,6 +183,7 @@ async function arrange(state: State) {
   }
   if (state === 'library-sheet-cli') await act(async () => useStore.getState().ui.setSheet('cli'))
   if (state === 'inspect' || state === 'play') await showBoardMode(screen.container, state)
+  if (state === 'solo-play') await showBoardMode(screen.container, 'play')
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
@@ -237,7 +239,8 @@ async function matrixCase(state: State, w: number, h: number) {
   // lab's own. 'library-empty' and 'docs' have no board: the empty store never
   // gets a preview, and the docs route hides the whole workspace.
   const board = state !== 'library-empty' && state !== 'docs'
-  const findings = audit(screen.container, { board, solo: state === 'solo' || state === 'solo-sheet' })
+  const solo = state === 'solo' || state === 'solo-sheet' || state === 'solo-play'
+  const findings = audit(screen.container, { board, solo })
   expectKnownRed(`${state}@${w}x${h}`, findings)
 }
 
@@ -252,18 +255,22 @@ test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', 
 // The board mode's line is on screen only in Inspect and Play, so the matrix
 // above sees the control but never the line: the lab's three widths and a
 // phone, and the two narrowest again in Polish, where the words are longer.
-const MODE_CASES: readonly (readonly [State, number, number])[] = (['inspect', 'play'] as const).flatMap((s) =>
-  (
-    [
-      [860, 900],
-      [1280, 800],
-      [1400, 900],
-      [375, 812],
-      [924, 540],
-      [1280, 699],
-    ] as const
-  ).map(([w, h]) => [s, w, h] as const),
-)
+// Solo on a phone is the one frame that also loses the lab around it.
+const MODE_CASES: readonly (readonly [State, number, number])[] = [
+  ...(['inspect', 'play'] as const).flatMap((s) =>
+    (
+      [
+        [860, 900],
+        [1280, 800],
+        [1400, 900],
+        [375, 812],
+        [924, 540],
+        [1280, 699],
+      ] as const
+    ).map(([w, h]) => [s, w, h] as const),
+  ),
+  ['solo-play', 375, 812],
+]
 
 test.each(MODE_CASES)('the %s mode at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
