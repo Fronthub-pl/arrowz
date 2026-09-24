@@ -77,6 +77,9 @@ different counter over 237 files; the two numbers are not comparable.)
   the engine's `play()`), so Inspect always describes the board as it now
   stands. A separate Reset button, shown in both Inspect and Play, starts the
   game over.
+- `8e723f2` — the saved board's "generated" fact (duration and timestamp) no
+  longer clips with an ellipsis at the column width; it wraps at the space
+  between the two, never inside a number.
 
 ### The findings that matter most
 
@@ -279,8 +282,6 @@ section above).
     enlarges the margin on narrow screens by the bar's height, or the
     element's fit reserves room for its own bar (a component refinement).
     Deferred by the user's decision.
-11. **The saved board's "generated" fact truncates the time** (`21:50:…`) at
-    the column's width; only the layout row wraps.
 
 The five passes follow in full.
 
