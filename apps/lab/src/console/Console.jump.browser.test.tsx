@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { loadRunDone, mountApp } from '../harness/mountApp'
 import { useStore } from '../state/store'
 
-// Chromium schedules a commit and its passive effects across real frames;
-// `two frames` is the shortest wait this repo trusts for "a later render
-// happened" (`RunColumn.browser.test.tsx`, `LabLayout.browser.test.tsx`).
+// The shortest wait for "a later render happened"; see `twoFrames` in
+// `RunColumn.browser.test.tsx`.
 const twoFrames = () =>
   new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 
@@ -50,8 +49,8 @@ describe('a palette jump into a closed dependency block', () => {
       expect(document.activeElement?.id).toBe('view-top')
       expect(document.getElementById('dep-hilite')?.hidden).toBe(false)
     } finally {
-      // `resetApp` does not reset the view slice (fact 27): put the flag back
-      // for whichever file runs next.
+      // `resetApp` does not reset the view slice: put the flag back for
+      // whichever file runs next.
       useStore.getState().view.setFlag('hilite', hilite)
     }
   })

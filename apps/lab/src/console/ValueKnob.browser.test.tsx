@@ -21,14 +21,12 @@ test('the knob shows its short label, its value and its bounds', async () => {
   await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toHaveTextContent('4')
   const ends = [...screen.container.querySelectorAll('.kv-end')].map((el) => el.textContent)
   expect(ends).toEqual(['2', '16'])
-  // The description is the row's, closed until its `?` opens it (handoff 2,
-  // PR 2): in the tree, out of sight.
+  // The description is in the tree, closed until its `?` opens it.
   const help = screen.container.querySelector('#knob-warns-desc')
   expect(help?.textContent).toBe(EN.paramText(specOf('warns')).help)
   expect(help?.classList.contains('fw-vh')).toBe(true)
 })
 
-// A large bound is shortened in its 36px track; the exact range is the title.
 test('a large bound is shortened, and the exact range stays in the title', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('seed')} />)
@@ -37,8 +35,6 @@ test('a large bound is shortened, and the exact range stays in the title', async
   expect(screen.container.querySelector('.kv-row')?.getAttribute('title')).toContain('4,294,967,295')
 })
 
-// Handoff 2, PR 2: a special value is the word in the value track, and a
-// chip in the minimum's track, pressed while the knob holds it.
 test('a special value shows its word alone, and its chip is pressed', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('Lmax')} />)
@@ -49,8 +45,7 @@ test('a special value shows its word alone, and its chip is pressed', async () =
   expect(screen.container.querySelector('.kv-unit')?.textContent).toBe('')
 })
 
-// Released with no earlier value, `Lmax` goes to 17 — the smallest length the
-// `lmaxHole` rule allows, since its default is `auto` itself.
+// `Lmax` defaults to `auto` itself, so a first release goes to `RELEASE_TO`.
 test('the chip toggles the special value, and a first release lands on a legal value', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('Lmax')} />)
@@ -63,7 +58,6 @@ test('the chip toggles the special value, and a first release lands on a legal v
   expect(params().values.Lmax).toBe(0)
 })
 
-// A later release goes back to the value the knob held before the press.
 test('a released chip goes back to the value the knob held before', async () => {
   params().reset()
   params().setMany({ giantStep: 5 })
@@ -95,8 +89,8 @@ test('committing returns focus to the number, not to the document', async () => 
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
   await screen.getByRole('button', { name: /^nook closing:/ }).click()
   await userEvent.keyboard('12{Enter}')
-  // Without this, editing twenty-eight knobs means Tabbing from the top of the
-  // document after every commit (Ruling 4).
+  // Otherwise editing many knobs means Tabbing from the top of the document
+  // after every commit.
   await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toHaveFocus()
 })
 
@@ -194,10 +188,9 @@ test('an inactive knob says what would make it do something', async () => {
   // giants is 0, so the serpentine knobs do nothing. Standing alone — no
   // dependency block saying it for the row — the knob says so itself.
   expect(screen.container.querySelector('.kv-why')?.textContent).toContain('No effect:')
-  // The one place this console knowingly departs from the spec's table: a knob
-  // that does nothing is dimmed, but it is not disabled — it is focusable,
-  // operable, and it keeps what is typed into it. A later "correction" back to
-  // `aria-disabled` would be silent, so both halves are asserted.
+  // Deliberately dimmed, not disabled: the knob stays focusable and keeps what
+  // is typed into it. A "correction" to `aria-disabled` would be silent, so
+  // both halves are asserted.
   expect(screen.container.querySelector('.kv-row')?.className).toContain('off')
   expect(screen.container.querySelector('[aria-disabled]')).toBeNull()
 })
@@ -206,8 +199,6 @@ test('the reason reaches the number and the inline entry, not only the slider', 
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
   const number = screen.getByRole('button', { name: /^span:/ })
-  // Tabbing to the number used to announce "skeleton length: 30, button" and
-  // nothing about why the knob is dead.
   await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
   await number.click()
   await expect
@@ -219,9 +210,8 @@ test('a knob under a rule floor states the bound in words, not only as a mark', 
   params().reset()
   params().setMany({ W: 900, H: 900 })
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
-  // 0.85 is above the floor here, so there is no violation — and the marker on
-  // the track is the only other place this number appears. The bound is the
-  // row's state line.
+  // 0.85 is above the floor here, so there is no violation, and the marker
+  // would be the only other place this number appears.
   expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Rule bound')
 })
 
@@ -232,8 +222,5 @@ test('a floor sitting on the knob maximum is stated too, not left to the marker 
   // violation instead of its bound, and the bound is what this test is about.
   params().setMany({ W: 1000, H: 1000, warns: 2, anticoil: 7, pStraight: 1 })
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
-  // The marker's only surface is a mouse-hover title; the sentence is the one
-  // everyone reads, screen readers included, through `aria-describedby`.
-  // The bound is the row's state line.
   expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Rule bound: 1')
 })

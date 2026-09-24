@@ -24,8 +24,7 @@ const MIX_SPEC: ParamSpec = (() => {
  *
  * The share row is bounded by `START.mix`, not by the knob's own range: the
  * knob runs from −1 (a word, not a share) while only 0.3..0.7 is spellable.
- * Both are rows of the knob grid (handoff 2, PR 2); the select stands in the
- * control's track, as a choice knob's does.
+ * The select stands in the control's track, as a choice knob's does.
  */
 export function StartKnob() {
   const dict = useDictionary()

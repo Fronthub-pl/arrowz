@@ -11,16 +11,10 @@ import { CollapsibleBlock, endText, KnobLine, KnobTrack, rowTitle, useKnobHelp }
 import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type ViewField } from './viewFields'
 
 /**
- * The chosen theme's arrow colours, in order, on the theme's own paper
- * (design doc §6, Task 1 of the palette round-2 addendum): the paper says what
- * surface the arrows draw against without spending a swatch on `paper` or
- * `ink` separately, and a colour that would vanish against its own paper is
- * exactly what this is for showing. Renders nothing for `''` (no theme).
- *
- * `aria-hidden`: the `<select>` beside it already names the theme, so this
- * strip repeats no information a screen reader user needs read out — it is
- * not interactive, and there is no useful text a hex value could be given
- * ("swatch one: hash f5 e0 dc" names nothing anyone would ask for).
+ * The chosen theme's arrow colours, in order, on the theme's own paper, so a
+ * colour that would vanish against that paper shows it. Renders nothing for
+ * `''` (no theme). `aria-hidden`: the `<select>` beside it already names the
+ * theme, and a hex value read out names nothing anyone would ask for.
  */
 function ThemeSwatchStrip({ themeName }: { themeName: string }) {
   const theme = themeOf(themeName)
@@ -38,7 +32,7 @@ function ThemeSwatchStrip({ themeName }: { themeName: string }) {
 }
 
 /**
- * One preview number as a knob row (handoff 2, PR 3): the value, the bounds
+ * One preview number as a knob row: the value, the bounds
  * `VIEW_RANGE` states (read here, never copied), the drawn track, and the
  * description on demand. A preview number is not a knob — the engine never
  * sees it — so it has no state line: nothing refuses it, it is clamped.
@@ -56,7 +50,7 @@ export function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
 
 /**
  * The row itself, for any owner of a view: the lab's slice above, or a stored
- * board's meta on the saved boards (handoff 2, PR 6). `onSet` is handed what
+ * board's meta on the saved boards. `onSet` is handed what
  * was typed or dragged; clamping is the owner's, as it is the slice's here.
  */
 export function NumberRow({
@@ -356,7 +350,7 @@ function ColourRow({
 
 /**
  * The theme as a row: the select in the control track, the chosen theme's
- * strip under it. The simple view's preview section shows it too (round 3).
+ * strip under it. The simple view's preview section shows it too.
  */
 export function ThemeRow(): ReactElement {
   const dict = useDictionary()
@@ -392,10 +386,10 @@ export function ThemeRow(): ReactElement {
 }
 
 /**
- * The editable custom palette as a row (design doc §6): its count against the
- * cap in the value track, its colours and the add button across the minimum's
- * and the control's tracks. The cap lives in the store (`view.slice.ts`'s
- * `paletteUpdate`), so nothing here can bypass it.
+ * The editable custom palette as a row: its count against the cap in the value
+ * track, its colours and the add button across the minimum's and the
+ * control's tracks. The cap lives in the store (`paletteUpdate`), so nothing
+ * here can bypass it.
  */
 function PaletteRow(): ReactElement {
   const dict = useDictionary()
@@ -481,7 +475,7 @@ export function Section({ id, title, children }: { id: string; title: string; ch
 /**
  * The colours the stage paints any board with: the lab's own, and on the saved
  * boards the stored board's too — `BoardFrame` spreads the theme, the palette,
- * the paper and the ink over a stored board's view (handoff 2, PR 6). So this
+ * the paper and the ink over a stored board's view. So this
  * section belongs to both faces, and it is always the lab's slice it edits.
  */
 export function ColoursSection(): ReactElement {
@@ -535,13 +529,12 @@ export const fieldOf = (key: ViewNumber): ViewField => {
 }
 
 /**
- * The mock's *element* section as knob rows (handoff 2, PR 3), on the knobs'
- * grid: arrows, highlight, grid, colours and export. The top count lives
- * under the highlight switch and the dot colour and radius under the point
- * grid's, in blocks that open with their switch — or for a palette jump to
- * one of their rows. They are not knobs — the engine never sees them — so
- * they carry no violation and no inactive reason, and editing one redraws the
- * board without generating (§2.2).
+ * The element's settings as knob rows, on the knobs' grid: arrows, highlight,
+ * grid, colours and export. The top count lives under the highlight switch
+ * and the dot colour and radius under the point grid's, in blocks that open
+ * with their switch or for a palette jump to one of their rows. The engine
+ * never sees them, so they carry no violation and no inactive reason, and
+ * editing one redraws the board without generating.
  */
 export function ViewPanel() {
   const dict = useDictionary()

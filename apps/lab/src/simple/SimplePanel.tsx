@@ -36,13 +36,13 @@ function SizeRow({ side }: { side: RecipeSide }): ReactElement {
   )
 }
 
-/** The seed lives in the knobs, not in the recipe; written through the machine path (Ruling 4). */
+/** The seed lives in the knobs, not in the recipe; written by the machine path, so no edit is counted. */
 function SeedRow(): ReactElement {
   const setMany = useStore((state) => state.params.setMany)
   return <ValueKnob spec={specOf('seed')} onSet={(seed) => setMany({ seed })} />
 }
 
-/** Spec §2.2: the segmented button runs at once, after the knobs are rewritten. */
+/** The segmented button runs at once, after the knobs are rewritten. */
 function SkeletonRow({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const skeleton = useStore((state) => state.recipe.value.skeleton)
@@ -116,14 +116,13 @@ function RandomRow(): ReactElement {
 }
 
 /**
- * The simple view (spec §2.1 unit 4): plain choices instead of twenty-eight
- * knobs, translated into a full parameter set by `lab-simple.ts`. It takes the
- * console's first two tracks (Ruling 7), so the run column beside it is the
- * same instance the advanced view shows.
+ * The simple view: plain choices instead of the knobs, translated into a full
+ * parameter set by `lab-simple.ts`. It takes the console's first two tracks,
+ * so the run column beside it is the same instance the advanced view shows.
  *
- * Since round 3 (3c) it is the advanced view's grid, in two sections of knob
- * rows: the board, then the preview rows the preview tab draws, the same
- * components writing the same slice.
+ * The advanced view's grid, in two sections of knob rows: the board, then the
+ * preview rows the preview tab draws, the same components writing the same
+ * slice.
  *
  * Not a tabpanel: in this view there is no rail to label it.
  */

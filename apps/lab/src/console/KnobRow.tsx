@@ -5,7 +5,7 @@ import { useDictionary } from '../i18n'
 import { boundOn, percent } from './track'
 
 /**
- * A knob row's five tracks (handoff 2, PR 2): the label with its `?`, the
+ * A knob row's five tracks: the label with its `?`, the
  * value, the minimum, the control and the maximum. Every row of every group
  * is this one grid (console.css, `.kv-g .ln`), so values, tracks and selects
  * sit on one x down the whole panel.
@@ -29,9 +29,9 @@ export function KnobLine({
   /** The control takes the minimum's track too: the palette's list of colours. */
   wide?: boolean | undefined
   /**
-   * A line under the control, in the control's own track (round 3, 3c): a
-   * recipe slider's end words. On the row's grid, not under it, so it takes
-   * the track's x and width whatever tracks the panel's width leaves.
+   * A line under the control, in the control's own track: a recipe slider's
+   * end words. On the row's grid, not under it, so it takes the track's x and
+   * width whatever tracks the panel's width leaves.
    */
   under?: ReactNode
 }): ReactElement {
@@ -54,8 +54,7 @@ export function KnobLine({
  * The description on demand: a `?` beside the label and the paragraph under
  * the row. The paragraph is always in the tree, out of sight while closed
  * (`.fw-vh`, never `display: none`), because every control of the row names it
- * in `aria-describedby` — a closed description must not dangle a reference
- * (Ruling 9 of 2026-09-13-lab-run-triggers).
+ * in `aria-describedby`, and a closed description must not dangle a reference.
  */
 export function useKnobHelp(id: string, name: string, text: string) {
   const dict = useDictionary()
@@ -84,8 +83,8 @@ export function useKnobHelp(id: string, name: string, text: string) {
  * What a row says under itself, and whether it is dimmed. A refusal first, in
  * `--error`; then a reason for having no effect, unless it is the reason the
  * row's dependency block already states in its header (`blockReason`); then a
- * rule bound, in `--warn`. The line is never hidden by anything: turning a
- * description off must not turn a refusal off with it.
+ * rule bound, in `--warn`. The line is never hidden: closing a description
+ * must not hide a refusal with it.
  */
 export function rowState(
   dict: Dict,
@@ -126,7 +125,7 @@ export function rowTitle(dict: Dict, label: string, range?: { min: number; max: 
 }
 
 /**
- * The drawn track (handoff 2, PR 2): a 2px rail, the fill, a 2×12 thumb and
+ * The drawn track: a 2px rail, the fill, a 2×12 thumb and
  * the rule floor, with the native range input over them, transparent and
  * covering the whole box — so the keyboard, the touch and the value come from
  * the platform, and the look does not depend on the browser's slider parts.
@@ -185,7 +184,7 @@ export function KnobTrack({
 }
 
 /**
- * A dependency block (handoff 2, PR 2 and PR 3): rows that do nothing until a
+ * A dependency block: rows that do nothing until a
  * parent does, under a header that toggles them. Closed while the parent is
  * off, with a header saying what it needs; open once it is on, with the
  * block's name. The header toggles it either way, and the parent turning on

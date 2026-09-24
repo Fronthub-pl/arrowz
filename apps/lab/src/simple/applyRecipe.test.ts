@@ -34,8 +34,7 @@ describe('applyRecipe', () => {
     expect(state().view.cell).toBe(13)
   })
 
-  // A new view object makes the board element redraw everything, and a slider
-  // drag calls this sixty times a second with an unchanged size.
+  // A slider drag calls this on every tick with an unchanged size.
   it('leaves the view alone when the export cell does not move', () => {
     applyRecipe(false)
     const view = state().view
@@ -45,7 +44,7 @@ describe('applyRecipe', () => {
   })
 
   // The page-load run applies the recipe, and StrictMode runs that effect
-  // twice (App.tsx); the second application must be the first one.
+  // twice; the second application must be the first one.
   it('gives the same knobs twice without the draw', () => {
     state().recipe.setSlider('shape', 0.9)
     applyRecipe(false)
@@ -54,8 +53,7 @@ describe('applyRecipe', () => {
     expect(state().params.values).toEqual(first)
   })
 
-  // Measured before this plan was written: the default recipe reproduces
-  // `defaultParams()` key for key (`lab-simple.ts:69-70` states it).
+  // `lab-simple.ts` picks its anchors so the default recipe is the engine defaults.
   it('reproduces the engine defaults from the default recipe', () => {
     state().params.setMany({ W: 77 })
     applyRecipe(false)
@@ -80,8 +78,8 @@ describe('applyRecipe', () => {
     expect(state().ui.clamped).toBe(false)
   })
 
-  // The machine path (Ruling 4): applying the recipe must not look like a
-  // person typing a knob, or `auto` would carve behind it.
+  // Applying the recipe must not look like a person typing a knob, or `auto`
+  // would carve behind it.
   it('leaves both edit counters alone', () => {
     const typed = state().params.edits
     const shaped = state().recipe.edits

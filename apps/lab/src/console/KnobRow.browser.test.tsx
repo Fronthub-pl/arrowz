@@ -12,9 +12,6 @@ const specOf = (key: string) => {
   return spec
 }
 
-// The knob rows draw their own track — rail, fill, thumb and the rule floor —
-// under the native range input, which keeps the keyboard and the value while
-// being invisible.
 describe('the drawn track of a knob row', () => {
   const track = (floor?: number, onCommit: (v: number) => void = () => {}, word: string | null = null) => (
     <div className="fw" style={{ width: '200px' }}>
@@ -32,8 +29,7 @@ describe('the drawn track of a knob row', () => {
   )
 
   it('draws the fill and the thumb at the value, over the whole rail', async () => {
-    // The joined coarse/XS media query widens `.kv-g` at XS (spec §5); this
-    // pins the desktop rail width, not the finger's.
+    // The coarse/XS media query widens `.kv-g`; this pins the desktop rail width.
     await page.viewport(1400, 900)
     const screen = await render(track())
     const rail = screen.container.querySelector('.kv-track .rail')
@@ -46,8 +42,6 @@ describe('the drawn track of a knob row', () => {
     expect(thumb.getBoundingClientRect().left + 1 - r.left).toBeCloseTo(r.width / 2, 0)
   })
 
-  // The input covers the drawn track and is transparent: the platform's
-  // keyboard, touch and value, with none of its look.
   it('lays the native input over the drawing, invisible, and commits from the keyboard', async () => {
     const onCommit = vi.fn()
     const screen = await render(track(undefined, onCommit))
@@ -75,9 +69,6 @@ describe('the drawn track of a knob row', () => {
     expect(screen.container.querySelector('.kv-track .floor')).toBeNull()
   })
 
-  // A knob whose value has a word says the word, not the number: Lmax 0 is
-  // "auto" on the command line, and a slider announcing "0" would announce a
-  // maximum length of zero.
   it('states the value in words where the spec has one, not the number', async () => {
     const screen = await render(track(undefined, () => {}, 'auto'))
     const input = screen.getByRole('slider').element()
@@ -92,9 +83,6 @@ describe('the drawn track of a knob row', () => {
     expect(input.hasAttribute('aria-valuetext')).toBe(false)
   })
 
-  // The rule floor is a marker, not a limit (spec §5.4): the knob can still be
-  // set below it, so the native input's own `min` stays the track's minimum
-  // whether or not a floor is drawn on top of it.
   it('the rule floor does not raise the input minimum, because it is a marker, not a limit', async () => {
     const screen = await render(track(0.8))
     const input = screen.getByRole('slider').element()

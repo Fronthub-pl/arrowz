@@ -10,16 +10,14 @@ import { boundOn } from './track'
 import { RELEASE_TO, UNIT_OF } from './knobLayout'
 
 /**
- * One number knob as a row (handoff 2, PR 2): the short label and its `?`,
+ * One number knob as a row: the short label and its `?`,
  * the value with its unit, the minimum — or the special value's chip, which is
  * that minimum — the drawn track and the maximum; under it, the state line and
  * the description on demand.
  *
- * Four subscriptions, all by this knob's key. Dragging another knob changes
- * none of them, so this component does not render: that is what the sparse
+ * Every subscription is by this knob's key (plus the stable setter), so
+ * dragging another knob does not render this one: that is what the sparse
  * indexes in `params.slice` are for.
- *
- * The inline entry is `DraftNumber` (spec §5.5); the knob only knows its bounds.
  */
 export function ValueKnob({
   spec,
@@ -32,7 +30,7 @@ export function ValueKnob({
   bounds?: { min: number; max: number }
   blockReason?: InactiveKey | undefined
   /**
-   * Another owner of the row (round 3, 3c): the simple view shows a size from
+   * Another owner of the row: the simple view shows a size from
    * the recipe and writes it there, and writes the seed by the machine path.
    * Without them the row is the knob's, and a write is a knob edit.
    */
@@ -57,7 +55,7 @@ export function ValueKnob({
   const special = wordFor(spec.key, bounds.min)
   const isSpecial = special !== null && value === bounds.min
   // Where a released chip goes: the last value this row held, else the
-  // default, else the smallest legal value (`knobLayout.ts`). Recorded after
+  // default, else `RELEASE_TO`, else one step up. Recorded after
   // the render, not during it.
   const last = useRef<number | null>(null)
   useEffect(() => {

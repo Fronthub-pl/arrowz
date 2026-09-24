@@ -15,9 +15,8 @@ export type CommandSection = 'run' | 'go' | 'knob' | 'preset'
  * (`.lab`, `.g`, `.v`); `hay` is text that is searched and not shown, which is
  * how `--seed` finds the seed knob.
  *
- * `disabled` does not remove a row (spec D7): it is listed with its reason
- * where a value would be, because a command that disappears when unavailable
- * is a command nobody can find and nobody can be told about.
+ * `disabled` does not remove a row: it is listed with its reason where a
+ * value would be, because a command that disappears is one nobody can find.
  */
 export interface Command {
   readonly id: string
@@ -36,23 +35,20 @@ export interface CommandDeps {
   readonly dict: Dict
 }
 
-/** A jump: the face, then the panel that holds the control, then the control itself (spec §6). */
+/** A jump: the face, then the panel that holds the control, then the control itself. */
 function jumpTo(deps: CommandDeps, entry: Parameters<Store['ui']['select']>[0], id: string): void {
   const ui = useStore.getState().ui
-  // ⌘K is bound on every route, so a jump can be asked for from anywhere — but
-  // the knobs are the lab face's alone: `/boards` puts the library in the
-  // console's panel slot and `/docs/*` hides the whole workspace. The lab face
-  // comes first, because a person who asked for a knob asked for that knob.
+  // ⌘K is bound on every route, but the knobs are the lab face's alone:
+  // `/boards` puts the library in the panel slot and `/docs/*` hides the
+  // workspace.
   deps.navigate('/')
   // The knobs do not exist in the simple view either, so the jump has to bring
   // the console that has them.
   if (ui.mode === 'simple') ui.setMode('advanced')
   ui.select(entry)
   // The control has to be on screen, not merely in the tree: below 1024 the
-  // settings drawer starts closed (spec D3), and at XS the console is not
-  // rendered at all until its sheet opens, so focusing the control alone
-  // lands nowhere a person can see. At XS the sheet opens; elsewhere the
-  // drawer opens, and is remembered open, exactly as pressing `s` would.
+  // settings drawer starts closed, and at XS the console is not rendered until
+  // its sheet opens. The drawer is remembered open, as pressing `s` would.
   if (readBand() === 'xs') ui.setSheet('settings')
   else if (!ui.settings) ui.setSettings(true)
   ui.requestFocus(id)
@@ -146,7 +142,7 @@ function presetRows(deps: CommandDeps): Command[] {
   return rows
 }
 
-/** Every row the palette can show, in the order it shows them (spec §4). */
+/** Every row the palette can show, in the order it shows them. */
 export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const { dict } = deps
   const running = state.run.phase === 'running'
@@ -172,8 +168,8 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       section: 'run',
       name: dict.t('reseed'),
       note: dict.t('cmdSecRun'),
-      // The hotkey while the row can be used, the reason while it cannot: the
-      // value column is one column, and D7 gives the reason the right of way.
+      // The hotkey while the row can be used, the reason while it cannot: one
+      // column, and the reason wins.
       value: running ? dict.t('cmdRunning') : '[ ]',
       hay: 'seed',
       disabled: running,
@@ -254,9 +250,8 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
       },
     },
   ]
-  // The two exports are deliberately not here (spec §4): each is a closure
-  // inside `ExportButtons` holding a worker or a per-board hash, and a palette
-  // row could reach them only by clicking their button through the DOM.
+  // No export rows: each export is a closure inside `ExportButtons` holding a
+  // worker or a per-board hash, reachable only by clicking its button.
   return [...run, ...go, ...knobRows(deps, state), ...presetRows(deps)]
 }
 
@@ -277,17 +272,12 @@ function goRow(deps: CommandDeps, id: string, name: string, path: string): Comma
 }
 
 /**
- * A case-insensitive substring over what a row shows and what it hides. The
- * mock searches the label and the group; the flag joins them because the lab's
- * whole vocabulary is the CLI's, and the live command line is on the same
- * screen.
+ * A case-insensitive substring over what a row shows and what it hides (the
+ * CLI flag, since the live command line is on the same screen).
  *
- * Rows whose name *starts with* the query are ranked ahead of rows that only
- * *contain* it elsewhere — otherwise the pinned section order (`run`, `go`,
- * `knob`, `preset`) decides, and a knob named exactly for the query (e.g.
- * "seed") loses to an action whose name merely mentions it (e.g. "New seed"),
- * because `run` is listed first. The partition is stable: within each of the
- * two groups, rows keep the relative order they already had.
+ * Rows whose name *starts with* the query come first; otherwise section order
+ * decides, and "New seed" (`run`) would beat the knob named "seed". The
+ * partition is stable within each group.
  */
 export function matchCommands(commands: readonly Command[], query: string): Command[] {
   const q = query.trim().toLowerCase()

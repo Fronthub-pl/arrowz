@@ -24,10 +24,8 @@ describe('the catalogue', () => {
     const order: CommandSection[] = ['run', 'go', 'knob', 'preset']
     const rows = buildCommands(deps(), useStore.getState())
     expect([...new Set(rows.map((row) => row.section))]).toEqual(order)
-    // First occurrences alone say less than the name of this case promises: a
-    // preset row dropped among the knobs would leave the four first sightings
-    // in exactly this order and pass. The sequence has to be non-decreasing
-    // row by row, which is what "in sections" actually means.
+    // First occurrences alone would pass a preset row dropped among the knobs:
+    // the sequence has to be non-decreasing row by row.
     for (let i = 1; i < rows.length; i += 1) {
       const before = rows[i - 1]
       const row = rows[i]
@@ -58,8 +56,6 @@ describe('the catalogue', () => {
     expect(seed?.hay).toContain('--seed')
   })
 
-  // Spec D7: an unavailable command stays listed and says why, because a
-  // command that vanishes is one nobody can find.
   it('lists Abort with a reason while nothing is running, and enables it during a run', () => {
     const idle = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-abort')
     expect(idle?.disabled).toBe(true)
@@ -70,9 +66,7 @@ describe('the catalogue', () => {
   })
 
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
-    // wShort + wMid above 0.9 breaks `sharesSum`, the rule the envelope states.
-    // (The brief and plan both write `wMed`; the engine's actual key is `wMid`
-    // — see packages/engine/types.ts and the `sharesSum` rule in engine.ts.)
+    // wShort + wMid above 0.9 breaks `sharesSum`.
     useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })
     expect(useStore.getState().params.violations.length).toBeGreaterThan(0)
     const go = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-generate')
@@ -80,14 +74,9 @@ describe('the catalogue', () => {
     expect(go?.value).toBe('rule broken')
   })
 
-  // D7 is unconditional, and it was applied to one of the four states a row
-  // can be unavailable in: while a carve was going, Generate still advertised
-  // its hotkey `g`, New seed still advertised `[ ]` and Defaults said nothing
-  // at all — three greyed rows with no word about why. The assertion is over
-  // the whole catalogue rather than over the three rows, so a row added later
-  // cannot be disabled in silence, and it compares against the dictionary's
-  // reasons rather than against "not empty": `[ ]` is a hotkey, not a reason,
-  // and a looser test would have passed on the very defect it exists for.
+  // Over the whole catalogue, so a row added later cannot be disabled in
+  // silence; against the dictionary's reasons, not "not empty", because a
+  // hotkey such as `[ ]` is not a reason.
   it('never disables a row without giving one of D7’s reasons', () => {
     const dict = dictionary('en')
     const reasons = [dict.t('cmdNoRun'), dict.t('cmdRunning'), dict.t('cmdBroken')]
@@ -155,17 +144,14 @@ describe('the matcher', () => {
     expect(matchCommands(rows, 'zzzzz')).toEqual([])
   })
 
-  // Spec D4: the mock's `slice(0, 40)` is dropped, and this is the assertion
-  // that keeps it dropped — at 40 rows exactly, a cap would be invisible.
+  // The mock capped the list at 40 rows; above 60 such a cap would show.
   it('caps nothing', () => {
     const rows = buildCommands(deps(), useStore.getState())
     expect(rows.length).toBeGreaterThan(60)
   })
 
-  // The defect this guards: `run-reseed`'s name is "New seed" and its hay is
-  // "seed", so before ranking it beat `knob-seed` (whose name simply is
-  // "seed") on section order alone. Enter then ran the wrong row. The knob
-  // must lead, and the action must still be reachable right behind it.
+  // `run-reseed` ("New seed", hay "seed") comes first in section order; the
+  // knob must still lead, and the action stay reachable.
   it('puts a name that starts with the query ahead of a section that merely contains it', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const matches = matchCommands(rows, 'seed')
@@ -173,11 +159,8 @@ describe('the matcher', () => {
     expect(matches.map((row) => row.id)).toContain('run-reseed')
   })
 
-  // Query 'run': it matches note ('run', shared by all five run-section rows)
-  // and, incidentally, `knob-giantJitter`'s label ("cutting serpentine runs
-  // short"). None of those six names *starts* with "run", so every match
-  // lands in the same rank and the ranking must not reshuffle them — the
-  // result must read in exactly the catalogue's own order.
+  // 'run' matches the five run rows' note and `knob-giantJitter`'s label; no
+  // name starts with it, so all six share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
@@ -187,10 +170,8 @@ describe('the matcher', () => {
     expect(matches).toEqual(catalogueOrder.filter((id) => matches.includes(id)))
   })
 
-  // Query 'docs': both `go-docs-element` ("Docs — Element") and `go-docs-cli`
-  // ("Docs — Command line") start with it, and nothing else matches — so both
-  // land in the *promoted* rank, the one the previous stability case does not
-  // reach. Their relative order must still be the catalogue's.
+  // Both docs rows' names start with 'docs': the promoted rank, which the case
+  // above does not reach.
   it('keeps the catalogue order between two rows that both get promoted', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)

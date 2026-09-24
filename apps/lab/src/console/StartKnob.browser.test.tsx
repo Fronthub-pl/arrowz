@@ -14,8 +14,8 @@ test('the control offers the four words and follows the two knobs', async () => 
   for (const word of ['layers', 'random', 'tunnels', 'mixing']) {
     await expect.element(screen.getByRole('option', { name: word })).toBeInTheDocument()
   }
-  // The defaults are headBias 0 and mix -1, which `--start` spells `random`
-  // (command.ts:72) — not `layers`, whose headBias is -1.
+  // The defaults are headBias 0 and mix -1, which `START.words` spells
+  // `random`, not `layers` (headBias -1).
   await expect.element(select).toHaveValue('random')
 })
 
@@ -51,8 +51,6 @@ test('switching away and back keeps a share the flag can still spell', async () 
   // again rather than printing a command the CLI refuses.
 })
 
-// Handoff 2, PR 2: the start control is a knob row like the others — a short
-// label, a `?` with its description, and the select in the control's track.
 test('the start control is a knob row with its own description', async () => {
   params().reset()
   const screen = await render(<StartKnob />)

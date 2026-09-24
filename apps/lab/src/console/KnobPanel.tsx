@@ -20,7 +20,7 @@ function specOf(key: ParamKey): ParamSpec {
 }
 
 /**
- * The lengths group's mix (handoff 2, PR 2): short, medium and the long rest
+ * The lengths group's mix: short, medium and the long rest
  * as one bar, sized by their shares, with a legend in percent. The rule that
  * short and medium together stay at or under 0.9 is a `--warn` mark at 90%
  * of the bar, the rule floor's colour on a track; past it the long share
@@ -93,7 +93,7 @@ function DependencyBlock({ block }: { block: KnobBlock }): ReactElement {
 }
 
 /**
- * One group of knobs as rows on one five-track grid (handoff 2, PR 2). Table
+ * One group of knobs as rows on one five-track grid. Table
  * order, with two exceptions: the two knobs behind `--start` share one row,
  * built where the first of them would have stood; and a dependency block's
  * knobs leave their places for the block, which stands right after its last

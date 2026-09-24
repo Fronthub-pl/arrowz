@@ -2,13 +2,11 @@ import { pieceShape } from '@arrowz/engine'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 import { autoHeadWidth, VIEW_FIELDS, VIEW_ROWS } from './viewFields'
-// `ViewNumber` comes from the root export; `VIEW_RANGE` from /command.
 
 test('a step is a step a whole-number field can land on', () => {
-  // Once the bounds are read from `VIEW_RANGE` rather than restated, they can
-  // no longer disagree with the CLI, but the step still can — a fractional step
-  // on a field the store rounds would make every arrow press either a no-op or
-  // a jump of one, depending on where the value already sat.
+  // The bounds come from `VIEW_RANGE`, but the step can still disagree: a
+  // fractional step on a field the store rounds makes an arrow press a no-op
+  // or a jump of one.
   for (const field of VIEW_FIELDS) {
     const range = VIEW_RANGE[field.field]
     expect(field.step).toBeGreaterThan(0)
@@ -18,15 +16,11 @@ test('a step is a step a whole-number field can land on', () => {
 })
 
 test('the table covers every number the view has', () => {
-  // Against `VIEW_RANGE`'s own keys and not a literal: this file guards the
-  // bounds where they are read, and `VIEW_RANGE` is typed
-  // `Record<ViewNumber, …>`, so a sixth view number shows up here the day it is
-  // added rather than the day somebody remembers to widen a list.
+  // Against `VIEW_RANGE`'s keys, not a literal, so a new view number fails
+  // here the day it is added.
   expect(VIEW_FIELDS.map((f) => f.field).sort()).toEqual(Object.keys(VIEW_RANGE).sort())
 })
 
-// Handoff 2, PR 3: every preview number is drawn as a row, so the row table
-// covers the same numbers the field table does.
 test('every preview number has a row: a short label and a description', () => {
   expect(Object.keys(VIEW_ROWS).sort()).toEqual(VIEW_FIELDS.map((f) => f.field).sort())
   for (const row of Object.values(VIEW_ROWS)) {

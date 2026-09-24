@@ -11,10 +11,8 @@ import { KnobPanel } from './KnobPanel'
 import '../design/tokens.css'
 import '../design/console.css'
 
-// File scope, the way this repository's other browser files open one (see
-// `RunColumn.browser.test.tsx`, whose own file-scope block resets the same
-// four things): a reset inside a describe leaves every case declared above
-// the block running on whatever the case before it happened to leave behind.
+// File scope: a reset inside a describe would leave every case declared above
+// the block running on whatever the case before it left behind.
 beforeEach(() => {
   const state = useStore.getState()
   state.params.reset()
@@ -39,8 +37,6 @@ test('a panel draws every knob of its group', async () => {
   await expect.element(screen.getByText('anticoil', { exact: true })).toBeVisible()
 })
 
-// Handoff 2, PR 2: the label is the engine's short term; the full sentence
-// is the row's title, with the range.
 test('a row labels its knob with the short term and keeps the sentence in its title', async () => {
   const screen = await render(<KnobPanel group="shape" />)
   const label = screen.container.querySelector('label[for="knob-anticoil"]')
@@ -82,18 +78,15 @@ test('every knob in PARAM_SPEC is reachable from exactly one panel', async () =>
   for (const key of expected) expect(drawn.has(key)).toBe(true)
 })
 
-// The descriptions switch is gone (handoff 2, PR 2): the group's own sentence
-// is always under the heading.
 test('a group with help prints it under the heading', async () => {
   const screen = await render(<KnobPanel group="closing" />)
   await expect.element(screen.getByText(/no legal carve/)).toBeVisible()
 })
 
 describe('the description on demand', () => {
-  // Measured, not `toBeVisible()`: that matcher reads the bounding rect, which
-  // a 1x1px clipped box still has, so it cannot tell `.fw-vh` apart from an
-  // element that merely happens to be small. `clipPath`/`position` are the
-  // properties the CSS actually sets, so they are what a reversal would break.
+  // Not `toBeVisible()`: a 1x1px clipped box still has a bounding rect, so it
+  // cannot tell `.fw-vh` from a small element. `clipPath`/`position` are what
+  // the CSS sets.
   it('keeps each description closed until its `?` opens it', async () => {
     const screen = await render(<KnobPanel group="board" />)
     const help = screen.container.querySelector('#knob-W-desc')
@@ -123,9 +116,6 @@ describe('the description on demand', () => {
     expect(getComputedStyle(help).visibility).not.toBe('hidden')
   })
 
-  // Ruling 9 of 2026-09-13 survives the move: a closed description never takes
-  // the reason a run is refused with it, and the state line holds the reason
-  // alone.
   it('keeps a violation under its row, visible, with the description closed', async () => {
     useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 })
     const screen = await render(<KnobPanel group="lengths" />)
@@ -166,9 +156,8 @@ describe('the description on demand', () => {
       .toHaveAttribute('aria-describedby', 'knob-mix-why knob-mix-desc')
   })
 
-  // Live pass, 420×900: a description in a starved column read one word per
-  // line. The paragraph runs under the whole row, so at 300px it has at least
-  // half of it.
+  // The paragraph runs under the whole row, not in one starved track, so a
+  // 300px panel still gives it at least half.
   it('gives a narrow panel enough width for a description to read, not one word a line', async () => {
     const screen = await render(
       <div style={{ width: '300px' }}>
@@ -204,9 +193,7 @@ describe('the dependency blocks', () => {
     expect(body?.hidden).toBe(false)
   })
 
-  // The engine turns the skeleton on with either parent (`skeletonOff`), so
-  // `later share` alone opens the block — the reconstruction's "needs giants"
-  // would have hidden live knobs.
+  // The engine turns the skeleton on with either parent (`skeletonOff`).
   it.each([['giants' as const], ['wGiant' as const]])('opens it once %s alone is above 0', async (parent) => {
     const screen = await render(<KnobPanel group="skeleton" />)
     await act(async () => useStore.getState().params.setMany({ [parent]: specOf(parent).max }))
@@ -222,8 +209,6 @@ describe('the dependency blocks', () => {
     expect(subs).toEqual([EN.t('subLayout'), EN.t('subGrowth')])
   })
 
-  // The block's reason is said once, in its header; a row's other reason is
-  // still its own line.
   it('says the block’s reason once, and a row’s other reason under that row', async () => {
     const screen = await render(<KnobPanel group="skeleton" />)
     const span = screen.getByTestId('knob-giantSpan-why').element()
@@ -235,9 +220,8 @@ describe('the dependency blocks', () => {
     expect(screen.getByTestId('knob-giantSpan-why').element().textContent).toBe('')
   })
 
-  // Live pass, 2026-09-23: the difficulty block's id is `probe`, and so is
-  // its parent knob's key; as siblings in one list React warned and may drop
-  // or duplicate a row on an update.
+  // The difficulty block's id is `probe`, as is its parent knob's key; as
+  // siblings in one list React warns and may drop or duplicate a row.
   it('keys the block apart from the knob that is its parent', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     await render(<KnobPanel group="difficulty" />)
@@ -254,10 +238,8 @@ describe('the dependency blocks', () => {
     expect(document.getElementById('dep-probe')?.hidden).toBe(false)
   })
 
-  // No rule of today's engine names a knob inside a block, and both writers
-  // clamp to the range, so the refusal is put in the store by hand: this pins
-  // the guard for the rule that one day will, so a refusal never lands in a
-  // closed block.
+  // No rule names a knob inside a block and both writers clamp, so the refusal
+  // is put in the store by hand.
   it('opens itself for a knob the engine refuses', async () => {
     const screen = await render(<KnobPanel group="difficulty" />)
     expect(header(screen.container).getAttribute('aria-expanded')).toBe('false')
@@ -281,8 +263,6 @@ describe('the lengths mix', () => {
     expect(bar?.getAttribute('aria-hidden')).toBe('true')
   })
 
-  // The cap is the sharesSum rule: a mark at 90% of the bar, and past it the
-  // long share turns red.
   it('marks the short + medium cap at 90%, and reddens the long share past it', async () => {
     const screen = await render(<KnobPanel group="lengths" />)
     const bar = screen.container.querySelector('.kv-mix .bar')

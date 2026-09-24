@@ -9,11 +9,10 @@ import { applyRecipe } from './applyRecipe'
  * A recipe slider: a wish from one end word to the other, not a knob value
  * (`lab-simple.ts` interpolates the knob ranges between anchors). 0–100,
  * because a whole percent is the finest step a person drags. The knobs follow
- * at once; the run waits for the debounce (Task 4).
+ * at once; the run waits for the debounce.
  *
- * A knob row since round 3 (3c), on the advanced view's grid: no `?` and no
- * numeric ends, and the value is text, because there is nothing to type. The
- * end words stand under the track, in its own column, and describe it.
+ * A knob row with no `?` and no numeric ends, and the value is text, because
+ * there is nothing to type. The end words stand under the track and describe it.
  */
 export function PositionSlider({ slider }: { slider: RecipeSlider }): React.ReactElement {
   const dict = useDictionary()

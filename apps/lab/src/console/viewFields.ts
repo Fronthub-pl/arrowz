@@ -18,16 +18,11 @@ export interface ViewField {
 }
 
 /**
- * The four (five, with `top`) number fields of the preview.
- *
- * No bounds here on purpose. A bound written here is a copy, and a copy drifts
- * from `VIEW_RANGE` — `cell` was once offered 1..40 where the CLI takes 1..200
- * — and a field that declares a ceiling its own store legally passes is a
- * field that goes `:invalid` on a legal value and reports `aria-valuemax=40`
- * beside `aria-valuenow=200`. The bounds are read from `VIEW_RANGE` at the
- * point of render instead, so the contradiction cannot be written down. Only
- * `step` lives here: it is a keyboard convenience, not a claim about what is
- * allowed.
+ * The preview's number fields. No bounds here on purpose: a copy of
+ * `VIEW_RANGE` drifts, and a field whose ceiling is below what its store
+ * accepts goes `:invalid` on a legal value. The bounds are read from
+ * `VIEW_RANGE` at render. `step` is a keyboard convenience, not a claim about
+ * what is allowed.
  */
 export const VIEW_FIELDS: readonly ViewField[] = [
   { field: 'cell', label: 'cellLabel', step: 1 },
@@ -38,14 +33,12 @@ export const VIEW_FIELDS: readonly ViewField[] = [
 ]
 
 /**
- * What the simple view keeps of the preview (PR 4a, Ruling 9): `cell`, `top`
- * and `voids` are advanced-only, and the other six stay on screen in both
- * views.
+ * What the simple view keeps of the preview; the rest is advanced-only.
  */
 export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
 export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'hilite']
 
-/** The five flags, in the order the previous lab lists them, plus the point grid. */
+/** The preview's flags with their full labels, in the panel's order. */
 export const VIEW_FLAGS: readonly {
   flag: ViewFlag
   label: 'rounded' | 'colored' | 'hilite' | 'voids' | 'showPoints'
@@ -58,10 +51,10 @@ export const VIEW_FLAGS: readonly {
 ]
 
 /**
- * A preview number as a knob row (handoff 2, PR 3): its short label, its
+ * A preview number as a knob row: its short label, its
  * description, its unit, and — for `headWidth` — the special value 0, which
  * the element draws as the automatic width. Keyed by the number, so a sixth
- * view number cannot be drawn without a row (`viewFields.test.ts`).
+ * view number cannot be drawn without a row.
  */
 export interface ViewRow {
   short: PlainUiKey
@@ -91,10 +84,10 @@ export const FLAG_ROWS: Readonly<Record<ViewFlag, { short: PlainUiKey; help: Pla
 /**
  * Where the automatic head width's chip lands when it is released and the row
  * held no width before: the width the element draws at 0 for this stroke, so
- * the head does not jump. The rule is the engine's (`pieceShape`,
- * geometry.ts: a stroke of 0.5 or more draws a stick as wide as the line,
- * a thinner one 0.4 + 0.9 × stroke), snapped to the field's step and held in
- * its range; `viewFields.test.ts` checks two strokes against it.
+ * the head does not jump. The rule is the engine's `pieceShape` (a stroke of
+ * 0.5 or more draws a stick as wide as the line, a thinner one 0.4 + 0.9 ×
+ * stroke), snapped to the field's step and held in its range; the test checks
+ * it against `pieceShape` on both sides of 0.5.
  */
 export function autoHeadWidth(stroke: number, step: number, max: number): number {
   const width = stroke >= 0.5 ? stroke : 0.4 + 0.9 * stroke

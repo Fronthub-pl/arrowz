@@ -6,27 +6,18 @@ import { flash } from './flash'
 
 /**
  * A jump waiting in `ui.focusTarget`, spent after the render that put its
- * control in the tree (spec §6). Mounted by `Console`, which is on screen for
- * both faces of the workspace: React commits the DOM and runs a parent's
- * effect after its children's, so the panel the jump asked for is already
- * there when this runs.
+ * control in the tree. Mounted by `Console`: a parent's effect runs after its
+ * children's, so the panel the jump asked for is already there.
  *
- * **The lab tab is the only face that can spend a request**, and waiting for
- * it is not caution — it is the whole of what makes a jump from another route
- * work. ⌘K is bound everywhere, so `jumpTo` navigates to `/` before it asks
- * (spec §6); but react-router commits that navigation inside a transition,
- * one render *behind* the store write that made the request. Measured on this
- * branch with the gate absent: from `/boards` the request was spent while
- * `LibraryPanel` still held the panel slot and `#knob-seed` did not exist, and
- * from `/docs/*` the node was found inside `<main hidden>`, where `focus()` is
- * a no-op. Both left the palette closed and nothing else changed. With the
- * gate, the request simply survives that one render: `onLab` flips when the
- * route commits, and this effect runs again against the panel that has the
- * control.
+ * **Only the lab tab spends a request.** `jumpTo` navigates to `/` before it
+ * asks, but react-router commits that navigation in a transition, one render
+ * behind the store write. Without the gate, a jump from `/boards` found no
+ * node, and one from `/docs/*` focused a node inside `<main hidden>` (a
+ * no-op). With it, the request survives that render and this effect runs
+ * again once `onLab` flips.
  *
- * On the lab tab the request is then cleared whether or not the node was found
- * — a target that does not exist there will not exist later either, and must
- * not sit in the store waiting to hijack the next render.
+ * On the lab tab the request is cleared whether or not the node was found: a
+ * target missing there will not appear later, and must not hijack a render.
  */
 export function useFocusRequest(): void {
   const target = useStore((state) => state.ui.focusTarget)
@@ -39,9 +30,8 @@ export function useFocusRequest(): void {
     const node = document.getElementById(target)
     if (node === null) return
     node.focus()
-    // The focus ring alone is easy to lose among twenty-eight controls, which
-    // is why the mock outlines the whole knob box as well: a knob row
-    // (handoff 2, PR 2) or a preview card.
+    // The focus ring alone is easy to lose among the controls, so the mock
+    // outlines the whole row as well.
     flash(node.closest('.kv-row'))
   }, [target, onLab])
 }

@@ -2,16 +2,13 @@ import { type ReactElement, useEffect, useRef, useState } from 'react'
 
 /**
  * A number that opens into a text entry. The entry holds a draft string and
- * hands it over on blur or Enter (spec §5.5): clamping per keystroke would turn
- * `0.` into the minimum while someone is still typing `0.85`. Lifted out of
- * `ValueKnob` so the simple view's size and seed fields keep the same rule
- * rather than a second copy of it.
+ * hands it over on blur or Enter: clamping per keystroke would turn `0.` into
+ * the minimum while someone is still typing `0.85`. Shared by the knob rows
+ * and the simple view's size and seed fields.
  *
  * No clamp and no store: the caller knows the bounds and where the number goes.
- *
- * A knob row (handoff 2, PR 2) passes its own class and shows only the word
- * when there is one — `auto` in the value track, where the numbers stand —
- * while the simple view keeps the word beside the number.
+ * A knob row passes `wordOnly` to show just the word (`auto`) in its value
+ * track; the simple view keeps the word beside the number.
  */
 export function DraftNumber({
   label,

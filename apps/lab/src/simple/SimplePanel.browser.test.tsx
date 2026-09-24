@@ -54,11 +54,8 @@ beforeEach(() => {
   state().recipe.reset()
   state().recipe.setRandom(false)
   state().ui.raiseClamped(false)
-  // The store outlives a test; a theme chosen by one test must not leak into
-  // the next one's assumption that no theme is chosen yet. Reset directly
-  // rather than through `setTheme`, whose clearing of the palette is Ruling
-  // B — the very invariant a mutation test targets — so a reset built on it
-  // would not isolate that mutation's failures to the cases that assert it.
+  // The store outlives a test. Reset through `setState`, not the view actions,
+  // so a broken action fails only the cases that exercise it.
   useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [], rounded: DEFAULT_ROUNDED } }))
   state().lang.setLang('en')
 })
@@ -69,8 +66,6 @@ describe('SimplePanel', () => {
     await expect.element(screen.getByRole('region', { name: 'Simple settings' })).toBeVisible()
   })
 
-  // Round 3 (3c): the simple view is the advanced view's grid — two sections
-  // of knob rows, fourteen rows in all, and no card left over.
   it('is two named sections of knob rows on the advanced view’s grid', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const grid = screen.container.querySelector('.fw-simple > .kv.kv-g')
@@ -85,8 +80,7 @@ describe('SimplePanel', () => {
     await act(async () => state().lang.setLang('en'))
   })
 
-  // A size is typed like a knob (§5.5) and moves the recipe, the knobs and the
-  // export cell at once; the run is the debounce's (Task 4), so none here.
+  // The run is the debounce's, so none starts here.
   it('writes a typed width into the recipe and the knobs, and starts nothing', async () => {
     const g = stub()
     const screen = await render(<SimplePanel control={g.control} />)
@@ -102,8 +96,6 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // The track of a size row writes the recipe too, not the knob alone: a
-  // width dragged to 60 is the recipe's 60, and the knobs are what it gives.
   it('writes a dragged height into the recipe, and shows the recipe’s value', async () => {
     const g = stub()
     const screen = await render(<SimplePanel control={g.control} />)
@@ -116,8 +108,7 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // The row is the recipe's, as the size card was: a knob moved in the
-  // advanced view leaves the recipe where it was, and this view shows the recipe.
+  // A knob moved in the advanced view leaves the recipe where it was.
   it('shows the recipe’s size, not a knob moved behind its back', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const recipe = state().recipe.value.W
@@ -136,8 +127,6 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // A recipe slider has nothing to type: its value is text, it has no `?`
-  // and no numeric ends, and its two end words are its description.
   it('shows a recipe slider’s value as text, with its end words as its description', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const input = screen.container.querySelector<HTMLInputElement>('#simple-shape')
@@ -151,8 +140,6 @@ describe('SimplePanel', () => {
     expect(row.contains(ends)).toBe(true)
   })
 
-  // HANDOFF-3, known differences: the end words stand under the track, not
-  // across the whole row as the reconstruction has them.
   it('puts a recipe slider’s end words under its track, one at each end', async () => {
     await page.viewport(1440, 900)
     const screen = await render(
@@ -170,8 +157,7 @@ describe('SimplePanel', () => {
     expect(low?.top ?? 0).toBeGreaterThanOrEqual(lane.bottom - 1)
   })
 
-  // At XS the track is about 97px: the words take the whole row, one line
-  // (user ruling, round 3), as the reconstruction has them there.
+  // At XS the track is about 97px, so the words take the whole row instead.
   it('gives the end words the whole row at XS, on one line, in English and Polish', async () => {
     await page.viewport(375, 812)
     const screen = await render(
@@ -225,8 +211,6 @@ describe('SimplePanel', () => {
     }
   })
 
-  // Spec §2.2: the segmented button is immediate, and the knobs are rewritten
-  // before the run reads them.
   it('runs at once when the skeleton is switched, on the knobs it gives', async () => {
     const seen: unknown[] = []
     const control: RunControl = {
@@ -242,7 +226,6 @@ describe('SimplePanel', () => {
     expect(state().recipe.edits).toBe(shaped)
   })
 
-  // The skeleton's segmented button takes the control's track, to its right edge.
   it('stands the skeleton’s choice at the right edge of the row', async () => {
     const screen = await render(
       <div style={{ width: '720px', containerType: 'inline-size' }}>
@@ -256,8 +239,7 @@ describe('SimplePanel', () => {
     expect(Math.abs(seg.getBoundingClientRect().right - cc.getBoundingClientRect().right)).toBeLessThanOrEqual(1)
   })
 
-  // The machine path (Ruling 4): a seed typed here must not wake an `auto`
-  // left on in the advanced view, and the old seed field starts nothing.
+  // A seed typed here must not wake an `auto` left on in the advanced view.
   it('writes a typed seed into the knobs without counting it as a knob edit', async () => {
     const g = stub()
     state().ui.setAuto(true)
@@ -284,8 +266,6 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // Round 3: the short label names the switch, the whole sentence is its
-  // title, and its `?` opens the help it is described by — in its own row.
   it('keeps the randomise sentence in the title and its help under the row’s ?', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const random = screen.getByRole('switch', { name: 'randomise' })
@@ -301,7 +281,6 @@ describe('SimplePanel', () => {
     await act(async () => state().lang.setLang('en'))
   })
 
-  // Ruling 9: cell, voids and top are advanced-only.
   it('shows the preview rows the old simple view shows, and only those', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     for (const id of ['view-stroke', 'view-headWidth', 'view-headHeight', 'view-theme'])
@@ -313,7 +292,6 @@ describe('SimplePanel', () => {
     expect(screen.container.querySelector('#view-voids')).toBeNull()
   })
 
-  // The same rows as the preview tab, writing the same slice.
   it('a preview row in the simple panel still writes the lab’s view', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     slide(screen.container.querySelector<HTMLInputElement>('#view-stroke'), 0.8)
@@ -322,7 +300,6 @@ describe('SimplePanel', () => {
     expect(useStore.getState().view.rounded).toBe(!DEFAULT_ROUNDED)
   })
 
-  // Spec §6: "the simple view gets the picker and not the custom editor."
   it('offers the theme picker, and writes a choice into the lab’s view', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const picker = screen.getByRole('combobox')
@@ -331,8 +308,6 @@ describe('SimplePanel', () => {
     expect(useStore.getState().view.theme).toBe('gruvbox-dark')
   })
 
-  // Task 1 of the palette round-2 addendum: the twelve names with a swatch
-  // strip beside the picker, showing the *chosen* theme's arrow colours.
   it('shows the chosen theme’s arrow colours, in order, on its own paper, and clears with the theme', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     expect(screen.container.querySelector('.fw-swatches')).toBeNull()
@@ -344,28 +319,21 @@ describe('SimplePanel', () => {
     expect(getComputedStyle(strip).backgroundColor).toBe(rgbOf(theme.paper))
     const swatches = [...strip.querySelectorAll<HTMLElement>('.fw-swatch')]
     expect(swatches.map((s) => getComputedStyle(s).backgroundColor)).toEqual(theme.palette.map(rgbOf))
-    // The theme's own row now (round 3), as on the preview tab.
     expect(strip.closest('.kv-row')?.querySelector('#view-theme')).not.toBeNull()
-    // Finding 9 (final whole-addendum review): pin the strip's `aria-hidden`,
-    // which was load-bearing and unasserted before this.
     expect(strip.getAttribute('aria-hidden')).toBe('true')
     await userEvent.selectOptions(picker, '')
     expect(screen.container.querySelector('.fw-swatches')).toBeNull()
   })
 
-  // Spec §6: "the simple view gets the picker and not the custom editor."
-  // Pinned by absence, not merely by not calling it: sharing `ViewPanel.tsx`'s
-  // exports between the two panels (as `ThemeRow` now is) is exactly how a
-  // future edit could hand the simple view the editor by accident.
+  // Pinned by absence: the two panels share `ViewPanel`'s rows, which is how
+  // an edit could hand the simple view the editor by accident.
   it('has no custom-palette editor — no add-colour button and no colour input', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     expect(screen.getByRole('button', { name: 'add colour' }).query()).toBeNull()
     expect(screen.container.querySelector('input[type="color"]')).toBeNull()
-    // The palette is the console's preview row (handoff 2, PR 3), never here.
     expect(screen.container.querySelector('#view-palette-label')).toBeNull()
   })
 
-  // Round 3: no help list over the panel; every row's help is under its own ?.
   it('head height points at its help in its own row, which its ? opens', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const track = screen.container.querySelector('#view-headHeight')

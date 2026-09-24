@@ -2,10 +2,9 @@
 const FLASH_MS = 1200
 
 /**
- * Module scope, like `library/notices.ts`'s fade and for the same reason
- * (Ruling 12): the timer outlives the component that armed it, and a
- * `clearTimeout` on unmount would cancel an outline the jump had just started.
- * It touches one class on one node and takes back only what it put there.
+ * Module scope, like the fade in `library/notices.ts`: the timer outlives the
+ * component that armed it, and a `clearTimeout` on unmount would cancel an
+ * outline the jump had just started.
  */
 let timer: ReturnType<typeof setTimeout> | undefined
 let lit: Element | null = null
