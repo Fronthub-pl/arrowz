@@ -10,7 +10,7 @@ import { useOpenBoard } from './useOpenBoard'
 /**
  * A layout id as a row prints it: the first eight and the last four digits of
  * the hash, without the `sha256-` it always opens with. The whole id stays in
- * the row's `title`, and in the right column's facts.
+ * the row's `title`.
  */
 export function shortId(id: string): string {
   const hex = id.slice(id.indexOf('-') + 1)

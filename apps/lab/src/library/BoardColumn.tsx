@@ -12,7 +12,6 @@ import { drawSvg } from '../run/drawSvg'
 import { MoreMenu } from '../run/MoreMenu'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
-import { shortId } from './BoardList'
 import { raiseNotice } from './notices'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
@@ -163,8 +162,11 @@ export function BoardColumn(): ReactElement {
   }
 
   const created = meta.createdAt ? new Date(meta.createdAt).toLocaleString(lang === 'pl' ? 'pl' : 'en-GB') : ''
-  const facts: [string, string, string?][] = [
-    [dict.t('factLayout'), `${size}/${shortId(meta.id)}`, meta.id],
+  // The layout row alone carries the full hash and wraps for it: a hash this
+  // long has no useful shortening, and a `title` nobody can select is worse
+  // than letting the row grow.
+  const facts: [string, string, boolean?][] = [
+    [dict.t('factLayout'), `${size}/${meta.id}`, true],
     [dict.t('factSeed'), String(meta.seed)],
     [dict.t('factSource'), meta.source],
     [dict.t('factGenerated'), [`${genSeconds(meta, '—')} s`, created].filter((part) => part !== '').join(' · ')],
@@ -210,10 +212,10 @@ export function BoardColumn(): ReactElement {
         </div>
       </MoreMenu>
       <dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>
-        {facts.map(([term, value, full]) => (
+        {facts.map(([term, value, wrap]) => (
           <div key={term}>
             <dt>{term}</dt>
-            <dd {...(full === undefined ? {} : { title: full })}>{value}</dd>
+            <dd className={wrap === true ? 'wrap' : undefined}>{value}</dd>
           </div>
         ))}
       </dl>

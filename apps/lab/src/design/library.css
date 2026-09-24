@@ -134,6 +134,14 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+/* The layout hash has no useful shortening: it wraps onto as many lines as
+   it needs instead of clipping, and stays selectable as plain text. */
+.fw-bmeta dd.wrap {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .fw-bcol > .fw-lib-empty {
   margin: 0;
 }

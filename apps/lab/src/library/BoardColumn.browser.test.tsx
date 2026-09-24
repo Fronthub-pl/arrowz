@@ -1,7 +1,7 @@
 import { decodeBoard } from '@arrowz/engine'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
-import { userEvent } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
@@ -245,18 +245,41 @@ test('the deleted notice fades even though the column that raised it is gone', a
   expect(useStore.getState().library.notice).toBeNull()
 })
 
-test('the column lists the board’s layout, seed, source and generation', async () => {
+test('the column lists the board’s layout in full, seed, source and generation', async () => {
   const screen = await mountDetail()
   await show()
   const facts = screen.getByRole('definition').elements()
-  const hex = stored.meta.id.slice('sha256-'.length)
   expect(facts.map((dd) => dd.textContent)).toEqual([
-    `8x8/${hex.slice(0, 8)}…${hex.slice(-4)}`,
+    `8x8/${stored.meta.id}`,
     String(stored.meta.seed),
     stored.meta.source,
     expect.stringMatching(/ s · /),
   ])
-  expect(facts[0]?.getAttribute('title')).toBe(stored.meta.id)
+})
+
+// A Range on the dd's own contents counts the lines its text actually wraps
+// into, the way the browser lays it out — not a declared CSS property.
+function lineCount(dd: Element): number {
+  const range = document.createRange()
+  range.selectNodeContents(dd)
+  return range.getClientRects().length
+}
+
+test.each([
+  [860, 900],
+  [1280, 800],
+  [1400, 900],
+  [375, 812],
+] as const)('at %dx%d the layout hash wraps in full, and the seed stays one line', async (w, h) => {
+  await page.viewport(w, h)
+  const screen = await mountDetail()
+  await show()
+  const facts = screen.getByRole('definition').elements()
+  const [layout, seed] = facts
+  if (layout === undefined || seed === undefined) throw new Error('missing fact rows')
+  expect(layout.textContent).toBe(`8x8/${stored.meta.id}`)
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth)
+  expect(lineCount(seed)).toBe(1)
 })
 
 test('the board file downloads the stored file under its id', async () => {
