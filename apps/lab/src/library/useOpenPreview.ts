@@ -6,13 +6,11 @@ import { useOpenBoard } from './useOpenBoard'
  * The stored board on the stage, when it is the one the address names, with
  * the directory the store listed it under. Null otherwise.
  *
- * Not merely "is there a preview" (Ruling 15): `useStoredBoard` leaves the
- * board before this one on the stage until the next file lands, and in that
- * window a panel would describe — and offer to delete — the board just clicked
- * away from. The id alone decides: a layout hash already binds the board to its
- * dimensions, while the size is a directory name (a folder called `08x08`
- * lists boards whose `W` is 8). The size is narrowed here too, because a delete
- * addresses the board by that directory and must not invent one.
+ * Not merely "is there a preview": `useStoredBoard` leaves the previous board
+ * on the stage until the next file lands, and a panel must not describe (or
+ * delete) the board just clicked away from. The id alone decides, since a
+ * layout hash binds the dimensions and the size is only a directory name
+ * (`08x08` holds `W` 8). The size is narrowed too: a delete addresses it.
  */
 export function useOpenPreview(): { stored: StoredBoard; size: string } | null {
   const preview = useStore((state) => state.result.preview)

@@ -43,8 +43,7 @@ async function show() {
   )
 }
 
-// Ruling 3 of PR 5b, in the lab's rows: a stored board's three numbers and two
-// switches, read from its own view — no highlight and no export cell.
+// Read from the stored board's own view: no highlight and no export cell.
 test('the stored view is three number rows and two switches, from the board’s own view', async () => {
   const screen = await mountPreview()
   await show()
@@ -69,8 +68,7 @@ test('the stored view is three number rows and two switches, from the board’s 
   expect(screen.container.querySelector('#view-cell')).toBeNull()
 })
 
-// The edit goes to the stored board — clamped, because a stored view has no
-// slice to clamp it — and never to the lab's view.
+// Clamped here, because a stored view has no slice to clamp it.
 test('an edit lands in the stored board’s view, clamped, and leaves the lab’s alone', async () => {
   const lab = useStore.getState().view.stroke
   const screen = await mountPreview()

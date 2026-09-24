@@ -15,13 +15,9 @@ beforeEach(() => {
   state.result.reset()
   state.lang.setLang('en')
   state.ui.showBoards('list')
-  // The panel fetches on mount, and so does the preview hook. Unstubbed, those
-  // requests reach the vitest server, which answers its own index for
-  // `/api/boards` and `/store/…`; the listing that comes back then lands on top
-  // of whatever state the case has just set, and the case asserts against the
-  // server's answer instead of its own fixture. Measured by review round 1: two
-  // of these cases failed on exactly that race. A promise that never settles is
-  // the smallest stub that removes it.
+  // The panel and the preview hook fetch on mount. Unstubbed, the vitest server
+  // answers with its own index, which lands over the case's fixture. A promise
+  // that never settles is the smallest stub that removes the race.
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
 })
 
@@ -63,9 +59,7 @@ test('a tab per size carries its count, and the rows carry what the store knows'
   const tab = screen.getByRole('tab', { name: '8×8, 2 boards' })
   await expect.element(tab).toBeVisible()
   await expect.element(tab).toHaveTextContent('8×82')
-  // With no board in the address the list falls back to the first size's rows,
-  // so that tab is the selected one — otherwise every tab reads unselected
-  // beside a list of rows.
+  // With no board in the address the first size's rows show, so its tab is selected.
   await expect.element(tab).toHaveAttribute('aria-selected', 'true')
   await expect.element(screen.getByRole('tabpanel', { name: '8×8, 2 boards' })).toBeVisible()
   await expect.element(screen.getByText('2 boards', { exact: true })).toBeVisible()
@@ -81,8 +75,7 @@ test('a tab per size carries its count, and the rows carry what the store knows'
   expect(rows[0]?.getAttribute('title')).toBe(meta.id)
 })
 
-// The handoff's `--warn` source: a board that did not close says so where its
-// source would stand.
+// A board that did not close says so, in `--warn`, where its source would stand.
 test('a board that did not close says so in place of its source', async () => {
   const size = sizesFixture()[0]
   const first = size?.boards[0]
@@ -100,18 +93,14 @@ test('clicking a row navigates to that board', async () => {
   await act(async () => useStore.getState().library.listed(sizes))
   const row = screen.container.querySelector('.fw-brow')
   if (!(row instanceof HTMLElement)) throw new Error('no row to click')
-  // The id from the fixture, not read back out of the row the component
-  // itself rendered: reading it from the DOM would let a display-and-navigate
-  // pair that were wrong in the same way agree with each other. The full
-  // pathname, compared with `toBe` rather than a substring match, so a
-  // trailing extra segment cannot pass.
+  // The id from the fixture, not the DOM, so a display and a navigation wrong
+  // the same way cannot agree. The whole pathname, so an extra segment fails.
   const id = sizes[0]?.boards[0]?.id
   if (id === undefined) throw new Error('the fixture has no board to expect')
   await userEvent.click(row)
   await expect.poll(() => screen.getByTestId('address').element().textContent).toBe(`/boards/8x8/${id}`)
 })
 
-// Ruling 7: a size opens the first board of its size, as `selectSize` does.
 test('a size tab opens the first board of that size', async () => {
   const screen = await mountPanel('/boards')
   const sizes = sizesFixture()
@@ -121,9 +110,6 @@ test('a size tab opens the first board of that size', async () => {
   await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${first}`)
 })
 
-// Ruling 7's other leg: a size keeps the board already open when that board
-// belongs to it, rather than jumping to the first board of that size — the
-// case above only covers the "nothing open yet" half.
 test('a size tab keeps the board already open when it belongs to that size', async () => {
   const sizes = sizesFixture()
   const id = sizes[0]?.boards[1]?.id ?? ''
@@ -133,10 +119,7 @@ test('a size tab keeps the board already open when it belongs to that size', asy
   await expect.element(screen.getByTestId('address')).toHaveTextContent(`/boards/8x8/${id}`)
 })
 
-// Ruling 7's read leg: a size is selected when the address names it, even when
-// that size is not the one the store listed first. This needs a second size
-// in the fixture — with only one, the address's size and the first listed
-// size always coincide.
+// Needs a second size: with one, the address's size is always the first listed.
 test('a tab for a size other than the first is selected when the address names it', async () => {
   const sizes = sizesFixture()
   const second = sizes[1]
@@ -150,20 +133,9 @@ test('a tab for a size other than the first is selected when the address names i
   expect(screen.getByRole('tab', { name: /^8×8/ }).element().getAttribute('aria-selected')).toBe('false')
 })
 
-// The fetch path end to end: a store that is not listening has to reach the
-// slice as a failure rather than as a successful empty listing, and the rows
-// already listed have to survive it.
-//
-// This cannot be a slice case. One that drives `listFailed` by hand never sees
-// which of the two outcomes `listBoards` hands over, and the difference is the
-// whole of it. Measured by mutation: `if (!response.ok) return { ok: true,
-// sizes: [] }` in `api/boards.ts` turns this case red — the rail empties and
-// the sentence becomes "the store is empty" — while all four cases in
-// `state/library.slice.test.ts` stay green.
-//
-// The 502 with a zero-length body is not an invented failure: it is what
-// Vite's proxy answers for a store that is not listening, measured through the
-// dev server rather than assumed.
+// End to end, because the slice cases cannot see which outcome `listBoards`
+// hands over: a dead store must reach the slice as a failure, not an empty
+// listing. The empty-bodied 502 is what Vite's proxy answers for a dead store.
 test('a refresh that finds no store keeps the rows it already listed', async () => {
   const sizes = sizesFixture()
   let answer = () => Promise.resolve(Response.json(sizes))
@@ -191,23 +163,16 @@ test('the row of the open board is marked current', async () => {
   expect(rows[0]?.getAttribute('aria-current')).toBeNull()
 })
 
-// The hook's guard only stops a second fetch once an answer is in, so two
-// callers against an empty cache would both fetch (spec §5.1, PR 5b).
-// One caller, one fetch per mount. Not "exactly one ever": under StrictMode the
-// mount effect runs twice and `useLibraryList`'s guard sees `sizes === null`
-// both times, because the first answer has not landed — so the application
-// fetches twice and drops the first answer (`listDropped`). That is the hook's
-// own behaviour, unchanged by this plan, and `vitest-browser-react` renders
-// without StrictMode, so this case measures the panel and not that.
+// One caller, one fetch per mount: the hook's guard stops a second fetch only
+// once an answer is in. (Under StrictMode the app fetches twice and drops the
+// first answer; `vitest-browser-react` renders without StrictMode.)
 test('the listing is fetched once per mount, however many children want refreshing', async () => {
   const calls = vi.spyOn(globalThis, 'fetch')
   await mountPanel()
   await expect.poll(() => calls.mock.calls.filter(([url]) => String(url).includes('/api/boards')).length).toBe(1)
 })
 
-// Spec §5.6: either both fall back or neither does. A store holding 8x8 and 6x6
-// against an address naming 10x10 used to show the 8x8 rows under an unpressed
-// chip strip.
+// The rail and the list fall back together (`openEntry`).
 test('an address naming a size the store has not got selects no tab, and still lists rows', async () => {
   const screen = await mountPanel('/boards/10x10/sha256-0')
   await act(async () => useStore.getState().library.listed(sizesFixture()))
@@ -227,8 +192,7 @@ test('an address naming a size the store has not got selects no tab, and still l
   await expect.element(screen.getByRole('tabpanel', { name: 'Boards of this size' })).toBeVisible()
 })
 
-// The drawer's two regions have names of their own, and neither is still the
-// tab's "Saved boards" (PR 5b's rule).
+// The drawer's two regions have names of their own, not the tab's "Saved boards".
 test('the rail and the list have names of their own, and neither is "Saved boards"', async () => {
   const screen = await mountPanel()
   await act(async () => useStore.getState().library.listed(sizesFixture()))
@@ -265,8 +229,6 @@ test('the arrow keys walk the rail, sizes then Preview, and the focus follows', 
   await expect.element(first).toHaveFocus()
 })
 
-// Spec R10: no sizes to list — no store, or an empty one — leaves SIZES with no
-// tab, and the panel says why.
 test('with no store the rail holds only Preview', async () => {
   const screen = await mountPanel()
   await act(async () => useStore.getState().library.listFailed('connect ECONNREFUSED'))
