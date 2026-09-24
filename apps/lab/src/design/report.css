@@ -193,12 +193,11 @@
   width: auto;
   text-align: right;
 }
-/* A value longer than a number (the board, the longest, the distribution,
-   the stalls, the leftovers, the time) stays on its label's line, right-
-   aligned in the value track, which takes what the label leaves: the label
-   keeps its one line and the value wraps inside its own track, balanced,
-   when the drawer is too narrow for it (the distribution at 352px). Chosen
-   by the row's key (StatsTable.tsx), not measured. */
+/* A value longer than a number stays on its label's line, right-aligned in
+   the value track, which takes what the label leaves: the label keeps its
+   one line and the value wraps inside its own track, balanced, when the
+   drawer is too narrow for it (the distribution at 352px). The rows this
+   applies to are `WIDE_KEYS` in StatsTable.tsx, not measured here. */
 .fw-report .fw-stats tr.long {
   grid-template-columns: max-content minmax(0, 1fr) 7ch;
   padding: 7px 0;

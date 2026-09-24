@@ -660,7 +660,7 @@ export const PL: Translation = {
     lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
     shape: 'Wagi wyboru kolejnej komórki linii. Mnożą się, więc jedna skrajna wartość zagłusza pozostałe.',
     difficulty:
-      'Skąd zaczynają się elementy, jak są wybierane i jak długo biegną. Zmienia to, jak trudno znaleźć element z wolną drogą.',
+      'Gdzie zaczynają się elementy, jak są wybierane i jak są długie. Zmienia to, jak trudno znaleźć element z wolną drogą.',
     skeleton: 'Pierwsze elementy prowadzone serpentyną przez całą planszę. Jedyny sposób na naprawdę długie linie.',
     closing:
       'Co robić, gdy nie ma legalnego wycięcia. Domyślne domykają plansze do 400×400; te pokrętła są do eksperymentów.',
