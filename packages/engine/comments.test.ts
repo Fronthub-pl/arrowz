@@ -168,6 +168,12 @@ export const MARKERS = [
   /harness fact|\(fact \d/,
   /[Rr]eview round/,
   /\b[\w-]+\.(ts|tsx|css|mjs):\d+/,
+  /\bTask \d/,
+  /\b[Hh]andoff \d/,
+  // Bare plan-ruling tags ("spec R7"). Measured over the scoped corpus: every
+  // \bR\d+\b hit was a ruling reference, none a CSS/colour/math identifier,
+  // so the plain form needs no narrowing.
+  /\bR\d+\b/,
 ]
 export const MAX_BLOCK = 6
 export const MAX_HEADER = 24
@@ -322,6 +328,21 @@ Deno.test('extractor: JSX {/* */} and CSS /* */ are comments, CSS // is not', ()
   assertEquals(offences('<div>\n  {/* PR 5 */}\n</div>', false).map((o) => o.line), [2])
   assertEquals(offences('</div> {/* round 2 */}', false).length, 1)
   assertEquals(offences('a { b: url(https://x/PR 5); }\n/* see shell.css:12 */', true).map((o) => o.line), [2])
+})
+
+Deno.test('rule: task labels are markers, a task queue is not', () => {
+  assertEquals(offences('// Task 7 changed the layout', false).length, 1)
+  assertEquals(offences('// the task queue drains here', false).length, 0)
+})
+
+Deno.test('rule: handoff labels are markers, an ordinary handoff is not', () => {
+  assertEquals(offences('// handoff 2 moved this drawer', false).length, 1)
+  assertEquals(offences('// a smooth handoff between threads', false).length, 0)
+})
+
+Deno.test('rule: a bare plan-ruling tag is a marker, a run-together identifier is not', () => {
+  assertEquals(offences('// spec R7 forbids hiding the readout', false).length, 1)
+  assertEquals(offences('// the IR2 sensor reads infrared', false).length, 0)
 })
 
 const lines = (k: number, text: string) => Array.from({ length: k }, () => text).join('\n')
