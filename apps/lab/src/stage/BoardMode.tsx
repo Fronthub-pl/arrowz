@@ -72,7 +72,9 @@ export function useBoardSession(
     },
     onPieceRemoved: (event) => setTally((t) => ({ ...t, left: event.detail.left })),
     onLifeLost: () => setTally((t) => ({ ...t, mistakes: t.mistakes + 1 })),
-    onFinished: () => setTally((t) => ({ ...t, cleared: true })),
+    // `finished` trails the last exit animation, so a Restart or a new board
+    // can land first; only a tally with nothing left may read as cleared.
+    onFinished: () => setTally((t) => (t.left === 0 ? { ...t, cleared: true } : t)),
     restart: () => {
       element.current?.restart()
       setTally(fresh(board, mode))
@@ -118,8 +120,10 @@ function inspectText(dict: Dict, session: Session | null, id: number | null): st
 export function BoardModeLine({ session }: { session: BoardSession }): ReactElement | null {
   const dict = useDictionary()
   const { tally } = session
-  // Once per board, not per click: `newSession` indexes every piece.
-  const game = useMemo(() => (tally.board === null ? null : newSession(tally.board)), [tally.board])
+  // Once per board, not per click, and only where the card reads it:
+  // `newSession` indexes every piece.
+  const inspected = tally.mode === 'inspect' ? tally.board : null
+  const game = useMemo(() => (inspected === null ? null : newSession(inspected)), [inspected])
   if (tally.mode === 'view' || tally.board === null) return null
   if (tally.mode === 'inspect') {
     return (

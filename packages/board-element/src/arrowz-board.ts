@@ -420,8 +420,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
             <button
               type="button"
               class="gestures"
-              title=${isMac ? l.gesturesMac : l.gesturesOther}
-              aria-label=${isMac ? l.gesturesMac : l.gesturesOther}
+              title=${this.gesturesLabel(l)}
+              aria-label=${this.gesturesLabel(l)}
               aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
               @click=${this.toggleGestures}
             >☝</button>
@@ -434,7 +434,18 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private hint(l: BoardLabels): string {
     if (this.gestureMode === 'click') return isMac ? l.clickHintMac : l.clickHintOther
     if (!this.playable) return l.dragHint
+    if (this.inspecting) return isMac ? l.dragInspectHintMac : l.dragInspectHintOther
     return isMac ? l.dragPlayHintMac : l.dragPlayHintOther
+  }
+
+  private gesturesLabel(l: BoardLabels): string {
+    if (this.inspecting) return isMac ? l.gesturesInspectMac : l.gesturesInspectOther
+    return isMac ? l.gesturesMac : l.gesturesOther
+  }
+
+  /** A click reaches the host as `piece-click` and plays nothing: `play` wins when both are set. */
+  private get inspecting(): boolean {
+    return this.interactive && !this.play
   }
 
   private readonly toggleGestures = (): void => {

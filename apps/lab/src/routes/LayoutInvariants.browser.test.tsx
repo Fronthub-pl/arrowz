@@ -272,6 +272,8 @@ const MODE_CASES: readonly (readonly [State, number, number])[] = (['inspect', '
       [1280, 800],
       [1400, 900],
       [375, 812],
+      [924, 540],
+      [1280, 699],
     ] as const
   ).map(([w, h]) => [s, w, h] as const),
 )
@@ -295,6 +297,28 @@ test.each(MODE_PL_CASES)(
     await act(async () => useStore.getState().lang.setLang('pl'))
     await settle()
     expectKnownRed(`${state}@${w}x${h}:pl`, audit(screen.container, { board: true }))
+  },
+  40_000,
+)
+
+// The annotation grows with the seed and the language: a ten-digit seed in
+// Polish on a phone is the longest it gets beside the mode control. The seed
+// is carved, not written into the store, so the annotation is the one a run
+// produces.
+const LONG_SEED = 4_294_967_295
+test.each(['inspect', 'play'] as const)(
+  'the %s mode at 375×812 in Polish with a ten-digit seed keeps every layout invariant',
+  async (state) => {
+    await page.viewport(375, 812)
+    const screen = await arrange('board')
+    await act(async () => useStore.getState().params.setMany({ seed: LONG_SEED }))
+    await act(async () => screen.container.querySelector<HTMLButtonElement>('.fw-go')?.click())
+    await expect.poll(() => useStore.getState().result.shown?.params.seed, { timeout: 30_000 }).toBe(LONG_SEED)
+    await showBoardMode(screen.container, state)
+    await act(async () => useStore.getState().lang.setLang('pl'))
+    await settle()
+    expect(screen.container.querySelector('.fw-anno')?.textContent).toMatch(/ziarno 4294967295$/)
+    expectKnownRed(`${state}@375x812:pl:long-seed`, audit(screen.container, { board: true }))
   },
   40_000,
 )
@@ -445,6 +469,8 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     ...MODE_CASES.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...MODE_PL_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
+    'inspect@375x812:pl:long-seed',
+    'play@375x812:pl:long-seed',
     'presets-open@420x699',
     'presets-open@420x700',
     'huge-pl@420x900',

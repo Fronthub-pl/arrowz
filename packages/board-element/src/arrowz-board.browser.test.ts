@@ -640,6 +640,36 @@ describe('the gesture switch', () => {
     expect(el.gestureMode).toBe('drag')
   })
 
+  // An inspecting board shows the host what was clicked; the element plays
+  // nothing, so neither its hint nor its switch may promise a move.
+  test('an inspecting board names a piece, not a move, in drag mode', async () => {
+    await mount({ interactive: '' })
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click a piece' : 'Drag to pan · Ctrl-click a piece')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+    expect(switchOf(el)?.getAttribute('title')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+  })
+
+  test('an inspecting board keeps the neutral switch in click mode', async () => {
+    await mountClickMode({ interactive: '' })
+    expect(el.gestureMode).toBe('click')
+    expect(hintOf(el)).toBe(mac ? 'Hold ⌘ and drag to pan' : 'Hold Ctrl and drag to pan')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
+  })
+
+  test('play wins over interactive: a board that plays says so', async () => {
+    await mount({ interactive: '', play: '' })
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click to play' : 'Drag to pan · Ctrl-click to play')
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click plays without ⌘' : 'Click plays without Ctrl')
+  })
+
+  test('lang="pl" words the inspecting hint and switch in Polish', async () => {
+    await mount({ interactive: '', lang: 'pl' })
+    expect(hintOf(el)).toBe(
+      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik na element' : 'Przeciągnij, aby przesunąć · Ctrl + klik na element',
+    )
+    expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik bez ⌘' : 'Klik bez Ctrl')
+  })
+
   test('lang="pl" labels the switch and the hint in Polish', async () => {
     await mount({ play: '', lang: 'pl' })
     expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik gra bez ⌘' : 'Klik gra bez Ctrl')

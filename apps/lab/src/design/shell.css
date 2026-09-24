@@ -466,9 +466,13 @@ body {
   color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
+/* With 44px chips the strip is too wide to share the top edge with the
+   annotation on a narrow board (a Polish ten-digit seed reaches it at 375px),
+   so it takes its own row under the solo toggle. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-mode {
-    right: 44px;
+    top: 44px;
+    right: 0;
     padding: 0;
   }
   .fw .fw-modeline .fw-btn {

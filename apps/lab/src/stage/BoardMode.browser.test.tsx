@@ -1,4 +1,4 @@
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, newSession } from '@arrowz/engine'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
@@ -8,6 +8,9 @@ import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { BoardFrame } from './BoardFrame'
 import { threeDominoes } from './pieces.fixtures'
+
+// Every export calls through; the spy only counts `newSession`'s builds.
+vi.mock('@arrowz/engine', { spy: true })
 
 beforeEach(() => {
   const state = useStore.getState()
@@ -83,6 +86,28 @@ test('the control sits on the frame, after the element and before the solo toggl
   expect(kids.indexOf('div.fw-mode')).toBeLessThan(kids.indexOf('button.fw-solo'))
 })
 
+// The element builds sessions of its own for its game, so only the frame's
+// calls are counted, told apart by the component on the stack.
+test('only Inspect builds a game session: View and Play read none', async () => {
+  const { newSession: real } = await vi.importActual<typeof import('@arrowz/engine')>('@arrowz/engine')
+  const built: string[] = []
+  vi.mocked(newSession).mockImplementation((board) => {
+    const stack = new Error().stack ?? ''
+    if (stack.includes('BoardModeLine')) built.push(stack)
+    return real(board)
+  })
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 2)
+  await fire(screen.container, 'piece-removed', { pieceId: 0, left: 2 })
+  await pick(screen.container, 0)
+  expect(built).toHaveLength(0)
+  await pick(screen.container, 1)
+  await fire(screen.container, 'piece-click', { pieceId: 1 })
+  await fire(screen.container, 'piece-click', { pieceId: 2 })
+  expect(built).toHaveLength(1)
+})
+
 test('Inspect makes the element interactive and a clicked piece names its facts', async () => {
   const screen = await mountFrame()
   await showDominoes()
@@ -138,6 +163,31 @@ test('Play counts pieces left and mistakes, and Restart puts the board and both 
   // lab's `colored-change` handling; the mode needs neither it nor `saveState`.
   expect(load).not.toHaveBeenCalled()
   expect(save).not.toHaveBeenCalled()
+})
+
+// The element announces `finished` only after the last exit animation, so a
+// Restart or a new board inside that window must not read as cleared.
+test('a late finished after Restart leaves the fresh counts', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 2)
+  const status = () => line(screen.container)?.querySelector('[role="status"]')?.textContent
+  await fire(screen.container, 'piece-removed', { pieceId: 0, left: 0 })
+  await act(async () => line(screen.container)?.querySelector<HTMLButtonElement>('button')?.click())
+  await fire(screen.container, 'finished', { pieces: 3 })
+  expect(status()).toBe('3 left · 0 mistakes')
+})
+
+test('a late finished after a new board leaves the fresh counts', async () => {
+  const screen = await mountFrame()
+  await showDominoes()
+  await pick(screen.container, 2)
+  const status = () => line(screen.container)?.querySelector('[role="status"]')?.textContent
+  await fire(screen.container, 'piece-removed', { pieceId: 0, left: 0 })
+  const next = finishedRun(2)
+  await act(async () => finish(next))
+  await fire(screen.container, 'finished', { pieces: 3 })
+  expect(status()).toBe(`${next.board.pieces.length} left · 0 mistakes`)
 })
 
 test('leaving Play puts every piece back, so View and Inspect show the board the card describes', async () => {
@@ -220,6 +270,7 @@ test('every word of the board mode is in both languages', async () => {
     await pick(screen.container, 2)
     await fire(screen.container, 'life-lost', { pieceId: 1, blockerId: 2, distance: 0 })
     words.push(line(screen.container)?.textContent ?? '')
+    await fire(screen.container, 'piece-removed', { pieceId: 2, left: 0 })
     await fire(screen.container, 'finished', { pieces: 3 })
     words.push(line(screen.container)?.textContent ?? '')
     await pick(screen.container, 0)
