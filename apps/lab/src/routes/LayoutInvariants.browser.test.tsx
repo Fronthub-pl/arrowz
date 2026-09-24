@@ -239,18 +239,25 @@ test.each(STATES.flatMap((state) => SIZES.map(([w, h]) => [state, w, h] as const
 test.each(BANDED)('the banded %s state at %d×%d keeps every layout invariant', matrixCase, 40_000)
 
 // The matrix above does not pin the panel's `max-height`: at 420×900 its
-// seven levels in two columns (650px under a 171px top) fit without it. A
-// short window is where they run past the bottom (measured: 16,171 to
-// 404,821 in 420×699 with `.fw-lab .fw-pp-panel`'s `max-height: calc(100vh -
-// 276px)` removed), so this one case pins that rule. That rule is gated on
-// width alone (`@media (max-width: 767px)`, run.css), not on band.ts's
-// low-window height query: removing each rule here in isolation shows only
-// this one turns the case red, and 699 fails the same way as 700 does.
+// seven levels in two columns (650px under a 171px top) fit without it. What
+// keeps it on screen at a short window is `.fw-lab .fw-pp-panel`'s own
+// `max-height: calc(100vh - 276px)` (run.css, `@media (max-width: 767px)`) —
+// gated on width alone, not on band.ts's low-window height query (measured
+// with that rule removed: 12,196 to 408,1751 in both 420×699 and 420×700).
+// Both cases below stay green with the rule in place; 699 and 700 are kept
+// as a pair because band.ts's query used to include 700 and no longer does.
 test('the presets-open state at 420×699 keeps every layout invariant', async () => {
   await page.viewport(420, 699)
   const screen = await arrange('presets-open')
   await settle()
   expectKnownRed('presets-open@420x699', audit(screen.container, { board: true }))
+}, 40_000)
+
+test('the presets-open state at 420×700 keeps every layout invariant', async () => {
+  await page.viewport(420, 700)
+  const screen = await arrange('presets-open')
+  await settle()
+  expectKnownRed('presets-open@420x700', audit(screen.container, { board: true }))
 }, 40_000)
 
 // Review P8: the reconstruction's matrix above runs only in English, where
@@ -376,6 +383,7 @@ test('every KNOWN_RED key names a case this file runs', () => {
     ...BANDED.map(([state, w, h]) => `${state}@${w}x${h}`),
     ...LANG_CASES.map(([state, w, h]) => `${state}@${w}x${h}:pl`),
     'presets-open@420x699',
+    'presets-open@420x700',
     'huge-pl@420x900',
   ])
   expect(Object.keys(KNOWN_RED).filter((key) => !keys.has(key))).toEqual([])
