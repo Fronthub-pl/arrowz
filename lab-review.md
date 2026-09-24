@@ -30,11 +30,18 @@ was found at `b9a5a9d`. "Fixed" means a commit on this branch changed the code
 and a test pins it; "open" means the code still reads as the finding says.
 
 **Gates.** `pnpm nx run-many -t verify` green (4 projects, 21 tasks) in a clean
-worktree at `701e83a`; `lab:test` 1145 passed at `4e9d8eb`. A live pass in
-Chrome at `4e9d8eb` passed all seven scenarios (palette jump in EN and PL, ◑
-against the lab switch and in the library, highlight and margin across a
-reload, Inspect and Play, report wording, 1280×699 against 1280×700, a phone at
-375×812 in PL). It found one new layout defect, D1 below.
+worktree at `701e83a`; `lab:test` 1153 passed at `13ff72f` (1145 at `4e9d8eb`,
+before D1's fix). A live pass in Chrome at `4e9d8eb` passed all seven scenarios
+(palette jump in EN and PL, ◑ against the lab switch and in the library,
+highlight and margin across a reload, Inspect and Play, report wording,
+1280×699 against 1280×700, a phone at 375×812 in PL). It found one new layout
+defect, D1 below.
+
+**D1 is fixed**, in `20d50cd` and `13ff72f`: the mode control and its line
+moved off the board, into a strip under the board frame; a new `board-cover`
+layout invariant fails if any lab overlay intersects the drawn board. The
+cost is 45 px more board height for Inspect and Play than View from 768 px of
+window width up, and 48 px at XS.
 
 **Comments.** Measured with the guard's extractor (comment-only lines) over the
 guard's scope, about 250 files: 8,644 comment lines before (22.3% of non-blank
@@ -209,39 +216,36 @@ section above).
    key handling, the Polish comma in `DraftNumber`, the URL round-trip losses
    (colours cannot be cleared, head height 0, unknown theme, `voids`), and the
    English leaks into the Polish UI (palette "on"/"off", "not in the store").
-2. **D1, found in the live pass:** on a phone, and at desktop size with the
-   default margin, the frame's overlays cover the board's edge rows. The mode
-   control covers about 18 px of the top-right rows at 375×812, and the Play
-   line covers the bottom-left rows; those pieces can be reached only by
-   panning. Options: reserve the overlays' height in the element's margin, or
-   icon-only mode chips.
-3. **The simple view's size rows** show the recipe while Generate carves the
+2. **The simple view's size rows** show the recipe while Generate carves the
    knobs. A test from round 3 (`5060154`) pins this on purpose, but to a person
    it looks wrong; it needs a product decision.
-4. **Copy pass on the report and the simple view:** help for every report row,
+3. **Copy pass on the report and the simple view:** help for every report row,
    units, "higher is harder", "Tunnels = harder" in `start.help`, then the
    glossary (one term per concept, EN + PL). Two of the factual errors are
    fixed; the labels and help texts are not.
-5. **Smaller correctness items:** `aborted` cleared by a view edit, the
+4. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
-6. **Structural refactors 2–4:** one knob-row shell, one view schema with a
+5. **Structural refactors 2–4:** one knob-row shell, one view schema with a
    single `view.apply()`, one hotkey table and a `useDismiss` hook. Then 5
    (the `.fw button` prefix and tokens), 6–9 and 11.
-7. **Parity gaps, as product decisions:** paste a `carve` command in
+6. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
    `.board.json`, SVG colours (and `pad` and highlight in the SVG), ⌘K rows for
    the colour and element fields.
-8. **Extend the comment sweep and guard** to the engine's other files and
+7. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
-9. **Observations from the live pass and deferred review minors:** "top" in
+8. **Observations from the live pass and deferred review minors:** "top" in
    ⌘K lists Abort above "how many longest"; "blocked by #51 at 0 cells" reads
    oddly; the report drawer covers the board's right 45 px (and the Play and ☝
    buttons) at 1440×877, known since round 2; the two low-window height rules
    lack the `min-width: 768px` that `useLowWindow` has; the palette input has
    no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
    the `trapBias` help clause is vague.
+9. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
+   covers the board's top-left cells; pre-existing, and no audited case uses
+   pad 0, so no invariant catches it today.
 
 The five passes follow in full.
 
