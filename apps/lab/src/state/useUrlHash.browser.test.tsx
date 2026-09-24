@@ -454,8 +454,8 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().view.highlight).toBe('#0a0b0c'))
   })
 
-  // The same two-sided pattern as the highlight above, for the margin
-  // (Task 7, R7): the producer side.
+  // The same two-sided pattern as the highlight above, for the margin: the
+  // producer side.
   it('writes the margin into the link', async () => {
     await mount(stub().control)
     useStore.getState().view.setPad(7)
@@ -475,11 +475,12 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().view.pad).toBe(7))
   })
 
-  // Item A (Task 7 review addendum): the board colours and the margin are
-  // viewing preferences already on screen, the same way the theme is above —
-  // a link naming none of them must leave every one of them alone.
-  // Dropping any one of the four `!== undefined` guards from `applyPayload`
-  // would pass every other case in this file and redden only this one.
+  // The board colours and the margin are viewing preferences already on
+  // screen, the same way the theme is above — a link naming none of them
+  // must leave every one of them alone. Measured for the margin: weakening
+  // its `!== undefined` guard in `applyPayload` to an unconditional
+  // `setPad` reddens this case and only this case; the paper/ink/highlight
+  // guards share the same shape and are exercised by the cases above.
   it('keeps the board colours and the margin already on screen when a link names none of them', async () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')

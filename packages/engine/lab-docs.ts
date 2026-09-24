@@ -196,7 +196,7 @@ const PL = {
     enableColors:
       'Zgoda na kolorowanie planszy. Bez niej element zostaje monochromatyczny i nie pokazuje przycisku koloru.',
     theme:
-      'Nazwa wbudowanego motywu — papier, tusz, podświetlenie i kolory elementów. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
+      'Nazwa wbudowanego motywu — papier, tusz, wyróżnienie i kolory elementów. Pusta nazwa nie wybiera żadnego, a to, co podano w `view`, ma pierwszeństwo.',
   },
   members: {
     viewport: 'Widok na ekranie albo null, dopóki nie są znane i plansza, i rozmiar kontenera.',

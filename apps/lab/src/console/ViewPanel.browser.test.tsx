@@ -26,10 +26,10 @@ const view = () => useStore.getState().view
 const EN = dictionary('en')
 
 // Colour inputs that exist on the panel before the user adds anything to the
-// palette: the point grid's dot colour (Task 5), the paper, the ink
-// (Task 7) and the highlight. Palette rows are added on top of these four,
-// so the palette-counting tests below compute against this rather than a
-// bare number.
+// palette: the point grid's dot colour (Task 5), the paper, the ink and the
+// highlight. Palette rows are added on top of these four, so the
+// palette-counting tests below compute against this rather than a bare
+// number.
 const ALWAYS_PRESENT_COLOR_INPUTS = 4
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
@@ -82,8 +82,8 @@ beforeEach(() => {
 test('the panel draws all twelve preview controls, as rows', async () => {
   const screen = await render(<ViewPanel />)
   // Seven numbers: the five the engine's table covers plus the point radius
-  // and the margin (Task 7), whose bounds come from the element instead —
-  // each a drawn track now (handoff 2, PR 3) — and five switches.
+  // and the margin, whose bounds come from the element instead — each a
+  // drawn track now — and five switches.
   expect(screen.container.querySelectorAll('.kv-row input[type="range"]')).toHaveLength(7)
   expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(5)
   expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(0)
@@ -134,7 +134,7 @@ test('the point radius row follows an external store change', async () => {
   await expect.element(radius).toHaveValue(String(POINT_RADIUS_RANGE.min))
 })
 
-// The margin row (Task 7, R7): always on screen, in the grid section, no
+// The margin row is always on screen, in the grid section, with no
 // dependency block gating it.
 test('the margin row draws in the grid section, bounded by the element', async () => {
   const screen = await render(<ViewPanel />)

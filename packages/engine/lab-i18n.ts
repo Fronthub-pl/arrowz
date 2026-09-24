@@ -834,7 +834,7 @@ export const PL: Translation = {
     paletteCount: (n, cap) => `${n} / ${cap}`,
     strokeHelp:
       'Grubość linii w podziałkach. Poniżej 0,2 linia ginie w papierze; przy 0,9 wypełnia swoją kratkę i nie zostawia miejsca na grot.',
-    topHelp: 'Ile najdłuższych elementów wyróżnia podświetlenie. 0 nie wyróżnia żadnego.',
+    topHelp: 'Ile najdłuższych elementów zaznacza wyróżnienie. 0 nie zaznacza żadnego.',
     pointColorHelp: 'Kolor kropek siatki punktów.',
     showPointsHelp: 'Rysuje po kropce na komórkę pod elementami, jak linie w zeszycie.',
     roundedHelp: 'Zaokrągla rogi, przez które skręca element, i zakańcza jego ogon kółkiem.',
@@ -843,7 +843,7 @@ export const PL: Translation = {
     hiliteHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
     voidsHelp: 'Zaznacza komórki, których generator nie zdołał wyciąć, tam gdzie plansza się zaklinowała.',
     themeHelp:
-      'Wbudowany motyw: papier, tusz, podświetlenie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
+      'Wbudowany motyw: papier, tusz, wyróżnienie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
     paperHelp:
       'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     inkHelp:

@@ -26,6 +26,7 @@ beforeEach(() => useStore.getState().params.reset())
 afterEach(() => {
   vi.restoreAllMocks()
   vi.useRealTimers()
+  useStore.getState().view.setPad(DEFAULT_PAD)
   for (const cleanup of cleanupListeners) cleanup()
   cleanupListeners = []
 })
@@ -49,15 +50,21 @@ describe('LiveCommand', () => {
     await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
   })
 
-  // R7: the margin is a screen-only setting — `viewOf` never reads `view.pad`
-  // — so changing it must leave the command exactly as it was.
+  // The margin is a screen-only setting — `viewOf` never reads `view.pad` —
+  // so changing it must leave the command exactly as it was.
   it('does not change when the margin changes, a screen-only setting', async () => {
     useStore.getState().params.setMany({ W: 30, H: 60, seed: 7 })
     const screen = await render(<LiveCommand />)
-    const before = commandNow()
     useStore.getState().view.setPad(9)
-    await expect.poll(() => screen.container.querySelector('.fw-cmd')?.textContent).toBe(before)
-    useStore.getState().view.setPad(DEFAULT_PAD)
+    // A poll comparing against the pre-change text could pass before React
+    // ever re-renders, proving nothing. Changing a field the command DOES
+    // show, in the same step, and waiting for that to reach the screen,
+    // forces a render that reflects both writes — only then does comparing
+    // the DOM against a fresh, independent `commandNow()` (which can never
+    // see `pad`, since `viewOf` has no such field) mean anything.
+    useStore.getState().view.setNumber('stroke', '0.4')
+    await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
+    expect(screen.container.querySelector('.fw-cmd')?.textContent).toBe(commandNow())
   })
 
   it('copies the whole command, prefix included', async () => {

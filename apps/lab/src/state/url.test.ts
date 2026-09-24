@@ -207,8 +207,8 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.highlight).toBeUndefined()
   })
 
-  // The margin (Task 7, R7): unlike paper/ink/highlight, 0 is a legal margin
-  // and not "unset", so it must round-trip exactly like `top`/`headWidth` do.
+  // Unlike paper/ink/highlight, 0 is a legal margin and not "unset", so it
+  // must round-trip exactly like `top`/`headWidth` do.
   it('carries the margin through a round trip, including zero', () => {
     const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, pad: 0 }, carried: {} })
     expect(decodeHash(hash)?.view.pad).toBe(0)

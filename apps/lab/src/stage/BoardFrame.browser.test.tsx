@@ -392,9 +392,9 @@ test('the point grid reaches the element', async () => {
   useStore.getState().view.setFlag('showPoints', false)
 })
 
-// The margin (Task 7, R7): unlike paper/ink/highlight it is always passed to
-// the element, never gated on being "set" — every value in range, including
-// the default, is a real margin.
+// The margin, unlike paper/ink/highlight, is always passed to the element,
+// never gated on being "set" — every value in range, including the default,
+// is a real margin.
 test('the margin reaches the element', async () => {
   const screen = await mountFrame()
   await act(async () => finish(finishedRun(1)))

@@ -145,8 +145,8 @@ export function NumberRow({
 
 /**
  * A number row bounded by the element rather than the engine: the point
- * radius (`POINT_RADIUS_RANGE`) and the margin (`PAD_RANGE`, Task 7) share
- * this shape and differ only in id, wording, range and step.
+ * radius (`POINT_RADIUS_RANGE`) and the margin (`PAD_RANGE`) share this shape
+ * and differ only in id, wording, range and step.
  */
 function ElementNumberRow({
   id,
@@ -228,8 +228,8 @@ function PointRadiusRow(): ReactElement {
 }
 
 /**
- * The margin around the board (Task 7, R7): a number row like the point
- * radius, bounded by the element (`PAD_RANGE`) and clamped by the slice's own
+ * The margin around the board: a number row like the point radius, bounded
+ * by the element (`PAD_RANGE`) and clamped and rounded by the slice's own
  * reader. Unlike the point radius it is a whole number of cells, step 1.
  */
 function PadRow(): ReactElement {

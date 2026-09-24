@@ -75,7 +75,7 @@ export interface ViewState {
    * always handed to the element as-is, never omitted.
    */
   pad: number
-  /** Commits the margin from what was set; a non-finite value falls back to `DEFAULT_PAD`, as `setPointRadius` does for the radius. */
+  /** Commits the margin from what was set, rounded to a whole cell; a non-finite value falls back to `DEFAULT_PAD`, as `setPointRadius` falls back for the radius. */
   setPad(n: number): void
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
   setNumber(field: ViewNumber, raw: string): void
@@ -182,7 +182,9 @@ export function createViewSlice(set: SetStore): ViewState {
     setInk: (color) => patch({ ink: color }),
     setHighlight: (color) => patch({ highlight: color }),
     setPad: (n) =>
-      patch({ pad: Number.isFinite(n) ? Math.min(Math.max(n, PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD }),
+      patch({
+        pad: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD,
+      }),
     setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),
     addPaletteColor: () =>
       set((state) => {

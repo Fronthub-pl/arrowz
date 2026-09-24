@@ -233,8 +233,8 @@ test('a non-empty unparsable point radius falls back to the default, not to NaN'
   expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
 })
 
-// The margin (Task 7, R7): a plain number, unlike paper/ink/highlight it has
-// no "not set" state, so it starts at the element's own default rather than at ''.
+// The margin is a plain number: unlike paper/ink/highlight it has no "not
+// set" state, so it starts at the element's own default rather than at ''.
 test("the margin starts at the element's own default", () => {
   expect(declared.pad).toBe(DEFAULT_PAD)
 })
@@ -253,4 +253,13 @@ test('a non-finite margin falls back to the default, not to zero', () => {
   expect(view().pad).toBe(DEFAULT_PAD)
   view().setPad(Number.POSITIVE_INFINITY)
   expect(view().pad).toBe(DEFAULT_PAD)
+})
+
+// The margin is a whole number of cells: the slider's own step is 1, and the
+// number box must agree with it rather than keep a typed fraction.
+test('the margin rounds to a whole cell', () => {
+  view().setPad(2.5)
+  expect(view().pad).toBe(3)
+  view().setPad(2.4)
+  expect(view().pad).toBe(2)
 })
