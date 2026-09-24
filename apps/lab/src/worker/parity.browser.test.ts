@@ -3,10 +3,8 @@ import type { WorkerIn, WorkerOut } from '@arrowz/engine'
 import { DEFAULT_VIEW, svgOptions } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
 
-// The counterpart of the build-output smoke (`scripts/worker-smoke.mjs`),
-// which runs the worker `vite build` emits. This one proves the same protocol
-// over the engine as Vitest transforms it, which is what the application's own
-// tests run against; the smoke covers the artefact a browser loads.
+// The same protocol over the engine as Vitest transforms it, which the app's
+// tests run against; `scripts/worker-smoke.mjs` covers the built worker.
 function ask(message: WorkerIn): Promise<WorkerOut> {
   const worker = new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' })
   const answer = new Promise<WorkerOut>((resolve, reject) => {

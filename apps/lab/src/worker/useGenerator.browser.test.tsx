@@ -15,13 +15,10 @@ function Harness({ drive }: { drive: (g: GeneratorHandle) => void | (() => void)
 
 const start = (params: Parameters<GeneratorHandle['start']>[0]) => (g: GeneratorHandle) => g.start(params)
 
-// Every test here states its own timeout, because the chromium project sets no
-// `testTimeout` and Vitest's default is 5 s — shorter than the poll budgets
-// below, which would make the polls decorative and the failure a timeout that
-// names nothing. Each budget is the sum of the test's polls and fixed waits
-// plus 8 s. CI carves on a GPU-less two-core runner, several times slower than
-// the machine these were measured on (16×16: 61 ms, abort: 2.06 s of which
-// 2.0 s is the fixed wait, 600×600: 2.71 s), so the slack is in the polls.
+// Each test states its own timeout: Vitest's default 5 s is shorter than the
+// polls, whose failure would then name nothing. Budget = polls + fixed waits
+// + 8 s; CI runs several times slower than the dev machine (600×600: 2.7 s),
+// so the slack is in the polls.
 
 test('a run carves a board and lands in done', async () => {
   useStore.getState().run.reset()
@@ -30,14 +27,13 @@ test('a run carves a board and lands in done', async () => {
   await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
   const { shown } = useStore.getState().result
   expect(shown?.board.W).toBe(16)
-  // BoardFile is an object (types.ts:151); its fingerprint is the board's.
+  // The `BoardFile` carries the board's fingerprint.
   expect(shown?.file.format).toBe('arrowz-board')
   expect(shown?.report.pieces).toBe(shown?.board.pieces.length)
 }, 30_000)
 
-// The worker throws InvalidParamsError for parameters outside the envelope
-// (pStraight's floor is 0.6, engine.ts:2452), and the page must show that
-// message rather than hang in `running`.
+// Outside the envelope (pStraight's floor is 0.6, in `PARAM_SPEC`) the worker
+// throws InvalidParamsError, and the page must show it, not hang in `running`.
 test('parameters outside the envelope end in error with the engine message', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()
@@ -46,13 +42,8 @@ test('parameters outside the envelope end in error with the engine message', asy
   expect(useStore.getState().run.message ?? '').not.toBe('')
 }, 30_000)
 
-// A board file the codec cannot read is a codec bug, and it is shown rather
-// than hidden. What makes it worth a test is the failure mode of the unguarded
-// version: decodeBoard throws out of `onmessage` after `busy` is already
-// cleared, so the slice stays in `running` with no message, Generate stays
-// disabled and abort() returns early — the page has no way out but a reload. A
-// stub worker stands in for the real one because a genuinely corrupt file
-// cannot be carved to order.
+// Unguarded, a decode throw would strand the page in `running` (see
+// `useGenerator`). A stub worker, because a corrupt file cannot be carved to order.
 test('a board file the codec rejects ends in error, not in a stuck run', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()
@@ -101,9 +92,8 @@ test('a board file the codec rejects ends in error, not in a stuck run', async (
   }
 }, 15_000)
 
-// Abort must terminate the worker, not merely relabel the slice: a live worker
-// would deliver `done` afterwards and drag the run back out of idle. The wait
-// is longer than the board takes, so a missing terminate() shows up.
+// A live worker would deliver `done` after the abort; the wait is longer than
+// the board takes, so a missing terminate() shows up.
 test('abort terminates the worker, and nothing arrives afterwards', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()
@@ -125,14 +115,9 @@ test('abort terminates the worker, and nothing arrives afterwards', async () => 
   terminate.mockRestore()
 }, 30_000)
 
-// Progress is what the status line lives on during a long carve. 600×600 and
-// not 200×200: the engine traces no sooner than 250 ms into a carve
-// (engine.ts:1869), and in Chromium 200×200 finishes in 228 ms and emits
-// nothing at all. Measured here: 200 → 0 updates (228 ms), 300 → 1 (478 ms),
-// 400 → 2 (861 ms), 600 → 8 (2 507 ms). The gate is wall-clock, so the size is
-// chosen for headroom against a faster machine, not against the poll: 600
-// still traces on a machine about nine times faster than this one (a 2 227 ms
-// carve against the 250 ms gate), where 400 falls silent at about three.
+// 600×600: the carver traces no sooner than 250 ms in (its `run` loop), and
+// 200×200 finishes in 228 ms with no progress at all. 600 (2.5 s here) still
+// traces on a machine nine times faster; 400 falls silent at about three.
 test('a large run reports progress before it finishes', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()

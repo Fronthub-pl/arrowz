@@ -3,20 +3,15 @@ import type { BoardData, Params, WorkerIn, WorkerOut } from '@arrowz/engine'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from '../state/store'
 
-/**
- * Named `GeneratorHandle` and not `Generator`: the latter shadows the global
- * `Generator<T>` of the standard library, and PR 3 threads this type through
- * several more components.
- */
+/** Not `Generator`, which would shadow the standard library's `Generator<T>`. */
 export interface GeneratorHandle {
   start(params: Params): void
   abort(): void
 }
 
-// Module scope, so the callbacks below have no changing dependency to declare.
-// The slice is read rather than subscribed to: this hook publishes state and
-// never renders from it, and a subscription would re-render App — the whole
-// shell — on every progress message.
+// Module scope, so the callbacks below have no changing dependency. Read, not
+// subscribed: a subscription would re-render the whole shell on every progress
+// message.
 const actions = () => useStore.getState().run
 
 /**
@@ -54,19 +49,14 @@ export function useGenerator(): GeneratorHandle {
         try {
           board = decodeBoard(message.board)
         } catch (err) {
-          // The worker encoded this file a moment ago, so a failure is a codec
-          // bug — shown rather than hidden. Unguarded, the throw would escape this
-          // handler with `busy` already cleared: the slice would sit in
-          // `running` with no message, `abort()` would return early, and the
-          // page would have no way out but a reload. `completeRun` below can
-          // throw as well, for a run that was never started (PR 4b, Ruling 6),
-          // and stays outside this `try` on purpose: that throw is a bug in the
-          // caller, and must not be turned into an ordinary run failure.
+          // A decode failure is a codec bug, shown. Unguarded, it would escape
+          // with `busy` cleared and strand the slice in `running` with no way
+          // out. `completeRun`'s throw (a run never started) stays outside on
+          // purpose: it is a caller bug, not a run failure.
           actions().failed(err instanceof Error ? err.message : String(err))
           return
         }
-        // Both slices in one update: the run is done and its board is shown
-        // (spec §5.3). Until this line the last result stays on screen.
+        // Both slices in one update; until then the last result stays on screen.
         useStore.getState().completeRun({ board, file: message.board, report: message })
         return
       }
