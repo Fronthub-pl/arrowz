@@ -130,8 +130,8 @@ export function rowTitle(dict: Dict, label: string, range?: { min: number; max: 
  * the rule floor, with the native range input over them, transparent and
  * covering the whole box — so the keyboard, the touch and the value come from
  * the platform, and the look does not depend on the browser's slider parts.
- * A knob, a preview number (PR 3) and the simple view's slider all draw it:
- * it knows a range and a step, not where they come from.
+ * A knob, a preview number and the simple view's slider all draw it: it knows
+ * a range and a step, not where they come from.
  */
 export function KnobTrack({
   id,

@@ -12,11 +12,11 @@ const specOf = (key: string) => {
   return spec
 }
 
-// Handoff 2, PR 2: the knob rows draw their own track — rail, fill, thumb and
-// the rule floor — under the native range input, which keeps the keyboard and
-// the value while being invisible.
+// The knob rows draw their own track — rail, fill, thumb and the rule floor —
+// under the native range input, which keeps the keyboard and the value while
+// being invisible.
 describe('the drawn track of a knob row', () => {
-  const track = (floor?: number, onCommit: (v: number) => void = () => {}) => (
+  const track = (floor?: number, onCommit: (v: number) => void = () => {}, word: string | null = null) => (
     <div className="fw" style={{ width: '200px' }}>
       <KnobTrack
         id="t"
@@ -24,7 +24,7 @@ describe('the drawn track of a knob row', () => {
         bounds={specOf('pStraight')}
         step={specOf('pStraight').step}
         floor={floor}
-        word={null}
+        word={word}
         describedBy="why desc"
         onCommit={onCommit}
       />
@@ -64,12 +64,41 @@ describe('the drawn track of a knob row', () => {
     expect(onCommit).toHaveBeenCalledWith(0.81)
   })
 
-  it('marks a rule floor inside the track, and none at the track minimum', async () => {
-    const at = await render(track(0.7))
-    const floor = at.container.querySelector('.kv-track .floor')
+  it('marks a rule floor inside the track', async () => {
+    const screen = await render(track(0.7))
+    const floor = screen.container.querySelector('.kv-track .floor')
     expect(floor?.getAttribute('title')).toBe('Rule bound: 0.7')
-    at.unmount()
-    const none = await render(track(0.6))
-    expect(none.container.querySelector('.kv-track .floor')).toBeNull()
+  })
+
+  it('draws no marker for a floor at the track minimum', async () => {
+    const screen = await render(track(0.6))
+    expect(screen.container.querySelector('.kv-track .floor')).toBeNull()
+  })
+
+  // A knob whose value has a word says the word, not the number: Lmax 0 is
+  // "auto" on the command line, and a slider announcing "0" would announce a
+  // maximum length of zero.
+  it('states the value in words where the spec has one, not the number', async () => {
+    const screen = await render(track(undefined, () => {}, 'auto'))
+    const input = screen.getByRole('slider').element()
+    if (!(input instanceof HTMLInputElement)) throw new Error('no input')
+    expect(input.getAttribute('aria-valuetext')).toBe('auto')
+  })
+
+  it('draws no aria-valuetext for a plain number', async () => {
+    const screen = await render(track())
+    const input = screen.getByRole('slider').element()
+    if (!(input instanceof HTMLInputElement)) throw new Error('no input')
+    expect(input.hasAttribute('aria-valuetext')).toBe(false)
+  })
+
+  // The rule floor is a marker, not a limit (spec §5.4): the knob can still be
+  // set below it, so the native input's own `min` stays the track's minimum
+  // whether or not a floor is drawn on top of it.
+  it('the rule floor does not raise the input minimum, because it is a marker, not a limit', async () => {
+    const screen = await render(track(0.8))
+    const input = screen.getByRole('slider').element()
+    if (!(input instanceof HTMLInputElement)) throw new Error('no input')
+    expect(input.getAttribute('min')).toBe('0.6')
   })
 })

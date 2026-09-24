@@ -1,10 +1,12 @@
 import { expect, test } from 'vitest'
 import css from './console.css?raw'
 
-// `console.css` is imported only by `main.tsx`, so nothing in the browser
-// project's own tests loads it — a `getComputedStyle` read in
-// `ViewPanel.browser.test.tsx` resolves from React's inline style whether or
-// not this file even declares the rule. `tokens.test.ts` already reads
+// Many browser tests do import `console.css`, but the swatch strip's own
+// colours are inline styles (`ViewPanel.tsx`'s `style={{ backgroundColor }}`),
+// so `ViewPanel.browser.test.tsx`'s `getComputedStyle` colour assertions pass
+// identically with no CSS file at all — the comment on that test says so.
+// What no browser test checks is that the strip actually lays out as a row:
+// that is this rule's `display: flex`. `tokens.test.ts` already reads
 // `tokens.css` through the same `?raw` import in this node project, which is
 // a workable way to pin a rule's *text* here.
 test('the swatch strip rule stays scoped under .kv-g, and lays the strip out as a row', () => {
