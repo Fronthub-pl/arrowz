@@ -217,9 +217,13 @@ export function CollapsibleBlock({
 }): ReactElement {
   // The header's choice, reset whenever the parent crosses on/off (React's
   // "adjust state while rendering" pattern, not an effect: an effect would
-  // paint the stale state for a frame).
+  // paint the stale state for a frame). `forced` latches into the same state
+  // rather than only ORing into `open`: a palette jump clears its request the
+  // render after it lands, and a refusal can clear on any later write, so a
+  // block open only through the OR would close under the focus it just took.
   const [choice, setChoice] = useState({ on, open: on })
   if (choice.on !== on) setChoice({ on, open: on })
+  else if (forced && !choice.open) setChoice({ on, open: true })
   const open = choice.open || forced
   return (
     <div className={on ? 'kv-dep' : 'kv-dep off'}>
