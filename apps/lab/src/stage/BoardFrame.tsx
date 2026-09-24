@@ -41,8 +41,9 @@ export function BoardFrame(): ReactElement {
   // stored board's flags — spec §5.3 asks the route, not "is there a preview".
   // `boardViewOf` carries no colour fields at all (view.ts:50-60) — the lab
   // passes the theme by name through the element's `theme` prop below. One
-  // rule covers the palette and both surface colours here: each is added
-  // only when the user actually set it, never as an empty value. The
+  // rule covers the palette, the two surface colours and the highlight here:
+  // each is added only when the user actually set it, never as an empty
+  // value. The
   // element's own precedence is "stated beats named beats default"
   // (arrowz-board.ts:582-594), and its sanitising runs *after* that merge, so
   // a stated but empty field would still count as "stated", beat a chosen
@@ -65,8 +66,9 @@ export function BoardFrame(): ReactElement {
     () => ({
       ...(view.paper === '' ? {} : { paper: view.paper }),
       ...(view.ink === '' ? {} : { ink: view.ink }),
+      ...(view.highlight === '' ? {} : { highlight: view.highlight }),
     }),
-    [view.paper, view.ink],
+    [view.paper, view.ink, view.highlight],
   )
   const labView = useMemo(
     () => ({

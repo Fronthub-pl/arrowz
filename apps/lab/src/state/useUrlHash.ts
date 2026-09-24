@@ -25,6 +25,7 @@ function viewFor(view: ViewState, lang: Lang) {
     palette: view.palette,
     paper: view.paper,
     ink: view.ink,
+    highlight: view.highlight,
     showPoints: view.showPoints,
     pointColor: view.pointColor,
     pointRadius: view.pointRadius,
@@ -63,6 +64,7 @@ function applyPayload(payload: HashPayload): void {
   // `rounded`, `colored` and `hilite` above rather than a tri-state.
   if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
   if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
+  if (payload.view.highlight !== undefined) view.setHighlight(payload.view.highlight)
   view.setFlag('showPoints', payload.view.showPoints === true)
   if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
   if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))

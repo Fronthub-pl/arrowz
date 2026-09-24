@@ -191,6 +191,7 @@ export const EN = {
     // a chosen theme supply them.
     paperLabel: 'background',
     inkLabel: 'drawing colour',
+    highlightLabel: 'highlight',
     paperClear: 'clear the paper, back to the theme',
     // The preview as knob rows (handoff 2, PR 3): short labels (at most 12
     // characters, like the knobs'), section headings, the two dependency
@@ -210,6 +211,7 @@ export const EN = {
     viewShortTheme: 'theme',
     viewShortPaper: 'background',
     viewShortInk: 'ink',
+    viewShortHighlight: 'highlight',
     viewShortPalette: 'palette',
     // The theme row's empty choice: its select is a slider's length, and
     // `themeNone` does not fit it (the simple view keeps that one).
@@ -239,6 +241,9 @@ export const EN = {
     inkHelp:
       'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again.',
     inkClear: 'clear the drawing colour, back to the theme',
+    highlightHelp:
+      'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again.',
+    highlightClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     // A knob row's `?` (handoff 2, PR 2), its dependency blocks and the
@@ -790,6 +795,7 @@ export const PL: Translation = {
     paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
     paperLabel: 'tło',
     inkLabel: 'kolor rysunku',
+    highlightLabel: 'podświetlenie',
     paperClear: 'wyczyść tło, z powrotem do motywu',
     viewShortStroke: 'grubość',
     viewShortHeadWidth: 'szer. grotu',
@@ -806,6 +812,7 @@ export const PL: Translation = {
     viewShortTheme: 'motyw',
     viewShortPaper: 'tło',
     viewShortInk: 'rysunek',
+    viewShortHighlight: 'podświetl.',
     viewShortPalette: 'paleta',
     viewThemeNone: 'brak',
     secArrows: 'strzałki',
@@ -832,6 +839,9 @@ export const PL: Translation = {
     paperHelp: 'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
     inkHelp: 'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
     inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
+    highlightHelp:
+      'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
+    highlightClear: 'wyczyść podświetlenie, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,

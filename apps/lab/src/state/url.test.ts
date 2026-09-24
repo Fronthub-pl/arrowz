@@ -184,6 +184,29 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.paper).toBeUndefined()
   })
 
+  it('carries the highlight colour through a round trip', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlight: '#0a0b0c' }, carried: {} })
+    expect(decodeHash(hash)?.view.highlight).toBe('#0a0b0c')
+  })
+
+  it('reads a link that predates the highlight colour as naming none', () => {
+    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
+    expect(decodeHash(hash)?.view.highlight).toBeUndefined()
+  })
+
+  // The same guard `paper`/`ink` pin above: `''` is the slice's own "not
+  // set", so a link that never had the highlight touched should not grow a
+  // key naming nothing.
+  it('does not write an empty highlight colour into the link', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlight: '' }, carried: {} })
+    expect(hash).not.toContain('highlight')
+  })
+
+  it('drops a hand-edited highlight colour the editor could not show', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { highlight: 'rebeccapurple' } }))
+    expect(decodeHash(link)?.view.highlight).toBeUndefined()
+  })
+
   it('carries a theme and custom colours together (Ruling 6)', () => {
     const hash = encodeHash({
       params: defaultParams(),

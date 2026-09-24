@@ -341,6 +341,22 @@ test('an unset paper leaves the theme its own, and a set one overrides it', asyn
   useStore.getState().view.setPaper('')
 })
 
+// The highlight follows the same path as paper and ink, copied wholesale.
+test('an unset highlight leaves the theme its own, and a set one overrides it', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
+  const element = screen.container.querySelector('arrowz-board')
+  // Absent, not empty: same trap paper and ink guard above (spec §4.4).
+  expect(element === null || !('highlight' in (element.view ?? {}))).toBe(true)
+
+  await act(async () => useStore.getState().view.setHighlight('#010203'))
+  expect(element?.view.highlight).toBe('#010203')
+  expect(useStore.getState().view.theme).toBe('gruvbox-dark')
+  useStore.getState().view.setTheme('')
+  useStore.getState().view.setHighlight('')
+})
+
 // The same seam as the palette's preview case above: a colour that reaches the
 // lab branch and not the library's, for two states the design calls equivalent.
 test('the library preview gets the custom colours too', async () => {

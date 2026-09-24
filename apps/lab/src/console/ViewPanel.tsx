@@ -453,6 +453,17 @@ export function ColoursSection(): ReactElement {
         onChange={view.setInk}
         {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
       />
+      <ColourRow
+        id="view-highlight"
+        short={dict.t('viewShortHighlight')}
+        help={dict.t('highlightHelp')}
+        title={dict.t('highlightLabel')}
+        value={view.highlight === '' ? DEFAULT_VIEW.highlight : view.highlight}
+        onChange={view.setHighlight}
+        {...(view.highlight === ''
+          ? {}
+          : { onClear: () => view.setHighlight(''), clearLabel: dict.t('highlightClear') })}
+      />
       <PaletteRow />
     </Section>
   )

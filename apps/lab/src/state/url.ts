@@ -29,6 +29,8 @@ export interface HashView {
   /** The board's own surface colours. Absent when the link predates them or names none. */
   paper?: string | undefined
   ink?: string | undefined
+  /** The highlight colour, same "not set" rule as `paper`/`ink`. Absent when the link predates it or names none. */
+  highlight?: string | undefined
   /** The point grid. Absent when the link predates it. */
   showPoints?: boolean | undefined
   pointColor?: string | undefined
@@ -69,16 +71,18 @@ function num(raw: unknown): number | undefined {
  * else under `__view`.
  */
 export function encodeHash(input: { params: Params; view: HashView; carried: Carried }): string {
-  const { palette: chosenPalette, paper: chosenPaper, ink: chosenInk, ...rest } = input.view
+  const { palette: chosenPalette, paper: chosenPaper, ink: chosenInk, highlight: chosenHighlight, ...rest } = input.view
   // An empty palette is the common case — most links carry no custom
   // colours — so it is left out entirely rather than written as `[]`.
   const view = chosenPalette !== undefined && chosenPalette.length > 0 ? { ...rest, palette: chosenPalette } : rest
   // `''` is the slice's own "not set", the same as an empty palette above: a
-  // link that never had the board colours touched should not grow `paper`
-  // and `ink` keys naming nothing.
+  // link that never had the board colours touched should not grow `paper`,
+  // `ink` or `highlight` keys naming nothing.
   const withPaper = chosenPaper !== undefined && chosenPaper !== '' ? { ...view, paper: chosenPaper } : view
   const withInk = chosenInk !== undefined && chosenInk !== '' ? { ...withPaper, ink: chosenInk } : withPaper
-  const payload = { ...input.params, __view: { ...withInk, ...input.carried } }
+  const withHighlight =
+    chosenHighlight !== undefined && chosenHighlight !== '' ? { ...withInk, highlight: chosenHighlight } : withInk
+  const payload = { ...input.params, __view: { ...withHighlight, ...input.carried } }
   return '#' + encodeURIComponent(JSON.stringify(payload))
 }
 
@@ -152,6 +156,7 @@ export function decodeHash(hash: string): HashPayload | null {
       palette: palette(raw.palette),
       paper: colour(raw.paper),
       ink: colour(raw.ink),
+      highlight: colour(raw.highlight),
       // Decodes to `undefined` rather than `false` on absence so the
       // round-trip fixture need not carry the key.
       showPoints: raw.showPoints === true ? true : undefined,

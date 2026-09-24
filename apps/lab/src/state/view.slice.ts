@@ -57,8 +57,11 @@ export interface ViewState {
    */
   paper: string
   ink: string
+  /** The highlight colour of the longest pieces and the jammed cells; same "not set" rule as `paper`/`ink`. */
+  highlight: string
   setPaper(color: string): void
   setInk(color: string): void
+  setHighlight(color: string): void
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
   setNumber(field: ViewNumber, raw: string): void
   toggle(flag: ViewFlag): void
@@ -144,6 +147,7 @@ export function createViewSlice(set: SetStore): ViewState {
     palette: [],
     paper: '',
     ink: '',
+    highlight: '',
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
     setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
@@ -160,6 +164,7 @@ export function createViewSlice(set: SetStore): ViewState {
     setTheme: (name) => patch({ theme: name }),
     setPaper: (color) => patch({ paper: color }),
     setInk: (color) => patch({ ink: color }),
+    setHighlight: (color) => patch({ highlight: color }),
     setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),
     addPaletteColor: () =>
       set((state) => {

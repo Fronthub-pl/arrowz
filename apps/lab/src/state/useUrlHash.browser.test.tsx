@@ -432,4 +432,25 @@ describe('useUrlHash', () => {
     expect(useStore.getState().view.pointColor).toBe('#070809')
     expect(useStore.getState().view.pointRadius).toBe(0.2)
   })
+
+  // The same two-sided pattern as the board colours above, for the
+  // highlight: the producer side.
+  it('writes the highlight colour into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setHighlight('#0a0b0c')
+    await vi.waitFor(() => {
+      expect(decodeHash(location.hash)?.view.highlight).toBe('#0a0b0c')
+    })
+  })
+
+  // The consumer side: a link naming the highlight restores it into the store.
+  it('opens on the highlight colour the link names', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, highlight: '#0a0b0c' },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.highlight).toBe('#0a0b0c'))
+  })
 })

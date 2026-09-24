@@ -26,6 +26,7 @@ beforeEach(() => {
       palette: [],
       paper: '',
       ink: '',
+      highlight: '',
       colored: false,
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
@@ -44,9 +45,15 @@ test('the fields start where the previous lab starts them', () => {
   expect(view().top).toBe(5)
 })
 
-test('paper and ink start unset, so a theme decides them', () => {
+test('paper, ink and highlight start unset, so a theme decides them', () => {
   expect(declared.paper).toBe('')
   expect(declared.ink).toBe('')
+  expect(declared.highlight).toBe('')
+})
+
+test('setHighlight sets the highlight colour', () => {
+  view().setHighlight('#010203')
+  expect(view().highlight).toBe('#010203')
 })
 
 test('an empty field falls back to the default rather than to zero', () => {

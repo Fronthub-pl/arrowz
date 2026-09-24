@@ -19,11 +19,11 @@ const view = () => useStore.getState().view
 const EN = dictionary('en')
 
 // Colour inputs that exist on the panel before the user adds anything to the
-// palette: the point grid's dot colour (Task 5), the paper and the ink
-// (Task 7). Palette rows are added on top of these three, so the
-// palette-counting tests below compute against this rather than a bare
-// number.
-const ALWAYS_PRESENT_COLOR_INPUTS = 3
+// palette: the point grid's dot colour (Task 5), the paper, the ink
+// (Task 7) and the highlight. Palette rows are added on top of these four,
+// so the palette-counting tests below compute against this rather than a
+// bare number.
+const ALWAYS_PRESENT_COLOR_INPUTS = 4
 
 /** `#rrggbb` as the browser reports it back through `getComputedStyle`. */
 function rgbOf(hex: string): string {
@@ -49,8 +49,8 @@ beforeEach(() => {
   // repealed that), so resetting the theme alone would leave a palette built
   // by an earlier test on screen for the next one.
   //
-  // The five new fields go through the same direct `setState`, never through
-  // `setPaper`/`setInk`/`setFlag`: a reset built on the actions under test
+  // The six new fields go through the same direct `setState`, never through
+  // `setPaper`/`setInk`/`setHighlight`/`setFlag`: a reset built on the actions under test
   // would fail alongside a broken action instead of pinning the one test
   // that exercises it. `showPoints` is the one field here with a real leak —
   // "the panel draws the point grid controls" below clicks it on and never
@@ -63,6 +63,7 @@ beforeEach(() => {
       palette: [],
       paper: '',
       ink: '',
+      highlight: '',
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
       pointRadius: DEFAULT_POINT_RADIUS,
@@ -421,6 +422,20 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
   expect(view().paper).toBe('')
 })
 
+// The highlight row, copied wholesale from the paper/ink one above.
+test('the editor offers a highlight colour, and hands it back to the theme when cleared', async () => {
+  const screen = await render(<ViewPanel />)
+  const highlight = screen.container.querySelector<HTMLInputElement>('#view-highlight')
+  expect(highlight).not.toBeNull()
+  if (highlight === null) return
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(highlight, '#010203')
+  highlight.dispatchEvent(new Event('input', { bubbles: true }))
+  expect(view().highlight).toBe('#010203')
+
+  await screen.getByRole('button', { name: /clear the highlight/i }).click()
+  expect(view().highlight).toBe('')
+})
+
 // Handoff 2, PR 3: five titled sections, each a group named by its heading.
 test('the preview is five titled sections, in order, each a named group', async () => {
   const screen = await render(<ViewPanel />)
@@ -455,7 +470,7 @@ test('the colours section holds the theme, both surface colours and the palette'
   const screen = await render(<ViewPanel />)
   const section = screen.container.querySelector('#view-sec-colours')?.closest('.kv-sect')
   if (!section) throw new Error('no colours section')
-  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-palette-label']) {
+  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-highlight', '#view-palette-label']) {
     expect(section.querySelector(id), id).not.toBeNull()
   }
   expect(section.querySelector('button.kv-chip')?.getAttribute('aria-describedby')).toBe('view-palette-help')
@@ -489,6 +504,7 @@ test('every preview control names a description that exists', async () => {
     '#view-theme',
     '#view-paper',
     '#view-ink',
+    '#view-highlight',
     '#view-rounded',
     '#view-colored',
     '#view-hilite',
