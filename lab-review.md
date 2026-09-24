@@ -52,11 +52,11 @@ different counter over 237 files; the two numbers are not comparable.)
 | # | Finding | Status | What changed |
 | --- | --- | --- | --- |
 | 1 | HIGH: palette jump into a closed block loses the focus | fixed in `08162fa` | A block opened by a jump or a refusal stays open; tested in `Console`, not only `KnobPanel` |
-| 2 | Element ◑ takes `colored` away from the lab | fixed in `840bf34..85c7aab`, `078b98e` | The element emits a cancelable `colored-change`; the lab writes its own flag and cancels; a cancelled click hands control back to `view.colored` |
+| 2 | Element ◑ takes `colored` away from the lab | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | The element emits a cancelable `colored-change`; the lab writes its own flag and cancels; a cancelled click hands control back to `view.colored` |
 | 3 | "% of perimeter" divides by `W + H` | fixed in `e7de79a`, `6f3517b` | Now "% of width + height" in the lab (EN and PL) and in the CLI report |
 | 4 | Difficulty help says "not the look" | fixed in `e7de79a`, `6f3517b` | The group help says what it changes |
 | 5 | 699 against 700 breakpoint | fixed in `750b059`, `d750cad` | Every stylesheet uses 699; a node test greps the queries against `band.ts` |
-| 6 | Line citations and history in comments | fixed in `0d0d809..701e83a`, `4349970` | Comment rule in `CLAUDE.md`, the guard, and the sweep |
+| 6 | Line citations and history in comments | fixed in `0d0d809`, `3728763`, `446c853`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a`, `4349970` | Comment rule in `CLAUDE.md`, the guard, and the sweep |
 | 7 | Dead `KnobSlider` | fixed in `a2f60e0` | Component, `FieldHelp` body, `viewHelpEntries` and the dead CSS deleted; helpers moved to `track.ts` |
 
 ### Correctness
@@ -90,7 +90,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | Element hint in Inspect said "to play" | fixed in `74c0290` | The element words its own Inspect hint |
 | Gap 3: closing rate over N seeds | open | |
 | Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | open | |
-| Gap 5 / Duplication 1: colour-button split | fixed in `840bf34..85c7aab` | See finding 2 |
+| Gap 5 / Duplication 1: colour-button split | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | See finding 2 |
 | Gap 6: Stop that keeps the partial board | open | |
 | Gap 7: SVG colours | open | Same as the LOW correctness finding |
 | Gap 8: open a `.board.json` from disk | open | |
@@ -135,7 +135,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
 | 8. `useStoredBoard` into a library action | open | |
 | 9. One roving-focus helper | open | |
-| 10. Symbols instead of `file.ts:NN` | fixed in `446c853..701e83a` | Swept, and the guard fails on the pattern |
+| 10. Symbols instead of `file.ts:NN` | fixed in `0d0d809`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | Swept, and the guard fails on the pattern |
 | 11. Try the React Compiler | open | |
 
 ### Smaller practice issues and dead code
@@ -155,7 +155,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | `const set = onSet` | fixed in `a2f60e0` | |
 | `params.broken` rebuilt on every commit | open | |
 | Workspace class string (`cx()`) | open | |
-| Very long comments | fixed in `446c853..701e83a` | No non-header block over 6 lines in scope |
+| Very long comments | fixed in `0d0d809`, `3728763`, `fcc58af`, `6d60475`, `d0edfd9`, `428be15`, `eed9851`, `fcf0c0a`, `f6c4673`, `ffb4dd1`, `0be63c3`, `5e78da1`, `e7b0d50`, `701e83a` | No non-header block over 6 lines in scope |
 | `BoardFrame` memo keys | open | |
 | Circular type import `Console` ↔ `Workspace` | open | |
 | Dead code table (`KnobSlider`, `FieldHelp`, `viewHelpEntries`, `ViewField.help`, dead CSS, `console.test.ts`, `.fw-k` selector) | fixed in `a2f60e0` | |
