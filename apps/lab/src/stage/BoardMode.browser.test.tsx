@@ -77,6 +77,22 @@ test('the board frame offers three modes, View chosen, and the element neither p
   expect(line(screen.container)).toBeNull()
 })
 
+test('an empty frame before the first run offers no mode, and the first board brings it', async () => {
+  const screen = await mountFrame()
+  expect(screen.container.querySelector('.fw-mode')).toBeNull()
+  await showDominoes()
+  expect(radios(screen.container)).toHaveLength(3)
+})
+
+// The lab's own result is on hand here: that board must not lend its control to the empty stage.
+test('on the library tab a board that could not be read leaves no mode to choose', async () => {
+  const screen = await mountFrame('/boards/8x8/sha256-0')
+  await showDominoes()
+  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'not in the store' }))
+  await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
+  expect(screen.container.querySelector('.fw-mode')).toBeNull()
+})
+
 test('the control sits on the frame, after the element and before the solo toggle', async () => {
   const screen = await mountFrame()
   await showDominoes()

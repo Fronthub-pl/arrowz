@@ -135,7 +135,7 @@ export function BoardFrame(): ReactElement {
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
         )}
-        <BoardModeSwitch />
+        {board === null ? null : <BoardModeSwitch />}
         {/* Its own glyph: `⤢` is the element's fit button. */}
         <button
           ref={toggle}
