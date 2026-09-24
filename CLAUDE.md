@@ -53,7 +53,9 @@
 - In tests, the test name carries the *what*. A comment explains only setup that looks arbitrary (this viewport, this mock, this wait) or, in one sentence, what this case catches that a similar case cannot. The story of how the test was found (mutations run, review rounds) goes in the commit.
 - For a measured number, write the result and the consequence ("two frames is the floor, don't shorten"), not the protocol or the sample table.
 
-grep guard: `packages/engine/comments.test.ts`
+grep guard: `packages/engine/comments.test.ts`. The guard enforces: non-header
+blocks ≤ 6 lines, module/API headers ≤ 24 lines. A header is the file's first
+comment block, or a `/** */` block right above a declaration.
 
 <!-- jbcontext-instructions-start -->
 # Tools

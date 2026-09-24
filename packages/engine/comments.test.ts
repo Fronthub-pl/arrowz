@@ -1,8 +1,10 @@
 // Guards the comment rule in CLAUDE.md ("Comments say why, once, in the
 // fewest lines") over the lab, the board element and the engine's lab files:
-// no history markers in comment text, and no comment block over 12 lines
-// outside the file header. Only comment text is scanned, so test names and
-// dictionary strings may name a round or a ruling freely.
+// no history markers in comment text, no block over 6 lines, and no module or
+// API header over 24. Only comment text is scanned, so test names and
+// dictionary strings may name a round or a ruling freely. Two blind spots: an
+// apostrophe in JSX text hides a comment later on its line, and a bare URL in
+// JSX text reads as a `//` comment.
 import { dirname, fromFileUrl, join, relative } from '@std/path'
 import { assert, assertEquals } from '@std/assert'
 
@@ -167,24 +169,55 @@ export const MARKERS = [
   /[Rr]eview round/,
   /\b[\w-]+\.(ts|tsx|css|mjs):\d+/,
 ]
-export const MAX_BLOCK = 12
+export const MAX_BLOCK = 6
+export const MAX_HEADER = 24
 
-/** Offences of one file, each as `line pattern`, in line order. */
-export function offences(source: string, css: boolean): { line: number; what: string }[] {
-  const found: { line: number; what: string }[] = []
+// A `/** */` block is an API header when the next non-blank line opens one of these: a declaration,
+// a method (its line holds `):` or ends with `{` without an arrow) or a property signature.
+const DECLARATION = new RegExp(
+  [
+    String.raw`^(export|default|declare|function|class|abstract|const|let|var|interface|type|enum|namespace)\b`,
+    String.raw`^(async\s+)?function\b`,
+    String.raw`^(public|private|protected|static|readonly|override|get|set|async)\s`,
+    String.raw`^#?[\w$]+\??\s*:`,
+    String.raw`^['"][^'"]*['"]\??\s*:`,
+  ].join('|'),
+)
+const METHOD = /^(?!(if|for|while|switch|catch|return|await|new)\b)#?[\w$]+\s*(<[^>]*>)?\(/
+
+export function isDeclaration(line: string): boolean {
+  const t = line.trim()
+  if (DECLARATION.test(t)) return true
+  return METHOD.test(t) && (t.includes('):') || (t.endsWith('{') && !t.includes('=>')))
+}
+
+export type Offence = { line: number; kind: 'marker' | 'block'; what: string }
+
+/** Offences of one file, in line order. */
+export function offences(source: string, css: boolean): Offence[] {
+  const found: Offence[] = []
   const comments = commentLines(source, css)
   for (const c of comments) {
-    for (const re of MARKERS) if (re.test(c.text)) found.push({ line: c.line, what: `${re} ${c.text.trim()}` })
+    for (const re of MARKERS) {
+      if (re.test(c.text)) found.push({ line: c.line, kind: 'marker', what: `${re} ${c.text.trim()}` })
+    }
   }
-  // A block is a run of consecutive comment-only lines; the first block of the file is its header.
+  // A block is a run of consecutive comment-only lines. A header is the file's first block, or a
+  // JSDoc block right above a declaration; headers may run to MAX_HEADER lines, other blocks to MAX_BLOCK.
+  const src = source.split('\n')
   let blockStart = -1
   let blockEnd = -1
   let firstBlock = true
   const close = () => {
     if (blockStart === -1) return
     const size = blockEnd - blockStart + 1
-    if (!firstBlock && size > MAX_BLOCK) {
-      found.push({ line: blockStart, what: `block of ${size} lines (max ${MAX_BLOCK})` })
+    const jsdoc = src.slice(blockStart - 1, blockEnd).some((l) => l.trim().startsWith('/**'))
+    const after = src.slice(blockEnd).find((l) => l.trim() !== '')
+    const header = firstBlock || (jsdoc && after !== undefined && isDeclaration(after))
+    const max = header ? MAX_HEADER : MAX_BLOCK
+    if (size > max) {
+      const label = header ? 'header block' : 'block'
+      found.push({ line: blockStart, kind: 'block', what: `${label} of ${size} lines (max ${max})` })
     }
     firstBlock = false
     blockStart = -1
@@ -224,20 +257,17 @@ function scopedFiles(): string[] {
   return files.sort()
 }
 
-function report(kind: 'marker' | 'block'): string[] {
+function report(kind: Offence['kind']): string[] {
   const lines: string[] = []
   for (const file of scopedFiles()) {
     const found = offences(Deno.readTextFileSync(file), file.endsWith('.css'))
     for (const o of found) {
-      if (o.what.startsWith('block of') !== (kind === 'block')) continue
+      if (o.kind !== kind) continue
       lines.push(`${relative(root, file)}:${o.line} ${o.what}`)
     }
   }
   return lines
 }
-
-const guardOn = Deno.permissions.querySync({ name: 'env', variable: 'COMMENT_GUARD' }).state === 'granted' &&
-  Deno.env.get('COMMENT_GUARD') === '1'
 
 Deno.test('the comment guard walks the lab, the board element and the engine lab files', () => {
   const files = scopedFiles()
@@ -248,7 +278,7 @@ Deno.test('the comment guard walks the lab, the board element and the engine lab
 
 Deno.test({
   name: 'comments carry no history markers',
-  ignore: !guardOn,
+  ignore: Deno.env.get('COMMENT_GUARD') !== '1',
   fn: () => {
     const found = report('marker')
     assert(found.length === 0, `${found.length} comment markers:\n${found.join('\n')}`)
@@ -256,8 +286,8 @@ Deno.test({
 })
 
 Deno.test({
-  name: `comment blocks stay within ${MAX_BLOCK} lines outside the file header`,
-  ignore: !guardOn,
+  name: `comment blocks stay within ${MAX_BLOCK} lines, headers within ${MAX_HEADER}`,
+  ignore: Deno.env.get('COMMENT_GUARD') !== '1',
   fn: () => {
     const found = report('block')
     assert(found.length === 0, `${found.length} long comment blocks:\n${found.join('\n')}`)
@@ -294,12 +324,60 @@ Deno.test('extractor: JSX {/* */} and CSS /* */ are comments, CSS // is not', ()
   assertEquals(offences('a { b: url(https://x/PR 5); }\n/* see shell.css:12 */', true).map((o) => o.line), [2])
 })
 
-Deno.test('extractor: a block over 12 lines fails unless it is the file header', () => {
-  const block = (k: number) => Array.from({ length: k }, () => '// why').join('\n')
-  assertEquals(offences(`${block(20)}\ncode()\n${block(12)}\ncode()`, false), [])
-  assertEquals(offences(`${block(2)}\ncode()\n${block(13)}\ncode()`, false).map((o) => o.line), [4])
-  // A blank line ends a block, so two runs of 7 are two blocks.
-  assertEquals(offences(`// h\ncode()\n${block(7)}\n\n${block(7)}`, false), [])
-  const star = ['/**', ...Array.from({ length: 12 }, () => ' * why'), ' */'].join('\n')
-  assertEquals(offences(`// h\ncode()\n${star}`, false).map((o) => o.line), [3])
+const lines = (k: number, text: string) => Array.from({ length: k }, () => text).join('\n')
+const jsdoc = (k: number) => ['/**', ...Array.from({ length: k - 2 }, () => ' * why'), ' */'].join('\n')
+
+Deno.test('rule: a mid-file block over 6 lines fails, the first block is a header', () => {
+  assertEquals(offences(`${lines(20, '// why')}\ncode()\n${lines(6, '// why')}\ncode()`, false), [])
+  assertEquals(offences(`// h\ncode()\n${lines(7, '// why')}\ncode()`, false).map((o) => o.line), [3])
+  assertEquals(offences(`${lines(25, '// why')}\ncode()`, false).map((o) => o.what), [
+    'header block of 25 lines (max 24)',
+  ])
+  // A blank line ends a block, so two runs of 6 are two blocks.
+  assertEquals(offences(`// h\ncode()\n${lines(6, '// why')}\n\n${lines(6, '// why')}`, false), [])
+})
+
+Deno.test('rule: a JSDoc block above a declaration is a header of up to 24 lines', () => {
+  assertEquals(offences(`// h\ncode()\n${jsdoc(8)}\nexport function f() {}`, false), [])
+  assertEquals(offences(`// h\ncode()\n${jsdoc(24)}\n\n  readonly x: number`, false), [])
+  assertEquals(offences(`// h\ncode()\n${jsdoc(25)}\nexport const a = 1`, false).map((o) => o.what), [
+    'header block of 25 lines (max 24)',
+  ])
+  assertEquals(offences(`// h\ncode()\n${jsdoc(7)}\n\nrender(root)`, false).map((o) => o.line), [3])
+  assertEquals(offences(`// h\ncode()\n${lines(8, '// why')}\nexport const a = 1`, false).length, 1)
+})
+
+Deno.test('rule: what counts as a declaration after a JSDoc block', () => {
+  const yes = [
+    'export function f() {}',
+    'export default App',
+    'function f(a: number) {',
+    'async function f() {',
+    'const a = 1',
+    'let b',
+    'interface I {',
+    'type T = number',
+    'class C {',
+    '  private x = 1',
+    '  static make(): C {',
+    '  get size() {',
+    '  measure(a: number): number {',
+    '  paint() {',
+    '  onChange?: (v: string) => void',
+    '  label: string',
+    "  'aria-label': string",
+    '  #timer: number | undefined',
+  ]
+  const no = [
+    'render(root)',
+    'useEffect(() => {',
+    'if (a) {',
+    "it('works', () => {",
+    'expect(a).toBe(1)',
+    'x = 5',
+    'return a',
+    'await flush()',
+  ]
+  for (const line of yes) assert(isDeclaration(line), `should be a declaration: ${line}`)
+  for (const line of no) assert(!isDeclaration(line), `should not be a declaration: ${line}`)
 })
