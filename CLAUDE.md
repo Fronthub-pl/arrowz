@@ -56,6 +56,9 @@
 grep guard: `packages/engine/comments.test.ts`. The guard enforces: non-header
 blocks ≤ 6 lines, module/API headers ≤ 24 lines. A header is the file's first
 comment block, or a `/** */` block right above a declaration.
+The guard walks only `apps/lab/src`, `packages/board-element/src` and
+`packages/engine/lab-*.ts`; the engine's other files and `packages/cli` are not
+swept yet and still carry history markers and long blocks.
 
 <!-- jbcontext-instructions-start -->
 # Tools
