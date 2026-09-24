@@ -81,9 +81,10 @@ Rules that hold in both versions: an unknown theme name never reaches the
 store (validated with `themeOf` from `@arrowz/board-element`); the old keys
 `hilite` and `highlight` still read as today.
 
-`HashView` gets `viewVersion?: number` and `voids: boolean`. For a versioned
-link the five colour fields always carry a value, so `applyPayload` keeps its
-shape ("set everything that is not `undefined`") and gains one line,
+`HashView` gets `voids: boolean`; it needs no version field, because the
+encoder always writes the constant and the decoder only reads it. For a
+versioned link the five colour fields always carry a value, so `applyPayload`
+keeps its shape ("set everything that is not `undefined`") and gains one line,
 `view.setFlag('voids', payload.view.voids)`.
 
 **The store.** `fillView` takes the meta's version: the "0 means automatic"
@@ -110,10 +111,12 @@ Today every key is handled on the `<input>`. A click on a disabled row, the
 footer or the empty-state text moves the focus off it; Escape then closes a
 drawer behind the modal, `g` starts a carve and Tab walks into the page.
 
-- The dialog frame (`.fw-pal`, `role="dialog"`) gets
-  `onMouseDown={e => { if (e.target !== inputRef.current) e.preventDefault() }}`,
-  so no click inside the palette takes the focus from the input. A row's
-  `onClick` still fires.
+- The palette's existing document `mousedown` listener (it closes the
+  palette on a press outside the frame) also calls `preventDefault()` on a
+  press inside the frame whose target is not the input, so no click inside
+  the palette takes the focus from the input. A row's `onClick` still fires.
+  Not a JSX `onMouseDown` on the frame: `jsx-a11y/no-noninteractive-element-interactions`
+  allows only key handlers on `role="dialog"`.
 - `onKeyDown` moves from the input to the frame. Keys from the input bubble
   to it unchanged, so arrows, Home, End, Enter, Escape and Tab behave as
   today, and a key pressed with the focus anywhere else in the frame is
@@ -136,10 +139,10 @@ replaced: `1,2,3` stays invalid.
 
 - `palette/commands.ts`: the flag rows' value is
   `deps.dict.t(on ? 'valueOn' : 'valueOff')`.
-- `BoardError` gets `kind: 'missing' | 'unreadable'`. `useStoredBoard` reports
-  a board absent from the store as `{ name, kind: 'missing' }`; a server or
-  decoder message stays `{ name, kind: 'unreadable', reason }`.
-  `useRunState` words `missing` with a new dictionary key, `boardNotStored`
+- `BoardError.reason` becomes `string | null`, where `null` means "the store
+  does not list this board". `useStoredBoard` reports that case as
+  `{ name, reason: null }`; a server or decoder message stays a string.
+  `useRunState` words `null` with a new dictionary key, `boardNotStored`
   (EN "Board {id} is not in the store", PL "Planszy {id} nie ma w magazynie"),
   at render time, so a language switch rewords it.
 
