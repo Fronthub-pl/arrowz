@@ -26,8 +26,7 @@ describe('the switches the run column owns', () => {
     return store
   }
 
-  // The descriptions switch is gone (handoff 2, PR 2): the slice keeps no
-  // `help` at all, and a knob row opens its own description.
+  // No `help` in the slice: a knob row opens its own description.
   it('starts with auto off, and has no descriptions switch', () => {
     const store = slice()
     expect(store.ui.auto).toBe(false)
@@ -63,8 +62,7 @@ describe('the switches the run column owns', () => {
     expect(store.ui.report).toBe(false)
   })
 
-  // Handoff 2, PR 1: the settings drawer opens by default, unlike the report,
-  // because it does not cover the board.
+  // The settings drawer opens by default, unlike the report: it does not cover the board.
   it('keeps the settings drawer open at first, sets it as given, and toggles it', () => {
     const store = slice()
     expect(store.ui.settings).toBe(true)
@@ -75,7 +73,6 @@ describe('the switches the run column owns', () => {
     expect(store.ui.settings).toBe(true)
   })
 
-  // Handoff 2, PR 6: the saved boards' drawer opens on the list of boards.
   it('opens the saved boards on their list and switches to the preview and back', () => {
     const store = slice()
     expect(store.ui.boards).toBe('list')
@@ -85,8 +82,7 @@ describe('the switches the run column owns', () => {
     expect(store.ui.boards).toBe('list')
   })
 
-  // Handoff 2, PR 7: the phone's bottom sheets and the top bar's menu. One
-  // sheet at a time; the same sheet pressed again closes it.
+  // One sheet at a time; the same sheet pressed again closes it.
   it('opens one sheet at a time and closes it on a second press', () => {
     const store = slice()
     expect(store.ui.sheet).toBeNull()
@@ -142,7 +138,7 @@ describe('the view a page opens in', () => {
   })
 })
 
-// Spec §5.3 lists solo in `ui`, and nothing remembers it: solo is gone on reload.
+// Nothing remembers solo: it is gone on reload.
 describe('solo', () => {
   function slice() {
     const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
@@ -165,20 +161,16 @@ describe('solo', () => {
   })
 })
 
-// Spec §8: neither field is ever remembered — no localStorage, no hash — so
-// each is asserted against a freshly built slice rather than the live store,
-// which a reset could have written (harness fact 41).
+// Neither field is ever remembered, so each is asserted on a fresh slice, not
+// on the live store, which a reset could have written.
 describe('the command palette', () => {
   function slice() {
     const store: { ui: UiState } = { ui: createUiSlice((fn) => Object.assign(store, fn(store))) }
     return store
   }
 
-  // storage.ts documents that the node project has no dependable Web Storage,
-  // so this stub supplies localStorage for only this test to verify the palette
-  // never writes to it. The stub is removed after the test (afterEach below) to
-  // preserve the node environment's contract: future tests exercise the "no
-  // storage" branch without the safety net of a polyfill.
+  // The node project has no Web Storage; one case stubs it to prove the
+  // palette never writes, and the stub goes so the others keep "no storage".
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -213,7 +205,6 @@ describe('the command palette', () => {
   })
 
   it('writes nothing to storage, unlike the view mode', () => {
-    // Stub localStorage only for this test. See comment above.
     const store = new Map<string, string>()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => store.get(key) ?? null,

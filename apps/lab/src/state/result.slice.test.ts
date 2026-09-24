@@ -20,10 +20,8 @@ test('a fresh store shows nothing, compares with nothing and has no answer or ex
   expect(result().exportError).toBeNull()
 })
 
-// The worker's `done` message satisfies `ReportInput` structurally while
-// carrying the board file, a multi-megabyte string at Insane (spec §5.3). A
-// slice that kept the message would hold a second copy of the file in the
-// report, and the baseline a third.
+// The worker's `done` message is a `ReportInput` that also carries the board
+// file (megabytes at Insane); keeping it would copy the file twice more.
 test('show keeps the report fields and not the board file the message carries', () => {
   finish(ONE)
   const shown = result().shown
@@ -55,8 +53,7 @@ test('a result without metrics leaves the baseline where it was', () => {
   expect(result().baseline?.params.seed).toBe(2)
 })
 
-// `started()` used to clear the answer. Without this, the next board would read
-// "closed — saved" until its own POST answered.
+// Without this, the next board would read "closed — saved" until its own POST answered.
 test('show clears the store answer of the board before', () => {
   finish(ONE)
   result().stored(ONE.file, { ok: false, error: 'no store server' })
@@ -65,8 +62,7 @@ test('show clears the store answer of the board before', () => {
   expect(result().saved).toBeNull()
 })
 
-// An export error used to live in `ExportButtons`, holding the whole replaced
-// result so a render could tell it was stale. The next board has failed nothing.
+// The next board has failed nothing.
 test('show clears the export error of the board before', () => {
   finish(ONE)
   result().exported(ONE.file, 'the codec refused it')
@@ -75,8 +71,7 @@ test('show clears the export error of the board before', () => {
   expect(result().exportError).toBeNull()
 })
 
-// The identity guard App.tsx used to keep, now in the slice: a slow POST for
-// the board before must not describe the board on screen.
+// A slow POST for the board before must not describe the board on screen.
 test('an answer for a file no longer shown is dropped', () => {
   finish(ONE)
   finish(TWO)
@@ -118,9 +113,8 @@ test('reset forgets everything', () => {
   expect(result().exportError).toBeNull()
 })
 
-// Spec §5.3: the stored board is a second field, not a second source. A meta
-// cannot fill a ReportInput, and the run's own product must survive a trip to
-// the library — that is what makes coming back free.
+// The stored board is a second field: the run's own result must survive a trip
+// to the library, which makes coming back free.
 test('a preview leaves the run result, its answer and its baseline alone', () => {
   const state = useStore.getState()
   state.result.reset()
@@ -169,9 +163,8 @@ test('reset clears both the result and the preview', () => {
   expect(useStore.getState().result.preview).toBeNull()
 })
 
-// Ruling 4: the stage draws a stored board from `preview.meta.view`, so that is
-// what an edited field moves. The board and the file are untouched — nothing
-// was regenerated, and the very same file goes back to the store.
+// The stage draws a stored board from `preview.meta.view`, so that is what an
+// edit moves; the board and the file are untouched.
 test('a new preview view moves the meta, and leaves the board and the file', () => {
   const { meta, file } = storedFixture(3)
   const board = decodeBoard(file)

@@ -1,12 +1,9 @@
 /**
- * The page's remembered preferences, through a door that never throws
- * (Ruling 14). The node test project imports the store and has no dependable
- * Web Storage, and a browser may refuse storage outright — a private window, a
- * blocked origin. A preference that cannot be read is the default; one that
- * cannot be written lasts for this page.
- *
- * `typeof` inside the `try`: on an engine whose `localStorage` is a getter that
- * throws, evaluating it at all is the throw.
+ * The page's remembered preferences, through a door that never throws: the
+ * node test project has no dependable Web Storage, and a browser may refuse it
+ * (a private window, a blocked origin). Unreadable means the default;
+ * unwritable lasts for this page. `typeof` is inside the `try` because a
+ * throwing `localStorage` getter throws on evaluation.
  */
 export function readStored(key: string): string | null {
   try {

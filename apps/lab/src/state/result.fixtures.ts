@@ -9,7 +9,7 @@ export interface FinishedFixture extends FinishedRun {
 /**
  * A real carve, not a hand-built report: the report drawer reads every field.
  * 8×8 by default — seed 1 closes with 8 pieces and a longest of 18, seed 2 with
- * 13 and 17 (measured 2026-09-15), which the report cases rely on.
+ * 13 and 17, which the report cases rely on.
  */
 export function finishedRun(seed: number, W = 8, H = 8): FinishedFixture {
   const params = { ...defaultParams(), W, H, seed }

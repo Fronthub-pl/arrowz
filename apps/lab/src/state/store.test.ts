@@ -10,8 +10,7 @@ beforeEach(() => {
   useStore.getState().params.reset()
 })
 
-// One `set`, so no render sees `phase: 'done'` beside the previous board
-// (spec §5.3).
+// One `set`, so no render sees `phase: 'done'` beside the previous board.
 test('completeRun writes the run and the result in one update', () => {
   useStore.getState().run.started(ONE.params)
   let updates = 0
@@ -26,8 +25,6 @@ test('completeRun writes the run and the result in one update', () => {
   expect(useStore.getState().result.shown?.file).toBe(ONE.file)
 })
 
-// Replaces the run slice's old case that a new run clears the board: the
-// point of PR 4b is the opposite.
 test('starting the next run leaves the result on screen', () => {
   finish(ONE)
   useStore.getState().run.started({ ...ONE.params, seed: 2 })
@@ -49,7 +46,7 @@ test('a store failure leaves the run done', () => {
   expect(useStore.getState().result.saved).toEqual({ ok: false, error: 'no store server' })
 })
 
-// Ruling 6: no parameters to show the board under, and none may be invented.
+// No parameters to show the board under, and none may be invented.
 test('a run that was never started cannot be completed', () => {
   expect(() => useStore.getState().completeRun(ONE)).toThrow(/never started/)
   expect(useStore.getState().result.shown).toBeNull()

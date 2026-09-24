@@ -1,7 +1,6 @@
 /**
- * The lab's width bands and its low window (handoff 2, PR 7), read from
- * `matchMedia` so JavaScript agrees with the stylesheets to the pixel: the
- * same queries decide both. XL ≥ 1600, L 1280–1599, M 1024–1279, S 768–1023,
+ * The lab's width bands and its low window, read from `matchMedia` so
+ * JavaScript agrees with the stylesheets to the pixel. XL ≥ 1600, L 1280–1599, M 1024–1279, S 768–1023,
  * XS < 768; low is under 700px tall and at least 768 wide.
  *
  * No React and no store: the ui slice reads the start band from here at
@@ -38,7 +37,7 @@ export function readLow(): boolean {
   return media(LOW)?.matches ?? false
 }
 
-/** Below 1024px the settings drawer has no room beside the board (spec D3). */
+/** Below 1024px the settings drawer has no room beside the board. */
 export function narrow(band: Band): boolean {
   return band === 's' || band === 'xs'
 }

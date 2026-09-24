@@ -108,11 +108,8 @@ test('every knob in PARAM_SPEC can be committed by key', () => {
 })
 
 describe('the edit counter behind auto-generate', () => {
-  // `edits` only ever grows (`reset` leaves it alone by design, see below), so
-  // sharing the module's store across cases would carry a count in from
-  // whichever test ran first. A fresh slice per case is the only way to see
-  // it start at 0, which is what the counter is a change signal, not a
-  // history.
+  // `edits` only grows (`reset` leaves it alone), so the shared store would
+  // carry a count in from earlier cases; a fresh slice starts at 0.
   let params: () => ParamsState
 
   beforeEach(() => {
@@ -144,10 +141,8 @@ describe('the edit counter behind auto-generate', () => {
     expect(params().edits).toBe(1)
   })
 
-  // The point of the whole counter: a preset, Defaults, New seed and a link
-  // all start their run themselves, immediately (spec §2.2). If they bumped
-  // this, `auto` would start a second run 350 ms later and terminate the
-  // first mid-carve.
+  // A preset, Defaults, New seed and a link start their own run; bumping this
+  // would make `auto` start a second one 350 ms later and kill the first.
   it('does not count what a preset, Defaults or a link applied', () => {
     params().setMany({ W: 30, H: 40 })
     params().reset()

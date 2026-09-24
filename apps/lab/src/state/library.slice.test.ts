@@ -32,11 +32,8 @@ test('a failed listing keeps the sizes it already had', () => {
   expect(library().loading).toBe(false)
 })
 
-// Two failures, two sentences: one is about the store, the other about one
-// board's file, and neither may overwrite the other. Starting from a
-// non-null `listError` (rather than the `null` `reset()` leaves) is what
-// tells "boardFailed leaves listError alone" apart from "boardFailed nulls
-// listError" — both looked the same from `null`.
+// Starts from a non-null `listError`: from `null`, "leaves it alone" and
+// "nulls it" look the same.
 test('a board failure does not touch a list error already set', () => {
   reset()
   const library = () => useStore.getState().library
@@ -47,10 +44,7 @@ test('a board failure does not touch a list error already set', () => {
   expect(library().boardError?.reason).toBe('HTTP 404')
 })
 
-// The reverse direction, which the case above cannot cover: a listing leaves
-// a board's own error alone. `listed` does clear `listError`, by design — a
-// successful listing has nothing left to report — but that is not the same
-// claim as clearing errors in general, and it does not touch `boardError`.
+// The reverse direction: `listed` clears `listError` by design, but not `boardError`.
 test('a listing does not touch a board error already set', () => {
   reset()
   const library = () => useStore.getState().library
@@ -62,9 +56,7 @@ test('a listing does not touch a board error already set', () => {
   expect(library().boardError).toBeNull()
 })
 
-// Ruling 5: an event has nowhere to live in a line computed from state, so the
-// slice carries one. It is deliberately not a stack — the newest message is the
-// only one worth saying, so a new notice overwrites the last.
+// Not a stack: the newest message is the only one worth saying.
 test('a notice replaces the one before it, and can be taken back', () => {
   reset()
   const library = () => useStore.getState().library

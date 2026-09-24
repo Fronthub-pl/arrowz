@@ -3,14 +3,11 @@ import { DEFAULT_VIEW } from '@arrowz/engine/command'
 
 /**
  * A stored board as the store would hold it: a real carve, its file, and a meta
- * with the fields the list row and the status line read. Hand-built rather than
- * fetched, because these tests must not need a server — `boards.node.test.ts`
- * is where a real store is exercised.
+ * with the fields the list row and the status line read. Hand-built, so these
+ * tests need no server (`boards.node.test.ts` exercises a real store).
  *
- * The id is a plausible layout hash for a one- or two-digit seed: `sha256-`
- * and 64 hex digits, 71 characters in all, so a row that clips it is being
- * clipped for the real reason. A seed of 100 or more would overrun that,
- * and every caller here passes a small one.
+ * The id has a real hash's length (`sha256-` and 64 hex digits) for a seed
+ * below 100, so a row that clips it clips it for the real reason.
  */
 export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; file: unknown } {
   const params = { ...defaultParams(), W, H, seed }
@@ -48,10 +45,8 @@ export function storedFixture(seed: number, W = 8, H = 8): { meta: BoardMeta; fi
 
 /**
  * Two sizes, the first holding two boards (newest first, as the store lists
- * them) and the second holding one. A single size cannot discriminate
- * the rail's `open.size ?? sizes?.[0]?.size` fallback (`openEntry`) from a plain
- * `sizes?.[0]?.size`, because the address's size and the first listed size
- * always coincide when there is only one — hence the second size here.
+ * them) and the second one. With a single size, the address's size and the
+ * first listed size always coincide, hiding a fallback bug in `openEntry`.
  */
 export function sizesFixture(): BoardSize[] {
   const first = storedFixture(1)

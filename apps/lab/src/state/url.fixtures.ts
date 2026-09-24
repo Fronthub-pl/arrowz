@@ -12,9 +12,6 @@ export const VIEW: HashView = {
   hilite: true,
   lang: 'en',
   theme: undefined,
-  // `palette` is left out rather than added as `palette: undefined`: an
-  // absent optional key and one explicitly set to `undefined` compare equal
-  // under `toEqual`, so the round-trip test below needs no update for a new
-  // optional `HashView` field whose absent value is `undefined` — only for
-  // one whose absence means something else.
+  // `palette` and later optional fields are left out: `toEqual` treats an
+  // absent key and an `undefined` one alike.
 }

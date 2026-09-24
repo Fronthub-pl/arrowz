@@ -12,9 +12,8 @@ describe('the hash codec', () => {
     expect(back?.view).toEqual(VIEW)
   })
 
-  // The format is the deployed one, and some links in circulation carry the
-  // view numbers as raw strings, the way an input field's value comes out
-  // (Ruling 7).
+  // Some links in circulation carry the view numbers as raw strings, the way
+  // an input field's value comes out.
   it('reads a link the previous lab wrote, whose numbers are strings', () => {
     const legacy =
       '#' +
@@ -51,8 +50,7 @@ describe('the hash codec', () => {
     expect(bare?.view.colored).toBe(false)
   })
 
-  // Handoff 2, PR 2 removed the descriptions switch: a link from before still
-  // loads, and its `help` is simply not part of the view any more.
+  // An old link carrying `help` still loads, without it.
   it('loads a link that still carries the old help flag, and drops it', () => {
     const old = decodeHash('#' + encodeURIComponent(JSON.stringify({ W: 30, __view: { help: false, hilite: false } })))
     expect(old?.params.W).toBe(30)
@@ -60,8 +58,7 @@ describe('the hash codec', () => {
     expect(old?.view).not.toHaveProperty('help')
   })
 
-  // Ruling 6 of PR 4a: the language is the page's own now, and only the tab
-  // (PR 5's) is carried through untouched.
+  // Only the tab is carried through untouched.
   it('reads the language as the page’s own, and carries only the tab', () => {
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { lang: 'pl', tab: 'library' } }))
     const back = decodeHash(link)
@@ -111,9 +108,7 @@ describe('the hash codec', () => {
     expect(decodeHash(hash)?.view.palette).toEqual(['#112233', '#aabbcc'])
   })
 
-  // A link that predates custom palettes carries no `palette` key at all —
-  // not even an empty one — so this must read as "the page keeps its own",
-  // the same absence `theme` reads above.
+  // No `palette` key means "the page keeps its own", like `theme` above.
   it('reads a link that predates custom palettes as naming no palette', () => {
     const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
     expect(decodeHash(hash)?.view.palette).toBeUndefined()
@@ -124,8 +119,7 @@ describe('the hash codec', () => {
     expect(hash).not.toContain('palette')
   })
 
-  // Ruling: decode clamps to PALETTE_CAP (8), so a hand-edited link cannot
-  // hand the editor more colour fields than it can manage.
+  // A hand-edited link cannot hand the editor more than `PALETTE_CAP` colours.
   it('clamps a hand-edited palette to the cap', () => {
     const nine = Array.from({ length: 9 }, (_, i) => `#${String(i).repeat(6)}`)
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { palette: nine } }))
@@ -133,18 +127,14 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.palette).toEqual(nine.slice(0, 8))
   })
 
-  // Ruling: only `#rrggbb` survives — the lab editor's `<input type="color">`
-  // can show nothing else, and showing black for "red" is worse than dropping it.
+  // Only `#rrggbb` survives (see `palette` in url.ts).
   it('drops palette entries the colour input cannot display', () => {
     const link =
       '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['red', '#112233', 'not-a-color', '#ZZZZZZ'] } }))
     expect(decodeHash(link)?.view.palette).toEqual(['#112233'])
   })
 
-  // Finding 8 (final whole-addendum review): `HEX_COLOR` accepts uppercase,
-  // but the native colour input always reports lowercase, so a hand-edited
-  // `#AABBCC` must normalise on decode or the hash this page rewrites would
-  // differ in case from the one that was pasted in.
+  // The native colour input reports lowercase, so decode normalises to match.
   it('normalises a hand-edited uppercase hex to lowercase', () => {
     const link = '#' + encodeURIComponent(JSON.stringify({ __view: { palette: ['#AABBCC', '#DeF012'] } }))
     expect(decodeHash(link)?.view.palette).toEqual(['#aabbcc', '#def012'])
@@ -170,9 +160,8 @@ describe('the hash codec', () => {
     expect(decodeHash(hash)?.view.ink).toBeUndefined()
   })
 
-  // The same guard the palette's own case above pins for `[]`: `''` is the
-  // slice's own "not set" for `paper`/`ink` (`viewFor` hands it over on every
-  // fresh page load), so a link must not grow keys naming nothing.
+  // `''` is the slice's "not set" (every fresh page has it), so a link must
+  // not grow keys naming nothing.
   it('does not write empty board colours into the link', () => {
     const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, paper: '', ink: '' }, carried: {} })
     expect(hash).not.toContain('paper')
@@ -194,9 +183,6 @@ describe('the hash codec', () => {
     expect(decodeHash(hash)?.view.highlight).toBeUndefined()
   })
 
-  // The same guard `paper`/`ink` pin above: `''` is the slice's own "not
-  // set", so a link that never had the highlight touched should not grow a
-  // key naming nothing.
   it('does not write an empty highlight colour into the link', () => {
     const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlight: '' }, carried: {} })
     expect(hash).not.toContain('highlight')
@@ -207,8 +193,7 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.highlight).toBeUndefined()
   })
 
-  // Unlike paper/ink/highlight, 0 is a legal margin and not "unset", so it
-  // must round-trip exactly like `top`/`headWidth` do.
+  // 0 is a legal margin, not "unset", so it must round-trip.
   it('carries the margin through a round trip, including zero', () => {
     const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, pad: 0 }, carried: {} })
     expect(decodeHash(hash)?.view.pad).toBe(0)

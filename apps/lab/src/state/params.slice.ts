@@ -36,12 +36,9 @@ export interface Indexes {
 }
 
 /**
- * The three per-key indexes, recomputed once per change. Sparse on purpose:
- * a knob with nothing to say has no entry, so its selector reads `undefined`
- * twice running and the component does not render again.
- *
- * `straightFloor` is why this cannot be a per-knob selector at all — it reads
- * W, H, warns and anticoil (spec §5.4).
+ * The three per-key indexes, recomputed once per change. Sparse on purpose: a
+ * knob with nothing to say reads `undefined` twice running and does not
+ * re-render. Not a per-knob selector: `straightFloor` reads W, H, warns and anticoil.
  */
 export function indexesOf(values: Params): Indexes {
   const list = validateParams(values)
@@ -71,11 +68,10 @@ export function indexesOf(values: Params): Indexes {
 export interface ParamsState extends Indexes {
   values: Params
   /**
-   * How many knobs a person has committed. Only `set` and `setStart` — the
-   * two surfaces a hand reaches — move it; `setMany` and `reset` are the
-   * machine path (preset, Defaults, New seed, link) and every one of those
-   * starts its own run immediately. `useAutoRun` watches this and nothing
-   * else, so the two paths cannot both fire for one action (Ruling 3).
+   * How many knobs a person has committed. Only `set` and `setStart` move it;
+   * `setMany` and `reset` are the machine path (preset, Defaults, New seed,
+   * link), each of which starts its own run. `useAutoRun` watches only this, so
+   * the two paths cannot both fire for one action.
    */
   edits: number
   /** Commits one knob. Returns whether the value had to be clamped. */
