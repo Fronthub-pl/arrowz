@@ -102,10 +102,12 @@ the notice travels with the work here and in `themes.ts`:
 | Ayu | MIT | <https://github.com/ayu-theme/ayu-colors> |
 
 Controls, mouse and pen: a plain drag pans, and a click with ⌘ (Ctrl elsewhere)
-plays. A plain click does nothing, so a hand that twitches while panning never
-costs a life. A playable board (`play` or `interactive`) shows a ☝ switch in the
-corner. Pressed, it restores the rule from before: a plain click plays and a
-drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
+plays. With `interactive` alone (no `play`) that click does not play: it
+reports the piece as `piece-click`, and the host decides what to show. A plain
+click does nothing, so a hand that twitches while panning never costs a life.
+A board that takes clicks (`play` or `interactive`) shows a ☝ switch in the
+corner. Pressed, it swaps the two: a plain click plays or reports the piece,
+and a drag with ⌘ or Ctrl pans. The choice belongs to the player: it is kept in
 `localStorage` under `arrowz-board.gestures`, read by each board when it
 connects, and readable as the `gestureMode` property. There is no attribute for
 it. A board that only pans has no switch and always pans with a plain drag.
