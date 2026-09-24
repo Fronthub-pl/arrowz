@@ -453,4 +453,45 @@ describe('useUrlHash', () => {
     }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().view.highlight).toBe('#0a0b0c'))
   })
+
+  // The same two-sided pattern as the highlight above, for the margin
+  // (Task 7, R7): the producer side.
+  it('writes the margin into the link', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPad(7)
+    await vi.waitFor(() => {
+      expect(decodeHash(location.hash)?.view.pad).toBe(7)
+    })
+  })
+
+  // The consumer side: a link naming the margin restores it into the store.
+  it('opens on the margin the link names', async () => {
+    await mount(stub().control)
+    location.hash = encodeHash({
+      params: defaultParams(),
+      view: { ...VIEW, pad: 7 },
+      carried: {},
+    }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().view.pad).toBe(7))
+  })
+
+  // Item A (Task 7 review addendum): the board colours and the margin are
+  // viewing preferences already on screen, the same way the theme is above —
+  // a link naming none of them must leave every one of them alone.
+  // Dropping any one of the four `!== undefined` guards from `applyPayload`
+  // would pass every other case in this file and redden only this one.
+  it('keeps the board colours and the margin already on screen when a link names none of them', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setInk('#040506')
+    useStore.getState().view.setHighlight('#0a0b0c')
+    useStore.getState().view.setPad(7)
+
+    location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: VIEW, carried: {} }).slice(1)
+    await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
+    expect(useStore.getState().view.paper).toBe('#010203')
+    expect(useStore.getState().view.ink).toBe('#040506')
+    expect(useStore.getState().view.highlight).toBe('#0a0b0c')
+    expect(useStore.getState().view.pad).toBe(7)
+  })
 })

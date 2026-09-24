@@ -1,3 +1,4 @@
+import { DEFAULT_PAD } from '@arrowz/board-element'
 import { decodeBoard, type View } from '@arrowz/engine'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
@@ -389,6 +390,19 @@ test('the point grid reaches the element', async () => {
   expect(element?.pointColor).toBe('#0a0b0c')
   expect(element?.pointRadius).toBe(0.2)
   useStore.getState().view.setFlag('showPoints', false)
+})
+
+// The margin (Task 7, R7): unlike paper/ink/highlight it is always passed to
+// the element, never gated on being "set" — every value in range, including
+// the default, is a real margin.
+test('the margin reaches the element', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const element = screen.container.querySelector('arrowz-board')
+  expect(element?.pad).toBe(DEFAULT_PAD)
+  await act(async () => useStore.getState().view.setPad(7))
+  expect(element?.pad).toBe(7)
+  useStore.getState().view.setPad(DEFAULT_PAD)
 })
 
 // Spec §5.6: a link to a board that is no longer on disk leaves the stage

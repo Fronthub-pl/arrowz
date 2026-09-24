@@ -1,4 +1,4 @@
-import { DEFAULT_VIEW, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
+import { DEFAULT_VIEW, PAD_RANGE, POINT_RADIUS_RANGE, THEMES, themeOf } from '@arrowz/board-element'
 import type { ViewNumber } from '@arrowz/engine'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { type ReactElement, type ReactNode, useEffect, useRef } from 'react'
@@ -144,6 +144,67 @@ export function NumberRow({
 }
 
 /**
+ * A number row bounded by the element rather than the engine: the point
+ * radius (`POINT_RADIUS_RANGE`) and the margin (`PAD_RANGE`, Task 7) share
+ * this shape and differ only in id, wording, range and step.
+ */
+function ElementNumberRow({
+  id,
+  name,
+  help,
+  label,
+  value,
+  range,
+  step,
+  onSet,
+}: {
+  id: string
+  name: string
+  help: string
+  label: string
+  value: number
+  range: { min: number; max: number }
+  step: number
+  onSet(next: number): void
+}): ReactElement {
+  const dict = useDictionary()
+  const helpId = `${id}-help`
+  const { button, paragraph } = useKnobHelp(helpId, name, help)
+  return (
+    <div className="kv-row" title={rowTitle(dict, label, range)}>
+      <KnobLine
+        label={
+          <label className="kv-lab" htmlFor={id}>
+            {name}
+          </label>
+        }
+        help={button}
+        value={
+          <span className="kv-val">
+            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={onSet} />
+            <span className="kv-unit">{dict.d.units.cells}</span>
+          </span>
+        }
+        min={<span className="kv-end">{endText(dict, range.min)}</span>}
+        control={
+          <KnobTrack
+            id={id}
+            value={value}
+            bounds={range}
+            step={step}
+            word={null}
+            describedBy={helpId}
+            onCommit={onSet}
+          />
+        }
+        max={<span className="kv-end">{endText(dict, range.max)}</span>}
+      />
+      {paragraph}
+    </div>
+  )
+}
+
+/**
  * The point grid's dot radius: a number row like the others, bounded by the
  * element (`POINT_RADIUS_RANGE`) and clamped by the slice's own reader.
  */
@@ -151,42 +212,41 @@ function PointRadiusRow(): ReactElement {
   const dict = useDictionary()
   const value = useStore((state) => state.view.pointRadius)
   const setPointRadius = useStore((state) => state.view.setPointRadius)
-  const name = dict.t('viewShortPointRadius')
-  const helpId = 'view-point-radius-help'
-  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('pointRadiusHelp'))
-  const set = (next: number) => setPointRadius(String(next))
   return (
-    <div className="kv-row" title={rowTitle(dict, dict.t('pointRadiusLabel'), POINT_RADIUS_RANGE)}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor="view-point-radius">
-            {name}
-          </label>
-        }
-        help={button}
-        value={
-          <span className="kv-val">
-            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={set} />
-            <span className="kv-unit">{dict.d.units.cells}</span>
-          </span>
-        }
-        min={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.min)}</span>}
-        control={
-          <KnobTrack
-            id="view-point-radius"
-            value={value}
-            bounds={POINT_RADIUS_RANGE}
-            // A keyboard convenience, not a claim about what is allowed.
-            step={0.01}
-            word={null}
-            describedBy={helpId}
-            onCommit={set}
-          />
-        }
-        max={<span className="kv-end">{endText(dict, POINT_RADIUS_RANGE.max)}</span>}
-      />
-      {paragraph}
-    </div>
+    <ElementNumberRow
+      id="view-point-radius"
+      name={dict.t('viewShortPointRadius')}
+      help={dict.t('pointRadiusHelp')}
+      label={dict.t('pointRadiusLabel')}
+      value={value}
+      range={POINT_RADIUS_RANGE}
+      // A keyboard convenience, not a claim about what is allowed.
+      step={0.01}
+      onSet={(next) => setPointRadius(String(next))}
+    />
+  )
+}
+
+/**
+ * The margin around the board (Task 7, R7): a number row like the point
+ * radius, bounded by the element (`PAD_RANGE`) and clamped by the slice's own
+ * reader. Unlike the point radius it is a whole number of cells, step 1.
+ */
+function PadRow(): ReactElement {
+  const dict = useDictionary()
+  const value = useStore((state) => state.view.pad)
+  const setPad = useStore((state) => state.view.setPad)
+  return (
+    <ElementNumberRow
+      id="view-pad"
+      name={dict.t('viewShortPad')}
+      help={dict.t('padHelp')}
+      label={dict.t('padLabel')}
+      value={value}
+      range={PAD_RANGE}
+      step={1}
+      onSet={setPad}
+    />
   )
 }
 
@@ -516,6 +576,7 @@ export function ViewPanel() {
         </Section>
         <Section id="view-sec-grid" title={dict.t('secGrid')}>
           <SwitchRow flag="voids" />
+          <PadRow />
           <SwitchRow flag="showPoints" />
           <CollapsibleBlock
             id="dep-points"

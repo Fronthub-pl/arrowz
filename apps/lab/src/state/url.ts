@@ -35,6 +35,8 @@ export interface HashView {
   showPoints?: boolean | undefined
   pointColor?: string | undefined
   pointRadius?: number | undefined
+  /** The margin, in cells. Absent when the link predates it; unlike `paper`/`ink`/`highlight`, 0 is a real margin, not "unset", so it round-trips the same way `top` and `headWidth` do. */
+  pad?: number | undefined
 }
 
 /** The one key the page does not own yet — the tab, PR 5's — kept so a round trip cannot drop it. */
@@ -162,6 +164,7 @@ export function decodeHash(hash: string): HashPayload | null {
       showPoints: raw.showPoints === true ? true : undefined,
       pointColor: colour(raw.pointColor),
       pointRadius: num(raw.pointRadius),
+      pad: num(raw.pad),
     },
     carried: raw.tab === undefined ? {} : { tab: raw.tab },
   }

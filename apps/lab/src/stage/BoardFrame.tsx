@@ -146,6 +146,7 @@ export function BoardFrame(): ReactElement {
           showPoints={view.showPoints}
           pointColor={view.pointColor}
           pointRadius={view.pointRadius}
+          pad={view.pad}
           onColoredChange={onColoredChange}
         />
         {named === null ? null : (

@@ -1,4 +1,10 @@
-import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
+import {
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+} from '@arrowz/board-element'
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
@@ -31,6 +37,7 @@ beforeEach(() => {
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
       pointRadius: DEFAULT_POINT_RADIUS,
+      pad: DEFAULT_PAD,
     },
   }))
 })
@@ -224,4 +231,26 @@ test('an unreadable point radius falls back to the default, not to zero', () => 
 test('a non-empty unparsable point radius falls back to the default, not to NaN', () => {
   view().setPointRadius('abc')
   expect(view().pointRadius).toBe(DEFAULT_POINT_RADIUS)
+})
+
+// The margin (Task 7, R7): a plain number, unlike paper/ink/highlight it has
+// no "not set" state, so it starts at the element's own default rather than at ''.
+test("the margin starts at the element's own default", () => {
+  expect(declared.pad).toBe(DEFAULT_PAD)
+})
+
+test('the margin is clamped to what the element draws, including zero', () => {
+  view().setPad(99)
+  expect(view().pad).toBe(PAD_RANGE.max)
+  view().setPad(-1)
+  expect(view().pad).toBe(PAD_RANGE.min)
+  view().setPad(0)
+  expect(view().pad).toBe(0)
+})
+
+test('a non-finite margin falls back to the default, not to zero', () => {
+  view().setPad(Number.NaN)
+  expect(view().pad).toBe(DEFAULT_PAD)
+  view().setPad(Number.POSITIVE_INFINITY)
+  expect(view().pad).toBe(DEFAULT_PAD)
 })

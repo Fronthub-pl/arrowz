@@ -1,4 +1,10 @@
-import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE } from '@arrowz/board-element'
+import {
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+} from '@arrowz/board-element'
 import type { View, ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
@@ -62,6 +68,15 @@ export interface ViewState {
   setPaper(color: string): void
   setInk(color: string): void
   setHighlight(color: string): void
+  /**
+   * The margin around the board, in cells: the element's own `pad`, clamped
+   * to `PAD_RANGE`. Unlike `paper`/`ink`/`highlight` it has no "not set"
+   * state — every value in range is a real margin, including 0 — so it is
+   * always handed to the element as-is, never omitted.
+   */
+  pad: number
+  /** Commits the margin from what was set; a non-finite value falls back to `DEFAULT_PAD`, as `setPointRadius` does for the radius. */
+  setPad(n: number): void
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
   setNumber(field: ViewNumber, raw: string): void
   toggle(flag: ViewFlag): void
@@ -148,6 +163,7 @@ export function createViewSlice(set: SetStore): ViewState {
     paper: '',
     ink: '',
     highlight: '',
+    pad: DEFAULT_PAD,
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
     setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
@@ -165,6 +181,8 @@ export function createViewSlice(set: SetStore): ViewState {
     setPaper: (color) => patch({ paper: color }),
     setInk: (color) => patch({ ink: color }),
     setHighlight: (color) => patch({ highlight: color }),
+    setPad: (n) =>
+      patch({ pad: Number.isFinite(n) ? Math.min(Math.max(n, PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD }),
     setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),
     addPaletteColor: () =>
       set((state) => {

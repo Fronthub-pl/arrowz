@@ -171,6 +171,9 @@ export const EN = {
     pointColorLabel: 'dot colour',
     pointRadiusLabel: 'dot radius (cells)',
     pointRadiusHelp: 'Half a cell is the most; above that the dots merge into a wash of colour.',
+    padLabel: 'margin (cells)',
+    padHelp:
+      'Empty space kept around the board, in cells. Changes the preview only, not the CLI command or the downloaded file.',
     themeLabel: 'theme',
     themeNone: 'none (default colours)',
     // The console's editable custom palette (palette round-2 addendum, task
@@ -202,6 +205,7 @@ export const EN = {
     viewShortTop: 'top count',
     viewShortCell: 'export cell',
     viewShortPointRadius: 'dot radius',
+    viewShortPad: 'margin',
     viewShortPointColor: 'dot colour',
     viewShortRounded: 'rounded',
     viewShortColored: 'multicolour',
@@ -237,12 +241,13 @@ export const EN = {
     voidsHelp: 'Marks the cells the generator failed to carve, where the board jammed.',
     themeHelp:
       'A built-in theme: paper, ink, highlight and the colours of the pieces. What you set below wins over it.',
-    paperHelp: 'The board’s paper. Set, it wins over the theme; cleared, the theme supplies it again.',
+    paperHelp:
+      'The board’s paper. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     inkHelp:
-      'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again.',
+      'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     inkClear: 'clear the drawing colour, back to the theme',
     highlightHelp:
-      'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again.',
+      'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
     highlightClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
@@ -786,6 +791,8 @@ export const PL: Translation = {
     pointColorLabel: 'kolor kropek',
     pointRadiusLabel: 'promień kropki (komórki)',
     pointRadiusHelp: 'Najwięcej pół komórki; powyżej kropki zlewają się w plamę koloru.',
+    padLabel: 'margines (komórki)',
+    padHelp: 'Pusty margines wokół planszy, w komórkach. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     themeLabel: 'motyw',
     themeNone: 'brak (kolory domyślne)',
     paletteLabel: 'własna paleta',
@@ -795,7 +802,7 @@ export const PL: Translation = {
     paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
     paperLabel: 'tło',
     inkLabel: 'kolor rysunku',
-    highlightLabel: 'podświetlenie',
+    highlightLabel: 'wyróżnienie',
     paperClear: 'wyczyść tło, z powrotem do motywu',
     viewShortStroke: 'grubość',
     viewShortHeadWidth: 'szer. grotu',
@@ -803,6 +810,7 @@ export const PL: Translation = {
     viewShortTop: 'ile najdł.',
     viewShortCell: 'komórka SVG',
     viewShortPointRadius: 'promień',
+    viewShortPad: 'margines',
     viewShortPointColor: 'kolor kropek',
     viewShortRounded: 'zaokrąglenie',
     viewShortColored: 'wielobarwne',
@@ -812,7 +820,7 @@ export const PL: Translation = {
     viewShortTheme: 'motyw',
     viewShortPaper: 'tło',
     viewShortInk: 'rysunek',
-    viewShortHighlight: 'podświetl.',
+    viewShortHighlight: 'wyróżnienie',
     viewShortPalette: 'paleta',
     viewThemeNone: 'brak',
     secArrows: 'strzałki',
@@ -836,12 +844,14 @@ export const PL: Translation = {
     voidsHelp: 'Zaznacza komórki, których generator nie zdołał wyciąć, tam gdzie plansza się zaklinowała.',
     themeHelp:
       'Wbudowany motyw: papier, tusz, podświetlenie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
-    paperHelp: 'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
-    inkHelp: 'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
+    paperHelp:
+      'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+    inkHelp:
+      'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
     highlightHelp:
-      'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi.',
-    highlightClear: 'wyczyść podświetlenie, z powrotem do motywu',
+      'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+    highlightClear: 'wyczyść wyróżnienie, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,

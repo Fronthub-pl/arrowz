@@ -29,6 +29,7 @@ function viewFor(view: ViewState, lang: Lang) {
     showPoints: view.showPoints,
     pointColor: view.pointColor,
     pointRadius: view.pointRadius,
+    pad: view.pad,
   }
 }
 
@@ -68,6 +69,7 @@ function applyPayload(payload: HashPayload): void {
   view.setFlag('showPoints', payload.view.showPoints === true)
   if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
   if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
+  if (payload.view.pad !== undefined) view.setPad(payload.view.pad)
 }
 
 export interface UrlHash {

@@ -1,4 +1,11 @@
-import { DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, POINT_RADIUS_RANGE, themeOf } from '@arrowz/board-element'
+import {
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  PAD_RANGE,
+  POINT_RADIUS_RANGE,
+  themeOf,
+} from '@arrowz/board-element'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
@@ -67,16 +74,17 @@ beforeEach(() => {
       showPoints: false,
       pointColor: DEFAULT_POINT_COLOR,
       pointRadius: DEFAULT_POINT_RADIUS,
+      pad: DEFAULT_PAD,
     },
   }))
 })
 
-test('the panel draws all eleven preview controls, as rows', async () => {
+test('the panel draws all twelve preview controls, as rows', async () => {
   const screen = await render(<ViewPanel />)
-  // Six numbers: the five the engine's table covers plus the point radius,
-  // whose bounds come from the element instead — each a drawn track now
-  // (handoff 2, PR 3) — and five switches.
-  expect(screen.container.querySelectorAll('.kv-row input[type="range"]')).toHaveLength(6)
+  // Seven numbers: the five the engine's table covers plus the point radius
+  // and the margin (Task 7), whose bounds come from the element instead —
+  // each a drawn track now (handoff 2, PR 3) — and five switches.
+  expect(screen.container.querySelectorAll('.kv-row input[type="range"]')).toHaveLength(7)
   expect(screen.container.querySelectorAll('[role="switch"]')).toHaveLength(5)
   expect(screen.container.querySelectorAll('input[type="number"]')).toHaveLength(0)
 })
@@ -126,6 +134,43 @@ test('the point radius row follows an external store change', async () => {
   await expect.element(radius).toHaveValue(String(POINT_RADIUS_RANGE.min))
 })
 
+// The margin row (Task 7, R7): always on screen, in the grid section, no
+// dependency block gating it.
+test('the margin row draws in the grid section, bounded by the element', async () => {
+  const screen = await render(<ViewPanel />)
+  const pad = screen.container.querySelector<HTMLInputElement>('#view-pad')
+  expect(pad).not.toBeNull()
+  // `view-sec-grid` names the section's heading (`aria-labelledby`), not an
+  // ancestor — the same shape `ColoursSection`'s own test reads it by.
+  const grid = screen.container.querySelector('#view-sec-grid')?.closest('.kv-sect')
+  expect(grid).not.toBeNull()
+  expect(pad?.closest('.kv-sect')).toBe(grid)
+  expect(Number(pad?.min)).toBe(PAD_RANGE.min)
+  expect(Number(pad?.max)).toBe(PAD_RANGE.max)
+  expect(pad?.checkValidity()).toBe(true)
+})
+
+// The same clamp-on-commit shape as the point radius above.
+test('the margin row shows the clamped value after commit, not what was typed', async () => {
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: /^margin:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'margin', exact: true }), String(PAD_RANGE.max + 9))
+  await userEvent.keyboard('{Enter}')
+  expect(view().pad).toBe(PAD_RANGE.max)
+  await expect.element(screen.getByRole('button', { name: /^margin:/ })).toHaveTextContent(String(PAD_RANGE.max))
+  await expect.element(screen.getByRole('slider', { name: 'margin' })).toHaveValue(String(PAD_RANGE.max))
+})
+
+// An external change (a link naming a different margin, or any other write to
+// the store) reaches the row too, the same way the point radius does above.
+test('the margin row follows an external store change', async () => {
+  const screen = await render(<ViewPanel />)
+  const pad = screen.container.querySelector<HTMLInputElement>('#view-pad')
+  if (!pad) throw new Error('no margin input')
+  view().setPad(PAD_RANGE.min)
+  await expect.element(pad).toHaveValue(String(PAD_RANGE.min))
+})
+
 test('a switch is a switch, not a checkbox pretending to be one, and says its state', async () => {
   const screen = await render(<ViewPanel />)
   const rounded = screen.getByRole('switch', { name: 'rounded' })
@@ -153,7 +198,7 @@ test('every number row declares the bounds the engine actually takes', async () 
   // and that is what has to agree with `VIEW_RANGE`.
   const screen = await render(<ViewPanel />)
   const tracks = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="range"]')].filter(
-    (input) => input.id !== 'view-point-radius',
+    (input) => input.id !== 'view-point-radius' && input.id !== 'view-pad',
   )
   expect(tracks).toHaveLength(Object.keys(VIEW_RANGE).length)
   for (const input of tracks) {
@@ -505,6 +550,7 @@ test('every preview control names a description that exists', async () => {
     '#view-paper',
     '#view-ink',
     '#view-highlight',
+    '#view-pad',
     '#view-rounded',
     '#view-colored',
     '#view-hilite',

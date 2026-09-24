@@ -1,3 +1,4 @@
+import { DEFAULT_PAD } from '@arrowz/board-element'
 import { buildCommand } from '@arrowz/engine/command'
 import { render } from 'vitest-browser-react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -46,6 +47,17 @@ describe('LiveCommand', () => {
     const screen = await render(<LiveCommand />)
     useStore.getState().view.setNumber('stroke', '0.4')
     await expect.element(screen.getByRole('figure')).toMatchTextContent(/--line=0\.4/)
+  })
+
+  // R7: the margin is a screen-only setting — `viewOf` never reads `view.pad`
+  // — so changing it must leave the command exactly as it was.
+  it('does not change when the margin changes, a screen-only setting', async () => {
+    useStore.getState().params.setMany({ W: 30, H: 60, seed: 7 })
+    const screen = await render(<LiveCommand />)
+    const before = commandNow()
+    useStore.getState().view.setPad(9)
+    await expect.poll(() => screen.container.querySelector('.fw-cmd')?.textContent).toBe(before)
+    useStore.getState().view.setPad(DEFAULT_PAD)
   })
 
   it('copies the whole command, prefix included', async () => {
