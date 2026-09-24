@@ -22,6 +22,152 @@ merging them here; those are marked **verified** in the summary below.
 | Comment prose | 22.9% of non-blank lines are comments; 805 comment lines cite PRs, rounds, rulings or reviews; a rule would cut ~2,300–2,600 lines (28–31%) |
 | Labels and help, novice view | The report explains nothing (23 rows, no help, raw codes `f0`, `almost1`, `D`); 2 factual errors; 8 knobs describe values their slider cannot reach; one concept, several names |
 
+## Status after the fixes (2026-09-24)
+
+Branch `lab/review-fixes`, commits `1441fc2..4e9d8eb` (the plan, then the
+fixes). The sections below this one are unchanged: they record what
+was found at `b9a5a9d`. "Fixed" means a commit on this branch changed the code
+and a test pins it; "open" means the code still reads as the finding says.
+
+**Gates.** `pnpm nx run-many -t verify` green (4 projects, 21 tasks) in a clean
+worktree at `701e83a`; `lab:test` 1145 passed at `4e9d8eb`. A live pass in
+Chrome at `4e9d8eb` passed all seven scenarios (palette jump in EN and PL, ◑
+against the lab switch and in the library, highlight and margin across a
+reload, Inspect and Play, report wording, 1280×699 against 1280×700, a phone at
+375×812 in PL). It found one new layout defect, D1 below.
+
+**Comments.** Measured with the guard's extractor (comment-only lines) over the
+guard's scope, about 250 files: 8,644 comment lines before (22.3% of non-blank
+lines, at `d486dd1`) and 6,466 after (17.7%, at `701e83a`). The guard
+`packages/engine/comments.test.ts` is on. It enforces the history markers
+(PR, round, Ruling, Task, handoff, R-numbers, harness facts, `file.ts:NN`),
+non-header blocks of at most 6 lines and headers of at most 24, over
+`apps/lab/src`, `packages/board-element/src` and `packages/engine/lab-*.ts`.
+The engine's other files and `packages/cli` were not swept: 25 marker lines in
+9 files there, 39 with `scripts/`. (The 22.9% in "Comment prose" below used a
+different counter over 237 files; the two numbers are not comparable.)
+
+### The findings that matter most
+
+| # | Finding | Status | What changed |
+| --- | --- | --- | --- |
+| 1 | HIGH: palette jump into a closed block loses the focus | fixed in `08162fa` | A block opened by a jump or a refusal stays open; tested in `Console`, not only `KnobPanel` |
+| 2 | Element ◑ takes `colored` away from the lab | fixed in `840bf34..85c7aab`, `078b98e` | The element emits a cancelable `colored-change`; the lab writes its own flag and cancels; a cancelled click hands control back to `view.colored` |
+| 3 | "% of perimeter" divides by `W + H` | fixed in `e7de79a`, `6f3517b` | Now "% of width + height" in the lab (EN and PL) and in the CLI report |
+| 4 | Difficulty help says "not the look" | fixed in `e7de79a`, `6f3517b` | The group help says what it changes |
+| 5 | 699 against 700 breakpoint | fixed in `750b059`, `d750cad` | Every stylesheet uses 699; a node test greps the queries against `band.ts` |
+| 6 | Line citations and history in comments | fixed in `0d0d809..701e83a`, `4349970` | Comment rule in `CLAUDE.md`, the guard, and the sweep |
+| 7 | Dead `KnobSlider` | fixed in `a2f60e0` | Component, `FieldHelp` body, `viewHelpEntries` and the dead CSS deleted; helpers moved to `track.ts` |
+
+### Correctness
+
+| Finding | Status | Note |
+| --- | --- | --- |
+| HIGH: palette jump loses the focus | fixed in `08162fa` | See above |
+| MEDIUM: `<Navigate>` drops the hash | open | Redirects still go to a bare path |
+| MEDIUM: palette loses Escape, Tab and hotkeys off its input | open | Keys still handled on the input only |
+| MEDIUM: simple view size rows show the recipe | open | The live pass saw it again (25×50 shown, 1000×1000 carved) |
+| MEDIUM: PL decimal comma does nothing | open | `DraftNumber` still calls `Number(raw.trim())` |
+| MEDIUM: link colours cannot clear the page's own | open | Decoder unchanged |
+| MEDIUM: head height 0 lost in the hash | open | Decoder still drops `0` |
+| LOW: palette "on"/"off" in English | open | Still a literal in `palette/commands.ts` |
+| LOW: English reason in the PL status line | open | `'not in the store'` still a literal |
+| LOW: view edit clears `aborted` in the store | open | `store.ts` unchanged |
+| LOW: pending view save dropped for another board | open | Still one module timer |
+| LOW: SVG drops palette, paper and ink silently | open | Note still shown only for a theme |
+| LOW: unknown theme name stored | open | Not validated against `THEMES` |
+| LOW: `voids` not in the link | open | |
+| LOW, PLAUSIBLE: worker handlers and failed load | open | |
+| LOW, PLAUSIBLE: synchronous revoke on download | open | |
+
+### Feature parity
+
+| Gap or item | Status | Note |
+| --- | --- | --- |
+| Gap 1: read a command back in (`parseArgs`) | open | |
+| Gap 2: try the board by hand (`play`) | fixed in `30ebd4b`, `74c0290`, `653e185`, `bff6430` | View / Inspect / Play on the frame: piece card in Inspect, a "left · mistakes" line and Restart in Play; the control shows only with a board on stage |
+| `interactive` and `piece-click` | fixed in `30ebd4b`, `74c0290` | Inspect turns `interactive` on and listens to `piece-click` |
+| Element hint in Inspect said "to play" | fixed in `74c0290` | The element words its own Inspect hint |
+| Gap 3: closing rate over N seeds | open | |
+| Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | open | |
+| Gap 5 / Duplication 1: colour-button split | fixed in `840bf34..85c7aab` | See finding 2 |
+| Gap 6: Stop that keeps the partial board | open | |
+| Gap 7: SVG colours | open | Same as the LOW correctness finding |
+| Gap 8: open a `.board.json` from disk | open | |
+| Gap 9: `highlight` colour row | fixed in `b90609e` | |
+| Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
+| Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
+| ⌘K rows for colour and element fields (highlight, pad, …) | open | Found in the final review; the palette has none |
+| `pad` and highlight in the SVG | open | `SvgOptions` has neither |
+| Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
+| Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
+| Duplication 3: demo keeps its own view bounds | open | `demo/controls.ts` still has `headHeight` 0.1–1, `top` 0–50 |
+| Duplication 4: `colored`/`rounded` defaults hard-coded | open | |
+
+### Labels and descriptions
+
+| Item | Status | Note |
+| --- | --- | --- |
+| Top 1: the report explains nothing | open | |
+| Top 2: jargon as visible labels (`prostota`, …) | open | |
+| Top 3: help warns about values the slider cannot reach | open | |
+| Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open |
+| Top 5: "element" means two things in PL | open | |
+| Top 6: Simple view explains least | open | |
+| Top 7: presets read as difficulty levels | open | |
+| Top 8: status and rule messages speak engine | open | |
+| Top 9: CLI details in lab help (`store.sh`, golden-angle, …) | open | |
+| Top 10: arrowhead help is a formula | open | |
+| Also found: "% of perimeter" | fixed in `e7de79a`, `6f3517b` | The row is now wide (`WIDE_KEYS`) so the PL text fits |
+| Also found: difficulty "not the look" | fixed in `e7de79a`, `6f3517b` | |
+| Also found: `start.help` drops "Tunnels = harder" | open | |
+
+### Refactors
+
+| Refactor | Status | Note |
+| --- | --- | --- |
+| 1. Delete the dead knob layer | fixed in `a2f60e0`, `d486dd1` | `console.test.ts` now pins the live `.kv-g .fw-swatches`; the `.fw-k` branch in `useFocusRequest` is gone |
+| 2. One knob-row shell, split `ViewPanel.tsx` | open | |
+| 3. One view schema and `view.apply()` | open | |
+| 4. One hotkey table and `useDismiss` | open | |
+| 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
+| 6. Library column reuses the run column's pieces | open | |
+| 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
+| 8. `useStoredBoard` into a library action | open | |
+| 9. One roving-focus helper | open | |
+| 10. Symbols instead of `file.ts:NN` | fixed in `446c853..701e83a` | Swept, and the guard fails on the pattern |
+| 11. Try the React Compiler | open | |
+
+### Smaller practice issues and dead code
+
+| Item | Status | Note |
+| --- | --- | --- |
+| Whole-slice subscriptions | open | |
+| `specOf` written four times | open | |
+| `MIX_SPEC` exported for no test | fixed in `a2f60e0` | No longer exported |
+| `ThemeSwatchStrip` exported for no importer | fixed in `a2f60e0` | |
+| Hard-coded `'on' : 'off'` | open | Same as the LOW correctness finding |
+| `autoHeadWidth` copies the engine | open | |
+| `file: unknown` then `as BoardFile` | open | |
+| Locale mapping duplicated | open | |
+| Slice boilerplate | open | |
+| `paletteUpdate(_state, colors)` | fixed in `a2f60e0` | Parameter dropped |
+| `const set = onSet` | fixed in `a2f60e0` | |
+| `params.broken` rebuilt on every commit | open | |
+| Workspace class string (`cx()`) | open | |
+| Very long comments | fixed in `446c853..701e83a` | No non-header block over 6 lines in scope |
+| `BoardFrame` memo keys | open | |
+| Circular type import `Console` ↔ `Workspace` | open | |
+| Dead code table (`KnobSlider`, `FieldHelp`, `viewHelpEntries`, `ViewField.help`, dead CSS, `console.test.ts`, `.fw-k` selector) | fixed in `a2f60e0` | |
+
+### Fixed as a side effect
+
+- `result.show`, an action nothing called, deleted (`834360a`).
+- `.fw-report .fw-delta.better`, a declaration a later rule overrode, deleted (`834360a`).
+- Three copies of `twoFrames` in browser tests are one, in `harness/frames.ts` (`97cc390`).
+- Polish "podświetlenie" is "wyróżnienie" everywhere, to match the section heading (`0d916c2`, `24bca8b`).
+- The report's unblock-distance row is wide, so the longer PL unit fits (`e7de79a`).
+
 ### The findings that matter most
 
 1. **[HIGH, verified] A palette jump into a closed dependency block loses the
@@ -53,24 +199,49 @@ merging them here; those are marked **verified** in the summary below.
    own test;** production takes only `boundOn`/`percent` from the file, and
    `KnobRow.tsx:133` still claims the simple view uses it.
 
-### Suggested order of work
+### What is still open
 
-1. **Bug fixes, one small PR:** the HIGH focus bug, the colour-button
-   ownership, the hash lost on `<Navigate>`, the palette's key handling, the
-   Polish comma in `DraftNumber`, the URL round-trip losses (colours cannot be
-   cleared, head height 0), the English leaks into the Polish UI.
-2. **Copy pass on the report and the simple view** — the places a newcomer
-   meets first: help for every report row, units, "higher is harder", the two
-   factual errors, then the glossary (one term per concept, EN + PL).
-3. **Dead-code deletion (refactor 1)** and the comment rule with a grep guard
-   in the style of `neutral.test.ts` (no `file.ts:NN`, no PR/round/Ruling
-   references). Both are mechanical and shrink what the later refactors touch.
-4. **Structural refactors 2–4:** one knob-row shell, one view schema with a
-   single `view.apply()`, one hotkey table and a `useDismiss` hook.
-5. **Parity gaps, as product decisions rather than fixes:** paste a `carve`
-   command in (`parseArgs`), `play` mode on the board, closing rate over N
-   seeds, the missing report rows (`backbites`), Stop that keeps the partial
-   board.
+Ranked. This replaces the suggested order of work written at `b9a5a9d`;
+steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
+section above).
+
+1. **Correctness, one small PR:** the hash lost on `<Navigate>`, the palette's
+   key handling, the Polish comma in `DraftNumber`, the URL round-trip losses
+   (colours cannot be cleared, head height 0, unknown theme, `voids`), and the
+   English leaks into the Polish UI (palette "on"/"off", "not in the store").
+2. **D1, found in the live pass:** on a phone, and at desktop size with the
+   default margin, the frame's overlays cover the board's edge rows. The mode
+   control covers about 18 px of the top-right rows at 375×812, and the Play
+   line covers the bottom-left rows; those pieces can be reached only by
+   panning. Options: reserve the overlays' height in the element's margin, or
+   icon-only mode chips.
+3. **The simple view's size rows** show the recipe while Generate carves the
+   knobs. A test from round 3 (`5060154`) pins this on purpose, but to a person
+   it looks wrong; it needs a product decision.
+4. **Copy pass on the report and the simple view:** help for every report row,
+   units, "higher is harder", "Tunnels = harder" in `start.help`, then the
+   glossary (one term per concept, EN + PL). Two of the factual errors are
+   fixed; the labels and help texts are not.
+5. **Smaller correctness items:** `aborted` cleared by a view edit, the
+   dropped pending view save, the worker's stale handlers and failed load, the
+   synchronous revoke, and the SVG note for palette, paper and ink.
+6. **Structural refactors 2–4:** one knob-row shell, one view schema with a
+   single `view.apply()`, one hotkey table and a `useDismiss` hook. Then 5
+   (the `.fw button` prefix and tokens), 6–9 and 11.
+7. **Parity gaps, as product decisions:** paste a `carve` command in
+   (`parseArgs`), closing rate over N seeds, the missing report rows
+   (`backbites` first), Stop that keeps the partial board, opening a
+   `.board.json`, SVG colours (and `pad` and highlight in the SVG), ⌘K rows for
+   the colour and element fields.
+8. **Extend the comment sweep and guard** to the engine's other files and
+   `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
+9. **Observations from the live pass and deferred review minors:** "top" in
+   ⌘K lists Abort above "how many longest"; "blocked by #51 at 0 cells" reads
+   oddly; the report drawer covers the board's right 45 px (and the Play and ☝
+   buttons) at 1440×877, known since round 2; the two low-window height rules
+   lack the `min-width: 768px` that `useLowWindow` has; the palette input has
+   no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
+   the `trapBias` help clause is vague.
 
 The five passes follow in full.
 
