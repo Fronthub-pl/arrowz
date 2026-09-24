@@ -1,7 +1,9 @@
-import { boardViewOf } from '@arrowz/board-element'
+import { boardViewOf, type ColoredChangeEvent } from '@arrowz/board-element'
 import { type ReactElement, useLayoutEffect, useMemo, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useInLibrary } from '../library/useInLibrary'
+import { refreshLibrary } from '../library/useLibraryList'
+import { useViewSave } from '../library/useViewSave'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { BoardCanvas } from './BoardCanvas'
@@ -97,6 +99,18 @@ export function BoardFrame(): ReactElement {
   const solo = useStore((state) => state.ui.solo)
   const toggleSolo = useStore((state) => state.ui.toggleSolo)
   const toggle = useRef<HTMLButtonElement>(null)
+  const commitView = useViewSave(refreshLibrary)
+  // The element's ◑ button would otherwise keep a colour of its own, and the
+  // lab's colour switch would stop changing the board after one click. So the
+  // lab cancels it and writes the flag to whoever owns what is drawn, under
+  // the same gate `elementView` uses: the stored view (saved like the Preview
+  // panel's row) for a stored board, the lab's own view otherwise.
+  const onColoredChange = (event: ColoredChangeEvent) => {
+    event.preventDefault()
+    const { colored } = event.detail
+    if (preview !== null && inLibrary) commitView({ ...preview.meta.view, colored })
+    else useStore.getState().view.setFlag('colored', colored)
+  }
 
   // Solo hides everything in the lab but the stage's board (console.css), and
   // HTML's focus fixup would drop a focus left in there onto <body> at the next
@@ -130,6 +144,7 @@ export function BoardFrame(): ReactElement {
           showPoints={view.showPoints}
           pointColor={view.pointColor}
           pointRadius={view.pointRadius}
+          onColoredChange={onColoredChange}
         />
         {named === null ? null : (
           <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>

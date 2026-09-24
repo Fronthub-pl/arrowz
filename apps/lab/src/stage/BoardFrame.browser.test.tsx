@@ -1,9 +1,10 @@
-import { decodeBoard } from '@arrowz/engine'
+import { decodeBoard, type View } from '@arrowz/engine'
 import { act } from 'react'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { contrast, shown } from '../design/contrast'
+import { cancelPendingSave } from '../library/useViewSave'
 import { storedFixture } from '../state/library.fixtures'
 import { finish, finishedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
@@ -25,6 +26,13 @@ beforeEach(() => {
   // built on an action under test cannot survive a mutation of that action,
   // and would fail every case in the file alongside the one that pins it.
   useStore.setState((s) => ({ view: { ...s.view, theme: '', palette: [], colored: false } }))
+})
+
+afterEach(() => {
+  // The save's timer is the module's, so no unmount stops it on its own.
+  cancelPendingSave()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 /**
@@ -65,6 +73,56 @@ test('the colored flag colours the board', async () => {
   } finally {
     useStore.getState().view.setFlag('colored', was)
   }
+})
+
+// The element's ◑ button used to keep its own override of `view.colored`, so
+// after one click the lab's colour switch changed nothing on screen. The lab
+// now cancels the element's `colored-change` and writes its own flag, which
+// is what the element then draws from. Read off the button's `aria-pressed`,
+// the colour the board is drawn in, not off the input (harness fact 20).
+test('the board’s colour button writes the lab’s flag, and the flag still rules the board after it', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  const element = screen.container.querySelector('arrowz-board')
+  const colours = () => element?.shadowRoot?.querySelector<HTMLButtonElement>('button.colors')
+  await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('false')
+
+  await act(async () => colours()?.click())
+  expect(useStore.getState().view.colored).toBe(true)
+  await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('true')
+
+  // The half that was broken: the lab's switch after a click on the button.
+  await act(async () => useStore.getState().view.setFlag('colored', false))
+  await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('false')
+  await act(async () => useStore.getState().view.setFlag('colored', true))
+  await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe('true')
+})
+
+// On the library tab the board on screen is a stored one drawn under its own
+// saved view, so the button edits that view and saves it, as the Preview
+// panel's colour row does, and leaves the lab's own flag alone.
+test('on a stored preview the colour button saves the stored view, not the lab’s flag', async () => {
+  const posts: View[] = []
+  vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+    if (init?.method === 'POST') posts.push((JSON.parse(String(init.body)) as { view: View }).view)
+    return new Promise(() => {})
+  })
+  const { meta, file } = storedFixture(2)
+  const screen = await mountFrame(`/boards/8x8/${meta.id}`)
+  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+  const element = screen.container.querySelector('arrowz-board')
+  const colours = () => element?.shadowRoot?.querySelector<HTMLButtonElement>('button.colors')
+  await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe(String(meta.view.colored))
+  // Fake timers only after the element settled: `expect.poll` would hang on a
+  // frozen clock (harness fact 11).
+  vi.useFakeTimers()
+
+  await act(async () => colours()?.click())
+  await act(async () => await vi.advanceTimersByTimeAsync(350))
+  expect(posts.map((view) => view.colored)).toEqual([!meta.view.colored])
+  expect(useStore.getState().result.preview?.meta.view.colored).toBe(!meta.view.colored)
+  expect(useStore.getState().view.colored).toBe(false)
+  expect(colours()?.getAttribute('aria-pressed')).toBe(String(!meta.view.colored))
 })
 
 test('the frame names nothing before there is a board', async () => {
