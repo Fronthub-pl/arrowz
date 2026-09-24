@@ -42,6 +42,6 @@ export function useFocusRequest(): void {
     // The focus ring alone is easy to lose among twenty-eight controls, which
     // is why the mock outlines the whole knob box as well: a knob row
     // (handoff 2, PR 2) or a preview card.
-    flash(node.closest('.kv-row, .fw-k'))
+    flash(node.closest('.kv-row'))
   }, [target, onLab])
 }

@@ -46,7 +46,7 @@
   gap: 2px;
   padding-top: 8px;
 }
-/* The mock's `.fw-k .row` shape, outside a knob. */
+/* The mock's labelled-row shape, outside a knob's own grid. */
 .fw-opt {
   display: flex;
   align-items: center;

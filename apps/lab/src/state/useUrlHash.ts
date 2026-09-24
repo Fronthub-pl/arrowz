@@ -90,7 +90,7 @@ export interface UrlHash {
  *    empty dependency list. StrictMode re-runs mount effects, and a second
  *    read decodes the hash this hook has just written — already clamped — so
  *    `setMany` finds nothing to move and lowers the notice the link raised.
- * 2. **The write is debounced.** `KnobSlider` commits on the range input's
+ * 2. **The write is debounced.** `KnobTrack` commits on the range input's
  *    `onChange`, about sixty times a second during a drag; Chromium drops
  *    `replaceState` past roughly two hundred calls in ten seconds and Safari
  *    throws past a hundred in thirty, from inside a zustand `set`.

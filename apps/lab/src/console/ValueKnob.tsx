@@ -6,7 +6,7 @@ import { useStore } from '../state/store'
 import { DraftNumber } from './DraftNumber'
 import { descId } from './FieldHelp'
 import { endText, KnobLine, KnobTrack, rowState, rowTitle, useKnobHelp } from './KnobRow'
-import { boundOn } from './KnobSlider'
+import { boundOn } from './track'
 import { RELEASE_TO, UNIT_OF } from './knobLayout'
 
 /**

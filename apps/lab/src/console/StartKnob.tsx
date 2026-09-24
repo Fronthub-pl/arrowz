@@ -10,11 +10,8 @@ import { ValueKnob } from './ValueKnob'
  * Read once, at module load. A `const` narrowed by a module-level `if` does not
  * stay narrowed inside a function declaration, so the check and the binding are
  * one expression.
- *
- * Exported for the tests, which read the mix row's texts from the same spec
- * `ValueKnob` renders below.
  */
-export const MIX_SPEC: ParamSpec = (() => {
+const MIX_SPEC: ParamSpec = (() => {
   const spec = PARAM_SPEC.find((s) => s.key === 'mix')
   if (!spec) throw new Error('PARAM_SPEC has no mix')
   return spec

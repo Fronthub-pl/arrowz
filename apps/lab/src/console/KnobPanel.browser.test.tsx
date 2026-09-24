@@ -141,7 +141,6 @@ describe('the description on demand', () => {
     const screen = await render(<KnobPanel group="board" />)
     const help = screen.container.querySelector('#knob-W-desc')
     expect(help?.closest('.kv-row')?.querySelector('#knob-W')).not.toBeNull()
-    expect(screen.container.querySelector('.fw-khd .fw-kdesc')).toBeNull()
     expect(screen.container.querySelectorAll('#knob-W-desc')).toHaveLength(1)
   })
 

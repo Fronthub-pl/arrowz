@@ -22,7 +22,7 @@ import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type View
  * not interactive, and there is no useful text a hex value could be given
  * ("swatch one: hash f5 e0 dc" names nothing anyone would ask for).
  */
-export function ThemeSwatchStrip({ themeName }: { themeName: string }) {
+function ThemeSwatchStrip({ themeName }: { themeName: string }) {
   const theme = themeOf(themeName)
   if (!theme) return null
   return (
@@ -77,7 +77,6 @@ export function NumberRow({
   const name = dict.t(row.short)
   const helpId = `view-${field.field}-help`
   const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
-  const set = onSet
   const isAuto = row.auto === true && value === 0
   // Where a released chip goes: the width this row held before, else the
   // width the automatic head draws now (`autoHeadWidth`). Recorded after the
@@ -86,7 +85,7 @@ export function NumberRow({
   useEffect(() => {
     if (!isAuto) last.current = value
   }, [value, isAuto])
-  const release = () => set(last.current ?? autoHeadWidth(stroke, field.step, range.max))
+  const release = () => onSet(last.current ?? autoHeadWidth(stroke, field.step, range.max))
   return (
     <div className="kv-row" title={rowTitle(dict, dict.t(field.label), range)}>
       <KnobLine
@@ -105,7 +104,7 @@ export function NumberRow({
               wordOnly
               className="kv-num"
               describedBy={helpId}
-              onCommit={set}
+              onCommit={onSet}
             />
             <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
           </span>
@@ -117,7 +116,7 @@ export function NumberRow({
               className="kv-chip"
               aria-pressed={isAuto}
               aria-label={`auto (${name})`}
-              onClick={() => (isAuto ? release() : set(0))}
+              onClick={() => (isAuto ? release() : onSet(0))}
             >
               auto
             </button>
@@ -133,7 +132,7 @@ export function NumberRow({
             step={field.step}
             word={isAuto ? 'auto' : null}
             describedBy={helpId}
-            onCommit={set}
+            onCommit={onSet}
           />
         }
         max={<span className="kv-end">{endText(dict, range.max)}</span>}

@@ -137,7 +137,7 @@ export function viewOf(state: ViewState): View {
  * theme's on its own. The picker keeps telling the truth because the theme is
  * still supplying everything the user did not override.
  */
-function paletteUpdate(_state: ViewState, colors: string[]): Pick<ViewState, 'palette'> {
+function paletteUpdate(colors: string[]): Pick<ViewState, 'palette'> {
   return { palette: colors.slice(0, PALETTE_CAP) }
 }
 
@@ -185,7 +185,7 @@ export function createViewSlice(set: SetStore): ViewState {
       patch({
         pad: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD,
       }),
-    setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(state.view, colors) } })),
+    setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(colors) } })),
     addPaletteColor: () =>
       set((state) => {
         // The cap refuses silently: `paletteUpdate` would clamp the ninth
@@ -196,7 +196,7 @@ export function createViewSlice(set: SetStore): ViewState {
         return {
           view: {
             ...state.view,
-            ...paletteUpdate(state.view, [...state.view.palette, NEW_PALETTE_COLOR]),
+            ...paletteUpdate([...state.view.palette, NEW_PALETTE_COLOR]),
             ...(turnColoredOn ? { colored: true } : {}),
           },
         }
@@ -205,20 +205,14 @@ export function createViewSlice(set: SetStore): ViewState {
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(
-            state.view,
-            state.view.palette.map((c, i) => (i === index ? color : c)),
-          ),
+          ...paletteUpdate(state.view.palette.map((c, i) => (i === index ? color : c))),
         },
       })),
     removePaletteColor: (index) =>
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(
-            state.view,
-            state.view.palette.filter((_, i) => i !== index),
-          ),
+          ...paletteUpdate(state.view.palette.filter((_, i) => i !== index)),
         },
       })),
   }

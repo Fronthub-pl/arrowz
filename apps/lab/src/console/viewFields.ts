@@ -1,7 +1,6 @@
 import type { ViewNumber } from '@arrowz/engine'
 import type { Dictionary, UiKey } from '@arrowz/engine/i18n'
 import type { ViewFlag } from '../state/view.slice'
-import type { HelpEntry } from './FieldHelp'
 import type { UnitKey } from './knobLayout'
 
 /**
@@ -13,9 +12,8 @@ export type PlainUiKey = { [K in UiKey]: Dictionary['ui'][K] extends string ? K 
 
 export interface ViewField {
   field: ViewNumber
-  /** The dictionary key of the label, and of the help paragraph where there is one. */
+  /** The dictionary key of the label. */
   label: PlainUiKey
-  help?: PlainUiKey
   step: number
 }
 
@@ -32,10 +30,10 @@ export interface ViewField {
  * allowed.
  */
 export const VIEW_FIELDS: readonly ViewField[] = [
-  { field: 'cell', label: 'cellLabel', help: 'cellHelp', step: 1 },
+  { field: 'cell', label: 'cellLabel', step: 1 },
   { field: 'stroke', label: 'strokeLabel', step: 0.05 },
   { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
-  { field: 'headHeight', label: 'headHeightLabel', help: 'headHelp', step: 0.05 },
+  { field: 'headHeight', label: 'headHeightLabel', step: 0.05 },
   { field: 'top', label: 'topLabel', step: 1 },
 ]
 
@@ -58,13 +56,6 @@ export const VIEW_FLAGS: readonly {
   { flag: 'voids', label: 'voids' },
   { flag: 'showPoints', label: 'showPoints' },
 ]
-
-/** The heading's entries for the fields that have help (spec R7). */
-export function viewHelpEntries(fields: readonly ViewField[], t: (key: PlainUiKey) => string): HelpEntry[] {
-  return fields.flatMap((field) =>
-    field.help === undefined ? [] : [{ id: `view-${field.field}-help`, label: t(field.label), text: t(field.help) }],
-  )
-}
 
 /**
  * A preview number as a knob row (handoff 2, PR 3): its short label, its

@@ -13,7 +13,7 @@ export const AUTO_DELAY_MS = 350
  * Mounted once, in `App`.
  *
  * The subscription is inside the effect and not a `useStore(selector)` in
- * render (Ruling 11): `KnobSlider` commits on the range input's `onChange`,
+ * render (Ruling 11): `KnobTrack` commits on the range input's `onChange`,
  * about sixty times a second during a drag, and a selector here would repaint
  * the whole shell that often — the cost `useGenerator.ts:16-19` exists to
  * avoid, with nothing in `apps/lab` memoised against it.

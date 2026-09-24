@@ -62,180 +62,6 @@
 .fw-rail button[aria-selected='true'] .n {
   color: var(--ink);
 }
-/* The mock draws the bar as a div with a pointer handler and no keyboard.
-   This is the same 2px bar over a native range input, so arrow keys, Home,
-   End, PageUp/PageDown and touch come from the platform (Ruling 3). */
-.fw-k .bar {
-  position: relative;
-  margin-top: 12px;
-  height: 12px;
-}
-.fw-k .bar input[type='range'] {
-  appearance: none;
-  -webkit-appearance: none;
-  display: block;
-  width: 100%;
-  height: 12px;
-  margin: 0;
-  padding: 0;
-  /* `border: 0` is load-bearing: `.fw-k input` in Task 7 styles the inline
-     entry with a 1px signal border, and both selectors reach this input. */
-  border: 0;
-  background: none;
-  cursor: ew-resize;
-}
-.fw-k .bar input[type='range']::-webkit-slider-runnable-track {
-  height: 2px;
-  margin-top: 5px;
-  background: linear-gradient(to right, var(--signal) 0 var(--pct), var(--border) var(--pct) 100%);
-}
-.fw-k .bar input[type='range']::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 2px;
-  height: 12px;
-  margin-top: -5px;
-  border: 0;
-  border-radius: 0;
-  background: var(--signal);
-}
-.fw-k .bar input[type='range']::-moz-range-track {
-  height: 2px;
-  background: var(--border);
-}
-.fw-k .bar input[type='range']::-moz-range-progress {
-  height: 2px;
-  background: var(--signal);
-}
-.fw-k .bar input[type='range']::-moz-range-thumb {
-  width: 2px;
-  height: 12px;
-  border: 0;
-  border-radius: 0;
-  background: var(--signal);
-}
-/* The rule floor: a mark with a reason, never a limit (spec §5.4). `--warn`
-   is the token reserved for exactly this and for a clamped value. */
-.fw-k .bar u {
-  position: absolute;
-  top: 5px;
-  height: 2px;
-  width: 0;
-  border-left: 1px solid var(--warn);
-  text-decoration: none;
-  /* No `pointer-events: none`: the mock's marker is decoration, this one
-     carries a `title`, and suppressing pointer events suppresses the tooltip
-     that is its only surface for a mouse user. The knob's own `.why` states
-     the bound in text, for everyone else. */
-}
-.fw-k .bar u::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: -3px;
-  width: 1px;
-  height: 8px;
-  background: var(--warn);
-}
-.fw-k {
-  padding: 0;
-  min-width: 0;
-}
-/* One regime for both shapes of card (review changes 2 and 3): a label column
-   and a control column whose floor is the 88px number box, centred, so a
-   wrapped label keeps its value beside its middle (P5) and every control in a
-   grid column ends on one x. */
-.fw-k .top,
-.fw-k .row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
-  align-items: center;
-  gap: 12px;
-}
-.fw-k .lab {
-  color: var(--mist);
-  min-width: 0;
-}
-/* The mock's number is a span with `cursor: ew-resize` and a pointer scrub.
-   Here it is a button that opens the inline entry: the scrub is a mouse-only
-   gesture with no keyboard equivalent (Ruling 4). */
-.fw-k .num {
-  justify-self: end;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  cursor: text;
-}
-/* `button.num` and not `.num`: the preview field below is an
-   `input[type='number']` carrying the same class, and an unscoped selector
-   reached it too — underlining a field's digits with the click affordance of a
-   control it is not. */
-.fw-k button.num:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.fw-k button.num {
-  width: 88px;
-  text-align: right;
-}
-.fw-k input {
-  width: 88px;
-  padding: 0 4px;
-  border: 1px solid var(--signal);
-  background: var(--void);
-  color: var(--ink);
-  font: inherit;
-  text-align: right;
-}
-.fw-k .why {
-  margin: 6px 0 0;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--ash);
-}
-/* A panel's control descriptions, under its heading (spec R7): the control's
-   name, then what it does. */
-.fw-kdesc {
-  display: grid;
-  grid-template-columns: minmax(0, 16em) minmax(0, 1fr);
-  gap: 2px 16px;
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.6;
-}
-.fw-kdesc > div {
-  display: contents;
-}
-.fw-kdesc dt {
-  color: var(--mist);
-}
-.fw-kdesc dd {
-  margin: 0;
-  color: var(--ash);
-}
-/* Below N the two-column form starves `dd`: the grid gives `dt` its full
-   16em (176px at this 11px font) before the flexible track sees anything, so
-   a panel narrower than 176 (dt) + 16 (gap) + 176 (dd's own floor, the same
-   16em) + 40 (`.fw-knobs`'s 20px+20px padding) = 408px left `dd` a sliver
-   that a single unbroken word (a number, a range) overflowed sideways — the
-   live pass measured a 214px list giving `dd` 22px at 420×900 (board
-   group), and `.fw-knobs` scrolled sideways because of it. N is 407, one
-   below that floor, so the two-column form still holds at exactly 408 where
-   `dd` clears its own 16em. */
-@container (max-width: 407px) {
-  .fw-kdesc {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  /* The label sits with its own value (the row-gap above, 2px) and apart
-     from the entry before it: every label but the first gets the extra
-     margin, so the rhythm reads as label-value pairs rather than one even
-     column of lines. */
-  .fw-kdesc > div + div > dt {
-    margin-top: 8px;
-  }
-}
 /* Out of sight, in the accessibility tree. Ruling 9: a closed description
    (a knob row's `?`, handoff 2 PR 2) is hidden from the eye, and hiding is
    what a screen reader does not do — `display: none` or `visibility: hidden`
@@ -265,50 +91,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-/* A card with nothing wrong reserves no line. */
-.fw-k .why:empty {
-  margin: 0;
-}
-/* The mock has no choice knob; this is its number treatment applied to a
-   select, so the two kinds of knob sit on one grid without a seam. */
-.fw-k select {
-  justify-self: end;
-  width: auto;
-  min-width: 88px;
-  max-width: 100%;
-  height: 22px;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  background: var(--void);
-  color: var(--ink);
-  font: inherit;
-}
-/* A knob the palette jumped to, for 1200 ms (flash.ts). The outline is the
-   mock's, and it sits outside the box so it cannot move the layout. */
-.fw-k.flash {
-  outline: 1px solid var(--signal);
-  outline-offset: 4px;
-}
-/* The chosen theme's arrow colours, on its own paper (Task 1, palette
-   round-2 addendum). Fixed-size swatches rather than `flex: 1`: a
-   single-colour theme (`everforest-light`, `ayu-light`) then reads as one
-   deliberate chip, not a bar stretched to fill the row. Outside the colours
-   card (the simple view) the strip belongs to the select above it, on its
-   right edge. */
-.fw-k .fw-swatches {
-  display: flex;
-  gap: 4px;
-  width: max-content;
-  margin-top: 6px;
-  margin-left: auto;
-  padding: 4px;
-  border: 1px solid var(--border);
-}
-.fw-k .fw-swatch {
-  flex: none;
-  width: 20px;
-  height: 16px;
 }
 /* The console's editable custom palette (palette round-2 addendum, task 2).
    Console-only: SimplePanel.browser.test.tsx pins that it never appears
@@ -349,17 +131,6 @@
   color: var(--error);
   border-color: var(--error);
 }
-/* The simple view's skeleton choice (`SimplePanel.tsx`): two segmented chips,
-   "no skeleton" and "with a skeleton", do not fit `.fw-grid`'s
-   `minmax(190px, 1fr)` floor at every width (live pass, simple view,
-   1400×900, pre-existing at the branch's base 7167248: `.fw-seg` 3.84px past
-   its own card, `.fw-knobs.fw-simple` scrollWidth 1187 vs clientWidth 1183).
-   Full row, for a control the standard column does not fit — not a shrink or
-   a wrap on `Segmented` itself, which every other user of it (the top bar, the
-   language switch) still draws at its own width. */
-.fw-k.fw-skeleton {
-  grid-column: 1 / -1;
-}
 /* The remove cross weighed as much as the swatch it removes (review change 8):
    no border, `--ash`, until hover or focus makes it a button. */
 .fw .fw-palette-row .fw-palette-remove {
@@ -385,12 +156,11 @@
      `container-type: inline-size` is independent of that: a containing block
      for absolute positioning comes from `position: relative` alone, and
      `container-type` does not take it away, so `.fw-vh` keeps the same
-     containing block with both declarations present. This is `.fw-kdesc`'s
-     query container (below), for the panel's own width rather than the
-     viewport's — a group's card grid can be narrower than the viewport at
-     900px and below (`.fw-console`'s rail column), and a viewport query
-     would stack `dd` where the panel had room, or leave it starved where it
-     did not. */
+     containing block with both declarations present. This is also the query
+     container for `.kv-g .ln`'s narrow-panel collapse (below), for the
+     panel's own width rather than the viewport's — a group's card grid can be
+     narrower than the viewport at 900px and below (`.fw-console`'s rail
+     column), and a viewport query would misjudge it either way. */
   position: relative;
   container-type: inline-size;
   background: var(--void);
@@ -417,13 +187,6 @@
   max-width: 74ch;
   color: var(--ash);
 }
-.fw-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 18px 24px;
-  align-items: start;
-  align-content: start;
-}
 
 /* Knob rows (handoff 2, PR 2; `css/knob-atoms.css` and `css/knob-grid.css`,
    the ruled variant folded in). One row per control, and every row of every
@@ -431,8 +194,8 @@
    — so values, tracks, selects and bounds sit on one x down the panel. Only
    the control track flexes; the label track is fixed at the longest short
    label (12 characters, lab-i18n.test.ts) plus the `?` and the dependency
-   indent, so a label is never cut. The generator panels only: the preview,
-   the simple view keeps `.fw-k` above. */
+   indent, so a label is never cut. Every knob shape and the preview share
+   it, in the console and the simple view alike. */
 .fw-ldrawer .fw-knobs {
   padding-left: 12px;
   padding-right: 12px;
@@ -977,43 +740,10 @@
   outline: 1px solid var(--ink);
   outline-offset: 2px;
 }
-/* A preview number is a plain field, not the knob's scrubbable value: it keeps
-   the knob's colour and takes a border of its own, and the hover underline
-   above is scoped to `button.num` so this field does not claim the affordance
-   of a button. */
-.fw-k input[type='number'].num {
-  width: 88px;
-  justify-self: end;
-  padding: 0 4px;
-  border: 1px solid var(--border);
-  background: var(--void);
-  color: var(--ink);
-  font: inherit;
-  text-align: right;
-}
 
 /* A finger needs more than a 12px track and a text-height number. `shell.css`
    raises the tabs and Generate the same way (spec §7.2). */
 @media (pointer: coarse), (max-width: 767px) {
-  .fw-k .bar,
-  .fw-k .bar input[type='range'] {
-    height: 24px;
-  }
-  .fw-k .bar input[type='range']::-webkit-slider-runnable-track {
-    margin-top: 11px;
-  }
-  .fw-k .bar input[type='range']::-webkit-slider-thumb {
-    width: 4px;
-    height: 24px;
-    margin-top: -11px;
-  }
-  .fw-k .bar u {
-    top: 11px;
-  }
-  .fw-k .num,
-  .fw-k select {
-    min-height: 44px;
-  }
   .fw .fw-palette-remove {
     width: 44px;
     height: 44px;
@@ -1302,21 +1032,6 @@
    that is one (PR 4a, Ruling 7; handoff 2, PR 1). */
 .fw-simple {
   grid-column: 1 / -1;
-}
-/* 12 in a card, 18 between cards, 28 between sections (review change 1). */
-.fw-knobs .fw-grid + .fw-khd {
-  margin-top: 28px;
-}
-/* A recipe slider's two end words, under the track at either edge. */
-.fw-k .fw-ends {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-/* A recipe slider's percent is read, not edited: `.fw-k .num`'s text cursor
-   is the knob button's affordance. */
-.fw-k span.num {
-  cursor: default;
 }
 
 /* XS (handoff 2, PR 7): one column; the board edge to edge; the settings

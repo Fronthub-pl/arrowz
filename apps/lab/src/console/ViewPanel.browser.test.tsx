@@ -533,7 +533,6 @@ test('a row’s control points at its own description, which its ? opens', async
   expect(help?.classList.contains('fw-vh')).toBe(true)
   await screen.getByRole('button', { name: 'About export cell' }).click()
   expect(help?.classList.contains('fw-vh')).toBe(false)
-  expect(screen.container.querySelector('.fw-khd .fw-kdesc')).toBeNull()
 })
 
 test('every preview control names a description that exists', async () => {
