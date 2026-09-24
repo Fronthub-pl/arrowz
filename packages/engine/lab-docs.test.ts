@@ -2,7 +2,7 @@
 // tables are `as const satisfies`, so a missing description is TS2741 and a
 // stray one TS2353. This file therefore asserts only what a type cannot — that
 // a description exists as text and was actually translated. A test that
-// re-checks the compiler is a test that cannot fail (the lesson of PR 3b).
+// re-checks the compiler is a test that cannot fail.
 import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
 import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from './lab-docs.ts'
@@ -34,14 +34,9 @@ Deno.test('no Polish description is a copy of its English source', () => {
   for (const row of ELEMENT_EVENTS) assert(pl.events[row.key] !== en.events[row.key], `event ${row.key}`)
 })
 
-// The frame around the tables — the leads, the section headings, the column
-// labels, the README pointer — is text too, and the three tests above do not
-// touch it: they walk rows. Measured during review, every one of those strings
-// could have stayed English in the Polish docs with nothing going red.
-//
-// The key list is derived from the object rather than written out, so a field
-// added to `Docs` later cannot slip past this test the way the whole frame
-// slipped past the ones above.
+// The frame around the tables — leads, headings, column labels, the README
+// pointer — is text too, and the tests above walk only rows. The key list is
+// derived from the object, so a field added to `Docs` later is covered too.
 Deno.test('the frame around the tables is translated too', () => {
   const en = docsFor('en')
   const pl = docsFor('pl')
@@ -70,8 +65,7 @@ const sorted = (names: Iterable<string>): string[] => [...names].sort()
  * Every one-line `export type X = …` of the element package. A reference table
  * may spell what an alias stands for rather than its name — `gestureMode` is
  * exactly that: the class returns `GestureMode`, the row says `'drag' | 'click'`,
- * and a reader should not have to go and look the alias up. Measured: that row
- * is the only one of eleven where the two texts differ.
+ * and a reader should not have to go and look the alias up.
  */
 function typeAliases(): Map<string, string> {
   const aliases = new Map<string, string>()
@@ -136,8 +130,8 @@ function detailOf(eventType: string): string {
   return `{ ${[...inner.matchAll(/(\w+)\s*:/g)].map((m) => m[1] ?? '').join(', ')} }`
 }
 
-// The `detail` column, the third blind spot of §3.3: until now an event could
-// gain or lose a field of its detail with both gates green.
+// The `detail` column: without it an event could gain or lose a field of its
+// detail with both gates green.
 Deno.test('the event table spells the detail the event type carries', () => {
   const body = interfaceBody(modText, 'HTMLElementEventMap')
   const pairs = [...body.matchAll(/^\s*'([a-z-]+)'\s*:\s*(\w+)/gm)].map((m) => [m[1] ?? '', m[2] ?? ''] as const)
@@ -163,8 +157,7 @@ function declaredProps(): { key: string; attribute: string | null }[] {
   // Entry by entry rather than line by line. `deno fmt` breaks any entry past
   // 120 columns across several lines, and a line-based reader would then stop
   // seeing that property — silently, since a property it cannot see is a
-  // property it cannot report as undocumented. Measured during review:
-  // `pointRadius` is already at 94 columns.
+  // property it cannot report as undocumented.
   for (const m of block.matchAll(/^\s{4}(\w+):\s*\{([\s\S]*?)\},\s*$/gm)) {
     const [, key, opts] = m
     if (key === undefined || opts === undefined) continue
@@ -206,8 +199,8 @@ function declaredTypes(): Map<string, string> {
   return types
 }
 
-// The `type` column, the second blind spot of §3.3: until now a property could
-// widen or narrow with both gates green.
+// The `type` column: without it a property could widen or narrow with both
+// gates green.
 Deno.test('the property table spells the type the class declares', () => {
   const types = declaredTypes()
   assert(types.size > 0, 'the declare lines parsed to nothing')
@@ -240,16 +233,14 @@ interface ParsedMember {
  * Public methods, getters and setters, read as SIGNATURES — a name followed by
  * `(`, or a `get`/`set` accessor. Not "declarations": the class has eleven
  * `declare board: …` lines at the same indentation, and a rule that says
- * "declaration" matches them, along with braces and comments (109 candidates,
- * measured).
+ * "declaration" matches them, along with braces and comments.
  *
  * `private` and `override` are excluded by name. TypeScript erases `private`,
  * so those members are ordinary prototype properties at runtime — which is why
  * this direction has to be read here rather than off the prototype.
  *
- * `public` is optional and explicit. The class writes none today, which is why
- * the pattern shipped without it and dropped `  public foo(` in silence — the
- * one direction this guard exists for, failing open.
+ * `public` is optional and explicit. The class writes none today, but a
+ * pattern without it would drop `  public foo(` in silence, failing open.
  *
  * It takes the text instead of reading the file, so the rules above can be
  * asserted against a fixture. What this parser cannot see it drops in silence —
@@ -280,8 +271,7 @@ function publicMembers(text: string): ParsedMember[] {
 
 // The parser's own rules, against a fixture rather than against the class: the
 // class is one sample, and every modifier it happens not to use today is a hole
-// nothing would report. `public` is exactly that hole — whole-branch review
-// found it — and it is legal TypeScript on every member here.
+// nothing would report. `public` is exactly that hole.
 Deno.test('the member parser reads every modifier a public member may carry', () => {
   const fixture = [
     '  fit(): void {',
@@ -315,12 +305,9 @@ Deno.test('the member table is the element public surface, both ways', () => {
   const found = publicMembers(classText)
   assert(found.length > 0, 'the class parsed to no signatures')
   assertEquals(sorted(found.map((member) => member.name)), sorted(ELEMENT_MEMBERS.map((row) => row.key)))
-  // The `kind` column against the `get` the parser had in hand all along and
-  // then threw away. It is the one machine column of this table a text parser
-  // can reach — `signature` spells out parameter and return types, which
-  // nothing here reads (§3.3) — so a getter turned method is caught, and a
-  // public setter reddens rather than passing as a method, because the table
-  // has no notation for one.
+  // The `kind` column against the parser's `get`: a getter turned method is
+  // caught, and a public setter reddens rather than passing as a method,
+  // because the table has no notation for one.
   for (const row of ELEMENT_MEMBERS) {
     const member = found.find((found) => found.name === row.key)
     assert(member, `no signature for ${row.key}`)
@@ -328,9 +315,8 @@ Deno.test('the member table is the element public surface, both ways', () => {
   }
 })
 
-// The `signature` column itself, which §3.3 of the PR 6 spec named as a blind
-// spot: until now a parameter could change its type, or a method its return,
-// with both gates green.
+// The `signature` column itself: without it a parameter could change its type,
+// or a method its return, with both gates green.
 Deno.test('the member table spells the signature the class declares', () => {
   assert(ALIASES.size > 0, 'no type aliases were parsed — the comparison below would be text against text')
   const found = publicMembers(classText)

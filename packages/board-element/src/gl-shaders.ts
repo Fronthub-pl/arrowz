@@ -117,13 +117,11 @@ void main() {
   gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, 0.0, 1.0);
 }`
 
-// Coverage computed here, because the canvas's MSAA does not smooth an edge
-// a fragment shader decides: the shader runs once a pixel. The edge ramps
-// over one device pixel. A disc under half a pixel in radius is faded by
-// 2 * rPx, so it carries about the ink of its own area and not a pixel's
-// worth (spec §5.1). highp, unlike the other two fragment shaders: u_scale is
-// shared with the vertex shader, which is highp, and GLSL ES will not link a
-// uniform declared at two precisions (spec §9).
+// Coverage computed here: MSAA does not smooth an edge a fragment shader
+// decides. The edge ramps over one device pixel; a disc under half a pixel is
+// faded by 2 * rPx, so it carries the ink of its own area. highp, unlike the
+// other fragment shaders: u_scale is shared with the highp vertex shader, and
+// GLSL ES will not link a uniform declared at two precisions.
 export const DISC_FRAG = `#version 300 es
 precision highp float;
 in vec2 v_local;

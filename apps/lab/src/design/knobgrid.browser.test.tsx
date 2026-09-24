@@ -17,7 +17,7 @@ beforeEach(() => {
 
 /**
  * The bound tracks need a panel of 30ch + 188px (404px). Only XL's drawer
- * gives one: L's is capped at 34rem (360–400px of panel, PR 7), and at 924
+ * gives one: L's is capped at 34rem (360–400px of panel), and at 924
  * the panel is narrower still.
  */
 const expectBoundsAt = (width: number) => width >= 1600
@@ -27,8 +27,7 @@ const centre = (el: Element) => {
   return r.top + r.height / 2
 }
 
-// Review P5, kept for the rows (handoff 2, PR 2): a label, its value and its
-// control share one line, level with each other.
+// A label, its value and its control share one line, level with each other.
 test('a knob value and its control sit level with the middle of its label', async () => {
   await page.viewport(1024, 768)
   const screen = await render(
@@ -68,13 +67,9 @@ test('rows are 34px, ruled, one under the next', async () => {
   expect(b.getBoundingClientRect().top).toBeCloseTo(a.getBoundingClientRect().bottom, 0)
 })
 
-// Handoff 2, PR 2 (§2) and PR 3: one grid for the whole console, the
-// preview's rows included. Walked through the real lab, every group and the
-// preview in turn, both languages, at the two widths the handoff names —
-// 1440 and 924, where the panel is under the bound tracks' floor and drops
-// them — and at 1920, where it keeps them. In each, every value ends on one x and every
-// control starts on one x — across groups, not only within one — and no
-// short label is cut.
+// Every group and the preview, both languages, at 1440 and 924 (under the
+// bound tracks' floor) and at 1920 (over it): every value ends on one x and
+// every control starts on one x, across groups, and no short label is cut.
 test.each([
   [1920, 1080, 'en'],
   [1440, 900, 'en'],

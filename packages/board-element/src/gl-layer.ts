@@ -97,8 +97,7 @@ export class GlLayer {
    * layer watches notices a window dragged onto a Retina display: the host's
    * CSS size does not change, so the element's ResizeObserver never fires,
    * and the board would stay at the old device resolution — visibly blurry —
-   * until some interaction happened to ask for a frame. The SVG layer had no
-   * such state to go stale.
+   * until some interaction happened to ask for a frame.
    */
   private dprQuery: MediaQueryList | null = null
 
@@ -135,18 +134,11 @@ export class GlLayer {
     this.loseExt = gl.getExtension('WEBGL_lose_context') ?? this.loseExt
     this.res = GlResources.create(gl)
     gl.enable(gl.BLEND)
-    // The drawing buffer is premultiplied — the default of a WebGL2 context,
-    // and nothing here asks for otherwise — while every colour reaching a
-    // uniform came straight from CSS through `rgbaOf`, with its alpha
-    // unmultiplied. Separate factors reconcile the two: the colour channels
-    // premultiply the source as they blend it, and the alpha channel
-    // accumulates `src.a + dst.a * (1 - src.a)` rather than `src.a * src.a`.
-    // The single-factor form got the colour right and the alpha wrong, which
-    // looks like nothing in a readback and washes the pixel out on screen:
-    // the voids' .22 pass over opaque paper left alpha at .83 instead of 1,
-    // and the compositor read the sixth of the pixel that was missing as a
-    // hole and let the page through it — the tint the SVG group drew as
-    // rgb(243, 207, 222) came out all but white.
+    // The drawing buffer is premultiplied, but colours from CSS (`rgbaOf`) are
+    // not. Separate factors premultiply the colour as it blends and accumulate
+    // alpha as `src.a + dst.a * (1 - src.a)`. A single factor gets the alpha
+    // wrong (the voids' .22 pass leaves opaque paper at .83), invisible in a
+    // readback, but the compositor lets the page show through on screen.
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     this.watchDpr()
   }
@@ -278,7 +270,7 @@ export class GlLayer {
     return this.assignmentsBuilt
   }
 
-  /** Whether the diagnostic colour buffer exists at all; spec §8 says a monochrome board allocates none. */
+  /** Whether the diagnostic colour buffer exists at all; a monochrome board allocates none. */
   get hasColorsForTest(): boolean {
     return this.res?.hasColors ?? false
   }
@@ -337,19 +329,10 @@ export class GlLayer {
    * New colours over the scene already tesselated. The element calls this
    * instead of `setBoard` when only colours moved: ink, paper, highlight and
    * the palette. It never re-tesselates, so it is unsafe for any view whose
-   * geometry fields (stroke, head, rounding, voids, `top`, `colored`, or the
-   * board itself) differ from the scene currently drawn — the caller must
-   * ensure only colour-affecting fields changed before reaching for this
-   * instead of `setBoard`. `colored` belongs to that geometry set, not the
-   * colour one: `strokeOf` (tesselate.ts) draws a `top`-highlighted piece at
-   * 1.5x its stroke when `colored` is on and 1.15x when it is off, so this
-   * method must never be reached for a `colored` change either, on pain of
-   * every highlighted piece staying tesselated at the wrong width.
-   * `resolvePalette` reuses the assignment when the board and the palette's
-   * length have not moved, so a theme swap of the same size — the case this
-   * exists for — pays only for new bytes and a re-upload: measured on the
-   * 1000x1000 board, 23.3 ms against 184.5. A palette whose length changed
-   * pays extra, on top, to rebuild the assignment.
+   * geometry (see `geometryKeyOf`, `colored` included) differs from the scene
+   * currently drawn. A same-size theme swap reuses the palette assignment (see
+   * `resolvePalette`) and pays only for new bytes and a re-upload: 23.3 ms
+   * against 184.5 on the 1000x1000 board.
    */
   setColors(view: BoardView): void {
     this.view = view
@@ -438,10 +421,8 @@ export class GlLayer {
    * removes pieces, and an assignment over the drawn subset would repaint the
    * whole board after every move), so it is rebuilt only when the board or
    * the palette's length has actually moved since `assign` was last built —
-   * never merely because the colours did. A same-size theme swap through
-   * `setColors` reuses `assign` as a result, which is the difference between
-   * the colour-only path costing what it is measured to and costing what a
-   * full re-tesselation does.
+   * never merely because the colours did, which is what keeps `setColors`
+   * cheap.
    */
   private resolvePalette(): void {
     this.paletteBytes = this.view.palette.map((c) => {

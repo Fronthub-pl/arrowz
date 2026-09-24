@@ -70,7 +70,7 @@ export const EN = {
       shape: ['straightest lines', 'most winding'],
     },
     randomize: 'randomise the settings on every generate',
-    // Round 3 (3c): the row's short label; the sentence above is its title.
+    // The row's short label; the sentence above is its title.
     randomizeShort: 'randomise',
     randomizeHelp:
       'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
@@ -84,7 +84,7 @@ export const EN = {
       'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Mixing starts that fraction of pieces as tunnels.',
     options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
   },
-  // A knob row's label (handoff 2, PR 2): the engine's term, one line of at
+  // A knob row's label: the engine's term, one line of at
   // most 12 characters, so the label track is one width in every group. The
   // full sentence stays in the row's title and in its description.
   short: {
@@ -137,7 +137,7 @@ export const EN = {
     abort: 'Abort',
     cliLabel: 'CLI',
     runColumn: 'Run',
-    // The phone's bar of bottom sheets (handoff 2, PR 7): its name and its
+    // The phone's bar of bottom sheets: its name and its
     // buttons, on the lab and on the saved boards.
     sheetBar: 'Panels',
     sheetSettings: 'Settings',
@@ -151,7 +151,7 @@ export const EN = {
     copy: 'Copy',
     copied: 'Copied',
     preview: 'Preview',
-    // The preview's sections (2026-09-22 spec R8); the heading prints them in caps.
+    // The preview's sections; the heading prints them in caps.
     previewGeometry: 'geometry',
     previewDrawing: 'drawing',
     previewPoints: 'points',
@@ -176,27 +176,22 @@ export const EN = {
       'Empty space kept around the board, in cells. Changes the preview only, not the CLI command or the downloaded file.',
     themeLabel: 'theme',
     themeNone: 'none (default colours)',
-    // The console's editable custom palette (palette round-2 addendum, task
-    // 2): Ruling 6 repealed the old exclusion with `theme`, so a chosen theme
-    // and this palette now coexist, the palette overriding the theme's
-    // colours field by field.
+    // The console's editable custom palette. It coexists with a chosen theme,
+    // overriding the theme's colours field by field.
     paletteLabel: 'custom palette',
     paletteAdd: 'add colour',
     paletteColorLabel: (n: number) => `colour ${n}`,
     paletteRemove: (n: number) => `remove colour ${n}`,
-    // A function of the cap, like `paletteColorLabel` above, so the caller's
-    // `PALETTE_CAP` and this text cannot drift apart silently the way a
-    // hardcoded "8" once could. Ruling 6 repealed the sentence this used to
-    // end on ("Setting one clears the chosen theme"): a theme still supplies
-    // whatever the palette, paper or ink leave unset.
+    // A function of the cap, so the caller's `PALETTE_CAP` and this text
+    // cannot drift apart.
     paletteHelp: (cap: number) => `Up to ${cap} colours. A chosen theme still supplies everything you do not set.`,
-    // The board's own surface colours (Task 6): '' means "not set", which lets
+    // The board's own surface colours: '' means "not set", which lets
     // a chosen theme supply them.
     paperLabel: 'background',
     inkLabel: 'drawing colour',
     highlightLabel: 'highlight',
     paperClear: 'clear the paper, back to the theme',
-    // The preview as knob rows (handoff 2, PR 3): short labels (at most 12
+    // The preview as knob rows: short labels (at most 12
     // characters, like the knobs'), section headings, the two dependency
     // blocks, a switch's value, and a description for every row.
     viewShortStroke: 'stroke',
@@ -251,7 +246,7 @@ export const EN = {
     highlightClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
-    // A knob row's `?` (handoff 2, PR 2), its dependency blocks and the
+    // A knob row's `?`, its dependency blocks and the
     // lengths mix bar.
     aboutKnob: (name: string) => `About ${name}`,
     needsSkeleton: 'needs giants or later share > 0',
@@ -269,10 +264,10 @@ export const EN = {
     tabDocs: 'Docs',
     /** The accessible name of the tab strip itself, not of any one tab. */
     tabsLabel: 'Sections',
-    // The command palette (spec 2026-09-21). `cmd…`, not `palette…`: the
+    // The command palette. `cmd…`, not `palette…`: the
     // `palette*` keys above belong to the editable colour palette.
     cmdOpen: 'Command palette (⌘K)',
-    // At XS (handoff 2, PR 7) the top bar's right group folds into a menu,
+    // At XS the top bar's right group folds into a menu,
     // and ⌘K reads as words there. The words must stay inside `cmdOpen`, the
     // button's accessible name (WCAG 2.5.3).
     menu: 'menu',
@@ -307,7 +302,7 @@ export const EN = {
       `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
     progress: (pct: string, pieces: string, remaining: string, backtracks: number, s: string) =>
       `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
-    // Round 3 (3h): while a carve runs, Generate is the meter and carries the
+    // While a carve runs, Generate is the meter and carries the
     // percent; the line under it says the rest of `progress`, and the hidden
     // progressbar beside it is named `runProgress`.
     generatingPct: (pct: string) => `Generating ${pct}%`,
@@ -381,7 +376,7 @@ export const EN = {
     viewSaved: (id: string) => `Saved the new view of board ${id}.`,
     deletedBoard: (id: string) => `Deleted ${id}.`,
     deleteFailed: 'Could not delete the board.',
-    // The saved boards in the lab's layout (handoff 2, PR 6): the drawer's
+    // The saved boards in the lab's layout: the drawer's
     // rail, its list's header, the right column and the report's figures.
     boardsRailLabel: 'Board sizes and preview',
     railSizes: 'sizes',
@@ -423,12 +418,12 @@ export const EN = {
     // The preset strip: its accessible name (it carries no visible caption),
     // and the button that puts the clamp notice away.
     presetsLabel: 'Presets',
-    // The preset picker (spec §3): the trigger's caps label, what it says when
+    // The preset picker: the trigger's caps label, what it says when
     // no preset spells the knobs, and the note beside it in that state.
     preset: 'preset',
     customSettings: 'custom settings',
     editedSinceLastPreset: 'edited since the last preset',
-    // The report drawer's handle (spec §4.1), its visible and accessible name.
+    // The report drawer's handle, its visible and accessible name.
     reportHandle: 'report',
     // The settings drawer's handle, its mirror on the stage's left edge.
     settingsHandle: 'settings',
@@ -436,21 +431,21 @@ export const EN = {
     // The top bar's two choices, each a radio group named by what it chooses.
     // The language codes are the visible text and so the accessible name: a
     // name that does not contain what is on screen fails WCAG 2.5.3 for speech
-    // input (PR 4a, Ruling 8).
+    // input.
     modeLabel: 'View',
     languageLabel: 'Language',
     langPl: 'PL',
     langEn: 'EN',
     // The simple view's region; its visible heading is only the view's name.
     simplePanel: 'Simple settings',
-    // PR 4b: the report column and its delta, the frame's annotation, and the
+    // The report column and its delta, the frame's annotation, and the
     // run column's two exports. The two delta words are never visible: the
     // cell's colour and sign say it on screen, and a screen reader hears these.
     reportPanel: 'Report',
     statsTable: 'Statistics',
     deltaBetter: 'better',
     deltaWorse: 'worse',
-    // Round 3 of the handoff (3b): the report's summary and the names of its
+    // The report's summary and the names of its
     // groups, one per span between the engine's separators (lab-report.ts).
     reportSummaryCap: 'change against the previous run',
     statSumD: 'D',
@@ -487,7 +482,7 @@ export const EN = {
     // computes only in a secure context: said beside the exports, not as an
     // export failure.
     layoutHashError: 'Cannot name the board file:',
-    // The engine's `toSvg` learns no colours (spec §9), so a theme chosen on
+    // The engine's `toSvg` takes no theme, so a theme chosen on
     // screen never reaches the exported file; shown only while a theme is
     // active, beside the SVG button, since it has nothing to say otherwise.
     svgThemeNote: 'The downloaded SVG keeps the golden-angle colours, not the chosen theme.',

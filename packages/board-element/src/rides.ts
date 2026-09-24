@@ -189,14 +189,10 @@ export class Rides {
 
     const draw = (shifted: number): void => {
       const track: Ride = { dir, front, shift: shifted }
-      // `rider.data` and `rider.discs` are exactly their bounds long, and a
-      // write past the end of a typed array is dropped rather than raised: the
-      // bounds hold (tesselate.test.ts pins them), and if they ever stopped
-      // holding, the piece would come out silently truncated instead of loudly
-      // wrong. This runs inside the frame callback, so it does not reject the
-      // ride's promise — it lands where an unhandled error lands, which is
-      // enough to see it, and the only place the counts exist to be checked at
-      // all.
+      // The buffers are exactly their bounds long, and a typed array drops a
+      // write past its end silently, so a broken bound would truncate the
+      // piece; throw instead. Inside the frame callback this does not reject
+      // the ride's promise, but it surfaces as an unhandled error.
       const written = tesselatePiece(piece, host.view(), top, track, rider.data, rider.discs)
       if (written.vertices > bound || written.discs > discBound) {
         throw new Error(`gl-layer: piece ${id} rode past its ${bound}-vertex or ${discBound}-disc bound`)

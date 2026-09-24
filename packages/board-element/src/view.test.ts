@@ -23,7 +23,7 @@ test('hueBytes is that same colour as bytes', () => {
 })
 
 test('hueBytes stays exact for the largest ids a board can hold', () => {
-  // The reason this lives on the CPU at all (spec §8): in float32 the product
+  // The reason this lives on the CPU at all: in float32 the product
   // id * 137.508 quantises past 2^23 and the shader would print other colours.
   const [r, g, b] = hueBytes(85809)
   expect(Number.isInteger(r) && Number.isInteger(g) && Number.isInteger(b)).toBe(true)

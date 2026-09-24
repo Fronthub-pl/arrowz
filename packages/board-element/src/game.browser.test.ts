@@ -15,9 +15,8 @@ const raf = () => new Promise<void>((r) => requestAnimationFrame(() => r()))
 
 /**
  * The rides are real animations, so a test that looks at the board after one
- * has to outwait it. The waits are tied to the two durations rather than
- * guessed: a flat 700 ms left an exit capped at EXIT_MAX_MS only 100 ms of
- * slack, and a machine running the whole workspace's tests at once ate it.
+ * has to outwait it. The waits are tied to the two durations plus 400 ms of
+ * slack: 100 ms was eaten by a machine running the whole workspace's tests.
  */
 const exited = () => new Promise<void>((r) => setTimeout(r, EXIT_MAX_MS + 400))
 const bounced = () => new Promise<void>((r) => setTimeout(r, SHAKE_MS + 400))
@@ -375,13 +374,10 @@ describe('colours', () => {
     e.shadowRoot?.querySelector<HTMLButtonElement>('button.colors') ?? null
 
   test('without the permission there is no button and no colour', async () => {
-    // The same board and the same `view.colored: true`, mounted once without
-    // the permission and once with it, and read off the GPU both times: a
-    // board that is merely monochrome and a board whose colour was suppressed
-    // look alike in one mount, so it takes the pair to catch both a bypassed
-    // permission and a `colored` getter regressed to always-false. The
-    // snapshot is checked alongside the pixels because the same verdict
-    // travels in it.
+    // Mounted without and with the permission: one mount cannot tell a
+    // monochrome board from a suppressed one, so the pair catches both a
+    // bypassed permission and a `colored` getter stuck at false. The snapshot
+    // carries the same verdict, so it is checked too.
     const board = makeBoard()
     const first = board.pieces[0]
     if (!first) throw new Error('need a piece')

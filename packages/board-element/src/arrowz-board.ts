@@ -167,7 +167,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     canvas {
       /* Out of the flow: a canvas in it lends the host its intrinsic size, and
         since the canvas is sized to the host, the host's height would depend
-        on whatever size it had before (spec §9). The host is sized by its
+        on whatever size it had before. The host is sized by its
         consumer, like any <div>. */
       position: absolute;
       inset: 0;
@@ -175,8 +175,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       height: 100%;
       display: block;
       /* Without this the browser claims the touch for a scroll or a pinch
-        before the pointer events reach the gesture machine, exactly as it
-        would have on the <svg> these rules used to name. */
+        before the pointer events reach the gesture machine. */
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -376,7 +375,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * not give it back by itself. The board asks for it once someone can see
    * it: at once if it is on screen, when it is scrolled to otherwise. More
    * than about sixteen boards on screen at once will take each other's
-   * contexts in turn; that ceiling is the browser's (spec §5).
+   * contexts in turn; that ceiling is the browser's.
    */
   private watchForRevival(): void {
     if (!this.isConnected || this.revival) return
@@ -460,8 +459,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * button or `loadState` set earlier, not merely skips setting a new one —
    * otherwise a cancelling host would only take charge starting from a board
    * that had never been coloured, and every other one would still be stuck on
-   * whatever the override last was. A host that never cancels sees today's
-   * behaviour: the button decides.
+   * whatever the override last was. A host that never cancels leaves the
+   * button to decide.
    */
   private readonly toggleColors = (): void => {
     const colored = !this.colored
@@ -585,8 +584,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   loadState(snap: SessionSnapshot): void {
     this.syncSession()
     this.game.load(snap)
-    // Without the permission `saveState()` always records `colored: false`
-    // (§6): honouring it here would pin the override to false and outlive a
+    // Without the permission `saveState()` always records `colored: false`:
+    // honouring it here would pin the override to false and outlive a
     // later grant of the permission, so it only travels when it can be true.
     if (this.enableColors) this.coloredOverride = snap.colored
     this.redraw()
@@ -612,7 +611,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 
   /**
    * Whether the pieces are drawn in their own hues. The permission wins over
-   * everything: monochrome is part of the task (design §11), so a host has to
+   * everything: monochrome is part of the task, so a host has to
    * ask for the exception before either the button or `view.colored` counts.
    */
   private get colored(): boolean {

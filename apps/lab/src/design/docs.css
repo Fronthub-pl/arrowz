@@ -1,20 +1,9 @@
-/* The documentation pages (spec §2.4). Its own file, as report.css explains for
-   its own: one file per surface keeps a specificity collision inside the
-   surface that caused it. The panel scrolls inside itself, like the report
-   drawer, because the shell has a fixed height and does not scroll.
-
-   `height: 100%` is what makes that true, and the rule shipped without it: the
-   panel is a block child of a block <main>, so it grew to its content and
-   `overflow-y` had nothing to overflow — measured at 1280×800, a 2370px section
-   inside a 712px <main>, scrolling the whole document 2458px and taking the top
-   bar and the tab strip off the screen. The `min-height: 0` that used to sit
-   here was the report's rule copied to a box that is not a grid item,
-   where it is both inert and the initial value. The sideways half of the same
-   defect is `.fw > main`'s business (shell.css).
-
-   `box-sizing` because the padding is inside that 100%: `.fw *` already says so
-   for everything in the shell, and this repeats it so the panel is right in a
-   test that mounts it without the shell around it. */
+/* The documentation pages, in their own file like every surface. The panel
+   scrolls inside itself, because the shell has a fixed height and does not.
+   `height: 100%` makes that true: as a block child of a block <main> it would
+   grow to its content and scroll the whole document, bars and all.
+   `box-sizing` repeats `.fw *` so a test that mounts the panel without the
+   shell sizes it the same. */
 .fw-docs {
   height: 100%;
   box-sizing: border-box;
@@ -60,11 +49,9 @@
   font-family: var(--mono);
   white-space: nowrap;
 }
-/* Both blocks of the documentation pages are one box, and the bottom margin is
-   all that ever differed between them. The two names stay, and each `pre` wears
-   this class and its own: the tests of the docs routes tell the element page and
-   the CLI page apart by `pre.fw-docs-code` against `pre.fw-docs-term`, so one
-   merged name would cost the routes their marker to save eight declarations. */
+/* Both blocks of the documentation pages are one box. Each `pre` still wears
+   its own class too: the docs routes' tests tell the element page from the
+   CLI page by `pre.fw-docs-code` against `pre.fw-docs-term`. */
 .fw-docs-pre {
   max-width: 100%;
   padding: 10px 12px;
@@ -82,21 +69,16 @@
 /* The help is a table aligned with spaces, so the layout IS the content:
    `pre` keeps it, and `overflow-x: auto` keeps the longest line — 296
    characters, about 2317px at this size — from scrolling the whole page.
-   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows.
-   Here rather than in the shared class: `pre` carries this value from the
-   browser's own sheet, and this is the block whose measurement leans on it. */
+   `pre-wrap` is not an alternative: it keeps the spaces and breaks the rows. */
 .fw-docs-term {
   margin: 0 0 12px;
   white-space: pre;
 }
 
-/* Round 3 (3f): a reading column, ruled tables, Copy on every block, and one
-   navigation column beside the page. Both pages are in it, each a heading
-   with its sections listed under a 1px guide; the page on screen is
-   `aria-current="page"` in --ink, the section in view `aria-current="true"`
-   with the guide turned into a 2px --signal bar. The pages' own row over
-   the page (`.fw-docs-nav`) is gone: one navigation, two levels. Under 768
-   the column stands over the page and lists only the page on screen. */
+/* One navigation column beside the page, two levels: each page a heading
+   with its sections under a 1px guide. The section in view turns the guide
+   into a 2px --signal bar. Under 768 the column stands over the page and
+   lists only the page on screen. */
 .fw-docs-grid {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
@@ -207,9 +189,8 @@
     margin-top: 0;
   }
 }
-/* A finger's 44px for every link of the column: at XS, where the handoff asks
-   for it, and under a coarse pointer at any width, as the pages' old row had
-   it — a tablet at 768 and up keeps the size it had before the round. */
+/* A finger's 44px for every link of the column: at XS, and under a coarse
+   pointer at any width, so a tablet at 768 and up gets it too. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw-docs-toc .pg > a,
   .fw-docs-toc .pg > ul a {
@@ -220,18 +201,12 @@
     padding-bottom: 0;
   }
 }
-/* Round 3: the element page's example in GitHub Dark's syntax colours, on
-   the block's own --graphite. The CLI blocks are the terminal's plain text
-   and stay uncoloured. Tokens are spans inside `code`; the text is
-   untouched, so Copy and a selection read the code as written
-   (docs/codeTokens.ts). */
-/* The reference tables' machine columns (name, type, attribute, default,
-   signature, event, detail) in the same colours as the example: a property,
-   a method, an attribute, a type, a constant or number, a string or event
-   name, a parameter, punctuation. The description column stays the page's
-   prose. The colours are custom properties set to GitHub Dark (chosen in
-   review over six other dark themes); every value clears 4.5:1 on
-   --graphite and --void (lowest: the punctuation grey #8b949e, 5.9:1). */
+/* The element page's example in GitHub Dark's syntax colours; the CLI blocks
+   stay plain. Tokens are spans inside `code` and the text is untouched, so
+   Copy and a selection read the code as written (docs/codeTokens.ts). */
+/* The reference tables' machine columns in the example's colours; the
+   description column stays prose. Every value clears 4.5:1 on --graphite and
+   --void (lowest: the punctuation grey #8b949e, 5.9:1). */
 :root {
   --code-text: #e6edf3;
   --code-tag: #7ee787;
@@ -284,11 +259,9 @@
   font-style: italic;
 }
 
-/* Round 3 (review): the README pointer stands at the top of the element
-   page, under the lead, as a note bar rather than a paragraph after the
-   last table. `aside` named "Note", a 2px --signal bar on its left, the
-   page's --graphite plane, zero radius, no shadow; its mark is a line info
-   glyph (SVG, 1.5px stroke) in --signal, hidden from assistive technology. */
+/* The README pointer: a note bar under the element page's lead, an `aside`
+   named "Note" with a 2px --signal bar; its info glyph is hidden from
+   assistive technology. */
 .fw-docs-info {
   display: flex;
   align-items: baseline;
@@ -316,11 +289,9 @@
   text-wrap: pretty;
 }
 
-/* Round 3 (review): the tables no longer run into one another. Each h3 is a
-   section heading: 13px --ink over a --border-strong rule, 40px above it (a
-   table's last rule is never the next heading's), and the table sits on its
-   own --graphite plane with a 1px frame, so a table reads as one object. The
-   first heading after the lead or the note keeps 24px. */
+/* The tables must not run into one another: each h3 has 40px above its rule
+   (a table's last rule is never the next heading's), and each table sits on
+   its own framed --graphite plane. The first heading keeps 24px. */
 .fw-docs-body h3 {
   margin: 40px 0 10px;
   padding-bottom: 6px;

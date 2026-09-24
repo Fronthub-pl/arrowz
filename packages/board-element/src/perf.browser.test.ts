@@ -1,46 +1,14 @@
-// Nightmare 100×100 (915 pieces at seed 7) builds under a budget and pans
-// 20 frames in every `verify` run; the build time and the frame count are
-// asserted there because both survive CPU contention, and pan mean, worst
-// and median are printed there too, but not asserted — see the paragraph
-// above NIGHTMARE_PAN_MS for why a wall-clock frame budget cannot live in
-// that run. The pan budget itself, and the Insane (1000×1000) report, both
-// live behind ARROWZ_MEASURE=1: a run the developer starts deliberately, on
-// a machine that is not simultaneously building three packages.
+// Nightmare 100×100 (seed 7) builds under a budget and pans 20 frames in
+// every `verify` run. Only the build time and the frame count are asserted
+// there, because both survive CPU contention (see NIGHTMARE_PAN_MS). The pan
+// budget and the Insane (1000×1000) report run only under ARROWZ_MEASURE=1.
 //
-// How to read the frame numbers: a frame is timed around the dispatch plus one
-// `await raf()`, so it reports max(work, frame interval) — on a 60 Hz display
-// anything cheaper than ~16.7 ms prints as ~16.7 ms. Only figures well above
-// that measure the element's work; at or near 16.7 ms the frame had room to
-// spare and the number is the wait, not the cost.
+// A frame is timed around the dispatch plus one `await raf()`, so it reads
+// max(work, frame interval): ~16.7 ms at 60 Hz means idle, not cost.
 //
-// What these numbers are NOT. There are three environments in play, and only
-// the last one is what a person sees: the Playwright headless shell (a
-// separate, stripped binary rasterising in software at one device pixel per
-// CSS pixel), the real Chrome engine running headless (closer to a screen,
-// but still no screen), and a foreground Chrome with a GPU, actually
-// rasterising and compositing onto a display. Measured on an M1, host
-// 800×800 at devicePixelRatio 2, Insane seed 7 (85 809 pieces) — the SVG
-// layer this branch replaced, the same baseline the Insane test below
-// compares itself against:
-//
-//   headless shell, dpr 1                pan mean   83 ms   build 1 330 ms
-//   real Chrome engine headless, dpr 2   pan mean  104 ms   build 1 920 ms
-//   Chrome 152 in the foreground, GPU    pan mean 1050 ms   build 2 761 ms
-//
-// The first two rows are why vitest.config.ts moved this suite's default
-// browser project from the shell to the real engine at dpr 2: same shape,
-// closer numbers. The third row is the one a person actually sees, and no
-// headless mode reaches it — the gap is rasterising and compositing onto a
-// display, which only a foreground browser does. Those three rows are the
-// SVG layer's, not this layer's: this layer draws one canvas instead of a
-// tree, so "429 055 nodes" no longer means anything, and headless WebGL2
-// software-rasterises triangles at a cost this table cannot predict — the
-// Insane test below prints this layer's own headless and foreground figures
-// side by side, and that is where its current numbers live. So treat every
-// headless figure in this file, for either layer, as a floor and a
-// regression detector, never as a promise about anyone's screen. The ceiling
-// case is unusable in a real browser regardless of what this file prints;
-// the fix for that is a different drawing model, not a different budget.
+// Headless figures are a floor and a regression detector, never what a person
+// sees: only a foreground browser with a GPU rasterises and composites onto a
+// display, and a CI runner without a GPU rasterises WebGL2 on the CPU.
 import { defaultParams, generate, newSession, play } from '@arrowz/engine'
 import type { Board } from '@arrowz/engine'
 import { expect, test } from 'vitest'
@@ -161,36 +129,10 @@ test('Nightmare builds under 5 s and pans within the budget', async () => {
   // before a build near 5 000 ms could ever fail the assertion.
 }, 30_000)
 
-// A CPU-bound task runner distorts wall-clock frame timing for the same
-// underlying reason a GPU-less CI runner distorts this layer's rendering:
-// both put more work on the CPU than the number was ever built to measure.
-// `nx run-many -t verify` builds two packages and runs the engine's tests on
-// the same cores as this suite's pan, and measured directly — five
-// `verify` runs back to back, on a machine also holding
-// Chrome tabs open on previous Insane boards, load average 22.5 on 8 cores —
-// gave median pan times of 77.5, 92.4, 118.6, 109.8 and 336.8 ms, worst up to
-// 1 206.5 ms: a fourfold spread on identical code, all five over budget. The
-// build time in those same runs, 16-56 ms throughout, shows the element was
-// never the problem; only the frames stalled, because the CPU was
-// oversubscribed roughly twofold. No threshold value fixes that, because the
-// number is measuring the machine rather than the renderer — a median
-// survives a few stalled frames, not a run where most of them stall
-// together. So this assertion lives here, behind ARROWZ_MEASURE=1, the same
-// flag that already gates the Insane report below, for the matching reason:
-// a CI runner without a GPU rasterises this layer's two million-plus
-// triangles on the CPU instead, at a cost that has nothing to do with the
-// code either. The default `verify` run above keeps only what survives
-// contention — the build time and the frame count — and keeps printing
-// mean, worst and median so a reader still sees them; those figures in a
-// `verify` log are not a measurement of the code, only of whatever else was
-// competing for the CPU that run.
-//
-// Measured alone, nothing else running (Playwright's headless shell,
-// devicePixelRatio 1), across two separate runs: pan mean 19.2-27.6 ms —
-// run-to-run noise on a shared but otherwise idle machine, not a trend.
-// 50 ms is not derived from that figure; it is the spec's own original
-// acceptance criterion, so the gate guards the number the project actually
-// chose rather than one invented to accommodate noise.
+// The project's pan criterion; an idle machine pans at 19-28 ms. Not asserted
+// under `verify`: it shares the cores with the other packages' builds, and
+// there the median swung fourfold on identical code while the build time held,
+// so the number measured the machine, not the renderer.
 const NIGHTMARE_PAN_MS = 50
 
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
@@ -217,43 +159,11 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
   30_000,
 )
 
-// The project ceiling, measured rather than guarded: generation alone takes
-// tens of seconds, so this runs only when asked for by
-// `ARROWZ_MEASURE=1 pnpm vitest run --project chromium perf`.
-//
-// Measured under the headless shell at dpr 1, before this repo moved the
-// default browser project to the real Chrome engine at dpr 2: pan mean
-// 789.6 ms, worst 1030.9 ms; zoom mean 807.5 ms, worst 1051.2 ms — nowhere
-// near the spec's 50 ms acceptance criterion, and the disproportionate
-// slowdown, growing with piece (and so vertex) count rather than staying
-// flat with screen pixels, was the signature of a software rasteriser
-// standing in for a real GPU, which is what that shell gave WebGL2.
-//
-// Measured again after the move, on the same M1 host, real Chrome engine
-// headless at dpr 2: pan mean 16.6 ms, worst 18.5 ms; zoom mean 16.6 ms,
-// worst 18.6 ms — indistinguishable from Nightmare's own headless pan time
-// above, i.e. at the rAF floor rather than doing visibly more work per
-// frame. That is not this layer getting cheaper; it is this host's headless
-// Chrome reaching its GPU where the old shell could not. A host without one
-// — most CI runners, including this repo's — still has no GPU for headless
-// Chrome to reach, real engine or not, so a runner there may still see
-// something closer to the software-rasterised figures above than to these;
-// nobody has measured that combination yet, so treat 16.6 ms as this host's
-// number, not the project's.
-//
-// This is now confirmed, not merely inferred: the same board and the same
-// scripted movement, in a foreground Chrome 152 on an Apple M1,
-// devicePixelRatio 1, host about 1200×1200, build in 338 ms and pan at
-// 34.0 ms mean (worst 73.5 ms), zoom at 33.3 ms mean (worst 34.9 ms) — under
-// the 50 ms criterion with room to spare. The SVG layer this branch
-// replaced, same board and movement, foreground Chrome, recorded before
-// this branch began: build 2 761 ms, pan mean 1 050.5 ms, worst 1 289.1 ms —
-// this layer is about 31× faster to pan and 8× faster to build. A CI runner
-// without a GPU still cannot measure this layer's real cost the way a
-// foreground browser sees it, because headless there rasterises upward of
-// two million triangles on the CPU instead of the GPU; the figures above
-// stay useful only as a relative regression signal against themselves,
-// never as a stand-in for the acceptance criterion.
+// The project ceiling, reported rather than guarded: generation alone takes
+// tens of seconds. Run it with `ARROWZ_MEASURE=1 pnpm vitest run --project
+// chromium perf`. In a foreground Chrome with a GPU (M1) Insane builds in
+// ~340 ms and pans at ~34 ms mean, under the 50 ms criterion; headless on a
+// host with a GPU it sits at the rAF floor, and without one it is far slower.
 test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ_MEASURE=1', async () => {
   const g0 = performance.now()
   const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
@@ -264,10 +174,7 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   await el.updateComplete
   await raf()
   const build = performance.now() - t0
-  // The node count this line used to print was the SVG tree's, and there is
-  // no tree any more: the board is one canvas whatever its size. What the
-  // figure was watched for — that the board really did build every piece —
-  // is now the layer's own count of them, printed and asserted below.
+  // The layer's own piece count: proof that the board built every piece.
   const pieceCount = el.pieceCount
   el.zoomBy(3)
   await raf()
@@ -283,13 +190,10 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')('measures Insane when ARROWZ
   el.remove()
 }, 180_000)
 
-// Same board, with and without the point grid, both measured at the same
-// zoom: at Insane's fitted scale cellPx is well under MIN_POINT_CELL_PX, so
-// the element vetoes the grid until it is zoomed in. The factor is computed
-// from the fitted cellPx rather than guessed, so a later change to the fit
-// maths or the threshold can't silently turn this back into measuring
-// nothing; both runs zoom by that same factor, so the comparison is the
-// grid's cost, not the zoom's.
+// At Insane's fitted scale cellPx is under MIN_POINT_CELL_PX, so the grid is
+// vetoed until zoomed in. The factor is computed from the fitted cellPx, so a
+// change to the fit or the threshold cannot silently measure nothing; both
+// runs zoom by it, so the comparison is the grid's cost, not the zoom's.
 async function runInsane(
   board: Board,
   showPoints: boolean,
@@ -332,11 +236,8 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
         `pan mean=${on.panStats.mean.toFixed(1)}ms worst=${on.panStats.worst.toFixed(1)}ms ` +
         `median=${on.panStats.median.toFixed(1)}ms`,
     )
-    // The grid used to cost exactly one SVG node, and that was the assertion
-    // here. On the GPU it costs one quad and one shader over the whole board,
-    // so there is nothing left to count: the two pan figures above are the
-    // measurement, and what is asserted is only that the grid changed nothing
-    // about the board underneath it — the same pieces are drawn either way.
+    // The grid is one quad and one shader, so the pan figures are the
+    // measurement; asserted is only that the same pieces are drawn either way.
     expect(on.drawn).toBe(off.drawn)
     expect(on.drawn).toBe(board.pieces.length)
   },
@@ -348,14 +249,9 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
   async () => {
     const board: Board = generate({ ...defaultParams(), W: 1000, H: 1000, seed: 7 }).board
 
-    // The verdict alone: the reducer's ray scan, with no animation, no event
-    // dispatch and no host bookkeeping in the way. Printed, not asserted — the
-    // file's header already says the Insane case is a report, not a gate.
-    // `play` never mutates its session, so calling it on the same piece over
-    // and over walks the ray in full every time rather than short-circuiting
-    // on a piece already gone; a single call is too close to
-    // `performance.now()`'s own resolution to say anything, so the printed
-    // figure is a mean over many calls instead.
+    // The reducer's ray scan alone, printed, not asserted. `play` never mutates
+    // its session, so every call walks the ray in full; one call is below
+    // `performance.now()`'s resolution, so this prints a mean over many.
     const session = newSession(board)
     const worst = board.pieces.reduce((a, b) => (a.cells.length >= b.cells.length ? a : b))
     // One warm call on a different piece, discarded, so the loop below is not
@@ -370,11 +266,9 @@ test.skipIf(import.meta.env.ARROWZ_MEASURE !== '1')(
       `insane verdict: piece=${worst.id} cells=${worst.cells.length} mean of ${calls} calls ${verdictMs.toFixed(4)}ms`,
     )
 
-    // A removal in coloured mode must cost one piece, not the board. It used
-    // to be asserted as the survivor's nodes surviving; the buffer's answer to
-    // the same question is the count, which falls by exactly one — a rebuild
-    // of the whole board would have re-tesselated it against the session and
-    // taken the ridden piece out of the total a second time.
+    // A removal in coloured mode must cost one piece, not the board: the count
+    // falls by exactly one, where a full rebuild against the session would
+    // take the ridden piece out a second time.
     const el = await mount('800px')
     el.enableColors = true
     el.view = { colored: true }

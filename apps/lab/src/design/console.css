@@ -1,10 +1,8 @@
-/* The console of the workshop mock (fronthub-workshop-v2.css, "console"
-   section). Its own file rather than more lines in shell.css: PR 2 shipped a
-   specificity collision between two rules written in different tasks, and one
-   file per surface keeps such a collision inside the surface that caused it.
+/* The console of the workshop mock ("console" section). One file per surface
+   keeps a specificity collision inside the surface that caused it.
 
-   Two tracks: the group rail and one panel. The run column is the stage's
-   (handoff 2, PR 1); on the lab the console is the settings drawer's. */
+   Two tracks: the group rail and one panel. The run column is the stage's;
+   on the lab the console is the settings drawer's. */
 .fw-console {
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
@@ -54,7 +52,7 @@
   background: var(--surface);
 }
 /* The mock keys this off `aria-current`; the rail is a tablist, so the state
-   lives on `aria-selected` (Ruling 13). */
+   lives on `aria-selected`. */
 .fw-rail button[aria-selected='true'] {
   color: var(--ink);
   background: var(--signal-fill);
@@ -62,25 +60,11 @@
 .fw-rail button[aria-selected='true'] .n {
   color: var(--ink);
 }
-/* Out of sight, in the accessibility tree. Ruling 9: a closed description
-   (a knob row's `?`, handoff 2 PR 2) is hidden from the eye, and hiding is
-   what a screen reader does not do — `display: none` or `visibility: hidden`
-   would take the text out of the tree and dangle every `aria-describedby`
-   pointing at it, so neither is touched here. What each line does:
-   - `position: absolute` pulls the box out of layout, so it reserves no
-     visible line even at its own size.
-     It needs a positioned ancestor inside the scroller: `.fw-knobs` and
-     `.fw-report` are that ancestor (P1).
-   - `width`/`height: 1px` (not 0): some assistive tech treats a zero-size box
-     as hidden the same way it treats `display: none`, which is exactly the
-     failure this rule exists to avoid.
-   - `margin: -1px` pulls the box up and left by its own size, and
-     `overflow: hidden` clips the `white-space: nowrap` text to it, so a long
-     description cannot paint past the 1px box. Neither cancels the box "out
-     of the page": an absolutely positioned box is already out of flow and
-     has nothing next to it to nudge.
-   - `clip-path: inset(50%)` is the line that actually stops the 1px box from
-     painting: without it the box would be a visible 1px square. */
+/* Hidden from the eye, kept in the accessibility tree: `display: none` or
+   `visibility: hidden` would dangle every `aria-describedby` pointing here.
+   Absolute, so it takes no line; it needs a positioned ancestor inside the
+   scroller (`.fw-knobs`, `.fw-report`). 1px, not 0: some assistive tech
+   treats a zero-size box as hidden. `clip-path` stops the 1px from painting. */
 .fw-vh {
   position: absolute;
   width: 1px;
@@ -92,9 +76,7 @@
   white-space: nowrap;
   border: 0;
 }
-/* The console's editable custom palette (palette round-2 addendum, task 2).
-   Console-only: SimplePanel.browser.test.tsx pins that it never appears
-   there. */
+/* The console's editable custom palette; the simple view has none. */
 .fw-palette-list {
   display: flex;
   flex-wrap: wrap;
@@ -131,8 +113,8 @@
   color: var(--error);
   border-color: var(--error);
 }
-/* The remove cross weighed as much as the swatch it removes (review change 8):
-   no border, `--ash`, until hover or focus makes it a button. */
+/* Lighter than the swatch it removes: no border, `--ash`, until hover or
+   focus makes it a button. */
 .fw .fw-palette-row .fw-palette-remove {
   border-color: transparent;
   color: var(--ash);
@@ -142,25 +124,17 @@
   border-color: var(--border);
   color: var(--mist);
 }
-/* The cross's own hover keeps the red it had before the rules above: at
-   (0,4,0) the row's hover would otherwise outrank `.fw .fw-palette-remove:hover`. */
+/* The cross's own hover stays red: at (0,4,0) the row's hover would otherwise
+   outrank `.fw .fw-palette-remove:hover`. */
 .fw .fw-palette-row .fw-palette-remove:hover {
   color: var(--error);
   border-color: var(--error);
 }
 .fw-knobs {
-  /* `position: relative` makes the panel the containing block of every `.fw-vh`
-     inside it (spec R3). Without it the 1px box resolved against the initial
-     containing block, at its static position far below the fold, and grew the
-     document: 1077px at 1280×800 in the review's measurement (P1).
-     `container-type: inline-size` is independent of that: a containing block
-     for absolute positioning comes from `position: relative` alone, and
-     `container-type` does not take it away, so `.fw-vh` keeps the same
-     containing block with both declarations present. This is also the query
-     container for `.kv-g .ln`'s narrow-panel collapse (below), for the
-     panel's own width rather than the viewport's — a group's card grid can be
-     narrower than the viewport at 900px and below (`.fw-console`'s rail
-     column), and a viewport query would misjudge it either way. */
+  /* `position: relative` holds every `.fw-vh` inside: without it the 1px box
+     sits at its static position far below the fold and grows the document.
+     The container query is for the narrow-panel collapse below: the panel is
+     narrower than the viewport by the rail, so a viewport query misjudges. */
   position: relative;
   container-type: inline-size;
   background: var(--void);
@@ -188,14 +162,11 @@
   color: var(--ash);
 }
 
-/* Knob rows (handoff 2, PR 2; `css/knob-atoms.css` and `css/knob-grid.css`,
-   the ruled variant folded in). One row per control, and every row of every
-   group on one grid of five tracks — label (+?) | value | min | control | max
-   — so values, tracks, selects and bounds sit on one x down the panel. Only
-   the control track flexes; the label track is fixed at the longest short
-   label (12 characters, lab-i18n.test.ts) plus the `?` and the dependency
-   indent, so a label is never cut. Every knob shape and the preview share
-   it, in the console and the simple view alike. */
+/* Knob rows: every row on one grid of five tracks — label (+?) | value | min
+   | control | max — so values and bounds sit on one x down the panel. Only
+   the control flexes; the label track fits the longest short label (12
+   characters, pinned in lab-i18n.test.ts) plus the `?` and the dependency
+   indent, so a label is never cut. */
 .fw-ldrawer .fw-knobs {
   padding-left: 12px;
   padding-right: 12px;
@@ -278,8 +249,8 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-/* The value is a button that opens the inline entry (Ruling 4); a special
-   value shows its word here, in the numbers' colour and alignment. */
+/* The value is a button that opens the inline entry; a special value shows
+   its word here, in the numbers' colour and alignment. */
 .fw .kv-num {
   min-width: var(--val-n);
   padding: 0;
@@ -375,9 +346,9 @@
   font: inherit;
   font-size: 12px;
 }
-/* The drawn track: the native range input lies over it, transparent and
-   covering the box, so keyboard and touch come from the platform (Ruling 3)
-   and the look does not depend on the browser's slider parts. */
+/* The drawn track: the native range input lies over it, transparent, so
+   keyboard and touch come from the platform and the look does not depend on
+   the browser's slider parts. */
 .kv-track {
   position: relative;
   height: 16px;
@@ -406,8 +377,8 @@
   margin-left: -1px;
   background: var(--signal);
 }
-/* The rule floor: a mark with a reason, never a limit (spec §5.4). The row's
-   own line states the bound in text. */
+/* The rule floor: a mark with a reason, never a limit. The row's own line
+   states the bound in text. */
 .kv-track .floor {
   position: absolute;
   top: 3px;
@@ -577,9 +548,8 @@
 .kv-mix .leg .bad b {
   color: var(--error);
 }
-/* The preview's rows (handoff 2, PR 3). A value with no number — `on`/`off`,
-   a hex, the palette's `n / 8` — is still the value: it ends on the numbers'
-   x, in the numbers' colour and size. */
+/* The preview's rows. A value with no number — `on`/`off`, a hex, the
+   palette's `n / 8` — still ends on the numbers' x, in their colour and size. */
 .kv-g .vc > .kv-unit:only-child {
   width: auto;
   overflow: visible;
@@ -631,11 +601,8 @@
   padding-top: 0;
 }
 /* A panel narrower than the five tracks' floor drops the bound tracks; the
-   range stays in the row's title, and the special value's chip goes with its
-   track. The floor is `.kv-g .ln`'s: calc(12ch + 36px), calc(5ch + 48px),
-   36px, 13ch, 36px and four 8px gaps, 30ch + 188px (404px at 12px). At 359px
-   the bands' 1280–1599 drawer (360–400px of panel) cut the maximum's track
-   off the row (live pass, 2026-09-23). */
+   range stays in the row's title. The floor is `.kv-g .ln`'s tracks and four
+   8px gaps: 30ch + 188px (404px at 12px), wider than the 1280–1599 drawer. */
 @container (width < calc(30ch + 188px)) {
   .kv-g .ln {
     grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
@@ -654,7 +621,7 @@
     margin-right: 0;
   }
 }
-/* A finger: the handoff's touch sizes (§7), for any coarse pointer. */
+/* A finger's sizes, for any coarse pointer. */
 @media (pointer: coarse), (max-width: 767px) {
   .kv-g {
     --row-h: 52px;
@@ -693,13 +660,10 @@
     min-height: 48px;
   }
 }
-/* The switch, lighter (handoff 2, PR 4; `css/knob-atoms.css`): a 28×14
-   square track — zero radii, as the rest of the lab — with a 1px line and an
-   8px square knob. On: line and knob in `--signal`, no fill, so a column of
-   switches reads as marks rather than blocks. Off: the line stays `--ash`
-   (5.9:1 on `--void`), not the reconstruction's `--border-strong` (1.79:1,
-   under the 3:1 a control's boundary needs, WCAG 1.4.11), and the knob is
-   `--mist`. Every switch of the lab: the preview's rows and the run column's. */
+/* Every switch of the lab: a square 28×14 track with a 1px line. On: line and
+   knob in `--signal`, no fill, so a column of switches reads as marks. Off:
+   the line is `--ash` (5.9:1), not `--border-strong` (1.79:1, under the 3:1
+   a control's boundary needs, WCAG 1.4.11). */
 .fw .fw-sw {
   justify-self: end;
   position: relative;
@@ -742,15 +706,14 @@
 }
 
 /* A finger needs more than a 12px track and a text-height number. `shell.css`
-   raises the tabs and Generate the same way (spec §7.2). */
+   raises the tabs and Generate the same way. */
 @media (pointer: coarse), (max-width: 767px) {
   .fw .fw-palette-remove {
     width: 44px;
     height: 44px;
   }
-  /* A finger (handoff 2, PR 4): a 36×18 track and a 12px knob, and a 44×44
-     target around it through `::before` — the drawing grows a little, the
-     target to the full size the design system asks for (§7.2). */
+  /* The drawing grows a little (36×18), the target to the design system's
+     full 44×44 through `::before`. */
   .fw .fw-sw {
     width: 36px;
     height: 18px;
@@ -772,43 +735,37 @@
   }
 }
 
-/* Four rows, one per child Workspace.tsx mounts on the lab (spec R4, handoff
-   2 PR 1): the preset strip, the stage — which holds the console now, in its
-   settings drawer — the clamp region (always mounted, empty when nothing was
-   clamped) and the violations (mounted only when there are some). The last
-   two once fell into implicit rows and the board — 260px plus 32px of padding
-   — was cut at the bottom (review P2). The stage row's floor is that 292px;
-   the notes are capped and scroll inside themselves. */
+/* One row per child Workspace.tsx mounts on the lab: the preset strip, the
+   stage, the clamp region (always mounted) and the violations (only when
+   there are some); an implicit row would cut the board. The stage's floor is
+   the board's 260px plus 32px of padding; the notes scroll inside. */
 .fw-lab {
   display: grid;
   grid-template-rows: auto minmax(292px, 1fr) auto auto;
   min-height: 0;
 }
 /* The simple view has no preset strip, and an absent first child would
-   auto-place the stage into the `auto` row (PR 4a, Ruling 10). */
+   auto-place the stage into the `auto` row. */
 .fw-lab.simple,
 .fw-lab.presets-top {
   grid-template-rows: minmax(292px, 1fr) auto auto;
 }
-/* The saved boards have no preset strip either (handoff 2, PR 6), and the
-   stage is all they put in the lab panel. (0,2,0) after `.fw-lab.simple`, so a
+/* The saved boards have only the stage. (0,2,0) after `.fw-lab.simple`, so a
    simple-view user's saved boards take this template and not that one. */
 .fw-lab.library {
   grid-template-rows: minmax(292px, 1fr);
 }
-/* The run column keeps its node on the saved boards and is hidden (Ruling 1),
-   so a carve in flight keeps its node, its refs and the run itself; the open
-   board's column (`.fw-bcol`) takes its track. A hidden grid item takes none. */
+/* Hidden, not unmounted, on the saved boards, so a carve in flight keeps its
+   node, its refs and the run; the open board's column (`.fw-bcol`) takes the
+   track. */
 .fw-lab.library .fw-stage > .fw-run-col:not(.fw-bcol) {
   display: none;
 }
-/* The stage on both tabs (handoff 2, PR 1 and PR 6): the settings drawer's
-   handle, the board, the right column and the report's handle. The drawer lies over the first
-   track, and `::before` paints that track under its handle. The run column
-   scrolls itself, so the whole command shows (run.css). */
-/* `--hd` is the drawers' handle track: 28px, 44px under a finger (below), so
-   every band's template keeps a finger's handle on a touch tablet without
-   restating the coarse one (handoff 2, PR 7). */
+/* The stage on both tabs: the settings drawer's handle, the board, the right
+   column and the report's handle. The drawer lies over the first track, and
+   `::before` paints that track under its handle. */
+/* `--hd`, the handle track, is 44px under a finger (below), so no band's
+   template has to restate the coarse one. */
 .fw-lab .fw-stage {
   --hd: 28px;
   grid-template-columns: var(--hd) minmax(160px, 1fr) clamp(16rem, 22vw, 28rem) var(--hd);
@@ -827,15 +784,10 @@
   grid-row: 1;
   background: var(--void);
 }
-/* The board gives way by the drawer's width, from 1024px up: below that there
-   is no room to give — the board would be 44px wide at 768 and nothing at 414
-   — so the open drawer lies over the board as the report does, a stopgap
-   until the responsive layout (handoff 2, PR 7) replaces it. Never in solo,
-   which has no drawer: `:not(.solo)` rather than an override back to 0,
-   because 0 would also take the board's own 16px padding, and on the
-   transition as well, so turning solo on does not animate the board's size.
-   The drawer's width plus the board's own 16px (round 3, PR 5): the width
-   alone replaced that padding and left the board flush against the drawer. */
+/* From 1024px up the board gives way by the drawer's width plus its own 16px
+   padding; below, the open drawer lies over it. `:not(.solo)` rather than a
+   reset to 0, which would drop the 16px, and on the transition too, so
+   turning solo on does not animate the board's size. */
 @media (min-width: 1024px) {
   .fw-lab:not(.solo) .fw-stage > .fw-boardwrap {
     transition: padding-left 180ms cubic-bezier(0.2, 0, 0, 1);
@@ -844,8 +796,8 @@
     padding-left: calc(var(--ls-w) + 16px);
   }
 }
-/* In the drawer the rail is 126px (168 before), and the console drops its
-   top rule, which doubled the line under the preset strip. */
+/* In the drawer the rail is 126px, and the console drops its top rule,
+   which doubled the line under the preset strip. */
 .fw-lab .fw-ldrawer > .fw-console {
   grid-template-columns: 126px minmax(0, 1fr);
   border-top: 0;
@@ -881,32 +833,20 @@
   }
 }
 /* Two violations are 90px already, and six knobs out of range grow the list
-   past any row the console could spare (review P2). */
+   past any row the console could spare. */
 .fw-lab > .fw-note {
   max-height: 96px;
   overflow-y: auto;
 }
-/* Solo (spec §5.1): the board takes the whole lab panel. Hidden is everything
-   in the lab but the stage — the preset strip, the violations, the clamp
-   notice, and whatever a later PR puts beside them — and, inside the stage,
-   the settings drawer, the right column (either one) and the report drawer. Both grids are redefined,
-   because a track keeps its size when its only item is `display: none`: the
-   lab's rows become the one stage track (`.fw-lab.simple.solo` outranks
-   `.fw-lab.simple` rather than tying with it), and the stage's three columns —
-   the rail's, the board's and the drawer handle's (shell.css) — become the one
-   board track. Nothing unmounts: the GL context, the run column's focus and a
-   draft being typed all live in the hidden nodes. Measured: `.fw-boardwrap`
-   equals `.fw-lab` and the element is 34px smaller on both axes at 1400×900,
-   860×900 and 860×650, in both views. */
+/* Solo: the board takes the whole lab panel; everything else is hidden, not
+   unmounted (the GL context, focus and a typed draft live in those nodes).
+   Both grids are redefined, because a track keeps its size when its only item
+   is `display: none`. Each variant's solo selector outranks the variant's own
+   rule rather than tying with it, so solo wins whatever the file order. */
 .fw-lab.solo,
 .fw-lab.simple.solo,
-/* (0,3,0), like `.fw-lab.simple.solo` beside it: solo must keep winning over a
-   variant's row template whatever order the file ends up in. With
-   `.fw-lab.library` placed above, `.fw-lab.solo` alone would already do it —
-   this selector is the same insurance the simple view carries, not a fix for a
-   live defect. Review round 3 deleted it and no test moved; it also measured
-   that with the variant rule placed *below* the solo rule instead, deleting it
-   turns the library solo case red. Hence the pinned position above. */
+/* Insurance, not a live fix: while `.fw-lab.library` sits above, `.fw-lab.solo`
+   alone already wins; moved below, this selector is what keeps solo. */
 .fw-lab.library.solo {
   grid-template-rows: minmax(0, 1fr);
 }
@@ -916,10 +856,8 @@
 .fw-lab.solo .fw-drawer {
   display: none;
 }
-/* The stage's placement is (0,3,0) and solo restates it a class above, as it
-   does the one track, so solo keeps winning whatever order the file ends up
-   in, as `.fw-lab.library.solo` does for the rows. The drawer's padding needs
-   nothing here: it is `:not(.solo)` already. */
+/* A class above the stage's (0,3,0) placement, for the same order-proofing.
+   The drawer's padding is `:not(.solo)` already. */
 .fw-lab.solo .fw-stage {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
@@ -930,11 +868,10 @@
 .fw-lab.solo .fw-stage::before {
   display: none;
 }
-/* The bands (handoff 2, PR 7; spec §2). XL ≥1600 is the stage above. Every
-   selector carries `:not(.solo)`, so solo keeps its one track in every band,
-   and none carries `:not(.library)`: the saved boards' column
-   (`.fw-run-col.fw-bcol`) takes the same bar (D4) — the lab's own run column
-   stays hidden there, `(0,5,0)` above against these `(0,4,0)`. */
+/* The bands. XL ≥1600 is the stage above. Every selector carries
+   `:not(.solo)`, so solo keeps its one track, and none carries
+   `:not(.library)`: the saved boards' column takes the same bar, while the
+   lab's own run column stays hidden there at (0,5,0) against these (0,4,0). */
 @media (min-width: 1280px) and (max-width: 1599px) {
   .fw-lab:not(.solo) .fw-stage {
     --ls-w: clamp(24rem, calc(33vw + 100px), 34rem);
@@ -966,7 +903,7 @@
   }
 }
 /* S: no room to push; the open drawer lies over the board and the bar, and is
-   closed at start (spec D3, `ui.slice.ts`). */
+   closed at start (`ui.slice.ts`). */
 @media (min-width: 768px) and (max-width: 1023px) {
   .fw-lab:not(.solo) .fw-stage {
     --ls-w: min(calc(100vw - 112px), 28rem);
@@ -981,9 +918,8 @@
   }
 }
 
-/* The mock's note is bordered in `--warn`; this one is `--error` (Task 7): warn
-   is the rule bound, error is a refusal, and the two colours must not collapse
-   into one. */
+/* The mock's note is bordered in `--warn`; this one is `--error`: warn is the
+   rule bound, error is a refusal, and the two must not collapse into one. */
 .fw-note {
   padding: 12px;
   border: 1px solid var(--border);
@@ -1000,9 +936,8 @@
   padding-left: 18px;
 }
 
-/* The clamp notice: a value moved, nothing was refused. `--warn` is reserved
-   for exactly this and for a rule bound (§7.1); the refusal note keeps
-   `--error`. The empty region has no class at all, so it draws nothing. */
+/* The clamp notice: a value moved, nothing was refused, so `--warn`. The
+   empty region has no class at all, so it draws nothing. */
 .fw-note.hold {
   border-left-color: var(--warn);
 }
@@ -1028,16 +963,14 @@
   }
 }
 
-/* The simple view takes every track the console has: in the settings drawer
-   that is one (PR 4a, Ruling 7; handoff 2, PR 1). */
+/* The simple view takes every track the console has (in the drawer, one). */
 .fw-simple {
   grid-column: 1 / -1;
 }
 
-/* XS (handoff 2, PR 7): one column; the board edge to edge; the settings
-   drawer, the right column and the report as sheets over the board, above
-   the sheet bar. The sheet rules carry `:not(.solo)` so solo's
-   `display: none` keeps winning (Review Focus 3). */
+/* XS: one column; the board edge to edge; the settings drawer, the right
+   column and the report as sheets over the board, above the sheet bar. The
+   sheet rules carry `:not(.solo)` so solo's `display: none` keeps winning. */
 @media (max-width: 767px) {
   .fw-lab:not(.solo) {
     padding-bottom: 56px;
@@ -1128,9 +1061,9 @@
     height: 44px;
     padding: 0 16px;
   }
-  /* The range ends go with their tracks, as in a narrow panel's container
-     query: hidden on five tracks, they left the slider auto-placed in the
-     36px minimum's track (live pass at 600×900, 2026-09-23). */
+  /* The bound tracks go with the bounds, as in the container query above:
+     hidden bounds on five tracks would auto-place the slider in the 36px
+     minimum's track. */
   .kv-g .ln {
     font-size: 14px;
     grid-template-columns: calc(12ch + 36px) calc(var(--val-n) + 4px + var(--val-u)) minmax(0, 1fr);
@@ -1150,9 +1083,9 @@
   }
 }
 
-/* Round 3 (3c): the simple view on the knob rows' grid. A recipe slider has
-   no number to type, so its value is text, and its two end words sit under
-   the track as the row's description (`aria-describedby`). */
+/* The simple view on the knob rows' grid. A recipe slider has no number to
+   type, so its value is text, and its two end words sit under the track as
+   the row's description (`aria-describedby`). */
 .kv-ends {
   display: flex;
   justify-content: space-between;
@@ -1160,9 +1093,8 @@
   font-size: 11px;
   color: var(--ash);
 }
-/* Under the track itself, not across the row (HANDOFF-3's known
-   differences): a second line of the row's own grid, in the control's
-   column, so it keeps the track's x and width at every panel width. */
+/* A second line of the row's own grid, in the control's column, so the words
+   keep the track's x and width at every panel width. */
 .kv-g .ln > .kv-ends {
   grid-column: 4;
   gap: 8px;
@@ -1178,9 +1110,8 @@
   text-align: right;
 }
 /* A panel too narrow for the bound tracks leaves the control in the third
-   column. At XS the track is about 97px, too narrow for the words even
-   wrapped, so they take the whole row, as the reconstruction has them
-   (user ruling, round 3). */
+   column. At XS the track (about 97px) is too narrow even wrapped, so the
+   words take the whole row. */
 @container (width < calc(30ch + 188px)) {
   .kv-g .ln > .kv-ends {
     grid-column: 3;

@@ -28,7 +28,7 @@ Deno.test('reportRows returns 23 rows and 4 separators', () => {
   assertEquals(rows.filter((r) => r.kind === 'separator').length, 4)
 })
 
-// Round 3 of the lab handoff: a surface picks rows by what they are (the
+// A surface picks rows by what they are (the
 // report's summary, its wide values), not by where they stand, so every row
 // names itself — once, and after its dictionary key — and a separator names nothing.
 Deno.test('every row carries its own key, the suffix of its label key, and no two share one', () => {
@@ -46,13 +46,8 @@ Deno.test('every row carries its own key, the suffix of its label key, and no tw
 })
 
 // A hand-built run, not a generated one: `generate()`'s genMs varies between
-// runs, and a pin that cannot be stable cannot be a pin. Every field below is
-// read by `reportRows`; the values were picked to avoid float-rounding
-// ambiguity (e.g. bends 1.5, not 1.45) and the expected array was produced by
-// running today's `reportRows` and checked by hand against the format string
-// each row uses (a `toFixed` width, `pct`, or a hand-rolled percentage) and
-// against the plan's count: 23 rows, 4 separators, two decimals under ten
-// seconds for `genSeconds`.
+// runs. The values avoid float-rounding ties (bends 1.5, not 1.45), and the
+// expected array was checked by hand against each row's format.
 const pinnedMetrics: Metrics = {
   N: 20,
   solvable: true,

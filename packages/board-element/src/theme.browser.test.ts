@@ -107,13 +107,9 @@ test('changing only the theme repaints without re-tesselating', async () => {
   el.remove()
 })
 
-// A `view` object the caller replaced with an equal one — standing in for
-// the lab's `BoardFrame`, whose `useMemo` yields a fresh `elementView`
-// whenever the view slice moves at all, `cell` included, though `boardViewOf`
-// drops `cell` before this object is built — must cost nothing. Before this
-// fix, `onlyColors` was true but the (unchanged) colour string fell through
-// the `if` and every branch below ran `syncSession()` + `redraw()`, moving
-// `scenesBuiltForTest` for a change that altered neither a vertex nor a colour.
+// A `view` replaced by an equal object must cost nothing: the lab's
+// `BoardFrame` hands a fresh one whenever its view slice moves at all, even
+// on a field the element never sees.
 test('a view update with the same colours and geometry repaints nothing', async () => {
   const el = await mount()
   el.enableColors = true
@@ -131,13 +127,8 @@ test('a view update with the same colours and geometry repaints nothing', async 
   el.remove()
 })
 
-// Fix round 1: `geometryKeyOf` must include `colored`, not only the six
-// fields the brief's Step 3 named. `strokeOf` (tesselate.ts) draws a
-// `top`-highlighted piece at 1.5x its stroke when `colored` is on and 1.15x
-// when it is off — a `view.top`-nonzero board whose colour permission flips
-// therefore needs new geometry, not merely new colours, and `updated()` must
-// take the full `redraw()` path (scenesBuiltForTest moves) rather than the
-// cheap `setColors` one.
+// `colored` is geometry (see `geometryKeyOf`), so flipping the permission with
+// pieces highlighted takes a full `redraw()`, not just `setColors`.
 test('toggling colour with pieces highlighted rebuilds the geometry, not just the colours', async () => {
   const el = await mount()
   el.view = { top: 2, colored: true }
@@ -146,10 +137,8 @@ test('toggling colour with pieces highlighted rebuilds the geometry, not just th
   await raf()
   const layer = layerOf(el)
   const built = layer.scenesBuiltForTest
-  // `this.colored` (the element's private getter) is `enableColors &&
-  // (coloredOverride ?? view.colored ?? false)`: with enableColors still
-  // false here it read false despite `view.colored: true`, so flipping
-  // enableColors now is what actually moves the drawn `colored` value.
+  // The element's `colored` getter needs `enableColors` too, so this flip is
+  // what moves the drawn value.
   el.enableColors = true
   await el.updateComplete
   await raf()
@@ -157,17 +146,10 @@ test('toggling colour with pieces highlighted rebuilds the geometry, not just th
   el.remove()
 })
 
-// Ruling 2: spec §3.1 governs over §8's test list (see the plan's design
-// note). Without enableColors a theme still supplies paper, ink and
-// highlight — the surface, not "colours of pieces" — but the palette must
-// not apply. The paper half of that is read the same way the tests above
-// read it. The piece half needs a location the geometry actually draws:
-// gl-passes.ts's drawPieces passes `useAttr = view.colored && hasColorBuffer`
-// to the shader, and with it false every piece pass draws flat `ink`,
-// ignoring the per-piece colour attribute buffer entirely — so a piece pixel
-// that reads back as the theme's ink, and not as any of its five palette
-// accents, is a piece the palette never touched, not merely a piece that
-// happens to look like it.
+// Without enableColors a theme still supplies the surface (paper, ink,
+// highlight) but not the palette. With `useAttr` false, `drawPieces` draws
+// every piece flat `ink`, so a piece pixel that reads back as the theme's ink,
+// not one of its palette accents, is one the palette never touched.
 test('with enableColors off, a theme still paints paper and ink but never the palette', async () => {
   const el = await mount()
   el.theme = 'gruvbox-dark'
@@ -214,7 +196,7 @@ test('the host announces the paper it painted, and its own background follows', 
   await el.updateComplete
   await raf()
   // No theme: the announced value is the element's own default, and the host
-  // paints it -- the literal that used to be hard-coded in `:host`.
+  // paints it.
   expect(el.style.getPropertyValue('--arrowz-paper')).toBe('#f6f6fa')
   expect(getComputedStyle(el).backgroundColor).toBe('rgb(246, 246, 250)')
 

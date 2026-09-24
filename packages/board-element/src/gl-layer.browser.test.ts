@@ -129,10 +129,10 @@ const BENT: Piece = { id: 0, dir: 1, cells: [{ x: 5, y: 5 }, { x: 4, y: 5 }, { x
 const INK_ON_PAPER = { ...DEFAULT_VIEW, paper: '#ffffff', ink: '#000000' }
 
 /**
- * Far past MAX_CELL_PX on purpose. The triangle fans this layer used to draw
- * kept each facet's sagitta under half a device pixel at MAX_CELL_PX, so only
- * here does a facet's chord sit measurably inside the true circle — about 38
- * device pixels for a tail at dpr 2, 12 for a corner.
+ * Far past MAX_CELL_PX on purpose: a faceted fan keeps its sagitta under half
+ * a device pixel at MAX_CELL_PX, so only here would a facet's chord sit
+ * measurably inside the true circle (about 38 device pixels for a tail at
+ * dpr 2, 12 for a corner).
  */
 const PROBE_CELL_PX = 4000
 
@@ -276,14 +276,10 @@ test('a pan re-stating the same point settings costs the pan and nothing else', 
   await drawn()
   const before = layer.drawsForTest
 
-  // The element hands the layer all three point settings on every viewport
-  // change, because only it knows whether `cellPx` has crossed
-  // MIN_POINT_CELL_PX (arrowz-board.ts, `updatePoints`). Each viewport below
-  // legitimately costs its own frame; the settings that come with it have not
-  // moved and must cost none — which is also what keeps `rgbaOf`, a
-  // `getImageData` readback, out of the frames of a pan. They are re-stated
-  // on a frame of their own here, because inside the viewport's frame a
-  // second `schedule()` would be free whether it was wanted or not.
+  // The element re-sends the point settings on every viewport change
+  // (`updatePoints`); unchanged, they must cost no frame, which keeps `rgbaOf`'s
+  // readback out of a pan. Re-stated on a frame of their own, because inside
+  // the viewport's frame a second `schedule()` would be free anyway.
   for (const factor of [1.1, 1.2, 1.3]) {
     layer.setViewport({ ...v, cellPx: v.cellPx * factor })
     await drawn()
@@ -803,8 +799,8 @@ test('a monochrome board allocates no colour buffer, and the first colouring bui
   const b = board()
   show(b)
   layer.drawNowForTest()
-  // Spec §8: the colour buffer is the diagnostic mode's alone, and it is what
-  // the ceiling case's 47.7 MB rather than 73 MB rests on.
+  // The colour buffer is the diagnostic mode's alone: the ceiling case's
+  // 47.7 MB rather than 73 MB rests on it.
   expect(layer.hasColorsForTest).toBe(false)
 
   layer.setBoard(b, { ...DEFAULT_VIEW, colored: true })

@@ -1,27 +1,12 @@
-/* The command palette, with the mock's own figures (spec §9). No transition
+/* The command palette, with the mock's own figures. No transition
    and no blur touches any of these selectors: that is the design system's
    rule, not an omission. */
 
-/* The ⌘K trigger. It sits in the top bar but it is the palette's, so it is
-   dressed here beside the dialog it opens rather than in `shell.css` with the
-   rest of the bar: the two move together, and a bar that never gained a
-   palette would want neither.
-
-   The child combinator is not decoration, though what it prevents is narrower
-   than it first looks. `.fw-top .right` also holds the two `Segmented` groups,
-   and `.fw .fw-seg button` is (0,2,1) exactly as `.fw-top .right button` would
-   be — with `palette.css` imported after `shell.css` in `main.tsx`, a
-   descendant selector here would win that tie on order and reach the chips.
-   Most of it would change nothing: the height, the background and the cursor
-   are already what the chips carry, and their colour and border colour are
-   pinned one file over by `.fw .fw-top .fw-seg button` at (0,3,1), which
-   outranks it. The padding is the one declaration that would land, squeezing
-   the chips from 10px to 8px. Keeping the trigger's rule off them altogether
-   is still worth more than arguing over which half survives. The trigger is
-   `.right`'s only direct button child; the chips are wrapped in `.fw-seg`.
-
-   The border and the hover are `--ink` at low alpha, the bar's text colour:
-   the chips make the same choice one file over. */
+/* The ⌘K trigger: in the top bar, but dressed here beside the dialog it
+   opens, since the two move together. The child combinator keeps the rule off
+   the `Segmented` chips in `.right` (wrapped in `.fw-seg`): a descendant
+   selector would tie with `.fw .fw-seg button` and win on import order. The
+   border and hover are `--ink` at low alpha, as the chips' are. */
 .fw-top .right > button {
   height: 24px;
   padding: 0 8px;

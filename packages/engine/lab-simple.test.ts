@@ -211,11 +211,8 @@ Deno.test('the sliders pull the knobs the way their ends promise, monotonically'
 // Measured: at 600×600 pStraight 0.6 leaves boards unclosed, 0.65 and 0.7
 // close; at 1000×1000 layers mode starves. The random ranges narrow with
 // the board, while the small boards keep the wider ones.
-// Measured in round 14: at 1000x1000 the middle of the shape slider could
-// draw a nook rule of 3 with a coiling penalty of 8 at a straightness of 0.8,
-// and that board never closes (0/1 in the campaign, and its neighbours 0/3).
-// The fix pulls the corner in rather than pushing the straightness up, so the
-// board a position gives WITHOUT randomising has to come out unchanged.
+// The corner case and its fix are `fitWinding`'s: the board a position gives
+// WITHOUT randomising has to come out unchanged.
 Deno.test('a slider position never offers a corner the engine could not close', () => {
   for (const size of SIMPLE_SIZES) {
     for (let i = 0; i <= 4; i++) {
@@ -263,9 +260,8 @@ Deno.test('big boards get a higher straightness floor and no layers mode when ra
 
 // The pin goes over the finished draw, never into it. Skipping a pinned
 // knob's draw() would leave one value of the stream unspent and shift every
-// partner drawn after it — measured on this very choice before the fix:
-// wLateral 4 -> 5, warns 4 -> 5, anticoil 6 -> 7. A constant rng hides that,
-// so this test runs a real stream.
+// partner drawn after it (on this choice, wLateral, warns and anticoil). A
+// constant rng hides that, so this test runs a real stream.
 Deno.test('a pin changes only the knob it names, and never moves its partners', () => {
   const c = choice({ W: 60, H: 60, lengths: 0.5, shape: 0.5 })
   // A fresh generator per call: mulberry32 is stateful, and the claim under
@@ -338,9 +334,8 @@ Deno.test('the draw says which value it had to move, and under which rule', () =
 })
 
 Deno.test('every value the draw moves is a value the draw reports', () => {
-  // The invariant the note rests on, and the answer to the audit's last open
-  // item: the envelope runs AFTER the draw, so the draw may move a value to
-  // keep a rule -- but it may not move one in silence. Swept over the everyday
+  // The envelope runs AFTER the draw, so the draw may move a value to keep a
+  // rule -- but it may not move one in silence. Swept over the everyday
   // choices and every knob a command line can pin, at both ends of its range:
   // any knob that comes out different from the unpinned draw has to be in the
   // report. A future transform that clamps something new fails here.

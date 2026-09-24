@@ -39,7 +39,7 @@ export interface EventRow {
 
 // `as const satisfies` and not an annotation: an annotation wins over `as
 // const` and collapses the key type to `string`, which would let a description
-// go missing without the compiler noticing — measured while planning this PR.
+// go missing without the compiler noticing.
 export const ELEMENT_PROPS = [
   // `BoardData | null`, which is what the class declares: wider than `Board`,
   // since `Board extends BoardData` and the property accepts either.
