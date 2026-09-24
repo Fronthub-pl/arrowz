@@ -6,12 +6,12 @@ import {
   POINT_RADIUS_RANGE,
   themeOf,
 } from '@arrowz/board-element'
-import { VIEW_RANGE } from '@arrowz/engine/command'
+import { buildCommand, VIEW_RANGE } from '@arrowz/engine/command'
 import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, expect, test } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
-import { PALETTE_CAP } from '../state/view.slice'
+import { PALETTE_CAP, viewOf } from '../state/view.slice'
 import { useStore } from '../state/store'
 import { ViewPanel } from './ViewPanel'
 // The disabled-button case reads a real computed colour, which needs the
@@ -90,6 +90,21 @@ test('the panel draws the point grid controls, in a block that opens with the gr
   expect(Number(radius?.min)).toBe(POINT_RADIUS_RANGE.min)
   expect(Number(radius?.max)).toBe(POINT_RADIUS_RANGE.max)
   expect(radius?.checkValidity()).toBe(true)
+})
+
+// Nothing before this case in the file touches `hilite`, so the switch here
+// is the slice's own starting value, not one a prior case left behind.
+test('a fresh preview starts with the highlight off, and switching it on shows the top count', async () => {
+  const screen = await render(<ViewPanel />)
+  const hilite = screen.getByRole('switch', { name: 'longest' })
+  await expect.element(hilite).toHaveAttribute('aria-checked', 'false')
+  expect(document.getElementById('dep-hilite')?.hidden).toBe(true)
+  expect(buildCommand(useStore.getState().params.values, viewOf(view()))).not.toContain('--top')
+
+  await hilite.click()
+  await expect.element(hilite).toHaveAttribute('aria-checked', 'true')
+  expect(document.getElementById('dep-hilite')?.hidden).toBe(false)
+  expect(buildCommand(useStore.getState().params.values, viewOf(view()))).toContain('--top=5')
 })
 
 test('the point radius row shows the clamped value after commit, not what was typed', async () => {

@@ -130,7 +130,9 @@ export function decodeHash(hash: string): HashPayload | null {
       top: num(raw.top),
       rounded: raw.rounded !== false,
       colored: raw.colored === true,
-      hilite: raw.hilite !== false,
+      // Off unless the link states it on, the same rule as `colored`: a link
+      // that predates the flag must not switch the highlight on for it.
+      hilite: raw.hilite === true,
       // An old link's `help` key is ignored.
       lang: isLang(raw.lang) ? raw.lang : undefined,
       theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,

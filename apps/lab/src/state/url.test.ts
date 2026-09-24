@@ -43,11 +43,18 @@ describe('the hash codec', () => {
     expect(decodeHash(link)?.view.headWidth).toBe(0)
   })
 
-  it('defaults the three flags the way the previous lab does', () => {
+  it('defaults rounded and colored the way the previous lab does, and the highlight off', () => {
     const bare = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: {} })))
     expect(bare?.view.rounded).toBe(true)
-    expect(bare?.view.hilite).toBe(true)
+    // Like `colored`: a link that predates the flag, or never named it, opens
+    // with the highlight off. Turning it on is the option.
+    expect(bare?.view.hilite).toBe(false)
     expect(bare?.view.colored).toBe(false)
+  })
+
+  it('reads a link that states the highlight on, and keeps it stated', () => {
+    const on = decodeHash('#' + encodeURIComponent(JSON.stringify({ __view: { hilite: true } })))
+    expect(on?.view.hilite).toBe(true)
   })
 
   // An old link carrying `help` still loads, without it.

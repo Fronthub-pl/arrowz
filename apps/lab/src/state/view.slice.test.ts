@@ -40,10 +40,16 @@ test('the fields start where the previous lab starts them', () => {
   expect(view().cell).toBe(12)
   expect(view().stroke).toBe(DEFAULT_VIEW.stroke)
   expect(view().rounded).toBe(true)
-  expect(view().hilite).toBe(true)
   expect(view().voids).toBe(true)
   expect(declared.colored).toBe(false)
   expect(view().top).toBe(5)
+})
+
+// The highlight is off by default: turning it on is the option, not the other
+// way round. `top` still starts at 5, ready for the moment the switch flips.
+test('the highlight starts off, so viewOf reports no top count either', () => {
+  expect(declared.hilite).toBe(false)
+  expect(viewOf(declared).top).toBe(0)
 })
 
 test('paper, ink and highlight start unset, so a theme decides them', () => {
@@ -77,13 +83,16 @@ test('a whole field rounds', () => {
 })
 
 test('the highlight flag is what zeroes top, because the CLI has no flag for it', () => {
+  // Off by default, so this case (about the flag, not its default) states it on.
+  view().setFlag('hilite', true)
   view().setNumber('top', '9')
   expect(viewOf(view()).top).toBe(9)
-  view().toggle('hilite')
+  view().setFlag('hilite', false)
   expect(viewOf(view()).top).toBe(0)
   // The number itself survives the flag, so switching back restores it.
   expect(view().top).toBe(9)
-  view().toggle('hilite')
+  // Left off, as the slice starts: nothing here states the highlight on for
+  // whichever case in this file runs next.
 })
 
 test('voids is not part of the view: the CLI has no such flag', () => {

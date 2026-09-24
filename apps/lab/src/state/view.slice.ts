@@ -132,7 +132,7 @@ export function createViewSlice(set: SetStore): ViewState {
     top: 5,
     colored: false,
     rounded: true,
-    hilite: true,
+    hilite: false,
     voids: true,
     showPoints: false,
     pointColor: DEFAULT_POINT_COLOR,
