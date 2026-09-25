@@ -108,7 +108,7 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       section: 'knob',
       name: deps.dict.t(flag.label),
       note: deps.dict.t('preview'),
-      value: state.view[flag.flag] ? 'on' : 'off',
+      value: deps.dict.t(state.view[flag.flag] ? 'valueOn' : 'valueOff'),
       hay: flag.flag,
       disabled: false,
       run: () => jumpTo(deps, 'preview', `view-${flag.flag}`),

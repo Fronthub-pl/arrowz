@@ -50,6 +50,7 @@ beforeEach(() => {
   // `boardError` outranks even the refusal, so a case that sets it would
   // otherwise decide every case after it in this file.
   state.library.reset()
+  useStore.setState((s) => ({ lang: { ...s.lang, lang: 'en' } }))
 })
 
 describe('RunStatusBar', () => {
@@ -180,6 +181,16 @@ describe('RunStatusBar', () => {
     await expect
       .poll(() => screen.getByRole('status').element().textContent)
       .toBe(EN.t('boardFileError', '8x8/sha256-ab', 'HTTP 500: gateway down'))
+  })
+
+  // The lab words this one itself, so it follows the page's language.
+  it('says a board is not in the store in the page’s language, and rewords it on a switch', async () => {
+    useStore.getState().library.boardFailed({ name: '8x8/sha256-ab', reason: null })
+    const screen = await mountBar('/boards/8x8/sha256-ab')
+    const text = () => screen.getByRole('status').element().textContent
+    await expect.poll(text).toBe(EN.t('boardNotStored', '8x8/sha256-ab'))
+    useStore.getState().lang.setLang('pl')
+    await expect.poll(text).toBe(dictionary('pl').t('boardNotStored', '8x8/sha256-ab'))
   })
 
   // Both library branches ask the tab, not the slice alone: on the way back to
