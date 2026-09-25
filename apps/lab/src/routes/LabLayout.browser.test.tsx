@@ -816,7 +816,7 @@ test.each([
     expect(bar.width).toBe(1)
     expect(bar.height).toBe(1)
     const output = screen.getByRole('status', { name: 'Run status' })
-    await expect.element(output).toMatchTextContent(/Board closed/)
+    await expect.element(output).toMatchTextContent(/Board complete/)
     const view = rect(screen.container, '.fw-view')
     const lab = rect(screen.container, '.fw-lab')
     expect(lab.top).toBeCloseTo(view.top, 0)
@@ -862,7 +862,7 @@ test('at 1440×900 in Polish Generate is the meter and the line under it wraps i
     .toHaveAttribute('aria-valuenow', '41.3')
   expect(one(screen.container, '.fw-stage').getAttribute('aria-busy')).toBe('true')
   const line = one(screen.container, '#run-column > .fw-runstate')
-  expect(line.textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+  expect(line.textContent).toBe('52 strz. · zostało 734 · nawroty 18 · 1,4 s')
   const lineHeight = Number.parseFloat(getComputedStyle(line).lineHeight)
   expect(line.getBoundingClientRect().height).toBeCloseTo(2 * lineHeight + 6 + 8, 0)
   // The full sentence, percent included, is still the live region's.

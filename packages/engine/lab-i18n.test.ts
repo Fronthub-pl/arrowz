@@ -324,6 +324,8 @@ Deno.test('the console rail names itself and its two sections in both languages'
     assertStringIncludes(named, '2')
     assertNotEquals(named, 'shape 2')
   }
+  assertEquals(dictionary('en').t('railElement'), 'look')
+  assertEquals(dictionary('pl').t('railElement'), 'wygląd')
 })
 
 Deno.test('the rule marker states the bound it marks', () => {
@@ -506,13 +508,13 @@ Deno.test('the board mode counts cells and mistakes in both languages, Polish in
     'Plansza wyczyszczona · 22 błędy',
   ])
   assertEquals([1, 2, 5].map((n) => PL.ui.pieceFacts(3, n, '→ w prawo')), [
-    'Element #3 · 1 komórka · → w prawo',
-    'Element #3 · 2 komórki · → w prawo',
-    'Element #3 · 5 komórek · → w prawo',
+    'Strzałka #3 · 1 komórka · → w prawo',
+    'Strzałka #3 · 2 komórki · → w prawo',
+    'Strzałka #3 · 5 komórek · → w prawo',
   ])
   assertEquals([PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
-    'zablokowany przez #4 w odległości 1 komórki',
-    'zablokowany przez #4 w odległości 3 komórek',
+    'zablokowana przez #4 w odległości 1 komórki',
+    'zablokowana przez #4 w odległości 3 komórek',
   ])
   assertEquals([EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 0)], [
     'blocked by #4 at 1 cell',
@@ -545,4 +547,15 @@ Deno.test('the merged-leftovers value agrees with both counts, Polish in its thr
     '3 łatki (3 komórki)',
     '5 łatek (22 komórki)',
   ])
+})
+
+Deno.test('a board is complete or incomplete, and the saved list counts arrows', () => {
+  const en = dictionary('en')
+  const pl = dictionary('pl')
+  assertEquals(en.t('closed'), 'Board complete: every cell filled.')
+  assertEquals(pl.t('notClosed'), 'niepełna')
+  assertEquals(en.t('piecesShort', 120), '120 arrows')
+  assertEquals(pl.t('piecesShort', 120), '120 strz.')
+  assertEquals(pl.t('longestShort', 69), 'najdłuższa 69')
+  assert(!('title' in EN.ui) && !('subtitle' in EN.ui), 'the two unread keys are gone')
 })

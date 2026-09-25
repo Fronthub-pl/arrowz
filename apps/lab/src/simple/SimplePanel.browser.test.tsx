@@ -343,7 +343,7 @@ describe('SimplePanel', () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     for (const id of ['view-stroke', 'view-headWidth', 'view-headHeight', 'view-theme'])
       expect(screen.container.querySelector(`#${id}`), id).not.toBeNull()
-    for (const name of ['rounded', 'multicolour', 'longest'])
+    for (const name of ['rounded', 'multicolour', 'mark longest'])
       await expect.element(screen.getByRole('switch', { name })).toBeVisible()
     expect(screen.container.querySelector('#view-cell')).toBeNull()
     expect(screen.container.querySelector('#view-top')).toBeNull()
@@ -400,7 +400,7 @@ describe('SimplePanel', () => {
     expect(help?.textContent).toBe(EN.t('headHeightHelp'))
     expect(help?.closest('.kv-row')).toBe(track?.closest('.kv-row'))
     expect(help?.classList.contains('fw-vh')).toBe(true)
-    await screen.getByRole('button', { name: EN.t('aboutKnob', 'head height') }).click()
+    await screen.getByRole('button', { name: EN.t('aboutKnob', 'head length') }).click()
     expect(help?.classList.contains('fw-vh')).toBe(false)
   })
 

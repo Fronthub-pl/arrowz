@@ -78,7 +78,7 @@ test('the panel draws all twelve preview controls, as rows', async () => {
 
 test('the panel draws the point grid controls, in a block that opens with the grid', async () => {
   const screen = await render(<ViewPanel />)
-  const grid = screen.getByRole('switch', { name: 'point grid' })
+  const grid = screen.getByRole('switch', { name: 'dot grid' })
   await expect.element(grid).toHaveAttribute('aria-checked', 'false')
   expect(document.getElementById('dep-points')?.hidden).toBe(true)
   await grid.click()
@@ -97,7 +97,7 @@ test('the panel draws the point grid controls, in a block that opens with the gr
 // behind.
 test('a fresh preview starts with the highlight off, and switching it on shows the top count', async () => {
   const screen = await render(<ViewPanel />)
-  const highlightLongest = screen.getByRole('switch', { name: 'longest' })
+  const highlightLongest = screen.getByRole('switch', { name: 'mark longest' })
   await expect.element(highlightLongest).toHaveAttribute('aria-checked', 'false')
   expect(document.getElementById('dep-highlight-longest')?.hidden).toBe(true)
   expect(buildCommand(useStore.getState().params.values, viewOf(view()))).not.toContain('--top')
@@ -208,9 +208,9 @@ test('every number row declares the bounds the engine actually takes', async () 
 
 test('a value being typed is not written until it is committed', async () => {
   const screen = await render(<ViewPanel />)
-  await screen.getByRole('button', { name: /^stroke:/ }).click()
+  await screen.getByRole('button', { name: /^thickness:/ }).click()
   // By name: a colour input is a textbox to the accessibility tree too.
-  const entry = screen.getByRole('textbox', { name: 'stroke', exact: true })
+  const entry = screen.getByRole('textbox', { name: 'thickness', exact: true })
   await userEvent.fill(entry, '0.')
   expect(view().stroke).toBe(0.5)
   await userEvent.fill(entry, '0.8')
@@ -220,8 +220,8 @@ test('a value being typed is not written until it is committed', async () => {
 
 test('a stroke typed with a decimal comma is written, a cell size with one is not', async () => {
   const screen = await render(<ViewPanel />)
-  await screen.getByRole('button', { name: /^stroke:/ }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0,35')
+  await screen.getByRole('button', { name: /^thickness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0,35')
   await userEvent.keyboard('{Enter}')
   expect(view().stroke).toBe(0.35)
   await screen.getByRole('button', { name: /^export cell:/ }).click()
@@ -382,7 +382,7 @@ test('the add button names the cap help text as its accessible description', asy
   const describedBy = add.element().getAttribute('aria-describedby')
   expect(describedBy).not.toBeNull()
   const help = describedBy === null ? null : screen.container.querySelector(`#${describedBy}`)
-  expect(help?.textContent).toContain(`Up to ${PALETTE_CAP} colours`)
+  expect(help?.textContent).toContain(`up to ${PALETTE_CAP}.`)
 })
 
 test('choosing a theme keeps a custom palette built in the editor', async () => {
@@ -435,7 +435,7 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
   paper.dispatchEvent(new Event('input', { bubbles: true }))
   expect(view().paper).toBe('#010203')
 
-  await screen.getByRole('button', { name: /clear the paper/i }).click()
+  await screen.getByRole('button', { name: /clear the background/i }).click()
   // Back to "not set", which is what lets a theme supply it again.
   expect(view().paper).toBe('')
 })
@@ -472,7 +472,7 @@ test('the top count sits under longest, in a block that closes with it', async (
   const screen = await render(<ViewPanel />)
   const block = () => document.getElementById('dep-highlight-longest')
   expect(block()?.querySelector('#view-top')).not.toBeNull()
-  const highlightLongest = screen.getByRole('switch', { name: 'longest' })
+  const highlightLongest = screen.getByRole('switch', { name: 'mark longest' })
   try {
     if (highlightLongest.element().getAttribute('aria-checked') !== 'true') await highlightLongest.click()
     expect(block()?.hidden).toBe(false)

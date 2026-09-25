@@ -89,7 +89,7 @@ test('Generate carves a board, draws it, and says so', async () => {
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board closed 100%\.(?: — (?:not )?saved.*)?$/)
+      .toMatchTextContent(/^Board complete: every cell filled\.(?: — (?:not )?saved.*)?$/)
 
     // The board the load run left, held so the press below can be told from it:
     // the page is already `done` when the click lands, so polling the phase
@@ -112,7 +112,7 @@ test('Generate carves a board, draws it, and says so', async () => {
     expect(element?.board?.pieces.length).toBeGreaterThan(0)
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/Board closed/)
+      .toMatchTextContent(/Board complete/)
 
     // A full run from Generate to a drawn board with zero console errors.
     expect(errors).toEqual([])
@@ -161,7 +161,7 @@ test('a run in flight survives a route change, and finishes into the same elemen
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await expect
     .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-    .toMatchTextContent(/^[\d.]+% · .* pieces · .* left/)
+    .toMatchTextContent(/^[\d.]+% · .* arrows · .* left/)
 
   const before = screen.container.querySelector('arrowz-board')
   expect(before).not.toBeNull()
@@ -287,7 +287,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     expect(useStore.getState().run.phase).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
+      .toMatchTextContent(/^Board complete: every cell filled\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 
     // The guard keys on the file object's identity, not its value: the second
@@ -787,8 +787,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     // without generating anything.
     const phase = useStore.getState().run.phase
     await userEvent.click(screen.getByRole('tab', { name: 'Preview', exact: true }))
-    await screen.getByRole('button', { name: /^stroke:/ }).click()
-    await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+    await screen.getByRole('button', { name: /^thickness:/ }).click()
+    await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)

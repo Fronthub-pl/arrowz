@@ -62,7 +62,7 @@ test('the stored view is three number rows and two switches, from the board’s 
       .map((sw) => sw.id),
   ).toEqual(['view-rounded', 'view-colored'])
   await expect
-    .element(screen.getByRole('button', { name: /^stroke:/ }))
+    .element(screen.getByRole('button', { name: /^thickness:/ }))
     .toHaveTextContent(String(stored.meta.view.stroke))
   expect(screen.container.querySelector('#view-top')).toBeNull()
   expect(screen.container.querySelector('#view-cell')).toBeNull()
@@ -73,8 +73,8 @@ test('an edit lands in the stored board’s view, clamped, and leaves the lab’
   const lab = useStore.getState().view.stroke
   const screen = await mountPreview()
   await show()
-  await screen.getByRole('button', { name: /^stroke:/ }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '5')
+  await screen.getByRole('button', { name: /^thickness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '5')
   await userEvent.keyboard('{Enter}')
   expect(useStore.getState().result.preview?.meta.view.stroke).toBe(VIEW_RANGE.stroke.max)
   expect(useStore.getState().view.stroke).toBe(lab)

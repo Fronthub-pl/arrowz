@@ -210,8 +210,8 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   const screen = await mountDetail(undefined, <BoardPreview />)
   await show()
 
-  await screen.getByRole('button', { name: /^stroke:/ }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+  await screen.getByRole('button', { name: /^thickness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
   await userEvent.keyboard('{Enter}')
   expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
 
