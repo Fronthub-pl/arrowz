@@ -115,25 +115,27 @@ drawer behind the modal, `g` starts a carve and Tab walks into the page.
   palette on a press outside the frame) also calls `preventDefault()` on a
   press inside the frame whose target is not the input, so no click inside
   the palette takes the focus from the input. A row's `onClick` still fires.
-  Not a JSX `onMouseDown` on the frame: `jsx-a11y/no-noninteractive-element-interactions`
-  allows only key handlers on `role="dialog"`.
-- `onKeyDown` moves from the input to the frame. Keys from the input bubble
-  to it unchanged, so arrows, Home, End, Enter, Escape and Tab behave as
-  today, and a key pressed with the focus anywhere else in the frame is
-  handled too.
-- The document's hotkeys (`useSoloKey`, `useDrawerKeys`, `useRunKeys`) skip
-  an event that is `defaultPrevented` or whose target is a field
-  (`isHotkeyRefused`). A key from the input is already refused; the frame
-  therefore calls `preventDefault()` on every key whose target is not the
-  input, so no hotkey acts behind the modal whichever element holds the
-  focus.
+- The input keeps its own key handler unchanged. A native `keydown` listener
+  on the frame handles a key whose target is not the input (only a focus
+  moved there by hand): Escape closes the palette, any other key (except with
+  ⌘ or Ctrl) returns the focus to the input; both call `preventDefault()`, and
+  the document's hotkeys (`useSoloKey`, `useDrawerKeys`, `useRunKeys`) skip a
+  prevented event (`isHotkeyRefused`).
+- Both listeners are native, in effects: `jsx-a11y/no-noninteractive-element-interactions`
+  matches its exceptions by element type, so its `dialog` exception covers a
+  `<dialog>` tag, not a `div` with `role="dialog"`.
 
-## 4. A decimal comma
+## 4. A decimal comma, in fractional fields only
 
-`DraftNumber.commit` parses `raw.trim().replace(',', '.')`. It is the one
-entry point for every numeric row, so stroke, head width and height, the
-shares and the point radius all take `0,35`. Only the first comma is
-replaced: `1,2,3` stays invalid.
+`DraftNumber` gets a `decimal` prop; with it, `commit` parses
+`raw.trim().replace(',', '.')`. Only the first comma is replaced: `1,2,3`
+stays invalid. A whole-number field has no decimal part for a comma to
+separate, and there a comma could only be read as a thousands separator
+(`1,000` → 1, clamped to a 4-wide board), so it keeps today's behaviour and
+commits nothing. The callers pass `decimal` from what they know: a generator
+knob when `spec.step` is not an integer, a view field when
+`VIEW_RANGE[field].whole` is false, an element row (point radius, margin)
+when its `step` is not an integer.
 
 ## 5. Polish strings
 
@@ -158,7 +160,7 @@ the assertion that fails.
 | View version, store | `packages/cli/store.test.ts`: a save with head height 0 reads back 0 and writes `viewVersion`; a hand-written legacy meta with 0 reads the default. | Deno |
 | Redirects | The whole app mounted at `/unknown#…` and `/docs#…`: the link's knobs are in the store. A test of `KeepHashNavigate` alone would pass before the fix, because the bug is the effect order between parent and child. | chromium |
 | Palette | Open ⌘K, click the disabled Abort row, press Escape: the palette closes and the report drawer stays open. The same after a click on the footer. `g` does not start a carve; the focus is in the input. | chromium |
-| Decimal comma | Typing `0,35` and Enter in the stroke field sets 0.35. | chromium |
+| Decimal comma | Typing `0,35` and Enter in the stroke field sets 0.35; `1,5` in the export cell size changes nothing. | chromium |
 | Polish strings | The palette in PL shows "wł."; a missing board gives the Polish sentence and rewords on a language switch. The three tests that pass `reason: 'not in the store'` move to the new shape. | chromium |
 
 Gates: `deno task verify`, then `pnpm nx run-many -t verify` in a clean

@@ -29,7 +29,7 @@
 2. **Boards already on disk.** A meta without `viewVersion` reads a head height of 0 as the default, in the top-level view and in every recipe, and a later save over it keeps those old recipes at the default. Task 1 pins both.
 3. **Typing on after a click in the palette.** After a click on a row or the footer, typed letters must still reach the search box and filter the list, not the page. Task 4's component case types after the clicks.
 4. **A language switch after the store refused a board.** The sentence must follow the page's language, because the lab words it at render time. Task 6 switches the language mid-case.
-5. **A number with more than one comma, or surrounding spaces.** `1,2,3` must commit nothing; ` 0,5 ` must commit 0.5. Task 5 pins both.
+5. **A comma in a whole-number field.** `1,000` in the width must commit nothing, not a 1 clamped to a 4-wide board. Task 5 pins it, and `1,2,3` in a fractional field.
 
 ---
 
@@ -135,7 +135,7 @@ Replace the doc comment and body of `fillView` with:
  * A stored view with the fields a later knob added filled in. A meta written
  * before `VIEW_VERSION` stored 0 for an automatic head height, a mode that no
  * longer exists, so there a 0 reads as the default; from the version on it is
- * literal, as the CLI's `--headheight=0` is.
+ * literal, as the CLI's `--arrow-height=0` is.
  */
 function fillView(view: View, versioned: boolean): View {
   return {
@@ -171,8 +171,8 @@ In `fillView`, change `versioned ||` to `false ||`. Run Step 5's command: the ca
 
 - [ ] **Step 7: Gate and commit**
 
-Run: `deno task verify`
-Expected: check, lint, fmt and test all pass.
+Run: `deno fmt packages/cli/store.ts packages/cli/store.test.ts packages/engine/command.ts packages/engine/types.ts && deno task verify`
+Expected: check, lint, fmt and test all pass. (`fmt` rewraps the `sources.map(…)` line in `readMeta`, which the new argument pushes over the line width.)
 
 ```bash
 git add packages/engine/command.ts packages/engine/types.ts packages/cli/store.ts packages/cli/store.test.ts
@@ -233,7 +233,7 @@ In `apps/lab/src/state/url.test.ts`, add below the imports:
 const legacyLink = (view: Record<string, unknown>) => '#' + encodeURIComponent(JSON.stringify({ __view: view }))
 ```
 
-Replace these five cases (by their names) with the code below:
+Replace these four cases (by their names) with the code below, and add the other new cases at the end of the `describe`:
 `'leaves the page on its own theme when a link names none'`,
 `'reads a link that predates custom palettes as naming no palette'`,
 `'reads a link that predates the board colours as naming none'`,
@@ -604,8 +604,8 @@ In `apps/lab/src/routes/DocsRoute.tsx`: import `{ useParams } from 'react-router
 
 - [ ] **Step 4: Run the test and the docs tests**
 
-Run: `pnpm vitest run --project chromium src/routes/`
-Expected: PASS.
+Run: `pnpm vitest run --project chromium src/routes/ src/AppRoutes.browser.test.tsx`
+Expected: PASS. (`AppRoutes.browser.test.tsx` holds the existing redirect cases.)
 
 - [ ] **Step 5: Mutation (undo by hand)**
 
@@ -625,12 +625,17 @@ git commit -m "Routes: a redirect keeps the fragment, so a link under a wrong pa
 ### Task 4: The command palette keeps the focus and its keys
 
 **Files:**
-- Modify: `apps/lab/src/palette/CommandPalette.tsx` (`onKeyDown`, the `mousedown` effect, the JSX)
+- Modify: `apps/lab/src/palette/CommandPalette.tsx` (the `mousedown` effect, a new `keydown` effect, the row comment)
 - Test: `apps/lab/src/palette/CommandPalette.browser.test.tsx`, create `apps/lab/src/palette/PaletteModal.browser.test.tsx`
 
-**Interfaces:** none new.
+**Interfaces:** none new. The input keeps its own `onKeyDown` exactly as today.
 
-- [ ] **Step 1: Write the failing component tests**
+Three facts about this harness the tests below rely on, each measured:
+- Playwright will not click an element with `aria-disabled="true"` (it waits for "enabled" until the timeout), so a press on the disabled Abort row needs `{ force: true }`.
+- The default 25×50 carve starts and finishes within about 50 ms, inside `userEvent.keyboard` plus two frames, so `run.phase` read afterwards is `'done'` either way. A carve is detected by recording every phase through `useStore.subscribe`.
+- `jsx-a11y/no-noninteractive-element-interactions` matches its exceptions by element type: the `dialog` exception covers a `<dialog>` tag, not a `div` with `role="dialog"`. So the frame's listeners are native, in effects, like the existing `mousedown` one.
+
+- [ ] **Step 1: Write the failing tests**
 
 In `apps/lab/src/palette/CommandPalette.browser.test.tsx`, inside `describe('the palette dialog', …)`, add:
 
@@ -644,7 +649,8 @@ In `apps/lab/src/palette/CommandPalette.browser.test.tsx`, inside `describe('the
     const foot = screen.container.querySelector<HTMLElement>('.fw-pal .foot')
     if (abort === null || foot === null) throw new Error('no abort row or footer')
     expect(abort.getAttribute('aria-disabled')).toBe('true')
-    await userEvent.click(abort)
+    // `force`: Playwright will not press an `aria-disabled` element.
+    await userEvent.click(abort, { force: true })
     expect(document.activeElement).toBe(input)
     await userEvent.click(foot)
     expect(document.activeElement).toBe(input)
@@ -675,9 +681,18 @@ import { useStore } from '../state/store'
 
 afterEach(() => resetApp('advanced'))
 
-// Desktop, because at XS `useDrawerKeys` leaves the drawers alone on Escape and
-// the case would pass with no fix.
-it('a key pressed after a click inside the palette never reaches the page behind it', async () => {
+/** Every run phase the store passes through while `act` runs; a carve is over within it. */
+async function phasesDuring(act: () => Promise<void>): Promise<string[]> {
+  const phases: string[] = []
+  const unsubscribe = useStore.subscribe((state) => void phases.push(state.run.phase))
+  await act()
+  await twoFrames()
+  unsubscribe()
+  return phases
+}
+
+/** The page carved, the report drawer open behind the palette, the Abort row on screen. */
+async function openOverReport(): Promise<HTMLElement> {
   await page.viewport(1400, 900)
   await mountApp()
   await loadRunDone()
@@ -686,29 +701,45 @@ it('a key pressed after a click inside the palette never reaches the page behind
   await expect.poll(() => document.querySelector('#cmd-run-abort')).not.toBeNull()
   const abort = document.querySelector<HTMLElement>('#cmd-run-abort')
   if (abort === null) throw new Error('no abort row')
-  await userEvent.click(abort)
-  await userEvent.keyboard('g')
-  await twoFrames()
-  expect(useStore.getState().run.phase).toBe('done')
+  return abort
+}
+
+// Desktop, because at XS `useDrawerKeys` leaves the drawers alone on Escape and
+// the Escape half would pass with no fix.
+it('a key pressed after a click inside the palette never reaches the page behind it', async () => {
+  const abort = await openOverReport()
+  // `force`: Playwright will not press an `aria-disabled` element.
+  await userEvent.click(abort, { force: true })
+  expect(await phasesDuring(() => userEvent.keyboard('g'))).not.toContain('running')
   await userEvent.keyboard('{Escape}')
   expect(useStore.getState().ui.palette).toBe(false)
+  expect(useStore.getState().ui.report).toBe(true)
+}, 40_000)
+
+// The focus put on a row by hand reaches the frame's own key listener, which a
+// press cannot: the `mousedown` listener keeps the focus in the input.
+it('a key pressed with the focus on a row goes back to the input, not to the page', async () => {
+  const abort = await openOverReport()
+  abort.focus()
+  expect(await phasesDuring(() => userEvent.keyboard('g'))).not.toContain('running')
+  const input = document.querySelector<HTMLInputElement>('.fw-pal input')
+  expect(document.activeElement).toBe(input)
   expect(useStore.getState().ui.report).toBe(true)
 }, 40_000)
 ```
 
 - [ ] **Step 2: Run them and see them fail**
 
-Run: `pnpm vitest run --project chromium src/palette/`
+Run (from `apps/lab`): `pnpm vitest run --project chromium src/palette/`
 Expected FAILs:
 - `'keeps the focus in the input…'` on the first `expect(document.activeElement).toBe(input)` (the row took the focus);
 - `'closes on Escape wherever…'` on `expect(…palette).toBe(false)`;
-- `'a key pressed after a click…'` on `expect(useStore.getState().run.phase).toBe('done')` (`g` started a carve).
+- `'a key pressed after a click…'` on `not.toContain('running')` (`g` started a carve behind the palette);
+- `'a key pressed with the focus on a row…'` on `not.toContain('running')`.
 
 - [ ] **Step 3: Implement**
 
-In `apps/lab/src/palette/CommandPalette.tsx`:
-
-In the `mousedown` effect, replace `if (frame.contains(event.target)) return` with:
+In `apps/lab/src/palette/CommandPalette.tsx`, in the `mousedown` effect, replace `if (frame.contains(event.target)) return` with:
 
 ```ts
       if (frame.contains(event.target)) {
@@ -719,45 +750,37 @@ In the `mousedown` effect, replace `if (frame.contains(event.target)) return` wi
       }
 ```
 
-Replace the `onKeyDown` declaration line and its first two branches with:
+Directly after that whole `useEffect(() => { … }, [])` block (the `mousedown` one), add:
 
 ```ts
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
+  // A key from anywhere in the frame but the input (only a focus moved there by
+  // hand) closes on Escape and otherwise goes back to the input, and no further:
+  // the document's hotkeys skip a prevented event (`isHotkeyRefused` in `App`).
+  // Native, like `mousedown`: jsx-a11y refuses key handlers on a `role="dialog"` div.
+  useEffect(() => {
+    const frame = frameRef.current
+    if (frame === null) return
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.target === inputRef.current || event.metaKey || event.ctrlKey) return
       event.preventDefault()
-      useStore.getState().ui.closePalette()
-      return
+      if (event.key === 'Escape') useStore.getState().ui.closePalette()
+      else inputRef.current?.focus()
     }
-    // Nothing else in the frame takes the focus, so Tab has nowhere to go: the
-    // trap is one line rather than a ring of sentinels.
-    if (event.key === 'Tab') {
-      event.preventDefault()
-      inputRef.current?.focus()
-      return
-    }
-    // Any other key from outside the input goes back to it and no further: the
-    // document's hotkeys skip a prevented event (`isHotkeyRefused` in `App`).
-    if (event.target !== inputRef.current) {
-      event.preventDefault()
-      inputRef.current?.focus()
-      return
-    }
+    frame.addEventListener('keydown', onKey)
+    return () => frame.removeEventListener('keydown', onKey)
+  }, [])
 ```
 
-(the `Enter` branch and the arrow handling below stay as they are).
+(`globalThis.KeyboardEvent`: the file imports React's `KeyboardEvent` type for the input's handler, which is a different type.)
 
-In the JSX, move `onKeyDown={onKeyDown}` from the `<input>` to the frame:
-
-```tsx
-      <div className="fw-pal" role="dialog" aria-modal="true" aria-label={title} ref={frameRef} onKeyDown={onKeyDown}>
-```
-
-and replace the row comment `// The row is never focusable: every keystroke is the input's, and` / `// \`aria-activedescendant\` carries the active row, so a key handler` / `// here would contradict the design.` with:
+Replace the row comment `// The row is never focusable: every keystroke is the input's, and` / `// \`aria-activedescendant\` carries the active row, so a key handler` / `// here would contradict the design.` with:
 
 ```tsx
             // A press never focuses the row (see the `mousedown` effect): every
             // keystroke is the input's, and `aria-activedescendant` carries the row.
 ```
+
+The input's `onKeyDown` and everything else stay as they are.
 
 - [ ] **Step 4: Run the palette tests**
 
@@ -766,12 +789,14 @@ Expected: PASS, including every existing case (arrows, Enter, Escape from the in
 
 - [ ] **Step 5: Mutation (undo by hand)**
 
-Delete `if (event.target !== inputRef.current) event.preventDefault()` from the `mousedown` effect: `'keeps the focus in the input…'` must FAIL on the first `activeElement` check. Undo by hand. Then delete the `if (event.target !== inputRef.current) { … }` branch from `onKeyDown` alone: `'closes on Escape wherever…'` still passes (Escape is handled first), so also delete the `mousedown` line again — with both gone, `'a key pressed after a click…'` must FAIL on `run.phase`. (With the `mousedown` line in place the focus never leaves the input, so the key branch is a second line of defence that only the hand-focused case can reach.) Undo both by hand; run Step 4: PASS.
+1. Delete `if (event.target !== inputRef.current) event.preventDefault()` from the `mousedown` effect: `'keeps the focus in the input…'` must FAIL on the first `activeElement` check, and `'a key pressed after a click…'` still passes (the new key listener catches `g` on the row). Undo by hand.
+2. Delete the `frame.addEventListener('keydown', onKey)` line: `'closes on Escape wherever…'` and `'a key pressed with the focus on a row…'` must FAIL. Undo by hand.
+3. Delete both at once: `'a key pressed after a click…'` must FAIL on `not.toContain('running')`. Undo both by hand; run Step 4: PASS.
 
 - [ ] **Step 6: Gate and commit**
 
-Run: `pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && (cd apps/lab && npx prettier --write src) && pnpm nx run lab:fmt --skip-nx-cache`
-Expected: pass; in particular no `jsx-a11y/no-noninteractive-element-interactions` error (it allows `onKeyDown` on `role="dialog"`, not `onMouseDown`, which is why the mouse is handled in the effect).
+Run (from the repository root): `pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && (cd apps/lab && npx prettier --write src) && pnpm nx run lab:fmt --skip-nx-cache`
+Expected: pass, with no `jsx-a11y` error (no handler was added to the JSX).
 
 ```bash
 git add apps/lab/src/palette/CommandPalette.tsx apps/lab/src/palette/CommandPalette.browser.test.tsx apps/lab/src/palette/PaletteModal.browser.test.tsx
@@ -780,11 +805,17 @@ git commit -m "Palette: a click inside keeps the focus in the input, and no key 
 
 ---
 
-### Task 5: A decimal comma
+### Task 5: A decimal comma, in fractional fields only
 
 **Files:**
-- Modify: `apps/lab/src/console/DraftNumber.tsx` (`commit`)
+- Modify: `apps/lab/src/console/DraftNumber.tsx` (a `decimal` prop, `commit`)
+- Modify: `apps/lab/src/console/ValueKnob.tsx` (its `DraftNumber`), `apps/lab/src/console/ViewPanel.tsx` (the two `DraftNumber`s, in `ViewNumberRow` and `ElementNumberRow`)
 - Test: `apps/lab/src/console/DraftNumber.browser.test.tsx`, `apps/lab/src/console/ViewPanel.browser.test.tsx`
+
+**Interfaces:**
+- Produces: `DraftNumber` prop `decimal?: boolean | undefined` (default `false`): whether a comma may stand for the decimal point.
+
+A whole-number field has no decimal part for a comma to separate, and there a comma could only be read as a thousands separator (`1,000` → 1, clamped up to a 4-wide board). So the comma is accepted only where the field is fractional; a whole-number field commits nothing for it, as today. Which fields are whole: a generator knob whose `spec.step` is an integer (`clampParam` snaps to the step), a view field whose `VIEW_RANGE[field].whole` is true (`cell`, `top`; a view row's `step` is only a keyboard convenience, see `VIEW_FIELDS`), and an element row whose `step` is an integer (the margin).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -792,20 +823,25 @@ Append to `apps/lab/src/console/DraftNumber.browser.test.tsx`:
 
 ```tsx
 // A Polish keypad types a decimal comma, and the Polish page shows one.
-test('reads a decimal comma as a point, spaces around it too', async () => {
+test('reads a decimal comma as a point in a fractional field', async () => {
   const onCommit = vi.fn()
-  const screen = await render(<DraftNumber label="stroke" value={0.5} onCommit={onCommit} />)
+  const screen = await render(<DraftNumber label="stroke" value={0.5} decimal onCommit={onCommit} />)
   await screen.getByRole('button', { name: 'stroke: 0.5' }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke' }), ' 0,35 ')
+  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke' }), '0,35')
   await userEvent.keyboard('{Enter}')
   expect(onCommit).toHaveBeenCalledExactlyOnceWith(0.35)
 })
 
-test('commits nothing for a number with two commas', async () => {
+// Guards: neither passes a comma on to be read as a thousands separator.
+test('commits nothing for a comma in a whole-number field, or for two commas', async () => {
   const onCommit = vi.fn()
-  const screen = await render(<DraftNumber label="stroke" value={0.5} onCommit={onCommit} />)
-  await screen.getByRole('button', { name: 'stroke: 0.5' }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke' }), '1,2,3')
+  const screen = await render(<DraftNumber label="width" value={25} onCommit={onCommit} />)
+  await screen.getByRole('button', { name: 'width: 25' }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'width' }), '1,000')
+  await userEvent.keyboard('{Enter}')
+  const fractional = await render(<DraftNumber label="stroke" value={0.5} decimal onCommit={onCommit} />)
+  await fractional.getByRole('button', { name: 'stroke: 0.5' }).click()
+  await userEvent.fill(fractional.getByRole('textbox', { name: 'stroke' }), '1,2,3')
   await userEvent.keyboard('{Enter}')
   expect(onCommit).not.toHaveBeenCalled()
 })
@@ -814,49 +850,72 @@ test('commits nothing for a number with two commas', async () => {
 In `apps/lab/src/console/ViewPanel.browser.test.tsx`, after the case `'a value being typed is not written until it is committed'`:
 
 ```tsx
-test('a stroke typed with a decimal comma is written', async () => {
+test('a stroke typed with a decimal comma is written, a cell size with one is not', async () => {
   const screen = await render(<ViewPanel />)
   await screen.getByRole('button', { name: /^stroke:/ }).click()
   await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0,35')
   await userEvent.keyboard('{Enter}')
   expect(view().stroke).toBe(0.35)
+  await screen.getByRole('button', { name: /^export cell:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'export cell', exact: true }), '1,5')
+  await userEvent.keyboard('{Enter}')
+  expect(view().cell).toBe(12)
 })
 ```
 
+(The file's `beforeEach` sets `cell` to 12; the export cell row is reached the same way as in the file's case `'export cell'` clamping, by `/^export cell:/`.)
+
 - [ ] **Step 2: Run them and see them fail**
 
-Run: `pnpm vitest run --project chromium src/console/DraftNumber.browser.test.tsx src/console/ViewPanel.browser.test.tsx`
-Expected: `'reads a decimal comma as a point…'` FAILS on `toHaveBeenCalledExactlyOnceWith(0.35)` (not called); `'a stroke typed with a decimal comma is written'` FAILS on `toBe(0.35)` (still `0.5`). `'commits nothing for a number with two commas'` passes: it guards the one-comma rule.
+Run (from `apps/lab`): `pnpm vitest run --project chromium src/console/DraftNumber.browser.test.tsx src/console/ViewPanel.browser.test.tsx`
+Expected: `'reads a decimal comma as a point in a fractional field'` FAILS on `toHaveBeenCalledExactlyOnceWith(0.35)` (not called); the `ViewPanel` case FAILS on `expect(view().stroke).toBe(0.35)` (`0.5`). The whole-number guard passes: it pins today's behaviour.
 
-- [ ] **Step 3: Implement**
+- [ ] **Step 3: Implement `DraftNumber`**
 
-In `apps/lab/src/console/DraftNumber.tsx`, replace the three lines from `const typed = Number(raw.trim())` to `if (raw.trim() === '' || !Number.isFinite(typed)) return` (keeping the two comment lines between them) with:
+In `apps/lab/src/console/DraftNumber.tsx`, add to the props (destructuring and type) after `wordOnly`:
+
+```tsx
+  decimal = false,
+```
+
+```tsx
+  /** Whether a comma may stand for the decimal point: a fractional field only, where it cannot be a thousands separator. */
+  decimal?: boolean | undefined
+```
+
+Replace the lines from `const typed = Number(raw.trim())` to `if (raw.trim() === '' || !Number.isFinite(typed)) return` (keeping the two comment lines between them) with:
 
 ```ts
     // One decimal comma, as a Polish keypad types it; `1,2,3` stays unreadable.
-    const text = raw.trim().replace(',', '.')
+    const text = decimal ? raw.trim().replace(',', '.') : raw.trim()
     const typed = Number(text)
     // An unreadable field commits nothing: `clampParam` maps NaN to the knob's
     // default and reports it as a clamp, which is a jump nobody asked for.
     if (text === '' || !Number.isFinite(typed)) return
 ```
 
-- [ ] **Step 4: Run the tests**
+- [ ] **Step 4: Pass `decimal` at the three call sites**
 
-Run: `pnpm vitest run --project chromium src/console/`
+`apps/lab/src/console/ValueKnob.tsx`, on its `<DraftNumber`: add `decimal={!Number.isInteger(spec.step)}`.
+`apps/lab/src/console/ViewPanel.tsx`, in `ViewNumberRow`'s `<DraftNumber`: add `decimal={!range.whole}`; in `ElementNumberRow`'s `<DraftNumber`: add `decimal={!Number.isInteger(step)}`.
+
+- [ ] **Step 5: Run the tests**
+
+Run: `pnpm vitest run --project chromium src/console/ src/simple/`
 Expected: PASS.
 
-- [ ] **Step 5: Mutation (undo by hand)**
+- [ ] **Step 6: Mutation (undo by hand)**
 
-Remove `.replace(',', '.')`: both comma cases FAIL. Change it to `.replaceAll(',', '.')`: `'commits nothing for a number with two commas'` still passes (`Number('1.2.3')` is NaN) — this is an equivalent mutation, note it and move on. Undo by hand; run Step 4: PASS.
+1. In `commit`, make `text` always `raw.trim().replace(',', '.')`: the whole-number guard FAILS (`onCommit` called with 1). Undo by hand.
+2. In `ViewNumberRow`, drop `decimal={!range.whole}`: the `ViewPanel` case FAILS on `stroke`. Undo by hand; run Step 5: PASS.
 
-- [ ] **Step 6: Gate and commit**
+- [ ] **Step 7: Gate and commit**
 
-Run: `pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && (cd apps/lab && npx prettier --write src) && pnpm nx run lab:fmt --skip-nx-cache`
+Run (from the repository root): `pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && (cd apps/lab && npx prettier --write src) && pnpm nx run lab:fmt --skip-nx-cache`
 
 ```bash
-git add apps/lab/src/console/DraftNumber.tsx apps/lab/src/console/DraftNumber.browser.test.tsx apps/lab/src/console/ViewPanel.browser.test.tsx
-git commit -m "Number entry: a decimal comma reads as a point"
+git add apps/lab/src/console/DraftNumber.tsx apps/lab/src/console/ValueKnob.tsx apps/lab/src/console/ViewPanel.tsx apps/lab/src/console/DraftNumber.browser.test.tsx apps/lab/src/console/ViewPanel.browser.test.tsx
+git commit -m "Number entry: a decimal comma reads as a point in a fractional field"
 ```
 
 ---
@@ -928,13 +987,13 @@ In `apps/lab/src/library/useStoredBoard.browser.test.tsx`, in the case `'an id t
 - [ ] **Step 2: Run them and see them fail**
 
 Run: `deno test --allow-read packages/engine/lab-i18n.test.ts`
-Expected: FAIL (`d.ui.boardNotStored is not a function`).
+Expected: FAIL at type check (`TS2339: Property 'boardNotStored' does not exist`).
 
 Run (from `apps/lab`): `pnpm vitest run --project node src/palette/commands.test.ts`
 Expected: `'words a view flag row’s value…'` FAILS on the first `toBe` (`'on'` against `'wł.'`).
 
 Run: `pnpm vitest run --project chromium src/stage/RunStatusBar.browser.test.tsx src/library/useStoredBoard.browser.test.tsx`
-Expected: the new `RunStatusBar` case FAILS (the dictionary has no `boardNotStored`), and the `useStoredBoard` case FAILS on `toEqual` (`reason: 'not in the store'`).
+Expected: the new `RunStatusBar` case FAILS on its first poll (the text reads "… cannot be read: null" or the key is missing from `dist`), and the `useStoredBoard` case FAILS on `toEqual` (`reason: 'not in the store'`).
 
 - [ ] **Step 3: Implement the dictionary**
 
@@ -1016,7 +1075,7 @@ git commit -m "Polish UI: palette flag values and a board missing from the store
 - [ ] **Step 1: Full gate in a clean worktree**
 
 ```bash
-git worktree add ../arrowz-correctness-gate lab/correctness
+git worktree add --detach ../arrowz-correctness-gate lab/correctness
 cd ../arrowz-correctness-gate && corepack enable pnpm && pnpm install
 pnpm nx run-many -t verify --skip-nx-cache
 ```
@@ -1029,16 +1088,16 @@ Start the store (`deno task store`, port 8777) and the lab (`pnpm nx serve lab`,
 1. `http://localhost:8779/no-such-page#<a link with W=44>` (copy a real link from the address bar, change `W`) opens a 44-wide board, and the address becomes `/#…` (Task 3).
 2. Paste a link with a theme and a palette, press Back: the colours return to the previous entry's (Task 2).
 3. Set the head height to 0, reload: it stays 0; save the board, reopen it from Saved boards: 0 (Tasks 1–2).
-4. Switch to PL, open the stroke entry, type `0,35`, Enter: 0.35 (Task 5).
-5. ⌘K, click the disabled Abort row, press `g` and then Escape: no carve, the palette closes, the report drawer stays (Task 4).
+4. Switch to PL, open the stroke entry, type `0,35`, Enter: 0.35; open the width knob's entry, type `1,000`, Enter: nothing changes (Task 5).
+5. ⌘K, click the disabled Abort row, press `g` and then Escape: no carve, the palette closes, the report drawer stays. Also drag the list's scrollbar and select text in the search box: both still work (Task 4).
 6. PL, open `/boards/25x50/sha256-<64 zeros>`: the Polish sentence (Task 6).
 At the end remove any device emulation, so the user sees the lab at full size.
 
 - [ ] **Step 3: Update `lab-review.md`**
 
 In the "Correctness" table under "Status after the fixes", change the Status cell of these rows to `fixed in <commit>` with the commit of the task that fixed it, and the Note to one line saying how:
-`MEDIUM: <Navigate> drops the hash` (Task 3), `MEDIUM: palette loses Escape, Tab and hotkeys off its input` (Task 4), `MEDIUM: PL decimal comma does nothing` (Task 5), `MEDIUM: link colours cannot clear the page's own` and `MEDIUM: head height 0 lost in the hash` (Tasks 1–2), `LOW: palette "on"/"off" in English` and `LOW: English reason in the PL status line` (Task 6), `LOW: unknown theme name stored` and `LOW: voids not in the link` (Task 2).
-In "What is still open", item 1, strike what this branch fixed and keep the rest. Add the store's head height (the `fillView` exception) as fixed by Task 1.
+``MEDIUM: `<Navigate>` drops the hash`` (Task 3), `MEDIUM: palette loses Escape, Tab and hotkeys off its input` (Task 4), `MEDIUM: PL decimal comma does nothing` (Task 5), `MEDIUM: link colours cannot clear the page's own` (Task 2), `MEDIUM: head height 0 lost in the hash` (Tasks 1–2: the finding covers the store's `fillView` too), `LOW: palette "on"/"off" in English` and `LOW: English reason in the PL status line` (Task 6), `LOW: unknown theme name stored` and ``LOW: `voids` not in the link`` (Task 2). Copy each row name from the table itself (`grep -n '^| ' lab-review.md`), backticks included.
+In "What is still open", item 1, strike what this branch fixed and keep the rest.
 
 ```bash
 git add lab-review.md
