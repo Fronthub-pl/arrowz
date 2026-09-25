@@ -1,9 +1,11 @@
 import type React from 'react'
-import { KnobLine, KnobTrack } from '../console/KnobRow'
+import { KnobLine, KnobTrack, useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'
 import type { RecipeSlider } from '../state/recipe.slice'
 import { useStore } from '../state/store'
 import { applyRecipe } from './applyRecipe'
+
+const HELP = { lengths: 'lengthsHelp', shape: 'shapeHelp' } as const satisfies Record<RecipeSlider, string>
 
 /**
  * A recipe slider: a wish from one end word to the other, not a knob value
@@ -11,8 +13,9 @@ import { applyRecipe } from './applyRecipe'
  * because a whole percent is the finest step a person drags. The knobs follow
  * at once; the run waits for the debounce.
  *
- * A knob row with no `?` and no numeric ends, and the value is text, because
- * there is nothing to type. The end words stand under the track and describe it.
+ * A knob row with no numeric ends, and the value is text, because there is
+ * nothing to type. The end words stand under the track and describe it; the
+ * `?` says what the number is.
  */
 export function PositionSlider({ slider }: { slider: RecipeSlider }): React.ReactElement {
   const dict = useDictionary()
@@ -22,6 +25,8 @@ export function PositionSlider({ slider }: { slider: RecipeSlider }): React.Reac
   const [low, high] = dict.d.simple.ends[slider]
   const percent = Math.round(position * 100)
   const id = `simple-${slider}`
+  const helpId = `${id}-help`
+  const { button, paragraph } = useKnobHelp(helpId, label, dict.d.simple[HELP[slider]])
   return (
     <div className="kv-row" title={label}>
       <KnobLine
@@ -30,7 +35,7 @@ export function PositionSlider({ slider }: { slider: RecipeSlider }): React.Reac
             {label}
           </label>
         }
-        help={null}
+        help={button}
         value={
           <span className="kv-val">
             <span className="kv-num">{percent}</span>
@@ -44,7 +49,7 @@ export function PositionSlider({ slider }: { slider: RecipeSlider }): React.Reac
             step={1}
             word={null}
             // The number alone says nothing: "20" of what? The ends say.
-            describedBy={`${id}-ends`}
+            describedBy={`${id}-ends ${helpId}`}
             onCommit={(next) => {
               setSlider(slider, next / 100)
               applyRecipe(false)
@@ -58,6 +63,7 @@ export function PositionSlider({ slider }: { slider: RecipeSlider }): React.Reac
           </p>
         }
       />
+      {paragraph}
     </div>
   )
 }
