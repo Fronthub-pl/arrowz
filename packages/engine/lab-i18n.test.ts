@@ -91,7 +91,7 @@ Deno.test('both ui dictionaries describe the safe envelope', () => {
     assertEquals(typeof text, 'string')
     assert(text.includes('straightness bias'), text)
     assert(text.includes('0.4'), text)
-    assert(text.includes('0.6..1'), text)
+    assert(/0\.6 (?:to|do) 1/.test(text), text)
     assertEquals(typeof d.ui.stepViolation, 'function')
     const step = d.ui.stepViolation('maximum backtracks', 25, 0, 50)
     assertEquals(typeof step, 'string')
@@ -327,8 +327,40 @@ Deno.test('the console rail names itself and its two sections in both languages'
 })
 
 Deno.test('the rule marker states the bound it marks', () => {
-  assertEquals(dictionary('en').t('ruleBound', 0.75), 'Rule bound: 0.75')
-  assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Granica reguły: 0,75')
+  assertEquals(dictionary('en').t('ruleBound', 0.75), 'Minimum for this board: 0.75')
+  assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Minimum dla tej planszy: 0,75')
+})
+
+// The glossary's knob words, verbatim from the spec: a changed word is a changed spec.
+Deno.test('the knobs speak of arrows, skeletons and target lengths, in both languages', () => {
+  const label = (key: ParamKey) => PARAM_SPEC.find((s) => s.key === key)?.label
+  assertEquals(label('giants'), 'number of skeleton arrows (0 = no skeleton)')
+  assertEquals(label('probe'), 'share of arrows with a target length')
+  assertEquals(EN.short.anticoil, 'coil penalty')
+  assertEquals(EN.short.absorbLimit, 'leftover max')
+  assertEquals(PL.short.pStraight, 'prostość')
+  assertEquals(PL.short.giantStep, 'przerwa')
+  assertEquals(EN.groups.closing, 'when stuck')
+  assertEquals(PL.groups.closing, 'gdy utknie')
+  assertEquals(EN.start.options.mixing, 'mix')
+  assertEquals(PL.start.options.mixing, 'mieszane')
+  assertEquals(dictionary('en').reason('skeletonOff'), 'needs skeletons > 0 or late chance > 0')
+  assertEquals(dictionary('pl').reason('stepZero'), 'bez wpływu przy przerwie „losowo”')
+})
+
+// A help that warned about a value its own slider cannot reach sent a player
+// looking for a danger zone that is not there.
+Deno.test('no knob help names a number outside its own range as a threshold', () => {
+  const warns =
+    /\b(?:below|above|under|over|more than|less than|poniżej|powyżej|więcej niż|mniej niż)\s+(-?\d+(?:[.,]\d+)?)/gi
+  for (const s of PARAM_SPEC) {
+    for (const help of [s.help, PL.params[s.key].help]) {
+      for (const m of help.matchAll(warns)) {
+        const n = Number((m[1] ?? '').replace(',', '.'))
+        assert(n > s.min && n < s.max, `${s.key}: "${m[0]}" is not strictly inside ${s.min}..${s.max}`)
+      }
+    }
+  }
 })
 
 // `paletteHelp` takes the cap as an argument, so the number it states cannot

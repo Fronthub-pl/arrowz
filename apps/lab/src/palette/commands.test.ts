@@ -89,7 +89,7 @@ describe('the catalogue', () => {
     expect(useStore.getState().params.violations.length).toBeGreaterThan(0)
     const go = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-generate')
     expect(go?.disabled).toBe(true)
-    expect(go?.value).toBe('rule broken')
+    expect(go?.value).toBe('invalid settings')
   })
 
   // Over the whole catalogue, so a row added later cannot be disabled in
@@ -177,13 +177,21 @@ describe('the matcher', () => {
     expect(matches.map((row) => row.id)).toContain('run-reseed')
   })
 
-  // 'run' matches the five run rows' note and `knob-giantJitter`'s label; no
-  // name starts with it, so all six share one rank.
+  // 'run' matches the five run rows' note, `knob-giantStep`'s short label and
+  // `knob-giantJitter`'s label; no name starts with it, so all seven share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())
     const catalogueOrder = rows.map((row) => row.id)
     const matches = matchCommands(rows, 'run').map((row) => row.id)
-    expect(matches).toEqual(['run-generate', 'run-reseed', 'run-defaults', 'run-abort', 'run-solo', 'knob-giantJitter'])
+    expect(matches).toEqual([
+      'run-generate',
+      'run-reseed',
+      'run-defaults',
+      'run-abort',
+      'run-solo',
+      'knob-giantStep',
+      'knob-giantJitter',
+    ])
     // Same order as in the unfiltered catalogue, just filtered down.
     expect(matches).toEqual(catalogueOrder.filter((id) => matches.includes(id)))
   })

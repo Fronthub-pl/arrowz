@@ -370,7 +370,7 @@ test('picking a rail entry replaces the panel', async () => {
   // The knob row's label is the short term.
   const label = screen.container.querySelector<HTMLElement>('label[for="knob-giants"]')
   if (label === null) throw new Error('label not found')
-  expect(label.textContent).toBe('giants')
+  expect(label.textContent).toBe('skeletons')
   await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: 'rounded' })).toBeVisible()

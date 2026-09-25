@@ -24,17 +24,19 @@ export const EN = {
     shape: 'shape',
     difficulty: 'difficulty',
     skeleton: 'skeleton',
-    closing: 'closing',
+    closing: 'when stuck',
   },
   groupHelp: {
     lengths:
-      'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
-    shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
+      'Arrows come in three sizes: short (2–6 cells), medium (7–15) and long (16 up to the longest). Set the shares of short and medium; long gets the rest.',
+    shape:
+      'How arrows bend while the board is built: straight runs, side steps, coils. The settings multiply, so one extreme value drowns out the rest.',
     difficulty:
-      'Where pieces start, how they are chosen, and how long they run. Changes how hard it is to find a piece with a free way out.',
-    skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
+      'How hard the finished puzzle is: where arrows start, how many traps, and a share of arrows with a target length. Some of these change the look too.',
+    skeleton:
+      'A few very long arrows laid first, snaking back and forth across the whole board; the rest fills in around them. The only way to get really long arrows.',
     closing:
-      'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
+      'What the generator does when it gets stuck. The defaults fill every board up to 400×400; change these only to experiment.',
   },
   presets: {
     placeholder: 'Preset…',
@@ -81,16 +83,16 @@ export const EN = {
       'Each Generate picks fresh settings within a safe range for this size and these choices, so you get a new board every time, even with the same seed. See the picked values in Advanced.',
     // No presets in this view, so the hint sends the player to the advanced one.
     harder:
-      'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the “difficulty” group.',
+      'Want it harder? In Advanced, pick a tunnels preset, or set arrow start to tunnels in the “difficulty” group.',
   },
   // The one control the lab builds by hand, because the CLI has one flag for
   // the two knobs behind it: --start writes headBias and mix together, so
   // neither of them gets a row, and their texts are not PARAM_SPEC's.
   start: {
-    label: 'piece start',
+    label: 'arrow start',
     help:
-      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Tunnels = harder. Mixing starts that fraction of pieces as tunnels.',
-    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
+      'Where each new arrow starts while the board is built. Tunnels: deep inside, so arrows end up buried behind others. Tunnels = harder. Layers: from the edges inwards (easier, more bends). Random: anywhere. Mix: a share of tunnels among layers.',
+    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mix' },
   },
   // A knob row's label: the engine's term, one line of at
   // most 12 characters, so the label track is one width in every group. The
@@ -102,26 +104,26 @@ export const EN = {
     wShort: 'short share',
     wMid: 'medium share',
     Lmax: 'max length',
-    backbite: 'backbite',
+    backbite: 'tail rework',
     pStraight: 'straightness',
-    wLateral: 'lateral',
-    warns: 'nook closing',
-    anticoil: 'anticoil',
-    headBias: 'piece start',
-    mix: 'mixing',
-    trapBias: 'trap bias',
-    probe: 'probe share',
-    probeLen: 'probe length',
-    giants: 'giants',
-    giantSpan: 'span',
-    giantStep: 'step',
-    giantJitter: 'jitter',
-    wGiant: 'later share',
+    wLateral: 'sideways',
+    warns: 'nooks first',
+    anticoil: 'coil penalty',
+    headBias: 'arrow start',
+    mix: 'tunnel share',
+    trapBias: 'traps',
+    probe: 'target share',
+    probeLen: 'target len',
+    giants: 'skeletons',
+    giantSpan: 'length',
+    giantStep: 'run gap',
+    giantJitter: 'cut short',
+    wGiant: 'late chance',
     giantStraight: 'straightness',
-    giantAnticoil: 'anticoil',
+    giantAnticoil: 'coil penalty',
     giantSpacing: 'spacing',
-    headTries: 'head tries',
-    absorbLimit: 'absorb limit',
+    headTries: 'start tries',
+    absorbLimit: 'leftover max',
     maxBack: 'backtracks',
     restarts: 'restarts',
   },
@@ -250,16 +252,16 @@ export const EN = {
     // A knob row's `?`, its dependency blocks and the
     // lengths mix bar.
     aboutKnob: (name: string) => `About ${name}`,
-    needsSkeleton: 'needs giants or later share > 0',
-    needsProbe: 'needs probe share > 0',
+    needsSkeleton: 'needs skeletons > 0 or late chance > 0',
+    needsProbe: 'needs target share > 0',
     depSkeleton: 'skeleton',
-    depProbe: 'probe',
+    depProbe: 'target length',
     subLayout: 'layout',
     subGrowth: 'growth',
     mixShort: 'short',
     mixMedium: 'medium',
     mixLong: 'long',
-    mixCap: 'short + medium at most 0.9',
+    mixCap: 'short + medium: at most 90%',
     tabLab: 'Lab',
     tabLibrary: 'Saved boards',
     tabDocs: 'Docs',
@@ -287,7 +289,7 @@ export const EN = {
     cmdHintSettings: 'settings',
     cmdNoRun: 'nothing running',
     cmdRunning: 'already running',
-    cmdBroken: 'rule broken',
+    cmdBroken: 'invalid settings',
     cmdViewSimple: 'Simple view',
     cmdViewAdvanced: 'Advanced view',
     cmdLangToPl: 'Switch to Polish',
@@ -444,14 +446,14 @@ export const EN = {
     railElement: 'element',
     // The floor a cross-knob rule puts on a knob: drawn on the slider's track,
     // and named here because a mark is not a message.
-    ruleBound: (need: number) => `Rule bound: ${need}`,
+    ruleBound: (need: number) => `Minimum for this board: ${need}`,
     // A rail entry that carries a count names what the count is.
     violationsInGroup: (group: string, count: number) =>
       `${group}, ${count} setting${count === 1 ? '' : 's'} outside the safe range`,
     rangeViolation: (label: string, value: unknown, min: number, max: number) =>
-      `${label}: ${value} is outside ${min}..${max}`,
+      `${label}: ${value} — allowed ${min} to ${max}`,
     stepViolation: (label: string, value: number, below: number, above: number) =>
-      `${label}: ${value} sits between the settings ${below} and ${above}`,
+      `${label}: ${value} is not an allowed step; the nearest are ${below} and ${above}`,
     // A rule whose bound is computed from the board rather than fixed.
     needViolation: (reason: string, need: number) => `${reason}; this board needs at least ${need}`,
     generateBlocked: 'Fix the settings marked in red to generate',
@@ -590,20 +592,20 @@ export const PL: Translation = {
     shape: 'kształt',
     difficulty: 'trudność',
     skeleton: 'szkielet',
-    closing: 'domykanie',
+    closing: 'gdy utknie',
   },
   reasons: {
-    skeletonOff: 'wymaga elementów szkieletowych > 0',
-    probeOff: 'działa tylko przy udziale sond > 0',
-    stepZero: 'działa tylko przy skoku serpentyny > 0',
-    anticoilWins: 'działa dopiero powyżej ogólnej kary za zwijanie',
+    skeletonOff: 'wymaga: szkielety > 0 albo kolejne > 0',
+    probeOff: 'wymaga: ile zadanych > 0',
+    stepZero: 'bez wpływu przy przerwie „losowo”',
+    anticoilWins: 'działa dopiero powyżej kary zwojów z grupy „kształt”',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
-    sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
-    lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 17',
+    sharesSum: 'krótkie + średnie najwyżej 0,9 (90%)',
+    lmaxHole: 'najdłuższa strzałka: auto albo co najmniej 17',
     straightFloor:
-      'skłonność do prostej musi rosnąć z planszą: więcej kwadratów, zamykanie zakamarków poniżej 4 albo kara za zwijanie powyżej 6 — każde z nich podnosi podłogę',
+      'za mała prostość jak na tę planszę: większa plansza, zakamarki poniżej 4 albo kara zwojów powyżej 6 wymagają więcej',
     startPair:
-      'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
+      'start strzałek i udział tuneli do siebie nie pasują: start mieszany wymaga startu losowego i udziału od 0,3 do 0,7; każdy inny start wymaga wyłączonego udziału (-1)',
   },
   // The key is the CLI word (--giantspacing=off), the value the lab shows in
   // Polish: for a choice knob's list and for a chip's special word alike.
@@ -622,129 +624,132 @@ export const PL: Translation = {
       label: 'wysokość',
       help: 'Liczba wierszy. Plansza pionowa jest trudniejsza od kwadratowej o tej samej liczbie komórek.',
     },
-    seed: { label: 'ziarno', help: 'To samo ziarno przy tych samych ustawieniach daje zawsze tę samą planszę.' },
+    seed: {
+      label: 'ziarno',
+      help:
+        'Numer planszy. To samo ziarno przy tych samych ustawieniach daje zawsze tę samą planszę; zmień je, by dostać inną planszę tego samego rodzaju.',
+    },
 
     wShort: {
       label: 'udział krótkich (2–6 komórek)',
       help:
-        'Jaka część elementów ma być krótka. Wyżej = więcej grotów, ale sieczka z haczyków. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
+        'Jaka część strzałek jest krótka. Więcej = więcej strzałek na planszy, ale dużo drobnych haczyków. Krótkie + średnie: najwyżej 0,9 (90%).',
     },
     wMid: {
       label: 'udział średnich (7–15 komórek)',
       help:
-        'Jaka część elementów ma być średnia. Reszta po krótkich i średnich idzie na długie. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
+        'Jaka część strzałek jest średnia. Resztę po krótkich i średnich dostają długie. Krótkie + średnie: najwyżej 0,9 (90%).',
     },
     Lmax: {
-      label: 'długość maksymalna (auto = 2,5 × bok)',
+      label: 'najdłuższa strzałka (auto = 2,5 × dłuższy bok)',
       help:
-        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. Poniżej 17 limit zjada kubełek średnich i długich, więc daj auto albo 17 w górę.',
+        'Najdłuższa strzałka, do jakiej dąży generator, w komórkach. auto = 2,5 × dłuższy bok. Od 1 do 16 nie wolno: taki limit wcina się w średnie i długie.',
     },
     backbite: {
-      label: 'przerabianie ogona, gdy linia ugrzęźnie',
+      label: 'przeróbka ogona, gdy strzałka utknie',
       help:
-        'Ile razy z rzędu linia, która nie ma już gdzie iść, może przerobić własny ogon, zamiast się zatrzymać. 0 wyłącza. Więcej daje dłuższe elementy i mniej ich.',
+        'Ile razy z rzędu strzałka, która utknie w ślepym zaułku, może przerobić ogon i rosnąć dalej. 0 = wyłączone. Więcej = mniej, ale dłuższych strzałek.',
     },
 
     pStraight: {
-      label: 'skłonność do prostej',
+      label: 'prostość',
       help:
-        'Jak chętnie linia idzie prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze się nie domykają; przy 0,6 plansze ponad 500×500 mogą się zaciąć, 0,65 nie.',
+        'Jak często strzałka jedzie prosto zamiast skręcać. Wyżej = długie proste; niżej = więcej zakrętów. Znacznik na suwaku to minimum tej planszy.',
     },
     wLateral: {
-      label: 'premia za ruch w bok',
-      help: 'O ile chętniej linia skręca w bok, niż wchodzi w głąb. 0 = proste wbicia i wielkie zwoje.',
+      label: 'premia za krok w bok',
+      help: 'Jak bardzo strzałka woli krok w bok niż wchodzenie w głąb planszy. 0 = proste wbicia i duże zwoje.',
     },
     warns: {
-      label: 'domykanie zakamarków',
+      label: 'najpierw zakamarki',
       help:
-        'Jak mocno linia najpierw wypełnia zakamarki z małą liczbą wyjść. Wyżej = mniej elementów, dłuższe i zwinięte. Poniżej 2 reguła nie działa i plansze się zacinają.',
+        'Jak mocno strzałka najpierw wypełnia małe ślepe zakamarki. Wyżej = mniej strzałek, dłuższe i bardziej zwinięte. Poniżej 4 duże plansze wymagają większej prostości.',
     },
     anticoil: {
-      label: 'kara za zwijanie',
+      label: 'kara zwojów',
       help:
-        'Jak mocno linia unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze elementy. Powyżej 10 zacina się przy małej skłonności do prostej.',
+        'Jak mocno strzałka unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze strzałki. Powyżej 6 duże plansze wymagają większej prostości.',
     },
     headBias: {
-      label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)',
+      label: 'start strzałek (-1 warstwy, 0 losowo, 1 tunele)',
       help:
-        'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.',
+        'Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400.',
     },
     mix: {
-      label: 'udział mieszania (tunele wśród warstw)',
-      help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7. -1 wyłącza mieszanie.',
+      label: 'udział startów tunelami (mieszane)',
+      help: 'Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami.',
     },
     trapBias: {
-      label: 'pułapki (strzałki, które wyglądają na gotowe)',
+      label: 'pułapki (strzałki, które wyglądają na wolne)',
       help:
-        'Głowa, w której korytarzu stoi już jeden element, da element wyglądający na gotowy, choć nim nie jest. „Szukaj" daje ich o połowę więcej, „unikaj" cztery razy mniej.',
+        'Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o ćwierć do połowy więcej; „unikaj” = od trzech do ośmiu razy mniej.',
     },
     probe: {
-      label: 'udział elementów-sond',
+      label: 'udział strzałek o zadanej długości',
       help:
-        'Jaka część elementów ma długość losowaną wokół długości sondy zamiast ze zwykłej mieszanki. Przy 1 i długości 12 plansza to same krótkie elementy.',
+        'Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki.',
     },
     probeLen: {
-      label: 'długość sondy',
+      label: 'zadana długość',
       help:
-        'Docelowa długość sondy, plus minus połowa. Krótkie sondy (4) potrajają liczbę elementów, długie (200) dają mniej dłuższych.',
+        'Zadana długość w komórkach, plus minus połowa. Krótka (4) potraja liczbę strzałek; długa (200) daje mniej, dłuższych.',
     },
 
     giants: {
-      label: 'ile elementów szkieletowych (0 = bez szkieletu)',
-      help: 'Ile pierwszych elementów ma być długimi liniami przez całą planszę. 0 = bez szkieletu; 4 to dobry start.',
+      label: 'liczba strzałek szkieletu (0 = bez szkieletu)',
+      help:
+        'Ile bardzo długich strzałek układa się najpierw, wężykiem przez planszę. 0 = bez szkieletu; 4 to dobry początek.',
     },
     giantSpan: {
       label: 'długość szkieletu (w bokach planszy)',
-      help: 'Docelowa długość jednego szkieletu w bokach planszy. Linia kończy wcześniej, gdy zabraknie miejsca.',
+      help: 'Zadana długość jednej strzałki szkieletu, w bokach planszy. Kończy wcześniej, gdy zabraknie miejsca.',
     },
     giantStep: {
-      label: 'skok serpentyny (random = wzrost swobodny)',
+      label: 'przerwa między biegami szkieletu (losowo = swobodnie)',
       help:
-        'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. random = wzrost swobodny, bez serpentyny.',
+        'Komórki między kolejnymi biegami szkieletu tam i z powrotem. Mała = gęste, równe pasy; duża = kilka długich autostrad. „losowo” = bez wężyka: szkielet rośnie swobodnie.',
     },
     giantJitter: {
-      label: 'urywanie biegów serpentyny',
-      help: 'Jak często bieg szkieletu urywa się przed przeszkodą. 0 = proste, regularne brzegi.',
+      label: 'urywanie biegów szkieletu',
+      help: 'Jak często bieg szkieletu zawraca, zanim dojdzie do przeszkody. 0 = proste, równe brzegi.',
     },
     wGiant: {
-      label: 'udział szkieletów poza startem',
+      label: 'szansa na kolejne szkielety',
       help:
-        'Szansa, że element wycinany później też będzie szkieletem. Powyżej 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000.',
+        'Szansa, że strzałka układana później też stanie się strzałką szkieletu. Przy górnej granicy (0,2) plansze liczą się wolno, a 1000×1000 może się nie wypełnić.',
     },
     giantStraight: {
-      label: 'skłonność szkieletu do prostej',
+      label: 'prostość szkieletu',
       help:
-        'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. 0,5 to brak preferencji.',
+        'Jak często strzałka szkieletu jedzie prosto tam, gdzie rośnie swobodnie: cała przy przerwie „losowo”, inaczej tylko ogon. 0,5 = bez preferencji.',
     },
     giantAnticoil: {
-      label: 'kara za zwijanie szkieletu',
-      help: 'Kara za dotykanie siebie tylko dla szkieletu. Obowiązuje wyższa z tej i ogólnej.',
+      label: 'kara zwojów szkieletu',
+      help: 'Kara zwojów tylko dla strzałek szkieletu. Obowiązuje wyższa z tej i kary zwojów z grupy „kształt”.',
     },
     giantSpacing: {
-      label: 'promień odstępu szkieletu',
-      help:
-        'Jak daleko szkielet trzyma się od własnych wcześniejszych biegów, w komórkach. Powyżej 3 tylko kosztuje czas.',
+      label: 'odstęp szkieletu',
+      help: 'Ile komórek szkielet trzyma od swoich wcześniejszych biegów. „bez odstępu” = może ich dotykać.',
     },
     headTries: {
-      label: 'prób startu na kierunek',
+      label: 'próby startu na kierunek',
       help:
-        'Ile miejsc startu wypróbować przed zmianą kierunku. 1 głodzi szukanie przy trudnych ustawieniach; powyżej 16 tylko kosztuje czas.',
+        'Ile miejsc startu generator sprawdza przed zmianą kierunku. Przy 2 szukanie jest płytkie dla trudnych ustawień; od 8 w górę zwykle wychodzi ta sama plansza co przy 4.',
     },
     absorbLimit: {
-      label: 'wchłanianie resztek do N komórek',
+      label: 'doklejaj resztki do N komórek',
       help:
-        'Fragment do tego rozmiaru, którego nie da się wyciąć, dokleja się do sąsiada. Poniżej 12 resztki się piętrzą i plansze się zacinają.',
+        'Pusta łatka do tylu komórek, w którą nie wejdzie żadna strzałka, zostaje doklejona do sąsiedniej. Blisko dolnej granicy plansze znacznie częściej utykają.',
     },
     maxBack: {
       label: 'budżet nawrotów',
       help:
-        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 200 wystarcza; więcej tylko opóźnia werdykt. --maxback=auto to 200.',
+        'Ile ułożonych strzałek generator może cofnąć w jednej próbie, zanim zacznie od nowa. 200 wystarcza; więcej tylko opóźnia wynik.',
     },
     restarts: {
       label: 'dopuszczalne restarty',
       help:
-        'Ile nowych prób z pochodnym ziarnem po nieudanej. 0 pokazuje surową skuteczność ustawień; więcej niż 5 prawie nigdy nie pomaga.',
+        'Ile nowych prób po nieudanej, każda z ziarnem wyliczonym z Twojego. 0 pokazuje, jak często te ustawienia udają się same.',
     },
   },
   groupHelp: {
@@ -803,10 +808,10 @@ export const PL: Translation = {
       'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie „trudność” ustaw start na tunele.',
   },
   start: {
-    label: 'start elementów',
+    label: 'start strzałek',
     help:
-      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Mieszanie startuje tunelami tę część elementów.',
-    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszanie' },
+      'Skąd startuje każda nowa strzałka podczas budowania planszy. Tunele: w głębi, więc strzałki są zakopane za innymi. Tunele = trudniej. Warstwy: od krawędzi do środka (łatwiej, więcej zakrętów). Losowo: gdziekolwiek. Mieszane: część tuneli wśród warstw.',
+    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszane' },
   },
   short: {
     W: 'szerokość',
@@ -815,26 +820,26 @@ export const PL: Translation = {
     wShort: 'krótkie',
     wMid: 'średnie',
     Lmax: 'dł. maks.',
-    backbite: 'przeróbka',
-    pStraight: 'prostota',
+    backbite: 'przeróbki',
+    pStraight: 'prostość',
     wLateral: 'ruch w bok',
     warns: 'zakamarki',
-    anticoil: 'antyzwijanie',
+    anticoil: 'kara zwojów',
     headBias: 'start',
-    mix: 'mieszanie',
+    mix: 'ile tuneli',
     trapBias: 'pułapki',
-    probe: 'udział sond',
-    probeLen: 'dł. sondy',
+    probe: 'ile zadanych',
+    probeLen: 'zadana dł.',
     giants: 'szkielety',
     giantSpan: 'długość',
-    giantStep: 'skok',
+    giantStep: 'przerwa',
     giantJitter: 'urywanie',
-    wGiant: 'późniejsze',
-    giantStraight: 'prostota',
-    giantAnticoil: 'antyzwijanie',
+    wGiant: 'kolejne',
+    giantStraight: 'prostość',
+    giantAnticoil: 'kara zwojów',
     giantSpacing: 'odstęp',
     headTries: 'próby startu',
-    absorbLimit: 'wchłanianie',
+    absorbLimit: 'resztki do',
     maxBack: 'nawroty',
     restarts: 'restarty',
   },
@@ -945,16 +950,16 @@ export const PL: Translation = {
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,
-    needsSkeleton: 'wymaga szkieletów lub późniejszych > 0',
-    needsProbe: 'wymaga udziału sond > 0',
+    needsSkeleton: 'wymaga: szkielety > 0 albo kolejne > 0',
+    needsProbe: 'wymaga: ile zadanych > 0',
     depSkeleton: 'szkielet',
-    depProbe: 'sonda',
+    depProbe: 'zadana długość',
     subLayout: 'układ',
     subGrowth: 'wzrost',
     mixShort: 'krótkie',
     mixMedium: 'średnie',
     mixLong: 'długie',
-    mixCap: 'krótkie + średnie najwyżej 0,9',
+    mixCap: 'krótkie + średnie: najwyżej 90%',
     tabLab: 'Laboratorium',
     tabLibrary: 'Zapisane plansze',
     tabDocs: 'Dokumentacja',
@@ -976,7 +981,7 @@ export const PL: Translation = {
     cmdHintSettings: 'ustawienia',
     cmdNoRun: 'nic się nie generuje',
     cmdRunning: 'już się generuje',
-    cmdBroken: 'złamana reguła',
+    cmdBroken: 'błędne ustawienia',
     cmdViewSimple: 'Widok prosty',
     cmdViewAdvanced: 'Widok zaawansowany',
     cmdLangToPl: 'Przełącz na polski',
@@ -1121,10 +1126,11 @@ export const PL: Translation = {
     railLabel: 'Grupy parametrów',
     railGenerator: 'generator',
     railElement: 'element',
-    ruleBound: (need: number) => `Granica reguły: ${need.toLocaleString('pl')}`,
+    ruleBound: (need: number) => `Minimum dla tej planszy: ${need.toLocaleString('pl')}`,
     violationsInGroup: (group: string, count: number) => `${group}, ustawienia poza zakresem: ${count}`,
-    rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
-    stepViolation: (label, value, below, above) => `${label}: ${value} leży między ustawieniami ${below} i ${above}`,
+    rangeViolation: (label, value, min, max) => `${label}: ${value} — dozwolone od ${min} do ${max}`,
+    stepViolation: (label, value, below, above) =>
+      `${label}: ${value} to niedozwolony krok; najbliższe to ${below} i ${above}`,
     needViolation: (reason, need) => `${reason}; ta plansza wymaga co najmniej ${need}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',

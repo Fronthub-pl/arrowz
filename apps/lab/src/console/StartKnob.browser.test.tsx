@@ -10,8 +10,8 @@ const params = () => useStore.getState().params
 test('the control offers the four words and follows the two knobs', async () => {
   params().reset()
   const screen = await render(<StartKnob />)
-  const select = screen.getByRole('combobox', { name: /piece start/i })
-  for (const word of ['layers', 'random', 'tunnels', 'mixing']) {
+  const select = screen.getByRole('combobox', { name: /arrow start/i })
+  for (const word of ['layers', 'random', 'tunnels', 'mix']) {
     await expect.element(screen.getByRole('option', { name: word })).toBeInTheDocument()
   }
   // The defaults are headBias 0 and mix -1, which `START.words` spells
@@ -54,10 +54,10 @@ test('switching away and back keeps a share the flag can still spell', async () 
 test('the start control is a knob row with its own description', async () => {
   params().reset()
   const screen = await render(<StartKnob />)
-  const select = screen.getByRole('combobox', { name: 'piece start' })
+  const select = screen.getByRole('combobox', { name: 'arrow start' })
   expect(select.element().closest('.kv-row .cc')).not.toBeNull()
   await expect.element(select).toHaveAttribute('aria-describedby', 'knob-start-desc')
-  const q = screen.getByRole('button', { name: 'About piece start' })
+  const q = screen.getByRole('button', { name: 'About arrow start' })
   await expect.element(q).toHaveAttribute('aria-controls', 'knob-start-desc')
   expect(document.getElementById('knob-start-desc')?.closest('.kv-row')).not.toBeNull()
 })

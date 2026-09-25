@@ -631,7 +631,7 @@ Deno.test('validateParams: range violations come first, then rule violations, al
 Deno.test('formatViolation: one English line per violation', () => {
   assertEquals(
     formatViolation({ kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 }),
-    'straightness bias: 0.2 is outside 0.6..1',
+    'straightness: 0.2 is outside 0.6..1',
   )
   assertEquals(
     formatViolation({ kind: 'range', key: 'W', value: 2000, min: 4, max: 1000 }),
@@ -640,7 +640,7 @@ Deno.test('formatViolation: one English line per violation', () => {
   assertEquals(formatViolation({ kind: 'rule', key: 'sharesSum', keys: ['wShort', 'wMid'] }), RULE_REASONS.sharesSum)
   assertEquals(
     formatViolation({ kind: 'rule', key: 'lmaxHole', keys: ['Lmax'] }),
-    'maximum length must be 0 (automatic) or at least 17',
+    'longest arrow must be auto or at least 17',
   )
 })
 
@@ -658,7 +658,7 @@ Deno.test('generate: refuses parameters outside the envelope before carving anyt
   assert(err instanceof InvalidParamsError, 'throws an InvalidParamsError')
   assertEquals(
     err.message,
-    'invalid parameters: straightness bias: 0.2 is outside 0.6..1; maximum length must be 0 (automatic) or at least 17',
+    'invalid parameters: straightness: 0.2 is outside 0.6..1; longest arrow must be auto or at least 17',
   )
   assertEquals(err.violations, [
     { kind: 'range', key: 'pStraight', value: 0.2, min: 0.6, max: 1 },

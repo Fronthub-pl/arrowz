@@ -18,8 +18,8 @@ const EN = dictionary('en')
 test('the knob shows its short label, its value and its bounds', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await expect.element(screen.getByText('nook closing', { exact: true })).toBeVisible()
-  await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toHaveTextContent('4')
+  await expect.element(screen.getByText('nooks first', { exact: true })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: /^nooks first:/ })).toHaveTextContent('4')
   const ends = [...screen.container.querySelectorAll('.kv-end')].map((el) => el.textContent)
   expect(ends).toEqual(['2', '16'])
   // The description is in the tree, closed until its `?` opens it.
@@ -63,7 +63,7 @@ test('a released chip goes back to the value the knob held before', async () => 
   params().reset()
   params().setMany({ giantStep: 5 })
   const screen = await render(<ValueKnob spec={specOf('giantStep')} />)
-  const chip = screen.getByRole('button', { name: 'random (step)' })
+  const chip = screen.getByRole('button', { name: 'random (run gap)' })
   await expect.element(chip).toHaveAttribute('aria-pressed', 'false')
   await chip.click()
   expect(params().values.giantStep).toBe(0)
@@ -103,31 +103,31 @@ test('typing a fraction does not collapse while it is being typed', async () => 
 test('committing returns focus to the number, not to the document', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.keyboard('12{Enter}')
   // Otherwise editing many knobs means Tabbing from the top of the document
   // after every commit.
-  await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toHaveFocus()
+  await expect.element(screen.getByRole('button', { name: /^nooks first:/ })).toHaveFocus()
 })
 
 test('Escape abandons the draft', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), '12')
   await userEvent.keyboard('{Escape}')
   expect(params().values.warns).toBe(4)
-  await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: /^nooks first:/ })).toBeVisible()
 })
 
 test('an Escape does not eat the edit that comes after it', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.keyboard('{Escape}')
   // The regression this guards is a flag armed for a blur React never sends:
   // it survives the cancel and swallows the next commit instead.
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), '9')
   await userEvent.keyboard('{Enter}')
   expect(params().values.warns).toBe(9)
@@ -136,7 +136,7 @@ test('an Escape does not eat the edit that comes after it', async () => {
 test('Enter closes the entry instead of reopening it', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), '7')
   await userEvent.keyboard('{Enter}')
   expect(params().values.warns).toBe(7)
@@ -148,17 +148,17 @@ test('Enter closes the entry instead of reopening it', async () => {
 test('a committed value out of range is clamped, and the field shows the clamped value', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), '99')
   await userEvent.keyboard('{Enter}')
   expect(params().values.warns).toBe(16)
-  await expect.element(screen.getByRole('button', { name: /^nook closing:/ })).toMatchTextContent(/16/)
+  await expect.element(screen.getByRole('button', { name: /^nooks first:/ })).toMatchTextContent(/16/)
 })
 
 test('a value outside the passed bounds is held inside them', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('mix')} bounds={{ min: 0.3, max: 0.7 }} />)
-  await screen.getByRole('button', { name: /^mixing:/ }).click()
+  await screen.getByRole('button', { name: /^tunnel share:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), '0.1')
   await userEvent.keyboard('{Enter}')
   // The knob's own range starts at -1, so `clampParam` alone would store 0.1 —
@@ -169,7 +169,7 @@ test('a value outside the passed bounds is held inside them', async () => {
 test('a typo is refused rather than snapping the knob to its default', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('warns')} />)
-  await screen.getByRole('button', { name: /^nook closing:/ }).click()
+  await screen.getByRole('button', { name: /^nooks first:/ }).click()
   await userEvent.fill(screen.getByRole('textbox'), 'abc')
   await userEvent.keyboard('{Enter}')
   // `clampParam` maps NaN to the default with `clamped: true`, which would be
@@ -214,7 +214,7 @@ test('an inactive knob says what would make it do something', async () => {
 test('the reason reaches the number and the inline entry, not only the slider', async () => {
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
-  const number = screen.getByRole('button', { name: /^span:/ })
+  const number = screen.getByRole('button', { name: /^length:/ })
   await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
   await number.click()
   await expect
@@ -228,7 +228,7 @@ test('a knob under a rule floor states the bound in words, not only as a mark', 
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
   // 0.85 is above the floor here, so there is no violation, and the marker
   // would be the only other place this number appears.
-  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Rule bound')
+  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Minimum for this board')
 })
 
 test('a floor sitting on the knob maximum is stated too, not left to the marker alone', async () => {
@@ -238,7 +238,7 @@ test('a floor sitting on the knob maximum is stated too, not left to the marker 
   // violation instead of its bound, and the bound is what this test is about.
   params().setMany({ W: 1000, H: 1000, warns: 2, anticoil: 7, pStraight: 1 })
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
-  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Rule bound: 1')
+  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Minimum for this board: 1')
 })
 
 test('a fractional knob takes a decimal comma', async () => {
