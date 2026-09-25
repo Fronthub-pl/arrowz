@@ -1,5 +1,6 @@
 import { reportDelta, reportRows, type StatKey, type StatRow } from '@arrowz/engine/report'
-import { type ReactElement, useId } from 'react'
+import { Fragment, type ReactElement, useId } from 'react'
+import { useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'
 import type { Baseline, ShownResult } from '../state/result.slice'
 
@@ -7,15 +8,16 @@ import type { Baseline, ShownResult } from '../state/result.slice'
 export const SUMMARY_KEYS: readonly StatKey[] = ['pieces', 'longest', 'D', 'time']
 
 /**
- * The four figures over the statistics: pieces, longest, D and time, each its
- * number, its term and its change against the baseline. The change is the
+ * The four figures over the statistics: arrows, longest, depth and time, each
+ * its number, its term and its change against the baseline. The change is the
  * table's own `reportDelta`, so its colour is the row's trend and never the
  * sign. Time reports no change, and a first run has nothing to compare with:
  * both keep a hidden dash so the row keeps its height.
  *
  * The rows it repeats leave the table, so what they said beyond the number
- * stays here: D's full name as the title of its abbreviation, and the whole
- * value of longest and time as the title of the number.
+ * stays here: D by its row's label, the whole value of longest and time as
+ * the title of the number, and the rows' help behind one `?` by the caption,
+ * since a figure's column is too narrow for a term and a button.
  */
 export function ReportSummary({
   result,
@@ -27,14 +29,18 @@ export function ReportSummary({
   const dict = useDictionary()
   const cap = useId()
   const rows = reportRows(result.report, result.params, dict)
+  const { button, open } = useKnobHelp('sum-help', dict.t('reportHelpAbout'), '')
   if (rows.length === 0) return null
   const before = baseline === null ? [] : reportRows(baseline.report, baseline.params, dict)
   const byKey = (list: readonly StatRow[], key: StatKey) => list.find((row) => row.key === key)
   return (
     <div className="fw-rsum-wrap">
-      <p id={cap} className="fw-rsum-cap">
-        {dict.t('reportSummaryCap')}
-      </p>
+      <div className="fw-rsum-hd">
+        <p id={cap} className="fw-rsum-cap">
+          {dict.t('reportSummaryCap')}
+        </p>
+        {button}
+      </div>
       <dl className="fw-rsum" aria-describedby={cap}>
         {SUMMARY_KEYS.map((key) => {
           const row = byKey(rows, key)
@@ -42,7 +48,7 @@ export function ReportSummary({
           const change = key === 'time' ? null : reportDelta(row.num, byKey(before, key)?.num, row.better)
           return (
             <div key={key}>
-              <dt>{key === 'D' ? <abbr title={row.label}>{dict.t('statSumD')}</abbr> : row.label}</dt>
+              <dt>{row.label}</dt>
               <dd>
                 <span className="v" title={key === 'longest' || key === 'time' ? row.value : undefined}>
                   {key === 'time'
@@ -63,6 +69,17 @@ export function ReportSummary({
                 )}
               </dd>
             </div>
+          )
+        })}
+      </dl>
+      <dl id="sum-help" className={open ? 'kv-help fw-rsum-help' : 'kv-help fw-rsum-help fw-vh'}>
+        {SUMMARY_KEYS.map((key) => {
+          const row = byKey(rows, key)
+          return row === undefined ? null : (
+            <Fragment key={key}>
+              <dt>{row.label}</dt>
+              <dd>{row.help}</dd>
+            </Fragment>
           )
         })}
       </dl>

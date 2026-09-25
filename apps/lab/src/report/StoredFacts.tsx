@@ -2,6 +2,7 @@ import { genSeconds, pct, type StatKey } from '@arrowz/engine/report'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import type { StoredBoard } from '../state/result.slice'
+import { StatRowView } from './StatRowView'
 import { rowClass } from './StatsTable'
 
 /**
@@ -41,11 +42,15 @@ export function StoredFacts({ stored }: { stored: StoredBoard }): ReactElement {
           {/* The run's grid, with no summary to hide rows under and no change
               to report: a wide value takes the change's track. */}
           {rows.map(([key, label, value]) => (
-            <tr key={key} className={rowClass(key, false)}>
-              <th scope="row">{label}</th>
-              <td className="num">{value}</td>
-              <td className="fw-delta" />
-            </tr>
+            <StatRowView
+              key={key}
+              id={`stored-help-${key}`}
+              label={label}
+              value={value}
+              help={dict.t(key === 'time' ? 'stat_gen_help' : (`stat_${key}_help` as const))}
+              className={rowClass(key, false)}
+              delta={<td className="fw-delta" />}
+            />
           ))}
         </tbody>
       </table>

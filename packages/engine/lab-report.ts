@@ -55,6 +55,8 @@ export interface StatRow {
   readonly key: StatKey | null
   readonly label: string
   readonly value: string
+  /** One or two sentences on what the row measures and, where there is one, which way is harder/better; '' on a separator. */
+  readonly help: string
   /**
    * The number the surface compares with the previous run, or undefined for a
    * row that is not comparable. Dropping this field would make the delta
@@ -77,7 +79,7 @@ export interface ReportDelta {
  * when either is missing or the two differ by no more than 1e-9, where a
  * surface prints an empty cell. `better` is the row's own field: +1 when a
  * larger number is better, -1 when a smaller one is, 0 when neither — coiling
- * should fall, span should rise, the piece count is neutral.
+ * should fall, span should rise, the arrow count is neutral.
  */
 export function reportDelta(num: number | undefined, prev: number | undefined, better: number): ReportDelta | null {
   if (num === undefined || prev === undefined || Math.abs(num - prev) <= 1e-9) return null
@@ -104,17 +106,18 @@ export interface ReportInput {
 }
 
 /** A row whose value may arrive as a number: the surface renders text either way. */
-const stat = (key: StatKey, label: string, value: string | number, num?: number, better = 0): StatRow => ({
+const stat = (dict: Dict, key: StatKey, label: string, value: string | number, num?: number, better = 0): StatRow => ({
   kind: 'row',
   key,
   label,
   value: String(value),
+  help: dict.t(`stat_${key}_help` as const),
   num,
   better,
 })
 // The gap between groups of rows. `kind` is what tells it apart, so it needs
 // neither a label nor a value.
-const SEP: StatRow = { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 }
+const SEP: StatRow = { kind: 'separator', key: null, label: '', value: '', help: '', num: undefined, better: 0 }
 
 /**
  * Every line of the statistics table, in order, for a finished run. A run
@@ -129,10 +132,16 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
   if (!metrics) return []
   const cells = params.W * params.H
   return [
-    stat('board', dict.t('stat_board'), dict.t('stat_boardVal', params.W, params.H, dict.fmt(cells), params.seed)),
-    stat('pieces', dict.t('stat_pieces'), dict.fmt(metrics.N), metrics.N, 0),
-    stat('avgLen', dict.t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N, 0),
     stat(
+      dict,
+      'board',
+      dict.t('stat_board'),
+      dict.t('stat_boardVal', params.W, params.H, dict.fmt(cells), params.seed),
+    ),
+    stat(dict, 'pieces', dict.t('stat_pieces'), dict.fmt(metrics.N), metrics.N, 0),
+    stat(dict, 'avgLen', dict.t('stat_avgLen'), (cells / metrics.N).toFixed(1), cells / metrics.N, 0),
+    stat(
+      dict,
       'longest',
       dict.t('stat_longest'),
       dict.t('stat_longestVal', metrics.maxLen, pct(metrics.maxLen / cells)),
@@ -140,6 +149,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       1,
     ),
     stat(
+      dict,
       'lengths',
       dict.t('stat_lengths'),
       `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${
@@ -147,17 +157,32 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       } · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`,
     ),
     SEP,
-    stat('f0', dict.t('stat_f0'), metrics.f0.toFixed(3), metrics.f0, 0),
-    stat('almost', dict.t('stat_almost'), `${metrics.almost} (${pct(metrics.almost / metrics.N)})`, metrics.almost, 0),
-    stat('D', dict.t('stat_D'), metrics.D, metrics.D, 0),
-    stat('corridor', dict.t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0),
-    SEP,
-    stat('span', dict.t('stat_span'), pct(metrics.span), 100 * metrics.span, 1),
-    stat('spanTop', dict.t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10, 1),
-    stat('spanMax', dict.t('stat_spanMax'), pct(metrics.spanMax), 100 * metrics.spanMax, 1),
-    stat('outDeg', dict.t('stat_outDeg'), `${metrics.outDeg.toFixed(1)} ${dict.t('piecesUnit')}`, metrics.outDeg, 1),
-    stat('maxOut', dict.t('stat_maxOut'), `${metrics.maxOut} ${dict.t('piecesUnit')}`, metrics.maxOut, 1),
+    stat(dict, 'f0', dict.t('stat_f0'), pct(metrics.f0), 100 * metrics.f0, -1),
     stat(
+      dict,
+      'almost',
+      dict.t('stat_almost'),
+      `${metrics.almost} (${pct(metrics.almost / metrics.N)})`,
+      metrics.almost,
+      1,
+    ),
+    stat(dict, 'D', dict.t('stat_D'), metrics.D, metrics.D, 1),
+    stat(dict, 'corridor', dict.t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen, 0),
+    SEP,
+    stat(dict, 'span', dict.t('stat_span'), pct(metrics.span), 100 * metrics.span, 1),
+    stat(dict, 'spanTop', dict.t('stat_spanTop'), pct(metrics.spanTop10), 100 * metrics.spanTop10, 1),
+    stat(dict, 'spanMax', dict.t('stat_spanMax'), pct(metrics.spanMax), 100 * metrics.spanMax, 1),
+    stat(
+      dict,
+      'outDeg',
+      dict.t('stat_outDeg'),
+      `${metrics.outDeg.toFixed(1)} ${dict.t('piecesUnit')}`,
+      metrics.outDeg,
+      1,
+    ),
+    stat(dict, 'maxOut', dict.t('stat_maxOut'), `${metrics.maxOut} ${dict.t('piecesUnit')}`, metrics.maxOut, 1),
+    stat(
+      dict,
       'blockDist',
       dict.t('stat_blockDist'),
       `${pct(metrics.blockDist)} ${dict.t('sidesUnit')}`,
@@ -165,14 +190,15 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       1,
     ),
     SEP,
-    stat('bends', dict.t('stat_bends'), metrics.bends.toFixed(2), metrics.bends, 1),
-    stat('coil', dict.t('stat_coil'), pct(metrics.coil), 100 * metrics.coil, -1),
-    stat('border', dict.t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1),
-    stat('multi', dict.t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine, 1),
+    stat(dict, 'bends', dict.t('stat_bends'), metrics.bends.toFixed(2), metrics.bends, 1),
+    stat(dict, 'coil', dict.t('stat_coil'), pct(metrics.coil), 100 * metrics.coil, -1),
+    stat(dict, 'border', dict.t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder, 1),
+    stat(dict, 'multi', dict.t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine, 1),
     SEP,
     // Stalling explains short lines better than the length distribution: a
     // path dies in a frontier pocket long before the ordered length.
     stat(
+      dict,
       'stall',
       dict.t('stat_stall'),
       stats.n ? dict.t('stat_stallVal', pct(stats.stall / stats.n), pct(stats.got / stats.want)) : '—',
@@ -180,14 +206,16 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       -1,
     ),
     stat(
+      dict,
       'absorbed',
       dict.t('stat_absorbed'),
       dict.t('stat_absorbedVal', stats.absorbs ?? 0, stats.absorbed ?? 0),
       stats.absorbs ?? 0,
       -1,
     ),
-    stat('backtracks', dict.t('stat_backtracks'), `${backtracks} / ${restartsUsed}`, backtracks, -1),
+    stat(dict, 'backtracks', dict.t('stat_backtracks'), `${backtracks} / ${restartsUsed}`, backtracks, -1),
     stat(
+      dict,
       'time',
       dict.t('stat_time'),
       dict.t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)),

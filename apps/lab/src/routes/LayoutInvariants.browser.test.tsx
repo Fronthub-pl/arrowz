@@ -203,7 +203,7 @@ async function arrange(state: State) {
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
-    await expect.poll(() => screen.container.querySelectorAll('.kv-help.fw-vh').length).toBe(0)
+    await expect.poll(() => screen.container.querySelectorAll('.kv-g .kv-help.fw-vh').length).toBe(0)
   }
   if (state === 'presets-open') {
     await screen.getByRole('button', { name: /^preset/ }).click()

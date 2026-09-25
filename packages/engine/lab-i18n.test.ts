@@ -440,3 +440,30 @@ Deno.test('the board mode counts cells and mistakes in both languages, Polish in
     'blocked by #4 at 0 cells',
   ])
 })
+
+Deno.test('the longest-arrows heading agrees with the count, Polish in its three forms', () => {
+  assertEquals([1, 3, 5].map((n) => EN.ui.longestHead(n)), [
+    'The longest arrow',
+    'The 3 longest arrows',
+    'The 5 longest arrows',
+  ])
+  assertEquals([1, 3, 5].map((n) => PL.ui.longestHead(n)), [
+    '1 najdłuższa strzałka',
+    '3 najdłuższe strzałki',
+    '5 najdłuższych strzałek',
+  ])
+})
+
+Deno.test('the merged-leftovers value agrees with both counts, Polish in its three forms', () => {
+  assertEquals([EN.ui.stat_absorbedVal(1, 1), EN.ui.stat_absorbedVal(3, 3), EN.ui.stat_absorbedVal(5, 22)], [
+    '1 patch (1 cell)',
+    '3 patches (3 cells)',
+    '5 patches (22 cells)',
+  ])
+  // 22 ends in 2 but its tens digit is 2, not 1: `plCount` must not read it as 12-14.
+  assertEquals([PL.ui.stat_absorbedVal(1, 1), PL.ui.stat_absorbedVal(3, 3), PL.ui.stat_absorbedVal(5, 22)], [
+    '1 łatka (1 komórka)',
+    '3 łatki (3 komórki)',
+    '5 łatek (22 komórki)',
+  ])
+})

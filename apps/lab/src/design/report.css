@@ -71,6 +71,25 @@
   font-size: 11px;
   color: var(--ash);
 }
+/* The caption and the summary's one `?` on a line. */
+.fw-rsum-hd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+.fw-rsum-hd .fw-rsum-cap {
+  margin: 0;
+}
+.fw-rsum-help {
+  margin: 8px 0 0;
+}
+.fw-rsum-help dt {
+  color: var(--mist);
+}
+.fw-rsum-help dd {
+  margin: 0 0 4px;
+}
 .fw-rsum {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -83,10 +102,10 @@
   grid-template-rows: auto auto auto;
   align-content: start;
   min-width: 0;
-  padding: 8px 8px 9px 0;
+  padding: 8px 4px 9px 0;
 }
 .fw-rsum > div + div {
-  padding-left: 10px;
+  padding-left: 6px;
   border-left: 1px solid var(--border);
 }
 /* The number first on screen, the term first in the markup: `dd` is a
@@ -96,6 +115,9 @@
 }
 .fw-rsum dd .v {
   grid-row: 1;
+  /* Without this a grid item grows to its content, so `scrollWidth <=
+     clientWidth` always holds even when the value should overflow. */
+  min-width: 0;
   font-size: 18px;
   line-height: 1.25;
   color: var(--ink);
@@ -104,14 +126,12 @@
 }
 .fw-rsum dt {
   grid-row: 2;
+  /* Held to its column, so a term too long for it overflows rather than
+     widening the track past the box's padding. */
+  min-width: 0;
   margin-top: 2px;
   font-size: 11px;
   color: var(--mist);
-}
-/* D's full name is its title (ReportSummary.tsx); no dotted underline, the
-   figure's term is a label, not a link. */
-.fw-rsum dt abbr {
-  text-decoration: none;
 }
 .fw-rsum dd small {
   grid-row: 3;
@@ -141,9 +161,10 @@
 .fw-report .fw-stats tr {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto 7ch;
+  /* The row's line, then the help's cell (0 high while closed). */
+  grid-template-rows: minmax(34px, auto);
   column-gap: 8px;
   align-items: center;
-  min-height: 34px;
   box-shadow: 0 1px 0 var(--border);
 }
 .fw-report .fw-stats th,
@@ -152,7 +173,7 @@
 }
 /* A group's heading: a `th scope="rowgroup"` across the row, as `.kv-sub`. */
 .fw-report .fw-stats tr.grp {
-  min-height: 0;
+  grid-template-rows: auto;
   box-shadow: 0 1px 0 var(--border-strong);
 }
 .fw-report .fw-stats tr.grp th {
@@ -170,7 +191,14 @@
   padding-top: 22px;
 }
 .fw-report .fw-stats th[scope='row'] {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   color: var(--mist);
+}
+.fw-report .fw-stats td.st-help {
+  grid-column: 1 / -1;
 }
 .fw-report .fw-stats td.num {
   white-space: nowrap;
@@ -186,6 +214,7 @@
    applies to are `WIDE_KEYS` in StatsTable.tsx, not measured here. */
 .fw-report .fw-stats tr.long {
   grid-template-columns: max-content minmax(0, 1fr) 7ch;
+  grid-template-rows: minmax(20px, auto);
   padding: 7px 0;
 }
 .fw-report .fw-stats tr.long td.num {
@@ -213,4 +242,16 @@
    are right-aligned (`td.num`). */
 .fw-report .fw-longest thead th {
   text-align: right;
+}
+
+/* The heading and its `?` on one line: the margins move to the line, or
+   `align-items: center` centres on the heading's uneven margin box. */
+.fw-longest-hd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 16px 0 4px;
+}
+.fw-report .fw-longest-hd h2 {
+  margin: 0;
 }
