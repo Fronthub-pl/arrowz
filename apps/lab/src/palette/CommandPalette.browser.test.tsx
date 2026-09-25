@@ -167,4 +167,33 @@ describe('the palette dialog', () => {
     await userEvent.keyboard('{Tab}')
     expect(document.activeElement).toBe(input)
   })
+
+  // Typing after the presses shows the keys still reach the search box.
+  it('keeps the focus in the input when a disabled row or the footer is pressed', async () => {
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    await expect.poll(() => document.activeElement === input).toBe(true)
+    const abort = screen.container.querySelector<HTMLElement>('#cmd-run-abort')
+    const foot = screen.container.querySelector<HTMLElement>('.fw-pal .foot')
+    if (abort === null || foot === null) throw new Error('no abort row or footer')
+    expect(abort.getAttribute('aria-disabled')).toBe('true')
+    // `force`: Playwright will not press an `aria-disabled` element.
+    await userEvent.click(abort, { force: true })
+    expect(document.activeElement).toBe(input)
+    await userEvent.click(foot)
+    expect(document.activeElement).toBe(input)
+    await userEvent.keyboard('seed')
+    expect(input?.value).toBe('seed')
+    expect(useStore.getState().ui.palette).toBe(true)
+  })
+
+  // The focus put on a row by hand: the one way left to move it off the input.
+  it('closes on Escape wherever in the dialog the focus is', async () => {
+    const screen = await mount()
+    const abort = screen.container.querySelector<HTMLElement>('#cmd-run-abort')
+    if (abort === null) throw new Error('no abort row')
+    abort.focus()
+    await userEvent.keyboard('{Escape}')
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
 })

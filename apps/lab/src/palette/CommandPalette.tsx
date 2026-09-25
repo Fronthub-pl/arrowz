@@ -85,7 +85,12 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     const onDown = (event: MouseEvent) => {
       const frame = frameRef.current
       if (frame === null || !(event.target instanceof Node)) return
-      if (frame.contains(event.target)) return
+      if (frame.contains(event.target)) {
+        // A press inside keeps the focus in the input, where the dialog's keys
+        // are handled; a row's click still fires.
+        if (event.target !== inputRef.current) event.preventDefault()
+        return
+      }
       // Not the trigger: it toggles on *click*, so a close on `mousedown` would
       // leave that click to find the palette shut and open it again.
       if (document.getElementById(TRIGGER_ID)?.contains(event.target) === true) return
@@ -93,6 +98,23 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     }
     document.addEventListener('mousedown', onDown)
     return () => document.removeEventListener('mousedown', onDown)
+  }, [])
+
+  // A key from anywhere in the frame but the input (only a focus moved there by
+  // hand) closes on Escape and otherwise goes back to the input, spending the
+  // key: the document's hotkeys skip a prevented event (`isHotkeyRefused`).
+  // Native, like `mousedown`: jsx-a11y refuses key handlers on a `role="dialog"` div.
+  useEffect(() => {
+    const frame = frameRef.current
+    if (frame === null) return
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.target === inputRef.current) return
+      event.preventDefault()
+      if (event.key === 'Escape') useStore.getState().ui.closePalette()
+      else inputRef.current?.focus()
+    }
+    frame.addEventListener('keydown', onKey)
+    return () => frame.removeEventListener('keydown', onKey)
   }, [])
 
   // The list shows about fifteen of some seventy rows, so the arrows would walk
@@ -163,9 +185,8 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
         />
         <div className="list" id="cmd-list" role="listbox" aria-label={title}>
           {hits.map((command, at) => (
-            // The row is never focusable: every keystroke is the input's, and
-            // `aria-activedescendant` carries the active row, so a key handler
-            // here would contradict the design.
+            // A press never focuses the row (see the `mousedown` effect): every
+            // keystroke is the input's, and `aria-activedescendant` carries the row.
             // eslint-disable-next-line jsx-a11y/click-events-have-key-events
             <div
               key={command.id}
