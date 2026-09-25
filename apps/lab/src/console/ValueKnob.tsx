@@ -90,6 +90,7 @@ export function ValueKnob({
               wordOnly
               className="kv-num"
               describedBy={describedBy}
+              decimal={!Number.isInteger(spec.step)}
               // Held inside the *passed* bounds first: the mix row's own range
               // is narrower than the knob's, and only it knows that.
               onCommit={(typed) => write(Math.min(bounds.max, Math.max(bounds.min, typed)))}

@@ -17,6 +17,7 @@ export function DraftNumber({
   describedBy,
   className = 'num',
   wordOnly = false,
+  decimal = false,
   onCommit,
 }: {
   label: string
@@ -25,6 +26,8 @@ export function DraftNumber({
   describedBy?: string | undefined
   className?: string | undefined
   wordOnly?: boolean | undefined
+  /** Whether a comma may stand for the decimal point: a fractional field only, where it cannot be a thousands separator. */
+  decimal?: boolean | undefined
   onCommit(typed: number): void
 }): ReactElement {
   const [draft, setDraft] = useState<string | null>(null)
@@ -50,10 +53,12 @@ export function DraftNumber({
     const raw = draft
     setDraft(null)
     if (raw === null) return
-    const typed = Number(raw.trim())
+    // One decimal comma, as a Polish keypad types it; `1,2,3` stays unreadable.
+    const text = decimal ? raw.trim().replace(',', '.') : raw.trim()
+    const typed = Number(text)
     // An unreadable field commits nothing: `clampParam` maps NaN to the knob's
     // default and reports it as a clamp, which is a jump nobody asked for.
-    if (raw.trim() === '' || !Number.isFinite(typed)) return
+    if (text === '' || !Number.isFinite(typed)) return
     onCommit(typed)
   }
 

@@ -98,6 +98,7 @@ export function NumberRow({
               wordOnly
               className="kv-num"
               describedBy={helpId}
+              decimal={!range.whole}
               onCommit={onSet}
             />
             <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
@@ -174,7 +175,14 @@ function ElementNumberRow({
         help={button}
         value={
           <span className="kv-val">
-            <DraftNumber label={name} value={value} className="kv-num" describedBy={helpId} onCommit={onSet} />
+            <DraftNumber
+              label={name}
+              value={value}
+              className="kv-num"
+              describedBy={helpId}
+              decimal={!Number.isInteger(step)}
+              onCommit={onSet}
+            />
             <span className="kv-unit">{dict.d.units.cells}</span>
           </span>
         }
