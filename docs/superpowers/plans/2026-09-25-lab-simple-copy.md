@@ -196,7 +196,7 @@ Expected: PASS, including `lab-i18n.test.ts` (EN/PL key parity), `lab-simple.tes
 - [ ] **Step 5: Build the engine and run the lab's tests that read these strings**
 
 Run: `pnpm nx build engine && cd apps/lab && npx vitest run src/simple src/console/StartKnob.browser.test.tsx && cd ../.. && pnpm nx run lab:check`
-Expected: PASS. The existing simple tests read labels from `EN.d.simple`, not literals; if one fails on a renamed literal, update its expected string and name it in the commit.
+Expected: PASS. In a fresh worktree the first Vitest run can fail with "Vitest failed to find the runner" while Vite optimises dependencies; run it once more before reading the result. The existing simple tests read labels from `EN.d.simple`, not literals; if one fails on a renamed literal, update its expected string and name it in the commit.
 
 - [ ] **Step 6: Format and commit**
 
@@ -406,7 +406,7 @@ git commit -m "Simple view: the two sliders and the skeleton explain themselves 
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `SimplePanel.browser.test.tsx`:
+Add to `SimplePanel.browser.test.tsx`, as the last two cases of the `describe` (after `'head height points at its help in its own row, which its ? opens'`). Do not unmount the first render inside the test: an explicit `screen.unmount()` there turns ten later cases red; the automatic cleanup after the test is enough, and `screen.container` scopes each render's queries.
 
 ```ts
   it('ends the board section with where to find a harder board, in English and Polish', async () => {
@@ -454,7 +454,6 @@ Add to `SimplePanel.browser.test.tsx`:
       lab.textContent = 'długość elementów'
       expect(lab.scrollWidth, `${viewport}: the old label`).toBeGreaterThan(lab.clientWidth)
       lab.textContent = text
-      screen.unmount()
     }
     await act(async () => state().lang.setLang('en'))
   })
