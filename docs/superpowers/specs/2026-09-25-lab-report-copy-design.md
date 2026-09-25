@@ -17,7 +17,9 @@ and the 4-figure summary carry no explanation, several labels are raw codes
 
 1. Every row gets a one- or two-sentence help, behind a `?` button — the same
    `useKnobHelp` the knob rows use — that opens the sentence under the row.
-   The summary's four terms get the same button.
+   The summary gets one `?` beside its caption, opening its four figures'
+   sentences: at the 352px drawer a figure's column leaves 61px for its term,
+   too narrow for a term and a button.
 2. The green/red colours stay. The caption says green is better, and each
    row's help says which way is better where there is a way.
 3. `D`, `f0` and `almost` stop being neutral: `D` +1 (deeper is harder), `f0`
@@ -82,22 +84,24 @@ Values that change with the labels:
 
 - `stat_stallVal`: EN `` `${pStall} of arrows laid, reaching ${pGot} of the planned length` ``;
   PL `` `${pStall} ułożonych strzałek, osiągają ${pGot} zaplanowanej długości` ``.
-- `stat_absorbedVal`: EN `` `${n} patches (${cells} cells)` ``; PL `` `${n} łatek (${cells} komórek)` ``.
+- `stat_absorbedVal`: EN `patch`/`patches` by count; PL `łatka`/`łatki`/`łatek` by `plCount`, then `(${cells} komórek)`.
 - `stat_timeVal` and `stat_genVal`, PL only: `generowanie … s, statystyki … s` and `generowanie … s`.
 
 ## Lab: `apps/lab/src/report`
 
 - `StatsTable`: the row's `<th>` holds the label and `useKnobHelp`'s button;
-  the paragraph sits in a row of its own under it, spanning the three
-  columns, visually hidden while closed (so `aria-controls` always points at
+  the paragraph sits in a fourth cell of the same `<tr>`, spanning the row's
+  grid under it (a row stays one `<tr>` for everything that counts them),
+  visually hidden while closed (so `aria-controls` always points at
   an element). The help id is derived from the row key (`stat-help-<key>`).
   A hook cannot run inside `map`, so each row is a small `StatRowView`
   component.
-- `ReportSummary`: each `<dt>` holds the label and a button; the paragraphs
-  follow the `<dl>`, one per term, ids `sum-help-<key>`. The summary's rows
-  leave the table, so this is their only help.
+- `ReportSummary`: one `?` beside the caption opens a list (`#sum-help`) of
+  the four figures' labels and sentences under the figures. The summary's
+  rows leave the table, so this is their only help. The figures' inner
+  padding narrows so the longest Polish term fits its column.
 - `LongestTable`: the `longestHelp` paragraph moves behind a `?` next to the
-  heading.
+  heading; the button is named by `longestName` ("the longest arrows").
 - CSS: the `?` reuses the knob rows' `.q`; the help row reuses `.kv-help`'s
   type. Rows in `WIDE_KEYS` and the table's grid keep their tracks; the PL
   labels that grow (`droga do krawędzi`, `blokuje, rekord`) must not wrap
@@ -110,7 +114,7 @@ Values that change with the labels:
   `better` of `f0`, `almost`, `D` is −1, +1, +1.
 - The i18n parity test already fails on a key missing in PL.
 - `ReportPanel.browser.test.tsx`: a row's `?` toggles `aria-expanded` and
-  shows its sentence; the same in PL; the summary's `?` does the same; the
+  shows its sentence; the same in PL; the summary's one `?` opens the four sentences; the
   longest table's help is closed by default and opens.
 - Existing assertions on the old labels (`D (blocking depth)`, `f0 …`,
   `elementów`, …) are updated, not deleted.
