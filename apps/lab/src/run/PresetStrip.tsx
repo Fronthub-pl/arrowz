@@ -125,7 +125,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
           <span className="none">{dict.t('customSettings')}</span>
         ) : (
           <>
-            <span>{`${levels[level.id] ?? level.id} ${dict.d.presets.modes[current.mode]}`}</span>
+            <span>{`${levels[level.id] ?? level.id} · ${dict.d.presets.modes[current.mode]}`}</span>
             <span className="d">{`${current.params.W ?? 0}×${current.params.H ?? 0}`}</span>
           </>
         )}

@@ -41,7 +41,7 @@ describe('PresetStrip', () => {
   it('names the preset the knobs spell on its trigger, with its size', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     // The store's defaults are 25×50, which `easy-portrait` spells exactly.
-    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveTextContent('presetEasy tall25×50▼')
+    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveTextContent('presetEasy · tall25×50▼')
     expect(screen.container.querySelector('.fw-pp-edited')).toBeNull()
   })
 
@@ -294,11 +294,12 @@ describe('PresetStrip', () => {
     await open(screen)
     const panel = screen.getByRole('group', { name: 'Presets' }).element()
     const caption = panel.querySelector('.fw-pp-cap')
-    expect(caption?.textContent).toBe("Levels set the board's size only; the options change how arrows are laid.")
+    expect(caption?.textContent).toBe(
+      "Levels set the board's size only; the options change its shape or how arrows are laid.",
+    )
     expect(panel.getAttribute('aria-describedby')).toBe(caption?.id)
     const tunnels = screen.getByRole('button', { name: 'Hard 75×150 tunnels' }).element()
-    const id = tunnels.getAttribute('aria-describedby') ?? ''
-    expect(document.getElementById(id)?.textContent).toBe('Arrows start deep inside, buried behind others: harder.')
+    await expect.element(tunnels).toHaveAccessibleDescription('Arrows start deep inside, buried behind others: harder.')
     expect(tunnels.getAttribute('title')).toBe('Arrows start deep inside, buried behind others: harder.')
   })
 
