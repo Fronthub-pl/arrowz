@@ -142,10 +142,10 @@ different counter over 237 files; the two numbers are not comparable.)
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Top 1: the report explains nothing | open | |
+| Top 1: the report explains nothing | fixed in `1c5eb26`, `a62d567`, `9201262`, `5681c07` | Every row, the summary and the longest table have a `?`; labels in player's words; depth, traps and free at start say which way is harder |
 | Top 2: jargon as visible labels (`prostota`, …) | open | |
 | Top 3: help warns about values the slider cannot reach | open | |
-| Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open |
+| Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open; the report's rows follow the glossary |
 | Top 5: "element" means two things in PL | open | |
 | Top 6: Simple view explains least | open | |
 | Top 7: presets read as difficulty levels | open | |
@@ -239,10 +239,7 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **Copy pass on the report and the simple view:** help for every report row,
-   units, "higher is harder", "Tunnels = harder" in `start.help`, then the
-   glossary (one term per concept, EN + PL). Two of the factual errors are
-   fixed; the labels and help texts are not.
+1. **The report is done (`lab/report-copy`); the simple view and `start.help` are next, then the glossary across the knobs and the view panel.** The saved boards' list still says "pieces" (e.g. "120 pieces · longest 69"), which belongs to the glossary pass.
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
