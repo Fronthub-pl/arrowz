@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertNotEquals, assertStringIncludes } from '@std/assert'
 import { type Dictionary, dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
+import { wordFor } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
 import type { InactiveKey, ParamKey, RuleKey, Violation } from './types.ts'
 
@@ -35,7 +36,18 @@ Deno.test('both dictionaries cover the fixed-choice knobs and the start control'
     for (const c of s.control.choices) assert(words[c.word], `Polish word for ${s.key}=${c.word}`)
   }
   assert(choiceKeys.size > 0, 'the lab draws at least one knob as a list of values')
-  for (const k of Object.keys(PL.choices)) assert(choiceKeys.has(k as ParamKey), `stale choices ${k}`)
+  // A knob whose minimum is a word (`--lmax=auto`, `--giantstep=random`) shows
+  // that word on its chip, so Polish may translate it too.
+  const specialKeys = new Set<ParamKey>()
+  for (const s of PARAM_SPEC) {
+    const special = wordFor(s.key, s.min)
+    if (special === null || s.control?.kind === 'choice') continue
+    specialKeys.add(s.key)
+    assert(PL.choices[s.key]?.[special], `Polish word for the ${s.key} chip`)
+  }
+  for (const k of Object.keys(PL.choices)) {
+    assert(choiceKeys.has(k as ParamKey) || specialKeys.has(k as ParamKey), `stale choices ${k}`)
+  }
   const dictionaries: Dictionary[] = [EN, PL]
   for (const d of dictionaries) {
     assert(d.start.label.length > 0, 'start label')
@@ -79,7 +91,7 @@ Deno.test('both ui dictionaries describe the safe envelope', () => {
     assertEquals(typeof text, 'string')
     assert(text.includes('straightness bias'), text)
     assert(text.includes('0.4'), text)
-    assert(text.includes('0.6..1'), text)
+    assert(/0\.6 (?:to|do) 1/.test(text), text)
     assertEquals(typeof d.ui.stepViolation, 'function')
     const step = d.ui.stepViolation('maximum backtracks', 25, 0, 50)
     assertEquals(typeof step, 'string')
@@ -215,11 +227,36 @@ Deno.test('reason resolves an inactive key from INACTIVE_REASONS and a rule key 
   assertEquals(en.reason('sharesSum'), RULE_REASONS.sharesSum)
 })
 
-Deno.test('choiceText looks up a real Polish word for a real choice pair', () => {
+Deno.test('choiceText shows the display word in both languages, and the CLI word stays the flag', () => {
+  const en = dictionary('en')
   const pl = dictionary('pl')
-  const words = PL.choices.trapBias
-  assert(words, 'expected PL.choices.trapBias to exist')
-  assertEquals(pl.choiceText('trapBias', 'seek'), words.seek)
+  assertEquals(en.choiceText('trapBias', 'off'), 'normal')
+  assertEquals(pl.choiceText('trapBias', 'off'), 'normalnie')
+  assertEquals(en.choiceText('trapBias', 'seek'), 'seek')
+  assertEquals(en.choiceText('giantStep', 'random'), 'random')
+  assertEquals(pl.choiceText('giantStep', 'random'), 'losowo')
+  assertEquals(pl.choiceText('Lmax', 'auto'), 'auto')
+  assertEquals(wordFor('trapBias', 0), 'off')
+  assertEquals(wordFor('giantStep', 0), 'random')
+})
+
+// Symbols instead of words: "2 prób" and "30 boki" were Polish that does not inflect.
+Deno.test('the units are the five the rows use, and the Polish ones need no inflection', () => {
+  assertEquals(Object.keys(EN.units).sort(), ['arrows', 'cells', 'px', 'sides', 'times'])
+  assertEquals(Object.keys(PL.units).sort(), ['arrows', 'cells', 'px', 'sides', 'times'])
+  assertEquals(EN.units.times, '×')
+  assertEquals(PL.units, { cells: 'kom.', times: '×', arrows: 'strz.', sides: '× bok', px: 'px' })
+})
+
+Deno.test('the head width and the head length each have their own help', () => {
+  for (const lang of ['en', 'pl'] as const) {
+    const d = dictionary(lang)
+    assertNotEquals(d.t('headWidthHelp'), d.t('headHeightHelp'))
+  }
+  assertEquals(
+    dictionary('en').t('headHeightHelp'),
+    'How long the arrowhead is, measured along the arrow, in cells. 0 = a flat end with no point.',
+  )
 })
 
 Deno.test('the third tab has a name in both languages', () => {
@@ -287,11 +324,53 @@ Deno.test('the console rail names itself and its two sections in both languages'
     assertStringIncludes(named, '2')
     assertNotEquals(named, 'shape 2')
   }
+  assertEquals(dictionary('en').t('railElement'), 'look')
+  assertEquals(dictionary('pl').t('railElement'), 'wygląd')
 })
 
 Deno.test('the rule marker states the bound it marks', () => {
-  assertEquals(dictionary('en').t('ruleBound', 0.75), 'Rule bound: 0.75')
-  assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Granica reguły: 0,75')
+  assertEquals(dictionary('en').t('ruleBound', 0.75), 'Minimum for this board: 0.75')
+  assertEquals(dictionary('pl').t('ruleBound', 0.75), 'Minimum dla tej planszy: 0,75')
+})
+
+// The glossary's knob words, verbatim from the spec: a changed word is a changed spec.
+Deno.test('the knobs speak of arrows, skeletons and target lengths, in both languages', () => {
+  const label = (key: ParamKey) => PARAM_SPEC.find((s) => s.key === key)?.label
+  assertEquals(label('giants'), 'number of skeleton arrows (0 = no skeleton)')
+  assertEquals(label('probe'), 'share of arrows with a target length')
+  assertEquals(EN.short.anticoil, 'coil penalty')
+  assertEquals(EN.short.absorbLimit, 'leftover max')
+  assertEquals(PL.short.pStraight, 'prostość')
+  assertEquals(PL.short.giantStep, 'przerwa')
+  assertEquals(EN.groups.closing, 'when stuck')
+  assertEquals(PL.groups.closing, 'gdy utknie')
+  assertEquals(
+    PL.groupHelp.lengths,
+    'Strzałki są trzech rozmiarów: krótkie (2–6 komórek), średnie (7–15) i długie (od 16 do najdłuższej). Ustaw udział krótkich i średnich; długie dostają resztę.',
+  )
+  assertEquals(
+    PL.groupHelp.closing,
+    'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
+  )
+  assertEquals(EN.start.options.mixing, 'mix')
+  assertEquals(PL.start.options.mixing, 'mieszane')
+  assertEquals(dictionary('en').reason('skeletonOff'), 'needs skeletons > 0 or late chance > 0')
+  assertEquals(dictionary('pl').reason('stepZero'), 'bez wpływu przy przerwie „losowo”')
+})
+
+// A help that warned about a value its own slider cannot reach sent a player
+// looking for a danger zone that is not there.
+Deno.test('no knob help names a number outside its own range as a threshold', () => {
+  const warns =
+    /\b(?:below|above|under|over|more than|less than|poniżej|powyżej|więcej niż|mniej niż)\s+(-?\d+(?:[.,]\d+)?)/gi
+  for (const s of PARAM_SPEC) {
+    for (const help of [s.help, PL.params[s.key].help]) {
+      for (const m of help.matchAll(warns)) {
+        const n = Number((m[1] ?? '').replace(',', '.'))
+        assert(n > s.min && n < s.max, `${s.key}: "${m[0]}" is not strictly inside ${s.min}..${s.max}`)
+      }
+    }
+  }
 })
 
 // `paletteHelp` takes the cap as an argument, so the number it states cannot
@@ -367,6 +446,16 @@ Deno.test('the preset picker and the two drawers speak both languages', () => {
   }
 })
 
+Deno.test('the preset panel has a caption and a description for every mode, in both languages', () => {
+  for (const d of [EN, PL]) {
+    assert(d.presets.caption.length > 0, 'preset caption')
+    assertEquals(Object.keys(d.presets.modeHelp).sort(), Object.keys(d.presets.modes).sort())
+  }
+  assertEquals(EN.presets.modes.portrait, 'tall')
+  assertEquals(PL.presets.modes.portrait, 'pionowa')
+  assertEquals(PL.presets.modes.serpentine, 'kręty szkielet')
+})
+
 // The label track is 12ch wide in every group, so a short
 // label over 12 characters would be cut in the lab.
 Deno.test('every knob has a short label of at most 12 characters, in both languages', () => {
@@ -429,13 +518,13 @@ Deno.test('the board mode counts cells and mistakes in both languages, Polish in
     'Plansza wyczyszczona · 22 błędy',
   ])
   assertEquals([1, 2, 5].map((n) => PL.ui.pieceFacts(3, n, '→ w prawo')), [
-    'Element #3 · 1 komórka · → w prawo',
-    'Element #3 · 2 komórki · → w prawo',
-    'Element #3 · 5 komórek · → w prawo',
+    'Strzałka #3 · 1 komórka · → w prawo',
+    'Strzałka #3 · 2 komórki · → w prawo',
+    'Strzałka #3 · 5 komórek · → w prawo',
   ])
   assertEquals([PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
-    'zablokowany przez #4 w odległości 1 komórki',
-    'zablokowany przez #4 w odległości 3 komórek',
+    'zablokowana przez #4 w odległości 1 komórki',
+    'zablokowana przez #4 w odległości 3 komórek',
   ])
   assertEquals([EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 0)], [
     'blocked by #4 at 1 cell',
@@ -468,4 +557,15 @@ Deno.test('the merged-leftovers value agrees with both counts, Polish in its thr
     '3 łatki (3 komórki)',
     '5 łatek (22 komórki)',
   ])
+})
+
+Deno.test('a board is complete or incomplete, and the saved list counts arrows', () => {
+  const en = dictionary('en')
+  const pl = dictionary('pl')
+  assertEquals(en.t('closed'), 'Board complete: every cell filled.')
+  assertEquals(pl.t('notClosed'), 'niepełna')
+  assertEquals(en.t('piecesShort', 120), '120 arrows')
+  assertEquals(pl.t('piecesShort', 120), '120 strz.')
+  assertEquals(pl.t('longestShort', 69), 'najdłuższa 69')
+  assert(!('title' in EN.ui) && !('subtitle' in EN.ui), 'the two unread keys are gone')
 })

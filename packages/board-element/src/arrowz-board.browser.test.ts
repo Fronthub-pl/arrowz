@@ -639,7 +639,7 @@ describe('the gesture switch', () => {
   // nothing, so neither its hint nor its switch may promise a move.
   test('an inspecting board names a piece, not a move, in drag mode', async () => {
     await mount({ interactive: '' })
-    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click a piece' : 'Drag to pan · Ctrl-click a piece')
+    expect(hintOf(el)).toBe(mac ? 'Drag to pan · ⌘-click an arrow' : 'Drag to pan · Ctrl-click an arrow')
     expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
     expect(switchOf(el)?.getAttribute('title')).toBe(mac ? 'Click without ⌘' : 'Click without Ctrl')
   })
@@ -660,7 +660,9 @@ describe('the gesture switch', () => {
   test('lang="pl" words the inspecting hint and switch in Polish', async () => {
     await mount({ interactive: '', lang: 'pl' })
     expect(hintOf(el)).toBe(
-      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik na element' : 'Przeciągnij, aby przesunąć · Ctrl + klik na element',
+      mac
+        ? 'Przeciągnij, aby przesunąć · ⌘ + klik na strzałkę'
+        : 'Przeciągnij, aby przesunąć · Ctrl + klik na strzałkę',
     )
     expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik bez ⌘' : 'Klik bez Ctrl')
   })

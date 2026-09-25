@@ -401,7 +401,7 @@ describe('colours', () => {
   test('with the permission the button paints the board and its label follows lang', async () => {
     await mount({ 'enable-colors': '', lang: 'pl' })
     const button = colourButton(el)
-    expect(button?.getAttribute('aria-label')).toBe('Kolory figur')
+    expect(button?.getAttribute('aria-label')).toBe('Kolory strzałek')
     expect(button?.getAttribute('aria-pressed')).toBe('false')
     expect(el.saveState()?.colored).toBe(false)
     const first = el.board?.pieces[0]

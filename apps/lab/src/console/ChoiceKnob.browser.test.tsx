@@ -17,7 +17,9 @@ test('the knob offers exactly the words the flag takes', async () => {
   const select = screen.getByRole('combobox', { name: /trap/i })
   await expect.element(select).toHaveValue('0')
   for (const choice of choices) {
-    await expect.element(screen.getByRole('option', { name: choice.word })).toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('option', { name: EN.choiceText('trapBias', choice.word) }))
+      .toBeInTheDocument()
   }
 })
 
@@ -43,14 +45,14 @@ test('a choice knob keeps its description in its row, closed, apart from its sta
   expect(help?.textContent).toBe(EN.paramText(trapBias).help)
   expect(help?.classList.contains('fw-vh')).toBe(true)
   expect(screen.container.querySelector('.kv-why')?.textContent).not.toContain(EN.paramText(trapBias).help)
-  await screen.getByRole('button', { name: 'About trap bias' }).click()
+  await screen.getByRole('button', { name: 'About traps' }).click()
   expect(help?.classList.contains('fw-vh')).toBe(false)
 })
 
 test('the select is in the control track, named by the short term', async () => {
   useStore.getState().params.reset()
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-  const select = screen.getByRole('combobox', { name: 'trap bias' })
+  const select = screen.getByRole('combobox', { name: 'traps' })
   expect(select.element().closest('.cc')).not.toBeNull()
 })
 
@@ -67,7 +69,7 @@ test('a violated choice knob says why, in error colour, and the select points at
   try {
     const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
     const why = screen.container.querySelector('.kv-why')
-    expect(why?.textContent ?? '').toContain('5 is outside -1..1')
+    expect(why?.textContent ?? '').toContain('5 — allowed -1 to 1')
     expect(screen.container.querySelector('.kv-row')?.className).toContain('bad')
     await expect
       .element(screen.getByRole('combobox'))

@@ -401,6 +401,24 @@ test('the margin reaches the element', async () => {
   useStore.getState().view.setPad(DEFAULT_PAD)
 })
 
+// At `pad` 0 the margin holds nothing: only a strip reserved on the frame
+// itself keeps the element out from under the annotation and the toggle.
+test('the board starts under the annotation strip, even with no margin', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await expect.poll(() => annotation(screen.container)).not.toBeNull()
+  try {
+    await act(async () => useStore.getState().view.setPad(0))
+    const host = screen.container.querySelector('arrowz-board')?.getBoundingClientRect()
+    const anno = annotation(screen.container)?.getBoundingClientRect()
+    const solo = screen.container.querySelector('.fw-solo')?.getBoundingClientRect()
+    expect(host && anno && host.top - anno.bottom).toBeGreaterThanOrEqual(-0.5)
+    expect(host && solo && host.top - solo.bottom).toBeGreaterThanOrEqual(-0.5)
+  } finally {
+    useStore.getState().view.setPad(DEFAULT_PAD)
+  }
+})
+
 // A link to a board that is no longer on disk leaves the stage empty and says
 // why. The run's result is deliberately present: that is the board that must
 // not appear under the words "cannot be read".
@@ -413,6 +431,15 @@ test('on the library tab a board that could not be read leaves the stage empty',
   expect(annotation(screen.container)).toBeNull()
 })
 
+// The strip above the board is the annotation's own plane (`--void`), not the
+// frame's paper, so a dark theme shows no light band where the annotation sits.
+test('the strip above the board paints --void, not the paper', async () => {
+  const screen = await mountFrame()
+  const frame = screen.container.querySelector('.fw-board')
+  if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
+  expect(getComputedStyle(frame).backgroundImage).toContain('rgb(14, 15, 18)')
+})
+
 // `<arrowz-board>` sets `--arrowz-paper` on its own host, and a custom property
 // inherits downward only, so `.fw-board`, an ancestor, can never see it; the
 // letterbox a person sees is the element's `:host`. So `.fw-board` paints
@@ -423,10 +450,11 @@ test('the frame paints the lab’s token, not --arrowz-paper set on itself', asy
   // `instanceof HTMLElement`, not `!== null`: `querySelector` returns `Element`,
   // which has no `style` for the property set below.
   if (!(frame instanceof HTMLElement)) throw new Error('the board frame is not on the page')
-  // What the frame paints in the app, always: the lab's own token.
-  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
-  // Not a state the app produces, but it guards that the declaration is a plain
-  // `var(--paper)`, not a fallback that would read the property here.
+  // What the frame paints in the app, always: the lab's own token, as the
+  // gradient's lower stop (the strip above it is --void; the test above).
+  expect(getComputedStyle(frame).backgroundImage).toContain('rgb(244, 245, 248)')
+  // Not a state the app produces, but it guards that the declaration reads
+  // `var(--paper)` plainly, with no fallback that would read the property here.
   frame.style.setProperty('--arrowz-paper', 'rgb(40, 40, 40)')
-  expect(getComputedStyle(frame).backgroundColor).toBe('rgb(244, 245, 248)')
+  expect(getComputedStyle(frame).backgroundImage).toContain('rgb(244, 245, 248)')
 })

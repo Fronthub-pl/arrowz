@@ -22,8 +22,8 @@ test('labelsFor picks Polish for pl and pl-PL and falls back to English', () => 
 })
 
 test('the colour button is labelled in both languages', () => {
-  expect(labelsFor('pl').colors).toBe('Kolory figur')
-  expect(labelsFor('en').colors).toBe('Piece colours')
+  expect(labelsFor('pl').colors).toBe('Kolory strzałek')
+  expect(labelsFor('en').colors).toBe('Arrow colours')
 })
 
 test('every label has both languages, the WebGL message included', () => {
@@ -51,12 +51,12 @@ test('the gesture hints and the switch are labelled in both languages', () => {
 
 test('the inspecting hints and the neutral switch are labelled in both languages', () => {
   const en = labelsFor('en'), pl = labelsFor('pl')
-  expect(en.dragInspectHintMac).toBe('Drag to pan · ⌘-click a piece')
-  expect(en.dragInspectHintOther).toBe('Drag to pan · Ctrl-click a piece')
+  expect(en.dragInspectHintMac).toBe('Drag to pan · ⌘-click an arrow')
+  expect(en.dragInspectHintOther).toBe('Drag to pan · Ctrl-click an arrow')
   expect(en.gesturesInspectMac).toBe('Click without ⌘')
   expect(en.gesturesInspectOther).toBe('Click without Ctrl')
-  expect(pl.dragInspectHintMac).toBe('Przeciągnij, aby przesunąć · ⌘ + klik na element')
-  expect(pl.dragInspectHintOther).toBe('Przeciągnij, aby przesunąć · Ctrl + klik na element')
+  expect(pl.dragInspectHintMac).toBe('Przeciągnij, aby przesunąć · ⌘ + klik na strzałkę')
+  expect(pl.dragInspectHintOther).toBe('Przeciągnij, aby przesunąć · Ctrl + klik na strzałkę')
   expect(pl.gesturesInspectMac).toBe('Klik bez ⌘')
   expect(pl.gesturesInspectOther).toBe('Klik bez Ctrl')
 })

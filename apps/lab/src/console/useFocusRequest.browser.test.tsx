@@ -88,7 +88,7 @@ describe('a jump from the palette', () => {
     await mountApp('advanced')
     await loadRunDone()
     await userEvent.keyboard('{Meta>}k{/Meta}')
-    await userEvent.keyboard('stroke width')
+    await userEvent.keyboard('line thickness')
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => document.activeElement?.id).toBe('view-stroke')
     await userEvent.keyboard('{Meta>}k{/Meta}')

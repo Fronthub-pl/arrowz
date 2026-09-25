@@ -280,9 +280,9 @@ const EVERYDAY_FLAGS: readonly FlagRow[] = [
   ['--width=N', 'board width in cells (required)'],
   ['--height=N', 'board height in cells (required)'],
   ['--seed=N', 'seed of the board (default 7)'],
-  ['--length=R', 'piece length, 0 = very short, 1 = very long (default 0.75)'],
-  ['--winding=R', 'line shape, 0 = straightest, 1 = most winding (default 0.5)'],
-  ['--skeleton', 'a skeleton of long pieces first'],
+  ['--length=R', 'arrow length, 0 = very short, 1 = very long (default 0.75)'],
+  ['--winding=R', 'winding, 0 = straightest, 1 = most winding (default 0.5)'],
+  ['--skeleton', 'a skeleton of very long arrows first'],
   [
     '--randomized',
     'draw each bundle afresh inside the measured ranges; not reproducible, the board meta keeps the full command',
@@ -292,7 +292,7 @@ const OUTPUT_FLAGS: readonly FlagRow[] = [
   ['(no mode)', 'one board file into packages/cli/boards/ (ARROWZ_BOARDS_DIR) with its meta, no picture'],
   ['--svg[=path]', 'the same, plus an SVG preview in the store, and a copy at path'],
   ['--dry-run', 'one board, nothing written: one JSON line on stdout'],
-  ['--count=N', 'N closed boards on the seeds from --seed up; one that does not close is skipped'],
+  ['--count=N', 'N complete boards on the seeds from --seed up; a seed whose board does not fill is skipped'],
   ['--max-seeds=M', 'with --count: give up after M seeds (default 2 x N)'],
   ['--help, -h', 'this text; --help=knobs adds the table of every knob'],
 ]
@@ -300,10 +300,10 @@ const PICTURE_FLAGS: readonly FlagRow[] = [
   ['--cell=N', 'cell size in px (default: about 1600 px on the longer side)'],
   ['--line=R', `line width as a fraction of the cell (default ${DEFAULT_VIEW.stroke})`],
   ['--arrow-width=R|auto', 'arrowhead width in cells (default auto, from the line width)'],
-  ['--arrow-height=R', `arrowhead height in cells (default ${DEFAULT_VIEW.headHeight})`],
-  ['--colored', 'a different colour for every piece'],
+  ['--arrow-height=R', `arrowhead length along the arrow, in cells (default ${DEFAULT_VIEW.headHeight})`],
+  ['--colored', 'a different colour for every arrow'],
   ['--sharp', 'square corners and a square tail (default: rounded)'],
-  ['--top=N', 'highlight the N longest pieces and print their stats'],
+  ['--top=N', 'highlight the N longest arrows and print their stats'],
 ]
 
 /** The flags a rule names: the two knobs behind --start have one flag between them, so it is listed once. */
@@ -376,12 +376,13 @@ export const KNOB_ROWS: readonly KnobRow[] = (() => {
         group: s.group,
         flag: '--start',
         values: `${Object.keys(START.words).join('|')}|${MIX_SHARE.min}..${MIX_SHARE.max}`,
-        label: 'where a piece starts, and layer/tunnel mixing',
+        label: 'where an arrow starts, and the tunnel share',
         step: '-',
         def: 'random',
         help:
-          'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). ' +
-          `A number in ${MIX_SHARE.min}..${MIX_SHARE.max} mixes the two instead: the fraction of pieces that start as tunnels.`,
+          'Where each new arrow starts while the board is built: from the edges inwards (layers, easier), anywhere ' +
+          `(random) or deep inside (tunnels, harder). A number in ${MIX_SHARE.min}..${MIX_SHARE.max} mixes the two ` +
+          'instead: the share of arrows that start as tunnels.',
       })
       continue
     }
@@ -502,7 +503,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
   out.push('keeps its value while the rest of its bundle is still chosen (and, with')
   out.push('--randomized, still drawn) around it. The safe ranges were measured as whole')
   out.push('bundles, so a half-pinned bundle stays inside the envelope but is no longer')
-  out.push('covered by the promise that every everyday combination closes.')
+  out.push('covered by the promise that every everyday combination fills its board.')
   out.push('')
   out.push(environment())
   return out.join('\n')
@@ -512,7 +513,7 @@ export function helpText({ knobs = false }: { knobs?: boolean } = {}): string {
 function environment(): string {
   return [
     'Environment: ARROWZ_BOARDS_DIR (board store), CARVE_TRACE=1 (progress on stderr), GIANT_DEBUG=1,',
-    'CARVE_TIMEOUT_S=N (abort after N seconds; the board carved so far is stored as not closed).',
+    'CARVE_TIMEOUT_S=N (abort after N seconds; the board built so far is stored as incomplete).',
   ].join('\n')
 }
 

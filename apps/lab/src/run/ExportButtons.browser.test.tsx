@@ -258,11 +258,11 @@ test('an export that fails after its board was replaced says nothing', async () 
 test('the SVG-export note appears only while a theme is chosen', async () => {
   const screen = await mountButtons()
   await act(async () => finish(ONE))
-  expect(screen.getByText(/not the chosen theme/i).query()).toBeNull()
+  expect(screen.getByText(/the chosen theme is not included/i).query()).toBeNull()
   await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
-  await expect.element(screen.getByText(/not the chosen theme/i)).toBeInTheDocument()
+  await expect.element(screen.getByText(/the chosen theme is not included/i)).toBeInTheDocument()
   await act(async () => useStore.getState().view.setTheme(''))
-  expect(screen.getByText(/not the chosen theme/i).query()).toBeNull()
+  expect(screen.getByText(/the chosen theme is not included/i).query()).toBeNull()
 })
 
 // The mock's ghost buttons, `--ash` on `--graphite`.

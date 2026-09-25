@@ -164,19 +164,19 @@ test('Inspect makes the element interactive and a clicked piece names its facts'
   const element = elementOf(screen.container)
   await expect.poll(() => element.hasAttribute('interactive')).toBe(true)
   expect(element.hasAttribute('play')).toBe(false)
-  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose an arrow to inspect it.')
 
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
   await fire(screen.container, 'piece-click', { pieceId: 2 })
-  expect(said(screen.container)).toBe('Piece #2 · 3 cells · ↑ up · free')
+  expect(said(screen.container)).toBe('Arrow #2 · 3 cells · ↑ up · free')
 
   await pick(screen.container, 0)
   expect(line(screen.container)).toBeNull()
   await expect.poll(() => element.hasAttribute('interactive')).toBe(false)
   // Back in Inspect the old card is not brought back: the click was the last mode's.
   await pick(screen.container, 1)
-  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose an arrow to inspect it.')
 })
 
 test('Play counts pieces left and mistakes, and Reset puts the board and both counts back', async () => {
@@ -266,13 +266,13 @@ test('switching modes keeps the game: Inspect sees the board as it stands, Play 
   expect([...(element.saveState()?.removed ?? [])].sort()).toEqual([0, 2])
   // Piece 1's only blocker has left.
   await act(async () => clickPiece(screen.container, 1))
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · free')
   // A piece that has left is no piece to inspect: the element sends no click
   // for its empty cells, and one sent anyway brings no card for it.
   await act(async () => clickPiece(screen.container, 2))
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · free')
   await fire(screen.container, 'piece-click', { pieceId: 2 })
-  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose an arrow to inspect it.')
   expect(resetButton(screen.container)?.disabled).toBe(false)
 
   await pick(screen.container, 0)
@@ -292,7 +292,7 @@ test('Reset in Inspect starts the game over: the element, the counts and the boa
   await fire(screen.container, 'life-lost', { pieceId: 0, blockerId: 1, distance: 0 })
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · free')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · free')
 
   const element = elementOf(screen.container)
   const restart = vi.spyOn(element, 'restart')
@@ -302,7 +302,7 @@ test('Reset in Inspect starts the game over: the element, the counts and the boa
   expect(load).not.toHaveBeenCalled()
   expect(resetButton(screen.container)?.disabled).toBe(true)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
   await pick(screen.container, 2)
   expect(said(screen.container)).toBe('3 left · 0 mistakes')
 })
@@ -315,7 +315,7 @@ test('Reset in Play starts over the board the card reads too', async () => {
   await act(async () => resetButton(screen.container)?.click())
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
 })
 
 test('a new board on stage keeps Play and starts the counts over', async () => {
@@ -343,7 +343,7 @@ test('a new board on stage starts the game over for Inspect too, and keeps the m
   expect(useStore.getState().ui.boardMode).toBe('inspect')
   expect(resetButton(screen.container)?.disabled).toBe(true)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Piece #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
 })
 
 test('a new board on stage drops the inspected piece', async () => {
@@ -352,7 +352,7 @@ test('a new board on stage drops the inspected piece', async () => {
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
   await act(async () => finish(finishedRun(2)))
-  expect(said(screen.container)).toBe('Choose a piece to inspect it.')
+  expect(said(screen.container)).toBe('Choose an arrow to inspect it.')
 })
 
 test('the mode applies to a stored board previewed in the library', async () => {
@@ -367,7 +367,7 @@ test('the mode applies to a stored board previewed in the library', async () => 
   const piece = board.pieces[0]
   if (piece === undefined) throw new Error('empty fixture board')
   await fire(screen.container, 'piece-click', { pieceId: piece.id })
-  expect(said(screen.container)).toMatch(new RegExp(`^Piece #${piece.id} · ${piece.cells.length} cells · `))
+  expect(said(screen.container)).toMatch(new RegExp(`^Arrow #${piece.id} · ${piece.cells.length} cells · `))
 })
 
 // Every new string, in both languages. Modes are picked by position, never by
@@ -405,11 +405,11 @@ test('every word of the board mode is in both languages', async () => {
     'Widok',
     'Inspekcja',
     'Gra',
-    'Wskaż element, aby go zbadać.',
+    'Wskaż strzałkę, aby ją zbadać.',
     'Resetuj',
-    'Element #0 · 2 komórki · ← w lewo · wolny',
-    'Element #1 · 2 komórki · → w prawo · zablokowany przez #2 w odległości 0 komórek',
-    'Element #2 · 3 komórki · ↑ w górę · wolny',
+    'Strzałka #0 · 2 komórki · ← w lewo · wolna',
+    'Strzałka #1 · 2 komórki · → w prawo · zablokowana przez #2 w odległości 0 komórek',
+    'Strzałka #2 · 3 komórki · ↑ w górę · wolna',
     'zostało: 3 · 1 błąd',
     'Plansza wyczyszczona · 1 błąd',
   ])

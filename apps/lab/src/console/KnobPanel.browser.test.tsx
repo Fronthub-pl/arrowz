@@ -34,13 +34,13 @@ test('a panel draws every knob of its group', async () => {
   const screen = await render(<KnobPanel group="shape" />)
   // Four knobs in shape: pStraight, wLateral, warns, anticoil — one row each.
   expect(screen.container.querySelectorAll('.kv-row')).toHaveLength(4)
-  await expect.element(screen.getByText('anticoil', { exact: true })).toBeVisible()
+  await expect.element(screen.getByText('coil penalty', { exact: true })).toBeVisible()
 })
 
 test('a row labels its knob with the short term and keeps the sentence in its title', async () => {
   const screen = await render(<KnobPanel group="shape" />)
   const label = screen.container.querySelector('label[for="knob-anticoil"]')
-  expect(label?.textContent).toBe('anticoil')
+  expect(label?.textContent).toBe('coil penalty')
   expect(label?.closest('.kv-row')?.getAttribute('title')).toBe(`${specOf('anticoil').label} · 1–10`)
 })
 
@@ -55,7 +55,7 @@ test('the difficulty group shows one start control, not two knobs', async () => 
   const screen = await render(<KnobPanel group="difficulty" />)
   // headBias and mix share --start, so the group's five specs become four
   // controls: the start control, trapBias, probe, probeLen.
-  await expect.element(screen.getByRole('combobox', { name: /piece start/i })).toBeVisible()
+  await expect.element(screen.getByRole('combobox', { name: /arrow start/i })).toBeVisible()
   expect(screen.container.querySelectorAll('#knob-headBias')).toHaveLength(0)
   expect(screen.container.querySelectorAll('#knob-mix')).toHaveLength(0)
 })
@@ -80,7 +80,7 @@ test('every knob in PARAM_SPEC is reachable from exactly one panel', async () =>
 
 test('a group with help prints it under the heading', async () => {
   const screen = await render(<KnobPanel group="closing" />)
-  await expect.element(screen.getByText(/no legal carve/)).toBeVisible()
+  await expect.element(screen.getByText(/gets stuck/)).toBeVisible()
 })
 
 describe('the description on demand', () => {
@@ -152,7 +152,7 @@ describe('the description on demand', () => {
     await act(async () => useStore.getState().params.setStart('mixing'))
     await expect.poll(() => screen.container.querySelector('.kv-row #knob-mix-desc')).not.toBeNull()
     await expect
-      .element(screen.getByRole('slider', { name: 'mixing' }))
+      .element(screen.getByRole('slider', { name: 'tunnel share' }))
       .toHaveAttribute('aria-describedby', 'knob-mix-why knob-mix-desc')
   })
 

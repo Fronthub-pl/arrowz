@@ -178,7 +178,12 @@ test.each(SOLO_SIZES)(
     // View it is the control alone, 8px above 24px chips at both widths here.
     const strip = rect(screen.container, '.fw-modebar')
     expect(strip.height).toBeCloseTo(32, 0)
-    expect(board.height).toBeCloseTo(lab.height - 34 - strip.height, 0)
+    // The annotation strip holds its height in solo too; read it rather than
+    // pin it, since the touch breakpoint makes it 44px instead of 30.
+    const frame = screen.container.querySelector('.fw-board')
+    if (frame === null) throw new Error('.fw-board is not on the page')
+    const annoStrip = parseFloat(getComputedStyle(frame).paddingTop)
+    expect(board.height).toBeCloseTo(lab.height - 34 - strip.height - annoStrip, 0)
     expect(rect(screen.container, '.fw-report').height).toBe(0)
     expect(rect(screen.container, '.fw-console').height).toBe(0)
     // The status line stays, so a carve in flight is still reported.
@@ -811,7 +816,7 @@ test.each([
     expect(bar.width).toBe(1)
     expect(bar.height).toBe(1)
     const output = screen.getByRole('status', { name: 'Run status' })
-    await expect.element(output).toMatchTextContent(/Board closed/)
+    await expect.element(output).toMatchTextContent(/Board complete/)
     const view = rect(screen.container, '.fw-view')
     const lab = rect(screen.container, '.fw-lab')
     expect(lab.top).toBeCloseTo(view.top, 0)
@@ -857,7 +862,7 @@ test('at 1440×900 in Polish Generate is the meter and the line under it wraps i
     .toHaveAttribute('aria-valuenow', '41.3')
   expect(one(screen.container, '.fw-stage').getAttribute('aria-busy')).toBe('true')
   const line = one(screen.container, '#run-column > .fw-runstate')
-  expect(line.textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+  expect(line.textContent).toBe('52 strz. · zostało 734 · nawroty 18 · 1,4 s')
   const lineHeight = Number.parseFloat(getComputedStyle(line).lineHeight)
   expect(line.getBoundingClientRect().height).toBeCloseTo(2 * lineHeight + 6 + 8, 0)
   // The full sentence, percent included, is still the live region's.

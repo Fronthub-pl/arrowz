@@ -2405,101 +2405,103 @@ const PARAM_TABLE = [
     max: 2 ** 32 - 1,
     step: 1,
     def: 7,
-    help: 'The same seed with the same settings always gives the same board.',
+    help:
+      "The board's number. The same seed with the same settings always gives the same board; change it for a new board of the same kind.",
   },
 
   {
     key: 'wShort',
-    label: 'share of short pieces (2–6 cells)',
+    label: 'share of short arrows (2–6 cells)',
     group: 'lengths',
     min: 0,
     max: 0.9,
     step: 0.01,
     def: 0.2,
     help:
-      'Fraction of short pieces. Higher = more arrowheads, but a mess of little hooks. Short and medium together may not exceed 0.9.',
+      'How many arrows are short. More = more arrows on the board, but lots of little hooks. Short + medium: at most 0.9 (90%).',
   },
   {
     key: 'wMid',
-    label: 'share of medium pieces (7–15 cells)',
+    label: 'share of medium arrows (7–15 cells)',
     group: 'lengths',
     min: 0,
     max: 0.9,
     step: 0.01,
     def: 0.08,
     help:
-      'Fraction of medium pieces. Whatever is left after short and medium goes to long pieces. Short and medium together may not exceed 0.9.',
+      'How many arrows are medium. Whatever short and medium leave goes to long arrows. Short + medium: at most 0.9 (90%).',
   },
   {
     key: 'Lmax',
-    label: 'maximum length (auto = 2.5 × side)',
+    label: 'longest arrow (auto = 2.5 × longer side)',
     group: 'lengths',
     min: 0,
     max: 5000,
     step: 1,
     def: 0,
     help:
-      'The longest piece the generator tries for. auto = 2.5 x the longer side. Below 17 the cap eats the medium and long buckets, so use auto or 17 and up.',
+      'The longest arrow the generator aims for, in cells. auto = 2.5 × the longer side. 1 to 16 is not allowed: it would cut into the medium and long sizes.',
   },
   {
     key: 'backbite',
-    label: 'tail rework when a line gets stuck',
+    label: 'tail rework when an arrow gets stuck',
     group: 'lengths',
     min: 0,
     max: 8,
     step: 1,
     def: 0,
     help:
-      'How many times in a row a line that has nowhere left to go may rework its own tail instead of stopping. 0 is off. Higher gives longer pieces and fewer of them.',
+      'When a growing arrow hits a dead end, how many times in a row it may rework its tail and keep growing instead of stopping. 0 = off. More = fewer, longer arrows.',
   },
 
   {
     key: 'pStraight',
-    label: 'straightness bias',
+    label: 'straightness',
     group: 'shape',
     min: 0.6,
     max: 1,
     step: 0.01,
     def: 0.85,
     help:
-      'How readily a line keeps going straight. Higher = longer straight runs. Below 0.6 big boards stop closing. At 0.6 boards over 500x500 may jam; 0.65 is safe.',
+      "How often an arrow keeps straight instead of turning. Higher = long straight arrows; lower = more bends. The mark on the track is this board's minimum.",
   },
   {
     key: 'wLateral',
-    label: 'sideways move bonus',
+    label: 'sideways step bonus',
     group: 'shape',
     min: 0,
     max: 20,
     step: 0.5,
     def: 3,
-    help: 'How much a line prefers turning sideways over going deeper. 0 = straight thrusts and big coils.',
+    help:
+      'How much an arrow prefers a step to the side over pushing deeper into the board. 0 = straight pushes and big coils.',
   },
   {
     key: 'warns',
-    label: 'closing off nooks',
+    label: 'fill nooks first',
     group: 'shape',
     min: 2,
     max: 16,
     step: 1,
     def: 4,
     help:
-      'How strongly a line fills nooks with few exits first. Higher = fewer, longer, more coiled pieces. Below 2 the rule is off and boards jam.',
+      'How strongly an arrow fills small dead-end nooks before moving on. Higher = fewer, longer, more coiled arrows. Below 4 big boards need more straightness.',
   },
   {
     key: 'anticoil',
-    label: 'coiling penalty',
+    label: 'coil penalty',
     group: 'shape',
     min: 1,
     max: 10,
     step: 1,
     def: 6,
     help:
-      'How strongly a line avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter pieces. Above 10 it jams with low straightness.',
+      'How strongly an arrow avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter arrows. Above 6 big boards need more straightness.',
   },
 
   {
     key: 'headBias',
-    label: 'piece start (-1 layers, 0 random, 1 tunnels)',
+    label: 'arrow start (-1 layers, 0 random, 1 tunnels)',
     group: 'difficulty',
     min: -1,
     max: 1,
@@ -2507,23 +2509,22 @@ const PARAM_TABLE = [
     def: 0,
     surface: 'start',
     help:
-      'Where the next piece starts: the shallowest line (layers), anywhere, or the deepest (tunnels). Tunnels = harder. All three close boards up to 400x400.',
+      'Where each new arrow starts: from the edges inwards (layers, easier), anywhere (random) or deep inside (tunnels, harder). All three fill boards up to 400×400.',
   },
   {
     key: 'mix',
-    label: 'mixing share (tunnels among layers)',
+    label: 'share of tunnel starts (mix)',
     group: 'difficulty',
     min: -1,
     max: MIX_SHARE.max,
     step: 0.05,
     def: -1,
     surface: 'start',
-    help:
-      'Fraction of pieces that start as tunnels, the rest as layers. --start takes 0.3 to 0.7 here, because the extremes leave boards unclosed. -1 turns mixing off.',
+    help: 'With the mixed start: the share of arrows that start as tunnels, 0.3 to 0.7; the rest start as layers.',
   },
   {
     key: 'trapBias',
-    label: 'traps (arrows that look ready to go)',
+    label: 'traps (arrows that look free but are not)',
     group: 'difficulty',
     min: -1,
     max: 1,
@@ -2538,23 +2539,23 @@ const PARAM_TABLE = [
       choices: [{ value: -1, word: 'avoid' }, { value: 0, word: 'off' }, { value: 1, word: 'seek' }],
     },
     help:
-      'Ranks heads whose corridor already holds one piece: such a piece looks ready to leave but is not. seek makes half again as many, avoid a quarter, off is today.',
+      "A trap: an arrow blocked by exactly one other, so it looks free. Seek = 25–60% more; avoid = a third to an eighth as many; the middle choice = the generator's own.",
   },
 
   {
     key: 'probe',
-    label: 'share of probe pieces',
+    label: 'share of arrows with a target length',
     group: 'difficulty',
     min: 0,
     max: 1,
     step: 0.01,
     def: 0,
     help:
-      'Fraction of pieces whose target length is drawn around the probe length instead of the usual mix. At 1 with length 12 the board is all short pieces.',
+      'How many arrows get a length near one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only.',
   },
   {
     key: 'probeLen',
-    label: 'probe length',
+    label: 'target length',
     group: 'difficulty',
     min: 4,
     max: 200,
@@ -2562,18 +2563,18 @@ const PARAM_TABLE = [
     def: 12,
     inactive: (p) => (p.probe <= 0 ? 'probeOff' : null),
     help:
-      'Target length of a probe, give or take half. Short probes (4) triple the piece count; long ones (200) give fewer, longer pieces.',
+      'The target length in cells, give or take half. Short targets (4) triple the number of arrows; long ones (200) give fewer, longer arrows.',
   },
 
   {
     key: 'giants',
-    label: 'number of skeleton pieces (0 = no skeleton)',
+    label: 'number of skeleton arrows (0 = no skeleton)',
     group: 'skeleton',
     min: 0,
     max: 40,
     step: 1,
     def: 0,
-    help: 'How many of the first pieces are long lines crossing the board. 0 = no skeleton; 4 is a good start.',
+    help: 'How many very long arrows are laid first, snaking across the board. 0 = no skeleton; 4 is a good start.',
   },
   {
     key: 'giantSpan',
@@ -2584,11 +2585,11 @@ const PARAM_TABLE = [
     step: 1,
     def: 30,
     inactive: skeletonOff,
-    help: 'Target length of one skeleton, in board sides. The line stops earlier when it runs out of room.',
+    help: 'The target length of one skeleton arrow, in board sides. It stops earlier when it runs out of room.',
   },
   {
     key: 'giantStep',
-    label: 'serpentine step (random = free growth)',
+    label: 'gap between skeleton runs (random = free)',
     group: 'skeleton',
     min: 0,
     max: 40,
@@ -2596,29 +2597,29 @@ const PARAM_TABLE = [
     def: 14,
     inactive: skeletonOff,
     help:
-      'Gap between the runs of a skeleton. Small = regular stripes, large = a few highways. random = free growth, with no serpentine at all.',
+      'Cells between the back-and-forth runs of a skeleton. Small = tight, regular stripes; large = a few long highways. random = no back and forth: the skeleton grows freely.',
   },
   {
     key: 'giantJitter',
-    label: 'cutting serpentine runs short',
+    label: 'cutting skeleton runs short',
     group: 'skeleton',
     min: 0,
     max: 1,
     step: 0.05,
     def: 0.6,
     inactive: (p) => skeletonOff(p) ?? (p.giantStep === 0 ? 'stepZero' : null),
-    help: 'How often a skeleton run stops short of an obstacle. 0 = straight, regular edges.',
+    help: 'How often a skeleton run turns back before it reaches an obstacle. 0 = straight, regular edges.',
   },
   {
     key: 'wGiant',
-    label: 'share of skeletons after the start',
+    label: 'chance of more skeletons later',
     group: 'skeleton',
     min: 0,
     max: 0.2,
     step: 0.01,
     def: 0,
     help:
-      'Chance that a piece carved later is also a skeleton. Above 0.2 boards get slow and stop closing at 1000x1000.',
+      'The chance that an arrow laid later also becomes a skeleton arrow. At the top of the range (0.2) boards get slow, and 1000×1000 may not fill.',
   },
   // giantStraight acts on every skeleton regardless of giantStep: the
   // serpentine only seeds the path, the tail keeps growing on this weight
@@ -2634,11 +2635,11 @@ const PARAM_TABLE = [
     def: 0.94,
     inactive: skeletonOff,
     help:
-      'How readily a skeleton goes straight where it grows freely: the whole line with step 0, the tail after a serpentine. 0.5 is no preference at all.',
+      'How often a skeleton arrow keeps straight where it grows freely: all of it when the run gap is random, only its tail otherwise. 0.5 = no preference.',
   },
   {
     key: 'giantAnticoil',
-    label: 'skeleton coiling penalty',
+    label: 'skeleton coil penalty',
     group: 'skeleton',
     min: 1,
     max: 20,
@@ -2649,11 +2650,12 @@ const PARAM_TABLE = [
     // which is where its default sits (6 against 6). The lab said nothing about
     // that until now; the README always did.
     inactive: (p) => skeletonOff(p) ?? (p.giantAnticoil <= p.anticoil ? 'anticoilWins' : null),
-    help: 'Self-touching penalty for the skeleton alone. The higher of this and the general one applies.',
+    help:
+      'The coil penalty for skeleton arrows only. Whichever is higher, this or the coil penalty in the shape group, applies.',
   },
   {
     key: 'giantSpacing',
-    label: 'skeleton spacing radius',
+    label: 'skeleton spacing',
     group: 'skeleton',
     min: 1,
     max: 3,
@@ -2666,30 +2668,30 @@ const PARAM_TABLE = [
       kind: 'choice',
       choices: [{ value: 1, word: 'off' }, { value: 2, word: '2' }, { value: 3, word: '3' }],
     },
-    help: 'How far the skeleton keeps from its own earlier runs, in cells. Above 3 it only costs time.',
+    help: 'How many cells a skeleton keeps from its own earlier runs. off = it may touch them.',
   },
 
   {
     key: 'headTries',
-    label: 'start attempts per direction',
+    label: 'start spots tried per direction',
     group: 'closing',
     min: 2,
     max: 16,
     step: 1,
     def: 4,
     help:
-      'Starting spots to try before changing direction. 1 starves the search on hard settings; above 16 only costs time.',
+      'How many start spots are tried before another direction. At 2 the search is shallow for hard settings; 8 and up usually give the same board as 4.',
   },
   {
     key: 'absorbLimit',
-    label: 'leftover absorption up to N cells',
+    label: 'merge leftovers up to N cells',
     group: 'closing',
     min: 12,
     max: 64,
     step: 1,
     def: 24,
     help:
-      'A fragment up to this size that cannot be carved is glued to a neighbour. Below 12 leftovers pile up and boards jam.',
+      'An empty patch up to this many cells that no arrow fits is merged into a neighbouring arrow. Near the bottom of the range boards get stuck far more often.',
   },
   {
     key: 'maxBack',
@@ -2700,7 +2702,7 @@ const PARAM_TABLE = [
     step: 50,
     def: 200,
     help:
-      'How many carves may be undone in one attempt before starting over. 200 is enough; more only delays the verdict. --maxback=auto spells 200.',
+      'How many placed arrows the generator may take back in one attempt before starting over. 200 is enough; more only delays the answer.',
   },
   {
     key: 'restarts',
@@ -2711,7 +2713,7 @@ const PARAM_TABLE = [
     step: 1,
     def: 3,
     help:
-      'How many fresh attempts with a derived seed after a failure. 0 shows the raw success rate; more than 5 almost never helps.',
+      'How many fresh attempts after a failed one, each with a seed made from yours. 0 shows how often these settings succeed on their own.',
   },
 ] as const satisfies readonly ParamSpec[]
 
@@ -2728,10 +2730,10 @@ export const PARAM_SPEC: readonly ParamSpec[] = PARAM_TABLE
 // Reason keys returned by `inactive(p)` in PARAM_SPEC, with their English text.
 // The lab maps a key to the current language (see lab-i18n.ts for Polish).
 export const INACTIVE_REASONS: Record<InactiveKey, string> = {
-  skeletonOff: 'requires skeleton pieces > 0',
-  probeOff: 'only works with probe share > 0',
-  stepZero: 'only works with serpentine step > 0',
-  anticoilWins: 'only acts above the general coiling penalty',
+  skeletonOff: 'needs skeletons > 0 or late chance > 0',
+  probeOff: 'needs target share > 0',
+  stepZero: 'no effect while the run gap is random',
+  anticoilWins: "only acts above the shape group's coil penalty",
 }
 
 export function defaultParams(): Params {
@@ -2840,13 +2842,12 @@ export const RULES: readonly {
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
-  sharesSum: 'short and medium shares together must stay at or below 0.9',
-  lmaxHole: 'maximum length must be 0 (automatic) or at least 17',
-  startPair:
-    'piece start and mixing must be a pair --start can write: mixing off (-1) with a whole-number start, or start 0 with a mixing share of ' +
-    `${MIX_SHARE.min} to ${MIX_SHARE.max}`,
+  sharesSum: 'short + medium must be at most 0.9 (90%)',
+  lmaxHole: 'longest arrow must be auto or at least 17',
+  startPair: 'arrow start and tunnel share do not fit together: a mixed start needs random start and a share of ' +
+    `${MIX_SHARE.min} to ${MIX_SHARE.max}; any other start needs the share off (-1)`,
   straightFloor:
-    'straightness bias has to rise with the board: more squares, closing off nooks below 4, or a coiling penalty above 6 each raise the floor',
+    'straightness is too low for this board: bigger boards, nooks first below 4 or a coil penalty above 6 all need more',
 }
 
 /**

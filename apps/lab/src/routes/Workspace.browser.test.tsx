@@ -89,7 +89,7 @@ test('Generate carves a board, draws it, and says so', async () => {
     await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board closed 100%\.(?: — (?:not )?saved.*)?$/)
+      .toMatchTextContent(/^Board complete: every cell filled\.(?: — (?:not )?saved.*)?$/)
 
     // The board the load run left, held so the press below can be told from it:
     // the page is already `done` when the click lands, so polling the phase
@@ -112,7 +112,7 @@ test('Generate carves a board, draws it, and says so', async () => {
     expect(element?.board?.pieces.length).toBeGreaterThan(0)
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/Board closed/)
+      .toMatchTextContent(/Board complete/)
 
     // A full run from Generate to a drawn board with zero console errors.
     expect(errors).toEqual([])
@@ -161,7 +161,7 @@ test('a run in flight survives a route change, and finishes into the same elemen
   await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
   await expect
     .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-    .toMatchTextContent(/^[\d.]+% · .* pieces · .* left/)
+    .toMatchTextContent(/^[\d.]+% · .* arrows · .* left/)
 
   const before = screen.container.querySelector('arrowz-board')
   expect(before).not.toBeNull()
@@ -287,7 +287,7 @@ test('a finished run is offered to the store once per run, and the outcome is ap
     expect(useStore.getState().run.phase).toBe('done')
     await expect
       .element(screen.getByRole('status', { name: 'Run status' }), { timeout: 5_000 })
-      .toMatchTextContent(/^Board closed 100%\. — (not )?saved/)
+      .toMatchTextContent(/^Board complete: every cell filled\. — (not )?saved/)
     expect(posts()).toHaveLength(1)
 
     // The guard keys on the file object's identity, not its value: the second
@@ -370,7 +370,7 @@ test('picking a rail entry replaces the panel', async () => {
   // The knob row's label is the short term.
   const label = screen.container.querySelector<HTMLElement>('label[for="knob-giants"]')
   if (label === null) throw new Error('label not found')
-  expect(label.textContent).toBe('giants')
+  expect(label.textContent).toBe('skeletons')
   await expect.element(label).toBeVisible()
   await screen.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect.element(screen.getByRole('switch', { name: 'rounded' })).toBeVisible()
@@ -716,7 +716,12 @@ test('solo in the library fills the panel', async () => {
   expect(wrap.width).toBeCloseTo(lab.width, 0)
   expect(wrap.height).toBeCloseTo(lab.height, 0)
   expect(element.width).toBeCloseTo(lab.width - 34, 0)
-  expect(element.height).toBeCloseTo(lab.height - 34, 0)
+  // The annotation strip holds its height here too; read it rather than pin
+  // it, since the touch breakpoint makes it 44px instead of 30.
+  const frame = screen.container.querySelector('.fw-board')
+  if (frame === null) throw new Error('.fw-board is not on the page')
+  const annoStrip = parseFloat(getComputedStyle(frame).paddingTop)
+  expect(element.height).toBeCloseTo(lab.height - 34 - annoStrip, 0)
 }, 40_000)
 
 // The saved boards' rail is the lab's rail in the same drawer, so below 900px
@@ -782,8 +787,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     // without generating anything.
     const phase = useStore.getState().run.phase
     await userEvent.click(screen.getByRole('tab', { name: 'Preview', exact: true }))
-    await screen.getByRole('button', { name: /^stroke:/ }).click()
-    await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+    await screen.getByRole('button', { name: /^thickness:/ }).click()
+    await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
     await userEvent.keyboard('{Enter}')
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)

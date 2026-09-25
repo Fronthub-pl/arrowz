@@ -239,7 +239,7 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **The report and the simple view are done (`lab/report-copy`, `lab/simple-copy`); the glossary across the knobs and the view panel is next.** The saved boards' list still says "pieces" (e.g. "120 pieces · longest 69"), which belongs to the glossary pass.
+1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
@@ -260,10 +260,7 @@ section above).
    lack the `min-width: 768px` that `useLowWindow` has; the palette input has
    no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
    the `trapBias` help clause is vague.
-7. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
-   covers the board's top-left cells; pre-existing, and no audited case uses
-   pad 0, so no invariant catches it today.
-8. **D2, found in the follow-up live pass:** at phone width (375×812) the
+7. **D2, found in the follow-up live pass:** at phone width (375×812) the
    board element's own control bar (+ − fit ◑, 44 px touch targets) covers
    about one row of the board's bottom-right cells (measured overlap
    59×8.5 px). It appeared once the mode strip moved under the frame
@@ -907,6 +904,8 @@ One term per concept for everything a player sees. Engine and CLI names can stay
 | single arrow colour | arrow colour | kolor strzałek | ink, drawing colour / tusz, kolor rysunku |
 | the visual settings panel | Look | Wygląd | element, Preview / element, Podgląd |
 | ready-made settings | preset | preset | = |
+
+Shipped on `lab/glossary`; `packages/engine/glossary.test.ts` holds the retired words.
 
 ## Best practices and refactoring
 

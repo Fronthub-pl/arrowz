@@ -506,7 +506,7 @@ test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every la
   await settle()
   expect(findPreset(useStore.getState().params.values)?.id).toBe('huge-400-serpentine')
   const trigger = screen.getByRole('button', { name: /^preset/i })
-  await expect.element(trigger).toMatchTextContent(/Ogromny szkielet z serpentynami/)
+  await expect.element(trigger).toMatchTextContent(/Ogromny · kręty szkielet/)
   await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
   expectKnownRed('huge-pl@420x900', audit(screen.container, { board: true }))
 }, 40_000)

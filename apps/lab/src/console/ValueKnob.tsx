@@ -53,6 +53,7 @@ export function ValueKnob({
   // `--lmax=auto`, `--giantstep=random` — so it gets the minimum's track as a
   // chip. `maxBack`'s `auto` is 200, mid-track, and stays a number.
   const special = wordFor(spec.key, bounds.min)
+  const specialText = special === null ? null : dict.choiceText(spec.key, special)
   const isSpecial = special !== null && value === bounds.min
   // Where a released chip goes: the last value this row held, else the
   // default, else `RELEASE_TO`, else one step up. Recorded after
@@ -86,7 +87,7 @@ export function ValueKnob({
             <DraftNumber
               label={name}
               value={value}
-              word={isSpecial ? special : null}
+              word={isSpecial ? specialText : null}
               wordOnly
               className="kv-num"
               describedBy={describedBy}
@@ -109,10 +110,10 @@ export function ValueKnob({
               // Not `${name}: ${special}`: that is the value button's name
               // while the knob holds the special value, and two buttons of
               // one name are one button to a screen reader.
-              aria-label={`${special} (${name})`}
+              aria-label={`${specialText} (${name})`}
               onClick={() => (isSpecial ? release() : write(bounds.min))}
             >
-              {special}
+              {specialText}
             </button>
           )
         }

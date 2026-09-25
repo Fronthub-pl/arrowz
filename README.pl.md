@@ -37,8 +37,8 @@ wyjaśnione tam, gdzie pojawia się po raz pierwszy.
 
 ### Co widzisz
 
-Plansza to siatka małych kwadratów. Każdy kwadrat jest zajęty przez strzałkę i
-żaden nie zostaje pusty. Strzałka to linia, która wędruje z kwadratu na kwadrat
+Plansza to siatka małych komórek. Każda komórka jest zajęta przez strzałkę i
+żadna nie zostaje pusta. Strzałka to linia, która wędruje z komórki do komórki
 — tylko w górę, w dół, w lewo albo w prawo, nigdy na ukos i nigdy przez samą
 siebie. Jeden koniec linii ma ostry grot. Grot to przód strzałki; pokazuje, w
 którą stronę strzałka chce jechać.
@@ -51,8 +51,8 @@ odróżnić:
 </p>
 
 Siedem strzałek, siedem grotów. Zielona jest zgięta w haczyk, czerwona zgina
-się dwa razy, fioletowa ma raptem dwa kwadraty. Strzałka może mieć od dwóch do
-kilkuset kwadratów długości.
+się dwa razy, fioletowa ma raptem dwie komórki. Strzałka może mieć od dwóch do
+kilkuset komórek długości.
 
 Prawdziwe plansze są jednokolorowe, bo odróżnianie strzałek okiem to właśnie
 sedno gry:
@@ -66,46 +66,47 @@ sedno gry:
 Stukasz w strzałkę. Ona próbuje wyjechać prosto poza planszę, w stronę, w którą
 wskazuje jej grot.
 
-Wyobraź sobie wąski pas, który zaczyna się tuż przed grotem i biegnie prosto do
-krawędzi planszy. Tylko ten pas się liczy.
+Wyobraź sobie wąską drogę, która zaczyna się tuż przed grotem i biegnie prosto
+do krawędzi planszy. Liczy się tylko ta droga do krawędzi.
 
-**Jeśli pas jest wolny, strzałka wyjeżdża i znika.**
+**Jeśli droga jest wolna, strzałka wyjeżdża i znika.**
 
 <p align="center">
-  <img src="docs/images/rule-free.png" alt="Strzałka z wolnym pasem przed grotem" width="440">
+  <img src="docs/images/rule-free.png" alt="Strzałka z wolną drogą do krawędzi przed grotem" width="440">
 </p>
 
-Granatowa strzałka wskazuje w prawo. Pas przed nią, zaznaczony przerywaną
-linią, jest wolny, więc strzałka opuszcza planszę. Szara strzałka niżej nie ma
-tu nic do rzeczy — nie stoi na pasie.
+Granatowa strzałka wskazuje w prawo. Droga przed nią, zaznaczona przerywaną
+linią, jest wolna, więc strzałka opuszcza planszę. Szara strzałka niżej nie ma
+tu nic do rzeczy — nie stoi na drodze.
 
-**Jeśli cokolwiek stoi na pasie, ruch jest niedozwolony.** Strzałka szarpie do
+**Jeśli cokolwiek stoi na drodze, ruch jest niedozwolony.** Strzałka szarpie do
 przodu, uderza w to, co jej zawadza, wraca na swoje miejsce, a ty tracisz
 życie. To uderzenie jest celowe: pokazuje ci, co cię zablokowało.
 
 <p align="center">
-  <img src="docs/images/rule-blocked.png" alt="Strzałka z inną strzałką stojącą na jej pasie" width="440">
+  <img src="docs/images/rule-blocked.png" alt="Strzałka z inną strzałką stojącą na jej drodze do krawędzi" width="440">
 </p>
 
-Tutaj czerwona strzałka stoi w poprzek pasa, więc granatowa nie ruszy się z
+Tutaj czerwona strzałka stoi w poprzek drogi, więc granatowa nie ruszy się z
 miejsca.
 
 To, na czym potyka się każdy: **kształt strzałki nie ma znaczenia, liczy się
-tylko jej pas.** Strzałka zgięta w podkowę, z obcą strzałką siedzącą w środku
-zgięcia, nadal może swobodnie wyjechać — ta obca nie stoi na pasie.
+tylko jej droga do krawędzi.** Strzałka zgięta w podkowę, z obcą strzałką
+siedzącą w środku zgięcia, nadal może swobodnie wyjechać — ta obca nie stoi na
+drodze.
 
 <p align="center">
   <img src="docs/images/rule-shape.png" alt="Strzałka zgięta w podkowę z inną strzałką w środku zgięcia, mimo to wolna" width="440">
 </p>
 
-Granatowa strzałka owija się wokół szarej, ale jej pas, zaznaczony przerywaną
-linią, jest wolny. Stuknij, a pojedzie.
+Granatowa strzałka owija się wokół szarej, ale jej droga do krawędzi,
+zaznaczona przerywaną linią, jest wolna. Stuknij, a pojedzie.
 
 Działa to dlatego, że strzałka jedzie po własnym torze. Grot przesuwa się o
-jeden kwadrat do przodu, a każdy kwadrat za nim przesuwa się w miejsce, które
-się właśnie zwolniło. Strzałka nigdy nie wjeżdża na kwadrat, którego sama nie
-zajmuje. Dlatego jej zakręty i haczyki nie mają żadnego wpływu na to, czy może
-się ruszyć.
+jedną komórkę do przodu, a reszta strzałki podąża za nim, komórka po komórce, w
+miejsce, które się właśnie zwolniło. Strzałka nigdy nie wjeżdża na komórkę,
+której sama nie zajmuje. Dlatego jej zakręty i haczyki nie mają żadnego wpływu
+na to, czy może się ruszyć.
 
 ### Wygrana i przegrana
 
@@ -129,18 +130,18 @@ Każda plansza, którą generator oddaje, jest wcześniej sprawdzona. Gwarantuje
 
 | Obietnica | Co to dla ciebie znaczy |
 |---|---|
-| **Nic nie zostaje luzem** | Każdy kwadrat należy dokładnie do jednej strzałki. Żadnych dziur, nic się nie nakłada. |
-| **Żadna strzałka nie jest jednym kwadratem** | Najkrótsza ma dwa, bo pojedynczy kwadrat nie miałby w którą stronę wskazywać. |
+| **Nic nie zostaje luzem** | Każda komórka należy dokładnie do jednej strzałki. Żadnych dziur, nic się nie nakłada. |
+| **Żadna strzałka nie jest jedną komórką** | Najkrótsza ma dwie, bo pojedyncza komórka nie miałaby w którą stronę wskazywać. |
 | **Planszę zawsze da się opróżnić** | Zanim odda planszę, generator wylicza, kto kogo blokuje, i dowodzi, że rozwiązanie istnieje. |
 | **Zna co najmniej jedno rozwiązanie** | Kolejność, w jakiej sam budował strzałki, jest zwycięską kolejnością. |
 | **Nie da się zapędzić w ślepy zaułek** | Dowolny ciąg dozwolonych ruchów prędzej czy później opróżnia planszę. |
-| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczną planszę, co do kwadratu. |
+| **To samo zamówienie daje tę samą planszę** | Poproś dwa razy o te same ustawienia i to samo ziarno, a dostaniesz identyczną planszę, co do komórki. |
 
 Jednej rzeczy **nie** obiecuje: że każde zamówienie się uda. Przy trudnych
-ustawieniach generator potrafi się w trakcie budowania zapędzić w kozi róg.
-Wtedy cofa część pracy i próbuje inaczej, a jeśli to nie pomoże, zaczyna kilka
-razy od zera. Gdy wszystkie próby zawiodą, mówi to wprost, zamiast podsunąć ci
-zepsutą planszę.
+ustawieniach generator potrafi w trakcie budowania utknąć — zapędzić się w kozi
+róg. Wtedy cofa część ułożonych strzałek i próbuje inaczej, a jeśli to nie
+pomoże, zaczyna kilka razy od zera. Gdy wszystkie próby zawiodą, mówi to wprost,
+zamiast podsunąć ci zepsutą planszę.
 
 ---
 
@@ -211,7 +212,7 @@ deno task carve --width=40 --height=40 --length=0 --colored
 # zamiast tego kilka długich węży
 deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 
-# długie autostrady przez całą planszę
+# szkielet z bardzo długich strzałek przez całą planszę
 deno task carve --width=80 --height=80 --skeleton --colored
 
 # plansza pionowa, trudniejsza w grze od kwadratowej
@@ -285,9 +286,9 @@ Zapisuje dwa pliki w `packages/cli/boards/40x40/`:
 * `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.json` — mały plik tekstowy z zapisem tego, jak powstała.
 
 Nazwa jest wyliczana ze strzałek na planszy, a nie z ustawień. Inne ziarno albo
-inne ustawienia, które przypadkiem wytną dokładnie te same strzałki, trafiają do
-tych samych plików, a mały plik wymienia każde polecenie, które je zrobiło — więc
-„czy taka plansza już była?” to „czy jej plik istnieje?”.
+inne ustawienia, które przypadkiem ułożą dokładnie te same strzałki, trafiają do
+tych samych plików, a mały plik wymienia każde polecenie, które je zrobiło —
+więc „czy taka plansza już była?” to „czy jej plik istnieje?”.
 
 ### Obrazek w dodatku
 
@@ -305,8 +306,8 @@ robi to samo i dodatkowo zostawia kopię w `moja-plansza.svg`.
 deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
-Robi 50 różnych plansz na ziarnach 1, 2, 3 i dalej. Ziarno, którego plansza się
-nie domyka, jest pomijane (i nie zapisywane), tak samo ziarno, które wytnie
+Robi 50 różnych plansz na ziarnach 1, 2, 3 i dalej. Ziarno, którego plansza nie
+wychodzi pełna, jest pomijane (i nie zapisywane), tak samo ziarno, które ułoży
 planszę już leżącą w magazynie — jego polecenie dopisuje się do pliku tej
 planszy — a próbowane jest następne, aż będzie 50. Po dwa razy większej liczbie
 ziaren niż plansz poddaje się; `--max-seeds=200` przesuwa tę granicę. Ostatnia
@@ -337,7 +338,7 @@ przeznaczonym dla programów, nie dla ludzi. Skrócone do tego, co ciekawe:
 ```
 
 Czyta się to tak: plansza powstała bez problemu, ma 87 strzałek, średnia
-strzałka mierzy 10,3 kwadratu, najdłuższa 44, łamigłówka ma rozwiązanie, a
+strzałka mierzy 10,3 komórki, najdłuższa 44, łamigłówka ma rozwiązanie, a
 całość zajęła 11 milisekund. `command` to polecenie, które ją odtworzy.
 `pinned` wymienia pokrętła, które nazwałeś sam w poleceniu — tutaj puste, bo
 ten bieg użył tylko codziennych flag; zobacz [„Gdy pokrętło spotka codzienną
@@ -346,12 +347,12 @@ flagę”](#gdy-pokrętło-spotka-codzienną-flagę) niżej.
 To najszybszy sposób na wypróbowanie ustawienia: widzisz, ile strzałek wychodzi
 i ile to trwało, bez ani jednego pliku na dysku.
 
-### Gdy plansza się nie domyka
+### Gdy plansza nie jest pełna
 
-Rzadko, przy dużych rozmiarach, generator poddaje się, zanim pokryje każdy
-kwadrat. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie
+Rzadko, przy dużych rozmiarach, generator poddaje się, zanim pokryje każdą
+komórkę. Plansza i tak zostaje zapisana, opis mówi `"ok": false`, a polecenie
 kończy się kodem 1, żeby skrypty to zauważyły. Dopisz `--svg`, a obrazek
-pokaże niepokryte kwadraty na różowo. Bieg, który trwa za długo, można
+pokaże niepokryte komórki na różowo. Bieg, który trwa za długo, można
 przerwać:
 
 ```sh
@@ -380,8 +381,8 @@ strojących generator, nie coś, co musisz czytać. Prawdziwy wynik:
   time          generation 22 ms, metrics 2 ms
 ```
 
-Dwie linie, które warto znać: `coverage 100.00%` znaczy, że żaden kwadrat nie
-został pusty, a `solvable: YES`, że łamigłówkę da się skończyć.
+Dwie linie, które warto znać: `coverage 100.00%` znaczy, że żadna komórka nie
+została pusta, a `solvable: YES`, że łamigłówkę da się skończyć.
 
 Bez `--only` przechodzi kolejno przez wszystkie poziomy trudności, aż do
 1000×1000, co zajmuje sporo czasu. `--bench=N` mierzy zamiast tego szybkość, po
@@ -416,11 +417,11 @@ zmieniające łamigłówkę i pięć zmieniających tylko wygląd obrazka.
 
 ### Rozmiar — `--width` i `--height`
 
-Ile kwadratów w poziomie i w pionie. Oba są wymagane. Od 4 do 1000.
+Ile komórek w poziomie i w pionie. Oba są wymagane. Od 4 do 1000.
 
 Plansza 400×400 jest gotowa poniżej dwóch sekund; 1000×1000 zajmuje około
 dziesięciu. Na planszy pionowej gra się trudniej niż na kwadratowej o tej samej
-liczbie kwadratów, bo strzałki mają dalej do przejechania.
+liczbie komórek, bo strzałki mają dalej do przejechania.
 
 | `--width=20 --height=40` | `--width=100 --height=100` |
 |---|---|
@@ -428,8 +429,8 @@ liczbie kwadratów, bo strzałki mają dalej do przejechania.
 
 ### Jak duża może być plansza
 
-Sufit to 1000×1000 — milion kwadratów. Powyżej mniej więcej dwustu kwadratów
-na bok pojedyncze strzałki przestają być na ekranie widoczne, a plansza
+Sufit to 1000×1000 — milion komórek. Powyżej mniej więcej dwustu komórek na
+bok pojedyncze strzałki przestają być na ekranie widoczne, a plansza
 zamienia się w tkaninę. Wszystkie trzy poniżej pokazane są tutaj w tej samej
 szerokości; różni je tylko prawdziwy rozmiar.
 
@@ -439,18 +440,18 @@ szerokości; różni je tylko prawdziwy rozmiar.
 | **3619 strzałek**, 0,2 s | **21 771 strzałek**, 1,4 s | **85 809 strzałek**, 9,6 s |
 
 W samej łamigłówce nic się przy tym rozmiarze nie zmienia. Oto okno trzydzieści
-na trzydzieści w planszę o milionie kwadratów, narysowane w tym samym
+na trzydzieści w planszę o milionie komórek, narysowane w tym samym
 powiększeniu co plansze 30×30 z porównań niżej — ten sam obrazek, tyle że
-wycinek dużo większego:
+kawałek dużo większego:
 
 <p align="center">
   <img src="docs/images/scale-1000-detail.png" alt="Okno trzydzieści na trzydzieści w planszę 1000 na 1000" width="440">
 </p>
 
 W liczbach warto zauważyć dwie rzeczy. Średnia strzałka prawie nie rośnie wraz
-z planszą — 11,1 kwadratu przy 200×200 wobec 11,7 przy 1000×1000 — więc
+z planszą — 11,1 komórki przy 200×200 wobec 11,7 przy 1000×1000 — więc
 większa plansza daje więcej strzałek, a nie dłuższe. Rośnie za to najdłuższa
-pojedyncza strzałka: 213 kwadratów, potem 278, potem 354.
+pojedyncza strzałka: 213 komórek, potem 278, potem 354.
 
 W odróżnieniu od mniejszych przykładów te trzy nie leżą tu jako rysunki do
 pobrania. Ich pliki mają 0,9 MB, 7 MB i 22 MB, czyli więcej, niż powinno leżeć
@@ -484,20 +485,20 @@ Pomiary na planszy 30×30 z ziarnem 7:
 | `--length=0` | domyślnie (`0.75`) | `--length=1` |
 |---|---|---|
 | <img src="docs/images/length-short.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/length-long.png" width="250"> |
-| **176 strzałek**, średnio 5,1 kwadratu | **87 strzałek**, średnio 10,3 kwadratu | **65 strzałek**, średnio 13,9 kwadratu |
+| **176 strzałek**, średnio 5,1 komórki | **87 strzałek**, średnio 10,3 komórki | **65 strzałek**, średnio 13,9 komórki |
 
 Więcej strzałek to nie automatycznie trudniej — to inny rodzaj trudności. Przy
 krótkich strzałkach jest dużo do oglądania; długich jest mniej, ale każda sięga
 dalej i blokuje więcej.
 
-### Kształt linii — `--winding`
+### Krętość — `--winding`
 
-Pokrętło od 0 do 1. Domyślnie `0.5`. Steruje tym, jak chętnie linia idzie
+Pokrętło od 0 do 1. Domyślnie `0.5`. Steruje tym, jak chętnie strzałka idzie
 prosto, zamiast skręcać: `0` to najprostsza plansza, `1` — najbardziej
 pokręcona.
 
 **Zmniejsz**, a strzałki będą biec długimi prostymi pociągnięciami.
-**Zwiększ**, a zaczną się wić, skręcać co kilka kwadratów i wciskać w małe
+**Zwiększ**, a zaczną się wić, skręcać co kilka komórek i wciskać w małe
 zakamarki.
 
 | `--winding=0` (najprostsze) | domyślnie (`0.5`) | `--winding=1` (najbardziej pokręcone) |
@@ -506,20 +507,20 @@ zakamarki.
 | 49 strzałek, średnio 2,1 zakrętu | 87 strzałek, średnio 3,2 zakrętu | 66 strzałek, średnio 5,5 zakrętu |
 
 Warto zauważyć: przekręcenie tego pokrętła do końca w którąkolwiek stronę daje
-*mniej* strzałek niż środek. Proste linie biegną dalej, zanim się skończą;
-pokręcone połykają więcej kwadratów na strzałkę, wypełniając rogi. Najgęstsze
+*mniej* strzałek niż środek. Proste strzałki biegną dalej, zanim się skończą;
+kręte połykają więcej komórek na strzałkę, wypełniając rogi. Najgęstsze
 plansze są gdzieś pośrodku.
 
 ### Szkielet — `--skeleton`
 
-Przełącznik, domyślnie wyłączony. Włącz go, a generator najpierw kładzie kilka
-bardzo długich linii — autostrad zygzakujących przez całą planszę — a potem
-wypełnia kanały między nimi zwykłymi strzałkami.
+Przełącznik, domyślnie wyłączony. Włącz go, a generator najpierw układa kilka
+bardzo długich strzałek — szkielet, który wije się wężykiem przez całą planszę
+— a potem wypełnia kanały między nimi zwykłymi strzałkami.
 
 | bez szkieletu | `--skeleton` |
 |---|---|
 | <img src="docs/images/skeleton-off.png" width="290"> | <img src="docs/images/skeleton-on.png" width="290"> |
-| 337 strzałek, najdłuższa 103 kwadraty | 291 strzałek, najdłuższa **168** kwadratów |
+| 337 strzałek, najdłuższa 103 komórki | 291 strzałek, najdłuższa **168** komórek |
 
 To jedyny sposób na naprawdę długie strzałki. Zostawiony sam sobie generator
 rzadko produkuje taką, która przecina całą planszę.
@@ -535,7 +536,7 @@ inną planszę. Na ten dodatkowy rzut kostką ziarno nie ma wpływu.
 
 Nic nie ginie. Wylosowane ustawienia trafiają do pliku tekstowego planszy jako
 pełne polecenie, więc każdą planszę, która ci się spodoba, da się odtworzyć co
-do kwadratu.
+do komórki.
 
 ```sh
 deno task carve --width=40 --height=40 --randomized
@@ -557,8 +558,8 @@ korzystają.
 |---|---|
 | <img src="docs/images/seed-7.png" width="260"> | <img src="docs/images/colorized.png" width="260"> |
 
-**`--line`** to grubość linii jako ułamek jednego kwadratu. Domyślnie `0.5`,
-czyli linia wypełnia połowę swojego kwadratu.
+**`--line`** to grubość linii jako ułamek jednej komórki. Domyślnie `0.5`,
+czyli linia wypełnia połowę swojej komórki.
 
 | `--line=0.2` | `--line=0.9` |
 |---|---|
@@ -569,10 +570,10 @@ trójkątem, szerszym od linii. Gdy linia robi się gruba, na szerszy trójkąt 
 ma już miejsca, więc grot zmienia się w zaostrzony czubek.
 
 **`--arrow-width`** i **`--arrow-height`** ustawiają rozmiar grotów ręcznie, w
-kwadratach. Działają różnie. `--arrow-width` domyślnie ma wartość `auto`, co
-znaczy „wylicz z grubości linii”; podana liczba to szerokość w kwadratach.
+komórkach. Działają różnie. `--arrow-width` domyślnie ma wartość `auto`, co
+znaczy „wylicz z grubości linii”; podana liczba to szerokość w komórkach.
 `--arrow-height` nie ma takiego trybu automatycznego — jest brany dosłownie i
-domyślnie wynosi `1`, czyli cały kwadrat. Po `--arrow-height=0` grot nie ma
+domyślnie wynosi `1`, czyli całą komórkę. Po `--arrow-height=0` grot nie ma
 żadnej wysokości.
 
 | `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=0.9 --arrow-height=1.2` |
@@ -651,9 +652,9 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 ```
 
 Przypiąć można też pokrętło, które przy pozostałych ustawieniach nie zmienia
-niczego: pokrętło szkieletu bez szkieletu, długość sondy przy udziale sond
-równym 0. Laboratorium przygasza taki wiersz; CLI mówi to osobną linią,
-tymi samymi słowami.
+niczego: pokrętło szkieletu bez szkieletu, zadaną długość przy zerowym udziale
+strzałek o zadanej długości. Laboratorium przygasza taki wiersz; CLI mówi to
+osobną linią, tymi samymi słowami.
 
 ```sh
 deno task carve --width=30 --height=30 --probelen=30 --dry-run
@@ -661,7 +662,7 @@ deno task carve --width=30 --height=30 --probelen=30 --dry-run
 
 ```
 note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
-note: --probelen=30 has no effect here: only works with probe share > 0
+note: --probelen=30 has no effect here: needs target share > 0
 ```
 
 Tej drugiej linii nie ma przy serii `--count` losowanej przez `--randomized`:
@@ -687,8 +688,8 @@ której nic na ekranie nie tłumaczyło.
 Co tracisz, przypinając: bezpieczne zakresy w tabeli niżej zmierzono jako całe
 zestawy, więc na wpół przypięty zestaw wciąż mieści się w kopercie
 bezpieczeństwa, ale nie jest już objęty obietnicą, że *każda* codzienna
-kombinacja się domyka. Koperta ma i tak ostatnie słowo — przypięta wartość
-poza własnym zakresem, albo kombinacja łamiąca regułę, jest odrzucana
+kombinacja daje pełną planszę. Koperta ma i tak ostatnie słowo — przypięta
+wartość poza własnym zakresem, albo kombinacja łamiąca regułę, jest odrzucana
 dokładnie tak samo jak zawsze.
 
 ### Pokrętła
@@ -709,32 +710,32 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 | Grupa | Flaga | Zakres | Krok | Domyślnie | Co robi |
 |---|---|---|---|---|---|
 | Plansza | `--width` | 4–1000 | 1 | `25` | Kolumny. Poniżej dwóch sekund do 400×400; około dziesięciu sekund przy 1000×1000. |
-| Plansza | `--height` | 4–1000 | 1 | `50` | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie kwadratów. |
+| Plansza | `--height` | 4–1000 | 1 | `50` | Wiersze. Plansza pionowa jest trudniejsza w grze od kwadratowej o tej samej liczbie komórek. |
 | Plansza | `--seed` | 0–4294967295 | 1 | `7` | Wybiera planszę. To samo ziarno i te same pokrętła, ta sama plansza. |
-| Długości | `--wshort` | 0–0.9 | 0.01 | `0.2` | Udział krótkich strzałek (2–6 kwadratów). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
-| Długości | `--wmid` | 0–0.9 | 0.01 | `0.08` | Udział średnich strzałek (7–15 kwadratów). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
-| Długości | `--lmax` | `auto`\|17–5000 | 1 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** poniżej 17 limit pochłania i kubełek średnich, i długich, więc udział między nimi przestaje zmieniać planszę. Używaj `auto` albo 17 wzwyż. |
-| Długości | `--backbite` | 0–8 | 1 | `0` | Ile razy z rzędu linia, która nie ma już gdzie iść, może przerobić własny ogon, zamiast się tam zatrzymać. Grot, kwadraty strzałki i korytarz przed nią zostają takie same: przebudowane zostaje tylko ciało za grotem, co daje linii nowy ogon do rośnięcia. 0 wyłącza i daje dzisiejszą planszę, kwadrat w kwadrat. Przy 8 strzałki wychodzą średnio o mniej więcej trzecią dłuższe i jest ich o około czwartą mniej; większość tego jest już przy 2, a plansza nie liczy się mierzalnie dłużej. |
-| Kształt | `--pstraight` | 0.6–1 | 0.01 | `0.85` | Jak chętnie linia idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** podłoga rośnie z liczbą kwadratów, a nie z dłuższym bokiem. 0,6 domyka 500×500, 600×600 wymaga 0,65, 800×800 — 0,7, a 1000×1000 — 0,8; długa wąska plansza liczy się jak jej kwadrat równoważny, więc 250×1000 nie wymaga więcej niż 500×500. Niskie `--warns` albo wysokie `--anticoil` podnosi podłogę jeszcze bardziej. |
-| Kształt | `--wlateral` | 0–20 | 0.5 | `3` | O ile chętniej linia skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
-| Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie linia wypełnia niewygodne zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
-| Kształt | `--anticoil` | 1–10 | 1 | `6` | Jak mocno linia stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej spirali i nieco krótsze strzałki. **Uwaga:** 7 i więcej podnosi prostość, jakiej wymaga duża plansza; 4 i mniej ją obniża. |
-| Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsza linia (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsza (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
-| Trudność | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | Jak traktowany jest start, w którego korytarzu stoi już dokładnie jedna strzałka. Taka strzałka wygląda potem na gotową do wyjazdu, choć wciąż blokuje ją jedna inna — i to właśnie czyni planszę trudną do odczytania. `seek` daje ich o połowę więcej, `avoid` mniej więcej cztery razy mniej. Ustawienie inne niż `off` z grubsza podwaja czas liczenia planszy. |
-| Trudność | `--probe` | 0–1 | 0.01 | `0` | Udział strzałek, których długość losuje się wokół jednej ustalonej wartości zamiast zwykłego podziału na trzy. |
-| Trudność | `--probelen` | 4–200 | 1 | `12` | Ta ustalona wartość, plus minus połowa. 2 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
-| Szkielet | `--giants` | 0–40 | 1 | `0` | Ile pierwszych strzałek to autostrady. 0 znaczy żadna; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne autostrady nie mają się już gdzie zmieścić. |
-| Szkielet | `--giantspan` | 1–200 | 1 | `30` | Jak długa ma być jedna autostrada, liczone w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
-| Szkielet | `--giantstep` | `random`\|1–40 | 1 | `14` | Odstęp między równoległymi odcinkami autostrady. Mały daje równe pasy jak w zeszycie w linie, duży — kilka szerokich autostrad; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
-| Szkielet | `--giantjitter` | 0–1 | 0.05 | `0.6` | Jak często odcinek urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
-| Szkielet | `--wgiant` | 0–0.2 | 0.01 | `0` | Szansa, że strzałka rysowana później też będzie autostradą. **Uwaga:** przy 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000. |
-| Szkielet | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | Jak prosto biegnie autostrada tam, gdzie ma wolne miejsce. **Uwaga:** 0,5 to brak preferencji; poniżej pokrętło ważyłoby ruch prosto w dół, czyli odwrotnie, niż mówi jego nazwa. |
-| Szkielet | `--giantanticoil` | 1–20 | 1 | `6` | Kara za dotykanie samej siebie, tylko dla autostrad. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil` — więc przy domyślnych, gdzie obie wynoszą 6, skręcenie tej w dół nic nie zmienia. |
-| Szkielet | `--giantspacing` | `off`\|2\|3 | 1 | `2` | Ile kwadratów autostrada trzyma między własnymi równoległymi odcinkami. `off` wyłącza regułę. Flaga przyjmuje te trzy wartości i nic poza tym: szerszy promień tylko kosztował czas, więc nie jest oferowany. |
-| Zamykanie | `--headtries` | 2–16 | 1 | `4` | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 2 poszukiwanie jest płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
-| Zamykanie | `--absorblimit` | 12–64 | 1 | `24` | Resztka do tego rozmiaru, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze psują się dużo częściej. |
-| Zamykanie | `--maxback` | `auto`\|50–1000 | 50 | `auto` | Ile narysowanych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
-| Zamykanie | `--restarts` | 0–5 | 1 | `3` | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
+| Długości | `--wshort` | 0–0.9 | 0.01 | `0.2` | Udział krótkich strzałek (2–6 komórek). Im wyżej, tym więcej strzałek i grotów, ale plansza zmienia się w sieczkę z haczyków. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--wmid` | 0–0.9 | 0.01 | `0.08` | Udział średnich strzałek (7–15 komórek). Co zostanie, trafia do długich. Krótkie plus średnie razem nie mogą przekroczyć 0,9. |
+| Długości | `--lmax` | `auto`\|17–5000 | 1 | `auto` | Najdłuższa strzałka, o jaką generator będzie się starał. `auto` znaczy „dwa i pół długości dłuższego boku”. **Uwaga:** poniżej 17 limit pochłania i średnie, i długie, więc udział między nimi przestaje zmieniać planszę. Używaj `auto` albo 17 wzwyż. |
+| Długości | `--backbite` | 0–8 | 1 | `0` | Ile razy z rzędu strzałka, która utknęła, może przerobić własny ogon, zamiast się tam zatrzymać. Grot, komórki strzałki i droga do krawędzi przed nią zostają takie same: przebudowane zostaje tylko ciało za grotem, co daje strzałce nowy ogon do rośnięcia. 0 wyłącza i daje tę samą planszę, komórka w komórkę. Przy 8 strzałki wychodzą średnio o mniej więcej trzecią dłuższe i jest ich o około czwartą mniej; większość tego jest już przy 2, a plansza nie liczy się mierzalnie dłużej. |
+| Kształt | `--pstraight` | 0.6–1 | 0.01 | `0.85` | Jak chętnie strzałka idzie dalej prosto. Im wyżej, tym dłuższe proste odcinki. **Uwaga:** podłoga rośnie z liczbą komórek, a nie z dłuższym bokiem. 0,6 wypełnia 500×500, 600×600 wymaga 0,65, 800×800 — 0,7, a 1000×1000 — 0,8; długa wąska plansza liczy się jak jej kwadrat równoważny, więc 250×1000 nie wymaga więcej niż 500×500. Niskie `--warns` albo wysokie `--anticoil` podnosi podłogę jeszcze bardziej. |
+| Kształt | `--wlateral` | 0–20 | 0.5 | `3` | O ile chętniej strzałka skręca w bok, niż wciska się w głąb wolnej przestrzeni. 0 daje długie proste pchnięcia i od czasu do czasu ogromne spirale. |
+| Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie strzałka wypełnia małe zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
+| Kształt | `--anticoil` | 1–10 | 1 | `6` | Jak mocno strzałka stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej zwojów i nieco krótsze strzałki. **Uwaga:** 7 i więcej podnosi prostość, jakiej wymaga duża plansza; 4 i mniej ją obniża. |
+| Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsze miejsce (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsze (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
+| Trudność | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | Jak traktowany jest start, na którego drodze do krawędzi stoi już dokładnie jedna strzałka. Taka strzałka, pułapka, wygląda potem na gotową do wyjazdu, choć wciąż blokuje ją jedna inna — i to właśnie czyni planszę trudną do odczytania. `seek` daje ich o 25–60% więcej, `avoid` od trzech do ośmiu razy mniej. Ustawienie inne niż `off` z grubsza podwaja czas liczenia planszy. |
+| Trudność | `--probe` | 0–1 | 0.01 | `0` | Udział strzałek, których długość losuje się wokół jednej zadanej długości zamiast zwykłego podziału na trzy. |
+| Trudność | `--probelen` | 4–200 | 1 | `12` | Ta zadana długość, plus minus połowa. 4 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
+| Szkielet | `--giants` | 0–40 | 1 | `0` | Ile bardzo długich strzałek układa się najpierw, jako szkielet. 0 znaczy bez szkieletu; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne strzałki szkieletu nie mają się już gdzie zmieścić. |
+| Szkielet | `--giantspan` | 1–200 | 1 | `30` | Jak długa ma być jedna strzałka szkieletu, licząc w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
+| Szkielet | `--giantstep` | `random`\|1–40 | 1 | `14` | Przerwa: komórki między biegami strzałki szkieletu tam i z powrotem. Mała daje równe paski jak w zeszycie w linie, duża — kilka szerokich zakosów; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
+| Szkielet | `--giantjitter` | 0–1 | 0.05 | `0.6` | Jak często bieg szkieletu urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
+| Szkielet | `--wgiant` | 0–0.2 | 0.01 | `0` | Szansa, że strzałka układana później też będzie strzałką szkieletu. **Uwaga:** przy 0,2 plansze robią się wolne, a 1000×1000 przestaje się wypełniać. |
+| Szkielet | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | Jak prosto biegnie strzałka szkieletu tam, gdzie ma wolne miejsce. **Uwaga:** 0,5 to brak preferencji; poniżej pokrętło ważyłoby ruch prosto w dół, czyli odwrotnie, niż mówi jego nazwa. |
+| Szkielet | `--giantanticoil` | 1–20 | 1 | `6` | Kara zwojów, tylko dla strzałek szkieletu. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil` — więc przy domyślnych, gdzie obie wynoszą 6, skręcenie tej w dół nic nie zmienia. |
+| Szkielet | `--giantspacing` | `off`\|2\|3 | 1 | `2` | Ile komórek strzałka szkieletu trzyma między własnymi równoległymi biegami. `off` wyłącza regułę. Flaga przyjmuje te trzy wartości i nic poza tym: szerszy promień tylko kosztował czas, więc nie jest oferowany. |
+| Gdy utknie | `--headtries` | 2–16 | 1 | `4` | Ile miejsc startu wypróbować, zanim odpuści dany kierunek. **Uwaga:** przy 2 poszukiwanie jest płytkie na trudne ustawienia. Przy 8 i więcej zwykle wychodzi ta sama plansza co przy 4. |
+| Gdy utknie | `--absorblimit` | 12–64 | 1 | `24` | Pusta łatka do tylu komórek, w którą żadna strzałka nie wchodzi, jest doklejana do sąsiedniej strzałki. **Uwaga:** blisko dolnego krańca zakresu resztki się piętrzą i plansze utykają dużo częściej. |
+| Gdy utknie | `--maxback` | `auto`\|50–1000 | 50 | `auto` | Ile ułożonych strzałek wolno cofnąć w jednej próbie, zanim zacznie się od nowa. `auto` znaczy 200, co wystarcza; więcej rzadko cokolwiek ratuje — tylko odwleka złą wiadomość. |
+| Gdy utknie | `--restarts` | 0–5 | 1 | `3` | Ile świeżych prób, każda z lekko zmienionym ziarnem, po niepowodzeniu. 0 pokazuje surową skuteczność twoich ustawień. |
 
 Pięć pokręteł z wcześniejszej wersji tego narzędzia — `hug`, `edgehug`,
 `strandlimit`, `giantwarns` i `giantspacepenalty` — zniknęło. Każde nic nie
@@ -758,14 +759,14 @@ nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 | `--wlateral=0` | `--wlateral=20` |
 |---|---|
 | <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
-| 49 strzałek, średnio 18,4 kwadratu | 96 strzałek, średnio 9,4 kwadratu |
+| 49 strzałek, średnio 18,4 komórki | 96 strzałek, średnio 9,4 komórki |
 
-**`--probe` — jedna docelowa długość dla wszystkich strzałek**
+**`--probe` — jedna zadana długość dla wszystkich strzałek**
 
 | `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
-| 253 strzałki, żadna dłuższa niż 4 kwadraty | 61 strzałek, najdłuższa 92 kwadraty |
+| 253 strzałki, żadna dłuższa niż 4 komórki | 61 strzałek, najdłuższa 92 komórki |
 
 **`--start` — pokrętło, którego nie widać**
 
@@ -793,8 +794,8 @@ je osobno:
 |---|---|
 | `--wshort`, `--wmid` | Razem nie mogą przekroczyć 0,9, żeby co najmniej dziesiąta część strzałek była długa. |
 | `--lmax` | `auto` albo 17 wzwyż. |
-| `--start` | Słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start i mieszanie tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
-| `--pstraight`, `--warns`, `--anticoil` | Prostość, jakiej wymaga plansza, rośnie z jej dłuższym bokiem — 0,6 do 500×500, 0,65 przy 600×600, 0,7 przy 800×800, 0,8 przy 1000×1000 — a `--warns` poniżej 4 albo `--anticoil` powyżej 6 podnosi ją jeszcze; wysokie `--warns` albo niskie `--anticoil` ją obniża. Poniżej podłogi plansza się nie domyka, a odmowa podaje liczbę, jakiej ta plansza potrzebuje. |
+| `--start` | Słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start strzałek i udział tuneli tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
+| `--pstraight`, `--warns`, `--anticoil` | Prostość, jakiej wymaga plansza, rośnie z jej dłuższym bokiem — 0,6 do 500×500, 0,65 przy 600×600, 0,7 przy 800×800, 0,8 przy 1000×1000 — a `--warns` poniżej 4 albo `--anticoil` powyżej 6 podnosi ją jeszcze; wysokie `--warns` albo niskie `--anticoil` ją obniża. Poniżej podłogi plansza nie wychodzi pełna, a odmowa podaje liczbę, jakiej ta plansza potrzebuje. |
 
 Złam regułę, wyjdź którymkolwiek pokrętłem poza zakres albo wyląduj między
 dwoma jego krokami, a generator odmówi, zanim cokolwiek narysuje, powie ci,
@@ -814,7 +815,7 @@ pokrętło spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę
 ## Laboratorium
 
 Jest mała aplikacja do zabawy ustawieniami i natychmiastowego oglądania wyniku.
-Rysuje planszę elementem planszy, który potrzebuje Lit: przed pierwszym
+Rysuje planszę komponentem planszy, który potrzebuje Lit: przed pierwszym
 uruchomieniem wpisz raz `corepack enable pnpm && pnpm install` w głównym
 katalogu repozytorium. Laboratorium trzyma plansze w magazynie serwowanym przez
 mały program w Deno, więc jedno polecenie uruchamia oba naraz:
@@ -920,17 +921,17 @@ Nic się nie policzyło i nic się nie zapisało.
 i mimo to nie zdołał wypełnić planszy. Prawie zawsze chodzi o ustawienie
 oznaczone wyżej jako **Uwaga:**. Cofnij je w stronę wartości domyślnej albo
 zmień ziarno. Plansza mimo to jest w `packages/cli/boards/`; dopisz `--svg`, a
-obrazek pokaże niepokryte kwadraty na różowo, więc widać, gdzie generator
+obrazek pokaże niepokryte komórki na różowo, więc widać, gdzie generator
 utknął.
 
-**`failed to close board …: covered, but the rays make a cycle`** — każdy
-kwadrat jest wypełniony, a i tak żadne stuknięcie nigdy nie jest dozwolone: dwie
+**`failed to close board …: covered, but the rays make a cycle`** — każda
+komórka jest wypełniona, a i tak żadne stuknięcie nigdy nie jest dozwolone: dwie
 strzałki wskazują na siebie albo robi to dłuższy ich pierścień. To błąd
 generatora, nie wybrane przez Ciebie ustawienie — żadne, które można wpisać, nie
-daje takiej planszy, bo generator daje każdej strzałce jej tor, zanim cokolwiek
-na nim stanie. Jeśli kiedykolwiek zobaczysz tę linię, plansza i tak jest
-zapisana w `packages/cli/boards/`; zachowaj ją i zgłoś, bo to plansza, która nie
-powinna istnieć.
+daje takiej planszy, bo generator daje każdej strzałce jej drogę do krawędzi,
+zanim cokolwiek na niej stanie. Jeśli kiedykolwiek zobaczysz tę linię, plansza i
+tak jest zapisana w `packages/cli/boards/`; zachowaj ją i zgłoś, bo to plansza,
+która nie powinna istnieć.
 
 **Jedna plansza trwa wieczność** — ustaw `CARVE_TIMEOUT_S` na liczbę sekund,
 a po ich upływie generator przerwie i zapisze to, co zdążył narysować:
@@ -969,14 +970,17 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Słowo używane tutaj | Co znaczy |
 |---|---|
-| **strzałka** | Jedna linia na planszy, długa od dwóch do kilkuset kwadratów, z ostrym grotem na jednym końcu. W kodzie i w tekście angielskim nazywa się *piece*; po polsku to „element”. |
-| **grot** | Ostry koniec strzałki. Pokazuje, w którą stronę strzałka jedzie. W kodzie *head*. |
-| **pas** | Prosty pasek kwadratów od grotu strzałki do krawędzi planszy. Jeśli jest wolny, strzałka może wyjechać. W kodzie *corridor*, korytarz. |
-| **wolna** | Strzałka z wolnym pasem, którą można zdjąć od razu. |
+| **strzałka** | Jedna linia na planszy, długa od dwóch do kilkuset komórek, z grotem na jednym końcu. W kodzie *piece*. |
+| **grot** | Ostry koniec strzałki, jej czubek. Pokazuje, w którą stronę strzałka jedzie. W kodzie *head*. |
+| **droga do krawędzi** | Prosty pasek komórek od grotu strzałki do krawędzi planszy. Jeśli nic na nim nie stoi, strzałka może wyjechać. W kodzie *corridor*, korytarz. |
+| **wolna** | Strzałka z wolną drogą do krawędzi, którą można zdjąć od razu. |
 | **ziarno** | Liczba, która decyduje, jaką planszę otrzymasz. To samo ziarno i te same ustawienia, ta sama plansza. |
-| **szkielet** | Kilka bardzo długich strzałek narysowanych na początku, przecinających całą planszę. W kodzie *giants* albo *skeleton*. |
+| **szkielet** | Kilka bardzo długich strzałek układanych na początku, wężykiem przez całą planszę. W kodzie *giants*. |
 | **warstwy / tunele** | Dwa sposoby wyznaczania miejsca startu kolejnej strzałki. Warstwy obierają planszę od zewnątrz i ułatwiają grę; tunele drążą w głąb i utrudniają. |
-| **zacięcie** | Zapędzenie się generatora w kozi róg podczas budowania, tak że nie da się dołożyć żadnej dozwolonej strzałki. |
+| **utknąć** | Generator utyka, gdy podczas budowania zapędzi się w kozi róg i nie da się dołożyć żadnej dozwolonej strzałki. Wtedy cofa część strzałek albo zaczyna od nowa. |
+| **pełna** | Plansza, na której każdą komórkę zajmuje strzałka. Plansza niepełna i tak zostaje zapisana, z oznaczeniem `"ok": false`. |
+| **pułapka** | Strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną, choć nie jest. `--trapbias` prosi o więcej albo mniej takich strzałek. |
+| **zadana długość** | Długość, wokół której generator losuje długości części strzałek, zamiast zwykłej mieszanki krótkich, średnich i długich. W kodzie *probe*. |
 | **bezpieczny zakres** | Zmierzone granice każdego ustawienia. Poza nimi plansze przestają działać; narzędzie woli odmówić, niż pozwolić, żebyś przekonał się o tym po długim czekaniu. |
 
 ---

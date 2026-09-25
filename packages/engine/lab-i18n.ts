@@ -24,20 +24,23 @@ export const EN = {
     shape: 'shape',
     difficulty: 'difficulty',
     skeleton: 'skeleton',
-    closing: 'closing',
+    closing: 'when stuck',
   },
   groupHelp: {
     lengths:
-      'Three buckets: short 2–6, medium 7–15, long 16 to the maximum. The long bucket gets the remaining weight.',
-    shape: 'Weights for choosing the next cell of a line. They multiply, so one extreme value drowns out the rest.',
+      'Arrows come in three sizes: short (2–6 cells), medium (7–15) and long (16 up to the longest). Set the shares of short and medium; long gets the rest.',
+    shape:
+      'How arrows bend while the board is built: straight runs, side steps, coils. The settings multiply, so one extreme value drowns out the rest.',
     difficulty:
-      'Where pieces start, how they are chosen, and how long they run. Changes how hard it is to find a piece with a free way out.',
-    skeleton: 'The first pieces led as a serpentine across the whole board. The only way to get really long lines.',
+      'How hard the finished puzzle is: where arrows start, how many traps, and a share of arrows with a target length. Some of these change the look too.',
+    skeleton:
+      'A few very long arrows laid first, snaking back and forth across the whole board; the rest fills in around them. The only way to get really long arrows.',
     closing:
-      'What to do when no legal carve is found. Defaults close boards up to 400×400; these knobs are for experiments.',
+      'What the generator does when it gets stuck. The defaults fill every board up to 400×400; change these only to experiment.',
   },
   presets: {
     placeholder: 'Preset…',
+    caption: "Levels set the board's size only; the options change its shape or how arrows are laid.",
     levels: {
       easy: 'Easy',
       medium: 'Medium',
@@ -49,10 +52,17 @@ export const EN = {
     },
     modes: {
       square: 'square',
-      portrait: 'portrait',
+      portrait: 'tall',
       tunnels: 'tunnels',
       skeleton: 'skeleton',
       serpentine: 'winding skeleton',
+    },
+    modeHelp: {
+      square: 'As wide as it is tall.',
+      portrait: 'Twice as tall as it is wide.',
+      tunnels: 'Arrows start deep inside, buried behind others: harder.',
+      skeleton: 'A few very long arrows snake across the board first.',
+      serpentine: 'A skeleton whose runs keep breaking off: no run goes wall to wall.',
     },
   },
   // The simple view (lab-simple.ts): plain choices instead of thirty knobs.
@@ -81,16 +91,16 @@ export const EN = {
       'Each Generate picks fresh settings within a safe range for this size and these choices, so you get a new board every time, even with the same seed. See the picked values in Advanced.',
     // No presets in this view, so the hint sends the player to the advanced one.
     harder:
-      'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the “difficulty” group.',
+      'Want it harder? In Advanced, pick a tunnels preset, or set arrow start to tunnels in the “difficulty” group.',
   },
   // The one control the lab builds by hand, because the CLI has one flag for
   // the two knobs behind it: --start writes headBias and mix together, so
   // neither of them gets a row, and their texts are not PARAM_SPEC's.
   start: {
-    label: 'piece start',
+    label: 'arrow start',
     help:
-      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Tunnels = harder. Mixing starts that fraction of pieces as tunnels.',
-    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
+      'Where each new arrow starts while the board is built. Tunnels: deep inside, so arrows end up buried behind others. Tunnels = harder. Layers: from the edges inwards (easier, more bends). Random: anywhere. Mix: a share of tunnels among layers.',
+    options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mix' },
   },
   // A knob row's label: the engine's term, one line of at
   // most 12 characters, so the label track is one width in every group. The
@@ -102,42 +112,32 @@ export const EN = {
     wShort: 'short share',
     wMid: 'medium share',
     Lmax: 'max length',
-    backbite: 'backbite',
+    backbite: 'tail rework',
     pStraight: 'straightness',
-    wLateral: 'lateral',
-    warns: 'nook closing',
-    anticoil: 'anticoil',
-    headBias: 'piece start',
-    mix: 'mixing',
-    trapBias: 'trap bias',
-    probe: 'probe share',
-    probeLen: 'probe length',
-    giants: 'giants',
-    giantSpan: 'span',
-    giantStep: 'step',
-    giantJitter: 'jitter',
-    wGiant: 'later share',
+    wLateral: 'sideways',
+    warns: 'nooks first',
+    anticoil: 'coil penalty',
+    headBias: 'arrow start',
+    mix: 'tunnel share',
+    trapBias: 'traps',
+    probe: 'target share',
+    probeLen: 'target len',
+    giants: 'skeletons',
+    giantSpan: 'length',
+    giantStep: 'run gap',
+    giantJitter: 'cut short',
+    wGiant: 'late chance',
     giantStraight: 'straightness',
-    giantAnticoil: 'anticoil',
+    giantAnticoil: 'coil penalty',
     giantSpacing: 'spacing',
-    headTries: 'head tries',
-    absorbLimit: 'absorb limit',
+    headTries: 'start tries',
+    absorbLimit: 'leftover max',
     maxBack: 'backtracks',
     restarts: 'restarts',
   },
   // The unit beside a knob's value, in the value track's 44px at 11px.
-  units: {
-    cells: 'cells',
-    tries: 'tries',
-    pieces: 'pieces',
-    sides: 'sides',
-    px: 'px',
-    units: 'units',
-    carves: 'carves',
-  },
+  units: { cells: 'cells', times: '×', arrows: 'arrows', sides: '× side', px: 'px' },
   ui: {
-    title: 'Generator lab',
-    subtitle: 'Same engine as carve.ts: engine.ts.',
     generate: 'Generate',
     reseed: 'New seed',
     reset: 'Defaults',
@@ -162,20 +162,21 @@ export const EN = {
     // The preview's sections; the heading prints them in caps.
     previewGeometry: 'geometry',
     previewDrawing: 'drawing',
-    previewPoints: 'points',
+    previewPoints: 'dots',
     previewColours: 'colours',
     cellLabel: 'cell size in export (px)',
     cellHelp: 'Affects only the downloaded SVG and the CLI command. No effect on the preview.',
-    strokeLabel: 'stroke width (grid units)',
-    headWidthLabel: 'arrowhead width (grid units, 0 = automatic)',
-    headHeightLabel: 'arrowhead height (grid units)',
-    headHelp:
-      'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
+    strokeLabel: 'line thickness (cells)',
+    headWidthLabel: 'arrowhead width (cells, auto = fits the line)',
+    headHeightLabel: 'arrowhead length (cells)',
+    headWidthHelp:
+      "How wide the arrowhead is, in cells. auto picks a width that suits the line's thickness. An arrowhead narrower than the line is widened to it.",
+    headHeightHelp: 'How long the arrowhead is, measured along the arrow, in cells. 0 = a flat end with no point.',
     rounded: 'round the corners (and the tail)',
-    colored: 'colour the arrows (each piece a different colour)',
-    highlightLongest: 'highlight the longest pieces',
-    voids: 'show jammed cells',
-    showPoints: 'show the point grid',
+    colored: 'colour the arrows (each a different colour)',
+    highlightLongest: 'highlight the longest arrows',
+    voids: 'show empty cells',
+    showPoints: 'show the dot grid',
     pointColorLabel: 'dot colour',
     pointRadiusLabel: 'dot radius (cells)',
     pointRadiusHelp: 'Half a cell is the most; above that the dots merge into a wash of colour.',
@@ -192,32 +193,33 @@ export const EN = {
     paletteRemove: (n: number) => `remove colour ${n}`,
     // A function of the cap, so the caller's `PALETTE_CAP` and this text
     // cannot drift apart.
-    paletteHelp: (cap: number) => `Up to ${cap} colours. A chosen theme still supplies everything you do not set.`,
+    paletteHelp: (cap: number) =>
+      `Your own colours for multicolour arrows, up to ${cap}. A chosen theme still supplies everything you do not set.`,
     // The board's own surface colours: '' means "not set", which lets
     // a chosen theme supply them.
     paperLabel: 'background',
-    inkLabel: 'drawing colour',
+    inkLabel: 'arrow colour',
     highlightColorLabel: 'highlight',
-    paperClear: 'clear the paper, back to the theme',
+    paperClear: 'clear the background, back to the theme',
     // The preview as knob rows: short labels (at most 12
     // characters, like the knobs'), section headings, the two dependency
     // blocks, a switch's value, and a description for every row.
-    viewShortStroke: 'stroke',
+    viewShortStroke: 'thickness',
     viewShortHeadWidth: 'head width',
-    viewShortHeadHeight: 'head height',
-    viewShortTop: 'top count',
+    viewShortHeadHeight: 'head length',
+    viewShortTop: 'how many',
     viewShortCell: 'export cell',
     viewShortPointRadius: 'dot radius',
     viewShortPad: 'margin',
     viewShortPointColor: 'dot colour',
     viewShortRounded: 'rounded',
     viewShortColored: 'multicolour',
-    viewShortHighlightLongest: 'longest',
-    viewShortVoids: 'jammed cells',
-    viewShortShowPoints: 'point grid',
+    viewShortHighlightLongest: 'mark longest',
+    viewShortVoids: 'empty cells',
+    viewShortShowPoints: 'dot grid',
     viewShortTheme: 'theme',
     viewShortPaper: 'background',
-    viewShortInk: 'ink',
+    viewShortInk: 'arrow colour',
     viewShortHighlightColor: 'highlight',
     viewShortPalette: 'palette',
     // The theme row's empty choice: its select is a slider's length, and
@@ -227,46 +229,46 @@ export const EN = {
     secHighlight: 'highlight',
     secGrid: 'grid',
     secExport: 'export',
-    needsHighlightLongest: 'needs longest on',
-    needsPoints: 'needs point grid on',
+    needsHighlightLongest: 'turn on mark longest',
+    needsPoints: 'turn on dot grid',
     valueOn: 'on',
     valueOff: 'off',
     paletteCount: (n: number, cap: number) => `${n} / ${cap}`,
     strokeHelp:
-      'Line width in grid units. Below 0.2 the line thins into the paper; at 0.9 it fills its own square and leaves the tip no room.',
-    topHelp: 'How many of the longest pieces the highlight marks. 0 marks none.',
-    pointColorHelp: 'Colour of the point grid dots.',
-    showPointsHelp: 'Draws one dot per cell under the pieces, like the ruling of a notebook page.',
-    roundedHelp: 'Rounds the corners a piece turns through, and caps its tail with a disc.',
+      'How thick the arrows are, as a share of a cell. 0.2 = a hairline; 0.9 = fills the cell and leaves the arrowhead no room.',
+    topHelp: 'How many of the longest arrows the highlight marks. 0 marks none.',
+    pointColorHelp: 'Colour of the dot grid.',
+    showPointsHelp: 'Draws one dot per cell under the arrows, like the ruling of a notebook page.',
+    roundedHelp: 'Rounds the corners where an arrow turns, and rounds off its tail.',
     coloredHelp:
-      'Draws each piece in a colour of its own: from the custom palette, else the theme, else a hue per piece.',
-    highlightLongestHelp: 'Draws the longest pieces in the highlight colour, on top of the rest.',
-    voidsHelp: 'Marks the cells the generator failed to carve, where the board jammed.',
+      'Gives every arrow a colour of its own: from your palette, else from the theme, else automatic colours.',
+    highlightLongestHelp: 'Draws the longest arrows in the highlight colour, on top of the rest.',
+    voidsHelp: 'Marks the cells left empty when the generator got stuck. You only see them on an incomplete board.',
     themeHelp:
-      'A built-in theme: paper, ink, highlight and the colours of the pieces. What you set below wins over it.',
+      'A ready colour set: background, arrow colour, highlight and the multicolour palette. What you set below overrides it.',
     paperHelp:
-      'The board’s paper. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
+      "The board's background colour. Set, it overrides the theme; cleared, the theme's returns. Changes the preview only, not the CLI command or the downloaded file.",
     inkHelp:
-      'The arrows’ colour while they are not multicoloured. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
-    inkClear: 'clear the drawing colour, back to the theme',
+      "The colour of every arrow while multicolour is off. Set, it overrides the theme; cleared, the theme's returns. Changes the preview only, not the CLI command or the downloaded file.",
+    inkClear: 'clear the arrow colour, back to the theme',
     highlightColorHelp:
-      'The colour of the longest pieces and the jammed cells. Set, it wins over the theme; cleared, the theme supplies it again. Changes the preview only, not the CLI command or the downloaded file.',
+      "The colour of the longest arrows and the empty cells. Set, it overrides the theme; cleared, the theme's returns. Changes the preview only, not the CLI command or the downloaded file.",
     highlightColorClear: 'clear the highlight, back to the theme',
     topLabel: 'how many longest',
     autoRun: 'generate right after a change',
     // A knob row's `?`, its dependency blocks and the
     // lengths mix bar.
     aboutKnob: (name: string) => `About ${name}`,
-    needsSkeleton: 'needs giants or later share > 0',
-    needsProbe: 'needs probe share > 0',
+    needsSkeleton: 'needs skeletons > 0 or late chance > 0',
+    needsProbe: 'needs target share > 0',
     depSkeleton: 'skeleton',
-    depProbe: 'probe',
+    depProbe: 'target length',
     subLayout: 'layout',
     subGrowth: 'growth',
     mixShort: 'short',
     mixMedium: 'medium',
     mixLong: 'long',
-    mixCap: 'short + medium at most 0.9',
+    mixCap: 'short + medium: at most 90%',
     tabLab: 'Lab',
     tabLibrary: 'Saved boards',
     tabDocs: 'Docs',
@@ -294,14 +296,14 @@ export const EN = {
     cmdHintSettings: 'settings',
     cmdNoRun: 'nothing running',
     cmdRunning: 'already running',
-    cmdBroken: 'rule broken',
+    cmdBroken: 'invalid settings',
     cmdViewSimple: 'Simple view',
     cmdViewAdvanced: 'Advanced view',
     cmdLangToPl: 'Switch to Polish',
     cmdLangToEn: 'Switch to English',
     /** The accessible name of the documentation's own two-page navigation. */
     docsNavLabel: 'Documentation pages',
-    docsElement: 'Element',
+    docsElement: 'Board element',
     docsCli: 'Command line',
     fullView: 'Full view (key F)',
     pressGenerate: 'Press "Generate".',
@@ -309,22 +311,22 @@ export const EN = {
     generatingBig: (W: number, H: number, cells: string) =>
       `Generating ${W}×${H} (${cells} cells) — this will take a while…`,
     progress: (pct: string, pieces: string, remaining: string, backtracks: number, s: string) =>
-      `<b>${pct}%</b> · ${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+      `<b>${pct}%</b> · ${pieces} arrows · ${remaining} left · backtracks ${backtracks} · ${s} s`,
     // While a carve runs, Generate is the meter and carries the
     // percent; the line under it says the rest of `progress`, and the hidden
     // progressbar beside it is named `runProgress`.
     generatingPct: (pct: string) => `Generating ${pct}%`,
     progressRest: (pieces: string, remaining: string, backtracks: number, s: string) =>
-      `${pieces} pieces · ${remaining} left · backtracks ${backtracks} · ${s} s`,
+      `${pieces} arrows · ${remaining} left · backtracks ${backtracks} · ${s} s`,
     runProgress: 'Run progress',
     workerError: 'Worker error:',
     generationError: 'Generation error:',
     aborted: 'Aborted.',
-    closed: 'Board closed 100%.',
+    closed: 'Board complete: every cell filled.',
     solvable: 'Solvable.',
     unsolvable: 'UNSOLVABLE — a generator bug.',
     notClosedStatus: (remaining: string, fragments: number, largest: number) =>
-      `Board not closed. At the best moment ${remaining} cells remained in ${fragments} fragments (largest ${largest}).`,
+      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}). Try another seed or more straightness.`,
     stat_board: 'board',
     stat_boardVal: (W: number, H: number, cells: string, seed: number) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
     stat_pieces: 'arrows',
@@ -409,10 +411,10 @@ export const EN = {
     boardRows: 'Boards of this size',
     boardDetail: 'The open board',
     loadIntoLab: 'Load into lab',
-    noStoreServer: 'No store server — run sh packages/cli/store.sh.',
+    noStoreServer: 'No store server: pnpm nx serve lab starts one, or run deno task store.',
     storeEmpty: 'The store is empty. Generate a board in the lab or with deno task carve.',
-    notClosed: 'not closed',
-    piecesShort: (n: number | string) => `${n} pieces`,
+    notClosed: 'incomplete',
+    piecesShort: (n: number | string) => `${n} arrows`,
     longestShort: (n: number | string) => `longest ${n}`,
     loadingBoard: (id: string) => `Loading ${id}…`,
     boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
@@ -439,7 +441,7 @@ export const EN = {
     factGenerated: 'generated',
     secStoredArrows: 'arrows · saved with the board',
     stat_genVal: (g: string) => `generation ${g} s`,
-    notClosedShort: 'Board not closed.',
+    notClosedShort: 'Board incomplete.',
     storedReportNote: 'A saved board keeps these figures only. Load it into the lab and generate for the full report.',
     inactivePrefix: 'No effect: ',
     // Safe envelope: settings the engine refuses to generate with.
@@ -448,17 +450,17 @@ export const EN = {
     // it needs a name the tab strip does not already use.
     railLabel: 'Parameter groups',
     railGenerator: 'generator',
-    railElement: 'element',
+    railElement: 'look',
     // The floor a cross-knob rule puts on a knob: drawn on the slider's track,
     // and named here because a mark is not a message.
-    ruleBound: (need: number) => `Rule bound: ${need}`,
+    ruleBound: (need: number) => `Minimum for this board: ${need}`,
     // A rail entry that carries a count names what the count is.
     violationsInGroup: (group: string, count: number) =>
       `${group}, ${count} setting${count === 1 ? '' : 's'} outside the safe range`,
     rangeViolation: (label: string, value: unknown, min: number, max: number) =>
-      `${label}: ${value} is outside ${min}..${max}`,
+      `${label}: ${value} — allowed ${min} to ${max}`,
     stepViolation: (label: string, value: number, below: number, above: number) =>
-      `${label}: ${value} sits between the settings ${below} and ${above}`,
+      `${label}: ${value} is not an allowed step; the nearest are ${below} and ${above}`,
     // A rule whose bound is computed from the board rather than fixed.
     needViolation: (reason: string, need: number) => `${reason}; this board needs at least ${need}`,
     generateBlocked: 'Fix the settings marked in red to generate',
@@ -509,13 +511,13 @@ export const EN = {
     boardModeView: 'View',
     boardModeInspect: 'Inspect',
     boardModePlay: 'Play',
-    inspectHint: 'Choose a piece to inspect it.',
+    inspectHint: 'Choose an arrow to inspect it.',
     dirUp: 'up',
     dirRight: 'right',
     dirDown: 'down',
     dirLeft: 'left',
     pieceFacts: (id: number, length: number, dir: string) =>
-      `Piece #${id} · ${length} ${length === 1 ? 'cell' : 'cells'} · ${dir}`,
+      `Arrow #${id} · ${length} ${length === 1 ? 'cell' : 'cells'} · ${dir}`,
     pieceFree: 'free',
     pieceBlocked: (id: number, distance: number) =>
       `blocked by #${id} at ${distance} ${distance === 1 ? 'cell' : 'cells'}`,
@@ -533,9 +535,18 @@ export const EN = {
     // The engine's `toSvg` takes no theme, so a theme chosen on
     // screen never reaches the exported file; shown only while a theme is
     // active, beside the SVG button, since it has nothing to say otherwise.
-    svgThemeNote: 'The downloaded SVG keeps the golden-angle colours, not the chosen theme.',
+    svgThemeNote: 'The downloaded SVG uses its own default colours; the chosen theme is not included.',
   },
 } as const
+
+/**
+ * English display words where the CLI's word is not the one a player should
+ * read (`--trapbias=off` is the generator's own trap count). The command box
+ * keeps the CLI word; see `choiceText`.
+ */
+export const EN_CHOICES: Partial<Record<ParamKey, Record<string, string>>> = {
+  trapBias: { off: 'normal' },
+}
 
 /** A string leaf stays a string; a function leaf keeps its exact parameter list. */
 type Widen<T> = T extends string ? string
@@ -588,26 +599,28 @@ export const PL: Translation = {
     shape: 'kształt',
     difficulty: 'trudność',
     skeleton: 'szkielet',
-    closing: 'domykanie',
+    closing: 'gdy utknie',
   },
   reasons: {
-    skeletonOff: 'wymaga elementów szkieletowych > 0',
-    probeOff: 'działa tylko przy udziale sond > 0',
-    stepZero: 'działa tylko przy skoku serpentyny > 0',
-    anticoilWins: 'działa dopiero powyżej ogólnej kary za zwijanie',
+    skeletonOff: 'wymaga: szkielety > 0 albo kolejne > 0',
+    probeOff: 'wymaga: ile zadanych > 0',
+    stepZero: 'bez wpływu przy przerwie „losowo”',
+    anticoilWins: 'działa dopiero powyżej kary zwojów z grupy „kształt”',
     // Cross-knob rules (RULE_REASONS in the engine), keyed like the inactive reasons.
-    sharesSum: 'udział krótkich i średnich razem nie może przekroczyć 0,9',
-    lmaxHole: 'długość maksymalna musi być 0 (automatyczna) albo co najmniej 17',
+    sharesSum: 'krótkie + średnie najwyżej 0,9 (90%)',
+    lmaxHole: 'najdłuższa strzałka: auto albo co najmniej 17',
     straightFloor:
-      'skłonność do prostej musi rosnąć z planszą: więcej kwadratów, zamykanie zakamarków poniżej 4 albo kara za zwijanie powyżej 6 — każde z nich podnosi podłogę',
+      'za mała prostość jak na tę planszę: większa plansza, zakamarki poniżej 4 albo kara zwojów powyżej 6 wymagają więcej',
     startPair:
-      'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
+      'start strzałek i udział tuneli do siebie nie pasują: start mieszany wymaga startu losowego i udziału od 0,3 do 0,7; każdy inny start wymaga wyłączonego udziału (-1)',
   },
-  // Words of the fixed-choice knobs. The key is the word the CLI takes
-  // (--giantspacing=off), the value is what the lab shows in Polish.
+  // The key is the CLI word (--giantspacing=off), the value the lab shows in
+  // Polish: for a choice knob's list and for a chip's special word alike.
   choices: {
     giantSpacing: { off: 'bez odstępu', '2': '2', '3': '3' },
-    trapBias: { avoid: 'unikaj', off: 'bez zmian', seek: 'szukaj' },
+    trapBias: { avoid: 'unikaj', off: 'normalnie', seek: 'szukaj' },
+    giantStep: { random: 'losowo' },
+    Lmax: { auto: 'auto' },
   },
   params: {
     W: {
@@ -618,142 +631,149 @@ export const PL: Translation = {
       label: 'wysokość',
       help: 'Liczba wierszy. Plansza pionowa jest trudniejsza od kwadratowej o tej samej liczbie komórek.',
     },
-    seed: { label: 'ziarno', help: 'To samo ziarno przy tych samych ustawieniach daje zawsze tę samą planszę.' },
+    seed: {
+      label: 'ziarno',
+      help:
+        'Numer planszy. To samo ziarno przy tych samych ustawieniach daje zawsze tę samą planszę; zmień je, by dostać inną planszę tego samego rodzaju.',
+    },
 
     wShort: {
       label: 'udział krótkich (2–6 komórek)',
       help:
-        'Jaka część elementów ma być krótka. Wyżej = więcej grotów, ale sieczka z haczyków. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
+        'Jaka część strzałek jest krótka. Więcej = więcej strzałek na planszy, ale dużo drobnych haczyków. Krótkie + średnie: najwyżej 0,9 (90%).',
     },
     wMid: {
       label: 'udział średnich (7–15 komórek)',
       help:
-        'Jaka część elementów ma być średnia. Reszta po krótkich i średnich idzie na długie. Krótkie i średnie razem nie mogą przekroczyć 0,9.',
+        'Jaka część strzałek jest średnia. Resztę po krótkich i średnich dostają długie. Krótkie + średnie: najwyżej 0,9 (90%).',
     },
     Lmax: {
-      label: 'długość maksymalna (auto = 2,5 × bok)',
+      label: 'najdłuższa strzałka (auto = 2,5 × dłuższy bok)',
       help:
-        'Najdłuższy element, o jaki stara się generator. auto = 2,5 × dłuższy bok. Poniżej 17 limit zjada kubełek średnich i długich, więc daj auto albo 17 w górę.',
+        'Najdłuższa strzałka, do jakiej dąży generator, w komórkach. auto = 2,5 × dłuższy bok. Od 1 do 16 nie wolno: taki limit wcina się w średnie i długie.',
     },
     backbite: {
-      label: 'przerabianie ogona, gdy linia ugrzęźnie',
+      label: 'przeróbka ogona, gdy strzałka utknie',
       help:
-        'Ile razy z rzędu linia, która nie ma już gdzie iść, może przerobić własny ogon, zamiast się zatrzymać. 0 wyłącza. Więcej daje dłuższe elementy i mniej ich.',
+        'Ile razy z rzędu strzałka, która utknie w ślepym zaułku, może przerobić ogon i rosnąć dalej. 0 = wyłączone. Więcej = mniej, ale dłuższych strzałek.',
     },
 
     pStraight: {
-      label: 'skłonność do prostej',
+      label: 'prostość',
       help:
-        'Jak chętnie linia idzie prosto. Wyżej = dłuższe proste odcinki. Poniżej 0,6 duże plansze się nie domykają; przy 0,6 plansze ponad 500×500 mogą się zaciąć, 0,65 nie.',
+        'Jak często strzałka jedzie prosto zamiast skręcać. Wyżej = długie proste; niżej = więcej zakrętów. Znacznik na suwaku to minimum tej planszy.',
     },
     wLateral: {
-      label: 'premia za ruch w bok',
-      help: 'O ile chętniej linia skręca w bok, niż wchodzi w głąb. 0 = proste wbicia i wielkie zwoje.',
+      label: 'premia za krok w bok',
+      help: 'Jak bardzo strzałka woli krok w bok niż wchodzenie w głąb planszy. 0 = proste wbicia i duże zwoje.',
     },
     warns: {
-      label: 'domykanie zakamarków',
+      label: 'najpierw zakamarki',
       help:
-        'Jak mocno linia najpierw wypełnia zakamarki z małą liczbą wyjść. Wyżej = mniej elementów, dłuższe i zwinięte. Poniżej 2 reguła nie działa i plansze się zacinają.',
+        'Jak mocno strzałka najpierw wypełnia małe ślepe zakamarki. Wyżej = mniej strzałek, dłuższe i bardziej zwinięte. Poniżej 4 duże plansze wymagają większej prostości.',
     },
     anticoil: {
-      label: 'kara za zwijanie',
+      label: 'kara zwojów',
       help:
-        'Jak mocno linia unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze elementy. Powyżej 10 zacina się przy małej skłonności do prostej.',
+        'Jak mocno strzałka unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze strzałki. Powyżej 6 duże plansze wymagają większej prostości.',
     },
     headBias: {
-      label: 'start elementów (-1 warstwy, 0 losowo, 1 tunele)',
+      label: 'start strzałek (-1 warstwy, 0 losowo, 1 tunele)',
       help:
-        'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Wszystkie trzy domykają plansze do 400×400.',
+        'Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400.',
     },
     mix: {
-      label: 'udział mieszania (tunele wśród warstw)',
-      help:
-        'Jaka część elementów startuje tunelami, reszta warstwami. --start przyjmuje tu od 0,3 do 0,7. -1 wyłącza mieszanie.',
+      label: 'udział startów tunelami (mieszane)',
+      help: 'Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami.',
     },
     trapBias: {
-      label: 'pułapki (strzałki, które wyglądają na gotowe)',
+      label: 'pułapki (strzałki, które wyglądają na wolne)',
       help:
-        'Głowa, w której korytarzu stoi już jeden element, da element wyglądający na gotowy, choć nim nie jest. „Szukaj" daje ich o połowę więcej, „unikaj" cztery razy mniej.',
+        'Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = od trzech do ośmiu razy mniej.',
     },
     probe: {
-      label: 'udział elementów-sond',
+      label: 'udział strzałek o zadanej długości',
       help:
-        'Jaka część elementów ma długość losowaną wokół długości sondy zamiast ze zwykłej mieszanki. Przy 1 i długości 12 plansza to same krótkie elementy.',
+        'Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki.',
     },
     probeLen: {
-      label: 'długość sondy',
+      label: 'zadana długość',
       help:
-        'Docelowa długość sondy, plus minus połowa. Krótkie sondy (4) potrajają liczbę elementów, długie (200) dają mniej dłuższych.',
+        'Zadana długość w komórkach, plus minus połowa. Krótka (4) potraja liczbę strzałek; długa (200) daje mniej, dłuższych.',
     },
 
     giants: {
-      label: 'ile elementów szkieletowych (0 = bez szkieletu)',
-      help: 'Ile pierwszych elementów ma być długimi liniami przez całą planszę. 0 = bez szkieletu; 4 to dobry start.',
+      label: 'liczba strzałek szkieletu (0 = bez szkieletu)',
+      help:
+        'Ile bardzo długich strzałek układa się najpierw, wężykiem przez planszę. 0 = bez szkieletu; 4 to dobry początek.',
     },
     giantSpan: {
       label: 'długość szkieletu (w bokach planszy)',
-      help: 'Docelowa długość jednego szkieletu w bokach planszy. Linia kończy wcześniej, gdy zabraknie miejsca.',
+      help: 'Zadana długość jednej strzałki szkieletu, w bokach planszy. Kończy wcześniej, gdy zabraknie miejsca.',
     },
     giantStep: {
-      label: 'skok serpentyny (random = wzrost swobodny)',
+      label: 'przerwa między biegami szkieletu (losowo = swobodnie)',
       help:
-        'Odstęp między biegami szkieletu. Mały = równe pasy, duży = kilka autostrad. random = wzrost swobodny, bez serpentyny.',
+        'Komórki między kolejnymi biegami szkieletu tam i z powrotem. Mała = gęste, równe pasy; duża = kilka długich autostrad. „losowo” = bez wężyka: szkielet rośnie swobodnie.',
     },
     giantJitter: {
-      label: 'urywanie biegów serpentyny',
-      help: 'Jak często bieg szkieletu urywa się przed przeszkodą. 0 = proste, regularne brzegi.',
+      label: 'urywanie biegów szkieletu',
+      help: 'Jak często bieg szkieletu zawraca, zanim dojdzie do przeszkody. 0 = proste, równe brzegi.',
     },
     wGiant: {
-      label: 'udział szkieletów poza startem',
+      label: 'szansa na kolejne szkielety',
       help:
-        'Szansa, że element wycinany później też będzie szkieletem. Powyżej 0,2 plansze robią się wolne i przestają się domykać przy 1000×1000.',
+        'Szansa, że strzałka układana później też stanie się strzałką szkieletu. Przy górnej granicy (0,2) plansze liczą się wolno, a 1000×1000 może się nie wypełnić.',
     },
     giantStraight: {
-      label: 'skłonność szkieletu do prostej',
+      label: 'prostość szkieletu',
       help:
-        'Jak chętnie szkielet idzie prosto tam, gdzie rośnie swobodnie: cała linia przy skoku 0, ogon po serpentynie. 0,5 to brak preferencji.',
+        'Jak często strzałka szkieletu jedzie prosto tam, gdzie rośnie swobodnie: cała przy przerwie „losowo”, inaczej tylko ogon. 0,5 = bez preferencji.',
     },
     giantAnticoil: {
-      label: 'kara za zwijanie szkieletu',
-      help: 'Kara za dotykanie siebie tylko dla szkieletu. Obowiązuje wyższa z tej i ogólnej.',
+      label: 'kara zwojów szkieletu',
+      help: 'Kara zwojów tylko dla strzałek szkieletu. Obowiązuje wyższa z tej i kary zwojów z grupy „kształt”.',
     },
     giantSpacing: {
-      label: 'promień odstępu szkieletu',
-      help:
-        'Jak daleko szkielet trzyma się od własnych wcześniejszych biegów, w komórkach. Powyżej 3 tylko kosztuje czas.',
+      label: 'odstęp szkieletu',
+      help: 'Ile komórek szkielet trzyma od swoich wcześniejszych biegów. „bez odstępu” = może ich dotykać.',
     },
     headTries: {
-      label: 'prób startu na kierunek',
+      label: 'próby startu na kierunek',
       help:
-        'Ile miejsc startu wypróbować przed zmianą kierunku. 1 głodzi szukanie przy trudnych ustawieniach; powyżej 16 tylko kosztuje czas.',
+        'Ile miejsc startu generator sprawdza przed zmianą kierunku. Przy 2 szukanie jest płytkie dla trudnych ustawień; od 8 w górę zwykle wychodzi ta sama plansza co przy 4.',
     },
     absorbLimit: {
-      label: 'wchłanianie resztek do N komórek',
+      label: 'doklejaj resztki do N komórek',
       help:
-        'Fragment do tego rozmiaru, którego nie da się wyciąć, dokleja się do sąsiada. Poniżej 12 resztki się piętrzą i plansze się zacinają.',
+        'Pusta łatka do tylu komórek, w którą nie wejdzie żadna strzałka, zostaje doklejona do sąsiedniej. Blisko dolnej granicy plansze znacznie częściej utykają.',
     },
     maxBack: {
       label: 'budżet nawrotów',
       help:
-        'Ile wycięć wolno cofnąć w jednej próbie, zanim zacznie się od nowa. 200 wystarcza; więcej tylko opóźnia werdykt. --maxback=auto to 200.',
+        'Ile ułożonych strzałek generator może cofnąć w jednej próbie, zanim zacznie od nowa. 200 wystarcza; więcej tylko opóźnia wynik.',
     },
     restarts: {
       label: 'dopuszczalne restarty',
       help:
-        'Ile nowych prób z pochodnym ziarnem po nieudanej. 0 pokazuje surową skuteczność ustawień; więcej niż 5 prawie nigdy nie pomaga.',
+        'Ile nowych prób po nieudanej, każda z ziarnem wyliczonym z Twojego. 0 pokazuje, jak często te ustawienia udają się same.',
     },
   },
   groupHelp: {
-    lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
-    shape: 'Wagi wyboru kolejnej komórki linii. Mnożą się, więc jedna skrajna wartość zagłusza pozostałe.',
+    lengths:
+      'Strzałki są trzech rozmiarów: krótkie (2–6 komórek), średnie (7–15) i długie (od 16 do najdłuższej). Ustaw udział krótkich i średnich; długie dostają resztę.',
+    shape:
+      'Jak strzałki skręcają podczas budowania planszy: proste odcinki, kroki w bok, zwoje. Ustawienia się mnożą, więc jedna skrajna wartość zagłusza resztę.',
     difficulty:
-      'Gdzie zaczynają się elementy, jak są wybierane i jak są długie. Zmienia to, jak trudno znaleźć element z wolną drogą.',
-    skeleton: 'Pierwsze elementy prowadzone serpentyną przez całą planszę. Jedyny sposób na naprawdę długie linie.',
+      'Jak trudna będzie gotowa łamigłówka: skąd startują strzałki, ile pułapek i część strzałek o zadanej długości. Część z nich zmienia też wygląd.',
+    skeleton:
+      'Kilka bardzo długich strzałek układanych na początku, wężykiem przez całą planszę; reszta wypełnia miejsce wokół nich. Jedyny sposób na naprawdę długie strzałki.',
     closing:
-      'Co robić, gdy nie ma legalnego wycięcia. Domyślne domykają plansze do 400×400; te pokrętła są do eksperymentów.',
+      'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
   },
   presets: {
     placeholder: 'Preset…',
+    caption: 'Poziomy ustawiają tylko rozmiar planszy; opcje zmieniają jej kształt albo sposób układania strzałek.',
     levels: {
       easy: 'Łatwy',
       medium: 'Średni',
@@ -765,10 +785,17 @@ export const PL: Translation = {
     },
     modes: {
       square: 'kwadrat',
-      portrait: 'pion',
+      portrait: 'pionowa',
       tunnels: 'tunele',
       skeleton: 'szkielet',
-      serpentine: 'szkielet z serpentynami',
+      serpentine: 'kręty szkielet',
+    },
+    modeHelp: {
+      square: 'Tak szeroka, jak wysoka.',
+      portrait: 'Dwa razy wyższa niż szersza.',
+      tunnels: 'Strzałki startują w głębi, zakopane za innymi: trudniej.',
+      skeleton: 'Najpierw kilka bardzo długich strzałek wije się przez planszę.',
+      serpentine: 'Szkielet, którego biegi ciągle się urywają: żaden bieg nie idzie od ściany do ściany.',
     },
   },
   // The simple view (lab-simple.ts): plain choices instead of thirty knobs.
@@ -799,10 +826,10 @@ export const PL: Translation = {
       'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie „trudność” ustaw start na tunele.',
   },
   start: {
-    label: 'start elementów',
+    label: 'start strzałek',
     help:
-      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Mieszanie startuje tunelami tę część elementów.',
-    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszanie' },
+      'Skąd startuje każda nowa strzałka podczas budowania planszy. Tunele: w głębi, więc strzałki są zakopane za innymi. Tunele = trudniej. Warstwy: od krawędzi do środka (łatwiej, więcej zakrętów). Losowo: gdziekolwiek. Mieszane: część tuneli wśród warstw.',
+    options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszane' },
   },
   short: {
     W: 'szerokość',
@@ -811,33 +838,31 @@ export const PL: Translation = {
     wShort: 'krótkie',
     wMid: 'średnie',
     Lmax: 'dł. maks.',
-    backbite: 'przeróbka',
-    pStraight: 'prostota',
+    backbite: 'przeróbki',
+    pStraight: 'prostość',
     wLateral: 'ruch w bok',
     warns: 'zakamarki',
-    anticoil: 'antyzwijanie',
+    anticoil: 'kara zwojów',
     headBias: 'start',
-    mix: 'mieszanie',
+    mix: 'ile tuneli',
     trapBias: 'pułapki',
-    probe: 'udział sond',
-    probeLen: 'dł. sondy',
+    probe: 'ile zadanych',
+    probeLen: 'zadana dł.',
     giants: 'szkielety',
     giantSpan: 'długość',
-    giantStep: 'skok',
+    giantStep: 'przerwa',
     giantJitter: 'urywanie',
-    wGiant: 'późniejsze',
-    giantStraight: 'prostota',
-    giantAnticoil: 'antyzwijanie',
+    wGiant: 'kolejne',
+    giantStraight: 'prostość',
+    giantAnticoil: 'kara zwojów',
     giantSpacing: 'odstęp',
     headTries: 'próby startu',
-    absorbLimit: 'wchłanianie',
+    absorbLimit: 'resztki do',
     maxBack: 'nawroty',
     restarts: 'restarty',
   },
-  units: { cells: 'kom.', tries: 'prób', pieces: 'szt.', sides: 'boki', px: 'px', units: 'jedn.', carves: 'wycięć' },
+  units: { cells: 'kom.', times: '×', arrows: 'strz.', sides: '× bok', px: 'px' },
   ui: {
-    title: 'Laboratorium generatora',
-    subtitle: 'Ten sam silnik co carve.ts: engine.ts.',
     generate: 'Generuj',
     reseed: 'Nowe ziarno',
     reset: 'Domyślne',
@@ -859,20 +884,21 @@ export const PL: Translation = {
     preview: 'Podgląd',
     previewGeometry: 'geometria',
     previewDrawing: 'rysunek',
-    previewPoints: 'punkty',
+    previewPoints: 'kropki',
     previewColours: 'kolory',
     cellLabel: 'rozmiar komórki w eksporcie (px)',
     cellHelp: 'Dotyczy tylko pobieranego SVG i komendy CLI. Na podgląd nie ma wpływu.',
-    strokeLabel: 'grubość linii (podziałki)',
-    headWidthLabel: 'szerokość grotu (podziałki, 0 = automat)',
-    headHeightLabel: 'wysokość grotu (podziałki)',
-    headHelp:
-      'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
+    strokeLabel: 'grubość linii (komórki)',
+    headWidthLabel: 'szerokość grotu (komórki, auto = do linii)',
+    headHeightLabel: 'długość grotu (komórki)',
+    headWidthHelp:
+      'Szerokość grotu w komórkach. auto dobiera szerokość do grubości linii. Grot węższy od linii zostaje do niej poszerzony.',
+    headHeightHelp: 'Długość grotu wzdłuż strzałki, w komórkach. 0 = płaski koniec bez ostrza.',
     rounded: 'zaokrąglaj rogi (i ogon)',
-    colored: 'koloruj strzałki (każdy element inny kolor)',
-    highlightLongest: 'wyróżnij najdłuższe elementy',
-    voids: 'pokaż komórki zaklinowania',
-    showPoints: 'pokaż siatkę punktów',
+    colored: 'koloruj strzałki (każda innym kolorem)',
+    highlightLongest: 'wyróżnij najdłuższe strzałki',
+    voids: 'pokaż puste komórki',
+    showPoints: 'pokaż siatkę kropek',
     pointColorLabel: 'kolor kropek',
     pointRadiusLabel: 'promień kropki (komórki)',
     pointRadiusHelp: 'Najwięcej pół komórki; powyżej kropki zlewają się w plamę koloru.',
@@ -884,14 +910,15 @@ export const PL: Translation = {
     paletteAdd: 'dodaj kolor',
     paletteColorLabel: (n) => `kolor ${n}`,
     paletteRemove: (n) => `usuń kolor ${n}`,
-    paletteHelp: (cap) => `Maksymalnie ${cap} kolorów. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
+    paletteHelp: (cap) =>
+      `Własne kolory dla wielobarwnych strzałek, najwyżej ${cap}. Wybrany motyw nadal daje wszystko, czego nie ustawisz.`,
     paperLabel: 'tło',
-    inkLabel: 'kolor rysunku',
+    inkLabel: 'kolor strzałek',
     highlightColorLabel: 'wyróżnienie',
     paperClear: 'wyczyść tło, z powrotem do motywu',
     viewShortStroke: 'grubość',
     viewShortHeadWidth: 'szer. grotu',
-    viewShortHeadHeight: 'wys. grotu',
+    viewShortHeadHeight: 'dł. grotu',
     viewShortTop: 'ile najdł.',
     viewShortCell: 'komórka SVG',
     viewShortPointRadius: 'promień',
@@ -900,11 +927,11 @@ export const PL: Translation = {
     viewShortRounded: 'zaokrąglenie',
     viewShortColored: 'wielobarwne',
     viewShortHighlightLongest: 'najdłuższe',
-    viewShortVoids: 'zaklinowane',
+    viewShortVoids: 'puste kom.',
     viewShortShowPoints: 'kropki',
     viewShortTheme: 'motyw',
     viewShortPaper: 'tło',
-    viewShortInk: 'rysunek',
+    viewShortInk: 'kolor strz.',
     viewShortHighlightColor: 'wyróżnienie',
     viewShortPalette: 'paleta',
     viewThemeNone: 'brak',
@@ -912,44 +939,43 @@ export const PL: Translation = {
     secHighlight: 'wyróżnienie',
     secGrid: 'siatka',
     secExport: 'eksport',
-    needsHighlightLongest: 'wymaga: najdłuższe wł.',
-    needsPoints: 'wymaga: kropki wł.',
+    needsHighlightLongest: 'włącz „najdłuższe”',
+    needsPoints: 'włącz „kropki”',
     valueOn: 'wł.',
     valueOff: 'wył.',
     paletteCount: (n, cap) => `${n} / ${cap}`,
     strokeHelp:
-      'Grubość linii w podziałkach. Poniżej 0,2 linia ginie w papierze; przy 0,9 wypełnia swoją kratkę i nie zostawia miejsca na grot.',
-    topHelp: 'Ile najdłuższych elementów zaznacza wyróżnienie. 0 nie zaznacza żadnego.',
-    pointColorHelp: 'Kolor kropek siatki punktów.',
-    showPointsHelp: 'Rysuje po kropce na komórkę pod elementami, jak linie w zeszycie.',
-    roundedHelp: 'Zaokrągla rogi, przez które skręca element, i zakańcza jego ogon kółkiem.',
-    coloredHelp:
-      'Rysuje każdy element własnym kolorem: z własnej palety, inaczej z motywu, inaczej odcieniem na element.',
-    highlightLongestHelp: 'Rysuje najdłuższe elementy kolorem wyróżnienia, na wierzchu pozostałych.',
-    voidsHelp: 'Zaznacza komórki, których generator nie zdołał wyciąć, tam gdzie plansza się zaklinowała.',
+      'Grubość strzałek jako część komórki. 0,2 = cienka kreska; 0,9 = wypełnia komórkę i nie zostawia miejsca na grot.',
+    topHelp: 'Ile najdłuższych strzałek zaznacza wyróżnienie. 0 nie zaznacza żadnej.',
+    pointColorHelp: 'Kolor siatki kropek.',
+    showPointsHelp: 'Rysuje po kropce na komórkę pod strzałkami, jak linie w zeszycie.',
+    roundedHelp: 'Zaokrągla rogi, na których strzałka skręca, i zaokrągla jej ogon.',
+    coloredHelp: 'Każda strzałka dostaje własny kolor: z Twojej palety, inaczej z motywu, inaczej automatycznie.',
+    highlightLongestHelp: 'Rysuje najdłuższe strzałki kolorem wyróżnienia, na wierzchu pozostałych.',
+    voidsHelp: 'Zaznacza komórki, które zostały puste, gdy generator utknął. Widać je tylko na niepełnej planszy.',
     themeHelp:
-      'Wbudowany motyw: papier, tusz, wyróżnienie i kolory elementów. To, co ustawisz niżej, ma pierwszeństwo.',
+      'Gotowy zestaw kolorów: tło, kolor strzałek, wyróżnienie i paleta wielobarwna. To, co ustawisz niżej, ma pierwszeństwo.',
     paperHelp:
-      'Papier planszy. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+      'Kolor tła planszy. Ustawiony zastępuje motyw; wyczyszczony przywraca kolor z motywu. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     inkHelp:
-      'Kolor strzałek, gdy nie są wielobarwne. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
-    inkClear: 'wyczyść kolor rysunku, z powrotem do motywu',
+      'Kolor wszystkich strzałek, gdy wielobarwne jest wyłączone. Ustawiony zastępuje motyw; wyczyszczony przywraca kolor z motywu. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+    inkClear: 'wyczyść kolor strzałek, z powrotem do motywu',
     highlightColorHelp:
-      'Kolor najdłuższych elementów i zaklinowanych komórek. Ustawiony wygrywa z motywem; wyczyszczony oddaje go motywowi. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
+      'Kolor najdłuższych strzałek i pustych komórek. Ustawiony zastępuje motyw; wyczyszczony przywraca kolor z motywu. Zmienia tylko podgląd, nie polecenie CLI ani pobrany plik.',
     highlightColorClear: 'wyczyść wyróżnienie, z powrotem do motywu',
     topLabel: 'ile najdłuższych',
     autoRun: 'generuj od razu po zmianie',
     aboutKnob: (name: string) => `Opis: ${name}`,
-    needsSkeleton: 'wymaga szkieletów lub późniejszych > 0',
-    needsProbe: 'wymaga udziału sond > 0',
+    needsSkeleton: 'wymaga: szkielety > 0 albo kolejne > 0',
+    needsProbe: 'wymaga: ile zadanych > 0',
     depSkeleton: 'szkielet',
-    depProbe: 'sonda',
+    depProbe: 'zadana długość',
     subLayout: 'układ',
     subGrowth: 'wzrost',
     mixShort: 'krótkie',
     mixMedium: 'średnie',
     mixLong: 'długie',
-    mixCap: 'krótkie + średnie najwyżej 0,9',
+    mixCap: 'krótkie + średnie: najwyżej 90%',
     tabLab: 'Laboratorium',
     tabLibrary: 'Zapisane plansze',
     tabDocs: 'Dokumentacja',
@@ -971,32 +997,32 @@ export const PL: Translation = {
     cmdHintSettings: 'ustawienia',
     cmdNoRun: 'nic się nie generuje',
     cmdRunning: 'już się generuje',
-    cmdBroken: 'złamana reguła',
+    cmdBroken: 'błędne ustawienia',
     cmdViewSimple: 'Widok prosty',
     cmdViewAdvanced: 'Widok zaawansowany',
     cmdLangToPl: 'Przełącz na polski',
     cmdLangToEn: 'Przełącz na angielski',
     docsNavLabel: 'Strony dokumentacji',
-    docsElement: 'Element',
+    docsElement: 'Element planszy',
     docsCli: 'Wiersz poleceń',
     fullView: 'Pełny podgląd (klawisz F)',
     pressGenerate: 'Naciśnij „Generuj”.',
     generating: 'Generuję…',
     generatingBig: (W, H, cells) => `Generuję ${W}×${H} (${cells} komórek) — to potrwa…`,
     progress: (pct, pieces, remaining, backtracks, s) =>
-      `<b>${pct}%</b> · ${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+      `<b>${pct}%</b> · ${pieces} strz. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
     generatingPct: (pct) => `Generuję ${pct}%`,
     progressRest: (pieces, remaining, backtracks, s) =>
-      `${pieces} elem. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
+      `${pieces} strz. · zostało ${remaining} · nawroty ${backtracks} · ${s} s`,
     runProgress: 'Postęp generowania',
     workerError: 'Błąd workera:',
-    generationError: 'Błąd generacji:',
+    generationError: 'Błąd generowania:',
     aborted: 'Przerwano.',
-    closed: 'Plansza domknięta w 100%.',
+    closed: 'Plansza pełna: wszystkie komórki wypełnione.',
     solvable: 'Rozwiązywalna.',
     unsolvable: 'NIEROZWIĄZYWALNA — to błąd generatora.',
     notClosedStatus: (remaining, fragments, largest) =>
-      `Nie domknięto planszy. W najlepszym momencie zostało ${remaining} komórek w ${fragments} fragmentach (największy ${largest}).`,
+      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}). Spróbuj innego ziarna albo większej prostości.`,
     stat_board: 'plansza',
     stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} komórek, ziarno ${seed}`,
     stat_pieces: 'strzałki',
@@ -1079,16 +1105,16 @@ export const PL: Translation = {
     boardRows: 'Plansze tego rozmiaru',
     boardDetail: 'Otwarta plansza',
     loadIntoLab: 'Wczytaj do laboratorium',
-    noStoreServer: 'Brak serwera magazynu — uruchom sh packages/cli/store.sh.',
+    noStoreServer: 'Brak serwera magazynu: pnpm nx serve lab uruchamia go sam, albo uruchom deno task store.',
     storeEmpty: 'Magazyn jest pusty. Wygeneruj planszę w laboratorium albo przez deno task carve.',
-    notClosed: 'niedomknięta',
-    piecesShort: (n) => `${n} elem.`,
-    longestShort: (n) => `najdłuższy ${n}`,
+    notClosed: 'niepełna',
+    piecesShort: (n) => `${n} strz.`,
+    longestShort: (n) => `najdłuższa ${n}`,
     loadingBoard: (id) => `Wczytuję ${id}…`,
     boardFileError: (id, reason) => `Nie da się odczytać planszy ${id}: ${reason}`,
     boardNotStored: (id) => `Planszy ${id} nie ma w magazynie`,
     savedBoard: (id, seed, source, gen) =>
-      `Zapisana plansza ${id}, ziarno ${seed}, źródło: ${source}, generacja ${gen}.`,
+      `Zapisana plansza ${id}, ziarno ${seed}, źródło: ${source}, generowanie ${gen}.`,
     deleteBoard: 'Usuń z dysku',
     confirmDelete: 'Na pewno usunąć?',
     viewSaved: (id) => `Zapisano nowy widok planszy ${id}.`,
@@ -1107,7 +1133,7 @@ export const PL: Translation = {
     factGenerated: 'wygenerowano',
     secStoredArrows: 'strzałki · zapisane z planszą',
     stat_genVal: (g) => `generowanie ${g} s`,
-    notClosedShort: 'Plansza niedomknięta.',
+    notClosedShort: 'Plansza niepełna.',
     storedReportNote:
       'Zapisana plansza przechowuje tylko te liczby. Wczytaj ją do laboratorium i wygeneruj, żeby zobaczyć pełny raport.',
     inactivePrefix: 'Bez wpływu: ',
@@ -1115,11 +1141,12 @@ export const PL: Translation = {
     violationsTitle: 'Ustawienia poza bezpiecznym zakresem',
     railLabel: 'Grupy parametrów',
     railGenerator: 'generator',
-    railElement: 'element',
-    ruleBound: (need: number) => `Granica reguły: ${need.toLocaleString('pl')}`,
+    railElement: 'wygląd',
+    ruleBound: (need: number) => `Minimum dla tej planszy: ${need.toLocaleString('pl')}`,
     violationsInGroup: (group: string, count: number) => `${group}, ustawienia poza zakresem: ${count}`,
-    rangeViolation: (label, value, min, max) => `${label}: ${value} poza zakresem ${min}..${max}`,
-    stepViolation: (label, value, below, above) => `${label}: ${value} leży między ustawieniami ${below} i ${above}`,
+    rangeViolation: (label, value, min, max) => `${label}: ${value} — dozwolone od ${min} do ${max}`,
+    stepViolation: (label, value, below, above) =>
+      `${label}: ${value} to niedozwolony krok; najbliższe to ${below} i ${above}`,
     needViolation: (reason, need) => `${reason}; ta plansza wymaga co najmniej ${need}`,
     generateBlocked: 'Popraw ustawienia zaznaczone na czerwono, żeby generować',
     clamped: 'Część wczytanych ustawień przyciągnięto do bezpiecznego zakresu',
@@ -1153,15 +1180,15 @@ export const PL: Translation = {
     boardModeView: 'Widok',
     boardModeInspect: 'Inspekcja',
     boardModePlay: 'Gra',
-    inspectHint: 'Wskaż element, aby go zbadać.',
+    inspectHint: 'Wskaż strzałkę, aby ją zbadać.',
     dirUp: 'w górę',
     dirRight: 'w prawo',
     dirDown: 'w dół',
     dirLeft: 'w lewo',
-    pieceFacts: (id, length, dir) => `Element #${id} · ${length} ${plCells(length)} · ${dir}`,
-    pieceFree: 'wolny',
+    pieceFacts: (id, length, dir) => `Strzałka #${id} · ${length} ${plCells(length)} · ${dir}`,
+    pieceFree: 'wolna',
     pieceBlocked: (id, distance) =>
-      `zablokowany przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
+      `zablokowana przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
     playStatus: (left, mistakes) => `zostało: ${left} · ${mistakes} ${plMistakes(mistakes)}`,
     playCleared: (mistakes) => `Plansza wyczyszczona · ${mistakes} ${plMistakes(mistakes)}`,
     boardReset: 'Resetuj',
@@ -1169,7 +1196,7 @@ export const PL: Translation = {
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',
     layoutHashError: 'Nie da się nazwać pliku planszy:',
-    svgThemeNote: 'Pobrany SVG zachowuje kolory ze złotego kąta, a nie wybrany motyw.',
+    svgThemeNote: 'Pobrany SVG ma własne domyślne kolory; wybrany motyw nie jest w nim uwzględniony.',
   },
 }
 
@@ -1237,10 +1264,10 @@ export function dictionary(lang: Lang): Dict {
     d,
     t,
     paramText,
-    // A choice is stored as a number and written on the command line as the word
-    // PARAM_SPEC gives it (--giantspacing=off), which is also its English text;
-    // Polish translates that word, and the command box keeps showing the CLI's.
-    choiceText: (key, word) => (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word,
+    // A choice is written on the command line as its CLI word
+    // (--giantspacing=off); either language may show another word for it, and
+    // the command box keeps showing the CLI's.
+    choiceText: (key, word) => stringAt((lang === 'pl' ? PL.choices : EN_CHOICES)[key] ?? {}, word) ?? word,
     reason,
     fmt,
     // The progress line counts pieces on boards of up to 10^6 cells; past ten
