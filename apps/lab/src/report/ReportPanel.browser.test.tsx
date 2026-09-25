@@ -114,7 +114,7 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
     expect(head?.cells[0]?.getAttribute('scope')).toBe('rowgroup')
     expect(head?.cells[0]?.getAttribute('colspan')).toBe('3')
   }
-  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'blocking', 'reach', 'shape', 'run'])
+  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'difficulty', 'reach', 'shape', 'generator'])
   const first = row(screen.container, 0)
   expect(first.cells[0]?.tagName).toBe('TH')
   expect(first.cells[0]?.getAttribute('scope')).toBe('row')
@@ -122,10 +122,10 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect([...table.tBodies].map((body) => body.rows[0]?.textContent)).toEqual([
     'rozmiar',
-    'blokowanie',
+    'trudność',
     'zasięg',
     'kształt',
-    'przebieg',
+    'generator',
   ])
 })
 
@@ -175,7 +175,7 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
-  expect(row(screen.container, 1).cells[0]?.textContent).toBe('elementów')
+  expect(row(screen.container, 1).cells[0]?.textContent).toBe('strzałki')
   expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0')
   expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
 })
@@ -194,7 +194,7 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   await act(async () => finish(ONE))
   const longest = () => screen.container.querySelector('table.fw-longest')
   expect(longest()?.querySelectorAll('tbody tr')).toHaveLength(5)
-  expect(screen.container.querySelector('#longest-head')?.textContent).toBe('5 longest')
+  expect(screen.container.querySelector('#longest-head')?.textContent).toBe('The 5 longest arrows')
   await act(async () => useStore.getState().view.setNumber('top', '3'))
   expect(longest()?.querySelectorAll('tbody tr')).toHaveLength(3)
   await act(async () => useStore.getState().view.setFlag('highlightLongest', false))
@@ -267,12 +267,14 @@ test('the summary puts four figures over the table, term before number in the ma
   await act(async () => finish(ONE))
   const list = summary(screen.container)
   const cap = screen.container.querySelector('p.fw-rsum-cap')
-  expect(cap?.textContent).toBe('change against the previous run')
+  expect(cap?.textContent).toBe(
+    "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
+  )
   expect(list.getAttribute('aria-describedby')).toBe(cap?.id)
   expect(cap?.id).not.toBe('')
   expect([...list.children].map((box) => box.firstElementChild?.tagName)).toEqual(['DT', 'DT', 'DT', 'DT'])
   expect([0, 1, 2, 3].map((at) => figure(screen.container, at).term.textContent)).toEqual([
-    'pieces',
+    'arrows',
     'longest',
     'D',
     'time',
@@ -300,7 +302,7 @@ test('the summary keeps what the rows it hides used to say', async () => {
   await act(async () => finish(ONE))
   const abbr = figure(screen.container, 2).term.querySelector('abbr')
   expect(abbr?.textContent).toBe('D')
-  expect(abbr?.getAttribute('title')).toBe('D (blocking depth)')
+  expect(abbr?.getAttribute('title')).toBe('depth')
   expect(figure(screen.container, 1).value.title).toBe(row(screen.container, 3).cells[1]?.textContent)
   expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 22).cells[1]?.textContent)
   expect(figure(screen.container, 0).value.title).toBe('')
@@ -348,7 +350,7 @@ test('wide values are chosen by the row, and a row without a change widens its v
     .map((tr, at) => [at, tr.classList.contains('long')] as const)
     .filter(([, is]) => is)
     .map(([at]) => at)
-  // board, longest, length distribution, unblock distance, stalls, absorbed leftovers, time
+  // board, longest, lengths, blocking distance, stopped short, merged leftovers, time
   expect(long).toEqual([0, 3, 4, 14, 19, 20, 22])
   expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
   expect(getComputedStyle(row(screen.container, 0).cells[2] as HTMLElement).display).toBe('none')
@@ -415,7 +417,7 @@ test('on the saved boards the report describes the open board from its stored fi
   const { meta } = stored
   expect(rows.map(([label]) => label)).toEqual([
     'board',
-    'pieces',
+    'arrows',
     'average length',
     'longest',
     'backtracks / restarts',
@@ -433,7 +435,7 @@ test('on the saved boards the report describes the open board from its stored fi
   for (const tr of stats(screen.container).rows) expect(getComputedStyle(tr).display).toBe('grid')
   await expect.element(screen.getByText(/keeps these figures only/)).toBeVisible()
   // The longest pieces are read off the board itself.
-  expect(longestHead(screen.container).textContent).toMatch(/longest$/)
+  expect(longestHead(screen.container).textContent).toMatch(/longest arrows$/)
 })
 
 // A stored board carries no highlight, so the list takes the lab's count
@@ -445,5 +447,5 @@ test('the stored board lists its longest pieces with the highlight off', async (
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
-  expect(longestHead(screen.container).textContent).toBe('5 longest')
+  expect(longestHead(screen.container).textContent).toBe('The 5 longest arrows')
 })
