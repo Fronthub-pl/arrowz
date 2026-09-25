@@ -151,6 +151,9 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
           <SkeletonRow control={control} />
           <SeedRow />
           <RandomRow />
+          <p className="kv-note" id="simple-harder">
+            {dict.d.simple.harder}
+          </p>
         </Section>
         <Section id="simple-sec-preview" title={dict.t('preview')}>
           {SIMPLE_VIEW_FIELDS.map((field) => (

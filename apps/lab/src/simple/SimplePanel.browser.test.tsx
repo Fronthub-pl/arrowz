@@ -403,4 +403,53 @@ describe('SimplePanel', () => {
     await screen.getByRole('button', { name: EN.t('aboutKnob', 'head height') }).click()
     expect(help?.classList.contains('fw-vh')).toBe(false)
   })
+
+  it('ends the board section with where to find a harder board, in English and Polish', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const board = screen.getByRole('group', { name: 'board' }).element()
+    const hint = document.getElementById('simple-harder')
+    expect(hint?.tagName).toBe('P')
+    expect(hint?.parentElement).toBe(board)
+    expect(board.lastElementChild).toBe(hint)
+    expect(hint?.textContent).toBe(EN.d.simple.harder)
+    expect(hint?.classList.contains('kv-row') || hint?.classList.contains('kv-help')).toBe(false)
+    await act(async () => state().lang.setLang('pl'))
+    expect(hint?.textContent).toBe(dictionary('pl').d.simple.harder)
+    await act(async () => state().lang.setLang('en'))
+  })
+
+  // `.kv-lab` ellipsises; with the `?` beside it, a long label would lose its end.
+  it('shows the simple labels whole beside their ?, at 720px and at XS, in English and Polish', async () => {
+    for (const [viewport, width] of [
+      [1440, 720],
+      [375, 340],
+    ] as const) {
+      await page.viewport(viewport, 900)
+      const screen = await render(
+        <div style={{ width: `${width}px`, containerType: 'inline-size' }}>
+          <SimplePanel control={stub().control} />
+        </div>,
+      )
+      for (const lang of ['en', 'pl'] as const) {
+        await act(async () => state().lang.setLang(lang))
+        const labels = [
+          screen.container.querySelector('label[for="simple-lengths"]'),
+          screen.container.querySelector('label[for="simple-shape"]'),
+          screen.container.querySelector('#simple-skeleton-label'),
+        ]
+        for (const lab of labels) {
+          if (!(lab instanceof HTMLElement)) throw new Error('no label')
+          expect(lab.scrollWidth, `${viewport} ${lang}: ${lab.textContent}`).toBeLessThanOrEqual(lab.clientWidth)
+        }
+      }
+      // The check can fail: the old Polish label does not fit beside its `?`.
+      const lab = screen.container.querySelector('label[for="simple-lengths"]')
+      if (!(lab instanceof HTMLElement)) throw new Error('no label')
+      const text = lab.textContent
+      lab.textContent = 'długość elementów'
+      expect(lab.scrollWidth, `${viewport}: the old label`).toBeGreaterThan(lab.clientWidth)
+      lab.textContent = text
+    }
+    await act(async () => state().lang.setLang('en'))
+  })
 })
