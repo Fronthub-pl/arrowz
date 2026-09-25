@@ -117,8 +117,9 @@ drawer behind the modal, `g` starts a carve and Tab walks into the page.
   the palette takes the focus from the input. A row's `onClick` still fires.
 - The input keeps its own key handler unchanged. A native `keydown` listener
   on the frame handles a key whose target is not the input (only a focus
-  moved there by hand): Escape closes the palette, any other key (except with
-  ⌘ or Ctrl) returns the focus to the input; both call `preventDefault()`, and
+  moved there by hand): Escape closes the palette, any other key returns the
+  focus to the input and is spent (a letter typed there is lost; only a focus
+  moved by code or assistive technology reaches it); both call `preventDefault()`, and
   the document's hotkeys (`useSoloKey`, `useDrawerKeys`, `useRunKeys`) skip a
   prevented event (`isHotkeyRefused`).
 - Both listeners are native, in effects: `jsx-a11y/no-noninteractive-element-interactions`

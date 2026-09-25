@@ -17,7 +17,7 @@
 - The engine files (`command.ts`, `types.ts`, `lab-i18n.ts`) know neither Deno nor the DOM.
 - Comments say why, once, in the fewest lines: non-header blocks ≤ 6 lines; no PR, round, task, review or ruling references; cite symbols, never `file.ts:NN`. `packages/engine/comments.test.ts` enforces this over `apps/lab/src` and `packages/engine/lab-*.ts`.
 - The lab reads the engine from `packages/engine/dist/`: after any change under `packages/engine`, run `pnpm nx build engine --skip-nx-cache` before a lab test, and grep the new symbol in `packages/engine/dist` (the Nx cache is shared between worktrees).
-- Before the first lab test in a fresh worktree: `corepack enable pnpm && pnpm install`, then `pnpm nx build engine --skip-nx-cache && pnpm nx build board-element --skip-nx-cache`.
+- Before the first lab test in a fresh worktree: `corepack enable pnpm && pnpm install` (if a sandbox refuses `corepack enable`, check `pnpm --version`: pnpm may already be on the PATH), then `pnpm nx build engine --skip-nx-cache && pnpm nx build board-element --skip-nx-cache`.
 - Lab test commands, from `apps/lab`: `pnpm vitest run --project node <file>` and `pnpm vitest run --project chromium <file>`. A first `vitest run` in a fresh worktree may fail with "Vitest failed to find the runner"; run it again before treating it as a defect.
 - Deno test command, from the repository root: `deno test --allow-read --allow-write --allow-env --allow-run --allow-net <file>`.
 - Every mutation step says "undo by hand": never `git checkout` a file with uncommitted work.
@@ -167,7 +167,7 @@ Expected: PASS, all cases.
 
 - [ ] **Step 6: Mutation (undo by hand)**
 
-In `fillView`, change `versioned ||` to `false ||`. Run Step 5's command: the case `'a board saved with a head height of 0 reads back 0…'` must FAIL on `assertEquals(board?.view.headHeight, 0)`. Then change `const versioned = (meta.viewVersion ?? 1) >= VIEW_VERSION` to `const versioned = true`: the case `'a meta written before the view version…'` must FAIL on `assertEquals(board?.view.headHeight, 1)`. Undo both edits by hand and run Step 5 again: PASS.
+In `fillView`, change `versioned ||` to `false ||`. Run Step 5's command: the case `'a board saved with a head height of 0 reads back 0…'` must FAIL on `assertEquals(board?.view.headHeight, 0)`. Then change `const versioned = (meta.viewVersion ?? 1) >= VIEW_VERSION` to `const versioned = true`: the case `'a meta written before the view version…'` must FAIL on `assertEquals(board?.view.headHeight, 1)` (and `'a save over a legacy meta…'` fails with it: both read a legacy meta). Undo both edits by hand and run Step 5 again: PASS.
 
 - [ ] **Step 7: Gate and commit**
 
@@ -233,7 +233,7 @@ In `apps/lab/src/state/url.test.ts`, add below the imports:
 const legacyLink = (view: Record<string, unknown>) => '#' + encodeURIComponent(JSON.stringify({ __view: view }))
 ```
 
-Replace these four cases (by their names) with the code below, and add the other new cases at the end of the `describe`:
+Put the first case below (`'leaves the page on its own colours when a legacy link names none'`) where `'leaves the page on its own theme when a link names none'` is now, and delete the other three named cases in place; add the remaining five new cases at the end of the `describe`. The four cases to remove:
 `'leaves the page on its own theme when a link names none'`,
 `'reads a link that predates custom palettes as naming no palette'`,
 `'reads a link that predates the board colours as naming none'`,
@@ -754,14 +754,14 @@ Directly after that whole `useEffect(() => { … }, [])` block (the `mousedown` 
 
 ```ts
   // A key from anywhere in the frame but the input (only a focus moved there by
-  // hand) closes on Escape and otherwise goes back to the input, and no further:
-  // the document's hotkeys skip a prevented event (`isHotkeyRefused` in `App`).
+  // hand) closes on Escape and otherwise goes back to the input, spending the
+  // key: the document's hotkeys skip a prevented event (`isHotkeyRefused`).
   // Native, like `mousedown`: jsx-a11y refuses key handlers on a `role="dialog"` div.
   useEffect(() => {
     const frame = frameRef.current
     if (frame === null) return
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.target === inputRef.current || event.metaKey || event.ctrlKey) return
+      if (event.target === inputRef.current) return
       event.preventDefault()
       if (event.key === 'Escape') useStore.getState().ui.closePalette()
       else inputRef.current?.focus()
@@ -791,7 +791,7 @@ Expected: PASS, including every existing case (arrows, Enter, Escape from the in
 
 1. Delete `if (event.target !== inputRef.current) event.preventDefault()` from the `mousedown` effect: `'keeps the focus in the input…'` must FAIL on the first `activeElement` check, and `'a key pressed after a click…'` still passes (the new key listener catches `g` on the row). Undo by hand.
 2. Delete the `frame.addEventListener('keydown', onKey)` line: `'closes on Escape wherever…'` and `'a key pressed with the focus on a row…'` must FAIL. Undo by hand.
-3. Delete both at once: `'a key pressed after a click…'` must FAIL on `not.toContain('running')`. Undo both by hand; run Step 4: PASS.
+3. Delete both at once: both `PaletteModal` cases must FAIL on `not.toContain('running')`. Undo both by hand; run Step 4: PASS.
 
 - [ ] **Step 6: Gate and commit**
 
@@ -809,8 +809,8 @@ git commit -m "Palette: a click inside keeps the focus in the input, and no key 
 
 **Files:**
 - Modify: `apps/lab/src/console/DraftNumber.tsx` (a `decimal` prop, `commit`)
-- Modify: `apps/lab/src/console/ValueKnob.tsx` (its `DraftNumber`), `apps/lab/src/console/ViewPanel.tsx` (the two `DraftNumber`s, in `ViewNumberRow` and `ElementNumberRow`)
-- Test: `apps/lab/src/console/DraftNumber.browser.test.tsx`, `apps/lab/src/console/ViewPanel.browser.test.tsx`
+- Modify: `apps/lab/src/console/ValueKnob.tsx` (its `DraftNumber`), `apps/lab/src/console/ViewPanel.tsx` (the two `DraftNumber`s, in `NumberRow` and `ElementNumberRow`; `NumberRow` also serves `ViewNumberRow` and the saved boards' `BoardPreview`)
+- Test: `apps/lab/src/console/DraftNumber.browser.test.tsx`, `apps/lab/src/console/ViewPanel.browser.test.tsx`, `apps/lab/src/console/ValueKnob.browser.test.tsx`
 
 **Interfaces:**
 - Produces: `DraftNumber` prop `decimal?: boolean | undefined` (default `false`): whether a comma may stand for the decimal point.
@@ -863,12 +863,38 @@ test('a stroke typed with a decimal comma is written, a cell size with one is no
 })
 ```
 
-(The file's `beforeEach` sets `cell` to 12; the export cell row is reached the same way as in the file's case `'export cell'` clamping, by `/^export cell:/`.)
+(The file's `beforeEach` sets `cell` to 12; the export cell row is reached the same way as the file's existing export-cell case, by `/^export cell:/`.)
+
+Also in `ViewPanel.browser.test.tsx`, after that case:
+
+```tsx
+test('the dot radius takes a decimal comma', async () => {
+  useStore.setState((state) => ({ view: { ...state.view, showPoints: true } }))
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: /^dot radius:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'dot radius', exact: true }), '0,15')
+  await userEvent.keyboard('{Enter}')
+  expect(view().pointRadius).toBe(0.15)
+})
+```
+
+Append to `apps/lab/src/console/ValueKnob.browser.test.tsx` (it already has `specOf` and `params`):
+
+```tsx
+test('a fractional knob takes a decimal comma', async () => {
+  params().reset()
+  const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
+  await screen.getByRole('button', { name: /^straightness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox'), '0,7')
+  await userEvent.keyboard('{Enter}')
+  expect(params().values.pStraight).toBe(0.7)
+})
+```
 
 - [ ] **Step 2: Run them and see them fail**
 
-Run (from `apps/lab`): `pnpm vitest run --project chromium src/console/DraftNumber.browser.test.tsx src/console/ViewPanel.browser.test.tsx`
-Expected: `'reads a decimal comma as a point in a fractional field'` FAILS on `toHaveBeenCalledExactlyOnceWith(0.35)` (not called); the `ViewPanel` case FAILS on `expect(view().stroke).toBe(0.35)` (`0.5`). The whole-number guard passes: it pins today's behaviour.
+Run (from `apps/lab`): `pnpm vitest run --project chromium src/console/DraftNumber.browser.test.tsx src/console/ViewPanel.browser.test.tsx src/console/ValueKnob.browser.test.tsx`
+Expected: `'reads a decimal comma as a point in a fractional field'` FAILS on `toHaveBeenCalledExactlyOnceWith(0.35)` (not called); the stroke/cell case FAILS on `expect(view().stroke).toBe(0.35)` (`0.5`); `'the dot radius takes a decimal comma'` FAILS on `toBe(0.15)`; `'a fractional knob takes a decimal comma'` FAILS on `toBe(0.7)`. The whole-number guard passes: it pins today's behaviour.
 
 - [ ] **Step 3: Implement `DraftNumber`**
 
@@ -897,7 +923,7 @@ Replace the lines from `const typed = Number(raw.trim())` to `if (raw.trim() ===
 - [ ] **Step 4: Pass `decimal` at the three call sites**
 
 `apps/lab/src/console/ValueKnob.tsx`, on its `<DraftNumber`: add `decimal={!Number.isInteger(spec.step)}`.
-`apps/lab/src/console/ViewPanel.tsx`, in `ViewNumberRow`'s `<DraftNumber`: add `decimal={!range.whole}`; in `ElementNumberRow`'s `<DraftNumber`: add `decimal={!Number.isInteger(step)}`.
+`apps/lab/src/console/ViewPanel.tsx`, in `NumberRow`'s `<DraftNumber` (the one with `range` in scope): add `decimal={!range.whole}`; in `ElementNumberRow`'s `<DraftNumber`: add `decimal={!Number.isInteger(step)}`.
 
 - [ ] **Step 5: Run the tests**
 
@@ -906,15 +932,17 @@ Expected: PASS.
 
 - [ ] **Step 6: Mutation (undo by hand)**
 
-1. In `commit`, make `text` always `raw.trim().replace(',', '.')`: the whole-number guard FAILS (`onCommit` called with 1). Undo by hand.
-2. In `ViewNumberRow`, drop `decimal={!range.whole}`: the `ViewPanel` case FAILS on `stroke`. Undo by hand; run Step 5: PASS.
+1. In `commit`, make `text` always `raw.trim().replace(',', '.')`: the whole-number guard FAILS (`onCommit` called with 1), and so does the stroke/cell case (`1,5` becomes 1.5, rounded to a cell of 2). Undo by hand.
+2. In `NumberRow`, drop `decimal={!range.whole}`: the stroke/cell case FAILS on `stroke`. Undo by hand.
+3. Drop `decimal={…}` from `ValueKnob` and from `ElementNumberRow`: `'a fractional knob takes a decimal comma'` and `'the dot radius takes a decimal comma'` FAIL. Undo by hand; run Step 5: PASS.
 
 - [ ] **Step 7: Gate and commit**
 
 Run (from the repository root): `pnpm nx run lab:check --skip-nx-cache && pnpm nx run lab:lint --skip-nx-cache && (cd apps/lab && npx prettier --write src) && pnpm nx run lab:fmt --skip-nx-cache`
+Expected: pass (prettier may reflow the `ElementNumberRow` line).
 
 ```bash
-git add apps/lab/src/console/DraftNumber.tsx apps/lab/src/console/ValueKnob.tsx apps/lab/src/console/ViewPanel.tsx apps/lab/src/console/DraftNumber.browser.test.tsx apps/lab/src/console/ViewPanel.browser.test.tsx
+git add apps/lab/src/console/DraftNumber.tsx apps/lab/src/console/ValueKnob.tsx apps/lab/src/console/ViewPanel.tsx apps/lab/src/console/DraftNumber.browser.test.tsx apps/lab/src/console/ViewPanel.browser.test.tsx apps/lab/src/console/ValueKnob.browser.test.tsx
 git commit -m "Number entry: a decimal comma reads as a point in a fractional field"
 ```
 
@@ -1074,13 +1102,13 @@ git commit -m "Polish UI: palette flag values and a board missing from the store
 
 - [ ] **Step 1: Full gate in a clean worktree**
 
+Run as ONE shell command from the main checkout (`/Users/tomek/dev/arrowz`), so the directory change and the removal happen in the same shell:
+
 ```bash
-git worktree add --detach ../arrowz-correctness-gate lab/correctness
-cd ../arrowz-correctness-gate && corepack enable pnpm && pnpm install
-pnpm nx run-many -t verify --skip-nx-cache
+git worktree add --detach ../arrowz-correctness-gate lab/correctness && (cd ../arrowz-correctness-gate && pnpm install && pnpm nx run-many -t verify --skip-nx-cache); status=$?; git worktree remove --force ../arrowz-correctness-gate; exit $status
 ```
 
-Expected: every project green. Report the test counts. Then `cd - && git worktree remove ../arrowz-correctness-gate`.
+Expected: every project green (exit 0). Report the test counts.
 
 - [ ] **Step 2: Live pass in Chrome**
 
@@ -1097,7 +1125,7 @@ At the end remove any device emulation, so the user sees the lab at full size.
 
 In the "Correctness" table under "Status after the fixes", change the Status cell of these rows to `fixed in <commit>` with the commit of the task that fixed it, and the Note to one line saying how:
 ``MEDIUM: `<Navigate>` drops the hash`` (Task 3), `MEDIUM: palette loses Escape, Tab and hotkeys off its input` (Task 4), `MEDIUM: PL decimal comma does nothing` (Task 5), `MEDIUM: link colours cannot clear the page's own` (Task 2), `MEDIUM: head height 0 lost in the hash` (Tasks 1–2: the finding covers the store's `fillView` too), `LOW: palette "on"/"off" in English` and `LOW: English reason in the PL status line` (Task 6), `LOW: unknown theme name stored` and ``LOW: `voids` not in the link`` (Task 2). Copy each row name from the table itself (`grep -n '^| ' lab-review.md`), backticks included.
-In "What is still open", item 1, strike what this branch fixed and keep the rest.
+In "What is still open", delete item 1 (this branch fixes all of it) and renumber the rest; add one line under the list saying item 1 was fixed on `lab/correctness`.
 
 ```bash
 git add lab-review.md
