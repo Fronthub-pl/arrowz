@@ -207,8 +207,9 @@ Deno.test("reportRows pins the stall row's dash when stats.n is 0", () => {
   })
 })
 
-// The caption says a row's `?` says which way is better; the 8 coloured rows
-// that got a direction clause this round must carry the `=` every clause uses.
+// Not every coloured row states a direction (`time`'s help has none), so a
+// blanket `better !== 0` check would wrongly expect `=` there too. These 8
+// coloured rows carry a direction clause, and the `=` every clause uses.
 const DIRECTION_KEYS: StatKey[] = ['longest', 'span', 'spanTop', 'spanMax', 'maxOut', 'bends', 'multi', 'backtracks']
 Deno.test('every row whose direction matters says which way, marked by =', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
