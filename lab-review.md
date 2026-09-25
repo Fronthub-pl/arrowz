@@ -260,10 +260,7 @@ section above).
    lack the `min-width: 768px` that `useLowWindow` has; the palette input has
    no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
    the `trapBias` help clause is vague.
-7. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
-   covers the board's top-left cells; pre-existing, and no audited case uses
-   pad 0, so no invariant catches it today.
-8. **D2, found in the follow-up live pass:** at phone width (375×812) the
+7. **D2, found in the follow-up live pass:** at phone width (375×812) the
    board element's own control bar (+ − fit ◑, 44 px touch targets) covers
    about one row of the board's bottom-right cells (measured overlap
    59×8.5 px). It appeared once the mode strip moved under the frame

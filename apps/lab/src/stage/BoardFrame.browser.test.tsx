@@ -401,6 +401,24 @@ test('the margin reaches the element', async () => {
   useStore.getState().view.setPad(DEFAULT_PAD)
 })
 
+// At `pad` 0 the margin holds nothing: only a strip reserved on the frame
+// itself keeps the element out from under the annotation and the toggle.
+test('the board starts under the annotation strip, even with no margin', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await expect.poll(() => annotation(screen.container)).not.toBeNull()
+  try {
+    await act(async () => useStore.getState().view.setPad(0))
+    const host = screen.container.querySelector('arrowz-board')?.getBoundingClientRect()
+    const anno = annotation(screen.container)?.getBoundingClientRect()
+    const solo = screen.container.querySelector('.fw-solo')?.getBoundingClientRect()
+    expect(host && anno && host.top - anno.bottom).toBeGreaterThanOrEqual(-0.5)
+    expect(host && solo && host.top - solo.bottom).toBeGreaterThanOrEqual(-0.5)
+  } finally {
+    useStore.getState().view.setPad(DEFAULT_PAD)
+  }
+})
+
 // A link to a board that is no longer on disk leaves the stage empty and says
 // why. The run's result is deliberately present: that is the board that must
 // not appear under the words "cannot be read".

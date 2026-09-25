@@ -355,6 +355,10 @@ body {
   position: relative;
   flex: 1 1 0;
   min-height: 260px;
+  /* The annotation and the solo toggle get a strip of their own: the board's
+     margin is in cells, and at a small cell no margin holds a 26px label. */
+  --fw-strip: 30px;
+  padding-top: var(--fw-strip);
   /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
      only shows through before it upgrades. */
   background: var(--paper);
@@ -375,7 +379,11 @@ body {
   position: absolute;
   top: 0;
   left: 0;
-  padding: 3px 8px;
+  height: var(--fw-strip);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
   background: var(--void);
   color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -391,8 +399,8 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  width: 30px;
-  height: 30px;
+  width: var(--fw-strip);
+  height: var(--fw-strip);
   padding: 0;
   border: 0;
   background: var(--void);
@@ -405,10 +413,11 @@ body {
 .fw .fw-solo:focus-visible {
   outline-offset: -2px;
 }
+/* The touch target grows to 44px here; the strip (and so the annotation's
+   height too) grows with it, or the toggle would spill below it. */
 @media (pointer: coarse), (max-width: 767px) {
-  .fw .fw-solo {
-    width: 44px;
-    height: 44px;
+  .fw-board {
+    --fw-strip: 44px;
   }
 }
 

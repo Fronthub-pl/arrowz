@@ -716,7 +716,12 @@ test('solo in the library fills the panel', async () => {
   expect(wrap.width).toBeCloseTo(lab.width, 0)
   expect(wrap.height).toBeCloseTo(lab.height, 0)
   expect(element.width).toBeCloseTo(lab.width - 34, 0)
-  expect(element.height).toBeCloseTo(lab.height - 34, 0)
+  // The annotation strip holds its height here too; read it rather than pin
+  // it, since the touch breakpoint makes it 44px instead of 30.
+  const frame = screen.container.querySelector('.fw-board')
+  if (frame === null) throw new Error('.fw-board is not on the page')
+  const annoStrip = parseFloat(getComputedStyle(frame).paddingTop)
+  expect(element.height).toBeCloseTo(lab.height - 34 - annoStrip, 0)
 }, 40_000)
 
 // The saved boards' rail is the lab's rail in the same drawer, so below 900px

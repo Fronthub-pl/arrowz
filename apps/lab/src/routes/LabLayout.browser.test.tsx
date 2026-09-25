@@ -178,7 +178,12 @@ test.each(SOLO_SIZES)(
     // View it is the control alone, 8px above 24px chips at both widths here.
     const strip = rect(screen.container, '.fw-modebar')
     expect(strip.height).toBeCloseTo(32, 0)
-    expect(board.height).toBeCloseTo(lab.height - 34 - strip.height, 0)
+    // The annotation strip holds its height in solo too; read it rather than
+    // pin it, since the touch breakpoint makes it 44px instead of 30.
+    const frame = screen.container.querySelector('.fw-board')
+    if (frame === null) throw new Error('.fw-board is not on the page')
+    const annoStrip = parseFloat(getComputedStyle(frame).paddingTop)
+    expect(board.height).toBeCloseTo(lab.height - 34 - strip.height - annoStrip, 0)
     expect(rect(screen.container, '.fw-report').height).toBe(0)
     expect(rect(screen.container, '.fw-console').height).toBe(0)
     // The status line stays, so a carve in flight is still reported.
