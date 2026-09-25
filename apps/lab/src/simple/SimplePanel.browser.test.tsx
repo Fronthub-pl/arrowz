@@ -143,14 +143,15 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  it('shows a recipe slider’s value as text, with its end words as its description', async () => {
+  it('shows a recipe slider’s value as text, described by its end words and its help', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const input = screen.container.querySelector<HTMLInputElement>('#simple-shape')
     const row = input?.closest('.kv-row')
     if (!input || !(row instanceof HTMLElement)) throw new Error('no shape row')
-    expect(row.querySelector('.vc button, .q, .kv-end')).toBeNull()
+    expect(row.querySelector('.vc button, .kv-end')).toBeNull()
     expect(row.querySelector('.vc')?.textContent).toBe(String(Math.round(state().recipe.value.shape * 100)))
-    const ends = document.getElementById(input.getAttribute('aria-describedby') ?? '')
+    expect(input.getAttribute('aria-describedby')).toBe('simple-shape-ends simple-shape-help')
+    const ends = document.getElementById('simple-shape-ends')
     expect(ends?.className).toBe('kv-ends')
     expect([...(ends?.children ?? [])].map((word) => word.textContent)).toEqual([...EN.d.simple.ends.shape])
     expect(row.contains(ends)).toBe(true)
@@ -225,6 +226,47 @@ describe('SimplePanel', () => {
         expect(row.scrollWidth, `${lang}: ${slider}`).toBeLessThanOrEqual(row.clientWidth)
       }
     }
+  })
+
+  it('opens each simple control’s own help under its ?, and only that one', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const rows = [
+      { id: 'simple-lengths-help', name: EN.d.simple.lengths, text: EN.d.simple.lengthsHelp },
+      { id: 'simple-shape-help', name: EN.d.simple.shape, text: EN.d.simple.shapeHelp },
+      { id: 'simple-skeleton-help', name: EN.d.simple.skeleton, text: EN.d.simple.skeletonHelp },
+    ]
+    for (const { id, name, text } of rows) {
+      const help = document.getElementById(id)
+      expect(help?.textContent, id).toBe(text)
+      expect(help?.classList.contains('fw-vh'), id).toBe(true)
+      const q = screen.getByRole('button', { name: EN.t('aboutKnob', name) })
+      expect(q.element().getAttribute('aria-controls'), id).toBe(id)
+      expect(q.element().closest('.kv-row')?.contains(help), id).toBe(true)
+      await q.click()
+      expect(q.element().getAttribute('aria-expanded'), id).toBe('true')
+      expect(help?.classList.contains('fw-vh'), id).toBe(false)
+      for (const other of rows.filter((r) => r.id !== id)) {
+        expect(document.getElementById(other.id)?.classList.contains('fw-vh'), `${id} opened ${other.id}`).toBe(true)
+      }
+      await q.click()
+      expect(help?.classList.contains('fw-vh'), id).toBe(true)
+    }
+  })
+
+  it('keeps a slider’s help open across a language switch, in the new language', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    await screen.getByRole('button', { name: EN.t('aboutKnob', EN.d.simple.lengths) }).click()
+    await act(async () => state().lang.setLang('pl'))
+    const help = document.getElementById('simple-lengths-help')
+    expect(help?.textContent).toBe(dictionary('pl').d.simple.lengthsHelp)
+    expect(help?.classList.contains('fw-vh')).toBe(false)
+    await act(async () => state().lang.setLang('en'))
+  })
+
+  it('describes the skeleton’s choice by its help', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const group = screen.getByRole('radiogroup', { name: EN.d.simple.skeleton })
+    expect(group.element().getAttribute('aria-describedby')).toBe('simple-skeleton-help')
   })
 
   it('runs at once when the skeleton is switched, on the knobs it gives', async () => {
@@ -360,5 +402,100 @@ describe('SimplePanel', () => {
     expect(help?.classList.contains('fw-vh')).toBe(true)
     await screen.getByRole('button', { name: EN.t('aboutKnob', 'head height') }).click()
     expect(help?.classList.contains('fw-vh')).toBe(false)
+  })
+
+  it('ends the board section with where to find a harder board, in English and Polish', async () => {
+    const screen = await render(<SimplePanel control={stub().control} />)
+    const board = screen.getByRole('group', { name: 'board' }).element()
+    const hint = document.getElementById('simple-harder')
+    expect(hint?.tagName).toBe('P')
+    expect(hint?.parentElement).toBe(board)
+    expect(board.lastElementChild).toBe(hint)
+    expect(hint?.textContent).toBe(EN.d.simple.harder)
+    expect(hint?.classList.contains('kv-row') || hint?.classList.contains('kv-help')).toBe(false)
+    await act(async () => state().lang.setLang('pl'))
+    expect(hint?.textContent).toBe(dictionary('pl').d.simple.harder)
+    await act(async () => state().lang.setLang('en'))
+  })
+
+  // `.kv-lab` ellipsises; with the `?` beside it, a long label would lose its end.
+  it('shows the simple labels whole beside their ?, at 720px and at XS, in English and Polish', async () => {
+    for (const [viewport, width] of [
+      [1440, 720],
+      [375, 340],
+    ] as const) {
+      await page.viewport(viewport, 900)
+      const screen = await render(
+        <div style={{ width: `${width}px`, containerType: 'inline-size' }}>
+          <SimplePanel control={stub().control} />
+        </div>,
+      )
+      for (const lang of ['en', 'pl'] as const) {
+        await act(async () => state().lang.setLang(lang))
+        const labels = [
+          screen.container.querySelector('label[for="simple-lengths"]'),
+          screen.container.querySelector('label[for="simple-shape"]'),
+          screen.container.querySelector('#simple-skeleton-label'),
+        ]
+        for (const lab of labels) {
+          if (!(lab instanceof HTMLElement)) throw new Error('no label')
+          expect(lab.scrollWidth, `${viewport} ${lang}: ${lab.textContent}`).toBeLessThanOrEqual(lab.clientWidth)
+        }
+      }
+      // The check can fail: the old Polish label does not fit beside its `?`.
+      const lab = screen.container.querySelector('label[for="simple-lengths"]')
+      if (!(lab instanceof HTMLElement)) throw new Error('no label')
+      const text = lab.textContent
+      lab.textContent = 'długość elementów'
+      expect(lab.scrollWidth, `${viewport}: the old label`).toBeGreaterThan(lab.clientWidth)
+      lab.textContent = text
+    }
+    await act(async () => state().lang.setLang('en'))
+  })
+
+  // A chip that runs past its track lands on the `?`, and a tap there re-runs
+  // the board. `.fw` gives the chips the lab's padding and touch height.
+  it('leaves every ? in the board section hit at its centre, and the skeleton chips inside their row, in English and Polish', async () => {
+    for (const [viewport, width] of [
+      [375, 340],
+      [1440, 340],
+      [1440, 720],
+    ] as const) {
+      await page.viewport(viewport, 812)
+      const screen = await render(
+        <div className="fw" style={{ width: `${width}px`, containerType: 'inline-size' }}>
+          <SimplePanel control={stub().control} />
+        </div>,
+      )
+      const board = screen.container.querySelector('#simple-skeleton-label')?.closest('.kv-sect')
+      if (!(board instanceof HTMLElement)) throw new Error('no board section')
+      for (const lang of ['en', 'pl'] as const) {
+        await act(async () => state().lang.setLang(lang))
+        const marks = [...board.querySelectorAll<HTMLElement>('.q')]
+        expect(marks.length, 'the board section has its ?').toBeGreaterThanOrEqual(3)
+        for (const q of marks) {
+          q.scrollIntoView({ block: 'center' })
+          const box = q.getBoundingClientRect()
+          const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+          expect(hit !== null && q.contains(hit), `${viewport}/${width} ${lang}: ${q.getAttribute('aria-label')}`).toBe(
+            true,
+          )
+        }
+        const seg = board.querySelector('.fw-seg')
+        const ln = seg?.closest('.ln')
+        const lc = ln?.querySelector('.lc')
+        if (!(seg instanceof HTMLElement) || !(ln instanceof HTMLElement) || !(lc instanceof HTMLElement))
+          throw new Error('no skeleton row')
+        const chips = seg.getBoundingClientRect()
+        const row = ln.getBoundingClientRect()
+        const label = lc.getBoundingClientRect()
+        expect(chips.left, `${viewport}/${width} ${lang}: chips left`).toBeGreaterThanOrEqual(row.left)
+        expect(chips.right, `${viewport}/${width} ${lang}: chips right`).toBeLessThanOrEqual(row.right + 1)
+        const overlaps =
+          chips.left < label.right && label.left < chips.right && chips.top < label.bottom && label.top < chips.bottom
+        expect(overlaps, `${viewport}/${width} ${lang}: chips over the label`).toBe(false)
+      }
+    }
+    await act(async () => state().lang.setLang('en'))
   })
 })

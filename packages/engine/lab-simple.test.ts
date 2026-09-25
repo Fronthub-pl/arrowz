@@ -380,7 +380,16 @@ Deno.test('presetParams takes the CLI vocabulary and gives the same board as the
 
 Deno.test('both dictionaries label every simple choice, slider end, size and view string', () => {
   const dictionaries: Dictionary[] = [EN, PL]
-  const viewStrings: (keyof Dictionary['simple'])[] = ['viewSimple', 'viewAdvanced', 'randomize', 'randomizeHelp']
+  const viewStrings: (keyof Dictionary['simple'])[] = [
+    'viewSimple',
+    'viewAdvanced',
+    'randomize',
+    'randomizeHelp',
+    'lengthsHelp',
+    'shapeHelp',
+    'skeletonHelp',
+    'harder',
+  ]
   for (const d of dictionaries) {
     for (const group of choiceKeys()) {
       assertEquals(typeof d.simple[group], 'string', `${group} label`)
@@ -399,6 +408,35 @@ Deno.test('both dictionaries label every simple choice, slider end, size and vie
   }
   assertEquals(Object.keys(PL.simple).sort(), Object.keys(EN.simple).sort())
   assertEquals(Object.keys(PL.simple.options).sort(), choiceKeys().sort(), 'no stale option groups')
+})
+
+// The spec's sentences, verbatim: a changed word is a changed spec.
+Deno.test('the simple view speaks of arrows and winding, in both languages', () => {
+  assertEquals(EN.simple.lengths, 'arrow length')
+  assertEquals(EN.simple.shape, 'winding')
+  assertEquals(EN.simple.ends.shape, ['straightest', 'most winding'])
+  assertEquals(PL.simple.lengths, 'dł. strzałek')
+  assertEquals(PL.simple.shape, 'krętość')
+  assertEquals(PL.simple.ends.shape, ['najprostsze', 'najbardziej kręte'])
+  assertEquals(
+    EN.simple.harder,
+    'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the “difficulty” group.',
+  )
+  assertEquals(
+    PL.simple.harder,
+    'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie „trudność” ustaw start na tunele.',
+  )
+  // The hint names the group and the preset mode by their visible words.
+  for (const d of [EN, PL]) {
+    assert(d.simple.harder.includes(d.groups.difficulty), 'the hint names the difficulty group')
+    assert(d.simple.harder.includes(d.start.options.tunnels), 'the hint names tunnels')
+  }
+  assert(PL.simple.randomizeHelp.includes(`„${PL.ui.generate}”`), 'the PL help quotes the Generate button')
+  for (const d of [EN, PL]) {
+    for (const k of ['lengthsHelp', 'shapeHelp', 'skeletonHelp', 'randomizeHelp'] as const) {
+      assert(!/\b(piece|element|knob|pokrętł)/i.test(d.simple[k]), `${k} uses the glossary`)
+    }
+  }
 })
 
 // The lab picks the export cell size from the board: 1600 px on the longer

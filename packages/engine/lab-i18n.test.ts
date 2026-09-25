@@ -44,6 +44,8 @@ Deno.test('both dictionaries cover the fixed-choice knobs and the start control'
       // The help is the only place the four choices are explained, so it names them.
       assert(d.start.help.toLowerCase().includes(word.toLowerCase()), `the start help names ${word}`)
     }
+    // The one sentence a player needs from this knob; the CLI's help says it too.
+    assert(/Tunnels = harder\.|Tunele = trudniej\./.test(d.start.help), 'the start help says tunnels are harder')
   }
 })
 

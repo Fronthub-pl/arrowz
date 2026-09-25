@@ -836,7 +836,7 @@ przenosi drugie laboratorium na kolejny wolny port (8780).
 Laboratorium ma dwa tryby i przełącznik polski/angielski.
 
 **Prosty** jest domyślny: rozmiar planszy, dwa suwaki (długość strzałek,
-kształt linii), przełącznik szkieletu i ziarno — te same wybory, co w zwykłym
+krętość), przełącznik szkieletu i ziarno — te same wybory, co w zwykłym
 trybie wiersza poleceń. **Zaawansowany** pokazuje wszystkie pokrętła z
 poprzedniej sekcji, z opisem każdego i listą gotowych ustawień, od poziomu
 „Łatwy 25×25” po „Obłęd 1000×1000”.

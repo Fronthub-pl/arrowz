@@ -52,6 +52,8 @@ function SkeletonRow({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
+  const helpId = 'simple-skeleton-help'
+  const { button, paragraph } = useKnobHelp(helpId, dict.d.simple.skeleton, dict.d.simple.skeletonHelp)
   return (
     <div className="kv-row">
       <KnobLine
@@ -60,12 +62,13 @@ function SkeletonRow({ control }: { control: RunControl }): ReactElement {
             {dict.d.simple.skeleton}
           </span>
         }
-        help={null}
+        help={button}
         wide
         control={
           <Segmented
             label={dict.d.simple.skeleton}
             labelledBy="simple-skeleton-label"
+            describedBy={helpId}
             value={skeleton}
             options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
             onChange={(next) => {
@@ -76,6 +79,7 @@ function SkeletonRow({ control }: { control: RunControl }): ReactElement {
           />
         }
       />
+      {paragraph}
     </div>
   )
 }
@@ -147,6 +151,9 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
           <SkeletonRow control={control} />
           <SeedRow />
           <RandomRow />
+          <p className="kv-note" id="simple-harder">
+            {dict.d.simple.harder}
+          </p>
         </Section>
         <Section id="simple-sec-preview" title={dict.t('preview')}>
           {SIMPLE_VIEW_FIELDS.map((field) => (
