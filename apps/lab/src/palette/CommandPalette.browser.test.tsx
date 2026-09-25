@@ -187,6 +187,15 @@ describe('the palette dialog', () => {
     expect(useStore.getState().ui.palette).toBe(true)
   })
 
+  it('runs an enabled row on a real click', async () => {
+    const screen = await mount()
+    const row = screen.container.querySelector<HTMLElement>('#cmd-view-rounded')
+    if (row === null) throw new Error('no rounded row')
+    await userEvent.click(row)
+    await expect.poll(() => useStore.getState().ui.focusTarget).toBe('view-rounded')
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
+
   // The focus put on a row by hand: the one way left to move it off the input.
   it('closes on Escape wherever in the dialog the focus is', async () => {
     const screen = await mount()
