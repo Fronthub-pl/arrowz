@@ -335,6 +335,8 @@ export interface BoardMeta {
   stuck: Stuck | null
   /** Every recipe that produced this layout, in the order they were first saved. */
   sources: Recipe[]
+  /** `VIEW_VERSION` of the save that wrote this meta; absent in a meta written before it existed. */
+  viewVersion?: number
 }
 
 /**

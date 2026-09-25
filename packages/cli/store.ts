@@ -8,7 +8,7 @@
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@arrowz/engine'
 import { decodeBoard, defaultParams, layoutHash } from '@arrowz/engine'
-import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { boardId, DEFAULT_VIEW, VIEW_VERSION } from '@arrowz/engine/command'
 
 /** The wire contract plus the two fields only the CLI sends. */
 export interface SaveInput extends StoreRequest {
@@ -43,24 +43,16 @@ function exists(path: string): boolean {
 }
 
 /**
- * A stored view with the fields a later knob added filled in.
- *
- * A stored headHeight of 0 meant "automatic", a mode that no longer exists:
- * read it as unset. Every board written before this change carries it, and
- * taken literally they would draw no arrowhead at all.
- *
- * That is no longer the only way a 0 can get here: `--headheight=0` is now
- * accepted literally and on purpose, so a board CAN be saved headless
- * deliberately. The migration cannot tell the two apart and has no expiry
- * date, which costs exactly this: such a board is shown in the library with a
- * head of the default height, while the command stored next to it still says
- * `--headheight=0` and reproduces it headless.
+ * A stored view with the fields a later knob added filled in. A meta written
+ * before `VIEW_VERSION` stored 0 for an automatic head height, a mode that no
+ * longer exists, so there a 0 reads as the default; from the version on it is
+ * literal, as the CLI's `--arrow-height=0` is.
  */
-function fillView(view: View): View {
+function fillView(view: View, versioned: boolean): View {
   return {
     ...DEFAULT_VIEW,
     ...view,
-    ...(view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
+    ...(versioned || view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
   }
 }
 
@@ -78,10 +70,11 @@ function readMeta(file: string): BoardMeta | null {
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
     const sources: Recipe[] = Array.isArray(meta.sources) ? meta.sources : []
+    const versioned = (meta.viewVersion ?? 1) >= VIEW_VERSION
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      view: fillView(meta.view),
+      view: fillView(meta.view, versioned),
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,
@@ -89,7 +82,11 @@ function readMeta(file: string): BoardMeta | null {
       fingerprint: meta.fingerprint ?? null,
       boardBytes: meta.boardBytes ?? null,
       svg: meta.svg ?? false,
-      sources: sources.map((r) => ({ ...r, params: { ...defaultParams(), ...r.params }, view: fillView(r.view) })),
+      sources: sources.map((r) => ({
+        ...r,
+        params: { ...defaultParams(), ...r.params },
+        view: fillView(r.view, versioned),
+      })),
     }
   } catch {
     return null
@@ -177,6 +174,7 @@ export async function saveBoard(
     aborted: recipe.aborted,
     stuck: metrics.stuck ?? before?.stuck ?? null,
     sources,
+    viewVersion: VIEW_VERSION,
   }
   if (writesFile) Deno.writeTextFileSync(boardPath, boardText)
   const svgFile = join(dir, `${id}.svg`)

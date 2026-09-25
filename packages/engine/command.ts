@@ -240,6 +240,14 @@ export const DEFAULT_VIEW: View = {
 }
 
 /**
+ * The version a link or a stored meta writes its view with; absent reads as 1.
+ * In a version-1 view a head height of 0 meant "automatic" and a missing colour
+ * meant "written before the field existed". From 2, 0 is a head of no height
+ * and a missing colour is none.
+ */
+export const VIEW_VERSION = 2
+
+/**
  * The SvgOptions a view implies: every field of the view that `toSvg` reads,
  * under the name `toSvg` reads it by — `View.stroke` is `SvgOptions.strokeRatio`.
  *

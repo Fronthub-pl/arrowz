@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertMatch, assertNotEquals, assertRejects, assertThrows } from '@std/assert'
 import { join } from '@std/path'
 import { decodeBoard, defaultParams, encodeBoard, layoutHash } from '@arrowz/engine'
-import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
+import { boardId, buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, VIEW_VERSION } from '@arrowz/engine/command'
 import { deleteBoard, listBoards, saveBoard, type SaveInput } from './store.ts'
 import type { BoardFile, BoardMeta, ParamKey } from '@arrowz/engine'
 
@@ -283,16 +283,42 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
   assertEquals(board?.sources, [], 'a meta without recipes reads as none')
 })
 
-// Every board written before the head height became literal stores 0, which
-// meant "automatic" then and would mean "no arrowhead at all" now.
-Deno.test('a board saved when the head height was automatic reads as the new default', async () => {
-  freshDir()
-  await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+Deno.test('a board saved with a head height of 0 reads back 0, and its meta carries the view version', async () => {
+  const dir = freshDir()
+  const { meta } = await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+  assertEquals(readMeta(join(dir, '25x50', `${meta.id}.json`)).viewVersion, VIEW_VERSION)
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.view.headHeight, 0)
+  assertEquals(board?.sources[0]?.view.headHeight, 0, 'the recipe is read the same way')
+})
+
+// A meta without the version stored 0 for an automatic head height, which
+// would mean "no arrowhead at all" now.
+Deno.test('a meta written before the view version reads a head height of 0 as the default', async () => {
+  const dir = freshDir()
+  const { meta } = await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+  const file = join(dir, '25x50', `${meta.id}.json`)
+  const { viewVersion: _, ...legacy } = readMeta(file)
+  Deno.writeTextFileSync(file, JSON.stringify(legacy))
   const board = listBoards()[0]?.boards[0]
   // The literal 1, not DEFAULT_VIEW.headHeight: the number is the point.
   assertEquals(board?.view.headHeight, 1)
   assertEquals(board?.sources[0]?.view.headHeight, 1, 'the recipe is read the same way')
   assertEquals(DEFAULT_VIEW.headHeight, 1)
+})
+
+// One marker per meta is enough only because a save rewrites every recipe it
+// read, already filled by `readMeta`.
+Deno.test('a save over a legacy meta keeps its old recipes at the default head height', async () => {
+  const dir = freshDir()
+  const first = await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+  const file = join(dir, '25x50', `${first.meta.id}.json`)
+  const { viewVersion: _, ...legacy } = readMeta(file)
+  Deno.writeTextFileSync(file, JSON.stringify(legacy))
+  // Another seed carves the same layout here: `entry()` always stores one piece at cell 0.
+  await saveBoard({ ...entry({ params: { seed: 8 } }), view: { ...DEFAULT_VIEW, headHeight: 0.5 } })
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.sources.map((recipe) => recipe.view.headHeight), [1, 0.5])
 })
 
 // The same for params: a board saved before a knob existed does not name it.
