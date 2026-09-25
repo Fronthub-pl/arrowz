@@ -91,7 +91,7 @@ printing the CLI's word, as it does for Polish today.
 The special-value chip (`ValueKnob`, the track's minimum spelled as a word)
 shows `dict.choiceText(spec.key, special)` instead of the raw word, in its text
 and in its `aria-label`; `PL.choices` gains `giantStep: { random: 'losowo' }`
-and `Lmax: { auto: 'auto' }`. The view panel's head-width `auto` chip stays
+and `Lmax: { auto: 'auto' }`. The stale-choices check in `lab-i18n.test.ts` (every `PL.choices` key must be a choice knob) widens to knobs whose minimum has a word (`wordFor(key, min)`), so these two entries are not stale. The view panel's head-width `auto` chip stays
 `auto` in both languages.
 
 ### Units
@@ -145,6 +145,8 @@ the tunnels and skeleton options are the modes the caption names.
 
 ## Generator knobs
 
+Every knob and group help stays within `MAX_HELP` (170 characters, `lab-i18n.test.ts`), and every number in an English help appears in the Polish one (the same file); the Polish trap help names no factor in digits because the English names none. `start.help` keeps the literal sentence "Tunnels = harder." / "Tunele = trudniej." that the same file requires, and names each option word.
+
 English goes into `PARAM_TABLE` (label, help) and `EN.short`; Polish into
 `PL.params` and `PL.short`. Short labels stay at 12 characters or fewer (the
 existing `lab-i18n.test.ts` check). `=` means unchanged.
@@ -184,15 +186,15 @@ existing `lab-i18n.test.ts` check). `=` means unchanged.
 | wShort | share of short arrows (2–6 cells) · How many arrows are short. More = more arrows on the board, but lots of little hooks. Short + medium: at most 0.9 (90%). | udział krótkich (2–6 komórek) (=) · Jaka część strzałek jest krótka. Więcej = więcej strzałek na planszy, ale dużo drobnych haczyków. Krótkie + średnie: najwyżej 0,9 (90%). |
 | wMid | share of medium arrows (7–15 cells) · How many arrows are medium. Whatever short and medium leave goes to long arrows. Short + medium: at most 0.9 (90%). | = · Jaka część strzałek jest średnia. Resztę po krótkich i średnich dostają długie. Krótkie + średnie: najwyżej 0,9 (90%). |
 | Lmax | longest arrow (auto = 2.5 × longer side) · The longest arrow the generator aims for, in cells. auto = 2.5 × the longer side. 1 to 16 is not allowed: it would cut into the medium and long sizes. | najdłuższa strzałka (auto = 2,5 × dłuższy bok) · Najdłuższa strzałka, do jakiej dąży generator, w komórkach. auto = 2,5 × dłuższy bok. Od 1 do 16 nie wolno: taki limit wcina się w średnie i długie. |
-| backbite | tail rework when an arrow gets stuck · When a growing arrow hits a dead end, how many times in a row it may rework its tail and keep growing instead of stopping. 0 = off. More = fewer, longer arrows. | przeróbka ogona, gdy strzałka utknie · Ile razy z rzędu rosnąca strzałka, która trafi w ślepy zaułek, może przerobić swój ogon i rosnąć dalej zamiast się zatrzymać. 0 = wyłączone. Więcej = mniej, ale dłuższych strzałek. |
-| pStraight | straightness · How often an arrow keeps going straight instead of turning. Higher = long straight arrows; lower = more bends. Bigger boards need a higher minimum: the mark on the track shows this board's. | prostość · Jak często strzałka jedzie prosto zamiast skręcać. Wyżej = długie proste strzałki; niżej = więcej zakrętów. Większe plansze wymagają wyższego minimum: znacznik na suwaku pokazuje minimum tej planszy. |
+| backbite | tail rework when an arrow gets stuck · When a growing arrow hits a dead end, how many times in a row it may rework its tail and keep growing instead of stopping. 0 = off. More = fewer, longer arrows. | przeróbka ogona, gdy strzałka utknie · Ile razy z rzędu strzałka, która utknie w ślepym zaułku, może przerobić ogon i rosnąć dalej. 0 = wyłączone. Więcej = mniej, ale dłuższych strzałek. |
+| pStraight | straightness · How often an arrow keeps straight instead of turning. Higher = long straight arrows; lower = more bends. The mark on the track is this board's minimum. | prostość · Jak często strzałka jedzie prosto zamiast skręcać. Wyżej = długie proste; niżej = więcej zakrętów. Znacznik na suwaku to minimum tej planszy. |
 | wLateral | sideways step bonus · How much an arrow prefers a step to the side over pushing deeper into the board. 0 = straight pushes and big coils. | premia za krok w bok · Jak bardzo strzałka woli krok w bok niż wchodzenie w głąb planszy. 0 = proste wbicia i duże zwoje. |
 | warns | fill nooks first · How strongly an arrow fills small dead-end nooks before moving on. Higher = fewer, longer, more coiled arrows. Below 4 big boards need more straightness. | najpierw zakamarki · Jak mocno strzałka najpierw wypełnia małe ślepe zakamarki. Wyżej = mniej strzałek, dłuższe i bardziej zwinięte. Poniżej 4 duże plansze wymagają większej prostości. |
 | anticoil | coil penalty · How strongly an arrow avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter arrows. Above 6 big boards need more straightness. | kara zwojów · Jak mocno strzałka unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze strzałki. Powyżej 6 duże plansze wymagają większej prostości. |
-| headBias | arrow start (-1 layers, 0 random, 1 tunnels) · Where each new arrow starts while the board is built: from the edges inwards (layers, easier, more bends), anywhere (random) or deep inside (tunnels, harder). All three fill boards up to 400×400. | start strzałek (-1 warstwy, 0 losowo, 1 tunele) · Skąd startuje każda nowa strzałka podczas budowania planszy: od krawędzi do środka (warstwy, łatwiej, więcej zakrętów), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400. |
+| headBias | arrow start (-1 layers, 0 random, 1 tunnels) · Where each new arrow starts: from the edges inwards (layers, easier), anywhere (random) or deep inside (tunnels, harder). All three fill boards up to 400×400. | start strzałek (-1 warstwy, 0 losowo, 1 tunele) · Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400. |
 | mix | share of tunnel starts (mix) · With the mixed start: the share of arrows that start as tunnels, 0.3 to 0.7; the rest start as layers. | udział startów tunelami (mieszane) · Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami. |
-| trapBias | traps (arrows that look free but are not) · A trap is an arrow blocked by exactly one other: it looks free but is not. Seek = a quarter to a half more traps; avoid = a third to an eighth as many; normal = the generator's own. The report counts them as traps. | pułapki (strzałki, które wyglądają na wolne) · Pułapka to strzałka zablokowana przez dokładnie jedną inną: wygląda na wolną, ale nie jest. „Szukaj” = o ćwierć do połowy więcej pułapek; „unikaj” = od trzech do ośmiu razy mniej; „normalnie” = tyle, ile da generator. Raport liczy je jako pułapki. |
-| probe | share of arrows with a target length · How many arrows get a length close to one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only. | udział strzałek o zadanej długości · Jaka część strzałek dostaje długość bliską jednej zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = plansza z samych krótkich strzałek. |
+| trapBias | traps (arrows that look free but are not) · A trap: an arrow blocked by exactly one other, so it looks free. Seek = a quarter to a half more; avoid = a third to an eighth as many; normal = the generator's own. | pułapki (strzałki, które wyglądają na wolne) · Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o ćwierć do połowy więcej; „unikaj” = od trzech do ośmiu razy mniej. |
+| probe | share of arrows with a target length · How many arrows get a length close to one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only. | udział strzałek o zadanej długości · Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki. |
 | probeLen | target length · The target length in cells, give or take half. Short targets (4) triple the number of arrows; long ones (200) give fewer, longer arrows. | zadana długość · Zadana długość w komórkach, plus minus połowa. Krótka (4) potraja liczbę strzałek; długa (200) daje mniej, dłuższych. |
 | giants | number of skeleton arrows (0 = no skeleton) · How many very long arrows are laid first, snaking across the board. 0 = no skeleton; 4 is a good start. | liczba strzałek szkieletu (0 = bez szkieletu) · Ile bardzo długich strzałek układa się najpierw, wężykiem przez planszę. 0 = bez szkieletu; 4 to dobry początek. |
 | giantSpan | skeleton length (in board sides) · The target length of one skeleton arrow, in board sides. It stops earlier when it runs out of room. | długość szkieletu (w bokach planszy) · Zadana długość jednej strzałki szkieletu, w bokach planszy. Kończy wcześniej, gdy zabraknie miejsca. |
@@ -202,8 +204,8 @@ existing `lab-i18n.test.ts` check). `=` means unchanged.
 | giantStraight | skeleton straightness · How often a skeleton arrow keeps straight where it grows freely: all of it when the run gap is random, only its tail otherwise. 0.5 = no preference. | prostość szkieletu · Jak często strzałka szkieletu jedzie prosto tam, gdzie rośnie swobodnie: cała przy przerwie „losowo”, inaczej tylko ogon. 0,5 = bez preferencji. |
 | giantAnticoil | skeleton coil penalty · The coil penalty for skeleton arrows only. Whichever is higher, this or the coil penalty in the shape group, applies. | kara zwojów szkieletu · Kara zwojów tylko dla strzałek szkieletu. Obowiązuje wyższa z tej i kary zwojów z grupy „kształt”. |
 | giantSpacing | skeleton spacing · How many cells a skeleton keeps from its own earlier runs. off = it may touch them. | odstęp szkieletu · Ile komórek szkielet trzyma od swoich wcześniejszych biegów. „bez odstępu” = może ich dotykać. |
-| headTries | start spots tried per direction · How many starting spots the generator tries before it turns to another direction. At 2 the search is shallow for hard settings; from 8 up you usually get the same board as at 4. | próby startu na kierunek · Ile miejsc startu generator sprawdza, zanim zmieni kierunek. Przy 2 szukanie jest płytkie dla trudnych ustawień; od 8 w górę zwykle wychodzi ta sama plansza co przy 4. |
-| absorbLimit | merge leftovers up to N cells · An empty patch up to this many cells that no arrow fits into is merged into a neighbouring arrow. Near the bottom of the range leftovers pile up and boards get stuck far more often. | doklejaj resztki do N komórek · Pusta łatka do tylu komórek, w którą nie wejdzie żadna strzałka, zostaje doklejona do sąsiedniej. Blisko dolnej granicy resztki się piętrzą i plansze znacznie częściej utykają. |
+| headTries | start spots tried per direction · How many start spots are tried before another direction. At 2 the search is shallow for hard settings; 8 and up usually give the same board as 4. | próby startu na kierunek · Ile miejsc startu generator sprawdza przed zmianą kierunku. Przy 2 szukanie jest płytkie dla trudnych ustawień; od 8 w górę zwykle wychodzi ta sama plansza co przy 4. |
+| absorbLimit | merge leftovers up to N cells · An empty patch up to this many cells that no arrow fits is merged into a neighbouring arrow. Near the bottom of the range boards get stuck far more often. | doklejaj resztki do N komórek · Pusta łatka do tylu komórek, w którą nie wejdzie żadna strzałka, zostaje doklejona do sąsiedniej. Blisko dolnej granicy plansze znacznie częściej utykają. |
 | maxBack | backtrack budget · How many placed arrows the generator may take back in one attempt before starting over. 200 is enough; more only delays the answer. | budżet nawrotów · Ile ułożonych strzałek generator może cofnąć w jednej próbie, zanim zacznie od nowa. 200 wystarcza; więcej tylko opóźnia wynik. |
 | restarts | allowed restarts · How many fresh attempts after a failed one, each with a seed made from yours. 0 shows how often these settings succeed on their own. | dopuszczalne restarty · Ile nowych prób po nieudanej, każda z ziarnem wyliczonym z Twojego. 0 pokazuje, jak często te ustawienia udają się same. |
 
@@ -227,7 +229,7 @@ above 16", `absorbLimit` "below 12", `maxBack` "--maxback=auto spells 200",
 | key | EN | PL |
 |---|---|---|
 | `start.label` | arrow start | start (=) |
-| `start.help` | Where each new arrow starts while the board is built. Tunnels: deep inside, so arrows end up buried behind others (harder). Layers: from the edges inwards (easier, more bends). Random: anywhere. Mix: a share of tunnels among layers. | Skąd startuje każda nowa strzałka podczas budowania planszy. Tunele: w głębi, więc strzałki są zakopane za innymi (trudniej). Warstwy: od krawędzi do środka (łatwiej, więcej zakrętów). Losowo: gdziekolwiek. Mieszane: część tuneli wśród warstw. |
+| `start.help` | Where each new arrow starts while the board is built. Tunnels: deep inside, so arrows end up buried behind others. Tunnels = harder. Layers: from the edges inwards (easier, more bends). Random: anywhere. Mix: a share of tunnels among layers. | Skąd startuje każda nowa strzałka podczas budowania planszy. Tunele: w głębi, więc strzałki są zakopane za innymi. Tunele = trudniej. Warstwy: od krawędzi do środka (łatwiej, więcej zakrętów). Losowo: gdziekolwiek. Mieszane: część tuneli wśród warstw. |
 | `start.options` | layers / random / tunnels / **mix** | warstwy / losowo / tunele / **mieszane** |
 | `simple.harder` | Want it harder? In Advanced, pick a tunnels preset, or set arrow start to tunnels in the “difficulty” group. | = |
 
@@ -356,6 +358,7 @@ nothing on a complete board.
 | `--start` row label | where an arrow starts, and the tunnel share |
 | `--start` row help | Where each new arrow starts while the board is built: from the edges inwards (layers, easier), anywhere (random) or deep inside (tunnels, harder). A number in 0.3..0.7 mixes the two instead: the share of arrows that start as tunnels. |
 | environment line | CARVE_TIMEOUT_S=N (abort after N seconds; the board built so far is stored as incomplete). |
+| Pinning paragraph, last line | covered by the promise that every everyday combination fills its board. |
 
 Out of scope: the CLI's runtime messages (`failed to close board …`, the
 trace lines). The README's "When something goes wrong" quotes them verbatim.
@@ -383,20 +386,24 @@ What it reads:
   `fn.length` arguments of `2` (templates only interpolate them);
 - `PARAM_SPEC` labels and helps, `INACTIVE_REASONS`, `RULE_REASONS`,
   `PL.params`, `PL.reasons`, `PL.choices`, `EN_CHOICES`;
-- `helpText({ knobs: true })` with flag names (`--[a-z-]+`) and environment
-  names (`[A-Z_]{3,}`) removed first.
+- `helpText({ knobs: true })` with flag names (`--[a-z-]+`), environment names
+  (`[A-Z_]{3,}`), the group tags (`[closing]`, which print a group key) and the
+  command `deno task carve` removed first. "knob" is a developer word the CLI
+  uses throughout (its "Knobs." section, its "knob" column), so it is refused
+  in the lab's strings only.
 
 What it refuses (whole words, case-insensitive):
 
 - English: `piece(s)`, `close / closed / closes / closing`, `jam(s/med)`,
   `giant(s)`, `probe(s)`, `carve / carved / carves / carving`, `anticoil`,
   `paper`, `ink`, `grid unit(s)`, `serpentine`, `backbite`, `corridor`,
-  `fragment(s)`, `absorb*`, `lateral`, `jitter`, `golden-angle`, `knob(s)`.
+  `fragment(s)`, `absorb*`, `lateral`, `jitter`, `golden-angle`, `point grid`,
+  and, in the lab's strings only, `knob(s)`.
 - Polish: `element*` (whole word stems: element, elementy, elementów, …),
   `domkn*`, `zaklin*`, `zacina*`, `zacię*`, `sond*`, `wycię*`, `wycin*`,
   `prostota`, `podziałk*`, `papier*`, `tusz*`, `kolor rysunku`, `antyzwij*`,
   `wchłan*`, `serpentyn*`, `kubeł*`, `koszyk*`, `fragment*`, `generacj*`,
-  `pokrętł*`.
+  `pokrętł*`, `siatk* punktów`.
 - In the lab's own strings and `PARAM_SPEC` help (not in `helpText`): any
   `--flag`.
 
