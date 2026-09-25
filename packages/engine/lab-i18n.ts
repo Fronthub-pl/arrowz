@@ -369,6 +369,7 @@ export const EN = {
     longestShort: (n: number | string) => `longest ${n}`,
     loadingBoard: (id: string) => `Loading ${id}…`,
     boardFileError: (id: string, reason: string) => `Board ${id} cannot be read: ${reason}`,
+    boardNotStored: (id: string) => `Board ${id} is not in the store`,
     savedBoard: (id: string, seed: number | string, source: string, gen: string) =>
       `Saved board ${id}, seed ${seed}, source: ${source}, generated in ${gen}.`,
     deleteBoard: 'Delete from disk',
@@ -993,6 +994,7 @@ export const PL: Translation = {
     longestShort: (n) => `najdłuższy ${n}`,
     loadingBoard: (id) => `Wczytuję ${id}…`,
     boardFileError: (id, reason) => `Nie da się odczytać planszy ${id}: ${reason}`,
+    boardNotStored: (id) => `Planszy ${id} nie ma w magazynie`,
     savedBoard: (id, seed, source, gen) =>
       `Zapisana plansza ${id}, ziarno ${seed}, źródło: ${source}, generacja ${gen}.`,
     deleteBoard: 'Usuń z dysku',

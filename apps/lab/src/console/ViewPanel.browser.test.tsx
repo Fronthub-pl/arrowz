@@ -218,6 +218,27 @@ test('a value being typed is not written until it is committed', async () => {
   expect(view().stroke).toBe(0.8)
 })
 
+test('a stroke typed with a decimal comma is written, a cell size with one is not', async () => {
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: /^stroke:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0,35')
+  await userEvent.keyboard('{Enter}')
+  expect(view().stroke).toBe(0.35)
+  await screen.getByRole('button', { name: /^export cell:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'export cell', exact: true }), '1,5')
+  await userEvent.keyboard('{Enter}')
+  expect(view().cell).toBe(12)
+})
+
+test('the dot radius takes a decimal comma', async () => {
+  useStore.setState((state) => ({ view: { ...state.view, showPoints: true } }))
+  const screen = await render(<ViewPanel />)
+  await screen.getByRole('button', { name: /^dot radius:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'dot radius', exact: true }), '0,15')
+  await userEvent.keyboard('{Enter}')
+  expect(view().pointRadius).toBe(0.15)
+})
+
 test('the head width’s auto chip toggles 0, and releases to the width auto draws', async () => {
   // At XS the `.kv-g .mx` rule hides the chip; this pins the desktop look.
   await page.viewport(1400, 900)

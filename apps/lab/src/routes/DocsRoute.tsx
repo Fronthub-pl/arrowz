@@ -1,8 +1,9 @@
 import { type ReactElement, useRef } from 'react'
-import { Navigate, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { CliDocs } from './CliDocs'
 import { DocsNav, type DocsPage } from './DocsNav'
 import { ElementDocs } from './ElementDocs'
+import { KeepHashNavigate } from './KeepHashNavigate'
 import { useSectionInView } from './useSectionInView'
 
 /**
@@ -18,7 +19,7 @@ import { useSectionInView } from './useSectionInView'
  */
 export function DocsRoute(): ReactElement {
   const { what } = useParams()
-  if (what !== 'element' && what !== 'cli') return <Navigate to="/docs/element" replace />
+  if (what !== 'element' && what !== 'cli') return <KeepHashNavigate to="/docs/element" />
   return <DocsPanel page={what} />
 }
 

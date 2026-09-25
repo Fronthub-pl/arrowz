@@ -92,7 +92,7 @@ test('an id the listing does not hold is reported, and clears what was shown', a
 
   await renderHook(() => useStoredBoard(), at('/boards/8x8/sha256-0'))
 
-  await expect.poll(() => useStore.getState().library.boardError?.reason).toBe('not in the store')
+  await expect.poll(() => useStore.getState().library.boardError).toEqual({ name: '8x8/sha256-0', reason: null })
   expect(useStore.getState().result.preview).toBeNull()
 })
 

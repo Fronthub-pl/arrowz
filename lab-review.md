@@ -98,19 +98,19 @@ different counter over 237 files; the two numbers are not comparable.)
 | Finding | Status | Note |
 | --- | --- | --- |
 | HIGH: palette jump loses the focus | fixed in `08162fa` | See above |
-| MEDIUM: `<Navigate>` drops the hash | open | Redirects still go to a bare path |
-| MEDIUM: palette loses Escape, Tab and hotkeys off its input | open | Keys still handled on the input only |
+| MEDIUM: `<Navigate>` drops the hash | fixed in `13c9acc` | A redirect keeps the fragment, so a link under a wrong path opens on its knobs |
+| MEDIUM: palette loses Escape, Tab and hotkeys off its input | fixed in `0211a71` | A click inside keeps the focus in the input; no key reaches the page behind |
 | MEDIUM: simple view size rows show the recipe | open | The live pass saw it again (25×50 shown, 1000×1000 carved) |
-| MEDIUM: PL decimal comma does nothing | open | `DraftNumber` still calls `Number(raw.trim())` |
-| MEDIUM: link colours cannot clear the page's own | open | Decoder unchanged |
-| MEDIUM: head height 0 lost in the hash | open | Decoder still drops `0` |
-| LOW: palette "on"/"off" in English | open | Still a literal in `palette/commands.ts` |
-| LOW: English reason in the PL status line | open | `'not in the store'` still a literal |
+| MEDIUM: PL decimal comma does nothing | fixed in `4a5313a` | `DraftNumber` reads a comma as a point in a fractional field |
+| MEDIUM: link colours cannot clear the page's own | fixed in `3dc5ccc` | A versioned link now clears theme, palette, paper and ink it doesn't name; `0a704d5` extends the rule to any version number |
+| MEDIUM: head height 0 lost in the hash | fixed in `66f1188, 3dc5ccc` | The view version makes 0 literal in the store's `fillView` and the link decoder; `0a704d5` keeps this true after a later bump |
+| LOW: palette "on"/"off" in English | fixed in `feb59ab` | `palette/commands.ts` reads the flag values from the dictionary |
+| LOW: English reason in the PL status line | fixed in `feb59ab` | `'not in the store'` now comes from the dictionary too |
 | LOW: view edit clears `aborted` in the store | open | `store.ts` unchanged |
 | LOW: pending view save dropped for another board | open | Still one module timer |
 | LOW: SVG drops palette, paper and ink silently | open | Note still shown only for a theme |
-| LOW: unknown theme name stored | open | Not validated against `THEMES` |
-| LOW: `voids` not in the link | open | |
+| LOW: unknown theme name stored | fixed in `3dc5ccc` | `themeOf` validates the name; an unknown one is dropped, not stored |
+| LOW: `voids` not in the link | fixed in `3dc5ccc` | A versioned link now carries `voids` |
 | LOW, PLAUSIBLE: worker handlers and failed load | open | |
 | LOW, PLAUSIBLE: synchronous revoke on download | open | |
 
@@ -239,49 +239,51 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **Correctness, one small PR:** the hash lost on `<Navigate>`, the palette's
-   key handling, the Polish comma in `DraftNumber`, the URL round-trip losses
-   (colours cannot be cleared, head height 0, unknown theme, `voids`), and the
-   English leaks into the Polish UI (palette "on"/"off", "not in the store").
-2. **The simple view's size rows** show the recipe while Generate carves the
+1. **The simple view's size rows** show the recipe while Generate carves the
    knobs. A test from round 3 (`5060154`) pins this on purpose, but to a person
    it looks wrong; it needs a product decision.
-3. **Copy pass on the report and the simple view:** help for every report row,
+2. **Copy pass on the report and the simple view:** help for every report row,
    units, "higher is harder", "Tunnels = harder" in `start.help`, then the
    glossary (one term per concept, EN + PL). Two of the factual errors are
    fixed; the labels and help texts are not.
-4. **Smaller correctness items:** `aborted` cleared by a view edit, the
+3. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
-5. **Structural refactors 2–4:** one knob-row shell, one view schema with a
+4. **Structural refactors 2–4:** one knob-row shell, one view schema with a
    single `view.apply()`, one hotkey table and a `useDismiss` hook. Then 5
    (the `.fw button` prefix and tokens), 6–9 and 11.
-6. **Parity gaps, as product decisions:** paste a `carve` command in
+5. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
    `.board.json`, SVG colours (and `pad` and highlight in the SVG), ⌘K rows for
    the colour and element fields.
-7. **Extend the comment sweep and guard** to the engine's other files and
+6. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
-8. **Observations from the live pass and deferred review minors:** "top" in
+7. **Observations from the live pass and deferred review minors:** "top" in
    ⌘K lists Abort above "how many longest"; "blocked by #51 at 0 cells" reads
    oddly; the report drawer covers the board's right 45 px (and the Play and ☝
    buttons) at 1440×877, known since round 2; the two low-window height rules
    lack the `min-width: 768px` that `useLowWindow` has; the palette input has
    no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
    the `trapBias` help clause is vague.
-9. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
+8. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
    covers the board's top-left cells; pre-existing, and no audited case uses
    pad 0, so no invariant catches it today.
-10. **D2, found in the follow-up live pass:** at phone width (375×812) the
-    board element's own control bar (+ − fit ◑, 44 px touch targets) covers
-    about one row of the board's bottom-right cells (measured overlap
-    59×8.5 px). It appeared once the mode strip moved under the frame
-    (`20d50cd`) and made the frame shorter; the `board-cover` invariant checks
-    the lab's own overlays only, not the element's own bar. Options: the lab
-    enlarges the margin on narrow screens by the bar's height, or the
-    element's fit reserves room for its own bar (a component refinement).
-    Deferred by the user's decision.
+9. **D2, found in the follow-up live pass:** at phone width (375×812) the
+   board element's own control bar (+ − fit ◑, 44 px touch targets) covers
+   about one row of the board's bottom-right cells (measured overlap
+   59×8.5 px). It appeared once the mode strip moved under the frame
+   (`20d50cd`) and made the frame shorter; the `board-cover` invariant checks
+   the lab's own overlays only, not the element's own bar. Options: the lab
+   enlarges the margin on narrow screens by the bar's height, or the
+   element's fit reserves room for its own bar (a component refinement).
+   Deferred by the user's decision.
+
+The former item 1 — the hash lost on `<Navigate>`, the palette's key handling,
+the Polish comma in `DraftNumber`, the URL round-trip losses (colours cannot
+be cleared, head height 0, unknown theme, `voids`), and the English leaks into
+the Polish UI (palette "on"/"off", "not in the store") — was fixed on
+`lab/correctness`.
 
 The five passes follow in full.
 

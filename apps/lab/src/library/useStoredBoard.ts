@@ -35,7 +35,7 @@ export function useStoredBoard(): void {
       // stale link: the stage is left empty and the reason is shown.
       if (metas !== null) {
         useStore.getState().result.clearPreview()
-        useStore.getState().library.boardFailed({ name: `${size}/${id}`, reason: 'not in the store' })
+        useStore.getState().library.boardFailed({ name: `${size}/${id}`, reason: null })
         // Every exit clears `loading`: a board dropped from the listing while
         // its file was in flight would otherwise leave "Loading …" for good.
         useStore.getState().library.clearNotice()

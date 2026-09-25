@@ -126,6 +126,14 @@ Deno.test('both ui dictionaries explain a board file that cannot be read', () =>
   }
 })
 
+Deno.test('both ui dictionaries say a board is not in the store, naming it', () => {
+  for (const d of [EN, PL]) {
+    const text = d.ui.boardNotStored('25x50/sha256-abc')
+    assert(text.includes('25x50/sha256-abc'), text)
+  }
+  assert(PL.ui.boardNotStored('x') !== EN.ui.boardNotStored('x'), 'the Polish sentence is Polish')
+})
+
 Deno.test('escapeHtml turns every markup character into an entity', () => {
   assertEquals(escapeHtml(`<img src=x onerror="a('&')">`), '&lt;img src=x onerror=&quot;a(&#39;&amp;&#39;)&quot;&gt;')
   assertEquals(escapeHtml(42), '42')

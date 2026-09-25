@@ -1,7 +1,11 @@
 import { defaultParams } from '@arrowz/engine'
+import { VIEW_VERSION } from '@arrowz/engine/command'
 import { describe, expect, it } from 'vitest'
 import { decodeHash, encodeHash } from './url'
 import { VIEW } from './url.fixtures'
+
+/** A link as the lab wrote it before the view version: no `viewVersion` key. */
+const legacyLink = (view: Record<string, unknown>) => '#' + encodeURIComponent(JSON.stringify({ __view: view }))
 
 describe('the hash codec', () => {
   it('reads back what it wrote', () => {
@@ -30,7 +34,7 @@ describe('the hash codec', () => {
   // A head height of 0 meant "automatic" before the height became literal, so
   // every link shared before that change carries one; reading it as a height
   // would draw a headless board from an old link.
-  it('treats a head height of 0 as unset, as the store reader does', () => {
+  it('treats a head height of 0 in a legacy link as unset, as the store reader does', () => {
     const legacy = '#' + encodeURIComponent(JSON.stringify({ __view: { headHeight: '0' } }))
     expect(decodeHash(legacy)?.view.headHeight).toBeUndefined()
   })
@@ -141,9 +145,13 @@ describe('the hash codec', () => {
     expect(decodeHash(hash)?.view.theme).toBe('gruvbox-dark')
   })
 
-  it('leaves the page on its own theme when a link names none', () => {
-    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
-    expect(decodeHash(hash)?.view.theme).toBeUndefined()
+  it('leaves the page on its own colours when a legacy link names none', () => {
+    const back = decodeHash(legacyLink({ rounded: true }))?.view
+    expect(back?.theme).toBeUndefined()
+    expect(back?.palette).toBeUndefined()
+    expect(back?.paper).toBeUndefined()
+    expect(back?.ink).toBeUndefined()
+    expect(back?.highlightColor).toBeUndefined()
   })
 
   it('carries a custom palette through a round trip', () => {
@@ -153,12 +161,6 @@ describe('the hash codec', () => {
       carried: {},
     })
     expect(decodeHash(hash)?.view.palette).toEqual(['#112233', '#aabbcc'])
-  })
-
-  // No `palette` key means "the page keeps its own", like `theme` above.
-  it('reads a link that predates custom palettes as naming no palette', () => {
-    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
-    expect(decodeHash(hash)?.view.palette).toBeUndefined()
   })
 
   it('does not write an empty palette into the link', () => {
@@ -201,12 +203,6 @@ describe('the hash codec', () => {
     expect(back?.pointRadius).toBe(0.2)
   })
 
-  it('reads a link that predates the board colours as naming none', () => {
-    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
-    expect(decodeHash(hash)?.view.paper).toBeUndefined()
-    expect(decodeHash(hash)?.view.ink).toBeUndefined()
-  })
-
   // `''` is the slice's "not set" (every fresh page has it), so a link must
   // not grow keys naming nothing.
   it('does not write empty board colours into the link', () => {
@@ -223,11 +219,6 @@ describe('the hash codec', () => {
   it('carries the highlight colour through a round trip', () => {
     const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, highlightColor: '#0a0b0c' }, carried: {} })
     expect(decodeHash(hash)?.view.highlightColor).toBe('#0a0b0c')
-  })
-
-  it('reads a link that predates the highlight colour as naming none', () => {
-    const hash = encodeHash({ params: defaultParams(), view: VIEW, carried: {} })
-    expect(decodeHash(hash)?.view.highlightColor).toBeUndefined()
   })
 
   it('does not write an empty highlight colour into the link', () => {
@@ -261,5 +252,45 @@ describe('the hash codec', () => {
     expect(back?.theme).toBe('gruvbox-dark')
     expect(back?.palette).toEqual(['#112233'])
     expect(back?.paper).toBe('#010203')
+  })
+
+  it('writes the view version into every link', () => {
+    const body = decodeURIComponent(encodeHash({ params: defaultParams(), view: VIEW, carried: {} }).slice(1))
+    expect(JSON.parse(body).__view.viewVersion).toBe(VIEW_VERSION)
+  })
+
+  it('reads a link written now that names no colours as naming none, not as silent', () => {
+    const back = decodeHash(encodeHash({ params: defaultParams(), view: VIEW, carried: {} }))?.view
+    expect(back?.theme).toBe('')
+    expect(back?.palette).toEqual([])
+    expect(back?.paper).toBe('')
+    expect(back?.ink).toBe('')
+    expect(back?.highlightColor).toBe('')
+  })
+
+  it('keeps a head height of 0 in a link written now', () => {
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, headHeight: 0 }, carried: {} })
+    expect(decodeHash(hash)?.view.headHeight).toBe(0)
+  })
+
+  it('drops a theme the element does not have: absent in a legacy link, none in a link written now', () => {
+    expect(decodeHash(legacyLink({ theme: 'drak' }))?.view.theme).toBeUndefined()
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, theme: 'drak' }, carried: {} })
+    expect(decodeHash(hash)?.view.theme).toBe('')
+  })
+
+  it('carries the voids switch, and reads a link without it as on', () => {
+    const off = encodeHash({ params: defaultParams(), view: { ...VIEW, voids: false }, carried: {} })
+    expect(decodeHash(off)?.view.voids).toBe(false)
+    expect(decodeHash(legacyLink({}))?.view.voids).toBe(true)
+  })
+
+  // A link naming any numeric version, not only today's VIEW_VERSION, reads by
+  // the current rules: a future bump must not turn this link into a legacy one.
+  it('reads a link from any view version by today’s rules', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { viewVersion: 2, headHeight: 0 } }))
+    const back = decodeHash(link)?.view
+    expect(back?.headHeight).toBe(0)
+    expect(back?.theme).toBe('')
   })
 })

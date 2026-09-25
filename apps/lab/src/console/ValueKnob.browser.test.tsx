@@ -224,3 +224,12 @@ test('a floor sitting on the knob maximum is stated too, not left to the marker 
   const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
   expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Rule bound: 1')
 })
+
+test('a fractional knob takes a decimal comma', async () => {
+  params().reset()
+  const screen = await render(<ValueKnob spec={specOf('pStraight')} />)
+  await screen.getByRole('button', { name: /^straightness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox'), '0,7')
+  await userEvent.keyboard('{Enter}')
+  expect(params().values.pStraight).toBe(0.7)
+})

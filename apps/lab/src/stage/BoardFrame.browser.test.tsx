@@ -124,7 +124,7 @@ test('on a stored preview the colour button saves the stored view, not the labâ€
 test('in the library with an empty stage the colour button changes nothing', async () => {
   const screen = await mountFrame('/boards/8x8/sha256-0')
   await act(async () => finish(finishedRun(1)))
-  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'not in the store' }))
+  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: null }))
   const element = screen.container.querySelector('arrowz-board')
   if (element === null) throw new Error('no element')
   const event = new CustomEvent('colored-change', {
@@ -407,7 +407,7 @@ test('the margin reaches the element', async () => {
 test('on the library tab a board that could not be read leaves the stage empty', async () => {
   const screen = await mountFrame('/boards/8x8/sha256-0')
   await act(async () => finish(finishedRun(1)))
-  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: 'not in the store' }))
+  await act(async () => useStore.getState().library.boardFailed({ name: '8x8/sha256-0', reason: null }))
 
   await expect.poll(() => screen.container.querySelector('arrowz-board')?.board ?? null).toBeNull()
   expect(annotation(screen.container)).toBeNull()

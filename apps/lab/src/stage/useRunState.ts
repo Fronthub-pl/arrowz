@@ -86,7 +86,14 @@ export function useRunState(): RunState {
     inLibrary && notice !== null
       ? { text: noticeText(dict, notice), bad: notice.kind === 'saveFailed' || notice.kind === 'deleteFailed' }
       : inLibrary && boardError !== null
-        ? { text: dict.t('boardFileError', boardError.name, boardError.reason), bad: true }
+        ? {
+            // Worded here, not stored: a language switch must reword it.
+            text:
+              boardError.reason === null
+                ? dict.t('boardNotStored', boardError.name)
+                : dict.t('boardFileError', boardError.name, boardError.reason),
+            bad: true,
+          }
         : null
 
   // While the library has a board on screen, the live sentence is about that

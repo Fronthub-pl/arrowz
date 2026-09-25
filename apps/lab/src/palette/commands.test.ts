@@ -49,6 +49,13 @@ describe('the catalogue', () => {
     expect(ids).toContain('view-colored')
   })
 
+  it('words a view flag row’s value in the page’s language', () => {
+    useStore.setState((state) => ({ view: { ...state.view, rounded: true, colored: false } }))
+    const rows = buildCommands({ ...deps(), dict: dictionary('pl') }, useStore.getState())
+    expect(rows.find((row) => row.id === 'view-rounded')?.value).toBe(dictionary('pl').t('valueOn'))
+    expect(rows.find((row) => row.id === 'view-colored')?.value).toBe(dictionary('pl').t('valueOff'))
+  })
+
   it('shows a knob its current value and hides its flag in the search text', () => {
     useStore.getState().params.setMany({ seed: 123 })
     const seed = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'knob-seed')
