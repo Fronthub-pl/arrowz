@@ -194,7 +194,7 @@ existing `lab-i18n.test.ts` check). `=` means unchanged.
 | headBias | arrow start (-1 layers, 0 random, 1 tunnels) · Where each new arrow starts: from the edges inwards (layers, easier), anywhere (random) or deep inside (tunnels, harder). All three fill boards up to 400×400. | start strzałek (-1 warstwy, 0 losowo, 1 tunele) · Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400. |
 | mix | share of tunnel starts (mix) · With the mixed start: the share of arrows that start as tunnels, 0.3 to 0.7; the rest start as layers. | udział startów tunelami (mieszane) · Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami. |
 | trapBias | traps (arrows that look free but are not) · A trap: an arrow blocked by exactly one other, so it looks free. Seek = a quarter to a half more; avoid = a third to an eighth as many; normal = the generator's own. | pułapki (strzałki, które wyglądają na wolne) · Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o ćwierć do połowy więcej; „unikaj” = od trzech do ośmiu razy mniej. |
-| probe | share of arrows with a target length · How many arrows get a length close to one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only. | udział strzałek o zadanej długości · Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki. |
+| probe | share of arrows with a target length · How many arrows get a length near one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only. | udział strzałek o zadanej długości · Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki. |
 | probeLen | target length · The target length in cells, give or take half. Short targets (4) triple the number of arrows; long ones (200) give fewer, longer arrows. | zadana długość · Zadana długość w komórkach, plus minus połowa. Krótka (4) potraja liczbę strzałek; długa (200) daje mniej, dłuższych. |
 | giants | number of skeleton arrows (0 = no skeleton) · How many very long arrows are laid first, snaking across the board. 0 = no skeleton; 4 is a good start. | liczba strzałek szkieletu (0 = bez szkieletu) · Ile bardzo długich strzałek układa się najpierw, wężykiem przez planszę. 0 = bez szkieletu; 4 to dobry początek. |
 | giantSpan | skeleton length (in board sides) · The target length of one skeleton arrow, in board sides. It stops earlier when it runs out of room. | długość szkieletu (w bokach planszy) · Zadana długość jednej strzałki szkieletu, w bokach planszy. Kończy wcześniej, gdy zabraknie miejsca. |
@@ -228,7 +228,7 @@ above 16", `absorbLimit` "below 12", `maxBack` "--maxback=auto spells 200",
 
 | key | EN | PL |
 |---|---|---|
-| `start.label` | arrow start | start (=) |
+| `start.label` | arrow start | start strzałek |
 | `start.help` | Where each new arrow starts while the board is built. Tunnels: deep inside, so arrows end up buried behind others. Tunnels = harder. Layers: from the edges inwards (easier, more bends). Random: anywhere. Mix: a share of tunnels among layers. | Skąd startuje każda nowa strzałka podczas budowania planszy. Tunele: w głębi, więc strzałki są zakopane za innymi. Tunele = trudniej. Warstwy: od krawędzi do środka (łatwiej, więcej zakrętów). Losowo: gdziekolwiek. Mieszane: część tuneli wśród warstw. |
 | `start.options` | layers / random / tunnels / **mix** | warstwy / losowo / tunele / **mieszane** |
 | `simple.harder` | Want it harder? In Advanced, pick a tunnels preset, or set arrow start to tunnels in the “difficulty” group. | = |
@@ -321,6 +321,21 @@ Checked against `pieceShape`: at `headHeight` 0 the tip and the base coincide,
 the head fails `fits`, and the arrow ends in a flat collar as wide as the head,
 with no point. The voids layer marks uncovered cells, so a complete board has
 none.
+
+## The annotation strip
+
+Found by the plan's dry run: at 375×812 with the violations block shown, the
+shorter rule text makes the frame taller, the height-bound 25×50 board grows,
+and its top-left cells slide 3 px under the annotation ("25×50 · seed 7",
+26 px tall). The board's margin is `pad` cells, so its height in pixels falls
+with the cell size; no margin in cells can hold a label of fixed height. The
+same fault is "What is still open" item 7 (pad 0).
+
+Decision (2026-09-25): `.fw-board` reserves a strip at its top as tall as the
+annotation and the solo toggle (30 px, one custom property), so the element and
+the board start under it at every cell size and every `pad`. The annotation and
+the toggle sit in the strip. D2 (the element's own bottom bar) is not part of
+this change.
 
 ## Statuses, library and the rest
 
