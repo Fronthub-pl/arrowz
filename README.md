@@ -833,7 +833,7 @@ waits on it, while Vite moves the second lab to the next free port (8780).
 
 The lab has two modes, and a Polish/English switch.
 
-**Simple** is the default: board size, two sliders (arrow length, line shape),
+**Simple** is the default: board size, two sliders (arrow length, winding),
 a backbone switch and the seed — the same choices as the plain command line.
 **Advanced** shows every knob from the previous section, with a description of
 each and a list of ready-made settings, from Easy 25×25 up to Insane 1000×1000.
