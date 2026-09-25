@@ -2539,7 +2539,7 @@ const PARAM_TABLE = [
       choices: [{ value: -1, word: 'avoid' }, { value: 0, word: 'off' }, { value: 1, word: 'seek' }],
     },
     help:
-      "A trap: an arrow blocked by exactly one other, so it looks free. Seek = a quarter to a half more; avoid = a third to an eighth as many; normal = the generator's own.",
+      "A trap: an arrow blocked by exactly one other, so it looks free. Seek = 25–60% more; avoid = a third to an eighth as many; the middle choice = the generator's own.",
   },
 
   {

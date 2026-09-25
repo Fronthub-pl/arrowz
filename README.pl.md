@@ -721,7 +721,7 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 | Kształt | `--warns` | 2–16 | 1 | `4` | Jak chętnie strzałka wypełnia małe zakamarki, zanim zamienią się w ślepe uliczki. Im wyżej, tym mniej strzałek, za to dłuższych i bardziej zwiniętych. **Uwaga:** 2 i 3 podnoszą prostość, jakiej wymaga duża plansza; 6 i więcej ją obniża. |
 | Kształt | `--anticoil` | 1–10 | 1 | `6` | Jak mocno strzałka stara się nie dotykać samej siebie. 1 wyłącza tę zasadę; im wyżej, tym mniej zwojów i nieco krótsze strzałki. **Uwaga:** 7 i więcej podnosi prostość, jakiej wymaga duża plansza; 4 i mniej ją obniża. |
 | Trudność | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Gdzie zaczyna się kolejna strzałka: najpłytsze miejsce (`layers`, łatwo: wiele strzałek wolnych naraz), gdziekolwiek (`random`) albo najgłębsze (`tunnels`, trudno: mało wolnych strzałek naraz). Liczba w 0.3–0.7 miesza oba style zamiast wybierać jeden — to udział strzałek zaczynających się jako tunele. |
-| Trudność | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | Jak traktowany jest start, na którego drodze do krawędzi stoi już dokładnie jedna strzałka. Taka strzałka — pułapka — wygląda potem na gotową do wyjazdu, choć wciąż blokuje ją jedna inna — i to właśnie czyni planszę trudną do odczytania. `seek` daje ich o połowę więcej, `avoid` mniej więcej cztery razy mniej. Ustawienie inne niż `off` z grubsza podwaja czas liczenia planszy. |
+| Trudność | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | Jak traktowany jest start, na którego drodze do krawędzi stoi już dokładnie jedna strzałka. Taka strzałka, pułapka, wygląda potem na gotową do wyjazdu, choć wciąż blokuje ją jedna inna — i to właśnie czyni planszę trudną do odczytania. `seek` daje ich o 25–60% więcej, `avoid` od trzech do ośmiu razy mniej. Ustawienie inne niż `off` z grubsza podwaja czas liczenia planszy. |
 | Trudność | `--probe` | 0–1 | 0.01 | `0` | Udział strzałek, których długość losuje się wokół jednej zadanej długości zamiast zwykłego podziału na trzy. |
 | Trudność | `--probelen` | 4–200 | 1 | `12` | Ta zadana długość, plus minus połowa. 4 potraja liczbę strzałek; 200 daje kilka bardzo długich. Nic nie robi, dopóki `--probe` wynosi 0. |
 | Szkielet | `--giants` | 0–40 | 1 | `0` | Ile bardzo długich strzałek układa się najpierw, jako szkielet. 0 znaczy bez szkieletu; 4 to dobry start. Prośba o dużo więcej nie szkodzi, ale nic nie daje: po pierwszych dwóch–trzech kolejne strzałki szkieletu nie mają się już gdzie zmieścić. |
@@ -761,7 +761,7 @@ nich zmieniają obrazek; czwarte zmienia coś, czego nie widać.
 | <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
 | 49 strzałek, średnio 18,4 komórki | 96 strzałek, średnio 9,4 komórki |
 
-**`--probe` — jedna docelowa długość dla wszystkich strzałek**
+**`--probe` — jedna zadana długość dla wszystkich strzałek**
 
 | `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
