@@ -30,7 +30,10 @@ const EN_RETIRED = [
 ]
 // "knob" is the CLI's own word for a setting (its "Knobs." section and
 // "knob" column), so it is refused in the lab's strings only.
-const LAB_ONLY = [/\bknobs?\b/i, /(?:^|\s)--[a-z]/]
+const LAB_ONLY_KNOB = /\bknobs?\b/i
+// A `--flag` is the CLI's own spelling; the lab's own strings, in either
+// language, never quote one.
+const LAB_ONLY_FLAG = /(?:^|\s)--[a-z]/
 const PL_RETIRED = [
   /\belement(?:y|u|ów|em|ami|ach|ie|owi)?\b/i,
   /domkn/i,
@@ -95,7 +98,7 @@ const enTexts = (): [string, string][] => [
 ]
 
 Deno.test('the English lab strings and knob texts use no retired word', () => {
-  refuse(enTexts(), [...EN_RETIRED, ...LAB_ONLY])
+  refuse(enTexts(), [...EN_RETIRED, LAB_ONLY_KNOB, LAB_ONLY_FLAG])
 })
 
 // RULE_REASONS print in the CLI's refusals too, so they get the CLI's list.
@@ -104,7 +107,7 @@ Deno.test('the rule reasons use no retired word', () => {
 })
 
 Deno.test('the Polish lab strings use no retired word', () => {
-  refuse(leaves(PL, 'PL', []), PL_RETIRED)
+  refuse(leaves(PL, 'PL', []), [...PL_RETIRED, LAB_ONLY_FLAG])
 })
 
 Deno.test('the CLI help uses no retired word outside flag, variable and group names', () => {
