@@ -303,7 +303,7 @@ test('every kind of delta reads at AA', async () => {
   readsAtAA(shownDelta(screen.container, 'better'), 'better')
 })
 
-// Four figures over the table (pieces, longest, D, time): each its number, its
+// Four figures over the table (pieces, longest, depth, time): each its number, its
 // term, then its change, and the caption says against what.
 test('the summary puts four figures over the table, term before number in the markup', async () => {
   const screen = await mountReport()
@@ -319,7 +319,7 @@ test('the summary puts four figures over the table, term before number in the ma
   expect([0, 1, 2, 3].map((at) => figure(screen.container, at).term.textContent)).toEqual([
     'arrows',
     'longest',
-    'D',
+    'depth',
     'time',
   ])
   expect(figure(screen.container, 0).value.textContent).toBe(row(screen.container, 1).cells[1]?.textContent)
@@ -338,14 +338,12 @@ test('the summary puts four figures over the table, term before number in the ma
   }
 })
 
-// What the hidden rows said stays reachable: the full name of D and the whole
-// value of longest and time, in their titles.
+// What the hidden rows said stays reachable: the whole value of longest and
+// time, in their titles; depth is named in words, so it needs no title.
 test('the summary keeps what the rows it hides used to say', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
-  const abbr = figure(screen.container, 2).term.querySelector('abbr')
-  expect(abbr?.textContent).toBe('D')
-  expect(abbr?.getAttribute('title')).toBe('depth')
+  expect(figure(screen.container, 2).term.querySelector('abbr')).toBeNull()
   expect(figure(screen.container, 1).value.title).toBe(row(screen.container, 3).cells[1]?.textContent)
   expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 22).cells[1]?.textContent)
   expect(figure(screen.container, 0).value.title).toBe('')
@@ -370,6 +368,31 @@ test('the summary compares with the previous run as the table does', async () =>
   expect(longest.className).toBe('better')
   expect(getComputedStyle(longest).color).toBe(tokenColour('--ok'))
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
+})
+
+// The summary's rows leave the table, so the summary is where their help lives.
+test("the summary's ? opens the four figures' sentences under them", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const cap = screen.container.querySelector('.fw-rsum-cap')
+  const button = cap?.parentElement?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('the summary has no ?')
+  expect(button.getAttribute('aria-label')).toBe('About these four figures')
+  expect(button.getAttribute('aria-controls')).toBe('sum-help')
+  const help = document.getElementById('sum-help')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect([...(help?.querySelectorAll('dt') ?? [])].map((dt) => dt.textContent)).toEqual([
+    'arrows',
+    'longest',
+    'depth',
+    'time',
+  ])
+  expect(help?.querySelectorAll('dd')[2]?.textContent).toMatch(/^The longest chain of arrows/)
+  expect(help?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    summary(screen.container).getBoundingClientRect().bottom,
+  )
 })
 
 // One number, one place: the rows the summary repeats leave the table.
@@ -418,6 +441,9 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
       expect(tr.scrollWidth, `${lang}: ${tr.textContent}`).toBeLessThanOrEqual(tr.clientWidth)
     for (const box of summary(screen.container).children) {
       expect(box.getBoundingClientRect().width, lang).toBeGreaterThanOrEqual(80)
+      const term = box.querySelector('dt')
+      if (!(term instanceof HTMLElement)) throw new Error('no term')
+      expect(term.scrollWidth, `${lang}: ${term.textContent}`).toBeLessThanOrEqual(term.clientWidth)
       const value = box.querySelector('dd .v')
       if (!(value instanceof HTMLElement)) throw new Error('no value')
       expect(value.scrollWidth, `${lang}: ${value.textContent}`).toBeLessThanOrEqual(value.clientWidth)

@@ -71,6 +71,25 @@
   font-size: 11px;
   color: var(--ash);
 }
+/* The caption and the summary's one `?` on a line. */
+.fw-rsum-hd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+.fw-rsum-hd .fw-rsum-cap {
+  margin: 0;
+}
+.fw-rsum-help {
+  margin: 8px 0 0;
+}
+.fw-rsum-help dt {
+  color: var(--mist);
+}
+.fw-rsum-help dd {
+  margin: 0 0 4px;
+}
 .fw-rsum {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -83,10 +102,10 @@
   grid-template-rows: auto auto auto;
   align-content: start;
   min-width: 0;
-  padding: 8px 8px 9px 0;
+  padding: 8px 4px 9px 0;
 }
 .fw-rsum > div + div {
-  padding-left: 10px;
+  padding-left: 6px;
   border-left: 1px solid var(--border);
 }
 /* The number first on screen, the term first in the markup: `dd` is a
@@ -104,14 +123,12 @@
 }
 .fw-rsum dt {
   grid-row: 2;
+  /* Held to its column, so a term too long for it overflows rather than
+     widening the track past the box's padding. */
+  min-width: 0;
   margin-top: 2px;
   font-size: 11px;
   color: var(--mist);
-}
-/* D's full name is its title (ReportSummary.tsx); no dotted underline, the
-   figure's term is a label, not a link. */
-.fw-rsum dt abbr {
-  text-decoration: none;
 }
 .fw-rsum dd small {
   grid-row: 3;

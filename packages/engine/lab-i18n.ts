@@ -485,7 +485,6 @@ export const EN = {
     // groups, one per span between the engine's separators (lab-report.ts).
     reportSummaryCap: "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
     reportHelpAbout: 'these four figures',
-    statSumD: 'D',
     statSumSeconds: (s: string) => `${s} s`,
     statGroupSize: 'size',
     statGroupBlocking: 'difficulty',
@@ -1118,7 +1117,6 @@ export const PL: Translation = {
     reportSummaryCap:
       'wobec poprzedniej planszy: zielone = lepiej, czerwone = gorzej; ? przy wierszu mówi, w którą stronę jest lepiej',
     reportHelpAbout: 'te cztery liczby',
-    statSumD: 'D',
     statSumSeconds: (s) => `${s} s`,
     statGroupSize: 'rozmiar',
     statGroupBlocking: 'trudność',
