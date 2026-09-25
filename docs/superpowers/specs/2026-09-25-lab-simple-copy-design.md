@@ -85,12 +85,13 @@ In `SimplePanel.browser.test.tsx`, both languages:
   own paragraph with the dictionary text, and no other paragraph opens;
 - the slider's `aria-describedby` names both the ends and the help;
 - the hint paragraph is in the board section with the dictionary text;
-- at the drawer width the Polish labels `dł. strzałek` and `krętość` do not
-  overflow their label track (the element needs `min-width: 0`, or the
-  overflow check cannot fail).
+- at a 720px panel and at XS the labels `dł. strzałek` and `krętość` show
+  whole beside their `?` (`.kv-lab` ellipsises and has `min-width: 0`, so the
+  check can fail; the test proves it with the old 17-character label).
 
-`start.help` contains "Tunnels = harder" / "Tunele = trudniej" in the
-component test that renders `StartKnob`.
+`start.help` contains "Tunnels = harder" / "Tunele = trudniej": an engine
+test in `lab-i18n.test.ts`, beside the check that the help names every option
+(`StartKnob` shows `dict.d.start.help` as is).
 
 Harness: the new `.q` buttons sit in `.kv-g`, which `touchTargets` already
 skips, and the `lengths-help-open` state clicks every `.kv-g .q` in the
