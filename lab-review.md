@@ -147,14 +147,14 @@ different counter over 237 files; the two numbers are not comparable.)
 | Top 3: help warns about values the slider cannot reach | open | |
 | Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open; the report's rows follow the glossary |
 | Top 5: "element" means two things in PL | open | |
-| Top 6: Simple view explains least | open | |
+| Top 6: Simple view explains least | fixed in `c96adf3`, `1f7d26b`, `bf72ebc` | Both sliders and the skeleton have a `?`; labels say arrow length and winding; the number is explained; a sentence points to a harder board. The skeleton's help claims nothing about time: measured, it costs none. |
 | Top 7: presets read as difficulty levels | open | |
 | Top 8: status and rule messages speak engine | open | |
 | Top 9: CLI details in lab help (`store.sh`, golden-angle, …) | open | |
 | Top 10: arrowhead help is a formula | open | |
 | Also found: "% of perimeter" | fixed in `e7de79a`, `6f3517b` | The row is now wide (`WIDE_KEYS`) so the PL text fits |
 | Also found: difficulty "not the look" | fixed in `e7de79a`, `6f3517b` | |
-| Also found: `start.help` drops "Tunnels = harder" | open | |
+| Also found: `start.help` drops "Tunnels = harder" | fixed in `c96adf3` | |
 
 ### Refactors
 
@@ -239,7 +239,7 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **The report is done (`lab/report-copy`); the simple view and `start.help` are next, then the glossary across the knobs and the view panel.** The saved boards' list still says "pieces" (e.g. "120 pieces · longest 69"), which belongs to the glossary pass.
+1. **The report and the simple view are done (`lab/report-copy`, `lab/simple-copy`); the glossary across the knobs and the view panel is next.** The saved boards' list still says "pieces" (e.g. "120 pieces · longest 69"), which belongs to the glossary pass.
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
