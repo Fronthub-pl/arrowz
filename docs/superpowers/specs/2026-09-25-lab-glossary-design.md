@@ -287,7 +287,7 @@ writes valid pairs); the CLI prints the same text for `--start`.
 | `headWidthHelp` (new) | How wide the arrowhead is, in cells. auto picks a width that suits the line's thickness. An arrowhead narrower than the line is widened to it. | Szerokość grotu w komórkach. auto dobiera szerokość do grubości linii. Grot węższy od linii zostaje do niej poszerzony. |
 | `headHeightLabel` | arrowhead length (cells) | długość grotu (komórki) |
 | `viewShortHeadHeight` | head length | dł. grotu |
-| `headHeightHelp` (new) | How long the arrowhead is, measured along the arrow, in cells. 0 = no arrowhead. | Długość grotu wzdłuż strzałki, w komórkach. 0 = bez grotu. |
+| `headHeightHelp` (new) | How long the arrowhead is, measured along the arrow, in cells. 0 = a flat end with no point. | Długość grotu wzdłuż strzałki, w komórkach. 0 = płaski koniec bez ostrza. |
 | `rounded` | round the corners (and the tail) (=) | = |
 | `roundedHelp` | Rounds the corners where an arrow turns, and rounds off its tail. | Zaokrągla rogi, na których strzałka skręca, i zaokrągla jej ogon. |
 | `colored` | colour the arrows (each a different colour) | koloruj strzałki (każda innym kolorem) |
@@ -317,9 +317,10 @@ writes valid pairs); the CLI prints the same text for `--start`.
 | `paletteHelp(cap)` | Your own colours for multicolour arrows, up to {cap}. A chosen theme still supplies everything you do not set. | Własne kolory dla wielobarwnych strzałek, najwyżej {cap}. Wybrany motyw nadal daje wszystko, czego nie ustawisz. |
 | `svgThemeNote` | The downloaded SVG uses its own default colours; the chosen theme is not included. | Pobrany SVG ma własne domyślne kolory; wybrany motyw nie jest w nim uwzględniony. |
 
-To check while implementing, and drop the clause if false: `headHeight` 0
-draws no arrowhead (render one board at 0 in the lab); the voids layer draws
-nothing on a complete board.
+Checked against `pieceShape`: at `headHeight` 0 the tip and the base coincide,
+the head fails `fits`, and the arrow ends in a flat collar as wide as the head,
+with no point. The voids layer marks uncovered cells, so a complete board has
+none.
 
 ## Statuses, library and the rest
 
