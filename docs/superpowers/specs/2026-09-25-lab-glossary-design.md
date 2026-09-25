@@ -127,7 +127,7 @@ taken back (its help says so), so its unit is `arrows`.
 
 | key | EN | PL |
 |---|---|---|
-| `presets.caption` | Levels set the board's size only; the options change how arrows are laid. | Poziomy ustawiają tylko rozmiar planszy; opcje zmieniają sposób układania strzałek. |
+| `presets.caption` | Levels set the board's size only; the options change its shape or how arrows are laid. | Poziomy ustawiają tylko rozmiar planszy; opcje zmieniają jej kształt albo sposób układania strzałek. |
 | `presets.modes.portrait` | tall | pionowa |
 | `presets.modes.square` | square (=) | kwadrat (=) |
 | `presets.modes.serpentine` | winding skeleton (=) | kręty szkielet |
@@ -135,7 +135,7 @@ taken back (its help says so), so its unit is `arrows`.
 | `presets.modeHelp.portrait` | Twice as tall as it is wide. | Dwa razy wyższa niż szersza. |
 | `presets.modeHelp.tunnels` | Arrows start deep inside, buried behind others: harder. | Strzałki startują w głębi, zakopane za innymi: trudniej. |
 | `presets.modeHelp.skeleton` | A few very long arrows snake across the board first. | Najpierw kilka bardzo długich strzałek wije się przez planszę. |
-| `presets.modeHelp.serpentine` | A skeleton whose runs keep breaking off: no line goes wall to wall. | Szkielet, którego biegi ciągle się urywają: żadna linia nie idzie od ściany do ściany. |
+| `presets.modeHelp.serpentine` | A skeleton whose runs keep breaking off: no run goes wall to wall. | Szkielet, którego biegi ciągle się urywają: żaden bieg nie idzie od ściany do ściany. |
 
 Sources: tunnels = `headBias: 1` and "Tunnels = harder" (`PARAM_SPEC`
 `headBias.help`); serpentine = `giantJitter: 1`, "no line goes wall to wall"
@@ -193,7 +193,7 @@ existing `lab-i18n.test.ts` check). `=` means unchanged.
 | anticoil | coil penalty · How strongly an arrow avoids touching itself. 1 = off. Higher = fewer coils, slightly shorter arrows. Above 6 big boards need more straightness. | kara zwojów · Jak mocno strzałka unika dotykania samej siebie. 1 = wyłączone. Wyżej = mniej zwojów, nieco krótsze strzałki. Powyżej 6 duże plansze wymagają większej prostości. |
 | headBias | arrow start (-1 layers, 0 random, 1 tunnels) · Where each new arrow starts: from the edges inwards (layers, easier), anywhere (random) or deep inside (tunnels, harder). All three fill boards up to 400×400. | start strzałek (-1 warstwy, 0 losowo, 1 tunele) · Skąd startuje każda nowa strzałka: od krawędzi (warstwy, łatwiej), gdziekolwiek (losowo) albo w głębi (tunele, trudniej). Wszystkie trzy wypełniają plansze do 400×400. |
 | mix | share of tunnel starts (mix) · With the mixed start: the share of arrows that start as tunnels, 0.3 to 0.7; the rest start as layers. | udział startów tunelami (mieszane) · Przy starcie mieszanym: jaka część strzałek startuje tunelami, od 0,3 do 0,7; reszta warstwami. |
-| trapBias | traps (arrows that look free but are not) · A trap: an arrow blocked by exactly one other, so it looks free. Seek = a quarter to a half more; avoid = a third to an eighth as many; normal = the generator's own. | pułapki (strzałki, które wyglądają na wolne) · Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o ćwierć do połowy więcej; „unikaj” = od trzech do ośmiu razy mniej. |
+| trapBias | traps (arrows that look free but are not) · A trap: an arrow blocked by exactly one other, so it looks free. Seek = 25–60% more; avoid = a third to an eighth as many; the middle choice = the generator's own. | pułapki (strzałki, które wyglądają na wolne) · Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = od trzech do ośmiu razy mniej. |
 | probe | share of arrows with a target length · How many arrows get a length near one target (the next row) instead of the short/medium/long mix. 1 with target 12 = a board of short arrows only. | udział strzałek o zadanej długości · Jaka część strzałek dostaje długość bliską zadanej (wiersz niżej) zamiast mieszanki krótkich, średnich i długich. 1 przy długości 12 = same krótkie strzałki. |
 | probeLen | target length · The target length in cells, give or take half. Short targets (4) triple the number of arrows; long ones (200) give fewer, longer arrows. | zadana długość · Zadana długość w komórkach, plus minus połowa. Krótka (4) potraja liczbę strzałek; długa (200) daje mniej, dłuższych. |
 | giants | number of skeleton arrows (0 = no skeleton) · How many very long arrows are laid first, snaking across the board. 0 = no skeleton; 4 is a good start. | liczba strzałek szkieletu (0 = bez szkieletu) · Ile bardzo długich strzałek układa się najpierw, wężykiem przez planszę. 0 = bez szkieletu; 4 to dobry początek. |
@@ -336,6 +336,19 @@ annotation and the solo toggle (30 px, one custom property), so the element and
 the board start under it at every cell size and every `pad`. The annotation and
 the toggle sit in the strip. D2 (the element's own bottom bar) is not part of
 this change.
+
+## After the whole-branch review (2026-09-26)
+
+- The trap help is shared with `--help=knobs`, whose word for the middle
+  choice is `off`; the help names it "the middle choice", true on both
+  surfaces. Seek's factor is the measured 1.24–1.61×, said as 25–60%.
+- The preset trigger joins level and mode with " · " ("Łatwy · pionowa"), so
+  a masculine level word and a feminine mode word do not read as one phrase.
+- The strip shows the annotation's colour (`--void`), not the frame's light
+  paper, so a dark theme gets no light band above its board.
+- The board element's own strings follow the glossary too
+  (`packages/board-element/src/i18n.ts`): "⌘-click an arrow" /
+  "klik na strzałkę", "Arrow colours" / "Kolory strzałek".
 
 ## Statuses, library and the rest
 
