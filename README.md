@@ -37,11 +37,11 @@ first appears.
 
 ### What you are looking at
 
-A board is a grid of small squares. Every square is covered by an arrow, and no
-square is left empty. An arrow is a line that walks from square to square —
-only up, down, left or right, never diagonally, and never across itself. One
-end of the line has a pointed tip. That tip is the front of the arrow, and it
-says which way the arrow wants to go.
+A board is a grid of small cells. Every cell is covered by an arrow, and no
+cell is left empty. An arrow is a line that walks from cell to cell — only up,
+down, left or right, never diagonally, and never across itself. One end of the
+line has a pointed tip, the arrowhead. The arrowhead is the front of the arrow,
+and it says which way the arrow wants to go.
 
 Here is an eight-by-eight board with each arrow in its own colour, so you can
 tell them apart:
@@ -50,9 +50,9 @@ tell them apart:
   <img src="docs/images/tiny-colorized.png" alt="A small board with seven arrows in different colours" width="360">
 </p>
 
-Seven arrows, seven tips. The green one is bent into a hook, the red one is
-bent twice, the purple one is just two squares long. Arrows can be as short as
-two squares or as long as several hundred.
+Seven arrows, seven arrowheads. The green one is bent into a hook, the red one
+is bent twice, the purple one is just two cells long. Arrows can be as short as
+two cells or as long as several hundred.
 
 Real boards use one colour for everything, because telling the arrows apart by
 eye is the whole point of the game:
@@ -64,49 +64,50 @@ eye is the whole point of the game:
 ### The one rule
 
 You tap an arrow. It tries to drive straight out of the board, in the direction
-its tip points.
+its arrowhead points.
 
-Picture a narrow lane starting just in front of the tip and running in a
-straight line to the edge of the board. That lane is the only thing that
-matters.
+Picture a narrow path starting just in front of the arrowhead and running in a
+straight line to the edge of the board. That path to the edge is the only thing
+that matters.
 
-**If the lane is clear, the arrow drives out and disappears.**
+**If the path is clear, the arrow drives out and disappears.**
 
 <p align="center">
-  <img src="docs/images/rule-free.png" alt="An arrow with a clear lane in front of its tip" width="440">
+  <img src="docs/images/rule-free.png" alt="An arrow with a clear path to the edge in front of its arrowhead" width="440">
 </p>
 
-The dark blue arrow points right. The dashed lane in front of it is empty, so
+The dark blue arrow points right. The dashed path in front of it is empty, so
 the arrow leaves the board. The grey arrow further down is irrelevant — it is
-not in the lane.
+not in the path.
 
-**If anything is standing in the lane, the move is not allowed.** The arrow
+**If anything is standing in the path, the move is not allowed.** The arrow
 lurches forward, bumps into whatever is in the way, slides back to where it
 started, and you lose a life. The bump is deliberate: it shows you what blocked
 you.
 
 <p align="center">
-  <img src="docs/images/rule-blocked.png" alt="An arrow with another arrow standing in its lane" width="440">
+  <img src="docs/images/rule-blocked.png" alt="An arrow with another arrow standing in its path to the edge" width="440">
 </p>
 
-Here the red arrow is parked across the lane, so the blue arrow cannot go
+Here the red arrow is parked across the path, so the blue arrow cannot go
 anywhere.
 
 The part that trips everyone up: **the shape of an arrow does not matter, only
-its lane.** An arrow bent into a horseshoe with another arrow sitting inside
-the bend is still free to leave — that other arrow is not in the lane.
+its path to the edge.** An arrow bent into a horseshoe with another arrow
+sitting inside the bend is still free to leave — that other arrow is not in the
+path.
 
 <p align="center">
   <img src="docs/images/rule-shape.png" alt="A horseshoe-shaped arrow with another arrow inside its bend, still free to leave" width="440">
 </p>
 
-The blue arrow curls around the grey one, but its lane, the dashed strip, is
-clear. Tap it and it goes.
+The blue arrow curls around the grey one, but its path to the edge, the dashed
+strip, is clear. Tap it and it goes.
 
-The reason this works is that an arrow travels along its own body. The tip
-moves one square forward, and every square behind it shuffles up into the space
-just vacated. The arrow never crosses a square it does not already occupy. That
-is why its curves and hooks make no difference to whether it can move.
+The reason this works is that an arrow travels along its own body. The
+arrowhead moves one cell forward, and every cell behind it shuffles up into the
+space just vacated. The arrow never crosses a cell it does not already occupy.
+That is why its curves and hooks make no difference to whether it can move.
 
 ### Winning and losing
 
@@ -130,16 +131,16 @@ Every board the generator hands back has been checked. It guarantees:
 
 | Promise | What it means for you |
 |---|---|
-| **Nothing is left over** | Every square belongs to exactly one arrow. No gaps, no overlaps. |
-| **No arrow is a single square** | The shortest arrow is two squares, because a single square would have no direction to point in. |
+| **Nothing is left over** | Every cell belongs to exactly one arrow. No gaps, no overlaps. |
+| **No arrow is a single cell** | The shortest arrow is two cells, because a single cell would have no direction to point in. |
 | **The board can always be cleared** | Before handing the board over, the generator works out who blocks whom and proves the puzzle has a solution. |
 | **It knows at least one solution** | The order in which the generator built the arrows is itself a winning order. |
 | **You cannot play yourself into a corner** | Any sequence of legal moves eventually empties the board. |
-| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical board, down to the last square. |
+| **The same request gives the same board** | Ask twice with the same settings and the same seed number, and you get the identical board, down to the last cell. |
 
-One thing it does **not** promise: that every request succeeds. On hard
-settings the generator can paint itself into a corner while building. When that
-happens, it undoes some of its work and tries again. If that still fails, it
+One thing it does **not** promise: that every request succeeds. On hard settings
+the generator can get stuck while building: it paints itself into a corner. When
+that happens, it takes some arrows back and tries again. If that still fails, it
 starts over from scratch, up to a few times. If every attempt fails, it says so
 plainly instead of handing you a broken board.
 
@@ -211,7 +212,7 @@ deno task carve --width=40 --height=40 --length=0 --colored
 # a few long snakes instead
 deno task carve --width=40 --height=40 --length=1 --winding=0 --colored
 
-# long highways crossing the whole board
+# a skeleton of very long arrows crossing the whole board
 deno task carve --width=80 --height=80 --skeleton --colored
 
 # a tall board, which is harder to play than a square one
@@ -286,7 +287,7 @@ Writes two files into `packages/cli/boards/40x40/`:
 * `sha256-e5f707067ec077e5558a8e91473371bf725b8e94467c61b4ce1436086eb2cdb4.json` — a small text file recording how it was made.
 
 The name is worked out from the arrows on the board, not from the settings.
-Another seed or other settings that happen to carve the very same arrows land in
+Another seed or other settings that happen to lay the very same arrows land in
 the same files, and the small file lists every command that made them — so
 "has this board been made before?" is "is its file there?".
 
@@ -307,7 +308,7 @@ deno task carve --width=100 --height=200 --seed=1 --count=50
 ```
 
 Makes 50 different boards on the seeds 1, 2, 3 and so on. A seed whose board
-does not close is skipped (and not saved), and so is a seed that carves a board
+is not complete is skipped (and not saved), and so is a seed that lays a board
 already in the store — its command is added to that board's file — and the next
 seed is tried, until there are 50. After twice as many seeds as boards it gives
 up; `--max-seeds=200` moves that limit. The last line says how many boards were
@@ -339,21 +340,21 @@ parts:
 ```
 
 Read that as: the board was built successfully, it holds 87 arrows, the average
-arrow is 10.3 squares long, the longest is 44, the puzzle has a solution, and
-the whole thing took 11 milliseconds. `command` is the command that reproduces
-it. `pinned` lists any knob you named yourself on the command line — empty
-here, because this run used only everyday flags; see
-["When a knob meets an everyday flag"](#when-a-knob-meets-an-everyday-flag) below.
+arrow is 10.3 cells long, the longest is 44, the puzzle has a solution, and the
+whole thing took 11 milliseconds. `command` is the command that reproduces it.
+`pinned` lists any knob you named yourself on the command line — empty here,
+because this run used only everyday flags; see ["When a knob meets an everyday
+flag"](#when-a-knob-meets-an-everyday-flag) below.
 
 This is the fastest way to try a setting: you see how many arrows you get and
 how long it took, without a single file on disk.
 
-### When a board does not close
+### When a board is not complete
 
-Rarely, at large sizes, the generator gives up before every square is covered.
+Rarely, at large sizes, the generator gives up before every cell is covered.
 The board is still saved, the description says `"ok": false`, and the command
 exits with code 1 so that scripts notice. Add `--svg` and the picture shows
-the uncovered squares tinted pink. A run that is taking too long can be cut
+the uncovered cells tinted pink. A run that is taking too long can be cut
 short:
 
 ```sh
@@ -382,7 +383,7 @@ people tuning the generator, not something you need to read. Real output:
   time          generation 22 ms, metrics 2 ms
 ```
 
-The two lines worth knowing: `coverage 100.00%` means no square was left
+The two lines worth knowing: `coverage 100.00%` means no cell was left
 uncovered, and `solvable: YES` means the puzzle can be finished.
 
 With no `--only` it walks through every difficulty level in turn, up to
@@ -418,10 +419,10 @@ puzzle, and five that change only how the picture is drawn.
 
 ### Size — `--width` and `--height`
 
-How many squares across and down. Both are required. Anything from 4 to 1000.
+How many cells across and down. Both are required. Anything from 4 to 1000.
 
 A 400×400 board is ready in under two seconds; 1000×1000 takes about ten. A
-tall board is harder to play than a square one with the same number of squares,
+tall board is harder to play than a square one with the same number of cells,
 because arrows have further to travel.
 
 | `--width=20 --height=40` | `--width=100 --height=100` |
@@ -430,8 +431,8 @@ because arrows have further to travel.
 
 ### How big a board can get
 
-The ceiling is 1000×1000 — a million squares. Past roughly two hundred squares
-a side the arrows stop being individually visible on screen, and the board
+The ceiling is 1000×1000 — a million cells. Past roughly two hundred cells a
+side the arrows stop being individually visible on screen, and the board
 turns into fabric. All three below are shown at the same width here; only the
 real size differs.
 
@@ -441,7 +442,7 @@ real size differs.
 | **3,619 arrows**, 0.2 s | **21,771 arrows**, 1.4 s | **85,809 arrows**, 9.6 s |
 
 Nothing about the puzzle changes at that size. Here is a thirty-by-thirty
-window into the million-square board, drawn at the same zoom as the 30×30
+window into the million-cell board, drawn at the same zoom as the 30×30
 boards in the comparisons below — the same picture, just one part of a much
 bigger one:
 
@@ -450,9 +451,9 @@ bigger one:
 </p>
 
 Two things are worth noticing in the numbers. The average arrow barely grows
-with the board — 11.1 squares at 200×200 against 11.7 at 1000×1000 — so a
-bigger board buys you more arrows rather than longer ones. The single longest
-arrow does grow: 213 squares, then 278, then 354.
+with the board — 11.1 cells at 200×200 against 11.7 at 1000×1000 — so a bigger
+board buys you more arrows rather than longer ones. The single longest arrow
+does grow: 213 cells, then 278, then 354.
 
 Unlike the smaller examples, these three are not stored here as drawings you
 can download. Their files run to 0.9 MB, 7 MB and 22 MB, which is more than
@@ -478,28 +479,28 @@ gives a different board of the same character. Default: 7.
 An option from 0 to 1. Default: `0.75`.
 
 Turn it **down** and the board fills with short arrows: many of them, each with
-its own tip, packed together like a field of little hooks. Turn it **up** and
-the board is made of a few long snakes with tips few and far between.
+its own arrowhead, packed together like a field of little hooks. Turn it **up**
+and the board is made of a few long snakes with arrowheads few and far between.
 
 Measured on a 30×30 board with seed 7:
 
 | `--length=0` | default (`0.75`) | `--length=1` |
 |---|---|---|
 | <img src="docs/images/length-short.png" width="250"> | <img src="docs/images/default-30.png" width="250"> | <img src="docs/images/length-long.png" width="250"> |
-| **176 arrows**, average 5.1 squares | **87 arrows**, average 10.3 squares | **65 arrows**, average 13.9 squares |
+| **176 arrows**, average 5.1 cells | **87 arrows**, average 10.3 cells | **65 arrows**, average 13.9 cells |
 
 More arrows is not automatically harder — it is a different kind of hard. Short
 arrows give you many things to look at; long arrows give you fewer but each one
 reaches further and blocks more.
 
-### Line shape — `--winding`
+### Winding — `--winding`
 
-An option from 0 to 1. Default: `0.5`. It controls how eagerly a line keeps
+An option from 0 to 1. Default: `0.5`. It controls how eagerly an arrow keeps
 going straight instead of turning: `0` is the straightest a board gets, `1` is
 the most winding.
 
 Turn it **down** and arrows run in long straight strokes. Turn it **up** and
-they wriggle, turning every few squares and worming into small pockets.
+they wriggle, turning every few cells and worming into small nooks.
 
 | `--winding=0` (straightest) | default (`0.5`) | `--winding=1` (most winding) |
 |---|---|---|
@@ -507,20 +508,20 @@ they wriggle, turning every few squares and worming into small pockets.
 | 49 arrows, 2.1 turns each | 87 arrows, 3.2 turns each | 66 arrows, 5.5 turns each |
 
 Worth noticing: pushing this option to either extreme gives you *fewer* arrows
-than the middle. Straight lines run further before they stop; winding lines
-swallow more squares per arrow while filling in corners. The busiest boards are
+than the middle. Straight arrows run further before they stop; winding arrows
+swallow more cells each while filling in corners. The busiest boards are
 the ones in between.
 
-### Backbone — `--skeleton`
+### Skeleton — `--skeleton`
 
-An on/off switch, off by default. Switch it on and the generator first lays
-down a handful of very long lines — highways zig-zagging across the whole
-board. Then it fills the channels between them with ordinary arrows.
+An on/off switch, off by default. Switch it on and the generator first lays a
+handful of very long arrows, the skeleton, snaking back and forth across the
+whole board. Then it fills the channels between them with ordinary arrows.
 
 | without | `--skeleton` |
 |---|---|
 | <img src="docs/images/skeleton-off.png" width="290"> | <img src="docs/images/skeleton-on.png" width="290"> |
-| 337 arrows, longest 103 squares | 291 arrows, longest **168** squares |
+| 337 arrows, longest 103 cells | 291 arrows, longest **168** cells |
 
 This is the only way to get genuinely long arrows. Left to itself the generator
 rarely produces one that crosses the entire board.
@@ -557,23 +558,23 @@ excellent for understanding. Every comparison picture on this page uses it.
 |---|---|
 | <img src="docs/images/seed-7.png" width="260"> | <img src="docs/images/colorized.png" width="260"> |
 
-**`--line`** is how thick the lines are, as a fraction of one square. Default
-`0.5`, meaning a line fills half its square.
+**`--line`** is how thick the lines are, as a fraction of one cell. Default
+`0.5`, meaning a line fills half its cell.
 
 | `--line=0.2` | `--line=0.9` |
 |---|---|
 | <img src="docs/images/weight-thin.png" width="260"> | <img src="docs/images/weight-thick.png" width="260"> |
 
-Note what happens to the tips. On a thin line the tip is a proper triangle,
-wider than the line. Once the line gets thick, there is no room for a wider
-triangle, so the tip becomes a sharpened point instead.
+Note what happens to the arrowheads. On a thin line the arrowhead is a proper
+triangle, wider than the line. Once the line gets thick, there is no room for a
+wider triangle, so the arrowhead becomes a sharpened point instead.
 
-**`--arrow-width`** and **`--arrow-height`** size the tips by hand, measured in
-squares. They behave differently. `--arrow-width` defaults to `auto`, meaning
-"work it out from the line thickness"; a number instead is a width in squares.
-`--arrow-height` has no such automatic mode — it is always taken literally, and
-it defaults to `1`, one whole square. Ask for `--arrow-height=0` and you get a
-tip of no height at all.
+**`--arrow-width`** and **`--arrow-height`** size the arrowheads by hand,
+measured in cells. They behave differently. `--arrow-width` defaults to `auto`,
+meaning "work it out from the line thickness"; a number instead is a width in
+cells. `--arrow-height` has no such automatic mode — it is always taken
+literally, and it defaults to `1`, one whole cell. Ask for `--arrow-height=0`
+and you get an arrowhead of no height at all.
 
 | `--arrow-width=0.6 --arrow-height=0.6` | `--arrow-width=0.9 --arrow-height=1.2` |
 |---|---|
@@ -651,7 +652,7 @@ note: --pstraight=0.9 is pinned; --winding still sets wLateral, anticoil, warns
 ```
 
 A pin can also name a knob that changes nothing under the rest of your
-settings: a skeleton knob without a skeleton, the probe length with the probe
+settings: a skeleton knob without a skeleton, the target length with the target
 share at 0. The lab dims such a row; the CLI says it on a line of its own, in
 the same words.
 
@@ -661,7 +662,7 @@ deno task carve --width=30 --height=30 --probelen=30 --dry-run
 
 ```
 note: --probelen=30 is pinned; the difficulty baseline still sets headBias, probe
-note: --probelen=30 has no effect here: only works with probe share > 0
+note: --probelen=30 has no effect here: needs target share > 0
 ```
 
 That second line is left off a `--count` batch drawn with `--randomized`:
@@ -684,10 +685,10 @@ note: --wshort moved from 0.75 to 0.4: short and medium shares together must sta
 The first line used to be the whole story, and the 0.4 in the board was a
 number nothing on the screen accounted for.
 
-What you give up by pinning: the safe ranges in the table below were measured
-as whole bundles, so a half-pinned bundle still stays inside the envelope, but
-it is no longer covered by the promise that *every* everyday combination
-closes. The envelope still has the last word — a pinned value outside its own
+What you give up by pinning: the safe ranges in the table below were measured as
+whole bundles, so a half-pinned bundle still stays inside the envelope, but it
+is no longer covered by the promise that *every* everyday combination fills its
+board. The envelope still has the last word — a pinned value outside its own
 range, or a combination that breaks a rule, is refused exactly as it would be
 otherwise.
 
@@ -709,32 +710,32 @@ knob that moves has to move here too.
 | Group | Flag | Range | Step | Default | What it does |
 |---|---|---|---|---|---|
 | Board | `--width` | 4–1000 | 1 | `25` | Columns. Under two seconds up to 400×400; about ten seconds at 1000×1000. |
-| Board | `--height` | 4–1000 | 1 | `50` | Rows. A tall board is harder to play than a square one with the same number of squares. |
+| Board | `--height` | 4–1000 | 1 | `50` | Rows. A tall board is harder to play than a square one with the same number of cells. |
 | Board | `--seed` | 0–4294967295 | 1 | `7` | Picks the board. Same seed and same knobs, same board. |
-| Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 squares). Higher means more arrows and more tips, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
-| Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 squares). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
-| Lengths | `--lmax` | `auto`\|17–5000 | 1 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** below 17 the cap swallows both the medium and the long bucket, so the share between them stops changing the board. Use `auto`, or 17 and up. |
-| Lengths | `--backbite` | 0–8 | 1 | `0` | How many times in a row a line that has run out of room may rework its own tail instead of stopping there. The arrowhead, its squares and the corridor in front of it all stay as they were: only the body behind the head is re-routed, which hands the line a new tail to grow from. 0 is off, and gives today's board square for square. At 8 the arrows come out about a third longer on average and about a quarter fewer of them; most of that is already there at 2, and the board takes no measurably longer to generate. |
-| Shape | `--pstraight` | 0.6–1 | 0.01 | `0.85` | How eagerly a line keeps going straight. Higher gives longer straight runs. **Careful:** the floor rises with the number of squares, not with the longer side. 0.6 closes 500×500, 600×600 needs 0.65, 800×800 needs 0.7 and 1000×1000 needs 0.8; a long thin board counts as its equivalent square, so 250×1000 asks no more than 500×500 does. A low `--warns` or a high `--anticoil` raises the floor further still. |
-| Shape | `--wlateral` | 0–20 | 0.5 | `3` | How much a line prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
-| Shape | `--warns` | 2–16 | 1 | `4` | How eagerly a line fills awkward corners before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** 2 and 3 raise the straightness a large board needs; at 6 and up they lower it. |
-| Shape | `--anticoil` | 1–10 | 1 | `6` | How hard a line tries not to touch itself. 1 turns it off; higher gives fewer spirals and slightly shorter arrows. **Careful:** 7 and up raise the straightness a large board needs; 4 and below lower it. |
-| Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Where the next arrow starts: the shallowest line (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
-| Difficulty | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | How a start whose corridor already holds exactly one arrow is ranked. Such an arrow ends up looking ready to leave while one other arrow still blocks it, which is the thing that makes a board hard to read. `seek` makes half again as many of them, `avoid` about a quarter as many. Anything but `off` roughly doubles the time a board takes to generate. |
-| Difficulty | `--probe` | 0–1 | 0.01 | `0` | Share of arrows whose length is drawn around one fixed target instead of the usual three-way split. |
-| Difficulty | `--probelen` | 4–200 | 1 | `12` | That fixed target, give or take half. 4 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
-| Skeleton | `--giants` | 0–40 | 1 | `0` | How many of the first arrows are highways. 0 means none; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later highways run out of room. |
-| Skeleton | `--giantspan` | 1–200 | 1 | `30` | How long one highway aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
-| Skeleton | `--giantstep` | `random`\|1–40 | 1 | `14` | The gap between the parallel runs of a highway. Small gives regular stripes like ruled paper; large gives a few sweeping highways; `random` lets it wander freely instead of running in a serpentine. |
-| Skeleton | `--giantjitter` | 0–1 | 0.05 | `0.6` | How often a run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
-| Skeleton | `--wgiant` | 0–0.2 | 0.01 | `0` | The chance that an arrow drawn later is also a highway. **Careful:** at 0.2 boards get slow and stop closing at 1000×1000. |
-| Skeleton | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | How straight a highway runs where it has free space. **Careful:** 0.5 is no preference at all; below it the knob would weigh a straight move down, which is not what its name says. |
-| Skeleton | `--giantanticoil` | 1–20 | 1 | `6` | The self-touching penalty, for highways only. Whichever is higher, this or the general `--anticoil`, wins. |
-| Skeleton | `--giantspacing` | `off`\|2\|3 | 1 | `2` | How many squares a highway keeps between its own parallel runs. `off` turns the rule off. The flag takes these three values and nothing else: a wider radius only cost time, so it is not offered. |
-| Closing | `--headtries` | 2–16 | 1 | `4` | How many starting spots to try before giving up on a direction. **Careful:** at 2 the search is shallow for hard settings. At 8 and above you usually get the same board as at 4. |
-| Closing | `--absorblimit` | 12–64 | 1 | `24` | A leftover patch up to this size that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards fail far more often. |
-| Closing | `--maxback` | `auto`\|50–1000 | 50 | `auto` | How many drawn arrows may be undone in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
-| Closing | `--restarts` | 0–5 | 1 | `3` | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
+| Lengths | `--wshort` | 0–0.9 | 0.01 | `0.2` | Share of short arrows (2–6 cells). Higher means more arrows and more arrowheads, but the board turns into a mess of little hooks. Short plus medium together may not exceed 0.9. |
+| Lengths | `--wmid` | 0–0.9 | 0.01 | `0.08` | Share of medium arrows (7–15 cells). Whatever is left over goes to long arrows. Short plus medium together may not exceed 0.9. |
+| Lengths | `--lmax` | `auto`\|17–5000 | 1 | `auto` | The longest arrow the generator will attempt. `auto` means "two and a half times the longer side". **Careful:** below 17 the cap swallows both the medium and the long sizes, so the share between them stops changing the board. Use `auto`, or 17 and up. |
+| Lengths | `--backbite` | 0–8 | 1 | `0` | How many times in a row an arrow that got stuck may rework its own tail instead of stopping there. The arrowhead, its cells and the path to the edge in front of it all stay as they were: only the body behind the arrowhead is re-routed, which hands the arrow a new tail to grow from. 0 is off, and gives the same board cell for cell. At 8 the arrows come out about a third longer on average and about a quarter fewer of them; most of that is already there at 2, and the board takes no measurably longer to generate. |
+| Shape | `--pstraight` | 0.6–1 | 0.01 | `0.85` | How eagerly an arrow keeps going straight. Higher gives longer straight runs. **Careful:** the floor rises with the number of cells, not with the longer side. 0.6 fills 500×500, 600×600 needs 0.65, 800×800 needs 0.7 and 1000×1000 needs 0.8; a long thin board counts as its equivalent square, so 250×1000 asks no more than 500×500 does. A low `--warns` or a high `--anticoil` raises the floor further still. |
+| Shape | `--wlateral` | 0–20 | 0.5 | `3` | How much an arrow prefers turning sideways over pushing deeper into open space. 0 gives long straight pushes and, occasionally, enormous spirals. |
+| Shape | `--warns` | 2–16 | 1 | `4` | How eagerly an arrow fills small nooks before they become dead ends. Higher gives fewer, longer, more curled-up arrows. **Careful:** 2 and 3 raise the straightness a large board needs; at 6 and up they lower it. |
+| Shape | `--anticoil` | 1–10 | 1 | `6` | How hard an arrow tries not to touch itself. 1 turns it off; higher gives fewer coils and slightly shorter arrows. **Careful:** 7 and up raise the straightness a large board needs; 4 and below lower it. |
+| Difficulty | `--start` | `layers`\|`random`\|`tunnels`\|0.3–0.7 | - | `random` | Where the next arrow starts: the shallowest spot (`layers`, easy: many arrows free at once), anywhere (`random`), or the deepest (`tunnels`, hard: few arrows free at once). A number in 0.3–0.7 mixes the two instead — the fraction of arrows that start as tunnels. |
+| Difficulty | `--trapbias` | `avoid`\|`off`\|`seek` | 1 | `off` | How a start whose path to the edge already holds exactly one arrow is ranked. Such an arrow, a trap, ends up looking ready to leave while one other arrow still blocks it, which is the thing that makes a board hard to read. `seek` makes half again as many of them, `avoid` about a quarter as many. Anything but `off` roughly doubles the time a board takes to generate. |
+| Difficulty | `--probe` | 0–1 | 0.01 | `0` | Share of arrows whose length is drawn around one target length instead of the usual three-way split. |
+| Difficulty | `--probelen` | 4–200 | 1 | `12` | That target length, give or take half. 4 triples the number of arrows; 200 gives a few very long ones. Does nothing unless `--probe` is above 0. |
+| Skeleton | `--giants` | 0–40 | 1 | `0` | How many very long arrows are laid first, as the skeleton. 0 means no skeleton; 4 is a good starting point. Asking for many more is harmless but pointless: after the first two or three, later skeleton arrows run out of room. |
+| Skeleton | `--giantspan` | 1–200 | 1 | `30` | How long one skeleton arrow aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
+| Skeleton | `--giantstep` | `random`\|1–40 | 1 | `14` | The run gap: cells between the back-and-forth runs of a skeleton arrow. Small gives regular stripes like ruled paper; large gives a few wide sweeps; `random` lets it wander freely instead of running back and forth. |
+| Skeleton | `--giantjitter` | 0–1 | 0.05 | `0.6` | How often a skeleton run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
+| Skeleton | `--wgiant` | 0–0.2 | 0.01 | `0` | The chance that an arrow laid later is also a skeleton arrow. **Careful:** at 0.2 boards get slow and 1000×1000 stops filling. |
+| Skeleton | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | How straight a skeleton arrow runs where it has free space. **Careful:** 0.5 is no preference at all; below it the knob would weigh a straight move down, which is not what its name says. |
+| Skeleton | `--giantanticoil` | 1–20 | 1 | `6` | The coil penalty, for skeleton arrows only. Whichever is higher, this or the general `--anticoil`, wins. |
+| Skeleton | `--giantspacing` | `off`\|2\|3 | 1 | `2` | How many cells a skeleton arrow keeps between its own parallel runs. `off` turns the rule off. The flag takes these three values and nothing else: a wider radius only cost time, so it is not offered. |
+| When stuck | `--headtries` | 2–16 | 1 | `4` | How many starting spots to try before giving up on a direction. **Careful:** at 2 the search is shallow for hard settings. At 8 and above you usually get the same board as at 4. |
+| When stuck | `--absorblimit` | 12–64 | 1 | `24` | An empty patch up to this many cells that no arrow fits into gets glued onto a neighbouring arrow. **Careful:** near the bottom of the range, leftovers pile up and boards get stuck far more often. |
+| When stuck | `--maxback` | `auto`\|50–1000 | 50 | `auto` | How many placed arrows may be taken back in one attempt before starting over. `auto` means 200, which is enough; more rarely rescues anything — it just delays the bad news. |
+| When stuck | `--restarts` | 0–5 | 1 | `3` | How many fresh attempts, each with a nudged seed, after a failure. 0 shows you the raw success rate of your settings. |
 
 Five knobs from an earlier version of this tool — `hug`, `edgehug`,
 `strandlimit`, `giantwarns` and `giantspacepenalty` — are gone. Each did
@@ -758,14 +759,14 @@ change the picture; the fourth changes something you cannot see.
 | `--wlateral=0` | `--wlateral=20` |
 |---|---|
 | <img src="docs/images/adv-lateral-0.png" width="300"> | <img src="docs/images/adv-lateral-20.png" width="300"> |
-| 49 arrows, average 18.4 squares | 96 arrows, average 9.4 squares |
+| 49 arrows, average 18.4 cells | 96 arrows, average 9.4 cells |
 
 **`--probe` — one target length for every arrow**
 
 | `--probe=1 --probelen=4` | `--probe=1 --probelen=200` |
 |---|---|
 | <img src="docs/images/adv-probe-short.png" width="300"> | <img src="docs/images/adv-probe-long.png" width="300"> |
-| 253 arrows, none longer than 4 squares | 61 arrows, longest 92 squares |
+| 253 arrows, none longer than 4 cells | 61 arrows, longest 92 cells |
 
 **`--start` — the knob you cannot see**
 
@@ -792,8 +793,8 @@ separately:
 |---|---|
 | `--wshort`, `--wmid` | Together they may not exceed 0.9, so at least a tenth of the arrows are long. |
 | `--lmax` | `auto`, or 17 and up. |
-| `--start` | A word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose start and mixing are a pair no `--start` can write is refused, because its command would rebuild a different board. |
-| `--pstraight`, `--warns`, `--anticoil` | The straightness a board needs rises with its longer side — 0.6 up to 500×500, 0.65 at 600×600, 0.7 at 800×800, 0.8 at 1000×1000 — and `--warns` below 4, or `--anticoil` above 6, raises it further; a high `--warns` or a low `--anticoil` lowers it. Below the floor the board does not close, and the refusal names the number this board needs. |
+| `--start` | A word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose arrow start and tunnel share are a pair no `--start` can write is refused, because its command would rebuild a different board. |
+| `--pstraight`, `--warns`, `--anticoil` | The straightness a board needs rises with its longer side — 0.6 up to 500×500, 0.65 at 600×600, 0.7 at 800×800, 0.8 at 1000×1000 — and `--warns` below 4, or `--anticoil` above 6, raises it further; a high `--warns` or a low `--anticoil` lowers it. Below the floor the board does not fill, and the refusal names the number this board needs. |
 
 Break a rule, put any knob outside its range, or land between two of its
 steps, and the generator refuses before drawing anything, tells you which
@@ -834,7 +835,7 @@ waits on it, while Vite moves the second lab to the next free port (8780).
 The lab has two modes, and a Polish/English switch.
 
 **Simple** is the default: board size, two sliders (arrow length, winding),
-a backbone switch and the seed — the same choices as the plain command line.
+a skeleton switch and the seed — the same choices as the plain command line.
 **Advanced** shows every knob from the previous section, with a description of
 each and a list of ready-made settings, from Easy 25×25 up to Insane 1000×1000.
 
@@ -915,15 +916,15 @@ generated and nothing was written.
 still could not fill the board. Almost always a setting marked **Careful:**
 above. Move it back towards its default, or try another seed. The board is in
 `packages/cli/boards/` all the same; add `--svg` and the picture shows the
-uncovered squares tinted pink, so you can see where it got stuck.
+uncovered cells tinted pink, so you can see where it got stuck.
 
-**`failed to close board …: covered, but the rays make a cycle`** — every
-square is filled, and still no tap is ever legal: two arrows point at each
-other, or a longer ring of them do. This is a bug in the generator, not a
-setting you chose — nothing you can type produces it, because the generator
-gives each arrow its lane before anything stands in it. If you ever see the
-line, the board is still written to `packages/cli/boards/`; please keep it and
-report it, because it is the board that should not exist.
+**`failed to close board …: covered, but the rays make a cycle`** — every cell
+is filled, and still no tap is ever legal: two arrows point at each other, or a
+longer ring of them do. This is a bug in the generator, not a setting you chose
+— nothing you can type produces it, because the generator gives each arrow its
+path to the edge before anything stands in it. If you ever see the line, the
+board is still written to `packages/cli/boards/`; please keep it and report it,
+because it is the board that should not exist.
 
 **One board takes forever** — set `CARVE_TIMEOUT_S` to a number of seconds and
 the generator stops there, saving whatever it had drawn:
@@ -960,14 +961,17 @@ CARVE_TRACE=1 deno task carve --width=200 --height=200
 
 | Word used here | What it means |
 |---|---|
-| **arrow** | One line on the board, from two to several hundred squares long, with a pointed tip at one end. The code and the English text call it a *piece*; the Polish text calls it an *element*. |
-| **tip** | The pointed end of an arrow. It shows which way the arrow travels. The code calls it the *head*. |
-| **lane** | The straight strip of squares from an arrow's tip to the edge of the board. If it is clear, the arrow can leave. The code calls it the *corridor*. |
-| **free** | An arrow with a clear lane, which can be removed right now. |
+| **arrow** | One line on the board, from two to several hundred cells long, with an arrowhead at one end. The code calls it a *piece*. |
+| **arrowhead** | The pointed end of an arrow, also called its tip. It shows which way the arrow travels. The code calls it the *head*. |
+| **path to edge** | The straight strip of cells from an arrowhead to the edge of the board. If it is clear, the arrow can leave. The code calls it the *corridor*. |
+| **free** | An arrow with a clear path to the edge, which can be removed right now. |
 | **seed** | A number that decides which board you get. Same seed and settings, same board. |
-| **backbone** | A few very long arrows drawn first, crossing the whole board. The code calls them *giants* or the *skeleton*. |
+| **skeleton** | A few very long arrows laid first, snaking across the whole board. The code calls them *giants*. |
 | **layers / tunnels** | Two ways of deciding where the next arrow starts. Layers peel the board from the outside and make it easy; tunnels dig inward and make it hard. |
-| **jam** | The generator painting itself into a corner while building, so no legal arrow can be added. |
+| **stuck** | The generator has painted itself into a corner while building, so no legal arrow can be added. It takes some arrows back, or starts over. |
+| **complete** | A board where every cell is covered by an arrow. A board that is not complete is still saved, marked `"ok": false`. |
+| **trap** | An arrow blocked by exactly one other, so it looks free when it is not. `--trapbias` asks for more or fewer of them. |
+| **target length** | The length some arrows are drawn around instead of the usual short, medium and long mix. The code calls it the *probe*. |
 | **safe range** | The measured limits of each setting. Outside them, boards stop working; the tool refuses rather than let you find out the slow way. |
 
 ---
