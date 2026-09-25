@@ -1,5 +1,6 @@
-import { Navigate, Route, Routes } from 'react-router'
+import { Route, Routes } from 'react-router'
 import { DocsRoute } from './routes/DocsRoute'
+import { KeepHashNavigate } from './routes/KeepHashNavigate'
 
 export function AppRoutes() {
   return (
@@ -13,10 +14,10 @@ export function AppRoutes() {
       <Route path="/boards/:size/:id" element={null} />
       {/* The bare path is a documentation link too. Route order does not
           matter — react-router ranks matches — but it reads better here. */}
-      <Route path="/docs" element={<Navigate to="/docs/element" replace />} />
+      <Route path="/docs" element={<KeepHashNavigate to="/docs/element" />} />
       <Route path="/docs/:what" element={<DocsRoute />} />
       {/* A stale deep link is the lab, not a blank page. */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<KeepHashNavigate to="/" />} />
     </Routes>
   )
 }
