@@ -3,9 +3,10 @@ import css from './shell.css?raw'
 
 // `.fw-board` is an ancestor of the element, and a custom property inherits
 // downward only, so it can never see `--arrowz-paper`: the frame paints the
-// lab's own token. The browser project loads no CSS, so the text is pinned.
+// lab's own token, below the strip's `--void`. The browser project loads no
+// CSS, so the text is pinned.
 test('the board frame paints the lab token outright, not a fallback', () => {
-  const rule = /\.fw-board\s*\{[^}]*background:\s*var\(--paper\)/
+  const rule = /\.fw-board\s*\{[^}]*background:\s*linear-gradient\(var\(--void\)[^;]*var\(--paper\)[^;]*\)/
   expect(css).toMatch(rule)
 })
 
