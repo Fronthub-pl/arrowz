@@ -239,7 +239,7 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **The report and the simple view are done (`lab/report-copy`, `lab/simple-copy`); the glossary across the knobs and the view panel is next.** The saved boards' list still says "pieces" (e.g. "120 pieces · longest 69"), which belongs to the glossary pass.
+1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
@@ -904,6 +904,8 @@ One term per concept for everything a player sees. Engine and CLI names can stay
 | single arrow colour | arrow colour | kolor strzałek | ink, drawing colour / tusz, kolor rysunku |
 | the visual settings panel | Look | Wygląd | element, Preview / element, Podgląd |
 | ready-made settings | preset | preset | = |
+
+Shipped on `lab/glossary`; `packages/engine/glossary.test.ts` holds the retired words.
 
 ## Best practices and refactoring
 
