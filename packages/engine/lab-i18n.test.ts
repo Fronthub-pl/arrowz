@@ -452,6 +452,7 @@ Deno.test('the preset panel has a caption and a description for every mode, in b
     assertEquals(Object.keys(d.presets.modeHelp).sort(), Object.keys(d.presets.modes).sort())
   }
   assertEquals(EN.presets.modes.portrait, 'tall')
+  assertEquals(PL.presets.modes.portrait, 'pionowa')
   assertEquals(PL.presets.modes.serpentine, 'kręty szkielet')
 })
 

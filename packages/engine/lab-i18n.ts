@@ -785,7 +785,7 @@ export const PL: Translation = {
     },
     modes: {
       square: 'kwadrat',
-      portrait: 'pion',
+      portrait: 'pionowa',
       tunnels: 'tunele',
       skeleton: 'szkielet',
       serpentine: 'kręty szkielet',
