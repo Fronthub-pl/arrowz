@@ -40,6 +40,7 @@ export const EN = {
   },
   presets: {
     placeholder: 'Preset…',
+    caption: "Levels set the board's size only; the options change how arrows are laid.",
     levels: {
       easy: 'Easy',
       medium: 'Medium',
@@ -51,10 +52,17 @@ export const EN = {
     },
     modes: {
       square: 'square',
-      portrait: 'portrait',
+      portrait: 'tall',
       tunnels: 'tunnels',
       skeleton: 'skeleton',
       serpentine: 'winding skeleton',
+    },
+    modeHelp: {
+      square: 'As wide as it is tall.',
+      portrait: 'Twice as tall as it is wide.',
+      tunnels: 'Arrows start deep inside, buried behind others: harder.',
+      skeleton: 'A few very long arrows snake across the board first.',
+      serpentine: 'A skeleton whose runs keep breaking off: no line goes wall to wall.',
     },
   },
   // The simple view (lab-simple.ts): plain choices instead of thirty knobs.
@@ -765,6 +773,7 @@ export const PL: Translation = {
   },
   presets: {
     placeholder: 'Preset…',
+    caption: 'Poziomy ustawiają tylko rozmiar planszy; opcje zmieniają sposób układania strzałek.',
     levels: {
       easy: 'Łatwy',
       medium: 'Średni',
@@ -779,7 +788,14 @@ export const PL: Translation = {
       portrait: 'pion',
       tunnels: 'tunele',
       skeleton: 'szkielet',
-      serpentine: 'szkielet z serpentynami',
+      serpentine: 'kręty szkielet',
+    },
+    modeHelp: {
+      square: 'Tak szeroka, jak wysoka.',
+      portrait: 'Dwa razy wyższa niż szersza.',
+      tunnels: 'Strzałki startują w głębi, zakopane za innymi: trudniej.',
+      skeleton: 'Najpierw kilka bardzo długich strzałek wije się przez planszę.',
+      serpentine: 'Szkielet, którego biegi ciągle się urywają: żadna linia nie idzie od ściany do ściany.',
     },
   },
   // The simple view (lab-simple.ts): plain choices instead of thirty knobs.

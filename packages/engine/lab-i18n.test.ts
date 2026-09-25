@@ -446,6 +446,15 @@ Deno.test('the preset picker and the two drawers speak both languages', () => {
   }
 })
 
+Deno.test('the preset panel has a caption and a description for every mode, in both languages', () => {
+  for (const d of [EN, PL]) {
+    assert(d.presets.caption.length > 0, 'preset caption')
+    assertEquals(Object.keys(d.presets.modeHelp).sort(), Object.keys(d.presets.modes).sort())
+  }
+  assertEquals(EN.presets.modes.portrait, 'tall')
+  assertEquals(PL.presets.modes.serpentine, 'kręty szkielet')
+})
+
 // The label track is 12ch wide in every group, so a short
 // label over 12 characters would be cut in the lab.
 Deno.test('every knob has a short label of at most 12 characters, in both languages', () => {

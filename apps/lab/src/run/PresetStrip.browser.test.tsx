@@ -41,7 +41,7 @@ describe('PresetStrip', () => {
   it('names the preset the knobs spell on its trigger, with its size', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     // The store's defaults are 25×50, which `easy-portrait` spells exactly.
-    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveTextContent('presetEasy portrait25×50▼')
+    await expect.element(screen.getByRole('button', { name: /^preset/ })).toHaveTextContent('presetEasy tall25×50▼')
     expect(screen.container.querySelector('.fw-pp-edited')).toBeNull()
   })
 
@@ -124,7 +124,7 @@ describe('PresetStrip', () => {
   it('sets the export cell size the preset implies', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await open(screen)
-    await screen.getByRole('button', { name: /Hard.*portrait/ }).click()
+    await screen.getByRole('button', { name: /Hard.*tall/ }).click()
     expect(useStore.getState().view.cell).toBe(exportCell(75, 150))
   })
 
@@ -163,7 +163,7 @@ describe('PresetStrip', () => {
   it('opens on the current preset, or on the first row when there is none', async () => {
     const screen = await render(<PresetStrip control={stub().control} />)
     await open(screen)
-    await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toMatch(/Easy.*25×50.*portrait/)
+    await expect.poll(() => document.activeElement?.getAttribute('aria-label')).toMatch(/Easy.*25×50.*tall/)
     await userEvent.keyboard('{Escape}')
     await act(async () => useStore.getState().params.set('W', 26))
     await open(screen)
@@ -176,7 +176,7 @@ describe('PresetStrip', () => {
     await open(screen)
     const at = () => document.activeElement?.getAttribute('aria-label') ?? ''
     await userEvent.keyboard('{ArrowDown}')
-    expect(at()).toMatch(/^Easy.*portrait/)
+    expect(at()).toMatch(/^Easy.*tall/)
     await userEvent.keyboard('{ArrowUp}{ArrowUp}')
     expect(at()).toMatch(/^Easy.*square/)
     await userEvent.keyboard('{End}')
@@ -287,6 +287,36 @@ describe('PresetStrip', () => {
       document.removeEventListener('keydown', seen)
     }
     expect(prevented).toBe(true)
+  })
+
+  it('says above the columns that a level sets the size only, and describes each mode', async () => {
+    const screen = await render(<PresetStrip control={stub().control} />)
+    await open(screen)
+    const panel = screen.getByRole('group', { name: 'Presets' }).element()
+    const caption = panel.querySelector('.fw-pp-cap')
+    expect(caption?.textContent).toBe("Levels set the board's size only; the options change how arrows are laid.")
+    expect(panel.getAttribute('aria-describedby')).toBe(caption?.id)
+    const tunnels = screen.getByRole('button', { name: 'Hard 75×150 tunnels' }).element()
+    const id = tunnels.getAttribute('aria-describedby') ?? ''
+    expect(document.getElementById(id)?.textContent).toBe('Arrows start deep inside, buried behind others: harder.')
+    expect(tunnels.getAttribute('title')).toBe('Arrows start deep inside, buried behind others: harder.')
+  })
+
+  // The panel is a grid: a caption that took one cell would push the Easy
+  // column to the second track, and hidden descriptions must take none.
+  it.each([1440, 1200])('keeps one column per level beside the caption at %d px', async (width) => {
+    await page.viewport(width, 900)
+    const screen = await render(<PresetStrip control={stub().control} />)
+    await open(screen)
+    const panel = screen.container.querySelector('.fw-pp-panel')
+    const caption = panel?.querySelector('.fw-pp-cap')
+    const cols = [...(panel?.querySelectorAll('.fw-pp-col') ?? [])]
+    expect(cols).toHaveLength(PRESETS.length)
+    const capBox = caption?.getBoundingClientRect()
+    const panelBox = panel?.getBoundingClientRect()
+    expect(capBox && panelBox && capBox.width).toBeGreaterThan((panelBox?.width ?? 0) - 4)
+    const first = cols[0]?.getBoundingClientRect()
+    expect(first && panelBox && Math.abs(first.left - panelBox.left)).toBeLessThan(3)
   })
 })
 

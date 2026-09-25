@@ -1,4 +1,4 @@
-import type { Params } from '@arrowz/engine'
+import type { Params, PresetMode } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { type ReactElement, useEffect, useId, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
@@ -10,6 +10,8 @@ import type { RunControl } from './useRun'
 function lastRow(col: number): number {
   return (PRESETS[col]?.options.length ?? 1) - 1
 }
+
+const MODES: readonly PresetMode[] = ['square', 'portrait', 'tunnels', 'skeleton', 'serpentine']
 
 /**
  * The preset picker: one trigger in the 38px row, naming the preset the knobs
@@ -35,6 +37,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
   const root = useRef<HTMLDivElement>(null)
   const trigger = useRef<HTMLButtonElement>(null)
   const panelId = useId()
+  const captionId = `${panelId}-cap`
 
   const close = (refocus: boolean) => {
     setOpen(false)
@@ -131,7 +134,17 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
         </span>
       </button>
       {current === null ? <span className="fw-pp-edited">{dict.t('editedSinceLastPreset')}</span> : null}
-      <div className="fw-pp-panel" id={panelId} role="group" aria-label={dict.t('presetsLabel')} hidden={!open}>
+      <div
+        className="fw-pp-panel"
+        id={panelId}
+        role="group"
+        aria-label={dict.t('presetsLabel')}
+        aria-describedby={captionId}
+        hidden={!open}
+      >
+        <p id={captionId} className="fw-pp-cap">
+          {dict.d.presets.caption}
+        </p>
         {PRESETS.map((entry, c) => {
           const levelName = levels[entry.id] ?? entry.id
           const headingId = `${panelId}-${entry.id}`
@@ -142,6 +155,7 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
                 const W = option.params.W ?? 0
                 const H = option.params.H ?? 0
                 const mode = dict.d.presets.modes[option.mode]
+                const help = dict.d.presets.modeHelp[option.mode]
                 return (
                   <button
                     key={option.id}
@@ -150,6 +164,8 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
                     data-row={r}
                     {...(current?.id === option.id ? { 'aria-current': true } : {})}
                     aria-label={`${levelName} ${W}×${H} ${mode}`}
+                    aria-describedby={`${panelId}-mode-${option.mode}`}
+                    title={help}
                     onClick={() => choose(option.params)}
                   >
                     <span>{mode}</span>
@@ -160,6 +176,13 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
             </div>
           )
         })}
+        <div hidden>
+          {MODES.map((mode) => (
+            <span key={mode} id={`${panelId}-mode-${mode}`}>
+              {dict.d.presets.modeHelp[mode]}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )
