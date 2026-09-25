@@ -455,3 +455,6 @@ boards' list. Run against a copy of the store (`ARROWZ_BOARDS_DIR`).
   them.
 - W's timing sentence ("1000×1000 takes about ten"), which is about speed,
   not vocabulary.
+- `lab-docs.ts` (the Docs tab): a developer's reference for the board
+  element, whose events and fields are named `piece-click`, `pieceId`,
+  `pieces`; its prose follows the API's names.
