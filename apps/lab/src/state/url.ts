@@ -1,3 +1,5 @@
+import { themeOf } from '@arrowz/board-element'
+import { VIEW_VERSION } from '@arrowz/engine/command'
 import type { Lang } from '@arrowz/engine/i18n'
 import { type ParamKey, type Params, readParams } from '@arrowz/engine'
 import { isLang } from './lang.slice'
@@ -12,20 +14,22 @@ export interface HashView {
   rounded: boolean
   colored: boolean
   highlightLongest: boolean
+  /** The switch that draws empty cells; a legacy link lacks it and reads as on. */
+  voids: boolean
   /** The page's language. Absent when the link predates it or names one the dictionary lacks. */
   lang?: Lang | undefined
-  /** The board theme by name. Absent when the link predates themes. */
+  /** The board theme by name. Absent only in a legacy link that names none; a link written now says `''`. */
   theme?: string | undefined
   /**
-   * The lab's custom palette. Absent (not `[]`) when the link names none, so
-   * the page keeps its own value: `BoardFrame` reads `[]` as "no palette", so
-   * only `undefined` spells "the link did not say".
+   * The lab's custom palette. Absent (not `[]`) only in a legacy link that
+   * names none, so the page keeps its own: `BoardFrame` reads `[]` as "no
+   * palette", so only `undefined` spells "the link did not say".
    */
   palette?: string[] | undefined
-  /** The board's own surface colours. Absent when the link predates them or names none. */
+  /** The board's own surface colours, by the same rule as `theme`. */
   paper?: string | undefined
   ink?: string | undefined
-  /** The highlight colour, same "not set" rule as `paper`/`ink`. Absent when the link predates it or names none. */
+  /** The highlight colour, by the same rule as `theme`. */
   highlightColor?: string | undefined
   /** The point grid. Absent when the link predates it. */
   showPoints?: boolean | undefined
@@ -84,7 +88,7 @@ export function encodeHash(input: { params: Params; view: HashView; carried: Car
     chosenHighlightColor !== undefined && chosenHighlightColor !== ''
       ? { ...withInk, highlightColor: chosenHighlightColor }
       : withInk
-  const payload = { ...input.params, __view: { ...withHighlightColor, ...input.carried } }
+  const payload = { ...input.params, __view: { ...withHighlightColor, viewVersion: VIEW_VERSION, ...input.carried } }
   return '#' + encodeURIComponent(JSON.stringify(payload))
 }
 
@@ -123,6 +127,10 @@ export function decodeHash(hash: string): HashPayload | null {
     return null
   }
   const raw = isRecord(parsed) && isRecord(parsed.__view) ? parsed.__view : {}
+  // See `VIEW_VERSION`: a link written now names every colour, so there an
+  // absent one is "none", and a head height of 0 is literal.
+  const versioned = typeof raw.viewVersion === 'number' && raw.viewVersion >= VIEW_VERSION
+  const theme = typeof raw.theme === 'string' && themeOf(raw.theme) !== null ? raw.theme : undefined
   const height = num(raw.headHeight)
   return {
     // `parsed`, not the narrowed record: the engine's reader does its own
@@ -132,9 +140,8 @@ export function decodeHash(hash: string): HashPayload | null {
       cell: num(raw.cell),
       stroke: num(raw.stroke),
       headWidth: num(raw.headWidth),
-      // 0 was "automatic" before the height became literal, and the store's
-      // own reader makes the same exception.
-      headHeight: height !== undefined && height > 0 ? height : undefined,
+      // In a legacy link 0 was "automatic"; the store's own reader makes the same exception.
+      headHeight: height !== undefined && (versioned || height > 0) ? height : undefined,
       top: num(raw.top),
       rounded: raw.rounded !== false,
       colored: raw.colored === true,
@@ -142,14 +149,15 @@ export function decodeHash(hash: string): HashPayload | null {
       // that predates the flag must not switch the highlight on for it. A
       // link written before the rename carries the old key (`hilite`) instead.
       highlightLongest: (raw.highlightLongest === undefined ? raw.hilite : raw.highlightLongest) === true,
+      voids: raw.voids !== false,
       // An old link's `help` key is ignored.
       lang: isLang(raw.lang) ? raw.lang : undefined,
-      theme: typeof raw.theme === 'string' && raw.theme !== '' ? raw.theme : undefined,
-      palette: palette(raw.palette),
-      paper: colour(raw.paper),
-      ink: colour(raw.ink),
+      theme: theme ?? (versioned ? '' : undefined),
+      palette: palette(raw.palette) ?? (versioned ? [] : undefined),
+      paper: colour(raw.paper) ?? (versioned ? '' : undefined),
+      ink: colour(raw.ink) ?? (versioned ? '' : undefined),
       // A link written before the rename carries the old key (`highlight`) instead.
-      highlightColor: colour(raw.highlightColor) ?? colour(raw.highlight),
+      highlightColor: colour(raw.highlightColor) ?? colour(raw.highlight) ?? (versioned ? '' : undefined),
       // Decodes to `undefined` rather than `false` on absence so the
       // round-trip fixture need not carry the key.
       showPoints: raw.showPoints === true ? true : undefined,

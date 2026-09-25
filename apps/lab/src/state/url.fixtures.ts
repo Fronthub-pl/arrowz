@@ -1,6 +1,10 @@
 import type { HashView } from './url'
 
-/** A complete view, shared by the codec's test and the hook's. */
+/**
+ * A complete view as the lab writes it, so a round trip returns it unchanged:
+ * a link written now names "no colour" as `''` / `[]`. The point grid and the
+ * margin are left out: `toEqual` treats an absent key and an `undefined` one alike.
+ */
 export const VIEW: HashView = {
   cell: 12,
   stroke: 0.5,
@@ -10,8 +14,11 @@ export const VIEW: HashView = {
   rounded: true,
   colored: false,
   highlightLongest: true,
+  voids: true,
   lang: 'en',
-  theme: undefined,
-  // `palette` and later optional fields are left out: `toEqual` treats an
-  // absent key and an `undefined` one alike.
+  theme: '',
+  palette: [],
+  paper: '',
+  ink: '',
+  highlightColor: '',
 }

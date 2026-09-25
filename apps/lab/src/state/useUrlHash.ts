@@ -20,6 +20,7 @@ function viewFor(view: ViewState, lang: Lang) {
     rounded: view.rounded,
     colored: view.colored,
     highlightLongest: view.highlightLongest,
+    voids: view.voids,
     lang,
     theme: view.theme,
     palette: view.palette,
@@ -49,13 +50,13 @@ function applyPayload(payload: HashPayload): void {
   view.setFlag('rounded', payload.view.rounded)
   view.setFlag('colored', payload.view.colored)
   view.setFlag('highlightLongest', payload.view.highlightLongest)
+  view.setFlag('voids', payload.view.voids)
   // Through `setLang`, so a link's language is remembered as well as shown.
   if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
-  // Absent keeps the page's own value, as for `cell`..`top`. A link naming a
-  // theme and a palette keeps both: neither setter touches the other field.
+  // Absent only in a legacy link: the page keeps its own, as for `cell`..`top`.
+  // A link written now states every colour (`''` for none), so it clears them.
   if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
   if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
-  // Absent keeps the page's own value, as for the numbers.
   if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
   if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
   if (payload.view.highlightColor !== undefined) view.setHighlightColor(payload.view.highlightColor)
