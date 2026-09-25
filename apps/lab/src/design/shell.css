@@ -360,8 +360,9 @@ body {
   --fw-strip: 30px;
   padding-top: var(--fw-strip);
   /* The element paints its own letterbox (`:host`, arrowz-board.ts); the frame
-     only shows through before it upgrades. */
-  background: var(--paper);
+     only shows through before it upgrades. The strip is the annotation's own
+     plane (`--void`), not the paper, or a dark theme gets a light band above it. */
+  background: linear-gradient(var(--void) 0 var(--fw-strip), var(--paper) 0);
   border: 1px solid var(--border);
   overflow: hidden;
 }
