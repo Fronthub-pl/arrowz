@@ -256,6 +256,24 @@ test('the longest-pieces heading keeps the report voice after the level change',
   expect(style.textTransform).toBe('uppercase')
 })
 
+test("the longest arrows' explanation is closed until its ? opens it", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const head = longestHead(screen.container)
+  expect(head.textContent).toBe('The 5 longest arrows')
+  const button = head.parentElement?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('the longest arrows have no ?')
+  expect(button.getAttribute('aria-label')).toBe('About the longest arrows')
+  // Centred on the heading's text, not on its margin box.
+  const mid = (el: Element) => el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2
+  expect(Math.abs(mid(button) - mid(head))).toBeLessThanOrEqual(1)
+  const help = document.getElementById('longest-help')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(help?.textContent).toMatch(/^Reach = /)
+})
+
 const TOKEN = { better: '--ok', worse: '--error', neutral: '--ash' } as const
 
 /** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */

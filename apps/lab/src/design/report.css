@@ -240,3 +240,15 @@
 .fw-report .fw-longest thead th {
   text-align: right;
 }
+
+/* The heading and its `?` on one line: the margins move to the line, or
+   `align-items: center` centres on the heading's uneven margin box. */
+.fw-longest-hd {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 16px 0 4px;
+}
+.fw-report .fw-longest-hd h2 {
+  margin: 0;
+}
