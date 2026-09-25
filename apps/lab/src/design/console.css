@@ -1139,3 +1139,15 @@
 .fw-simple .kv-row .fw-seg {
   justify-self: end;
 }
+/* The skeleton's two chips are wider than the one track a narrow panel
+   leaves; run past it, they cover the label's `?`. A line of their own. */
+@container (width < calc(30ch + 188px)) {
+  .fw-simple .kv-g .cc.wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 767px) {
+  .fw-simple .kv-g .cc.wide {
+    grid-column: 1 / -1;
+  }
+}

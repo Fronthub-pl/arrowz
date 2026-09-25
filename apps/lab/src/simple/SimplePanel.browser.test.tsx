@@ -452,4 +452,50 @@ describe('SimplePanel', () => {
     }
     await act(async () => state().lang.setLang('en'))
   })
+
+  // A chip that runs past its track lands on the `?`, and a tap there re-runs
+  // the board. `.fw` gives the chips the lab's padding and touch height.
+  it('leaves every ? in the board section hit at its centre, and the skeleton chips inside their row, in English and Polish', async () => {
+    for (const [viewport, width] of [
+      [375, 340],
+      [1440, 340],
+      [1440, 720],
+    ] as const) {
+      await page.viewport(viewport, 812)
+      const screen = await render(
+        <div className="fw" style={{ width: `${width}px`, containerType: 'inline-size' }}>
+          <SimplePanel control={stub().control} />
+        </div>,
+      )
+      const board = screen.container.querySelector('#simple-skeleton-label')?.closest('.kv-sect')
+      if (!(board instanceof HTMLElement)) throw new Error('no board section')
+      for (const lang of ['en', 'pl'] as const) {
+        await act(async () => state().lang.setLang(lang))
+        const marks = [...board.querySelectorAll<HTMLElement>('.q')]
+        expect(marks.length, 'the board section has its ?').toBeGreaterThanOrEqual(3)
+        for (const q of marks) {
+          q.scrollIntoView({ block: 'center' })
+          const box = q.getBoundingClientRect()
+          const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+          expect(hit !== null && q.contains(hit), `${viewport}/${width} ${lang}: ${q.getAttribute('aria-label')}`).toBe(
+            true,
+          )
+        }
+        const seg = board.querySelector('.fw-seg')
+        const ln = seg?.closest('.ln')
+        const lc = ln?.querySelector('.lc')
+        if (!(seg instanceof HTMLElement) || !(ln instanceof HTMLElement) || !(lc instanceof HTMLElement))
+          throw new Error('no skeleton row')
+        const chips = seg.getBoundingClientRect()
+        const row = ln.getBoundingClientRect()
+        const label = lc.getBoundingClientRect()
+        expect(chips.left, `${viewport}/${width} ${lang}: chips left`).toBeGreaterThanOrEqual(row.left)
+        expect(chips.right, `${viewport}/${width} ${lang}: chips right`).toBeLessThanOrEqual(row.right + 1)
+        const overlaps =
+          chips.left < label.right && label.left < chips.right && chips.top < label.bottom && label.top < chips.bottom
+        expect(overlaps, `${viewport}/${width} ${lang}: chips over the label`).toBe(false)
+      }
+    }
+    await act(async () => state().lang.setLang('en'))
+  })
 })
