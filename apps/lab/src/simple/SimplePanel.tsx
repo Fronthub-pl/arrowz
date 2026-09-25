@@ -19,17 +19,22 @@ function specOf(key: 'W' | 'H' | 'seed'): ParamSpec {
   return spec
 }
 
-/** A side of the board as a knob row, showing the recipe's value and writing it there. */
+/**
+ * A side of the board as a knob row. It shows the knobs' side, which is what
+ * Generate carves even after a preset or a link moved it past the recipe. A
+ * write takes both sides into the recipe, so the other side stays as shown.
+ */
 function SizeRow({ side }: { side: RecipeSide }): ReactElement {
-  const value = useStore((state) => state.recipe.value[side])
-  const setSide = useStore((state) => state.recipe.setSide)
+  const value = useStore((state) => state.params.values[side])
+  const setSize = useStore((state) => state.recipe.setSize)
   return (
     <ValueKnob
       spec={specOf(side)}
       value={value}
       onSet={(next) => {
         // `recipeOf` clamps and rounds; the knobs follow; the debounce runs.
-        setSide(side, next)
+        const { W, H } = useStore.getState().params.values
+        setSize(side === 'W' ? next : W, side === 'H' ? next : H)
         applyRecipe(false)
       }}
     />

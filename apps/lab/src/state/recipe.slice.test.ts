@@ -24,6 +24,13 @@ describe('the recipe slice', () => {
     expect(store.recipe.value.H).toBe(41)
   })
 
+  it('sets both sides as one debounced edit, each clamped', () => {
+    const store = slice()
+    store.recipe.setSize(5000, 40.6)
+    expect(store.recipe.value).toMatchObject({ W: 1000, H: 41 })
+    expect(store.recipe.edits).toBe(1)
+  })
+
   it('holds a slider position inside 0..1', () => {
     const store = slice()
     store.recipe.setSlider('shape', 1.7)
