@@ -129,7 +129,7 @@ export function decodeHash(hash: string): HashPayload | null {
   const raw = isRecord(parsed) && isRecord(parsed.__view) ? parsed.__view : {}
   // See `VIEW_VERSION`: a link written now names every colour, so there an
   // absent one is "none", and a head height of 0 is literal.
-  const versioned = typeof raw.viewVersion === 'number' && raw.viewVersion >= VIEW_VERSION
+  const versioned = typeof raw.viewVersion === 'number'
   const theme = typeof raw.theme === 'string' && themeOf(raw.theme) !== null ? raw.theme : undefined
   const height = num(raw.headHeight)
   return {

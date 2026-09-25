@@ -284,4 +284,13 @@ describe('the hash codec', () => {
     expect(decodeHash(off)?.view.voids).toBe(false)
     expect(decodeHash(legacyLink({}))?.view.voids).toBe(true)
   })
+
+  // A link naming any numeric version, not only today's VIEW_VERSION, reads by
+  // the current rules: a future bump must not turn this link into a legacy one.
+  it('reads a link from any view version by today’s rules', () => {
+    const link = '#' + encodeURIComponent(JSON.stringify({ __view: { viewVersion: 2, headHeight: 0 } }))
+    const back = decodeHash(link)?.view
+    expect(back?.headHeight).toBe(0)
+    expect(back?.theme).toBe('')
+  })
 })

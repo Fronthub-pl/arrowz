@@ -70,7 +70,7 @@ function readMeta(file: string): BoardMeta | null {
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
     const sources: Recipe[] = Array.isArray(meta.sources) ? meta.sources : []
-    const versioned = (meta.viewVersion ?? 1) >= VIEW_VERSION
+    const versioned = meta.viewVersion !== undefined
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },

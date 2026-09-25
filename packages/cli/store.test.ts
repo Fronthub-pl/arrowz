@@ -307,6 +307,19 @@ Deno.test('a meta written before the view version reads a head height of 0 as th
   assertEquals(DEFAULT_VIEW.headHeight, 1)
 })
 
+// A meta naming any numeric version, not only today's VIEW_VERSION, reads by
+// the current rules: a future bump must not turn this meta into a legacy one.
+Deno.test('a meta with a literal past view version reads a head height of 0 by today’s rules', async () => {
+  const dir = freshDir()
+  const { meta } = await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
+  const file = join(dir, '25x50', `${meta.id}.json`)
+  const { viewVersion: _, ...rest } = readMeta(file)
+  Deno.writeTextFileSync(file, JSON.stringify({ ...rest, viewVersion: 2 }))
+  const board = listBoards()[0]?.boards[0]
+  assertEquals(board?.view.headHeight, 0)
+  assertEquals(board?.sources[0]?.view.headHeight, 0, 'the recipe is read the same way')
+})
+
 // One marker per meta is enough only because a save rewrites every recipe it
 // read, already filled by `readMeta`.
 Deno.test('a save over a legacy meta keeps its old recipes at the default head height', async () => {
