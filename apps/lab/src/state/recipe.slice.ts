@@ -17,6 +17,8 @@ export interface RecipeState {
    */
   edits: number
   setSide(side: RecipeSide, value: number): void
+  /** Both sides in one write, so the pair counts as one edit. */
+  setSize(W: number, H: number): void
   setSlider(slider: RecipeSlider, position: number): void
   setSkeleton(skeleton: Recipe['skeleton']): void
   setRandom(on: boolean): void
@@ -54,6 +56,7 @@ export function createRecipeSlice(set: SetStore): RecipeState {
     value: recipeOf(parse(readStored(RECIPE_KEY))),
     edits: 0,
     setSide: (side, v) => write((current) => ({ ...current, [side]: v }), true),
+    setSize: (W, H) => write((current) => ({ ...current, W, H }), true),
     setSlider: (slider, position) => write((current) => ({ ...current, [slider]: position }), true),
     setSkeleton: (skeleton) => write((current) => ({ ...current, skeleton }), false),
     setRandom: (random) => write((current) => ({ ...current, random }), false),

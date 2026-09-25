@@ -108,12 +108,28 @@ describe('SimplePanel', () => {
     expect(g.started()).toBe(0)
   })
 
-  // A knob moved in the advanced view leaves the recipe where it was.
-  it('shows the recipe’s size, not a knob moved behind its back', async () => {
+  // A preset, a link or Load into lab moves the knobs and leaves the recipe where it was.
+  it('shows the size Generate carves, not the recipe’s', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)
     const recipe = state().recipe.value.W
     await act(async () => void state().params.set('W', recipe + 7))
-    await expect.element(screen.getByRole('button', { name: `width: ${recipe}` })).toBeVisible()
+    await expect.element(screen.getByRole('button', { name: `width: ${recipe + 7}` })).toBeVisible()
+  })
+
+  it('keeps the other side the knobs have when one side is typed', async () => {
+    const g = stub()
+    const screen = await render(<SimplePanel control={g.control} />)
+    await act(async () => void state().params.setMany({ W: 1000, H: 1000 }))
+    const shaped = state().recipe.edits
+    await screen.getByRole('button', { name: /^width/ }).click()
+    await userEvent.fill(screen.getByRole('textbox'), '900')
+    await userEvent.keyboard('{Enter}')
+    expect(state().recipe.value).toMatchObject({ W: 900, H: 1000 })
+    expect(state().params.values).toMatchObject({ W: 900, H: 1000 })
+    expect(state().params.values).toEqual(drawn())
+    expect(state().recipe.edits).toBe(shaped + 1)
+    await expect.element(screen.getByRole('button', { name: 'height: 1000' })).toBeVisible()
+    expect(g.started()).toBe(0)
   })
 
   it('moves the recipe and the knobs with a slider, and starts nothing', async () => {
