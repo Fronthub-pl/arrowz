@@ -342,6 +342,14 @@ Deno.test('the knobs speak of arrows, skeletons and target lengths, in both lang
   assertEquals(PL.short.giantStep, 'przerwa')
   assertEquals(EN.groups.closing, 'when stuck')
   assertEquals(PL.groups.closing, 'gdy utknie')
+  assertEquals(
+    PL.groupHelp.lengths,
+    'Strzałki są trzech rozmiarów: krótkie (2–6 komórek), średnie (7–15) i długie (od 16 do najdłuższej). Ustaw udział krótkich i średnich; długie dostają resztę.',
+  )
+  assertEquals(
+    PL.groupHelp.closing,
+    'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
+  )
   assertEquals(EN.start.options.mixing, 'mix')
   assertEquals(PL.start.options.mixing, 'mieszane')
   assertEquals(dictionary('en').reason('skeletonOff'), 'needs skeletons > 0 or late chance > 0')

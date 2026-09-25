@@ -177,7 +177,7 @@ describe('the matcher', () => {
     expect(matches.map((row) => row.id)).toContain('run-reseed')
   })
 
-  // 'run' matches the five run rows' note, `knob-giantStep`'s short label and
+  // 'run' matches the five run rows' note, and `knob-giantStep`'s and
   // `knob-giantJitter`'s label; no name starts with it, so all seven share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {
     const rows = buildCommands(deps(), useStore.getState())

@@ -753,13 +753,16 @@ export const PL: Translation = {
     },
   },
   groupHelp: {
-    lengths: 'Trzy koszyki: krótkie 2–6, średnie 7–15, długie od 16 do maksimum. Koszyk długi dostaje resztę wagi.',
-    shape: 'Wagi wyboru kolejnej komórki linii. Mnożą się, więc jedna skrajna wartość zagłusza pozostałe.',
+    lengths:
+      'Strzałki są trzech rozmiarów: krótkie (2–6 komórek), średnie (7–15) i długie (od 16 do najdłuższej). Ustaw udział krótkich i średnich; długie dostają resztę.',
+    shape:
+      'Jak strzałki skręcają podczas budowania planszy: proste odcinki, kroki w bok, zwoje. Ustawienia się mnożą, więc jedna skrajna wartość zagłusza resztę.',
     difficulty:
-      'Gdzie zaczynają się elementy, jak są wybierane i jak są długie. Zmienia to, jak trudno znaleźć element z wolną drogą.',
-    skeleton: 'Pierwsze elementy prowadzone serpentyną przez całą planszę. Jedyny sposób na naprawdę długie linie.',
+      'Jak trudna będzie gotowa łamigłówka: skąd startują strzałki, ile pułapek i część strzałek o zadanej długości. Część z nich zmienia też wygląd.',
+    skeleton:
+      'Kilka bardzo długich strzałek układanych na początku, wężykiem przez całą planszę; reszta wypełnia miejsce wokół nich. Jedyny sposób na naprawdę długie strzałki.',
     closing:
-      'Co robić, gdy nie ma legalnego wycięcia. Domyślne domykają plansze do 400×400; te pokrętła są do eksperymentów.',
+      'Co robi generator, gdy utknie. Domyślne wypełniają każdą planszę do 400×400; zmieniaj je tylko eksperymentalnie.',
   },
   presets: {
     placeholder: 'Preset…',
