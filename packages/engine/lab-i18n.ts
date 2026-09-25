@@ -70,9 +70,9 @@ export const EN = {
       shape: ['straightest', 'most winding'],
     },
     lengthsHelp:
-      "Left: many short arrows. Right: fewer, longer ones. The number is the slider's position from 0 to 100, not a setting; the detailed settings follow from it.",
+      "Left: many short arrows. Right: fewer, longer ones. The number is the slider's position from 0 to 100, not a setting's value; the detailed settings follow from it.",
     shapeHelp:
-      "Left: long straight arrows. Right: arrows that bend and wind a lot. The number is the slider's position from 0 to 100, not a setting; the detailed settings follow from it.",
+      "Left: straight arrows. Right: arrows that bend and wind a lot. The number is the slider's position from 0 to 100, not a setting's value; the detailed settings follow from it.",
     skeletonHelp: 'Starts the board with a few very long arrows snaking across it; the rest fills in around them.',
     randomize: 'randomise the settings on every generate',
     // The row's short label; the sentence above is its title.
@@ -80,7 +80,8 @@ export const EN = {
     randomizeHelp:
       'Each Generate picks fresh settings within a safe range for this size and these choices, so you get a new board every time, even with the same seed. See the picked values in Advanced.',
     // No presets in this view, so the hint sends the player to the advanced one.
-    harder: 'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the difficulty group.',
+    harder:
+      'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the “difficulty” group.',
   },
   // The one control the lab builds by hand, because the CLI has one flag for
   // the two knobs behind it: --start writes headBias and mix together, so
@@ -785,17 +786,17 @@ export const PL: Translation = {
       shape: ['najprostsze', 'najbardziej kręte'],
     },
     lengthsHelp:
-      'W lewo: dużo krótkich strzałek. W prawo: mniej, ale dłuższych. Liczba to pozycja suwaka od 0 do 100, nie ustawienie; szczegółowe ustawienia wynikają z niej.',
+      'W lewo: dużo krótkich strzałek. W prawo: mniej, ale dłuższych. Liczba to pozycja suwaka od 0 do 100, a nie wartość ustawienia; szczegółowe ustawienia wynikają z niej.',
     shapeHelp:
-      'W lewo: długie proste strzałki. W prawo: strzałki, które dużo skręcają i się wiją. Liczba to pozycja suwaka od 0 do 100, nie ustawienie; szczegółowe ustawienia wynikają z niej.',
+      'W lewo: proste strzałki. W prawo: strzałki, które dużo skręcają i wiją się. Liczba to pozycja suwaka od 0 do 100, a nie wartość ustawienia; szczegółowe ustawienia wynikają z niej.',
     skeletonHelp:
-      'Zaczyna planszę od kilku bardzo długich strzałek wijących się przez planszę; reszta wypełnia miejsce wokół nich.',
+      'Zaczyna planszę od kilku bardzo długich strzałek, które wiją się po całej planszy; reszta wypełnia miejsce wokół nich.',
     randomize: 'losuj ustawienia przy każdym generowaniu',
     randomizeShort: 'losuj',
     randomizeHelp:
       'Każde „Generuj” dobiera nowe ustawienia w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc za każdym razem dostajesz inną planszę, nawet przy tym samym ziarnie. Wybrane wartości zobaczysz w widoku zaawansowanym.',
     harder:
-      'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie trudność ustaw start na tunele.',
+      'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie „trudność” ustaw start na tunele.',
   },
   start: {
     label: 'start elementów',

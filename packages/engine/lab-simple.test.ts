@@ -420,11 +420,11 @@ Deno.test('the simple view speaks of arrows and winding, in both languages', () 
   assertEquals(PL.simple.ends.shape, ['najprostsze', 'najbardziej kręte'])
   assertEquals(
     EN.simple.harder,
-    'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the difficulty group.',
+    'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the “difficulty” group.',
   )
   assertEquals(
     PL.simple.harder,
-    'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie trudność ustaw start na tunele.',
+    'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie „trudność” ustaw start na tunele.',
   )
   // The hint names the group and the preset mode by their visible words.
   for (const d of [EN, PL]) {
