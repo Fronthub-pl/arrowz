@@ -20,12 +20,13 @@
 - Lab tests run in two Vitest projects, `node` and `chromium`; `npx vitest run <path>` from `apps/lab` runs both. The chromium project loads only the stylesheets a test imports.
 - Commit after each task; no attribution lines in commit messages.
 - Every task ends with `deno task test` (in `packages/engine`) and the touched lab test files green.
+- Before every commit: `deno fmt packages/engine` and `pnpm --dir apps/lab exec prettier --write src`, then `pnpm nx run lab:fmt` must pass (it only checks).
 
 ## Review Focus
 
 1. A language switch while a row's help is open: the paragraph turns Polish and stays open (Task 2 test).
 2. A new result while a help is open: the same row's help stays open, not a neighbour's (Task 2 test).
-3. The summary's four rows leave the table: their help must be reachable from the summary, not from a hidden row (Task 3 test).
+3. The summary's four rows leave the table: their help must be reachable from the summary's one `?`, not from a hidden row (Task 3 test).
 4. Polish at the L drawer's 352px with the longest Polish help open: nothing runs past its row (Task 2 test, extends the 352px case).
 5. A finger: the report's `?` gets the same 32px target as the knobs' under `(pointer: coarse), (max-width: 767px)`, and a row with it keeps its label on one line (Task 2 CSS; checked in the live pass, Task 5).
 
@@ -193,7 +194,7 @@ Deno.test('the Polish values follow the new words', () => {
   assertEquals(value('f0'), '50%')
   assertEquals(value('outDeg'), '2.4 strz.')
   assertEquals(value('stall'), '20% ułożonych strzałek, osiągają 90% zaplanowanej długości')
-  assertEquals(value('absorbed'), '3 łatek (45 komórek)')
+  assertEquals(value('absorbed'), '3 łatki (45 komórek)')
   assertEquals(value('time'), 'generowanie 3.46 s, statystyki 0.12 s')
 })
 ```
@@ -272,11 +273,13 @@ In `packages/engine/lab-i18n.ts`, `EN.ui`, set these values (keys unchanged unle
     stat_stall: 'stopped short',
     stat_stallVal: (pStall: string, pGot: string) => `${pStall} of arrows laid, reaching ${pGot} of the planned length`,
     stat_absorbed: 'merged leftovers',
-    stat_absorbedVal: (n: number, cells: number) => `${n} patches (${cells} cells)`,
+    stat_absorbedVal: (n: number, cells: number) => `${n} ${n === 1 ? 'patch' : 'patches'} (${cells} cells)`,
     longestHead: (n: number) => `The ${n} longest arrows`,
     longestHelp:
       'Reach = what fraction of the board side the arrow covers. Density = how tightly it fills its rectangle. Coiling = share of cells touching their own path on three sides. A snake crossing the board has a high reach and low other two; a coil the opposite.',
     th_span: 'reach',
+    longestName: 'the longest arrows',
+    reportHelpAbout: 'these four figures',
     reportSummaryCap: "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
     statGroupBlocking: 'difficulty',
     statGroupRun: 'generator',
@@ -307,13 +310,15 @@ In `PL.ui`, set:
     stat_stall: 'urwane przed celem',
     stat_stallVal: (pStall, pGot) => `${pStall} ułożonych strzałek, osiągają ${pGot} zaplanowanej długości`,
     stat_absorbed: 'doklejone resztki',
-    stat_absorbedVal: (n, cells) => `${n} łatek (${cells} komórek)`,
+    stat_absorbedVal: (n, cells) => `${n} ${plCount(n, 'łatka', 'łatki', 'łatek')} (${cells} komórek)`,
     stat_timeVal: (g, m) => `generowanie ${g} s, statystyki ${m} s`,
     stat_genVal: (g) => `generowanie ${g} s`,
     longestHead: (n) => `${n} najdłuższych strzałek`,
     longestHelp:
       'Zasięg = jaką część boku planszy strzałka obejmuje. Gęstość = jak ciasno wypełnia swój prostokąt. Zwinięcie = udział komórek dotykających własnej ścieżki z trzech stron. Wąż przecinający planszę ma wysoki zasięg i niskie dwa pozostałe; zwój — odwrotnie.',
     th_span: 'zasięg',
+    longestName: 'najdłuższe strzałki',
+    reportHelpAbout: 'te cztery liczby',
     reportSummaryCap: 'wobec poprzedniej planszy: zielone = lepiej, czerwone = gorzej; ? przy wierszu mówi, w którą stronę jest lepiej',
     statGroupBlocking: 'trudność',
     statGroupRun: 'generator',
@@ -345,7 +350,9 @@ In `apps/lab/src/report/ReportPanel.browser.test.tsx`, change only expected stri
 Run: `cd apps/lab && npx vitest run src/report && cd ../.. && pnpm nx run lab:check`
 Expected: PASS (both projects). If another lab test fails on a renamed string, update its expected string the same way and name it in the commit.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Format and commit**
+
+Run: `deno fmt packages/engine && pnpm --dir apps/lab exec prettier --write src && pnpm nx run lab:fmt`
 
 ```bash
 git add packages/engine/lab-report.ts packages/engine/lab-i18n.ts packages/engine/lab-report.test.ts apps/lab/src/report/ReportPanel.browser.test.tsx
@@ -360,6 +367,7 @@ git commit -m "Report: every row carries its help, in player's words, and depth,
 - Create: `apps/lab/src/report/StatRowView.tsx`
 - Modify: `apps/lab/src/report/StatsTable.tsx`, `apps/lab/src/report/StoredFacts.tsx`
 - Modify: `apps/lab/src/design/report.css`, `apps/lab/src/design/console.css`
+- Modify: `apps/lab/src/harness/invariants.ts` (`touchTargets`), `apps/lab/src/routes/LayoutInvariants.browser.test.tsx` (`arrange`)
 - Test: `apps/lab/src/report/ReportPanel.browser.test.tsx`
 
 **Interfaces:**
@@ -436,12 +444,17 @@ test('a stored board explains its rows the same way', async () => {
 In `'at 352px nothing in the report runs past its row…'`, open the longest Polish help before the checks, inside the language loop, after `setLang`:
 
 ```ts
-    // The longest sentence in either language, open: it wraps inside its own cell.
-    const dist = row(screen.container, 14).cells[0]?.querySelector('button.q')
-    if (dist?.getAttribute('aria-expanded') === 'false') await act(async () => (dist as HTMLButtonElement).click())
+    // The longest sentence in either language (stall), open: it wraps inside its own cell.
+    const stall = row(screen.container, 19).cells[0]?.querySelector('button.q')
+    if (stall?.getAttribute('aria-expanded') === 'false') await act(async () => (stall as HTMLButtonElement).click())
 ```
 
-(Row 14 is `blockDist`; the existing loops then cover its `td.st-help`.)
+(Row 19 is `stall`; the existing loops then cover its `td.st-help`.)
+
+In the same test the `th` is now a flex box holding a 32px `?` at the default 414px viewport (`(max-width: 767px)` matches), so measure the label's text, not the cell:
+
+- the wide-row check: `const label = tr.querySelector('th .st-lab')`;
+- the board check: `expect(top(board.cells[1]), lang).toBe(top(board.cells[0]?.querySelector('.st-lab') ?? undefined))`.
 
 - [ ] **Step 2: Run them to see them fail**
 
@@ -557,7 +570,6 @@ In `apps/lab/src/design/report.css`, replace the row's `min-height` with a first
 
 - `tr.grp`: replace `min-height: 0;` with `grid-template-rows: auto;`.
 - `tr.long`: add `grid-template-rows: minmax(20px, auto);` (its 7px padding plus 20 is the 34 it had).
-- The group boundary must not pad the help cell: change `.fw-report .fw-stats tbody + tbody tr:first-child > *` to `.fw-report .fw-stats tbody + tbody tr:first-child > :not(.st-help)`.
 - Add:
 
 ```css
@@ -578,6 +590,11 @@ In `apps/lab/src/design/console.css`, give the report's `?` the knobs' look and 
 
 The test mounts `.fw` around the panel, so these selectors apply there too.
 
+Harness, which knows only the knobs' `?` today:
+
+- `apps/lab/src/harness/invariants.ts`, `touchTargets`: `if (node.matches('.kv-g .q, .fw-report .q, .kv-chip')) continue`, and name the report's `?` in the doc comment above the exemption, beside the knobs' one.
+- `apps/lab/src/routes/LayoutInvariants.browser.test.tsx`, `arrange`: the poll that waits for every knob help to open counts only the knobs' — `querySelectorAll('.kv-g .kv-help.fw-vh')` — since the report's closed paragraphs share the class.
+
 - [ ] **Step 6: Run the report tests, then the whole lab**
 
 Run: `cd apps/lab && npx vitest run src/report`
@@ -585,10 +602,12 @@ Expected: PASS — including the existing `f0` height of 34px, the 352px case in
 Run: `cd ../.. && pnpm nx run lab:test && pnpm nx run lab:check && pnpm nx run lab:lint`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Format and commit**
+
+Run: `pnpm --dir apps/lab exec prettier --write src && pnpm nx run lab:fmt`
 
 ```bash
-git add apps/lab/src/report apps/lab/src/design/report.css apps/lab/src/design/console.css
+git add apps/lab/src/report apps/lab/src/design/report.css apps/lab/src/design/console.css apps/lab/src/harness/invariants.ts apps/lab/src/routes/LayoutInvariants.browser.test.tsx
 git commit -m "Report: a ? on every row of the run's and the stored board's table opens its help"
 ```
 
@@ -602,16 +621,12 @@ git commit -m "Report: a ? on every row of the run's and the stored board's tabl
 - Test: `apps/lab/src/report/ReportPanel.browser.test.tsx`
 
 **Interfaces:**
-- Consumes: `StatRow.help`, `useKnobHelp` (as in Task 2).
-- Produces: summary help ids `sum-help-<key>` for `pieces`, `longest`, `D`, `time`.
+- Consumes: `StatRow.help`, `useKnobHelp`, `reportHelpAbout` (Task 1).
+- Produces: one help, id `sum-help`, holding the four figures' sentences as a `<dl>` (term = the row's label, description = its help).
+
+A `?` per figure does not fit: at the 352px drawer a figure's column leaves 61px for its term, and a flex term with a `?` overflows even in English (measured in the plan's dry run). So the summary has one `?`, beside its caption.
 
 - [ ] **Step 1: Write the failing tests**
-
-In the test file, `figure()` reads the term's label: change its `term` to the `.st-lab` inside `dt`, and keep the `dt` as `box`'s first child for the markup-order check:
-
-```ts
-  const term = box?.querySelector('dt .st-lab')
-```
 
 Change the assertions:
 
@@ -619,24 +634,40 @@ Change the assertions:
 - `'the summary keeps what the rows it hides used to say'`: replace the two `abbr` lines with
 
 ```ts
-  expect(figure(screen.container, 2).term.closest('dt')?.querySelector('abbr')).toBeNull()
+  expect(figure(screen.container, 2).term.querySelector('abbr')).toBeNull()
+```
+
+- `'at 352px nothing in the report runs past its row…'`: inside the loop over the summary's boxes, also
+
+```ts
+      const term = box.querySelector('dt')
+      if (!(term instanceof HTMLElement)) throw new Error('no term')
+      expect(term.scrollWidth, `${lang}: ${term.textContent}`).toBeLessThanOrEqual(term.clientWidth)
 ```
 
 Add:
 
 ```ts
 // The summary's rows leave the table, so the summary is where their help lives.
-test("a summary term's ? opens its row's help under the four figures", async () => {
+test("the summary's ? opens the four figures' sentences under them", async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
-  const depth = figure(screen.container, 2).term.closest('dt')?.querySelector('button.q')
-  if (!(depth instanceof HTMLButtonElement)) throw new Error('depth has no ?')
-  expect(depth.getAttribute('aria-controls')).toBe('sum-help-D')
-  const help = document.getElementById('sum-help-D')
+  const cap = screen.container.querySelector('.fw-rsum-cap')
+  const button = cap?.parentElement?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('the summary has no ?')
+  expect(button.getAttribute('aria-label')).toBe('About these four figures')
+  expect(button.getAttribute('aria-controls')).toBe('sum-help')
+  const help = document.getElementById('sum-help')
   expect(help?.classList.contains('fw-vh')).toBe(true)
-  await act(async () => depth.click())
+  await act(async () => button.click())
   expect(help?.classList.contains('fw-vh')).toBe(false)
-  expect(help?.textContent).toMatch(/^The longest chain of arrows/)
+  expect([...(help?.querySelectorAll('dt') ?? [])].map((dt) => dt.textContent)).toEqual([
+    'arrows',
+    'longest',
+    'depth',
+    'time',
+  ])
+  expect(help?.querySelectorAll('dd')[2]?.textContent).toMatch(/^The longest chain of arrows/)
   expect(help?.getBoundingClientRect().top).toBeGreaterThanOrEqual(summary(screen.container).getBoundingClientRect().bottom)
 })
 ```
@@ -644,61 +675,90 @@ test("a summary term's ? opens its row's help under the four figures", async () 
 - [ ] **Step 2: Run to see them fail**
 
 Run: `cd apps/lab && npx vitest run src/report/ReportPanel.browser.test.tsx`
-Expected: FAIL — no `.st-lab` in `dt`, `abbr` still there.
+Expected: FAIL — no `?` by the caption; the term reads `D`; in PL the `dt` of "najdłuższa" (66px) overflows its 61px.
 
 - [ ] **Step 3: Implement**
 
-`ReportSummary.tsx`: the term gets a `?`, and the paragraphs go after the `<dl>`, inside `.fw-rsum-wrap` (keep the value and change markup as it is). One `useKnobHelp` per summary key at the top of `ReportSummary`, in `SUMMARY_KEYS` order, each fed the row's label and help (`''` while a row is missing). Hooks at the top level, never in `map`:
+`useKnobHelp` renders its text in a `<p>`, and the summary's help is a list, so the summary takes only the hook's button and renders its own panel. The open state lives in the hook, so the hook returns it too. In `apps/lab/src/console/KnobRow.tsx`:
 
-```tsx
-  const helpFor = (key: StatKey) => byKey(rows, key)
-  const pieces = useKnobHelp('sum-help-pieces', helpFor('pieces')?.label ?? '', helpFor('pieces')?.help ?? '')
-  const longest = useKnobHelp('sum-help-longest', helpFor('longest')?.label ?? '', helpFor('longest')?.help ?? '')
-  const depth = useKnobHelp('sum-help-D', helpFor('D')?.label ?? '', helpFor('D')?.help ?? '')
-  const time = useKnobHelp('sum-help-time', helpFor('time')?.label ?? '', helpFor('time')?.help ?? '')
-  const helps: Record<(typeof SUMMARY_KEYS)[number], ReturnType<typeof useKnobHelp>> = { pieces, longest, D: depth, time }
+```ts
+  return { button, paragraph, open }
 ```
 
-These calls must come before the `if (rows.length === 0) return null` (rules of hooks), so compute `rows` and `byKey` first, then the hooks, then the early return. Type `SUMMARY_KEYS` as `readonly ['pieces', 'longest', 'D', 'time']` (`as const`) so `helps[key]` needs no cast; `StatsTable`'s `SUMMARY_KEYS.includes(key)` then needs `(SUMMARY_KEYS as readonly StatKey[]).includes(key)` — a widening, not a narrowing, so it is allowed.
-
-The term:
+In `ReportSummary`, the hook call before `if (rows.length === 0) return null`:
 
 ```tsx
-              <dt>
-                <span className="st-lab">{row.label}</span>
-                {helps[key].button}
-              </dt>
+  const { button, open } = useKnobHelp('sum-help', dict.t('reportHelpAbout'), '')
 ```
 
-After `</dl>`: `{SUMMARY_KEYS.map((key) => <Fragment key={key}>{helps[key].paragraph}</Fragment>)}`.
+Markup (value and change unchanged):
 
-Delete `statSumD` from `EN.ui` and `PL.ui` in `packages/engine/lab-i18n.ts`, and the `.fw-rsum dt abbr` rule with its comment from `report.css`. Update the component's doc comment: D is shown by its row's label now; the titles of longest and time stay.
+```tsx
+    <div className="fw-rsum-wrap">
+      <div className="fw-rsum-hd">
+        <p id={cap} className="fw-rsum-cap">
+          {dict.t('reportSummaryCap')}
+        </p>
+        {button}
+      </div>
+      <dl className="fw-rsum" aria-describedby={cap}>
+        …each figure; the term is just the label:
+              <dt>{row.label}</dt>
+      </dl>
+      <dl id="sum-help" className={open ? 'kv-help fw-rsum-help' : 'kv-help fw-rsum-help fw-vh'}>
+        {SUMMARY_KEYS.map((key) => {
+          const row = byKey(rows, key)
+          return row === undefined ? null : (
+            <Fragment key={key}>
+              <dt>{row.label}</dt>
+              <dd>{row.help}</dd>
+            </Fragment>
+          )
+        })}
+      </dl>
+    </div>
+```
+
+Delete `statSumD` from `EN.ui` and `PL.ui` in `packages/engine/lab-i18n.ts`, and the `.fw-rsum dt abbr` rule with its comment from `report.css`. Update the component's doc comment: D is shown by its row's label; the titles of longest and time stay; the help is one `?` because a figure's column is too narrow for a term and a button.
 
 CSS, `report.css`:
 
 ```css
-.fw-rsum dt {
-  grid-row: 2;
+/* The caption and the summary's one `?` on a line. */
+.fw-rsum-hd {
   display: flex;
   align-items: center;
   gap: 4px;
-  min-width: 0;
-  margin-top: 2px;
-  font-size: 11px;
+  margin: 0 0 8px;
+}
+.fw-rsum-hd .fw-rsum-cap {
+  margin: 0;
+}
+.fw-rsum-help {
+  margin: 8px 0 0;
+}
+.fw-rsum-help dt {
   color: var(--mist);
+}
+.fw-rsum-help dd {
+  margin: 0 0 4px;
 }
 ```
 
+and narrow the figures' inner padding so the longest Polish term fits its column at 352px: `.fw-rsum > div` `padding: 8px 4px 9px 0`, `.fw-rsum > div + div` `padding-left: 6px`. Measure: the new `dt` assertion and the existing "each box ≥ 80px" must both pass in EN and PL; if "najdłuższa" still overflows, report the measured widths instead of shrinking the font.
+
 - [ ] **Step 4: Rebuild the engine, run the tests**
 
-Run: `pnpm nx build engine && cd packages/engine && deno task test && cd ../../apps/lab && npx vitest run src/report && cd ../.. && pnpm nx run lab:check && pnpm nx run lab:lint`
-Expected: PASS — including the 352px case (each summary column ≥ 80px, no value overflow).
+Run: `pnpm nx build engine && cd packages/engine && deno task test && cd ../../apps/lab && npx vitest run src && cd ../.. && pnpm nx run lab:check && pnpm nx run lab:lint`
+Expected: PASS — the whole lab run, since `useKnobHelp`'s return grew.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Format and commit**
+
+Run: `deno fmt packages/engine && pnpm --dir apps/lab exec prettier --write src && pnpm nx run lab:fmt`
 
 ```bash
-git add apps/lab/src/report apps/lab/src/design/report.css packages/engine/lab-i18n.ts
-git commit -m "Report summary: a ? on each figure, and depth named in words instead of D"
+git add apps/lab/src/report apps/lab/src/console/KnobRow.tsx apps/lab/src/design/report.css packages/engine/lab-i18n.ts
+git commit -m "Report summary: one ? for its four figures, and depth named in words instead of D"
 ```
 
 ---
@@ -723,6 +783,10 @@ test("the longest arrows' explanation is closed until its ? opens it", async () 
   expect(head.textContent).toBe('The 5 longest arrows')
   const button = head.parentElement?.querySelector('button.q')
   if (!(button instanceof HTMLButtonElement)) throw new Error('the longest arrows have no ?')
+  expect(button.getAttribute('aria-label')).toBe('About the longest arrows')
+  // Centred on the heading's text, not on its margin box.
+  const mid = (el: Element) => el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2
+  expect(Math.abs(mid(button) - mid(head))).toBeLessThanOrEqual(1)
   const help = document.getElementById('longest-help')
   expect(help?.classList.contains('fw-vh')).toBe(true)
   await act(async () => button.click())
@@ -741,13 +805,12 @@ Expected: FAIL — no `button.q` beside the heading; the help is always shown.
 `LongestTable.tsx` — the hook before the early return:
 
 ```tsx
-  const head = dict.t('longestHead', longest.length)
-  const { button, paragraph } = useKnobHelp('longest-help', head, dict.t('longestHelp'))
+  const { button, paragraph } = useKnobHelp('longest-help', dict.t('longestName'), dict.t('longestHelp'))
   if (longest.length === 0) return null
   return (
     <>
       <div className="fw-longest-hd">
-        <h2 id="longest-head">{head}</h2>
+        <h2 id="longest-head">{dict.t('longestHead', longest.length)}</h2>
         {button}
       </div>
       {paragraph}
@@ -757,22 +820,27 @@ Expected: FAIL — no `button.q` beside the heading; the help is always shown.
 `report.css`:
 
 ```css
-/* The heading and its `?` on one line; the heading keeps its own margins. */
+/* The heading and its `?` on one line: the margins move to the line, or
+   `align-items: center` centres on the heading's uneven margin box. */
 .fw-longest-hd {
   display: flex;
   align-items: center;
   gap: 4px;
+  margin: 16px 0 4px;
+}
+.fw-report .fw-longest-hd h2 {
+  margin: 0;
 }
 ```
-
-If the `h2`'s top margin (16px, `.fw-report h2`) now sits inside the flex line and misaligns the `?`, move that margin to `.fw-longest-hd` (`margin: 16px 0 4px`) and set the `h2` inside it to `margin: 0`; the heading's font test (11px, uppercase) must stay green.
 
 - [ ] **Step 4: Run the tests**
 
 Run: `cd apps/lab && npx vitest run src/report && cd ../.. && pnpm nx run lab:check && pnpm nx run lab:lint`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Format and commit**
+
+Run: `pnpm --dir apps/lab exec prettier --write src && pnpm nx run lab:fmt`
 
 ```bash
 git add apps/lab/src/report/LongestTable.tsx apps/lab/src/design/report.css apps/lab/src/report/ReportPanel.browser.test.tsx
@@ -788,7 +856,7 @@ git commit -m "Report: the longest arrows' explanation opens from a ? beside the
 
 - [ ] **Step 1: Record the fix**
 
-In `lab-review.md`, "Status after the fixes", table "Labels and descriptions": set "Top 1: the report explains nothing" to `fixed in <Task 1–4 hashes>` with the note "Every row, summary figure and the longest table have a `?`; labels in player's words; depth, traps and free at start say which way is harder". Set "Top 4: one concept, many names" note to add "the report's rows follow the glossary". In "What is still open", item 1 (copy pass): replace its start with "The report is done (`lab/report-copy`); the simple view and `start.help` are next, then the glossary across the knobs and the view panel."
+In `lab-review.md`, "Status after the fixes", table "Labels and descriptions": set "Top 1: the report explains nothing" to `fixed in <Task 1–4 hashes>` with the note "Every row, the summary and the longest table have a `?`; labels in player's words; depth, traps and free at start say which way is harder". Set "Top 4: one concept, many names" note to add "the report's rows follow the glossary". In "What is still open", item 1 (copy pass): replace its start with "The report is done (`lab/report-copy`); the simple view and `start.help` are next, then the glossary across the knobs and the view panel."
 
 - [ ] **Step 2: The full gate, without the cache**
 
@@ -799,7 +867,7 @@ Expected: `Successfully ran target verify for 4 projects`.
 
 Start the lab on a scratch store: `ARROWZ_BOARDS_DIR=$(mktemp -d) pnpm nx serve lab` (it starts the store too; do not start `deno task store` separately). In Chrome at 1440×900, then 375×812:
 
-1. Generate a board, open the report (R). Every row and the four figures have a `?`; each opens its sentence under it; EN then PL.
+1. Generate a board, open the report (R). Every row has a `?` that opens its sentence under it; the summary's one `?` opens the four figures' sentences; EN then PL.
 2. Generate again with a new seed: green/red changes appear; the caption reads as the spec says; depth rising is green.
 3. At 375×812 (coarse sizes), open the longest Polish help: nothing overflows; the `?` is a 32px target and the label stays on one line.
 4. Saved boards tab: the stored board's six rows have a `?`.
