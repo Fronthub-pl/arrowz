@@ -660,7 +660,9 @@ describe('the gesture switch', () => {
   test('lang="pl" words the inspecting hint and switch in Polish', async () => {
     await mount({ interactive: '', lang: 'pl' })
     expect(hintOf(el)).toBe(
-      mac ? 'Przeciągnij, aby przesunąć · ⌘ + klik na strzałkę' : 'Przeciągnij, aby przesunąć · Ctrl + klik na strzałkę',
+      mac
+        ? 'Przeciągnij, aby przesunąć · ⌘ + klik na strzałkę'
+        : 'Przeciągnij, aby przesunąć · Ctrl + klik na strzałkę',
     )
     expect(switchOf(el)?.getAttribute('aria-label')).toBe(mac ? 'Klik bez ⌘' : 'Klik bez Ctrl')
   })
