@@ -126,15 +126,7 @@ export const EN = {
     restarts: 'restarts',
   },
   // The unit beside a knob's value, in the value track's 44px at 11px.
-  units: {
-    cells: 'cells',
-    tries: 'tries',
-    pieces: 'pieces',
-    sides: 'sides',
-    px: 'px',
-    units: 'units',
-    carves: 'carves',
-  },
+  units: { cells: 'cells', times: '×', arrows: 'arrows', sides: '× side', px: 'px' },
   ui: {
     title: 'Generator lab',
     subtitle: 'Same engine as carve.ts: engine.ts.',
@@ -169,8 +161,9 @@ export const EN = {
     strokeLabel: 'stroke width (grid units)',
     headWidthLabel: 'arrowhead width (grid units, 0 = automatic)',
     headHeightLabel: 'arrowhead height (grid units)',
-    headHelp:
-      'The height is always literal: the head is that many grid units tall. The width is automatic at 0: under a stroke of 0.5 an arrow 0.4 + 0.9 stroke wide, from 0.5 a sharpened stick as wide as the line. A head narrower than the line is widened to it.',
+    headWidthHelp:
+      "How wide the arrowhead is, in cells. auto picks a width that suits the line's thickness. An arrowhead narrower than the line is widened to it.",
+    headHeightHelp: 'How long the arrowhead is, measured along the arrow, in cells. 0 = a flat end with no point.',
     rounded: 'round the corners (and the tail)',
     colored: 'colour the arrows (each piece a different colour)',
     highlightLongest: 'highlight the longest pieces',
@@ -537,6 +530,15 @@ export const EN = {
   },
 } as const
 
+/**
+ * English display words where the CLI's word is not the one a player should
+ * read (`--trapbias=off` is the generator's own trap count). The command box
+ * keeps the CLI word; see `choiceText`.
+ */
+export const EN_CHOICES: Partial<Record<ParamKey, Record<string, string>>> = {
+  trapBias: { off: 'normal' },
+}
+
 /** A string leaf stays a string; a function leaf keeps its exact parameter list. */
 type Widen<T> = T extends string ? string
   : T extends (...args: infer A) => string ? (...args: A) => string
@@ -603,11 +605,13 @@ export const PL: Translation = {
     startPair:
       'start elementu i mieszanie muszą tworzyć parę, którą zapisuje --start: mieszanie wyłączone (-1) przy całkowitym starcie albo start 0 przy udziale mieszania od 0,3 do 0,7',
   },
-  // Words of the fixed-choice knobs. The key is the word the CLI takes
-  // (--giantspacing=off), the value is what the lab shows in Polish.
+  // The key is the CLI word (--giantspacing=off), the value the lab shows in
+  // Polish: for a choice knob's list and for a chip's special word alike.
   choices: {
     giantSpacing: { off: 'bez odstępu', '2': '2', '3': '3' },
-    trapBias: { avoid: 'unikaj', off: 'bez zmian', seek: 'szukaj' },
+    trapBias: { avoid: 'unikaj', off: 'normalnie', seek: 'szukaj' },
+    giantStep: { random: 'losowo' },
+    Lmax: { auto: 'auto' },
   },
   params: {
     W: {
@@ -834,7 +838,7 @@ export const PL: Translation = {
     maxBack: 'nawroty',
     restarts: 'restarty',
   },
-  units: { cells: 'kom.', tries: 'prób', pieces: 'szt.', sides: 'boki', px: 'px', units: 'jedn.', carves: 'wycięć' },
+  units: { cells: 'kom.', times: '×', arrows: 'strz.', sides: '× bok', px: 'px' },
   ui: {
     title: 'Laboratorium generatora',
     subtitle: 'Ten sam silnik co carve.ts: engine.ts.',
@@ -866,8 +870,9 @@ export const PL: Translation = {
     strokeLabel: 'grubość linii (podziałki)',
     headWidthLabel: 'szerokość grotu (podziałki, 0 = automat)',
     headHeightLabel: 'wysokość grotu (podziałki)',
-    headHelp:
-      'Wysokość jest zawsze dosłowna: grot ma tyle podziałek wysokości. Szerokość 0 to automat: poniżej grubości 0,5 strzałka szeroka na 0,4 + 0,9 grubości, od 0,5 zaostrzony kijek szerokości linii. Grot węższy od linii jest do niej poszerzany.',
+    headWidthHelp:
+      'Szerokość grotu w komórkach. auto dobiera szerokość do grubości linii. Grot węższy od linii zostaje do niej poszerzony.',
+    headHeightHelp: 'Długość grotu wzdłuż strzałki, w komórkach. 0 = płaski koniec bez ostrza.',
     rounded: 'zaokrąglaj rogi (i ogon)',
     colored: 'koloruj strzałki (każdy element inny kolor)',
     highlightLongest: 'wyróżnij najdłuższe elementy',
@@ -1237,10 +1242,10 @@ export function dictionary(lang: Lang): Dict {
     d,
     t,
     paramText,
-    // A choice is stored as a number and written on the command line as the word
-    // PARAM_SPEC gives it (--giantspacing=off), which is also its English text;
-    // Polish translates that word, and the command box keeps showing the CLI's.
-    choiceText: (key, word) => (lang === 'pl' ? stringAt(PL.choices[key] ?? {}, word) : undefined) ?? word,
+    // A choice is written on the command line as its CLI word
+    // (--giantspacing=off); either language may show another word for it, and
+    // the command box keeps showing the CLI's.
+    choiceText: (key, word) => stringAt((lang === 'pl' ? PL.choices : EN_CHOICES)[key] ?? {}, word) ?? word,
     reason,
     fmt,
     // The progress line counts pieces on boards of up to 10^6 cells; past ten

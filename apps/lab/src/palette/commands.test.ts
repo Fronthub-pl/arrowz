@@ -63,6 +63,17 @@ describe('the catalogue', () => {
     expect(seed?.hay).toContain('--seed')
   })
 
+  it('words a choice knob’s value as the knob does, and still finds it by its flag', () => {
+    useStore.getState().params.setMany({ trapBias: 0 })
+    const row = (lang: 'en' | 'pl') =>
+      buildCommands({ ...deps(), dict: dictionary(lang) }, useStore.getState()).find((r) => r.id === 'knob-trapBias')
+    expect(row('en')?.value).toBe('normal')
+    expect(row('pl')?.value).toBe('normalnie')
+    expect(row('en')?.hay).toContain('--trapbias')
+    const hits = matchCommands(buildCommands(deps(), useStore.getState()), 'giants').map((r) => r.id)
+    expect(hits).toContain('knob-giants')
+  })
+
   it('lists Abort with a reason while nothing is running, and enables it during a run', () => {
     const idle = buildCommands(deps(), useStore.getState()).find((row) => row.id === 'run-abort')
     expect(idle?.disabled).toBe(true)

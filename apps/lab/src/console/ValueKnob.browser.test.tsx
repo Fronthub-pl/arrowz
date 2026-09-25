@@ -1,5 +1,6 @@
 import { PARAM_SPEC } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
+import { act } from 'react'
 import { expect, test } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
@@ -68,6 +69,21 @@ test('a released chip goes back to the value the knob held before', async () => 
   expect(params().values.giantStep).toBe(0)
   await chip.click()
   expect(params().values.giantStep).toBe(5)
+})
+
+test('the special chip speaks the page language, and choosing it still writes the minimum', async () => {
+  params().reset()
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  try {
+    const screen = await render(<ValueKnob spec={specOf('giantStep')} />)
+    const chip = screen.getByRole('button', { name: /^losowo \(/ })
+    await expect.element(chip).toHaveTextContent('losowo')
+    await chip.click()
+    expect(params().values.giantStep).toBe(0)
+    expect(screen.container.querySelector('.kv-val')?.textContent).toContain('losowo')
+  } finally {
+    await act(async () => useStore.getState().lang.setLang('en'))
+  }
 })
 
 test('typing a fraction does not collapse while it is being typed', async () => {

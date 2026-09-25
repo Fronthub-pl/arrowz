@@ -33,6 +33,10 @@ test('every preview number has a row: a short label and a description', () => {
       .filter(([, row]) => row.auto === true)
       .map(([key]) => key),
   ).toEqual(['headWidth'])
+  expect(VIEW_ROWS.headWidth.help).toBe('headWidthHelp')
+  expect(VIEW_ROWS.headHeight.help).toBe('headHeightHelp')
+  expect(VIEW_ROWS.stroke.unit).toBe('cells')
+  expect(VIEW_ROWS.top.unit).toBe('arrows')
 })
 
 // The released chip lands on the width the automatic head draws: checked

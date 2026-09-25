@@ -17,7 +17,9 @@ test('the knob offers exactly the words the flag takes', async () => {
   const select = screen.getByRole('combobox', { name: /trap/i })
   await expect.element(select).toHaveValue('0')
   for (const choice of choices) {
-    await expect.element(screen.getByRole('option', { name: choice.word })).toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('option', { name: EN.choiceText('trapBias', choice.word) }))
+      .toBeInTheDocument()
   }
 })
 

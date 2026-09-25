@@ -77,14 +77,15 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
     }
     const { label } = deps.dict.paramText(spec)
     const value = state.params.values[spec.key]
+    // The CLI's word where the value has one, worded as the knob shows it, so
+    // a slider reading `auto` does not offer a bare 0.
+    const word = wordFor(spec.key, value)
     rows.push({
       id: `knob-${spec.key}`,
       section: 'knob',
       name: label,
       note: deps.dict.d.groups[spec.group],
-      // The CLI's word where the value has one, so a slider reading `auto`
-      // does not offer a bare 0.
-      value: wordFor(spec.key, value) ?? String(value),
+      value: word === null ? String(value) : deps.dict.choiceText(spec.key, word),
       hay: flagOf(spec.key),
       disabled: false,
       run: () => jumpTo(deps, spec.group, `knob-${spec.key}`),

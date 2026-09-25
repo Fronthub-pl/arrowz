@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertNotEquals, assertStringIncludes } from '@std/assert'
 import { type Dictionary, dictionary, EN, escapeHtml, PL, type UiKey } from './lab-i18n.ts'
+import { wordFor } from './command.ts'
 import { INACTIVE_REASONS, PARAM_SPEC, RULE_REASONS, stepsAround } from './engine.ts'
 import type { InactiveKey, ParamKey, RuleKey, Violation } from './types.ts'
 
@@ -35,7 +36,18 @@ Deno.test('both dictionaries cover the fixed-choice knobs and the start control'
     for (const c of s.control.choices) assert(words[c.word], `Polish word for ${s.key}=${c.word}`)
   }
   assert(choiceKeys.size > 0, 'the lab draws at least one knob as a list of values')
-  for (const k of Object.keys(PL.choices)) assert(choiceKeys.has(k as ParamKey), `stale choices ${k}`)
+  // A knob whose minimum is a word (`--lmax=auto`, `--giantstep=random`) shows
+  // that word on its chip, so Polish may translate it too.
+  const specialKeys = new Set<ParamKey>()
+  for (const s of PARAM_SPEC) {
+    const special = wordFor(s.key, s.min)
+    if (special === null || s.control?.kind === 'choice') continue
+    specialKeys.add(s.key)
+    assert(PL.choices[s.key]?.[special], `Polish word for the ${s.key} chip`)
+  }
+  for (const k of Object.keys(PL.choices)) {
+    assert(choiceKeys.has(k as ParamKey) || specialKeys.has(k as ParamKey), `stale choices ${k}`)
+  }
   const dictionaries: Dictionary[] = [EN, PL]
   for (const d of dictionaries) {
     assert(d.start.label.length > 0, 'start label')
@@ -215,11 +227,36 @@ Deno.test('reason resolves an inactive key from INACTIVE_REASONS and a rule key 
   assertEquals(en.reason('sharesSum'), RULE_REASONS.sharesSum)
 })
 
-Deno.test('choiceText looks up a real Polish word for a real choice pair', () => {
+Deno.test('choiceText shows the display word in both languages, and the CLI word stays the flag', () => {
+  const en = dictionary('en')
   const pl = dictionary('pl')
-  const words = PL.choices.trapBias
-  assert(words, 'expected PL.choices.trapBias to exist')
-  assertEquals(pl.choiceText('trapBias', 'seek'), words.seek)
+  assertEquals(en.choiceText('trapBias', 'off'), 'normal')
+  assertEquals(pl.choiceText('trapBias', 'off'), 'normalnie')
+  assertEquals(en.choiceText('trapBias', 'seek'), 'seek')
+  assertEquals(en.choiceText('giantStep', 'random'), 'random')
+  assertEquals(pl.choiceText('giantStep', 'random'), 'losowo')
+  assertEquals(pl.choiceText('Lmax', 'auto'), 'auto')
+  assertEquals(wordFor('trapBias', 0), 'off')
+  assertEquals(wordFor('giantStep', 0), 'random')
+})
+
+// Symbols instead of words: "2 prób" and "30 boki" were Polish that does not inflect.
+Deno.test('the units are the five the rows use, and the Polish ones need no inflection', () => {
+  assertEquals(Object.keys(EN.units).sort(), ['arrows', 'cells', 'px', 'sides', 'times'])
+  assertEquals(Object.keys(PL.units).sort(), ['arrows', 'cells', 'px', 'sides', 'times'])
+  assertEquals(EN.units.times, '×')
+  assertEquals(PL.units, { cells: 'kom.', times: '×', arrows: 'strz.', sides: '× bok', px: 'px' })
+})
+
+Deno.test('the head width and the head length each have their own help', () => {
+  for (const lang of ['en', 'pl'] as const) {
+    const d = dictionary(lang)
+    assertNotEquals(d.t('headWidthHelp'), d.t('headHeightHelp'))
+  }
+  assertEquals(
+    dictionary('en').t('headHeightHelp'),
+    'How long the arrowhead is, measured along the arrow, in cells. 0 = a flat end with no point.',
+  )
 })
 
 Deno.test('the third tab has a name in both languages', () => {

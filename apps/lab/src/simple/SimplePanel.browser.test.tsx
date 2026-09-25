@@ -397,7 +397,7 @@ describe('SimplePanel', () => {
     const track = screen.container.querySelector('#view-headHeight')
     expect(track?.getAttribute('aria-describedby')).toBe('view-headHeight-help')
     const help = document.getElementById('view-headHeight-help')
-    expect(help?.textContent).toBe(EN.t('headHelp'))
+    expect(help?.textContent).toBe(EN.t('headHeightHelp'))
     expect(help?.closest('.kv-row')).toBe(track?.closest('.kv-row'))
     expect(help?.classList.contains('fw-vh')).toBe(true)
     await screen.getByRole('button', { name: EN.t('aboutKnob', 'head height') }).click()

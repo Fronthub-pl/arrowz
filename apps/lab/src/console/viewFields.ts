@@ -66,10 +66,10 @@ export interface ViewRow {
 
 export const VIEW_ROWS: Readonly<Record<ViewNumber, ViewRow>> = {
   cell: { short: 'viewShortCell', help: 'cellHelp', unit: 'px' },
-  stroke: { short: 'viewShortStroke', help: 'strokeHelp', unit: 'units' },
-  headWidth: { short: 'viewShortHeadWidth', help: 'headHelp', unit: 'units', auto: true },
-  headHeight: { short: 'viewShortHeadHeight', help: 'headHelp', unit: 'units' },
-  top: { short: 'viewShortTop', help: 'topHelp', unit: 'pieces' },
+  stroke: { short: 'viewShortStroke', help: 'strokeHelp', unit: 'cells' },
+  headWidth: { short: 'viewShortHeadWidth', help: 'headWidthHelp', unit: 'cells', auto: true },
+  headHeight: { short: 'viewShortHeadHeight', help: 'headHeightHelp', unit: 'cells' },
+  top: { short: 'viewShortTop', help: 'topHelp', unit: 'arrows' },
 }
 
 /** A preview flag as a knob row: its short label and its description. */
