@@ -18,7 +18,7 @@
 - The engine and `lab-*.ts` know neither Deno nor the DOM (`neutral.test.ts`).
 - Keys never change: `ParamKey`s, dictionary keys other than those this plan renames (`units.*`, `ui.headHelp`, `ui.title`, `ui.subtitle`), flags, CLI words (`--trapbias=off`, `--giantstep=random`, `--start=mixing`), link fields and stored metas.
 - `MAX_HELP` = 170 characters for every `PARAM_SPEC` help, `PL.params` help and group help; short labels ≤ 12 characters; units ≤ 6 characters (all in `packages/engine/lab-i18n.test.ts`). Every number in an English help or label appears in the Polish one (same file).
-- The lab imports the engine only from `dist`: after changing `packages/engine`, run `pnpm nx build engine` before any lab test or check.
+- The lab imports the engine only from `dist`: after changing `packages/engine`, run `pnpm nx build engine` before any lab test or check. In a fresh worktree run `pnpm nx build board-element` once too (otherwise: `Failed to resolve entry for package "@arrowz/board-element"`).
 - Lab tests run in two Vitest projects, `node` and `chromium`; `npx vitest run <path>` from `apps/lab` runs both. The chromium project loads only the stylesheets a test imports.
 - A red test that pins an **old string** is updated to the spec's new string. A red test for any other reason is a defect: stop and report it, do not change product code to make it pass.
 - Commit after each task; no attribution lines in commit messages.
@@ -26,15 +26,84 @@
 
 ## Review Focus
 
-1. Polish, a special value: the `giantStep` chip reads "losowo" in its text and its `aria-label`, and the command box still prints `--giantstep=random` (Task 1 test).
-2. The ⌘K palette's value column shows the same word as the knob ("normal" / "normalnie" for `trapBias` 0), while a search for the flag (`trapbias`, `giants`, `probe`) still finds the row through `hay` (Task 1 test).
-3. The preset caption is a child of the `display: grid` panel: it must span every column at 7 columns and at 4 (`max-width: 1479px`), and the five hidden descriptions must not become grid cells (Task 4 test).
-4. New short labels and units in a 12ch label track and a 44 px value track: "coil penalty", "leftover max", "target share", "× side", "strz." whole, not ellipsised, at 1440 and at 375 in both languages (Task 8 live pass; the ≤ 12 / ≤ 6 character tests are necessary, not sufficient).
-5. The rail's group name "when stuck" / "gdy utknie" and the heading "look" / "wygląd" at XS, where the rail folds (Task 8 live pass), and in `violationsInGroup`, which prints the group's name.
+1. Polish, a special value: the `giantStep` chip reads "losowo" in its text and its `aria-label`, and the command box still prints `--giantstep=random` (Task 2 test).
+2. The ⌘K palette's value column shows the same word as the knob ("normal" / "normalnie" for `trapBias` 0), while a search for the flag (`trapbias`, `giants`, `probe`) still finds the row through `hay` (Task 2 test).
+3. The preset caption is a child of the `display: grid` panel: it must span every column at 7 columns and at 4 (`max-width: 1479px`), and the five hidden descriptions must not become grid cells (Task 5 test).
+4. New short labels and units in a 12ch label track and a 44 px value track: "coil penalty", "leftover max", "target share", "× side", "strz." whole, not ellipsised, at 1440 and at 375 in both languages (Task 9 live pass; the ≤ 12 / ≤ 6 character tests are necessary, not sufficient).
+5. The annotation strip at every width: the board, not the annotation or the solo toggle, loses the 30 px, and no size floor breaks (Task 1).
+6. The rail's group name "when stuck" / "gdy utknie" and the heading "look" / "wygląd" at XS, where the rail folds (Task 9 live pass), and in `violationsInGroup`, which prints the group's name.
 
 ---
 
-### Task 1: Dictionary mechanisms — choice words, units, head help
+### Task 1: The annotation strip
+
+**Files:**
+- Modify: `apps/lab/src/design/shell.css` (`.fw-board`, `.fw-anno`, `.fw .fw-solo`)
+- Test: `apps/lab/src/stage/BoardFrame.browser.test.tsx`, `apps/lab/src/routes/LayoutInvariants.browser.test.tsx`
+
+**Interfaces:**
+- Produces: a custom property `--fw-strip` (30px) on `.fw-board`; the element starts `--fw-strip` below the frame's top edge.
+
+Spec: "The annotation strip". This task comes first so the suite stays green after every task: without it, `LayoutInvariants` › "the violations state at 375×812 keeps every layout invariant" goes red as soon as the rule texts change (Task 4), with `board-cover: span.fw-anno … × board …`. After this task, run that case once with Task 4's `RULE_REASONS.sharesSum` text pasted in temporarily to see it green, then revert.
+
+- [ ] **Step 1: Write the failing component test**
+
+In `BoardFrame.browser.test.tsx` (it already has `annotation(container)`), render the frame the way its neighbouring tests do, set the view's `pad` to 0, and assert the element starts under the annotation and the solo toggle:
+
+```ts
+test('the board starts under the annotation strip, even with no margin', async () => {
+  const screen = await mountFrame()
+  await act(async () => finish(finishedRun(1)))
+  await expect.poll(() => annotation(screen.container)).not.toBeNull()
+  await act(async () => useStore.getState().view.setPad(0))
+  const host = screen.container.querySelector('arrowz-board')?.getBoundingClientRect()
+  const anno = annotation(screen.container)?.getBoundingClientRect()
+  const solo = screen.container.querySelector('.fw-solo')?.getBoundingClientRect()
+  expect(host && anno && host.top - anno.bottom).toBeGreaterThanOrEqual(-0.5)
+  expect(host && solo && host.top - solo.bottom).toBeGreaterThanOrEqual(-0.5)
+})
+```
+
+The file already imports `shell.css`; without it the test measures no padding and cannot fail. Restore the pad afterwards (`setPad(DEFAULT_PAD)`, already imported) in a `try/finally`, as the file's other cases restore what they change.
+
+Run: `cd apps/lab && npx vitest run src/stage/BoardFrame.browser.test.tsx` → FAIL (the element starts at the frame's top, under the annotation).
+
+- [ ] **Step 2: Implement**
+
+In `shell.css`:
+
+```css
+.fw-board {
+  /* The annotation and the solo toggle get a strip of their own: the board's
+     margin is in cells, and at a small cell no margin holds a 26px label. */
+  --fw-strip: 30px;
+  padding-top: var(--fw-strip);
+  /* …existing declarations… */
+}
+```
+
+`.fw-anno`: `height: var(--fw-strip); box-sizing: border-box; display: flex; align-items: center;` (keep its padding sideways). `.fw .fw-solo`: `width` and `height` `var(--fw-strip)`. Keep the comments' "why" and add none about history.
+
+- [ ] **Step 3: Run the frame, the invariants and the whole lab**
+
+Run: `cd apps/lab && npx vitest run src/stage src/routes/LayoutInvariants.browser.test.tsx && npx vitest run`
+Expected: PASS, including the 375×812 violations case. If a `BOARD_FLOORS` minimum or another size invariant goes red because the board is 30px shorter, stop and report it with the numbers: lowering a floor is a product decision.
+
+- [ ] **Step 4: Update `lab-review.md` item 7**
+
+In "What is still open", item 7 (pad 0) is closed by this strip: delete it and renumber the items after it.
+
+- [ ] **Step 5: Commit**
+
+```bash
+pnpm --dir apps/lab exec prettier --write src && pnpm nx run lab:fmt
+git add apps/lab/src lab-review.md
+git commit -m "Board frame: the annotation and the solo toggle get a strip of their own, so no cell size puts the board under them"
+```
+
+---
+
+### Task 2: Dictionary mechanisms — choice words, units, head help
 
 **Files:**
 - Modify: `packages/engine/lab-i18n.ts` (`EN.units`, `PL.units`, `EN.ui.headHelp` → `headWidthHelp` + `headHeightHelp`, same in `PL.ui`, `PL.choices`, new exported `EN_CHOICES`, `dictionary().choiceText`)
@@ -193,11 +262,13 @@ test('the special chip speaks the page language, and choosing it still writes th
 
 Read `matchCommands`' signature in `commands.ts` first; if it takes its arguments in another order or returns another shape, call it the way the file's existing `matchCommands` tests do.
 
-`apps/lab/src/simple/SimplePanel.browser.test.tsx` — in `'head height points at its help in its own row, which its ? opens'`: `EN.t('headHelp')` → `EN.t('headHeightHelp')`. (The `aboutKnob` name changes in Task 3.)
+`apps/lab/src/console/ChoiceKnob.browser.test.tsx`, the option loop (`{ name: choice.word }`) → `{ name: EN.choiceText('trapBias', choice.word) }`, since `off` now reads "normal".
+
+`apps/lab/src/simple/SimplePanel.browser.test.tsx` — in `'head height points at its help in its own row, which its ? opens'`: `EN.t('headHelp')` → `EN.t('headHeightHelp')`. (The `aboutKnob` name changes in Task 4.)
 
 - [ ] **Step 6: Run them to verify they fail**
 
-Run: `pnpm nx build engine && cd apps/lab && npx vitest run src/console/ValueKnob.browser.test.tsx src/console/viewFields.test.ts src/palette/commands.test.ts`
+Run: `pnpm nx build engine && pnpm nx build board-element && cd apps/lab && npx vitest run src/console/ValueKnob.browser.test.tsx src/console/viewFields.test.ts src/palette/commands.test.ts`
 Expected: FAIL — the chip reads `random`; `VIEW_ROWS` still names `headHelp` and `units`; the palette value is `off`. The lab's type check (`pnpm nx run lab:check`) fails too on the deleted unit keys.
 
 - [ ] **Step 7: Implement in the lab**
@@ -260,7 +331,7 @@ git commit -m "Lab dictionary: choice words shown in both languages, units that 
 
 ---
 
-### Task 2: Generator knobs — labels, help, groups, start, reasons and rules
+### Task 3: Generator knobs — labels, help, groups, start, reasons and rules
 
 **Files:**
 - Modify: `packages/engine/engine.ts` (`PARAM_TABLE` labels and helps, `INACTIVE_REASONS`, `RULE_REASONS`)
@@ -268,7 +339,7 @@ git commit -m "Lab dictionary: choice words shown in both languages, units that 
 - Test: `packages/engine/lab-i18n.test.ts`, `packages/engine/lab-simple.test.ts`, `packages/engine/envelope.test.ts`, lab tests listed in Step 5
 
 **Interfaces:**
-- Consumes: Task 1's dictionary shape.
+- Consumes: Task 2's dictionary shape.
 - Produces: the spec's "Generator knobs", "The start control", "Groups" and "Reasons, rules and violations" tables, in force. `ruleBound(n)` returns `Minimum for this board: n` / `Minimum dla tej planszy: n` (Polish keeps `n.toLocaleString('pl')`).
 
 - [ ] **Step 1: Write the failing engine tests**
@@ -311,16 +382,21 @@ Deno.test('no knob help names a number outside its own range as a threshold', ()
 })
 ```
 
-`warns` (range 2..16) says "below 4" and `anticoil` (1..10) "above 6" — both strictly inside, so the new texts pass; the old ones ("below 2", "above 10", "below 0.6", "below 12", "above 16", "more than 5", "above 0.2", "above 3") fail. A knob help that names a board size (`1000×1000`) is not matched: the pattern needs one of the comparison words right before the number.
+`warns` (range 2..16) says "below 4" and `anticoil` (1..10) "above 6" — both strictly inside, so the new texts pass; the old ones ("below 2", "above 10", "below 0.6", "below 12", "above 16", "more than 5", "above 0.2", "above 3") fail. A knob help that names a board size after a comparison word ("over 500x500") is matched on its first number; none of the new texts does that.
 
 In `packages/engine/lab-simple.test.ts`, the two `harder` strings: EN `…or set arrow start to tunnels in the “difficulty” group.`, PL unchanged (spec: `simple.harder` EN changes, PL `=`).
 
 In `packages/engine/envelope.test.ts`, the match `straightness bias: 0\.3 is outside 0\.6\.\.1` becomes `straightness: 0\.3 is outside 0\.6\.\.1` (the engine's `formatViolation` keeps its own "is outside" wording and takes the new label).
 
+The engine's `deno task test` also runs `packages/cli`. Pins to update there and in the engine:
+- `packages/engine/lab-i18n.test.ts`, the envelope test: `text.includes('0.6..1')` → `/0\.6 (?:to|do) 1/.test(text)` (the new `rangeViolation`).
+- `packages/engine/engine.test.ts`: `'straightness bias: 0.2 …'` → `'straightness: 0.2 is outside 0.6..1'`; `'maximum length must be 0 (automatic) or at least 17'` → `'longest arrow must be auto or at least 17'`; the refusal `'invalid parameters: straightness: 0.2 is outside 0.6..1; longest arrow must be auto or at least 17'`.
+- `packages/cli/carve.test.ts`: `/…\s+straightness bias/` → `/…\s+straightness/`; the `lmaxHole` text as in `engine.test.ts`.
+
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd packages/engine && deno test lab-i18n.test.ts lab-simple.test.ts envelope.test.ts`
-Expected: FAIL on the new assertions and on the threshold test (eight knobs).
+Expected: FAIL on the new assertions and on the threshold test (eight knobs: pStraight, warns, anticoil, wGiant, giantSpacing, headTries, absorbLimit, restarts).
 
 - [ ] **Step 3: Implement**
 
@@ -345,7 +421,10 @@ Rebuild (`pnpm nx build engine`), then change exactly these, to the spec's new t
 - `src/console/ValueKnob.browser.test.tsx`: every `'nook closing'` / `/^nook closing:/` → `'nooks first'` / `/^nooks first:/`; `'Rule bound'` → `'Minimum for this board'`, `'Rule bound: 1'` → `'Minimum for this board: 1'`; `/^max length:/` and `'auto (max length)'` stay (the short label `max length` is unchanged).
 - `src/console/KnobRow.browser.test.tsx`: `'Rule bound: 0.7'` → `'Minimum for this board: 0.7'`.
 - `src/console/GroupRail.browser.test.tsx`: the tab name `'closing'` in the group list → `'when stuck'`.
-- `src/palette/commands.test.ts`: `'rule broken'` → `'invalid settings'`.
+- `src/palette/commands.test.ts`: `'rule broken'` → `'invalid settings'`; the `'run'` match list gains `'knob-giantStep'` before `'knob-giantJitter'` (its short label "run gap" now matches).
+- `src/console/KnobPanel.browser.test.tsx`: `/no legal carve/` → `/gets stuck/`.
+- `src/console/ValueKnob.browser.test.tsx`: `'random (step)'` → `'random (run gap)'`; `/^mixing:/` → `/^tunnel share:/`; `/^span:/` → `/^length:/`.
+- `src/routes/Workspace.browser.test.tsx`: `'giants'` (a knob's visible name) → `'skeletons'`.
 
 Run: `cd apps/lab && npx vitest run src/console src/palette src/run src/simple`
 Expected: PASS. Any other red: read it; if it pins a string this task changed, update it and add it to the commit message body; otherwise stop and report.
@@ -360,14 +439,14 @@ git commit -m "Knobs speak the glossary: arrows, skeletons, target lengths, when
 
 ---
 
-### Task 3: View panel, statuses, library and the rest of the lab's strings
+### Task 4: View panel, statuses, library and the rest of the lab's strings
 
 **Files:**
 - Modify: `packages/engine/lab-i18n.ts` (`EN.ui`, `PL.ui`: every key of the spec's "View panel" and "Statuses, library and the rest" tables; delete `title` and `subtitle`)
 - Test: `packages/engine/lab-i18n.test.ts`, lab tests listed in Step 4
 
 **Interfaces:**
-- Consumes: Task 1 (`headWidthHelp`, `headHeightHelp` already exist).
+- Consumes: Task 2 (`headWidthHelp`, `headHeightHelp` already exist).
 - Produces: the two tables in force. `ui.title` and `ui.subtitle` no longer exist.
 
 - [ ] **Step 1: Confirm the two keys to delete have no reader**
@@ -411,6 +490,10 @@ Rebuild (`pnpm nx build engine`), then, to the spec's new text:
 - `src/stage/BoardMode.browser.test.tsx`: `'Choose a piece to inspect it.'` → `'Choose an arrow to inspect it.'`; every `Piece #` → `Arrow #` (including the `RegExp` template); the Polish block: `'Wskaż strzałkę, aby ją zbadać.'`, `Strzałka #…`, `wolna`, `zablokowana przez …`.
 - `src/routes/LabLayout.browser.test.tsx`, `src/routes/Workspace.browser.test.tsx`, `src/run/RunColumn.browser.test.tsx`, `src/stage/RunStatusBar.browser.test.tsx`: `/Board closed/` → `/Board complete/`; `/^Board closed 100%\./` → `/^Board complete: every cell filled\./`; `/^Board closed 100%\.(?: — (?:not )?saved.*)?$/` → `/^Board complete: every cell filled\.(?: — (?:not )?saved.*)?$/` (and the same shape for the `— (not )?saved` variant); `'52 elem. · zostało 734 · nawroty 18 · 1,4 s'` → `'52 strz. · zostało 734 · nawroty 18 · 1,4 s'`; `'41,3% · 52 elem. · …'` → `'41,3% · 52 strz. · …'`.
 - `src/routes/DocsNav.browser.test.tsx`: link `'Element'` → `'Board element'`.
+- `viewShortStroke` is "thickness": `/^stroke:/` → `/^thickness:/` and textbox `'stroke'` → `'thickness'` in `library/BoardPreview.browser.test.tsx`, `library/BoardColumn.browser.test.tsx`, `routes/Workspace.browser.test.tsx`, `console/ViewPanel.browser.test.tsx`.
+- `pieces` → `arrows` in `library/LibraryFace.browser.test.tsx`, `routes/Workspace.browser.test.tsx` (`/… pieces · …/`), `run/RunColumn.browser.test.tsx`, `stage/RunStatusBar.browser.test.tsx` (two places).
+- `run/ExportButtons.browser.test.tsx`: `/not the chosen theme/i` → `/the chosen theme is not included/i` (three places).
+- `console/ViewPanel.browser.test.tsx`: `` `Up to ${PALETTE_CAP} colours` `` → `` `up to ${PALETTE_CAP}.` ``; `/clear the paper/i` → `/clear the background/i`.
 
 Run: `cd apps/lab && npx vitest run`
 Expected: PASS except any test this list missed that pins a string changed here — update it, name it in the commit body. A red for another reason: stop and report.
@@ -425,7 +508,7 @@ git commit -m "View panel, statuses and the saved list speak the glossary: arrow
 
 ---
 
-### Task 4: Preset panel — caption, mode words and mode descriptions
+### Task 5: Preset panel — caption, mode words and mode descriptions
 
 **Files:**
 - Modify: `packages/engine/lab-i18n.ts` (`presets.caption`, `presets.modeHelp`, `presets.modes.portrait`, PL `presets.modes.serpentine`)
@@ -491,7 +574,7 @@ In `apps/lab/src/run/PresetStrip.browser.test.tsx`:
   })
 ```
 
-The accessible names in the existing `'names each row in full, twenty-six names and no two the same'` test change only for portrait rows (`… tall`); if it lists names literally, update them, otherwise it stays green.
+Portrait rows are now "tall" in their accessible names: in `PresetStrip.browser.test.tsx` `/Hard.*portrait/` → `/Hard.*tall/`, `/Easy.*25×50.*portrait/` → `/Easy.*25×50.*tall/`, `/^Easy.*portrait/` → `/^Easy.*tall/`; in `run/triggers.browser.test.tsx` `/Hard.*portrait/` → `/Hard.*tall/`.
 
 In `apps/lab/src/routes/LayoutInvariants.browser.test.tsx`: `/Ogromny szkielet z serpentynami/` → `/Ogromny kręty szkielet/`.
 
@@ -530,11 +613,12 @@ with, at module level, `const MODES: readonly PresetMode[] = ['square', 'portrai
   margin: 0;
   padding: 8px 12px;
   background: var(--graphite);
-  font-size: 12px;
+  color: var(--ash);
+  font-size: 11px;
 }
 ```
 
-Match the colour and size tokens the `.fw-pp-col h3` rule uses (read it) instead of the literals above if they differ. Update the width comment above the `max-width: 1479px` rule only if the widest row changed: "winding skeleton 400×400" is still the widest English row; the Polish "kręty szkielet" is shorter than before.
+(`--ash` and 11px are what `.fw-pp-col h3` uses.) Update the width comment above the `max-width: 1479px` rule only if the widest row changed: "winding skeleton 400×400" is still the widest English row; the Polish "kręty szkielet" is shorter than before.
 
 - [ ] **Step 4: Run the tests**
 
@@ -551,19 +635,19 @@ git commit -m "Preset panel: a caption says levels set the size only, and each m
 
 ---
 
-### Task 5: The CLI's help
+### Task 6: The CLI's help
 
 **Files:**
 - Modify: `packages/engine/command.ts` (`EVERYDAY_FLAGS`, `OUTPUT_FLAGS`, `PICTURE_FLAGS`, the merged `--start` row of `KNOB_ROWS`, the pinning paragraph in `helpText`, `environment()`)
 - Test: `packages/engine/command.test.ts`
 
 **Interfaces:**
-- Consumes: Task 2's `PARAM_TABLE` texts (they print in `--help=knobs` unchanged by this task).
+- Consumes: Task 3's `PARAM_TABLE` texts (they print in `--help=knobs` unchanged by this task).
 - Produces: the spec's "CLI help" table in force.
 
 - [ ] **Step 1: Write the failing test**
 
-In `packages/engine/command.test.ts`:
+In `packages/engine/command.test.ts` (add `assertStringIncludes` to its `@std/assert` import):
 
 ```ts
 Deno.test('the help speaks the glossary: arrows, complete boards, arrow start', () => {
@@ -597,7 +681,7 @@ git commit -m "CLI help speaks the glossary: arrow length, a skeleton of very lo
 
 ---
 
-### Task 6: The guard
+### Task 7: The guard
 
 **Files:**
 - Create: `packages/engine/glossary.test.ts`
@@ -732,11 +816,11 @@ Adjust only what the first run proves wrong **in the guard** (for example a rege
 - [ ] **Step 2: Run it**
 
 Run: `cd packages/engine && deno test glossary.test.ts`
-Expected: PASS. Every failure names a path and a word; each one is either a string Tasks 2–5 missed (fix it from the spec; if the spec has no row for it, write it with the glossary's word and name it in the commit body) or a legitimate exception (add it to `ALLOWED` with its reason).
+Expected: PASS. Every failure names a path and a word; each one is either a string Tasks 3–6 missed (fix it from the spec; if the spec has no row for it, write it with the glossary's word and name it in the commit body) or a legitimate exception (add it to `ALLOWED` with its reason).
 
 - [ ] **Step 3: Mutation check — the guard can fail**
 
-Temporarily set `EN.ui.pieceFree` to `'free piece'` and `PL.ui.pieceFree` to `'wolny element'`; run `deno test glossary.test.ts`; expected: two failures naming `EN.ui.pieceFree` and `PL.ui.pieceFree`. Temporarily add `' A piece.'` to `RULE_REASONS.sharesSum`; expected: one failure naming `RULE_REASONS.sharesSum`. Revert all three (`git diff` shows only the new test file) and run again: PASS.
+Temporarily set `EN.ui.pieceFree` to `'free piece'` and `PL.ui.pieceFree` to `'wolny element'`; run `deno test glossary.test.ts`; expected: two failures naming `EN.ui.pieceFree` and `PL.ui.pieceFree`. Temporarily add `' A piece.'` to `RULE_REASONS.sharesSum`; expected: two failures, `RULE_REASONS.sharesSum` and a `helpText line` (the CLI help prints the rule reasons). Revert all three (`git diff` shows only the new test file) and run again: PASS.
 
 - [ ] **Step 4: Commit**
 
@@ -748,7 +832,7 @@ git commit -m "Glossary guard: the retired words may not come back into the lab,
 
 ---
 
-### Task 7: READMEs
+### Task 8: READMEs
 
 **Files:**
 - Modify: `README.md`, `README.pl.md`
@@ -762,12 +846,14 @@ Replace the tables under `## Word list` (`README.md`) and `## Słowniczek` (`REA
 
 - [ ] **Step 2: Sweep the prose and tables**
 
-Run: `git grep -n -iE '\bpieces?\b|\bclos(e|ed|es|ing)\b|\bjam|squares?|highway|backbone|\blane\b' README.md` and `git grep -n -iE 'element|domkn|zaci|zaklin|kwadrat|autostrad|pas\b' README.pl.md`.
+Run (Perl regexes: POSIX ERE has no `\b` and would match nothing): `git grep -n -iP '\bpieces?\b|\bclos(e|ed|es|ing)\b|\bjam|squares?|highway|backbone|\blane\b|probe|fragment' README.md` and `git grep -n -iP 'element|domkn|zaci|zaklin|kwadrat|autostrad|\bpas\b|\bpasie\b|\bpasa\b|sond|kubeł|wycin|fragment' README.pl.md`.
+The quoted CLI `note:` lines (`note: --probelen=30 has no effect here: …`) are updated to what the CLI prints now: run `deno task carve --width=30 --height=30 --probelen=30 --dry-run` and copy its `note:` line.
+Polish changes gender (kwadrat → komórka, pas → droga): rewrite each sentence by hand so adjectives, pronouns and verbs agree; budget about 60 lines.
 For each hit in prose or in the knob/rule tables' description columns, use the glossary word. Leave verbatim: flag names, JSON fields (`"pieces": 87`), quoted CLI output and error messages (the "When something goes wrong" section quotes `failed to close board …`), the `[trace]` lines, and "square" as a board shape (a 25×25 board is square). The knob table's "**Careful:**" clauses keep naming only values their flag takes.
 
 - [ ] **Step 3: Run the README guard**
 
-Run: `cd packages/cli && deno test readme.test.ts`
+Run: `cd packages/cli && deno test -A readme.test.ts`
 Expected: PASS.
 
 - [ ] **Step 4: Commit**
@@ -779,14 +865,14 @@ git commit -m "READMEs follow the lab's glossary: skeleton, path to edge, stuck,
 
 ---
 
-### Task 8: Review file, full gate and live pass
+### Task 9: Review file, full gate and live pass
 
 **Files:**
 - Modify: `lab-review.md` ("What is still open", item 1; the glossary rows it lists)
 
 - [ ] **Step 1: Update `lab-review.md`**
 
-In "What is still open", item 1 says the glossary is next: replace it with one sentence that the copy pass is done (report, simple view, glossary on `lab/glossary`), and renumber nothing else. In the "Labels and descriptions" section, add after the "Terminology glossary proposal" table one line: "Shipped on `lab/glossary`; `packages/engine/glossary.test.ts` holds the retired words."
+In "What is still open", item 1 says the glossary is next: replace it with one sentence that the copy pass is done (report, simple view, glossary on `lab/glossary`); Task 1 already removed item 7. In the "Labels and descriptions" section, add after the "Terminology glossary proposal" table one line: "Shipped on `lab/glossary`; `packages/engine/glossary.test.ts` holds the retired words."
 
 - [ ] **Step 2: Full gate, no cache**
 
@@ -815,5 +901,6 @@ git commit -m "Lab review: the copy pass is done"
 
 ## Self-review notes
 
-- Spec coverage: Glossary → Tasks 2, 3, 6; Mechanisms (choices, units, head help) → Task 1; Preset panel → Task 4; Generator knobs, start, groups, reasons → Task 2; View panel, statuses, library → Task 3; CLI help → Task 5; READMEs → Task 7; Guard → Task 6; Tests → each task; Live pass → Task 8; Out of scope → Global Constraints (CLI runtime messages stay, `carve.test.ts`) and Task 7 (verbatim quotes).
-- Review Focus lines → Task 1 Steps 5/7 (1, 2), Task 4 Step 2 (3), Task 8 Step 3 (4, 5).
+- Spec coverage: Glossary → Tasks 3, 4, 7; Mechanisms (choices, units, head help) → Task 2; Preset panel → Task 5; Generator knobs, start, groups, reasons → Task 3; View panel, statuses, library → Task 4; CLI help → Task 6; READMEs → Task 8; Guard → Task 7; Tests → each task; Annotation strip → Task 1; Live pass → Task 9; Out of scope → Global Constraints (CLI runtime messages stay, `carve.test.ts`) and Task 8 (verbatim quotes).
+- Review Focus lines → Task 2 Steps 5/7 (1, 2), Task 5 Step 2 (3), Task 9 Step 3 (4, 6), Task 1 (5).
+- Dry run (Opus, full execution in a worktree): 16 findings folded in — the annotation fault (Task 1), Perl greps and `-A` for the README steps, stale quoted CLI notes, "close to" in the probe help, the Polish start label, and the pins each task's list was missing.
