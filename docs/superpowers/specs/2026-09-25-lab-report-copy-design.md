@@ -59,31 +59,31 @@ What each row measures is taken from `analyse` (`engine.ts`) and
 | board | board | Width × height, the number of cells, and the seed that reproduces this board. | plansza | Szerokość × wysokość, liczba komórek i ziarno, które odtwarza tę planszę. |
 | pieces | arrows | How many arrows the board has. More arrows = a longer game. | strzałki | Ile strzałek ma plansza. Więcej strzałek = dłuższa gra. |
 | avgLen | average length | Cells per arrow, on average. | średnia długość | Średnio komórek na strzałkę. |
-| longest | longest | The longest arrow, in cells and as a share of the board. | najdłuższa | Najdłuższa strzałka: w komórkach i jako część planszy. |
+| longest | longest | The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow. | najdłuższa | Najdłuższa strzałka: w komórkach i jako część planszy. Dłuższa = więcej planszy w jednej strzałce. |
 | lengths | lengths | Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more. | długości | Udział strzałek według długości w komórkach: 2–6, 7–15, 16–49 i 50 lub więcej. |
 | f0 | free at start | Arrows you can remove on the very first move. Lower = harder. | wolne na starcie | Strzałki, które można zdjąć w pierwszym ruchu. Mniej = trudniej. |
 | almost | traps | Arrows blocked by exactly one other: they look almost free, but are not. More = more tempting mistakes. | pułapki | Strzałki zablokowane przez dokładnie jedną inną: wyglądają na prawie wolne, ale nie są. Więcej = więcej kuszących pomyłek. |
-| D | depth | The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder. | głębokość | Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, potrzeba głębokość + 1 rund. Więcej = trudniej. |
+| D | depth | The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder. | głębokość | Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, trzeba głębokość + 1 rund. Więcej = trudniej. |
 | corridor | path to edge | How many cells, on average, an arrow has to travel in the direction it points to leave the board. | droga do krawędzi | Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę. |
-| span | average reach | How much of the board's width or height an arrow stretches across, on average (the larger of the two). | średni zasięg | Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich). |
-| spanTop | reach, top 10% | The same, for the 10% of arrows that reach furthest. | zasięg, górne 10% | To samo dla 10% strzałek o największym zasięgu. |
-| spanMax | reach, record | The reach of the one arrow that reaches furthest. | zasięg, rekord | Zasięg strzałki, która sięga najdalej. |
+| span | average reach | How much of the board's width or height an arrow stretches across, on average (the larger of the two). Higher = arrows cross more of the board. | średni zasięg | Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich). Więcej = strzałki przecinają większą część planszy. |
+| spanTop | reach, top 10% | The same, for the 10% of arrows that reach furthest. Higher = better. | zasięg, górne 10% | To samo dla 10% strzałek o największym zasięgu. Więcej = lepiej. |
+| spanMax | reach, record | The reach of the one arrow that reaches furthest. Higher = better. | zasięg, rekord | Zasięg strzałki, która sięga najdalej. Więcej = lepiej. |
 | outDeg | blocks on average | How many arrows each arrow stands in the way of, on average. Higher = removing one arrow frees more. | blokuje średnio | Ilu strzałkom średnio każda strzałka stoi na drodze. Więcej = zdjęcie jednej uwalnia więcej. |
-| maxOut | blocks, record | The most arrows a single arrow stands in the way of. | blokuje, rekord | Najwięcej strzałek, którym stoi na drodze jedna strzałka. |
+| maxOut | blocks, record | The most arrows a single arrow stands in the way of. Higher = one removal frees more. | blokuje, rekord | Najwięcej strzałek, którym stoi na drodze jedna strzałka. Więcej = jedno zdjęcie uwalnia więcej. |
 | blockDist | blocking distance | How far an arrow's head is from the heads of the arrows it blocks, on average, as a share of width + height. Higher = one move matters across the board. | dystans blokad | Jak daleko średnio grot strzałki jest od grotów strzałek, które blokuje, jako część szerokości + wysokości. Więcej = jeden ruch działa na całą planszę. |
-| bends | bends per arrow | How many times an arrow turns, on average. | zakręty na strzałkę | Ile razy średnio skręca strzałka. |
+| bends | bends per arrow | How many times an arrow turns, on average. More = more winding arrows. | zakręty na strzałkę | Ile razy średnio skręca strzałka. Więcej = bardziej kręte strzałki. |
 | coil | coiling | Share of cells where an arrow touches itself on three sides: a clump rather than a line. Lower = cleaner arrows. | zwinięcie | Udział komórek, w których strzałka dotyka siebie z trzech stron: kłębek zamiast linii. Mniej = czystsze strzałki. |
 | border | wrapping | For arrows of 8 cells or more: how much of an arrow runs alongside a single neighbour. Higher = arrows wrap around each other. | oplatanie | Dla strzałek od 8 komórek: jak duża część strzałki biegnie wzdłuż jednej sąsiadki. Więcej = strzałki się oplatają. |
-| multi | bent arrows | Share of arrows that are not one straight line. | zgięte strzałki | Udział strzałek, które nie są jedną prostą. |
+| multi | bent arrows | Share of arrows that are not one straight line. More = fewer straight sticks. | zgięte strzałki | Udział strzałek, które nie są jedną prostą. Więcej = mniej prostych patyczków. |
 | stall | stopped short | How the generator worked: the share of the arrows it laid (taken-back ones included) that stopped before the length it planned for them, and how much of the planned length they reached. Lower = smoother. | urwane przed celem | Jak pracował generator: udział ułożonych strzałek (także cofniętych), które urwały się przed zaplanowaną długością, i jaką część tej długości osiągnęły. Mniej = płynniej. |
 | absorbed | merged leftovers | How the generator worked: small empty patches it glued onto neighbouring arrows. Fewer = a cleaner board. | doklejone resztki | Jak pracował generator: małe puste łatki doklejone do sąsiednich strzałek. Mniej = czystsza plansza. |
-| backtracks | backtracks / restarts | How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. | nawroty / restarty | Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. |
+| backtracks | backtracks / restarts | How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother. | nawroty / restarty | Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. Mniej = płynniej. |
 | time | time | How long the board took to generate and to measure. | czas | Ile trwało generowanie planszy i liczenie statystyk. |
 
 Values that change with the labels:
 
 - `stat_stallVal`: EN `` `${pStall} of arrows laid, reaching ${pGot} of the planned length` ``;
-  PL `` `${pStall} ułożonych strzałek, osiągają ${pGot} zaplanowanej długości` ``.
+  PL `` `${pStall} ułożonych strzałek, osiągając ${pGot} zaplanowanej długości` ``.
 - `stat_absorbedVal`: EN `patch`/`patches` by count; PL `łatka`/`łatki`/`łatek` by `plCount`, then `(${cells} komórek)`.
 - `stat_timeVal` and `stat_genVal`, PL only: `generowanie … s, statystyki … s` and `generowanie … s`.
 

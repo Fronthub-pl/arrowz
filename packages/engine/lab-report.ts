@@ -55,7 +55,7 @@ export interface StatRow {
   readonly key: StatKey | null
   readonly label: string
   readonly value: string
-  /** One or two sentences on what the row measures and, where there is one, which way is harder; '' on a separator. */
+  /** One or two sentences on what the row measures and, where there is one, which way is harder/better; '' on a separator. */
   readonly help: string
   /**
    * The number the surface compares with the previous run, or undefined for a

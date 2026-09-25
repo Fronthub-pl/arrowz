@@ -61,7 +61,7 @@ export function StatsTable({
           <tbody key={group[0]?.at ?? 0}>
             {name === undefined ? null : (
               <tr className="grp">
-                <th scope="rowgroup" colSpan={3}>
+                <th scope="rowgroup" colSpan={4}>
                   {dict.t(name)}
                 </th>
               </tr>

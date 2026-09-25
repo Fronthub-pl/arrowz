@@ -115,6 +115,9 @@
 }
 .fw-rsum dd .v {
   grid-row: 1;
+  /* Without this a grid item grows to its content, so `scrollWidth <=
+     clientWidth` always holds even when the value should overflow. */
+  min-width: 0;
   font-size: 18px;
   line-height: 1.25;
   color: var(--ink);

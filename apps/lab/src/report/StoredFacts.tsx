@@ -47,7 +47,7 @@ export function StoredFacts({ stored }: { stored: StoredBoard }): ReactElement {
               id={`stored-help-${key}`}
               label={label}
               value={value}
-              help={dict.t(`stat_${key}_help` as const)}
+              help={dict.t(key === 'time' ? 'stat_gen_help' : (`stat_${key}_help` as const))}
               className={rowClass(key, false)}
               delta={<td className="fw-delta" />}
             />

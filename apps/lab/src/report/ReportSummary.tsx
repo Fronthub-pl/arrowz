@@ -8,8 +8,8 @@ import type { Baseline, ShownResult } from '../state/result.slice'
 export const SUMMARY_KEYS: readonly StatKey[] = ['pieces', 'longest', 'D', 'time']
 
 /**
- * The four figures over the statistics: pieces, longest, D and time, each its
- * number, its term and its change against the baseline. The change is the
+ * The four figures over the statistics: arrows, longest, depth and time, each
+ * its number, its term and its change against the baseline. The change is the
  * table's own `reportDelta`, so its colour is the row's trend and never the
  * sign. Time reports no change, and a first run has nothing to compare with:
  * both keep a hidden dash so the row keeps its height.

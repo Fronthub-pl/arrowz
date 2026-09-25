@@ -117,7 +117,7 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
     expect(head?.cells).toHaveLength(1)
     expect(head?.cells[0]?.tagName).toBe('TH')
     expect(head?.cells[0]?.getAttribute('scope')).toBe('rowgroup')
-    expect(head?.cells[0]?.getAttribute('colspan')).toBe('3')
+    expect(head?.cells[0]?.getAttribute('colspan')).toBe('4')
   }
   expect(heads.map((head) => head?.textContent)).toEqual(['size', 'difficulty', 'reach', 'shape', 'generator'])
   const first = row(screen.container, 0)
@@ -540,6 +540,20 @@ test('a stored board explains its rows the same way', async () => {
   expect(document.getElementById('stored-help-pieces')?.textContent).toBe(
     'How many arrows the board has. More arrows = a longer game.',
   )
+})
+
+// The stored board shows only generation time, not the metrics pass
+// `stat_time_help` also talks about: its help must say only what it shows.
+test("the stored board's time row explains only what it shows", async () => {
+  const stored = storedFixture(1)
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  const time = stats(screen.container).rows[5]
+  const button = time?.cells[0]?.querySelector('button.q')
+  expect(button?.getAttribute('aria-controls')).toBe('stored-help-time')
+  expect(document.getElementById('stored-help-time')?.textContent).toBe('How long the board took to generate.')
 })
 
 // A stored board carries no highlight, so the list takes the lab's count

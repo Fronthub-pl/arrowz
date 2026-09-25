@@ -343,14 +343,16 @@ export const EN = {
     stat_stall: 'stopped short',
     stat_stallVal: (pStall: string, pGot: string) => `${pStall} of arrows laid, reaching ${pGot} of the planned length`,
     stat_absorbed: 'merged leftovers',
-    stat_absorbedVal: (n: number, cells: number) => `${n} ${n === 1 ? 'patch' : 'patches'} (${cells} cells)`,
+    stat_absorbedVal: (n: number, cells: number) =>
+      `${n} ${n === 1 ? 'patch' : 'patches'} (${cells} ${cells === 1 ? 'cell' : 'cells'})`,
     stat_backtracks: 'backtracks / restarts',
     stat_time: 'time',
     stat_timeVal: (g: string, m: string) => `generation ${g} s, metrics ${m} s`,
     stat_board_help: 'Width × height, the number of cells, and the seed that reproduces this board.',
     stat_pieces_help: 'How many arrows the board has. More arrows = a longer game.',
     stat_avgLen_help: 'Cells per arrow, on average.',
-    stat_longest_help: 'The longest arrow, in cells and as a share of the board.',
+    stat_longest_help:
+      'The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow.',
     stat_lengths_help: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
     stat_f0_help: 'Arrows you can remove on the very first move. Lower = harder.',
     stat_almost_help:
@@ -360,28 +362,30 @@ export const EN = {
     stat_corridor_help:
       'How many cells, on average, an arrow has to travel in the direction it points to leave the board.',
     stat_span_help:
-      "How much of the board's width or height an arrow stretches across, on average (the larger of the two).",
-    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest.',
-    stat_spanMax_help: 'The reach of the one arrow that reaches furthest.',
+      "How much of the board's width or height an arrow stretches across, on average (the larger of the two). Higher = arrows cross more of the board.",
+    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = better.',
+    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = better.',
     stat_outDeg_help:
       'How many arrows each arrow stands in the way of, on average. Higher = removing one arrow frees more.',
-    stat_maxOut_help: 'The most arrows a single arrow stands in the way of.',
+    stat_maxOut_help: 'The most arrows a single arrow stands in the way of. Higher = one removal frees more.',
     stat_blockDist_help:
       "How far an arrow's head is from the heads of the arrows it blocks, on average, as a share of width + height. Higher = one move matters across the board.",
-    stat_bends_help: 'How many times an arrow turns, on average.',
+    stat_bends_help: 'How many times an arrow turns, on average. More = more winding arrows.',
     stat_coil_help:
       'Share of cells where an arrow touches itself on three sides: a clump rather than a line. Lower = cleaner arrows.',
     stat_border_help:
       'For arrows of 8 cells or more: how much of an arrow runs alongside a single neighbour. Higher = arrows wrap around each other.',
-    stat_multi_help: 'Share of arrows that are not one straight line.',
+    stat_multi_help: 'Share of arrows that are not one straight line. More = fewer straight sticks.',
     stat_stall_help:
       'How the generator worked: the share of the arrows it laid (taken-back ones included) that stopped before the length it planned for them, and how much of the planned length they reached. Lower = smoother.',
     stat_absorbed_help:
       'How the generator worked: small empty patches it glued onto neighbouring arrows. Fewer = a cleaner board.',
     stat_backtracks_help:
-      'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed.',
+      'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
     stat_time_help: 'How long the board took to generate and to measure.',
-    longestHead: (n: number) => `The ${n} longest arrows`,
+    // The stored board shows only generation time, not the metrics pass `stat_time_help` also covers.
+    stat_gen_help: 'How long the board took to generate.',
+    longestHead: (n: number) => (n === 1 ? 'The longest arrow' : `The ${n} longest arrows`),
     longestHelp:
       'Reach = what fraction of the board side the arrow covers. Density = how tightly it fills its rectangle. Coiling = share of cells touching their own path on three sides. A snake crossing the board has a high reach and low other two; a coil the opposite.',
     th_len: 'length',
@@ -1001,44 +1005,49 @@ export const PL: Translation = {
     stat_border: 'oplatanie',
     stat_multi: 'zgięte strzałki',
     stat_stall: 'urwane przed celem',
-    stat_stallVal: (pStall, pGot) => `${pStall} ułożonych strzałek, osiągają ${pGot} zaplanowanej długości`,
+    stat_stallVal: (pStall, pGot) => `${pStall} ułożonych strzałek, osiągając ${pGot} zaplanowanej długości`,
     stat_absorbed: 'doklejone resztki',
-    stat_absorbedVal: (n, cells) => `${n} ${plCount(n, 'łatka', 'łatki', 'łatek')} (${cells} komórek)`,
+    stat_absorbedVal: (n, cells) => `${n} ${plCount(n, 'łatka', 'łatki', 'łatek')} (${cells} ${plCells(cells)})`,
     stat_backtracks: 'nawroty / restarty',
     stat_time: 'czas',
     stat_timeVal: (g, m) => `generowanie ${g} s, statystyki ${m} s`,
     stat_board_help: 'Szerokość × wysokość, liczba komórek i ziarno, które odtwarza tę planszę.',
     stat_pieces_help: 'Ile strzałek ma plansza. Więcej strzałek = dłuższa gra.',
     stat_avgLen_help: 'Średnio komórek na strzałkę.',
-    stat_longest_help: 'Najdłuższa strzałka: w komórkach i jako część planszy.',
+    stat_longest_help:
+      'Najdłuższa strzałka: w komórkach i jako część planszy. Dłuższa = więcej planszy w jednej strzałce.',
     stat_lengths_help: 'Udział strzałek według długości w komórkach: 2–6, 7–15, 16–49 i 50 lub więcej.',
     stat_f0_help: 'Strzałki, które można zdjąć w pierwszym ruchu. Mniej = trudniej.',
     stat_almost_help:
       'Strzałki zablokowane przez dokładnie jedną inną: wyglądają na prawie wolne, ale nie są. Więcej = więcej kuszących pomyłek.',
     stat_D_help:
-      'Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, potrzeba głębokość + 1 rund. Więcej = trudniej.',
+      'Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, trzeba głębokość + 1 rund. Więcej = trudniej.',
     stat_corridor_help:
       'Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę.',
-    stat_span_help: 'Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich).',
-    stat_spanTop_help: 'To samo dla 10% strzałek o największym zasięgu.',
-    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej.',
+    stat_span_help:
+      'Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich). Więcej = strzałki przecinają większą część planszy.',
+    stat_spanTop_help: 'To samo dla 10% strzałek o największym zasięgu. Więcej = lepiej.',
+    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = lepiej.',
     stat_outDeg_help: 'Ilu strzałkom średnio każda strzałka stoi na drodze. Więcej = zdjęcie jednej uwalnia więcej.',
-    stat_maxOut_help: 'Najwięcej strzałek, którym stoi na drodze jedna strzałka.',
+    stat_maxOut_help:
+      'Najwięcej strzałek, którym stoi na drodze jedna strzałka. Więcej = jedno zdjęcie uwalnia więcej.',
     stat_blockDist_help:
       'Jak daleko średnio grot strzałki jest od grotów strzałek, które blokuje, jako część szerokości + wysokości. Więcej = jeden ruch działa na całą planszę.',
-    stat_bends_help: 'Ile razy średnio skręca strzałka.',
+    stat_bends_help: 'Ile razy średnio skręca strzałka. Więcej = bardziej kręte strzałki.',
     stat_coil_help:
       'Udział komórek, w których strzałka dotyka siebie z trzech stron: kłębek zamiast linii. Mniej = czystsze strzałki.',
     stat_border_help:
       'Dla strzałek od 8 komórek: jak duża część strzałki biegnie wzdłuż jednej sąsiadki. Więcej = strzałki się oplatają.',
-    stat_multi_help: 'Udział strzałek, które nie są jedną prostą.',
+    stat_multi_help: 'Udział strzałek, które nie są jedną prostą. Więcej = mniej prostych patyczków.',
     stat_stall_help:
       'Jak pracował generator: udział ułożonych strzałek (także cofniętych), które urwały się przed zaplanowaną długością, i jaką część tej długości osiągnęły. Mniej = płynniej.',
     stat_absorbed_help:
       'Jak pracował generator: małe puste łatki doklejone do sąsiednich strzałek. Mniej = czystsza plansza.',
-    stat_backtracks_help: 'Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował.',
+    stat_backtracks_help:
+      'Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. Mniej = płynniej.',
     stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk.',
-    longestHead: (n) => `${n} najdłuższych strzałek`,
+    stat_gen_help: 'Ile trwało generowanie planszy.',
+    longestHead: (n) => `${n} ${plCount(n, 'najdłuższa strzałka', 'najdłuższe strzałki', 'najdłuższych strzałek')}`,
     longestHelp:
       'Zasięg = jaką część boku planszy strzałka obejmuje. Gęstość = jak ciasno wypełnia swój prostokąt. Zwinięcie = udział komórek dotykających własnej ścieżki z trzech stron. Wąż przecinający planszę ma wysoki zasięg i niskie dwa pozostałe; zwój — odwrotnie.',
     th_len: 'długość',
