@@ -59,21 +59,28 @@ export const EN = {
   simple: {
     viewSimple: 'Simple',
     viewAdvanced: 'Advanced',
-    lengths: 'piece length',
-    shape: 'line shape',
+    lengths: 'arrow length',
+    shape: 'winding',
     skeleton: 'skeleton',
     options: {
       skeleton: { off: 'no skeleton', on: 'with a skeleton' },
     },
     ends: {
       lengths: ['very short', 'very long'],
-      shape: ['straightest lines', 'most winding'],
+      shape: ['straightest', 'most winding'],
     },
+    lengthsHelp:
+      "Left: many short arrows. Right: fewer, longer ones. The number is the slider's position from 0 to 100, not a setting; the detailed settings follow from it.",
+    shapeHelp:
+      "Left: long straight arrows. Right: arrows that bend and wind a lot. The number is the slider's position from 0 to 100, not a setting; the detailed settings follow from it.",
+    skeletonHelp: 'Starts the board with a few very long arrows snaking across it; the rest fills in around them.',
     randomize: 'randomise the settings on every generate',
     // The row's short label; the sentence above is its title.
     randomizeShort: 'randomise',
     randomizeHelp:
-      'The knobs are drawn inside a safe range for this size and these choices, so the same seed gives a different board every time. The drawn values show in the advanced view and in the command.',
+      'Each Generate picks fresh settings within a safe range for this size and these choices, so you get a new board every time, even with the same seed. See the picked values in Advanced.',
+    // No presets in this view, so the hint sends the player to the advanced one.
+    harder: 'Want it harder? In Advanced, pick a tunnels preset, or set the start to tunnels in the difficulty group.',
   },
   // The one control the lab builds by hand, because the CLI has one flag for
   // the two knobs behind it: --start writes headBias and mix together, so
@@ -81,7 +88,7 @@ export const EN = {
   start: {
     label: 'piece start',
     help:
-      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Mixing starts that fraction of pieces as tunnels.',
+      'Where the next piece starts: the shallowest line (layers), anywhere (random) or the deepest (tunnels). Tunnels = harder. Mixing starts that fraction of pieces as tunnels.',
     options: { layers: 'layers', random: 'random', tunnels: 'tunnels', mixing: 'mixing' },
   },
   // A knob row's label: the engine's term, one line of at
@@ -767,25 +774,33 @@ export const PL: Translation = {
   simple: {
     viewSimple: 'Prosty',
     viewAdvanced: 'Zaawansowany',
-    lengths: 'długość elementów',
-    shape: 'kształt linii',
+    lengths: 'dł. strzałek',
+    shape: 'krętość',
     skeleton: 'szkielet',
     options: {
       skeleton: { off: 'bez szkieletu', on: 'ze szkieletem' },
     },
     ends: {
       lengths: ['bardzo krótkie', 'bardzo długie'],
-      shape: ['jak najprostsze linie', 'najbardziej pokręcone'],
+      shape: ['najprostsze', 'najbardziej kręte'],
     },
+    lengthsHelp:
+      'W lewo: dużo krótkich strzałek. W prawo: mniej, ale dłuższych. Liczba to pozycja suwaka od 0 do 100, nie ustawienie; szczegółowe ustawienia wynikają z niej.',
+    shapeHelp:
+      'W lewo: długie proste strzałki. W prawo: strzałki, które dużo skręcają i się wiją. Liczba to pozycja suwaka od 0 do 100, nie ustawienie; szczegółowe ustawienia wynikają z niej.',
+    skeletonHelp:
+      'Zaczyna planszę od kilku bardzo długich strzałek wijących się przez planszę; reszta wypełnia miejsce wokół nich.',
     randomize: 'losuj ustawienia przy każdym generowaniu',
     randomizeShort: 'losuj',
     randomizeHelp:
-      'Pokrętła są losowane w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc to samo ziarno daje za każdym razem inną planszę. Wylosowane wartości widać w widoku zaawansowanym i w komendzie.',
+      'Każde „Generuj” dobiera nowe ustawienia w bezpiecznym zakresie dla tego rozmiaru i wyborów, więc za każdym razem dostajesz inną planszę, nawet przy tym samym ziarnie. Wybrane wartości zobaczysz w widoku zaawansowanym.',
+    harder:
+      'Chcesz trudniej? W widoku zaawansowanym wybierz preset z tunelami albo w grupie trudność ustaw start na tunele.',
   },
   start: {
     label: 'start elementów',
     help:
-      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Mieszanie startuje tunelami tę część elementów.',
+      'Skąd startuje kolejny element: najpłytsza linia (warstwy), losowo albo najgłębsza (tunele). Tunele = trudniej. Mieszanie startuje tunelami tę część elementów.',
     options: { layers: 'warstwy', random: 'losowo', tunnels: 'tunele', mixing: 'mieszanie' },
   },
   short: {
