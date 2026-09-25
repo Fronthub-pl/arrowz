@@ -218,7 +218,8 @@
   white-space: nowrap;
   color: var(--mist);
 }
-.fw .kv-g .q {
+.fw .kv-g .q,
+.fw .fw-report .q {
   flex: none;
   width: 16px;
   height: 16px;
@@ -232,7 +233,9 @@
   cursor: pointer;
 }
 .fw .kv-g .q:hover,
-.fw .kv-g .q[aria-expanded='true'] {
+.fw .kv-g .q[aria-expanded='true'],
+.fw .fw-report .q:hover,
+.fw .fw-report .q[aria-expanded='true'] {
   border-color: var(--border);
   color: var(--ink);
 }
@@ -652,6 +655,7 @@
     padding: 0 8px;
   }
   .fw .kv-g .q,
+  .fw .fw-report .q,
   .fw .kv-chip {
     min-width: 32px;
     height: 32px;

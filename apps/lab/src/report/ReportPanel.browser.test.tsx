@@ -62,6 +62,11 @@ function row(container: HTMLElement, at: number): HTMLTableRowElement {
   return found
 }
 
+/** A row's label, without its `?`. */
+function labelOf(tr: HTMLTableRowElement | undefined): string | null | undefined {
+  return tr?.cells[0]?.querySelector('.st-lab')?.textContent
+}
+
 /** The summary over the table, or a failure. */
 function summary(container: HTMLElement): HTMLDListElement {
   const found = container.querySelector('dl.fw-rsum')
@@ -175,9 +180,47 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
-  expect(row(screen.container, 1).cells[0]?.textContent).toBe('strzałki')
+  expect(labelOf(row(screen.container, 1))).toBe('strzałki')
   expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0')
   expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
+})
+
+// f0 is row 5, on screen and not repeated by the summary.
+test("a row's ? opens its sentence under it, and closes it", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const f0 = row(screen.container, 5)
+  const button = f0.cells[0]?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('f0 has no ?')
+  expect(button.getAttribute('aria-label')).toBe('About free at start')
+  expect(button.getAttribute('aria-expanded')).toBe('false')
+  const help = document.getElementById(button.getAttribute('aria-controls') ?? '')
+  expect(help?.textContent).toBe('Arrows you can remove on the very first move. Lower = harder.')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  expect(f0.getBoundingClientRect().height).toBe(34)
+  await act(async () => button.click())
+  expect(button.getAttribute('aria-expanded')).toBe('true')
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(help?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    f0.cells[0]?.getBoundingClientRect().bottom ?? Infinity,
+  )
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+})
+
+test('an open help follows the language and a new result, on the same row', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const button = () => row(screen.container, 5).cells[0]?.querySelector('button.q')
+  await act(async () => (button() as HTMLButtonElement).click())
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(button()?.getAttribute('aria-expanded')).toBe('true')
+  expect(row(screen.container, 5).querySelector('.st-help p')?.textContent).toBe(
+    'Strzałki, które można zdjąć w pierwszym ruchu. Mniej = trudniej.',
+  )
+  await act(async () => finish(TWO))
+  expect(button()?.getAttribute('aria-expanded')).toBe('true')
+  expect(row(screen.container, 6).cells[0]?.querySelector('button.q')?.getAttribute('aria-expanded')).toBe('false')
 })
 
 // No statistics, but the longest pieces are the board's and stay.
@@ -368,6 +411,9 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
   await act(async () => finish(TWO))
   for (const lang of ['en', 'pl'] as const) {
     await act(async () => useStore.getState().lang.setLang(lang))
+    // The longest sentence in either language (stall), open: it wraps inside its own cell.
+    const stall = row(screen.container, 19).cells[0]?.querySelector('button.q')
+    if (stall?.getAttribute('aria-expanded') === 'false') await act(async () => (stall as HTMLButtonElement).click())
     for (const tr of stats(screen.container).rows)
       expect(tr.scrollWidth, `${lang}: ${tr.textContent}`).toBeLessThanOrEqual(tr.clientWidth)
     for (const box of summary(screen.container).children) {
@@ -382,7 +428,7 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
       expect(cell.scrollWidth, `${lang}: ${cell.textContent}`).toBeLessThanOrEqual(cell.clientWidth)
     // A wide row's label keeps its one line; it is the value that wraps.
     for (const tr of stats(screen.container).querySelectorAll('tr.long')) {
-      const label = tr.querySelector('th')
+      const label = tr.querySelector('th .st-lab')
       if (!(label instanceof HTMLElement)) throw new Error('a wide row has no label')
       const line = Number.parseFloat(getComputedStyle(label).lineHeight)
       expect(label.getBoundingClientRect().height, `${lang}: ${label.textContent}`).toBeLessThan(1.5 * line)
@@ -390,7 +436,7 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
     // The board's size stays on its label's line.
     const board = row(screen.container, 0)
     const top = (cell: Element | undefined) => cell?.getBoundingClientRect().top
-    expect(top(board.cells[1]), lang).toBe(top(board.cells[0]))
+    expect(top(board.cells[1]), lang).toBe(top(board.cells[0]?.querySelector('.st-lab') ?? undefined))
   }
 })
 
@@ -413,7 +459,7 @@ test('on the saved boards the report describes the open board from its stored fi
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
-  const rows = [...stats(screen.container).rows].map((tr) => [tr.cells[0]?.textContent, tr.cells[1]?.textContent])
+  const rows = [...stats(screen.container).rows].map((tr) => [labelOf(tr), tr.cells[1]?.textContent])
   const { meta } = stored
   expect(rows.map(([label]) => label)).toEqual([
     'board',
@@ -436,6 +482,20 @@ test('on the saved boards the report describes the open board from its stored fi
   await expect.element(screen.getByText(/keeps these figures only/)).toBeVisible()
   // The longest pieces are read off the board itself.
   expect(longestHead(screen.container).textContent).toMatch(/longest arrows$/)
+})
+
+test('a stored board explains its rows the same way', async () => {
+  const stored = storedFixture(1)
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  const pieces = stats(screen.container).rows[1]
+  const button = pieces?.cells[0]?.querySelector('button.q')
+  expect(button?.getAttribute('aria-controls')).toBe('stored-help-pieces')
+  expect(document.getElementById('stored-help-pieces')?.textContent).toBe(
+    'How many arrows the board has. More arrows = a longer game.',
+  )
 })
 
 // A stored board carries no highlight, so the list takes the lab's count

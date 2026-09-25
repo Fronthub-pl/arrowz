@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { useDictionary } from '../i18n'
 import type { Baseline, ShownResult } from '../state/result.slice'
 import { SUMMARY_KEYS } from './ReportSummary'
+import { StatRowView } from './StatRowView'
 
 /** The name of each group, in the engine's order: one per span between its four separators. */
 const GROUP_NAMES = ['statGroupSize', 'statGroupBlocking', 'statGroupReach', 'statGroupShape', 'statGroupRun'] as const
@@ -68,18 +69,24 @@ export function StatsTable({
             {group.map(({ row, at }) => {
               const change = reportDelta(row.num, before[at]?.num, row.better)
               return (
-                <tr key={at} className={rowClass(row.key, change !== null)}>
-                  <th scope="row">{row.label}</th>
-                  <td className="num">{row.value}</td>
-                  {/* The sign is always printed, so colour is never the only
-                    carrier; a screen reader hears better or worse. */}
-                  <td className={change === null ? 'fw-delta' : `fw-delta ${change.trend}`}>
-                    {change?.text}
-                    {change === null || change.trend === 'neutral' ? null : (
-                      <span className="fw-vh">{` ${dict.t(change.trend === 'better' ? 'deltaBetter' : 'deltaWorse')}`}</span>
-                    )}
-                  </td>
-                </tr>
+                <StatRowView
+                  key={at}
+                  id={`stat-help-${row.key ?? at}`}
+                  label={row.label}
+                  value={row.value}
+                  help={row.help}
+                  className={rowClass(row.key, change !== null)}
+                  delta={
+                    // The sign is always printed, so colour is never the only
+                    // carrier; a screen reader hears better or worse.
+                    <td className={change === null ? 'fw-delta' : `fw-delta ${change.trend}`}>
+                      {change?.text}
+                      {change === null || change.trend === 'neutral' ? null : (
+                        <span className="fw-vh">{` ${dict.t(change.trend === 'better' ? 'deltaBetter' : 'deltaWorse')}`}</span>
+                      )}
+                    </td>
+                  }
+                />
               )
             })}
           </tbody>
