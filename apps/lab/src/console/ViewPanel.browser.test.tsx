@@ -85,7 +85,7 @@ test('the panel draws the point grid controls, in a block that opens with the gr
   expect(view().showPoints).toBe(true)
   expect(document.getElementById('dep-points')?.hidden).toBe(false)
 
-  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-pointRadius')
   expect(radius).not.toBeNull()
   expect(Number(radius?.min)).toBe(POINT_RADIUS_RANGE.min)
   expect(Number(radius?.max)).toBe(POINT_RADIUS_RANGE.max)
@@ -130,7 +130,7 @@ test('the point radius row shows the clamped value after commit, not what was ty
 
 test('the point radius row follows an external store change', async () => {
   const screen = await render(<ViewPanel />)
-  const radius = screen.container.querySelector<HTMLInputElement>('#view-point-radius')
+  const radius = screen.container.querySelector<HTMLInputElement>('#view-pointRadius')
   if (!radius) throw new Error('no point radius input')
   view().setPointRadius(String(POINT_RADIUS_RANGE.min))
   await expect.element(radius).toHaveValue(String(POINT_RADIUS_RANGE.min))
@@ -193,7 +193,7 @@ test('every number row declares the bounds the engine actually takes', async () 
   // to agree with `VIEW_RANGE`.
   const screen = await render(<ViewPanel />)
   const tracks = [...screen.container.querySelectorAll<HTMLInputElement>('input[type="range"]')].filter(
-    (input) => input.id !== 'view-point-radius' && input.id !== 'view-pad',
+    (input) => input.id !== 'view-pointRadius' && input.id !== 'view-pad',
   )
   expect(tracks).toHaveLength(Object.keys(VIEW_RANGE).length)
   for (const input of tracks) {
@@ -442,7 +442,7 @@ test('the editor offers paper and ink, and hands them back to the theme when cle
 
 test('the editor offers a highlight colour, and hands it back to the theme when cleared', async () => {
   const screen = await render(<ViewPanel />)
-  const highlight = screen.container.querySelector<HTMLInputElement>('#view-highlight-color')
+  const highlight = screen.container.querySelector<HTMLInputElement>('#view-highlightColor')
   expect(highlight).not.toBeNull()
   if (highlight === null) return
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(highlight, '#010203')
@@ -489,7 +489,7 @@ test('the colours section holds the theme, both surface colours and the palette'
   const screen = await render(<ViewPanel />)
   const section = screen.container.querySelector('#view-sec-colours')?.closest('.kv-sect')
   if (!section) throw new Error('no colours section')
-  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-highlight-color', '#view-palette-label']) {
+  for (const id of ['#view-theme', '#view-paper', '#view-ink', '#view-highlightColor', '#view-palette-label']) {
     expect(section.querySelector(id), id).not.toBeNull()
   }
   expect(section.querySelector('button.kv-chip')?.getAttribute('aria-describedby')).toBe('view-palette-help')
@@ -515,12 +515,12 @@ test('every preview control names a description that exists', async () => {
     '#view-headWidth',
     '#view-headHeight',
     '#view-top',
-    '#view-point-radius',
-    '#view-point-color',
+    '#view-pointRadius',
+    '#view-pointColor',
     '#view-theme',
     '#view-paper',
     '#view-ink',
-    '#view-highlight-color',
+    '#view-highlightColor',
     '#view-pad',
     '#view-rounded',
     '#view-colored',

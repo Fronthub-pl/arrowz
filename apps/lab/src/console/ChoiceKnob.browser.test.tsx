@@ -41,7 +41,7 @@ test('an inactive choice knob says why', async () => {
 test('a choice knob keeps its description in its row, closed, apart from its state', async () => {
   useStore.getState().params.reset()
   const screen = await render(<ChoiceKnob spec={trapBias} choices={choices} />)
-  const help = screen.container.querySelector('#knob-trapBias-desc')
+  const help = screen.container.querySelector('#knob-trapBias-help')
   expect(help?.textContent).toBe(EN.paramText(trapBias).help)
   expect(help?.classList.contains('fw-vh')).toBe(true)
   expect(screen.container.querySelector('.kv-why')?.textContent).not.toContain(EN.paramText(trapBias).help)
@@ -73,7 +73,7 @@ test('a violated choice knob says why, in error colour, and the select points at
     expect(screen.container.querySelector('.kv-row')?.className).toContain('bad')
     await expect
       .element(screen.getByRole('combobox'))
-      .toHaveAttribute('aria-describedby', 'knob-trapBias-why knob-trapBias-desc')
+      .toHaveAttribute('aria-describedby', 'knob-trapBias-why knob-trapBias-help')
   } finally {
     useStore.getState().params.reset()
   }

@@ -23,7 +23,7 @@ test('the knob shows its short label, its value and its bounds', async () => {
   const ends = [...screen.container.querySelectorAll('.kv-end')].map((el) => el.textContent)
   expect(ends).toEqual(['2', '16'])
   // The description is in the tree, closed until its `?` opens it.
-  const help = screen.container.querySelector('#knob-warns-desc')
+  const help = screen.container.querySelector('#knob-warns-help')
   expect(help?.textContent).toBe(EN.paramText(specOf('warns')).help)
   expect(help?.classList.contains('fw-vh')).toBe(true)
 })
@@ -195,7 +195,7 @@ test('a violated knob says why, in error colour, and the slider points at the re
   expect(screen.container.querySelector('.kv-row')?.className).toContain('bad')
   await expect
     .element(screen.getByRole('slider'))
-    .toHaveAttribute('aria-describedby', 'knob-wShort-why knob-wShort-desc')
+    .toHaveAttribute('aria-describedby', 'knob-wShort-why knob-wShort-help')
 })
 
 test('an inactive knob says what would make it do something', async () => {
@@ -215,11 +215,11 @@ test('the reason reaches the number and the inline entry, not only the slider', 
   params().reset()
   const screen = await render(<ValueKnob spec={specOf('giantSpan')} />)
   const number = screen.getByRole('button', { name: /^length:/ })
-  await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
+  await expect.element(number).toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-help')
   await number.click()
   await expect
     .element(screen.getByRole('textbox'))
-    .toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-desc')
+    .toHaveAttribute('aria-describedby', 'knob-giantSpan-why knob-giantSpan-help')
 })
 
 test('a knob under a rule floor states the bound in words, not only as a mark', async () => {

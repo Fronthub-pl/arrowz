@@ -213,7 +213,7 @@ function PointRadiusRow(): ReactElement {
   const setPointRadius = useStore((state) => state.view.setPointRadius)
   return (
     <ElementNumberRow
-      id="view-point-radius"
+      id="view-pointRadius"
       name={dict.t('viewShortPointRadius')}
       help={dict.t('pointRadiusHelp')}
       label={dict.t('pointRadiusLabel')}
@@ -512,7 +512,7 @@ export function ColoursSection(): ReactElement {
         {...(view.ink === '' ? {} : { onClear: () => view.setInk(''), clearLabel: dict.t('inkClear') })}
       />
       <ColourRow
-        id="view-highlight-color"
+        id="view-highlightColor"
         short={dict.t('viewShortHighlightColor')}
         help={dict.t('highlightColorHelp')}
         title={dict.t('highlightColorLabel')}
@@ -572,13 +572,13 @@ export function ViewPanel() {
           <CollapsibleBlock
             id="dep-points"
             on={view.showPoints}
-            forced={wanted === 'view-point-color' || wanted === 'view-point-radius'}
+            forced={wanted === 'view-pointColor' || wanted === 'view-pointRadius'}
             needs={dict.t('needsPoints')}
             title={dict.t('viewShortShowPoints')}
             count={2}
           >
             <ColourRow
-              id="view-point-color"
+              id="view-pointColor"
               short={dict.t('viewShortPointColor')}
               help={dict.t('pointColorHelp')}
               title={dict.t('pointColorLabel')}

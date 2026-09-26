@@ -89,13 +89,13 @@ describe('the description on demand', () => {
   // the CSS sets.
   it('keeps each description closed until its `?` opens it', async () => {
     const screen = await render(<KnobPanel group="board" />)
-    const help = screen.container.querySelector('#knob-W-desc')
+    const help = screen.container.querySelector('#knob-W-help')
     if (help === null) throw new Error('no description')
     expect(getComputedStyle(help).clipPath).toBe('inset(50%)')
     expect(getComputedStyle(help).position).toBe('absolute')
     const q = screen.getByRole('button', { name: 'About width' })
     await expect.element(q).toHaveAttribute('aria-expanded', 'false')
-    await expect.element(q).toHaveAttribute('aria-controls', 'knob-W-desc')
+    await expect.element(q).toHaveAttribute('aria-controls', 'knob-W-help')
     await q.click()
     await expect.element(q).toHaveAttribute('aria-expanded', 'true')
     expect(getComputedStyle(help).clipPath).toBe('none')
@@ -106,7 +106,7 @@ describe('the description on demand', () => {
 
   it('keeps a closed description in the accessibility tree', async () => {
     const screen = await render(<KnobPanel group="board" />)
-    const help = screen.container.querySelector('#knob-W-desc')
+    const help = screen.container.querySelector('#knob-W-help')
     expect(help?.textContent).toBe(helpFor('W'))
     // `textContent` alone would stay unchanged under `display: none` too —
     // `display`/`visibility` are what govern whether an element leaves the
@@ -129,31 +129,31 @@ describe('the description on demand', () => {
 
   it('puts each description in its own row, once, and nowhere under the heading', async () => {
     const screen = await render(<KnobPanel group="board" />)
-    const help = screen.container.querySelector('#knob-W-desc')
+    const help = screen.container.querySelector('#knob-W-help')
     expect(help?.closest('.kv-row')?.querySelector('#knob-W')).not.toBeNull()
-    expect(screen.container.querySelectorAll('#knob-W-desc')).toHaveLength(1)
+    expect(screen.container.querySelectorAll('#knob-W-help')).toHaveLength(1)
   })
 
   it('points each control at its reason and its description', async () => {
     const screen = await render(<KnobPanel group="board" />)
     await expect
       .element(screen.getByRole('slider', { name: 'width' }))
-      .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-desc')
+      .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-help')
     await expect
       .element(screen.getByRole('button', { name: /^width:/ }))
-      .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-desc')
+      .toHaveAttribute('aria-describedby', 'knob-W-why knob-W-help')
   })
 
   // `difficulty` holds the `--start` pair: the mix row is one control of its
   // own, and its description joins and leaves the panel with it.
   it('has the mix row’s description only while the start choice is mixing', async () => {
     const screen = await render(<KnobPanel group="difficulty" />)
-    expect(screen.container.querySelector('#knob-mix-desc')).toBeNull()
+    expect(screen.container.querySelector('#knob-mix-help')).toBeNull()
     await act(async () => useStore.getState().params.setStart('mixing'))
-    await expect.poll(() => screen.container.querySelector('.kv-row #knob-mix-desc')).not.toBeNull()
+    await expect.poll(() => screen.container.querySelector('.kv-row #knob-mix-help')).not.toBeNull()
     await expect
       .element(screen.getByRole('slider', { name: 'tunnel share' }))
-      .toHaveAttribute('aria-describedby', 'knob-mix-why knob-mix-desc')
+      .toHaveAttribute('aria-describedby', 'knob-mix-why knob-mix-help')
   })
 
   // The paragraph runs under the whole row, not in one starved track, so a
@@ -165,7 +165,7 @@ describe('the description on demand', () => {
       </div>,
     )
     await screen.getByRole('button', { name: 'About width' }).click()
-    const help = screen.container.querySelector('#knob-W-desc')
+    const help = screen.container.querySelector('#knob-W-help')
     if (help === null) throw new Error('no description')
     expect(help.getBoundingClientRect().width).toBeGreaterThanOrEqual(150)
   })
