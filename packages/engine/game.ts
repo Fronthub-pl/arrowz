@@ -3,14 +3,15 @@
 // the board is empty. Lives, the stopwatch, streaks and scoring belong to the
 // host, so nothing here counts them.
 //
-// A corridor is a ray from the head cell minus the piece's own cells, and it
-// does not depend on the state of the board (design §2). Removing a piece can
-// therefore only free others: the board never has to be rewritten, and a
-// session is nothing but the set of pieces that have left.
+// A corridor is a ray from the head cell; the piece's own cells on it block
+// only if the head would reach them before the tail has left (see
+// `ownCellClears`). It does not depend on the state of the board (design §2),
+// so removing a piece can only free others: the board never has to be
+// rewritten, and a session is nothing but the set of pieces that have left.
 //
 // Runtime-neutral, like engine.ts: no Deno, DOM, Node or process API.
 import { fingerprint } from './engine.ts'
-import { DIRS } from './geometry.ts'
+import { DIRS, ownCellClears } from './geometry.ts'
 import type { BoardData, Piece } from './types.ts'
 
 export interface Session {
@@ -67,7 +68,8 @@ function pieceOf(session: Session, id: number): Piece | null {
 
 /**
  * Walks the corridor: the ray from the head cell along the piece's direction,
- * skipping the piece's own cells and the cells of pieces that have left.
+ * skipping the cells of pieces that have left and the piece's own cells that
+ * clear in time.
  * Returns the blocker and how many cells the piece may advance before it
  * touches it, or null when the ray reaches the edge.
  *
@@ -83,7 +85,8 @@ function scan(session: Session, piece: Piece): { blockerId: number; distance: nu
   let steps = 1
   while (x >= 0 && y >= 0 && x < board.W && y < board.H) {
     const owner = at(board.owner, y * board.W + x)
-    if (owner >= 0 && owner !== piece.id && at(gone, owner) === 0) {
+    const blocks = owner === piece.id ? !ownCellClears(piece.cells, x, y, steps) : owner >= 0 && at(gone, owner) === 0
+    if (blocks) {
       return { blockerId: owner, distance: steps - 1 }
     }
     x += dx

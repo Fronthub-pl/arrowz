@@ -2,7 +2,7 @@
 // and what the board element tesselates into triangles for WebGL. One source,
 // so the CLI export and the interactive board can never draw a head
 // differently. Knows neither Deno nor the DOM.
-import type { BoardData, Piece } from './types.ts'
+import type { BoardData, Cell, Piece } from './types.ts'
 
 /**
  * Reads an index the algorithm guarantees to be valid. Under
@@ -13,6 +13,18 @@ export function at<T>(arr: ArrayLike<T>, i: number): T {
   const v = arr[i]
   if (v === undefined) throw new RangeError(`index ${i} out of ${arr.length}`)
   return v
+}
+
+/**
+ * Whether a piece's own cell at (x, y), met `steps` cells along its ray, is
+ * gone by the time the head gets there. The body follows the head's track, so
+ * the cell k clears after `cells.length - k` steps; arriving on that very step
+ * is the snake move into the square the tail is leaving. Lives here because
+ * game.ts imports engine.ts, and both apply the rule.
+ */
+export function ownCellClears(cells: readonly Cell[], x: number, y: number, steps: number): boolean {
+  const k = cells.findIndex((c) => c.x === x && c.y === y)
+  return steps >= cells.length - k
 }
 
 /** One of the four directions; `ch` is the head glyph of `render`. */
