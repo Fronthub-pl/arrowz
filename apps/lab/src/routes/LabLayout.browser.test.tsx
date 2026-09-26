@@ -467,7 +467,7 @@ test('the run keys are the workspace’s, like f: the documentation route has no
   await screen.getByRole('tab', { name: 'Docs', exact: true }).click()
   // `location.pathname` flips inside react-router's history push, ahead of the
   // `startTransition` render that commits `onWorkspace`, so polling it races
-  // `useRunKeys`'s guard. The hidden attribute is set by that committed render.
+  // `useWorkspaceKeys`'s guard. The hidden attribute is set by that committed render.
   await expect
     .poll(() => screen.container.querySelector('#lab-panel')?.closest('main')?.hasAttribute('hidden'))
     .toBe(true)

@@ -29,8 +29,8 @@ async function openOverReport(): Promise<HTMLElement> {
   return abort
 }
 
-// Desktop, because at XS `useDrawerKeys` leaves the drawers alone on Escape and
-// the Escape half would pass with no fix.
+// Desktop, because at XS `useWorkspaceKeys`' Escape leaves the drawers alone
+// and the Escape half would pass with no fix.
 it('a key pressed after a click inside the palette never reaches the page behind it', async () => {
   const abort = await openOverReport()
   // `force`: Playwright will not press an `aria-disabled` element.
