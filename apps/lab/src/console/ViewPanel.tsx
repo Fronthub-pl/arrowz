@@ -8,7 +8,7 @@ import { PALETTE_CAP, type ViewFlag } from '../state/view.slice'
 import { DraftNumber } from './DraftNumber'
 import { panelId, tabId } from './GroupRail'
 import { CollapsibleBlock, endText, KnobLine, KnobTrack, rowTitle, useKnobHelp } from './KnobRow'
-import { autoHeadWidth, FLAG_ROWS, VIEW_FIELDS, VIEW_FLAGS, VIEW_ROWS, type ViewField } from './viewFields'
+import { autoHeadWidth, VIEW_ROWS } from './viewFields'
 
 /**
  * The chosen theme's arrow colours, in order, on the theme's own paper, so a
@@ -38,14 +38,12 @@ function ThemeSwatchStrip({ themeName }: { themeName: string }) {
  * sees it — so it has no state line: nothing refuses it, it is clamped.
  * `headWidth`'s 0 is the automatic width: a chip in the minimum's track.
  */
-export function ViewNumberRow({ field }: { field: ViewField }): ReactElement {
-  const value = useStore((state) => state.view[field.field])
+export function ViewNumberRow({ field }: { field: ViewNumber }): ReactElement {
+  const value = useStore((state) => state.view[field])
   const stroke = useStore((state) => state.view.stroke)
   const setNumber = useStore((state) => state.view.setNumber)
   // Through the slice's own reader, which clamps to `VIEW_RANGE`.
-  return (
-    <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field.field, String(next))} />
-  )
+  return <NumberRow field={field} value={value} stroke={stroke} onSet={(next) => setNumber(field, String(next))} />
 }
 
 /**
@@ -59,17 +57,17 @@ export function NumberRow({
   stroke,
   onSet,
 }: {
-  field: ViewField
+  field: ViewNumber
   value: number
   /** The stroke the automatic head width is worked out from. */
   stroke: number
   onSet(next: number): void
 }): ReactElement {
   const dict = useDictionary()
-  const row = VIEW_ROWS[field.field]
-  const range = VIEW_RANGE[field.field]
+  const row = VIEW_ROWS[field]
+  const range = VIEW_RANGE[field]
   const name = dict.t(row.short)
-  const helpId = `view-${field.field}-help`
+  const helpId = `view-${field}-help`
   const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
   const isAuto = row.auto === true && value === 0
   // Where a released chip goes: the width this row held before, else the
@@ -79,12 +77,12 @@ export function NumberRow({
   useEffect(() => {
     if (!isAuto) last.current = value
   }, [value, isAuto])
-  const release = () => onSet(last.current ?? autoHeadWidth(stroke, field.step, range.max))
+  const release = () => onSet(last.current ?? autoHeadWidth(stroke, row.step, range.max))
   return (
-    <div className="kv-row" title={rowTitle(dict, dict.t(field.label), range)}>
+    <div className="kv-row" title={rowTitle(dict, dict.t(row.label), range)}>
       <KnobLine
         label={
-          <label className="kv-lab" htmlFor={`view-${field.field}`}>
+          <label className="kv-lab" htmlFor={`view-${field}`}>
             {name}
           </label>
         }
@@ -101,7 +99,7 @@ export function NumberRow({
               decimal={!range.whole}
               onCommit={onSet}
             />
-            <span className="kv-unit">{isAuto || row.unit === undefined ? '' : dict.d.units[row.unit]}</span>
+            <span className="kv-unit">{isAuto ? '' : dict.d.units[row.unit]}</span>
           </span>
         }
         min={
@@ -121,10 +119,10 @@ export function NumberRow({
         }
         control={
           <KnobTrack
-            id={`view-${field.field}`}
+            id={`view-${field}`}
             value={value}
             bounds={range}
-            step={field.step}
+            step={row.step}
             word={isAuto ? 'auto' : null}
             describedBy={helpId}
             onCommit={onSet}
@@ -264,13 +262,12 @@ export function SwitchRow({ flag }: { flag: ViewFlag }): ReactElement {
 /** The switch row itself, for any owner of a view, as `NumberRow` is. */
 export function FlagRow({ flag, on, onToggle }: { flag: ViewFlag; on: boolean; onToggle(): void }): ReactElement {
   const dict = useDictionary()
-  const row = FLAG_ROWS[flag]
+  const row = VIEW_ROWS[flag]
   const name = dict.t(row.short)
   const helpId = `view-${flag}-help`
   const { button, paragraph } = useKnobHelp(helpId, name, dict.t(row.help))
-  const full = VIEW_FLAGS.find((f) => f.flag === flag)?.label
   return (
-    <div className="kv-row" title={full === undefined ? name : dict.t(full)}>
+    <div className="kv-row" title={dict.t(row.label)}>
       <KnobLine
         label={
           <span className="kv-lab" id={`view-${flag}-label`}>
@@ -396,8 +393,8 @@ export function ThemeRow(): ReactElement {
 /**
  * The editable custom palette as a row: its count against the cap in the value
  * track, its colours and the add button across the minimum's and the
- * control's tracks. The cap lives in the store (`paletteUpdate`), so nothing
- * here can bypass it.
+ * control's tracks. The cap lives in the schema's palette reader (`VIEW_SCHEMA.palette`),
+ * so nothing here can bypass it.
  */
 function PaletteRow(): ReactElement {
   const dict = useDictionary()
@@ -530,12 +527,6 @@ export function ColoursSection(): ReactElement {
   )
 }
 
-export const fieldOf = (key: ViewNumber): ViewField => {
-  const field = VIEW_FIELDS.find((f) => f.field === key)
-  if (field === undefined) throw new Error(`no preview field ${key}`)
-  return field
-}
-
 /**
  * The element's settings as knob rows, on the knobs' grid: arrows, highlight,
  * grid, colours and export. The top count lives under the highlight switch
@@ -555,9 +546,9 @@ export function ViewPanel() {
       </div>
       <div className="kv kv-g">
         <Section id="view-sec-arrows" title={dict.t('secArrows')}>
-          <ViewNumberRow field={fieldOf('stroke')} />
-          <ViewNumberRow field={fieldOf('headWidth')} />
-          <ViewNumberRow field={fieldOf('headHeight')} />
+          <ViewNumberRow field="stroke" />
+          <ViewNumberRow field="headWidth" />
+          <ViewNumberRow field="headHeight" />
           <SwitchRow flag="rounded" />
           <SwitchRow flag="colored" />
         </Section>
@@ -571,7 +562,7 @@ export function ViewPanel() {
             title={dict.t('viewShortHighlightLongest')}
             count={1}
           >
-            <ViewNumberRow field={fieldOf('top')} />
+            <ViewNumberRow field="top" />
           </CollapsibleBlock>
         </Section>
         <Section id="view-sec-grid" title={dict.t('secGrid')}>
@@ -599,7 +590,7 @@ export function ViewPanel() {
         </Section>
         <ColoursSection />
         <Section id="view-sec-export" title={dict.t('secExport')}>
-          <ViewNumberRow field={fieldOf('cell')} />
+          <ViewNumberRow field="cell" />
         </Section>
       </div>
     </div>

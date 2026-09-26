@@ -1,42 +1,39 @@
 import { pieceShape } from '@arrowz/engine'
 import { VIEW_RANGE } from '@arrowz/engine/command'
 import { expect, test } from 'vitest'
-import { autoHeadWidth, VIEW_FIELDS, VIEW_ROWS } from './viewFields'
+import { VIEW_KEYS } from '../state/viewSchema'
+import { autoHeadWidth, VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from './viewFields'
 
 test('a step is a step a whole-number field can land on', () => {
-  // The bounds come from `VIEW_RANGE`, but the step can still disagree: a
-  // fractional step on a field the store rounds makes an arrow press a no-op
-  // or a jump of one.
-  for (const field of VIEW_FIELDS) {
-    const range = VIEW_RANGE[field.field]
-    expect(field.step).toBeGreaterThan(0)
-    expect(field.step).toBeLessThanOrEqual(range.max - range.min)
-    if (range.whole) expect(Number.isInteger(field.step)).toBe(true)
+  // A fractional step on a field the store rounds makes an arrow press a no-op or a jump of one.
+  for (const field of VIEW_NUMBERS) {
+    const range = VIEW_RANGE[field]
+    const { step } = VIEW_ROWS[field]
+    expect(step).toBeGreaterThan(0)
+    expect(step).toBeLessThanOrEqual(range.max - range.min)
+    if (range.whole) expect(Number.isInteger(step)).toBe(true)
   }
 })
 
-test('the table covers every number the view has', () => {
-  // Against `VIEW_RANGE`'s keys, not a literal, so a new view number fails
-  // here the day it is added.
-  expect(VIEW_FIELDS.map((f) => f.field).sort()).toEqual(Object.keys(VIEW_RANGE).sort())
+test('the numbers are every number the view has', () => {
+  // Against `VIEW_RANGE`'s keys, not a literal, so a new view number fails here the day it is added.
+  expect([...VIEW_NUMBERS].sort()).toEqual(Object.keys(VIEW_RANGE).sort())
 })
 
-test('every preview number has a row: a short label and a description', () => {
-  expect(Object.keys(VIEW_ROWS).sort()).toEqual(VIEW_FIELDS.map((f) => f.field).sort())
-  for (const row of Object.values(VIEW_ROWS)) {
-    expect(row.short.startsWith('viewShort')).toBe(true)
-    expect(row.help.length).toBeGreaterThan(0)
+test('every row is a view field, and every number and flag has a row with a short label and a description', () => {
+  const rows = Object.keys(VIEW_ROWS)
+  expect(rows.sort()).toEqual([...VIEW_NUMBERS, ...VIEW_FLAGS].sort())
+  for (const key of rows) expect(VIEW_KEYS).toContain(key)
+  for (const key of [...VIEW_NUMBERS, ...VIEW_FLAGS]) {
+    expect(VIEW_ROWS[key].short.startsWith('viewShort')).toBe(true)
+    expect(VIEW_ROWS[key].help.length).toBeGreaterThan(0)
   }
-  // Only the head width has an automatic value, and only that one's 0 is it.
-  expect(
-    Object.entries(VIEW_ROWS)
-      .filter(([, row]) => row.auto === true)
-      .map(([key]) => key),
-  ).toEqual(['headWidth'])
+  // Only the head width has an automatic value.
+  expect(VIEW_NUMBERS.filter((key) => VIEW_ROWS[key].auto === true)).toEqual(['headWidth'])
   expect(VIEW_ROWS.headWidth.help).toBe('headWidthHelp')
-  expect(VIEW_ROWS.headHeight.help).toBe('headHeightHelp')
   expect(VIEW_ROWS.stroke.unit).toBe('cells')
   expect(VIEW_ROWS.top.unit).toBe('arrows')
+  expect(VIEW_ROWS.rounded.label).toBe('rounded')
 })
 
 // The released chip lands on the width the automatic head draws: checked

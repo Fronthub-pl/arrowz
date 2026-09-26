@@ -10,76 +10,68 @@ import type { UnitKey } from './knobLayout'
  */
 export type PlainUiKey = { [K in UiKey]: Dictionary['ui'][K] extends string ? K : never }[UiKey]
 
-export interface ViewField {
-  field: ViewNumber
-  /** The dictionary key of the label. */
+/** A view number as a row: labels, description, keyboard step and unit; bounds come from `VIEW_RANGE` at render. */
+export interface NumberRowMeta {
+  /** The full label, the row's tooltip and the ⌘K name. */
   label: PlainUiKey
+  short: PlainUiKey
+  help: PlainUiKey
+  /** A keyboard convenience, not a claim about what is allowed. */
   step: number
+  unit: UnitKey
+  /** 0 is the automatic value, drawn as a chip in the minimum's track. */
+  auto?: true
+}
+
+export interface FlagRowMeta {
+  label: PlainUiKey
+  short: PlainUiKey
+  help: PlainUiKey
 }
 
 /**
- * The preview's number fields. No bounds here on purpose: a copy of
- * `VIEW_RANGE` drifts, and a field whose ceiling is below what its store
- * accepts goes `:invalid` on a legal value. The bounds are read from
- * `VIEW_RANGE` at render. `step` is a keyboard convenience, not a claim about
- * what is allowed.
+ * The view's numbers and flags as rows, keyed by field, so a number or a flag
+ * cannot be drawn without one. No bounds on purpose: a copy of `VIEW_RANGE` drifts.
  */
-export const VIEW_FIELDS: readonly ViewField[] = [
-  { field: 'cell', label: 'cellLabel', step: 1 },
-  { field: 'stroke', label: 'strokeLabel', step: 0.05 },
-  { field: 'headWidth', label: 'headWidthLabel', step: 0.05 },
-  { field: 'headHeight', label: 'headHeightLabel', step: 0.05 },
-  { field: 'top', label: 'topLabel', step: 1 },
-]
+export const VIEW_ROWS: { readonly [K in ViewNumber]: NumberRowMeta } & { readonly [K in ViewFlag]: FlagRowMeta } = {
+  cell: { label: 'cellLabel', short: 'viewShortCell', help: 'cellHelp', step: 1, unit: 'px' },
+  stroke: { label: 'strokeLabel', short: 'viewShortStroke', help: 'strokeHelp', step: 0.05, unit: 'cells' },
+  headWidth: {
+    label: 'headWidthLabel',
+    short: 'viewShortHeadWidth',
+    help: 'headWidthHelp',
+    step: 0.05,
+    unit: 'cells',
+    auto: true,
+  },
+  headHeight: {
+    label: 'headHeightLabel',
+    short: 'viewShortHeadHeight',
+    help: 'headHeightHelp',
+    step: 0.05,
+    unit: 'cells',
+  },
+  top: { label: 'topLabel', short: 'viewShortTop', help: 'topHelp', step: 1, unit: 'arrows' },
+  rounded: { label: 'rounded', short: 'viewShortRounded', help: 'roundedHelp' },
+  colored: { label: 'colored', short: 'viewShortColored', help: 'coloredHelp' },
+  highlightLongest: {
+    label: 'highlightLongest',
+    short: 'viewShortHighlightLongest',
+    help: 'highlightLongestHelp',
+  },
+  voids: { label: 'voids', short: 'viewShortVoids', help: 'voidsHelp' },
+  showPoints: { label: 'showPoints', short: 'viewShortShowPoints', help: 'showPointsHelp' },
+}
+
+/** The view's numbers and flags in the panel's and the palette's order. */
+export const VIEW_NUMBERS: readonly ViewNumber[] = ['cell', 'stroke', 'headWidth', 'headHeight', 'top']
+export const VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'highlightLongest', 'voids', 'showPoints']
 
 /**
  * What the simple view keeps of the preview; the rest is advanced-only.
  */
 export const SIMPLE_VIEW_FIELDS: readonly ViewNumber[] = ['stroke', 'headWidth', 'headHeight']
 export const SIMPLE_VIEW_FLAGS: readonly ViewFlag[] = ['rounded', 'colored', 'highlightLongest']
-
-/** The preview's flags with their full labels, in the panel's order. */
-export const VIEW_FLAGS: readonly {
-  flag: ViewFlag
-  label: 'rounded' | 'colored' | 'highlightLongest' | 'voids' | 'showPoints'
-}[] = [
-  { flag: 'rounded', label: 'rounded' },
-  { flag: 'colored', label: 'colored' },
-  { flag: 'highlightLongest', label: 'highlightLongest' },
-  { flag: 'voids', label: 'voids' },
-  { flag: 'showPoints', label: 'showPoints' },
-]
-
-/**
- * A preview number as a knob row: its short label, its
- * description, its unit, and — for `headWidth` — the special value 0, which
- * the element draws as the automatic width. Keyed by the number, so a sixth
- * view number cannot be drawn without a row.
- */
-export interface ViewRow {
-  short: PlainUiKey
-  help: PlainUiKey
-  unit?: UnitKey
-  /** 0 is the automatic value, drawn as a chip in the minimum's track. */
-  auto?: true
-}
-
-export const VIEW_ROWS: Readonly<Record<ViewNumber, ViewRow>> = {
-  cell: { short: 'viewShortCell', help: 'cellHelp', unit: 'px' },
-  stroke: { short: 'viewShortStroke', help: 'strokeHelp', unit: 'cells' },
-  headWidth: { short: 'viewShortHeadWidth', help: 'headWidthHelp', unit: 'cells', auto: true },
-  headHeight: { short: 'viewShortHeadHeight', help: 'headHeightHelp', unit: 'cells' },
-  top: { short: 'viewShortTop', help: 'topHelp', unit: 'arrows' },
-}
-
-/** A preview flag as a knob row: its short label and its description. */
-export const FLAG_ROWS: Readonly<Record<ViewFlag, { short: PlainUiKey; help: PlainUiKey }>> = {
-  rounded: { short: 'viewShortRounded', help: 'roundedHelp' },
-  colored: { short: 'viewShortColored', help: 'coloredHelp' },
-  highlightLongest: { short: 'viewShortHighlightLongest', help: 'highlightLongestHelp' },
-  voids: { short: 'viewShortVoids', help: 'voidsHelp' },
-  showPoints: { short: 'viewShortShowPoints', help: 'showPointsHelp' },
-}
 
 /**
  * Where the automatic head width's chip lands when it is released and the row
