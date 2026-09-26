@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertThrows } from '@std/assert'
-import { defaultParams, generate } from './engine.ts'
+import { analyse, defaultParams, generate } from './engine.ts'
 import { goneIds, loadSession, newSession, play, saveSession } from './game.ts'
 import type { Board, Piece } from './types.ts'
 
@@ -81,6 +81,50 @@ Deno.test("the ray steps over the piece's own cells", () => {
   const column: Piece = { id: 1, cells: [{ x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 }], dir: 0 }
   const b = board(3, 3, [0, 0, 1, 0, 0, 1, 0, 0, 1], [hook, column])
   assertEquals(play(newSession(b), 0).move.kind, 'exit')
+})
+
+/**
+ *  A piece whose tail curls in front of its head, right of it (. is a void):
+ *  0 . 0 0   gap = 1: the head (0,0) meets its own (2,0) after 2 steps, and
+ *  0 0 0 .   (2,0) has 2 cells to the tail end, so it has left in time.
+ *  0 0 .     gap = 0: the head meets (1,0) after 1 step, with 2 cells to go.
+ *  0 0 .
+ */
+function curl(gap: 0 | 1): Board {
+  return gap === 1
+    ? board(4, 2, [0, -2, 0, 0, 0, 0, 0, -2], [{
+      id: 0,
+      cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+      dir: 1,
+    }])
+    : board(3, 2, [0, 0, 0, 0, 0, -2], [{
+      id: 0,
+      cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 0 }, { x: 2, y: 0 }],
+      dir: 1,
+    }])
+}
+
+Deno.test('a head may run into its own tail end when it arrives as the tail leaves', () => {
+  //  0 0   the head (0,0) points right at the tail (1,0): one step, one cell to go
+  //  0 0
+  const snake = board(2, 2, [0, 0, 0, 0], [{
+    id: 0,
+    cells: [{ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 0 }],
+    dir: 1,
+  }])
+  assertEquals(play(newSession(snake), 0).move.kind, 'exit')
+  assertEquals(play(newSession(curl(1)), 0).move.kind, 'exit')
+})
+
+Deno.test('a head that would meet its own body before the tail has left bounces off itself', () => {
+  assertEquals(play(newSession(curl(0)), 0).move, { kind: 'bounce', pieceId: 0, distance: 0, blockerId: 0 })
+})
+
+Deno.test('analyse blocks a piece on its own body exactly where play does', () => {
+  assertEquals(analyse(curl(1)).solvable, true)
+  const m = analyse(curl(0))
+  assertEquals(m.solvable, false)
+  assertEquals(m.unsolved, 1)
 })
 
 Deno.test('void and uncarved cells do not block, and the distance counts the cells before the blocker', () => {

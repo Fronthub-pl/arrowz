@@ -26,7 +26,7 @@ import type {
 } from './types.ts'
 // `at`, the directions and the piece shapes live in the geometry module, so
 // the board element draws a head from the same arithmetic as this file.
-import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips } from './geometry.ts'
+import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, ownCellClears, pieceShape, voidStrips } from './geometry.ts'
 // The diagnostic palette lives in colors.ts for the same reason: an exported
 // SVG and the interactive board colour a piece from one formula, over its id.
 import { hueOf } from './colors.ts'
@@ -1976,10 +1976,11 @@ function analyse(board: BoardData, ruleB = true): Metrics {
         corridorTotal++
         const o = num(owner, idx(x, y))
         if (o === -2) continue
-        if (o === pc.id) {
+        if (o === pc.id && ownCellClears(pc.cells, x, y, step)) {
           lastOwn = step
           continue
         }
+        // a cell of its own that is still there is a self-loop: Kahn never frees it
         addBlocker(i, o)
         minDist[i] = Math.min(num(minDist, i), step - lastOwn)
       }
