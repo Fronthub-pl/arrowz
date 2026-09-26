@@ -2,6 +2,7 @@ import type { Params, PresetMode } from '@arrowz/engine'
 import { findPreset, PRESETS } from '@arrowz/engine/presets'
 import { type ReactElement, useEffect, useId, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
+import { useDismiss } from '../shell/useDismiss'
 import { useStore } from '../state/store'
 import { applyPreset } from './actions'
 import type { RunControl } from './useRun'
@@ -20,10 +21,9 @@ const MODES: readonly PresetMode[] = ['square', 'portrait', 'tunnels', 'skeleton
  * and menu keyboarding this panel does not have.
  *
  * The panel is always mounted and `hidden` while closed, so `aria-controls`
- * always names an element. Its keys are a capture-phase document listener,
- * installed only while open, so it runs before the drawer's Escape, which it
- * consumes. It acts only on keys pressed inside the strip, and focus leaving
- * the strip closes it.
+ * always names an element. It closes through `useDismiss` (an outside press,
+ * an Escape inside, or focus leaving the strip), before the drawer's Escape;
+ * its arrow, Home and End keys act only inside the strip.
  */
 export function PresetStrip({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
@@ -44,6 +44,8 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
     if (refocus) trigger.current?.focus()
   }
 
+  useDismiss({ open, inside: [root], onClose: () => setOpen(false), refocus: trigger, closeOnFocusOut: true })
+
   useEffect(() => {
     if (!open) return
     const panel = root.current?.querySelector('.fw-pp-panel')
@@ -53,29 +55,13 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
     // No scroll: in a low window the panel is `position: fixed` under the top
     // bar, and a focus that scrolled `.fw-top` would shift the bar.
     first?.focus({ preventScroll: true })
+  }, [open])
 
-    const onPress = (event: PointerEvent) => {
-      if (event.target instanceof Node && root.current?.contains(event.target)) return
-      setOpen(false)
-    }
-    // Focus that has left the strip (Tab onwards, a click into a knob entry)
-    // takes the panel with it. A `null` `relatedTarget` is focus to nowhere,
-    // a press on the page's body, which the pointerdown rule above handles.
-    const onFocusOut = (event: FocusEvent) => {
-      const next = event.relatedTarget
-      if (next instanceof Node && !(root.current?.contains(next) ?? false)) setOpen(false)
-    }
+  useEffect(() => {
+    if (!open) return
+    // The panel's grid keys, only for keys pressed inside the strip; Escape is `useDismiss`'s.
     const onKey = (event: KeyboardEvent) => {
-      // Only keys pressed inside the strip are the picker's: an Escape in a
-      // knob entry discards its draft, and stealing the focus to the trigger
-      // would blur the entry and commit the draft instead.
       if (!(event.target instanceof Node) || !(root.current?.contains(event.target) ?? false)) return
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setOpen(false)
-        trigger.current?.focus()
-        return
-      }
       const at = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>('[data-col]') : null
       if (at === null) return
       const col = Number(at.dataset.col)
@@ -93,15 +79,8 @@ export function PresetStrip({ control }: { control: RunControl }): ReactElement 
       r = Math.min(r, lastRow(c))
       root.current?.querySelector<HTMLButtonElement>(`[data-col="${c}"][data-row="${r}"]`)?.focus()
     }
-    const strip = root.current
-    document.addEventListener('pointerdown', onPress)
     document.addEventListener('keydown', onKey, true)
-    strip?.addEventListener('focusout', onFocusOut)
-    return () => {
-      document.removeEventListener('pointerdown', onPress)
-      document.removeEventListener('keydown', onKey, true)
-      strip?.removeEventListener('focusout', onFocusOut)
-    }
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [open])
 
   // The same action as the palette row; see `applyPreset`.
