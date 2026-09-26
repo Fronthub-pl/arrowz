@@ -25,9 +25,9 @@
 ## Review Focus
 
 1. **A row without a title has no `title` attribute** (the simple view's skeleton row). `title=""` would show an empty tooltip box in some browsers. Pinned in Task 2 ("a row without a title carries no title attribute").
-2. **The row's classes keep their order and spelling** (`kv-row choice bad off`), which CSS and `useFocusRequest` (`closest('.kv-row')`) rely on. Pinned in Task 2 ("the row's classes read kv-row, then choice, bad, off").
+2. **The row's classes keep their order and spelling** (`kv-row choice bad off`): CSS and `closest('.kv-row')` do not care about order, but tests and string comparisons read the class string. Pinned in Task 2 ("the row's classes read kv-row, then choice, bad, off").
 3. **Every `aria-describedby`, `aria-controls` and `aria-labelledby` names an element that exists** after the ids move into `rowIds`. The whole lab suite's layout invariants (`harness/invariants.ts`, "Every `aria-describedby` token names an element") run in Task 8; Task 2 pins it for the shell itself ("the `?` controls the description, and the label names the control").
-4. **The `auto` and special-value chips still release to the last value the row held**, now through one hook. Pinned in Task 2 (`useReleasableChip` tests) and by the existing `ViewPanel` and `ValueKnob` chip tests, unedited.
+4. **The `auto` and special-value chips still release to the last value the row held**, now through one hook. Pinned in Task 2 (`useReleasableChip` tests), in Task 4 ("the head width's auto chip releases to the width the row held before", new) and by the existing `ValueKnob` chip test. That the hook records after the render, not during it, is guarded by `lab:lint` (`react-hooks/refs`), not by a test.
 5. **The `mixing` share row under the start choice keeps its own ids** (`knob-mix`, `knob-mix-help`, `knob-mix-why`), rendered by `ValueKnob` inside `StartKnob`'s fragment. Pinned by the existing `KnobPanel` tests after the Task 1 rename, unedited from Task 2 on.
 
 ---
@@ -81,7 +81,7 @@ In `apps/lab/src/console/ViewPanel.tsx`:
 - [ ] **Step 2: Rename in the tests**
 
 ```bash
-cd apps/lab/src/console
+cd "$(git rev-parse --show-toplevel)/apps/lab/src/console"
 perl -pi -e 's/(knob-[A-Za-z]+)-desc/$1-help/g; s/view-point-radius/view-pointRadius/g; s/view-point-color/view-pointColor/g; s/view-highlight-color/view-highlightColor/g' \
   ValueKnob.browser.test.tsx ChoiceKnob.browser.test.tsx StartKnob.browser.test.tsx KnobPanel.browser.test.tsx ViewPanel.browser.test.tsx
 ```
@@ -89,7 +89,7 @@ perl -pi -e 's/(knob-[A-Za-z]+)-desc/$1-help/g; s/view-point-radius/view-pointRa
 Then check nothing else still names an old id:
 
 ```bash
-cd /Users/tomek/dev/arrowz
+cd "$(git rev-parse --show-toplevel)"
 grep -rnE "knob-[A-Za-z]+-desc|view-point-radius|view-point-color|view-highlight-color" apps/lab/src
 ```
 
@@ -376,13 +376,16 @@ import { Section } from '../console/rows/Section'
 - [ ] **Step 3: Prove the bodies did not change**
 
 ```bash
-cd /Users/tomek/dev/arrowz
+cd "$(git rev-parse --show-toplevel)"
+export LC_ALL=C
 git diff -U0 HEAD -- apps/lab/src/console/ViewPanel.tsx | grep '^-' | grep -v '^---' | grep -vE "^-\s*(import|export|\}|$)" | sed 's/^-//' | sort > /tmp/removed.txt
 cat apps/lab/src/console/rows/{Section,NumberRow,FlagRow,ColourRow,ThemeRow,PaletteRow,ColoursSection}.tsx | sort > /tmp/added.txt
+wc -l < /tmp/removed.txt
 comm -23 /tmp/removed.txt /tmp/added.txt
+comm -13 /tmp/removed.txt /tmp/added.txt | grep -vE "^\s*(import|export|\}|$)" 
 ```
 
-Expected: only lines that differ by the added `export` keyword (the four newly exported functions' signature lines) or import lines. Any other line means a body changed: undo that change.
+Expected: the line count is in the hundreds (0 means the diff ran in the wrong tree); the first `comm` prints exactly the four signature lines that gained `export` (`function ColourRow({`, `function PadRow…`, `function PaletteRow…`, `function PointRadiusRow…`); the second prints nothing. Any other line means a body changed: undo that change.
 
 - [ ] **Step 4: Run the tests**
 
@@ -405,6 +408,7 @@ git commit -m "Lab: the view's rows move to console/rows, bodies unchanged; View
 **Files:**
 - Modify: `apps/lab/src/console/rows/NumberRow.tsx` (whole file)
 - Modify: `apps/lab/src/library/BoardPreview.tsx` (the `NumberRow` import and call)
+- Create: `apps/lab/src/console/rows/NumberRow.browser.test.tsx`
 
 **Interfaces:**
 - Consumes: `RowShell`, `rowIds` (Task 2); `useReleasableChip` (Task 2); `VIEW_ROWS`, `autoHeadWidth` from `'../viewFields'`.
@@ -414,7 +418,36 @@ git commit -m "Lab: the view's rows move to console/rows, bodies unchanged; View
   - `ViewNumberRow({ field })`, `PointRadiusRow()`, `PadRow()` — unchanged signatures.
   - `ElementNumberRow` is deleted.
 
-- [ ] **Step 1: Rewrite the file**
+- [ ] **Step 1: Pin the view chip's release before the rewrite**
+
+No existing test checks that the head width's `auto` chip goes back to the width the row held (only its fallback). `apps/lab/src/console/rows/NumberRow.browser.test.tsx`:
+
+```tsx
+import { render } from 'vitest-browser-react'
+import { userEvent } from 'vitest/browser'
+import { afterEach, expect, test } from 'vitest'
+import { useStore } from '../../state/store'
+import { ViewNumberRow } from './NumberRow'
+
+// The view slice has no reset of its own; restore the module's starting view.
+const initialView = useStore.getState().view
+afterEach(() => useStore.setState({ view: initialView }))
+
+test("the head width's auto chip releases to the width the row held before", async () => {
+  useStore.getState().view.setNumber('headWidth', '0.5')
+  const screen = await render(<ViewNumberRow field="headWidth" />)
+  const chip = screen.getByRole('button', { name: /^auto \(/ })
+  await userEvent.click(chip)
+  expect(useStore.getState().view.headWidth).toBe(0)
+  await userEvent.click(chip)
+  expect(useStore.getState().view.headWidth).toBe(0.5)
+})
+```
+
+Run: `cd apps/lab && pnpm exec vitest run --project chromium src/console/rows/NumberRow.browser.test.tsx`
+Expected: PASS on the moved, unchanged code — it pins behaviour the rewrite must keep. Check it can fail: temporarily make `NumberRow`'s chip release to `autoHeadWidth(...)` directly, see it go red on the second `toBe`, restore.
+
+- [ ] **Step 2: Rewrite the file**
 
 `apps/lab/src/console/rows/NumberRow.tsx`:
 
@@ -609,21 +642,21 @@ export function PadRow(): ReactElement {
 
 Why this keeps the DOM: `decimal={!Number.isInteger(step)}` equals the old `!range.whole` for all five view numbers (`cell` and `top` are whole with step 1; `stroke`, `headWidth`, `headHeight` are fractional with step 0.05), and equals `ElementNumberRow`'s own rule; `word={null}` with `wordOnly` renders what `DraftNumber` rendered without them.
 
-- [ ] **Step 2: Update `BoardPreview`**
+- [ ] **Step 3: Update `BoardPreview`**
 
 In `apps/lab/src/library/BoardPreview.tsx`: import `FieldNumberRow` instead of `NumberRow` from `'../console/rows/NumberRow'`, and in the `STORED_NUMBERS.map`, `<NumberRow` becomes `<FieldNumberRow` (props unchanged).
 
-- [ ] **Step 3: Run the tests**
+- [ ] **Step 4: Run the tests**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/console/ViewPanel.browser.test.tsx src/simple/SimplePanel.browser.test.tsx src/library/BoardPreview.browser.test.tsx src/console/rows/`
 Expected: PASS, no test edited.
 
 Run: the whole lab suite once, prettier, `lab:check`, `lab:lint`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lab/src/console/rows/NumberRow.tsx apps/lab/src/library/BoardPreview.tsx
+git add apps/lab/src/console/rows/NumberRow.tsx apps/lab/src/console/rows/NumberRow.browser.test.tsx apps/lab/src/library/BoardPreview.tsx
 git commit -m "Lab: one NumberRow on the shell for view numbers, the dot radius and the margin"
 ```
 
@@ -785,7 +818,7 @@ and import `FlagRow` alongside `SwitchRow`: `import { FlagRow, SwitchRow } from 
 
 (imports: `RowShell`, `rowIds` from `'./RowShell'`; `KnobLine` and `useKnobHelp` are no longer imported).
 
-- [ ] **Step 3: `ThemeRow.tsx`** — `ThemeSwatchStrip` unchanged; `ThemeRow`'s body becomes
+- [ ] **Step 3: `ThemeRow.tsx`** — `ThemeSwatchStrip` unchanged; imports: `RowShell`, `rowIds` from `'./RowShell'` in, `KnobLine` and `useKnobHelp` out; `ThemeRow`'s body becomes
 
 ```tsx
   const dict = useDictionary()
@@ -1133,7 +1166,11 @@ const SOURCES = import.meta.glob<string>(['../../console/**/*.{ts,tsx}', '../../
   eager: true,
 })
 
-const OWNER = '../../console/rows/RowShell.tsx'
+// `import.meta.glob` keys a file by its shortest path from here.
+const OWNER = './RowShell.tsx'
+
+// A `${…}-` composition or a literal id with two dashes: the classes `kv-help`, `kv-why`, `kv-ends` do not count.
+const ROW_PART_ID = /(\}|\w-\w+)-(help|why|desc|ends|label)[`'"]/
 
 test('the guard reads the row sources', () => {
   expect(Object.keys(SOURCES)).toContain(OWNER)
@@ -1147,16 +1184,14 @@ test('only RowShell writes the kv-row element or spells a row part’s id', () =
       text
         .split('\n')
         .map((line, index) => ({ path, line: index + 1, text: line }))
-        .filter(({ text: line }) => /className=\{?[`'"]kv-row/.test(line) || /-(help|why|desc|ends)[`'"]/.test(line)),
+        .filter(({ text: line }) => /className=\{?[`'"]kv-row/.test(line) || ROW_PART_ID.test(line)),
     )
   expect(offenders.map(({ path, line, text }) => `${path}:${line}: ${text.trim()}`)).toEqual([])
 })
 ```
 
-If "the guard reads the row sources" fails because `import.meta.glob` keys the files in another form (for example `./RowShell.tsx`), print `Object.keys(SOURCES)` once and set `OWNER` to the key `RowShell.tsx` actually gets; the negated `!**/*.test.*` pattern must still drop every test.
-
 Run: `cd apps/lab && pnpm exec vitest run --project node src/console/rows/rows.guard.test.ts`
-Expected: FAIL, listing `simple/SimplePanel.tsx` (`'simple-skeleton-help'`, `<div className="kv-row">`) and `simple/PositionSlider.tsx` (`` `${id}-help` ``, `` `${id}-ends` ``, `<div className="kv-row"`). If it lists any other file, that file still composes a row id: move it onto `rowIds` in this task.
+Expected: "the guard reads the row sources" PASSES; the second test FAILS, listing `simple/SimplePanel.tsx` (`'simple-skeleton-help'`, `<div className="kv-row">`) and `simple/PositionSlider.tsx` (`` `${id}-help` ``, `` `${id}-ends` ``, `<div className="kv-row"`). If it lists any other file, that file still composes a row id: move it onto `rowIds` in this task.
 
 - [ ] **Step 2: `SkeletonRow`**
 
@@ -1265,17 +1300,17 @@ git commit -m "Lab: the simple view's rows on the shell; a guard keeps kv-row an
 
 - [ ] **Step 1: Mark refactor 2 in `lab-review.md`**
 
-In the refactors table of the status section, the row "2. One knob-row shell, and split `ViewPanel.tsx` into a rows module" becomes fixed on `lab/row-shell`, in the same wording pattern as the refactor 3 row; in "What is still open", item 3 drops refactor 2. Commit: `Lab review: the row shell is done`.
+In the refactors table of the status section, the row "2. One knob-row shell, split `ViewPanel.tsx`" becomes fixed on `lab/row-shell`, in the same wording pattern as the refactor 3 row; in "What is still open", item 3 drops refactor 2. Commit: `Lab review: the row shell is done`.
 
 - [ ] **Step 2: Whole-repo gate in a clean worktree**
 
 ```bash
-cd /Users/tomek/dev/arrowz
+ROOT="$(git rev-parse --show-toplevel)"
 git worktree add --detach ../arrowz-row-shell HEAD
 cd ../arrowz-row-shell && corepack enable pnpm && pnpm install --frozen-lockfile
-pnpm nx run-many -t verify --skip-nx-cache > /tmp/row-shell-nx.log 2>&1; echo "nx=$?"
+pnpm nx run-many -t verify --skip-nx-cache --output-style=static > /tmp/row-shell-nx.log 2>&1; echo "nx=$?"
 deno task verify > /tmp/row-shell-deno.log 2>&1; echo "deno=$?"
-cd /Users/tomek/dev/arrowz && git worktree remove ../arrowz-row-shell
+cd "$ROOT" && git worktree remove ../arrowz-row-shell
 ```
 
 Expected: `nx=0`, `deno=0`. Record the counts for the PR.

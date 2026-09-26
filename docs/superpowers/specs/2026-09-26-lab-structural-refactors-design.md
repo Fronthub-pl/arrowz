@@ -147,7 +147,7 @@ What changes:
 |---|---|
 | `knob-<key>-desc` | `knob-<key>-help` (`FieldHelp.descId` is deleted) |
 | `view-point-radius` | `view-pointRadius` |
-| `view-point-color` | `view-pointColor` (also the ⌘K focus target) |
+| `view-point-color` | `view-pointColor` |
 | `view-highlight-color` | `view-highlightColor` |
 
 Section ids (`view-sec-*`, `dep-*`) are not rows and stay. The rename is PR
@@ -188,8 +188,8 @@ Section ids (`view-sec-*`, `dep-*`) are not rows and stay. The rename is PR
 - After the rename commit, every row test (`ViewPanel`, `SimplePanel`,
   `ValueKnob`, `ChoiceKnob`, `StartKnob`, `KnobPanel`, `BoardPreview`,
   `useFocusRequest`, `design/*`) passes without assertion edits.
-- New grep guard: outside `RowShell.tsx`, no source under `apps/lab/src`
-  writes `className="kv-row` or composes a row id with `-help`, `-desc` or
+- New grep guard: outside `RowShell.tsx`, no source under `apps/lab/src/console`
+  or `apps/lab/src/simple` (where the rows live; the report's own ids are not rows) writes `className="kv-row` or composes a row id with `-help`, `-desc` or
   `-why`.
 - New: `useReleasableChip` releases to the last non-special value, and to
   `fallback` with no history.
