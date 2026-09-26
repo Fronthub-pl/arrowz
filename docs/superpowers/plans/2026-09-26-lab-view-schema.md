@@ -16,7 +16,9 @@
 - Everything in the repository is English: code, comments, tests, commit messages.
 - No `any`, no non-null assertions (`!`). A type fix must not add a value-changing fallback.
 - Comments say why, once: one line by default, at most 6 lines unless it is a module or API header (≤ 24 lines). No history in comments ("used to", "legacy link", "Ruling 6", PR numbers). Cite symbols, never `file.ts:NN`. `packages/engine/comments.test.ts` enforces this for `apps/lab/src`.
-- The lab imports the engine from `packages/engine/dist/`: after changing `packages/engine/*.ts`, run `pnpm nx build engine` before any lab test or check.
+- The lab imports the engine and the board element from their `dist/`: run `pnpm nx run-many -t build -p engine board-element` once before the first lab test, and `pnpm nx build engine` again after changing `packages/engine/*.ts`.
+- `lab:fmt` is `prettier --check .`: run `cd apps/lab && pnpm exec prettier --write <changed files>` before every lab commit.
+- `packages/cli/boards/` is gitignored: it is the user's real board store. Never edit, add or commit anything under it.
 - Lab tests: `cd apps/lab && pnpm exec vitest run --project node <file>` for `*.test.ts`, `--project chromium <file>` for `*.browser.test.tsx`. Typecheck: `pnpm nx run lab:check` from the repo root.
 - Deno tests: from the repo root, `deno test --allow-read --allow-write --allow-env --allow-run --allow-net <file>`.
 - Behaviour outside the spec's five intended changes stays as it is; every browser test not named in a task passes without assertion edits.
@@ -26,7 +28,7 @@
 1. **A link re-encodes to itself.** `encodeHash(decodeHash(h))` must equal `h` for any `h` the lab wrote, or the `hashchange` handler (which compares `location.hash` to a fresh encode) restarts a carve on Back. Pinned in Task 3 ("a written link re-encodes to the same string").
 2. **Clearing the `top` box still gives 0, not the lab's starting 5.** `setNumber` keeps `viewNumberOf`, whose fallback is `DEFAULT_VIEW` (top 0), while `apply` falls back to the lab's defaults (top 5). Pinned in Task 2 ("an emptied top field falls back to the CLI's 0").
 3. **A hand-written link with `pad: 0` keeps a zero margin.** 0 is a legal margin and must not read as missing. Pinned in Task 1 (reader test) and Task 3 (round trip with `pad: 0`).
-4. **"Load into lab" leaves the page's colours, points, margin and voids alone.** `apply` takes a partial patch; a full-view patch there would be a silent behaviour change. Pinned in Task 4.
+4. **"Load into lab" leaves the page's colours, points, margin and voids alone.** `apply` takes a partial patch; a full-view patch there would be a silent behaviour change. Pinned in Task 4, which sets and asserts all ten fields the stored view does not carry.
 5. **One notification per link.** `applyPayload` must not fall back to per-field setters. Pinned in Task 2 (slice) and Task 3 (a pasted link notifies the view once).
 
 ---
@@ -52,7 +54,14 @@
 | `apps/lab/src/simple/SimplePanel.tsx`, `apps/lab/src/library/BoardPreview.tsx`, `apps/lab/src/palette/commands.ts` | modify | follow the merged table |
 | `packages/engine/command.ts`, `packages/engine/types.ts` | modify | delete `VIEW_VERSION`, `BoardMeta.viewVersion` |
 | `packages/cli/store.ts`, `packages/cli/store.test.ts` | modify | delete the version branch and its tests |
-| `packages/cli/boards/*/sha256-*.json` (2 files) | modify | delete the `"viewVersion": 2` line |
+
+`packages/cli/boards/` is not in this table on purpose: it is the gitignored real store. Two of its metas keep a `"viewVersion": 2` key, which `readMeta` spreads through unread.
+
+## Accepted side effects
+
+Beyond the spec's five intended changes, these follow from the design and are accepted (list them in the PR):
+- The setters normalise what they are given. The UI never sends such values, but `setPointColor('')` now gives `DEFAULT_POINT_COLOR`, `setTheme('unknown')` gives `''`, a non-hex board colour gives `''`, a hex is lower-cased, and `setPalette`/`setPaletteColor` drop a non-hex entry.
+- The hash's key order changes (`lang` after `pad`). A history entry the old encoder wrote never equals a fresh encode, so Back onto one restarts a carve once. There are no production links.
 
 ---
 
@@ -63,7 +72,7 @@
 - Test: `apps/lab/src/state/viewSchema.test.ts`
 
 **Interfaces:**
-- Consumes: `DEFAULT_PAD`, `DEFAULT_POINT_COLOR`, `DEFAULT_POINT_RADIUS`, `PAD_RANGE`, `POINT_RADIUS_RANGE`, `themeOf` from `@arrowz/board-element`; `DEFAULT_VIEW`, `VIEW_RANGE` from `@arrowz/engine/command`; `ViewNumber` from `@arrowz/engine`.
+- Consumes: `DEFAULT_PAD`, `DEFAULT_POINT_COLOR`, `DEFAULT_POINT_RADIUS`, `PAD_RANGE`, `POINT_RADIUS_RANGE`, `themeOf` from `@arrowz/board-element`; `DEFAULT_VIEW`, `viewNumberOf` from `@arrowz/engine/command`; `ViewNumber` from `@arrowz/engine`.
 - Produces (later tasks rely on these exact names):
   - `interface ViewFields` (18 fields, listed below), `type ViewKey = keyof ViewFields`
   - `const PALETTE_CAP = 8`
@@ -194,7 +203,7 @@ describe('the view schema', () => {
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cd apps/lab && pnpm exec vitest run --project node src/state/viewSchema.test.ts`
-Expected: FAIL — `Failed to resolve import "./viewSchema"`.
+Expected: FAIL — `Cannot find module './viewSchema' imported from …`.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -210,7 +219,7 @@ import {
   themeOf,
 } from '@arrowz/board-element'
 import type { ViewNumber } from '@arrowz/engine'
-import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
+import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
 /**
  * The lab's view: the one list of its fields. `VIEW_SCHEMA` is typed over it,
@@ -276,16 +285,13 @@ function finite(raw: unknown): number | undefined {
 
 const clamp = (n: number, range: { min: number; max: number }) => Math.min(range.max, Math.max(range.min, n))
 
-/** `viewNumberOf`'s clamp and rounding, without its fallback: the caller picks the default. */
+/** `viewNumberOf`'s clamp and rounding; an unreadable value stays `undefined`, so the caller picks the default. */
 function viewNumber(field: ViewNumber, def: number): FieldSpec<number> {
-  const range = VIEW_RANGE[field]
   return {
     def,
     read: (raw) => {
       const n = finite(raw)
-      if (n === undefined) return undefined
-      const v = clamp(n, range)
-      return range.whole ? Math.round(v) : v
+      return n === undefined ? undefined : viewNumberOf(String(n), field)
     },
   }
 }
@@ -386,12 +392,12 @@ export function pickView(view: ViewFields): ViewFields {
 }
 ```
 
-If `deno fmt` (run by `lab:fmt`) re-indents the palette `flatMap`, accept its output.
+Run `cd apps/lab && pnpm exec prettier --write src/state/viewSchema.ts src/state/viewSchema.test.ts` and accept its output (it re-wraps the palette `flatMap` and one `readView` line).
 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `cd apps/lab && pnpm exec vitest run --project node src/state/viewSchema.test.ts`
-Expected: PASS (13 tests).
+Expected: PASS (14 tests).
 
 Run: `pnpm nx run lab:check`
 Expected: no type errors. `lab:lint` must also accept the two `as` casts; if the linter refuses `as unknown as`, write `as ViewFields` alone and re-run.
@@ -497,7 +503,7 @@ The field doc comments now live on `ViewFields` (Task 1); delete them here.
 ```ts
 export function createViewSlice(set: SetStore): ViewState {
   const patch = (next: Partial<ViewState>) => set((state) => ({ view: { ...state.view, ...next } }))
-  // Every setter below except `setNumber` and the palette's index edits goes through the schema's readers.
+  // Every setter except `setNumber` and `toggle` goes through the schema's readers.
   const write = (raw: Partial<Record<ViewKey, unknown>>) => patch(readPatch(raw))
   return {
     ...VIEW_DEFAULTS,
@@ -600,12 +606,12 @@ import { VIEW_DEFAULTS } from './viewSchema'
 /** A hand-written link: what someone pastes, not what the lab writes. */
 const link = (json: Record<string, unknown>) => '#' + encodeURIComponent(JSON.stringify(json))
 
-/** Every field away from its default, so a field the codec drops cannot pass as its default. */
+/** Every field away from its default, fractions on the 0.05 step, so a field the codec drops or rounds cannot pass. */
 const EVERY_FIELD = {
   ...VIEW,
   cell: 20,
-  stroke: 0.7,
-  headWidth: 0.3,
+  stroke: 0.65,
+  headWidth: 0.35,
   headHeight: 0,
   top: 9,
   colored: true,
@@ -614,7 +620,7 @@ const EVERY_FIELD = {
   voids: false,
   showPoints: true,
   pointColor: '#070809',
-  pointRadius: 0.2,
+  pointRadius: 0.15,
   theme: 'gruvbox-dark',
   palette: ['#112233', '#aabbcc'],
   paper: '#010203',
@@ -727,7 +733,7 @@ describe('the hash codec', () => {
 - [ ] **Step 2: Run the codec tests to verify they fail**
 
 Run: `cd apps/lab && pnpm exec vitest run --project node src/state/url.test.ts`
-Expected: FAIL — at least "writes every field, the empty ones included, and no version" (today's encoder omits the empty palette and writes `viewVersion`) and "opens a link that names no view field on the defaults" (today `cell` decodes to `undefined`).
+Expected: FAIL, 7 of 14 — among them "writes every field, the empty ones included, and no version" (today's encoder omits the empty palette and writes `viewVersion`) and "opens a link that names no view field on the defaults" (today `cell` decodes to `undefined`). "carries every view field through a round trip" already passes on the old codec: it guards the rewrite, it is not a red-first test.
 
 - [ ] **Step 3: Rewrite the codec**
 
@@ -829,8 +835,8 @@ The rest of the file (from `export interface UrlHash` on) stays unchanged.
 
 In `apps/lab/src/state/useUrlHash.browser.test.tsx`:
 
-1. Rename `legacyFragment` (line 11-12) to `handFragment` with the doc comment `/** A hand-written link, for \`location.hash =\`. */`, and update its uses.
-2. Delete the test `'opens on the palette a legacy link names, and keeps a theme already on screen'` (line 282).
+1. Rename `legacyFragment` (lines 12-13) to `handFragment` with the doc comment `/** A hand-written link, for \`location.hash =\`. */`, and update its uses.
+2. Delete the test `'opens on the palette a legacy link names, and keeps a theme already on screen'` (line 282), and rename the next one, `'opens on the palette a link written now names, and clears the theme it does not'`, to `'opens on the palette a link names, and clears the theme it does not'` (its body stays).
 3. Replace the test `'keeps the board colours and the margin on screen when a legacy link names none of them'` (line 396) with:
 
 ```ts
@@ -855,10 +861,14 @@ In `apps/lab/src/state/useUrlHash.browser.test.tsx`:
   it('sets every field a link states, the empty colours and the margin included', async () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setInk('#040506')
+    useStore.getState().view.setHighlightColor('#0a0b0c')
     useStore.getState().view.setPad(7)
     location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: { ...VIEW, pad: 2 }, carried: {} }).slice(1)
     await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
     expect(useStore.getState().view.paper).toBe('')
+    expect(useStore.getState().view.ink).toBe('')
+    expect(useStore.getState().view.highlightColor).toBe('')
     expect(useStore.getState().view.pad).toBe(2)
   })
 
@@ -896,6 +906,8 @@ Expected: no type errors; `url.ts` no longer imports `VIEW_VERSION`.
 
 - [ ] **Step 7: Commit**
 
+Run `cd apps/lab && pnpm exec prettier --write src/state/url.ts src/state/url.fixtures.ts src/state/url.test.ts src/state/useUrlHash.ts src/state/useUrlHash.browser.test.tsx` first.
+
 ```bash
 git add apps/lab/src/state/url.ts apps/lab/src/state/url.fixtures.ts apps/lab/src/state/url.test.ts \
   apps/lab/src/state/useUrlHash.ts apps/lab/src/state/useUrlHash.browser.test.tsx
@@ -912,7 +924,7 @@ view in one store update."
 ### Task 4: "Load into lab" applies the stored view in one update
 
 **Files:**
-- Modify: `apps/lab/src/library/BoardColumn.tsx` (`loadIntoLab`, current lines 95-111)
+- Modify: `apps/lab/src/library/BoardColumn.tsx` (`loadIntoLab`, current lines 97-111)
 - Test: `apps/lab/src/library/BoardColumn.browser.test.tsx`
 
 **Interfaces:**
@@ -926,14 +938,22 @@ Add after the test `'load into lab sets the knobs and the view, goes to the lab,
 ```ts
 // A stored board carries the CLI's seven view fields only; the page's colours, points, margin and voids stay.
 test('load into lab leaves the view fields a stored board does not carry', async () => {
+  const initial = useStore.getState().view
   const screen = await mountDetail()
   await show()
-  const view = useStore.getState().view
-  view.setPaper('#010203')
-  view.setTheme('gruvbox-dark')
-  view.setPad(7)
-  view.setFlag('voids', false)
-  view.setFlag('showPoints', true)
+  const page = {
+    paper: '#010203',
+    ink: '#040506',
+    highlightColor: '#0a0b0c',
+    theme: 'gruvbox-dark',
+    palette: ['#112233'],
+    pointColor: '#070809',
+    pointRadius: 0.15,
+    pad: 7,
+    voids: false,
+    showPoints: true,
+  }
+  useStore.getState().view.apply(page)
   let viewChanges = 0
   let last = useStore.getState().view
   const stop = useStore.subscribe((state) => {
@@ -942,24 +962,22 @@ test('load into lab leaves the view fields a stored board does not carry', async
   })
   try {
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    const after = useStore.getState().view
+    expect(after.stroke).toBe(stored.meta.view.stroke)
+    expect(after).toMatchObject(page)
+    expect(viewChanges).toBe(1)
   } finally {
     stop()
+    // The file's `beforeEach` does not reset the view; later cases expect the page's defaults.
+    useStore.setState({ view: initial })
   }
-  const after = useStore.getState().view
-  expect(after.stroke).toBe(stored.meta.view.stroke)
-  expect(after.paper).toBe('#010203')
-  expect(after.theme).toBe('gruvbox-dark')
-  expect(after.pad).toBe(7)
-  expect(after.voids).toBe(false)
-  expect(after.showPoints).toBe(true)
-  expect(viewChanges).toBe(1)
 })
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/library/BoardColumn.browser.test.tsx -t "does not carry"`
-Expected: FAIL on `expect(viewChanges).toBe(1)` (today 7 or 8 separate updates). The field assertions already pass: they pin behaviour that must survive.
+Expected: FAIL with `expected 7 to be 1` (today one update per field). The field assertions already pass: they pin behaviour that must survive.
 
 - [ ] **Step 3: Write the implementation**
 
@@ -986,6 +1004,8 @@ Run: `cd apps/lab && pnpm exec vitest run --project chromium src/library/BoardCo
 Expected: PASS, the existing load test included, unedited.
 
 - [ ] **Step 5: Commit**
+
+Run `cd apps/lab && pnpm exec prettier --write src/library/BoardColumn.tsx src/library/BoardColumn.browser.test.tsx` first.
 
 ```bash
 git add apps/lab/src/library/BoardColumn.tsx apps/lab/src/library/BoardColumn.browser.test.tsx
@@ -1019,7 +1039,7 @@ All five numbers have a unit today (`VIEW_ROWS` in `viewFields.ts:67-73`), so `u
 
 - [ ] **Step 1: Rewrite the metadata test**
 
-Replace the first three tests of `apps/lab/src/console/viewFields.test.ts` (lines 6-40; keep the two `autoHeadWidth` tests and change only the import) with:
+Replace lines 1-40 of `apps/lab/src/console/viewFields.test.ts` (the imports and the first three tests; keep the two `autoHeadWidth` tests below them) with:
 
 ```ts
 import { pieceShape } from '@arrowz/engine'
@@ -1177,7 +1197,7 @@ Keep `PlainUiKey`, `SIMPLE_VIEW_FIELDS`, `SIMPLE_VIEW_FLAGS` and `autoHeadWidth`
 - [ ] **Step 5: Run the tests**
 
 Run: `pnpm nx run lab:check`
-Expected: no type errors, and `grep -rn "fieldOf\|VIEW_FIELDS\|FLAG_ROWS\|ViewField\b" apps/lab/src` prints nothing.
+Expected: no type errors, and `grep -rnw -e fieldOf -e VIEW_FIELDS -e FLAG_ROWS -e ViewField apps/lab/src` prints nothing (`-w`, so `SIMPLE_VIEW_FIELDS` does not match).
 
 Run: `cd apps/lab && pnpm exec vitest run --project node src/console/viewFields.test.ts src/palette/commands.test.ts`
 Expected: PASS.
@@ -1186,6 +1206,8 @@ Run: `cd apps/lab && pnpm exec vitest run --project chromium src/console/ViewPan
 Expected: PASS, no assertion edits.
 
 - [ ] **Step 6: Commit**
+
+Run `cd apps/lab && pnpm exec prettier --write src/console/viewFields.ts src/console/viewFields.test.ts src/console/ViewPanel.tsx src/simple/SimplePanel.tsx src/library/BoardPreview.tsx src/palette/commands.ts` first.
 
 ```bash
 git add apps/lab/src/console/viewFields.ts apps/lab/src/console/viewFields.test.ts apps/lab/src/console/ViewPanel.tsx \
@@ -1200,9 +1222,8 @@ git commit -m "Lab: one metadata table for the view's numbers and flags, keyed b
 **Files:**
 - Modify: `packages/engine/command.ts` (lines 242-250)
 - Modify: `packages/engine/types.ts` (lines 338-339)
-- Modify: `packages/cli/store.ts` (lines 11, 45-57, 73-78, 96, 177)
+- Modify: `packages/cli/store.ts` (lines 11, 45-57, 73-78, 88, 177)
 - Modify: `packages/cli/store.test.ts` (lines 4, 286-338)
-- Modify: `packages/cli/boards/1000x1000/sha256-ffdb06d621416f33cc7f76302239f3a4c36dc83383c72bb45ca92b34a60ccf93.json`, `packages/cli/boards/25x50/sha256-12b7183d231ad6b1182d6b0bfbbf4408da267b75175e61633f5abe85aaf80b06.json` (line 112 each)
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks. Task 3 must be done first: until then `apps/lab/src/state/url.ts` imports `VIEW_VERSION`.
@@ -1233,7 +1254,7 @@ Deno.test('a meta without a version reads a head height of 0 as 0', async () => 
 - [ ] **Step 2: Run the store tests to verify they fail**
 
 Run: `deno test --allow-read --allow-write --allow-env --allow-run --allow-net packages/cli/store.test.ts`
-Expected: FAIL — "a meta without a version reads a head height of 0 as 0" gets 1 (the version branch), and the renamed test finds `viewVersion` in the meta.
+Expected: FAIL — "a meta without a version reads a head height of 0 as 0" gets 1 (the version branch), and the renamed test finds `viewVersion` in the meta. Once the change is in, the new test and the renamed one check the same path (the save writes no version any more); the new one earns its place as the red-first test of the deletion.
 
 - [ ] **Step 3: Delete the version**
 
@@ -1252,9 +1273,9 @@ function fillView(view: View): View {
 
   - in `readMeta`: delete `const versioned = meta.viewVersion !== undefined` and call `fillView(meta.view)` and `fillView(r.view)`;
   - in the meta written by `saveBoard`: delete `viewVersion: VIEW_VERSION,` (line 177).
-- The two board files: delete the line `"viewVersion": 2` and the comma it leaves dangling on the line before (open each file, look at lines 110-113, keep the JSON valid).
+- Nothing under `packages/cli/boards/`: it is the gitignored real store (see Global Constraints).
 
-Then `grep -rn "viewVersion\|VIEW_VERSION" packages apps --include='*.ts' --include='*.tsx' --include='*.json' | grep -v node_modules | grep -v /dist/` must print nothing.
+Then `grep -rn "viewVersion\|VIEW_VERSION" packages apps --include='*.ts' --include='*.tsx' | grep -v node_modules | grep -v /dist/` prints only the three negative assertions that pin the removal: `apps/lab/src/state/url.test.ts` (`not.toHaveProperty('viewVersion')`) and two lines in `packages/cli/store.test.ts`.
 
 - [ ] **Step 4: Run the gates**
 
@@ -1270,7 +1291,7 @@ Expected: green; the lab's `dist` no longer exports `VIEW_VERSION` and nothing i
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/engine/command.ts packages/engine/types.ts packages/cli/store.ts packages/cli/store.test.ts packages/cli/boards
+git add packages/engine/command.ts packages/engine/types.ts packages/cli/store.ts packages/cli/store.test.ts
 git commit -m "Store: no view version; a head height of 0 is literal in every meta"
 ```
 

@@ -54,8 +54,12 @@ not a panel row), the CSS refactor (review item 5).
   - `theme`: `''` or a name `themeOf` knows;
   - flags: booleans only.
 
-  `read` returns `undefined` for a value it cannot accept. The type
-  `ViewFields`, the defaults and the key list are derived from the record.
+  `read` returns `undefined` for a value it cannot accept. `ViewFields` is
+  the one hand-written list of fields; `VIEW_SCHEMA` is a mapped type over
+  it, so an entry missing from either fails `tsc`, and the defaults and the
+  key list are derived from the record. View numbers reuse `viewNumberOf`'s
+  clamp and rounding, but an unreadable value stays `undefined` so the
+  caller picks the default.
 - **`view.slice.ts`.** The state is `ViewFields` plus actions. New action
   `apply(patch: Partial<ViewFields>)`: every present key goes through its
   `read`, an unreadable value falls back to `def`, and the result is written
@@ -81,11 +85,17 @@ not a panel row), the CSS refactor (review item 5).
   `VIEW_SCHEMA`: the schema is state and codec (`state/`), the rows are
   presentation (`console/`). `fieldOf` moves here in PR 2.
 - **Engine and CLI.** Delete `VIEW_VERSION` (`packages/engine/command.ts`),
-  `BoardMeta.viewVersion` (`packages/engine/types.ts`), the version branch of
-  `fillView` and the `viewVersion` write in `packages/cli/store.ts`, and the
-  `viewVersion` line in the two boards under `packages/cli/boards/`.
+  `BoardMeta.viewVersion` (`packages/engine/types.ts`), and the version
+  branch of `fillView` and the `viewVersion` write in `packages/cli/store.ts`.
   `readMeta` keeps filling missing fields with defaults: that is the store's
-  boundary check, independent of any version.
+  boundary check, independent of any version. `packages/cli/boards/` is the
+  gitignored real store and is not edited; a meta there that still carries
+  `viewVersion` has it spread through unread.
+- **`setNumber` stays on `viewNumberOf`.** Its fallback is the CLI's
+  (`DEFAULT_VIEW.top` is 0), the schema's is the lab's (top 5): an emptied
+  "top" field keeps giving 0. The other setters read through the schema.
+- **`fieldOf` goes in this PR**: once the rows are keyed by `ViewNumber`,
+  there is nothing for it to look up.
 
 ### Intended changes
 
@@ -97,6 +107,12 @@ not a panel row), the CSS refactor (review item 5).
    `"paper":""`).
 5. A link and "Load into lab" notify store subscribers once for the view,
    not once per field.
+
+Accepted side effects: the setters normalise what they are given (a
+non-hex colour becomes `''` or the default, a hex is lower-cased, an
+unknown theme becomes `''`, a non-hex palette entry is dropped), which the
+UI never sends; and the hash's key order changes, so Back onto an entry the
+old encoder wrote restarts a carve once.
 
 ### Tests
 
