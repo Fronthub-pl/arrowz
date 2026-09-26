@@ -383,7 +383,7 @@ describe('SimplePanel', () => {
     expect(screen.container.querySelector('.fw-swatches')).toBeNull()
   })
 
-  // Pinned by absence: the two panels share `ViewPanel`'s rows, which is how
+  // Pinned by absence: the two panels share the rows in `console/rows/`, which is how
   // an edit could hand the simple view the editor by accident.
   it('has no custom-palette editor — no add-colour button and no colour input', async () => {
     const screen = await render(<SimplePanel control={stub().control} />)

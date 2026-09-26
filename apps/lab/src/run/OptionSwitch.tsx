@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 /**
  * The lab's switch (`.fw-sw`, a 28×14 square track), for the option the mock
  * itself does not have. `role="switch"` on a button and `aria-labelledby`
- * against the visible span: the same shape as `ViewPanel`'s switches, so the
+ * against the visible span: the same shape as `FlagRow`'s switch, so the
  * lab has one switch and not two.
  */
 export function OptionSwitch({
