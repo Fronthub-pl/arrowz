@@ -2,7 +2,7 @@ import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { KnobLine, useKnobHelp } from '../console/KnobRow'
-import { SwitchRow } from '../console/rows/FlagRow'
+import { FlagRow, SwitchRow } from '../console/rows/FlagRow'
 import { ViewNumberRow } from '../console/rows/NumberRow'
 import { Section } from '../console/rows/Section'
 import { ThemeRow } from '../console/rows/ThemeRow'
@@ -95,35 +95,16 @@ function RandomRow(): ReactElement {
   const dict = useDictionary()
   const random = useStore((state) => state.recipe.value.random)
   const setRandom = useStore((state) => state.recipe.setRandom)
-  const name = dict.d.simple.randomizeShort
-  const helpId = 'simple-random-help'
-  const { button, paragraph } = useKnobHelp(helpId, name, dict.d.simple.randomizeHelp)
   return (
-    <div className="kv-row" title={dict.d.simple.randomize}>
-      <KnobLine
-        label={
-          <span className="kv-lab" id="simple-random-label">
-            {name}
-          </span>
-        }
-        help={button}
-        value={<span className="kv-unit">{dict.t(random ? 'valueOn' : 'valueOff')}</span>}
-        control={
-          <button
-            type="button"
-            id="simple-random"
-            className="fw-sw"
-            role="switch"
-            aria-checked={random}
-            aria-labelledby="simple-random-label"
-            aria-describedby={helpId}
-            title={dict.d.simple.randomize}
-            onClick={() => setRandom(!random)}
-          />
-        }
-      />
-      {paragraph}
-    </div>
+    <FlagRow
+      id="simple-random"
+      name={dict.d.simple.randomizeShort}
+      title={dict.d.simple.randomize}
+      help={dict.d.simple.randomizeHelp}
+      on={random}
+      onToggle={() => setRandom(!random)}
+      buttonTitle={dict.d.simple.randomize}
+    />
   )
 }
 

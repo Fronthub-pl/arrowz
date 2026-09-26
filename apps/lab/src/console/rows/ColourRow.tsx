@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { KnobLine, useKnobHelp } from '../KnobRow'
+import { RowShell, rowIds } from './RowShell'
 
 /**
  * One colour as a row: its hex in the value track, the colour input at the
@@ -26,36 +26,30 @@ export function ColourRow({
   onClear?: (() => void) | undefined
   clearLabel?: string | undefined
 }): ReactElement {
-  const helpId = `${id}-help`
-  const { button, paragraph } = useKnobHelp(helpId, short, help)
   return (
-    <div className="kv-row" title={title}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor={id}>
-            {short}
-          </label>
-        }
-        help={button}
-        value={<span className="kv-unit">{value}</span>}
-        control={
-          <span className="kv-colour">
-            {onClear === undefined ? null : (
-              <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
-                ×
-              </button>
-            )}
-            <input
-              id={id}
-              type="color"
-              value={value}
-              aria-describedby={helpId}
-              onChange={(e) => onChange(e.target.value)}
-            />
-          </span>
-        }
-      />
-      {paragraph}
-    </div>
+    <RowShell
+      id={id}
+      name={short}
+      helpText={help}
+      labelAs="for"
+      title={title}
+      value={<span className="kv-unit">{value}</span>}
+      control={
+        <span className="kv-colour">
+          {onClear === undefined ? null : (
+            <button type="button" className="fw-palette-remove" aria-label={clearLabel} onClick={onClear}>
+              ×
+            </button>
+          )}
+          <input
+            id={id}
+            type="color"
+            value={value}
+            aria-describedby={rowIds(id).help}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </span>
+      }
+    />
   )
 }

@@ -2,7 +2,7 @@ import { THEMES, themeOf } from '@arrowz/board-element'
 import type { ReactElement } from 'react'
 import { useDictionary } from '../../i18n'
 import { useStore } from '../../state/store'
-import { KnobLine, useKnobHelp } from '../KnobRow'
+import { RowShell, rowIds } from './RowShell'
 
 /**
  * The chosen theme's arrow colours, in order, on the theme's own paper, so a
@@ -33,31 +33,29 @@ export function ThemeRow(): ReactElement {
   const dict = useDictionary()
   const theme = useStore((state) => state.view.theme)
   const setTheme = useStore((state) => state.view.setTheme)
-  const name = dict.t('viewShortTheme')
-  const helpId = 'view-theme-help'
-  const { button, paragraph } = useKnobHelp(helpId, name, dict.t('themeHelp'))
   return (
-    <div className="kv-row" title={dict.t('themeLabel')}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor="view-theme">
-            {name}
-          </label>
-        }
-        help={button}
-        control={
-          <select id="view-theme" value={theme} aria-describedby={helpId} onChange={(e) => setTheme(e.target.value)}>
-            <option value="">{dict.t('viewThemeNone')}</option>
-            {Object.keys(THEMES).map((themeName) => (
-              <option key={themeName} value={themeName}>
-                {themeName}
-              </option>
-            ))}
-          </select>
-        }
-      />
-      <ThemeSwatchStrip themeName={theme} />
-      {paragraph}
-    </div>
+    <RowShell
+      id="view-theme"
+      name={dict.t('viewShortTheme')}
+      helpText={dict.t('themeHelp')}
+      labelAs="for"
+      title={dict.t('themeLabel')}
+      control={
+        <select
+          id="view-theme"
+          value={theme}
+          aria-describedby={rowIds('view-theme').help}
+          onChange={(e) => setTheme(e.target.value)}
+        >
+          <option value="">{dict.t('viewThemeNone')}</option>
+          {Object.keys(THEMES).map((themeName) => (
+            <option key={themeName} value={themeName}>
+              {themeName}
+            </option>
+          ))}
+        </select>
+      }
+      after={<ThemeSwatchStrip themeName={theme} />}
+    />
   )
 }

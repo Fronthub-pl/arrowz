@@ -2,7 +2,7 @@ import type { ViewNumber } from '@arrowz/engine'
 import { viewNumberOf } from '@arrowz/engine/command'
 import type { ReactElement } from 'react'
 import { ColoursSection } from '../console/rows/ColoursSection'
-import { FlagRow } from '../console/rows/FlagRow'
+import { FieldFlagRow } from '../console/rows/FlagRow'
 import { FieldNumberRow } from '../console/rows/NumberRow'
 import { Section } from '../console/rows/Section'
 import { useDictionary } from '../i18n'
@@ -47,12 +47,12 @@ export function BoardPreview(): ReactElement {
                   onSet={(next) => commitView({ ...view, [key]: viewNumberOf(String(next), key) })}
                 />
               ))}
-              <FlagRow
+              <FieldFlagRow
                 flag="rounded"
                 on={view.rounded !== false}
                 onToggle={() => commitView({ ...view, rounded: view.rounded === false })}
               />
-              <FlagRow
+              <FieldFlagRow
                 flag="colored"
                 on={view.colored}
                 onToggle={() => commitView({ ...view, colored: !view.colored })}
