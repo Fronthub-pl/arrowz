@@ -3,7 +3,7 @@ import { viewNumberOf } from '@arrowz/engine/command'
 import type { ReactElement } from 'react'
 import { ColoursSection } from '../console/rows/ColoursSection'
 import { FlagRow } from '../console/rows/FlagRow'
-import { NumberRow } from '../console/rows/NumberRow'
+import { FieldNumberRow } from '../console/rows/NumberRow'
 import { Section } from '../console/rows/Section'
 import { useDictionary } from '../i18n'
 import { BOARDS_PREVIEW_ID, boardsTabId } from './BoardsRail'
@@ -38,7 +38,7 @@ export function BoardPreview(): ReactElement {
           ) : (
             <>
               {STORED_NUMBERS.map((key) => (
-                <NumberRow
+                <FieldNumberRow
                   key={key}
                   field={key}
                   value={view[key]}
