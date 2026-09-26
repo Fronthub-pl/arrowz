@@ -8,7 +8,7 @@ test('no key belongs to two rows of the workspace table', () => {
   expect(new Set(keys).size).toBe(keys.length)
 })
 
-test('the table holds every workspace key the lab advertises', () => {
+test('the table holds exactly the workspace keys f, r, s, g, [, ] and Escape, in both cases where a letter has one', () => {
   expect(WORKSPACE_KEYS.flatMap((row) => row.keys).sort()).toEqual(
     ['Escape', 'F', 'G', 'R', 'S', '[', ']', 'f', 'g', 'r', 's'].sort(),
   )

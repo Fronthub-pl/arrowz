@@ -165,7 +165,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | 1. Delete the dead knob layer | fixed in `a2f60e0`, `d486dd1` | `console.test.ts` now pins the live `.kv-g .fw-swatches`; the `.fw-k` branch in `useFocusRequest` is gone |
 | 2. One knob-row shell, split `ViewPanel.tsx` | fixed on `lab/row-shell` (`b2c78d3`..`080d3ce`) | `console/rows/RowShell.tsx` frames every knob row and `rowIds` spells its ids (`<scope>-<field>` plus `-help`/`-label`/`-why`/`-ends`); the view's rows live in `console/rows/` and `ViewPanel.tsx` is the panel; `useReleasableChip` is the one chip memory; `rows.guard.test.ts` keeps `kv-row` and row ids in `RowShell`; `OptionSwitch` stays apart by decision |
 | 3. One view schema and `view.apply()` | fixed on `lab/view-schema` (`f33ba85`..`4d16651`) | `viewSchema.ts` is the one field list; the slice, the link and "Load into lab" all read and normalise through it, and `view.apply()` writes a patch in one update |
-| 4. One hotkey table and `useDismiss` | open | |
+| 4. One hotkey table and `useDismiss` | fixed on `lab/hotkeys-dismiss` (`a679fcf`..`1eb93cc`) | `shell/hotkeys.ts` holds `WORKSPACE_KEYS` behind one `useWorkspaceKeys` listener, with `usePaletteKey` beside it; `shell/useDismiss.ts` closes the top menu, the `…` popover and the preset panel; `CommandPalette` stays apart by decision (modal, mousedown, focus trap); `useStoreSave` and `useBandReset` are out of `App.tsx` |
 | 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
 | 6. Library column reuses the run column's pieces | open | |
 | 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
@@ -245,8 +245,7 @@ section above).
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
-3. **Structural refactor 4:** one hotkey table and a `useDismiss` hook. Then
-   5 (the `.fw button` prefix and tokens), 6–9 and 11.
+3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
 4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
