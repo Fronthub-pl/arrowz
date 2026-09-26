@@ -3,35 +3,16 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router'
 import type { RunControl } from '../run/useRun'
 import { useStore } from './store'
-import { type Carried, decodeHash, encodeHash, type HashPayload } from './url'
+import { type Carried, decodeHash, encodeHash, type HashPayload, type HashView } from './url'
 import type { ViewState } from './view.slice'
+import { pickView } from './viewSchema'
 
 /** How long a burst of edits is allowed to run before the address bar moves. */
 const WRITE_DELAY_MS = 250
 
 /** The view as the link states it, from the slice. */
-function viewFor(view: ViewState, lang: Lang) {
-  return {
-    cell: view.cell,
-    stroke: view.stroke,
-    headWidth: view.headWidth,
-    headHeight: view.headHeight,
-    top: view.top,
-    rounded: view.rounded,
-    colored: view.colored,
-    highlightLongest: view.highlightLongest,
-    voids: view.voids,
-    lang,
-    theme: view.theme,
-    palette: view.palette,
-    paper: view.paper,
-    ink: view.ink,
-    highlightColor: view.highlightColor,
-    showPoints: view.showPoints,
-    pointColor: view.pointColor,
-    pointRadius: view.pointRadius,
-    pad: view.pad,
-  }
+function viewFor(view: ViewState, lang: Lang): HashView {
+  return { ...pickView(view), lang }
 }
 
 /** Writes a decoded link into the store. The caller decides whether to run. */
@@ -40,31 +21,10 @@ function applyPayload(payload: HashPayload): void {
   // One `setMany`: one recompute, one render, and the machine path, so `auto`
   // does not schedule a second run behind the one this trigger starts.
   ui.raiseClamped(params.setMany(payload.params))
-  // A number the link did not name keeps the page's own value; `setNumber` is
-  // the tolerant reader, handed the value as text exactly as a field would.
-  if (payload.view.cell !== undefined) view.setNumber('cell', String(payload.view.cell))
-  if (payload.view.stroke !== undefined) view.setNumber('stroke', String(payload.view.stroke))
-  if (payload.view.headWidth !== undefined) view.setNumber('headWidth', String(payload.view.headWidth))
-  if (payload.view.headHeight !== undefined) view.setNumber('headHeight', String(payload.view.headHeight))
-  if (payload.view.top !== undefined) view.setNumber('top', String(payload.view.top))
-  view.setFlag('rounded', payload.view.rounded)
-  view.setFlag('colored', payload.view.colored)
-  view.setFlag('highlightLongest', payload.view.highlightLongest)
-  view.setFlag('voids', payload.view.voids)
-  // Through `setLang`, so a link's language is remembered as well as shown.
-  if (payload.view.lang !== undefined) lang.setLang(payload.view.lang)
-  // Absent only in a legacy link: the page keeps its own, as for `cell`..`top`.
-  // A link written now states every colour (`''` for none), so it clears them.
-  if (payload.view.theme !== undefined) view.setTheme(payload.view.theme)
-  if (payload.view.palette !== undefined) view.setPalette(payload.view.palette)
-  if (payload.view.paper !== undefined) view.setPaper(payload.view.paper)
-  if (payload.view.ink !== undefined) view.setInk(payload.view.ink)
-  if (payload.view.highlightColor !== undefined) view.setHighlightColor(payload.view.highlightColor)
-  // `showPoints` is a plain flag like `rounded`, not a tri-state.
-  view.setFlag('showPoints', payload.view.showPoints === true)
-  if (payload.view.pointColor !== undefined) view.setPointColor(payload.view.pointColor)
-  if (payload.view.pointRadius !== undefined) view.setPointRadius(String(payload.view.pointRadius))
-  if (payload.view.pad !== undefined) view.setPad(payload.view.pad)
+  const { lang: linkLang, ...fields } = payload.view
+  view.apply(fields)
+  // Through `setLang`, so a link's language is remembered as well as shown; a link without one keeps the page's.
+  if (linkLang !== undefined) lang.setLang(linkLang)
 }
 
 export interface UrlHash {
