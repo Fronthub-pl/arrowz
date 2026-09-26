@@ -1,9 +1,9 @@
 import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
-import { KnobLine, useKnobHelp } from '../console/KnobRow'
 import { FlagRow, SwitchRow } from '../console/rows/FlagRow'
 import { ViewNumberRow } from '../console/rows/NumberRow'
+import { RowShell, rowIds } from '../console/rows/RowShell'
 import { Section } from '../console/rows/Section'
 import { ThemeRow } from '../console/rows/ThemeRow'
 import { ValueKnob } from '../console/ValueKnob'
@@ -55,35 +55,29 @@ function SkeletonRow({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
-  const helpId = 'simple-skeleton-help'
-  const { button, paragraph } = useKnobHelp(helpId, dict.d.simple.skeleton, dict.d.simple.skeletonHelp)
+  const ids = rowIds('simple-skeleton')
   return (
-    <div className="kv-row">
-      <KnobLine
-        label={
-          <span className="kv-lab" id="simple-skeleton-label">
-            {dict.d.simple.skeleton}
-          </span>
-        }
-        help={button}
-        wide
-        control={
-          <Segmented
-            label={dict.d.simple.skeleton}
-            labelledBy="simple-skeleton-label"
-            describedBy={helpId}
-            value={skeleton}
-            options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
-            onChange={(next) => {
-              setSkeleton(next)
-              applyRecipe(false)
-              control.start()
-            }}
-          />
-        }
-      />
-      {paragraph}
-    </div>
+    <RowShell
+      id="simple-skeleton"
+      name={dict.d.simple.skeleton}
+      helpText={dict.d.simple.skeletonHelp}
+      labelAs="span"
+      wide
+      control={
+        <Segmented
+          label={dict.d.simple.skeleton}
+          labelledBy={ids.label}
+          describedBy={ids.help}
+          value={skeleton}
+          options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
+          onChange={(next) => {
+            setSkeleton(next)
+            applyRecipe(false)
+            control.start()
+          }}
+        />
+      }
+    />
   )
 }
 

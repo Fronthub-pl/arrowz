@@ -1,5 +1,6 @@
 import type React from 'react'
-import { KnobLine, KnobTrack, useKnobHelp } from '../console/KnobRow'
+import { KnobTrack } from '../console/KnobRow'
+import { RowShell, rowIds } from '../console/rows/RowShell'
 import { useDictionary } from '../i18n'
 import type { RecipeSlider } from '../state/recipe.slice'
 import { useStore } from '../state/store'
@@ -25,45 +26,40 @@ export function PositionSlider({ slider }: { slider: RecipeSlider }): React.Reac
   const [low, high] = dict.d.simple.ends[slider]
   const percent = Math.round(position * 100)
   const id = `simple-${slider}`
-  const helpId = `${id}-help`
-  const { button, paragraph } = useKnobHelp(helpId, label, dict.d.simple[HELP[slider]])
+  const ids = rowIds(id)
   return (
-    <div className="kv-row" title={label}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor={id}>
-            {label}
-          </label>
-        }
-        help={button}
-        value={
-          <span className="kv-val">
-            <span className="kv-num">{percent}</span>
-          </span>
-        }
-        control={
-          <KnobTrack
-            id={id}
-            value={percent}
-            bounds={{ min: 0, max: 100 }}
-            step={1}
-            word={null}
-            // The number alone says nothing: "20" of what? The ends say.
-            describedBy={`${id}-ends ${helpId}`}
-            onCommit={(next) => {
-              setSlider(slider, next / 100)
-              applyRecipe(false)
-            }}
-          />
-        }
-        under={
-          <p className="kv-ends" id={`${id}-ends`}>
-            <span>{low}</span>
-            <span>{high}</span>
-          </p>
-        }
-      />
-      {paragraph}
-    </div>
+    <RowShell
+      id={id}
+      name={label}
+      helpText={dict.d.simple[HELP[slider]]}
+      labelAs="for"
+      title={label}
+      value={
+        <span className="kv-val">
+          <span className="kv-num">{percent}</span>
+        </span>
+      }
+      control={
+        <KnobTrack
+          id={id}
+          value={percent}
+          bounds={{ min: 0, max: 100 }}
+          step={1}
+          word={null}
+          // The number alone says nothing: "20" of what? The ends say.
+          describedBy={`${ids.ends} ${ids.help}`}
+          onCommit={(next) => {
+            setSlider(slider, next / 100)
+            applyRecipe(false)
+          }}
+        />
+      }
+      under={
+        <p className="kv-ends" id={ids.ends}>
+          <span>{low}</span>
+          <span>{high}</span>
+        </p>
+      }
+    />
   )
 }
