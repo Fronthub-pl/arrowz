@@ -292,11 +292,11 @@ Deno.test('a board saved with a head height of 0 reads back 0, and its meta carr
   assertEquals(board?.sources[0]?.view.headHeight, 0, 'the recipe is read the same way')
 })
 
-Deno.test('a meta without a version reads a head height of 0 as 0', async () => {
+Deno.test('a meta carrying a stray view version reads a head height of 0 as 0', async () => {
   const dir = freshDir()
   const { meta } = await saveBoard({ ...entry(), view: { ...DEFAULT_VIEW, headHeight: 0 } })
   const file = join(dir, '25x50', `${meta.id}.json`)
-  Deno.writeTextFileSync(file, JSON.stringify({ ...readMeta(file), viewVersion: undefined }))
+  Deno.writeTextFileSync(file, JSON.stringify({ ...readMeta(file), viewVersion: 1 }))
   const board = listBoards()[0]?.boards[0]
   assertEquals(board?.view.headHeight, 0)
   assertEquals(board?.sources[0]?.view.headHeight, 0, 'the recipe is read the same way')

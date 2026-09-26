@@ -146,7 +146,7 @@ export const VIEW_SCHEMA: { readonly [K in ViewKey]: FieldSpec<ViewFields[K]> } 
 }
 
 // `Object.keys` types its result as `string[]`; the keys are exactly `ViewKey`'s.
-export const VIEW_KEYS = Object.keys(VIEW_SCHEMA) as ViewKey[]
+export const VIEW_KEYS = Object.keys(VIEW_SCHEMA) as readonly ViewKey[]
 
 function normalise<K extends ViewKey>(key: K, raw: unknown): ViewFields[K] {
   const spec: FieldSpec<ViewFields[K]> = VIEW_SCHEMA[key]

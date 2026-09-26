@@ -90,7 +90,7 @@ describe('the hash codec', () => {
   })
 
   it('ignores keys the view does not have', () => {
-    const back = decodeHash(link({ __view: { hilite: true, highlight: '#ff0000', help: false } }))?.view
+    const back = decodeHash(link({ __view: { hilite: true, highlight: '#ff0000', help: false, viewVersion: 2 } }))?.view
     expect(back?.highlightLongest).toBe(false)
     expect(back?.highlightColor).toBe('')
     expect(back).not.toHaveProperty('help')

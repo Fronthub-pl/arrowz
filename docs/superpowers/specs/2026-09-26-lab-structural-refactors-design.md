@@ -80,10 +80,10 @@ not a panel row), the CSS refactor (review item 5).
   `rounded`, `colored`, `highlightLongest`, and `top` when the stored `top`
   is above 0). Colours, points, margin and `voids` stay untouched, as today.
 - **`console/viewFields.ts`.** `VIEW_FIELDS`, `VIEW_FLAGS`, `VIEW_ROWS` and
-  `FLAG_ROWS` merge into one `VIEW_ROWS` record keyed by field: `{ label,
-  short, help, unit?, auto?, step? }`. UI metadata stays out of
-  `VIEW_SCHEMA`: the schema is state and codec (`state/`), the rows are
-  presentation (`console/`). `fieldOf` moves here in PR 2.
+  `FLAG_ROWS` merge into one `VIEW_ROWS` record keyed by field: numbers
+  `{ label, short, help, step, unit, auto? }`, flags `{ label, short, help }`.
+  UI metadata stays out of `VIEW_SCHEMA`: the schema is state and codec
+  (`state/`), the rows are presentation (`console/`).
 - **Engine and CLI.** Delete `VIEW_VERSION` (`packages/engine/command.ts`),
   `BoardMeta.viewVersion` (`packages/engine/types.ts`), and the version
   branch of `fillView` and the `viewVersion` write in `packages/cli/store.ts`.
