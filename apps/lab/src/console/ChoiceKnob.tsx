@@ -1,8 +1,8 @@
 import type { InactiveKey, ParamSpec } from '@arrowz/engine'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
-import { descId } from './FieldHelp'
-import { KnobLine, rowState, rowTitle, useKnobHelp } from './KnobRow'
+import { rowState, rowTitle } from './KnobRow'
+import { RowShell, rowIds } from './rows/RowShell'
 
 /**
  * A knob whose values are a fixed list: the words its flag takes, in the
@@ -27,36 +27,37 @@ export function ChoiceKnob({
   const { label, help } = dict.paramText(spec)
   const name = dict.d.short[spec.key]
   const { text, off } = rowState(dict, { broken, inactive, blockReason })
-  const whyId = `knob-${spec.key}-why`
-  const { button, paragraph } = useKnobHelp(descId(spec.key), name, help)
+  const id = `knob-${spec.key}`
+  const ids = rowIds(id)
   return (
-    <div className={`kv-row choice${broken ? ' bad' : ''}${off ? ' off' : ''}`} title={rowTitle(dict, label)}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor={`knob-${spec.key}`}>
-            {name}
-          </label>
-        }
-        help={button}
-        control={
-          <select
-            id={`knob-${spec.key}`}
-            value={value}
-            aria-describedby={`${whyId} ${descId(spec.key)}`}
-            onChange={(event) => set(spec.key, Number(event.currentTarget.value))}
-          >
-            {choices.map((choice) => (
-              <option key={choice.word} value={choice.value}>
-                {dict.choiceText(spec.key, choice.word)}
-              </option>
-            ))}
-          </select>
-        }
-      />
-      <p className="kv-why" id={whyId} data-testid={whyId}>
-        {text}
-      </p>
-      {paragraph}
-    </div>
+    <RowShell
+      id={id}
+      name={name}
+      helpText={help}
+      labelAs="for"
+      title={rowTitle(dict, label)}
+      choice
+      bad={broken !== undefined}
+      off={off}
+      control={
+        <select
+          id={id}
+          value={value}
+          aria-describedby={`${ids.why} ${ids.help}`}
+          onChange={(event) => set(spec.key, Number(event.currentTarget.value))}
+        >
+          {choices.map((choice) => (
+            <option key={choice.word} value={choice.value}>
+              {dict.choiceText(spec.key, choice.word)}
+            </option>
+          ))}
+        </select>
+      }
+      after={
+        <p className="kv-why" id={ids.why} data-testid={ids.why}>
+          {text}
+        </p>
+      }
+    />
   )
 }
