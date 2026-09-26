@@ -21,7 +21,7 @@
 - Lab tests: `cd apps/lab && pnpm exec vitest run --project node <file>` for `*.test.ts`, `--project chromium <file>` for `*.browser.test.tsx`; the whole suite is `cd apps/lab && pnpm exec vitest run`. `src/routes/LabLayout.browser.test.tsx > closing the drawer keeps the report on screen for the slide, then hides it` is load-flaky: if only it fails in a full run, re-run it alone and report both results.
 - **Behaviour does not change.** Every existing test passes with no assertion edit. A test comment that names a removed hook (`useRunKeys`, `useDrawerKeys`) may be reworded; its assertions may not change.
 - `packages/cli/boards/` is gitignored: the user's real board store. Never edit, add or commit anything under it.
-- Run shell commands from the repo root (`cd "$(git rev-parse --show-toplevel)"`), never from a hard-coded path.
+- Run shell commands from the repo root (`cd "$(git rev-parse --show-toplevel)"`), never from a hard-coded path; an executor in an isolated worktree whose sandbox refuses that form uses the worktree's absolute path.
 
 ## Review Focus
 
@@ -143,8 +143,9 @@ export interface HotkeyRow {
 /**
  * Bound wherever the stage is (the lab and the saved boards), which share each
  * drawer's state. `r` and `s` open the sheets at XS, the drawers above it.
- * `g`, `[` and `]` are the palette footer's; a refused run says nothing here,
- * `RunStatusBar` is the one voice for a broken rule.
+ * `g`, `[` and `]` are the palette footer's, silent while it is open (its
+ * search box is an `<input>`); a refused run says nothing here, `RunStatusBar`
+ * is the one voice for a broken rule.
  */
 export const WORKSPACE_KEYS: readonly HotkeyRow[] = [
   // Shift is not a modifier here, so `F` too; also with the focus on a button such as Generate.
@@ -232,7 +233,7 @@ Then `grep -rn "useRunKeys\|useDrawerKeys\|useSoloKey" apps/lab/src` must print 
 Run: `cd apps/lab && pnpm exec vitest run --project node src/shell/hotkeys.test.ts`
 Expected: PASS (2 tests).
 
-Mutation check: add `'f'` to the `g` row's `keys`, confirm "no key belongs to two rows" goes red, restore.
+Mutation check: add `'f'` to the `g` row's `keys`; both tests go red ("no key belongs to two rows" with `expected 11 to be 12`); restore.
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx src/shell/bands.browser.test.tsx src/palette/`
 Expected: PASS, no assertion edited.
@@ -279,7 +280,13 @@ function Probe({ focusOut = false }: { focusOut?: boolean }) {
   const [renders, setRenders] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
   const pop = useRef<HTMLDivElement>(null)
-  useDismiss({ open, inside: [pop, trigger], onClose: () => setOpen(false), refocus: trigger, closeOnFocusOut: focusOut })
+  useDismiss({
+    open,
+    inside: [pop, trigger],
+    onClose: () => setOpen(false),
+    refocus: trigger,
+    closeOnFocusOut: focusOut,
+  })
   return (
     <>
       <button ref={trigger} type="button" onClick={() => setOpen(true)}>
@@ -346,7 +353,7 @@ test('focus leaving the popover closes it only with closeOnFocusOut', async () =
   button('inside').focus()
   button('outside').focus()
   await expect.element(without.getByTestId('pop')).toHaveAttribute('data-open', 'true')
-  without.unmount()
+  await without.unmount()
 
   const withOption = await render(<Probe focusOut />)
   button('inside').focus()
@@ -445,7 +452,7 @@ If `lab:lint` (`react-hooks`) or `lab:check` refuses `useEffectEvent` (for examp
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/shell/useDismiss.browser.test.tsx`
 Expected: PASS (7 tests).
 
-Mutation checks, each restored after: (a) drop `event.preventDefault()` → "Escape inside … is consumed" goes red; (b) call `close(true)` from `onPress` → "a press outside closes it without moving the focus" goes red; (c) drop the `if (!isInside(event.target)) return` line of `onFocusOut` → "focus moving between two outside elements" goes red; (d) put `onClose` in the effect's dependency array and call it directly → "a re-render while open" goes red (lint may object first; that also counts, record it).
+Mutation checks, each restored after: (a) drop `event.preventDefault()` → "Escape inside … is consumed" goes red; (b) call `close(true)` from `onPress` → "a press outside closes it without moving the focus" goes red; (c) drop the `if (!isInside(event.target)) return` line of `onFocusOut` → "focus moving between two outside elements" goes red; (d) put `onClose` in the effect's dependency array and call it directly → "a re-render while open" goes red with `expected 2 to be 1` (lint does not object).
 
 Run: prettier, `lab:check`, `lab:lint`.
 
@@ -463,6 +470,7 @@ git commit -m "Lab: useDismiss closes a popover on an outside press, an Escape i
 **Files:**
 - Modify: `apps/lab/src/shell/TopBar.tsx` (the menu's effect)
 - Modify: `apps/lab/src/run/MoreMenu.tsx` (the popover's effect)
+- Modify: `apps/lab/src/run/MoreMenu.browser.test.tsx` (one new test)
 - Modify: `apps/lab/src/run/PresetStrip.tsx` (the panel's effect, split in three)
 
 **Interfaces:**
@@ -481,7 +489,24 @@ Imports: `useEffect` goes from `'react'`; add `import { useDismiss } from './use
 
 - [ ] **Step 2: `MoreMenu`**
 
-Replace the `useEffect` (from `useEffect(() => {` through `}, [open])`) with:
+First pin that the `…` button counts as inside: nothing does today (a dry run showed `inside: [pop]` surviving every test, with the button re-opening instead of closing). Append to `apps/lab/src/run/MoreMenu.browser.test.tsx`:
+
+```tsx
+// The button is inside: a press on it must not close the popover only for its click to open it again.
+test('a press on the button while open closes it', async () => {
+  await page.viewport(1024, 768)
+  const screen = await render(<Column />)
+  const more = screen.getByRole('button', { name: 'More options' })
+  await more.click()
+  await expect.element(more).toHaveAttribute('aria-expanded', 'true')
+  await more.click()
+  await expect.element(more).toHaveAttribute('aria-expanded', 'false')
+})
+```
+
+Run it on the current code (expect PASS). After the change below, mutate `inside: [pop, button]` to `[pop]`, see this test go red, restore.
+
+Then replace the `useEffect` (from `useEffect(() => {` through `}, [open])`) with:
 
 ```tsx
   useDismiss({ open, inside: [pop, button], onClose: () => setOpenIn(null), refocus: button })
@@ -534,7 +559,15 @@ The one effect keyed on `open` becomes three pieces, in this order, replacing it
   }, [open])
 ```
 
-Keep `close(refocus)` and `choose` unchanged. Add `import { useDismiss } from '../shell/useDismiss'`. The component's doc comment: its sentence "Its keys are a capture-phase document listener, installed only while open, so it runs before the drawer's Escape, which it consumes. It acts only on keys pressed inside the strip, and focus leaving the strip closes it." becomes "It closes through `useDismiss` (an outside press, an Escape inside, or focus leaving the strip), before the drawer's Escape; its arrow, Home and End keys act only inside the strip." The old comment about an Escape in a knob entry now lives in `useDismiss`'s header; do not repeat it.
+Keep `close(refocus)` and `choose` unchanged. Add `import { useDismiss } from '../shell/useDismiss'`. The component's doc comment: its sentence "Its keys are a capture-phase document listener, … and focus leaving the strip closes it." becomes these three lines (prettier does not wrap comments):
+
+```
+ * always names an element. It closes through `useDismiss` (an outside press,
+ * an Escape inside, or focus leaving the strip), before the drawer's Escape;
+ * its arrow, Home and End keys act only inside the strip.
+```
+
+The old comment about an Escape in a knob entry now lives in `useDismiss`'s header; do not repeat it.
 
 - [ ] **Step 4: Run the tests**
 
@@ -546,7 +579,7 @@ Run: the whole lab suite once, prettier, `lab:check`, `lab:lint`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lab/src/shell/TopBar.tsx apps/lab/src/run/MoreMenu.tsx apps/lab/src/run/PresetStrip.tsx
+git add apps/lab/src/shell/TopBar.tsx apps/lab/src/run/MoreMenu.tsx apps/lab/src/run/MoreMenu.browser.test.tsx apps/lab/src/run/PresetStrip.tsx
 git commit -m "Lab: the top menu, the … popover and the preset panel close through useDismiss"
 ```
 
@@ -561,7 +594,7 @@ A move: the two hooks' bodies and doc comments do not change.
 - Modify: `apps/lab/src/App.tsx`
 
 **Interfaces:**
-- Produces: `export function useStoreSave(): void` in `library/useStoreSave.ts`; `export function useBandReset(): void` in `shell/useBandReset.ts`.
+- Produces: `export function useStoreSave()` in `library/useStoreSave.ts`; `export function useBandReset()` in `shell/useBandReset.ts` (a pure move adds `export`, nothing else).
 
 - [ ] **Step 1: Move the two hooks**
 
@@ -575,10 +608,10 @@ In `App.tsx`, import them (`'./library/useStoreSave'`, `'./shell/useBandReset'`)
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-git diff --color-moved=plain --color-moved-ws=allow-indentation-change HEAD -- apps/lab/src/App.tsx apps/lab/src/library/useStoreSave.ts apps/lab/src/shell/useBandReset.ts | cat
+git --no-pager diff --color=always --color-moved=plain --color-moved-ws=allow-indentation-change HEAD -- apps/lab/src/App.tsx apps/lab/src/library/useStoreSave.ts apps/lab/src/shell/useBandReset.ts
 ```
 
-Every `-` / `+` line that is not shown as moved must be an `import` line or a `function` → `export function` signature. Anything else is a body change: undo it.
+Without `--color=always` no moved colouring appears, and through a pipe neither. Every `-` / `+` line that is not shown as moved must be an `import` line or a `function` → `export function` signature. Anything else is a body change: undo it.
 
 - [ ] **Step 3: Run the tests**
 
@@ -600,7 +633,7 @@ git commit -m "Lab: the store save and the band reset leave App.tsx; the shell k
 
 - [ ] **Step 1: Mark refactor 4 in `lab-review.md`**
 
-In the refactors table of the status section, the row for refactor 4 (`| 4. … | open | |`; read its exact text first) becomes fixed on `lab/hotkeys-dismiss` with the commit range, in the same pattern as the rows for refactors 2 and 3 (what now exists: `shell/hotkeys.ts` with `WORKSPACE_KEYS` behind one listener, `useDismiss` for the top menu, the `…` popover and the preset panel, `CommandPalette` apart by decision, `useStoreSave` and `useBandReset` out of `App.tsx`). In "What is still open", item 3 drops refactor 4 and starts at refactor 5. Commit: `Lab review: the hotkeys and dismiss refactor is done`.
+In the refactors table of the status section, the row `| 4. One hotkey table and \`useDismiss\` | open | |` becomes fixed on `lab/hotkeys-dismiss` with the commit range, in the same pattern as the rows for refactors 2 and 3 (what now exists: `shell/hotkeys.ts` with `WORKSPACE_KEYS` behind one listener, `useDismiss` for the top menu, the `…` popover and the preset panel, `CommandPalette` apart by decision, `useStoreSave` and `useBandReset` out of `App.tsx`). In "What is still open", item 3 (`3. **Structural refactor 4:** one hotkey table and a \`useDismiss\` hook. Then` / `5 (the \`.fw button\` prefix and tokens), 6–9 and 11.`) becomes `3. **Structural refactors:** 5 (the \`.fw button\` prefix and tokens), 6–9 and 11.` Commit: `Lab review: the hotkeys and dismiss refactor is done`.
 
 - [ ] **Step 2: Whole-repo gate in a clean worktree**
 
