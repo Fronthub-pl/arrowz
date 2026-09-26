@@ -256,3 +256,42 @@ test('the margin rounds to a whole cell', () => {
   view().setPad(2.4)
   expect(view().pad).toBe(2)
 })
+
+test('apply writes every field it is given in one update', () => {
+  let updates = 0
+  const stop = useStore.subscribe(() => void updates++)
+  try {
+    view().apply({ cell: 20, paper: '#010203', rounded: false, palette: ['#112233'] })
+  } finally {
+    stop()
+  }
+  expect(updates).toBe(1)
+  expect(view().cell).toBe(20)
+  expect(view().paper).toBe('#010203')
+  expect(view().rounded).toBe(false)
+  expect(view().palette).toEqual(['#112233'])
+})
+
+test('apply leaves the fields it is not given alone', () => {
+  view().setPaper('#010203')
+  view().setPad(7)
+  view().apply({ stroke: 0.7 })
+  expect(view().paper).toBe('#010203')
+  expect(view().pad).toBe(7)
+  expect(view().stroke).toBe(0.7)
+})
+
+test('apply normalises what it is given, as a link would be read', () => {
+  view().apply({ cell: 9999, pad: 2.6, pointRadius: 3 })
+  expect(view().cell).toBe(VIEW_RANGE.cell.max)
+  expect(view().pad).toBe(3)
+  expect(view().pointRadius).toBe(0.5)
+})
+
+// `apply` falls back to the lab's own top (5); a cleared field keeps the CLI's 0 (`viewNumberOf`).
+test('an emptied top field falls back to the CLI’s 0, not to the lab’s starting 5', () => {
+  view().setNumber('top', '9')
+  view().setNumber('top', '')
+  expect(view().top).toBe(DEFAULT_VIEW.top)
+  expect(view().top).toBe(0)
+})

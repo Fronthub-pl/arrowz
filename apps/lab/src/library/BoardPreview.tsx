@@ -1,7 +1,7 @@
 import type { ViewNumber } from '@arrowz/engine'
 import { viewNumberOf } from '@arrowz/engine/command'
 import type { ReactElement } from 'react'
-import { ColoursSection, fieldOf, FlagRow, NumberRow, Section } from '../console/ViewPanel'
+import { ColoursSection, FlagRow, NumberRow, Section } from '../console/ViewPanel'
 import { useDictionary } from '../i18n'
 import { BOARDS_PREVIEW_ID, boardsTabId } from './BoardsRail'
 import { refreshLibrary } from './useLibraryList'
@@ -37,7 +37,7 @@ export function BoardPreview(): ReactElement {
               {STORED_NUMBERS.map((key) => (
                 <NumberRow
                   key={key}
-                  field={fieldOf(key)}
+                  field={key}
                   value={view[key]}
                   stroke={view.stroke}
                   // Clamped here: a stored view has no slice to clamp it.

@@ -98,16 +98,17 @@ export function BoardColumn(): ReactElement {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
     const saved = meta.view
-    view.setNumber('cell', String(saved.cell))
-    view.setNumber('stroke', String(saved.stroke))
-    view.setNumber('headWidth', String(saved.headWidth))
-    view.setNumber('headHeight', String(saved.headHeight))
-    view.setFlag('rounded', saved.rounded !== false)
-    view.setFlag('colored', saved.colored)
-    // A stored board carries no highlight, so this lands off; when one somehow
-    // does, its count comes with it.
-    view.setFlag('highlightLongest', saved.top > 0)
-    if (saved.top > 0) view.setNumber('top', String(saved.top))
+    view.apply({
+      cell: saved.cell,
+      stroke: saved.stroke,
+      headWidth: saved.headWidth,
+      headHeight: saved.headHeight,
+      rounded: saved.rounded !== false,
+      colored: saved.colored,
+      // A stored board carries no highlight, so this lands off; when one somehow does, its count comes with it.
+      highlightLongest: saved.top > 0,
+      ...(saved.top > 0 ? { top: saved.top } : {}),
+    })
     void navigate('/')
   }
 

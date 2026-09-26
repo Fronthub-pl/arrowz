@@ -64,9 +64,11 @@ different counter over 237 files; the two numbers are not comparable.)
 - `9fb6540` — the lab's own names for the highlight fields are now readable:
   `view.hilite` became `highlightLongest`, and the colour field became
   `highlightColor`, across the store, the i18n keys, the DOM ids and the hash
-  keys. Old links still open, through a legacy fallback in the decoder. The
-  element's own `view.highlight` is unchanged; that rename is left for a
-  separate refinement of the component.
+  keys. The link is now a full view snapshot read by one schema; the legacy
+  fallback and the old keys (`hilite`, `highlight`, `help`) are gone, and a
+  missing or unreadable field opens on its default. The element's own
+  `view.highlight` is unchanged; that rename is left for a separate
+  refinement of the component.
 - `4a34463`, `ba54d2f` — the saved board's layout hash in the library shows
   in full now, wrapped onto as many lines as it needs, instead of being cut
   with a `title` tooltip. The second commit re-measured the wrap through the
@@ -102,15 +104,15 @@ different counter over 237 files; the two numbers are not comparable.)
 | MEDIUM: palette loses Escape, Tab and hotkeys off its input | fixed in `0211a71` | A click inside keeps the focus in the input; no key reaches the page behind |
 | MEDIUM: simple view size rows show the recipe | fixed in `d7f04b4` | The rows show the knobs' size; a size edit writes both sides into the recipe, so the other side stays as shown |
 | MEDIUM: PL decimal comma does nothing | fixed in `4a5313a` | `DraftNumber` reads a comma as a point in a fractional field |
-| MEDIUM: link colours cannot clear the page's own | fixed in `3dc5ccc` | A versioned link now clears theme, palette, paper and ink it doesn't name; `0a704d5` extends the rule to any version number |
-| MEDIUM: head height 0 lost in the hash | fixed in `66f1188, 3dc5ccc` | The view version makes 0 literal in the store's `fillView` and the link decoder; `0a704d5` keeps this true after a later bump |
+| MEDIUM: link colours cannot clear the page's own | fixed in `3dc5ccc` | The view version is gone; a link states every field, so it clears theme, palette, paper and ink it doesn't name |
+| MEDIUM: head height 0 lost in the hash | fixed in `66f1188, 3dc5ccc` | The view version is gone; a head height of 0 is literal everywhere, in the store's `fillView` and the link decoder alike |
 | LOW: palette "on"/"off" in English | fixed in `feb59ab` | `palette/commands.ts` reads the flag values from the dictionary |
 | LOW: English reason in the PL status line | fixed in `feb59ab` | `'not in the store'` now comes from the dictionary too |
 | LOW: view edit clears `aborted` in the store | open | `store.ts` unchanged |
 | LOW: pending view save dropped for another board | open | Still one module timer |
 | LOW: SVG drops palette, paper and ink silently | open | Note still shown only for a theme |
 | LOW: unknown theme name stored | fixed in `3dc5ccc` | `themeOf` validates the name; an unknown one is dropped, not stored |
-| LOW: `voids` not in the link | fixed in `3dc5ccc` | A versioned link now carries `voids` |
+| LOW: `voids` not in the link | fixed in `3dc5ccc` | The view version is gone; a link states every field, so `voids` is in every link |
 | LOW, PLAUSIBLE: worker handlers and failed load | open | |
 | LOW, PLAUSIBLE: synchronous revoke on download | open | |
 
@@ -162,7 +164,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | --- | --- | --- |
 | 1. Delete the dead knob layer | fixed in `a2f60e0`, `d486dd1` | `console.test.ts` now pins the live `.kv-g .fw-swatches`; the `.fw-k` branch in `useFocusRequest` is gone |
 | 2. One knob-row shell, split `ViewPanel.tsx` | open | |
-| 3. One view schema and `view.apply()` | open | |
+| 3. One view schema and `view.apply()` | fixed on `lab/view-schema` (`f33ba85`..`4d16651`) | `viewSchema.ts` is the one field list; the slice, the link and "Load into lab" all read and normalise through it, and `view.apply()` writes a patch in one update |
 | 4. One hotkey table and `useDismiss` | open | |
 | 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
 | 6. Library column reuses the run column's pieces | open | |
@@ -243,9 +245,8 @@ section above).
 2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
-3. **Structural refactors 2–4:** one knob-row shell, one view schema with a
-   single `view.apply()`, one hotkey table and a `useDismiss` hook. Then 5
-   (the `.fw button` prefix and tokens), 6–9 and 11.
+3. **Structural refactors 2, 4:** one knob-row shell, one hotkey table and a
+   `useDismiss` hook. Then 5 (the `.fw button` prefix and tokens), 6–9 and 11.
 4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a

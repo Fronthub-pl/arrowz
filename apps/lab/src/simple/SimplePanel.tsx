@@ -3,7 +3,7 @@ import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
 import { KnobLine, useKnobHelp } from '../console/KnobRow'
 import { ValueKnob } from '../console/ValueKnob'
-import { fieldOf, Section, SwitchRow, ThemeRow, ViewNumberRow } from '../console/ViewPanel'
+import { Section, SwitchRow, ThemeRow, ViewNumberRow } from '../console/ViewPanel'
 import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
@@ -157,7 +157,7 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
         </Section>
         <Section id="simple-sec-preview" title={dict.t('preview')}>
           {SIMPLE_VIEW_FIELDS.map((field) => (
-            <ViewNumberRow key={field} field={fieldOf(field)} />
+            <ViewNumberRow key={field} field={field} />
           ))}
           {SIMPLE_VIEW_FLAGS.map((flag) => (
             <SwitchRow key={flag} flag={flag} />

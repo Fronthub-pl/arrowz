@@ -2,7 +2,7 @@ import { PARAM_SPEC } from '@arrowz/engine'
 import { flagOf, wordFor } from '@arrowz/engine/command'
 import type { Dict } from '@arrowz/engine/i18n'
 import { PRESETS } from '@arrowz/engine/presets'
-import { VIEW_FIELDS, VIEW_FLAGS } from '../console/viewFields'
+import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
@@ -91,28 +91,28 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
       run: () => jumpTo(deps, spec.group, `knob-${spec.key}`),
     })
   }
-  for (const field of VIEW_FIELDS) {
+  for (const field of VIEW_NUMBERS) {
     rows.push({
-      id: `view-${field.field}`,
+      id: `view-${field}`,
       section: 'knob',
-      name: deps.dict.t(field.label),
+      name: deps.dict.t(VIEW_ROWS[field].label),
       note: deps.dict.t('preview'),
-      value: String(state.view[field.field]),
-      hay: field.field,
+      value: String(state.view[field]),
+      hay: field,
       disabled: false,
-      run: () => jumpTo(deps, 'preview', `view-${field.field}`),
+      run: () => jumpTo(deps, 'preview', `view-${field}`),
     })
   }
   for (const flag of VIEW_FLAGS) {
     rows.push({
-      id: `view-${flag.flag}`,
+      id: `view-${flag}`,
       section: 'knob',
-      name: deps.dict.t(flag.label),
+      name: deps.dict.t(VIEW_ROWS[flag].label),
       note: deps.dict.t('preview'),
-      value: deps.dict.t(state.view[flag.flag] ? 'valueOn' : 'valueOff'),
-      hay: flag.flag,
+      value: deps.dict.t(state.view[flag] ? 'valueOn' : 'valueOff'),
+      hay: flag,
       disabled: false,
-      run: () => jumpTo(deps, 'preview', `view-${flag.flag}`),
+      run: () => jumpTo(deps, 'preview', `view-${flag}`),
     })
   }
   return rows

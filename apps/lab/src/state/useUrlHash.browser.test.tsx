@@ -8,9 +8,10 @@ import { useStore } from './store'
 import { decodeHash, encodeHash } from './url'
 import { VIEW } from './url.fixtures'
 import { useUrlHash } from './useUrlHash'
+import { VIEW_DEFAULTS } from './viewSchema'
 
-/** A link as the lab wrote it before the view version, for `location.hash =`. */
-const legacyFragment = (json: Record<string, unknown>) => encodeURIComponent(JSON.stringify(json))
+/** A hand-written link, for `location.hash =`. */
+const handFragment = (json: Record<string, unknown>) => encodeURIComponent(JSON.stringify(json))
 
 function Host({ control }: { control: RunControl }) {
   useUrlHash(control)
@@ -279,15 +280,7 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(decodeHash(location.hash)?.view.palette).toEqual(['#112233', '#aabbcc']))
   })
 
-  it('opens on the palette a legacy link names, and keeps a theme already on screen', async () => {
-    await mount(stub().control)
-    useStore.getState().view.setTheme('gruvbox-dark')
-    location.hash = legacyFragment({ __view: { palette: ['#112233', '#aabbcc'] } })
-    await vi.waitFor(() => expect(useStore.getState().view.palette).toEqual(['#112233', '#aabbcc']))
-    expect(useStore.getState().view.theme).toBe('gruvbox-dark')
-  })
-
-  it('opens on the palette a link written now names, and clears the theme it does not', async () => {
+  it('opens on the palette a link names, and clears the theme it does not', async () => {
     await mount(stub().control)
     useStore.getState().view.setTheme('gruvbox-dark')
     location.hash = encodeHash({
@@ -393,34 +386,52 @@ describe('useUrlHash', () => {
     await vi.waitFor(() => expect(useStore.getState().view.pad).toBe(7))
   })
 
-  it('keeps the board colours and the margin on screen when a legacy link names none of them', async () => {
+  it('opens the fields a link does not name on their defaults', async () => {
     await mount(stub().control)
     useStore.getState().view.setPaper('#010203')
     useStore.getState().view.setInk('#040506')
     useStore.getState().view.setHighlightColor('#0a0b0c')
     useStore.getState().view.setPad(7)
-    location.hash = legacyFragment({ W: 50, __view: {} })
-    await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
-    expect(useStore.getState().view.paper).toBe('#010203')
-    expect(useStore.getState().view.ink).toBe('#040506')
-    expect(useStore.getState().view.highlightColor).toBe('#0a0b0c')
-    expect(useStore.getState().view.pad).toBe(7)
-  })
-
-  // The margin is a number, and a link written now always states it; `VIEW`
-  // leaves it out, which is how an absent number still keeps the page's.
-  it('clears the board colours a link written now does not name, and keeps the margin', async () => {
-    await mount(stub().control)
-    useStore.getState().view.setPaper('#010203')
-    useStore.getState().view.setInk('#040506')
-    useStore.getState().view.setHighlightColor('#0a0b0c')
-    useStore.getState().view.setPad(7)
-    location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: VIEW, carried: {} }).slice(1)
+    location.hash = handFragment({ W: 50, __view: {} })
     await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
     expect(useStore.getState().view.paper).toBe('')
     expect(useStore.getState().view.ink).toBe('')
     expect(useStore.getState().view.highlightColor).toBe('')
-    expect(useStore.getState().view.pad).toBe(7)
+    expect(useStore.getState().view.pad).toBe(VIEW_DEFAULTS.pad)
+  })
+
+  it('sets every field a link states, the empty colours and the margin included', async () => {
+    await mount(stub().control)
+    useStore.getState().view.setPaper('#010203')
+    useStore.getState().view.setInk('#040506')
+    useStore.getState().view.setHighlightColor('#0a0b0c')
+    useStore.getState().view.setPad(7)
+    location.hash = encodeHash({ params: { ...defaultParams(), W: 50 }, view: { ...VIEW, pad: 2 }, carried: {} }).slice(
+      1,
+    )
+    await vi.waitFor(() => expect(useStore.getState().params.values.W).toBe(50))
+    expect(useStore.getState().view.paper).toBe('')
+    expect(useStore.getState().view.ink).toBe('')
+    expect(useStore.getState().view.highlightColor).toBe('')
+    expect(useStore.getState().view.pad).toBe(2)
+  })
+
+  it('a pasted link notifies the store once for the whole view', async () => {
+    await mount(stub().control)
+    const hash = encodeHash({ params: defaultParams(), view: { ...VIEW, cell: 17, paper: '#010203' }, carried: {} })
+    let viewChanges = 0
+    let last = useStore.getState().view
+    const stop = useStore.subscribe((state) => {
+      if (state.view !== last) viewChanges++
+      last = state.view
+    })
+    try {
+      location.hash = hash.slice(1)
+      await vi.waitFor(() => expect(useStore.getState().view.cell).toBe(17))
+    } finally {
+      stop()
+    }
+    expect(viewChanges).toBe(1)
   })
 
   // Entry A is one the hook wrote, so the string it returns to is exactly what
