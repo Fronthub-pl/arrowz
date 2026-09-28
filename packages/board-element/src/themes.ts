@@ -9,6 +9,8 @@
 // arrow colour: their accents are built for thin glyphs on near-white paper and
 // only one of each clears the floor.
 
+import { DEFAULT_VIEW } from './view.ts'
+
 export interface BoardTheme {
   paper: string
   ink: string
@@ -120,4 +122,30 @@ export const THEMES: Readonly<Record<string, BoardTheme>> = {
 /** The theme of that name, or null — an unknown name is ignored, never thrown on. */
 export function themeOf(name: string): BoardTheme | null {
   return Object.hasOwn(THEMES, name) ? THEMES[name] ?? null : null
+}
+
+/** The four colours a board is drawn in. */
+export interface BoardColours {
+  paper: string
+  ink: string
+  highlight: string
+  palette: string[]
+}
+
+/**
+ * The colours the element draws with: its defaults, then the named theme, then
+ * whatever the host stated. Stated beats named beats default, field by field;
+ * the lab's SVG export resolves through this too, so the file and the screen agree.
+ */
+export function resolveColours(theme: string, stated: Partial<BoardColours>): BoardColours {
+  const t = themeOf(theme)
+  const merged: BoardColours = {
+    paper: DEFAULT_VIEW.paper,
+    ink: DEFAULT_VIEW.ink,
+    highlight: DEFAULT_VIEW.highlight,
+    palette: DEFAULT_VIEW.palette,
+    ...(t === null ? {} : { paper: t.paper, ink: t.ink, highlight: t.highlight, palette: t.palette }),
+    ...stated,
+  }
+  return { paper: merged.paper, ink: merged.ink, highlight: merged.highlight, palette: merged.palette }
 }
