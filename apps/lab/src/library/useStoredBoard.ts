@@ -18,8 +18,12 @@ export function useStoredBoard(): void {
   const metas = useStore((state) => state.library.sizes)
 
   useEffect(() => {
-    // A file's preview is set by `openBoardFiles`, not fetched: nothing to do, and nothing to clear.
-    if (file) return
+    // A file's preview is set by `openBoardFiles`, not fetched. Only `loading` is
+    // cleared: a stored board's fetch cancelled by the way back clears nothing.
+    if (file) {
+      if (useStore.getState().library.notice?.kind === 'loading') useStore.getState().library.clearNotice()
+      return
+    }
     if (size === null || id === null) {
       useStore.getState().result.clearPreview()
       useStore.getState().library.boardFailed(null)

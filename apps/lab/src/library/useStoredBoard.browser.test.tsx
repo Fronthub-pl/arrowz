@@ -166,16 +166,14 @@ test('closing the board clears a failed-save notice that outlived it', async () 
 /** A file preview as `openBoardFiles` leaves it, optionally with a given meta. */
 function putFilePreview(meta: BoardMeta | null = null) {
   const board = decodeBoard(first.file)
-  useStore
-    .getState()
-    .result.showPreview({
-      origin: 'file',
-      board,
-      file: encodeBoard(board),
-      meta,
-      name: 'mine.board.json',
-      id: first.meta.id,
-    })
+  useStore.getState().result.showPreview({
+    origin: 'file',
+    board,
+    file: encodeBoard(board),
+    meta,
+    name: 'mine.board.json',
+    id: first.meta.id,
+  })
 }
 
 test('at /boards/file the file preview is left alone', async () => {
@@ -216,4 +214,39 @@ test('leaving /boards/file clears the file preview', async () => {
     </MemoryRouter>,
   )
   await expect.poll(() => useStore.getState().result.preview).toBeNull()
+})
+
+// B's fetch is cancelled by the walk back to the file, and the file branch
+// returns early: that early return must clear "Loading B…".
+test('walking from a file to a board still loading, and back, leaves no loading notice', async () => {
+  useStore.getState().library.listed([{ size: '8x8', W: 8, H: 8, cells: 64, boards: [first.meta, second.meta] }])
+  putFilePreview()
+  // A host that really navigates, as in the walk between two stored boards.
+  function Walk() {
+    useStoredBoard()
+    const navigate = useNavigate()
+    return (
+      <div>
+        <button type="button" onClick={() => void navigate('/boards/file')}>
+          File
+        </button>
+        <button type="button" onClick={() => void navigate(`/boards/8x8/${second.meta.id}`)}>
+          B
+        </button>
+      </div>
+    )
+  }
+  const screen = await render(
+    <MemoryRouter initialEntries={['/boards/file']}>
+      <Walk />
+    </MemoryRouter>,
+  )
+  // A promise that never resolves keeps B in flight across both clicks.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  await userEvent.click(screen.getByRole('button', { name: 'B' }))
+  await expect.poll(() => useStore.getState().library.notice?.kind).toBe('loading')
+  await userEvent.click(screen.getByRole('button', { name: 'File' }))
+
+  await expect.poll(() => useStore.getState().library.notice).toBeNull()
+  expect(useStore.getState().result.preview?.origin).toBe('file')
 })
