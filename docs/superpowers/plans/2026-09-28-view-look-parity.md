@@ -1110,7 +1110,7 @@ function hex(raw: unknown): string | undefined {
   return isHexColour(raw) ? raw.toLowerCase() : undefined
 }
 ```
-Replace the comment above `showPoints` in `ViewFields` (`/** The point grid: the element's settings, not the engine's, like \`voids\`. */`) with `/** The point grid; \`viewOf\` carries it with the rest of the look (\`lookOf\`). */`. Keep the comment above `PALETTE_CAP` only if it still holds; the cap is now the engine's, so write `/** The engine's cap, shared with the CLI and the store. */`.
+Replace the comment above `showPoints` in `ViewFields` (``/** The point grid: the element's settings, not the engine's, like `voids`. */``) with ``/** The point grid; `viewOf` carries it with the rest of the look (`lookOf`). */``. Keep the comment above `PALETTE_CAP` only if it still holds; the cap is now the engine's, so write `/** The engine's cap, shared with the CLI and the store. */`.
 
 - [ ] **Step 5: The two exports and "Load into lab"**
 
