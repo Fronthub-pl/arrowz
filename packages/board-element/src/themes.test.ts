@@ -62,8 +62,8 @@ test('themeOf takes a name and refuses anything else', () => {
 
 // The `Object.hasOwn` guard is load-bearing. Without it, a prototype
 // property name reads through and returns `Object.prototype.toString`, whose
-// `.paper`/`.ink`/`.highlight` are `undefined` — `drawView()` would then
-// spread those over `DEFAULT_VIEW`, silently defaulting the colours instead
+// `.paper`/`.ink`/`.highlight` are `undefined` — `resolveColours()` would then
+// spread those over the defaults, silently defaulting the colours instead
 // of ignoring the unknown name.
 test('themeOf refuses a name that only Object.prototype owns', () => {
   expect(themeOf('toString')).toBeNull()
