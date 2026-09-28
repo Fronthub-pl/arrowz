@@ -3,7 +3,7 @@ import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
-import { render } from 'vitest-browser-react'
+import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
@@ -13,7 +13,7 @@ import { BoardColumn } from './BoardColumn'
 import { BoardPreview } from './BoardPreview'
 import { cancelNoticeFade } from './notices'
 import { useOpenBoard } from './useOpenBoard'
-import { cancelPendingSave } from './useViewSave'
+import { cancelPendingSave, useViewSave } from './useViewSave'
 // The style cases read the real cascade: the Delete button's border is
 // `run.css`'s and its armed colour `library.css`'s.
 import '../design/tokens.css'
@@ -260,6 +260,34 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   const methods = calls.mock.calls.map(([, init]) => init?.method ?? 'GET')
   expect(methods).toContain('DELETE')
   expect(methods).not.toContain('POST')
+})
+
+// The delete drops the deleted board's pending save only: another board's edit
+// still reaches the store.
+test('deleting one board keeps another board’s pending view edit', async () => {
+  const calls = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(new Response('{"deleted":true}', { status: 200 })))
+  // An edit of `other`, pending on its timer, made while `other` was on the stage.
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta }),
+  )
+  const { result } = await renderHook(() => useViewSave(() => {}), {
+    wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
+  })
+  await act(async () => result.current({ ...other.meta.view, stroke: 0.3 }))
+
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  // Past the debounce, so the surviving timer has fired.
+  await new Promise((done) => setTimeout(done, 600))
+  const seeds = calls.mock.calls
+    .filter(([, init]) => init?.method === 'POST')
+    .map(([, init]) => (JSON.parse(String(init?.body)) as { params: { seed: number } }).params.seed)
+  expect(seeds).toEqual([other.meta.seed])
 })
 
 // The column raises `deleted` and then navigates, which unmounts it: only this

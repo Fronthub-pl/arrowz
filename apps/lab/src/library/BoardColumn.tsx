@@ -119,9 +119,8 @@ export function BoardColumn(): ReactElement {
       return
     }
     setArmed(false)
-    // First: a view save still waiting on its timer would land after the
-    // delete and write the board back to disk.
-    cancelPendingSave()
+    // First: this board's view save still waiting on its timer would land after the delete and write the board back to disk.
+    cancelPendingSave(meta.id)
     // The address's directory, not `${meta.W}x${meta.H}`: a folder called
     // `08x08` holds boards whose `W` is 8, and a DELETE to a missing directory
     // answers 404, which reads as "deleted" while the board stays on disk.

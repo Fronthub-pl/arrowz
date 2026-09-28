@@ -3,7 +3,7 @@ import { act, useState, type ReactNode } from 'react'
 import { MemoryRouter } from 'react-router'
 import { userEvent } from 'vitest/browser'
 import { render, renderHook } from 'vitest-browser-react'
-import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, type MockInstance, test, vi } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
 import { useStore } from '../state/store'
 import { cancelNoticeFade, raiseNotice } from './notices'
@@ -215,4 +215,44 @@ test('a save that lands takes the store’s meta and refreshes the list', async 
   await expect.poll(() => useStore.getState().library.notice?.kind).toBe('viewSaved')
   expect(useStore.getState().result.preview?.meta.command).toBe('deno task carve --stroke=0.8')
   expect(refreshed).toBe(1)
+})
+
+/** The seed and stroke of every POST, in the order they were sent. */
+function posted(posts: MockInstance<typeof fetch>) {
+  return posts.mock.calls
+    .filter(([, init]) => init?.method === 'POST')
+    .map(([, init]) => {
+      const body = JSON.parse(String(init?.body)) as { params: { seed: number }; view: View }
+      return [body.params.seed, body.view.stroke]
+    })
+}
+
+const showOther = () =>
+  useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta })
+
+// Same fake-timer rules as the first case in this file.
+test('an edit of another board leaves the first board’s write pending', async () => {
+  const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+  vi.useFakeTimers()
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
+  await act(async () => showOther())
+  await act(async () => result.current({ ...other.meta.view, stroke: 0.3 }))
+  await act(async () => await vi.advanceTimersByTimeAsync(350))
+  expect(posted(posts)).toEqual([
+    [stored.meta.seed, 0.8],
+    [other.meta.seed, 0.3],
+  ])
+})
+
+test('cancelling one board’s save keeps another board’s', async () => {
+  const posts = vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  const { result } = await renderHook(() => useViewSave(() => {}), { wrapper: at })
+  vi.useFakeTimers()
+  await act(async () => result.current({ ...stored.meta.view, stroke: 0.8 }))
+  await act(async () => showOther())
+  await act(async () => result.current({ ...other.meta.view, stroke: 0.3 }))
+  cancelPendingSave(stored.meta.id)
+  await act(async () => await vi.advanceTimersByTimeAsync(350))
+  expect(posted(posts)).toEqual([[other.meta.seed, 0.3]])
 })
