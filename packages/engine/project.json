@@ -9,7 +9,14 @@
     "fmt": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "deno fmt --check" } },
     "test": {
       "executor": "nx:run-commands",
-      "options": { "cwd": "packages/engine", "command": "deno test --allow-read --allow-run" }
+      "options": { "cwd": "packages/engine", "command": "deno test --allow-read --allow-run" },
+      "inputs": [
+        "default",
+        "^production",
+        "{workspaceRoot}/apps/lab/src/**/*",
+        "{workspaceRoot}/packages/board-element/src/**/*",
+        "{workspaceRoot}/packages/cli/*.ts"
+      ]
     },
     "build": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run build" } },
     "smoke": { "executor": "nx:run-commands", "options": { "cwd": "packages/engine", "command": "pnpm run smoke" } },
