@@ -140,6 +140,13 @@ describe('the catalogue', () => {
     expect(handed.went).toEqual(['/boards'])
   })
 
+  it('lists Open file… under go, never disabled', () => {
+    const row = buildCommands(deps(), useStore.getState()).find((r) => r.id === 'go-open-file')
+    expect(row?.name).toBe('Open file…')
+    expect(row?.section).toBe('go')
+    expect(row?.disabled).toBe(false)
+  })
+
   it('offers every preset option under its level', () => {
     const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
     expect(rows.length).toBe(26)

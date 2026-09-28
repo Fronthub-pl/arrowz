@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, useLocation } from 'react-router'
 import { AppRoutes } from './AppRoutes'
+import { BoardFileInput } from './library/BoardFileInput'
 import { useStoreSave } from './library/useStoreSave'
 import { CommandPalette } from './palette/CommandPalette'
 import { Workspace } from './routes/Workspace'
@@ -67,6 +68,7 @@ function Shell() {
       />
       <AppRoutes />
       <CommandPalette control={control} />
+      <BoardFileInput />
     </div>
   )
 }

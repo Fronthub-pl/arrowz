@@ -5,6 +5,7 @@ import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { BOARDS_LIST_ID, boardsTabId, sizeName } from './BoardsRail'
 import { openEntry } from './openEntry'
+import { OpenFileButton } from './OpenFileButton'
 import { useOpenBoard } from './useOpenBoard'
 
 /**
@@ -63,6 +64,7 @@ export function BoardList({ refresh }: { refresh(): void }): ReactElement {
         <button type="button" className="kv-chip" onClick={refresh}>
           {dict.t('refresh')}
         </button>
+        <OpenFileButton className="kv-chip" />
       </div>
       {listError !== null ? <p className="fw-lib-empty">{dict.t('noStoreServer')}</p> : null}
       {listError === null && sizes !== null && entry === null ? (

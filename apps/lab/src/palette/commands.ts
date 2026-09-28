@@ -4,6 +4,7 @@ import type { Dict } from '@arrowz/engine/i18n'
 import { PRESETS } from '@arrowz/engine/presets'
 import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
+import { openFilePicker } from '../library/BoardFileInput'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
@@ -262,6 +263,20 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   const go: Command[] = [
     goRow(deps, 'go-lab', dict.t('tabLab'), '/'),
     goRow(deps, 'go-boards', dict.t('tabLibrary'), '/boards'),
+    {
+      id: 'go-open-file',
+      section: 'go',
+      name: dict.t('openFile'),
+      note: dict.t('cmdSecGo'),
+      value: '',
+      hay: 'open file board json load disk',
+      disabled: false,
+      // Inside the row's own click or Enter: a file dialog opens only on a user gesture.
+      run: () => {
+        openFilePicker()
+        state.ui.closePalette()
+      },
+    },
     goRow(deps, 'go-docs-element', `${dict.t('tabDocs')} — ${dict.t('docsElement')}`, '/docs/element'),
     goRow(deps, 'go-docs-cli', `${dict.t('tabDocs')} — ${dict.t('docsCli')}`, '/docs/cli'),
     {

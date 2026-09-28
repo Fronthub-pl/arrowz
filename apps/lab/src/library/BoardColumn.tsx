@@ -16,6 +16,7 @@ import { lookOf } from '../state/view.slice'
 import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
+import { OpenFileButton } from './OpenFileButton'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
 import { cancelPendingSave } from './useViewSave'
@@ -73,6 +74,9 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
         <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>
+        <div className="fw-alt">
+          <OpenFileButton />
+        </div>
         <LibraryLine line={library} />
       </section>
     )
