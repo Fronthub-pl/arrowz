@@ -6,6 +6,8 @@
 // a cell overlap their neighbours, and nothing narrower is refused for being
 // ugly. Pure and DOM-free: the colour check is passed in, so Node can test it.
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
+import { PAD_RANGE, POINT_RADIUS_RANGE } from '@arrowz/engine'
+export { PAD_RANGE, POINT_RADIUS_RANGE }
 
 export type IsColor = (css: string) => boolean
 
@@ -37,25 +39,10 @@ export function drawableView(view: BoardView, isColor: IsColor): BoardView {
   }
 }
 
-/**
- * The margin a host may ask for, in cells. Published because the lab draws a
- * field for it and must declare the bounds it is actually held to: a slider
- * needs an end, and this is a margin, not a board dimension — it has no
- * reason to run anywhere near the sizes a board itself does.
- */
-export const PAD_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 16 }
-
 /** The margin asked for, in cells: clamped to PAD_RANGE. */
 export function drawablePad(pad: number, fallback: number): number {
   return Math.min(Math.max(PAD_RANGE.min, finite(pad, fallback)), PAD_RANGE.max)
 }
-
-/**
- * The radius a dot may be given, in cells. Published because the lab draws a
- * field for it and must declare the bounds it is actually held to: the engine's
- * `VIEW_RANGE` covers the CLI's numbers, and the point grid is none of them.
- */
-export const POINT_RADIUS_RANGE: Readonly<{ min: number; max: number }> = { min: 0, max: 0.5 }
 
 export function drawablePointRadius(radius: number, fallback: number): number {
   return Math.min(Math.max(finite(radius, fallback), POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max)

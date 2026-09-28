@@ -15,6 +15,8 @@ import { drawableColor, drawablePad, drawablePointRadius, drawableView } from '.
 import { resolveColours } from './themes.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
+import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS } from '@arrowz/engine'
+export { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS }
 
 export interface BoardViewport {
   cellPx: number
@@ -39,18 +41,6 @@ export type GesturesChangeDetail = GesturesChangeEvent['detail']
 export const ZOOM_STEP = 1.25
 /** Wheel factor per event: exp(-deltaY * WHEEL_RATE), smooth for trackpads and mice alike. */
 export const WHEEL_RATE = 0.0015
-/**
- * Cells of margin drawn around the board unless the `pad` attribute says
- * otherwise. Without one an arrowhead in an edge cell ends two hundredths of a
- * cell from the paper's edge, which reads as the board cutting it off.
- */
-export const DEFAULT_PAD = 4
-/** Default of `showPoints`: the point grid is off unless a host asks for it. */
-export const DEFAULT_SHOW_POINTS = false
-/** Default of `pointColor`: the point grid's dot colour. */
-export const DEFAULT_POINT_COLOR = '#c9c9d6'
-/** Default of `pointRadius`: the point grid's dot radius, in cells. */
-export const DEFAULT_POINT_RADIUS = 0.06
 /** Where the player's gesture choice is kept, per origin: `'drag'` or `'click'`. */
 export const GESTURE_STORAGE_KEY = 'arrowz-board.gestures'
 

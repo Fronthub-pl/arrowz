@@ -1,7 +1,7 @@
 // What a board looks like. No renderer and no DOM: mod.ts exports these, so
 // they must not move when the layer does. The diagnostic hue is not defined
 // here any more — it is the engine's palette, re-exported at the foot.
-import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
+import { DEFAULT_COLOURS, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from '@arrowz/engine'
 import type { View } from '@arrowz/engine'
 
 export interface BoardView {
@@ -40,9 +40,9 @@ export const DEFAULT_VIEW: BoardView = {
   colored: false,
   top: 0,
   voids: false,
-  ink: '#232447',
-  paper: '#f6f6fa',
-  highlight: '#e8467c',
+  ink: DEFAULT_COLOURS.ink,
+  paper: DEFAULT_COLOURS.paper,
+  highlight: DEFAULT_COLOURS.highlight,
   palette: [],
 }
 
