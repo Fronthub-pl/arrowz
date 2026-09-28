@@ -69,6 +69,30 @@ export type Look = Pick<
   'theme' | 'palette' | 'paper' | 'ink' | 'highlight' | 'pad' | 'showPoints' | 'pointColor' | 'pointRadius'
 >
 
+/** A stored or parsed view as the slice's fields: the highlight folds back into its flag and count. */
+export function viewFieldsOf(saved: View): Partial<ViewFields> {
+  return {
+    cell: saved.cell,
+    stroke: saved.stroke,
+    headWidth: saved.headWidth,
+    headHeight: saved.headHeight,
+    rounded: saved.rounded !== false,
+    colored: saved.colored,
+    // A stored board carries no highlight, so this lands off; when one somehow does, its count comes with it.
+    highlightLongest: saved.top > 0,
+    ...(saved.top > 0 ? { top: saved.top } : {}),
+    theme: saved.theme,
+    palette: saved.palette,
+    paper: saved.paper,
+    ink: saved.ink,
+    highlightColor: saved.highlight,
+    pad: saved.pad,
+    showPoints: saved.showPoints,
+    pointColor: saved.pointColor,
+    pointRadius: saved.pointRadius,
+  }
+}
+
 export function lookOf(view: ViewFields): Look {
   return {
     theme: view.theme,

@@ -24,6 +24,8 @@ export interface RecipeState {
   setRandom(on: boolean): void
   /** The default recipe, keeping `random` — what Defaults puts back. */
   reset(): void
+  /** A whole recipe from outside (a pasted command), on the machine path: no edit is counted, so `useAutoRun` starts nothing. */
+  apply(recipe: Recipe): void
 }
 
 /** What was stored, as `recipeOf` wants it: anything unreadable is nothing. */
@@ -61,5 +63,6 @@ export function createRecipeSlice(set: SetStore): RecipeState {
     setSkeleton: (skeleton) => write((current) => ({ ...current, skeleton }), false),
     setRandom: (random) => write((current) => ({ ...current, random }), false),
     reset: () => write((current) => ({ ...defaultChoice(), random: current.random }), false),
+    apply: (recipe) => write(() => recipe, false),
   }
 }
