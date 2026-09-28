@@ -411,7 +411,7 @@ export const EN = {
       'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
     stat_time_help: 'How long the board took to generate and to measure. Lower = faster.',
     stat_farBlock_help:
-      'Arrows whose nearest blocker is more than 2 cells ahead of the head: what holds them is not in plain sight. More = more blockers to look for.',
+      'Arrows whose nearest blocker is more than 2 cells ahead of the arrow: what holds them is not in plain sight. More = more blockers to look for.',
     stat_turnsPerCell_help:
       'Turns per cell, over the whole board: unlike bends per arrow, a long arrow weighs as much as its cells. Higher = more winding.',
     stat_ownSides_help:
@@ -1149,7 +1149,7 @@ export const PL: Translation = {
       'Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. Mniej = płynniej.',
     stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk. Mniej = szybciej.',
     stat_farBlock_help:
-      'Strzałki, których najbliższa blokada stoi dalej niż 2 komórki przed grotem: tego, co je trzyma, nie widać od razu. Więcej = więcej blokad do wypatrzenia.',
+      'Strzałki, których najbliższa blokada stoi dalej niż 2 komórki przed strzałką: tego, co je trzyma, nie widać od razu. Więcej = więcej blokad do wypatrzenia.',
     stat_turnsPerCell_help:
       'Zakręty na komórkę, na całej planszy: w odróżnieniu od zakrętów na strzałkę długa strzałka waży tyle, ile jej komórki. Więcej = bardziej kręto.',
     stat_ownSides_help:

@@ -37,7 +37,7 @@ const HELP_EN: Record<StatKey, string> = {
     'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
   time: 'How long the board took to generate and to measure. Lower = faster.',
   farBlock:
-    'Arrows whose nearest blocker is more than 2 cells ahead of the head: what holds them is not in plain sight. More = more blockers to look for.',
+    'Arrows whose nearest blocker is more than 2 cells ahead of the arrow: what holds them is not in plain sight. More = more blockers to look for.',
   turnsPerCell:
     'Turns per cell, over the whole board: unlike bends per arrow, a long arrow weighs as much as its cells. Higher = more winding.',
   ownSides: "How many of a cell's four sides touch the same arrow, on average. Higher = arrows fold onto themselves.",

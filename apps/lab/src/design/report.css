@@ -33,8 +33,8 @@
 .fw-report thead th {
   color: var(--ash);
 }
-/* An empty delta cell is `--ash` (5.52:1); a fall is `--error` (4.90:1),
-   measured by ReportPanel.browser.test.tsx. Not `--signal`: 3.81:1, under AA. */
+/* An empty delta cell is `--ash`; a fall is `--error` (4.90:1), measured by
+   ReportPanel.browser.test.tsx. Not `--signal`: 3.81:1, under AA. */
 .fw-report .fw-delta {
   width: 1%;
   white-space: nowrap;
