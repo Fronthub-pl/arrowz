@@ -549,7 +549,7 @@ knob and leaves the rest still being drawn — see
 
 ### How the picture is drawn
 
-These five change nothing about the puzzle — only how it looks on screen.
+These fourteen change nothing about the puzzle — only how it looks on screen.
 
 **`--colored`** gives every arrow its own colour. Useless for playing,
 excellent for understanding. Every comparison picture on this page uses it.
@@ -583,6 +583,20 @@ and you get an arrowhead of no height at all.
 **`--sharp`** takes the rounding off. Normally a line turns a corner in a
 curve and its blunt end is a rounded cap; with `--sharp` the corners are
 angular and the blunt end is a square.
+
+**`--theme`** paints the board in one of the lab's twelve colour themes
+(`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); an unknown name is
+refused with the list. **`--paper`**, **`--ink`** and **`--highlight-color`**
+set one colour each as `#rrggbb` and win over the theme's; **`--palette`**
+gives the arrow colours for `--colored`, up to eight, comma-separated.
+
+**`--pad`** is the margin around the board, in cells, 0 to 16 (default 4, as
+the lab draws it). **`--points`** puts a dot in the centre of every cell, the
+lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to
+0.5) change the dot.
+
+The lab's live command carries all of these, so copying it reproduces the
+picture the lab exports.
 
 ---
 
