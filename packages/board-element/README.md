@@ -219,6 +219,50 @@ Every piece leaves at one speed, `EXIT_SPEED` cells per second, bounded by
 out faster than a short one at the edge. `prefers-reduced-motion` collapses
 every ride to no time at all.
 
+### Slots and custom controls
+
+The hint and the buttons in the corner are slot fallback content: a host that
+projects its own content into a slot replaces the default there, and a slot
+left empty keeps it.
+
+| Slot | Default | Present when |
+|---|---|---|
+| `controls` | the whole bar, holding the slots below | always |
+| `hint` | the mode hint | `controls` is empty |
+| `zoom-in` | `+` | `controls` is empty |
+| `zoom-out` | `−` | `controls` is empty |
+| `fit` | `⤢` | `controls` is empty |
+| `colors` | `◑` | `controls` is empty and `enableColors` |
+| `gestures` | `☝` | `controls` is empty and `interactive` or `play` |
+
+```html
+<arrowz-board play>
+  <button slot="fit" data-board-action="fit" aria-label="Show everything">Fit</button>
+</arrowz-board>
+```
+
+`data-board-action` names what a click on the element, or on anything inside
+it, does: `zoom-in`, `zoom-out`, `fit`, `colors` (as `toggleColors()`) or
+`gestures` (as `toggleGestures()`). It works in every slot, at any depth
+inside a custom `controls`; any other value does nothing. The name is
+namespaced because `data-action` belongs to common event delegators.
+
+A custom `controls` replaces the bar and its position: the per-control slots
+live inside the bar, so a `slot="fit"` child next to a custom bar is not
+drawn. The host is `position: relative`, so a bar positioned `absolute` is
+placed against the board.
+
+The element keeps two attributes on the host's `colors` and `gestures`
+controls in step with the board, and owns them there: `aria-pressed`, and
+`hidden` while the action is unavailable (no `enableColors`; a board that is
+neither `interactive` nor `play`). Under a coarse pointer the `hint` and
+`gestures` slots are not drawn, projected content included; inside a custom
+`controls` that rule is the host's.
+
+The element gives projected controls no role and no name: project a
+`<button>` with its own accessible name. A control that is not a button still
+runs its action on click, and nothing more.
+
 ### Playing the board
 
 With `play` the element decides the move itself: a free piece rides out, a
@@ -230,7 +274,7 @@ it is kept is the host's business.
 
 Colours are off unless `enableColors` is set: monochrome is part of the puzzle,
 so telling the pieces apart without colour is the task. With the permission the
-board grows a fourth chrome button, and a board may arrive coloured through
+board grows a fourth chrome button (or shows the host's own, see [Slots and custom controls](#slots-and-custom-controls)), and a board may arrive coloured through
 `view.colored` or through a loaded game. The button announces a cancelable
 `colored-change` event before it acts: a host that does nothing keeps today's
 behaviour (the button decides), and one that calls `preventDefault()` clears
