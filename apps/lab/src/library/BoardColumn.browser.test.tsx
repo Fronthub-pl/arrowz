@@ -213,7 +213,7 @@ test('load into lab restores the stored look and keeps voids', async () => {
 })
 
 // A board saved before the look existed reads with the default look (the store fills it), and loading it sets that.
-test('load into lab of a board without a look sets the default look', async () => {
+test('load into lab of a board with the default look sets the default look', async () => {
   const initial = useStore.getState().view
   const screen = await mountDetail()
   useStore.getState().view.apply({ theme: 'ayu-dark', pad: 9 })

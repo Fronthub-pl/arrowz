@@ -96,7 +96,7 @@ Deno.test('isHexColour takes #rrggbb in either case and nothing else', () => {
   }
 })
 
-Deno.test('the pad and point bounds are the element’s', () => {
+Deno.test('the pad and point bounds are the ones the element was held to', () => {
   assertEquals(PAD_RANGE, { min: 0, max: 16 })
   assertEquals(POINT_RADIUS_RANGE, { min: 0, max: 0.5 })
 })

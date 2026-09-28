@@ -29,7 +29,8 @@ import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validatePara
 import { THEMES } from './look.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
-const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
+/** The argv a shell hands carve for a command text: buildCommand quotes whole values with no spaces inside. */
+const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ').map((w) => w.replaceAll("'", ''))
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 /** Typed Object.keys for a parameter set: its keys are the fields of Params. */
@@ -786,8 +787,23 @@ Deno.test('buildCommand prints the look after --sharp, in a fixed order, and not
   const cmd = buildCommand(p, { ...DEFAULT_VIEW, ...LOOK, rounded: false })
   assertMatch(
     cmd,
-    / --sharp --theme=gruvbox-dark --palette=#112233,#445566 --paper=#010203 --ink=#040506 --highlight-color=#0a0b0c --pad=7 --points --point-color=#070809 --point-radius=0.15$/,
+    / --sharp --theme=gruvbox-dark --palette='#112233,#445566' --paper='#010203' --ink='#040506' --highlight-color='#0a0b0c' --pad=7 --points --point-color='#070809' --point-radius=0.15$/,
   )
+})
+
+Deno.test('a shell hands carve the argv the command means', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  const view = { ...DEFAULT_VIEW, ...LOOK, cell: exportCell(30, 20) }
+  const cmd = buildCommand(p, view)
+  const tail = cmd.slice(COMMAND_PREFIX.length + 1)
+  const out = new Deno.Command('sh', { args: ['-c', `printf '%s\\n' ${tail}`], stdout: 'piped' }).outputSync()
+  assert(out.success)
+  const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
+  assertEquals(argv, argvOf(cmd))
+  assert(argv.includes('--palette=#112233,#445566'))
+  const back = parseArgs(argv)
+  assertEquals(back.errors, [])
+  assertEquals(back.view, view)
 })
 
 Deno.test('a colour flag stores lower case', () => {

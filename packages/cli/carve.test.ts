@@ -45,8 +45,8 @@ const storedFingerprint = (file: string): string => fingerprint(decodeBoard(JSON
 const layoutIdOf = (params: Params): Promise<string> => layoutHash(generate(params).board)
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
-/** A command text as argv: everything after the prefix. */
-const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ')
+/** A command text as the argv a shell hands carve: everything after the prefix, colour quotes removed. */
+const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ').map((w) => w.replaceAll("'", ''))
 
 /** Runs carve.ts with the board store pointed at boardsDir. */
 function runCarve(argv: readonly string[], boardsDir: string, env: Record<string, string> = {}) {
