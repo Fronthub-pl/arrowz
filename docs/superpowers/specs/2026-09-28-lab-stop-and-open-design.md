@@ -163,8 +163,8 @@ Every way ends at `/boards/file`.
 
 ### The board column for a file
 
-- Facts: the file name, W×H, arrows, empty cells when there are any, the full
-  `layoutHash`.
+- Facts: the file name and the full `layoutHash`. W×H, arrows and empty cells
+  are in the report drawer's FileFacts.
 - Download SVG and download the board file again.
 - With a meta: the command, the seed, Load into lab (the same `loadIntoLab`),
   and the Preview panel's view rows, which edit the preview locally
