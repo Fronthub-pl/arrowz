@@ -24,7 +24,7 @@ export interface BoardView {
   highlight: string
   /**
    * Colours the pieces are drawn in when `colored` is on, one per piece by the
-   * assignment of palette.ts. Empty keeps the golden angle over the piece id,
+   * engine's `assignPalette`. Empty keeps the golden angle over the piece id,
    * which is what every board drew before themes existed.
    */
   palette: string[]

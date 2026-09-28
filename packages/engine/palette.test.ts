@@ -1,7 +1,7 @@
-import { expect, test } from 'vitest'
-import { defaultParams, generate } from '@arrowz/engine'
-import type { BoardData } from '@arrowz/engine'
+import { assert, assertEquals } from '@std/assert'
+import { defaultParams, generate } from './engine.ts'
 import { assignPalette } from './palette.ts'
+import type { BoardData } from './types.ts'
 
 /** Pairs of pieces whose cells touch, each pair once. */
 function neighbours(board: BoardData): [number, number][] {
@@ -28,16 +28,16 @@ function neighbours(board: BoardData): [number, number][] {
 
 const board = generate({ ...defaultParams(), W: 40, H: 40, seed: 3 }).board
 
-test('five colours leave almost no touching pair sharing one', () => {
+Deno.test('five colours leave almost no touching pair sharing one', () => {
   const assign = assignPalette(board, 5)
   const pairs = neighbours(board)
   const same = pairs.filter(([a, b]) => assign[a] === assign[b]).length
   // Measured on 300x300: 0.2%. The floor is the graph, not the rule, so this
   // asserts the rule is adjacency-aware at all — `id % n` gives 24.4% here.
-  expect(same / pairs.length).toBeLessThan(0.05)
+  assert(same / pairs.length < 0.05, `${same} of ${pairs.length}`)
 })
 
-test('every colour carries its share, within one piece', () => {
+Deno.test('every colour carries its share, within one piece', () => {
   const n = 5
   const assign = assignPalette(board, n)
   const tally = new Array<number>(n).fill(0)
@@ -46,28 +46,28 @@ test('every colour carries its share, within one piece', () => {
     tally[c] = (tally[c] ?? 0) + 1
   }
   const share = board.pieces.length / n
-  for (const count of tally) expect(Math.abs(count - share)).toBeLessThanOrEqual(1)
+  for (const count of tally) assert(Math.abs(count - share) <= 1, `${count} vs ${share}`)
 })
 
-test('the same board and length give the same assignment', () => {
-  expect([...assignPalette(board, 4)]).toEqual([...assignPalette(board, 4)])
+Deno.test('the same board and length give the same assignment', () => {
+  assertEquals([...assignPalette(board, 4)], [...assignPalette(board, 4)])
 })
 
-test('a palette of one paints every piece with it', () => {
+Deno.test('a palette of one paints every piece with it', () => {
   const assign = assignPalette(board, 1)
-  for (const pc of board.pieces) expect(assign[pc.id]).toBe(0)
+  for (const pc of board.pieces) assertEquals(assign[pc.id], 0)
 })
 
-// `n <= 0` is public API now that `assignPalette` is exported: the caller
-// may hand this a theme with an empty palette, or an explicit 0.
-test('n <= 0 leaves every piece unassigned, not thrown on', () => {
+// `n <= 0` is public API: the caller may hand this a theme with an empty
+// palette, or an explicit 0.
+Deno.test('n <= 0 leaves every piece unassigned, not thrown on', () => {
   for (const n of [0, -1]) {
     const assign = assignPalette(board, n)
-    for (const pc of board.pieces) expect(assign[pc.id]).toBe(-1)
+    for (const pc of board.pieces) assertEquals(assign[pc.id], -1)
   }
 })
 
-test('ids a board file skipped are addressable and untouched', () => {
+Deno.test('ids a board file skipped are addressable and untouched', () => {
   const data: BoardData = {
     W: 4,
     H: 2,
@@ -78,7 +78,7 @@ test('ids a board file skipped are addressable and untouched', () => {
     ],
   }
   const assign = assignPalette(data, 2)
-  expect(assign.length).toBe(8)
-  expect(assign[5]).not.toBe(assign[7])
-  expect(assign[0]).toBe(-1)
+  assertEquals(assign.length, 8)
+  assert(assign[5] !== assign[7])
+  assertEquals(assign[0], -1)
 })

@@ -38,7 +38,7 @@ export { boardViewOf, DEFAULT_VIEW, hueBytes, hueDegrees, hueOf, SHAKE_MS } from
 export type { BoardView } from './view.ts'
 export { themeOf, THEMES } from './themes.ts'
 export type { BoardTheme } from './themes.ts'
-export { assignPalette } from './palette.ts'
+export { assignPalette } from '@arrowz/engine'
 export { BOARD_LABELS, labelsFor } from './i18n.ts'
 export type { BoardLabels, BoardLang } from './i18n.ts'
 export { EXIT_MAX_MS, EXIT_MIN_MS, EXIT_SPEED } from './track.ts'
