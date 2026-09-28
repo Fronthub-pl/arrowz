@@ -30,8 +30,9 @@ while a theme is chosen. A custom palette, paper or ink is dropped silently.
   ink of lines and heads, the highlight of the longest pieces. `palette`
   applies only when `colored` is on, as on the element (its rider colour is
   the ink while `colored` is off); an empty palette keeps the golden angle.
-- The jam strips (`voids`) stay pink: they are a generator diagnostic, not a
-  board colour.
+- The jam strips (`voids`) take the highlight colour, as the element draws
+  them (`drawVoids` with the highlight at 22 %); the default highlight is the
+  old pink, so default bytes do not move.
 - `assignPalette` moves from `packages/board-element/src/palette.ts` to a new
   `packages/engine/palette.ts`, DOM- and Deno-free, so the SVG and the screen
   colour a piece from one source (the reason `colors.ts` exists). The element
