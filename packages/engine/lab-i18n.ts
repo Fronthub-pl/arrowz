@@ -609,6 +609,8 @@ export const PL: Translation = {
     lmaxHole: 'najdłuższa strzałka: auto albo co najmniej 17',
     straightFloor:
       'za mała prostość jak na tę planszę: większa plansza, zakamarki poniżej 4 albo kara zwojów powyżej 6 wymagają więcej',
+    giantWander:
+      'kolejne szkielety wymagają prostszych szkieletów: przy szansie na kolejne powyżej 0,05 prostość szkieletu musi wynosić co najmniej 0,6 plus tę szansę',
     startPair:
       'start strzałek i udział tuneli do siebie nie pasują: start mieszany wymaga startu losowego i udziału od 0,3 do 0,7; każdy inny start wymaga wyłączonego udziału (-1)',
   },
@@ -721,7 +723,7 @@ export const PL: Translation = {
     wGiant: {
       label: 'szansa na kolejne szkielety',
       help:
-        'Szansa, że strzałka układana później też stanie się strzałką szkieletu. Przy górnej granicy (0,2) plansze liczą się wolno, a 1000×1000 może się nie wypełnić.',
+        'Szansa, że strzałka układana później też stanie się strzałką szkieletu. Powyżej 0,05 wymaga prostości szkieletu 0,6 plus ta szansa; przy 0,2 plansze liczą się wolno.',
     },
     giantStraight: {
       label: 'prostość szkieletu',

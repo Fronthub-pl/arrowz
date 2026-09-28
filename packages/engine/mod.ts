@@ -14,6 +14,7 @@ export {
   formatViolation,
   generate,
   GenerateAbort,
+  giantStraightFloor,
   INACTIVE_REASONS,
   InvalidParamsError,
   isFiniteNumber,

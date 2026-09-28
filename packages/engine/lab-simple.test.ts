@@ -236,7 +236,8 @@ Deno.test('the fix to that corner left every canonical board where it was', () =
     [0, 1, 4, 6],
     [0.25, 0.95, 4, 6],
     [0.5, 0.85, 4, 6],
-    [0.75, 0.72, 5, 4],
+    // 0.72 before the anticoil discount went from 0.8 to 0.9 (straightFloor).
+    [0.75, 0.75, 5, 4],
     [1, 0.7, 8, 2],
   ]
   for (const [shape, pStraight, warns, anticoil] of canonical) {

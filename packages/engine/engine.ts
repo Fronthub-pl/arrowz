@@ -2637,7 +2637,7 @@ const PARAM_TABLE = [
     step: 0.01,
     def: 0,
     help:
-      'The chance that an arrow laid later also becomes a skeleton arrow. At the top of the range (0.2) boards get slow, and 1000×1000 may not fill.',
+      'The chance that an arrow laid later also becomes a skeleton arrow. Above 0.05 it needs a skeleton straightness of 0.6 plus this chance; at 0.2 boards get slow.',
   },
   // giantStraight acts on every skeleton regardless of giantStep: the
   // serpentine only seeds the path, the tail keeps growing on this weight
@@ -2800,7 +2800,9 @@ export function defaultParams(): Params {
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
-  const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.8 : 1
+  // 0.9, not the 0.8 fitted in round 14: at 1000x1000 with anticoil 4, 0.8
+  // left the floor at 0.7, which failed 5 of 60; 0.75 closed all 60.
+  const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.9 : 1
   const side = Math.sqrt(p.W * p.H) * nooks * coiling
   const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
   return Math.min(STRAIGHT_TOP, Number((STRAIGHT_BASE + 0.05 * steps).toFixed(2)))
@@ -2813,6 +2815,21 @@ function inRange(p: Params, key: ParamKey): boolean {
   const v: unknown = p[key]
   return r !== undefined && typeof v === 'number' && Number.isFinite(v) && v >= r.min && v <= r.max
 }
+
+/**
+ * The skeleton straightness a share of skeletons added mid-run needs. Many
+ * skeleton arrows carved late, with no pull towards straight lines, leave a
+ * board that never fills: at 1000x1000 the clean edge was 0.7 at a share of
+ * 0.1, 0.75 at 0.15 and 0.8 at 0.2, and up to 0.05 any straightness closed
+ * (docs/superpowers/measurements/2026-09-27-envelope-leaks.md). At or below
+ * 0.05 the bound is the knob's own minimum, so the rule says nothing.
+ */
+export function giantStraightFloor(p: Params): number {
+  return p.wGiant > WANDER_FREE + 1e-9 ? Number((WANDER_BASE + p.wGiant).toFixed(2)) : GIANT_STRAIGHT_MIN
+}
+const WANDER_FREE = 0.05
+const WANDER_BASE = 0.6
+const GIANT_STRAIGHT_MIN = 0.5
 
 /** The board a knob at its minimum still closes, the cells a step of 0.05 buys, and the knob's own ends. */
 const STRAIGHT_FREE = 400
@@ -2857,6 +2874,12 @@ export const RULES: readonly {
     check: (p) => STRAIGHT_KEYS.some((k) => !inRange(p, k)) || p.pStraight >= straightFloor(p) - 1e-9,
     need: straightFloor,
   },
+  {
+    key: 'giantWander',
+    keys: ['wGiant', 'giantStraight'],
+    check: (p) => p.giantStraight >= giantStraightFloor(p) - 1e-9,
+    need: giantStraightFloor,
+  },
 ]
 
 export const RULE_REASONS: Record<RuleKey, string> = {
@@ -2866,6 +2889,8 @@ export const RULE_REASONS: Record<RuleKey, string> = {
     `${MIX_SHARE.min} to ${MIX_SHARE.max}; any other start needs the share off (-1)`,
   straightFloor:
     'straightness is too low for this board: bigger boards, nooks first below 4 or a coil penalty above 6 all need more',
+  giantWander:
+    'skeletons added later need straighter skeletons: above a later chance of 0.05, skeleton straightness must be at least 0.6 plus that chance',
 }
 
 /**

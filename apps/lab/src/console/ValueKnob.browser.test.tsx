@@ -231,6 +231,13 @@ test('a knob under a rule floor states the bound in words, not only as a mark', 
   expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Minimum for this board')
 })
 
+test('the skeleton straightness states the bound a later chance sets', async () => {
+  params().reset()
+  params().setMany({ giants: 1, wGiant: 0.1 })
+  const screen = await render(<ValueKnob spec={specOf('giantStraight')} />)
+  expect(screen.container.querySelector('.kv-why')?.textContent).toContain('Minimum for this board: 0.7')
+})
+
 test('a floor sitting on the knob maximum is stated too, not left to the marker alone', async () => {
   params().reset()
   // A side of 1800 buys nine steps, so `straightFloor` returns exactly 1 — the

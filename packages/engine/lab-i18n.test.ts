@@ -6,7 +6,7 @@ import type { InactiveKey, ParamKey, RuleKey, Violation } from './types.ts'
 
 type GroupHelpKey = keyof Dictionary['groupHelp']
 
-const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'startPair', 'straightFloor']
+const ruleKeys: RuleKey[] = ['sharesSum', 'lmaxHole', 'startPair', 'straightFloor', 'giantWander']
 const reasonKeys = (o: Record<string, string>) => Object.keys(o) as (InactiveKey | RuleKey)[]
 const uiKeys = (d: Dictionary) => Object.keys(d.ui) as UiKey[]
 const groupHelpKeys = (d: Dictionary) => Object.keys(d.groupHelp) as GroupHelpKey[]
