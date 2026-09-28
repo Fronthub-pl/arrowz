@@ -253,10 +253,10 @@ section above).
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report
    drawer covers the board's right 45 px (and the Play and ☝ buttons) at
-   1440×877, known since round 2; the number entry of `DraftNumber` has no
-   `id` or `name`. The rest is done on `lab/followups`: "top" in ⌘K ranks the
-   word-start match first, a blocker with no gap reads "right in front", the
-   palette input has an id, `gl-color.ts` reads back with
+   1440×877, known since round 2, deferred by the user's decision. The rest is
+   done on `lab/followups`: "top" in ⌘K ranks the word-start match first, a
+   blocker with no gap reads "right in front", the palette input and the
+   `DraftNumber` entry have ids, `gl-color.ts` reads back with
    `willReadFrequently`, and the `trapBias` help names what "normal" does. The
    two low-window height rules lacking `min-width: 768px` were measured and
    are right at every width (a 375×540 case pins them).
