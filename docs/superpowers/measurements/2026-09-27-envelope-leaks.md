@@ -124,7 +124,7 @@ are indicative only). Raw data: `/tmp/arrowz-wgiant/`.
   - No preset sets `wGiant`.
   - Only the advanced console and the CLI reach the leak, by hand.
 
-**A rule, if one is wanted (not implemented).**
+**A first rule (superseded by the measured edge below).**
 - It would be `giantWander` on `['wGiant', 'giantStraight']`: when `wGiant` is
   above 0.05, `giantStraight` must be at least 0.7.
 - Before it ships, measure its edge: `giantStraight` 0.55, 0.6 and 0.65 at
@@ -155,7 +155,7 @@ The smallest clean `giantStraight` per `wGiant` at 1000×1000 (7 sets):
   `wGiant` 0.2 has 1/18 at 0.6 and is clean from 0.65.
 - The hardest sets set the edge: 2/25 and 2/30, with `wShort` 0.9, `warns` 16
   or `anticoil` 10, and 16 or 40 giants.
-- **Proposed rule (not implemented):** when `wGiant` > 0.05,
+- **The rule, shipped as `giantWander`:** when `wGiant` > 0.05,
   `giantStraight` ≥ 0.6 + `wGiant`.
   - It holds at every size. At 600 it removes only values that were already
     marginal.
@@ -181,7 +181,7 @@ runs 10 seeds:
 - At 0.7, every start mode and every length mix restarted. Tunnels with all
   long arrows were worst (3 of 10 failed).
 - At 600 the discount is safe: `anticoil` 4 at 0.6 gave 0/60.
-- **Proposed fix (not implemented):** the coiling factor for `anticoil` ≤ 4
+- **The fix, shipped:** the coiling factor for `anticoil` ≤ 4
   goes from 0.8 to 0.9. The floor at `anticoil` 4 becomes:
 
   | side | today | with 0.9 |
@@ -197,13 +197,13 @@ runs 10 seeds:
   preset is affected.
 - Set 2/66 fails at 0.7 and closes at 0.75, which fits the fix.
 
-### Where this stopped
+### What shipped
 
-On 2026-09-28 the user paused the work. The next step would be a small PR on
-top of the lab stack, containing:
-
-- the `giantWander` rule;
-- the 0.9 factor;
-- EN/PL reasons, README rule-table rows and envelope tests;
-- optionally a lab slider mark for the `giantStraight` bound, and a check at
-  800 before the factor changes.
+- The `giantWander` rule (`giantStraightFloor` in the engine), with EN/PL
+  reasons, rows in both READMEs' rule tables, envelope tests pinning the
+  edges above, and a mark on the lab's skeleton straightness slider.
+- The 0.9 factor. It refuses the round-14 cell 1000/0.72/5/4 (three runs),
+  and it moves the simple view's 1000×1000 board at shape 0.75 from
+  straightness 0.72 to 0.75. No other size and shape position changes.
+- Not done: the check at 800, where the floor at `anticoil` 4 goes from
+  0.65 to 0.7 without a measurement.
