@@ -4,16 +4,20 @@
 // and a retired spelling is refused by name.
 import { assert, assertEquals, assertMatch, assertNotEquals, assertStringIncludes } from '@std/assert'
 import {
+  type ArgProblem,
   boardId,
   buildCommand,
   COMMAND_PREFIX,
   DEFAULT_VIEW,
   drawnViolations,
+  drawOf,
   flagViolation,
   helpText,
   knobFlag,
   MIX_START,
   parseArgs,
+  problemText,
+  splitCommand,
   START,
   START_CHOICES,
   type StartChoice,
@@ -26,7 +30,7 @@ import {
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
-import { THEMES } from './look.ts'
+import { PALETTE_CAP, THEMES } from './look.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
 /** The argv a shell hands carve for a command text: buildCommand quotes whole values with no spaces inside. */
@@ -411,6 +415,84 @@ Deno.test('every retired spelling of a knob names the flag that replaced it', ()
     const { errors } = parseArgs([...SIZE, flag])
     assert(errors.some((e) => e.includes(replacement)), `${flag}: ${errors.join('; ')}`)
   }
+})
+
+// One case per kind: the problem a parse reports, and the sentence the CLI prints for it.
+const PROBLEM_CASES: [string[], ArgProblem, string][] = [
+  [['--width=9', '--height=9', '--colored=1'], { kind: 'noValue', arg: '--colored=1' }, '--colored=1 takes no value'],
+  [['--width=9', '--height=9', 'seed'], { kind: 'unexpectedArgument', arg: 'seed' }, 'unexpected argument: seed'],
+  [
+    ['--width=9', '--height=9', '--stroke=0.4'],
+    { kind: 'retired', arg: '--stroke=0.4', name: 'stroke', hint: 'use --line=R', use: ['--line'], why: null },
+    '--stroke is gone: use --line=R',
+  ],
+  [
+    ['--width=9', '--height=9', '--advanced'],
+    {
+      kind: 'retired',
+      arg: '--advanced',
+      name: 'advanced',
+      hint: 'the CLI has one mode now; drop --advanced',
+      use: [],
+      why: 'oneMode',
+    },
+    '--advanced is gone: the CLI has one mode now; drop --advanced',
+  ],
+  [
+    ['--width=2000', '--height=9'],
+    { kind: 'outside', arg: '--width=2000', min: 4, max: 1000 },
+    '--width=2000 is outside 4..1000',
+  ],
+  [['--width=9.5', '--height=9'], { kind: 'notWhole', arg: '--width=9.5' }, '--width=9.5 is not a whole number'],
+  [['--width=x', '--height=9'], { kind: 'notNumber', arg: '--width=x', words: [] }, '--width=x is not a number'],
+  [
+    ['--width=9', '--height=9', '--theme=nope'],
+    { kind: 'notTheme', arg: '--theme=nope', themes: Object.keys(THEMES) },
+    `--theme=nope is not a theme: ${Object.keys(THEMES).join(', ')}`,
+  ],
+  [
+    ['--width=9', '--height=9', '--ink=red'],
+    { kind: 'notColour', arg: '--ink=red' },
+    '--ink=red is not a #rrggbb colour',
+  ],
+  [
+    ['--width=9', '--height=9', '--palette=red'],
+    { kind: 'notColourList', arg: '--palette=red' },
+    '--palette=red is not a list of #rrggbb colours',
+  ],
+  [
+    ['--width=9', '--height=9', `--palette=${Array(PALETTE_CAP + 1).fill('#112233').join(',')}`],
+    { kind: 'paletteTooLong', arg: `--palette=${Array(PALETTE_CAP + 1).fill('#112233').join(',')}`, cap: PALETTE_CAP },
+    `--palette=${Array(PALETTE_CAP + 1).fill('#112233').join(',')} has more than ${PALETTE_CAP} colours`,
+  ],
+  [['--width=9', '--height=9', '--nope'], { kind: 'unknownFlag', arg: '--nope', name: 'nope' }, 'unknown flag --nope'],
+  [['--width=9'], { kind: 'missing', arg: '--height', name: 'height' }, 'missing --height'],
+]
+
+Deno.test('every refusal is a typed problem, and its sentence is the one the CLI prints', () => {
+  for (const [argv, problem, text] of PROBLEM_CASES) {
+    const parsed = parseArgs(argv)
+    assertEquals(parsed.problems, [problem], argv.join(' '))
+    assertEquals(parsed.errors, [text], argv.join(' '))
+    assertEquals(problemText(problem), text)
+  }
+})
+
+Deno.test('a start that is neither a word nor a share names both, with the range', () => {
+  const parsed = parseArgs(['--width=9', '--height=9', '--start=sideways'])
+  const [problem] = parsed.problems
+  assertEquals(problem?.kind, 'notStart')
+  assertEquals(parsed.errors, [problem === undefined ? '' : problemText(problem)])
+})
+
+Deno.test('a knob with words lists them in its problem', () => {
+  const parsed = parseArgs(['--width=9', '--height=9', '--lmax=x'])
+  assertEquals(parsed.problems, [{ kind: 'notNumber', arg: '--lmax=x', words: ['auto'] }])
+  assertEquals(parsed.errors, ['--lmax=x is not a number and not auto'])
+})
+
+Deno.test('an unclosed quote is worded for the CLI too', () => {
+  assertEquals(problemText({ kind: 'unclosedQuote', arg: "--ink='#11" }), "a quote is not closed: --ink='#11")
 })
 
 // --- --help ----------------------------------------------------------------------
@@ -800,10 +882,114 @@ Deno.test('a shell hands carve the argv the command means', () => {
   assert(out.success)
   const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
   assertEquals(argv, argvOf(cmd))
+  assertEquals(splitCommand(cmd).argv, argv)
   assert(argv.includes('--palette=#112233,#445566'))
   const back = parseArgs(argv)
   assertEquals(back.errors, [])
   assertEquals(back.view, view)
+})
+
+// --- splitCommand -------------------------------------------------------
+
+Deno.test('splitCommand drops the prefix and splits on any run of whitespace', () => {
+  assertEquals(splitCommand('  deno   task\tcarve --width=9\n--height=9  '), {
+    argv: ['--width=9', '--height=9'],
+    problems: [],
+  })
+  assertEquals(splitCommand('--width=9 --height=9'), { argv: ['--width=9', '--height=9'], problems: [] })
+  assertEquals(splitCommand(''), { argv: [], problems: [] })
+})
+
+Deno.test('splitCommand reads both quote kinds, also inside a token', () => {
+  assertEquals(splitCommand(`--palette='#aa0000,#00aa00' --ink="#112233"`).argv, [
+    '--palette=#aa0000,#00aa00',
+    '--ink=#112233',
+  ])
+  assertEquals(splitCommand(`--x="a \\"b\\" \\\\c"`).argv, ['--x=a "b" \\c'])
+  assertEquals(splitCommand(`--x='a b'`).argv, ['--x=a b'])
+})
+
+// The palette's input turns each line break of a paste into a space (Chromium),
+// so the join arrives either with its newline or as a backslash and spaces.
+Deno.test('splitCommand joins a command copied over several lines', () => {
+  const lines = 'deno task carve --width=9 \\\n  --height=9 \\\n  --colored'
+  assertEquals(splitCommand(lines).argv, ['--width=9', '--height=9', '--colored'])
+  assertEquals(splitCommand(lines.replaceAll('\n', '')).argv, ['--width=9', '--height=9', '--colored'])
+  assertEquals(splitCommand('--width=9 \\\r\n--height=9').argv, ['--width=9', '--height=9'])
+})
+
+Deno.test('splitCommand keeps an escaped character that is not whitespace', () => {
+  assertEquals(splitCommand('--x=a\\#b').argv, ['--x=a#b'])
+})
+
+Deno.test('splitCommand reports an unclosed quote with what it had read', () => {
+  assertEquals(splitCommand("--width=9 --ink='#11"), {
+    argv: ['--width=9'],
+    problems: [{ kind: 'unclosedQuote', arg: '--ink=#11' }],
+  })
+})
+
+// A line copied straight out of a terminal carries the `$` prompt, and often
+// an environment word or two, in front of the CLI's own invocation.
+Deno.test('splitCommand drops a shell prompt before the prefix', () => {
+  assertEquals(splitCommand('$ deno task carve --width=9 --height=9').argv, ['--width=9', '--height=9'])
+})
+
+Deno.test('splitCommand drops environment words before the prefix', () => {
+  assertEquals(
+    splitCommand('ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9 --height=9').argv,
+    ['--width=9', '--height=9'],
+  )
+})
+
+Deno.test('splitCommand drops a prompt and several environment words together', () => {
+  assertEquals(
+    splitCommand('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 deno task carve --width=9').argv,
+    ['--width=9'],
+  )
+})
+
+Deno.test('splitCommand leaves the prefix in place behind a word that is neither a prompt nor an environment word', () => {
+  assertEquals(
+    splitCommand('echo deno task carve --width=9').argv,
+    ['echo', 'deno', 'task', 'carve', '--width=9'],
+  )
+})
+
+Deno.test('a lab command, quoted colours and all, splits and parses back to its own knobs and view', () => {
+  const p = { ...defaultParams(), W: 30, H: 40, seed: 5, pStraight: 0.9 }
+  const v = {
+    ...DEFAULT_VIEW,
+    cell: 12,
+    colored: true,
+    palette: ['#aa0000', '#00aa00'],
+    paper: '#ffffff',
+    ink: '#101010',
+    highlight: '#ff00ff',
+    pad: 2,
+  }
+  const split = splitCommand(buildCommand(p, v))
+  assertEquals(split.problems, [])
+  const back = parseArgs(split.argv)
+  assertEquals(back.problems, [])
+  for (const s of PARAM_SPEC) assertEquals(back.params[s.key], p[s.key], s.key)
+  assertEquals(back.view, v)
+})
+
+// --- drawOf ---------------------------------------------------------------
+
+Deno.test('drawOf without --randomized is the parsed knobs', () => {
+  const parsed = parseArgs(['--width=30', '--height=40', '--seed=3', '--length=0.8', '--pstraight=0.9'])
+  assertEquals(drawOf(parsed, () => 0.5).params, parsed.params)
+})
+
+Deno.test('drawOf with --randomized draws, and a pinned knob keeps its value', () => {
+  const parsed = parseArgs(['--width=30', '--height=40', '--randomized', '--pstraight=0.9'])
+  const low = drawOf(parsed, () => 0).params
+  const high = drawOf(parsed, () => 0.999).params
+  assertEquals(low.pStraight, 0.9)
+  assertEquals(high.pStraight, 0.9)
+  assert(PARAM_SPEC.some((s) => low[s.key] !== high[s.key]), 'the draw moved nothing')
 })
 
 Deno.test('a colour flag stores lower case', () => {

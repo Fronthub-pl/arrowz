@@ -120,7 +120,7 @@ different counter over 237 files; the two numbers are not comparable.)
 
 | Gap or item | Status | Note |
 | --- | --- | --- |
-| Gap 1: read a command back in (`parseArgs`) | open | |
+| Gap 1: read a command back in (`parseArgs`) | fixed on `lab/paste-command` | paste a carve line into ⌘K |
 | Gap 2: try the board by hand (`play`) | fixed in `30ebd4b`, `74c0290`, `653e185`, `bff6430` | View / Inspect / Play on the frame: piece card in Inspect, a "left · mistakes" line and Restart in Play; the control shows only with a board on stage |
 | `interactive` and `piece-click` | fixed in `30ebd4b`, `74c0290` | Inspect turns `interactive` on and listens to `piece-click` |
 | Element hint in Inspect said "to play" | fixed in `74c0290` | The element words its own Inspect hint |
@@ -244,10 +244,10 @@ section above).
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
 3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
-4. **Parity gaps, as product decisions:** paste a `carve` command in
-   (`parseArgs`), closing rate over N seeds, Stop that keeps the partial
-   board, and opening a `.board.json`. The report rows and the ⌘K rows for
-   the colour and element fields are done on `lab/report-parity`.
+4. **Parity gaps, as product decisions:** closing rate over N seeds, Stop
+   that keeps the partial board, and opening a `.board.json`. Pasting a
+   `carve` command is done on `lab/paste-command`; the report rows and the
+   ⌘K rows for the colour and element fields on `lab/report-parity`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report

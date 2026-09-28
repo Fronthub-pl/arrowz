@@ -62,4 +62,12 @@ describe('the recipe slice', () => {
     store.recipe.reset()
     expect(store.recipe.value).toEqual(recipeOf({ ...defaultChoice(), random: true }))
   })
+
+  it('applies a whole recipe without counting an edit', () => {
+    const store = slice()
+    const before = store.recipe.edits
+    store.recipe.apply({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
+    expect(store.recipe.value).toEqual({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
+    expect(store.recipe.edits).toBe(before)
+  })
 })

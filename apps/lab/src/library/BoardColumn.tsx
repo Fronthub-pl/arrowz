@@ -13,7 +13,7 @@ import { MoreMenu } from '../run/MoreMenu'
 import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
-import { lookOf } from '../state/view.slice'
+import { lookOf, viewFieldsOf } from '../state/view.slice'
 import { raiseNotice } from './notices'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
@@ -98,27 +98,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
-    const saved = meta.view
-    view.apply({
-      cell: saved.cell,
-      stroke: saved.stroke,
-      headWidth: saved.headWidth,
-      headHeight: saved.headHeight,
-      rounded: saved.rounded !== false,
-      colored: saved.colored,
-      // A stored board carries no highlight, so this lands off; when one somehow does, its count comes with it.
-      highlightLongest: saved.top > 0,
-      ...(saved.top > 0 ? { top: saved.top } : {}),
-      theme: saved.theme,
-      palette: saved.palette,
-      paper: saved.paper,
-      ink: saved.ink,
-      highlightColor: saved.highlight,
-      pad: saved.pad,
-      showPoints: saved.showPoints,
-      pointColor: saved.pointColor,
-      pointRadius: saved.pointRadius,
-    })
+    view.apply(viewFieldsOf(meta.view))
     control.start()
     void navigate('/')
   }

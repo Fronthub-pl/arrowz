@@ -78,6 +78,13 @@
   padding: 14px;
   color: var(--ash);
 }
+/* A pasted line's problems, under its one row. */
+.fw-pal .problems {
+  margin: 0;
+  padding: 8px 16px 12px 32px;
+  color: var(--error);
+  font-size: 12px;
+}
 .fw-pal .foot {
   display: flex;
   gap: 16px;
