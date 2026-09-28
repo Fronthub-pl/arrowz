@@ -521,13 +521,15 @@ Deno.test('the board mode counts cells and mistakes in both languages, Polish in
     'Strzałka #3 · 2 komórki · → w prawo',
     'Strzałka #3 · 5 komórek · → w prawo',
   ])
-  assertEquals([PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
+  assertEquals([PL.ui.pieceBlocked(4, 0), PL.ui.pieceBlocked(4, 1), PL.ui.pieceBlocked(4, 3)], [
+    'zablokowana przez #4 tuż przed grotem',
     'zablokowana przez #4 w odległości 1 komórki',
     'zablokowana przez #4 w odległości 3 komórek',
   ])
-  assertEquals([EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 0)], [
+  assertEquals([EN.ui.pieceBlocked(4, 0), EN.ui.pieceBlocked(4, 1), EN.ui.pieceBlocked(4, 3)], [
+    'blocked by #4 right in front',
     'blocked by #4 at 1 cell',
-    'blocked by #4 at 0 cells',
+    'blocked by #4 at 3 cells',
   ])
 })
 
