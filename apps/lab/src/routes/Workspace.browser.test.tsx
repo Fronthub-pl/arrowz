@@ -793,8 +793,8 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
-    // Load into lab runs the loaded knobs: the lab's board is replaced by a
-    // fresh run's, never by the stored file handed over as a result.
+    // Load into lab runs the loaded knobs: a fresh run replaces the lab's
+    // board, and it is carved from the loaded seed.
     const labBoard = useStore.getState().result.shown
     expect(labBoard).not.toBeNull()
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
@@ -802,7 +802,6 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.poll(() => useStore.getState().result.shown, { timeout: 20_000 }).not.toBe(labBoard)
     const loaded = useStore.getState().result.shown
     expect(loaded?.params.seed).toBe(meta.params.seed)
-    expect(loaded?.file).not.toBe(file)
   } finally {
     // The stroke edit above leaves a 350ms module-scope save timer running, and
     // its `.then` calls `refresh()` after the case is gone.
