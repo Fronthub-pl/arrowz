@@ -1,8 +1,10 @@
 // The board element: a Lit shell for the chrome (zoom buttons, pan hint)
 // around one <canvas> owned by GlLayer. Lit never renders the pieces; it
-// renders the handful of nodes around them. The viewport is pure math from
-// viewport.ts, the pointer rules are the state machine of gestures.ts, and
-// this file only wires DOM events to both and exposes the public API.
+// renders the handful of nodes around them. The chrome is slot fallback
+// content, so a host may project its own controls (README, "Slots and
+// custom controls"). The viewport is pure math from viewport.ts, the pointer
+// rules are the state machine of gestures.ts, and this file only wires DOM
+// events to both and exposes the public API.
 import { css, html, LitElement, type PropertyValues } from 'lit'
 import type { BoardData, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
@@ -230,9 +232,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     button[aria-pressed='true'] {
       background: #dde;
     }
+    /* On a slot, so a host's hint or switch hides with the default one. */
     @media (pointer: coarse) {
-      .hint,
-      .gestures {
+      slot[name='hint'],
+      slot[name='gestures'] {
         display: none;
       }
     }
@@ -396,37 +399,48 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const l = labelsFor(this.lang)
     return html`
       ${this.hasWebgl ? this.layer.canvas : html`<p class="unsupported">${l.noWebgl}</p>`}
-      <div class="chrome">
-        <span class="hint">${this.hint(l)}</span>
-        <button type="button" title=${l.zoomIn} aria-label=${l.zoomIn} @click=${() => this.zoomBy(ZOOM_STEP)}>+</button>
-        <button type="button" title=${l.zoomOut} aria-label=${l.zoomOut} @click=${() =>
-          this.zoomBy(1 / ZOOM_STEP)}>−</button>
-        <button type="button" title=${l.fit} aria-label=${l.fit} @click=${() => this.fit()}>⤢</button>
-        ${this.enableColors
-          ? html`
-            <button
-              type="button"
-              class="colors"
-              title=${l.colors}
-              aria-label=${l.colors}
-              aria-pressed=${this.colored ? 'true' : 'false'}
-              @click=${() => this.toggleColors()}
-            >◑</button>
-          `
-          : ''}
-        ${this.playable
-          ? html`
-            <button
-              type="button"
-              class="gestures"
-              title=${this.gesturesLabel(l)}
-              aria-label=${this.gesturesLabel(l)}
-              aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
-              @click=${() => this.toggleGestures()}
-            >☝</button>
-          `
-          : ''}
-      </div>
+      <slot name="controls" @click=${this.onAction}>
+        <div class="chrome">
+          <slot name="hint"><span class="hint">${this.hint(l)}</span></slot>
+          <slot name="zoom-in">
+            <button type="button" data-board-action="zoom-in" title=${l.zoomIn} aria-label=${l.zoomIn}>+</button>
+          </slot>
+          <slot name="zoom-out">
+            <button type="button" data-board-action="zoom-out" title=${l.zoomOut} aria-label=${l.zoomOut}>−</button>
+          </slot>
+          <slot name="fit">
+            <button type="button" data-board-action="fit" title=${l.fit} aria-label=${l.fit}>⤢</button>
+          </slot>
+          ${this.enableColors
+            ? html`
+              <slot name="colors">
+                <button
+                  type="button"
+                  class="colors"
+                  data-board-action="colors"
+                  title=${l.colors}
+                  aria-label=${l.colors}
+                  aria-pressed=${this.colored ? 'true' : 'false'}
+                >◑</button>
+              </slot>
+            `
+            : ''}
+          ${this.playable
+            ? html`
+              <slot name="gestures">
+                <button
+                  type="button"
+                  class="gestures"
+                  data-board-action="gestures"
+                  title=${this.gesturesLabel(l)}
+                  aria-label=${this.gesturesLabel(l)}
+                  aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
+                >☝</button>
+              </slot>
+            `
+            : ''}
+        </div>
+      </slot>
     `
   }
 
@@ -440,6 +454,31 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private gesturesLabel(l: BoardLabels): string {
     if (this.inspecting) return isMac ? l.gesturesInspectMac : l.gesturesInspectOther
     return isMac ? l.gesturesMac : l.gesturesOther
+  }
+
+  /**
+   * The one click path for the default controls and the host's: the first
+   * element with `data-board-action` between the target and the `controls`
+   * slot names the action. A board nested in the host's content sits on that
+   * path above its own shadow controls, so meeting one means the click is its.
+   */
+  private readonly onAction = (e: Event): void => {
+    const path = e.composedPath()
+    const end = e.currentTarget === null ? -1 : path.indexOf(e.currentTarget)
+    const inside = end < 0 ? [] : path.slice(0, end)
+    if (inside.some((node) => node instanceof ArrowzBoard && node !== this)) return
+    const source = inside.find((node): node is Element =>
+      node instanceof Element && node.hasAttribute('data-board-action')
+    )
+    this.act(source?.getAttribute('data-board-action') ?? null)
+  }
+
+  private act(action: string | null): void {
+    if (action === 'zoom-in') this.zoomBy(ZOOM_STEP)
+    else if (action === 'zoom-out') this.zoomBy(1 / ZOOM_STEP)
+    else if (action === 'fit') this.fit()
+    else if (action === 'colors') this.toggleColors()
+    else if (action === 'gestures') this.toggleGestures()
   }
 
   /** A click reaches the host as `piece-click` and plays nothing: `play` wins when both are set. */
