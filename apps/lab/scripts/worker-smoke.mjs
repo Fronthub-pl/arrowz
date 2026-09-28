@@ -60,6 +60,29 @@ globalThis.onmessage({ data: { type: 'svg', board: encodeBoard(mine.board), opti
 const svg = messages.find((m) => m.type === 'svg')
 check(svg !== undefined && svg.svg === toSvg(mine.board, options), 'it draws the SVG the engine draws')
 
+// 400×400 because the carver's first trace comes no sooner than 250 ms in
+// (its `run` loop); measured 953 ms whole, the first trace at 3500 arrows.
+// Node's postMessage here is synchronous, so the flag is up before the worker
+// reads it in the same trace call.
+messages.length = 0
+const mine400 = generate({ ...defaultParams(), W: 400, H: 400, seed: 7 })
+const stop = new Int32Array(new SharedArrayBuffer(4))
+globalThis.postMessage = (message) => {
+  messages.push(message)
+  if (message.type === 'progress') Atomics.store(stop, 0, 1)
+}
+globalThis.onmessage({ data: { type: 'generate', params: { ...defaultParams(), W: 400, H: 400, seed: 7 }, stop } })
+const stopped = messages.find((m) => m.type === 'done')
+check(stopped?.aborted === true && stopped.ok === false, 'a raised flag stops the built worker with aborted: true')
+check(
+  stopped?.aborted === true &&
+    stopped.pieces > 0 &&
+    stopped.pieces < mine400.board.pieces.length &&
+    decodeBoard(stopped.board).pieces.length === stopped.pieces,
+  'the board laid so far comes back and decodes',
+)
+check(done?.aborted === false, 'a run nobody stopped says aborted: false')
+
 if (failures > 0) {
   console.error(`${failures} check(s) failed: the built worker is not the engine`)
   process.exit(1)

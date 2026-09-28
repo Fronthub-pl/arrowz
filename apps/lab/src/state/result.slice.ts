@@ -77,6 +77,7 @@ export function reportInputOf(report: ReportInput): ReportInput {
     totalMs: report.totalMs,
     stuck: report.stuck,
     deadlock: report.deadlock,
+    aborted: report.aborted,
   }
 }
 

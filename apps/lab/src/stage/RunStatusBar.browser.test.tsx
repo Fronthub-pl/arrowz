@@ -37,6 +37,7 @@ const CLOSED: DoneReport = {
   totalMs: RESULT.genMs + RESULT.metricsMs,
   stuck: null,
   deadlock: false,
+  aborted: false,
   pieces: RESULT.board.pieces.length,
   stats: RESULT.board.stats,
   board: encodeBoard(RESULT.board),

@@ -30,6 +30,7 @@ export function finishedRun(seed: number, W = 8, H = 8): FinishedFixture {
       totalMs: result.genMs + result.metricsMs,
       stuck: result.stuck,
       deadlock: result.deadlock,
+      aborted: result.aborted,
       pieces: result.board.pieces.length,
       stats: result.board.stats,
       board: file,

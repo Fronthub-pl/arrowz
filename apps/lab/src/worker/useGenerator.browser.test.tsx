@@ -69,6 +69,7 @@ test('a board file the codec rejects ends in error, not in a stuck run', async (
     totalMs: 1,
     stuck: null,
     deadlock: false,
+    aborted: false,
     pieces: 1,
     stats: { want: 1, got: 1, stall: 0, strandTrunc: 0, strandLoss: 0, n: 1 },
     board: file,

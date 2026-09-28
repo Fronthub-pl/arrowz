@@ -108,6 +108,7 @@ export interface ReportInput {
   readonly totalMs: number
   readonly stuck: Stuck | null
   readonly deadlock: boolean
+  readonly aborted: boolean
 }
 
 /** A row whose value may arrive as a number: the surface renders text either way. */
