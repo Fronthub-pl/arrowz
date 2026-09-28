@@ -728,7 +728,7 @@ pokrętło, które się zmieni, musi się zmienić i tutaj.
 | Szkielet | `--giantspan` | 1–200 | 1 | `30` | Jak długa ma być jedna strzałka szkieletu, licząc w długościach dłuższego boku planszy. Kończy wcześniej, gdy zabraknie miejsca. |
 | Szkielet | `--giantstep` | `random`\|1–40 | 1 | `14` | Przerwa: komórki między biegami strzałki szkieletu tam i z powrotem. Mała daje równe paski jak w zeszycie w linie, duża — kilka szerokich zakosów; `random` pozwala jej błądzić swobodnie zamiast rosnąć wężykiem. |
 | Szkielet | `--giantjitter` | 0–1 | 0.05 | `0.6` | Jak często bieg szkieletu urywa się przed przeszkodą, zamiast dojść do samej przeszkody. 0 daje idealnie proste, regularne brzegi. |
-| Szkielet | `--wgiant` | 0–0.2 | 0.01 | `0` | Szansa, że strzałka układana później też będzie strzałką szkieletu. **Uwaga:** przy 0,2 plansze robią się wolne, a 1000×1000 przestaje się wypełniać. |
+| Szkielet | `--wgiant` | 0–0.2 | 0.01 | `0` | Szansa, że strzałka układana później też będzie strzałką szkieletu. Powyżej 0,05 wymaga `--giantstraight` co najmniej 0,6 plus ta wartość (zob. reguły niżej). **Uwaga:** przy 0,2 plansze robią się wolne. |
 | Szkielet | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | Jak prosto biegnie strzałka szkieletu tam, gdzie ma wolne miejsce. **Uwaga:** 0,5 to brak preferencji; poniżej pokrętło ważyłoby ruch prosto w dół, czyli odwrotnie, niż mówi jego nazwa. |
 | Szkielet | `--giantanticoil` | 1–20 | 1 | `6` | Kara zwojów, tylko dla strzałek szkieletu. Obowiązuje wyższa z dwóch wartości: tej albo ogólnego `--anticoil` — więc przy domyślnych, gdzie obie wynoszą 6, skręcenie tej w dół nic nie zmienia. |
 | Szkielet | `--giantspacing` | `off`\|2\|3 | 1 | `2` | Ile komórek strzałka szkieletu trzyma między własnymi równoległymi biegami. `off` wyłącza regułę. Flaga przyjmuje te trzy wartości i nic poza tym: szerszy promień tylko kosztował czas, więc nie jest oferowany. |
@@ -785,7 +785,7 @@ tunele.
 
 ### Kombinacje, które są odrzucane
 
-Czterech reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
+Pięciu reguł nie da się zapisać jako zwykły zakres „od–do”, więc sprawdza się
 je osobno:
 
 <!-- rule-table -->
@@ -796,6 +796,7 @@ je osobno:
 | `--lmax` | `auto` albo 17 wzwyż. |
 | `--start` | Słowo (`layers`, `random`, `tunnels`) albo udział w 0,3–0,7 i nic poza tym: zapisana plansza, w której start strzałek i udział tuneli tworzą parę nie do zapisania przez `--start`, jest odrzucana, bo jej polecenie odtworzyłoby inną planszę. |
 | `--pstraight`, `--warns`, `--anticoil` | Prostość, jakiej wymaga plansza, rośnie z jej dłuższym bokiem — 0,6 do 500×500, 0,65 przy 600×600, 0,7 przy 800×800, 0,8 przy 1000×1000 — a `--warns` poniżej 4 albo `--anticoil` powyżej 6 podnosi ją jeszcze; wysokie `--warns` albo niskie `--anticoil` ją obniża. Poniżej podłogi plansza nie wychodzi pełna, a odmowa podaje liczbę, jakiej ta plansza potrzebuje. |
+| `--wgiant`, `--giantstraight` | Przy `--wgiant` powyżej 0,05 `--giantstraight` musi wynosić co najmniej 0,6 plus `--wgiant`: 0,7 przy 0,1, 0,8 przy 0,2. Szkielety dodawane później, które kluczą zamiast biec prosto, zostawiają planszę 1000×1000, która nigdy się nie wypełnia; odmowa podaje potrzebną liczbę. |
 
 Złam regułę, wyjdź którymkolwiek pokrętłem poza zakres albo wyląduj między
 dwoma jego krokami, a generator odmówi, zanim cokolwiek narysuje, powie ci,

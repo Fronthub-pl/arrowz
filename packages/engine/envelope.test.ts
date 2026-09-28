@@ -8,6 +8,7 @@ import {
   fingerprint,
   formatViolation,
   generate,
+  giantStraightFloor,
   INACTIVE_REASONS,
   InvalidParamsError,
   PARAM_SPEC,
@@ -134,8 +135,8 @@ Deno.test('envelope: keys outside PARAM_SPEC are ignored', () => {
   assertEquals(validateParams(withRaw({ ruleB: false, voidFrac: 2, trace: true, debug: 'x' })), [])
 })
 
-Deno.test('envelope: the four cross-knob rules exist with a reason each', () => {
-  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'startPair', 'straightFloor'])
+Deno.test('envelope: the five cross-knob rules exist with a reason each', () => {
+  assertEquals(RULES.map((r) => r.key), ['sharesSum', 'lmaxHole', 'startPair', 'straightFloor', 'giantWander'])
   for (const r of RULES) {
     assert(Array.isArray(r.keys) && r.keys.length >= 1, r.key)
     for (const k of r.keys) assert(spec(k), `${r.key} names unknown knob ${k}`)
@@ -317,6 +318,48 @@ Deno.test('rule startPair: only a pair --start can spell', () => {
   const first = rule('startPair')[0]
   assert(first)
   assertEquals(first.kind === 'rule' ? first.keys : null, ['headBias', 'mix'])
+})
+
+// The edges measured at 1000x1000 on ten sets that never filled a board
+// (docs/superpowers/measurements/2026-09-27-envelope-leaks.md): for each
+// wGiant, the highest giantStraight that still failed and the lowest that was
+// clean on every seed.
+const WANDER_EDGES: readonly (readonly [wGiant: number, failed: number, clean: number])[] = [
+  [0.1, 0.65, 0.7],
+  [0.15, 0.7, 0.75],
+  [0.2, 0.75, 0.8],
+]
+const wanders = (p: Params): boolean => validateParams(p).some((v) => v.kind === 'rule' && v.key === 'giantWander')
+
+Deno.test('rule giantWander: every measured failure is refused and every clean edge allowed', () => {
+  for (const [wGiant, failed, clean] of WANDER_EDGES) {
+    assert(wanders(withDefaults({ wGiant, giantStraight: failed })), `${wGiant} at ${failed} failed`)
+    assertEquals(validateParams(withDefaults({ wGiant, giantStraight: clean })), [], `${wGiant} at ${clean} was clean`)
+  }
+})
+
+Deno.test('rule giantWander: up to 0.05 any skeleton straightness is allowed', () => {
+  for (const wGiant of [0, 0.01, 0.05]) {
+    assertEquals(validateParams(withDefaults({ wGiant, giantStraight: 0.5 })), [], `wGiant=${wGiant}`)
+    assertEquals(giantStraightFloor(withDefaults({ wGiant })), 0.5, `wGiant=${wGiant}`)
+  }
+})
+
+Deno.test('rule giantWander: the violation names both knobs and the straightness this share needs', () => {
+  const v = validateParams(withDefaults({ wGiant: 0.06, giantStraight: 0.65 }))
+  assertEquals(v, [{ kind: 'rule', key: 'giantWander', keys: ['wGiant', 'giantStraight'], need: 0.66 }])
+  assertEquals(validateParams(withDefaults({ wGiant: 0.06, giantStraight: 0.66 })), [])
+  const first = rule('giantWander')[0]
+  assert(first)
+  assertEquals(first.kind === 'rule' ? first.keys : null, ['wGiant', 'giantStraight'])
+  assertEquals(giantStraightFloor(withDefaults({ wGiant: 0.2 })), 0.8)
+  // The default skeleton straightness clears the bound at the share's maximum.
+  assertEquals(validateParams(withDefaults({ wGiant: 0.2 })), [])
+})
+
+Deno.test('rule giantWander: a share outside its own range is said once, by the range', () => {
+  const v = validateParams(withRaw({ wGiant: 0.3, giantStraight: 0.5 }))
+  assertEquals(v.map((x) => x.kind), ['range'])
 })
 
 Deno.test('generate: refuses a violation with a RangeError carrying the violations', () => {

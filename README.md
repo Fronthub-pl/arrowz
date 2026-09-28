@@ -728,7 +728,7 @@ knob that moves has to move here too.
 | Skeleton | `--giantspan` | 1–200 | 1 | `30` | How long one skeleton arrow aims to be, counted in lengths of the board's longer side. It stops early if it runs out of room. |
 | Skeleton | `--giantstep` | `random`\|1–40 | 1 | `14` | The run gap: cells between the back-and-forth runs of a skeleton arrow. Small gives regular stripes like ruled paper; large gives a few wide sweeps; `random` lets it wander freely instead of running back and forth. |
 | Skeleton | `--giantjitter` | 0–1 | 0.05 | `0.6` | How often a skeleton run stops short instead of going all the way to the obstacle. 0 gives perfectly straight, regular edges. |
-| Skeleton | `--wgiant` | 0–0.2 | 0.01 | `0` | The chance that an arrow laid later is also a skeleton arrow. **Careful:** at 0.2 boards get slow and 1000×1000 stops filling. |
+| Skeleton | `--wgiant` | 0–0.2 | 0.01 | `0` | The chance that an arrow laid later is also a skeleton arrow. Above 0.05 it needs a `--giantstraight` of at least 0.6 plus this value (see the rules below). **Careful:** at 0.2 boards get slow. |
 | Skeleton | `--giantstraight` | 0.5–1 | 0.01 | `0.94` | How straight a skeleton arrow runs where it has free space. **Careful:** 0.5 is no preference at all; below it the knob would weigh a straight move down, which is not what its name says. |
 | Skeleton | `--giantanticoil` | 1–20 | 1 | `6` | The coil penalty, for skeleton arrows only. Whichever is higher, this or the general `--anticoil`, wins. |
 | Skeleton | `--giantspacing` | `off`\|2\|3 | 1 | `2` | How many cells a skeleton arrow keeps between its own parallel runs. `off` turns the rule off. The flag takes these three values and nothing else: a wider radius only cost time, so it is not offered. |
@@ -784,7 +784,7 @@ choosing one: the number is the share of arrows that start as tunnels.
 
 ### Combinations that are refused
 
-Four rules cannot be written as a simple from–to range, so they are checked
+Five rules cannot be written as a simple from–to range, so they are checked
 separately:
 
 <!-- rule-table -->
@@ -795,6 +795,7 @@ separately:
 | `--lmax` | `auto`, or 17 and up. |
 | `--start` | A word (`layers`, `random`, `tunnels`) or a share in 0.3–0.7, and nothing else: a saved board whose arrow start and tunnel share are a pair no `--start` can write is refused, because its command would rebuild a different board. |
 | `--pstraight`, `--warns`, `--anticoil` | The straightness a board needs rises with its longer side — 0.6 up to 500×500, 0.65 at 600×600, 0.7 at 800×800, 0.8 at 1000×1000 — and `--warns` below 4, or `--anticoil` above 6, raises it further; a high `--warns` or a low `--anticoil` lowers it. Below the floor the board does not fill, and the refusal names the number this board needs. |
+| `--wgiant`, `--giantstraight` | Above a `--wgiant` of 0.05, `--giantstraight` must be at least 0.6 plus `--wgiant`: 0.7 at 0.1, 0.8 at 0.2. Skeletons added later that wander instead of running straight leave a 1000×1000 board that never fills; the refusal names the number needed. |
 
 Break a rule, put any knob outside its range, or land between two of its
 steps, and the generator refuses before drawing anything, tells you which
