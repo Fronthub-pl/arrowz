@@ -16,6 +16,7 @@ import {
   MIX_START,
   parseArgs,
   problemText,
+  splitCommand,
   START,
   START_CHOICES,
   type StartChoice,
@@ -880,10 +881,71 @@ Deno.test('a shell hands carve the argv the command means', () => {
   assert(out.success)
   const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
   assertEquals(argv, argvOf(cmd))
+  assertEquals(splitCommand(cmd).argv, argv)
   assert(argv.includes('--palette=#112233,#445566'))
   const back = parseArgs(argv)
   assertEquals(back.errors, [])
   assertEquals(back.view, view)
+})
+
+// --- splitCommand -------------------------------------------------------
+
+Deno.test('splitCommand drops the prefix and splits on any run of whitespace', () => {
+  assertEquals(splitCommand('  deno   task\tcarve --width=9\n--height=9  '), {
+    argv: ['--width=9', '--height=9'],
+    problems: [],
+  })
+  assertEquals(splitCommand('--width=9 --height=9'), { argv: ['--width=9', '--height=9'], problems: [] })
+  assertEquals(splitCommand(''), { argv: [], problems: [] })
+})
+
+Deno.test('splitCommand reads both quote kinds, also inside a token', () => {
+  assertEquals(splitCommand(`--palette='#aa0000,#00aa00' --ink="#112233"`).argv, [
+    '--palette=#aa0000,#00aa00',
+    '--ink=#112233',
+  ])
+  assertEquals(splitCommand(`--x="a \\"b\\" \\\\c"`).argv, ['--x=a "b" \\c'])
+  assertEquals(splitCommand(`--x='a b'`).argv, ['--x=a b'])
+})
+
+// The palette's input turns each line break of a paste into a space (Chromium),
+// so the join arrives either with its newline or as a backslash and spaces.
+Deno.test('splitCommand joins a command copied over several lines', () => {
+  const lines = 'deno task carve --width=9 \\\n  --height=9 \\\n  --colored'
+  assertEquals(splitCommand(lines).argv, ['--width=9', '--height=9', '--colored'])
+  assertEquals(splitCommand(lines.replaceAll('\n', '')).argv, ['--width=9', '--height=9', '--colored'])
+  assertEquals(splitCommand('--width=9 \\\r\n--height=9').argv, ['--width=9', '--height=9'])
+})
+
+Deno.test('splitCommand keeps an escaped character that is not whitespace', () => {
+  assertEquals(splitCommand('--x=a\\#b').argv, ['--x=a#b'])
+})
+
+Deno.test('splitCommand reports an unclosed quote with what it had read', () => {
+  assertEquals(splitCommand("--width=9 --ink='#11"), {
+    argv: ['--width=9'],
+    problems: [{ kind: 'unclosedQuote', arg: '--ink=#11' }],
+  })
+})
+
+Deno.test('a lab command, quoted colours and all, splits and parses back to its own knobs and view', () => {
+  const p = { ...defaultParams(), W: 30, H: 40, seed: 5, pStraight: 0.9 }
+  const v = {
+    ...DEFAULT_VIEW,
+    cell: 12,
+    colored: true,
+    palette: ['#aa0000', '#00aa00'],
+    paper: '#ffffff',
+    ink: '#101010',
+    highlight: '#ff00ff',
+    pad: 2,
+  }
+  const split = splitCommand(buildCommand(p, v))
+  assertEquals(split.problems, [])
+  const back = parseArgs(split.argv)
+  assertEquals(back.problems, [])
+  for (const s of PARAM_SPEC) assertEquals(back.params[s.key], p[s.key], s.key)
+  assertEquals(back.view, v)
 })
 
 Deno.test('a colour flag stores lower case', () => {

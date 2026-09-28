@@ -54,6 +54,72 @@ import type { BoardColours } from './look.ts'
 export const COMMAND_PREFIX = 'deno task carve'
 
 /**
+ * One pasted line as the argv a shell would hand the CLI: whitespace separates,
+ * `'…'` quotes literally, `"…"` with `\"` and `\\`, and a backslash before
+ * whitespace joins a line copied over several (a text input turns the
+ * newline into a space). A leading `deno task carve` is dropped.
+ */
+export function splitCommand(text: string): { argv: string[]; problems: ArgProblem[] } {
+  const argv: string[] = []
+  let token = ''
+  let inToken = false
+  let quote: "'" | '"' | null = null
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charAt(i)
+    if (quote === "'") {
+      if (c === "'") quote = null
+      else token += c
+      continue
+    }
+    if (quote === '"') {
+      const next = text.charAt(i + 1)
+      if (c === '"') quote = null
+      else if (c === '\\' && (next === '"' || next === '\\')) {
+        token += next
+        i++
+      } else token += c
+      continue
+    }
+    if (c === "'" || c === '"') {
+      quote = c
+      inToken = true
+      continue
+    }
+    if (c === '\\') {
+      const next = text.charAt(i + 1)
+      i++
+      if (next === '' || /\s/.test(next)) {
+        // A line join ends the token like any whitespace.
+        if (inToken) argv.push(token)
+        token = ''
+        inToken = false
+        continue
+      }
+      token += next
+      inToken = true
+      continue
+    }
+    if (/\s/.test(c)) {
+      if (inToken) argv.push(token)
+      token = ''
+      inToken = false
+      continue
+    }
+    token += c
+    inToken = true
+  }
+  if (quote !== null) return { argv: dropPrefix(argv), problems: [{ kind: 'unclosedQuote', arg: token }] }
+  if (inToken) argv.push(token)
+  return { argv: dropPrefix(argv), problems: [] }
+}
+
+/** The argv without a leading `deno task carve`, word by word, so any spacing matches. */
+function dropPrefix(argv: string[]): string[] {
+  const words = COMMAND_PREFIX.split(' ')
+  return words.every((word, at) => argv[at] === word) ? argv.slice(words.length) : argv
+}
+
+/**
  * An own-property read of one of the dictionaries below. They are plain object
  * literals, so a key that came from the command line would otherwise reach
  * Object.prototype: `--start=constructor` used to read a native function and
