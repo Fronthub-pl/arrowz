@@ -123,7 +123,7 @@ const CAMPAIGN: readonly Cell[] = [
   [1000, 0.85, 4, 10, 3, 3],
 ]
 
-// The price of a floor that is a step function over three knobs: five settings
+// The price of a floor that is a step function over three knobs: six settings
 // closed every board they were given and are refused anyway. They are listed
 // rather than tolerated, so that a change to the floor has to say which of them
 // it buys back and which it adds.
@@ -136,7 +136,7 @@ const CAMPAIGN: readonly Cell[] = [
 // 700/0.65/4/6 on seed 7). They are ordinary jams now, and CAMPAIGN carries the
 // runs that found them.
 //
-// The five below survived fifteen seeds each, and every one of them is 1000 a
+// The first five survived fifteen seeds each, and every one of them is 1000 a
 // side — the opposite of where the thin grid was suspected to be.
 const CONSERVATIVE = new Set([
   '1000/0.7/8/6',
@@ -144,6 +144,9 @@ const CONSERVATIVE = new Set([
   '1000/0.8/4/10',
   '1000/0.85/2/6',
   '1000/0.85/3/8',
+  // Three runs only; the anticoil discount of 0.9 refuses it, on 60 runs at
+  // 0.7 with anticoil 4 that failed 5.
+  '1000/0.72/5/4',
 ])
 const cellKey = (c: Cell): string => `${c[0]}/${c[1]}/${c[2]}/${c[3]}`
 const paramsOf = (c: Cell): Params => withDefaults({ W: c[0], H: c[0], pStraight: c[1], warns: c[2], anticoil: c[3] })
@@ -158,7 +161,7 @@ Deno.test('straightFloor: every setting that jammed a board is refused', () => {
   assert(jamming >= 25, `${jamming} settings jammed at least once`)
 })
 
-Deno.test('straightFloor: every setting that always closed is allowed, bar the nine it costs', () => {
+Deno.test('straightFloor: every setting that always closed is allowed, bar the ones it costs', () => {
   for (const c of CAMPAIGN) {
     if (c[4] !== c[5]) continue
     const conservative = CONSERVATIVE.has(cellKey(c))
@@ -241,6 +244,17 @@ Deno.test('straightFloor: the nook rule and the coiling penalty move the floor b
   // The floor never leaves the knob's own range.
   assertEquals(at(2, 10), 1)
   assertEquals(straightFloor(withDefaults({ W: 25, H: 50, warns: 16, anticoil: 1 })), 0.6)
+})
+
+// 2026-09-28, 10 seeds per start mode and length mix at 1000x1000 with
+// anticoil 4: 0.7 failed 5 of 60 and restarted 20, 0.75 closed all 60. At
+// 600 the discount held: 0.6 closed 60 of 60.
+Deno.test('straightFloor: a low coiling penalty lowers the floor less on a large board', () => {
+  const at = (side: number, pStraight: number) => withDefaults({ W: side, H: side, pStraight, anticoil: 4 })
+  assert(refused(at(1000, 0.7)), '0.7 at 1000 failed 5 of 60')
+  assertEquals(refused(at(1000, 0.75)), false, '0.75 at 1000 closed 60 of 60')
+  assertEquals(straightFloor(at(1000, 0.75)), 0.75)
+  assertEquals(straightFloor(at(600, 0.6)), 0.6)
 })
 
 Deno.test('straightFloor: the violation names the three knobs and the number this board needs', () => {

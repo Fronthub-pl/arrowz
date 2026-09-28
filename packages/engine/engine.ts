@@ -2800,7 +2800,9 @@ export function defaultParams(): Params {
  */
 export function straightFloor(p: Params): number {
   const nooks = p.warns <= 2 ? 1.5 : p.warns === 3 ? 1.2 : p.warns >= 6 ? 0.85 : 1
-  const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.8 : 1
+  // 0.9, not the 0.8 fitted in round 14: at 1000x1000 with anticoil 4, 0.8
+  // left the floor at 0.7, which failed 5 of 60; 0.75 closed all 60.
+  const coiling = p.anticoil >= 7 ? 1.2 : p.anticoil <= 4 ? 0.9 : 1
   const side = Math.sqrt(p.W * p.H) * nooks * coiling
   const steps = Math.max(0, Math.floor((side - STRAIGHT_FREE) / STRAIGHT_STRIDE))
   return Math.min(STRAIGHT_TOP, Number((STRAIGHT_BASE + 0.05 * steps).toFixed(2)))
