@@ -122,6 +122,15 @@ Deno.test('POST accepts a stuck report whose sizes fit within remaining', () =>
     assertEquals(r.status, 201)
   }))
 
+Deno.test('POST passes metrics.aborted through to the stored meta', () =>
+  withServer(async (base) => {
+    const body = { ...validBody(), metrics: { aborted: true } }
+    const r = await post(base, body)
+    assertEquals(r.status, 201)
+    const meta: BoardMeta = await r.json()
+    assertEquals(meta.aborted, true)
+  }))
+
 Deno.test('POST keeps only the knobs of PARAM_SPEC', () =>
   withServer(async (base) => {
     const b = validBody()

@@ -369,6 +369,8 @@ export interface StoreRequest {
     restarts?: number | null
     backtracks?: number | null
     stuck?: Stuck | null
+    /** Absent keeps the stored flag (a view edit); a fresh run states it. */
+    aborted?: boolean
   }
 }
 

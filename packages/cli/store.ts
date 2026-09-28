@@ -14,7 +14,7 @@ import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
 export interface SaveInput extends StoreRequest {
   /** The SVG preview. Without it no preview is kept: one left by an earlier save of this layout is removed. */
   svg?: string
-  metrics?: StoreRequest['metrics'] & { aborted?: boolean }
+  metrics?: NonNullable<StoreRequest['metrics']>
 }
 
 /** What a save wrote, and what it found. */

@@ -34,6 +34,9 @@ export function useStoreSave() {
       restarts: report.restartsUsed,
       backtracks: report.backtracks,
       stuck: report.stuck,
+      // An auto-saved run is shown only once it finished: it is never the abort
+      // a stored recipe might carry from an earlier, cut-short save.
+      aborted: false,
     })
     void saveBoard(request).then((outcome) => useStore.getState().result.stored(file, outcome))
   }, [shown])
