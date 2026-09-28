@@ -41,6 +41,12 @@ describe('the palette dialog', () => {
     await expect.element(screen.getByRole('listbox', { name: 'Commands' })).toBeVisible()
   })
 
+  // Chrome's issues panel flags a form field with neither.
+  it('gives its input an id', async () => {
+    const screen = await mount()
+    expect(screen.container.querySelector('.fw-pal input')?.id).toBe('cmd-input')
+  })
+
   it('renders nothing at all while it is closed', async () => {
     useStore.setState((state) => ({ ui: { ...state.ui, palette: false } }))
     const screen = await mount()

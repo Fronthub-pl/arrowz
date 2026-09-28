@@ -169,6 +169,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
       <div className="fw-pal" role="dialog" aria-modal="true" aria-label={title} ref={frameRef}>
         <input
           ref={inputRef}
+          id="cmd-input"
           type="text"
           role="combobox"
           aria-expanded="true"
