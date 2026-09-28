@@ -134,7 +134,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
 | Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
 | ⌘K rows for colour and element fields (highlight, pad, …) | open | Found in the final review; the palette has none |
-| `pad` and highlight in the SVG | open | `SvgOptions` has neither |
+| `pad` in the SVG | open | `SvgOptions` has none |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
 | Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
 | Duplication 3: demo keeps its own view bounds | open | `demo/controls.ts` still has `headHeight` 0.1–1, `top` 0–50 |
@@ -247,8 +247,8 @@ section above).
 4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
-   `.board.json`, colour flags in the CLI and `pad` in the SVG, ⌘K rows for
-   the colour and element fields.
+   `.board.json`, colour flags in the CLI and points and `pad` in the SVG,
+   ⌘K rows for the colour and element fields.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** "top" in
@@ -545,7 +545,7 @@ Simple-view vocabulary (`packages/engine/lab-simple.ts`):
 | `encodeBoard` / `decodeBoard` | `board-file.ts:152,333` | yes, but only worker ↔ page and store → page | `worker/generate.worker.ts:1,43`; `library/useStoredBoard.ts` | — | — |
 | Opening a `.board.json` from disk | (`decodeBoard` exists) | **no** | `grep -rn 'type="file"\|FileReader\|onDrop' apps/lab/src` finds nothing | Not recorded | Medium. The lab can download a board file (`ExportButtons.tsx`) but cannot open one. A board made elsewhere (`carve --dry-run` does not store) can only be viewed through the store |
 | `toSvg` | `engine.ts:2278` | yes | `drawSvg` in its own worker (`run/drawSvg.ts`, `generate.worker.ts:13`) | — | — |
-| SVG with theme / palette / paper / ink / points | `SvgOptions` has no colour fields (`types.ts:225-238`) | no | The warning shows **only for a theme**: `theme === '' ? null : svgThemeNote` (`run/ExportButtons.tsx:115`, `library/BoardColumn.tsx:215`) | Theme loss is intentional (colours spec §6: "SVG export still does not reproduce a theme"). A custom palette, paper or ink is lost **silently** | Medium: at least widen the note's condition to `palette.length > 0 \|\| paper !== '' \|\| ink !== ''`. Full fix: a palette/colours field on `SvgOptions` Fixed on `lab/correctness-2`: `SvgOptions` carries the colours; points and `pad` remain. |
+| SVG with theme / palette / paper / ink / points | `SvgOptions` carries the colours (`types.ts:238-247`) | yes, but not points | `exportColours` resolves the on-screen theme, palette, paper, ink and highlight for the export (`run/exportColours.ts`), used by both export sites (`run/ExportButtons.tsx`, `library/BoardColumn.tsx`); the note that warned of the loss is gone | Points are the point grid, a screen-only aid (`state/viewSchema.ts:29`); the SVG never drew them | Low: only points and `pad` remain (Gap 7, `pad` row above) |
 | `buildCommand` (live command) | `command.ts:510` | yes | `run/LiveCommand.tsx` |
 | `parseArgs` (command → state) | `command.ts:663` | **no** | `grep -rn "parseArgs" apps/lab/src` finds nothing | Not recorded. The header at `command.ts:9-10` says "The lab has to mirror the CLI 1:1, so both sides build **and read** the text with this code" | **High**. Pasting a `deno task carve ...` line (from a stored meta, a terminal, a colleague) into ⌘K or the command box would close the loop. It also comes with the parser's own error messages |
 | `helpText` / `KNOB_ROWS` / `RULE_ROWS` | `command.ts:358,412,424` | yes | `/docs` CLI page calls `helpText()` and `helpText({knobs:true})` (`routes/CliDocs.tsx:19-20`) |
