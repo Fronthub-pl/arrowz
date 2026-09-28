@@ -3,6 +3,7 @@ import type { BoardFile, WorkerOut } from '@arrowz/engine'
 import { useEffect, act } from 'react'
 import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { finishedRun } from '../state/result.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { useGenerator, type GeneratorHandle } from './useGenerator'
@@ -93,28 +94,89 @@ test('a board file the codec rejects ends in error, not in a stuck run', async (
   }
 }, 15_000)
 
-// A live worker would deliver `done` after the abort; the wait is longer than
-// the board takes, so a missing terminate() shows up.
-test('abort terminates the worker, and nothing arrives afterwards', async () => {
+// Without isolation there is no shared flag, so Stop is today's terminate.
+test('without isolation, abort terminates the worker and nothing arrives afterwards', async () => {
   useStore.getState().run.reset()
   useStore.getState().result.reset()
+  vi.stubGlobal('crossOriginIsolated', false)
   const terminate = vi.spyOn(Worker.prototype, 'terminate')
-  await render(
-    <Harness
-      drive={(g) => {
-        g.start({ ...defaultParams(), W: 200, H: 200, seed: 9 })
-        const id = setTimeout(() => g.abort(), 30)
-        return () => clearTimeout(id)
-      }}
-    />,
-  )
-  await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('idle')
-  expect(terminate).toHaveBeenCalled()
-  await new Promise((done) => setTimeout(done, 2_000))
-  expect(useStore.getState().run.phase).toBe('idle')
-  expect(useStore.getState().result.shown).toBeNull()
-  terminate.mockRestore()
+  try {
+    await render(
+      <Harness
+        drive={(g) => {
+          g.start({ ...defaultParams(), W: 200, H: 200, seed: 9 })
+          const id = setTimeout(() => g.abort(), 30)
+          return () => clearTimeout(id)
+        }}
+      />,
+    )
+    await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('idle')
+    expect(terminate).toHaveBeenCalled()
+    await new Promise((done) => setTimeout(done, 2_000))
+    expect(useStore.getState().run.phase).toBe('idle')
+    expect(useStore.getState().result.shown).toBeNull()
+  } finally {
+    terminate.mockRestore()
+    vi.unstubAllGlobals()
+  }
 }, 30_000)
+
+// 600×600 for the reason the progress case below gives: it traces on a fast machine.
+test('Stop on a traced run hands back the board laid so far', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  const handle = await mountHandle()
+  await act(async () => handle().start({ ...defaultParams(), W: 600, H: 600, seed: 11 }))
+  await expect.poll(() => useStore.getState().run.progress !== null, { timeout: 20_000 }).toBe(true)
+  await act(async () => handle().abort())
+  expect(useStore.getState().run.stopping).toBe(true)
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 20_000 }).toBe('done')
+  const shown = useStore.getState().result.shown
+  expect(shown?.report.aborted).toBe(true)
+  expect(shown?.report.ok).toBe(false)
+  expect(shown?.board.pieces.length ?? 0).toBeGreaterThan(0)
+  expect(useStore.getState().run.stopping).toBe(false)
+}, 60_000)
+
+test('a second Stop while stopping discards the run', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  HeldWorker.made = []
+  vi.stubGlobal('Worker', HeldWorker)
+  try {
+    const handle = await mountHandle()
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }))
+    await act(async () => handle().abort())
+    expect(useStore.getState().run.stopping).toBe(true)
+    await act(async () => handle().abort())
+    expect(useStore.getState().run.phase).toBe('idle')
+    expect(useStore.getState().run.wasAborted).toBe(true)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}, 15_000)
+
+// The flag is read only while laying arrows: a run already past that (or one
+// too small to trace) answers a plain `done`, which must end the stop.
+test('a run that finishes unstopped after Stop ends the stop request', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  HeldWorker.made = []
+  vi.stubGlobal('Worker', HeldWorker)
+  try {
+    const handle = await mountHandle()
+    await act(async () => handle().start({ ...defaultParams(), W: 8, H: 8, seed: 1 }))
+    await act(async () => handle().abort())
+    const { report, file } = finishedRun(1)
+    const data: WorkerOut = { ...report, board: file }
+    await act(async () => HeldWorker.made[0]?.onmessage?.(new MessageEvent('message', { data })))
+    expect(useStore.getState().run.phase).toBe('done')
+    expect(useStore.getState().run.stopping).toBe(false)
+    expect(useStore.getState().result.shown?.report.aborted).toBe(false)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}, 15_000)
 
 // 600×600: the carver traces no sooner than 250 ms in (its `run` loop), and
 // 200×200 finishes in 228 ms with no progress at all. 600 (2.5 s here) still

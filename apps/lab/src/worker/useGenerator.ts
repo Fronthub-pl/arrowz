@@ -15,10 +15,11 @@ export interface GeneratorHandle {
 const actions = () => useStore.getState().run
 
 /**
- * One worker for the whole session, reused while idle and terminated to
- * abort. `generate()` is synchronous, so the worker's event loop is blocked
- * for a whole run and a second message would queue behind the first;
- * replacing a run means terminating the worker and building a new one.
+ * One worker for the whole session, reused while idle and asked to stop
+ * through shared memory, and terminated to discard. `generate()` is
+ * synchronous, so the worker's event loop is blocked for a whole run and a
+ * second message would queue behind the first; replacing a run means
+ * terminating the worker and building a new one.
  *
  * Mounted once, in App: a route change must neither kill a run in flight nor
  * unmount <arrowz-board>, whose disposal releases the GL context.
@@ -26,11 +27,13 @@ const actions = () => useStore.getState().run
 export function useGenerator(): GeneratorHandle {
   const worker = useRef<Worker | null>(null)
   const busy = useRef(false)
+  const stop = useRef<Int32Array | null>(null)
 
   const kill = useCallback(() => {
     worker.current?.terminate()
     worker.current = null
     busy.current = false
+    stop.current = null
   }, [])
 
   const ensure = useCallback((): Worker => {
@@ -86,10 +89,22 @@ export function useGenerator(): GeneratorHandle {
         if (busy.current) kill()
         actions().started(params)
         busy.current = true
-        ensure().postMessage({ type: 'generate', params } satisfies WorkerIn)
+        // A fresh flag per run: a flag raised for the old run must not stop the new one.
+        stop.current = crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null
+        const message: WorkerIn =
+          stop.current === null ? { type: 'generate', params } : { type: 'generate', params, stop: stop.current }
+        ensure().postMessage(message)
       },
       abort() {
         if (!busy.current) return
+        const flag = stop.current
+        // First press: ask the worker to hand back what it has. Second press,
+        // or no shared memory: drop the run, as a terminate always did.
+        if (flag !== null && !useStore.getState().run.stopping) {
+          Atomics.store(flag, 0, 1)
+          actions().stopRequested()
+          return
+        }
         kill()
         actions().aborted()
       },

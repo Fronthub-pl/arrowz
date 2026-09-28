@@ -21,10 +21,13 @@ export interface RunState {
    * forgets the abort happened and prints `pressGenerate`.
    */
   wasAborted: boolean
+  /** Stop was pressed and the worker has not answered yet; a second Stop discards. */
+  stopping: boolean
   started(params: Params): void
   progressed(info: TraceInfo): void
   failed(message: string): void
   aborted(): void
+  stopRequested(): void
   reset(): void
 }
 
@@ -34,11 +37,12 @@ const EMPTY = {
   progress: null,
   message: null,
   wasAborted: false,
+  stopping: false,
 } as const
 
 /** The done transition as a pure function, applied by `completeRun` beside the result's. */
 export function runDone(state: RunState): RunState {
-  return { ...state, phase: 'done', progress: null, message: null }
+  return { ...state, phase: 'done', progress: null, message: null, stopping: false }
 }
 
 type SetStore = (fn: (state: { run: RunState }) => { run: RunState }) => void
@@ -49,10 +53,11 @@ export function createRunSlice(set: SetStore): RunState {
     ...EMPTY,
     started: (params) => patch({ ...EMPTY, phase: 'running', params }),
     progressed: (progress) => patch({ progress }),
-    failed: (message) => patch({ phase: 'error', progress: null, message }),
+    failed: (message) => patch({ phase: 'error', progress: null, message, stopping: false }),
     // The only transition that leaves a mark on an otherwise empty slice: the
     // spread clears everything, then the flag goes back on.
     aborted: () => patch({ ...EMPTY, wasAborted: true }),
+    stopRequested: () => patch({ stopping: true }),
     reset: () => patch({ ...EMPTY }),
   }
 }
