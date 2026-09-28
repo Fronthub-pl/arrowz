@@ -30,6 +30,7 @@ import { at, DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, DIRS, pieceShape, voidStrips 
 // The diagnostic palette lives in colors.ts for the same reason: an exported
 // SVG and the interactive board colour a piece from one formula, over its id.
 import { hueOf } from './colors.ts'
+import { assignPalette } from './palette.ts'
 
 // Retired knobs, kept as the constants their defaults always were. Each was
 // inert at that value: HUG gates its own rule on `> 1`, EDGE_HUG only feeds
@@ -2272,6 +2273,9 @@ function render(board: BoardData): string {
 
 // ---------------------------------------------------------------- SVG
 
+/** A colour as an attribute value: a caller may pass any CSS colour, quotes included. */
+const attr = (value: string): string => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
 // A preview for judging the look by eye. The monochrome variant is faithful
 // to the original and is the proper LEGIBILITY test: the player, too, has to
 // tell the pieces apart without the help of colour.
@@ -2288,7 +2292,7 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   const w = W * cell + pad * 2, h = H * cell + pad * 2
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
-    `<rect width="${w}" height="${h}" fill="#f6f6fa"/>`,
+    `<rect width="${w}" height="${h}" fill="${attr(opts.paper ?? '#f6f6fa')}"/>`,
   ]
 
   // Jam preview: cells the generator failed to carve, as horizontal strips.
@@ -2305,7 +2309,17 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   // same switch, through stroke-linejoin. The default ink is set once per
   // group; only coloured and highlighted pieces carry their own colour (a
   // 1000×1000 board has ~90 000 pieces).
-  const INK = '#232447'
+  const INK = attr(opts.ink ?? '#232447')
+  const HIGHLIGHT = attr(opts.highlight ?? '#e8467c')
+  // Only while colours are on, as on the element.
+  const palette = colored ? (opts.palette ?? []).map(attr) : []
+  const assign = palette.length > 0 ? assignPalette(board, palette.length) : null
+  /** A piece's own colour: its palette entry, or the golden angle when there is no palette. */
+  const hue = (id: number): string => {
+    if (assign === null) return hueOf(id)
+    const i = assign[id] ?? -1
+    return palette[i < 0 ? 0 : i % palette.length] ?? hueOf(id)
+  }
   const rounded = opts.rounded ?? DEFAULT_ROUNDED
   const join = rounded ? 'round' : 'miter'
   out.push(`<g fill="none" stroke="${INK}" stroke-width="${sw}" stroke-linecap="butt" stroke-linejoin="${join}">`)
@@ -2323,17 +2337,19 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   const pt = ([x, y]: [number, number]): string => `${x},${y}`
   pieces.forEach((pc) => {
     const isLong = longest.has(pc.id)
-    const col = isLong ? '#e8467c' : colored ? hueOf(pc.id) : INK
+    const col = isLong ? HIGHLIGHT : colored ? hue(pc.id) : INK
+    // A highlighted piece always states its colour: its group sets no stroke.
+    const own = isLong || col !== INK
     const width = isLong ? hiWidth : sw
     const s = pieceShape(pc, { cell, pad, width, headWidth, headHeight })
-    const fill = col === INK ? '' : ` fill="${col}"`
+    const fill = own ? ` fill="${col}"` : ''
     const tail = rounded
       ? `<circle cx="${s.tail.x}" cy="${s.tail.y}" r="${s.tail.r}"${fill}/>`
       : `<rect x="${s.tail.x - s.tail.r}" y="${s.tail.y - s.tail.r}" width="${s.tail.r * 2}" height="${
         s.tail.r * 2
       }"${fill}/>`
     const head = `<polygon points="${s.head.map(pt).join(' ')}"${fill}/>` + tail
-    const line = `<polyline points="${s.line.map(pt).join(' ')}"${col === INK ? '' : ` stroke="${col}"`}/>`
+    const line = `<polyline points="${s.line.map(pt).join(' ')}"${own ? ` stroke="${col}"` : ''}/>`
     if (isLong) {
       highlight.push(line)
       highlightHeads.push(head)
