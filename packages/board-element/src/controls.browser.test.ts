@@ -158,6 +158,26 @@ describe('slots', () => {
     expect(el.viewport?.fitted).toBe(true)
   })
 
+  test('an unpositioned custom bar is above the canvas and takes a real click', async () => {
+    await mount({}, '<div slot="controls" id="bar"><button data-board-action="fit" id="f">F</button></div>')
+    el.zoomBy(2)
+    await raf()
+    const r = light('#f').getBoundingClientRect()
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    expect(hit !== null && light('#f').contains(hit)).toBe(true)
+    await userEvent.click(light('#f'))
+    await raf()
+    expect(el.viewport?.fitted).toBe(true)
+  })
+
+  test("a custom bar's own position wins over the element's", async () => {
+    await mount(
+      {},
+      '<div slot="controls" id="bar" style="position: absolute; left: 0; top: 0"><button data-board-action="fit">F</button></div>',
+    )
+    expect(getComputedStyle(light('#bar')).position).toBe('absolute')
+  })
+
   test('host colour and gesture controls render only where the default would', async () => {
     await mount(
       {},

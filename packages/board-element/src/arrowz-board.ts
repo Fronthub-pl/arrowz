@@ -232,6 +232,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     button[aria-pressed='true'] {
       background: #dde;
     }
+    /* Above the absolutely positioned canvas; a host's own position still wins. */
+    slot[name='controls']::slotted(*) {
+      position: relative;
+    }
     /* On a slot, so a host's hint or switch hides with the default one. */
     @media (pointer: coarse) {
       slot[name='hint'],
