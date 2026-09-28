@@ -546,7 +546,9 @@ test('the stored board’s SVG carries the page’s custom palette while colours
     useStore.getState().view.apply({ palette: ['#112233'] })
     const screen = await mountDetail()
     await act(async () =>
-      useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
+      useStore
+        .getState()
+        .result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
     await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
