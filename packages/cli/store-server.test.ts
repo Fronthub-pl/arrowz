@@ -102,6 +102,15 @@ Deno.test('POST refuses fields the store would write or the page would show unch
       [{ ...b, view: { ...b.view, cell: 12.5 } }, 'view.cell must be a whole number in 1..200'],
       [{ ...b, view: { ...b.view, headHeight: 5 } }, 'view.headHeight must be a number in 0..1.2'],
       [{ ...b, view: { ...b.view, colored: 'yes' } }, 'view.colored'],
+      [{ ...b, view: { ...b.view, theme: 'nope' } }, 'view.theme'],
+      [{ ...b, view: { ...b.view, palette: ['red'] } }, 'view.palette'],
+      [{ ...b, view: { ...b.view, palette: Array(9).fill('#aa0000') } }, 'view.palette'],
+      [{ ...b, view: { ...b.view, ink: 'red' } }, 'view.ink'],
+      [{ ...b, view: { ...b.view, pointColor: '' } }, 'view.pointColor'],
+      [{ ...b, view: { ...b.view, pad: 17 } }, 'view.pad must be a whole number in 0..16'],
+      [{ ...b, view: { ...b.view, pad: 1.5 } }, 'view.pad must be a whole number in 0..16'],
+      [{ ...b, view: { ...b.view, pointRadius: 0.6 } }, 'view.pointRadius must be a number in 0..0.5'],
+      [{ ...b, view: { ...b.view, showPoints: 'yes' } }, 'view.showPoints'],
       [{ ...b, command: 'x'.repeat(5000) }, 'command'],
       [{ ...b, metrics: { pieces: '<b>' } }, 'metrics.pieces'],
       [{ ...b, metrics: { stuck: { remaining: 1, sizes: ['x'], heads: null } } }, 'metrics.stuck'],
@@ -121,6 +130,24 @@ Deno.test('POST refuses fields the store would write or the page would show unch
     const inside = [...Deno.readDirSync(store)].map((e) => e.name)
     assert(!inside.some((n) => n.startsWith('escape')), 'a file was written in the store')
     assertEquals(await (await fetch(base + '/api/boards')).json(), [])
+  }))
+
+Deno.test('a posted look is stored lower-case, and a view without one takes the default look', () =>
+  withServer(async (base) => {
+    const b = validBody()
+    const withLook = { ...b, view: { ...b.view, ink: '#ABCDEF', theme: 'gruvbox-dark', pad: 7, showPoints: true } }
+    const first = await post(base, withLook)
+    assertEquals(first.status, 201)
+    const looked: BoardMeta = await first.json()
+    assertEquals(
+      [looked.view.ink, looked.view.theme, looked.view.pad, looked.view.showPoints],
+      ['#abcdef', 'gruvbox-dark', 7, true],
+    )
+    const bare = { ...b, board: emptyFile(12, 12), params: { ...b.params, W: 12, H: 12 } }
+    const second = await post(base, bare)
+    assertEquals(second.status, 201)
+    const plain: BoardMeta = await second.json()
+    assertEquals(plain.view, { ...DEFAULT_VIEW, ...b.view, rounded: true })
   }))
 
 Deno.test('POST accepts a stuck report whose sizes fit within remaining', () =>
