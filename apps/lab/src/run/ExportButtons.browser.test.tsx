@@ -253,16 +253,37 @@ test('an export that fails after its board was replaced says nothing', async () 
   await expect.element(button).toBeEnabled()
 })
 
-// `toSvg` learns no colours, so a theme chosen on screen does not survive an
-// export. The note is quiet until it would matter.
-test('the SVG-export note appears only while a theme is chosen', async () => {
-  const screen = await mountButtons()
-  await act(async () => finish(ONE))
-  expect(screen.getByText(/the chosen theme is not included/i).query()).toBeNull()
-  await act(async () => useStore.getState().view.setTheme('gruvbox-dark'))
-  await expect.element(screen.getByText(/the chosen theme is not included/i)).toBeInTheDocument()
-  await act(async () => useStore.getState().view.setTheme(''))
-  expect(screen.getByText(/the chosen theme is not included/i).query()).toBeNull()
+// A real worker: the file is the engine's `toSvg` over the colours on screen.
+test('the SVG carries the theme and the stated colours of the board on screen', async () => {
+  const initial = useStore.getState().view
+  try {
+    const screen = await mountButtons()
+    await act(async () => finish(ONE))
+    await act(async () => useStore.getState().view.apply({ theme: 'gruvbox-dark', ink: '#abcdef' }))
+    await screen.getByRole('button', { name: 'Download SVG' }).click()
+    await expect.poll(() => downloads.blobs.length, { timeout: 10_000 }).toBe(1)
+    const svg = (await downloads.blobs[0]?.text()) ?? ''
+    // gruvbox-dark's paper, and the stated ink over the theme's.
+    expect(svg).toMatch(/<rect width="\d+" height="\d+" fill="#282828"\/>/)
+    expect(svg).toContain('stroke="#abcdef" stroke-width=')
+    expect(screen.container.querySelector('.fw-export-note')).toBeNull()
+  } finally {
+    useStore.setState({ view: initial })
+  }
+})
+
+test('the SVG carries a custom palette while colours are on', async () => {
+  const initial = useStore.getState().view
+  try {
+    const screen = await mountButtons()
+    await act(async () => finish(ONE))
+    await act(async () => useStore.getState().view.apply({ palette: ['#112233'], colored: true }))
+    await screen.getByRole('button', { name: 'Download SVG' }).click()
+    await expect.poll(() => downloads.blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await downloads.blobs[0]?.text()) ?? '').toContain('stroke="#112233"')
+  } finally {
+    useStore.setState({ view: initial })
+  }
 })
 
 // The mock's ghost buttons, `--ash` on `--graphite`.

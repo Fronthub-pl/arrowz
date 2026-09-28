@@ -532,10 +532,6 @@ export const EN = {
     // computes only in a secure context: said beside the exports, not as an
     // export failure.
     layoutHashError: 'Cannot name the board file:',
-    // The engine's `toSvg` takes no theme, so a theme chosen on
-    // screen never reaches the exported file; shown only while a theme is
-    // active, beside the SVG button, since it has nothing to say otherwise.
-    svgThemeNote: 'The downloaded SVG uses its own default colours; the chosen theme is not included.',
   },
 } as const
 
@@ -1196,7 +1192,6 @@ export const PL: Translation = {
     downloadBoardFile: 'Pobierz plik planszy',
     exportError: 'Eksport nie powiódł się:',
     layoutHashError: 'Nie da się nazwać pliku planszy:',
-    svgThemeNote: 'Pobrany SVG ma własne domyślne kolory; wybrany motyw nie jest w nim uwzględniony.',
   },
 }
 

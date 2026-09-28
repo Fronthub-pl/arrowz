@@ -433,6 +433,60 @@ test('the board file downloads the stored file under its id', async () => {
   }
 })
 
+test('the stored board’s SVG carries the page’s theme', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  try {
+    useStore.getState().view.apply({ theme: 'gruvbox-dark' })
+    const screen = await mountDetail()
+    await show()
+    // No `…` to open: this mount is outside the M/S bar, where `.fw-more` is `display: none`
+    // and the exports sit in the column.
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await blobs[0]?.text()) ?? '').toMatch(/<rect width="\d+" height="\d+" fill="#282828"\/>/)
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
+  }
+})
+
+test('the stored board’s SVG carries the page’s custom palette while colours are on', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  // The stored view decides `colored` for this export, as `BoardFrame` draws it.
+  const colouredMeta = { ...stored.meta, view: { ...stored.meta.view, colored: true } }
+  try {
+    useStore.getState().view.apply({ palette: ['#112233'] })
+    const screen = await mountDetail()
+    await act(async () =>
+      useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await blobs[0]?.text()) ?? '').toContain('stroke="#112233"')
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
+  }
+})
+
 // The Polish "wygenerowano" (12 characters) overflows a 9ch term track; the
 // terms take one track as wide as the longest, in either language.
 test.each(['en', 'pl'] as const)('in %s every fact’s term ends before its value begins', async (lang) => {

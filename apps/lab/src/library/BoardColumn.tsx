@@ -9,6 +9,7 @@ import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
 import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
+import { exportColours } from '../run/exportColours'
 import { MoreMenu } from '../run/MoreMenu'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
@@ -47,7 +48,6 @@ export function BoardColumn(): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
   const lang = useStore((state) => state.lang.lang)
-  const theme = useStore((state) => state.view.theme)
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [armed, setArmed] = useState(false)
@@ -144,15 +144,15 @@ export function BoardColumn(): ReactElement {
   const exportFile = () =>
     downloadBlob(new Blob([JSON.stringify(stored.file)], { type: 'application/json' }), `${meta.id}.board.json`)
 
-  // The board as it is drawn here: its own saved view, and its jammed cells
-  // when it did not close, as `BoardFrame` draws them.
+  // The board as it is drawn here: its own saved view, the page's colours, and
+  // its jammed cells when it did not close, as `BoardFrame` draws them.
   const exportSvg = () => {
     if (drawing.current !== null) return
     setBusy(true)
     setDrawError(null)
     drawing.current = drawSvg(
       stored.file as BoardFile,
-      { ...svgOptions(meta.view), voids: meta.ok === false },
+      { ...svgOptions(meta.view), voids: meta.ok === false, ...exportColours(useStore.getState().view) },
       `arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`,
       setDrawError,
       () => {
@@ -209,8 +209,6 @@ export function BoardColumn(): ReactElement {
           <button type="button" onClick={exportFile}>
             {dict.t('downloadBoardFile')}
           </button>
-          {/* The engine's `toSvg` never learns a theme's colours. */}
-          {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
           {drawError === null ? null : (
             <p className="fw-export-error" role="alert">
               {`${dict.t('exportError')} ${drawError}`}
