@@ -48,7 +48,9 @@ test('commits nothing for a blank or unreadable draft, and nothing on Escape', a
 })
 
 test('names the value by its word where the CLI has one', async () => {
-  const screen = await render(<DraftNumber entryId="n-entry" label="maximum length" value={0} word="auto" onCommit={() => {}} />)
+  const screen = await render(
+    <DraftNumber entryId="n-entry" label="maximum length" value={0} word="auto" onCommit={() => {}} />,
+  )
   await expect.element(screen.getByRole('button', { name: 'maximum length: auto' })).toMatchTextContent(/auto0/)
 })
 
@@ -69,7 +71,9 @@ test('commits nothing for a comma in a whole-number field, or for two commas', a
   await screen.getByRole('button', { name: 'width: 25' }).click()
   await userEvent.fill(screen.getByRole('textbox', { name: 'width' }), '1,000')
   await userEvent.keyboard('{Enter}')
-  const fractional = await render(<DraftNumber entryId="n-entry" label="stroke" value={0.5} decimal onCommit={onCommit} />)
+  const fractional = await render(
+    <DraftNumber entryId="n-entry" label="stroke" value={0.5} decimal onCommit={onCommit} />,
+  )
   await fractional.getByRole('button', { name: 'stroke: 0.5' }).click()
   await userEvent.fill(fractional.getByRole('textbox', { name: 'stroke' }), '1,2,3')
   await userEvent.keyboard('{Enter}')
