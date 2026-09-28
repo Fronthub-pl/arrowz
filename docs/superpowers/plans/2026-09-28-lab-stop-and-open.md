@@ -6,7 +6,7 @@
 
 **Architecture:** Stop writes a flag into a `SharedArrayBuffer` the worker's `trace` hook reads, and the engine's existing `GenerateAbort` path returns the partial board as a normal `done` with `aborted: true`. A file is read by one module function, `openBoardFiles`, which decodes it, matches an optional meta by `layoutHash`, and puts it in `result.preview` as a second preview origin (`'file'`) under the address `/boards/file`.
 
-**Tech Stack:** TypeScript, React 19, zustand, Vite 8, Vitest 4 browser mode (Playwright Chromium), Deno 2.9 for the engine.
+**Tech Stack:** TypeScript, React 19, zustand, Vite 8, Vitest 5 browser mode (Playwright Chromium), Deno 2.9 for the engine.
 
 **Spec:** `docs/superpowers/specs/2026-09-28-lab-stop-and-open-design.md`
 
@@ -29,6 +29,87 @@
 3. **A file preview whose meta has the id of a board that is also in the store**, then clicking that board in the list: the stored board must be fetched, not taken for the file preview. Pinned in Task 6 (`useStoredBoard` origin check).
 4. **Leaving `/boards/file` and coming back with Back**: the file preview is gone (cleared on leave). Expected: the stage is empty and the line says how to open a board, not a crash on a null preview. Pinned in Task 6.
 5. **A dropped non-file drag (text selected on the page)**: must not be taken as an open attempt, and must not navigate. Pinned in Task 8.
+
+---
+
+## Errata from the dry run (binding — they override the task text they name)
+
+A full dry run of this plan passed every gate after these fixes. Each task
+names the errata it must apply. The dry run's worktree `/tmp/arrowz-dry-stop`
+(commits after `15f09d7`) holds working code for reference when a step is
+unclear; the plan and these errata stay the source.
+
+- **E1 (all tasks) — command names.** There is no `lab:worker-smoke`: run `pnpm nx run lab:smoke` (it builds first). There is no `lab:typecheck`: run `cd apps/lab && pnpm run check`. Never `tsc -b --noEmit` (it leaves `apps/lab/tsconfig.tsbuildinfo`). Vitest here is v5.
+- **E2 (Tasks 1, 4, 6, 7, 8) — rebuild the engine.** The lab reads `@arrowz/engine` types and the dictionary from `packages/engine/dist`. After editing `types.ts`, `lab-report.ts` or `lab-i18n.ts`, run `pnpm nx build engine` before any lab `check` or `vitest`.
+- **E3 (all tasks) — format.** The plan's code blocks are not prettier-formatted. Before each commit: `cd apps/lab && pnpm exec prettier --write <touched lab files>`, and `cd packages/engine && deno fmt <touched engine files>`.
+- **E4 (Task 1, Step 1) — a smoke check that cannot fail.** "the board laid so far comes back and decodes" passes before the implementation (the whole board comes back). Make it: `stopped?.aborted === true && stopped.pieces > 0 && stopped.pieces < mine400.board.pieces.length && decodeBoard(stopped.board).pieces.length === stopped.pieces`, where `mine400 = generate({ ...defaultParams(), W: 400, H: 400, seed: 7 })` is computed before the stopped run.
+- **E5 (Task 3) — a regression the plan missed.** `apps/lab/src/routes/Workspace.browser.test.tsx`, case "the clamp notice hands focus to the route's own buttons": one Abort click now keeps the board, so the run ends in `done`. Replace its `expect.poll(...).toBe('idle')` after the Abort click with:
+  ```ts
+  // Stop keeps the board, so the run ends in `done`; a press before the first
+  // trace lets it finish whole, hence the long poll.
+  await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
+  ```
+  Add the file to Task 3's commit. Task 3 ends with a whole chromium run: `cd apps/lab && set -o pipefail && pnpm exec vitest run --project chromium 2>&1 | tail -15`. Moving the two `HeldWorker` cases is unnecessary (hoisted).
+- **E6 (Task 4, Step 2) — the useStoreSave case passes before its code.** Two `finish` calls land in one React commit and the effect sees only the second. Use `import { act } from 'react'` and:
+  ```tsx
+  // Each in its own commit: in one, the effect would see only the second.
+  await act(async () => finish(stoppedRun(1)))
+  await act(async () => finish(finishedRun(2)))
+  ```
+  `StoreRequest` has no top-level `seed`: assert `expect(posted(fetch).params.seed).toBe(2)`.
+- **E7 (Task 6, Step 3) — the compiler names far more.** With `meta: BoardMeta | null`, about 50 test sites (`preview?.meta.X`, `after?.meta.X`) break. Fix mechanically:
+  ```bash
+  grep -rlE "showPreview\(\{ board|preview\?\.meta\.|after\?\.meta\." apps/lab/src --include='*.test.ts' --include='*.test.tsx' | xargs perl -0pi -e "s/showPreview\(\{ board/showPreview({ origin: 'store', board/g; s/preview\?\.meta\./preview?.meta?./g; s/after\?\.meta\./after?.meta?./g"
+  ```
+  Production code also breaks in Task 6: in `useViewSave.ts`'s `write`, the stage gate becomes `if (current?.origin === 'store' && current.meta.id === meta.id && current.meta.view === posted)`. So that Task 6 commits type-checked, put stopgaps Task 7 replaces: `BoardColumn` treats `open.origin === 'file'` as the empty state; `BoardPreview` uses `open?.origin === 'store' ? open.stored.meta.view : null`; `ReportPanel` renders nothing for `open.origin === 'file'`.
+- **E8 (Task 6) — a guard, not a red test.** "leaving /boards/file clears the file preview" passes before the change (the no-address branch already clears). Keep it, with the comment `// A guard: the file route must not start keeping the preview after it is left.`
+- **E9 (Tasks 5, 6, 7) — the spec's facts in the board column.** The spec puts the file's facts, the full layout hash included, in the board column. `ReadOutcome`'s `ok` member and `OpenedFile` gain `readonly id: string` (the `layoutHash` `readBoardFiles` computes — compute it once, always, and compare the meta against it); `openBoardFiles` passes it on. `FileColumn` ends with a `<dl className="fw-bmeta" aria-label={dict.t('boardFacts')}>` of two rows: `factFile` → the name, `factLayout` → `id` with `<dd className="wrap">` (as `BoardColumn`'s layout row). Task 7 adds a FileColumn case: the layout hash of the fixture (`metaJson.id`) is visible with no meta opened.
+- **E10 (Task 7, Step 1) — `vi.spyOn` on an ES module export throws.** Replace the last FileColumn case with the repository's pattern (no `import * as download`, no menu click):
+  ```tsx
+  test('Download board file hands back the file under its own name', async () => {
+    const { board } = await fileFixture(1)
+    const names: string[] = []
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:file-under-test')
+    const onClick = (event: MouseEvent) => {
+      if (!(event.target instanceof HTMLAnchorElement) || event.target.download === '') return
+      names.push(event.target.download)
+      event.preventDefault()
+    }
+    document.addEventListener('click', onClick, true)
+    try {
+      await mountFile([board])
+      await userEvent.click(page.getByRole('button', { name: 'Download board file' }))
+      expect(names).toEqual([board.name])
+    } finally {
+      document.removeEventListener('click', onClick, true)
+    }
+  })
+  ```
+- **E11 (Task 7, Step 6) — the Polish label.** Load into lab is "Wczytaj do laboratorium" in Polish: `fileNoMeta` (PL) ends `„Wczytaj do laboratorium”`.
+- **E12 (Task 8, Step 1) — the ⌘K case cannot run in node.** `commands.test.ts` runs without a `document`. There, keep only:
+  ```ts
+  test('lists Open file… under go, never disabled', () => {
+    const row = buildCommands(deps(), useStore.getState()).find((r) => r.id === 'go-open-file')
+    expect(row?.name).toBe('Open file…')
+    expect(row?.section).toBe('go')
+    expect(row?.disabled).toBe(false)
+  })
+  ```
+  (use the file's own `deps` helper and `test`/`it` style), and add to `openEntries.browser.test.tsx` (imports `act` from `react`, `userEvent` from `vitest/browser`):
+  ```tsx
+  test('the ⌘K row clicks the one input and closes the palette', async () => {
+    await mountQuiet()
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+    await act(async () => useStore.getState().ui.openPalette())
+    const row = document.querySelector<HTMLElement>('#cmd-go-open-file')
+    if (row === null) throw new Error('no open-file row')
+    await userEvent.click(row)
+    expect(click.mock.contexts.some((input) => input instanceof HTMLInputElement && input.id === BOARD_FILE_INPUT_ID)).toBe(true)
+    expect(useStore.getState().ui.palette).toBe(false)
+  }, 60_000)
+  ```
+  "a drop with no files changes nothing" is a guard (passes before); say so in its comment.
+- **E13 (Task 8) — Review Focus 4, coming back with Back.** Add to `openEntries.browser.test.tsx`: open a file by the input (as the first case), then `history.back()` and wait for `/`, then `history.forward()` and wait for `/boards/file`; expect `result.preview` to be `null`, no error thrown, and `page.getByText('Open a board from the list.')` visible (the empty column's hint).
 
 ---
 
@@ -64,6 +145,8 @@ Part 2 (open a file):
 ---
 
 ### Task 1: `aborted` through the protocol and the report input
+
+**Errata to apply: E1, E2, E3, E4.**
 
 **Files:**
 - Modify: `packages/engine/types.ts` (`WorkerIn`, `WorkerOut`)
@@ -193,6 +276,8 @@ git commit -m "Worker: a stop flag in shared memory ends the run with the board 
 
 ### Task 2: cross-origin isolation for the lab and its browser tests
 
+**Errata to apply: E1, E3.**
+
 **Files:**
 - Modify: `apps/lab/vite.config.ts`
 - Modify: `apps/lab/vitest.config.ts`
@@ -270,6 +355,8 @@ git commit -m "Lab: cross-origin isolation, so Stop can share memory with the wo
 ---
 
 ### Task 3: two-stage Stop in the run slice and the generator
+
+**Errata to apply: E1, E3, E5.**
 
 **Files:**
 - Modify: `apps/lab/src/state/run.slice.ts`
@@ -487,6 +574,8 @@ git commit -m "Stop: the first press keeps the board laid so far, the second dis
 
 ### Task 4: what the page does with a stopped board
 
+**Errata to apply: E1, E2, E3, E6.**
+
 **Files:**
 - Modify: `apps/lab/src/library/useStoreSave.ts`
 - Modify: `apps/lab/src/library/useStoreSave.browser.test.tsx`
@@ -626,6 +715,8 @@ git commit -m "Stop: a stopped board says so, is not stored, and is no baseline"
 ---
 
 ### Task 5: `readBoardFiles`, the pure reader
+
+**Errata to apply: E1, E3, E9.**
 
 **Files:**
 - Create: `apps/lab/src/library/readBoardFiles.ts`
@@ -866,6 +957,8 @@ git commit -m "Open: read a board file and its meta, matched by the layout hash"
 ---
 
 ### Task 6: the file preview as a second origin
+
+**Errata to apply: E1, E2, E3, E7, E8, E9.**
 
 **Files:**
 - Modify: `apps/lab/src/state/result.slice.ts`
@@ -1197,6 +1290,8 @@ git commit -m "Open: a board file is a preview of its own origin at /boards/file
 
 ### Task 7: the board column, the report and the Preview panel for a file
 
+**Errata to apply: E1, E2, E3, E9, E10, E11.**
+
 **Files:**
 - Create: `apps/lab/src/library/loadIntoLab.ts`
 - Create: `apps/lab/src/library/FileColumn.tsx`
@@ -1515,6 +1610,8 @@ git commit -m "Open: the board column, report and Preview panel of a file"
 
 ### Task 8: the three ways in — button, drop, ⌘K
 
+**Errata to apply: E1, E2, E3, E12, E13.**
+
 **Files:**
 - Modify: `apps/lab/src/App.tsx` (mount the input created in Task 7)
 - Modify: `apps/lab/src/library/BoardColumn.tsx` (empty state), `apps/lab/src/library/BoardList.tsx` (header)
@@ -1723,6 +1820,8 @@ git commit -m "Open: a button, a drop on the stage and a ⌘K row, all through o
 ---
 
 ### Task 9: docs and the whole gate
+
+**Errata to apply: E1.**
 
 **Files:**
 - Modify: `lab-review.md`
