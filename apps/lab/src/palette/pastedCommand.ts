@@ -1,16 +1,32 @@
-import { type ArgProblem, drawOf, parseArgs, type ParsedArgs, splitCommand } from '@arrowz/engine/command'
+import {
+  type ArgProblem,
+  COMMAND_PREFIX,
+  drawOf,
+  ENV_WORD_SOURCE,
+  parseArgs,
+  type ParsedArgs,
+  splitCommand,
+} from '@arrowz/engine/command'
 import type { Dict } from '@arrowz/engine/i18n'
 import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'
 import type { Command, CommandDeps } from './commands'
 
+// The same prompt-and-environment shape splitCommand drops, so a line copied
+// straight from a terminal ($ ..., NAME=value ... deno task carve ...) is
+// still recognised as a command rather than searched as a knob.
+const CARVE_LINE = new RegExp(
+  `^(?:\\$\\s+)?(?:${ENV_WORD_SOURCE}\\s+)*${COMMAND_PREFIX.split(' ').join('\\s+')}(\\s|$)`,
+)
+
 /**
- * A query that is a carve line: the prefix, or a flag with a value or a second
- * token. A lone flag (`--seed`) is still a search for its knob.
+ * A query that is a carve line: the prefix (a prompt and environment words
+ * allowed ahead of it), or a flag with a value or a second token. A lone flag
+ * (`--seed`) is still a search for its knob.
  */
 export function isCommandQuery(query: string): boolean {
   const q = query.trimStart()
-  return /^deno\s+task\s+carve(\s|$)/.test(q) || /^--[^\s=]*[\s=]/.test(q)
+  return CARVE_LINE.test(q) || /^--[^\s=]*[\s=]/.test(q)
 }
 
 export interface ReadCommand {
@@ -39,7 +55,7 @@ export function problemWords(dict: Dict, p: ArgProblem): string {
       if (p.why === 'spacingFixed') return dict.t('argRetiredSpacing', p.arg, or(p.use))
       return dict.t('argRetiredUse', p.arg, or(p.use))
     case 'notStart':
-      return dict.t('argNotStart', p.arg, or(p.words), p.min, p.max)
+      return dict.t('argNotStart', p.arg, p.words.join(', '), p.min, p.max)
     case 'outside':
       return dict.t('argOutside', p.arg, p.min, p.max)
     case 'notNumber':

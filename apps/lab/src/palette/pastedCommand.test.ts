@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
+import { VIEW_DEFAULTS } from '../state/viewSchema'
 import type { CommandDeps } from './commands'
 import { isCommandQuery, loadCommand, pastedRow, problemWords, readCommand } from './pastedCommand'
 
@@ -19,6 +20,10 @@ beforeEach(() => {
   useStore.setState((state) => ({ ui: { ...state.ui, mode: 'advanced', palette: true } }))
   useStore.getState().params.reset()
   useStore.getState().run.reset()
+  // loadCommand writes both through the machine path, uncounted; reset them
+  // too, or a case that loads a line leaves its view and recipe for the next.
+  useStore.getState().view.apply(VIEW_DEFAULTS)
+  useStore.getState().recipe.reset()
 })
 
 describe('a pasted command', () => {
@@ -32,6 +37,13 @@ describe('a pasted command', () => {
     expect(isCommandQuery('--colored --sharp')).toBe(true)
   })
 
+  it('is recognised for a line copied from a terminal, prompt and environment words included', () => {
+    expect(isCommandQuery('$ deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 deno task carve --width=9')).toBe(true)
+    expect(isCommandQuery('--seed')).toBe(false)
+  })
+
   it('reads a valid line into one choosable row naming its board and the ignored mode flags', () => {
     const { d } = deps()
     const row = pastedRow(d, 'deno task carve --width=30 --height=40 --seed=5 --svg --count=3')
@@ -42,9 +54,21 @@ describe('a pasted command', () => {
     expect(row.command.note).toBe('ignored: --svg --count=3')
   })
 
-  it('says drawn for a randomized line', () => {
+  it('says drawn at random for a randomized line', () => {
     const row = pastedRow(deps().d, '--width=30 --height=40 --randomized')
-    expect(row.command.value).toBe(`${dictionary('en').t('boardAnnotation', 30, 40, 7)} · drawn`)
+    expect(row.command.value).toBe(`${dictionary('en').t('boardAnnotation', 30, 40, 7)} · drawn at random`)
+  })
+
+  it('joins the notStart words with a comma, not "or"', () => {
+    const en = readCommand('--width=9 --height=9 --start=sideways').problems[0]
+    const pl = readCommand('--width=9 --height=9 --start=sideways').problems[0]
+    if (en === undefined || pl === undefined) throw new Error('expected a notStart problem')
+    expect(problemWords(dictionary('en'), en)).toBe(
+      '--start=sideways is not layers, random, tunnels and not a number in 0.3..0.7',
+    )
+    expect(problemWords(dictionary('pl'), pl)).toBe(
+      '--start=sideways to ani layers, random, tunnels, ani liczba z zakresu 0.3..0.7',
+    )
   })
 
   it('lists every problem in Polish and cannot be chosen', () => {
