@@ -1,6 +1,6 @@
 import { defaultParams, generate } from '@arrowz/engine'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { cdp } from 'vitest/browser'
+import { cdp, userEvent } from 'vitest/browser'
 import { type ArrowzBoard, DEFAULT_PAD, GESTURE_STORAGE_KEY, ZOOM_STEP } from './arrowz-board.ts'
 import './mod.ts'
 
@@ -319,5 +319,53 @@ describe('state on host controls', () => {
     expect(el.colored).toBe(true)
     expect(inner.colored).toBe(false)
     expect(light('#ic').getAttribute('aria-pressed')).toBe('false')
+  })
+})
+
+describe('board keys', () => {
+  test('keys typed into a text field in a custom bar reach the field, not the board', async () => {
+    await mount({}, '<div slot="controls"><input id="field"></div>')
+    const field = light('#field')
+    if (!(field instanceof HTMLInputElement)) throw new Error('#field is not an input')
+    field.focus()
+    await userEvent.keyboard('+-0')
+    await raf()
+    expect(field.value).toBe('+-0')
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT, 6)
+  })
+
+  test('a key on a focused nested board zooms that board only', async () => {
+    await mount({}, '<div slot="controls"><arrowz-board></arrowz-board></div>')
+    const innerBoard = el.querySelector('arrowz-board')
+    if (!innerBoard) throw new Error('no inner board')
+    innerBoard.style.cssText = 'display:block;width:100px;height:100px'
+    innerBoard.board = generate({ ...defaultParams(), W: 10, H: 10, seed: 3 }).board
+    await innerBoard.updateComplete
+    await raf()
+    await raf()
+    const outerBefore = el.viewport
+    const innerBefore = innerBoard.viewport?.cellPx ?? 0
+    innerBoard.focus()
+    await userEvent.keyboard('+')
+    await raf()
+    expect(innerBoard.viewport?.cellPx).toBeGreaterThan(innerBefore)
+    expect(el.viewport).toEqual(outerBefore)
+  })
+
+  test('a key on a focused default control acts on the board', async () => {
+    await mount()
+    el.zoomBy(2) // the fitted scale is the floor, so zoom out needs room first
+    shadow('[data-board-action="zoom-in"]').focus()
+    await userEvent.keyboard('-')
+    await raf()
+    expect(el.viewport?.cellPx).toBeCloseTo((FIT * 2) / ZOOM_STEP, 6)
+  })
+
+  test('a key on a focused host control acts on the board', async () => {
+    await mount({}, '<button slot="zoom-in" data-board-action="zoom-in" id="mine">Z</button>')
+    light('#mine').focus()
+    await userEvent.keyboard('+')
+    await raf()
+    expect(el.viewport?.cellPx).toBeCloseTo(FIT * ZOOM_STEP, 6)
   })
 })
