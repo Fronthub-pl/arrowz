@@ -325,8 +325,10 @@ export const EN = {
     closed: 'Board complete: every cell filled.',
     solvable: 'Solvable.',
     unsolvable: 'UNSOLVABLE — a generator bug.',
-    notClosedStatus: (remaining: string, fragments: number, largest: number) =>
-      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}). Try another seed or more straightness.`,
+    notClosedStatus: (remaining: string, fragments: number, largest: number, heads: number | null, exits: number) =>
+      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}).${
+        heads === null ? '' : ` At that moment a new arrow could still start in ${heads} of ${exits} places.`
+      } Try another seed or more straightness.`,
     stat_board: 'board',
     stat_boardVal: (W: number, H: number, cells: string, seed: number) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
     stat_pieces: 'arrows',
@@ -1054,8 +1056,14 @@ export const PL: Translation = {
     closed: 'Plansza pełna: wszystkie komórki wypełnione.',
     solvable: 'Rozwiązywalna.',
     unsolvable: 'NIEROZWIĄZYWALNA — to błąd generatora.',
-    notClosedStatus: (remaining, fragments, largest) =>
-      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}). Spróbuj innego ziarna albo większej prostości.`,
+    notClosedStatus: (remaining, fragments, largest, heads, exits) =>
+      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}).${
+        heads === null
+          ? ''
+          : ` Wtedy nowa strzałka mogła jeszcze zacząć się w ${heads} ${
+            /^1\d\d$/.test(String(exits)) ? 'ze' : 'z'
+          } ${exits} miejsc.`
+      } Spróbuj innego ziarna albo większej prostości.`,
     stat_board: 'plansza',
     stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} komórek, ziarno ${seed}`,
     stat_pieces: 'strzałki',
