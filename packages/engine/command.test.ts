@@ -26,6 +26,7 @@ import {
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
+import { THEMES } from './look.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
 const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
@@ -745,4 +746,96 @@ Deno.test('storeRequest carries nulls through: a stored board reports missing fi
 Deno.test('storeRequest omits metrics entirely when none are passed', () => {
   const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'cli')
   assertEquals(req.metrics, undefined)
+})
+
+// --- look flags ---------------------------------------------------------
+
+const LOOK = {
+  theme: 'gruvbox-dark',
+  palette: ['#112233', '#445566'],
+  paper: '#010203',
+  ink: '#040506',
+  highlight: '#0a0b0c',
+  pad: 7,
+  showPoints: true,
+  pointColor: '#070809',
+  pointRadius: 0.15,
+}
+
+Deno.test('the look round-trips through the command', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  const views = [
+    { ...DEFAULT_VIEW, ...LOOK },
+    { ...DEFAULT_VIEW, pad: 0 },
+    { ...DEFAULT_VIEW, pad: 16, pointRadius: 0.5 },
+    { ...DEFAULT_VIEW, showPoints: true },
+    { ...DEFAULT_VIEW, pointColor: '#abcdef', showPoints: false },
+    ...Object.keys(THEMES).map((theme) => ({ ...DEFAULT_VIEW, theme })),
+  ]
+  for (const v of views) {
+    const view = { ...v, cell: exportCell(30, 20) }
+    const back = parseArgs(argvOf(buildCommand(p, view)))
+    assertEquals(back.errors, [], JSON.stringify(v))
+    assertEquals(back.view, view)
+  }
+})
+
+Deno.test('buildCommand prints the look after --sharp, in a fixed order, and nothing at the defaults', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  assertEquals(buildCommand(p, DEFAULT_VIEW).includes('--pad'), false)
+  const cmd = buildCommand(p, { ...DEFAULT_VIEW, ...LOOK, rounded: false })
+  assertMatch(
+    cmd,
+    / --sharp --theme=gruvbox-dark --palette=#112233,#445566 --paper=#010203 --ink=#040506 --highlight-color=#0a0b0c --pad=7 --points --point-color=#070809 --point-radius=0.15$/,
+  )
+})
+
+Deno.test('a colour flag stores lower case', () => {
+  const r = parseArgs(['--width=10', '--height=10', '--ink=#ABCDEF', '--palette=#AA0000,#00bb00'])
+  assertEquals(r.errors, [])
+  assertEquals(r.view.ink, '#abcdef')
+  assertEquals(r.view.palette, ['#aa0000', '#00bb00'])
+})
+
+Deno.test('a bad look value is refused by its flag’s name', () => {
+  const cases: [string, string][] = [
+    ['--theme=nope', '--theme=nope is not a theme: '],
+    ['--theme', '--theme is not a theme: '],
+    ['--ink=abcdef', '--ink=abcdef is not a #rrggbb colour'],
+    ['--paper=#abc', '--paper=#abc is not a #rrggbb colour'],
+    ['--highlight-color=red', '--highlight-color=red is not a #rrggbb colour'],
+    ['--point-color=', '--point-color= is not a #rrggbb colour'],
+    ['--palette=', '--palette= is not a list of #rrggbb colours'],
+    ['--palette=#aa0000,', '--palette=#aa0000, is not a list of #rrggbb colours'],
+    [`--palette=${Array(9).fill('#aa0000').join(',')}`, 'more than 8 colours'],
+    ['--pad=17', '--pad=17 is outside 0..16'],
+    ['--pad=2.5', '--pad=2.5 is not a whole number'],
+    ['--pad=x', '--pad=x is not a number'],
+    ['--point-radius=0.6', '--point-radius=0.6 is outside 0..0.5'],
+    ['--points=1', '--points=1 takes no value'],
+  ]
+  for (const [flag, message] of cases) {
+    const r = parseArgs(['--width=10', '--height=10', flag])
+    assertEquals(r.errors.length, 1, flag)
+    assertStringIncludes(r.errors[0] ?? '', message, flag)
+  }
+})
+
+Deno.test('helpText lists the look flags', () => {
+  const text = helpText()
+  for (
+    const flag of [
+      '--theme=NAME',
+      '--palette=',
+      '--paper=',
+      '--ink=',
+      '--highlight-color=',
+      '--pad=N',
+      '--points',
+      '--point-color=',
+      '--point-radius=R',
+    ]
+  ) {
+    assertStringIncludes(text, flag)
+  }
 })
