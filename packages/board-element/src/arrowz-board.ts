@@ -30,6 +30,8 @@ export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; di
 export type FinishedEvent = CustomEvent<{ pieces: number }>
 export type ColoredChangeEvent = CustomEvent<{ colored: boolean }>
 export type ColoredChangeDetail = ColoredChangeEvent['detail']
+export type GesturesChangeEvent = CustomEvent<{ mode: GestureMode }>
+export type GesturesChangeDetail = GesturesChangeEvent['detail']
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
@@ -408,7 +410,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
               title=${l.colors}
               aria-label=${l.colors}
               aria-pressed=${this.colored ? 'true' : 'false'}
-              @click=${this.toggleColors}
+              @click=${() => this.toggleColors()}
             >◑</button>
           `
           : ''}
@@ -420,7 +422,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
               title=${this.gesturesLabel(l)}
               aria-label=${this.gesturesLabel(l)}
               aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
-              @click=${this.toggleGestures}
+              @click=${() => this.toggleGestures()}
             >☝</button>
           `
           : ''}
@@ -445,9 +447,18 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     return this.interactive && !this.play
   }
 
-  private readonly toggleGestures = (): void => {
+  /** What the ☝ button does; a no-op on a board a click can neither play nor inspect. */
+  toggleGestures(): void {
+    if (!this.playable) return
     this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
     storeMode(this.chosenMode)
+    this.dispatchEvent(
+      new CustomEvent<GesturesChangeDetail>('gestures-change', {
+        detail: { mode: this.chosenMode },
+        bubbles: true,
+        composed: true,
+      }),
+    )
   }
 
   /**
@@ -458,9 +469,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * otherwise a cancelling host would only take charge starting from a board
    * that had never been coloured, and every other one would still be stuck on
    * whatever the override last was. A host that never cancels leaves the
-   * button to decide.
+   * button to decide. Without `enableColors` it does nothing.
    */
-  private readonly toggleColors = (): void => {
+  toggleColors(): void {
+    if (!this.enableColors) return
     const colored = !this.colored
     const event = new CustomEvent<ColoredChangeDetail>('colored-change', {
       detail: { colored },
@@ -612,7 +624,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * everything: monochrome is part of the task, so a host has to
    * ask for the exception before either the button or `view.colored` counts.
    */
-  private get colored(): boolean {
+  get colored(): boolean {
     return this.enableColors && (this.coloredOverride ?? this.view.colored ?? false)
   }
 

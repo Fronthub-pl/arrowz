@@ -43,6 +43,8 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `shake(pieceId, distance)` | nudges the piece `distance` cells down its track and back |
 | `fit()` | fits the board into the host |
 | `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
+| `toggleColors()` | what the ◑ button does, `colored-change` included; does nothing without `enableColors` |
+| `toggleGestures()` | what the ☝ button does, the stored choice included; fires `gestures-change`; does nothing on a board that is neither `interactive` nor `play` |
 | `saveState()` | the game in progress as a value the host can store, or `null` before a board is set |
 | `loadState(snap)` | restores a game; throws when the snapshot is not this board's |
 | `restart()` | drops the game and puts every piece back |
@@ -57,6 +59,10 @@ the board's own count, not the number of DOM nodes.
 Getter: `gestureMode` (`'drag' | 'click'`, read-only): the rule mouse and pen
 follow now.
 
+Getter: `colored` (`boolean`, read-only): whether the board is drawn in colour
+now — never without `enableColors`, then the button's choice, then
+`view.colored`.
+
 The class also has an `emit(event)` method: it implements `GameTarget`, the
 seam the internal game host drives the element through. It is public only
 because a Lit element cannot narrow an interface member to `private`; a host
@@ -65,7 +71,8 @@ that only renders a board has no reason to call it.
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
-| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button before it changes the colour override; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
+| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button or `toggleColors()` before the colour override changes; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
+| `gestures-change` | `{ mode }` (`'drag'` or `'click'`): the player's gesture choice changed, through the ☝ button or `toggleGestures()`; not fired for the choice read back on connect |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
