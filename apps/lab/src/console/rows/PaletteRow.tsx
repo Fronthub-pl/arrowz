@@ -59,6 +59,7 @@ export function PaletteRow(): ReactElement {
               dimmed" at the cap; the description states the cap in words,
               so the refusal is audible too. */}
           <button
+            id="view-palette"
             type="button"
             className="kv-chip"
             onClick={addPaletteColor}

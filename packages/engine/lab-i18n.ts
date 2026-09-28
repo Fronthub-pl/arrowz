@@ -233,6 +233,7 @@ export const EN = {
     needsPoints: 'turn on dot grid',
     valueOn: 'on',
     valueOff: 'off',
+    valueNotSet: 'not set',
     paletteCount: (n: number, cap: number) => `${n} / ${cap}`,
     strokeHelp:
       'How thick the arrows are, as a share of a cell. 0.2 = a hairline; 0.9 = fills the cell and leaves the arrowhead no room.',
@@ -978,6 +979,7 @@ export const PL: Translation = {
     needsPoints: 'włącz „kropki”',
     valueOn: 'wł.',
     valueOff: 'wył.',
+    valueNotSet: 'nie ustawiono',
     paletteCount: (n, cap) => `${n} / ${cap}`,
     strokeHelp:
       'Grubość strzałek jako część komórki. 0,2 = cienka kreska; 0,9 = wypełnia komórkę i nie zostawia miejsca na grot.',

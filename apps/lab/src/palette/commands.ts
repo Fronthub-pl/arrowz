@@ -2,11 +2,13 @@ import { PARAM_SPEC } from '@arrowz/engine'
 import { flagOf, wordFor } from '@arrowz/engine/command'
 import type { Dict } from '@arrowz/engine/i18n'
 import { PRESETS } from '@arrowz/engine/presets'
+import type { PlainUiKey } from '../console/viewFields'
 import { VIEW_FLAGS, VIEW_NUMBERS, VIEW_ROWS } from '../console/viewFields'
 import { applyPreset, defaults, generate, reseed } from '../run/actions'
 import type { RunControl } from '../run/useRun'
 import { readBand } from '../state/band'
 import { type Store, useStore } from '../state/store'
+import { lookOf, PALETTE_CAP } from '../state/view.slice'
 
 export type CommandSection = 'run' | 'go' | 'knob' | 'preset'
 
@@ -116,6 +118,44 @@ function knobRows(deps: CommandDeps, state: Store): Command[] {
     })
   }
   return rows
+}
+
+/**
+ * The Preview panel's colour and element fields, in its order. The value is
+ * worded as the panel shows it; `hay` carries the CLI's flag, so a word the
+ * lab does not show (`paper`, `ink`) still finds its row.
+ */
+function lookRows(deps: CommandDeps, state: Store): Command[] {
+  const { dict } = deps
+  const look = lookOf(state.view)
+  const colour = (value: string) => (value === '' ? dict.t('valueNotSet') : value)
+  const row = (id: string, label: PlainUiKey, value: string, hay: string, target = id): Command => ({
+    id,
+    section: 'knob',
+    name: dict.t(label),
+    note: dict.t('preview'),
+    value,
+    hay,
+    disabled: false,
+    run: () => jumpTo(deps, 'preview', target),
+  })
+  return [
+    row('view-pad', 'padLabel', String(look.pad), '--pad pad'),
+    row('view-pointColor', 'pointColorLabel', look.pointColor, '--point-color'),
+    row('view-pointRadius', 'pointRadiusLabel', String(look.pointRadius), '--point-radius'),
+    row('view-theme', 'themeLabel', look.theme === '' ? dict.t('viewThemeNone') : look.theme, '--theme theme'),
+    row('view-paper', 'paperLabel', colour(look.paper), '--paper paper'),
+    row('view-ink', 'inkLabel', colour(look.ink), '--ink ink'),
+    row('view-highlightColor', 'highlightColorLabel', colour(look.highlight), '--highlight-color highlight'),
+    // At the cap the add button is disabled and cannot take the focus.
+    row(
+      'view-palette',
+      'paletteLabel',
+      dict.t('paletteCount', look.palette.length, PALETTE_CAP),
+      '--palette palette',
+      look.palette.length >= PALETTE_CAP ? 'view-palette-0' : 'view-palette',
+    ),
+  ]
 }
 
 function presetRows(deps: CommandDeps): Command[] {
@@ -253,7 +293,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
   ]
   // No export rows: each export is a closure inside `ExportButtons` holding a
   // worker or a per-board hash, reachable only by clicking its button.
-  return [...run, ...go, ...knobRows(deps, state), ...presetRows(deps)]
+  return [...run, ...go, ...knobRows(deps, state), ...lookRows(deps, state), ...presetRows(deps)]
 }
 
 function goRow(deps: CommandDeps, id: string, name: string, path: string): Command {
