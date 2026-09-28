@@ -952,12 +952,19 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const path = e.composedPath()
     const end = path.indexOf(this)
     if (path.slice(0, end < 0 ? 0 : end).some((node) => node instanceof ArrowzBoard)) return
-    if (takesText(path[0])) return
+    if (ArrowzBoard.takesText(path[0])) return
     if (e.key === '+' || e.key === '=') this.zoomBy(ZOOM_STEP)
     else if (e.key === '-') this.zoomBy(1 / ZOOM_STEP)
     else if (e.key === '0') this.fit()
     else return
     e.preventDefault()
+  }
+
+  // A key typed into a field is the field's, even when the field sits in the board's content.
+  private static takesText(node: EventTarget | undefined): boolean {
+    if (node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true
+    if (node instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(node.type)
+    return node instanceof HTMLElement && node.isContentEditable
   }
 
   private apply(intent: Intent): void {
@@ -991,12 +998,5 @@ export class ArrowzBoard extends LitElement implements GameTarget {
 }
 
 const NON_TEXT_INPUTS = new Set(['button', 'checkbox', 'radio', 'range', 'submit', 'reset', 'color', 'file', 'image'])
-
-// A key typed into a field is the field's, even when the field sits in the board's content.
-function takesText(node: EventTarget | undefined): boolean {
-  if (node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true
-  if (node instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(node.type)
-  return node instanceof HTMLElement && node.isContentEditable
-}
 
 if (!customElements.get('arrowz-board')) customElements.define('arrowz-board', ArrowzBoard)
