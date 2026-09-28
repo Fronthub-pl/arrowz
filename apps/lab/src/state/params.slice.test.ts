@@ -1,4 +1,4 @@
-import { defaultParams, PARAM_SPEC, straightFloor } from '@arrowz/engine'
+import { defaultParams, giantStraightFloor, PARAM_SPEC, straightFloor } from '@arrowz/engine'
 import { MIX_START, START } from '@arrowz/engine/command'
 import { beforeEach, describe, expect, it, test } from 'vitest'
 import { createParamsSlice, type ParamsState } from './params.slice'
@@ -61,6 +61,13 @@ test('the straightness floor is published as a number, for the marker', () => {
   params().setMany({ W: 900, H: 900 })
   expect(params().floor.pStraight).toBe(straightFloor(params().values))
   expect(params().floor.pStraight).toBeGreaterThan(0.6)
+})
+
+test('the skeleton straightness floor is published too, and rises with the later chance', () => {
+  reset()
+  params().setMany({ wGiant: 0.2 })
+  expect(params().floor.giantStraight).toBe(giantStraightFloor(params().values))
+  expect(params().floor.giantStraight).toBe(0.8)
 })
 
 test('the floor is a bound, not a clamp: the knob keeps the value that breaks it', () => {

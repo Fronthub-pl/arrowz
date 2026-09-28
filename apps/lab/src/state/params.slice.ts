@@ -1,6 +1,7 @@
 import {
   clampParam,
   defaultParams,
+  giantStraightFloor,
   type InactiveKey,
   type ParamKey,
   type Params,
@@ -61,7 +62,7 @@ export function indexesOf(values: Params): Indexes {
     violations: list.length === 0 ? NO_VIOLATIONS : list,
     broken,
     inactive,
-    floor: { pStraight: straightFloor(values) },
+    floor: { pStraight: straightFloor(values), giantStraight: giantStraightFloor(values) },
   }
 }
 
