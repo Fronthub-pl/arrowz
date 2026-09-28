@@ -33,14 +33,14 @@
 .fw-report thead th {
   color: var(--ash);
 }
-/* Neutral `--ash` (5.52:1), worse `--error` (4.90:1), measured by
-   ReportPanel.browser.test.tsx. Not `--signal`: 3.81:1, under AA. */
+/* An empty delta cell is `--ash` (5.52:1); a fall is `--error` (4.90:1),
+   measured by ReportPanel.browser.test.tsx. Not `--signal`: 3.81:1, under AA. */
 .fw-report .fw-delta {
   width: 1%;
   white-space: nowrap;
   color: var(--ash);
 }
-.fw-report .fw-delta.worse {
+.fw-report .fw-delta.down {
   color: var(--error);
 }
 .fw-report h2 {
@@ -139,7 +139,7 @@
   color: var(--ash);
   font-variant-numeric: tabular-nums;
 }
-.fw-rsum dd small.worse {
+.fw-rsum dd small.down {
   color: var(--error);
 }
 /* No change to report (the time, or a first run): the dash keeps the row's
@@ -231,10 +231,10 @@
 .fw-report .fw-stats tr.long.nodelta td.num {
   grid-column: 2 / -1;
 }
-/* A better change is `--ok` (6.6:1 on `--graphite`), as a worse one is
-   `--error`; the sign stays, so the colour is never the only carrier. */
-.fw-report .fw-delta.better,
-.fw-rsum dd small.better {
+/* A rise is `--ok` (6.6:1 on `--graphite`), a fall `--error`; the sign stays,
+   so the colour is never the only carrier. */
+.fw-report .fw-delta.up,
+.fw-rsum dd small.up {
   color: var(--ok);
 }
 

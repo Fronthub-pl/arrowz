@@ -360,7 +360,7 @@ export const EN = {
     stat_timeVal: (g: string, m: string) => `generation ${g} s, metrics ${m} s`,
     stat_board_help: 'Width × height, the number of cells, and the seed that reproduces this board.',
     stat_pieces_help: 'How many arrows the board has. More arrows = a longer game.',
-    stat_avgLen_help: 'Cells per arrow, on average.',
+    stat_avgLen_help: 'Cells per arrow, on average. Higher = fewer, longer arrows.',
     stat_longest_help:
       'The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow.',
     stat_lengths_help: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
@@ -370,11 +370,11 @@ export const EN = {
     stat_D_help:
       'The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder.',
     stat_corridor_help:
-      'How many cells, on average, an arrow has to travel in the direction it points to leave the board.',
+      'How many cells, on average, an arrow has to travel in the direction it points to leave the board. Higher = longer ways out.',
     stat_span_help:
       "How much of the board's width or height an arrow stretches across, on average (the larger of the two). Higher = arrows cross more of the board.",
-    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = better.',
-    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = better.',
+    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = arrows cross more of the board.',
+    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = arrows cross more of the board.',
     stat_outDeg_help:
       'How many arrows each arrow stands in the way of, on average. Higher = removing one arrow frees more.',
     stat_maxOut_help: 'The most arrows a single arrow stands in the way of. Higher = one removal frees more.',
@@ -392,7 +392,7 @@ export const EN = {
       'How the generator worked: small empty patches it glued onto neighbouring arrows. Fewer = a cleaner board.',
     stat_backtracks_help:
       'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
-    stat_time_help: 'How long the board took to generate and to measure.',
+    stat_time_help: 'How long the board took to generate and to measure. Lower = faster.',
     // The stored board shows only generation time, not the metrics pass `stat_time_help` also covers.
     stat_gen_help: 'How long the board took to generate.',
     longestHead: (n: number) => (n === 1 ? 'The longest arrow' : `The ${n} longest arrows`),
@@ -493,11 +493,11 @@ export const EN = {
     // cell's colour and sign say it on screen, and a screen reader hears these.
     reportPanel: 'Report',
     statsTable: 'Statistics',
-    deltaBetter: 'better',
-    deltaWorse: 'worse',
+    deltaUp: 'up',
+    deltaDown: 'down',
     // The report's summary and the names of its
     // groups, one per span between the engine's separators (lab-report.ts).
-    reportSummaryCap: "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
+    reportSummaryCap: "vs. the previous board: green = up, red = down; a row's ? says what a change means",
     reportHelpAbout: 'these four figures',
     statSumSeconds: (s: string) => `${s} s`,
     statGroupSize: 'size',
@@ -1055,7 +1055,7 @@ export const PL: Translation = {
     stat_timeVal: (g, m) => `generowanie ${g} s, statystyki ${m} s`,
     stat_board_help: 'Szerokość × wysokość, liczba komórek i ziarno, które odtwarza tę planszę.',
     stat_pieces_help: 'Ile strzałek ma plansza. Więcej strzałek = dłuższa gra.',
-    stat_avgLen_help: 'Średnio komórek na strzałkę.',
+    stat_avgLen_help: 'Średnio komórek na strzałkę. Więcej = mniej, ale dłuższych strzałek.',
     stat_longest_help:
       'Najdłuższa strzałka: w komórkach i jako część planszy. Dłuższa = więcej planszy w jednej strzałce.',
     stat_lengths_help: 'Udział strzałek według długości w komórkach: 2–6, 7–15, 16–49 i 50 lub więcej.',
@@ -1065,11 +1065,12 @@ export const PL: Translation = {
     stat_D_help:
       'Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, trzeba głębokość + 1 rund. Więcej = trudniej.',
     stat_corridor_help:
-      'Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę.',
+      'Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę. Więcej = dłuższa droga do wyjścia.',
     stat_span_help:
       'Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich). Więcej = strzałki przecinają większą część planszy.',
-    stat_spanTop_help: 'To samo dla 10% strzałek o największym zasięgu. Więcej = lepiej.',
-    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = lepiej.',
+    stat_spanTop_help:
+      'To samo dla 10% strzałek o największym zasięgu. Więcej = strzałki przecinają większą część planszy.',
+    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = strzałki przecinają większą część planszy.',
     stat_outDeg_help: 'Ilu strzałkom średnio każda strzałka stoi na drodze. Więcej = zdjęcie jednej uwalnia więcej.',
     stat_maxOut_help:
       'Najwięcej strzałek, którym stoi na drodze jedna strzałka. Więcej = jedno zdjęcie uwalnia więcej.',
@@ -1087,7 +1088,7 @@ export const PL: Translation = {
       'Jak pracował generator: małe puste łatki doklejone do sąsiednich strzałek. Mniej = czystsza plansza.',
     stat_backtracks_help:
       'Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. Mniej = płynniej.',
-    stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk.',
+    stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk. Mniej = szybciej.',
     stat_gen_help: 'Ile trwało generowanie planszy.',
     longestHead: (n) => `${n} ${plCount(n, 'najdłuższa strzałka', 'najdłuższe strzałki', 'najdłuższych strzałek')}`,
     longestHelp:
@@ -1164,10 +1165,10 @@ export const PL: Translation = {
     simplePanel: 'Proste ustawienia',
     reportPanel: 'Raport',
     statsTable: 'Statystyki',
-    deltaBetter: 'lepiej',
-    deltaWorse: 'gorzej',
+    deltaUp: 'wzrost',
+    deltaDown: 'spadek',
     reportSummaryCap:
-      'wobec poprzedniej planszy: zielone = lepiej, czerwone = gorzej; ? przy wierszu mówi, w którą stronę jest lepiej',
+      'wobec poprzedniej planszy: zielone = wzrost, czerwone = spadek; ? przy wierszu mówi, co znaczy zmiana',
     reportHelpAbout: 'te cztery liczby',
     statSumSeconds: (s) => `${s} s`,
     statGroupSize: 'rozmiar',

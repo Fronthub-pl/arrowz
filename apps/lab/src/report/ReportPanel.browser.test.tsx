@@ -158,19 +158,19 @@ test('the first result has nothing to compare with', async () => {
   for (const cell of stats(screen.container).querySelectorAll('.fw-delta')) expect(cell.textContent).toBe('')
 })
 
-// Compared by row index against the result shown before. Pieces is neutral:
-// its sign and nothing else. Longest is `better: 1`, and it fell.
+// Compared by row index against the result shown before. The colour is the
+// direction alone: pieces rose (8 → 13), longest fell (18 → 17).
 test('the second result is compared with the first, row by row', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   const pieces = row(screen.container, 1).cells[2]
   const longest = row(screen.container, 3).cells[2]
-  expect(pieces?.textContent).toBe('+5.0')
-  expect(pieces?.className).toBe('fw-delta neutral')
-  expect(longest?.textContent).toBe('−1.0 worse')
-  expect(longest?.className).toBe('fw-delta worse')
-  expect(longest?.querySelector('.fw-vh')?.textContent).toBe(' worse')
+  expect(pieces?.textContent).toBe('+5.0 up')
+  expect(pieces?.className).toBe('fw-delta up')
+  expect(longest?.textContent).toBe('−1.0 down')
+  expect(longest?.className).toBe('fw-delta down')
+  expect(longest?.querySelector('.fw-vh')?.textContent).toBe(' down')
 })
 
 // Rendering never moves the baseline, so a language switch rebuilds both
@@ -181,8 +181,8 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect(labelOf(row(screen.container, 1))).toBe('strzałki')
-  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0')
-  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
+  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0 wzrost')
+  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 spadek')
 })
 
 // f0 is row 5, on screen and not repeated by the summary.
@@ -274,7 +274,7 @@ test("the longest arrows' explanation is closed until its ? opens it", async () 
   expect(help?.textContent).toMatch(/^Reach = /)
 })
 
-const TOKEN = { better: '--ok', worse: '--error', neutral: '--ash' } as const
+const TOKEN = { up: '--ok', down: '--error' } as const
 
 /** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */
 function tokenColour(token: string): string {
@@ -288,9 +288,9 @@ function tokenColour(token: string): string {
 
 /**
  * Checks a delta cell's kind, that it wears its own token (a contrast check
- * alone passes a worse cell left at `--ash`), and that it reads at AA.
+ * alone passes a cell left at the default `--ash`), and that it reads at AA.
  */
-function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'worse' | 'neutral') {
+function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'up' | 'down') {
   if (cell === undefined) throw new Error('a delta cell is missing')
   expect(cell.className).toBe(`fw-delta ${kind}`)
   expect(getComputedStyle(cell).color, kind).toBe(tokenColour(TOKEN[kind]))
@@ -299,7 +299,7 @@ function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'wor
 }
 
 /** The first delta cell of a kind the eye can see: summary rows leave the table. */
-function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'): HTMLTableCellElement {
+function shownDelta(container: HTMLElement, kind: 'up' | 'down'): HTMLTableCellElement {
   const found = dataRows(container)
     .filter((tr) => getComputedStyle(tr).display !== 'none')
     .map((tr) => tr.cells[2])
@@ -308,17 +308,14 @@ function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'
   return found
 }
 
-// Worse `--error`, neutral `--ash`, better `--ok` (6.6:1), on `--graphite`.
-// Measured on rows still on screen, at the moment each class is on the cell:
-// React keeps the `<td>` across results, so an earlier read would be stale.
+// Down `--error`, up `--ok` (6.6:1), on `--graphite`, measured on rows still
+// on screen: after ONE then TWO, free at start rose and average length fell.
 test('every kind of delta reads at AA', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
-  readsAtAA(shownDelta(screen.container, 'worse'), 'worse')
-  readsAtAA(shownDelta(screen.container, 'neutral'), 'neutral')
-  await act(async () => finish(ONE))
-  readsAtAA(shownDelta(screen.container, 'better'), 'better')
+  readsAtAA(shownDelta(screen.container, 'down'), 'down')
+  readsAtAA(shownDelta(screen.container, 'up'), 'up')
 })
 
 // Four figures over the table (pieces, longest, depth, time): each its number, its
@@ -328,9 +325,7 @@ test('the summary puts four figures over the table, term before number in the ma
   await act(async () => finish(ONE))
   const list = summary(screen.container)
   const cap = screen.container.querySelector('p.fw-rsum-cap')
-  expect(cap?.textContent).toBe(
-    "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
-  )
+  expect(cap?.textContent).toBe("vs. the previous board: green = up, red = down; a row's ? says what a change means")
   expect(list.getAttribute('aria-describedby')).toBe(cap?.id)
   expect(cap?.id).not.toBe('')
   expect([...list.children].map((box) => box.firstElementChild?.tagName)).toEqual(['DT', 'DT', 'DT', 'DT'])
@@ -367,23 +362,23 @@ test('the summary keeps what the rows it hides used to say', async () => {
   expect(figure(screen.container, 0).value.title).toBe('')
 })
 
-// The same `reportDelta` as the table, so the colour follows the row's
-// `better`, never the sign; time reports no change at all.
+// The same `reportDelta` as the table: the colour is the direction; time
+// reports no change at all.
 test('the summary compares with the previous run as the table does', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   const pieces = figure(screen.container, 0).change
   const longest = figure(screen.container, 1).change
-  expect(pieces.textContent).toBe('+5.0')
-  expect(pieces.className).toBe('neutral')
-  expect(longest.textContent).toBe('−1.0 worse')
-  expect(longest.className).toBe('worse')
+  expect(pieces.textContent).toBe('+5.0 up')
+  expect(pieces.className).toBe('up')
+  expect(longest.textContent).toBe('−1.0 down')
+  expect(longest.className).toBe('down')
   expect(getComputedStyle(longest).color).toBe(tokenColour('--error'))
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
   expect(figure(screen.container, 3).change.className).toBe('none')
   await act(async () => finish(ONE))
-  expect(longest.className).toBe('better')
+  expect(longest.className).toBe('up')
   expect(getComputedStyle(longest).color).toBe(tokenColour('--ok'))
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
 })

@@ -67,7 +67,7 @@ export function StatsTable({
               </tr>
             )}
             {group.map(({ row, at }) => {
-              const change = reportDelta(row.num, before[at]?.num, row.better)
+              const change = reportDelta(row.num, before[at]?.num)
               return (
                 <StatRowView
                   key={at}
@@ -78,11 +78,11 @@ export function StatsTable({
                   className={rowClass(row.key, change !== null)}
                   delta={
                     // The sign is always printed, so colour is never the only
-                    // carrier; a screen reader hears better or worse.
+                    // carrier; a screen reader hears up or down.
                     <td className={change === null ? 'fw-delta' : `fw-delta ${change.trend}`}>
                       {change?.text}
-                      {change === null || change.trend === 'neutral' ? null : (
-                        <span className="fw-vh">{` ${dict.t(change.trend === 'better' ? 'deltaBetter' : 'deltaWorse')}`}</span>
+                      {change === null ? null : (
+                        <span className="fw-vh">{` ${dict.t(change.trend === 'up' ? 'deltaUp' : 'deltaDown')}`}</span>
                       )}
                     </td>
                   }
