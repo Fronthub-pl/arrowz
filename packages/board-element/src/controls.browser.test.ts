@@ -439,16 +439,30 @@ describe('the bar on a narrow board', () => {
     await raf()
   }
 
-  test('the default bar wraps inside a narrow board and keeps zoom in the bottom row', async () => {
-    await mount({ play: '', 'enable-colors': '' })
+  // Polish: the longest default hint, so the case where it takes the bottom row
+  // alone holds on every platform (the macOS hint says ⌘, the others Ctrl).
+  test('the default bar wraps upwards inside a narrow board, what comes first in the bottom row', async () => {
+    await mount({ play: '', 'enable-colors': '', lang: 'pl' })
     await narrow('220px')
     expect(rows()).toBeGreaterThan(1)
     expect(outside()).toEqual([])
-    expect(shadow('.chrome').getBoundingClientRect().left).toBeGreaterThanOrEqual(el.getBoundingClientRect().left + 8)
-    const zoomIn = shadow('[data-board-action="zoom-in"]').getBoundingClientRect()
-    const gestures = shadow('[data-board-action="gestures"]').getBoundingClientRect()
-    expect(zoomIn.bottom).toBeCloseTo(el.getBoundingClientRect().bottom - 8, 0)
-    expect(gestures.bottom).toBeLessThan(zoomIn.top)
+    const host = el.getBoundingClientRect()
+    const chrome = shadow('.chrome').getBoundingClientRect()
+    expect(chrome.left).toBeGreaterThanOrEqual(host.left + 8)
+    expect(chrome.bottom).toBeCloseTo(host.bottom - 8, 0)
+    const centre = (selector: string) => {
+      const r = shadow(selector).getBoundingClientRect()
+      return r.top + r.height / 2
+    }
+    const order = [
+      '.hint',
+      '[data-board-action="zoom-in"]',
+      '[data-board-action="fit"]',
+      '[data-board-action="gestures"]',
+    ]
+    const centres = order.map(centre)
+    expect(centres).toEqual([...centres].sort((a, b) => b - a))
+    expect(centres[0]).toBeGreaterThan(centres[centres.length - 1] ?? 0)
   })
 
   test('a wide projected hint and labelled controls wrap inside the board', async () => {
