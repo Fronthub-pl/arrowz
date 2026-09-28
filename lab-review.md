@@ -18,7 +18,7 @@ merging them here; those are marked **verified** in the summary below.
 | --- | --- |
 | Correctness | 16 findings: 1 HIGH, 6 MEDIUM, 9 LOW (2 plausible) |
 | Practices and refactoring | 11 ranked refactors; the first deletes ~350 dead lines (TSX + CSS) |
-| Feature parity | All 28 generator knobs and 7 picture flags are covered (drawn from `PARAM_SPEC` / `VIEW_RANGE`); the gaps are the element's interaction/game surface, reading a command back in, and a third of the report metrics |
+| Feature parity | All 28 generator knobs and 7 picture flags are covered (drawn from `PARAM_SPEC` / `VIEW_RANGE`); the gaps are the element's interaction/game surface, reading a command back in, and a third of the report metrics (since shown on `lab/report-parity`) |
 | Comment prose | 22.9% of non-blank lines are comments; 805 comment lines cite PRs, rounds, rulings or reviews; a rule would cut ~2,300–2,600 lines (28–31%) |
 | Labels and help, novice view | The report explains nothing (23 rows, no help, raw codes `f0`, `almost1`, `D`); 2 factual errors; 8 knobs describe values their slider cannot reach; one concept, several names |
 
@@ -125,7 +125,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | `interactive` and `piece-click` | fixed in `30ebd4b`, `74c0290` | Inspect turns `interactive` on and listens to `piece-click` |
 | Element hint in Inspect said "to play" | fixed in `74c0290` | The element words its own Inspect hint |
 | Gap 3: closing rate over N seeds | open | |
-| Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | open | |
+| Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | fixed on `lab/report-parity` | and the delta's colour is the direction of the change |
 | Gap 5 / Duplication 1: colour-button split | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | See finding 2 |
 | Gap 6: Stop that keeps the partial board | open | |
 | Gap 7: SVG colours | fixed on `lab/correctness-2` | Points, `pad` and CLI colour flags fixed on `engine/view-look` |
@@ -133,7 +133,7 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 9: `highlight` colour row | fixed in `b90609e` | |
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
 | Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
-| ⌘K rows for colour and element fields (highlight, pad, …) | open | Found in the final review; the palette has none |
+| ⌘K rows for colour and element fields (highlight, pad, …) | fixed on `lab/report-parity` | |
 | `pad` in the SVG | fixed on `engine/view-look` | `SvgOptions.pad`, from the view |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
 | Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
@@ -245,9 +245,9 @@ section above).
 2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
 3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
 4. **Parity gaps, as product decisions:** paste a `carve` command in
-   (`parseArgs`), closing rate over N seeds, the missing report rows
-   (`backbites` first), Stop that keeps the partial board, opening a
-   `.board.json`, and ⌘K rows for the colour and element fields.
+   (`parseArgs`), closing rate over N seeds, Stop that keeps the partial
+   board, and opening a `.board.json`. The report rows and the ⌘K rows for
+   the colour and element fields are done on `lab/report-parity`.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report

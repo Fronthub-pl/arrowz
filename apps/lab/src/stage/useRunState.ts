@@ -120,6 +120,7 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // The board on screen and the store's answer for it: the result slice's,
   // which a run in flight leaves where it was.
   const report = useStore((state) => state.result.shown?.report ?? null)
+  const shownParams = useStore((state) => state.result.shown?.params ?? null)
   const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
 
@@ -182,7 +183,17 @@ export function useRunLine(): Omit<RunState, 'library'> {
   } else {
     reportsRun = true
     const stuck = report.stuck
-    text = dict.t('notClosedStatus', dict.fmt(stuck?.remaining ?? 0), stuck?.sizes.length ?? 0, stuck?.sizes[0] ?? 0)
+    // The places a head can stand are the four edges' lines: 2 × (W + H).
+    const exits = shownParams === null ? 0 : 2 * (shownParams.W + shownParams.H)
+    const heads = stuck === null || shownParams === null ? null : stuck.heads
+    text = dict.t(
+      'notClosedStatus',
+      dict.fmt(stuck?.remaining ?? 0),
+      stuck?.sizes.length ?? 0,
+      stuck?.sizes[0] ?? 0,
+      heads,
+      exits,
+    )
   }
 
   // The store's answer is appended, never substituted: a missing store must not

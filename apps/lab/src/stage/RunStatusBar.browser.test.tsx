@@ -105,6 +105,16 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
   })
 
+  // An 8 × 8 run has 2 × (8 + 8) = 32 places a head can stand; the stuck report is stated.
+  it('names where a new arrow could still start on a board that could not be filled', async () => {
+    const state = useStore.getState()
+    state.run.started({ ...state.params.values, W: 8, H: 8 })
+    const stuck = { remaining: 5, sizes: [3, 2], heads: 4 }
+    state.completeRun({ board: RESULT.board, file: CLOSED.board, report: { ...CLOSED, ok: false, stuck } })
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('notClosedStatus', '5', 2, 3, 4, 32))
+  })
+
   // With the store's answer in it: `saved` survives a knob dragged into a
   // violation, and must not be glued to the refusal. The whole text is compared:
   // `toMatchTextContent` matches a substring and would pass on the forbidden line.

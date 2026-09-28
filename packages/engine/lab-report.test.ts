@@ -8,17 +8,18 @@ import type { CarverStats, Metrics } from './types.ts'
 const HELP_EN: Record<StatKey, string> = {
   board: 'Width × height, the number of cells, and the seed that reproduces this board.',
   pieces: 'How many arrows the board has. More arrows = a longer game.',
-  avgLen: 'Cells per arrow, on average.',
+  avgLen: 'Cells per arrow, on average. Higher = fewer, longer arrows.',
   longest: 'The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow.',
   lengths: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
   f0: 'Arrows you can remove on the very first move. Lower = harder.',
   almost: 'Arrows blocked by exactly one other: they look almost free, but are not. More = more tempting mistakes.',
   D: 'The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder.',
-  corridor: 'How many cells, on average, an arrow has to travel in the direction it points to leave the board.',
+  corridor:
+    'How many cells, on average, an arrow has to travel in the direction it points to leave the board. Higher = longer ways out.',
   span:
     "How much of the board's width or height an arrow stretches across, on average (the larger of the two). Higher = arrows cross more of the board.",
-  spanTop: 'The same, for the 10% of arrows that reach furthest. Higher = better.',
-  spanMax: 'The reach of the one arrow that reaches furthest. Higher = better.',
+  spanTop: 'The same, for the 10% of arrows that reach furthest. Higher = arrows cross more of the board.',
+  spanMax: 'The reach of the one arrow that reaches furthest. Higher = arrows cross more of the board.',
   outDeg: 'How many arrows each arrow stands in the way of, on average. Higher = removing one arrow frees more.',
   maxOut: 'The most arrows a single arrow stands in the way of. Higher = one removal frees more.',
   blockDist:
@@ -34,7 +35,24 @@ const HELP_EN: Record<StatKey, string> = {
   absorbed: 'How the generator worked: small empty patches it glued onto neighbouring arrows. Fewer = a cleaner board.',
   backtracks:
     'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
-  time: 'How long the board took to generate and to measure.',
+  time: 'How long the board took to generate and to measure. Lower = faster.',
+  farBlock:
+    'Arrows whose nearest blocker is more than 2 cells ahead of the arrow: what holds them is not in plain sight. More = more blockers to look for.',
+  turnsPerCell:
+    'Turns per cell, over the whole board: unlike bends per arrow, a long arrow weighs as much as its cells. Higher = more winding.',
+  ownSides: "How many of a cell's four sides touch the same arrow, on average. Higher = arrows fold onto themselves.",
+  neighbours:
+    'For arrows of 8 cells or more: how many different arrows each one touches. Higher = arrows are more interwoven.',
+  rework:
+    'In the last attempt: how many times an arrow that hit a dead end reworked its tail and grew on, and how many times it gave up. Only with tail rework on. More done = the setting is at work.',
+  stuckBy:
+    'In the last attempt: what surrounded the tail of an arrow that could grow no further (the arrow itself, other arrows, or the edge), as shares of its sides. A high "itself" = arrows trap themselves.',
+  stuckLen:
+    'In the last attempt: how long an arrow was, on average, when it could grow no further. Higher = arrows get stuck later.',
+  selfTrap:
+    "In the last attempt: stops where the arrow's own body walled in at least two sides of its tail. More = arrows trap themselves more often.",
+  shortened:
+    'In the last attempt: the share of arrows laid that were cut back so they would not leave a gap no arrow could fill, and by how many cells on average. Lower = fewer cuts.',
 }
 
 function run(W: number, H: number, seed: number) {
@@ -54,11 +72,11 @@ function run(W: number, H: number, seed: number) {
   }
 }
 
-Deno.test('reportRows returns 23 rows and 4 separators', () => {
+Deno.test('reportRows returns 32 rows and 5 separators', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
-  assertEquals(rows.filter((r) => r.kind === 'row').length, 23)
-  assertEquals(rows.filter((r) => r.kind === 'separator').length, 4)
+  assertEquals(rows.filter((r) => r.kind === 'row').length, 32)
+  assertEquals(rows.filter((r) => r.kind === 'separator').length, 5)
 })
 
 // A surface picks rows by what they are (the
@@ -68,7 +86,7 @@ Deno.test('every row carries its own key, the suffix of its label key, and no tw
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
   const keys = rows.filter((r) => r.kind === 'row').map((r) => r.key)
-  assertEquals(new Set(keys).size, 23)
+  assertEquals(new Set(keys).size, 32)
   const en = dictionary('en')
   for (const r of rows) {
     if (r.kind === 'separator') assertEquals(r.key, null)
@@ -86,25 +104,25 @@ const pinnedMetrics: Metrics = {
   solvable: true,
   unsolved: 0,
   f0: 0.5,
-  T2: 0,
+  T2: 3,
   almost: 4,
   D: 3,
   bends: 1.5,
   multiLine: 0.2,
   coil: 0.1,
-  selfAdj: 0,
-  bendsPerCell: 0,
+  selfAdj: 0.75,
+  bendsPerCell: 0.125,
   span: 0.4,
   spanTop10: 0.6,
   spanMax: 0.8,
   outDeg: 2.4,
   maxOut: 5,
   blockDist: 0.33,
-  neighbours: 0,
+  neighbours: 2.5,
   sharedBorder: 0.05,
   longPieces: 0,
   meanCorridorLen: 2.4,
-  minLen: 0,
+  minLen: 2,
   maxLen: 100,
   hist: { '2-6': 10, '7-15': 6, '16-49': 3, '50+': 1 },
   coverage: 1,
@@ -123,102 +141,125 @@ const pinnedBase = {
   deadlock: false,
 } satisfies Omit<ReportInput, 'stats'>
 
-const pinnedParams = { ...defaultParams(), W: 20, H: 20, seed: 3 }
+const pinnedParams = { ...defaultParams(), W: 20, H: 20, seed: 3, backbite: 2 }
 
 Deno.test('reportRows pins the exact text of every row for a hand-built run', () => {
   const stats: CarverStats = {
     want: 100,
     got: 90,
     stall: 20,
-    strandTrunc: 0,
-    strandLoss: 0,
+    strandTrunc: 4,
+    strandLoss: 10,
     n: 100,
     absorbs: 3,
     absorbed: 45,
+    // 20 sides = 5 stall events: 25% · 65% · 10%, no rounding tie.
+    stallOwn: 5,
+    stallForeign: 13,
+    stallEdge: 2,
+    stallLen: 30,
+    stallSelfTrap: 1,
+    backbites: 5,
+    backbiteGiveUps: 2,
   }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
   const expected: Omit<StatRow, 'help'>[] = [
-    { kind: 'row', key: 'board', label: 'board', value: '20 × 20 = 400 cells, seed 3', num: undefined, better: 0 },
-    { kind: 'row', key: 'pieces', label: 'arrows', value: '20', num: 20, better: 0 },
-    { kind: 'row', key: 'avgLen', label: 'average length', value: '20.0', num: 20, better: 0 },
-    { kind: 'row', key: 'longest', label: 'longest', value: '100 cells (25% of the board)', num: 100, better: 1 },
+    { kind: 'row', key: 'board', label: 'board', value: '20 × 20 = 400 cells, seed 3', num: undefined },
+    { kind: 'row', key: 'pieces', label: 'arrows', value: '20', num: 20 },
+    { kind: 'row', key: 'avgLen', label: 'average length', value: '20.0', num: 20 },
+    { kind: 'row', key: 'longest', label: 'longest', value: '100 cells (25% of the board)', num: 100 },
     {
       kind: 'row',
       key: 'lengths',
       label: 'lengths',
-      value: '2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%',
+      value: '2–100 cells · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%',
       num: undefined,
-      better: 0,
     },
-    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', key: 'f0', label: 'free at start', value: '50%', num: 50, better: -1 },
-    { kind: 'row', key: 'almost', label: 'traps', value: '4 (20%)', num: 4, better: 1 },
-    { kind: 'row', key: 'D', label: 'depth', value: '3', num: 3, better: 1 },
-    { kind: 'row', key: 'corridor', label: 'path to edge', value: '2.4', num: 2.4, better: 0 },
-    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', key: 'span', label: 'average reach', value: '40%', num: 40, better: 1 },
-    { kind: 'row', key: 'spanTop', label: 'reach, top 10%', value: '60%', num: 60, better: 1 },
-    { kind: 'row', key: 'spanMax', label: 'reach, record', value: '80%', num: 80, better: 1 },
-    { kind: 'row', key: 'outDeg', label: 'blocks on average', value: '2.4 arrows', num: 2.4, better: 1 },
-    { kind: 'row', key: 'maxOut', label: 'blocks, record', value: '5 arrows', num: 5, better: 1 },
-    {
-      kind: 'row',
-      key: 'blockDist',
-      label: 'blocking distance',
-      value: '33% of width + height',
-      num: 33,
-      better: 1,
-    },
-    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
-    { kind: 'row', key: 'bends', label: 'bends per arrow', value: '1.50', num: 1.5, better: 1 },
-    { kind: 'row', key: 'coil', label: 'coiling', value: '10%', num: 10, better: -1 },
-    { kind: 'row', key: 'border', label: 'wrapping', value: '5%', num: 5, better: 1 },
-    { kind: 'row', key: 'multi', label: 'bent arrows', value: '20%', num: 20, better: 1 },
-    { kind: 'separator', key: null, label: '', value: '', num: undefined, better: 0 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
+    { kind: 'row', key: 'f0', label: 'free at start', value: '50%', num: 50 },
+    { kind: 'row', key: 'almost', label: 'traps', value: '4 (20%)', num: 4 },
+    { kind: 'row', key: 'farBlock', label: 'blocked from afar', value: '3 (15%)', num: 3 },
+    { kind: 'row', key: 'D', label: 'depth', value: '3', num: 3 },
+    { kind: 'row', key: 'corridor', label: 'path to edge', value: '2.4', num: 2.4 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
+    { kind: 'row', key: 'span', label: 'average reach', value: '40%', num: 40 },
+    { kind: 'row', key: 'spanTop', label: 'reach, top 10%', value: '60%', num: 60 },
+    { kind: 'row', key: 'spanMax', label: 'reach, record', value: '80%', num: 80 },
+    { kind: 'row', key: 'outDeg', label: 'blocks on average', value: '2.4 arrows', num: 2.4 },
+    { kind: 'row', key: 'maxOut', label: 'blocks, record', value: '5 arrows', num: 5 },
+    { kind: 'row', key: 'blockDist', label: 'blocking distance', value: '33% of width + height', num: 33 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
+    { kind: 'row', key: 'bends', label: 'bends per arrow', value: '1.50', num: 1.5 },
+    { kind: 'row', key: 'turnsPerCell', label: 'turns per cell', value: '0.125', num: 0.125 },
+    { kind: 'row', key: 'coil', label: 'coiling', value: '10%', num: 10 },
+    { kind: 'row', key: 'ownSides', label: 'touching itself', value: '0.75', num: 0.75 },
+    { kind: 'row', key: 'border', label: 'wrapping', value: '5%', num: 5 },
+    { kind: 'row', key: 'neighbours', label: 'neighbours of a long arrow', value: '2.5', num: 2.5 },
+    { kind: 'row', key: 'multi', label: 'bent arrows', value: '20%', num: 20 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
     {
       kind: 'row',
       key: 'stall',
       label: 'stopped short',
       value: '20% of arrows laid, reaching 90% of the planned length',
       num: 20,
-      better: -1,
     },
-    { kind: 'row', key: 'absorbed', label: 'merged leftovers', value: '3 patches (45 cells)', num: 3, better: -1 },
-    { kind: 'row', key: 'backtracks', label: 'backtracks / restarts', value: '7 / 2', num: 7, better: -1 },
-    { kind: 'row', key: 'time', label: 'time', value: 'generation 3.46 s, metrics 0.12 s', num: 3456, better: -1 },
+    { kind: 'row', key: 'absorbed', label: 'merged leftovers', value: '3 patches (45 cells)', num: 3 },
+    { kind: 'row', key: 'backtracks', label: 'backtracks / restarts', value: '7 / 2', num: 7 },
+    { kind: 'row', key: 'time', label: 'time', value: 'generation 3.46 s, metrics 0.12 s', num: 3456 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
+    { kind: 'row', key: 'rework', label: 'tail reworks', value: '5 done, 2 gave up', num: 5 },
+    {
+      kind: 'row',
+      key: 'stuckBy',
+      label: 'what stopped them',
+      value: 'itself 25% · other arrows 65% · edge 10%',
+      num: undefined,
+    },
+    { kind: 'row', key: 'stuckLen', label: 'length when stuck', value: '6.0', num: 6 },
+    { kind: 'row', key: 'selfTrap', label: 'stuck on themselves', value: '1 (20%)', num: 1 },
+    {
+      kind: 'row',
+      key: 'shortened',
+      label: 'shortened',
+      value: '4% of arrows laid, 2.5 cells shorter on average',
+      num: 4,
+    },
   ]
-  assertEquals(rows.length, 27)
+  assertEquals(rows.length, 37)
   assertEquals(rows, expected.map((row) => ({ ...row, help: row.key === null ? '' : HELP_EN[row.key] })))
 })
 
-Deno.test("reportRows pins the stall row's dash when stats.n is 0", () => {
+// A run that laid nothing: every carver row stays in its place with a dash
+// and no number, so the delta rows below it do not shift.
+Deno.test('reportRows keeps every carver row as a dash when nothing was laid', () => {
   const stats: CarverStats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0, absorbs: 0, absorbed: 0 }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
-  const stallRow = rows.find((r) => r.key === 'stall')
-  assert(stallRow)
-  assertEquals(stallRow, {
-    kind: 'row',
-    key: 'stall',
-    label: 'stopped short',
-    value: '—',
-    num: undefined,
-    better: -1,
-    help: HELP_EN.stall,
-  })
+  for (const key of ['stall', 'stuckBy', 'stuckLen', 'selfTrap', 'shortened'] as const) {
+    const found = rows.find((r) => r.key === key)
+    assert(found, key)
+    assertEquals([found.value, found.num], ['—', undefined], key)
+  }
+  assertEquals(rows.length, 37)
 })
 
-// Not every coloured row states a direction (`time`'s help has none), so a
-// blanket `better !== 0` check would wrongly expect `=` there too. These 8
-// coloured rows carry a direction clause, and the `=` every clause uses.
-const DIRECTION_KEYS: StatKey[] = ['longest', 'span', 'spanTop', 'spanMax', 'maxOut', 'bends', 'multi', 'backtracks']
-Deno.test('every row whose direction matters says which way, marked by =', () => {
+Deno.test('tail reworks read a dash with the setting off, and zero with it on and nothing to rework', () => {
+  const stats: CarverStats = { want: 10, got: 10, stall: 0, strandTrunc: 0, strandLoss: 0, n: 5 }
+  const off = reportRows({ ...pinnedBase, stats }, { ...pinnedParams, backbite: 0 }, dictionary('en'))
+  const on = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
+  const rework = (rows: StatRow[]) => rows.find((r) => r.key === 'rework')
+  assertEquals([rework(off)?.value, rework(off)?.num], ['—', undefined])
+  assertEquals([rework(on)?.value, rework(on)?.num], ['0 done, 0 gave up', 0])
+})
+
+// Rows whose value is not one number: nothing moves, so there is nothing to explain.
+const NO_NUMBER: StatKey[] = ['board', 'lengths', 'stuckBy']
+Deno.test('every row with a number says what a rise means, marked by =', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const r = run(20, 20, 3)
   for (const lang of ['en', 'pl'] as const) {
-    const rows = reportRows(r, params, dictionary(lang))
-    for (const row of rows) {
-      if (row.kind === 'separator' || !DIRECTION_KEYS.includes(row.key as StatKey)) continue
-      assert(row.better !== 0, `${row.key} is not a coloured row`)
+    for (const row of reportRows(r, params, dictionary(lang))) {
+      if (row.kind === 'separator' || NO_NUMBER.includes(row.key as StatKey)) continue
       assert(row.help.includes('='), `${lang} ${row.key} has no direction clause: ${row.help}`)
     }
   }
@@ -238,7 +279,7 @@ Deno.test('every row explains itself in Polish too, each in its own sentence', (
     assert(row.help.length > 0, `${row.key} has no Polish help`)
     assert(row.help !== en[at]?.help, `${row.key} is still English`)
   }
-  assertEquals(new Set(pl.filter((row) => row.kind === 'row').map((row) => row.help)).size, 23)
+  assertEquals(new Set(pl.filter((row) => row.kind === 'row').map((row) => row.help)).size, 32)
 })
 
 Deno.test('the Polish values follow the new words', () => {
@@ -246,11 +287,18 @@ Deno.test('the Polish values follow the new words', () => {
     want: 100,
     got: 90,
     stall: 20,
-    strandTrunc: 0,
-    strandLoss: 0,
+    strandTrunc: 4,
+    strandLoss: 10,
     n: 100,
     absorbs: 3,
     absorbed: 45,
+    stallOwn: 5,
+    stallForeign: 13,
+    stallEdge: 2,
+    stallLen: 30,
+    stallSelfTrap: 1,
+    backbites: 5,
+    backbiteGiveUps: 2,
   }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('pl'))
   const value = (key: StatKey) => rows.find((row) => row.key === key)?.value
@@ -260,6 +308,10 @@ Deno.test('the Polish values follow the new words', () => {
   assertEquals(value('stall'), '20% ułożonych strzałek, osiągając 90% zaplanowanej długości')
   assertEquals(value('absorbed'), '3 łatki (45 komórek)')
   assertEquals(value('time'), 'generowanie 3.46 s, statystyki 0.12 s')
+  assertEquals(value('lengths'), '2–100 komórek · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%')
+  assertEquals(value('rework'), '5 wykonanych, 2 porzucone')
+  assertEquals(value('stuckBy'), 'ona sama 25% · inne strzałki 65% · krawędź 10%')
+  assertEquals(value('shortened'), '4% ułożonych strzałek, średnio o 2.5 komórki krótszych')
 })
 
 Deno.test('every row has a label and a value, and no row is empty', () => {
@@ -278,15 +330,7 @@ Deno.test('the row order is the same in both languages, so a delta keyed by row 
   const pl = reportRows(r, params, dictionary('pl'))
   assertEquals(en.length, pl.length)
   assertEquals(en.map((x) => x.kind), pl.map((x) => x.kind))
-  assertEquals(en.map((x) => x.better), pl.map((x) => x.better))
-})
-
-Deno.test('a signed row is always a comparable row, or its arrow can never be drawn', () => {
-  const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
-  for (const row of reportRows(run(20, 20, 3), params, dictionary('en'))) {
-    assert(row.better === 1 || row.better === -1 || row.better === 0, `${row.label}: ${row.better}`)
-    if (row.better !== 0) assert(row.num !== undefined, `${row.label} is signed but not comparable`)
-  }
+  assertEquals(en.map((x) => x.key), pl.map((x) => x.key))
 })
 
 Deno.test('a run with no metrics reports no rows, as the page has always done', () => {
@@ -313,28 +357,25 @@ Deno.test('genSeconds shows two decimals under ten seconds and one above, and a 
 // The delta column's arithmetic. The numbers are chosen to be exact in binary,
 // so no case depends on how `toFixed` rounds a tie.
 Deno.test('reportDelta is null when either number is missing or the two are equal', () => {
-  assertEquals(reportDelta(undefined, 3, 1), null)
-  assertEquals(reportDelta(3, undefined, 1), null)
-  assertEquals(reportDelta(3, 3, 1), null)
+  assertEquals(reportDelta(undefined, 3), null)
+  assertEquals(reportDelta(3, undefined), null)
+  assertEquals(reportDelta(3, 3), null)
   // The tolerance: a float that moved by less than 1e-9 did not move.
-  assertEquals(reportDelta(3 + 1e-10, 3, 1), null)
+  assertEquals(reportDelta(3 + 1e-10, 3), null)
 })
 
 Deno.test('reportDelta prints a plus or a true minus, at the precision of the size of the change', () => {
-  assertEquals(reportDelta(250, 100, 0)?.text, '+150')
-  assertEquals(reportDelta(100, 0, 0)?.text, '+100')
-  assertEquals(reportDelta(3.5, 1, 0)?.text, '+2.5')
-  assertEquals(reportDelta(2, 1, 0)?.text, '+1.0')
-  assertEquals(reportDelta(0.75, 0.5, 0)?.text, '+0.25')
+  assertEquals(reportDelta(250, 100)?.text, '+150')
+  assertEquals(reportDelta(100, 0)?.text, '+100')
+  assertEquals(reportDelta(3.5, 1)?.text, '+2.5')
+  assertEquals(reportDelta(2, 1)?.text, '+1.0')
+  assertEquals(reportDelta(0.75, 0.5)?.text, '+0.25')
   // U+2212, not a hyphen: the glyph a screen reader says "minus" for.
-  assertEquals(reportDelta(1, 3.5, 0)?.text, '−2.5')
+  assertEquals(reportDelta(1, 3.5)?.text, '−2.5')
 })
 
-Deno.test('reportDelta says which way is better from the row, not from the sign alone', () => {
-  assertEquals(reportDelta(2, 1, 1)?.trend, 'better')
-  assertEquals(reportDelta(1, 2, 1)?.trend, 'worse')
-  assertEquals(reportDelta(1, 2, -1)?.trend, 'better')
-  assertEquals(reportDelta(2, 1, -1)?.trend, 'worse')
-  assertEquals(reportDelta(2, 1, 0)?.trend, 'neutral')
-  assertEquals(reportDelta(1, 2, 0)?.trend, 'neutral')
+Deno.test('reportDelta says only which way the number moved', () => {
+  assertEquals(reportDelta(2, 1)?.trend, 'up')
+  assertEquals(reportDelta(1, 2)?.trend, 'down')
+  assertEquals(reportDelta(0.5, 0.25)?.trend, 'up')
 })

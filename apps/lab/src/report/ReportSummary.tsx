@@ -10,9 +10,9 @@ export const SUMMARY_KEYS: readonly StatKey[] = ['pieces', 'longest', 'D', 'time
 /**
  * The four figures over the statistics: arrows, longest, depth and time, each
  * its number, its term and its change against the baseline. The change is the
- * table's own `reportDelta`, so its colour is the row's trend and never the
- * sign. Time reports no change, and a first run has nothing to compare with:
- * both keep a hidden dash so the row keeps its height.
+ * table's own `reportDelta`: its colour is the direction. Time reports no
+ * change, and a first run has nothing to compare with: both keep a hidden
+ * dash so the row keeps its height.
  *
  * The rows it repeats leave the table, so what they said beyond the number
  * stays here: D by its row's label, the whole value of longest and time as
@@ -45,7 +45,7 @@ export function ReportSummary({
         {SUMMARY_KEYS.map((key) => {
           const row = byKey(rows, key)
           if (row === undefined || row.num === undefined) return null
-          const change = key === 'time' ? null : reportDelta(row.num, byKey(before, key)?.num, row.better)
+          const change = key === 'time' ? null : reportDelta(row.num, byKey(before, key)?.num)
           return (
             <div key={key}>
               <dt>{row.label}</dt>
@@ -62,9 +62,7 @@ export function ReportSummary({
                 ) : (
                   <small className={change.trend}>
                     {change.text}
-                    {change.trend === 'neutral' ? null : (
-                      <span className="fw-vh">{` ${dict.t(change.trend === 'better' ? 'deltaBetter' : 'deltaWorse')}`}</span>
-                    )}
+                    <span className="fw-vh">{` ${dict.t(change.trend === 'up' ? 'deltaUp' : 'deltaDown')}`}</span>
                   </small>
                 )}
               </dd>

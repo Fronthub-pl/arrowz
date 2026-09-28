@@ -678,7 +678,7 @@ test('leaving the library takes the stored board off the stage', async () => {
     await expect.element(screen.getByTitle(meta.id)).toBeVisible()
     await userEvent.click(screen.getByTitle(meta.id))
     await expect.poll(() => screen.container.querySelector('.fw-anno')?.textContent).toBe('8×8 · seed 4')
-    // The report is the stored board's: its six stored figures, not the run's 23 rows.
+    // The report is the stored board's: its six stored figures, not the run's rows.
     await expect
       .poll(() => screen.container.querySelector('.fw-report table.fw-stats')?.querySelectorAll('tr').length)
       .toBe(6)

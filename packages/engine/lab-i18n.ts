@@ -233,6 +233,7 @@ export const EN = {
     needsPoints: 'turn on dot grid',
     valueOn: 'on',
     valueOff: 'off',
+    valueNotSet: 'not set',
     paletteCount: (n: number, cap: number) => `${n} / ${cap}`,
     strokeHelp:
       'How thick the arrows are, as a share of a cell. 0.2 = a hairline; 0.9 = fills the cell and leaves the arrowhead no room.',
@@ -325,8 +326,10 @@ export const EN = {
     closed: 'Board complete: every cell filled.',
     solvable: 'Solvable.',
     unsolvable: 'UNSOLVABLE — a generator bug.',
-    notClosedStatus: (remaining: string, fragments: number, largest: number) =>
-      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}). Try another seed or more straightness.`,
+    notClosedStatus: (remaining: string, fragments: number, largest: number, heads: number | null, exits: number) =>
+      `The board could not be filled: at best ${remaining} cells stayed empty, in ${fragments} patches (largest ${largest}).${
+        heads === null ? '' : ` At that moment a new arrow could still start in ${heads} of ${exits} places.`
+      } Try another seed or more straightness.`,
     stat_board: 'board',
     stat_boardVal: (W: number, H: number, cells: string, seed: number) => `${W} × ${H} = ${cells} cells, seed ${seed}`,
     stat_pieces: 'arrows',
@@ -358,9 +361,23 @@ export const EN = {
     stat_backtracks: 'backtracks / restarts',
     stat_time: 'time',
     stat_timeVal: (g: string, m: string) => `generation ${g} s, metrics ${m} s`,
+    stat_lengthsRange: (min: number, max: number) => `${min}–${max} cells`,
+    stat_farBlock: 'blocked from afar',
+    stat_turnsPerCell: 'turns per cell',
+    stat_ownSides: 'touching itself',
+    stat_neighbours: 'neighbours of a long arrow',
+    stat_rework: 'tail reworks',
+    stat_reworkVal: (done: number, gaveUp: number) => `${done} done, ${gaveUp} gave up`,
+    stat_stuckBy: 'what stopped them',
+    stat_stuckByVal: (own: string, other: string, edge: string) =>
+      `itself ${own} · other arrows ${other} · edge ${edge}`,
+    stat_stuckLen: 'length when stuck',
+    stat_selfTrap: 'stuck on themselves',
+    stat_shortened: 'shortened',
+    stat_shortenedVal: (share: string, cells: string) => `${share} of arrows laid, ${cells} cells shorter on average`,
     stat_board_help: 'Width × height, the number of cells, and the seed that reproduces this board.',
     stat_pieces_help: 'How many arrows the board has. More arrows = a longer game.',
-    stat_avgLen_help: 'Cells per arrow, on average.',
+    stat_avgLen_help: 'Cells per arrow, on average. Higher = fewer, longer arrows.',
     stat_longest_help:
       'The longest arrow, in cells and as a share of the board. Longer = more of the board in one arrow.',
     stat_lengths_help: 'Share of arrows by length in cells: 2–6, 7–15, 16–49 and 50 or more.',
@@ -370,11 +387,11 @@ export const EN = {
     stat_D_help:
       'The longest chain of arrows waiting on one another. Even removing every free arrow at once, clearing the board takes depth + 1 rounds. Higher = harder.',
     stat_corridor_help:
-      'How many cells, on average, an arrow has to travel in the direction it points to leave the board.',
+      'How many cells, on average, an arrow has to travel in the direction it points to leave the board. Higher = longer ways out.',
     stat_span_help:
       "How much of the board's width or height an arrow stretches across, on average (the larger of the two). Higher = arrows cross more of the board.",
-    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = better.',
-    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = better.',
+    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = arrows cross more of the board.',
+    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = arrows cross more of the board.',
     stat_outDeg_help:
       'How many arrows each arrow stands in the way of, on average. Higher = removing one arrow frees more.',
     stat_maxOut_help: 'The most arrows a single arrow stands in the way of. Higher = one removal frees more.',
@@ -392,7 +409,25 @@ export const EN = {
       'How the generator worked: small empty patches it glued onto neighbouring arrows. Fewer = a cleaner board.',
     stat_backtracks_help:
       'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
-    stat_time_help: 'How long the board took to generate and to measure.',
+    stat_time_help: 'How long the board took to generate and to measure. Lower = faster.',
+    stat_farBlock_help:
+      'Arrows whose nearest blocker is more than 2 cells ahead of the arrow: what holds them is not in plain sight. More = more blockers to look for.',
+    stat_turnsPerCell_help:
+      'Turns per cell, over the whole board: unlike bends per arrow, a long arrow weighs as much as its cells. Higher = more winding.',
+    stat_ownSides_help:
+      "How many of a cell's four sides touch the same arrow, on average. Higher = arrows fold onto themselves.",
+    stat_neighbours_help:
+      'For arrows of 8 cells or more: how many different arrows each one touches. Higher = arrows are more interwoven.',
+    stat_rework_help:
+      'In the last attempt: how many times an arrow that hit a dead end reworked its tail and grew on, and how many times it gave up. Only with tail rework on. More done = the setting is at work.',
+    stat_stuckBy_help:
+      'In the last attempt: what surrounded the tail of an arrow that could grow no further (the arrow itself, other arrows, or the edge), as shares of its sides. A high "itself" = arrows trap themselves.',
+    stat_stuckLen_help:
+      'In the last attempt: how long an arrow was, on average, when it could grow no further. Higher = arrows get stuck later.',
+    stat_selfTrap_help:
+      "In the last attempt: stops where the arrow's own body walled in at least two sides of its tail. More = arrows trap themselves more often.",
+    stat_shortened_help:
+      'In the last attempt: the share of arrows laid that were cut back so they would not leave a gap no arrow could fill, and by how many cells on average. Lower = fewer cuts.',
     // The stored board shows only generation time, not the metrics pass `stat_time_help` also covers.
     stat_gen_help: 'How long the board took to generate.',
     longestHead: (n: number) => (n === 1 ? 'The longest arrow' : `The ${n} longest arrows`),
@@ -493,11 +528,11 @@ export const EN = {
     // cell's colour and sign say it on screen, and a screen reader hears these.
     reportPanel: 'Report',
     statsTable: 'Statistics',
-    deltaBetter: 'better',
-    deltaWorse: 'worse',
+    deltaUp: 'up',
+    deltaDown: 'down',
     // The report's summary and the names of its
     // groups, one per span between the engine's separators (lab-report.ts).
-    reportSummaryCap: "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
+    reportSummaryCap: "vs. the previous board: green = up, red = down; a row's ? says what a change means",
     reportHelpAbout: 'these four figures',
     statSumSeconds: (s: string) => `${s} s`,
     statGroupSize: 'size',
@@ -505,6 +540,7 @@ export const EN = {
     statGroupReach: 'reach',
     statGroupShape: 'shape',
     statGroupRun: 'generator',
+    statGroupDetail: 'generator in detail',
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
     // The board frame's mode: look, click a piece for its facts, or play it.
     boardModeLabel: 'Board mode',
@@ -943,6 +979,7 @@ export const PL: Translation = {
     needsPoints: 'włącz „kropki”',
     valueOn: 'wł.',
     valueOff: 'wył.',
+    valueNotSet: 'nie ustawiono',
     paletteCount: (n, cap) => `${n} / ${cap}`,
     strokeHelp:
       'Grubość strzałek jako część komórki. 0,2 = cienka kreska; 0,9 = wypełnia komórkę i nie zostawia miejsca na grot.',
@@ -1021,8 +1058,14 @@ export const PL: Translation = {
     closed: 'Plansza pełna: wszystkie komórki wypełnione.',
     solvable: 'Rozwiązywalna.',
     unsolvable: 'NIEROZWIĄZYWALNA — to błąd generatora.',
-    notClosedStatus: (remaining, fragments, largest) =>
-      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}). Spróbuj innego ziarna albo większej prostości.`,
+    notClosedStatus: (remaining, fragments, largest, heads, exits) =>
+      `Nie udało się wypełnić planszy: w najlepszym razie ${remaining} komórek zostało pustych, w ${fragments} łatkach (największa ${largest}).${
+        heads === null
+          ? ''
+          : ` Wtedy nowa strzałka mogła jeszcze zacząć się w ${heads} ${
+            /^1\d\d$/.test(String(exits)) ? 'ze' : 'z'
+          } ${exits} miejsc.`
+      } Spróbuj innego ziarna albo większej prostości.`,
     stat_board: 'plansza',
     stat_boardVal: (W, H, cells, seed) => `${W} × ${H} = ${cells} komórek, ziarno ${seed}`,
     stat_pieces: 'strzałki',
@@ -1053,9 +1096,25 @@ export const PL: Translation = {
     stat_backtracks: 'nawroty / restarty',
     stat_time: 'czas',
     stat_timeVal: (g, m) => `generowanie ${g} s, statystyki ${m} s`,
+    stat_lengthsRange: (min, max) => `${min}–${max} ${plCells(max)}`,
+    stat_farBlock: 'blokowane z daleka',
+    stat_turnsPerCell: 'zakręty na komórkę',
+    stat_ownSides: 'styk ze sobą',
+    stat_neighbours: 'sąsiadki długiej strzałki',
+    stat_rework: 'przeróbki ogona',
+    stat_reworkVal: (done, gaveUp) =>
+      `${done} ${plCount(done, 'wykonana', 'wykonane', 'wykonanych')}, ${gaveUp} ${
+        plCount(gaveUp, 'porzucona', 'porzucone', 'porzuconych')
+      }`,
+    stat_stuckBy: 'co je zatrzymało',
+    stat_stuckByVal: (own, other, edge) => `ona sama ${own} · inne strzałki ${other} · krawędź ${edge}`,
+    stat_stuckLen: 'długość przy utknięciu',
+    stat_selfTrap: 'utknięte na sobie',
+    stat_shortened: 'skrócone',
+    stat_shortenedVal: (share, cells) => `${share} ułożonych strzałek, średnio o ${cells} komórki krótszych`,
     stat_board_help: 'Szerokość × wysokość, liczba komórek i ziarno, które odtwarza tę planszę.',
     stat_pieces_help: 'Ile strzałek ma plansza. Więcej strzałek = dłuższa gra.',
-    stat_avgLen_help: 'Średnio komórek na strzałkę.',
+    stat_avgLen_help: 'Średnio komórek na strzałkę. Więcej = mniej, ale dłuższych strzałek.',
     stat_longest_help:
       'Najdłuższa strzałka: w komórkach i jako część planszy. Dłuższa = więcej planszy w jednej strzałce.',
     stat_lengths_help: 'Udział strzałek według długości w komórkach: 2–6, 7–15, 16–49 i 50 lub więcej.',
@@ -1065,11 +1124,12 @@ export const PL: Translation = {
     stat_D_help:
       'Najdłuższy łańcuch strzałek czekających jedna na drugą. Nawet zdejmując naraz wszystkie wolne, trzeba głębokość + 1 rund. Więcej = trudniej.',
     stat_corridor_help:
-      'Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę.',
+      'Ile komórek średnio strzałka ma do przebycia w kierunku, w którym wskazuje, żeby opuścić planszę. Więcej = dłuższa droga do wyjścia.',
     stat_span_help:
       'Jaką część szerokości lub wysokości planszy obejmuje średnio strzałka (większą z nich). Więcej = strzałki przecinają większą część planszy.',
-    stat_spanTop_help: 'To samo dla 10% strzałek o największym zasięgu. Więcej = lepiej.',
-    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = lepiej.',
+    stat_spanTop_help:
+      'To samo dla 10% strzałek o największym zasięgu. Więcej = strzałki przecinają większą część planszy.',
+    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = strzałki przecinają większą część planszy.',
     stat_outDeg_help: 'Ilu strzałkom średnio każda strzałka stoi na drodze. Więcej = zdjęcie jednej uwalnia więcej.',
     stat_maxOut_help:
       'Najwięcej strzałek, którym stoi na drodze jedna strzałka. Więcej = jedno zdjęcie uwalnia więcej.',
@@ -1087,7 +1147,25 @@ export const PL: Translation = {
       'Jak pracował generator: małe puste łatki doklejone do sąsiednich strzałek. Mniej = czystsza plansza.',
     stat_backtracks_help:
       'Jak pracował generator: ile razy cofał strzałki i ilu nowych prób potrzebował. Mniej = płynniej.',
-    stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk.',
+    stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk. Mniej = szybciej.',
+    stat_farBlock_help:
+      'Strzałki, których najbliższa blokada stoi dalej niż 2 komórki przed strzałką: tego, co je trzyma, nie widać od razu. Więcej = więcej blokad do wypatrzenia.',
+    stat_turnsPerCell_help:
+      'Zakręty na komórkę, na całej planszy: w odróżnieniu od zakrętów na strzałkę długa strzałka waży tyle, ile jej komórki. Więcej = bardziej kręto.',
+    stat_ownSides_help:
+      'Ile z czterech boków komórki styka się średnio z tą samą strzałką. Więcej = strzałki zawijają się na siebie.',
+    stat_neighbours_help:
+      'Dla strzałek od 8 komórek: ilu różnych strzałek dotyka każda z nich. Więcej = strzałki są bardziej splecione.',
+    stat_rework_help:
+      'W ostatniej próbie: ile razy strzałka, która utknęła w ślepym zaułku, przerobiła ogon i rosła dalej, a ile razy się poddała. Tylko przy włączonej przeróbce ogona. Więcej wykonanych = ustawienie działa.',
+    stat_stuckBy_help:
+      'W ostatniej próbie: co otaczało ogon strzałki, która nie mogła rosnąć dalej (ona sama, inne strzałki czy krawędź), jako udział boków. Wysokie „ona sama” = strzałki zamykają się same.',
+    stat_stuckLen_help:
+      'W ostatniej próbie: jak długa była średnio strzałka, gdy nie mogła rosnąć dalej. Więcej = strzałki utykają później.',
+    stat_selfTrap_help:
+      'W ostatniej próbie: zatrzymania, w których własne ciało strzałki zamknęło co najmniej dwa boki ogona. Więcej = strzałki częściej zamykają się same.',
+    stat_shortened_help:
+      'W ostatniej próbie: udział ułożonych strzałek skróconych, żeby nie zostawiły dziury, której żadna strzałka nie wypełni, i o ile komórek średnio. Mniej = mniej skróceń.',
     stat_gen_help: 'Ile trwało generowanie planszy.',
     longestHead: (n) => `${n} ${plCount(n, 'najdłuższa strzałka', 'najdłuższe strzałki', 'najdłuższych strzałek')}`,
     longestHelp:
@@ -1164,10 +1242,10 @@ export const PL: Translation = {
     simplePanel: 'Proste ustawienia',
     reportPanel: 'Raport',
     statsTable: 'Statystyki',
-    deltaBetter: 'lepiej',
-    deltaWorse: 'gorzej',
+    deltaUp: 'wzrost',
+    deltaDown: 'spadek',
     reportSummaryCap:
-      'wobec poprzedniej planszy: zielone = lepiej, czerwone = gorzej; ? przy wierszu mówi, w którą stronę jest lepiej',
+      'wobec poprzedniej planszy: zielone = wzrost, czerwone = spadek; ? przy wierszu mówi, co znaczy zmiana',
     reportHelpAbout: 'te cztery liczby',
     statSumSeconds: (s) => `${s} s`,
     statGroupSize: 'rozmiar',
@@ -1175,6 +1253,7 @@ export const PL: Translation = {
     statGroupReach: 'zasięg',
     statGroupShape: 'kształt',
     statGroupRun: 'generator',
+    statGroupDetail: 'generator w szczegółach',
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
     boardModeLabel: 'Tryb planszy',
     boardModeView: 'Widok',

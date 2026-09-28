@@ -102,14 +102,14 @@ test('the report is a named region, empty until there is a result', async () => 
   expect(screen.container.querySelector('table')).toBeNull()
 })
 
-// The engine's four separators bound five groups, each named in a heading row
+// The engine's five separators bound six groups, each named in a heading row
 // that spans the table.
-test('twenty-three rows in five named groups, labelled by row headers', async () => {
+test('thirty-two rows in six named groups, labelled by row headers', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   const table = stats(screen.container)
-  expect(table.tBodies).toHaveLength(5)
-  expect(dataRows(screen.container)).toHaveLength(23)
+  expect(table.tBodies).toHaveLength(6)
+  expect(dataRows(screen.container)).toHaveLength(32)
   expect(table.getAttribute('aria-label')).toBe('Statistics')
   const heads = [...table.tBodies].map((body) => body.rows[0])
   for (const head of heads) {
@@ -119,7 +119,14 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
     expect(head?.cells[0]?.getAttribute('scope')).toBe('rowgroup')
     expect(head?.cells[0]?.getAttribute('colspan')).toBe('4')
   }
-  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'difficulty', 'reach', 'shape', 'generator'])
+  expect(heads.map((head) => head?.textContent)).toEqual([
+    'size',
+    'difficulty',
+    'reach',
+    'shape',
+    'generator',
+    'generator in detail',
+  ])
   const first = row(screen.container, 0)
   expect(first.cells[0]?.tagName).toBe('TH')
   expect(first.cells[0]?.getAttribute('scope')).toBe('row')
@@ -131,6 +138,7 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
     'zasięg',
     'kształt',
     'generator',
+    'generator w szczegółach',
   ])
 })
 
@@ -158,19 +166,19 @@ test('the first result has nothing to compare with', async () => {
   for (const cell of stats(screen.container).querySelectorAll('.fw-delta')) expect(cell.textContent).toBe('')
 })
 
-// Compared by row index against the result shown before. Pieces is neutral:
-// its sign and nothing else. Longest is `better: 1`, and it fell.
+// Compared by row index against the result shown before. The colour is the
+// direction alone: pieces rose (8 → 13), longest fell (18 → 17).
 test('the second result is compared with the first, row by row', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   const pieces = row(screen.container, 1).cells[2]
   const longest = row(screen.container, 3).cells[2]
-  expect(pieces?.textContent).toBe('+5.0')
-  expect(pieces?.className).toBe('fw-delta neutral')
-  expect(longest?.textContent).toBe('−1.0 worse')
-  expect(longest?.className).toBe('fw-delta worse')
-  expect(longest?.querySelector('.fw-vh')?.textContent).toBe(' worse')
+  expect(pieces?.textContent).toBe('+5.0 up')
+  expect(pieces?.className).toBe('fw-delta up')
+  expect(longest?.textContent).toBe('−1.0 down')
+  expect(longest?.className).toBe('fw-delta down')
+  expect(longest?.querySelector('.fw-vh')?.textContent).toBe(' down')
 })
 
 // Rendering never moves the baseline, so a language switch rebuilds both
@@ -181,8 +189,8 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect(labelOf(row(screen.container, 1))).toBe('strzałki')
-  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0')
-  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
+  expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0 wzrost')
+  expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 spadek')
 })
 
 // f0 is row 5, on screen and not repeated by the summary.
@@ -274,7 +282,7 @@ test("the longest arrows' explanation is closed until its ? opens it", async () 
   expect(help?.textContent).toMatch(/^Reach = /)
 })
 
-const TOKEN = { better: '--ok', worse: '--error', neutral: '--ash' } as const
+const TOKEN = { up: '--ok', down: '--error' } as const
 
 /** What a token computes to, read off a throw-away node rather than parsed from the stylesheet. */
 function tokenColour(token: string): string {
@@ -288,9 +296,9 @@ function tokenColour(token: string): string {
 
 /**
  * Checks a delta cell's kind, that it wears its own token (a contrast check
- * alone passes a worse cell left at `--ash`), and that it reads at AA.
+ * alone passes a cell left at the default `--ash`), and that it reads at AA.
  */
-function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'worse' | 'neutral') {
+function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'up' | 'down') {
   if (cell === undefined) throw new Error('a delta cell is missing')
   expect(cell.className).toBe(`fw-delta ${kind}`)
   expect(getComputedStyle(cell).color, kind).toBe(tokenColour(TOKEN[kind]))
@@ -299,7 +307,7 @@ function readsAtAA(cell: HTMLTableCellElement | undefined, kind: 'better' | 'wor
 }
 
 /** The first delta cell of a kind the eye can see: summary rows leave the table. */
-function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'): HTMLTableCellElement {
+function shownDelta(container: HTMLElement, kind: 'up' | 'down'): HTMLTableCellElement {
   const found = dataRows(container)
     .filter((tr) => getComputedStyle(tr).display !== 'none')
     .map((tr) => tr.cells[2])
@@ -308,17 +316,14 @@ function shownDelta(container: HTMLElement, kind: 'better' | 'worse' | 'neutral'
   return found
 }
 
-// Worse `--error`, neutral `--ash`, better `--ok` (6.6:1), on `--graphite`.
-// Measured on rows still on screen, at the moment each class is on the cell:
-// React keeps the `<td>` across results, so an earlier read would be stale.
+// Down `--error`, up `--ok` (6.6:1), on `--graphite`, measured on rows still
+// on screen: after ONE then TWO, free at start rose and average length fell.
 test('every kind of delta reads at AA', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
-  readsAtAA(shownDelta(screen.container, 'worse'), 'worse')
-  readsAtAA(shownDelta(screen.container, 'neutral'), 'neutral')
-  await act(async () => finish(ONE))
-  readsAtAA(shownDelta(screen.container, 'better'), 'better')
+  readsAtAA(shownDelta(screen.container, 'down'), 'down')
+  readsAtAA(shownDelta(screen.container, 'up'), 'up')
 })
 
 // Four figures over the table (pieces, longest, depth, time): each its number, its
@@ -328,9 +333,7 @@ test('the summary puts four figures over the table, term before number in the ma
   await act(async () => finish(ONE))
   const list = summary(screen.container)
   const cap = screen.container.querySelector('p.fw-rsum-cap')
-  expect(cap?.textContent).toBe(
-    "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
-  )
+  expect(cap?.textContent).toBe("vs. the previous board: green = up, red = down; a row's ? says what a change means")
   expect(list.getAttribute('aria-describedby')).toBe(cap?.id)
   expect(cap?.id).not.toBe('')
   expect([...list.children].map((box) => box.firstElementChild?.tagName)).toEqual(['DT', 'DT', 'DT', 'DT'])
@@ -342,7 +345,7 @@ test('the summary puts four figures over the table, term before number in the ma
   ])
   expect(figure(screen.container, 0).value.textContent).toBe(row(screen.container, 1).cells[1]?.textContent)
   expect(figure(screen.container, 1).value.textContent).toBe('18')
-  expect(figure(screen.container, 2).value.textContent).toBe(row(screen.container, 7).cells[1]?.textContent)
+  expect(figure(screen.container, 2).value.textContent).toBe(row(screen.container, 8).cells[1]?.textContent)
   expect(figure(screen.container, 3).value.textContent).toMatch(/^\d+\.\d\d s$/)
   // Number, term, change, top to bottom on screen, whatever the markup's order.
   const { term, value, change } = figure(screen.container, 0)
@@ -363,27 +366,27 @@ test('the summary keeps what the rows it hides used to say', async () => {
   await act(async () => finish(ONE))
   expect(figure(screen.container, 2).term.querySelector('abbr')).toBeNull()
   expect(figure(screen.container, 1).value.title).toBe(row(screen.container, 3).cells[1]?.textContent)
-  expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 22).cells[1]?.textContent)
+  expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 26).cells[1]?.textContent)
   expect(figure(screen.container, 0).value.title).toBe('')
 })
 
-// The same `reportDelta` as the table, so the colour follows the row's
-// `better`, never the sign; time reports no change at all.
+// The same `reportDelta` as the table: the colour is the direction; time
+// reports no change at all.
 test('the summary compares with the previous run as the table does', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   const pieces = figure(screen.container, 0).change
   const longest = figure(screen.container, 1).change
-  expect(pieces.textContent).toBe('+5.0')
-  expect(pieces.className).toBe('neutral')
-  expect(longest.textContent).toBe('−1.0 worse')
-  expect(longest.className).toBe('worse')
+  expect(pieces.textContent).toBe('+5.0 up')
+  expect(pieces.className).toBe('up')
+  expect(longest.textContent).toBe('−1.0 down')
+  expect(longest.className).toBe('down')
   expect(getComputedStyle(longest).color).toBe(tokenColour('--error'))
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
   expect(figure(screen.container, 3).change.className).toBe('none')
   await act(async () => finish(ONE))
-  expect(longest.className).toBe('better')
+  expect(longest.className).toBe('up')
   expect(getComputedStyle(longest).color).toBe(tokenColour('--ok'))
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
 })
@@ -422,7 +425,7 @@ test('the rows the summary repeats leave the table, and only those', async () =>
     .filter(([, display]) => display === 'none')
     .map(([at]) => at)
   // pieces, longest, D, time
-  expect(hidden).toEqual([1, 3, 7, 22])
+  expect(hidden).toEqual([1, 3, 8, 26])
 })
 
 // A value wider than a number stays on its label's line, and a row with no
@@ -434,8 +437,9 @@ test('wide values are chosen by the row, and a row without a change widens its v
     .map((tr, at) => [at, tr.classList.contains('long')] as const)
     .filter(([, is]) => is)
     .map(([at]) => at)
-  // board, longest, lengths, blocking distance, stopped short, merged leftovers, time
-  expect(long).toEqual([0, 3, 4, 14, 19, 20, 22])
+  // board, longest, lengths, blocking distance, stopped short, merged leftovers, time,
+  // tail reworks, what stopped them, shortened
+  expect(long).toEqual([0, 3, 4, 15, 23, 24, 26, 27, 28, 31])
   expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
   expect(getComputedStyle(row(screen.container, 0).cells[2] as HTMLElement).display).toBe('none')
   await act(async () => finish(TWO))
@@ -452,9 +456,11 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
   await act(async () => finish(TWO))
   for (const lang of ['en', 'pl'] as const) {
     await act(async () => useStore.getState().lang.setLang(lang))
-    // The longest sentence in either language (stall), open: it wraps inside its own cell.
-    const stall = row(screen.container, 19).cells[0]?.querySelector('button.q')
-    if (stall?.getAttribute('aria-expanded') === 'false') await act(async () => (stall as HTMLButtonElement).click())
+    // The longest sentences, open: stall in English, tail reworks in Polish.
+    for (const at of [23, 27]) {
+      const q = row(screen.container, at).cells[0]?.querySelector('button.q')
+      if (q?.getAttribute('aria-expanded') === 'false') await act(async () => (q as HTMLButtonElement).click())
+    }
     for (const tr of stats(screen.container).rows)
       expect(tr.scrollWidth, `${lang}: ${tr.textContent}`).toBeLessThanOrEqual(tr.clientWidth)
     for (const box of summary(screen.container).children) {
@@ -515,7 +521,7 @@ test('on the saved boards the report describes the open board from its stored fi
   ])
   expect(rows[0]?.[1]).toBe(`${meta.W} × ${meta.H} = 64 cells, seed ${meta.seed}`)
   expect(rows[1]?.[1]).toBe(String(meta.pieces))
-  // The 23 rows of a run are not invented for a board that has no run.
+  // The rows of a run are not invented for a board that has no run.
   expect(stats(screen.container).rows).toHaveLength(6)
   // The same grid as a run's table, without its summary or groups.
   expect(screen.container.querySelector('.fw-rsum')).toBeNull()

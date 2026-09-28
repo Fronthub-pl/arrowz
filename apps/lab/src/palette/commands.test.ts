@@ -2,6 +2,7 @@ import { PARAM_SPEC } from '@arrowz/engine'
 import { dictionary } from '@arrowz/engine/i18n'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useStore } from '../state/store'
+import { PALETTE_CAP } from '../state/view.slice'
 import type { RunControl } from '../run/useRun'
 import { buildCommands, type CommandDeps, type CommandSection, matchCommands } from './commands'
 
@@ -135,6 +136,59 @@ describe('the catalogue', () => {
     const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
     expect(rows.length).toBe(26)
     expect(rows[0]?.note.length).toBeGreaterThan(0)
+  })
+
+  it('reaches every colour and element field of the Preview panel, in its order', () => {
+    const ids = buildCommands(deps(), useStore.getState())
+      .filter((row) => row.section === 'knob')
+      .map((row) => row.id)
+    const look = [
+      'view-pad',
+      'view-pointColor',
+      'view-pointRadius',
+      'view-theme',
+      'view-paper',
+      'view-ink',
+      'view-highlightColor',
+      'view-palette',
+    ]
+    expect(ids.filter((id) => look.includes(id))).toEqual(look)
+  })
+
+  it('words an unset colour, an empty palette and no theme, and finds a field by its CLI flag', () => {
+    const before = useStore.getState().view
+    useStore.getState().view.apply({ theme: '', palette: [], paper: '', ink: '#112233' })
+    try {
+      const en = dictionary('en')
+      const rows = buildCommands(deps(), useStore.getState())
+      const value = (id: string) => rows.find((row) => row.id === id)?.value
+      expect(value('view-theme')).toBe(en.t('viewThemeNone'))
+      expect(value('view-palette')).toBe(en.t('paletteCount', 0, 8))
+      expect(value('view-paper')).toBe(en.t('valueNotSet'))
+      expect(value('view-ink')).toBe('#112233')
+      expect(matchCommands(rows, '--highlight-color').map((row) => row.id)).toContain('view-highlightColor')
+      expect(matchCommands(rows, '--pad').map((row) => row.id)).toContain('view-pad')
+    } finally {
+      useStore
+        .getState()
+        .view.apply({ theme: before.theme, palette: before.palette, paper: before.paper, ink: before.ink })
+    }
+  })
+
+  it('sends a full palette to its first colour, since the add button is disabled there', () => {
+    const before = useStore.getState().view.palette
+    useStore.getState().view.setPalette(Array.from({ length: PALETTE_CAP }, () => '#112233'))
+    try {
+      const focused: (string | null)[] = []
+      const unsubscribe = useStore.subscribe((state) => focused.push(state.ui.focusTarget))
+      buildCommands(deps(), useStore.getState())
+        .find((row) => row.id === 'view-palette')
+        ?.run()
+      unsubscribe()
+      expect(focused.at(-1)).toBe('view-palette-0')
+    } finally {
+      useStore.getState().view.setPalette(before)
+    }
   })
 })
 

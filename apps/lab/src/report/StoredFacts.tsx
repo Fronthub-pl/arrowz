@@ -7,7 +7,7 @@ import { rowClass } from './StatsTable'
 
 /**
  * The report of a stored board: what the store keeps beside it, in the
- * statistics table's form and words. Not the 23 rows of a run: those are read
+ * statistics table's form and words. Not the rows of a run: those are read
  * off the carver and its metrics, which a stored board does not carry
  * (`StoredBoard` is deliberately no `ShownResult`), and inventing them is what
  * that type exists to prevent. A figure the writer did not have reads as a
