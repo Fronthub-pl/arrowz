@@ -585,3 +585,12 @@ Deno.test('the not-filled line names the open starts only when the run counted t
     'Nie udało się wypełnić planszy: w najlepszym razie 12 komórek zostało pustych, w 3 łatkach (największa 7). Wtedy nowa strzałka mogła jeszcze zacząć się w 4 ze 150 miejsc. Spróbuj innego ziarna albo większej prostości.',
   )
 })
+
+Deno.test('the command row and every parser problem have words in both languages', () => {
+  assertEquals(EN.ui.argOutside('--width=2000', 4, 1000), '--width=2000 is outside 4..1000')
+  assertEquals(PL.ui.argOutside('--width=2000', 4, 1000), '--width=2000 jest poza zakresem 4..1000')
+  assertEquals(PL.ui.argRetiredUse('--stroke=0.4', '--line'), '--stroke=0.4 już nie istnieje; użyj --line')
+  assertEquals(PL.ui.cmdProblems(1), '1 problem')
+  assertEquals(PL.ui.cmdProblems(3), '3 problemy')
+  assertEquals(PL.ui.cmdProblems(5), '5 problemów')
+})
