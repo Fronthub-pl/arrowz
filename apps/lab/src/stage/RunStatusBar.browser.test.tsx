@@ -272,7 +272,7 @@ describe('RunStatusBar while a carve reports', () => {
     })
     await expect
       .element(screen.getByRole('status'))
-      .toHaveTextContent('41.3% · 52 pieces · 734 left · backtracks 18 · 1.4 s')
+      .toHaveTextContent('41.3% · 52 arrows · 734 left · backtracks 18 · 1.4 s')
   })
 
   // The decimals follow the language, as Generate's label and the line do.
@@ -286,7 +286,7 @@ describe('RunStatusBar while a carve reports', () => {
       })
       await expect
         .element(screen.getByRole('status'))
-        .toHaveTextContent('41,3% · 52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+        .toHaveTextContent('41,3% · 52 strz. · zostało 734 · nawroty 18 · 1,4 s')
     } finally {
       useStore.getState().lang.setLang('en')
     }
@@ -330,7 +330,7 @@ describe('the lines the columns show', () => {
       useStore.getState().run.started(useStore.getState().params.values)
       useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     })
-    await expect.element(screen.getByRole('status')).toMatchTextContent(/^Board closed 100%\./)
+    await expect.element(screen.getByRole('status')).toMatchTextContent(/^Board complete: every cell filled\./)
     expect(line('run')?.textContent).toBe(screen.getByRole('status').element().textContent)
     expect(line('run')?.getAttribute('data-bad')).toBe('false')
     expect(line('library')).toBeNull()
@@ -342,7 +342,7 @@ describe('the lines the columns show', () => {
       useStore.getState().run.started(useStore.getState().params.values)
       useStore.getState().run.progressed(PROGRESS)
     })
-    expect(line('run')?.textContent).toBe('52 pieces · 734 left · backtracks 18 · 1.4 s')
+    expect(line('run')?.textContent).toBe('52 arrows · 734 left · backtracks 18 · 1.4 s')
   })
 
   it('mark the refusal and a failed run as bad', async () => {

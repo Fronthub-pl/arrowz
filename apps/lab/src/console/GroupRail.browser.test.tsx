@@ -17,7 +17,7 @@ test('the rail is a vertical tablist with the six groups and the preview entry',
     .toHaveAttribute('aria-orientation', 'vertical')
   // Exact names, not substrings: `/board/` also matches "Saved boards" once
   // this rail sits in the real shell beside the route tabs.
-  for (const name of ['board', 'lengths', 'shape', 'difficulty', 'skeleton', 'closing']) {
+  for (const name of ['board', 'lengths', 'shape', 'difficulty', 'skeleton', 'when stuck']) {
     await expect.element(screen.getByRole('tab', { name, exact: true })).toBeVisible()
   }
   await expect.element(screen.getByRole('tab', { name: 'Preview', exact: true })).toBeVisible()

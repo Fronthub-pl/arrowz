@@ -339,7 +339,7 @@ describe('Generate as the meter', () => {
       await expect
         .element(screen.getByRole('progressbar', { name: 'Postęp generowania' }))
         .toHaveAttribute('aria-valuetext', '41,3%')
-      expect(stateLine(screen.container).textContent).toBe('52 elem. · zostało 734 · nawroty 18 · 1,4 s')
+      expect(stateLine(screen.container).textContent).toBe('52 strz. · zostało 734 · nawroty 18 · 1,4 s')
     } finally {
       useStore.getState().lang.setLang('en')
     }
@@ -368,7 +368,7 @@ describe('the state line under Generate', () => {
       useStore.getState().run.progressed(PROGRESS)
     })
     const line = stateLine(screen.container)
-    expect(line.textContent).toBe('52 pieces · 734 left · backtracks 18 · 1.4 s')
+    expect(line.textContent).toBe('52 arrows · 734 left · backtracks 18 · 1.4 s')
     // Hidden from assistive technology: the live output says it (RunStatusBar).
     expect(line.getAttribute('aria-hidden')).toBe('true')
     // It sits between Generate and the alternatives.
@@ -382,7 +382,7 @@ describe('the state line under Generate', () => {
       useStore.getState().run.started(useStore.getState().params.values)
       useStore.getState().completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     })
-    await expect.poll(() => stateLine(screen.container).textContent).toMatch(/^Board closed 100%\./)
+    await expect.poll(() => stateLine(screen.container).textContent).toMatch(/^Board complete: every cell filled\./)
     expect(stateLine(screen.container).classList.contains('bad')).toBe(false)
   })
 

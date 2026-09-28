@@ -67,7 +67,7 @@ test('a tab per size carries its count, and the rows carry what the store knows'
   expect(rows).toHaveLength(2)
   const meta = sizes[0]?.boards[0]
   if (meta === undefined) throw new Error('the fixture has no board')
-  expect(rows[0]?.querySelector('.meta')?.textContent).toBe(`${meta.pieces} pieces · longest ${meta.maxLen}`)
+  expect(rows[0]?.querySelector('.meta')?.textContent).toBe(`${meta.pieces} arrows · longest ${meta.maxLen}`)
   expect(rows[0]?.querySelector('.src')?.textContent).toBe(meta.source)
   // The row prints eight and four digits of the hash; the whole id is its title.
   const hex = meta.id.slice('sha256-'.length)
@@ -83,7 +83,7 @@ test('a board that did not close says so in place of its source', async () => {
   const screen = await mountPanel()
   await act(async () => useStore.getState().library.listed([{ ...size, boards: [{ ...first, ok: false }] }]))
   const src = screen.container.querySelector('.fw-brow .src')
-  expect(src?.textContent).toBe('not closed')
+  expect(src?.textContent).toBe('incomplete')
   expect(src?.classList.contains('bad')).toBe(true)
 })
 

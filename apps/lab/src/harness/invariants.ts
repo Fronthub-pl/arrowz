@@ -357,7 +357,8 @@ function sheets(root: HTMLElement, solo: boolean): Finding[] {
  * At XS every control a thumb reaches in the shell and the open sheets is 44px
  * tall to the finger: its box, or its `::before` where the drawing is smaller.
  * A knob row is smaller by design (pinned in touch.browser.test.tsx): the `?`
- * and the chips are 32 (skipped here), a select is 40.
+ * and the chips are 32 (skipped here), a select is 40. The report's `?`
+ * (StatRowView.tsx) is the same 32px control, off the knobs' grid.
  */
 function touchTargets(root: HTMLElement): Finding[] {
   if (window.innerWidth >= 768) return []
@@ -365,7 +366,7 @@ function touchTargets(root: HTMLElement): Finding[] {
   const scope = '.fw-sheetbar, .fw-top, .fw-tabrow, .fw-presets, .fw-stage > .fw-run-col, .fw-ldrawer, .fw-drawer'
   for (const node of root.querySelectorAll('button, select, a[href], [role="switch"]')) {
     if (node.closest(scope) === null || !rendered(node)) continue
-    if (node.matches('.kv-g .q, .kv-chip')) continue
+    if (node.matches('.kv-g .q, .fw-report .q, .kv-chip')) continue
     const floor = node.matches('.kv-g select') ? 40 : 44
     const own = node.getBoundingClientRect().height
     const before = Number.parseFloat(getComputedStyle(node, '::before').height)

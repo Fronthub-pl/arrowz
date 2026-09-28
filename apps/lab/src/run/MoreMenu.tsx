@@ -1,6 +1,7 @@
-import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState } from 'react'
+import { type ReactElement, type ReactNode, useId, useRef, useState } from 'react'
 import { useDictionary } from '../i18n'
 import { useBand } from '../shell/useLayoutBand'
+import { useDismiss } from '../shell/useDismiss'
 import type { Band } from '../state/band'
 
 /**
@@ -12,8 +13,7 @@ import type { Band } from '../state/band'
  * Open is remembered as the band it was opened in, so a band change reads as
  * closed with no effect writing state; a later return to that band is closed
  * too, because the band change cleared it on the way. A disclosure like the
- * preset picker: `aria-expanded` and `aria-controls`, Escape consumed in a
- * capture listener while open.
+ * preset picker: `aria-expanded` and `aria-controls`, closed by `useDismiss`.
  */
 export function MoreMenu({ children }: { children: ReactNode }): ReactElement {
   const dict = useDictionary()
@@ -31,27 +31,7 @@ export function MoreMenu({ children }: { children: ReactNode }): ReactElement {
   const button = useRef<HTMLButtonElement>(null)
   const pop = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const inside = (target: EventTarget | null) =>
-      target instanceof Node &&
-      ((pop.current?.contains(target) ?? false) || (button.current?.contains(target) ?? false))
-    const onPress = (event: PointerEvent) => {
-      if (!inside(event.target)) setOpenIn(null)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || !inside(event.target)) return
-      event.preventDefault()
-      setOpenIn(null)
-      button.current?.focus()
-    }
-    document.addEventListener('pointerdown', onPress)
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('pointerdown', onPress)
-      document.removeEventListener('keydown', onKey, true)
-    }
-  }, [open])
+  useDismiss({ open, inside: [pop, button], onClose: () => setOpenIn(null), refocus: button })
 
   return (
     <>

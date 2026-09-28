@@ -2,7 +2,7 @@
 // into the same parameters. One parser, one spelling per option: a word
 // stands in for a sentinel number, --start writes the two knobs behind it,
 // and a retired spelling is refused by name.
-import { assert, assertEquals, assertMatch, assertNotEquals } from '@std/assert'
+import { assert, assertEquals, assertMatch, assertNotEquals, assertStringIncludes } from '@std/assert'
 import {
   boardId,
   buildCommand,
@@ -504,6 +504,15 @@ Deno.test('helpText: every flag --help=knobs prints parses with the first value 
     assertEquals(errors, [], `${flag}=${value}`)
     assertEquals(validateParams(params), [], `${flag}=${value} parses into a set the envelope refuses`)
   }
+})
+
+Deno.test('the help speaks the glossary: arrows, complete boards, arrow start', () => {
+  const text = helpText({ knobs: true })
+  assertStringIncludes(text, 'arrow length, 0 = very short, 1 = very long (default 0.75)')
+  assertStringIncludes(text, 'a skeleton of very long arrows first')
+  assertStringIncludes(text, 'where an arrow starts, and the tunnel share')
+  assertStringIncludes(text, 'the board built so far is stored as incomplete')
+  assertStringIncludes(text, 'every everyday combination fills its board.')
 })
 
 Deno.test('helpText: the knob table carries every rule and says what pinning costs', () => {

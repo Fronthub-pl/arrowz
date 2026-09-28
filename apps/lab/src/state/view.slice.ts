@@ -1,72 +1,21 @@
-import {
-  DEFAULT_PAD,
-  DEFAULT_POINT_COLOR,
-  DEFAULT_POINT_RADIUS,
-  PAD_RANGE,
-  POINT_RADIUS_RANGE,
-} from '@arrowz/board-element'
 import type { View, ViewNumber } from '@arrowz/engine'
-import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
+import { viewNumberOf } from '@arrowz/engine/command'
+import { PALETTE_CAP, readPatch, VIEW_DEFAULTS, type ViewFields, type ViewKey } from './viewSchema'
+
+export { PALETTE_CAP }
 
 export type ViewFlag = 'colored' | 'rounded' | 'highlightLongest' | 'voids' | 'showPoints'
-
-/**
- * The cap is the lab's choice; the element and the engine take any number of
- * colours. Exported for the test that pins it.
- */
-export const PALETTE_CAP = 8
 
 /** What a newly added colour starts as, before the user picks one. */
 const NEW_PALETTE_COLOR = '#000000'
 
-export interface ViewState {
-  cell: number
-  stroke: number
-  headWidth: number
-  headHeight: number
-  top: number
-  colored: boolean
-  rounded: boolean
-  highlightLongest: boolean
-  voids: boolean
-  /**
-   * The point grid. Like `voids`, the element's settings, not the engine's:
-   * `viewOf` does not carry them and the CLI has no flag for them. The bounds
-   * are the element's `POINT_RADIUS_RANGE`, never copied.
-   */
-  showPoints: boolean
-  pointColor: string
-  pointRadius: number
+export interface ViewState extends ViewFields {
   setPointColor(color: string): void
   /** Commits the radius from what was typed, tolerant as `setNumber` is. */
   setPointRadius(raw: string): void
-  /** Name of a built-in board theme; '' draws the element's own colours. */
-  theme: string
-  /**
-   * The custom palette the lab's editor builds, capped at `PALETTE_CAP`. It
-   * coexists with `theme`, overriding the theme's colours; empty is the
-   * element's "no palette", which lets the theme's own palette show through.
-   */
-  palette: string[]
-  /**
-   * The board's own surface colours, or `''` for "the user has not said", which
-   * lets a chosen theme supply them. Never handed to the element as `''`: it
-   * sanitises after precedence, so a stated empty string would beat the theme
-   * and fall to the element's default, turning a dark theme light.
-   */
-  paper: string
-  ink: string
-  /** The highlight colour of the longest pieces and the jammed cells; same "not set" rule as `paper`/`ink`. */
-  highlightColor: string
   setPaper(color: string): void
   setInk(color: string): void
   setHighlightColor(color: string): void
-  /**
-   * The margin around the board, in cells: the element's `pad`, clamped to
-   * `PAD_RANGE`. No "not set" state (0 is a real margin), so it is always
-   * handed to the element.
-   */
-  pad: number
   /** Commits the margin from what was set, rounded to a whole cell; a non-finite value falls back to `DEFAULT_PAD`, as `setPointRadius` falls back for the radius. */
   setPad(n: number): void
   /** Commits a field from what was typed. Tolerant, as `viewNumberOf` is. */
@@ -76,11 +25,7 @@ export interface ViewState {
   setFlag(flag: ViewFlag, on: boolean): void
   /** Leaves the custom palette alone: each colour field overrides the theme's own. */
   setTheme(name: string): void
-  /**
-   * Replaces the whole palette, clamped to `PALETTE_CAP`. All four palette
-   * actions write through `paletteUpdate`, so none can leave the store over the
-   * cap, and none touches the theme.
-   */
+  /** Replaces the whole palette, read by `VIEW_SCHEMA.palette` (the cap, `#rrggbb`). None of the palette actions touches the theme. */
   setPalette(colors: string[]): void
   /**
    * Appends one colour (`NEW_PALETTE_COLOR`), refused silently at the cap. The
@@ -94,6 +39,8 @@ export interface ViewState {
   setPaletteColor(index: number, color: string): void
   /** Removes the colour at `index`. */
   removePaletteColor(index: number): void
+  /** Writes the fields the patch names in one update, each normalised by `VIEW_SCHEMA`; the rest stay. */
+  apply(patch: Partial<ViewFields>): void
 }
 
 type SetStore = (fn: (state: { view: ViewState }) => { view: ViewState }) => void
@@ -115,65 +62,35 @@ export function viewOf(state: ViewState): View {
   }
 }
 
-/** The cap, and only the cap: the theme supplies whatever the palette does not override. */
-function paletteUpdate(colors: string[]): Pick<ViewState, 'palette'> {
-  return { palette: colors.slice(0, PALETTE_CAP) }
-}
-
 export function createViewSlice(set: SetStore): ViewState {
   const patch = (next: Partial<ViewState>) => set((state) => ({ view: { ...state.view, ...next } }))
+  // Every setter except `setNumber` and `toggle` goes through the schema's readers.
+  const write = (raw: Partial<Record<ViewKey, unknown>>) => patch(readPatch(raw))
   return {
-    // The lab's own starting values, not DEFAULT_VIEW's:
-    // `cell` and `top` are the page's, the rest the CLI's.
-    cell: 12,
-    stroke: DEFAULT_VIEW.stroke,
-    headWidth: DEFAULT_VIEW.headWidth,
-    headHeight: DEFAULT_VIEW.headHeight,
-    top: 5,
-    colored: false,
-    rounded: true,
-    highlightLongest: false,
-    voids: true,
-    showPoints: false,
-    pointColor: DEFAULT_POINT_COLOR,
-    pointRadius: DEFAULT_POINT_RADIUS,
-    theme: '',
-    palette: [],
-    paper: '',
-    ink: '',
-    highlightColor: '',
-    pad: DEFAULT_PAD,
+    ...VIEW_DEFAULTS,
+    apply: (fields) => write(fields),
+    // `viewNumberOf`, not the schema: an emptied field falls back to the CLI's default, not the lab's start.
     setNumber: (field, raw) => patch({ [field]: viewNumberOf(raw, field) }),
     toggle: (flag) => set((state) => ({ view: { ...state.view, [flag]: !state.view[flag] } })),
-    setFlag: (flag, on) => set((state) => ({ view: { ...state.view, [flag]: on } })),
-    setPointColor: (color) => patch({ pointColor: color }),
-    setPointRadius: (raw) => {
-      const n = Number(raw)
-      // An empty or unreadable box is the default, not 0, as in `viewNumberOf`:
-      // a grid with no radius is not a setting anyone asks for by clearing the field.
-      const kept = raw.trim() === '' || !Number.isFinite(n) ? DEFAULT_POINT_RADIUS : n
-      patch({ pointRadius: Math.min(Math.max(kept, POINT_RADIUS_RANGE.min), POINT_RADIUS_RANGE.max) })
-    },
-    setTheme: (name) => patch({ theme: name }),
-    setPaper: (color) => patch({ paper: color }),
-    setInk: (color) => patch({ ink: color }),
-    setHighlightColor: (color) => patch({ highlightColor: color }),
-    setPad: (n) =>
-      patch({
-        pad: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), PAD_RANGE.min), PAD_RANGE.max) : DEFAULT_PAD,
-      }),
-    setPalette: (colors) => set((state) => ({ view: { ...state.view, ...paletteUpdate(colors) } })),
+    setFlag: (flag, on) => write({ [flag]: on }),
+    setPointColor: (color) => write({ pointColor: color }),
+    setPointRadius: (raw) => write({ pointRadius: raw }),
+    setTheme: (name) => write({ theme: name }),
+    setPaper: (color) => write({ paper: color }),
+    setInk: (color) => write({ ink: color }),
+    setHighlightColor: (color) => write({ highlightColor: color }),
+    setPad: (n) => write({ pad: n }),
+    setPalette: (colors) => write({ palette: colors }),
     addPaletteColor: () =>
       set((state) => {
-        // The cap refuses silently: `paletteUpdate` would clamp the ninth
-        // colour away again anyway, but returning early skips the no-op write.
+        // The cap refuses silently: the reader would drop the ninth colour anyway.
         if (state.view.palette.length >= PALETTE_CAP) return { view: state.view }
         // See the interface doc above: only the empty-to-one transition turns `colored` on.
         const turnColoredOn = state.view.palette.length === 0
         return {
           view: {
             ...state.view,
-            ...paletteUpdate([...state.view.palette, NEW_PALETTE_COLOR]),
+            ...readPatch({ palette: [...state.view.palette, NEW_PALETTE_COLOR] }),
             ...(turnColoredOn ? { colored: true } : {}),
           },
         }
@@ -182,14 +99,14 @@ export function createViewSlice(set: SetStore): ViewState {
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(state.view.palette.map((c, i) => (i === index ? color : c))),
+          ...readPatch({ palette: state.view.palette.map((c, i) => (i === index ? color : c)) }),
         },
       })),
     removePaletteColor: (index) =>
       set((state) => ({
         view: {
           ...state.view,
-          ...paletteUpdate(state.view.palette.filter((_, i) => i !== index)),
+          ...readPatch({ palette: state.view.palette.filter((_, i) => i !== index) }),
         },
       })),
   }

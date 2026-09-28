@@ -1,8 +1,9 @@
-import { type ReactNode, useEffect, useRef } from 'react'
+import { type ReactNode, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { TRIGGER_ID } from '../palette/CommandPalette'
 import { useStore } from '../state/store'
 import { Segmented } from './Segmented'
+import { useDismiss } from './useDismiss'
 
 export const TOP_MENU_ID = 'top-menu'
 
@@ -24,29 +25,8 @@ export function TopBar({ presets }: { presets: ReactNode }) {
   const toggleMenu = useStore((state) => state.ui.toggleMenu)
   const bar = useRef<HTMLElement>(null)
   const chip = useRef<HTMLButtonElement>(null)
-  // The menu's keys and presses, installed only while it is open, like the
-  // preset panel's: Escape in a capture listener so it is consumed before the
-  // drawers' Escape, and only for keys pressed inside the bar.
-  useEffect(() => {
-    if (!menu) return
-    const onPress = (event: PointerEvent) => {
-      if (event.target instanceof Node && bar.current?.contains(event.target)) return
-      setMenu(false)
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (!(event.target instanceof Node) || !(bar.current?.contains(event.target) ?? false)) return
-      event.preventDefault()
-      setMenu(false)
-      chip.current?.focus()
-    }
-    document.addEventListener('pointerdown', onPress)
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('pointerdown', onPress)
-      document.removeEventListener('keydown', onKey, true)
-    }
-  }, [menu, setMenu])
+  // The whole bar counts as inside: the chip toggles the menu itself.
+  useDismiss({ open: menu, inside: [bar], onClose: () => setMenu(false), refocus: chip })
   return (
     <header className="fw-top" ref={bar}>
       <svg className="mark" viewBox="0 0 20 20" aria-hidden="true" focusable="false">

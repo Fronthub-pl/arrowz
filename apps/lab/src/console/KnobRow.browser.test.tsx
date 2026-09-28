@@ -61,7 +61,7 @@ describe('the drawn track of a knob row', () => {
   it('marks a rule floor inside the track', async () => {
     const screen = await render(track(0.7))
     const floor = screen.container.querySelector('.kv-track .floor')
-    expect(floor?.getAttribute('title')).toBe('Rule bound: 0.7')
+    expect(floor?.getAttribute('title')).toBe('Minimum for this board: 0.7')
   })
 
   it('draws no marker for a floor at the track minimum', async () => {

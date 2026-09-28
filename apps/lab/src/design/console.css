@@ -218,7 +218,8 @@
   white-space: nowrap;
   color: var(--mist);
 }
-.fw .kv-g .q {
+.fw .kv-g .q,
+.fw .fw-report .q {
   flex: none;
   width: 16px;
   height: 16px;
@@ -232,7 +233,9 @@
   cursor: pointer;
 }
 .fw .kv-g .q:hover,
-.fw .kv-g .q[aria-expanded='true'] {
+.fw .kv-g .q[aria-expanded='true'],
+.fw .fw-report .q:hover,
+.fw .fw-report .q[aria-expanded='true'] {
   border-color: var(--border);
   color: var(--ink);
 }
@@ -424,6 +427,16 @@
 }
 .kv-help:not(.fw-vh) {
   padding-bottom: 8px;
+}
+/* A sentence at the end of a section, not a row: the help's type, the row's gap. */
+.kv-note {
+  max-width: 60ch;
+  margin: 0;
+  padding: 10px 0 0;
+  color: var(--ash);
+  font-size: 11px;
+  line-height: 1.6;
+  text-wrap: pretty;
 }
 /* A knob with no effect at these settings: dimmed by colour, not by opacity,
    and its reason in `--ash` rather than the bound's `--warn`. */
@@ -652,6 +665,7 @@
     padding: 0 8px;
   }
   .fw .kv-g .q,
+  .fw .fw-report .q,
   .fw .kv-chip {
     min-width: 32px;
     height: 32px;
@@ -1124,4 +1138,16 @@
 }
 .fw-simple .kv-row .fw-seg {
   justify-self: end;
+}
+/* The skeleton's two chips are wider than the one track a narrow panel
+   leaves; run past it, they cover the label's `?`. A line of their own. */
+@container (width < calc(30ch + 188px)) {
+  .fw-simple .kv-g .cc.wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 767px) {
+  .fw-simple .kv-g .cc.wide {
+    grid-column: 1 / -1;
+  }
 }

@@ -263,6 +263,15 @@
     grid-template-columns: repeat(4, 1fr);
   }
 }
+/* One line across every column, in the panel's own colours. */
+.fw-pp-cap {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--graphite);
+  color: var(--ash);
+  font-size: 11px;
+}
 /* Lines as a shadow on the columns, not the panel's background showing
    through: an empty grid cell would paint as a grey block. */
 .fw-pp-col {

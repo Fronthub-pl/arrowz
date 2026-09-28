@@ -1,9 +1,12 @@
 import { PARAM_SPEC, type ParamSpec } from '@arrowz/engine'
 import { SIMPLE_CHOICES } from '@arrowz/engine/simple'
 import type { ReactElement } from 'react'
-import { KnobLine, useKnobHelp } from '../console/KnobRow'
+import { FlagRow, SwitchRow } from '../console/rows/FlagRow'
+import { ViewNumberRow } from '../console/rows/NumberRow'
+import { RowShell, rowIds } from '../console/rows/RowShell'
+import { Section } from '../console/rows/Section'
+import { ThemeRow } from '../console/rows/ThemeRow'
 import { ValueKnob } from '../console/ValueKnob'
-import { fieldOf, Section, SwitchRow, ThemeRow, ViewNumberRow } from '../console/ViewPanel'
 import { SIMPLE_VIEW_FIELDS, SIMPLE_VIEW_FLAGS } from '../console/viewFields'
 import { useDictionary } from '../i18n'
 import type { RunControl } from '../run/useRun'
@@ -19,17 +22,22 @@ function specOf(key: 'W' | 'H' | 'seed'): ParamSpec {
   return spec
 }
 
-/** A side of the board as a knob row, showing the recipe's value and writing it there. */
+/**
+ * A side of the board as a knob row. It shows the knobs' side, which is what
+ * Generate carves even after a preset or a link moved it past the recipe. A
+ * write takes both sides into the recipe, so the other side stays as shown.
+ */
 function SizeRow({ side }: { side: RecipeSide }): ReactElement {
-  const value = useStore((state) => state.recipe.value[side])
-  const setSide = useStore((state) => state.recipe.setSide)
+  const value = useStore((state) => state.params.values[side])
+  const setSize = useStore((state) => state.recipe.setSize)
   return (
     <ValueKnob
       spec={specOf(side)}
       value={value}
       onSet={(next) => {
         // `recipeOf` clamps and rounds; the knobs follow; the debounce runs.
-        setSide(side, next)
+        const { W, H } = useStore.getState().params.values
+        setSize(side === 'W' ? next : W, side === 'H' ? next : H)
         applyRecipe(false)
       }}
     />
@@ -47,31 +55,29 @@ function SkeletonRow({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const skeleton = useStore((state) => state.recipe.value.skeleton)
   const setSkeleton = useStore((state) => state.recipe.setSkeleton)
+  const ids = rowIds('simple-skeleton')
   return (
-    <div className="kv-row">
-      <KnobLine
-        label={
-          <span className="kv-lab" id="simple-skeleton-label">
-            {dict.d.simple.skeleton}
-          </span>
-        }
-        help={null}
-        wide
-        control={
-          <Segmented
-            label={dict.d.simple.skeleton}
-            labelledBy="simple-skeleton-label"
-            value={skeleton}
-            options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
-            onChange={(next) => {
-              setSkeleton(next)
-              applyRecipe(false)
-              control.start()
-            }}
-          />
-        }
-      />
-    </div>
+    <RowShell
+      id="simple-skeleton"
+      name={dict.d.simple.skeleton}
+      helpText={dict.d.simple.skeletonHelp}
+      labelAs="span"
+      wide
+      control={
+        <Segmented
+          label={dict.d.simple.skeleton}
+          labelledBy={ids.label}
+          describedBy={ids.help}
+          value={skeleton}
+          options={SIMPLE_CHOICES.skeleton.map((value) => ({ value, label: dict.d.simple.options.skeleton[value] }))}
+          onChange={(next) => {
+            setSkeleton(next)
+            applyRecipe(false)
+            control.start()
+          }}
+        />
+      }
+    />
   )
 }
 
@@ -83,35 +89,16 @@ function RandomRow(): ReactElement {
   const dict = useDictionary()
   const random = useStore((state) => state.recipe.value.random)
   const setRandom = useStore((state) => state.recipe.setRandom)
-  const name = dict.d.simple.randomizeShort
-  const helpId = 'simple-random-help'
-  const { button, paragraph } = useKnobHelp(helpId, name, dict.d.simple.randomizeHelp)
   return (
-    <div className="kv-row" title={dict.d.simple.randomize}>
-      <KnobLine
-        label={
-          <span className="kv-lab" id="simple-random-label">
-            {name}
-          </span>
-        }
-        help={button}
-        value={<span className="kv-unit">{dict.t(random ? 'valueOn' : 'valueOff')}</span>}
-        control={
-          <button
-            type="button"
-            id="simple-random"
-            className="fw-sw"
-            role="switch"
-            aria-checked={random}
-            aria-labelledby="simple-random-label"
-            aria-describedby={helpId}
-            title={dict.d.simple.randomize}
-            onClick={() => setRandom(!random)}
-          />
-        }
-      />
-      {paragraph}
-    </div>
+    <FlagRow
+      id="simple-random"
+      name={dict.d.simple.randomizeShort}
+      title={dict.d.simple.randomize}
+      help={dict.d.simple.randomizeHelp}
+      on={random}
+      onToggle={() => setRandom(!random)}
+      buttonTitle={dict.d.simple.randomize}
+    />
   )
 }
 
@@ -142,10 +129,13 @@ export function SimplePanel({ control }: { control: RunControl }): ReactElement 
           <SkeletonRow control={control} />
           <SeedRow />
           <RandomRow />
+          <p className="kv-note" id="simple-harder">
+            {dict.d.simple.harder}
+          </p>
         </Section>
         <Section id="simple-sec-preview" title={dict.t('preview')}>
           {SIMPLE_VIEW_FIELDS.map((field) => (
-            <ViewNumberRow key={field} field={fieldOf(field)} />
+            <ViewNumberRow key={field} field={field} />
           ))}
           {SIMPLE_VIEW_FLAGS.map((flag) => (
             <SwitchRow key={flag} flag={flag} />

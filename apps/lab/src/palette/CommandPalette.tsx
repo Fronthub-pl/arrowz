@@ -216,9 +216,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
           <span>
             <b>esc</b> {dict.t('cmdHintClose')}
           </span>
-          {/* ⌘K opens the palette on every route, but `useRunKeys` and
-              `useDrawerKeys` are bound on the workspace only, so under
-              `/docs/*` these hints would promise keys that do nothing. */}
+          {/* ⌘K opens the palette on every route, but `useWorkspaceKeys` is
+              bound on the workspace only, so under `/docs/*` these hints
+              would promise keys that do nothing. */}
           {onWorkspace ? (
             <>
               <span>

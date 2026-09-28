@@ -1,6 +1,7 @@
 import { type BoardData, longestSummary } from '@arrowz/engine'
 import { pct } from '@arrowz/engine/report'
 import { type ReactElement, useMemo } from 'react'
+import { useKnobHelp } from '../console/KnobRow'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 
@@ -17,11 +18,15 @@ export function LongestTable({ board, stored = false }: { board: BoardData; stor
   const dict = useDictionary()
   const top = useStore((state) => (stored || state.view.highlightLongest ? state.view.top : 0))
   const longest = useMemo(() => longestSummary(board, top), [board, top])
+  const { button, paragraph } = useKnobHelp('longest-help', dict.t('longestName'), dict.t('longestHelp'))
   if (longest.length === 0) return null
   return (
     <>
-      <h2 id="longest-head">{dict.t('longestHead', longest.length)}</h2>
-      <p>{dict.t('longestHelp')}</p>
+      <div className="fw-longest-hd">
+        <h2 id="longest-head">{dict.t('longestHead', longest.length)}</h2>
+        {button}
+      </div>
+      {paragraph}
       <table className="fw-longest" aria-labelledby="longest-head">
         <thead>
           <tr>

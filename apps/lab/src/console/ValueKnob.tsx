@@ -1,11 +1,11 @@
 import type { InactiveKey, ParamSpec } from '@arrowz/engine'
 import { wordFor } from '@arrowz/engine/command'
-import { useEffect, useRef } from 'react'
 import { useDictionary } from '../i18n'
 import { useStore } from '../state/store'
 import { DraftNumber } from './DraftNumber'
-import { descId } from './FieldHelp'
-import { endText, KnobLine, KnobTrack, rowState, rowTitle, useKnobHelp } from './KnobRow'
+import { endText, KnobTrack, rowState, rowTitle } from './KnobRow'
+import { RowShell, rowIds } from './rows/RowShell'
+import { useReleasableChip } from './rows/useReleasableChip'
 import { boundOn } from './track'
 import { RELEASE_TO, UNIT_OF } from './knobLayout'
 
@@ -53,87 +53,82 @@ export function ValueKnob({
   // `--lmax=auto`, `--giantstep=random` — so it gets the minimum's track as a
   // chip. `maxBack`'s `auto` is 200, mid-track, and stays a number.
   const special = wordFor(spec.key, bounds.min)
+  const specialText = special === null ? null : dict.choiceText(spec.key, special)
   const isSpecial = special !== null && value === bounds.min
   // Where a released chip goes: the last value this row held, else the
-  // default, else `RELEASE_TO`, else one step up. Recorded after
-  // the render, not during it.
-  const last = useRef<number | null>(null)
-  useEffect(() => {
-    if (!isSpecial) last.current = value
-  }, [value, isSpecial])
-  const release = () => {
-    const fallback = spec.def !== bounds.min ? spec.def : (RELEASE_TO[spec.key] ?? bounds.min + spec.step)
-    write(last.current ?? fallback)
-  }
+  // default, else `RELEASE_TO`, else one step up.
+  const release = useReleasableChip(value, isSpecial, () =>
+    spec.def !== bounds.min ? spec.def : (RELEASE_TO[spec.key] ?? bounds.min + spec.step),
+  )
   const bound = boundOn(floor, bounds)
   const { text, off } = rowState(dict, { broken, inactive, bound, blockReason })
-  const whyId = `knob-${spec.key}-why`
-  const describedBy = `${whyId} ${descId(spec.key)}`
+  const id = `knob-${spec.key}`
+  const ids = rowIds(id)
+  const describedBy = `${ids.why} ${ids.help}`
   const unit = UNIT_OF[spec.key]
-  const { button, paragraph } = useKnobHelp(descId(spec.key), name, help)
 
   return (
-    <div className={`kv-row${broken ? ' bad' : ''}${off ? ' off' : ''}`} title={rowTitle(dict, label, bounds)}>
-      <KnobLine
-        label={
-          <label className="kv-lab" htmlFor={`knob-${spec.key}`}>
-            {name}
-          </label>
-        }
-        help={button}
-        value={
-          <span className="kv-val">
-            <DraftNumber
-              label={name}
-              value={value}
-              word={isSpecial ? special : null}
-              wordOnly
-              className="kv-num"
-              describedBy={describedBy}
-              decimal={!Number.isInteger(spec.step)}
-              // Held inside the *passed* bounds first: the mix row's own range
-              // is narrower than the knob's, and only it knows that.
-              onCommit={(typed) => write(Math.min(bounds.max, Math.max(bounds.min, typed)))}
-            />
-            <span className="kv-unit">{isSpecial || unit === undefined ? '' : dict.d.units[unit]}</span>
-          </span>
-        }
-        min={
-          special === null ? (
-            <span className="kv-end">{endText(dict, bounds.min)}</span>
-          ) : (
-            <button
-              type="button"
-              className="kv-chip"
-              aria-pressed={isSpecial}
-              // Not `${name}: ${special}`: that is the value button's name
-              // while the knob holds the special value, and two buttons of
-              // one name are one button to a screen reader.
-              aria-label={`${special} (${name})`}
-              onClick={() => (isSpecial ? release() : write(bounds.min))}
-            >
-              {special}
-            </button>
-          )
-        }
-        control={
-          <KnobTrack
-            id={`knob-${spec.key}`}
+    <RowShell
+      id={id}
+      name={name}
+      helpText={help}
+      labelAs="for"
+      title={rowTitle(dict, label, bounds)}
+      bad={broken !== undefined}
+      off={off}
+      value={
+        <span className="kv-val">
+          <DraftNumber
+            label={name}
             value={value}
-            bounds={bounds}
-            step={spec.step}
-            floor={floor}
-            word={word}
+            word={isSpecial ? specialText : null}
+            wordOnly
+            className="kv-num"
             describedBy={describedBy}
-            onCommit={(next) => write(next)}
+            decimal={!Number.isInteger(spec.step)}
+            // Held inside the *passed* bounds first: the mix row's own range
+            // is narrower than the knob's, and only it knows that.
+            onCommit={(typed) => write(Math.min(bounds.max, Math.max(bounds.min, typed)))}
           />
-        }
-        max={<span className="kv-end">{endText(dict, bounds.max)}</span>}
-      />
-      <p className="kv-why" id={whyId} data-testid={whyId}>
-        {text}
-      </p>
-      {paragraph}
-    </div>
+          <span className="kv-unit">{isSpecial || unit === undefined ? '' : dict.d.units[unit]}</span>
+        </span>
+      }
+      min={
+        special === null ? (
+          <span className="kv-end">{endText(dict, bounds.min)}</span>
+        ) : (
+          <button
+            type="button"
+            className="kv-chip"
+            aria-pressed={isSpecial}
+            // Not `${name}: ${special}`: that is the value button's name
+            // while the knob holds the special value, and two buttons of
+            // one name are one button to a screen reader.
+            aria-label={`${specialText} (${name})`}
+            onClick={() => write(isSpecial ? release() : bounds.min)}
+          >
+            {specialText}
+          </button>
+        )
+      }
+      control={
+        <KnobTrack
+          id={id}
+          value={value}
+          bounds={bounds}
+          step={spec.step}
+          floor={floor}
+          word={word}
+          describedBy={describedBy}
+          onCommit={(next) => write(next)}
+        />
+      }
+      max={<span className="kv-end">{endText(dict, bounds.max)}</span>}
+      after={
+        <p className="kv-why" id={ids.why} data-testid={ids.why}>
+          {text}
+        </p>
+      }
+    />
   )
 }

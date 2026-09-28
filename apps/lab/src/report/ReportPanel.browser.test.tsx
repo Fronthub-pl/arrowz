@@ -62,6 +62,11 @@ function row(container: HTMLElement, at: number): HTMLTableRowElement {
   return found
 }
 
+/** A row's label, without its `?`. */
+function labelOf(tr: HTMLTableRowElement | undefined): string | null | undefined {
+  return tr?.cells[0]?.querySelector('.st-lab')?.textContent
+}
+
 /** The summary over the table, or a failure. */
 function summary(container: HTMLElement): HTMLDListElement {
   const found = container.querySelector('dl.fw-rsum')
@@ -112,9 +117,9 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
     expect(head?.cells).toHaveLength(1)
     expect(head?.cells[0]?.tagName).toBe('TH')
     expect(head?.cells[0]?.getAttribute('scope')).toBe('rowgroup')
-    expect(head?.cells[0]?.getAttribute('colspan')).toBe('3')
+    expect(head?.cells[0]?.getAttribute('colspan')).toBe('4')
   }
-  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'blocking', 'reach', 'shape', 'run'])
+  expect(heads.map((head) => head?.textContent)).toEqual(['size', 'difficulty', 'reach', 'shape', 'generator'])
   const first = row(screen.container, 0)
   expect(first.cells[0]?.tagName).toBe('TH')
   expect(first.cells[0]?.getAttribute('scope')).toBe('row')
@@ -122,10 +127,10 @@ test('twenty-three rows in five named groups, labelled by row headers', async ()
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect([...table.tBodies].map((body) => body.rows[0]?.textContent)).toEqual([
     'rozmiar',
-    'blokowanie',
+    'trudność',
     'zasięg',
     'kształt',
-    'przebieg',
+    'generator',
   ])
 })
 
@@ -175,9 +180,47 @@ test('a language switch keeps every delta', async () => {
   await act(async () => finish(ONE))
   await act(async () => finish(TWO))
   await act(async () => useStore.getState().lang.setLang('pl'))
-  expect(row(screen.container, 1).cells[0]?.textContent).toBe('elementów')
+  expect(labelOf(row(screen.container, 1))).toBe('strzałki')
   expect(row(screen.container, 1).cells[2]?.textContent).toBe('+5.0')
   expect(row(screen.container, 3).cells[2]?.textContent).toBe('−1.0 gorzej')
+})
+
+// f0 is row 5, on screen and not repeated by the summary.
+test("a row's ? opens its sentence under it, and closes it", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const f0 = row(screen.container, 5)
+  const button = f0.cells[0]?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('f0 has no ?')
+  expect(button.getAttribute('aria-label')).toBe('About free at start')
+  expect(button.getAttribute('aria-expanded')).toBe('false')
+  const help = document.getElementById(button.getAttribute('aria-controls') ?? '')
+  expect(help?.textContent).toBe('Arrows you can remove on the very first move. Lower = harder.')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  expect(f0.getBoundingClientRect().height).toBe(34)
+  await act(async () => button.click())
+  expect(button.getAttribute('aria-expanded')).toBe('true')
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(help?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    f0.cells[0]?.getBoundingClientRect().bottom ?? Infinity,
+  )
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+})
+
+test('an open help follows the language and a new result, on the same row', async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const button = () => row(screen.container, 5).cells[0]?.querySelector('button.q')
+  await act(async () => (button() as HTMLButtonElement).click())
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(button()?.getAttribute('aria-expanded')).toBe('true')
+  expect(row(screen.container, 5).querySelector('.st-help p')?.textContent).toBe(
+    'Strzałki, które można zdjąć w pierwszym ruchu. Mniej = trudniej.',
+  )
+  await act(async () => finish(TWO))
+  expect(button()?.getAttribute('aria-expanded')).toBe('true')
+  expect(row(screen.container, 6).cells[0]?.querySelector('button.q')?.getAttribute('aria-expanded')).toBe('false')
 })
 
 // No statistics, but the longest pieces are the board's and stay.
@@ -194,7 +237,7 @@ test('the longest pieces follow the highlight count, and go with the highlight',
   await act(async () => finish(ONE))
   const longest = () => screen.container.querySelector('table.fw-longest')
   expect(longest()?.querySelectorAll('tbody tr')).toHaveLength(5)
-  expect(screen.container.querySelector('#longest-head')?.textContent).toBe('5 longest')
+  expect(screen.container.querySelector('#longest-head')?.textContent).toBe('The 5 longest arrows')
   await act(async () => useStore.getState().view.setNumber('top', '3'))
   expect(longest()?.querySelectorAll('tbody tr')).toHaveLength(3)
   await act(async () => useStore.getState().view.setFlag('highlightLongest', false))
@@ -211,6 +254,24 @@ test('the longest-pieces heading keeps the report voice after the level change',
   const style = getComputedStyle(head)
   expect(style.fontSize).toBe('11px')
   expect(style.textTransform).toBe('uppercase')
+})
+
+test("the longest arrows' explanation is closed until its ? opens it", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const head = longestHead(screen.container)
+  expect(head.textContent).toBe('The 5 longest arrows')
+  const button = head.parentElement?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('the longest arrows have no ?')
+  expect(button.getAttribute('aria-label')).toBe('About the longest arrows')
+  // Centred on the heading's text, not on its margin box.
+  const mid = (el: Element) => el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2
+  expect(Math.abs(mid(button) - mid(head))).toBeLessThanOrEqual(1)
+  const help = document.getElementById('longest-help')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect(help?.textContent).toMatch(/^Reach = /)
 })
 
 const TOKEN = { better: '--ok', worse: '--error', neutral: '--ash' } as const
@@ -260,21 +321,23 @@ test('every kind of delta reads at AA', async () => {
   readsAtAA(shownDelta(screen.container, 'better'), 'better')
 })
 
-// Four figures over the table (pieces, longest, D, time): each its number, its
+// Four figures over the table (pieces, longest, depth, time): each its number, its
 // term, then its change, and the caption says against what.
 test('the summary puts four figures over the table, term before number in the markup', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
   const list = summary(screen.container)
   const cap = screen.container.querySelector('p.fw-rsum-cap')
-  expect(cap?.textContent).toBe('change against the previous run')
+  expect(cap?.textContent).toBe(
+    "vs. the previous board: green = better, red = worse; a row's ? says which way is better",
+  )
   expect(list.getAttribute('aria-describedby')).toBe(cap?.id)
   expect(cap?.id).not.toBe('')
   expect([...list.children].map((box) => box.firstElementChild?.tagName)).toEqual(['DT', 'DT', 'DT', 'DT'])
   expect([0, 1, 2, 3].map((at) => figure(screen.container, at).term.textContent)).toEqual([
-    'pieces',
+    'arrows',
     'longest',
-    'D',
+    'depth',
     'time',
   ])
   expect(figure(screen.container, 0).value.textContent).toBe(row(screen.container, 1).cells[1]?.textContent)
@@ -293,14 +356,12 @@ test('the summary puts four figures over the table, term before number in the ma
   }
 })
 
-// What the hidden rows said stays reachable: the full name of D and the whole
-// value of longest and time, in their titles.
+// What the hidden rows said stays reachable: the whole value of longest and
+// time, in their titles; depth is named in words, so it needs no title.
 test('the summary keeps what the rows it hides used to say', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
-  const abbr = figure(screen.container, 2).term.querySelector('abbr')
-  expect(abbr?.textContent).toBe('D')
-  expect(abbr?.getAttribute('title')).toBe('D (blocking depth)')
+  expect(figure(screen.container, 2).term.querySelector('abbr')).toBeNull()
   expect(figure(screen.container, 1).value.title).toBe(row(screen.container, 3).cells[1]?.textContent)
   expect(figure(screen.container, 3).value.title).toBe(row(screen.container, 22).cells[1]?.textContent)
   expect(figure(screen.container, 0).value.title).toBe('')
@@ -327,6 +388,31 @@ test('the summary compares with the previous run as the table does', async () =>
   expect(contrast(shown(longest).front, shown(longest).back)).toBeGreaterThanOrEqual(4.5)
 })
 
+// The summary's rows leave the table, so the summary is where their help lives.
+test("the summary's ? opens the four figures' sentences under them", async () => {
+  const screen = await mountReport()
+  await act(async () => finish(ONE))
+  const cap = screen.container.querySelector('.fw-rsum-cap')
+  const button = cap?.parentElement?.querySelector('button.q')
+  if (!(button instanceof HTMLButtonElement)) throw new Error('the summary has no ?')
+  expect(button.getAttribute('aria-label')).toBe('About these four figures')
+  expect(button.getAttribute('aria-controls')).toBe('sum-help')
+  const help = document.getElementById('sum-help')
+  expect(help?.classList.contains('fw-vh')).toBe(true)
+  await act(async () => button.click())
+  expect(help?.classList.contains('fw-vh')).toBe(false)
+  expect([...(help?.querySelectorAll('dt') ?? [])].map((dt) => dt.textContent)).toEqual([
+    'arrows',
+    'longest',
+    'depth',
+    'time',
+  ])
+  expect(help?.querySelectorAll('dd')[2]?.textContent).toMatch(/^The longest chain of arrows/)
+  expect(help?.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+    summary(screen.container).getBoundingClientRect().bottom,
+  )
+})
+
 // One number, one place: the rows the summary repeats leave the table.
 test('the rows the summary repeats leave the table, and only those', async () => {
   const screen = await mountReport()
@@ -348,7 +434,7 @@ test('wide values are chosen by the row, and a row without a change widens its v
     .map((tr, at) => [at, tr.classList.contains('long')] as const)
     .filter(([, is]) => is)
     .map(([at]) => at)
-  // board, longest, length distribution, unblock distance, stalls, absorbed leftovers, time
+  // board, longest, lengths, blocking distance, stopped short, merged leftovers, time
   expect(long).toEqual([0, 3, 4, 14, 19, 20, 22])
   expect(row(screen.container, 0).classList.contains('nodelta')).toBe(true)
   expect(getComputedStyle(row(screen.container, 0).cells[2] as HTMLElement).display).toBe('none')
@@ -366,10 +452,16 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
   await act(async () => finish(TWO))
   for (const lang of ['en', 'pl'] as const) {
     await act(async () => useStore.getState().lang.setLang(lang))
+    // The longest sentence in either language (stall), open: it wraps inside its own cell.
+    const stall = row(screen.container, 19).cells[0]?.querySelector('button.q')
+    if (stall?.getAttribute('aria-expanded') === 'false') await act(async () => (stall as HTMLButtonElement).click())
     for (const tr of stats(screen.container).rows)
       expect(tr.scrollWidth, `${lang}: ${tr.textContent}`).toBeLessThanOrEqual(tr.clientWidth)
     for (const box of summary(screen.container).children) {
       expect(box.getBoundingClientRect().width, lang).toBeGreaterThanOrEqual(80)
+      const term = box.querySelector('dt')
+      if (!(term instanceof HTMLElement)) throw new Error('no term')
+      expect(term.scrollWidth, `${lang}: ${term.textContent}`).toBeLessThanOrEqual(term.clientWidth)
       const value = box.querySelector('dd .v')
       if (!(value instanceof HTMLElement)) throw new Error('no value')
       expect(value.scrollWidth, `${lang}: ${value.textContent}`).toBeLessThanOrEqual(value.clientWidth)
@@ -380,7 +472,7 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
       expect(cell.scrollWidth, `${lang}: ${cell.textContent}`).toBeLessThanOrEqual(cell.clientWidth)
     // A wide row's label keeps its one line; it is the value that wraps.
     for (const tr of stats(screen.container).querySelectorAll('tr.long')) {
-      const label = tr.querySelector('th')
+      const label = tr.querySelector('th .st-lab')
       if (!(label instanceof HTMLElement)) throw new Error('a wide row has no label')
       const line = Number.parseFloat(getComputedStyle(label).lineHeight)
       expect(label.getBoundingClientRect().height, `${lang}: ${label.textContent}`).toBeLessThan(1.5 * line)
@@ -388,7 +480,7 @@ test('at 352px nothing in the report runs past its row, in English or Polish', a
     // The board's size stays on its label's line.
     const board = row(screen.container, 0)
     const top = (cell: Element | undefined) => cell?.getBoundingClientRect().top
-    expect(top(board.cells[1]), lang).toBe(top(board.cells[0]))
+    expect(top(board.cells[1]), lang).toBe(top(board.cells[0]?.querySelector('.st-lab') ?? undefined))
   }
 })
 
@@ -411,11 +503,11 @@ test('on the saved boards the report describes the open board from its stored fi
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
-  const rows = [...stats(screen.container).rows].map((tr) => [tr.cells[0]?.textContent, tr.cells[1]?.textContent])
+  const rows = [...stats(screen.container).rows].map((tr) => [labelOf(tr), tr.cells[1]?.textContent])
   const { meta } = stored
   expect(rows.map(([label]) => label)).toEqual([
     'board',
-    'pieces',
+    'arrows',
     'average length',
     'longest',
     'backtracks / restarts',
@@ -433,7 +525,35 @@ test('on the saved boards the report describes the open board from its stored fi
   for (const tr of stats(screen.container).rows) expect(getComputedStyle(tr).display).toBe('grid')
   await expect.element(screen.getByText(/keeps these figures only/)).toBeVisible()
   // The longest pieces are read off the board itself.
-  expect(longestHead(screen.container).textContent).toMatch(/longest$/)
+  expect(longestHead(screen.container).textContent).toMatch(/longest arrows$/)
+})
+
+test('a stored board explains its rows the same way', async () => {
+  const stored = storedFixture(1)
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  const pieces = stats(screen.container).rows[1]
+  const button = pieces?.cells[0]?.querySelector('button.q')
+  expect(button?.getAttribute('aria-controls')).toBe('stored-help-pieces')
+  expect(document.getElementById('stored-help-pieces')?.textContent).toBe(
+    'How many arrows the board has. More arrows = a longer game.',
+  )
+})
+
+// The stored board shows only generation time, not the metrics pass
+// `stat_time_help` also talks about: its help must say only what it shows.
+test("the stored board's time row explains only what it shows", async () => {
+  const stored = storedFixture(1)
+  const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  const time = stats(screen.container).rows[5]
+  const button = time?.cells[0]?.querySelector('button.q')
+  expect(button?.getAttribute('aria-controls')).toBe('stored-help-time')
+  expect(document.getElementById('stored-help-time')?.textContent).toBe('How long the board took to generate.')
 })
 
 // A stored board carries no highlight, so the list takes the lab's count
@@ -445,5 +565,5 @@ test('the stored board lists its longest pieces with the highlight off', async (
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
-  expect(longestHead(screen.container).textContent).toBe('5 longest')
+  expect(longestHead(screen.container).textContent).toBe('The 5 longest arrows')
 })

@@ -131,6 +131,43 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
 })
 
+// A stored board carries the CLI's seven view fields only; the page's colours, points, margin and voids stay.
+test('load into lab leaves the view fields a stored board does not carry', async () => {
+  const initial = useStore.getState().view
+  const screen = await mountDetail()
+  await show()
+  const page = {
+    paper: '#010203',
+    ink: '#040506',
+    highlightColor: '#0a0b0c',
+    theme: 'gruvbox-dark',
+    palette: ['#112233'],
+    pointColor: '#070809',
+    pointRadius: 0.15,
+    pad: 7,
+    voids: false,
+    showPoints: true,
+  }
+  useStore.getState().view.apply(page)
+  let viewChanges = 0
+  let last = useStore.getState().view
+  const stop = useStore.subscribe((state) => {
+    if (state.view !== last) viewChanges++
+    last = state.view
+  })
+  try {
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    const after = useStore.getState().view
+    expect(after.stroke).toBe(stored.meta.view.stroke)
+    expect(after).toMatchObject(page)
+    expect(viewChanges).toBe(1)
+  } finally {
+    stop()
+    // The file's `beforeEach` does not reset the view; later cases expect the page's defaults.
+    useStore.setState({ view: initial })
+  }
+})
+
 // The column's Delete wears the run column's alternate button, and armed it
 // turns `--error` (library.css): the second press is the destructive one.
 test('Delete wears the column’s button, and armed it reads as destructive', async () => {
@@ -210,8 +247,8 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   const screen = await mountDetail(undefined, <BoardPreview />)
   await show()
 
-  await screen.getByRole('button', { name: /^stroke:/ }).click()
-  await userEvent.fill(screen.getByRole('textbox', { name: 'stroke', exact: true }), '0.9')
+  await screen.getByRole('button', { name: /^thickness:/ }).click()
+  await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
   await userEvent.keyboard('{Enter}')
   expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
 

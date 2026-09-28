@@ -18,7 +18,7 @@ const at = (path: string, section?: string) =>
 // that merely looks like a link would pass every other assertion here.
 test('both pages are real links with addresses', async () => {
   const screen = await at('/docs/element')
-  await expect.element(screen.getByRole('link', { name: 'Element' })).toHaveAttribute('href', '/docs/element')
+  await expect.element(screen.getByRole('link', { name: 'Board element' })).toHaveAttribute('href', '/docs/element')
   await expect.element(screen.getByRole('link', { name: 'Command line' })).toHaveAttribute('href', '/docs/cli')
 })
 

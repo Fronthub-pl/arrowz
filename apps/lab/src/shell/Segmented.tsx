@@ -19,6 +19,7 @@ export interface SegmentedOption<T extends string> {
 export function Segmented<T extends string>({
   label,
   labelledBy,
+  describedBy,
   options,
   value,
   onChange,
@@ -26,6 +27,8 @@ export function Segmented<T extends string>({
   label: string
   /** The id of a visible label; when given it names the group, so the name is not spoken twice. */
   labelledBy?: string | undefined
+  /** The id of a paragraph that explains the choice. */
+  describedBy?: string | undefined
   options: readonly SegmentedOption<T>[]
   value: T
   onChange(next: T): void
@@ -60,6 +63,7 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={labelledBy === undefined ? label : undefined}
       aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
     >
       {options.map((option, i) => (
         <button

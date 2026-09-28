@@ -8,7 +8,7 @@
 import { dirname, fromFileUrl, join } from '@std/path'
 import type { BoardMeta, BoardSize, Recipe, StoreRequest, View } from '@arrowz/engine'
 import { decodeBoard, defaultParams, layoutHash } from '@arrowz/engine'
-import { boardId, DEFAULT_VIEW, VIEW_VERSION } from '@arrowz/engine/command'
+import { boardId, DEFAULT_VIEW } from '@arrowz/engine/command'
 
 /** The wire contract plus the two fields only the CLI sends. */
 export interface SaveInput extends StoreRequest {
@@ -42,18 +42,9 @@ function exists(path: string): boolean {
   }
 }
 
-/**
- * A stored view with the fields a later knob added filled in. A meta written
- * before `VIEW_VERSION` stored 0 for an automatic head height, a mode that no
- * longer exists, so there a 0 reads as the default; from the version on it is
- * literal, as the CLI's `--arrow-height=0` is.
- */
-function fillView(view: View, versioned: boolean): View {
-  return {
-    ...DEFAULT_VIEW,
-    ...view,
-    ...(versioned || view?.headHeight ? {} : { headHeight: DEFAULT_VIEW.headHeight }),
-  }
+/** A stored view with the fields a later knob added filled in with the defaults. */
+function fillView(view: View): View {
+  return { ...DEFAULT_VIEW, ...view }
 }
 
 /**
@@ -70,11 +61,10 @@ function readMeta(file: string): BoardMeta | null {
     if (typeof parsed !== 'object' || parsed === null) return null
     const meta = parsed as BoardMeta
     const sources: Recipe[] = Array.isArray(meta.sources) ? meta.sources : []
-    const versioned = meta.viewVersion !== undefined
     return {
       ...meta,
       params: { ...defaultParams(), ...meta.params },
-      view: fillView(meta.view, versioned),
+      view: fillView(meta.view),
       restarts: meta.restarts ?? null,
       backtracks: meta.backtracks ?? null,
       aborted: meta.aborted ?? false,
@@ -85,7 +75,7 @@ function readMeta(file: string): BoardMeta | null {
       sources: sources.map((r) => ({
         ...r,
         params: { ...defaultParams(), ...r.params },
-        view: fillView(r.view, versioned),
+        view: fillView(r.view),
       })),
     }
   } catch {
@@ -174,7 +164,6 @@ export async function saveBoard(
     aborted: recipe.aborted,
     stuck: metrics.stuck ?? before?.stuck ?? null,
     sources,
-    viewVersion: VIEW_VERSION,
   }
   if (writesFile) Deno.writeTextFileSync(boardPath, boardText)
   const svgFile = join(dir, `${id}.svg`)

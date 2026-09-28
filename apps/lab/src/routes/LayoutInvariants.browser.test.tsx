@@ -203,7 +203,7 @@ async function arrange(state: State) {
   if (state === 'lengths-help-open') {
     await expect.poll(() => screen.container.querySelectorAll('.kv-g .q').length).toBeGreaterThan(0)
     for (const q of screen.container.querySelectorAll<HTMLButtonElement>('.kv-g .q')) q.click()
-    await expect.poll(() => screen.container.querySelectorAll('.kv-help.fw-vh').length).toBe(0)
+    await expect.poll(() => screen.container.querySelectorAll('.kv-g .kv-help.fw-vh').length).toBe(0)
   }
   if (state === 'presets-open') {
     await screen.getByRole('button', { name: /^preset/ }).click()
@@ -506,7 +506,7 @@ test('the Polish trigger naming Huge winding skeleton at 420×900 keeps every la
   await settle()
   expect(findPreset(useStore.getState().params.values)?.id).toBe('huge-400-serpentine')
   const trigger = screen.getByRole('button', { name: /^preset/i })
-  await expect.element(trigger).toMatchTextContent(/Ogromny szkielet z serpentynami/)
+  await expect.element(trigger).toMatchTextContent(/Ogromny · kręty szkielet/)
   await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
   expectKnownRed('huge-pl@420x900', audit(screen.container, { board: true }))
 }, 40_000)

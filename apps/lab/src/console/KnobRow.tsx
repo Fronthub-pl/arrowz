@@ -76,7 +76,7 @@ export function useKnobHelp(id: string, name: string, text: string) {
       {text}
     </p>
   )
-  return { button, paragraph }
+  return { button, paragraph, open }
 }
 
 /**

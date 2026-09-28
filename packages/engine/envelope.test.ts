@@ -326,7 +326,7 @@ Deno.test('generate: refuses a violation with a RangeError carrying the violatio
     'invalid parameters',
   )
   assert(err instanceof RangeError, 'RangeError')
-  assertMatch(err.message, /straightness bias: 0\.3 is outside 0\.6\.\.1/)
+  assertMatch(err.message, /straightness: 0\.3 is outside 0\.6\.\.1/)
   assertEquals(err.violations.length, 1)
   const first = err.violations[0]
   assert(first)

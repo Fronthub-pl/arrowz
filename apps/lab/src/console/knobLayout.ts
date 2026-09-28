@@ -13,14 +13,14 @@ export const UNIT_OF: Partial<Record<ParamKey, UnitKey>> = {
   W: 'cells',
   H: 'cells',
   Lmax: 'cells',
-  backbite: 'tries',
+  backbite: 'times',
   probeLen: 'cells',
-  giants: 'pieces',
+  giants: 'arrows',
   giantSpan: 'sides',
   giantStep: 'cells',
-  headTries: 'tries',
+  headTries: 'times',
   absorbLimit: 'cells',
-  maxBack: 'carves',
+  maxBack: 'arrows',
 }
 
 /**

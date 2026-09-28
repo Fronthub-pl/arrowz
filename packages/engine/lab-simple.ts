@@ -1,5 +1,5 @@
 // The simple view of the lab: a board size (any width and height the engine
-// allows), two sliders (piece length, line shape), a skeleton switch and a
+// allows), two sliders (arrow length, winding), a skeleton switch and a
 // seed, translated into a full engine parameter set.
 //
 // A slider position is a wish, not a configuration. Each slider has anchors

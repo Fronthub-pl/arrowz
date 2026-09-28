@@ -64,9 +64,11 @@ different counter over 237 files; the two numbers are not comparable.)
 - `9fb6540` — the lab's own names for the highlight fields are now readable:
   `view.hilite` became `highlightLongest`, and the colour field became
   `highlightColor`, across the store, the i18n keys, the DOM ids and the hash
-  keys. Old links still open, through a legacy fallback in the decoder. The
-  element's own `view.highlight` is unchanged; that rename is left for a
-  separate refinement of the component.
+  keys. The link is now a full view snapshot read by one schema; the legacy
+  fallback and the old keys (`hilite`, `highlight`, `help`) are gone, and a
+  missing or unreadable field opens on its default. The element's own
+  `view.highlight` is unchanged; that rename is left for a separate
+  refinement of the component.
 - `4a34463`, `ba54d2f` — the saved board's layout hash in the library shows
   in full now, wrapped onto as many lines as it needs, instead of being cut
   with a `title` tooltip. The second commit re-measured the wrap through the
@@ -100,17 +102,17 @@ different counter over 237 files; the two numbers are not comparable.)
 | HIGH: palette jump loses the focus | fixed in `08162fa` | See above |
 | MEDIUM: `<Navigate>` drops the hash | fixed in `13c9acc` | A redirect keeps the fragment, so a link under a wrong path opens on its knobs |
 | MEDIUM: palette loses Escape, Tab and hotkeys off its input | fixed in `0211a71` | A click inside keeps the focus in the input; no key reaches the page behind |
-| MEDIUM: simple view size rows show the recipe | open | The live pass saw it again (25×50 shown, 1000×1000 carved) |
+| MEDIUM: simple view size rows show the recipe | fixed in `d7f04b4` | The rows show the knobs' size; a size edit writes both sides into the recipe, so the other side stays as shown |
 | MEDIUM: PL decimal comma does nothing | fixed in `4a5313a` | `DraftNumber` reads a comma as a point in a fractional field |
-| MEDIUM: link colours cannot clear the page's own | fixed in `3dc5ccc` | A versioned link now clears theme, palette, paper and ink it doesn't name; `0a704d5` extends the rule to any version number |
-| MEDIUM: head height 0 lost in the hash | fixed in `66f1188, 3dc5ccc` | The view version makes 0 literal in the store's `fillView` and the link decoder; `0a704d5` keeps this true after a later bump |
+| MEDIUM: link colours cannot clear the page's own | fixed in `3dc5ccc` | The view version is gone; a link states every field, so it clears theme, palette, paper and ink it doesn't name |
+| MEDIUM: head height 0 lost in the hash | fixed in `66f1188, 3dc5ccc` | The view version is gone; a head height of 0 is literal everywhere, in the store's `fillView` and the link decoder alike |
 | LOW: palette "on"/"off" in English | fixed in `feb59ab` | `palette/commands.ts` reads the flag values from the dictionary |
 | LOW: English reason in the PL status line | fixed in `feb59ab` | `'not in the store'` now comes from the dictionary too |
 | LOW: view edit clears `aborted` in the store | open | `store.ts` unchanged |
 | LOW: pending view save dropped for another board | open | Still one module timer |
 | LOW: SVG drops palette, paper and ink silently | open | Note still shown only for a theme |
 | LOW: unknown theme name stored | fixed in `3dc5ccc` | `themeOf` validates the name; an unknown one is dropped, not stored |
-| LOW: `voids` not in the link | fixed in `3dc5ccc` | A versioned link now carries `voids` |
+| LOW: `voids` not in the link | fixed in `3dc5ccc` | The view version is gone; a link states every field, so `voids` is in every link |
 | LOW, PLAUSIBLE: worker handlers and failed load | open | |
 | LOW, PLAUSIBLE: synchronous revoke on download | open | |
 
@@ -142,28 +144,28 @@ different counter over 237 files; the two numbers are not comparable.)
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Top 1: the report explains nothing | open | |
+| Top 1: the report explains nothing | fixed in `1c5eb26`, `a62d567`, `9201262`, `5681c07` | Every row, the summary and the longest table have a `?`; labels in player's words; depth, traps and free at start say which way is harder |
 | Top 2: jargon as visible labels (`prostota`, …) | open | |
 | Top 3: help warns about values the slider cannot reach | open | |
-| Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open |
+| Top 4: one concept, many names | partly fixed in `0d916c2`, `24bca8b` | PL "podświetlenie" is now "wyróżnienie" everywhere; the rest of the glossary is open; the report's rows follow the glossary |
 | Top 5: "element" means two things in PL | open | |
-| Top 6: Simple view explains least | open | |
+| Top 6: Simple view explains least | fixed in `c96adf3`, `1f7d26b`, `bf72ebc` | Both sliders and the skeleton have a `?`; labels say arrow length and winding; the number is explained; a sentence points to a harder board. The skeleton's help claims nothing about time: measured, it costs none. |
 | Top 7: presets read as difficulty levels | open | |
 | Top 8: status and rule messages speak engine | open | |
 | Top 9: CLI details in lab help (`store.sh`, golden-angle, …) | open | |
 | Top 10: arrowhead help is a formula | open | |
 | Also found: "% of perimeter" | fixed in `e7de79a`, `6f3517b` | The row is now wide (`WIDE_KEYS`) so the PL text fits |
 | Also found: difficulty "not the look" | fixed in `e7de79a`, `6f3517b` | |
-| Also found: `start.help` drops "Tunnels = harder" | open | |
+| Also found: `start.help` drops "Tunnels = harder" | fixed in `c96adf3` | |
 
 ### Refactors
 
 | Refactor | Status | Note |
 | --- | --- | --- |
 | 1. Delete the dead knob layer | fixed in `a2f60e0`, `d486dd1` | `console.test.ts` now pins the live `.kv-g .fw-swatches`; the `.fw-k` branch in `useFocusRequest` is gone |
-| 2. One knob-row shell, split `ViewPanel.tsx` | open | |
-| 3. One view schema and `view.apply()` | open | |
-| 4. One hotkey table and `useDismiss` | open | |
+| 2. One knob-row shell, split `ViewPanel.tsx` | fixed on `lab/row-shell` (`b2c78d3`..`080d3ce`) | `console/rows/RowShell.tsx` frames every knob row and `rowIds` spells its ids (`<scope>-<field>` plus `-help`/`-label`/`-why`/`-ends`); the view's rows live in `console/rows/` and `ViewPanel.tsx` is the panel; `useReleasableChip` is the one chip memory; `rows.guard.test.ts` keeps `kv-row` and row ids in `RowShell`; `OptionSwitch` stays apart by decision |
+| 3. One view schema and `view.apply()` | fixed on `lab/view-schema` (`f33ba85`..`4d16651`) | `viewSchema.ts` is the one field list; the slice, the link and "Load into lab" all read and normalise through it, and `view.apply()` writes a patch in one update |
+| 4. One hotkey table and `useDismiss` | fixed on `lab/hotkeys-dismiss` (`a679fcf`..`1eb93cc`) | `shell/hotkeys.ts` holds `WORKSPACE_KEYS` behind one `useWorkspaceKeys` listener, with `usePaletteKey` beside it; `shell/useDismiss.ts` closes the top menu, the `…` popover and the preset panel; `CommandPalette` stays apart by decision (modal, mousedown, focus trap); `useStoreSave` and `useBandReset` are out of `App.tsx` |
 | 5. CSS: `.fw button` tax, tokens, breakpoint | partly fixed in `750b059`, `d750cad` | Breakpoint fixed; the prefix tax and the tokens are open |
 | 6. Library column reuses the run column's pieces | open | |
 | 7. Test fixtures | partly fixed in `97cc390` | Three copies of `twoFrames` are one in `harness/frames.ts`; the CSS barrel, one reset and `renderAt` are open |
@@ -239,37 +241,26 @@ Ranked. This replaces the suggested order of work written at `b9a5a9d`;
 steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
-1. **The simple view's size rows** show the recipe while Generate carves the
-   knobs. A test from round 3 (`5060154`) pins this on purpose, but to a person
-   it looks wrong; it needs a product decision.
-2. **Copy pass on the report and the simple view:** help for every report row,
-   units, "higher is harder", "Tunnels = harder" in `start.help`, then the
-   glossary (one term per concept, EN + PL). Two of the factual errors are
-   fixed; the labels and help texts are not.
-3. **Smaller correctness items:** `aborted` cleared by a view edit, the
+1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
+2. **Smaller correctness items:** `aborted` cleared by a view edit, the
    dropped pending view save, the worker's stale handlers and failed load, the
    synchronous revoke, and the SVG note for palette, paper and ink.
-4. **Structural refactors 2–4:** one knob-row shell, one view schema with a
-   single `view.apply()`, one hotkey table and a `useDismiss` hook. Then 5
-   (the `.fw button` prefix and tokens), 6–9 and 11.
-5. **Parity gaps, as product decisions:** paste a `carve` command in
+3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
+4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
    `.board.json`, SVG colours (and `pad` and highlight in the SVG), ⌘K rows for
    the colour and element fields.
-6. **Extend the comment sweep and guard** to the engine's other files and
+5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
-7. **Observations from the live pass and deferred review minors:** "top" in
+6. **Observations from the live pass and deferred review minors:** "top" in
    ⌘K lists Abort above "how many longest"; "blocked by #51 at 0 cells" reads
    oddly; the report drawer covers the board's right 45 px (and the Play and ☝
    buttons) at 1440×877, known since round 2; the two low-window height rules
    lack the `min-width: 768px` that `useLowWindow` has; the palette input has
    no `id` or `name`; `gl-color.ts` reads back without `willReadFrequently`;
    the `trapBias` help clause is vague.
-8. **Follow-up from D1's fix:** at margin (pad) 0, the annotation (`.fw-anno`)
-   covers the board's top-left cells; pre-existing, and no audited case uses
-   pad 0, so no invariant catches it today.
-9. **D2, found in the follow-up live pass:** at phone width (375×812) the
+7. **D2, found in the follow-up live pass:** at phone width (375×812) the
    board element's own control bar (+ − fit ◑, 44 px touch targets) covers
    about one row of the board's bottom-right cells (measured overlap
    59×8.5 px). It appeared once the mode strip moved under the frame
@@ -279,7 +270,8 @@ section above).
    element's fit reserves room for its own bar (a component refinement).
    Deferred by the user's decision.
 
-The former item 1 — the hash lost on `<Navigate>`, the palette's key handling,
+The simple view's size rows, once first on this list, were fixed on
+`lab/simple-size`. The former item 1 before that — the hash lost on `<Navigate>`, the palette's key handling,
 the Polish comma in `DraftNumber`, the URL round-trip losses (colours cannot
 be cleared, head height 0, unknown theme, `voids`), and the English leaks into
 the Polish UI (palette "on"/"off", "not in the store") — was fixed on
@@ -912,6 +904,8 @@ One term per concept for everything a player sees. Engine and CLI names can stay
 | single arrow colour | arrow colour | kolor strzałek | ink, drawing colour / tusz, kolor rysunku |
 | the visual settings panel | Look | Wygląd | element, Preview / element, Podgląd |
 | ready-made settings | preset | preset | = |
+
+Shipped on `lab/glossary`; `packages/engine/glossary.test.ts` holds the retired words.
 
 ## Best practices and refactoring
 

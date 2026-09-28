@@ -56,3 +56,14 @@ test('it reads as closed in another band than the one it was opened in', async (
   await page.viewport(1024, 768)
   await expect.element(more).toHaveAttribute('aria-expanded', 'false')
 })
+
+// The button is inside: a press on it must not close the popover only for its click to open it again.
+test('a press on the button while open closes it', async () => {
+  await page.viewport(1024, 768)
+  const screen = await render(<Column />)
+  const more = screen.getByRole('button', { name: 'More options' })
+  await more.click()
+  await expect.element(more).toHaveAttribute('aria-expanded', 'true')
+  await more.click()
+  await expect.element(more).toHaveAttribute('aria-expanded', 'false')
+})
