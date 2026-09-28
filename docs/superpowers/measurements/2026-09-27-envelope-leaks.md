@@ -187,7 +187,7 @@ runs 10 seeds:
   | side | today | with 0.9 |
   |---|---|---|
   | ≤ 600 | unchanged | unchanged |
-  | 800 | 0.65 | 0.7 (unmeasured) |
+  | 800 | 0.65 | 0.7 |
   | 1000 | 0.7 | 0.75 |
 
   Removing the discount altogether would give 0.8 at 1000 and 0.65 at 600,
@@ -205,5 +205,18 @@ runs 10 seeds:
 - The 0.9 factor. It refuses the round-14 cell 1000/0.72/5/4 (three runs),
   and it moves the simple view's 1000×1000 board at shape 0.75 from
   straightness 0.72 to 0.75. No other size and shape position changes.
-- Not done: the check at 800, where the floor at `anticoil` 4 goes from
-  0.65 to 0.7 without a measurement.
+
+### The check at 800
+
+The same grid at 800×800 and `anticoil` 4 (three start modes, two length
+mixes, 10 seeds each), with a 10-minute timeout:
+
+| `pStraight` | failed | restarted | median |
+|---|---|---|---|
+| 0.65 (the old floor) | 0/60 | 6 | 22–48 s |
+| 0.7 (the new floor) | 0/60 | 0 | 15–35 s |
+
+- 0.65 never failed, but it restarted in both tunnel cells and the layers
+  cell with all long arrows, the same cells that failed first at 1000.
+- 0.7 is clean. The 0.9 factor holds at 800; it is slightly conservative,
+  not needed to close a failure there.
