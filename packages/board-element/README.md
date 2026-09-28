@@ -245,23 +245,30 @@ left empty keeps it.
 it, does: `zoom-in`, `zoom-out`, `fit`, `colors` (as `toggleColors()`) or
 `gestures` (as `toggleGestures()`). It works in every slot, at any depth
 inside a custom `controls`; any other value does nothing. The name is
-namespaced because `data-action` belongs to common event delegators.
+namespaced because `data-action` belongs to common event delegators. The
+element finds these controls in its light DOM; put `data-board-action` on a
+light-DOM element, not inside another component's shadow root.
 
 A custom `controls` replaces the bar and its position: the per-control slots
 live inside the bar, so a `slot="fit"` child next to a custom bar is not
 drawn. The host is `position: relative`, so a bar positioned `absolute` is
-placed against the board.
+placed against the board. An unpositioned bar is drawn above the board in the
+normal flow.
 
 The element keeps two attributes on the host's `colors` and `gestures`
 controls in step with the board, and owns them there: `aria-pressed`, and
 `hidden` while the action is unavailable (no `enableColors`; a board that is
-neither `interactive` nor `play`). Under a coarse pointer the `hint` and
+neither `interactive` nor `play`). `hidden` hides through the user-agent
+`display: none`, so keep `[hidden] { display: none }` winning over your own
+`display` rules on these controls. Under a coarse pointer the `hint` and
 `gestures` slots are not drawn, projected content included; inside a custom
 `controls` that rule is the host's.
 
 The element gives projected controls no role and no name: project a
 `<button>` with its own accessible name. A control that is not a button still
-runs its action on click, and nothing more.
+runs its action on click, and nothing more. The board keys (`+`, `−`, `0`)
+act while the board or one of its controls has focus, not while a text field
+or a nested board in its content does.
 
 ### Playing the board
 
@@ -274,12 +281,14 @@ it is kept is the host's business.
 
 Colours are off unless `enableColors` is set: monochrome is part of the puzzle,
 so telling the pieces apart without colour is the task. With the permission the
-board grows a fourth chrome button (or shows the host's own, see [Slots and custom controls](#slots-and-custom-controls)), and a board may arrive coloured through
-`view.colored` or through a loaded game. The button announces a cancelable
-`colored-change` event before it acts: a host that does nothing keeps today's
-behaviour (the button decides), and one that calls `preventDefault()` clears
-the button's own choice — including one made earlier, by a click or by
-`loadState` — so `view.colored` is back in charge from that click on.
+board grows a fourth chrome button (or shows the host's own, see
+[Slots and custom controls](#slots-and-custom-controls)), and a board may
+arrive coloured through `view.colored` or through a loaded game. The button
+announces a cancelable `colored-change` event before it acts: a host that does
+nothing keeps today's behaviour (the button decides), and one that calls
+`preventDefault()` clears the button's own choice — including one made
+earlier, by a click or by `loadState` — so `view.colored` is back in charge
+from that click on.
 
 Assigning `board` always starts a new game and redraws the board in full: a
 fresh session owns a fresh "gone" set, and the layer compares that set by
