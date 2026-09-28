@@ -451,6 +451,16 @@ test('the presets-open state at 420×700 keeps every layout invariant', async ()
   expectKnownRed('presets-open@420x700', audit(screen.container, { board: true }))
 }, 40_000)
 
+// A short window below 768 wide: the two `max-height: 699px` rules that let the
+// board give up its minimum must hold at every width, not only where
+// `useLowWindow` moves the preset strip.
+test('the board state at 375×540 keeps every layout invariant', async () => {
+  await page.viewport(375, 540)
+  const screen = await arrange('board')
+  await settle()
+  expectKnownRed('board@375x540', audit(screen.container, { board: true }))
+}, 40_000)
+
 // The matrix above runs only in English, where the bar fits by 1px at 420 wide;
 // the language chip's Polish "Zaawansowany" pushes past `.fw-top`'s
 // `overflow: hidden`. Two sizes, not the whole matrix crossed with `lang`, for
