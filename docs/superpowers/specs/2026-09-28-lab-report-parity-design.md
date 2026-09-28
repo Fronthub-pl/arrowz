@@ -50,7 +50,7 @@ ogona" in the lab, and the rows use the same words.
 | | `stuckBy` | what stopped them / co je zatrzymało | `stat_stuckByVal(own, other, edge)`: "itself 41% · other arrows 52% · edge 7%" as shares of the sides; `—` when no stall was recorded | undefined (a wide row, added to `WIDE_KEYS`) |
 | | `stuckLen` | length when stuck / długość przy zatrzymaniu | mean `stallLen / events`, one decimal; `—` with no events | the mean |
 | | `selfTrap` | stuck on themselves / zamknięte przez siebie | `stallSelfTrap (pct of events)` | `stallSelfTrap ?? 0` |
-| | `shortened` | shortened to leave no gap / skrócone, by nie zostawić dziury | `pct(strandTrunc / n) (−mean)`, the mean being `strandLoss / max(1, strandTrunc)`; `—` when `n` is 0 | `100 × strandTrunc / n` |
+| | `shortened` | shortened / skrócone | `pct(strandTrunc / n) (−mean)`, the mean being `strandLoss / max(1, strandTrunc)`; `—` when `n` is 0 | `100 × strandTrunc / n` |
 
 **Stall events.** `stallOwn`, `stallForeign` and `stallEdge` count sides:
 each stall adds exactly four between them. So the number of stall events is
@@ -102,17 +102,18 @@ with the note "Preview", in the panel's order:
 
 | Row | Target id | Value column | `hay` |
 | --- | --- | --- | --- |
-| theme | `view-theme` | the theme's name, or `viewThemeNone` | `--theme theme` |
-| palette | `view-palette` | "N colours" / "N kolorów", or "from the theme" when empty | `--palette palette` |
-| background | `view-paper` | `#rrggbb`, or "from the theme" when `''` | `--paper paper` |
-| lines | `view-ink` | as above | `--ink ink` |
-| highlight colour | `view-highlightColor` | as above | `--highlight-color highlight` |
 | margin | `view-pad` | the number | `--pad pad` |
 | dot colour | `view-pointColor` | `#rrggbb` | `--point-color` |
 | dot size | `view-pointRadius` | the number | `--point-radius` |
+| theme | `view-theme` | the theme's name, or `viewThemeNone` | `--theme theme` |
+| background | `view-paper` | `#rrggbb`, or "not set / nie ustawiono" when `''` | `--paper paper` |
+| lines | `view-ink` | as above | `--ink ink` |
+| highlight colour | `view-highlightColor` | as above | `--highlight-color highlight` |
+| palette | `view-palette` | `paletteCount` (`0 / 8`) | `--palette palette` |
 
 The names are the panel rows' own labels (`highlightColorLabel` and the
-others). The only new texts are the palette count and "from the theme".
+others). The only new text is "not set": with no theme an unset colour is
+the element's default, so "from the theme" would be false.
 `hay` carries CLI flags, so the words the glossary retired (`paper`, `ink`)
 are searchable there and never shown. A jump to the dot colour or size with
 the dots off opens the dependency block through the existing `forced`.
