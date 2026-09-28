@@ -14,11 +14,13 @@ export function hueRgba(id: number): Rgba {
 /**
  * A single 2D context, reused by every `rgbaOf` call rather than one canvas
  * created per call. Lazy so importing this module never touches the DOM.
+ * `willReadFrequently`: every use is a readback, which a CPU-backed canvas
+ * serves without a GPU round trip.
  */
 let probeCtx: CanvasRenderingContext2D | null | undefined
 
 function probe(): CanvasRenderingContext2D | null {
-  if (probeCtx === undefined) probeCtx = document.createElement('canvas').getContext('2d')
+  if (probeCtx === undefined) probeCtx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
   return probeCtx
 }
 
