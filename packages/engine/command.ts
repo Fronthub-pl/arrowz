@@ -33,7 +33,7 @@ import {
   validateParams,
 } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
-import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
+import { defaultChoice, drawParams, exportCell, type Move, simpleParams } from './lab-simple.ts'
 import {
   DEFAULT_COLOURS,
   DEFAULT_PAD,
@@ -1101,6 +1101,18 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     problems: all,
     errors: all.map(problemText),
   }
+}
+
+/**
+ * The knobs a parsed line carves: its choice, drawn when it says --randomized,
+ * with the knobs it names pinned on top. Reading a pin back out of `params`
+ * is sound because the draw never moves a pinned value (lab-simple.test.ts
+ * sweeps it). Returned whole: the CLI prints `moved` as notes.
+ */
+export function drawOf(parsed: ParsedArgs, rng: () => number): { params: Params; moved: Move[] } {
+  const pinned: Partial<Record<ParamKey, number>> = {}
+  for (const key of parsed.pins) pinned[key] = parsed.params[key]
+  return drawParams(parsed.choice, parsed.choice.random ? rng : null, pinned)
 }
 
 /**

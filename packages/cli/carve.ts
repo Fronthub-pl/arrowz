@@ -46,6 +46,7 @@ import {
 import {
   buildCommand,
   drawnViolations,
+  drawOf,
   flagOf,
   flagViolation,
   helpText,
@@ -53,7 +54,7 @@ import {
   parseArgs,
   svgOptions,
 } from '@arrowz/engine/command'
-import { BUNDLES, drawParams } from '@arrowz/engine/simple'
+import { BUNDLES } from '@arrowz/engine/simple'
 import type { Move } from '@arrowz/engine/simple'
 import { saveBoard, type SaveResult } from './store.ts'
 
@@ -198,18 +199,9 @@ function unreadReason(arg: string): string {
 const unread = rest.filter((a) => !used.has(a))
 if (unread.length) refuseErrors(unread.map(unreadReason))
 
-// The pins, by the value the parser read for each. --randomized draws like
-// the lab: Math.random, not reproducible; the meta keeps the command, which
-// is. The pins go on top of the draw, so every knob nobody named keeps the
-// value it would have had without them.
-const pinned: Partial<Record<ParamKey, number>> = {}
-// Reading a pin back out of parsed.params (rather than off the flag itself)
-// is correct only because the draw never moves a pinned value once it has
-// written it; a clamp that could would silently re-pin the moved value here.
-// That was a comment for three rounds and is now a test: lab-simple.test.ts
-// sweeps 300 pins and asserts every one comes back unmoved.
-for (const key of parsed.pins) pinned[key] = parsed.params[key]
-const draw = drawParams(parsed.choice, parsed.choice.random ? Math.random : null, pinned)
+// --randomized draws like the lab: Math.random, not reproducible; the meta
+// keeps the command, which is.
+const draw = drawOf(parsed, Math.random)
 const params = draw.params
 /** Knobs whose value is a number this command line wrote: the pins, plus the size and the seed. */
 const typedKeys = new Set<ParamKey>([...parsed.pins, 'W', 'H', 'seed'])
@@ -335,8 +327,7 @@ if (count !== null) refuseInvalid({ ...params, seed: params.seed + seedLimit - 1
 
 /** The parameters of one seed: --randomized draws them anew for each, over the same pins. */
 function forSeed(seed: number): Params {
-  const choice = { ...parsed.choice, seed }
-  const d = drawParams(choice, choice.random ? Math.random : null, pinned)
+  const d = drawOf({ ...parsed, choice: { ...parsed.choice, seed } }, Math.random)
   noteMoves(d.moved)
   return d.params
 }

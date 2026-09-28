@@ -10,6 +10,7 @@ import {
   COMMAND_PREFIX,
   DEFAULT_VIEW,
   drawnViolations,
+  drawOf,
   flagViolation,
   helpText,
   knobFlag,
@@ -946,6 +947,22 @@ Deno.test('a lab command, quoted colours and all, splits and parses back to its 
   assertEquals(back.problems, [])
   for (const s of PARAM_SPEC) assertEquals(back.params[s.key], p[s.key], s.key)
   assertEquals(back.view, v)
+})
+
+// --- drawOf ---------------------------------------------------------------
+
+Deno.test('drawOf without --randomized is the parsed knobs', () => {
+  const parsed = parseArgs(['--width=30', '--height=40', '--seed=3', '--length=0.8', '--pstraight=0.9'])
+  assertEquals(drawOf(parsed, () => 0.5).params, parsed.params)
+})
+
+Deno.test('drawOf with --randomized draws, and a pinned knob keeps its value', () => {
+  const parsed = parseArgs(['--width=30', '--height=40', '--randomized', '--pstraight=0.9'])
+  const low = drawOf(parsed, () => 0).params
+  const high = drawOf(parsed, () => 0.999).params
+  assertEquals(low.pStraight, 0.9)
+  assertEquals(high.pStraight, 0.9)
+  assert(PARAM_SPEC.some((s) => low[s.key] !== high[s.key]), 'the draw moved nothing')
 })
 
 Deno.test('a colour flag stores lower case', () => {
