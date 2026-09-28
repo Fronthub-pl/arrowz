@@ -89,9 +89,11 @@ export function useRunState(): RunState {
         ? {
             // Worded here, not stored: a language switch must reword it.
             text:
-              boardError.reason === null
-                ? dict.t('boardNotStored', boardError.name)
-                : dict.t('boardFileError', boardError.name, boardError.reason),
+              boardError.problem !== undefined
+                ? dict.t('boardFileError', boardError.name, dict.t(`open_${boardError.problem}`))
+                : boardError.reason === null
+                  ? dict.t('boardNotStored', boardError.name)
+                  : dict.t('boardFileError', boardError.name, boardError.reason),
             bad: true,
           }
         : null
@@ -102,8 +104,16 @@ export function useRunState(): RunState {
   let live = runLive
   if (library !== null) live = library.text
   else if (inLibrary && preview !== null) {
-    const meta = preview.meta
-    live = dict.t('savedBoard', `${meta.W}x${meta.H}/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
+    live =
+      preview.origin === 'file'
+        ? dict.t('openedFile', preview.name, preview.board.W, preview.board.H)
+        : dict.t(
+            'savedBoard',
+            `${preview.meta.W}x${preview.meta.H}/${preview.meta.id}`,
+            preview.meta.seed,
+            preview.meta.source,
+            `${genSeconds(preview.meta, '—')} s`,
+          )
   }
 
   return { live, run, library, percent }

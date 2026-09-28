@@ -48,7 +48,8 @@ export function useViewSave(refresh: () => void): (view: View) => void {
     // field and changes the address), and reading it then would send one
     // board's view to another board's file.
     const edited = useStore.getState().result.preview
-    if (edited === null) return
+    // A file's view lives on the page only: it is not in the store to write back.
+    if (edited === null || edited.origin === 'file') return
     const id = edited.meta.id
     clearTimeout(timers.get(id))
     timers.set(
@@ -84,8 +85,8 @@ async function write(refresh: () => void, edited: StoredBoard, posted: View): Pr
   // the refresh are not gated: a late answer still reports, and the row must
   // not keep the command of a view the store no longer holds.
   const current = useStore.getState().result.preview
-  if (current !== null && current.meta.id === meta.id && current.meta.view === posted) {
-    useStore.getState().result.showPreview({ board, file, meta: outcome.meta })
+  if (current?.origin === 'store' && current.meta.id === meta.id && current.meta.view === posted) {
+    useStore.getState().result.showPreview({ origin: 'store', board, file, meta: outcome.meta })
   }
   raiseNotice({ kind: 'viewSaved', name })
   // The store keeps `createdAt` on an overwrite, so the row stays in place; the

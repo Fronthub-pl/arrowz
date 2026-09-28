@@ -68,7 +68,7 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
     },
     [],
   )
-  if (open === null) {
+  if (open === null || open.origin === 'file') {
     return (
       <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
         <p className="fw-lib-empty">{dict.t('openBoardHint')}</p>

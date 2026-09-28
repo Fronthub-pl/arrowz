@@ -25,7 +25,7 @@ export function BoardPreview(): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
   const commitView = useViewSave(refreshLibrary)
-  const view = open?.stored.meta.view ?? null
+  const view = open?.origin === 'store' ? open.stored.meta.view : null
   return (
     <div className="fw-knobs" role="tabpanel" id={BOARDS_PREVIEW_ID} aria-labelledby={boardsTabId('preview')}>
       <div className="fw-khd">

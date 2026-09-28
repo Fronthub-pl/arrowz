@@ -792,7 +792,7 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await screen.getByRole('button', { name: /^thickness:/ }).click()
     await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
     await userEvent.keyboard('{Enter}')
-    await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+    await expect.poll(() => useStore.getState().result.preview?.meta?.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
     // Load into lab runs the loaded knobs: a fresh run replaces the lab's

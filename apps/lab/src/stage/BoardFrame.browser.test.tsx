@@ -103,7 +103,9 @@ test('on a stored preview the colour button saves the stored view, not the lab�
   })
   const { meta, file } = storedFixture(2)
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
-  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+  )
   const element = screen.container.querySelector('arrowz-board')
   const colours = () => element?.shadowRoot?.querySelector<HTMLButtonElement>('button.colors')
   await expect.poll(() => colours()?.getAttribute('aria-pressed')).toBe(String(meta.view.colored))
@@ -113,7 +115,7 @@ test('on a stored preview the colour button saves the stored view, not the lab�
   await act(async () => colours()?.click())
   await act(async () => await vi.advanceTimersByTimeAsync(350))
   expect(posts.map((view) => view.colored)).toEqual([!meta.view.colored])
-  expect(useStore.getState().result.preview?.meta.view.colored).toBe(!meta.view.colored)
+  expect(useStore.getState().result.preview?.meta?.view.colored).toBe(!meta.view.colored)
   expect(useStore.getState().view.colored).toBe(false)
   expect(colours()?.getAttribute('aria-pressed')).toBe(String(!meta.view.colored))
 })
@@ -227,7 +229,9 @@ test('a preview takes the stage and names itself, leaving the run result alone',
   const { meta, file } = storedFixture(2, 6, 6)
   const screen = await mountFrame(`/boards/6x6/${meta.id}`)
   await act(async () => finish(finishedRun(1)))
-  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+  )
 
   await expect.poll(() => annotation(screen.container)?.textContent).toBe('6×6 · seed 2')
   expect(screen.container.querySelector('arrowz-board')?.board?.W).toBe(6)
@@ -248,7 +252,9 @@ test('a stored board is drawn under its own saved view, not the lab’s', async 
   const stored = { ...meta, view: { ...meta.view, colored: true } }
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
   await act(async () => useStore.getState().view.setFlag('colored', false))
-  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta: stored }))
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta: stored }),
+  )
 
   const element = screen.container.querySelector('arrowz-board')
   await expect
@@ -268,7 +274,9 @@ test('a preview left over on the lab tab lends the lab neither its board nor its
   const stored = { ...meta, view: { ...meta.view, colored: true } }
   await act(async () => useStore.getState().view.setFlag('colored', false))
   await act(async () => finish(finishedRun(1)))
-  await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta: stored }))
+  await act(async () =>
+    useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta: stored }),
+  )
 
   const element = screen.container.querySelector('arrowz-board')
   // The run's own 8×8, not the stored 6×6, and the lab's colours, not the
@@ -307,7 +315,9 @@ test('a custom palette reaches a library preview too, the same way the theme alr
       useStore.getState().view.addPaletteColor()
       useStore.getState().view.setPaletteColor(0, '#ff00ff')
     })
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.view.palette).toEqual(['#ff00ff'])
     // There is a board under that palette: `labView` carries the palette
@@ -360,7 +370,9 @@ test('the library preview gets the custom colours too', async () => {
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
   try {
     await act(async () => useStore.getState().view.setPaper('#040506'))
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     const element = screen.container.querySelector('arrowz-board')
     expect(element?.view.paper).toBe('#040506')
     // There is a board under that paper: `labView` carries it too, so a

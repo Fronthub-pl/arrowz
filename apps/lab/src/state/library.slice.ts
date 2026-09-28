@@ -1,4 +1,5 @@
 import type { BoardSize } from '@arrowz/engine'
+import type { OpenProblem } from '../library/readBoardFiles'
 
 /**
  * Something the library did, as opposed to something it is: a line computed
@@ -23,6 +24,8 @@ export interface BoardError {
   name: string
   /** The failure as it came (a status line, a decoder's message), or `null`: the store does not list the board. */
   reason: string | null
+  /** An open from disk that failed for a reason of its own, worded at render; `reason` is then null. */
+  problem?: OpenProblem
 }
 
 /**

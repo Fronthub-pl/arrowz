@@ -6,7 +6,8 @@ import { useMatch } from 'react-router'
  * `useParams` would answer with nothing. The pattern is the one `AppRoutes`
  * declares, so the two cannot drift apart without a test noticing.
  */
-export function useOpenBoard(): { size: string | null; id: string | null } {
+export function useOpenBoard(): { size: string | null; id: string | null; file: boolean } {
   const match = useMatch('/boards/:size/:id')
-  return { size: match?.params.size ?? null, id: match?.params.id ?? null }
+  const file = useMatch('/boards/file') !== null
+  return { size: match?.params.size ?? null, id: match?.params.id ?? null, file }
 }

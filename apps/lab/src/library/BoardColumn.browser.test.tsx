@@ -85,7 +85,9 @@ async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: Re
 /** Puts a stored board on the stage, the way `useStoredBoard` would. */
 async function show() {
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
 }
 
@@ -192,7 +194,9 @@ test('load into lab restores the stored look and keeps voids', async () => {
   const screen = await mountDetail()
   useStore.getState().view.apply({ voids: false, theme: 'ayu-dark' })
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: withLook }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: withLook }),
   )
   let viewChanges = 0
   let last = useStore.getState().view
@@ -218,7 +222,9 @@ test('load into lab of a board with the default look sets the default look', asy
   const screen = await mountDetail()
   useStore.getState().view.apply({ theme: 'ayu-dark', pad: 9 })
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
   try {
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
@@ -310,7 +316,7 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   await screen.getByRole('button', { name: /^thickness:/ }).click()
   await userEvent.fill(screen.getByRole('textbox', { name: 'thickness', exact: true }), '0.9')
   await userEvent.keyboard('{Enter}')
-  expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
+  expect(useStore.getState().result.preview?.meta?.view.stroke).toBe(0.9)
 
   // DOM clicks, not userEvent: two Playwright round trips under a loaded gate
   // can outlast the 350 ms debounce, and the case must delete inside it.
@@ -338,7 +344,9 @@ test('deleting one board keeps another board’s pending view edit', async () =>
     .mockImplementation(() => Promise.resolve(new Response('{"deleted":true}', { status: 200 })))
   // An edit of `other`, pending on its timer, made while `other` was on the stage.
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(other.file), file: other.file, meta: other.meta }),
   )
   const { result } = await renderHook(() => useViewSave(() => {}), {
     wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
@@ -571,7 +579,9 @@ test('the stored board’s SVG draws its own shape in the page’s look, not the
     useStore.getState().view.apply({ theme: 'ayu-dark', pad: 2 })
     const screen = await mountDetail()
     await act(async () =>
-      useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: savedLook }),
+      useStore
+        .getState()
+        .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: savedLook }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
     await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
@@ -604,7 +614,12 @@ test('the stored board’s SVG carries the page’s custom palette while colours
     await act(async () =>
       useStore
         .getState()
-        .result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
+        .result.showPreview({
+          origin: 'store',
+          board: decodeBoard(stored.file),
+          file: stored.file,
+          meta: colouredMeta,
+        }),
     )
     await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
     await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)

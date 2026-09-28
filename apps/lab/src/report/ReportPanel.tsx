@@ -28,7 +28,7 @@ export function ReportPanel(): ReactElement {
   return (
     <section id={REPORT_ID} className="fw-report" aria-label={dict.t('reportPanel')}>
       {inLibrary ? (
-        open === null ? null : (
+        open === null || open.origin === 'file' ? null : (
           <>
             <StoredFacts stored={open.stored} />
             <LongestTable board={open.stored.board} stored />

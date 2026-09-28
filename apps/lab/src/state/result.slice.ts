@@ -27,10 +27,24 @@ export interface Baseline {
  * `ReportInput` could only be invented for it.
  */
 export interface StoredBoard {
+  readonly origin: 'store'
   readonly board: BoardData
   readonly file: unknown
   readonly meta: BoardMeta
 }
+
+/** A board opened from disk: the file itself, and its meta when it came along. Nothing of it is in the store. */
+export interface OpenedFile {
+  readonly origin: 'file'
+  readonly board: BoardData
+  readonly file: BoardFile
+  readonly meta: BoardMeta | null
+  readonly name: string
+  /** The board's layout hash, computed on open. */
+  readonly id: string
+}
+
+export type Preview = StoredBoard | OpenedFile
 
 export interface ResultState {
   shown: ShownResult | null
@@ -40,12 +54,12 @@ export interface ResultState {
   /** Why the last SVG export of `shown.file` failed, and of no other file. */
   exportError: string | null
   /** The board the library shows, beside the run's own and never instead of it. */
-  preview: StoredBoard | null
+  preview: Preview | null
   stored(file: BoardFile, outcome: SaveOutcome): void
   /** An SVG export of `file` failed with `error`, or is starting again and clears it with null. */
   exported(file: BoardFile, error: string | null): void
-  /** The library draws a stored board. The run's result is untouched. */
-  showPreview(next: StoredBoard): void
+  /** The library draws a stored board or an opened file. The run's result is untouched. */
+  showPreview(next: Preview): void
   /** Leaving the library, or a board that could not be read. */
   clearPreview(): void
   /**
@@ -119,16 +133,11 @@ export function createResultSlice(set: SetStore): ResultState {
     clearPreview: () =>
       set((state) => (state.result.preview === null ? state : { result: { ...state.result, preview: null } })),
     previewView: (view) =>
-      set((state) =>
-        state.result.preview === null
-          ? state
-          : {
-              result: {
-                ...state.result,
-                preview: { ...state.result.preview, meta: { ...state.result.preview.meta, view } },
-              },
-            },
-      ),
+      set((state) => {
+        const preview = state.result.preview
+        if (preview === null || preview.meta === null) return state
+        return { result: { ...state.result, preview: { ...preview, meta: { ...preview.meta, view } } } }
+      }),
     reset: () =>
       set((state) => ({
         result: { ...state.result, shown: null, preview: null, baseline: null, saved: null, exportError: null },

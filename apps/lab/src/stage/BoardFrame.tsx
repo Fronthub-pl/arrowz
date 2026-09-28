@@ -54,7 +54,7 @@ export function BoardFrame(): ReactElement {
   )
   const elementView = useMemo(
     () =>
-      preview === null || !inLibrary
+      preview === null || !inLibrary || preview.meta === null
         ? labView
         : { ...boardViewOf(preview.meta.view, preview.meta.ok === false), ...paletteOverride, ...colourOverride },
     [preview, labView, inLibrary, paletteOverride, colourOverride],
@@ -64,11 +64,13 @@ export function BoardFrame(): ReactElement {
   // not stand in for it.
   const shown = inLibrary ? preview : result
   const board = inLibrary ? (preview?.board ?? null) : (result?.board ?? null)
-  const named =
+  const named: { W: number; H: number; seed: number | null } | null =
     shown === null
       ? null
       : inLibrary && preview !== null
-        ? { W: preview.meta.W, H: preview.meta.H, seed: preview.meta.seed }
+        ? preview.meta === null
+          ? { W: preview.board.W, H: preview.board.H, seed: null }
+          : { W: preview.meta.W, H: preview.meta.H, seed: preview.meta.seed }
         : result === null
           ? null
           : { W: result.params.W, H: result.params.H, seed: result.params.seed }
@@ -79,13 +81,16 @@ export function BoardFrame(): ReactElement {
   // The element's ◑ button would otherwise keep a colour of its own, and the
   // lab's colour switch would stop changing the board after one click. So the
   // lab cancels it and writes the flag to whoever owns what is drawn, under the
-  // same gate as `elementView`: the stored view for a stored board, the lab's
-  // otherwise, and nowhere in the library with nothing on stage.
+  // same gate as `elementView`: the meta's view for a board that has one, the
+  // lab's otherwise (a file with no meta), and nowhere with nothing on stage.
   const onColoredChange = (event: ColoredChangeEvent) => {
     event.preventDefault()
     const { colored } = event.detail
     if (inLibrary) {
-      if (preview !== null) commitView({ ...preview.meta.view, colored })
+      if (preview !== null) {
+        if (preview.meta === null) useStore.getState().view.setFlag('colored', colored)
+        else commitView({ ...preview.meta.view, colored })
+      }
     } else useStore.getState().view.setFlag('colored', colored)
   }
   const mode = useStore((state) => state.ui.boardMode)
@@ -133,7 +138,11 @@ export function BoardFrame(): ReactElement {
           onFinished={session.onFinished}
         />
         {named === null ? null : (
-          <span className="fw-anno">{dict.t('boardAnnotation', named.W, named.H, named.seed)}</span>
+          <span className="fw-anno">
+            {named.seed === null
+              ? dict.t('boardSize', named.W, named.H)
+              : dict.t('boardAnnotation', named.W, named.H, named.seed)}
+          </span>
         )}
         {/* Its own glyph: `⤢` is the element's fit button. */}
         <button

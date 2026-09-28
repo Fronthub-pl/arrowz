@@ -193,7 +193,7 @@ describe('RunStatusBar', () => {
     state.run.started(state.params.values)
     state.completeRun({ board: RESULT.board, file: CLOSED.board, report: CLOSED })
     state.result.stored(CLOSED.board, { ok: false, error: 'no store server' })
-    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
     const screen = await mountBar(`/boards/8x8/${meta.id}`)
     const line = EN.t('savedBoard', `8x8/${meta.id}`, meta.seed, meta.source, `${genSeconds(meta, '—')} s`)
     await expect.poll(() => screen.getByRole('status').element().textContent).toBe(line)
@@ -225,7 +225,7 @@ describe('RunStatusBar', () => {
   it('says nothing about a stored board once the tab is the lab again', async () => {
     const { meta, file } = storedFixture(2)
     const state = useStore.getState()
-    state.result.showPreview({ board: decodeBoard(file), file, meta })
+    state.result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta })
     state.library.boardFailed({ name: '8x8/sha256-ab', reason: 'HTTP 404' })
     const screen = await mountBar()
     // Read once and synchronously: the state is set before the mount, so the
@@ -238,7 +238,9 @@ describe('RunStatusBar', () => {
   it('says what the library has just done, ahead of the board it is showing', async () => {
     const { meta, file } = storedFixture(1)
     const screen = await mountBar(`/boards/8x8/${meta.id}`)
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
 
     await act(async () => useStore.getState().library.notify({ kind: 'viewSaved', name: `8x8/${meta.id}` }))
@@ -413,7 +415,9 @@ describe('the lines the columns show', () => {
   it('leave a stored board to the live region', async () => {
     const { meta, file } = storedFixture(1)
     const { screen, line } = await mountLines(`/boards/8x8/${meta.id}`)
-    await act(async () => useStore.getState().result.showPreview({ board: decodeBoard(file), file, meta }))
+    await act(async () =>
+      useStore.getState().result.showPreview({ origin: 'store', board: decodeBoard(file), file, meta }),
+    )
     await expect.element(screen.getByRole('status')).toMatchTextContent(/Saved board/)
     expect(line('library')).toBeNull()
   })

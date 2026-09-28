@@ -360,7 +360,7 @@ test('the mode applies to a stored board previewed in the library', async () => 
   const { meta, file } = storedFixture(2)
   const board = decodeBoard(file)
   const screen = await mountFrame(`/boards/8x8/${meta.id}`)
-  await act(async () => useStore.getState().result.showPreview({ board, file, meta }))
+  await act(async () => useStore.getState().result.showPreview({ origin: 'store', board, file, meta }))
   await pick(screen.container, 2)
   expect(said(screen.container)).toBe(`${board.pieces.length} left · 0 mistakes`)
   await pick(screen.container, 1)

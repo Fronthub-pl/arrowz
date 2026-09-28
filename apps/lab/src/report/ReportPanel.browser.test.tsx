@@ -507,7 +507,9 @@ test('on the saved boards the report describes the open board from its stored fi
   // No board the address names is drawn yet: nothing, not the run's report.
   expect(screen.container.querySelector('table.fw-stats')).toBeNull()
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
   const rows = [...stats(screen.container).rows].map((tr) => [labelOf(tr), tr.cells[1]?.textContent])
   const { meta } = stored
@@ -538,7 +540,9 @@ test('a stored board explains its rows the same way', async () => {
   const stored = storedFixture(1)
   const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
   const pieces = stats(screen.container).rows[1]
   const button = pieces?.cells[0]?.querySelector('button.q')
@@ -554,7 +558,9 @@ test("the stored board's time row explains only what it shows", async () => {
   const stored = storedFixture(1)
   const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
   const time = stats(screen.container).rows[5]
   const button = time?.cells[0]?.querySelector('button.q')
@@ -569,7 +575,9 @@ test('the stored board lists its longest pieces with the highlight off', async (
   useStore.getState().view.setFlag('highlightLongest', false)
   const screen = await mountReport(`/boards/8x8/${stored.meta.id}`)
   await act(async () =>
-    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+    useStore
+      .getState()
+      .result.showPreview({ origin: 'store', board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
   )
   expect(longestHead(screen.container).textContent).toBe('The 5 longest arrows')
 })
