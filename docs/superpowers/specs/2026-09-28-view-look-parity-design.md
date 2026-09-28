@@ -74,11 +74,11 @@ made for `assignPalette` (`packages/engine/palette.ts`).
 
 `DEFAULT_VIEW` in `command.ts` carries these defaults.
 
-`pad` and `pointRadius` become rows of `VIEW_RANGE`, `VIEW_NUMBER` and
-`VIEW_FLAG`, so the bound the CLI takes and the bound the lab's field
-draws come from one table, as they do for the other picture numbers.
-`PAD_RANGE` and `POINT_RADIUS_RANGE` stay exported from `board-element` as
-aliases of those rows, so the element and the lab keep their names.
+`PAD_RANGE` (0..16) and `POINT_RADIUS_RANGE` (0..0.5) move into
+`look.ts`, and the parser, `checkView`, the element and the lab all read
+them from there. They stay out of `VIEW_RANGE`: its keys (`ViewNumber`) are
+also the keys of the lab's `VIEW_ROWS` and of the simple view's field
+lists, so a new key there would add rows to the lab's panels.
 
 ### `toSvg` draws the margin and the points
 
@@ -138,7 +138,7 @@ fields, `pad` at 0 and 16, and points on and off:
 ### The store
 
 - `checkView` in `packages/cli/store-server.ts` checks the new fields with
-  the same rules: ranges from `VIEW_RANGE`, colours through `isHexColour`,
+  the same rules: `PAD_RANGE` and `POINT_RADIUS_RANGE`, colours through `isHexColour`,
   `theme` from `THEMES` or `''`, the palette at most `PALETTE_CAP`. An
   absent field takes its default, as `rounded` does today.
 - `fillView` in `store.ts` already spreads `DEFAULT_VIEW` under a stored
@@ -161,8 +161,9 @@ the margin only.
 - `viewOf` carries the nine fields (`highlightColor` becomes `highlight`), so
   the live command, the save after each run and `useViewSave` carry the look
   with no change of their own.
-- `viewSchema.ts` takes `PALETTE_CAP`, `isHexColour` and the pad and radius
-  bounds from the engine instead of defining them.
+- `viewSchema.ts` takes `PALETTE_CAP` and `isHexColour` from the engine
+  instead of defining them; the pad and radius bounds it already imports
+  through `board-element`, which now re-exports the engine's.
 - The Lab tab's SVG export draws `svgOptions(viewOf(view))`, plus `voids`.
   `exportColours` is deleted.
 - The library: the stored board's preview needs no change. `BoardFrame`
