@@ -43,6 +43,8 @@ React: wrap with `@lit/react` (`createComponent`) in the consumer.
 | `shake(pieceId, distance)` | nudges the piece `distance` cells down its track and back |
 | `fit()` | fits the board into the host |
 | `zoomBy(factor)` | zooms around the centre, clamped to `[fit, 48 px per cell]` |
+| `toggleColors()` | what the ◑ button does, `colored-change` included; does nothing without `enableColors` |
+| `toggleGestures()` | what the ☝ button does, the stored choice included; fires `gestures-change`; does nothing on a board that is neither `interactive` nor `play` |
 | `saveState()` | the game in progress as a value the host can store, or `null` before a board is set |
 | `loadState(snap)` | restores a game; throws when the snapshot is not this board's |
 | `restart()` | drops the game and puts every piece back |
@@ -57,6 +59,10 @@ the board's own count, not the number of DOM nodes.
 Getter: `gestureMode` (`'drag' | 'click'`, read-only): the rule mouse and pen
 follow now.
 
+Getter: `colored` (`boolean`, read-only): whether the board is drawn in colour
+now — never without `enableColors`, then the button's choice, then
+`view.colored`.
+
 The class also has an `emit(event)` method: it implements `GameTarget`, the
 seam the internal game host drives the element through. It is public only
 because a Lit element cannot narrow an interface member to `private`; a host
@@ -65,7 +71,8 @@ that only renders a board has no reason to call it.
 | Event | `detail` |
 |---|---|
 | `piece-click` | `{ pieceId }`, when `interactive` or `play` |
-| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button before it changes the colour override; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
+| `colored-change` | `{ colored }`, cancelable: fired by the ◑ button or `toggleColors()` before the colour override changes; `preventDefault()` clears the override instead, handing the colour back to `view.colored` |
+| `gestures-change` | `{ mode }` (`'drag'` or `'click'`): the player's gesture choice changed, through the ☝ button or `toggleGestures()`; not fired for the choice read back on connect |
 | `viewport-change` | the viewport snapshot, at most once per frame |
 | `piece-removed` | `{ pieceId, left }`, when a free piece starts its ride |
 | `life-lost` | `{ pieceId, blockerId, distance }`, when a blocked piece starts its bounce |
@@ -212,6 +219,62 @@ Every piece leaves at one speed, `EXIT_SPEED` cells per second, bounded by
 out faster than a short one at the edge. `prefers-reduced-motion` collapses
 every ride to no time at all.
 
+### Slots and custom controls
+
+The hint and the buttons in the corner are slot fallback content: a host that
+projects its own content into a slot replaces the default there, and a slot
+left empty keeps it.
+
+| Slot | Default | Present when |
+|---|---|---|
+| `controls` | the whole bar, holding the slots below | always |
+| `hint` | the mode hint | `controls` is empty |
+| `zoom-in` | `+` | `controls` is empty |
+| `zoom-out` | `−` | `controls` is empty |
+| `fit` | `⤢` | `controls` is empty |
+| `colors` | `◑` | `controls` is empty and `enableColors` |
+| `gestures` | `☝` | `controls` is empty and `interactive` or `play` |
+
+```html
+<arrowz-board play>
+  <button slot="fit" data-board-action="fit" aria-label="Show everything">Fit</button>
+</arrowz-board>
+```
+
+`data-board-action` names what a click on the element, or on anything inside
+it, does: `zoom-in`, `zoom-out`, `fit`, `colors` (as `toggleColors()`) or
+`gestures` (as `toggleGestures()`). It works in every slot, at any depth
+inside a custom `controls`; any other value does nothing. The name is
+namespaced because `data-action` belongs to common event delegators. The
+element finds these controls in its light DOM; put `data-board-action` on a
+light-DOM element, not inside another component's shadow root.
+
+The default bar keeps 8 px inside the board. When what it holds — its own
+controls or projected ones — is wider than that, it wraps upwards: the bottom
+row keeps what comes first (the hint, then the zoom buttons) and the rest moves
+above it. A hint wider than the row takes the bottom row alone.
+
+A custom `controls` replaces the bar and its position: the per-control slots
+live inside the bar, so a `slot="fit"` child next to a custom bar is not
+drawn. The host is `position: relative`, so a bar positioned `absolute` is
+placed against the board. An unpositioned bar is drawn above the board in the
+normal flow.
+
+The element keeps two attributes on the host's `colors` and `gestures`
+controls in step with the board, and owns them there: `aria-pressed`, and
+`hidden` while the action is unavailable (no `enableColors`; a board that is
+neither `interactive` nor `play`). `hidden` hides through the user-agent
+`display: none`, so keep `[hidden] { display: none }` winning over your own
+`display` rules on these controls. Under a coarse pointer the `hint` and
+`gestures` slots are not drawn, projected content included; inside a custom
+`controls` that rule is the host's.
+
+The element gives projected controls no role and no name: project a
+`<button>` with its own accessible name. A control that is not a button still
+runs its action on click, and nothing more. The board keys (`+`, `−`, `0`)
+act while the board or one of its controls has focus, not while a text field
+or a nested board in its content does.
+
 ### Playing the board
 
 With `play` the element decides the move itself: a free piece rides out, a
@@ -223,12 +286,14 @@ it is kept is the host's business.
 
 Colours are off unless `enableColors` is set: monochrome is part of the puzzle,
 so telling the pieces apart without colour is the task. With the permission the
-board grows a fourth chrome button, and a board may arrive coloured through
-`view.colored` or through a loaded game. The button announces a cancelable
-`colored-change` event before it acts: a host that does nothing keeps today's
-behaviour (the button decides), and one that calls `preventDefault()` clears
-the button's own choice — including one made earlier, by a click or by
-`loadState` — so `view.colored` is back in charge from that click on.
+board grows a fourth chrome button (or shows the host's own, see
+[Slots and custom controls](#slots-and-custom-controls)), and a board may
+arrive coloured through `view.colored` or through a loaded game. The button
+announces a cancelable `colored-change` event before it acts: a host that does
+nothing keeps today's behaviour (the button decides), and one that calls
+`preventDefault()` clears the button's own choice — including one made
+earlier, by a click or by `loadState` — so `view.colored` is back in charge
+from that click on.
 
 Assigning `board` always starts a new game and redraws the board in full: a
 fresh session owns a fresh "gone" set, and the layer compares that set by

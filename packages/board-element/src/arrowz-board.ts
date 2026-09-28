@@ -1,8 +1,10 @@
 // The board element: a Lit shell for the chrome (zoom buttons, pan hint)
 // around one <canvas> owned by GlLayer. Lit never renders the pieces; it
-// renders the handful of nodes around them. The viewport is pure math from
-// viewport.ts, the pointer rules are the state machine of gestures.ts, and
-// this file only wires DOM events to both and exposes the public API.
+// renders the handful of nodes around them. The chrome is slot fallback
+// content, so a host may project its own controls (README, "Slots and
+// custom controls"). The viewport is pure math from viewport.ts, the pointer
+// rules are the state machine of gestures.ts, and this file only wires DOM
+// events to both and exposes the public API.
 import { css, html, LitElement, type PropertyValues } from 'lit'
 import type { BoardData, SessionSnapshot } from '@arrowz/engine'
 import { type GameEvent, GameHost, type GameTarget } from './game-host.ts'
@@ -30,6 +32,8 @@ export type LifeLostEvent = CustomEvent<{ pieceId: number; blockerId: number; di
 export type FinishedEvent = CustomEvent<{ pieces: number }>
 export type ColoredChangeEvent = CustomEvent<{ colored: boolean }>
 export type ColoredChangeDetail = ColoredChangeEvent['detail']
+export type GesturesChangeEvent = CustomEvent<{ mode: GestureMode }>
+export type GesturesChangeDetail = GesturesChangeEvent['detail']
 
 /** One button or key press scales by this factor. */
 export const ZOOM_STEP = 1.25
@@ -202,7 +206,12 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       position: absolute;
       right: 8px;
       bottom: 8px;
+      /* A bar wider than the board wraps upwards instead of leaving it: the bottom
+        row keeps what comes first, the hint and then the zoom buttons. */
+      max-width: calc(100% - 16px);
       display: flex;
+      flex-wrap: wrap-reverse;
+      justify-content: flex-end;
       align-items: center;
       gap: 4px;
     }
@@ -228,9 +237,14 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     button[aria-pressed='true'] {
       background: #dde;
     }
+    /* Above the absolutely positioned canvas; a host's own position still wins. */
+    slot[name='controls']::slotted(*) {
+      position: relative;
+    }
+    /* On a slot, so a host's hint or switch hides with the default one. */
     @media (pointer: coarse) {
-      .hint,
-      .gestures {
+      slot[name='hint'],
+      slot[name='gestures'] {
         display: none;
       }
     }
@@ -267,6 +281,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private lastColors = ''
   /** The geometry key `updated()` last drew, to tell a colour-only change from one that moves a vertex. */
   private geometryKey = ''
+  /** Brings host controls added after connect, at any depth, under `syncActions`. */
+  private readonly actionObserver = new MutationObserver(() => this.syncActions())
 
   constructor() {
     super()
@@ -338,6 +354,15 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       if (entry) this.onResize(entry.contentRect.width, entry.contentRect.height)
     })
     this.observer.observe(this)
+    // Not `aria-pressed` or `hidden`: those are what `syncActions` writes.
+    this.actionObserver.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-board-action', 'slot'],
+    })
+    // Controls added while the board was detached reached no observer.
+    this.syncActions()
   }
 
   /**
@@ -357,6 +382,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     super.disconnectedCallback()
     this.observer?.disconnect()
     this.observer = null
+    this.actionObserver.disconnect()
     // A board removed while the pointer was over it never gets its leave.
     this.stopWatchingModifier()
     this.stopRevival()
@@ -394,37 +420,48 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     const l = labelsFor(this.lang)
     return html`
       ${this.hasWebgl ? this.layer.canvas : html`<p class="unsupported">${l.noWebgl}</p>`}
-      <div class="chrome">
-        <span class="hint">${this.hint(l)}</span>
-        <button type="button" title=${l.zoomIn} aria-label=${l.zoomIn} @click=${() => this.zoomBy(ZOOM_STEP)}>+</button>
-        <button type="button" title=${l.zoomOut} aria-label=${l.zoomOut} @click=${() =>
-          this.zoomBy(1 / ZOOM_STEP)}>−</button>
-        <button type="button" title=${l.fit} aria-label=${l.fit} @click=${() => this.fit()}>⤢</button>
-        ${this.enableColors
-          ? html`
-            <button
-              type="button"
-              class="colors"
-              title=${l.colors}
-              aria-label=${l.colors}
-              aria-pressed=${this.colored ? 'true' : 'false'}
-              @click=${this.toggleColors}
-            >◑</button>
-          `
-          : ''}
-        ${this.playable
-          ? html`
-            <button
-              type="button"
-              class="gestures"
-              title=${this.gesturesLabel(l)}
-              aria-label=${this.gesturesLabel(l)}
-              aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
-              @click=${this.toggleGestures}
-            >☝</button>
-          `
-          : ''}
-      </div>
+      <slot name="controls" @click=${this.onAction}>
+        <div class="chrome">
+          <slot name="hint"><span class="hint">${this.hint(l)}</span></slot>
+          <slot name="zoom-in">
+            <button type="button" data-board-action="zoom-in" title=${l.zoomIn} aria-label=${l.zoomIn}>+</button>
+          </slot>
+          <slot name="zoom-out">
+            <button type="button" data-board-action="zoom-out" title=${l.zoomOut} aria-label=${l.zoomOut}>−</button>
+          </slot>
+          <slot name="fit">
+            <button type="button" data-board-action="fit" title=${l.fit} aria-label=${l.fit}>⤢</button>
+          </slot>
+          ${this.enableColors
+            ? html`
+              <slot name="colors">
+                <button
+                  type="button"
+                  class="colors"
+                  data-board-action="colors"
+                  title=${l.colors}
+                  aria-label=${l.colors}
+                  aria-pressed=${this.colored ? 'true' : 'false'}
+                >◑</button>
+              </slot>
+            `
+            : ''}
+          ${this.playable
+            ? html`
+              <slot name="gestures">
+                <button
+                  type="button"
+                  class="gestures"
+                  data-board-action="gestures"
+                  title=${this.gesturesLabel(l)}
+                  aria-label=${this.gesturesLabel(l)}
+                  aria-pressed=${this.chosenMode === 'click' ? 'true' : 'false'}
+                >☝</button>
+              </slot>
+            `
+            : ''}
+        </div>
+      </slot>
     `
   }
 
@@ -440,14 +477,62 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     return isMac ? l.gesturesMac : l.gesturesOther
   }
 
+  /**
+   * The one click path for the default controls and the host's: the first
+   * element with `data-board-action` between the target and the `controls`
+   * slot names the action. A board nested in the host's content sits on that
+   * path above its own shadow controls, so meeting one means the click is its.
+   */
+  private readonly onAction = (e: Event): void => {
+    const path = e.composedPath()
+    const end = e.currentTarget === null ? -1 : path.indexOf(e.currentTarget)
+    const inside = end < 0 ? [] : path.slice(0, end)
+    if (inside.some((node) => node instanceof ArrowzBoard && node !== this)) return
+    const source = inside.find((node): node is Element =>
+      node instanceof Element && node.hasAttribute('data-board-action')
+    )
+    this.act(source?.getAttribute('data-board-action') ?? null)
+  }
+
+  private act(action: string | null): void {
+    if (action === 'zoom-in') this.zoomBy(ZOOM_STEP)
+    else if (action === 'zoom-out') this.zoomBy(1 / ZOOM_STEP)
+    else if (action === 'fit') this.fit()
+    else if (action === 'colors') this.toggleColors()
+    else if (action === 'gestures') this.toggleGestures()
+  }
+
+  /**
+   * `aria-pressed` and `hidden` on the host's colour and gesture controls, the
+   * two attributes the element owns there. A control inside a nested board is
+   * that board's.
+   */
+  private syncActions(): void {
+    for (const node of this.querySelectorAll('[data-board-action="colors"], [data-board-action="gestures"]')) {
+      if (node.closest('arrowz-board') !== this) continue
+      const colors = node.getAttribute('data-board-action') === 'colors'
+      node.setAttribute('aria-pressed', String(colors ? this.colored : this.chosenMode === 'click'))
+      node.toggleAttribute('hidden', !(colors ? this.enableColors : this.playable))
+    }
+  }
+
   /** A click reaches the host as `piece-click` and plays nothing: `play` wins when both are set. */
   private get inspecting(): boolean {
     return this.interactive && !this.play
   }
 
-  private readonly toggleGestures = (): void => {
+  /** What the ☝ button does; a no-op on a board a click can neither play nor inspect. */
+  toggleGestures(): void {
+    if (!this.playable) return
     this.chosenMode = this.chosenMode === 'click' ? 'drag' : 'click'
     storeMode(this.chosenMode)
+    this.dispatchEvent(
+      new CustomEvent<GesturesChangeDetail>('gestures-change', {
+        detail: { mode: this.chosenMode },
+        bubbles: true,
+        composed: true,
+      }),
+    )
   }
 
   /**
@@ -458,9 +543,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * otherwise a cancelling host would only take charge starting from a board
    * that had never been coloured, and every other one would still be stuck on
    * whatever the override last was. A host that never cancels leaves the
-   * button to decide.
+   * button to decide. Without `enableColors` it does nothing.
    */
-  private readonly toggleColors = (): void => {
+  toggleColors(): void {
+    if (!this.enableColors) return
     const colored = !this.colored
     const event = new CustomEvent<ColoredChangeDetail>('colored-change', {
       detail: { colored },
@@ -475,6 +561,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
+    if (
+      changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
+      changed.has('chosenMode') || changed.has('play') || changed.has('interactive')
+    ) this.syncActions()
     // Independent of everything below: the grid lives in its own two nodes,
     // and re-reading `this.vp` here is what lets a plain colour or radius
     // change (no board, no viewport move) still repaint it.
@@ -612,7 +702,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
    * everything: monochrome is part of the task, so a host has to
    * ask for the exception before either the button or `view.colored` counts.
    */
-  private get colored(): boolean {
+  get colored(): boolean {
     return this.enableColors && (this.coloredOverride ?? this.view.colored ?? false)
   }
 
@@ -863,11 +953,23 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // the platform; without a viewport there is nothing to zoom, and the
     // wheel does not swallow its event there either.
     if (e.metaKey || e.ctrlKey || e.altKey || !this.vp) return
+    // A nested board in the content has handled its own keys already.
+    const path = e.composedPath()
+    const end = path.indexOf(this)
+    if (path.slice(0, end < 0 ? 0 : end).some((node) => node instanceof ArrowzBoard)) return
+    if (ArrowzBoard.takesText(path[0])) return
     if (e.key === '+' || e.key === '=') this.zoomBy(ZOOM_STEP)
     else if (e.key === '-') this.zoomBy(1 / ZOOM_STEP)
     else if (e.key === '0') this.fit()
     else return
     e.preventDefault()
+  }
+
+  // A key typed into a field is the field's, even when the field sits in the board's content.
+  private static takesText(node: EventTarget | undefined): boolean {
+    if (node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true
+    if (node instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(node.type)
+    return node instanceof HTMLElement && node.isContentEditable
   }
 
   private apply(intent: Intent): void {
@@ -899,5 +1001,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     }
   }
 }
+
+const NON_TEXT_INPUTS = new Set(['button', 'checkbox', 'radio', 'range', 'submit', 'reset', 'color', 'file', 'image'])
 
 if (!customElements.get('arrowz-board')) customElements.define('arrowz-board', ArrowzBoard)

@@ -4,6 +4,7 @@ import type {
   ArrowzBoard,
   ColoredChangeEvent,
   FinishedEvent,
+  GesturesChangeEvent,
   LifeLostEvent,
   PieceClickEvent,
   PieceRemovedEvent,
@@ -25,6 +26,8 @@ export type {
   ColoredChangeDetail,
   ColoredChangeEvent,
   FinishedEvent,
+  GesturesChangeDetail,
+  GesturesChangeEvent,
   LifeLostEvent,
   PieceClickEvent,
   PieceRemovedEvent,
@@ -51,6 +54,7 @@ declare global {
   }
   interface HTMLElementEventMap {
     'colored-change': ColoredChangeEvent
+    'gestures-change': GesturesChangeEvent
     'piece-click': PieceClickEvent
     'piece-removed': PieceRemovedEvent
     'life-lost': LifeLostEvent

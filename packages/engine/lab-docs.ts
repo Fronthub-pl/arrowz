@@ -60,8 +60,11 @@ export const ELEMENT_MEMBERS = [
   { key: 'viewport', kind: 'getter', signature: 'BoardViewport | null' },
   { key: 'pieceCount', kind: 'getter', signature: 'number' },
   { key: 'gestureMode', kind: 'getter', signature: "'drag' | 'click'" },
+  { key: 'colored', kind: 'getter', signature: 'boolean' },
   { key: 'fit', kind: 'method', signature: 'fit(): void' },
   { key: 'zoomBy', kind: 'method', signature: 'zoomBy(factor: number): void' },
+  { key: 'toggleColors', kind: 'method', signature: 'toggleColors(): void' },
+  { key: 'toggleGestures', kind: 'method', signature: 'toggleGestures(): void' },
   { key: 'animateExit', kind: 'method', signature: 'animateExit(pieceId: number, dir: number): Promise<void>' },
   { key: 'shake', kind: 'method', signature: 'shake(pieceId: number, distance: number): Promise<void>' },
   { key: 'saveState', kind: 'method', signature: 'saveState(): SessionSnapshot | null' },
@@ -73,6 +76,7 @@ export const ELEMENT_MEMBERS = [
 export const ELEMENT_EVENTS = [
   { key: 'piece-click', detail: '{ pieceId }' },
   { key: 'colored-change', detail: '{ colored }' },
+  { key: 'gestures-change', detail: '{ mode }' },
   { key: 'piece-removed', detail: '{ pieceId, left }' },
   { key: 'life-lost', detail: '{ pieceId, blockerId, distance }' },
   { key: 'finished', detail: '{ pieces }' },
@@ -138,8 +142,14 @@ const EN = {
     viewport: 'The view on screen, or null before a board and a host size are both known.',
     pieceCount: "How many pieces the layer is drawing; the board's own count, not the number of nodes.",
     gestureMode: "The rule the mouse and pen follow now: the player's choice on a playable board, panning otherwise.",
+    colored:
+      "Whether the board is drawn in colour now: the permission first, then the button's choice, then `view.colored`.",
     fit: 'Fits the board into the host.',
     zoomBy: 'Zooms around the centre, clamped between the fitted scale and 48 pixels per cell.',
+    toggleColors:
+      'What the colour button does, the cancelable `colored-change` included. Does nothing without `enableColors`.',
+    toggleGestures:
+      "What the gesture switch does: flips the player's choice, keeps it for the next visit and fires `gestures-change`. Does nothing on a board a click cannot reach.",
     animateExit: 'Rides the piece off the board along a direction and removes it; resolves when the ride ends.',
     shake: 'Nudges the piece a distance down its own track and back.',
     saveState: 'The game in progress as a value the host can store, or null before a board is set.',
@@ -150,7 +160,9 @@ const EN = {
   events: {
     'piece-click': 'A piece was clicked, while interactive or playing.',
     'colored-change':
-      'The colour button was clicked; cancelable, and fired before it changes the override. Cancelling clears the override instead, handing the colour back to `view.colored`.',
+      'The colour button was clicked or `toggleColors()` was called; cancelable, and fired before the override changes. Cancelling clears the override instead, handing the colour back to `view.colored`.',
+    'gestures-change':
+      "The player's gesture choice changed, through the switch or `toggleGestures()`. Not fired for the choice read back on connect.",
     'piece-removed': 'A free piece started its ride off the board.',
     'life-lost': 'A blocked piece started its bounce against the piece that stops it.',
     'finished': 'The last piece finished its ride.',
@@ -203,8 +215,13 @@ const PL = {
     pieceCount: 'Ile elementów rysuje warstwa; licznik samej planszy, nie liczba węzłów.',
     gestureMode:
       'Reguła, według której działa teraz mysz i pióro: wybór gracza na grywalnej planszy, w przeciwnym razie przesuwanie.',
+    colored: 'Czy plansza jest teraz rysowana w kolorze: najpierw zgoda, potem wybór przycisku, potem `view.colored`.',
     fit: 'Dopasowuje planszę do kontenera.',
     zoomBy: 'Powiększa względem środka, w granicach od dopasowania do 48 pikseli na komórkę.',
+    toggleColors:
+      'To samo co przycisk koloru, łącznie z anulowalnym `colored-change`. Bez `enableColors` nic nie robi.',
+    toggleGestures:
+      'To samo co przełącznik gestów: odwraca wybór gracza, zapamiętuje go na następną wizytę i wysyła `gestures-change`. Na planszy, do której klik nie dociera, nic nie robi.',
     animateExit: 'Wyprowadza element z planszy w zadanym kierunku i usuwa go; kończy się wraz z przejazdem.',
     shake: 'Popycha element o zadany dystans po jego własnym torze i z powrotem.',
     saveState: 'Trwająca gra jako wartość, którą host może zapisać, albo null, zanim ustawiono planszę.',
@@ -215,7 +232,9 @@ const PL = {
   events: {
     'piece-click': 'Kliknięto element, w trybie interaktywnym albo w grze.',
     'colored-change':
-      'Kliknięto przycisk koloru; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
+      'Kliknięto przycisk koloru albo wywołano `toggleColors()`; można je anulować, leci przed zmianą nadpisania. Anulowanie czyści nadpisanie i oddaje kolor `view.colored`.',
+    'gestures-change':
+      'Zmienił się wybór gestu gracza, przełącznikiem albo przez `toggleGestures()`. Nie leci przy odczycie zapamiętanego wyboru po podłączeniu.',
     'piece-removed': 'Wolny element ruszył w drogę poza planszę.',
     'life-lost': 'Zablokowany element odbił się od tego, który go zatrzymał.',
     'finished': 'Ostatni element zakończył przejazd.',
