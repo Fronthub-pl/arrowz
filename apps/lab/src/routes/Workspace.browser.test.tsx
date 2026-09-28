@@ -793,15 +793,16 @@ test('a stored board can be opened, restyled and loaded back into the lab', asyn
     await expect.poll(() => useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
     expect(useStore.getState().run.phase).toBe(phase)
 
-    // The lab's own board is waiting where it was left: *this* board, not some
-    // board. `shown` is non-null here however Load into lab behaves, so only
-    // identity against the value captured first goes red if Load into lab
-    // overwrote the lab's result with the stored board's.
+    // Load into lab runs the loaded knobs: the lab's board is replaced by a
+    // fresh run's, never by the stored file handed over as a result.
     const labBoard = useStore.getState().result.shown
     expect(labBoard).not.toBeNull()
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
     await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
-    expect(useStore.getState().result.shown).toBe(labBoard)
+    await expect.poll(() => useStore.getState().result.shown, { timeout: 20_000 }).not.toBe(labBoard)
+    const loaded = useStore.getState().result.shown
+    expect(loaded?.params.seed).toBe(meta.params.seed)
+    expect(loaded?.file).not.toBe(file)
   } finally {
     // The stroke edit above leaves a 350ms module-scope save timer running, and
     // its `.then` calls `refresh()` after the case is gone.

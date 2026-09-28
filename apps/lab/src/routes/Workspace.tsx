@@ -85,7 +85,7 @@ export function Workspace({
           <Stage
             settings={<Console control={control} face={tab} />}
             run={<RunColumn control={control} goRef={goRef} abortRef={abortRef} />}
-            side={lab ? null : <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />}
+            side={lab ? null : <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} control={control} />}
             // Only on the lab: the saved boards' stage shows a stored board,
             // which a carve in flight does not touch.
             busy={lab && running}

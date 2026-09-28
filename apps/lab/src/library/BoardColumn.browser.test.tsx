@@ -14,6 +14,7 @@ import { BoardPreview } from './BoardPreview'
 import { cancelNoticeFade } from './notices'
 import { useOpenBoard } from './useOpenBoard'
 import { cancelPendingSave, useViewSave } from './useViewSave'
+import type { RunControl } from '../run/useRun'
 // The style cases read the real cascade: the Delete button's border is
 // `run.css`'s and its armed colour `library.css`'s.
 import '../design/tokens.css'
@@ -25,6 +26,21 @@ import '../design/run.css'
 const stored = storedFixture(1)
 const other = storedFixture(2)
 
+/** A run control that records the knobs each start saw. */
+function recordingControl() {
+  const seeds: number[] = []
+  const control: RunControl = {
+    start: vi.fn(() => {
+      seeds.push(useStore.getState().params.values.seed)
+    }),
+    abort: vi.fn(),
+    hold: vi.fn(),
+  }
+  return { control, seeds }
+}
+
+let run = recordingControl()
+
 beforeEach(() => {
   const state = useStore.getState()
   state.result.reset()
@@ -32,6 +48,7 @@ beforeEach(() => {
   state.params.reset()
   state.lang.setLang('en')
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  run = recordingControl()
 })
 
 afterEach(() => {
@@ -49,7 +66,7 @@ function Address() {
 /** The column as `Workspace` mounts it: keyed by the open board. */
 function KeyedColumn() {
   const open = useOpenBoard()
-  return <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />
+  return <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} control={run.control} />
 }
 
 async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: ReactNode) {
@@ -116,7 +133,7 @@ test('the column prints the command the store holds for this board', async () =>
   )
 })
 
-test('load into lab sets the knobs and the view, goes to the lab, and starts nothing', async () => {
+test('load into lab sets the knobs and the view, goes to the lab, and starts one run on them', async () => {
   const screen = await mountDetail()
   await show()
   const edits = useStore.getState().params.edits
@@ -127,8 +144,33 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   expect(useStore.getState().view.stroke).toBe(stored.meta.view.stroke)
   // A stored view's `top` is 0, so the highlight lands off.
   expect(useStore.getState().view.highlightLongest).toBe(false)
+  // A machine write: auto-generate is not woken, the one run is the column's.
   expect(useStore.getState().params.edits).toBe(edits)
+  expect(run.seeds).toEqual([stored.meta.params.seed])
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
+})
+
+// `generate()` would draw the knobs first here (`drawIfRandom`) and run on those.
+test('load into lab in the simple view with randomising on keeps the loaded knobs', async () => {
+  const { ui, recipe } = useStore.getState()
+  const mode = ui.mode
+  const random = recipe.value.random
+  ui.setMode('simple')
+  recipe.setRandom(true)
+  try {
+    const screen = await mountDetail()
+    await show()
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    expect(run.seeds).toEqual([stored.meta.params.seed])
+    expect(useStore.getState().params.values).toMatchObject({
+      W: stored.meta.params.W,
+      H: stored.meta.params.H,
+      seed: stored.meta.params.seed,
+    })
+  } finally {
+    useStore.getState().recipe.setRandom(random)
+    useStore.getState().ui.setMode(mode)
+  }
 })
 
 // A stored board carries the CLI's seven view fields only; the page's colours, points, margin and voids stay.

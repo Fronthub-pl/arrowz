@@ -11,6 +11,7 @@ import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
 import { exportColours } from '../run/exportColours'
 import { MoreMenu } from '../run/MoreMenu'
+import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { raiseNotice } from './notices'
@@ -44,7 +45,7 @@ function LibraryLine({ line }: { line: StateLine | null }): ReactElement {
   )
 }
 
-export function BoardColumn(): ReactElement {
+export function BoardColumn({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
   const lang = useStore((state) => state.lang.lang)
@@ -92,8 +93,8 @@ export function BoardColumn(): ReactElement {
       .catch(() => {})
   }
 
-  // The knobs, then the view, then the lab, and no run: `setMany` does not
-  // move `edits`, the only thing `useAutoRun` watches.
+  // The knobs, then the view, then one run and the lab. `start()`, not
+  // `generate()`: in the simple view that would draw new knobs over these.
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
@@ -109,6 +110,7 @@ export function BoardColumn(): ReactElement {
       highlightLongest: saved.top > 0,
       ...(saved.top > 0 ? { top: saved.top } : {}),
     })
+    control.start()
     void navigate('/')
   }
 
