@@ -44,3 +44,9 @@ export function finish(run: FinishedFixture): void {
   state.run.started(run.params)
   state.completeRun(run)
 }
+
+/** A finished run as a Stop leaves it: not closed, aborted. The board is a real one; only the flags differ. */
+export function stoppedRun(seed: number): FinishedFixture {
+  const run = finishedRun(seed)
+  return { ...run, report: { ...run.report, ok: false, aborted: true } }
+}

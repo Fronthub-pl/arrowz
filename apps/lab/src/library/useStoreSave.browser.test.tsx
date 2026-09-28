@@ -1,7 +1,8 @@
 import type { StoreRequest } from '@arrowz/engine'
+import { act } from 'react'
 import { afterEach, beforeEach, expect, type MockInstance, test, vi } from 'vitest'
 import { renderHook } from 'vitest-browser-react'
-import { finish, finishedRun } from '../state/result.fixtures'
+import { finish, finishedRun, stoppedRun } from '../state/result.fixtures'
 import { useStore } from '../state/store'
 import { useStoreSave } from './useStoreSave'
 
@@ -28,4 +29,16 @@ test('a finished run auto-saves with metrics.aborted false', async () => {
   finish(finishedRun(1))
   await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(0)
   expect(posted(fetch).metrics?.aborted).toBe(false)
+})
+
+// The finished run after it proves the hook was listening: its POST arrives, the stopped one's never did.
+test('a stopped board is shown but not posted to the store', async () => {
+  const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 201 }))
+  await renderHook(() => useStoreSave())
+  // Each in its own commit: in one, the effect would see only the second.
+  await act(async () => finish(stoppedRun(1)))
+  await act(async () => finish(finishedRun(2)))
+  await expect.poll(() => fetch.mock.calls.length).toBeGreaterThan(0)
+  expect(fetch.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
+  expect(posted(fetch).params.seed).toBe(2)
 })

@@ -82,6 +82,15 @@ describe('RunColumn', () => {
     await expect.element(go).toHaveAttribute('title')
   })
 
+  // Once a stop is requested, the button keeps running the same action but says
+  // the second press discards the board rather than keeping it.
+  it('renames Abort to Discard once a stop is requested, and stays enabled', async () => {
+    const screen = await render(<RunColumn control={stub().control} />)
+    useStore.getState().run.started(useStore.getState().params.values)
+    useStore.getState().run.stopRequested()
+    await expect.element(screen.getByRole('button', { name: 'Discard' })).toBeEnabled()
+  })
+
   // Abort is not a second Generate: it is live exactly while a worker is.
   it('offers Abort only while a run is in flight', async () => {
     const g = stub()

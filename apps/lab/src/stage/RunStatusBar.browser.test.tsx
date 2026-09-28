@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { storedFixture } from '../state/library.fixtures'
+import { finish, stoppedRun } from '../state/result.fixtures'
 import type { DoneReport } from '../state/run.slice'
 import { useStore } from '../state/store'
 import { RunStatusBar } from './RunStatusBar'
@@ -104,6 +105,20 @@ describe('RunStatusBar', () => {
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('closed'))
     await act(async () => useStore.getState().params.setMany({ wShort: 0.8, wMid: 0.8 }))
     await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('generateBlocked'))
+  })
+
+  it('says a stopped board is stopped, not closed', async () => {
+    finish(stoppedRun(1))
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('stopped'))
+  })
+
+  it('says Stopping… once a stop is requested', async () => {
+    const state = useStore.getState()
+    state.run.started(state.params.values)
+    state.run.stopRequested()
+    const screen = await mountBar()
+    await expect.element(screen.getByRole('status')).toMatchTextContent(EN.t('stopping'))
   })
 
   // An 8 × 8 run has 2 × (8 + 8) = 32 places a head can stand; the stuck report is stated.

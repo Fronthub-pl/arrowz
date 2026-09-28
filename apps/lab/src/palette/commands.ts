@@ -235,7 +235,7 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
     {
       id: 'run-abort',
       section: 'run',
-      name: dict.t('abort'),
+      name: state.run.stopping ? dict.t('abortDiscard') : dict.t('abort'),
       note: dict.t('cmdSecRun'),
       value: running ? '' : dict.t('cmdNoRun'),
       hay: 'abort stop',

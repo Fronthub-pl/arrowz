@@ -83,8 +83,8 @@ export function reportInputOf(report: ReportInput): ReportInput {
 
 /**
  * The show transition as a pure function, so `completeRun` can apply it in the
- * same `set` as the run's. The baseline moves only past a result with metrics;
- * rendering never moves it.
+ * same `set` as the run's. The baseline moves only past a result with metrics,
+ * nor past a stopped one, whose numbers describe a board cut short.
  */
 export function showResult(state: ResultState, next: ShownResult): ResultState {
   const before = state.shown
@@ -92,7 +92,7 @@ export function showResult(state: ResultState, next: ShownResult): ResultState {
     ...state,
     shown: { board: next.board, file: next.file, report: reportInputOf(next.report), params: next.params },
     baseline:
-      before !== null && before.report.metrics !== null
+      before !== null && before.report.metrics !== null && !before.report.aborted
         ? { report: before.report, params: before.params }
         : state.baseline,
     saved: null,

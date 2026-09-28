@@ -84,6 +84,14 @@ describe('the catalogue', () => {
     expect(running?.disabled).toBe(false)
   })
 
+  it('renames the abort row to Discard once a stop is requested, keeping it enabled', () => {
+    useStore.getState().run.started(useStore.getState().params.values)
+    useStore.getState().run.stopRequested()
+    const row = buildCommands(deps(), useStore.getState()).find((r) => r.id === 'run-abort')
+    expect(row?.name).toBe('Discard')
+    expect(row?.disabled).toBe(false)
+  })
+
   it('refuses Generate against a broken rule, and says which way it is broken', () => {
     // wShort + wMid above 0.9 breaks `sharesSum`.
     useStore.getState().params.setMany({ wShort: 0.9, wMid: 0.9 })

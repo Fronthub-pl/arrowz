@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from 'vitest'
 import { decodeBoard } from '@arrowz/engine'
-import { finish, finishedRun } from './result.fixtures'
+import { finish, finishedRun, stoppedRun } from './result.fixtures'
 import { storedFixture } from './library.fixtures'
 import { useStore } from './store'
 
@@ -51,6 +51,13 @@ test('a result without metrics leaves the baseline where it was', () => {
   expect(result().baseline?.params.seed).toBe(2)
   finish(ONE)
   expect(result().baseline?.params.seed).toBe(2)
+})
+
+test('the baseline does not move past a stopped board', () => {
+  finish(finishedRun(1))
+  finish(stoppedRun(2))
+  finish(finishedRun(2))
+  expect(result().baseline?.params.seed).toBe(1)
 })
 
 // Without this, the next board would read "closed — saved" until its own POST answered.
