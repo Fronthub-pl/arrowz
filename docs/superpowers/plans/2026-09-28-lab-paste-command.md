@@ -18,13 +18,14 @@
 - `command.ts`, `lab-simple.ts`, `lab-i18n.ts` stay neutral (no DOM, no Deno; `neutral.test.ts`).
 - No `any`, no non-null assertions, no value-changing fallback in the engine; never spread arrays proportional to cells or arrows.
 - Comments say why, once, in the fewest lines (≤ 6 lines outside a header); no history, no `file.ts:NN` (`comments.test.ts` sweeps `apps/lab/src` and `packages/engine/lab-*.ts`).
+- `command.test.ts` holds a case that runs `sh`: run it with `deno test -A`, never `--allow-read` alone.
 - Formatting: `deno fmt <files>` for engine/CLI files; `(cd apps/lab && pnpm exec prettier --write <files>)` for lab files.
 - Lab tests read the engine from `packages/engine/dist`: run `pnpm nx build engine` after every engine change, before lab tests. A fresh worktree needs `corepack enable pnpm && pnpm install` and `pnpm nx build board-element` once. The first vitest run may print "Vite unexpectedly reloaded a test"; rerun once. Use `set -o pipefail` when piping to `tail`.
 - No attribution lines in commits.
 
 ## Review Focus
 
-1. **A command copied over several lines.** The palette's `<input type="text">` strips line breaks from a paste, so `… --seed=7 \` + newline + `  --colored` arrives as `--seed=7 \  --colored`: a backslash followed by whitespace must act as a line join, not as an escaped space. Pinned in Task 2 (`splitCommand` cases with the newline and with the newline already stripped) and Task 6 (browser paste of a multi-line command).
+1. **A command copied over several lines.** The palette's `<input type="text">` turns each line break of a paste into a space (measured in Chromium), so `… --seed=7 \` + newline + `  --colored` arrives as `--seed=7 \   --colored`: a backslash followed by whitespace must act as a line join, not as an escaped space. Pinned in Task 2 (`splitCommand` cases with the newline and with the newline already stripped) and Task 6 (browser paste of a multi-line command).
 2. **A lab command round trip with quoted colours.** `buildCommand` quotes colour values (`--palette='#aa0000,#00aa00'`); pasting the lab's own line must restore the same palette, paper, ink and highlight. Pinned in Task 2 (engine round trip) and Task 6 (browser copy → change → paste).
 3. **Exactly one run after loading**, in both views and with `auto` on: loading goes through machine-path setters and `control.start()`, never `generate()`. Pinned in Task 6 (a counting `control`).
 4. **A pinned line in the simple view** switches to advanced and keeps the pins; an everyday-only line keeps the view. Pinned in Task 5 (unit).
@@ -127,11 +128,11 @@ Deno.test('an unclosed quote is worded for the CLI too', () => {
   assertEquals(problemText({ kind: 'unclosedQuote', arg: "--ink='#11" }), "a quote is not closed: --ink='#11")
 })
 ```
-Import `THEMES` and `PALETTE_CAP` the way the test file already does for other cases (grep the top of `command.test.ts`; if they are not imported, add `import { THEMES } from './look.ts'` and `PALETTE_CAP` from wherever `command.ts` imports it). Check each expected sentence against the current parser before trusting it: run `deno eval` or a quick test on the argv to read today's `errors` (e.g. whether `--width=x` gives `is not a number`), and correct the case to today's text if it differs — today's text is the contract.
+Change the file's `import { THEMES } from './look.ts'` to `import { PALETTE_CAP, THEMES } from './look.ts'`. Every expected sentence was checked against today's parser byte for byte.
 
 - [ ] **Step 2: See them fail**
 
-Run: `deno test --allow-read packages/engine/command.test.ts 2>&1 | tail -8`
+Run: `deno test -A packages/engine/command.test.ts 2>&1 | tail -8`
 Expected: FAIL (`problemText` not exported, `problems` not on `ParsedArgs`).
 
 - [ ] **Step 3: Structured `RETIRED`**
@@ -226,7 +227,7 @@ In `parseArgs`, replace `const errors: string[] = []` with `const problems: ArgP
 - unknown: `{ kind: 'unknownFlag', arg: a, name }`
 - missing: `['width', 'height'].filter(...).map((name): ArgProblem => ({ kind: 'missing', arg: `--${name}`, name }))`
 
-and return `const all = [...missing, ...problems]` as `problems: all, errors: all.map(problemText)`. The sentence for `notStart` must equal today's (`${a} is not ${Object.keys(START.words).join(', ')} and not a number in ${share}` with `share = \`${START.mix.min}..${START.mix.max}\``).
+and return `const all = [...missing, ...problems]` as `problems: all, errors: all.map(problemText)`. The sentence for `notStart` must equal today's. Delete `const share = \`${START.mix.min}..${START.mix.max}\`` in the `start` branch — the problem carries `min`/`max`, and an unused `share` fails `deno lint`.
 
 Run `deno fmt packages/engine/command.ts packages/engine/command.test.ts`.
 
@@ -234,8 +235,9 @@ Run `deno fmt packages/engine/command.ts packages/engine/command.test.ts`.
 
 ```bash
 set -o pipefail
-deno test --allow-read packages/engine/command.test.ts 2>&1 | tail -3
+deno test -A packages/engine/command.test.ts 2>&1 | tail -3
 deno task test 2>&1 | tail -2
+deno lint packages/engine 2>&1 | tail -2
 ```
 Expected: all pass, including every pre-existing refusal-text test in `command.test.ts` and `packages/cli/carve.test.ts` (unmodified).
 
@@ -273,8 +275,8 @@ Deno.test('splitCommand reads both quote kinds, also inside a token', () => {
   assertEquals(splitCommand(`--x='a b'`).argv, ['--x=a b'])
 })
 
-// The palette's input strips line breaks from a paste, so the join arrives
-// either with its newline or as a backslash followed by the next line's indent.
+// The palette's input turns each line break of a paste into a space (Chromium),
+// so the join arrives either with its newline or as a backslash and spaces.
 Deno.test('splitCommand joins a command copied over several lines', () => {
   const lines = 'deno task carve --width=9 \\\n  --height=9 \\\n  --colored'
   assertEquals(splitCommand(lines).argv, ['--width=9', '--height=9', '--colored'])
@@ -315,9 +317,11 @@ Deno.test("a lab command, quoted colours and all, splits and parses back to its 
 ```
 Use the file's existing imports for `defaultParams`, `DEFAULT_VIEW`, `PARAM_SPEC`, `buildCommand`, `parseArgs`; add `splitCommand`. If `back.view` differs from `v` only in a field `buildCommand` does not print for this `v`, set that field of `v` to what the existing round-trip test (`argvOf` case) uses — read it first.
 
+Also, in the existing test "a shell hands carve the argv the command means" (it compares with real `sh`), add `assertEquals(splitCommand(cmd).argv, argv)` next to its own assertion, using that test's own variable names (read it first).
+
 - [ ] **Step 2: See them fail**
 
-Run: `deno test --allow-read packages/engine/command.test.ts 2>&1 | tail -6` — Expected: FAIL (`splitCommand` not exported).
+Run: `deno test -A packages/engine/command.test.ts 2>&1 | tail -6` — Expected: FAIL (`splitCommand` not exported).
 
 - [ ] **Step 3: Implement**
 
@@ -326,8 +330,8 @@ In `command.ts`, after `COMMAND_PREFIX`:
 /**
  * One pasted line as the argv a shell would hand the CLI: whitespace separates,
  * `'…'` quotes literally, `"…"` with `\"` and `\\`, and a backslash before
- * whitespace joins a line copied over several (a text input has already
- * stripped the newline). A leading `deno task carve` is dropped.
+ * whitespace joins a line copied over several (a text input turns the
+ * newline into a space). A leading `deno task carve` is dropped.
  */
 export function splitCommand(text: string): { argv: string[]; problems: ArgProblem[] } {
   const argv: string[] = []
@@ -397,7 +401,7 @@ Note: a backslash before `\r\n` takes the `\r` as whitespace and the `\n` as the
 
 ```bash
 set -o pipefail
-deno test --allow-read packages/engine/command.test.ts packages/engine/neutral.test.ts 2>&1 | tail -3
+deno test -A packages/engine/command.test.ts packages/engine/neutral.test.ts 2>&1 | tail -3
 ```
 Expected: PASS.
 
@@ -438,7 +442,7 @@ Deno.test('drawOf with --randomized draws, and a pinned knob keeps its value', (
   assert(PARAM_SPEC.some((s) => low[s.key] !== high[s.key]), 'the draw moved nothing')
 })
 ```
-Step 2: `deno test --allow-read packages/engine/command.test.ts 2>&1 | tail -5` — FAIL (`drawOf` not exported).
+Step 2: `deno test -A packages/engine/command.test.ts packages/cli/ 2>&1 | tail -5` — FAIL (`drawOf` not exported).
 
 - [ ] **Step 3: Implement**
 
@@ -479,7 +483,7 @@ Import `drawOf` from `@arrowz/engine/command` (check how `carve.ts` imports `par
 
 ```bash
 set -o pipefail
-deno test --allow-read packages/engine/command.test.ts 2>&1 | tail -2
+deno test -A packages/engine/command.test.ts packages/cli/ 2>&1 | tail -2
 deno task test 2>&1 | tail -2
 deno task check 2>&1 | tail -2
 ```
@@ -555,7 +559,7 @@ EN, next to the other `cmd*` keys:
     argPaletteTooLong: (arg: string, cap: number) => `${arg} has more than ${cap} colours`,
     argUnknown: (arg: string) => `${arg} is not a flag this command knows`,
     argMissing: (flag: string) => `the command has no ${flag}`,
-    argUnclosedQuote: (arg: string) => `a quote is not closed: ${arg}`,
+    argUnclosedQuote: (arg: string) => `a quote has no end: ${arg}`,
 ```
 PL:
 ```ts
@@ -671,14 +675,14 @@ In `RecipeState`:
 and in `createRecipeSlice`'s return: `apply: (recipe) => write(() => recipe, false),`. Add to `recipe.slice.test.ts`:
 ```ts
 it('applies a whole recipe without counting an edit', () => {
-  const store = createStoreForTest() // use whatever the file already uses to build a fresh slice
-  const before = store.getState().recipe.edits
-  store.getState().recipe.apply({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
-  expect(store.getState().recipe.value).toEqual({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
-  expect(store.getState().recipe.edits).toBe(before)
+  const store = slice()
+  const before = store.recipe.edits
+  store.recipe.apply({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
+  expect(store.recipe.value).toEqual({ W: 30, H: 40, lengths: 0.8, shape: 0.2, skeleton: 'on', random: true })
+  expect(store.recipe.edits).toBe(before)
 })
 ```
-(Read the top of `recipe.slice.test.ts` and build the slice the way its other cases do; check `Recipe`'s fields in `lab-simple.ts` and use them exactly.)
+(inside the file's existing `describe`; `slice()` is its own helper.)
 
 - [ ] **Step 3: Failing unit tests for the module**
 
@@ -708,11 +712,14 @@ beforeEach(() => {
 })
 
 describe('a pasted command', () => {
-  it('is recognised by its prefix or a leading flag, not by a word', () => {
+  it('is recognised by its prefix or a flag with a value, not by a word or a lone flag', () => {
     expect(isCommandQuery('deno task carve --width=9')).toBe(true)
     expect(isCommandQuery('  --width=9')).toBe(true)
     expect(isCommandQuery('width')).toBe(false)
     expect(isCommandQuery('-')).toBe(false)
+    expect(isCommandQuery('--seed')).toBe(false)
+    expect(isCommandQuery('--seed=5')).toBe(true)
+    expect(isCommandQuery('--colored --sharp')).toBe(true)
   })
 
   it('reads a valid line into one choosable row naming its board and the ignored mode flags', () => {
@@ -782,7 +789,10 @@ describe('a pasted command', () => {
     useStore.getState().view.apply({ colored: false, palette: [], ink: '' })
     const { parsed, problems } = readCommand(line)
     expect(problems).toEqual([])
+    // No counted edit, or `useAutoRun` would start a second run behind this one.
+    const edits = [useStore.getState().params.edits, useStore.getState().recipe.edits]
     loadCommand(d, parsed)
+    expect([useStore.getState().params.edits, useStore.getState().recipe.edits]).toEqual(edits)
     const after = useStore.getState()
     expect(after.params.values.pStraight).toBe(0.9)
     expect(after.params.values.W).toBe(30)
@@ -791,6 +801,12 @@ describe('a pasted command', () => {
     expect(started).toEqual([1])
     expect(went).toEqual(['/'])
     expect(after.ui.palette).toBe(false)
+  })
+
+  it('loads a line whose knobs break a rule, and the lab shows the violation', () => {
+    loadCommand(deps().d, readCommand('--width=30 --height=40 --wshort=0.8 --wmid=0.8').parsed)
+    expect(useStore.getState().params.values.wShort).toBe(0.8)
+    expect(useStore.getState().params.violations.length).toBeGreaterThan(0)
   })
 
   it('switches the simple view to advanced for a line with pinned knobs, and keeps it for an everyday line', () => {
@@ -805,7 +821,7 @@ describe('a pasted command', () => {
   })
 })
 ```
-Restore `ui.mode` in the last case (`try/finally` to the mode it found) and the view fields in the round-trip case — the store is shared across files.
+`beforeEach` resets the mode, the palette flag and the knobs; the round-trip case puts the view fields back itself.
 
 - [ ] **Step 4: See them fail**
 
@@ -817,7 +833,6 @@ Restore `ui.mode` in the last case (`try/finally` to the mode it found) and the 
 ```ts
 import {
   type ArgProblem,
-  COMMAND_PREFIX,
   drawOf,
   parseArgs,
   type ParsedArgs,
@@ -828,10 +843,13 @@ import { useStore } from '../state/store'
 import { viewFieldsOf } from '../state/view.slice'
 import type { Command, CommandDeps } from './commands'
 
-/** A query that is a carve line: the prefix, or a leading flag. A lone dash is still a search. */
+/**
+ * A query that is a carve line: the prefix, or a flag with a value or a second
+ * token. A lone flag (`--seed`) is still a search for its knob.
+ */
 export function isCommandQuery(query: string): boolean {
   const q = query.trimStart()
-  return q.startsWith(COMMAND_PREFIX) || q.startsWith('--')
+  return /^deno\s+task\s+carve(\s|$)/.test(q) || /^--[^\s=]*[\s=]/.test(q)
 }
 
 export interface ReadCommand {
@@ -963,7 +981,7 @@ git commit -m "Lab: read, word and load a pasted carve command"
 
 - [ ] **Step 1: Failing browser tests**
 
-Append to `CommandPalette.browser.test.tsx` (it mounts `CommandPalette` with a no-op `control`; give these cases a counting one):
+Append to `CommandPalette.browser.test.tsx` (it mounts `CommandPalette` with a no-op `control`; give these cases a counting one). Add the imports `buildCommand` from `@arrowz/engine/command` and `viewOf` from `../state/view.slice`; the file's `beforeEach` sets `mode: 'advanced'` and `lang: 'en'` again before each case.
 ```tsx
 describe('a pasted command', () => {
   const counting = () => {
@@ -973,7 +991,7 @@ describe('a pasted command', () => {
 
   it('shows one row, and loading it starts exactly one run', async () => {
     const { runs, control } = counting()
-    const screen = render(
+    const screen = await render(
       <MemoryRouter initialEntries={['/']}>
         <CommandPalette control={control} />
       </MemoryRouter>,
@@ -994,15 +1012,59 @@ describe('a pasted command', () => {
     const screen = await mount()
     const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
     if (input === null) throw new Error('no input')
+    // The line goes through the real clipboard, so the input's own handling of the line breaks is what is tested.
+    const source = document.createElement('textarea')
+    source.value = 'deno task carve --width=30 \\\n  --height=40 \\\n  --colored'
+    document.body.append(source)
+    source.select()
+    await userEvent.copy()
+    source.remove()
     input.focus()
-    await userEvent.paste('deno task carve --width=30 \\\n  --height=40 \\\n  --colored')
+    await userEvent.paste()
     expect(screen.container.querySelector('[role=option]')?.getAttribute('aria-disabled')).toBeNull()
+  })
+
+  it('brings back a copied lab command, quoted colours included, with one run', async () => {
+    const { runs, control } = counting()
+    useStore.getState().params.setMany({ W: 30, H: 40, seed: 5, pStraight: 0.9 })
+    useStore.getState().view.apply({ colored: true, palette: ['#aa0000', '#00aa00'], ink: '#101010' })
+    const state = useStore.getState()
+    const line = buildCommand(state.params.values, viewOf(state.view))
+    useStore.getState().params.reset()
+    useStore.getState().view.apply({ colored: false, palette: [], ink: '' })
+    try {
+      const screen = await render(
+        <MemoryRouter initialEntries={['/']}>
+          <CommandPalette control={control} />
+        </MemoryRouter>,
+      )
+      const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+      if (input === null) throw new Error('no input')
+      await userEvent.fill(input, line)
+      await userEvent.keyboard('{Enter}')
+      const after = useStore.getState()
+      expect([after.params.values.W, after.params.values.pStraight]).toEqual([30, 0.9])
+      expect([after.view.colored, after.view.palette, after.view.ink]).toEqual([true, ['#aa0000', '#00aa00'], '#101010'])
+      expect(runs).toEqual([1])
+    } finally {
+      useStore.getState().view.apply({ colored: false, palette: [], ink: '' })
+    }
+  })
+
+  it('switches the simple view to advanced for a pasted line with a pinned knob', async () => {
+    useStore.getState().ui.setMode('simple')
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    if (input === null) throw new Error('no input')
+    await userEvent.fill(input, '--width=30 --height=40 --pstraight=0.9')
+    await userEvent.keyboard('{Enter}')
+    expect(useStore.getState().ui.mode).toBe('advanced')
   })
 
   it('lists every problem in Polish under a row that cannot be chosen', async () => {
     useStore.getState().lang.setLang('pl')
     const { runs, control } = counting()
-    const screen = render(
+    const screen = await render(
       <MemoryRouter initialEntries={['/']}>
         <CommandPalette control={control} />
       </MemoryRouter>,
@@ -1023,7 +1085,7 @@ describe('a pasted command', () => {
   })
 })
 ```
-Check `userEvent.paste` exists in this vitest version (`vitest/browser`); if not, set the value through the input's native setter and dispatch `input`, but keep the newline in the pasted text so the browser's own line-break stripping is what the case exercises. Reset `lang` to `'en'` in a `finally` in the Polish case (the file's `beforeEach` sets it, but restore anyway).
+Reset `lang` to `'en'` in a `finally` in the Polish case (the file's `beforeEach` sets it, but restore anyway).
 
 Step 2: `(cd apps/lab && pnpm exec vitest run src/palette/CommandPalette.browser.test.tsx 2>&1 | tail -6)` — FAIL.
 
@@ -1041,7 +1103,7 @@ In the row's JSX, for the pasted row with problems add `aria-describedby="cmd-pr
 ```tsx
               {...(pasted !== null && pasted.problems.length > 0 ? { 'aria-describedby': 'cmd-problems' } : {})}
 ```
-and after the rows, inside `#cmd-list`:
+and right after the `#cmd-list` div (a listbox may hold only options; `aria-describedby` reaches across the tree):
 ```tsx
           {pasted !== null && pasted.problems.length > 0 ? (
             <ul id="cmd-problems" className="problems">
@@ -1051,7 +1113,6 @@ and after the rows, inside `#cmd-list`:
             </ul>
           ) : null}
 ```
-(A `<ul>` inside a `role="listbox"` is not an option; if `jsx-a11y` or the a11y test objects, put the `<ul>` right after the `#cmd-list` div instead.)
 
 `palette.css`:
 ```css
@@ -1063,7 +1124,7 @@ and after the rows, inside `#cmd-list`:
   font-size: 12px;
 }
 ```
-Check the `--error` token's contrast on the palette background with the file's existing AA helper if the palette tests have one; otherwise use the colour the palette already uses for `.empty` text.
+`--error` on the palette's `--graphite` is 4.90:1 (AA).
 
 - [ ] **Step 4: Pass**
 

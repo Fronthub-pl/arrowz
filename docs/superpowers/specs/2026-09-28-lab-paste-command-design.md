@@ -33,9 +33,9 @@ A shell-like split of one pasted line:
 - `'…'` quotes literally, `"…"` quotes with `\"` and `\\` escapes, and a
   quote may sit inside a token (`--palette='#aa0000,#00aa00'` gives
   `--palette=#aa0000,#00aa00`);
-- a backslash before a newline joins the lines (a command copied over
-  several lines); a backslash before any other character keeps that
-  character;
+- a backslash before whitespace joins the lines (a command copied over
+  several lines — the palette's text input turns each line break into a
+  space); a backslash before any other character keeps that character;
 - a leading `deno task carve` (`COMMAND_PREFIX`, whitespace-tolerant) is
   dropped; a line that starts with a flag is taken as it is;
 - an unclosed quote is a problem `{ kind: 'unclosedQuote' }`, and `argv` is
@@ -60,7 +60,7 @@ values its sentence needs:
 | `paletteTooLong` | `cap` | `${arg} has more than ${cap} colours` |
 | `unknownFlag` | `name` | `unknown flag --${name}` |
 | `missing` | `name` | `missing --${name}` |
-| `unclosedQuote` | | `a quote is not closed` (only from `splitCommand`) |
+| `unclosedQuote` | | `a quote is not closed: ${arg}` (only from `splitCommand`; the lab's own words avoid "closed", a retired word) |
 
 `RETIRED` becomes structured (`use` lists the replacement spellings, `why`
 names the three hints that are prose); `problemText(problem): string` builds
@@ -78,7 +78,9 @@ uses its `params`.
 ## 2. The lab: ⌘K in command mode (`apps/lab/src/palette`)
 
 **Detection.** When the palette's query, trimmed, starts with
-`deno task carve` or with `--`, the palette is in command mode: it shows one
+`deno task carve`, or with a flag that has a value or a second token
+(`--seed=5`, `--colored --sharp`), the palette is in command mode — a lone
+flag (`--seed`) stays a search for its knob, as it is today: it shows one
 row, "Load this command", and none of the usual rows (a pasted line matches
 many of them as noise).
 
