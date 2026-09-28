@@ -206,8 +206,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       position: absolute;
       right: 8px;
       bottom: 8px;
-      /* A bar wider than the board wraps upwards instead of leaving it: the first
-        row, zoom included, stays in the corner. */
+      /* A bar wider than the board wraps upwards instead of leaving it: the bottom
+        row keeps what comes first, the hint and then the zoom buttons. */
       max-width: calc(100% - 16px);
       display: flex;
       flex-wrap: wrap-reverse;

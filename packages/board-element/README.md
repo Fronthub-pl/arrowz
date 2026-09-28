@@ -250,9 +250,9 @@ element finds these controls in its light DOM; put `data-board-action` on a
 light-DOM element, not inside another component's shadow root.
 
 The default bar keeps 8 px inside the board. When what it holds — its own
-controls or projected ones — is wider than that, it wraps upwards: the first
-row, the hint and the zoom buttons, stays in the corner, and the rest moves
-above it.
+controls or projected ones — is wider than that, it wraps upwards: the bottom
+row keeps what comes first (the hint, then the zoom buttons) and the rest moves
+above it. A hint wider than the row takes the bottom row alone.
 
 A custom `controls` replaces the bar and its position: the per-control slots
 live inside the bar, so a `slot="fit"` child next to a custom bar is not
