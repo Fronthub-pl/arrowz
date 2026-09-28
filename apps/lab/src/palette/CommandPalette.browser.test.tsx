@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { render } from 'vitest-browser-react'
 import { MemoryRouter } from 'react-router'
+import { buildCommand } from '@arrowz/engine/command'
 import type { RunControl } from '../run/useRun'
 import { useStore } from '../state/store'
+import { viewOf } from '../state/view.slice'
 import { CommandPalette } from './CommandPalette'
 import '../design/tokens.css'
 import '../design/palette.css'
@@ -210,5 +212,115 @@ describe('the palette dialog', () => {
     abort.focus()
     await userEvent.keyboard('{Escape}')
     expect(useStore.getState().ui.palette).toBe(false)
+  })
+})
+
+describe('a pasted command', () => {
+  const counting = () => {
+    const runs: number[] = []
+    return { runs, control: { start: () => runs.push(1), abort: () => {}, hold: () => {} } satisfies RunControl }
+  }
+
+  it('shows one row, and loading it starts exactly one run', async () => {
+    const { runs, control } = counting()
+    const screen = await render(
+      <MemoryRouter initialEntries={['/']}>
+        <CommandPalette control={control} />
+      </MemoryRouter>,
+    )
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    if (input === null) throw new Error('no input')
+    await userEvent.fill(input, 'deno task carve --width=30 --height=40 --seed=5 --pstraight=0.9')
+    const rows = screen.container.querySelectorAll('[role=option]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.textContent).toContain('Load this command')
+    await userEvent.keyboard('{Enter}')
+    expect(runs).toEqual([1])
+    expect(useStore.getState().params.values.pStraight).toBe(0.9)
+    expect(useStore.getState().ui.palette).toBe(false)
+  })
+
+  it('joins a command pasted over several lines', async () => {
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    if (input === null) throw new Error('no input')
+    // The line goes through the real clipboard, so the input's own handling of the line breaks is what is tested.
+    const source = document.createElement('textarea')
+    source.value = 'deno task carve --width=30 \\\n  --height=40 \\\n  --colored'
+    document.body.append(source)
+    source.select()
+    await userEvent.copy()
+    source.remove()
+    input.focus()
+    await userEvent.paste()
+    expect(screen.container.querySelector('[role=option]')?.getAttribute('aria-disabled')).toBeNull()
+  })
+
+  it('brings back a copied lab command, quoted colours included, with one run', async () => {
+    const { runs, control } = counting()
+    useStore.getState().params.setMany({ W: 30, H: 40, seed: 5, pStraight: 0.9 })
+    useStore.getState().view.apply({ colored: true, palette: ['#aa0000', '#00aa00'], ink: '#101010' })
+    const state = useStore.getState()
+    const line = buildCommand(state.params.values, viewOf(state.view))
+    useStore.getState().params.reset()
+    useStore.getState().view.apply({ colored: false, palette: [], ink: '' })
+    try {
+      const screen = await render(
+        <MemoryRouter initialEntries={['/']}>
+          <CommandPalette control={control} />
+        </MemoryRouter>,
+      )
+      const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+      if (input === null) throw new Error('no input')
+      await userEvent.fill(input, line)
+      await userEvent.keyboard('{Enter}')
+      const after = useStore.getState()
+      expect([after.params.values.W, after.params.values.pStraight]).toEqual([30, 0.9])
+      expect([after.view.colored, after.view.palette, after.view.ink]).toEqual([
+        true,
+        ['#aa0000', '#00aa00'],
+        '#101010',
+      ])
+      expect(runs).toEqual([1])
+    } finally {
+      useStore.getState().view.apply({ colored: false, palette: [], ink: '' })
+    }
+  })
+
+  it('switches the simple view to advanced for a pasted line with a pinned knob', async () => {
+    useStore.getState().ui.setMode('simple')
+    const screen = await mount()
+    const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+    if (input === null) throw new Error('no input')
+    await userEvent.fill(input, '--width=30 --height=40 --pstraight=0.9')
+    await userEvent.keyboard('{Enter}')
+    expect(useStore.getState().ui.mode).toBe('advanced')
+  })
+
+  it('lists every problem in Polish under a row that cannot be chosen', async () => {
+    useStore.getState().lang.setLang('pl')
+    try {
+      const { runs, control } = counting()
+      const screen = await render(
+        <MemoryRouter initialEntries={['/']}>
+          <CommandPalette control={control} />
+        </MemoryRouter>,
+      )
+      const input = screen.container.querySelector<HTMLInputElement>('.fw-pal input')
+      if (input === null) throw new Error('no input')
+      await userEvent.fill(input, '--width=2000 --nope')
+      const row = screen.container.querySelector('[role=option]')
+      expect(row?.getAttribute('aria-disabled')).toBe('true')
+      const list = document.getElementById(row?.getAttribute('aria-describedby') ?? '')
+      expect([...(list?.querySelectorAll('li') ?? [])].map((li) => li.textContent)).toEqual([
+        'w komendzie brakuje --height',
+        '--width=2000 jest poza zakresem 4..1000',
+        '--nope to nieznana flaga',
+      ])
+      await userEvent.keyboard('{Enter}')
+      expect(runs).toEqual([])
+    } finally {
+      useStore.getState().lang.setLang('en')
+    }
   })
 })

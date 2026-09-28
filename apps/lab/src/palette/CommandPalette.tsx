@@ -5,6 +5,7 @@ import type { RunControl } from '../run/useRun'
 import { selectedIndex } from '../shell/TabRow'
 import { useStore } from '../state/store'
 import { buildCommands, type Command, matchCommands } from './commands'
+import { isCommandQuery, pastedRow } from './pastedCommand'
 
 /** The id of the trigger, so closing can hand the focus back to it. */
 export const TRIGGER_ID = 'cmdk'
@@ -47,27 +48,31 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
 
+  const deps = useMemo(
+    () => ({
+      control,
+      // No history entry for the route already on screen, or Back would
+      // walk through the jumps instead of leaving the lab. Inside the memo,
+      // so it is not a fresh dependency on every render.
+      navigate: (path: string) => {
+        if (path !== pathname) void navigate(path)
+      },
+      dict,
+    }),
+    [control, navigate, pathname, dict],
+  )
   const commands = useMemo(
-    () =>
-      buildCommands(
-        {
-          control,
-          // No history entry for the route already on screen, or Back would
-          // walk through the jumps instead of leaving the lab. Inside the memo,
-          // so it is not a fresh dependency on every render.
-          navigate: (path) => {
-            if (path !== pathname) void navigate(path)
-          },
-          dict,
-        },
-        useStore.getState(),
-      ),
+    () => buildCommands(deps, useStore.getState()),
     // Read through `getState()`, so `exhaustive-deps` calls these slices
     // unnecessary and cannot check the list: it is every slice a row shows or
     // is disabled by, kept by hand. A new field on a row must add its slice.
-    [control, navigate, pathname, dict, values, violations, phase, mode, lang, view],
+    [deps, values, violations, phase, mode, lang, view],
   )
-  const hits = useMemo(() => matchCommands(commands, query), [commands, query])
+  const pasted = useMemo(() => (isCommandQuery(query) ? pastedRow(deps, query) : null), [deps, query])
+  const hits = useMemo(
+    () => (pasted === null ? matchCommands(commands, query) : [pasted.command]),
+    [pasted, commands, query],
+  )
   const current = hits[Math.min(active, hits.length - 1)]
 
   // The focus goes in on mount and back to the trigger on unmount; `jsx-a11y`
@@ -195,6 +200,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
               role="option"
               aria-selected={command === current}
               {...(command.disabled ? { 'aria-disabled': true } : {})}
+              {...(pasted !== null && pasted.problems.length > 0 ? { 'aria-describedby': 'cmd-problems' } : {})}
               className="row"
               tabIndex={-1}
               onMouseEnter={() => setActive(at)}
@@ -207,6 +213,13 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
           ))}
           {hits.length === 0 ? <p className="empty">{dict.t('cmdEmpty', query)}</p> : null}
         </div>
+        {pasted !== null && pasted.problems.length > 0 ? (
+          <ul id="cmd-problems" className="problems">
+            {pasted.problems.map((text, at) => (
+              <li key={at}>{text}</li>
+            ))}
+          </ul>
+        ) : null}
         <div className="foot">
           <span>
             <b>↑↓</b> {dict.t('cmdHintMove')}
