@@ -272,21 +272,32 @@ function goRow(deps: CommandDeps, id: string, name: string, path: string): Comma
   }
 }
 
+/** Whether `q` occurs in `text` where a word starts: `--top` has it, `stop` does not. */
+function atWordStart(text: string, q: string): boolean {
+  for (let at = text.indexOf(q); at !== -1; at = text.indexOf(q, at + 1)) {
+    if (at === 0 || !/[\p{L}\p{N}]/u.test(text.charAt(at - 1))) return true
+  }
+  return false
+}
+
 /**
  * A case-insensitive substring over what a row shows and what it hides (the
  * CLI flag, since the live command line is on the same screen).
  *
- * Rows whose name *starts with* the query come first; otherwise section order
- * decides, and "New seed" (`run`) would beat the knob named "seed". The
- * partition is stable within each group.
+ * Rows whose name *starts with* the query come first, then rows that carry it
+ * at the start of any word, then the rest; otherwise section order decides,
+ * and "New seed" (`run`) would beat the knob named "seed". The partition is
+ * stable within each group.
  */
 export function matchCommands(commands: readonly Command[], query: string): Command[] {
   const q = query.trim().toLowerCase()
   if (q === '') return [...commands]
-  const matches = commands.filter((command) =>
-    `${command.name} ${command.note} ${command.hay}`.toLowerCase().includes(q),
-  )
-  const startsWithQuery = matches.filter((command) => command.name.toLowerCase().startsWith(q))
-  const rest = matches.filter((command) => !command.name.toLowerCase().startsWith(q))
-  return [...startsWithQuery, ...rest]
+  const ranked: Command[][] = [[], [], []]
+  for (const command of commands) {
+    const text = `${command.name} ${command.note} ${command.hay}`.toLowerCase()
+    if (!text.includes(q)) continue
+    const rank = command.name.toLowerCase().startsWith(q) ? 0 : atWordStart(text, q) ? 1 : 2
+    ranked[rank]?.push(command)
+  }
+  return ranked.flat()
 }
