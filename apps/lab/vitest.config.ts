@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react'
 import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
+import { ISOLATION } from './vite.config.ts'
 
 export default defineConfig({
   test: {
@@ -37,6 +38,7 @@ export default defineConfig({
         // `node_modules/.vite`, which is why only CI, always cold, ever saw
         // it). Naming the module keeps its discovery in the first pass.
         optimizeDeps: { include: ['react-dom/client'] },
+        server: { headers: ISOLATION },
         test: {
           name: 'chromium',
           include: ['src/**/*.browser.test.ts', 'src/**/*.browser.test.tsx'],
