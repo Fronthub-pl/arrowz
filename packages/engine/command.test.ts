@@ -929,6 +929,33 @@ Deno.test('splitCommand reports an unclosed quote with what it had read', () => 
   })
 })
 
+// A line copied straight out of a terminal carries the `$` prompt, and often
+// an environment word or two, in front of the CLI's own invocation.
+Deno.test('splitCommand drops a shell prompt before the prefix', () => {
+  assertEquals(splitCommand('$ deno task carve --width=9 --height=9').argv, ['--width=9', '--height=9'])
+})
+
+Deno.test('splitCommand drops environment words before the prefix', () => {
+  assertEquals(
+    splitCommand('ARROWZ_BOARDS_DIR=/tmp/x deno task carve --width=9 --height=9').argv,
+    ['--width=9', '--height=9'],
+  )
+})
+
+Deno.test('splitCommand drops a prompt and several environment words together', () => {
+  assertEquals(
+    splitCommand('$ ARROWZ_BOARDS_DIR=/tmp/x CARVE_TRACE=1 deno task carve --width=9').argv,
+    ['--width=9'],
+  )
+})
+
+Deno.test('splitCommand leaves the prefix in place behind a word that is neither a prompt nor an environment word', () => {
+  assertEquals(
+    splitCommand('echo deno task carve --width=9').argv,
+    ['echo', 'deno', 'task', 'carve', '--width=9'],
+  )
+})
+
 Deno.test('a lab command, quoted colours and all, splits and parses back to its own knobs and view', () => {
   const p = { ...defaultParams(), W: 30, H: 40, seed: 5, pStraight: 0.9 }
   const v = {

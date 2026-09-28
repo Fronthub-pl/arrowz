@@ -113,10 +113,30 @@ export function splitCommand(text: string): { argv: string[]; problems: ArgProbl
   return { argv: dropPrefix(argv), problems: [] }
 }
 
-/** The argv without a leading `deno task carve`, word by word, so any spacing matches. */
+/**
+ * A shell prompt (`$`) or a `NAME=value` environment word, the two shapes a
+ * line copied from a terminal carries in front of the CLI's own invocation.
+ * Exported so the palette's own recognition regex shares this vocabulary.
+ */
+export const ENV_WORD_SOURCE = String.raw`[A-Z_][A-Z0-9_]*=\S*`
+const PROMPT_OR_ENV = new RegExp(`^(?:\\$|${ENV_WORD_SOURCE})$`)
+export function isPromptOrEnvWord(word: string): boolean {
+  return PROMPT_OR_ENV.test(word)
+}
+
+/**
+ * The argv without a leading `deno task carve`, word by word, so any spacing
+ * matches. A prompt and environment words ahead of the prefix are dropped
+ * with it; anything else ahead of it is left for the parser to report.
+ */
 function dropPrefix(argv: string[]): string[] {
   const words = COMMAND_PREFIX.split(' ')
-  return words.every((word, at) => argv[at] === word) ? argv.slice(words.length) : argv
+  let at = 0
+  for (; at < argv.length; at++) {
+    const word = argv[at]
+    if (word === undefined || !isPromptOrEnvWord(word)) break
+  }
+  return words.every((word, i) => argv[at + i] === word) ? argv.slice(at + words.length) : argv
 }
 
 /**
