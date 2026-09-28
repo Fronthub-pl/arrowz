@@ -72,9 +72,12 @@ normal `done`.
   true, and sends it with `generate`. Without isolation it sends none.
 - `abort()`:
   - with a flag and a run in flight: `Atomics.store(flag, 0, 1)` and the run
-    slice goes to a new phase `stopping`;
-  - in `stopping` (a second Stop), or with no flag: today's path, terminate
-    and `run.aborted()` (`wasAborted`), the board is discarded.
+    slice sets `stopping: true`; the phase stays `running`, so every check of
+    a run in flight (Generate disabled, the busy stage, the palette's
+    reasons) holds unchanged;
+  - with `stopping` already set (a second Stop), or with no flag: today's
+    path, terminate and `run.aborted()` (`wasAborted`), the board is
+    discarded.
   The second press is the way out of the metrics step: after carving the
   engine analyses the board (`metricsMs`) without calling `trace`, so the flag
   is not read there.
@@ -85,13 +88,15 @@ normal `done`.
 
 ### What the page shows
 
-- The Stop button reads "Stopping…" in `stopping` and stays enabled (its
-  second press discards).
+- While `stopping`, the Stop button reads "Discard" (PL "Odrzuć") and stays
+  enabled, and the status line reads "Stopping…" (PL "Zatrzymuję…").
 - The status line for an aborted result: "Stopped — the arrows laid so far"
   (PL: "Zatrzymano — strzałki ułożone do tej chwili"), in `lab-i18n.ts`.
   Every new string passes `glossary.test.ts` (no "carve", "pieces", "jam" in
   English; no "zacina", "generacj" in Polish).
-- The report gets a row that says the run was stopped, from `report.aborted`.
+- `ReportInput` carries `aborted`; the status line is where it shows. No
+  report row: `reportRows` has no row for the outcome today, and the status
+  line already tells closed, unsolvable and not closed apart.
 - `useStoreSave` skips a result whose report is aborted.
 - `showResult` does not move the baseline past an aborted result: its numbers
   describe a board cut short and are not comparable with the next run.
@@ -133,9 +138,13 @@ Every way ends at `/boards/file`.
 - Optionally one more file: the board's meta (`BoardMeta`, the store's
   `<id>.json`). It is kept only when `meta.id === await layoutHash(board)`,
   so a renamed pair still works and a meta from another board is refused.
-- Errors go to `raiseNotice`, each with a PL/EN text: not JSON, no board file
-  among the files, two board files, a board that does not decode, a meta that
-  belongs to another board, a meta that is not a board's meta.
+- Every attempt navigates to `/boards/file`. A failure clears the preview and
+  sets the library's `boardFailed` with the file's name and a problem code,
+  worded at render in PL/EN through `boardFileError`: not JSON, no board file
+  among the files, two board files, a meta that belongs to another board, a
+  second file that is neither. A board that does not decode keeps the
+  decoder's own message, as a stored board does. Not `raiseNotice`: the
+  library's notices show on its tab only, and a drop can happen on the lab's.
 
 ### Where it lands
 
@@ -146,11 +155,15 @@ Every way ends at `/boards/file`.
   that assumes the store (Delete, `useViewSave`, the size in the address).
 - `AppRoutes` declares `/boards/file`; `useOpenPreview` answers the file
   preview there and the store preview on `/boards/:size/:id` as today.
+- `useStoredBoard` returns early on `/boards/file` (its "no board named"
+  branch would clear the file preview), and its "already drawn" shortcut
+  checks `origin === 'store'`, so a file preview whose meta has the same id
+  is not taken for the stored board.
 - The run's result is untouched, as with a stored preview.
 
 ### The board column for a file
 
-- Facts: the file name, W×H, arrows, unfilled and void cells, the full
+- Facts: the file name, W×H, arrows, empty cells when there are any, the full
   `layoutHash`.
 - Download SVG and download the board file again.
 - With a meta: the command, the seed, Load into lab (the same `loadIntoLab`),
@@ -175,5 +188,3 @@ Every way ends at `/boards/file`.
 
 - `lab-review.md`: Gap 6 and Gap 8 rows marked done on this branch; item 4 of
   "What is still open" keeps only closing over N seeds.
-- The lab's docs tab (`lab-docs.ts`) mentions Stop keeping the board and
-  opening a file, in both languages.
