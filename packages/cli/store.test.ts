@@ -377,6 +377,18 @@ Deno.test('saveBoard without a closing report writes null counts, aborted false 
   assertEquals([meta.restarts, meta.backtracks, meta.aborted, meta.stuck], [null, null, false, null])
 })
 
+// A view edit sends no `aborted`: the run it describes was still cut short.
+Deno.test('a save that does not carry aborted keeps the stored one', async () => {
+  freshDir()
+  await saveBoard(entry({ metrics: { ok: false, pieces: 10, maxLen: 5, genMs: 3, aborted: true } }))
+  const edit = await saveBoard(entry({
+    view: { ...entry().view, stroke: 0.3 },
+    metrics: { ok: false, pieces: 10, maxLen: 5, genMs: null },
+  }))
+  assertEquals(edit.meta.aborted, true)
+  assertEquals(edit.meta.sources[0]?.aborted, true)
+})
+
 // A board stored before the closing report existed lacks the fields; the
 // reader fills them so the page never sees undefined.
 Deno.test('listBoards fills a legacy meta without the closing report', () => {

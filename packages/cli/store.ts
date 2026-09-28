@@ -122,7 +122,7 @@ export async function saveBoard(
     genMs: metrics.genMs ?? replaced?.genMs ?? null,
     restarts: metrics.restarts ?? replaced?.restarts ?? null,
     backtracks: metrics.backtracks ?? replaced?.backtracks ?? null,
-    aborted: metrics.aborted ?? false,
+    aborted: metrics.aborted ?? replaced?.aborted ?? false,
   }
   const kept = before?.sources ?? []
   const sources = replaced ? kept.map((r) => (r.id === recipeId ? recipe : r)) : kept.concat(recipe)
