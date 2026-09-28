@@ -227,3 +227,97 @@ describe('slots', () => {
     expect(light('#h').checkVisibility()).toBe(true)
   })
 })
+
+describe('state on host controls', () => {
+  test('a host colour control is pressed after its click and after view.colored', async () => {
+    await mount({ 'enable-colors': '' }, '<button slot="colors" data-board-action="colors" id="c">C</button>')
+    expect(light('#c').getAttribute('aria-pressed')).toBe('false')
+    light('#c').click()
+    await el.updateComplete
+    expect(el.colored).toBe(true)
+    expect(light('#c').getAttribute('aria-pressed')).toBe('true')
+
+    await mount({ 'enable-colors': '' }, '<button slot="colors" data-board-action="colors" id="c">C</button>')
+    el.view = { colored: true }
+    await el.updateComplete
+    expect(light('#c').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test('a host gesture control is pressed in click mode', async () => {
+    await mount({ play: '' }, '<button slot="gestures" data-board-action="gestures" id="g">G</button>')
+    expect(light('#g').getAttribute('aria-pressed')).toBe('false')
+    light('#g').click()
+    await el.updateComplete
+    expect(el.gestureMode).toBe('click')
+    expect(light('#g').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test('hidden on controls in a custom bar follows enable-colors and play', async () => {
+    await mount(
+      {},
+      '<div slot="controls"><button data-board-action="colors" id="c">C</button>' +
+        '<button data-board-action="gestures" id="g">G</button></div>',
+    )
+    expect(light('#c').hidden).toBe(true)
+    expect(light('#g').hidden).toBe(true)
+    el.setAttribute('enable-colors', '')
+    await el.updateComplete
+    expect(light('#c').hidden).toBe(false)
+    expect(light('#g').hidden).toBe(true)
+    el.play = true
+    await el.updateComplete
+    expect(light('#g').hidden).toBe(false)
+    el.removeAttribute('enable-colors')
+    await el.updateComplete
+    expect(light('#c').hidden).toBe(true)
+  })
+
+  // Appended after connect, and again after a move: the two moments a framework
+  // adds a control without any property of the board changing.
+  test('a control added deep inside the bar after connect gets its state, and again after a move', async () => {
+    await mount({ 'enable-colors': '' }, '<div slot="controls" id="bar"><div id="group"></div></div>')
+    const late = document.createElement('button')
+    late.setAttribute('data-board-action', 'colors')
+    light('#group').append(late)
+    await raf()
+    expect(late.getAttribute('aria-pressed')).toBe('false')
+    expect(late.hidden).toBe(false)
+
+    el.remove()
+    document.body.append(el)
+    const moved = document.createElement('button')
+    moved.setAttribute('data-board-action', 'gestures')
+    light('#group').append(moved)
+    await raf()
+    expect(moved.hidden).toBe(true)
+  })
+
+  test('preventDefault on colored-change works the same from a host control', async () => {
+    await mount({ 'enable-colors': '' }, '<button slot="colors" data-board-action="colors" id="c">C</button>')
+    el.addEventListener('colored-change', (e) => e.preventDefault())
+    light('#c').click()
+    await el.updateComplete
+    expect(el.colored).toBe(false)
+    expect(light('#c').getAttribute('aria-pressed')).toBe('false')
+    el.view = { colored: true }
+    await el.updateComplete
+    expect(el.colored).toBe(true)
+    expect(light('#c').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  test("a nested board's controls are not the outer board's", async () => {
+    await mount(
+      { 'enable-colors': '' },
+      '<div slot="controls"><arrowz-board id="inner" enable-colors>' +
+        '<button slot="colors" data-board-action="colors" id="ic">C</button></arrowz-board></div>',
+    )
+    const inner = el.querySelector('arrowz-board')
+    if (!inner) throw new Error('no inner board')
+    await inner.updateComplete
+    el.toggleColors()
+    await el.updateComplete
+    expect(el.colored).toBe(true)
+    expect(inner.colored).toBe(false)
+    expect(light('#ic').getAttribute('aria-pressed')).toBe('false')
+  })
+})

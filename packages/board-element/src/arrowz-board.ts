@@ -272,6 +272,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
   private lastColors = ''
   /** The geometry key `updated()` last drew, to tell a colour-only change from one that moves a vertex. */
   private geometryKey = ''
+  /** Brings host controls added after connect, at any depth, under `syncActions`. */
+  private readonly actionObserver = new MutationObserver(() => this.syncActions())
 
   constructor() {
     super()
@@ -343,6 +345,13 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       if (entry) this.onResize(entry.contentRect.width, entry.contentRect.height)
     })
     this.observer.observe(this)
+    // Not `aria-pressed` or `hidden`: those are what `syncActions` writes.
+    this.actionObserver.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-board-action', 'slot'],
+    })
   }
 
   /**
@@ -362,6 +371,7 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     super.disconnectedCallback()
     this.observer?.disconnect()
     this.observer = null
+    this.actionObserver.disconnect()
     // A board removed while the pointer was over it never gets its leave.
     this.stopWatchingModifier()
     this.stopRevival()
@@ -481,6 +491,20 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     else if (action === 'gestures') this.toggleGestures()
   }
 
+  /**
+   * `aria-pressed` and `hidden` on the host's colour and gesture controls, the
+   * two attributes the element owns there. A control inside a nested board is
+   * that board's.
+   */
+  private syncActions(): void {
+    for (const node of this.querySelectorAll('[data-board-action="colors"], [data-board-action="gestures"]')) {
+      if (node.closest('arrowz-board') !== this) continue
+      const colors = node.getAttribute('data-board-action') === 'colors'
+      node.setAttribute('aria-pressed', String(colors ? this.colored : this.chosenMode === 'click'))
+      node.toggleAttribute('hidden', !(colors ? this.enableColors : this.playable))
+    }
+  }
+
   /** A click reaches the host as `piece-click` and plays nothing: `play` wins when both are set. */
   private get inspecting(): boolean {
     return this.interactive && !this.play
@@ -526,6 +550,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     // Applies from the next press (see GestureMachine.mode), so a change mid-drag is safe.
     this.gestures.mode = this.gestureMode
     if (changed.has('chosenMode') || changed.has('play') || changed.has('interactive')) this.refreshCursor()
+    if (
+      changed.has('enableColors') || changed.has('coloredOverride') || changed.has('view') ||
+      changed.has('chosenMode') || changed.has('play') || changed.has('interactive')
+    ) this.syncActions()
     // Independent of everything below: the grid lives in its own two nodes,
     // and re-reading `this.vp` here is what lets a plain colour or radius
     // change (no board, no viewport move) still repaint it.
