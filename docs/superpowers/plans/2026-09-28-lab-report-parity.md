@@ -50,10 +50,10 @@ Run:
 ```bash
 set -o pipefail
 deno task test 2>&1 | tail -3
-pnpm nx build engine 2>&1 | tail -2
+pnpm nx build board-element 2>&1 | tail -2
 cd apps/lab && pnpm exec vitest run src/report src/palette src/stage/RunStatusBar.browser.test.tsx src/console/Console.jump.browser.test.tsx 2>&1 | tail -4
 ```
-Expected: all pass. The lab tests import the engine from `packages/engine/dist/`, so **every engine change needs `pnpm nx build engine` before the lab tests see it**.
+Expected: all pass (the first vitest run may print "Vite unexpectedly reloaded a test"; rerun once). A fresh worktree has no `packages/board-element/dist`, and `build board-element` builds the engine first. The lab tests import the engine from `packages/engine/dist/`, so **every engine change needs `pnpm nx build engine` before the lab tests see it**.
 
 ---
 
@@ -63,7 +63,9 @@ Expected: all pass. The lab tests import the engine from `packages/engine/dist/`
 - Modify: `packages/engine/lab-report.ts` (`StatRow`, `ReportDelta`, `reportDelta`, `stat`, `SEP`, every `stat(...)` call)
 - Modify: `packages/engine/lab-i18n.ts` (EN and PL: `deltaBetter`/`deltaWorse` → `deltaUp`/`deltaDown`, `reportSummaryCap`, `stat_avgLen_help`, `stat_corridor_help`, `stat_time_help`, the comment above `deltaBetter`)
 - Modify: `packages/engine/lab-report.test.ts`
-- Modify: `apps/lab/src/report/StatsTable.tsx`, `apps/lab/src/report/ReportSummary.tsx`
+- Modify: `packages/engine/lab-i18n.test.ts` (the `words` list of "both ui dictionaries carry the report…": `'deltaBetter'` → `'deltaUp'`, `'deltaWorse'` → `'deltaDown'`)
+- Modify: `apps/lab/src/report/StatsTable.tsx`, `apps/lab/src/report/ReportSummary.tsx`, `apps/lab/src/report/StoredFacts.tsx` (comment "Not the 23 rows of a run" → "Not the rows of a run")
+- Modify: `apps/lab/src/routes/Workspace.browser.test.tsx` (comment "not the run's 23 rows" → "not the run's rows")
 - Modify: `apps/lab/src/design/report.css`, `apps/lab/src/design/tokens.css` (comment at the `--ok` token, line with "A better change in the report")
 - Modify: `apps/lab/src/report/ReportPanel.browser.test.tsx`
 
@@ -210,7 +212,18 @@ PL:
 ```ts
     stat_time_help: 'Ile trwało generowanie planszy i liczenie statystyk. Mniej = szybciej.',
 ```
-Delete `deltaBetter` and `deltaWorse` in both languages.
+Delete `deltaBetter` and `deltaWorse` in both languages, and in `packages/engine/lab-i18n.test.ts` rename them in the `words` list to `'deltaUp'` / `'deltaDown'`.
+
+The two verdicts that no definition backs change too (EN, and the same two lines in `HELP_EN`):
+```ts
+    stat_spanTop_help: 'The same, for the 10% of arrows that reach furthest. Higher = arrows cross more of the board.',
+    stat_spanMax_help: 'The reach of the one arrow that reaches furthest. Higher = arrows cross more of the board.',
+```
+PL:
+```ts
+    stat_spanTop_help: 'To samo dla 10% strzałek o największym zasięgu. Więcej = strzałki przecinają większą część planszy.',
+    stat_spanMax_help: 'Zasięg strzałki, która sięga najdalej. Więcej = strzałki przecinają większą część planszy.',
+```
 
 Run: `deno fmt packages/engine/lab-report.ts packages/engine/lab-i18n.ts packages/engine/lab-report.test.ts`
 
@@ -255,8 +268,8 @@ const TOKEN = { up: '--ok', down: '--error' } as const
 ```
 `readsAtAA(cell, kind: 'up' | 'down')` and `shownDelta(container, kind: 'up' | 'down')` keep their bodies. The case:
 ```tsx
-// Down `--error`, up `--ok` (6.6:1), on `--graphite`. Measured on rows still
-// on screen: after ONE then TWO, pieces rose and longest fell.
+// Down `--error`, up `--ok` (6.6:1), on `--graphite`, measured on rows still
+// on screen: after ONE then TWO, free at start rose and average length fell.
 test('every kind of delta reads at AA', async () => {
   const screen = await mountReport()
   await act(async () => finish(ONE))
@@ -361,7 +374,8 @@ Expected: PASS, `tsc` clean.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add packages/engine/lab-report.ts packages/engine/lab-report.test.ts packages/engine/lab-i18n.ts apps/lab/src/report apps/lab/src/design/report.css apps/lab/src/design/tokens.css
+(cd apps/lab && pnpm exec prettier --write src/report src/design/report.css src/design/tokens.css src/routes/Workspace.browser.test.tsx)
+git add packages/engine/lab-report.ts packages/engine/lab-report.test.ts packages/engine/lab-i18n.ts packages/engine/lab-i18n.test.ts apps/lab/src/report apps/lab/src/design/report.css apps/lab/src/design/tokens.css apps/lab/src/routes/Workspace.browser.test.tsx
 git commit -m "Report: the delta's colour says which way the number moved, the ? says what it means"
 ```
 
@@ -400,7 +414,7 @@ In `packages/engine/lab-report.test.ts`:
   stuckLen:
     'In the last attempt: how long an arrow was, on average, when it could grow no further. Higher = arrows get stuck later.',
   selfTrap:
-    "In the last attempt: stops where the arrow's own body closed off at least two sides of its tail. More = arrows trap themselves more often.",
+    "In the last attempt: stops where the arrow's own body walled in at least two sides of its tail. More = arrows trap themselves more often.",
   shortened:
     'In the last attempt: the share of arrows laid that were cut back so they would not leave a gap no arrow could fill, and by how many cells on average. Lower = fewer cuts.',
 ```
@@ -486,7 +500,7 @@ and `expected` becomes (full list, `help` added by the existing `map`):
     {
       kind: 'row',
       key: 'shortened',
-      label: 'shortened to leave no gap',
+      label: 'shortened',
       value: '4% of arrows laid, 2.5 cells shorter on average',
       num: 4,
     },
@@ -547,7 +561,7 @@ Expected: FAIL (unknown `StatKey`s, missing dictionary keys).
     stat_stuckByVal: (own: string, other: string, edge: string) => `itself ${own} · other arrows ${other} · edge ${edge}`,
     stat_stuckLen: 'length when stuck',
     stat_selfTrap: 'stuck on themselves',
-    stat_shortened: 'shortened to leave no gap',
+    stat_shortened: 'shortened',
     stat_shortenedVal: (share: string, cells: string) => `${share} of arrows laid, ${cells} cells shorter on average`,
 ```
 EN helps, next to the other `stat_*_help`: the nine sentences of `HELP_EN` in Step 1, as `stat_farBlock_help`, `stat_turnsPerCell_help`, `stat_ownSides_help`, `stat_neighbours_help`, `stat_rework_help`, `stat_stuckBy_help`, `stat_stuckLen_help`, `stat_selfTrap_help`, `stat_shortened_help`, character for character. EN group name, after `statGroupRun`:
@@ -570,7 +584,7 @@ PL:
     stat_stuckByVal: (own, other, edge) => `ona sama ${own} · inne strzałki ${other} · krawędź ${edge}`,
     stat_stuckLen: 'długość przy utknięciu',
     stat_selfTrap: 'utknięte na sobie',
-    stat_shortened: 'skrócone, by nie zostawić dziury',
+    stat_shortened: 'skrócone',
     stat_shortenedVal: (share, cells) => `${share} ułożonych strzałek, średnio o ${cells} komórki krótszych`,
     stat_farBlock_help:
       'Strzałki, których najbliższa blokada stoi dalej niż 2 komórki przed grotem: tego, co je trzyma, nie widać od razu. Więcej = więcej blokad do wypatrzenia.',
@@ -726,7 +740,17 @@ The component's doc comment: "The 23 statistics of the board on screen" → "The
 - the group case: `toHaveLength(5)` → `6`, `dataRows(...)` `23` → `32`, the EN heads list gains `'generator in detail'`, the PL list gains `'generator w szczegółach'`;
 - `row(screen.container, 7)` (depth, in the summary case) → `row(screen.container, 8)`;
 - `row(screen.container, 22)` (time) → `row(screen.container, 26)`;
-- `row(screen.container, 19)` (stall, in the 352 px case) → `row(screen.container, 23)`, and update its comment: the longest help in either language is now `rework`'s Polish one (count the characters of `stat_rework_help` and `stat_stall_help` in PL; open whichever is longer — `rework` is data row 27);
+- in the 352 px case, the opener of `row(screen.container, 19)` (stall) becomes both longest helps (EN `stall` 203 characters, PL `rework` 201):
+```tsx
+    // The longest sentences, open: stall in English, tail reworks in Polish.
+    for (const at of [23, 27]) {
+      const q = row(screen.container, at).cells[0]?.querySelector('button.q')
+      if (q?.getAttribute('aria-expanded') === 'false') await act(async () => (q as HTMLButtonElement).click())
+    }
+```
+- the two literal index lists: `expect(hidden).toEqual([1, 3, 7, 22])` → `[1, 3, 8, 26]`; `expect(long).toEqual([0, 3, 4, 14, 19, 20, 22])` → `[0, 3, 4, 15, 23, 24, 26, 27, 28, 31]`, its comment gaining ", tail reworks, what stopped them, shortened";
+- the case `'twenty-three rows in five named groups, labelled by row headers'` → `'thirty-two rows in six named groups, labelled by row headers'`, its comment "The engine's five separators bound six groups";
+- the comment "The 23 rows of a run…" (near the stored board's facts case) → "The rows of a run…";
 - search the file for every other `row(screen.container, N)` and `rows[N]` with N ≥ 7 on the lab table and move it by the same map; rows 0–6 did not move. `stats(screen.container).rows[5]` at the stored board's facts table is a different table and does not move.
 
 - [ ] **Step 7: Lab tests pass**
@@ -742,6 +766,7 @@ Expected: PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
+(cd apps/lab && pnpm exec prettier --write src/report)
 git add packages/engine/lab-report.ts packages/engine/lab-report.test.ts packages/engine/lab-i18n.ts apps/lab/src/report
 git commit -m "Report: tail reworks, why arrows stopped, T2, the shortest arrow and the wrapping trio"
 ```
@@ -850,7 +875,7 @@ and the not-filled branch:
 
 ```bash
 set -o pipefail
-cd apps/lab && pnpm exec vitest run src/stage 2>&1 | tail -4 && pnpm run check 2>&1 | tail -2 && cd ../..
+(cd apps/lab && pnpm exec vitest run src/stage 2>&1 | tail -4 && pnpm run check 2>&1 | tail -2 && pnpm exec prettier --write src/stage)
 git add packages/engine/lab-i18n.ts packages/engine/lab-i18n.test.ts apps/lab/src/stage/useRunState.ts apps/lab/src/stage/RunStatusBar.browser.test.tsx
 git commit -m "Lab: a board that could not be filled says where a new arrow could still start"
 ```
@@ -869,6 +894,8 @@ git commit -m "Lab: a board that could not be filled says where a new arrow coul
 **Interfaces:**
 - Consumes: `jumpTo(deps, 'preview', id)`, `lookOf(state.view)` and `PALETTE_CAP` from `../state/view.slice`, `PlainUiKey` from `../console/viewFields`.
 - Produces: command ids `view-pad`, `view-pointColor`, `view-pointRadius`, `view-theme`, `view-palette`, `view-paper`, `view-ink`, `view-highlightColor`.
+
+The values are worded as the panel shows them: the palette as its own count `paletteCount` ("0 / 8"), an unset colour as "not set" (with no theme the element's default is drawn, so "from the theme" would be false). Task 5 amends the spec's §2 table to match.
 
 - [ ] **Step 1: The word for an unset colour**
 
@@ -895,16 +922,18 @@ In `apps/lab/src/palette/commands.test.ts`, inside `describe('the catalogue', �
       'view-pointColor',
       'view-pointRadius',
       'view-theme',
-      'view-palette',
       'view-paper',
       'view-ink',
       'view-highlightColor',
+      'view-palette',
     ]
     expect(ids.filter((id) => look.includes(id))).toEqual(look)
   })
 
   it('words an unset colour, an empty palette and no theme, and finds a field by its CLI flag', () => {
+    const before = useStore.getState().view
     useStore.getState().view.apply({ theme: '', palette: [], paper: '', ink: '#112233' })
+    try {
     const en = dictionary('en')
     const rows = buildCommands(deps(), useStore.getState())
     const value = (id: string) => rows.find((row) => row.id === id)?.value
@@ -914,9 +943,12 @@ In `apps/lab/src/palette/commands.test.ts`, inside `describe('the catalogue', �
     expect(value('view-ink')).toBe('#112233')
     expect(matchCommands(rows, '--highlight-color').map((row) => row.id)).toContain('view-highlightColor')
     expect(matchCommands(rows, '--pad').map((row) => row.id)).toContain('view-pad')
+    } finally {
+      useStore.getState().view.apply({ theme: before.theme, palette: before.palette, paper: before.paper, ink: before.ink })
+    }
   })
 ```
-Check that `view.apply` accepts these fields (`ViewFields` keys: `theme`, `palette`, `paper`, `ink`) by reading `apply` in `state/view.slice.ts`; `paletteCount`'s cap is `PALETTE_CAP` (8) — import `PALETTE_CAP` instead of writing 8 if the test file can.
+Add `import { PALETTE_CAP } from '../state/view.slice'` to `commands.test.ts`. Check that `view.apply` accepts these fields (`ViewFields` keys: `theme`, `palette`, `paper`, `ink`) by reading `apply` in `state/view.slice.ts`; `paletteCount`'s cap is `PALETTE_CAP` (8) — import `PALETTE_CAP` instead of writing 8 if the test file can.
 Run: `cd apps/lab && pnpm exec vitest run src/palette/commands.test.ts 2>&1 | tail -6` — Expected: FAIL.
 
 - [ ] **Step 3: The rows**
@@ -952,6 +984,9 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
     row('view-pointColor', 'pointColorLabel', look.pointColor, '--point-color'),
     row('view-pointRadius', 'pointRadiusLabel', String(look.pointRadius), '--point-radius'),
     row('view-theme', 'themeLabel', look.theme === '' ? dict.t('viewThemeNone') : look.theme, '--theme theme'),
+    row('view-paper', 'paperLabel', colour(look.paper), '--paper paper'),
+    row('view-ink', 'inkLabel', colour(look.ink), '--ink ink'),
+    row('view-highlightColor', 'highlightColorLabel', colour(look.highlight), '--highlight-color highlight'),
     // At the cap the add button is disabled and cannot take the focus.
     row(
       'view-palette',
@@ -960,9 +995,6 @@ function lookRows(deps: CommandDeps, state: Store): Command[] {
       '--palette palette',
       look.palette.length >= PALETTE_CAP ? 'view-palette-0' : 'view-palette',
     ),
-    row('view-paper', 'paperLabel', colour(look.paper), '--paper paper'),
-    row('view-ink', 'inkLabel', colour(look.ink), '--ink ink'),
-    row('view-highlightColor', 'highlightColorLabel', colour(look.highlight), '--highlight-color highlight'),
   ]
 }
 ```
@@ -1026,9 +1058,19 @@ describe('a palette jump to the colour fields', () => {
       useStore.getState().view.setFlag('showPoints', showPoints)
     }
   })
+
+  it('lands on the highlight colour', async () => {
+    await mountApp()
+    await loadRunDone()
+    await act(async () => {
+      useStore.getState().ui.select('preview')
+      useStore.getState().ui.requestFocus('view-highlightColor')
+    })
+    expect(document.activeElement?.id).toBe('view-highlightColor')
+  })
 })
 ```
-The first case drives the focus request, not the command's `run`: the command's choice of target is pinned by a unit case — add to `commands.test.ts`:
+The first case drives the focus request, not the command's `run`: the command's choice of target is pinned by a unit case — add to `commands.test.ts`, inside `describe('the catalogue', …)`:
 ```ts
   it('sends a full palette to its first colour, since the add button is disabled there', () => {
     useStore.getState().view.setPalette(Array.from({ length: PALETTE_CAP }, () => '#112233'))
@@ -1047,13 +1089,13 @@ Run:
 set -o pipefail
 cd apps/lab && pnpm exec vitest run src/palette src/console/Console.jump.browser.test.tsx 2>&1 | tail -6
 ```
-Expected before Step 3's `PaletteRow` change: the empty-palette case FAILS (no element `view-palette`). After: PASS.
+Expected: PASS. Control: remove the `id` from the `PaletteRow` add button and rerun — the empty-palette case must FAIL (no element `view-palette`); put the `id` back.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 set -o pipefail
-cd apps/lab && pnpm run check 2>&1 | tail -2 && cd ../..
+(cd apps/lab && pnpm run check 2>&1 | tail -2 && pnpm exec prettier --write src/palette src/console/rows/PaletteRow.tsx src/console/Console.jump.browser.test.tsx)
 git add packages/engine/lab-i18n.ts apps/lab/src/palette apps/lab/src/console/rows/PaletteRow.tsx apps/lab/src/console/Console.jump.browser.test.tsx
 git commit -m "⌘K: the margin, the dots and the colours, each a jump to its row"
 ```
@@ -1079,6 +1121,10 @@ In "### What is still open", item 4 becomes:
    the colour and element fields are done on `lab/report-parity`.
 ```
 
+Line 21 of `lab-review.md` (the summary sentence saying about a third of the engine's metrics are missing): add "(since shown on `lab/report-parity`)" after it.
+
+In the spec `docs/superpowers/specs/2026-09-28-lab-report-parity-design.md` §2: reorder the table as the panel draws it (margin, dot colour, dot size, theme, background, lines, highlight colour, palette), set the palette's value to "`paletteCount` (`0 / 8`)" and an unset colour's to "not set / nie ustawiono", and replace the sentence "The only new texts are the palette count and \"from the theme\"." with "The only new text is \"not set\": with no theme an unset colour is the element's default, so \"from the theme\" would be false."; in the table of §1 the label of `shortened` is "shortened / skrócone".
+
 - [ ] **Step 2: The full gate, in a clean state**
 
 Run from the worktree root:
@@ -1092,7 +1138,7 @@ Expected: both exit 0. A failure of `deno task fmt` or the lab's `fmt` is fixed 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add lab-review.md
+git add lab-review.md docs/superpowers/specs/2026-09-28-lab-report-parity-design.md
 git commit -m "Docs: the report rows and the ⌘K colour rows are done"
 ```
 
