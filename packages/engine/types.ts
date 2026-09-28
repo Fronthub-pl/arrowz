@@ -245,6 +245,10 @@ export interface SvgOptions {
    * the board element draws them; absent or empty keeps the golden angle.
    */
   palette?: string[]
+  /** The margin in cells; absent = 1. */
+  pad?: number
+  /** A dot in the centre of every cell, as the element's point grid; absent draws none. */
+  points?: { color: string; radius: number }
 }
 
 /** The fields of a View that carry a number, and so have a flag that takes one. */
