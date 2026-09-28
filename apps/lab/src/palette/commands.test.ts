@@ -176,15 +176,19 @@ describe('the catalogue', () => {
   })
 
   it('sends a full palette to its first colour, since the add button is disabled there', () => {
+    const before = useStore.getState().view.palette
     useStore.getState().view.setPalette(Array.from({ length: PALETTE_CAP }, () => '#112233'))
-    const focused: (string | null)[] = []
-    const unsubscribe = useStore.subscribe((state) => focused.push(state.ui.focusTarget))
-    buildCommands(deps(), useStore.getState())
-      .find((row) => row.id === 'view-palette')
-      ?.run()
-    unsubscribe()
-    expect(focused.at(-1)).toBe('view-palette-0')
-    useStore.getState().view.setPalette([])
+    try {
+      const focused: (string | null)[] = []
+      const unsubscribe = useStore.subscribe((state) => focused.push(state.ui.focusTarget))
+      buildCommands(deps(), useStore.getState())
+        .find((row) => row.id === 'view-palette')
+        ?.run()
+      unsubscribe()
+      expect(focused.at(-1)).toBe('view-palette-0')
+    } finally {
+      useStore.getState().view.setPalette(before)
+    }
   })
 })
 
