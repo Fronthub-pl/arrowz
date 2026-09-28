@@ -286,6 +286,24 @@ test('the SVG carries a custom palette while colours are on', async () => {
   }
 })
 
+test('the SVG carries the point grid and the margin of the board on screen', async () => {
+  const initial = useStore.getState().view
+  try {
+    const screen = await mountButtons()
+    await act(async () => finish(ONE))
+    await act(async () => useStore.getState().view.apply({ showPoints: true, pointColor: '#070809', pad: 6 }))
+    await screen.getByRole('button', { name: 'Download SVG' }).click()
+    await expect.poll(() => downloads.blobs.length, { timeout: 10_000 }).toBe(1)
+    const svg = (await downloads.blobs[0]?.text()) ?? ''
+    const cell = useStore.getState().view.cell
+    expect(svg).toContain('fill="url(#arrowz-points)"')
+    expect(svg).toContain('fill="#070809"')
+    expect(svg).toContain(`<rect x="${6 * cell}" y="${6 * cell}"`)
+  } finally {
+    useStore.setState({ view: initial })
+  }
+})
+
 // The mock's ghost buttons, `--ash` on `--graphite`.
 test('the export buttons read at AA', async () => {
   const screen = await mountButtons()

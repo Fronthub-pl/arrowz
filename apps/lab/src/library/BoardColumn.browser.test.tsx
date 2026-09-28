@@ -1,3 +1,4 @@
+import { THEMES } from '@arrowz/board-element'
 import { decodeBoard } from '@arrowz/engine'
 import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
@@ -173,24 +174,26 @@ test('load into lab in the simple view with randomising on keeps the loaded knob
   }
 })
 
-// A stored board carries the CLI's seven view fields only; the page's colours, points, margin and voids stay.
-test('load into lab leaves the view fields a stored board does not carry', async () => {
+// A stored board carries its look; loading it brings the look along. `voids` is the lab's own and stays.
+test('load into lab restores the stored look and keeps voids', async () => {
   const initial = useStore.getState().view
-  const screen = await mountDetail()
-  await show()
-  const page = {
-    paper: '#010203',
-    ink: '#040506',
-    highlightColor: '#0a0b0c',
+  const look = {
     theme: 'gruvbox-dark',
     palette: ['#112233'],
+    paper: '#010203',
+    ink: '#040506',
+    highlight: '#0a0b0c',
+    pad: 7,
+    showPoints: true,
     pointColor: '#070809',
     pointRadius: 0.15,
-    pad: 7,
-    voids: false,
-    showPoints: true,
   }
-  useStore.getState().view.apply(page)
+  const withLook = { ...stored.meta, view: { ...stored.meta.view, ...look } }
+  const screen = await mountDetail()
+  useStore.getState().view.apply({ voids: false, theme: 'ayu-dark' })
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: withLook }),
+  )
   let viewChanges = 0
   let last = useStore.getState().view
   const stop = useStore.subscribe((state) => {
@@ -200,12 +203,27 @@ test('load into lab leaves the view fields a stored board does not carry', async
   try {
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
     const after = useStore.getState().view
-    expect(after.stroke).toBe(stored.meta.view.stroke)
-    expect(after).toMatchObject(page)
+    const { highlight, ...rest } = look
+    expect(after).toMatchObject({ ...rest, highlightColor: highlight, voids: false })
     expect(viewChanges).toBe(1)
   } finally {
     stop()
-    // The file's `beforeEach` does not reset the view; later cases expect the page's defaults.
+    useStore.setState({ view: initial })
+  }
+})
+
+// A board saved before the look existed reads with the default look (the store fills it), and loading it sets that.
+test('load into lab of a board without a look sets the default look', async () => {
+  const initial = useStore.getState().view
+  const screen = await mountDetail()
+  useStore.getState().view.apply({ theme: 'ayu-dark', pad: 9 })
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: stored.meta }),
+  )
+  try {
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    expect(useStore.getState().view).toMatchObject({ theme: '', pad: 4, showPoints: false })
+  } finally {
     useStore.setState({ view: initial })
   }
 })
@@ -531,6 +549,36 @@ test('the stored board’s SVG carries the page’s theme', async () => {
     await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
     await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
     expect((await blobs[0]?.text()) ?? '').toMatch(/<rect width="\d+" height="\d+" fill="#282828"\/>/)
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
+  }
+})
+
+test('the stored board’s SVG draws its own shape in the page’s look, not the look it was saved with', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  const savedLook = { ...stored.meta, view: { ...stored.meta.view, theme: 'gruvbox-dark', pad: 9 } }
+  try {
+    useStore.getState().view.apply({ theme: 'ayu-dark', pad: 2 })
+    const screen = await mountDetail()
+    await act(async () =>
+      useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: savedLook }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    const svg = (await blobs[0]?.text()) ?? ''
+    const cell = stored.meta.view.cell
+    expect(svg).toMatch(new RegExp(`<rect width="\\d+" height="\\d+" fill="${THEMES['ayu-dark']?.paper}"/>`))
+    expect(svg).toContain(`<svg xmlns="http://www.w3.org/2000/svg" width="${(8 + 4) * cell}"`)
   } finally {
     document.removeEventListener('click', cancel, true)
     useStore.setState({ view: initial })

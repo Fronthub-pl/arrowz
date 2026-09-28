@@ -7,7 +7,6 @@ import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
 import { drawSvg } from './drawSvg'
-import { exportColours } from './exportColours'
 
 /** The layout hash of one board file, or why it could not be worked out. */
 interface Named {
@@ -80,7 +79,7 @@ export function ExportButtons(): ReactElement {
     useStore.getState().result.exported(about, null)
     drawing.current = drawSvg(
       result.file,
-      { ...svgOptions(viewOf(view)), voids: view.voids, ...exportColours(view) },
+      { ...svgOptions(viewOf(view)), voids: view.voids },
       name,
       (reason) => useStore.getState().result.exported(about, reason),
       () => {
