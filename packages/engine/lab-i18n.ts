@@ -687,7 +687,7 @@ export const PL: Translation = {
     trapBias: {
       label: 'pułapki (strzałki, które wyglądają na wolne)',
       help:
-        'Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = od trzech do ośmiu razy mniej.',
+        'Pułapka: strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = 3–8 razy mniej; „normalnie” = bez preferencji.',
     },
     probe: {
       label: 'udział strzałek o zadanej długości',
