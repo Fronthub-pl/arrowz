@@ -37,6 +37,11 @@ export interface EventRow {
   readonly detail: string
 }
 
+/** One row of the slot table: the name is the only machine column. */
+export interface SlotRow {
+  readonly key: string
+}
+
 // `as const satisfies` and not an annotation: an annotation wins over `as
 // const` and collapses the key type to `string`, which would let a description
 // go missing without the compiler noticing.
@@ -83,9 +88,20 @@ export const ELEMENT_EVENTS = [
   { key: 'viewport-change', detail: 'BoardViewport' },
 ] as const satisfies readonly EventRow[]
 
+export const ELEMENT_SLOTS = [
+  { key: 'controls' },
+  { key: 'hint' },
+  { key: 'zoom-in' },
+  { key: 'zoom-out' },
+  { key: 'fit' },
+  { key: 'colors' },
+  { key: 'gestures' },
+] as const satisfies readonly SlotRow[]
+
 export type PropKey = (typeof ELEMENT_PROPS)[number]['key']
 export type MemberKey = (typeof ELEMENT_MEMBERS)[number]['key']
 export type EventKey = (typeof ELEMENT_EVENTS)[number]['key']
+export type SlotKey = (typeof ELEMENT_SLOTS)[number]['key']
 
 /** Everything one language needs to render both documentation pages. */
 export interface Docs {
@@ -93,6 +109,9 @@ export interface Docs {
   readonly props: Record<PropKey, string>
   readonly members: Record<MemberKey, string>
   readonly events: Record<EventKey, string>
+  readonly slots: Record<SlotKey, string>
+  /** Above the slot table: how a host fills a slot and names a control's action. */
+  readonly slotsLead: string
   readonly cliLead: string
   /** Heading above the short usage block. */
   readonly cliShortHead: string
@@ -107,13 +126,15 @@ export interface Docs {
   readonly colMember: string
   readonly colSignature: string
   readonly colEvent: string
+  readonly colSlot: string
   /** The event's payload column. */
   readonly colDetail: string
-  /** The last column of all three tables: the translated one. */
+  /** The last column of every table: the translated one. */
   readonly colDescription: string
   readonly headProps: string
   readonly headMembers: string
   readonly headEvents: string
+  readonly headSlots: string
   readonly headExample: string
   /** Where the long explanations live, since this page is a reference. */
   readonly readmePointer: string
@@ -168,6 +189,20 @@ const EN = {
     'finished': 'The last piece finished its ride.',
     'viewport-change': 'The view changed; at most once per frame.',
   },
+  slots: {
+    controls:
+      'The whole bar in the corner, holding the slots below. Content here replaces the bar and its position, and the slots below go with it.',
+    hint: 'The line that says how the mouse works now. Not drawn under a coarse pointer.',
+    'zoom-in': 'The + button.',
+    'zoom-out': 'The − button.',
+    fit: 'The ⤢ button.',
+    colors:
+      'The ◑ button, drawn only with `enableColors`. The element keeps `aria-pressed` and `hidden` on a projected one.',
+    gestures:
+      'The ☝ switch, drawn only on an `interactive` or `play` board and not under a coarse pointer. The element keeps `aria-pressed` and `hidden` on a projected one.',
+  },
+  slotsLead:
+    'A child with `slot` set to one of these names replaces that default; a slot left empty keeps it. `data-board-action` on a child — `zoom-in`, `zoom-out`, `fit`, `colors` or `gestures` — makes a click on it do what that control does.',
   cliLead:
     'The command line carves boards and prints them. This is the help it shows, rendered from the very function the terminal calls, so the two cannot disagree.',
   cliShortHead: 'Everyday help',
@@ -180,11 +215,13 @@ const EN = {
   colMember: 'Member',
   colSignature: 'Signature',
   colEvent: 'Event',
+  colSlot: 'Slot',
   colDetail: 'Detail',
   colDescription: 'Description',
   headProps: 'Properties',
   headMembers: 'Methods and getters',
   headEvents: 'Events',
+  headSlots: 'Slots',
   headExample: 'Using it',
   readmePointer:
     'The long explanations — zoom and pan, the point grid, riding the track, playing the board — live in the package README.',
@@ -240,6 +277,20 @@ const PL = {
     'finished': 'Ostatni element zakończył przejazd.',
     'viewport-change': 'Widok się zmienił; najwyżej raz na klatkę.',
   },
+  slots: {
+    controls:
+      'Cały pasek w rogu, razem ze slotami poniżej. Treść tutaj zastępuje pasek i jego położenie, a sloty poniżej znikają wraz z nim.',
+    hint: 'Wiersz, który mówi, jak teraz działa mysz. Nie jest rysowany przy grubym wskaźniku.',
+    'zoom-in': 'Przycisk +.',
+    'zoom-out': 'Przycisk −.',
+    fit: 'Przycisk ⤢.',
+    colors:
+      'Przycisk ◑, rysowany tylko z `enableColors`. Na podstawionym element sam ustawia `aria-pressed` i `hidden`.',
+    gestures:
+      'Przełącznik ☝, rysowany tylko na planszy `interactive` albo `play` i nie przy grubym wskaźniku. Na podstawionym element sam ustawia `aria-pressed` i `hidden`.',
+  },
+  slotsLead:
+    'Dziecko z `slot` ustawionym na jedną z tych nazw zastępuje domyślną zawartość; pusty slot ją zachowuje. `data-board-action` na dziecku — `zoom-in`, `zoom-out`, `fit`, `colors` albo `gestures` — sprawia, że kliknięcie robi to samo co ten przycisk.',
   cliLead:
     'Wiersz poleceń wycina plansze i je drukuje. To jest pomoc, którą wypisuje — renderowana z tej samej funkcji, którą woła terminal, więc obie nie mogą się rozjechać.',
   cliShortHead: 'Pomoc na co dzień',
@@ -252,11 +303,13 @@ const PL = {
   colMember: 'Składowa',
   colSignature: 'Sygnatura',
   colEvent: 'Zdarzenie',
+  colSlot: 'Nazwa slotu',
   colDetail: 'Szczegóły',
   colDescription: 'Opis',
   headProps: 'Właściwości',
   headMembers: 'Metody i gettery',
   headEvents: 'Zdarzenia',
+  headSlots: 'Sloty',
   headExample: 'Jak użyć',
   readmePointer:
     'Długie objaśnienia — powiększanie i przesuwanie, siatka punktów, jazda po torze, rozgrywka — są w pliku README pakietu.',

@@ -1,4 +1,4 @@
-import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
+import { ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import type { ReactElement } from 'react'
 import { TokenSpans } from '../docs/TokenSpans'
 import { type CellRole, cellTokens, highlightHtml } from '../docs/codeTokens'
@@ -33,7 +33,7 @@ function InfoIcon(): ReactElement {
 }
 
 /**
- * The element's API as three reference tables. The machine columns come from
+ * The element's API as four reference tables. The machine columns come from
  * the shared rows and are not translated; only the last column is. The long
  * explanations stay in the package README, which the note under the lead
  * points at: this page is a reference, and a second copy of the prose would be
@@ -120,6 +120,25 @@ export function ElementDocs(): ReactElement {
               <Mono text={row.key} column="event" />
               <Mono text={row.detail} column="expr" />
               <td>{docs.events[row.key]}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <h3 id="docs-slots">{docs.headSlots}</h3>
+      <p>{docs.slotsLead}</p>
+      <table className="fw-docs-table" aria-labelledby="docs-slots">
+        <thead>
+          <tr>
+            <th scope="col">{docs.colSlot}</th>
+            <th scope="col">{docs.colDescription}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ELEMENT_SLOTS.map((row) => (
+            <tr key={row.key}>
+              <Mono text={row.key} column="slot" />
+              <td>{docs.slots[row.key]}</td>
             </tr>
           ))}
         </tbody>

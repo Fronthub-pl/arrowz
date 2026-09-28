@@ -1,4 +1,4 @@
-import { docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from '@arrowz/engine/docs'
+import { docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from '@arrowz/engine/docs'
 import { act } from 'react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
@@ -24,7 +24,9 @@ const rowFor = (container: HTMLElement, key: string) =>
 test('every documented row reaches the page', async () => {
   const screen = await render(<ElementDocs />)
   const rows = screen.container.querySelectorAll('tbody tr')
-  expect(rows).toHaveLength(ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length)
+  expect(rows).toHaveLength(
+    ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length + ELEMENT_SLOTS.length,
+  )
   // One row spelled out, so the table is not merely the right length: the
   // machine columns are the point of the page.
   const pad = rowFor(screen.container, 'pad')
@@ -41,7 +43,7 @@ test('a property with no attribute says it has none', async () => {
 })
 
 // `mono` is the class the machine columns wear and the description column does
-// not, so these two read every machine cell and every description of all three
+// not, so these two read every machine cell and every description of all four
 // tables without naming a column index.
 const machine = (container: HTMLElement) => [...container.querySelectorAll('tbody td.mono')].map((c) => c.textContent)
 const described = (container: HTMLElement) =>
@@ -54,9 +56,14 @@ test('a language switch changes every description and leaves every machine cell'
   const before = machine(screen.container)
   const helpBefore = described(screen.container)
   // The count is stated so an empty selector cannot satisfy the comparison
-  // below: four machine columns for a property, two for a member or an event.
-  expect(before).toHaveLength(ELEMENT_PROPS.length * 4 + ELEMENT_MEMBERS.length * 2 + ELEMENT_EVENTS.length * 2)
-  expect(helpBefore).toHaveLength(ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length)
+  // below: four machine columns for a property, two for a member or an event,
+  // one for a slot.
+  expect(before).toHaveLength(
+    ELEMENT_PROPS.length * 4 + ELEMENT_MEMBERS.length * 2 + ELEMENT_EVENTS.length * 2 + ELEMENT_SLOTS.length,
+  )
+  expect(helpBefore).toHaveLength(
+    ELEMENT_PROPS.length + ELEMENT_MEMBERS.length + ELEMENT_EVENTS.length + ELEMENT_SLOTS.length,
+  )
   await act(async () => useStore.getState().lang.setLang('pl'))
   expect(machine(screen.container)).toEqual(before)
   const helpAfter = described(screen.container)
@@ -102,6 +109,14 @@ test('the README note stands under the lead, named, before the first section', a
   expect(screen.container.lastElementChild?.tagName).toBe('TABLE')
 })
 
+test('the slot table opens with how a host fills a slot, in both languages', async () => {
+  const screen = await render(<ElementDocs />)
+  const table = screen.container.querySelector('table[aria-labelledby="docs-slots"]')
+  expect(table?.previousElementSibling?.textContent).toBe(docsFor('en').slotsLead)
+  await act(async () => useStore.getState().lang.setLang('pl'))
+  expect(table?.previousElementSibling?.textContent).toBe(docsFor('pl').slotsLead)
+})
+
 test('the note is named in Polish too', async () => {
   useStore.getState().lang.setLang('pl')
   const screen = await render(<ElementDocs />)
@@ -141,6 +156,8 @@ test('the machine columns wear the colour of what they hold', async () => {
   // An event name is the string `addEventListener` takes; its fields are properties.
   expect(token(at('piece-click'), 0, 'str').text).toBe('piece-click')
   expect(token(at('piece-click'), 1, 'prop').text).toBe('pieceId')
+  // A slot name is the string `slot="…"` takes.
+  expect(token(at('zoom-in'), 0, 'str').text).toBe('zoom-in')
   // The description stays prose.
   expect(at('pad')?.cells[4]?.querySelector('[class^="tk-"]')).toBeNull()
 })

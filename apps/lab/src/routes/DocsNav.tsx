@@ -16,6 +16,7 @@ export const DOCS_SECTIONS = {
     { id: 'docs-props', head: 'headProps' },
     { id: 'docs-members', head: 'headMembers' },
     { id: 'docs-events', head: 'headEvents' },
+    { id: 'docs-slots', head: 'headSlots' },
   ],
   cli: [
     { id: 'docs-short', head: 'cliShortHead' },

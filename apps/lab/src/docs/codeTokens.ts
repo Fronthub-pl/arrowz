@@ -25,7 +25,7 @@ export interface CodeToken {
  * property in one column and a type in the next. `sig` is a method's
  * signature, `expr` any other type expression (a default, an event's detail).
  */
-export type CellRole = 'prop' | 'method' | 'attr' | 'event' | 'type' | 'sig' | 'expr'
+export type CellRole = 'prop' | 'method' | 'attr' | 'event' | 'slot' | 'type' | 'sig' | 'expr'
 
 /** Appends a token, merging runs of plain text so the DOM gets one node per run. */
 function push(out: CodeToken[], cls: TokenClass | null, text: string): void {
@@ -145,8 +145,8 @@ export function cellTokens(text: string, role: CellRole): CodeToken[] {
   if (role === 'prop') return [{ cls: 'prop', text }]
   if (role === 'method') return [{ cls: 'fn', text }]
   if (role === 'attr') return [{ cls: 'attr', text }]
-  // An event name is a string where it is used: `addEventListener('…')`.
-  if (role === 'event') return [{ cls: 'str', text }]
+  // Event and slot names are strings where they are used: `addEventListener('…')`, `slot="…"`.
+  if (role === 'event' || role === 'slot') return [{ cls: 'str', text }]
   const out: CodeToken[] = []
   let depth = 0
   let first = true

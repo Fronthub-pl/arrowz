@@ -188,12 +188,12 @@ test('scrolling the panel moves the section in view', async () => {
 test('jumping to the last section marks it, though its heading cannot reach the top', async () => {
   await page.viewport(1920, 1080)
   const screen = await openAt('/docs/element')
-  await screen.getByRole('link', { name: 'Events' }).click()
+  await screen.getByRole('link', { name: 'Slots' }).click()
   const panel = box(screen.container, '#docs-panel')
   await expect.poll(() => panel.scrollTop + panel.clientHeight).toBeCloseTo(panel.scrollHeight, 0)
   // The premise: the heading really is below the line a fifth of the way down.
-  expect(below(screen.container, 'docs-events')).toBeGreaterThan(panel.clientHeight * 0.2)
-  await expect.poll(() => inView(screen.container)).toEqual(['Events'])
+  expect(below(screen.container, 'docs-slots')).toBeGreaterThan(panel.clientHeight * 0.2)
+  await expect.poll(() => inView(screen.container)).toEqual(['Slots'])
 }, 40_000)
 
 // The column is sticky in the panel, which is the box that scrolls.
@@ -228,7 +228,7 @@ test.each(['en', 'pl'] as const)(
     expect(body.width).toBeCloseTo(panel.clientWidth - pad, 0)
     expect(body.width).toBeGreaterThanOrEqual(324)
     const shown = [...screen.container.querySelectorAll('.fw-docs-toc a')].filter((a) => a.getClientRects().length > 0)
-    expect(shown).toHaveLength(2 + 4)
+    expect(shown).toHaveLength(2 + 5)
     for (const a of shown) expect(a.getBoundingClientRect().height, a.textContent ?? '').toBe(44)
     expect(getComputedStyle(box(screen.container, '.fw-docs-toc')).position).toBe('static')
     expect(scroller().scrollWidth).toBe(scroller().clientWidth)

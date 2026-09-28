@@ -5,7 +5,7 @@
 // re-checks the compiler is a test that cannot fail.
 import { assert, assertEquals, assertNotEquals } from '@std/assert'
 import { dirname, fromFileUrl, join } from '@std/path'
-import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS } from './lab-docs.ts'
+import { type Docs, docsFor, ELEMENT_EVENTS, ELEMENT_MEMBERS, ELEMENT_PROPS, ELEMENT_SLOTS } from './lab-docs.ts'
 
 Deno.test('every row has a description in both languages, and none is empty', () => {
   const en = docsFor('en')
@@ -22,6 +22,10 @@ Deno.test('every row has a description in both languages, and none is empty', ()
     assert(en.events[row.key].trim().length > 0, `EN event ${row.key}`)
     assert(pl.events[row.key].trim().length > 0, `PL event ${row.key}`)
   }
+  for (const row of ELEMENT_SLOTS) {
+    assert(en.slots[row.key].trim().length > 0, `EN slot ${row.key}`)
+    assert(pl.slots[row.key].trim().length > 0, `PL slot ${row.key}`)
+  }
 })
 
 // A Polish description equal to the English one is an untranslated string that
@@ -32,6 +36,7 @@ Deno.test('no Polish description is a copy of its English source', () => {
   for (const row of ELEMENT_PROPS) assert(pl.props[row.key] !== en.props[row.key], `prop ${row.key}`)
   for (const row of ELEMENT_MEMBERS) assert(pl.members[row.key] !== en.members[row.key], `member ${row.key}`)
   for (const row of ELEMENT_EVENTS) assert(pl.events[row.key] !== en.events[row.key], `event ${row.key}`)
+  for (const row of ELEMENT_SLOTS) assert(pl.slots[row.key] !== en.slots[row.key], `slot ${row.key}`)
 })
 
 // The frame around the tables — leads, headings, column labels, the README
@@ -114,6 +119,12 @@ Deno.test('the event table is the element event map, both ways', () => {
   // a documented table and only half of this test would notice.
   assert(found.length > 0, 'the event map parsed to nothing')
   assertEquals(sorted(found), sorted(ELEMENT_EVENTS.map((row) => row.key)))
+})
+
+Deno.test('the slot table is the slots the element renders, both ways', () => {
+  const found = [...classText.matchAll(/<slot name="([a-z-]+)"/g)].map((m) => m[1] ?? '')
+  assert(found.length > 0, 'the template parsed to no slots')
+  assertEquals(sorted(found), sorted(ELEMENT_SLOTS.map((row) => row.key)))
 })
 
 /**
