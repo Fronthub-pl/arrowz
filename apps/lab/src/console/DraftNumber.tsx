@@ -11,6 +11,7 @@ import { type ReactElement, useEffect, useRef, useState } from 'react'
  * track; the simple view keeps the word beside the number.
  */
 export function DraftNumber({
+  entryId,
   label,
   value,
   word = null,
@@ -20,6 +21,8 @@ export function DraftNumber({
   decimal = false,
   onCommit,
 }: {
+  /** The text entry's id: Chrome flags a form field with neither an id nor a name. */
+  entryId: string
   label: string
   value: number
   word?: string | null | undefined
@@ -83,6 +86,7 @@ export function DraftNumber({
   ) : (
     <input
       ref={entryRef}
+      id={entryId}
       type="text"
       // A number, typed on a touch keyboard, with a decimal separator.
       inputMode="decimal"

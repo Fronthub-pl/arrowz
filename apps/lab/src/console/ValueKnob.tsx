@@ -79,6 +79,7 @@ export function ValueKnob({
       value={
         <span className="kv-val">
           <DraftNumber
+            entryId={ids.entry}
             label={name}
             value={value}
             word={isSpecial ? specialText : null}

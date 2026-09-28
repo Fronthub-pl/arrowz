@@ -3,7 +3,7 @@ import { KnobLine, useKnobHelp } from '../KnobRow'
 
 /** Every id a row's parts carry, from the row's own id: the one place they are spelled. */
 export function rowIds(id: string) {
-  return { help: `${id}-help`, label: `${id}-label`, why: `${id}-why`, ends: `${id}-ends` }
+  return { help: `${id}-help`, label: `${id}-label`, why: `${id}-why`, ends: `${id}-ends`, entry: `${id}-entry` }
 }
 
 /**

@@ -56,6 +56,7 @@ export function NumberRow({
       value={
         <span className="kv-val">
           <DraftNumber
+            entryId={rowIds(id).entry}
             label={name}
             value={value}
             word={word}
