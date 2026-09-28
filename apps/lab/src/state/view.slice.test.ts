@@ -8,7 +8,7 @@ import {
 import { DEFAULT_VIEW, VIEW_RANGE } from '@arrowz/engine/command'
 import { beforeEach, expect, test } from 'vitest'
 import { useStore } from './store'
-import { createViewSlice, PALETTE_CAP, viewOf } from './view.slice'
+import { createViewSlice, lookOf, PALETTE_CAP, viewOf } from './view.slice'
 
 const view = () => useStore.getState().view
 
@@ -294,4 +294,23 @@ test('an emptied top field falls back to the CLI’s 0, not to the lab’s start
   view().setNumber('top', '')
   expect(view().top).toBe(DEFAULT_VIEW.top)
   expect(view().top).toBe(0)
+})
+
+test('viewOf carries the look, with highlightColor as the highlight', () => {
+  view().apply({ theme: 'gruvbox-dark', ink: '#040506', highlightColor: '#0a0b0c', pad: 7, showPoints: true })
+  const v = viewOf(view())
+  expect(v).toMatchObject({ theme: 'gruvbox-dark', ink: '#040506', highlight: '#0a0b0c', pad: 7, showPoints: true })
+  expect('highlightColor' in v).toBe(false)
+  expect(lookOf(view())).toEqual({
+    theme: v.theme,
+    palette: v.palette,
+    paper: v.paper,
+    ink: v.ink,
+    highlight: v.highlight,
+    pad: v.pad,
+    showPoints: v.showPoints,
+    pointColor: v.pointColor,
+    pointRadius: v.pointRadius,
+  })
+  view().apply({ theme: '', ink: '', highlightColor: '', pad: 4, showPoints: false })
 })

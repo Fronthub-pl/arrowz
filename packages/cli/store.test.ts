@@ -62,7 +62,16 @@ const entry = (
   return {
     board: boardFile(p.W, p.H, [0]),
     params: p,
-    view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: true },
+    view: {
+      ...DEFAULT_VIEW,
+      cell: 12,
+      stroke: 0.5,
+      headWidth: 0,
+      headHeight: 0,
+      colored: false,
+      top: 0,
+      rounded: true,
+    },
     command: `${COMMAND_PREFIX} --width=25 --height=50 --seed=7`,
     source: 'cli',
     metrics: { ok: true, pieces: 126, maxLen: 68, genMs: 12 },
@@ -278,7 +287,7 @@ Deno.test('listBoards fills a legacy view without arrowhead fields with the defa
   assertEquals(board?.id, handId('a'))
   assertEquals(
     board?.view,
-    { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
+    { ...DEFAULT_VIEW, cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
   )
   assertEquals(board?.sources, [], 'a meta without recipes reads as none')
 })

@@ -12,6 +12,7 @@ const NEUTRAL = [
   'geometry.ts',
   'colors.ts',
   'palette.ts',
+  'look.ts',
   'command.ts',
   'lab-simple.ts',
   'lab-presets.ts',

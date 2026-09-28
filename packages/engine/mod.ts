@@ -39,6 +39,22 @@ export { hueBytes, hueDegrees, hueOf } from './colors.ts'
 // The palette assignment, for the same reason: the SVG export and the board
 // element colour a piece from one assignment.
 export { assignPalette } from './palette.ts'
+// The look, for the same reason: the SVG export, the CLI and the element read one set of themes and bounds.
+export {
+  DEFAULT_COLOURS,
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  DEFAULT_SHOW_POINTS,
+  isHexColour,
+  PAD_RANGE,
+  PALETTE_CAP,
+  POINT_RADIUS_RANGE,
+  resolveColours,
+  themeOf,
+  THEMES,
+} from './look.ts'
+export type { BoardColours, BoardTheme } from './look.ts'
 export type { Dir, PieceShape, ShapeOptions } from './geometry.ts'
 export { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 export { goneIds, loadSession, newSession, play, saveSession } from './game.ts'

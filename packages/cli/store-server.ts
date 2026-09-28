@@ -13,7 +13,12 @@ import {
   encodeBoard,
   formatViolation,
   isFiniteNumber,
+  isHexColour,
+  PAD_RANGE,
+  PALETTE_CAP,
   PARAM_SPEC,
+  POINT_RADIUS_RANGE,
+  themeOf,
   validateParams,
 } from '@arrowz/engine'
 import type { Params, View, ViewNumber } from '@arrowz/engine'
@@ -108,6 +113,51 @@ function checkParams(v: unknown): Checked<Params> {
 /** The numbers of a view, straight from the table that bounds them. */
 const VIEW_NUMBERS = Object.keys(VIEW_RANGE) as ViewNumber[]
 
+/** The look fields of a view: each is optional, so a body posted before they existed still stores. */
+function checkLook(v: Record<string, unknown>, view: View): string | null {
+  if (v.theme !== undefined) {
+    if (typeof v.theme !== 'string' || (v.theme !== '' && themeOf(v.theme) === null)) {
+      return 'view.theme must be a built-in theme or empty'
+    }
+    view.theme = v.theme
+  }
+  if (v.palette !== undefined) {
+    const list: unknown = v.palette
+    if (!Array.isArray(list) || list.length > PALETTE_CAP || !list.every(isHexColour)) {
+      return `view.palette must be at most ${PALETTE_CAP} #rrggbb colours`
+    }
+    view.palette = list.map((c: string) => c.toLowerCase())
+  }
+  for (const k of ['paper', 'ink', 'highlight'] as const) {
+    const c = v[k]
+    if (c === undefined) continue
+    if (c !== '' && !isHexColour(c)) return `view.${k} must be a #rrggbb colour or empty`
+    view[k] = c === '' ? '' : c.toLowerCase()
+  }
+  if (v.pointColor !== undefined) {
+    if (!isHexColour(v.pointColor)) return 'view.pointColor must be a #rrggbb colour'
+    view.pointColor = v.pointColor.toLowerCase()
+  }
+  if (v.pad !== undefined) {
+    if (!isFiniteNumber(v.pad) || !Number.isInteger(v.pad) || v.pad < PAD_RANGE.min || v.pad > PAD_RANGE.max) {
+      return `view.pad must be a whole number in ${PAD_RANGE.min}..${PAD_RANGE.max}`
+    }
+    view.pad = v.pad
+  }
+  if (v.pointRadius !== undefined) {
+    const r = POINT_RADIUS_RANGE
+    if (!isFiniteNumber(v.pointRadius) || v.pointRadius < r.min || v.pointRadius > r.max) {
+      return `view.pointRadius must be a number in ${r.min}..${r.max}`
+    }
+    view.pointRadius = v.pointRadius
+  }
+  if (v.showPoints !== undefined) {
+    if (typeof v.showPoints !== 'boolean') return 'view.showPoints must be true or false'
+    view.showPoints = v.showPoints
+  }
+  return null
+}
+
 function checkView(v: unknown): Checked<View> {
   if (!isRec(v)) return { error: 'view is required' }
   const view: View = { ...DEFAULT_VIEW }
@@ -128,6 +178,8 @@ function checkView(v: unknown): Checked<View> {
     if (typeof v.rounded !== 'boolean') return { error: 'view.rounded must be true or false' }
     view.rounded = v.rounded
   }
+  const look = checkLook(v, view)
+  if (look !== null) return { error: look }
   return { ok: view }
 }
 

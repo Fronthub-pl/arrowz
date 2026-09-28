@@ -6,7 +6,7 @@ import {
   POINT_RADIUS_RANGE,
   themeOf,
 } from '@arrowz/board-element'
-import type { ViewNumber } from '@arrowz/engine'
+import { isHexColour, PALETTE_CAP, type ViewNumber } from '@arrowz/engine'
 import { DEFAULT_VIEW, viewNumberOf } from '@arrowz/engine/command'
 
 /**
@@ -26,7 +26,7 @@ export interface ViewFields {
   highlightLongest: boolean
   /** The element's switch for empty cells; `viewOf` does not carry it and the CLI has no flag for it. */
   voids: boolean
-  /** The point grid: the element's settings, not the engine's, like `voids`. */
+  /** The point grid; `viewOf` carries it with the rest of the look (`lookOf`). */
   showPoints: boolean
   pointColor: string
   pointRadius: number
@@ -52,16 +52,14 @@ export interface ViewFields {
 
 export type ViewKey = keyof ViewFields
 
-/** The lab's cap; the element and the engine take any number of colours. */
-export const PALETTE_CAP = 8
+/** The engine's cap, shared with the CLI and the store. */
+export { PALETTE_CAP } from '@arrowz/engine'
 
 interface FieldSpec<T> {
   def: T
   /** The value normalised for the store, or `undefined` when it cannot be read. */
   read(raw: unknown): T | undefined
 }
-
-const HEX_COLOR = /^#[0-9a-f]{6}$/i
 
 /** A number from a link or a typed field; '' and non-finite values are unreadable, not 0. */
 function finite(raw: unknown): number | undefined {
@@ -90,7 +88,7 @@ function flag(def: boolean): FieldSpec<boolean> {
 
 /** What `<input type="color">` can show, lower-cased as it reports it. */
 function hex(raw: unknown): string | undefined {
-  return typeof raw === 'string' && HEX_COLOR.test(raw) ? raw.toLowerCase() : undefined
+  return isHexColour(raw) ? raw.toLowerCase() : undefined
 }
 
 /** A board colour: '' is "not set" and lets a theme decide. */

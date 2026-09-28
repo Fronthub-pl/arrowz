@@ -548,7 +548,7 @@ spotka codzienną flagę”](#gdy-pokrętło-spotka-codzienną-flagę).
 
 ### Jak rysowany jest obrazek
 
-Te pięć nie zmienia w łamigłówce nic — tylko to, jak wygląda na ekranie.
+Te czternaście nie zmienia w łamigłówce nic — tylko to, jak wygląda na ekranie.
 
 **`--colored`** daje każdej strzałce własny kolor. Bezużyteczne do gry,
 znakomite do zrozumienia. Wszystkie porównawcze obrazki na tej stronie z tego
@@ -583,6 +583,21 @@ domyślnie wynosi `1`, czyli całą komórkę. Po `--arrow-height=0` grot nie ma
 **`--sharp`** zdejmuje zaokrąglenia. Normalnie linia skręca łagodnym łukiem, a
 jej tępy koniec jest zaokrąglony; z `--sharp` zakręty są kanciaste, a tępy
 koniec jest kwadratem.
+
+**`--theme`** maluje planszę jednym z dwunastu motywów kolorów labu
+(`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); nieznana nazwa jest
+odrzucana razem z listą. **`--paper`**, **`--ink`** i **`--highlight-color`**
+ustawiają po jednym kolorze jako `#rrggbb` i wygrywają z kolorami motywu;
+**`--palette`** podaje kolory strzałek dla `--colored`, najwyżej osiem, po
+przecinku.
+
+**`--pad`** to margines wokół planszy w komórkach, od 0 do 16 (domyślnie 4, jak
+rysuje go lab). **`--points`** stawia kropkę w środku każdej komórki, jak siatka
+kropek labu; **`--point-color`** i **`--point-radius`** (w komórkach, najwyżej
+0.5) zmieniają kropkę.
+
+Komenda na żywo z labu niesie je wszystkie, więc skopiowana odtwarza obrazek,
+który lab eksportuje.
 
 ---
 

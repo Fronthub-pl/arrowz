@@ -22,6 +22,7 @@
     "geometry.ts",
     "colors.ts",
     "palette.ts",
+    "look.ts",
     "board-file.ts",
     "command.ts",
     "lab-simple.ts",

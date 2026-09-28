@@ -128,13 +128,13 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | open | |
 | Gap 5 / Duplication 1: colour-button split | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | See finding 2 |
 | Gap 6: Stop that keeps the partial board | open | |
-| Gap 7: SVG colours | fixed on `lab/correctness-2` | Points and `pad` in the SVG, and CLI colour flags, remain |
+| Gap 7: SVG colours | fixed on `lab/correctness-2` | Points, `pad` and CLI colour flags fixed on `engine/view-look` |
 | Gap 8: open a `.board.json` from disk | open | |
 | Gap 9: `highlight` colour row | fixed in `b90609e` | |
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
 | Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
 | ⌘K rows for colour and element fields (highlight, pad, …) | open | Found in the final review; the palette has none |
-| `pad` in the SVG | open | `SvgOptions` has none |
+| `pad` in the SVG | fixed on `engine/view-look` | `SvgOptions.pad`, from the view |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
 | Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
 | Duplication 3: demo keeps its own view bounds | open | `demo/controls.ts` still has `headHeight` 0.1–1, `top` 0–50 |
@@ -247,8 +247,7 @@ section above).
 4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
-   `.board.json`, colour flags in the CLI and points and `pad` in the SVG,
-   ⌘K rows for the colour and element fields.
+   `.board.json`, and ⌘K rows for the colour and element fields.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** the report

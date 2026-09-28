@@ -157,7 +157,9 @@ for (const file of READMES) {
       for (let j = i + 1; j < lines.length && (lines[j] ?? '').trim() !== '```'; j++) block.push(lines[j] ?? '')
       const shown = command ?? ''
       assert(shown.startsWith(COMMAND_PREFIX), `no command above the refusal in ${file}`)
-      const args = shown.slice(COMMAND_PREFIX.length).trim().split(/\s+/).filter((a) => !a.startsWith('--svg'))
+      // The shell removes the quotes buildCommand puts around a colour.
+      const words = shown.slice(COMMAND_PREFIX.length).trim().split(/\s+/).map((a) => a.replaceAll("'", ''))
+      const args = words.filter((a) => !a.startsWith('--svg'))
       const { params, errors } = parseArgs(args)
       const said = errors.length ? errors : validateParams(params).map(flagViolation)
       assert(said.length, `${shown} is not refused any more`)

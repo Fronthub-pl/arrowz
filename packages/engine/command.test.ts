@@ -26,9 +26,11 @@ import {
 } from './command.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
 import { defaultParams, MIX_SHARE, PARAM_SPEC, RULE_REASONS, RULES, validateParams } from './engine.ts'
+import { THEMES } from './look.ts'
 import type { ParamKey, Params, ViewNumber, Violation } from './types.ts'
 
-const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ') // drop the command prefix
+/** The argv a shell hands carve for a command text: buildCommand quotes whole values with no spaces inside. */
+const argvOf = (cmd: string) => cmd.slice(COMMAND_PREFIX.length + 1).split(' ').map((w) => w.replaceAll("'", ''))
 /** The prefix as a regular expression source: the spaces of "deno task carve" are literal. */
 const prefixRe = COMMAND_PREFIX.replace(/ /g, '\\s')
 /** Typed Object.keys for a parameter set: its keys are the fields of Params. */
@@ -57,7 +59,16 @@ Deno.test('buildCommand: default params give the size and the seed alone', () =>
 
 Deno.test('buildCommand <-> parseArgs: round trip for changed knobs and view', () => {
   const p = { ...defaultParams(), W: 100, H: 200, seed: 42, anticoil: 3, giants: 4, headBias: -1, wShort: 0.5 }
-  const v = { cell: 7, stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 5, rounded: true }
+  const v = {
+    ...DEFAULT_VIEW,
+    cell: 7,
+    stroke: 0.4,
+    headWidth: 0.8,
+    headHeight: 1.2,
+    colored: true,
+    top: 5,
+    rounded: true,
+  }
   const cmd = buildCommand(p, v)
   assertMatch(cmd, /--anticoil=3 /)
   assertMatch(cmd, /--start=layers /)
@@ -240,6 +251,7 @@ Deno.test('parseArgs: the picture flags are hyphenated and carry the CLI names',
   ])
   assertEquals(r.errors, [])
   assertEquals(r.view, {
+    ...DEFAULT_VIEW,
     cell: exportCell(40, 40),
     stroke: 0.3,
     headWidth: 0.8,
@@ -735,4 +747,111 @@ Deno.test('storeRequest carries nulls through: a stored board reports missing fi
 Deno.test('storeRequest omits metrics entirely when none are passed', () => {
   const req = storeRequest({ v: 1 } as never, defaultParams(), DEFAULT_VIEW, 'cli')
   assertEquals(req.metrics, undefined)
+})
+
+// --- look flags ---------------------------------------------------------
+
+const LOOK = {
+  theme: 'gruvbox-dark',
+  palette: ['#112233', '#445566'],
+  paper: '#010203',
+  ink: '#040506',
+  highlight: '#0a0b0c',
+  pad: 7,
+  showPoints: true,
+  pointColor: '#070809',
+  pointRadius: 0.15,
+}
+
+Deno.test('the look round-trips through the command', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  const views = [
+    { ...DEFAULT_VIEW, ...LOOK },
+    { ...DEFAULT_VIEW, pad: 0 },
+    { ...DEFAULT_VIEW, pad: 16, pointRadius: 0.5 },
+    { ...DEFAULT_VIEW, showPoints: true },
+    { ...DEFAULT_VIEW, pointColor: '#abcdef', showPoints: false },
+    ...Object.keys(THEMES).map((theme) => ({ ...DEFAULT_VIEW, theme })),
+  ]
+  for (const v of views) {
+    const view = { ...v, cell: exportCell(30, 20) }
+    const back = parseArgs(argvOf(buildCommand(p, view)))
+    assertEquals(back.errors, [], JSON.stringify(v))
+    assertEquals(back.view, view)
+  }
+})
+
+Deno.test('buildCommand prints the look after --sharp, in a fixed order, and nothing at the defaults', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  assertEquals(buildCommand(p, DEFAULT_VIEW).includes('--pad'), false)
+  const cmd = buildCommand(p, { ...DEFAULT_VIEW, ...LOOK, rounded: false })
+  assertMatch(
+    cmd,
+    / --sharp --theme=gruvbox-dark --palette='#112233,#445566' --paper='#010203' --ink='#040506' --highlight-color='#0a0b0c' --pad=7 --points --point-color='#070809' --point-radius=0.15$/,
+  )
+})
+
+Deno.test('a shell hands carve the argv the command means', () => {
+  const p = { ...defaultParams(), W: 30, H: 20, seed: 3 }
+  const view = { ...DEFAULT_VIEW, ...LOOK, cell: exportCell(30, 20) }
+  const cmd = buildCommand(p, view)
+  const tail = cmd.slice(COMMAND_PREFIX.length + 1)
+  const out = new Deno.Command('sh', { args: ['-c', `printf '%s\\n' ${tail}`], stdout: 'piped' }).outputSync()
+  assert(out.success)
+  const argv = new TextDecoder().decode(out.stdout).split('\n').slice(0, -1)
+  assertEquals(argv, argvOf(cmd))
+  assert(argv.includes('--palette=#112233,#445566'))
+  const back = parseArgs(argv)
+  assertEquals(back.errors, [])
+  assertEquals(back.view, view)
+})
+
+Deno.test('a colour flag stores lower case', () => {
+  const r = parseArgs(['--width=10', '--height=10', '--ink=#ABCDEF', '--palette=#AA0000,#00bb00'])
+  assertEquals(r.errors, [])
+  assertEquals(r.view.ink, '#abcdef')
+  assertEquals(r.view.palette, ['#aa0000', '#00bb00'])
+})
+
+Deno.test('a bad look value is refused by its flag’s name', () => {
+  const cases: [string, string][] = [
+    ['--theme=nope', '--theme=nope is not a theme: '],
+    ['--theme', '--theme is not a theme: '],
+    ['--ink=abcdef', '--ink=abcdef is not a #rrggbb colour'],
+    ['--paper=#abc', '--paper=#abc is not a #rrggbb colour'],
+    ['--highlight-color=red', '--highlight-color=red is not a #rrggbb colour'],
+    ['--point-color=', '--point-color= is not a #rrggbb colour'],
+    ['--palette=', '--palette= is not a list of #rrggbb colours'],
+    ['--palette=#aa0000,', '--palette=#aa0000, is not a list of #rrggbb colours'],
+    [`--palette=${Array(9).fill('#aa0000').join(',')}`, 'more than 8 colours'],
+    ['--pad=17', '--pad=17 is outside 0..16'],
+    ['--pad=2.5', '--pad=2.5 is not a whole number'],
+    ['--pad=x', '--pad=x is not a number'],
+    ['--point-radius=0.6', '--point-radius=0.6 is outside 0..0.5'],
+    ['--points=1', '--points=1 takes no value'],
+  ]
+  for (const [flag, message] of cases) {
+    const r = parseArgs(['--width=10', '--height=10', flag])
+    assertEquals(r.errors.length, 1, flag)
+    assertStringIncludes(r.errors[0] ?? '', message, flag)
+  }
+})
+
+Deno.test('helpText lists the look flags', () => {
+  const text = helpText()
+  for (
+    const flag of [
+      '--theme=NAME',
+      '--palette=',
+      '--paper=',
+      '--ink=',
+      '--highlight-color=',
+      '--pad=N',
+      '--points',
+      '--point-color=',
+      '--point-radius=R',
+    ]
+  ) {
+    assertStringIncludes(text, flag)
+  }
 })

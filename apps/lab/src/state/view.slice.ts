@@ -59,6 +59,27 @@ export function viewOf(state: ViewState): View {
     colored: state.colored,
     rounded: state.rounded,
     top: state.highlightLongest ? state.top : 0,
+    ...lookOf(state),
+  }
+}
+
+/** The look alone: what the lab lays over a stored board's own shape, colour being a viewing preference. */
+export type Look = Pick<
+  View,
+  'theme' | 'palette' | 'paper' | 'ink' | 'highlight' | 'pad' | 'showPoints' | 'pointColor' | 'pointRadius'
+>
+
+export function lookOf(view: ViewFields): Look {
+  return {
+    theme: view.theme,
+    palette: view.palette,
+    paper: view.paper,
+    ink: view.ink,
+    highlight: view.highlightColor,
+    pad: view.pad,
+    showPoints: view.showPoints,
+    pointColor: view.pointColor,
+    pointRadius: view.pointRadius,
   }
 }
 

@@ -34,6 +34,21 @@ import {
 } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
+import {
+  DEFAULT_COLOURS,
+  DEFAULT_PAD,
+  DEFAULT_POINT_COLOR,
+  DEFAULT_POINT_RADIUS,
+  DEFAULT_SHOW_POINTS,
+  isHexColour,
+  PAD_RANGE,
+  PALETTE_CAP,
+  POINT_RADIUS_RANGE,
+  resolveColours,
+  themeOf,
+  THEMES,
+} from './look.ts'
+import type { BoardColours } from './look.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
 export const COMMAND_PREFIX = 'deno task carve'
@@ -237,6 +252,15 @@ export const DEFAULT_VIEW: View = {
   colored: false,
   top: 0,
   rounded: DEFAULT_ROUNDED,
+  theme: '',
+  palette: [],
+  paper: '',
+  ink: '',
+  highlight: '',
+  pad: DEFAULT_PAD,
+  showPoints: DEFAULT_SHOW_POINTS,
+  pointColor: DEFAULT_POINT_COLOR,
+  pointRadius: DEFAULT_POINT_RADIUS,
 }
 
 /**
@@ -247,9 +271,18 @@ export const DEFAULT_VIEW: View = {
  * site is how `--sharp` and the lab's rounding checkbox came to be parsed,
  * printed and stored while the drawing never changed: a field added to `View`
  * was silently dropped on the way to `toSvg`. `voids` has no home in a view,
- * so callers that need it spread it over the result.
+ * so callers that need it spread it over the result. The look is resolved
+ * here too: the theme under the stated colours, as the element resolves it.
  */
 export function svgOptions(view: View): SvgOptions {
+  // An empty field is "not stated"; passed on, it would beat the theme.
+  const stated: Partial<BoardColours> = {
+    ...(view.paper === '' ? {} : { paper: view.paper }),
+    ...(view.ink === '' ? {} : { ink: view.ink }),
+    ...(view.highlight === '' ? {} : { highlight: view.highlight }),
+    ...(view.palette.length === 0 ? {} : { palette: view.palette }),
+  }
+  const colours = resolveColours(view.theme, stated)
   return {
     cell: view.cell,
     colored: view.colored,
@@ -258,6 +291,12 @@ export function svgOptions(view: View): SvgOptions {
     headHeight: view.headHeight,
     top: view.top,
     rounded: view.rounded,
+    paper: colours.paper,
+    ink: colours.ink,
+    highlight: colours.highlight,
+    palette: colours.palette,
+    pad: view.pad,
+    ...(view.showPoints ? { points: { color: view.pointColor, radius: view.pointRadius } } : {}),
   }
 }
 
@@ -294,6 +333,18 @@ const PICTURE_FLAGS: readonly FlagRow[] = [
   ['--colored', 'a different colour for every arrow'],
   ['--sharp', 'square corners and a square tail (default: rounded)'],
   ['--top=N', 'highlight the N longest arrows and print their stats'],
+  ['--theme=NAME', 'a built-in colour theme, e.g. gruvbox-dark (an unknown name lists them all)'],
+  ['--palette=#RRGGBB,...', `arrow colours while --colored is on, up to ${PALETTE_CAP}; replaces the theme's`],
+  ['--paper=#RRGGBB', `background colour (default: the theme's, or ${DEFAULT_COLOURS.paper})`],
+  ['--ink=#RRGGBB', `line and arrowhead colour (default: the theme's, or ${DEFAULT_COLOURS.ink})`],
+  ['--highlight-color=#RRGGBB', `colour of the --top arrows (default: the theme's, or ${DEFAULT_COLOURS.highlight})`],
+  ['--pad=N', `margin around the board in cells, ${PAD_RANGE.min}..${PAD_RANGE.max} (default ${DEFAULT_PAD})`],
+  ['--points', 'a dot in the centre of every cell, as the lab draws its dot grid'],
+  ['--point-color=#RRGGBB', `dot colour (default ${DEFAULT_POINT_COLOR})`],
+  [
+    '--point-radius=R',
+    `dot radius in cells, ${POINT_RADIUS_RANGE.min}..${POINT_RADIUS_RANGE.max} (default ${DEFAULT_POINT_RADIUS})`,
+  ],
 ]
 
 /** The flags a rule names: the two knobs behind --start have one flag between them, so it is listed once. */
@@ -534,6 +585,16 @@ export function buildCommand(params: Params, view: Partial<View> = {}): string {
   if (v.colored) parts.push('--colored')
   if (v.top > 0) parts.push(`--top=${v.top}`)
   if (!v.rounded) parts.push('--sharp')
+  if (v.theme !== '') parts.push(`--theme=${v.theme}`)
+  // `#` is a glob operator in zsh with extended_glob, so a colour is quoted for the shell.
+  if (v.palette.length > 0) parts.push(`--palette='${v.palette.join(',')}'`)
+  if (v.paper !== '') parts.push(`--paper='${v.paper}'`)
+  if (v.ink !== '') parts.push(`--ink='${v.ink}'`)
+  if (v.highlight !== '') parts.push(`--highlight-color='${v.highlight}'`)
+  if (v.pad !== DEFAULT_VIEW.pad) parts.push(`--pad=${v.pad}`)
+  if (v.showPoints) parts.push('--points')
+  if (v.pointColor !== DEFAULT_VIEW.pointColor) parts.push(`--point-color='${v.pointColor}'`)
+  if (v.pointRadius !== DEFAULT_VIEW.pointRadius) parts.push(`--point-radius=${v.pointRadius}`)
   return parts.join(' ')
 }
 
@@ -592,6 +653,22 @@ export const VIEW_FLAG: Readonly<Record<ViewNumber, string>> = {
   headHeight: 'arrow-height',
   top: 'top',
 }
+
+/** The look's colour flags and the view field each writes. */
+const COLOUR_FLAG = new Map<string, 'paper' | 'ink' | 'highlight' | 'pointColor'>([
+  ['paper', 'paper'],
+  ['ink', 'ink'],
+  ['highlight-color', 'highlight'],
+  ['point-color', 'pointColor'],
+])
+/** The look's two numbers and their bounds, kept apart from VIEW_RANGE: its keys are the lab's panel rows. */
+const LOOK_NUMBER = new Map<
+  string,
+  { field: 'pad' | 'pointRadius'; range: { min: number; max: number }; whole: boolean }
+>([
+  ['pad', { field: 'pad', range: PAD_RANGE, whole: true }],
+  ['point-radius', { field: 'pointRadius', range: POINT_RADIUS_RANGE, whole: false }],
+])
 
 /**
  * What each picture number may be. The bounds are the drawing's own: they are
@@ -785,6 +862,58 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     if (name === 'sharp') {
       if (switchOn(a, raw)) view.rounded = false
+      continue
+    }
+    if (name === 'points') {
+      if (switchOn(a, raw)) view.showPoints = true
+      continue
+    }
+    if (name === 'theme') {
+      if (raw === null || themeOf(raw) === null) {
+        errors.push(`${a} is not a theme: ${Object.keys(THEMES).join(', ')}`)
+        continue
+      }
+      view.theme = raw
+      continue
+    }
+    const colour = COLOUR_FLAG.get(name)
+    if (colour) {
+      if (!isHexColour(raw)) {
+        errors.push(`${a} is not a #rrggbb colour`)
+        continue
+      }
+      view[colour] = raw.toLowerCase()
+      continue
+    }
+    if (name === 'palette') {
+      const list = raw === null ? [] : raw.split(',')
+      if (list.length === 0 || !list.every(isHexColour)) {
+        errors.push(`${a} is not a list of #rrggbb colours`)
+        continue
+      }
+      if (list.length > PALETTE_CAP) {
+        errors.push(`${a} has more than ${PALETTE_CAP} colours`)
+        continue
+      }
+      view.palette = list.map((c) => c.toLowerCase())
+      continue
+    }
+    const look = LOOK_NUMBER.get(name)
+    if (look) {
+      const n = numberOf(raw)
+      if (n === null) {
+        errors.push(`${a} is not a number`)
+        continue
+      }
+      if (look.whole && !Number.isInteger(n)) {
+        errors.push(`${a} is not a whole number`)
+        continue
+      }
+      if (n < look.range.min || n > look.range.max) {
+        errors.push(`${a} is outside ${look.range.min}..${look.range.max}`)
+        continue
+      }
+      view[look.field] = n
       continue
     }
     const field2 = VIEW_NUMBER.get(name)

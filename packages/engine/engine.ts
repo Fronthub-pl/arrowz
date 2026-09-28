@@ -2287,13 +2287,24 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   const longest = new Set(
     [...pieces].sort((a, b) => b.cells.length - a.cells.length).slice(0, top).map((p) => p.id),
   )
-  const pad = cell
+  const pad = (opts.pad ?? 1) * cell
   const sw = cell * (opts.strokeRatio ?? 0.5)
   const w = W * cell + pad * 2, h = H * cell + pad * 2
   const out: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
     `<rect width="${w}" height="${h}" fill="${attr(opts.paper ?? '#f6f6fa')}"/>`,
   ]
+
+  // One pattern tile and one rect: two nodes on any board, over the cells alone.
+  if (opts.points) {
+    const r = Number((opts.points.radius * cell).toFixed(3))
+    const half = cell / 2
+    out.push(
+      `<defs><pattern id="arrowz-points" x="${pad}" y="${pad}" width="${cell}" height="${cell}" patternUnits="userSpaceOnUse">` +
+        `<circle cx="${half}" cy="${half}" r="${r}" fill="${attr(opts.points.color)}"/></pattern></defs>`,
+      `<rect x="${pad}" y="${pad}" width="${W * cell}" height="${H * cell}" fill="url(#arrowz-points)"/>`,
+    )
+  }
 
   // Lines end flat: the head end hides under the head, and the tail is capped
   // by a shape drawn with the heads — a disc of the line's radius when

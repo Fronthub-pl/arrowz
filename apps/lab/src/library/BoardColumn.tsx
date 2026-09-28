@@ -9,11 +9,11 @@ import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
 import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
-import { exportColours } from '../run/exportColours'
 import { MoreMenu } from '../run/MoreMenu'
 import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
+import { lookOf } from '../state/view.slice'
 import { raiseNotice } from './notices'
 import { refreshLibrary } from './useLibraryList'
 import { useOpenPreview } from './useOpenPreview'
@@ -109,6 +109,15 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
       // A stored board carries no highlight, so this lands off; when one somehow does, its count comes with it.
       highlightLongest: saved.top > 0,
       ...(saved.top > 0 ? { top: saved.top } : {}),
+      theme: saved.theme,
+      palette: saved.palette,
+      paper: saved.paper,
+      ink: saved.ink,
+      highlightColor: saved.highlight,
+      pad: saved.pad,
+      showPoints: saved.showPoints,
+      pointColor: saved.pointColor,
+      pointRadius: saved.pointRadius,
     })
     control.start()
     void navigate('/')
@@ -145,15 +154,14 @@ export function BoardColumn({ control }: { control: RunControl }): ReactElement 
   const exportFile = () =>
     downloadBlob(new Blob([JSON.stringify(stored.file)], { type: 'application/json' }), `${meta.id}.board.json`)
 
-  // The board as it is drawn here: its own saved view, the page's colours, and
-  // its jammed cells when it did not close, as `BoardFrame` draws them.
+  // The board as it is drawn here: its own saved shape in the page's look, and its jammed cells when it did not close, as `BoardFrame` draws them.
   const exportSvg = () => {
     if (drawing.current !== null) return
     setBusy(true)
     setDrawError(null)
     drawing.current = drawSvg(
       stored.file as BoardFile,
-      { ...svgOptions(meta.view), voids: meta.ok === false, ...exportColours(useStore.getState().view) },
+      { ...svgOptions({ ...meta.view, ...lookOf(useStore.getState().view) }), voids: meta.ok === false },
       `arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`,
       setDrawError,
       () => {
