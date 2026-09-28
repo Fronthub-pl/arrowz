@@ -401,3 +401,71 @@ describe('board keys', () => {
     expect(el.viewport?.cellPx).toBeCloseTo(FIT * ZOOM_STEP, 6)
   })
 })
+
+describe('the bar on a narrow board', () => {
+  /** What the bar draws, default or projected: each slot's assigned elements, else its fallback. */
+  const barParts = (): HTMLElement[] =>
+    [...(el.shadowRoot?.querySelectorAll('.chrome > slot') ?? [])]
+      .flatMap((slot) => {
+        if (!(slot instanceof HTMLSlotElement)) return []
+        const assigned = slot.assignedElements()
+        return assigned.length > 0 ? assigned : [...slot.children]
+      })
+      .filter((node): node is HTMLElement => node instanceof HTMLElement && node.checkVisibility())
+
+  const outside = (): string[] => {
+    const host = el.getBoundingClientRect()
+    return barParts()
+      .filter((node) => {
+        const r = node.getBoundingClientRect()
+        return r.left < host.left - 0.5 || r.right > host.right + 0.5 || r.top < host.top - 0.5 ||
+          r.bottom > host.bottom + 0.5
+      })
+      .map((node) => node.getAttribute('data-board-action') ?? node.className)
+  }
+
+  // By centre, not edge: the bar centres its items, and the hint is shorter than a button.
+  const rows = (): number =>
+    new Set(
+      barParts().map((node) => {
+        const r = node.getBoundingClientRect()
+        return Math.round(r.top + r.height / 2)
+      }),
+    ).size
+
+  async function narrow(width: string): Promise<void> {
+    el.style.width = width
+    await raf() // the ResizeObserver reports the new width on its own frame
+    await raf()
+  }
+
+  test('the default bar wraps inside a narrow board and keeps zoom in the bottom row', async () => {
+    await mount({ play: '', 'enable-colors': '' })
+    await narrow('220px')
+    expect(rows()).toBeGreaterThan(1)
+    expect(outside()).toEqual([])
+    expect(shadow('.chrome').getBoundingClientRect().left).toBeGreaterThanOrEqual(el.getBoundingClientRect().left + 8)
+    const zoomIn = shadow('[data-board-action="zoom-in"]').getBoundingClientRect()
+    const gestures = shadow('[data-board-action="gestures"]').getBoundingClientRect()
+    expect(zoomIn.bottom).toBeCloseTo(el.getBoundingClientRect().bottom - 8, 0)
+    expect(gestures.bottom).toBeLessThan(zoomIn.top)
+  })
+
+  test('a wide projected hint and labelled controls wrap inside the board', async () => {
+    await mount(
+      { play: '', 'enable-colors': '' },
+      '<span slot="hint">Drag to pan the board, or hold the modifier and click an arrow to play it</span>' +
+        '<button slot="colors" data-board-action="colors" style="white-space:nowrap">Colours of the arrows</button>' +
+        '<button slot="gestures" data-board-action="gestures" style="white-space:nowrap">Click plays</button>',
+    )
+    await narrow('260px')
+    expect(rows()).toBeGreaterThan(1)
+    expect(outside()).toEqual([])
+  })
+
+  test('a bar that fits stays one row', async () => {
+    await mount()
+    expect(rows()).toBe(1)
+    expect(shadow('.chrome').getBoundingClientRect().height).toBe(32)
+  })
+})
