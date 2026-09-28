@@ -1,6 +1,6 @@
 import { defaultParams } from '@arrowz/engine'
 import type { BoardFile, WorkerOut } from '@arrowz/engine'
-import { useEffect } from 'react'
+import { useEffect, act } from 'react'
 import { expect, test, vi } from 'vitest'
 import { render } from 'vitest-browser-react'
 import type { DoneReport } from '../state/run.slice'
@@ -126,3 +126,76 @@ test('a large run reports progress before it finishes', async () => {
   await expect.poll(() => useStore.getState().run.phase, { timeout: 30_000 }).toBe('done')
   expect(useStore.getState().run.progress).toBeNull()
 }, 60_000)
+
+/** A worker that answers only when a case makes it, and records every one made. */
+class HeldWorker {
+  static made: HeldWorker[] = []
+  onmessage: ((event: MessageEvent<WorkerOut>) => void) | null = null
+  onerror: ((event: ErrorEvent) => void) | null = null
+  posted = 0
+  constructor() {
+    HeldWorker.made.push(this)
+  }
+  postMessage() {
+    this.posted++
+  }
+  terminate() {}
+}
+
+/** The hook's handle, captured once it mounts. */
+async function mountHandle(): Promise<() => GeneratorHandle> {
+  let handle: GeneratorHandle | null = null
+  await render(
+    <Harness
+      drive={(g) => {
+        handle = g
+      }}
+    />,
+  )
+  return () => {
+    if (handle === null) throw new Error('the harness did not mount')
+    return handle
+  }
+}
+
+// `terminate()` empties the port's queue, but a message already queued as a
+// task can still arrive; the stub keeps delivering to show the guard holds.
+test('a message from a worker already replaced changes nothing', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  HeldWorker.made = []
+  vi.stubGlobal('Worker', HeldWorker)
+  try {
+    const handle = await mountHandle()
+    await act(async () => {
+      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 })
+      handle().abort()
+      handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 })
+    })
+    expect(HeldWorker.made).toHaveLength(2)
+    const data: WorkerOut = { type: 'error', message: 'from the old worker' }
+    await act(async () => HeldWorker.made[0]?.onmessage?.(new MessageEvent('message', { data })))
+    expect(useStore.getState().run.phase).toBe('running')
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}, 15_000)
+
+// A module worker whose chunk failed to load answers only `error`, never a message.
+test('after a worker error the next run builds a new worker', async () => {
+  useStore.getState().run.reset()
+  useStore.getState().result.reset()
+  HeldWorker.made = []
+  vi.stubGlobal('Worker', HeldWorker)
+  try {
+    const handle = await mountHandle()
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 5 }))
+    await act(async () => HeldWorker.made[0]?.onerror?.(new ErrorEvent('error', { message: 'chunk 404' })))
+    expect(useStore.getState().run.phase).toBe('error')
+    await act(async () => handle().start({ ...defaultParams(), W: 16, H: 16, seed: 6 }))
+    expect(HeldWorker.made).toHaveLength(2)
+    expect(HeldWorker.made[1]?.posted).toBe(1)
+  } finally {
+    vi.unstubAllGlobals()
+  }
+}, 15_000)

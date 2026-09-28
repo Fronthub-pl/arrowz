@@ -128,13 +128,13 @@ different counter over 237 files; the two numbers are not comparable.)
 | Gap 4: missing report rows (`backbites`, `T2`, `minLen`, …) | open | |
 | Gap 5 / Duplication 1: colour-button split | fixed in `840bf34`, `5b09695`, `85c7aab`, `078b98e` | See finding 2 |
 | Gap 6: Stop that keeps the partial board | open | |
-| Gap 7: SVG colours | open | Same as the LOW correctness finding |
+| Gap 7: SVG colours | fixed on `lab/correctness-2` | Points and `pad` in the SVG, and CLI colour flags, remain |
 | Gap 8: open a `.board.json` from disk | open | |
 | Gap 9: `highlight` colour row | fixed in `b90609e` | |
 | Gap 9: `pad` (margin) row | fixed in `0d916c2`, `24bca8b` | Held to the element's new `PAD_RANGE` (`840bf34`) |
 | Gap 9: recipes, `fingerprint`, batch fill, point-grid note | open | |
 | ⌘K rows for colour and element fields (highlight, pad, …) | open | Found in the final review; the palette has none |
-| `pad` and highlight in the SVG | open | `SvgOptions` has neither |
+| `pad` in the SVG | open | `SvgOptions` has none |
 | Element README drift (`pieceCount`, `emit`, `BoardData`) | fixed in `840bf34`, `1b0d079` | |
 | Duplication 2: CLI `--top` re-implements `longestSummary` | open | |
 | Duplication 3: demo keeps its own view bounds | open | `demo/controls.ts` still has `headHeight` 0.1–1, `top` 0–50 |
@@ -242,15 +242,13 @@ steps 3 (dead code, comment rule) and part of 1 and 5 are done (see the status
 section above).
 
 1. **The copy pass is done:** the report, the simple view and the glossary across the knobs, the view panel and the saved boards' list, all on `lab/glossary`.
-2. **Smaller correctness items:** `aborted` cleared by a view edit, the
-   dropped pending view save, the worker's stale handlers and failed load, the
-   synchronous revoke, and the SVG note for palette, paper and ink.
+2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: the download fired in Playwright 1.63's WebKit and Firefox 155 engines (and Chromium as a control), each saving a valid SVG; Playwright's WebKit is not Safari itself, so Safari proper remains unchecked.
 3. **Structural refactors:** 5 (the `.fw button` prefix and tokens), 6–9 and 11.
 4. **Parity gaps, as product decisions:** paste a `carve` command in
    (`parseArgs`), closing rate over N seeds, the missing report rows
    (`backbites` first), Stop that keeps the partial board, opening a
-   `.board.json`, SVG colours (and `pad` and highlight in the SVG), ⌘K rows for
-   the colour and element fields.
+   `.board.json`, colour flags in the CLI and points and `pad` in the SVG,
+   ⌘K rows for the colour and element fields.
 5. **Extend the comment sweep and guard** to the engine's other files and
    `packages/cli` (25 marker lines in 9 files, 39 with `scripts/`).
 6. **Observations from the live pass and deferred review minors:** "top" in
@@ -390,6 +388,8 @@ Nothing stores the open state anywhere else. On the next render `forced` is fals
 
 ### [LOW] Editing a stored board's view clears its `aborted` flag in the store
 
+**Status:** fixed on `lab/correctness-2`.
+
 **Where:** `apps/lab/src/library/useViewSave.ts:71-76`; `packages/cli/store.ts:138` (`aborted: metrics.aborted ?? false`)
 
 **What:** The store's comment says an absent figure "keeps the stored value", but `aborted` is not kept: it defaults to `false`. The lab cannot send it, because `StoreRequest['metrics']` has no `aborted`.
@@ -400,6 +400,8 @@ Nothing stores the open state anywhere else. On the next render `forced` is fals
 
 ### [LOW] A pending view save for board A is dropped if board B is edited within 350 ms
 
+**Status:** fixed on `lab/correctness-2`.
+
 **Where:** `apps/lab/src/library/useViewSave.ts:19, 53-57`
 
 **What:** There is one timer for the whole module. `clearTimeout(timer)` for B's edit cancels A's scheduled `write(…, editedA, …)`. The code captures the edited board carefully, but a second board's edit still cancels the first board's write.
@@ -409,6 +411,8 @@ Nothing stores the open state anywhere else. On the next render `forced` is fals
 **Suggested fix:** Key the timers by `meta.id`, or flush the pending write immediately when the next edit belongs to another board.
 
 ### [LOW] SVG export silently drops a custom palette, paper and ink; the note appears only for a theme
+
+**Status:** fixed on `lab/correctness-2`.
 
 **Where:** `apps/lab/src/run/ExportButtons.tsx:89, 115`; `apps/lab/src/library/BoardColumn.tsx:166, 215`; `packages/engine/command.ts:252-262`
 
@@ -438,6 +442,8 @@ Nothing stores the open state anywhere else. On the next render `forced` is fals
 
 ### [LOW, PLAUSIBLE] The generator worker's handlers do not check which worker is speaking, and a failed worker load leaves the page stuck in "running"
 
+**Status:** fixed on `lab/correctness-2`.
+
 **Where:** `apps/lab/src/worker/useGenerator.ts:45-81, 91-95`
 
 **What:** (a) `made.onmessage` never checks `made === worker.current`. The HTML spec's terminate steps empty the port's message queue, but a message already queued as a task when `kill()` runs could still be delivered. A stale `done` would then run `completeRun` against the new run's `params` (the wrong board shown as the new run's), or throw `'a run finished that was never started'` after an abort. (b) `onerror` marks the run failed but keeps the broken worker in `worker.current`. If the module worker failed to load (for example a chunk 404 after a deploy), the next `start()` posts to a dead worker, and the slice stays `running` until Abort is pressed.
@@ -445,6 +451,8 @@ Nothing stores the open state anywhere else. On the next render `forced` is fals
 **Suggested fix:** Guard both handlers with `if (worker.current !== made) return`, and call `kill()` in `onerror`.
 
 ### [LOW, PLAUSIBLE] Downloads revoke the object URL synchronously and start outside the click
+
+**Status:** fixed on `lab/correctness-2`.
 
 **Where:** `apps/lab/src/run/download.ts:13-15`; `apps/lab/src/run/drawSvg.ts:31`
 
@@ -537,7 +545,7 @@ Simple-view vocabulary (`packages/engine/lab-simple.ts`):
 | `encodeBoard` / `decodeBoard` | `board-file.ts:152,333` | yes, but only worker ↔ page and store → page | `worker/generate.worker.ts:1,43`; `library/useStoredBoard.ts` | — | — |
 | Opening a `.board.json` from disk | (`decodeBoard` exists) | **no** | `grep -rn 'type="file"\|FileReader\|onDrop' apps/lab/src` finds nothing | Not recorded | Medium. The lab can download a board file (`ExportButtons.tsx`) but cannot open one. A board made elsewhere (`carve --dry-run` does not store) can only be viewed through the store |
 | `toSvg` | `engine.ts:2278` | yes | `drawSvg` in its own worker (`run/drawSvg.ts`, `generate.worker.ts:13`) | — | — |
-| SVG with theme / palette / paper / ink / points | `SvgOptions` has no colour fields (`types.ts:225-238`) | no | The warning shows **only for a theme**: `theme === '' ? null : svgThemeNote` (`run/ExportButtons.tsx:115`, `library/BoardColumn.tsx:215`) | Theme loss is intentional (colours spec §6: "SVG export still does not reproduce a theme"). A custom palette, paper or ink is lost **silently** | Medium: at least widen the note's condition to `palette.length > 0 \|\| paper !== '' \|\| ink !== ''`. Full fix: a palette/colours field on `SvgOptions` |
+| SVG with theme / palette / paper / ink / points | `SvgOptions` carries the colours (`types.ts:238-247`) | yes, but not points | `exportColours` resolves the on-screen theme, palette, paper, ink and highlight for the export (`run/exportColours.ts`), used by both export sites (`run/ExportButtons.tsx`, `library/BoardColumn.tsx`); the note that warned of the loss is gone | Points are the point grid, a screen-only aid (`state/viewSchema.ts:29`); the SVG never drew them | Low: only points and `pad` remain (Gap 7, `pad` row above) |
 | `buildCommand` (live command) | `command.ts:510` | yes | `run/LiveCommand.tsx` |
 | `parseArgs` (command → state) | `command.ts:663` | **no** | `grep -rn "parseArgs" apps/lab/src` finds nothing | Not recorded. The header at `command.ts:9-10` says "The lab has to mirror the CLI 1:1, so both sides build **and read** the text with this code" | **High**. Pasting a `deno task carve ...` line (from a stored meta, a terminal, a colleague) into ⌘K or the command box would close the loop. It also comes with the parser's own error messages |
 | `helpText` / `KNOB_ROWS` / `RULE_ROWS` | `command.ts:358,412,424` | yes | `/docs` CLI page calls `helpText()` and `helpText({knobs:true})` (`routes/CliDocs.tsx:19-20`) |

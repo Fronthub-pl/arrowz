@@ -234,6 +234,17 @@ export interface SvgOptions {
   headHeight?: number
   /** Round corners and a disc tail, or a mitred corner and a square tail; absent = the default of true. */
   rounded?: boolean
+  /** The background; absent = `#f6f6fa`. Any CSS colour; escaped into the attribute. */
+  paper?: string
+  /** Lines and heads; absent = `#232447`. */
+  ink?: string
+  /** The `top` longest pieces; absent = `#e8467c`. */
+  highlight?: string
+  /**
+   * Piece colours while `colored` is on, one per piece by `assignPalette`, as
+   * the board element draws them; absent or empty keeps the golden angle.
+   */
+  palette?: string[]
 }
 
 /** The fields of a View that carry a number, and so have a flag that takes one. */
@@ -358,6 +369,8 @@ export interface StoreRequest {
     restarts?: number | null
     backtracks?: number | null
     stuck?: Stuck | null
+    /** Absent keeps the stored flag (a view edit); a fresh run states it. */
+    aborted?: boolean
   }
 }
 

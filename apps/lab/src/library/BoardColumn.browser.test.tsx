@@ -3,7 +3,7 @@ import { genSeconds } from '@arrowz/engine/report'
 import { act, type ReactNode } from 'react'
 import { MemoryRouter, useLocation } from 'react-router'
 import { page, userEvent } from 'vitest/browser'
-import { render } from 'vitest-browser-react'
+import { render, renderHook } from 'vitest-browser-react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { App } from '../App'
 import { resetApp } from '../harness/mountApp'
@@ -13,7 +13,8 @@ import { BoardColumn } from './BoardColumn'
 import { BoardPreview } from './BoardPreview'
 import { cancelNoticeFade } from './notices'
 import { useOpenBoard } from './useOpenBoard'
-import { cancelPendingSave } from './useViewSave'
+import { cancelPendingSave, useViewSave } from './useViewSave'
+import type { RunControl } from '../run/useRun'
 // The style cases read the real cascade: the Delete button's border is
 // `run.css`'s and its armed colour `library.css`'s.
 import '../design/tokens.css'
@@ -25,6 +26,21 @@ import '../design/run.css'
 const stored = storedFixture(1)
 const other = storedFixture(2)
 
+/** A run control that records the knobs each start saw. */
+function recordingControl() {
+  const seeds: number[] = []
+  const control: RunControl = {
+    start: vi.fn(() => {
+      seeds.push(useStore.getState().params.values.seed)
+    }),
+    abort: vi.fn(),
+    hold: vi.fn(),
+  }
+  return { control, seeds }
+}
+
+let run = recordingControl()
+
 beforeEach(() => {
   const state = useStore.getState()
   state.result.reset()
@@ -32,6 +48,7 @@ beforeEach(() => {
   state.params.reset()
   state.lang.setLang('en')
   vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}))
+  run = recordingControl()
 })
 
 afterEach(() => {
@@ -49,7 +66,7 @@ function Address() {
 /** The column as `Workspace` mounts it: keyed by the open board. */
 function KeyedColumn() {
   const open = useOpenBoard()
-  return <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} />
+  return <BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} control={run.control} />
 }
 
 async function mountDetail(path = `/boards/8x8/${stored.meta.id}`, children?: ReactNode) {
@@ -116,7 +133,7 @@ test('the column prints the command the store holds for this board', async () =>
   )
 })
 
-test('load into lab sets the knobs and the view, goes to the lab, and starts nothing', async () => {
+test('load into lab sets the knobs and the view, goes to the lab, and starts one run on them', async () => {
   const screen = await mountDetail()
   await show()
   const edits = useStore.getState().params.edits
@@ -127,8 +144,33 @@ test('load into lab sets the knobs and the view, goes to the lab, and starts not
   expect(useStore.getState().view.stroke).toBe(stored.meta.view.stroke)
   // A stored view's `top` is 0, so the highlight lands off.
   expect(useStore.getState().view.highlightLongest).toBe(false)
+  // A machine write: auto-generate is not woken, the one run is the column's.
   expect(useStore.getState().params.edits).toBe(edits)
+  expect(run.seeds).toEqual([stored.meta.params.seed])
   await expect.element(screen.getByTestId('address')).toHaveTextContent('/')
+})
+
+// `generate()` would draw the knobs first here (`drawIfRandom`) and run on those.
+test('load into lab in the simple view with randomising on keeps the loaded knobs', async () => {
+  const { ui, recipe } = useStore.getState()
+  const mode = ui.mode
+  const random = recipe.value.random
+  ui.setMode('simple')
+  recipe.setRandom(true)
+  try {
+    const screen = await mountDetail()
+    await show()
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    expect(run.seeds).toEqual([stored.meta.params.seed])
+    expect(useStore.getState().params.values).toMatchObject({
+      W: stored.meta.params.W,
+      H: stored.meta.params.H,
+      seed: stored.meta.params.seed,
+    })
+  } finally {
+    useStore.getState().recipe.setRandom(random)
+    useStore.getState().ui.setMode(mode)
+  }
 })
 
 // A stored board carries the CLI's seven view fields only; the page's colours, points, margin and voids stay.
@@ -260,6 +302,34 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   const methods = calls.mock.calls.map(([, init]) => init?.method ?? 'GET')
   expect(methods).toContain('DELETE')
   expect(methods).not.toContain('POST')
+})
+
+// The delete drops the deleted board's pending save only: another board's edit
+// still reaches the store.
+test('deleting one board keeps another board’s pending view edit', async () => {
+  const calls = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(new Response('{"deleted":true}', { status: 200 })))
+  // An edit of `other`, pending on its timer, made while `other` was on the stage.
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta }),
+  )
+  const { result } = await renderHook(() => useViewSave(() => {}), {
+    wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
+  })
+  await act(async () => result.current({ ...other.meta.view, stroke: 0.3 }))
+
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  // Past the debounce, so the surviving timer has fired.
+  await new Promise((done) => setTimeout(done, 600))
+  const seeds = calls.mock.calls
+    .filter(([, init]) => init?.method === 'POST')
+    .map(([, init]) => (JSON.parse(String(init?.body)) as { params: { seed: number } }).params.seed)
+  expect(seeds).toEqual([other.meta.seed])
 })
 
 // The column raises `deleted` and then navigates, which unmounts it: only this
@@ -430,6 +500,62 @@ test('the board file downloads the stored file under its id', async () => {
     expect(JSON.parse((await blobs[0]?.text()) ?? 'null')).toEqual(stored.file)
   } finally {
     document.removeEventListener('click', onClick, true)
+  }
+})
+
+test('the stored board’s SVG carries the page’s theme', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  try {
+    useStore.getState().view.apply({ theme: 'gruvbox-dark' })
+    const screen = await mountDetail()
+    await show()
+    // No `…` to open: this mount is outside the M/S bar, where `.fw-more` is `display: none`
+    // and the exports sit in the column.
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await blobs[0]?.text()) ?? '').toMatch(/<rect width="\d+" height="\d+" fill="#282828"\/>/)
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
+  }
+})
+
+test('the stored board’s SVG carries the page’s custom palette while colours are on', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  // The stored view decides `colored` for this export, as `BoardFrame` draws it.
+  const colouredMeta = { ...stored.meta, view: { ...stored.meta.view, colored: true } }
+  try {
+    useStore.getState().view.apply({ palette: ['#112233'] })
+    const screen = await mountDetail()
+    await act(async () =>
+      useStore
+        .getState()
+        .result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await blobs[0]?.text()) ?? '').toContain('stroke="#112233"')
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
   }
 })
 

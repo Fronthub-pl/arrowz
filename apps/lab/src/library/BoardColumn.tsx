@@ -9,7 +9,9 @@ import { useDictionary } from '../i18n'
 import { CommandText } from '../run/CommandText'
 import { downloadBlob } from '../run/download'
 import { drawSvg } from '../run/drawSvg'
+import { exportColours } from '../run/exportColours'
 import { MoreMenu } from '../run/MoreMenu'
+import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { raiseNotice } from './notices'
@@ -43,11 +45,10 @@ function LibraryLine({ line }: { line: StateLine | null }): ReactElement {
   )
 }
 
-export function BoardColumn(): ReactElement {
+export function BoardColumn({ control }: { control: RunControl }): ReactElement {
   const dict = useDictionary()
   const open = useOpenPreview()
   const lang = useStore((state) => state.lang.lang)
-  const theme = useStore((state) => state.view.theme)
   const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [armed, setArmed] = useState(false)
@@ -92,8 +93,8 @@ export function BoardColumn(): ReactElement {
       .catch(() => {})
   }
 
-  // The knobs, then the view, then the lab, and no run: `setMany` does not
-  // move `edits`, the only thing `useAutoRun` watches.
+  // The knobs, then the view, then one run and the lab. `start()`, not
+  // `generate()`: in the simple view that would draw new knobs over these.
   const loadIntoLab = () => {
     const { params, ui, view } = useStore.getState()
     ui.raiseClamped(params.setMany(readParams(meta.params)))
@@ -109,6 +110,7 @@ export function BoardColumn(): ReactElement {
       highlightLongest: saved.top > 0,
       ...(saved.top > 0 ? { top: saved.top } : {}),
     })
+    control.start()
     void navigate('/')
   }
 
@@ -119,9 +121,8 @@ export function BoardColumn(): ReactElement {
       return
     }
     setArmed(false)
-    // First: a view save still waiting on its timer would land after the
-    // delete and write the board back to disk.
-    cancelPendingSave()
+    // First: this board's view save still waiting on its timer would land after the delete and write the board back to disk.
+    cancelPendingSave(meta.id)
     // The address's directory, not `${meta.W}x${meta.H}`: a folder called
     // `08x08` holds boards whose `W` is 8, and a DELETE to a missing directory
     // answers 404, which reads as "deleted" while the board stays on disk.
@@ -144,15 +145,15 @@ export function BoardColumn(): ReactElement {
   const exportFile = () =>
     downloadBlob(new Blob([JSON.stringify(stored.file)], { type: 'application/json' }), `${meta.id}.board.json`)
 
-  // The board as it is drawn here: its own saved view, and its jammed cells
-  // when it did not close, as `BoardFrame` draws them.
+  // The board as it is drawn here: its own saved view, the page's colours, and
+  // its jammed cells when it did not close, as `BoardFrame` draws them.
   const exportSvg = () => {
     if (drawing.current !== null) return
     setBusy(true)
     setDrawError(null)
     drawing.current = drawSvg(
       stored.file as BoardFile,
-      { ...svgOptions(meta.view), voids: meta.ok === false },
+      { ...svgOptions(meta.view), voids: meta.ok === false, ...exportColours(useStore.getState().view) },
       `arrowz-${meta.W}x${meta.H}-seed${meta.seed}.svg`,
       setDrawError,
       () => {
@@ -209,8 +210,6 @@ export function BoardColumn(): ReactElement {
           <button type="button" onClick={exportFile}>
             {dict.t('downloadBoardFile')}
           </button>
-          {/* The engine's `toSvg` never learns a theme's colours. */}
-          {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
           {drawError === null ? null : (
             <p className="fw-export-error" role="alert">
               {`${dict.t('exportError')} ${drawError}`}

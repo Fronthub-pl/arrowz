@@ -9,22 +9,29 @@ import { raiseNotice } from './notices'
 const SETTLE_MS = 350
 
 /**
- * Module scope. Not a ref: the panel is keyed on the address, so choosing
- * another board unmounts it and the timer would die with the edit. Not an
- * effect: a flushing cleanup with fresh-function dependencies runs on every
- * render, so the debounce never fires and each re-render posts again.
+ * Module scope, one per board. Not a ref: the panel is keyed on the address,
+ * so choosing another board unmounts it and the timer would die with the
+ * edit. Not an effect: a flushing cleanup with fresh-function dependencies
+ * runs on every render, so the debounce never fires and each re-render posts
+ * again. Keyed by the board's id, so an edit of one board never cancels
+ * another's write.
  */
-let timer: ReturnType<typeof setTimeout> | undefined
+const timers = new Map<string, ReturnType<typeof setTimeout>>()
 
 /**
- * Drops a write that has not happened yet. The delete calls this first: the
- * store treats a board it cannot find as new, so a pending save that survived
- * a delete would write the board back to disk. Tests call it between cases,
- * since no unmount stops a module-scope timer.
+ * Drops a write that has not happened yet: that board's, or every one with no
+ * id. The delete calls this first: the store treats a board it cannot find as
+ * new, so a pending save that survived a delete would write the board back to
+ * disk. Tests call it between cases, since no unmount stops a module-scope timer.
  */
-export function cancelPendingSave(): void {
-  clearTimeout(timer)
-  timer = undefined
+export function cancelPendingSave(id?: string): void {
+  if (id !== undefined) {
+    clearTimeout(timers.get(id))
+    timers.delete(id)
+    return
+  }
+  for (const pending of timers.values()) clearTimeout(pending)
+  timers.clear()
 }
 
 /**
@@ -42,11 +49,15 @@ export function useViewSave(refresh: () => void): (view: View) => void {
     // board's view to another board's file.
     const edited = useStore.getState().result.preview
     if (edited === null) return
-    clearTimeout(timer)
-    timer = setTimeout(() => {
-      timer = undefined
-      void write(refresh, edited, view)
-    }, SETTLE_MS)
+    const id = edited.meta.id
+    clearTimeout(timers.get(id))
+    timers.set(
+      id,
+      setTimeout(() => {
+        timers.delete(id)
+        void write(refresh, edited, view)
+      }, SETTLE_MS),
+    )
   }
 }
 

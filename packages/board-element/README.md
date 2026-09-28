@@ -95,6 +95,10 @@ own default. A theme paints `paper`, `ink` and `highlight` regardless of
 `enableColors` — only the per-piece `palette` needs that permission, since it
 colours pieces rather than the board's surface.
 
+`resolveColours(theme, stated)` returns the `BoardColours` the element draws
+with: its own defaults, then the named theme's, then `stated`'s fields, each
+layer winning over the last.
+
 The twelve themes are light and dark ports of six open-source editor themes,
 each MIT or Apache-2.0. This repository ships no `LICENSE` or `NOTICE` file, so
 the notice travels with the work here and in `themes.ts`:

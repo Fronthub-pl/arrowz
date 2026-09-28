@@ -35,6 +35,9 @@ export { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED, pieceShape, voidStrips } from './
 // The diagnostic palette, published for the same reason the shapes are: the
 // board element draws from it, and a consumer colours a legend with it.
 export { hueBytes, hueDegrees, hueOf } from './colors.ts'
+// The palette assignment, for the same reason: the SVG export and the board
+// element colour a piece from one assignment.
+export { assignPalette } from './palette.ts'
 export type { Dir, PieceShape, ShapeOptions } from './geometry.ts'
 export { BOARD_FILE_VERSION, BOARD_FORMAT, BoardFileError, decodeBoard, encodeBoard, layoutHash } from './board-file.ts'
 export { goneIds, loadSession, newSession, play, saveSession } from './game.ts'

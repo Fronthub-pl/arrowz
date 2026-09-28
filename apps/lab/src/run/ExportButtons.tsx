@@ -7,6 +7,7 @@ import { useStore } from '../state/store'
 import { viewOf } from '../state/view.slice'
 import { downloadBlob } from './download'
 import { drawSvg } from './drawSvg'
+import { exportColours } from './exportColours'
 
 /** The layout hash of one board file, or why it could not be worked out. */
 interface Named {
@@ -35,7 +36,6 @@ export function ExportButtons(): ReactElement {
   const dict = useDictionary()
   const result = useStore((state) => state.result.shown)
   const error = useStore((state) => state.result.exportError)
-  const theme = useStore((state) => state.view.theme)
   const drawing = useRef<Worker | null>(null)
   const [busy, setBusy] = useState(false)
   const [named, setNamed] = useState<Named | null>(null)
@@ -80,7 +80,7 @@ export function ExportButtons(): ReactElement {
     useStore.getState().result.exported(about, null)
     drawing.current = drawSvg(
       result.file,
-      { ...svgOptions(viewOf(view)), voids: view.voids },
+      { ...svgOptions(viewOf(view)), voids: view.voids, ...exportColours(view) },
       name,
       (reason) => useStore.getState().result.exported(about, reason),
       () => {
@@ -103,9 +103,6 @@ export function ExportButtons(): ReactElement {
       <button type="button" onClick={exportFile} disabled={hash === null}>
         {dict.t('downloadBoardFile')}
       </button>
-      {/* `toSvg` never learns a theme's colours, so a chosen theme would silently
-          not survive an export; said only while a theme is chosen. */}
-      {theme === '' ? null : <p className="fw-export-note">{dict.t('svgThemeNote')}</p>}
       {error === null ? null : (
         <p className="fw-export-error" role="alert">
           {`${dict.t('exportError')} ${error}`}

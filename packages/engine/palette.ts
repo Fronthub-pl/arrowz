@@ -5,7 +5,7 @@
 // currently drawn. A game removes pieces, and an assignment over the drawn
 // subset would repaint the whole board after each move — the failure the
 // id-based hue was introduced to avoid.
-import type { BoardData } from '@arrowz/engine'
+import type { BoardData } from './types.ts'
 
 /** Pieces that touch, by id. Built from the owner grid in one pass over the cells. */
 function adjacency(board: BoardData): Map<number, Set<number>> {

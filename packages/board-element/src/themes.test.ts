@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { themeOf, THEMES } from './themes.ts'
+import { resolveColours, themeOf, THEMES } from './themes.ts'
+import { DEFAULT_VIEW } from './view.ts'
 
 const srgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
 const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
@@ -61,11 +62,41 @@ test('themeOf takes a name and refuses anything else', () => {
 
 // The `Object.hasOwn` guard is load-bearing. Without it, a prototype
 // property name reads through and returns `Object.prototype.toString`, whose
-// `.paper`/`.ink`/`.highlight` are `undefined` — `drawView()` would then
-// spread those over `DEFAULT_VIEW`, silently defaulting the colours instead
+// `.paper`/`.ink`/`.highlight` are `undefined` — `resolveColours()` would then
+// spread those over the defaults, silently defaulting the colours instead
 // of ignoring the unknown name.
 test('themeOf refuses a name that only Object.prototype owns', () => {
   expect(themeOf('toString')).toBeNull()
   expect(themeOf('constructor')).toBeNull()
   expect(themeOf('hasOwnProperty')).toBeNull()
+})
+
+test('resolveColours: no theme and nothing stated is the element default', () => {
+  expect(resolveColours('', {})).toEqual({
+    paper: DEFAULT_VIEW.paper,
+    ink: DEFAULT_VIEW.ink,
+    highlight: DEFAULT_VIEW.highlight,
+    palette: DEFAULT_VIEW.palette,
+  })
+})
+
+test('resolveColours: a theme supplies all four', () => {
+  const t = THEMES['gruvbox-dark']
+  expect(resolveColours('gruvbox-dark', {})).toEqual({
+    paper: t?.paper,
+    ink: t?.ink,
+    highlight: t?.highlight,
+    palette: t?.palette,
+  })
+})
+
+test('resolveColours: a stated colour beats the theme, field by field', () => {
+  const got = resolveColours('gruvbox-dark', { ink: '#abcdef', palette: ['#112233'] })
+  expect(got.ink).toBe('#abcdef')
+  expect(got.palette).toEqual(['#112233'])
+  expect(got.paper).toBe(THEMES['gruvbox-dark']?.paper)
+})
+
+test('resolveColours: an unknown theme name is the default, as themeOf', () => {
+  expect(resolveColours('no-such-theme', {})).toEqual(resolveColours('', {}))
 })

@@ -12,7 +12,7 @@ import { GestureMachine, type GestureMode, type Intent, type PointerSample } fro
 import { GlLayer } from './gl-layer.ts'
 import { type BoardLabels, labelsFor } from './i18n.ts'
 import { drawableColor, drawablePad, drawablePointRadius, drawableView } from './sanitize.ts'
-import { themeOf } from './themes.ts'
+import { resolveColours } from './themes.ts'
 import { type BoardView, DEFAULT_VIEW } from './view.ts'
 import { fit, MIN_POINT_CELL_PX, panBy, resize, screenToCell, type Viewport, zoomAt, zoomBy } from './viewport.ts'
 
@@ -711,16 +711,10 @@ export class ArrowzBoard extends LitElement implements GameTarget {
     this.layer.setBoard(this.board, this.drawView(), this.game.goneIds)
   }
 
-  /**
-   * The view the layer draws from: the element's defaults, then the named
-   * theme, then whatever the host stated explicitly. Stated beats named beats
-   * default, and nothing else in the file has to know themes exist.
-   */
+  /** The view the layer draws from; `resolveColours` owns the colour precedence. */
   private drawView(): BoardView {
-    const t = themeOf(this.theme)
-    const named = t === null ? {} : { paper: t.paper, ink: t.ink, highlight: t.highlight, palette: t.palette }
     return drawableView(
-      { ...DEFAULT_VIEW, ...named, ...this.view, colored: this.colored },
+      { ...DEFAULT_VIEW, ...this.view, ...resolveColours(this.theme, this.view), colored: this.colored },
       isCssColor,
     )
   }

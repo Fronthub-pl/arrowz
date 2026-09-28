@@ -38,6 +38,8 @@ export function useGenerator(): GeneratorHandle {
     if (existing) return existing
     const made = new Worker(new URL('./generate.worker.ts', import.meta.url), { type: 'module' })
     made.onmessage = (event: MessageEvent<WorkerOut>) => {
+      // A terminated worker's message can still be queued; it belongs to no run now.
+      if (worker.current !== made) return
       const message = event.data
       if (message.type === 'progress') {
         actions().progressed(message.info)
@@ -66,12 +68,14 @@ export function useGenerator(): GeneratorHandle {
       }
     }
     made.onerror = (event) => {
-      busy.current = false
+      if (worker.current !== made) return
+      // Dropped, not kept: a worker that failed to load would take the next run and never answer.
+      kill()
       actions().failed(event.message)
     }
     worker.current = made
     return made
-  }, [])
+  }, [kill])
 
   // The worker outlives every route, and dies with the application.
   useEffect(() => kill, [kill])
