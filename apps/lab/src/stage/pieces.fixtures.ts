@@ -5,7 +5,7 @@ import type { BoardData } from '@arrowz/engine'
  * off the picture rather than computed twice:
  *
  *   0 1 2     piece 0 points left off the edge (free), piece 1 right into
- *   0 1 2     piece 2 (blocked at 0 cells), piece 2 up off the edge (free,
+ *   0 1 2     piece 2 (blocked right in front), piece 2 up off the edge (free,
  *   . . 2     three cells long).
  */
 export function threeDominoes(): BoardData {

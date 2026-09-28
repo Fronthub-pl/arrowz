@@ -167,7 +167,7 @@ test('Inspect makes the element interactive and a clicked piece names its facts'
   expect(said(screen.container)).toBe('Choose an arrow to inspect it.')
 
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 right in front')
   await fire(screen.container, 'piece-click', { pieceId: 2 })
   expect(said(screen.container)).toBe('Arrow #2 · 3 cells · ↑ up · free')
 
@@ -302,7 +302,7 @@ test('Reset in Inspect starts the game over: the element, the counts and the boa
   expect(load).not.toHaveBeenCalled()
   expect(resetButton(screen.container)?.disabled).toBe(true)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 right in front')
   await pick(screen.container, 2)
   expect(said(screen.container)).toBe('3 left · 0 mistakes')
 })
@@ -315,7 +315,7 @@ test('Reset in Play starts over the board the card reads too', async () => {
   await act(async () => resetButton(screen.container)?.click())
   await pick(screen.container, 1)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 right in front')
 })
 
 test('a new board on stage keeps Play and starts the counts over', async () => {
@@ -343,7 +343,7 @@ test('a new board on stage starts the game over for Inspect too, and keeps the m
   expect(useStore.getState().ui.boardMode).toBe('inspect')
   expect(resetButton(screen.container)?.disabled).toBe(true)
   await fire(screen.container, 'piece-click', { pieceId: 1 })
-  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 at 0 cells')
+  expect(said(screen.container)).toBe('Arrow #1 · 2 cells · → right · blocked by #2 right in front')
 })
 
 test('a new board on stage drops the inspected piece', async () => {
@@ -408,7 +408,7 @@ test('every word of the board mode is in both languages', async () => {
     'Wskaż strzałkę, aby ją zbadać.',
     'Resetuj',
     'Strzałka #0 · 2 komórki · ← w lewo · wolna',
-    'Strzałka #1 · 2 komórki · → w prawo · zablokowana przez #2 w odległości 0 komórek',
+    'Strzałka #1 · 2 komórki · → w prawo · zablokowana przez #2 tuż przed grotem',
     'Strzałka #2 · 3 komórki · ↑ w górę · wolna',
     'zostało: 3 · 1 błąd',
     'Plansza wyczyszczona · 1 błąd',

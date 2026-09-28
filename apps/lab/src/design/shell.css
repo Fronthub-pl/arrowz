@@ -468,7 +468,8 @@ body {
 }
 
 /* The mock's second breakpoint: below this height the board gives up its
-   minimum rather than pushing the console off the screen. */
+   minimum rather than pushing the console off the screen. At every width:
+   `useLowWindow`'s 768 floor belongs to the preset strip alone. */
 @media (max-height: 699px) {
   .fw-board {
     min-height: 0;

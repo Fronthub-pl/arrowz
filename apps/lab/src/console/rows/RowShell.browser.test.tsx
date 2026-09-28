@@ -8,6 +8,7 @@ test('rowIds spells every part of a row from the row’s own id', () => {
     label: 'view-cell-label',
     why: 'view-cell-why',
     ends: 'view-cell-ends',
+    entry: 'view-cell-entry',
   })
 })
 

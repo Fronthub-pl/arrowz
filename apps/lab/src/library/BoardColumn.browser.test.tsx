@@ -294,14 +294,22 @@ test('deleting cancels a view edit that has not been written yet', async () => {
   await userEvent.keyboard('{Enter}')
   expect(useStore.getState().result.preview?.meta.view.stroke).toBe(0.9)
 
-  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
-  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+  // DOM clicks, not userEvent: two Playwright round trips under a loaded gate
+  // can outlast the 350 ms debounce, and the case must delete inside it.
+  const press = (name: RegExp) => {
+    const button = screen.getByRole('button', { name }).element()
+    if (!(button instanceof HTMLElement)) throw new Error(`${name} is not an HTML button`)
+    button.click()
+  }
+  press(/delete from disk/i)
+  await expect.element(screen.getByRole('button', { name: /really delete/i })).toBeVisible()
+  press(/really delete/i)
 
   // Past the debounce, so a surviving timer would have fired by now.
   await new Promise((done) => setTimeout(done, 600))
   const methods = calls.mock.calls.map(([, init]) => init?.method ?? 'GET')
   expect(methods).toContain('DELETE')
-  expect(methods).not.toContain('POST')
+  expect(methods.slice(methods.indexOf('DELETE'))).not.toContain('POST')
 })
 
 // The delete drops the deleted board's pending save only: another board's edit

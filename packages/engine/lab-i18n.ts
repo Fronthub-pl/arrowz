@@ -520,7 +520,9 @@ export const EN = {
       `Arrow #${id} · ${length} ${length === 1 ? 'cell' : 'cells'} · ${dir}`,
     pieceFree: 'free',
     pieceBlocked: (id: number, distance: number) =>
-      `blocked by #${id} at ${distance} ${distance === 1 ? 'cell' : 'cells'}`,
+      distance === 0
+        ? `blocked by #${id} right in front`
+        : `blocked by #${id} at ${distance} ${distance === 1 ? 'cell' : 'cells'}`,
     playStatus: (left: string, mistakes: number) =>
       `${left} left · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
     playCleared: (mistakes: number) => `Cleared · ${mistakes} ${mistakes === 1 ? 'mistake' : 'mistakes'}`,
@@ -685,7 +687,7 @@ export const PL: Translation = {
     trapBias: {
       label: 'pułapki (strzałki, które wyglądają na wolne)',
       help:
-        'Pułapka to strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = od trzech do ośmiu razy mniej.',
+        'Pułapka: strzałka zablokowana przez dokładnie jedną inną, więc wygląda na wolną. „Szukaj” = o 25–60% więcej; „unikaj” = 3–8 razy mniej; „normalnie” = bez preferencji.',
     },
     probe: {
       label: 'udział strzałek o zadanej długości',
@@ -1184,7 +1186,9 @@ export const PL: Translation = {
     pieceFacts: (id, length, dir) => `Strzałka #${id} · ${length} ${plCells(length)} · ${dir}`,
     pieceFree: 'wolna',
     pieceBlocked: (id, distance) =>
-      `zablokowana przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
+      distance === 0
+        ? `zablokowana przez #${id} tuż przed grotem`
+        : `zablokowana przez #${id} w odległości ${distance} ${distance === 1 ? 'komórki' : 'komórek'}`,
     playStatus: (left, mistakes) => `zostało: ${left} · ${mistakes} ${plMistakes(mistakes)}`,
     playCleared: (mistakes) => `Plansza wyczyszczona · ${mistakes} ${plMistakes(mistakes)}`,
     boardReset: 'Resetuj',

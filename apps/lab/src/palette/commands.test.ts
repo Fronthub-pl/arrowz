@@ -177,6 +177,15 @@ describe('the matcher', () => {
     expect(matches.map((row) => row.id)).toContain('run-reseed')
   })
 
+  // No name starts with 'top'; "how many longest" carries it as a word, Abort
+  // only inside one (its hidden 'stop').
+  it('puts a query found at the start of a word ahead of one found inside a word', () => {
+    const rows = buildCommands(deps(), useStore.getState())
+    const matches = matchCommands(rows, 'top').map((row) => row.id)
+    expect(matches).toContain('run-abort')
+    expect(matches[0]).toBe('view-top')
+  })
+
   // 'run' matches the five run rows' note, and `knob-giantStep`'s and
   // `knob-giantJitter`'s label; no name starts with it, so all seven share one rank.
   it('keeps the catalogue order among rows that tie in rank', () => {

@@ -52,6 +52,7 @@ test('each page lists its sections, as links to that page', async () => {
       ['Properties', '/docs/element'],
       ['Methods and getters', '/docs/element'],
       ['Events', '/docs/element'],
+      ['Slots', '/docs/element'],
     ],
     [
       ['Everyday help', '/docs/cli'],
