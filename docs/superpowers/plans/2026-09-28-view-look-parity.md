@@ -178,7 +178,7 @@ Deno.test('the pad and point bounds are the element’s', () => {
 - [ ] **Step 2: Run it to see it fail**
 
 Run: `deno test packages/engine/look.test.ts`
-Expected: FAIL, `Module not found ".../look.ts"`.
+Expected: FAIL, type check: `TS2307 … Cannot find module '…/look.ts'`.
 
 - [ ] **Step 3: Create `look.ts` from the element's `themes.ts`**
 
@@ -188,7 +188,7 @@ cp packages/board-element/src/themes.ts packages/engine/look.ts
 
 Then edit `packages/engine/look.ts`:
 
-1. Replace the line `import { DEFAULT_VIEW } from './view.ts'` with nothing (the file imports nothing).
+1. Delete the line `import { DEFAULT_VIEW } from './view.ts'` together with the blank line after it (the file imports nothing).
 2. Replace the file's first comment line `// Themes ported from open-source editor themes. Each project ships a light and` with these two lines, keeping the rest of that header block as it is:
 ```ts
 // How a board looks, shared by the SVG export, the CLI and the board element.
@@ -204,7 +204,7 @@ export const DEFAULT_COLOURS: Readonly<BoardColours> = {
   palette: [],
 }
 
-/** Cells of margin around the board unless a view says otherwise. */
+/** Cells of margin unless a view says otherwise: with none an arrowhead in an edge cell ends two hundredths of a cell from the paper's edge. */
 export const DEFAULT_PAD = 4
 /** The point grid is off unless a view asks for it. */
 export const DEFAULT_SHOW_POINTS = false
@@ -254,7 +254,7 @@ export type { BoardColours, BoardTheme } from './look.ts'
 
 - [ ] **Step 5: Run the engine tests**
 
-Run: `set -o pipefail; deno test packages/engine/look.test.ts packages/engine/neutral.test.ts 2>&1 | tail -3`
+Run: `set -o pipefail; deno test --allow-read packages/engine/look.test.ts packages/engine/neutral.test.ts 2>&1 | tail -3`
 Expected: all pass.
 
 - [ ] **Step 6: The element reads the engine's look**
@@ -295,6 +295,7 @@ Run:
 set -o pipefail
 pnpm nx build engine 2>&1 | tail -2
 pnpm nx run-many -t check,test -p board-element 2>&1 | tail -5
+pnpm nx run-many -t fmt,lint -p board-element 2>&1 | tail -3
 deno task test 2>&1 | tail -3
 ```
 Expected: all green. `theme.browser.test.ts` still imports `./themes.ts` and passes through the re-export.
@@ -302,6 +303,7 @@ Expected: all green. `theme.browser.test.ts` still imports `./themes.ts` and pas
 - [ ] **Step 8: Commit**
 
 ```bash
+deno fmt packages/ && deno task fmt
 git add packages/engine/look.ts packages/engine/look.test.ts packages/engine/mod.ts packages/engine/tsconfig.build.json packages/engine/neutral.test.ts CLAUDE.md packages/board-element/src/themes.ts packages/board-element/src/arrowz-board.ts packages/board-element/src/sanitize.ts packages/board-element/src/view.ts
 git rm -q packages/board-element/src/themes.test.ts
 git commit -m "Engine: the look (themes, defaults, pad and point bounds) moves in from the element"
@@ -358,7 +360,7 @@ Deno.test('points: one pattern and one rect over the cells alone, whatever the s
   assertEquals(toSvg(big, { points: { color: '#c9c9d6', radius: 0.06 } }).match(/<pattern |<rect /g)?.length, 3)
 })
 
-Deno.test('points sit above the paper and below the voids and the pieces', () => {
+Deno.test('points sit above the paper and below the pieces', () => {
   const svg = toSvg(board, { points: { color: '#c9c9d6', radius: 0.1 } })
   const paper = svg.indexOf('<rect width=')
   const dots = svg.indexOf('fill="url(#arrowz-points)"')
@@ -410,12 +412,13 @@ Expected: FAIL (type errors on `pad` and `points`, then wrong sizes).
 
 - [ ] **Step 4: Run the new tests and the goldens**
 
-Run: `set -o pipefail; deno test packages/engine/svg-look.test.ts packages/engine/svg-golden.test.ts packages/engine/svg-colours.test.ts packages/engine/fingerprints.test.ts 2>&1 | tail -3`
+Run: `set -o pipefail; deno test --allow-read packages/engine/svg-look.test.ts packages/engine/svg-golden.test.ts packages/engine/svg-colours.test.ts packages/engine/fingerprints.test.ts 2>&1 | tail -3`
 Expected: all pass; `svg-golden.test.ts` unchanged proves the default bytes did not move.
 
 - [ ] **Step 5: Commit**
 
 ```bash
+deno fmt packages/ && deno task fmt
 git add packages/engine/types.ts packages/engine/engine.ts packages/engine/svg-look.test.ts
 git commit -m "Engine: toSvg takes a margin and draws the point grid"
 ```
@@ -477,7 +480,7 @@ Deno.test('points go through only while the grid is on', () => {
 - [ ] **Step 2: Run to see them fail**
 
 Run: `deno test packages/engine/svg-options.test.ts`
-Expected: FAIL (`o.paper` is undefined, `pad` missing).
+Expected: FAIL, type check (`'theme' does not exist in type 'View'`).
 
 - [ ] **Step 3: Grow `View` and `DEFAULT_VIEW`; resolve in `svgOptions`**
 
@@ -513,7 +516,7 @@ Expected: FAIL (`o.paper` is undefined, `pad` missing).
   pointColor: DEFAULT_POINT_COLOR,
   pointRadius: DEFAULT_POINT_RADIUS,
 ```
-- `svgOptions` becomes (its header comment keeps its first paragraph and adds one sentence: "The look is resolved here too: the theme under the stated colours, as the element resolves it."):
+- `svgOptions` becomes (its header comment keeps both paragraphs; append to the first: "The look is resolved here too: the theme under the stated colours, as the element resolves it."):
 ```ts
 export function svgOptions(view: View): SvgOptions {
   // An empty field is "not stated"; passed on, it would beat the theme.
@@ -552,6 +555,8 @@ Each of these builds a full `View` by hand; spread `DEFAULT_VIEW` under it inste
 - `packages/engine/command.test.ts:58-78` (round trip): `const v = { ...DEFAULT_VIEW, cell: 7, stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 5, rounded: true }` (the assertion on the command's tail still holds: the look is at its defaults and prints nothing yet).
 - `packages/cli/carve.test.ts:99-110`: the CLI now draws through `svgOptions`, so the expected file is `toSvg(generate(params).board, svgOptions({ ...DEFAULT_VIEW, ...view }))` (import `svgOptions`), which pins the 4-cell margin the CLI now draws.
 
+Only the three typed `saveBoard` calls in `store-server.test.ts` (and the other listed lines) change. The POST bodies (`validBody` and the literals without `rounded`, at 37, 73, 193, 257) stay as they are: they cross as `unknown`, and Task 5 relies on them carrying no look field.
+
 Then run: `NO_COLOR=1 deno task check 2>&1 | grep -E "^ +at file" ; echo done`
 Expected: `done` with no `at file` line.
 
@@ -563,6 +568,7 @@ Expected: all pass. A failure outside the files above is a real finding: stop an
 - [ ] **Step 6: Commit**
 
 ```bash
+deno fmt packages/ && deno task fmt
 git add packages/engine/types.ts packages/engine/command.ts packages/engine/svg-options.test.ts packages/engine/command.test.ts packages/cli/store.test.ts packages/cli/store-server.test.ts packages/cli/carve.test.ts
 git commit -m "Engine: the view carries the look, and svgOptions resolves it"
 ```
@@ -676,7 +682,7 @@ Expected: FAIL, e.g. `unknown flag --theme`.
   ['--ink=#RRGGBB', `line and arrowhead colour (default: the theme's, or ${DEFAULT_COLOURS.ink})`],
   ['--highlight-color=#RRGGBB', `colour of the --top arrows (default: the theme's, or ${DEFAULT_COLOURS.highlight})`],
   ['--pad=N', `margin around the board in cells, ${PAD_RANGE.min}..${PAD_RANGE.max} (default ${DEFAULT_PAD})`],
-  ['--points', 'a dot in the centre of every cell, as the lab draws its point grid'],
+  ['--points', 'a dot in the centre of every cell, as the lab draws its dot grid'],
   ['--point-color=#RRGGBB', `dot colour (default ${DEFAULT_POINT_COLOR})`],
   ['--point-radius=R', `dot radius in cells, ${POINT_RADIUS_RANGE.min}..${POINT_RADIUS_RANGE.max} (default ${DEFAULT_POINT_RADIUS})`],
 ```
@@ -779,6 +785,7 @@ Expected: all pass (`readme.test.ts`'s "every documented picture is still a comm
 - [ ] **Step 7: Commit**
 
 ```bash
+deno fmt packages/ && deno task fmt
 git add packages/engine/command.ts packages/engine/command.test.ts
 git commit -m "CLI: flags for the theme, the colours, the point grid and the margin"
 ```
@@ -904,6 +911,7 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
+deno fmt packages/ && deno task fmt
 git add packages/cli/store-server.ts packages/cli/store-server.test.ts
 git commit -m "Store: the view's look is checked on the way in and filled on the way out"
 ```
@@ -988,12 +996,20 @@ test('load into lab restores the stored look and keeps voids', async () => {
   await act(async () =>
     useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: withLook }),
   )
+  let viewChanges = 0
+  let last = useStore.getState().view
+  const stop = useStore.subscribe((state) => {
+    if (state.view !== last) viewChanges++
+    last = state.view
+  })
   try {
     await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
     const after = useStore.getState().view
     const { highlight, ...rest } = look
     expect(after).toMatchObject({ ...rest, highlightColor: highlight, voids: false })
+    expect(viewChanges).toBe(1)
   } finally {
+    stop()
     useStore.setState({ view: initial })
   }
 })
@@ -1058,14 +1074,17 @@ set -o pipefail
 pnpm nx build engine 2>&1 | tail -1
 pnpm nx test lab -- src/state/view.slice.test.ts src/run/ExportButtons.browser.test.tsx src/library/BoardColumn.browser.test.tsx 2>&1 | tail -15
 ```
-Expected: FAIL (`lookOf` not exported; the export has no pattern; load keeps the old look).
+Expected: FAIL (`lookOf` not exported; the export has no pattern; load keeps the old look). Every SVG export case in `ExportButtons.browser.test.tsx` also fails until Step 3: since Task 3, `svgOptions` reads `palette` from a `viewOf` that has none.
 
 - [ ] **Step 3: `viewOf` and `lookOf`**
 
 `apps/lab/src/state/view.slice.ts`:
 ```ts
 /** The look alone: what the lab lays over a stored board's own shape, colour being a viewing preference. */
-export type Look = Pick<View, 'theme' | 'palette' | 'paper' | 'ink' | 'highlight' | 'pad' | 'showPoints' | 'pointColor' | 'pointRadius'>
+export type Look = Pick<
+  View,
+  'theme' | 'palette' | 'paper' | 'ink' | 'highlight' | 'pad' | 'showPoints' | 'pointColor' | 'pointRadius'
+>
 
 export function lookOf(view: ViewFields): Look {
   return {
@@ -1091,7 +1110,7 @@ function hex(raw: unknown): string | undefined {
   return isHexColour(raw) ? raw.toLowerCase() : undefined
 }
 ```
-Keep the comment above `PALETTE_CAP` only if it still holds; the cap is now the engine's, so write `/** The engine's cap, shared with the CLI and the store. */`.
+Replace the comment above `showPoints` in `ViewFields` (`/** The point grid: the element's settings, not the engine's, like \`voids\`. */`) with `/** The point grid; \`viewOf\` carries it with the rest of the look (\`lookOf\`). */`. Keep the comment above `PALETTE_CAP` only if it still holds; the cap is now the engine's, so write `/** The engine's cap, shared with the CLI and the store. */`.
 
 - [ ] **Step 5: The two exports and "Load into lab"**
 
@@ -1119,7 +1138,7 @@ Keep the comment above `PALETTE_CAP` only if it still holds; the cap is now the 
 Run:
 ```bash
 set -o pipefail
-pnpm nx run-many -t check,lint,test -p lab 2>&1 | tail -15
+pnpm nx run-many -t check,lint,fmt,test -p lab 2>&1 | tail -15
 ```
 Expected: all green. A failing browser test outside the three files above is a finding: report it with its message before changing it.
 
@@ -1140,7 +1159,7 @@ git commit -m "Lab: the view carries the look into the command, the store and th
 
 - [ ] **Step 1: README sections**
 
-In `README.md`, "How the picture is drawn" opens with "These five change nothing about the puzzle — only how it looks on screen." Change "five" to the number of paragraphs after the edit, and append after the last picture flag paragraph of that section:
+In `README.md`, "How the picture is drawn" opens with "These five change nothing about the puzzle — only how it looks on screen." Change "These five" to "These fourteen" (the section's flag count: five plus the nine look flags); in `README.pl.md` "Te pięć" becomes "Te czternaście". Then append after the last picture flag paragraph of that section:
 
 ```markdown
 **`--theme`** paints the board in one of the lab's twelve colour themes
@@ -1151,14 +1170,31 @@ gives the arrow colours for `--colored`, up to eight, comma-separated.
 
 **`--pad`** is the margin around the board, in cells, 0 to 16 (default 4, as
 the lab draws it). **`--points`** puts a dot in the centre of every cell, the
-lab's point grid; **`--point-color`** and **`--point-radius`** (in cells, up to
+lab's dot grid; **`--point-color`** and **`--point-radius`** (in cells, up to
 0.5) change the dot.
 
 The lab's live command carries all of these, so copying it reproduces the
 picture the lab exports.
 ```
 
-Mirror it in `README.pl.md` in Polish, in the matching section, with the same flags and numbers.
+In `README.pl.md`, in the matching section, append:
+
+```markdown
+**`--theme`** maluje planszę jednym z dwunastu motywów kolorów labu
+(`--theme=gruvbox-dark`, `--theme=catppuccin-latte`, …); nieznana nazwa jest
+odrzucana razem z listą. **`--paper`**, **`--ink`** i **`--highlight-color`**
+ustawiają po jednym kolorze jako `#rrggbb` i wygrywają z kolorami motywu;
+**`--palette`** podaje kolory strzałek dla `--colored`, najwyżej osiem, po
+przecinku.
+
+**`--pad`** to margines wokół planszy w komórkach, od 0 do 16 (domyślnie 4, jak
+rysuje go lab). **`--points`** stawia kropkę w środku każdej komórki, jak siatka
+kropek labu; **`--point-color`** i **`--point-radius`** (w komórkach, najwyżej
+0.5) zmieniają kropkę.
+
+Komenda na żywo z labu niesie je wszystkie, więc skopiowana odtwarza obrazek,
+który lab eksportuje.
+```
 
 - [ ] **Step 2: Rebuild the pictures**
 
@@ -1170,7 +1206,7 @@ Open two of them (`docs/images/seed-7.png`, `docs/images/colorized.png`) and con
 
 - the row `| Gap 7: SVG colours | fixed on \`lab/correctness-2\` | Points and \`pad\` in the SVG, and CLI colour flags, remain |` → third cell `Points, \`pad\` and CLI colour flags fixed on \`engine/view-look\``;
 - the row `| \`pad\` in the SVG | open | \`SvgOptions\` has none |` → `| \`pad\` in the SVG | fixed on \`engine/view-look\` | \`SvgOptions.pad\`, from the view |`;
-- item 4 of "What is still open": delete `colour flags in the CLI and points and \`pad\` in the SVG,` from its list.
+- item 4 of "What is still open": replace the lines `` `.board.json`, colour flags in the CLI and points and `pad` in the SVG,`` / `` ⌘K rows for the colour and element fields.`` with `` `.board.json`, and ⌘K rows for the colour and element fields.``
 
 - [ ] **Step 4: Gates and commit**
 
