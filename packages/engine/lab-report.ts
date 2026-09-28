@@ -47,6 +47,15 @@ export type StatKey =
   | 'absorbed'
   | 'backtracks'
   | 'time'
+  | 'farBlock'
+  | 'turnsPerCell'
+  | 'ownSides'
+  | 'neighbours'
+  | 'rework'
+  | 'stuckBy'
+  | 'stuckLen'
+  | 'selfTrap'
+  | 'shortened'
 
 /** One line of the stats table: its key, label, shown value, help, and the number compared with the previous run. */
 export interface StatRow {
@@ -125,6 +134,11 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
   const { metrics, stats, genMs, metricsMs, backtracks, restartsUsed } = run
   if (!metrics) return []
   const cells = params.W * params.H
+  // Each stall adds its tail's four sides to own + foreign + edge, so the sum
+  // over four is the number of stalls; `stats.stall` counts short arrows instead.
+  const sides = (stats.stallOwn ?? 0) + (stats.stallForeign ?? 0) + (stats.stallEdge ?? 0)
+  const events = sides / 4
+  const selfTrap = stats.stallSelfTrap ?? 0
   return [
     stat(
       dict,
@@ -145,9 +159,11 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict,
       'lengths',
       dict.t('stat_lengths'),
-      `2–6: ${pct(metrics.hist['2-6'] / metrics.N)} · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${
-        pct(metrics.hist['16-49'] / metrics.N)
-      } · 50+: ${(100 * metrics.hist['50+'] / metrics.N).toFixed(1)}%`,
+      `${dict.t('stat_lengthsRange', metrics.minLen, metrics.maxLen)} · 2–6: ${
+        pct(metrics.hist['2-6'] / metrics.N)
+      } · 7–15: ${pct(metrics.hist['7-15'] / metrics.N)} · 16–49: ${pct(metrics.hist['16-49'] / metrics.N)} · 50+: ${
+        (100 * metrics.hist['50+'] / metrics.N).toFixed(1)
+      }%`,
     ),
     SEP,
     stat(dict, 'f0', dict.t('stat_f0'), pct(metrics.f0), 100 * metrics.f0),
@@ -158,6 +174,7 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       `${metrics.almost} (${pct(metrics.almost / metrics.N)})`,
       metrics.almost,
     ),
+    stat(dict, 'farBlock', dict.t('stat_farBlock'), `${metrics.T2} (${pct(metrics.T2 / metrics.N)})`, metrics.T2),
     stat(dict, 'D', dict.t('stat_D'), metrics.D, metrics.D),
     stat(dict, 'corridor', dict.t('stat_corridor'), metrics.meanCorridorLen.toFixed(1), metrics.meanCorridorLen),
     SEP,
@@ -181,8 +198,11 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
     ),
     SEP,
     stat(dict, 'bends', dict.t('stat_bends'), metrics.bends.toFixed(2), metrics.bends),
+    stat(dict, 'turnsPerCell', dict.t('stat_turnsPerCell'), metrics.bendsPerCell.toFixed(3), metrics.bendsPerCell),
     stat(dict, 'coil', dict.t('stat_coil'), pct(metrics.coil), 100 * metrics.coil),
+    stat(dict, 'ownSides', dict.t('stat_ownSides'), metrics.selfAdj.toFixed(2), metrics.selfAdj),
     stat(dict, 'border', dict.t('stat_border'), pct(metrics.sharedBorder), 100 * metrics.sharedBorder),
+    stat(dict, 'neighbours', dict.t('stat_neighbours'), metrics.neighbours.toFixed(1), metrics.neighbours),
     stat(dict, 'multi', dict.t('stat_multi'), pct(metrics.multiLine), 100 * metrics.multiLine),
     SEP,
     // Stalling explains short lines better than the length distribution: a
@@ -208,6 +228,56 @@ export function reportRows(run: ReportInput, params: Params, dict: Dict): StatRo
       dict.t('stat_time'),
       dict.t('stat_timeVal', (genMs / 1000).toFixed(2), (metricsMs / 1000).toFixed(2)),
       genMs,
+    ),
+    SEP,
+    // The knob's own switch, not the counters: with it on, a run that never
+    // stalled leaves both counters unset and still reworked nothing.
+    params.backbite === 0 ? stat(dict, 'rework', dict.t('stat_rework'), '—') : stat(
+      dict,
+      'rework',
+      dict.t('stat_rework'),
+      dict.t('stat_reworkVal', stats.backbites ?? 0, stats.backbiteGiveUps ?? 0),
+      stats.backbites ?? 0,
+    ),
+    stat(
+      dict,
+      'stuckBy',
+      dict.t('stat_stuckBy'),
+      sides
+        ? dict.t(
+          'stat_stuckByVal',
+          pct((stats.stallOwn ?? 0) / sides),
+          pct((stats.stallForeign ?? 0) / sides),
+          pct((stats.stallEdge ?? 0) / sides),
+        )
+        : '—',
+    ),
+    stat(
+      dict,
+      'stuckLen',
+      dict.t('stat_stuckLen'),
+      events ? ((stats.stallLen ?? 0) / events).toFixed(1) : '—',
+      events ? (stats.stallLen ?? 0) / events : undefined,
+    ),
+    stat(
+      dict,
+      'selfTrap',
+      dict.t('stat_selfTrap'),
+      events ? `${selfTrap} (${pct(selfTrap / events)})` : '—',
+      events ? selfTrap : undefined,
+    ),
+    stat(
+      dict,
+      'shortened',
+      dict.t('stat_shortened'),
+      stats.n
+        ? dict.t(
+          'stat_shortenedVal',
+          pct(stats.strandTrunc / stats.n),
+          (stats.strandLoss / Math.max(1, stats.strandTrunc)).toFixed(1),
+        )
+        : '—',
+      stats.n ? 100 * stats.strandTrunc / stats.n : undefined,
     ),
   ]
 }

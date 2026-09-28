@@ -5,14 +5,32 @@ import type { Baseline, ShownResult } from '../state/result.slice'
 import { SUMMARY_KEYS } from './ReportSummary'
 import { StatRowView } from './StatRowView'
 
-/** The name of each group, in the engine's order: one per span between its four separators. */
-const GROUP_NAMES = ['statGroupSize', 'statGroupBlocking', 'statGroupReach', 'statGroupShape', 'statGroupRun'] as const
+/** The name of each group, in the engine's order: one per span between its five separators. */
+const GROUP_NAMES = [
+  'statGroupSize',
+  'statGroupBlocking',
+  'statGroupReach',
+  'statGroupShape',
+  'statGroupRun',
+  'statGroupDetail',
+] as const
 
 /**
  * Rows whose value is wider than a number: it stays on its label's line and
  * wraps in its own track. Chosen by the row, not measured.
  */
-export const WIDE_KEYS: readonly StatKey[] = ['board', 'longest', 'lengths', 'stall', 'absorbed', 'time', 'blockDist']
+export const WIDE_KEYS: readonly StatKey[] = [
+  'board',
+  'longest',
+  'lengths',
+  'stall',
+  'absorbed',
+  'time',
+  'blockDist',
+  'rework',
+  'stuckBy',
+  'shortened',
+]
 
 /** The classes of a row of the grid: `sum` leaves the table under the summary, `long` widens the value. */
 export function rowClass(key: StatKey | null, changed: boolean): string | undefined {
@@ -35,7 +53,7 @@ function groupsOf(rows: readonly StatRow[]): { row: StatRow; at: number }[][] {
 }
 
 /**
- * The 23 statistics of the board on screen, in the engine's order and words,
+ * The statistics of the board on screen, in the engine's order and words,
  * with the change against the baseline. Both reports are built at render in
  * the current language and compared by row index, which a language switch does
  * not move; nothing here moves the baseline. Each group opens with its name, a

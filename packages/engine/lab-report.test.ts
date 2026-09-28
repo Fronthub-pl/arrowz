@@ -36,6 +36,23 @@ const HELP_EN: Record<StatKey, string> = {
   backtracks:
     'How the generator worked: how many times it took arrows back, and how many fresh attempts it needed. Fewer = smoother.',
   time: 'How long the board took to generate and to measure. Lower = faster.',
+  farBlock:
+    'Arrows whose nearest blocker is more than 2 cells ahead of the head: what holds them is not in plain sight. More = more blockers to look for.',
+  turnsPerCell:
+    'Turns per cell, over the whole board: unlike bends per arrow, a long arrow weighs as much as its cells. Higher = more winding.',
+  ownSides: "How many of a cell's four sides touch the same arrow, on average. Higher = arrows fold onto themselves.",
+  neighbours:
+    'For arrows of 8 cells or more: how many different arrows each one touches. Higher = arrows are more interwoven.',
+  rework:
+    'In the last attempt: how many times an arrow that hit a dead end reworked its tail and grew on, and how many times it gave up. Only with tail rework on. More done = the setting is at work.',
+  stuckBy:
+    'In the last attempt: what surrounded the tail of an arrow that could grow no further (the arrow itself, other arrows, or the edge), as shares of its sides. A high "itself" = arrows trap themselves.',
+  stuckLen:
+    'In the last attempt: how long an arrow was, on average, when it could grow no further. Higher = arrows get stuck later.',
+  selfTrap:
+    "In the last attempt: stops where the arrow's own body walled in at least two sides of its tail. More = arrows trap themselves more often.",
+  shortened:
+    'In the last attempt: the share of arrows laid that were cut back so they would not leave a gap no arrow could fill, and by how many cells on average. Lower = fewer cuts.',
 }
 
 function run(W: number, H: number, seed: number) {
@@ -55,11 +72,11 @@ function run(W: number, H: number, seed: number) {
   }
 }
 
-Deno.test('reportRows returns 23 rows and 4 separators', () => {
+Deno.test('reportRows returns 32 rows and 5 separators', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
-  assertEquals(rows.filter((r) => r.kind === 'row').length, 23)
-  assertEquals(rows.filter((r) => r.kind === 'separator').length, 4)
+  assertEquals(rows.filter((r) => r.kind === 'row').length, 32)
+  assertEquals(rows.filter((r) => r.kind === 'separator').length, 5)
 })
 
 // A surface picks rows by what they are (the
@@ -69,7 +86,7 @@ Deno.test('every row carries its own key, the suffix of its label key, and no tw
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const rows = reportRows(run(20, 20, 3), params, dictionary('en'))
   const keys = rows.filter((r) => r.kind === 'row').map((r) => r.key)
-  assertEquals(new Set(keys).size, 23)
+  assertEquals(new Set(keys).size, 32)
   const en = dictionary('en')
   for (const r of rows) {
     if (r.kind === 'separator') assertEquals(r.key, null)
@@ -87,25 +104,25 @@ const pinnedMetrics: Metrics = {
   solvable: true,
   unsolved: 0,
   f0: 0.5,
-  T2: 0,
+  T2: 3,
   almost: 4,
   D: 3,
   bends: 1.5,
   multiLine: 0.2,
   coil: 0.1,
-  selfAdj: 0,
-  bendsPerCell: 0,
+  selfAdj: 0.75,
+  bendsPerCell: 0.125,
   span: 0.4,
   spanTop10: 0.6,
   spanMax: 0.8,
   outDeg: 2.4,
   maxOut: 5,
   blockDist: 0.33,
-  neighbours: 0,
+  neighbours: 2.5,
   sharedBorder: 0.05,
   longPieces: 0,
   meanCorridorLen: 2.4,
-  minLen: 0,
+  minLen: 2,
   maxLen: 100,
   hist: { '2-6': 10, '7-15': 6, '16-49': 3, '50+': 1 },
   coverage: 1,
@@ -124,18 +141,26 @@ const pinnedBase = {
   deadlock: false,
 } satisfies Omit<ReportInput, 'stats'>
 
-const pinnedParams = { ...defaultParams(), W: 20, H: 20, seed: 3 }
+const pinnedParams = { ...defaultParams(), W: 20, H: 20, seed: 3, backbite: 2 }
 
 Deno.test('reportRows pins the exact text of every row for a hand-built run', () => {
   const stats: CarverStats = {
     want: 100,
     got: 90,
     stall: 20,
-    strandTrunc: 0,
-    strandLoss: 0,
+    strandTrunc: 4,
+    strandLoss: 10,
     n: 100,
     absorbs: 3,
     absorbed: 45,
+    // 20 sides = 5 stall events: 25% · 65% · 10%, no rounding tie.
+    stallOwn: 5,
+    stallForeign: 13,
+    stallEdge: 2,
+    stallLen: 30,
+    stallSelfTrap: 1,
+    backbites: 5,
+    backbiteGiveUps: 2,
   }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
   const expected: Omit<StatRow, 'help'>[] = [
@@ -147,12 +172,13 @@ Deno.test('reportRows pins the exact text of every row for a hand-built run', ()
       kind: 'row',
       key: 'lengths',
       label: 'lengths',
-      value: '2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%',
+      value: '2–100 cells · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%',
       num: undefined,
     },
     { kind: 'separator', key: null, label: '', value: '', num: undefined },
     { kind: 'row', key: 'f0', label: 'free at start', value: '50%', num: 50 },
     { kind: 'row', key: 'almost', label: 'traps', value: '4 (20%)', num: 4 },
+    { kind: 'row', key: 'farBlock', label: 'blocked from afar', value: '3 (15%)', num: 3 },
     { kind: 'row', key: 'D', label: 'depth', value: '3', num: 3 },
     { kind: 'row', key: 'corridor', label: 'path to edge', value: '2.4', num: 2.4 },
     { kind: 'separator', key: null, label: '', value: '', num: undefined },
@@ -161,17 +187,14 @@ Deno.test('reportRows pins the exact text of every row for a hand-built run', ()
     { kind: 'row', key: 'spanMax', label: 'reach, record', value: '80%', num: 80 },
     { kind: 'row', key: 'outDeg', label: 'blocks on average', value: '2.4 arrows', num: 2.4 },
     { kind: 'row', key: 'maxOut', label: 'blocks, record', value: '5 arrows', num: 5 },
-    {
-      kind: 'row',
-      key: 'blockDist',
-      label: 'blocking distance',
-      value: '33% of width + height',
-      num: 33,
-    },
+    { kind: 'row', key: 'blockDist', label: 'blocking distance', value: '33% of width + height', num: 33 },
     { kind: 'separator', key: null, label: '', value: '', num: undefined },
     { kind: 'row', key: 'bends', label: 'bends per arrow', value: '1.50', num: 1.5 },
+    { kind: 'row', key: 'turnsPerCell', label: 'turns per cell', value: '0.125', num: 0.125 },
     { kind: 'row', key: 'coil', label: 'coiling', value: '10%', num: 10 },
+    { kind: 'row', key: 'ownSides', label: 'touching itself', value: '0.75', num: 0.75 },
     { kind: 'row', key: 'border', label: 'wrapping', value: '5%', num: 5 },
+    { kind: 'row', key: 'neighbours', label: 'neighbours of a long arrow', value: '2.5', num: 2.5 },
     { kind: 'row', key: 'multi', label: 'bent arrows', value: '20%', num: 20 },
     { kind: 'separator', key: null, label: '', value: '', num: undefined },
     {
@@ -184,28 +207,53 @@ Deno.test('reportRows pins the exact text of every row for a hand-built run', ()
     { kind: 'row', key: 'absorbed', label: 'merged leftovers', value: '3 patches (45 cells)', num: 3 },
     { kind: 'row', key: 'backtracks', label: 'backtracks / restarts', value: '7 / 2', num: 7 },
     { kind: 'row', key: 'time', label: 'time', value: 'generation 3.46 s, metrics 0.12 s', num: 3456 },
+    { kind: 'separator', key: null, label: '', value: '', num: undefined },
+    { kind: 'row', key: 'rework', label: 'tail reworks', value: '5 done, 2 gave up', num: 5 },
+    {
+      kind: 'row',
+      key: 'stuckBy',
+      label: 'what stopped them',
+      value: 'itself 25% · other arrows 65% · edge 10%',
+      num: undefined,
+    },
+    { kind: 'row', key: 'stuckLen', label: 'length when stuck', value: '6.0', num: 6 },
+    { kind: 'row', key: 'selfTrap', label: 'stuck on themselves', value: '1 (20%)', num: 1 },
+    {
+      kind: 'row',
+      key: 'shortened',
+      label: 'shortened',
+      value: '4% of arrows laid, 2.5 cells shorter on average',
+      num: 4,
+    },
   ]
-  assertEquals(rows.length, 27)
+  assertEquals(rows.length, 37)
   assertEquals(rows, expected.map((row) => ({ ...row, help: row.key === null ? '' : HELP_EN[row.key] })))
 })
 
-Deno.test("reportRows pins the stall row's dash when stats.n is 0", () => {
+// A run that laid nothing: every carver row stays in its place with a dash
+// and no number, so the delta rows below it do not shift.
+Deno.test('reportRows keeps every carver row as a dash when nothing was laid', () => {
   const stats: CarverStats = { want: 0, got: 0, stall: 0, strandTrunc: 0, strandLoss: 0, n: 0, absorbs: 0, absorbed: 0 }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
-  const stallRow = rows.find((r) => r.key === 'stall')
-  assert(stallRow)
-  assertEquals(stallRow, {
-    kind: 'row',
-    key: 'stall',
-    label: 'stopped short',
-    value: '—',
-    num: undefined,
-    help: HELP_EN.stall,
-  })
+  for (const key of ['stall', 'stuckBy', 'stuckLen', 'selfTrap', 'shortened'] as const) {
+    const found = rows.find((r) => r.key === key)
+    assert(found, key)
+    assertEquals([found.value, found.num], ['—', undefined], key)
+  }
+  assertEquals(rows.length, 37)
+})
+
+Deno.test('tail reworks read a dash with the setting off, and zero with it on and nothing to rework', () => {
+  const stats: CarverStats = { want: 10, got: 10, stall: 0, strandTrunc: 0, strandLoss: 0, n: 5 }
+  const off = reportRows({ ...pinnedBase, stats }, { ...pinnedParams, backbite: 0 }, dictionary('en'))
+  const on = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('en'))
+  const rework = (rows: StatRow[]) => rows.find((r) => r.key === 'rework')
+  assertEquals([rework(off)?.value, rework(off)?.num], ['—', undefined])
+  assertEquals([rework(on)?.value, rework(on)?.num], ['0 done, 0 gave up', 0])
 })
 
 // Rows whose value is not one number: nothing moves, so there is nothing to explain.
-const NO_NUMBER: StatKey[] = ['board', 'lengths']
+const NO_NUMBER: StatKey[] = ['board', 'lengths', 'stuckBy']
 Deno.test('every row with a number says what a rise means, marked by =', () => {
   const params = { ...defaultParams(), W: 20, H: 20, seed: 3 }
   const r = run(20, 20, 3)
@@ -231,7 +279,7 @@ Deno.test('every row explains itself in Polish too, each in its own sentence', (
     assert(row.help.length > 0, `${row.key} has no Polish help`)
     assert(row.help !== en[at]?.help, `${row.key} is still English`)
   }
-  assertEquals(new Set(pl.filter((row) => row.kind === 'row').map((row) => row.help)).size, 23)
+  assertEquals(new Set(pl.filter((row) => row.kind === 'row').map((row) => row.help)).size, 32)
 })
 
 Deno.test('the Polish values follow the new words', () => {
@@ -239,11 +287,18 @@ Deno.test('the Polish values follow the new words', () => {
     want: 100,
     got: 90,
     stall: 20,
-    strandTrunc: 0,
-    strandLoss: 0,
+    strandTrunc: 4,
+    strandLoss: 10,
     n: 100,
     absorbs: 3,
     absorbed: 45,
+    stallOwn: 5,
+    stallForeign: 13,
+    stallEdge: 2,
+    stallLen: 30,
+    stallSelfTrap: 1,
+    backbites: 5,
+    backbiteGiveUps: 2,
   }
   const rows = reportRows({ ...pinnedBase, stats }, pinnedParams, dictionary('pl'))
   const value = (key: StatKey) => rows.find((row) => row.key === key)?.value
@@ -253,6 +308,10 @@ Deno.test('the Polish values follow the new words', () => {
   assertEquals(value('stall'), '20% ułożonych strzałek, osiągając 90% zaplanowanej długości')
   assertEquals(value('absorbed'), '3 łatki (45 komórek)')
   assertEquals(value('time'), 'generowanie 3.46 s, statystyki 0.12 s')
+  assertEquals(value('lengths'), '2–100 komórek · 2–6: 50% · 7–15: 30% · 16–49: 15% · 50+: 5.0%')
+  assertEquals(value('rework'), '5 wykonanych, 2 porzucone')
+  assertEquals(value('stuckBy'), 'ona sama 25% · inne strzałki 65% · krawędź 10%')
+  assertEquals(value('shortened'), '4% ułożonych strzałek, średnio o 2.5 komórki krótszych')
 })
 
 Deno.test('every row has a label and a value, and no row is empty', () => {
