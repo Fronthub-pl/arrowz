@@ -82,6 +82,10 @@ follow.
 - The timer becomes a `Map` keyed by `meta.id`. An edit of B leaves A's timer
   alone; a second edit of the same board still resets its own timer, so the
   debounce stays.
+- `meta.id` is the layout hash, so two recipes of one layout still share a
+  timer: an edit of one within 350 ms of the other drops the first. Accepted:
+  the stage edits one layout at a time, and the delete removes the whole
+  layout anyway.
 - `cancelPendingSave(id?: string)`: with an id it drops that board's write,
   without one every write. The delete in `BoardColumn` passes the removed
   board's id, so removing A no longer drops B's pending save. Tests keep

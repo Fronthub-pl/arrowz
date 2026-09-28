@@ -53,7 +53,7 @@ Behaviour-preserving move: `assignPalette` from `packages/board-element/src/pale
 **Interfaces:**
 - Produces: `assignPalette(board: BoardData, n: number): Int32Array`, exported from `@arrowz/engine` (and still from `@arrowz/board-element`).
 
-- [ ] **Step 1: Write the Deno test (port of the element's four tests)**
+- [ ] **Step 1: Write the Deno test (port of all six of the element's tests)**
 
 Create `packages/engine/palette.test.ts`:
 
@@ -117,7 +117,34 @@ Deno.test('a palette of one paints every piece with it', () => {
   const assign = assignPalette(board, 1)
   for (const pc of board.pieces) assertEquals(assign[pc.id], 0)
 })
+
+// `n <= 0` is public API: the caller may hand this a theme with an empty
+// palette, or an explicit 0.
+Deno.test('n <= 0 leaves every piece unassigned, not thrown on', () => {
+  for (const n of [0, -1]) {
+    const assign = assignPalette(board, n)
+    for (const pc of board.pieces) assertEquals(assign[pc.id], -1)
+  }
+})
+
+Deno.test('ids a board file skipped are addressable and untouched', () => {
+  const data: BoardData = {
+    W: 4,
+    H: 2,
+    owner: new Int32Array([5, 5, -1, -1, 7, 7, -1, -1]),
+    pieces: [
+      { id: 5, cells: [{ x: 1, y: 0 }, { x: 0, y: 0 }], dir: 3 },
+      { id: 7, cells: [{ x: 1, y: 1 }, { x: 0, y: 1 }], dir: 3 },
+    ],
+  }
+  const assign = assignPalette(data, 2)
+  assertEquals(assign.length, 8)
+  assert(assign[5] !== assign[7])
+  assertEquals(assign[0], -1)
+})
 ```
+
+Before deleting the element's `palette.test.ts`, diff its test names against this file: every one of its six must have a twin here.
 
 - [ ] **Step 2: Run it to see it fail**
 
@@ -154,6 +181,8 @@ In `packages/board-element/src/mod.ts`, replace `export { assignPalette } from '
 
 Search for any other importer: `grep -rn "from './palette" packages/board-element/src` must print nothing.
 
+In `packages/board-element/src/view.ts`, the `palette` field's comment says "by the assignment of palette.ts"; change it to "by the engine's `assignPalette`".
+
 - [ ] **Step 4: Run the tests**
 
 Run: `deno test --allow-read packages/engine/palette.test.ts packages/engine/neutral.test.ts`
@@ -168,7 +197,7 @@ Expected: every line `ok`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/engine/palette.ts packages/engine/palette.test.ts packages/engine/mod.ts packages/engine/tsconfig.build.json packages/engine/neutral.test.ts packages/board-element/src/gl-layer.ts packages/board-element/src/mod.ts
+git add packages/engine/palette.ts packages/engine/palette.test.ts packages/engine/mod.ts packages/engine/tsconfig.build.json packages/engine/neutral.test.ts packages/board-element/src/gl-layer.ts packages/board-element/src/mod.ts packages/board-element/src/view.ts
 git add -u packages/board-element/src
 git commit -m "Engine: the palette assignment lives in the engine, so the SVG and the element share it"
 ```
@@ -576,17 +605,47 @@ test('the stored board’s SVG carries the page’s theme', async () => {
     useStore.setState({ view: initial })
   }
 })
+
+test('the stored board’s SVG carries the page’s custom palette while colours are on', async () => {
+  const initial = useStore.getState().view
+  const blobs: Blob[] = []
+  vi.spyOn(URL, 'createObjectURL').mockImplementation((object) => {
+    if (object instanceof Blob) blobs.push(object)
+    return 'blob:column-under-test'
+  })
+  const cancel = (event: MouseEvent) => {
+    if (event.target instanceof HTMLAnchorElement && event.target.download !== '') event.preventDefault()
+  }
+  document.addEventListener('click', cancel, true)
+  // The stored view decides `colored` for this export, as `BoardFrame` draws it.
+  const colouredMeta = { ...stored.meta, view: { ...stored.meta.view, colored: true } }
+  try {
+    useStore.getState().view.apply({ palette: ['#112233'] })
+    const screen = await mountDetail()
+    await act(async () =>
+      useStore.getState().result.showPreview({ board: decodeBoard(stored.file), file: stored.file, meta: colouredMeta }),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Download SVG' }))
+    await expect.poll(() => blobs.length, { timeout: 10_000 }).toBe(1)
+    expect((await blobs[0]?.text()) ?? '').toContain('stroke="#112233"')
+  } finally {
+    document.removeEventListener('click', cancel, true)
+    useStore.setState({ view: initial })
+  }
+})
 ```
 
 In `packages/engine/lab-i18n.test.ts`, delete the line `'svgThemeNote',` from the `words` list.
 
 - [ ] **Step 2: Run them to see them fail**
 
-Run: `cd apps/lab && pnpm exec vitest run --project node src/run/exportColours.test.ts`
+Build first: the lab resolves `@arrowz/engine` and `@arrowz/board-element` from their `dist/`, and without it the node test fails on package resolution, not on the missing module.
+
+Run: `pnpm nx build engine && pnpm nx build board-element && cd apps/lab && pnpm exec vitest run --project node src/run/exportColours.test.ts`
 Expected: FAIL — `./exportColours` not found.
 
-Run: `pnpm nx build engine && pnpm nx build board-element && cd apps/lab && pnpm exec vitest run --project chromium src/run/ExportButtons.browser.test.tsx src/library/BoardColumn.browser.test.tsx`
-Expected: FAIL — the SVG has `fill="#f6f6fa"`, not `#282828`.
+Run: `cd apps/lab && pnpm exec vitest run --project chromium src/run/ExportButtons.browser.test.tsx src/library/BoardColumn.browser.test.tsx`
+Expected: FAIL — the SVG has `fill="#f6f6fa"`, not `#282828`, and no `#112233`.
 
 - [ ] **Step 3: Implement**
 
@@ -628,14 +687,14 @@ In `apps/lab/src/design/run.css`, delete the `.fw-export-note` rule and its comm
 
 In `packages/engine/lab-i18n.ts`, delete the `svgThemeNote` line in the EN dictionary and in the PL dictionary.
 
-Check nothing else reads it: `grep -rn "svgThemeNote\|fw-export-note" apps/lab/src packages --include='*.ts' --include='*.tsx' --include='*.css' | grep -v dist` must print nothing.
+Check nothing else reads it: `grep -rn "svgThemeNote\|fw-export-note" apps/lab/src packages --include='*.ts' --include='*.tsx' --include='*.css' | grep -v dist | grep -v '\.test\.'` must print nothing (the new ExportButtons test names `.fw-export-note` to assert it is gone).
 
 - [ ] **Step 4: Run the tests**
 
 Run: `deno test --allow-read packages/engine/lab-i18n.test.ts && pnpm nx build engine && cd apps/lab && pnpm exec vitest run --project node src/run/exportColours.test.ts && pnpm exec vitest run --project chromium src/run/ExportButtons.browser.test.tsx src/library/BoardColumn.browser.test.tsx && pnpm run check && pnpm run lint`
 Expected: PASS.
 
-Mutation (do it, then revert): in `ExportButtons.tsx` drop `...exportColours(view)` from the options. Expected: `the SVG carries the theme and the stated colours of the board on screen` FAILS. Same in `BoardColumn.tsx`: `the stored board’s SVG carries the page’s theme` FAILS.
+Mutation (do it, then revert): in `ExportButtons.tsx` drop `...exportColours(view)` from the options. Expected: `the SVG carries the theme and the stated colours of the board on screen` FAILS. Same in `BoardColumn.tsx`: both `the stored board’s SVG carries the page’s theme` and `…custom palette while colours are on` FAIL.
 
 - [ ] **Step 5: Commit**
 
@@ -685,7 +744,7 @@ In `packages/cli/store.ts`, in the `recipe` literal replace `aborted: metrics.ab
 
 - [ ] **Step 4: Run the tests**
 
-Run: `deno test --allow-read --allow-write --allow-env --allow-net packages/cli/`
+Run: `deno test --allow-read --allow-write --allow-env --allow-net --allow-run packages/cli/` (without `--allow-run` 43 CLI tests fail on spawning `deno`)
 Expected: PASS, including `saveBoard without a closing report writes null counts, aborted false and no leftover` (a first save has no `replaced`).
 
 - [ ] **Step 5: Commit**
@@ -713,7 +772,7 @@ Append to `apps/lab/src/library/useViewSave.browser.test.tsx`:
 
 ```ts
 /** The seed and stroke of every POST, in the order they were sent. */
-function posted(posts: { mock: { calls: [RequestInfo | URL, RequestInit?][] } }) {
+function posted(posts: MockInstance<typeof fetch>) {
   return posts.mock.calls
     .filter(([, init]) => init?.method === 'POST')
     .map(([, init]) => {
@@ -750,6 +809,40 @@ test('cancelling one board’s save keeps another board’s', async () => {
   cancelPendingSave(stored.meta.id)
   await act(async () => await vi.advanceTimersByTimeAsync(350))
   expect(posted(posts)).toEqual([[other.meta.seed, 0.3]])
+})
+```
+
+Add `type MockInstance` to the file's `vitest` import: `import { afterEach, beforeEach, expect, type MockInstance, test, vi } from 'vitest'`.
+
+In `apps/lab/src/library/BoardColumn.browser.test.tsx`, add after `deleting cancels a view edit that has not been written yet` (and add `renderHook` to the `vitest-browser-react` import and `useViewSave` to the `./useViewSave` import):
+
+```ts
+// The delete drops the deleted board's pending save only: another board's edit
+// still reaches the store.
+test('deleting one board keeps another board’s pending view edit', async () => {
+  const calls = vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(new Response('{"deleted":true}', { status: 200 })))
+  // An edit of `other`, pending on its timer, made while `other` was on the stage.
+  await act(async () =>
+    useStore.getState().result.showPreview({ board: decodeBoard(other.file), file: other.file, meta: other.meta }),
+  )
+  const { result } = await renderHook(() => useViewSave(() => {}), {
+    wrapper: ({ children }: { children: ReactNode }) => <MemoryRouter>{children}</MemoryRouter>,
+  })
+  await act(async () => result.current({ ...other.meta.view, stroke: 0.3 }))
+
+  const screen = await mountDetail()
+  await show()
+  await userEvent.click(screen.getByRole('button', { name: /delete from disk/i }))
+  await userEvent.click(screen.getByRole('button', { name: /really delete/i }))
+
+  // Past the debounce, so the surviving timer has fired.
+  await new Promise((done) => setTimeout(done, 600))
+  const seeds = calls.mock.calls
+    .filter(([, init]) => init?.method === 'POST')
+    .map(([, init]) => (JSON.parse(String(init?.body)) as { params: { seed: number } }).params.seed)
+  expect(seeds).toEqual([other.meta.seed])
 })
 ```
 
@@ -823,12 +916,12 @@ In `apps/lab/src/library/BoardColumn.tsx`, in `remove`, change `cancelPendingSav
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/library/useViewSave.browser.test.tsx src/library/BoardColumn.browser.test.tsx src/library/BoardPreview.browser.test.tsx && pnpm run check`
 Expected: PASS, including `deleting cancels a view edit that has not been written yet` and `the store is written 350 ms after the last edit, not before` (the debounce is unchanged for one board).
 
-Mutation (do it, then revert): key every timer by the constant `'all'` instead of `edited.meta.id`. Expected: `an edit of another board leaves the first board’s write pending` FAILS.
+Mutation (do it, then revert): key every timer by the constant `'all'` instead of `edited.meta.id`. Expected: `an edit of another board leaves the first board’s write pending` FAILS. Mutation 2: in `BoardColumn`'s `remove`, call `cancelPendingSave()` with no id. Expected: `deleting one board keeps another board’s pending view edit` FAILS (`seeds` is `[]`).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lab/src/library/useViewSave.ts apps/lab/src/library/useViewSave.browser.test.tsx apps/lab/src/library/BoardColumn.tsx
+git add apps/lab/src/library/useViewSave.ts apps/lab/src/library/useViewSave.browser.test.tsx apps/lab/src/library/BoardColumn.tsx apps/lab/src/library/BoardColumn.browser.test.tsx
 git commit -m "Lab: a pending view save is per board, so another board's edit or delete does not drop it"
 ```
 
@@ -950,12 +1043,14 @@ Replace the `made.onerror` handler with:
 
 (`kill()` clears `busy`, so the explicit `busy.current = false` there goes.)
 
+`ensure` now calls `kill`, so its dependency list changes from `}, [])` to `}, [kill])`; without it `react-hooks/exhaustive-deps` warns. `kill` is itself a `useCallback` with `[]`, so `ensure` keeps one identity.
+
 - [ ] **Step 4: Run the tests**
 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/worker/useGenerator.browser.test.tsx src/run/useRun.browser.test.tsx && pnpm run check && pnpm run lint`
 Expected: PASS.
 
-Mutations (each alone, then revert): delete the `onmessage` guard — `a message from a worker already replaced changes nothing` FAILS; delete `kill()` from `onerror` — `after a worker error the next run builds a new worker` FAILS.
+Mutations (each alone, then revert): delete the `onmessage` guard — `a message from a worker already replaced changes nothing` FAILS; replace `kill()` in `onerror` with the old `busy.current = false` — `after a worker error the next run builds a new worker` FAILS on `toHaveLength(2)`. (Deleting `kill()` alone is not a valid mutation: `busy` then stays true, and the next `start()` kills the worker itself.)
 
 - [ ] **Step 5: Commit**
 
@@ -1160,6 +1255,23 @@ In `apps/lab/src/library/BoardColumn.tsx`:
 
 In `apps/lab/src/routes/Workspace.tsx`, change the `side` element to `<BoardColumn key={`${open.size ?? ''}/${open.id ?? ''}`} control={control} />`.
 
+In `apps/lab/src/routes/Workspace.browser.test.tsx`, the test `a stored board can be opened, restyled and loaded back into the lab` pins the old rule (`expect(result.shown).toBe(labBoard)`): with a real run, `shown` becomes the loaded board. Replace its four-line comment above `const labBoard` and the final `expect(useStore.getState().result.shown).toBe(labBoard)` so the block reads:
+
+```ts
+    // Load into lab runs the loaded knobs: the lab's board is replaced by a
+    // fresh run's, never by the stored file handed over as a result.
+    const labBoard = useStore.getState().result.shown
+    expect(labBoard).not.toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: /load into lab/i }))
+    await expect.element(screen.getByRole('tab', { name: 'Lab', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect.poll(() => useStore.getState().result.shown, { timeout: 20_000 }).not.toBe(labBoard)
+    const loaded = useStore.getState().result.shown
+    expect(loaded?.params.seed).toBe(meta.params.seed)
+    expect(loaded?.file).not.toBe(file)
+```
+
+(`meta` and `file` are that test's own names for the stored board; check them in the file before editing.)
+
 Search for any other renderer: `grep -rn "<BoardColumn" apps/lab/src` — every one must pass `control`.
 
 - [ ] **Step 4: Run the tests**
@@ -1167,12 +1279,12 @@ Search for any other renderer: `grep -rn "<BoardColumn" apps/lab/src` — every 
 Run: `cd apps/lab && pnpm exec vitest run --project chromium src/library/ src/routes/ && pnpm run check && pnpm run lint`
 Expected: PASS.
 
-Mutation (do it, then revert): replace `control.start()` with `generate(control)` (import it from `../run/actions`). Expected: `load into lab in the simple view with randomising on keeps the loaded knobs` FAILS on `run.seeds` or the seed. Mutation 2: delete `control.start()`. Expected: `… starts one run on them` FAILS.
+Mutation (do it, then revert): replace `control.start()` with `generate(control)` (import it from `../run/actions`). Expected: `load into lab in the simple view with randomising on keeps the loaded knobs` FAILS on `toMatchObject` (W/H become the recipe's 25x50; the recipe draw keeps the seed, so `run.seeds` alone would not catch it). Mutation 2: delete `control.start()`. Expected: `… starts one run on them` FAILS (`run.seeds` is `[]`), and so does the Workspace test above.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add apps/lab/src/library/BoardColumn.tsx apps/lab/src/library/BoardColumn.browser.test.tsx apps/lab/src/routes/Workspace.tsx
+git add apps/lab/src/library/BoardColumn.tsx apps/lab/src/library/BoardColumn.browser.test.tsx apps/lab/src/routes/Workspace.tsx apps/lab/src/routes/Workspace.browser.test.tsx
 git commit -m "Lab: Load into lab starts one run on the loaded knobs, so the loaded board shows without a reload"
 ```
 
@@ -1193,6 +1305,7 @@ With both present, start the lab on a copy of the store (see the live pass below
 
 - In "What is still open", replace item 2 with: `2. **Smaller correctness items:** done on `lab/correctness-2` (the `aborted` flag, the per-board view save, the worker's stale handlers and failed load, the delayed revoke; the SVG now carries the colours instead of a note). The SVG download from the drawing worker's callback was checked in WebKit and Firefox: <result>.` — with `<result>` replaced by what Step 1 found.
 - In item 4 (parity gaps), change `SVG colours (and `pad` and highlight in the SVG)` to `colour flags in the CLI and `pad` in the SVG`.
+- In the status table, change the row `| Gap 7: SVG colours | open | Same as the LOW correctness finding |` to `| Gap 7: SVG colours | fixed on `lab/correctness-2` | Points and `pad` in the SVG, and CLI colour flags, remain |`.
 - In the parity table row "SVG with theme / palette / paper / ink / points", add at the end of its last cell: ` Fixed on `lab/correctness-2`: `SvgOptions` carries the colours; points and `pad` remain.`
 - Under each of the five Correctness findings (`Editing a stored board's view clears its aborted flag`, `A pending view save for board A is dropped`, `SVG export silently drops a custom palette`, `The generator worker's handlers`, `Downloads revoke the object URL synchronously`), add one line: `**Status:** fixed on `lab/correctness-2`.`
 
