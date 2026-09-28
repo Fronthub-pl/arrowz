@@ -21,7 +21,7 @@ import {
   toSvg,
   validateParams,
 } from '@arrowz/engine'
-import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation } from '@arrowz/engine/command'
+import { buildCommand, COMMAND_PREFIX, DEFAULT_VIEW, flagViolation, svgOptions } from '@arrowz/engine/command'
 import { defaultChoice, exportCell, simpleParams, simpleRanges } from '@arrowz/engine/simple'
 import type { BoardMeta, ParamKey, Params, SimpleChoice, View } from '@arrowz/engine'
 
@@ -100,7 +100,7 @@ Deno.test('carve.ts --svg reproduces the generate() board byte for byte', async 
   const dir = tmp()
   const params = { ...defaultParams(), W: 25, H: 50, seed: 7, anticoil: 3, giants: 2 }
   const view = { cell: 10, stroke: 0.5, colored: true, top: 3 }
-  const expected = toSvg(generate(params).board, { cell: 10, colored: true, strokeRatio: 0.5, top: 3 })
+  const expected = toSvg(generate(params).board, svgOptions({ ...DEFAULT_VIEW, ...view }))
 
   const cmd = buildCommand(params, view)
   const r = runCarve([...argvOf(cmd), '--svg'], dir)

@@ -263,6 +263,20 @@ export interface View {
   colored: boolean
   top: number
   rounded: boolean
+  /** A name from `THEMES`; '' is none. */
+  theme: string
+  /** Arrow colours while `colored` is on; empty lets the theme's palette show. */
+  palette: string[]
+  /** '' is "not stated": the theme, or the default, decides. */
+  paper: string
+  ink: string
+  highlight: string
+  /** Margin in whole cells. */
+  pad: number
+  showPoints: boolean
+  pointColor: string
+  /** In cells. */
+  pointRadius: number
 }
 
 export type Range = { lo: number; hi: number; def: number } | { pick: readonly number[]; def: number }

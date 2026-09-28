@@ -57,7 +57,16 @@ Deno.test('buildCommand: default params give the size and the seed alone', () =>
 
 Deno.test('buildCommand <-> parseArgs: round trip for changed knobs and view', () => {
   const p = { ...defaultParams(), W: 100, H: 200, seed: 42, anticoil: 3, giants: 4, headBias: -1, wShort: 0.5 }
-  const v = { cell: 7, stroke: 0.4, headWidth: 0.8, headHeight: 1.2, colored: true, top: 5, rounded: true }
+  const v = {
+    ...DEFAULT_VIEW,
+    cell: 7,
+    stroke: 0.4,
+    headWidth: 0.8,
+    headHeight: 1.2,
+    colored: true,
+    top: 5,
+    rounded: true,
+  }
   const cmd = buildCommand(p, v)
   assertMatch(cmd, /--anticoil=3 /)
   assertMatch(cmd, /--start=layers /)
@@ -240,6 +249,7 @@ Deno.test('parseArgs: the picture flags are hyphenated and carry the CLI names',
   ])
   assertEquals(r.errors, [])
   assertEquals(r.view, {
+    ...DEFAULT_VIEW,
     cell: exportCell(40, 40),
     stroke: 0.3,
     headWidth: 0.8,

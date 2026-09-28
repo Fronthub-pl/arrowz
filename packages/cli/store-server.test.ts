@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertMatch } from '@std/assert'
 import { dirname } from '@std/path'
 import { defaultParams, encodeBoard } from '@arrowz/engine'
-import { COMMAND_PREFIX } from '@arrowz/engine/command'
+import { COMMAND_PREFIX, DEFAULT_VIEW } from '@arrowz/engine/command'
 import { API_CSP, createStoreServer, MAX_BODY, STORE_CSP } from './store-server.ts'
 import { saveBoard } from './store.ts'
 import type { BoardMeta, BoardSize } from '@arrowz/engine'
@@ -57,7 +57,16 @@ Deno.test('a preview saved by the CLI is served from the store as SVG', () =>
       board: emptyFile(10, 10),
       svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 10, H: 10, seed: 5 },
-      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
+      view: {
+        ...DEFAULT_VIEW,
+        cell: 12,
+        stroke: 0.5,
+        headWidth: 0,
+        headHeight: 1,
+        colored: false,
+        top: 0,
+        rounded: true,
+      },
       command: 'x',
       source: 'cli',
     })
@@ -226,7 +235,16 @@ Deno.test('stored files are served without cache; paths escaping the store are r
       // `rounded` is required by `View` (`types.ts`). The POST-body tests in
       // this file omit it because their body crosses as `unknown`; a typed
       // `saveBoard` call does not get that licence and fails `deno check`.
-      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 0, colored: false, top: 0, rounded: false },
+      view: {
+        ...DEFAULT_VIEW,
+        cell: 12,
+        stroke: 0.5,
+        headWidth: 0,
+        headHeight: 0,
+        colored: false,
+        top: 0,
+        rounded: false,
+      },
       command: 'x',
       source: 'cli',
     })
@@ -338,7 +356,16 @@ Deno.test('only the store is served, with security headers', () =>
       board: emptyFile(10, 10),
       svg: '<svg>x</svg>',
       params: { ...defaultParams(), W: 10, H: 10, seed: 6 },
-      view: { cell: 12, stroke: 0.5, headWidth: 0, headHeight: 1, colored: false, top: 0, rounded: true },
+      view: {
+        ...DEFAULT_VIEW,
+        cell: 12,
+        stroke: 0.5,
+        headWidth: 0,
+        headHeight: 1,
+        colored: false,
+        top: 0,
+        rounded: true,
+      },
       command: 'x',
       source: 'cli',
     })

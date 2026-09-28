@@ -34,6 +34,8 @@ import {
 } from './engine.ts'
 import { DEFAULT_HEAD_HEIGHT, DEFAULT_ROUNDED } from './geometry.ts'
 import { defaultChoice, exportCell, simpleParams } from './lab-simple.ts'
+import { DEFAULT_PAD, DEFAULT_POINT_COLOR, DEFAULT_POINT_RADIUS, DEFAULT_SHOW_POINTS, resolveColours } from './look.ts'
+import type { BoardColours } from './look.ts'
 
 /** How the CLI is invoked from anywhere inside the repository; the lab prints it and the store records it. */
 export const COMMAND_PREFIX = 'deno task carve'
@@ -237,6 +239,15 @@ export const DEFAULT_VIEW: View = {
   colored: false,
   top: 0,
   rounded: DEFAULT_ROUNDED,
+  theme: '',
+  palette: [],
+  paper: '',
+  ink: '',
+  highlight: '',
+  pad: DEFAULT_PAD,
+  showPoints: DEFAULT_SHOW_POINTS,
+  pointColor: DEFAULT_POINT_COLOR,
+  pointRadius: DEFAULT_POINT_RADIUS,
 }
 
 /**
@@ -247,9 +258,18 @@ export const DEFAULT_VIEW: View = {
  * site is how `--sharp` and the lab's rounding checkbox came to be parsed,
  * printed and stored while the drawing never changed: a field added to `View`
  * was silently dropped on the way to `toSvg`. `voids` has no home in a view,
- * so callers that need it spread it over the result.
+ * so callers that need it spread it over the result. The look is resolved
+ * here too: the theme under the stated colours, as the element resolves it.
  */
 export function svgOptions(view: View): SvgOptions {
+  // An empty field is "not stated"; passed on, it would beat the theme.
+  const stated: Partial<BoardColours> = {
+    ...(view.paper === '' ? {} : { paper: view.paper }),
+    ...(view.ink === '' ? {} : { ink: view.ink }),
+    ...(view.highlight === '' ? {} : { highlight: view.highlight }),
+    ...(view.palette.length === 0 ? {} : { palette: view.palette }),
+  }
+  const colours = resolveColours(view.theme, stated)
   return {
     cell: view.cell,
     colored: view.colored,
@@ -258,6 +278,12 @@ export function svgOptions(view: View): SvgOptions {
     headHeight: view.headHeight,
     top: view.top,
     rounded: view.rounded,
+    paper: colours.paper,
+    ink: colours.ink,
+    highlight: colours.highlight,
+    palette: colours.palette,
+    pad: view.pad,
+    ...(view.showPoints ? { points: { color: view.pointColor, radius: view.pointRadius } } : {}),
   }
 }
 
