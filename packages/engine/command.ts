@@ -115,25 +115,43 @@ export function startChoiceOf(params: Params): StartChoice {
   return 'random'
 }
 
+/** A retired flag: the CLI's hint, the spellings that replace it, and which prose hint it is. */
+interface Retired {
+  hint: string
+  use: string[]
+  why: RetiredWhy | null
+}
 /** Spellings that were dropped, and what to use instead; each is refused by name. */
-const RETIRED: Record<string, string> = {
-  advanced: 'the CLI has one mode now; drop --advanced',
-  board: 'a board file is always written; drop --board',
-  straight: 'use --winding=R (0 = straightest) or the knob --pstraight=R',
-  stroke: 'use --line=R',
-  lineweight: 'use --line=R',
-  headwidth: 'use --arrow-width=R',
-  arrowwidth: 'use --arrow-width=R',
-  headheight: 'use --arrow-height=R',
-  arrowheight: 'use --arrow-height=R',
-  colorized: 'use --colored',
-  w: 'use --width=N',
-  h: 'use --height=N',
-  lateral: 'use --wlateral=R',
-  absorb: 'use --absorblimit=N',
-  giantspacepen: 'the spacing strength is fixed now; use --giantspacing=off|2|3',
-  headbias: 'use --start=layers|random|tunnels',
-  mix: `use --start=${MIX_SHARE.min}..${MIX_SHARE.max} (or layers|random|tunnels to turn mixing off)`,
+const RETIRED: Record<string, Retired> = {
+  advanced: { hint: 'the CLI has one mode now; drop --advanced', use: [], why: 'oneMode' },
+  board: { hint: 'a board file is always written; drop --board', use: [], why: 'boardAlways' },
+  straight: {
+    hint: 'use --winding=R (0 = straightest) or the knob --pstraight=R',
+    use: ['--winding', '--pstraight'],
+    why: null,
+  },
+  stroke: { hint: 'use --line=R', use: ['--line'], why: null },
+  lineweight: { hint: 'use --line=R', use: ['--line'], why: null },
+  headwidth: { hint: 'use --arrow-width=R', use: ['--arrow-width'], why: null },
+  arrowwidth: { hint: 'use --arrow-width=R', use: ['--arrow-width'], why: null },
+  headheight: { hint: 'use --arrow-height=R', use: ['--arrow-height'], why: null },
+  arrowheight: { hint: 'use --arrow-height=R', use: ['--arrow-height'], why: null },
+  colorized: { hint: 'use --colored', use: ['--colored'], why: null },
+  w: { hint: 'use --width=N', use: ['--width'], why: null },
+  h: { hint: 'use --height=N', use: ['--height'], why: null },
+  lateral: { hint: 'use --wlateral=R', use: ['--wlateral'], why: null },
+  absorb: { hint: 'use --absorblimit=N', use: ['--absorblimit'], why: null },
+  giantspacepen: {
+    hint: 'the spacing strength is fixed now; use --giantspacing=off|2|3',
+    use: ['--giantspacing'],
+    why: 'spacingFixed',
+  },
+  headbias: { hint: 'use --start=layers|random|tunnels', use: ['--start'], why: null },
+  mix: {
+    hint: `use --start=${MIX_SHARE.min}..${MIX_SHARE.max} (or layers|random|tunnels to turn mixing off)`,
+    use: ['--start'],
+    why: null,
+  },
 }
 
 // The size and the seed are knobs in PARAM_SPEC (they are stored and hashed),
@@ -613,6 +631,60 @@ export function storeRequest(
   return metrics === undefined ? req : { ...req, metrics }
 }
 
+/** Which prose hint a retired flag's replacement carries, for a translator that cannot parse English. */
+export type RetiredWhy = 'oneMode' | 'boardAlways' | 'spacingFixed'
+
+/** A refusal the parser can report, typed instead of a fixed English sentence; `problemText` is the CLI's wording of it. */
+export type ArgProblem =
+  | { kind: 'noValue'; arg: string }
+  | { kind: 'unexpectedArgument'; arg: string }
+  | { kind: 'retired'; arg: string; name: string; hint: string; use: string[]; why: RetiredWhy | null }
+  | { kind: 'notStart'; arg: string; words: string[]; min: number; max: number }
+  | { kind: 'outside'; arg: string; min: number; max: number }
+  | { kind: 'notNumber'; arg: string; words: string[] }
+  | { kind: 'notWhole'; arg: string }
+  | { kind: 'notTheme'; arg: string; themes: string[] }
+  | { kind: 'notColour'; arg: string }
+  | { kind: 'notColourList'; arg: string }
+  | { kind: 'paletteTooLong'; arg: string; cap: number }
+  | { kind: 'unknownFlag'; arg: string; name: string }
+  | { kind: 'missing'; arg: string; name: string }
+  | { kind: 'unclosedQuote'; arg: string }
+
+/** The English sentence the CLI prints for a problem; the lab words the same problem from its dictionary. */
+export function problemText(p: ArgProblem): string {
+  switch (p.kind) {
+    case 'noValue':
+      return `${p.arg} takes no value`
+    case 'unexpectedArgument':
+      return `unexpected argument: ${p.arg}`
+    case 'retired':
+      return `--${p.name} is gone: ${p.hint}`
+    case 'notStart':
+      return `${p.arg} is not ${p.words.join(', ')} and not a number in ${p.min}..${p.max}`
+    case 'outside':
+      return `${p.arg} is outside ${p.min}..${p.max}`
+    case 'notNumber':
+      return `${p.arg} is not a number${p.words.length ? ` and not ${p.words.join(' or ')}` : ''}`
+    case 'notWhole':
+      return `${p.arg} is not a whole number`
+    case 'notTheme':
+      return `${p.arg} is not a theme: ${p.themes.join(', ')}`
+    case 'notColour':
+      return `${p.arg} is not a #rrggbb colour`
+    case 'notColourList':
+      return `${p.arg} is not a list of #rrggbb colours`
+    case 'paletteTooLong':
+      return `${p.arg} has more than ${p.cap} colours`
+    case 'unknownFlag':
+      return `unknown flag --${p.name}`
+    case 'missing':
+      return `missing --${p.name}`
+    case 'unclosedQuote':
+      return `a quote is not closed: ${p.arg}`
+  }
+}
+
 /** What one call of the CLI asked for: the everyday choice, the knobs it pinned, the view and the modes. */
 export interface ParsedArgs {
   params: Params
@@ -622,6 +694,8 @@ export interface ParsedArgs {
   choice: SimpleChoice & { random: boolean }
   rest: string[]
   errors: string[]
+  /** Every refusal, typed; `errors` is these as the CLI's sentences. */
+  problems: ArgProblem[]
 }
 
 /** Where an everyday number lands in the choice. */
@@ -744,7 +818,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   const pins: ParamKey[] = []
   const pinned: Partial<Record<ParamKey, number>> = {}
   const rest: string[] = []
-  const errors: string[] = []
+  const problems: ArgProblem[] = []
   const seen = new Set<string>()
   const pin = (key: ParamKey, value: number) => {
     if (!pins.includes(key)) pins.push(key)
@@ -755,7 +829,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
   // colours. Refused by name instead.
   const switchOn = (a: string, raw: string | null): boolean => {
     if (raw === null) return true
-    errors.push(`${a} takes no value`)
+    problems.push({ kind: 'noValue', arg: a })
     return false
   }
   for (const a of argv) {
@@ -767,7 +841,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     // A token that is not a flag used to go into rest, where no mode reader
     // ever looked at it: silently ignored input, which is what exit 2 is for.
     if (!a.startsWith('--')) {
-      errors.push(`unexpected argument: ${a}`)
+      problems.push({ kind: 'unexpectedArgument', arg: a })
       continue
     }
     const eq = a.indexOf('=')
@@ -776,7 +850,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     seen.add(name) // given, even if the value is bad: that is its own error
     const retired = own(RETIRED, name)
     if (retired !== undefined) {
-      errors.push(`--${name} is gone: ${retired}`)
+      problems.push({ kind: 'retired', arg: a, name, hint: retired.hint, use: retired.use, why: retired.why })
       continue
     }
     if (MODE_FLAGS.has(name)) {
@@ -790,14 +864,19 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
         pin('mix', word.mix)
         continue
       }
-      const share = `${START.mix.min}..${START.mix.max}`
       const n = numberOf(raw)
       if (n === null) {
-        errors.push(`${a} is not ${Object.keys(START.words).join(', ')} and not a number in ${share}`)
+        problems.push({
+          kind: 'notStart',
+          arg: a,
+          words: Object.keys(START.words),
+          min: START.mix.min,
+          max: START.mix.max,
+        })
         continue
       }
       if (n < START.mix.min || n > START.mix.max) {
-        errors.push(`${a} is outside ${share}`)
+        problems.push({ kind: 'outside', arg: a, min: START.mix.min, max: START.mix.max })
         continue
       }
       // Mixing on: the share is the number, and where a piece starts is left
@@ -818,11 +897,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     if (field) {
       const n = numberOf(raw)
       if (n === null) {
-        errors.push(`${a} is not a number`)
+        problems.push({ kind: 'notNumber', arg: a, words: [] })
         continue
       }
       if (SLIDERS.has(name) && (n < 0 || n > 1)) {
-        errors.push(`${a} is outside 0..1`)
+        problems.push({ kind: 'outside', arg: a, min: 0, max: 1 })
         continue
       }
       // The size is a knob, and normalizeChoice rounds and clamps it for the
@@ -833,11 +912,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       if (sizeKey) {
         const s = specOf(sizeKey)
         if (!Number.isInteger(n)) {
-          errors.push(`${a} is not a whole number`)
+          problems.push({ kind: 'notWhole', arg: a })
           continue
         }
         if (n < s.min || n > s.max) {
-          errors.push(`${a} is outside ${s.min}..${s.max}`)
+          problems.push({ kind: 'outside', arg: a, min: s.min, max: s.max })
           continue
         }
       }
@@ -849,8 +928,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       const word = raw === null ? null : wordValue(key, raw)
       const n = word ?? numberOf(raw)
       if (n === null) {
-        const words = wordsOf(key)
-        errors.push(`${a} is not a number${words.length ? ` and not ${words.join(' or ')}` : ''}`)
+        problems.push({ kind: 'notNumber', arg: a, words: wordsOf(key) })
         continue
       }
       pin(key, n)
@@ -870,7 +948,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     }
     if (name === 'theme') {
       if (raw === null || themeOf(raw) === null) {
-        errors.push(`${a} is not a theme: ${Object.keys(THEMES).join(', ')}`)
+        problems.push({ kind: 'notTheme', arg: a, themes: Object.keys(THEMES) })
         continue
       }
       view.theme = raw
@@ -879,7 +957,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     const colour = COLOUR_FLAG.get(name)
     if (colour) {
       if (!isHexColour(raw)) {
-        errors.push(`${a} is not a #rrggbb colour`)
+        problems.push({ kind: 'notColour', arg: a })
         continue
       }
       view[colour] = raw.toLowerCase()
@@ -888,11 +966,11 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     if (name === 'palette') {
       const list = raw === null ? [] : raw.split(',')
       if (list.length === 0 || !list.every(isHexColour)) {
-        errors.push(`${a} is not a list of #rrggbb colours`)
+        problems.push({ kind: 'notColourList', arg: a })
         continue
       }
       if (list.length > PALETTE_CAP) {
-        errors.push(`${a} has more than ${PALETTE_CAP} colours`)
+        problems.push({ kind: 'paletteTooLong', arg: a, cap: PALETTE_CAP })
         continue
       }
       view.palette = list.map((c) => c.toLowerCase())
@@ -902,15 +980,15 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     if (look) {
       const n = numberOf(raw)
       if (n === null) {
-        errors.push(`${a} is not a number`)
+        problems.push({ kind: 'notNumber', arg: a, words: [] })
         continue
       }
       if (look.whole && !Number.isInteger(n)) {
-        errors.push(`${a} is not a whole number`)
+        problems.push({ kind: 'notWhole', arg: a })
         continue
       }
       if (n < look.range.min || n > look.range.max) {
-        errors.push(`${a} is outside ${look.range.min}..${look.range.max}`)
+        problems.push({ kind: 'outside', arg: a, min: look.range.min, max: look.range.max })
         continue
       }
       view[look.field] = n
@@ -923,29 +1001,40 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
       // the pair live here — the word read in, the word printed by helpText.
       const n = name === 'arrow-width' && raw === 'auto' ? DEFAULT_VIEW.headWidth : numberOf(raw)
       if (n === null) {
-        errors.push(`${a} is not a number`)
+        problems.push({ kind: 'notNumber', arg: a, words: [] })
         continue
       }
       const r = VIEW_RANGE[field2]
       if (r.whole && !Number.isInteger(n)) {
-        errors.push(`${a} is not a whole number`)
+        problems.push({ kind: 'notWhole', arg: a })
         continue
       }
       if (n < r.min || n > r.max) {
-        errors.push(`${a} is outside ${r.min}..${r.max}`)
+        problems.push({ kind: 'outside', arg: a, min: r.min, max: r.max })
         continue
       }
       view[field2] = n
       continue
     }
-    errors.push(`unknown flag --${name}`)
+    problems.push({ kind: 'unknownFlag', arg: a, name })
   }
-  const missing = ['width', 'height'].filter((name) => !seen.has(name)).map((name) => `missing --${name}`)
+  const missing: ArgProblem[] = ['width', 'height']
+    .filter((name) => !seen.has(name))
+    .map((name): ArgProblem => ({ kind: 'missing', arg: `--${name}`, name }))
   // The picture is drawn to a fixed size unless the caller asked for a cell.
   if (!seen.has('cell') && Number.isFinite(choice.W) && Number.isFinite(choice.H)) {
     view.cell = exportCell(choice.W, choice.H)
   }
-  return { params: simpleParams(choice, null, pinned), view, pins, choice, rest, errors: [...missing, ...errors] }
+  const all = [...missing, ...problems]
+  return {
+    params: simpleParams(choice, null, pinned),
+    view,
+    pins,
+    choice,
+    rest,
+    problems: all,
+    errors: all.map(problemText),
+  }
 }
 
 /**
