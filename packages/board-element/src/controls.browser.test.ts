@@ -312,6 +312,18 @@ describe('state on host controls', () => {
     expect(moved.hidden).toBe(true)
   })
 
+  test('a control added while the board is detached gets its state on connect', async () => {
+    await mount({ 'enable-colors': '' }, '<div slot="controls" id="bar"></div>')
+    el.remove()
+    const added = document.createElement('button')
+    added.setAttribute('data-board-action', 'gestures')
+    light('#bar').append(added)
+    document.body.append(el)
+    await raf()
+    expect(added.hidden).toBe(true)
+    expect(added.getAttribute('aria-pressed')).toBe('false')
+  })
+
   test('preventDefault on colored-change works the same from a host control', async () => {
     await mount({ 'enable-colors': '' }, '<button slot="colors" data-board-action="colors" id="c">C</button>')
     el.addEventListener('colored-change', (e) => e.preventDefault())

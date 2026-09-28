@@ -356,6 +356,8 @@ export class ArrowzBoard extends LitElement implements GameTarget {
       attributes: true,
       attributeFilter: ['data-board-action', 'slot'],
     })
+    // Controls added while the board was detached reached no observer.
+    this.syncActions()
   }
 
   /**
