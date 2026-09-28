@@ -45,3 +45,13 @@ Deno.test('a colour is escaped before it goes into an attribute', () => {
   const svg = toSvg(board, { paper: 'a"b<c&' })
   assertStringIncludes(svg, 'fill="a&quot;b&lt;c&amp;"')
 })
+
+// Void strips mark cells the generator gave up on; clearing one by hand reaches
+// the same branch svg-golden.ts's 'voids-strips' case does.
+Deno.test('void strips take the highlight colour', () => {
+  const r = generate({ ...defaultParams(), W: 12, H: 12, seed: 4 }, { unchecked: true, voidFrac: 0.1 })
+  r.board.owner[0] = -1
+  r.board.owner[1] = -1
+  const svg = toSvg(r.board, { voids: true, highlight: '#303030' })
+  assertStringIncludes(svg, '<g fill="#303030" fill-opacity=".22">')
+})

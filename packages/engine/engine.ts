@@ -2295,14 +2295,6 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
     `<rect width="${w}" height="${h}" fill="${attr(opts.paper ?? '#f6f6fa')}"/>`,
   ]
 
-  // Jam preview: cells the generator failed to carve, as horizontal strips.
-  if (voids && board.owner) {
-    const rects = voidStrips(board).map((s) =>
-      `<rect x="${pad + s.x * cell}" y="${pad + s.y * cell}" width="${s.len * cell}" height="${cell}"/>`
-    )
-    if (rects.length) out.push(`<g fill="#e8467c" fill-opacity=".22">${rects.join('')}</g>`)
-  }
-
   // Lines end flat: the head end hides under the head, and the tail is capped
   // by a shape drawn with the heads — a disc of the line's radius when
   // `rounded`, a square of the same reach when not. The corners follow the
@@ -2311,6 +2303,16 @@ function toSvg(board: BoardData, opts: SvgOptions = {}): string {
   // 1000×1000 board has ~90 000 pieces).
   const INK = attr(opts.ink ?? '#232447')
   const HIGHLIGHT = attr(opts.highlight ?? '#e8467c')
+
+  // Jam preview: cells the generator failed to carve, as horizontal strips,
+  // drawn in the highlight (they mark the same trouble the highlighted pieces do).
+  if (voids && board.owner) {
+    const rects = voidStrips(board).map((s) =>
+      `<rect x="${pad + s.x * cell}" y="${pad + s.y * cell}" width="${s.len * cell}" height="${cell}"/>`
+    )
+    if (rects.length) out.push(`<g fill="${HIGHLIGHT}" fill-opacity=".22">${rects.join('')}</g>`)
+  }
+
   // Only while colours are on, as on the element.
   const palette = colored ? (opts.palette ?? []).map(attr) : []
   const assign = palette.length > 0 ? assignPalette(board, palette.length) : null
