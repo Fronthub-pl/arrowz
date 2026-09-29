@@ -53,9 +53,8 @@ export function TopBar({ presets }: { presets: ReactNode }) {
           type="button"
           id={TRIGGER_ID}
           aria-label={dict.t('cmdOpen')}
-          // Toggles, like ⌘K itself: a button that only ever opened would be a
-          // button that cannot close what it opened. The dialog's own
-          // outside-press listener leaves this element alone for that reason.
+          // Toggles, like ⌘K itself. While the palette is open its scrim covers
+          // this button, so a press here lands on the scrim and closes it.
           onClick={() => {
             const ui = useStore.getState().ui
             ui.setMenu(false)

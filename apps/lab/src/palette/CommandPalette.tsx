@@ -99,9 +99,6 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
         if (event.target !== inputRef.current) event.preventDefault()
         return
       }
-      // Not the trigger: it toggles on *click*, so a close on `mousedown` would
-      // leave that click to find the palette shut and open it again.
-      if (document.getElementById(TRIGGER_ID)?.contains(event.target) === true) return
       useStore.getState().ui.closePalette()
     }
     document.addEventListener('mousedown', onDown)
