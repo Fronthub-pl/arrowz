@@ -79,6 +79,17 @@ test('an answer that arrives after the cancel writes nothing', async () => {
   expect(state().library.boardError).toBeNull()
 })
 
+test('a failed answer that arrives after the cancel writes nothing', async () => {
+  const io = manualRead()
+  showStored(second)
+  const cancel = openStoredBoard(at(first.meta.id), sizes(), io.read)
+  cancel()
+  await io.answer(first.meta.id, { ok: false, error: 'HTTP 500' })
+  expect(state().library.boardError).toBeNull()
+  expect(shownId()).toBe(second.meta.id)
+  expect(state().library.notice).toEqual({ kind: 'loading', name: `8x8/${first.meta.id}` })
+})
+
 test('back to the drawn board while another loads: no loading word, no second read, and a viewSaved survives', async () => {
   const io = manualRead()
   openStoredBoard(at(first.meta.id), sizes(), io.read)
@@ -93,6 +104,8 @@ test('back to the drawn board while another loads: no loading word, no second re
   openStoredBoard(at(first.meta.id), sizes(), io.read)
   expect(state().library.notice).toEqual({ kind: 'viewSaved', name: `8x8/${first.meta.id}` })
   expect(io.asked).toEqual([first.meta.id, second.meta.id])
+  await io.answer(second.meta.id, { ok: true, file: second.file })
+  expect(shownId()).toBe(first.meta.id)
 })
 
 test('waits for the listing before judging an id', () => {

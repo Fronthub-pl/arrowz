@@ -46,7 +46,7 @@ export function nextIndex(
  * elsewhere must not pull the focus in. Only on a change: an inline ref
  * callback would refocus on every render.
  */
-export function useFocusFollowsSelection<T>(selection: T): RefObject<HTMLButtonElement | null> {
+export function useFocusFollowsSelection(selection: string | number | null): RefObject<HTMLButtonElement | null> {
   const ref = useRef<HTMLButtonElement>(null)
   useLayoutEffect(() => {
     const node = ref.current
