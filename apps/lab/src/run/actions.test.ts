@@ -97,4 +97,22 @@ describe('the run actions, which the column and the palette share', () => {
     reseed(control)
     expect(useStore.getState().params.edits).toBe(before)
   })
+
+  // control.start() already refuses during a series, but only after these two
+  // have rewritten the knobs; a series' own seed must survive [ / ] and a preset.
+  it('refuses stepSeed and applyPreset during a series, leaving the knobs untouched', () => {
+    const control = fakeControl()
+    useStore.getState().params.setMany({ seed: 100 })
+    useStore.getState().series.started(useStore.getState().params.values, 4)
+    stepSeed(control, 1)
+    expect(useStore.getState().params.values.seed).toBe(100)
+    expect(control.started).toBe(0)
+    const before = useStore.getState().params.values.W
+    const option = PRESETS[0]?.options[0]
+    if (option === undefined) throw new Error('PRESETS has no first option')
+    applyPreset(control, option.params)
+    expect(useStore.getState().params.values.W).toBe(before)
+    expect(control.started).toBe(0)
+    useStore.getState().series.reset()
+  })
 })

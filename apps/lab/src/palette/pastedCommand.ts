@@ -91,19 +91,22 @@ export function pastedRow(deps: CommandDeps, query: string): PastedRow {
   const { W, H, seed } = parsed.params
   const board = dict.t('boardAnnotation', W, H, seed)
   const ok = problems.length === 0
+  const running = useStore.getState().series.phase === 'running'
   return {
     command: {
       id: 'load-command',
       section: 'run',
       name: dict.t('cmdLoad'),
       note: parsed.rest.length > 0 ? dict.t('cmdIgnored', parsed.rest.join(' ')) : dict.t('cmdLoadNote'),
-      value: ok
-        ? parsed.choice.random
-          ? `${board} · ${dict.t('cmdDrawn')}`
-          : board
-        : dict.t('cmdProblems', problems.length),
+      value: running
+        ? dict.t('cmdRunning')
+        : ok
+          ? parsed.choice.random
+            ? `${board} · ${dict.t('cmdDrawn')}`
+            : board
+          : dict.t('cmdProblems', problems.length),
       hay: query,
-      disabled: !ok,
+      disabled: !ok || running,
       run: () => loadCommand(deps, parsed),
     },
     problems: problems.map((p) => problemWords(dict, p)),
@@ -116,7 +119,9 @@ export function pastedRow(deps: CommandDeps, query: string): PastedRow {
  * randomise on, `generate` would draw over the pins just set.
  */
 export function loadCommand(deps: CommandDeps, parsed: ParsedArgs): void {
-  const { params, view, recipe, ui } = useStore.getState()
+  const { params, view, recipe, ui, series } = useStore.getState()
+  // The row is disabled while a series runs, but a hotkey or a stale row must not rewrite it either.
+  if (series.phase === 'running') return
   ui.raiseClamped(params.setMany(drawOf(parsed, Math.random).params))
   view.apply(viewFieldsOf(parsed.view))
   const { seed: _seed, ...choice } = parsed.choice

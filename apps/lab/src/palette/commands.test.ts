@@ -177,6 +177,22 @@ describe('the catalogue', () => {
     expect(rows[0]?.note.length).toBeGreaterThan(0)
   })
 
+  // A preset row's `run` writes every knob before `applyPreset` refuses the run,
+  // so it must be disabled while a series checks the ones on screen.
+  it('disables every preset row during a series, with the reason other rows give', () => {
+    useStore.getState().series.started(useStore.getState().params.values, 4)
+    try {
+      const rows = buildCommands(deps(), useStore.getState()).filter((row) => row.section === 'preset')
+      expect(rows.length).toBeGreaterThan(0)
+      for (const row of rows) {
+        expect(row.disabled, row.id).toBe(true)
+        expect(row.value, row.id).toBe(dictionary('en').t('cmdRunning'))
+      }
+    } finally {
+      useStore.getState().series.reset()
+    }
+  })
+
   it('reaches every colour and element field of the Preview panel, in its order', () => {
     const ids = buildCommands(deps(), useStore.getState())
       .filter((row) => row.section === 'knob')
