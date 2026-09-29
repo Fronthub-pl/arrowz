@@ -41,10 +41,9 @@ four; four such workers hold on the order of 1–1.5 GB. Hence the cap below.
 
 - `WorkerIn` gains `{ type: 'seed'; params: Params; stop?: Int32Array }`: one
   seed, one answer, no board file.
-- `WorkerOut` gains
-  `{ type: 'seedDone'; seed: number; outcome: SeedOutcome; pieces: number;
-  maxLen: number | null; genMs: number; remaining: number }`
-  with `SeedOutcome = 'complete' | 'incomplete' | 'unsolvable' | 'stopped'`,
+- `WorkerOut` gains `{ type: 'seedDone'; run: SeedRun }`, where `SeedRun =
+  { seed: number; outcome: SeedOutcome; pieces: number; maxLen: number | null;
+  genMs: number; remaining: number }` and `SeedOutcome = 'complete' | 'incomplete' | 'unsolvable' | 'stopped'`,
   from `GenerateResult`, in this order: `aborted` → stopped; `deadlock` →
   unsolvable (a full board that cannot be solved, a generator bug; `generate`
   reports it with `ok: false` and `stuck: null`); `ok` → complete; otherwise
@@ -88,9 +87,10 @@ anywhere; a reload forgets it.
 
 ## What the page shows
 
-- Run column (advanced view), under New seed / Defaults / Abort: a row
-  "Check seeds" with a number field (default 20, 2–200). While a series runs the
-  button is the meter, "Checking 7/20", as Generate is during a run.
+- Run column (advanced view): a "Check seeds" row in the "…" menu (MoreMenu),
+  with a number field (default 20, 2–200). Shown inline on wide screens, in the
+  "…" popover on narrow ones. While a series runs the button is the meter,
+  "Checking 7/20", as Generate is during a run.
 - ⌘K: a row "Check seeds" that starts a series with the field's count.
 - Report drawer: a section "Seeds" above the board's report, while a result
   exists:
@@ -103,8 +103,9 @@ anywhere; a reload forgets it.
     (`control.start()`), so the stage shows where it got stuck.
 - When the knobs on screen differ from the series' `params`, the section stays
   and carries "for other settings" beside its title.
-- The status line: "Checking seeds: 7 of 20…" while running, returns to the board's
-  status after; the counts and outcomes stay in the Seeds section's first line.
+- The status line: "Checking seeds: 7 of 20…" while running; "Stopping the seeds…"
+  while a first Stop is pending; returns to the board's status after; the counts
+  and outcomes stay in the Seeds section's first line.
 - Every string in `lab-i18n.ts`, EN and PL, passing `glossary.test.ts` (no
   "close(d)", "jam", "piece(s)" in English).
 
