@@ -80,3 +80,38 @@ test('a failed seed button is disabled while its series is still running', async
   await userEvent.click(button, { force: true })
   expect(control.start).not.toHaveBeenCalled()
 })
+
+test('the mean time carries its unit', async () => {
+  seriesDone()
+  await render(<SeriesSection control={control} />)
+  await expect.element(page.getByText('0 s')).toBeVisible()
+})
+
+test('an unsolvable seed drops the cells-left clause', async () => {
+  const s = useStore.getState().series
+  s.started({ ...defaultParams(), seed: 10 }, 1)
+  s.answered({ seed: 20, outcome: 'unsolvable', pieces: 5, maxLen: 5, genMs: 1, remaining: 0 })
+  s.finished()
+  await render(<SeriesSection control={control} />)
+  await expect.element(page.getByText('seed 20 — unsolvable')).toBeVisible()
+})
+
+test('one cell left is worded in the singular', async () => {
+  const s = useStore.getState().series
+  s.started({ ...defaultParams(), seed: 10 }, 1)
+  s.answered({ seed: 21, outcome: 'incomplete', pieces: 5, maxLen: 5, genMs: 1, remaining: 1 })
+  s.finished()
+  await render(<SeriesSection control={control} />)
+  await expect.element(page.getByText('seed 21 — incomplete, 1 cell left')).toBeVisible()
+})
+
+// Two of two so far read complete; the tone still says nothing until the series is done.
+test('the head line carries no tone while the series still runs', async () => {
+  const s = useStore.getState().series
+  s.started({ ...defaultParams(), seed: 10 }, 2)
+  s.answered(runs[0] as SeedRun)
+  const screen = await render(<SeriesSection control={control} />)
+  const head = screen.getByText('Complete on 1 of 1 · incomplete 0 · unsolvable 0 · stopped 0')
+  await expect.element(head).toBeVisible()
+  expect(head.element().className).toBe('fw-series-head')
+})

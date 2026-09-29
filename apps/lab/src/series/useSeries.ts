@@ -60,7 +60,7 @@ export function useSeries(): SeriesHandle {
         for (let i = 0; i < size; i++) {
           const worker = new Worker(new URL('../worker/generate.worker.ts', import.meta.url), { type: 'module' })
           worker.onmessage = (event: MessageEvent<WorkerOut>) => {
-            // A terminated pool's message can still be queued; it belongs to no series now.
+            // The same stale-message race as `useGenerator`'s terminated worker.
             if (pool.current !== made) return
             const message = event.data
             if (message.type === 'seedDone') {

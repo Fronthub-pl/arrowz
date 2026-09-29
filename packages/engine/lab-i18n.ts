@@ -597,7 +597,10 @@ export const EN = {
     seriesMeanTime: 'time, mean',
     seriesMean_help:
       'Averaged over the complete seeds only: an incomplete board would pull the numbers towards a board nobody plays.',
-    seriesFailed: (seed: number, outcome: string, left: number) => `seed ${seed} — ${outcome}, ${left} cells left`,
+    seriesFailed: (seed: number, outcome: string, left: number) =>
+      `seed ${seed} — ${outcome}, ${left} ${left === 1 ? 'cell' : 'cells'} left`,
+    // Unsolvable always leaves the board full, so a cell count would say nothing.
+    seriesFailedUnsolvable: (seed: number) => `seed ${seed} — unsolvable`,
     seriesOutcome_incomplete: 'incomplete',
     seriesOutcome_unsolvable: 'unsolvable',
     seriesOutcome_stopped: 'stopped',
@@ -1369,6 +1372,7 @@ export const PL: Translation = {
     seriesMean_help:
       'Średnia tylko z pełnych ziaren: niepełna plansza ciągnęłaby liczby ku planszy, w którą nikt nie gra.',
     seriesFailed: (seed, outcome, left) => `ziarno ${seed} — ${outcome}, zostało pól: ${left}`,
+    seriesFailedUnsolvable: (seed) => `ziarno ${seed} — nierozwiązywalna`,
     seriesOutcome_incomplete: 'niepełna',
     seriesOutcome_unsolvable: 'nierozwiązywalna',
     seriesOutcome_stopped: 'przerwana',
