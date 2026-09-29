@@ -13,7 +13,7 @@ const AT_FILE: BoardAddress = { size: null, id: null, file: true }
 const state = () => useStore.getState()
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
-/** A read the test answers by hand, and the ids it was asked for. */
+/** Answered by hand, so a test can land an answer before or after a cancel. */
 function manualRead() {
   const asked: string[] = []
   const pending = new Map<string, (outcome: FileOutcome) => void>()
