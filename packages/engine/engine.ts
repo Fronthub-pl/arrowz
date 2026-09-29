@@ -2480,7 +2480,7 @@ const PARAM_TABLE = [
     step: 1,
     def: 0,
     help:
-      'When a growing arrow hits a dead end, it may reshape the end of its body and keep growing. How many times in a row. 0 = off. More = fewer, longer arrows.',
+      'When a growing arrow hits a dead end, it may reshape the end of its body and keep growing, up to this many times in a row. 0 = off. More = fewer, longer arrows.',
   },
 
   {
@@ -2628,7 +2628,7 @@ const PARAM_TABLE = [
     def: 14,
     inactive: skeletonOff,
     help:
-      'A skeleton crosses the board in straight runs; this is how many cells it moves inwards before turning back. Small = tight stripes; large = few highways. random = no runs.',
+      'A skeleton crosses the board in straight runs; this is how many cells it moves inwards between two runs. Small = tight stripes; large = a few highways. random = no runs.',
   },
   {
     key: 'giantJitter',
@@ -2651,7 +2651,7 @@ const PARAM_TABLE = [
     step: 0.01,
     def: 0,
     help:
-      'After the first skeletons, each new arrow becomes a skeleton arrow with this chance. Above 0.05 it needs skeleton straightness of 0.6 + this chance; 0.2 is slow.',
+      'After the first skeletons, each new arrow becomes a skeleton arrow with this chance. Above 0.05 it needs skeleton straightness 0.6 + this chance; at 0.2 boards get slow.',
   },
   // giantStraight acts on every skeleton regardless of giantStep: the
   // serpentine only seeds the path, the tail keeps growing on this weight

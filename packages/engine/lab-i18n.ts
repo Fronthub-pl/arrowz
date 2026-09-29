@@ -759,7 +759,7 @@ export const PL: Translation = {
     backbite: {
       label: 'przeróbka ogona utkniętej strzałki',
       help:
-        'Gdy rosnąca strzałka utknie w ślepym zaułku, może przełożyć koniec ciała i rosnąć dalej. Ile razy z rzędu. 0 = wyłączone. Więcej = mniej, dłuższych strzałek.',
+        'Gdy rosnąca strzałka utknie w ślepym zaułku, może przełożyć koniec ciała i rosnąć dalej, najwyżej tyle razy z rzędu. 0 = wyłączone. Więcej = mniej, dłuższych strzałek.',
     },
 
     pStraight: {
@@ -820,7 +820,7 @@ export const PL: Translation = {
     giantStep: {
       label: 'przerwa między biegami (losowo = bez wężyka)',
       help:
-        'Szkielet przechodzi przez planszę prostymi biegami; to o ile komórek schodzi w głąb przed zawróceniem. Mała = gęste pasy; duża = kilka autostrad. „losowo” = bez biegów.',
+        'Szkielet przechodzi planszę prostymi biegami; to liczba komórek, o którą schodzi w głąb między biegami. Mała = gęste pasy; duża = kilka autostrad. „losowo” = bez biegów.',
     },
     giantJitter: {
       label: 'szansa, że bieg zawróci wcześniej',
@@ -830,7 +830,7 @@ export const PL: Translation = {
     wGiant: {
       label: 'szansa na kolejne szkielety',
       help:
-        'Po pierwszych szkieletach każda nowa strzałka z tą szansą staje się strzałką szkieletu. Powyżej 0,05 wymaga prostości szkieletu 0,6 + ta szansa; 0,2 liczy się wolno.',
+        'Po pierwszych szkieletach każda nowa strzałka z tą szansą staje się szkieletem. Powyżej 0,05 wymaga prostości szkieletu 0,6 + ta szansa; przy 0,2 plansze liczą się wolno.',
     },
     giantStraight: {
       label: 'prostość szkieletu',
