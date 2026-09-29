@@ -247,19 +247,25 @@ export function buildCommands(deps: CommandDeps, state: Store): Command[] {
         state.ui.closePalette()
       },
     },
-    {
-      id: 'run-check-seeds',
-      section: 'run',
-      name: dict.t('checkSeeds'),
-      note: dict.t('cmdSecRun'),
-      value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
-      hay: 'check seeds series many rate',
-      disabled: running || broken,
-      run: () => {
-        deps.control.checkSeeds()
-        state.ui.closePalette()
-      },
-    },
+    // `RunColumn` hides `SeriesRow` in the simple view, so the row is absent
+    // here too rather than disabled, with nothing on screen for it to reach.
+    ...(state.ui.mode === 'simple'
+      ? []
+      : [
+          {
+            id: 'run-check-seeds',
+            section: 'run' as const,
+            name: dict.t('checkSeeds'),
+            note: dict.t('cmdSecRun'),
+            value: broken ? dict.t('cmdBroken') : running ? dict.t('cmdRunning') : '',
+            hay: 'check seeds series many rate',
+            disabled: running || broken,
+            run: () => {
+              deps.control.checkSeeds()
+              state.ui.closePalette()
+            },
+          },
+        ]),
     {
       id: 'run-solo',
       section: 'run',

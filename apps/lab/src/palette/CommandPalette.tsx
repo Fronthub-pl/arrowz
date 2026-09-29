@@ -1,7 +1,7 @@
 import { type KeyboardEvent, type ReactElement, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
-import type { RunControl } from '../run/useRun'
+import { inFlight, type RunControl } from '../run/useRun'
 import { selectedIndex } from '../shell/TabRow'
 import { useStore } from '../state/store'
 import { buildCommands, type Command, matchCommands } from './commands'
@@ -39,7 +39,9 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
   // carve must not rebuild seventy rows.
   const values = useStore((state) => state.params.values)
   const violations = useStore((state) => state.params.violations)
-  const phase = useStore((state) => state.run.phase)
+  const running = useStore(inFlight)
+  const seriesStopping = useStore((state) => state.series.stopping)
+  const runStopping = useStore((state) => state.run.stopping)
   const mode = useStore((state) => state.ui.mode)
   const lang = useStore((state) => state.lang.lang)
   const view = useStore((state) => state.view)
@@ -66,7 +68,7 @@ function PaletteDialog({ control }: { control: RunControl }): ReactElement {
     // Read through `getState()`, so `exhaustive-deps` calls these slices
     // unnecessary and cannot check the list: it is every slice a row shows or
     // is disabled by, kept by hand. A new field on a row must add its slice.
-    [deps, values, violations, phase, mode, lang, view],
+    [deps, values, violations, running, seriesStopping, runStopping, mode, lang, view],
   )
   const pasted = useMemo(() => (isCommandQuery(query) ? pastedRow(deps, query) : null), [deps, query])
   const hits = useMemo(
