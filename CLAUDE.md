@@ -42,6 +42,9 @@
   at all (measured after the deletion by moving
   `packages/board-element/node_modules` aside).
 - No attribution lines in commit messages or PR descriptions.
+- The Jev guards (`packages/cli/scripts/jev-guard.ts`) advise through Claude Code
+  hooks on comments, commit and PR messages and the Polish dictionary; they never
+  gate, and without the key they are silent. See `docs/jev-guards.md`.
 
 ## Comments
 

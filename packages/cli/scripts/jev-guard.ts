@@ -18,7 +18,7 @@ const CONCURRENCY = 16
 
 export type Shipped = { comments: boolean; message: boolean; i18n: boolean }
 // Which guards the hook runs; a guard that missed its measured bar stays off (docs/jev-guards.md).
-export const SHIPPED: Shipped = { comments: true, message: true, i18n: false }
+export const SHIPPED: Shipped = { comments: true, message: false, i18n: false }
 
 /** Runs `fn` over `items`, at most `limit` at a time, results in input order. */
 export async function pool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -346,8 +346,8 @@ export const PAIR_QUESTIONS: Record<string, Noul> = {
     },
   },
 }
-// Provisional; jev-eval.ts measures the final value (docs/jev-guards.md).
-export const DIFFERS_AT = 0.7
+// Measured by jev-eval.ts on jev-1.13.0 (docs/jev-guards.md).
+export const DIFFERS_AT = 0.54
 
 export function askPair(judge: Judge, pair: Pair): Promise<Answers | null> {
   return judge({ key: pair.key, en: pair.en, pl: pair.pl }, PAIR_QUESTIONS)
