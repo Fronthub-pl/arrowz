@@ -11,7 +11,7 @@ import { useRunState } from '../stage/useRunState'
 import type { OpenedFile } from '../state/result.slice'
 import { useStore } from '../state/store'
 import { lookOf, viewOf } from '../state/view.slice'
-import { BOARD_COLUMN_ID } from './BoardColumn'
+import { BOARD_COLUMN_ID } from './boardColumnId'
 import { loadIntoLab } from './loadIntoLab'
 import { OpenFileButton } from './OpenFileButton'
 

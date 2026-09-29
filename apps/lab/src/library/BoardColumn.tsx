@@ -13,6 +13,7 @@ import type { RunControl } from '../run/useRun'
 import { type StateLine, useRunState } from '../stage/useRunState'
 import { useStore } from '../state/store'
 import { lookOf } from '../state/view.slice'
+import { BOARD_COLUMN_ID } from './boardColumnId'
 import { FileColumn } from './FileColumn'
 import { loadIntoLab } from './loadIntoLab'
 import { raiseNotice } from './notices'
@@ -29,9 +30,6 @@ import { cancelPendingSave } from './useViewSave'
  * `Workspace` keys it by the open board: an armed Delete, a Copied label and a
  * drawing's error belong to the board they were raised on.
  */
-
-/** The board column's id, which the phone's Board sheet button controls. */
-export const BOARD_COLUMN_ID = 'board-column'
 
 /**
  * The library's events and failures in words, `aria-hidden` because the live
