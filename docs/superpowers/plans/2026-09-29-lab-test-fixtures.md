@@ -102,7 +102,18 @@ In `apps/lab/src/harness/mountApp.tsx`, replace the body from `const state = use
   state.ui.setSettings(true)
 ```
 
-Keep the address lines and the three `cancel…()` calls above it unchanged (the timers are module scope, not store state). Replace the doc comment's sentence "The view slice has no reset; a case that moves it puts it back." with "Every slice goes back to its initial state, so a new field needs no line here."
+Keep the address lines and the three `cancel…()` calls above it unchanged (the timers are module scope, not store state). Replace the whole doc comment above `resetApp` with:
+
+```tsx
+/**
+ * Puts back everything a whole-app case can move. The address first: a case
+ * that navigated must not leave the next on /boards, and a leftover fragment
+ * would be read as a pasted link; `replaceState` also clears `history.state`,
+ * react-router's record. Every slice goes back to its initial state, so a new
+ * field needs no line here. The library timers are module scope and outlive
+ * their component, so one left armed would post into the next case.
+ */
+```
 
 - [ ] **Step 4: Run the test to verify it passes**
 
@@ -126,12 +137,12 @@ In `apps/lab/src/routes/Workspace.browser.test.tsx`:
   resetApp('advanced')
 ```
 
-- If `cancelPendingSave` is no longer used in the file, remove its import (`grep -n cancelPendingSave` first).
+- Keep every import: `render`, `App`, `StrictMode` (the StrictMode case) and `cancelPendingSave` (a `finally` block) are all still used.
 
 - [ ] **Step 7: Run the whole chromium suite**
 
 Run: `pnpm exec vitest run --project chromium`
-Expected: all files pass (993 + 2 new).
+Expected: all files pass (993 + 2 new). `CommandPalette.browser.test.tsx` › "moves the active option with the arrows without moving the focus" was seen to fail once under full-suite load in the dry run and pass 3 of 3 alone; that file does not use `resetApp`. If it fails, rerun it alone before chasing it.
 
 - [ ] **Step 8: Commit**
 
@@ -218,7 +229,7 @@ Expected: PASS, 2 tests.
 
 - [ ] **Step 5: Move the seven local mounts onto `renderAt`**
 
-Replace each helper's `return render(<MemoryRouter …><div className="fw" …>…</div></MemoryRouter>)` with the lines below, add `import { renderAt } from '../harness/renderAt'`, and drop `MemoryRouter`/`render` imports that are left unused (check with `grep -n "MemoryRouter\|render(" <file>` — several files use them elsewhere).
+Replace each helper's `return render(<MemoryRouter …><div className="fw" …>…</div></MemoryRouter>)` with the lines below, add `import { renderAt } from '../harness/renderAt'` beside the file's other `../harness/…` import (or after the last relative import), and drop the imports left unused: in `BoardPreview`, `FileColumn`, `ReportPanel`, `BoardFrame` and `BoardMode` both `MemoryRouter` and `render`; in `LibraryFace` only `render` (its router import becomes `import { useLocation } from 'react-router'`); `BoardColumn` keeps both (its `renderHook` wrapper and `render(<App />)` use them).
 
 `BoardColumn.browser.test.tsx`, `mountDetail`:
 ```tsx
@@ -319,7 +330,8 @@ const sheets = Object.keys(import.meta.glob('./*.css'))
   .map((path) => path.slice(2))
   .filter((name) => name !== 'index.css')
   .sort()
-const cssImports = (source: string) => [...source.matchAll(/^import '([^']+\.css)'$/gm)].map((m) => m[1])
+// `slice(1)`, not `m[1]`: `noUncheckedIndexedAccess` types a group as possibly undefined.
+const cssImports = (source: string) => [...source.matchAll(/^import '([^']+\.css)'$/gm)].flatMap((m) => m.slice(1))
 
 test('index.css imports every stylesheet in design/, once each', () => {
   const imported = [...barrel.matchAll(/^@import '\.\/([\w-]+\.css)';$/gm)].map((m) => m[1])
@@ -397,7 +409,9 @@ for f in files:
 EOF
 ```
 
-Then read each file's import block (`git diff -U2`) for comments to keep or delete, per the rule above.
+Then read each file's import block (`git diff -U2`) for comments to keep or delete, per the rule above. Two comments name sheets and must be rewritten, not kept:
+- `src/routes/CliDocs.browser.test.tsx`: the comment above the import becomes `// A component test loads no stylesheet of its own; without the cascade the overflow assertion below reads \`visible\`.`
+- `src/shell/bands.browser.test.tsx`: "The eight stylesheets in `main.tsx` order, as `LayoutInvariants` loads them" becomes `// The real cascade: the solo, focus and menu cases below need \`display: none\` to be real.`
 
 - [ ] **Step 6: Rewrite the ⌘K case to what the app does**
 
@@ -432,14 +446,19 @@ test('a press where the ⌘K button sits closes the palette, and it stays closed
 
 - [ ] **Step 7: Negative control for Step 6**
 
-Temporarily delete `@import './palette.css';` from `index.css`, run `pnpm exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "stays closed"`, and confirm it FAILS on the scrim assertion (no scrim box covers the trigger). Restore the line.
+Two controls, each reverted afterwards:
+1. Delete `@import './palette.css';` from `index.css`; run `pnpm exec vitest run --project chromium src/routes/LabLayout.browser.test.tsx -t "stays closed"`; it must FAIL on the scrim assertion (nothing covers the trigger). Restore the line.
+2. In `apps/lab/src/shell/TopBar.tsx`, change the ⌘K trigger's `onClick` to `onMouseUp` (a trigger that reopens on the release); run the same command; it must FAIL at the poll for `false`. Restore `onClick`.
 
 - [ ] **Step 8: Run everything in the lab**
 
 Run: `pnpm exec vitest run --project node src/design/index.test.ts` → PASS, 3 tests.
 Run: `pnpm exec vitest run` (all projects) → all pass.
+Run (from the repository root): `pnpm nx run-many -t lint fmt check -p lab` → clean. Vitest does not type-check; `check` is the only step that catches a type error in `index.test.ts`.
 
 - [ ] **Step 9: Commit**
+
+From the repository root:
 
 ```bash
 git add apps/lab/src/design/index.css apps/lab/src/design/index.test.ts apps/lab/src/main.tsx apps/lab/src/routes/LabLayout.browser.test.tsx $(git diff --name-only -- apps/lab/src | grep '\.test\.tsx\?$')
@@ -454,11 +473,17 @@ The commit message body must say that the ⌘K case now asserts the scrim path, 
 
 **Files:**
 - Modify: `lab-review.md` ("What is still open" item 3, and the heading of refactor 7 under "Refactors worth doing (ranked)")
-- Modify: `docs/` only if a doc names the per-test stylesheet imports (`grep -rn "import '../design/tokens.css'" docs apps/lab/*.md`)
+- Modify: `docs/` only if a doc names the per-test stylesheet imports (`grep -rn "import '../design/tokens.css'" docs`)
 
 - [ ] **Step 1: Update `lab-review.md`**
 
 In "What is still open", item 3, change `5 (the \`.fw button\` prefix and tokens), 7 and 11.` to `5 (the \`.fw button\` prefix and tokens) and 11; 7 is done on \`lab/test-fixtures\`.` Under "#### 7. Test fixtures: CSS barrel, one app reset, one router mount" add one line after the heading: `**Done on \`lab/test-fixtures\`:** \`design/index.css\`, \`resetApp\` through \`getInitialState\`, \`renderAt\`; the ⌘K case now tests the scrim, since the trigger is covered while the palette is open.`
+
+In the status table under "### Refactors", replace the row starting `| 7. Test fixtures | partly fixed in \`97cc390\` |` with:
+
+```
+| 7. Test fixtures | fixed on `lab/test-fixtures` | `design/index.css` for `main.tsx` and every test (a node guard in `design/index.test.ts`), `resetApp` through `getInitialState`, `renderAt` in the harness; `twoFrames` was already one in `harness/frames.ts` |
+```
 
 - [ ] **Step 2: Full gate**
 
