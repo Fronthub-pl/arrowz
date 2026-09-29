@@ -586,6 +586,23 @@ export const EN = {
     statGroupShape: 'shape',
     statGroupRun: 'generator',
     statGroupDetail: 'generator in detail',
+    // The Seeds section: a series' outcome counts, the means of its complete
+    // seeds, and one line per seed that did not complete.
+    seriesTitle: 'Seeds',
+    seriesStale: 'for other settings',
+    seriesHead: (total: number, complete: number, incomplete: number, unsolvable: number, stopped: number) =>
+      `Complete on ${complete} of ${total} · incomplete ${incomplete} · unsolvable ${unsolvable} · stopped ${stopped}`,
+    seriesMeanArrows: 'arrows, mean',
+    seriesMeanLongest: 'longest, mean',
+    seriesMeanTime: 'time, mean',
+    seriesMean_help:
+      'Averaged over the complete seeds only: an incomplete board would pull the numbers towards a board nobody plays.',
+    seriesFailed: (seed: number, outcome: string, left: number) => `seed ${seed} — ${outcome}, ${left} cells left`,
+    seriesOutcome_incomplete: 'incomplete',
+    seriesOutcome_unsolvable: 'unsolvable',
+    seriesOutcome_stopped: 'stopped',
+    seriesStatus: (done: number, planned: number) => `Checking seeds: ${done} of ${planned}…`,
+    seriesStopping: 'Stopping the seeds…',
     boardAnnotation: (W: number, H: number, seed: number) => `${W}×${H} · seed ${seed}`,
     // The board frame's mode: look, click a piece for its facts, or play it.
     boardModeLabel: 'Board mode',
@@ -1341,6 +1358,21 @@ export const PL: Translation = {
     statGroupShape: 'kształt',
     statGroupRun: 'generator',
     statGroupDetail: 'generator w szczegółach',
+    seriesTitle: 'Ziarna',
+    seriesStale: 'dla innych ustawień',
+    seriesHead: (total, complete, incomplete, unsolvable, stopped) =>
+      `Pełna na ${complete} z ${total} · niepełna ${incomplete} · nierozwiązywalna ${unsolvable} · przerwana ${stopped}`,
+    seriesMeanArrows: 'strzałki, średnio',
+    seriesMeanLongest: 'najdłuższa, średnio',
+    seriesMeanTime: 'czas, średnio',
+    seriesMean_help:
+      'Średnia tylko z pełnych ziaren: niepełna plansza ciągnęłaby liczby ku planszy, w którą nikt nie gra.',
+    seriesFailed: (seed, outcome, left) => `ziarno ${seed} — ${outcome}, zostało pól: ${left}`,
+    seriesOutcome_incomplete: 'niepełna',
+    seriesOutcome_unsolvable: 'nierozwiązywalna',
+    seriesOutcome_stopped: 'przerwana',
+    seriesStatus: (done, planned) => `Sprawdzam ziarna: ${done} z ${planned}…`,
+    seriesStopping: 'Zatrzymuję ziarna…',
     boardAnnotation: (W, H, seed) => `${W}×${H} · ziarno ${seed}`,
     boardModeLabel: 'Tryb planszy',
     boardModeView: 'Widok',

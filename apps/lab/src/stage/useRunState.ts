@@ -133,6 +133,10 @@ export function useRunLine(): Omit<RunState, 'library'> {
   const shownParams = useStore((state) => state.result.shown?.params ?? null)
   const saved = useStore((state) => state.result.saved)
   const blocked = useStore((state) => state.params.violations.length > 0)
+  const seriesPhase = useStore((state) => state.series.phase)
+  const seriesDone = useStore((state) => state.series.runs.length)
+  const seriesPlanned = useStore((state) => state.series.planned)
+  const seriesStopping = useStore((state) => state.series.stopping)
 
   let text: string
   let rest: string | null = null
@@ -142,7 +146,12 @@ export function useRunLine(): Omit<RunState, 'library'> {
   // board on screen, not about whatever the line is saying, so appending it to
   // the refusal would glue a board nobody is looking at onto the knobs' error.
   let reportsRun = false
-  if (run.phase === 'running') {
+  // A series has no board of its own, so it owns the line while it runs; once
+  // done the line goes back to the board on screen, and the counts stay in
+  // the Seeds section.
+  if (seriesPhase === 'running') {
+    text = seriesStopping ? dict.t('seriesStopping') : dict.t('seriesStatus', seriesDone, seriesPlanned)
+  } else if (run.phase === 'running') {
     if (run.stopping) text = dict.t('stopping')
     else {
       const p = run.progress
