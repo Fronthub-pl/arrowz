@@ -40,6 +40,7 @@ test('a file with no meta offers exports, and neither Delete nor Load into lab',
   await expect.element(page.getByRole('button', { name: 'Open file…' })).toBeVisible()
   expect(page.getByRole('button', { name: 'Delete from disk' }).elements()).toHaveLength(0)
   expect(page.getByRole('button', { name: 'Load into lab' }).elements()).toHaveLength(0)
+  expect(document.querySelector('#board-column .fw-cmdfig')).toBeNull()
 })
 
 test('the layout hash is visible with no meta opened', async () => {
@@ -61,6 +62,15 @@ test('with its meta, the command is shown and there is still no Delete', async (
   await mountFile([board, meta])
   await expect.element(page.getByText(metaJson.command)).toBeVisible()
   expect(page.getByRole('button', { name: 'Delete from disk' }).elements()).toHaveLength(0)
+})
+
+test('with its meta, Copy puts the command on the clipboard', async () => {
+  const write = vi.fn(() => Promise.resolve())
+  vi.spyOn(navigator, 'clipboard', 'get').mockReturnValue({ writeText: write } as unknown as Clipboard)
+  const { board, meta, metaJson } = await fileFixture(1)
+  await mountFile([board, meta])
+  await userEvent.click(page.getByRole('button', { name: 'Copy' }))
+  expect(write).toHaveBeenCalledWith(metaJson.command)
 })
 
 test('Download board file hands back the file under its own name', async () => {

@@ -2,7 +2,7 @@ import { svgOptions } from '@arrowz/engine/command'
 import type { ReactElement } from 'react'
 import { useNavigate } from 'react-router'
 import { useDictionary } from '../i18n'
-import { CommandText } from '../run/CommandText'
+import { CommandFigure } from '../run/CommandFigure'
 import type { RunControl } from '../run/useRun'
 import { useRunState } from '../stage/useRunState'
 import type { OpenedFile } from '../state/result.slice'
@@ -38,14 +38,7 @@ export function FileColumn({ opened, control }: { opened: OpenedFile; control: R
     <section id={BOARD_COLUMN_ID} className="fw-run-col fw-bcol" aria-label={dict.t('boardDetail')}>
       {meta === null ? null : (
         <>
-          <figure className="fw-cmdfig" aria-label={dict.t('boardCommand')}>
-            <figcaption className="fw-cmdhd">
-              <span className="caps">{dict.t('cliThisBoard')}</span>
-            </figcaption>
-            <pre className="fw-cmd">
-              <CommandText command={meta.command} />
-            </pre>
-          </figure>
+          <CommandFigure label={dict.t('boardCommand')} caption={dict.t('cliThisBoard')} command={meta.command} />
           <button
             type="button"
             className="fw-go"

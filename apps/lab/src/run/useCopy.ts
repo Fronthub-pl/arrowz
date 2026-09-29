@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 /**
  * A Copy button's state: `copy(text)` writes to the clipboard, and `copied`
- * stays true for 1.2 s after a write that succeeded. Shared by `LiveCommand`
+ * stays true for 1.2 s after a write that succeeded. Shared by `CommandFigure`
  * and `DocsBlock`, so a refusal is handled once.
  */
 export function useCopy(): { readonly copied: boolean; readonly copy: (text: string) => void } {
