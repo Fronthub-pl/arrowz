@@ -2901,12 +2901,12 @@ export const RULE_REASONS: Record<RuleKey, string> = {
   sharesSum: 'short and medium shares add up to more than 0.9 (90%); at least a tenth of the arrows must stay long',
   lmaxHole:
     'longest arrow must be auto or at least 17 cells; below that, medium and long arrows come out the same length',
-  startPair: 'arrow start and tunnel share do not fit together: a mixed start needs random start and a share of ' +
-    `${MIX_SHARE.min} to ${MIX_SHARE.max}; any other start needs the share off (-1)`,
+  startPair: 'arrow start and tunnel share clash: arrow start must be layers, random or tunnels, and a tunnel share ' +
+    `(${MIX_SHARE.min} to ${MIX_SHARE.max}) needs random start; otherwise the share must be off (-1)`,
   straightFloor:
     'straightness is too low for this board, so it would likely get stuck: bigger boards need straighter arrows, and so do nooks first below 4 or a coil penalty above 6',
   giantWander:
-    'skeletons added later need straighter skeletons: above a later chance of 0.05, skeleton straightness must be at least 0.6 plus that chance',
+    'too many late skeletons for how straight skeletons are: with late chance above 0.05, raise skeleton straightness to at least 0.6 + late chance, or boards get stuck',
 }
 
 /**
