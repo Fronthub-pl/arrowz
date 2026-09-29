@@ -56,6 +56,7 @@ Source: `/tmp/jev-eval-message.txt`.
 | held-out set | 756 commits, 54 merged PRs, 15 hand-made violations |
 | AUC `not_english` | 1.000 |
 | at `MESSAGE_AT.not_english = 0.8` | false alarms 0.0 %, detection 100.0 % |
+| first run, before the hold-out excluded pre-rule history | 795 commits, 54 PRs, 15 hand-made; AUC 0.960; false alarms 4.6 %, detection 100 % → FAIL |
 | bar | false alarms ≤ 3 % and detection ≥ 80 % → **PASS** |
 
 Detection on hand-made violations is optimistic: they are easier than real
