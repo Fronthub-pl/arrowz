@@ -20,7 +20,7 @@ export type LibraryNotice =
  * whole instead of being split back at a separator.
  */
 export interface BoardError {
-  /** The `<size>/<id>` the address names. */
+  /** The `<size>/<id>` the address names, or a failed disk open's file name. */
   name: string
   /** The failure as it came (a status line, a decoder's message), or `null`: the store does not list the board. */
   reason: string | null

@@ -63,9 +63,10 @@ export interface ResultState {
   /** Leaving the library, or a board that could not be read. */
   clearPreview(): void
   /**
-   * A new view for the stored board on screen. The board and its file are
-   * untouched: nothing is regenerated, and the same file goes back to the
-   * store with the new view in its meta. A no-op with no preview, as `stored`
+   * A new view for the stored board on screen, or an opened file's own meta
+   * when it has one. The board and its file are untouched: nothing is
+   * regenerated, and the same file goes back to the store with the new view
+   * in its meta. A no-op with no preview or a file with no meta, as `stored`
    * and `exported` are for a file no longer shown.
    */
   previewView(view: View): void
